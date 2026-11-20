@@ -23,17 +23,12 @@ export function endingEditedBindings<C extends { w: StoreWrite }, I, R>(apply: A
       for (const property of BindableProperty.options) {
         const { prop, read, kind } = BINDABLE_PROPERTIES[property]
         if (!before.has(prop) || w.binding(id, property) === undefined) continue
-        if (!same(kind, read({ [prop]: before.get(prop) }), read({ [prop]: w.prop(id, prop) })))
+        if (!sameBoundValue(kind, read({ [prop]: before.get(prop) }), read({ [prop]: w.prop(id, prop) })))
           w.unsetBinding(id, property)
       }
     }
     return result
   }
-}
-
-/** Whether two bound values of a kind are one: a colour's hex digits in either case. */
-function same(kind: ValueKind, a: string | undefined, b: string | undefined) {
-  return kind === 'color' ? a?.toUpperCase() === b?.toUpperCase() : a === b
 }
 
 /**
@@ -53,6 +48,7 @@ function notingWrites(w: StoreWrite) {
     if (!props.has(path)) props.set(path, w.prop(id, path))
   }
 
+  // Every member passes through to `w`; only the writes it notes do more.
   const noting: StoreWrite = {
     has: (part, id) => w.has(part, id),
     prop: (id, path) => w.prop(id, path),
@@ -80,4 +76,9 @@ function notingWrites(w: StoreWrite) {
     markRestore: (mark) => w.markRestore(mark),
   }
   return { w: noting, before, created }
+}
+
+/** Whether two bound values of a kind are one: a colour's hex digits in either case. */
+function sameBoundValue(kind: ValueKind, a: string | undefined, b: string | undefined) {
+  return kind === 'color' ? a?.toUpperCase() === b?.toUpperCase() : a === b
 }

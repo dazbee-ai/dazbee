@@ -113,6 +113,17 @@ describe('node.update', () => {
     tab.undo()
     expect(readDesign(store).nodes.row?.props).toMatchObject({ width: 10, height: 10 })
   })
+  it('refuses a value holding a key the layer has no place for, at any depth, writing nothing', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const fills = [{ type: 'solid', color: '#00AA00FF', junk: 1 }]
+    expect(() => tab.run('node.update', { ids: ['box'], patch: { fills } })).toThrow(
+      'node.update: box: no place for "props.fills.0.junk"',
+    )
+    expect(readDesign(store).nodes.box?.props).toMatchObject({ fills: [{ color: '#FF5A36FF' }] })
+    expect(tab.canUndo()).toBe(false)
+  })
+
   it('sets properties of the layers given; their linked copies stay as they were', () => {
     const store = openTestStore()
     const tab = openTestSession(store)

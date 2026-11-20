@@ -22,6 +22,7 @@ import {
 import { childrenOf, descendants } from '../children.ts'
 import { flows } from '../flow.ts'
 import { sameValue } from '../same-value.ts'
+import { droppedIssue } from '../sync/checks.ts'
 import { boxPlan, DrawnBoxes, keepEmptied, writeDrawn } from './box-plan.ts'
 import { idProblem, lockFor, lockProblem, missingLayer, parentProblem } from './checks.ts'
 import { defineCommand } from './define.ts'
@@ -118,8 +119,12 @@ export const nodeUpdate = defineCommand({
         if (locked) return locked
         if (node.type === 'text' && (path === 'text' || path === 'runs')) return 'change text with text.edit'
       }
-      const layer = parseLayer({ ...node, props: { ...node.props, ...patch } })
+      const patched = { ...node, props: { ...node.props, ...patch } }
+      const layer = parseLayer(patched)
       if (!layer.success) return layer.errors.map((e) => `${id}.${e.replace(/^props\./, '')}`).join('; ')
+      // A key the parse drops would be stored as sent, which the server refuses.
+      const dropped = droppedIssue(patched, layer.layer)
+      if (dropped) return `${id}: ${dropped}`
     }
     return undefined
   },

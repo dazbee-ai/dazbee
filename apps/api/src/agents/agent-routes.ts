@@ -28,18 +28,6 @@ const AGENT_PATHS = AGENT_ROUTES.map(([method, path]) => ({
   pattern: new RegExp(`^${path.replace(/:\w+/g, '[^/]+')}$`),
 }))
 
-/**
- * Lets a request with an agent's token through only to the agents' routes: elsewhere it answers 403 to a live
- * token and 401 to any other. A request without one passes.
- */
-export function agentGate(sessionOf: SessionOf): MiddlewareHandler<Env> {
-  return async (c, next) => {
-    if (agentToken(c.req.raw) === null || agentMayAsk(c.req.method, c.req.path)) return next()
-    const session = await sessionOf(c.req.raw)
-    return session?.agent ? c.json(error('Agents may not do this'), 403) : c.json(error('Sign in first'), 401)
-  }
-}
-
 /** `GET /agent/me`: the access an agent's token is held to; refused to a person's session. */
 export function agentRoutes(): Hono<Env> {
   const app = new Hono<Env>()
@@ -52,6 +40,18 @@ export function agentRoutes(): Hono<Env> {
   })
 
   return app
+}
+
+/**
+ * Lets a request with an agent's token through only to the agents' routes: elsewhere it answers 403 to a live
+ * token and 401 to any other. A request without one passes.
+ */
+export function agentGate(sessionOf: SessionOf): MiddlewareHandler<Env> {
+  return async (c, next) => {
+    if (agentToken(c.req.raw) === null || agentMayAsk(c.req.method, c.req.path)) return next()
+    const session = await sessionOf(c.req.raw)
+    return session?.agent ? c.json(error('Agents may not do this'), 403) : c.json(error('Sign in first'), 401)
+  }
 }
 
 /** Whether an agent may ask `method` at `path`. */

@@ -6,7 +6,7 @@
 // unexpired, the access not ended and its person still a member of its workspace.
 import { createHash, randomBytes } from 'node:crypto'
 
-import { and, desc, eq, gt, isNull, lte, or } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
 
 import { agentAccesses, agentTokens, type Db, memberships, newId, type Tx } from '@dazbee/db'
 import type { AgentAccessSummary } from '@dazbee/schema'
@@ -57,9 +57,16 @@ export const LAST_USED_EVERY_MS = 60 * 1000
 
 const refused: Refreshed = { ok: false, error: 'invalid_grant' }
 
-/** Whether a token is an agent's by its prefix, live or not. */
+/** Joins an access to its person's membership of its workspace, which it needs to be live. */
+const membershipOfAccess = and(
+  eq(memberships.workspaceId, agentAccesses.workspaceId),
+  eq(memberships.userId, agentAccesses.userId),
+)
+
+/** Whether a token is an agent's by its prefix in any case, live or not. */
 export function isAgentToken(token: string): boolean {
-  return token.startsWith(ACCESS_TOKEN_PREFIX) || token.startsWith(REFRESH_TOKEN_PREFIX)
+  const start = token.slice(0, ACCESS_TOKEN_PREFIX.length).toLowerCase()
+  return start === ACCESS_TOKEN_PREFIX || start === REFRESH_TOKEN_PREFIX
 }
 
 /** Makes an access; its id. It has no tokens until `issueTokens` gives some. */
@@ -102,10 +109,7 @@ export async function findAccessOfToken(db: Db, token: string, now = new Date())
     })
     .from(agentTokens)
     .innerJoin(agentAccesses, eq(agentAccesses.id, agentTokens.accessId))
-    .innerJoin(
-      memberships,
-      and(eq(memberships.workspaceId, agentAccesses.workspaceId), eq(memberships.userId, agentAccesses.userId)),
-    )
+    .innerJoin(memberships, membershipOfAccess)
     .where(
       and(
         eq(agentTokens.hash, hashOf(token)),
@@ -132,10 +136,7 @@ export async function refreshTokens(db: Db, token: string, now = new Date()): Pr
       .select({ accessId: agentTokens.accessId, expiresAt: agentTokens.expiresAt, swappedAt: agentTokens.swappedAt })
       .from(agentTokens)
       .innerJoin(agentAccesses, eq(agentAccesses.id, agentTokens.accessId))
-      .innerJoin(
-        memberships,
-        and(eq(memberships.workspaceId, agentAccesses.workspaceId), eq(memberships.userId, agentAccesses.userId)),
-      )
+      .innerJoin(memberships, membershipOfAccess)
       .where(and(eq(agentTokens.hash, hashOf(token)), eq(agentTokens.kind, 'refresh'), isNull(agentAccesses.endedAt)))
       .for('update', { of: agentTokens })
     if (!row) return refused
@@ -169,6 +170,15 @@ export async function endMemberAccesses(tx: Tx, member: AccessMember, now = new 
     .update(agentAccesses)
     .set({ endedAt: now })
     .where(and(ofMember(member), isNull(agentAccesses.endedAt)))
+}
+
+/** Ends every access the people gave, in every workspace, as an admin removes them. */
+export async function endPeopleAccesses(tx: Tx, userIds: string[], now = new Date()): Promise<void> {
+  if (userIds.length === 0) return
+  await tx
+    .update(agentAccesses)
+    .set({ endedAt: now })
+    .where(and(inArray(agentAccesses.userId, userIds), isNull(agentAccesses.endedAt)))
 }
 
 /** The member's own accesses in the workspace that haven't ended, newest first. */

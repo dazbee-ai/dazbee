@@ -129,7 +129,7 @@ export type SyncToken = z.infer<typeof SyncToken>
  * Asks for a sync token. An agent's session names the agent its tab is shown as (ADR-0019); a person's
  * session names none.
  */
-export const SyncTokenRequest = z.object({ agent: z.string().max(256).optional() })
+export const SyncTokenRequest = z.object({ agent: z.string().optional() })
 export type SyncTokenRequest = z.infer<typeof SyncTokenRequest>
 
 /**

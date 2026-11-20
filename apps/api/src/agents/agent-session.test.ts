@@ -16,7 +16,7 @@ import { issueTokens, makeAccess, refreshTokens } from './agent-accesses.ts'
 
 const HOUR = 60 * 60 * 1000
 
-/** The routes an agent may ask, as the ticket lists them. */
+/** The routes an agent may ask, written out here apart from the app's own list, so a change to either shows. */
 const AGENTS_ROUTES = [
   'GET /agent/me',
   'GET /workspaces/:workspaceId/brands',
@@ -111,6 +111,10 @@ describe('an agent token on the app as main.ts builds it', () => {
     const { asset } = await uploadImage(a.person.as, a.brands[0]?.id ?? '', png(4, 4, `agent-${a.accessId}`))
     for (const path of ['/designs', '/assets', `/assets/${asset.id}`, '/fonts', '/kit'])
       expect([path, (await ask(a.accessToken, 'GET', `${a.brand(0)}${path}`)).status]).toEqual([path, 200])
+    expect(await ask(a.accessToken, 'GET', `${a.brand(0)}/fonts/faces/missing`)).toEqual({
+      status: 404,
+      json: { error: 'No such font' },
+    })
   })
 
   it.each([
@@ -161,7 +165,14 @@ describe('an agent token on the app as main.ts builds it', () => {
     await db.update(agentAccesses).set({ endedAt: new Date() }).where(eq(agentAccesses.id, a.accessId))
     const expired = await agent({ issuedAt: new Date(Date.now() - 2 * HOUR) })
     const live = await agent()
-    const dead = [a.accessToken, expired.accessToken, live.refreshToken, `dazbee_at_${'x'.repeat(43)}`, 'dazbee_rt_x']
+    const dead = [
+      a.accessToken,
+      expired.accessToken,
+      live.refreshToken,
+      `dazbee_at_${'x'.repeat(43)}`,
+      'dazbee_rt_x',
+      live.accessToken.toUpperCase(),
+    ]
     for (const token of dead) {
       for (const [method, path] of [
         ['GET', '/agent/me'],
@@ -260,8 +271,13 @@ describe('an agent token on the app as main.ts builds it', () => {
     })
     const blank = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: ' \u0000\n' })).json)
     expect(verifySyncToken(syncSecret, blank.token, design)).toMatchObject({ ok: true, payload: { agent: 'AI agent' } })
-    const marked = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: 'Cla\u001bude' })).json)
+    const marked = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: 'Cla\u001bu‮de' })).json)
     expect(verifySyncToken(syncSecret, marked.token, design)).toMatchObject({ ok: true, payload: { agent: 'Claude' } })
+    const long = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: 'a'.repeat(1000) })).json)
+    expect(verifySyncToken(syncSecret, long.token, design)).toMatchObject({
+      ok: true,
+      payload: { agent: 'a'.repeat(64) },
+    })
   })
 
   it('goes on when a refresh token is used again within 30 seconds, and answers 401 once it is used later', async () => {

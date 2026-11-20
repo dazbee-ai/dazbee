@@ -159,7 +159,8 @@ export function brandRoutes({ db, storage, syncSecret }: { db: Db; storage: Stor
   // carrying the member's role, which decides whether their connection may write, the design's
   // schema version, below which a tab may not open it, and their name, which the other tabs show. An
   // agent's token carries the role its access caps, and the agent's name its tab is shown by: the one
-  // asked for, else "AI agent". A person's session names no agent.
+  // asked for, without control or format characters (such as a change of writing direction), else
+  // "AI agent". A person's session names no agent.
   app.post('/brands/:brandId/designs/:designId/sync-token', async (c) => {
     const { workspaceId, role } = c.var.membership
     const { userId, agent } = c.var.session
@@ -170,7 +171,7 @@ export function brandRoutes({ db, storage, syncSecret }: { db: Db; storage: Stor
     const schemaVersion = await designSchemaVersion(db, workspaceId, c.var.brand.id, designId)
     if (schemaVersion === null) return c.json(error('No such design'), 404)
     const name = await userName(db, userId)
-    const agentName = agent ? { agent: input.agent?.replace(/\p{Cc}/gu, '').trim() || 'AI agent' } : {}
+    const agentName = agent ? { agent: input.agent?.replace(/[\p{Cc}\p{Cf}]/gu, '').trim() || 'AI agent' } : {}
     const payload = { designId, workspaceId, userId, role, schemaVersion, name, ...agentName }
     const { token, expiresAt } = signSyncToken(syncSecret, payload)
     return c.json({

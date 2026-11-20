@@ -553,7 +553,7 @@ export const agentAccesses = pgTable(
 )
 
 /** The kinds of agent token: an access token, sent with each request, and the refresh token that renews it. */
-export const AGENT_TOKEN_KINDS = ['access', 'refresh'] as const
+const AGENT_TOKEN_KINDS = ['access', 'refresh'] as const
 
 /**
  * A token of an agent access, kept only as the SHA-256 of the token, so no row holds a token. A refresh token
@@ -573,6 +573,6 @@ export const agentTokens = pgTable(
   },
   (t) => [
     index('agent_tokens_access').on(t.accessId),
-    check('agent_tokens_kind', sql`${t.kind} in ('access', 'refresh')`),
+    check('agent_tokens_kind', sql`${t.kind} in (${sql.raw(AGENT_TOKEN_KINDS.map((kind) => `'${kind}'`).join(', '))})`),
   ],
 )

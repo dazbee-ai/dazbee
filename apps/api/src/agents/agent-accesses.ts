@@ -68,6 +68,11 @@ export function isAgentToken(token: string): boolean {
   return start === ACCESS_TOKEN_PREFIX || start === REFRESH_TOKEN_PREFIX
 }
 
+/** The SHA-256 a token, code or sign-in request is kept as. */
+export function hashOf(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
 /** Makes an access; its id. It has no tokens until `issueTokens` gives some. */
 export async function makeAccess(db: Db | Tx, access: NewAgentAccess): Promise<string> {
   const id = newId()
@@ -126,9 +131,15 @@ export async function findAccessOfToken(db: Db, token: string, now = new Date())
 /**
  * Swaps a refresh token for a new pair, marking it swapped. A token swapped already is refused; when it was
  * swapped more than `REFRESH_GRACE_MS` before `now`, its access is ended too. An unknown or expired token, and
- * one of an ended access or of a person no longer a member, is refused.
+ * one of an ended access or of a person no longer a member, is refused, and so is one of another client than
+ * `clientId`, when given, without marking it.
  */
-export async function refreshTokens(db: Db, token: string, now = new Date()): Promise<Refreshed> {
+export async function refreshTokens(
+  db: Db,
+  token: string,
+  now = new Date(),
+  clientId?: string,
+): Promise<Refreshed> {
   if (!token.startsWith(REFRESH_TOKEN_PREFIX)) return refused
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -136,7 +147,14 @@ export async function refreshTokens(db: Db, token: string, now = new Date()): Pr
       .from(agentTokens)
       .innerJoin(agentAccesses, eq(agentAccesses.id, agentTokens.accessId))
       .innerJoin(memberships, membershipOfAccess)
-      .where(and(eq(agentTokens.hash, hashOf(token)), eq(agentTokens.kind, 'refresh'), isNull(agentAccesses.endedAt)))
+      .where(
+        and(
+          eq(agentTokens.hash, hashOf(token)),
+          eq(agentTokens.kind, 'refresh'),
+          isNull(agentAccesses.endedAt),
+          clientId === undefined ? undefined : eq(agentAccesses.clientId, clientId),
+        ),
+      )
       .for('update', { of: agentTokens })
     if (!row) return refused
     if (row.swappedAt) {
@@ -154,6 +172,23 @@ export async function refreshTokens(db: Db, token: string, now = new Date()): Pr
     await tx.delete(agentTokens).where(and(eq(agentTokens.accessId, row.accessId), lte(agentTokens.expiresAt, now)))
     return { ok: true, tokens: await issueTokens(tx, row.accessId, now) }
   })
+}
+
+/**
+ * Revokes an agent's token (RFC 7009): a refresh token ends its access, an access token stops working. An
+ * unknown token changes nothing.
+ */
+export async function revokeToken(db: Db, token: string, now = new Date()): Promise<void> {
+  const [row] = await db
+    .select({ accessId: agentTokens.accessId, kind: agentTokens.kind })
+    .from(agentTokens)
+    .where(eq(agentTokens.hash, hashOf(token)))
+  if (row?.kind === 'refresh')
+    await db
+      .update(agentAccesses)
+      .set({ endedAt: now })
+      .where(and(eq(agentAccesses.id, row.accessId), isNull(agentAccesses.endedAt)))
+  else if (row) await db.delete(agentTokens).where(eq(agentTokens.hash, hashOf(token)))
 }
 
 /** Ends the member's own access, unless it has ended already; whether it ended one. */
@@ -202,11 +237,6 @@ export async function listAccesses(db: Db, workspaceId: string, userId: string):
     createdAt: row.createdAt.toISOString(),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   }))
-}
-
-/** The SHA-256 a token is kept as. */
-function hashOf(token: string): string {
-  return createHash('sha256').update(token).digest('hex')
 }
 
 /** Writes the access's last use, unless another request wrote it within the minute. */

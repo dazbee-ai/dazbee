@@ -37,6 +37,7 @@ export function drawVectorFrame(
     fallbackFamilies: resources.fallbackFamilies,
     images: resources.images,
     ...(resources.imageSizes ? { imageSizes: resources.imageSizes } : {}),
+    ...(resources.familyFeatures ? { familyFeatures: resources.familyFeatures } : {}),
   }
   const vector: Resources = { ...raster, vector: true }
   const frame = { x: 0, y: 0, width: scene.width, height: scene.height }

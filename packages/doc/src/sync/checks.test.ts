@@ -205,6 +205,20 @@ describe('changeSetIssue', () => {
     expect(changeSetIssue(after, before, written)).toBeUndefined()
   })
 
+  it('passes a change to a text stored before letter spacing had a unit, and refuses a bad feature tag', () => {
+    const stored = records(linkedDesign())
+    const title = stored.nodes.title as { props: { style: Record<string, unknown> } }
+    title.props.style = { ...title.props.style, letterSpacing: 2 }
+    const { before, after, written } = applied(stored, [
+      { op: 'set', value: { part: 'layer', id: 'title', key: 'props', prop: 'align' }, to: 'center' },
+    ])
+    expect(changeSetIssue(after, before, written)).toBeUndefined()
+    const style = { fontFamily: 'Noto Sans', fontSize: 60, color: '#111111FF', features: { ligature: false } }
+    expect(
+      issueOf({ op: 'set', value: { part: 'layer', id: 'title', key: 'props', prop: 'style' }, to: style })?.reason,
+    ).toBe('invalidRecord')
+  })
+
   it('agrees with checkStructure and the schema over random change sets (I1)', () => {
     const designs = [testDesign, linkedDesign, kindsDesign] as const
     let rejected = 0

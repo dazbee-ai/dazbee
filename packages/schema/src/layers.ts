@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { Effect } from './effects.ts'
 import { Paint } from './paint.ts'
 import { BlendMode, Color, ContainerBlendMode, FractionalIndex, FrameId, LinkId, NodeId } from './primitives.ts'
+import { Features, LetterSpacing, NO_LETTER_SPACING } from './typography.ts'
 import { Bindings } from './variables.ts'
 
 /**
@@ -249,7 +250,8 @@ export const textStyleFields = {
   fontStyle: z.enum(['normal', 'italic']),
   fontSize: z.number().positive(),
   color: Color,
-  letterSpacing: z.number(),
+  /** The room after each character: pixels, or a percentage of the font size the characters are set at. */
+  letterSpacing: LetterSpacing,
   /** A multiple of the font size; omitted means the font's own line height. */
   lineHeight: z.number().positive(),
   underline: z.boolean(),
@@ -258,6 +260,8 @@ export const textStyleFields = {
   textCase: z.enum(['none', 'upper', 'lower', 'title']),
   /** A line along the glyphs' edges, centred on them, drawn over the fill (#47). Width 0 is none. */
   outline: z.object({ width: z.number().min(0), color: Color }),
+  /** OpenType features turned on or off by tag; a run's set theirs over the base style's, tag by tag. */
+  features: Features,
 }
 
 /** A text layer's base character style. */
@@ -265,12 +269,13 @@ export const TextStyle = z.object({
   ...textStyleFields,
   fontWeight: textStyleFields.fontWeight.default(400),
   fontStyle: textStyleFields.fontStyle.default('normal'),
-  letterSpacing: textStyleFields.letterSpacing.default(0),
+  letterSpacing: textStyleFields.letterSpacing.default(NO_LETTER_SPACING),
   lineHeight: textStyleFields.lineHeight.optional(),
   underline: textStyleFields.underline.optional(),
   strikethrough: textStyleFields.strikethrough.optional(),
   textCase: textStyleFields.textCase.optional(),
   outline: textStyleFields.outline.optional(),
+  features: textStyleFields.features.optional(),
 })
 export type TextStyle = z.infer<typeof TextStyle>
 

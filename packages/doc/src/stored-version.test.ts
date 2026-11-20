@@ -13,6 +13,15 @@ describe('readVersion', () => {
     expect(readVersion(records, SCHEMA_VERSION)).toEqual({ design: parsed.design, leftOut: [] })
   })
 
+  it('carries a version stored before letter spacing had a unit over, its pixels kept', () => {
+    const records = linkedDesign() as unknown as DesignRecords
+    const title = records.nodes.title as { props: { style: Record<string, unknown> } }
+    title.props.style = { ...title.props.style, letterSpacing: 1.5 }
+    const { design, leftOut } = readVersion(records, 9)
+    expect(leftOut).toEqual([])
+    expect(design.nodes.title).toMatchObject({ props: { style: { letterSpacing: { unit: 'px', value: 1.5 } } } })
+  })
+
   it('leaves out a layer the schema refuses, and tells it, reading the rest', () => {
     const records = linkedDesign() as unknown as DesignRecords
     const badge = records.nodes.badge as { props: Record<string, unknown> }

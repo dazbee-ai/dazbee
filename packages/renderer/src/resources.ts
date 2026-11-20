@@ -2,6 +2,7 @@ import type { CanvasKit, FontCollection, Image, TypefaceFontProvider } from '@da
 import type { Variables } from '@dazbee/schema'
 
 import type { LayerPictures } from './pictures.ts'
+import { type FamilyFeatures, familyFeatures } from './text/font-features.ts'
 import type { ParagraphCache } from './text/layout.ts'
 
 /** An image's width and height in its own pixels. */
@@ -15,6 +16,11 @@ export interface Resources {
   fonts: FontCollection
   /** Families tried, in order, for characters a layer's own font lacks. */
   fallbackFamilies: string[]
+  /**
+   * The OpenType features each family has, those of every one of its files (`familyFeatures`):
+   * small caps a family lacks are made up from capitals. Without it, every family lacks them.
+   */
+  familyFeatures?: FamilyFeatures
   images: ReadonlyMap<string, Image>
   /**
    * Each image's own size, where the image drawn is a smaller display copy of it, as the editor's
@@ -63,26 +69,35 @@ export function resourceCache(ck: CanvasKit) {
   // Decoded images by asset id, each with the bytes it was decoded from.
   const images = new Map<string, { bytes: Uint8Array; image: Image }>()
   // The registered fonts, with the list they were registered from.
-  let fonts: { list: ResourceBytes['fonts']; provider: TypefaceFontProvider; collection: FontCollection } | undefined
+  let fonts:
+    | {
+        list: ResourceBytes['fonts']
+        provider: TypefaceFontProvider
+        collection: FontCollection
+        features: FamilyFeatures
+      }
+    | undefined
 
   function resources(bytes: ResourceBytes): Resources {
+    const registered = fontsFor(bytes.fonts)
     return {
-      fonts: fontsFor(bytes.fonts),
+      fonts: registered.collection,
       fallbackFamilies: [...bytes.fallbackFamilies],
+      familyFeatures: registered.features,
       images: imagesFor(bytes.images),
     }
   }
 
   function fontsFor(list: ResourceBytes['fonts']) {
-    if (fonts && sameFonts(fonts.list, list)) return fonts.collection
+    if (fonts && sameFonts(fonts.list, list)) return fonts
     // A provider can't drop a font, so a changed set of fonts is registered again from scratch.
     const provider = ck.TypefaceFontProvider.Make()
     for (const font of list) provider.registerFont(font.bytes, font.family)
     const collection = ck.FontCollection.Make()
     collection.setDefaultFontManager(provider)
     freeFonts()
-    fonts = { list: [...list], provider, collection }
-    return collection
+    fonts = { list: [...list], provider, collection, features: familyFeatures(list) }
+    return fonts
   }
 
   function freeFonts() {

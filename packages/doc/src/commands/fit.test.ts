@@ -215,11 +215,12 @@ describe('fitted', () => {
 
   it('scales a text’s letter spacing and outline in its style and the runs that set them, and its paragraph spacing', () => {
     const outline = (width: number) => ({ width, color: '#FFFFFFFF' })
-    const style = { fontFamily: 'Noto Sans', fontSize: 40, color: '#111111FF', letterSpacing: 2, lineHeight: 1.2 }
+    const px = (value: number) => ({ unit: 'px' as const, value })
+    const style = { fontFamily: 'Noto Sans', fontSize: 40, color: '#111111FF', letterSpacing: px(2), lineHeight: 1.2 }
     const text = {
       style: { ...style, outline: outline(4) },
       runs: [
-        { start: 0, end: 2, style: { letterSpacing: -1, outline: outline(2) } },
+        { start: 0, end: 2, style: { letterSpacing: px(-1), outline: outline(2) } },
         { start: 2, end: 4, style: { fontWeight: 800 } },
       ],
       paragraphSpacing: 16,
@@ -227,9 +228,9 @@ describe('fitted', () => {
     for (const factor of [0.5, 2]) {
       const s = (n: number) => n * factor
       expect(at(factor, text)).toMatchObject({
-        style: { ...style, fontSize: s(40), letterSpacing: s(2), lineHeight: 1.2, outline: outline(s(4)) },
+        style: { ...style, fontSize: s(40), letterSpacing: px(s(2)), lineHeight: 1.2, outline: outline(s(4)) },
         runs: [
-          { start: 0, end: 2, style: { letterSpacing: s(-1), outline: outline(s(2)) } },
+          { start: 0, end: 2, style: { letterSpacing: px(s(-1)), outline: outline(s(2)) } },
           { start: 2, end: 4, style: { fontWeight: 800 } },
         ],
         paragraphSpacing: s(16),
@@ -281,11 +282,19 @@ describe('fitted', () => {
       { type: 'layerBlur', radius: 0 },
     ])
     const outline = { width: 3, color: '#FFFFFFFF' }
-    const style = { fontFamily: 'Noto Sans', fontSize: 10, color: '#111111FF', letterSpacing: 2, outline }
+    const style = {
+      fontFamily: 'Noto Sans',
+      fontSize: 10,
+      color: '#111111FF',
+      letterSpacing: { unit: 'px' as const, value: 2 },
+      outline,
+    }
     const text = { x: 0, y: 0, width: 400, height: 40, text: 'Sale', style, runs: [], paragraphSpacing: 3 }
     const small = fitted(text, text, { from: square, to: tiny })
     expect(TextProps.safeParse(small).success).toBe(true)
-    expect(small).toMatchObject({ style: { fontSize: 0.01, letterSpacing: 0, outline: { width: 0 } } })
+    expect(small).toMatchObject({
+      style: { fontSize: 0.01, letterSpacing: { unit: 'px', value: 0 }, outline: { width: 0 } },
+    })
   })
 
   it('keeps one dash above 0 when every scaled length would round to 0, the others their share of it', () => {
@@ -351,7 +360,12 @@ describe('fitted', () => {
       width: 1080,
       height: 200,
       text: 'Summer sale',
-      style: { fontFamily: 'Noto Sans', fontSize: 84, color: '#111111FF', letterSpacing: 2 },
+      style: {
+        fontFamily: 'Noto Sans',
+        fontSize: 84,
+        color: '#111111FF',
+        letterSpacing: { unit: 'px' as const, value: 2 },
+      },
       runs: [
         { start: 0, end: 6, style: { fontWeight: 800 } },
         { start: 7, end: 11, style: { fontSize: 100 } },
@@ -366,7 +380,7 @@ describe('fitted', () => {
       y: 50,
       width: 540,
       height: 100,
-      style: { ...headline.style, fontSize: 42, letterSpacing: 1 },
+      style: { ...headline.style, fontSize: 42, letterSpacing: { unit: 'px', value: 1 } },
       runs: [
         { start: 0, end: 6, style: { fontWeight: 800 } },
         { start: 7, end: 11, style: { fontSize: 50 } },
@@ -432,8 +446,16 @@ describe('scaledSizes', () => {
 
   it('gives a negative size scaled to under half a hundredth 0, never -0', () => {
     const shadow = { type: 'dropShadow', color: '#00000080', x: -4, y: -1, blur: 0, spread: -0.4 }
-    const sizes = scaledSizes({ effects: [shadow], style: { fontSize: 10, letterSpacing: -1 } }, 0.001)
-    for (const n of [sizes.effects[0]?.x, sizes.effects[0]?.y, sizes.effects[0]?.spread, sizes.style.letterSpacing])
+    const sizes = scaledSizes(
+      { effects: [shadow], style: { fontSize: 10, letterSpacing: { unit: 'px' as const, value: -1 } } },
+      0.001,
+    )
+    for (const n of [
+      sizes.effects[0]?.x,
+      sizes.effects[0]?.y,
+      sizes.effects[0]?.spread,
+      sizes.style.letterSpacing?.value,
+    ])
       expect(Object.is(n, 0)).toBe(true)
   })
 })

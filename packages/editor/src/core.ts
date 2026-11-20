@@ -788,6 +788,7 @@ export function buildCore({
     styleTextSelection: (style: RunStyle) => typing.styleSelectedText(style),
     onTextSelection: textSelection.on,
     textStyles: textStyles.state,
+    fontFeatures: (family: string) => resources.resources().familyFeatures?.get(family) ?? null,
     onFontsArrive: (listener: () => void) =>
       resources.onArrive((fonts) => {
         if (fonts) listener()

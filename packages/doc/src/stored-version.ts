@@ -1,7 +1,7 @@
 // A version of a design, read: every reader of a stored version (the API's copy and picture, the
-// tab's viewer and restore) reads it here. A version stored under an older schema version is where an
-// upgrade will run; until one is written, it reads as a stored design does: a part the schema no
-// longer takes is left out and told, and the rest opens.
+// tab's viewer and restore) reads it here. It reads as a stored design does: each layer is carried
+// over to this schema's version (`carryOverLayer`, which finds what to carry over in the layer
+// itself), a part the schema does not take is left out and told, and the rest opens.
 import type { Design, DesignRecords } from '@dazbee/schema'
 
 import { type LeftOut, repair } from './repair.ts'
@@ -14,7 +14,7 @@ export interface ReadVersion {
 
 /** The design a version's records hold, stored under `schemaVersion`. */
 export function readVersion(records: DesignRecords, schemaVersion: number): ReadVersion {
-  // Every schema version reads the same way while there is no upgrade step (docs/agents/code-layout.md, Data).
+  // Every schema version reads the same way: each carry-over step finds what it changes in the records themselves.
   void schemaVersion
   const { design, leftOut } = repair(records)
   return { design, leftOut }

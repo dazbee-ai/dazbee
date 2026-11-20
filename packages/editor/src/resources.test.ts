@@ -242,10 +242,13 @@ describe('editorResources', () => {
     await resources.loaded()
     expect(seen).toHaveLength(2)
     expect(seen[1]?.images.photo).toBe(png)
+    expect(resources.resources().familyFeatures?.get('Extra Sans')).toBeUndefined()
     resources.loadFamilies(['Extra Sans'])
     await resources.loaded()
     expect(seen).toHaveLength(3)
     expect(seen[2]?.fonts.map((f) => f.family)).toEqual(['Extra Sans'])
+    // The features its files have are read once they arrive.
+    expect(resources.resources().familyFeatures?.get('Extra Sans')?.has('liga')).toBe(true)
     resources.setVariables({})
     expect(seen).toHaveLength(4)
     expect(new Set(seen).size).toBe(4)

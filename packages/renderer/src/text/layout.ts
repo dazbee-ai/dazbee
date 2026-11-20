@@ -1,11 +1,12 @@
 import type { CanvasKit, FontCollection, Paragraph, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type TextProps } from '@dazbee/schema'
+import { autoDirection, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
+import { madeUpSmallCaps } from './small-caps.ts'
 
 /** One paragraph of a text layer (the text between line breaks), laid out where it sits in the layer. */
 export interface TextBlock {
@@ -47,6 +48,8 @@ export interface TextLayout {
 export type ParagraphCache = ReturnType<typeof paragraphCache>
 
 type Style = TextProps['style']
+/** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
+type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures'>
 
 const ELLIPSIS = '\u2026'
 
@@ -59,11 +62,7 @@ const APOSTROPHE = /['’]/u
  * clear of a gutter for its marker, and paragraph spacing goes between them. A text with one
  * paragraph is laid out as one SkParagraph, as before.
  */
-export function layoutText(
-  ck: CanvasKit,
-  props: TextProps,
-  resources: Pick<Resources, 'fonts' | 'fallbackFamilies'>,
-): TextLayout {
+export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
   const fit = props.shrinkToFit
   if (!fit) return place(props, build(ck, props, resources, 1))
   // The largest quarter point size from min to max that fits; min when none does.
@@ -96,7 +95,8 @@ export function paragraphCache(limit = 4000) {
   // The fonts the kept layouts were shaped with.
   let fonts: FontCollection | null = null
 
-  function layout(ck: CanvasKit, props: TextProps, resources: Pick<Resources, 'fonts' | 'fallbackFamilies'>) {
+  function layout(ck: CanvasKit, props: TextProps, resources: TextResources) {
+    // The fonts' features are read from the same files, so they change only with the fonts.
     if (resources.fonts !== fonts) {
       entries.clear()
       fonts = resources.fonts
@@ -118,7 +118,7 @@ export function laidOut(ck: CanvasKit, props: TextProps, resources: Resources) {
  * Measures text for auto layout (#46), the way `layoutText` lays it out to draw: natural width
  * (rounded up, as a text box that grows draws) or the height at a given width.
  */
-export function textMeasure(ck: CanvasKit, resources: Pick<Resources, 'fonts' | 'fallbackFamilies'>) {
+export function textMeasure(ck: CanvasKit, resources: TextResources) {
   return (props: TextProps, width: number | null) => {
     const laid = layoutText(
       ck,
@@ -140,12 +140,7 @@ function place(props: TextProps, laid: TextLayout): TextLayout {
   return laid
 }
 
-function build(
-  ck: CanvasKit,
-  props: TextProps,
-  resources: Pick<Resources, 'fonts' | 'fallbackFamilies'>,
-  scale: number,
-): TextLayout {
+function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale: number): TextLayout {
   const direction = props.direction === 'auto' ? autoDirection(props.text) : props.direction
   const rtl = direction === 'rtl'
   const base = scaled(props.style, scale) as Style
@@ -159,13 +154,14 @@ function build(
   )
   const pieces = edges.slice(0, -1).map((start, i) => {
     const end = edges[i + 1] ?? props.text.length
-    const style = { ...props.style }
-    for (const run of props.runs) if (run.start <= start && run.end >= end) Object.assign(style, run.style)
+    let style = props.style
+    for (const run of props.runs) if (run.start <= start && run.end >= end) style = withRunStyle(style, run.style)
     return { start, end, style: scaled(style, scale) as Style }
   })
   const styleAt = (offset: number) =>
     pieces.find((p) => offset >= p.start && offset < p.end)?.style ?? pieces.at(-1)?.style ?? base
-  const shown = withCase(props.text, styleAt)
+  // Small caps the fonts lack are drawn as smaller capitals, in pieces of their own.
+  const { shown, pieces: drawn } = madeUpSmallCaps(withCase(props.text, styleAt), pieces, resources.familyFeatures)
 
   const paragraphStyle = (style: Style, extra: { maxLines?: number; ellipsis?: string } = {}) =>
     new ck.ParagraphStyle({
@@ -196,7 +192,7 @@ function build(
       paragraphStyle(start === 0 && end === props.text.length ? base : lead, extra),
       resources.fonts,
     )
-    for (const piece of pieces) {
+    for (const piece of drawn) {
       const from = Math.max(piece.start, start)
       const to = Math.min(piece.end, end)
       if (to <= from) continue
@@ -414,7 +410,10 @@ function textStyle(
     },
     // A variable font draws its default instance unless told the weight; a static one ignores it.
     fontVariations: [{ axis: 'wght', value: style.fontWeight }],
-    letterSpacing: style.letterSpacing,
+    letterSpacing: letterSpacingPx(style.letterSpacing, style.fontSize),
+    ...(style.features
+      ? { fontFeatures: Object.entries(style.features).map(([name, on]) => ({ name, value: on ? 1 : 0 })) }
+      : {}),
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
     ...(decoration ? { decoration, decorationColor: color(ck, style.color), decorationThickness: 1 } : {}),
   })

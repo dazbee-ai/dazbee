@@ -2,7 +2,7 @@
 // keys go, and the rule a style key follows: whether its style is on, and what turning it on or off
 // writes, Bold picking from the weights a family has. Kept free of the editor so it can be tested on
 // its own. Offsets count UTF-16 units, as the document's text does.
-import type { Design } from '@dazbee/schema'
+import { type Design, withRunStyle } from '@dazbee/schema'
 
 import type { ShortcutAction } from '../shortcuts.ts'
 
@@ -89,12 +89,12 @@ export function paragraphAt(text: string, offset: number): TextRange {
   return { start, end: next === -1 ? text.length : next }
 }
 
-/** Each character's style in a range: the base, then every run over it, later runs winning. */
+/** Each character's style in a range: the base, then every run over it, later runs winning (`withRunStyle`). */
 export function stylesIn(props: TextNode['props'], range: TextRange): Style[] {
   const out: Style[] = []
   for (let i = range.start; i < range.end; i++) {
-    const style = { ...props.style }
-    for (const run of props.runs) if (run.start <= i && run.end > i) Object.assign(style, run.style)
+    let style = { ...props.style }
+    for (const run of props.runs) if (run.start <= i && run.end > i) style = withRunStyle(style, run.style)
     out.push(style)
   }
   return out

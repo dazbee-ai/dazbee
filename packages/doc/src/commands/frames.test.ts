@@ -336,7 +336,12 @@ describe('frame.addSize', () => {
         name: 'Label',
         props: {
           ...{ x: 200, y: 400, width: 680, height: 120, text: 'Shop now' },
-          style: { fontFamily: 'Noto Sans', fontSize: 64, color: '#111111FF', letterSpacing: 2 },
+          style: {
+            fontFamily: 'Noto Sans',
+            fontSize: 64,
+            color: '#111111FF',
+            letterSpacing: { unit: 'px', value: 2 },
+          },
         },
       },
     })
@@ -358,7 +363,9 @@ describe('frame.addSize', () => {
       effects: [{ ...shadow, x: 0, y: 4.63, blur: 9.26, spread: 0 }],
     })
     // The letter spacing 2 → 0.46, with the font size 64 → 14.81.
-    expect(copyOf('label')?.props).toMatchObject({ style: { fontSize: 14.81, letterSpacing: 0.46 } })
+    expect(copyOf('label')?.props).toMatchObject({
+      style: { fontSize: 14.81, letterSpacing: { unit: 'px', value: 0.46 } },
+    })
   })
 
   it('refuses a frame that is missing, an id that is taken and a size a frame may not have', () => {

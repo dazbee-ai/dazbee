@@ -46,7 +46,12 @@ import {
   type SectionProps,
   showsSwitcher,
 } from '@/components/editor/edit-panel/tabs/tabs.ts'
-import { FontSection, ParagraphSection, SpacingSection } from '@/components/editor/edit-panel/text-tab/text-tab.tsx'
+import {
+  FeaturesSection,
+  FontSection,
+  ParagraphSection,
+  SpacingSection,
+} from '@/components/editor/edit-panel/text-tab/text-tab.tsx'
 import {
   asPanelGoes,
   FONT_CHOOSER,
@@ -93,6 +98,7 @@ const SECTIONS: Record<Section['id'], (props: SectionProps) => ReactNode> = {
   font: FontSection,
   paragraph: ParagraphSection,
   spacing: SpacingSection,
+  features: FeaturesSection,
   position: PositionSection,
   order: OrderSection,
   'line-up': LineUpSection,

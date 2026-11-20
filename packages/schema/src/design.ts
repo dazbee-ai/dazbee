@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { scriptFamilies } from '@dazbee/fonts'
 
+import { carryOverLayers } from './carry-over.ts'
+import { isRecord } from './json.ts'
 import { canHold, Layer } from './layers.ts'
 import { Paint } from './paint.ts'
 import { FractionalIndex, FrameId, NodeId, PageId } from './primitives.ts'
@@ -49,7 +51,7 @@ export type Frame = z.infer<typeof Frame>
  * The version of this schema, which the API writes into a design's record when it creates one. A
  * sync token carries the design's, and the sync server refuses a tab built with an older version.
  */
-export const SCHEMA_VERSION = 9
+export const SCHEMA_VERSION = 10
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),
@@ -106,9 +108,10 @@ export interface StructureLookup {
  */
 const textFamiliesKept = new WeakMap<object, { variables: Variables | undefined; families: readonly string[] }>()
 
-/** Validates untrusted JSON as a design. Errors read `path: message`. */
+/** Validates untrusted JSON as a design, its layers carried over first (`carryOverLayers`). Errors read `path: message`. */
 export function parseDesign(input: unknown): ParseResult {
-  const result = Design.safeParse(input)
+  const nodes = isRecord(input) && isRecord(input.nodes) ? carryOverLayers(input.nodes) : undefined
+  const result = Design.safeParse(isRecord(input) && nodes && nodes !== input.nodes ? { ...input, nodes } : input)
   if (result.success) return { success: true, design: result.data }
   return {
     success: false,

@@ -7,7 +7,16 @@
 // values. Each change is one undo step, and a drag on a number, however long, is one too.
 import { constraintsApply, laidOutBox, LEFT_TOP, placedByFlow } from '@dazbee/doc'
 import { type Editor, type ImageFill, sharedImageFill } from '@dazbee/editor'
-import { type Constraints, type Design, isNonEmpty, keepsEachCorner, type NonEmpty, type Paint } from '@dazbee/schema'
+import {
+  type Constraints,
+  type Design,
+  type Features,
+  isNonEmpty,
+  keepsEachCorner,
+  type LetterSpacing,
+  type NonEmpty,
+  type Paint,
+} from '@dazbee/schema'
 
 import { useTextSelection } from '@/components/editor/editor-hooks.ts'
 import { type Follows, useLiveDesign } from '@/components/editor/use-live-design.ts'
@@ -27,9 +36,10 @@ export type Style = Record<string, unknown> & {
   fontWeight: number
   fontSize: number
   color: string
-  letterSpacing?: number
+  letterSpacing?: LetterSpacing
   lineHeight?: number
   textCase?: string
+  features?: Features
 }
 
 /** What the edit panels act on: the layers and their values. */
@@ -215,6 +225,11 @@ export function textStyle(target: Target) {
     style: (key: string) => shared(styles.map((s) => s[key])),
     setStyle: (key: string, value: unknown) =>
       range ? target.editor.styleTextSelection({ [key]: value }) : set(target, (now) => styled(now, key, value)),
+    /** Sets `key` from each layer's own style, or from the selected range's first character's. */
+    eachStyle: (key: string, to: (now: Style) => unknown) =>
+      range
+        ? target.editor.styleTextSelection({ [key]: to(range[0] ?? (target.props[0].style as Style)) })
+        : set(target, (now) => styled(now, key, to(now.style as Style))),
     /** Changes a number of the style from each layer's own, `from` where it has none, held between `min` and `max`. */
     changeStyle: (key: string, change: (now: number) => number, min?: number, from = 0, max?: number) =>
       range

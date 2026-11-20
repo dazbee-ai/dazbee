@@ -74,6 +74,18 @@ describe('layersOnClipboard', () => {
     expect(layersOnClipboard(kept, { text: 'something else' })).toBeNull()
   })
 
+  it('reads layers copied by a tab built before letter spacing had a unit, carried over', () => {
+    const style = { fontFamily: 'Noto Sans', fontSize: 20, color: '#111111FF', letterSpacing: 3 }
+    const text = {
+      ...rect('Title', 'a0', 't'),
+      type: 'text',
+      props: { x: 0, y: 0, width: 10, height: 10, text: 'A', style },
+    }
+    const old = JSON.stringify({ ...copied, tree: { nodes: { t: text }, roots: ['t'] } })
+    const read = layersOnClipboard(kept, { data: { [LAYER_CLIPBOARD_TYPE]: old } })
+    expect(read?.tree.nodes.t).toMatchObject({ props: { style: { letterSpacing: { unit: 'px', value: 3 } } } })
+  })
+
   it('finds nothing in an empty payload, in text that isn’t layers or with storage off', () => {
     expect(layersOnClipboard(kept, {})).toBeNull()
     expect(layersOnClipboard(kept, { text: '', data: {} })).toBeNull()
@@ -114,6 +126,13 @@ describe('keepStyle and rememberedStyle', () => {
     expect(keepStyle(kept, style)).toBe(true)
     expect(kept.items.get('dazbee.copiedStyle')).toBe(JSON.stringify(style))
     expect(rememberedStyle(kept)).toEqual(style)
+  })
+
+  it('reads a text’s style kept by a tab built before letter spacing had a unit, carried over', () => {
+    const look = { fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal', color: '#000000FF', letterSpacing: 2 }
+    const text = { ...look, lineHeight: null, paragraphSpacing: null, outline: null }
+    kept.items.set('dazbee.copiedStyle', JSON.stringify({ ...style, fills: undefined, text }))
+    expect(rememberedStyle(kept)?.text).toMatchObject({ letterSpacing: { unit: 'px', value: 2 }, features: null })
   })
 
   it('finds nothing in a kept value it can’t read, and keeps nothing with storage off', () => {

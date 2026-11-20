@@ -3,6 +3,7 @@
 // The text's spacing, for the Text switcher tab's Spacing section: the room between its lines,
 // letters and paragraphs, its box, then under Text fit shrinking to fit and the most lines it shows.
 import { boxModeSizing } from '@dazbee/doc'
+import { NO_LETTER_SPACING } from '@dazbee/schema'
 
 import { PanelPart, SwitchRow } from '@/components/editor/edit-panel/fields.tsx'
 import { clamp, NumberField } from '@/components/editor/edit-panel/number-field.tsx'
@@ -21,6 +22,7 @@ import { KNOBS, TILE, TILE_FACE_WIDE } from '@/components/editor/styles.ts'
 import { TOUCH_GAP } from '@/components/ui/looks.ts'
 import { Radio, RadioGroup } from '@/components/ui/radio-group.tsx'
 import { cn } from '@/lib/cn.ts'
+import { shownSpacing, spacingIn, type SpacingUnit, typedUnit } from '@/lib/editor/letter-spacing.ts'
 import { LIMITS } from '@/lib/editor/limits.ts'
 import { tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
@@ -28,6 +30,9 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 /** A text's box modes, in the order their tiles show. */
 const BOX_MODES = ['autoWidth', 'autoHeight', 'fixed'] as const
 type BoxMode = (typeof BOX_MODES)[number]
+
+/** Each letter spacing unit's mark, shown after its value. */
+const UNIT_MARKS: Record<SpacingUnit, string> = { px: 'px', percent: '%' }
 
 /** The letters a box mode's tile draws in its box; the same in every language, as a font sample is. */
 const SAMPLE_LETTERS = 'Aa'
@@ -74,18 +79,7 @@ function SpacingCard({ target, p }: { target: Target; p: P }) {
           onEach={(change) => changeStyle('lineHeight', change, 0.5, 1.2, LIMITS.lineHeight)}
           onClear={() => setStyle('lineHeight', undefined)}
         />
-        <NumberField
-          label={p.letterSpacing}
-          name={p.letterSpacing}
-          value={(style('letterSpacing') ?? 0) as number | 'mixed'}
-          step={0.1}
-          min={-LIMITS.letterSpacing}
-          max={LIMITS.letterSpacing}
-          fillRange={[-20, 20]}
-          editor={target.editor}
-          onSet={(v) => setStyle('letterSpacing', v)}
-          onEach={(change) => changeStyle('letterSpacing', change, -LIMITS.letterSpacing, 0, LIMITS.letterSpacing)}
-        />
+        <LetterSpacingField target={target} p={p} />
         <NumberField
           label={p.paragraphSpacing}
           name={p.paragraphSpacing}
@@ -105,6 +99,45 @@ function SpacingCard({ target, p }: { target: Target; p: P }) {
         />
       </div>
     </PanelPart>
+  )
+}
+
+/**
+ * The text's letter spacing, shown with its unit, % of the font size or px. A value typed with a
+ * unit (`2%`, `1.5px`) sets it in that unit, each text's own spacing turned into it first, so `+1px`
+ * adds a pixel to what each has; a value with none keeps each text's own unit.
+ */
+function LetterSpacingField({ target, p }: { target: Target; p: P }) {
+  const { styles, eachStyle } = textStyle(target)
+  const shown = shownSpacing(styles)
+  const unit = shown.unit === 'mixed' ? null : shown.unit
+  /** Sets each text's letter spacing from its own, in `to` or in its own unit. */
+  const each = (change: (now: number) => number, to?: SpacingUnit) =>
+    eachStyle('letterSpacing', (style) => {
+      const was = style.letterSpacing ?? NO_LETTER_SPACING
+      const own = spacingIn(was, to ?? was.unit, style.fontSize)
+      return { unit: own.unit, value: tidy(clamp(change(own.value), -LIMITS.letterSpacing, LIMITS.letterSpacing)) }
+    })
+  return (
+    <NumberField
+      label={p.letterSpacing}
+      name={p.letterSpacing}
+      value={shown.value}
+      unit={unit ? UNIT_MARKS[unit] : ''}
+      step={0.1}
+      min={-LIMITS.letterSpacing}
+      max={LIMITS.letterSpacing}
+      fillRange={[-20, 20]}
+      editor={target.editor}
+      onSet={(v) => each(() => v)}
+      onEach={(change) => each(change)}
+      onTyped={(text, edit) => {
+        const to = typedUnit(text)
+        if (to === null || to === unit) return false
+        each('set' in edit ? () => edit.set : edit.each, to)
+        return true
+      }}
+    />
   )
 }
 

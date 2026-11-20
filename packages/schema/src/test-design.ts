@@ -32,3 +32,21 @@ export const minimal = () => ({
     },
   },
 })
+
+/** A text layer as a design stored before letter spacing had a unit held it: pixels as a bare number. */
+export const storedText = () => ({
+  type: 'text',
+  parentId: 'sq',
+  link: 't1',
+  index: 'a1',
+  name: 'Headline',
+  props: {
+    x: 0,
+    y: 0,
+    width: 300,
+    height: 60,
+    text: 'Sale',
+    style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#111111FF', letterSpacing: 2 },
+    runs: [{ start: 0, end: 2, style: { letterSpacing: -1, fontSize: 30 } }],
+  },
+})

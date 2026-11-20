@@ -9,7 +9,7 @@ import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
 import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
-/** A text's look without its size: font, weight, colour, spacing and the outline along its glyphs. Null is none. */
+/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs and its OpenType features. Null is none. */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
   fontWeight: textStyleFields.fontWeight,
@@ -19,6 +19,8 @@ const TextLook = z.object({
   lineHeight: textStyleFields.lineHeight.nullable(),
   paragraphSpacing: z.number().min(0).nullable(),
   outline: textStyleFields.outline.nullable(),
+  /** Left out of a style copied before texts had features, which is none. */
+  features: textStyleFields.features.nullable().default(null),
 })
 
 export const LayerStyle = z.object({
@@ -51,6 +53,9 @@ type Props = Readonly<Record<string, unknown>>
 /** Any layer's type and props, each type with its own props. */
 type TypedProps = Layer extends infer L ? (L extends Layer ? Pick<L, 'type' | 'props'> : never) : never
 
+/** The keys of a text's base style that its look holds as null when the text has none. */
+const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features'])
+
 /** A layer's style. */
 export function styleOf(layer: Layer): LayerStyle {
   const style: LayerStyle = {
@@ -74,6 +79,7 @@ export function styleOf(layer: Layer): LayerStyle {
       lineHeight: s.lineHeight ?? null,
       paragraphSpacing: layer.props.paragraphSpacing ?? null,
       outline: s.outline ?? null,
+      features: s.features ?? null,
     }
   }
   for (const property of BindableProperty.options) {
@@ -99,13 +105,14 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, ...look } = style.text
-    const kept = Object.entries(layer.props.style).filter(([key]) => key !== 'lineHeight' && key !== 'outline')
+    const { lineHeight, paragraphSpacing, outline, features, ...look } = style.text
+    const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
       ...Object.fromEntries(kept),
       ...look,
       ...(lineHeight === null ? {} : { lineHeight }),
       ...(outline === null ? {} : { outline }),
+      ...(features === null ? {} : { features }),
     }
     wanted.paragraphSpacing = paragraphSpacing ?? undefined
   }

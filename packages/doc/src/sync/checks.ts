@@ -3,6 +3,7 @@
 // it; then the schema's structure rules (`checkStructure`'s, written once, C29) over what it wrote.
 // The server checks every change set with them; a tab checks with them what its undo or redo writes.
 import {
+  carryOverLayer,
   type Change,
   checkFrame,
   checkLayer,
@@ -213,10 +214,13 @@ export function stateLookup(state: ReadState): StructureLookup {
 }
 
 function schemaIssue(part: Part, record: Rec): string | undefined {
-  // Parsed only to check: the record is kept as sent, so a value's default is never written in.
-  const parsed = PARSERS[part].safeParse(record)
+  // Parsed only to check: the record is kept as sent, so a value's default is never written in. A
+  // layer is checked carried over to this schema's version, as every reader reads it, so a value it
+  // stored before a change of the schema still passes.
+  const checked = part === 'layer' ? carryOverLayer(record) : record
+  const parsed = PARSERS[part].safeParse(checked)
   if (!parsed.success) return parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
-  return droppedIssue(record, parsed.data)
+  return droppedIssue(checked, parsed.data)
 }
 
 /**

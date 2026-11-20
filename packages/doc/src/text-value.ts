@@ -1,6 +1,6 @@
 // A text layer's text and runs as plain data, and one edit applied to them: what the store writes
 // for `text.edit`; and the matches of a text found whatever their case, and the edits that replace them.
-import type { RunStyle, TextRun } from '@dazbee/schema'
+import { type RunStyle, type TextRun, withRunStyle } from '@dazbee/schema'
 
 import { sameValue } from './same-value.ts'
 
@@ -21,7 +21,8 @@ const REPLACEMENT = '\uFFFD'
 
 /**
  * The text and runs after one edit. Inserted text takes the style of the character before it, and
- * none at the start; a style sets its keys over what each character in its range has. Adjacent
+ * none at the start; a style sets its keys over what each character in its range has, its features
+ * tag by tag (`withRunStyle`). Adjacent
  * characters with the same style come back as one run, and unstyled ones in none. An offset or a
  * range past the end stops at the end. An edit that starts or ends inside a surrogate pair turns
  * both its halves into U+FFFD first, keeping their style.
@@ -43,7 +44,7 @@ export function applyTextOp(value: TextValue, op: TextOp): TextValue {
     styles.splice(at, end - at)
     return { text: text.slice(0, at) + text.slice(end), runs: runsOf(styles) }
   }
-  for (let i = at; i < end; i++) styles[i] = { ...styles[i], ...op.style }
+  for (let i = at; i < end; i++) styles[i] = withRunStyle<RunStyle>(styles[i] ?? {}, op.style)
   return { text, runs: runsOf(styles) }
 }
 
@@ -101,7 +102,7 @@ function cutPairs(text: string, edges: readonly number[]): string {
 function stylesOf(text: string, runs: readonly TextRun[]): (RunStyle | undefined)[] {
   const styles = new Array<RunStyle | undefined>(text.length).fill(undefined)
   for (const { start, end, style } of runs) {
-    for (let i = start; i < Math.min(end, text.length); i++) styles[i] = { ...styles[i], ...style }
+    for (let i = start; i < Math.min(end, text.length); i++) styles[i] = withRunStyle<RunStyle>(styles[i] ?? {}, style)
   }
   return styles
 }

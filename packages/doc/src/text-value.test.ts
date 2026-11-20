@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { RunStyle } from '@dazbee/schema'
+import { type RunStyle, withRunStyle } from '@dazbee/schema'
 
 import { seeded } from './test-walk.ts'
 import { applyTextOp, matchesIn, replaceOps, type TextOp, type TextValue } from './text-value.ts'
@@ -14,7 +14,10 @@ const STYLES: { [K in keyof RunStyle]-?: RunStyle[K][] } = {
   fontStyle: ['normal', 'italic'],
   fontSize: [12, 20],
   color: ['#FF0000FF', '#00FF00FF'],
-  letterSpacing: [0, 2],
+  letterSpacing: [
+    { unit: 'px', value: 2 },
+    { unit: 'percent', value: 5 },
+  ],
   lineHeight: [1, 1.5],
   underline: [true, false],
   strikethrough: [true, false],
@@ -23,6 +26,7 @@ const STYLES: { [K in keyof RunStyle]-?: RunStyle[K][] } = {
     { width: 1, color: '#000000FF' },
     { width: 2, color: '#000000FF' },
   ],
+  features: [{ liga: false }, { tnum: true, liga: true }],
 }
 
 /** One UTF-16 unit of a text and the style it has: the reference the walk checks `applyTextOp` against. */
@@ -76,7 +80,7 @@ function modelOp(value: TextValue, op: TextOp): TextValue {
       ),
     )
   } else if (op.kind === 'delete') units.splice(at, end - at)
-  else for (let n = at; n < end; n++) (units[n] as Unit).style = { ...(units[n] as Unit).style, ...op.style }
+  else for (let n = at; n < end; n++) (units[n] as Unit).style = withRunStyle((units[n] as Unit).style, op.style)
   return valueOf(units)
 }
 
@@ -123,6 +127,14 @@ describe('applyTextOp', () => {
     )
     expect(value.text.length).toBe(big.length + 2)
     expect(value.runs).toEqual([{ start: 0, end: big.length + 2, style: { color: '#FF0000FF' } }])
+  })
+
+  it('sets the features a style gives tag by tag over each character’s own', () => {
+    const value = { text: 'Sale', runs: [{ start: 0, end: 4, style: { features: { liga: false } } }] }
+    expect(applyTextOp(value, { kind: 'style', at: 0, length: 2, style: { features: { tnum: true } } }).runs).toEqual([
+      { start: 0, end: 2, style: { features: { liga: false, tnum: true } } },
+      { start: 2, end: 4, style: { features: { liga: false } } },
+    ])
   })
 
   it('inserts with the style of the character before, deletes, and styles over what each character has', () => {

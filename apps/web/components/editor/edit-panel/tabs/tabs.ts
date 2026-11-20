@@ -19,7 +19,8 @@ export type StyleSectionId = 'mask' | 'colour' | 'corners' | 'outline' | 'transp
  * with each other and spreading them (`line-up`); wrapping several in a group (`group`) or a box
  * (`boxSelection`); a text's font, which opens the font chooser (`font`), its size (`size`), its
  * bold, italic, underline and strikethrough (`text-style`), its alignment, list and case (`align`,
- * `list`, `case`), and its spacing, box, shrink to fit and most lines (`spacing`); how the layers
+ * `list`, `case`), its spacing, box, shrink to fit and most lines (`spacing`), and its OpenType
+ * features (`features`); how the layers
  * look (each of Style's sections); and a picked frame's fills (`background`), its size and place
  * (`frame-position`), and the ⋯ with its actions (`frame-more`).
  */
@@ -48,6 +49,7 @@ export type Control =
   | 'list'
   | 'case'
   | 'spacing'
+  | 'features'
   | StyleSectionId
   | 'background'
   | 'frame-position'
@@ -68,6 +70,7 @@ export type LayerSectionId =
   | 'font'
   | 'paragraph'
   | 'spacing'
+  | 'features'
   | StyleSectionId
 /** A section of the picked frame's switcher tabs, by its id. */
 export type FrameSectionId = 'background' | 'frame-position'
@@ -115,13 +118,14 @@ export const ONLY_ACTS: ReadonlySet<Control> = new Set([
 
 /** Style's sections, in the order they show: a mask's settings first. */
 const STYLE_SECTIONS: readonly StyleSectionId[] = ['mask', 'colour', 'corners', 'outline', 'transparency', 'effects']
-/** The Text switcher tab of one or several texts: its Font, Paragraph and Spacing sections. */
+/** The Text switcher tab of one or several texts: its Font, Paragraph, Spacing and Font features sections. */
 const TEXT_TAB: SwitcherTab = {
   id: 'text',
   sections: [
     { id: 'font', controls: ['font', 'size', 'text-style'] },
     { id: 'paragraph', controls: ['align', 'list', 'case'] },
     { id: 'spacing', controls: ['spacing'] },
+    { id: 'features', controls: ['features'] },
   ],
 }
 /** The Text switcher tab of mixed layers with a text among them: only the font. */

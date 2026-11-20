@@ -17,6 +17,10 @@ From https://github.com/storytold/figcraft at commit `be991533b0cc1891447d8ea481
 - `packages/doc/src/agent/tree.ts`: a frame's layers as an outline of ids, names, types, whether each shows and its text cut at 120 characters, with the props asked for, after `InspectOptions` and `text_props` in `crates/engine/src/automation/inspect.rs`, and long lists of layers cut to a size budget by bisection, after `children_window` in `crates/mcp/src/tools.rs`.
 - `packages/export/src/agent-render.ts`: a frame drawn for an agent at the scale that fits its longer side to 1600 pixels by default, from 16 to 8192, and never past 2, after `screenshot` in `crates/mcp/src/tools.rs` and `screenshot_png` in `crates/mcp/src/headless.rs`.
 - `packages/svg/src/patterns.ts`: a pattern of one picture read as an image paint, fill, fit or cropped where one copy shows and tiled at a scale where it repeats, ported from `pattern` and `lone_image` in `crates/svg/src/import/paint.rs`.
+- `packages/schema/src/typography.ts`: letter spacing in pixels or as a percentage of the font size, and what makes a feature tag, ported from `LetterSpacing`, its `resolve` and `valid_feature_tag` in `crates/doc/src/text.rs`.
+- `apps/web/lib/editor/font-features.ts`: the OpenType features the Text tab offers, each with whether fonts turn it on by default, from `FEATURES` in `crates/ui-egui/src/panels/typography.rs`.
+- `packages/renderer/src/text/small-caps.ts`: small caps made up from capitals at 72% of the size where a font has none, ported from `shape_segment` and `SMALL_CAP_SCALE` in `crates/text/src/layout.rs`.
+- `apps/web/lib/editor/letter-spacing.ts`: letter spacing typed as `2%` or `1.5px`, a bare value keeping its unit, after `parse_letter_spacing` in `crates/ui-egui/src/panels/typography/spacing.rs`.
 
 ```text
 MIT License

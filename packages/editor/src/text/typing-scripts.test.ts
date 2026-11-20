@@ -120,6 +120,18 @@ describe('Left and Right', () => {
     expect(textNow()).toBe('Yخصم Ab كلX')
   })
 
+  it('take the caret to the edge of a selected Latin word in Arabic the arrow points to', async () => {
+    const { press, textNow } = await typingIn('خصم Ab كل')
+    const selectAb = () => editor?.modules.typing.selectText({ start: 4, end: 6 })
+    selectAb()
+    press('ArrowLeft', 'X')
+    expect(textNow()).toBe('خصم XAb كل')
+    press('Backspace')
+    selectAb()
+    press('ArrowRight', 'Y')
+    expect(textNow()).toBe('خصم AbY كل')
+  })
+
   it('step through a Latin word in Arabic right to left with Left, and left to right with Right', async () => {
     const { press, textNow } = await typingIn('خصم Nike')
     // Over خصم and the space, then back over the e and the k.

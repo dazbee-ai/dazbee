@@ -137,6 +137,29 @@ export function visualStep(
   return placed(entered, onward.block)
 }
 
+/**
+ * Where the Left or Right arrow puts the caret from a selected range: at the range's left or right
+ * edge on screen, beside the selected grapheme there. Null for a range over more than one line,
+ * where it goes to an end in reading order.
+ */
+export function rangeEdge(
+  ck: CanvasKit,
+  laid: TextLayout,
+  start: number,
+  end: number,
+  right: boolean,
+): CaretPlace | null {
+  const block = blockOf(laid, start)
+  if (!block || start < block.start || end > block.end) return null
+  const inside = boxesOf(ck, block).filter((b) => b.start >= start - block.start && b.end <= end - block.start)
+  const [first] = inside
+  if (!first || inside.some((b) => b.line !== first.line)) return null
+  const edge = inside.reduce((best, b) => ((right ? b.x + b.width > best.x + best.width : b.x < best.x) ? b : best))
+  // Its edge on that side: the start of a grapheme read left to right is its left edge.
+  const atStart = edge.rtl === right
+  return { offset: block.start + (atStart ? edge.start : edge.end), after: atStart }
+}
+
 /** The boxes that highlight a text range, in the layout's own coordinates: one per run of one direction on one line. */
 export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, end: number): SelectionBox[] {
   return laid.blocks.flatMap((b) => {

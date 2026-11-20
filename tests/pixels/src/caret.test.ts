@@ -9,6 +9,7 @@ import {
   caretPosition,
   layoutText,
   makeResources,
+  rangeEdge,
   selectionBoxes,
   type TextLayout,
   visualStep,
@@ -358,6 +359,28 @@ describe('the arrow keys in text cut off by its line limit', () => {
     const laid = layoutText(ck, props, resources)
     expect(visualStep(ck, laid, { offset: text.length, after: false }, false)).toBeNull()
     expect(visualStep(ck, laid, { offset: 12, after: false }, true)).toBeNull()
+    laid.delete()
+  })
+})
+
+describe('the arrow keys from a selected range', () => {
+  it('put the caret at the range’s edge on screen the arrow points to, beside the grapheme there', () => {
+    // "خصم Ab كل" reads from the right; "Ab" (4–6) reads left to right inside it.
+    const text = 'خصم Ab كل'
+    const laid = laidArabic(text)
+    for (const [start, end] of [
+      [4, 6],
+      [0, text.length],
+      [7, 9],
+    ] as const) {
+      const boxes = selectionBoxes(ck, laid, start, end)
+      const left = rangeEdge(ck, laid, start, end, false)
+      const right = rangeEdge(ck, laid, start, end, true)
+      if (!left || !right) throw new Error('no edge')
+      expect(xOf(laid, left)).toBeCloseTo(Math.min(...boxes.map((b) => b.x)), 1)
+      expect(xOf(laid, right)).toBeCloseTo(Math.max(...boxes.map((b) => b.x + b.width)), 1)
+      expect([left.offset, right.offset].toSorted((a, b) => a - b)).toEqual([start, end])
+    }
     laid.delete()
   })
 })

@@ -11,7 +11,7 @@ import {
   type Session,
   type TextAnchor,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, selectionBoxes, visualStep } from '@dazbee/renderer'
+import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
 import type { Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
@@ -444,17 +444,14 @@ export function editorTyping({
       return onScreen ?? { offset: step(text, caret, right), after: false }
     }
     /**
-     * The end of the selected range an arrow points to: by where each end is drawn, on one line;
-     * else, or while the text drawn is not yet the text typed, in reading order.
+     * Where an arrow puts the caret from the selected range: its edge on screen the arrow points
+     * to, on one line; else, or while the text drawn is not yet the text typed, its end in reading order.
      */
     const rangeEnd = (right: boolean) => {
       const drawn = editingText()
+      const edge = drawn?.layer.props.text === text ? rangeEdge(ck, drawn.laid, range.start, range.end, right) : null
       const forward = right !== (drawn?.laid.rtl ?? false)
-      if (drawn?.layer.props.text !== text) return forward ? range.end : range.start
-      const start = caretPosition(ck, drawn.laid, range.start)
-      const end = caretPosition(ck, drawn.laid, range.end)
-      if (Math.abs(start.y - end.y) > 0.5 || Math.abs(start.x - end.x) < 0.01) return forward ? range.end : range.start
-      return end.x > start.x === right ? range.end : range.start
+      return edge ?? { offset: forward ? range.end : range.start, after: false }
     }
     /** The caret's offset on the line above or below, or at the start or end of its line. */
     const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
@@ -474,8 +471,10 @@ export function editorTyping({
       // a range and no Shift, a character step goes to its end the arrow points to, and a word step
       // from the caret.
       const right = e.key === 'ArrowRight'
-      if (selected && !e.shiftKey && !byWord) caretTo(rangeEnd(right))
-      else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
+      if (selected && !e.shiftKey && !byWord) {
+        const to = rangeEnd(right)
+        caretTo(to.offset, false, to.after)
+      } else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
       else {
         const to = arrowStep(right)
         caretTo(to.offset, e.shiftKey, to.after)

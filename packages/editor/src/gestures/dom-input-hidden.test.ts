@@ -26,6 +26,7 @@ it('tells the editor when the page is hidden, and not when it shows again', () =
       pointer: () => ({ handled: false, hold: false }),
       key: () => ({ handled: false }),
       text: () => false,
+      deleteBackward: () => false,
       cancelOnEscape: () => false,
       blur: () => {},
       hidden: () => told.push('hidden'),

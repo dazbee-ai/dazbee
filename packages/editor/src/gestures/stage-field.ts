@@ -1,15 +1,15 @@
 // The stage field: a text area the page keeps beside the stage's overlay while a text is edited,
 // with the focus in it, so that what the system types with no key reaches the text: the emoji
-// keyboard's pick, dictation, and an input method's committed text. It holds no text of its own
-// but while an input method composes, when it shows what is composed at the caret. The keys typed
-// in it are the stage's (`isStageField`).
+// keyboard's pick, dictation, an input method's committed text, and its Backspace, which deletes
+// back as the key does. It holds no text of its own but while an input method composes, when it
+// shows what is composed at the caret. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 
 export interface StageFieldDeps {
   /** The stage's overlay: the field goes after it in the page, and stands at the caret it draws. */
   overlay: HTMLElement
-  input: Pick<EditorInput, 'text'>
+  input: Pick<EditorInput, 'text' | 'deleteBackward'>
   /** Whether a text is being edited now. */
   editing: () => boolean
   /** Adds a listener told when the text being edited, or its caret or range, changes. */
@@ -141,7 +141,10 @@ export function editorStageField({
       if (COMPOSING_INPUTS.has(e.inputType)) return
       // Nothing else goes into the field: text with no key is typed into the text being edited.
       e.preventDefault()
-      if (e.inputType === 'insertText' && !composing && e.data) input.text(e.data)
+      if (composing) return
+      if (e.inputType === 'insertText' && e.data) input.text(e.data)
+      // Backspace with no key the editor took: an input method's, or a phone keyboard's.
+      if (e.inputType === 'deleteContentBackward') input.deleteBackward()
     },
     on,
   )

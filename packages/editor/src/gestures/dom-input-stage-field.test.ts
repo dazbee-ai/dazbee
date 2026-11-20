@@ -65,6 +65,7 @@ describe('a key while an input method composes', () => {
           return { handled }
         },
         text: () => false,
+        deleteBackward: () => false,
         cancelOnEscape: () => false,
         blur: () => {},
         hidden: () => {},

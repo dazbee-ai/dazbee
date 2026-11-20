@@ -11,7 +11,7 @@ import {
   type Session,
   type TextAnchor,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, selectionBoxes } from '@dazbee/renderer'
+import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
 import type { Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
@@ -24,7 +24,7 @@ import { paragraphsOf } from '../pasted-text.ts'
 import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
-import { oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
+import { backspaceStep, oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
@@ -125,6 +125,12 @@ export interface EditorTyping {
    * the selected range, as a paste of it; false while no text is edited.
    */
   insert(text: string): boolean
+  /**
+   * Deletes back from the caret as Backspace does, or the selected range, for a delete that came
+   * with no key (an input method's, a phone keyboard's); false while no text is edited, or with
+   * nothing before the caret.
+   */
+  deleteBackward(): boolean
   /** The selected range of the text being edited, or else its caret; null when none is edited or it is not drawn. */
   shown(): ShownText | null
 }
@@ -136,6 +142,11 @@ export interface EditorTyping {
 interface Editing extends Picked {
   caret: TextAnchor
   anchor: TextAnchor
+  /**
+   * Whether the caret is drawn beside the grapheme after it: where an arrow left it at a place in
+   * text of two directions that belongs to that grapheme.
+   */
+  drawnAfter: boolean
   /** Ends the typing step open now; null after a pause, until the next write opens one. */
   endGesture: (() => void) | null
   created: boolean
@@ -236,7 +247,7 @@ export function editorTyping({
       }
     }
     if (offset === null || offset === undefined) return null
-    const at = caretPosition(ck, text.laid, offset)
+    const at = caretPosition(ck, text.laid, offset, editing?.drawnAfter)
     const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
     return { frame: text.frame, range: [], caret: { x, y, height } }
   }
@@ -250,7 +261,7 @@ export function editorTyping({
     created = false,
   ) {
     const at = store.textAnchor(id, offset)
-    editing = { id, frameId: frame, caret: at, anchor: at, endGesture, created }
+    editing = { id, frameId: frame, caret: at, anchor: at, drawnAfter: false, endGesture, created }
     textSelectionChanged()
     // Another tab typing in the same text: the version finished last is kept (C47).
     const [other] = typingIn(id)
@@ -296,10 +307,14 @@ export function editorTyping({
   function stopWhenGone() {
     if (editing && !pickedLayer(editing)) stopEditing()
   }
-  /** Puts the caret at an offset; with `extend`, the other end of the range stays where it is. */
-  function caretTo(offset: number, extend = false) {
+  /**
+   * Puts the caret at an offset; with `extend`, the other end of the range stays where it is. With
+   * `drawnAfter`, it is drawn beside the grapheme after it.
+   */
+  function caretTo(offset: number, extend = false, drawnAfter = false) {
     if (!editing) return
     editing.caret = store.textAnchor(editing.id, offset)
+    editing.drawnAfter = drawnAfter
     if (!extend) editing.anchor = editing.caret
     textSelectionChanged()
   }
@@ -308,6 +323,7 @@ export function editorTyping({
     if (!editing) return
     editing.anchor = store.textAnchor(editing.id, range.start)
     editing.caret = store.textAnchor(editing.id, range.end)
+    editing.drawnAfter = false
     textSelectionChanged()
   }
   /**
@@ -357,6 +373,34 @@ export function editorTyping({
     return true
   }
 
+  /**
+   * Deletes the selected range, or else back from the caret: a letter's trailing vowel sign or mark
+   * alone, as Indic keyboards take it back (`backspaceStep`), or a word with `byWord`. Writes only;
+   * whether it deleted anything.
+   */
+  function deleteBack(byWord: boolean) {
+    const node = editing && session.design().nodes[editing.id]
+    const range = textRange()
+    if (!editing || node?.type !== 'text' || !range) return false
+    const { id } = editing
+    const text = node.props.text
+    const end = Math.min(range.end, text.length)
+    const caret = Math.min(range.start, text.length)
+    const start = end > caret ? caret : byWord ? wordStep(text, caret, false) : backspaceStep(text, caret)
+    if (start === end) return false
+    const ok = write(() => session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } }))
+    if (ok) caretTo(start)
+    return ok
+  }
+  /** Deletes back as Backspace does, for a delete that came with no key, and fits and shows the text. */
+  function deleteBackward() {
+    const id = editing?.id
+    if (id === undefined || !deleteBack(false)) return false
+    fitText(id)
+    shownChanged()
+    return true
+  }
+
   /** A key while typing: everything but copy, cut and paste, which come as their own events. */
   function onKey(e: KeyInput) {
     if (!editing) return false
@@ -370,12 +414,10 @@ export function editorTyping({
     const range = textRange() ?? { start: 0, end: 0 }
     const caret = Math.min(store.anchorOffset(editing.caret) ?? 0, text.length)
     const selected = range.end > range.start
-    const { id } = editing
+    const { id, drawnAfter } = editing
     const key = e.key.toLowerCase()
     // Ctrl, or Alt as on a Mac, moves and deletes a word at a time.
     const byWord = e.ctrlKey || e.altKey
-    /** The offset a character on from the caret or back, or with `byWord` a word. */
-    const stepped = (forward: boolean) => (byWord ? wordStep : step)(text, caret, forward)
     /** Replaces the selected range with text, or with nothing; the caret ends after what went in. */
     const replace = (inserted: string) => {
       const ok = write(() => {
@@ -388,11 +430,34 @@ export function editorTyping({
       if (ok) caretTo(range.start + inserted.length)
       return ok
     }
+    /**
+     * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
+     * text; in reading order on a line all left to right, or while the text drawn is not yet the
+     * text typed.
+     */
+    const arrowStep = (right: boolean) => {
+      const drawn = editingText()
+      const onScreen =
+        drawn?.layer.props.text === text
+          ? visualStep(ck, drawn.laid, { offset: caret, after: drawnAfter }, right)
+          : null
+      return onScreen ?? { offset: step(text, caret, right), after: false }
+    }
+    /**
+     * Where an arrow puts the caret from the selected range: its edge on screen the arrow points
+     * to, on one line; else, or while the text drawn is not yet the text typed, its end in reading order.
+     */
+    const rangeEnd = (right: boolean) => {
+      const drawn = editingText()
+      const edge = drawn?.layer.props.text === text ? rangeEdge(ck, drawn.laid, range.start, range.end, right) : null
+      const forward = right !== (drawn?.laid.rtl ?? false)
+      return edge ?? { offset: forward ? range.end : range.start, after: false }
+    }
     /** The caret's offset on the line above or below, or at the start or end of its line. */
     const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
       const laid = editingText()
       if (!laid) return caret
-      const at = caretPosition(ck, laid.laid, caret)
+      const at = caretPosition(ck, laid.laid, caret, drawnAfter)
       if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
       const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
       if (y < 0) return 0
@@ -402,24 +467,33 @@ export function editorTyping({
     if (e.key === 'Escape') {
       stopEditing()
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      // Logical order: right-to-left text moves the other way on screen, as most editors do. With
-      // a range and no Shift, a character step goes to its near end, and a word step from the caret.
-      const forward = e.key === 'ArrowRight'
-      if (selected && !e.shiftKey && !byWord) caretTo(forward ? range.end : range.start)
-      else caretTo(stepped(forward), e.shiftKey)
+      // A character step goes the way the arrow points on screen, a word step in reading order. With
+      // a range and no Shift, a character step goes to its end the arrow points to, and a word step
+      // from the caret.
+      const right = e.key === 'ArrowRight'
+      if (selected && !e.shiftKey && !byWord) {
+        const to = rangeEnd(right)
+        caretTo(to.offset, false, to.after)
+      } else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
+      else {
+        const to = arrowStep(right)
+        caretTo(to.offset, e.shiftKey, to.after)
+      }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
       caretTo(lineMove(({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]), e.shiftKey)
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {
-      const from = stepped(false)
-      if (selected) replace('')
-      else if (write(() => session.run('text.edit', { id, op: { kind: 'delete', at: from, length: caret - from } })))
-        caretTo(from)
+      deleteBack(byWord)
     } else if (e.key === 'Delete' && (selected || caret < text.length)) {
       if (selected) replace('')
       else
-        write(() => session.run('text.edit', { id, op: { kind: 'delete', at: caret, length: stepped(true) - caret } }))
+        write(() =>
+          session.run('text.edit', {
+            id,
+            op: { kind: 'delete', at: caret, length: (byWord ? wordStep : step)(text, caret, true) - caret },
+          }),
+        )
     } else if (e.key === 'Enter') {
       replace('\n')
     } else if (oneGrapheme(e.key) && !mod) {
@@ -495,6 +569,7 @@ export function editorTyping({
     cut,
     paste,
     insert: (text: string) => paste({ text }),
+    deleteBackward,
     shown,
   }
 }

@@ -297,6 +297,11 @@ export interface EditorInput {
    */
   text(text: string): boolean
   /**
+   * Deletes back from the caret as Backspace does, for a delete that came with no key (an input
+   * method's, a phone keyboard's); false while no text is edited, or with nothing before the caret.
+   */
+  deleteBackward(): boolean
+  /**
    * Escape while a colour is picked ends picking, and while a drag is held drops it. Returns whether
    * there was either, whose key it then is and nothing else's.
    */

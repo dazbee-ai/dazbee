@@ -4,7 +4,7 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { openSession } from '@dazbee/doc'
 import { openTestStore } from '@dazbee/doc/test-store'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { caretPosition, makeResources, type Scene, selectionBoxes } from '@dazbee/renderer'
+import { caretPosition, makeResources, type Scene, selectionBoxes, type TextLayout } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type DesignInput, parseDesign } from '@dazbee/schema'
 
@@ -76,9 +76,8 @@ function harness() {
         width: (props.text.length * props.style.fontSize) / 2,
         height: props.style.fontSize * 1.2,
       }),
-      layout: () => {
-        throw new Error('nothing is laid out in these tests')
-      },
+      // No paragraphs: the arrows step in reading order, and nothing else here reads the layout.
+      layout: () => ({ blocks: [] }) as unknown as TextLayout,
     },
     // Nothing is laid out in these tests, so no box holds a layer in a flow.
     boxes: { drawnHolders: () => undefined },

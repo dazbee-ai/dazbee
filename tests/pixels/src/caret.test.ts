@@ -3,7 +3,17 @@ import { afterAll, describe, expect, it } from 'vitest'
 import type { Paragraph } from '@dazbee/canvaskit'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { caretAt, caretPosition, layoutText, makeResources, selectionBoxes, type TextLayout } from '@dazbee/renderer'
+import {
+  caretAt,
+  type CaretPlace,
+  caretPosition,
+  layoutText,
+  makeResources,
+  rangeEdge,
+  selectionBoxes,
+  type TextLayout,
+  visualStep,
+} from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { TextProps } from '@dazbee/schema'
 
@@ -179,5 +189,198 @@ describe('caret on wrapped text', () => {
     if (!first || !last) throw new Error('no lines')
     expect(caretAt(ck, laid, 5, -100)).toBe(first.startIndex)
     expect(caretAt(ck, laid, 1000, paragraph.getHeight() + 100)).toBeGreaterThanOrEqual(last.startIndex)
+  })
+})
+
+/** Every place the caret can be drawn in a text, each grapheme edge beside the grapheme before it and after it, rounded to a hundredth of a pixel. */
+function places(laid: TextLayout, text: string) {
+  const round = (n: number) => Math.round(n * 100) / 100
+  const edges = [...new Set([0, ...graphemes(text).map((g) => g.end)])]
+  return edges.flatMap((offset) =>
+    [false, true].map((after) => {
+      const at = caretPosition(ck, laid, offset, after)
+      return { offset, after, x: round(at.x), y: round(at.y) }
+    }),
+  )
+}
+
+/** The places the caret goes through, pressing an arrow from one until it stops moving. */
+function walk(laid: TextLayout, from: CaretPlace, right: boolean) {
+  const steps = [from]
+  for (let i = 0; i < 200; i++) {
+    const last = steps.at(-1) ?? from
+    const next = visualStep(ck, laid, last, right)
+    if (next === null || (next.offset === last.offset && next.after === last.after)) return steps
+    steps.push(next)
+  }
+  throw new Error('the caret never stopped')
+}
+
+const xOf = (laid: TextLayout, place: CaretPlace) => caretPosition(ck, laid, place.offset, place.after).x
+const leftmost = <T extends { x: number }>(all: T[]) => all.reduce((a, b) => (b.x < a.x ? b : a))
+const rightmost = <T extends { x: number }>(all: T[]) => all.reduce((a, b) => (b.x > a.x ? b : a))
+const laidArabic = (text: string, width?: number) =>
+  laidOut({ label: text, text, family: 'Noto Naskh Arabic', weight: 400 }, width)
+
+describe(`the arrow keys in ${MIXED.label}`, () => {
+  const laid = laidOut(MIXED)
+  afterAll(() => laid.delete())
+  const all = places(laid, MIXED.text)
+  // "احصل على حذاء Nike Air الجديد": Nike 14–18, Air 19–22; the text reads from the right.
+
+  it('Right moves the caret right on screen at every step, through the Latin words left to right, to the right end', () => {
+    const steps = walk(laid, leftmost(all), true)
+    const xs = steps.map((s) => xOf(laid, s))
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan((xs[i - 1] ?? 0) + 0.01)
+    expect(xs.at(-1)).toBeCloseTo(rightmost(all).x, 1)
+    expect(steps.map((s) => s.offset).filter((o) => o > 14 && o < 18)).toEqual([15, 16, 17])
+  })
+
+  it('Left moves the caret left on screen at every step, through the Latin words right to left, to the left end', () => {
+    const steps = walk(laid, rightmost(all), false)
+    const xs = steps.map((s) => xOf(laid, s))
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan((xs[i - 1] ?? 0) - 0.01)
+    expect(xs.at(-1)).toBeCloseTo(leftmost(all).x, 1)
+    expect(steps.map((s) => s.offset).filter((o) => o > 14 && o < 18)).toEqual([17, 16, 15])
+  })
+
+  it('stops at the line’s ends, with no line to go on to', () => {
+    for (const [end, right] of [
+      [rightmost(all), true],
+      [leftmost(all), false],
+    ] as const)
+      expect(xOf(laid, visualStep(ck, laid, end, right) ?? end)).toBeCloseTo(end.x, 1)
+  })
+
+  it('leaves a line all left to right to the step in reading order', () => {
+    const english = SAMPLES.find((s) => s.label === 'English')
+    if (!english) throw new Error('no English')
+    const plain = laidOut(english)
+    expect(visualStep(ck, plain, { offset: 3, after: false }, true)).toBeNull()
+    plain.delete()
+  })
+})
+
+describe('the arrow keys where runs of two directions meet', () => {
+  it('stop at every place between graphemes on screen, none skipped', () => {
+    for (const text of ['Sale خصم', 'ab خصم cd', 'خصم 😀 ok', MIXED.text]) {
+      const laid = laidArabic(text)
+      const all = places(laid, text)
+      const reached = [...walk(laid, leftmost(all), true), ...walk(laid, rightmost(all), false)].map((p) =>
+        xOf(laid, p),
+      )
+      for (const { x } of all)
+        expect(
+          reached.some((r) => Math.abs(r - x) < 0.02),
+          `${text} at ${x}`,
+        ).toBe(true)
+      laid.delete()
+    }
+  })
+})
+
+describe('the arrow keys at the ends of wrapped Arabic lines', () => {
+  const sample = SAMPLES.find((s) => s.label === 'Arabic body')
+  if (!sample) throw new Error('no Arabic body')
+  const laid = laidOut(sample, 260)
+  afterAll(() => laid.delete())
+  const all = places(laid, sample.text)
+  const tops = [...new Set(all.map((e) => e.y))].sort((a, b) => a - b)
+  const onLine = (top: number | undefined) => all.filter((e) => e.y === top)
+  const at = (place: CaretPlace | null) => {
+    if (!place) throw new Error('no step')
+    const drawn = caretPosition(ck, laid, place.offset, place.after)
+    return { x: Math.round(drawn.x * 100) / 100, y: Math.round(drawn.y * 100) / 100 }
+  }
+
+  it('wraps onto several lines', () => {
+    expect(tops.length).toBeGreaterThan(2)
+  })
+
+  it('Left at a line’s left end, where it ends, goes on to the next line’s right end, where it starts', () => {
+    for (let i = 0; i + 1 < tops.length; i++) {
+      const next = at(visualStep(ck, laid, leftmost(onLine(tops[i])), false))
+      expect(next).toEqual({ x: rightmost(onLine(tops[i + 1])).x, y: tops[i + 1] })
+    }
+  })
+
+  it('Right at a line’s right end, where it starts, goes back to the line before’s left end, where it ends', () => {
+    for (let i = 1; i < tops.length; i++) {
+      const before = at(visualStep(ck, laid, rightmost(onLine(tops[i])), true))
+      expect(before).toEqual({ x: leftmost(onLine(tops[i - 1])).x, y: tops[i - 1] })
+    }
+  })
+})
+
+describe('the arrow keys across paragraphs', () => {
+  it('go through an empty paragraph in Arabic, Left on to the text’s end and Right back to its start', () => {
+    // خصم 0–3, the empty paragraph at 4, اليوم 5–10.
+    const text = 'خصم\n\nاليوم'
+    const laid = laidArabic(text)
+    const left = walk(laid, { offset: 0, after: false }, false).map((p) => p.offset)
+    expect(left).toContain(4)
+    expect(left.at(-1)).toBe(text.length)
+    const right = walk(laid, { offset: text.length, after: false }, true).map((p) => p.offset)
+    expect(right).toContain(4)
+    expect(right.at(-1)).toBe(0)
+    laid.delete()
+  })
+
+  it('step on at a line’s end to the next paragraph, entering it at the end the arrow comes in from', () => {
+    // "Sale خصم" (0–8) reads left to right; the next paragraph (9–18) starts with Arabic.
+    const text = 'Sale خصم\nخصم today'
+    const laid = laidArabic(text)
+    const all = places(laid, text)
+    const first = all.filter((p) => p.offset <= 8 && !(p.offset === 8 && p.after))
+    const second = all.filter((p) => p.offset >= 9)
+    const next = visualStep(ck, laid, rightmost(first), true)
+    expect(next && next.offset >= 9).toBe(true)
+    expect(next && xOf(laid, next)).toBeCloseTo(leftmost(second).x, 1)
+    const back = visualStep(ck, laid, leftmost(second), false)
+    expect(back && back.offset <= 8).toBe(true)
+    expect(back && xOf(laid, back)).toBeCloseTo(rightmost(first).x, 1)
+    laid.delete()
+  })
+})
+
+describe('the arrow keys in text cut off by its line limit', () => {
+  it('step in reading order from an offset in text not drawn', () => {
+    const text = 'abc خصم\nhidden para'
+    const props = TextProps.parse({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      boxMode: 'autoWidth',
+      maxLines: 1,
+      text,
+      style: { fontFamily: 'Noto Naskh Arabic', fontWeight: 400, fontSize: 48, color: '#000000FF' },
+    })
+    const laid = layoutText(ck, props, resources)
+    expect(visualStep(ck, laid, { offset: text.length, after: false }, false)).toBeNull()
+    expect(visualStep(ck, laid, { offset: 12, after: false }, true)).toBeNull()
+    laid.delete()
+  })
+})
+
+describe('the arrow keys from a selected range', () => {
+  it('put the caret at the range’s edge on screen the arrow points to, beside the grapheme there', () => {
+    // "خصم Ab كل" reads from the right; "Ab" (4–6) reads left to right inside it.
+    const text = 'خصم Ab كل'
+    const laid = laidArabic(text)
+    for (const [start, end] of [
+      [4, 6],
+      [0, text.length],
+      [7, 9],
+    ] as const) {
+      const boxes = selectionBoxes(ck, laid, start, end)
+      const left = rangeEdge(ck, laid, start, end, false)
+      const right = rangeEdge(ck, laid, start, end, true)
+      if (!left || !right) throw new Error('no edge')
+      expect(xOf(laid, left)).toBeCloseTo(Math.min(...boxes.map((b) => b.x)), 1)
+      expect(xOf(laid, right)).toBeCloseTo(Math.max(...boxes.map((b) => b.x + b.width)), 1)
+      expect([left.offset, right.offset].toSorted((a, b) => a - b)).toEqual([start, end])
+    }
+    laid.delete()
   })
 })

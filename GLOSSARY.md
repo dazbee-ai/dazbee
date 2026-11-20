@@ -522,7 +522,7 @@ The editor's infinite view of one page: its frames, where they were placed. The 
 _Avoid_: Board, workspace
 
 **Stage field**:
-The hidden text area beside the canvas that holds the focus while a text is being typed in, so that what the system types with no key lands in the text: the emoji keyboard's pick, dictation, and an input method's committed text. It keeps none of it, and shows only what an input method is composing, at the caret.
+The hidden text area beside the canvas that holds the focus while a text is being typed in, so that what the system types with no key lands in the text: the emoji keyboard's pick, dictation, an input method's committed text, and a Backspace that came with no key. It keeps none of it, and shows only what an input method is composing, at the caret.
 _Avoid_: Hidden input, proxy textarea, IME field
 
 **Hidden layers shown**:

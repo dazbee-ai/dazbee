@@ -37,6 +37,10 @@ const ON: Record<StyleToggle, (style: Style) => boolean> = {
 }
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const words = new Intl.Segmenter(undefined, { granularity: 'word' })
+/** A letter of any script, Unicode's Alphabetic property, which a grapheme's trailing marks may follow. */
+const LETTER = /\p{Alphabetic}/u
+const VARIATION_SELECTOR = /\p{Variation_Selector}/u
+const ZWJ = '\u200D'
 
 /** Every offset a caret can stand at: the edges of Unicode's graphemes. */
 const graphemeEdges = (text: string) => [0, ...[...graphemes.segment(text)].map((g) => g.index + g.segment.length)]
@@ -56,6 +60,19 @@ export function isStyleToggle(action: ShortcutAction | null): action is StyleTog
 export function step(text: string, offset: number, forward: boolean): number {
   const edges = graphemeEdges(text)
   return forward ? (edges.find((x) => x > offset) ?? text.length) : (edges.findLast((x) => x < offset) ?? 0)
+}
+
+/**
+ * Where Backspace at an offset deletes back to: a letter's trailing mark alone (a Devanagari vowel
+ * sign or virama, a Thai tone mark, an accent typed after its letter), so कि becomes क as Indic
+ * keyboards expect; any other grapheme whole, so emoji, flags, keycaps and Hangul syllables go at once.
+ */
+export function backspaceStep(text: string, offset: number): number {
+  const start = step(text, offset, false)
+  const chars = [...text.slice(start, offset)]
+  const last = chars.at(-1)
+  const letter = chars.length > 1 && LETTER.test(chars[0] ?? '')
+  return letter && last !== undefined && isTrailingMark(last) ? offset - last.length : start
 }
 
 /**
@@ -129,4 +146,13 @@ export function styleWrite(toggle: StyleToggle, on: boolean, weights: readonly n
     case 'strikethrough':
       return { strikethrough: on }
   }
+}
+
+/**
+ * Whether a character joins the grapheme of a letter before it as a mark (Extend or SpacingMark).
+ * The zero-width joiner joins, and a variation selector picks how the letter before it is drawn,
+ * an emoji's look too: neither is a mark.
+ */
+function isTrailingMark(char: string): boolean {
+  return char !== ZWJ && !VARIATION_SELECTOR.test(char) && oneGrapheme(`a${char}`)
 }

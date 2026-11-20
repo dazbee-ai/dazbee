@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { TOOLS } from './endpoint.ts'
-import { SESSION_IDLE_MS } from './limits.ts'
+import { MAX_SESSIONS, MAX_SESSIONS_PER_ACCESS, SESSION_IDLE_MS } from './limits.ts'
 import { BASE_URL, type TestServer, testServer } from './test-client.ts'
 
 const POINTER = `Bearer resource_metadata="${BASE_URL}/.well-known/oauth-protected-resource/mcp"`
@@ -18,6 +18,23 @@ let server: TestServer
 afterEach(async () => {
   await server.endpoint.close()
 })
+
+/** A `tools/call` of list_designs with the JSON-RPC id `id`. */
+function listDesigns(id: number) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    method: 'tools/call',
+    params: { name: 'list_designs', arguments: { brand: 'brand-summer' } },
+  }
+}
+
+/** Starts a session with `token` without the SDK's client, giving its id. */
+async function initialize(token: string): Promise<string> {
+  const response = await server.fetch(post(INITIALIZE, token))
+  expect(response.status).toBe(200)
+  return response.headers.get('mcp-session-id') ?? ''
+}
 
 /** A POST to `/mcp` with `token`, and the session id when given. */
 function post(body: unknown, token?: string, sessionId?: string): Request {
@@ -189,5 +206,80 @@ describe('mcpEndpoint', () => {
     await transport.terminateSession()
     const call = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }
     expect((await server.fetch(post(call, agent.token, sessionId))).status).toBe(404)
+  })
+
+  it('refuses a token that is not an agent access token without asking the API', async () => {
+    server = testServer()
+    for (const token of ['not-a-token', 'dazbee_rt_refresh', 'session.jwt.token']) {
+      const response = await server.fetch(post(INITIALIZE, token))
+      expect(response.status).toBe(401)
+      expect(response.headers.get('www-authenticate')).toBe(POINTER)
+    }
+    expect(server.api.requests()).toBe(0)
+  })
+
+  it('answers 503 with a JSON-RPC error when the API can’t be reached', async () => {
+    server = testServer()
+    const token = server.api.grant().token()
+    server.api.goDown()
+    const response = await server.fetch(post(INITIALIZE, token))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ jsonrpc: '2.0', error: { code: -32000 } })
+  })
+
+  it('refuses a JSON-RPC batch (400) without running any of it', async () => {
+    server = testServer()
+    const token = server.api.grant().token()
+    const sessionId = await initialize(token)
+    const before = server.api.requests()
+    const batch = [listDesigns(2), listDesigns(3), listDesigns(4)]
+    expect((await server.fetch(post(batch, token, sessionId))).status).toBe(400)
+    // Only the token's check reached the API.
+    expect(server.api.requests()).toBe(before + 1)
+  })
+
+  it('answers 404 to a call still running when its session ends, rather than never', async () => {
+    server = testServer()
+    const access = server.api.grant()
+    const token = access.token()
+    const sessionId = await initialize(token)
+    const release = server.api.hold()
+    const running = server.fetch(post(listDesigns(2), token, sessionId))
+    for (let i = 0; i < MAX_SESSIONS_PER_ACCESS; i++) await initialize(access.token())
+    expect((await running).status).toBe(404)
+    release()
+  })
+
+  it('refuses a request whose id the session is still answering (409)', async () => {
+    server = testServer()
+    const token = server.api.grant().token()
+    const sessionId = await initialize(token)
+    const release = server.api.hold()
+    const first = server.fetch(post(listDesigns(7), token, sessionId))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect((await server.fetch(post(listDesigns(7), token, sessionId))).status).toBe(409)
+    release()
+    expect((await first).status).toBe(200)
+    expect((await server.fetch(post(listDesigns(7), token, sessionId))).status).toBe(200)
+  })
+
+  it('answers 503 to a request that takes past its time', async () => {
+    server = testServer({ callTimeoutMs: 50 })
+    const token = server.api.grant().token()
+    const sessionId = await initialize(token)
+    const release = server.api.hold()
+    const response = await server.fetch(post(listDesigns(2), token, sessionId))
+    expect(response.status).toBe(503)
+    release()
+  })
+
+  it('refuses a new session as busy once the server holds its most', async () => {
+    server = testServer()
+    for (let i = 0; i < MAX_SESSIONS / MAX_SESSIONS_PER_ACCESS; i++) {
+      const access = server.api.grant()
+      for (let j = 0; j < MAX_SESSIONS_PER_ACCESS; j++) await initialize(access.token())
+    }
+    const response = await server.fetch(post(INITIALIZE, server.api.grant().token()))
+    expect(response.status).toBe(503)
   })
 })

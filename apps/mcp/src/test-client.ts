@@ -32,8 +32,8 @@ export interface TestServer {
 
 export const BASE_URL = 'https://app.test'
 
-/** The endpoint over a fake API, with a clock the test moves. */
-export function testServer(): TestServer {
+/** The endpoint over a fake API, with a clock the test moves, and the request timeout when given. */
+export function testServer({ callTimeoutMs }: { callTimeoutMs?: number } = {}): TestServer {
   const api = testApi()
   let time = Date.UTC(2026, 10, 21)
   const endpoint = mcpEndpoint({
@@ -41,6 +41,7 @@ export function testServer(): TestServer {
     baseUrl: BASE_URL,
     version: 'test',
     now: () => time,
+    ...(callTimeoutMs === undefined ? {} : { callTimeoutMs }),
   })
   const fetch = async (request: Request) => endpoint.app.fetch(request)
 

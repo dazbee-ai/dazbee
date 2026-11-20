@@ -29,6 +29,12 @@ export interface TestApi {
   refuseAfterMe(token: string): void
   /** The brand's designs as the fake API holds them. */
   designsOf(brandId: string): DesignSummary[]
+  /** Holds every answer past `GET /agent/me` until the function it gives is called. */
+  hold(): () => void
+  /** Answers every request 503 from now on, as an API that is down. */
+  goDown(): void
+  /** How many requests the fake API has been sent. */
+  requests(): number
 }
 
 export const TEST_WORKSPACE = 'ws-test'
@@ -90,10 +96,16 @@ export function testApi(): TestApi {
   // The designs, which `POST …/designs` adds to.
   const designs = TEST_DESIGNS.map((design) => ({ ...design }))
   let made = 0
+  // What answers wait for while the tests hold them; whether the API is down; the requests it was sent.
+  let held: Promise<void> | null = null
+  let down = false
+  let requests = 0
 
   const app = new Hono<{ Variables: { agent: AgentMe } }>()
 
   app.use('*', async (c, next) => {
+    requests++
+    if (down) return c.json({ error: 'Unavailable' }, 503)
     const token = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')?.[1] ?? ''
     const agent = tokens.get(token)
     if (!agent || (afterMe.has(token) && c.req.path !== '/agent/me')) return c.json({ error: 'Sign in first' }, 401)
@@ -102,6 +114,11 @@ export function testApi(): TestApi {
   })
 
   app.get('/agent/me', (c) => c.json(c.var.agent))
+
+  app.use('/workspaces/*', async (_c, next) => {
+    await held
+    await next()
+  })
 
   app.use('/workspaces/:workspaceId/*', async (c, next) => {
     if (c.req.param('workspaceId') !== c.var.agent.workspaceId) return c.json({ error: 'No such workspace' }, 404)
@@ -153,6 +170,18 @@ export function testApi(): TestApi {
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),
     designsOf: (brandId) => designs.filter((design) => design.brandId === brandId),
+    hold,
+    goDown: () => void (down = true),
+    requests: () => requests,
+  }
+
+  function hold(): () => void {
+    let release = () => {}
+    held = new Promise((resolve) => (release = resolve))
+    return () => {
+      held = null
+      release()
+    }
   }
 
   function grant({ brandIds, writes = true }: TestAccessOptions = {}): TestAccess {

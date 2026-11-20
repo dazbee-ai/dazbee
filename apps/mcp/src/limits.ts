@@ -14,3 +14,9 @@ export const SESSION_IDLE_MS = 30 * 60 * 1000
 
 /** The most sessions an agent access holds at once; a new one ends the oldest. */
 export const MAX_SESSIONS_PER_ACCESS = 4
+
+/** The most sessions held at once, of all accesses; past it, a new one is refused as busy. */
+export const MAX_SESSIONS = 200
+
+/** How long a request may take before it is answered 503, so no client waits on a call that never ends. */
+export const CALL_TIMEOUT_MS = 60_000

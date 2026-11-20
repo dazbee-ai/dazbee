@@ -7,16 +7,20 @@ Needs Node 22.18 or later (CI, docker compose and the production images run Node
 ```sh
 pnpm install
 pnpm dev --filter @dazbee/web   # http://localhost:3000
+pnpm dev --filter @dazbee/mcp   # the MCP server: http://localhost:3100/mcp
 pnpm lint        # dependency direction + ESLint
 pnpm typecheck
 pnpm test        # Vitest
 ```
+
+The MCP server runs on the host beside the web app and reaches the API and the sync server at their local ports (`API_URL`, `SYNC_URL` and `PUBLIC_URL` change them). Start the web app with `MCP_DEV_URL=http://localhost:3100` and it passes `/mcp`, `/oauth/*` and `/.well-known/oauth-*` on to the MCP server, so an agent connects to `http://localhost:3000/mcp`, one address for both, as Caddy serves them in production.
 
 ## Layout
 
 ```
 apps/web/             Next.js app: sign-in, brands, designs, brand kit, asset library, font catalog, templates, settings and the editor's UI
 apps/api/             Hono API: workspace records, uploads, sign-in, sync tokens and server renders; runs the migrations (ADR-0009, ADR-0012)
+apps/mcp/             the MCP server agents connect to: OAuth sign-in, agent tabs and their tools (ADR-0019)
 apps/sync/            the sync server: holds each open design, orders its changes and stores its saves and journal (ADR-0015)
 apps/landing/         the marketing site at dazbee.com, with its privacy and terms pages: a static Vite page, uploaded to Cloudflare Pages by hand
 packages/schema/      the zod contract for the design document and the API (ADR-0002)

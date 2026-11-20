@@ -9,7 +9,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { and, desc, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
 
 import { agentAccesses, agentTokens, type Db, memberships, newId, type Tx } from '@dazbee/db'
-import type { AgentAccessSummary } from '@dazbee/schema'
+import { ACCESS_TOKEN_PREFIX, type AgentAccessSummary } from '@dazbee/schema'
 
 /** An access as a request of its agent is held to. */
 export interface AgentAccess {
@@ -44,8 +44,6 @@ export interface AccessMember {
   userId: string
 }
 
-/** What every access token starts with. */
-export const ACCESS_TOKEN_PREFIX = 'dazbee_at_'
 /** What every refresh token starts with. */
 export const REFRESH_TOKEN_PREFIX = 'dazbee_rt_'
 export const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000

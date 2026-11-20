@@ -1,0 +1,27 @@
+{
+  "name": "@dazbee/mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dazbee/doc": "workspace:*",
+    "@dazbee/schema": "workspace:*",
+    "@hono/node-server": "^2.1.5",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "hono": "^4.13.16",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dazbee/config": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

@@ -318,11 +318,16 @@ describe('editorLayerEdits', () => {
       expect(props('wide-dot')).toMatchObject({ y: 160 })
     })
 
-    it("unbinds a fill set by hand from the brand's colour, and fits text whose words change size", () => {
+    it("unbinds a fill set by hand from the brand's colour in one undo step, and fits text whose words change size", () => {
       const { edits, session, log } = harness()
       edits.setProps(['box'], () => ({ fills: [{ type: 'solid', color: '#00FF00FF' }] }))
       expect(session.design().nodes.box?.bindings?.fill).toBeUndefined()
       expect(session.design().nodes['wide-box']?.bindings?.fill).toBe('brand:primary')
+      session.undo()
+      expect(session.design().nodes.box).toMatchObject({
+        props: { fills: [{ color: '#FF0000FF' }] },
+        bindings: { fill: 'brand:primary' },
+      })
       edits.setProps(['words'], () => ({ style: { ...STYLE, fontSize: 30 } }))
       expect(log).toEqual(['fit words'])
     })
@@ -511,6 +516,18 @@ describe('editorLayerEdits', () => {
       await setting
       expect(props('words')).toMatchObject({ style: { fontFamily: 'Noto Sans' } })
       expect(log).toEqual(['load Inter'])
+    })
+
+    it('ends a font binding, in one undo step that brings the font and the binding back', async () => {
+      const { edits, selection, session, props } = harness()
+      session.run('node.bind', { ids: ['words'], property: 'fontFamily', ref: 'brand:heading', value: 'Noto Sans' })
+      selection.select(['words'], 'sq')
+      await edits.setFont('Inter')
+      expect(props('words')).toMatchObject({ style: { fontFamily: 'Inter' } })
+      expect(session.design().nodes.words?.bindings).toBeUndefined()
+      session.undo()
+      expect(props('words')).toMatchObject({ style: { fontFamily: 'Noto Sans' } })
+      expect(session.design().nodes.words?.bindings).toEqual({ fontFamily: 'brand:heading' })
     })
   })
 })

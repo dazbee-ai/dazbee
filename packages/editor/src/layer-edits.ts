@@ -3,15 +3,7 @@
 // place in the layer tree. Each change stays on the layers given; their linked copies in other
 // frames keep their own values.
 import { type Axis, descendants, placedByFlow, type Session, type Sizing, sizingOf } from '@dazbee/doc'
-import {
-  BINDABLE_PROPERTIES,
-  BindableProperty,
-  bindablePropertyOf,
-  type Design,
-  frameIdOf,
-  isContainer,
-  LOCK_FLAGS,
-} from '@dazbee/schema'
+import { type Design, frameIdOf, isContainer, LOCK_FLAGS } from '@dazbee/schema'
 
 import type { EditorBoxes } from './layers/boxes.ts'
 import { setHidden } from './layers/delete-hide.ts'
@@ -169,14 +161,6 @@ export function editorLayerEdits({
         // The containers around them, as drawn before any goes: a laid-out box left with nothing in its flow keeps its size.
         const holders = going.length > 0 ? boxes.drawnHolders(going) : undefined
         for (const [id, patch] of writes) {
-          const node = session.design().nodes[id]
-          const at = placedProps(id)
-          // A bound property whose value the patch changes no longer follows the brand.
-          const unbind = BindableProperty.options.filter((property) => {
-            const { prop, read } = BINDABLE_PROPERTIES[property]
-            return node?.bindings?.[property] && prop in patch && read({ ...at, ...patch }) !== read(at)
-          })
-          for (const property of unbind) runQuietly(() => session.run('node.bind', { ids: [id], property, ref: null }))
           // A layer locked against part of the change takes the rest of it.
           const kept = going.includes(id) ? { drawn: drawn ?? {}, ...(holders ? { holders } : {}) } : {}
           if (runQuietly(() => session.run('node.update', { ids: [id], patch, ...kept }))) continue
@@ -224,10 +208,6 @@ export function editorLayerEdits({
       for (const id of ids) {
         const node = current.nodes[id]
         if (node?.type !== 'text') continue
-        // A font picked by hand no longer follows the brand's (#53).
-        const property = bindablePropertyOf(node.type, 'font')
-        if (property && node.bindings?.[property])
-          runQuietly(() => session.run('node.bind', { ids: [id], property, ref: null }))
         const style = { ...node.props.style, fontFamily, ...(fontWeight === undefined ? {} : { fontWeight }) }
         runQuietly(() => session.run('node.update', { ids: [id], patch: { style } }))
         typing.fitText(id)

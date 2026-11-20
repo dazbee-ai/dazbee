@@ -153,10 +153,11 @@ describe('freeToken', () => {
     expect(freeToken(KIT, '  ')).toBe('token')
   })
 
-  it("never gives a role's token, of either kind, set or not", () => {
+  it("never gives a role's token, of any kind, set or not", () => {
     expect(freeToken(EMPTY_BRAND_KIT, 'Primary')).toBe('primary-2')
     expect(freeToken(EMPTY_BRAND_KIT, 'Text')).toBe('text-2')
     expect(freeToken(EMPTY_BRAND_KIT, 'Body')).toBe('body-2')
     expect(freeToken(KIT, 'Heading')).toBe('heading-2')
+    expect(freeToken(EMPTY_BRAND_KIT, 'Logo')).toBe('logo-2')
   })
 })

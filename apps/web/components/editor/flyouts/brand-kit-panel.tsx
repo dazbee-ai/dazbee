@@ -1,26 +1,31 @@
 'use client'
 
 // The brand kit (#53), in the Brand flyout. It opens as a picker, as in the final mock: the logo,
-// the colours as named tiles and the fonts in their own face, the brand roles first. Picking a colour or font binds the
-// selected layers to it, so they follow the brand: change the colour and every design using it
-// changes. Edit turns the flyout into the kit's form (kit-editor.tsx), where each change is saved
-// as it is made. A kit with nothing in it shows Daz asleep under Edit.
-import { useEffect, useState } from 'react'
+// the colours as named tiles and the fonts in their own face, the brand roles first. Picking a
+// colour or font binds the selected layers to it, so they follow the brand: change the colour and
+// every design using it changes. The logo is placed as a logo that follows the brand, and selected
+// pictures can follow it too. Edit turns the flyout into the kit's form (kit-editor.tsx), where
+// each change is saved as it is made. A kit with nothing in it shows Daz asleep under Edit.
+import { useEffect, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
 import {
-  AssetSummary,
+  type AssetSummary,
   bindablePropertyOf,
+  boundValueOf,
+  type BrandKit,
   brandRef,
   brandVariables,
   type Design,
   inBrandRoleOrder,
+  LOGO_ROLE,
   type ValueKind,
 } from '@dazbee/schema'
 
 import { useFontCatalog } from '@/components/brand-kit/font-catalog.ts'
 import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
+import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { loadKit, useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
@@ -43,11 +48,33 @@ function follows(design: Design, ids: string[], kind: ValueKind, token: string) 
     const node = design.nodes[id]
     if (!node) return []
     const property = bindablePropertyOf(node.type, kind)
-    // A layer with no colour to bind counts as not following; one with no font is left out.
+    // A layer with no colour to bind counts as not following; one with no font or picture is left out.
     if (!property) return kind === 'color' ? [undefined] : []
+    if (kind === 'image' && !showsPicture(design, id)) return []
     return [node.bindings?.[property]]
   })
   return refs.length > 0 && refs.every((ref) => ref === brandRef(token))
+}
+
+/** Whether a layer shows a picture that can follow the logo: a graphic's or box's image fill. */
+function showsPicture(design: Design, id: string) {
+  const node = design.nodes[id]
+  return !!node && boundValueOf(node.type, node.props, 'image') !== undefined
+}
+
+/** The kit's logo as an asset of the brand's library, once it is known; undefined for no logo. */
+function useKitLogo(workspaceId: string, brandId: string, logoAssetId: string | null) {
+  const [found, setFound] = useState<AssetSummary | undefined>(() => knownAsset(logoAssetId))
+  useEffect(() => {
+    let live = true
+    void kitLogo(workspaceId, brandId, logoAssetId).then((asset) => {
+      if (live) setFound(asset)
+    })
+    return () => {
+      live = false
+    }
+  }, [workspaceId, brandId, logoAssetId])
+  return found
 }
 
 export function BrandKitPanel({
@@ -72,8 +99,24 @@ export function BrandKitPanel({
   const { catalog } = useFontCatalog(workspaceId, brandId)
   const { design } = useEditorDesign(editor)
   const selection = useSelection(editor)
+  /** The kit last shown, so a logo found after a newer change doesn't bring back an older kit. */
+  const shown = useRef<BrandKit | null>(null)
+  /**
+   * Gives the editor the kit's values at once, the logo's when it is known, and again once a new
+   * logo is found in the library.
+   */
+  const showVariables = (next: BrandKit) => {
+    shown.current = next
+    const logo = knownAsset(next.logoAssetId)
+    void editor.setVariables(brandVariables(next, logo))
+    if (logo || !next.logoAssetId) return
+    void kitLogo(workspaceId, brandId, next.logoAssetId).then((found) => {
+      if (found && shown.current === next) void editor.setVariables(brandVariables(next, found))
+    })
+  }
   // A change shows at once in every bound layer too; one waiting to be saved is saved when the flyout closes.
-  const { change, error } = useKitSaver(workspaceId, brandId, (next) => editor.setVariables(brandVariables(next)))
+  const { change, error } = useKitSaver(workspaceId, brandId, showVariables)
+  const logoAsset = useKitLogo(workspaceId, brandId, kit?.logoAssetId ?? null)
 
   useEffect(() => {
     void loadKit(workspaceId, brandId)
@@ -81,7 +124,7 @@ export function BrandKitPanel({
 
   if (!kit) return <div className="p-4 text-small text-muted" aria-busy="true" />
 
-  const apply = (kind: 'color' | 'font', token: string) => {
+  const apply = (kind: ValueKind, token: string) => {
     // A second press on what the selection already follows lets it go.
     editor.bindSelection(kind, follows(design, selection, kind, token) ? null : brandRef(token))
   }
@@ -89,25 +132,23 @@ export function BrandKitPanel({
   const heading = 'text-caption font-bold tracking-[0.08em] text-subtle uppercase'
   const modeButton = cn(CHIP, 'h-8 shrink-0 gap-1.5')
   const textSelected = selection.some((id) => design.nodes[id]?.type === 'text')
+  const pictureSelected = selection.some((id) => showsPicture(design, id))
+  const followsLogo = follows(design, selection, 'image', LOGO_ROLE)
+  // Pictures follow an image logo; an SVG file is placed as layers that don't follow. Pictures that
+  // follow it can always be let go.
+  const logoFollowable = brandVariables(kit, logoAsset)[brandRef(LOGO_ROLE)] !== undefined || followsLogo
 
-  /** Puts the kit's logo on the design: an SVG file as layers, an image as a graphic filled with it. */
+  /**
+   * Puts the kit's logo on the design: an SVG file as layers, an image as a graphic filled with it
+   * whose picture follows the brand's logo.
+   */
   const placeLogo = () => {
-    const id = kit.logoAssetId
-    if (!id) return
-    fetch(brandPath(workspaceId, brandId, 'assets'))
-      .then(async (response) =>
-        response.ok
-          ? AssetSummary.array()
-              .parse(await response.json())
-              .find((asset) => asset.id === id)
-          : undefined,
-      )
-      .then(
-        (asset) => {
-          if (asset) placeAsset(editor, workspaceId, brandId, asset)
-        },
-        () => undefined,
-      )
+    kitLogo(workspaceId, brandId, kit.logoAssetId).then(
+      (asset) => {
+        if (asset) placeAsset(editor, workspaceId, brandId, asset, undefined, { logo: { name: t.logo } })
+      },
+      () => undefined,
+    )
   }
 
   if (!editing) {
@@ -155,6 +196,18 @@ export function BrandKitPanel({
                     </button>
                   ))}
                 </div>
+                {logoFollowable && (
+                  <button
+                    type="button"
+                    aria-pressed={followsLogo}
+                    disabled={!pictureSelected}
+                    onClick={() => apply('image', LOGO_ROLE)}
+                    className={cn(CHIP, 'h-8 justify-center gap-1.5 aria-pressed:text-accent-text')}
+                  >
+                    {followsLogo && <CheckIcon size={13} aria-hidden />}
+                    {followsLogo ? t.unfollowLogo : t.followLogo}
+                  </button>
+                )}
               </section>
             )}
 

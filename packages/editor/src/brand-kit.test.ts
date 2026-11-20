@@ -42,9 +42,20 @@ const DESIGN: DesignInput = {
       props: { x: 0, y: 300, width: 200, height: 40, text: 'Title', boxMode: 'fixed', style: STYLE },
       bindings: { fontFamily: 'brand:heading' },
     },
+    photo: {
+      type: 'graphic',
+      parentId: 'sq',
+      link: 'photo',
+      index: 'a3',
+      name: 'Photo',
+      props: {
+        ...{ x: 0, y: 400, width: 100, height: 100, shape: { kind: 'rect' } },
+        fills: [{ type: 'image', assetId: 'photo', fit: 'fill', opacity: 1 }],
+      },
+    },
   },
 }
-const KIT: Variables = { 'brand:primary': '#FF0000FF', 'brand:heading': 'Noto Sans' }
+const KIT: Variables = { 'brand:primary': '#FF0000FF', 'brand:heading': 'Noto Sans', 'brand:logo': 'logo-1' }
 
 /** A family the app does not ship, whose file is the shipped extra bold Noto Sans, wider than the regular. */
 const KIT_FAMILY = 'Brand Display'
@@ -227,6 +238,27 @@ describe('editorBrandKit', () => {
       expect([a?.bindings, words?.bindings]).toEqual([undefined, undefined])
     })
 
+    it('binds the picture of the selected layers that show one to the logo, in one undo step, and unbinds it', () => {
+      const { kit, session, select } = harness()
+      select(['a', 'words', 'photo'])
+      expect(kit.bindSelection('image', 'brand:logo')).toBe(1)
+      expect(session.design().nodes.photo).toMatchObject({
+        bindings: { image: 'brand:logo' },
+        props: { fills: [{ type: 'image', assetId: 'logo-1' }] },
+      })
+      expect([session.design().nodes.a?.bindings, session.design().nodes.words?.bindings]).toEqual([
+        undefined,
+        undefined,
+      ])
+      select(['photo'])
+      expect(kit.bindSelection('image', null)).toBe(1)
+      expect(session.design().nodes.photo?.bindings).toBeUndefined()
+      session.undo()
+      session.undo()
+      expect(session.design().nodes.photo).toMatchObject({ props: { fills: [{ assetId: 'photo' }] } })
+      expect(session.design().nodes.photo?.bindings).toBeUndefined()
+    })
+
     it('changes nothing for a value the kit doesn’t have, or with nothing selected', () => {
       const { kit, session, select } = harness()
       expect(kit.bindSelection('color', 'brand:primary')).toBe(0)
@@ -282,6 +314,34 @@ describe('editorBrandKit', () => {
       const { kit, log } = harness()
       await kit.refitBrandFonts()
       expect(log).toEqual([])
+    })
+  })
+
+  describe('followBrandLogo', () => {
+    it('gives pictures bound to the logo the kit’s new logo, a change no one undoes, so a crop acts on the picture drawn', () => {
+      const { kit, session, select } = harness()
+      select(['photo'])
+      kit.bindSelection('image', 'brand:logo')
+      const unbound = session.design().nodes.a
+      void kit.setVariables({ ...KIT, 'brand:logo': 'logo-2' })
+      expect(session.design().nodes.photo).toMatchObject({
+        bindings: { image: 'brand:logo' },
+        props: { fills: [{ type: 'image', assetId: 'logo-2' }] },
+      })
+      expect(session.design().nodes.a).toEqual(unbound)
+      // The binding is one step to undo, and the new logo no one's.
+      session.undo()
+      expect(session.design().nodes.photo?.bindings).toBeUndefined()
+      expect(session.canUndo()).toBe(false)
+    })
+
+    it('leaves a picture as it stores it while the kit gives no logo', () => {
+      const { kit, session, select } = harness()
+      select(['photo'])
+      kit.bindSelection('image', 'brand:logo')
+      void kit.setVariables({ 'brand:primary': '#FF0000FF', 'brand:heading': 'Noto Sans' })
+      kit.followBrandLogo()
+      expect(session.design().nodes.photo).toMatchObject({ props: { fills: [{ assetId: 'logo-1' }] } })
     })
   })
 })

@@ -2,7 +2,7 @@
 // file as the layers it draws, once the pictures it shows have uploaded, and says whether a click
 // on one in Assets arms it for the pointer instead. An SVG's bytes come through the web app as text
 // and are read by the editor, never by the browser's image decoder.
-import type { Editor, Point } from '@dazbee/editor'
+import type { Editor, PlaceImageOptions, Point } from '@dazbee/editor'
 import { type AssetSummary, isVectorAsset } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
@@ -19,10 +19,21 @@ export function armsOnClick(asset: Placeable, pointerType: string | null, detail
   return !isVectorAsset(asset) && detail > 0 && (pointerType === 'mouse' || pointerType === 'pen')
 }
 
-/** Places the asset centred at `client`, or in the middle of the frame in view. */
-export function placeAsset(editor: Editor, workspaceId: string, brandId: string, asset: Placeable, client?: Point) {
+/**
+ * Places the asset centred at `client`, or in the middle of the frame in view; an image placed as
+ * the brand's logo (`options.logo`) follows the brand's logo. An SVG file is placed as layers, which
+ * don't follow.
+ */
+export function placeAsset(
+  editor: Editor,
+  workspaceId: string,
+  brandId: string,
+  asset: Placeable,
+  client?: Point,
+  options?: PlaceImageOptions,
+) {
   if (!isVectorAsset(asset)) {
-    editor.placeImage(asset, client)
+    editor.placeImage(asset, client, options)
     return
   }
   // Offline, nothing is placed; the library shows the asset is there to try again.

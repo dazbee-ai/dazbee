@@ -1,9 +1,10 @@
-// The brand kit in the editor (#53): the values bound properties take, binding the selection to a
-// brand colour or font or unbinding it, and text that follows a brand font taking its new family.
+// The brand kit in the editor: the values bound properties take, binding the selection to a
+// brand colour, font or logo or unbinding it, and text that follows a brand font taking its new family.
 import type { Session } from '@dazbee/doc'
 import {
   BINDABLE_PROPERTIES,
   bindablePropertyOf,
+  boundValueOf,
   fitsProperty,
   fontFamilies,
   type ValueKind,
@@ -30,13 +31,13 @@ export interface BrandKitDeps {
 export interface EditorBrandKit {
   /**
    * Gives bound properties new values, as when the brand kit changes: bound layers redraw with them,
-   * the families of brand fonts load, and text bound to a brand font whose family changed refits;
-   * the promise settles then.
+   * pictures bound to the logo take the kit's, the families of brand fonts load, and text bound to a
+   * brand font whose family changed refits; the promise settles then.
    */
   setVariables(variables: Variables): Promise<void>
   /**
-   * Binds the selected layers to a brand colour or font, or unbinds them with null, each storing the
-   * kit's value it showed, in one undo step; returns how many changed.
+   * Binds the selected layers to a brand colour, font or logo, or unbinds them with null, each
+   * storing the kit's value it showed, in one undo step; returns how many changed.
    */
   bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**
@@ -45,12 +46,18 @@ export interface EditorBrandKit {
    * refit waits for it to end (C40), so the promise can settle before the refit lands.
    */
   refitBrandFonts(): Promise<void>
+  /**
+   * Pictures bound to the brand's logo store the kit's logo when it has changed since, so the
+   * picture a crop or the Colour panel acts on is the one drawn: a change no one undoes.
+   */
+  followBrandLogo(): void
 }
 
 export function editorBrandKit({ session, resources, view, selection, typing, signal }: BrandKitDeps): EditorBrandKit {
   function setVariables(variables: Variables) {
     resources.setVariables(variables)
     resources.loadFamilies(fontFamilies(session.design(), variables))
+    followBrandLogo()
     view.redraw()
     return refitBrandFonts()
   }
@@ -62,6 +69,8 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
       const node = current.nodes[id]
       const property = bindablePropertyOf(node?.type ?? '', kind)
       if (!property) return []
+      // The logo goes only into a layer that shows a picture, never over a shape's colour.
+      if (ref && kind === 'image' && boundValueOf(node?.type ?? '', node?.props ?? {}, kind) === undefined) return []
       // Unbinding stores the token's value the layer shows, which the value it stored can lag.
       const token = ref ?? node?.bindings?.[property]
       const value = token === undefined ? undefined : kit[token]
@@ -90,23 +99,15 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
    * kit changes and when the design opens.
    */
   async function refitBrandFonts() {
-    const kit = resources.bytes().variables ?? {}
-    const stale = Object.entries(session.design().nodes).flatMap(([id, node]) => {
-      const property = bindablePropertyOf(node.type, 'font')
-      const ref = property ? node.bindings?.[property] : undefined
-      const family = ref ? kit[ref] : undefined
-      return property && ref && family && family !== BINDABLE_PROPERTIES[property].read(node.props)
-        ? [{ id, property, ref, family }]
-        : []
-    })
+    const stale = staleBindings('font')
     if (stale.length === 0) return
-    const families = [...new Set(stale.map((s) => s.family))]
+    const families = [...new Set(stale.map((s) => s.value))]
     await Promise.all(resources.loadFamilies(families))
     if (signal.aborted) return
     // Fitted in the fallback fonts, a box would be wrong: only a family whose files came is written.
     const here = new Set([...SHIPPED_FAMILIES, ...resources.bytes().fonts.map((f) => f.family)])
     session.untracked(() => {
-      for (const { id, property, ref, family } of stale) {
+      for (const { id, property, ref, value: family } of stale) {
         const node = session.design().nodes[id]
         // Still bound, the kit still gives this family (not a newer one), and the text has not taken it already.
         if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== family) continue
@@ -117,9 +118,40 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     })
   }
 
+  function followBrandLogo() {
+    const stale = staleBindings('image')
+    if (stale.length === 0) return
+    session.untracked(() => {
+      for (const { id, property, ref, value } of stale) {
+        const node = session.design().nodes[id]
+        // Still bound, and the kit still gives this picture: not one another tab or a newer kit changed.
+        if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== value) continue
+        if (BINDABLE_PROPERTIES[property].read(node.props) === value) continue
+        runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value }))
+      }
+    })
+  }
+  /** The layers bound to a token of this kind whose stored value the kit's now differs from, with that value. */
+  function staleBindings(kind: ValueKind) {
+    const kit = resources.bytes().variables ?? {}
+    return Object.entries(session.design().nodes).flatMap(([id, node]) => {
+      const property = bindablePropertyOf(node.type, kind)
+      const ref = property ? node.bindings?.[property] : undefined
+      const value = ref ? kit[ref] : undefined
+      return property &&
+        ref &&
+        value &&
+        fitsProperty(property, value) &&
+        value !== BINDABLE_PROPERTIES[property].read(node.props)
+        ? [{ id, property, ref, value }]
+        : []
+    })
+  }
+
   return {
     setVariables,
     bindSelection,
     refitBrandFonts,
+    followBrandLogo,
   }
 }

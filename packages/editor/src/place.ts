@@ -3,7 +3,7 @@
 // becomes a text layer), placing an image, and putting an image into a layer as its fill, with the
 // layer a dragged image would go into.
 import { ancestorsOf, childrenOf, frameIdOf, type Session } from '@dazbee/doc'
-import { canHold, type Layer, LayerClipboard, type Paint, type Point } from '@dazbee/schema'
+import { brandRef, canHold, type Layer, LayerClipboard, LOGO_ROLE, type Paint, type Point } from '@dazbee/schema'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import type { EditorActions } from './actions.ts'
@@ -28,7 +28,7 @@ import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn, idsOf, type Picked } from './selection.ts'
 import { stepOf } from './shortcuts.ts'
 import type { EditorTyping } from './text/typing.ts'
-import type { EditorTools, PlacedAsset } from './tools.ts'
+import type { EditorTools, PlacedAsset, PlaceImageOptions } from './tools.ts'
 
 export interface PlaceDeps {
   session: Session
@@ -92,8 +92,11 @@ export interface EditorPlace {
   canPasteLayers(): boolean
   /** Pastes the layers last copied in Dazbee on this device, with the pointer where it is; false with none kept or nothing pasted. */
   pasteLayers(pointer: () => Point | null): boolean
-  /** Places an image asset as a graphic filled with it, centred on a spot or a stage point, or in the frame in view. */
-  placeImage(asset: PlacedAsset, where?: Point | Spot): string | null
+  /**
+   * Places an image asset as a graphic filled with it, centred on a spot or a stage point, or in the
+   * frame in view; as the brand's logo, with the role logo and its picture bound to `brand:logo`.
+   */
+  placeImage(asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions): string | null
   /** Outlines the layer an image dragged over the stage point `stage` would go into, or none with null; returns its id. */
   imageTarget(stage: Point | null): string | null
   /** Puts an image into a layer as its fill, as one undo step; selects the layer in its frame. */
@@ -374,7 +377,7 @@ export function editorPlace({
     if (!copied) return false
     return pasteTree(copied, false, pointer())
   }
-  function placeImage(asset: PlacedAsset, where?: Point | Spot): string | null {
+  function placeImage(asset: PlacedAsset, where?: Point | Spot, { logo }: PlaceImageOptions = {}): string | null {
     // A point off every frame places nothing; with no point, it goes where `frameToPlaceIn` says.
     const spot = where && ('frameId' in where ? where : spotOn(where))
     if (where && !spot) return null
@@ -383,10 +386,15 @@ export function editorPlace({
     const at = spot ? { x: spot.x, y: spot.y } : { x: frame.width / 2, y: frame.height / 2 }
     typing.stop()
     let id = ''
+    const layer = { ...newImage(asset, at, frame), ...(logo ? { name: logo.name, role: 'logo' } : {}) }
     if (
-      !runQuietly(() => {
-        id = session.run('node.create', { parentId: frame.id, layer: newImage(asset, at, frame) })
-      })
+      !runQuietly(() =>
+        session.gesture(() => {
+          id = session.run('node.create', { parentId: frame.id, layer })
+          if (logo)
+            session.run('node.bind', { ids: [id], property: 'image', ref: brandRef(LOGO_ROLE), value: asset.id })
+        }),
+      )
     )
       return null
     tools.setTool('select')

@@ -94,7 +94,7 @@ export const nodeCreate = defineCommand({
 export const nodeUpdate = defineCommand({
   name: 'node.update',
   description:
-    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font) ends that binding. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
+    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture) ends that binding. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
   step: 'edit',
   batchable: true,
   input: z.strictObject({
@@ -242,13 +242,14 @@ export const nodeLock = defineCommand({
 /**
  * Binds a property of layers to a brand kit token, or unbinds it with a null ref (#53). Binding
  * also stores the token's value as the property's own, so a design drawn without the brand kit (or
- * before it loads) still looks as it did; a fill binds the topmost solid fill, added if there is none.
+ * before it loads) still looks as it did; a fill binds the topmost solid fill and a picture the topmost
+ * image fill, each added on top if there is none.
  * Unbinding keeps the value the property has.
  */
 export const nodeBind = defineCommand({
   name: 'node.bind',
   description:
-    'Binds a fill, text colour or font of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. Every kit has the brand roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text (colours) and brand:heading and brand:body (fonts): a layer bound to a role follows whichever brand the design is in. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
+    'Binds a fill, text colour, font or picture of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. Every kit has the brand roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text (colours), brand:heading and brand:body (fonts) and brand:logo (the picture of a graphic’s or box’s topmost image fill, an image asset’s id): a layer bound to a role follows whichever brand the design is in. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
   step: 'bind',
   batchable: true,
   setsBindings: true,
@@ -259,7 +260,9 @@ export const nodeBind = defineCommand({
     value: z
       .string()
       .optional()
-      .describe('The token’s value now: a colour as #RRGGBBAA or a font family’s name. Needed to bind.'),
+      .describe(
+        'The token’s value now: a colour as #RRGGBBAA, a font family’s name or an image asset’s id. Needed to bind.',
+      ),
   }),
   check: ({ design }, { ids, property, ref, value }) => {
     if (ref && value === undefined) return 'binding needs the value the token has now'
@@ -282,9 +285,9 @@ export const nodeBind = defineCommand({
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
       let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }
-      // A fill bound with no solid fill that shows to take the value gets one on top; unbound, it keeps what it has.
-      if (ref && property === 'fill' && entry.read(props) === undefined)
-        props = { fills: [...((props.fills ?? []) as unknown[]), { type: 'solid', color: value }] }
+      // A fill or picture bound with no fill that shows to take the value gets one on top; unbound, it keeps what it has.
+      if (ref && 'added' in entry && entry.read(props) === undefined)
+        props = { fills: [...((props.fills ?? []) as unknown[]), entry.added(value)] }
       w.setProp(id, entry.prop, entry.write(props, value)[entry.prop])
     }
   },

@@ -3,7 +3,7 @@
 // tool becomes, built in the code layout's order on what it is handed, with no browser. The page's
 // side, `editor.ts`, builds the shell on its modules; a test opens it in Node.
 import { derivedValues, frameIdOf, openSession, type Session } from '@dazbee/doc'
-import type { Design, Point, SafeZoneChoice, VariableRef, Variables } from '@dazbee/schema'
+import type { Design, Point, SafeZoneChoice, ValueKind, VariableRef, Variables } from '@dazbee/schema'
 
 import { toggled } from './across-frames.ts'
 import { editorActionReady } from './action-ready.ts'
@@ -60,7 +60,7 @@ import { owedFits } from './text/owed-fits.ts'
 import { isStyleToggle, type RunStyle } from './text/text-edit.ts'
 import { editorTextStyles } from './text/text-styles.ts'
 import { editorTyping } from './text/typing.ts'
-import { editorTools, type PlacedAsset, type Tool, VIEW_TOOLS } from './tools.ts'
+import { editorTools, type PlacedAsset, type PlaceImageOptions, type Tool, VIEW_TOOLS } from './tools.ts'
 import { editorUploads } from './uploads.ts'
 import { editorViewOnly } from './view-only.ts'
 
@@ -851,7 +851,7 @@ export function buildCore({
     setFont: layerEdits.setFont,
     variables: () => resources.bytes().variables ?? {},
     setVariables: (variables: Variables) => brandKit.setVariables(variables),
-    bindSelection: (kind: 'color' | 'font', ref: VariableRef | null) => brandKit.bindSelection(kind, ref),
+    bindSelection: (kind: ValueKind, ref: VariableRef | null) => brandKit.bindSelection(kind, ref),
     pickColour,
     stopPicking: () => void colourPick.stop(),
     picking: colourPick.picking,
@@ -872,7 +872,8 @@ export function buildCore({
     ...viewOnly.guardAll({
       selectAt: pointer.selectAt,
       layersAt: pointer.layersAt,
-      placeImage: (asset: PlacedAsset, where?: Point | Spot) => place.placeImage(asset, where),
+      placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
+        place.placeImage(asset, where, options),
       readSvg: (text: string, name: string, where?: Point | Spot) => placeSvg.readSvg(text, name, where),
       spotAt: view.spotOn,
       imageTarget: (stage: Point | null) => place.imageTarget(stage),

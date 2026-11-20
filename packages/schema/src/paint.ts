@@ -98,10 +98,10 @@ export type Paint = z.infer<typeof Paint>
  * The fill a brand colour binding colours, and the look cards' colour shows: the topmost solid
  * fill that shows. -1 when there is none.
  */
-export const boundFillIndex = (fills: readonly unknown[]) =>
-  fills.findLastIndex(
-    (f) => (f as { type?: unknown } | null)?.type === 'solid' && (f as { visible?: unknown }).visible !== false,
-  )
+export const boundFillIndex = (fills: readonly unknown[]) => topmostShowing(fills, 'solid')
+
+/** The fill a brand logo binding draws its picture in: the topmost image fill that shows. -1 when there is none. */
+export const boundImageIndex = (fills: readonly unknown[]) => topmostShowing(fills, 'image')
 
 /** The fill a paint picker edits: the topmost one that shows, whatever its type. -1 when none shows. */
 export const showingFillIndex = (fills: readonly Paint[]) => fills.findLastIndex((fill) => fill.visible !== false)
@@ -124,3 +124,10 @@ export const paintColour =
     const color = `${hex.toUpperCase()}FF`
     return fill.type === 'solid' ? { ...fill, color } : { type: 'solid', color }
   }
+
+/** The index of the topmost fill of a type that shows; -1 when there is none. */
+function topmostShowing(fills: readonly unknown[], type: Paint['type']) {
+  return fills.findLastIndex(
+    (f) => (f as { type?: unknown } | null)?.type === type && (f as { visible?: unknown }).visible !== false,
+  )
+}

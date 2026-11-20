@@ -23,6 +23,7 @@ import { COMMANDS } from './index.ts'
 
 const PRIMARY = '#FF5A36FF'
 const IMAGE: Paint = { type: 'image', assetId: 'photo', fit: 'fill', opacity: 1 }
+const ADJUST = { exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0 }
 const GRADIENT: Paint = {
   type: 'linear',
   from: { x: 0, y: 0 },
@@ -196,6 +197,49 @@ describe('endingEditedBindings', () => {
       fill(fills)
       expect(layer('box').bindings).toBeUndefined()
       expect((layer('box').props as { fills: Paint[] }).fills).toEqual(fills)
+    })
+  })
+
+  describe('a picture bound to the brand logo', () => {
+    const LOGO: Paint = { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 1 }
+    /** The test design with the box drawing the logo, its picture bound to it. */
+    function logoDesign(): DesignInput {
+      const design = testDesign()
+      const box = design.nodes.box as { props: object }
+      Object.assign(box, { props: { ...box.props, fills: [LOGO] }, bindings: { image: 'brand:logo' } })
+      return design
+    }
+
+    it('ends when the picture is replaced by hand; undo brings both back, redo ends it again', () => {
+      const { tab, layer, fill } = open(logoDesign())
+      fill([{ ...LOGO, assetId: 'photo' }])
+      expect(layer('box').bindings).toBeUndefined()
+      tab.undo()
+      expect(layer('box').bindings).toEqual({ image: 'brand:logo' })
+      expect(layer('box').props).toMatchObject({ fills: [LOGO] })
+      tab.redo()
+      expect(layer('box').bindings).toBeUndefined()
+      expect(layer('box').props).toMatchObject({ fills: [{ assetId: 'photo' }] })
+    })
+
+    const kept: [string, Paint[]][] = [
+      ['cropped', [{ ...LOGO, fit: 'crop', crop: { x: 0, y: 0, width: 10, height: 10 } }]],
+      ['given a filter and adjustments', [{ ...LOGO, filter: 'mono', adjust: { ...ADJUST, exposure: 20 } }]],
+      ['made half see-through', [{ ...LOGO, opacity: 0.5 }]],
+      ['given a colour under it', [{ type: 'solid', color: PRIMARY }, LOGO]],
+    ]
+    it.each(kept)('stays when the picture is %s', (_, fills) => {
+      const { layer, fill } = open(logoDesign())
+      fill(fills)
+      expect(layer('box').bindings).toEqual({ image: 'brand:logo' })
+    })
+
+    it('ends when the picture is hidden or removed', () => {
+      for (const fills of [[{ ...LOGO, visible: false }], []]) {
+        const { layer, fill } = open(logoDesign())
+        fill(fills)
+        expect(layer('box').bindings).toBeUndefined()
+      }
     })
   })
 

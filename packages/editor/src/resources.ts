@@ -191,7 +191,7 @@ export function editorResources({
 
   function screen(current: Design, frameIds?: readonly string[]): Resources {
     askFamilies(fontFamilies(current, resourceBytes.variables))
-    const ids = imageAssetIds(current, frameIds)
+    const ids = imageAssetIds(current, frameIds, resourceBytes.variables)
     copies.make(ids)
     const shown = decoded()
     const missing = ids.filter((id) => !shown.images.has(id))
@@ -211,7 +211,7 @@ export function editorResources({
   }
   function load(current: Design, frameIds: readonly string[]) {
     askFamilies(fontFamilies(current, resourceBytes.variables))
-    fetchImages(imageAssetIds(current, frameIds))
+    fetchImages(imageAssetIds(current, frameIds, resourceBytes.variables))
   }
   /** Fetches the bytes of these images not here and not on their way; `imagesLoading` settles when they are here. */
   function fetchImages(ids: readonly string[]) {

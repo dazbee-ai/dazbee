@@ -51,7 +51,7 @@ export type Frame = z.infer<typeof Frame>
  * The version of this schema, which the API writes into a design's record when it creates one. A
  * sync token carries the design's, and the sync server refuses a tab built with an older version.
  */
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),
@@ -126,9 +126,10 @@ export function hasGuides(frame: Pick<Frame, 'guides'> | undefined): boolean {
 
 /**
  * Every asset an image paint of the design names, on frames and layers' fills and strokes, sorted; only those of the
- * frames named and the layers inside them, when `frameIds` is given.
+ * frames named and the layers inside them, when `frameIds` is given. With the brand's variables, a
+ * picture bound to the brand's logo is the kit's.
  */
-export function imageAssetIds(design: Design, frameIds?: Iterable<string>): string[] {
+export function imageAssetIds(design: Design, frameIds?: Iterable<string>, variables?: Variables): string[] {
   const within = frameIds && new Set(frameIds)
   const ids = new Set<string>()
   const add = (fills: unknown) => {
@@ -144,7 +145,10 @@ export function imageAssetIds(design: Design, frameIds?: Iterable<string>): stri
   const frameOf = frameFinder(design)
   for (const [id, node] of Object.entries(design.nodes)) {
     if (within && !within.has(frameOf(id) ?? '')) continue
-    const { fills, strokes } = node.props as { fills?: unknown; strokes?: unknown }
+    const { fills, strokes } = bindProps(node.type, node.props, node.bindings, variables) as {
+      fills?: unknown
+      strokes?: unknown
+    }
     add(fills)
     if (Array.isArray(strokes)) add(strokes.map((stroke) => (stroke as { paint?: unknown } | null)?.paint))
   }

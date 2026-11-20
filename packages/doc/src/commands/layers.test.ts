@@ -462,6 +462,41 @@ describe('node.bind', () => {
       { type: 'solid', color: '#E0262BFF' },
     ])
   })
+
+  it('binds a picture to the brand logo in the topmost image fill, keeping its settings, in one undo step', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const crop = { x: 0, y: 0, width: 40, height: 20 }
+    const photo = { type: 'image', assetId: 'photo', fit: 'crop', crop, opacity: 0.5, filter: 'mono' } as const
+    tab.run('node.update', { ids: ['box'], patch: { fills: [photo] } })
+    tab.run('node.bind', { ids: ['box'], property: 'image', ref: 'brand:logo', value: 'logo-1' })
+    const box = readDesign(store).nodes.box
+    expect(box?.bindings).toEqual({ image: 'brand:logo' })
+    expect(box?.type === 'graphic' && box.props.fills).toEqual([
+      { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 0.5, filter: 'mono' },
+    ])
+    tab.undo()
+    expect(readDesign(store).nodes.box?.bindings).toBeUndefined()
+    expect(readDesign(store).nodes.box?.props).toMatchObject({ fills: [photo] })
+    expect(() => tab.run('node.bind', { ids: ['box'], property: 'image', ref: 'brand:logo', value: 'a logo' })).toThrow(
+      /asset’s id/,
+    )
+    expect(() =>
+      tab.run('node.bind', { ids: ['headline'], property: 'image', ref: 'brand:logo', value: 'logo-1' }),
+    ).toThrow(/a text has no image/)
+  })
+
+  it('adds an image fill on top, fitting the picture whole, to bind a picture on a layer without one that shows', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    tab.run('node.bind', { ids: ['box'], property: 'image', ref: 'brand:logo', value: 'logo-1' })
+    const box = readDesign(store).nodes.box
+    expect(box?.bindings).toEqual({ image: 'brand:logo' })
+    expect(box?.type === 'graphic' && box.props.fills).toEqual([
+      { type: 'solid', color: '#FF5A36FF' },
+      { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 1 },
+    ])
+  })
 })
 
 describe('node.mask', () => {

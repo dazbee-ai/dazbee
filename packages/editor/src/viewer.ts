@@ -34,7 +34,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
   const [ck, shipped, images, fonts] = await Promise.all([
     loadCanvasKit(),
     shippedFonts(),
-    loadImages(imageAssetIds(design, firstPage), options),
+    loadImages(imageAssetIds(design, firstPage, options.variables), options),
     loadFonts(fontFamilies(design, options.variables), options),
   ])
   // A cache of the viewer's own, freed with it: the live editor's stays as it was.

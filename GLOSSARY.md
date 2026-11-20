@@ -49,11 +49,11 @@ What a workspace makes work for: a solo user's business, a company's product lin
 _Avoid_: Client, customer, project (an agency's clients are brands too, ADR-0013)
 
 **Brand kit**:
-A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours and fonts are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour or font family bound to one follows the brand, so changing the brand colour changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
+A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours, fonts and logo are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour, font family or picture bound to one follows the brand, so changing the brand colour or logo changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
 _Avoid_: Brand guide, theme, style
 
 **Brand role**:
-One of the places every brand kit has: the colours Primary, Secondary, Accent, Background and Text, and the fonts Heading and Body, each a reserved token (`brand:primary`, `brand:heading`). A layer bound to a role follows whichever brand it is in, so a workspace template started in another brand takes that brand's colours and fonts. A role is set or not; its name is fixed.
+One of the places every brand kit has: the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body, and the Logo, each a reserved token (`brand:primary`, `brand:heading`, `brand:logo`). A layer bound to a role follows whichever brand it is in, so a workspace template started in another brand takes that brand's colours, fonts and logo. The Logo role is the kit's logo when it is an image; an SVG logo is placed as layers, which don't follow. A role is set or not; its name is fixed.
 _Avoid_: Role (a layer's meaning in the ad), slot, theme colour
 
 **Binding**:
@@ -61,7 +61,7 @@ A layer property that follows a variable, such as a fill bound to `brand:primary
 _Avoid_: Link (see Link id), sync, style reference
 
 **Bindable property**:
-A property a layer can bind: the colour of its fill, its text's colour or its font family. Each takes one kind of value, such as a colour, and only the layer types that have it can bind it.
+A property a layer can bind: the colour of its fill, its text's colour, its font family or the picture of its image fill. Each takes one kind of value, such as a colour, and only the layer types that have it can bind it.
 _Avoid_: Binding target, slot, field
 
 **Variable**:

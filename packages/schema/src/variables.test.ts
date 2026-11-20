@@ -6,6 +6,7 @@ import {
   bindablePropertyOf,
   Bindings,
   bindProps,
+  boundValueOf,
   BrandToken,
   canBind,
   fitsProperty,
@@ -84,12 +85,52 @@ describe('BINDABLE_PROPERTIES', () => {
       fontSize: 40,
     })
   })
+
+  it('reads and writes the picture of the topmost image fill that shows, keeping its settings and dropping a crop', () => {
+    const { image } = BINDABLE_PROPERTIES
+    const adjust = { exposure: 10, contrast: 0, saturation: 0, temperature: 0, tint: 0 }
+    const crop = { x: 4, y: 4, width: 20, height: 10 }
+    const props = {
+      fills: [
+        { type: 'image', assetId: 'under', fit: 'fill', opacity: 1 },
+        { type: 'image', assetId: 'old-logo', fit: 'crop', crop, opacity: 0.8, adjust, filter: 'mono' },
+        { type: 'solid', color: red },
+        { type: 'image', assetId: 'hidden', fit: 'fill', opacity: 1, visible: false },
+      ],
+    }
+    expect(image.read(props)).toBe('old-logo')
+    expect(image.write(props, 'new-logo').fills).toEqual([
+      props.fills[0],
+      { type: 'image', assetId: 'new-logo', fit: 'fit', opacity: 0.8, adjust, filter: 'mono' },
+      props.fills[2],
+      props.fills[3],
+    ])
+    // The same picture again keeps its crop.
+    expect(image.write(props, 'old-logo')).toBe(props)
+    const tiled = { fills: [{ type: 'image', assetId: 'a', fit: 'tile', tileScale: 0.5, opacity: 1 }] }
+    expect(image.write(tiled, 'b').fills).toEqual([
+      { type: 'image', assetId: 'b', fit: 'tile', tileScale: 0.5, opacity: 1 },
+    ])
+  })
+
+  it('reads no picture and writes nothing without an image fill that shows', () => {
+    const { image } = BINDABLE_PROPERTIES
+    const props = {
+      fills: [
+        { type: 'solid', color: red },
+        { type: 'image', assetId: 'hidden', fit: 'fill', opacity: 1, visible: false },
+      ],
+    }
+    expect(image.read(props)).toBeUndefined()
+    expect(image.write(props, 'logo')).toBe(props)
+    expect(image.read({})).toBeUndefined()
+  })
 })
 
 describe('Bindings', () => {
   it('holds a binding for each bindable property, and no other', () => {
     expect(Object.keys(Bindings.shape)).toEqual(Object.keys(BINDABLE_PROPERTIES))
-    expect(Object.keys(Bindings.shape)).toEqual(['fill', 'textColor', 'fontFamily'])
+    expect(Object.keys(Bindings.shape)).toEqual(['fill', 'textColor', 'fontFamily', 'image'])
     expect(Bindings.parse({ fill: 'brand:primary', stroke: 'brand:accent' })).toEqual({ fill: 'brand:primary' })
   })
 
@@ -137,6 +178,7 @@ describe('canBind', () => {
     expect(TYPES.filter((type) => canBind(type, 'fill'))).toEqual(['graphic', 'box', 'boolean'])
     for (const property of ['textColor', 'fontFamily'] as const)
       expect(TYPES.filter((type) => canBind(type, property))).toEqual(['text'])
+    expect(TYPES.filter((type) => canBind(type, 'image'))).toEqual(['graphic', 'box'])
   })
 })
 
@@ -145,6 +187,7 @@ describe('valueKindOf', () => {
     expect(valueKindOf('fill').unfit).toBe('colours are #RRGGBBAA')
     expect(valueKindOf('textColor').unfit).toBe('colours are #RRGGBBAA')
     expect(valueKindOf('fontFamily').unfit).toBe('a font family needs a name')
+    expect(valueKindOf('image').unfit).toBe('a picture is an asset’s id')
   })
 })
 
@@ -156,6 +199,8 @@ describe('fitsProperty', () => {
     expect(fitsProperty('textColor', 'Inter')).toBe(false)
     expect(fitsProperty('fontFamily', 'Playfair Display')).toBe(true)
     expect(fitsProperty('fontFamily', ' ')).toBe(false)
+    expect(fitsProperty('image', 'logo-1')).toBe(true)
+    expect(fitsProperty('image', 'a logo')).toBe(false)
   })
 })
 
@@ -168,6 +213,27 @@ describe('bindablePropertyOf', () => {
       expect(bindablePropertyOf(type, 'font')).toBeUndefined()
     }
     expect(bindablePropertyOf('group', 'color')).toBeUndefined()
+  })
+
+  it('gives a graphic or box its picture', () => {
+    expect(bindablePropertyOf('graphic', 'image')).toBe('image')
+    expect(bindablePropertyOf('box', 'image')).toBe('image')
+    expect(bindablePropertyOf('boolean', 'image')).toBeUndefined()
+    expect(bindablePropertyOf('text', 'image')).toBeUndefined()
+  })
+})
+
+describe('boundValueOf', () => {
+  it('reads the value of a kind a layer holds: a graphic’s picture or fill colour, a text’s colour or font', () => {
+    const fills = [
+      { type: 'solid', color: red },
+      { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 1 },
+    ]
+    expect(boundValueOf('graphic', { fills }, 'image')).toBe('logo-1')
+    expect(boundValueOf('graphic', { fills }, 'color')).toBe(red)
+    expect(boundValueOf('graphic', { fills: [] }, 'image')).toBeUndefined()
+    expect(boundValueOf('text', textProps, 'font')).toBe('Noto Sans')
+    expect(boundValueOf('text', textProps, 'image')).toBeUndefined()
   })
 })
 
@@ -183,6 +249,14 @@ describe('bindProps', () => {
     expect(bindProps('graphic', props, { fill: 'brand:primary' }, { 'brand:accent': red })).toBe(props)
     expect(bindProps('graphic', props, { fill: 'brand:primary' }, undefined)).toBe(props)
     expect(bindProps('graphic', props, { fill: 'brand:primary' }, { 'brand:primary': 'Inter' })).toBe(props)
+  })
+
+  it('sets the topmost image fill from the brand logo, and keeps the stored one without a value', () => {
+    const props = { fills: [{ type: 'image', assetId: 'old-logo', fit: 'fit', opacity: 1 }] }
+    const bound = bindProps('graphic', props, { image: 'brand:logo' }, { 'brand:logo': 'new-logo' })
+    expect(bound.fills).toEqual([{ type: 'image', assetId: 'new-logo', fit: 'fit', opacity: 1 }])
+    expect(bindProps('graphic', props, { image: 'brand:logo' }, { 'brand:primary': red })).toBe(props)
+    expect(bindProps('graphic', props, { image: 'brand:logo' }, { 'brand:logo': red })).toBe(props)
   })
 
   it('sets text colour and font family on the base style only', () => {

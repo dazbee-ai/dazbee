@@ -267,6 +267,38 @@ describe('imageAssetIds', () => {
     if (!parsed.success) throw new Error(parsed.errors.join('\n'))
     expect(imageAssetIds(parsed.design, ['sq'])).toEqual(['edge'])
   })
+
+  it('finds the picture a bound image fill draws, with the brand variables', () => {
+    const parsed = parseDesign({
+      meta: { designId: 'd', name: 'D' },
+      pages: { p1: { name: 'P', order: 'a0' } },
+      frames: { sq: { pageId: 'p1', name: 'Square', width: 100, height: 100, x: 0, y: 0, order: 'a0' } },
+      nodes: {
+        logo: {
+          type: 'graphic',
+          parentId: 'sq',
+          link: 'logo',
+          index: 'a0',
+          name: 'Logo',
+          role: 'logo',
+          bindings: { image: 'brand:logo' },
+          props: {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            shape: { kind: 'rect' },
+            fills: [{ type: 'image', assetId: 'old-logo', fit: 'fit' }],
+          },
+        },
+      },
+    })
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    expect(imageAssetIds(parsed.design)).toEqual(['old-logo'])
+    expect(imageAssetIds(parsed.design, undefined, { 'brand:logo': 'new-logo' })).toEqual(['new-logo'])
+    expect(imageAssetIds(parsed.design, ['sq'], { 'brand:logo': 'new-logo' })).toEqual(['new-logo'])
+    expect(imageAssetIds(parsed.design, ['sq'], { 'brand:primary': '#000000FF' })).toEqual(['old-logo'])
+  })
 })
 
 describe('fontFamilies', () => {

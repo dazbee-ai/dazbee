@@ -19,6 +19,7 @@ import { ASSET_ACCEPT, sendAsset } from '@/lib/upload-asset.ts'
 import { useFontCatalog } from './font-catalog.ts'
 import { KitColours } from './kit-colours.tsx'
 import { KitFonts } from './kit-fonts.tsx'
+import { rememberAssets } from './kit-logo.ts'
 import { heading, iconButton, type KitBinding } from './kit-parts.ts'
 import { saveKit, showKit } from './use-brand-kit.ts'
 
@@ -95,7 +96,10 @@ export function KitEditor({
   useEffect(() => {
     fetch(brandPath(workspaceId, brandId, 'assets'))
       .then(async (response) => {
-        if (response.ok) setAssets(AssetSummary.array().parse(await response.json()))
+        if (!response.ok) return
+        const listed = AssetSummary.array().parse(await response.json())
+        rememberAssets(listed)
+        setAssets(listed)
       })
       .catch(() => undefined)
   }, [workspaceId, brandId])
@@ -107,6 +111,7 @@ export function KitEditor({
     setUpload({ progress: 0 })
     sendAsset(workspaceId, brandId, file, (progress) => setUpload({ progress }))
       .then((asset) => {
+        rememberAssets([asset])
         setAssets((all) => [asset, ...all])
         setUpload(null)
         change({ ...kit, logoAssetId: asset.id })

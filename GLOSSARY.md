@@ -49,7 +49,7 @@ What a workspace makes work for: a solo user's business, a company's product lin
 _Avoid_: Client, customer, project (an agency's clients are brands too, ADR-0013)
 
 **Brand kit**:
-A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours and fonts are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour or font family bound to one follows the brand, so changing the brand colour changes every design that uses it. Its colours and fonts are its brand roles, then the brand's own.
+A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours and fonts are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour or font family bound to one follows the brand, so changing the brand colour changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
 _Avoid_: Brand guide, theme, style
 
 **Brand role**:

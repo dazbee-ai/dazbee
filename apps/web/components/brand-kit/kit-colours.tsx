@@ -7,10 +7,11 @@ import {
   type BrandKit,
   type BrandRole,
   brandRoleOf,
+  brandRolesOf,
   freeToken,
-  roleSlots,
-  withoutRole,
-  withRole,
+  kitIsFull,
+  withBrandRole,
+  withoutBrandRole,
 } from '@dazbee/schema'
 
 import { CheckIcon, PaintBucketIcon, PlusIcon, XIcon } from '@/components/ui/icons.tsx'
@@ -44,7 +45,10 @@ export function KitColours({
 }) {
   const t = useMessages().editor.brandKit
   const own = kit.colors.filter((c) => !brandRoleOf('color', c.token))
-  const rows: Row[] = [...roleSlots(kit, 'color'), ...own.map((entry, i) => ({ entry, n: i + 1 }))]
+  // A full kit offers no place it can't fill: no role that isn't set, and no Add.
+  const full = kitIsFull(kit, 'color')
+  const roles = brandRolesOf(kit, 'color').filter((r) => r.entry || !full)
+  const rows: Row[] = [...roles, ...own.map((entry, i) => ({ entry, n: i + 1 }))]
 
   return (
     <section key="colours" aria-labelledby="kit-colors" className={section}>
@@ -56,17 +60,19 @@ export function KitColours({
           <ColourRow key={row.role ?? row.entry.token} row={row} kit={kit} change={change} binding={binding} />
         ))}
       </ul>
-      <button
-        type="button"
-        onClick={() => {
-          const name = format(t.newColor, { n: own.length + 1 })
-          change({ ...kit, colors: [...kit.colors, { token: freeToken(kit, name), name, value: '#000000FF' }] })
-        }}
-        className={DASHED_BUTTON}
-      >
-        <PlusIcon size={13} aria-hidden />
-        {t.addColor}
-      </button>
+      {!full && (
+        <button
+          type="button"
+          onClick={() => {
+            const name = format(t.newColor, { n: own.length + 1 })
+            change({ ...kit, colors: [...kit.colors, { token: freeToken(kit, name), name, value: '#000000FF' }] })
+          }}
+          className={DASHED_BUTTON}
+        >
+          <PlusIcon size={13} aria-hidden />
+          {t.addColor}
+        </button>
+      )}
     </section>
   )
 }
@@ -88,16 +94,18 @@ function ColourRow({
 }) {
   const t = useMessages().editor.brandKit
   const { entry, role } = row
-  const name = role ? t.roles[role] : (entry?.name ?? '')
-  const token = role ?? entry?.token ?? ''
+  const name = role ? t.brandRoles[role] : row.entry.name
+  const token = role ?? row.entry.token
   const on = entry ? (binding?.follows('color', token) ?? false) : false
   /** The kit with this colour's value, or its name, changed. */
   const set = (patch: Partial<BrandColor>) => {
-    if (role && patch.value) return change(withRole(kit, 'color', role, patch.value))
+    if (role && patch.value) return change(withBrandRole(kit, 'color', role, patch.value))
     change({ ...kit, colors: kit.colors.map((c) => (c.token === token ? { ...c, ...patch } : c)) })
   }
   const remove = () =>
-    change(role ? withoutRole(kit, 'color', role) : { ...kit, colors: kit.colors.filter((c) => c.token !== token) })
+    change(
+      role ? withoutBrandRole(kit, 'color', role) : { ...kit, colors: kit.colors.filter((c) => c.token !== token) },
+    )
 
   return (
     <li data-token={token} data-set={entry ? undefined : 'no'} className="flex items-start gap-1.5">

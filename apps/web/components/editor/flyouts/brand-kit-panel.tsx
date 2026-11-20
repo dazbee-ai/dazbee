@@ -14,7 +14,7 @@ import {
   brandRef,
   brandVariables,
   type Design,
-  inRoleOrder,
+  inBrandRoleOrder,
   type ValueKind,
 } from '@dazbee/schema'
 
@@ -166,9 +166,9 @@ export function BrandKitPanel({
                 <p className="text-tiny text-muted">{t.noColors}</p>
               ) : (
                 <ul className="grid grid-cols-5 gap-[8px]">
-                  {inRoleOrder('color', kit.colors).map((c) => {
+                  {inBrandRoleOrder('color', kit.colors).map((c) => {
                     const on = follows(design, selection, 'color', c.token)
-                    const name = kitEntryName(t.roles, 'color', c)
+                    const name = kitEntryName(t.brandRoles, 'color', c)
                     return (
                       <li key={c.token} data-token={c.token}>
                         <button
@@ -205,9 +205,9 @@ export function BrandKitPanel({
                 <p className="text-tiny text-muted">{t.noFonts}</p>
               ) : (
                 <ul className="flex flex-col">
-                  {inRoleOrder('font', kit.fonts).map((f) => {
+                  {inBrandRoleOrder('font', kit.fonts).map((f) => {
                     const on = follows(design, selection, 'font', f.token)
-                    const name = kitEntryName(t.roles, 'font', f)
+                    const name = kitEntryName(t.brandRoles, 'font', f)
                     const family = catalog.find((x) => x.family === f.family)
                     return (
                       <li key={f.token} data-token={f.token} className="border-t border-line first:border-t-0">

@@ -2,7 +2,7 @@
 // Background and Text and the fonts Heading and Body. Each is a reserved brand token, so a layer
 // bound to `brand:primary` follows whichever brand's kit it is drawn with. A kit colour or font whose
 // token is a role of its kind fills that role; the rest are the brand's own.
-import type { BrandColor, BrandFont, BrandKit } from './api.ts'
+import { BRAND_KIT_LIMITS, type BrandColor, type BrandFont, type BrandKit } from './api.ts'
 
 /** The two parts of a kit that hold roles. */
 export type KitKind = 'color' | 'font'
@@ -14,8 +14,20 @@ export const BRAND_ROLES = {
 } as const
 export type BrandRole = (typeof BRAND_ROLES)[KitKind][number]
 
+/** What a kit holds of each kind. */
+interface KitEntries {
+  color: BrandColor
+  font: BrandFont
+}
+
+/** A role of a kind, and the kit's entry that fills it; none while the role is not set. */
+export interface KitBrandRole<K extends KitKind> {
+  role: BrandRole
+  entry: KitEntries[K] | undefined
+}
+
 /** The name a role set from the kit's form stores; the app shows each role's own name, translated. */
-const ROLE_NAMES: Readonly<Record<BrandRole, string>> = {
+const BRAND_ROLE_NAMES: Readonly<Record<BrandRole, string>> = {
   primary: 'Primary',
   secondary: 'Secondary',
   accent: 'Accent',
@@ -25,27 +37,13 @@ const ROLE_NAMES: Readonly<Record<BrandRole, string>> = {
   body: 'Body',
 }
 
-/** What a kit holds of each kind. */
-interface KitEntries {
-  color: BrandColor
-  font: BrandFont
-}
-/** What a kit holds of a kind: its colours, or its fonts. */
-export type KitEntry<K extends KitKind> = KitEntries[K]
-
-/** A role of a kind, and the kit's entry that fills it; none while the role is not set. */
-export interface RoleSlot<K extends KitKind> {
-  role: BrandRole
-  entry: KitEntry<K> | undefined
-}
-
 /** The role of a kind a token names; undefined for a token of the brand's own, or a role of the other kind. */
 export function brandRoleOf(kind: KitKind, token: string): BrandRole | undefined {
   return (BRAND_ROLES[kind] as readonly string[]).includes(token) ? (token as BrandRole) : undefined
 }
 
 /** A kit's colours or fonts with the roles first, in role order, then the brand's own in the order given. */
-export function inRoleOrder<T extends { token: string }>(kind: KitKind, entries: readonly T[]): T[] {
+export function inBrandRoleOrder<T extends { token: string }>(kind: KitKind, entries: readonly T[]): T[] {
   const roles: readonly string[] = BRAND_ROLES[kind]
   const rank = (entry: T) => (roles.includes(entry.token) ? roles.indexOf(entry.token) : roles.length)
   return [...entries].sort((a, b) => rank(a) - rank(b))
@@ -55,7 +53,7 @@ export function inRoleOrder<T extends { token: string }>(kind: KitKind, entries:
  * Every role of a kind, in role order, each with the kit's entry that fills it. A role whose token
  * the kit holds for the other kind is left out: it can't be set without naming two things.
  */
-export function roleSlots<K extends KitKind>(kit: BrandKit, kind: K): RoleSlot<K>[] {
+export function brandRolesOf<K extends KitKind>(kit: BrandKit, kind: K): KitBrandRole<K>[] {
   const own = entriesOf(kit, kind)
   const other = new Set(entriesOf(kit, kind === 'color' ? 'font' : 'color').map((entry) => entry.token))
   return BRAND_ROLES[kind]
@@ -63,28 +61,34 @@ export function roleSlots<K extends KitKind>(kit: BrandKit, kind: K): RoleSlot<K
     .map((role) => ({ role, entry: own.find((entry) => entry.token === role) }))
 }
 
+/** Whether the kit holds as many colours, or fonts, as a kit may: no role of that kind that isn't set can be. */
+export function kitIsFull(kit: BrandKit, kind: KitKind) {
+  return entriesOf(kit, kind).length >= BRAND_KIT_LIMITS[kind]
+}
+
 /**
  * The kit with a role set to a colour, or a font's family: the entry that fills it changes where it
- * is, or one named as the role is added. The same kit for a role it can't set (see `roleSlots`).
+ * is, or one named as the role is added. The same kit for a role it can't set (see `brandRolesOf`),
+ * or one that isn't set while the kit is full.
  */
-export function withRole(kit: BrandKit, kind: KitKind, role: BrandRole, value: string): BrandKit {
-  const slot = roleSlots(kit, kind).find((s) => s.role === role)
-  if (!slot) return kit
+export function withBrandRole(kit: BrandKit, kind: KitKind, role: BrandRole, value: string): BrandKit {
+  const found = brandRolesOf(kit, kind).find((r) => r.role === role)
+  if (!found || (!found.entry && kitIsFull(kit, kind))) return kit
   if (kind === 'color') {
-    const colors = slot.entry
+    const colors = found.entry
       ? kit.colors.map((c) => (c.token === role ? { ...c, value } : c))
-      : [...kit.colors, { token: role, name: ROLE_NAMES[role], value }]
+      : [...kit.colors, { token: role, name: BRAND_ROLE_NAMES[role], value }]
     return { ...kit, colors }
   }
-  const fonts = slot.entry
+  const fonts = found.entry
     ? kit.fonts.map((f) => (f.token === role ? { ...f, family: value } : f))
-    : [...kit.fonts, { token: role, name: ROLE_NAMES[role], family: value }]
+    : [...kit.fonts, { token: role, name: BRAND_ROLE_NAMES[role], family: value }]
   return { ...kit, fonts }
 }
 
 /** The kit with a role no longer set; the same kit when it isn't. */
-export function withoutRole(kit: BrandKit, kind: KitKind, role: BrandRole): BrandKit {
-  if (!roleSlots(kit, kind).some((slot) => slot.role === role && slot.entry)) return kit
+export function withoutBrandRole(kit: BrandKit, kind: KitKind, role: BrandRole): BrandKit {
+  if (!brandRolesOf(kit, kind).some((r) => r.role === role && r.entry)) return kit
   return kind === 'color'
     ? { ...kit, colors: kit.colors.filter((c) => c.token !== role) }
     : { ...kit, fonts: kit.fonts.filter((f) => f.token !== role) }
@@ -108,7 +112,7 @@ export function freeToken(kit: BrandKit, name: string) {
 }
 
 /** A kit's colours, or its fonts. */
-function entriesOf<K extends KitKind>(kit: BrandKit, kind: K): readonly KitEntry<K>[] {
+function entriesOf<K extends KitKind>(kit: BrandKit, kind: K): readonly KitEntries[K][] {
   const parts: { [P in KitKind]: readonly KitEntries[P][] } = { color: kit.colors, font: kit.fonts }
   return parts[kind]
 }

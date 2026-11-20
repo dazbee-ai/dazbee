@@ -7,10 +7,11 @@ import {
   type BrandKit,
   type BrandRole,
   brandRoleOf,
+  brandRolesOf,
   freeToken,
-  roleSlots,
-  withoutRole,
-  withRole,
+  kitIsFull,
+  withBrandRole,
+  withoutBrandRole,
 } from '@dazbee/schema'
 
 import { CheckIcon, PlusIcon, TextAaIcon, XIcon } from '@/components/ui/icons.tsx'
@@ -39,7 +40,10 @@ export function KitFonts({
 }) {
   const t = useMessages().editor.brandKit
   const own = kit.fonts.filter((f) => !brandRoleOf('font', f.token))
-  const rows: Row[] = [...roleSlots(kit, 'font'), ...own.map((entry, i) => ({ entry, n: i + 1 }))]
+  // A full kit offers no place it can't fill: no role that isn't set, and no Add.
+  const full = kitIsFull(kit, 'font')
+  const roles = brandRolesOf(kit, 'font').filter((r) => r.entry || !full)
+  const rows: Row[] = [...roles, ...own.map((entry, i) => ({ entry, n: i + 1 }))]
 
   return (
     <section key="fonts" aria-labelledby="kit-fonts" className={section}>
@@ -58,20 +62,22 @@ export function KitFonts({
           />
         ))}
       </ul>
-      <button
-        type="button"
-        onClick={() => {
-          const name = format(t.newFont, { n: own.length + 1 })
-          change({
-            ...kit,
-            fonts: [...kit.fonts, { token: freeToken(kit, name), name, family: families[0] ?? 'Noto Sans' }],
-          })
-        }}
-        className={DASHED_BUTTON}
-      >
-        <PlusIcon size={13} aria-hidden />
-        {t.addFont}
-      </button>
+      {!full && (
+        <button
+          type="button"
+          onClick={() => {
+            const name = format(t.newFont, { n: own.length + 1 })
+            change({
+              ...kit,
+              fonts: [...kit.fonts, { token: freeToken(kit, name), name, family: families[0] ?? 'Noto Sans' }],
+            })
+          }}
+          className={DASHED_BUTTON}
+        >
+          <PlusIcon size={13} aria-hidden />
+          {t.addFont}
+        </button>
+      )}
     </section>
   )
 }
@@ -95,16 +101,16 @@ function FontRow({
 }) {
   const t = useMessages().editor.brandKit
   const { entry, role } = row
-  const name = role ? t.roles[role] : (entry?.name ?? '')
-  const token = role ?? entry?.token ?? ''
+  const name = role ? t.brandRoles[role] : row.entry.name
+  const token = role ?? row.entry.token
   const on = entry ? (binding?.follows('font', token) ?? false) : false
   /** The kit with this font's family, or its name, changed. */
   const set = (patch: Partial<BrandFont>) => {
-    if (role && patch.family) return change(withRole(kit, 'font', role, patch.family))
+    if (role && patch.family) return change(withBrandRole(kit, 'font', role, patch.family))
     change({ ...kit, fonts: kit.fonts.map((f) => (f.token === token ? { ...f, ...patch } : f)) })
   }
   const remove = () =>
-    change(role ? withoutRole(kit, 'font', role) : { ...kit, fonts: kit.fonts.filter((f) => f.token !== token) })
+    change(role ? withoutBrandRole(kit, 'font', role) : { ...kit, fonts: kit.fonts.filter((f) => f.token !== token) })
   const choices = entry ? [...new Set([entry.family, ...families])] : families
 
   return (

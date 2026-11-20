@@ -905,7 +905,7 @@ export const en = {
       noColors: 'No colours yet. Add them with Edit.',
       noFonts: 'No fonts yet. Add them with Edit.',
       /** The places every kit has, which designs bind to so they follow whichever brand they are in. */
-      roles: {
+      brandRoles: {
         primary: 'Primary',
         secondary: 'Secondary',
         accent: 'Accent',

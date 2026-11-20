@@ -4,12 +4,12 @@ import { brandRoleOf, type KitKind } from '@dazbee/schema'
 
 import type { Messages } from '@/lib/i18n/index.ts'
 
-/** A role's name, or the entry's own; `roles` is the person's catalog's role names. */
+/** A role's name, or the entry's own; `brandRoles` is the person's catalog's role names. */
 export function kitEntryName(
-  roles: Messages['editor']['brandKit']['roles'],
+  brandRoles: Messages['editor']['brandKit']['brandRoles'],
   kind: KitKind,
   entry: { token: string; name: string },
 ) {
   const role = brandRoleOf(kind, entry.token)
-  return role ? roles[role] : entry.name
+  return role ? brandRoles[role] : entry.name
 }

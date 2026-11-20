@@ -2,7 +2,7 @@
 // colour's swatch, name and value and each font's name and family, the brand roles first, then the
 // logo and the tone of voice, with nothing that changes them. A part the kit has nothing in is left
 // out, but for the logo's.
-import { type BrandKit, inRoleOrder } from '@dazbee/schema'
+import { type BrandKit, inBrandRoleOrder } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import { hexOf, hexText } from '@/lib/colour.ts'
@@ -33,7 +33,7 @@ export function KitView({
             {w.colors}
           </h3>
           <ul className="flex flex-col gap-1.5">
-            {inRoleOrder('color', kit.colors).map((colour) => (
+            {inBrandRoleOrder('color', kit.colors).map((colour) => (
               <li key={colour.token} data-token={colour.token} className="flex items-center gap-2.5">
                 <span
                   aria-hidden
@@ -41,7 +41,7 @@ export function KitView({
                   style={{ background: hexOf(colour.value) }}
                 />
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-small font-medium">{kitEntryName(w.roles, 'color', colour)}</span>
+                  <span className="truncate text-small font-medium">{kitEntryName(w.brandRoles, 'color', colour)}</span>
                   <span className="font-mono text-tiny text-muted uppercase">{hexText(colour.value)}</span>
                 </span>
               </li>
@@ -55,9 +55,9 @@ export function KitView({
             {w.fonts}
           </h3>
           <ul className="flex flex-col gap-1.5">
-            {inRoleOrder('font', kit.fonts).map((font) => (
+            {inBrandRoleOrder('font', kit.fonts).map((font) => (
               <li key={font.token} data-token={font.token} className="flex min-w-0 flex-col">
-                <span className="truncate text-small font-medium">{kitEntryName(w.roles, 'font', font)}</span>
+                <span className="truncate text-small font-medium">{kitEntryName(w.brandRoles, 'font', font)}</span>
                 <span className="truncate text-tiny text-muted">{font.family}</span>
               </li>
             ))}

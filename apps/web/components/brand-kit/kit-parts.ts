@@ -1,9 +1,10 @@
 // What the brand kit form's parts share: binding from the editor, and their looks.
+import type { KitKind } from '@dazbee/schema'
 
 /** Binds the selected layers to a kit colour or font, in the editor. */
 export interface KitBinding {
-  follows: (kind: 'color' | 'font', token: string) => boolean
-  apply: (kind: 'color' | 'font', token: string) => void
+  follows: (kind: KitKind, token: string) => boolean
+  apply: (kind: KitKind, token: string) => void
   /** Whether anything is selected that can follow a colour, or a font. */
   canColor: boolean
   canFont: boolean

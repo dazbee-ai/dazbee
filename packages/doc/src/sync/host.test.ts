@@ -485,6 +485,25 @@ describe('openHost, as a design comes and goes', () => {
     expect(journal.rows.journal.map((e) => e.entry)).toEqual([5])
   })
 
+  it('takes an agent’s edit that keeps a Before agent version in a turn of its own, and its next edit at once', async () => {
+    const turns = grantedTurns()
+    const host = openHost(memoryJournal(rows()), testOptions({ turn: turns.turn }))
+    const claude = connection()
+    host.connect(claude, hello(), { ...editor(), agent: 'Claude (agent)' })
+    await turns.grant()
+    await turns.grant()
+    await host.settled()
+
+    host.message(claude, changes(1, 0, [rename('badge', 'One')]), 100)
+    await ticks()
+    expect([turns.waiting(), host.server()?.seq()]).toEqual([1, 0])
+    await turns.grant()
+    await host.settled()
+    host.message(claude, changes(2, 1, [rename('badge', 'Two')]), 100)
+    await host.settled()
+    expect([turns.waiting(), host.server()?.seq()]).toEqual([0, 2])
+  })
+
   it('unloads only with no tab joined, folding what was stored since the last fold', async () => {
     const journal = memoryJournal(rows())
     const host = openHost(journal, testOptions())

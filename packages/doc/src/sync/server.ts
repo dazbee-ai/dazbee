@@ -111,6 +111,8 @@ export interface Server {
   changedSince(): number | undefined
   /** Takes an Autosave of the design, which then counts as unchanged; none while it is unchanged. */
   takeAutosave(): void
+  /** Whether an edit change set from tab `tabId`, accepted now, would take a Before agent version: a copy of the whole design. */
+  takesBeforeAgent(tabId: number): boolean
   /** The versions taken since the last call, oldest first: the host stores each ahead of what was committed after it. */
   takeVersions(): NewVersion[]
   /** The tabs' asks for a version since the last call, for the host to read and answer. */
@@ -528,6 +530,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     }),
     changedSince: () => changedSince,
     takeAutosave: () => takeVersion('auto'),
+    takesBeforeAgent: (tabId) => connected.get(tabId)?.agent !== undefined && !agentEditedLast,
     takeVersions: () => {
       const taken = versions
       versions = []

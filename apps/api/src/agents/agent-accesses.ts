@@ -149,7 +149,8 @@ export async function refreshTokens(db: Db, token: string, now = new Date()): Pr
       .update(agentTokens)
       .set({ swappedAt: now })
       .where(eq(agentTokens.hash, hashOf(token)))
-    // The access's expired tokens find nothing and end nothing, so they go; a swapped unexpired one stays.
+    // The access's expired tokens go: none finds the access, and a refresh token swapped and then used
+    // again past its 30 days is refused instead of ending the access. A swapped unexpired one stays.
     await tx.delete(agentTokens).where(and(eq(agentTokens.accessId, row.accessId), lte(agentTokens.expiresAt, now)))
     return { ok: true, tokens: await issueTokens(tx, row.accessId, now) }
   })

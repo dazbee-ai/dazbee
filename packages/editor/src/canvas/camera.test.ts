@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { intersects } from '@dazbee/doc'
 import { FRAME_GAP, type Rect } from '@dazbee/schema'
 
 import {
@@ -22,7 +23,7 @@ import {
   zoomPercent,
   zoomStep,
 } from './camera.ts'
-import { intersects, pageFrames } from './frames.ts'
+import { pageFrames } from './frames.ts'
 import { design } from './test-design.ts'
 
 const page = pageFrames(design, 'one')

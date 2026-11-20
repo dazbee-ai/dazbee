@@ -104,6 +104,7 @@ export {
   flippedPoint,
   flipsOf,
   flippedRect,
+  intersects,
   normalAngle,
   round,
   scaleWithin,

@@ -2,11 +2,11 @@
 // grabs, the boxes a drag writes, and what it snaps to: the snap lines and equal gaps it shows. It builds
 // `move-drag`, the move, `resize-drag`, the resize and a line's end, and `radius-drag`, the radius
 // dots and their drag.
-import { descendants, frameIdOf, type GestureStep, type Session } from '@dazbee/doc'
+import { descendants, frameIdOf, type GestureStep, intersects, type Session } from '@dazbee/doc'
 import type { Design, Point, Rect } from '@dazbee/schema'
 
 import { type Camera, toWorld } from '../../canvas/camera.ts'
-import { type Frame, frameAt, intersects } from '../../canvas/frames.ts'
+import { type Frame, frameAt } from '../../canvas/frames.ts'
 import { lineReach } from '../../canvas/hit-test.ts'
 import type { FrameScenes } from '../../canvas/scenes.ts'
 import type { NoticeDetail } from '../../core-interface.ts'

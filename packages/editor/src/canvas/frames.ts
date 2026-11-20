@@ -46,9 +46,6 @@ export function pageFrames(design: Design, pageId: string): { frames: Frame[]; b
   return { frames, bounds: { x: left, y: top, width: right - left, height: bottom - top } }
 }
 
-export const intersects = (a: Rect, b: Rect) =>
-  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
-
 /** The frame under a world point: the topmost (last by order) of those that hold it. */
 export const frameAt = (frames: readonly Frame[], p: Point) =>
   frames.findLast((f) => p.x >= f.x && p.x <= f.x + f.width && p.y >= f.y && p.y <= f.y + f.height)

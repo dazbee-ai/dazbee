@@ -15,7 +15,7 @@ export const who = { workspaceId: `workspace-${run}`, userId: 'user-1' }
 /**
  * A token for `designId` as `who`'s member, or `userId`, with `role` (Editor unless given), for a
  * design at `schemaVersion` (the current one unless given), expiring `ttl` ms from now (one token
- * lifetime unless given).
+ * lifetime unless given), for an agent's tab when given an `agent` name.
  */
 export function tokenFor(
   designId: string,
@@ -25,11 +25,12 @@ export function tokenFor(
     schemaVersion = SCHEMA_VERSION,
     userId = who.userId,
     name = userId,
-  }: { role?: MemberRole; ttl?: number; schemaVersion?: number; userId?: string; name?: string } = {},
+    agent,
+  }: { role?: MemberRole; ttl?: number; schemaVersion?: number; userId?: string; name?: string; agent?: string } = {},
 ) {
   return signSyncToken(
     secret,
-    { designId, ...who, userId, role, schemaVersion, name },
+    { designId, ...who, userId, role, schemaVersion, name, ...(agent === undefined ? {} : { agent }) },
     Date.now() - SYNC_TOKEN_TTL_MS + ttl,
   ).token
 }

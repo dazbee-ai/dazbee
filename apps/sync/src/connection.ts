@@ -175,7 +175,8 @@ export function serveConnection(socket: WebSocket, request: Request, options: Co
     state = 'joined'
     keepFresh(asker, given, renewal, () => end(SYNC_CLOSE.tokenExpired, 'the token expired'))
     const member = { userId: payload.userId, workspaceId: payload.workspaceId }
-    designs.connect(designId, tab, message, { member, name: payload.name, access: roleOf(given) })
+    const agent = payload.agent === undefined ? {} : { agent: payload.agent }
+    designs.connect(designId, tab, message, { member, name: payload.name, ...agent, access: roleOf(given) })
   }
 
   /** A fresh token on the open connection: checked here; a role it changes goes to the host. */

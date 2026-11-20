@@ -25,6 +25,8 @@ const ANN: Member = { userId: 'ann', workspaceId: 'w1' }
 const BOB: Member = { userId: 'bob', workspaceId: 'w1' }
 const editor = (member: Member = ANN): Who => ({ member, name: member.userId, access: 'edit' })
 const viewer: Who = { member: { userId: 'vic', workspaceId: 'w1' }, name: 'vic', access: 'view' }
+/** An agent's tab, working for Ann. */
+const agentTab = (agent = 'Claude (agent)'): Who => ({ ...editor(), agent })
 
 const MARK: RestoreMark = { versionId: 'v9', kind: 'named', name: 'Sent', takenAt: '2026-11-16T14:30:00.000Z' }
 
@@ -256,6 +258,69 @@ describe('a design host’s versions', () => {
     await host.settled()
 
     expect(vic.heard.map((m) => m.type)).toEqual(['welcome', 'version'])
+  })
+
+  it('keeps a Before agent version, named by the agent, before the first of a run of agent edits', async () => {
+    const { journal, host, ann } = await opened()
+    const claude = connection()
+    host.connect(claude, hello, agentTab())
+    await host.settled()
+    const before = host.server()?.state().toRecords()
+
+    await send(host, claude, changes(1, 0, [rename('badge', 'Agent one')]))
+    expect(journal.rows.versions).toMatchObject([
+      { kind: 'beforeAgent', name: 'Claude (agent)', savedBy: null, syncId: 's0', seq: 0, keep: null },
+    ])
+    expect(journal.rows.versions[0]?.records).toEqual(before)
+
+    await send(host, claude, changes(2, 1, [rename('badge', 'Agent two')]))
+    const other = connection()
+    host.connect(other, hello, agentTab('Codex (agent)'))
+    await host.settled()
+    await send(host, other, changes(1, 2, [rename('badge', 'Other agent')]))
+    expect(journal.rows.versions).toHaveLength(1)
+
+    await send(host, ann, changes(1, 3, [rename('badge', 'Ann')]))
+    expect(journal.rows.versions).toHaveLength(1)
+    const beforeSecond = host.server()?.state().toRecords()
+    await send(host, claude, changes(3, 4, [rename('badge', 'Agent again')]))
+    expect(journal.rows.versions.map((v) => [v.kind, v.name, v.seq])).toEqual([
+      ['beforeAgent', 'Claude (agent)', 0],
+      ['beforeAgent', 'Claude (agent)', 4],
+    ])
+    expect(journal.rows.versions[1]?.records).toEqual(beforeSecond)
+  })
+
+  it('keeps no Before agent version for a rejected agent change set, and keeps one for the next accepted', async () => {
+    const { journal, host } = await opened()
+    const claude = connection()
+    host.connect(claude, hello, agentTab())
+    await host.settled()
+
+    await send(host, claude, changes(1, 9, [rename('badge', 'Never')]))
+    expect(claude.heard.some((m) => m.type === 'reject')).toBe(true)
+    expect(journal.rows.versions).toEqual([])
+
+    await send(host, claude, changes(2, 0, [rename('badge', 'Kept')]))
+    expect(journal.rows.versions.map((v) => v.kind)).toEqual(['beforeAgent'])
+  })
+
+  it('keeps a Before agent version of a design unchanged since its last Autosave', async () => {
+    const { journal, host, ann } = await opened()
+    await send(host, ann, changes(1, 0, [rename('badge', 'Ann')]))
+    host.autosave()
+    await host.settled()
+    expect(host.changedSince()).toBeUndefined()
+    const claude = connection()
+    host.connect(claude, hello, agentTab())
+    await host.settled()
+
+    await send(host, claude, changes(1, 1, [rename('badge', 'Agent')]))
+
+    expect(journal.rows.versions.map((v) => [v.kind, v.seq])).toEqual([
+      ['auto', 1],
+      ['beforeAgent', 1],
+    ])
   })
 
   it('counts a design opened with a mark past its sequence number as changed, and keeps it when asked', async () => {

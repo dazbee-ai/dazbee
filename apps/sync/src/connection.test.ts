@@ -273,6 +273,19 @@ describe('hello', () => {
     for (const tab of [again, bob, second]) tab.close()
   })
 
+  it('names an agent’s tab to the others by the agent’s name, and a person’s tab by the person’s', async () => {
+    const { url } = await started()
+    const design = await storeSaved()
+    const ann = await joined(url, design)
+    const claude = await joined(url, design, tokenFor(design, { agent: 'Claude (agent)' }))
+    const bob = await joined(url, design, tokenFor(design, { userId: BOB.userId, name: 'Bob' }))
+
+    await until(() => ann.heard.filter((m) => m.type === 'joined').length === 2)
+    expect(ann.heard.filter((m) => m.type === 'joined').map((m) => m.name)).toEqual(['Claude (agent)', 'Bob'])
+    expect(Object.values(welcomeOf(bob).tabs)).toEqual(['user-1', 'Claude (agent)'])
+    for (const tab of [ann, claude, bob]) tab.close()
+  })
+
   it('joins as a new tab a resume by another member, holding a tab id and its secret (I12)', async () => {
     const { url } = await started()
     const design = await storeSaved()

@@ -3,7 +3,8 @@
 // each connection's hello and messages and delivers what it returns, once the journal entries it
 // committed are stored (host.ts). It never makes a value (I7): what it accepts is what the tab sent.
 // It keeps when the design last counted as unchanged, and takes versions of it: Before restore as it
-// accepts a restore, and an Autosave when the host asks. It keeps each connected tab's latest
+// accepts a restore, Before agent as it accepts an agent's edit after a person's, and an Autosave when
+// the host asks. An agent's tab is named to the others by the agent's name. It keeps each connected tab's latest
 // presence in memory only and passes it to the other members' tabs, each member in a colour of their
 // own (FigCraft's server and hub).
 import { nanoid } from 'nanoid'
@@ -44,6 +45,8 @@ export interface Who {
   /** The member's name, which other tabs show ("X is editing"). */
   name: string
   access: Access
+  /** For an agent's tab (ADR-0019), the agent's name, which other tabs show in place of the member's. */
+  agent?: string
 }
 
 export interface ServerOptions {
@@ -119,7 +122,10 @@ type Unnumbered<E = Entry> = E extends Entry ? Omit<E, 'entry'> : never
 /** A connected tab, in memory only. */
 interface Connected {
   member: Member
+  /** The name other tabs show for it: the agent's for an agent's tab, else the member's. */
   name: string
+  /** The agent's name, for an agent's tab. */
+  agent?: string
   access: Access
   /** Its previews passed on in the second since `since` (D11's preview rate). */
   previews: { since: number; count: number }
@@ -167,6 +173,8 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
   let changedSince = seq === versioned ? undefined : now()
   let versions: NewVersion[] = []
   let reads: { tabId: number; id: string }[] = []
+  /** Whether the last edit change set accepted since the design loaded came from an agent's tab. */
+  let agentEditedLast = false
 
   function join(raw: unknown, who: Who): { tabId: number; out: Outgoing[] } | Closing {
     const parsed = TabMessage.safeParse(raw)
@@ -195,9 +203,11 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     // A tab that connects again before its old connection closed takes over from it: the others know it already.
     const before = connected.get(tabId)
     const again = before !== undefined
+    const name = who.agent ?? who.name
     const conn: Connected = {
       member: who.member,
-      name: who.name,
+      name,
+      ...(who.agent === undefined ? {} : { agent: who.agent }),
       access: who.access,
       previews: { since: 0, count: 0 },
       ...personOf(tabId, who.member),
@@ -225,7 +235,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
         out.push({ to: tabId, message: presenceMessage(id, other, other.presence) })
       }
     }
-    if (!again) out.push({ to: 'all', except: tabId, message: { type: 'joined', tabId, name: who.name } })
+    if (!again) out.push({ to: 'all', except: tabId, message: { type: 'joined', tabId, name } })
     return { tabId, out }
   }
 
@@ -375,6 +385,12 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     }
     const tooBig = grownPast(before, after)
     if (tooBig) return reject('designTooBig', tooBig)
+    // The design as it was is kept before an agent's first edit since a person's, whether changed or not.
+    const agent = connected.get(author)?.agent
+    if (message.kind === 'edit') {
+      if (agent !== undefined && !agentEditedLast) takeVersion('beforeAgent', null, agent)
+      agentEditedLast = agent !== undefined
+    }
     // The design as it was is kept before a restore replaces it; after, it counts as unchanged.
     if (message.restore) takeVersion('beforeRestore', message.restore.versionId)
     applied.after.commit({ seq: seq + 1, author })
@@ -440,12 +456,15 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     if (drop > 0) log = log.slice(drop)
   }
 
-  /** Takes a version of the design as it is now, unless it is unchanged, and marks it unchanged. */
-  function takeVersion(kind: NewVersion['kind'], keep: string | null = null) {
-    if (changedSince === undefined) return
+  /**
+   * Takes a version of the design as it is now, named `name`, and marks it unchanged: a Before agent
+   * version always, any other only while the design is changed.
+   */
+  function takeVersion(kind: NewVersion['kind'], keep: string | null = null, name = '') {
+    if (changedSince === undefined && kind !== 'beforeAgent') return
     versions.push({
       kind,
-      name: '',
+      name,
       description: '',
       savedBy: null,
       syncId,

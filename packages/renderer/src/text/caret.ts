@@ -194,12 +194,14 @@ function blockOf(laid: TextLayout, offset: number): TextBlock | undefined {
 /**
  * Where the caret is drawn for an offset in a block, and beside which box: the trailing edge of the
  * grapheme before it, else the leading edge of the grapheme after it, that one first with `after`;
- * nowhere in an empty paragraph.
+ * nowhere in an empty paragraph. A line separator that ends a line early is drawn with no width and
+ * on no line, so the caret after it stands at the start of the next line.
  */
 function drawnEdge(boxes: GraphemeBox[], offset: number, after = false): { x: number; box: GraphemeBox } | undefined {
   const before = boxes.find((b) => b.end === offset)
   const next = boxes.find((b) => b.start === offset)
-  const trailing = before && { x: before.rtl ? before.x : before.x + before.width, box: before }
+  const lineEnd = before && next && before.line < 0 && before.width === 0 && next.line >= 0
+  const trailing = before && !lineEnd ? { x: before.rtl ? before.x : before.x + before.width, box: before } : undefined
   const leading = next && { x: next.rtl ? next.x + next.width : next.x, box: next }
   return after ? (leading ?? trailing) : (trailing ?? leading)
 }
@@ -235,7 +237,9 @@ function lineAfter(
   line: number,
   forward: boolean,
 ): { block: TextBlock; slots: Slot[] } | null {
-  const linesOf = (boxes: GraphemeBox[]) => [...new Set(boxes.map((b) => b.line))].sort((a, b) => a - b)
+  // A line separator that ends a line early is on no line.
+  const linesOf = (boxes: GraphemeBox[]) =>
+    [...new Set(boxes.map((b) => b.line).filter((l) => l >= 0))].sort((a, b) => a - b)
   const boxes = boxesOf(ck, block)
   const lines = linesOf(boxes)
   const inBlock = forward ? lines.find((l) => l > line) : lines.findLast((l) => l < line)

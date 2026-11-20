@@ -27,6 +27,14 @@ describe('paragraphCache', () => {
     cache.delete()
   })
 
+  it('lays a text out again when its wrap style changes', () => {
+    const cache = paragraphCache(4)
+    const fonts = resources()
+    const auto = cache.layout(ck, text('a'), fonts)
+    expect(cache.layout(ck, { ...text('a'), wrapStyle: 'balance' }, fonts)).not.toBe(auto)
+    cache.delete()
+  })
+
   it('frees the least recently used layout past the limit', () => {
     const cache = paragraphCache(2)
     const fonts = resources()

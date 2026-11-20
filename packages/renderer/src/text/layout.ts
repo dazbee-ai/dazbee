@@ -7,6 +7,7 @@ import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
+import { rewrap, type Rewrapped } from './wrap-style.ts'
 
 /** One paragraph of a text layer (the text between line breaks), laid out where it sits in the layer. */
 export interface TextBlock {
@@ -17,7 +18,10 @@ export interface TextBlock {
   marker: Paragraph | null
   markerX: number
   markerY: number
-  /** The paragraph as drawn, its case changed, without the line break; offsets match the layer's text. */
+  /**
+   * The paragraph as drawn, its case changed and a line Pretty ends early ending in a line separator
+   * in place of its space, without the line break; offsets match the layer's text.
+   */
   text: string
   /** Where it is in the layer's text, in UTF-16 units. */
   start: number
@@ -178,13 +182,17 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const outlined = pieces.some((p) => (p.style.outline?.width ?? 0) > 0)
   const clear = new ck.Paint()
   clear.setColor(ck.TRANSPARENT)
-  /** One paragraph of the text; with `outline`, its outline pass. `more` is drawn after it, as an ellipsis is. */
+  /**
+   * One paragraph of the text; with `outline`, its outline pass. `more` is drawn after it, as an
+   * ellipsis is. `text` is what it draws in place of the shown text, of the same length.
+   */
   const paragraphOf = (
     start: number,
     end: number,
     extra: { maxLines?: number; ellipsis?: string },
     outline: boolean,
     more = '',
+    text = shown.slice(start, end),
   ) => {
     // An empty paragraph takes the style typing would give it: the character before's.
     const lead = start < end ? styleAt(start) : styleAt(Math.max(0, start - 1))
@@ -214,7 +222,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       } else {
         builder.pushStyle(style)
       }
-      builder.addText(shown.slice(from, to))
+      builder.addText(text.slice(from - start, to - start))
       builder.pop()
     }
     if (more) {
@@ -295,15 +303,31 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     }
   }
 
+  // Balance and Pretty narrow each paragraph's lines; one cut off with an ellipsis keeps its own.
+  const cutAt = cutWith.extra.maxLines === undefined ? -1 : paragraphs.length - 1
+  const wraps = paragraphs.map((paragraph, i): Rewrapped => {
+    const { start, end } = ranges[i] as { start: number; end: number }
+    const text = shown.slice(start, end)
+    if (i === cutAt) return { paragraph, text, width: inner, dx: 0 }
+    return rewrap(paragraph, text, props, rtl, inner, (local) => paragraphOf(start, end, {}, false, '', local))
+  })
   const spacing = (props.paragraphSpacing ?? 0) * scale
   let y = 0
-  const blocks: TextBlock[] = paragraphs.map((paragraph, i) => {
+  const blocks: TextBlock[] = wraps.map((wrap, i) => {
+    const { paragraph } = wrap
     const range = ranges[i] as { start: number; end: number }
     let outline: Paragraph | null = null
     if (outlined) {
       const lastOne = i === paragraphs.length - 1
-      outline = paragraphOf(range.start, range.end, lastOne ? cutWith.extra : {}, true, lastOne ? cutWith.more : '')
-      outline.layout(inner)
+      outline = paragraphOf(
+        range.start,
+        range.end,
+        lastOne ? cutWith.extra : {},
+        true,
+        lastOne ? cutWith.more : '',
+        wrap.text,
+      )
+      outline.layout(wrap.width)
     }
     const marker = markers[i] ?? null
     const block: TextBlock = {
@@ -312,10 +336,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       marker,
       markerX: rtl ? inner + gutter - (marker?.getMaxIntrinsicWidth() ?? 0) : 0,
       markerY: (paragraph.getLineMetrics()[0]?.baseline ?? 0) - (marker?.getLineMetrics()[0]?.baseline ?? 0),
-      text: shown.slice(range.start, range.end),
+      text: wrap.text,
       start: range.start,
       end: range.end,
-      x: rtl ? 0 : gutter,
+      x: (rtl ? 0 : gutter) + wrap.dx,
       y,
       height: paragraph.getHeight(),
     }
@@ -346,8 +370,7 @@ function fits(props: TextProps, laid: TextLayout): boolean {
   if (props.boxMode === 'autoWidth') return true
   const total = props.text.split('\n').length
   if (laid.blocks.length < total || laid.blocks.some((b) => b.paragraph.didExceedMaxLines())) return false
-  for (const b of laid.blocks)
-    if (b.paragraph.getMinIntrinsicWidth() > props.width - b.x - gutterRight(props, laid, b) + 0.01) return false
+  for (const b of laid.blocks) if (b.paragraph.getMinIntrinsicWidth() > b.paragraph.getMaxWidth() + 0.01) return false
   return props.boxMode !== 'fixed' || laid.height <= props.height + 0.01
 }
 
@@ -360,6 +383,7 @@ function layoutKey(props: TextProps, fallbackFamilies: string[]) {
     props.width,
     props.height,
     props.boxMode,
+    props.wrapStyle,
     props.align,
     props.verticalAlign,
     props.direction,
@@ -417,10 +441,6 @@ function textStyle(
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
     ...(decoration ? { decoration, decorationColor: color(ck, style.color), decorationThickness: 1 } : {}),
   })
-}
-
-function gutterRight(props: TextProps, laid: TextLayout, b: TextBlock) {
-  return b.marker && b.x === 0 ? laid.width - b.paragraph.getMaxWidth() : 0
 }
 
 /**

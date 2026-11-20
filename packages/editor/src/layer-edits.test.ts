@@ -332,6 +332,12 @@ describe('editorLayerEdits', () => {
       expect(log).toEqual(['fit words'])
     })
 
+    it('fits text again when its wrap style changes where its lines break', () => {
+      const { edits, log } = harness()
+      edits.setProps(['words'], () => ({ wrapStyle: 'balance' }))
+      expect(log).toEqual(['fit words'])
+    })
+
     it('writes nothing, and makes no undo step, for values a change leaves as they are', () => {
       const { edits, session } = harness()
       edits.setProps(['dot'], (_id, now) => ({ x: now.x }))

@@ -1,7 +1,8 @@
 'use client'
 
 // The text's paragraph, as rows of icon choices, each named by its tooltip: how its lines line up
-// beside where they sit up and down in the box, its list beside which way it reads, then its case.
+// beside where they sit up and down in the box, its list beside which way it reads, its case, then
+// where its lines break.
 import { type ReactNode } from 'react'
 
 import { Segments } from '@/components/editor/edit-panel/fields.tsx'
@@ -50,8 +51,8 @@ const DIRECTION_MARKS = {
 }
 
 /**
- * The paragraph's choices. Alignment, direction, vertical place and the list are the layers' own;
- * the case is the selected run's while one text is being edited.
+ * The paragraph's choices. Alignment, direction, vertical place, the list and the wrap style are
+ * the layers' own; the case is the selected run's while one text is being edited.
  */
 export function ParagraphRows({ target }: { target: Target }) {
   const t = useMessages()
@@ -111,6 +112,15 @@ export function ParagraphRows({ target }: { target: Target }) {
         labels={p.textCases}
         marks={CASE_MARKS}
         onSet={(v) => setStyle('textCase', v)}
+      />
+      <Segments
+        name={p.wrapStyle}
+        testId="text-wrap"
+        value={value<'auto' | 'balance' | 'pretty'>('wrapStyle', 'auto')}
+        options={['auto', 'balance', 'pretty'] as const}
+        labels={p.wrapStyleTips}
+        marks={p.wrapStyles}
+        onSet={(wrapStyle) => set(target, () => ({ wrapStyle }))}
       />
     </div>
   )

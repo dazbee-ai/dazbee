@@ -225,3 +225,146 @@ describe('letter spacing and OpenType features', () => {
     for (const l of [plain, native, synthetic, capitals]) l.delete()
   })
 })
+
+/** Each line of a one-paragraph text: its text without trailing spaces, and its width. */
+const linesOf = (laid: ReturnType<typeof layout>) => {
+  const block = laid.blocks[0]
+  return (block?.paragraph.getLineMetrics() ?? []).map((l) => ({
+    text: block?.text.slice(l.startIndex, l.endExcludingWhitespaces) ?? '',
+    width: l.width,
+    left: (block?.x ?? 0) + l.left,
+  }))
+}
+const spread = (widths: number[]) => Math.max(...widths) - Math.min(...widths)
+
+describe('wrap style', () => {
+  // At 32 px in a 320 px box, Auto leaves its last line much shorter than the two above it.
+  const headline = 'Big summer sale on every jacket and shirt in store now'
+
+  it('Balance breaks a three-line headline into lines of near even length', () => {
+    const auto = layout(headline)
+    const balanced = layout(headline, { wrapStyle: 'balance' })
+    const widths = linesOf(balanced).map((l) => l.width)
+    expect(linesOf(auto).map((l) => l.text)).toEqual(['Big summer sale on', 'every jacket and shirt', 'in store now'])
+    expect(widths).toHaveLength(3)
+    expect(spread(widths)).toBeLessThan(60)
+    expect(spread(widths)).toBeLessThan(spread(linesOf(auto).map((l) => l.width)) / 2)
+    expect(
+      linesOf(balanced)
+        .map((l) => l.text)
+        .join(' '),
+    ).toBe(headline)
+    // Start-aligned lines still start at the box's left edge.
+    for (const line of linesOf(balanced)) expect(line.left).toBeCloseTo(0, 3)
+    auto.delete()
+    balanced.delete()
+  })
+
+  it('a balanced paragraph keeps its alignment in the box, in both directions', () => {
+    const middleOf = (l: { left: number; width: number }) => l.left + l.width / 2
+    const centred = layout(headline, { wrapStyle: 'balance', align: 'center' })
+    for (const line of linesOf(centred)) expect(middleOf(line)).toBeCloseTo(160, 0)
+    const end = layout(headline, { wrapStyle: 'balance', align: 'end' })
+    for (const line of linesOf(end)) expect(line.left + line.width).toBeCloseTo(320, 0)
+    const arabic = layout('تخفيضات الصيف الكبيرة على كل السترات والقمصان في المتجر الآن', {
+      ...style({}, 'Noto Naskh Arabic'),
+      wrapStyle: 'balance',
+    })
+    expect(arabic.rtl).toBe(true)
+    expect(linesOf(arabic).length).toBeGreaterThan(1)
+    for (const line of linesOf(arabic)) expect(line.left + line.width).toBeCloseTo(320, 0)
+    for (const l of [centred, end, arabic]) l.delete()
+  })
+
+  it('Balance leaves a one-line text, a justified one and a word wider than the box as Auto has them', () => {
+    for (const [text, more] of [
+      ['Summer sale', {}],
+      [headline, { align: 'justify' }],
+      ['Unbelievablyextraordinarysavings on now', {}],
+    ] as const) {
+      const auto = layout(text, more)
+      const balanced = layout(text, { ...more, wrapStyle: 'balance' })
+      expect(linesOf(balanced)).toEqual(linesOf(auto))
+      auto.delete()
+      balanced.delete()
+    }
+  })
+
+  it('Pretty leaves no one word alone on the last line, and lines that need no change as Auto has them', () => {
+    const text = 'Fresh coffee roasted every morning in small batches for you'
+    const auto = layout(text)
+    expect(linesOf(auto).map((l) => l.text)).toEqual([
+      'Fresh coffee roasted',
+      'every morning in',
+      'small batches for',
+      'you',
+    ])
+    // The line before the last gives its last word away; the lines above it stay full.
+    const pretty = layout(text, { wrapStyle: 'pretty' })
+    expect(linesOf(pretty).map((l) => l.text)).toEqual([
+      'Fresh coffee roasted',
+      'every morning in',
+      'small batches',
+      'for you',
+    ])
+    expect(pretty.blocks[0]?.text).toBe(text.replace(' for', '\u2028for'))
+    expect(pretty.height).toBe(auto.height)
+    // The headline's last line holds three words already.
+    const headlineAuto = layout(headline)
+    const headlinePretty = layout(headline, { wrapStyle: 'pretty' })
+    expect(linesOf(headlinePretty)).toEqual(linesOf(headlineAuto))
+    // Arabic: the lines still end at the box's right edge.
+    const arabicText = 'تخفيضات الصيف الكبيرة على كل السترات والقمصان في المتجر'
+    const arabic = { ...style({}, 'Noto Naskh Arabic'), width: 260 }
+    const arabicAuto = layout(arabicText, arabic)
+    expect(linesOf(arabicAuto).at(-1)?.text).toBe('المتجر')
+    const arabicPretty = layout(arabicText, { ...arabic, wrapStyle: 'pretty' })
+    const arabicLines = linesOf(arabicPretty)
+    const textsOf = (lines: { text: string }[]) => lines.map((l) => l.text)
+    expect(textsOf(arabicLines.slice(0, -2))).toEqual(textsOf(linesOf(arabicAuto).slice(0, -2)))
+    expect(arabicLines.at(-1)?.text).toBe('في المتجر')
+    for (const line of arabicLines) expect(line.left + line.width).toBeCloseTo(260, 0)
+    for (const l of [auto, pretty, headlineAuto, headlinePretty, arabicAuto, arabicPretty]) l.delete()
+  })
+
+  it('a Pretty paragraph’s caret, selection and outline follow the lines it breaks', () => {
+    const text = 'Fresh coffee roasted every morning in small batches for you'
+    const laid = layout(text, {
+      wrapStyle: 'pretty',
+      style: { fontFamily: 'Noto Sans', fontSize: 32, color: '#000000FF', outline: { width: 2, color: '#FF0000FF' } },
+    })
+    const block = laid.blocks[0]
+    const lineTops = block?.paragraph.getLineMetrics().map((l) => l.baseline - l.ascent) ?? []
+    const forAt = text.indexOf('for')
+    // "for" starts the last line; the space before it ends the line above.
+    expect(caretPosition(ck, laid, forAt).x).toBe(0)
+    expect(caretPosition(ck, laid, forAt).y).toBeCloseTo(lineTops[3] ?? NaN, 1)
+    expect(caretPosition(ck, laid, forAt - 1).y).toBeCloseTo(lineTops[2] ?? NaN, 1)
+    expect(caretAt(ck, laid, 1, (lineTops[3] ?? 0) + 5)).toBe(forAt)
+    expect(selectionBoxes(ck, laid, forAt - 8, forAt + 3).map((b) => Math.round(b.y))).toEqual(
+      [lineTops[2], lineTops[3]].map((y) => Math.round(y ?? NaN)),
+    )
+    expect(block?.outline?.getLineMetrics().map((l) => [l.startIndex, l.endIndex])).toEqual(
+      block?.paragraph.getLineMetrics().map((l) => [l.startIndex, l.endIndex]),
+    )
+    laid.delete()
+  })
+
+  it('Balance leaves the size shrink to fit picks as Auto has it, and the paragraph maxLines cuts', () => {
+    for (const align of ['start', 'center', 'end']) {
+      const fit = { boxMode: 'fixed', height: 400, align, shrinkToFit: { min: 10, max: 120 } }
+      const auto = layout(headline, fit)
+      const balanced = layout(headline, { ...fit, wrapStyle: 'balance' })
+      expect(balanced.scale).toBe(auto.scale)
+      expect(linesOf(balanced)).toHaveLength(linesOf(auto).length)
+      auto.delete()
+      balanced.delete()
+    }
+    const cutAuto = layout(headline, { maxLines: 2 })
+    const cut = layout(headline, { maxLines: 2, wrapStyle: 'balance' })
+    expect(linesOf(cut)).toEqual(linesOf(cutAuto))
+    const whole = layout(headline, { maxLines: 3, wrapStyle: 'balance' })
+    expect(spread(linesOf(whole).map((l) => l.width))).toBeLessThan(60)
+    for (const l of [cutAuto, cut, whole]) l.delete()
+  })
+})

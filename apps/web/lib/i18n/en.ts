@@ -1053,7 +1053,7 @@ export const en = {
       wrapStyleTips: {
         auto: 'Auto: as many words as fit on each line',
         balance: 'Balance: lines of near even length',
-        pretty: 'Pretty: full lines, no one word alone on the last',
+        pretty: 'Pretty: full lines, no one word alone on the last line',
       },
       textBox: 'Text box',
       /** The part of a text's Spacing section that holds shrink to fit and the most lines it shows. */

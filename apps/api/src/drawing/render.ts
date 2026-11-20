@@ -1,6 +1,7 @@
 // Drawing a design in Node (#54): the same render seam the editor's exports use, with every byte it
 // needs read from our storage as the editor reads it: the fonts we ship, the brand's catalog
-// families, the originals of its images, and its brand kit's values.
+// families, the originals of its images (the kit's logo where a picture follows it), and its brand
+// kit's values.
 import type { Db } from '@dazbee/db'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -26,11 +27,13 @@ export async function brandResourcesFor(
   brandId: string,
   design: Design,
 ): Promise<ResourceBytes> {
-  const variables = brandVariables(await getBrandKit(db, workspaceId, brandId))
+  const kit = await getBrandKit(db, workspaceId, brandId)
+  const logo = kit.logoAssetId ? await findAsset(db, workspaceId, brandId, { id: kit.logoAssetId }) : null
+  const variables = brandVariables(kit, logo ?? undefined)
   const [fonts, images] = await Promise.all([
     fontFiles(db, storage, workspaceId, brandId, fontFamilies(design, variables)),
     Promise.all(
-      imageAssetIds(design).map(async (id) => {
+      imageAssetIds(design, undefined, variables).map(async (id) => {
         const asset = await findAsset(db, workspaceId, brandId, { id })
         const bytes = asset && (await storage.get(originalKey(workspaceId, asset.sha256)))
         return bytes ? [[id, bytes] as const] : []

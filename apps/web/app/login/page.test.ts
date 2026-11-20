@@ -2,7 +2,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import LoginPage from './page.tsx'
+import LoginPage, { generateMetadata } from './page.tsx'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ cookies: vi.fn() }))
@@ -34,6 +34,12 @@ async function noticeOf(query: Record<string, string>) {
   const notice = /data-testid="sign-in-notice"[^>]*>([\s\S]*?)<\/p>/.exec(await render(query))
   return notice ? (notice[1] ?? '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '') : null
 }
+
+describe('generateMetadata', () => {
+  it('sends no referrer, since the address can carry the Connect an agent page with its request', async () => {
+    expect(await generateMetadata()).toMatchObject({ title: 'Sign in to Dazbee', referrer: 'no-referrer' })
+  })
+})
 
 describe('LoginPage', () => {
   it('tells a person early access refused whom to write to, in each language', async () => {
@@ -81,6 +87,14 @@ describe('LoginPage', () => {
     expect(await render({ error: 'early-access' })).toContain('data-testid="request-access"')
     expect(await render({ error: 'open-invite' })).not.toContain('data-testid="request-access"')
     expect(await render({})).not.toContain('data-testid="request-access"')
+  })
+
+  it('sends the Connect an agent page to come back to with Sign in, and no other page', async () => {
+    expect(await render({ next: '/agents/connect?request=x' })).toContain(
+      '<input type="hidden" name="next" value="/agents/connect?request=x"/>',
+    )
+    expect(await render({ next: 'https://elsewhere.example' })).not.toContain('name="next"')
+    expect(await render({})).not.toContain('name="next"')
   })
 
   it('says the account is deleted right after it is, in each language, as news rather than a refusal', async () => {

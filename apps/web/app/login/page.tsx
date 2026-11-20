@@ -1,16 +1,18 @@
-// Sign in (#58): one button to WorkOS AuthKit, which signs in or signs up. The API makes the link;
+// Sign in: one button to WorkOS AuthKit, which signs in or signs up. The API makes the link;
 // the state cookie ties WorkOS's answer to this browser. An invite email's link that starts here
 // brings its `invitation_token`, which the sign-in link carries on, so WorkOS accepts the invite. A
 // sign-in early access refused comes back with its reason, and the notice says what to do; the address to
 // write to is the setting SUPPORT_EMAIL. Under the early-access notice, Request access puts the person on the
 // waiting list, with Cloudflare Turnstile's check when TURNSTILE_SITE_KEY is set. Right after a person deletes
-// their account, it says the account is deleted.
+// their account, it says the account is deleted. Sent from the Connect an agent page, Sign in carries that page
+// on, and sign-in comes back to it.
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
 import { CheckIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
 import { cn } from '@/lib/cn.ts'
 import type { Messages } from '@/lib/i18n/en.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
+import { pageAfterSignIn } from '@/lib/server/sign-in.ts'
 
 import { start } from './actions.ts'
 import { AdFan } from './ad-fan.tsx'
@@ -19,7 +21,8 @@ import { RequestAccess } from './request-access.tsx'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
-  return { title: (await getMessages()).signIn.title }
+  // The address can carry the Connect an agent page with its sign-in request, which no site it leaves for learns.
+  return { title: (await getMessages()).signIn.title, referrer: 'no-referrer' as const }
 }
 
 // Sign-in has the form on the start half and fanned-out ads on the end half. Phones show the form alone.
@@ -32,10 +35,12 @@ export default async function LoginPage({
     invite?: string
     invitation_token?: string
     deleted?: string
+    next?: string
   }>
 }) {
   const [t, query] = await Promise.all([getMessages(), searchParams])
   // Right after deleting their account, the person is told it is deleted, as news rather than a refusal.
+  const next = pageAfterSignIn(query.next)
   const news = query.deleted ? t.signIn.deleted : null
   const notice = query.unavailable ? (
     t.signIn.unavailable
@@ -83,6 +88,7 @@ export default async function LoginPage({
           {typeof query.invitation_token === 'string' && (
             <input type="hidden" name="invitation_token" value={query.invitation_token} />
           )}
+          {next && <input type="hidden" name="next" value={next} />}
           <button
             type="submit"
             data-testid="sign-in"

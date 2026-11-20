@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiFailure, completeSignIn, SESSION_COOKIE, signInLink } from '@/lib/server/api.ts'
-import { AGAIN_STATE, INVITATION_COOKIE, STATE_COOKIE } from '@/lib/server/sign-in.ts'
+import { AGAIN_STATE, INVITATION_COOKIE, NEXT_COOKIE, STATE_COOKIE } from '@/lib/server/sign-in.ts'
 
 import { GET } from './route.ts'
 
@@ -65,6 +65,51 @@ describe('GET /callback', () => {
     expect(jar.get(SESSION_COOKIE)).toBe('a-session-token')
     expect(jar.has(STATE_COOKIE)).toBe(false)
     expect(completeSignIn).toHaveBeenCalledWith('good')
+  })
+
+  it('comes back to the Connect an agent page the sign-in started from, with its request', async () => {
+    jar.set(STATE_COOKIE, 'the-one-we-started')
+    jar.set(NEXT_COOKIE, '/agents/connect?request=x')
+
+    const response = await GET(new NextRequest('http://localhost:3000/callback?code=good&state=the-one-we-started'))
+
+    expect([response.status, response.headers.get('location')]).toEqual([303, '/agents/connect?request=x'])
+    expect(jar.get(SESSION_COOKIE)).toBe('a-session-token')
+    expect(jar.has(NEXT_COOKIE)).toBe(false)
+  })
+
+  it('opens the workspace, as sign-in does, for any other page or an address off this site', async () => {
+    for (const next of ['https://elsewhere.example', '//elsewhere.example', '/w/1', '/agents/connect/../../w/1']) {
+      jar.set(STATE_COOKIE, 'the-one-we-started')
+      jar.set(NEXT_COOKIE, next)
+
+      const response = await GET(new NextRequest('http://localhost:3000/callback?code=good&state=the-one-we-started'))
+
+      expect([response.status, response.headers.get('location')], next).toEqual([303, '/w/workspace-1'])
+      expect(jar.has(NEXT_COOKIE)).toBe(false)
+    }
+  })
+
+  it('sends a sign-in that fails back to sign in with the page to come back to, so trying again still comes back', async () => {
+    jar.set(STATE_COOKIE, 'the-one-we-started')
+    jar.set(NEXT_COOKIE, '/agents/connect?request=x')
+    vi.mocked(completeSignIn).mockRejectedValueOnce(new Error('The API refused the code'))
+
+    const response = await GET(new NextRequest('http://localhost:3000/callback?code=good&state=the-one-we-started'))
+
+    expect(response.headers.get('location')).toBe(
+      `/login?error=1&next=${encodeURIComponent('/agents/connect?request=x')}`,
+    )
+    expect(jar.has(NEXT_COOKIE)).toBe(false)
+  })
+
+  it('keeps the page to come back to when it starts sign-in again', async () => {
+    jar.set(NEXT_COOKIE, '/agents/connect?request=x')
+
+    const response = await GET(new NextRequest('https://app.example.com/callback?code=from-the-invite'))
+
+    expect(response.headers.get('location')).toBe(SIGN_IN_PAGE)
+    expect(jar.get(NEXT_COOKIE)).toBe('/agents/connect?request=x')
   })
 
   it("forgets the invite's token the sign-in started from once it signs in", async () => {

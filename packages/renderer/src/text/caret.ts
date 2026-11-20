@@ -99,19 +99,24 @@ export function caretPosition(
  */
 export function visualStep(ck: CanvasKit, laid: TextLayout, offset: number, right: boolean): number | null {
   const block = blockOf(laid, offset)
-  if (!block) return null
+  // Text the line limit cut off is not drawn: there a step is in reading order.
+  if (!block || offset < block.start || offset > block.end) return null
   const boxes = boxesOf(ck, block)
-  const caret = drawnEdge(boxes, Math.min(offset - block.start, block.text.length))
+  const caret = drawnEdge(boxes, offset - block.start)
+  if (!caret && block.text !== '') return null
   if (caret && !laid.rtl && !boxes.some((b) => b.line === caret.box.line && b.rtl)) return null
   // An empty paragraph has no edges: in a right-to-left layer it steps on as a line's end does.
   if (!caret && !laid.rtl) return null
-  // Nearest first; where two offsets are drawn at one place, as at a change of direction, the lower.
+  // Nearest first. Where two offsets are drawn at one place, as at a change of direction, the one
+  // drawn beside the grapheme the arrow just crossed, so each is reached from its own side; then the lower.
+  const crossed = (e: DrawnEdge) => e.box.x + e.box.width / 2 < e.x === right
   const [next] = caret
     ? edgesOn(boxes, caret.box.line)
         .filter((e) => (right ? e.x > caret.x + NEAR : e.x < caret.x - NEAR))
         .sort((a, b) => {
           const nearer = Math.abs(a.x - caret.x) - Math.abs(b.x - caret.x)
-          return Math.abs(nearer) > NEAR ? nearer : a.offset - b.offset
+          if (Math.abs(nearer) > NEAR) return nearer
+          return Number(crossed(b)) - Number(crossed(a)) || a.offset - b.offset
         })
     : []
   if (next) return block.start + next.offset

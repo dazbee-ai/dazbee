@@ -54,6 +54,19 @@ describe('text editing', () => {
     expect(backspaceStep('ab', 0)).toBe(0)
   })
 
+  it('steps back over an emoji whose first code point is a letter whole, and a variation selector with its letter', () => {
+    // Ⓜ️, ℹ️ and 🅰️ with their emoji variation selector; 漢 with a variation selector of its own.
+    for (const codes of [
+      [0x24c2, 0xfe0f],
+      [0x2139, 0xfe0f],
+      [0x1f170, 0xfe0f],
+      [0x6f22, 0xfe00],
+    ]) {
+      const text = String.fromCodePoint(...codes)
+      expect(backspaceStep(text, text.length), text).toBe(0)
+    }
+  })
+
   it('steps back over emoji, flags, keycaps and Hangul whole', () => {
     for (const text of ['👨\u200D👩\u200D👧', '👍🏽', '🇯🇵', '1\uFE0F\u20E3', '\u1112\u1161\u11AB', '한', 'a\u200D'])
       expect(backspaceStep(`x${text}`, text.length + 1), text).toBe(1)

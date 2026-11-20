@@ -312,3 +312,44 @@ describe('the arrow keys across paragraphs', () => {
     laid.delete()
   })
 })
+
+describe('the arrow keys where two offsets are drawn at one place', () => {
+  const laidText = (text: string) => laidOut({ label: text, text, family: 'Noto Naskh Arabic', weight: 400 })
+
+  it('reach every offset of a line with Arabic inside Latin, the end of the Arabic word too', () => {
+    for (const text of ['Sale خصم', 'ab خصم cd', 'خصم 😀 ok']) {
+      const laid = laidText(text)
+      const ends = drawnEdges(laid, text)
+      const leftmost = ends.reduce((a, b) => (b.x < a.x ? b : a))
+      const rightmost = ends.reduce((a, b) => (b.x > a.x ? b : a))
+      const reached = new Set([...walk(laid, leftmost.offset, true), ...walk(laid, rightmost.offset, false)])
+      // Walking right and back, the caret lands on every offset drawn somewhere no other is.
+      for (const e of ends) {
+        const shared = ends.some((o) => o.offset !== e.offset && o.x === e.x)
+        if (!shared) expect(reached, `${text} ${e.offset}`).toContain(e.offset)
+      }
+      expect(reached, text).toContain(text.length)
+      laid.delete()
+    }
+  })
+})
+
+describe('the arrow keys in text cut off by its line limit', () => {
+  it('step in reading order from an offset in text not drawn', () => {
+    const text = 'abc خصم\nhidden para'
+    const props = TextProps.parse({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      boxMode: 'autoWidth',
+      maxLines: 1,
+      text,
+      style: { fontFamily: 'Noto Naskh Arabic', fontWeight: 400, fontSize: 48, color: '#000000FF' },
+    })
+    const laid = layoutText(ck, props, resources)
+    expect(visualStep(ck, laid, text.length, false)).toBeNull()
+    expect(visualStep(ck, laid, 12, true)).toBeNull()
+    laid.delete()
+  })
+})

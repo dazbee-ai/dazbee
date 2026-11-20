@@ -366,7 +366,7 @@ export function editorTyping({
   /**
    * Deletes the selected range, or else back from the caret: a letter's trailing vowel sign or mark
    * alone, as Indic keyboards take it back (`backspaceStep`), or a word with `byWord`. Writes only;
-   * whether there was anything to delete.
+   * whether it deleted anything.
    */
   function deleteBack(byWord: boolean) {
     const node = editing && session.design().nodes[editing.id]
@@ -378,9 +378,9 @@ export function editorTyping({
     const caret = Math.min(range.start, text.length)
     const start = end > caret ? caret : byWord ? wordStep(text, caret, false) : backspaceStep(text, caret)
     if (start === end) return false
-    if (write(() => session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } })))
-      caretTo(start)
-    return true
+    const ok = write(() => session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } }))
+    if (ok) caretTo(start)
+    return ok
   }
   /** Deletes back as Backspace does, for a delete that came with no key, and fits and shows the text. */
   function deleteBackward() {

@@ -39,6 +39,7 @@ const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const words = new Intl.Segmenter(undefined, { granularity: 'word' })
 /** A letter of any script, Unicode's Alphabetic property, which a grapheme's trailing marks may follow. */
 const LETTER = /\p{Alphabetic}/u
+const VARIATION_SELECTOR = /\p{Variation_Selector}/u
 const ZWJ = '\u200D'
 
 /** Every offset a caret can stand at: the edges of Unicode's graphemes. */
@@ -147,7 +148,11 @@ export function styleWrite(toggle: StyleToggle, on: boolean, weights: readonly n
   }
 }
 
-/** Whether a character joins the grapheme of a letter before it as a mark (Extend or SpacingMark); the zero-width joiner joins, but is no mark. */
+/**
+ * Whether a character joins the grapheme of a letter before it as a mark (Extend or SpacingMark).
+ * The zero-width joiner joins, and a variation selector picks how the letter before it is drawn,
+ * an emoji's look too: neither is a mark.
+ */
 function isTrailingMark(char: string): boolean {
-  return char !== ZWJ && oneGrapheme(`a${char}`)
+  return char !== ZWJ && !VARIATION_SELECTOR.test(char) && oneGrapheme(`a${char}`)
 }

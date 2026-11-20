@@ -192,6 +192,36 @@ describe('PDF and SVG exports (#56)', () => {
     )
   })
 
+  it('draws small caps in a PDF from the font that has them, as the screen does', async () => {
+    const text = (id: string, family: string) => ({
+      type: 'text',
+      parentId: 'f',
+      link: id,
+      index: id === 'own' ? 'a0' : 'a1',
+      name: id,
+      props: {
+        x: 10,
+        y: id === 'own' ? 10 : 80,
+        width: 300,
+        height: 60,
+        text: 'Sale',
+        style: { fontFamily: family, fontSize: 40, color: '#000000FF', features: { smcp: true } },
+      },
+    })
+    const json = {
+      meta: { designId: 'd', name: 'Small caps' },
+      pages: { p: { name: 'Page', order: 'a0' } },
+      frames: { f: { pageId: 'p', name: 'F', width: 320, height: 160, x: 0, y: 0, order: 'a0' } },
+      nodes: { own: text('own', 'Noto Sans'), madeUp: text('madeUp', 'Noto Sans Devanagari') },
+    }
+    // Noto Sans has small caps, glyphs of their own; Noto Sans Devanagari has none, so they are made-up capitals.
+    const inFile = await pdfText(pdfium, renderVector(ck, json, 'f', bytes, 'pdf', cache))
+    const [own, madeUp] = inFile.split(/\r?\n/)
+    expect(own?.startsWith('S')).toBe(true)
+    expect(own).not.toBe('SALE')
+    expect(madeUp).toBe('SALE')
+  })
+
   it.each(cases)(
     '$label: every glyph in the PDF sits where the renderer draws it, within 0.05 px',
     async ({ design, frameId, json, label }) => {

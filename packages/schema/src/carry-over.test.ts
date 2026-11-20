@@ -46,6 +46,7 @@ describe('carryOverTextStyle', () => {
       fontFamily: 'Inter',
       letterSpacing: { unit: 'px', value: 1.5 },
     })
+    expect(carryOverTextStyle({ letterSpacing: 0 })).toEqual({ letterSpacing: { unit: 'percent', value: 0 } })
     const current = { letterSpacing: { unit: 'percent', value: 2 } }
     expect(carryOverTextStyle(current)).toBe(current)
     expect(carryOverTextStyle(null)).toBeNull()

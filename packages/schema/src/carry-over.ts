@@ -15,10 +15,17 @@ interface CarryOverStep {
   textStyle(style: Rec): Rec
 }
 
-/** To version 10: letter spacing stored as a bare number of pixels becomes pixels with their unit. */
+/**
+ * To version 10: letter spacing stored as a bare number of pixels becomes pixels with their unit;
+ * none becomes a percentage of 0, as a new text's is, which draws the same.
+ */
 function letterSpacingWithUnit(style: Rec): Rec {
-  if (typeof style.letterSpacing !== 'number') return style
-  return { ...style, letterSpacing: { unit: 'px', value: style.letterSpacing } }
+  const { letterSpacing } = style
+  if (typeof letterSpacing !== 'number') return style
+  return {
+    ...style,
+    letterSpacing: letterSpacing === 0 ? { unit: 'percent', value: 0 } : { unit: 'px', value: letterSpacing },
+  }
 }
 
 /** The steps, oldest first. */

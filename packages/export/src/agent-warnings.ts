@@ -1,22 +1,25 @@
 // What an agent is told about a frame it made or changed: plain sentences, each about one layer,
 // for what won't look as designed. It reads the design as the export draws it, and writes nothing.
 import type { CanvasKit } from '@dazbee/canvaskit'
+import { boundsOf, centreOf, cornersOf, type Point, turn } from '@dazbee/doc'
 import {
   familiesOf,
+  layerReach,
   layoutText,
   missingGraphemes,
   render,
-  resourceCache,
   type ResourceBytes,
   type ResourceCache,
+  resourceCache,
   type Resources,
   type SceneLayer,
   textMeasure,
 } from '@dazbee/renderer'
-import type { Design } from '@dazbee/schema'
+import { type Design, isNineBySixteen, type Rect, SAFE_ZONES, safeZoneBands } from '@dazbee/schema'
 
 /** What a warning is about. */
-export type AgentWarningKind = 'missingFont' | 'missingCharacters' | 'overflow' | 'pastMaxLines'
+export type AgentWarningKind =
+  'missingFont' | 'missingCharacters' | 'overflow' | 'pastMaxLines' | 'outsideFrame' | 'safeZone'
 
 /** One thing in a frame that won't look as designed, as a sentence about the layer it is in. */
 export interface AgentWarning {
@@ -34,13 +37,32 @@ export interface AgentWarningOptions {
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
+/** A container's rotation, which turns the layers inside it about the container's centre. */
+interface Turn {
+  about: Point
+  degrees: number
+}
+
+/** What every check of one frame reads. */
+interface Check {
+  ck: CanvasKit
+  resources: Resources
+  /** The families `bytes` has files for. */
+  have: ReadonlySet<string>
+  frame: { name: string; width: number; height: number }
+  nameOf: (id: string) => string
+  warn: (layerId: string, kind: AgentWarningKind, message: string) => void
+}
+
 /** How far laid-out lines may pass a fixed box's height before they overflow it, as fitting text allows. */
 const OVERFLOW_SLACK = 0.01
 
 /**
  * What in frame `frameId` won't look as designed, layer by layer back to front. In a text: a
  * family `bytes` has no file for, so it draws in a fallback font; characters no font has; lines
- * taller than a fixed box; lines past its `maxLines`, cut off. Hidden layers are not checked.
+ * taller than a fixed box; lines past its `maxLines`, cut off; on a 9:16 frame, its box inside a
+ * platform's safe-zone edge. Any layer: everything it draws, shadows included, wholly outside the
+ * frame, told of only for the outermost such layer checked. Hidden layers are not checked.
  */
 export function frameWarnings(
   ck: CanvasKit,
@@ -49,40 +71,58 @@ export function frameWarnings(
   bytes: ResourceBytes,
   { layerIds, cache }: AgentWarningOptions = {},
 ): AgentWarning[] {
-  if (!Object.hasOwn(design.frames, frameId)) throw new Error(`no frame "${frameId}"`)
+  const frame = Object.hasOwn(design.frames, frameId) ? design.frames[frameId] : undefined
+  if (!frame) throw new Error(`no frame "${frameId}"`)
   const wanted = layerIds === undefined ? undefined : new Set(layerIds)
   const owned = cache ?? resourceCache(ck)
   try {
     const resources = owned.resources(bytes)
     const scene = render(design, frameId, undefined, textMeasure(ck, resources), bytes.variables)
-    const have = new Set(bytes.fonts.map((font) => font.family))
     const warnings: AgentWarning[] = []
-    const nameOf = (id: string) => design.nodes[id]?.name || id
-    const walk = (layers: readonly SceneLayer[]) => {
+    const check: Check = {
+      ck,
+      resources,
+      have: new Set(bytes.fonts.map((font) => font.family)),
+      frame,
+      nameOf: (id) => design.nodes[id]?.name || id,
+      warn: (layerId, kind, message) => warnings.push({ layerId, kind, message }),
+    }
+    const walk = (layers: readonly SceneLayer[], turns: readonly Turn[], outsideTold: boolean) => {
       for (const layer of layers) {
-        if (!wanted || wanted.has(layer.id))
-          if (layer.type === 'text') warnings.push(...textWarnings(ck, layer, nameOf(layer.id), have, resources))
-        walk(layer.children)
+        const asked = !wanted || wanted.has(layer.id)
+        const told = outsideTold || (asked && toldOutside(check, layer, turns))
+        if (asked && layer.type === 'text') textWarnings(check, layer, turns)
+        const { rotation } = layer.props
+        const inside = rotation === 0 ? turns : [...turns, { about: centreOf(layer.props), degrees: rotation }]
+        walk(layer.children, inside, told)
       }
     }
-    walk(scene.layers)
+    walk(scene.layers, [], false)
     return warnings
   } finally {
     if (!cache) owned.delete()
   }
 }
 
-/** What won't draw as designed in one text layer. */
-function textWarnings(
-  ck: CanvasKit,
-  layer: TextLayer,
-  name: string,
-  have: ReadonlySet<string>,
-  resources: Resources,
-): AgentWarning[] {
-  const warnings: AgentWarning[] = []
-  const warn = (kind: AgentWarningKind, message: string) => warnings.push({ layerId: layer.id, kind, message })
-  const laid = layoutText(ck, layer.props, resources)
+/** Tells of a layer that draws nothing inside its frame; whether it did. */
+function toldOutside({ ck, resources, frame, nameOf, warn }: Check, layer: SceneLayer, turns: readonly Turn[]) {
+  const reach = layerReach(ck, layer, resources)
+  if (overlaps(placed(cornersOf({ ...reach, rotation: 0 }), turns), { x: 0, y: 0, ...frame })) return false
+  warn(
+    layer.id,
+    'outsideFrame',
+    `Layer "${nameOf(layer.id)}" is wholly outside its frame "${frame.name}", so none of it shows.`,
+  )
+  return true
+}
+
+/** Tells what won't draw as designed in one text layer. */
+function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
+  const { ck, resources, have, nameOf } = check
+  const { props } = layer
+  const name = nameOf(layer.id)
+  const warn = (kind: AgentWarningKind, message: string) => check.warn(layer.id, kind, message)
+  const laid = layoutText(ck, props, resources)
   try {
     for (const family of new Set(familiesOf(layer)))
       if (!have.has(family))
@@ -96,7 +136,6 @@ function textWarnings(
         'missingCharacters',
         `Text "${name}" has characters no font has, which draw as empty boxes: ${missing.join(' ')}`,
       )
-    const { props } = layer
     if (props.boxMode === 'fixed' && laid.height > props.height + OVERFLOW_SLACK)
       warn(
         'overflow',
@@ -108,5 +147,34 @@ function textWarnings(
   } finally {
     laid.delete()
   }
-  return warnings
+  const platforms = coveringPlatforms(check.frame, placed(cornersOf(props), turns))
+  if (platforms.length > 0)
+    warn(
+      'safeZone',
+      `Text "${name}" is inside the safe-zone edge of ${listed(platforms)}, where the platform’s own buttons and captions cover it.`,
+    )
+}
+
+/** The box around `corners` once each container's rotation in `turns`, innermost first, has turned them. */
+function placed(corners: readonly Point[], turns: readonly Turn[]): Rect {
+  const points = corners.map((corner) => turns.reduceRight((p, { about, degrees }) => turn(p, about, degrees), corner))
+  return boundsOf(points.map((p) => ({ ...p, width: 0, height: 0, rotation: 0 })))
+}
+
+/** Whether two rects share some area. */
+function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/** The platforms whose safe-zone edge `box` is inside, on a 9:16 frame; none on another shape. */
+function coveringPlatforms(frame: { width: number; height: number }, box: Rect): string[] {
+  if (!isNineBySixteen(frame.width, frame.height)) return []
+  return SAFE_ZONES.filter(({ platform }) =>
+    safeZoneBands(frame.width, frame.height, platform).some((band) => overlaps(band, box)),
+  ).map(({ platform }) => platform)
+}
+
+/** Names as a sentence lists them: `A`, `A and B`, `A, B and C`. */
+function listed(names: readonly string[]): string {
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }

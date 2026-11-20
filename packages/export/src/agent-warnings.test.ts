@@ -15,7 +15,7 @@ const bytes = {
 }
 
 const style = { fontFamily: 'Noto Sans', fontSize: 24, color: '#111111FF' }
-/** A text that fits its box, clear of every platform's safe-zone edge. */
+/** A text that fits its box, clear of every platform’s safe-zone edge. */
 const title = {
   type: 'text',
   index: 'a1',
@@ -118,5 +118,68 @@ describe('frameWarnings', () => {
     const wrapped = storyWith({ title: { text: 'one two three four five six seven', width: 60, maxLines: 1 } })
     expect(kindsOf(wrapped)).toEqual([['title', 'pastMaxLines']])
     expect(kindsOf(storyWith({ title: { text: 'One\nTwo', boxMode: 'autoHeight', maxLines: 2 } }))).toEqual([])
+  })
+  it('tells of a layer wholly outside its frame, not of one partly in it or its children', () => {
+    expect(frameWarnings(ck, storyWith({ square: { x: 400 } }), 'story', bytes)).toEqual([
+      {
+        layerId: 'square',
+        kind: 'outsideFrame',
+        message: 'Layer "Square" is wholly outside its frame "Story", so none of it shows.',
+      },
+    ])
+    expect(kindsOf(storyWith({ square: { x: 340 } }))).toEqual([])
+    const group = { type: 'group', index: 'a2', name: 'Group', parentId: 'story', link: 'group' }
+    const inGroup = storyWith({
+      more: {
+        group: { ...group, props: { x: 400, y: 20, width: 40, height: 40 } },
+        dot: { ...square, name: 'Dot', parentId: 'group', link: 'dot', props: { ...square.props, x: 400 } },
+      },
+    })
+    expect(kindsOf(inGroup)).toEqual([['group', 'outsideFrame']])
+    expect(kindsOf(inGroup, ['dot'])).toEqual([['dot', 'outsideFrame']])
+  })
+
+  it('turns a layer by the box it is in before telling whether it is outside', () => {
+    const box = { type: 'box', index: 'a2', name: 'Box', parentId: 'story', link: 'box' }
+    // The box turns half a turn about (50, 150), which takes the dot from x -50 to x 110.
+    const turned = storyWith({
+      more: {
+        box: { ...box, props: { x: -50, y: 100, width: 200, height: 100, rotation: 180 } },
+        dot: { ...square, name: 'Dot', parentId: 'box', link: 'dot', props: { ...square.props, x: -50, y: 120 } },
+      },
+    })
+    expect(kindsOf(turned)).toEqual([])
+  })
+
+  it('tells of text inside a platform’s safe-zone edge on a 9:16 frame, naming the platforms', () => {
+    expect(frameWarnings(ck, storyWith({ title: { y: 10 } }), 'story', bytes)).toEqual([
+      {
+        layerId: 'title',
+        kind: 'safeZone',
+        message:
+          'Text "Title" is inside the safe-zone edge of Meta, YouTube and TikTok, where the platform’s own buttons and captions cover it.',
+      },
+    ])
+    // YouTube's right edge is 64 px deep on a 360 px frame; Meta's 21.6 and TikTok's 40.
+    const right = frameWarnings(ck, storyWith({ title: { x: 290, width: 25, text: 'I' } }), 'story', bytes)
+    expect(right.map(({ kind, message }) => [kind, message])).toEqual([
+      [
+        'safeZone',
+        'Text "Title" is inside the safe-zone edge of YouTube, where the platform’s own buttons and captions cover it.',
+      ],
+    ])
+    expect(kindsOf(storyWith({ title: { y: 10 } }, { height: 360 }))).toEqual([])
+    // Only text is told of.
+    expect(kindsOf(storyWith({ square: { y: 0 } }))).toEqual([])
+  })
+
+  it('checks only the layers asked for', () => {
+    const both = storyWith({ square: { x: 400 }, title: { y: 10 } })
+    expect(kindsOf(both)).toEqual([
+      ['square', 'outsideFrame'],
+      ['title', 'safeZone'],
+    ])
+    expect(kindsOf(both, ['title'])).toEqual([['title', 'safeZone']])
+    expect(kindsOf(both, [])).toEqual([])
   })
 })

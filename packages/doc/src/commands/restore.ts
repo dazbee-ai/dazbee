@@ -25,6 +25,7 @@ export const designRestore = defineCommand({
   description:
     'Replaces every page, frame and layer of the design with a version’s, keeping the design’s id and name, as one step that carries the version’s mark to the other tabs. It refuses a version that gives an id the design holds as another part, or a layer of another type.',
   step: 'restore',
+  setsBindings: true,
   input: z.strictObject({
     design: strict(Design).describe('The version’s design, whole: its meta is not written.'),
     mark: RestoreMark.describe('The version restored: its id, kind, name and when it was taken.'),

@@ -245,6 +245,7 @@ export const nodeBind = defineCommand({
     'Binds a fill, text colour or font of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
   step: 'bind',
   batchable: true,
+  setsBindings: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to bind or unbind.'),
     property: BindableProperty.describe('The property to bind.'),

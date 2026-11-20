@@ -2,13 +2,15 @@
 
 // The fonts a brand can pick from: its uploads, the Google Fonts we copied into our storage, and the
 // fonts we ship, never the script fonts text falls back to; each family's category; and how a
-// family's faces are chosen: the face that previews it, and the weight it is set in.
+// family's faces are chosen: the face that previews it, the face of a weight and slant, and the
+// weight it is set in.
 import { useCallback, useEffect, useState } from 'react'
 
 import { FONT_FACES, type GoogleFamily, SCRIPT_FONTS } from '@dazbee/fonts'
-import { faceWeights, FontFamily } from '@dazbee/schema'
+import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
+import type { Messages } from '@/lib/i18n/index.ts'
 
 /** A family's kind of letter: Google's categories, which the chooser's chips filter by. */
 export type FontCategory = GoogleFamily['category']
@@ -75,11 +77,29 @@ export const previewFace = (family: FontFamily) =>
     a.style === b.style ? Math.abs(a.weight - 400) - Math.abs(b.weight - 400) : a.style === 'normal' ? -1 : 1,
   )[0]
 
+/**
+ * The face that draws a family at a weight and slant: one of that slant where the family has one,
+ * else upright, nearest the weight, a variable face at any weight of its range. None for a family
+ * the catalog doesn't hold.
+ */
+export const faceFor = (family: FontFamily | undefined, weight: number, style: FontFace['style']) => {
+  const faces = family?.faces ?? []
+  const slanted = faces.filter((f) => f.style === style)
+  const upright = faces.filter((f) => f.style === 'normal')
+  const pool = slanted.length > 0 ? slanted : upright.length > 0 ? upright : faces
+  const off = (face: FontFace) => Math.min(...faceWeights(face).map((w) => Math.abs(w - weight)))
+  return [...pool].sort((a, b) => off(a) - off(b))[0]
+}
+
 /** The family's upright weights, or every weight when it has no upright face; a variable face draws its range's. */
 export const weightsOf = (family: FontFamily | undefined) => {
   const upright = family?.faces.filter((f) => f.style === 'normal') ?? []
   return [...new Set((upright.length > 0 ? upright : (family?.faces ?? [])).flatMap(faceWeights))].sort((a, b) => a - b)
 }
+
+/** A weight's name, such as Bold, from the person's catalog; its number for a weight between the hundreds. */
+export const weightName = (names: Messages['editor']['fonts']['weights'], weight: number) =>
+  names[weight as keyof typeof names] ?? String(weight)
 
 /** The weight a family is set in: the one it had when the family has it, otherwise the nearest. */
 export const nearest = (weights: number[], wanted: number) =>

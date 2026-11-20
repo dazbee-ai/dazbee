@@ -27,6 +27,7 @@ import {
   Me,
   type MemberRole,
   OpenedDesign,
+  type SaveBrandKit,
   type SaveTemplate,
   type SaveVersion,
   SignedIn,
@@ -402,12 +403,12 @@ export async function fontLink(workspaceId: string, brandId: string, faceId: str
   }
 }
 
-/** The brand's kit (#53): its colours and fonts designs bind to, its logo and its tone of voice. */
+/** The brand's kit (#53): its colours, fonts and text styles designs bind to, its logo and its tone of voice. */
 export const getBrandKit = (workspaceId: string, brandId: string) =>
   call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`)
 
-/** Saves the brand's whole kit (#53). */
-export const saveBrandKit = (workspaceId: string, brandId: string, kit: BrandKit) =>
+/** Saves the brand's whole kit (#53); a kit that leaves its text styles out keeps the ones it has. */
+export const saveBrandKit = (workspaceId: string, brandId: string, kit: SaveBrandKit) =>
   call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`, { method: 'PUT', body: kit })
 
 /** A request to the API: its method, its body sent as JSON, and headers of its own. */

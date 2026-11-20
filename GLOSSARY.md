@@ -49,12 +49,16 @@ What a workspace makes work for: a solo user's business, a company's product lin
 _Avoid_: Client, customer, project (an agency's clients are brands too, ADR-0013)
 
 **Brand kit**:
-A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours, fonts and logo are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour, font family or picture bound to one follows the brand, so changing the brand colour or logo changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
+A brand's logo, colours, fonts, text styles and tone of voice, applied automatically. Its colours, fonts and logo are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour, font family or picture bound to one follows the brand, so changing the brand colour or logo changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
 _Avoid_: Brand guide, theme, style
 
 **Brand role**:
 One of the places every brand kit has: the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body, and the Logo, each a reserved token (`brand:primary`, `brand:heading`, `brand:logo`). A layer bound to a role follows whichever brand it is in, so a workspace template started in another brand takes that brand's colours, fonts and logo. The Logo role is the kit's logo when it is an image; an SVG logo is placed as layers, which don't follow. A role is set or not; its name is fixed.
 _Avoid_: Role (a layer's meaning in the ad), slot, theme colour
+
+**Brand text style**:
+A named text look in a brand kit, such as Headline, Subhead or Body: a font, a weight and slant, a line height, a letter spacing and a case, and no size, so one style fits every ad size and each text keeps its own size. Its font is a kit font it follows, such as the Heading role, or a family of its own. A kit holds up to twelve, each with a token of its own (`headline`) that is never a brand role's.
+_Avoid_: Typography preset, type style, paragraph style
 
 **Binding**:
 A layer property that follows a variable, such as a fill bound to `brand:primary`. Editing the property by hand ends it. The layer also keeps the value it had, which it shows wherever the variable has none.

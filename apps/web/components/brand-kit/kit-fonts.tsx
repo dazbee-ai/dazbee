@@ -12,6 +12,7 @@ import {
   kitIsFull,
   withBrandRole,
   withoutBrandRole,
+  withoutKitFont,
 } from '@dazbee/schema'
 
 import { CheckIcon, PlusIcon, TextAaIcon, XIcon } from '@/components/ui/icons.tsx'
@@ -109,8 +110,7 @@ function FontRow({
     if (role && patch.family) return change(withBrandRole(kit, 'font', role, patch.family))
     change({ ...kit, fonts: kit.fonts.map((f) => (f.token === token ? { ...f, ...patch } : f)) })
   }
-  const remove = () =>
-    change(role ? withoutBrandRole(kit, 'font', role) : { ...kit, fonts: kit.fonts.filter((f) => f.token !== token) })
+  const remove = () => change(role ? withoutBrandRole(kit, 'font', role) : withoutKitFont(kit, token))
   const choices = entry ? [...new Set([entry.family, ...families])] : families
 
   return (

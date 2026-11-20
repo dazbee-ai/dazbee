@@ -19,7 +19,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
-import { INVITE_ROLES, LIMITABLE_ROLES, MEMBER_ROLES, VersionKind } from '@dazbee/schema'
+import { type BrandTextStyle, INVITE_ROLES, LIMITABLE_ROLES, MEMBER_ROLES, VersionKind } from '@dazbee/schema'
 
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   dataType: () => 'bytea',
@@ -403,8 +403,8 @@ export const assets = pgTable(
 )
 
 /**
- * A brand's kit (#53): the colours and fonts designs bind to as `brand:<token>`, its logo and its
- * tone of voice. One row per brand, made the first time the kit is saved.
+ * A brand's kit (#53): the colours, fonts and text styles designs bind to as `brand:<token>`, its
+ * logo and its tone of voice. One row per brand, made the first time the kit is saved.
  */
 export const brandKits = pgTable(
   'brand_kits',
@@ -417,6 +417,7 @@ export const brandKits = pgTable(
     fonts: jsonb().$type<{ token: string; name: string; family: string }[]>().notNull().default([]),
     logoAssetId: text('logo_asset_id').references(() => assets.id, { onDelete: 'set null' }),
     voice: text().notNull().default(''),
+    textStyles: jsonb('text_styles').$type<BrandTextStyle[]>().notNull().default([]),
     updatedAt: updatedAt(),
   },
   (t) => [

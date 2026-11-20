@@ -1,6 +1,91 @@
 import { describe, expect, it } from 'vitest'
 
-import { brandVariables, EMPTY_BRAND_KIT, faceWeights, MEMBER_ROLES, roleManages, roleWrites } from './api.ts'
+import {
+  BrandKit,
+  brandVariables,
+  EMPTY_BRAND_KIT,
+  faceWeights,
+  MEMBER_ROLES,
+  roleManages,
+  roleWrites,
+  SaveBrandKit,
+} from './api.ts'
+
+/** A kit as the API stored it before kits held text styles. */
+const KIT_BEFORE = {
+  colors: [{ token: 'primary', name: 'Primary', value: '#14213DFF' }],
+  fonts: [{ token: 'heading', name: 'Heading', family: 'Lora' }],
+  logoAssetId: null,
+  voice: '',
+}
+const HEADLINE = {
+  token: 'headline',
+  name: 'Headline',
+  font: { token: 'heading' },
+  fontWeight: 700,
+  fontStyle: 'normal',
+  lineHeight: 1.1,
+  letterSpacing: { unit: 'percent', value: -1 },
+}
+
+describe('BrandKit', () => {
+  it('reads a kit saved before text styles as one with none', () => {
+    expect(BrandKit.parse(KIT_BEFORE).textStyles).toEqual([])
+  })
+
+  it('holds text styles set in a kit font or a family of their own, up to twelve', () => {
+    const body = { ...HEADLINE, token: 'body-copy', name: 'Body copy', font: { family: 'Inter' }, textCase: 'upper' }
+    expect(BrandKit.parse({ ...KIT_BEFORE, textStyles: [HEADLINE, body] }).textStyles).toEqual([HEADLINE, body])
+    const many = Array.from({ length: 13 }, (_, i) => ({ ...HEADLINE, token: `style-${i + 1}` }))
+    expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: many.slice(0, 12) }).success).toBe(true)
+    expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: many }).success).toBe(false)
+  })
+
+  it('refuses a text style whose token names a colour, a font, another style, a brand role or the logo', () => {
+    for (const token of ['primary', 'heading', 'body', 'accent', 'logo'])
+      expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, token }] }).success, token).toBe(false)
+    expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [HEADLINE, HEADLINE] }).success).toBe(false)
+  })
+
+  it('refuses a text style that follows a colour, a colour role, another style or the logo', () => {
+    const red = { token: 'red', name: 'Red', value: '#E0262BFF' }
+    const kit = { ...KIT_BEFORE, colors: [...KIT_BEFORE.colors, red] }
+    const subhead = { ...HEADLINE, token: 'subhead', name: 'Subhead' }
+    for (const token of ['red', 'primary', 'text', 'subhead', 'logo'])
+      expect(
+        BrandKit.safeParse({ ...kit, textStyles: [{ ...HEADLINE, font: { token } }, subhead] }).success,
+        token,
+      ).toBe(false)
+  })
+
+  it('takes a text style that follows a font role or a kit font, set or not', () => {
+    for (const token of ['heading', 'body', 'brand-serif'])
+      expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, font: { token } }] }).success, token).toBe(
+        true,
+      )
+  })
+
+  it('keeps no size, and refuses a font that is neither a token nor a family', () => {
+    expect(BrandKit.parse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, fontSize: 40 }] }).textStyles).toEqual([
+      HEADLINE,
+    ])
+    expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, font: {} }] }).success).toBe(false)
+    expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, font: 'Inter' }] }).success).toBe(false)
+  })
+})
+
+describe('SaveBrandKit', () => {
+  it('leaves the text styles out when a save from a tab built before has none', () => {
+    expect(SaveBrandKit.parse(KIT_BEFORE).textStyles).toBeUndefined()
+    expect(SaveBrandKit.parse({ ...KIT_BEFORE, textStyles: [] }).textStyles).toEqual([])
+  })
+
+  it('checks tokens as the kit does', () => {
+    expect(SaveBrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, token: 'primary' }] }).success).toBe(
+      false,
+    )
+  })
+})
 
 describe('brandVariables', () => {
   const kit = {

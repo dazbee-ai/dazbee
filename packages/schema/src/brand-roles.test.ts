@@ -10,6 +10,7 @@ import {
   withBrandRole,
   withoutBrandRole,
 } from './brand-roles.ts'
+import { NO_LETTER_SPACING } from './typography.ts'
 import { bindProps } from './variables.ts'
 
 const red = '#E0262BFF'
@@ -159,5 +160,17 @@ describe('freeToken', () => {
     expect(freeToken(EMPTY_BRAND_KIT, 'Body')).toBe('body-2')
     expect(freeToken(KIT, 'Heading')).toBe('heading-2')
     expect(freeToken(EMPTY_BRAND_KIT, 'Logo')).toBe('logo-2')
+  })
+
+  it("never gives a text style's token", () => {
+    const style = { token: 'headline', name: 'Headline', font: { token: 'heading' }, fontWeight: 700 }
+    const kit: BrandKit = { ...KIT, textStyles: [{ ...style, fontStyle: 'normal', letterSpacing: NO_LETTER_SPACING }] }
+    expect(freeToken(kit, 'Headline')).toBe('headline-2')
+  })
+
+  it('never gives a token a text style follows, though the kit holds no font with it', () => {
+    const style = { token: 'headline', name: 'Headline', font: { token: 'brand-serif' }, fontWeight: 700 }
+    const kit: BrandKit = { ...KIT, textStyles: [{ ...style, fontStyle: 'normal', letterSpacing: NO_LETTER_SPACING }] }
+    expect(freeToken(kit, 'Brand serif')).toBe('brand-serif-2')
   })
 })

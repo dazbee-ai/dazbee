@@ -2,11 +2,12 @@
 
 // A family's name drawn in its own face, from the picture of it the API stores, so the browser never
 // decodes a design font; its files load in the editor only once a layer uses it.
-import type { FontFamily } from '@dazbee/schema'
+import type { FontFace, FontFamily } from '@dazbee/schema'
 
-import { previewFace } from '@/components/brand-kit/font-catalog.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
+
+import { previewFace } from './font-catalog.ts'
 
 /**
  * How wide a preview shows at most, in pixels: the API draws it at most 640 pixels wide at twice
@@ -14,21 +15,22 @@ import { cn } from '@/lib/cn.ts'
  */
 const PREVIEW_WIDTH = 320
 
-/** A family's name drawn in its own face. */
+/** A family's name drawn in its own face: the one that previews it, or the face given. */
 export function FontPreview({
   workspaceId,
   brandId,
   family,
+  face = previewFace(family),
   className,
   big = false,
 }: {
   workspaceId: string
   brandId: string
   family: FontFamily
+  face?: FontFace | undefined
   className?: string
   big?: boolean
 }) {
-  const face = previewFace(family)
   if (family.source === 'builtin' || !face)
     return (
       <span

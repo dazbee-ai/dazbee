@@ -1,9 +1,9 @@
 'use client'
 
 // The brand kit's form (#53, #200): colours with names and values, fonts with names and families,
-// the logo and the tone of voice. Each change shows at once and is saved a moment later. The
-// editor's Brand flyout shows it in its Edit mode, with buttons that bind the selected layers to a
-// colour or font; the Brand kit page shows it laid out wide, without them.
+// text styles, the logo and the tone of voice. Each change shows at once and is saved a moment
+// later. The editor's Brand flyout shows it in its Edit mode, with buttons that bind the selected
+// layers to a colour or font; the Brand kit page shows it laid out wide, without them.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AssetSummary, type BrandKit } from '@dazbee/schema'
@@ -21,6 +21,7 @@ import { KitColours } from './kit-colours.tsx'
 import { KitFonts } from './kit-fonts.tsx'
 import { rememberAssets } from './kit-logo.ts'
 import { heading, iconButton, type KitBinding } from './kit-parts.ts'
+import { KitTextStyles } from './kit-text-styles.tsx'
 import { saveKit, showKit } from './use-brand-kit.ts'
 
 /** How long a run of changes (a colour picker's drag) waits before it is saved. */
@@ -125,6 +126,19 @@ export function KitEditor({
     <KitFonts key="fonts" kit={kit} change={change} binding={binding} section={section} families={families} />
   )
 
+  const textStyles = (
+    <KitTextStyles
+      key="text-styles"
+      workspaceId={workspaceId}
+      brandId={brandId}
+      kit={kit}
+      change={change}
+      section={section}
+      catalog={catalog}
+      wide={wide}
+    />
+  )
+
   const logo = (
     <section key="logo" aria-labelledby="kit-logo" className={section}>
       <h3 id="kit-logo" className={heading}>
@@ -209,8 +223,8 @@ export function KitEditor({
     </p>
   )
 
-  // Wide: the logo and voice beside the colours and fonts, as the mock's panel; the flyout keeps the
-  // editor's order, colours first.
+  // Wide: the logo and voice beside the colours and fonts, as the mock's panel, and the text styles
+  // across under them; the flyout keeps the editor's order, colours first.
   return wide ? (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -220,6 +234,7 @@ export function KitEditor({
           {logo}
           {voice}
         </div>
+        {textStyles}
       </div>
       {failed}
     </div>
@@ -227,6 +242,7 @@ export function KitEditor({
     <>
       {colours}
       {fonts}
+      {textStyles}
       {logo}
       {voice}
       {failed}

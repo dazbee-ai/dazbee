@@ -16,7 +16,21 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     fonts: [{ token: 'heading', name: 'Heading', family: 'Playfair Display' }],
     logoAssetId: null,
     voice: 'Warm, short, no jargon.',
+    textStyles: [
+      {
+        token: 'headline',
+        name: 'Headline',
+        font: { token: 'heading' },
+        fontWeight: 700,
+        fontStyle: 'normal',
+        lineHeight: 1.1,
+        letterSpacing: { unit: 'percent', value: -1 },
+        textCase: 'upper',
+      },
+    ],
   }
+  /** The kit as a tab built before text styles saves it: without them. */
+  const { textStyles, ...before } = kit
 
   it('starts empty, saves the whole kit and gives its tokens as variables', async () => {
     expect((await call('a', 'GET', `/brands/${sibling.id}/kit`)).json).toEqual({
@@ -24,6 +38,7 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
       fonts: [],
       logoAssetId: null,
       voice: '',
+      textStyles: [],
     })
     const saved = await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
     expect(saved).toEqual({ status: 200, json: kit })
@@ -31,6 +46,37 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     await call('a', 'PUT', `/brands/${brand.id}/kit`, changed)
     const read = BrandKit.parse((await call('a', 'GET', `/brands/${brand.id}/kit`)).json)
     expect(brandVariables(read)).toEqual({ 'brand:primary': '#1F9D55FF', 'brand:heading': 'Playfair Display' })
+  })
+
+  it('keeps the text styles when a tab built before saves the kit without them', async () => {
+    await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
+    const saved = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...before, voice: 'Bold.' })
+    expect(saved).toEqual({ status: 200, json: { ...kit, voice: 'Bold.' } })
+    expect((await call('a', 'PUT', `/brands/${sibling.id}/kit`, before)).json).toMatchObject({ textStyles: [] })
+    expect((await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, textStyles: [] })).json).toMatchObject({
+      textStyles: [],
+    })
+  })
+
+  it("refuses a save from a tab built before that gives a kept text style's token to a colour", async () => {
+    await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
+    const red = { token: 'headline', name: 'Headline', value: '#E0262BFF' }
+    const refused = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...before, colors: [red] })
+    expect(refused).toEqual({ status: 400, json: { error: 'the token "headline" names two things' } })
+    expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toEqual(kit)
+  })
+
+  it('never stores two things under one token when a save without text styles meets one with them', async () => {
+    const red = { token: 'headline', name: 'Headline', value: '#E0262BFF' }
+    for (let round = 0; round < 10; round++) {
+      await call('a', 'PUT', `/brands/${sibling.id}/kit`, { ...kit, textStyles: [] })
+      await Promise.all([
+        call('a', 'PUT', `/brands/${sibling.id}/kit`, { ...before, colors: [red] }),
+        call('a', 'PUT', `/brands/${sibling.id}/kit`, kit),
+      ])
+      const stored = (await call('a', 'GET', `/brands/${sibling.id}/kit`)).json
+      expect(BrandKit.safeParse(stored).success).toBe(true)
+    }
   })
 
   it("takes a logo only from the brand's own assets", async () => {
@@ -62,6 +108,10 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     ).toBe(400)
     expect(
       (await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, colors: [{ token: 'p', name: 'P', value: 'red' }] }))
+        .status,
+    ).toBe(400)
+    expect(
+      (await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, textStyles: [{ ...textStyles[0], token: 'body' }] }))
         .status,
     ).toBe(400)
     expect((await call('b', 'GET', `/brands/${brand.id}/kit`)).status).toBe(404)

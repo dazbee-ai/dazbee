@@ -922,6 +922,22 @@ export const en = {
       },
       /** A role the kit has no colour or font for yet. */
       notSet: 'Not set',
+      /** A kit font a text style can follow: its name, then the family it is set to. */
+      kitFont: '{name} · {family}',
+      /** Named text looks, each a font, weight, line height, letter spacing and case, with no size. */
+      textStyles: 'Text styles',
+      addTextStyle: 'Add text style',
+      /** The names the first three text styles the form adds take. */
+      textStyleNames: { headline: 'Headline', subhead: 'Subhead', body: 'Body' },
+      newTextStyle: 'Style {n}',
+      textStyleName: 'Name of text style {n}',
+      textStyleFont: 'Font of {name}',
+      textStyleWeight: 'Weight of {name}',
+      textStyleItalic: 'Set {name} in italic',
+      textStyleLineHeight: 'Line height of {name}',
+      textStyleLetterSpacing: 'Letter spacing of {name}, in % of the size',
+      textStyleCase: 'Case of {name}',
+      letterSpacingIn: 'Letter spacing ({unit})',
     },
     props: {
       combine: 'Combine',

@@ -189,6 +189,31 @@ describe('the migrations', () => {
     expect(read).toEqual([version])
   }, 60_000)
 
+  it('give a brand kit saved before text styles none, and keep the rest of it', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('brand-text-styles'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    const colors = [{ token: 'primary', name: 'Primary', value: '#14213DFF' }]
+    const fonts = [{ token: 'heading', name: 'Heading', family: 'Lora' }]
+    await withClient(url, async (client) => {
+      await writeRows(client)
+      await client.query(
+        'insert into brand_kits (brand_id, workspace_id, colors, fonts, voice) values ($1, $2, $3, $4, $5)',
+        ['brand-kept', 'workspace-kept', JSON.stringify(colors), JSON.stringify(fonts), 'Warm'],
+      )
+    })
+    await applyMigrations(url, MIGRATIONS)
+    const kits = await withClient(url, async (client) => {
+      const result = await client.query(
+        'select colors, fonts, voice, text_styles from brand_kits where brand_id = $1',
+        ['brand-kept'],
+      )
+      return result.rows
+    })
+    expect(kits).toEqual([{ colors, fonts, voice: 'Warm', text_styles: [] }])
+  }, 60_000)
+
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {
     if (index === 0) continue

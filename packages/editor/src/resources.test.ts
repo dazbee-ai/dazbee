@@ -187,6 +187,19 @@ describe('editorResources', () => {
     done.abort()
   })
 
+  it('asks for the brand’s logo where a picture is bound to it, once the brand kit’s values are set', () => {
+    const { resources, fetched, done } = opened({})
+    const design = designOf(['old-logo'])
+    Object.assign(design.nodes['old-logo'] as object, { bindings: { image: 'brand:logo' } })
+    resources.screen(design, ['f'])
+    expect(fetched).toEqual(['old-logo'])
+    resources.setVariables({ 'brand:logo': 'new-logo' })
+    resources.screen(design, ['f'])
+    expect(fetched).toEqual(['old-logo', 'new-logo'])
+    resources.destroy()
+    done.abort()
+  })
+
   it("loads an export's images as bytes, decoding none", async () => {
     const photo = halfPng(1200, 800)
     const { resources, fetched, done } = opened({}, undefined, { there: photo })

@@ -23,7 +23,7 @@ import { type OpenTab, openTab } from './open-tab.ts'
 import { type FontFace, loadFonts, loadImages } from './resources.ts'
 import { type SaveStateWatch, watchSaveState } from './save-state.ts'
 import { tokenSource } from './token-source.ts'
-import type { PlacedAsset } from './tools.ts'
+import type { PlaceImageOptions, PlacedAsset } from './tools.ts'
 import { loadCanvasKit, shippedFonts } from './vendor.ts'
 
 /** The screen's animation frames and the system's reduced motion, which the camera's glides step on. */
@@ -81,7 +81,7 @@ export async function startEditor(options: EditorOptions) {
     const opened = readDesign(store)
     const firstPage = framesOf(opened, inOrder(opened.pages)[0]?.[0] ?? '').map(([id]) => id)
     const [images, fonts] = await Promise.all([
-      loadImages(imageAssetIds(opened, firstPage), options).catch((error: unknown) => {
+      loadImages(imageAssetIds(opened, firstPage, options.variables), options).catch((error: unknown) => {
         if (kept) return {}
         throw error
       }),
@@ -285,7 +285,8 @@ function live(
     ...shared,
     selectAt: (client: Point) => core.selectAt(surface.onStage(client)),
     layersAt: (client: Point) => core.layersAt(surface.onStage(client)),
-    placeImage: (asset: PlacedAsset, where?: Point | Spot) => core.placeImage(asset, placeOnStage(where)),
+    placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
+      core.placeImage(asset, placeOnStage(where), options),
     readSvg: (text: string, name: string, where?: Point | Spot) => core.readSvg(text, name, placeOnStage(where)),
     spotAt: (client: Point) => core.spotAt(surface.onStage(client)),
     imageTarget: (client: Point | null) => core.imageTarget(client && surface.onStage(client)),

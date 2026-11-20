@@ -60,7 +60,7 @@ import { owedFits } from './text/owed-fits.ts'
 import { isStyleToggle, type RunStyle } from './text/text-edit.ts'
 import { editorTextStyles } from './text/text-styles.ts'
 import { editorTyping } from './text/typing.ts'
-import { editorTools, type PlacedAsset, type Tool, VIEW_TOOLS } from './tools.ts'
+import { editorTools, type PlaceImageOptions, type PlacedAsset, type Tool, VIEW_TOOLS } from './tools.ts'
 import { editorUploads } from './uploads.ts'
 import { editorViewOnly } from './view-only.ts'
 
@@ -872,7 +872,8 @@ export function buildCore({
     ...viewOnly.guardAll({
       selectAt: pointer.selectAt,
       layersAt: pointer.layersAt,
-      placeImage: (asset: PlacedAsset, where?: Point | Spot) => place.placeImage(asset, where),
+      placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
+        place.placeImage(asset, where, options),
       readSvg: (text: string, name: string, where?: Point | Spot) => placeSvg.readSvg(text, name, where),
       spotAt: view.spotOn,
       imageTarget: (stage: Point | null) => place.imageTarget(stage),

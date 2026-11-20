@@ -53,7 +53,7 @@ import type { ShortcutAction, StageAction } from './shortcuts.ts'
 import type { FoundText } from './text/find-replace.ts'
 import type { RunStyle, TextRange } from './text/text-edit.ts'
 import type { TextStyleState } from './text/text-styles.ts'
-import type { PlacedAsset, Tool } from './tools.ts'
+import type { PlaceImageOptions, PlacedAsset, Tool } from './tools.ts'
 
 /** The options that are not about the page: what the core reads of what `startEditor` is given. */
 export interface CoreOptions extends ResourceSources {
@@ -780,10 +780,10 @@ export interface EditorCore extends EditorBase {
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a stage point, or else in the middle of the frame in the middle of the view. The
-   * image's bytes load in the background. Returns the new layer's id, or null when the point is on
-   * no frame.
+   * image's bytes load in the background. As the brand's logo (`logo`), it has the role logo and its
+   * picture follows the brand's. Returns the new layer's id, or null when the point is on no frame.
    */
-  placeImage(asset: PlacedAsset, where?: Point | Spot): string | null
+  placeImage(asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions): string | null
   /**
    * Reads an SVG file to place with `placeSvg`, centred on `where`, a spot or a stage point, or else
    * in the middle of the frame in view: the spot first, then the file, scaled down to 60% of the

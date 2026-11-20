@@ -15,6 +15,11 @@ export interface PlacedAsset {
   height: number
 }
 
+/** How an image asset is placed: `logo`, as the brand's logo, which follows the brand. */
+export interface PlaceImageOptions {
+  logo?: boolean
+}
+
 export interface ToolsDeps {
   /** Ends what the tool in use has open, before another tool takes over: the pen's path. */
   finish: () => void

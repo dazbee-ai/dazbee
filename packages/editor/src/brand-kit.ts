@@ -62,6 +62,8 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
       const node = current.nodes[id]
       const property = bindablePropertyOf(node?.type ?? '', kind)
       if (!property) return []
+      // The logo goes only into a layer that shows a picture, never over a shape's colour.
+      if (ref && kind === 'image' && BINDABLE_PROPERTIES[property].read(node?.props ?? {}) === undefined) return []
       // Unbinding stores the token's value the layer shows, which the value it stored can lag.
       const token = ref ?? node?.bindings?.[property]
       const value = token === undefined ? undefined : kit[token]

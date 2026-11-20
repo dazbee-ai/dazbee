@@ -37,6 +37,19 @@ describe('editorPlace', () => {
       expect(selection.current()).toEqual(pairsIn(square.id, [id ?? '']))
     })
 
+    it('places the brand’s logo as a logo whose picture follows the brand, in one undo step', () => {
+      const { place, session, square, stage } = harness()
+      const id = place.placeImage(PHOTO, stage(square, 500, 500), { logo: true }) ?? ''
+      expect(session.design().nodes[id]).toMatchObject({
+        role: 'logo',
+        bindings: { image: 'brand:logo' },
+        props: { fills: [{ type: 'image', assetId: 'photo' }] },
+      })
+      session.undo()
+      expect(session.design().nodes[id]).toBeUndefined()
+      expect(session.canUndo()).toBe(false)
+    })
+
     it('places nothing off every frame, and in the middle of the frame in view with no point', () => {
       const { place, selection, wide } = harness()
       expect(place.placeImage(PHOTO, { x: -500, y: -500 })).toBeNull()

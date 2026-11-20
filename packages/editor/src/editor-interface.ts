@@ -8,7 +8,7 @@ import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
 import type { SvgRead } from './place-svg.ts'
-import type { PlacedAsset } from './tools.ts'
+import type { PlaceImageOptions, PlacedAsset } from './tools.ts'
 
 export type {
   CoreOptions,
@@ -62,10 +62,11 @@ export interface Editor extends EditorBase {
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a point in client coordinates, or else in the middle of the frame in the middle of
-   * the view. The image's bytes load in the background. Returns the new layer's id, or null when
-   * the point is on no frame.
+   * the view. The image's bytes load in the background. As the brand's logo (`logo`), it has the
+   * role logo and its picture follows the brand's. Returns the new layer's id, or null when the
+   * point is on no frame.
    */
-  placeImage(asset: PlacedAsset, where?: Point | Spot): string | null
+  placeImage(asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions): string | null
   /**
    * Reads an SVG file to place with `placeSvg`, centred on `where`, a spot or a point in client
    * coordinates, or else in the middle of the frame in view: the spot first, so a pan while its

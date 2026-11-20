@@ -2,7 +2,7 @@
 // in it read as one edit placed where the caret was.
 import { describe, expect, it } from 'vitest'
 
-import { fieldChange, type FieldState, fieldText } from './field-change.ts'
+import { compositionOf, fieldChange, fieldEdit, type FieldState, fieldText } from './field-change.ts'
 
 /** A field holding `value`, its selection `start`–`end` (a caret where they meet). */
 const field = (value: string, start = value.length, end = start): FieldState => ({ value, start, end })
@@ -56,5 +56,62 @@ describe('fieldChange', () => {
 
   it('reads a caret moved with the text as it was as an empty change', () => {
     expect(fieldChange(field('ab', 2), field('ab', 1))).toEqual({ start: 2, end: 2, text: '', caret: 1 })
+  })
+})
+
+describe('fieldEdit', () => {
+  it('places a change over the selection on the range it was given', () => {
+    const given = fieldText('Big sale', { start: 4, end: 8 })
+    expect(fieldEdit(given, { start: 4, end: 8 }, field('deal'), 8)).toMatchObject({
+      range: { start: 4, end: 8 },
+      typed: 'deal',
+      selection: { start: 8, end: 8 },
+    })
+  })
+
+  it('replaces the whole of a range over 4,000 units, which the field holds as nothing', () => {
+    const range = { start: 100, end: 4_200 }
+    const given = fieldText('a'.repeat(4_300), range)
+    expect(fieldEdit(given, range, field('x'), 4_300)).toMatchObject({
+      range,
+      typed: 'x',
+      selection: { start: 101, end: 101 },
+    })
+  })
+
+  it('writes line breaks as paragraphs, the selection after them', () => {
+    expect(fieldEdit(field(''), { start: 2, end: 2 }, field('a\r\nb'), 5)).toMatchObject({
+      range: { start: 2, end: 2 },
+      typed: 'a\nb',
+      selection: { start: 5, end: 5 },
+    })
+  })
+
+  it('gives nothing when the field holds what it was given', () => {
+    expect(fieldEdit(field('ab'), { start: 0, end: 2 }, field('ab'), 2)).toBeNull()
+  })
+})
+
+describe('compositionOf', () => {
+  /** The edit a field given nothing at offset 3 of a text makes as it comes to hold `value`, its caret at `caret`. */
+  const edit = (value: string, caret = value.length) => {
+    const made = fieldEdit(field(''), { start: 3, end: 3 }, field(value, caret), 10)
+    if (!made) throw new Error('no edit')
+    return made
+  }
+
+  it('composes the change where it lands, the cursor at the field’s caret', () => {
+    expect(compositionOf(edit('nihao'), 'nihao')).toEqual({
+      range: { start: 3, end: 3 },
+      text: 'nihao',
+      part: { start: 0, end: 5 },
+      cursor: 5,
+    })
+  })
+
+  it('underlines the part the input method composes, found around its cursor, else the whole change', () => {
+    expect(compositionOf(edit('你hao', 4), 'hao').part).toEqual({ start: 1, end: 4 })
+    expect(compositionOf(edit('aXa', 1), 'a').part).toEqual({ start: 0, end: 1 })
+    expect(compositionOf(edit('你好'), 'zz').part).toEqual({ start: 0, end: 2 })
   })
 })

@@ -12,6 +12,12 @@ type TextNode = Extract<Design['nodes'][string], { type: 'text' }>
 type Style = TextNode['props']['style']
 export type RunStyle = Partial<Style>
 
+/** The text being edited as last drawn: its layer's text, and its layout. */
+interface DrawnText {
+  layer: { props: { text: string } }
+  laid: TextLayout
+}
+
 /** A range of the text; `start` is never after `end`. */
 export interface TextRange {
   start: number
@@ -108,12 +114,6 @@ export function paragraphAt(text: string, offset: number): TextRange {
   return { start, end: next === -1 ? text.length : next }
 }
 
-/** The text being edited as last drawn: its layer's text, and its layout. */
-interface DrawnText {
-  layer: { props: { text: string } }
-  laid: TextLayout
-}
-
 /**
  * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
  * text; in reading order on a line all left to right, or while the text drawn is not yet the
@@ -149,19 +149,19 @@ export function rangeEnd(
 /** The caret's offset on the line above or below, or at the start or end of its line. */
 export function lineMove(
   ck: CanvasKit,
-  laid: DrawnText | null,
+  drawn: DrawnText | null,
   text: string,
   caret: number,
   drawnAfter: boolean,
   to: 'up' | 'down' | 'home' | 'end',
 ): number {
-  if (!laid) return caret
-  const at = caretPosition(ck, laid.laid, caret, drawnAfter)
-  if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
+  if (!drawn) return caret
+  const at = caretPosition(ck, drawn.laid, caret, drawnAfter)
+  if (to === 'home' || to === 'end') return caretAt(ck, drawn.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
   const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
   if (y < 0) return 0
-  if (y > laid.laid.height) return text.length
-  return caretAt(ck, laid.laid, at.x, y)
+  if (y > drawn.laid.height) return text.length
+  return caretAt(ck, drawn.laid, at.x, y)
 }
 
 /** Each character's style in a range: the base, then every run over it, later runs winning (`withRunStyle`). */

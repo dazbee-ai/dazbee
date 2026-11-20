@@ -147,6 +147,18 @@ describe('a composition', () => {
     expect(e.modules.view.previewed()).toBe(e.modules.view.design())
   })
 
+  it('draws nothing more once the input method empties it at the caret', async () => {
+    const e = await testEditor(WORDS)
+    editors.push(e)
+    const given = fieldOf(e, true)
+    e.core.input.fieldChanged(composedIn(given, 'n'), 'n')
+    e.core.redraw()
+    e.core.input.fieldChanged(composedIn(given, ''), '')
+    e.core.redraw()
+    expect(drawnText(e)).toBe('Hello there')
+    expect(e.modules.typing.shown()?.composition).toBeUndefined()
+  })
+
   describe('in the typing step', () => {
     afterEach(() => {
       vi.useRealTimers()

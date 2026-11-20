@@ -32,8 +32,19 @@ export interface HeldField {
   end: TextAnchor
 }
 
+/**
+ * A change the field made as an edit of the text: the range it replaces, the change itself, its text
+ * with line breaks as paragraphs as it is written, and the field's selection in the text once it is.
+ */
+export interface FieldEdit {
+  range: TextRange
+  change: FieldChange
+  typed: string
+  selection: TextRange
+}
+
 /** The longest selected range the field holds, in UTF-16 units; a longer one is held as nothing. */
-export const FIELD_MOST = 4_000
+const FIELD_MOST = 4_000
 
 /** What the field holds for a text and its selected range: the selected text alone, all selected; nothing at a caret. */
 export function fieldText(text: string, range: TextRange): FieldState {
@@ -68,17 +79,6 @@ export function fieldChange(given: FieldState, state: FieldState): FieldChange |
 }
 
 /**
- * A change the field made as an edit of the text: the range it replaces, the change itself, its text
- * with line breaks as paragraphs as it is written, and the field's selection in the text once it is.
- */
-export interface FieldEdit {
-  range: TextRange
-  change: FieldChange
-  typed: string
-  selection: TextRange
-}
-
-/**
  * The change the field holding `state` made to what it was given, in a text `length` long whose
  * offsets `ends` are where the given selection's two ends are: an offset before the selection
  * counts back from its start, one after it on from its end. Null when nothing changed.
@@ -86,17 +86,18 @@ export interface FieldEdit {
 export function fieldEdit(given: FieldState, ends: TextRange, state: FieldState, length: number): FieldEdit | null {
   const change = fieldChange(given, state)
   if (!change) return null
-  const inText = (offset: number) =>
-    offset <= given.start ? Math.max(0, ends.start - (given.start - offset)) : ends.end + offset - given.end
-  const start = Math.min(inText(change.start), length)
-  const range = { start, end: Math.min(Math.max(start, inText(change.end)), length) }
+  // A change starts no later than the given selection and ends no earlier.
+  const before = (offset: number) => Math.max(0, ends.start - (given.start - offset))
+  const after = (offset: number) => ends.end + offset - given.end
+  const start = Math.min(before(change.start), length)
+  const range = { start, end: Math.min(Math.max(start, after(change.end)), length) }
   const typed = paragraphsOf(change.text)
   /** An offset in what the field holds now, in the text once the change is written. */
   const written = (offset: number) => {
-    if (offset < change.start) return inText(offset)
+    if (offset < change.start) return before(offset)
     if (offset <= change.start + change.text.length)
       return range.start + paragraphsOf(change.text.slice(0, offset - change.start)).length
-    return inText(offset - change.text.length + change.end - change.start) + typed.length - (range.end - range.start)
+    return after(offset - change.text.length + change.end - change.start) + typed.length - (range.end - range.start)
   }
   return { range, change, typed, selection: { start: written(state.start), end: written(state.end) } }
 }

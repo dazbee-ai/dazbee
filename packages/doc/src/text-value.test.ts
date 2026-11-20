@@ -234,6 +234,33 @@ describe('matchesIn', () => {
   })
 })
 
+describe('replaceRangeOps', () => {
+  const BOLD = { fontWeight: 700 } as const
+  /** The text and runs once the ops replacing `start`–`end` with `insert` are applied in order. */
+  const replaced = (value: TextValue, start: number, end: number, insert: string) =>
+    replaceRangeOps(value.text, start, end, insert).reduce(applyTextOp, value)
+
+  it('gives text over a bold word after plain text the bold of that word', () => {
+    const value = { text: 'Big sale', runs: [{ start: 4, end: 8, style: BOLD }] }
+    expect(replaced(value, 4, 8, 'deal')).toEqual({ text: 'Big deal', runs: [{ start: 4, end: 8, style: BOLD }] })
+    expect(replaced(value, 4, 5, 'wh')).toEqual({ text: 'Big whale', runs: [{ start: 4, end: 9, style: BOLD }] })
+  })
+
+  it('counts an emoji the range starts with as one character', () => {
+    const value = { text: 'a😀bc', runs: [{ start: 1, end: 3, style: BOLD }] }
+    expect(replaced(value, 1, 4, 'XY')).toEqual({ text: 'aXYc', runs: [{ start: 1, end: 3, style: BOLD }] })
+    expect(replaced(value, 1, 3, 'Z')).toEqual({ text: 'aZbc', runs: [{ start: 1, end: 2, style: BOLD }] })
+  })
+
+  it('inserts with the run before at an empty range, and deletes with nothing to insert', () => {
+    const value = { text: 'ab', runs: [{ start: 0, end: 1, style: BOLD }] }
+    expect(replaceRangeOps('ab', 1, 1, 'x')).toEqual([{ kind: 'insert', at: 1, text: 'x' }])
+    expect(replaced(value, 1, 1, 'x')).toEqual({ text: 'axb', runs: [{ start: 0, end: 2, style: BOLD }] })
+    expect(replaced(value, 0, 1, '')).toEqual({ text: 'b', runs: [] })
+    expect(replaceRangeOps('ab', 1, 1, '')).toEqual([])
+  })
+})
+
 describe('replaceOps', () => {
   /** The text and runs once the ops are applied in order. */
   const replaced = (value: TextValue, find: string, replace: string) =>
@@ -272,32 +299,5 @@ describe('replaceOps', () => {
   it('replaces a match that starts with an emoji, and a replacement that holds the match, once each', () => {
     expect(replaced({ text: '😀 hi 😀 hi', runs: [] }, '😀 hi', 'yo')).toEqual({ text: 'yo yo', runs: [] })
     expect(replaced({ text: 'cat cat', runs: [] }, 'cat', 'cats')).toEqual({ text: 'cats cats', runs: [] })
-  })
-})
-
-describe('replaceRangeOps', () => {
-  const BOLD = { fontWeight: 700 } as const
-  /** The text and runs once the ops replacing `start`–`end` with `insert` are applied in order. */
-  const replaced = (value: TextValue, start: number, end: number, insert: string) =>
-    replaceRangeOps(value.text, start, end, insert).reduce(applyTextOp, value)
-
-  it('gives text over a bold word after plain text the bold of that word', () => {
-    const value = { text: 'Big sale', runs: [{ start: 4, end: 8, style: BOLD }] }
-    expect(replaced(value, 4, 8, 'deal')).toEqual({ text: 'Big deal', runs: [{ start: 4, end: 8, style: BOLD }] })
-    expect(replaced(value, 4, 5, 'wh')).toEqual({ text: 'Big whale', runs: [{ start: 4, end: 9, style: BOLD }] })
-  })
-
-  it('counts an emoji the range starts with as one character', () => {
-    const value = { text: 'a😀bc', runs: [{ start: 1, end: 3, style: BOLD }] }
-    expect(replaced(value, 1, 4, 'XY')).toEqual({ text: 'aXYc', runs: [{ start: 1, end: 3, style: BOLD }] })
-    expect(replaced(value, 1, 3, 'Z')).toEqual({ text: 'aZbc', runs: [{ start: 1, end: 2, style: BOLD }] })
-  })
-
-  it('inserts with the run before at an empty range, and deletes with nothing to insert', () => {
-    const value = { text: 'ab', runs: [{ start: 0, end: 1, style: BOLD }] }
-    expect(replaceRangeOps('ab', 1, 1, 'x')).toEqual([{ kind: 'insert', at: 1, text: 'x' }])
-    expect(replaced(value, 1, 1, 'x')).toEqual({ text: 'axb', runs: [{ start: 0, end: 2, style: BOLD }] })
-    expect(replaced(value, 0, 1, '')).toEqual({ text: 'b', runs: [] })
-    expect(replaceRangeOps('ab', 1, 1, '')).toEqual([])
   })
 })

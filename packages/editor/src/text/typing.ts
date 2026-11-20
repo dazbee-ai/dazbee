@@ -29,7 +29,7 @@ import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
 import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
-import { compositionOf, fieldEdit, type FieldState, fieldText as heldText, type HeldField } from './field-change.ts'
+import { compositionOf, fieldEdit, type FieldState, fieldText as fieldTextOf, type HeldField } from './field-change.ts'
 import type { RunStyle, TextRange } from './text-edit.ts'
 import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
@@ -184,9 +184,9 @@ interface Editing extends Picked {
   /** Ends the typing step open now; null after a pause, until the next write opens one. */
   endGesture: (() => void) | null
   created: boolean
-  /** What the stage field is taken to hold, and its selection's two ends in the text; null until it is given its text. */
+  /** What the stage field is taken to hold, and its selection's two ends in the text; none until it is given its text. */
   field?: HeldField | undefined
-  /** What an input method composes, drawn and never written; null when nothing is composed. */
+  /** What an input method composes, drawn and never written; none when nothing is composed. */
   composing?: Composing | undefined
 }
 
@@ -322,7 +322,7 @@ export function editorTyping({
     const node = editing && session.design().nodes[editing.id]
     const range = composing && anchoredRange(composing.start, composing.end)
     if (!editing || !composing || !node || !range) return null
-    const key = [node, compositionCount, range.start, range.end, scenes.measure()]
+    const key = [session.design(), compositionCount, range.start, range.end, scenes.measure(), resources.bytes()]
     if (lastComposed?.key.every((k, i) => k === key[i])) return lastComposed.made
     const composed = composedText(node, { ...composing, range }, scenes.measure(), resources.bytes().variables)
     const design = composed && previewedDesign(session.design(), new Map([[editing.id, composed.layer]]))
@@ -614,7 +614,7 @@ export function editorTyping({
     const at = clipboardText()
     if (!editing || !at) return null
     if (editing.composing && editing.field) return editing.field.given
-    const given = heldText(at.text, at.range)
+    const given = fieldTextOf(at.text, at.range)
     hold(given, at.range)
     return given
   }
@@ -641,7 +641,11 @@ export function editorTyping({
     const ends = anchoredRange(held.start, held.end)
     const edit = ends && fieldEdit(held.given, ends, state, node.props.text.length)
     if (composing !== null) {
-      if (!edit) return true
+      // A composition emptied at a caret draws nothing.
+      if (!edit) {
+        dropComposition()
+        return true
+      }
       const { range, ...made } = compositionOf(edit, composing)
       editing.composing = { ...made, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end) }
       compositionChanged()

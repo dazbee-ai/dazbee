@@ -65,6 +65,18 @@ describe('Backspace', () => {
   })
 })
 
+describe('a delete that came with no key', () => {
+  it('takes the same step as Backspace, and nothing while no text is edited', async () => {
+    const { core, press, textNow } = await typingIn('')
+    press('क', 'ि')
+    expect(core.input.deleteBackward()).toBe(true)
+    expect(textNow()).toBe('क')
+    press('Escape')
+    expect(core.input.deleteBackward()).toBe(false)
+    expect(textNow()).toBe('क')
+  })
+})
+
 describe('Delete', () => {
   it('still takes one whole grapheme forward, a Hindi syllable with its vowel sign', async () => {
     const { press, textNow } = await typingIn('किसान')

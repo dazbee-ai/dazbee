@@ -896,6 +896,7 @@ export function buildCore({
       },
       key: viewOnly.guardKeys(keys.key),
       text: viewOnly.guard(typing.insert, false),
+      deleteBackward: viewOnly.guard(typing.deleteBackward, false),
     },
     clipboard: viewOnly.guardAll({
       copy: place.copy,

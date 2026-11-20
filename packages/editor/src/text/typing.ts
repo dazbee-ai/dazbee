@@ -125,6 +125,12 @@ export interface EditorTyping {
    * the selected range, as a paste of it; false while no text is edited.
    */
   insert(text: string): boolean
+  /**
+   * Deletes back from the caret as Backspace does, or the selected range, for a delete that came
+   * with no key (an input method's, a phone keyboard's); false while no text is edited, or with
+   * nothing before the caret.
+   */
+  deleteBackward(): boolean
   /** The selected range of the text being edited, or else its caret; null when none is edited or it is not drawn. */
   shown(): ShownText | null
 }
@@ -357,6 +363,34 @@ export function editorTyping({
     return true
   }
 
+  /**
+   * Deletes the selected range, or else back from the caret: a letter's trailing vowel sign or mark
+   * alone, as Indic keyboards take it back (`backspaceStep`), or a word with `byWord`. Writes only;
+   * whether there was anything to delete.
+   */
+  function deleteBack(byWord: boolean) {
+    const node = editing && session.design().nodes[editing.id]
+    const range = textRange()
+    if (!editing || node?.type !== 'text' || !range) return false
+    const { id } = editing
+    const text = node.props.text
+    const end = Math.min(range.end, text.length)
+    const caret = Math.min(range.start, text.length)
+    const start = end > caret ? caret : byWord ? wordStep(text, caret, false) : backspaceStep(text, caret)
+    if (start === end) return false
+    if (write(() => session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } })))
+      caretTo(start)
+    return true
+  }
+  /** Deletes back as Backspace does, for a delete that came with no key, and fits and shows the text. */
+  function deleteBackward() {
+    const id = editing?.id
+    if (id === undefined || !deleteBack(false)) return false
+    fitText(id)
+    shownChanged()
+    return true
+  }
+
   /** A key while typing: everything but copy, cut and paste, which come as their own events. */
   function onKey(e: KeyInput) {
     if (!editing) return false
@@ -422,11 +456,7 @@ export function editorTyping({
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {
-      // A letter's trailing vowel sign or mark goes alone, as Indic keyboards take it back.
-      const from = byWord ? wordStep(text, caret, false) : backspaceStep(text, caret)
-      if (selected) replace('')
-      else if (write(() => session.run('text.edit', { id, op: { kind: 'delete', at: from, length: caret - from } })))
-        caretTo(from)
+      deleteBack(byWord)
     } else if (e.key === 'Delete' && (selected || caret < text.length)) {
       if (selected) replace('')
       else
@@ -506,6 +536,7 @@ export function editorTyping({
     cut,
     paste,
     insert: (text: string) => paste({ text }),
+    deleteBackward,
     shown,
   }
 }

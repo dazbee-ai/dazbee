@@ -49,6 +49,8 @@ function harness() {
       },
       key: () => ({ handled: false }),
       text: () => false,
+
+      deleteBackward: () => false,
       cancelOnEscape: () => false,
       blur: () => {},
       hidden: () => {},

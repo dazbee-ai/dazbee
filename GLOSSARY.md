@@ -351,6 +351,14 @@ _Avoid_: Variable, placeholder
 A frame's layers as small JSON for an agent to read: each layer's id, name, type, whether it shows and its text's first 120 characters, the props asked for, and long lists of layers cut to a size budget with how many are not shown.
 _Avoid_: Outline (the layers panel), tree alone (a brief's), dump
 
+**Agent render**:
+A frame drawn as a PNG for an agent to look at, on the CPU surface: its longer side fitted to 1600 pixels unless the agent asks for another size, never past twice the frame's size, then drawn smaller until the file fits a byte limit. It is not an export: no file is named or kept.
+_Avoid_: Screenshot (that is of the screen), preview, thumbnail
+
+**Agent warning**:
+A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box (too tall, or a word too wide) or passes its line limit, a layer wholly outside its frame, or text inside a platform's safe-zone edge on a 9:16 frame. An agent batch's result carries those for the layers it touched: those it added, changed or took out, with the layers inside them and the rest of an auto layout box they are in, and every layer of a frame it changed.
+_Avoid_: Error, lint, refusal (a refused command wrote nothing)
+
 **Gesture**:
 One continuous act of the person editing, such as a drag or typing into a text until they leave it, pause for 2 seconds or hide the tab (the next key starts another). Every command run during a gesture is one undo step, unless Undo is pressed while it is open, which makes what it wrote so far a step of its own. Other tabs draw its preview while it is open and get its change set once it ends.
 _Avoid_: Batch, transaction (a gesture spans many)

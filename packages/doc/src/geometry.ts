@@ -17,6 +17,8 @@ export type Flips = { flipX?: boolean | undefined; flipY?: boolean | undefined }
 
 const rad = (deg: number) => (deg * Math.PI) / 180
 export const centreOf = (b: Box): Point => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 })
+export const intersects = (a: Rect, b: Rect) =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
 /** Turns a point about a centre. */
 export function turn(p: Point, about: Point, deg: number): Point {

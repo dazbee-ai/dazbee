@@ -24,7 +24,7 @@ packages/doc/         the design's store, the commands that change it and the sy
 packages/canvaskit/   our CanvasKit build, loaded by every runtime (ADR-0005)
 packages/renderer/    lays out and draws a design with CanvasKit
 packages/editor/      the client-only editor: canvas, tools, gestures, sync and offline copy
-packages/export/      PNG, JPG, PDF and SVG exports, and their zips (ADR-0005)
+packages/export/      PNG, JPG, PDF and SVG exports, and their zips (ADR-0005); a frame drawn for an agent, and the warnings it is told
 packages/svg/         turns an SVG file into layers
 packages/fonts/       the font files we ship, the Google font catalog list and their Node loader
 packages/db/          Drizzle tables and migrations (ADR-0009)

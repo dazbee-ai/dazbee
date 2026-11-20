@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dazbee/canvaskit": "workspace:*",
+    "@dazbee/doc": "workspace:*",
     "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*"
   },

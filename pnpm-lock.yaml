@@ -564,6 +564,9 @@ importers:
       '@dazbee/canvaskit':
         specifier: workspace:*
         version: link:../canvaskit
+      '@dazbee/doc':
+        specifier: workspace:*
+        version: link:../doc
       '@dazbee/renderer':
         specifier: workspace:*
         version: link:../renderer

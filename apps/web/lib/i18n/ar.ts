@@ -802,6 +802,16 @@ export const ar: Messages = {
       empty: { title: 'لا شيء في الهوية بعد', line: 'ستظهر ألوان هذه العلامة التجارية وخطوطها وشعاراتها هنا.' },
       noColors: 'لا ألوان بعد. أضفها من تعديل.',
       noFonts: 'لا خطوط بعد. أضفها من تعديل.',
+      roles: {
+        primary: 'الأساسي',
+        secondary: 'الثانوي',
+        accent: 'المميِّز',
+        background: 'الخلفية',
+        text: 'النص',
+        heading: 'العناوين',
+        body: 'المتن',
+      },
+      notSet: 'غير محدد',
     },
     props: {
       combine: 'الدمج',

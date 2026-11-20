@@ -2,6 +2,7 @@ import type { CanvasKit, FontCollection, Image, TypefaceFontProvider } from '@da
 import type { Variables } from '@dazbee/schema'
 
 import type { LayerPictures } from './pictures.ts'
+import { familyFeatures } from './text/font-features.ts'
 import type { ParagraphCache } from './text/layout.ts'
 
 /** An image's width and height in its own pixels. */
@@ -15,6 +16,11 @@ export interface Resources {
   fonts: FontCollection
   /** Families tried, in order, for characters a layer's own font lacks. */
   fallbackFamilies: string[]
+  /**
+   * The OpenType features each family has, those of every one of its files (`familyFeatures`):
+   * small caps a family lacks are made up from capitals. Without it, every family lacks them.
+   */
+  familyFeatures?: ReadonlyMap<string, ReadonlySet<string>>
   images: ReadonlyMap<string, Image>
   /**
    * Each image's own size, where the image drawn is a smaller display copy of it, as the editor's
@@ -63,12 +69,21 @@ export function resourceCache(ck: CanvasKit) {
   // Decoded images by asset id, each with the bytes it was decoded from.
   const images = new Map<string, { bytes: Uint8Array; image: Image }>()
   // The registered fonts, with the list they were registered from.
-  let fonts: { list: ResourceBytes['fonts']; provider: TypefaceFontProvider; collection: FontCollection } | undefined
+  let fonts:
+    | {
+        list: ResourceBytes['fonts']
+        provider: TypefaceFontProvider
+        collection: FontCollection
+        features: ReadonlyMap<string, ReadonlySet<string>>
+      }
+    | undefined
 
   function resources(bytes: ResourceBytes): Resources {
+    const collection = fontsFor(bytes.fonts)
     return {
-      fonts: fontsFor(bytes.fonts),
+      fonts: collection,
       fallbackFamilies: [...bytes.fallbackFamilies],
+      familyFeatures: fonts?.features ?? new Map(),
       images: imagesFor(bytes.images),
     }
   }
@@ -81,7 +96,7 @@ export function resourceCache(ck: CanvasKit) {
     const collection = ck.FontCollection.Make()
     collection.setDefaultFontManager(provider)
     freeFonts()
-    fonts = { list: [...list], provider, collection }
+    fonts = { list: [...list], provider, collection, features: familyFeatures(list) }
     return collection
   }
 

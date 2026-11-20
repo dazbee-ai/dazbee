@@ -62,7 +62,7 @@ function design(size: { width: number; height: number }, sizes: CardSizes): Desi
             fontWeight: 700,
             fontSize: sizes.fontSize,
             color: '#1F2329FF',
-            letterSpacing: sizes.letterSpacing,
+            letterSpacing: { unit: 'px', value: sizes.letterSpacing },
           },
         },
       },

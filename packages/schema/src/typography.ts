@@ -54,7 +54,10 @@ export function letterSpacingPx(spacing: LetterSpacing, fontSize: number): numbe
  * A style with a run's style over it: each key the run sets replaces the style's, except its
  * features, which it sets tag by tag over the style's.
  */
-export function withRunStyle<T extends { features?: Features | undefined }>(style: T, run: Partial<T>): T {
+export function withRunStyle<T extends { features?: Features | undefined }>(
+  style: T,
+  run: { readonly [K in keyof T]?: T[K] | undefined },
+): T {
   const out = { ...style, ...run }
   if (style.features && run.features) out.features = { ...style.features, ...run.features }
   return out

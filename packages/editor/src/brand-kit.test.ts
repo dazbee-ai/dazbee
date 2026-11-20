@@ -316,4 +316,32 @@ describe('editorBrandKit', () => {
       expect(log).toEqual([])
     })
   })
+
+  describe('followBrandLogo', () => {
+    it('gives pictures bound to the logo the kit’s new logo, a change no one undoes, so a crop acts on the picture drawn', () => {
+      const { kit, session, select } = harness()
+      select(['photo'])
+      kit.bindSelection('image', 'brand:logo')
+      const unbound = session.design().nodes.a
+      void kit.setVariables({ ...KIT, 'brand:logo': 'logo-2' })
+      expect(session.design().nodes.photo).toMatchObject({
+        bindings: { image: 'brand:logo' },
+        props: { fills: [{ type: 'image', assetId: 'logo-2' }] },
+      })
+      expect(session.design().nodes.a).toEqual(unbound)
+      // The binding is one step to undo, and the new logo no one's.
+      session.undo()
+      expect(session.design().nodes.photo?.bindings).toBeUndefined()
+      expect(session.canUndo()).toBe(false)
+    })
+
+    it('leaves a picture as it stores it while the kit gives no logo', () => {
+      const { kit, session, select } = harness()
+      select(['photo'])
+      kit.bindSelection('image', 'brand:logo')
+      void kit.setVariables({ 'brand:primary': '#FF0000FF', 'brand:heading': 'Noto Sans' })
+      kit.followBrandLogo()
+      expect(session.design().nodes.photo).toMatchObject({ props: { fills: [{ assetId: 'logo-1' }] } })
+    })
+  })
 })

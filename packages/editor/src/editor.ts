@@ -279,6 +279,7 @@ function live(
   draw()
   saving.start()
 
+  brandKit.followBrandLogo()
   void brandKit.refitBrandFonts()
 
   return {

@@ -26,9 +26,9 @@ describe('brandVariables', () => {
     expect(brandVariables({ ...kit, logoAssetId: null }, { id: 'logo-1', contentType: 'image/png' })).toEqual(without)
   })
 
-  it('keeps a colour or font of the kit that holds the logo’s token', () => {
+  it('gives the logo its token even where the kit holds a colour or font with it', () => {
     const own = { ...kit, colors: [...kit.colors, { token: 'logo', name: 'Logo', value: '#E0262BFF' }] }
-    expect(brandVariables(own, { id: 'logo-1', contentType: 'image/png' })['brand:logo']).toBe('#E0262BFF')
+    expect(brandVariables(own, { id: 'logo-1', contentType: 'image/png' })['brand:logo']).toBe('logo-1')
   })
 })
 

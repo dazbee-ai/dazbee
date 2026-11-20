@@ -51,11 +51,15 @@ export const MAX_CLIENT_NAME = 100
 export const MAX_REDIRECT_URIS = 10
 export const REQUEST_TTL_MS = 10 * 60 * 1000
 export const CODE_TTL_MS = 60 * 1000
+/** What a client asking for another resource than the MCP server is told. */
+export const WRONG_RESOURCE = 'Dazbee signs agents in only for its MCP server'
 
 /** The hosts a client may be sent back to over plain `http://`: this machine's (RFC 8252). */
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 const MAX_REDIRECT_URI = 2048
 const MAX_STATE = 1024
+/** How long a request or code is kept after it expires, before a later sign-in deletes it, so a server whose clock runs ahead of another's never deletes the other's. */
+const KEPT_AFTER_EXPIRY_MS = 60 * 60 * 1000
 /** An S256 challenge: the base64url of a SHA-256, 43 characters. */
 const S256_CHALLENGE = /^[\w-]{43}$/
 /** A PKCE verifier (RFC 7636 §4.1): 43 to 128 unreserved characters. */
@@ -97,8 +101,11 @@ export async function registerClient(db: Db, metadata: ClientMetadata, now = new
 
 /**
  * Checks an authorization request (RFC 6749 §4.1.1, PKCE S256, RFC 8707's `resource`, which must be `resource`
- * when given) and keeps it for the person's consent, under a random id. An unknown client or redirect URI
- * answers an error with no redirect; any other problem, an error with the redirect back to the client.
+ * when given) and keeps it for the person's consent, under a random id. The redirect URI is one the client
+ * registered, or on this machine (`http://` on a loopback host) one of them at another port (RFC 8252 §7.3). An
+ * unknown client or redirect URI answers an error with no redirect. Any other problem answers an error with the
+ * redirect back to a client on this machine, and with none to one elsewhere, so no one can make Dazbee send a
+ * person on to an address of theirs without the person's consent.
  */
 export async function startAuthorization(
   db: Db,
@@ -113,7 +120,7 @@ export async function startAuthorization(
   if (!client)
     return { error: 'invalid_client', error_description: 'This agent isn’t registered with Dazbee; connect it again' }
   const redirectUri = params.redirect_uri
-  if (redirectUri === undefined || !client.redirectUris.includes(redirectUri))
+  if (redirectUri === undefined || !client.redirectUris.some((uri) => sameRedirect(uri, redirectUri)))
     return {
       error: 'invalid_request',
       error_description: 'The address to send you back to is not one this agent registered',
@@ -122,7 +129,9 @@ export async function startAuthorization(
   const back = (error: string, description: string) => ({
     error,
     error_description: description,
-    redirect: withParams(redirectUri, { error, error_description: description, state }),
+    ...(isLoopback(redirectUri)
+      ? { redirect: withParams(redirectUri, { error, error_description: description, state }) }
+      : {}),
   })
   if (params.response_type !== 'code') return back('unsupported_response_type', 'Only response_type=code is taken')
   if (params.state !== undefined && state === undefined)
@@ -130,11 +139,11 @@ export async function startAuthorization(
   if (params.code_challenge_method !== 'S256') return back('invalid_request', 'Give a PKCE challenge with S256')
   if (!S256_CHALLENGE.test(params.code_challenge ?? ''))
     return back('invalid_request', 'code_challenge is not an S256 challenge')
-  if (params.resource !== undefined && params.resource !== resource)
-    return back('invalid_target', 'Dazbee signs agents in only for its MCP server')
+  if (wrongResource(params, resource)) return back('invalid_target', WRONG_RESOURCE)
 
   const request = randomBytes(32).toString('base64url')
-  await db.delete(agentAuthorizations).where(lt(agentAuthorizations.expiresAt, now))
+  const kept = new Date(now.getTime() - KEPT_AFTER_EXPIRY_MS)
+  await db.delete(agentAuthorizations).where(lt(agentAuthorizations.expiresAt, kept))
   await db.insert(agentAuthorizations).values({
     hash: hashOf(request),
     kind: 'request',
@@ -190,7 +199,8 @@ export async function deny(db: Db, request: string, now = new Date()): Promise<s
 /**
  * Swaps a code (RFC 6749 §4.1.3 with PKCE) for a new agent access, from the person's choice, and its first
  * tokens. The code works once, for its client, with its redirect URI and the verifier of its challenge, within
- * 60 seconds, while its person is still a member of its workspace; used again, it ends the access it gave.
+ * 60 seconds, while its person is still a member of its workspace. Used again within them, with its redirect URI
+ * and verifier, it ends the access it gave, as a code someone else swapped first would.
  */
 export async function swapCode(
   db: Db,
@@ -201,8 +211,7 @@ export async function swapCode(
   const { code, redirect_uri: redirectUri, code_verifier: verifier, client_id: clientId } = params
   if (!code || !redirectUri || !verifier || !clientId)
     return refusal('invalid_request', 'Give code, redirect_uri, code_verifier and client_id')
-  if (params.resource !== undefined && params.resource !== resource)
-    return refusal('invalid_target', 'Dazbee signs agents in only for its MCP server')
+  if (wrongResource(params, resource)) return refusal('invalid_target', WRONG_RESOURCE)
   const [client] = await db.select({ name: agentClients.name }).from(agentClients).where(eq(agentClients.id, clientId))
   if (!client)
     return { ok: false, status: 401, error: { error: 'invalid_client', error_description: 'No such client' } }
@@ -215,12 +224,12 @@ export async function swapCode(
       .for('update')
     const invalid = refusal('invalid_grant', 'The code is not valid; sign in again')
     if (!row || row.clientId !== clientId) return invalid
+    if (row.expiresAt.getTime() <= now.getTime()) return invalid
+    if (row.redirectUri !== redirectUri || !verifies(verifier, row.codeChallenge)) return invalid
     if (row.accessId) {
       await tx.update(agentAccesses).set({ endedAt: now }).where(eq(agentAccesses.id, row.accessId))
       return invalid
     }
-    if (row.expiresAt.getTime() <= now.getTime()) return invalid
-    if (row.redirectUri !== redirectUri || !verifies(verifier, row.codeChallenge)) return invalid
     const { userId, workspaceId } = row
     if (!userId || !workspaceId) return invalid
     const [member] = await tx
@@ -240,6 +249,11 @@ export function refusal(error: string, description: string): Swapped & { ok: fal
   return { ok: false, status: 400, error: { error, error_description: description } }
 }
 
+/** Whether a client's `resource` is given and not the resource the server serves. */
+export function wrongResource(params: OAuthParams, resource: string | null): boolean {
+  return params.resource !== undefined && params.resource !== resource
+}
+
 /** Why a redirect URI can't be registered, or null when it can: `https://`, or `http://` on this machine. */
 function redirectUriProblem(uri: unknown): string | null {
   if (typeof uri !== 'string' || uri.length > MAX_REDIRECT_URI)
@@ -252,8 +266,7 @@ function redirectUriProblem(uri: unknown): string | null {
   }
   if (uri.includes('#')) return 'has a fragment'
   if (url.username || url.password) return 'holds a user name or password'
-  if (url.protocol === 'https:') return null
-  if (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)) return null
+  if (url.protocol === 'https:' || isLoopback(uri)) return null
   return 'must be https://, or http:// on localhost, 127.0.0.1 or [::1]'
 }
 
@@ -261,6 +274,25 @@ function redirectUriProblem(uri: unknown): string | null {
 function clientName(name: string | null | undefined): string {
   const clean = (name ?? '').replace(/[\p{Cc}\p{Cf}]/gu, '').trim()
   return Array.from(clean).slice(0, MAX_CLIENT_NAME).join('').trimEnd() || NO_CLIENT_NAME
+}
+
+/** Whether `uri` is an `http://` address on this machine. */
+function isLoopback(uri: string): boolean {
+  const url = URL.parse(uri)
+  return url?.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)
+}
+
+/**
+ * Whether `given` is the registered redirect URI: the same text, or on this machine the same address at another
+ * port, which a native client picks as it starts (RFC 8252 §7.3).
+ */
+function sameRedirect(registered: string, given: string): boolean {
+  if (registered === given) return true
+  if (!isLoopback(registered) || !isLoopback(given)) return false
+  const [a, b] = [new URL(registered), new URL(given)]
+  a.port = ''
+  b.port = ''
+  return a.href === b.href
 }
 
 /** `uri` with the parameters given added to its query; one left undefined is left out. */

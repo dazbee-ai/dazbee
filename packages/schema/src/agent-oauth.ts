@@ -36,9 +36,12 @@ export const AgentAuthorizationRequest = z.object({
 })
 export type AgentAuthorizationRequest = z.infer<typeof AgentAuthorizationRequest>
 
+/** The longest sign-in request id taken; the API makes them 43 characters long. */
+export const MAX_AGENT_REQUEST_ID = 200
+
 /** A person's consent: the request, the brands the agent may open (null for every brand they see), and whether it edits. */
 export const AgentConsent = z.object({
-  request: z.string().min(1).max(200),
+  request: z.string().min(1).max(MAX_AGENT_REQUEST_ID),
   brandIds: z.array(RecordId).min(1).max(1000).nullable(),
   writes: z.boolean(),
 })

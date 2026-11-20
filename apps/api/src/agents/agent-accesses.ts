@@ -171,13 +171,19 @@ export async function refreshTokens(db: Db, token: string, now = new Date(), cli
 
 /**
  * Revokes an agent's token (RFC 7009): a refresh token ends its access, an access token stops working. An
- * unknown token changes nothing.
+ * unknown token changes nothing, and so does one of another client than `clientId`, when given (RFC 7009 §2.1).
  */
-export async function revokeToken(db: Db, token: string, now = new Date()): Promise<void> {
+export async function revokeToken(db: Db, token: string, now = new Date(), clientId?: string): Promise<void> {
   const [row] = await db
     .select({ accessId: agentTokens.accessId, kind: agentTokens.kind })
     .from(agentTokens)
-    .where(eq(agentTokens.hash, hashOf(token)))
+    .innerJoin(agentAccesses, eq(agentAccesses.id, agentTokens.accessId))
+    .where(
+      and(
+        eq(agentTokens.hash, hashOf(token)),
+        clientId === undefined ? undefined : eq(agentAccesses.clientId, clientId),
+      ),
+    )
   if (row?.kind === 'refresh')
     await db
       .update(agentAccesses)

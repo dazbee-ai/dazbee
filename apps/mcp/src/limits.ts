@@ -21,10 +21,10 @@ export const MAX_MCP_SESSIONS = 200
 /** How long a request may take before it is answered 503, so no client waits on a call that never ends. */
 export const CALL_TIMEOUT_MS = 60_000
 
+/** The largest body an OAuth endpoint takes: a registration or a token request is a few hundred bytes. */
+export const MAX_OAUTH_BODY_BYTES = 64 * 1024
+
 /** `bytes` in MiB, as the limits are told to an agent: "8 MiB", "8.5 MiB". */
 export function inMiB(bytes: number): string {
   return `${Number((bytes / 1024 / 1024).toFixed(1))} MiB`
 }
-
-/** The largest body an OAuth endpoint takes: a registration or a token request is a few hundred bytes. */
-export const MAX_OAUTH_BODY_BYTES = 64 * 1024

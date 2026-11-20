@@ -25,9 +25,9 @@ const API_TIMEOUT_MS = 15_000
 
 /** The parameters of a query or form, or null when a name comes more than once (RFC 6749 §3.1). */
 export function paramsOf(search: URLSearchParams): OAuthParams | null {
-  const params: OAuthParams = {}
+  const params: OAuthParams = Object.create(null)
   for (const [name, value] of search) {
-    if (name in params) return null
+    if (Object.hasOwn(params, name)) return null
     params[name] = value
   }
   return params

@@ -6,7 +6,7 @@ import { Hono } from 'hono'
 
 import { AgentAuthorizationStarted } from '@dazbee/schema'
 
-import { askApi, type OAuthSettings, paramsOf } from './relay.ts'
+import { askApi, clientAddress, type OAuthSettings, paramsOf } from './relay.ts'
 
 /** The headers of every answer here: kept from caches, and the address it came from kept from the next page. */
 const PRIVATE = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' }
@@ -18,7 +18,7 @@ export function authorizeRoutes(settings: OAuthSettings): Hono {
   app.get('/oauth/authorize', async (c) => {
     const params = paramsOf(new URL(c.req.url).searchParams)
     if (!params) return errorPage(400, 'The sign-in link gives a parameter more than once.')
-    const answer = await askApi(settings, '/agent/authorizations', params)
+    const answer = await askApi(settings, '/agent/authorizations', params, clientAddress(c))
     const started = AgentAuthorizationStarted.safeParse(await answer?.json().catch(() => undefined))
     if (!answer || !started.success || answer.status >= 500)
       return errorPage(503, 'Dazbee can’t be reached; try again in a moment.')
@@ -28,15 +28,10 @@ export function authorizeRoutes(settings: OAuthSettings): Hono {
       return redirect(connect.toString())
     }
     if (started.data.redirect) return redirect(started.data.redirect)
-    return errorPage(400, started.data.error_description ?? 'This sign-in link is not valid.')
+    return errorPage(answer.status, started.data.error_description ?? 'This sign-in link is not valid.')
   })
 
   return app
-}
-
-/** 302 to `location`. */
-function redirect(location: string): Response {
-  return new Response(null, { status: 302, headers: { location, ...PRIVATE } })
 }
 
 /** A page telling the person why the agent can't sign in, which runs nothing and loads nothing. */
@@ -50,6 +45,11 @@ function errorPage(status: number, message: string): Response {
       ...PRIVATE,
     },
   })
+}
+
+/** 302 to `location`. */
+function redirect(location: string): Response {
+  return new Response(null, { status: 302, headers: { location, ...PRIVATE } })
 }
 
 /** `text` with HTML's special characters written as entities. */

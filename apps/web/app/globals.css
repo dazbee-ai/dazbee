@@ -1,6 +1,6 @@
 /*
  * The app's global styles: the base styles and motion, the AI controls' glow, the overlay scrollbars and strips without one,
- * the glass and checkerboard utilities, the canvas backdrop, the home's aurora and the open item's blob. The theme tokens, the stage overlay, the sign-in page's showcase, the designs masonry and the bee are
+ * the glass and checkerboard utilities, the canvas backdrop and the open item's blob. The theme tokens, the stage overlay, the sign-in page's showcase, the designs masonry and the bee are
  * partials in styles/, imported below. CSS takes @import only before every other rule, so they come
  * first, ahead of the rules in this file.
  */
@@ -96,9 +96,7 @@ body {
 
 /* The AI gradient in motion, as in the final mock: pink, cobalt, yellow and back to pink at 110deg,
    each repeat three controls wide, sliding one repeat every 5 s with no seam. It slides as a layer
-   six controls wide (two repeats) moved by transform, so the slide is a compositor transform, never
-   a repaint: a repaint every frame also repainted whatever blurs behind the control, like the home's
-   aurora, which made software-rendered pages (CI) slow to draw. .ai-glow fills AI controls (Make
+   six controls wide (two repeats) moved by a compositor transform. .ai-glow fills AI controls (Make
    drafts); .ai-edge is the brief composer's gradient edge. The element needs a position. */
 @keyframes ai-slide {
   to {
@@ -404,41 +402,7 @@ body {
   background-size: 20px 20px;
 }
 
-/* The home's aurora (#84), as in the final mock: a blurred conic blob of the AI colours, 70 wide by
-   34 high (in viewport widths), centred just above the headline, at 45%, turning once in 14 s. The
-   blob is a circle squashed into the ellipse; the circle turns by transform, so it never repaints. */
-@keyframes aurora-turn {
-  to {
-    transform: rotate(1turn);
-  }
-}
-.aurora {
-  position: absolute;
-  inset-inline: 15%;
-  inset-block-start: -28vw;
-  aspect-ratio: 1;
-  scale: 1 0.486;
-  opacity: 0.45;
-  pointer-events: none;
-}
-.aurora::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(var(--ai-1), var(--ai-2), var(--ai-3), var(--ai-1));
-  filter: blur(6vw);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .aurora::before {
-    animation: aurora-turn 14s linear infinite;
-  }
-}
-/* Drawn in software, each turn of the blurred blob is a full redraw, so it holds still where it is (#144). */
-[data-render='software'] .aurora::before {
-  animation-play-state: paused;
-}
-/* For the same reason the AI controls' sliding gradient and sheen hold still in software: each of
+/* The AI controls' sliding gradient and sheen hold still in software because each of
    their frames redraws the page under them, the open Recent or Templates sheet included. */
 [data-render='software'] :is(.ai-glow, .ai-edge)::before,
 [data-render='software'] .ai-sheen {

@@ -1,7 +1,7 @@
 // The app outside the editor, as in the final mock: the editor's top bar (the mark, a crumb whose
 // first parts switch workspace and brand, the person's avatar at the end), the same floating capsule
-// the editor has (#110), and the page under a glow of the accent colours. A layout renders the frame
-// with the capsule, so it stays as its pages change; each page renders the shell inside it.
+// the editor has (#110). A layout renders the frame with the capsule, so it stays as its pages
+// change; each page renders the shell inside it.
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
@@ -28,7 +28,7 @@ import { CRUMB_MENU, WorkspaceSwitcher } from './workspace-switcher.tsx'
 /** Where the crumb says you are. */
 export type LibraryPlace = 'home' | 'brands' | 'settings' | 'designs' | 'templates' | 'kit'
 
-/** A page outside the editor, inside the frame: the glow, the top bar and the page. */
+/** The top bar and page content outside the editor. */
 export async function LibraryShell({
   t,
   words,
@@ -37,7 +37,6 @@ export async function LibraryShell({
   activeBrandId,
   showBrands = true,
   place = 'home',
-  glow = false,
   children,
 }: {
   t: Messages
@@ -51,8 +50,6 @@ export async function LibraryShell({
   showBrands?: boolean
   /** The crumb's last part. */
   place?: LibraryPlace
-  /** The slow aurora behind the top of the page, as on a brand's home. */
-  glow?: boolean
   children: ReactNode
 }) {
   const active = brands.find((brand) => brand.id === activeBrandId)
@@ -68,16 +65,6 @@ export async function LibraryShell({
   }[place]
   return (
     <>
-      {glow && (
-        <div
-          aria-hidden
-          data-testid="home-glow"
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]"
-        >
-          <div className="aurora" />
-        </div>
-      )}
-
       <LibraryHeader t={t} workspace={workspace} brandId={active?.id}>
         {/* One brand and nothing to add: the menu would offer only the brand you are on, so it is its name. */}
         {showBrands || canAdd ? (

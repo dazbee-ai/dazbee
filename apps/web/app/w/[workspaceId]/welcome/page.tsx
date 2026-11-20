@@ -48,12 +48,6 @@ export default async function WelcomePage({
 
   return (
     <div className="relative isolate flex min-h-dvh flex-col overflow-x-clip bg-bg">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] overflow-hidden opacity-70 [mask-image:linear-gradient(to_bottom,black_45%,transparent)]"
-      >
-        <div className="aurora" />
-      </div>
       <LibraryHeader t={t} workspace={workspace}>
         <span className="truncate px-1.5 font-semibold text-text">{w.place}</span>
       </LibraryHeader>

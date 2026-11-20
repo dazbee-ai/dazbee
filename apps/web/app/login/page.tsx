@@ -22,9 +22,7 @@ export async function generateMetadata() {
   return { title: (await getMessages()).signIn.title }
 }
 
-// The mock's sign-in (screen 34) on one dark page: the form on the start half, and fanned-out ads
-// over an aurora toward the end, the glow fading into the form's side. Phones get the form over a
-// faint glow.
+// Sign-in has the form on the start half and fanned-out ads on the end half. Phones show the form alone.
 export default async function LoginPage({
   searchParams,
 }: {

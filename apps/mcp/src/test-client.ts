@@ -74,7 +74,7 @@ export function testServer({ callTimeoutMs, designs = {} }: TestServerOptions = 
           const signed = api.syncTokenOf(token)
           if (signed?.designId !== designId) return undefined
           const member = { userId: 'user-test', workspaceId: TEST_WORKSPACE }
-          return { member, name: signed.agent, access: signed.writes ? 'edit' : 'view' }
+          return { member, name: 'Test person', agent: signed.agent, access: signed.writes ? 'edit' : 'view' }
         },
       })
       syncs.set(designId, sync)

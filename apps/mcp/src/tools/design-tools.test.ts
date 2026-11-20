@@ -64,6 +64,7 @@ describe('open_design', () => {
       ],
       notices: [],
     })
+    expect(server.api.syncTokenOf('sync-1')).toEqual({ designId: 'design-launch', writes: true, agent: 'test (agent)' })
   })
 
   it('says a view access’s tab may not edit', async () => {

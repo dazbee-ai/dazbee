@@ -47,6 +47,24 @@ describe('BrandKit', () => {
     expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [HEADLINE, HEADLINE] }).success).toBe(false)
   })
 
+  it('refuses a text style that follows a colour, a colour role, another style or the logo', () => {
+    const red = { token: 'red', name: 'Red', value: '#E0262BFF' }
+    const kit = { ...KIT_BEFORE, colors: [...KIT_BEFORE.colors, red] }
+    const subhead = { ...HEADLINE, token: 'subhead', name: 'Subhead' }
+    for (const token of ['red', 'primary', 'text', 'subhead', 'logo'])
+      expect(
+        BrandKit.safeParse({ ...kit, textStyles: [{ ...HEADLINE, font: { token } }, subhead] }).success,
+        token,
+      ).toBe(false)
+  })
+
+  it('takes a text style that follows a font role or a kit font, set or not', () => {
+    for (const token of ['heading', 'body', 'brand-serif'])
+      expect(BrandKit.safeParse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, font: { token } }] }).success, token).toBe(
+        true,
+      )
+  })
+
   it('keeps no size, and refuses a font that is neither a token nor a family', () => {
     expect(BrandKit.parse({ ...KIT_BEFORE, textStyles: [{ ...HEADLINE, fontSize: 40 }] }).textStyles).toEqual([
       HEADLINE,

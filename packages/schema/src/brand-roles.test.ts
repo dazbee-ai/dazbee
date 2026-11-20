@@ -167,4 +167,10 @@ describe('freeToken', () => {
     const kit: BrandKit = { ...KIT, textStyles: [{ ...style, fontStyle: 'normal', letterSpacing: NO_LETTER_SPACING }] }
     expect(freeToken(kit, 'Headline')).toBe('headline-2')
   })
+
+  it('never gives a token a text style follows, though the kit holds no font with it', () => {
+    const style = { token: 'headline', name: 'Headline', font: { token: 'brand-serif' }, fontWeight: 700 }
+    const kit: BrandKit = { ...KIT, textStyles: [{ ...style, fontStyle: 'normal', letterSpacing: NO_LETTER_SPACING }] }
+    expect(freeToken(kit, 'Brand serif')).toBe('brand-serif-2')
+  })
 })

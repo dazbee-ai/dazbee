@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { type BrandKit, type BrandTextStyle, EMPTY_BRAND_KIT } from './api.ts'
-import { brandTextStyleFamily, newBrandTextStyle } from './brand-text-styles.ts'
+import { type BrandKit, EMPTY_BRAND_KIT } from './api.ts'
+import { type BrandTextStyle, brandTextStyleFamily, newBrandTextStyle, withoutKitFont } from './brand-text-styles.ts'
 
 /** Names the form gives each new style, as the English catalog does. */
 const ENGLISH = (preset: string | null, n: number) =>
@@ -83,5 +83,20 @@ describe('brandTextStyleFamily', () => {
 
   it('gives none for a font the kit has not set', () => {
     expect(brandTextStyleFamily(KIT, style({ token: 'body' }))).toBeUndefined()
+  })
+})
+
+describe('withoutKitFont', () => {
+  it("takes a font of the brand's own out, and sets the styles that follow it in its family", () => {
+    const kit = added(KIT, 1)
+    const following = { ...kit, textStyles: kit.textStyles.map((s) => ({ ...s, font: { token: 'brand-serif' } })) }
+    const next = withoutKitFont(following, 'brand-serif')
+    expect(next.fonts.map((f) => f.token)).toEqual(['heading'])
+    expect(next.textStyles.map((s) => s.font)).toEqual([{ family: 'Playfair Display' }])
+  })
+
+  it('leaves styles that follow a font role following it, set or not', () => {
+    const kit = added(KIT, 1)
+    expect(withoutKitFont(kit, 'heading').textStyles.map((s) => s.font)).toEqual([{ token: 'heading' }])
   })
 })

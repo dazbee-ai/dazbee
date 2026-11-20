@@ -2,8 +2,8 @@
 // every response with them, so the two can't drift apart.
 import { z } from 'zod'
 
-import { BRAND_KIT_LIMITS, BRAND_ROLES, LOGO_ROLE } from './brand-roles.ts'
-import { textStyleFields } from './layers.ts'
+import { BRAND_KIT_LIMITS, BRAND_ROLE_TOKENS, brandRoleOf, LOGO_ROLE } from './brand-roles.ts'
+import { BrandTextStyle } from './brand-text-styles.ts'
 import { Color } from './primitives.ts'
 import { Member } from './sync.ts'
 import { brandRef, BrandToken, type Variables } from './variables.ts'
@@ -334,32 +334,6 @@ export const BrandFont = z.object({
 })
 export type BrandFont = z.infer<typeof BrandFont>
 
-/**
- * The font a brand text style is set in: a kit font's token, a brand role such as Heading or one of
- * the brand's own, which the style follows as the kit changes; or a family of its own.
- */
-export const BrandTextStyleFont = z.union([
-  z.object({ token: BrandToken }),
-  z.object({ family: BrandFont.shape.family }),
-])
-export type BrandTextStyleFont = z.infer<typeof BrandTextStyleFont>
-
-/**
- * A brand text style: a named text look, such as Headline, that texts follow. It holds no size, so
- * it fits every ad size; each text keeps its own. A line height left out is the font's own.
- */
-export const BrandTextStyle = z.object({
-  token: BrandToken,
-  name: z.string().trim().min(1).max(60),
-  font: BrandTextStyleFont,
-  fontWeight: textStyleFields.fontWeight,
-  fontStyle: textStyleFields.fontStyle,
-  lineHeight: textStyleFields.lineHeight.optional(),
-  letterSpacing: textStyleFields.letterSpacing,
-  textCase: textStyleFields.textCase.optional(),
-})
-export type BrandTextStyle = z.infer<typeof BrandTextStyle>
-
 /** What a kit holds but for its text styles. */
 const brandKitFields = {
   colors: BrandColor.array().max(BRAND_KIT_LIMITS.color),
@@ -372,17 +346,14 @@ const brandTextStyles = BrandTextStyle.array().max(BRAND_KIT_LIMITS.textStyle)
 /**
  * A brand's kit (#53): its colours, fonts and text styles, which designs bind to as `brand:<token>`,
  * its logo (an asset of the brand) and its tone of voice. A token names one thing in the kit, and a
- * text style's is never a brand role's. A kit saved before it held text styles has none.
+ * text style's is never a brand role's. A kit read without text styles has none.
  */
 export const BrandKit = z
   .object({ ...brandKitFields, textStyles: brandTextStyles.default(() => []) })
   .superRefine(oneThingPerToken)
 export type BrandKit = z.infer<typeof BrandKit>
 
-/**
- * A kit as a save sends it. A tab built before kits held text styles sends none, and the API keeps
- * the ones it has.
- */
+/** A kit as a save sends it: one that leaves its text styles out keeps the ones the kit has. */
 export const SaveBrandKit = z
   .object({ ...brandKitFields, textStyles: brandTextStyles.optional() })
   .superRefine(oneThingPerToken)
@@ -545,19 +516,27 @@ export function faceWeights(face: { weight: number; weights?: { min: number; max
 }
 
 /**
- * Refuses a kit where one token names two things, or a text style takes a brand role's token, the
- * logo's included: `brand:<token>` names one value.
+ * Refuses a kit where one token names two things, a text style takes a brand role's token, the
+ * logo's included, or a style follows a token that names no font: `brand:<token>` names one value.
  */
 function oneThingPerToken(
   kit: { colors: BrandColor[]; fonts: BrandFont[]; textStyles?: BrandTextStyle[] | undefined },
   ctx: z.RefinementCtx,
 ) {
+  const styles = kit.textStyles ?? []
   const seen = new Set<string>()
-  for (const { token } of [...kit.colors, ...kit.fonts, ...(kit.textStyles ?? [])]) {
+  for (const { token } of [...kit.colors, ...kit.fonts, ...styles]) {
     if (seen.has(token)) ctx.addIssue({ code: 'custom', message: `the token "${token}" names two things` })
     seen.add(token)
   }
-  const roles = new Set<string>([...Object.values(BRAND_ROLES).flat(), LOGO_ROLE])
-  for (const { token } of kit.textStyles ?? [])
-    if (roles.has(token)) ctx.addIssue({ code: 'custom', message: `the token "${token}" is a brand role's` })
+  const notFonts = new Set([...kit.colors, ...styles].map((x) => x.token))
+  for (const { token, font } of styles) {
+    if (BRAND_ROLE_TOKENS.includes(token))
+      ctx.addIssue({ code: 'custom', message: `the token "${token}" is a brand role's` })
+    if (
+      'token' in font &&
+      (notFonts.has(font.token) || (BRAND_ROLE_TOKENS.includes(font.token) && !brandRoleOf('font', font.token)))
+    )
+      ctx.addIssue({ code: 'custom', message: `the text style "${token}" follows "${font.token}", which is no font` })
+  }
 }

@@ -18,6 +18,9 @@ export type BrandRole = (typeof BRAND_ROLES)[KitKind][number]
 /** The brand role the kit's logo fills, a picture: a layer bound to `brand:logo` draws the brand's logo. */
 export const LOGO_ROLE = 'logo'
 
+/** Every brand role's token, of each kind, the logo's included: none is ever a token of the brand's own. */
+export const BRAND_ROLE_TOKENS: readonly string[] = [...Object.values(BRAND_ROLES).flat(), LOGO_ROLE]
+
 /** How many colours, fonts and text styles a kit holds at most, its brand roles included. */
 export const BRAND_KIT_LIMITS = { color: 24, font: 8, textStyle: 12 } as const
 
@@ -103,7 +106,8 @@ export function withoutBrandRole(kit: BrandKit, kind: KitKind, role: BrandRole):
 
 /**
  * A token for a colour, font or text style of the brand's own, from its name: "Colour 3" gives
- * colour-3. It is none the kit holds and no role's, the logo's included, so "Text" gives text-2.
+ * colour-3. It is none the kit holds, none a text style follows, and no role's, the logo's
+ * included, so "Text" gives text-2.
  */
 export function freeToken(kit: BrandKit, name: string) {
   const base =
@@ -114,8 +118,8 @@ export function freeToken(kit: BrandKit, name: string) {
       .replace(/^-|-$/g, '') || 'token'
   const taken = new Set(
     [...kit.colors, ...kit.fonts, ...kit.textStyles]
-      .map((x) => x.token)
-      .concat(Object.values(BRAND_ROLES).flat(), LOGO_ROLE),
+      .flatMap((x) => ('font' in x && 'token' in x.font ? [x.token, x.font.token] : [x.token]))
+      .concat(BRAND_ROLE_TOKENS),
   )
   let token = base
   for (let n = 2; taken.has(token); n++) token = `${base}-${n}`

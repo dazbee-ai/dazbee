@@ -267,7 +267,35 @@ export const en = {
       /** Why a change of the invite to an email was refused. */
       refused: '{email}: {error}',
     },
-    /** Why the API refused a change of invites or members, by what it means. */
+    /**
+     * The agent accesses the person gave in this workspace, each with End access, confirmed once, and how to
+     * connect an agent: the address it is given, and where to give it.
+     */
+    agents: {
+      title: 'Agents',
+      /** With no access: what an agent is. */
+      none: 'An agent is an AI program, such as Claude Code, that designs in Dazbee for you once you connect it.',
+      edit: 'Edit',
+      view: 'View only',
+      given: 'Given {date}',
+      lastUsed: 'Last used {date}',
+      notUsed: 'Not used yet',
+      end: 'End access',
+      endFor: 'End access for {client}',
+      endConfirm:
+        'End access for {client}? It can’t reach this workspace any more, and a design it has open closes within 10 minutes.',
+      cancel: 'Cancel',
+      /** Why ending the access of the client named was refused. */
+      refused: '{client}: {error}',
+      address: 'Address',
+      copy: 'Copy',
+      copyAddress: 'Copy the address',
+      copyCommand: 'Copy the Claude Code command',
+      copied: 'Copied',
+      claudeCode: 'In Claude Code, run:',
+      connector: 'In Claude Desktop or claude.ai, add a custom connector with this address.',
+    },
+    /** Why the API refused a change of invites, members or agent accesses, by what it means. */
     refusals: {
       alreadyMember: '{email} is already a member.',
       notManager: 'Only an Owner or Admin can do this. Reload to see what you can do.',
@@ -282,6 +310,7 @@ export const en = {
       wrongEmail: 'That isn’t your account’s email. Type it as shown.',
       deletionChanged: 'What deleting your account deletes has changed. Read it again below.',
       brandsRefused: 'These brands can’t be given now. Reload to see this member’s role and the brands.',
+      agentGone: 'This agent’s access has already ended.',
     },
   },
   editor: {

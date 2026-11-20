@@ -1,5 +1,6 @@
-// Settings' invite and member actions, run in Node with the API's answers stubbed and the language cookie held in a
-// variable: what each asks the API, and the answer the person reads beside what they did, in their language.
+// Settings' invite, member and agent access actions, run in Node with the API's answers stubbed and the language
+// cookie held in a variable: what each asks the API, and the answer the person reads beside what they did, in their
+// language.
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +9,7 @@ import {
   changeBrands,
   changeRole,
   deleteMyAccount,
+  endAgentAccess,
   handOver,
   invite,
   leave,
@@ -403,5 +405,29 @@ describe('deleteMyAccount', () => {
     expect(await deleteMyAccount('workspace-1', { email: 'ada@example.com', deletes: [] })).toBeUndefined()
     expect(picked.deleted).toEqual(['dazbee_session'])
     expect(redirect).toHaveBeenCalledWith('/login?deleted=1')
+  })
+})
+
+describe('endAgentAccess', () => {
+  it('asks the API to end the access by its id, and shows the accesses as they now are', async () => {
+    answer = { status: 204, body: null }
+
+    expect(await endAgentAccess('workspace-1', 'access-1')).toBeNull()
+    expect(asked).toEqual([{ method: 'DELETE', path: '/workspaces/workspace-1/agent-accesses/access-1', body: null }])
+    expect(revalidatePath).toHaveBeenCalledWith('/w/workspace-1/settings')
+  })
+
+  it("says an access that has ended has ended, in the person's words, in Arabic too, and shows the accesses as they now are", async () => {
+    answer = { status: 404, body: { error: 'No such agent access' } }
+    expect(await endAgentAccess('workspace-1', 'access-1')).toBe('This agent’s access has already ended.')
+    picked.locale = 'ar'
+    expect(await endAgentAccess('workspace-1', 'access-1')).toBe('انتهى وصول هذا الوكيل من قبل.')
+    expect(revalidatePath).toHaveBeenCalledWith('/w/workspace-1/settings')
+  })
+
+  it("gives the API's own words for any other refusal", async () => {
+    answer = { status: 403, body: { error: 'Agents may not do this' } }
+
+    expect(await endAgentAccess('workspace-1', 'access-1')).toBe('Agents may not do this')
   })
 })

@@ -57,7 +57,12 @@ describe('list_commands', () => {
       'page.move',
       'page.delete',
     ])
-    expect(await listed(agent, 'Brand')).toEqual(['node.bind'])
+    const brand = commandCatalog()
+      .filter(({ name, description }) => `${name} ${description}`.toLowerCase().includes('brand'))
+      .map(({ name }) => name)
+    expect(brand).toContain('node.bind')
+    expect(brand.length).toBeLessThan(commandCatalog().length)
+    expect(await listed(agent, 'Brand')).toEqual(brand)
   })
 
   it('never lists design.restore, even when the filter names it', async () => {

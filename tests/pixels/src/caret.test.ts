@@ -3,7 +3,15 @@ import { afterAll, describe, expect, it } from 'vitest'
 import type { Paragraph } from '@dazbee/canvaskit'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { caretAt, caretPosition, layoutText, makeResources, selectionBoxes, type TextLayout } from '@dazbee/renderer'
+import {
+  caretAt,
+  caretPosition,
+  layoutText,
+  makeResources,
+  selectionBoxes,
+  type TextLayout,
+  visualStep,
+} from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { TextProps } from '@dazbee/schema'
 
@@ -179,5 +187,96 @@ describe('caret on wrapped text', () => {
     if (!first || !last) throw new Error('no lines')
     expect(caretAt(ck, laid, 5, -100)).toBe(first.startIndex)
     expect(caretAt(ck, laid, 1000, paragraph.getHeight() + 100)).toBeGreaterThanOrEqual(last.startIndex)
+  })
+})
+
+/** Every grapheme edge of a text with where the caret is drawn for it, rounded to a hundredth of a pixel. */
+function drawnEdges(laid: TextLayout, text: string) {
+  const edges = [...new Set([0, ...graphemes(text).map((g) => g.end)])]
+  return edges.map((offset) => {
+    const at = caretPosition(ck, laid, offset)
+    return { offset, x: Math.round(at.x * 100) / 100, y: Math.round(at.y * 100) / 100 }
+  })
+}
+
+/** The offsets the caret goes through, pressing an arrow from an offset until it stops moving. */
+function walk(laid: TextLayout, from: number, right: boolean) {
+  const offsets = [from]
+  for (let i = 0; i < 200; i++) {
+    const next = visualStep(ck, laid, offsets.at(-1) ?? from, right)
+    if (next === null || next === offsets.at(-1)) return offsets
+    offsets.push(next)
+  }
+  throw new Error('the caret never stopped')
+}
+
+describe(`the arrow keys in ${MIXED.label}`, () => {
+  const laid = laidOut(MIXED)
+  afterAll(() => laid.delete())
+  const x = (offset: number) => caretPosition(ck, laid, offset).x
+  // "احصل على حذاء Nike Air الجديد": Nike 14–18, Air 19–22; the text reads from the right, so its
+  // start, 0, is drawn at the right end and its end, 29, at the left.
+
+  it('Right moves the caret right on screen at every step, through the Latin words left to right, to the right end', () => {
+    const offsets = walk(laid, MIXED.text.length, true)
+    const xs = offsets.map(x)
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan((xs[i - 1] ?? 0) + 0.01)
+    expect(offsets.at(-1)).toBe(0)
+    const inNike = offsets.filter((o) => o > 14 && o < 18)
+    expect(inNike).toEqual([15, 16, 17])
+  })
+
+  it('Left moves the caret left on screen at every step, through the Latin words right to left, to the left end', () => {
+    const offsets = walk(laid, 0, false)
+    const xs = offsets.map(x)
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan((xs[i - 1] ?? 0) - 0.01)
+    expect(offsets.at(-1)).toBe(MIXED.text.length)
+    expect(offsets.filter((o) => o > 14 && o < 18)).toEqual([17, 16, 15])
+  })
+
+  it('stops at the line’s ends, with no line to go on to', () => {
+    expect(visualStep(ck, laid, 0, true)).toBe(0)
+    expect(visualStep(ck, laid, MIXED.text.length, false)).toBe(MIXED.text.length)
+  })
+
+  it('leaves a line all left to right to the step in reading order', () => {
+    const english = SAMPLES.find((s) => s.label === 'English')
+    if (!english) throw new Error('no English')
+    const plain = laidOut(english)
+    expect(visualStep(ck, plain, 3, true)).toBeNull()
+    plain.delete()
+  })
+})
+
+describe('the arrow keys at the ends of wrapped Arabic lines', () => {
+  const sample = SAMPLES.find((s) => s.label === 'Arabic body')
+  if (!sample) throw new Error('no Arabic body')
+  const laid = laidOut(sample, 260)
+  afterAll(() => laid.delete())
+  const edges = drawnEdges(laid, sample.text)
+  const tops = [...new Set(edges.map((e) => e.y))].sort((a, b) => a - b)
+  const onLine = (top: number | undefined) => edges.filter((e) => e.y === top)
+  const leftEnd = (top: number | undefined) => onLine(top).reduce((a, b) => (b.x < a.x ? b : a))
+  const rightEnd = (top: number | undefined) => onLine(top).reduce((a, b) => (b.x > a.x ? b : a))
+  const drawn = (offset: number) => edges.find((e) => e.offset === offset)
+
+  it('wraps onto several lines', () => {
+    expect(tops.length).toBeGreaterThan(2)
+  })
+
+  it('Left at a line’s left end, where it ends, goes on to the next line’s right end, where it starts', () => {
+    for (let i = 0; i + 1 < tops.length; i++) {
+      const next = drawn(visualStep(ck, laid, leftEnd(tops[i]).offset, false) ?? -1)
+      expect(next?.y).toBe(tops[i + 1])
+      expect(next?.x).toBe(rightEnd(tops[i + 1]).x)
+    }
+  })
+
+  it('Right at a line’s right end, where it starts, goes back to the line before’s left end, where it ends', () => {
+    for (let i = 1; i < tops.length; i++) {
+      const before = drawn(visualStep(ck, laid, rightEnd(tops[i]).offset, true) ?? -1)
+      expect(before?.y).toBe(tops[i - 1])
+      expect(before?.x).toBe(leftEnd(tops[i - 1]).x)
+    }
   })
 })

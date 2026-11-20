@@ -3,7 +3,17 @@ import { describe, expect, it } from 'vitest'
 
 import { TextProps } from '@dazbee/schema'
 
-import { oneGrapheme, paragraphAt, step, styleOn, stylesIn, styleWrite, wordAt, wordStep } from './text-edit.ts'
+import {
+  backspaceStep,
+  oneGrapheme,
+  paragraphAt,
+  step,
+  styleOn,
+  stylesIn,
+  styleWrite,
+  wordAt,
+  wordStep,
+} from './text-edit.ts'
 
 const props = (text: string, runs: unknown[] = [], weight = 400) =>
   TextProps.parse({
@@ -28,6 +38,25 @@ describe('text editing', () => {
     expect(step(text, 3, false)).toBe(0)
     expect(step(text, text.length, true)).toBe(text.length)
     expect(step(text, 0, false)).toBe(0)
+  })
+
+  it('steps back for Backspace over a letter’s trailing vowel sign or mark alone: कि becomes क', () => {
+    expect(backspaceStep('कि', 2)).toBe(1)
+    // A conjunct with its vowel sign is one grapheme; the sign goes first, then the conjunct whole.
+    expect(backspaceStep('क्षि', 4)).toBe(3)
+    expect(backspaceStep('क्ष', 3)).toBe(0)
+    // A virama just typed goes on its own.
+    expect(backspaceStep('क्', 2)).toBe(1)
+    expect(backspaceStep('सेल', 2)).toBe(1)
+    expect(backspaceStep('น้ำ', 3)).toBe(2)
+    expect(backspaceStep('é', 2)).toBe(1)
+    expect(backspaceStep('ab', 2)).toBe(1)
+    expect(backspaceStep('ab', 0)).toBe(0)
+  })
+
+  it('steps back over emoji, flags, keycaps and Hangul whole', () => {
+    for (const text of ['👨‍👩‍👧', '👍🏽', '🇯🇵', '1️⃣', '한', '한', 'a‍'])
+      expect(backspaceStep(`x${text}`, text.length + 1), text).toBe(1)
   })
 
   it('double click selects the word under it, in any script', () => {

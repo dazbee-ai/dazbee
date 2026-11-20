@@ -11,7 +11,7 @@ import {
   type Session,
   type TextAnchor,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, selectionBoxes } from '@dazbee/renderer'
+import { caretAt, caretPosition, selectionBoxes, visualStep } from '@dazbee/renderer'
 import type { Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
@@ -24,7 +24,7 @@ import { paragraphsOf } from '../pasted-text.ts'
 import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
-import { oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
+import { backspaceStep, oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
@@ -388,6 +388,16 @@ export function editorTyping({
       if (ok) caretTo(range.start + inserted.length)
       return ok
     }
+    /**
+     * The offset an arrow moves the caret to, a grapheme left or right on screen through
+     * right-to-left text; in reading order on a line all left to right, or while the text drawn is
+     * not yet the text typed.
+     */
+    const arrowStep = (right: boolean) => {
+      const drawn = editingText()
+      const onScreen = drawn?.layer.props.text === text ? visualStep(ck, drawn.laid, caret, right) : null
+      return onScreen ?? step(text, caret, right)
+    }
     /** The caret's offset on the line above or below, or at the start or end of its line. */
     const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
       const laid = editingText()
@@ -402,17 +412,18 @@ export function editorTyping({
     if (e.key === 'Escape') {
       stopEditing()
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      // Logical order: right-to-left text moves the other way on screen, as most editors do. With
+      // A character step goes the way the arrow points on screen, a word step in reading order. With
       // a range and no Shift, a character step goes to its near end, and a word step from the caret.
-      const forward = e.key === 'ArrowRight'
-      if (selected && !e.shiftKey && !byWord) caretTo(forward ? range.end : range.start)
-      else caretTo(stepped(forward), e.shiftKey)
+      const right = e.key === 'ArrowRight'
+      if (selected && !e.shiftKey && !byWord) caretTo(right ? range.end : range.start)
+      else caretTo(byWord ? wordStep(text, caret, right) : arrowStep(right), e.shiftKey)
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
       caretTo(lineMove(({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]), e.shiftKey)
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {
-      const from = stepped(false)
+      // A letter's trailing vowel sign or mark goes alone, as Indic keyboards take it back.
+      const from = byWord ? wordStep(text, caret, false) : backspaceStep(text, caret)
       if (selected) replace('')
       else if (write(() => session.run('text.edit', { id, op: { kind: 'delete', at: from, length: caret - from } })))
         caretTo(from)

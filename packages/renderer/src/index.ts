@@ -30,7 +30,7 @@ export {
   type VectorOptions,
 } from './seam.ts'
 export { drawnFamilies } from './text/families.ts'
-export { caretAt, caretPosition, selectionBoxes, type SelectionBox } from './text/caret.ts'
+export { caretAt, caretPosition, selectionBoxes, type SelectionBox, visualStep } from './text/caret.ts'
 export {
   layoutText,
   paragraphCache,

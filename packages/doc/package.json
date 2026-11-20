@@ -8,6 +8,7 @@
     "./test-design": "./src/test-design.ts",
     "./test-ids": "./src/test-ids.ts",
     "./test-store": "./src/test-store.ts",
+    "./test-commands": "./src/test-commands.ts",
     "./test-invariants": "./src/test-invariants.ts",
     "./test-holds": "./src/test-holds.ts",
     "./sync": "./src/sync/index.ts"

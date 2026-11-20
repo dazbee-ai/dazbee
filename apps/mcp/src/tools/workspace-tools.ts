@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { RecordId } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
+import { inSeconds } from '../limits.ts'
 import { defineTool, type Tool, ToolRefusal } from './define-tool.ts'
 
 /** A brand's id, as `list_brands` gives it. */
@@ -59,11 +60,17 @@ export const WORKSPACE_TOOLS: Tool[] = [
       brand: BrandId,
       name: z.string().trim().min(1).max(120).describe('The design’s name, 1 to 120 characters'),
     }),
-    run: async ({ brand, name }, { api }) => {
+    run: async ({ brand, name }, { api, takeDesign }) => {
+      const counted = takeDesign()
+      if (typeof counted === 'number')
+        throw new ToolRefusal(
+          `This agent has made as many designs as it may in an hour; try again in ${inSeconds(counted)}`,
+        )
       try {
         const design = await api.createDesign(brand, name)
         return { id: design.id, name: design.name }
       } catch (error) {
+        counted()
         if (error instanceof ApiRefusal && error.status === 403)
           throw new ToolRefusal(
             'This agent may only view designs, so it can’t make one; the person who connected it can connect it again to edit',

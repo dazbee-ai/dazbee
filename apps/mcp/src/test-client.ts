@@ -9,6 +9,7 @@ import { type MemorySync, memorySync } from '@dazbee/editor/test-link'
 import { DESIGN_PARAM, type DesignInput } from '@dazbee/schema'
 
 import { type Endpoint, type EndpointSettings, mcpEndpoint } from './endpoint.ts'
+import { type LimitSettings, limitSettings } from './limits.ts'
 import { TEST_WORKSPACE, type TestApi, testApi } from './test-api.ts'
 
 /** A connected client, and the token it sends, which the test may change. */
@@ -26,8 +27,10 @@ export interface TestClient {
 export interface TestServer {
   api: TestApi
   endpoint: Endpoint
-  /** Moves the endpoint's clock on. */
+  /** Moves the endpoint's clock on, running the timers due by then. */
   wait(ms: number): void
+  /** How many of the endpoint's timers on its clock wait to run. */
+  timers(): number
   /** Sends one request to the endpoint, as a client would. */
   fetch(request: Request): Promise<Response>
   /** A client connected with `token`, named `name` in its `initialize`. */
@@ -44,13 +47,22 @@ export interface TestServerOptions {
   designs?: Record<string, DesignInput>
   /** Starts the render worker; a worker thread unless given. */
   startRenderWorker?: EndpointSettings['startRenderWorker']
+  /** The capacity limits, their defaults unless given. */
+  limits?: Partial<LimitSettings>
 }
 
 export const BASE_URL = 'https://app.test'
 
 /** The endpoint over a fake API and the sync servers in memory, with a clock the test moves. */
-export function testServer({ callTimeoutMs, designs = {}, startRenderWorker }: TestServerOptions = {}): TestServer {
+export function testServer({
+  callTimeoutMs,
+  designs = {},
+  startRenderWorker,
+  limits = {},
+}: TestServerOptions = {}): TestServer {
   let time = Date.UTC(2026, 10, 21)
+  // The timers set on the clock, each with when it is due.
+  const timers = new Set<{ due: number; run: () => void }>()
   const api = testApi({ now: () => time })
   // The sync server in memory of each design opened, by its id.
   const syncs = new Map<string, MemorySync>()
@@ -63,6 +75,12 @@ export function testServer({ callTimeoutMs, designs = {}, startRenderWorker }: T
     baseUrl: BASE_URL,
     version: 'test',
     now: () => time,
+    after: (ms, run) => {
+      const timer = { due: time + ms, run }
+      timers.add(timer)
+      return () => void timers.delete(timer)
+    },
+    limits: { ...limitSettings({}), ...limits },
     ...(callTimeoutMs === undefined ? {} : { callTimeoutMs }),
     ...(startRenderWorker ? { startRenderWorker } : {}),
   })
@@ -89,7 +107,14 @@ export function testServer({ callTimeoutMs, designs = {}, startRenderWorker }: T
     api,
     endpoint,
     sync: syncOf,
-    wait: (ms) => void (time += ms),
+    wait(ms) {
+      time += ms
+      for (const timer of [...timers].filter(({ due }) => due <= time)) {
+        timers.delete(timer)
+        timer.run()
+      }
+    },
+    timers: () => timers.size,
     fetch,
     connect: async (token, clientInfo = { name: 'test' }) => {
       const client = new Client({ version: '1.0.0', ...clientInfo })

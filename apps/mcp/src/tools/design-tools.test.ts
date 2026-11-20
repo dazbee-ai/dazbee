@@ -62,6 +62,7 @@ describe('open_design', () => {
         { token: 'brand:primary', name: 'Primary', value: '#FF5A36FF' },
         { token: 'brand:heading', name: 'Heading', value: 'Brand Serif' },
       ],
+      waiting: 0,
       notices: [],
     })
     expect(server.api.syncTokenOf('sync-1')).toEqual({ designId: 'design-launch', writes: true, agent: 'test (agent)' })

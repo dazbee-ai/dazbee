@@ -14,6 +14,7 @@ import {
   MAX_DESIGN_CALLS_WAITING,
   OPEN_DESIGN_TIMEOUT_MS,
 } from './limits.ts'
+import { type StoreWait, type Written, written } from './store-wait.ts'
 import { ToolRefusal } from './tools/define-tool.ts'
 
 /** Where the sync server is, and what opens a socket to it: Node's own WebSocket unless a test gives another. */
@@ -36,6 +37,8 @@ export interface DesignSettings {
   slots: AgentTabSlots
   /** The clock sync tokens expire by. */
   now: () => number
+  /** How long a step waits for the sync server to store it, and the clock that waits. */
+  storeWait: StoreWait
 }
 
 /** The MCP session the design is opened for. */
@@ -62,6 +65,11 @@ export interface OpenDesign {
   imageBytes(assetId: string): Promise<Uint8Array>
   /** Sentences for the agent: that the design was opened again, when it was. */
   notes: string[]
+  /**
+   * Runs `step` on the tab, answering once the sync server has stored the change sets it made, or why not, waiting
+   * at most until `answerBy`; refused without running when that time has come.
+   */
+  write<T>(step: () => T, answerBy: number): Promise<Written<T>>
 }
 
 /**
@@ -173,6 +181,26 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     return summary
   }
 
+  /** The open design on `tab`, as a call works on it. */
+  function openDesign(tab: AgentTab, brandId: string, name: string, kit: BrandKit, notes: string[]): OpenDesign {
+    return {
+      tab,
+      name,
+      kit,
+      notes,
+      imageBytes: imagesOf(brandId),
+      write: (step, answerBy) => write(tab, step, answerBy),
+    }
+  }
+
+  /** Runs `step` on `tab`, waiting for the store at most until `answerBy`. */
+  function write<T>(tab: AgentTab, step: () => T, answerBy: number) {
+    const ms = Math.min(settings.storeWait.ms, answerBy - settings.now())
+    if (ms <= 0)
+      throw new ToolRefusal('This call waited too long behind others on the open design, so nothing ran; try it again')
+    return written(tab, step, { ...settings.storeWait, ms })
+  }
+
   /** Opens the design in a new tab, in a slot of its own, and makes it the open one. */
   async function start(summary: DesignSummary, api: AgentApi, notes: string[]): Promise<OpenDesign> {
     const { brandId, id: designId, name } = summary
@@ -188,7 +216,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
       const why = tab.stopped()
       if (why) await end(tab, STOPPED[why])
       else tab.onStopped((stopped) => afterCalls(() => end(tab, STOPPED[stopped])))
-      return { tab, name, kit, notes, imageBytes: imagesOf(brandId) }
+      return openDesign(tab, brandId, name, kit, notes)
     } catch (error) {
       release()
       if (error instanceof TabStopped) throw new ToolRefusal(STOPPED[error.state])
@@ -312,8 +340,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     if (was.kind === 'open' && agent.brandIds !== null && !agent.brandIds.includes(was.brandId))
       await end(was.tab, STOPPED.NoAccess)
     const now = state
-    if (now.kind === 'open')
-      return { tab: now.tab, name: now.name, kit: now.kit, notes: [], imageBytes: imagesOf(now.brandId) }
+    if (now.kind === 'open') return openDesign(now.tab, now.brandId, now.name, now.kit, [])
     if (now.kind === 'ended') {
       state = { kind: 'none' }
       throw new ToolRefusal(now.why)

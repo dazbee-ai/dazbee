@@ -99,7 +99,10 @@ for (const later of ['A', 'B'] as const) {
         later,
         (tab) => {
           const { style } = layerIn(tab, 'headline').props as { style: object }
-          tab.run('node.update', { ids: ['headline'], patch: { style: { ...style, letterSpacing: 4 } } })
+          tab.run('node.update', {
+            ids: ['headline'],
+            patch: { style: { ...style, letterSpacing: { unit: 'px', value: 4 } } },
+          })
         },
         (tab) =>
           tab.run('node.bind', { ids: ['headline'], property: 'textColor', ref: 'brand:accent', value: '#00AA00FF' }),

@@ -1,9 +1,9 @@
-// Brand kits (#53): one per brand, its colours and fonts that designs bind to as `brand:<token>`,
-// its logo and its tone of voice. A brand that never saved one has the empty kit.
+// Brand kits (#53): one per brand, its colours, fonts and text styles that designs bind to as
+// `brand:<token>`, its logo and its tone of voice. A brand that never saved one has the empty kit.
 import { and, eq } from 'drizzle-orm'
 
 import { brandKits, type Db } from '@dazbee/db'
-import { type BrandKit, EMPTY_BRAND_KIT } from '@dazbee/schema'
+import { BrandKit, EMPTY_BRAND_KIT, type SaveBrandKit } from '@dazbee/schema'
 
 import { findAsset } from '../assets/assets.ts'
 
@@ -15,21 +15,31 @@ export async function getBrandKit(db: Db, workspaceId: string, brandId: string):
     .from(brandKits)
     .where(and(eq(brandKits.brandId, brandId), eq(brandKits.workspaceId, workspaceId)))
   return row
-    ? { colors: row.colors, fonts: row.fonts, logoAssetId: row.logoAssetId, voice: row.voice }
+    ? {
+        colors: row.colors,
+        fonts: row.fonts,
+        logoAssetId: row.logoAssetId,
+        voice: row.voice,
+        textStyles: row.textStyles,
+      }
     : EMPTY_BRAND_KIT
 }
 
-/** Saves the brand's whole kit. Its logo has to be an asset of the same brand. */
-export async function saveBrandKit(db: Db, workspaceId: string, brandId: string, kit: BrandKit): Promise<BrandKit> {
+/**
+ * Saves the brand's whole kit. Its logo has to be an asset of the same brand. A save without text
+ * styles, from a tab built before kits held them, keeps the ones the kit has, and is refused when
+ * one of its tokens names one of them.
+ */
+export async function saveBrandKit(db: Db, workspaceId: string, brandId: string, kit: SaveBrandKit): Promise<BrandKit> {
   if (kit.logoAssetId && !(await findAsset(db, workspaceId, brandId, { id: kit.logoAssetId })))
     throw new InvalidKit('The logo is not an asset of this brand')
-  const values = {
-    colors: kit.colors,
-    fonts: kit.fonts,
-    logoAssetId: kit.logoAssetId,
-    voice: kit.voice,
-    updatedAt: new Date(),
+  const { textStyles, ...rest } = kit
+  if (!textStyles) {
+    const kept = await getBrandKit(db, workspaceId, brandId)
+    const merged = BrandKit.safeParse({ ...rest, textStyles: kept.textStyles })
+    if (!merged.success) throw new InvalidKit(merged.error.issues.map((i) => i.message).join('; '))
   }
+  const values = { ...rest, ...(textStyles ? { textStyles } : {}), updatedAt: new Date() }
   await db
     .insert(brandKits)
     .values({ brandId, workspaceId, ...values })

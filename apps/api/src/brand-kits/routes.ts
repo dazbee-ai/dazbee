@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
-import { BrandKit } from '@dazbee/schema'
+import { SaveBrandKit } from '@dazbee/schema'
 
 import { body, type Env, requireWriter } from '../http.ts'
 import { getBrandKit, saveBrandKit } from './brand-kits.ts'
@@ -10,7 +10,7 @@ import { getBrandKit, saveBrandKit } from './brand-kits.ts'
 export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
   const app = new Hono<Env>()
 
-  // Brand kits (#53): the colours and fonts designs bind to, the logo and the tone of voice.
+  // Brand kits (#53): the colours, fonts and text styles designs bind to, the logo and the tone of voice.
   app.get('/brands/:brandId/kit', async (c) => {
     const { workspaceId } = c.var.membership
     return c.json(await getBrandKit(db, workspaceId, c.var.brand.id))
@@ -18,7 +18,7 @@ export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
 
   app.put('/brands/:brandId/kit', requireWriter, async (c) => {
     const { workspaceId } = c.var.membership
-    const input = await body(c.req.raw, BrandKit)
+    const input = await body(c.req.raw, SaveBrandKit)
     if (input instanceof Response) return input
     return c.json(await saveBrandKit(db, workspaceId, c.var.brand.id, input))
   })

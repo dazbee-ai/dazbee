@@ -7,7 +7,15 @@
 // Allow waits until the page has been in view, and the window focused, for a moment, so a click meant for another
 // page that opened this one in its place never lands on it. Once the page has read the request, its id leaves the
 // address bar and stays in the form alone.
-import { type ReactNode, useActionState, useEffect, useId, useState } from 'react'
+import {
+  type ReactNode,
+  startTransition,
+  useActionState,
+  useEffect,
+  useId,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 import { type BrandSummary, type MemberRole, roleWrites } from '@dazbee/schema'
 
@@ -57,6 +65,9 @@ export const shownName = (name: string) =>
 
 /** The host as the page draws it: whole, or its end after an ellipsis when it is long. */
 export const shownHost = (host: string) => (host.length <= HOST_SHOWN ? host : `…${host.slice(-(HOST_SHOWN - 1))}`)
+
+/** Nothing to listen to: whether the scripts have loaded never changes once they have. */
+const subscribeNever = () => () => {}
 
 /** The parts of a sentence before and after its `{name}`, so what fills it is drawn as text of its own. */
 const around = (sentence: string, name: string): [string, string] => {
@@ -128,21 +139,44 @@ export function ConnectAgent({
   const [access, setAccess] = useState<Access>('edit')
   // The button pressed last, which the answer and the busy words are of.
   const [pressed, setPressed] = useState<'allow' | 'deny'>('allow')
+  // Whether the last refusal still shows: until the person changes a choice.
+  const [shown, setShown] = useState(true)
   const [answer, send, busy] = useActionState<ConnectAnswer, FormData>(
     (before, form) => (form.get('answer') === 'deny' ? deny(before, form) : allow(before, form)),
     null,
   )
   const armed = useArmed()
+  // False in the page as sent, true once its scripts run: Deny waits for them, as Allow does.
+  const loaded = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  )
+  const changed =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      setShown(false)
+      set(value)
+    }
   useRequestOutOfAddress()
   const workspace = workspaces.find((each) => each.id === workspaceId) ?? workspaces[0]
   if (!workspace) return null
   const writes = roleWrites(workspace.role)
-  const refused = busy ? null : answer?.error
+  const refused = busy || !shown ? null : answer?.error
   const [wantsBefore, wantsAfter] = around(words.wants, 'client')
   const [backBefore, backAfter] = around(words.sendsBack, 'host')
   return (
+    // Sent from the submit event rather than as the form's action, since React resets a form after its action, and
+    // the reset would put the brands and access chosen back to where they started.
     <form
-      action={send}
+      method="post"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const form = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter)
+        setPressed(form.get('answer') === 'deny' ? 'deny' : 'allow')
+        setShown(true)
+        startTransition(() => send(form))
+      }}
       aria-labelledby={`${ids}-title`}
       data-testid="connect-agent"
       className="flex w-full max-w-[30rem] flex-col gap-6 rounded-[20px] surface-frost p-6 sm:p-8"
@@ -178,6 +212,7 @@ export function ConnectAgent({
             value={workspace.id}
             options={workspaces.map((each) => ({ value: each.id, label: each.name }))}
             onChange={(id) => {
+              setShown(false)
               setWorkspaceId(id)
               setPick(EVERY_BRAND)
             }}
@@ -190,7 +225,7 @@ export function ConnectAgent({
       </Part>
       <Part label={t.settings.brands.label} labelId={`${ids}-brands`}>
         {workspace.brands.length > 0 ? (
-          <BrandsChoice brands={workspace.brands} pick={pick} onPick={setPick} />
+          <BrandsChoice brands={workspace.brands} pick={pick} onPick={changed(setPick)} />
         ) : (
           <p className="text-small text-text">{t.settings.brands.all}</p>
         )}
@@ -202,7 +237,7 @@ export function ConnectAgent({
               labelledBy={`${ids}-access`}
               options={ACCESSES}
               value={access}
-              onPick={setAccess}
+              onPick={changed(setAccess)}
               testId="connect-access"
               className={cn(SEGMENTS, 'self-start')}
             >
@@ -235,8 +270,7 @@ export function ConnectAgent({
           type="submit"
           name="answer"
           value="deny"
-          disabled={busy}
-          onClick={() => setPressed('deny')}
+          disabled={busy || !loaded}
           data-testid="connect-deny"
           className={cn(buttonStyles({ variant: 'ghost', size: 'lg' }), 'h-11 px-6')}
         >
@@ -247,7 +281,6 @@ export function ConnectAgent({
           name="answer"
           value="allow"
           disabled={busy || !armed}
-          onClick={() => setPressed('allow')}
           data-testid="connect-allow"
           className={cn(buttonStyles({ variant: 'primary', size: 'lg' }), 'h-11 px-7 font-semibold')}
         >

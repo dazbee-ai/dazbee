@@ -142,9 +142,9 @@ describe('undo and redo', () => {
   it('takes away a value an undo put back when it undoes the step that wrote that value', () => {
     const { store, session } = renamed()
     const start = readDesign(store)
-    session.run('node.bind', { ids: ['r1'], target: 'fill', ref: 'brand:primary', value: '#112233FF' })
-    session.run('node.bind', { ids: ['r1'], target: 'fill', ref: null })
-    session.run('node.bind', { ids: ['r1'], target: 'fill', ref: 'brand:accent', value: '#445566FF' })
+    session.run('node.bind', { ids: ['r1'], property: 'fill', ref: 'brand:primary', value: '#112233FF' })
+    session.run('node.bind', { ids: ['r1'], property: 'fill', ref: null })
+    session.run('node.bind', { ids: ['r1'], property: 'fill', ref: 'brand:accent', value: '#445566FF' })
     session.undo()
     session.run('node.rename', { id: 'r1', name: 'Other' })
     for (let steps = 0; steps < 3; steps++) session.undo()

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
+import { BINDABLE_PROPERTIES } from '@dazbee/schema'
+
 import { descendants, readDesign } from '../index.ts'
 import type { DesignStore } from '../store.ts'
 import { badge, openTestSession } from '../test-design.ts'
 import { openShapes, openTestStore } from '../test-store.ts'
+import { nodeBind } from './layers.ts'
 
 /** The box's and headline's linked copies in the banner, as they are now. */
 const copies = (store: DesignStore) => {
@@ -360,7 +363,7 @@ describe('node.bind', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     const before = copies(store)
-    tab.run('node.bind', { ids: ['box'], target: 'fill', ref: 'brand:primary', value: '#E0262BFF' })
+    tab.run('node.bind', { ids: ['box'], property: 'fill', ref: 'brand:primary', value: '#E0262BFF' })
     let design = readDesign(store)
     expect(design.nodes.box?.bindings).toEqual({ fill: 'brand:primary' })
     // The token's value is stored too, for drawing without the brand kit.
@@ -368,8 +371,8 @@ describe('node.bind', () => {
       type: 'solid',
       color: '#E0262BFF',
     })
-    tab.run('node.bind', { ids: ['headline'], target: 'fontFamily', ref: 'brand:heading', value: 'Playfair Display' })
-    tab.run('node.bind', { ids: ['headline'], target: 'textColor', ref: 'brand:primary', value: '#E0262BFF' })
+    tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:heading', value: 'Playfair Display' })
+    tab.run('node.bind', { ids: ['headline'], property: 'textColor', ref: 'brand:primary', value: '#E0262BFF' })
     design = readDesign(store)
     expect(design.nodes.headline?.bindings).toEqual({ fontFamily: 'brand:heading', textColor: 'brand:primary' })
     expect(design.nodes.headline?.type === 'text' && design.nodes.headline.props.style).toMatchObject({
@@ -378,7 +381,7 @@ describe('node.bind', () => {
     })
     expect(copies(store)).toEqual(before)
     // Unbinding keeps the value; the last binding gone, the key goes.
-    tab.run('node.bind', { ids: ['box'], target: 'fill', ref: null })
+    tab.run('node.bind', { ids: ['box'], property: 'fill', ref: null })
     design = readDesign(store)
     expect(design.nodes.box).not.toHaveProperty('bindings')
     expect(design.nodes.box?.type === 'graphic' && design.nodes.box.props.fills.at(-1)).toMatchObject({
@@ -391,16 +394,49 @@ describe('node.bind', () => {
     expect(readDesign(store).nodes.headline).not.toHaveProperty('bindings')
     // A text layer has no fill, a binding needs the value, and a locked style can't be bound.
     expect(() =>
-      tab.run('node.bind', { ids: ['headline'], target: 'fill', ref: 'brand:primary', value: '#E0262BFF' }),
+      tab.run('node.bind', { ids: ['headline'], property: 'fill', ref: 'brand:primary', value: '#E0262BFF' }),
     ).toThrow(/a text has no fill/)
-    expect(() => tab.run('node.bind', { ids: ['box'], target: 'fill', ref: 'brand:primary' })).toThrow(
+    expect(() => tab.run('node.bind', { ids: ['box'], property: 'fill', ref: 'brand:primary' })).toThrow(
       /needs the value/,
     )
-    expect(() => tab.run('node.bind', { ids: ['box'], target: 'fill', ref: 'brand:primary', value: 'red' })).toThrow(
+    expect(() => tab.run('node.bind', { ids: ['box'], property: 'fill', ref: 'brand:primary', value: 'red' })).toThrow(
       /#RRGGBBAA/,
     )
     tab.run('node.lock', { ids: ['box'], lock: { style: true } })
-    expect(() => tab.run('node.bind', { ids: ['box'], target: 'fill', ref: null })).toThrow(/locked \(style\)/)
+    expect(() => tab.run('node.bind', { ids: ['box'], property: 'fill', ref: null })).toThrow(/locked \(style\)/)
+  })
+
+  it('takes exactly the bindable properties as the property to bind', () => {
+    expect(nodeBind.input.shape.property.options).toEqual(Object.keys(BINDABLE_PROPERTIES))
+    const tab = openTestSession(openTestStore())
+    expect(() =>
+      tab.run('node.bind', { ids: ['box'], property: 'stroke', ref: 'brand:primary', value: '#E0262BFF' } as never),
+    ).toThrow()
+    expect(() =>
+      tab.run('node.bind', { ids: ['box'], target: 'fill', ref: 'brand:primary', value: '#E0262BFF' } as never),
+    ).toThrow()
+  })
+
+  it('adds a solid fill on top to bind a fill on a layer without one that shows', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const stops = [
+      { offset: 0, color: '#000000FF' },
+      { offset: 1, color: '#FFFFFFFF' },
+    ]
+    const gradient = { type: 'linear', from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, stops } as const
+    tab.run('node.update', {
+      ids: ['box'],
+      patch: { fills: [{ type: 'solid', color: '#FF5A36FF', visible: false }, gradient] },
+    })
+    tab.run('node.bind', { ids: ['box'], property: 'fill', ref: 'brand:primary', value: '#E0262BFF' })
+    const box = readDesign(store).nodes.box
+    expect(box?.bindings).toEqual({ fill: 'brand:primary' })
+    expect(box?.type === 'graphic' && box.props.fills).toMatchObject([
+      { type: 'solid', color: '#FF5A36FF', visible: false },
+      gradient,
+      { type: 'solid', color: '#E0262BFF' },
+    ])
   })
 })
 

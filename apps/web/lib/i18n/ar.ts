@@ -780,6 +780,8 @@ export const ar: Messages = {
       fonts: 'الخطوط',
       logo: 'الشعار',
       placeLogo: 'ضع الشعار في التصميم',
+      followLogo: 'اعرض الشعار في الصور المحددة',
+      unfollowLogo: 'أوقف اتباع الشعار',
       voice: 'نبرة الصوت',
       voiceHint: 'كيف تتحدث هذه العلامة، لكتابة نصوصها.',
       addColor: 'أضف لونًا',

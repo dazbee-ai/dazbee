@@ -883,6 +883,8 @@ export const en = {
       fonts: 'Fonts',
       logo: 'Logo',
       placeLogo: 'Place the logo on the design',
+      followLogo: 'Show the logo in the selected pictures',
+      unfollowLogo: 'Stop following the logo',
       voice: 'Tone of voice',
       voiceHint: 'How this brand talks, for writing its copy.',
       addColor: 'Add colour',

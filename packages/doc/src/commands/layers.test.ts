@@ -478,9 +478,9 @@ describe('node.bind', () => {
     tab.undo()
     expect(readDesign(store).nodes.box?.bindings).toBeUndefined()
     expect(readDesign(store).nodes.box?.props).toMatchObject({ fills: [photo] })
-    expect(() =>
-      tab.run('node.bind', { ids: ['box'], property: 'image', ref: 'brand:logo', value: 'a logo' }),
-    ).toThrow(/asset’s id/)
+    expect(() => tab.run('node.bind', { ids: ['box'], property: 'image', ref: 'brand:logo', value: 'a logo' })).toThrow(
+      /asset’s id/,
+    )
     expect(() =>
       tab.run('node.bind', { ids: ['headline'], property: 'image', ref: 'brand:logo', value: 'logo-1' }),
     ).toThrow(/a text has no image/)

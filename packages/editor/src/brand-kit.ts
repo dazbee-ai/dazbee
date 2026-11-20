@@ -1,5 +1,5 @@
 // The brand kit in the editor (#53): the values bound properties take, binding the selection to a
-// brand colour or font or unbinding it, and text that follows a brand font taking its new family.
+// brand colour, font or logo or unbinding it, and text that follows a brand font taking its new family.
 import type { Session } from '@dazbee/doc'
 import {
   BINDABLE_PROPERTIES,
@@ -35,8 +35,8 @@ export interface EditorBrandKit {
    */
   setVariables(variables: Variables): Promise<void>
   /**
-   * Binds the selected layers to a brand colour or font, or unbinds them with null, each storing the
-   * kit's value it showed, in one undo step; returns how many changed.
+   * Binds the selected layers to a brand colour, font or logo, or unbinds them with null, each
+   * storing the kit's value it showed, in one undo step; returns how many changed.
    */
   bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**

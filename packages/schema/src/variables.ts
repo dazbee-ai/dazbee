@@ -87,8 +87,9 @@ function writeImage<P extends Props>(props: P, value: string): P {
   const at = boundImageIndex(fills)
   if (at < 0 || (fills[at] as { assetId?: unknown }).assetId === value) return props
   const swapped = (fill: Record<string, unknown>) => {
-    const { crop: _crop, ...kept } = fill
-    return { ...kept, assetId: value, ...(fill.fit === 'crop' ? { fit: 'fit' } : {}) }
+    const swapped: Record<string, unknown> = { ...fill, assetId: value, ...(fill.fit === 'crop' ? { fit: 'fit' } : {}) }
+    delete swapped.crop
+    return swapped
   }
   return {
     ...props,

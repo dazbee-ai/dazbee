@@ -106,7 +106,9 @@ export function freeToken(kit: BrandKit, name: string) {
       .normalize('NFKD')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'token'
-  const taken = new Set([...kit.colors, ...kit.fonts].map((x) => x.token).concat(Object.values(BRAND_ROLES).flat(), LOGO_ROLE))
+  const taken = new Set(
+    [...kit.colors, ...kit.fonts].map((x) => x.token).concat(Object.values(BRAND_ROLES).flat(), LOGO_ROLE),
+  )
   let token = base
   for (let n = 2; taken.has(token); n++) token = `${base}-${n}`
   return token

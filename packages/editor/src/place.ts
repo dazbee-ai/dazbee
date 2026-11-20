@@ -28,7 +28,7 @@ import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn, idsOf, type Picked } from './selection.ts'
 import { stepOf } from './shortcuts.ts'
 import type { EditorTyping } from './text/typing.ts'
-import type { EditorTools, PlaceImageOptions, PlacedAsset } from './tools.ts'
+import type { EditorTools, PlacedAsset,PlaceImageOptions } from './tools.ts'
 
 export interface PlaceDeps {
   session: Session
@@ -377,7 +377,11 @@ export function editorPlace({
     if (!copied) return false
     return pasteTree(copied, false, pointer())
   }
-  function placeImage(asset: PlacedAsset, where?: Point | Spot, { logo = false }: PlaceImageOptions = {}): string | null {
+  function placeImage(
+    asset: PlacedAsset,
+    where?: Point | Spot,
+    { logo = false }: PlaceImageOptions = {},
+  ): string | null {
     // A point off every frame places nothing; with no point, it goes where `frameToPlaceIn` says.
     const spot = where && ('frameId' in where ? where : spotOn(where))
     if (where && !spot) return null

@@ -246,7 +246,10 @@ describe('editorBrandKit', () => {
         bindings: { image: 'brand:logo' },
         props: { fills: [{ type: 'image', assetId: 'logo-1' }] },
       })
-      expect([session.design().nodes.a?.bindings, session.design().nodes.words?.bindings]).toEqual([undefined, undefined])
+      expect([session.design().nodes.a?.bindings, session.design().nodes.words?.bindings]).toEqual([
+        undefined,
+        undefined,
+      ])
       select(['photo'])
       expect(kit.bindSelection('image', null)).toBe(1)
       expect(session.design().nodes.photo?.bindings).toBeUndefined()

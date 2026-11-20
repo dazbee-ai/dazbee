@@ -27,6 +27,7 @@ import type {
   RestoreMark,
   SafeZoneChoice,
   TextStyle,
+  ValueKind,
   VariableRef,
   Variables,
 } from '@dazbee/schema'
@@ -53,7 +54,7 @@ import type { ShortcutAction, StageAction } from './shortcuts.ts'
 import type { FoundText } from './text/find-replace.ts'
 import type { RunStyle, TextRange } from './text/text-edit.ts'
 import type { TextStyleState } from './text/text-styles.ts'
-import type { PlaceImageOptions, PlacedAsset, Tool } from './tools.ts'
+import type { PlacedAsset, PlaceImageOptions, Tool } from './tools.ts'
 
 /** The options that are not about the page: what the core reads of what `startEditor` is given. */
 export interface CoreOptions extends ResourceSources {
@@ -698,11 +699,12 @@ export interface EditorBase {
    */
   setVariables(variables: Variables): Promise<void>
   /**
-   * Binds the selected layers to a brand colour or font, or unbinds them with null, in one undo
-   * step (#53). A colour binds a text layer's colour and any other layer's fill; a font binds text
-   * only. Returns how many layers changed.
+   * Binds the selected layers to a brand colour, font or logo, or unbinds them with null, in one
+   * undo step (#53). A colour binds a text layer's colour and any other layer's fill; a font binds
+   * text only; the logo binds the picture of a graphic or box that shows one. Returns how many
+   * layers changed.
    */
-  bindSelection(kind: 'color' | 'font', ref: VariableRef | null): number
+  bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**
    * Starts picking a colour from the design, ending any picking on: the next click on the stage, or
    * a finger lifted there, picks the colour of the design pixel under it as the 1x export draws it,

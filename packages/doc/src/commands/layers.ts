@@ -260,7 +260,9 @@ export const nodeBind = defineCommand({
     value: z
       .string()
       .optional()
-      .describe('The token’s value now: a colour as #RRGGBBAA, a font family’s name or an image asset’s id. Needed to bind.'),
+      .describe(
+        'The token’s value now: a colour as #RRGGBBAA, a font family’s name or an image asset’s id. Needed to bind.',
+      ),
   }),
   check: ({ design }, { ids, property, ref, value }) => {
     if (ref && value === undefined) return 'binding needs the value the token has now'

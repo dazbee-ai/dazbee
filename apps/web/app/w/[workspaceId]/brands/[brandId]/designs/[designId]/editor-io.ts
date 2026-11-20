@@ -1,8 +1,9 @@
 // What the editor loads through the app's own routes: an asset's bytes, the brand's font files and
 // its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
 // to keep the page.
-import { BrandKit, brandVariables, FontFamily, type Variables } from '@dazbee/schema'
+import { BrandKit, FontFamily, type Variables } from '@dazbee/schema'
 
+import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
 import { mascotSrc } from '@/components/ui/mascot.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
@@ -64,13 +65,13 @@ export function imageUploader(workspaceId: string, brandId: string) {
 }
 
 /**
- * The values of the brand kit's tokens (#53), for layers bound to them. Without a connection the
- * editor starts without them, and bound layers keep the values they were bound with.
+ * The values of the brand kit's tokens (#53), its logo's included, for layers bound to them. Without
+ * a connection the editor starts without them, and bound layers keep the values they were bound with.
  */
 export async function brandKitVariables(workspaceId: string, brandId: string): Promise<Variables | undefined> {
   const response = await fetch(brandPath(workspaceId, brandId, 'kit', 'data')).catch(() => null)
   if (!response?.ok) return undefined
-  return brandVariables(BrandKit.parse(await response.json()))
+  return kitVariables(workspaceId, brandId, BrandKit.parse(await response.json()))
 }
 
 /**

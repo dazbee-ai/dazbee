@@ -1,7 +1,7 @@
 // Where a design is kept, as commands, the design view and the session see it: records of plain
 // JSON in the design's own shape, written through `StoreWrite` inside a transaction, each change
 // told to the view as the records it touched. client-store.ts keeps them on a sync client.
-import type { Design, Frame, Layer, Page, RestoreMark } from '@dazbee/schema'
+import type { BindableProperty, Design, Frame, Layer, Page, RestoreMark, VariableRef } from '@dazbee/schema'
 
 import type { StepName } from './commands/step-names.ts'
 import { repair, type Repaired, type Snapshot } from './repair.ts'
@@ -24,6 +24,8 @@ export interface StoreWrite {
   has(part: Part, id: string): boolean
   /** A held layer's prop, as stored; undefined where it has none. */
   prop(id: string, path: string): unknown
+  /** A held layer's binding of `property`, as written so far; undefined where it has none. */
+  binding(id: string, property: BindableProperty): VariableRef | undefined
   /**
    * Whether a page, a frame or a layer holds `id` now. A new record may not take an id while it is
    * live; one deleted is free again, and undoing the delete makes it under the same id (C27).
@@ -39,6 +41,10 @@ export interface StoreWrite {
   setProp(id: string, path: string, value: unknown): void
   /** Takes a key out of a layer's props. */
   unsetProp(id: string, path: string): void
+  /** Binds a layer's `property` to `ref`, leaving its other bindings as they are. */
+  setBinding(id: string, property: BindableProperty, ref: VariableRef): void
+  /** Takes a layer's binding of `property` out: the layer's bindings go with its last. */
+  unsetBinding(id: string, property: BindableProperty): void
   /**
    * Removes a page or a frame. A layer is deleted and stays held, so that undo brings it back with
    * what other tabs wrote to it meanwhile.

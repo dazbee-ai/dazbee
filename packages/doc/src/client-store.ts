@@ -2,12 +2,20 @@
 // view reads it, and each step of the session is one step of the client, sent as it ends. A write
 // outside a step is a step of its own that nobody undoes. plain-store.ts puts one on a server in
 // memory; the editor's joins the sync server.
-import { type Change, isRecord, type Part as SyncPart, type RestoreMark, type Target } from '@dazbee/schema'
+import {
+  type BindableProperty,
+  type Change,
+  isRecord,
+  type Part as SyncPart,
+  type RestoreMark,
+  type Target,
+  type VariableRef,
+} from '@dazbee/schema'
 
 import { openPlainHistory, type PlainHistory } from './plain-history.ts'
 import { sameValue } from './same-value.ts'
 import type { DesignStore, History, HistoryOf, Part, StoreChange, StorePreviews, TextAnchor } from './store.ts'
-import { changedRecord, META_ID, type Rec, type RecordKey, recordOf, TEXT_PROP } from './sync/changes.ts'
+import { BINDINGS_KEY, changedRecord, META_ID, type Rec, type RecordKey, recordOf, TEXT_PROP } from './sync/changes.ts'
 import type { Client, Notice, Outgoing } from './sync/client.ts'
 import { applyTextOp, type TextOp, type TextValue } from './text-value.ts'
 
@@ -106,6 +114,10 @@ export function clientStore(
   function prop(id: string, path: string): unknown {
     const props = propsOf(id)
     return props && Object.hasOwn(props, path) ? props[path] : undefined
+  }
+
+  function binding(id: string, property: BindableProperty): VariableRef | undefined {
+    return valueAt({ part: 'layer', id, key: BINDINGS_KEY, prop: property }) as VariableRef | undefined
   }
 
   function head() {
@@ -295,6 +307,14 @@ export function clientStore(
     write({ op: 'set', value: { part: 'layer', id, key: 'props', prop }, ...(to === undefined ? {} : { to }) })
   }
 
+  function setBinding(id: string, property: BindableProperty, to?: VariableRef) {
+    write({
+      op: 'set',
+      value: { part: 'layer', id, key: BINDINGS_KEY, prop: property },
+      ...(to === undefined ? {} : { to }),
+    })
+  }
+
   function remove(part: Part, id: string) {
     write({ op: 'delete', part, id })
   }
@@ -444,6 +464,9 @@ export function clientStore(
     unset: set,
     setProp,
     unsetProp: setProp,
+    binding,
+    setBinding,
+    unsetBinding: setBinding,
     remove,
     editText,
     setMeta,

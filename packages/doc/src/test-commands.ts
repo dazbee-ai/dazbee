@@ -250,6 +250,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'node.bind': ({ design }) => [
     { ids: [free(design)], property: 'fill', ref: 'brand:primary', value: '#112233FF' },
     { ids: [typed(design)], property: 'fontFamily', ref: 'brand:heading', value: 'Inter' },
+    { ids: [typed(design)], property: 'textColor', ref: 'brand:ink', value: '#222222FF' },
     { ids: [free(design)], property: 'fill', ref: null },
   ],
   'node.style': ({ design }) => [

@@ -1,7 +1,7 @@
 // Setting a style on layers: what Paste style and Copy to other frames ▸ Style write.
 import { z } from 'zod'
 
-import { LayerStyle, NodeId, restyle } from '@dazbee/schema'
+import { BindableProperty, LayerStyle, NodeId, restyle } from '@dazbee/schema'
 
 import { lockProblem, missingLayer } from './checks.ts'
 import { defineCommand, strict } from './define.ts'
@@ -40,8 +40,12 @@ export const nodeStyle = defineCommand({
         else w.setProp(id, key, value)
       }
       if (!change.bindings) continue
-      if (Object.keys(change.bindings).length > 0) w.set('layer', id, 'bindings', change.bindings)
-      else w.unset('layer', id, 'bindings')
+      for (const property of BindableProperty.options) {
+        const ref = change.bindings[property]
+        if (ref === w.binding(id, property)) continue
+        if (ref) w.setBinding(id, property, ref)
+        else w.unsetBinding(id, property)
+      }
     }
   },
 })

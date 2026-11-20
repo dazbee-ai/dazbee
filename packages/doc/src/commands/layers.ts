@@ -269,11 +269,9 @@ export const nodeBind = defineCommand({
   apply: ({ w, design }, { ids, property, ref, value }) => {
     const entry = BINDABLE_PROPERTIES[property]
     for (const id of ids) {
-      const node = design.nodes[id]
-      if (!node) continue
-      const bindings = Object.fromEntries(Object.entries({ ...node.bindings, [property]: ref }).filter(([, v]) => v))
-      if (Object.keys(bindings).length > 0) w.set('layer', id, 'bindings', bindings)
-      else w.unset('layer', id, 'bindings')
+      if (!design.nodes[id]) continue
+      if (ref) w.setBinding(id, property, ref)
+      else w.unsetBinding(id, property)
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
       let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }

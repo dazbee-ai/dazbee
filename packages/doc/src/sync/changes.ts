@@ -2,6 +2,7 @@
 // them. The wire shapes of a change (`Part`, `Target`, `Change`) are the schema's; this is what they
 // mean for a record.
 import {
+  BindableProperty,
   type Change,
   DesignMeta,
   type DesignRecords,
@@ -27,6 +28,9 @@ export const META_ID = 'meta'
 /** The prop that holds a text layer's text and runs as one value. */
 export const TEXT_PROP = 'text'
 
+/** The key of a layer that holds its bindings, each a value of its own. */
+export const BINDINGS_KEY = 'bindings'
+
 /** Where each part's records sit in a design's records: a layer's in `nodes`. */
 export const RECORDS_OF: Readonly<Record<HeldPart, Exclude<keyof DesignRecords, 'meta'>>> = {
   page: 'pages',
@@ -49,6 +53,12 @@ export const PROP_KEYS: Readonly<Record<string, ReadonlySet<string>>> = Object.f
 
 /** Values set once, when their record is made: a layer's type (its props are the type's) and the design's id (C28). */
 const WRITE_ONCE: ReadonlySet<string> = new Set(['layer/type', 'meta/designId'])
+
+/** The keys of a layer that hold values set one by one, each under its own name: its props and its bindings. */
+const ONE_BY_ONE: ReadonlySet<string> = new Set(['props', BINDINGS_KEY])
+
+/** The names a binding may have: the bindable properties. */
+const BINDABLE: ReadonlySet<string> = new Set(BindableProperty.options)
 
 /** The key of a record that orders it among its siblings. */
 export const ORDER_KEY: Readonly<Record<HeldPart, 'order' | 'index'>> = {
@@ -119,13 +129,18 @@ export function describe(part: Part, id: string): string {
 
 /**
  * Why `t` is not a value a change may set on `record`, if it is not: a key its part has no place
- * for, one set only when the record is made (C28), or a prop its layer's type has no place for.
+ * for, one set only when the record is made (C28), a prop its layer's type has no place for, or a
+ * binding of no bindable property. A layer's bindings are set one by one, or whole, as journals, tab
+ * copies and saved queues may hold them.
  */
 export function targetIssue(record: Rec, t: Target): string | undefined {
   if (!RECORD_KEYS[t.part].has(t.key)) return `${describe(t.part, t.id)} has no "${t.key}"`
   if (WRITE_ONCE.has(`${t.part}/${t.key}`)) return `${describe(t.part, t.id)}'s "${t.key}" is set only when it is made`
-  if (t.part !== 'layer' || t.key !== 'props') {
+  if (t.part !== 'layer' || !ONE_BY_ONE.has(t.key)) {
     return t.prop === undefined ? undefined : `${describe(t.part, t.id)}'s "${t.key}" is one value`
+  }
+  if (t.key === BINDINGS_KEY) {
+    return t.prop === undefined || BINDABLE.has(t.prop) ? undefined : `there is no bindable property "${t.prop}"`
   }
   if (t.prop === undefined) return `a layer's props are set one by one`
   if (record.type === 'text' && t.prop === 'runs') return `a text's runs are set with its text`
@@ -137,40 +152,41 @@ export function targetIssue(record: Rec, t: Target): string | undefined {
 /** The value `record` holds at `t` (undefined when it holds none). */
 export function valueAt(record: Rec, t: Target): unknown {
   if (t.prop === undefined) return own(record, t.key)
-  const props = propsOf(record)
-  if (t.prop === TEXT_PROP && record.type === 'text') {
-    const text = own(props, 'text')
-    const runs = own(props, 'runs')
+  const map = mapOf(record, t.key)
+  if (isTextValue(record, t)) {
+    const text = own(map, 'text')
+    const runs = own(map, 'runs')
     if (text === undefined && runs === undefined) return undefined
     return runs === undefined ? { text } : { text, runs }
   }
-  return own(props, t.prop)
+  return own(map, t.prop)
 }
 
 /**
- * `record` with `to` at `t` (undefined: without it). The record and its props are copied before
- * they are written, but for those in `owned`, which the caller made and nobody else holds: those
- * are written into.
+ * `record` with `to` at `t` (undefined: without it). The record and its props or bindings are
+ * copied before they are written, but for those in `owned`, which the caller made and nobody else
+ * holds: those are written into. A layer's bindings are made with its first binding and taken out
+ * with its last.
  */
 export function withValue(record: Rec, t: Target, to: unknown, owned: ReadonlySet<Rec> = NONE_OWNED): Rec {
   if (t.prop === undefined) return write(record, t.key, to, owned)
-  const props = propsOf(record)
+  const map = mapOf(record, t.key)
   let next: Rec
-  if (t.prop === TEXT_PROP && record.type === 'text') {
+  if (isTextValue(record, t)) {
     const both = isRecord(to) ? to : {}
-    next = write(write(props, 'text', own(both, 'text'), owned), 'runs', own(both, 'runs'), owned)
-  } else next = write(props, t.prop, to, owned)
-  if (!owned.has(record)) return { ...record, props: next }
-  ;(record as Record<string, unknown>).props = next
-  return record
+    next = write(write(map, 'text', own(both, 'text'), owned), 'runs', own(both, 'runs'), owned)
+  } else next = write(map, t.prop, to, owned)
+  const empty = t.key === BINDINGS_KEY && Object.keys(next).length === 0
+  return write(record, t.key, empty ? undefined : next, owned)
 }
 
-/** Every target `record` holds a value at. */
+/** Every target `record` holds a value at: a layer's props and bindings one by one. */
 export function targetsOf(part: Part, id: string, record: Rec): Target[] {
   const out: Target[] = []
-  for (const key of Object.keys(record)) if (part !== 'layer' || key !== 'props') out.push({ part, id, key })
+  for (const key of Object.keys(record)) if (part !== 'layer' || !ONE_BY_ONE.has(key)) out.push({ part, id, key })
   if (part !== 'layer') return out
-  const props = propsOf(record)
+  for (const prop of Object.keys(mapOf(record, BINDINGS_KEY))) out.push({ part, id, key: BINDINGS_KEY, prop })
+  const props = mapOf(record, 'props')
   const text = record.type === 'text'
   if (text && (Object.hasOwn(props, 'text') || Object.hasOwn(props, 'runs'))) {
     out.push({ part, id, key: 'props', prop: TEXT_PROP })
@@ -196,9 +212,15 @@ function own(record: Readonly<Record<string, unknown>>, key: string): unknown {
   return Object.hasOwn(record, key) ? record[key] : undefined
 }
 
-function propsOf(record: Rec): Readonly<Record<string, unknown>> {
-  const props = own(record, 'props')
-  return isRecord(props) ? props : {}
+/** What a layer holds at `key`, its props or its bindings, as an object: empty where it holds none. */
+function mapOf(record: Rec, key: string): Readonly<Record<string, unknown>> {
+  const map = own(record, key)
+  return isRecord(map) ? map : {}
+}
+
+/** Whether `t` is a text layer's text and runs, set as one value. */
+function isTextValue(record: Rec, t: Target): boolean {
+  return t.key === 'props' && t.prop === TEXT_PROP && record.type === 'text'
 }
 
 /** `object` with `value` at `key` (without `key` when the value is undefined): itself when it is in `owned`, else a copy. */

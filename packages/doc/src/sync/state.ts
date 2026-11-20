@@ -2,7 +2,16 @@
 // each link id. A state can be an overlay on another: it reads through to its base and keeps its own
 // writes, which `commit` writes into the base. The server tries a change set on an overlay instead of
 // copying the design, and a client's view is an overlay on the state the server confirmed.
-import type { Change, DesignRecords, HeldPart, Part, Placed, RejectReason, Target } from '@dazbee/schema'
+import {
+  type Change,
+  type DesignRecords,
+  type HeldPart,
+  isRecord,
+  type Part,
+  type Placed,
+  type RejectReason,
+  type Target,
+} from '@dazbee/schema'
 
 import {
   describe,
@@ -306,8 +315,10 @@ export class DesignState implements ReadState {
             : record
         const next = withValue(record, t, change.to, owned)
         owned.add(next)
-        // A prop's set leaves the props a copy of its own; a key's set shares them with the record it copied.
-        if (t.prop !== undefined) owned.add(next.props as Rec)
+        // A prop's or binding's set leaves the props or bindings a copy of their own (or takes the
+        // bindings out); a key's set shares them with the record it copied.
+        const inner = t.prop === undefined ? undefined : next[t.key]
+        if (isRecord(inner)) owned.add(inner)
         if (!inPlace || before !== record) this.#put(t.part, t.id, next, before)
       }
       written.push(recordKey(t.part, t.id))

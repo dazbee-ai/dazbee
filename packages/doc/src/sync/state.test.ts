@@ -9,6 +9,7 @@ import { ChangeRejected, DesignState } from './state.ts'
 const state = (design = testDesign()) => DesignState.fromRecords(design)
 const nameOf = (id: string): Target => ({ part: 'layer', id, key: 'name' })
 const textOf = (id: string): Target => ({ part: 'layer', id, key: 'props', prop: 'text' })
+const bindingOf = (id: string, prop: string): Target => ({ part: 'layer', id, key: 'bindings', prop })
 
 describe('DesignState', () => {
   it('gives back the records it holds', () => {
@@ -27,6 +28,67 @@ describe('DesignState', () => {
     const props = s.get('layer', 'headline')?.props as Record<string, unknown>
     expect(props.text).toBe('Hi')
     expect(Object.hasOwn(props, 'runs')).toBe(false)
+  })
+
+  describe('bindings', () => {
+    const set = (prop: string, to?: string): Change => ({
+      op: 'set',
+      value: bindingOf('headline', prop),
+      ...(to === undefined ? {} : { to }),
+    })
+
+    it('sets and takes out one binding, making the bindings with the first and taking them out with the last', () => {
+      const s = state()
+      s.apply(set('textColor', 'brand:ink'), 'strict')
+      expect(s.get('layer', 'headline')?.bindings).toEqual({ textColor: 'brand:ink' })
+      expect(s.valueOf(bindingOf('headline', 'textColor'))).toBe('brand:ink')
+      s.apply(set('textColor'), 'strict')
+      expect(Object.hasOwn(s.get('layer', 'headline') as object, 'bindings')).toBe(false)
+      expect(s.valueOf(bindingOf('headline', 'textColor'))).toBeUndefined()
+    })
+
+    it('leaves the layer’s other bindings as they are when it sets one', () => {
+      const s = state()
+      s.apply(set('fontFamily', 'brand:heading'), 'strict')
+      s.apply(set('textColor', 'brand:ink'), 'strict')
+      s.apply(set('fontFamily', 'brand:body'), 'strict')
+      expect(s.get('layer', 'headline')?.bindings).toEqual({ fontFamily: 'brand:body', textColor: 'brand:ink' })
+      s.apply(set('fontFamily'), 'strict')
+      expect(s.get('layer', 'headline')?.bindings).toEqual({ textColor: 'brand:ink' })
+    })
+
+    it('still takes a layer’s bindings set whole', () => {
+      const s = state()
+      const whole = { fontFamily: 'brand:heading', textColor: 'brand:ink' }
+      s.apply({ op: 'set', value: { part: 'layer', id: 'headline', key: 'bindings' }, to: whole }, 'strict')
+      expect(s.get('layer', 'headline')?.bindings).toEqual(whole)
+      s.apply(set('textColor'), 'strict')
+      expect(s.get('layer', 'headline')?.bindings).toEqual({ fontFamily: 'brand:heading' })
+      s.apply({ op: 'set', value: { part: 'layer', id: 'headline', key: 'bindings' } }, 'strict')
+      expect(Object.hasOwn(s.get('layer', 'headline') as object, 'bindings')).toBe(false)
+    })
+
+    it('refuses a binding with a name that is no bindable property', () => {
+      const s = state()
+      for (const prop of ['stroke', 'constructor']) {
+        expect(() => s.apply(set(prop, 'brand:ink'), 'strict')).toThrow(ChangeRejected)
+        expect(s.apply(set(prop, 'brand:ink'), 'lenient')).toEqual([])
+      }
+    })
+
+    it('copies the bindings once in an owning overlay, and leaves the base’s as they were', () => {
+      const base = state()
+      base.apply(set('fontFamily', 'brand:heading'), 'strict')
+      const before = base.get('layer', 'headline')?.bindings
+      const owning = base.overlay(true)
+      owning.apply(set('textColor', 'brand:ink'), 'strict')
+      const copy = owning.get('layer', 'headline')?.bindings
+      owning.apply(set('fontFamily', 'brand:body'), 'strict')
+      expect(owning.get('layer', 'headline')?.bindings).toBe(copy)
+      expect(copy).toEqual({ fontFamily: 'brand:body', textColor: 'brand:ink' })
+      expect(base.get('layer', 'headline')?.bindings).toBe(before)
+      expect(before).toEqual({ fontFamily: 'brand:heading' })
+    })
   })
 
   it('rejects a key a record has no place for, and a change to a record that is gone', () => {

@@ -240,6 +240,30 @@ describe('replay', () => {
     expect(replayed.accepted.map((a) => a.changeSet.seq)).toEqual([1, 2])
   })
 
+  it('replays a stored entry that sets a layer’s bindings whole, and the entries after it', () => {
+    const bindings = (to?: object): Change => ({
+      op: 'set',
+      value: { part: 'layer', id: 'bg', key: 'bindings' },
+      ...(to ? { to } : {}),
+    })
+    const fill = (to: string): Change => ({
+      op: 'set',
+      value: { part: 'layer', id: 'bg', key: 'bindings', prop: 'fill' },
+      to,
+    })
+    const journal = [
+      issued(1),
+      accepted(2, 1, [bindings({ fill: 'brand:primary' })]),
+      accepted(3, 2, [fill('brand:accent'), rename('bg', 'Back')]),
+    ]
+    const replayed = replay({ saved: saved(), journal, lastEntry: 3 })
+    expect([replayed.entry, replayed.seq, replayed.dead]).toEqual([3, 2, undefined])
+    expect(replayed.state.get('layer', 'bg')).toMatchObject({ name: 'Back', bindings: { fill: 'brand:accent' } })
+    const unbound = replay({ saved: saved(), journal: [...journal, accepted(4, 3, [bindings()])], lastEntry: 4 })
+    expect([unbound.entry, unbound.dead]).toEqual([4, undefined])
+    expect(Object.hasOwn(unbound.state.get('layer', 'bg') as object, 'bindings')).toBe(false)
+  })
+
   it('keeps when each tab id was given out, and drops the ones its entry dropped', () => {
     const replayed = replay({ saved: saved(), journal: [issued(1, 1, 100), issued(2, 2, 200, [1])], lastEntry: 2 })
     expect([...replayed.tabs]).toEqual([

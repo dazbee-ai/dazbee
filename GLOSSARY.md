@@ -80,6 +80,14 @@ _Avoid_: Master, preset, starter
 A guest who views, comments on and approves designs without a paid seat.
 _Avoid_: Client user, approver
 
+**Agent**:
+An AI program outside Dazbee, such as Claude Code or Claude Desktop, that designs in Dazbee for a member through Dazbee's MCP server: it runs the commands the editor runs, in an agent tab, and is shown by the name it gives itself followed by "(agent)". See ADR-0019.
+_Avoid_: Bot, assistant (that is Dazbee's own), integration, app
+
+**Agent access**:
+A member's leave for one agent to work in one of their workspaces: the brands it may open, and whether it edits or only views, never more than the member may. The member gives it when the agent first connects and ends it in Settings; it ends too when they stop being a member.
+_Avoid_: API key, token, grant, connection, integration
+
 **Daz**:
 Dazbee's bee, drawn in one of its poses beside the words wherever there is nothing else to see: a link that leads nowhere, an error, a design opening or failing to open, an empty list or brand kit, a brand just made, the editor's stage over a page with no frames, its empty panels and searches with no match, and the notice that this browser can't keep changes. It is decoration: the words beside it carry the meaning. The poses are pictures in `apps/web/public/mascot/`, drawn by `Mascot`.
 _Avoid_: Logo, icon
@@ -464,6 +472,10 @@ _Avoid_: Draft, ghost, live update
 **Presence**:
 Where a tab's person is in a design as the other people there see it: their pointer in page coordinates, while it is on the stage and the tab is shown, their selected layers and picked frame, and their page, drawn in a colour the sync server gives each member. Never stored, ordered or undone, and the latest wins; a person's own other tabs don't show it.
 _Avoid_: Awareness, cursors (a cursor is only the pointer part), live users
+
+**Agent tab**:
+The tab an agent works in, which Dazbee's MCP server holds for it: the editor without a screen, open on one design and joined to the sync server as a member's tab is, with its own undo. Open tabs get its steps once they are stored, and list it by the agent's name.
+_Avoid_: Bot session, headless editor, agent connection
 
 **Tab copy**:
 What a tab keeps on its device so a reload, or another tab of the same member, can go on as it: its identity, its confirmed design, its queue and what it owes, written as small entries.

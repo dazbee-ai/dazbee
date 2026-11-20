@@ -353,9 +353,26 @@ export const BrandKit = z
   .superRefine(oneThingPerToken)
 export type BrandKit = z.infer<typeof BrandKit>
 
-/** A kit as a save sends it: one that leaves its text styles out keeps the ones the kit has. */
+/**
+ * A kit as the API gives it, with when it was last saved: null for a brand that never saved one. A
+ * save sends that time back as `basedOn`.
+ */
+export const StoredBrandKit = z
+  .object({ ...brandKitFields, textStyles: brandTextStyles.default(() => []), updatedAt: z.iso.datetime().nullable() })
+  .superRefine(oneThingPerToken)
+export type StoredBrandKit = z.infer<typeof StoredBrandKit>
+
+/**
+ * A kit as a save sends it: one that leaves its text styles out keeps the ones the kit has.
+ * `basedOn` is the `updatedAt` of the kit it was made from, and the save is refused when the kit was
+ * saved since; one without it, from a tab built before, is never refused for that.
+ */
 export const SaveBrandKit = z
-  .object({ ...brandKitFields, textStyles: brandTextStyles.optional() })
+  .object({
+    ...brandKitFields,
+    textStyles: brandTextStyles.optional(),
+    basedOn: z.iso.datetime().nullable().optional(),
+  })
   .superRefine(oneThingPerToken)
 export type SaveBrandKit = z.infer<typeof SaveBrandKit>
 export const EMPTY_BRAND_KIT: BrandKit = { colors: [], fonts: [], logoAssetId: null, voice: '', textStyles: [] }

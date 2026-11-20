@@ -2,7 +2,7 @@
 // the command changed comes off, in the same transaction, so it is part of the command's step. A
 // bound value is compared as the list of bindable properties reads it, a colour whole, alpha
 // included: an edit that leaves it as it was keeps the binding.
-import { BINDABLE_PROPERTIES, BindableProperty } from '@dazbee/schema'
+import { BINDABLE_PROPERTIES, BindableProperty, type ValueKind } from '@dazbee/schema'
 
 import type { StoreWrite } from '../store.ts'
 
@@ -21,13 +21,19 @@ export function endingEditedBindings<C extends { w: StoreWrite }, I, R>(apply: A
     for (const [id, before] of noted.before) {
       if (noted.created.has(id) || !w.has('layer', id)) continue
       for (const property of BindableProperty.options) {
-        const { prop, read } = BINDABLE_PROPERTIES[property]
+        const { prop, read, kind } = BINDABLE_PROPERTIES[property]
         if (!before.has(prop) || w.binding(id, property) === undefined) continue
-        if (read({ [prop]: before.get(prop) }) !== read({ [prop]: w.prop(id, prop) })) w.unsetBinding(id, property)
+        if (!same(kind, read({ [prop]: before.get(prop) }), read({ [prop]: w.prop(id, prop) })))
+          w.unsetBinding(id, property)
       }
     }
     return result
   }
+}
+
+/** Whether two bound values of a kind are one: a colour's hex digits in either case. */
+function same(kind: ValueKind, a: string | undefined, b: string | undefined) {
+  return kind === 'color' ? a?.toUpperCase() === b?.toUpperCase() : a === b
 }
 
 /**

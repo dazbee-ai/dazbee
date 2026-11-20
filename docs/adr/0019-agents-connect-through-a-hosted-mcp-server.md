@@ -6,7 +6,7 @@ An agent (Claude Code, Claude Desktop and others) designs in Dazbee through an M
 
 The agent signs in with the OAuth 2.1 flow the MCP spec asks for, which the API runs: open client registration, authorization code with PKCE, and access and refresh tokens kept only as hashes. The person approves on a page of the web app, signed in through WorkOS as usual, and picks the workspace, the brands and whether the agent edits or only views: an **agent access**, never more than their membership allows, ended from Settings or with the membership. The API takes an agent's token only on the routes agents use, with the membership's role and brands capped by the access.
 
-The agent works in an **agent tab**: the editor's core opened in Node inside `apps/mcp`, joined to the sync server as a member's tab is. Its steps are commands (ADR-0004), checked and ordered by the sync server (ADR-0015), seen by open tabs once stored, and undone only by the agent's own tab. Before an agent tab's first change, the sync server keeps a version of the design, so the person can restore it.
+The agent works in an **agent tab**: the editor's core opened in Node inside `apps/mcp`, joined to the sync server as a member's tab is. Its steps are commands (ADR-0004), checked and ordered by the sync server (ADR-0015), seen by open tabs once stored, and undone only by the agent's own tab. Before an agent's first change to the design, and before an agent's first change after a person's edit, the sync server keeps a version of the design, so the person can restore it.
 
 ## Considered Options
 

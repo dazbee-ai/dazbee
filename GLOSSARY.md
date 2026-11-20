@@ -388,7 +388,7 @@ What a read does with a part of a design that holds a value the schema does not 
 _Avoid_: Dropped, removed (the stored design still holds it), repaired (that is for what edits made at once break)
 
 **Version**:
-A design as the server stored it at one moment, kept in its version history: named on purpose by an Editor, or taken automatically: an Autosave once the design has changed for 30 minutes and when it unloads changed, and Before restore just before a restore replaces it. Before agent, named by the agent ("Before Claude (agent)"), is taken just before an agent's first change to the design, and before its first change after a person's edit. Named versions are never dropped; the newest 20 automatic ones are kept, at most 100 in all.
+A design as the server stored it at one moment, kept in its version history: named on purpose by an Editor, or taken automatically: an Autosave once the design has changed for 30 minutes and when it unloads changed, and Before restore just before a restore replaces it. Before agent, named by the agent ("Before Claude (agent)"), is taken just before an agent's first change to the design, and before an agent's first change after a person's edit. Named versions are never dropped; the newest 20 automatic ones are kept, at most 100 in all.
 _Avoid_: Revision, checkpoint, snapshot
 
 **Restore**:

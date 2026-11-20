@@ -55,9 +55,6 @@ describe('versionTitle', () => {
     expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), ar.editor.versions)).toBe(
       'قبل Claude (agent)',
     )
-    expect(copyName('Spring sale', version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe(
-      'Spring sale (Before Claude (agent))',
-    )
   })
 })
 
@@ -160,6 +157,9 @@ describe('copyName', () => {
     expect(copyName('Spring sale', version(), words)).toBe('Spring sale (Sent to client)')
     expect(copyName('Spring sale', version({ kind: 'beforeRestore', name: '' }), words)).toBe(
       'Spring sale (Before restore)',
+    )
+    expect(copyName('Spring sale', version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe(
+      'Spring sale (Before Claude (agent))',
     )
     expect(copyName('Spring sale', version({ kind: 'auto', name: '' }), ar.editor.versions)).toBe(
       'Spring sale (حفظ تلقائي)',

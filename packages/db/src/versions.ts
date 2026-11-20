@@ -3,10 +3,10 @@
 // design's row locked, so two writers never race past them: at most `VERSION_LIMITS.versions` per
 // design and `VERSION_LIMITS.automatic` automatic ones; the oldest automatic one (never `keep`) makes
 // room; a named one is never dropped; an automatic one is not added when the newest version holds
-// the same sync id and sequence number, but a Before agent one only when the newest is one too. The lock is a no-key update, which a fold's share of the
-// design's key passes; an append, which marks the design updated, waits for the version's insert,
-// whose bytes are made before the lock is taken. A name or a description past `VERSION_LIMITS` is
-// refused.
+// the same sync id and sequence number, but a Before agent one only when the newest is one too. The
+// lock is a no-key update, which a fold's share of the design's key passes; an append, which marks
+// the design updated, waits for the version's insert, whose bytes are made before the lock is taken.
+// A name or a description past `VERSION_LIMITS` is refused.
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 
 import { type NewVersion, VERSION_LIMITS, type VersionKind } from '@dazbee/schema'

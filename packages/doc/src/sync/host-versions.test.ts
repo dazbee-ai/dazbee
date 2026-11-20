@@ -291,6 +291,30 @@ describe('a design host’s versions', () => {
     expect(journal.rows.versions[1]?.records).toEqual(beforeSecond)
   })
 
+  it('keeps no Before agent version for a person’s edits alone', async () => {
+    const { journal, host, ann } = await opened()
+    const bob = connection()
+    host.connect(bob, hello, editor(BOB))
+    await host.settled()
+
+    await send(host, ann, changes(1, 0, [rename('badge', 'Ann')]))
+    await send(host, bob, changes(1, 1, [rename('badge', 'Bob')]))
+
+    expect(journal.rows.versions).toEqual([])
+  })
+
+  it('keeps one Before agent version for an agent’s restore, never dropping the version restored', async () => {
+    const { journal, host, ann } = await opened()
+    await send(host, ann, changes(1, 0, [rename('badge', 'Ann')]))
+    const claude = connection()
+    host.connect(claude, hello, agentTab())
+    await host.settled()
+
+    await send(host, claude, changes(1, 1, [rename('badge', 'Restored')], MARK))
+
+    expect(journal.rows.versions).toMatchObject([{ kind: 'beforeAgent', seq: 1, keep: 'v9' }])
+  })
+
   it('keeps no Before agent version for a rejected agent change set, and keeps one for the next accepted', async () => {
     const { journal, host } = await opened()
     const claude = connection()

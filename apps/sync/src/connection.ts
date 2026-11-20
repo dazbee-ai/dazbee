@@ -167,7 +167,12 @@ export function serveConnection(socket: WebSocket, request: Request, options: Co
     if (!checked.ok) return end(SYNC_CLOSE.tokenExpired, checked.reason)
     const { payload } = checked
     // A member's agent tabs count apart from the member's own, so agents never use up the person's.
-    const key = JSON.stringify([designId, payload.userId, payload.workspaceId, ...(payload.agent ? ['agent'] : [])])
+    const key = JSON.stringify([
+      designId,
+      payload.userId,
+      payload.workspaceId,
+      ...(payload.agent === undefined ? [] : ['agent']),
+    ])
     if (!options.mayConnect(key)) return end(SYNC_CLOSE.tooManyMessages, 'connections opened too fast')
     const given = accessOf(payload, token)
     if (olderThan(given)) return end(SYNC_CLOSE.tabTooOld, 'the tab is older than the design')

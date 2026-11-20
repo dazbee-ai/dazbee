@@ -3,10 +3,11 @@
 // each connection's hello and messages and delivers what it returns, once the journal entries it
 // committed are stored (host.ts). It never makes a value (I7): what it accepts is what the tab sent.
 // It keeps when the design last counted as unchanged, and takes versions of it: Before restore as it
-// accepts a restore, Before agent as it accepts an agent's edit after a person's, and an Autosave when
-// the host asks. An agent's tab is named to the others by the agent's name. It keeps each connected tab's latest
-// presence in memory only and passes it to the other members' tabs, each member in a colour of their
-// own (FigCraft's server and hub).
+// accepts a restore, Before agent as it accepts an agent's edit when the last edit since the design
+// loaded was a person's or there was none, and an Autosave when the host asks. An agent's tab is
+// named to the others by the agent's name. It keeps each connected tab's latest presence in memory
+// only and passes it to the other members' tabs, each member in a colour of their own (FigCraft's
+// server and hub).
 import { nanoid } from 'nanoid'
 
 import {
@@ -385,14 +386,15 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     }
     const tooBig = grownPast(before, after)
     if (tooBig) return reject('designTooBig', tooBig)
-    // The design as it was is kept before an agent's first edit since a person's, whether changed or not.
+    // The design as it was is kept before an agent's first edit since a person's, whether changed or
+    // not, and before a restore replaces it; after a restore, it counts as unchanged.
+    const keep = message.restore?.versionId ?? null
     const agent = connected.get(author)?.agent
     if (message.kind === 'edit') {
-      if (agent !== undefined && !agentEditedLast) takeVersion('beforeAgent', null, agent)
+      if (agent !== undefined && !agentEditedLast) takeVersion('beforeAgent', { keep, name: agent })
       agentEditedLast = agent !== undefined
     }
-    // The design as it was is kept before a restore replaces it; after, it counts as unchanged.
-    if (message.restore) takeVersion('beforeRestore', message.restore.versionId)
+    if (message.restore) takeVersion('beforeRestore', { keep })
     applied.after.commit({ seq: seq + 1, author })
     seq += 1
     bytes = grown
@@ -457,10 +459,13 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
   }
 
   /**
-   * Takes a version of the design as it is now, named `name`, and marks it unchanged: a Before agent
-   * version always, any other only while the design is changed.
+   * Takes a version of the design as it is now, named `name`, never dropping `keep` to make room, and
+   * marks it unchanged: a Before agent version always, any other only while the design is changed.
    */
-  function takeVersion(kind: NewVersion['kind'], keep: string | null = null, name = '') {
+  function takeVersion(
+    kind: NewVersion['kind'],
+    { keep = null, name = '' }: { keep?: string | null; name?: string } = {},
+  ) {
     if (changedSince === undefined && kind !== 'beforeAgent') return
     versions.push({
       kind,

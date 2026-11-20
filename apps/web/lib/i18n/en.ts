@@ -933,6 +933,12 @@ export const en = {
       uploading: 'Uploading… {percent}%',
       uploadFailed: 'The logo did not upload: {reason}',
       saveFailed: 'Couldn’t save the brand kit: {reason}',
+      /** A save refused, since the kit was saved in another tab or by another member; the form now shows that kit. */
+      changedElsewhere:
+        'This kit changed since you opened it, so your last changes weren’t saved. It now shows the kit as it was saved: make them again here.',
+      /** The kit couldn’t be fetched or read, so it isn’t shown and can’t be changed. */
+      unreadable: 'Couldn’t load this brand’s kit. Reload to try again.',
+      reload: 'Reload',
       edit: 'Edit',
       done: 'Done',
       /** A kit with no colours, fonts, logo or voice. */

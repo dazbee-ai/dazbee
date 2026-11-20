@@ -12,7 +12,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { useRouter } from 'next/navigation'
 import { type ReactNode, useRef, useState } from 'react'
 
-import { type AssetSummary, type BrandKit, inBrandRoleOrder, SIZE_PRESETS } from '@dazbee/schema'
+import { type AssetSummary, EMPTY_BRAND_KIT, inBrandRoleOrder, SIZE_PRESETS, type StoredBrandKit } from '@dazbee/schema'
 
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
@@ -83,15 +83,15 @@ export function BriefForm({
   workspaceId: string
   brandId: string
   brandName: string
-  /** The brand's kit as the page came with it; a change in the Brand kit panel shows here at once. */
-  kit: BrandKit
+  /** The brand's kit as the page came with it, null when it couldn't be read; a change in the Brand kit page shows here at once. */
+  kit: StoredBrandKit | null
   references: BriefReference[]
   action: (form: FormData) => Promise<void>
 }) {
   const t = useMessages()
   const h = t.home
   const k = h.kit
-  const kit = useBrandKit(workspaceId, brandId, first) ?? first
+  const kit = useBrandKit(workspaceId, brandId, first) ?? first ?? EMPTY_BRAND_KIT
   const [open, setOpen] = useState<Popup | null>(null)
   const [adding, setAdding] = useState<'menu' | 'reference'>('menu')
   const [sizes, setSizes] = useState<BriefSize[]>([BRIEF_SIZES[0]])

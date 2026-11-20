@@ -28,7 +28,8 @@ import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
 import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
-import { loadKit, useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
+import { KitUnreadable } from '@/components/brand-kit/kit-unreadable.tsx'
+import { loadKit, useBrandKit, useKitTrouble } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
 import { CHIP } from '@/components/editor/styles.ts'
 import { useViewOnly, ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
@@ -88,6 +89,7 @@ export function BrandKitPanel({
 }) {
   const t = useMessages().editor.brandKit
   const kit = useBrandKit(workspaceId, brandId)
+  const trouble = useKitTrouble(brandId)
   const [editingKit, setEditing] = useState(false)
   // A tab that may only view shows the kit: it applies, places and edits nothing (C35).
   const viewOnly = useViewOnly()
@@ -115,14 +117,26 @@ export function BrandKitPanel({
     })
   }
   // A change shows at once in every bound layer too; one waiting to be saved is saved when the flyout closes.
-  const { change, error } = useKitSaver(workspaceId, brandId, showVariables)
+  const { change } = useKitSaver(workspaceId, brandId, showVariables)
   const logoAsset = useKitLogo(workspaceId, brandId, kit?.logoAssetId ?? null)
 
   useEffect(() => {
     void loadKit(workspaceId, brandId)
   }, [workspaceId, brandId])
+  // A kit fetched since the flyout opened, such as the newer kit shown after a refused save, shows in
+  // the bound layers too, in place of the values the last change gave them.
+  const fetched = useRef(kit)
+  useEffect(() => {
+    if (kit && kit !== fetched.current && kit !== shown.current) showVariables(kit)
+    fetched.current = kit
+  })
 
-  if (!kit) return <div className="p-4 text-small text-muted" aria-busy="true" />
+  if (!kit)
+    return trouble?.kind === 'unreadable' ? (
+      <KitUnreadable tight />
+    ) : (
+      <div className="p-4 text-small text-muted" aria-busy="true" />
+    )
 
   const apply = (kind: ValueKind, token: string) => {
     // A second press on what the selection already follows lets it go.
@@ -167,6 +181,11 @@ export function BrandKitPanel({
               {t.edit}
             </button>
           </div>
+        )}
+        {trouble?.kind === 'changed' && (
+          <p role="alert" className="px-[18px] pb-3 text-small text-danger">
+            {t.changedElsewhere}
+          </p>
         )}
         {kitIsEmpty(kit) ? (
           <EmptyState pose="sleep" tight {...t.empty} />
@@ -288,9 +307,9 @@ export function BrandKitPanel({
                 </ul>
               )}
             </section>
-            {error && (
+            {trouble?.kind === 'failed' && (
               <p role="alert" className="px-[18px] pb-4 text-tiny text-danger">
-                {format(t.saveFailed, { reason: error })}
+                {format(t.saveFailed, { reason: trouble.reason })}
               </p>
             )}
           </ViewOnlyFieldset>
@@ -318,7 +337,6 @@ export function BrandKitPanel({
         brandId={brandId}
         kit={kit}
         change={change}
-        error={error}
         binding={{
           follows: (kind, token) => follows(design, selection, kind, token),
           apply,

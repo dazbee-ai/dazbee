@@ -10,7 +10,7 @@ import { AssetSummary, type BrandKit } from '@dazbee/schema'
 
 import { UploadSimpleIcon } from '@/components/ui/icons.tsx'
 import { Select } from '@/components/ui/select.tsx'
-import { brandPath, readJson } from '@/lib/brand-routes.ts'
+import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
@@ -22,52 +22,24 @@ import { KitFonts } from './kit-fonts.tsx'
 import { rememberAssets } from './kit-logo.ts'
 import { heading, iconButton, type KitBinding } from './kit-parts.ts'
 import { KitTextStyles } from './kit-text-styles.tsx'
-import { saveKit, showKit } from './use-brand-kit.ts'
-
-/** How long a run of changes (a colour picker's drag) waits before it is saved. */
-const SAVE_DELAY_MS = 400
+import { changeKit, saveWaitingKit, useKitTrouble } from './use-brand-kit.ts'
 
 /**
  * Shows a kit change at once and saves it a moment later; a change still waiting is saved when the
  * component using this goes. `onShow` hears each change as it shows, as the editor's layers do.
  */
 export function useKitSaver(workspaceId: string, brandId: string, onShow?: (kit: BrandKit) => void) {
-  const [error, setError] = useState<string | null>(null)
-  const saving = useRef<{ timer: ReturnType<typeof setTimeout> | null; kit: BrandKit | null }>({
-    timer: null,
-    kit: null,
-  })
   const shows = useRef(onShow)
   shows.current = onShow
-
-  const flush = useCallback(() => {
-    const { kit: next } = saving.current
-    saving.current = { timer: null, kit: null }
-    if (!next) return
-    saveKit(workspaceId, brandId, next)
-      .then(readJson)
-      .then(() => setError(null))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-  }, [workspaceId, brandId])
-  useEffect(
-    () => () => {
-      if (saving.current.timer) clearTimeout(saving.current.timer)
-      flush()
-    },
-    [flush],
-  )
-
+  useEffect(() => () => saveWaitingKit(brandId), [brandId])
   const change = useCallback(
     (next: BrandKit) => {
-      showKit(brandId, next)
+      changeKit(workspaceId, brandId, next)
       shows.current?.(next)
-      if (saving.current.timer) clearTimeout(saving.current.timer)
-      saving.current = { kit: next, timer: setTimeout(flush, SAVE_DELAY_MS) }
     },
-    [brandId, flush],
+    [workspaceId, brandId],
   )
-
-  return { change, error }
+  return { change }
 }
 
 export function KitEditor({
@@ -75,7 +47,6 @@ export function KitEditor({
   brandId,
   kit,
   change,
-  error,
   binding,
   wide = false,
 }: {
@@ -83,12 +54,12 @@ export function KitEditor({
   brandId: string
   kit: BrandKit
   change: (next: BrandKit) => void
-  error: string | null
   binding?: KitBinding
   /** Laid out across the brand home's panel instead of down the editor's flyout. */
   wide?: boolean
 }) {
   const t = useMessages().editor.brandKit
+  const trouble = useKitTrouble(brandId)
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [upload, setUpload] = useState<{ progress: number } | { error: string } | null>(null)
   const files = useRef<HTMLInputElement>(null)
@@ -217,9 +188,15 @@ export function KitEditor({
     </section>
   )
 
-  const failed = error && (
+  const failed = trouble?.kind === 'failed' && (
     <p role="alert" className={cn('text-tiny text-danger', !wide && 'px-[18px] pb-4')}>
-      {format(t.saveFailed, { reason: error })}
+      {format(t.saveFailed, { reason: trouble.reason })}
+    </p>
+  )
+  // Over the form, which now shows the kit as it was saved elsewhere.
+  const changed = trouble?.kind === 'changed' && (
+    <p role="alert" className={cn('text-small text-danger', !wide && 'px-[18px] pb-3')}>
+      {t.changedElsewhere}
     </p>
   )
 
@@ -227,6 +204,7 @@ export function KitEditor({
   // across under them; the flyout keeps the editor's order, colours first.
   return wide ? (
     <div className="flex flex-col gap-3">
+      {changed}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {colours}
         {fonts}
@@ -240,6 +218,7 @@ export function KitEditor({
     </div>
   ) : (
     <>
+      {changed}
       {colours}
       {fonts}
       {textStyles}

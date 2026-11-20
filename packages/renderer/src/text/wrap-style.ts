@@ -20,9 +20,9 @@ const BALANCE_STEP = 0.5
 const PRETTY_LINES = 3
 const PRETTY_WORDS = 3
 /** Ends a line without ending the paragraph, and is a space to the bidi algorithm. */
-const LINE_SEPARATOR = ' '
+const LINE_SEPARATOR = '\u2028'
 /** Spaces a line may break at; a no-break space is none of them. */
-const BREAKING_SPACE = /[ \t  -  -  　]/u
+const BREAKING_SPACE = /[ \t\u1680\u2000-\u2006\u2008-\u200A\u205F\u3000]/u
 
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' })
 

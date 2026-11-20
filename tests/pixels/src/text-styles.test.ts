@@ -238,7 +238,7 @@ const linesOf = (laid: ReturnType<typeof layout>) => {
 const spread = (widths: number[]) => Math.max(...widths) - Math.min(...widths)
 
 describe('wrap style', () => {
-  // At 32 px in a 320 px box, Auto breaks it as 299, 320 and 185 px.
+  // At 32 px in a 320 px box, Auto leaves its last line much shorter than the two above it.
   const headline = 'Big summer sale on every jacket and shirt in store now'
 
   it('Balance breaks a three-line headline into lines of near even length', () => {
@@ -306,7 +306,7 @@ describe('wrap style', () => {
       'small batches',
       'for you',
     ])
-    expect(pretty.blocks[0]?.text).toBe(text.replace(' for', ' for'))
+    expect(pretty.blocks[0]?.text).toBe(text.replace(' for', '\u2028for'))
     expect(pretty.height).toBe(auto.height)
     // The headline's last line holds three words already.
     const headlineAuto = layout(headline)

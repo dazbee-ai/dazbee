@@ -88,6 +88,6 @@ describe('missingGraphemes', () => {
 
   it('names a character on the line after one Pretty ends early', () => {
     // Pretty ends the first line before dddd, so the Syriac letter is not alone on the last.
-    expect(missing('aaaa bbbb cccc dddd ܐ', { width: 200, wrapStyle: 'pretty' })).toEqual(['ܐ'])
+    expect(missing('aaaa bbbb cccc dddd \u0710', { width: 200, wrapStyle: 'pretty' })).toEqual(['\u0710'])
   })
 })

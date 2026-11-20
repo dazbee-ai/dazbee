@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { Design } from '@dazbee/schema'
 
 import type { StoreWrite } from '../store.ts'
+import { endingEditedBindings } from './bound-edits.ts'
 import type { StepName } from './step-names.ts'
 
 export interface CommandContext {
@@ -38,6 +39,11 @@ export interface Command<I extends z.ZodType, R> {
   input: I
   /** May run in a batch: it adds, removes, moves, reorders and re-parents nothing. */
   batchable?: true
+  /**
+   * Sets bindings itself: the rule that a hand edit ends a binding (bound-edits.ts) leaves it
+   * alone, so each binding stays as it wrote it.
+   */
+  setsBindings?: true
   check?: (ctx: CommandContext, input: z.output<I>) => string | undefined
   apply: (ctx: CommandContext, input: z.output<I>) => R
 }
@@ -107,7 +113,8 @@ export class CommandError extends Error {
 }
 
 /**
- * A command as given, once its input is found to refuse every key it does not name. An input
+ * A command as given, once its input is found to refuse every key it does not name, its `apply`
+ * ending each binding whose value it changes (bound-edits.ts) unless it `setsBindings`. An input
  * holding a kind of type the check does not know is refused too, as it can't be checked.
  */
 export function defineCommand<I extends z.ZodType, R>(command: Command<I, R>) {
@@ -119,7 +126,7 @@ export function defineCommand<I extends z.ZodType, R>(command: Command<I, R>) {
   }
   if (loose.length > 0)
     throw new Error(`${command.name}: the object at ${loose.join(', ')} takes keys it does not name`)
-  return command
+  return command.setsBindings ? command : { ...command, apply: endingEditedBindings(command.apply) }
 }
 
 /**

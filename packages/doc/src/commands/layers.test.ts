@@ -4,7 +4,7 @@ import { BINDABLE_PROPERTIES } from '@dazbee/schema'
 
 import { descendants, readDesign } from '../index.ts'
 import type { DesignStore } from '../store.ts'
-import { badge, openTestSession } from '../test-design.ts'
+import { badge, openTestSession, testDesign } from '../test-design.ts'
 import { openShapes, openTestStore } from '../test-store.ts'
 import { nodeBind } from './layers.ts'
 
@@ -113,6 +113,17 @@ describe('node.update', () => {
     tab.undo()
     expect(readDesign(store).nodes.row?.props).toMatchObject({ width: 10, height: 10 })
   })
+  it('refuses a value holding a key the layer has no place for, at any depth, writing nothing', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const fills = [{ type: 'solid', color: '#00AA00FF', junk: 1 }]
+    expect(() => tab.run('node.update', { ids: ['box'], patch: { fills } })).toThrow(
+      'node.update: box: no place for "props.fills.0.junk"',
+    )
+    expect(readDesign(store).nodes.box?.props).toMatchObject({ fills: [{ color: '#FF5A36FF' }] })
+    expect(tab.canUndo()).toBe(false)
+  })
+
   it('sets properties of the layers given; their linked copies stay as they were', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
@@ -359,6 +370,19 @@ describe('node.lock', () => {
 })
 
 describe('node.bind', () => {
+  it('unbinds a fill with no solid fill that shows, given the token’s value, adding no fill', () => {
+    // Stored so before a hand edit ended a binding, or by two tabs crossing.
+    const image = { type: 'image', assetId: 'photo', fit: 'fill', opacity: 1 }
+    const design = testDesign()
+    const box = design.nodes.box as { props: object }
+    Object.assign(box, { props: { ...box.props, fills: [image] }, bindings: { fill: 'brand:primary' } })
+    const store = openTestStore(design)
+    const tab = openTestSession(store)
+    tab.run('node.bind', { ids: ['box'], property: 'fill', ref: null, value: '#E0262BFF' })
+    expect(readDesign(store).nodes.box?.bindings).toBeUndefined()
+    expect(readDesign(store).nodes.box?.props).toMatchObject({ fills: [image] })
+  })
+
   it('binds a fill, text colour and font to brand tokens and unbinds them, each one undo step (#53)', () => {
     const store = openTestStore()
     const tab = openTestSession(store)

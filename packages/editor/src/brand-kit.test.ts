@@ -215,6 +215,18 @@ describe('editorBrandKit', () => {
       expect(session.design().nodes.heading?.bindings?.fontFamily).toBeUndefined()
     })
 
+    it('unbinds a fill and a text whose stored colours lag the kit, storing the kit’s colour each showed', () => {
+      const { kit, session, select } = harness()
+      session.run('node.bind', { ids: ['a'], property: 'fill', ref: 'brand:primary', value: '#123456FF' })
+      session.run('node.bind', { ids: ['words'], property: 'textColor', ref: 'brand:primary', value: '#123456FF' })
+      select(['a', 'words'])
+      expect(kit.bindSelection('color', null)).toBe(2)
+      const { a, words } = session.design().nodes
+      expect(a).toMatchObject({ props: { fills: [{ color: '#FF0000FF' }] } })
+      expect(words).toMatchObject({ props: { style: { color: '#FF0000FF' } } })
+      expect([a?.bindings, words?.bindings]).toEqual([undefined, undefined])
+    })
+
     it('changes nothing for a value the kit doesn’t have, or with nothing selected', () => {
       const { kit, session, select } = harness()
       expect(kit.bindSelection('color', 'brand:primary')).toBe(0)

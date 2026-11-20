@@ -6,6 +6,7 @@ import {
   BINDABLE_PROPERTIES,
   BindableProperty,
   canBind,
+  carryOverLayer,
   fitsProperty,
   FrameId,
   type Layer as LayerT,
@@ -22,6 +23,7 @@ import {
 import { childrenOf, descendants } from '../children.ts'
 import { flows } from '../flow.ts'
 import { sameValue } from '../same-value.ts'
+import { droppedIssue } from '../sync/checks.ts'
 import { boxPlan, DrawnBoxes, keepEmptied, writeDrawn } from './box-plan.ts'
 import { idProblem, lockFor, lockProblem, missingLayer, parentProblem } from './checks.ts'
 import { defineCommand } from './define.ts'
@@ -92,7 +94,7 @@ export const nodeCreate = defineCommand({
 export const nodeUpdate = defineCommand({
   name: 'node.update',
   description:
-    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
+    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font) ends that binding. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
   step: 'edit',
   batchable: true,
   input: z.strictObject({
@@ -118,8 +120,12 @@ export const nodeUpdate = defineCommand({
         if (locked) return locked
         if (node.type === 'text' && (path === 'text' || path === 'runs')) return 'change text with text.edit'
       }
-      const layer = parseLayer({ ...node, props: { ...node.props, ...patch } })
+      const patched = { ...node, props: { ...node.props, ...patch } }
+      const layer = parseLayer(patched)
       if (!layer.success) return layer.errors.map((e) => `${id}.${e.replace(/^props\./, '')}`).join('; ')
+      // A key the parse drops would be stored as sent, which the server refuses.
+      const dropped = droppedIssue(carryOverLayer(patched), layer.layer)
+      if (dropped) return `${id}: ${dropped}`
     }
     return undefined
   },
@@ -245,6 +251,7 @@ export const nodeBind = defineCommand({
     'Binds a fill, text colour or font of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
   step: 'bind',
   batchable: true,
+  setsBindings: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to bind or unbind.'),
     property: BindableProperty.describe('The property to bind.'),
@@ -275,8 +282,8 @@ export const nodeBind = defineCommand({
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
       let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }
-      // A fill with no solid fill that shows to take the value gets one on top.
-      if (property === 'fill' && entry.read(props) === undefined)
+      // A fill bound with no solid fill that shows to take the value gets one on top; unbound, it keeps what it has.
+      if (ref && property === 'fill' && entry.read(props) === undefined)
         props = { fills: [...((props.fills ?? []) as unknown[]), { type: 'solid', color: value }] }
       w.setProp(id, entry.prop, entry.write(props, value)[entry.prop])
     }

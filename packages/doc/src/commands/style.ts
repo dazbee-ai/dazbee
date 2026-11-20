@@ -17,6 +17,7 @@ export const nodeStyle = defineCommand({
     'Sets a style, such as the fills, outlines, effects, transparency, corners and the text’s look, on layers, each taking what applies to it; the place, size, turn and font size stay. It refuses a missing layer and one with its style locked.',
   step: 'style',
   batchable: true,
+  setsBindings: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to style.'),
     style: strict(LayerStyle).describe('The style to set, as copied from a layer.'),

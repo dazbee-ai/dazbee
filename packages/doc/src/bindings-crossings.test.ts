@@ -93,6 +93,42 @@ for (const later of ['A', 'B'] as const) {
       expect(await endChecks(world)).toEqual(CLEAN)
     })
 
+    it('A recolours a bound fill by hand while B binds it to another token: the later step’s colour and binding', async () => {
+      const { world, a, b } = await crossing(
+        boundDesign(),
+        later,
+        (tab) => tab.run('node.update', { ids: ['box'], patch: { fills: [{ type: 'solid', color: '#14213DFF' }] } }),
+        (tab) => tab.run('node.bind', { ids: ['box'], property: 'fill', ref: 'brand:accent', value: '#00AA00FF' }),
+      )
+      expectBound([a, b], 'box', later === 'A' ? {} : { fill: 'brand:accent' })
+      for (const tab of [a, b])
+        expect(layerIn(tab, 'box').props).toMatchObject({
+          fills: [{ color: later === 'A' ? '#14213DFF' : '#00AA00FF' }],
+        })
+      expect(await endChecks(world)).toEqual(CLEAN)
+    })
+
+    it('A recolours a text by hand while B binds its font: the font bound, the colour unbound, either way', async () => {
+      const design = boundDesign()
+      Object.assign(design.nodes.headline as object, {
+        bindings: { textColor: 'brand:ink', fontFamily: 'brand:heading' },
+      })
+      const { world, a, b } = await crossing(
+        design,
+        later,
+        (tab) => {
+          const { style } = layerIn(tab, 'headline').props as { style: object }
+          tab.run('node.update', { ids: ['headline'], patch: { style: { ...style, color: '#14213DFF' } } })
+        },
+        (tab) => tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:body', value: 'Inter' }),
+      )
+      expectBound([a, b], 'headline', { fontFamily: 'brand:body' })
+      // The style is one value: the later step's colour is the one kept.
+      for (const tab of [a, b])
+        expect(drawn(tab, 'headline', 'textColor')).toBe(later === 'A' ? '#14213DFF' : '#111111FF')
+      expect(await endChecks(world)).toEqual(CLEAN)
+    })
+
     it('A changes a bound text’s letter spacing while B binds its colour: the colour bound either way', async () => {
       const { world, a, b } = await crossing(
         boundDesign(),

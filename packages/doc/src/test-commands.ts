@@ -233,6 +233,8 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [free(design)], patch: { x: 5, y: 6, width: 50, height: 60, rotation: 45, opacity: 0.5 } },
     { ids: [any(random, Object.keys(design.nodes))], patch: { x: Math.round(random() * 2000) - 500 } },
     { ids: [flowed(design)], patch: { absolute: true }, drawn: drawn(design, flowed(design)), holders: around(design) },
+    // The fill node.bind binds, recoloured by hand.
+    { ids: [free(design)], patch: { fills: [{ type: 'solid', color: '#00AA00FF' }] } },
   ],
   'node.move': ({ design, random }) => [
     { id: free(design), parentId: frame(design), before: childrenOf(design, frame(design))[0]?.[0] },

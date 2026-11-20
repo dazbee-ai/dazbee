@@ -4,6 +4,7 @@ import type { Session } from '@dazbee/doc'
 import {
   BINDABLE_PROPERTIES,
   bindablePropertyOf,
+  fitsProperty,
   fontFamilies,
   type ValueKind,
   type VariableRef,
@@ -33,7 +34,10 @@ export interface EditorBrandKit {
    * the promise settles then.
    */
   setVariables(variables: Variables): Promise<void>
-  /** Binds the selected layers to a brand colour or font, or unbinds them with null, in one undo step; returns how many changed. */
+  /**
+   * Binds the selected layers to a brand colour or font, or unbinds them with null, each storing the
+   * kit's value it showed, in one undo step; returns how many changed.
+   */
   bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**
    * Text bound to a brand font whose family the kit has changed since takes it once its files are
@@ -52,16 +56,21 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   }
   function bindSelection(kind: ValueKind, ref: VariableRef | null): number {
     const current = session.design()
-    const value = ref ? resources.bytes().variables?.[ref] : undefined
-    if (ref && value === undefined) return 0
+    const kit = resources.bytes().variables ?? {}
+    if (ref && kit[ref] === undefined) return 0
     const bound = idsOf(selection.current()).flatMap((id) => {
-      const property = bindablePropertyOf(current.nodes[id]?.type ?? '', kind)
-      return property ? [{ id, property }] : []
+      const node = current.nodes[id]
+      const property = bindablePropertyOf(node?.type ?? '', kind)
+      if (!property) return []
+      // Unbinding stores the token's value the layer shows, which the value it stored can lag.
+      const token = ref ?? node?.bindings?.[property]
+      const value = token === undefined ? undefined : kit[token]
+      return [{ id, property, value: value !== undefined && fitsProperty(property, value) ? value : undefined }]
     })
     if (bound.length === 0) return 0
     let changed = 0
     session.gesture(() => {
-      for (const { id, property } of bound) {
+      for (const { id, property, value } of bound) {
         if (
           !runQuietly(() =>
             session.run('node.bind', { ids: [id], property, ref, ...(value === undefined ? {} : { value }) }),

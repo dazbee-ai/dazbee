@@ -213,16 +213,6 @@ export function stateLookup(state: ReadState): StructureLookup {
   }
 }
 
-function schemaIssue(part: Part, record: Rec): string | undefined {
-  // Parsed only to check: the record is kept as sent, so a value's default is never written in. A
-  // layer is checked carried over to this schema's version, as every reader reads it, so a value it
-  // stored before a change of the schema still passes.
-  const checked = part === 'layer' ? carryOverLayer(record) : record
-  const parsed = PARSERS[part].safeParse(checked)
-  if (!parsed.success) return parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
-  return droppedIssue(checked, parsed.data)
-}
-
 /**
  * Why `sent` holds what its parse (`parsed`) does not, if it does: a key at any depth that the
  * parse dropped, having no place for it (the record is kept as sent, so it would be stored). The
@@ -230,7 +220,7 @@ function schemaIssue(part: Part, record: Rec): string | undefined {
  * schema allows; the walk keeps its own stack and never follows a dropped key, so a value nested
  * however deep under one is refused without being walked.
  */
-function droppedIssue(sent: unknown, parsed: unknown): string | undefined {
+export function droppedIssue(sent: unknown, parsed: unknown): string | undefined {
   const stack: { sent: unknown; parsed: unknown; path: string }[] = [{ sent, parsed, path: '' }]
   for (let at = stack.pop(); at; at = stack.pop()) {
     if (typeof at.sent !== 'object' || at.sent === null) continue
@@ -242,4 +232,14 @@ function droppedIssue(sent: unknown, parsed: unknown): string | undefined {
     }
   }
   return undefined
+}
+
+function schemaIssue(part: Part, record: Rec): string | undefined {
+  // Parsed only to check: the record is kept as sent, so a value's default is never written in. A
+  // layer is checked carried over to this schema's version, as every reader reads it, so a value it
+  // stored before a change of the schema still passes.
+  const checked = part === 'layer' ? carryOverLayer(record) : record
+  const parsed = PARSERS[part].safeParse(checked)
+  if (!parsed.success) return parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+  return droppedIssue(checked, parsed.data)
 }

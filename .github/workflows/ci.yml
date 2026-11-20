@@ -88,6 +88,15 @@ jobs:
           provenance: false
           cache-from: type=gha,scope=sync
           cache-to: type=gha,scope=sync,mode=max
+      # The MCP server's image is only built: deploy/compose.yml doesn't run it, so it is neither started below nor pushed.
+      - uses: docker/build-push-action@v7
+        with:
+          file: apps/mcp/Dockerfile
+          build-args: BUILD_ID=${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/dazbee-mcp:${{ github.sha }}
+          provenance: false
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,scope=mcp,mode=max
       # The folder compose runs in, laid out as /opt/dazbee is on the server.
       - name: Start the stack
         run: |

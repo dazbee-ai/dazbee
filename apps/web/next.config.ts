@@ -15,6 +15,20 @@ const config: NextConfig = {
     // next dev tells an agent to run `next upgrade` when the installed Next.js has a security advisory.
     agentUpgrade: 'security',
   },
+  // With MCP_DEV_URL set, the MCP server's paths go to it, so one base URL serves both, as Caddy does in production.
+  rewrites: async () => {
+    const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')
+    if (!mcp) return []
+    return {
+      beforeFiles: [
+        { source: '/mcp', destination: `${mcp}/mcp` },
+        { source: '/oauth/:path*', destination: `${mcp}/oauth/:path*` },
+        { source: '/.well-known/:doc(oauth-[^/]+)/:path*', destination: `${mcp}/.well-known/:doc/:path*` },
+      ],
+      afterFiles: [],
+      fallback: [],
+    }
+  },
   turbopack: {
     resolveAlias: {
       fs: { browser: './lib/empty.ts' },

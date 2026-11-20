@@ -39,8 +39,9 @@ describe('editorPlace', () => {
 
     it('places the brand’s logo as a logo whose picture follows the brand, in one undo step', () => {
       const { place, session, square, stage } = harness()
-      const id = place.placeImage(PHOTO, stage(square, 500, 500), { logo: true }) ?? ''
+      const id = place.placeImage(PHOTO, stage(square, 500, 500), { logo: { name: 'Logo' } }) ?? ''
       expect(session.design().nodes[id]).toMatchObject({
+        name: 'Logo',
         role: 'logo',
         bindings: { image: 'brand:logo' },
         props: { fills: [{ type: 'image', assetId: 'photo' }] },

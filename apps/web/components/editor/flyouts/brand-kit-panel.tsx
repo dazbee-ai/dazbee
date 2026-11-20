@@ -145,7 +145,7 @@ export function BrandKitPanel({
   const placeLogo = () => {
     kitLogo(workspaceId, brandId, kit.logoAssetId).then(
       (asset) => {
-        if (asset) placeAsset(editor, workspaceId, brandId, asset, undefined, { logo: true })
+        if (asset) placeAsset(editor, workspaceId, brandId, asset, undefined, { logo: { name: t.logo } })
       },
       () => undefined,
     )

@@ -377,11 +377,7 @@ export function editorPlace({
     if (!copied) return false
     return pasteTree(copied, false, pointer())
   }
-  function placeImage(
-    asset: PlacedAsset,
-    where?: Point | Spot,
-    { logo = false }: PlaceImageOptions = {},
-  ): string | null {
+  function placeImage(asset: PlacedAsset, where?: Point | Spot, { logo }: PlaceImageOptions = {}): string | null {
     // A point off every frame places nothing; with no point, it goes where `frameToPlaceIn` says.
     const spot = where && ('frameId' in where ? where : spotOn(where))
     if (where && !spot) return null
@@ -390,7 +386,7 @@ export function editorPlace({
     const at = spot ? { x: spot.x, y: spot.y } : { x: frame.width / 2, y: frame.height / 2 }
     typing.stop()
     let id = ''
-    const layer = { ...newImage(asset, at, frame), ...(logo ? { role: 'logo' } : {}) }
+    const layer = { ...newImage(asset, at, frame), ...(logo ? { name: logo.name, role: 'logo' } : {}) }
     if (
       !runQuietly(() =>
         session.gesture(() => {

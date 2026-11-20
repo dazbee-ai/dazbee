@@ -14,7 +14,7 @@ import {
   turn,
 } from '@dazbee/doc'
 import {
-  familiesOf,
+  drawnFamilies,
   layerReach,
   layoutText,
   missingGraphemes,
@@ -180,7 +180,7 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
   const warn = (kind: AgentWarningKind, message: string) => check.warn(layer.id, kind, message)
   const laid = layoutText(ck, props, resources)
   try {
-    for (const family of new Set(familiesOf(layer)))
+    for (const family of new Set(drawnFamilies(layer)))
       if (!have.has(family))
         warn(
           'missingFont',

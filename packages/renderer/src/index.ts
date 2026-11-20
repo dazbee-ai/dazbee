@@ -29,7 +29,7 @@ export {
   type Rendered,
   type VectorOptions,
 } from './seam.ts'
-export { familiesOf } from './text/families.ts'
+export { drawnFamilies } from './text/families.ts'
 export { caretAt, caretPosition, selectionBoxes, type SelectionBox } from './text/caret.ts'
 export {
   layoutText,

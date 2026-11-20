@@ -2,7 +2,7 @@
 // the catalog has no file for draws in the fallback fonts, and a character no font has draws as an
 // empty box. It reads the design as the export draws it, and writes nothing.
 import type { Session } from '@dazbee/doc'
-import { familiesOf, missingGraphemes, type SceneLayer, type TextLayout } from '@dazbee/renderer'
+import { drawnFamilies, missingGraphemes, type SceneLayer, type TextLayout } from '@dazbee/renderer'
 
 import type { FrameScenes } from '../canvas/scenes.ts'
 import type { FontCheck } from '../core-interface.ts'
@@ -48,7 +48,7 @@ export function editorFontCheck({ session, scenes, resources }: FontCheckDeps) {
     for (const frameId of frameIds) {
       if (!design.frames[frameId]) continue
       for (const layer of textsOf(scenes.laidOut(frameId, design))) {
-        for (const family of familiesOf(layer)) if (lacking.has(family)) families.add(family)
+        for (const family of drawnFamilies(layer)) if (lacking.has(family)) families.add(family)
         const name = design.nodes[layer.id]?.name || layer.id
         for (const grapheme of missingOf(scenes.layout(layer.props))) {
           const names = characters.get(grapheme) ?? new Set<string>()

@@ -4,7 +4,7 @@ import type { SceneLayer } from '../scene.ts'
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
 /** The families a text names that draw something: its runs' with characters, and its own unless runs cover every one. */
-export function familiesOf({ props }: TextLayer): string[] {
+export function drawnFamilies({ props }: TextLayer): string[] {
   const runs = props.runs.filter((run) => run.end > run.start)
   const covered = new Set<number>()
   for (const run of runs)

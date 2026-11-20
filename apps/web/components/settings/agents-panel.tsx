@@ -135,6 +135,7 @@ function AccessRow({
           <button
             type="button"
             disabled={busy}
+            aria-label={label}
             className={cn(
               buttonStyles({ variant: 'ghost', size: 'md' }),
               'h-8 shrink-0 px-2.5 text-label font-semibold text-danger hover:text-danger',

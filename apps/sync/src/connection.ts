@@ -5,7 +5,7 @@
 //   this server's version is closed with `tabTooOld` before it says anything.
 // - Its first message, within `helloMs`, is a hello with a token for that design. The token is checked,
 //   then the member's connection rate, then whether the tab is older than the design, then the member's
-//   open connections to it; then the hello goes to the design's host.
+//   open connections to it, its agent tabs counted apart; then the hello goes to the design's host.
 // - Every message after counts against the socket's rate, and none is taken once the token has
 //   expired, whatever the timers did. A renewed token is checked here and never reaches the host,
 //   but for a role it changes; one for a design newer than the tab closes it. Until the tab's
@@ -41,7 +41,10 @@ export interface ConnectionOptions {
   limits: Limits
   renewal: Renewal
   pingEveryMs: number
-  /** Whether a member may open one more connection to a design now, by `[design, member]` as one key. */
+  /**
+   * Whether a member may open one more connection to a design now, by `[design, member]` as one key;
+   * a member's agent tabs have a key of their own.
+   */
   mayConnect: (key: string) => boolean
   /** The connections open per `[design, member]` key, shared by every socket of the server. */
   open: Map<string, number>
@@ -163,7 +166,8 @@ export function serveConnection(socket: WebSocket, request: Request, options: Co
     const checked = verifySyncToken(secret, token, designId)
     if (!checked.ok) return end(SYNC_CLOSE.tokenExpired, checked.reason)
     const { payload } = checked
-    const key = JSON.stringify([designId, payload.userId, payload.workspaceId])
+    // A member's agent tabs count apart from the member's own, so agents never use up the person's.
+    const key = JSON.stringify([designId, payload.userId, payload.workspaceId, ...(payload.agent ? ['agent'] : [])])
     if (!options.mayConnect(key)) return end(SYNC_CLOSE.tooManyMessages, 'connections opened too fast')
     const given = accessOf(payload, token)
     if (olderThan(given)) return end(SYNC_CLOSE.tabTooOld, 'the tab is older than the design')

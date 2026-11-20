@@ -88,6 +88,22 @@ describe('limits', () => {
     for (const tab of [second, bob, again]) tab.close()
   })
 
+  it('counts a member’s agent tabs apart from the member’s own, so agents never use up the person’s', async () => {
+    const { url } = await started({ connectionsPerMember: 1, connectionsPerMinute: 2 })
+    const design = await storeSaved()
+    const claude = await joined(url, design, tokenFor(design, { agent: 'Claude (agent)' }))
+    const second = await openTab(url, design)
+    second.hello(tokenFor(design, { agent: 'Codex (agent)' }))
+    expect(await second.whenClosed()).toBe(SYNC_CLOSE.tooManyConnections)
+    const third = await openTab(url, design)
+    third.hello(tokenFor(design, { agent: 'Claude (agent)' }))
+    expect(await third.whenClosed()).toBe(SYNC_CLOSE.tooManyMessages)
+
+    const ann = await joined(url, design)
+    expect(typesOf(ann)).toContain('welcome')
+    for (const tab of [claude, ann]) tab.close()
+  })
+
   it('holds a member to so many new connections to a design a minute', async () => {
     const { url } = await started({ connectionsPerMinute: 3 })
     const design = await storeSaved()

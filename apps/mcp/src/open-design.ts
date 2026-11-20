@@ -58,6 +58,8 @@ export interface OpenDesign {
   tab: AgentTab
   name: string
   kit: BrandKit
+  /** An image asset's stored bytes, read through the API for the design's brand and kept by no one. */
+  imageBytes(assetId: string): Promise<Uint8Array>
   /** Sentences for the agent: that the design was opened again, when it was. */
   notes: string[]
 }
@@ -186,7 +188,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
       const why = tab.stopped()
       if (why) await end(tab, STOPPED[why])
       else tab.onStopped((stopped) => afterCalls(() => end(tab, STOPPED[stopped])))
-      return { tab, name, kit, notes }
+      return { tab, name, kit, notes, imageBytes: imagesOf(brandId) }
     } catch (error) {
       release()
       if (error instanceof TabStopped) throw new ToolRefusal(STOPPED[error.state])
@@ -248,10 +250,15 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     return opened
   }
 
+  /** The brand's image assets' bytes, read with the session's newest token. */
+  function imagesOf(brandId: string) {
+    return (assetId: string) => newestApi().assetBytes(brandId, assetId)
+  }
+
   /** Where the tab's fonts and images come from: the brand's, through the API. */
   function sourcesOf(brandId: string): AgentTabOptions['sources'] {
     return {
-      assetBytes: (assetId) => newestApi().assetBytes(brandId, assetId),
+      assetBytes: imagesOf(brandId),
       fontFiles: async (families) => {
         const api = newestApi()
         const faces = (await api.fonts(brandId))
@@ -305,7 +312,8 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     if (was.kind === 'open' && agent.brandIds !== null && !agent.brandIds.includes(was.brandId))
       await end(was.tab, STOPPED.NoAccess)
     const now = state
-    if (now.kind === 'open') return { tab: now.tab, name: now.name, kit: now.kit, notes: [] }
+    if (now.kind === 'open')
+      return { tab: now.tab, name: now.name, kit: now.kit, notes: [], imageBytes: imagesOf(now.brandId) }
     if (now.kind === 'ended') {
       state = { kind: 'none' }
       throw new ToolRefusal(now.why)

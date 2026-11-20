@@ -15,6 +15,8 @@ export interface LimitSettings {
 export interface RateBuckets {
   /** Takes one from `key`'s bucket, giving 0; or, when it is empty, the whole seconds until one is back. */
   take(key: string): number
+  /** Takes `count` more from `key`'s bucket, below empty if need be: what it took that cost more than one. */
+  charge(key: string, count: number): void
 }
 
 /** A setting's environment variable, its value when unset, and the least and most it may be. */
@@ -77,14 +79,30 @@ export const MAX_OAUTH_BODY_BYTES = 64 * 1024
  */
 export const MAX_RENDER_PIXELS = 4096 * 4096
 
-/**
- * A render drawn at more than this many pixels ends the render worker once done: CanvasKit's wasm memory grows to fit
- * the biggest surface drawn and never shrinks, so the next render starts a fresh worker.
- */
-export const BIG_RENDER_PIXELS = 2048 * 2048
+/** The most bytes of image files one render may send the worker; a frame drawing more is refused. */
+export const MAX_RENDER_IMAGE_BYTES = 64 * 1024 * 1024
 
-/** How long one render may take on the worker; past it the worker is ended, the render refused, and the next starts a fresh one. */
-export const RENDER_TIMEOUT_MS = 30_000
+/**
+ * The most pixels the images one render draws may take decoded, 4 bytes each; a frame drawing more is refused. The
+ * worker decodes each image whole: one 12-megapixel photo takes 48 MB.
+ */
+export const MAX_RENDER_IMAGE_PIXELS = 48_000_000
+
+/**
+ * A render whose surface and images take more than this many pixels ends the render worker once done: CanvasKit's
+ * wasm memory grows to fit the most a render held and never shrinks, so the next render starts a fresh worker, which
+ * takes about 2 seconds of CPU to start.
+ */
+export const BIG_RENDER_PIXELS = 32_000_000
+
+/**
+ * How long one render may take, its images read and its frame drawn; past it the worker is ended, the render refused,
+ * and the next starts a fresh worker.
+ */
+export const RENDER_TIMEOUT_MS = 20_000
+
+/** The worker time one render from an access's bucket pays for: each more it takes costs the access another render. */
+export const RENDER_MS_PER_RENDER = 2000
 
 /** The capacity limits read from the environment, with the value each takes when unset. */
 const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, Setting>> = {
@@ -136,5 +154,11 @@ export function rateBuckets(size: number, everyMs: number, now: () => number): R
     return 0
   }
 
-  return { take }
+  function charge(key: string, count: number) {
+    const time = now()
+    const held = heldAt(buckets.get(key) ?? { held: size, at: time }, time)
+    buckets.set(key, { held: held - count, at: time })
+  }
+
+  return { take, charge }
 }

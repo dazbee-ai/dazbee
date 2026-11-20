@@ -8,14 +8,18 @@ import type { AgentMe } from '@dazbee/schema'
 import { type AgentApi, ApiRefusal, TokenRefused } from '../api.ts'
 import { ANSWER_ENVELOPE_BYTES, inMiB, MAX_ANSWER_BYTES } from '../limits.ts'
 import type { SessionDesign } from '../open-design.ts'
-import type { RenderQueue } from '../render-queue.ts'
+import type { DrawnRender, FrameRender } from '../render-queue.ts'
 
-/** The renders an access may ask for: its bucket, and the process's queue they are drawn from. */
+/** The renders the calling access may ask for: its bucket, and the process's queue they are drawn from. */
 export interface AccessRenders {
+  /** The whole seconds to wait when the queue would refuse the access's render as busy; else 0. */
+  busy(): number
   /** Takes one render from the access's bucket, giving 0; or, when it is empty, the whole seconds until one is back. */
   take(): number
-  busy: RenderQueue['busy']
-  draw: RenderQueue['draw']
+  /** Takes `count` more renders from the access's bucket, below empty if need be. */
+  charge(count: number): void
+  /** The render `make` gives, made once its turn in the queue comes and drawn on the worker. */
+  draw(make: () => Promise<FrameRender>): Promise<DrawnRender>
 }
 
 /**

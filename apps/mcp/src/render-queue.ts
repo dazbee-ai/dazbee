@@ -1,11 +1,11 @@
-// The process's side of the render worker: renders wait here and are posted to the worker one at a time, so a job
-// holds no copy of its design or bytes until it is drawn. Past the renders that may wait, a render answers busy with
-// the seconds to wait. A render that takes too long, or a worker that fails, ends the worker; the next render starts
-// a fresh one.
+// The process's side of the render worker: renders wait here, at most one of each access, and each is made (its
+// design read, its images fetched) only when its turn comes, then posted to the worker, so one render at a time holds
+// its bytes. Past the renders that may wait, a render answers busy with the seconds to wait. A render that takes too
+// long, or a worker that fails, ends the worker; the next render starts a fresh one.
 import { Worker } from 'node:worker_threads'
 
 import { AGENT_RENDER_MAX_SCALE, type AgentRender } from '@dazbee/export'
-import type { Design } from '@dazbee/schema'
+import { type Design, readImageHeader } from '@dazbee/schema'
 
 import { BIG_RENDER_PIXELS, MAX_RENDER_PIXELS, RENDER_TIMEOUT_MS } from './limits.ts'
 import type { RenderAnswer, RenderJob } from './render-worker.ts'
@@ -25,15 +25,19 @@ export interface RenderThread {
 /** A render to draw: the job without its id, with the design as the tab holds it. */
 export type FrameRender = Omit<RenderJob, 'id' | 'design'> & { design: Design }
 
+/** A render drawn, with how long the worker took. */
+export type DrawnRender = AgentRender & { ms: number }
+
 /** The renders waiting for the worker, drawn one at a time. */
 export interface RenderQueue {
   /**
-   * The frame drawn on the worker once the renders before it are. A tool refusal says when too many wait, with the
-   * seconds to wait, when no PNG of the frame fits, or when it took too long to draw.
+   * The render `make` gives, made once its turn comes and drawn on the worker, for the access `by`. A tool refusal
+   * says when too many renders wait, or one of the access's already does, with the seconds to wait; when no PNG of
+   * the frame fits; or when it took too long.
    */
-  draw(render: FrameRender): Promise<AgentRender>
-  /** The whole seconds to wait when as many renders wait as may, so the next would be refused; else 0. */
-  busy(): number
+  draw(by: string, make: () => Promise<FrameRender>): Promise<DrawnRender>
+  /** The whole seconds to wait when a render of `by` would be refused as busy; else 0. */
+  busy(by: string): number
   /** Ends the worker; renders waiting or drawn are refused. */
   close(): void
 }
@@ -45,13 +49,22 @@ export interface RenderQueueOptions {
   start?: () => RenderThread
 }
 
-/** A render waiting or being drawn, with what settles its call. */
+/** A render waiting, with what settles its call. */
 interface Pending {
-  job: RenderJob
-  /** Whether the worker ends once it is drawn, for the memory it grew to. */
-  big: boolean
-  resolve(render: AgentRender): void
+  by: string
+  make: () => Promise<FrameRender>
+  resolve(render: DrawnRender): void
   reject(error: Error): void
+}
+
+/** The render being made or drawn: its timer, and once made its job and whether it ends the worker. */
+interface Drawing extends Pending {
+  timer: NodeJS.Timeout
+  job?: RenderJob
+  /** When the job was posted to the worker. */
+  at?: number
+  /** Whether the worker ends once it is drawn, for the memory it grew to. */
+  big?: boolean
 }
 
 /** What a render is told once the server is stopping. */
@@ -61,12 +74,12 @@ const FIRST_GUESS_MS = 1000
 /** The weight the latest render's time takes in the time a render is taken to last. */
 const LATEST_WEIGHT = 0.2
 
-/** The renders of the process, at most `waiting` waiting beside the one being drawn. */
+/** The renders of the process, at most `waiting` waiting beside the one being drawn, and one of each access. */
 export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = startWorker }: RenderQueueOptions) {
   /** The worker, started on the first render and again after one ends. */
   let thread: RenderThread | undefined
-  /** The render on the worker, with when it was posted and the timer that ends it. */
-  let drawing: (Pending & { at: number; timer: NodeJS.Timeout }) | undefined
+  /** The render being made or drawn. */
+  let drawing: Drawing | undefined
   /** The renders waiting, first come first. */
   const queued: Pending[] = []
   /** How long a render has lasted lately, in milliseconds. */
@@ -76,46 +89,71 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
   /** Whether the queue was closed: it takes no render after. */
   let closed = false
 
-  function busy() {
+  function busy(by: string) {
+    if (drawing?.by === by) return secondsFor(1)
+    const ahead = queued.findIndex((pending) => pending.by === by)
+    if (ahead >= 0) return secondsFor(ahead + 2)
     if (!drawing || queued.length < waiting) return 0
-    return Math.max(1, Math.ceil((lasts * (queued.length + 1)) / 1000))
+    return secondsFor(queued.length + 1)
   }
 
-  function draw(render: FrameRender): Promise<AgentRender> {
+  /** The whole seconds `renders` renders take, as they have lately. */
+  function secondsFor(renders: number) {
+    return Math.max(1, Math.ceil((lasts * renders) / 1000))
+  }
+
+  function draw(by: string, make: () => Promise<FrameRender>): Promise<DrawnRender> {
     if (closed) return Promise.reject(new ToolRefusal(STOPPING))
-    const wait = busy()
+    const wait = busy(by)
     if (wait > 0)
       return Promise.reject(new ToolRefusal(`Dazbee is drawing other renders; try again in ${wait} seconds`))
-    const frame = render.design.frames[render.frameId]
-    if (!frame) return Promise.reject(new Error(`no frame "${render.frameId}"`))
-    const { maxSize, pixels } = drawnAt(frame, render.maxSize)
-    const job = { ...render, design: JSON.stringify(render.design), maxSize, id: nextId++ }
     return new Promise((resolve, reject) => {
-      queued.push({ job, big: pixels > BIG_RENDER_PIXELS, resolve, reject })
+      queued.push({ by, make, resolve, reject })
       next()
     })
   }
 
-  /** Posts the first render waiting, once the worker is free. */
+  /** Makes the first render waiting, once none is being made or drawn, and posts it to the worker. */
   function next() {
     const pending = drawing ? undefined : queued.shift()
     if (!pending) return
-    const worker = (thread ??= started())
-    const timer = setTimeout(
-      () =>
-        failed(
-          worker,
-          new ToolRefusal(`The frame took more than ${timeoutMs / 1000} seconds to draw; ask for a smaller maxSize`),
-        ),
-      timeoutMs,
+    const current: Drawing = { ...pending, timer: setTimeout(() => timedOut(current), timeoutMs) }
+    drawing = current
+    pending.make().then(
+      (render) => {
+        if (drawing === current) post(current, render)
+      },
+      (error: unknown) => {
+        if (drawing === current) settle(current, () => current.reject(asError(error)))
+      },
     )
-    drawing = { ...pending, at: performance.now(), timer }
+  }
+
+  /** Posts the render made to the worker, started if there is none. */
+  function post(current: Drawing, render: FrameRender) {
+    const frame = render.design.frames[render.frameId]
+    if (!frame) return settle(current, () => current.reject(new Error(`no frame "${render.frameId}"`)))
+    const { maxSize, pixels } = drawnAt(frame, render.maxSize)
+    current.job = { ...render, design: JSON.stringify(render.design), maxSize, id: nextId++ }
+    current.big = pixels + decodedPixels(render.images) > BIG_RENDER_PIXELS
+    current.at = performance.now()
+    const worker = (thread ??= started())
     worker.ref()
     try {
-      worker.postMessage(pending.job)
+      worker.postMessage(current.job)
     } catch (error) {
-      failed(worker, error instanceof Error ? error : new Error(String(error)))
+      failed(worker, asError(error))
     }
+  }
+
+  /** Refuses a render past its time; the worker drawing it is ended. */
+  function timedOut(current: Drawing) {
+    if (drawing !== current) return
+    const refusal = new ToolRefusal(
+      `The frame took more than ${timeoutMs / 1000} seconds to draw; ask for a smaller maxSize`,
+    )
+    if (current.job && thread) failed(thread, refusal)
+    else settle(current, () => current.reject(refusal))
   }
 
   /** A new worker, which keeps the process alive only while it draws. */
@@ -128,32 +166,40 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
     return worker
   }
 
-  /** Settles the render the worker answered, and posts the next. */
+  /**
+   * Settles the render the worker answered, and makes the next. A worker that answered an error is ended too, since
+   * its CanvasKit may have aborted.
+   */
   function answered(worker: RenderThread, answer: RenderAnswer) {
-    const done = drawing
-    if (worker !== thread || !done || answer.id !== done.job.id) return
-    drawing = undefined
-    clearTimeout(done.timer)
-    lasts += (performance.now() - done.at - lasts) * LATEST_WEIGHT
-    if (done.big) end(worker)
+    const current = drawing
+    const job = current?.job
+    if (worker !== thread || !current || !job || answer.id !== job.id) return
+    const ms = performance.now() - (current.at ?? 0)
+    lasts += (ms - lasts) * LATEST_WEIGHT
+    if (current.big || 'error' in answer) end(worker)
     else worker.unref()
-    if ('png' in answer) done.resolve(answer)
-    else if ('tooBig' in answer)
-      done.reject(new ToolRefusal(`No picture of the frame “${done.job.frameId}” is small enough to send`))
-    else done.reject(new Error(answer.error))
-    next()
+    settle(current, () => {
+      if ('png' in answer)
+        current.resolve({ png: answer.png, width: answer.width, height: answer.height, scale: answer.scale, ms })
+      else if ('tooBig' in answer)
+        current.reject(new ToolRefusal(`No picture of the frame “${job.frameId}” is small enough to send`))
+      else current.reject(new Error(answer.error))
+    })
   }
 
-  /** Ends a worker that failed or took too long, refusing its render with `error`, and posts the next. */
+  /** Ends a worker that failed or took too long, refusing its render with `error`, and makes the next. */
   function failed(worker: RenderThread, error: Error) {
     if (worker !== thread) return
     end(worker)
-    const done = drawing
+    const current = drawing
+    if (current) settle(current, () => current.reject(error))
+  }
+
+  /** Ends the render being made or drawn, tells its call with `tell`, and makes the next. */
+  function settle(current: Drawing, tell: () => void) {
+    clearTimeout(current.timer)
     drawing = undefined
-    if (done) {
-      clearTimeout(done.timer)
-      done.reject(error)
-    }
+    tell()
     next()
   }
 
@@ -167,15 +213,32 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
     closed = true
     const refused = new ToolRefusal(STOPPING)
     for (const pending of queued.splice(0)) pending.reject(refused)
-    if (thread) failed(thread, refused)
+    const current = drawing
+    if (thread) end(thread)
+    if (current) settle(current, () => current.reject(refused))
   }
 
   return { draw, busy, close } satisfies RenderQueue
 }
 
+/** The pixels images take decoded, read from their headers; an image whose header can't be read counts none. */
+export function decodedPixels(images: Readonly<Record<string, Uint8Array>>): number {
+  let pixels = 0
+  for (const bytes of Object.values(images)) {
+    const header = readImageHeader(bytes)
+    if (header) pixels += header.width * header.height
+  }
+  return pixels
+}
+
 /** The render worker, a thread of its own. */
 function startWorker(): RenderThread {
   return new Worker(new URL('./render-worker.ts', import.meta.url))
+}
+
+/** `error` as an Error. */
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
 }
 
 /**

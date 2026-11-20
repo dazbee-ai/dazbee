@@ -24,10 +24,13 @@ function design(): Design {
   return parsed.design
 }
 
-/** A render of the square at `maxSize`. */
-function squareAt(maxSize: number): FrameRender {
-  return { design: design(), frameId: 'sq', maxSize, fonts: [], images: {} }
+/** A render of the square at `maxSize`, made at once. */
+function squareAt(maxSize: number): () => Promise<FrameRender> {
+  return async () => ({ design: design(), frameId: 'sq', maxSize, fonts: [], images: {} })
 }
+
+/** Lets the queue make what waits: a render is made in a promise's turn. */
+const made = () => new Promise((resolve) => setImmediate(resolve))
 
 /** A queue whose workers are stand-ins, each kept in `workers` as it starts. */
 function fakeQueue(timeoutMs = 60_000) {
@@ -73,78 +76,146 @@ function drawn(job: RenderJob | undefined): RenderAnswer {
 }
 
 describe('renderQueue', () => {
-  it('posts one render at a time, the next once the one before is answered', async () => {
+  it('makes and posts one render at a time, the next once the one before is answered', async () => {
     const { queue, workers } = fakeQueue()
-    const first = queue.draw(squareAt(100))
-    const second = queue.draw(squareAt(200))
+    let makes = 0
+    const counted = (maxSize: number) => () => {
+      makes++
+      return squareAt(maxSize)()
+    }
+    const first = queue.draw('ann', counted(100))
+    const second = queue.draw('bob', counted(200))
+    await made()
     const [worker] = workers
+    expect(makes).toBe(1)
     expect(worker?.posted.map((job) => job.maxSize)).toEqual([100])
     worker?.answer(drawn(worker.posted[0]))
-    expect(await first).toMatchObject({ width: 4 })
+    expect(await first).toMatchObject({ width: 4, ms: expect.any(Number) })
+    await made()
     expect(worker?.posted.map((job) => job.maxSize)).toEqual([100, 200])
     worker?.answer(drawn(worker.posted[1]))
     await second
     expect(workers).toHaveLength(1)
   })
 
+  it('refuses a second render of one access while its first waits or is drawn, with the seconds to wait', async () => {
+    const { queue, workers } = fakeQueue()
+    const first = queue.draw('ann', squareAt(100))
+    expect(queue.busy('ann')).toBeGreaterThan(0)
+    expect(queue.busy('bob')).toBe(0)
+    await expect(queue.draw('ann', squareAt(100))).rejects.toThrow(
+      /^Dazbee is drawing other renders; try again in \d+ seconds$/,
+    )
+    await made()
+    workers[0]?.answer(drawn(workers[0].posted[0]))
+    await first
+    expect(queue.busy('ann')).toBe(0)
+  })
+
   it('draws a frame past MAX_RENDER_PIXELS smaller, and ends the worker after a big render', async () => {
     const { queue, workers } = fakeQueue()
-    const big = queue.draw(squareAt(8192))
+    const big = queue.draw('ann', squareAt(8192))
+    await made()
     const [worker] = workers
     const asked = worker?.posted[0]?.maxSize ?? 0
     expect(asked * asked).toBeLessThanOrEqual(MAX_RENDER_PIXELS)
     expect(asked).toBeGreaterThan(4000)
     worker?.answer(drawn(worker.posted[0]))
     await big
-    expect(worker?.ended).toBe(true)
-    const next = queue.draw(squareAt(100))
+    expect(worker?.ended).toBe(false)
+    const small = queue.draw('ann', squareAt(100))
+    await made()
+    worker?.answer(drawn(worker.posted[1]))
+    await small
+    expect(worker?.ended).toBe(false)
+  })
+
+  it('ends the worker after a render whose surface and images pass BIG_RENDER_PIXELS', async () => {
+    const { queue, workers } = fakeQueue()
+    // A PNG header of 6,000 × 6,000 pixels: 36 million decoded.
+    const header = Uint8Array.from(
+      Buffer.from('89504e470d0a1a0a0000000d49484452000017700000177008060000001f15c489', 'hex'),
+    )
+    const heavy = queue.draw('ann', async () => ({ ...(await squareAt(100)()), images: { photo: header } }))
+    await made()
+    workers[0]?.answer(drawn(workers[0].posted[0]))
+    await heavy
+    expect(workers[0]?.ended).toBe(true)
+    const next = queue.draw('ann', squareAt(100))
+    await made()
     expect(workers).toHaveLength(2)
     workers[1]?.answer(drawn(workers[1].posted[0]))
     await next
-    expect(workers[1]?.ended).toBe(false)
   })
 
   it('refuses a render that takes too long, ends its worker, and draws the next on a fresh one', async () => {
     const { queue, workers } = fakeQueue(20)
-    const slow = queue.draw(squareAt(100))
-    const next = queue.draw(squareAt(100))
+    const slow = queue.draw('ann', squareAt(100))
+    const next = queue.draw('bob', squareAt(100))
     await expect(slow).rejects.toThrow(ToolRefusal)
     await expect(slow).rejects.toThrow('The frame took more than 0.02 seconds to draw; ask for a smaller maxSize')
     expect(workers[0]?.ended).toBe(true)
+    await made()
     expect(workers).toHaveLength(2)
     workers[1]?.answer(drawn(workers[1].posted[0]))
+    expect(await next).toMatchObject({ width: 4 })
+  })
+
+  it('refuses a render whose making takes too long, without a worker, and makes the next', async () => {
+    const { queue, workers } = fakeQueue(20)
+    const never = queue.draw('ann', () => new Promise<FrameRender>(() => {}))
+    const next = queue.draw('bob', squareAt(100))
+    await expect(never).rejects.toThrow('The frame took more than 0.02 seconds to draw')
+    await made()
+    workers[0]?.answer(drawn(workers[0].posted[0]))
+    expect(await next).toMatchObject({ width: 4 })
+  })
+
+  it('refuses a render whose making failed, and makes the next', async () => {
+    const { queue, workers } = fakeQueue()
+    const refused = queue.draw('ann', () => Promise.reject(new ToolRefusal('too many images')))
+    const next = queue.draw('bob', squareAt(100))
+    await expect(refused).rejects.toThrow('too many images')
+    await made()
+    workers[0]?.answer(drawn(workers[0].posted[0]))
     expect(await next).toMatchObject({ width: 4 })
   })
 
   it('refuses the render of a worker that fails, and draws the next on a fresh one', async () => {
     const { queue, workers } = fakeQueue()
-    const failing = queue.draw(squareAt(100))
-    const next = queue.draw(squareAt(100))
+    const failing = queue.draw('ann', squareAt(100))
+    const next = queue.draw('bob', squareAt(100))
+    await made()
     workers[0]?.fail(new Error('out of memory'))
     await expect(failing).rejects.toThrow('out of memory')
+    await made()
     workers[1]?.answer(drawn(workers[1].posted[0]))
     expect(await next).toMatchObject({ width: 4 })
   })
 
-  it('refuses a frame no PNG of which fits, and an error the worker answers', async () => {
+  it('refuses a frame no PNG of which fits; ends the worker that answers an error', async () => {
     const { queue, workers } = fakeQueue()
-    const tooBig = queue.draw(squareAt(100))
+    const tooBig = queue.draw('ann', squareAt(100))
+    await made()
     workers[0]?.answer({ id: workers[0].posted[0]?.id ?? -1, tooBig: true })
     await expect(tooBig).rejects.toThrow('No picture of the frame “sq” is small enough to send')
-    const failed = queue.draw(squareAt(100))
-    workers[0]?.answer({ id: workers[0].posted[1]?.id ?? -1, error: 'no image for asset "x"' })
-    await expect(failed).rejects.toThrow('no image for asset "x"')
-    expect(workers).toHaveLength(1)
+    expect(workers[0]?.ended).toBe(false)
+    const failed = queue.draw('ann', squareAt(100))
+    await made()
+    workers[0]?.answer({ id: workers[0].posted[1]?.id ?? -1, error: 'RuntimeError: Aborted()' })
+    await expect(failed).rejects.toThrow('RuntimeError: Aborted()')
+    expect(workers[0]?.ended).toBe(true)
   })
 
   it('refuses what waits once closed, and anything after', async () => {
     const { queue, workers } = fakeQueue()
-    const drawing = queue.draw(squareAt(100))
-    const waiting = queue.draw(squareAt(100))
+    const drawing = queue.draw('ann', squareAt(100))
+    const waiting = queue.draw('bob', squareAt(100))
+    await made()
     queue.close()
     await expect(drawing).rejects.toThrow('This server is stopping')
     await expect(waiting).rejects.toThrow('This server is stopping')
-    await expect(queue.draw(squareAt(100))).rejects.toThrow('This server is stopping')
+    await expect(queue.draw('cat', squareAt(100))).rejects.toThrow('This server is stopping')
     expect(workers[0]?.ended).toBe(true)
   })
 })

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
-import { limitSettings, MAX_ANSWER_BYTES, MAX_BODY_BYTES } from './limits.ts'
+import { limitSettings, MAX_ANSWER_BYTES, MAX_BODY_BYTES, rateBuckets } from './limits.ts'
 import type { RenderThread } from './render-queue.ts'
 import type { RenderAnswer, RenderJob } from './render-worker.ts'
 import { TEST_BOTTLE_PNG } from './test-api.ts'
@@ -162,17 +162,13 @@ describe('limitSettings', () => {
     const worker = heldWorker()
     server = testServer({ startRenderWorker: worker.start })
     const { rendersWaiting } = limitSettings({})
-    // One render drawn, the ones that may wait, and one more, each from a session of its own.
+    // One render drawn, the ones that may wait, and one more, each from an access of its own.
     const agents: TestClient[] = []
-    for (let access = 0; agents.length < rendersWaiting + 2; access++) {
-      const of = server.api.addAccess()
-      agents.push(await withDesign(server, of), await withDesign(server, of))
-    }
-    const results = agents.slice(0, rendersWaiting + 2).map((agent) => agent.call('render_frame', { frame: 'banner' }))
+    while (agents.length < rendersWaiting + 2) agents.push(await withDesign(server, server.api.addAccess()))
+    const results = agents.map((agent) => agent.call('render_frame', { frame: 'banner' }))
     const refused = await Promise.race(results)
     expect(refused.isError).toBe(true)
     expect(textOf(refused)).toMatch(/^Dazbee is drawing other renders; try again in \d+ seconds\.$/)
-    expect(worker.posted).toHaveLength(1)
     worker.release()
     const answered = await Promise.all(results)
     expect(answered.filter((result) => result.isError)).toHaveLength(1)
@@ -196,5 +192,17 @@ describe('rateBuckets', () => {
     expect((await other.call('render_frame', { frame: 'banner', maxSize: 16 })).isError).toBeFalsy()
     server.wait(renderEverySeconds * 1000)
     expect((await render()).isError).toBeFalsy()
+  })
+
+  it('charges more renders below empty, and refills from there', () => {
+    let time = 0
+    const buckets = rateBuckets(10, 6000, () => time)
+    expect(buckets.take('ann')).toBe(0)
+    buckets.charge('ann', 14)
+    // Five below empty: six renders' time before one is back.
+    expect(buckets.take('ann')).toBe(36)
+    time += 36_000
+    expect(buckets.take('ann')).toBe(0)
+    expect(buckets.take('bob')).toBe(0)
   })
 })

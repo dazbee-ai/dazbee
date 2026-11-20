@@ -1,13 +1,14 @@
 // render_frame: an agent looks at a frame of the open design, an agent render drawn on the render worker from what
-// the session's agent tab holds.
+// the session's agent tab holds, with the frame's images read for that render only.
 import { z } from 'zod'
 
-import type { AgentTab } from '@dazbee/editor/agent-tab'
 import { AGENT_RENDER_MAX_SIZE, AGENT_RENDER_SIZES } from '@dazbee/export'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { fontFamilies, imageAssetIds } from '@dazbee/schema'
 
-import type { FrameRender } from '../render-queue.ts'
+import { inMiB, MAX_RENDER_IMAGE_BYTES, MAX_RENDER_IMAGE_PIXELS, RENDER_MS_PER_RENDER } from '../limits.ts'
+import type { OpenDesign } from '../open-design.ts'
+import { decodedPixels, type FrameRender } from '../render-queue.ts'
 import { defineTool, type Tool, ToolRefusal, WithPicture } from './define-tool.ts'
 import { FrameId, frameOf, onDesign } from './design-tools.ts'
 
@@ -32,43 +33,54 @@ export const RENDER_TOOLS: Tool[] = [
         ),
     }),
     run: ({ frame, maxSize = AGENT_RENDER_MAX_SIZE }, context) =>
-      onDesign(context, async ({ tab }) => {
-        frameOf(tab.design(), frame)
-        await tab.frameLoaded(frame)
-        const render = renderOf(tab, frame, maxSize)
-        // Nothing is awaited from here to the draw, so a render refused as busy takes none of the access's.
-        const busy = context.renders.busy()
+      onDesign(context, async (open) => {
+        frameOf(open.tab.design(), frame)
+        const { renders } = context
+        const busy = renders.busy()
         if (busy > 0) throw new ToolRefusal(`Dazbee is drawing other renders; try again in ${busy} seconds`)
-        const wait = context.renders.take()
+        const wait = renders.take()
         if (wait > 0)
           throw new ToolRefusal(`This agent has asked for many renders at once; try again in ${wait} seconds`)
-        const { png, width, height, scale } = await context.renders.draw(render)
+        const { png, width, height, scale, ms } = await renders.draw(() => renderOf(open, frame, maxSize))
+        // A render that held the worker long costs the access more of its renders.
+        renders.charge(Math.floor(ms / RENDER_MS_PER_RENDER))
         return new WithPicture(png, { frame, width, height, scale })
       }),
   }),
 ]
 
 /**
- * The render of the frame as the tab holds it now: the design, and of its bytes only the fonts the app doesn't ship
- * of the families it draws and the images the frame draws. An image that didn't load is refused.
+ * The render of the frame as the tab holds it now: the design, the fonts the app doesn't ship of the families it
+ * draws, and the images the frame draws, read from the API for this render alone. Refused when the images pass what
+ * one render may send or decode, or one didn't load.
  */
-function renderOf(tab: AgentTab, frameId: string, maxSize: number): FrameRender {
+async function renderOf({ tab, imageBytes }: OpenDesign, frameId: string, maxSize: number): Promise<FrameRender> {
+  await tab.fontsLoaded()
   const design = tab.design()
-  const { fonts, images, variables } = tab.bytes()
-  const shipped = new Set(loadFontFiles().map(({ bytes }) => bytes))
-  const families = new Set(fontFamilies(design, variables))
-  const ids = imageAssetIds(design, [frameId], variables)
-  const missing = ids.filter((id) => !Object.hasOwn(images, id))
-  if (missing.length > 0)
+  const { fonts, variables } = tab.bytes()
+  const images: Record<string, Uint8Array> = {}
+  let bytes = 0
+  for (const id of imageAssetIds(design, [frameId], variables)) {
+    const image = await imageBytes(id).catch(() => {
+      throw new ToolRefusal(`The frame’s image ${id} could not be read; try again in a moment`)
+    })
+    bytes += image.length
+    if (bytes > MAX_RENDER_IMAGE_BYTES)
+      throw new ToolRefusal(`The frame’s images are more than the ${inMiB(MAX_RENDER_IMAGE_BYTES)} a render may draw`)
+    images[id] = image
+  }
+  if (decodedPixels(images) > MAX_RENDER_IMAGE_PIXELS)
     throw new ToolRefusal(
-      `The frame’s image${missing.length === 1 ? '' : 's'} ${missing.join(', ')} could not be loaded; try again in a moment`,
+      `The frame’s images are more than the ${MAX_RENDER_IMAGE_PIXELS / 1_000_000} million pixels a render may draw`,
     )
+  const shipped = new Set(loadFontFiles().map((font) => font.bytes))
+  const families = new Set(fontFamilies(design, variables))
   return {
     design,
     frameId,
     maxSize,
-    fonts: fonts.filter(({ family, bytes }) => families.has(family) && !shipped.has(bytes)),
-    images: Object.fromEntries(ids.map((id) => [id, images[id] as Uint8Array])),
+    fonts: fonts.filter((font) => families.has(font.family) && !shipped.has(font.bytes)),
+    images,
     ...(variables ? { variables } : {}),
   }
 }

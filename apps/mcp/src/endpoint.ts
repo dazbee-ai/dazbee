@@ -149,7 +149,12 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
         agent,
         api: agentApi(api, token, agent.workspaceId, refuse),
         design: opened.design,
-        renders: { take: () => renderBuckets.take(agent.id), busy: renders.busy, draw: renders.draw },
+        renders: {
+          busy: () => renders.busy(agent.id),
+          take: () => renderBuckets.take(agent.id),
+          charge: (count) => renderBuckets.charge(agent.id, count),
+          draw: (make) => renders.draw(agent.id, make),
+        },
       },
       refused: false,
     }

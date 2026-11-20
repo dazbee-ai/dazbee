@@ -1,6 +1,6 @@
 export * from './admin.ts'
 export * from './api.ts'
-export { carryOverLayer, carryOverLayers } from './carry-over.ts'
+export { carryOverLayer, carryOverLayers, carryOverTextStyle } from './carry-over.ts'
 export * from './clipboard.ts'
 export {
   checkFrame,

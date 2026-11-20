@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseLayer } from './parse-incremental.ts'
-import { minimal } from './test-design.ts'
+import { minimal, storedText } from './test-design.ts'
 
 describe('parseLayer', () => {
   it('reuses the validated layer for a layer object seen before, and validates a replaced one again', () => {
@@ -20,6 +20,14 @@ describe('parseLayer', () => {
     if (!first.success) throw new Error('expected a layer')
     expect(parseLayer(first.layer)).toEqual({ success: true, layer: first.layer })
     expect(Object.isFrozen(first.layer.props)).toBe(true)
+  })
+
+  it('reads a layer stored before letter spacing had a unit, carried over to pixels with their unit', () => {
+    const layer = parseLayer(storedText())
+    expect(layer.success && layer.layer.type === 'text' && layer.layer.props.style.letterSpacing).toEqual({
+      unit: 'px',
+      value: 2,
+    })
   })
 
   it('gives the issues of a layer the schema does not take, each as path: message', () => {

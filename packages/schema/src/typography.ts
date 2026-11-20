@@ -25,26 +25,6 @@ export type Features = z.infer<typeof Features>
 /** Letter spacing of none, as a percentage so it follows the size: what a text without its own has. */
 export const NO_LETTER_SPACING: LetterSpacing = { unit: 'percent', value: 0 }
 
-/**
- * The OpenType features the text tab offers, in the order it lists them, each with whether fonts
- * turn it on by default. Small caps is drawn from scaled capitals where the font has none.
- */
-export const OFFERED_FEATURES = [
-  { tag: 'liga', onByDefault: true },
-  { tag: 'calt', onByDefault: true },
-  { tag: 'tnum', onByDefault: false },
-  { tag: 'frac', onByDefault: false },
-  { tag: 'case', onByDefault: false },
-  { tag: 'zero', onByDefault: false },
-  { tag: 'ss01', onByDefault: false },
-  { tag: 'ss02', onByDefault: false },
-  { tag: 'ss03', onByDefault: false },
-  { tag: 'ss04', onByDefault: false },
-  { tag: 'ss05', onByDefault: false },
-  { tag: 'smcp', onByDefault: false },
-] as const
-export type OfferedFeature = (typeof OFFERED_FEATURES)[number]['tag']
-
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */
 export function letterSpacingPx(spacing: LetterSpacing, fontSize: number): number {
   return spacing.unit === 'px' ? spacing.value : (fontSize * spacing.value) / 100

@@ -2,7 +2,7 @@ import type { CanvasKit, FontCollection, Image, TypefaceFontProvider } from '@da
 import type { Variables } from '@dazbee/schema'
 
 import type { LayerPictures } from './pictures.ts'
-import { familyFeatures } from './text/font-features.ts'
+import { type FamilyFeatures, familyFeatures } from './text/font-features.ts'
 import type { ParagraphCache } from './text/layout.ts'
 
 /** An image's width and height in its own pixels. */
@@ -20,7 +20,7 @@ export interface Resources {
    * The OpenType features each family has, those of every one of its files (`familyFeatures`):
    * small caps a family lacks are made up from capitals. Without it, every family lacks them.
    */
-  familyFeatures?: ReadonlyMap<string, ReadonlySet<string>>
+  familyFeatures?: FamilyFeatures
   images: ReadonlyMap<string, Image>
   /**
    * Each image's own size, where the image drawn is a smaller display copy of it, as the editor's
@@ -74,22 +74,22 @@ export function resourceCache(ck: CanvasKit) {
         list: ResourceBytes['fonts']
         provider: TypefaceFontProvider
         collection: FontCollection
-        features: ReadonlyMap<string, ReadonlySet<string>>
+        features: FamilyFeatures
       }
     | undefined
 
   function resources(bytes: ResourceBytes): Resources {
-    const collection = fontsFor(bytes.fonts)
+    const registered = fontsFor(bytes.fonts)
     return {
-      fonts: collection,
+      fonts: registered.collection,
       fallbackFamilies: [...bytes.fallbackFamilies],
-      familyFeatures: fonts?.features ?? new Map(),
+      familyFeatures: registered.features,
       images: imagesFor(bytes.images),
     }
   }
 
   function fontsFor(list: ResourceBytes['fonts']) {
-    if (fonts && sameFonts(fonts.list, list)) return fonts.collection
+    if (fonts && sameFonts(fonts.list, list)) return fonts
     // A provider can't drop a font, so a changed set of fonts is registered again from scratch.
     const provider = ck.TypefaceFontProvider.Make()
     for (const font of list) provider.registerFont(font.bytes, font.family)
@@ -97,7 +97,7 @@ export function resourceCache(ck: CanvasKit) {
     collection.setDefaultFontManager(provider)
     freeFonts()
     fonts = { list: [...list], provider, collection, features: familyFeatures(list) }
-    return collection
+    return fonts
   }
 
   function freeFonts() {

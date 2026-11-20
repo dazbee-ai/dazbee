@@ -1,6 +1,9 @@
 // The OpenType features a font file has: the tags in its GSUB and GPOS feature lists, read from its
 // bytes, so the text tab offers only what the font can do and small caps can be drawn where it can't.
 
+/** The OpenType features each family has, by family. */
+export type FamilyFeatures = ReadonlyMap<string, ReadonlySet<string>>
+
 /** The features found by the bytes read, so a font's file is read once. */
 const read = new WeakMap<Uint8Array, ReadonlySet<string>>()
 
@@ -32,7 +35,7 @@ export function fontFeatureTags(bytes: Uint8Array): ReadonlySet<string> {
  * The features each family has, by family: those every one of its files has, so a feature is
  * counted on only where each weight and style of the family draws it.
  */
-export function familyFeatures(fonts: readonly { family: string; bytes: Uint8Array }[]) {
+export function familyFeatures(fonts: readonly { family: string; bytes: Uint8Array }[]): FamilyFeatures {
   const families = new Map<string, Set<string>>()
   for (const { family, bytes } of fonts) {
     const tags = fontFeatureTags(bytes)
@@ -40,7 +43,7 @@ export function familyFeatures(fonts: readonly { family: string; bytes: Uint8Arr
     if (!had) families.set(family, new Set(tags))
     else for (const tag of had) if (!tags.has(tag)) had.delete(tag)
   }
-  return families as ReadonlyMap<string, ReadonlySet<string>>
+  return families
 }
 
 /** The four-character tag at `at`. */

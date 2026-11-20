@@ -128,6 +128,13 @@ describe('keepStyle and rememberedStyle', () => {
     expect(rememberedStyle(kept)).toEqual(style)
   })
 
+  it('reads a text’s style kept by a tab built before letter spacing had a unit, carried over', () => {
+    const look = { fontFamily: 'Inter', fontWeight: 400, fontStyle: 'normal', color: '#000000FF', letterSpacing: 2 }
+    const text = { ...look, lineHeight: null, paragraphSpacing: null, outline: null }
+    kept.items.set('dazbee.copiedStyle', JSON.stringify({ ...style, fills: undefined, text }))
+    expect(rememberedStyle(kept)?.text).toMatchObject({ letterSpacing: { unit: 'px', value: 2 }, features: null })
+  })
+
   it('finds nothing in a kept value it can’t read, and keeps nothing with storage off', () => {
     kept.items.set('dazbee.copiedStyle', '{"opacity": 7}')
     expect(rememberedStyle(kept)).toBeNull()

@@ -1,7 +1,9 @@
-// Small caps drawn where the font has none, as FigCraft draws them: a style with the `smcp` feature
-// on whose family lacks it draws its lower-case letters as capitals at 72% of its size, keeping the
-// letter spacing of the full size. The text drawn keeps its length, so offsets still match.
+// Small caps drawn where the font has none: a style with the `smcp` feature on whose family lacks
+// it draws its lower-case letters as capitals at 72% of its size, keeping the letter spacing of the
+// full size. The text drawn keeps its length, so offsets still match.
 import { letterSpacingPx, type TextProps } from '@dazbee/schema'
+
+import type { FamilyFeatures } from './font-features.ts'
 
 /** A stretch of a text's characters with the one style they are drawn in. */
 export interface StyledPiece {
@@ -11,7 +13,7 @@ export interface StyledPiece {
 }
 
 /** The share of the size lower-case letters are drawn at as made-up small caps. */
-export const SMALL_CAP_SCALE = 0.72
+const SMALL_CAP_SCALE = 0.72
 
 const LOWER = /\p{Ll}/u
 
@@ -22,7 +24,7 @@ const LOWER = /\p{Ll}/u
 export function madeUpSmallCaps(
   shown: string,
   pieces: readonly StyledPiece[],
-  familyFeatures: ReadonlyMap<string, ReadonlySet<string>> | undefined,
+  familyFeatures: FamilyFeatures | undefined,
 ): { shown: string; pieces: StyledPiece[] } {
   let out = ''
   let at = 0

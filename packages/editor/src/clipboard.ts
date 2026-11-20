@@ -1,7 +1,14 @@
 // What a copy puts on the clipboard and a paste brings from it, as plain data; copied layers as
 // one, kept on this device too, so a paste that brings only their plain text still pastes them; and
 // the style Copy style keeps on this device for Paste style.
-import { carryOverLayers, isRecord, LAYER_CLIPBOARD_TYPE, LayerClipboard, LayerStyle } from '@dazbee/schema'
+import {
+  carryOverLayers,
+  carryOverTextStyle,
+  isRecord,
+  LAYER_CLIPBOARD_TYPE,
+  LayerClipboard,
+  LayerStyle,
+} from '@dazbee/schema'
 
 /** A file on the clipboard: its name and type are known at once, its contents read only when asked for. */
 export interface ClipboardFile {
@@ -110,7 +117,10 @@ export function styleKept(remembered: Remembered, style: LayerStyle) {
 /** The style last copied on this device; null when there is none, or it can't be read. */
 export function rememberedStyle(remembered: Remembered): LayerStyle | null {
   try {
-    const parsed = LayerStyle.safeParse(JSON.parse(remembered.get(STYLE) ?? 'null'))
+    const kept: unknown = JSON.parse(remembered.get(STYLE) ?? 'null')
+    // A style kept by a tab built before this schema's version: its text look carried over.
+    const value = isRecord(kept) && isRecord(kept.text) ? { ...kept, text: carryOverTextStyle(kept.text) } : kept
+    const parsed = LayerStyle.safeParse(value)
     return parsed.success ? parsed.data : null
   } catch {
     return null

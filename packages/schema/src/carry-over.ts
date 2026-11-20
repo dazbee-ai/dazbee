@@ -3,27 +3,40 @@
 // over in the record itself and leaves any other record as it is: every step runs on every read.
 import { isRecord } from './json.ts'
 
-/** One step: the schema version it carries layers over to, and what it does to one layer record. */
-interface CarryOverStep {
-  to: number
-  /** The layer carried over, a new object; the same object when it holds nothing this step carries over. */
-  layer(record: Record<string, unknown>): Record<string, unknown>
-}
-
 type Rec = Record<string, unknown>
 
+/**
+ * One step: the schema version it carries over to, and what it does to a text's character style,
+ * as a text's base style, its runs' and a copied style's text look hold it. Each gives back the
+ * same object when it holds nothing the step carries over.
+ */
+interface CarryOverStep {
+  to: number
+  textStyle(style: Rec): Rec
+}
+
+/** To version 10: letter spacing stored as a bare number of pixels becomes pixels with their unit. */
+function letterSpacingWithUnit(style: Rec): Rec {
+  if (typeof style.letterSpacing !== 'number') return style
+  return { ...style, letterSpacing: { unit: 'px', value: style.letterSpacing } }
+}
+
 /** The steps, oldest first. */
-const STEPS: readonly CarryOverStep[] = [{ to: 10, layer: letterSpacingWithUnit }]
+const STEPS: readonly CarryOverStep[] = [{ to: 10, textStyle: letterSpacingWithUnit }]
 
 /**
  * A layer record as stored, carried over by every step to this schema's version, ready to be
- * validated: the same object when no step changes it. The record given is never changed.
+ * validated: a text's base style and each run's carried over (`carryOverTextStyle`). The same
+ * object when no step changes it; the record given is never changed.
  */
 export function carryOverLayer(record: unknown): unknown {
-  if (!isRecord(record)) return record
-  let out = record
-  for (const step of STEPS) out = step.layer(out)
-  return out
+  if (!isRecord(record) || record.type !== 'text' || !isRecord(record.props)) return record
+  const { props } = record
+  const style = carryOverTextStyle(props.style)
+  const runs = Array.isArray(props.runs) ? props.runs.map(runCarriedOver) : props.runs
+  const runsChanged = Array.isArray(runs) && runs.some((run, i) => run !== (props.runs as unknown[])[i])
+  if (style === props.style && !runsChanged) return record
+  return { ...record, props: { ...props, style, runs } }
 }
 
 /** Every layer of a record of layers carried over (`carryOverLayer`): the same record when none changes. */
@@ -38,24 +51,19 @@ export function carryOverLayers(nodes: Readonly<Rec>): Readonly<Rec> {
   return out ?? nodes
 }
 
-/** To version 10: letter spacing stored as a bare number of pixels becomes pixels with their unit, in the style and each run. */
-function letterSpacingWithUnit(layer: Rec): Rec {
-  const props = layer.props
-  if (layer.type !== 'text' || !isRecord(props)) return layer
-  const style = withUnit(props.style)
-  const runs = Array.isArray(props.runs) ? props.runs.map(runWithUnit) : props.runs
-  const runsChanged = Array.isArray(runs) && runs.some((run, i) => run !== (props.runs as unknown[])[i])
-  if (style === props.style && !runsChanged) return layer
-  return { ...layer, props: { ...props, style, runs } }
+/**
+ * A text's character style as stored, carried over by every step: a text's base style, a run's,
+ * or the text look of a copied style. The same object when no step changes it.
+ */
+export function carryOverTextStyle(style: unknown): unknown {
+  if (!isRecord(style)) return style
+  let out = style
+  for (const step of STEPS) out = step.textStyle(out)
+  return out
 }
 
-function runWithUnit(run: unknown): unknown {
+function runCarriedOver(run: unknown): unknown {
   if (!isRecord(run)) return run
-  const style = withUnit(run.style)
+  const style = carryOverTextStyle(run.style)
   return style === run.style ? run : { ...run, style }
-}
-
-function withUnit(style: unknown): unknown {
-  if (!isRecord(style) || typeof style.letterSpacing !== 'number') return style
-  return { ...style, letterSpacing: { unit: 'px', value: style.letterSpacing } }
 }

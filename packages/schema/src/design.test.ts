@@ -10,7 +10,7 @@ import {
   parseDesign,
   textFamilies,
 } from './design.ts'
-import { minimal } from './test-design.ts'
+import { minimal, storedText } from './test-design.ts'
 
 const errorsFor = (mutate: (d: ReturnType<typeof minimal>) => void) => {
   const d = minimal()
@@ -43,6 +43,14 @@ describe('parseDesign', () => {
     expect(box?.props.rotation).toBe(0)
     expect(box?.props.visible).toBe(true)
     expect(box?.link).toBe('r1')
+  })
+
+  it('reads a design whose text was stored before letter spacing had a unit, carried over', () => {
+    const design = parseDesign({ ...minimal(), nodes: { ...minimal().nodes, t1: storedText() } })
+    if (!design.success) throw new Error(design.errors.join('; '))
+    expect(design.design.nodes.t1).toMatchObject({
+      props: { runs: [{ style: { letterSpacing: { unit: 'px', value: -1 }, fontSize: 30 } }] },
+    })
   })
 
   it('keeps no schema version in a design’s meta, which the API’s record of the design holds', () => {

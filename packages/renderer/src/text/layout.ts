@@ -96,6 +96,7 @@ export function paragraphCache(limit = 4000) {
   let fonts: FontCollection | null = null
 
   function layout(ck: CanvasKit, props: TextProps, resources: TextResources) {
+    // The fonts' features are read from the same files, so they change only with the fonts.
     if (resources.fonts !== fonts) {
       entries.clear()
       fonts = resources.fonts

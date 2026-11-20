@@ -103,6 +103,12 @@ export const boundFillIndex = (fills: readonly unknown[]) =>
     (f) => (f as { type?: unknown } | null)?.type === 'solid' && (f as { visible?: unknown }).visible !== false,
   )
 
+/** The fill a brand logo binding draws its picture in: the topmost image fill that shows. -1 when there is none. */
+export const boundImageIndex = (fills: readonly unknown[]) =>
+  fills.findLastIndex(
+    (f) => (f as { type?: unknown } | null)?.type === 'image' && (f as { visible?: unknown }).visible !== false,
+  )
+
 /** The fill a paint picker edits: the topmost one that shows, whatever its type. -1 when none shows. */
 export const showingFillIndex = (fills: readonly Paint[]) => fills.findLastIndex((fill) => fill.visible !== false)
 

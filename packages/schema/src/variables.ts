@@ -1,12 +1,12 @@
 // Variables a layer's properties follow, and the list of bindable properties. For now the variables
-// are the brand kit's tokens, named `brand:<token>`: a brand's colours and fonts, which a layer binds
-// its fill, its text colour or its font family to, so changing the brand colour changes every design
-// that uses it. Everything that binds reads the list.
+// are the brand kit's tokens, named `brand:<token>`: a brand's colours, fonts and logo, which a layer
+// binds its fill, its text colour, its font family or its picture to, so changing the brand colour
+// changes every design that uses it. Everything that binds reads the list.
 import { z } from 'zod'
 
 import type { LayerType } from './layers.ts'
-import { boundFillIndex } from './paint.ts'
-import { Color } from './primitives.ts'
+import { boundFillIndex, boundImageIndex } from './paint.ts'
+import { AssetId, Color } from './primitives.ts'
 
 /** A brand kit token's name: lowercase words joined by hyphens, such as `primary` or `sale-red`. */
 export const BrandToken = z
@@ -25,6 +25,8 @@ export const VALUE_KINDS = {
   color: { fits: (value: string) => Color.safeParse(value).success, unfit: 'colours are #RRGGBBAA' },
   /** A font family's name that isn't blank. */
   font: { fits: (value: string) => value.trim().length > 0, unfit: 'a font family needs a name' },
+  /** A picture: the id of an image asset. */
+  image: { fits: (value: string) => AssetId.safeParse(value).success, unfit: 'a picture is an asset’s id' },
 } as const
 export type ValueKind = keyof typeof VALUE_KINDS
 
@@ -64,6 +66,34 @@ function writeFill<P extends Props>(props: P, value: string): P {
   return { ...props, fills: fills.map((f: unknown, i: number) => (i === at ? { ...(f as object), color: value } : f)) }
 }
 
+/** The asset of the topmost image fill that shows; undefined when there is none. */
+function readImage(props: Props): string | undefined {
+  const fills = props.fills
+  if (!Array.isArray(fills)) return undefined
+  const assetId = (fills[boundImageIndex(fills)] as { assetId?: unknown } | undefined)?.assetId
+  return typeof assetId === 'string' ? assetId : undefined
+}
+
+/**
+ * The props with the topmost image fill that shows drawing the asset `value`, its fit, opacity,
+ * adjustments and filter kept. A crop is in the old picture's pixels, so it goes, and a cropped fill
+ * fits the new picture whole in the box. As they were without such a fill, or with this asset in it.
+ */
+function writeImage<P extends Props>(props: P, value: string): P {
+  const fills = props.fills
+  if (!Array.isArray(fills)) return props
+  const at = boundImageIndex(fills)
+  if (at < 0 || (fills[at] as { assetId?: unknown }).assetId === value) return props
+  const swapped = (fill: Record<string, unknown>) => {
+    const { crop: _crop, ...kept } = fill
+    return { ...kept, assetId: value, ...(fill.fit === 'crop' ? { fit: 'fit' } : {}) }
+  }
+  return {
+    ...props,
+    fills: fills.map((f: unknown, i: number) => (i === at ? swapped(f as Record<string, unknown>) : f)),
+  }
+}
+
 /** Reading and writing one key of a text's base style, never its runs. */
 function baseStyle(key: 'color' | 'fontFamily'): Pick<BindableEntry, 'read' | 'write'> {
   return {
@@ -82,8 +112,8 @@ function baseStyle(key: 'color' | 'fontFamily'): Pick<BindableEntry, 'read' | 'w
 /**
  * The bindable properties, each with the layer types that have it, the kind of value it takes, the
  * prop that holds it and how its value is read and written: the colour of the topmost solid fill that
- * shows (a graphic, box or boolean), or a text's base colour and font family. Runs that set their own
- * colour or font keep it.
+ * shows (a graphic, box or boolean), a text's base colour and font family, or the asset of the topmost
+ * image fill that shows (a graphic or box). Runs that set their own colour or font keep it.
  */
 export const BINDABLE_PROPERTIES = {
   fill: {
@@ -96,6 +126,14 @@ export const BINDABLE_PROPERTIES = {
   },
   textColor: { types: ['text'], kind: 'color', prop: 'style', styleKey: 'text', ...baseStyle('color') },
   fontFamily: { types: ['text'], kind: 'font', prop: 'style', styleKey: 'text', ...baseStyle('fontFamily') },
+  image: {
+    types: ['graphic', 'box'],
+    kind: 'image',
+    prop: 'fills',
+    styleKey: 'fills',
+    read: readImage,
+    write: writeImage,
+  },
 } as const satisfies Record<string, BindableEntry>
 
 export const BindableProperty = z.enum(
@@ -112,7 +150,7 @@ export const Bindings = z.object(
 )
 export type Bindings = z.infer<typeof Bindings>
 
-/** The values variables have where a design is drawn: a colour (#RRGGBBAA) or a font family, by ref. */
+/** The values variables have where a design is drawn: a colour (#RRGGBBAA), a font family or an image asset's id, by ref. */
 export type Variables = Readonly<Record<string, string>>
 
 export const brandRef = (token: string): VariableRef => `brand:${token}` as VariableRef
@@ -124,10 +162,10 @@ export const canBind = (type: string, property: BindableProperty) =>
 /** The kind of value a bindable property takes, from `VALUE_KINDS`. */
 export const valueKindOf = (property: BindableProperty) => VALUE_KINDS[BINDABLE_PROPERTIES[property].kind]
 
-/** Whether a value is of the kind a bindable property takes: a colour for a fill or text colour, a family name for a font. */
+/** Whether a value is of the kind a bindable property takes: a colour for a fill or text colour, a family name for a font, an asset id for a picture. */
 export const fitsProperty = (property: BindableProperty, value: string) => valueKindOf(property).fits(value)
 
-/** The property of a kind a layer of this type binds: a colour is a text's colour or another layer's fill, a font a text's family. */
+/** The property of a kind a layer of this type binds: a colour is a text's colour or another layer's fill, a font a text's family, a picture a graphic's or box's image fill. */
 export const bindablePropertyOf = (type: string, kind: ValueKind): BindableProperty | undefined =>
   BindableProperty.options.find((property) => BINDABLE_PROPERTIES[property].kind === kind && canBind(type, property))
 

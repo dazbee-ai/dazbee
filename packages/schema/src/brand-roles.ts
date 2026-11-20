@@ -1,8 +1,9 @@
 // Brand roles: the named places every brand kit has, the colours Primary, Secondary, Accent,
-// Background and Text and the fonts Heading and Body. Each is a reserved brand token, so a layer
-// bound to `brand:primary` follows whichever brand's kit it is drawn with. A kit colour or font whose
-// token is a role of its kind fills that role; the rest are the brand's own.
-import { BRAND_KIT_LIMITS, type BrandColor, type BrandFont, type BrandKit } from './api.ts'
+// Background and Text, the fonts Heading and Body, and the logo. Each is a reserved brand token, so
+// a layer bound to `brand:primary` follows whichever brand's kit it is drawn with. A kit colour or
+// font whose token is a role of its kind fills that role; the rest are the brand's own. The kit's
+// logo fills the logo role (`brandVariables`).
+import { BRAND_KIT_LIMITS, type BrandColor, type BrandFont, type BrandKit, LOGO_ROLE } from './api.ts'
 
 /** The two parts of a kit that hold roles. */
 export type KitKind = 'color' | 'font'
@@ -96,7 +97,7 @@ export function withoutBrandRole(kit: BrandKit, kind: KitKind, role: BrandRole):
 
 /**
  * A token for a colour or font of the brand's own, from its name: "Colour 3" gives colour-3. It is
- * none the kit holds and no role's, so "Text" gives text-2.
+ * none the kit holds and no role's, the logo's included, so "Text" gives text-2.
  */
 export function freeToken(kit: BrandKit, name: string) {
   const base =
@@ -105,7 +106,7 @@ export function freeToken(kit: BrandKit, name: string) {
       .normalize('NFKD')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'token'
-  const taken = new Set([...kit.colors, ...kit.fonts].map((x) => x.token).concat(Object.values(BRAND_ROLES).flat()))
+  const taken = new Set([...kit.colors, ...kit.fonts].map((x) => x.token).concat(Object.values(BRAND_ROLES).flat(), LOGO_ROLE))
   let token = base
   for (let n = 2; taken.has(token); n++) token = `${base}-${n}`
   return token

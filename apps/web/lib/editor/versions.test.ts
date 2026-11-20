@@ -50,9 +50,7 @@ describe('versionTitle', () => {
   })
 
   it('is Before and the agent’s name for a Before agent version, or Before agent when it has none', () => {
-    expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe(
-      'Before Claude (agent)',
-    )
+    expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe('Before Claude (agent)')
     expect(versionTitle(version({ kind: 'beforeAgent', name: '' }), words)).toBe('Before agent')
     expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), ar.editor.versions)).toBe(
       'قبل Claude (agent)',

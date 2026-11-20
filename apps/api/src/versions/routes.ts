@@ -19,10 +19,11 @@ import { createDesign, findDesign } from '../workspace/designs.ts'
 import { versionPicture } from './version-pictures.ts'
 import { storedWithPlace, versionDesign } from './versions.ts'
 
-/** What an automatic version is called in a copy's name, as it has no name of its own. */
+/** What an automatic version is called in a copy's name when it has no name of its own. */
 const AUTOMATIC_NAMES: Record<Exclude<VersionKind, 'named'>, string> = {
   auto: 'Autosave',
   beforeRestore: 'Before restore',
+  beforeAgent: 'Before agent',
 }
 
 const FULL = 'The version history is full. Delete a version to save another.'
@@ -103,7 +104,7 @@ export function versionRoutes({ db, storage }: { db: Db; storage: Storage }): Ho
     const version = await listed(design.id, versionId)
     const content = version && (await versionDesign(db, design.id, versionId))
     if (!version || !content) return c.json(error('No such version'), 404)
-    const label = version.kind === 'named' ? version.name : AUTOMATIC_NAMES[version.kind]
+    const label = copyLabel(version)
     const name = input.name ?? `${design.name} (${label})`.slice(0, 120)
     return c.json(await createDesign(db, c.var.membership.workspaceId, design.brandId, name, content), 201)
   })
@@ -133,4 +134,11 @@ function summaryOf(row: VersionRow): VersionSummary {
     savedBy: row.savedByName,
     takenAt: row.takenAt.toISOString(),
   }
+}
+
+/** What a version is called in a copy's name: its name; for a Before agent one, "Before " and the agent's name. */
+function copyLabel(version: VersionRow): string {
+  if (version.kind === 'named') return version.name
+  if (version.kind === 'beforeAgent' && version.name) return `Before ${version.name}`
+  return AUTOMATIC_NAMES[version.kind]
 }

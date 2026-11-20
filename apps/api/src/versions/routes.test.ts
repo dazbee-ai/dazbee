@@ -154,6 +154,26 @@ describe('the version history', () => {
     expect(await listOf('a', fromNamed.id)).toEqual([])
   })
 
+  it('names a copy of a Before agent version with the agent’s name, or Before agent when it has none', async () => {
+    const design = await newDesign('Spring sale')
+    const ids = []
+    for (const [seq, name] of [
+      [5, 'Claude (agent)'],
+      [6, ''],
+    ] as const) {
+      const added = await addVersion(db, design.id, { ...auto(seq), kind: 'beforeAgent', name })
+      ids.push(typeof added === 'object' ? added.id : '')
+    }
+
+    const copies = []
+    for (const id of ids) copies.push(await call('a', 'POST', `${versions(design.id)}/${id}/copy`, {}))
+
+    expect(copies.map((copy) => DesignSummary.parse(copy.json).name)).toEqual([
+      'Spring sale (Before Claude (agent))',
+      'Spring sale (Before agent)',
+    ])
+  })
+
   it('lets a Reviewer list a design’s versions and nothing more', async () => {
     const design = await newDesign()
     const id = VersionSummary.parse((await call('a', 'POST', versions(design.id), { name: 'Kept' })).json).id

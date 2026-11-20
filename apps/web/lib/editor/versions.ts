@@ -29,10 +29,12 @@ const TAKEN_AT = { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-d
 /** The save states in which a tab saves to the server, or is about to. */
 const SAVING = new Set(['Saved', 'Saving', 'Connecting'])
 
-/** A version's title: its name, or Autosave or Before restore for an automatic one. */
+/** A version's title: its name, or Autosave, Before restore or Before and the agent's name for an automatic one. */
 export function versionTitle(version: Pick<VersionSummary, 'kind' | 'name'>, words: Words) {
   if (version.kind === 'auto') return words.autosave
   if (version.kind === 'beforeRestore') return words.beforeRestore
+  if (version.kind === 'beforeAgent')
+    return version.name ? format(words.beforeAgent, { agent: version.name }) : words.beforeAgentUnnamed
   return version.name
 }
 

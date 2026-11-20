@@ -743,6 +743,8 @@ export const ar: Messages = {
       defaultName: 'النسخة {n}',
       autosave: 'حفظ تلقائي',
       beforeRestore: 'قبل الاستعادة',
+      beforeAgent: 'قبل {agent}',
+      beforeAgentUnnamed: 'قبل الوكيل',
       automatic: 'تلقائي',
       someone: 'شخص ما',
       byline: '{who} · {time}',

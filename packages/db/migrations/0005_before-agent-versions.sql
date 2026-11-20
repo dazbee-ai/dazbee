@@ -1,0 +1,2 @@
+ALTER TABLE "design_versions" DROP CONSTRAINT "design_versions_kind";--> statement-breakpoint
+ALTER TABLE "design_versions" ADD CONSTRAINT "design_versions_kind" CHECK ("design_versions"."kind" in ('named', 'auto', 'beforeRestore', 'beforeAgent'));

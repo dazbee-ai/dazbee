@@ -44,16 +44,7 @@ export type InviteAnswer = { sent: string } | { error: string; field?: 'brands' 
 
 /** The changes of invites, members and agent accesses, each refused for reasons of its own. */
 type Change =
-  | 'invite'
-  | 'resend'
-  | 'revoke'
-  | 'role'
-  | 'brands'
-  | 'remove'
-  | 'handOver'
-  | 'leave'
-  | 'delete'
-  | 'endAgent'
+  'invite' | 'resend' | 'revoke' | 'role' | 'brands' | 'remove' | 'handOver' | 'leave' | 'delete' | 'endAgent'
 
 /**
  * Invites the form's email with its role, kept lower-cased, and for an Editor or Reviewer the brands it

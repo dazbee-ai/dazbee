@@ -2,11 +2,11 @@
 // kept, as one step marked with the version it restores (the tab sends the mark with its change set).
 import { z } from 'zod'
 
-import { Design, RestoreMark, type Target } from '@dazbee/schema'
+import { type BindableProperty, Design, RestoreMark, type Target, type VariableRef } from '@dazbee/schema'
 
 import { sameValue } from '../same-value.ts'
 import type { Part, StoreWrite } from '../store.ts'
-import { targetKey, targetsOf, valueAt } from '../sync/changes.ts'
+import { BINDINGS_KEY, targetKey, targetsOf, valueAt } from '../sync/changes.ts'
 import { type CommandContext, defineCommand, strict } from './define.ts'
 
 /** A record as the command compares it: its keys and their values. */
@@ -64,7 +64,8 @@ function idsProblem({ w, design }: CommandContext, version: Design): string | un
 /**
  * Writes a page, a frame or a layer as `next` has it: created when the design has none (one the
  * read left out is replaced), else each value that differs set or taken out, as the sync core
- * names its values (a text's text and runs are one). A layer's type is set only when it is made.
+ * names its values (a text's text and runs are one; each binding is one). A layer's type is set only
+ * when it is made.
  */
 function writeRecord(w: StoreWrite, part: Part, id: string, was: Fields | undefined, next: Fields) {
   if (!was) {
@@ -77,7 +78,11 @@ function writeRecord(w: StoreWrite, part: Part, id: string, was: Fields | undefi
   for (const t of targets.values()) {
     const to = valueAt(next, t)
     if (t.key === 'type' || sameValue(valueAt(was, t), to)) continue
-    if (t.prop !== undefined) {
+    if (t.key === BINDINGS_KEY && t.prop !== undefined) {
+      const property = t.prop as BindableProperty
+      if (to === undefined) w.unsetBinding(id, property)
+      else w.setBinding(id, property, to as VariableRef)
+    } else if (t.prop !== undefined) {
       if (to === undefined) w.unsetProp(id, t.prop)
       else w.setProp(id, t.prop, to)
     } else if (to === undefined) w.unset(part, id, t.key)

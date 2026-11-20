@@ -122,9 +122,10 @@ export type HeldPart = z.infer<typeof HeldPart>
 const RecordId = z.string().min(1).max(256)
 
 /**
- * One synced value, replaced whole: a top-level key of a record (`prop` left out), or one key of a
- * layer's props (`key` is `props`). A text layer's text and runs are one value, the prop `text`,
- * holding `{text, runs}`, since the schema ties the runs to the text's length (K16).
+ * One synced value, replaced whole: a top-level key of a record (`prop` left out), or `prop` names
+ * one key of a layer's props (`key` is `props`) or one of its bindings, by bindable property
+ * (`key` is `bindings`). A text layer's text and runs are one value, the prop `text`, holding
+ * `{text, runs}`, since the schema ties the runs to the text's length (K16).
  */
 export const Target = z.strictObject({
   part: Part,

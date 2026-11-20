@@ -409,7 +409,7 @@ One write to a design as the sync server takes it: create a record, set or unset
 _Avoid_: Operation, update, patch
 
 **Value**:
-What one change sets: a meta field, a field of a page, frame or layer, or one key of a layer's `props`. A text layer's text and runs are one value. Where two tabs set one value, the change the server orders later wins.
+What one change sets: a meta field, a field of a page, frame or layer, one key of a layer's `props`, or one of its bindings. A text layer's text and runs are one value. Where two tabs set one value, the change the server orders later wins.
 
 **Change set**:
 The changes a tab sends together, from one step or as a follow-up. The server accepts all of them or rejects all of them.

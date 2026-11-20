@@ -16,6 +16,7 @@ import { comeBack, down, edit, exchange, joinClient, testServer, testServerOptio
 const badgeProps = { x: 900, y: 40, width: 120, height: 120, shape: { kind: 'ellipse' } }
 const layerKey = (id: string, key: string): Target => ({ part: 'layer', id, key })
 const prop = (id: string, name: string): Target => ({ part: 'layer', id, key: 'props', prop: name })
+const binding = (id: string, property: string): Target => ({ part: 'layer', id, key: 'bindings', prop: property })
 const set = (value: Target, to: unknown): Change => ({ op: 'set', value, to })
 
 /** A server and two clients, a and b. */
@@ -42,6 +43,36 @@ describe('Step', () => {
     // Batches from others never enter the history.
     expect(a.canRedo()).toBe(false)
     expect(b.canUndo()).toBe(true)
+  })
+
+  it('leaves a binding as another tab’s change of the layer’s bindings whole wrote it since', () => {
+    const { server, a, b, everyone } = session()
+    exchange(server, a, edit(a, 'bind', set(binding('box', 'fill'), 'brand:primary')), everyone)
+    // B's change set holds the bindings whole, as a queue saved before they were set one by one does.
+    const whole = set(layerKey('box', 'bindings'), { fill: 'brand:accent' })
+    const sent = edit(b, 'bind all', whole).map((m) => (m.type === 'changes' ? { ...m, changes: [whole] } : m))
+    exchange(server, b, sent, everyone)
+    exchange(server, a, a.undo(), everyone)
+    expect(server.state().get('layer', 'box')?.bindings).toEqual({ fill: 'brand:accent' })
+  })
+
+  it('leaves alone, in a step that set a layer’s bindings whole, a binding another tab set since', () => {
+    const state = DesignState.fromRecords(testDesign() as unknown as DesignRecords)
+    const target = layerKey('headline', 'bindings')
+    const step = Step.restore({
+      name: 'bind',
+      confirmed: true,
+      settledForward: true,
+      writes: [{ target, after: { textColor: 'brand:ink' } }],
+      records: [],
+      taken: [],
+      takenRecords: [],
+    })
+    state.apply(set(target, { textColor: 'brand:ink' }), 'strict')
+    const theirs = set(binding('headline', 'fontFamily'), 'brand:heading')
+    state.apply(theirs, 'strict')
+    step.othersWrote(Touches.of([theirs]))
+    expect(step.toward(BACK, state)).toEqual([])
   })
 
   it('inverts creates and deletes with the same ids and order keys', () => {

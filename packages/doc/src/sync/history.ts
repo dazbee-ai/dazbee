@@ -8,6 +8,7 @@ import { type Change, type ChangeSetKind, frameOfLayer, type HeldPart, type Targ
 import { ownLink } from '../repair.ts'
 import { sameValue } from '../same-value.ts'
 import {
+  BINDINGS_KEY,
   depthAmong,
   holderOf,
   holderTarget,
@@ -77,9 +78,16 @@ export class Touches {
     for (const key of other.records) this.records.add(key)
   }
 
-  /** Whether these writes change `target`. */
+  /**
+   * Whether these writes change `target`. A layer's bindings set whole write each of its bindings,
+   * and a binding set writes the layer's bindings whole.
+   */
   hits(target: Target): boolean {
-    return this.targets.has(targetKey(target)) || this.records.has(recordKey(target.part, target.id))
+    if (this.targets.has(targetKey(target)) || this.records.has(recordKey(target.part, target.id))) return true
+    if (target.part !== 'layer' || target.key !== BINDINGS_KEY) return false
+    const whole = targetKey({ ...target, prop: undefined })
+    if (target.prop !== undefined) return this.targets.has(whole)
+    return [...this.targets].some((key) => key.startsWith(`${whole}/`))
   }
 }
 

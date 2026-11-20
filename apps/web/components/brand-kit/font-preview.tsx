@@ -4,9 +4,10 @@
 // decodes a design font; its files load in the editor only once a layer uses it.
 import type { FontFamily } from '@dazbee/schema'
 
-import { previewFace } from '@/components/brand-kit/font-catalog.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
+
+import { previewFace } from './font-catalog.ts'
 
 /**
  * How wide a preview shows at most, in pixels: the API draws it at most 640 pixels wide at twice

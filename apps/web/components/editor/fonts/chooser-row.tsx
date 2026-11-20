@@ -1,10 +1,10 @@
 'use client'
 
+import { FontPreview } from '@/components/brand-kit/font-preview.tsx'
 import { PANEL_HEADING } from '@/components/editor/styles.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { FontPreview } from './font-preview.tsx'
 import type { ChosenFont, FontRow } from './font-rows.ts'
 
 /** One drawn row, placed down the list: a group's heading, a family, or a weight of the chosen family. */

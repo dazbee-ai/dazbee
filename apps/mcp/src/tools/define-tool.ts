@@ -14,6 +14,7 @@ import type { RenderQueue } from '../render-queue.ts'
 export interface AccessRenders {
   /** Takes one render from the access's bucket, giving 0; or, when it is empty, the whole seconds until one is back. */
   take(): number
+  busy: RenderQueue['busy']
   draw: RenderQueue['draw']
 }
 

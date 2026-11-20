@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto'
 import { parentPort } from 'node:worker_threads'
 
-import { agentRender, AgentRenderTooBig } from '@dazbee/export'
+import { type AgentRender, agentRender, AgentRenderTooBig } from '@dazbee/export'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
@@ -26,10 +26,7 @@ export interface RenderJob {
 }
 
 /** The worker's answer: the PNG and its size, that no PNG fits the byte limit, or why it failed. */
-export type RenderAnswer =
-  | { id: number; png: Uint8Array; width: number; height: number; scale: number }
-  | { id: number; tooBig: true }
-  | { id: number; error: string }
+export type RenderAnswer = (AgentRender & { id: number }) | { id: number; tooBig: true } | { id: number; error: string }
 
 /** The brand's font files and images the last job sent, by their SHA-256 (see `same`). */
 let kept = new Map<string, Uint8Array>()

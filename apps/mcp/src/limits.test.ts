@@ -157,27 +157,8 @@ describe('limitSettings', () => {
     expect(() => limitSettings({ MCP_RENDER_EVERY_SECONDS: '0' })).toThrow(/MCP_RENDER_EVERY_SECONDS/)
     expect(() => limitSettings({ MCP_RENDERS_WAITING: '101' })).toThrow(/MCP_RENDERS_WAITING/)
   })
-})
 
-describe('render limits', () => {
-  it('answers the eleventh render at once from one access with the seconds to wait; another access still renders', async () => {
-    server = testServer()
-    const { rendersBurst, renderEverySeconds } = limitSettings({})
-    const agent = await withDesign(server, server.api.addAccess())
-    const render = () => agent.call('render_frame', { frame: 'banner', maxSize: 16 })
-    for (let rendered = 0; rendered < rendersBurst; rendered++) expect((await render()).isError).toBeFalsy()
-    const refused = await render()
-    expect(refused.isError).toBe(true)
-    expect(textOf(refused)).toBe(
-      `This agent has asked for many renders at once; try again in ${renderEverySeconds} seconds.`,
-    )
-    const other = await withDesign(server, server.api.addAccess())
-    expect((await other.call('render_frame', { frame: 'banner', maxSize: 16 })).isError).toBeFalsy()
-    server.wait(renderEverySeconds * 1000)
-    expect((await render()).isError).toBeFalsy()
-  })
-
-  it('answers busy, with the seconds to wait, past the renders that may wait', async () => {
+  it('refuses a render past MCP_RENDERS_WAITING waiting as busy, with the seconds to wait', async () => {
     const worker = heldWorker()
     server = testServer({ startRenderWorker: worker.start })
     const { rendersWaiting } = limitSettings({})
@@ -196,5 +177,24 @@ describe('render limits', () => {
     const answered = await Promise.all(results)
     expect(answered.filter((result) => result.isError)).toHaveLength(1)
     expect(worker.posted).toHaveLength(rendersWaiting + 1)
+  })
+})
+
+describe('rateBuckets', () => {
+  it('answers the eleventh render at once from one access with the seconds to wait, refills, and keeps each access’s apart', async () => {
+    server = testServer()
+    const { rendersBurst, renderEverySeconds } = limitSettings({})
+    const agent = await withDesign(server, server.api.addAccess())
+    const render = () => agent.call('render_frame', { frame: 'banner', maxSize: 16 })
+    for (let rendered = 0; rendered < rendersBurst; rendered++) expect((await render()).isError).toBeFalsy()
+    const refused = await render()
+    expect(refused.isError).toBe(true)
+    expect(textOf(refused)).toBe(
+      `This agent has asked for many renders at once; try again in ${renderEverySeconds} seconds.`,
+    )
+    const other = await withDesign(server, server.api.addAccess())
+    expect((await other.call('render_frame', { frame: 'banner', maxSize: 16 })).isError).toBeFalsy()
+    server.wait(renderEverySeconds * 1000)
+    expect((await render()).isError).toBeFalsy()
   })
 })

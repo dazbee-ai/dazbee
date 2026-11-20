@@ -17,7 +17,7 @@ export const RENDER_TOOLS: Tool[] = [
   defineTool({
     name: 'render_frame',
     title: 'Render a frame',
-    description: `Draws a frame of the open design as a PNG to look at, as it exports: its longer side fitted to \`maxSize\` pixels (${AGENT_RENDER_MAX_SIZE} unless given), never more than twice the frame’s size, and drawn smaller where the file would be too big. Answers the picture, then { frame, width, height, scale }. Look at each frame you made or changed before saying it is done.`,
+    description: `Draws a frame of the open design as a PNG to look at, as it exports: its longer side fitted to \`maxSize\` pixels (${AGENT_RENDER_MAX_SIZE} unless given), never more than twice the frame’s size or about 16 million pixels, and drawn smaller where the file would be too big. Answers the picture, then { frame, width, height, scale }. Look at each frame you made or changed before saying it is done.`,
     readOnly: true,
     input: z.object({
       frame: FrameId,
@@ -34,11 +34,15 @@ export const RENDER_TOOLS: Tool[] = [
     run: ({ frame, maxSize = AGENT_RENDER_MAX_SIZE }, context) =>
       onDesign(context, async ({ tab }) => {
         frameOf(tab.design(), frame)
+        await tab.frameLoaded(frame)
+        const render = renderOf(tab, frame, maxSize)
+        // Nothing is awaited from here to the draw, so a render refused as busy takes none of the access's.
+        const busy = context.renders.busy()
+        if (busy > 0) throw new ToolRefusal(`Dazbee is drawing other renders; try again in ${busy} seconds`)
         const wait = context.renders.take()
         if (wait > 0)
           throw new ToolRefusal(`This agent has asked for many renders at once; try again in ${wait} seconds`)
-        await tab.frameLoaded(frame)
-        const { png, width, height, scale } = await context.renders.draw(renderOf(tab, frame, maxSize))
+        const { png, width, height, scale } = await context.renders.draw(render)
         return new WithPicture(png, { frame, width, height, scale })
       }),
   }),

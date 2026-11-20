@@ -32,6 +32,8 @@ export interface RenderQueue {
    * seconds to wait, when no PNG of the frame fits, or when it took too long to draw.
    */
   draw(render: FrameRender): Promise<AgentRender>
+  /** The whole seconds to wait when as many renders wait as may, so the next would be refused; else 0. */
+  busy(): number
   /** Ends the worker; renders waiting or drawn are refused. */
   close(): void
 }
@@ -52,6 +54,8 @@ interface Pending {
   reject(error: Error): void
 }
 
+/** What a render is told once the server is stopping. */
+const STOPPING = 'This server is stopping; try again in a moment'
 /** How long a render is taken to last before any has been drawn. */
 const FIRST_GUESS_MS = 1000
 /** The weight the latest render's time takes in the time a render is taken to last. */
@@ -67,20 +71,23 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
   const queued: Pending[] = []
   /** How long a render has lasted lately, in milliseconds. */
   let lasts = FIRST_GUESS_MS
+  /** The id the next job takes, which its answer carries back. */
   let nextId = 0
+  /** Whether the queue was closed: it takes no render after. */
   let closed = false
 
-  /** The whole seconds the renders before a new one may take. */
-  function secondsToWait() {
+  function busy() {
+    if (!drawing || queued.length < waiting) return 0
     return Math.max(1, Math.ceil((lasts * (queued.length + 1)) / 1000))
   }
 
   function draw(render: FrameRender): Promise<AgentRender> {
-    if (closed) return Promise.reject(new ToolRefusal('This server is stopping; try again in a moment'))
-    if (drawing && queued.length >= waiting)
-      return Promise.reject(new ToolRefusal(`Dazbee is drawing other renders; try again in ${secondsToWait()} seconds`))
+    if (closed) return Promise.reject(new ToolRefusal(STOPPING))
+    const wait = busy()
+    if (wait > 0)
+      return Promise.reject(new ToolRefusal(`Dazbee is drawing other renders; try again in ${wait} seconds`))
     const frame = render.design.frames[render.frameId]
-    if (!frame) return Promise.reject(new ToolRefusal(`The open design has no frame “${render.frameId}”`))
+    if (!frame) return Promise.reject(new Error(`no frame "${render.frameId}"`))
     const { maxSize, pixels } = drawnAt(frame, render.maxSize)
     const job = { ...render, design: JSON.stringify(render.design), maxSize, id: nextId++ }
     return new Promise((resolve, reject) => {
@@ -158,12 +165,12 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
 
   function close() {
     closed = true
-    const refused = new ToolRefusal('This server is stopping; try again in a moment')
+    const refused = new ToolRefusal(STOPPING)
     for (const pending of queued.splice(0)) pending.reject(refused)
     if (thread) failed(thread, refused)
   }
 
-  return { draw, close } satisfies RenderQueue
+  return { draw, busy, close } satisfies RenderQueue
 }
 
 /** The render worker, a thread of its own. */

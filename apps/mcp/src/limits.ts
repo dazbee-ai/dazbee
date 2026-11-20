@@ -71,13 +71,6 @@ export const CALL_TIMEOUT_MS = 60_000
 /** The largest body an OAuth endpoint takes: a registration or a token request is a few hundred bytes. */
 export const MAX_OAUTH_BODY_BYTES = 64 * 1024
 
-/** The capacity limits read from the environment, with the value each takes when unset. */
-export const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, Setting>> = {
-  rendersBurst: { name: 'MCP_RENDERS_BURST', value: 10, least: 1, most: 1000 },
-  renderEverySeconds: { name: 'MCP_RENDER_EVERY_SECONDS', value: 6, least: 1, most: 3600 },
-  rendersWaiting: { name: 'MCP_RENDERS_WAITING', value: 8, least: 0, most: 100 },
-}
-
 /**
  * The most pixels a render is drawn at: a bigger frame is drawn smaller, as if a smaller `maxSize` were asked. A
  * surface takes 4 bytes a pixel, so one render holds at most 64 MiB of pixels besides its PNG.
@@ -92,6 +85,13 @@ export const BIG_RENDER_PIXELS = 2048 * 2048
 
 /** How long one render may take on the worker; past it the worker is ended, the render refused, and the next starts a fresh one. */
 export const RENDER_TIMEOUT_MS = 30_000
+
+/** The capacity limits read from the environment, with the value each takes when unset. */
+const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, Setting>> = {
+  rendersBurst: { name: 'MCP_RENDERS_BURST', value: 10, least: 1, most: 1000 },
+  renderEverySeconds: { name: 'MCP_RENDER_EVERY_SECONDS', value: 6, least: 1, most: 3600 },
+  rendersWaiting: { name: 'MCP_RENDERS_WAITING', value: 8, least: 0, most: 100 },
+}
 
 /** `bytes` in MiB, as the limits are told to an agent: "8 MiB", "8.5 MiB". */
 export function inMiB(bytes: number): string {

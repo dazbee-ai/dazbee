@@ -149,7 +149,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
         agent,
         api: agentApi(api, token, agent.workspaceId, refuse),
         design: opened.design,
-        renders: { take: () => renderBuckets.take(agent.id), draw: renders.draw },
+        renders: { take: () => renderBuckets.take(agent.id), busy: renders.busy, draw: renders.draw },
       },
       refused: false,
     }
@@ -262,8 +262,8 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
 
   async function close(): Promise<void> {
     clearInterval(sweep)
-    renders.close()
     for (const id of [...sessions.keys()]) await end(id)
+    renders.close()
   }
 }
 

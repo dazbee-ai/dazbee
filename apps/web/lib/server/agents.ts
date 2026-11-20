@@ -40,7 +40,7 @@ export const listAgentAccesses = (workspaceId: string) =>
   call(AgentAccessSummary.array(), `${workspaceRoot(workspaceId)}/agent-accesses`)
 
 /** Ends one of the person's agent accesses in the workspace: the API refuses the agent's tokens from then on. */
-export const endAgentAccess = (workspaceId: string, accessId: string) =>
+export const deleteAgentAccess = (workspaceId: string, accessId: string) =>
   call(z.null(), `${workspaceRoot(workspaceId)}/agent-accesses/${encodeURIComponent(accessId)}`, { method: 'DELETE' })
 
 /** The API's path of a sign-in request. */

@@ -132,7 +132,6 @@ function AccessRow({
           <button
             type="button"
             disabled={busy}
-            aria-label={label}
             className={cn(
               buttonStyles({ variant: 'ghost', size: 'md' }),
               'h-8 shrink-0 px-2.5 text-label font-semibold text-danger hover:text-danger',
@@ -161,8 +160,10 @@ function ConnectAgent({ address }: { address: string }) {
         {a.address}
       </label>
       <CopyField id="mcp-address" value={address} copyLabel={a.copyAddress} />
-      <p className="mt-2 text-small text-muted">{a.claudeCode}</p>
-      <CopyField id="mcp-command" value={claudeCodeCommand(address)} copyLabel={a.copyCommand} label={a.claudeCode} />
+      <label htmlFor="mcp-command" className="mt-2 text-small text-muted">
+        {a.claudeCode}
+      </label>
+      <CopyField id="mcp-command" value={claudeCodeCommand(address)} copyLabel={a.copyCommand} />
       <p className="mt-2 text-small text-muted">{a.connector}</p>
     </div>
   )
@@ -172,7 +173,7 @@ function ConnectAgent({ address }: { address: string }) {
  * A value to copy, in a field that reads left to right in any language, with Copy beside it. Once copied, Copy says
  * so; a browser that won't copy, as on a page served over plain http, selects the value to copy by hand.
  */
-function CopyField({ id, value, copyLabel, label }: { id: string; value: string; copyLabel: string; label?: string }) {
+function CopyField({ id, value, copyLabel }: { id: string; value: string; copyLabel: string }) {
   const a = useMessages().settings.agents
   const field = useRef<HTMLInputElement>(null)
   const [copied, setCopied] = useState(false)
@@ -194,7 +195,6 @@ function CopyField({ id, value, copyLabel, label }: { id: string; value: string;
         readOnly
         dir="ltr"
         value={value}
-        aria-label={label}
         onFocus={(e) => e.currentTarget.select()}
         className="h-11 min-w-0 flex-1 basis-64 rounded-row border border-line bg-bg px-3 font-mono text-small text-text outline-none hover:border-line-strong focus:border-accent"
       />

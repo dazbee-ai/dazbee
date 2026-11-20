@@ -4,7 +4,7 @@
 // holds its name, which only an Owner or Admin can change, and its members, whose roles and brands only an
 // Owner or Admin changes. An Owner or Admin also sees Invite, whose brands start at the brand Settings was
 // opened from (`?brand=`), and the pending invites. Last, everyone sees Agents: the accesses they gave agents in
-// this workspace, each to end, and how to connect one at the MCP server's address on the host they reached.
+// this workspace, each to end, and how to connect one at the MCP server's address.
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -39,19 +39,20 @@ export default async function SettingsPage({
 }) {
   const [{ workspaceId }, { saved, brand }] = await Promise.all([params, searchParams])
   const accessRead = getAccess(workspaceId)
-  const [t, workspace, brands, me, { role, limited }, members, invites, deletion, accesses, asked] = await Promise.all([
-    getMessages(),
-    getWorkspace(workspaceId),
-    listBrands(workspaceId),
-    getMe(),
-    accessRead,
-    listMembers(workspaceId),
-    // Only an Owner or Admin reads the pending invites: their links let anyone in.
-    accessRead.then(({ role }) => (canInvite(role) ? listInvites(workspaceId) : null)),
-    getAccountDeletion(),
-    listAgentAccesses(workspaceId),
-    headers(),
-  ])
+  const [t, workspace, brands, me, { role, limited }, members, invites, deletion, accesses, requestHeaders] =
+    await Promise.all([
+      getMessages(),
+      getWorkspace(workspaceId),
+      listBrands(workspaceId),
+      getMe(),
+      accessRead,
+      listMembers(workspaceId),
+      // Only an Owner or Admin reads the pending invites: their links let anyone in.
+      accessRead.then(({ role }) => (canInvite(role) ? listInvites(workspaceId) : null)),
+      getAccountDeletion(),
+      listAgentAccesses(workspaceId),
+      headers(),
+    ])
   const here = workspacePath(workspaceId, 'settings')
 
   async function rename(form: FormData) {
@@ -112,7 +113,12 @@ export default async function SettingsPage({
                 <PendingInvites workspaceId={workspaceId} invites={invites} brands={brands} />
               </>
             )}
-            <AgentsPanel workspaceId={workspaceId} accesses={accesses} brands={brands} address={mcpAddress(asked)} />
+            <AgentsPanel
+              workspaceId={workspaceId}
+              accesses={accesses}
+              brands={brands}
+              address={mcpAddress(requestHeaders)}
+            />
           </section>
         </div>
       </div>

@@ -13,7 +13,7 @@ pnpm typecheck
 pnpm test        # Vitest
 ```
 
-The MCP server runs on the host beside the web app and reaches the API and the sync server at their local ports (`API_URL`, `SYNC_URL` and `PUBLIC_URL` change them). Start the web app with `MCP_DEV_URL=http://localhost:3100` and it passes `/mcp`, `/oauth/*` and `/.well-known/oauth-*` on to the MCP server, so an agent connects to `http://localhost:3000/mcp`, one address for both, as Caddy serves them in production.
+The MCP server runs on the host beside the web app and reaches the API and the sync server at their local ports (`API_URL`, `SYNC_URL` and `PUBLIC_URL` change them). Start the web app with `MCP_DEV_URL=http://localhost:3100` and it passes `/mcp`, `/oauth/*` and `/.well-known/oauth-*` on to the MCP server, so an agent connects to `http://localhost:3000/mcp`, one address for both, as Caddy serves them in production. Settings shows that address: the web app's `PUBLIC_URL` and `/mcp`, or with none set, `/mcp` on the host it was reached at.
 
 ## Layout
 

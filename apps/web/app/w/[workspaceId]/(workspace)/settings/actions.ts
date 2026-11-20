@@ -21,7 +21,7 @@ import { workspacePath } from '@/lib/brand-routes.ts'
 import { format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { deleteAccount } from '@/lib/server/account.ts'
-import { endAgentAccess as endAccess } from '@/lib/server/agents.ts'
+import { deleteAgentAccess } from '@/lib/server/agents.ts'
 import { findMe } from '@/lib/server/api.ts'
 import {
   changeMember,
@@ -44,7 +44,7 @@ export type InviteAnswer = { sent: string } | { error: string; field?: 'brands' 
 
 /** The changes of invites, members and agent accesses, each refused for reasons of its own. */
 type Change =
-  'invite' | 'resend' | 'revoke' | 'role' | 'brands' | 'remove' | 'handOver' | 'leave' | 'delete' | 'endAgent'
+  'invite' | 'resend' | 'revoke' | 'role' | 'brands' | 'remove' | 'handOver' | 'leave' | 'delete' | 'endAccess'
 
 /**
  * Invites the form's email with its role, kept lower-cased, and for an Editor or Reviewer the brands it
@@ -163,9 +163,9 @@ export async function deleteMyAccount(workspaceId: string, confirmed: DeleteAcco
  * API refused, or gives null. Settings draws again either way, without an access another tab ended.
  */
 export async function endAgentAccess(workspaceId: string, accessId: string): Promise<string | null> {
-  const refusal = await refusalOf(() => endAccess(workspaceId, accessId))
+  const refusal = await refusalOf(() => deleteAgentAccess(workspaceId, accessId))
   changed(workspaceId)
-  return refusal && wordsFor('endAgent', refusal)
+  return refusal && wordsFor('endAccess', refusal)
 }
 
 /** Settings draws again with the workspace's members, invites and agent accesses as they now are. */
@@ -195,7 +195,7 @@ async function wordsFor(change: Change, refusal: Refusal, email = ''): Promise<s
     return refusal.status === 400 ? r.notAdmin : refusal.message
   }
   if (change === 'leave') return refusal.status === 400 ? r.handOverFirst : refusal.message
-  if (change === 'endAgent') return refusal.status === 404 ? r.agentGone : refusal.message
+  if (change === 'endAccess') return refusal.status === 404 ? r.agentGone : refusal.message
   if (change === 'delete') {
     if (refusal.status === 400) return r.wrongEmail
     return refusal.status === 409 ? r.deletionChanged : refusal.message

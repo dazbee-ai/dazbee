@@ -6,7 +6,14 @@ import { mcpAddress } from './mcp-address.ts'
 const asked = (fields: Record<string, string>) => new Headers(fields)
 
 describe('mcpAddress', () => {
-  it('is /mcp on the host the person reached, over https behind the proxy', () => {
+  it('is /mcp at the public base URL PUBLIC_URL names, whatever host the request names', () => {
+    const pilot = asked({ host: 'pilot.example.com', 'x-forwarded-proto': 'https' })
+    expect(mcpAddress(pilot, 'https://app.example.com')).toBe('https://app.example.com/mcp')
+    expect(mcpAddress(pilot, ' https://app.example.com/ ')).toBe('https://app.example.com/mcp')
+    expect(mcpAddress(asked({}), 'https://app.example.com')).toBe('https://app.example.com/mcp')
+  })
+
+  it('with no PUBLIC_URL, is /mcp on the host the person reached, over https behind a proxy', () => {
     expect(mcpAddress(asked({ host: 'app.example.com', 'x-forwarded-proto': 'https' }))).toBe(
       'https://app.example.com/mcp',
     )

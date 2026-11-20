@@ -160,7 +160,11 @@ describe('an edit that leaves the bound value as it was keeps the binding', () =
       id: 'headline',
       op: { kind: 'style', at: 0, length: 6, style: { color: '#00AA00FF', fontFamily: 'Inter' } },
     })
-    expect((layer('headline').props as { runs: unknown[] }).runs[0]).toMatchObject({ start: 0, end: 6, style: { color: '#00AA00FF' } })
+    expect((layer('headline').props as { runs: unknown[] }).runs[0]).toMatchObject({
+      start: 0,
+      end: 6,
+      style: { color: '#00AA00FF' },
+    })
     expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink', fontFamily: 'brand:heading' })
   })
 
@@ -177,7 +181,10 @@ describe('an edit that changes the bound value ends the binding', () => {
     ['the bound fill removed', []],
     ['the bound fill repainted as a gradient', [GRADIENT]],
     ['the bound fill repainted as an image', [IMAGE]],
-    ['the colour’s alpha changed, as the Colour panel’s opacity field writes it', [{ type: 'solid', color: '#FF5A3680' }]],
+    [
+      'the colour’s alpha changed, as the Colour panel’s opacity field writes it',
+      [{ type: 'solid', color: '#FF5A3680' }],
+    ],
   ]
   it.each(ended)('%s, adding no fill back', (_, fills) => {
     const { layer, fill } = open()

@@ -22,6 +22,7 @@ import {
   MAX_MCP_SESSIONS_PER_ACCESS,
   MCP_SESSION_IDLE_MS,
 } from './limits.ts'
+import { oauthRoutes } from './oauth/routes.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
@@ -88,6 +89,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   const app = new Hono()
   // The container's health check. Only /mcp, /oauth/* and /.well-known/oauth-* reach this server from outside.
   app.get('/health', (c) => c.json({ build: version }))
+  app.route('/', oauthRoutes({ api, baseUrl }))
   app.on(['POST', 'DELETE'], '/mcp', (c) => handle(c.req.raw))
   app.all('/mcp', () => methodNotAllowed())
   app.onError((error) => {

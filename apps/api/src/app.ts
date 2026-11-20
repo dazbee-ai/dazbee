@@ -19,6 +19,8 @@ import { accessRequestRoutes, adminRoutes } from './admin/routes.ts'
 import type { TurnstileCheck } from './admin/turnstile.ts'
 import { type RequestLimit, requestLimit } from './admin/waiting-list.ts'
 import { agentGate, agentRoutes } from './agents/agent-routes.ts'
+import { agentConsentRoutes } from './agents/consent-routes.ts'
+import { agentOAuthRoutes } from './agents/oauth-routes.ts'
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { assetRoutes } from './assets/routes.ts'
@@ -98,6 +100,8 @@ export function createApp({
   const deleters = { storage, signIn: signIn?.provider ?? null, invites: invites.workos }
   app.route('/', meRoutes({ db, deleters, endWorkosSession: (request) => endWorkosSession(signIn, request) }))
 
+  // Agents' sign-in answers the client without a session; the person's consent below needs theirs.
+  app.route('/', agentOAuthRoutes({ db }))
   app.use('/agent/*', signedIn)
   app.route('/', agentRoutes())
 
@@ -107,6 +111,7 @@ export function createApp({
   app.route('/workspaces/:workspaceId', workspaceRoutes({ db }))
   app.route('/workspaces/:workspaceId', memberRoutes({ db, invites: providers }))
   app.route('/workspaces/:workspaceId', agentAccessRoutes({ db }))
+  app.route('/', agentConsentRoutes({ db }))
   app.route('/workspaces/:workspaceId', records)
 
   // A refusal a route lets through answers 400 with its message; any other error is ours.

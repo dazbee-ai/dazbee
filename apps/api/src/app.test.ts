@@ -19,11 +19,12 @@ vi.mock('./workspace/designs.ts', async (importOriginal) => {
 const READ_ONLY = ['POST /workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token']
 
 /**
- * The routes any member calls on their own membership, which change nothing else: leaving, and ending an
- * agent access they gave.
+ * The routes any member calls on their own membership, which change nothing else: leaving, and giving or ending
+ * an agent access of their own (a Reviewer's views only).
  */
 const OWN_MEMBERSHIP = [
   'POST /workspaces/:workspaceId/leave',
+  'POST /workspaces/:workspaceId/agent-accesses',
   'DELETE /workspaces/:workspaceId/agent-accesses/:accessId',
 ]
 
@@ -42,13 +43,19 @@ const OWNER_ONLY = ['POST /workspaces/:workspaceId/members/:userId/owner']
 
 /**
  * The paths outside a workspace: the gate that keeps agents' tokens to their routes, the health check,
- * sign-in's, the development invites' accept, the person's own, an agent's own and the request to join. Early
- * access's admin routes, under /admin, are checked in `admin/routes.test.ts`.
+ * sign-in's, the development invites' accept, the person's own, an agent's own, an agent's sign-in and the
+ * request to join. Early access's admin routes, under /admin, are checked in `admin/routes.test.ts`.
  */
 const OUTSIDE_A_WORKSPACE = [
   '/*',
   '/agent/*',
   '/agent/me',
+  '/agent/clients',
+  '/agent/authorizations',
+  '/agent/authorizations/:request',
+  '/agent/authorizations/:request/deny',
+  '/agent/tokens',
+  '/agent/tokens/revoke',
   '/health',
   '/auth/sign-in-url',
   '/auth/callback',

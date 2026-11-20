@@ -1,7 +1,10 @@
 'use client'
 
 // What keeps the kit from being saved as it shows, over its form: a save refused since the kit was
-// saved elsewhere, which stays until it is dismissed, or a save that failed.
+// saved elsewhere, which stays until it is dismissed, or a save that failed. Each comes into view
+// as it appears, since the field just changed can be far down the form.
+import { useEffect, useRef } from 'react'
+
 import { XIcon } from '@/components/ui/icons.tsx'
 import { cn } from '@/lib/cn.ts'
 import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
@@ -15,15 +18,19 @@ export function KitTroubleNotice({ brandId, className }: { brandId: string; clas
   const t = useMessages()
   const locale = useLocale()
   const trouble = useKitTrouble(brandId)
+  const shown = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (trouble) shown.current?.scrollIntoView({ block: 'nearest' })
+  }, [trouble])
   if (trouble?.kind === 'failed')
     return (
-      <p role="alert" className={cn('text-tiny text-danger', className)}>
+      <div ref={shown} role="alert" className={cn('text-tiny text-danger', className)}>
         {format(t.editor.brandKit.saveFailed, { reason: trouble.reason })}
-      </p>
+      </div>
     )
   if (trouble?.kind !== 'changed') return null
   return (
-    <div role="alert" data-testid="kit-changed" className={cn('flex items-start gap-2', className)}>
+    <div ref={shown} role="alert" data-testid="kit-changed" className={cn('flex items-start gap-2', className)}>
       <p className="min-w-0 flex-1 text-small text-danger">{refusedWords(t, locale, trouble.unsaved)}</p>
       <button
         type="button"

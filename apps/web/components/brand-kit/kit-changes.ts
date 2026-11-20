@@ -17,7 +17,7 @@ const PART_VALUES: Record<KitPart, (kit: BrandKit) => unknown> = {
 /** The parts of `changed` that differ from `from`, in the form's order. */
 export function changedParts(from: BrandKit, changed: BrandKit): KitPart[] {
   return (Object.keys(PART_VALUES) as KitPart[]).filter(
-    (part) => JSON.stringify(PART_VALUES[part](from)) !== JSON.stringify(PART_VALUES[part](changed)),
+    (part) => canonical(PART_VALUES[part](from)) !== canonical(PART_VALUES[part](changed)),
   )
 }
 
@@ -40,4 +40,13 @@ export function partNames(t: Messages, locale: Locale, parts: KitPart[]) {
     voice: k.voice,
   }
   return new Intl.ListFormat(locale, { type: 'conjunction' }).format(parts.map((part) => names[part]))
+}
+
+/** A value as JSON with each object's keys sorted, so the same value reads the same however it was built. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  )
 }

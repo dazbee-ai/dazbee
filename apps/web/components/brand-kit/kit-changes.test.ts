@@ -23,8 +23,26 @@ describe('changedParts', () => {
     expect(changedParts(KIT, changed)).toEqual(['colors', 'logo', 'voice'])
   })
 
-  it('names none for the same kit', () => {
+  it('names none for the same kit, its values in another order or a missing value left out', () => {
     expect(changedParts(KIT, { ...KIT })).toEqual([])
+    const style = {
+      token: 'headline',
+      name: 'Headline',
+      font: { family: 'Lora' },
+      fontWeight: 700,
+      fontStyle: 'normal' as const,
+      letterSpacing: { unit: 'percent' as const, value: 0 },
+    }
+    const reordered = {
+      letterSpacing: { value: 0, unit: 'percent' as const },
+      fontStyle: 'normal' as const,
+      fontWeight: 700,
+      font: { family: 'Lora' },
+      name: 'Headline',
+      token: 'headline',
+      lineHeight: undefined,
+    }
+    expect(changedParts({ ...KIT, textStyles: [style] }, { ...KIT, textStyles: [reordered] })).toEqual([])
   })
 })
 

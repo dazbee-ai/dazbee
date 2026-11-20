@@ -128,8 +128,8 @@ export function EditorStage({
     setMenuAt(null)
   }, [viewOnly])
   const dismissNotice = useCallback(() => setNotice(null), [])
-  // What the brand kit says while its flyout is closed, such as a save it refused, stays until dismissed.
-  const tellKit = useCallback((text: string) => setNotice({ text, at: Date.now(), lasting: true }), [])
+  // What the brand kit says while its flyout is closed, such as a save it refused; the flyout keeps saying it.
+  const tellKit = useCallback((text: string) => setNotice({ text, at: Date.now() }), [])
   // The library, if open, shows the files dropped and the pictures of SVG files once they upload.
   const [uploaded, setUploaded] = useState(0)
   // Dropped files and SVG files' pictures upload under one lasting notice that counts them all,

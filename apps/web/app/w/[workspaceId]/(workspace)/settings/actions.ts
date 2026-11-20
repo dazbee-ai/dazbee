@@ -2,9 +2,9 @@
 
 // What Settings' invites, members and agent accesses do: invite an email with a role and brands, resend an invite
 // and revoke one; change a member's role or brands, remove them and hand them Owner; leave a workspace; delete the
-// person's account; and end one of the person's agent accesses. Each takes the workspace first, so a part binds it, and says why the API refused, in the
-// person's language, where they made the change; Settings draws again with it, or, once the person has left,
-// the workspace to open opens, and once their account is deleted, sign-in.
+// person's account; and end one of the person's agent accesses. Each takes the workspace first, so a part binds
+// it, and says why the API refused, in the person's language, where they made the change; Settings draws again with
+// it, or, once the person has left, the workspace to open opens, and once their account is deleted, sign-in.
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -179,10 +179,11 @@ function changed(workspaceId: string) {
  * that can't be given (the member no longer an Editor or Reviewer, or a brand not the workspace's) a 400,
  * the Owner's handing over refused to anyone else a 403 and to a member no longer an Admin a 400, and the
  * Owner's leaving a 400. Deleting the account with another email is a 400, and while the person owns a
- * workspace with other members, or when it would delete other workspaces than they were shown, a 409. An agent access that has ended, or was never the person's, is a 404. Of an invite's: inviting a member is a 400 (the form is checked here
- * first), a person no longer an Owner or Admin a 403, an invite no longer pending a 404 on resend or revoke,
- * and an invite being sent or changed meanwhile a 409, except on revoke, where a 409 is an invite already
- * accepted. Any other refusal, such as a workspace with no invites set up, keeps the API's message.
+ * workspace with other members, or when it would delete other workspaces than they were shown, a 409. An agent
+ * access that has ended, or was never the person's, is a 404. Of an invite's: inviting a member is a 400 (the form
+ * is checked here first), a person no longer an Owner or Admin a 403, an invite no longer pending a 404 on resend
+ * or revoke, and an invite being sent or changed meanwhile a 409, except on revoke, where a 409 is an invite
+ * already accepted. Any other refusal, such as a workspace with no invites set up, keeps the API's message.
  */
 async function wordsFor(change: Change, refusal: Refusal, email = ''): Promise<string> {
   const r = (await getMessages()).settings.refusals

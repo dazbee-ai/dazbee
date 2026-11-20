@@ -25,8 +25,12 @@ export interface RenderJob {
   variables?: ResourceBytes['variables']
 }
 
-/** The worker's answer: the PNG and its size, that no PNG fits the byte limit, or why it failed. */
-export type RenderAnswer = (AgentRender & { id: number }) | { id: number; tooBig: true } | { id: number; error: string }
+/**
+ * The worker's answer: the PNG, its size and the milliseconds drawing it took (not starting the worker or loading
+ * CanvasKit), that no PNG fits the byte limit, or why it failed.
+ */
+export type RenderAnswer =
+  (AgentRender & { id: number; drawMs: number }) | { id: number; tooBig: true } | { id: number; error: string }
 
 /** The brand's font files and images the last job sent, by their SHA-256 (see `same`). */
 let kept = new Map<string, Uint8Array>()
@@ -41,6 +45,7 @@ async function answer(job: RenderJob): Promise<RenderAnswer> {
   try {
     const ck = await loadCanvasKit()
     cache ??= resourceCache(ck)
+    const drawingFrom = performance.now()
     const sent = new Map<string, Uint8Array>()
     const bytes: ResourceBytes = {
       fonts: [...loadFontFiles(), ...job.fonts.map(({ family, bytes }) => ({ family, bytes: same(bytes, sent) }))],
@@ -54,7 +59,7 @@ async function answer(job: RenderJob): Promise<RenderAnswer> {
       maxSize: job.maxSize,
       cache,
     })
-    return { id: job.id, png, width, height, scale }
+    return { id: job.id, png, width, height, scale, drawMs: performance.now() - drawingFrom }
   } catch (error) {
     if (error instanceof AgentRenderTooBig) return { id: job.id, tooBig: true }
     return { id: job.id, error: error instanceof Error ? error.message : String(error) }

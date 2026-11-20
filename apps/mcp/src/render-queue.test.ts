@@ -71,8 +71,8 @@ function fakeQueue(timeoutMs = 60_000) {
 }
 
 /** The answer drawing `job` gives. */
-function drawn(job: RenderJob | undefined): RenderAnswer {
-  return { id: job?.id ?? -1, png: new Uint8Array([1]), width: 4, height: 4, scale: 1 }
+function drawn(job: RenderJob | undefined, drawMs = 5): RenderAnswer {
+  return { id: job?.id ?? -1, png: new Uint8Array([1]), width: 4, height: 4, scale: 1, drawMs }
 }
 
 describe('renderQueue', () => {
@@ -90,12 +90,22 @@ describe('renderQueue', () => {
     expect(makes).toBe(1)
     expect(worker?.posted.map((job) => job.maxSize)).toEqual([100])
     worker?.answer(drawn(worker.posted[0]))
-    expect(await first).toMatchObject({ width: 4, ms: expect.any(Number) })
+    expect(await first).toMatchObject({ width: 4, ms: 5 })
     await made()
     expect(worker?.posted.map((job) => job.maxSize)).toEqual([100, 200])
     worker?.answer(drawn(worker.posted[1]))
     await second
     expect(workers).toHaveLength(1)
+  })
+
+  it('gives the time the worker spent drawing, not the time it took to start or to answer', async () => {
+    const { queue, workers } = fakeQueue()
+    const render = queue.draw('ann', squareAt(100))
+    await made()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const [worker] = workers
+    worker?.answer(drawn(worker.posted[0], 2))
+    expect((await render).ms).toBe(2)
   })
 
   it('refuses a second render of one access while its first waits or is drawn, with the seconds to wait', async () => {

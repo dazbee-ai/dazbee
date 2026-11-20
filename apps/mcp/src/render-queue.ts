@@ -180,7 +180,13 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
     else worker.unref()
     settle(current, () => {
       if ('png' in answer)
-        current.resolve({ png: answer.png, width: answer.width, height: answer.height, scale: answer.scale, ms })
+        current.resolve({
+          png: answer.png,
+          width: answer.width,
+          height: answer.height,
+          scale: answer.scale,
+          ms: answer.drawMs,
+        })
       else if ('tooBig' in answer)
         current.reject(new ToolRefusal(`No picture of the frame “${job.frameId}” is small enough to send`))
       else current.reject(new Error(answer.error))

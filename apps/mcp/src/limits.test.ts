@@ -45,7 +45,8 @@ function heldWorker() {
   const listeners: ((answer: RenderAnswer) => void)[] = []
   let held = true
   const answer = (job: RenderJob) => {
-    for (const listener of listeners) listener({ id: job.id, png: TEST_BOTTLE_PNG, width: 4, height: 4, scale: 1 })
+    for (const listener of listeners)
+      listener({ id: job.id, png: TEST_BOTTLE_PNG, width: 4, height: 4, scale: 1, drawMs: 1 })
   }
   const thread: RenderThread = {
     postMessage(job) {

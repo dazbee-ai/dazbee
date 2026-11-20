@@ -1,8 +1,11 @@
-// The API's calls for the Connect an agent page, from the web app's server only: the agent's sign-in request it
-// shows, and the person's answer to it, each of which says where to send the person back to the agent.
+// The API's calls for a member's agent accesses, from the web app's server only. For the Connect an agent page: the
+// agent's sign-in request it shows, and the person's answer to it, each of which says where to send the person back
+// to the agent. For Settings: the accesses the person gave in a workspace, and ending one.
 import 'server-only'
 
-import { AgentAuthorizationRequest, type AgentConsent, AgentRedirect } from '@dazbee/schema'
+import { z } from 'zod'
+
+import { AgentAccessSummary, AgentAuthorizationRequest, type AgentConsent, AgentRedirect } from '@dazbee/schema'
 
 import { ApiFailure, call, workspaceRoot } from './api.ts'
 
@@ -31,6 +34,14 @@ export async function denyAgent(request: string) {
   const path = `${requestPath(request)}/deny`
   return (await call(AgentRedirect, path, { method: 'POST', body: {} }, { signIn: false })).redirect
 }
+
+/** The accesses the person gave agents in the workspace that haven't ended, newest first. */
+export const listAgentAccesses = (workspaceId: string) =>
+  call(AgentAccessSummary.array(), `${workspaceRoot(workspaceId)}/agent-accesses`)
+
+/** Ends one of the person's agent accesses in the workspace: the API refuses the agent's tokens from then on. */
+export const deleteAgentAccess = (workspaceId: string, accessId: string) =>
+  call(z.null(), `${workspaceRoot(workspaceId)}/agent-accesses/${encodeURIComponent(accessId)}`, { method: 'DELETE' })
 
 /** The API's path of a sign-in request. */
 function requestPath(request: string) {

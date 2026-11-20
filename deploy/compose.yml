@@ -36,6 +36,8 @@ x-web: &web
     NODE_ENV: production
     API_URL: http://caddy:8080
     SYNC_URL: wss://sync.dazbee.com
+    # The public base URL, which names the MCP server's address in Settings.
+    PUBLIC_URL: https://app.dazbee.com
     SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
     PILOT_HOST: ${PILOT_HOST:-pilot.dazbee.com}
     TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}

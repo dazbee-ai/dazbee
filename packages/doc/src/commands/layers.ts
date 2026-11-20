@@ -248,7 +248,7 @@ export const nodeLock = defineCommand({
 export const nodeBind = defineCommand({
   name: 'node.bind',
   description:
-    'Binds a fill, text colour or font of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
+    'Binds a fill, text colour or font of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. Every kit has the brand roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text (colours) and brand:heading and brand:body (fonts): a layer bound to a role follows whichever brand the design is in. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
   step: 'bind',
   batchable: true,
   setsBindings: true,

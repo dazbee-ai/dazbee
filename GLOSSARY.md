@@ -49,8 +49,12 @@ What a workspace makes work for: a solo user's business, a company's product lin
 _Avoid_: Client, customer, project (an agency's clients are brands too, ADR-0013)
 
 **Brand kit**:
-A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours and fonts are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour or font family bound to one follows the brand, so changing the brand colour changes every design that uses it.
+A brand's logo, colours, fonts and tone of voice, applied automatically. Its colours and fonts are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour or font family bound to one follows the brand, so changing the brand colour changes every design that uses it. Its colours and fonts are its brand roles, then the brand's own.
 _Avoid_: Brand guide, theme, style
+
+**Brand role**:
+One of the places every brand kit has: the colours Primary, Secondary, Accent, Background and Text, and the fonts Heading and Body, each a reserved token (`brand:primary`, `brand:heading`). A layer bound to a role follows whichever brand it is in, so a workspace template started in another brand takes that brand's colours and fonts. A role is set or not; its name is fixed.
+_Avoid_: Role (a layer's meaning in the ad), slot, theme colour
 
 **Binding**:
 A layer property that follows a variable, such as a fill bound to `brand:primary`. Editing the property by hand ends it. The layer also keeps the value it had, which it shows wherever the variable has none.

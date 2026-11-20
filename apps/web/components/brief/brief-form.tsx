@@ -12,8 +12,9 @@ import * as Popover from '@radix-ui/react-popover'
 import { useRouter } from 'next/navigation'
 import { type ReactNode, useRef, useState } from 'react'
 
-import { type AssetSummary, type BrandKit, SIZE_PRESETS } from '@dazbee/schema'
+import { type AssetSummary, type BrandKit, inRoleOrder, SIZE_PRESETS } from '@dazbee/schema'
 
+import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { buttonStyles } from '@/components/ui/button.tsx'
 import {
@@ -512,15 +513,16 @@ export function BriefForm({
                 {kit.colors.length > 0 && (
                   <KitSection label={k.colors}>
                     <div className="grid grid-cols-4 gap-1.5 px-1">
-                      {kit.colors.map((c) => {
+                      {inRoleOrder('color', kit.colors).map((c) => {
                         const on = !offColors.has(c.token)
+                        const name = kitEntryName(t.editor.brandKit.roles, 'color', c)
                         return (
                           <button
                             key={c.token}
                             type="button"
                             aria-pressed={on}
-                            aria-label={c.name}
-                            title={c.name}
+                            aria-label={name}
+                            title={name}
                             disabled={!useKit}
                             onClick={() => setOffColors(flip(offColors, c.token))}
                             data-token={c.token}
@@ -541,7 +543,7 @@ export function BriefForm({
                                 on ? 'text-text' : 'text-subtle line-through',
                               )}
                             >
-                              {c.name}
+                              {name}
                             </span>
                           </button>
                         )
@@ -551,7 +553,7 @@ export function BriefForm({
                 )}
                 {kit.fonts.length > 0 && (
                   <KitSection label={k.fonts}>
-                    {kit.fonts.map((f) => (
+                    {inRoleOrder('font', kit.fonts).map((f) => (
                       <button
                         key={f.token}
                         type="button"
@@ -563,7 +565,9 @@ export function BriefForm({
                       >
                         <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                           <span className="truncate font-semibold">{f.family}</span>
-                          <span className="shrink-0 text-tiny text-muted">{f.name}</span>
+                          <span className="shrink-0 text-tiny text-muted">
+                            {kitEntryName(t.editor.brandKit.roles, 'font', f)}
+                          </span>
                         </span>
                         <Tick on={!offFonts.has(f.token)} />
                       </button>

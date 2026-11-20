@@ -1,7 +1,7 @@
-// Sign-in's cookies (#58): the session token from the API, the state that ties a WorkOS callback to
-// the sign-in this browser started, the token of the invite that sign-in started from, so a sign-in
-// that fails is tried again with it, and the page it comes back to. All are httpOnly, so no script can read
-// them. Starting a sign-in sets the last three. Each sign-in the web app refuses or starts again is written to the server's stdout.
+// Sign-in's cookies: the session token from the API, the state that ties a WorkOS callback to the sign-in this
+// browser started, the token of the invite that sign-in started from, so a sign-in that fails is tried again with
+// it, and the page it comes back to. All are httpOnly, so no script can read them. Starting a sign-in sets the
+// last three. Each sign-in the web app refuses or starts again is written to the server's stdout.
 import 'server-only'
 
 import { randomBytes } from 'node:crypto'
@@ -21,6 +21,12 @@ export { SESSION_COOKIE } from './api.ts'
 export interface SignInSite {
   origin: string | null
   host: string | null
+}
+
+/** What a sign-in carries through WorkOS and back: the token of the invite it started from, and the page to come back to. */
+export interface SignInCarried {
+  invitationToken?: unknown
+  next?: unknown
 }
 
 export const STATE_COOKIE = 'dazbee_sign_in_state'
@@ -62,11 +68,7 @@ const NO_SITE = 'http://next.invalid'
  * short-lived cookies for WorkOS's answer at /callback. On the pilot host, WorkOS answers at that host's own
  * /callback. `again` marks a sign-in that /callback starts again. Null when sign-in is not set up.
  */
-export async function startSignIn(
-  carried: { invitationToken?: unknown; next?: unknown },
-  site: SignInSite,
-  again = false,
-): Promise<string | null> {
+export async function startSignIn(carried: SignInCarried, site: SignInSite, again = false): Promise<string | null> {
   // Hex, so no fresh state begins like one started again.
   const state = `${again ? AGAIN_STATE : ''}${randomBytes(24).toString('hex')}`
   const token = InvitationToken.safeParse(carried.invitationToken)
@@ -98,6 +100,11 @@ export function pageAfterSignIn(next: unknown): string | null {
   }
   if (url.origin !== NO_SITE || url.pathname !== COMES_BACK_TO) return null
   return `${url.pathname}${url.search}`
+}
+
+/** Sign-in's address for a person who must sign in to answer an agent's sign-in request, coming back to it after. */
+export function signInForRequest(request: string): string {
+  return `/login?${new URLSearchParams({ next: `${COMES_BACK_TO}?${new URLSearchParams({ request })}` })}`
 }
 
 /**

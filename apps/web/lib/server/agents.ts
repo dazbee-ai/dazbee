@@ -27,8 +27,10 @@ export async function allowAgent(workspaceId: string, consent: AgentConsent) {
 }
 
 /** Refuses the agent, and answers where the person goes back to it with `access_denied`. */
-export const denyAgent = async (request: string) =>
-  (await call(AgentRedirect, `${requestPath(request)}/deny`, { method: 'POST', body: {} }, { signIn: false })).redirect
+export async function denyAgent(request: string) {
+  const path = `${requestPath(request)}/deny`
+  return (await call(AgentRedirect, path, { method: 'POST', body: {} }, { signIn: false })).redirect
+}
 
 /** The API's path of a sign-in request. */
 function requestPath(request: string) {

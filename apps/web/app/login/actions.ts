@@ -1,9 +1,8 @@
 'use server'
 
-// Starts sign-in at WorkOS, carrying the token of the invite the person came from and the page to come back
-// to. And sends a request to
-// join from the early-access notice, with the person's address as Cloudflare saw it and the form's
-// Turnstile token.
+// Starts sign-in at WorkOS, carrying the token of the invite the person came from and the page to come back to.
+// And sends a request to join from the early-access notice, with the person's address as Cloudflare saw it and the
+// form's Turnstile token.
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 

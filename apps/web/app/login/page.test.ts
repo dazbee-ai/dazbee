@@ -2,7 +2,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import LoginPage from './page.tsx'
+import LoginPage, { generateMetadata } from './page.tsx'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ cookies: vi.fn() }))
@@ -34,6 +34,12 @@ async function noticeOf(query: Record<string, string>) {
   const notice = /data-testid="sign-in-notice"[^>]*>([\s\S]*?)<\/p>/.exec(await render(query))
   return notice ? (notice[1] ?? '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '') : null
 }
+
+describe('generateMetadata', () => {
+  it('sends no referrer, since the address can carry the Connect an agent page with its request', async () => {
+    expect(await generateMetadata()).toMatchObject({ title: 'Sign in to Dazbee', referrer: 'no-referrer' })
+  })
+})
 
 describe('LoginPage', () => {
   it('tells a person early access refused whom to write to, in each language', async () => {

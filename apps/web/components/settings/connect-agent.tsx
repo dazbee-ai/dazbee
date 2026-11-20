@@ -4,7 +4,9 @@
 // text, then the workspace (a choice when the person has several), the brands the agent may open (All brands, which
 // follows the brands the person sees from now on, or those ticked) and whether it edits or only views; a Reviewer's
 // agent only views, with no choice. Allow and Deny send the person back to the agent, or say why the API refused.
-// Once the page has read the request, its id leaves the address bar and stays in the form alone.
+// Allow waits until the page has been in view, and the window focused, for a moment, so a click meant for another
+// page that opened this one in its place never lands on it. Once the page has read the request, its id leaves the
+// address bar and stays in the form alone.
 import { type ReactNode, useActionState, useEffect, useId, useState } from 'react'
 
 import { type BrandSummary, type MemberRole, roleWrites } from '@dazbee/schema'
@@ -37,6 +39,25 @@ const ACCESSES = ['edit', 'view'] as const satisfies readonly Access[]
 /** Every brand the person sees, which a new workspace's brands choice starts at. */
 const EVERY_BRAND: BrandsPick = { all: true, ticked: [] }
 
+/** The longest host shown whole; a longer one shows its end, which names the site. */
+const HOST_SHOWN = 64
+
+/** How long the page is in view, with its window focused, before Allow can be pressed. */
+const ARM_MS = 600
+
+/**
+ * The client's name as the page draws it: a line or paragraph break as a space, and at most three marks on a
+ * letter, so the name stays on its own lines.
+ */
+export const shownName = (name: string) =>
+  name
+    .normalize('NFC')
+    .replace(/[\p{Zl}\p{Zp}]/gu, ' ')
+    .replace(/(\p{M}{3})\p{M}+/gu, '$1')
+
+/** The host as the page draws it: whole, or its end after an ellipsis when it is long. */
+export const shownHost = (host: string) => (host.length <= HOST_SHOWN ? host : `…${host.slice(-(HOST_SHOWN - 1))}`)
+
 /** The parts of a sentence before and after its `{name}`, so what fills it is drawn as text of its own. */
 const around = (sentence: string, name: string): [string, string] => {
   const [before = '', after = ''] = sentence.split(`{${name}}`)
@@ -51,6 +72,37 @@ function useRequestOutOfAddress() {
     url.searchParams.delete('request')
     window.history.replaceState(null, '', url)
   }, [])
+}
+
+/**
+ * Whether Allow can be pressed: once the page has been in view, with its window focused, for ARM_MS; again that
+ * long after the window loses focus or the page is hidden. False in the page as sent, before its scripts run.
+ */
+function useArmed(): boolean {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const disarm = () => {
+      clearTimeout(timer)
+      setArmed(false)
+    }
+    const arm = () => {
+      disarm()
+      if (document.visibilityState === 'visible') timer = setTimeout(() => setArmed(true), ARM_MS)
+    }
+    const onVisibility = () => (document.visibilityState === 'visible' ? arm() : disarm())
+    arm()
+    window.addEventListener('focus', arm)
+    window.addEventListener('blur', disarm)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('focus', arm)
+      window.removeEventListener('blur', disarm)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
+  return armed
 }
 
 export function ConnectAgent({
@@ -74,19 +126,23 @@ export function ConnectAgent({
   const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id ?? '')
   const [pick, setPick] = useState<BrandsPick>(EVERY_BRAND)
   const [access, setAccess] = useState<Access>('edit')
-  const [allowed, allowAction, allowing] = useActionState<ConnectAnswer, FormData>(allow, null)
-  const [denied, denyAction, denying] = useActionState<ConnectAnswer, FormData>(deny, null)
+  // The button pressed last, which the answer and the busy words are of.
+  const [pressed, setPressed] = useState<'allow' | 'deny'>('allow')
+  const [answer, send, busy] = useActionState<ConnectAnswer, FormData>(
+    (before, form) => (form.get('answer') === 'deny' ? deny(before, form) : allow(before, form)),
+    null,
+  )
+  const armed = useArmed()
   useRequestOutOfAddress()
   const workspace = workspaces.find((each) => each.id === workspaceId) ?? workspaces[0]
   if (!workspace) return null
   const writes = roleWrites(workspace.role)
-  const busy = allowing || denying
-  const refused = (allowing || denying ? null : (allowed ?? denied))?.error
+  const refused = busy ? null : answer?.error
   const [wantsBefore, wantsAfter] = around(words.wants, 'client')
   const [backBefore, backAfter] = around(words.sendsBack, 'host')
   return (
     <form
-      action={allowAction}
+      action={send}
       aria-labelledby={`${ids}-title`}
       data-testid="connect-agent"
       className="flex w-full max-w-[30rem] flex-col gap-6 rounded-[20px] surface-frost p-6 sm:p-8"
@@ -100,16 +156,16 @@ export function ConnectAgent({
         <Mascot pose="hello" size={88} />
         <h1
           id={`${ids}-title`}
-          className="font-display text-[1.625rem] leading-tight font-extrabold tracking-[-0.01em] text-balance [overflow-wrap:anywhere]"
+          className="line-clamp-4 overflow-hidden font-display text-[1.625rem] leading-tight font-extrabold tracking-[-0.01em] text-balance [overflow-wrap:anywhere]"
         >
           {wantsBefore}
-          <bdi data-testid="connect-client">{clientName}</bdi>
+          <bdi data-testid="connect-client">{shownName(clientName)}</bdi>
           {wantsAfter}
         </h1>
-        <p className="text-label text-muted [overflow-wrap:anywhere]">
+        <p className="text-card text-text [overflow-wrap:anywhere]">
           {backBefore}
-          <bdi dir="ltr" data-testid="connect-host" className="font-mono font-semibold text-text">
-            {redirectHost}
+          <bdi dir="ltr" title={redirectHost} data-testid="connect-host" className="font-mono font-bold">
+            {shownHost(redirectHost)}
           </bdi>
           {backAfter}
         </p>
@@ -177,20 +233,25 @@ export function ConnectAgent({
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button
           type="submit"
-          formAction={denyAction}
+          name="answer"
+          value="deny"
           disabled={busy}
+          onClick={() => setPressed('deny')}
           data-testid="connect-deny"
           className={cn(buttonStyles({ variant: 'ghost', size: 'lg' }), 'h-11 px-6')}
         >
-          {denying ? words.denying : words.deny}
+          {busy && pressed === 'deny' ? words.denying : words.deny}
         </button>
         <button
           type="submit"
-          disabled={busy}
+          name="answer"
+          value="allow"
+          disabled={busy || !armed}
+          onClick={() => setPressed('allow')}
           data-testid="connect-allow"
           className={cn(buttonStyles({ variant: 'primary', size: 'lg' }), 'h-11 px-7 font-semibold')}
         >
-          {allowing ? words.allowing : words.allow}
+          {busy && pressed === 'allow' ? words.allowing : words.allow}
         </button>
       </div>
     </form>

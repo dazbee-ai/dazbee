@@ -89,9 +89,7 @@ describe('start', () => {
 
     expect(jar.has(INVITATION_COOKIE)).toBe(false)
   })
-})
 
-describe('start with a page to come back to', () => {
   it('keeps the Connect an agent page, with its request, for after sign-in', async () => {
     await expect(start(form({ next: '/agents/connect?request=x' }))).rejects.toThrow(
       'redirect https://auth.example.com/authorize',

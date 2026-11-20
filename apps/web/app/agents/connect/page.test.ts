@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ConnectAgent } from '@/components/settings/connect-agent.tsx'
 
-import ConnectAgentPage from './page.tsx'
+import ConnectAgentPage, { generateMetadata } from './page.tsx'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ get: () => undefined })) }))
@@ -63,6 +63,12 @@ beforeEach(() => {
 async function render(query: Record<string, string>) {
   return renderToStaticMarkup(await ConnectAgentPage({ searchParams: Promise.resolve(query) }))
 }
+
+describe('generateMetadata', () => {
+  it('sends no referrer from the page, however its address is written', async () => {
+    expect(await generateMetadata()).toEqual({ title: 'Connect an agent', referrer: 'no-referrer' })
+  })
+})
 
 describe('ConnectAgentPage', () => {
   it('sends a person who is signed out to sign in, coming back to the request', async () => {

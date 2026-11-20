@@ -12,12 +12,13 @@ import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { findAgentRequest } from '@/lib/server/agents.ts'
 import { findMe, listBrands } from '@/lib/server/api.ts'
-import { COMES_BACK_TO } from '@/lib/server/sign-in.ts'
+import { signInForRequest } from '@/lib/server/sign-in.ts'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
-  return { title: (await getMessages()).connectAgent.title }
+  // Sent as a tag in the page as well as a header, so it holds however the page's address is written.
+  return { title: (await getMessages()).connectAgent.title, referrer: 'no-referrer' as const }
 }
 
 export default async function ConnectAgentPage({ searchParams }: { searchParams: Promise<{ request?: string }> }) {
@@ -31,7 +32,7 @@ export default async function ConnectAgentPage({ searchParams }: { searchParams:
   )
   if (!request) return expired
   const me = await findMe()
-  if (!me) redirect(`/login?next=${encodeURIComponent(`${COMES_BACK_TO}?${new URLSearchParams({ request })}`)}`)
+  if (!me) redirect(signInForRequest(request))
   const found = await findAgentRequest(request)
   if (!found) return expired
   if (found.workspaces.length === 0)
@@ -56,7 +57,7 @@ export default async function ConnectAgentPage({ searchParams }: { searchParams:
   )
 }
 
-/** The page round what it shows: dark, as sign-in is, with what it shows centred. */
+/** The page around what it shows: dark, as sign-in is, with what it shows centred. */
 function Page({ children }: { children: ReactNode }) {
   return (
     <main data-theme="dark" className="grid min-h-dvh place-items-center bg-bg px-4 py-10 text-text sm:px-6">

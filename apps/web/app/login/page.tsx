@@ -1,4 +1,4 @@
-// Sign in (#58): one button to WorkOS AuthKit, which signs in or signs up. The API makes the link;
+// Sign in: one button to WorkOS AuthKit, which signs in or signs up. The API makes the link;
 // the state cookie ties WorkOS's answer to this browser. An invite email's link that starts here
 // brings its `invitation_token`, which the sign-in link carries on, so WorkOS accepts the invite. A
 // sign-in early access refused comes back with its reason, and the notice says what to do; the address to
@@ -21,7 +21,8 @@ import { RequestAccess } from './request-access.tsx'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
-  return { title: (await getMessages()).signIn.title }
+  // The address can carry the Connect an agent page with its sign-in request, which no site it leaves for learns.
+  return { title: (await getMessages()).signIn.title, referrer: 'no-referrer' as const }
 }
 
 // Sign-in has the form on the start half and fanned-out ads on the end half. Phones show the form alone.

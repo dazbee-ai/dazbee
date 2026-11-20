@@ -11,7 +11,7 @@ import { AgentConsent } from '@dazbee/schema'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { allowAgent, denyAgent } from '@/lib/server/agents.ts'
 import { ApiFailure } from '@/lib/server/api.ts'
-import { COMES_BACK_TO } from '@/lib/server/sign-in.ts'
+import { signInForRequest } from '@/lib/server/sign-in.ts'
 
 /** What Allow or Deny answered while the person stays on the page: why it was refused, or nothing yet. */
 export type ConnectAnswer = { error: string } | null
@@ -33,13 +33,13 @@ export async function allow(_before: ConnectAnswer, form: FormData): Promise<Con
     const brands = input.error.issues.some((issue) => issue.path[0] === 'brandIds')
     return { error: brands ? words.settings.brands.noneChosen : words.connectAgent.expired }
   }
-  return answered(request, 'gone', () => allowAgent(text(form, 'workspace'), input.data))
+  return answered(request, words.connectAgent.refused.gone, () => allowAgent(text(form, 'workspace'), input.data))
 }
 
 /** Denies the agent the form's `request`. */
 export async function deny(_before: ConnectAnswer, form: FormData): Promise<ConnectAnswer> {
   const request = text(form, 'request')
-  return answered(request, 'expired', () => denyAgent(request))
+  return answered(request, (await getMessages()).connectAgent.expired, () => denyAgent(request))
 }
 
 /** A form's field as text, empty when it is missing or a file. */
@@ -49,26 +49,21 @@ function text(form: FormData, name: string): string {
 }
 
 /**
- * Sends the person where the API's answer says, or gives why it refused: a Reviewer's agent given Edit, what a 404
- * means for this answer (`missing`), or else the API's own message. Without a session, sign-in opens and comes
- * back to the request.
+ * Sends the person where the API's answer says, or gives why it refused: a Reviewer's agent given Edit, `missing`
+ * for a 404, or else the API's own message. Without a session, sign-in opens and comes back to the request.
  */
-async function answered(
-  request: string,
-  missing: 'gone' | 'expired',
-  ask: () => Promise<string>,
-): Promise<ConnectAnswer> {
+async function answered(request: string, missing: string, ask: () => Promise<string>): Promise<ConnectAnswer> {
   let to: string
   try {
     to = await ask()
   } catch (e) {
     if (!(e instanceof ApiFailure) || e.status >= 500) throw e
     if (e.status === 401) {
-      redirect(`/login?next=${encodeURIComponent(`${COMES_BACK_TO}?${new URLSearchParams({ request })}`)}`)
+      redirect(signInForRequest(request))
     }
     const words = (await getMessages()).connectAgent
     if (e.status === 403) return { error: words.refused.viewOnly }
-    if (e.status === 404) return { error: missing === 'gone' ? words.refused.gone : words.expired }
+    if (e.status === 404) return { error: missing }
     return { error: e.message }
   }
   redirect(to)

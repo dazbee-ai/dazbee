@@ -1,7 +1,15 @@
 // The brand kit in the editor (#53): the values bound properties take, binding the selection to a
 // brand colour or font or unbinding it, and text that follows a brand font taking its new family.
 import type { Session } from '@dazbee/doc'
-import { type BindingTarget, canBind, fontFamilies, type VariableRef, type Variables } from '@dazbee/schema'
+import {
+  BINDABLE_PROPERTIES,
+  type BindableProperty,
+  bindablePropertyOf,
+  canBind,
+  fontFamilies,
+  type VariableRef,
+  type Variables,
+} from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
 import { type EditorResources, SHIPPED_FAMILIES } from './resources.ts'
@@ -36,6 +44,9 @@ export interface EditorBrandKit {
   refitBrandFonts(): Promise<void>
 }
 
+/** The bindable property a brand font binds. */
+const FONT: BindableProperty = 'fontFamily'
+
 export function editorBrandKit({ session, resources, view, selection, typing, signal }: BrandKitDeps): EditorBrandKit {
   function setVariables(variables: Variables) {
     resources.setVariables(variables)
@@ -48,22 +59,21 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     const value = ref ? resources.bytes().variables?.[ref] : undefined
     if (ref && value === undefined) return 0
     const targets = idsOf(selection.current()).flatMap((id) => {
-      const type = current.nodes[id]?.type ?? ''
-      const target: BindingTarget = kind === 'font' ? 'fontFamily' : type === 'text' ? 'textColor' : 'fill'
-      return canBind(type, target) ? [{ id, target }] : []
+      const property = bindablePropertyOf(current.nodes[id]?.type ?? '', kind)
+      return property ? [{ id, property }] : []
     })
     if (targets.length === 0) return 0
     let changed = 0
     session.gesture(() => {
-      for (const { id, target } of targets) {
+      for (const { id, property } of targets) {
         if (
           !runQuietly(() =>
-            session.run('node.bind', { ids: [id], target, ref, ...(value === undefined ? {} : { value }) }),
+            session.run('node.bind', { ids: [id], property, ref, ...(value === undefined ? {} : { value }) }),
           )
         )
           continue
         changed++
-        if (target === 'fontFamily') typing.fitText(id)
+        if (kind === 'font') typing.fitText(id)
       }
     })
     return changed
@@ -77,11 +87,9 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   async function refitBrandFonts() {
     const kit = resources.bytes().variables ?? {}
     const stale = Object.entries(session.design().nodes).flatMap(([id, node]) => {
-      const ref = node.type === 'text' ? node.bindings?.fontFamily : undefined
+      const ref = canBind(node.type, FONT) ? node.bindings?.[FONT] : undefined
       const family = ref ? kit[ref] : undefined
-      return node.type === 'text' && ref && family && family !== node.props.style.fontFamily
-        ? [{ id, ref, family }]
-        : []
+      return ref && family && family !== BINDABLE_PROPERTIES[FONT].read(node.props) ? [{ id, ref, family }] : []
     })
     if (stale.length === 0) return
     const families = [...new Set(stale.map((s) => s.family))]
@@ -93,11 +101,9 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
       for (const { id, ref, family } of stale) {
         const node = session.design().nodes[id]
         // Still bound, the kit still gives this family (not a newer one), and the text has not taken it already.
-        if (node?.type !== 'text' || node.bindings?.fontFamily !== ref || resources.bytes().variables?.[ref] !== family)
-          continue
-        if (node.props.style.fontFamily === family || !here.has(family)) continue
-        if (!runQuietly(() => session.run('node.bind', { ids: [id], target: 'fontFamily', ref, value: family })))
-          continue
+        if (node?.bindings?.[FONT] !== ref || resources.bytes().variables?.[ref] !== family) continue
+        if (BINDABLE_PROPERTIES[FONT].read(node.props) === family || !here.has(family)) continue
+        if (!runQuietly(() => session.run('node.bind', { ids: [id], property: FONT, ref, value: family }))) continue
         typing.fitText(id)
       }
     })

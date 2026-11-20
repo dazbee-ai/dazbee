@@ -165,7 +165,12 @@ const drawCaches: Walk<Drawn> = {
     // A linked frame, and a fill and a font that follow the brand kit, which no one undoes.
     tab.session.untracked(() => {
       tab.session.run('frame.duplicate', { frameId: 'f' })
-      tab.session.run('node.bind', { ids: ['turned', 'r1'], property: 'fill', ref: 'brand:primary', value: '#112233FF' })
+      tab.session.run('node.bind', {
+        ids: ['turned', 'r1'],
+        property: 'fill',
+        ref: 'brand:primary',
+        value: '#112233FF',
+      })
       tab.session.run('node.bind', { ids: ['words'], property: 'fontFamily', ref: 'brand:heading', value: 'Noto Sans' })
     })
     const done = new AbortController()

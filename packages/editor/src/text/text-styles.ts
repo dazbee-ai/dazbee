@@ -3,7 +3,7 @@
 // layers. Each turns its style on unless it is on throughout, by the rule in text-edit.ts; Bold
 // picks from the weights the family each is drawn in has, and writes nothing where one has none.
 import type { Session } from '@dazbee/doc'
-import { type Design, faceWeights } from '@dazbee/schema'
+import { bindProps, type Design, faceWeights } from '@dazbee/schema'
 
 import type { EditorLayerEdits } from '../layer-edits.ts'
 import type { EditorResources } from '../resources.ts'
@@ -78,8 +78,8 @@ export function editorTextStyles({
   }
   /** The family a character or layer in `style` is drawn in: the brand's where the text's font is bound to it and the style keeps the text's own. */
   function drawnFamily(node: TextNode, style: Style) {
-    const bound = node.bindings?.fontFamily ? resources.bytes().variables?.[node.bindings.fontFamily] : undefined
-    return bound !== undefined && style.fontFamily === node.props.style.fontFamily ? String(bound) : style.fontFamily
+    if (style.fontFamily !== node.props.style.fontFamily) return style.fontFamily
+    return bindProps(node.type, node.props, node.bindings, resources.bytes().variables).style.fontFamily
   }
   /** The upright weights a family draws, or every weight where it has no upright face; a variable face draws its range's. */
   function weightsOf(family: string) {

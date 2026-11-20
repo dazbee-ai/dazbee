@@ -1,9 +1,11 @@
 // Starts the MCP server agents connect to (ADR-0019). Settings come from the environment only: the API's and the
-// sync server's private addresses, the public base URL agents reach it at, and the port. Run locally, each has the
-// address the other apps have on a developer's machine; in production each must be set.
+// sync server's private addresses, the public base URL agents reach it at, the port, and the capacity limits
+// (`limitSettings`). Run locally, each address is the one the other apps have on a developer's machine; in production
+// each must be set. A limit set out of its range stops the server from starting.
 import { serve } from '@hono/node-server'
 
 import { mcpEndpoint } from './endpoint.ts'
+import { limitSettings } from './limits.ts'
 
 const production = process.env.NODE_ENV === 'production'
 const apiUrl = address('API_URL', 'http://localhost:8787', ['http:', 'https:'])
@@ -12,8 +14,9 @@ const baseUrl = address('PUBLIC_URL', 'http://localhost:3000', ['http:', 'https:
 const port = Number(process.env.PORT ?? 3100)
 // The image sets BUILD_ID to the commit it was built from; a server run from a checkout is `dev`.
 const version = process.env.BUILD_ID || 'dev'
+const limits = limitSettings(process.env)
 
-const endpoint = mcpEndpoint({ api: { url: apiUrl }, sync: { url: syncUrl }, baseUrl, version })
+const endpoint = mcpEndpoint({ api: { url: apiUrl }, sync: { url: syncUrl }, baseUrl, version, limits })
 const server = serve({ fetch: endpoint.app.fetch, port }, () =>
   console.log(`mcp on http://localhost:${port}/mcp, as ${baseUrl}/mcp; the API at ${apiUrl}, sync at ${syncUrl}`),
 )

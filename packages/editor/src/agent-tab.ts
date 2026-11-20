@@ -57,6 +57,11 @@ export interface AgentTab {
    * warnings read. No image is loaded for them.
    */
   fontsLoaded(): Promise<void>
+  /**
+   * Settles once the files of every family the design draws its text in and the images the frame draws are here, or
+   * failed to come: what its render reads. Images stay as their bytes; the tab decodes none.
+   */
+  frameLoaded(frameId: string): Promise<void>
   /** What the tab told since the last call, oldest first, at most `KEPT_NOTICES` of the newest. */
   takeNotices(): NoticeDetail[]
   /** How many of the tab's change sets the server has not confirmed: steps not yet stored. */
@@ -166,6 +171,10 @@ function agentTabOn(
   async function fontsLoaded() {
     await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), bytes().variables)))
   }
+  async function frameLoaded(frameId: string) {
+    modules.resources.load(session.design(), [frameId])
+    await modules.resources.loaded()
+  }
   const takeNotices = () => notices.splice(0)
   function onStopped(listener: (why: Stopped) => void) {
     return tab.link.onStatus(() => {
@@ -205,6 +214,7 @@ function agentTabOn(
     bytes,
     cache,
     fontsLoaded,
+    frameLoaded,
     takeNotices,
     unsent,
     stopped,

@@ -12,7 +12,7 @@ import type { OpenDesign } from '../open-design.ts'
 import { answerBytes, defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
 
 /** A frame's id, as read_design gives it. */
-const FrameId = Id.describe('The frame’s id, as read_design gives it')
+export const FrameId = Id.describe('The frame’s id, as read_design gives it')
 
 export const DESIGN_TOOLS: Tool[] = [
   defineTool({
@@ -97,16 +97,22 @@ export const DESIGN_TOOLS: Tool[] = [
 ]
 
 /** Runs `read` on the session's open design, answering what it gives with the design's notes. */
-function onDesign({ api, agent, design }: ToolContext, read: (open: OpenDesign) => unknown): Promise<unknown> {
+export function onDesign({ api, agent, design }: ToolContext, read: (open: OpenDesign) => unknown): Promise<unknown> {
   return design.use({ api, agent }, answered(read))
 }
 
 /** `read`, its answer given with the design's notes after it, when there are any. */
-function answered(read: (open: OpenDesign) => unknown) {
+export function answered(read: (open: OpenDesign) => unknown) {
   return async (open: OpenDesign) => {
     const value = await read(open)
     return open.notes.length > 0 ? new WithNotes(value, open.notes) : value
   }
+}
+
+/** Refuses a frame the design doesn't have. */
+export function frameOf(design: Design, frameId: string) {
+  if (!Object.hasOwn(design.frames, frameId))
+    throw new ToolRefusal(`The open design has no frame “${frameId}”; read_design lists its frames`)
 }
 
 /** What read_design answers: the design's name, whether the tab may edit, its pages and frames, the kit's tokens and the tab's notices. */
@@ -133,12 +139,6 @@ function designAnswer({ tab, name, kit }: OpenDesign) {
     ],
     notices: tab.takeNotices().map(([notice, detail]) => ({ notice, ...detail })),
   }
-}
-
-/** Refuses a frame the design doesn't have. */
-function frameOf(design: Design, frameId: string) {
-  if (!Object.hasOwn(design.frames, frameId))
-    throw new ToolRefusal(`The open design has no frame “${frameId}”; read_design lists its frames`)
 }
 
 /**

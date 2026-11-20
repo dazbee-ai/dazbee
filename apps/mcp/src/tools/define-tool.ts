@@ -8,12 +8,24 @@ import type { AgentMe } from '@dazbee/schema'
 import { type AgentApi, ApiRefusal, TokenRefused } from '../api.ts'
 import { ANSWER_ENVELOPE_BYTES, inMiB, MAX_ANSWER_BYTES } from '../limits.ts'
 import type { SessionDesign } from '../open-design.ts'
+import type { RenderQueue } from '../render-queue.ts'
 
-/** What a tool call runs with: the API as the calling agent sees it, the agent's access, and its session's design. */
+/** The renders an access may ask for: its bucket, and the process's queue they are drawn from. */
+export interface AccessRenders {
+  /** Takes one render from the access's bucket, giving 0; or, when it is empty, the whole seconds until one is back. */
+  take(): number
+  draw: RenderQueue['draw']
+}
+
+/**
+ * What a tool call runs with: the API as the calling agent sees it, the agent's access, its session's design, and
+ * the renders it may ask for.
+ */
 export interface ToolContext {
   api: AgentApi
   agent: AgentMe
   design: SessionDesign
+  renders: AccessRenders
 }
 
 /** A tool as the server offers it. */
@@ -41,6 +53,16 @@ export interface ToolDefinition<S extends z.ZodObject> {
 
 /** A tool's refusal, in a sentence the agent reads. */
 export class ToolRefusal extends Error {}
+
+/** A tool's answer that is a picture: the PNG as an image block, then `value` as a text block. */
+export class WithPicture {
+  readonly png: Uint8Array
+  readonly value: unknown
+  constructor(png: Uint8Array, value: unknown) {
+    this.png = png
+    this.value = value
+  }
+}
 
 /** A tool's answer with sentences told after it, each a text block of its own. */
 export class WithNotes {
@@ -121,14 +143,20 @@ function inputIssues(error: z.ZodError, given: object): string {
     .join('; ')
 }
 
-/** The tool's answer as a text block, and one for each note, or a tool error when it would not fit an answer. */
+/**
+ * The tool's answer as a text block, after its picture's image block when it has one, and a text block for each note;
+ * or a tool error when it would not fit an answer.
+ */
 function answer(given: unknown): CallToolResult {
-  const [value, notes] = given instanceof WithNotes ? [given.value, given.notes] : [given, []]
+  const [answered, notes] = given instanceof WithNotes ? [given.value, given.notes] : [given, []]
+  const [value, picture] =
+    answered instanceof WithPicture ? [answered.value, Buffer.from(answered.png).toString('base64')] : [answered]
   const texts = [typeof value === 'string' ? value : JSON.stringify(value), ...notes]
-  const bytes = texts.reduce((sum, text) => sum + answerBytes(text), 0)
+  const bytes = texts.reduce((sum, text) => sum + answerBytes(text), picture === undefined ? 0 : answerBytes(picture))
   if (bytes > MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES)
     return refused(
       `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be; ask for less`,
     )
-  return { content: texts.map((text) => ({ type: 'text', text })) }
+  const image = picture === undefined ? [] : [{ type: 'image' as const, data: picture, mimeType: 'image/png' }]
+  return { content: [...image, ...texts.map((text) => ({ type: 'text' as const, text }))] }
 }

@@ -142,6 +142,14 @@ export const TEST_ASSETS: AssetSummary[] = [
   },
 ]
 
+/** The stored file of the bottle asset: a 4 × 4 PNG of orange and blue squares. */
+export const TEST_BOTTLE_PNG = Uint8Array.from(
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAG0lEQVR4nGP4f4Lhv9yE//9hNAMyB0QzEFQBAMCHK5GQiq1KAAAAAElFTkSuQmCC',
+    'base64',
+  ),
+)
+
 /** Where the fake API's signed storage links point. */
 const STORAGE = 'http://storage.test'
 
@@ -225,6 +233,14 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     )
   })
 
+  app.get('/workspaces/:workspaceId/brands/:brandId/assets/:assetId', (c) => {
+    const asset = TEST_ASSETS.find(
+      ({ id, brandId }) => id === c.req.param('assetId') && brandId === c.req.param('brandId'),
+    )
+    if (!asset) return c.json({ error: 'No such asset' }, 404)
+    return c.json({ asset, url: `${STORAGE}/assets/${asset.id}`, expiresAt: new Date(now() + 60_000).toISOString() })
+  })
+
   app.post('/workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token', async (c) => {
     const designId = c.req.param('designId')
     if (!designs.some((design) => design.id === designId && design.brandId === c.req.param('brandId')))
@@ -295,12 +311,13 @@ function visible(agent: AgentMe): BrandSummary[] {
 }
 
 /**
- * The fake storage behind the signed links: a font face's file is a shipped font's. A request carrying a token is
- * refused, as the agent's token must never reach storage.
+ * The fake storage behind the signed links: a font face's file is a shipped font's, and the bottle's is
+ * `TEST_BOTTLE_PNG`. A request carrying a token is refused, as the agent's token must never reach storage.
  */
 async function stored(request: Request): Promise<Response> {
   if (request.headers.has('authorization')) return new Response('A signed link takes no token', { status: 400 })
   const path = new URL(request.url).pathname
+  if (path === '/assets/asset-bottle') return new Response(new Uint8Array(TEST_BOTTLE_PNG))
   const [shipped] = loadFontFiles()
   if (!path.startsWith('/fonts/') || !shipped) return new Response('Not found', { status: 404 })
   return new Response(new Uint8Array(shipped.bytes))

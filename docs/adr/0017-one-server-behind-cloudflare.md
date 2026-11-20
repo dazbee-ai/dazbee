@@ -1,5 +1,7 @@
 # Dazbee runs on one server behind Cloudflare
 
+ADR-0019 adds a third service facing the internet, the MCP server agents connect to, under `app.dazbee.com`'s `/mcp`, `/oauth/*` and `/.well-known/oauth-*`; the hostnames stay two. The rest stands.
+
 Until now nothing was deployed: the web app, API, sync server and database ran only on a developer's machine and in CI, and a change to the tables reset the database. Dazbee now runs in production on one rented server (Ubuntu, Docker), and real people's work is kept.
 
 The server runs the web app, the API, the sync server, Postgres and Caddy as containers from one compose file in the repo, each with a memory cap. The images are built by GitHub Actions and kept in GitHub's container registry; a merge to `main` that passes CI's `check` deploys them over SSH. The web app and API are swapped without downtime; the sync server, which alone owns each open design (ADR-0015), restarts and its tabs reconnect and resend what they hadn't saved. The API applies new migrations when it starts.

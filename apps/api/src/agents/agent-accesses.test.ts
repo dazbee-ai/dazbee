@@ -131,6 +131,24 @@ describe('refreshTokens', () => {
     expect((await refreshTokens(db, refreshed.tokens.refreshToken, now)).ok).toBe(false)
   })
 
+  it('deletes the access’s expired tokens as it refreshes, keeping the swapped refresh token that ends it if used again', async () => {
+    const { accessId } = await member()
+    const now = new Date()
+    const first = await issueTokens(db, accessId, now)
+    const later = new Date(now.getTime() + 2 * HOUR)
+    const refreshed = await refreshTokens(db, first.refreshToken, later)
+    if (!refreshed.ok) throw new Error('the refresh was refused')
+
+    const rows = await db.select().from(agentTokens).where(eq(agentTokens.accessId, accessId))
+    expect(rows.map((row) => [row.kind, row.swappedAt !== null]).sort()).toEqual([
+      ['access', false],
+      ['refresh', false],
+      ['refresh', true],
+    ])
+    await refreshTokens(db, first.refreshToken, new Date(later.getTime() + MINUTE))
+    expect(await findAccessOfToken(db, refreshed.tokens.accessToken, later)).toBeNull()
+  })
+
   it('refuses an access token, a made-up or expired refresh token, and one of an ended access', async () => {
     const { accessId, access } = await member()
     const now = new Date()

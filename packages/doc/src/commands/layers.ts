@@ -6,6 +6,7 @@ import {
   BINDABLE_PROPERTIES,
   BindableProperty,
   canBind,
+  carryOverLayer,
   fitsProperty,
   FrameId,
   type Layer as LayerT,
@@ -123,7 +124,7 @@ export const nodeUpdate = defineCommand({
       const layer = parseLayer(patched)
       if (!layer.success) return layer.errors.map((e) => `${id}.${e.replace(/^props\./, '')}`).join('; ')
       // A key the parse drops would be stored as sent, which the server refuses.
-      const dropped = droppedIssue(patched, layer.layer)
+      const dropped = droppedIssue(carryOverLayer(patched), layer.layer)
       if (dropped) return `${id}: ${dropped}`
     }
     return undefined
@@ -281,8 +282,8 @@ export const nodeBind = defineCommand({
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
       let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }
-      // A fill with no solid fill that shows to take the value gets one on top.
-      if (property === 'fill' && entry.read(props) === undefined)
+      // A fill bound with no solid fill that shows to take the value gets one on top; unbound, it keeps what it has.
+      if (ref && property === 'fill' && entry.read(props) === undefined)
         props = { fills: [...((props.fills ?? []) as unknown[]), { type: 'solid', color: value }] }
       w.setProp(id, entry.prop, entry.write(props, value)[entry.prop])
     }

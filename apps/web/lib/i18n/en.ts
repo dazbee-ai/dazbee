@@ -1533,6 +1533,45 @@ export const en = {
       requestGone: 'This request was already invited or dismissed.',
     },
   },
+  /**
+   * The Connect an agent page, where a member gives an agent access: who is asking and where it sends them back,
+   * the workspace, the brands and whether it edits, then Allow or Deny.
+   */
+  connectAgent: {
+    title: 'Connect an agent',
+    /** Who is asking: the name the agent's client gave itself, as {client}. */
+    wants: '{client} wants to design in Dazbee for you',
+    /** The host the agent's client hears back at, as {host}. */
+    sendsBack: 'Your answer goes back to {host}',
+    workspace: 'Workspace',
+    /** Whether the agent edits or only views. */
+    access: 'The agent may',
+    edit: 'Edit',
+    view: 'View only',
+    /** A line under the access choice saying what the one picked may do. */
+    accessHints: {
+      edit: 'Makes and changes designs, as you do.',
+      view: 'Views designs and changes nothing.',
+    },
+    /** A Reviewer's agent, which only views. */
+    viewOnly: 'View only: as a Reviewer here, you can let an agent view designs, not change them.',
+    allow: 'Allow',
+    allowing: 'Allowing…',
+    deny: 'Deny',
+    denying: 'Denying…',
+    /** A request that expired, was answered, was tampered with, or isn't in the address. */
+    expiredTitle: 'This link has expired',
+    expired: 'This link has expired. Connect the agent again from where you started.',
+    again: 'Connect the agent again from where you started.',
+    /** A person who is a member of no workspace. */
+    noWorkspaceTitle: 'No workspace to connect',
+    noWorkspace: 'Join or make a workspace, then connect the agent again.',
+    /** Why the API refused Allow. */
+    refused: {
+      viewOnly: 'Your role in this workspace lets an agent only view. Pick View only.',
+      gone: 'This sign-in has expired, or a brand you picked can’t be given now. Connect the agent again from where you started.',
+    },
+  },
   signIn: {
     title: 'Sign in to Dazbee',
     /** The sign-in page's headline, in two lines. */

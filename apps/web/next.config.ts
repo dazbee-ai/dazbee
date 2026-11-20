@@ -15,6 +15,18 @@ const config: NextConfig = {
     // next dev tells an agent to run `next upgrade` when the installed Next.js has a security advisory.
     agentUpgrade: 'security',
   },
+  // The Connect an agent page hands out access to designs: no other site may frame it, and no address it leaves
+  // learns its sign-in request from the referrer.
+  headers: async () => [
+    {
+      source: '/agents/connect',
+      headers: [
+        { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+      ],
+    },
+  ],
   // With MCP_DEV_URL set, the MCP server's paths go to it, so one base URL serves both, as Caddy does in production.
   rewrites: async () => {
     const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')

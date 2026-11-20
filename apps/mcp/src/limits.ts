@@ -25,3 +25,6 @@ export const CALL_TIMEOUT_MS = 60_000
 export function inMiB(bytes: number): string {
   return `${Number((bytes / 1024 / 1024).toFixed(1))} MiB`
 }
+
+/** The largest body an OAuth endpoint takes: a registration or a token request is a few hundred bytes. */
+export const MAX_OAUTH_BODY_BYTES = 64 * 1024

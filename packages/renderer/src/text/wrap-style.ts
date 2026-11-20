@@ -33,7 +33,8 @@ const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' })
  * up to three early, the latest that leaves more than one word on the last line and adds no line;
  * the lines after it stay full. `remake` builds the paragraph from another text of the same length;
  * a paragraph replaced is deleted. A paragraph of one line, one with a word wider than the box, and
- * justified text are left as they are, and no word is broken.
+ * justified text are left as they are, and no word is broken. Pretty ends a line only at a space,
+ * so text written without spaces between words keeps its lines.
  */
 export function rewrap(
   paragraph: Paragraph,
@@ -49,22 +50,8 @@ export function rewrap(
   const word = paragraph.getMinIntrinsicWidth()
   if (lines < 2 || word >= width) return kept
   if (props.wrapStyle === 'pretty') return pretty(paragraph, text, width, remake) ?? kept
-  const narrowest = balanced(paragraph, lines, word, width)
+  const narrowest = narrowestWidth(paragraph, lines, word, width)
   return { paragraph, text, width: narrowest, dx: alignedShift(props.align, rtl, width - narrowest) }
-}
-
-/** The narrowest width from `word` to `width` that keeps `lines` lines, to half a pixel; the paragraph is laid out at it. */
-function balanced(paragraph: Paragraph, lines: number, word: number, width: number): number {
-  let lo = word
-  let hi = width
-  while (hi - lo > BALANCE_STEP) {
-    const mid = (lo + hi) / 2
-    paragraph.layout(mid)
-    if (paragraph.getLineMetrics().length === lines) hi = mid
-    else lo = mid
-  }
-  paragraph.layout(hi)
-  return hi
 }
 
 /** Pretty's paragraph, or null when its last line holds more than one word or no early end helps. */
@@ -89,7 +76,27 @@ function pretty(paragraph: Paragraph, text: string, width: number, remake: (text
   return null
 }
 
-/** Whether the paragraph's last line holds one word at most. */
+/** The narrowest width from `word` to `width` that keeps `lines` lines, to half a pixel; the paragraph is laid out at it. */
+function narrowestWidth(paragraph: Paragraph, lines: number, word: number, width: number): number {
+  let lo = word
+  let hi = width
+  while (hi - lo > BALANCE_STEP) {
+    const mid = (lo + hi) / 2
+    paragraph.layout(mid)
+    if (paragraph.getLineMetrics().length === lines) hi = mid
+    else lo = mid
+  }
+  paragraph.layout(hi)
+  return hi
+}
+
+/** How far a paragraph `room` narrower than its box moves along it to keep its alignment. */
+function alignedShift(align: TextProps['align'], rtl: boolean, room: number): number {
+  if (align === 'center') return room / 2
+  return (align === 'end') !== rtl ? room : 0
+}
+
+/** Whether the paragraph's last line holds one word at most, or none. */
 function loneLastWord(paragraph: Paragraph, text: string): boolean {
   const last = paragraph.getLineMetrics().at(-1)
   if (!last) return false
@@ -104,10 +111,4 @@ function wordStarts(text: string, from: number, to: number): number[] {
     if (BREAKING_SPACE.test(text[i - 1] ?? '') && !BREAKING_SPACE.test(text[i] ?? '')) starts.push(i)
   }
   return starts
-}
-
-/** How far a paragraph `room` narrower than its box moves along it to keep its alignment. */
-function alignedShift(align: TextProps['align'], rtl: boolean, room: number): number {
-  if (align === 'center') return room / 2
-  return (align === 'end') !== rtl ? room : 0
 }

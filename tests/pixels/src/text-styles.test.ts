@@ -248,6 +248,7 @@ describe('wrap style', () => {
     expect(linesOf(auto).map((l) => l.text)).toEqual(['Big summer sale on', 'every jacket and shirt', 'in store now'])
     expect(widths).toHaveLength(3)
     expect(spread(widths)).toBeLessThan(60)
+    expect(spread(widths)).toBeLessThan(spread(linesOf(auto).map((l) => l.width)) / 2)
     expect(
       linesOf(balanced)
         .map((l) => l.text)

@@ -370,8 +370,7 @@ function fits(props: TextProps, laid: TextLayout): boolean {
   if (props.boxMode === 'autoWidth') return true
   const total = props.text.split('\n').length
   if (laid.blocks.length < total || laid.blocks.some((b) => b.paragraph.didExceedMaxLines())) return false
-  for (const b of laid.blocks)
-    if (b.paragraph.getMinIntrinsicWidth() > props.width - b.x - gutterRight(props, laid, b) + 0.01) return false
+  for (const b of laid.blocks) if (b.paragraph.getMinIntrinsicWidth() > b.paragraph.getMaxWidth() + 0.01) return false
   return props.boxMode !== 'fixed' || laid.height <= props.height + 0.01
 }
 
@@ -442,10 +441,6 @@ function textStyle(
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
     ...(decoration ? { decoration, decorationColor: color(ck, style.color), decorationThickness: 1 } : {}),
   })
-}
-
-function gutterRight(props: TextProps, laid: TextLayout, b: TextBlock) {
-  return b.marker && b.x === 0 ? laid.width - b.paragraph.getMaxWidth() : 0
 }
 
 /**

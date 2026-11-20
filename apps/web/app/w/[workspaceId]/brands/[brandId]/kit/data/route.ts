@@ -1,6 +1,6 @@
 // The brand's kit for the editor and the Brand kit page (#53), at /w/[workspace]/brands/[brand]/kit/data: read
 // it, and save it whole.
-import { BrandKit } from '@dazbee/schema'
+import { SaveBrandKit } from '@dazbee/schema'
 
 import { ApiFailure, getBrandKit, saveBrandKit } from '@/lib/server/api.ts'
 
@@ -24,7 +24,7 @@ export async function GET(
 
 export async function PUT(request: Request, { params }: { params: Promise<{ workspaceId: string; brandId: string }> }) {
   const { workspaceId, brandId } = await params
-  const kit = BrandKit.safeParse(await request.json().catch(() => null))
+  const kit = SaveBrandKit.safeParse(await request.json().catch(() => null))
   if (!kit.success) return Response.json({ error: kit.error.issues.map((i) => i.message).join('; ') }, { status: 400 })
   try {
     return Response.json(await saveBrandKit(workspaceId, brandId, kit.data))

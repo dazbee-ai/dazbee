@@ -33,7 +33,7 @@ export {
   sizingOf,
 } from './flow.ts'
 export { copiesOf, framesWithout, linkedFrames } from './links.ts'
-export { matchesIn } from './text-value.ts'
+export { applyTextOp, matchesIn, replaceRangeOps, type TextOp, type TextValue } from './text-value.ts'
 export { wrapLines } from './wrap-lines.ts'
 export {
   constraintsApply,

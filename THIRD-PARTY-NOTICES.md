@@ -13,6 +13,8 @@ From https://github.com/storytold/figcraft at commit `be991533b0cc1891447d8ea481
 - `packages/doc/src/wrap-lines.ts`: the lines a wrapping flow's layers are drawn on, read from where they are drawn, ported from `wrap_rows` in `crates/engine/src/canvas/drop.rs`.
 - `packages/editor/src/gestures/select/flow-place.ts` (`linePlace`): the place a point puts dragged layers in a wrapping flow, ported from `wrap_slot` and `wrap_slot_rows` in `crates/engine/src/canvas/drop.rs`.
 - `packages/svg/src/filters.ts`: an SVG filter worked out symbolically and read as drop shadows, inner shadows and a layer blur, ported from `crates/svg/src/import/fx.rs`.
+- `packages/doc/src/agent/batch.ts`: step references in an agent batch, each named step's result taken whole or through a key or slash path, ported from `BatchScope::reference`, `lookup` and `walk` in `crates/engine/src/automation/batch.rs`.
+- `packages/doc/src/agent/tree.ts`: a frame's layers as an outline of ids, names, types, whether each shows and its text cut at 120 characters, with the props asked for, after `InspectOptions` and `text_props` in `crates/engine/src/automation/inspect.rs`, and long lists of layers cut to a size budget by bisection, after `children_window` in `crates/mcp/src/tools.rs`.
 - `packages/svg/src/patterns.ts`: a pattern of one picture read as an image paint, fill, fit or cropped where one copy shows and tiled at a scale where it repeats, ported from `pattern` and `lone_image` in `crates/svg/src/import/paint.rs`.
 
 ```text

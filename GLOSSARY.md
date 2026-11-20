@@ -339,6 +339,18 @@ _Avoid_: Label, undo label
 A command that wrote nothing because its input or the design ruled it out, told as data: the command, whether its input or its check refused it, the reason in a sentence, and for an input the issues and where each is.
 _Avoid_: Fault (a bug, whose writes are put back), error, rejection (the sync server's answer to a change set)
 
+**Agent batch**:
+Commands an agent sends together, run in order as one gesture, so they are one undo step, all or nothing: on a refusal nothing is kept. A step may add, move or re-parent layers, which a batch run with `session.batch` refuses, and reach a layer an earlier step made through a step reference. The result gives each step's outcome, up to the refusal it stopped on.
+_Avoid_: Batch alone (`session.batch`, which takes only commands that change properties), script, macro
+
+**Step reference**:
+`{ "$ref": name }` in an agent batch step's input: the result of the earlier step named `name` with `as`, such as the id of the layer it added, or with `field` a part of that result (`0`, the first id of a list).
+_Avoid_: Variable, placeholder
+
+**Compact tree**:
+A frame's layers as small JSON for an agent to read: each layer's id, name, type, whether it shows and its text's first 120 characters, the props asked for, and long lists of layers cut to a size budget with how many are not shown.
+_Avoid_: Outline (the layers panel), tree alone (a brief's), dump
+
 **Gesture**:
 One continuous act of the person editing, such as a drag or typing into a text until they leave it, pause for 2 seconds or hide the tab (the next key starts another). Every command run during a gesture is one undo step, unless Undo is pressed while it is open, which makes what it wrote so far a step of its own. Other tabs draw its preview while it is open and get its change set once it ends.
 _Avoid_: Batch, transaction (a gesture spans many)

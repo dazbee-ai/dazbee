@@ -1,9 +1,10 @@
 // The stage's view of the canvas: the camera, the stage's size and the edges chrome covers, the page
-// it shows and that page's frames as last drawn, the design with other tabs' previews put in (D7),
+// it shows and that page's frames as last drawn, the design with other tabs' previews and this tab's
+// composition put in (D7),
 // the frames in view, the rulers, the safe zones, whether the hidden layers are shown, the points between the stage
 // and the design, and the listeners told when a redraw is asked for.
 import { previewedDesign, type PreviewRead, type Session, type StorePreviews } from '@dazbee/doc'
-import { type Design, inOrder, type Point, type Rect, type SafeZoneChoice } from '@dazbee/schema'
+import { type Design, inOrder, type Layer, type Point, type Rect, type SafeZoneChoice } from '@dazbee/schema'
 
 import { listenerSet } from '../listener-set.ts'
 import {
@@ -46,6 +47,11 @@ export interface ViewDeps {
   session: Pick<Session, 'design' | 'changes'>
   /** Other tabs' open steps, which the frames' pictures show (D7); none for a store no other tab shares. */
   previews?: Pick<StorePreviews, 'layers' | 'revision'> | undefined
+  /**
+   * The text layer an input method's composition draws, by its id, and a count raised each time it
+   * changes (`text/typing`, late-bound): only the frames' pictures show it. None without it.
+   */
+  composition?: () => { count: number; composed: { id: string; layer: Layer } | null }
   /** Told with the zoom (1 is 100%) whenever it changes. */
   onZoom: (zoom: number) => void
   /** The animation frames glides step on; without them, a glide moves straight to its end. */
@@ -61,8 +67,9 @@ export interface EditorView {
   /** The design as last drawn. */
   design(): Design
   /**
-   * The design as last drawn with the layers other tabs' previews show otherwise put in (D7): only
-   * the frames' pictures show it. Panels, selection, hit tests and commands read `design`.
+   * The design as last drawn with the layers other tabs' previews show otherwise put in (D7), and the
+   * text being composed in as its composition draws it, in place of another tab's preview of it:
+   * only the frames' pictures show it. Panels, selection, hit tests and commands read `design`.
    */
   previewed(): Design
   /** The frames the previewed layers are in, as last drawn or as previewed: the pictures that differ. */
@@ -175,8 +182,10 @@ const GLIDE_STEP_MS = 20
 
 /** No frame. */
 const NO_FRAMES: ReadonlySet<string> = new Set()
+/** No previewed layer. */
+const NO_LAYERS: ReadonlyMap<string, unknown> = new Map()
 
-export function editorView({ session, previews, onZoom, motion }: ViewDeps): EditorView {
+export function editorView({ session, previews, composition, onZoom, motion }: ViewDeps): EditorView {
   /** Screen pixels per CSS pixel. */
   let dpr = 1
   /** The stage's size, in CSS pixels. */
@@ -185,8 +194,11 @@ export function editorView({ session, previews, onZoom, motion }: ViewDeps): Edi
   let insets = NO_INSETS
   /** The design as last drawn. */
   let design: Design = session.design()
-  /** The design as last drawn with others' previews put in, the frames that makes differ, and what it was read at. */
-  let shownWithPreviews = { design, frames: NO_FRAMES, changes: null as number | null, revision: -1 }
+  /**
+   * The design as last drawn with others' previews and the composition put in, the frames that makes
+   * differ, and what it was read at.
+   */
+  let shownWithPreviews = { design, frames: NO_FRAMES, changes: null as number | null, revision: -1, composed: 0 }
   /** Each previewed layer as last read: one this tab's own edits leave as it was is the same layer, so its frame's picture is kept. */
   const previewReads = new Map<string, PreviewRead>()
   /** The page the canvas shows: the first page by order, until another is shown. */
@@ -281,24 +293,29 @@ export function editorView({ session, previews, onZoom, motion }: ViewDeps): Edi
     laid = pageFrames(design, shown)
     readPreviews()
   }
-  /** Puts the previewed layers into the design as last drawn, when the design or the previews changed. */
+  /**
+   * Puts the previewed layers and the composed text into the design as last drawn, when the design,
+   * the previews or the composition changed.
+   */
   function readPreviews() {
-    if (!previews) {
-      shownWithPreviews = { design, frames: NO_FRAMES, changes: null, revision: -1 }
-      return
-    }
     const changes = session.changes()
-    const revision = previews.revision()
+    const revision = previews?.revision() ?? -1
+    const read = composition?.()
+    const composed = read?.count ?? 0
     const was = shownWithPreviews
     // With no count known, as inside a transaction, the previews are read again.
-    if (changes !== null && was.changes === changes && was.revision === revision) return
-    const layers = previews.layers()
+    if (changes !== null && was.changes === changes && was.revision === revision && was.composed === composed)
+      return
+    const previewed = previews?.layers() ?? NO_LAYERS
+    // The composed text's offsets are this tab's: it stands in place of another tab's preview of it.
+    const layers = read?.composed ? new Map(previewed).set(read.composed.id, read.composed.layer) : previewed
     const withPreviews = previewedDesign(design, layers, previewReads)
     shownWithPreviews = {
       design: withPreviews,
       frames: withPreviews === design ? NO_FRAMES : framesOf(layers.keys(), design, withPreviews),
       changes,
       revision,
+      composed,
     }
   }
   function findInView() {

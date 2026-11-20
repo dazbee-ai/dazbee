@@ -52,6 +52,7 @@ import type { FontFace, ResourceSources } from './resources.ts'
 import type { Restored } from './restore.ts'
 import type { ShortcutAction, StageAction } from './shortcuts.ts'
 import type { FoundText } from './text/find-replace.ts'
+import type { FieldState } from './text/field-change.ts'
 import type { RunStyle, TextRange } from './text/text-edit.ts'
 import type { TextStyleState } from './text/text-styles.ts'
 import type { PlacedAsset, PlaceImageOptions, Tool } from './tools.ts'
@@ -302,6 +303,18 @@ export interface EditorInput {
    * method's, a phone keyboard's); false while no text is edited, or with nothing before the caret.
    */
   deleteBackward(): boolean
+  /**
+   * What the stage field holds for the text being edited: its selected range alone (nothing at a
+   * caret, or for a range over 4,000 UTF-16 units), with its selection; null while none is edited.
+   */
+  fieldText(): FieldState | null
+  /**
+   * The stage field's value and selection changed to `state`. While an input method composes,
+   * `composing` is the input event's data, and the change is drawn as a composition and written
+   * nowhere; with null it is written in the typing step, a composition's commit too. False while no
+   * text is edited.
+   */
+  fieldChanged(state: FieldState, composing: string | null): boolean
   /**
    * Escape while a colour is picked ends picking, and while a drag is held drops it. Returns whether
    * there was either, whose key it then is and nothing else's.

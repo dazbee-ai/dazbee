@@ -118,7 +118,13 @@ export function buildCore({
   watchFaults({ session, endOpen: endOpenOnStage, notify: notices.emit })
   const viewOnly = editorViewOnly({ session, access, endOpen: endOpenOnStage, notify: notices.emit, signal })
   const linkNoticed = linkNotices && editorLinkNotices({ link: linkNotices, notify: notices.emit, signal })
-  const view = editorView({ session, previews: store.previews, onZoom: (zoom) => options.onZoom?.(zoom), motion })
+  const view = editorView({
+    session,
+    previews: store.previews,
+    composition,
+    onZoom: (zoom) => options.onZoom?.(zoom),
+    motion,
+  })
   const { frameOf, camera, design: drawn, frames } = view
   const resources = editorResources({
     ck,
@@ -185,6 +191,7 @@ export function buildCore({
     hug,
     textSelectionChanged: textSelection.emit,
     shownChanged,
+    redraw: view.redraw,
     // A pause that comes once the core has ended does nothing.
     ...(after
       ? {
@@ -199,6 +206,10 @@ export function buildCore({
     fit,
     owe: owed.owe,
   })
+  /** The text layer the composition draws, and its count, which the view reads, built before typing. */
+  function composition() {
+    return { count: typing.compositionCount(), composed: typing.composed() }
+  }
   const pen = editorPen({
     hold: hold.hold,
     dragStart,
@@ -898,6 +909,8 @@ export function buildCore({
       key: viewOnly.guardKeys(keys.key),
       text: viewOnly.guard(typing.insert, false),
       deleteBackward: viewOnly.guard(typing.deleteBackward, false),
+      fieldText: viewOnly.guard(typing.fieldText, null),
+      fieldChanged: viewOnly.guard(typing.fieldChanged, false),
     },
     clipboard: viewOnly.guardAll({
       copy: place.copy,

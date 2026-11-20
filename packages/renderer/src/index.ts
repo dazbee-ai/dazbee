@@ -34,9 +34,11 @@ export {
   caretAt,
   type CaretPlace,
   caretPosition,
+  compositionLines,
   rangeEdge,
   selectionBoxes,
   type SelectionBox,
+  type UnderLine,
   visualStep,
 } from './text/caret.ts'
 export {

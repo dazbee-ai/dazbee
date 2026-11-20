@@ -78,6 +78,8 @@ function harness() {
       }),
       // No paragraphs: the arrows step in reading order, and nothing else here reads the layout.
       layout: () => ({ blocks: [] }) as unknown as TextLayout,
+      // Nothing is composed in these tests.
+      laidOutLayer: () => undefined,
     },
     // Nothing is laid out in these tests, so no box holds a layer in a flow.
     boxes: { drawnHolders: () => undefined },
@@ -85,6 +87,7 @@ function harness() {
     hug: (ids) => log.push(`hug ${ids.join(',')}`),
     textSelectionChanged: () => log.push('text selection'),
     shownChanged: () => log.push('draw'),
+    redraw: () => {},
   }
   const typing = editorTyping(deps)
   const textOf = (id: string) => {
@@ -487,6 +490,7 @@ describe('editorTyping over text laid out with a font', () => {
       hug: () => {},
       textSelectionChanged: () => {},
       shownChanged: () => {},
+      redraw: () => {},
     })
     return { ck, typing, laid: scenes.layout(parsed.design.nodes.title?.props as never) }
   }

@@ -1,4 +1,5 @@
-// Where the caret goes and what a selection covers in laid-out text, from the graphemes' boxes.
+// Where the caret goes, what a selection covers and what underlines a composition in laid-out text, from
+// the graphemes' boxes.
 import type { CanvasKit, Paragraph } from '@dazbee/canvaskit'
 
 import type { TextBlock, TextLayout } from './layout.ts'
@@ -18,6 +19,13 @@ export interface SelectionBox {
 export interface CaretPlace {
   offset: number
   after: boolean
+}
+
+/** A line drawn under text, from its left end `width` across, at `y`. */
+export interface UnderLine {
+  x: number
+  y: number
+  width: number
 }
 
 interface GraphemeBox extends SelectionBox {
@@ -167,6 +175,37 @@ export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, e
     const to = Math.min(end, b.end) - b.start
     if (to <= from) return []
     return rectsOf(ck, b.paragraph, from, to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y }))
+  })
+}
+
+/**
+ * The lines that underline a text range being composed, in the layout's own coordinates: one under
+ * each run of one direction on each line, from the boxes of the graphemes the range touches, 35% of
+ * the way from the line's baseline to its bottom. A line separator, which is drawn on no line, has none.
+ */
+export function compositionLines(ck: CanvasKit, laid: TextLayout, start: number, end: number): UnderLine[] {
+  return laid.blocks.flatMap((b) => {
+    const from = Math.max(start, b.start) - b.start
+    const to = Math.min(end, b.end) - b.start
+    if (to <= from) return []
+    const metrics = b.paragraph.getLineMetrics()
+    const lines: (UnderLine & { line: number; rtl: boolean })[] = []
+    for (const box of boxesOf(ck, b)) {
+      if (box.end <= from || box.start >= to || box.line < 0) continue
+      const last = lines.at(-1)
+      if (last && last.line === box.line && last.rtl === box.rtl) {
+        const right = Math.max(last.x + last.width, box.x + box.width)
+        last.x = Math.min(last.x, box.x)
+        last.width = right - last.x
+        continue
+      }
+      const metric = metrics.find((l) => l.lineNumber === box.line)
+      if (!metric) continue
+      const bottom = metric.baseline - metric.ascent + metric.height
+      const y = metric.baseline + (bottom - metric.baseline) * 0.35
+      lines.push({ x: box.x, y, width: box.width, line: box.line, rtl: box.rtl })
+    }
+    return lines.map(({ x, y, width }) => ({ x: x + b.x, y: y + b.y, width }))
   })
 }
 

@@ -50,6 +50,8 @@ function harness() {
       key: () => ({ handled: false }),
       text: () => false,
       deleteBackward: () => false,
+      fieldText: () => null,
+      fieldChanged: () => false,
       cancelOnEscape: () => false,
       blur: () => {},
       hidden: () => {},

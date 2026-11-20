@@ -1,4 +1,4 @@
-// The sign-in page's showcase: three copies of a sample ad that fan out over a slow aurora. Plain
+// The sign-in page's showcase: three copies of a sample ad that fan out. Plain
 // HTML and CSS (classes in app/styles/sign-in.css), decoration only, so it is hidden from assistive tech.
 import type { Messages } from '@/lib/i18n/en.ts'
 
@@ -7,11 +7,6 @@ const VARIANTS = ['teal', 'sunset', 'violet'] as const
 export function AdFan({ sample }: { sample: Messages['signIn']['sample'] }) {
   return (
     <div className="signin-showcase" data-testid="sign-in-showcase">
-      <div className="signin-glow">
-        <div className="signin-aurora">
-          <div />
-        </div>
-      </div>
       <div className="ad-fan">
         {VARIANTS.map((variant) => (
           <div key={variant} className="sample-ad" data-variant={variant}>

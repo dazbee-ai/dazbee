@@ -1,7 +1,4 @@
-/* Sign in (mock screen 34): behind the whole page, three copies of a sample ad fanned out over a
-   slow aurora in the end half. The page has one background; the glow fades out toward the form
-   through a wide radial mask, so there is no seam. The aurora is a blurred conic circle squashed
-   into a wide ellipse; it turns by transform, so it never repaints. */
+/* Three copies of a sample ad fan out in the end half of the sign-in page. */
 .signin-showcase {
   position: absolute;
   inset: 0;
@@ -14,53 +11,9 @@
 .signin-showcase > .ad-fan {
   grid-column: 2;
 }
-.signin-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  mask-image: radial-gradient(ellipse 62% 80% at 76% 50%, black 25%, transparent 100%);
-}
-[dir='rtl'] .signin-glow {
-  mask-image: radial-gradient(ellipse 62% 80% at 24% 50%, black 25%, transparent 100%);
-}
-.signin-aurora {
-  position: absolute;
-  inset-inline-start: 40%;
-  inset-inline-end: -14%;
-  inset-block-start: 50%;
-  translate: 0 -50%;
-  aspect-ratio: 70 / 34;
-  opacity: 0.45;
-}
-/* Phones: the form alone, over a faint glow at the top. */
 @media (width < 48rem) {
-  .signin-showcase > .ad-fan {
+  .signin-showcase {
     display: none;
-  }
-  .signin-glow,
-  [dir='rtl'] .signin-glow {
-    mask-image: radial-gradient(ellipse 90% 45% at 50% 18%, black 20%, transparent 100%);
-  }
-  .signin-aurora {
-    inset-inline: -30%;
-    inset-block-start: 18%;
-    opacity: 0.22;
-  }
-}
-.signin-aurora > div {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-start: 50%;
-  aspect-ratio: 1;
-  translate: 0 -50%;
-  scale: 1 0.486;
-  border-radius: 50%;
-  background: conic-gradient(var(--ai-1), var(--ai-2), var(--ai-3), var(--ai-1));
-  filter: blur(72px);
-}
-@keyframes signin-aurora-turn {
-  to {
-    transform: rotate(1turn);
   }
 }
 @keyframes ad-fan {
@@ -206,18 +159,9 @@
   width: 26%;
   rotate: 18deg;
 }
-/* Motion only for those who have not asked for less: the aurora turns, and the ads gather and fan
-   out again. Without it the fan simply stands open. */
+/* With reduced motion, the fan stands open. */
 @media (prefers-reduced-motion: no-preference) {
-  .signin-aurora > div {
-    animation: signin-aurora-turn 14s linear infinite;
-  }
   .sample-ad {
     animation: ad-fan 7s cubic-bezier(0.2, 1, 0.3, 1) infinite;
   }
-}
-/* Drawn in software, each turn of the blurred aurora is a full redraw that holds up the page, the
-   answer to Sign in included, so it holds still there, as the home's does. The ads still fan out. */
-[data-render='software'] .signin-aurora > div {
-  animation-play-state: paused;
 }

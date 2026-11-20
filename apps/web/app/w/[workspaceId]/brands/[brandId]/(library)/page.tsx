@@ -1,8 +1,7 @@
-// A brand's home (#84), as in the final mock: "What are we making today?" as a brief under a slow
-// aurora, and under it a row of sizes to start blank in, or a template. The brand's designs,
-// templates and kit are pages of their own, from the capsule. Right after the brand is made, Daz
-// says it is ready above the brief, once. A Reviewer, who makes nothing, gets Daz and a way to the
-// brand's designs instead.
+// A brand's home (#84): "What are we making today?" as a brief, followed by sizes to start blank
+// in or a template. The brand's designs, templates and kit are pages of their own, from the
+// capsule. Right after the brand is made, Daz says it is ready above the brief, once. A Reviewer,
+// who makes nothing, gets Daz and a way to the brand's designs instead.
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
@@ -123,7 +122,7 @@ export default async function BrandPage({
   }
 
   return (
-    <LibraryShell {...shell} glow>
+    <LibraryShell {...shell}>
       <div className="pt-[8vh] md:pt-[14vh]">
         {justMade(made) && <BrandMade brandName={brand.name} />}
         <BriefComposer

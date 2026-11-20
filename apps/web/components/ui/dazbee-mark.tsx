@@ -6,13 +6,11 @@ const STINGER = 'M16,-11.5 L28,-10.2 L19.5,-1.5Z'
 /**
  * Dazbee's mark: an ink Z on a yellow tile with a sparkle bee on its top-right corner. Below 32 px
  * it draws the favicon's simpler form, the tile and Z with one pink sparkle. Decorative; the name
- * sits beside it or in a label. It draws on a layer of its own (will-change), so the turning aurora
- * under the top bar never makes it redraw: without one, software-rendered pages (CI) drew so slowly
- * that screenshots timed out.
+ * sits beside it or in a label.
  */
 export function DazbeeMark({ size = 28 }: { size?: number }) {
   return (
-    <svg aria-hidden viewBox="0 0 100 100" width={size} height={size} className="shrink-0 will-change-transform">
+    <svg aria-hidden viewBox="0 0 100 100" width={size} height={size} className="shrink-0">
       {size < 32 ? (
         <>
           <rect x="4" y="12" width="80" height="80" rx="22" fill="#FFD23F" />

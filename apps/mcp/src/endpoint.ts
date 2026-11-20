@@ -17,16 +17,21 @@ import { INSTRUCTIONS } from './instructions.ts'
 import {
   CALL_TIMEOUT_MS,
   inMiB,
+  type LimitSettings,
+  limitSettings,
   MAX_BODY_BYTES,
   MAX_MCP_SESSIONS,
   MAX_MCP_SESSIONS_PER_ACCESS,
   MCP_SESSION_IDLE_MS,
+  rateBuckets,
 } from './limits.ts'
 import { oauthRoutes } from './oauth/routes.ts'
 import { agentTabSlots, type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
+import { renderQueue, type RenderThread } from './render-queue.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
+import { RENDER_TOOLS } from './tools/render-tool.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
 
 /** What the endpoint needs: the API, the sync server, the public base URL the server is reached at, and the app's version. */
@@ -40,6 +45,10 @@ export interface EndpointSettings {
   now?: () => number
   /** How long a request may take; `CALL_TIMEOUT_MS` unless a test gives another. */
   callTimeoutMs?: number
+  /** The capacity limits, as `limitSettings` reads them from the environment; their defaults unless given. */
+  limits?: LimitSettings
+  /** Starts the render worker; a worker thread on `render-worker.ts` unless a test gives another. */
+  startRenderWorker?: () => RenderThread
 }
 
 /** The endpoint: a Hono app answering `/mcp` and the health check, and `close`, which ends every session. */
@@ -78,7 +87,7 @@ interface Call {
 }
 
 /** The tools every session offers, in `tools/list` order. */
-export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...DESIGN_TOOLS, ...COMMAND_TOOLS]
+export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...DESIGN_TOOLS, ...RENDER_TOOLS, ...COMMAND_TOOLS]
 
 /** How often sessions past their idle time are looked for, besides at each request. */
 const IDLE_SWEEP_MS = 60_000
@@ -86,8 +95,15 @@ const IDLE_SWEEP_MS = 60_000
 /** The endpoint at `/mcp`, with its sessions. */
 export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   const { api, sync, baseUrl, version, now = Date.now, callTimeoutMs = CALL_TIMEOUT_MS } = settings
+  const limits = settings.limits ?? limitSettings({})
   // The agent tabs every session's design takes a slot of.
   const slots = agentTabSlots()
+  // Each access's renders, and the process's renders waiting for the worker.
+  const renderBuckets = rateBuckets(limits.rendersBurst, limits.renderEverySeconds * 1000, now)
+  const renders = renderQueue({
+    waiting: limits.rendersWaiting,
+    ...(settings.startRenderWorker ? { start: settings.startRenderWorker } : {}),
+  })
   // The open sessions, by session id, in the order they started.
   const sessions = new Map<string, McpSession>()
   const sweep = setInterval(() => void endIdle(), IDLE_SWEEP_MS)
@@ -129,7 +145,17 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     }
     const opened = session ?? (await open(agent, token))
     const call: Call = {
-      context: { agent, api: agentApi(api, token, agent.workspaceId, refuse), design: opened.design },
+      context: {
+        agent,
+        api: agentApi(api, token, agent.workspaceId, refuse),
+        design: opened.design,
+        renders: {
+          busy: () => renders.busy(agent.id),
+          take: () => renderBuckets.take(agent.id),
+          charge: (count) => renderBuckets.charge(agent.id, count),
+          draw: (make) => renders.draw(agent.id, make),
+        },
+      },
       refused: false,
     }
     const authInfo = { token, clientId: agent.id, scopes: [], extra: { call } }
@@ -242,6 +268,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   async function close(): Promise<void> {
     clearInterval(sweep)
     for (const id of [...sessions.keys()]) await end(id)
+    renders.close()
   }
 }
 

@@ -276,6 +276,9 @@ importers:
       '@dazbee/export':
         specifier: workspace:*
         version: link:../../packages/export
+      '@dazbee/fonts':
+        specifier: workspace:*
+        version: link:../../packages/fonts
       '@dazbee/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -298,9 +301,6 @@ importers:
       '@dazbee/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@dazbee/fonts':
-        specifier: workspace:*
-        version: link:../../packages/fonts
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5

@@ -27,18 +27,21 @@ export const AGENT_RENDER_MAX_SIZE = 1600
 export const AGENT_RENDER_MAX_SCALE = 2
 /** The most bytes an agent's render takes unless asked otherwise: 5,000,000 once written as base64. */
 export const AGENT_RENDER_MAX_BYTES = 3_750_000
+/** The least and most pixels an agent may ask the longer side to take, as FigCraft's screenshot clamps them. */
+export const AGENT_RENDER_SIZES = [16, 8192] as const
 
-/** The sizes an agent may ask for, as FigCraft's screenshot clamps them. */
-const SIZE_RANGE = [16, 8192] as const
 /** The share of the scale a PNG's bytes suggest that the next try takes, so each try is smaller. */
 const SHRINK_MARGIN = 0.9
+
+/** No PNG of the frame fits the byte limit, even drawn at its smallest. */
+export class AgentRenderTooBig extends Error {}
 
 /**
  * Frame `frameId` as a PNG for an agent to look at: scaled so its longer side is at most
  * `maxSize` pixels, and never past AGENT_RENDER_MAX_SCALE, then drawn smaller until the PNG takes
  * at most `maxBytes`. A PNG's bytes grow about as its pixels do, so each try scales by the square
  * root of the share it may keep, a little less, and none below a longer side of 16 pixels. Throws
- * when the PNG is over the limit at that smallest scale.
+ * `AgentRenderTooBig` when the PNG is over the limit at that smallest scale.
  */
 export function agentRender(
   ck: CanvasKit,
@@ -49,7 +52,7 @@ export function agentRender(
 ): AgentRender {
   const frame = Object.hasOwn(design.frames, frameId) ? design.frames[frameId] : undefined
   if (!frame) throw new Error(`no frame "${frameId}"`)
-  const [least, most] = SIZE_RANGE
+  const [least, most] = AGENT_RENDER_SIZES
   if (!(maxSize >= least && maxSize <= most)) throw new RangeError(`maxSize must be from ${least} to ${most}`)
   if (!(maxBytes > 0)) throw new RangeError('maxBytes must be a number of bytes above 0')
   const longer = Math.max(frame.width, frame.height)
@@ -63,7 +66,7 @@ export function agentRender(
     let png = draw()
     while (png.length > maxBytes) {
       const smallest = least / longer
-      if (scale <= smallest) throw new Error(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
+      if (scale <= smallest) throw new AgentRenderTooBig(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
       scale = Math.max(smallest, scale * Math.sqrt(maxBytes / png.length) * SHRINK_MARGIN)
       png = draw()
     }

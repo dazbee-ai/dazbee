@@ -13,7 +13,9 @@ export {
   AGENT_RENDER_MAX_BYTES,
   AGENT_RENDER_MAX_SCALE,
   AGENT_RENDER_MAX_SIZE,
+  AGENT_RENDER_SIZES,
   agentRender,
+  AgentRenderTooBig,
   type AgentRender,
   type AgentRenderOptions,
 } from './agent-render.ts'

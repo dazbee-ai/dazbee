@@ -92,6 +92,7 @@ describe('mcpEndpoint', () => {
       'read_frame',
       'read_layer',
       'check_frame',
+      'render_frame',
       'list_commands',
       'describe_command',
     ])

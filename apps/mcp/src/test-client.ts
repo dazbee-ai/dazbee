@@ -8,7 +8,7 @@ import { testDesign } from '@dazbee/doc/test-design'
 import { type MemorySync, memorySync } from '@dazbee/editor/test-link'
 import { DESIGN_PARAM, type DesignInput } from '@dazbee/schema'
 
-import { type Endpoint, mcpEndpoint } from './endpoint.ts'
+import { type Endpoint, type EndpointSettings, mcpEndpoint } from './endpoint.ts'
 import { TEST_WORKSPACE, type TestApi, testApi } from './test-api.ts'
 
 /** A connected client, and the token it sends, which the test may change. */
@@ -42,12 +42,14 @@ export interface TestServerOptions {
   callTimeoutMs?: number
   /** The designs the sync server holds, by id; any other is the test design. */
   designs?: Record<string, DesignInput>
+  /** Starts the render worker; a worker thread unless given. */
+  startRenderWorker?: EndpointSettings['startRenderWorker']
 }
 
 export const BASE_URL = 'https://app.test'
 
 /** The endpoint over a fake API and the sync servers in memory, with a clock the test moves. */
-export function testServer({ callTimeoutMs, designs = {} }: TestServerOptions = {}): TestServer {
+export function testServer({ callTimeoutMs, designs = {}, startRenderWorker }: TestServerOptions = {}): TestServer {
   let time = Date.UTC(2026, 10, 21)
   const api = testApi({ now: () => time })
   // The sync server in memory of each design opened, by its id.
@@ -62,6 +64,7 @@ export function testServer({ callTimeoutMs, designs = {} }: TestServerOptions = 
     version: 'test',
     now: () => time,
     ...(callTimeoutMs === undefined ? {} : { callTimeoutMs }),
+    ...(startRenderWorker ? { startRenderWorker } : {}),
   })
   const fetch = async (request: Request) => endpoint.app.fetch(request)
 

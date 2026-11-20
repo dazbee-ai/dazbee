@@ -258,6 +258,10 @@ _Avoid_: Tracking, kerning (the font's own spacing between two letters)
 An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures or small caps; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals.
 _Avoid_: OpenType setting, typography option
 
+**Wrap style**:
+Where a text's lines break when a paragraph wraps onto more than one line. Auto fits as many words on each line as fit; Balance breaks each paragraph at the narrowest width that adds no line, so a headline's lines come out near even; Pretty keeps the lines full but leaves no one word alone on a paragraph's last line. Set in the Text tab, below the case. Justified text, and a paragraph that the most lines cut off, break as Auto does.
+_Avoid_: Text wrap (whether text wraps at all is the box's size), line breaking
+
 **Shrink to fit**:
 A text layer setting that picks the largest font size, between a least and a most, at which the text fits inside the layer; every font size in the text scales with it.
 _Avoid_: Auto size, fit text

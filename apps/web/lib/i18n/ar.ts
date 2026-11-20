@@ -939,6 +939,13 @@ export const ar: Messages = {
       verticalAligns: { top: 'أعلى', middle: 'وسط', bottom: 'أسفل' },
       textCase: 'حالة الأحرف',
       textCases: { none: 'كما كُتب', upper: 'كبيرة', lower: 'صغيرة', title: 'عنوان' },
+      wrapStyle: 'كسر الأسطر',
+      wrapStyles: { auto: 'تلقائي', balance: 'متوازن', pretty: 'أنيق' },
+      wrapStyleTips: {
+        auto: 'تلقائي: أكبر عدد من الكلمات في كل سطر',
+        balance: 'متوازن: أسطر متقاربة الطول',
+        pretty: 'أنيق: أسطر ممتلئة بلا كلمة وحيدة في السطر الأخير',
+      },
       textBox: 'صندوق النص',
       textFit: 'ملاءمة النص',
       spacing: 'التباعد',

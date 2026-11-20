@@ -41,7 +41,7 @@ export interface EditorLayerEdits {
   setFont(fontFamily: string, fontWeight?: number): Promise<void>
 }
 
-/** Text properties that change how big its words are, so an auto-sized box fits them again. */
+/** Text properties that change how much room its words take, so an auto-sized box fits them again. */
 const SIZES_TEXT = new Set([
   'text',
   'runs',
@@ -53,6 +53,7 @@ const SIZES_TEXT = new Set([
   'maxLines',
   'shrinkToFit',
   'direction',
+  'wrapStyle',
 ])
 
 export function editorLayerEdits({

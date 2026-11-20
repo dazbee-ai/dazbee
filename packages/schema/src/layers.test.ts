@@ -62,6 +62,19 @@ describe('Layer', () => {
   const text = { ...box, text: 'Hi', style: { fontFamily: 'Noto Sans', fontSize: 12, color: '#000000FF' } }
   const shape = { ...box, shape: { kind: 'rect' } }
 
+  it('reads a text stored without a wrap style as Auto, keeps Balance and Pretty, and refuses any other', () => {
+    const wrapOf = (props: object) => {
+      const layer = Layer.parse({ ...place, id: 't', type: 'text', props })
+      return layer.type === 'text' ? layer.props.wrapStyle : undefined
+    }
+    expect(wrapOf(text)).toBe('auto')
+    expect(wrapOf({ ...text, wrapStyle: 'balance' })).toBe('balance')
+    expect(wrapOf({ ...text, wrapStyle: 'pretty' })).toBe('pretty')
+    expect(Layer.safeParse({ ...place, id: 't', type: 'text', props: { ...text, wrapStyle: 'even' } }).success).toBe(
+      false,
+    )
+  })
+
   it('keeps a graphic, text, box or boolean flipped on either axis, and leaves it out when not; a group never', () => {
     for (const [type, props] of [
       ['graphic', shape],

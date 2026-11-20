@@ -1047,6 +1047,14 @@ export const en = {
       verticalAligns: { top: 'Top', middle: 'Middle', bottom: 'Bottom' },
       textCase: 'Case',
       textCases: { none: 'As typed', upper: 'Upper', lower: 'Lower', title: 'Title' },
+      wrapStyle: 'Wrap style',
+      wrapStyles: { auto: 'Auto', balance: 'Balance', pretty: 'Pretty' },
+      /** Each wrap style's tooltip, saying where it breaks the lines. */
+      wrapStyleTips: {
+        auto: 'Auto: as many words as fit on each line',
+        balance: 'Balance: lines of near even length',
+        pretty: 'Pretty: full lines, no one word alone on the last',
+      },
       textBox: 'Text box',
       /** The part of a text's Spacing section that holds shrink to fit and the most lines it shows. */
       textFit: 'Text fit',

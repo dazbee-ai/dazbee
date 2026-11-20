@@ -21,6 +21,7 @@ From https://github.com/storytold/figcraft at commit `be991533b0cc1891447d8ea481
 - `apps/web/lib/editor/font-features.ts`: the OpenType features the Text tab offers, each with whether fonts turn it on by default, from `FEATURES` in `crates/ui-egui/src/panels/typography.rs`.
 - `packages/renderer/src/text/small-caps.ts`: small caps made up from capitals at 72% of the size where a font has none, ported from `shape_segment` and `SMALL_CAP_SCALE` in `crates/text/src/layout.rs`.
 - `apps/web/lib/editor/letter-spacing.ts`: letter spacing typed as `2%` or `1.5px`, a bare value keeping its unit, after `parse_letter_spacing` in `crates/ui-egui/src/panels/typography/spacing.rs`.
+- `packages/renderer/src/text/wrap-style.ts`: Balance as the narrowest width that adds no line and breaks no word, and Pretty ending one of the three lines before a lone last word a word or up to three early, after `restyle_breaks` in `crates/text/src/layout.rs`.
 
 ```text
 MIT License

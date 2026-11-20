@@ -141,3 +141,139 @@ describe('signing in', () => {
     await client.close()
   })
 })
+
+describe('the endpoints', () => {
+  /** A registered client of the fake API, with its id. */
+  async function registered(fetch: (url: string | URL, init?: RequestInit) => Promise<Response>) {
+    const answer = await fetch(`${BASE}/oauth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_name: 'Claude Code', redirect_uris: [REDIRECT] }),
+    })
+    expect(answer.status).toBe(201)
+    return ((await answer.json()) as { client_id: string }).client_id
+  }
+
+  /** The authorization URL with the usual parameters over the ones given. */
+  function authorizeUrl(clientId: string, params: Record<string, string> = {}) {
+    const url = new URL(`${BASE}/oauth/authorize`)
+    const usual = {
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: REDIRECT,
+      code_challenge: 'c'.repeat(43),
+      code_challenge_method: 'S256',
+      state: 'state-1',
+    }
+    for (const [name, value] of Object.entries({ ...usual, ...params })) url.searchParams.set(name, value)
+    return url
+  }
+
+  it('shows a page, never a redirect, for an unknown client, an unregistered redirect URI or a parameter given twice', async () => {
+    const { fetch } = server()
+    const clientId = await registered(fetch)
+    const twice = authorizeUrl(clientId)
+    twice.searchParams.append('redirect_uri', 'https://elsewhere.test/cb')
+    for (const url of [
+      authorizeUrl('nobody'),
+      authorizeUrl(clientId, { redirect_uri: 'https://elsewhere.test/cb' }),
+      twice,
+    ]) {
+      const page = await fetch(url, { redirect: 'manual' })
+      expect(page.status).toBe(400)
+      expect(page.headers.get('location')).toBeNull()
+      expect(page.headers.get('content-type')).toMatch(/^text\/html/)
+      expect(page.headers.get('content-security-policy')).toBe("default-src 'none'")
+    }
+  })
+
+  it('sends any other refusal back to the client with the OAuth error and the state', async () => {
+    const { fetch } = server()
+    const clientId = await registered(fetch)
+    for (const [params, error] of [
+      [{ code_challenge_method: 'plain' }, 'invalid_request'],
+      [{ resource: 'https://elsewhere.test/mcp' }, 'invalid_target'],
+    ] as const) {
+      const back = await fetch(authorizeUrl(clientId, params), { redirect: 'manual' })
+      expect(back.status).toBe(302)
+      const location = new URL(back.headers.get('location') ?? '')
+      expect(`${location.origin}${location.pathname}`).toBe(REDIRECT)
+      expect(Object.fromEntries(location.searchParams)).toEqual({ error, state: 'state-1' })
+    }
+    const right = await fetch(authorizeUrl(clientId, { resource: `${BASE}/mcp` }), { redirect: 'manual' })
+    expect(right.headers.get('location')).toMatch(new RegExp(`^${BASE}/agents/connect\\?request=`))
+  })
+
+  it('takes the token endpoint’s parameters only as a form, each once, and its answers are never cached', async () => {
+    const { fetch } = server()
+    const ask = (body: string, type = 'application/x-www-form-urlencoded') =>
+      fetch(`${BASE}/oauth/token`, { method: 'POST', headers: { 'content-type': type }, body })
+    for (const answer of [
+      await ask(JSON.stringify({ grant_type: 'refresh_token' }), 'application/json'),
+      await ask('grant_type=refresh_token&grant_type=authorization_code'),
+    ]) {
+      expect(answer.status).toBe(400)
+      expect(await answer.json()).toMatchObject({ error: 'invalid_request' })
+      expect(answer.headers.get('cache-control')).toBe('no-store')
+    }
+    const refused = await ask('grant_type=refresh_token&refresh_token=dazbee_rt_nothing&client_id=client-1')
+    expect(refused.status).toBe(400)
+    expect(await refused.json()).toEqual({ error: 'invalid_grant' })
+    expect(refused.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('refuses a body over 64 KiB unread', async () => {
+    const { fetch } = server()
+    const big = await fetch(`${BASE}/oauth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_name: 'x'.repeat(70 * 1024), redirect_uris: [REDIRECT] }),
+    })
+    expect(big.status).toBe(413)
+  })
+
+  it('revokes a refresh token, after which the access’s tokens are refused', async () => {
+    const { signIn, fetch } = server()
+    const { oauth, kept } = provider()
+    await expect(new Client({ name: 'a', version: '1' }).connect(transportOf(fetch, oauth))).rejects.toThrow()
+    const transport = transportOf(fetch, oauth)
+    await transport.finishAuth(await authorizeAsPerson(fetch, signIn, kept.authorizeAt ?? new URL(BASE)))
+    const revoked = await fetch(`${BASE}/oauth/revoke`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token: kept.tokens?.refresh_token ?? '',
+        token_type_hint: 'refresh_token',
+      }).toString(),
+    })
+    expect(revoked.status).toBe(200)
+    const mcp = await fetch(`${BASE}/mcp`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${kept.tokens?.access_token}`, 'content-type': 'application/json' },
+      body: '{}',
+    })
+    expect(mcp.status).toBe(401)
+    expect(mcp.headers.get('www-authenticate')).toContain(`${BASE}/.well-known/oauth-protected-resource/mcp`)
+  })
+
+  it('tells the client to try again when the API can’t be reached', async () => {
+    const endpoint = mcpEndpoint({
+      api: { url: 'http://api.test', fetch: () => Promise.reject(new Error('down')) },
+      baseUrl: BASE,
+      version: 'test',
+    })
+    opened.push(endpoint)
+    const register = await endpoint.app.fetch(
+      new Request(`${BASE}/oauth/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ redirect_uris: [REDIRECT] }),
+      }),
+    )
+    expect(register.status).toBe(503)
+    expect(await register.json()).toMatchObject({ error: 'temporarily_unavailable' })
+    const authorize = await endpoint.app.fetch(new Request(`${BASE}/oauth/authorize?client_id=x`))
+    expect(authorize.status).toBe(503)
+    expect(authorize.headers.get('location')).toBeNull()
+  })
+})

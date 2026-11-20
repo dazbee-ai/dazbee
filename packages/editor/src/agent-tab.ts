@@ -13,7 +13,7 @@ import { buildCore } from './core.ts'
 import type { NoticeDetail } from './core-interface.ts'
 import { SIZES_TEXT } from './layer-edits.ts'
 import { hug } from './layers/hug.ts'
-import { openTab } from './open-tab.ts'
+import { type OpenTab, openTab } from './open-tab.ts'
 import { loadFonts, type ResourceSources } from './resources.ts'
 import type { Stopped } from './save-state.ts'
 import type { LinkSocket } from './sync-link.ts'
@@ -59,16 +59,23 @@ export interface AgentTab {
   fontsLoaded(): Promise<void>
   /** What the tab told since the last call, oldest first, at most `KEPT_NOTICES` of the newest. */
   takeNotices(): NoticeDetail[]
+  /** How many of the tab's change sets the server has not confirmed: steps not yet stored. */
+  unsent(): number
   /** Why the sync server takes nothing more from the tab, if it doesn't. */
   stopped(): Stopped | null
   /** Told once the tab stops, with why. */
   onStopped(listener: (why: Stopped) => void): () => void
-  /** Ends the core, closes the link and frees what the tab made; again does nothing. */
+  /**
+   * Waits up to `CLOSE_WAIT_MS` for the server to confirm the tab's change sets, then ends the core, frees what
+   * the tab made and closes the link; again does nothing.
+   */
   close(): Promise<void>
 }
 
 /** The most notices a tab keeps for the agent to read: the newest. */
 export const KEPT_NOTICES = 50
+/** How long `close` waits for the server to store the steps it has not confirmed yet. */
+export const CLOSE_WAIT_MS = 10_000
 
 /** Names the tab copies, of which an agent tab keeps none (Node has no IndexedDB). */
 const NO_MEMBER: Member = { userId: '', workspaceId: '' }
@@ -77,95 +84,141 @@ const UNTOLD: ReadonlySet<NoticeDetail[0]> = new Set(['noDeviceCopy'])
 
 /** Opens the agent tab once the sync server has welcomed it, with the design's fonts loaded. */
 export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> {
-  const { ck, designId, url, token, socket, sources, variables, signal } = options
+  const { designId, url, token, socket, sources, variables, signal } = options
   const tab = await openTab({ designId, member: NO_MEMBER, url, token, socket, ...(signal ? { signal } : {}) })
-  const cache = resourceCache(ck)
-  const ending = new AbortController()
-  let fonts: Awaited<ReturnType<typeof loadFonts>>
   try {
-    fonts = await loadFonts(fontFamilies(readDesign(tab.store), variables), sources)
+    const fonts = await loadFonts(fontFamilies(readDesign(tab.store), variables), sources)
+    return agentTabOn(tab, fonts, options)
   } catch (error) {
     await tab.close()
+    throw error
+  }
+}
+
+/** The core built on the open tab, with the design's own font files, as the agent tab. */
+function agentTabOn(
+  tab: OpenTab,
+  fonts: Awaited<ReturnType<typeof loadFonts>>,
+  { ck, designId, sources, variables }: AgentTabOptions,
+): AgentTab {
+  /** What the tab told and the agent has not read yet. */
+  const notices: NoticeDetail[] = []
+  /** What the core keeps between designs on a device: here, until the tab closes. */
+  const remembered = new Map<string, string>()
+  /** Whether `close` has been called. */
+  let closed = false
+
+  const cache = resourceCache(ck)
+  const ending = new AbortController()
+  let built: ReturnType<typeof buildCore>
+  try {
+    built = buildCore({
+      ck,
+      cache,
+      first: {
+        fonts: [...loadFontFiles(), ...fonts].map(({ family, bytes }) => ({ family, bytes })),
+        fallbackFamilies: [...FALLBACK_FAMILIES],
+        images: {},
+        ...(variables ? { variables } : {}),
+      },
+      firstFaces: fonts.map(({ family, weight, weights, style }) => ({
+        family,
+        weight,
+        ...(weights ? { weights } : {}),
+        style,
+      })),
+      store: tab.store,
+      connected: () => tab.link.status() === 'connected',
+      remembered: { get: (key) => remembered.get(key) ?? null, set: (key, value) => void remembered.set(key, value) },
+      onMac: () => false,
+      signal: ending.signal,
+      after: (ms, run) => {
+        const timer = setTimeout(run, ms)
+        return () => clearTimeout(timer)
+      },
+      access: tab.access,
+      linkNotices: tab.linkNotices,
+      options: {
+        designId,
+        frameName: (width, height) => `${width} × ${height}`,
+        layerName: (kind) => ({ group: 'Group', maskGroup: 'Mask group', box: 'Box' })[kind],
+        radiusLabel: (radius) => `Radius ${radius}`,
+        ...sources,
+      },
+    })
+  } catch (error) {
+    ending.abort()
     cache.delete()
     throw error
   }
-  /** What the core keeps between designs on a device: here, until the tab closes. */
-  const remembered = new Map<string, string>()
-  const { core, modules, sync, session } = buildCore({
-    ck,
-    cache,
-    first: {
-      fonts: [...loadFontFiles(), ...fonts].map(({ family, bytes }) => ({ family, bytes })),
-      fallbackFamilies: [...FALLBACK_FAMILIES],
-      images: {},
-      ...(variables ? { variables } : {}),
-    },
-    firstFaces: fonts.map(({ family, weight, weights, style }) => ({
-      family,
-      weight,
-      ...(weights ? { weights } : {}),
-      style,
-    })),
-    store: tab.store,
-    connected: () => tab.link.status() === 'connected',
-    remembered: { get: (key) => remembered.get(key) ?? null, set: (key, value) => void remembered.set(key, value) },
-    onMac: () => false,
-    signal: ending.signal,
-    after: (ms, run) => {
-      const timer = setTimeout(run, ms)
-      return () => clearTimeout(timer)
-    },
-    access: tab.access,
-    linkNotices: tab.linkNotices,
-    options: {
-      designId,
-      frameName: (width, height) => `${width} × ${height}`,
-      layerName: (kind) => ({ group: 'Group', maskGroup: 'Mask group', box: 'Box' })[kind],
-      radiusLabel: (radius) => `Radius ${radius}`,
-      ...sources,
-    },
-  })
+  const { core, modules, sync, session } = built
+  const fitting = fittingSession(session, modules.typing.fitText)
+
+  const design = () => session.design()
+  const readOnly = () => tab.access.readOnly()
+  const bytes = () => modules.resources.bytes()
+
+  const unsent = () => tab.link.client()?.queued() ?? 0
+  function stopped(): Stopped | null {
+    const status = tab.link.status()
+    return status === 'connected' || status === 'disconnected' ? null : status
+  }
+  async function fontsLoaded() {
+    await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), bytes().variables)))
+  }
+  const takeNotices = () => notices.splice(0)
+  function onStopped(listener: (why: Stopped) => void) {
+    return tab.link.onStatus(() => {
+      const why = stopped()
+      if (why) listener(why)
+    })
+  }
+  /** Settles once the server has confirmed every change set of the tab, the tab has stopped, or `CLOSE_WAIT_MS` passed. */
+  function sent(): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(finish, CLOSE_WAIT_MS)
+      const off = tab.link.onStatus(check)
+      check()
+      function check() {
+        if (unsent() === 0 || stopped()) finish()
+      }
+      function finish() {
+        clearTimeout(timer)
+        off()
+        resolve()
+      }
+    })
+  }
+
   tab.bind(sync, ending.signal)
   core.setViewport({ width: 0, height: 0, dpr: 1 })
-  /** What the tab told and the agent has not read yet. */
-  const notices: NoticeDetail[] = []
   core.onNotice((...told) => {
     if (UNTOLD.has(told[0])) return
     notices.push(told)
     notices.splice(0, Math.max(0, notices.length - KEPT_NOTICES))
   })
-  let closed = false
-
-  function stopped(): Stopped | null {
-    const status = tab.link.status()
-    return status === 'connected' || status === 'disconnected' ? null : status
-  }
 
   return {
-    session: fittingSession(session, modules.typing.fitText),
-    design: () => session.design(),
-    readOnly: () => tab.access.readOnly(),
-    bytes: () => modules.resources.bytes(),
+    session: fitting,
+    design,
+    readOnly,
+    bytes,
     cache,
-    async fontsLoaded() {
-      const { variables } = modules.resources.bytes()
-      await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), variables)))
-    },
-    takeNotices: () => notices.splice(0),
+    fontsLoaded,
+    takeNotices,
+    unsent,
     stopped,
-    onStopped(listener) {
-      return tab.link.onStatus(() => {
-        const why = stopped()
-        if (why) listener(why)
-      })
-    },
-    async close() {
-      if (closed) return
-      closed = true
-      ending.abort()
-      await tab.close()
-      cache.delete()
-    },
+    onStopped,
+    close,
+  }
+
+  async function close() {
+    if (closed) return
+    closed = true
+    await sent()
+    ending.abort()
+    cache.delete()
+    await tab.close()
   }
 }
 
@@ -228,7 +281,10 @@ function fitChanged(session: Session, before: Readonly<Record<string, Layer>>, f
     if (layer.type === 'text' && sizesChanged(was, layer)) texts.push(id)
     else others.push(id)
   }
-  for (const [id, was] of Object.entries(before)) if (!now[id] && now[was.parentId]) others.push(was.parentId)
+  // The groups a layer left, taken out or moved elsewhere, fit what they still hold.
+  for (const [id, was] of Object.entries(before)) {
+    if (now[id]?.parentId !== was.parentId && now[was.parentId]) others.push(was.parentId)
+  }
   for (const id of texts) fitText(id)
   hug(session, others)
 }

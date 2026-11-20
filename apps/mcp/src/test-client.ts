@@ -9,7 +9,7 @@ import { type MemorySync, memorySync } from '@dazbee/editor/test-link'
 import { DESIGN_PARAM, type DesignInput } from '@dazbee/schema'
 
 import { type Endpoint, mcpEndpoint } from './endpoint.ts'
-import { type TestApi, testApi } from './test-api.ts'
+import { TEST_WORKSPACE, type TestApi, testApi } from './test-api.ts'
 
 /** A connected client, and the token it sends, which the test may change. */
 export interface TestClient {
@@ -73,7 +73,7 @@ export function testServer({ callTimeoutMs, designs = {} }: TestServerOptions = 
         who(token) {
           const signed = api.syncTokenOf(token)
           if (signed?.designId !== designId) return undefined
-          const member = { userId: 'user-test', workspaceId: 'ws-test' }
+          const member = { userId: 'user-test', workspaceId: TEST_WORKSPACE }
           return { member, name: signed.agent, access: signed.writes ? 'edit' : 'view' }
         },
       })

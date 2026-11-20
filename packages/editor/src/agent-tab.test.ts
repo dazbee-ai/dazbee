@@ -43,6 +43,15 @@ describe('openAgentTab', () => {
     expect(server.state().nodes['headline']).toMatchObject({ props: { height: after } })
   })
 
+  it('fits the group a layer left to what it still holds, as the screen does', async () => {
+    const { tab } = await agentTab()
+    tab.session.run('node.group', { ids: ['box', 'headline'], id: 'g' })
+    expect(tab.design().nodes['g']?.props).toMatchObject({ y: 100, height: 600 })
+    tab.session.run('node.move', { id: 'box', parentId: 'sq' })
+    const headline = tab.design().nodes['headline']?.props
+    expect(tab.design().nodes['g']?.props).toMatchObject({ y: 600, height: headline?.height })
+  })
+
   it('sends its step as a change set that reaches a second tab on the design', async () => {
     const { tab, server } = await agentTab()
     const other = await openTab({
@@ -60,6 +69,14 @@ describe('openAgentTab', () => {
     } finally {
       await other.close()
     }
+  })
+
+  it('close() waits for the server to store the steps the tab has not had confirmed', async () => {
+    const { tab, server } = await agentTab()
+    tab.session.run('node.rename', { id: 'box', name: 'Sun' })
+    await tab.close()
+    await server.settle()
+    expect(server.nameOf('box')).toBe('Sun')
   })
 
   it('a view-only tab refuses a write, and close() closes its socket', async () => {

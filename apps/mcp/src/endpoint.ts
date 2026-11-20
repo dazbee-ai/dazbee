@@ -72,7 +72,7 @@ interface McpSession {
 
 /** What one request passes to the tools it calls, through the transport's `authInfo`. */
 interface Call {
-  context?: ToolContext
+  context: ToolContext
   /** Whether the API refused the token on a call the request made. */
   refused: boolean
 }
@@ -127,11 +127,12 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       session.lastCallAt = now()
       session.token = token
     }
-    const call: Call = { refused: false }
+    const opened = session ?? (await open(agent, token))
+    const call: Call = {
+      context: { agent, api: agentApi(api, token, agent.workspaceId, refuse), design: opened.design },
+      refused: false,
+    }
     const authInfo = { token, clientId: agent.id, scopes: [], extra: { call } }
-    const opened = session ?? open(agent, token)
-    call.context = { agent, api: agentApi(api, token, agent.workspaceId, refuse), design: opened.design }
-    if (!session) await opened.server.connect(opened.transport)
     if (id !== undefined) opened.inFlight.add(id)
     try {
       const response = await answerOf(opened, opened.transport.handleRequest(request, { authInfo, parsedBody: body }))
@@ -166,8 +167,8 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     }
   }
 
-  /** A new session's server and transport, connected once its first request comes, and kept once its `initialize` has been answered. */
-  function open(agent: AgentMe, token: string): McpSession {
+  /** A new session's server and transport, kept once its `initialize` has been answered. */
+  async function open(agent: AgentMe, token: string): Promise<McpSession> {
     const server = new Server(
       { name: 'dazbee', title: 'Dazbee', version },
       { capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS },
@@ -176,15 +177,15 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     server.setRequestHandler(CallToolRequestSchema, async ({ params }, extra) => {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
-      const { context } = extra.authInfo?.extra?.call as Call
-      if (!context) throw new McpError(ErrorCode.InternalError, 'The call has no context')
-      return tool.call(params.arguments, context)
+      const call = extra.authInfo?.extra?.call as Call
+      return tool.call(params.arguments, call.context)
     })
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
       onsessionclosed: (id) => void end(id),
     })
+    await server.connect(transport)
     const fresh = { inFlight: new Set<MessageId>(), waiting: new Set<(response: Response) => void>() }
     const session: McpSession = {
       id: '',

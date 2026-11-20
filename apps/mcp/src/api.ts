@@ -13,6 +13,7 @@ import {
   DesignSummary,
   FontFamily,
   FontLink,
+  MAX_UPLOAD_BYTES,
   SyncToken,
 } from '@dazbee/schema'
 
@@ -144,8 +145,12 @@ async function call<T>(
   return parsed.data
 }
 
-/** The bytes at a signed storage link, fetched with no token; it throws `ApiRefusal` when they can't be read. */
+/**
+ * The bytes at a signed storage link, fetched with no token, at most `MAX_UPLOAD_BYTES` (the largest file Dazbee
+ * stores); it throws `ApiRefusal` when they can't be read or are more.
+ */
 async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Array> {
+  const tooBig = () => new ApiRefusal(502, 'A file in Dazbee’s storage is larger than any it stores')
   let response: Response
   try {
     response = await (settings.fetch ?? fetch)(new Request(url, { signal: AbortSignal.timeout(API_TIMEOUT_MS) }))
@@ -153,5 +158,20 @@ async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Arr
     throw new ApiRefusal(503, 'Dazbee’s storage could not be reached; try again in a moment')
   }
   if (!response.ok) throw new ApiRefusal(502, `Dazbee’s storage answered ${response.status}`)
-  return new Uint8Array(await response.arrayBuffer())
+  if (Number(response.headers.get('content-length') ?? 0) > MAX_UPLOAD_BYTES) throw tooBig()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of response.body ?? []) {
+    size += chunk.byteLength
+    // Leaving the loop cancels the rest of the body.
+    if (size > MAX_UPLOAD_BYTES) throw tooBig()
+    chunks.push(chunk)
+  }
+  const bytes = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return bytes
 }

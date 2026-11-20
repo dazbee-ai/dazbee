@@ -28,6 +28,9 @@ export const MAX_AGENT_TABS = 20
 /** The most agent tabs one agent access holds open at once, across its sessions; past it, open_design answers busy. */
 export const MAX_AGENT_TABS_PER_ACCESS = 2
 
+/** The most calls on a session's design running or waiting at once; past it, a call is refused. */
+export const MAX_DESIGN_CALLS_WAITING = 4
+
 /** How long open_design waits for the sync server's welcome. */
 export const OPEN_DESIGN_TIMEOUT_MS = 30_000
 

@@ -25,7 +25,8 @@ export const DESIGN_TOOLS: Tool[] = [
       brand: RecordId.describe('The brand’s id, as list_brands gives it'),
       design: RecordId.describe('The design’s id, as list_designs gives it'),
     }),
-    run: ({ brand, design }, { api, design: session }) => session.open(brand, design, api, answered(designAnswer)),
+    run: ({ brand, design }, { api, agent, design: session }) =>
+      session.open(brand, design, { api, agent }, answered(designAnswer)),
   }),
   defineTool({
     name: 'read_design',
@@ -96,8 +97,8 @@ export const DESIGN_TOOLS: Tool[] = [
 ]
 
 /** Runs `read` on the session's open design, answering what it gives with the design's notes. */
-function onDesign({ api, design }: ToolContext, read: (open: OpenDesign) => unknown): Promise<unknown> {
-  return design.use(api, answered(read))
+function onDesign({ api, agent, design }: ToolContext, read: (open: OpenDesign) => unknown): Promise<unknown> {
+  return design.use({ api, agent }, answered(read))
 }
 
 /** `read`, its answer given with the design's notes after it, when there are any. */

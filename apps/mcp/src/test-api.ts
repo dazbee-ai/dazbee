@@ -21,6 +21,8 @@ export interface TestAccessOptions {
   brandIds?: string[]
   /** Whether it edits; left out, it does. */
   writes?: boolean
+  /** How long each of its access tokens lasts by the fake API's clock; left out, until refused. */
+  tokenMs?: number
 }
 
 /** One access of the fake API, which hands out its tokens. */
@@ -28,6 +30,8 @@ export interface TestAccess {
   id: string
   /** A new live access token of the access, as a refresh gives. */
   token(): string
+  /** Limits the access to these brands from now on. */
+  limitTo(brandIds: string[]): void
 }
 
 /** The fake API: its `fetch`, and how the tests shape what it answers. */
@@ -86,9 +90,6 @@ export const TEST_FONTS: FontFamily[] = [
   },
 ]
 
-/** Where the fake API's signed storage links point. */
-const STORAGE = 'http://storage.test'
-
 export const TEST_WORKSPACE = 'ws-test'
 
 export const TEST_BRANDS: BrandSummary[] = [
@@ -140,11 +141,16 @@ export const TEST_ASSETS: AssetSummary[] = [
   },
 ]
 
+/** Where the fake API's signed storage links point. */
+const STORAGE = 'http://storage.test'
+
 /** A fake API holding the test workspace's brands, designs and assets. */
 export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   // The live tokens, each to its access; those in `afterMe` are refused past `GET /agent/me`.
   const tokens = new Map<string, AgentMe>()
   const afterMe = new Set<string>()
+  // When each token that expires does, by the clock.
+  const expiries = new Map<string, number>()
   // The designs, which `POST …/designs` adds to.
   const designs = TEST_DESIGNS.map((design) => ({ ...design }))
   let made = 0
@@ -161,7 +167,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     requests++
     if (down) return c.json({ error: 'Unavailable' }, 503)
     const token = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')?.[1] ?? ''
-    const agent = tokens.get(token)
+    const agent = (expiries.get(token) ?? Infinity) > now() ? tokens.get(token) : undefined
     if (!agent || (afterMe.has(token) && c.req.path !== '/agent/me')) return c.json({ error: 'Sign in first' }, 401)
     c.set('agent', agent)
     await next()
@@ -261,7 +267,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     }
   }
 
-  function addAccess({ brandIds, writes = true }: TestAccessOptions = {}): TestAccess {
+  function addAccess({ brandIds, writes = true, tokenMs }: TestAccessOptions = {}): TestAccess {
     const agent: AgentMe = {
       id: `access-${tokens.size + 1}-${Math.random().toString(36).slice(2, 8)}`,
       workspaceId: TEST_WORKSPACE,
@@ -274,8 +280,10 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
       token: () => {
         const token = `dazbee_at_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
         tokens.set(token, agent)
+        if (tokenMs !== undefined) expiries.set(token, now() + tokenMs)
         return token
       },
+      limitTo: (limited) => void (agent.brandIds = limited),
     }
   }
 }

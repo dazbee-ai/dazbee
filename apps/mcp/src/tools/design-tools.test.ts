@@ -10,7 +10,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, type DesignInput, parseDesign, SYNC_CLOSE } from '@dazbee/schema'
 
-import { MAX_AGENT_TABS, MAX_AGENT_TABS_PER_ACCESS, MAX_TREE_BYTES } from '../limits.ts'
+import { MAX_AGENT_TABS, MAX_AGENT_TABS_PER_ACCESS, MAX_DESIGN_CALLS_WAITING, MAX_TREE_BYTES } from '../limits.ts'
 import { REOPENED } from '../open-design.ts'
 import { TEST_SYNC_TOKEN_MS } from '../test-api.ts'
 import { type TestClient, type TestServer, testServer, textOf } from '../test-client.ts'
@@ -26,6 +26,8 @@ const FRAMES = [
   { id: 'sq', name: 'Square', width: 1080, height: 1080, x: 0, y: 0 },
   { id: 'banner', name: 'Banner', width: 320, height: 50, x: 1280, y: 0 },
 ]
+/** What is left of an access token when the agent last calls before it pauses. */
+const TOKEN_LEFT_MS = 5 * 60 * 1000
 /** The design the tests open. */
 const LAUNCH = { brand: 'brand-summer', design: 'design-launch' }
 
@@ -116,14 +118,12 @@ describe('open_design', () => {
 
   it('opens the design again once the agent comes back with a new token past both expiries, saying undo was lost', async () => {
     server = testServer()
-    const access = server.api.addAccess()
-    const expired = access.token()
-    const agent = await server.connect(expired)
+    const access = server.api.addAccess({ tokenMs: TOKEN_LEFT_MS })
+    const agent = await server.connect(access.token())
     await agent.json('open_design', LAUNCH)
     const sync = server.sync('design-launch')
     const sockets = sync.sockets.length
-    server.api.refuse(expired)
-    server.wait(TEST_SYNC_TOKEN_MS + 1)
+    server.wait(Math.max(TOKEN_LEFT_MS, TEST_SYNC_TOKEN_MS) + 1)
     const asked = server.api.requests()
     sync.sockets.at(-1)?.closeWith(SYNC_CLOSE.tokenExpired)
     // The link asks for a new sync token with the expired access token, and is refused.
@@ -137,11 +137,34 @@ describe('open_design', () => {
     expect(sync.sockets.length).toBeGreaterThan(sockets)
     expect((await agent.call('read_design')).content).toHaveLength(1)
   })
+
+  it('takes a few calls on the design at once, and refuses those past them', async () => {
+    const agent = await agentOf()
+    const release = server.api.hold()
+    const held = Array.from({ length: MAX_DESIGN_CALLS_WAITING }, () => agent.call('open_design', LAUNCH))
+    expect(await refusal(agent, 'read_design')).toBe(
+      'Other calls on the open design are still being answered; wait for their answers first.',
+    )
+    release()
+    for (const result of await Promise.all(held)) expect(result.isError).toBeFalsy()
+  })
 })
 
 describe('read_design', () => {
   it('says to call open_design first while no design is open', async () => {
     const agent = await agentOf()
+    expect(await refusal(agent, 'read_design')).toBe('No design is open; call open_design first.')
+  })
+
+  it('closes the design once the access no longer sees its brand', async () => {
+    server = testServer()
+    const access = server.api.addAccess()
+    const agent = await server.connect(access.token())
+    await agent.json('open_design', LAUNCH)
+    access.limitTo(['brand-winter'])
+    expect(await refusal(agent, 'read_frame', { frame: 'sq' })).toBe(
+      'This agent may no longer open the design, so it is closed.',
+    )
     expect(await refusal(agent, 'read_design')).toBe('No design is open; call open_design first.')
   })
 

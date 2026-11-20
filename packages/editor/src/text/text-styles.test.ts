@@ -99,7 +99,6 @@ function harness(resources = HAVING) {
     hug: () => {},
     textSelectionChanged: () => {},
     shownChanged: () => {},
-    redraw: () => {},
   })
   const done = new AbortController()
   const layerEdits = editorLayerEdits({

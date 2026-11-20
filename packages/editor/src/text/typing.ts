@@ -30,18 +30,8 @@ import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
 import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
 import { compositionOf, fieldEdit, type FieldState, fieldText as heldText, type HeldField } from './field-change.ts'
-import {
-  arrowStep,
-  backspaceStep,
-  lineMove,
-  oneGrapheme,
-  rangeEnd,
-  type RunStyle,
-  step,
-  stylesIn,
-  type TextRange,
-  wordStep,
-} from './text-edit.ts'
+import type { RunStyle, TextRange } from './text-edit.ts'
+import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
@@ -72,8 +62,8 @@ export interface TypingDeps {
   textSelectionChanged: () => void
   /** Tells that what is shown changed. */
   shownChanged: () => void
-  /** Asks for a redraw of the frames' pictures: a composition changed, which writes nothing. */
-  redraw: () => void
+  /** Asks for a redraw of the frames' pictures: a composition changed, which writes nothing. None without it. */
+  redraw?: () => void
   /**
    * Runs `run` after `ms`, and gives what cancels it: the pause that ends a typing step (C47).
    * Without it, a typing step ends only when typing stops or `pause` is called.
@@ -214,7 +204,7 @@ export function editorTyping({
   hug,
   textSelectionChanged,
   shownChanged,
-  redraw,
+  redraw = () => {},
   after,
   typingIn = () => [],
   editingElsewhere = () => {},
@@ -551,17 +541,8 @@ export function editorTyping({
         caretTo(to.offset, e.shiftKey, to.after)
       }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
-      caretTo(
-        lineMove(
-          ck,
-          editingText(),
-          text,
-          caret,
-          drawnAfter,
-          ({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key],
-        ),
-        e.shiftKey,
-      )
+      const to = ({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]
+      caretTo(lineMove(ck, editingText(), text, caret, drawnAfter, to), e.shiftKey)
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {

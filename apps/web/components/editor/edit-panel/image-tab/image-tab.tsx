@@ -211,7 +211,7 @@ function PhotoLookBody({
         <Radio
           key={name}
           value={name}
-          className="group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-micro font-semibold text-muted aria-checked:text-text"
+          className="group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-micro text-muted aria-checked:text-text"
         >
           <span className="block aspect-square w-full overflow-hidden rounded-[8px] border border-line group-aria-checked:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--accent)]">
             <img

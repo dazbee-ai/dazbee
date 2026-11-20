@@ -192,7 +192,7 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
               const fresh = NEW_EFFECT[type as Effect['type']]
               write((now) => [...(list === 'mixed' ? [] : now), fresh])
             }}
-            className="h-8 w-full rounded-row border border-field-line bg-field px-2.5 text-label font-semibold"
+            className="h-8 w-full rounded-row border border-field-line bg-field px-2.5 text-label"
           />
         </div>
       )}

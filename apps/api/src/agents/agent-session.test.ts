@@ -16,6 +16,20 @@ import { issueTokens, makeAccess, refreshTokens } from './agent-accesses.ts'
 
 const HOUR = 60 * 60 * 1000
 
+/** The routes an agent may ask, as the ticket lists them. */
+const AGENTS_ROUTES = [
+  'GET /agent/me',
+  'GET /workspaces/:workspaceId/brands',
+  'GET /workspaces/:workspaceId/brands/:brandId/designs',
+  'POST /workspaces/:workspaceId/brands/:brandId/designs',
+  'GET /workspaces/:workspaceId/brands/:brandId/assets',
+  'GET /workspaces/:workspaceId/brands/:brandId/assets/:assetId',
+  'GET /workspaces/:workspaceId/brands/:brandId/fonts',
+  'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
+  'GET /workspaces/:workspaceId/brands/:brandId/kit',
+  'POST /workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token',
+]
+
 const app = createApp({
   db,
   storage,
@@ -124,6 +138,22 @@ describe('an agent token on the app as main.ts builds it', () => {
       .replace(':d', design)
       .replace(':a', 'asset')
     expect(await ask(a.accessToken, method, path)).toEqual({ status: 403, json: { error: 'Agents may not do this' } })
+  })
+
+  it('answers 403 on every route of the app but the agents’, whatever route is added later', async () => {
+    const a = await agent({ role: 'owner' })
+    const routes = [
+      ...new Set(app.routes.filter((r) => r.method !== 'ALL').map((r) => `${r.method} ${r.path}`)),
+    ].filter((route) => !AGENTS_ROUTES.includes(route))
+    expect(routes.length).toBeGreaterThan(40)
+    const answered = []
+    for (const route of routes) {
+      const [method = '', pattern = ''] = route.split(' ')
+      const path = pattern.replace(':workspaceId', a.workspace.id).replace(/:\w+/g, 'any')
+      const { status } = await ask(a.accessToken, method, path, method === 'GET' ? undefined : {})
+      if (status !== 403) answered.push(`${route}: ${status}`)
+    }
+    expect(answered).toEqual([])
   })
 
   it('answers 401, never the development session, to an ended, expired, refresh or made-up token', async () => {

@@ -3,6 +3,8 @@
 // The brand kit form's text styles: each a name, its family drawn in the face it sets, and its
 // font, weight, slant, line height, letter spacing and case. None holds a size: each text keeps its
 // own. A style set in a kit font follows that font as the kit changes.
+import type { KeyboardEvent } from 'react'
+
 import {
   BRAND_KIT_LIMITS,
   type BrandKit,
@@ -20,16 +22,22 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
-import { faceFor, nearest, weightsOf } from './font-catalog.ts'
+import { faceFor, nearest, weightName, weightsOf } from './font-catalog.ts'
 import { FontPreview } from './font-preview.tsx'
 import { field, heading, iconButton } from './kit-parts.ts'
-import { textStyleFonts, textStyleFontValue } from './text-style-fonts.ts'
+import { letterSpacingUnit, textStyleFonts, textStyleFontValue } from './text-style-fonts.ts'
 
 /** The cases a style can draw its text in, in the order the menu lists them. */
 const CASES = ['none', 'upper', 'lower', 'title'] as const
 
 /** The weights offered for a family the catalog doesn't hold. */
 const EVERY_WEIGHT = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+
+/** The look of a small field's caption, over the field. */
+const CAPTION = 'flex min-w-0 flex-col gap-0.5 text-tiny text-muted'
+
+/** Ends typing in a field with Enter, which saves what it holds as leaving it does. */
+const blurOnEnter = (e: KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur()
 
 /** A number typed into a field, or undefined for an empty or unreadable one. */
 const typedNumber = (text: string) => {
@@ -116,20 +124,21 @@ function TextStyleRow({
   const t = messages.editor.brandKit
   const props = messages.editor.props
   const { name } = style
+  /** The catalog's family a style set in `font` is drawn in, and its weights; none while it is not set. */
+  const drawnIn = (font: BrandTextStyle['font']) => {
+    const known = catalog.find((f) => f.family === brandTextStyleFamily(kit, { ...style, font }))
+    return { known, weights: weightsOf(known) }
+  }
   const family = brandTextStyleFamily(kit, style)
-  const known = catalog.find((f) => f.family === family)
-  const familyWeights = weightsOf(known)
+  const { known, weights: familyWeights } = drawnIn(style.font)
   const weights = familyWeights.length > 0 ? familyWeights : EVERY_WEIGHT
   const weightChoices = [...new Set([...weights, style.fontWeight])].sort((a, b) => a - b)
   const fonts = textStyleFonts(
     kit,
     catalog.map((f) => f.family),
     t,
+    style.font,
   )
-  const fontValue = textStyleFontValue(style.font)
-  // A family of the style's own that the catalog no longer offers stays its pick.
-  if (!fonts.some((f) => f.value === fontValue) && 'family' in style.font)
-    fonts.push({ value: fontValue, font: style.font, label: style.font.family })
 
   /** The kit with this style changed. */
   const set = (patch: Partial<BrandTextStyle>) =>
@@ -139,12 +148,10 @@ function TextStyleRow({
   const pickFont = (value: string) => {
     const picked = fonts.find((f) => f.value === value)
     if (!picked) return
-    const next = brandTextStyleFamily(kit, { ...style, font: picked.font })
-    const nextWeights = weightsOf(catalog.find((f) => f.family === next))
+    const nextWeights = drawnIn(picked.font).weights
     const fontWeight = nextWeights.length > 0 ? nearest(nextWeights, style.fontWeight) : style.fontWeight
     set({ font: picked.font, fontWeight })
   }
-  const spacingUnit = style.letterSpacing.unit === 'px' ? 'px' : '%'
 
   return (
     <li data-token={style.token} className="flex min-w-0 flex-col gap-1.5">
@@ -158,7 +165,7 @@ function TextStyleRow({
           onBlur={(e) =>
             e.target.value.trim() && e.target.value.trim() !== name && set({ name: e.target.value.trim() })
           }
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          onKeyDown={blurOnEnter}
           className={cn(field, 'flex-1 font-medium')}
         />
         <button type="button" aria-label={format(t.remove, { name })} onClick={remove} className={iconButton}>
@@ -181,7 +188,7 @@ function TextStyleRow({
         <Select
           name="text-style-font"
           label={format(t.textStyleFont, { name })}
-          value={fontValue}
+          value={textStyleFontValue(style.font)}
           options={fonts.map(({ value, label }) => ({ value, label }))}
           onChange={pickFont}
           className="h-7 min-w-0 flex-1 bg-bg/40 px-2 text-tiny"
@@ -192,7 +199,7 @@ function TextStyleRow({
           value={String(style.fontWeight)}
           options={weightChoices.map((w) => ({
             value: String(w),
-            label: messages.editor.fonts.weights[w as keyof typeof messages.editor.fonts.weights] ?? String(w),
+            label: weightName(messages.editor.fonts.weights, w),
           }))}
           onChange={(w) => set({ fontWeight: Number(w) })}
           className="h-7 w-28 shrink-0 bg-bg/40 px-2 text-tiny"
@@ -208,7 +215,7 @@ function TextStyleRow({
         </button>
       </div>
       <div className="grid grid-cols-3 gap-1.5">
-        <label className="flex min-w-0 flex-col gap-0.5 text-tiny text-muted">
+        <label className={CAPTION}>
           {props.lineHeight}
           <input
             name="text-style-line-height"
@@ -227,12 +234,12 @@ function TextStyleRow({
               if (lineHeight !== style.lineHeight) set({ lineHeight })
               else e.target.value = String(style.lineHeight ?? '')
             }}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            onKeyDown={blurOnEnter}
             className={cn(field, 'h-7 text-tiny text-text tabular-nums')}
           />
         </label>
-        <label className="flex min-w-0 flex-col gap-0.5 text-tiny text-muted">
-          {format(t.letterSpacingIn, { unit: spacingUnit })}
+        <label className={CAPTION}>
+          {format(t.letterSpacingIn, { unit: letterSpacingUnit(style.letterSpacing) })}
           <input
             name="text-style-letter-spacing"
             key={`letter-spacing-${style.letterSpacing.value}`}
@@ -246,11 +253,11 @@ function TextStyleRow({
               if (value !== style.letterSpacing.value) set({ letterSpacing: { ...style.letterSpacing, value } })
               else e.target.value = String(style.letterSpacing.value)
             }}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            onKeyDown={blurOnEnter}
             className={cn(field, 'h-7 text-tiny text-text tabular-nums')}
           />
         </label>
-        <label className="flex min-w-0 flex-col gap-0.5 text-tiny text-muted">
+        <label className={CAPTION}>
           {props.textCase}
           <Select
             name="text-style-case"

@@ -1,5 +1,6 @@
 'use client'
 
+import { weightName } from '@/components/brand-kit/font-catalog.ts'
 import { FontPreview } from '@/components/brand-kit/font-preview.tsx'
 import { PANEL_HEADING } from '@/components/editor/styles.ts'
 import { cn } from '@/lib/cn.ts'
@@ -45,10 +46,7 @@ export function ChooserRow({
       </div>
     )
   const chosen = row.family.family === current.family && (row.kind === 'family' || row.weight === current.weight)
-  const label =
-    row.kind === 'family'
-      ? row.family.family
-      : (t.editor.fonts.weights[row.weight as keyof typeof t.editor.fonts.weights] ?? String(row.weight))
+  const label = row.kind === 'family' ? row.family.family : weightName(t.editor.fonts.weights, row.weight)
   return (
     <div
       id={id}

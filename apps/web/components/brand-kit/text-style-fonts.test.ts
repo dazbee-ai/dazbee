@@ -39,4 +39,14 @@ describe('textStyleFonts', () => {
     const kit = { ...KIT, colors: [{ token: 'body', name: 'Body', value: '#000000FF' }] }
     expect(textStyleFonts(kit, [], t).map((f) => f.label)).toEqual(['Heading · Lora', 'Brand serif · Playfair Display'])
   })
+
+  it('lists first a kit font since taken out, as Not set, or a family the catalog lacks', () => {
+    expect(textStyleFonts(KIT, ['Inter'], t, { token: 'gone' })[0]).toEqual({
+      value: 'kit:gone',
+      font: { token: 'gone' },
+      label: 'Not set',
+    })
+    expect(textStyleFonts(KIT, ['Inter'], t, { family: 'Old Face' })[0]?.label).toBe('Old Face')
+    expect(textStyleFonts(KIT, ['Inter'], t, { family: 'Inter' })[0]?.label).toBe('Heading · Lora')
+  })
 })

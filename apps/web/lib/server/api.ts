@@ -407,7 +407,7 @@ export async function fontLink(workspaceId: string, brandId: string, faceId: str
 export const getBrandKit = (workspaceId: string, brandId: string) =>
   call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`)
 
-/** Saves the brand's whole kit (#53); one without text styles keeps the kit's. */
+/** Saves the brand's whole kit (#53); a kit that leaves its text styles out keeps the ones it has. */
 export const saveBrandKit = (workspaceId: string, brandId: string, kit: SaveBrandKit) =>
   call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`, { method: 'PUT', body: kit })
 

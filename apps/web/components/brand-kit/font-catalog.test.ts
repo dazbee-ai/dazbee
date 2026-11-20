@@ -37,36 +37,6 @@ describe('offeredFamilies', () => {
   })
 })
 
-describe('weightsOf', () => {
-  const face = (weight: number, style: 'normal' | 'italic', weights?: { min: number; max: number }) => ({
-    id: `f-${weight}-${style}`,
-    family: 'Vary Sans',
-    weight,
-    ...(weights ? { weights } : {}),
-    style,
-    source: 'upload' as const,
-    byteSize: 1,
-  })
-  const of = (...faces: ReturnType<typeof face>[]): FontFamily => ({
-    family: 'Vary Sans',
-    source: 'upload',
-    category: null,
-    faces,
-  })
-
-  it('lists a variable face’s weights across its range, and each face of one weight', () => {
-    expect(weightsOf(of(face(400, 'normal', { min: 100, max: 900 })))).toEqual([
-      100, 200, 300, 400, 500, 600, 700, 800, 900,
-    ])
-    expect(weightsOf(of(face(400, 'normal'), face(700, 'normal')))).toEqual([400, 700])
-  })
-
-  it('takes the upright faces where there are some, a variable italic’s range where there are none', () => {
-    expect(weightsOf(of(face(400, 'normal'), face(400, 'italic', { min: 300, max: 700 })))).toEqual([400])
-    expect(weightsOf(of(face(400, 'italic', { min: 300, max: 700 })))).toEqual([300, 400, 500, 600, 700])
-  })
-})
-
 describe('faceFor', () => {
   const faces = (name: string, list: [number, 'normal' | 'italic'][]): FontFamily => ({
     ...family(name, 'google'),
@@ -94,5 +64,35 @@ describe('faceFor', () => {
   it('gives an upright face for an italic the family lacks, and none for a family it doesn’t know', () => {
     expect(faceFor(faces('Inter', [[400, 'normal']]), 700, 'italic')?.id).toBe('Inter-400-normal')
     expect(faceFor(undefined, 400, 'normal')).toBeUndefined()
+  })
+})
+
+describe('weightsOf', () => {
+  const face = (weight: number, style: 'normal' | 'italic', weights?: { min: number; max: number }) => ({
+    id: `f-${weight}-${style}`,
+    family: 'Vary Sans',
+    weight,
+    ...(weights ? { weights } : {}),
+    style,
+    source: 'upload' as const,
+    byteSize: 1,
+  })
+  const of = (...faces: ReturnType<typeof face>[]): FontFamily => ({
+    family: 'Vary Sans',
+    source: 'upload',
+    category: null,
+    faces,
+  })
+
+  it('lists a variable face’s weights across its range, and each face of one weight', () => {
+    expect(weightsOf(of(face(400, 'normal', { min: 100, max: 900 })))).toEqual([
+      100, 200, 300, 400, 500, 600, 700, 800, 900,
+    ])
+    expect(weightsOf(of(face(400, 'normal'), face(700, 'normal')))).toEqual([400, 700])
+  })
+
+  it('takes the upright faces where there are some, a variable italic’s range where there are none', () => {
+    expect(weightsOf(of(face(400, 'normal'), face(400, 'italic', { min: 300, max: 700 })))).toEqual([400])
+    expect(weightsOf(of(face(400, 'italic', { min: 300, max: 700 })))).toEqual([300, 400, 500, 600, 700])
   })
 })

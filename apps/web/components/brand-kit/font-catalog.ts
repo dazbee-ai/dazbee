@@ -10,6 +10,7 @@ import { FONT_FACES, type GoogleFamily, SCRIPT_FONTS } from '@dazbee/fonts'
 import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
+import type { Messages } from '@/lib/i18n/index.ts'
 
 /** A family's kind of letter: Google's categories, which the chooser's chips filter by. */
 export type FontCategory = GoogleFamily['category']
@@ -95,6 +96,10 @@ export const weightsOf = (family: FontFamily | undefined) => {
   const upright = family?.faces.filter((f) => f.style === 'normal') ?? []
   return [...new Set((upright.length > 0 ? upright : (family?.faces ?? [])).flatMap(faceWeights))].sort((a, b) => a - b)
 }
+
+/** A weight's name, such as Bold, from the person's catalog; its number for a weight between the hundreds. */
+export const weightName = (names: Messages['editor']['fonts']['weights'], weight: number) =>
+  names[weight as keyof typeof names] ?? String(weight)
 
 /** The weight a family is set in: the one it had when the family has it, otherwise the nearest. */
 export const nearest = (weights: number[], wanted: number) =>

@@ -26,9 +26,9 @@ export async function getBrandKit(db: Db, workspaceId: string, brandId: string):
 }
 
 /**
- * Saves the brand's whole kit. Its logo has to be an asset of the same brand. A save without text
- * styles, from a tab built before kits held them, keeps the ones the kit has, and is refused when
- * one of its tokens names one of them.
+ * Saves the brand's whole kit. Its logo has to be an asset of the same brand. A save that leaves
+ * the text styles out keeps the ones the kit has, and is refused when the kit it makes with them
+ * isn't one, such as when one of its tokens names one of them.
  */
 export async function saveBrandKit(db: Db, workspaceId: string, brandId: string, kit: SaveBrandKit): Promise<BrandKit> {
   if (kit.logoAssetId && !(await findAsset(db, workspaceId, brandId, { id: kit.logoAssetId })))

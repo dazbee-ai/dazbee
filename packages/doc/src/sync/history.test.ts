@@ -48,7 +48,7 @@ describe('Step', () => {
   it('leaves a binding as another tab’s change of the layer’s bindings whole wrote it since', () => {
     const { server, a, b, everyone } = session()
     exchange(server, a, edit(a, 'bind', set(binding('box', 'fill'), 'brand:primary')), everyone)
-    // B's change set holds the bindings whole, as a queue saved before they were set one by one does.
+    // B's change set sets the layer's bindings whole.
     const whole = set(layerKey('box', 'bindings'), { fill: 'brand:accent' })
     const sent = edit(b, 'bind all', whole).map((m) => (m.type === 'changes' ? { ...m, changes: [whole] } : m))
     exchange(server, b, sent, everyone)

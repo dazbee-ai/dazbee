@@ -3,7 +3,14 @@
 // it created or deleted, whole. An undo writes the replaced values back, but only where no other tab
 // wrote after the step in server order; a redo goes the other way. Other tabs' change sets never
 // become steps.
-import { type Change, type ChangeSetKind, frameOfLayer, type HeldPart, type Target } from '@dazbee/schema'
+import {
+  BindableProperty,
+  type Change,
+  type ChangeSetKind,
+  frameOfLayer,
+  type HeldPart,
+  type Target,
+} from '@dazbee/schema'
 
 import { ownLink } from '../repair.ts'
 import { sameValue } from '../same-value.ts'
@@ -85,9 +92,8 @@ export class Touches {
   hits(target: Target): boolean {
     if (this.targets.has(targetKey(target)) || this.records.has(recordKey(target.part, target.id))) return true
     if (target.part !== 'layer' || target.key !== BINDINGS_KEY) return false
-    const whole = targetKey({ ...target, prop: undefined })
-    if (target.prop !== undefined) return this.targets.has(whole)
-    return [...this.targets].some((key) => key.startsWith(`${whole}/`))
+    if (target.prop !== undefined) return this.targets.has(targetKey({ ...target, prop: undefined }))
+    return BindableProperty.options.some((prop) => this.targets.has(targetKey({ ...target, prop })))
   }
 }
 

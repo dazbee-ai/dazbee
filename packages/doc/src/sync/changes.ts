@@ -31,12 +31,6 @@ export const TEXT_PROP = 'text'
 /** The key of a layer that holds its bindings, each a value of its own. */
 export const BINDINGS_KEY = 'bindings'
 
-/** The keys of a layer that hold values set one by one, each under its own name: its props and its bindings. */
-const ONE_BY_ONE: ReadonlySet<string> = new Set(['props', BINDINGS_KEY])
-
-/** The names a binding may have: the bindable properties. */
-const BINDABLE: ReadonlySet<string> = new Set(BindableProperty.options)
-
 /** Where each part's records sit in a design's records: a layer's in `nodes`. */
 export const RECORDS_OF: Readonly<Record<HeldPart, Exclude<keyof DesignRecords, 'meta'>>> = {
   page: 'pages',
@@ -59,6 +53,12 @@ export const PROP_KEYS: Readonly<Record<string, ReadonlySet<string>>> = Object.f
 
 /** Values set once, when their record is made: a layer's type (its props are the type's) and the design's id (C28). */
 const WRITE_ONCE: ReadonlySet<string> = new Set(['layer/type', 'meta/designId'])
+
+/** The keys of a layer that hold values set one by one, each under its own name: its props and its bindings. */
+const ONE_BY_ONE: ReadonlySet<string> = new Set(['props', BINDINGS_KEY])
+
+/** The names a binding may have: the bindable properties. */
+const BINDABLE: ReadonlySet<string> = new Set(BindableProperty.options)
 
 /** The key of a record that orders it among its siblings. */
 export const ORDER_KEY: Readonly<Record<HeldPart, 'order' | 'index'>> = {

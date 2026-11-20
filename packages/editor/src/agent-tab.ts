@@ -10,7 +10,7 @@ import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/r
 import { type Design, fontFamilies, type Layer, type Member, type Variables } from '@dazbee/schema'
 
 import { buildCore } from './core.ts'
-import type { NoticeDetail } from './core-interface.ts'
+import type { LinkNotice, NoticeDetail } from './core-interface.ts'
 import { SIZES_TEXT } from './layer-edits.ts'
 import { hug } from './layers/hug.ts'
 import { type OpenTab, openTab } from './open-tab.ts'
@@ -61,6 +61,15 @@ export interface AgentTab {
   takeNotices(): NoticeDetail[]
   /** How many of the tab's change sets the server has not confirmed: steps not yet stored. */
   unsent(): number
+  /** The ids of the tab's change sets the server has not answered yet, oldest first. */
+  queuedIds(): readonly number[]
+  /** Told after each message from the server the tab took in, and each change of its link's status. */
+  onHeard(listener: () => void): () => void
+  /**
+   * Told what the connection tells of the tab's change sets, as it tells it: one the server rejected, with its
+   * id; those lost to a server that no longer knew the tab; a step too big to send, put back.
+   */
+  onChangeSetNotice(listener: (notice: ChangeSetNotice) => void): () => void
   /** Why the sync server takes nothing more from the tab, if it doesn't. */
   stopped(): Stopped | null
   /** Told once the tab stops, with why. */
@@ -71,6 +80,9 @@ export interface AgentTab {
    */
   close(): Promise<void>
 }
+
+/** What the connection tells of a tab's change sets: one rejected, those lost, a step too big to send. */
+export type ChangeSetNotice = Extract<LinkNotice, { kind: 'rejected' | 'lost' | 'tooBig' }>
 
 /** The most notices a tab keeps for the agent to read: the newest. */
 export const KEPT_NOTICES = 50
@@ -159,6 +171,7 @@ function agentTabOn(
   const bytes = () => modules.resources.bytes()
 
   const unsent = () => tab.link.client()?.queued() ?? 0
+  const queuedIds = () => tab.link.client()?.queuedIds() ?? []
   function stopped(): Stopped | null {
     const status = tab.link.status()
     return status === 'connected' || status === 'disconnected' ? null : status
@@ -171,6 +184,19 @@ function agentTabOn(
     return tab.link.onStatus(() => {
       const why = stopped()
       if (why) listener(why)
+    })
+  }
+  function onHeard(listener: () => void) {
+    const offHeard = tab.link.onHeard(() => listener())
+    const offStatus = tab.link.onStatus(listener)
+    return () => {
+      offHeard()
+      offStatus()
+    }
+  }
+  function onChangeSetNotice(listener: (notice: ChangeSetNotice) => void) {
+    return tab.linkNotices.on((notice) => {
+      if (notice.kind === 'rejected' || notice.kind === 'lost' || notice.kind === 'tooBig') listener(notice)
     })
   }
   /** Settles once the server has confirmed every change set of the tab, the tab has stopped, or `CLOSE_WAIT_MS` passed. */
@@ -207,6 +233,9 @@ function agentTabOn(
     fontsLoaded,
     takeNotices,
     unsent,
+    queuedIds,
+    onHeard,
+    onChangeSetNotice,
     stopped,
     onStopped,
     close,

@@ -3,6 +3,12 @@
 
 /** The capacity limits the server runs with, each read from its environment variable by `limitSettings`. */
 export interface LimitSettings {
+  /** The calls an access may make at once, `MCP_CALLS_BURST`. */
+  callsBurst: number
+  /** The calls an access gets back each second, `MCP_CALLS_PER_SECOND`. */
+  callsPerSecond: number
+  /** The new designs an access may make in an hour, `MCP_DESIGNS_PER_HOUR`. */
+  designsPerHour: number
   /** The renders an access may ask for at once, `MCP_RENDERS_BURST`. */
   rendersBurst: number
   /** How many seconds an access waits for each render after those, `MCP_RENDER_EVERY_SECONDS`. */
@@ -17,6 +23,15 @@ export interface RateBuckets {
   take(key: string): number
   /** Takes `count` more from `key`'s bucket, below empty if need be: what it took that cost more than one. */
   charge(key: string, count: number): void
+}
+
+/** At most so many in an hour, per access: one more counted, or the seconds to wait. */
+export interface HourRate {
+  /**
+   * Counts one for the access, giving what takes it back again, such as for a design the API refused; past the
+   * limit, counts none and gives the whole seconds to wait.
+   */
+  take(accessId: string): number | (() => void)
 }
 
 /** A setting's environment variable, its value when unset, and the least and most it may be. */
@@ -70,6 +85,18 @@ export const MAX_TREE_BYTES = MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES
 /** How long a request may take before it is answered 503, so no client waits on a call that never ends. */
 export const CALL_TIMEOUT_MS = 60_000
 
+/** How long a writing tool waits for the sync server to store its step before answering that it isn't confirmed yet. */
+export const STORE_WAIT_MS = 30_000
+
+/**
+ * The time kept at the end of a call for its answer: a writing tool waits for the store only until this long before
+ * `CALL_TIMEOUT_MS`, so it never answers late while its step goes on.
+ */
+export const ANSWER_MARGIN_MS = 5_000
+
+/** The most steps an agent batch takes. */
+export const MAX_BATCH_STEPS = 1000
+
 /** The largest body an OAuth endpoint takes: a registration or a token request is a few hundred bytes. */
 export const MAX_OAUTH_BODY_BYTES = 64 * 1024
 
@@ -106,10 +133,16 @@ export const RENDER_MS_PER_RENDER = 2000
 
 /** The capacity limits read from the environment, with the value each takes when unset. */
 const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, Setting>> = {
+  callsBurst: { name: 'MCP_CALLS_BURST', value: 60, least: 1, most: 100_000 },
+  callsPerSecond: { name: 'MCP_CALLS_PER_SECOND', value: 2, least: 1, most: 10_000 },
+  designsPerHour: { name: 'MCP_DESIGNS_PER_HOUR', value: 30, least: 1, most: 100_000 },
   rendersBurst: { name: 'MCP_RENDERS_BURST', value: 10, least: 1, most: 1000 },
   renderEverySeconds: { name: 'MCP_RENDER_EVERY_SECONDS', value: 6, least: 1, most: 3600 },
   rendersWaiting: { name: 'MCP_RENDERS_WAITING', value: 8, least: 0, most: 100 },
 }
+
+/** An hour, which new designs are counted over. */
+const HOUR_MS = 60 * 60 * 1000
 
 /** `bytes` in MiB, as the limits are told to an agent: "8 MiB", "8.5 MiB". */
 export function inMiB(bytes: number): string {
@@ -130,6 +163,9 @@ export function limitSettings(env: Readonly<Record<string, string | undefined>>)
     return number
   }
   return {
+    callsBurst: read(LIMIT_SETTINGS.callsBurst),
+    callsPerSecond: read(LIMIT_SETTINGS.callsPerSecond),
+    designsPerHour: read(LIMIT_SETTINGS.designsPerHour),
     rendersBurst: read(LIMIT_SETTINGS.rendersBurst),
     renderEverySeconds: read(LIMIT_SETTINGS.renderEverySeconds),
     rendersWaiting: read(LIMIT_SETTINGS.rendersWaiting),
@@ -161,4 +197,38 @@ export function rateBuckets(size: number, everyMs: number, now: () => number): R
   }
 
   return { take, charge }
+}
+
+/** Per access, at most `perHour` in any hour, by the clock `now`. */
+export function hourRate(perHour: number, now: () => number): HourRate {
+  /** When each access's counts of the last hour were taken, oldest first. Accesses with none are let go. */
+  const taken = new Map<string, number[]>()
+
+  function take(accessId: string): number | (() => void) {
+    const at = now()
+    for (const [id, times] of taken) {
+      const left = times.filter((time) => time > at - HOUR_MS)
+      if (left.length === 0) taken.delete(id)
+      else taken.set(id, left)
+    }
+    const times = taken.get(accessId) ?? []
+    const oldest = times[0]
+    if (times.length >= perHour && oldest !== undefined) return Math.ceil((oldest + HOUR_MS - at) / 1000)
+    taken.set(accessId, [...times, at])
+    let counted = true
+    return () => {
+      const times = taken.get(accessId) ?? []
+      const place = times.indexOf(at)
+      if (!counted || place < 0) return
+      counted = false
+      taken.set(accessId, times.toSpliced(place, 1))
+    }
+  }
+
+  return { take }
+}
+
+/** `seconds` as the limits tell them to an agent: "1 second", "30 seconds". */
+export function inSeconds(seconds: number): string {
+  return `${seconds} second${seconds === 1 ? '' : 's'}`
 }

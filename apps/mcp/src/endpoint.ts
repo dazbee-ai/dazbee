@@ -15,8 +15,11 @@ import { agentName } from './agent-name.ts'
 import { agentApi, agentOf, type ApiSettings } from './api.ts'
 import { INSTRUCTIONS } from './instructions.ts'
 import {
+  ANSWER_MARGIN_MS,
   CALL_TIMEOUT_MS,
+  hourRate,
   inMiB,
+  inSeconds,
   type LimitSettings,
   limitSettings,
   MAX_BODY_BYTES,
@@ -24,10 +27,12 @@ import {
   MAX_MCP_SESSIONS_PER_ACCESS,
   MCP_SESSION_IDLE_MS,
   rateBuckets,
+  STORE_WAIT_MS,
 } from './limits.ts'
 import { oauthRoutes } from './oauth/routes.ts'
 import { agentTabSlots, type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
+import { afterTimeout, type StoreWait } from './store-wait.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
@@ -49,6 +54,8 @@ export interface EndpointSettings {
   limits?: LimitSettings
   /** Starts the render worker; a worker thread on `render-worker.ts` unless a test gives another. */
   startRenderWorker?: () => RenderThread
+  /** What waits for the sync server to store a step: the real clock's timers unless a test gives another. */
+  after?: StoreWait['after']
 }
 
 /** The endpoint: a Hono app answering `/mcp` and the health check, and `close`, which ends every session. */
@@ -94,10 +101,21 @@ const IDLE_SWEEP_MS = 60_000
 
 /** The endpoint at `/mcp`, with its sessions. */
 export function mcpEndpoint(settings: EndpointSettings): Endpoint {
-  const { api, sync, baseUrl, version, now = Date.now, callTimeoutMs = CALL_TIMEOUT_MS } = settings
+  const {
+    api,
+    sync,
+    baseUrl,
+    version,
+    now = Date.now,
+    callTimeoutMs = CALL_TIMEOUT_MS,
+    after = afterTimeout,
+  } = settings
   const limits = settings.limits ?? limitSettings({})
   // The agent tabs every session's design takes a slot of.
   const slots = agentTabSlots()
+  // Each access's calls, and the designs it made in the last hour.
+  const calls = rateBuckets(limits.callsBurst, 1000 / limits.callsPerSecond, now)
+  const designs = hourRate(limits.designsPerHour, now)
   // Each access's renders, and the process's renders waiting for the worker.
   const renderBuckets = rateBuckets(limits.rendersBurst, limits.renderEverySeconds * 1000, now)
   const renders = renderQueue({
@@ -149,6 +167,8 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
         agent,
         api: agentApi(api, token, agent.workspaceId, refuse),
         design: opened.design,
+        answerBy: now() + callTimeoutMs - ANSWER_MARGIN_MS,
+        takeDesign: () => designs.take(agent.id),
         renders: {
           busy: () => renders.busy(agent.id),
           take: () => renderBuckets.take(agent.id),
@@ -204,6 +224,17 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
       const call = extra.authInfo?.extra?.call as Call
+      const wait = calls.take(call.context.agent.id)
+      if (wait > 0)
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `This agent is calling faster than Dazbee takes; try again in ${inSeconds(wait)}.`,
+            },
+          ],
+          isError: true,
+        }
       return tool.call(params.arguments, call.context)
     })
     const transport = new WebStandardStreamableHTTPServerTransport({
@@ -222,7 +253,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       token,
       agentName: '',
       design: sessionDesign(
-        { api, sync, slots, now },
+        { api, sync, slots, now, storeWait: { ms: STORE_WAIT_MS, after } },
         { agent, token: () => session.token, agentName: () => session.agentName },
       ),
       ...fresh,

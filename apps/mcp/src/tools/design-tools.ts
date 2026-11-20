@@ -32,7 +32,7 @@ export const DESIGN_TOOLS: Tool[] = [
     name: 'read_design',
     title: 'Read the open design',
     description:
-      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, and x and y on the page, in design pixels), the brand kit’s tokens (brand:<token>) with their values, and what happened to the design since the last answer, such as a change the server refused.',
+      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, and x and y on the page, in design pixels), the brand kit’s tokens (brand:<token>) with their values, `waiting`: how many of this agent’s steps Dazbee hasn’t stored yet, and what happened to the design since the last answer, such as a change the server refused.',
     readOnly: true,
     input: z.object({}),
     run: (_input, context) => onDesign(context, designAnswer),
@@ -115,7 +115,10 @@ function answered(read: (open: OpenDesign) => unknown) {
   }
 }
 
-/** What read_design answers: the design's name, whether the tab may edit, its pages and frames, the kit's tokens and the tab's notices. */
+/**
+ * What read_design answers: the design's name, whether the tab may edit, its pages and frames, the kit's tokens, how
+ * many of the tab's steps the server hasn't stored yet, and the tab's notices.
+ */
 function designAnswer({ tab, name, kit }: OpenDesign) {
   const design = tab.design()
   return {
@@ -137,6 +140,7 @@ function designAnswer({ tab, name, kit }: OpenDesign) {
       ...kit.colors.map((color) => ({ token: brandRef(color.token), name: color.name, value: color.value })),
       ...kit.fonts.map((font) => ({ token: brandRef(font.token), name: font.name, value: font.family })),
     ],
+    waiting: tab.unsent(),
     notices: tab.takeNotices().map(([notice, detail]) => ({ notice, ...detail })),
   }
 }

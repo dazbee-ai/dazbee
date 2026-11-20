@@ -78,6 +78,8 @@ export interface Client {
   confirmed(): ReadState
   /** How many change sets wait for the server's answer, sent or not. */
   queued(): number
+  /** The ids of the change sets that wait for the server's answer, sent or not, oldest first. */
+  queuedIds(): number[]
   /** What a change set of the tab still in the queue is for. */
   kindOf(changeSetId: number): ChangeSetKind | undefined
   /** Opens a step: the writes until it ends are one change set and one undo step. */
@@ -1149,6 +1151,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     working: () => working,
     confirmed: () => confirmed,
     queued: () => queue.length,
+    queuedIds: () => queue.map((q) => q.id),
     kindOf: (id) => queue.find((q) => q.id === id)?.kind,
     open: openStep,
     write,

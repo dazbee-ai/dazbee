@@ -23,14 +23,21 @@ export interface AccessRenders {
 }
 
 /**
- * What a tool call runs with: the API as the calling agent sees it, the agent's access, its session's design, and
- * the renders it may ask for.
+ * What a tool call runs with: the API as the calling agent sees it, the agent's access, its session's design, the
+ * renders it may ask for, when it is to be answered by, and the new designs it may make.
  */
 export interface ToolContext {
   api: AgentApi
   agent: AgentMe
   design: SessionDesign
   renders: AccessRenders
+  /** When the call is to be answered by, on the endpoint's clock: a step's wait for the store ends before it. */
+  answerBy: number
+  /**
+   * Counts a new design for the access, giving what takes it back for a design not made; past those it may make in
+   * an hour, the seconds to wait.
+   */
+  takeDesign(): number | (() => void)
 }
 
 /** A tool as the server offers it. */

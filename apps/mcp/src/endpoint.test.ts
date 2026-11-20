@@ -95,6 +95,10 @@ describe('mcpEndpoint', () => {
       'render_frame',
       'list_commands',
       'describe_command',
+      'run_command',
+      'batch',
+      'undo',
+      'redo',
     ])
     expect(tools.map(({ name }) => name)).toEqual(TOOLS.map(({ name }) => name))
     for (const tool of tools) {
@@ -110,6 +114,10 @@ describe('mcpEndpoint', () => {
       create_design: false,
       open_design: true,
       describe_command: true,
+      run_command: false,
+      batch: false,
+      undo: false,
+      redo: false,
     })
   })
 

@@ -1,14 +1,134 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { isDeepStrictEqual } from 'node:util'
 
-import { type CatalogEntry, commandCatalog } from '@dazbee/doc'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  type CatalogEntry,
+  commandCatalog,
+  CommandError,
+  openSession,
+  readDesign,
+  type Session,
+  VIEW_ONLY,
+} from '@dazbee/doc'
+import { COMMAND_INPUTS, registerBuggyCommands, sweepWorld } from '@dazbee/doc/test-commands'
+import { kindsDesign, testDesign } from '@dazbee/doc/test-design'
+import { forkTestStore, openTestStore } from '@dazbee/doc/test-store'
+import { seeded } from '@dazbee/doc/test-walk'
+import { type AgentTab, openAgentTab } from '@dazbee/editor/agent-tab'
+import type { MemorySync } from '@dazbee/editor/test-link'
+import { runAgentBatchWithWarnings } from '@dazbee/export'
+import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+import { loadFontFiles } from '@dazbee/fonts/node'
+import { loadCanvasKit } from '@dazbee/renderer/node'
+import { brandVariables, type DesignInput, type DesignRecords, SYNC_CLOSE } from '@dazbee/schema'
+
+import { REOPENED } from '../open-design.ts'
+import { NOT_CONFIRMED } from '../store-wait.ts'
+import { TEST_BRAND_KIT, TEST_SYNC_TOKEN_MS } from '../test-api.ts'
 import { type TestClient, type TestServer, testServer, textOf } from '../test-client.ts'
 
 let server: TestServer
+/** The second tabs the tests opened on a design. */
+const others: AgentTab[] = []
 
 afterEach(async () => {
+  for (const tab of others.splice(0)) await tab.close()
   await server.endpoint.close()
 })
+
+/** What is left of an access token when the agent last calls before it pauses. */
+const TOKEN_LEFT_MS = 5 * 60 * 1000
+/** The design the tests open. */
+const LAUNCH = { brand: 'brand-summer', design: 'design-launch' }
+/** A box on the square frame and a text inside it, the text reaching the box through a step reference. */
+const CARD = [
+  {
+    command: 'node.create',
+    as: 'card',
+    input: {
+      id: 'card',
+      parentId: 'sq',
+      layer: { type: 'box', name: 'Card', props: { x: 100, y: 200, width: 400, height: 300 } },
+    },
+  },
+  {
+    command: 'node.create',
+    input: {
+      id: 'card-title',
+      parentId: { $ref: 'card' },
+      layer: {
+        type: 'text',
+        name: 'Title',
+        props: {
+          x: 120,
+          y: 220,
+          width: 360,
+          height: 60,
+          text: 'New in',
+          style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#111111FF' },
+        },
+      },
+    },
+  },
+]
+
+/** An agent of an access with `options`, its design open, and a second tab on the design, as Bob's. */
+async function withSecondTab(options?: Parameters<TestServer['api']['addAccess']>[0]) {
+  server = testServer()
+  const agent = await server.connect(server.api.addAccess(options).token())
+  expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
+  const sync = server.sync('design-launch')
+  const other = await openAgentTab({
+    ck: await loadCanvasKit(),
+    designId: 'design-launch',
+    url: 'ws://sync.test',
+    token: () => Promise.resolve('bob'),
+    socket: (url) => sync.socket(url),
+    sources: {},
+  })
+  others.push(other)
+  return { agent, sync, other }
+}
+
+/** The change sets the server stored. */
+function accepted(sync: MemorySync) {
+  return sync.journal.rows.journal.filter((entry) => entry.kind === 'accepted')
+}
+
+/** What `session.run` gives for `command` and `input`: its result with new ids named by order, or its refusal as run_command tells it. */
+function ranOn(session: Session, command: string, input: unknown, before: ReadonlySet<string>) {
+  try {
+    const result: unknown = session.run(command as never, input as never)
+    return { result: newIdsIn(result, idsOf(session.design()), before) }
+  } catch (error) {
+    if (!(error instanceof CommandError)) throw error
+    return { refused: `${error.command}: ${error.reason}; nothing was changed.` }
+  }
+}
+
+/** The ids of a design's pages, frames and layers. */
+function idsOf(design: Pick<DesignRecords, 'pages' | 'frames' | 'nodes'>): Set<string> {
+  return new Set([...Object.keys(design.pages), ...Object.keys(design.frames), ...Object.keys(design.nodes)])
+}
+
+/**
+ * `value` as JSON, each id in `after` but not in `before` named by the order it first appears in, since the ids a
+ * command makes at random differ between two runs.
+ */
+function newIdsIn(value: unknown, after: ReadonlySet<string>, before: ReadonlySet<string>): unknown {
+  const names = new Map<string, string>()
+  return JSON.parse(JSON.stringify(value ?? null), (_key, inner: unknown) => {
+    if (typeof inner !== 'string' || before.has(inner) || !after.has(inner)) return inner
+    if (!names.has(inner)) names.set(inner, `new id ${names.size + 1}`)
+    return names.get(inner)
+  })
+}
+
+/** The change sets the agent's tab, the design's first socket, sent. */
+function changeSetsSent(sync: MemorySync) {
+  return (sync.sockets[0]?.sent ?? []).filter((message) => message.type === 'changes')
+}
 
 async function connect(): Promise<TestClient> {
   server = testServer()
@@ -102,5 +222,240 @@ describe('describe_command', () => {
     const result = await agent.call('describe_command', { name: 'frame.add' })
     expect(result.isError).toBe(true)
     expect(textOf(result)).toBe('Unknown argument `name` (describe_command takes command).')
+  })
+})
+
+describe('run_command', () => {
+  it('answers the result and the warnings once stored, which the second tab then holds', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    const result = await agent.call('run_command', { command: 'node.rename', input: { id: 'box', name: 'Card' } })
+    expect(result.isError).toBeFalsy()
+    expect(JSON.parse(textOf(result))).toEqual({ warnings: [] })
+    expect(sync.state().nodes['box']).toMatchObject({ name: 'Card' })
+    await sync.settle()
+    expect(other.design().nodes['box']?.name).toBe('Card')
+  })
+
+  it('answers a refused command as a tool error, keeping nothing', async () => {
+    const { agent, sync } = await withSecondTab()
+    const result = await agent.call('run_command', { command: 'node.rename', input: { id: 'nowhere', name: 'Card' } })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/^node\.rename: .+; nothing was changed\.$/)
+    expect(accepted(sync)).toHaveLength(0)
+  })
+
+  it('answers a change set the server rejects as not kept, with why', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    // The agent hears nothing while another tab deletes the box, then changes the box it still sees.
+    const agentSocket = sync.sockets[0]
+    agentSocket?.hold()
+    other.session.run('node.delete', { ids: ['box'] })
+    await sync.settle()
+    const call = agent.call('run_command', { command: 'node.update', input: { ids: ['box'], patch: { x: 5 } } })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    agentSocket?.release()
+    const result = await call
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(
+      /^Not kept: someone changed the same layers at the same time, so the design is as it was/,
+    )
+    expect(sync.state().nodes['box']).toBeUndefined()
+  })
+
+  describe('with a command that faults', () => {
+    registerBuggyCommands()
+
+    it('tells a command’s fault as a tool error naming it, keeping nothing', async () => {
+      const { agent, sync } = await withSecondTab()
+      const result = await agent.call('run_command', { command: 'test.throw', input: { id: 'box' } })
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toMatch(/^test\.throw failed inside Dazbee, so nothing was kept/)
+      expect(sync.state().nodes['box']).toMatchObject({ props: { x: 100 } })
+      expect(accepted(sync)).toHaveLength(0)
+    })
+  })
+
+  it('answers a step not confirmed when the design closes before the server stores it', async () => {
+    const { agent, sync } = await withSecondTab()
+    const store = sync.journal.holdNext()
+    const call = agent.call('run_command', { command: 'node.rename', input: { id: 'box', name: 'Card' } })
+    await vi.waitFor(() => expect(changeSetsSent(sync)).toHaveLength(1))
+    sync.sockets[0]?.closeWith(SYNC_CLOSE.designDeleted)
+    const result = await call
+    expect(result.isError).toBeFalsy()
+    expect(result.content[1]).toEqual({ type: 'text', text: NOT_CONFIRMED })
+    expect(textOf(await agent.call('read_design'))).toMatch(/^The design was deleted/)
+    store()
+  })
+
+  it('refuses design.restore before anything runs', async () => {
+    const { agent, sync } = await withSecondTab()
+    const result = await agent.call('run_command', { command: 'design.restore', input: {} })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/^design\.restore is a command agents can’t run, so nothing ran/)
+    expect(changeSetsSent(sync)).toHaveLength(0)
+  })
+
+  it('refuses each writing tool on a view access’s tab with the view-only reason, sending nothing', async () => {
+    const { agent, sync } = await withSecondTab({ writes: false })
+    const calls: [string, Record<string, unknown>][] = [
+      ['run_command', { command: 'node.rename', input: { id: 'box', name: 'Card' } }],
+      ['batch', { steps: CARD }],
+      ['undo', {}],
+      ['redo', {}],
+    ]
+    for (const [tool, args] of calls) {
+      const result = await agent.call(tool, args)
+      expect(result.isError).toBe(true)
+      expect(textOf(result)).toBe(`${VIEW_ONLY.charAt(0).toUpperCase()}${VIEW_ONLY.slice(1)}.`)
+    }
+    await sync.settle()
+    expect(changeSetsSent(sync)).toHaveLength(0)
+    expect(accepted(sync)).toHaveLength(0)
+  })
+})
+
+describe('batch', () => {
+  it('answers once the server has stored the batch: the journal and the second tab hold it', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    const store = sync.journal.holdNext()
+    let answered = false
+    const call = agent.call('batch', { steps: CARD }).finally(() => (answered = true))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(answered).toBe(false)
+    store()
+    const result = await call
+    expect(result.isError).toBeFalsy()
+    expect(JSON.parse(textOf(result))).toMatchObject({
+      kept: true,
+      steps: [
+        { ok: true, result: 'card' },
+        { ok: true, result: 'card-title' },
+      ],
+    })
+    // Stored by the time it answers, before anything else is let settle: one change set makes both.
+    expect(accepted(sync)).toHaveLength(1)
+    expect(JSON.stringify(accepted(sync)[0])).toContain('card-title')
+    await sync.settle()
+    expect(other.design().nodes['card-title']?.parentId).toBe('card')
+  })
+
+  it('answers what runAgentBatchWithWarnings gives for the same steps on a copy of the design', async () => {
+    const { agent } = await withSecondTab()
+    const copy = openSession(openTestStore(testDesign()))
+    const bytes = {
+      fonts: loadFontFiles().map(({ family, bytes }) => ({ family, bytes })),
+      fallbackFamilies: [...FALLBACK_FAMILIES],
+      images: {},
+      variables: brandVariables(TEST_BRAND_KIT),
+    }
+    const expected = runAgentBatchWithWarnings(await loadCanvasKit(), copy, CARD, bytes)
+    expect(expected.kept).toBe(true)
+    expect(await agent.json('batch', { steps: CARD })).toEqual(JSON.parse(JSON.stringify(expected)))
+  })
+
+  it('keeps nothing of a batch with a refused step, and answers the refusal', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    const steps = [...CARD, { command: 'node.rename', input: { id: 'nowhere', name: 'Never' } }]
+    const answer = (await agent.json('batch', { steps })) as { kept: boolean; steps: { ok: boolean }[] }
+    expect(answer.kept).toBe(false)
+    expect(answer.steps.map(({ ok }) => ok)).toEqual([true, true, false])
+    await sync.settle()
+    expect(accepted(sync)).toHaveLength(0)
+    expect(other.design().nodes['card']).toBeUndefined()
+  })
+
+  it('refuses a batch holding design.restore before any step runs', async () => {
+    const { agent, sync } = await withSecondTab()
+    const result = await agent.call('batch', { steps: [...CARD, { command: 'design.restore', input: {} }] })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/^design\.restore is a command agents can’t run/)
+    await sync.settle()
+    expect(changeSetsSent(sync)).toHaveLength(0)
+  })
+})
+
+describe('undo', () => {
+  it('takes back the whole batch, for both tabs, and redo does it again', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    await agent.json('batch', { steps: CARD })
+    expect(textOf(await agent.call('undo'))).toBe('Undid “add”')
+    expect(sync.state().nodes['card']).toBeUndefined()
+    expect(sync.state().nodes['card-title']).toBeUndefined()
+    await sync.settle()
+    expect(other.design().nodes['card']).toBeUndefined()
+    expect(other.design().nodes['card-title']).toBeUndefined()
+    expect(textOf(await agent.call('undo'))).toBe('There is no step of this agent’s to undo')
+    expect(textOf(await agent.call('redo'))).toBe('Redid “add”')
+    expect(sync.state().nodes['card-title']).toMatchObject({ parentId: 'card' })
+    expect(textOf(await agent.call('redo'))).toBe('There is no step of this agent’s to redo')
+  })
+
+  it('tells that the design was opened again, even with nothing to undo', async () => {
+    server = testServer()
+    const access = server.api.addAccess({ tokenMs: TOKEN_LEFT_MS })
+    const agent = await server.connect(access.token())
+    await agent.json('open_design', LAUNCH)
+    const sync = server.sync('design-launch')
+    server.wait(Math.max(TOKEN_LEFT_MS, TEST_SYNC_TOKEN_MS) + 1)
+    const asked = server.api.requests()
+    sync.sockets.at(-1)?.closeWith(SYNC_CLOSE.tokenExpired)
+    await vi.waitFor(() => expect(server.api.requests()).toBeGreaterThan(asked), { timeout: 5000 })
+    await sync.settle()
+    agent.token = access.token()
+    const result = await agent.call('undo')
+    expect(result.content).toEqual([
+      { type: 'text', text: 'There is no step of this agent’s to undo' },
+      { type: 'text', text: REOPENED },
+    ])
+  })
+
+  it('never takes back another tab’s step', async () => {
+    const { agent, sync, other } = await withSecondTab()
+    other.session.run('node.rename', { id: 'box', name: 'Bob’s' })
+    await sync.settle()
+    expect(textOf(await agent.call('undo'))).toBe('There is no step of this agent’s to undo')
+    expect(sync.state().nodes['box']).toMatchObject({ name: 'Bob’s' })
+  })
+})
+
+describe('the sweep', () => {
+  it('answers what session.run gives on a copy of the design, for every command but design.restore', async () => {
+    const world = openTestStore(kindsDesign())
+    const made = openSession(world)
+    const { random, ...inputs } = sweepWorld(made, seeded(1))
+    made.destroy()
+    // The sweep makes more calls at once than an access may.
+    server = testServer({
+      designs: { 'design-launch': readDesign(world) as DesignInput },
+      limits: { callsBurst: 10_000 },
+    })
+    const agent = await server.connect(server.api.addAccess().token())
+    expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
+    const sync = server.sync('design-launch')
+    const before = idsOf(readDesign(world))
+    const problems: string[] = []
+    for (const [command, inputsOf] of Object.entries(COMMAND_INPUTS)) {
+      if (command === 'design.restore' || !inputsOf) continue
+      for (const [i, given] of inputsOf({ ...inputs, random }).entries()) {
+        const input = JSON.parse(JSON.stringify(given)) as unknown
+        const copy = openSession(forkTestStore(world))
+        const expected = ranOn(copy, command, input, before)
+        const result = await agent.call('run_command', { command, input })
+        const got = result.isError
+          ? { refused: textOf(result) }
+          : {
+              result: newIdsIn(
+                (JSON.parse(textOf(result)) as { result?: unknown }).result,
+                idsOf(sync.state()),
+                before,
+              ),
+            }
+        if (!isDeepStrictEqual(got, expected)) problems.push(`${command} #${i}: ${JSON.stringify({ got, expected })}`)
+        if (!result.isError) expect((await agent.call('undo')).isError).toBeFalsy()
+        copy.destroy()
+      }
+    }
+    expect(problems).toEqual([])
   })
 })

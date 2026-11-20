@@ -15,7 +15,7 @@ import {
   NodeId,
   parseLayer,
   UnplacedLayer,
-  VALUE_KINDS,
+  valueKindOf,
   VariableRef,
 } from '@dazbee/schema'
 
@@ -256,8 +256,7 @@ export const nodeBind = defineCommand({
   }),
   check: ({ design }, { ids, property, ref, value }) => {
     if (ref && value === undefined) return 'binding needs the value the token has now'
-    if (value !== undefined && !fitsProperty(property, value))
-      return `a ${property} takes ${VALUE_KINDS[BINDABLE_PROPERTIES[property].kind].takes}`
+    if (value !== undefined && !fitsProperty(property, value)) return valueKindOf(property).unfit
     for (const id of ids) {
       const node = design.nodes[id]
       if (!node) return missingLayer(design, [id])

@@ -9,12 +9,14 @@ import {
   BrandToken,
   canBind,
   fitsProperty,
+  valueKindOf,
   VariableRef,
 } from './variables.ts'
 
 const red = '#E0262BFF'
 const navy = '#14213DFF'
 const white = '#FFFFFFFF'
+const TYPES = ['graphic', 'box', 'boolean', 'text', 'group']
 /** A text's base style, with a run that keeps its own colour and font. */
 const textProps = {
   style: { fontFamily: 'Noto Sans', color: navy, fontSize: 40 },
@@ -132,13 +134,17 @@ describe('Bindings', () => {
 
 describe('canBind', () => {
   it('lets only the layer types that have a property bind it', () => {
-    expect(['graphic', 'box', 'boolean', 'text', 'group'].filter((type) => canBind(type, 'fill'))).toEqual([
-      'graphic',
-      'box',
-      'boolean',
-    ])
+    expect(TYPES.filter((type) => canBind(type, 'fill'))).toEqual(['graphic', 'box', 'boolean'])
     for (const property of ['textColor', 'fontFamily'] as const)
-      expect(['graphic', 'box', 'boolean', 'text', 'group'].filter((type) => canBind(type, property))).toEqual(['text'])
+      expect(TYPES.filter((type) => canBind(type, property))).toEqual(['text'])
+  })
+})
+
+describe('valueKindOf', () => {
+  it('says why a value is not of the kind a property takes', () => {
+    expect(valueKindOf('fill').unfit).toBe('colours are #RRGGBBAA')
+    expect(valueKindOf('textColor').unfit).toBe('colours are #RRGGBBAA')
+    expect(valueKindOf('fontFamily').unfit).toBe('a font family needs a name')
   })
 })
 

@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { AssetSummary, bindablePropertyOf, brandRef, brandVariables, type Design } from '@dazbee/schema'
+import { AssetSummary, bindablePropertyOf, brandRef, brandVariables, type Design, type ValueKind } from '@dazbee/schema'
 
 import { useFontCatalog } from '@/components/brand-kit/font-catalog.ts'
 import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
@@ -29,7 +29,7 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 /** Whether every selected layer that can follow a token of this kind follows this one. */
-function follows(design: Design, ids: string[], kind: 'color' | 'font', token: string) {
+function follows(design: Design, ids: string[], kind: ValueKind, token: string) {
   const refs = ids.flatMap((id) => {
     const node = design.nodes[id]
     if (!node) return []

@@ -1,8 +1,7 @@
 // Variables a layer's properties follow, and the list of bindable properties. For now the variables
-// are the brand kit's tokens (#53): a brand's colours and fonts, named `brand:<token>`, which a layer
-// binds its fill, its text colour or its font family to, so changing the brand colour changes every
-// design that uses it. Everything that binds reads the list: the schema of a layer's bindings, the
-// drawing of bound values, Paste style, binding and the editor's brand kit.
+// are the brand kit's tokens, named `brand:<token>`: a brand's colours and fonts, which a layer binds
+// its fill, its text colour or its font family to, so changing the brand colour changes every design
+// that uses it. Everything that binds reads the list.
 import { z } from 'zod'
 
 import type { LayerType } from './layers.ts'
@@ -20,12 +19,12 @@ export type BrandToken = z.infer<typeof BrandToken>
 export const VariableRef = z.templateLiteral(['brand:', BrandToken])
 export type VariableRef = z.infer<typeof VariableRef>
 
-/** The kinds of value a bindable property takes, each with the values that fit it and how to say so. */
+/** The kinds of value a bindable property takes, each with the values that fit it and what to say of one that doesn't. */
 export const VALUE_KINDS = {
   /** A colour as the schema takes it. */
-  color: { fits: (value: string) => Color.safeParse(value).success, takes: 'a colour as #RRGGBBAA' },
+  color: { fits: (value: string) => Color.safeParse(value).success, unfit: 'colours are #RRGGBBAA' },
   /** A font family's name that isn't blank. */
-  font: { fits: (value: string) => value.trim().length > 0, takes: 'a font family’s name' },
+  font: { fits: (value: string) => value.trim().length > 0, unfit: 'a font family needs a name' },
 } as const
 export type ValueKind = keyof typeof VALUE_KINDS
 
@@ -33,7 +32,7 @@ export type ValueKind = keyof typeof VALUE_KINDS
 type Props = Readonly<Record<string, unknown>>
 
 /** What the list says of a bindable property. */
-export interface BindableEntry {
+interface BindableEntry {
   /** The layer types that have it. */
   types: readonly LayerType[]
   /** The kind of value it takes, from `VALUE_KINDS`. */
@@ -122,9 +121,11 @@ export const brandRef = (token: string): VariableRef => `brand:${token}` as Vari
 export const canBind = (type: string, property: BindableProperty) =>
   (BINDABLE_PROPERTIES[property].types as readonly string[]).includes(type)
 
+/** The kind of value a bindable property takes, from `VALUE_KINDS`. */
+export const valueKindOf = (property: BindableProperty) => VALUE_KINDS[BINDABLE_PROPERTIES[property].kind]
+
 /** Whether a value is of the kind a bindable property takes: a colour for a fill or text colour, a family name for a font. */
-export const fitsProperty = (property: BindableProperty, value: string) =>
-  VALUE_KINDS[BINDABLE_PROPERTIES[property].kind].fits(value)
+export const fitsProperty = (property: BindableProperty, value: string) => valueKindOf(property).fits(value)
 
 /** The property of a kind a layer of this type binds: a colour is a text's colour or another layer's fill, a font a text's family. */
 export const bindablePropertyOf = (type: string, kind: ValueKind): BindableProperty | undefined =>

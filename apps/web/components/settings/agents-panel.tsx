@@ -6,7 +6,7 @@
 // Under them, how to connect one: the MCP server's address and the Claude Code command, each with Copy, and
 // where the address goes in Claude Desktop or claude.ai. Why the API refused shows under the heading, so it
 // stays when the access has left the list.
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 
 import type { AgentAccessSummary, BrandSummary } from '@dazbee/schema'
 
@@ -23,6 +23,9 @@ import { Note } from './note.tsx'
 
 /** The client's name set apart inside a sentence, so a name written right to left can't reorder the words around it. */
 const isolated = (name: string) => `⁨${shownName(name)}⁩`
+
+/** How long "Copied" shows under a field once its value is copied. */
+const COPIED_MS = 3000
 
 /** The Claude Code command that connects it to the MCP server at `address`. */
 const claudeCodeCommand = (address: string) => `claude mcp add --transport http dazbee ${address}`
@@ -114,9 +117,9 @@ function AccessRow({
       className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 rounded-row px-2 py-1.5 transition-colors duration-[var(--chrome-fast)] hover:bg-hover"
     >
       <span className="flex min-w-0 flex-1 basis-48 flex-col">
-        <bdi title={name} data-testid="agent-client" className="truncate text-small font-semibold text-text">
-          {name}
-        </bdi>
+        <span title={name} className="truncate text-small font-semibold text-text">
+          <bdi data-testid="agent-client">{name}</bdi>
+        </span>
         <span className="text-caption text-subtle [overflow-wrap:anywhere]">
           {brandsLabel(access.brandIds, brands, s.brands)} · {access.writes ? a.edit : a.view} ·{' '}
           <time dateTime={access.createdAt}>{format(a.given, { date: date(access.createdAt) })}</time> ·{' '}
@@ -170,19 +173,26 @@ function ConnectAgent({ address }: { address: string }) {
 }
 
 /**
- * A value to copy, in a field that reads left to right in any language, with Copy beside it. Once copied, Copy says
- * so; a browser that won't copy, as on a page served over plain http, selects the value to copy by hand.
+ * A value to copy, in a field that reads left to right in any language, with Copy beside it. Once copied, "Copied"
+ * shows under it for a moment; a browser that won't copy, as on a page served over plain http, selects the value to
+ * copy by hand.
  */
 function CopyField({ id, value, copyLabel }: { id: string; value: string; copyLabel: string }) {
   const a = useMessages().settings.agents
   const field = useRef<HTMLInputElement>(null)
-  const [copied, setCopied] = useState(false)
+  // When the value was last copied, while "Copied" shows; 0 once it has gone.
+  const [copiedAt, setCopiedAt] = useState(0)
+  useEffect(() => {
+    if (!copiedAt) return
+    const timer = setTimeout(() => setCopiedAt(0), COPIED_MS)
+    return () => clearTimeout(timer)
+  }, [copiedAt])
 
   function copy() {
     Promise.resolve()
       .then(() => navigator.clipboard.writeText(value))
       .then(
-        () => setCopied(true),
+        () => setCopiedAt(Date.now()),
         () => field.current?.select(),
       )
   }
@@ -206,7 +216,11 @@ function CopyField({ id, value, copyLabel }: { id: string; value: string; copyLa
       >
         {a.copy}
       </button>
-      {copied && <Note text={a.copied} />}
+      {copiedAt > 0 && (
+        <div className="basis-full">
+          <Note text={a.copied} />
+        </div>
+      )}
     </div>
   )
 }

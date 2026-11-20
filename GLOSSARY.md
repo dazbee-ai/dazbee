@@ -238,6 +238,14 @@ _Avoid_: Span, range style
 The text between two line breaks in a text layer. Lists, paragraph spacing and selecting with a triple click work a paragraph at a time.
 _Avoid_: Block (that is the renderer's laid-out paragraph), line (a paragraph wraps onto lines)
 
+**Letter spacing**:
+The room added after each character of a text, in pixels or as a percentage of the font size the characters are set at. A percentage follows the size: shrink to fit, a corner drag and a frame of another size change it with the size, where pixels are scaled. Typed as `2%` or `1.5px` in the Text tab.
+_Avoid_: Tracking, kerning (the font's own spacing between two letters)
+
+**Font feature**:
+An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures or small caps; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals.
+_Avoid_: OpenType setting, typography option
+
 **Shrink to fit**:
 A text layer setting that picks the largest font size, between a least and a most, at which the text fits inside the layer; every font size in the text scales with it.
 _Avoid_: Auto size, fit text

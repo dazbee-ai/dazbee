@@ -39,7 +39,7 @@ if (dev) await seedDevelopment(db)
 
 // The development session reads session tokens too when it has a secret, so a check in the browser can sign in as a Reviewer.
 const tokenSecret = signIn?.secret ?? (dev && process.env.SESSION_SECRET ? sessionSecret() : null)
-const sessionOf = sessionOfRequest({ secret: tokenSecret, dev })
+const sessionOf = sessionOfRequest({ db, secret: tokenSecret, dev })
 // Invites go through WorkOS for a workspace with an organization. The development stand-in serves one
 // without, such as the development workspace, when the development session is on and tokens can be
 // signed; its links open the web app at WEB_URL, else on its local port.

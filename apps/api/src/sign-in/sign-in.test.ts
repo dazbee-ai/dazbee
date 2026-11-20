@@ -372,11 +372,13 @@ describe('who is asking', () => {
   it('reads a token before the development session, so a check in the browser can sign in as another member', async () => {
     const userId = `user_reviewer_${run}`
     const { token } = signSessionToken(secret, { userId, workosSessionId: null })
-    const sessionOf = sessionOfRequest({ secret, dev: true })
+    const sessionOf = sessionOfRequest({ db, secret, dev: true })
     expect(await sessionOf(request(token))).toEqual({ userId })
     expect(await sessionOf(request())).toEqual({ userId: 'dev-user' })
-    expect(await sessionOfRequest({ secret: null, dev: true })(request(token))).toMatchObject({ userId: 'dev-user' })
-    expect(await sessionOfRequest({ secret, dev: false })(request())).toBeNull()
+    expect(await sessionOfRequest({ db, secret: null, dev: true })(request(token))).toMatchObject({
+      userId: 'dev-user',
+    })
+    expect(await sessionOfRequest({ db, secret, dev: false })(request())).toBeNull()
   })
 })
 

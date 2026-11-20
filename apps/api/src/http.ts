@@ -1,14 +1,22 @@
 // What every area's routes share: the context they run in, the error body, reading a request's body,
 // the check that a request has a session, the membership of the workspace a route is for, the checks
 // that its role writes or manages the workspace, and the brand a brand route is for, within the brands
-// the member may see.
+// the member may see. An agent's session reaches only its access's workspace, with the membership capped
+// by the access.
 import type { MiddlewareHandler } from 'hono'
 import type { z } from 'zod'
 
 import type { Db } from '@dazbee/db'
-import { type ApiError, type BrandSummary, roleManages, roleWrites, type SignInRefused } from '@dazbee/schema'
+import {
+  type ApiError,
+  type BrandSummary,
+  type MemberBrands,
+  roleManages,
+  roleWrites,
+  type SignInRefused,
+} from '@dazbee/schema'
 
-import type { Session, SessionOf } from './sign-in/session.ts'
+import type { AgentSession, Session, SessionOf } from './sign-in/session.ts'
 import { findAccess, findBrand, type MemberAccess } from './workspace/workspace.ts'
 
 /**
@@ -29,11 +37,19 @@ export type Env = { Variables: { session: Session; membership: Membership; brand
 /** The body of every error answer. */
 export const error = (message: string): ApiError => ({ error: message })
 
-/** The body parsed with `schema`, or a 400 response saying what's wrong with it. */
-export async function body<T extends z.ZodType>(request: Request, schema: T): Promise<z.infer<T> | Response> {
+/**
+ * The body parsed with `schema`, or a 400 response saying what's wrong with it. When `optional`, an empty body
+ * is read as `{}`.
+ */
+export async function body<T extends z.ZodType>(
+  request: Request,
+  schema: T,
+  { optional = false } = {},
+): Promise<z.infer<T> | Response> {
   let json: unknown
   try {
-    json = await request.json()
+    const text = await request.text()
+    json = optional && text.trim() === '' ? {} : JSON.parse(text)
   } catch {
     return Response.json(error('The body is not JSON'), { status: 400 })
   }
@@ -66,16 +82,17 @@ export function requireSession(
 }
 
 /**
- * Answers 404 "No such workspace" unless the session's person is a member of the route's `:workspaceId`;
- * otherwise puts their membership on the context, read again on every request. It runs after
- * `requireSession`.
+ * Answers 404 "No such workspace" unless the session's person is a member of the route's `:workspaceId`, and
+ * for an agent's session, unless it is its access's workspace; otherwise puts their membership on the context,
+ * read again on every request, capped by an agent's access. It runs after `requireSession`.
  */
 export function membershipScope(db: Db): MiddlewareHandler<Env> {
   return async (c, next) => {
     const workspaceId = c.req.param('workspaceId') ?? ''
-    const access = await findAccess(db, workspaceId, c.var.session.userId)
+    const { userId, agent } = c.var.session
+    const access = agent && agent.workspaceId !== workspaceId ? null : await findAccess(db, workspaceId, userId)
     if (!access) return c.json(error('No such workspace'), 404)
-    c.set('membership', { workspaceId, ...access })
+    c.set('membership', { workspaceId, ...(agent ? cappedByAgent(access, agent) : access) })
     await next()
   }
 }
@@ -117,4 +134,20 @@ export function brandScope(db: Db): MiddlewareHandler<Env> {
     c.set('brand', brand)
     await next()
   }
+}
+
+/**
+ * A membership as an agent's access holds it: an Editor's role at most, a Reviewer's for an access that doesn't
+ * write, and only the brands both the membership and the access name.
+ */
+function cappedByAgent(member: MemberAccess, agent: AgentSession): MemberAccess {
+  const role = agent.writes && roleWrites(member.role) ? 'editor' : 'reviewer'
+  return { role, brandIds: bothBrands(member.brandIds, agent.brandIds) }
+}
+
+/** The brands two lists both name, where null names every brand. */
+function bothBrands(a: MemberBrands, b: MemberBrands): MemberBrands {
+  if (a === null) return b
+  if (b === null) return a
+  return a.filter((id) => b.includes(id))
 }

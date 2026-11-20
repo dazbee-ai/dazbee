@@ -1,14 +1,28 @@
 // Who is asking. A signed-in person sends the session token the API gave them at sign-in (#58) as a
 // bearer token; a development session can stand in locally and in CI, and every route of a workspace
-// checks the person's membership there.
+// checks the person's membership there. An agent sends its access token (ADR-0019): its member, held to
+// the access's workspace, brands and writing.
 import { and, eq } from 'drizzle-orm'
 
 import { brands, type Db, memberships, users, workspaces } from '@dazbee/db'
 import { readSessionToken } from '@dazbee/session-token'
 
-/** Who is asking. */
+import { findAccessOfToken, isAgentToken } from '../agents/agent-accesses.ts'
+
+/** The agent access a session of an agent's token is held to. */
+export interface AgentSession {
+  accessId: string
+  workspaceId: string
+  /** The brands the access names, or null for every brand the member sees. */
+  brandIds: string[] | null
+  writes: boolean
+  clientName: string
+}
+
+/** Who is asking: a person, or an agent working for them when `agent` is given. */
 export interface Session {
   userId: string
+  agent?: AgentSession
 }
 
 /** Finds the session of a request, or null when it has none. */
@@ -58,6 +72,27 @@ export function bearerToken(request: Request): string | null {
   return match?.[1] ?? null
 }
 
+/**
+ * The agent's token a request's bearer header holds, live or not, by its prefix in any case; null when it
+ * holds none.
+ */
+export function agentToken(request: Request): string | null {
+  const match = /^bearer\s+(\S+)/i.exec(request.headers.get('authorization')?.trim() ?? '')
+  const token = match?.[1]
+  return token && isAgentToken(token) ? token : null
+}
+
+/** Sessions from agents' access tokens, each held to its access, while it is live. */
+export function agentSession(db: Db): SessionOf {
+  return async (request) => {
+    const token = agentToken(request)
+    const access = token ? await findAccessOfToken(db, token) : null
+    if (!access) return null
+    const { id: accessId, userId, workspaceId, brandIds, writes, clientName } = access
+    return { userId, agent: { accessId, workspaceId, brandIds, writes, clientName } }
+  }
+}
+
 /** Sessions from bearer tokens; each route of a workspace then checks the person is a member there. */
 export function tokenSession(secret: string): SessionOf {
   return (request) => {
@@ -79,12 +114,15 @@ export function firstSession(...ways: SessionOf[]): SessionOf {
 }
 
 /**
- * How the API finds who is asking: a session token first, wherever there is a secret to read it with
- * (WorkOS sign-in, or the development session given SESSION_SECRET, so a check in the browser can sign
- * in as a member in another role), then the development session when it is on.
+ * How the API finds who is asking. A request with an agent's token is that token's agent session or none, never
+ * another way's. Otherwise a session token first, wherever there is a secret to read it with (WorkOS sign-in, or
+ * the development session given SESSION_SECRET, so a check in the browser can sign in as a member in another
+ * role), then the development session when it is on.
  */
-export function sessionOfRequest({ secret, dev }: { secret: string | null; dev: boolean }): SessionOf {
-  return firstSession(...(secret ? [tokenSession(secret)] : []), ...(dev ? [devSession] : []))
+export function sessionOfRequest({ db, secret, dev }: { db: Db; secret: string | null; dev: boolean }): SessionOf {
+  const agent = agentSession(db)
+  const person = firstSession(...(secret ? [tokenSession(secret)] : []), ...(dev ? [devSession] : []))
+  return (request) => (agentToken(request) === null ? person(request) : agent(request))
 }
 
 /** The name a person gave at sign-in: empty for one who gave none, and for the development user. */

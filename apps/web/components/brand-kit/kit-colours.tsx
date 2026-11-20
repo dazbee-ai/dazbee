@@ -28,6 +28,11 @@ type Row = { role: BrandRole; entry: BrandColor | undefined } | { role?: undefin
 
 const SWATCH =
   'h-16 w-12 shrink-0 cursor-pointer rounded-[12px] border border-line-strong bg-transparent p-0 [&::-webkit-color-swatch]:rounded-[11px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-moz-color-swatch]:rounded-[11px] [&::-moz-color-swatch]:border-0'
+/**
+ * The colour an unset role's picker opens on: a grey, so picking black or white, as a Text or
+ * Background role often is, is a change the picker reports.
+ */
+const UNSET_PICK = '#808080FF'
 /** An unset role's swatch: a dashed outline with nothing in it, which picking a colour fills. */
 const EMPTY_SWATCH =
   'border-dashed [&::-webkit-color-swatch]:opacity-0 [&::-moz-color-swatch]:opacity-0 hover:border-accent'
@@ -112,7 +117,7 @@ function ColourRow({
       <input
         name="colour"
         type="color"
-        value={hexOf(entry?.value ?? '#000000FF')}
+        value={hexOf(entry?.value ?? UNSET_PICK)}
         aria-label={format(t.pick, { name })}
         onChange={(e) => set({ value: `${e.target.value}${entry?.value.slice(7) ?? 'FF'}`.toUpperCase() })}
         className={cn(SWATCH, !entry && EMPTY_SWATCH)}

@@ -168,7 +168,6 @@ export function harness(
         return (answers.escape ?? false) && e.code === 'Escape'
       },
       text: () => false,
-
       deleteBackward: () => false,
       blur: () => log.push('blur'),
       hidden: () => log.push('hidden'),

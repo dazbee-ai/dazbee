@@ -48,14 +48,14 @@ describe('text editing', () => {
     // A virama just typed goes on its own.
     expect(backspaceStep('क्', 2)).toBe(1)
     expect(backspaceStep('सेल', 2)).toBe(1)
-    expect(backspaceStep('น้ำ', 3)).toBe(2)
-    expect(backspaceStep('é', 2)).toBe(1)
+    expect(backspaceStep('น\u0E49\u0E33', 3)).toBe(2)
+    expect(backspaceStep('e\u0301', 2)).toBe(1)
     expect(backspaceStep('ab', 2)).toBe(1)
     expect(backspaceStep('ab', 0)).toBe(0)
   })
 
   it('steps back over emoji, flags, keycaps and Hangul whole', () => {
-    for (const text of ['👨‍👩‍👧', '👍🏽', '🇯🇵', '1️⃣', '한', '한', 'a‍'])
+    for (const text of ['👨\u200D👩\u200D👧', '👍🏽', '🇯🇵', '1\uFE0F\u20E3', '\u1112\u1161\u11AB', '한', 'a\u200D'])
       expect(backspaceStep(`x${text}`, text.length + 1), text).toBe(1)
   })
 

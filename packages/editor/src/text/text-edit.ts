@@ -39,7 +39,7 @@ const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const words = new Intl.Segmenter(undefined, { granularity: 'word' })
 /** A letter of any script, Unicode's Alphabetic property, which a grapheme's trailing marks may follow. */
 const LETTER = /\p{Alphabetic}/u
-const ZWJ = '‍'
+const ZWJ = '\u200D'
 
 /** Every offset a caret can stand at: the edges of Unicode's graphemes. */
 const graphemeEdges = (text: string) => [0, ...[...graphemes.segment(text)].map((g) => g.index + g.segment.length)]

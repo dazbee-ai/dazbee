@@ -264,19 +264,51 @@ describe('the arrow keys at the ends of wrapped Arabic lines', () => {
     expect(tops.length).toBeGreaterThan(2)
   })
 
-  it('Left at a line’s left end, where it ends, goes on to the next line’s right end, where it starts', () => {
+  it('Left at a line’s left end, where it ends, steps on to the first offset of the next line in reading order', () => {
     for (let i = 0; i + 1 < tops.length; i++) {
       const next = drawn(visualStep(ck, laid, leftEnd(tops[i]).offset, false) ?? -1)
       expect(next?.y).toBe(tops[i + 1])
-      expect(next?.x).toBe(rightEnd(tops[i + 1]).x)
+      expect(next?.offset).toBe(Math.min(...onLine(tops[i + 1]).map((e) => e.offset)))
     }
   })
 
-  it('Right at a line’s right end, where it starts, goes back to the line before’s left end, where it ends', () => {
+  it('Right at a line’s right end, where it starts, steps back to the last offset of the line before', () => {
     for (let i = 1; i < tops.length; i++) {
       const before = drawn(visualStep(ck, laid, rightEnd(tops[i]).offset, true) ?? -1)
       expect(before?.y).toBe(tops[i - 1])
-      expect(before?.x).toBe(leftEnd(tops[i - 1]).x)
+      expect(before?.offset).toBe(Math.max(...onLine(tops[i - 1]).map((e) => e.offset)))
     }
+  })
+})
+
+describe('the arrow keys across paragraphs', () => {
+  const laidText = (text: string) => laidOut({ label: text, text, family: 'Noto Naskh Arabic', weight: 400 })
+
+  it('go through an empty paragraph in Arabic, Left on to the text’s end and Right back to its start', () => {
+    // خصم 0–3, the empty paragraph at 4, اليوم 5–10.
+    const text = 'خصم\n\nاليوم'
+    const laid = laidText(text)
+    const left = walk(laid, 0, false)
+    expect(left).toContain(4)
+    expect(left.at(-1)).toBe(text.length)
+    const right = walk(laid, text.length, true)
+    expect(right).toContain(4)
+    expect(right.at(-1)).toBe(0)
+    laid.delete()
+  })
+
+  it('step on at a line’s end to where the next paragraph starts, though it starts with Arabic', () => {
+    // "Sale خصم" reads left to right, خصم at its right end; the caret after خ is drawn rightmost.
+    const text = 'Sale خصم\nخصم today'
+    const laid = laidText(text)
+    const ends = drawnEdges(laid, text).filter((e) => e.offset <= 8)
+    const rightmost = ends.reduce((a, b) => (b.x > a.x ? b : a))
+    expect(visualStep(ck, laid, rightmost.offset, true)).toBe(9)
+    // Left at that paragraph's left end goes back to where the one before ends.
+    const leftmost = drawnEdges(laid, text)
+      .filter((e) => e.offset >= 9)
+      .reduce((a, b) => (b.x < a.x ? b : a))
+    expect(visualStep(ck, laid, leftmost.offset, false)).toBe(8)
+    laid.delete()
   })
 })

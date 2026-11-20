@@ -408,8 +408,6 @@ export function editorTyping({
     const key = e.key.toLowerCase()
     // Ctrl, or Alt as on a Mac, moves and deletes a word at a time.
     const byWord = e.ctrlKey || e.altKey
-    /** The offset a character on from the caret or back, or with `byWord` a word. */
-    const stepped = (forward: boolean) => (byWord ? wordStep : step)(text, caret, forward)
     /** Replaces the selected range with text, or with nothing; the caret ends after what went in. */
     const replace = (inserted: string) => {
       const ok = write(() => {
@@ -460,7 +458,12 @@ export function editorTyping({
     } else if (e.key === 'Delete' && (selected || caret < text.length)) {
       if (selected) replace('')
       else
-        write(() => session.run('text.edit', { id, op: { kind: 'delete', at: caret, length: stepped(true) - caret } }))
+        write(() =>
+          session.run('text.edit', {
+            id,
+            op: { kind: 'delete', at: caret, length: (byWord ? wordStep : step)(text, caret, true) - caret },
+          }),
+        )
     } else if (e.key === 'Enter') {
       replace('\n')
     } else if (oneGrapheme(e.key) && !mod) {

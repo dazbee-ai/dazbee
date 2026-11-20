@@ -53,7 +53,7 @@ describe('Backspace', () => {
   it('takes emoji, flags and Hangul whole, a syllable of conjoining letters too', async () => {
     const { core, press, textNow } = await typingIn('')
     press('👨‍👩‍👧', '🇮🇳', '한')
-    core.input.text('한')
+    core.input.text('\u1112\u1161\u11AB')
     press('Backspace')
     expect(textNow()).toBe('👨‍👩‍👧🇮🇳한')
     press('Backspace')

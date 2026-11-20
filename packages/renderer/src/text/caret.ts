@@ -93,8 +93,8 @@ export function caretPosition(
 /**
  * The offset the Left or Right arrow moves the caret to, on a line that holds right-to-left text:
  * the nearest grapheme edge the way the arrow points on screen, by where `caretPosition` draws
- * each. At the line's end it goes on in reading order, to where the next line starts as it reads,
- * or back to where the line before ends; with no line there it stays. Null on a line all left to
+ * each. At the line's end it steps on in reading order: to the first offset drawn on the next
+ * line, or the last on the line before; with no line there it stays. Null on a line all left to
  * right, where a step is one grapheme in reading order.
  */
 export function visualStep(ck: CanvasKit, laid: TextLayout, offset: number, right: boolean): number | null {
@@ -102,23 +102,24 @@ export function visualStep(ck: CanvasKit, laid: TextLayout, offset: number, righ
   if (!block) return null
   const boxes = boxesOf(ck, block)
   const caret = drawnEdge(boxes, Math.min(offset - block.start, block.text.length))
-  if (!caret) return null
-  const { line } = caret.box
-  if (!laid.rtl && !boxes.some((b) => b.line === line && b.rtl)) return null
+  if (caret && !laid.rtl && !boxes.some((b) => b.line === caret.box.line && b.rtl)) return null
+  // An empty paragraph has no edges: in a right-to-left layer it steps on as a line's end does.
+  if (!caret && !laid.rtl) return null
   // Nearest first; where two offsets are drawn at one place, as at a change of direction, the lower.
-  const [next] = edgesOn(boxes, line)
-    .filter((e) => (right ? e.x > caret.x + NEAR : e.x < caret.x - NEAR))
-    .sort((a, b) => {
-      const nearer = Math.abs(a.x - caret.x) - Math.abs(b.x - caret.x)
-      return Math.abs(nearer) > NEAR ? nearer : a.offset - b.offset
-    })
+  const [next] = caret
+    ? edgesOn(boxes, caret.box.line)
+        .filter((e) => (right ? e.x > caret.x + NEAR : e.x < caret.x - NEAR))
+        .sort((a, b) => {
+          const nearer = Math.abs(a.x - caret.x) - Math.abs(b.x - caret.x)
+          return Math.abs(nearer) > NEAR ? nearer : a.offset - b.offset
+        })
+    : []
   if (next) return block.start + next.offset
-  const onward = lineAfter(ck, laid, block, line, right !== laid.rtl)
+  const forward = right !== laid.rtl
+  const onward = lineAfter(ck, laid, block, caret?.box.line ?? 0, forward)
   if (!onward) return offset
-  if (onward.edges.length === 0) return onward.block.start
-  // Entered at the end the arrow comes in from: Right enters a line at its left end.
-  const entered = onward.edges.reduce((best, e) => ((right ? e.x < best.x : e.x > best.x) ? e : best))
-  return onward.block.start + entered.offset
+  const offsets = onward.edges.map((e) => e.offset)
+  return onward.block.start + (offsets.length === 0 ? 0 : forward ? Math.min(...offsets) : Math.max(...offsets))
 }
 
 /** The boxes that highlight a text range, in the layout's own coordinates: one per run of one direction on one line. */

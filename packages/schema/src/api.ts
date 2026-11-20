@@ -126,6 +126,13 @@ export const SyncToken = z.object({
 export type SyncToken = z.infer<typeof SyncToken>
 
 /**
+ * Asks for a sync token. An agent's session names the agent its tab is shown as (ADR-0019); a person's
+ * session names none.
+ */
+export const SyncTokenRequest = z.object({ agent: z.string().max(256).optional() })
+export type SyncTokenRequest = z.infer<typeof SyncTokenRequest>
+
+/**
  * The image types we accept: PNG, JPEG and WebP, decoded with CanvasKit (ADR-0006: images are
  * fills), and SVG, which is never decoded as an image but placed as layers.
  */
@@ -430,6 +437,30 @@ export type SignInRefused = z.infer<typeof SignInRefused>
 /** Where to send the person to end their WorkOS session too, when they had one. */
 export const SignedOut = z.object({ logoutUrl: z.url().nullable() })
 export type SignedOut = z.infer<typeof SignedOut>
+
+// Agents (ADR-0019). A member lets an agent into one workspace, to some of its brands or all they see, to
+// edit or only view: an agent access, which Settings lists and ends.
+
+/** An agent access as Settings lists it: the client's name, its brands (null for all the member sees), whether it edits, when it was made and last used. */
+export const AgentAccessSummary = z.object({
+  id: RecordId,
+  clientName: z.string(),
+  brandIds: z.array(RecordId).nullable(),
+  writes: z.boolean(),
+  createdAt: z.iso.datetime(),
+  lastUsedAt: z.iso.datetime().nullable(),
+})
+export type AgentAccessSummary = z.infer<typeof AgentAccessSummary>
+
+/** Who an agent's token is: its access's id, workspace, brands (null for all the member sees), whether it edits, and the client's name. */
+export const AgentMe = z.object({
+  id: RecordId,
+  workspaceId: RecordId,
+  brandIds: z.array(RecordId).nullable(),
+  writes: z.boolean(),
+  clientName: z.string(),
+})
+export type AgentMe = z.infer<typeof AgentMe>
 
 /** Whether an asset is an SVG file, placed as layers rather than as an image fill. */
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'

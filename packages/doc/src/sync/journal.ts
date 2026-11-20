@@ -55,7 +55,8 @@ export interface Journal {
   bury(saved: Saved, expected: number, from: number, reason: string): Promise<void>
   /**
    * Adds a version, under the keep rules: `unchanged` when the newest version holds the same sync id
-   * and sequence number, `full` when the history can make no room. Neither is a failure.
+   * and sequence number (for a Before agent version, when the newest is one too), `full` when the
+   * history can make no room. Neither is a failure.
    */
   version(version: NewVersion): Promise<'added' | 'unchanged' | 'full'>
   /** A version of the design as stored; null for none of this design. */

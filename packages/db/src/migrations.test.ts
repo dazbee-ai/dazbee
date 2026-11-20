@@ -160,6 +160,35 @@ describe('the migrations', () => {
     expect(await withClient(url, readRows)).toEqual(expectedRows())
   }, 60_000)
 
+  it('keep a Before agent version, named by its agent, of the design', async () => {
+    const url = await freshDatabase()
+    await applyMigrations(url, MIGRATIONS)
+    const version = {
+      id: 'version-kept',
+      design_id: 'design-kept',
+      kind: 'beforeAgent',
+      name: 'Claude (agent)',
+      sync_id: 'sync-kept',
+      seq: '2',
+      schema_version: 1,
+      state: Buffer.from('{"meta":{"name":"Spring sale"}}'),
+    }
+    const read = await withClient(url, async (client) => {
+      await writeRows(client)
+      const columns = Object.keys(version)
+      await client.query(
+        `insert into design_versions (${columns.map((c) => `"${c}"`).join(', ')}) values (${columns.map((_, i) => `$${i + 1}`).join(', ')})`,
+        Object.values(version),
+      )
+      const result = await client.query(
+        `select ${columns.map((c) => `"${c}"`).join(', ')} from design_versions where id = $1`,
+        [version.id],
+      )
+      return result.rows
+    })
+    expect(read).toEqual([version])
+  }, 60_000)
+
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {
     if (index === 0) continue

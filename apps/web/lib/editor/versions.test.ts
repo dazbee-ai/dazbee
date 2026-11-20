@@ -48,6 +48,14 @@ describe('versionTitle', () => {
     expect(versionTitle(version({ kind: 'beforeRestore', name: '' }), words)).toBe('Before restore')
     expect(versionTitle(version({ kind: 'auto', name: '' }), ar.editor.versions)).toBe('حفظ تلقائي')
   })
+
+  it('is Before and the agent’s name for a Before agent version, or Before agent when it has none', () => {
+    expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe('Before Claude (agent)')
+    expect(versionTitle(version({ kind: 'beforeAgent', name: '' }), words)).toBe('Before agent')
+    expect(versionTitle(version({ kind: 'beforeAgent', name: 'Claude (agent)' }), ar.editor.versions)).toBe(
+      'قبل Claude (agent)',
+    )
+  })
 })
 
 describe('versionTime', () => {
@@ -149,6 +157,9 @@ describe('copyName', () => {
     expect(copyName('Spring sale', version(), words)).toBe('Spring sale (Sent to client)')
     expect(copyName('Spring sale', version({ kind: 'beforeRestore', name: '' }), words)).toBe(
       'Spring sale (Before restore)',
+    )
+    expect(copyName('Spring sale', version({ kind: 'beforeAgent', name: 'Claude (agent)' }), words)).toBe(
+      'Spring sale (Before Claude (agent))',
     )
     expect(copyName('Spring sale', version({ kind: 'auto', name: '' }), ar.editor.versions)).toBe(
       'Spring sale (حفظ تلقائي)',

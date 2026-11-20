@@ -3,10 +3,10 @@
 // design's row locked, so two writers never race past them: at most `VERSION_LIMITS.versions` per
 // design and `VERSION_LIMITS.automatic` automatic ones; the oldest automatic one (never `keep`) makes
 // room; a named one is never dropped; an automatic one is not added when the newest version holds
-// the same sync id and sequence number. The lock is a no-key update, which a fold's share of the
-// design's key passes; an append, which marks the design updated, waits for the version's insert,
-// whose bytes are made before the lock is taken. A name or a description past `VERSION_LIMITS` is
-// refused.
+// the same sync id and sequence number, but a Before agent one only when the newest is one too. The
+// lock is a no-key update, which a fold's share of the design's key passes; an append, which marks
+// the design updated, waits for the version's insert, whose bytes are made before the lock is taken.
+// A name or a description past `VERSION_LIMITS` is refused.
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 
 import { type NewVersion, VERSION_LIMITS, type VersionKind } from '@dazbee/schema'
@@ -57,7 +57,7 @@ export async function addVersion(db: Db, designId: string, version: NewVersion):
       .orderBy(asc(designVersions.takenAt), asc(designVersions.id))
     const automatic = version.kind !== 'named'
     const newest = held.at(-1)
-    if (automatic && newest?.syncId === version.syncId && newest.seq === version.seq) return 'unchanged'
+    if (automatic && newest && sameMoment(newest, version)) return 'unchanged'
     const automatics = held.filter((v) => v.kind !== 'named').length
     let count = held.length
     if ((automatic && automatics >= VERSION_LIMITS.automatic) || count >= VERSION_LIMITS.versions) {
@@ -178,6 +178,15 @@ export async function setVersionThumbnail(db: Db, designId: string, id: string, 
     .where(of(designId, id))
     .returning({ id: designVersions.id })
   return set.length > 0
+}
+
+/**
+ * Whether an automatic version adds nothing to the newest: it holds the same sync id and sequence
+ * number, and for a Before agent version it is one too, so one is kept beside an Autosave of that moment.
+ */
+function sameMoment(newest: { kind: VersionKind; syncId: string; seq: number }, version: NewVersion) {
+  if (version.kind === 'beforeAgent' && newest.kind !== 'beforeAgent') return false
+  return newest.syncId === version.syncId && newest.seq === version.seq
 }
 
 /** Throws for a name or a description past the history's limits. */

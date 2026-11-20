@@ -124,6 +124,22 @@ describe('addVersion', () => {
     expect(await newestVersionMark(db, await newDesign())).toBeNull()
   })
 
+  it('adds a Before agent version at the moment of the newest version of another kind, but not of its own', async () => {
+    const id = await newDesign()
+    await addAll(id, [version(4)])
+    const beforeAgent = version(4, { kind: 'beforeAgent', name: 'Claude (agent)' })
+    expect(await addVersion(db, id, beforeAgent)).toMatchObject({ id: expect.any(String) })
+    expect(await addVersion(db, id, beforeAgent)).toBe('unchanged')
+    expect((await listVersions(db, id)).map((v) => [v.kind, v.name])).toEqual([
+      ['beforeAgent', 'Claude (agent)'],
+      ['auto', ''],
+    ])
+
+    const autosaved = await newDesign()
+    await addAll(autosaved, [version(4)])
+    expect(await addVersion(db, autosaved, version(4))).toBe('unchanged')
+  })
+
   it('never drops the version it is told to keep: the next oldest automatic one goes', async () => {
     const id = await newDesign()
     const [first] = await addAll(

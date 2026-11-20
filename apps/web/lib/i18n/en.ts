@@ -833,6 +833,10 @@ export const en = {
       defaultName: 'Version {n}',
       autosave: 'Autosave',
       beforeRestore: 'Before restore',
+      /** The design as it was just before an agent's first change, named by the agent. */
+      beforeAgent: 'Before {agent}',
+      /** A Before agent version whose agent gave no name. */
+      beforeAgentUnnamed: 'Before agent',
       /** Who kept an automatic version, in place of a person. */
       automatic: 'Automatic',
       /** Who named a version, for a person gone or with no name. */

@@ -9,7 +9,7 @@ import type { DesignRecords } from './sync.ts'
 export const VERSION_LIMITS = {
   /** The versions a design keeps, of every kind. */
   versions: 100,
-  /** The automatic versions it keeps (`auto` and `beforeRestore`); named ones are never dropped. */
+  /** The automatic versions it keeps (`auto`, `beforeRestore` and `beforeAgent`); named ones are never dropped. */
   automatic: 20,
   /** A version's name and its description, in characters. */
   nameChars: 200,
@@ -18,14 +18,17 @@ export const VERSION_LIMITS = {
   autosaveMs: 30 * 60 * 1000,
 } as const
 
-/** What a version is: named by an Editor, an Autosave, or the design as it was just before a restore. */
-export const VersionKind = z.enum(['named', 'auto', 'beforeRestore'])
+/**
+ * What a version is: named by an Editor, an Autosave, the design as it was just before a restore, or
+ * the design as it was just before an agent's first change to it, named by the agent.
+ */
+export const VersionKind = z.enum(['named', 'auto', 'beforeRestore', 'beforeAgent'])
 export type VersionKind = z.infer<typeof VersionKind>
 
 /** What adding a version stores. */
 export interface NewVersion {
   kind: VersionKind
-  /** Empty for an automatic version. */
+  /** Empty for an automatic version, but for a Before agent one, which holds the agent's name. */
   name: string
   description: string
   /** The user who named it; null for an automatic version. */
@@ -44,7 +47,7 @@ export interface NewVersion {
 export const VersionSummary = z.object({
   id: z.string(),
   kind: VersionKind,
-  /** Empty for an automatic version. */
+  /** Empty for an automatic version, but for a Before agent one, which holds the agent's name. */
   name: z.string(),
   description: z.string(),
   /** The name of who named it; null for an automatic version or a person gone. */
@@ -74,8 +77,11 @@ export type CopyVersion = z.infer<typeof CopyVersion>
 /** The version a restore puts back, as the restore's change set carries it and the other tabs are told. */
 export const RestoreMark = z.strictObject({
   versionId: Id.describe('The version’s id.'),
-  kind: VersionKind.describe('named, auto for an Autosave, or beforeRestore.'),
-  name: z.string().max(VERSION_LIMITS.nameChars).describe('Its name; empty for an automatic version.'),
+  kind: VersionKind.describe('named, auto for an Autosave, beforeRestore, or beforeAgent.'),
+  name: z
+    .string()
+    .max(VERSION_LIMITS.nameChars)
+    .describe('Its name; empty for an automatic version, but the agent’s name for a beforeAgent one.'),
   takenAt: z.iso.datetime().describe('When it was taken, as an ISO time.'),
 })
 export type RestoreMark = z.infer<typeof RestoreMark>

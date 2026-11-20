@@ -13,11 +13,12 @@
 // (D7): a preview is never held behind a write, and one for a tab not yet welcomed is dropped; a
 // pong for one waits for its welcome behind the writes, and each sender's latest presence for one
 // goes right after its welcome, so none overtakes a later one.
-// A version the core takes is stored ahead of what was committed after it, so a Before restore
-// version is stored before its restore, and an Autosave is taken when asked and as the design
-// unloads changed; each copies the whole design, so a restore and an Autosave wait for a turn. A
-// tab's ask for a version is read from the journal and answered to that tab alone, its records
-// as stored (`versionText` writes them onto the wire).
+// A version the core takes is stored ahead of what was committed after it, so a Before restore or
+// Before agent version is stored before the change set it was taken for, and an Autosave is taken
+// when asked and as the design unloads changed; each copies the whole design, so a restore, an
+// Autosave and an agent's edit that takes a Before agent version wait for a turn. A tab's ask for a
+// version is read from the journal and answered to that tab alone, its records as stored
+// (`versionText` writes them onto the wire).
 import { type Access, type Entry, isRecord, type ServerMessage, SYNC_CLOSE, SYNC_LIMITS } from '@dazbee/schema'
 
 import { DesignGone, type Journal, runWrite, type StoredVersion, WriteQueue } from './journal.ts'
@@ -140,7 +141,7 @@ export function openHost(journal: Journal, options: HostOptions): DesignHost {
     working = true
     try {
       for (let event = events[0]; event && server; event = events[0]) {
-        if (options.turn && !granted && wholeDesign(event)) {
+        if (options.turn && !granted && wholeDesign(event, server, tabs)) {
           awaitTurn(options.turn)
           break
         }
@@ -412,11 +413,13 @@ export function openHost(journal: Journal, options: HostOptions): DesignHost {
   }
 }
 
-/** Whether an event copies or reads the whole design: a connect, a fold, an Autosave, a restore. */
-function wholeDesign(event: Event): boolean {
+/** Whether an event copies or reads the whole design: a connect, a fold, an Autosave, a restore, an agent's edit that takes a Before agent version. */
+function wholeDesign(event: Event, server: Server, tabs: ReadonlyMap<Connection, number>): boolean {
   if (event.type === 'connect' || event.type === 'fold' || event.type === 'autosave') return true
-  if (event.type !== 'message' || !isRecord(event.message)) return false
-  return event.message.type === 'changes' && 'restore' in event.message
+  if (event.type !== 'message' || !isRecord(event.message) || event.message.type !== 'changes') return false
+  if ('restore' in event.message) return true
+  const tabId = tabs.get(event.conn)
+  return event.message.kind === 'edit' && tabId !== undefined && server.takesBeforeAgent(tabId)
 }
 
 /** What entries count toward a fold: the accepted ones, and the bytes of each (an accepted change set's message size, any other's JSON). */

@@ -3,7 +3,8 @@
 // hour and a refresh token for 30 days, kept only as SHA-256 hashes. A refresh token is swapped once for a new
 // pair; used again within 30 seconds (two of the client's processes refreshing at once) it is refused and the
 // access goes on, used again later it ends the access. An access token finds its access only while the token is
-// unexpired, the access not ended and its person still a member of its workspace.
+// unexpired, the access not ended and its person still a member of its workspace. A refresh deletes the access's
+// expired tokens, so an access keeps at most its unexpired ones.
 import { createHash, randomBytes } from 'node:crypto'
 
 import { and, desc, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
@@ -148,6 +149,9 @@ export async function refreshTokens(db: Db, token: string, now = new Date()): Pr
       .update(agentTokens)
       .set({ swappedAt: now })
       .where(eq(agentTokens.hash, hashOf(token)))
+    // The access's expired tokens go: none finds the access, and a refresh token swapped and then used
+    // again past its 30 days is refused instead of ending the access. A swapped unexpired one stays.
+    await tx.delete(agentTokens).where(and(eq(agentTokens.accessId, row.accessId), lte(agentTokens.expiresAt, now)))
     return { ok: true, tokens: await issueTokens(tx, row.accessId, now) }
   })
 }

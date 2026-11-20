@@ -1,7 +1,7 @@
 // What the stage field is given to hold for the text being edited, and what the browser changed in
 // it read as one edit, by comparing what the field holds with what it was given: an edit of the
 // text, or while an input method composes, a composition.
-import { splitsPair, type TextAnchor } from '@dazbee/doc'
+import { type DesignStore, splitsPair, type TextAnchor } from '@dazbee/doc'
 
 import { paragraphsOf } from '../pasted-text.ts'
 import type { Composition } from './composition.ts'
@@ -54,15 +54,31 @@ export function fieldText(text: string, range: TextRange): FieldState {
 }
 
 /**
+ * The field taken to hold `given`, its selection's two ends anchored at `range` in text `id`; the end
+ * stays before what another tab types right after it.
+ */
+export function heldField(
+  store: Pick<DesignStore, 'textAnchor'>,
+  id: string,
+  given: FieldState,
+  range: TextRange,
+): HeldField {
+  return { given, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
+}
+
+/**
  * What the field holding `state` changed of what it was given: what no longer stands between the
  * longest common start and end of the two values, the start taken no further than the given
  * selection's start and the end no further back than its end, so the change sits where the caret
- * was. Null when the field holds what it was given, its selection too.
+ * was; an empty change at the selection's start when only the selection moved. Null when the field
+ * holds what it was given, its selection too.
  */
 export function fieldChange(given: FieldState, state: FieldState): FieldChange | null {
   const was = given.value
   const now = state.value
   if (was === now && given.start === state.start && given.end === state.end) return null
+  // Only the selection moved: nothing is replaced.
+  if (was === now) return { start: given.start, end: given.start, text: '', caret: state.end }
   // The common start stops at the given selection's start, and the common end at its end.
   const before = Math.min(was.length, now.length, given.start)
   let start = 0

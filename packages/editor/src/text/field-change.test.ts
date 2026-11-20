@@ -54,8 +54,9 @@ describe('fieldChange', () => {
     })
   })
 
-  it('reads a caret moved with the text as it was as an empty change', () => {
+  it('reads a caret or a selection moved with the text as it was as an empty change at its start', () => {
     expect(fieldChange(field('ab', 2), field('ab', 1))).toEqual({ start: 2, end: 2, text: '', caret: 1 })
+    expect(fieldChange(field('there', 0, 5), field('there', 0, 2))).toEqual({ start: 0, end: 0, text: '', caret: 2 })
   })
 })
 

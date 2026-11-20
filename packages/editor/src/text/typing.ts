@@ -29,7 +29,8 @@ import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
 import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
-import { compositionOf, fieldEdit, type FieldState, fieldText as fieldTextOf, type HeldField } from './field-change.ts'
+import type { FieldState, HeldField } from './field-change.ts'
+import { compositionOf, fieldEdit, fieldText as fieldTextOf, heldField } from './field-change.ts'
 import type { RunStyle, TextRange } from './text-edit.ts'
 import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
@@ -415,6 +416,7 @@ export function editorTyping({
     editing.caret = store.textAnchor(editing.id, offset)
     editing.drawnAfter = drawnAfter
     if (!extend) editing.anchor = editing.caret
+    fieldFollows()
     textSelectionChanged()
   }
   /** Selects a range, the caret at its end. */
@@ -423,6 +425,7 @@ export function editorTyping({
     editing.anchor = store.textAnchor(editing.id, range.start)
     editing.caret = store.textAnchor(editing.id, range.end)
     editing.drawnAfter = false
+    fieldFollows()
     textSelectionChanged()
   }
   /**
@@ -615,17 +618,14 @@ export function editorTyping({
     if (!editing || !at) return null
     if (editing.composing && editing.field) return editing.field.given
     const given = fieldTextOf(at.text, at.range)
-    hold(given, at.range)
+    editing.field = heldField(store, editing.id, given, at.range)
     return given
   }
-  /** Takes the field to hold `given`, its selection's two ends at `range` in the text. */
-  function hold(given: FieldState, range: TextRange) {
-    if (!editing) return
-    editing.field = {
-      given,
-      start: store.textAnchor(editing.id, range.start),
-      end: store.textAnchor(editing.id, range.end),
-    }
+  /** The field's selection stands at the text's selection once it moves, outside a composition. */
+  function fieldFollows() {
+    const range = textRange()
+    if (editing?.field && !editing.composing && range)
+      editing.field = heldField(store, editing.id, editing.field.given, range)
   }
   /**
    * The stage field holds `state` now. While `composing`, the change is the composition, drawn
@@ -647,7 +647,11 @@ export function editorTyping({
         return true
       }
       const { range, ...made } = compositionOf(edit, composing)
-      editing.composing = { ...made, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end) }
+      editing.composing = {
+        ...made,
+        start: store.textAnchor(id, range.start),
+        end: store.textAnchor(id, range.end, true),
+      }
       compositionChanged()
       return true
     }
@@ -658,7 +662,7 @@ export function editorTyping({
     const ops = replaceRangeOps(node.props.text, edit.range.start, edit.range.end, edit.typed)
     if (ops.length > 0 && write(() => editText(id, ops))) fitText(id)
     selectText(edit.selection)
-    hold(state, edit.selection)
+    editing.field = heldField(store, id, state, edit.selection)
     shownChanged()
     return true
   }

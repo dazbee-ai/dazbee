@@ -117,6 +117,19 @@ describe("a plain store's carets", () => {
     expect(anchors.map((anchor) => store.anchorOffset(anchor))).toEqual([1, 4, 7])
   })
 
+  it('stay before text inserted at their place when anchored to stay, by this tab or another', () => {
+    const { store } = anchored('hello there')
+    const staying = store.textAnchor('headline', 5, true)
+    const following = store.textAnchor('headline', 5)
+    store.transact(() => store.editText('headline', { kind: 'insert', at: 5, text: '!' }))
+    expect([store.anchorOffset(staying), store.anchorOffset(following)]).toEqual([5, 6])
+    const other = store.server.join()
+    other.transact(() => other.setProp('headline', 'text', { text: 'hello? there', runs: [] }))
+    expect([store.anchorOffset(staying), store.anchorOffset(following)]).toEqual([5, 6])
+    other.transact(() => other.setProp('headline', 'text', { text: 'oh hello? there', runs: [] }))
+    expect([store.anchorOffset(staying), store.anchorOffset(following)]).toEqual([8, 9])
+  })
+
   it('follow an edit past the end of the text as the text takes it, at its end', () => {
     const { store, anchors } = anchored('hello', 5)
     store.transact(() => store.editText('headline', { kind: 'insert', at: 9, text: '!' }))

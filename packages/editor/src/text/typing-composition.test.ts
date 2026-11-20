@@ -159,6 +159,18 @@ describe('a composition', () => {
     expect(e.modules.typing.shown()?.composition).toBeUndefined()
   })
 
+  it('types what the field takes in at the caret a key or an arrow moved it to since', async () => {
+    const e = await testEditor(WORDS)
+    editors.push(e)
+    const given = fieldOf(e, true)
+    e.keys.press('Home')
+    e.core.input.fieldChanged(composedIn(given, 'x'), null)
+    expect(textOf(e)).toBe('xHello there')
+    e.keys.press('End')
+    e.core.input.fieldChanged(composedIn(given, 'xy'), null)
+    expect(textOf(e)).toBe('xHello therey')
+  })
+
   describe('in the typing step', () => {
     afterEach(() => {
       vi.useRealTimers()
@@ -219,6 +231,15 @@ describe('a composition', () => {
       expect(runs()).toEqual([{ start: 6, end: 11, style: { fontWeight: 700 } }])
     })
 
+    it('moves the range and writes nothing when only the field’s selection moves', async () => {
+      const { e, runs, given } = await overBoldWord()
+      const changes = e.core.session.changes()
+      e.core.input.fieldChanged({ ...given, end: 2 }, null)
+      expect(e.core.session.changes()).toBe(changes)
+      expect(runs()).toEqual([{ start: 6, end: 11, style: { fontWeight: 700 } }])
+      expect(e.modules.typing.selectedText()?.range).toEqual({ start: 6, end: 8 })
+    })
+
     it('gives back the text and the range as they were when the input method cancels', async () => {
       const { e, given } = await overBoldWord()
       const design = e.core.session.design()
@@ -252,6 +273,27 @@ describe('a composition', () => {
       await settle()
       expect(textOf(a)).toBe('Hot Hello there你好')
       expect(textOf(b)).toBe('Hot Hello there你好')
+    })
+
+    it('keeps what the other tab types right after the range a composition replaces', async () => {
+      mem = memorySync(WORDS)
+      const a = await editorOn()
+      const b = await editorOn('bob')
+      typingAtEnd(a)
+      a.modules.typing.selectText({ start: 0, end: 5 })
+      const given = fieldOf(a)
+      a.core.input.fieldChanged(composedIn(given, 'ni'), 'ni')
+      b.core.select(['words'])
+      b.press('goIn')
+      b.modules.typing.caretTo(5)
+      b.keys.press('!')
+      b.keys.press('Escape')
+      await settle()
+      compose(a, given, [], '你')
+      a.keys.press('Escape')
+      await settle()
+      expect(textOf(a)).toBe('你! there')
+      expect(textOf(b)).toBe('你! there')
     })
 
     it('ends typing with nothing landed when the other tab deletes the text', async () => {

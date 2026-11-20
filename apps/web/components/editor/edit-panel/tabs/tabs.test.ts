@@ -119,6 +119,7 @@ const KEY_MAP: Record<Control, string> = {
   list: 'text › paragraph',
   case: 'text › paragraph',
   spacing: 'text › spacing',
+  features: 'text › features',
   mask: 'style › mask',
   colour: 'style › colour',
   corners: 'style › corners',
@@ -180,7 +181,7 @@ describe('ONLY_ACTS', () => {
     expect(ONLY_ACTS.has('position')).toBe(false)
     expect(ONLY_ACTS.has('fit')).toBe(false)
     expect(ONLY_ACTS.has('edit')).toBe(false)
-    for (const control of ['font', 'size', 'text-style', 'align', 'list', 'case', 'spacing'] as const)
+    for (const control of ['font', 'size', 'text-style', 'align', 'list', 'case', 'spacing', 'features'] as const)
       expect(ONLY_ACTS.has(control)).toBe(false)
   })
 })
@@ -215,13 +216,14 @@ describe('panelOf', () => {
     expect(arrangeOf(panelOf(locked({ viewOnly: true, several: true })))).toEqual(viewed)
   })
 
-  it('gives one or several texts the Text switcher tab first, with its Font, Paragraph and Spacing sections', () => {
+  it('gives one or several texts the Text switcher tab first, with its Font, Paragraph, Spacing and Font features sections', () => {
     const textTab = {
       id: 'text',
       sections: [
         { id: 'font', controls: ['font', 'size', 'text-style'] },
         { id: 'paragraph', controls: ['align', 'list', 'case'] },
         { id: 'spacing', controls: ['spacing'] },
+        { id: 'features', controls: ['features'] },
       ],
     }
     expect(panelOf(text()).switcherTabs[0]).toEqual(textTab)
@@ -311,6 +313,7 @@ describe('panelOf', () => {
     expect(homesOf(panelOf(locked({ viewOnly: true }))).get('locked')).toEqual(['header'])
     expect(homesOf(panelOf(text())).get('position')).toEqual(['arrange › position'])
     expect(homesOf(panelOf(text())).get('spacing')).toEqual(['text › spacing'])
+    expect(homesOf(panelOf(text())).get('features')).toEqual(['text › features'])
     expect(homesOf(panelOf(headlineAndBadge())).get('font')).toEqual(['text › font'])
     const several = homesOf(panelOf(text({ several: true })))
     expect(several.get('line-up')).toEqual(['arrange › line-up'])

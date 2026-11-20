@@ -94,6 +94,7 @@ export function NumberField({
   why = null,
   menu,
   describedBy,
+  onTyped,
 }: {
   /** What the field shows at its start: its name, or a mark such as ↔. */
   label: ReactNode
@@ -130,6 +131,11 @@ export function NumberField({
   menu?: ReactNode
   /** The id of a hint beside the field that a screen reader reads with it. */
   describedBy?: string | undefined
+  /**
+   * Takes a value typed, as the text typed and its edit, before the field writes it, such as one
+   * typed in another unit; true when it took it, so the field writes nothing.
+   */
+  onTyped?: ((text: string, edit: FieldEdit) => boolean) | undefined
 }) {
   const t = useMessages()
   // What a value typed, stepped or dragged stops at: the field's own limits, or, without, where a
@@ -174,7 +180,9 @@ export function NumberField({
     }
     const asked = parseTyped(text)
     if (!asked || text.trim() === shown) return
-    write(fieldEdit(asked, limits), true)
+    const edit = fieldEdit(asked, limits)
+    if (onTyped?.(text, edit)) return
+    write(edit, true)
   }
   const text = draft ?? shown
   const hint = value === 'mixed' ? t.editor.props.mixed : placeholder

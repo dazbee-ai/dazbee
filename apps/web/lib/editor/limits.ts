@@ -7,6 +7,7 @@ export const LIMITS = {
   any: 100_000,
   fontSize: 2_000,
   lineHeight: 10,
+  /** Either way, in pixels or in percent of the font size. */
   letterSpacing: 1_000,
   paragraphSpacing: 1_000,
   effectOffset: 10_000,

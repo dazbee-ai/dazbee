@@ -4,8 +4,9 @@
 // panel's place, then the size and the four text styles; mixed layers show only the font of the
 // texts among them, with no heading as the tab's one part. Paragraph: alignment, direction,
 // vertical place, list and case. Spacing: the room between lines, letters and paragraphs, the box,
-// shrink to fit and the most lines. While a text is being edited, the size, styles and case set the
-// selected run's, as its keys do. A locked text's controls are all turned off, saying why.
+// shrink to fit and the most lines. Font features: the OpenType features its fonts have. While a
+// text is being edited, the size, styles, case, letter spacing and features set the selected run's,
+// as its keys do. A locked text's controls are all turned off, saying why.
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
 import type { Control } from '@/components/editor/edit-panel/tabs/tabs.ts'
 import { factsOf, type PanelProps, shared, type Style, type Target } from '@/components/editor/edit-panel/target.ts'
@@ -17,6 +18,7 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
+import { FeatureRows } from './features.tsx'
 import { ParagraphRows } from './paragraph.tsx'
 import { SizeStepper } from './size-stepper.tsx'
 import { SpacingParts } from './spacing.tsx'
@@ -87,6 +89,19 @@ export function SpacingSection(props: SectionProps) {
     <ViewOnlyFieldset off={anyLocked(props)} className="[&>:first-child]:border-t [&>:first-child]:pt-3">
       <SpacingParts target={props.target} />
     </ViewOnlyFieldset>
+  )
+}
+
+/** The Font features section: a switch for each OpenType feature the texts' fonts have. */
+export function FeaturesSection(props: SectionProps) {
+  const t = useMessages()
+  const why = anyLocked(props) ? t.editor.bar.lockedRow : null
+  return (
+    <PanelPart id="features-section" title={t.editor.editPanel.sections.features} {...(why && { note: why })}>
+      <ViewOnlyFieldset off={why !== null}>
+        <FeatureRows target={props.target} />
+      </ViewOnlyFieldset>
+    </PanelPart>
   )
 }
 

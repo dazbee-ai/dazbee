@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { TOOLS } from './endpoint.ts'
-import { MAX_SESSIONS, MAX_SESSIONS_PER_ACCESS, SESSION_IDLE_MS } from './limits.ts'
+import { MAX_MCP_SESSIONS, MAX_MCP_SESSIONS_PER_ACCESS, MCP_SESSION_IDLE_MS } from './limits.ts'
 import { BASE_URL, type TestServer, testServer } from './test-client.ts'
 
 const POINTER = `Bearer resource_metadata="${BASE_URL}/.well-known/oauth-protected-resource/mcp"`
@@ -60,7 +60,7 @@ describe('mcpEndpoint', () => {
 
   it('answers 401 with the pointer to a token the API refuses', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     server.api.refuse(token)
     const response = await server.fetch(post(INITIALIZE, token))
     expect(response.status).toBe(401)
@@ -70,7 +70,7 @@ describe('mcpEndpoint', () => {
 
   it('gives the instructions and fixed capabilities on initialize', async () => {
     server = testServer()
-    const { client } = await server.connect(server.api.grant().token())
+    const { client } = await server.connect(server.api.addAccess().token())
     expect(client.getServerCapabilities()).toEqual({ tools: { listChanged: false } })
     expect(client.getServerVersion()).toMatchObject({ name: 'dazbee', version: 'test' })
     const instructions = client.getInstructions() ?? ''
@@ -80,7 +80,7 @@ describe('mcpEndpoint', () => {
 
   it('lists exactly this server’s tools, each with an object schema, a description and annotations', async () => {
     server = testServer()
-    const { client } = await server.connect(server.api.grant().token())
+    const { client } = await server.connect(server.api.addAccess().token())
     const { tools } = await client.listTools()
     expect(tools.map(({ name }) => name)).toEqual([
       'list_brands',
@@ -110,7 +110,7 @@ describe('mcpEndpoint', () => {
 
   it('answers 405 to a GET: it opens no stream', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const response = await server.fetch(
       new Request(`${BASE_URL}/mcp`, { headers: { authorization: `Bearer ${token}`, accept: 'text/event-stream' } }),
     )
@@ -119,7 +119,7 @@ describe('mcpEndpoint', () => {
 
   it('answers each call with one JSON response', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const response = await server.fetch(post(INITIALIZE, token))
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('application/json')
@@ -128,18 +128,18 @@ describe('mcpEndpoint', () => {
 
   it('answers 404 once a session has been idle past its time', async () => {
     server = testServer()
-    const agent = await server.connect(server.api.grant().token())
-    server.wait(SESSION_IDLE_MS - 1000)
+    const agent = await server.connect(server.api.addAccess().token())
+    server.wait(MCP_SESSION_IDLE_MS - 1000)
     await agent.call('list_brands')
-    server.wait(SESSION_IDLE_MS - 1000)
+    server.wait(MCP_SESSION_IDLE_MS - 1000)
     await agent.call('list_brands')
-    server.wait(SESSION_IDLE_MS + 1)
+    server.wait(MCP_SESSION_IDLE_MS + 1)
     await expect(agent.call('list_brands')).rejects.toMatchObject({ code: 404 })
   })
 
   it('ends an access’s oldest session when it starts a fifth', async () => {
     server = testServer()
-    const access = server.api.grant()
+    const access = server.api.addAccess()
     const first = await server.connect(access.token())
     const others = []
     for (let i = 0; i < 4; i++) {
@@ -152,22 +152,22 @@ describe('mcpEndpoint', () => {
 
   it('leaves another access’s sessions alone when an access starts a fifth', async () => {
     server = testServer()
-    const other = await server.connect(server.api.grant().token())
-    const access = server.api.grant()
+    const other = await server.connect(server.api.addAccess().token())
+    const access = server.api.addAccess()
     for (let i = 0; i < 5; i++) await server.connect(access.token())
     expect((await other.call('list_brands')).isError).toBeFalsy()
   })
 
   it('answers 404 to another access’s token on a session', async () => {
     server = testServer()
-    const agent = await server.connect(server.api.grant().token())
-    agent.token = server.api.grant().token()
+    const agent = await server.connect(server.api.addAccess().token())
+    agent.token = server.api.addAccess().token()
     await expect(agent.call('list_brands')).rejects.toMatchObject({ code: 404 })
   })
 
   it('goes on in the same session with a refreshed token of the same access', async () => {
     server = testServer()
-    const access = server.api.grant()
+    const access = server.api.addAccess()
     const agent = await server.connect(access.token())
     const sessionId = (agent.client.transport as { sessionId?: string }).sessionId
     server.api.refuse(agent.token)
@@ -178,7 +178,7 @@ describe('mcpEndpoint', () => {
 
   it('answers 401 with the pointer when the API refuses the token on a tool’s call, and keeps the session', async () => {
     server = testServer()
-    const access = server.api.grant()
+    const access = server.api.addAccess()
     const token = access.token()
     const init = await server.fetch(post(INITIALIZE, token))
     const sessionId = init.headers.get('mcp-session-id') ?? ''
@@ -193,14 +193,14 @@ describe('mcpEndpoint', () => {
 
   it('answers 404 to a session id it never gave', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const call = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }
     expect((await server.fetch(post(call, token, 'no-such-session'))).status).toBe(404)
   })
 
   it('ends a session the client deletes', async () => {
     server = testServer()
-    const agent = await server.connect(server.api.grant().token())
+    const agent = await server.connect(server.api.addAccess().token())
     const transport = agent.client.transport as unknown as { sessionId: string; terminateSession(): Promise<void> }
     const { sessionId } = transport
     await transport.terminateSession()
@@ -220,7 +220,7 @@ describe('mcpEndpoint', () => {
 
   it('answers 503 with a JSON-RPC error when the API can’t be reached', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     server.api.goDown()
     const response = await server.fetch(post(INITIALIZE, token))
     expect(response.status).toBe(503)
@@ -229,7 +229,7 @@ describe('mcpEndpoint', () => {
 
   it('refuses a JSON-RPC batch (400) without running any of it', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const sessionId = await initialize(token)
     const before = server.api.requests()
     const batch = [listDesigns(2), listDesigns(3), listDesigns(4)]
@@ -240,19 +240,19 @@ describe('mcpEndpoint', () => {
 
   it('answers 404 to a call still running when its session ends, rather than never', async () => {
     server = testServer()
-    const access = server.api.grant()
+    const access = server.api.addAccess()
     const token = access.token()
     const sessionId = await initialize(token)
     const release = server.api.hold()
     const running = server.fetch(post(listDesigns(2), token, sessionId))
-    for (let i = 0; i < MAX_SESSIONS_PER_ACCESS; i++) await initialize(access.token())
+    for (let i = 0; i < MAX_MCP_SESSIONS_PER_ACCESS; i++) await initialize(access.token())
     expect((await running).status).toBe(404)
     release()
   })
 
   it('refuses a request whose id the session is still answering (409)', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const sessionId = await initialize(token)
     const release = server.api.hold()
     const first = server.fetch(post(listDesigns(7), token, sessionId))
@@ -265,7 +265,7 @@ describe('mcpEndpoint', () => {
 
   it('answers 503 to a request that takes past its time', async () => {
     server = testServer({ callTimeoutMs: 50 })
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const sessionId = await initialize(token)
     const release = server.api.hold()
     const response = await server.fetch(post(listDesigns(2), token, sessionId))
@@ -273,13 +273,15 @@ describe('mcpEndpoint', () => {
     release()
   })
 
-  it('refuses a new session as busy once the server holds its most', async () => {
+  it('refuses a new session as busy once the server holds its most, unless the access ends its own oldest', async () => {
     server = testServer()
-    for (let i = 0; i < MAX_SESSIONS / MAX_SESSIONS_PER_ACCESS; i++) {
-      const access = server.api.grant()
-      for (let j = 0; j < MAX_SESSIONS_PER_ACCESS; j++) await initialize(access.token())
-    }
-    const response = await server.fetch(post(INITIALIZE, server.api.grant().token()))
+    const accesses = Array.from({ length: MAX_MCP_SESSIONS / MAX_MCP_SESSIONS_PER_ACCESS }, () =>
+      server.api.addAccess(),
+    )
+    for (const access of accesses)
+      for (let j = 0; j < MAX_MCP_SESSIONS_PER_ACCESS; j++) await initialize(access.token())
+    const response = await server.fetch(post(INITIALIZE, server.api.addAccess().token()))
     expect(response.status).toBe(503)
+    expect((await server.fetch(post(INITIALIZE, accesses[0]?.token()))).status).toBe(200)
   })
 })

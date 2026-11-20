@@ -454,8 +454,6 @@ export type AgentAccessSummary = z.infer<typeof AgentAccessSummary>
 
 /** What every agent access token starts with. */
 export const ACCESS_TOKEN_PREFIX = 'dazbee_at_'
-/** What every agent refresh token starts with. */
-export const REFRESH_TOKEN_PREFIX = 'dazbee_rt_'
 
 /** Who an agent's token is: its access's id, workspace, brands (null for all the member sees), whether it edits, and the client's name. */
 export const AgentMe = z.object({

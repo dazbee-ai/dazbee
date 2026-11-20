@@ -9,9 +9,9 @@ afterEach(async () => {
 })
 
 /** A client of an access with `options`, connected to a new server. */
-async function agentOf(options?: Parameters<TestServer['api']['grant']>[0]) {
+async function agentOf(options?: Parameters<TestServer['api']['addAccess']>[0]) {
   server = testServer()
-  return server.connect(server.api.grant(options).token())
+  return server.connect(server.api.addAccess(options).token())
 }
 
 describe('list_brands', () => {

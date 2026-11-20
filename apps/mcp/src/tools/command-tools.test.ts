@@ -12,7 +12,7 @@ afterEach(async () => {
 
 async function connect(): Promise<TestClient> {
   server = testServer()
-  return server.connect(server.api.grant().token())
+  return server.connect(server.api.addAccess().token())
 }
 
 /** The catalog entry of the command named `name`. */

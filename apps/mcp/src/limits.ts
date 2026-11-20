@@ -10,13 +10,18 @@ export const MAX_ANSWER_BYTES = 8 * 1024 * 1024
 export const ANSWER_ENVELOPE_BYTES = 2 * 1024
 
 /** How long a session lasts without a call. */
-export const SESSION_IDLE_MS = 30 * 60 * 1000
+export const MCP_SESSION_IDLE_MS = 30 * 60 * 1000
 
 /** The most sessions an agent access holds at once; a new one ends the oldest. */
-export const MAX_SESSIONS_PER_ACCESS = 4
+export const MAX_MCP_SESSIONS_PER_ACCESS = 4
 
 /** The most sessions held at once, of all accesses; past it, a new one is refused as busy. */
-export const MAX_SESSIONS = 200
+export const MAX_MCP_SESSIONS = 200
 
 /** How long a request may take before it is answered 503, so no client waits on a call that never ends. */
 export const CALL_TIMEOUT_MS = 60_000
+
+/** `bytes` in MiB, as the limits are told to an agent: "8 MiB", "8.5 MiB". */
+export function inMiB(bytes: number): string {
+  return `${Number((bytes / 1024 / 1024).toFixed(1))} MiB`
+}

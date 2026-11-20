@@ -42,7 +42,7 @@ function stream(bytes: number): ReadableStream<Uint8Array> {
 describe('MAX_BODY_BYTES', () => {
   it('refuses a body over 4 MiB with its length declared (413), without parsing it', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const response = await server.fetch(post(token, '{'.repeat(MAX_BODY_BYTES + 1), true))
     // A body read and parsed would answer 400, a parse error.
     expect(response.status).toBe(413)
@@ -50,14 +50,14 @@ describe('MAX_BODY_BYTES', () => {
 
   it('refuses a streamed body once it passes 4 MiB (413), without parsing it', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const response = await server.fetch(post(token, stream(MAX_BODY_BYTES + 1), false))
     expect(response.status).toBe(413)
   })
 
   it('takes a body of 4 MiB', async () => {
     server = testServer()
-    const token = server.api.grant().token()
+    const token = server.api.addAccess().token()
     const initialize = JSON.stringify({
       jsonrpc: '2.0',
       id: 1,

@@ -22,7 +22,7 @@ export interface TestAccess {
 /** The fake API: its `fetch`, and how the tests shape what it answers. */
 export interface TestApi {
   fetch(request: Request): Promise<Response>
-  grant(options?: TestAccessOptions): TestAccess
+  addAccess(options?: TestAccessOptions): TestAccess
   /** Refuses `token` everywhere from now on, as the API refuses an expired token. */
   refuse(token: string): void
   /** Takes `token` on `GET /agent/me` but refuses it on every other route, as when it expires between the two. */
@@ -166,7 +166,7 @@ export function testApi(): TestApi {
 
   return {
     fetch: async (request) => app.fetch(request),
-    grant,
+    addAccess,
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),
     designsOf: (brandId) => designs.filter((design) => design.brandId === brandId),
@@ -184,7 +184,7 @@ export function testApi(): TestApi {
     }
   }
 
-  function grant({ brandIds, writes = true }: TestAccessOptions = {}): TestAccess {
+  function addAccess({ brandIds, writes = true }: TestAccessOptions = {}): TestAccess {
     const agent: AgentMe = {
       id: `access-${tokens.size + 1}-${Math.random().toString(36).slice(2, 8)}`,
       workspaceId: TEST_WORKSPACE,

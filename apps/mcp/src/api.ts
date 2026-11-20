@@ -56,8 +56,8 @@ export async function agentOf(settings: ApiSettings, token: string): Promise<Age
  * on a call, before that call throws `TokenRefused`.
  */
 export function agentApi(settings: ApiSettings, token: string, workspaceId: string, onRefused: () => void): AgentApi {
-  const brandPath = (brandId: string) =>
-    `/workspaces/${encodeURIComponent(workspaceId)}/brands/${encodeURIComponent(brandId)}`
+  const brands = `/workspaces/${encodeURIComponent(workspaceId)}/brands`
+  const brandPath = (brandId: string) => `${brands}/${encodeURIComponent(brandId)}`
   const ask = async <T>(method: string, path: string, shape: z.ZodType<T>, body?: unknown): Promise<T> => {
     try {
       return await call(settings, token, method, path, shape, body)
@@ -68,7 +68,7 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
   }
 
   return {
-    brands: () => ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/brands`, BrandSummary.array()),
+    brands: () => ask('GET', brands, BrandSummary.array()),
     designs: (brandId) => ask('GET', `${brandPath(brandId)}/designs`, DesignSummary.array()),
     assets: (brandId, query = '') =>
       ask('GET', `${brandPath(brandId)}/assets?${new URLSearchParams({ q: query })}`, AssetSummary.array()),

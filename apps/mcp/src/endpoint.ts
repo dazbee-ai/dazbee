@@ -14,7 +14,14 @@ import { ACCESS_TOKEN_PREFIX, type AgentMe } from '@dazbee/schema'
 import { agentName } from './agent-name.ts'
 import { agentApi, agentOf, type ApiSettings } from './api.ts'
 import { INSTRUCTIONS } from './instructions.ts'
-import { CALL_TIMEOUT_MS, MAX_BODY_BYTES, MAX_SESSIONS, MAX_SESSIONS_PER_ACCESS, SESSION_IDLE_MS } from './limits.ts'
+import {
+  CALL_TIMEOUT_MS,
+  inMiB,
+  MAX_BODY_BYTES,
+  MAX_MCP_SESSIONS,
+  MAX_MCP_SESSIONS_PER_ACCESS,
+  MCP_SESSION_IDLE_MS,
+} from './limits.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
@@ -41,12 +48,11 @@ export interface Endpoint {
 type MessageId = string | number
 
 /** One MCP session: the access that started it, its server and transport, and when it was used. */
-interface Session {
+interface McpSession {
   id: string
   accessId: string
   server: Server
   transport: WebStandardStreamableHTTPServerTransport
-  startedAt: number
   lastCallAt: number
   /** The newest access token the session has been called with. */
   token: string
@@ -75,7 +81,7 @@ const IDLE_SWEEP_MS = 60_000
 export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   const { api, baseUrl, version, now = Date.now, callTimeoutMs = CALL_TIMEOUT_MS } = settings
   // The open sessions, by session id, in the order they started.
-  const sessions = new Map<string, Session>()
+  const sessions = new Map<string, McpSession>()
   const sweep = setInterval(() => void endIdle(), IDLE_SWEEP_MS)
   sweep.unref()
 
@@ -101,7 +107,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     const sessionId = request.headers.get('mcp-session-id')
     const session = sessionId === null ? undefined : sessions.get(sessionId)
     if (sessionId !== null && session?.accessId !== agent.id) return sessionNotFound()
-    if (!session && sessions.size >= MAX_SESSIONS)
+    if (!session && sessions.size >= MAX_MCP_SESSIONS && sessionsOf(agent.id).length < MAX_MCP_SESSIONS_PER_ACCESS)
       return jsonRpcError(503, -32000, 'Too many sessions; try again later')
     const body = request.method === 'POST' ? await readMessage(request) : undefined
     if (body instanceof Response) return body
@@ -130,7 +136,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   }
 
   /** The transport's answer, or 404 when the session ends first, or 503 when it takes too long. */
-  async function answerOf(session: Session, answer: Promise<Response>): Promise<Response> {
+  async function answerOf(session: McpSession, answer: Promise<Response>): Promise<Response> {
     let timer: NodeJS.Timeout | undefined
     let answerEnded: (response: Response) => void = () => {}
     const ended = new Promise<Response>((resolve) => session.waiting.add((answerEnded = resolve)))
@@ -150,7 +156,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   }
 
   /** A new session's server and transport, kept once its `initialize` has been answered. */
-  async function open(agent: AgentMe, token: string): Promise<Session> {
+  async function open(agent: AgentMe, token: string): Promise<McpSession> {
     const server = new Server(
       { name: 'dazbee', title: 'Dazbee', version },
       { capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS },
@@ -175,7 +181,6 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       accessId: agent.id,
       server,
       transport,
-      startedAt: at,
       lastCallAt: at,
       token,
       agentName: '',
@@ -184,19 +189,24 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   }
 
   /** Keeps a session its transport started, ending the access's oldest past its limit; drops one that didn't start. */
-  async function keep(session: Session): Promise<void> {
+  async function keep(session: McpSession): Promise<void> {
     const id = session.transport.sessionId
     if (id === undefined) return session.server.close()
     session.id = id
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
-    const ofAccess = [...sessions.values()].filter(({ accessId }) => accessId === session.accessId)
-    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - MAX_SESSIONS_PER_ACCESS))) await end(old.id)
+    const ofAccess = sessionsOf(session.accessId)
+    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - MAX_MCP_SESSIONS_PER_ACCESS))) await end(old.id)
+  }
+
+  /** The access's sessions, oldest first. */
+  function sessionsOf(accessId: string): McpSession[] {
+    return [...sessions.values()].filter((session) => session.accessId === accessId)
   }
 
   /** Ends every session that has had no call for its idle time. */
   async function endIdle(): Promise<void> {
-    const before = now() - SESSION_IDLE_MS
+    const before = now() - MCP_SESSION_IDLE_MS
     for (const session of [...sessions.values()]) if (session.lastCallAt <= before) await end(session.id)
   }
 
@@ -228,7 +238,7 @@ function bearerToken(request: Request): string | null {
 async function readMessage(request: Request): Promise<unknown> {
   const read = await readRequestBody(request, MAX_BODY_BYTES).catch(() => null)
   if (read === null) return jsonRpcError(400, -32700, 'The request body could not be read')
-  if (read.tooLarge) return jsonRpcError(413, -32000, `A request is at most ${MAX_BODY_BYTES / 1024 / 1024} MiB`)
+  if (read.tooLarge) return jsonRpcError(413, -32000, `A request is at most ${inMiB(MAX_BODY_BYTES)}`)
   let message: unknown
   try {
     message = JSON.parse(read.text)

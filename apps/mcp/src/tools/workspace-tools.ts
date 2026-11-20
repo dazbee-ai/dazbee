@@ -7,7 +7,7 @@ import { ApiRefusal } from '../api.ts'
 import { defineTool, type Tool, ToolRefusal } from './define-tool.ts'
 
 /** A brand's id, as `list_brands` gives it. */
-const Brand = RecordId.describe('The brand’s id, as list_brands gives it')
+const BrandId = RecordId.describe('The brand’s id, as list_brands gives it')
 
 export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
@@ -25,7 +25,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
     description:
       'Lists a brand’s designs, each with its id, name and when it was last changed (ISO 8601), so you can find the design you are asked to work on.',
     readOnly: true,
-    input: z.object({ brand: Brand }),
+    input: z.object({ brand: BrandId }),
     run: async ({ brand }, { api }) =>
       (await api.designs(brand)).map(({ id, name, updatedAt }) => ({ id, name, updated: updatedAt })),
   }),
@@ -36,7 +36,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
       'Lists a brand’s images and SVG files, each with its id, name, tags, type and size in pixels, to place a product photo or the logo. `query` keeps those whose name or a tag holds it.',
     readOnly: true,
     input: z.object({
-      brand: Brand,
+      brand: BrandId,
       query: z.string().max(200).optional().describe('A part of a name or tag to look for, at most 200 characters'),
     }),
     run: async ({ brand, query }, { api }) =>
@@ -56,7 +56,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
       'Makes a new design in a brand, holding one page with an empty 1080×1080 frame, and answers its id and name. Needs an access that edits.',
     readOnly: false,
     input: z.object({
-      brand: Brand,
+      brand: BrandId,
       name: z.string().trim().min(1).max(120).describe('The design’s name, 1 to 120 characters'),
     }),
     run: async ({ brand, name }, { api }) => {

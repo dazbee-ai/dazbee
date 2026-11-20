@@ -6,7 +6,7 @@ import { z } from 'zod'
 import type { AgentMe } from '@dazbee/schema'
 
 import { type AgentApi, ApiRefusal, TokenRefused } from '../api.ts'
-import { ANSWER_ENVELOPE_BYTES, MAX_ANSWER_BYTES } from '../limits.ts'
+import { ANSWER_ENVELOPE_BYTES, inMiB, MAX_ANSWER_BYTES } from '../limits.ts'
 
 /** What a tool call runs with: the API as the calling agent sees it, and the agent's access. */
 export interface ToolContext {
@@ -41,8 +41,7 @@ export class ToolRefusal extends Error {}
 export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>): Tool {
   const { name, title, description, readOnly, input } = definition
   if (description.length <= 40) throw new Error(`${name}: a tool’s description is more than 40 characters`)
-  const inputSchema: Record<string, unknown> = { ...z.toJSONSchema(input.strict(), { io: 'input' }) }
-  delete inputSchema.$schema
+  const inputSchema = withoutDialect(z.toJSONSchema(input.strict(), { io: 'input' }))
   const listing = {
     name,
     title,
@@ -69,6 +68,13 @@ export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>)
       return refused(`${name} failed on Dazbee’s side; try again, and if it fails again, carry on without it`)
     }
   }
+}
+
+/** A JSON Schema without its `$schema` dialect line, which an agent has no use for. */
+export function withoutDialect(schema: object): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...schema }
+  delete copy.$schema
+  return copy
 }
 
 /** A tool error: the sentence, ending with a full stop. */
@@ -101,7 +107,7 @@ function answer(value: unknown): CallToolResult {
   const bytes = Buffer.byteLength(JSON.stringify(text))
   if (bytes > MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES)
     return refused(
-      `The answer is ${(bytes / 1024 / 1024).toFixed(1)} MiB, more than the ${MAX_ANSWER_BYTES / 1024 / 1024} MiB an answer may be; ask for less`,
+      `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be; ask for less`,
     )
   return { content: [{ type: 'text', text }] }
 }

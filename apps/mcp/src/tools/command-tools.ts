@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { type CatalogEntry, commandCatalog } from '@dazbee/doc'
 
-import { defineTool, type Tool, ToolRefusal } from './define-tool.ts'
+import { defineTool, type Tool, ToolRefusal, withoutDialect } from './define-tool.ts'
 
 /** The commands an agent may run, as the catalog describes them. */
 export const AGENT_CATALOG: CatalogEntry[] = commandCatalog().filter((entry) => entry.name !== 'design.restore')
@@ -41,9 +41,7 @@ export const COMMAND_TOOLS: Tool[] = [
     run: async ({ command }) => {
       const entry = AGENT_CATALOG.find(({ name }) => name === command)
       if (!entry) throw new ToolRefusal(`There is no command “${command}”; list_commands lists them`)
-      const input: Record<string, unknown> = { ...entry.input }
-      delete input.$schema
-      return { ...entry, input }
+      return { ...entry, input: withoutDialect(entry.input) }
     },
   }),
 ]

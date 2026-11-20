@@ -53,8 +53,12 @@ A brand's logo, colours, fonts and tone of voice, applied automatically. Its col
 _Avoid_: Brand guide, theme, style
 
 **Binding**:
-A layer property that follows a variable, such as a fill bound to `brand:primary`. The layer also keeps the value it had, which it shows wherever the variable has none.
+A layer property that follows a variable, such as a fill bound to `brand:primary`. Editing the property by hand ends it. The layer also keeps the value it had, which it shows wherever the variable has none.
 _Avoid_: Link (see Link id), sync, style reference
+
+**Bindable property**:
+A property a layer can bind: the colour of its fill, its text's colour or its font family. Each takes one kind of value, such as a colour, and only the layer types that have it can bind it.
+_Avoid_: Binding target, slot, field
 
 **Variable**:
 A named value a layer's property can follow. For now, the brand kit's tokens (`brand:<token>`).

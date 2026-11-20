@@ -228,6 +228,10 @@ describe('an agent token on the app as main.ts builds it', () => {
       ok: true,
       payload: { agent: 'AI agent' },
     })
+    const blank = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: ' \u0000\n' })).json)
+    expect(verifySyncToken(syncSecret, blank.token, design)).toMatchObject({ ok: true, payload: { agent: 'AI agent' } })
+    const marked = SyncToken.parse((await ask(a.accessToken, 'POST', path, { agent: 'Cla\u001bude' })).json)
+    expect(verifySyncToken(syncSecret, marked.token, design)).toMatchObject({ ok: true, payload: { agent: 'Claude' } })
   })
 
   it('goes on when a refresh token is used again within 30 seconds, and answers 401 once it is used later', async () => {

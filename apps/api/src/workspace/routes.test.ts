@@ -382,6 +382,20 @@ describe('sync tokens', () => {
     expect(verifySyncToken(syncSecret, unnamed.token, design.id)).toMatchObject({ ok: true, payload: { name: '' } })
   })
 
+  it('refuses a person’s session that asks for an agent’s name, and signs none for an empty body or `{}`', async () => {
+    const design = DesignSummary.parse((await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Mine' })).json)
+    const path = `/brands/${brand.id}/designs/${design.id}/sync-token`
+    expect(await call('a', 'POST', path, { agent: 'Claude Code (agent)' })).toEqual({
+      status: 400,
+      json: { error: 'Only an agent’s token names an agent' },
+    })
+    for (const asked of [await call('a', 'POST', path), await call('a', 'POST', path, {})]) {
+      const signed = verifySyncToken(syncSecret, SyncToken.parse(asked.json).token, design.id)
+      expect(signed.ok && 'agent' in signed.payload).toBe(false)
+    }
+    expect((await call('a', 'POST', path, 'not an object')).status).toBe(400)
+  })
+
   it('issues none without a session, for another workspace, or under another brand', async () => {
     const mine = DesignSummary.parse((await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Mine' })).json)
     expect((await call(null, 'POST', `/brands/${brand.id}/designs/${mine.id}/sync-token`)).status).toBe(401)

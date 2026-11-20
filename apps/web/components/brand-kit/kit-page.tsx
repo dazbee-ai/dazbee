@@ -14,6 +14,7 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 
 import { KitEditor, useKitSaver } from './kit-editor.tsx'
 import { kitIsEmpty } from './kit-empty.ts'
+import { KitTroubleNotice } from './kit-trouble-notice.tsx'
 import { KitUnreadable } from './kit-unreadable.tsx'
 import { loadKit, useBrandKit, useKitTrouble } from './use-brand-kit.ts'
 
@@ -29,7 +30,7 @@ export function KitPage({
 }) {
   const trouble = useKitTrouble(brandId)
   // The page's kit draws on the server and while the page hydrates, until the shared copy is read.
-  const kit = useBrandKit(workspaceId, brandId, first) ?? (trouble ? null : first)
+  const kit = useBrandKit(workspaceId, brandId, first) ?? (trouble?.kind === 'unreadable' ? null : first)
   const { change } = useKitSaver(workspaceId, brandId)
   const words = useMessages().library.emptyKit
   // Edit kit was pressed: the form stays once it shows, even while the kit is still empty.
@@ -38,22 +39,27 @@ export function KitPage({
   useEffect(() => {
     void loadKit(workspaceId, brandId)
   }, [workspaceId, brandId])
-  if (!kit) return trouble?.kind === 'unreadable' ? <KitUnreadable /> : <div aria-busy="true" />
+  if (!kit) return trouble?.kind === 'unreadable' ? <KitUnreadable brandId={brandId} /> : <div aria-busy="true" />
+  const notice = <KitTroubleNotice brandId={brandId} />
   if (!editing && kitIsEmpty(kit))
     return (
-      <EmptyState
-        pose="palette"
-        title={words.title}
-        line={words.line}
-        action={
-          <Button variant="primary" size="lg" onClick={() => setEditing(true)}>
-            {words.action}
-          </Button>
-        }
-      />
+      <div className="flex flex-col gap-3">
+        {notice}
+        <EmptyState
+          pose="palette"
+          title={words.title}
+          line={words.line}
+          action={
+            <Button variant="primary" size="lg" onClick={() => setEditing(true)}>
+              {words.action}
+            </Button>
+          }
+        />
+      </div>
     )
   return (
-    <div data-testid="home-kit">
+    <div data-testid="home-kit" className="flex flex-col gap-3">
+      {notice}
       <KitEditor workspaceId={workspaceId} brandId={brandId} kit={kit} change={change} wide />
     </div>
   )

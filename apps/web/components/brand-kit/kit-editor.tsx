@@ -11,7 +11,6 @@ import { AssetSummary, type BrandKit } from '@dazbee/schema'
 import { UploadSimpleIcon } from '@/components/ui/icons.tsx'
 import { Select } from '@/components/ui/select.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
-import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 import { ASSET_ACCEPT, sendAsset } from '@/lib/upload-asset.ts'
@@ -22,23 +21,15 @@ import { KitFonts } from './kit-fonts.tsx'
 import { rememberAssets } from './kit-logo.ts'
 import { heading, iconButton, type KitBinding } from './kit-parts.ts'
 import { KitTextStyles } from './kit-text-styles.tsx'
-import { changeKit, saveWaitingKit, useKitTrouble } from './use-brand-kit.ts'
+import { changeKit, saveWaitingKit, shownKit } from './use-brand-kit.ts'
 
 /**
  * Shows a kit change at once and saves it a moment later; a change still waiting is saved when the
- * component using this goes. `onShow` hears each change as it shows, as the editor's layers do.
+ * component using this goes.
  */
-export function useKitSaver(workspaceId: string, brandId: string, onShow?: (kit: BrandKit) => void) {
-  const shows = useRef(onShow)
-  shows.current = onShow
+export function useKitSaver(workspaceId: string, brandId: string) {
   useEffect(() => () => saveWaitingKit(brandId), [brandId])
-  const change = useCallback(
-    (next: BrandKit) => {
-      changeKit(workspaceId, brandId, next)
-      shows.current?.(next)
-    },
-    [workspaceId, brandId],
-  )
+  const change = useCallback((next: BrandKit) => changeKit(workspaceId, brandId, next), [workspaceId, brandId])
   return { change }
 }
 
@@ -59,7 +50,6 @@ export function KitEditor({
   wide?: boolean
 }) {
   const t = useMessages().editor.brandKit
-  const trouble = useKitTrouble(brandId)
   const [assets, setAssets] = useState<AssetSummary[]>([])
   const [upload, setUpload] = useState<{ progress: number } | { error: string } | null>(null)
   const files = useRef<HTMLInputElement>(null)
@@ -86,7 +76,9 @@ export function KitEditor({
         rememberAssets([asset])
         setAssets((all) => [asset, ...all])
         setUpload(null)
-        change({ ...kit, logoAssetId: asset.id })
+        // The kit as it shows once the upload ends, with the changes and any newer kit since it started.
+        const now = shownKit(brandId)
+        if (now) change({ ...now, logoAssetId: asset.id })
       })
       .catch((e: unknown) => setUpload({ error: e instanceof Error ? e.message : String(e) }))
   }
@@ -188,23 +180,10 @@ export function KitEditor({
     </section>
   )
 
-  const failed = trouble?.kind === 'failed' && (
-    <p role="alert" className={cn('text-tiny text-danger', !wide && 'px-[18px] pb-4')}>
-      {format(t.saveFailed, { reason: trouble.reason })}
-    </p>
-  )
-  // Over the form, which now shows the kit as it was saved elsewhere.
-  const changed = trouble?.kind === 'changed' && (
-    <p role="alert" className={cn('text-small text-danger', !wide && 'px-[18px] pb-3')}>
-      {t.changedElsewhere}
-    </p>
-  )
-
   // Wide: the logo and voice beside the colours and fonts, as the mock's panel, and the text styles
   // across under them; the flyout keeps the editor's order, colours first.
   return wide ? (
     <div className="flex flex-col gap-3">
-      {changed}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {colours}
         {fonts}
@@ -214,17 +193,14 @@ export function KitEditor({
         </div>
         {textStyles}
       </div>
-      {failed}
     </div>
   ) : (
     <>
-      {changed}
       {colours}
       {fonts}
       {textStyles}
       {logo}
       {voice}
-      {failed}
     </>
   )
 }

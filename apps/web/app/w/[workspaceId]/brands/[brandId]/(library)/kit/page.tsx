@@ -64,7 +64,7 @@ export default async function BrandKitPage({ params }: { params: Promise<{ works
         {changes ? (
           <KitPage workspaceId={workspaceId} brandId={brand.id} kit={kit} />
         ) : !kit ? (
-          <KitUnreadable />
+          <KitUnreadable brandId={brand.id} />
         ) : kitIsEmpty(kit) ? (
           <EmptyState pose="palette" title={t.library.emptyKit.title} line={t.library.review.emptyKit} />
         ) : (

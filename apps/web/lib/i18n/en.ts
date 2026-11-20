@@ -934,10 +934,15 @@ export const en = {
       uploadFailed: 'The logo did not upload: {reason}',
       saveFailed: 'Couldn’t save the brand kit: {reason}',
       /** A save refused, since the kit was saved in another tab or by another member; the form now shows that kit. */
-      changedElsewhere:
-        'This kit changed since you opened it, so your last changes weren’t saved. It now shows the kit as it was saved: make them again here.',
+      changedElsewhere: 'This kit changed since you opened it. It now shows the kit as it was saved.',
+      /** The same, naming the parts of the form whose changes weren’t saved, such as “Colours and Logo”. */
+      changedElsewhereUnsaved:
+        'This kit changed since you opened it, so your changes to {parts} weren’t saved. It now shows the kit as it was saved: make them again here.',
+      dismiss: 'Dismiss',
       /** The kit couldn’t be fetched or read, so it isn’t shown and can’t be changed. */
       unreadable: 'Couldn’t load this brand’s kit. Reload to try again.',
+      /** Under it, after a refused save whose newer kit couldn’t be fetched. */
+      unreadableUnsaved: 'Your changes to {parts} weren’t saved.',
       reload: 'Reload',
       edit: 'Edit',
       done: 'Done',

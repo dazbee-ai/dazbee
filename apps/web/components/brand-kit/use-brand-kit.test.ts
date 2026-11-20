@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_BRAND_KIT, type StoredBrandKit } from '@dazbee/schema'
 
-import { changeKit, kitTrouble, loadKit, SAVE_DELAY_MS, saveWaitingKit, shownKit } from './use-brand-kit.ts'
+import {
+  changeKit,
+  dismissKitTrouble,
+  kitTrouble,
+  loadKit,
+  SAVE_DELAY_MS,
+  saveWaitingKit,
+  shownKit,
+} from './use-brand-kit.ts'
 
 /** The kit's route: the stored kit, each save it was sent, and a gate saves wait at while it is shut. */
 interface Route {
@@ -34,6 +42,25 @@ function savedElsewhere(voice: string) {
   route.kit = stored(voice, later((route.kit as StoredBrandKit).updatedAt))
 }
 
+/** Changes the voice of the kit the tab shows. */
+function changeVoice(voice: string) {
+  const kit = shownKit(brandId)
+  if (!kit) throw new Error('The tab shows no kit')
+  changeKit('w', brandId, { ...kit, voice })
+}
+
+/** Shuts the gate saves wait at; the function returned opens it. */
+function shut() {
+  let open: (() => void) | undefined
+  route.shut = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  return () => {
+    route.shut = null
+    open?.()
+  }
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
   brandId = `brand-${++brand}`
@@ -59,25 +86,6 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
-
-/** Changes the voice of the kit the tab shows. */
-function changeVoice(voice: string) {
-  const kit = shownKit(brandId)
-  if (!kit) throw new Error('The tab shows no kit')
-  changeKit('w', brandId, { ...kit, voice })
-}
-
-/** Shuts the gate saves wait at; the function returned opens it. */
-function shut() {
-  let open: (() => void) | undefined
-  route.shut = new Promise<void>((resolve) => {
-    open = resolve
-  })
-  return () => {
-    route.shut = null
-    open?.()
-  }
-}
 
 describe('changeKit', () => {
   it('saves a change made from the kit it loaded, and the next from the save before it', async () => {
@@ -105,11 +113,11 @@ describe('changeKit', () => {
     await vi.runAllTimersAsync()
     expect((route.kit as StoredBrandKit).voice).toBe('From the other tab.')
     expect(shownKit(brandId)?.voice).toBe('From the other tab.')
-    expect(kitTrouble(brandId)).toEqual({ kind: 'changed' })
+    expect(kitTrouble(brandId)).toEqual({ kind: 'changed', unsaved: ['voice'] })
     changeVoice('Mine, again.')
-    expect(kitTrouble(brandId)).toBeNull()
     await vi.runAllTimersAsync()
     expect((route.kit as StoredBrandKit).voice).toBe('Mine, again.')
+    expect(kitTrouble(brandId)).toEqual({ kind: 'changed', unsaved: ['voice'] })
   })
 
   it('saves none of the changes made behind a refused save', async () => {
@@ -124,7 +132,7 @@ describe('changeKit', () => {
     await vi.runAllTimersAsync()
     expect(route.puts).toHaveLength(1)
     expect(shownKit(brandId)?.voice).toBe('From the other tab.')
-    expect(kitTrouble(brandId)).toEqual({ kind: 'changed' })
+    expect(kitTrouble(brandId)).toEqual({ kind: 'changed', unsaved: ['voice'] })
   })
 
   it('leaves no kit to change when a refused save cannot read the newer kit', async () => {
@@ -134,7 +142,17 @@ describe('changeKit', () => {
     changeVoice('Mine.')
     await vi.runAllTimersAsync()
     expect(shownKit(brandId)).toBeNull()
-    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable' })
+    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable', unsaved: ['voice'] })
+  })
+})
+
+describe('saveWaitingKit', () => {
+  it('saves the change waiting now, as a form closing does', async () => {
+    await loadKit('w', brandId)
+    changeVoice('Mine.')
+    saveWaitingKit(brandId)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(route.puts.map((p) => p.voice)).toEqual(['Mine.'])
   })
 })
 
@@ -143,13 +161,13 @@ describe('loadKit', () => {
     route.kit = { broken: true }
     await loadKit('w', brandId)
     expect(shownKit(brandId)).toBeNull()
-    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable' })
+    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable', unsaved: [] })
   })
 
   it('shows a kit it cannot fetch as unreadable, and the kit once it can', async () => {
     route.reads = 'down'
     await loadKit('w', brandId)
-    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable' })
+    expect(kitTrouble(brandId)).toEqual({ kind: 'unreadable', unsaved: [] })
     route.reads = 'ok'
     await loadKit('w', brandId)
     expect(shownKit(brandId)?.voice).toBe('First.')
@@ -163,5 +181,16 @@ describe('loadKit', () => {
     expect(shownKit(brandId)?.voice).toBe('Mine.')
     await vi.runAllTimersAsync()
     expect((route.kit as StoredBrandKit).voice).toBe('Mine.')
+  })
+})
+
+describe('dismissKitTrouble', () => {
+  it('puts away the word that a save was refused', async () => {
+    await loadKit('w', brandId)
+    savedElsewhere('From the other tab.')
+    changeVoice('Mine.')
+    await vi.runAllTimersAsync()
+    dismissKitTrouble(brandId)
+    expect(kitTrouble(brandId)).toBeNull()
   })
 })

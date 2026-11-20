@@ -823,9 +823,12 @@ export const ar: Messages = {
       uploading: 'جارٍ الرفع… {percent}%',
       uploadFailed: 'لم يُرفع الشعار: {reason}',
       saveFailed: 'تعذّر حفظ هوية العلامة: {reason}',
-      changedElsewhere:
-        'تغيّرت هذه الهوية منذ فتحتها، لذا لم تُحفظ تغييراتك الأخيرة. تظهر الآن كما حُفظت: أعد تغييراتك هنا.',
+      changedElsewhere: 'تغيّرت هذه الهوية منذ فتحتها. تظهر الآن كما حُفظت.',
+      changedElsewhereUnsaved:
+        'تغيّرت هذه الهوية منذ فتحتها، لذا لم تُحفظ تغييراتك على {parts}. تظهر الآن كما حُفظت: أعد تغييراتك هنا.',
+      dismiss: 'إغلاق',
       unreadable: 'تعذّر تحميل هوية هذه العلامة. أعد التحميل للمحاولة مجددًا.',
+      unreadableUnsaved: 'لم تُحفظ تغييراتك على {parts}.',
       reload: 'أعد التحميل',
       edit: 'تعديل',
       done: 'تم',

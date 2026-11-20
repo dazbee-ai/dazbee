@@ -1,6 +1,7 @@
 // The brand's kit for the editor and the Brand kit page (#53), at /w/[workspace]/brands/[brand]/kit/data: read
-// it, and save it whole. A kit the API gives that can't be read answers 502, and a save made from a kit
-// saved since is refused with 409.
+// it, and save it whole. A kit the API gives that can't be read answers 502, a save made from a kit
+// saved since is refused with 409, and one that names no kit it was made from, from a tab built
+// before, is refused with 400.
 import { SaveBrandKit } from '@dazbee/schema'
 
 import { ApiFailure, getBrandKit, saveBrandKit } from '@/lib/server/api.ts'
@@ -29,6 +30,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ work
   const { workspaceId, brandId } = await params
   const kit = SaveBrandKit.safeParse(await request.json().catch(() => null))
   if (!kit.success) return Response.json({ error: kit.error.issues.map((i) => i.message).join('; ') }, { status: 400 })
+  // Only a tab built before this app sends no kit it was made from; it would save over newer changes.
+  if (kit.data.basedOn === undefined)
+    return Response.json({ error: 'This tab is older than Dazbee. Reload it to save the brand kit.' }, { status: 400 })
   try {
     return Response.json(await saveBrandKit(workspaceId, brandId, kit.data))
   } catch (e) {

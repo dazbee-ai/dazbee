@@ -16,6 +16,7 @@ import { EmptyPageHint } from '@/components/editor/empty-page-hint.tsx'
 import { FindReplacePanel } from '@/components/editor/find-replace-panel.tsx'
 import { AssetLibrary } from '@/components/editor/flyouts/asset-library.tsx'
 import { BrandKitPanel } from '@/components/editor/flyouts/brand-kit-panel.tsx'
+import { KitVariables } from '@/components/editor/flyouts/kit-variables.tsx'
 import { LayersPanel } from '@/components/editor/flyouts/layers-panel.tsx'
 import { FrameRename } from '@/components/editor/frame-rename.tsx'
 import { HiddenShownPill } from '@/components/editor/hidden-shown-pill.tsx'
@@ -127,6 +128,8 @@ export function EditorStage({
     setMenuAt(null)
   }, [viewOnly])
   const dismissNotice = useCallback(() => setNotice(null), [])
+  // What the brand kit says while its flyout is closed, such as a save it refused, stays until dismissed.
+  const tellKit = useCallback((text: string) => setNotice({ text, at: Date.now(), lasting: true }), [])
   // The library, if open, shows the files dropped and the pictures of SVG files once they upload.
   const [uploaded, setUploaded] = useState(0)
   // Dropped files and SVG files' pictures upload under one lasting notice that counts them all,
@@ -401,6 +404,7 @@ export function EditorStage({
             : {}
         }
       >
+        {editor && <KitVariables editor={editor} workspaceId={workspaceId} brandId={brandId} tell={tellKit} />}
         {/* The design is a picture, so it never mirrors: the stage stays left to right in Arabic too. */}
         {/* An asset dragged from the library lands where it is dropped (#52): into the shape it is
           dropped on, lit while it is over it, or as a new layer. Image files dropped from the

@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { memberships, users, workspaces } from '@dazbee/db'
 import { DazbeeInvites, SignInRefused } from '@dazbee/schema'
 
+import { findAccessOfToken, issueTokens, makeAccess, refreshTokens } from '../agents/agent-accesses.ts'
 import { addPerson, db, workos, workspace } from '../test-api.ts'
 import { addAdmin, ask, inviteAs, newPerson, signIn } from './test-early-access.ts'
 
@@ -141,6 +142,22 @@ describe('removing a person', () => {
     expect(back.session?.open).toBe(session?.open)
     expect((await ask(session?.token ?? '', 'GET', '/me')).status).toBe(200)
     expect((await listed()).removed.map((each) => each.email)).not.toContain(person.user.email)
+  })
+
+  it('ends the agent accesses they gave, so being invited again brings none back', async () => {
+    const { person, code, invite, session } = await joined()
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.workosUserId, person.user.id))
+    const access = { userId: user?.id ?? '', workspaceId: session?.open ?? '', brandIds: null, writes: true }
+    const accessId = await makeAccess(db, { ...access, clientId: null, clientName: 'Claude Code' })
+    const tokens = await issueTokens(db, accessId)
+    await ask(admin.token, 'POST', `/admin/invites/${invite.id}/remove`)
+    expect(await refreshTokens(db, tokens.refreshToken)).toEqual({ ok: false, error: 'invalid_grant' })
+
+    const { invitationId } = await inviteAs(admin.token, person.user.email)
+    workos.accept(invitationId, person.user.id)
+    expect((await signIn(code)).status).toBe(200)
+    expect(await findAccessOfToken(db, tokens.accessToken)).toBeNull()
+    expect(await refreshTokens(db, tokens.refreshToken)).toEqual({ ok: false, error: 'invalid_grant' })
   })
 
   it('keeps them out when the new invite is cancelled before they open it', async () => {

@@ -2,7 +2,14 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, it } from 'vitest'
 
-import { signSyncToken, SYNC_NAME_CHARS, SYNC_TOKEN_TTL_MS, syncTokenSecret, verifySyncToken } from './index.ts'
+import {
+  signSyncToken,
+  SYNC_AGENT_CHARS,
+  SYNC_NAME_CHARS,
+  SYNC_TOKEN_TTL_MS,
+  syncTokenSecret,
+  verifySyncToken,
+} from './index.ts'
 
 const secret = 'a'.repeat(32)
 const who = {
@@ -114,6 +121,33 @@ describe('verifySyncToken', () => {
     expect(JSON.parse(Buffer.from(token.split('.')[0] as string, 'base64url').toString()).name).toHaveLength(
       SYNC_NAME_CHARS,
     )
+  })
+
+  it("carries an agent's name for an agent's tab, cut to its limit; a token without one reads as before", () => {
+    const { token } = signSyncToken(secret, { ...who, agent: 'Claude Code (agent)' })
+    expect(verifySyncToken(secret, token, 'design-1')).toMatchObject({
+      ok: true,
+      payload: { ...who, agent: 'Claude Code (agent)' },
+    })
+    const long = signSyncToken(secret, { ...who, agent: 'a'.repeat(100) }).token
+    expect(JSON.parse(Buffer.from(long.split('.')[0] as string, 'base64url').toString()).agent).toBe(
+      'a'.repeat(SYNC_AGENT_CHARS),
+    )
+    expect(SYNC_AGENT_CHARS).toBe(64)
+    const forged = signed({ ...who, agent: '😀'.repeat(70), expiresAt: Date.now() + 1e6 })
+    expect(verifySyncToken(secret, forged, 'design-1')).toMatchObject({
+      ok: true,
+      payload: { agent: '😀'.repeat(64) },
+    })
+    const plain = verifySyncToken(secret, signSyncToken(secret, who).token, 'design-1')
+    expect(plain.ok && 'agent' in plain.payload).toBe(false)
+  })
+
+  it('refuses an agent name that is not text', () => {
+    for (const agent of [3, null, ['Claude']]) {
+      const token = signed({ ...who, agent, expiresAt: Date.now() + 1e6 })
+      expect(verifySyncToken(secret, token, 'design-1')).toEqual({ ok: false, reason: 'token with an agent not text' })
+    }
   })
 
   it('refuses tokens that are not tokens', () => {

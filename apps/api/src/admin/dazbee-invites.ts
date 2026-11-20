@@ -12,6 +12,7 @@ import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, sql } from 'dr
 import { dazbeeInvites, type Db, newId, type Tx, users } from '@dazbee/db'
 import type { DazbeeInvite, DazbeeInvites, InvitedPerson } from '@dazbee/schema'
 
+import { endPeopleAccesses } from '../agents/agent-accesses.ts'
 import { logError } from '../log.ts'
 import { InvalidInvite, InviteConflict, type Revoked, revokeWithProvider } from '../members/invites.ts'
 import { inviteExpiry, type InvitesProvider, type ProviderInvite } from '../members/invites-provider.ts'
@@ -181,19 +182,32 @@ export async function cancelDazbeeInvite(
 
 /**
  * Removes the access of the person who joined through the accepted invite `inviteId`, marking every accepted
- * invite of their email; false when it is no such invite, or its person is already removed.
+ * invite of their email and ending every agent access they gave, so an invite that lets them back in brings
+ * none back; false when it is no such invite, or its person is already removed.
  */
 export async function removeInvitedPerson(db: Db, inviteId: string, now = new Date()): Promise<boolean> {
-  const ofInvite = db
-    .select({ email: dazbeeInvites.email })
-    .from(dazbeeInvites)
-    .where(and(eq(dazbeeInvites.id, inviteId), accepted(false)))
-  const rows = await db
-    .update(dazbeeInvites)
-    .set({ removedAt: now })
-    .where(and(inArray(dazbeeInvites.email, ofInvite), accepted(false)))
-    .returning({ id: dazbeeInvites.id })
-  return rows.length > 0
+  return db.transaction(async (tx) => {
+    const ofInvite = tx
+      .select({ email: dazbeeInvites.email })
+      .from(dazbeeInvites)
+      .where(and(eq(dazbeeInvites.id, inviteId), accepted(false)))
+    const rows = await tx
+      .update(dazbeeInvites)
+      .set({ removedAt: now })
+      .where(and(inArray(dazbeeInvites.email, ofInvite), accepted(false)))
+      .returning({ email: dazbeeInvites.email })
+    if (rows.length === 0) return false
+    const people = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(inArray(sql`lower(${users.email})`, [...new Set(rows.map((row) => row.email))]))
+    await endPeopleAccesses(
+      tx,
+      people.map((person) => person.id),
+      now,
+    )
+    return true
+  })
 }
 
 /** The pending Dazbee invites of an email, oldest first, for sign-in to read from their provider. */

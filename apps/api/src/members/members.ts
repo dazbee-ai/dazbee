@@ -3,12 +3,14 @@
 // memberships it rests on again, locked, in the transaction that writes it, so two changes at once never
 // leave a workspace with no Owner or two. Removing and leaving take the person out of the workspace's WorkOS
 // organization while their membership is locked, then delete it, so a failure there leaves them a member and
-// trying again works, and a second removal waits and then finds no such member.
+// trying again works, and a second removal waits and then finds no such member. Leaving or being removed
+// ends the agent accesses the member gave there, in the same transaction.
 import { and, asc, eq, inArray } from 'drizzle-orm'
 
 import { type Db, memberships, type Tx, users, workspaces } from '@dazbee/db'
 import { type MemberRole, roleLimitable, roleManages, type UpdateMember } from '@dazbee/schema'
 
+import { endMemberAccesses } from '../agents/agent-accesses.ts'
 import { listMembers } from '../workspace/workspace.ts'
 import { checkLimit, writeLimit } from './brand-limits.ts'
 import { invitesProviderFor, type InvitesProviders } from './invites-provider.ts'
@@ -115,7 +117,7 @@ function managed(roles: Map<string, MemberRole>, actor: Actor, userId: string): 
 /**
  * Takes the person `userId` out of the actor's workspace once `check` passes on the roles, in one
  * transaction that holds both memberships locked: first out of its WorkOS organization, then out of the
- * workspace. A WorkOS failure rolls it back, and a second change of the same memberships waits for it.
+ * workspace, ending the agent accesses they gave there. A WorkOS failure rolls it back, and a second change of the same memberships waits for it.
  */
 async function takeOut(
   db: Db,
@@ -138,5 +140,6 @@ async function takeOut(
     await tx
       .delete(memberships)
       .where(and(eq(memberships.workspaceId, actor.workspaceId), eq(memberships.userId, userId)))
+    await endMemberAccesses(tx, { workspaceId: actor.workspaceId, userId })
   })
 }

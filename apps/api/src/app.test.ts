@@ -18,8 +18,14 @@ vi.mock('./workspace/designs.ts', async (importOriginal) => {
 /** The routes that change nothing, though they are not GET: a Reviewer opens designs view-only. */
 const READ_ONLY = ['POST /workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token']
 
-/** The routes any member calls on their own membership, which change nothing else: leaving. */
-const OWN_MEMBERSHIP = ['POST /workspaces/:workspaceId/leave']
+/**
+ * The routes any member calls on their own membership, which change nothing else: leaving, and ending an
+ * agent access they gave.
+ */
+const OWN_MEMBERSHIP = [
+  'POST /workspaces/:workspaceId/leave',
+  'DELETE /workspaces/:workspaceId/agent-accesses/:accessId',
+]
 
 /** The routes only an Owner or Admin may call. */
 const MANAGER_ONLY = [
@@ -35,10 +41,14 @@ const MANAGER_ONLY = [
 const OWNER_ONLY = ['POST /workspaces/:workspaceId/members/:userId/owner']
 
 /**
- * The paths outside a workspace: the health check, sign-in's, the development invites' accept, the person's
- * own and the request to join. Early access's admin routes, under /admin, are checked in `admin/routes.test.ts`.
+ * The paths outside a workspace: the gate that keeps agents' tokens to their routes, the health check,
+ * sign-in's, the development invites' accept, the person's own, an agent's own and the request to join. Early
+ * access's admin routes, under /admin, are checked in `admin/routes.test.ts`.
  */
 const OUTSIDE_A_WORKSPACE = [
+  '/*',
+  '/agent/*',
+  '/agent/me',
   '/health',
   '/auth/sign-in-url',
   '/auth/callback',
@@ -59,9 +69,11 @@ const OWNER_REFUSAL = 'Only the Owner can hand over Owner'
  * as it would an `all` route.
  */
 const MIDDLEWARE_PATHS = [
+  '/*',
   '/admin/*',
   '/me',
   '/me/*',
+  '/agent/*',
   '/workspaces/:workspaceId/*',
   '/workspaces/:workspaceId/*',
   '/workspaces/:workspaceId/brands/:brandId/*',
@@ -123,7 +135,7 @@ describe('health', () => {
 })
 
 describe('roles', () => {
-  it('has no handler for every method, only the session and brand checks, so the sweeps reach every handler', () => {
+  it('has no handler for every method, only the agents’ gate and the session and brand checks, so the sweeps reach every handler', () => {
     expect(app.routes.filter((r) => r.method === 'ALL').map((r) => r.path)).toEqual(MIDDLEWARE_PATHS)
   })
 

@@ -6,7 +6,8 @@
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a
-// `MemberRefusal` its own status, whichever route throws it.
+// `MemberRefusal` its own status, whichever route throws it. An agent's token (ADR-0019) reaches only
+// /agent/me and the agents' routes of its access's workspace, and every other route answers it 403.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
@@ -17,6 +18,8 @@ import type { Admins } from './admin/admins.ts'
 import { accessRequestRoutes, adminRoutes } from './admin/routes.ts'
 import type { TurnstileCheck } from './admin/turnstile.ts'
 import { type RequestLimit, requestLimit } from './admin/waiting-list.ts'
+import { agentGate, agentRoutes } from './agents/agent-routes.ts'
+import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { assetRoutes } from './assets/routes.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
@@ -71,6 +74,7 @@ export function createApp({
 }) {
   const app = new Hono<Env>()
 
+  app.use('*', agentGate(sessionOf))
   app.get('/health', (c) => c.json({ ok: true, build }))
 
   const providers: InvitesProviders = { workos: invites.workos, dev: invites.dev?.provider ?? null }
@@ -94,11 +98,15 @@ export function createApp({
   const deleters = { storage, signIn: signIn?.provider ?? null, invites: invites.workos }
   app.route('/', meRoutes({ db, deleters, endWorkosSession: (request) => endWorkosSession(signIn, request) }))
 
+  app.use('/agent/*', signedIn)
+  app.route('/', agentRoutes())
+
   // `/workspaces/:workspaceId/*` matches the workspace's own path too.
   app.use('/workspaces/:workspaceId/*', signedIn, membershipScope(db))
   app.use('/workspaces/:workspaceId/brands/:brandId/*', brandScope(db))
   app.route('/workspaces/:workspaceId', workspaceRoutes({ db }))
   app.route('/workspaces/:workspaceId', memberRoutes({ db, invites: providers }))
+  app.route('/workspaces/:workspaceId', agentAccessRoutes({ db }))
   app.route('/workspaces/:workspaceId', records)
 
   // A refusal a route lets through answers 400 with its message; any other error is ours.

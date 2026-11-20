@@ -443,6 +443,19 @@ export function editorTyping({
           : null
       return onScreen ?? { offset: step(text, caret, right), after: false }
     }
+    /**
+     * The end of the selected range an arrow points to: by where each end is drawn, on one line;
+     * else, or while the text drawn is not yet the text typed, in reading order.
+     */
+    const rangeEnd = (right: boolean) => {
+      const drawn = editingText()
+      const forward = right !== (drawn?.laid.rtl ?? false)
+      if (drawn?.layer.props.text !== text) return forward ? range.end : range.start
+      const start = caretPosition(ck, drawn.laid, range.start)
+      const end = caretPosition(ck, drawn.laid, range.end)
+      if (Math.abs(start.y - end.y) > 0.5 || Math.abs(start.x - end.x) < 0.01) return forward ? range.end : range.start
+      return end.x > start.x === right ? range.end : range.start
+    }
     /** The caret's offset on the line above or below, or at the start or end of its line. */
     const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
       const laid = editingText()
@@ -458,9 +471,10 @@ export function editorTyping({
       stopEditing()
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       // A character step goes the way the arrow points on screen, a word step in reading order. With
-      // a range and no Shift, a character step goes to its near end, and a word step from the caret.
+      // a range and no Shift, a character step goes to its end the arrow points to, and a word step
+      // from the caret.
       const right = e.key === 'ArrowRight'
-      if (selected && !e.shiftKey && !byWord) caretTo(right ? range.end : range.start)
+      if (selected && !e.shiftKey && !byWord) caretTo(rangeEnd(right))
       else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
       else {
         const to = arrowStep(right)

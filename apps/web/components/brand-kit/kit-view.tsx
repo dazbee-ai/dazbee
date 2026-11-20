@@ -1,8 +1,8 @@
 // The brand kit laid out as the Brand kit page's form is, for a member who may only view it: each
 // colour's swatch, name and value and each font's name and family, the brand roles first, then the
-// logo and the tone of voice, with nothing that changes them. A part the kit has nothing in is left
+// logo and the tone of voice, and each text style's name and settings, with nothing that changes them. A part the kit has nothing in is left
 // out, but for the logo's.
-import { type BrandKit, inBrandRoleOrder } from '@dazbee/schema'
+import { type BrandKit, type BrandTextStyle, brandTextStyleFamily, inBrandRoleOrder } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import { hexOf, hexText } from '@/lib/colour.ts'
@@ -12,6 +12,20 @@ import { kitEntryName } from './kit-names.ts'
 
 const HEADING = 'text-caption font-bold tracking-[0.08em] text-subtle uppercase'
 const SECTION = 'flex min-w-0 flex-col gap-2.5 rounded-[16px] border border-line bg-bg/40 p-4'
+
+/** A text style's settings in a line: its family, weight and slant, line height, letter spacing and case. */
+function textStyleDetails(t: Messages, kit: BrandKit, style: BrandTextStyle) {
+  const { props, fonts, actions } = t.editor
+  const weight = fonts.weights[style.fontWeight as keyof typeof fonts.weights] ?? String(style.fontWeight)
+  const unit = style.letterSpacing.unit === 'px' ? 'px' : '%'
+  return [
+    brandTextStyleFamily(kit, style) ?? t.editor.brandKit.notSet,
+    style.fontStyle === 'italic' ? `${weight} ${actions.italic}` : weight,
+    `${props.lineHeight} ${style.lineHeight ?? props.lineHeightAuto}`,
+    `${props.letterSpacing} ${style.letterSpacing.value}${unit}`,
+    props.textCases[style.textCase ?? 'none'],
+  ].join(' · ')
+}
 
 export function KitView({
   t,
@@ -88,6 +102,21 @@ export function KitView({
           </section>
         )}
       </div>
+      {kit.textStyles.length > 0 && (
+        <section aria-labelledby="kit-text-styles" className={`${SECTION} md:col-span-2 xl:col-span-3`}>
+          <h3 id="kit-text-styles" className={HEADING}>
+            {w.textStyles}
+          </h3>
+          <ul className="flex flex-col gap-1.5">
+            {kit.textStyles.map((style) => (
+              <li key={style.token} data-token={style.token} className="flex min-w-0 flex-col">
+                <span className="truncate text-small font-medium">{style.name}</span>
+                <span className="text-tiny text-muted">{textStyleDetails(t, kit, style)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

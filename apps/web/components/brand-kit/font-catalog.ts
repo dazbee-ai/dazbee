@@ -2,11 +2,12 @@
 
 // The fonts a brand can pick from: its uploads, the Google Fonts we copied into our storage, and the
 // fonts we ship, never the script fonts text falls back to; each family's category; and how a
-// family's faces are chosen: the face that previews it, and the weight it is set in.
+// family's faces are chosen: the face that previews it, the face of a weight and slant, and the
+// weight it is set in.
 import { useCallback, useEffect, useState } from 'react'
 
 import { FONT_FACES, type GoogleFamily, SCRIPT_FONTS } from '@dazbee/fonts'
-import { faceWeights, FontFamily } from '@dazbee/schema'
+import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 
@@ -74,6 +75,20 @@ export const previewFace = (family: FontFamily) =>
   [...family.faces].sort((a, b) =>
     a.style === b.style ? Math.abs(a.weight - 400) - Math.abs(b.weight - 400) : a.style === 'normal' ? -1 : 1,
   )[0]
+
+/**
+ * The face that draws a family at a weight and slant: one of that slant where the family has one,
+ * else upright, nearest the weight, a variable face at any weight of its range. None for a family
+ * the catalog doesn't hold.
+ */
+export const faceFor = (family: FontFamily | undefined, weight: number, style: FontFace['style']) => {
+  const faces = family?.faces ?? []
+  const slanted = faces.filter((f) => f.style === style)
+  const upright = faces.filter((f) => f.style === 'normal')
+  const pool = slanted.length > 0 ? slanted : upright.length > 0 ? upright : faces
+  const off = (face: FontFace) => Math.min(...faceWeights(face).map((w) => Math.abs(w - weight)))
+  return [...pool].sort((a, b) => off(a) - off(b))[0]
+}
 
 /** The family's upright weights, or every weight when it has no upright face; a variable face draws its range's. */
 export const weightsOf = (family: FontFamily | undefined) => {

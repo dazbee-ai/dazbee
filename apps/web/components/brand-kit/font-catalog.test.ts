@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, offeredFamilies, weightsOf } from './font-catalog.ts'
+import { categoryOf, faceFor, offeredFamilies, weightsOf } from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -64,5 +64,35 @@ describe('weightsOf', () => {
   it('takes the upright faces where there are some, a variable italic’s range where there are none', () => {
     expect(weightsOf(of(face(400, 'normal'), face(400, 'italic', { min: 300, max: 700 })))).toEqual([400])
     expect(weightsOf(of(face(400, 'italic', { min: 300, max: 700 })))).toEqual([300, 400, 500, 600, 700])
+  })
+})
+
+describe('faceFor', () => {
+  const faces = (name: string, list: [number, 'normal' | 'italic'][]): FontFamily => ({
+    ...family(name, 'google'),
+    faces: list.map(([weight, style]) => ({
+      id: `${name}-${weight}-${style}`,
+      family: name,
+      weight,
+      style,
+      source: 'google',
+      byteSize: 1,
+    })),
+  })
+
+  it('gives the face of the style nearest the weight', () => {
+    const lora = faces('Lora', [
+      [400, 'normal'],
+      [700, 'normal'],
+      [400, 'italic'],
+    ])
+    expect(faceFor(lora, 700, 'normal')?.id).toBe('Lora-700-normal')
+    expect(faceFor(lora, 600, 'normal')?.id).toBe('Lora-700-normal')
+    expect(faceFor(lora, 700, 'italic')?.id).toBe('Lora-400-italic')
+  })
+
+  it('gives an upright face for an italic the family lacks, and none for a family it doesn’t know', () => {
+    expect(faceFor(faces('Inter', [[400, 'normal']]), 700, 'italic')?.id).toBe('Inter-400-normal')
+    expect(faceFor(undefined, 400, 'normal')).toBeUndefined()
   })
 })

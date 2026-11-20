@@ -306,6 +306,12 @@ export const TextProps = z
     direction: z.enum(['auto', 'ltr', 'rtl']).default('auto'),
     verticalAlign: z.enum(['top', 'middle', 'bottom']).default('top'),
     boxMode: z.enum(['autoWidth', 'autoHeight', 'fixed']).default('autoHeight'),
+    /**
+     * Where a paragraph's lines break when it wraps: `auto` fits as many words on each line as fit,
+     * `balance` breaks it at the narrowest width that adds no line, so its lines come out near even,
+     * and `pretty` keeps lines full but leaves no one word alone on the last.
+     */
+    wrapStyle: z.enum(['auto', 'balance', 'pretty']).default('auto'),
     /** Every paragraph that has text gets a bullet or its number, in a gutter its lines wrap clear of (#47). */
     list: z.enum(['bullet', 'number']).optional(),
     /** Space between paragraphs, in pixels at the base font size. */

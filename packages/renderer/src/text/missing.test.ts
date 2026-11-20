@@ -33,7 +33,15 @@ function missing(
     maxLines,
     outline = false,
     width = 600,
-  }: { emoji?: boolean; family?: string; maxLines?: number; outline?: boolean; width?: number } = {},
+    wrapStyle = 'auto',
+  }: {
+    emoji?: boolean
+    family?: string
+    maxLines?: number
+    outline?: boolean
+    width?: number
+    wrapStyle?: TextProps['wrapStyle']
+  } = {},
 ) {
   const props = TextProps.parse({
     x: 0,
@@ -41,6 +49,7 @@ function missing(
     width,
     height: 40,
     text,
+    wrapStyle,
     ...(maxLines ? { maxLines } : {}),
     style: {
       fontFamily: family,
@@ -75,5 +84,10 @@ describe('missingGraphemes', () => {
   it('counts outlined text once, and each paragraph of the text', () => {
     expect(missing('ᚠ', { outline: true })).toEqual(['ᚠ'])
     expect(missing('ᚠ\n𝄞')).toEqual(['ᚠ', '𝄞'])
+  })
+
+  it('names a character on the line after one Pretty ends early', () => {
+    // Pretty ends the first line before dddd, so the Syriac letter is not alone on the last.
+    expect(missing('aaaa bbbb cccc dddd ܐ', { width: 200, wrapStyle: 'pretty' })).toEqual(['ܐ'])
   })
 })

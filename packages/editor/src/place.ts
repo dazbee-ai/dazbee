@@ -28,7 +28,7 @@ import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn, idsOf, type Picked } from './selection.ts'
 import { stepOf } from './shortcuts.ts'
 import type { EditorTyping } from './text/typing.ts'
-import type { EditorTools, PlacedAsset,PlaceImageOptions } from './tools.ts'
+import type { EditorTools, PlacedAsset, PlaceImageOptions } from './tools.ts'
 
 export interface PlaceDeps {
   session: Session
@@ -390,7 +390,7 @@ export function editorPlace({
     const at = spot ? { x: spot.x, y: spot.y } : { x: frame.width / 2, y: frame.height / 2 }
     typing.stop()
     let id = ''
-    const layer = { ...newImage(asset, at, frame), ...(logo ? { role: LOGO_ROLE } : {}) }
+    const layer = { ...newImage(asset, at, frame), ...(logo ? { role: 'logo' } : {}) }
     if (
       !runQuietly(() =>
         session.gesture(() => {

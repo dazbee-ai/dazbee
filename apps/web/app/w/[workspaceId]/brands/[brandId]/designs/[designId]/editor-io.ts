@@ -65,7 +65,7 @@ export function imageUploader(workspaceId: string, brandId: string) {
 }
 
 /**
- * The values of the brand kit's tokens (#53), its logo's included, for layers bound to them. Without
+ * The values of the brand kit's tokens, its logo's included, for layers bound to them. Without
  * a connection the editor starts without them, and bound layers keep the values they were bound with.
  */
 export async function brandKitVariables(workspaceId: string, brandId: string): Promise<Variables | undefined> {

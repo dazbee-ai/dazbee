@@ -174,6 +174,12 @@ export const fitsProperty = (property: BindableProperty, value: string) => value
 export const bindablePropertyOf = (type: string, kind: ValueKind): BindableProperty | undefined =>
   BindableProperty.options.find((property) => BINDABLE_PROPERTIES[property].kind === kind && canBind(type, property))
 
+/** The value of a kind a layer of this type holds in its props, as its bindable property reads it; undefined with none. */
+export function boundValueOf(type: string, props: Readonly<Record<string, unknown>>, kind: ValueKind) {
+  const property = bindablePropertyOf(type, kind)
+  return property && BINDABLE_PROPERTIES[property].read(props)
+}
+
 /**
  * A layer's props with its bound properties set from `variables`. A binding whose variable has no
  * value, or a value that doesn't suit it, leaves the property as the layer stores it: the value it

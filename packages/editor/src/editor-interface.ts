@@ -8,7 +8,7 @@ import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
 import type { SvgRead } from './place-svg.ts'
-import type { PlacedAsset,PlaceImageOptions } from './tools.ts'
+import type { PlacedAsset, PlaceImageOptions } from './tools.ts'
 
 export type {
   CoreOptions,

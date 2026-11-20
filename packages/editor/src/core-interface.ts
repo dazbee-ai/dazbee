@@ -700,7 +700,7 @@ export interface EditorBase {
   setVariables(variables: Variables): Promise<void>
   /**
    * Binds the selected layers to a brand colour, font or logo, or unbinds them with null, in one
-   * undo step (#53). A colour binds a text layer's colour and any other layer's fill; a font binds
+   * undo step. A colour binds a text layer's colour and any other layer's fill; a font binds
    * text only; the logo binds the picture of a graphic or box that shows one. Returns how many
    * layers changed.
    */

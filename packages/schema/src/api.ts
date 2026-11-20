@@ -471,19 +471,24 @@ export type AgentMe = z.infer<typeof AgentMe>
 /** Whether an asset is an SVG file, placed as layers rather than as an image fill. */
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'
 
+/** Whether a kit holds a colour or font with this token. */
+const holdsToken = (kit: BrandKit, token: string) => [...kit.colors, ...kit.fonts].some((x) => x.token === token)
+
 /** The brand role the kit's logo fills, a picture: a layer bound to `brand:logo` draws the brand's logo. */
 export const LOGO_ROLE = 'logo'
 
 /**
  * The values a kit gives its tokens, for drawing designs bound to them. With the kit's logo asset,
- * `brand:logo` is its id when it is an image; an SVG file can't be a fill, so it gives none. The
- * logo comes last, so it is the logo even where a kit holds a colour or font with its token.
+ * `brand:logo` is its id when it is an image; an SVG file can't be a fill, so it gives none, and a
+ * kit that holds a colour or font with the logo's token keeps it as that colour or font.
  */
 export const brandVariables = (kit: BrandKit, logo?: Pick<AssetSummary, 'id' | 'contentType'>): Variables =>
   Object.fromEntries([
     ...kit.colors.map((c) => [brandRef(c.token), c.value]),
     ...kit.fonts.map((f) => [brandRef(f.token), f.family]),
-    ...(logo && logo.id === kit.logoAssetId && !isVectorAsset(logo) ? [[brandRef(LOGO_ROLE), logo.id]] : []),
+    ...(logo && logo.id === kit.logoAssetId && !isVectorAsset(logo) && !holdsToken(kit, LOGO_ROLE)
+      ? [[brandRef(LOGO_ROLE), logo.id]]
+      : []),
   ])
 
 /** Whether a member with `role` may change a design: an Owner, Admin or Editor can, a Reviewer only reads. */

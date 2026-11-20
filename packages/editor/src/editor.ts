@@ -23,7 +23,7 @@ import { type OpenTab, openTab } from './open-tab.ts'
 import { type FontFace, loadFonts, loadImages } from './resources.ts'
 import { type SaveStateWatch, watchSaveState } from './save-state.ts'
 import { tokenSource } from './token-source.ts'
-import type { PlacedAsset,PlaceImageOptions } from './tools.ts'
+import type { PlacedAsset, PlaceImageOptions } from './tools.ts'
 import { loadCanvasKit, shippedFonts } from './vendor.ts'
 
 /** The screen's animation frames and the system's reduced motion, which the camera's glides step on. */

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { type AssetSummary, type BrandKit, EMPTY_BRAND_KIT } from '@dazbee/schema'
 
-import { kitVariables, knownLogo, rememberAssets } from './kit-logo.ts'
+import { kitLogo, kitVariables, knownAsset, rememberAssets } from './kit-logo.ts'
 
 const asset = (id: string, contentType: AssetSummary['contentType']): AssetSummary => ({
   id,
@@ -42,26 +42,52 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('rememberAssets', () => {
+  it('keeps assets the app has listed, so they are known without asking the library', async () => {
+    rememberAssets([asset('uploaded', 'image/webp')])
+    expect(await kitVariables('ws', 'brand-1', kit('uploaded'))).toMatchObject({ 'brand:logo': 'uploaded' })
+    expect(asked).toBe(0)
+  })
+})
+
+describe('knownAsset', () => {
+  it('gives an asset the app has listed, and none for another id or no id', () => {
+    rememberAssets([asset('listed', 'image/jpeg')])
+    expect(knownAsset('listed')?.contentType).toBe('image/jpeg')
+    expect(knownAsset('never-listed')).toBeUndefined()
+    expect(knownAsset(null)).toBeUndefined()
+  })
+})
+
+describe('kitLogo', () => {
+  it('looks the logo up in the library once, then knows it', async () => {
+    expect((await kitLogo('ws', 'brand-1', 'svg-logo'))?.contentType).toBe('image/svg+xml')
+    expect(knownAsset('svg-logo')?.id).toBe('svg-logo')
+    await kitLogo('ws', 'brand-1', 'svg-logo')
+    expect(asked).toBe(1)
+  })
+
+  it('gives none offline, and asks nothing for no logo', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('offline'))),
+    )
+    expect(await kitLogo('ws', 'brand-1', 'offline-logo')).toBeUndefined()
+    expect(await kitLogo('ws', 'brand-1', null)).toBeUndefined()
+  })
+})
+
 describe('kitVariables', () => {
-  it('gives brand:logo for an image logo found in the library, asking it once', async () => {
+  it('gives brand:logo for an image logo of the library', async () => {
     expect(await kitVariables('ws', 'brand-1', kit('png-logo'))).toEqual({
       'brand:primary': '#14213DFF',
       'brand:logo': 'png-logo',
     })
-    expect(knownLogo('png-logo')?.contentType).toBe('image/png')
-    await kitVariables('ws', 'brand-1', kit('png-logo'))
-    expect(asked).toBe(1)
   })
 
   it('gives no brand:logo for an SVG logo, a logo the library lacks, or a kit without one', async () => {
     expect(await kitVariables('ws', 'brand-1', kit('svg-logo'))).toEqual({ 'brand:primary': '#14213DFF' })
     expect(await kitVariables('ws', 'brand-1', kit('gone'))).toEqual({ 'brand:primary': '#14213DFF' })
     expect(await kitVariables('ws', 'brand-1', kit(null))).toEqual({ 'brand:primary': '#14213DFF' })
-  })
-
-  it('knows an asset the app has listed without asking the library', async () => {
-    rememberAssets([asset('uploaded', 'image/webp')])
-    expect(await kitVariables('ws', 'brand-1', kit('uploaded'))).toMatchObject({ 'brand:logo': 'uploaded' })
-    expect(asked).toBe(0)
   })
 })

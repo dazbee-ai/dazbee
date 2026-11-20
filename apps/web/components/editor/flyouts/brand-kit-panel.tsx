@@ -11,14 +11,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@dazbee/editor'
 import {
   type AssetSummary,
-  BINDABLE_PROPERTIES,
   bindablePropertyOf,
+  boundValueOf,
   type BrandKit,
   brandRef,
   brandVariables,
   type Design,
   inBrandRoleOrder,
-  isVectorAsset,
   LOGO_ROLE,
   type ValueKind,
 } from '@dazbee/schema'
@@ -26,7 +25,7 @@ import {
 import { useFontCatalog } from '@/components/brand-kit/font-catalog.ts'
 import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
-import { kitLogo, knownLogo } from '@/components/brand-kit/kit-logo.ts'
+import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { loadKit, useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
@@ -60,8 +59,22 @@ function follows(design: Design, ids: string[], kind: ValueKind, token: string) 
 /** Whether a layer shows a picture that can follow the logo: a graphic's or box's image fill. */
 function showsPicture(design: Design, id: string) {
   const node = design.nodes[id]
-  const property = node && bindablePropertyOf(node.type, 'image')
-  return !!property && BINDABLE_PROPERTIES[property].read(node.props) !== undefined
+  return !!node && boundValueOf(node.type, node.props, 'image') !== undefined
+}
+
+/** The kit's logo as an asset of the brand's library, once it is known; undefined for no logo. */
+function useKitLogo(workspaceId: string, brandId: string, logoAssetId: string | null) {
+  const [found, setFound] = useState<AssetSummary | undefined>(() => knownAsset(logoAssetId))
+  useEffect(() => {
+    let live = true
+    void kitLogo(workspaceId, brandId, logoAssetId).then((asset) => {
+      if (live) setFound(asset)
+    })
+    return () => {
+      live = false
+    }
+  }, [workspaceId, brandId, logoAssetId])
+  return found
 }
 
 export function BrandKitPanel({
@@ -94,7 +107,7 @@ export function BrandKitPanel({
    */
   const showVariables = (next: BrandKit) => {
     shown.current = next
-    const logo = knownLogo(next.logoAssetId)
+    const logo = knownAsset(next.logoAssetId)
     void editor.setVariables(brandVariables(next, logo))
     if (logo || !next.logoAssetId) return
     void kitLogo(workspaceId, brandId, next.logoAssetId).then((found) => {
@@ -119,10 +132,11 @@ export function BrandKitPanel({
   const heading = 'text-caption font-bold tracking-[0.08em] text-subtle uppercase'
   const modeButton = cn(CHIP, 'h-8 shrink-0 gap-1.5')
   const textSelected = selection.some((id) => design.nodes[id]?.type === 'text')
-  // An image logo can be followed by pictures; an SVG file is placed as layers that don't follow.
-  const logoFollowable = logoAsset !== undefined && logoAsset.id === kit.logoAssetId && !isVectorAsset(logoAsset)
   const pictureSelected = selection.some((id) => showsPicture(design, id))
   const followsLogo = follows(design, selection, 'image', LOGO_ROLE)
+  // Pictures follow an image logo; an SVG file is placed as layers that don't follow. Pictures that
+  // follow it can always be let go.
+  const logoFollowable = brandVariables(kit, logoAsset)[brandRef(LOGO_ROLE)] !== undefined || followsLogo
 
   /**
    * Puts the kit's logo on the design: an SVG file as layers, an image as a graphic filled with it
@@ -314,19 +328,4 @@ export function BrandKitPanel({
       />
     </div>
   )
-}
-
-/** The kit's logo as an asset of the brand's library, once it is known; undefined for no logo. */
-function useKitLogo(workspaceId: string, brandId: string, logoAssetId: string | null) {
-  const [found, setFound] = useState<AssetSummary | undefined>(() => knownLogo(logoAssetId))
-  useEffect(() => {
-    let live = true
-    void kitLogo(workspaceId, brandId, logoAssetId).then((asset) => {
-      if (live) setFound(asset)
-    })
-    return () => {
-      live = false
-    }
-  }, [workspaceId, brandId, logoAssetId])
-  return found
 }

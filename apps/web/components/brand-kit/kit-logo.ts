@@ -13,9 +13,9 @@ export function rememberAssets(assets: readonly AssetSummary[]) {
   for (const asset of assets) known.set(asset.id, asset)
 }
 
-/** The kit's logo by its id, when the app has listed it; undefined for no logo. */
-export function knownLogo(logoAssetId: string | null): AssetSummary | undefined {
-  return logoAssetId ? known.get(logoAssetId) : undefined
+/** An asset by its id, when the app has listed it; undefined for none. */
+export function knownAsset(assetId: string | null): AssetSummary | undefined {
+  return assetId ? known.get(assetId) : undefined
 }
 
 /**
@@ -27,13 +27,13 @@ export async function kitLogo(
   brandId: string,
   logoAssetId: string | null,
 ): Promise<AssetSummary | undefined> {
-  if (!logoAssetId || knownLogo(logoAssetId)) return knownLogo(logoAssetId)
+  if (!logoAssetId || knownAsset(logoAssetId)) return knownAsset(logoAssetId)
   const response = await fetch(brandPath(workspaceId, brandId, 'assets')).catch(() => null)
   if (response?.ok) {
     const listed = AssetSummary.array().safeParse(await response.json().catch(() => null))
     if (listed.success) rememberAssets(listed.data)
   }
-  return knownLogo(logoAssetId)
+  return knownAsset(logoAssetId)
 }
 
 /** The values the kit gives its tokens, the logo's included once it is known. */

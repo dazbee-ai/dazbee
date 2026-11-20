@@ -6,6 +6,7 @@ import {
   bindablePropertyOf,
   Bindings,
   bindProps,
+  boundValueOf,
   BrandToken,
   canBind,
   fitsProperty,
@@ -219,6 +220,20 @@ describe('bindablePropertyOf', () => {
     expect(bindablePropertyOf('box', 'image')).toBe('image')
     expect(bindablePropertyOf('boolean', 'image')).toBeUndefined()
     expect(bindablePropertyOf('text', 'image')).toBeUndefined()
+  })
+})
+
+describe('boundValueOf', () => {
+  it('reads the value of a kind a layer holds: a graphic’s picture or fill colour, a text’s colour or font', () => {
+    const fills = [
+      { type: 'solid', color: red },
+      { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 1 },
+    ]
+    expect(boundValueOf('graphic', { fills }, 'image')).toBe('logo-1')
+    expect(boundValueOf('graphic', { fills }, 'color')).toBe(red)
+    expect(boundValueOf('graphic', { fills: [] }, 'image')).toBeUndefined()
+    expect(boundValueOf('text', textProps, 'font')).toBe('Noto Sans')
+    expect(boundValueOf('text', textProps, 'image')).toBeUndefined()
   })
 })
 

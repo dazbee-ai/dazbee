@@ -427,6 +427,24 @@ describe('editorTyping', () => {
       expect(textOf('title')).toBe('A\nB!o')
     })
 
+    it('types a key or a paste over a bold word after plain text in the bold of that word', () => {
+      const { typing, session, textOf, type } = harness()
+      const runsOf = () => {
+        const node = session.design().nodes.title
+        return node?.type === 'text' ? node.props.runs : undefined
+      }
+      typing.start('title', 'sq', 0)
+      typing.styleRange({ id: 'title', range: { start: 3, end: 5 } }, { fontWeight: 700 })
+      typing.selectText({ start: 3, end: 5 })
+      type('p')
+      expect(textOf('title')).toBe('Help')
+      expect(runsOf()).toEqual([{ start: 3, end: 4, style: { fontWeight: 700 } }])
+      typing.selectText({ start: 3, end: 4 })
+      typing.paste({ text: 'lo!' })
+      expect(textOf('title')).toBe('Hello!')
+      expect(runsOf()).toEqual([{ start: 3, end: 6, style: { fontWeight: 700 } }])
+    })
+
     it('leaves a payload with no plain text untaken, the text as it was', () => {
       const { typing, textOf } = harness()
       typing.start('title', 'sq', 0)

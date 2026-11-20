@@ -8,8 +8,10 @@ import {
   type FitText,
   flippedPoint,
   flippedRect,
+  replaceRangeOps,
   type Session,
   type TextAnchor,
+  type TextOp,
 } from '@dazbee/doc'
 import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
 import type { Point, Rect, TextStyle } from '@dazbee/schema'
@@ -291,6 +293,10 @@ export function editorTyping({
     if (editing.created && node?.type === 'text' && node.props.text === '') return
     endStep()
   }
+  /** Runs text edits on a text layer, in order. */
+  function editText(id: string, ops: readonly TextOp[]) {
+    for (const op of ops) session.run('text.edit', { id, op })
+  }
   /** Ends typing, closing its undo step. */
   function stopEditing() {
     if (!editing) return
@@ -420,11 +426,7 @@ export function editorTyping({
     const byWord = e.ctrlKey || e.altKey
     /** Replaces the selected range with text, or with nothing; the caret ends after what went in. */
     const replace = (inserted: string) => {
-      const ok = write(() => {
-        if (selected)
-          session.run('text.edit', { id, op: { kind: 'delete', at: range.start, length: range.end - range.start } })
-        if (inserted) session.run('text.edit', { id, op: { kind: 'insert', at: range.start, text: inserted } })
-      })
+      const ok = write(() => editText(id, replaceRangeOps(text, range.start, range.end, inserted)))
       // The anchor sits after the character before the caret, so inserting at the caret leaves it
       // before the new text; it is moved past it.
       if (ok) caretTo(range.start + inserted.length)
@@ -540,10 +542,7 @@ export function editorTyping({
     const pasted = paragraphsOf(payload.text)
     const { id } = editing
     const { start, end } = at.range
-    const ok = write(() => {
-      if (end > start) session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } })
-      session.run('text.edit', { id, op: { kind: 'insert', at: start, text: pasted } })
-    })
+    const ok = write(() => editText(id, replaceRangeOps(at.text, start, end, pasted)))
     if (ok) caretTo(start + pasted.length)
     fitText(id)
     shownChanged()

@@ -27,7 +27,7 @@ const FIT_LOOK: Record<ImageFit, CSSProperties> = {
 }
 
 /** A fit's tile: the picture over its name, tinted while it is the fit in use. */
-const TILE = `flex min-h-11 min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-[9px] px-1 py-1.5 text-caption font-semibold text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover aria-pressed:bg-accent-soft aria-pressed:text-accent-text ${FOCUS_RING}`
+const TILE = `flex min-h-11 min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-[9px] px-1 py-1.5 text-caption text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover aria-pressed:bg-accent-soft aria-pressed:text-accent-text ${FOCUS_RING}`
 
 /**
  * The fit's tiles for the photo the selected layers share (`photo`, its fill and where it

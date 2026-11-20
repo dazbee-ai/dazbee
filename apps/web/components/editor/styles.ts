@@ -130,7 +130,7 @@ export const RENAME_IN_ROW =
   'h-7 min-w-0 flex-1 rounded-[6px] border border-accent bg-field px-1.5 text-small outline-none'
 
 /** A small name over or beside a card's field. */
-export const FIELD_LABEL = 'text-tiny font-semibold text-muted'
+export const FIELD_LABEL = 'text-tiny font-medium text-muted'
 
 /** A dropdown field's box, as tall as a knob. */
 export const SELECT = 'h-8 w-full bg-field px-1.5 text-label'
@@ -141,7 +141,7 @@ export const SELECT = 'h-8 w-full bg-field px-1.5 text-label'
  * typed in (`data-typing`) its edge is the accent, under the pointer too; while it is dragged
  * (`data-scrubbing`) the fill keeps up with the pointer. On a phone or a touch screen it is 44 px tall.
  */
-export const KNOB = `relative flex h-8 min-w-0 cursor-ew-resize touch-pan-y select-none items-center gap-2 overflow-hidden rounded-row border border-field-line bg-field px-2.5 text-label font-semibold text-muted transition-colors duration-[var(--chrome-fast)] hover:border-line-strong data-typing:border-accent ${TOUCH_FIELD} data-scrubbing:before:transition-none before:pointer-events-none before:absolute before:inset-y-0 before:start-[var(--fill-from,0%)] before:w-[var(--fill,0%)] before:bg-accent-soft before:transition-[width] before:duration-75 data-ranged:after:pointer-events-none data-ranged:after:absolute data-ranged:after:inset-y-1.5 data-ranged:after:start-[clamp(3px,var(--fill-at),calc(100%-3px))] data-ranged:after:w-0.5 data-ranged:after:-translate-x-1/2 data-ranged:after:rounded-full data-ranged:after:bg-accent data-ranged:after:shadow-[0_0_8px_rgb(255_72_176/0.7)] rtl:data-ranged:after:translate-x-1/2`
+export const KNOB = `relative flex h-8 min-w-0 cursor-ew-resize touch-pan-y select-none items-center gap-2 overflow-hidden rounded-row border border-field-line bg-field px-2.5 text-label font-normal text-muted transition-colors duration-[var(--chrome-fast)] hover:border-line-strong data-typing:border-accent ${TOUCH_FIELD} data-scrubbing:before:transition-none before:pointer-events-none before:absolute before:inset-y-0 before:start-[var(--fill-from,0%)] before:w-[var(--fill,0%)] before:bg-accent-soft before:transition-[width] before:duration-75 data-ranged:after:pointer-events-none data-ranged:after:absolute data-ranged:after:inset-y-1.5 data-ranged:after:start-[clamp(3px,var(--fill-at),calc(100%-3px))] data-ranged:after:w-0.5 data-ranged:after:-translate-x-1/2 data-ranged:after:rounded-full data-ranged:after:bg-accent data-ranged:after:shadow-[0_0_8px_rgb(255_72_176/0.7)] rtl:data-ranged:after:translate-x-1/2`
 /** Knobs two to a row, 8 px apart on a phone or a touch screen; a lone last one takes the whole row. */
 export const KNOBS = `grid grid-cols-2 gap-1.5 ${TOUCH_GAP} [&>:last-child:nth-child(odd)]:col-span-2`
 
@@ -154,31 +154,31 @@ export const SWITCH =
  * A choice as a small chip: an icon and a short name on the well, tinted with a ring while it is on
  * (pressed, or checked in a radio group). Effects and an outline's look show their choices so.
  */
-export const ICON_CHIP = `flex h-[34px] ${TOUCH_ROW} min-w-0 cursor-pointer items-center gap-1 rounded-row bg-well px-2 text-label font-medium whitespace-nowrap text-muted transition-colors duration-[var(--chrome-fast)] [--icon-ground:var(--color-well)] hover:text-text aria-pressed:bg-accent-soft aria-pressed:text-text aria-pressed:shadow-[inset_0_0_0_1.5px_var(--accent)] aria-checked:bg-accent-soft aria-checked:text-text aria-checked:shadow-[inset_0_0_0_1.5px_var(--accent)] ${FOCUS_RING}`
+export const ICON_CHIP = `flex h-[34px] ${TOUCH_ROW} min-w-0 cursor-pointer items-center gap-1 rounded-row bg-well px-2 text-label font-normal whitespace-nowrap text-muted transition-colors duration-[var(--chrome-fast)] [--icon-ground:var(--color-well)] hover:text-text aria-pressed:bg-accent-soft aria-pressed:text-text aria-pressed:shadow-[inset_0_0_0_1.5px_var(--accent)] aria-checked:bg-accent-soft aria-checked:text-text aria-checked:shadow-[inset_0_0_0_1.5px_var(--accent)] ${FOCUS_RING}`
 
-export const TILE = `group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-caption font-semibold text-muted aria-pressed:text-text aria-checked:text-text ${FOCUS_RING}`
+export const TILE = `group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-caption font-normal text-muted aria-pressed:text-text aria-checked:text-text ${FOCUS_RING}`
 const TILE_FACE_BASE =
   'grid w-full place-items-center overflow-hidden rounded-[10px] border border-line bg-bg/60 transition-colors duration-[var(--chrome-fast)] group-hover:border-line-strong group-aria-pressed:border-accent group-aria-pressed:ring-1 group-aria-pressed:ring-inset group-aria-pressed:ring-accent group-aria-checked:border-accent group-aria-checked:ring-1 group-aria-checked:ring-inset group-aria-checked:ring-accent'
 /** The picture of a TILE, wider than tall. A chosen one's ring is drawn inside it, so a panel's edge never cuts it. */
 export const TILE_FACE_WIDE = `${TILE_FACE_BASE} aspect-[3/2]`
 /** A row that turns something on or off, with role="switch": its words, then the switch; 44 px tall on a phone or a touch screen. */
-export const SWITCH_ROW = `group flex h-8 ${TOUCH_FIELD} w-full cursor-pointer items-center justify-between gap-3 rounded-row text-small font-semibold text-text ${FOCUS_RING}`
+export const SWITCH_ROW = `group flex h-8 ${TOUCH_FIELD} w-full cursor-pointer items-center justify-between gap-3 rounded-row text-small font-normal text-text ${FOCUS_RING}`
 
 /** One part of an edit panel or pop-up: a card's controls under a small heading, a hairline above all but the first. */
 export const PANEL_PART = 'flex flex-col gap-2.5 border-t border-line pt-3 first:border-t-0 first:pt-0'
 /** A small heading over a group of choices: a part's under a section's title, Add a frame's channels, the font chooser's groups. */
-export const PANEL_HEADING = 'text-tiny font-semibold text-muted'
+export const PANEL_HEADING = 'text-tiny font-medium text-muted'
 /** A switcher tab's section title: a step above the headings of the parts inside it. */
 export const SECTION_TITLE = 'text-small font-bold text-text'
 /**
  * A boxed button of an edit panel that acts at once: its icon, then its words, or its icon alone,
  * 44 px tall on a phone or a touch screen. The hover and pressed tints are laid over its fill.
  */
-export const PANEL_BUTTON = `flex h-[34px] ${TOUCH_FIELD} min-w-0 cursor-pointer items-center gap-2 rounded-row border border-field-line bg-field px-2.5 text-label font-medium whitespace-nowrap text-text transition-colors duration-[var(--chrome-fast)] hover:tint-hover active:tint-pressed disabled:cursor-not-allowed disabled:opacity-45 [&>span]:truncate ${FOCUS_RING}`
+export const PANEL_BUTTON = `flex h-[34px] ${TOUCH_FIELD} min-w-0 cursor-pointer items-center gap-2 rounded-row border border-field-line bg-field px-2.5 text-label font-normal whitespace-nowrap text-text transition-colors duration-[var(--chrome-fast)] hover:tint-hover active:tint-pressed disabled:cursor-not-allowed disabled:opacity-45 [&>span]:truncate ${FOCUS_RING}`
 /** An edit panel's button among many that act at once, as Position's moves: unfilled, lit by the tints. */
-export const PANEL_ACTION = `flex h-[34px] min-w-0 cursor-pointer items-center gap-2 rounded-row px-2.5 text-label font-medium whitespace-nowrap text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover active:bg-pressed disabled:cursor-not-allowed disabled:opacity-45 [&>span]:truncate ${FOCUS_RING}`
+export const PANEL_ACTION = `flex h-[34px] min-w-0 cursor-pointer items-center gap-2 rounded-row px-2.5 text-label font-normal whitespace-nowrap text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover active:bg-pressed disabled:cursor-not-allowed disabled:opacity-45 [&>span]:truncate ${FOCUS_RING}`
 /** A switch shaped as a knob, its name at the start: Lock ratio among the size fields; as tall as a knob. */
-export const KNOB_SWITCH = `group flex h-8 ${TOUCH_FIELD} min-w-0 cursor-pointer items-center justify-between gap-2 rounded-row border border-field-line bg-field px-2.5 text-label font-semibold whitespace-nowrap text-muted transition-colors duration-[var(--chrome-fast)] hover:border-line-strong aria-checked:text-text ${FOCUS_RING}`
+export const KNOB_SWITCH = `group flex h-8 ${TOUCH_FIELD} min-w-0 cursor-pointer items-center justify-between gap-2 rounded-row border border-field-line bg-field px-2.5 text-label font-normal whitespace-nowrap text-muted transition-colors duration-[var(--chrome-fast)] hover:border-line-strong aria-checked:text-text ${FOCUS_RING}`
 
 /** On a phone, a row of bar buttons (the small menu's) makes each a 44 px target, 8 px from the next. */
 export const BAR_TOUCH =

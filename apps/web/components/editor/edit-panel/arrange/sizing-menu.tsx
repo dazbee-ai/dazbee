@@ -71,7 +71,7 @@ export function SizingMenu({
         else if (to === 'remove') set(target, () => noLimits(axis))
         else target.editor.setSizing(target.ids, { [axis]: to as Sizing })
       }}
-      className="h-full gap-0.5 border-0 bg-transparent px-1 text-label font-semibold text-text hover:bg-hover"
+      className="h-full gap-0.5 border-0 bg-transparent px-1 text-label text-text hover:bg-hover"
     />
   )
 }

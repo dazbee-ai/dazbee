@@ -511,3 +511,68 @@ export const fontFaces = pgTable(
     ),
   ],
 )
+
+/**
+ * A program that registered to sign agents in through OAuth (ADR-0019), such as Claude Code: its name and
+ * the addresses it may be sent back to. Registration is open, so a name is the client's own word.
+ */
+export const agentClients = pgTable('agent_clients', {
+  id: text().primaryKey(),
+  name: text().notNull(),
+  redirectUris: jsonb('redirect_uris').$type<string[]>().notNull(),
+  createdAt: createdAt(),
+})
+
+/**
+ * An agent access (ADR-0019): what a member let one agent do in one workspace: the brands it may open, a list
+ * or null for every brand the member sees, and whether it writes. It never reaches more than the membership
+ * does, read again on every request. It goes with the person or the workspace, and is marked ended when the
+ * member ends it, leaves or is removed, so being invited back brings none back.
+ */
+export const agentAccesses = pgTable(
+  'agent_accesses',
+  {
+    id: text().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    brandIds: jsonb('brand_ids').$type<string[]>(),
+    writes: boolean().notNull(),
+    /** The client that signed the agent in; null once its registration is gone, when the name still names it. */
+    clientId: text('client_id').references(() => agentClients.id, { onDelete: 'set null' }),
+    clientName: text('client_name').notNull(),
+    createdAt: createdAt(),
+    /** When a token of it was last taken, written at most once a minute; null until its first use. */
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+  },
+  (t) => [index('agent_accesses_member').on(t.workspaceId, t.userId)],
+)
+
+/** The kinds of agent token: an access token, sent with each request, and the refresh token that renews it. */
+export const AGENT_TOKEN_KINDS = ['access', 'refresh'] as const
+
+/**
+ * A token of an agent access, kept only as the SHA-256 of the token, so no row holds a token. A refresh token
+ * is swapped once for a new pair; `swapped_at` says when.
+ */
+export const agentTokens = pgTable(
+  'agent_tokens',
+  {
+    hash: text().primaryKey(),
+    accessId: text('access_id')
+      .notNull()
+      .references(() => agentAccesses.id, { onDelete: 'cascade' }),
+    kind: text({ enum: AGENT_TOKEN_KINDS }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    swappedAt: timestamp('swapped_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('agent_tokens_access').on(t.accessId),
+    check('agent_tokens_kind', sql`${t.kind} in ('access', 'refresh')`),
+  ],
+)

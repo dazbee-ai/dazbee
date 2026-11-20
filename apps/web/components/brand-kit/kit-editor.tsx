@@ -6,29 +6,21 @@
 // colour or font; the Brand kit page shows it laid out wide, without them.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { AssetSummary, type BrandColor, type BrandFont, type BrandKit, freeToken } from '@dazbee/schema'
+import { AssetSummary, type BrandKit } from '@dazbee/schema'
 
-import { CheckIcon, PaintBucketIcon, PlusIcon, TextAaIcon, UploadSimpleIcon, XIcon } from '@/components/ui/icons.tsx'
-import { DASHED_BUTTON } from '@/components/ui/looks.ts'
+import { UploadSimpleIcon } from '@/components/ui/icons.tsx'
 import { Select } from '@/components/ui/select.tsx'
 import { brandPath, readJson } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
-import { hexOf, hexText, parseHex } from '@/lib/colour.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 import { ASSET_ACCEPT, sendAsset } from '@/lib/upload-asset.ts'
 
 import { useFontCatalog } from './font-catalog.ts'
+import { KitColours } from './kit-colours.tsx'
+import { KitFonts } from './kit-fonts.tsx'
+import { heading, iconButton, type KitBinding } from './kit-parts.ts'
 import { saveKit, showKit } from './use-brand-kit.ts'
-
-/** Binds the selected layers to a kit colour or font, in the editor. */
-interface KitBinding {
-  follows: (kind: 'color' | 'font', token: string) => boolean
-  apply: (kind: 'color' | 'font', token: string) => void
-  /** Whether anything is selected that can follow a colour, or a font. */
-  canColor: boolean
-  canFont: boolean
-}
 
 /** How long a run of changes (a colour picker's drag) waits before it is saved. */
 const SAVE_DELAY_MS = 400
@@ -108,10 +100,9 @@ export function KitEditor({
       .catch(() => undefined)
   }, [workspaceId, brandId])
 
-  const setColor = (i: number, patch: Partial<BrandColor>) =>
-    change({ ...kit, colors: kit.colors.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
-  const setFont = (i: number, patch: Partial<BrandFont>) =>
-    change({ ...kit, fonts: kit.fonts.map((f, j) => (j === i ? { ...f, ...patch } : f)) })
+  const section = wide
+    ? 'flex min-w-0 flex-col gap-2.5 rounded-[16px] border border-line bg-bg/40 p-4'
+    : 'flex flex-col gap-2.5 border-t border-line px-[18px] py-4'
   const uploadLogo = (file: File) => {
     setUpload({ progress: 0 })
     sendAsset(workspaceId, brandId, file, (progress) => setUpload({ progress }))
@@ -123,175 +114,10 @@ export function KitEditor({
       .catch((e: unknown) => setUpload({ error: e instanceof Error ? e.message : String(e) }))
   }
   const families = [...new Set(catalog.map((f) => f.family))]
-  // As the mock's flyouts: small spaced capitals over each part, quiet fields, round swatches.
-  const heading = 'text-caption font-bold tracking-[0.08em] text-subtle uppercase'
-  const section = wide
-    ? 'flex min-w-0 flex-col gap-2.5 rounded-[16px] border border-line bg-bg/40 p-4'
-    : 'flex flex-col gap-2.5 border-t border-line px-[18px] py-4'
-  const field =
-    'h-8 min-w-0 rounded-[8px] border border-line bg-bg/40 px-2 text-small hover:border-line-strong focus:border-accent focus:outline-none'
-  const iconButton =
-    'grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-subtle hover:bg-hover hover:text-text active:bg-pressed active:text-text disabled:cursor-default disabled:opacity-40 aria-pressed:bg-accent-soft aria-pressed:text-text'
-
-  const colours = (
-    <section key="colours" aria-labelledby="kit-colors" className={section}>
-      <h3 id="kit-colors" className={heading}>
-        {t.colors}
-      </h3>
-      <ul className="flex flex-col gap-1.5">
-        {kit.colors.map((c, i) => {
-          const on = binding?.follows('color', c.token) ?? false
-          return (
-            <li key={c.token} data-token={c.token} className="flex items-start gap-1.5">
-              <input
-                name="colour"
-                type="color"
-                value={hexOf(c.value)}
-                aria-label={format(t.pick, { name: c.name })}
-                onChange={(e) => setColor(i, { value: `${e.target.value}${c.value.slice(7)}`.toUpperCase() })}
-                className="h-16 w-12 shrink-0 cursor-pointer rounded-[12px] border border-line-strong bg-transparent p-0 [&::-webkit-color-swatch]:rounded-[11px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-moz-color-swatch]:rounded-[11px] [&::-moz-color-swatch]:border-0"
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <input
-                  name="colour-name"
-                  key={`name-${c.name}`}
-                  defaultValue={c.name}
-                  aria-label={format(t.colorName, { n: i + 1 })}
-                  maxLength={60}
-                  onBlur={(e) =>
-                    e.target.value.trim() &&
-                    e.target.value.trim() !== c.name &&
-                    setColor(i, { name: e.target.value.trim() })
-                  }
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                  className={field}
-                />
-                <input
-                  name="colour-hex"
-                  key={`hex-${c.value}`}
-                  defaultValue={hexText(c.value)}
-                  aria-label={format(t.colorValue, { name: c.name })}
-                  spellCheck={false}
-                  onBlur={(e) => {
-                    const value = parseHex(e.target.value)
-                    if (value && value !== c.value) setColor(i, { value })
-                    else e.target.value = hexText(c.value)
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                  className={cn(field, 'h-7 font-mono text-tiny uppercase')}
-                />
-              </div>
-              {binding && (
-                <button
-                  type="button"
-                  aria-label={format(on ? t.unbind : t.apply, { name: c.name })}
-                  aria-pressed={on}
-                  disabled={!binding.canColor}
-                  onClick={() => binding.apply('color', c.token)}
-                  className={iconButton}
-                >
-                  {on ? <CheckIcon size={15} aria-hidden /> : <PaintBucketIcon size={15} aria-hidden />}
-                </button>
-              )}
-              <button
-                type="button"
-                aria-label={format(t.remove, { name: c.name })}
-                onClick={() => change({ ...kit, colors: kit.colors.filter((_, j) => j !== i) })}
-                className={iconButton}
-              >
-                <XIcon size={13} aria-hidden />
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      <button
-        type="button"
-        onClick={() => {
-          const name = format(t.newColor, { n: kit.colors.length + 1 })
-          change({ ...kit, colors: [...kit.colors, { token: freeToken(kit, name), name, value: '#000000FF' }] })
-        }}
-        className={DASHED_BUTTON}
-      >
-        <PlusIcon size={13} aria-hidden />
-        {t.addColor}
-      </button>
-    </section>
-  )
+  const colours = <KitColours key="colours" kit={kit} change={change} binding={binding} section={section} />
 
   const fonts = (
-    <section key="fonts" aria-labelledby="kit-fonts" className={section}>
-      <h3 id="kit-fonts" className={heading}>
-        {t.fonts}
-      </h3>
-      <ul className="flex flex-col gap-1.5">
-        {kit.fonts.map((f, i) => {
-          const on = binding?.follows('font', f.token) ?? false
-          return (
-            <li key={f.token} data-token={f.token} className="flex items-start gap-1.5">
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <input
-                  name="font-name"
-                  key={`name-${f.name}`}
-                  defaultValue={f.name}
-                  aria-label={format(t.fontName, { n: i + 1 })}
-                  maxLength={60}
-                  onBlur={(e) =>
-                    e.target.value.trim() &&
-                    e.target.value.trim() !== f.name &&
-                    setFont(i, { name: e.target.value.trim() })
-                  }
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                  className={field}
-                />
-                <Select
-                  name="font-family"
-                  label={format(t.fontFamily, { name: f.name })}
-                  value={f.family}
-                  options={[...new Set([f.family, ...families])].map((family) => ({ value: family, label: family }))}
-                  onChange={(family) => setFont(i, { family })}
-                  className="h-7 bg-bg/40 px-2 text-tiny"
-                />
-              </div>
-              {binding && (
-                <button
-                  type="button"
-                  aria-label={format(on ? t.unbind : t.apply, { name: f.name })}
-                  aria-pressed={on}
-                  disabled={!binding.canFont}
-                  onClick={() => binding.apply('font', f.token)}
-                  className={iconButton}
-                >
-                  {on ? <CheckIcon size={15} aria-hidden /> : <TextAaIcon size={15} aria-hidden />}
-                </button>
-              )}
-              <button
-                type="button"
-                aria-label={format(t.remove, { name: f.name })}
-                onClick={() => change({ ...kit, fonts: kit.fonts.filter((_, j) => j !== i) })}
-                className={iconButton}
-              >
-                <XIcon size={13} aria-hidden />
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      <button
-        type="button"
-        onClick={() => {
-          const name = format(t.newFont, { n: kit.fonts.length + 1 })
-          change({
-            ...kit,
-            fonts: [...kit.fonts, { token: freeToken(kit, name), name, family: families[0] ?? 'Noto Sans' }],
-          })
-        }}
-        className={DASHED_BUTTON}
-      >
-        <PlusIcon size={13} aria-hidden />
-        {t.addFont}
-      </button>
-    </section>
+    <KitFonts key="fonts" kit={kit} change={change} binding={binding} section={section} families={families} />
   )
 
   const logo = (

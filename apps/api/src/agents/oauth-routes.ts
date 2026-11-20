@@ -10,9 +10,9 @@ import type { Db } from '@dazbee/db'
 import {
   AGENT_CLIENT_IP_HEADER,
   AGENT_RESOURCE_HEADER,
+  type AgentAuthorizationRequest,
   AgentConsent,
   type AgentRedirect,
-  type AgentAuthorizationRequest,
   OAuthParams,
   roleWrites,
 } from '@dazbee/schema'
@@ -30,8 +30,8 @@ import {
   refusal,
   registerClient,
   startAuthorization,
-  type Swapped,
   swapCode,
+  type Swapped,
 } from './oauth.ts'
 
 /** How many clients one address may register within an hour. */

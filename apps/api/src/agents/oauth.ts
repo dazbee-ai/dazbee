@@ -192,17 +192,20 @@ export async function deny(db: Db, request: string, now = new Date()): Promise<s
  * tokens. The code works once, for its client, with its redirect URI and the verifier of its challenge, within
  * 60 seconds, while its person is still a member of its workspace; used again, it ends the access it gave.
  */
-export async function swapCode(db: Db, params: OAuthParams, resource: string | null, now = new Date()): Promise<Swapped> {
+export async function swapCode(
+  db: Db,
+  params: OAuthParams,
+  resource: string | null,
+  now = new Date(),
+): Promise<Swapped> {
   const { code, redirect_uri: redirectUri, code_verifier: verifier, client_id: clientId } = params
   if (!code || !redirectUri || !verifier || !clientId)
     return refusal('invalid_request', 'Give code, redirect_uri, code_verifier and client_id')
   if (params.resource !== undefined && params.resource !== resource)
     return refusal('invalid_target', 'Dazbee signs agents in only for its MCP server')
-  const [client] = await db
-    .select({ name: agentClients.name })
-    .from(agentClients)
-    .where(eq(agentClients.id, clientId))
-  if (!client) return { ok: false, status: 401, error: { error: 'invalid_client', error_description: 'No such client' } }
+  const [client] = await db.select({ name: agentClients.name }).from(agentClients).where(eq(agentClients.id, clientId))
+  if (!client)
+    return { ok: false, status: 401, error: { error: 'invalid_client', error_description: 'No such client' } }
 
   return db.transaction(async (tx): Promise<Swapped> => {
     const [row] = await tx
@@ -239,7 +242,8 @@ export function refusal(error: string, description: string): Swapped & { ok: fal
 
 /** Why a redirect URI can't be registered, or null when it can: `https://`, or `http://` on this machine. */
 function redirectUriProblem(uri: unknown): string | null {
-  if (typeof uri !== 'string' || uri.length > MAX_REDIRECT_URI) return `is not an address of at most ${MAX_REDIRECT_URI} characters`
+  if (typeof uri !== 'string' || uri.length > MAX_REDIRECT_URI)
+    return `is not an address of at most ${MAX_REDIRECT_URI} characters`
   let url: URL
   try {
     url = new URL(uri)

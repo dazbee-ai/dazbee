@@ -134,12 +134,7 @@ export async function findAccessOfToken(db: Db, token: string, now = new Date())
  * one of an ended access or of a person no longer a member, is refused, and so is one of another client than
  * `clientId`, when given, without marking it.
  */
-export async function refreshTokens(
-  db: Db,
-  token: string,
-  now = new Date(),
-  clientId?: string,
-): Promise<Refreshed> {
+export async function refreshTokens(db: Db, token: string, now = new Date(), clientId?: string): Promise<Refreshed> {
   if (!token.startsWith(REFRESH_TOKEN_PREFIX)) return refused
   return db.transaction(async (tx) => {
     const [row] = await tx

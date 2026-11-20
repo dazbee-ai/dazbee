@@ -265,6 +265,51 @@ describe('runAgentBatchWithWarnings', () => {
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'safeZone']])
   })
 
+  it('checks the layers left in the box a layer was moved out of', () => {
+    const holder = {
+      type: 'box',
+      index: 'a2',
+      name: 'Holder',
+      parentId: 'story',
+      link: 'holder',
+      props: { x: 0, y: 300, width: 360, height: 100 },
+    }
+    const note = {
+      ...title,
+      name: 'Note',
+      parentId: 'holder',
+      link: 'note',
+      props: { ...title.props, y: 300, style: { ...style, fontFamily: 'Nowhere Sans' } },
+    }
+    const dot = { ...square, name: 'Dot', parentId: 'holder', link: 'dot', props: { ...square.props, y: 320 } }
+    const session = openSession(plainStore(storyWith({ more: { holder, note, dot } })))
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [{ command: 'node.move', input: { id: 'dot', parentId: 'story' } }],
+      bytes,
+    )
+    expect(result.kept).toBe(true)
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['note', 'missingFont']])
+  })
+
+  it('keeps the outcome of a kept batch when its warnings cannot be read', () => {
+    const session = open()
+    const broken = { ...bytes, images: { torn: new Uint8Array([1, 2, 3]) } }
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [{ command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } }],
+      broken,
+    )
+    expect(result).toMatchObject({
+      kept: true,
+      warnings: [],
+      warningsError: 'CanvasKit can\'t decode the image for asset "torn"',
+    })
+    expect(result.steps[0]).toMatchObject({ ok: true, result: expect.any(String) })
+  })
+
   it('checks every layer of a frame the batch changed', () => {
     const session = open()
     const result = runAgentBatchWithWarnings(

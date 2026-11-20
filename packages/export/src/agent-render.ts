@@ -37,8 +37,8 @@ const SHRINK_MARGIN = 0.9
  * Frame `frameId` as a PNG for an agent to look at: scaled so its longer side is at most
  * `maxSize` pixels, and never past AGENT_RENDER_MAX_SCALE, then drawn smaller until the PNG takes
  * at most `maxBytes`. A PNG's bytes grow about as its pixels do, so each try scales by the square
- * root of the share it may keep, a little less. Throws when even a longer side of 16 pixels is
- * over the limit.
+ * root of the share it may keep, a little less, and none below a longer side of 16 pixels. Throws
+ * when the PNG is over the limit at that smallest scale.
  */
 export function agentRender(
   ck: CanvasKit,
@@ -62,8 +62,9 @@ export function agentRender(
     const draw = () => renderEncoded(ck, design, frameId, bytes, { format: 'png', scale }, owned)
     let png = draw()
     while (png.length > maxBytes) {
-      scale *= Math.sqrt(maxBytes / png.length) * SHRINK_MARGIN
-      if (longer * scale < least) throw new Error(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
+      const smallest = least / longer
+      if (scale <= smallest) throw new Error(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
+      scale = Math.max(smallest, scale * Math.sqrt(maxBytes / png.length) * SHRINK_MARGIN)
       png = draw()
     }
     return { png, width: Math.ceil(frame.width * scale), height: Math.ceil(frame.height * scale), scale }

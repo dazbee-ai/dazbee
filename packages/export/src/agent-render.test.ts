@@ -86,6 +86,13 @@ describe('agentRender', () => {
     expect(decoded(shot.png, 0, 0).size).toEqual([shot.width, shot.height])
   })
 
+  it('tries a longer side of 16 pixels before refusing', () => {
+    const design = designOfSize(4000, 2000)
+    const smallest = agentRender(ck, design, 'f', bytes, { maxSize: 16 })
+    const shot = agentRender(ck, design, 'f', bytes, { maxBytes: smallest.png.length })
+    expect([shot.width, shot.height]).toEqual([16, 8])
+  })
+
   it('refuses a byte limit no render of the frame fits', () => {
     expect(() => agentRender(ck, designOfSize(4000, 2000), 'f', bytes, { maxBytes: 10 })).toThrow(
       'no render of frame "f" fits in 10 bytes',

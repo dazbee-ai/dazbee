@@ -50,8 +50,11 @@ export interface AgentWarningOptions {
   cache?: ResourceCache
 }
 
-/** What came of an agent's batch, with the warnings for the layers it touched. */
-export type AgentBatchWarned = AgentBatchResult & { warnings: AgentWarning[] }
+/**
+ * What came of an agent's batch, with the warnings for the layers it touched; when those could
+ * not be read, none, and `warningsError` says why.
+ */
+export type AgentBatchWarned = AgentBatchResult & { warnings: AgentWarning[]; warningsError?: string }
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
@@ -125,10 +128,9 @@ export function frameWarnings(
 
 /**
  * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, then warns of what the
- * batch touched, as frameWarnings tells it, in the design's order of frames. A layer it added,
- * changed or took out touches the layers inside it, and, in a box that lays out its layers, every
- * layer of the outermost such box, whose layers it may have moved; a frame it changed touches
- * every layer of it. A batch not kept has no warnings.
+ * batch touched, as frameWarnings tells it, in the design's order of frames. A batch not kept has
+ * no warnings. Once the batch is kept nothing is thrown: a check that fails gives `warningsError`,
+ * so the caller still learns what the batch wrote.
  */
 export function runAgentBatchWithWarnings(
   ck: CanvasKit,
@@ -144,34 +146,24 @@ export function runAgentBatchWithWarnings(
   const result = runAgentBatch(session, steps)
   if (!result.kept) return { ...result, warnings: [] }
   const design = session.design()
-  /** The layers to check in each frame, or `all` of them. */
-  const touched = new Map<string, Set<string> | 'all'>()
-  for (const [frameId, frame] of Object.entries(design.frames))
-    if (!sameValue(ownValue(framesBefore, frameId), frame)) touched.set(frameId, 'all')
-  const changed = new Set([...Object.keys(nodesBefore), ...Object.keys(design.nodes)])
-  for (const id of changed) {
-    const node = ownValue(design.nodes, id)
-    if (sameValue(ownValue(nodesBefore, id), node)) continue
-    // A layer taken out touches what held it.
-    const from = node ? id : nodesBefore[id]?.parentId
-    const frameId = from === undefined ? undefined : frameIdOf(design, from)
-    if (from === undefined || frameId === undefined) continue
-    const ids = touched.get(frameId) ?? new Set<string>()
-    if (ids === 'all') continue
-    const top = outermostLaidOut(design, from)
-    for (const each of [top, ...descendants(design, top)]) if (each !== frameId) ids.add(each)
-    touched.set(frameId, ids)
-  }
-  const owned = cache ?? resourceCache(ck)
+  let owned: ResourceCache | undefined
   try {
+    const touched = touchedLayers(design, nodesBefore, framesBefore)
+    owned = cache ?? resourceCache(ck)
+    const resources = owned
     const warnings = Object.keys(design.frames).flatMap((frameId) => {
       const ids = touched.get(frameId)
       if (ids === undefined) return []
-      return frameWarnings(ck, design, frameId, bytes, { ...(ids === 'all' ? {} : { layerIds: ids }), cache: owned })
+      return frameWarnings(ck, design, frameId, bytes, {
+        ...(ids === 'all' ? {} : { layerIds: ids }),
+        cache: resources,
+      })
     })
     return { ...result, warnings }
+  } catch (error) {
+    return { ...result, warnings: [], warningsError: error instanceof Error ? error.message : String(error) }
   } finally {
-    if (!cache) owned.delete()
+    if (!cache) owned?.delete()
   }
 }
 
@@ -238,6 +230,40 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
       'safeZone',
       `Text "${name}" is inside the safe-zone edge of ${listed(platforms)}, where the platform’s own buttons and captions cover it.`,
     )
+}
+
+/**
+ * The layers a change from `nodesBefore` and `framesBefore` to `design` touched, by frame, or
+ * `all` of a frame. A layer added or changed touches itself and the layers inside it; one taken
+ * out of a group, box or frame, moved or removed, touches the layers left there. Inside a box that
+ * lays out its layers, every layer of the outermost such box is touched, since they may have moved.
+ * A frame changed touches every layer of it.
+ */
+function touchedLayers(
+  design: Design,
+  nodesBefore: Readonly<Record<string, Layer>>,
+  framesBefore: Readonly<Record<string, unknown>>,
+): Map<string, Set<string> | 'all'> {
+  const touched = new Map<string, Set<string> | 'all'>()
+  for (const [frameId, frame] of Object.entries(design.frames))
+    if (!sameValue(ownValue(framesBefore, frameId), frame)) touched.set(frameId, 'all')
+  const touch = (from: string) => {
+    const frameId = frameIdOf(design, from)
+    if (frameId === undefined) return
+    const ids = touched.get(frameId) ?? new Set<string>()
+    if (ids === 'all') return
+    const top = outermostLaidOut(design, from)
+    for (const each of [top, ...descendants(design, top)]) if (each !== frameId) ids.add(each)
+    touched.set(frameId, ids)
+  }
+  for (const id of new Set([...Object.keys(nodesBefore), ...Object.keys(design.nodes)])) {
+    const node = ownValue(design.nodes, id)
+    const was = ownValue(nodesBefore, id)
+    if (sameValue(was, node)) continue
+    if (node) touch(id)
+    if (was && was.parentId !== node?.parentId) touch(was.parentId)
+  }
+  return touched
 }
 
 /** The box around `corners` once each container's rotation in `turns`, innermost first, has turned them. */

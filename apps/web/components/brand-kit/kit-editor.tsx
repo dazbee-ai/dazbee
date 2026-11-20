@@ -6,7 +6,7 @@
 // colour or font; the Brand kit page shows it laid out wide, without them.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { AssetSummary, type BrandColor, type BrandFont, type BrandKit } from '@dazbee/schema'
+import { AssetSummary, type BrandColor, type BrandFont, type BrandKit, newToken } from '@dazbee/schema'
 
 import { CheckIcon, PaintBucketIcon, PlusIcon, TextAaIcon, UploadSimpleIcon, XIcon } from '@/components/ui/icons.tsx'
 import { DASHED_BUTTON } from '@/components/ui/looks.ts'
@@ -32,20 +32,6 @@ interface KitBinding {
 
 /** How long a run of changes (a colour picker's drag) waits before it is saved. */
 const SAVE_DELAY_MS = 400
-
-/** A token not yet in the kit, from a name: "Colour 3" gives colour-3. */
-function newToken(kit: BrandKit, name: string) {
-  const base =
-    name
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'token'
-  const taken = new Set([...kit.colors, ...kit.fonts].map((x) => x.token))
-  let token = base
-  for (let n = 2; taken.has(token); n++) token = `${base}-${n}`
-  return token
-}
 
 /**
  * Shows a kit change at once and saves it a moment later; a change still waiting is saved when the

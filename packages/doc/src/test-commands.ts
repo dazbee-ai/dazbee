@@ -235,6 +235,8 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [flowed(design)], patch: { absolute: true }, drawn: drawn(design, flowed(design)), holders: around(design) },
     // The fill node.bind binds, recoloured by hand.
     { ids: [free(design)], patch: { fills: [{ type: 'solid', color: '#00AA00FF' }] } },
+    // The picture node.bind binds to the logo, replaced by hand.
+    { ids: [free(design)], patch: { fills: [{ type: 'image', assetId: 'photo', fit: 'fill', opacity: 1 }] } },
   ],
   'node.move': ({ design, random }) => [
     { id: free(design), parentId: frame(design), before: childrenOf(design, frame(design))[0]?.[0] },
@@ -254,6 +256,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [typed(design)], property: 'fontFamily', ref: 'brand:heading', value: 'Inter' },
     { ids: [typed(design)], property: 'textColor', ref: 'brand:ink', value: '#222222FF' },
     { ids: [free(design)], property: 'fill', ref: null },
+    { ids: [free(design)], property: 'image', ref: 'brand:logo', value: 'logo-1' },
   ],
   'node.style': ({ design }) => [
     { ids: [free(design), typed(design)], style },

@@ -5,7 +5,7 @@
 import { z } from 'zod'
 
 import type { LayerType } from './layers.ts'
-import { boundFillIndex, boundImageIndex } from './paint.ts'
+import { boundFillIndex, boundImageIndex, type Paint } from './paint.ts'
 import { AssetId, Color } from './primitives.ts'
 
 /** A brand kit token's name: lowercase words joined by hyphens, such as `primary` or `sale-red`. */
@@ -47,6 +47,8 @@ interface BindableEntry {
   read(props: Props): string | undefined
   /** The props with its value written; the same props when it has nowhere to go or is there already. */
   write<P extends Props>(props: P, value: string): P
+  /** The fill binding it adds on top, holding its value, when the layer has none that shows to take it. */
+  added?(value: string): Paint
 }
 
 /** The colour of the topmost solid fill that shows; undefined when there is none. */
@@ -123,6 +125,7 @@ export const BINDABLE_PROPERTIES = {
     styleKey: 'fills',
     read: readFill,
     write: writeFill,
+    added: (color: string): Paint => ({ type: 'solid', color }),
   },
   textColor: { types: ['text'], kind: 'color', prop: 'style', styleKey: 'text', ...baseStyle('color') },
   fontFamily: { types: ['text'], kind: 'font', prop: 'style', styleKey: 'text', ...baseStyle('fontFamily') },
@@ -133,6 +136,7 @@ export const BINDABLE_PROPERTIES = {
     styleKey: 'fills',
     read: readImage,
     write: writeImage,
+    added: (assetId: string): Paint => ({ type: 'image', assetId, fit: 'fit', opacity: 1 }),
   },
 } as const satisfies Record<string, BindableEntry>
 

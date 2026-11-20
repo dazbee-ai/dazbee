@@ -15,7 +15,7 @@ const bytes = {
 }
 
 /** A design of one frame of this size: red, with a blue square in its left half. */
-function frameOf(width: number, height: number): Design {
+function designOfSize(width: number, height: number): Design {
   const parsed = parseDesign({
     meta: { designId: 'd', name: 'Agent' },
     pages: { p: { name: 'Page', order: 'a0' } },
@@ -61,7 +61,7 @@ function decoded(png: Uint8Array, x: number, y: number) {
 
 describe('agentRender', () => {
   it('fits a large frame so its longer side is 1600, drawn below 1x', () => {
-    const shot = agentRender(ck, frameOf(4000, 2000), 'f', bytes)
+    const shot = agentRender(ck, designOfSize(4000, 2000), 'f', bytes)
     expect(shot.scale).toBe(0.4)
     expect([shot.width, shot.height]).toEqual([1600, 800])
     const left = decoded(shot.png, 100, 400)
@@ -71,13 +71,13 @@ describe('agentRender', () => {
   })
 
   it('does not scale a small frame past 2', () => {
-    const shot = agentRender(ck, frameOf(100, 50), 'f', bytes)
+    const shot = agentRender(ck, designOfSize(100, 50), 'f', bytes)
     expect(shot.scale).toBe(2)
     expect(decoded(shot.png, 0, 0).size).toEqual([200, 100])
   })
 
   it('lowers the scale until the PNG fits the byte limit', () => {
-    const design = frameOf(4000, 2000)
+    const design = designOfSize(4000, 2000)
     const full = agentRender(ck, design, 'f', bytes)
     const maxBytes = Math.floor(full.png.length / 2)
     const shot = agentRender(ck, design, 'f', bytes, { maxBytes })
@@ -87,7 +87,7 @@ describe('agentRender', () => {
   })
 
   it('refuses a byte limit no render of the frame fits', () => {
-    expect(() => agentRender(ck, frameOf(4000, 2000), 'f', bytes, { maxBytes: 10 })).toThrow(
+    expect(() => agentRender(ck, designOfSize(4000, 2000), 'f', bytes, { maxBytes: 10 })).toThrow(
       'no render of frame "f" fits in 10 bytes',
     )
   })

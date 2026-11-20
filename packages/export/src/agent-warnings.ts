@@ -1,5 +1,6 @@
 // What an agent is told about a frame it made or changed: plain sentences, each about one layer,
-// for what won't look as designed. It reads the design as the export draws it, and writes nothing.
+// for what won't look as designed, read from the design as the export draws it. The checks write
+// nothing; an agent's batch run here writes only through runAgentBatch.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import {
   type AgentBatchResult,
@@ -7,6 +8,9 @@ import {
   boundsOf,
   centreOf,
   cornersOf,
+  descendants,
+  frameIdOf,
+  intersects,
   type Point,
   runAgentBatch,
   sameValue,
@@ -26,7 +30,7 @@ import {
   type SceneLayer,
   textMeasure,
 } from '@dazbee/renderer'
-import { type Design, isNineBySixteen, type Rect, SAFE_ZONES, safeZoneBands } from '@dazbee/schema'
+import { type Design, type Layer, type Rect, SAFE_ZONES, safeZoneBands } from '@dazbee/schema'
 
 /** What a warning is about. */
 export type AgentWarningKind =
@@ -68,15 +72,16 @@ interface Check {
   warn: (layerId: string, kind: AgentWarningKind, message: string) => void
 }
 
-/** How far laid-out lines may pass a fixed box's height before they overflow it, as fitting text allows. */
+/** How far laid-out lines may pass a fixed box before they overflow it, as fitting text allows. */
 const OVERFLOW_SLACK = 0.01
 
 /**
  * What in frame `frameId` won't look as designed, layer by layer back to front. In a text: a
  * family `bytes` has no file for, so it draws in a fallback font; characters no font has; lines
- * taller than a fixed box; lines past its `maxLines`, cut off; on a 9:16 frame, its box inside a
- * platform's safe-zone edge. Any layer: everything it draws, shadows included, wholly outside the
- * frame, told of only for the outermost such layer checked. Hidden layers are not checked.
+ * taller than a fixed box, or a word wider than it; lines past its `maxLines`, cut off; on a 9:16
+ * frame, its box inside a platform's safe-zone edge. Any layer: everything it draws, shadows
+ * included, wholly outside the frame, told of only for the outermost such layer checked. Hidden
+ * layers are not checked.
  */
 export function frameWarnings(
   ck: CanvasKit,
@@ -85,7 +90,7 @@ export function frameWarnings(
   bytes: ResourceBytes,
   { layerIds, cache }: AgentWarningOptions = {},
 ): AgentWarning[] {
-  const frame = Object.hasOwn(design.frames, frameId) ? design.frames[frameId] : undefined
+  const frame = ownValue(design.frames, frameId)
   if (!frame) throw new Error(`no frame "${frameId}"`)
   const wanted = layerIds === undefined ? undefined : new Set(layerIds)
   const owned = cache ?? resourceCache(ck)
@@ -97,8 +102,8 @@ export function frameWarnings(
       ck,
       resources,
       have: new Set(bytes.fonts.map((font) => font.family)),
-      frame,
-      nameOf: (id) => design.nodes[id]?.name || id,
+      frame: { name: frame.name, width: frame.width, height: frame.height },
+      nameOf: (id) => ownValue(design.nodes, id)?.name || id,
       warn: (layerId, kind, message) => warnings.push({ layerId, kind, message }),
     }
     const walk = (layers: readonly SceneLayer[], turns: readonly Turn[], outsideTold: boolean) => {
@@ -120,9 +125,10 @@ export function frameWarnings(
 
 /**
  * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, then warns of what the
- * batch touched, as frameWarnings tells it: the layers it added or changed, each in its frame, and
- * every layer of a frame it changed. A batch not kept has no warnings. It writes nothing past what
- * the batch writes.
+ * batch touched, as frameWarnings tells it, in the design's order of frames. A layer it added,
+ * changed or took out touches the layers inside it, and, in a box that lays out its layers, every
+ * layer of the outermost such box, whose layers it may have moved; a frame it changed touches
+ * every layer of it. A batch not kept has no warnings.
  */
 export function runAgentBatchWithWarnings(
   ck: CanvasKit,
@@ -142,28 +148,43 @@ export function runAgentBatchWithWarnings(
   const touched = new Map<string, Set<string> | 'all'>()
   for (const [frameId, frame] of Object.entries(design.frames))
     if (!sameValue(ownValue(framesBefore, frameId), frame)) touched.set(frameId, 'all')
-  for (const [id, node] of Object.entries(design.nodes)) {
+  const changed = new Set([...Object.keys(nodesBefore), ...Object.keys(design.nodes)])
+  for (const id of changed) {
+    const node = ownValue(design.nodes, id)
     if (sameValue(ownValue(nodesBefore, id), node)) continue
-    const frameId = frameOf(design, id)
-    if (frameId === undefined) continue
+    // A layer taken out touches what held it.
+    const from = node ? id : nodesBefore[id]?.parentId
+    const frameId = from === undefined ? undefined : frameIdOf(design, from)
+    if (from === undefined || frameId === undefined) continue
     const ids = touched.get(frameId) ?? new Set<string>()
-    if (ids !== 'all') touched.set(frameId, ids.add(id))
+    if (ids === 'all') continue
+    const top = outermostLaidOut(design, from)
+    for (const each of [top, ...descendants(design, top)]) if (each !== frameId) ids.add(each)
+    touched.set(frameId, ids)
   }
-  const warnings = Object.keys(design.frames).flatMap((frameId) => {
-    const ids = touched.get(frameId)
-    if (ids === undefined) return []
-    return frameWarnings(ck, design, frameId, bytes, {
-      ...(ids === 'all' ? {} : { layerIds: ids }),
-      ...(cache ? { cache } : {}),
+  const owned = cache ?? resourceCache(ck)
+  try {
+    const warnings = Object.keys(design.frames).flatMap((frameId) => {
+      const ids = touched.get(frameId)
+      if (ids === undefined) return []
+      return frameWarnings(ck, design, frameId, bytes, { ...(ids === 'all' ? {} : { layerIds: ids }), cache: owned })
     })
-  })
-  return { ...result, warnings }
+    return { ...result, warnings }
+  } finally {
+    if (!cache) owned.delete()
+  }
+}
+
+/** A record's own value under `key`, never one its prototype gives. */
+function ownValue<T>(records: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(records, key) ? records[key] : undefined
 }
 
 /** Tells of a layer that draws nothing inside its frame; whether it did. */
 function toldOutside({ ck, resources, frame, nameOf, warn }: Check, layer: SceneLayer, turns: readonly Turn[]) {
   const reach = layerReach(ck, layer, resources)
-  if (overlaps(placed(cornersOf({ ...reach, rotation: 0 }), turns), { x: 0, y: 0, ...frame })) return false
+  const inFrame = { x: 0, y: 0, width: frame.width, height: frame.height }
+  if (intersects(placed(cornersOf({ ...reach, rotation: 0 }), turns), inFrame)) return false
   warn(
     layer.id,
     'outsideFrame',
@@ -192,13 +213,21 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
         'missingCharacters',
         `Text "${name}" has characters no font has, which draw as empty boxes: ${missing.join(' ')}`,
       )
+    const paragraphs = props.text.split('\n').length
+    const cut = laid.blocks.length < paragraphs || laid.blocks.some((block) => block.paragraph.didExceedMaxLines())
+    // The paragraph a line limit cuts ends in an ellipsis, and then gives its whole line as its least width.
+    const whole = cut ? laid.blocks.slice(0, -1) : laid.blocks
     if (props.boxMode === 'fixed' && laid.height > props.height + OVERFLOW_SLACK)
       warn(
         'overflow',
         `Text "${name}" overflows its fixed box: its lines are ${Math.ceil(laid.height)} px tall in a box ${props.height} px tall.`,
       )
-    const paragraphs = props.text.split('\n').length
-    if (laid.blocks.length < paragraphs || laid.blocks.some((block) => block.paragraph.didExceedMaxLines()))
+    else if (
+      props.boxMode === 'fixed' &&
+      whole.some((block) => block.paragraph.getMinIntrinsicWidth() > block.paragraph.getMaxWidth() + OVERFLOW_SLACK)
+    )
+      warn('overflow', `Text "${name}" overflows its fixed box: a word is wider than the box, ${props.width} px.`)
+    if (cut)
       warn('pastMaxLines', `Text "${name}" has more lines than its limit of ${props.maxLines}, so the rest is cut off.`)
   } finally {
     laid.delete()
@@ -217,16 +246,10 @@ function placed(corners: readonly Point[], turns: readonly Turn[]): Rect {
   return boundsOf(points.map((p) => ({ ...p, width: 0, height: 0, rotation: 0 })))
 }
 
-/** Whether two rects share some area. */
-function overlaps(a: Rect, b: Rect): boolean {
-  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
-}
-
-/** The platforms whose safe-zone edge `box` is inside, on a 9:16 frame; none on another shape. */
+/** The platforms whose safe-zone edge `box` is inside; none on a frame that isn't 9:16. */
 function coveringPlatforms(frame: { width: number; height: number }, box: Rect): string[] {
-  if (!isNineBySixteen(frame.width, frame.height)) return []
   return SAFE_ZONES.filter(({ platform }) =>
-    safeZoneBands(frame.width, frame.height, platform).some((band) => overlaps(band, box)),
+    safeZoneBands(frame.width, frame.height, platform).some((band) => intersects(band, box)),
   ).map(({ platform }) => platform)
 }
 
@@ -235,14 +258,14 @@ function listed(names: readonly string[]): string {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }
 
-/** A record's own value under `key`, never one its prototype gives. */
-function ownValue<T>(records: Readonly<Record<string, T>>, key: string): T | undefined {
-  return Object.hasOwn(records, key) ? records[key] : undefined
-}
-
-/** The frame layer `id` is in; none when its chain of parents ends elsewhere. */
-function frameOf(design: Design, id: string): string | undefined {
-  let up = ownValue(design.nodes, id)?.parentId
-  while (up !== undefined && !Object.hasOwn(design.frames, up)) up = ownValue(design.nodes, up)?.parentId
-  return up
+/** Layer `id`, or the outermost box holding it whose auto layout places the layers in it. */
+function outermostLaidOut(design: Design, id: string): string {
+  let top = id
+  for (let up = ownValue(design.nodes, id)?.parentId; up !== undefined;) {
+    const holder: Layer | undefined = ownValue(design.nodes, up)
+    if (holder?.type !== 'box' || !holder.props.layout) break
+    top = up
+    up = holder.parentId
+  }
+  return top
 }

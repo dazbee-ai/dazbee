@@ -356,7 +356,7 @@ A frame drawn as a PNG for an agent to look at, on the CPU surface: its longer s
 _Avoid_: Screenshot (that is of the screen), preview, thumbnail
 
 **Agent warning**:
-A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box or passes its line limit, a layer wholly outside its frame, or text inside a platform's safe-zone edge on a 9:16 frame. An agent batch's result carries those for the layers it added or changed.
+A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box (too tall, or a word too wide) or passes its line limit, a layer wholly outside its frame, or text inside a platform's safe-zone edge on a 9:16 frame. An agent batch's result carries those for the layers it touched: those it added, changed or took out, with the layers inside them and the rest of an auto layout box they are in, and every layer of a frame it changed.
 _Avoid_: Error, lint, refusal (a refused command wrote nothing)
 
 **Gesture**:

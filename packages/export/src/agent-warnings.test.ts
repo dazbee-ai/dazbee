@@ -33,11 +33,11 @@ const square = {
 
 /**
  * A 9:16 frame, 360 × 640, holding a square and a text, each layer's props changed as `change`
- * says, and the frame's size as `frame` says.
+ * says, and the frame's size and place as `frame` says.
  */
 function storyWith(
   change: { square?: object; title?: object; more?: Record<string, object> } = {},
-  frame: { width?: number; height?: number } = {},
+  frame: { width?: number; height?: number; x?: number; y?: number } = {},
 ): Design {
   const layer = (base: { props: object }, id: string, props: object = {}) => ({
     ...base,
@@ -101,6 +101,15 @@ describe('frameWarnings', () => {
     expect(warnings[0]?.message).toMatch(
       /^Text "Title" overflows its fixed box: its lines are \d+ px tall in a box 10 px tall\.$/,
     )
+    const word = frameWarnings(
+      ck,
+      storyWith({ title: { text: 'Supercalifragilistic', width: 60, height: 200 } }),
+      'story',
+      bytes,
+    )
+    expect(word.map(({ kind, message }) => [kind, message])).toEqual([
+      ['overflow', 'Text "Title" overflows its fixed box: a word is wider than the box, 60 px.'],
+    ])
     // A text that grows with its words does not overflow.
     expect(kindsOf(storyWith({ title: { height: 10, boxMode: 'autoHeight' } }))).toEqual([])
   })
@@ -129,6 +138,9 @@ describe('frameWarnings', () => {
       },
     ])
     expect(kindsOf(storyWith({ square: { x: 340 } }))).toEqual([])
+    // A layer's place is in its frame, wherever the frame is on the page.
+    expect(kindsOf(storyWith({}, { x: 2000, y: 500 }))).toEqual([])
+    expect(kindsOf(storyWith({ square: { x: 400 } }, { x: -2000 }))).toEqual([['square', 'outsideFrame']])
     const group = { type: 'group', index: 'a2', name: 'Group', parentId: 'story', link: 'group' }
     const inGroup = storyWith({
       more: {
@@ -228,6 +240,29 @@ describe('runAgentBatchWithWarnings', () => {
     )
     expect(result).toMatchObject({ kept: false, warnings: [] })
     expect(session.design().nodes['square']?.props.x).toBe(20)
+  })
+
+  it('checks the layers inside a layer the batch changed', () => {
+    const turnable = {
+      box: {
+        type: 'box',
+        index: 'a2',
+        name: 'Box',
+        parentId: 'story',
+        link: 'box',
+        props: { x: 60, y: 300, width: 200, height: 300 },
+      },
+      caption: { ...title, name: 'Caption', parentId: 'box', link: 'caption', props: { ...title.props, y: 300 } },
+    }
+    const session = openSession(plainStore(storyWith({ more: turnable })))
+    // Half a turn about (160, 450) takes the caption from y 300 to y 540, in every platform's bottom edge.
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [{ command: 'node.update', input: { ids: ['box'], patch: { rotation: 180 } } }],
+      bytes,
+    )
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'safeZone']])
   })
 
   it('checks every layer of a frame the batch changed', () => {

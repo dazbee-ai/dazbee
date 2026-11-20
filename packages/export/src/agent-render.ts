@@ -1,7 +1,7 @@
 // A frame as an agent looks at it: one PNG, drawn on the CPU surface (ADR-0005) at the scale that
 // fits its longer side to a size and its file to a byte limit.
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { renderEncoded, type ResourceBytes, type ResourceCache } from '@dazbee/renderer'
+import { renderEncoded, type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import type { Design } from '@dazbee/schema'
 
 /** A frame drawn for an agent: the PNG, its size in pixels, and the scale it was drawn at. */
@@ -56,12 +56,18 @@ export function agentRender(
   let scale = Math.min(AGENT_RENDER_MAX_SCALE, maxSize / longer)
   // The surface's sides are rounded up, so a scale a hair over the fit would add a pixel.
   if (Math.ceil(longer * scale) > maxSize) scale = (maxSize - 0.5) / longer
-  const draw = () => renderEncoded(ck, design, frameId, bytes, { format: 'png', scale }, cache)
-  let png = draw()
-  while (png.length > maxBytes) {
-    scale *= Math.sqrt(maxBytes / png.length) * SHRINK_MARGIN
-    if (longer * scale < least) throw new Error(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
-    png = draw()
+  // One cache for every try, so the fonts and images are decoded once.
+  const owned = cache ?? resourceCache(ck)
+  try {
+    const draw = () => renderEncoded(ck, design, frameId, bytes, { format: 'png', scale }, owned)
+    let png = draw()
+    while (png.length > maxBytes) {
+      scale *= Math.sqrt(maxBytes / png.length) * SHRINK_MARGIN
+      if (longer * scale < least) throw new Error(`no render of frame "${frameId}" fits in ${maxBytes} bytes`)
+      png = draw()
+    }
+    return { png, width: Math.ceil(frame.width * scale), height: Math.ceil(frame.height * scale), scale }
+  } finally {
+    if (!cache) owned.delete()
   }
-  return { png, width: Math.ceil(frame.width * scale), height: Math.ceil(frame.height * scale), scale }
 }

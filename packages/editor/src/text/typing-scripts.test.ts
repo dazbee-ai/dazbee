@@ -96,6 +96,17 @@ describe('Left and Right', () => {
     expect(textNow()).toBe('Yخصم Nike')
   })
 
+  it('stop on each side of a Latin phrase in Arabic, and a letter typed there goes where the caret is drawn', async () => {
+    // Reading from the right: خصم, then "Ab", then كل at the left end.
+    const { press, textNow } = await typingIn('خصم Ab كل')
+    // From the right end over خصم to its left, then over the space to just right of the b.
+    press('End', ...Array<string>(4).fill('ArrowLeft'), 'X')
+    expect(textNow()).toBe('خصم AbX كل')
+    // Over the b and the A to just left of the A.
+    press('Backspace', 'ArrowLeft', 'ArrowLeft', 'Y')
+    expect(textNow()).toBe('خصم YAb كل')
+  })
+
   it('step through a Latin word in Arabic right to left with Left, and left to right with Right', async () => {
     const { press, textNow } = await typingIn('خصم Nike')
     // Over خصم and the space, then back over the e and the k.

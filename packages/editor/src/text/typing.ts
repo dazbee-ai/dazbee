@@ -142,6 +142,11 @@ export interface EditorTyping {
 interface Editing extends Picked {
   caret: TextAnchor
   anchor: TextAnchor
+  /**
+   * Whether the caret is drawn beside the grapheme after it: where an arrow left it at a place in
+   * text of two directions that belongs to that grapheme.
+   */
+  drawnAfter: boolean
   /** Ends the typing step open now; null after a pause, until the next write opens one. */
   endGesture: (() => void) | null
   created: boolean
@@ -242,7 +247,7 @@ export function editorTyping({
       }
     }
     if (offset === null || offset === undefined) return null
-    const at = caretPosition(ck, text.laid, offset)
+    const at = caretPosition(ck, text.laid, offset, editing?.drawnAfter)
     const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
     return { frame: text.frame, range: [], caret: { x, y, height } }
   }
@@ -256,7 +261,7 @@ export function editorTyping({
     created = false,
   ) {
     const at = store.textAnchor(id, offset)
-    editing = { id, frameId: frame, caret: at, anchor: at, endGesture, created }
+    editing = { id, frameId: frame, caret: at, anchor: at, drawnAfter: false, endGesture, created }
     textSelectionChanged()
     // Another tab typing in the same text: the version finished last is kept (C47).
     const [other] = typingIn(id)
@@ -302,10 +307,14 @@ export function editorTyping({
   function stopWhenGone() {
     if (editing && !pickedLayer(editing)) stopEditing()
   }
-  /** Puts the caret at an offset; with `extend`, the other end of the range stays where it is. */
-  function caretTo(offset: number, extend = false) {
+  /**
+   * Puts the caret at an offset; with `extend`, the other end of the range stays where it is. With
+   * `drawnAfter`, it is drawn beside the grapheme after it.
+   */
+  function caretTo(offset: number, extend = false, drawnAfter = false) {
     if (!editing) return
     editing.caret = store.textAnchor(editing.id, offset)
+    editing.drawnAfter = drawnAfter
     if (!extend) editing.anchor = editing.caret
     textSelectionChanged()
   }
@@ -314,6 +323,7 @@ export function editorTyping({
     if (!editing) return
     editing.anchor = store.textAnchor(editing.id, range.start)
     editing.caret = store.textAnchor(editing.id, range.end)
+    editing.drawnAfter = false
     textSelectionChanged()
   }
   /**
@@ -404,7 +414,7 @@ export function editorTyping({
     const range = textRange() ?? { start: 0, end: 0 }
     const caret = Math.min(store.anchorOffset(editing.caret) ?? 0, text.length)
     const selected = range.end > range.start
-    const { id } = editing
+    const { id, drawnAfter } = editing
     const key = e.key.toLowerCase()
     // Ctrl, or Alt as on a Mac, moves and deletes a word at a time.
     const byWord = e.ctrlKey || e.altKey
@@ -421,20 +431,23 @@ export function editorTyping({
       return ok
     }
     /**
-     * The offset an arrow moves the caret to, a grapheme left or right on screen through
-     * right-to-left text; in reading order on a line all left to right, or while the text drawn is
-     * not yet the text typed.
+     * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
+     * text; in reading order on a line all left to right, or while the text drawn is not yet the
+     * text typed.
      */
     const arrowStep = (right: boolean) => {
       const drawn = editingText()
-      const onScreen = drawn?.layer.props.text === text ? visualStep(ck, drawn.laid, caret, right) : null
-      return onScreen ?? step(text, caret, right)
+      const onScreen =
+        drawn?.layer.props.text === text
+          ? visualStep(ck, drawn.laid, { offset: caret, after: drawnAfter }, right)
+          : null
+      return onScreen ?? { offset: step(text, caret, right), after: false }
     }
     /** The caret's offset on the line above or below, or at the start or end of its line. */
     const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
       const laid = editingText()
       if (!laid) return caret
-      const at = caretPosition(ck, laid.laid, caret)
+      const at = caretPosition(ck, laid.laid, caret, drawnAfter)
       if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
       const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
       if (y < 0) return 0
@@ -448,7 +461,11 @@ export function editorTyping({
       // a range and no Shift, a character step goes to its near end, and a word step from the caret.
       const right = e.key === 'ArrowRight'
       if (selected && !e.shiftKey && !byWord) caretTo(right ? range.end : range.start)
-      else caretTo(byWord ? wordStep(text, caret, right) : arrowStep(right), e.shiftKey)
+      else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
+      else {
+        const to = arrowStep(right)
+        caretTo(to.offset, e.shiftKey, to.after)
+      }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
       caretTo(lineMove(({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]), e.shiftKey)
     } else if (mod && key === 'a') {

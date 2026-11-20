@@ -11,20 +11,27 @@ export interface SelectionBox {
   rtl: boolean
 }
 
+/**
+ * Where a caret stands: an offset, and whether it is drawn beside the grapheme after it rather
+ * than the one before. The two differ where a run of one direction meets a run of the other.
+ */
+export interface CaretPlace {
+  offset: number
+  after: boolean
+}
+
 interface GraphemeBox extends SelectionBox {
   start: number
   end: number
   line: number
 }
 
-/** A grapheme edge in a block, and where the caret is drawn for it, beside the box it is drawn on. */
-interface DrawnEdge {
-  offset: number
+/** A place the caret can stand on a line, with where it is drawn. */
+interface Slot extends CaretPlace {
   x: number
-  box: GraphemeBox
 }
 
-/** How far apart, in pixels, two carets are drawn for an arrow to move from one to the other. */
+/** How far apart, in pixels, two places are for an arrow to move from one to the other. */
 const NEAR = 0.01
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
@@ -70,18 +77,20 @@ export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): 
 /**
  * Where to draw the caret for an offset, in the layout's own coordinates (before `dy`): the
  * trailing edge of the grapheme before it, or at the start of a paragraph the leading edge of the
- * grapheme after it. At a bidi boundary this is the edge next to the text just typed.
+ * grapheme after it. At a bidi boundary this is the edge next to the text just typed. With `after`,
+ * the leading edge of the grapheme after it, where there is one.
  */
 export function caretPosition(
   ck: CanvasKit,
   laid: TextLayout,
   offset: number,
+  after = false,
 ): { x: number; y: number; height: number } {
   const block = blockOf(laid, offset)
   if (!block) return { x: 0, y: 0, height: 0 }
   const local = Math.min(offset - block.start, block.text.length)
   const at = (x: number, y: number, height: number) => ({ x: block.x + x, y: block.y + y, height })
-  const edge = drawnEdge(boxesOf(ck, block), local)
+  const edge = drawnEdge(boxesOf(ck, block), local, after)
   if (edge) return at(edge.x, edge.box.y, edge.box.height)
   // An empty paragraph: where its first character would go.
   const width = block.paragraph.getMaxWidth()
@@ -91,40 +100,41 @@ export function caretPosition(
 }
 
 /**
- * The offset the Left or Right arrow moves the caret to, on a line that holds right-to-left text:
- * the nearest grapheme edge the way the arrow points on screen, by where `caretPosition` draws
- * each. At the line's end it steps on in reading order: to the first offset drawn on the next
- * line, or the last on the line before; with no line there it stays. Null on a line all left to
- * right, where a step is one grapheme in reading order.
+ * Where the Left or Right arrow moves a caret to, on a line that holds right-to-left text: the next
+ * place between graphemes the way the arrow points on screen. A place where two runs of different
+ * directions meet belongs to the grapheme of the run set inside the other, so text of its direction
+ * typed there lands at the caret. At the line's end the caret goes on in reading order to the next
+ * line, or back to the line before, entering it at the end the arrow comes in from; with no line
+ * there it stays. Null on a line all left to right, and in text the line limit cut off, where a step
+ * is one grapheme in reading order.
  */
-export function visualStep(ck: CanvasKit, laid: TextLayout, offset: number, right: boolean): number | null {
+export function visualStep(
+  ck: CanvasKit,
+  laid: TextLayout,
+  { offset, after }: CaretPlace,
+  right: boolean,
+): CaretPlace | null {
   const block = blockOf(laid, offset)
-  // Text the line limit cut off is not drawn: there a step is in reading order.
   if (!block || offset < block.start || offset > block.end) return null
   const boxes = boxesOf(ck, block)
-  const caret = drawnEdge(boxes, offset - block.start)
+  const caret = drawnEdge(boxes, offset - block.start, after)
   if (!caret && block.text !== '') return null
   if (caret && !laid.rtl && !boxes.some((b) => b.line === caret.box.line && b.rtl)) return null
-  // An empty paragraph has no edges: in a right-to-left layer it steps on as a line's end does.
+  // An empty paragraph has no places: in a right-to-left layer it steps on as a line's end does.
   if (!caret && !laid.rtl) return null
-  // Nearest first. Where two offsets are drawn at one place, as at a change of direction, the one
-  // drawn beside the grapheme the arrow just crossed, so each is reached from its own side; then the lower.
-  const crossed = (e: DrawnEdge) => e.box.x + e.box.width / 2 < e.x === right
-  const [next] = caret
-    ? edgesOn(boxes, caret.box.line)
-        .filter((e) => (right ? e.x > caret.x + NEAR : e.x < caret.x - NEAR))
-        .sort((a, b) => {
-          const nearer = Math.abs(a.x - caret.x) - Math.abs(b.x - caret.x)
-          if (Math.abs(nearer) > NEAR) return nearer
-          return Number(crossed(b)) - Number(crossed(a)) || a.offset - b.offset
-        })
-    : []
-  if (next) return block.start + next.offset
-  const forward = right !== laid.rtl
-  const onward = lineAfter(ck, laid, block, caret?.box.line ?? 0, forward)
-  if (!onward) return offset
-  const offsets = onward.edges.map((e) => e.offset)
-  return onward.block.start + (offsets.length === 0 ? 0 : forward ? Math.min(...offsets) : Math.max(...offsets))
+  const placed = (slot: Slot, on: TextBlock) => ({ offset: on.start + slot.offset, after: slot.after })
+  if (caret) {
+    const [next] = slotsOn(boxes, caret.box.line, laid.rtl)
+      .filter((s) => (right ? s.x > caret.x + NEAR : s.x < caret.x - NEAR))
+      .sort((a, b) => Math.abs(a.x - caret.x) - Math.abs(b.x - caret.x))
+    if (next) return placed(next, block)
+  }
+  const onward = lineAfter(ck, laid, block, caret?.box.line ?? 0, right !== laid.rtl)
+  if (!onward) return { offset, after }
+  if (onward.slots.length === 0) return { offset: onward.block.start, after: false }
+  // Right enters a line at its left end, Left at its right end.
+  const entered = onward.slots.reduce((best, s) => ((right ? s.x < best.x : s.x > best.x) ? s : best))
+  return placed(entered, onward.block)
 }
 
 /** The boxes that highlight a text range, in the layout's own coordinates: one per run of one direction on one line. */
@@ -159,28 +169,41 @@ function blockOf(laid: TextLayout, offset: number): TextBlock | undefined {
 }
 
 /**
- * Where the caret is drawn for an offset in a block: the trailing edge of the grapheme before it,
- * or at the start of a paragraph the leading edge of the grapheme after it; nowhere in an empty one.
+ * Where the caret is drawn for an offset in a block, and beside which box: the trailing edge of the
+ * grapheme before it, else the leading edge of the grapheme after it, that one first with `after`;
+ * nowhere in an empty paragraph.
  */
-function drawnEdge(boxes: GraphemeBox[], offset: number): DrawnEdge | undefined {
+function drawnEdge(boxes: GraphemeBox[], offset: number, after = false): { x: number; box: GraphemeBox } | undefined {
   const before = boxes.find((b) => b.end === offset)
-  if (before) return { offset, x: before.rtl ? before.x : before.x + before.width, box: before }
-  const after = boxes.find((b) => b.start === offset)
-  if (after) return { offset, x: after.rtl ? after.x + after.width : after.x, box: after }
-  return undefined
+  const next = boxes.find((b) => b.start === offset)
+  const trailing = before && { x: before.rtl ? before.x : before.x + before.width, box: before }
+  const leading = next && { x: next.rtl ? next.x + next.width : next.x, box: next }
+  return after ? (leading ?? trailing) : (trailing ?? leading)
 }
 
-/** Every grapheme edge of a block whose caret is drawn on a line, with where. */
-function edgesOn(boxes: GraphemeBox[], line: number): DrawnEdge[] {
-  return [...new Set(boxes.flatMap((b) => [b.start, b.end]))].flatMap((offset) => {
-    const edge = drawnEdge(boxes, offset)
-    return edge?.box.line === line ? [edge] : []
+/**
+ * The places the caret can stand on a line, left to right: one between each two graphemes next to
+ * each other on screen, and one at each end. A place where two runs of different directions meet
+ * goes to the grapheme whose direction is not the paragraph's, the run set inside the other.
+ */
+function slotsOn(boxes: GraphemeBox[], line: number, rtl: boolean): Slot[] {
+  const row = boxes.filter((b) => b.line === line).sort((a, b) => a.x - b.x)
+  return [...row, undefined].map((right, i) => {
+    const left = row[i - 1]
+    // The place beside each neighbour: after the left one's end on screen, before the right one's start.
+    const ofLeft = left && (left.rtl ? { offset: left.start, after: true } : { offset: left.end, after: false })
+    const ofRight = right && (right.rtl ? { offset: right.end, after: false } : { offset: right.start, after: true })
+    const x = left ? left.x + left.width : (right?.x ?? 0)
+    if (!ofLeft || !ofRight || !left || !right) return { ...(ofLeft ?? ofRight ?? { offset: 0, after: false }), x }
+    // One direction: the one offset, drawn beside the grapheme before it.
+    if (left.rtl === right.rtl) return { ...(ofLeft.after ? ofRight : ofLeft), x }
+    return { ...(left.rtl !== rtl ? ofLeft : ofRight), x }
   })
 }
 
 /**
- * The line after a block's line in reading order, or before it, with the edges drawn on it: in
- * the same block, else the next paragraph's first line or the one before's last; none past the text.
+ * The line after a block's line in reading order, or before it, with its places: in the same
+ * block, else the next paragraph's first line or the one before's last; none past the text.
  */
 function lineAfter(
   ck: CanvasKit,
@@ -188,19 +211,19 @@ function lineAfter(
   block: TextBlock,
   line: number,
   forward: boolean,
-): { block: TextBlock; edges: DrawnEdge[] } | null {
+): { block: TextBlock; slots: Slot[] } | null {
   const linesOf = (boxes: GraphemeBox[]) => [...new Set(boxes.map((b) => b.line))].sort((a, b) => a - b)
   const boxes = boxesOf(ck, block)
   const lines = linesOf(boxes)
   const inBlock = forward ? lines.find((l) => l > line) : lines.findLast((l) => l < line)
-  if (inBlock !== undefined) return { block, edges: edgesOn(boxes, inBlock) }
+  if (inBlock !== undefined) return { block, slots: slotsOn(boxes, inBlock, laid.rtl) }
   const other = laid.blocks[laid.blocks.indexOf(block) + (forward ? 1 : -1)]
   if (!other) return null
   const otherBoxes = boxesOf(ck, other)
   const otherLines = linesOf(otherBoxes)
   const first = forward ? otherLines[0] : otherLines.at(-1)
-  // An empty paragraph has no edges: its one place is its start.
-  return { block: other, edges: first === undefined ? [] : edgesOn(otherBoxes, first) }
+  // An empty paragraph has no places: its one place is its start.
+  return { block: other, slots: first === undefined ? [] : slotsOn(otherBoxes, first, laid.rtl) }
 }
 
 function rectsOf(ck: CanvasKit, paragraph: Paragraph, start: number, end: number): SelectionBox[] {

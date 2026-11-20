@@ -908,6 +908,18 @@ export const en = {
       empty: { title: 'Nothing in the kit yet', line: 'This brand’s colours, fonts and logos will show here.' },
       noColors: 'No colours yet. Add them with Edit.',
       noFonts: 'No fonts yet. Add them with Edit.',
+      /** The places every kit has, which designs bind to so they follow whichever brand they are in. */
+      brandRoles: {
+        primary: 'Primary',
+        secondary: 'Secondary',
+        accent: 'Accent',
+        background: 'Background',
+        text: 'Text',
+        heading: 'Heading',
+        body: 'Body',
+      },
+      /** A role the kit has no colour or font for yet. */
+      notSet: 'Not set',
     },
     props: {
       combine: 'Combine',

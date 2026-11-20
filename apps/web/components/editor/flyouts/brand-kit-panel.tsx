@@ -1,18 +1,27 @@
 'use client'
 
 // The brand kit (#53), in the Brand flyout. It opens as a picker, as in the final mock: the logo,
-// the colours as named tiles and the fonts in their own face. Picking a colour or font binds the
+// the colours as named tiles and the fonts in their own face, the brand roles first. Picking a colour or font binds the
 // selected layers to it, so they follow the brand: change the colour and every design using it
 // changes. Edit turns the flyout into the kit's form (kit-editor.tsx), where each change is saved
 // as it is made. A kit with nothing in it shows Daz asleep under Edit.
 import { useEffect, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { AssetSummary, bindablePropertyOf, brandRef, brandVariables, type Design, type ValueKind } from '@dazbee/schema'
+import {
+  AssetSummary,
+  bindablePropertyOf,
+  brandRef,
+  brandVariables,
+  type Design,
+  inBrandRoleOrder,
+  type ValueKind,
+} from '@dazbee/schema'
 
 import { useFontCatalog } from '@/components/brand-kit/font-catalog.ts'
 import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
+import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { loadKit, useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
 import { FontPreview } from '@/components/editor/fonts/font-preview.tsx'
@@ -157,16 +166,17 @@ export function BrandKitPanel({
                 <p className="text-tiny text-muted">{t.noColors}</p>
               ) : (
                 <ul className="grid grid-cols-5 gap-[8px]">
-                  {kit.colors.map((c) => {
+                  {inBrandRoleOrder('color', kit.colors).map((c) => {
                     const on = follows(design, selection, 'color', c.token)
+                    const name = kitEntryName(t.brandRoles, 'color', c)
                     return (
                       <li key={c.token} data-token={c.token}>
                         <button
                           type="button"
-                          aria-label={format(on ? t.unbind : t.apply, { name: c.name })}
+                          aria-label={format(on ? t.unbind : t.apply, { name })}
                           aria-pressed={on}
                           disabled={selection.length === 0}
-                          title={`${c.name} · ${hexText(c.value)}`}
+                          title={`${name} · ${hexText(c.value)}`}
                           onClick={() => apply('color', c.token)}
                           className="group flex w-full cursor-pointer flex-col gap-1 text-start disabled:cursor-default"
                         >
@@ -178,7 +188,7 @@ export function BrandKitPanel({
                               on && 'shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--accent)]',
                             )}
                           />
-                          <span className="truncate font-mono text-micro text-muted">{c.name}</span>
+                          <span className="truncate font-mono text-micro text-muted">{name}</span>
                         </button>
                       </li>
                     )
@@ -195,14 +205,15 @@ export function BrandKitPanel({
                 <p className="text-tiny text-muted">{t.noFonts}</p>
               ) : (
                 <ul className="flex flex-col">
-                  {kit.fonts.map((f) => {
+                  {inBrandRoleOrder('font', kit.fonts).map((f) => {
                     const on = follows(design, selection, 'font', f.token)
+                    const name = kitEntryName(t.brandRoles, 'font', f)
                     const family = catalog.find((x) => x.family === f.family)
                     return (
                       <li key={f.token} data-token={f.token} className="border-t border-line first:border-t-0">
                         <button
                           type="button"
-                          aria-label={format(on ? t.unbind : t.apply, { name: f.name })}
+                          aria-label={format(on ? t.unbind : t.apply, { name })}
                           aria-pressed={on}
                           disabled={!textSelected}
                           onClick={() => apply('font', f.token)}
@@ -215,7 +226,7 @@ export function BrandKitPanel({
                               <span className="block truncate text-heading font-semibold">{f.family}</span>
                             )}
                           </span>
-                          <span className="shrink-0 text-caption text-muted">{f.name}</span>
+                          <span className="shrink-0 text-caption text-muted">{name}</span>
                           {on && <CheckIcon size={14} aria-hidden className="shrink-0" />}
                         </button>
                       </li>

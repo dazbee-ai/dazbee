@@ -10,11 +10,13 @@ import {
   brandRef,
   changeFill,
   type Design,
+  inBrandRoleOrder,
   type Paint,
   paintColour,
   showingFillIndex,
 } from '@dazbee/schema'
 
+import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { ImagePickerButton } from '@/components/editor/image-picker.tsx'
 import { PaintEditor, PaintRow } from '@/components/editor/paint/paint-stack.tsx'
@@ -370,8 +372,9 @@ function Swatches({
   onBrand?: ((token: string, hex: string) => void) | undefined
 }) {
   const kit = useBrandKit(workspaceId, brandId)
+  const roles = useMessages().editor.brandKit.brandRoles
   const now = current && current !== 'mixed' ? hexOf(current).toUpperCase() : null
-  const colors = kit?.colors ?? []
+  const colors = inBrandRoleOrder('color', kit?.colors ?? [])
   // The colour it has now leads the row when the row does not hold it, as in the mock.
   const offered = colors.length > 0 ? colors.map((c) => c.value) : SWATCHES
   return (
@@ -390,7 +393,7 @@ function Swatches({
             <Swatch
               key={c.token}
               color={hexOf(c.value)}
-              label={c.name}
+              label={kitEntryName(roles, 'color', c)}
               size={PANEL_SWATCH}
               on={now === hexOf(c.value).toUpperCase()}
               onPick={() => (onBrand ? onBrand(c.token, hexOf(c.value)) : paint(hexOf(c.value)))}

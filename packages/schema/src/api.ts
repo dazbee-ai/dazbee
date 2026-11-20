@@ -332,14 +332,17 @@ export const BrandFont = z.object({
 })
 export type BrandFont = z.infer<typeof BrandFont>
 
+/** How many colours and fonts a kit holds at most, its brand roles included. */
+export const BRAND_KIT_LIMITS = { color: 24, font: 8 } as const
+
 /**
  * A brand's kit (#53): its colours and fonts, which designs bind to as `brand:<token>`, its logo (an
  * asset of the brand) and its tone of voice. A token names one colour or font in the kit.
  */
 export const BrandKit = z
   .object({
-    colors: BrandColor.array().max(24),
-    fonts: BrandFont.array().max(8),
+    colors: BrandColor.array().max(BRAND_KIT_LIMITS.color),
+    fonts: BrandFont.array().max(BRAND_KIT_LIMITS.font),
     logoAssetId: RecordId.nullable(),
     voice: z.string().max(2000),
   })

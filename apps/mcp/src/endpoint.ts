@@ -6,7 +6,17 @@ import { randomUUID } from 'node:crypto'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { readRequestBody } from '@modelcontextprotocol/sdk/server/requestBody.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from '@modelcontextprotocol/sdk/types.js'
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ListToolsRequestSchema,
+  McpError,
+  ReadResourceRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 
 import { ACCESS_TOKEN_PREFIX, type AgentMe } from '@dazbee/schema'
@@ -31,7 +41,9 @@ import {
 } from './limits.ts'
 import { oauthRoutes } from './oauth/routes.ts'
 import { agentTabSlots, type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
+import { promptMessage, PROMPTS } from './prompts.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
+import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'
 import { afterTimeout, type StoreWait } from './store-wait.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
@@ -217,26 +229,34 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   async function open(agent: AgentMe, token: string): Promise<McpSession> {
     const server = new Server(
       { name: 'dazbee', title: 'Dazbee', version },
-      { capabilities: { tools: { listChanged: false } }, instructions: INSTRUCTIONS },
+      {
+        capabilities: {
+          tools: { listChanged: false },
+          resources: { subscribe: false, listChanged: false },
+          prompts: { listChanged: false },
+        },
+        instructions: INSTRUCTIONS,
+      },
     )
     server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: TOOLS.map((tool) => tool.listing) }))
     server.setRequestHandler(CallToolRequestSchema, async ({ params }, extra) => {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
-      const call = extra.authInfo?.extra?.call as Call
-      const wait = calls.take(call.context.agent.id)
-      if (wait > 0)
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `This agent is calling faster than Dazbee takes; try again in ${inSeconds(wait)}.`,
-            },
-          ],
-          isError: true,
-        }
-      return tool.call(params.arguments, call.context)
+      const { context } = extra.authInfo?.extra?.call as Call
+      const tooFast = tooFastFor(context)
+      if (tooFast) return { content: [{ type: 'text', text: tooFast }], isError: true }
+      return tool.call(params.arguments, context)
     })
+    server.setRequestHandler(ListResourcesRequestSchema, () => ({ resources: RESOURCES }))
+    server.setRequestHandler(ListResourceTemplatesRequestSchema, () => ({ resourceTemplates: RESOURCE_TEMPLATES }))
+    server.setRequestHandler(ReadResourceRequestSchema, async ({ params }, extra) => {
+      const { context } = extra.authInfo?.extra?.call as Call
+      const tooFast = tooFastFor(context)
+      if (tooFast) throw new McpError(ErrorCode.InvalidRequest, tooFast)
+      return readResource(params.uri, context)
+    })
+    server.setRequestHandler(ListPromptsRequestSchema, () => ({ prompts: PROMPTS }))
+    server.setRequestHandler(GetPromptRequestSchema, ({ params }) => promptMessage(params.name, params.arguments))
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
@@ -259,6 +279,12 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       ...fresh,
     }
     return session
+  }
+
+  /** Takes a call from the access's bucket; when it is empty, the sentence telling the agent how long to wait. */
+  function tooFastFor({ agent }: ToolContext): string | undefined {
+    const wait = calls.take(agent.id)
+    return wait > 0 ? `This agent is calling faster than Dazbee takes; try again in ${inSeconds(wait)}.` : undefined
   }
 
   /** Keeps a session its transport started, ending the access's oldest past its limit; drops one that didn't start. */

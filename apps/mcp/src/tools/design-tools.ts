@@ -107,19 +107,11 @@ export function frameOf(design: Design, frameId: string) {
     throw new ToolRefusal(`The open design has no frame “${frameId}”; read_design lists its frames`)
 }
 
-/** `read`, its answer given with the design's notes after it, when there are any. */
-function answered(read: (open: OpenDesign) => unknown) {
-  return async (open: OpenDesign) => {
-    const value = await read(open)
-    return open.notes.length > 0 ? new WithNotes(value, open.notes) : value
-  }
-}
-
 /**
  * What read_design answers: the design's name, whether the tab may edit, its pages and frames, the kit's tokens, how
  * many of the tab's steps the server hasn't stored yet, and the tab's notices.
  */
-function designAnswer({ tab, name, kit }: OpenDesign) {
+export function designAnswer({ tab, name, kit }: OpenDesign) {
   const design = tab.design()
   return {
     name,
@@ -149,7 +141,7 @@ function designAnswer({ tab, name, kit }: OpenDesign) {
  * The frame's compact tree in `maxBytes`, cut further where its JSON, written as the answer's text, would pass
  * what an answer may hold. A field no layer has is refused.
  */
-function treeWithin(design: Design, frameId: string, fields: readonly string[], maxBytes: number) {
+export function treeWithin(design: Design, frameId: string, fields: readonly string[], maxBytes: number) {
   for (let budget = maxBytes; ;) {
     let tree
     try {
@@ -160,5 +152,13 @@ function treeWithin(design: Design, frameId: string, fields: readonly string[], 
     const bytes = answerBytes(JSON.stringify(tree))
     if (bytes <= MAX_TREE_BYTES || budget <= MIN_TREE_BYTES) return tree
     budget = Math.max(MIN_TREE_BYTES, Math.floor((budget * MAX_TREE_BYTES) / bytes) - 1)
+  }
+}
+
+/** `read`, its answer given with the design's notes after it, when there are any. */
+function answered(read: (open: OpenDesign) => unknown) {
+  return async (open: OpenDesign) => {
+    const value = await read(open)
+    return open.notes.length > 0 ? new WithNotes(value, open.notes) : value
   }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { type RunStyle, withRunStyle } from '@dazbee/schema'
 
 import { seeded } from './test-walk.ts'
-import { applyTextOp, matchesIn, replaceOps, type TextOp, type TextValue } from './text-value.ts'
+import { applyTextOp, matchesIn, replaceOps, replaceRangeOps, type TextOp, type TextValue } from './text-value.ts'
 
 /** What random texts are made of: letters, a space, an accented letter and emoji of two UTF-16 units. */
 const PIECES = ['a', 'b', 'c', ' ', 'é', '😀', '👍🏽']
@@ -231,6 +231,33 @@ describe('matchesIn', () => {
     expect(matchesIn('a😀b', first)).toEqual([])
     expect(matchesIn('a😀b', `${second}b`)).toEqual([])
     expect(matchesIn('a😀b😀', '😀')).toEqual([1, 4])
+  })
+})
+
+describe('replaceRangeOps', () => {
+  const BOLD = { fontWeight: 700 } as const
+  /** The text and runs once the ops replacing `start`–`end` with `insert` are applied in order. */
+  const replaced = (value: TextValue, start: number, end: number, insert: string) =>
+    replaceRangeOps(value.text, start, end, insert).reduce(applyTextOp, value)
+
+  it('gives text over a bold word after plain text the bold of that word', () => {
+    const value = { text: 'Big sale', runs: [{ start: 4, end: 8, style: BOLD }] }
+    expect(replaced(value, 4, 8, 'deal')).toEqual({ text: 'Big deal', runs: [{ start: 4, end: 8, style: BOLD }] })
+    expect(replaced(value, 4, 5, 'wh')).toEqual({ text: 'Big whale', runs: [{ start: 4, end: 9, style: BOLD }] })
+  })
+
+  it('counts an emoji the range starts with as one character', () => {
+    const value = { text: 'a😀bc', runs: [{ start: 1, end: 3, style: BOLD }] }
+    expect(replaced(value, 1, 4, 'XY')).toEqual({ text: 'aXYc', runs: [{ start: 1, end: 3, style: BOLD }] })
+    expect(replaced(value, 1, 3, 'Z')).toEqual({ text: 'aZbc', runs: [{ start: 1, end: 2, style: BOLD }] })
+  })
+
+  it('inserts with the run before at an empty range, and deletes with nothing to insert', () => {
+    const value = { text: 'ab', runs: [{ start: 0, end: 1, style: BOLD }] }
+    expect(replaceRangeOps('ab', 1, 1, 'x')).toEqual([{ kind: 'insert', at: 1, text: 'x' }])
+    expect(replaced(value, 1, 1, 'x')).toEqual({ text: 'axb', runs: [{ start: 0, end: 2, style: BOLD }] })
+    expect(replaced(value, 0, 1, '')).toEqual({ text: 'b', runs: [] })
+    expect(replaceRangeOps('ab', 1, 1, '')).toEqual([])
   })
 })
 

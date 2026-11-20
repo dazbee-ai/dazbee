@@ -92,6 +92,7 @@ function harness(resources = HAVING) {
       layout: () => {
         throw new Error('nothing is laid out in these tests')
       },
+      laidOutLayer: () => undefined,
     },
     boxes,
     frameOf: (key) => frames.find((f) => f.id === key),

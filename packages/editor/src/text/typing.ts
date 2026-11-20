@@ -1,18 +1,22 @@
 // Typing into a text layer on the stage: the text being edited with its caret and selected
-// range, the keys that type, delete and move the caret, the text copied, cut and pasted, and where
-// the caret or the range is shown.
+// range, the keys that type, delete and move the caret, the text copied, cut and pasted, an input
+// method's composition and what the stage field changed, and where the caret or the range is shown.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import {
+  type Box,
   type DesignStore,
   fittedText,
   type FitText,
   flippedPoint,
   flippedRect,
+  previewedDesign,
+  replaceRangeOps,
   type Session,
   type TextAnchor,
+  type TextOp,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
-import type { Point, Rect, TextStyle } from '@dazbee/schema'
+import { caretAt, caretPosition, selectionBoxes } from '@dazbee/renderer'
+import type { Design, Layer, Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
 import { findLayer, type FrameScenes } from '../canvas/scenes.ts'
@@ -24,7 +28,11 @@ import { paragraphsOf } from '../pasted-text.ts'
 import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
-import { backspaceStep, oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
+import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
+import type { FieldState, HeldField } from './field-change.ts'
+import { compositionOf, fieldEdit, fieldText as fieldTextOf, heldField } from './field-change.ts'
+import type { RunStyle, TextRange } from './text-edit.ts'
+import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
@@ -34,6 +42,10 @@ export interface ShownText {
   frame: Frame
   range: Rect[]
   caret: { x: number; y: number; height: number } | null
+  /** While composing: the lines under the part being composed, as boxes of no height. */
+  composition?: Rect[]
+  /** While composing: the box of the text as the composition draws it. */
+  box?: Box
 }
 
 export interface TypingDeps {
@@ -41,7 +53,7 @@ export interface TypingDeps {
   store: DesignStore
   session: Session
   resources: Pick<EditorResources, 'bytes'>
-  scenes: Pick<FrameScenes, 'shownScene' | 'measure' | 'layout'>
+  scenes: Pick<FrameScenes, 'shownScene' | 'measure' | 'layout' | 'laidOutLayer'>
   boxes: Pick<EditorBoxes, 'drawnHolders'>
   /** The shown page's frame with an id, as last drawn, if there is one. */
   frameOf: (id: string | undefined) => Frame | undefined
@@ -51,6 +63,8 @@ export interface TypingDeps {
   textSelectionChanged: () => void
   /** Tells that what is shown changed. */
   shownChanged: () => void
+  /** Asks for a redraw of the frames' pictures: a composition changed, which writes nothing. None without it. */
+  redraw?: () => void
   /**
    * Runs `run` after `ms`, and gives what cancels it: the pause that ends a typing step (C47).
    * Without it, a typing step ends only when typing stops or `pause` is called.
@@ -131,7 +145,28 @@ export interface EditorTyping {
    * nothing before the caret.
    */
   deleteBackward(): boolean
-  /** The selected range of the text being edited, or else its caret; null when none is edited or it is not drawn. */
+  /**
+   * What the stage field holds for the text being edited, whose selection's two ends it holds in the
+   * text from then on; null when none is edited. While composing, what it was given before.
+   */
+  fieldText(): FieldState | null
+  /**
+   * The stage field holds `state` now: with `composing`, the input event's data while an input
+   * method composes, the change is drawn as a composition and written nowhere; without, it is
+   * written in the typing step, a composition's commit too, and an empty commit writes nothing.
+   * False while no text is edited.
+   */
+  fieldChanged(state: FieldState, composing: string | null): boolean
+  /**
+   * The text layer as the composition draws it, by its id (null when none is composed), and a count
+   * raised each time the composition changes, starts or ends.
+   */
+  composition(): { count: number; composed: { id: string; layer: Layer } | null }
+  /**
+   * The selected range of the text being edited, or else its caret; while composing, the caret at
+   * the input method's cursor, the lines under the composition and the text's box, from the text as
+   * the composition draws it. Null when none is edited or it is not drawn.
+   */
   shown(): ShownText | null
 }
 
@@ -150,6 +185,10 @@ interface Editing extends Picked {
   /** Ends the typing step open now; null after a pause, until the next write opens one. */
   endGesture: (() => void) | null
   created: boolean
+  /** What the stage field is taken to hold, and its selection's two ends in the text; none until it is given its text. */
+  field?: HeldField | undefined
+  /** What an input method composes, drawn and never written; none when nothing is composed. */
+  composing?: Composing | undefined
 }
 
 /** How long typing waits with no key before it ends its step (C47), in milliseconds. */
@@ -166,6 +205,7 @@ export function editorTyping({
   hug,
   textSelectionChanged,
   shownChanged,
+  redraw = () => {},
   after,
   typingIn = () => [],
   editingElsewhere = () => {},
@@ -176,6 +216,10 @@ export function editorTyping({
   let editing: Editing | null = null
   /** Cancels the pause that would end the typing step open now. */
   let cancelPause: (() => void) | null = null
+  /** Raised each time the composition changes, starts or ends. */
+  let compositionCount = 0
+  /** The composition as last drawn, kept while the layer, the composition and the measure stay. */
+  let lastComposed: { key: unknown[]; made: { composed: Composed; design: Design } } | null = null
 
   /** The text layer being typed into, in its frame. */
   function editingNow() {
@@ -233,6 +277,7 @@ export function editorTyping({
    * mirrored as the text is flipped.
    */
   function shown(): ShownText | null {
+    if (editing?.composing) return shownComposing()
     const text = editingText()
     const offset = editing && store.anchorOffset(editing.caret)
     const range = textRange()
@@ -252,6 +297,53 @@ export function editorTyping({
     return { frame: text.frame, range: [], caret: { x, y, height } }
   }
 
+  /** The text as the composition draws it, laid out in its frame, so it follows a box that lays it out. */
+  function shownComposing(): ShownText | null {
+    const made = composedNow()
+    const frame = editing && frameOf(editing.frameId)
+    const layer = made && frame && editing && scenes.laidOutLayer(frame.id, made.design, editing.id)
+    if (!made || !frame || layer?.type !== 'text') return null
+    return { frame, range: [], ...composedPlaces(ck, layer.props, scenes.layout(layer.props), made.composed) }
+  }
+  /** The text layer as the composition draws it, by its id, and the composition's count. */
+  function composition() {
+    const made = composedNow()
+    return {
+      count: compositionCount,
+      composed: editing && made ? { id: editing.id, layer: made.composed.layer } : null,
+    }
+  }
+  /**
+   * The composition applied to the text being edited as it is now, and the design holding it; kept
+   * while the layer, the composition and the measure stay. Null when nothing is composed, or the
+   * text or the range it replaces is gone.
+   */
+  function composedNow(): { composed: Composed; design: Design } | null {
+    const composing = editing?.composing
+    const node = editing && session.design().nodes[editing.id]
+    const range = composing && anchoredRange(composing.start, composing.end)
+    if (!editing || !composing || !node || !range) return null
+    const key = [session.design(), compositionCount, range.start, range.end, scenes.measure(), resources.bytes()]
+    if (lastComposed?.key.every((k, i) => k === key[i])) return lastComposed.made
+    const composed = composedText(node, { ...composing, range }, scenes.measure(), resources.bytes().variables)
+    const design = composed && previewedDesign(session.design(), new Map([[editing.id, composed.layer]]))
+    lastComposed = composed && design && { key, made: { composed, design } }
+    return lastComposed?.made ?? null
+  }
+  /** The range between two anchors in the text being edited; null once it is gone. */
+  function anchoredRange(start: TextAnchor, end: TextAnchor): TextRange | null {
+    const from = store.anchorOffset(start)
+    const to = store.anchorOffset(end)
+    return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
+  }
+  /** Tells that the composition changed, started or ended: the frames' pictures and what is shown. */
+  function compositionChanged() {
+    compositionCount++
+    lastComposed = null
+    redraw()
+    shownChanged()
+  }
+
   /** Starts typing into a text layer in a frame, in one undo step until typing stops. */
   function startEditing(
     id: string,
@@ -261,6 +353,7 @@ export function editorTyping({
     created = false,
   ) {
     const at = store.textAnchor(id, offset)
+    if (editing?.composing) compositionChanged()
     editing = { id, frameId: frame, caret: at, anchor: at, drawnAfter: false, endGesture, created }
     textSelectionChanged()
     // Another tab typing in the same text: the version finished last is kept (C47).
@@ -291,6 +384,10 @@ export function editorTyping({
     if (editing.created && node?.type === 'text' && node.props.text === '') return
     endStep()
   }
+  /** Runs text edits on a text layer, in order. */
+  function editText(id: string, ops: readonly TextOp[]) {
+    for (const op of ops) session.run('text.edit', { id, op })
+  }
   /** Ends typing, closing its undo step. */
   function stopEditing() {
     if (!editing) return
@@ -300,7 +397,10 @@ export function editorTyping({
     if (node?.type === 'text' && node.props.text === '' && editing.created)
       runQuietly(() => deleteLayers(session, boxes, [id]))
     endStep()
+    const composing = editing.composing
     editing = null
+    // A composition left when typing ends is dropped: nothing of it lands.
+    if (composing) compositionChanged()
     textSelectionChanged()
   }
   /** Ends typing when the text being edited is no longer in the scene of its frame. */
@@ -316,6 +416,7 @@ export function editorTyping({
     editing.caret = store.textAnchor(editing.id, offset)
     editing.drawnAfter = drawnAfter
     if (!extend) editing.anchor = editing.caret
+    fieldFollows()
     textSelectionChanged()
   }
   /** Selects a range, the caret at its end. */
@@ -324,6 +425,7 @@ export function editorTyping({
     editing.anchor = store.textAnchor(editing.id, range.start)
     editing.caret = store.textAnchor(editing.id, range.end)
     editing.drawnAfter = false
+    fieldFollows()
     textSelectionChanged()
   }
   /**
@@ -420,49 +522,11 @@ export function editorTyping({
     const byWord = e.ctrlKey || e.altKey
     /** Replaces the selected range with text, or with nothing; the caret ends after what went in. */
     const replace = (inserted: string) => {
-      const ok = write(() => {
-        if (selected)
-          session.run('text.edit', { id, op: { kind: 'delete', at: range.start, length: range.end - range.start } })
-        if (inserted) session.run('text.edit', { id, op: { kind: 'insert', at: range.start, text: inserted } })
-      })
+      const ok = write(() => editText(id, replaceRangeOps(text, range.start, range.end, inserted)))
       // The anchor sits after the character before the caret, so inserting at the caret leaves it
       // before the new text; it is moved past it.
       if (ok) caretTo(range.start + inserted.length)
       return ok
-    }
-    /**
-     * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
-     * text; in reading order on a line all left to right, or while the text drawn is not yet the
-     * text typed.
-     */
-    const arrowStep = (right: boolean) => {
-      const drawn = editingText()
-      const onScreen =
-        drawn?.layer.props.text === text
-          ? visualStep(ck, drawn.laid, { offset: caret, after: drawnAfter }, right)
-          : null
-      return onScreen ?? { offset: step(text, caret, right), after: false }
-    }
-    /**
-     * Where an arrow puts the caret from the selected range: its edge on screen the arrow points
-     * to, on one line; else, or while the text drawn is not yet the text typed, its end in reading order.
-     */
-    const rangeEnd = (right: boolean) => {
-      const drawn = editingText()
-      const edge = drawn?.layer.props.text === text ? rangeEdge(ck, drawn.laid, range.start, range.end, right) : null
-      const forward = right !== (drawn?.laid.rtl ?? false)
-      return edge ?? { offset: forward ? range.end : range.start, after: false }
-    }
-    /** The caret's offset on the line above or below, or at the start or end of its line. */
-    const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
-      const laid = editingText()
-      if (!laid) return caret
-      const at = caretPosition(ck, laid.laid, caret, drawnAfter)
-      if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
-      const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
-      if (y < 0) return 0
-      if (y > laid.laid.height) return text.length
-      return caretAt(ck, laid.laid, at.x, y)
     }
     if (e.key === 'Escape') {
       stopEditing()
@@ -472,15 +536,16 @@ export function editorTyping({
       // from the caret.
       const right = e.key === 'ArrowRight'
       if (selected && !e.shiftKey && !byWord) {
-        const to = rangeEnd(right)
+        const to = rangeEnd(ck, editingText(), text, range, right)
         caretTo(to.offset, false, to.after)
       } else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
       else {
-        const to = arrowStep(right)
+        const to = arrowStep(ck, editingText(), text, caret, drawnAfter, right)
         caretTo(to.offset, e.shiftKey, to.after)
       }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
-      caretTo(lineMove(({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]), e.shiftKey)
+      const to = ({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]
+      caretTo(lineMove(ck, editingText(), text, caret, drawnAfter, to), e.shiftKey)
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {
@@ -540,14 +605,72 @@ export function editorTyping({
     const pasted = paragraphsOf(payload.text)
     const { id } = editing
     const { start, end } = at.range
-    const ok = write(() => {
-      if (end > start) session.run('text.edit', { id, op: { kind: 'delete', at: start, length: end - start } })
-      session.run('text.edit', { id, op: { kind: 'insert', at: start, text: pasted } })
-    })
+    const ok = write(() => editText(id, replaceRangeOps(at.text, start, end, pasted)))
     if (ok) caretTo(start + pasted.length)
     fitText(id)
     shownChanged()
     return true
+  }
+
+  /** What the stage field holds for the text being edited, its selection's two ends held in the text. */
+  function fieldText(): FieldState | null {
+    const at = clipboardText()
+    if (!editing || !at) return null
+    if (editing.composing && editing.field) return editing.field.given
+    const given = fieldTextOf(at.text, at.range)
+    editing.field = heldField(store, editing.id, given, at.range)
+    return given
+  }
+  /** The field's selection stands at the text's selection once it moves, outside a composition. */
+  function fieldFollows() {
+    const range = textRange()
+    if (editing?.field && !editing.composing && range)
+      editing.field = heldField(store, editing.id, editing.field.given, range)
+  }
+  /**
+   * The stage field holds `state` now. While `composing`, the change is the composition, drawn
+   * only; else it is written in the typing step and the field is taken to hold `state` from then
+   * on. A composition's empty commit writes nothing, and the field is taken to hold what it was given.
+   */
+  function fieldChanged(state: FieldState, composing: string | null): boolean {
+    if (editing && !editing.field) fieldText()
+    const held = editing?.field
+    const node = editing && session.design().nodes[editing.id]
+    if (!editing || !held || node?.type !== 'text') return false
+    const { id } = editing
+    const ends = anchoredRange(held.start, held.end)
+    const edit = ends && fieldEdit(held.given, ends, state, node.props.text.length)
+    if (composing !== null) {
+      // A composition emptied at a caret draws nothing.
+      if (!edit) {
+        dropComposition()
+        return true
+      }
+      const { range, ...made } = compositionOf(edit, composing)
+      editing.composing = {
+        ...made,
+        start: store.textAnchor(id, range.start),
+        end: store.textAnchor(id, range.end, true),
+      }
+      compositionChanged()
+      return true
+    }
+    const committed = editing.composing !== undefined
+    dropComposition()
+    // A composition the input method cancelled gives back the text and the range as they were.
+    if (!edit || (committed && edit.change.text === '')) return true
+    const ops = replaceRangeOps(node.props.text, edit.range.start, edit.range.end, edit.typed)
+    if (ops.length > 0 && write(() => editText(id, ops))) fitText(id)
+    selectText(edit.selection)
+    editing.field = heldField(store, id, state, edit.selection)
+    shownChanged()
+    return true
+  }
+  /** Drops the composition: nothing of it lands. */
+  function dropComposition() {
+    if (!editing?.composing) return
+    editing.composing = undefined
+    compositionChanged()
   }
 
   return {
@@ -570,6 +693,9 @@ export function editorTyping({
     paste,
     insert: (text: string) => paste({ text }),
     deleteBackward,
+    fieldText,
+    fieldChanged,
+    composition,
     shown,
   }
 }

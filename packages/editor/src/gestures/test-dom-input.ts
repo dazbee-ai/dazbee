@@ -169,6 +169,8 @@ export function harness(
       },
       text: () => false,
       deleteBackward: () => false,
+      fieldText: () => null,
+      fieldChanged: () => false,
       blur: () => log.push('blur'),
       hidden: () => log.push('hidden'),
       cursor: () => answers.cursor ?? '',

@@ -66,6 +66,8 @@ describe('a key while an input method composes', () => {
         },
         text: () => false,
         deleteBackward: () => false,
+        fieldText: () => null,
+        fieldChanged: () => false,
         cancelOnEscape: () => false,
         blur: () => {},
         hidden: () => {},

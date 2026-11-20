@@ -40,6 +40,19 @@ describe('textParts', () => {
     expect(parts.map((part) => [part.className, part.box])).toEqual(range.map((box) => ['text-selection', box]))
   })
 
+  it('places a line under each part of a composition, with no height of its own, and the caret', () => {
+    const lines = [
+      { x: 10, y: 30, width: 80, height: 0 },
+      { x: 10, y: 54, width: 30, height: 0 },
+    ]
+    const caret = { x: 40, y: 34, height: 24 }
+    const parts = textParts({ frame: SQUARE, range: [], caret, composition: lines }, placeBox) as unknown as Fake[]
+    expect(parts.map((part) => [part.className, part.box, part.style.height])).toEqual([
+      ...lines.map((box) => ['text-composition', box, '']),
+      ['caret', { ...caret, width: 0 }, undefined],
+    ])
+  })
+
   it('places the caret with no width of its own, so its style sheet gives it one', () => {
     const [caret] = textParts(
       { frame: SQUARE, range: [], caret: { x: 40, y: 10, height: 24 } },

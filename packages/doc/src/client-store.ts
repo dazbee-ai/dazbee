@@ -56,8 +56,11 @@ export class ScratchRejected extends Error {
 /** A place in a text, as a client store keeps it: an offset moved along by each change to the text. */
 class TextPlace {
   offset: number
-  constructor(offset: number) {
+  /** Whether text inserted at its place goes after it, leaving it where it is. */
+  stays: boolean
+  constructor(offset: number, stays: boolean) {
     this.offset = offset
+    this.stays = stays
   }
 }
 
@@ -335,16 +338,17 @@ export function clientStore(
     if (!entry || op.kind === 'style') return
     const at = Math.min(op.at, was.length)
     for (const place of live(entry)) {
-      if (op.kind === 'insert' && place.offset >= at) place.offset += op.text.length
+      if (op.kind === 'insert' && (place.offset > at || (place.offset === at && !place.stays)))
+        place.offset += op.text.length
       if (op.kind === 'delete' && place.offset > at) place.offset -= Math.min(op.length, place.offset - at)
     }
     entry.text = text
   }
 
-  function textAnchor(id: string, offset: number): TextAnchor {
+  function textAnchor(id: string, offset: number, stays = false): TextAnchor {
     const text = liveText(id)
     if (text === undefined) throw new Error(`"${id}" is not a text layer`)
-    const place = new TextPlace(offset)
+    const place = new TextPlace(offset, stays)
     const entry = anchored.get(id) ?? { text, places: new Set() }
     entry.places.add(new WeakRef(place))
     anchored.set(id, entry)
@@ -376,6 +380,8 @@ export function clientStore(
       let end = 0
       while (end < was.length - start && end < text.length - start && was.at(-1 - end) === text.at(-1 - end)) end++
       for (const place of live(entry)) {
+        // A place that stays is left before text inserted right at it.
+        if (place.stays && place.offset === start && start === was.length - end) continue
         if (place.offset >= was.length - end) place.offset += text.length - was.length
         else if (place.offset > start) place.offset = start
       }

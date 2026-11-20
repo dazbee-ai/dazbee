@@ -291,9 +291,13 @@ export function editorOverlay({
     const current = selection.current()
     let radius = radiusPillParts(null)
     if (!outer || !current) return { parts: [], size: null, radius }
-    const { frame, drawn: box } = outer
+    const { frame } = outer
     const inFrame = (frameId: string) => byFrame(current).find((part) => part.frameId === frameId)?.ids ?? []
     const ids = inFrame(frame.id)
+    // While an input method composes, the text typed into is outlined round the box its composition draws.
+    const editing = typing.editing()
+    const composing = editing?.frameId === frame.id && ids.length === 1 && ids[0] === editing.id
+    const box = (composing && typing.shown()?.box) || outer.drawn
     const parts: HTMLElement[] = []
     const several = current.length > 1
     if (several) {

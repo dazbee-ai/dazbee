@@ -1,5 +1,6 @@
 // A text layer's text and runs as plain data, and one edit applied to them: what the store writes
-// for `text.edit`; and the matches of a text found whatever their case, and the edits that replace them.
+// for `text.edit`; the edits that replace a range; and the matches of a text found whatever their
+// case, and the edits that replace them.
 import { type RunStyle, type TextRun, withRunStyle } from '@dazbee/schema'
 
 import { sameValue } from './same-value.ts'
@@ -68,24 +69,32 @@ export function matchesIn(text: string, find: string): number[] {
 }
 
 /**
+ * The edits, in order, that replace `start`–`end` of `text` with `insert`, so the new text takes the
+ * style of the first character it replaces: it goes in after that character (two UTF-16 units for one
+ * above U+FFFF), then the rest of the range and that character go. With an empty range it is inserted
+ * there, taking the style of the character before; with nothing to insert the range is deleted.
+ */
+export function replaceRangeOps(text: string, start: number, end: number, insert: string): TextOp[] {
+  if (end <= start) return insert ? [{ kind: 'insert', at: start, text: insert }] : []
+  if (!insert) return [{ kind: 'delete', at: start, length: end - start }]
+  const first = Math.min(isFirstHalf(text.charCodeAt(start)) ? 2 : 1, end - start)
+  const rest = end - start - first
+  return [
+    { kind: 'insert', at: start + first, text: insert },
+    ...(rest > 0 ? [{ kind: 'delete' as const, at: start + first + insert.length, length: rest }] : []),
+    { kind: 'delete', at: start, length: first },
+  ]
+}
+
+/**
  * The edits that replace every match of `find` in `text` (`matchesIn`) with `replace`, last first so
- * each offset holds as the edits apply in order. The replacement goes in after the match's first
- * character, so it takes that character's style, and then the match goes.
+ * each offset holds as the edits apply in order; each replacement takes the style of its match's
+ * first character (`replaceRangeOps`).
  */
 export function replaceOps(text: string, find: string, replace: string): TextOp[] {
   return matchesIn(text, find)
     .reverse()
-    .flatMap((at): TextOp[] => {
-      if (replace.length === 0) return [{ kind: 'delete', at, length: find.length }]
-      // The match's first character: two UTF-16 units for one above U+FFFF.
-      const first = isFirstHalf(text.charCodeAt(at)) ? 2 : 1
-      const rest = find.length - first
-      return [
-        { kind: 'insert', at: at + first, text: replace },
-        ...(rest > 0 ? [{ kind: 'delete' as const, at: at + first + replace.length, length: rest }] : []),
-        { kind: 'delete', at, length: first },
-      ]
-    })
+    .flatMap((at) => replaceRangeOps(text, at, at + find.length, replace))
 }
 
 /** The text with each surrogate pair that one of `edges` falls inside turned into two U+FFFD. */

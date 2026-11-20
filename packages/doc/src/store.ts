@@ -111,8 +111,12 @@ export interface DesignStore extends StoreWrite {
   layer(id: string): unknown
   /** The whole design as stored, before it is read: its deleted layers left out. */
   snapshot(): Snapshot
-  /** Anchors a UTF-16 offset in a text layer's text. It writes nothing. */
-  textAnchor(id: string, offset: number): TextAnchor
+  /**
+   * Anchors a UTF-16 offset in a text layer's text. Text inserted at its place goes before it, or
+   * with `stays`, after it, as the end of a range that must not take in what another tab types
+   * there. It writes nothing.
+   */
+  textAnchor(id: string, offset: number, stays?: boolean): TextAnchor
   /** Where an anchor is now, after whatever edits arrived; null once its layer is deleted. */
   anchorOffset(anchor: TextAnchor): number | null
   /** The undo history of one session on the store. */

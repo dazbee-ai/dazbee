@@ -1,8 +1,20 @@
 // Calls to the API on the private network, each with the agent's own token, and their answers read with the
-// schema's shapes. The API is the one checker of what the agent's access may reach (ADR-0019).
+// schema's shapes. The API is the one checker of what the agent's access may reach (ADR-0019). A font file or an
+// image is read from the signed storage link the API answers, which is sent no token.
 import { z } from 'zod'
 
-import { AgentMe, ApiError, AssetSummary, BrandSummary, DesignSummary } from '@dazbee/schema'
+import {
+  AgentMe,
+  ApiError,
+  AssetLink,
+  AssetSummary,
+  BrandKit,
+  BrandSummary,
+  DesignSummary,
+  FontFamily,
+  FontLink,
+  SyncToken,
+} from '@dazbee/schema'
 
 /** Where the API is, and the fetch that reaches it. */
 export interface ApiSettings {
@@ -17,6 +29,15 @@ export interface AgentApi {
   designs(brandId: string): Promise<DesignSummary[]>
   assets(brandId: string, query?: string): Promise<AssetSummary[]>
   createDesign(brandId: string, name: string): Promise<DesignSummary>
+  /** A sync token for the design's agent tab, which the design shows as `agent`. */
+  syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
+  brandKit(brandId: string): Promise<BrandKit>
+  /** The brand's font catalog: its families and their faces. */
+  fonts(brandId: string): Promise<FontFamily[]>
+  /** A face's font file. */
+  fontBytes(brandId: string, faceId: string): Promise<Uint8Array>
+  /** An image asset's stored bytes. */
+  assetBytes(brandId: string, assetId: string): Promise<Uint8Array>
 }
 
 /** The API answered a call with an error: its status and the sentence it gave. */
@@ -73,6 +94,18 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     assets: (brandId, query = '') =>
       ask('GET', `${brandPath(brandId)}/assets?${new URLSearchParams({ q: query })}`, AssetSummary.array()),
     createDesign: (brandId, name) => ask('POST', `${brandPath(brandId)}/designs`, DesignSummary, { name }),
+    syncToken: (brandId, designId, agent) =>
+      ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
+    brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
+    fonts: (brandId) => ask('GET', `${brandPath(brandId)}/fonts`, FontFamily.array()),
+    fontBytes: async (brandId, faceId) => {
+      const link = await ask('GET', `${brandPath(brandId)}/fonts/faces/${encodeURIComponent(faceId)}`, FontLink)
+      return linkedBytes(settings, link.url)
+    },
+    assetBytes: async (brandId, assetId) => {
+      const link = await ask('GET', `${brandPath(brandId)}/assets/${encodeURIComponent(assetId)}`, AssetLink)
+      return linkedBytes(settings, link.url)
+    },
   }
 }
 
@@ -109,4 +142,16 @@ async function call<T>(
   const parsed = shape.safeParse(answer)
   if (!parsed.success) throw new ApiRefusal(502, 'Dazbee gave an answer this server could not read')
   return parsed.data
+}
+
+/** The bytes at a signed storage link, fetched with no token; it throws `ApiRefusal` when they can't be read. */
+async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Array> {
+  let response: Response
+  try {
+    response = await (settings.fetch ?? fetch)(new Request(url, { signal: AbortSignal.timeout(API_TIMEOUT_MS) }))
+  } catch {
+    throw new ApiRefusal(503, 'Dazbee’s storage could not be reached; try again in a moment')
+  }
+  if (!response.ok) throw new ApiRefusal(502, `Dazbee’s storage answered ${response.status}`)
+  return new Uint8Array(await response.arrayBuffer())
 }

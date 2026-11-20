@@ -18,6 +18,24 @@ export const MAX_MCP_SESSIONS_PER_ACCESS = 4
 /** The most sessions held at once, of all accesses; past it, a new one is refused as busy. */
 export const MAX_MCP_SESSIONS = 200
 
+/**
+ * The most agent tabs open at once in the process, each the editor's core on one design; past it, open_design
+ * answers busy. Set from the memory one agent tab takes on the benchmark design (`tests/pixels/src/agent-tab-cost.ts`).
+ */
+export const MAX_AGENT_TABS = 20
+
+/** The most agent tabs one agent access holds open at once, across its sessions; past it, open_design answers busy. */
+export const MAX_AGENT_TABS_PER_ACCESS = 2
+
+/** How long open_design waits for the sync server's welcome. */
+export const OPEN_DESIGN_TIMEOUT_MS = 30_000
+
+/** The least `maxBytes` read_frame takes. */
+export const MIN_TREE_BYTES = 1024
+
+/** The most `maxBytes` read_frame takes: what an answer may hold. */
+export const MAX_TREE_BYTES = MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES
+
 /** How long a request may take before it is answered 503, so no client waits on a call that never ends. */
 export const CALL_TIMEOUT_MS = 60_000
 

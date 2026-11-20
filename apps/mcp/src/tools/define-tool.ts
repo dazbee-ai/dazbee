@@ -7,11 +7,13 @@ import type { AgentMe } from '@dazbee/schema'
 
 import { type AgentApi, ApiRefusal, TokenRefused } from '../api.ts'
 import { ANSWER_ENVELOPE_BYTES, inMiB, MAX_ANSWER_BYTES } from '../limits.ts'
+import type { SessionDesign } from '../open-design.ts'
 
-/** What a tool call runs with: the API as the calling agent sees it, and the agent's access. */
+/** What a tool call runs with: the API as the calling agent sees it, the agent's access, and its session's design. */
 export interface ToolContext {
   api: AgentApi
   agent: AgentMe
+  design: SessionDesign
 }
 
 /** A tool as the server offers it. */
@@ -30,12 +32,25 @@ export interface ToolDefinition<S extends z.ZodObject> {
   /** Whether the tool only reads: it changes nothing in the workspace or a design. */
   readOnly: boolean
   input: S
-  /** What the tool answers: text as it is, anything else as JSON. It throws `ToolRefusal` with a sentence. */
+  /**
+   * What the tool answers: text as it is, anything else as JSON, and `WithNotes`'s notes after it. It throws
+   * `ToolRefusal` with a sentence.
+   */
   run(input: z.output<S>, context: ToolContext): Promise<unknown>
 }
 
 /** A tool's refusal, in a sentence the agent reads. */
 export class ToolRefusal extends Error {}
+
+/** A tool's answer with sentences told after it, each a text block of its own. */
+export class WithNotes {
+  readonly value: unknown
+  readonly notes: readonly string[]
+  constructor(value: unknown, notes: readonly string[]) {
+    this.value = value
+    this.notes = notes
+  }
+}
 
 /** A tool keeping the rules above, from its definition. */
 export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>): Tool {
@@ -77,6 +92,11 @@ export function withoutDialect(schema: object): Record<string, unknown> {
   return copy
 }
 
+/** The bytes a text takes in an answer, written as a JSON string. */
+export function answerBytes(text: string): number {
+  return Buffer.byteLength(JSON.stringify(text))
+}
+
 /** A tool error: the sentence, ending with a full stop. */
 function refused(sentence: string): CallToolResult {
   return { content: [{ type: 'text', text: /[.?!]$/.test(sentence) ? sentence : `${sentence}.` }], isError: true }
@@ -101,13 +121,14 @@ function inputIssues(error: z.ZodError, given: object): string {
     .join('; ')
 }
 
-/** The tool's answer as one text block, or a tool error when it would not fit an answer. */
-function answer(value: unknown): CallToolResult {
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
-  const bytes = Buffer.byteLength(JSON.stringify(text))
+/** The tool's answer as a text block, and one for each note, or a tool error when it would not fit an answer. */
+function answer(given: unknown): CallToolResult {
+  const [value, notes] = given instanceof WithNotes ? [given.value, given.notes] : [given, []]
+  const texts = [typeof value === 'string' ? value : JSON.stringify(value), ...notes]
+  const bytes = texts.reduce((sum, text) => sum + answerBytes(text), 0)
   if (bytes > MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES)
     return refused(
       `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be; ask for less`,
     )
-  return { content: [{ type: 'text', text }] }
+  return { content: texts.map((text) => ({ type: 'text', text })) }
 }

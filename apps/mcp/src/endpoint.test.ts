@@ -87,6 +87,11 @@ describe('mcpEndpoint', () => {
       'list_designs',
       'list_assets',
       'create_design',
+      'open_design',
+      'read_design',
+      'read_frame',
+      'read_layer',
+      'check_frame',
       'list_commands',
       'describe_command',
     ])
@@ -99,7 +104,12 @@ describe('mcpEndpoint', () => {
       expect(tool.title, tool.name).toBeTruthy()
     }
     const readOnly = Object.fromEntries(tools.map(({ name, annotations }) => [name, annotations?.readOnlyHint]))
-    expect(readOnly).toMatchObject({ list_brands: true, create_design: false, describe_command: true })
+    expect(readOnly).toMatchObject({
+      list_brands: true,
+      create_design: false,
+      open_design: true,
+      describe_command: true,
+    })
   })
 
   it('answers its health with its build', async () => {

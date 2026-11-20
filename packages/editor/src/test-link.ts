@@ -3,7 +3,8 @@
 // replaces its old connection. Its sockets carry every message through JSON, each a microtask later
 // and in order, as the browser's WebSocket would; a message past `ZIP_FROM` goes gzipped, as the
 // sync server sends one. The server checks no token: a token names who the tab is (`ann`, `bob`, a
-// Reviewer `viewer`), and `old` is a tab older than the design. A test holds, cuts or closes a socket.
+// Reviewer `viewer`, or whom the test's `who` names), and `old` is a tab older than the design. A test holds,
+// cuts or closes a socket.
 import { gzipSync } from 'node:zlib'
 
 import {
@@ -68,8 +69,15 @@ export interface MemorySync {
   settle(): Promise<void>
 }
 
+/** What a test's server is given beside its design. */
+export interface MemorySyncOptions {
+  /** Who a token is, for tokens besides the test ones; undefined for one the server refuses. */
+  who?: (token: string) => Who | undefined
+}
+
 /** The core's design host on `design` (the test design unless given), with sockets on it. */
-export function memorySync(design: DesignInput = testDesign()): MemorySync {
+export function memorySync(design: DesignInput = testDesign(), options: MemorySyncOptions = {}): MemorySync {
+  const whoOf = (token: string) => WHO[token] ?? options.who?.(token)
   let secrets = 0
   const journal = memoryJournal(memoryRows(firstSaved(design as unknown as DesignRecords, 's0')))
   const host = openHost(journal, {
@@ -157,14 +165,14 @@ export function memorySync(design: DesignInput = testDesign()): MemorySync {
       if (!joined) {
         if (message.type !== 'hello') return s.closeWith(SYNC_CLOSE.protocol)
         if (message.token === 'old') return s.closeWith(SYNC_CLOSE.tabTooOld)
-        const who = WHO[message.token]
+        const who = whoOf(message.token)
         if (!who) return s.closeWith(SYNC_CLOSE.tokenExpired)
         joined = side
         return host.connect(side, message, who)
       }
       // A renewal is the connection's to check: a token for another role changes the tab's access.
       if (message.type === 'token') {
-        const who = WHO[message.token]
+        const who = whoOf(message.token)
         if (who) host.access(side, who.access)
         return
       }

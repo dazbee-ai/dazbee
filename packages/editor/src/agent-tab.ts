@@ -18,6 +18,8 @@ import { loadFonts, type ResourceSources } from './resources.ts'
 import type { Stopped } from './save-state.ts'
 import type { LinkSocket } from './sync-link.ts'
 
+export { TabStopped } from './open-tab.ts'
+
 export interface AgentTabOptions {
   ck: CanvasKit
   designId: string

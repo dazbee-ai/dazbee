@@ -15,7 +15,7 @@ import {
   type TextAnchor,
   type TextOp,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
+import { caretAt, caretPosition, selectionBoxes } from '@dazbee/renderer'
 import type { Design, Layer, Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
@@ -30,7 +30,18 @@ import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
 import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
 import { compositionOf, fieldEdit, type FieldState, fieldText as heldText, type HeldField } from './field-change.ts'
-import { backspaceStep, oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
+import {
+  arrowStep,
+  backspaceStep,
+  lineMove,
+  oneGrapheme,
+  rangeEnd,
+  type RunStyle,
+  step,
+  stylesIn,
+  type TextRange,
+  wordStep,
+} from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
@@ -524,40 +535,6 @@ export function editorTyping({
       if (ok) caretTo(range.start + inserted.length)
       return ok
     }
-    /**
-     * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
-     * text; in reading order on a line all left to right, or while the text drawn is not yet the
-     * text typed.
-     */
-    const arrowStep = (right: boolean) => {
-      const drawn = editingText()
-      const onScreen =
-        drawn?.layer.props.text === text
-          ? visualStep(ck, drawn.laid, { offset: caret, after: drawnAfter }, right)
-          : null
-      return onScreen ?? { offset: step(text, caret, right), after: false }
-    }
-    /**
-     * Where an arrow puts the caret from the selected range: its edge on screen the arrow points
-     * to, on one line; else, or while the text drawn is not yet the text typed, its end in reading order.
-     */
-    const rangeEnd = (right: boolean) => {
-      const drawn = editingText()
-      const edge = drawn?.layer.props.text === text ? rangeEdge(ck, drawn.laid, range.start, range.end, right) : null
-      const forward = right !== (drawn?.laid.rtl ?? false)
-      return edge ?? { offset: forward ? range.end : range.start, after: false }
-    }
-    /** The caret's offset on the line above or below, or at the start or end of its line. */
-    const lineMove = (to: 'up' | 'down' | 'home' | 'end') => {
-      const laid = editingText()
-      if (!laid) return caret
-      const at = caretPosition(ck, laid.laid, caret, drawnAfter)
-      if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
-      const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
-      if (y < 0) return 0
-      if (y > laid.laid.height) return text.length
-      return caretAt(ck, laid.laid, at.x, y)
-    }
     if (e.key === 'Escape') {
       stopEditing()
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -566,15 +543,25 @@ export function editorTyping({
       // from the caret.
       const right = e.key === 'ArrowRight'
       if (selected && !e.shiftKey && !byWord) {
-        const to = rangeEnd(right)
+        const to = rangeEnd(ck, editingText(), text, range, right)
         caretTo(to.offset, false, to.after)
       } else if (byWord) caretTo(wordStep(text, caret, right), e.shiftKey)
       else {
-        const to = arrowStep(right)
+        const to = arrowStep(ck, editingText(), text, caret, drawnAfter, right)
         caretTo(to.offset, e.shiftKey, to.after)
       }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') {
-      caretTo(lineMove(({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key]), e.shiftKey)
+      caretTo(
+        lineMove(
+          ck,
+          editingText(),
+          text,
+          caret,
+          drawnAfter,
+          ({ ArrowUp: 'up', ArrowDown: 'down', Home: 'home', End: 'end' } as const)[e.key],
+        ),
+        e.shiftKey,
+      )
     } else if (mod && key === 'a') {
       selectText({ start: 0, end: text.length })
     } else if (e.key === 'Backspace' && (selected || caret > 0)) {

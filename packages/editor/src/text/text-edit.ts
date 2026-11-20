@@ -2,6 +2,8 @@
 // keys go, and the rule a style key follows: whether its style is on, and what turning it on or off
 // writes, Bold picking from the weights a family has. Kept free of the editor so it can be tested on
 // its own. Offsets count UTF-16 units, as the document's text does.
+import type { CanvasKit } from '@dazbee/canvaskit'
+import { caretAt, type CaretPlace, caretPosition, rangeEdge, type TextLayout, visualStep } from '@dazbee/renderer'
 import { type Design, withRunStyle } from '@dazbee/schema'
 
 import type { ShortcutAction } from '../shortcuts.ts'
@@ -104,6 +106,62 @@ export function paragraphAt(text: string, offset: number): TextRange {
   const start = text.lastIndexOf('\n', offset - 1) + 1
   const next = text.indexOf('\n', offset)
   return { start, end: next === -1 ? text.length : next }
+}
+
+/** The text being edited as last drawn: its layer's text, and its layout. */
+interface DrawnText {
+  layer: { props: { text: string } }
+  laid: TextLayout
+}
+
+/**
+ * Where an arrow moves the caret to, a grapheme left or right on screen through right-to-left
+ * text; in reading order on a line all left to right, or while the text drawn is not yet the
+ * text typed.
+ */
+export function arrowStep(
+  ck: CanvasKit,
+  drawn: DrawnText | null,
+  text: string,
+  caret: number,
+  drawnAfter: boolean,
+  right: boolean,
+): CaretPlace {
+  const onScreen =
+    drawn?.layer.props.text === text ? visualStep(ck, drawn.laid, { offset: caret, after: drawnAfter }, right) : null
+  return onScreen ?? { offset: step(text, caret, right), after: false }
+}
+/**
+ * Where an arrow puts the caret from the selected range: its edge on screen the arrow points
+ * to, on one line; else, or while the text drawn is not yet the text typed, its end in reading order.
+ */
+export function rangeEnd(
+  ck: CanvasKit,
+  drawn: DrawnText | null,
+  text: string,
+  range: TextRange,
+  right: boolean,
+): CaretPlace {
+  const edge = drawn?.layer.props.text === text ? rangeEdge(ck, drawn.laid, range.start, range.end, right) : null
+  const forward = right !== (drawn?.laid.rtl ?? false)
+  return edge ?? { offset: forward ? range.end : range.start, after: false }
+}
+/** The caret's offset on the line above or below, or at the start or end of its line. */
+export function lineMove(
+  ck: CanvasKit,
+  laid: DrawnText | null,
+  text: string,
+  caret: number,
+  drawnAfter: boolean,
+  to: 'up' | 'down' | 'home' | 'end',
+): number {
+  if (!laid) return caret
+  const at = caretPosition(ck, laid.laid, caret, drawnAfter)
+  if (to === 'home' || to === 'end') return caretAt(ck, laid.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
+  const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
+  if (y < 0) return 0
+  if (y > laid.laid.height) return text.length
+  return caretAt(ck, laid.laid, at.x, y)
 }
 
 /** Each character's style in a range: the base, then every run over it, later runs winning (`withRunStyle`). */

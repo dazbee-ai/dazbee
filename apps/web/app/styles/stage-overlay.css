@@ -596,6 +596,13 @@
   background: color-mix(in oklab, var(--accent) 28%, transparent);
   pointer-events: none;
 }
+/* The line under what an input method composes, in the caret's colour. */
+.stage-overlay .text-composition {
+  position: absolute;
+  height: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
 
 /* A drag in an auto layout flow: the layers following the pointer, the line where they would go,
    with a white halo and a faint dark edge so it reads over any colour, and the box outlined when

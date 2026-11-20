@@ -576,3 +576,45 @@ export const agentTokens = pgTable(
     check('agent_tokens_kind', sql`${t.kind} in (${sql.raw(AGENT_TOKEN_KINDS.map((kind) => `'${kind}'`).join(', '))})`),
   ],
 )
+
+/** The kinds of agent authorization: a person's sign-in request waiting for their consent, and the code it gives. */
+const AGENT_AUTHORIZATION_KINDS = ['request', 'code'] as const
+
+/**
+ * An agent's sign-in (ADR-0019), kept only as the SHA-256 of its random id, so no row holds one. A request
+ * holds what the client asked for (its redirect URI, state and PKCE challenge) while the person decides; their
+ * consent swaps it for a code, which holds their choice too (who, the workspace, brands and writing) and is
+ * swapped once for the access and its first tokens.
+ */
+export const agentAuthorizations = pgTable(
+  'agent_authorizations',
+  {
+    hash: text().primaryKey(),
+    kind: text({ enum: AGENT_AUTHORIZATION_KINDS }).notNull(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => agentClients.id, { onDelete: 'cascade' }),
+    redirectUri: text('redirect_uri').notNull(),
+    /** The client's `state`, given back with the code; null when it gave none. */
+    state: text(),
+    /** The PKCE challenge, S256 of the client's verifier. */
+    codeChallenge: text('code_challenge').notNull(),
+    /** A code's person and workspace; null for a request. */
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    /** A code's brands, or null for every brand the member sees, as an access's. */
+    brandIds: jsonb('brand_ids').$type<string[]>(),
+    writes: boolean(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** The access a code was swapped for, which a second use of the code ends; null until then. */
+    accessId: text('access_id').references(() => agentAccesses.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('agent_authorizations_expires').on(t.expiresAt),
+    check(
+      'agent_authorizations_kind',
+      sql`${t.kind} in (${sql.raw(AGENT_AUTHORIZATION_KINDS.map((kind) => `'${kind}'`).join(', '))})`,
+    ),
+  ],
+)

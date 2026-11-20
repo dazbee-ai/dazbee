@@ -1,6 +1,6 @@
 // Laid out to fit: a layer copied from a frame of one size into a frame of another, every size it
 // holds scaled with its box.
-import { LayerLimits, type Rect, TILE_SCALE } from '@dazbee/schema'
+import { LayerLimits, type LetterSpacing, type Rect, TILE_SCALE } from '@dazbee/schema'
 
 import { round } from '../geometry.ts'
 import { scaled } from '../text-scale.ts'
@@ -12,7 +12,7 @@ export interface Size {
 /** The sizes a text's style holds. */
 interface TextStyleLike {
   fontSize: number
-  letterSpacing?: number
+  letterSpacing?: LetterSpacing
   outline?: { width: number; color: string }
 }
 /** The parts of a text layer's props that hold sizes. */

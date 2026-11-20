@@ -122,7 +122,7 @@ const style = {
     fontWeight: 700,
     fontStyle: 'italic',
     color: '#112233FF',
-    letterSpacing: 1,
+    letterSpacing: { unit: 'px', value: 1 },
     lineHeight: 1.2,
     paragraphSpacing: 4,
     outline: { width: 1, color: '#000000FF' },

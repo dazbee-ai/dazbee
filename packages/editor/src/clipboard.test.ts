@@ -74,6 +74,18 @@ describe('layersOnClipboard', () => {
     expect(layersOnClipboard(kept, { text: 'something else' })).toBeNull()
   })
 
+  it('reads layers copied by a tab built before letter spacing had a unit, carried over', () => {
+    const style = { fontFamily: 'Noto Sans', fontSize: 20, color: '#111111FF', letterSpacing: 3 }
+    const text = {
+      ...rect('Title', 'a0', 't'),
+      type: 'text',
+      props: { x: 0, y: 0, width: 10, height: 10, text: 'A', style },
+    }
+    const old = JSON.stringify({ ...copied, tree: { nodes: { t: text }, roots: ['t'] } })
+    const read = layersOnClipboard(kept, { data: { [LAYER_CLIPBOARD_TYPE]: old } })
+    expect(read?.tree.nodes.t).toMatchObject({ props: { style: { letterSpacing: { unit: 'px', value: 3 } } } })
+  })
+
   it('finds nothing in an empty payload, in text that isn’t layers or with storage off', () => {
     expect(layersOnClipboard(kept, {})).toBeNull()
     expect(layersOnClipboard(kept, { text: '', data: {} })).toBeNull()

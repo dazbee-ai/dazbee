@@ -82,17 +82,27 @@ describe('styleOf', () => {
 
   it('takes a text’s font, weight, colour, spacing and outline, never its font size', () => {
     const style = styleOf(
-      text({ fontWeight: 700, fontStyle: 'italic', letterSpacing: 2, lineHeight: 1.2 }, { paragraphSpacing: 6 }),
+      text(
+        {
+          fontWeight: 700,
+          fontStyle: 'italic',
+          letterSpacing: { unit: 'percent', value: 2 },
+          lineHeight: 1.2,
+          features: { tnum: true },
+        },
+        { paragraphSpacing: 6 },
+      ),
     )
     expect(style.text).toEqual({
       fontFamily: 'Inter',
       fontWeight: 700,
       fontStyle: 'italic',
       color: navy,
-      letterSpacing: 2,
+      letterSpacing: { unit: 'percent', value: 2 },
       lineHeight: 1.2,
       paragraphSpacing: 6,
       outline: null,
+      features: { tnum: true },
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -116,7 +126,10 @@ describe('restyle', () => {
   })
 
   it('sets a text’s font and spacing in its base style, keeping its font size, and clears what the style lacks', () => {
-    const to = text({ fontSize: 22, lineHeight: 1.5, outline: { width: 1, color: red } }, { paragraphSpacing: 4 })
+    const to = text(
+      { fontSize: 22, lineHeight: 1.5, outline: { width: 1, color: red }, features: { liga: false } },
+      { paragraphSpacing: 4 },
+    )
     const change = restyle(to, styleOf(text({ fontFamily: 'Lora', fontWeight: 600 })))
     expect(change?.patch.style).toEqual({
       fontFamily: 'Lora',
@@ -124,7 +137,7 @@ describe('restyle', () => {
       fontStyle: 'normal',
       fontSize: 22,
       color: navy,
-      letterSpacing: 0,
+      letterSpacing: { unit: 'percent', value: 0 },
     })
     expect(change?.patch).toHaveProperty('paragraphSpacing', undefined)
   })

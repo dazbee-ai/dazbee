@@ -1,8 +1,8 @@
 // The stage field: a text area the page keeps beside the stage's overlay while a text is edited,
 // with the focus in it, so that what the system types with no key reaches the text: the emoji
-// keyboard's pick, dictation, and an input method's committed text. It holds no text of its own
-// but while an input method composes, when it shows what is composed at the caret. The keys typed
-// in it are the stage's (`isStageField`).
+// keyboard's pick, dictation, an input method's committed text, and its Backspace, which deletes
+// back as the key does. It holds no text of its own but while an input method composes, when it
+// shows what is composed at the caret. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 

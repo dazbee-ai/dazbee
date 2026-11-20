@@ -34,15 +34,18 @@ export async function saveBrandKit(db: Db, workspaceId: string, brandId: string,
   if (kit.logoAssetId && !(await findAsset(db, workspaceId, brandId, { id: kit.logoAssetId })))
     throw new InvalidKit('The logo is not an asset of this brand')
   const { textStyles, ...rest } = kit
-  if (!textStyles) {
-    const kept = await getBrandKit(db, workspaceId, brandId)
-    const merged = BrandKit.safeParse({ ...rest, textStyles: kept.textStyles })
-    if (!merged.success) throw new InvalidKit(merged.error.issues.map((i) => i.message).join('; '))
-  }
   const values = { ...rest, ...(textStyles ? { textStyles } : {}), updatedAt: new Date() }
-  await db
-    .insert(brandKits)
-    .values({ brandId, workspaceId, ...values })
-    .onConflictDoUpdate({ target: brandKits.brandId, set: values })
+  const mine = and(eq(brandKits.brandId, brandId), eq(brandKits.workspaceId, workspaceId))
+  await db.transaction(async (tx) => {
+    // The kit's row, made when missing, is held until the save ends, so saves of one kit run one at
+    // a time and the styles checked below are the ones the save keeps.
+    await tx.insert(brandKits).values({ brandId, workspaceId }).onConflictDoNothing()
+    const [held] = await tx.select({ textStyles: brandKits.textStyles }).from(brandKits).where(mine).for('update')
+    if (!textStyles) {
+      const merged = BrandKit.safeParse({ ...rest, textStyles: held?.textStyles ?? [] })
+      if (!merged.success) throw new InvalidKit(merged.error.issues.map((i) => i.message).join('; '))
+    }
+    await tx.update(brandKits).set(values).where(mine)
+  })
   return getBrandKit(db, workspaceId, brandId)
 }

@@ -66,6 +66,19 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toEqual(kit)
   })
 
+  it('never stores two things under one token when a save without text styles meets one with them', async () => {
+    const red = { token: 'headline', name: 'Headline', value: '#E0262BFF' }
+    for (let round = 0; round < 10; round++) {
+      await call('a', 'PUT', `/brands/${sibling.id}/kit`, { ...kit, textStyles: [] })
+      await Promise.all([
+        call('a', 'PUT', `/brands/${sibling.id}/kit`, { ...before, colors: [red] }),
+        call('a', 'PUT', `/brands/${sibling.id}/kit`, kit),
+      ])
+      const stored = (await call('a', 'GET', `/brands/${sibling.id}/kit`)).json
+      expect(BrandKit.safeParse(stored).success).toBe(true)
+    }
+  })
+
   it("takes a logo only from the brand's own assets", async () => {
     const { asset: logo } = await uploadImage('a', brand.id, png(12, 12, `${run}-logo`))
     expect((await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, logoAssetId: logo.id })).json).toMatchObject({

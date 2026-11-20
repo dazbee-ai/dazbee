@@ -471,7 +471,7 @@ describe('editorTyping over text laid out with a font', () => {
       hug: () => {},
       textSelectionChanged: () => {},
       shownChanged: () => {},
-      })
+    })
     return { ck, typing, laid: scenes.layout(parsed.design.nodes.title?.props as never) }
   }
 

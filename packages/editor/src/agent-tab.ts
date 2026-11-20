@@ -52,8 +52,11 @@ export interface AgentTab {
   bytes(): ResourceBytes
   /** The cache the tab decodes its fonts and images in, for warnings and renders. */
   cache: ResourceCache
-  /** Settles once the fonts and images of these frames are here, or failed to come. */
-  ready(frameIds: readonly string[]): Promise<void>
+  /**
+   * Settles once the files of every family the design draws its text in are here, or failed to come: what its
+   * warnings read. No image is loaded for them.
+   */
+  fontsLoaded(): Promise<void>
   /** What the tab told since the last call, oldest first, at most `KEPT_NOTICES` of the newest. */
   takeNotices(): NoticeDetail[]
   /** Why the sync server takes nothing more from the tab, if it doesn't. */
@@ -144,9 +147,9 @@ export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> 
     readOnly: () => tab.access.readOnly(),
     bytes: () => modules.resources.bytes(),
     cache,
-    async ready(frameIds) {
-      modules.resources.load(session.design(), frameIds)
-      await modules.resources.loaded()
+    async fontsLoaded() {
+      const { variables } = modules.resources.bytes()
+      await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), variables)))
     },
     takeNotices: () => notices.splice(0),
     stopped,

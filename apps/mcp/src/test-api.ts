@@ -1,5 +1,6 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, and agent accesses whose tokens the tests hand out and refuse.
+// assets, the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
+// accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
 import { loadFontFiles } from '@dazbee/fonts/node'

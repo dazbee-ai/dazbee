@@ -20,7 +20,8 @@ export const MAX_MCP_SESSIONS = 200
 
 /**
  * The most agent tabs open at once in the process, each the editor's core on one design; past it, open_design
- * answers busy. Set from the memory one agent tab takes on the benchmark design (`tests/pixels/src/agent-tab-cost.ts`).
+ * answers busy. One tab takes about 10 MiB on the big carousel benchmark, and about 30 MiB with its images decoded
+ * (`tests/pixels/src/agent-tab-cost.ts`): 20 keep the process under 1 GiB beside what every tab shares.
  */
 export const MAX_AGENT_TABS = 20
 

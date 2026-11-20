@@ -89,7 +89,7 @@ export const DESIGN_TOOLS: Tool[] = [
     run: ({ frame }, context) =>
       onDesign(context, async ({ tab }) => {
         frameOf(tab.design(), frame)
-        await tab.ready([frame])
+        await tab.fontsLoaded()
         return frameWarnings(await loadCanvasKit(), tab.design(), frame, tab.bytes(), { cache: tab.cache })
       }),
   }),

@@ -2,6 +2,7 @@
 // every response with them, so the two can't drift apart.
 import { z } from 'zod'
 
+import { BRAND_KIT_LIMITS, LOGO_ROLE } from './brand-roles.ts'
 import { Color } from './primitives.ts'
 import { Member } from './sync.ts'
 import { brandRef, BrandToken, type Variables } from './variables.ts'
@@ -332,9 +333,6 @@ export const BrandFont = z.object({
 })
 export type BrandFont = z.infer<typeof BrandFont>
 
-/** How many colours and fonts a kit holds at most, its brand roles included. */
-export const BRAND_KIT_LIMITS = { color: 24, font: 8 } as const
-
 /**
  * A brand's kit (#53): its colours and fonts, which designs bind to as `brand:<token>`, its logo (an
  * asset of the brand) and its tone of voice. A token names one colour or font in the kit.
@@ -470,9 +468,6 @@ export type AgentMe = z.infer<typeof AgentMe>
 
 /** Whether an asset is an SVG file, placed as layers rather than as an image fill. */
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'
-
-/** The brand role the kit's logo fills, a picture: a layer bound to `brand:logo` draws the brand's logo. */
-export const LOGO_ROLE = 'logo'
 
 /**
  * The values a kit gives its tokens, for drawing designs bound to them. With the kit's logo asset,

@@ -3,7 +3,7 @@
 // a layer bound to `brand:primary` follows whichever brand's kit it is drawn with. A kit colour or
 // font whose token is a role of its kind fills that role; the rest are the brand's own. The kit's
 // logo fills the logo role (`brandVariables`).
-import { BRAND_KIT_LIMITS, type BrandColor, type BrandFont, type BrandKit, LOGO_ROLE } from './api.ts'
+import type { BrandColor, BrandFont, BrandKit } from './api.ts'
 
 /** The two parts of a kit that hold roles. */
 export type KitKind = 'color' | 'font'
@@ -14,6 +14,12 @@ export const BRAND_ROLES = {
   font: ['heading', 'body'],
 } as const
 export type BrandRole = (typeof BRAND_ROLES)[KitKind][number]
+
+/** The brand role the kit's logo fills, a picture: a layer bound to `brand:logo` draws the brand's logo. */
+export const LOGO_ROLE = 'logo'
+
+/** How many colours and fonts a kit holds at most, its brand roles included. */
+export const BRAND_KIT_LIMITS = { color: 24, font: 8 } as const
 
 /** What a kit holds of each kind. */
 interface KitEntries {

@@ -15,7 +15,9 @@
     "./frames": "./src/canvas/frames.ts",
     "./thumbnails": "./src/canvas/thumbnails.ts",
     "./resources": "./src/resources.ts",
+    "./agent-tab": "./src/agent-tab.ts",
     "./test-editor": "./src/test-editor.ts",
+    "./test-link": "./src/test-link.ts",
     "./test-matrix": "./src/test-matrix/index.ts"
   },
   "scripts": {

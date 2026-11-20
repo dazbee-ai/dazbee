@@ -911,6 +911,11 @@ export function buildCore({
   return {
     core,
     shared,
+    /**
+     * The session itself, whose writes a read-only tab refuses by throwing, for a caller that runs
+     * commands without a page: the agent tab. The page's is `core.session`.
+     */
+    session,
     nextDraw: draws.next,
     /** Tells the page a notice, for what the page's side does: Copy as PNG's outcome. */
     notify: notices.emit,

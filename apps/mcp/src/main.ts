@@ -13,7 +13,7 @@ const port = Number(process.env.PORT ?? 3100)
 // The image sets BUILD_ID to the commit it was built from; a server run from a checkout is `dev`.
 const version = process.env.BUILD_ID || 'dev'
 
-const endpoint = mcpEndpoint({ api: { url: apiUrl }, baseUrl, version })
+const endpoint = mcpEndpoint({ api: { url: apiUrl }, sync: { url: syncUrl }, baseUrl, version })
 const server = serve({ fetch: endpoint.app.fetch, port }, () =>
   console.log(`mcp on http://localhost:${port}/mcp, as ${baseUrl}/mcp; the API at ${apiUrl}, sync at ${syncUrl}`),
 )

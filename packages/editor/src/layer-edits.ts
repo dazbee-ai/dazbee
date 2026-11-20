@@ -42,7 +42,7 @@ export interface EditorLayerEdits {
 }
 
 /** Text properties that change how much room its words take, so an auto-sized box fits them again. */
-const SIZES_TEXT = new Set([
+export const SIZES_TEXT: ReadonlySet<string> = new Set([
   'text',
   'runs',
   'style',

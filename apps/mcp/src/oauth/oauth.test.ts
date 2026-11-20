@@ -26,7 +26,12 @@ afterEach(async () => {
 /** The MCP server over the fake API with sign-in, and a fetch reaching it as a client behind Cloudflare would. */
 function server() {
   const signIn = testSignInApi()
-  const endpoint = mcpEndpoint({ api: { url: 'http://api.test', fetch: signIn.fetch }, baseUrl: BASE, version: 'test' })
+  const endpoint = mcpEndpoint({
+    api: { url: 'http://api.test', fetch: signIn.fetch },
+    sync: { url: 'http://sync.test' },
+    baseUrl: BASE,
+    version: 'test',
+  })
   opened.push(endpoint)
   const fetch = async (url: string | URL, init?: RequestInit) => {
     const request = new Request(url, init)
@@ -262,6 +267,7 @@ describe('oauthRoutes', () => {
     it('tells the client to try again when the API can’t be reached', async () => {
       const endpoint = mcpEndpoint({
         api: { url: 'http://api.test', fetch: () => Promise.reject(new Error('down')) },
+        sync: { url: 'http://sync.test' },
         baseUrl: BASE,
         version: 'test',
       })

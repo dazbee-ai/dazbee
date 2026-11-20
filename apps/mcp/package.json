@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@dazbee/doc": "workspace:*",
+    "@dazbee/editor": "workspace:*",
+    "@dazbee/export": "workspace:*",
+    "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*",
     "@hono/node-server": "^2.1.5",
     "@modelcontextprotocol/sdk": "1.32.2",
@@ -19,6 +22,7 @@
   },
   "devDependencies": {
     "@dazbee/config": "workspace:*",
+    "@dazbee/fonts": "workspace:*",
     "@types/node": "^22.20.5",
     "eslint": "^9.39.5",
     "typescript": "~6.0.3",

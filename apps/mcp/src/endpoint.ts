@@ -23,13 +23,16 @@ import {
   MCP_SESSION_IDLE_MS,
 } from './limits.ts'
 import { oauthRoutes } from './oauth/routes.ts'
+import { agentTabSlots, type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
+import { DESIGN_TOOLS } from './tools/design-tools.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
 
-/** What the endpoint needs: the API, the public base URL the server is reached at, and the app's version. */
+/** What the endpoint needs: the API, the sync server, the public base URL the server is reached at, and the app's version. */
 export interface EndpointSettings {
   api: ApiSettings
+  sync: SyncSettings
   /** The public base URL, without a trailing slash: `https://app.dazbee.com` in production. */
   baseUrl: string
   version: string
@@ -59,6 +62,8 @@ interface McpSession {
   token: string
   /** The agent's name, from its client's `initialize`. */
   agentName: string
+  /** The design the session holds open. */
+  design: SessionDesign
   /** The ids of the requests being answered, each once at a time. */
   inFlight: Set<MessageId>
   /** Answers the requests still waiting when the session ends. */
@@ -73,14 +78,16 @@ interface Call {
 }
 
 /** The tools every session offers, in `tools/list` order. */
-export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...COMMAND_TOOLS]
+export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...DESIGN_TOOLS, ...COMMAND_TOOLS]
 
 /** How often sessions past their idle time are looked for, besides at each request. */
 const IDLE_SWEEP_MS = 60_000
 
 /** The endpoint at `/mcp`, with its sessions. */
 export function mcpEndpoint(settings: EndpointSettings): Endpoint {
-  const { api, baseUrl, version, now = Date.now, callTimeoutMs = CALL_TIMEOUT_MS } = settings
+  const { api, sync, baseUrl, version, now = Date.now, callTimeoutMs = CALL_TIMEOUT_MS } = settings
+  // The agent tabs every session's design takes a slot of.
+  const slots = agentTabSlots()
   // The open sessions, by session id, in the order they started.
   const sessions = new Map<string, McpSession>()
   const sweep = setInterval(() => void endIdle(), IDLE_SWEEP_MS)
@@ -120,9 +127,12 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       session.lastCallAt = now()
       session.token = token
     }
-    const call: Call = { context: { agent, api: agentApi(api, token, agent.workspaceId, refuse) }, refused: false }
-    const authInfo = { token, clientId: agent.id, scopes: [], extra: { call } }
     const opened = session ?? (await open(agent, token))
+    const call: Call = {
+      context: { agent, api: agentApi(api, token, agent.workspaceId, refuse), design: opened.design },
+      refused: false,
+    }
+    const authInfo = { token, clientId: agent.id, scopes: [], extra: { call } }
     if (id !== undefined) opened.inFlight.add(id)
     try {
       const response = await answerOf(opened, opened.transport.handleRequest(request, { authInfo, parsedBody: body }))
@@ -176,24 +186,31 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       onsessionclosed: (id) => void end(id),
     })
     await server.connect(transport)
-    const at = now()
     const fresh = { inFlight: new Set<MessageId>(), waiting: new Set<(response: Response) => void>() }
-    return {
+    const session: McpSession = {
       id: '',
       accessId: agent.id,
       server,
       transport,
-      lastCallAt: at,
+      lastCallAt: now(),
       token,
       agentName: '',
+      design: sessionDesign(
+        { api, sync, slots, now },
+        { agent, token: () => session.token, agentName: () => session.agentName },
+      ),
       ...fresh,
     }
+    return session
   }
 
   /** Keeps a session its transport started, ending the access's oldest past its limit; drops one that didn't start. */
   async function keep(session: McpSession): Promise<void> {
     const id = session.transport.sessionId
-    if (id === undefined) return session.server.close()
+    if (id === undefined) {
+      await session.design.close()
+      return session.server.close()
+    }
     session.id = id
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
@@ -218,6 +235,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     if (!session) return
     sessions.delete(id)
     for (const answer of session.waiting) answer(sessionNotFound())
+    await session.design.close()
     await session.server.close()
   }
 

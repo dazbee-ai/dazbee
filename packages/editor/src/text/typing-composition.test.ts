@@ -101,8 +101,7 @@ const drawnText = (e: TestEditor, id = 'words') =>
   (e.modules.view.previewed().nodes[id]?.props as { text: string }).text
 
 /** What a tab sent its server of the kinds given. */
-const sentOf = (kinds: string[]) =>
-  mem.sockets.flatMap((s) => s.sent).filter((message) => kinds.includes(message.type))
+const sentOf = (kinds: string[]) => mem.sockets.flatMap((s) => s.sent).filter((message) => kinds.includes(message.type))
 
 describe('a composition', () => {
   it('writes, sends and undoes nothing while composing, and types its commit once', async () => {

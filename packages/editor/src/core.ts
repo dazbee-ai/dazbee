@@ -208,7 +208,7 @@ export function buildCore({
   })
   /** The text layer the composition draws, and its count, which the view reads, built before typing. */
   function composition() {
-    return { count: typing.compositionCount(), composed: typing.composed() }
+    return typing.composition()
   }
   const pen = editorPen({
     hold: hold.hold,

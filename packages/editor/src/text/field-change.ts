@@ -1,7 +1,10 @@
 // What the stage field is given to hold for the text being edited, and what the browser changed in
-// it read as one edit, by comparing what the field holds with what it was given.
-import { splitsPair } from '@dazbee/doc'
+// it read as one edit, by comparing what the field holds with what it was given: an edit of the
+// text, or while an input method composes, a composition.
+import { splitsPair, type TextAnchor } from '@dazbee/doc'
 
+import { paragraphsOf } from '../pasted-text.ts'
+import type { Composition } from './composition.ts'
 import type { TextRange } from './text-edit.ts'
 
 /** What the stage field holds: its value, and its selection's start and end, which meet at a caret. */
@@ -20,6 +23,13 @@ export interface FieldChange {
   end: number
   text: string
   caret: number
+}
+
+/** What the stage field was given, and its selection's two ends anchored in the text. */
+export interface HeldField {
+  given: FieldState
+  start: TextAnchor
+  end: TextAnchor
 }
 
 /** The longest selected range the field holds, in UTF-16 units; a longer one is held as nothing. */
@@ -55,4 +65,56 @@ export function fieldChange(given: FieldState, state: FieldState): FieldChange |
   if (splitsPair(was, was.length - sameEnd) || splitsPair(now, now.length - sameEnd)) sameEnd--
   const end = was.length - sameEnd
   return { start, end, text: now.slice(start, now.length - (was.length - end)), caret: state.end }
+}
+
+/**
+ * A change the field made as an edit of the text: the range it replaces, the change itself, its text
+ * with line breaks as paragraphs as it is written, and the field's selection in the text once it is.
+ */
+export interface FieldEdit {
+  range: TextRange
+  change: FieldChange
+  typed: string
+  selection: TextRange
+}
+
+/**
+ * The change the field holding `state` made to what it was given, in a text `length` long whose
+ * offsets `ends` are where the given selection's two ends are: an offset before the selection
+ * counts back from its start, one after it on from its end. Null when nothing changed.
+ */
+export function fieldEdit(given: FieldState, ends: TextRange, state: FieldState, length: number): FieldEdit | null {
+  const change = fieldChange(given, state)
+  if (!change) return null
+  const inText = (offset: number) =>
+    offset <= given.start ? Math.max(0, ends.start - (given.start - offset)) : ends.end + offset - given.end
+  const start = Math.min(inText(change.start), length)
+  const range = { start, end: Math.min(Math.max(start, inText(change.end)), length) }
+  const typed = paragraphsOf(change.text)
+  /** An offset in what the field holds now, in the text once the change is written. */
+  const written = (offset: number) => {
+    if (offset < change.start) return inText(offset)
+    if (offset <= change.start + change.text.length)
+      return range.start + paragraphsOf(change.text.slice(0, offset - change.start)).length
+    return inText(offset - change.text.length + change.end - change.start) + typed.length - (range.end - range.start)
+  }
+  return { range, change, typed, selection: { start: written(state.start), end: written(state.end) } }
+}
+
+/**
+ * The composition a change made while an input method composes: the range it replaces, its text,
+ * the part being composed (the input event's `data` where it stands around the field's caret, else
+ * the whole change) and the input method's cursor, at the field's caret.
+ */
+export function compositionOf({ range, change }: FieldEdit, data: string): Composition {
+  const { text } = change
+  const cursor = Math.min(Math.max(change.caret - change.start, 0), text.length)
+  let part = { start: 0, end: text.length }
+  for (let at = data === '' ? -1 : text.indexOf(data); at >= 0; at = text.indexOf(data, at + 1)) {
+    if (at <= cursor && cursor <= at + data.length) {
+      part = { start: at, end: at + data.length }
+      break
+    }
+  }
+  return { range, text, part, cursor }
 }

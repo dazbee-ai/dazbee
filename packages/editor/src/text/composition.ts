@@ -1,8 +1,21 @@
 // What a composition computes: the text layer as it is drawn while an input method composes in it,
-// with the composed text in place of the range it replaces, the edits its commit writes, and where
-// the part being composed and the input method's cursor are in the composed text.
-import { applyTextOp, fittedText, type MeasureText, replaceRangeOps, round, type TextOp } from '@dazbee/doc'
-import type { Layer, Variables } from '@dazbee/schema'
+// with the composed text in place of the range it replaces, the edits its commit writes, where the
+// part being composed and the input method's cursor are in the composed text, and where the caret,
+// the lines under it and the text's box are shown.
+import type { CanvasKit } from '@dazbee/canvaskit'
+import {
+  applyTextOp,
+  type Box,
+  fittedText,
+  flippedRect,
+  type MeasureText,
+  replaceRangeOps,
+  round,
+  type TextAnchor,
+  type TextOp,
+} from '@dazbee/doc'
+import { caretPosition, compositionLines, type TextLayout } from '@dazbee/renderer'
+import type { Layer, Rect, TextProps, Variables } from '@dazbee/schema'
 
 import { paragraphsOf } from '../pasted-text.ts'
 import type { TextRange } from './text-edit.ts'
@@ -15,6 +28,12 @@ export interface Composition {
   part: TextRange
   /** The input method's cursor in `text`. */
   cursor: number
+}
+
+/** A composition held while typing: the range it replaces as two ends anchored in the text, so other tabs' edits carry them along. */
+export interface Composing extends Omit<Composition, 'range'> {
+  start: TextAnchor
+  end: TextAnchor
 }
 
 /** A text layer as a composition draws it, and what its commit writes. */
@@ -60,5 +79,22 @@ export function composedText(
     ops,
     part: { start: typed(part.start), end: typed(part.end) },
     cursor: typed(cursor),
+  }
+}
+
+/**
+ * Where the caret (at the input method's cursor), the lines under the part being composed (as boxes
+ * of no height) and the text's box are shown, in its frame's design pixels, for a composed text laid
+ * out as `props` and `laid`, mirrored as the text is flipped.
+ */
+export function composedPlaces(ck: CanvasKit, props: TextProps, laid: TextLayout, { part, cursor }: Composed) {
+  const placed = (box: Rect) => flippedRect({ ...box, x: props.x + box.x, y: props.y + laid.dy + box.y }, props)
+  const at = caretPosition(ck, laid, cursor)
+  const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
+  const box: Box = { x: props.x, y: props.y, width: props.width, height: props.height, rotation: props.rotation }
+  return {
+    caret: { x, y, height },
+    composition: compositionLines(ck, laid, part.start, part.end).map((line) => placed({ ...line, height: 0 })),
+    box,
   }
 }

@@ -15,16 +15,8 @@ import {
   type TextAnchor,
   type TextOp,
 } from '@dazbee/doc'
-import {
-  caretAt,
-  caretPosition,
-  compositionLines,
-  rangeEdge,
-  selectionBoxes,
-  type TextLayout,
-  visualStep,
-} from '@dazbee/renderer'
-import type { Design, Layer, Point, Rect, TextProps, TextStyle } from '@dazbee/schema'
+import { caretAt, caretPosition, rangeEdge, selectionBoxes, visualStep } from '@dazbee/renderer'
+import type { Design, Layer, Point, Rect, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
 import { findLayer, type FrameScenes } from '../canvas/scenes.ts'
@@ -36,8 +28,8 @@ import { paragraphsOf } from '../pasted-text.ts'
 import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
-import { type Composed, composedText } from './composition.ts'
-import { fieldChange, type FieldState, fieldText as heldText } from './field-change.ts'
+import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
+import { compositionOf, fieldEdit, type FieldState, fieldText as heldText, type HeldField } from './field-change.ts'
 import { backspaceStep, oneGrapheme, type RunStyle, step, stylesIn, type TextRange, wordStep } from './text-edit.ts'
 
 /**
@@ -163,10 +155,11 @@ export interface EditorTyping {
    * False while no text is edited.
    */
   fieldChanged(state: FieldState, composing: string | null): boolean
-  /** The text layer as the composition draws it, by its id; null when none is composed. */
-  composed(): { id: string; layer: Layer } | null
-  /** A count raised each time the composition changes, starts or ends. */
-  compositionCount(): number
+  /**
+   * The text layer as the composition draws it, by its id (null when none is composed), and a count
+   * raised each time the composition changes, starts or ends.
+   */
+  composition(): { count: number; composed: { id: string; layer: Layer } | null }
   /**
    * The selected range of the text being edited, or else its caret; while composing, the caret at
    * the input method's cursor, the lines under the composition and the text's box, from the text as
@@ -191,28 +184,9 @@ interface Editing extends Picked {
   endGesture: (() => void) | null
   created: boolean
   /** What the stage field is taken to hold, and its selection's two ends in the text; null until it is given its text. */
-  field: HeldField | null
+  field?: HeldField | undefined
   /** What an input method composes, drawn and never written; null when nothing is composed. */
-  composing: Composing | null
-}
-
-/** What the stage field was given, and where its selection's two ends are in the text. */
-interface HeldField {
-  given: FieldState
-  start: TextAnchor
-  end: TextAnchor
-}
-
-/**
- * A composition: the two ends of the range it replaces, anchored so other tabs' edits carry them
- * along, the text it puts there, the part of it being composed and the input method's cursor in it.
- */
-interface Composing {
-  start: TextAnchor
-  end: TextAnchor
-  text: string
-  part: TextRange
-  cursor: number
+  composing?: Composing | undefined
 }
 
 /** How long typing waits with no key before it ends its step (C47), in milliseconds. */
@@ -243,14 +217,7 @@ export function editorTyping({
   /** Raised each time the composition changes, starts or ends. */
   let compositionCount = 0
   /** The composition as last drawn, kept while the layer, the composition and the measure stay. */
-  let lastComposed: {
-    node: Layer
-    count: number
-    start: number
-    end: number
-    measure: unknown
-    made: { composed: Composed; design: Design }
-  } | null = null
+  let lastComposed: { key: unknown[]; made: { composed: Composed; design: Design } } | null = null
 
   /** The text layer being typed into, in its frame. */
   function editingNow() {
@@ -328,34 +295,21 @@ export function editorTyping({
     return { frame: text.frame, range: [], caret: { x, y, height } }
   }
 
-  /**
-   * The text as the composition draws it, laid out in its frame, so it follows a box that lays it
-   * out: the caret at the input method's cursor, the lines under the part being composed, and the
-   * text's box, mirrored as the text is flipped.
-   */
+  /** The text as the composition draws it, laid out in its frame, so it follows a box that lays it out. */
   function shownComposing(): ShownText | null {
     const made = composedNow()
     const frame = editing && frameOf(editing.frameId)
-    const layer = made && frame && scenesLayer(frame.id, made.design)
-    if (!made || !frame || !layer) return null
-    const { props, laid } = layer
-    const placed = (box: Rect) => flippedRect({ ...box, x: props.x + box.x, y: props.y + laid.dy + box.y }, props)
-    const at = caretPosition(ck, laid, made.composed.cursor)
-    const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
-    const { start, end } = made.composed.part
-    return {
-      frame,
-      range: [],
-      caret: { x, y, height },
-      composition: compositionLines(ck, laid, start, end).map((line) => placed({ ...line, height: 0 })),
-      box: { x: props.x, y: props.y, width: props.width, height: props.height, rotation: props.rotation },
-    }
+    const layer = made && frame && editing && scenes.laidOutLayer(frame.id, made.design, editing.id)
+    if (!made || !frame || layer?.type !== 'text') return null
+    return { frame, range: [], ...composedPlaces(ck, layer.props, scenes.layout(layer.props), made.composed) }
   }
-  /** The text layer `editing` names as laid out in its frame of `design`, with its text's layout. */
-  function scenesLayer(frameId: string, design: Design): { props: TextProps; laid: TextLayout } | null {
-    const layer = editing && scenes.laidOutLayer(frameId, design, editing.id)
-    if (layer?.type !== 'text') return null
-    return { props: layer.props, laid: scenes.layout(layer.props) }
+  /** The text layer as the composition draws it, by its id, and the composition's count. */
+  function composition() {
+    const made = composedNow()
+    return {
+      count: compositionCount,
+      composed: editing && made ? { id: editing.id, layer: made.composed.layer } : null,
+    }
   }
   /**
    * The composition applied to the text being edited as it is now, and the design holding it; kept
@@ -365,33 +319,20 @@ export function editorTyping({
   function composedNow(): { composed: Composed; design: Design } | null {
     const composing = editing?.composing
     const node = editing && session.design().nodes[editing.id]
-    if (!editing || !composing || !node) return null
-    const start = store.anchorOffset(composing.start)
-    const end = store.anchorOffset(composing.end)
-    if (start === null || end === null) return null
-    const measure = scenes.measure()
-    const kept = lastComposed
-    if (
-      kept &&
-      kept.node === node &&
-      kept.count === compositionCount &&
-      kept.start === start &&
-      kept.end === end &&
-      kept.measure === measure
-    )
-      return kept.made
-    const range = { start, end: Math.max(start, end) }
-    const { variables } = resources.bytes()
-    const composed = composedText(node, { ...composing, range }, measure, variables)
-    if (!composed) return null
-    const made = { composed, design: previewedDesign(session.design(), new Map([[editing.id, composed.layer]])) }
-    lastComposed = { node, count: compositionCount, start, end, measure, made }
-    return made
+    const range = composing && anchoredRange(composing.start, composing.end)
+    if (!editing || !composing || !node || !range) return null
+    const key = [node, compositionCount, range.start, range.end, scenes.measure()]
+    if (lastComposed?.key.every((k, i) => k === key[i])) return lastComposed.made
+    const composed = composedText(node, { ...composing, range }, scenes.measure(), resources.bytes().variables)
+    const design = composed && previewedDesign(session.design(), new Map([[editing.id, composed.layer]]))
+    lastComposed = composed && design && { key, made: { composed, design } }
+    return lastComposed?.made ?? null
   }
-  /** The text layer as the composition draws it, by its id; null when none is composed. */
-  function composed() {
-    const made = composedNow()
-    return editing && made ? { id: editing.id, layer: made.composed.layer } : null
+  /** The range between two anchors in the text being edited; null once it is gone. */
+  function anchoredRange(start: TextAnchor, end: TextAnchor): TextRange | null {
+    const from = store.anchorOffset(start)
+    const to = store.anchorOffset(end)
+    return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
   }
   /** Tells that the composition changed, started or ended: the frames' pictures and what is shown. */
   function compositionChanged() {
@@ -411,17 +352,7 @@ export function editorTyping({
   ) {
     const at = store.textAnchor(id, offset)
     if (editing?.composing) compositionChanged()
-    editing = {
-      id,
-      frameId: frame,
-      caret: at,
-      anchor: at,
-      drawnAfter: false,
-      endGesture,
-      created,
-      field: null,
-      composing: null,
-    }
+    editing = { id, frameId: frame, caret: at, anchor: at, drawnAfter: false, endGesture, created }
     textSelectionChanged()
     // Another tab typing in the same text: the version finished last is kept (C47).
     const [other] = typingIn(id)
@@ -716,19 +647,17 @@ export function editorTyping({
     if (!editing || !at) return null
     if (editing.composing && editing.field) return editing.field.given
     const given = heldText(at.text, at.range)
-    const { id } = editing
-    editing.field = { given, start: store.textAnchor(id, at.range.start), end: store.textAnchor(id, at.range.end) }
+    hold(given, at.range)
     return given
   }
-  /**
-   * An offset in what the field was given as an offset in the text: one before its selection counts
-   * back from the selection's start, one after it on from its end. Null once the text is gone.
-   */
-  function inText(held: HeldField, offset: number) {
-    const start = store.anchorOffset(held.start)
-    const end = store.anchorOffset(held.end)
-    if (start === null || end === null) return null
-    return offset <= held.given.start ? Math.max(0, start - (held.given.start - offset)) : end + offset - held.given.end
+  /** Takes the field to hold `given`, its selection's two ends at `range` in the text. */
+  function hold(given: FieldState, range: TextRange) {
+    if (!editing) return
+    editing.field = {
+      given,
+      start: store.textAnchor(editing.id, range.start),
+      end: store.textAnchor(editing.id, range.end),
+    }
   }
   /**
    * The stage field holds `state` now. While `composing`, the change is the composition, drawn
@@ -738,56 +667,33 @@ export function editorTyping({
   function fieldChanged(state: FieldState, composing: string | null): boolean {
     if (editing && !editing.field) fieldText()
     const held = editing?.field
-    if (!editing || !held) return false
-    const change = fieldChange(held.given, state)
-    const start = change && inText(held, change.start)
-    const end = change && inText(held, change.end)
-    if (!change || start === null || end === null) {
-      if (composing === null && editing.composing) dropComposition()
-      return true
-    }
+    const node = editing && session.design().nodes[editing.id]
+    if (!editing || !held || node?.type !== 'text') return false
     const { id } = editing
+    const ends = anchoredRange(held.start, held.end)
+    const edit = ends && fieldEdit(held.given, ends, state, node.props.text.length)
     if (composing !== null) {
-      const caret = Math.min(Math.max(change.caret - change.start, 0), change.text.length)
-      editing.composing = {
-        start: store.textAnchor(id, start),
-        end: store.textAnchor(id, Math.max(start, end)),
-        text: change.text,
-        part: partOf(change.text, composing, caret),
-        cursor: caret,
-      }
+      if (!edit) return true
+      const { range, ...made } = compositionOf(edit, composing)
+      editing.composing = { ...made, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end) }
       compositionChanged()
       return true
     }
-    const committed = editing.composing !== null
-    if (committed) dropComposition()
+    const committed = editing.composing !== undefined
+    dropComposition()
     // A composition the input method cancelled gives back the text and the range as they were.
-    if (committed && change.text === '') return true
-    const node = session.design().nodes[id]
-    if (node?.type !== 'text') return true
-    const typed = paragraphsOf(change.text)
-    const range = { start: Math.min(start, node.props.text.length), end: Math.min(Math.max(start, end), node.props.text.length) }
-    /** An offset in what the field holds now as an offset in the text once the change is written. */
-    const written = (offset: number) => {
-      if (offset < change.start) return inText(held, offset) ?? range.start
-      if (offset <= change.start + change.text.length)
-        return range.start + paragraphsOf(change.text.slice(0, offset - change.start)).length
-      const was = inText(held, offset - change.text.length + change.end - change.start) ?? range.end
-      return was + typed.length - (range.end - range.start)
-    }
-    const caret = { start: written(state.start), end: written(state.end) }
-    const ops = replaceRangeOps(node.props.text, range.start, range.end, typed)
+    if (!edit || (committed && edit.change.text === '')) return true
+    const ops = replaceRangeOps(node.props.text, edit.range.start, edit.range.end, edit.typed)
     if (ops.length > 0 && write(() => editText(id, ops))) fitText(id)
-    if (caret.start === caret.end) caretTo(caret.end)
-    else selectText(caret)
-    editing.field = { given: state, start: store.textAnchor(id, caret.start), end: store.textAnchor(id, caret.end) }
+    selectText(edit.selection)
+    hold(state, edit.selection)
     shownChanged()
     return true
   }
   /** Drops the composition: nothing of it lands. */
   function dropComposition() {
     if (!editing?.composing) return
-    editing.composing = null
+    editing.composing = undefined
     compositionChanged()
   }
 
@@ -813,20 +719,7 @@ export function editorTyping({
     deleteBackward,
     fieldText,
     fieldChanged,
-    composed,
-    compositionCount: () => compositionCount,
+    composition,
     shown,
   }
-}
-
-/**
- * The part of a changed text an input method composes: where its `data` stands around the field's
- * caret, else the whole change.
- */
-function partOf(text: string, data: string, caret: number): TextRange {
-  if (data !== '') {
-    for (let at = text.indexOf(data); at >= 0; at = text.indexOf(data, at + 1))
-      if (at <= caret && caret <= at + data.length) return { start: at, end: at + data.length }
-  }
-  return { start: 0, end: text.length }
 }

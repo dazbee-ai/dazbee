@@ -304,8 +304,7 @@ export function editorView({ session, previews, composition, onZoom, motion }: V
     const composed = read?.count ?? 0
     const was = shownWithPreviews
     // With no count known, as inside a transaction, the previews are read again.
-    if (changes !== null && was.changes === changes && was.revision === revision && was.composed === composed)
-      return
+    if (changes !== null && was.changes === changes && was.revision === revision && was.composed === composed) return
     const previewed = previews?.layers() ?? NO_LAYERS
     // The composed text's offsets are this tab's: it stands in place of another tab's preview of it.
     const layers = read?.composed ? new Map(previewed).set(read.composed.id, read.composed.layer) : previewed

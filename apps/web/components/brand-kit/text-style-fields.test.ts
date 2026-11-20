@@ -4,7 +4,7 @@ import { type BrandKit, EMPTY_BRAND_KIT } from '@dazbee/schema'
 
 import { en } from '@/lib/i18n/en.ts'
 
-import { textStyleFonts } from './text-style-fonts.ts'
+import { keptLetterSpacing, keptLineHeight, textStyleFonts } from './text-style-fields.ts'
 
 const t = en.editor.brandKit
 const KIT: BrandKit = {
@@ -48,5 +48,25 @@ describe('textStyleFonts', () => {
     })
     expect(textStyleFonts(KIT, ['Inter'], t, { family: 'Old Face' })[0]?.label).toBe('Old Face')
     expect(textStyleFonts(KIT, ['Inter'], t, { family: 'Inter' })[0]?.label).toBe('Heading · Lora')
+  })
+})
+
+describe('keptLineHeight', () => {
+  it('keeps a line height between half and ten times the size, and none for a field left empty or at 0', () => {
+    expect(keptLineHeight(1.25)).toBe(1.25)
+    expect(keptLineHeight(0.1)).toBe(0.5)
+    expect(keptLineHeight(999)).toBe(10)
+    expect(keptLineHeight(undefined)).toBeUndefined()
+    expect(keptLineHeight(0)).toBeUndefined()
+    expect(keptLineHeight(-2)).toBeUndefined()
+  })
+})
+
+describe('keptLetterSpacing', () => {
+  it('keeps a letter spacing within a thousand either way, and none for a field left empty', () => {
+    expect(keptLetterSpacing(-1.5)).toBe(-1.5)
+    expect(keptLetterSpacing(99_999)).toBe(1000)
+    expect(keptLetterSpacing(-99_999)).toBe(-1000)
+    expect(keptLetterSpacing(undefined)).toBe(0)
   })
 })

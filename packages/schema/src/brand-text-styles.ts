@@ -72,17 +72,21 @@ const PRESETS: Readonly<Record<BrandTextStylePreset, Omit<BrandTextStyle, 'name'
 
 /**
  * The style the kit's form adds next: the first of Headline, Subhead and Body whose token the kit
- * doesn't hold, in its look, or else one in Body's look numbered after the kit's styles. `name`
- * gives the name it shows, in the person's language: a first style's, or the nth's.
+ * doesn't hold, in its look, or else one in Body's look with the lowest number from 4 whose name no
+ * style has and whose token is free. `name` gives the name it shows, in the person's language: a
+ * first style's, or the nth's.
  */
 export function newBrandTextStyle(
   kit: BrandKit,
   name: (preset: BrandTextStylePreset | null, n: number) => string,
 ): BrandTextStyle {
-  const n = kit.textStyles.length + 1
-  const preset = BRAND_TEXT_STYLE_PRESETS.find((p) => freeToken(kit, PRESETS[p].token) === PRESETS[p].token)
-  if (preset) return { ...PRESETS[preset], name: name(preset, n) }
-  return { ...PRESETS.body, token: freeToken(kit, `style-${n}`), name: name(null, n) }
+  const free = (token: string) => freeToken(kit, token) === token
+  const preset = BRAND_TEXT_STYLE_PRESETS.find((p) => free(PRESETS[p].token))
+  if (preset) return { ...PRESETS[preset], name: name(preset, kit.textStyles.length + 1) }
+  const names = new Set(kit.textStyles.map((s) => s.name))
+  let n = BRAND_TEXT_STYLE_PRESETS.length + 1
+  while (names.has(name(null, n)) || !free(`style-${n}`)) n++
+  return { ...PRESETS.body, token: `style-${n}`, name: name(null, n) }
 }
 
 /**

@@ -1,7 +1,7 @@
-// The fonts a brand text style can be set in, as the kit's form offers them: the kit's font roles,
-// set or not, then the brand's own fonts, which a style follows as the kit changes; then each
-// family of the brand's catalog, which a style keeps as it is. And how a style's letter spacing is
-// shown.
+// The kit form's text style fields: the fonts a style can be set in, the kit's font roles, set or
+// not, then the brand's own fonts, which a style follows as the kit changes, then each family of the
+// brand's catalog, which a style keeps as it is; how its letter spacing is shown; and the values
+// its number fields keep, the Text tab's range.
 import { type BrandKit, brandRoleOf, brandRolesOf, type BrandTextStyleFont, type LetterSpacing } from '@dazbee/schema'
 
 import { format, type Messages } from '@/lib/i18n/index.ts'
@@ -12,6 +12,10 @@ export interface TextStyleFontChoice {
   font: BrandTextStyleFont
   label: string
 }
+
+/** The range the number fields keep: a line height as a multiple of the size, a letter spacing either way. */
+const LINE_HEIGHT = { min: 0.5, max: 10 }
+const LETTER_SPACING = 1_000
 
 /**
  * The fonts the form offers, in order; `t` is the person's catalog's brand kit messages. A style's
@@ -47,4 +51,15 @@ export function textStyleFontValue(font: BrandTextStyleFont) {
 /** The unit a letter spacing is shown in: pixels, or a percentage of the size. */
 export function letterSpacingUnit(spacing: LetterSpacing) {
   return spacing.unit === 'px' ? 'px' : '%'
+}
+
+/** The line height a field keeps of a number typed: within its range, or none (the font's own) for none or one not above 0. */
+export function keptLineHeight(typed: number | undefined) {
+  if (typed === undefined || typed <= 0) return undefined
+  return Math.min(Math.max(typed, LINE_HEIGHT.min), LINE_HEIGHT.max)
+}
+
+/** The letter spacing a field keeps of a number typed: within its range, or none for none typed. */
+export function keptLetterSpacing(typed: number | undefined) {
+  return Math.min(Math.max(typed ?? 0, -LETTER_SPACING), LETTER_SPACING)
 }

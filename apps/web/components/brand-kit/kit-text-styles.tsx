@@ -12,11 +12,10 @@ import {
   brandTextStyleFamily,
   type FontFamily,
   newBrandTextStyle,
-  NO_LETTER_SPACING,
 } from '@dazbee/schema'
 
 import { PlusIcon, TextItalicIcon, XIcon } from '@/components/ui/icons.tsx'
-import { DASHED_BUTTON } from '@/components/ui/looks.ts'
+import { DASHED_BUTTON, TOUCH_FIELD } from '@/components/ui/looks.ts'
 import { Select } from '@/components/ui/select.tsx'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
@@ -25,7 +24,13 @@ import { format } from '@/lib/i18n/index.ts'
 import { faceFor, nearest, weightName, weightsOf } from './font-catalog.ts'
 import { FontPreview } from './font-preview.tsx'
 import { field, heading, iconButton } from './kit-parts.ts'
-import { letterSpacingUnit, textStyleFonts, textStyleFontValue } from './text-style-fonts.ts'
+import {
+  keptLetterSpacing,
+  keptLineHeight,
+  letterSpacingUnit,
+  textStyleFonts,
+  textStyleFontValue,
+} from './text-style-fields.ts'
 
 /** The cases a style can draw its text in, in the order the menu lists them. */
 const CASES = ['none', 'upper', 'lower', 'title'] as const
@@ -33,8 +38,11 @@ const CASES = ['none', 'upper', 'lower', 'title'] as const
 /** The weights offered for a family the catalog doesn't hold. */
 const EVERY_WEIGHT = [100, 200, 300, 400, 500, 600, 700, 800, 900]
 
-/** The look of a small field's caption, over the field. */
-const CAPTION = 'flex min-w-0 flex-col gap-0.5 text-tiny text-muted'
+/** The look of a small field's caption, over the field, on one line. */
+const CAPTION = 'flex min-w-0 flex-col gap-0.5 text-tiny text-muted [&>span]:truncate'
+
+/** How CSS draws each case a style can set. */
+const CSS_CASES = { upper: 'uppercase', lower: 'lowercase', title: 'capitalize' } as const
 
 /** Ends typing in a field with Enter, which saves what it holds as leaving it does. */
 const blurOnEnter = (e: KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur()
@@ -162,9 +170,11 @@ function TextStyleRow({
           defaultValue={name}
           aria-label={format(t.textStyleName, { n })}
           maxLength={60}
-          onBlur={(e) =>
-            e.target.value.trim() && e.target.value.trim() !== name && set({ name: e.target.value.trim() })
-          }
+          onBlur={(e) => {
+            const typed = e.target.value.trim()
+            if (typed && typed !== name) set({ name: typed })
+            else e.target.value = name
+          }}
           onKeyDown={blurOnEnter}
           className={cn(field, 'flex-1 font-medium')}
         />
@@ -173,7 +183,7 @@ function TextStyleRow({
         </button>
       </div>
       <div className="flex h-8 items-center overflow-hidden px-2" data-testid="text-style-sample">
-        {known ? (
+        {known && known.source !== 'builtin' ? (
           <FontPreview
             workspaceId={workspaceId}
             brandId={brandId}
@@ -181,7 +191,21 @@ function TextStyleRow({
             face={faceFor(known, style.fontWeight, style.fontStyle)}
           />
         ) : (
-          <span className="truncate text-small text-muted">{family ?? t.notSet}</span>
+          // A family with no stored picture: its name in the app's own font, set as the style sets it.
+          <span
+            className={cn('truncate text-small', !family && 'text-muted')}
+            style={{
+              fontWeight: style.fontWeight,
+              fontStyle: style.fontStyle,
+              letterSpacing:
+                style.letterSpacing.unit === 'px'
+                  ? `${style.letterSpacing.value}px`
+                  : `${style.letterSpacing.value / 100}em`,
+              textTransform: style.textCase && style.textCase !== 'none' ? CSS_CASES[style.textCase] : undefined,
+            }}
+          >
+            {family ?? t.notSet}
+          </span>
         )}
       </div>
       <div className="flex items-center gap-1.5">
@@ -216,30 +240,29 @@ function TextStyleRow({
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         <label className={CAPTION}>
-          {props.lineHeight}
+          <span>{props.lineHeight}</span>
           <input
             name="text-style-line-height"
             key={`line-height-${style.lineHeight}`}
             type="number"
             inputMode="decimal"
-            min={0.5}
-            max={5}
             step={0.05}
             defaultValue={style.lineHeight ?? ''}
             placeholder={props.lineHeightAuto}
             aria-label={format(t.textStyleLineHeight, { name })}
             onBlur={(e) => {
-              const typed = typedNumber(e.target.value)
-              const lineHeight = typed !== undefined && typed > 0 ? Math.min(typed, 5) : undefined
+              const lineHeight = keptLineHeight(typedNumber(e.target.value))
               if (lineHeight !== style.lineHeight) set({ lineHeight })
               else e.target.value = String(style.lineHeight ?? '')
             }}
             onKeyDown={blurOnEnter}
-            className={cn(field, 'h-7 text-tiny text-text tabular-nums')}
+            className={cn(field, TOUCH_FIELD, 'h-7 text-tiny text-text tabular-nums')}
           />
         </label>
         <label className={CAPTION}>
-          {format(t.letterSpacingIn, { unit: letterSpacingUnit(style.letterSpacing) })}
+          <span title={format(t.letterSpacingIn, { unit: letterSpacingUnit(style.letterSpacing) })}>
+            {format(t.letterSpacingIn, { unit: letterSpacingUnit(style.letterSpacing) })}
+          </span>
           <input
             name="text-style-letter-spacing"
             key={`letter-spacing-${style.letterSpacing.value}`}
@@ -249,16 +272,16 @@ function TextStyleRow({
             defaultValue={style.letterSpacing.value}
             aria-label={format(t.textStyleLetterSpacing, { name })}
             onBlur={(e) => {
-              const value = typedNumber(e.target.value) ?? NO_LETTER_SPACING.value
+              const value = keptLetterSpacing(typedNumber(e.target.value))
               if (value !== style.letterSpacing.value) set({ letterSpacing: { ...style.letterSpacing, value } })
               else e.target.value = String(style.letterSpacing.value)
             }}
             onKeyDown={blurOnEnter}
-            className={cn(field, 'h-7 text-tiny text-text tabular-nums')}
+            className={cn(field, TOUCH_FIELD, 'h-7 text-tiny text-text tabular-nums')}
           />
         </label>
         <label className={CAPTION}>
-          {props.textCase}
+          <span>{props.textCase}</span>
           <Select
             name="text-style-case"
             label={format(t.textStyleCase, { name })}

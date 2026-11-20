@@ -63,6 +63,18 @@ describe('newBrandTextStyle', () => {
     ])
   })
 
+  it('numbers a new style with a name no style has', () => {
+    const kit = added(KIT, 6)
+    const withoutStyle4 = { ...kit, textStyles: kit.textStyles.filter((s) => s.name !== 'Style 4') }
+    const next = newBrandTextStyle(withoutStyle4, ENGLISH)
+    expect([next.name, next.token]).toEqual(['Style 4', 'style-4'])
+    const renamed = {
+      ...kit,
+      textStyles: kit.textStyles.map((s) => (s.name === 'Style 4' ? { ...s, name: 'Style 7' } : s)),
+    }
+    expect(newBrandTextStyle(renamed, ENGLISH).name).toBe('Style 8')
+  })
+
   it('offers a first name again once its style is gone, and skips one whose token the kit holds', () => {
     const kit = added(KIT, 3)
     const withoutHeadline = { ...kit, textStyles: kit.textStyles.filter((s) => s.token !== 'headline') }

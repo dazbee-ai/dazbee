@@ -10,7 +10,7 @@ import type { Messages } from '@/lib/i18n/index.ts'
 
 import { weightName } from './font-catalog.ts'
 import { kitEntryName } from './kit-names.ts'
-import { letterSpacingUnit } from './text-style-fonts.ts'
+import { letterSpacingUnit } from './text-style-fields.ts'
 
 const HEADING = 'text-caption font-bold tracking-[0.08em] text-subtle uppercase'
 const SECTION = 'flex min-w-0 flex-col gap-2.5 rounded-[16px] border border-line bg-bg/40 p-4'

@@ -6,7 +6,7 @@
 // colour or font; the Brand kit page shows it laid out wide, without them.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { AssetSummary, type BrandColor, type BrandFont, type BrandKit, newToken } from '@dazbee/schema'
+import { AssetSummary, type BrandColor, type BrandFont, type BrandKit, freeToken } from '@dazbee/schema'
 
 import { CheckIcon, PaintBucketIcon, PlusIcon, TextAaIcon, UploadSimpleIcon, XIcon } from '@/components/ui/icons.tsx'
 import { DASHED_BUTTON } from '@/components/ui/looks.ts'
@@ -209,7 +209,7 @@ export function KitEditor({
         type="button"
         onClick={() => {
           const name = format(t.newColor, { n: kit.colors.length + 1 })
-          change({ ...kit, colors: [...kit.colors, { token: newToken(kit, name), name, value: '#000000FF' }] })
+          change({ ...kit, colors: [...kit.colors, { token: freeToken(kit, name), name, value: '#000000FF' }] })
         }}
         className={DASHED_BUTTON}
       >
@@ -283,7 +283,7 @@ export function KitEditor({
           const name = format(t.newFont, { n: kit.fonts.length + 1 })
           change({
             ...kit,
-            fonts: [...kit.fonts, { token: newToken(kit, name), name, family: families[0] ?? 'Noto Sans' }],
+            fonts: [...kit.fonts, { token: freeToken(kit, name), name, family: families[0] ?? 'Noto Sans' }],
           })
         }}
         className={DASHED_BUTTON}

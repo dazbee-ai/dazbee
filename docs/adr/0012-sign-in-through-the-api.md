@@ -1,6 +1,6 @@
 # Sign-in goes through the API, which alone holds the WorkOS key and signs sessions
 
-ADR-0016 replaces the part below where a session token names a workspace and sign-in picks it: the token names the person, and the page names the workspace. The rest stands.
+ADR-0016 replaces the part below where a session token names a workspace and sign-in picks it: the token names the person, and the page names the workspace. ADR-0019 adds a second kind of credential, an agent access's tokens, which the API issues and checks itself. The rest stands.
 
 Sign-in is WorkOS AuthKit (#58). The web app's /login asks the API for WorkOS's sign-in link, with a random state it keeps in an httpOnly cookie; WorkOS sends the person back to /callback, which checks the state and hands the code to the API. The API swaps the code for the person with WorkOS, records them in `users`, and picks their workspace: the organization WorkOS signed them in to, else the one they joined first. A first sign-in makes a workspace, its WorkOS organization (named after them until onboarding renames it) and an Owner membership.
 

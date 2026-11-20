@@ -248,9 +248,9 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [masking(design)], mask: null },
   ],
   'node.bind': ({ design }) => [
-    { ids: [free(design)], target: 'fill', ref: 'brand:primary', value: '#112233FF' },
-    { ids: [typed(design)], target: 'fontFamily', ref: 'brand:heading', value: 'Inter' },
-    { ids: [free(design)], target: 'fill', ref: null },
+    { ids: [free(design)], property: 'fill', ref: 'brand:primary', value: '#112233FF' },
+    { ids: [typed(design)], property: 'fontFamily', ref: 'brand:heading', value: 'Inter' },
+    { ids: [free(design)], property: 'fill', ref: null },
   ],
   'node.style': ({ design }) => [
     { ids: [free(design), typed(design)], style },

@@ -150,7 +150,7 @@ describe("a plain store's history", () => {
     session.undo()
     const drag = session.beginGesture()
     // Box has no fill bound: unbinding it changes nothing.
-    session.run('node.bind', { ids: ['box'], target: 'fill', ref: null })
+    session.run('node.bind', { ids: ['box'], property: 'fill', ref: null })
     expect([session.canUndo(), session.canRedo()]).toEqual([false, true])
     drag.end()
   })

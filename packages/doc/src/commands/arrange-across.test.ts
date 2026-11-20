@@ -207,7 +207,7 @@ describe('node.move into another frame of its page', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     solo(tab)
-    tab.run('node.bind', { ids: ['solo'], target: 'fill', ref: 'brand:primary', value: '#112233FF' })
+    tab.run('node.bind', { ids: ['solo'], property: 'fill', ref: 'brand:primary', value: '#112233FF' })
     tab.run('node.lock', { ids: ['solo'], lock: { style: true } })
     tab.run('node.update', { ids: ['solo'], patch: { visible: false } })
     const was = readDesign(store).nodes.solo

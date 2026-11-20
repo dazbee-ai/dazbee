@@ -1,7 +1,14 @@
 // The brand kit in the editor (#53): the values bound properties take, binding the selection to a
 // brand colour or font or unbinding it, and text that follows a brand font taking its new family.
 import type { Session } from '@dazbee/doc'
-import { type BindingTarget, canBind, fontFamilies, type VariableRef, type Variables } from '@dazbee/schema'
+import {
+  BINDABLE_PROPERTIES,
+  bindablePropertyOf,
+  fontFamilies,
+  type ValueKind,
+  type VariableRef,
+  type Variables,
+} from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
 import { type EditorResources, SHIPPED_FAMILIES } from './resources.ts'
@@ -27,7 +34,7 @@ export interface EditorBrandKit {
    */
   setVariables(variables: Variables): Promise<void>
   /** Binds the selected layers to a brand colour or font, or unbinds them with null, in one undo step; returns how many changed. */
-  bindSelection(kind: 'color' | 'font', ref: VariableRef | null): number
+  bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**
    * Text bound to a brand font whose family the kit has changed since takes it once its files are
    * here, its box fitting it: a change no one undoes. While a drag or a typing session is open the
@@ -43,27 +50,26 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     view.redraw()
     return refitBrandFonts()
   }
-  function bindSelection(kind: 'color' | 'font', ref: VariableRef | null): number {
+  function bindSelection(kind: ValueKind, ref: VariableRef | null): number {
     const current = session.design()
     const value = ref ? resources.bytes().variables?.[ref] : undefined
     if (ref && value === undefined) return 0
-    const targets = idsOf(selection.current()).flatMap((id) => {
-      const type = current.nodes[id]?.type ?? ''
-      const target: BindingTarget = kind === 'font' ? 'fontFamily' : type === 'text' ? 'textColor' : 'fill'
-      return canBind(type, target) ? [{ id, target }] : []
+    const bound = idsOf(selection.current()).flatMap((id) => {
+      const property = bindablePropertyOf(current.nodes[id]?.type ?? '', kind)
+      return property ? [{ id, property }] : []
     })
-    if (targets.length === 0) return 0
+    if (bound.length === 0) return 0
     let changed = 0
     session.gesture(() => {
-      for (const { id, target } of targets) {
+      for (const { id, property } of bound) {
         if (
           !runQuietly(() =>
-            session.run('node.bind', { ids: [id], target, ref, ...(value === undefined ? {} : { value }) }),
+            session.run('node.bind', { ids: [id], property, ref, ...(value === undefined ? {} : { value }) }),
           )
         )
           continue
         changed++
-        if (target === 'fontFamily') typing.fitText(id)
+        if (kind === 'font') typing.fitText(id)
       }
     })
     return changed
@@ -77,10 +83,11 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   async function refitBrandFonts() {
     const kit = resources.bytes().variables ?? {}
     const stale = Object.entries(session.design().nodes).flatMap(([id, node]) => {
-      const ref = node.type === 'text' ? node.bindings?.fontFamily : undefined
+      const property = bindablePropertyOf(node.type, 'font')
+      const ref = property ? node.bindings?.[property] : undefined
       const family = ref ? kit[ref] : undefined
-      return node.type === 'text' && ref && family && family !== node.props.style.fontFamily
-        ? [{ id, ref, family }]
+      return property && ref && family && family !== BINDABLE_PROPERTIES[property].read(node.props)
+        ? [{ id, property, ref, family }]
         : []
     })
     if (stale.length === 0) return
@@ -90,14 +97,12 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     // Fitted in the fallback fonts, a box would be wrong: only a family whose files came is written.
     const here = new Set([...SHIPPED_FAMILIES, ...resources.bytes().fonts.map((f) => f.family)])
     session.untracked(() => {
-      for (const { id, ref, family } of stale) {
+      for (const { id, property, ref, family } of stale) {
         const node = session.design().nodes[id]
         // Still bound, the kit still gives this family (not a newer one), and the text has not taken it already.
-        if (node?.type !== 'text' || node.bindings?.fontFamily !== ref || resources.bytes().variables?.[ref] !== family)
-          continue
-        if (node.props.style.fontFamily === family || !here.has(family)) continue
-        if (!runQuietly(() => session.run('node.bind', { ids: [id], target: 'fontFamily', ref, value: family })))
-          continue
+        if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== family) continue
+        if (BINDABLE_PROPERTIES[property].read(node.props) === family || !here.has(family)) continue
+        if (!runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value: family }))) continue
         typing.fitText(id)
       }
     })

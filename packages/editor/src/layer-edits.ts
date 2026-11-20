@@ -3,7 +3,15 @@
 // place in the layer tree. Each change stays on the layers given; their linked copies in other
 // frames keep their own values.
 import { type Axis, descendants, placedByFlow, type Session, type Sizing, sizingOf } from '@dazbee/doc'
-import { type BindingTarget, boundFillIndex, type Design, frameIdOf, isContainer, LOCK_FLAGS } from '@dazbee/schema'
+import {
+  BINDABLE_PROPERTIES,
+  BindableProperty,
+  bindablePropertyOf,
+  type Design,
+  frameIdOf,
+  isContainer,
+  LOCK_FLAGS,
+} from '@dazbee/schema'
 
 import type { EditorBoxes } from './layers/boxes.ts'
 import { setHidden } from './layers/delete-hide.ts'
@@ -163,18 +171,12 @@ export function editorLayerEdits({
         for (const [id, patch] of writes) {
           const node = session.design().nodes[id]
           const at = placedProps(id)
-          const style = patch.style as { color?: string; fontFamily?: string } | undefined
-          const was = at.style as { color?: string; fontFamily?: string } | undefined
-          const unbind: BindingTarget[] = [
-            ...(node?.bindings?.fill && 'fills' in patch && !sameTopSolid(patch.fills, at.fills)
-              ? ['fill' as const]
-              : []),
-            ...(node?.bindings?.textColor && style && style.color !== was?.color ? ['textColor' as const] : []),
-            ...(node?.bindings?.fontFamily && style && style.fontFamily !== was?.fontFamily
-              ? ['fontFamily' as const]
-              : []),
-          ]
-          for (const target of unbind) runQuietly(() => session.run('node.bind', { ids: [id], target, ref: null }))
+          // A bound property whose value the patch changes no longer follows the brand.
+          const unbind = BindableProperty.options.filter((property) => {
+            const { prop, read } = BINDABLE_PROPERTIES[property]
+            return node?.bindings?.[property] && prop in patch && read({ ...at, ...patch }) !== read(at)
+          })
+          for (const property of unbind) runQuietly(() => session.run('node.bind', { ids: [id], property, ref: null }))
           // A layer locked against part of the change takes the rest of it.
           const kept = going.includes(id) ? { drawn: drawn ?? {}, ...(holders ? { holders } : {}) } : {}
           if (runQuietly(() => session.run('node.update', { ids: [id], patch, ...kept }))) continue
@@ -223,8 +225,9 @@ export function editorLayerEdits({
         const node = current.nodes[id]
         if (node?.type !== 'text') continue
         // A font picked by hand no longer follows the brand's (#53).
-        if (node.bindings?.fontFamily)
-          runQuietly(() => session.run('node.bind', { ids: [id], target: 'fontFamily', ref: null }))
+        const property = bindablePropertyOf(node.type, 'font')
+        if (property && node.bindings?.[property])
+          runQuietly(() => session.run('node.bind', { ids: [id], property, ref: null }))
         const style = { ...node.props.style, fontFamily, ...(fontWeight === undefined ? {} : { fontWeight }) }
         runQuietly(() => session.run('node.update', { ids: [id], patch: { style } }))
         typing.fitText(id)
@@ -261,13 +264,4 @@ function needsDrawn(now: Design, id: string, patch: Readonly<Record<string, unkn
   if (!to) return false
   const was = sizingOf(node)
   return (['width', 'height'] as const).some((axis) => was[axis] !== 'fixed' && to[axis] === 'fixed')
-}
-
-/**
- * Whether two fill lists have the same topmost solid fill: the one a brand colour binding colours,
- * so a change that leaves it be (an image added or swapped) keeps the binding.
- */
-function sameTopSolid(a: unknown, b: unknown) {
-  const top = (fills: unknown) => (Array.isArray(fills) ? fills[boundFillIndex(fills)] : undefined)
-  return JSON.stringify(top(a)) === JSON.stringify(top(b))
 }

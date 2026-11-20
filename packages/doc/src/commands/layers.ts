@@ -3,19 +3,19 @@
 import { z } from 'zod'
 
 import {
-  BINDING_TARGETS,
-  boundFillIndex,
+  BINDABLE_PROPERTIES,
+  BindableProperty,
   canBind,
-  fitsTarget,
+  fitsProperty,
   FrameId,
   type Layer as LayerT,
   LAYER_PROPS,
   LayerLock,
   LOCK_FLAGS,
   NodeId,
-  Paint,
   parseLayer,
   UnplacedLayer,
+  valueKindOf,
   VariableRef,
 } from '@dazbee/schema'
 
@@ -247,49 +247,40 @@ export const nodeBind = defineCommand({
   batchable: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to bind or unbind.'),
-    target: z.enum(BINDING_TARGETS).describe('The property to bind.'),
+    property: BindableProperty.describe('The property to bind.'),
     ref: VariableRef.nullable().describe('The brand kit token to bind to, or null to unbind.'),
     value: z
       .string()
       .optional()
       .describe('The token’s value now: a colour as #RRGGBBAA or a font family’s name. Needed to bind.'),
   }),
-  check: ({ design }, { ids, target, ref, value }) => {
+  check: ({ design }, { ids, property, ref, value }) => {
     if (ref && value === undefined) return 'binding needs the value the token has now'
-    if (value !== undefined && !fitsTarget(target, value))
-      return target === 'fontFamily' ? 'a font family needs a name' : 'colours are #RRGGBBAA'
+    if (value !== undefined && !fitsProperty(property, value)) return valueKindOf(property).unfit
     for (const id of ids) {
       const node = design.nodes[id]
       if (!node) return missingLayer(design, [id])
-      if (!canBind(node.type, target)) return `a ${node.type} has no ${target} to bind`
+      if (!canBind(node.type, property)) return `a ${node.type} has no ${property} to bind`
       const locked = lockProblem(id, node, 'style')
       if (locked) return locked
     }
     return undefined
   },
-  apply: ({ w, design }, { ids, target, ref, value }) => {
+  apply: ({ w, design }, { ids, property, ref, value }) => {
+    const entry = BINDABLE_PROPERTIES[property]
     for (const id of ids) {
       const node = design.nodes[id]
       if (!node) continue
-      const bindings = Object.fromEntries(Object.entries({ ...node.bindings, [target]: ref }).filter(([, v]) => v))
+      const bindings = Object.fromEntries(Object.entries({ ...node.bindings, [property]: ref }).filter(([, v]) => v))
       if (Object.keys(bindings).length > 0) w.set('layer', id, 'bindings', bindings)
       else w.unset('layer', id, 'bindings')
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
-      if (target === 'fill') {
-        const fills = (w.prop(id, 'fills') ?? []) as z.infer<typeof Paint>[]
-        const at = boundFillIndex(fills)
-        w.setProp(
-          id,
-          'fills',
-          at < 0
-            ? [...fills, { type: 'solid', color: value }]
-            : fills.map((f, i) => (i === at ? { ...f, color: value } : f)),
-        )
-      } else {
-        const key = target === 'textColor' ? 'color' : 'fontFamily'
-        w.setProp(id, 'style', { ...(w.prop(id, 'style') as Record<string, unknown>), [key]: value })
-      }
+      let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }
+      // A fill with no solid fill that shows to take the value gets one on top.
+      if (property === 'fill' && entry.read(props) === undefined)
+        props = { fills: [...((props.fills ?? []) as unknown[]), { type: 'solid', color: value }] }
+      w.setProp(id, entry.prop, entry.write(props, value)[entry.prop])
     }
   },
 })

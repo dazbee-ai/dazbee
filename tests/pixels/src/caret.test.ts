@@ -343,6 +343,32 @@ describe('the arrow keys across paragraphs', () => {
   })
 })
 
+describe('the arrow keys in a paragraph Pretty breaks', () => {
+  it('step from paragraph to paragraph and through every line in reading order, as Auto’s do', () => {
+    // مرحبا 0–5; the second paragraph (6–61) wraps onto four lines, Pretty ending its third early.
+    const text = 'مرحبا\nتخفيضات الصيف الكبيرة على كل السترات والقمصان في المتجر'
+    const laid = layoutText(
+      ck,
+      TextProps.parse({
+        x: 0,
+        y: 0,
+        width: 260,
+        height: 0,
+        text,
+        wrapStyle: 'pretty',
+        style: { fontFamily: 'Noto Naskh Arabic', fontSize: 32, color: '#000000FF' },
+      }),
+      resources,
+    )
+    expect(laid.blocks[1]?.text).toContain('\u2028')
+    expect(visualStep(ck, laid, { offset: 6, after: false }, true)?.offset).toBe(5)
+    const left = walk(laid, { offset: 0, after: false }, false).map((p) => p.offset)
+    expect(left.slice(5, 8)).toEqual([5, 6, 7])
+    expect(left.at(-1)).toBe(text.length)
+    laid.delete()
+  })
+})
+
 describe('the arrow keys in text cut off by its line limit', () => {
   it('step in reading order from an offset in text not drawn', () => {
     const text = 'abc خصم\nhidden para'

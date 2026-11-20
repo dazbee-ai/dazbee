@@ -45,7 +45,8 @@ export function rewrap(
   remake: (text: string) => Paragraph,
 ): Rewrapped {
   const kept = { paragraph, text, width, dx: 0 }
-  if (props.wrapStyle === 'auto' || props.align === 'justify') return kept
+  const restyled = props.wrapStyle === 'balance' || props.wrapStyle === 'pretty'
+  if (!restyled || props.align === 'justify') return kept
   const lines = paragraph.getLineMetrics().length
   const word = paragraph.getMinIntrinsicWidth()
   if (lines < 2 || word >= width) return kept

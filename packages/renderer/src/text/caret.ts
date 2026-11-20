@@ -237,7 +237,9 @@ function lineAfter(
   line: number,
   forward: boolean,
 ): { block: TextBlock; slots: Slot[] } | null {
-  const linesOf = (boxes: GraphemeBox[]) => [...new Set(boxes.map((b) => b.line))].sort((a, b) => a - b)
+  // A line separator that ends a line early is on no line.
+  const linesOf = (boxes: GraphemeBox[]) =>
+    [...new Set(boxes.map((b) => b.line).filter((l) => l >= 0))].sort((a, b) => a - b)
   const boxes = boxesOf(ck, block)
   const lines = linesOf(boxes)
   const inBlock = forward ? lines.find((l) => l > line) : lines.findLast((l) => l < line)

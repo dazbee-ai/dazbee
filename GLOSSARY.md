@@ -525,6 +525,10 @@ Where a scene is drawn: the WebGL surface for the editor screen, or the CPU surf
 The editor's infinite view of one page: its frames, where they were placed. The Pages card switches the page it shows.
 _Avoid_: Board, workspace
 
+**Composition**:
+What an input method is putting together at the caret before it is typed: pinyin on its way to Chinese characters, kana before conversion, a Korean syllable, an accent waiting for its letter, a phone keyboard's word. It is drawn in the text where it will land, underlined, in place of the selected range it replaces, and typed in as one edit when the input method commits it. It is never stored, sent to other tabs or undone; when the input method cancels it, the text is as it was.
+_Avoid_: Preedit, marked text, IME text
+
 **Stage field**:
 The hidden text area beside the canvas that holds the focus while a text is being typed in, so that what the system types with no key lands in the text: the emoji keyboard's pick, dictation, an input method's committed text, and a Backspace that came with no key. It keeps none of it, and shows only what an input method is composing, at the caret.
 _Avoid_: Hidden input, proxy textarea, IME field

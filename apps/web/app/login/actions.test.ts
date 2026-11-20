@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { INVITATION_COOKIE, STATE_COOKIE } from '@/lib/server/sign-in.ts'
+import { INVITATION_COOKIE, NEXT_COOKIE, STATE_COOKIE } from '@/lib/server/sign-in.ts'
 
 import { requestToJoin, start } from './actions.ts'
 
@@ -88,6 +88,37 @@ describe('start', () => {
     await expect(start(form({ invitation_token: 'not a token' }))).rejects.toThrow('redirect')
 
     expect(jar.has(INVITATION_COOKIE)).toBe(false)
+  })
+})
+
+describe('start with a page to come back to', () => {
+  it('keeps the Connect an agent page, with its request, for after sign-in', async () => {
+    await expect(start(form({ next: '/agents/connect?request=x' }))).rejects.toThrow(
+      'redirect https://auth.example.com/authorize',
+    )
+
+    expect(jar.get(NEXT_COOKIE)).toEqual({
+      value: '/agents/connect?request=x',
+      options: expect.objectContaining({ httpOnly: true, maxAge: 600 }),
+    })
+  })
+
+  it('keeps no other page, nor any address off this site, forgetting one an earlier sign-in kept', async () => {
+    for (const next of [
+      'https://elsewhere.example',
+      '//elsewhere.example',
+      '/w/1',
+      '/agents/connected',
+      '/\\elsewhere.example/agents/connect',
+      '/agents/connect/../../w/1',
+      'https://elsewhere.example/agents/connect',
+    ]) {
+      jar.set(NEXT_COOKIE, { value: '/agents/connect?request=older', options: {} })
+
+      await expect(start(form({ next }))).rejects.toThrow('redirect https://auth.example.com/authorize')
+
+      expect(jar.has(NEXT_COOKIE), next).toBe(false)
+    }
   })
 })
 

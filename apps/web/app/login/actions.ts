@@ -1,6 +1,7 @@
 'use server'
 
-// Starts sign-in at WorkOS, carrying the token of the invite the person came from. And sends a request to
+// Starts sign-in at WorkOS, carrying the token of the invite the person came from and the page to come back
+// to. And sends a request to
 // join from the early-access notice, with the person's address as Cloudflare saw it and the form's
 // Turnstile token.
 import { headers } from 'next/headers'
@@ -18,7 +19,10 @@ export type RequestAnswer = { sent: true } | { error: string } | null
 
 export async function start(form: FormData) {
   const asked = await headers()
-  const url = await startSignIn(form.get('invitation_token'), { origin: asked.get('origin'), host: asked.get('host') })
+  const url = await startSignIn(
+    { invitationToken: form.get('invitation_token'), next: form.get('next') },
+    { origin: asked.get('origin'), host: asked.get('host') },
+  )
   if (!url) {
     logSignIn('unavailable')
     redirect('/login?unavailable=1')

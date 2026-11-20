@@ -4,13 +4,15 @@
 // sign-in early access refused comes back with its reason, and the notice says what to do; the address to
 // write to is the setting SUPPORT_EMAIL. Under the early-access notice, Request access puts the person on the
 // waiting list, with Cloudflare Turnstile's check when TURNSTILE_SITE_KEY is set. Right after a person deletes
-// their account, it says the account is deleted.
+// their account, it says the account is deleted. Sent from the Connect an agent page, Sign in carries that page
+// on, and sign-in comes back to it.
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
 import { CheckIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
 import { cn } from '@/lib/cn.ts'
 import type { Messages } from '@/lib/i18n/en.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
+import { pageAfterSignIn } from '@/lib/server/sign-in.ts'
 
 import { start } from './actions.ts'
 import { AdFan } from './ad-fan.tsx'
@@ -32,10 +34,12 @@ export default async function LoginPage({
     invite?: string
     invitation_token?: string
     deleted?: string
+    next?: string
   }>
 }) {
   const [t, query] = await Promise.all([getMessages(), searchParams])
   // Right after deleting their account, the person is told it is deleted, as news rather than a refusal.
+  const next = pageAfterSignIn(query.next)
   const news = query.deleted ? t.signIn.deleted : null
   const notice = query.unavailable ? (
     t.signIn.unavailable
@@ -83,6 +87,7 @@ export default async function LoginPage({
           {typeof query.invitation_token === 'string' && (
             <input type="hidden" name="invitation_token" value={query.invitation_token} />
           )}
+          {next && <input type="hidden" name="next" value={next} />}
           <button
             type="submit"
             data-testid="sign-in"

@@ -83,6 +83,14 @@ describe('LoginPage', () => {
     expect(await render({})).not.toContain('data-testid="request-access"')
   })
 
+  it('sends the Connect an agent page to come back to with Sign in, and no other page', async () => {
+    expect(await render({ next: '/agents/connect?request=x' })).toContain(
+      '<input type="hidden" name="next" value="/agents/connect?request=x"/>',
+    )
+    expect(await render({ next: 'https://elsewhere.example' })).not.toContain('name="next"')
+    expect(await render({})).not.toContain('name="next"')
+  })
+
   it('says the account is deleted right after it is, in each language, as news rather than a refusal', async () => {
     expect(await render({ deleted: '1' })).toContain('Your account is deleted.')
     expect(await noticeOf({ deleted: '1' })).toBeNull()

@@ -1,8 +1,8 @@
 // WorkOS sends the person back here after sign-in (#58): check the state is the one this browser
 // started with, swap the code for a session at the API, keep its token in an httpOnly cookie, and
-// open the workspace sign-in chose. A sign-in early access refuses goes back to sign in with its reason.
-// A sign-in that started from an invite and fails goes back to sign in with the invite's token, so trying
-// again still accepts it. On the pilot host, sign-in opens the early-access admin page, that host's `/`.
+// open the workspace sign-in chose, or the Connect an agent page the sign-in started from. A sign-in early access refuses goes back to sign in with its reason.
+// A sign-in that started from an invite or from Connect an agent and fails goes back to sign in with the invite's
+// token and the page, so trying again still accepts it and comes back. On the pilot host, sign-in opens the early-access admin page, that host's `/`.
 // A sign-in this browser didn't start, such as the sign-up an invite email's link opens at WorkOS, which
 // WorkOS then sends here with no state, is started again once from here, without its code: WorkOS answers
 // at once for the person it just signed in. Each refused or restarted sign-in is logged with its reason.
@@ -17,6 +17,8 @@ import {
   cookieOptions,
   INVITATION_COOKIE,
   logSignIn,
+  NEXT_COOKIE,
+  pageAfterSignIn,
   seeOther,
   SESSION_COOKIE,
   type SignInSite,
@@ -33,10 +35,16 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get('state')
   const expected = jar.get(STATE_COOKIE)?.value
   const invitationToken = jar.get(INVITATION_COOKIE)?.value
+  const next = pageAfterSignIn(jar.get(NEXT_COOKIE)?.value)
   jar.delete(STATE_COOKIE)
   jar.delete(INVITATION_COOKIE)
+  jar.delete(NEXT_COOKIE)
   const failed = (error = '1') => {
-    const again = new URLSearchParams({ error, ...(invitationToken ? { invitation_token: invitationToken } : {}) })
+    const again = new URLSearchParams({
+      error,
+      ...(invitationToken ? { invitation_token: invitationToken } : {}),
+      ...(next ? { next } : {}),
+    })
     return seeOther(`/login?${again}`)
   }
   if (!code) {
@@ -47,7 +55,7 @@ export async function GET(request: NextRequest) {
     })
     return failed()
   }
-  if (!state || state !== expected) return startAgain(request, state, expected, invitationToken, failed)
+  if (!state || state !== expected) return startAgain(request, state, expected, { invitationToken, next }, failed)
   let session
   try {
     session = await completeSignIn(code)
@@ -67,19 +75,19 @@ export async function GET(request: NextRequest) {
     ...cookieOptions(request.nextUrl.origin),
     expires: new Date(session.expiresAt),
   })
-  return seeOther(isPilotHost(request.headers.get('host')) ? '/' : workspacePath(session.open))
+  return seeOther(isPilotHost(request.headers.get('host')) ? '/' : (next ?? workspacePath(session.open)))
 }
 
 /**
  * Starts again a sign-in this browser didn't start, leaving its code unused, so no code from elsewhere signs
- * anyone in here. One started again that comes back without its state, or with another, is refused, so it
+ * anyone in here, keeping the invite's token and the page to come back to. One started again that comes back without its state, or with another, is refused, so it
  * never loops: its state, or the state cookie it left, begins like one started again.
  */
 async function startAgain(
   request: NextRequest,
   state: string | null,
   expected: string | undefined,
-  invitationToken: string | undefined,
+  carried: { invitationToken: string | undefined; next: string | null },
   failed: () => NextResponse,
 ): Promise<NextResponse> {
   const why = !state ? 'no-state' : !expected ? 'not-started-here' : 'other-state'
@@ -89,7 +97,7 @@ async function startAgain(
   }
   let url
   try {
-    url = await startSignIn(invitationToken, site(request), true)
+    url = await startSignIn(carried, site(request), true)
   } catch (e) {
     logSignIn('unfinished', { reason: 'start-again-failed', error: String(e) })
     return failed()

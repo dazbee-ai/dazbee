@@ -7,7 +7,7 @@ import { Effect } from './effects.ts'
 import { type Layer, Radius, Stroke, TextStyle, textStyleFields } from './layers.ts'
 import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
-import { BINDING_TARGETS, Bindings, type BindingTarget, canBind } from './variables.ts'
+import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
 /** A text's look without its size: font, weight, colour, spacing and the outline along its glyphs. Null is none. */
 const TextLook = z.object({
@@ -76,9 +76,9 @@ export function styleOf(layer: Layer): LayerStyle {
       outline: s.outline ?? null,
     }
   }
-  for (const target of BINDING_TARGETS) {
-    const ref = layer.bindings?.[target]
-    if (ref && sets(style, layer, target)) style.bindings[target] = ref
+  for (const property of BindableProperty.options) {
+    const ref = layer.bindings?.[property]
+    if (ref && sets(style, layer, property)) style.bindings[property] = ref
   }
   return style
 }
@@ -111,9 +111,9 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   }
   const patch = Object.fromEntries(Object.entries(wanted).filter(([key, value]) => !same(value, props[key])))
   const bindings: Bindings = Object.fromEntries(
-    BINDING_TARGETS.flatMap((target) => {
-      const ref = sets(style, layer, target) ? style.bindings[target] : layer.bindings?.[target]
-      return ref ? [[target, ref]] : []
+    BindableProperty.options.flatMap((property) => {
+      const ref = sets(style, layer, property) ? style.bindings[property] : layer.bindings?.[property]
+      return ref ? [[property, ref]] : []
     }),
   )
   const rebind = !same(bindings, layer.bindings ?? {})
@@ -151,10 +151,9 @@ export function withCorners(layer: TypedProps, corners: Corners): Record<string,
   return {}
 }
 
-/** Whether a style sets what a binding target binds on this layer. */
-function sets(style: LayerStyle, layer: Layer, target: BindingTarget) {
-  if (!canBind(layer.type, target)) return false
-  return target === 'fill' ? style.fills !== undefined : style.text !== undefined
+/** Whether a style sets a bindable property of this layer: it carries the key a copied style holds the property under. */
+function sets(style: LayerStyle, layer: Layer, property: BindableProperty) {
+  return canBind(layer.type, property) && style[BINDABLE_PROPERTIES[property].styleKey] !== undefined
 }
 
 function holdsLayers(layer: Layer) {

@@ -344,7 +344,7 @@ _Avoid_: Batch alone (`session.batch`, which takes only commands that change pro
 _Avoid_: Variable, placeholder
 
 **Compact tree**:
-A frame's layers as small JSON for an agent to read: each layer's id, name, type, whether it shows and its text's first 120 characters, the props asked for, and long lists of layers cut to a size budget with how many were left out.
+A frame's layers as small JSON for an agent to read: each layer's id, name, type, whether it shows and its text's first 120 characters, the props asked for, and long lists of layers cut to a size budget with how many are not shown.
 _Avoid_: Outline (the layers panel), tree alone (a brief's), dump
 
 **Gesture**:

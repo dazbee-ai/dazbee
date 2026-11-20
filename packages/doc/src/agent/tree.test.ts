@@ -83,8 +83,9 @@ describe('compactTree', () => {
     expect(() => compactTree(nested(), 'sq', { fields: ['colour'] })).toThrow(/no layer has "colour".*fills/)
   })
 
-  it('refuses a frame the design does not have', () => {
+  it('refuses a frame the design does not have, a name every object has too', () => {
     expect(() => compactTree(nested(), 'nowhere')).toThrow(/no frame "nowhere"/)
+    expect(() => compactTree(nested(), 'constructor')).toThrow(/no frame "constructor"/)
   })
 
   it('cuts long lists of layers to fit the budget, saying how many were left out', () => {
@@ -97,13 +98,13 @@ describe('compactTree', () => {
     const shown = cut.children?.length ?? 0
     expect(shown).toBeGreaterThan(0)
     expect(cut.children?.[0]?.id).toBe('r0')
-    expect(cut.leftOut).toBe(200 - shown)
+    expect(cut.notShown).toBe(200 - shown)
   })
 
   it('leaves a tree inside its budget whole, with no marker', () => {
     const tree = compactTree(nested(), 'sq', { maxBytes: 100_000 })
     expect(tree.children).toHaveLength(3)
-    expect(JSON.stringify(tree)).not.toContain('leftOut')
+    expect(JSON.stringify(tree)).not.toContain('notShown')
   })
 
   it('cuts only the lists longer than the cap, keeping short ones whole', () => {
@@ -122,9 +123,9 @@ describe('compactTree', () => {
     const whole = compactTree(design, 'sq')
     const cut = compactTree(design, 'sq', { maxBytes: bytesOf(whole) - 200 })
     expect(cut.children).toHaveLength(3)
-    expect(cut.leftOut).toBeUndefined()
+    expect(cut.notShown).toBeUndefined()
     const group = cut.children?.[1]
-    expect((group?.children?.length ?? 0) + (group?.leftOut ?? 0)).toBe(52)
-    expect(group?.leftOut).toBeGreaterThan(0)
+    expect((group?.children?.length ?? 0) + (group?.notShown ?? 0)).toBe(52)
+    expect(group?.notShown).toBeGreaterThan(0)
   })
 })

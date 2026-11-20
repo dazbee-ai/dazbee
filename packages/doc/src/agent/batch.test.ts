@@ -144,6 +144,30 @@ describe('runAgentBatch', () => {
     expect(store.snapshot()).toEqual(before)
   })
 
+  it('refuses a step that is not an object of command, input and as, before any step runs', () => {
+    const { store, session, before } = open()
+    const steps = [{ command: 'node.create', input: { parentId: 'sq', layer: badge } }]
+    const missing = runAgentBatch(session, [...steps, null as never])
+    expect(missing.steps).toEqual([expect.objectContaining({ step: 1, kind: 'input' })])
+    const params = runAgentBatch(session, [...steps, { command: 'node.rename', params: {} } as never])
+    expect(params.steps).toEqual([
+      expect.objectContaining({ step: 1, issues: [{ path: ['params'], message: expect.any(String) }] }),
+    ])
+    expect(store.snapshot()).toEqual(before)
+  })
+
+  it('refuses an input that nests too deep, keeping nothing', () => {
+    const { store, session, before } = open()
+    let deep: unknown = 'box'
+    for (let i = 0; i < 70; i++) deep = [deep]
+    const result = runAgentBatch(session, [
+      { command: 'node.create', input: { parentId: 'sq', layer: badge } },
+      { command: 'node.rename', input: { id: deep, name: 'Deep' } },
+    ])
+    expect(result.steps[1]).toMatchObject({ kind: 'input', reason: expect.stringMatching(/deeper than 64/) })
+    expect(store.snapshot()).toEqual(before)
+  })
+
   it('makes no undo step from an empty batch', () => {
     const { session } = open()
     expect(runAgentBatch(session, [])).toEqual({ kept: true, steps: [] })

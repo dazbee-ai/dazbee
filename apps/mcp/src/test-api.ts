@@ -76,6 +76,7 @@ export const TEST_BRAND_KIT: BrandKit = {
   fonts: [{ token: 'heading', name: 'Heading', family: 'Brand Serif' }],
   logoAssetId: null,
   voice: '',
+  textStyles: [],
 }
 
 /** The one family in every brand's font catalog, one face whose file is a shipped font's. */

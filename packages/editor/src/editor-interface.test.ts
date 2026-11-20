@@ -84,6 +84,7 @@ describe('Editor', () => {
       | 'styleTextSelection'
       | 'onTextSelection'
       | 'textStyles'
+      | 'fontFeatures'
       | 'onFontsArrive'
       | 'onSelection'
       | 'pickedFrame'

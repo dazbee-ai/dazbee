@@ -486,7 +486,15 @@ export interface EditorBase {
    * layer selected.
    */
   textStyles(): TextStyleState | null
-  /** Calls back when font files arrive, so what reads the faces a family has (`textStyles`) can read again. */
+  /**
+   * The OpenType features a family has, each of its files having them, as its font files say; null
+   * until the editor has its files.
+   */
+  fontFeatures(family: string): ReadonlySet<string> | null
+  /**
+   * Calls back when font files arrive, so what reads the faces a family has (`textStyles`) or its
+   * features (`fontFeatures`) can read again.
+   */
   onFontsArrive(listener: () => void): () => boolean
   /** Calls back with the selected layers whenever the selection changes. */
   onSelection(listener: (ids: string[]) => void): () => boolean

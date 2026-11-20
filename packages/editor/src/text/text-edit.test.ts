@@ -69,6 +69,19 @@ describe('text editing', () => {
     expect(styleOn(stylesIn(struck, { start: 2, end: 5 }), 'italic')).toBe(true)
   })
 
+  it('gives each character the features of its text and its runs, tag by tag', () => {
+    const base = props('12 sold')
+    const text = {
+      ...base,
+      style: { ...base.style, features: { liga: false } },
+      runs: [{ start: 0, end: 2, style: { features: { tnum: true } } }],
+    }
+    expect(stylesIn(text, { start: 1, end: 3 }).map((s) => s.features)).toEqual([
+      { liga: false, tnum: true },
+      { liga: false },
+    ])
+  })
+
   it('writes Bold as the weight nearest 700 a family has from 600 up, and takes it off to the nearest 400 below', () => {
     expect(styleWrite('bold', true, [400, 700, 800])).toEqual({ fontWeight: 700 })
     expect(styleWrite('bold', false, [400, 700, 800])).toEqual({ fontWeight: 400 })

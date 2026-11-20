@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
+import { openSession, plainStore } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, parseDesign } from '@dazbee/schema'
 
-import { frameWarnings } from './agent-warnings.ts'
+import { frameWarnings, runAgentBatchWithWarnings } from './agent-warnings.ts'
 
 const ck = await loadCanvasKit()
 const bytes = {
@@ -181,5 +182,66 @@ describe('frameWarnings', () => {
     ])
     expect(kindsOf(both, ['title'])).toEqual([['title', 'safeZone']])
     expect(kindsOf(both, [])).toEqual([])
+  })
+})
+
+describe('runAgentBatchWithWarnings', () => {
+  /** A session on the story, its title set in a family with no font file, which no batch below touches. */
+  const open = () => openSession(plainStore(storyWith({ title: { style: { ...style, fontFamily: 'Nowhere Sans' } } })))
+  const headline = {
+    type: 'text',
+    name: 'Headline',
+    props: { x: 60, y: 10, width: 200, height: 60, boxMode: 'fixed', text: 'New', style },
+  }
+
+  it('warns of the layers a kept batch added or changed, and of no other', () => {
+    const session = open()
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [
+        { command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } },
+        { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
+      ],
+      bytes,
+    )
+    expect(result.kept).toBe(true)
+    const created = result.steps[0]?.ok ? (result.steps[0].result as string) : ''
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
+      ['square', 'outsideFrame'],
+      [created, 'safeZone'],
+    ])
+    session.undo()
+    expect(session.design().nodes['square']?.props.x).toBe(20)
+  })
+
+  it('gives no warnings for a batch that was not kept', () => {
+    const session = open()
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [
+        { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
+        { command: 'node.update', input: { ids: ['nowhere'], patch: { x: 0 } } },
+      ],
+      bytes,
+    )
+    expect(result).toMatchObject({ kept: false, warnings: [] })
+    expect(session.design().nodes['square']?.props.x).toBe(20)
+  })
+
+  it('checks every layer of a frame the batch changed', () => {
+    const session = open()
+    const result = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [{ command: 'frame.update', input: { frameId: 'story', width: 60, height: 120 } }],
+      bytes,
+    )
+    // The square, at 20 to 60 each way, still shows; the title, from x 60, does not.
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
+      ['title', 'outsideFrame'],
+      ['title', 'missingFont'],
+    ])
   })
 })

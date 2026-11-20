@@ -17,3 +17,11 @@ export {
   type AgentRender,
   type AgentRenderOptions,
 } from './agent-render.ts'
+export {
+  type AgentBatchWarned,
+  type AgentWarning,
+  type AgentWarningKind,
+  type AgentWarningOptions,
+  frameWarnings,
+  runAgentBatchWithWarnings,
+} from './agent-warnings.ts'

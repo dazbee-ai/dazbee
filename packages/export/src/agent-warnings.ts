@@ -1,7 +1,18 @@
 // What an agent is told about a frame it made or changed: plain sentences, each about one layer,
 // for what won't look as designed. It reads the design as the export draws it, and writes nothing.
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { boundsOf, centreOf, cornersOf, type Point, turn } from '@dazbee/doc'
+import {
+  type AgentBatchResult,
+  type AgentStep,
+  boundsOf,
+  centreOf,
+  cornersOf,
+  type Point,
+  runAgentBatch,
+  sameValue,
+  type Session,
+  turn,
+} from '@dazbee/doc'
 import {
   familiesOf,
   layerReach,
@@ -34,6 +45,9 @@ export interface AgentWarningOptions {
   layerIds?: Iterable<string>
   cache?: ResourceCache
 }
+
+/** What came of an agent's batch, with the warnings for the layers it touched. */
+export type AgentBatchWarned = AgentBatchResult & { warnings: AgentWarning[] }
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
@@ -102,6 +116,48 @@ export function frameWarnings(
   } finally {
     if (!cache) owned.delete()
   }
+}
+
+/**
+ * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, then warns of what the
+ * batch touched, as frameWarnings tells it: the layers it added or changed, each in its frame, and
+ * every layer of a frame it changed. A batch not kept has no warnings. It writes nothing past what
+ * the batch writes.
+ */
+export function runAgentBatchWithWarnings(
+  ck: CanvasKit,
+  session: Session,
+  steps: readonly AgentStep[],
+  bytes: ResourceBytes,
+  cache?: ResourceCache,
+): AgentBatchWarned {
+  // The design is live, but its layers and frames are replaced, never changed, so these keep it as it was.
+  const before = session.design()
+  const nodesBefore = { ...before.nodes }
+  const framesBefore = { ...before.frames }
+  const result = runAgentBatch(session, steps)
+  if (!result.kept) return { ...result, warnings: [] }
+  const design = session.design()
+  /** The layers to check in each frame, or `all` of them. */
+  const touched = new Map<string, Set<string> | 'all'>()
+  for (const [frameId, frame] of Object.entries(design.frames))
+    if (!sameValue(ownValue(framesBefore, frameId), frame)) touched.set(frameId, 'all')
+  for (const [id, node] of Object.entries(design.nodes)) {
+    if (sameValue(ownValue(nodesBefore, id), node)) continue
+    const frameId = frameOf(design, id)
+    if (frameId === undefined) continue
+    const ids = touched.get(frameId) ?? new Set<string>()
+    if (ids !== 'all') touched.set(frameId, ids.add(id))
+  }
+  const warnings = Object.keys(design.frames).flatMap((frameId) => {
+    const ids = touched.get(frameId)
+    if (ids === undefined) return []
+    return frameWarnings(ck, design, frameId, bytes, {
+      ...(ids === 'all' ? {} : { layerIds: ids }),
+      ...(cache ? { cache } : {}),
+    })
+  })
+  return { ...result, warnings }
 }
 
 /** Tells of a layer that draws nothing inside its frame; whether it did. */
@@ -177,4 +233,16 @@ function coveringPlatforms(frame: { width: number; height: number }, box: Rect):
 /** Names as a sentence lists them: `A`, `A and B`, `A, B and C`. */
 function listed(names: readonly string[]): string {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+}
+
+/** A record's own value under `key`, never one its prototype gives. */
+function ownValue<T>(records: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(records, key) ? records[key] : undefined
+}
+
+/** The frame layer `id` is in; none when its chain of parents ends elsewhere. */
+function frameOf(design: Design, id: string): string | undefined {
+  let up = ownValue(design.nodes, id)?.parentId
+  while (up !== undefined && !Object.hasOwn(design.frames, up)) up = ownValue(design.nodes, up)?.parentId
+  return up
 }

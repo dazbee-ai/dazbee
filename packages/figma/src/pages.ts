@@ -157,15 +157,15 @@ function frameOf(
   const size = frameSize(place.width, place.height)
   if (size.rounded) build.report.add('frames-rounded', from)
   if (size.resized) build.report.add('frames-resized', from)
-  const roots =
+  const inner = { x: 0, y: 0, width: place.width, height: place.height, rotation: 0 }
+  const box =
     boxProps || size.resized
-      ? [
-          boxAround(build, name, { x: 0, y: 0, width: place.width, height: place.height, rotation: 0 }, pieces, {
-            ...(boxProps ?? {}),
-            constraints: { horizontal: 'leftRight', vertical: 'topBottom' },
-          }),
-        ]
-      : pieces
+      ? boxAround(build, name, inner, pieces, {
+          ...(boxProps ?? {}),
+          constraints: { horizontal: 'leftRight', vertical: 'topBottom' },
+        })
+      : null
+  const roots = box ? [box] : pieces
   const trimmed = name.trim().slice(0, MAX_FRAME_NAME).trim()
   return {
     name: trimmed || 'Frame',

@@ -98,7 +98,7 @@ function entriesOf(
  * fills, each by its own rule; null when Skia can't combine them.
  */
 function oneOutline(ck: CanvasKit, entries: readonly Entry[]): Omit<Outline, 'fills' | 'strokes'> | null {
-  const oneRule = new Set(entries.map((e) => isEvenOdd(ck, e.path))).size <= 1
+  const oneRule = shareRule(ck, entries)
   let path: Path | null = oneRule ? joinedPath(ck, entries) : (entries[0] as Entry).path.copy()
   for (const e of oneRule ? [] : entries.slice(1)) {
     const united: Path | null = path && ck.Path.MakeFromOp(path, e.path, ck.PathOp.Union)
@@ -116,7 +116,7 @@ function vectorOutlines(ck: CanvasKit, report: Reporter, n: FigmaNode, entries: 
   const fills = list(field(n.fields, 'fills'))
   const strokes = list(field(n.fields, 'strokes'))
   const plain = entries.filter((e) => !e.regionFills)
-  const oneRule = new Set(plain.map((e) => isEvenOdd(ck, e.path))).size <= 1
+  const oneRule = shareRule(ck, plain)
   const filled: Outline[] = []
   for (const e of entries) {
     if (e.regionFills) {
@@ -145,6 +145,11 @@ function vectorOutlines(ck: CanvasKit, report: Reporter, n: FigmaNode, entries: 
   } finally {
     for (const e of strokeEntries) e.path.delete()
   }
+}
+
+/** Whether `entries` all fill by one winding rule. */
+function shareRule(ck: CanvasKit, entries: readonly Entry[]): boolean {
+  return new Set(entries.map((e) => isEvenOdd(ck, e.path))).size <= 1
 }
 
 function isEvenOdd(ck: CanvasKit, path: Path): boolean {

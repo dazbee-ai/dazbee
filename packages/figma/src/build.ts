@@ -133,7 +133,7 @@ export function layer<T extends LayerInput['type']>(
 }
 
 /** Makes the layer of `type` a node becomes, keyed by the node unless `id` is given, and maps its key to the node. */
-export function made(
+export function addLayer(
   build: LayerBuild,
   n: FigmaNode,
   type: LayerInput['type'],

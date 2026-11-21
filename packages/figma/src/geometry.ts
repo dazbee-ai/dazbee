@@ -121,23 +121,24 @@ export function viewInside(view: Matrix, turn: number): Matrix {
 }
 
 /**
- * How a node that `x` takes from its own pixels to its parent's unturned pixels is drawn: turned
+ * How a node that `toParent` takes from its own pixels to its parent's unturned pixels is drawn: turned
  * as its first axis is, flipped where it mirrors, and sized by its axes. A skew goes into `toBox`,
  * for a path's data, when `bakes`; else it is dropped, keeping the turn, the flip and the centre.
  */
-export function poseOf(x: Matrix, width: number, height: number, bakes: boolean): Pose {
-  const { rotation, flipX, flipY } = nearestTurnAndFlipOf(x)
+export function poseOf(toParent: Matrix, width: number, height: number, bakes: boolean): Pose {
+  const { rotation, flipX, flipY } = nearestTurnAndFlipOf(toParent)
   const flips: Flips = { ...(flipX ? { flipX } : {}), ...(flipY ? { flipY } : {}) }
   // What is left once the turn and flip are taken out: a scale along each axis, and a skew.
-  const rest = multiply([flipX ? -1 : 1, 0, 0, flipY ? -1 : 1, 0, 0], multiply(turned(-rotation), x))
-  const across = Math.hypot(x[0], x[1])
-  const down = Math.hypot(x[2], x[3])
-  const skewed = Math.abs(x[0] * x[2] + x[1] * x[3]) > FLOAT_SLACK * across * down
+  const rest = multiply([flipX ? -1 : 1, 0, 0, flipY ? -1 : 1, 0, 0], multiply(turned(-rotation), toParent))
+  const [a, b, c, d] = toParent
+  const across = Math.hypot(a, b)
+  const down = Math.hypot(c, d)
+  const skewed = Math.abs(a * c + b * d) > FLOAT_SLACK * across * down
   const scaled: Matrix =
     skewed && bakes ? [rest[0], rest[1], rest[2], rest[3], 0, 0] : [unit(across), 0, 0, unit(down), 0, 0]
-  const { xs, ys } = cornersOf(scaled, width, height)
+  const { xs, ys } = cornerPoints(scaled, width, height)
   const size = { width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
-  const centre = apply(x, width / 2, height / 2)
+  const centre = apply(toParent, width / 2, height / 2)
   const mid = apply(scaled, width / 2, height / 2)
   const toBox = multiply([1, 0, 0, 1, size.width / 2 - mid.x, size.height / 2 - mid.y], scaled)
   return {
@@ -230,14 +231,14 @@ export function settle(nodes: Record<string, LayerInput>, root: string, shifts: 
 }
 
 /**
- * Takes the node's own pixels, which `x` takes to its parent's unturned pixels, to the pixels of
+ * Takes the node's own pixels, which `toParent` takes to its parent's unturned pixels, to the pixels of
  * `box` drawn there with `flips`: where a point of the node is in the box's own drawing.
  */
-export function boxMapOf(x: Matrix, box: Box, flips: Flips): Matrix {
+export function boxMapOf(toParent: Matrix, box: Box, flips: Flips): Matrix {
   const half: Matrix = [1, 0, 0, 1, box.width / 2, box.height / 2]
   const flip: Matrix = [flips.flipX ? -1 : 1, 0, 0, flips.flipY ? -1 : 1, 0, 0]
   const centre: Matrix = [1, 0, 0, 1, -(box.x + box.width / 2), -(box.y + box.height / 2)]
-  return multiply(half, multiply(flip, multiply(turned(-box.rotation), multiply(centre, x))))
+  return multiply(half, multiply(flip, multiply(turned(-box.rotation), multiply(centre, toParent))))
 }
 
 /**
@@ -299,16 +300,11 @@ function inReach(m: Matrix): boolean {
 
 /** How far the box `m` places a node of `width` × `height` in is from `b`: its four edges' distances added. */
 function missOf(m: Matrix, width: number, height: number, b: Rect): number {
-  const { xs, ys } = cornersOf(m, width, height)
+  const { xs, ys } = cornerPoints(m, width, height)
   const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
   return (
     Math.abs(left - b.x) + Math.abs(right - b.x - b.width) + Math.abs(top - b.y) + Math.abs(bottom - b.y - b.height)
   )
-}
-
-function cornersOf(m: Matrix, width: number, height: number): { xs: number[]; ys: number[] } {
-  const points = [apply(m, 0, 0), apply(m, width, 0), apply(m, width, height), apply(m, 0, height)]
-  return { xs: points.map((p) => p.x), ys: points.map((p) => p.y) }
 }
 
 /** A turn by `degrees` about the origin. */
@@ -320,6 +316,11 @@ function turned(degrees: number): Matrix {
 /** A length that is 1 within Figma's float precision, as 1. */
 function unit(length: number): number {
   return Math.abs(length - 1) <= FLOAT_SLACK ? 1 : length
+}
+
+function cornerPoints(m: Matrix, width: number, height: number): { xs: number[]; ys: number[] } {
+  const points = [apply(m, 0, 0), apply(m, width, 0), apply(m, width, height), apply(m, 0, height)]
+  return { xs: points.map((p) => p.x), ys: points.map((p) => p.y) }
 }
 
 function clamp(n: number, low: number, high: number) {

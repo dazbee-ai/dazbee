@@ -96,18 +96,24 @@ describe('outlinesOf', () => {
   it('gives a region with its own fills a graphic of its own, filled with them', () => {
     const text = inFrame([
       v({
-        fillGeometry: [outline('M0 0L10 0L10 10Z'), outline('M20 0L30 0L30 10Z', 'NONZERO', { overrideID: 1 })],
+        fillGeometry: [
+          outline('M0 0L10 0L10 10Z'),
+          outline('M20 0L30 0L30 10Z', 'NONZERO', { overrideID: 1 }),
+          outline('M0 5L5 5L5 9Z', 'NONZERO', { overrideID: 3 }),
+        ],
         fills: [red],
-        fillOverrideTable: { 1: { fills: [blue] }, 2: null },
+        fillOverrideTable: { 1: { fills: [blue] }, 2: null, 3: { fills: [] } },
       }),
     ])
     const nodes = layersOf(onlyFrame(text))
-    const [plain, region] = childrenOf(nodes, '1-2')
+    const [plain, region, unfilled] = childrenOf(nodes, '1-2')
     expect(nodes[plain ?? '']?.props).toMatchObject({ shape: { d: 'M0 0L10 0L10 10Z' } })
     expect(nodes[region ?? '']?.props).toMatchObject({ shape: { d: 'M20 0L30 0L30 10Z' } })
     const { paints } = built(text)
     expect(paints[plain ?? '']?.fills).toEqual([red])
     expect(paints[region ?? '']?.fills).toEqual([blue])
+    // A region whose own fills are none keeps its outline, drawing nothing, as in Figma.
+    expect(paints[unfilled ?? '']?.fills).toEqual([])
   })
 
   it('reads a region whose entry has no fills, or is named `__proto__`, as one of the rest', () => {

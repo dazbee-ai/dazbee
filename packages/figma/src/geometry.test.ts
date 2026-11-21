@@ -233,6 +233,20 @@ describe('withinReach', () => {
     expect(countOf(text, 'positions-clamped')).toBe(3)
   })
 
+  it('keeps a turned box brought within reach turning its layers where Figma draws them', () => {
+    // Past reach along the frame's x, while the child, in the box's turned pixels, is within it.
+    const boxAt = multiply(FRAME_AT, turned(45, 1.05e7, 0))
+    const childAt = multiply(boxAt, turned(0, 10, 10))
+    const text = inFrame([
+      frame('1:2', box(0, 0, 0, 0), [rectangle('1:3', box(0, 0, 0, 0), placedAt(childAt, 10, 10, boxAt))], {
+        ...placedAt(boxAt, 1000, 1000, FRAME_AT),
+      }),
+    ])
+    const nodes = layersOf(onlyFrame(text))
+    expect(nodes['1-2']?.props.x).toBe(1e7)
+    expectDrawnAs(nodes, '1-3', childAt, 10, 10)
+  })
+
   it('keeps every number finite under matrices that scale past reach', () => {
     const huge: Matrix = [1e6, 0, 0, 1e6, 0, 0]
     let inner = rectangle('1:9', box(0, 0, 0, 0), { ...placedAt(huge, 10, 10, [1, 0, 0, 1, 0, 0]) })

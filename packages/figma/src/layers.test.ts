@@ -145,7 +145,6 @@ describe('convertLayers', () => {
       ])
       expect(onlyFrame(text).layers).toBeNull()
       expect(imported(text).converted.report.items).toEqual([
-        { line: 'booleans-flattened', kind: 'changed', count: 1, nodes: [{ id: '1:2', name: 'boolean_operation' }] },
         {
           line: 'shapes-without-outlines',
           kind: 'left-out',

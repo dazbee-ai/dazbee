@@ -10,13 +10,13 @@ import type { BooleanOp, LayerTree } from '@dazbee/schema'
 import { type Matrix, multiply } from '@dazbee/svg'
 
 import {
+  addLayer,
   adopt,
   COMPONENT_TYPES,
   FRAME_TYPES,
   layer,
   type LayerBuild,
   type LayerInput,
-  made,
   paintsOf,
   type Piece,
   ROOT,
@@ -49,7 +49,7 @@ type BoxProps = Extract<LayerInput, { type: 'box' }>['props']
 interface Entered {
   placement: Placement | undefined
   /** Takes its own pixels to its parent's unturned pixels. */
-  x: Matrix | undefined
+  toParent: Matrix | undefined
   pose: Pose | undefined
   inside: Place
 }
@@ -146,14 +146,14 @@ export function boxLook(fields: FigmaFields): { clip: boolean; cornerRadius: Cor
  * takes its box from its matrix; a group or boolean fits what it holds, turned as its matrix is.
  */
 function container(build: LayerBuild, n: FigmaNode, inside: Piece[], entered: Entered): Piece | null {
-  const { placement, x, pose } = entered
+  const { placement, toParent, pose } = entered
   if (FRAME_TYPES.has(n.type) && placement && pose) {
     if (COMPONENT_TYPES.has(n.type)) build.report.add('components-and-instances', n)
     if (pose.skewed) build.report.add('skewed-layers', n)
     const box = withinReach(build.report, n, pose.box, placement.clamped)
-    const id = made(build, n, 'box', { ...box, ...pose.flips, ...boxLook(n.fields) })
+    const id = addLayer(build, n, 'box', { ...box, ...pose.flips, ...boxLook(n.fields) })
     build.paints[id] = paintsOf(n, handlesOf(pose.toBox, placement.width, placement.height, box))
-    build.shifts.set(id, shiftOf(pose.box))
+    build.shifts.set(id, shiftOf(box))
     adopt(build, id, masked(build, inside, laysOut(n.fields)))
     return { id, box }
   }
@@ -167,9 +167,9 @@ function container(build: LayerBuild, n: FigmaNode, inside: Piece[], entered: En
   const box = turnedOut(boundsOf(pieces.map((p) => p.box)), pose?.box.rotation ?? 0)
   const flips: Flips = isBoolean ? (pose?.flips ?? {}) : {}
   const op = BOOLEAN_OPS.get(str(field(n.fields, 'booleanOperation')) ?? '') ?? 'union'
-  const id = isBoolean ? made(build, n, 'boolean', { ...box, ...flips, op }) : made(build, n, 'group', box)
-  if (isBoolean && placement && x)
-    build.paints[id] = paintsOf(n, handlesOf(boxMapOf(x, box, flips), placement.width, placement.height, box))
+  const id = isBoolean ? addLayer(build, n, 'boolean', { ...box, ...flips, op }) : addLayer(build, n, 'group', box)
+  if (isBoolean && placement && toParent)
+    build.paints[id] = paintsOf(n, handlesOf(boxMapOf(toParent, box, flips), placement.width, placement.height, box))
   build.shifts.set(id, shiftOf(box))
   adopt(build, id, pieces)
   return { id, box }
@@ -189,14 +189,14 @@ function descends(n: FigmaNode): boolean {
 /** A container node as it is entered: where its matrix puts it, and where its children are made. */
 function enter(n: FigmaNode, place: Place): Entered {
   const placement = placementOf(n, place.space)
-  const x = placement && multiply(place.view, placement.world)
-  const pose = placement && x && poseOf(x, placement.width, placement.height, false)
+  const toParent = placement && multiply(place.view, placement.world)
+  const pose = placement && toParent && poseOf(toParent, placement.width, placement.height, false)
   const inside = {
     space: innerSpace(n, placement, place.space),
     view: viewInside(place.view, pose?.box.rotation ?? 0),
     inBoolean: n.type === 'BOOLEAN_OPERATION',
   }
-  return { placement, x, pose, inside }
+  return { placement, toParent, pose, inside }
 }
 
 /**

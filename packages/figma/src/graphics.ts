@@ -6,7 +6,7 @@ import type { Box } from '@dazbee/doc'
 import type { FigmaReportLine, LineEnd } from '@dazbee/schema'
 import { type Matrix, multiply } from '@dazbee/svg'
 
-import { adopt, layer, type LayerBuild, type LayerInput, made, paintsOf, type Piece, unreadable } from './build.ts'
+import { addLayer, adopt, layer, type LayerBuild, type LayerInput, paintsOf, type Piece, unreadable } from './build.ts'
 import {
   boxMapOf,
   handlesOf,
@@ -99,34 +99,39 @@ export function leaf(build: LayerBuild, n: FigmaNode, place: Place): Piece | nul
   }
   const placement = placementOf(n, place.space)
   if (!placement) return unreadable(build, n)
-  const x = multiply(place.view, placement.world)
-  if (n.type === 'LINE') return line(build, n, x, placement)
+  const toParent = multiply(place.view, placement.world)
+  if (n.type === 'LINE') return line(build, n, toParent, placement)
   const rule = place.inBoolean ? 'in-boolean' : (OUTLINE_RULES.get(n.type) as OutlineRule)
-  if (n.type === 'BOOLEAN_OPERATION') build.report.add('booleans-flattened', n)
+  if (n.type === 'BOOLEAN_OPERATION') {
+    const piece = outlined(build, n, toParent, placement, rule)
+    if (piece) build.report.add('booleans-flattened', n)
+    return piece
+  }
   if (n.type !== 'RECTANGLE' && !(n.type === 'ELLIPSE' && isWhole(n.fields)))
-    return outlined(build, n, x, placement, rule)
-  const pose = poseOf(x, placement.width, placement.height, false)
+    return outlined(build, n, toParent, placement, rule)
+  const pose = poseOf(toParent, placement.width, placement.height, false)
   if (pose.skewed) {
-    if (list(field(n.fields, 'fillGeometry')).length > 0) return outlined(build, n, x, placement, rule)
+    if (list(field(n.fields, 'fillGeometry')).length > 0) return outlined(build, n, toParent, placement, rule)
     build.report.add('skewed-layers', n)
   }
   const box = withinReach(build.report, n, pose.box, placement.clamped)
-  const id = made(build, n, 'graphic', { ...box, ...pose.flips, shape: shapeOf(build, n) })
+  const id = addLayer(build, n, 'graphic', { ...box, ...pose.flips, shape: shapeOf(build, n) })
   build.paints[id] = paintsOf(n, handlesOf(pose.toBox, placement.width, placement.height, box))
   return { id, box }
 }
 
 /** A line from its start to its end as its matrix places them, which no mirror or skew changes. */
-function line(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placement): Piece {
+function line(build: LayerBuild, n: FigmaNode, toParent: Matrix, placement: Placement): Piece {
   const { width, height } = placement
-  const length = Math.hypot(x[0], x[1]) * width
-  const across = Math.hypot(x[2], x[3]) * height
-  const centre = { x: x[4] + (x[0] * width + x[2] * height) / 2, y: x[5] + (x[1] * width + x[3] * height) / 2 }
-  const rotation = (Math.atan2(x[1], x[0]) * 180) / Math.PI
+  const [a, b, c, d, e, f] = toParent
+  const length = Math.hypot(a, b) * width
+  const across = Math.hypot(c, d) * height
+  const centre = { x: e + (a * width + c * height) / 2, y: f + (b * width + d * height) / 2 }
+  const rotation = (Math.atan2(b, a) * 180) / Math.PI
   const drawn = { x: centre.x - length / 2, y: centre.y - across / 2, width: length, height: across, rotation }
   const box = withinReach(build.report, n, drawn, placement.clamped)
-  const id = made(build, n, 'graphic', { ...box, shape: shapeOf(build, n) })
-  build.paints[id] = paintsOf(n, handlesOf(boxMapOf(x, drawn, {}), width, height, box))
+  const id = addLayer(build, n, 'graphic', { ...box, shape: shapeOf(build, n) })
+  build.paints[id] = paintsOf(n, handlesOf(boxMapOf(toParent, drawn, {}), width, height, box))
   return { id, box }
 }
 
@@ -134,8 +139,14 @@ function line(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placement):
  * The path graphics a node's outlines become by `rule`, any skew taken into their data: one keyed
  * by the node, or several in a group keyed by it and turned as it is, each flipped as it is.
  */
-function outlined(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placement, rule: OutlineRule): Piece | null {
-  const pose = poseOf(x, placement.width, placement.height, true)
+function outlined(
+  build: LayerBuild,
+  n: FigmaNode,
+  toParent: Matrix,
+  placement: Placement,
+  rule: OutlineRule,
+): Piece | null {
+  const pose = poseOf(toParent, placement.width, placement.height, true)
   const outlines = outlinesOf(build.ck, build.report, n, rule, pose.toBox)
   if (outlines.length === 0) return null
   const box = withinReach(build.report, n, pose.box, placement.clamped)
@@ -148,7 +159,7 @@ function outlined(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placeme
   }
   if (outlines.length === 1) {
     const id = build.keyOf(n)
-    made(build, n, 'graphic', graphic(id, box, outlines[0] as Outline), id)
+    addLayer(build, n, 'graphic', graphic(id, box, outlines[0] as Outline), id)
     return { id, box }
   }
   const own = unturned(box)
@@ -157,7 +168,7 @@ function outlined(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placeme
     build.nodes[id] = layer(id, 'graphic', n.name, graphic(id, own, o))
     return { id, box: own }
   })
-  const id = made(build, n, 'group', box)
+  const id = addLayer(build, n, 'group', box)
   build.shifts.set(id, shiftOf(box))
   adopt(build, id, pieces)
   return { id, box }

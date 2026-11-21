@@ -1,5 +1,6 @@
 // A server's settings read from the environment at start: each a whole number with its value when unset, and the
-// least and most it may be, so a server refuses to start on a value out of its range. This module imports nothing.
+// least and most it may be, so a server refuses to start on a value out of its range; or a text, such as an outside
+// service's key, that turns a feature on when set. This module imports nothing.
 
 /** One setting: its environment variable, its value when unset or empty, and the least and most it may be. */
 export interface ServerSetting {
@@ -20,6 +21,11 @@ export function serverSettings<K extends string>(
   const values = {} as Record<K, number>
   for (const key of Object.keys(settings) as K[]) values[key] = settingOf(env, settings[key])
   return values
+}
+
+/** The text `env` gives the variable `name`, without spaces at either end, or null when it is unset or empty. */
+export function serverText(env: Readonly<Record<string, string | undefined>>, name: string): string | null {
+  return env[name]?.trim() || null
 }
 
 /** The value `env` gives `setting`. */

@@ -106,7 +106,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
 ]
 
 /** An image as list_assets and add_image answer it. */
-function listedImage({ id, name, tags, contentType, width, height }: AssetSummary) {
+export function listedImage({ id, name, tags, contentType, width, height }: AssetSummary) {
   return { id, name, tags, type: contentType, width, height }
 }
 
@@ -114,7 +114,7 @@ function listedImage({ id, name, tags, contentType, width, height }: AssetSummar
  * `error` as the tool's refusal: the API's 403 to an agent that may only view, saying it can't `action`; any other
  * error as it is.
  */
-function viewOnly(error: unknown, action: string): unknown {
+export function viewOnly(error: unknown, action: string): unknown {
   if (!(error instanceof ApiRefusal) || error.status !== 403) return error
   return new ToolRefusal(
     `This agent may only view designs, so it can’t ${action}: its access only views, or the member who connected it is a Reviewer. The person who connected it can connect it again to edit, if their role edits`,

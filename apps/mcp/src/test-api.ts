@@ -1,5 +1,5 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, pictures added from links, the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
+// assets, pictures added from links, stock photos (`test-stock-api.ts`), the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
 // accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
@@ -15,6 +15,8 @@ import {
   type FontFamily,
   SyncTokenRequest,
 } from '@dazbee/schema'
+
+import { type TestStock, testStock } from './test-stock-api.ts'
 
 /** An agent access as the tests give it. */
 export interface TestAccessOptions {
@@ -55,6 +57,8 @@ export interface TestApi {
   syncTokenOf(token: string): TestSyncToken | undefined
   /** The pictures added from links, each its brand and the body sent, in order. */
   addedFromUrl(): ({ brandId: string } & AddAssetFromUrl)[]
+  /** The stock photo routes: whether stock search is off, and the searches and saves sent. */
+  stock: TestStock
 }
 
 /** What a sync token of the fake API is for. */
@@ -329,6 +333,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   })
 
   app.get('/workspaces/:workspaceId/brands', (c) => c.json(visible(c.var.agent)))
+  const stock = testStock(now)
+  app.route('/', stock.app)
 
   app.get('/workspaces/:workspaceId/brands/:brandId/designs', (c) =>
     c.json(designs.filter((design) => design.brandId === c.req.param('brandId'))),
@@ -424,6 +430,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     fetch: async (request) => (new URL(request.url).origin === STORAGE ? stored(request) : app.fetch(request)),
     syncTokenOf: (token) => syncTokens.get(token),
     addedFromUrl: () => addedFromUrl,
+    stock,
     addAccess,
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),

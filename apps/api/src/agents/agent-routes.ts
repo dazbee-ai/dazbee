@@ -1,6 +1,6 @@
 // The routes an agent's token may ask (ADR-0019): who it is, and under its access's workspace, listing brands,
 // a brand's designs, assets, fonts and kit, an asset's or a font face's signed link, making a design, adding a
-// picture from a link, and a design's sync token. A request with an agent's token anywhere else is answered
+// picture from a link, searching stock photos and saving one, and a design's sync token. A request with an agent's token anywhere else is answered
 // 403, before any route runs.
 import { Hono, type MiddlewareHandler } from 'hono'
 
@@ -18,6 +18,8 @@ const AGENT_ROUTES: [method: string, path: string][] = [
   ['GET', '/workspaces/:workspaceId/brands/:brandId/assets'],
   ['GET', '/workspaces/:workspaceId/brands/:brandId/assets/:assetId'],
   ['POST', '/workspaces/:workspaceId/brands/:brandId/assets/from-url'],
+  ['GET', '/workspaces/:workspaceId/stock/photos'],
+  ['POST', '/workspaces/:workspaceId/brands/:brandId/assets/from-stock'],
   ['GET', '/workspaces/:workspaceId/brands/:brandId/fonts'],
   ['GET', '/workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId'],
   ['GET', '/workspaces/:workspaceId/brands/:brandId/kit'],

@@ -84,15 +84,15 @@ export async function dismissRequest(db: Db, requestId: string): Promise<boolean
 }
 
 /**
- * A limit on requests, kept in this server's memory: `perWindow` from one address within `REQUEST_WINDOW_MS`;
- * unless given, `REQUESTS_PER_WINDOW`, the limit on requests to join.
+ * A limit on requests, kept in this server's memory: `perWindow` from one address within `windowMs`; unless given,
+ * `REQUESTS_PER_WINDOW` within `REQUEST_WINDOW_MS`, the limit on requests to join.
  */
-export function requestLimit({ perWindow = REQUESTS_PER_WINDOW } = {}): RequestLimit {
+export function requestLimit({ perWindow = REQUESTS_PER_WINDOW, windowMs = REQUEST_WINDOW_MS } = {}): RequestLimit {
   // When each address's requests within the window were taken, oldest first, by address.
   const taken = new Map<string, number[]>()
 
   function take(address: string, now = Date.now()): boolean {
-    const recent = (taken.get(address) ?? []).filter((at) => at > now - REQUEST_WINDOW_MS)
+    const recent = (taken.get(address) ?? []).filter((at) => at > now - windowMs)
     if (recent.length >= perWindow) {
       taken.set(address, recent)
       return false

@@ -25,6 +25,8 @@ const AGENTS_ROUTES = [
   'GET /workspaces/:workspaceId/brands/:brandId/assets',
   'GET /workspaces/:workspaceId/brands/:brandId/assets/:assetId',
   'POST /workspaces/:workspaceId/brands/:brandId/assets/from-url',
+  'GET /workspaces/:workspaceId/stock/photos',
+  'POST /workspaces/:workspaceId/brands/:brandId/assets/from-stock',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
   'GET /workspaces/:workspaceId/brands/:brandId/kit',

@@ -51,6 +51,7 @@ import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
 import { GRAPHICS_TOOLS } from './tools/graphics-tools.ts'
 import { RENDER_TOOLS } from './tools/render-tool.ts'
+import { STOCK_TOOLS } from './tools/stock-tools.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
 
 /** What the endpoint needs: the API, the sync server, the public base URL the server is reached at, and the app's version. */
@@ -112,6 +113,7 @@ interface Call {
 /** The tools every session offers, in `tools/list` order. */
 export const TOOLS: Tool[] = [
   ...WORKSPACE_TOOLS,
+  ...STOCK_TOOLS,
   ...ADVICE_TOOLS,
   ...DESIGN_TOOLS,
   ...RENDER_TOOLS,

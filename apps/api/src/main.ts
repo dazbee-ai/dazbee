@@ -17,6 +17,7 @@ import { devInvites } from './sign-in/dev-invites.ts'
 import { allowList } from './sign-in/early-access.ts'
 import { seedDevelopment, sessionOfRequest } from './sign-in/session.ts'
 import { workosProvider, workosSettings } from './sign-in/sign-in.ts'
+import { pixabayFromEnv } from './stock/pixabay.ts'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')
@@ -57,7 +58,21 @@ const invites = {
 const build = process.env.BUILD_ID || 'dev'
 // Requests to join pass Cloudflare Turnstile's check when TURNSTILE_SECRET_KEY is set.
 const turnstile = turnstileCheck()
-const app = createApp({ db, storage, sessionOf, syncSecret, build, signIn, invites, admins, turnstile, agentLimits })
+// Agents' stock photo search is on when PIXABAY_API_KEY is set.
+const stock = pixabayFromEnv(process.env)
+const app = createApp({
+  db,
+  storage,
+  sessionOf,
+  syncSecret,
+  build,
+  signIn,
+  invites,
+  admins,
+  turnstile,
+  agentLimits,
+  stock,
+})
 // What deleted accounts left outside the database and couldn't delete then is tried again, beside serving.
 finishSoon(db, { storage, signIn: signIn?.provider ?? null, invites: invites.workos })
 const ways =

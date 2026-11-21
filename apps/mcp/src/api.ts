@@ -16,6 +16,9 @@ import {
   FontLink,
   FROM_URL_TIMEOUT_MS,
   MAX_UPLOAD_BYTES,
+  type StockPhotoId,
+  StockResults,
+  type StockSearch,
   SyncToken,
 } from '@dazbee/schema'
 
@@ -34,6 +37,10 @@ export interface AgentApi {
   createDesign(brandId: string, name: string): Promise<DesignSummary>
   /** The asset of the picture at an https link, which the API fetches and adds to the brand's library. */
   addAssetFromUrl(brandId: string, input: AddAssetFromUrl): Promise<AssetSummary>
+  /** The stock photos a search finds, naming the library they come from. */
+  searchStock(search: StockSearch): Promise<StockResults>
+  /** The asset of the stock photo of `id`, which the API downloads and saves into the brand's library. */
+  addStock(brandId: string, id: StockPhotoId): Promise<AssetSummary>
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
@@ -125,6 +132,10 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     createDesign: (brandId, name) => ask('POST', `${brandPath(brandId)}/designs`, DesignSummary, { name }),
     addAssetFromUrl: (brandId, input) =>
       ask('POST', `${brandPath(brandId)}/assets/from-url`, AssetSummary, input, FROM_URL_CALL_MS),
+    searchStock: (search) =>
+      ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/stock/photos?${stockQuery(search)}`, StockResults),
+    addStock: (brandId, id) =>
+      ask('POST', `${brandPath(brandId)}/assets/from-stock`, AssetSummary, { id }, FROM_URL_CALL_MS),
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
@@ -206,4 +217,9 @@ async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Arr
     at += chunk.byteLength
   }
   return bytes
+}
+
+/** A stock search as the API's query: its words, and its orientation and colour when given. */
+function stockQuery({ q, orientation, colour }: StockSearch): URLSearchParams {
+  return new URLSearchParams({ q, ...(orientation ? { orientation } : {}), ...(colour ? { colour } : {}) })
 }

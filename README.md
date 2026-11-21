@@ -17,21 +17,23 @@ The MCP server runs on the host beside the web app and reaches the API and the s
 
 The capacity limits are settings read from the environment when a server starts, each a whole number; unset or empty takes the default below, and a value out of range stops the server from starting. In production they are set in the server's `.env` (`deploy/env.example`, `deploy/compose.yml`).
 
-| Setting | Default | What it limits |
-|---|---|---|
-| `MCP_AGENT_TABS` | 30 | agent tabs open at once in the MCP server |
-| `MCP_AGENT_TABS_PER_ACCESS` | 1 | agent tabs one agent access may have open; an MCP session opening one more takes over the access's oldest |
-| `MCP_SESSIONS` | 200 | MCP sessions in all |
-| `MCP_SESSIONS_PER_ACCESS` | 4 | MCP sessions one access may hold; a new one ends the oldest |
-| `MCP_SESSION_IDLE_MINUTES` | 30 | how long an unused session lives |
-| `MCP_CALLS_BURST`, `MCP_CALLS_PER_SECOND` | 60, 2 | each access's calls: so many at once, then so many each second |
-| `MCP_RENDERS_BURST`, `MCP_RENDER_EVERY_SECONDS` | 10, 6 | each access's renders: so many at once, then one every so many seconds |
-| `MCP_RENDERS_WAITING` | 8 | renders that may wait in the MCP server |
-| `MCP_DESIGNS_PER_HOUR` | 30 | new designs one access may make in an hour |
-| `SYNC_LOADED_MB` | 200 | design bytes the sync server holds loaded at once, in MB |
-| `SYNC_IDLE_DESIGNS`, `SYNC_IDLE_SECONDS` | 50, 60 | designs the sync server keeps loaded with no tab, and for how many seconds |
-| `AGENT_SIGN_INS_PER_HOUR` | 60 | agents' sign-ins the API takes from one address in an hour |
-| `AGENT_REGISTRATIONS_PER_HOUR` | 500 | agent client registrations the API takes in all in an hour |
+| Setting                                         | Default | What it limits                                                                                            |
+| ----------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `MCP_AGENT_TABS`                                | 30      | agent tabs open at once in the MCP server                                                                 |
+| `MCP_AGENT_TABS_PER_ACCESS`                     | 1       | agent tabs one agent access may have open; an MCP session opening one more takes over the access's oldest |
+| `MCP_SESSIONS`                                  | 200     | MCP sessions in all                                                                                       |
+| `MCP_SESSIONS_PER_ACCESS`                       | 4       | MCP sessions one access may hold; a new one ends the oldest                                               |
+| `MCP_SESSION_IDLE_MINUTES`                      | 30      | how long an unused session lives                                                                          |
+| `MCP_CALLS_BURST`, `MCP_CALLS_PER_SECOND`       | 60, 2   | each access's calls: so many at once, then so many each second                                            |
+| `MCP_RENDERS_BURST`, `MCP_RENDER_EVERY_SECONDS` | 10, 6   | each access's renders: so many at once, then one every so many seconds                                    |
+| `MCP_RENDERS_WAITING`                           | 8       | renders that may wait in the MCP server                                                                   |
+| `MCP_DESIGNS_PER_HOUR`                          | 30      | new designs one access may make in an hour                                                                |
+| `SYNC_LOADED_MB`                                | 200     | design bytes the sync server holds loaded at once, in MB                                                  |
+| `SYNC_IDLE_DESIGNS`, `SYNC_IDLE_SECONDS`        | 50, 60  | designs the sync server keeps loaded with no tab, and for how many seconds                                |
+| `AGENT_SIGN_INS_PER_HOUR`                       | 60      | agents' sign-ins the API takes from one address in an hour                                                |
+| `AGENT_REGISTRATIONS_PER_HOUR`                  | 500     | agent client registrations the API takes in all in an hour                                                |
+
+`PIXABAY_API_KEY`, the API's setting, is Pixabay's key: set, agents search Pixabay's free stock photos and save them into a brand's images (`search_stock`, `add_stock`); unset or empty, both say stock search is off. The API keeps each Pixabay answer 24 hours and sends Pixabay at most 100 requests a minute, as Pixabay's terms ask.
 
 ## Layout
 

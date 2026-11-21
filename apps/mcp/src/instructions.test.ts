@@ -97,6 +97,10 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain('add_image adds the picture at an https link to a brand’s images')
   })
 
+  it('tells of search_stock and add_stock, for a free photo when the brand has none', () => {
+    expect(INSTRUCTIONS).toContain('search_stock finds free Pixabay photos and add_stock saves one')
+  })
+
   it('says commands run only through run_command and batch, never as tools of their own', () => {
     expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
     expect(INSTRUCTIONS).toContain('node.update and text.replace, for two, are run_command')

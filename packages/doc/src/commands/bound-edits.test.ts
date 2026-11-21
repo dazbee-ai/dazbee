@@ -16,7 +16,7 @@ import {
 
 import { openSession } from '../session.ts'
 import { type DesignStore, readDesign } from '../store.ts'
-import { casesOf, COMMAND_INPUTS, sweepWorld } from '../test-commands.ts'
+import { casesOf, COMMAND_INPUTS, type Path, sweepWorld } from '../test-commands.ts'
 import { HEADLINE_LOOK, kindsDesign, linkedDesign, openTestSession, testDesign } from '../test-design.ts'
 import { forkTestStore, openTestStore } from '../test-store.ts'
 import { seeded } from '../test-walk.ts'
@@ -67,6 +67,18 @@ function boundEverywhere(design: DesignInput): DesignInput {
     if (Object.keys(bindings).length > 0) Object.assign(node, { bindings })
   }
   return design
+}
+
+/**
+ * Whether a case differs from its input only inside the props of a layer the input brings, which
+ * the command makes (`layer.props` of node.create, `tree.nodes.<id>.props` of design.place): the
+ * rule compares only the layers the design held before, and the command writes those props into
+ * the layer it makes alone. The sweep runs these cases.
+ */
+function inBroughtProps(path: Path | undefined) {
+  if (!path) return false
+  const props = path[0] === 'layer' ? 1 : path[0] === 'tree' && path[1] === 'nodes' ? 3 : -1
+  return props > 0 && path[props] === 'props'
 }
 
 function open(design = boundDesign()) {
@@ -375,21 +387,26 @@ describe('endingEditedBindings', () => {
         const session = openSession(store)
         const world = sweepWorld(session, seeded(1))
         session.destroy()
+        const before = readDesign(store)
+        let fork: DesignStore = forkTestStore(store)
+        let tab = openSession(fork)
         for (const input of COMMAND_INPUTS[name]?.(world) ?? []) {
-          for (const one of casesOf(input, world)) {
-            const fork: DesignStore = forkTestStore(store)
-            const tab = openSession(fork)
-            const before = readDesign(fork)
+          for (const one of casesOf(input, world).filter((one) => !inBroughtProps(one.path))) {
             try {
               tab.run(name as never, one.input as never)
             } catch {
-              // A refusal or a fault writes nothing, which the sweep checks.
+              // A refusal or a fault writes nothing, which the sweep checks, so the next case runs on
+              // the same copy.
+              continue
             }
             for (const problem of changedUnderBinding(before, readDesign(fork)))
               problems.push(`on ${title}, with ${one.label}: ${problem}`)
             tab.destroy()
+            fork = forkTestStore(store)
+            tab = openSession(fork)
           }
         }
+        tab.destroy()
       }
       expect(problems.slice(0, 10)).toEqual([])
     })

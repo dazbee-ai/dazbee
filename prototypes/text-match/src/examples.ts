@@ -106,7 +106,11 @@ for (const ad of ads) {
   }
 }
 writeFileSync(join(out, 'old-worker-scores.json'), JSON.stringify(oldScores, null, 1))
-const same = oldScores.filter((s) => s.same).length
+const count = (f: (s: Record<string, unknown>) => boolean) => oldScores.filter(f).length
+type Owner = { rule: boolean; loose: boolean }
 console.log(
-  `old worker: ${oldScores.length} blocks drawn, ${same} look the same by the shared rule, ${oldScores.filter((s) => (s.v2 as { same: boolean }).same).length} by rule v2`,
+  `old worker: ${oldScores.length} blocks drawn; look the same by the owner's rule with the colour guard ${count((s) => s.same === true)} ` +
+    `(ink bar 0.20: ${count((s) => (s.owner as Owner).loose)}; rule alone ${count((s) => (s.owner as Owner).rule)}), ` +
+    `v1 ${count((s) => s.v1 === true)}, v2 ${count((s) => (s.v2 as { same: boolean }).same)}`,
 )
+writeFileSync(join(DATA_DIR, 'results', `old-worker-${values.out}.json`), JSON.stringify(oldScores, null, 1))

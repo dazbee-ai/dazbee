@@ -1,18 +1,42 @@
-// PROTOTYPE. The shared "looks the same" rule, also used by the shapes prototype: draw the result at
-// the block's size on the block's estimated background, then compare it with the block put on that
-// same background. SSIM on luminance (Wang et al. 2004: 11×11 Gaussian window, σ 1.5, K1 0.01,
-// K2 0.03, after averaging down by max(1, round(min side / 256))) and mean ΔE (CIEDE2000, Sharma et
-// al. 2005) over the foreground pixels: those either picture covers by more than half. A block looks
-// the same when SSIM ≥ 0.90 and mean ΔE ≤ 5.
+// PROTOTYPE. Whether a rebuilt text looks the same as its block. The decision is the owner's fitted
+// rule (rule.ts: SSIM ≥ 0.46 and at most 12% of the block's ink left uncovered, after shrinking to
+// 512 px and a σ 2 blur over the block's background) with a colour guard it lacks: the ink's median
+// colour must be within ΔE00 10 of the block's. Beside it, kept for comparison: the shared rule (v1):
+// draw the result at the block's size on the block's estimated background, then compare it with the
+// block put on that same background. SSIM on luminance (Wang et al. 2004: 11×11 Gaussian window, σ 1.5,
+// K1 0.01, K2 0.03, after averaging down by max(1, round(min side / 256))) and mean ΔE (CIEDE2000,
+// Sharma et al. 2005) over the foreground pixels: those either picture covers by more than half; same
+// when SSIM ≥ 0.90 and mean ΔE ≤ 5. `RULE=v1` makes v1 the decision again.
 import type { Rgba } from './png.ts'
+import { measure as ruleMetrics, RULE } from './rule.ts'
 
 export const SAME_SSIM = 0.9
 export const SAME_DELTA_E = 5
 
+/** The ink colours may differ by no more than this (ΔE00 of their medians). */
+export const SAME_INK_COLOUR = 10
+/** The looser ink bar the fitted rule is also reported at. */
+export const LOOSE_INK_MISSED = 0.2
+
 export interface Score {
+  /** v1's SSIM and mean ΔE. */
   ssim: number
   deltaE: number
+  /** The decision: the owner's rule with the colour guard (or v1 with RULE=v1). */
   same: boolean
+  /** v1's decision. */
+  v1: boolean
+  owner: {
+    ssim: number
+    far: number
+    inkMissed: number
+    /** ΔE00 between the median colours of the block's ink and the rebuild's. */
+    inkColour: number
+    /** The fitted rule alone, without the colour guard. */
+    rule: boolean
+    /** The fitted rule with the colour guard, at the looser ink bar. */
+    loose: boolean
+  }
 }
 
 /**
@@ -32,7 +56,51 @@ export function score(block: Rgba, drawn: Rgba, background: readonly number[], b
     n++
   }
   const deltaE = n > 0 ? sum / n : 0
-  return { ssim, deltaE, same: ssim >= SAME_SSIM && deltaE <= SAME_DELTA_E }
+  const v1 = ssim >= SAME_SSIM && deltaE <= SAME_DELTA_E
+  const m = ruleMetrics(block, drawn, { backgrounds: [background], ...(blockInk ? { blockInk } : {}) })
+  const inkColour = inkColourDistance(block, drawn, blockInk)
+  const rule = m.ssim >= RULE.text.ssim && m.inkMissed <= RULE.text.inkMissed
+  const colourOk = inkColour <= SAME_INK_COLOUR
+  const owner = {
+    ...m,
+    inkColour,
+    rule,
+    loose: m.ssim >= RULE.text.ssim && m.inkMissed <= LOOSE_INK_MISSED && colourOk,
+  }
+  return { ssim, deltaE, same: process.env.RULE === 'v1' ? v1 : rule && colourOk, v1, owner }
+}
+
+/**
+ * ΔE00 between the median colours of the block's ink and of the rebuild's, read on the same pixels: the
+ * ink's core (pixels whose 3×3 neighbourhood is ink in both pictures), or where both have ink when the
+ * core has fewer than 20 pixels. 0 (no evidence) when they share no ink.
+ */
+function inkColourDistance(block: Rgba, drawn: Rgba, blockInk?: Float32Array): number {
+  const { width: w, height: h } = block
+  const both = new Uint8Array(w * h)
+  for (let i = 0; i < w * h; i++)
+    both[i] = (blockInk ? blockInk[i]! > 0.5 : block.data[i * 4 + 3]! > 127) && drawn.data[i * 4 + 3]! > 127 ? 1 : 0
+  const core = new Uint8Array(w * h)
+  let coreCount = 0
+  for (let y = 1; y < h - 1; y++)
+    for (let x = 1; x < w - 1; x++) {
+      let all = 1
+      for (let dy = -1; dy <= 1 && all; dy++) for (let dx = -1; dx <= 1 && all; dx++) all = both[(y + dy) * w + x + dx]!
+      if (all) {
+        core[y * w + x] = 1
+        coreCount++
+      }
+    }
+  const use = coreCount >= 20 ? core : both
+  const med = (img: Rgba) => {
+    const ch: number[][] = [[], [], []]
+    for (let i = 0; i < w * h; i++) if (use[i]) for (let c = 0; c < 3; c++) ch[c]!.push(img.data[i * 4 + c]!)
+    return ch[0]!.length ? ch.map((v) => v.sort((p, q) => p - q)[Math.floor(v.length / 2)]!) : null
+  }
+  const a = med(block)
+  const b = med(drawn)
+  if (!a || !b) return 0
+  return ciede2000(lab(a[0]!, a[1]!, a[2]!), lab(b[0]!, b[1]!, b[2]!))
 }
 
 /** RGB of a picture over a flat background. */

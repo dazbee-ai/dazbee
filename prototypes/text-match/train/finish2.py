@@ -65,8 +65,11 @@ def main():
     p.add_argument("--dev", default="samples/own-dev64,samples/lica-dev64,samples/synthetic-dev64")
     p.add_argument("--adabn", default="samples/testads-dev64")
     p.add_argument("--calib", default="samples/lib64-val4r")
+    p.add_argument("--device", default="cuda")
+    p.add_argument("--no-val", action="store_true", help="leave the strip-level validation set out (a CPU export)")
+    p.add_argument("--no-gallery", action="store_true", help="the ONNX copies only, for their size and speed")
     a = p.parse_args()
-    dev = torch.device("cuda")
+    dev = torch.device(a.device)
     run = json.load(open(os.path.join(a.run, "run.json")))
     args = run["args"]
     log = json.load(open(os.path.join(a.run, "log.json")))
@@ -77,7 +80,7 @@ def main():
     model.eval()
     faces = json.load(open(os.path.join(args["proto"], "meta.json")))["faces"]
     group = np.load(os.path.join(a.run, "group.npy"))
-    ev = Evaluator(a.clean, a.val, a.dev.split(","), faces, dev, group=group)
+    ev = Evaluator(a.clean, None if a.no_val else a.val, a.dev.split(",") if a.dev else [], faces, dev, group=group)
     out_path = os.path.join(a.run, "finish.json")
     out = json.load(open(out_path)) if os.path.exists(out_path) else {}
     out.update({"epoch": epoch, "checkpoint_metrics": st["metrics"]})
@@ -113,10 +116,11 @@ def main():
     if "all" in steps or "export" in steps:
         best_g = out.get("choose", {}).get("best_gallery", "clean")
         sets = {"clean": [a.clean], "real": [a.real], "both": [a.clean, a.real]}[best_g]
-        g = gallery_of(ev, model, sets, faces, dev)
         torch.save({"model": model.state_dict(), "head": st["head"], "epoch": epoch}, os.path.join(a.run, "best.pt"))
-        g.cpu().numpy().astype("float32").tofile(os.path.join(a.run, "fingerprints.f32"))
-        json.dump(faces, open(os.path.join(a.run, "fingerprint-faces.json"), "w"))
+        if not a.no_gallery:
+            g = gallery_of(ev, model, sets, faces, dev)
+            g.cpu().numpy().astype("float32").tofile(os.path.join(a.run, "fingerprints.f32"))
+            json.dump(faces, open(os.path.join(a.run, "fingerprint-faces.json"), "w"))
         twins = {}
         for i, gi in enumerate(group.tolist()):
             twins.setdefault(gi, []).append(faces[i])
@@ -159,6 +163,11 @@ def main():
 
         quantize_static(pre, dst, Reader(), quant_format=QuantFormat.QDQ, per_channel=True, activation_type=QuantType.QInt8, weight_type=QuantType.QInt8)
         os.remove(pre)
+        if a.no_gallery:
+            out["int8"] = {"bytes": os.path.getsize(dst)}
+            json.dump(out, open(out_path, "w"), indent=1)
+            print(json.dumps(out["int8"]), flush=True)
+            return
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 14
         sess = ort.InferenceSession(dst, opts, providers=["CPUExecutionProvider"])

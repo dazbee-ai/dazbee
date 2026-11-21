@@ -37,22 +37,24 @@ def squeeze_strip(strip, width, factor):
 
 
 @torch.no_grad()
-def embed_groups(model, strips, widths, owners, n_groups, dev, views=(1.0,), batch=1024):
+def embed_groups(model, strips, widths, owners, n_groups, dev, views=(1.0,), batch=1024, win=WIN):
     """One unit fingerprint per group (a face's sample, or a block): the mean over its strips' windows."""
     model.eval()
     wins, owner = [], []
     for i in range(len(widths)):
         for f in views:
             s, w = squeeze_strip(strips[i], int(widths[i]), f)
-            for win in windows_of(s, w):
-                wins.append(win)
+            for x in windows_of(s, w, win):
+                wins.append(x)
                 owner.append(owners[i])
     wins = np.stack(wins)
     owner = torch.tensor(owner, device=dev)
     out = None
     for s in range(0, len(wins), batch):
-        x = torch.from_numpy(wins[s : s + batch]).to(dev).float().div(255).unsqueeze(1).contiguous(memory_format=torch.channels_last)
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        x = torch.from_numpy(wins[s : s + batch]).to(dev).float().div(255).unsqueeze(1)
+        if x.is_cuda:
+            x = x.contiguous(memory_format=torch.channels_last)
+        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=x.is_cuda):
             e = model(x).float()
         if out is None:
             out = torch.zeros(n_groups, e.shape[1], device=dev)
@@ -69,8 +71,9 @@ def load_samples(path):
 
 
 class Evaluator:
-    def __init__(self, proto, val, devs, faces, dev, val_n=6000, group=None):
+    def __init__(self, proto, val, devs, faces, dev, val_n=6000, group=None, win=WIN):
         self.dev = dev
+        self.win = win
         self.faces = faces
         self.family = np.array([f.split("|")[0] for f in faces])
         self.group = group
@@ -93,7 +96,7 @@ class Evaluator:
 
     def gallery(self, model, views=(1.0,)):
         s, w, l = self.proto
-        e = embed_groups(model, s, w, np.arange(len(w)), len(w), self.dev, views)
+        e = embed_groups(model, s, w, np.arange(len(w)), len(w), self.dev, views, win=self.win)
         means = torch.zeros(len(self.faces), e.shape[1], device=self.dev).index_add_(0, torch.from_numpy(l).to(self.dev), e)
         return F.normalize(means, dim=1)
 
@@ -115,14 +118,14 @@ class Evaluator:
             g = F.normalize(project(g), dim=1)
         res = {}
         for name, s, w, owners, labels, fams in self.devs:
-            e = embed_groups(model, s, w, owners, len(labels), self.dev, views)
+            e = embed_groups(model, s, w, owners, len(labels), self.dev, views, win=self.win)
             if project is not None:
                 e = F.normalize(project(e), dim=1)
             order = (e @ g.t()).topk(25, dim=1).indices.cpu().numpy()
             res.update(self.scores(order, labels, fams, f"{name}_"))
         if self.val is not None:
             s, w, l = self.val
-            e = embed_groups(model, s, w, np.arange(len(w)), len(w), self.dev, views)
+            e = embed_groups(model, s, w, np.arange(len(w)), len(w), self.dev, views, win=self.win)
             if project is not None:
                 e = F.normalize(project(e), dim=1)
             order = (e @ g.t()).topk(25, dim=1).indices.cpu().numpy()

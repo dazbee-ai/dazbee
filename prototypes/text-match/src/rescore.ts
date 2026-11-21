@@ -1,6 +1,6 @@
-// PROTOTYPE. Scores stored results again by the proposed rule v2 (score.ts ruleV2), drawing each
-// stored text layer with Dazbee's renderer: .data/results/<name>.json → <name>-v2.json, one entry per
-// result with the v2 score beside the shared rule's. A new rule is added here and in score.ts, and
+// PROTOTYPE. Scores stored results again by every "looks the same" rule (score.ts: the owner's fitted
+// rule with the colour guard, the same at the looser ink bar, v1, and rule v2), drawing each stored
+// text layer with Dazbee's renderer: .data/results/<name>.json → <name>-rules.json, one entry per result. A new rule is added here and in score.ts, and
 // every stored result scored again with it; nothing is matched again.
 //   node src/rescore.ts testads-lib-final r3-own-test
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -14,7 +14,7 @@ import { makeDrawer } from './draw.ts'
 import { hasTransparency } from './match.ts'
 import type { Block } from './measure.ts'
 import { measure } from './measure.ts'
-import { ruleV2 } from './score.ts'
+import { ruleV2, score } from './score.ts'
 import { loadSet, type SetName } from './sets.ts'
 
 const ck = await loadCanvasKit()
@@ -45,24 +45,24 @@ for (const name of process.argv.slice(2)) {
       data: drawer.draw(block.rgba.width, block.rgba.height, null, r.layer),
     }
     const flat = !hasTransparency(block.rgba)
+    const now = score(block.rgba, drawn, m.background, flat ? m.ink.data : undefined)
     return {
       id: r.id,
       version: r.version,
-      same: r.same,
+      same: now.same,
+      v1: now.v1,
+      owner: now.owner,
       v2: ruleV2(block.rgba, drawn, m.background, flat ? m.ink.data : undefined),
     }
   })
-  writeFileSync(join(DATA_DIR, 'results', `${name}-v2.json`), JSON.stringify(out, null, 1))
+  writeFileSync(join(DATA_DIR, 'results', `${name}-rules.json`), JSON.stringify(out, null, 1))
   for (const v of ['light', 'medium']) {
     const rs = out.filter((x) => x.version === v)
+    if (rs.length === 0) continue
+    const n = (f: (x: (typeof rs)[number]) => boolean) => rs.filter(f).length
     console.log(
-      name,
-      v,
-      rs.length,
-      'shared rule',
-      rs.filter((x) => x.same).length,
-      'v2',
-      rs.filter((x) => x.v2.same).length,
+      `${name} ${v} ${rs.length}: owner's rule + colour guard ${n((x) => x.same)}, at ink 0.20 ${n((x) => x.owner.loose)}, ` +
+        `rule alone ${n((x) => x.owner.rule)} (the guard turns ${n((x) => x.owner.rule && !x.same)} down), v1 ${n((x) => x.v1)}, v2 ${n((x) => x.v2.same)}`,
     )
   }
 }

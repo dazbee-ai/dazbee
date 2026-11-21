@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util'
 const t0 = performance.now()
 const { loadCanvasKit } = await import('@dazbee/renderer/node')
 const { DATA_DIR, fallbackFaces, FONTS_DIR, LIBRARY } = await import('./catalogue.ts')
-const { adNames, loadAd } = await import('./testads.ts')
+const { adNames, isHeldOut, loadAd } = await import('./testads.ts')
 const { makeDrawer } = await import('./draw.ts')
 const { loadFingerprints, openModel } = await import('./fingerprint.ts')
 const { matchBlock } = await import('./match.ts')
@@ -58,7 +58,10 @@ interface Item {
 }
 const items: Item[] = []
 if (values.set === 'testads') {
-  const ads = values.ads ? values.ads.split(',') : adNames()
+  // --part dev: the development ads only; heldout: the held-out ads only; otherwise every ad.
+  const ads = values.ads
+    ? values.ads.split(',')
+    : adNames().filter((a) => (values.part === 'dev' ? !isHeldOut(a) : values.part === 'heldout' ? isHeldOut(a) : true))
   for (const name of ads)
     for (const b of loadAd(name).blocks)
       items.push({ id: `${name}#${b.index}`, ad: name, block: b.block, lettering: b.lettering })
@@ -119,6 +122,8 @@ for (const [n, item] of limited.entries()) {
       ssim: m.score.ssim,
       deltaE: m.score.deltaE,
       same: m.score.same,
+      sameV1: m.score.v1,
+      owner: m.score.owner,
       ...diagnostics(item.block, m),
       layer: m.layer,
       ms: m.ms,

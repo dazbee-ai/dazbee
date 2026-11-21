@@ -316,14 +316,17 @@ async function matchAt(ctx: MatchContext, block: Block, version: Version, kit?: 
     return keep(m, text, shortlist, draws, started)
   }
   // The finalists: the choice and the next best (tuned in Medium), each drawn in full and scored by
-  // the shared rule; the first that looks the same wins, else the one that comes closest.
+  // the "looks the same" rule (score.ts); the closest of those that look the same wins (or, with
+  // FINAL_PICK=first, the first of them in rank), else the one that comes closest.
   const finalistCount = process.env.FINALISTS ? Number(process.env.FINALISTS) : FINALISTS_OF[version]
   let finalists = [first, ...fits.filter((f) => f !== first).slice(0, finalistCount - 1)]
   if (version === 'medium')
     finalists = finalists.map((f, i) => (i < 2 ? tune(ctx.drawer, m, text, f, () => draws++) : f))
   const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
+  const passing = finished.filter((f) => f.score.same)
+  const closest = (list: typeof finished) => [...list].sort((a, b) => quality(b.score) - quality(a.score))[0]!
   const won =
-    finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
+    passing.length > 0 ? (process.env.FINAL_PICK === 'first' ? passing[0]! : closest(passing)) : closest(finished)
   return {
     keepAsPicture: !won.score.same,
     ...won,
@@ -333,8 +336,8 @@ async function matchAt(ctx: MatchContext, block: Block, version: Version, kit?: 
   }
 }
 
-/** How close a result comes to looking the same: SSIM, less a hundredth of the mean ΔE. */
-const quality = (s: Score) => s.ssim - s.deltaE / 100
+/** How close a result comes to looking the same: the rule's SSIM less the share of ink left uncovered (v1's SSIM less a hundredth of its ΔE with RULE=v1). */
+const quality = (s: Score) => (process.env.RULE === 'v1' ? s.ssim - s.deltaE / 100 : s.owner.ssim - s.owner.inkMissed)
 
 /**
  * A fit made into the text layer: its colour and outline from the block, snapped to the brand's
@@ -423,7 +426,13 @@ function keep(m: Measured, text: string, shortlist: CatalogueFace[], draws: numb
     look,
     place,
     bindings: {},
-    score: { ssim: 0, deltaE: 99, same: false },
+    score: {
+      ssim: 0,
+      deltaE: 99,
+      same: false,
+      v1: false,
+      owner: { ssim: 0, far: 1, inkMissed: 1, inkColour: 99, rule: false, loose: false },
+    },
     shortlist: shortlist.map(faceId),
     draws,
     ms: performance.now() - started,

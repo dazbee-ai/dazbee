@@ -1,6 +1,7 @@
-// PROTOTYPE. The timing runs' figures (train/timing.ps1): for each mode and version, the median of the
-// three runs and their spread (lowest–highest) for time per block and per ad (median and p95), and for
-// startup and peak memory.
+// PROTOTYPE. The timing runs' figures (train/timing.ps1, or train/timing3.ps1 when tags are given): for
+// each mode (or tag) and version, the median of the three runs and their spread (lowest–highest) for
+// time per block and per ad (median and p95), and for startup and peak memory.
+//   node src/timing-summary.ts [tag ...]
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -14,13 +15,16 @@ console.log(
   '| mode | version | blocks | ms/block median | ms/block p95 | s/ad median | s/ad p95 | startup s | peak RSS MB |',
 )
 console.log('|---|---|---|---|---|---|---|---|---|')
-for (const mode of ['sub', 'lib']) {
+const tags = process.argv.slice(2)
+for (const mode of tags.length ? tags : ['sub', 'lib']) {
+  const prefix = tags.length ? `timing3-${mode}` : `timing-${mode}`
   const runs = [1, 2, 3]
-    .map((r) => join(DATA_DIR, 'results', `timing-${mode}-${r}.json`))
+    .map((r) => join(DATA_DIR, 'results', `${prefix}-${r}.json`))
     .filter(existsSync)
     .map((p) => JSON.parse(readFileSync(p, 'utf8')))
   if (!runs.length) continue
   for (const v of ['light', 'medium']) {
+    if (!runs[0].results.some((r: { version: string }) => r.version === v)) continue
     const stats = runs.map(
       (run: { results: { version: string; ms: number; ad: string }[]; startupMs: number; peakRssMb: number }) => {
         const rs = run.results.filter((r) => r.version === v)
@@ -44,7 +48,7 @@ for (const mode of ['sub', 'lib']) {
       },
     )
     console.log(
-      `| ${mode === 'sub' ? "Dazbee's 321" : 'whole library'} | ${v} | ${stats[0]!.n} × ${stats.length} runs | ${fmt(stats.map((s) => s.p50))} | ${fmt(stats.map((s) => s.p95))} | ${fmt(
+      `| ${tags.length ? mode : mode === 'sub' ? "Dazbee's 321" : 'whole library'} | ${v} | ${stats[0]!.n} × ${stats.length} runs | ${fmt(stats.map((s) => s.p50))} | ${fmt(stats.map((s) => s.p95))} | ${fmt(
         stats.map((s) => s.ad50),
         1,
         1000,

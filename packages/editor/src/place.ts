@@ -2,7 +2,7 @@
 // through place-images, an SVG file or its markup through place-svg, and other plain text pasted
 // becomes a text layer), placing an image, and putting an image into a layer as its fill, with the
 // layer a dragged image would go into.
-import { ancestorsOf, childrenOf, frameIdOf, type Session } from '@dazbee/doc'
+import { ancestorsOf, childrenOf, frameIdOf, placedRoots, type Session } from '@dazbee/doc'
 import { brandRef, canHold, type Layer, LayerClipboard, LOGO_ROLE, type Paint, type Point } from '@dazbee/schema'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
@@ -236,7 +236,9 @@ export function editorPlace({
       !runQuietly(() =>
         session.gesture(stepOf('paste'), () => {
           const linked = from === designId && frame.id !== frameId
-          pasted = session.run('design.place', { parentId, tree, dx, dy, ...(linked ? { keepLinksFrom: pageId } : {}) })
+          pasted = placedRoots(
+            session.run('design.place', { parentId, tree, dx, dy, ...(linked ? { keepLinksFrom: pageId } : {}) }),
+          )
           if (now.nodes[parentId]) hug([parentId])
         }),
       )

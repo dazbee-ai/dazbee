@@ -1,11 +1,35 @@
 // Where a design is kept, as commands, the design view and the session see it: records of plain
 // JSON in the design's own shape, written through `StoreWrite` inside a transaction, each change
 // told to the view as the records it touched. client-store.ts keeps them on a sync client.
-import type { BindableProperty, Design, Frame, Layer, Page, RestoreMark, VariableRef } from '@dazbee/schema'
+import type {
+  BindableProperty,
+  Design,
+  Frame,
+  Layer,
+  Page,
+  RejectReason,
+  RestoreMark,
+  VariableRef,
+} from '@dazbee/schema'
 
 import type { StepName } from './commands/step-names.ts'
 import { repair, type Repaired, type Snapshot } from './repair.ts'
 import type { TextOp } from './text-value.ts'
+
+/**
+ * A step the store ended, as `whenConfirmed` takes it: only the store that ended it knows what
+ * became of its change set.
+ */
+export interface EndedStep {
+  readonly endedStep: true
+}
+
+/**
+ * Why a step was not saved: the server rejected its change set; it was over a change set's limits,
+ * put back on the tab and never sent; it was lost with the tab's queue, the server no longer knowing
+ * the tab; or the one waiting for it ended before the server answered.
+ */
+export type NotSavedWhy = 'rejected' | 'tooBig' | 'lost' | 'ended'
 
 /** The records a design keeps by id. */
 export type Part = 'page' | 'frame' | 'layer'
@@ -121,6 +145,13 @@ export interface DesignStore extends StoreWrite {
   anchorOffset(anchor: TextAnchor): number | null
   /** The undo history of one session on the store. */
   openHistory(session: HistoryOf): History
+  /**
+   * Resolves 'saved' once the sync server has stored `step`'s change set, at once for a step that
+   * made none; offline, it waits. Fails with `NotSaved`: 'rejected' with the server's reason (the
+   * step has left both stacks), 'tooBig', 'lost', or 'ended' once `signal` aborts before the server
+   * answers. Throws for a step this store did not end.
+   */
+  whenConfirmed(step: EndedStep, signal?: AbortSignal): Promise<'saved'>
   /** Other tabs' open steps, as the canvas draws them (D7); a store no other tab shares has none. */
   readonly previews?: StorePreviews
 }
@@ -159,6 +190,8 @@ export interface Step {
 export interface History {
   tracked: Log
   aside: Log
+  /** The step the last `end` of either log ended; undefined when that `end` ended none. */
+  ended(): EndedStep | undefined
   /** Names the step being written. */
   name(step: StepName | undefined): void
   /** Forgets the keys recorded so far, so the step written next keeps only its own. */
@@ -180,6 +213,18 @@ export interface History {
   /** Calls back whenever a step is added to, taken from or merged into the undo or redo stack. */
   onHistory(listener: () => void): () => void
   destroy(): void
+}
+
+/** A step the sync server did not save, or whose answer was not waited for: `why`, and the server's reason for a rejection it gave. */
+export class NotSaved extends Error {
+  readonly why: NotSavedWhy
+  readonly reason: RejectReason | undefined
+  constructor(why: NotSavedWhy, reason?: RejectReason) {
+    super(`the step was not saved: ${why}${reason ? ` (${reason})` : ''}`)
+    this.name = 'NotSaved'
+    this.why = why
+    this.reason = reason
+  }
 }
 
 /**

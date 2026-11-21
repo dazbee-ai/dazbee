@@ -3,10 +3,20 @@
 // does not compile in a core file: adding one is a decision a review sees. Each is declared with
 // only what the core calls; a browser and Node both have them all.
 
-/** The core's end: its caller aborts the signal it was opened with, and work that arrives later is dropped. */
+/**
+ * The core's end: its caller aborts the signal it was opened with, and work that arrives later is
+ * dropped; and a session's end, which fails a confirmation still waited for as ended (the doc's
+ * session and client store), whose listener is let go once the server answers.
+ */
 interface AbortSignal {
   readonly aborted: boolean
   addEventListener(type: 'abort', listener: () => void): void
+  removeEventListener(type: 'abort', listener: () => void): void
+}
+/** What a session aborts as it is destroyed (the doc's session). */
+declare class AbortController {
+  readonly signal: AbortSignal
+  abort(): void
 }
 
 /** A thumbnail's PNG bytes, which `URL.createObjectURL` gives an address (canvas/thumbnails). */

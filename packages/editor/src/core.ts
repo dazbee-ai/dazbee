@@ -46,6 +46,7 @@ import { editorLinkNotices } from './link-notices.ts'
 import { editorLinkedCopies, isLinkedAction } from './linked-copies.ts'
 import { listenerSet } from './listener-set.ts'
 import { editorPlace } from './place.ts'
+import { editorPlaceFigma } from './place-figma.ts'
 import { editorPlaceImages } from './place-images.ts'
 import { editorPlaceSvg } from './place-svg.ts'
 import { editorPresence } from './presence.ts'
@@ -353,6 +354,15 @@ export function buildCore({
     uploads,
     open: { gesturing, dragging, stopEditing, settle },
     ...(after ? { after } : {}),
+    signal,
+  })
+  const placeFigma = editorPlaceFigma({
+    session,
+    store,
+    view,
+    typing,
+    whenSettled: placeSvg.whenSettled,
+    gesturing,
     signal,
   })
   const placeImages = editorPlaceImages({
@@ -876,6 +886,8 @@ export function buildCore({
     whenSettled: placeSvg.whenSettled,
     placeSvg: placeSvg.placeSvg,
     placeWhenSettled: placeSvg.placeWhenSettled,
+    placeFigma: placeFigma.placeFigma,
+    designSize: placeFigma.designSize,
     fillWithImage: (id: string, asset: PlacedAsset) => place.fillWithImage(id, asset),
     pageThumbnail: thumbnails.page,
     layerThumbnail: thumbnails.layer,

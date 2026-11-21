@@ -288,6 +288,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'design.place': ({ design }) => [
     { parentId: frame(design), tree: tree(design, holder(design)), dx: 10, dy: 20, keepLinksFrom: page(design) },
     { parentId: frame(design), tree: tree(design, free(design)) },
+    { parentId: frame(design), tree: tree(design, holder(design)), withIds: true },
   ],
   'node.copyToFrames': ({ design }) => [{ ids: [free(design)] }, { ids: [holder(design)] }],
   'node.group': ({ design, made }) => [
@@ -343,6 +344,14 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'page.add': ({ made }) => [
     { name: 'Added', frame: { name: 'Frame', width: 300, height: 250 } },
     { id: made('new-page'), name: 'Added', frame: { id: made('new-frame'), name: 'Frame', width: 300, height: 250 } },
+  ],
+  'page.addMany': () => [
+    {
+      pages: [
+        { name: 'Added', frames: [{ name: 'Frame', width: 300, height: 250, x: 10, y: 20, fills: [] }] },
+        { name: 'Added too', frames: [{ name: 'Frame', width: 300, height: 250, x: 0, y: 0 }] },
+      ],
+    },
   ],
   'page.update': ({ design }) => [{ id: page(design), name: 'Renamed' }],
   'page.duplicate': ({ design, made }) => [

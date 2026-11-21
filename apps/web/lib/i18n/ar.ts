@@ -436,6 +436,7 @@ export const ar: Messages = {
       deleteGuide: 'حذف الخط الإرشادي',
       deleteGuides: 'إزالة الخطوط الإرشادية',
       restore: 'الاستعادة',
+      importFigma: 'الاستيراد من Figma',
     },
     undoStep: 'تراجع عن {step}',
     redoStep: 'إعادة {step}',

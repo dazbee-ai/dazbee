@@ -47,6 +47,24 @@ export type Notice =
   /** Another tab restored a version: its member's name, and the version. */
   | { kind: 'restored'; by: string; mark: RestoreMark }
 
+/**
+ * What became of one of the tab's change sets: the server accepted it; rejected it (`reason` absent
+ * when the tab learned it on reconnecting); or it was lost with the queue, the server no longer
+ * knowing the tab. Or the change sets the tab made since a reload took new ids, each old id with its
+ * new one, on coming back from a copy older than what it had sent: later answers name the new ids.
+ */
+export type Answer =
+  | { kind: 'accepted'; changeSetId: number }
+  | { kind: 'rejected'; changeSetId: number; reason?: RejectReason }
+  | { kind: 'lost'; changeSetId: number }
+  | { kind: 'renumbered'; ids: ReadonlyMap<number, number> }
+
+/**
+ * What a step that ended made: the id of its change set; 'tooBig' when it was over a change set's
+ * limits and put back; null when it changed nothing.
+ */
+export type StepMade = number | 'tooBig' | null
+
 /** Told which records the working design shows differently, after every change to it. */
 export type ChangeListener = (changed: ReadonlySet<RecordKey>) => void
 
@@ -93,6 +111,14 @@ export interface Client {
    * send now. A restore's step gives the version it restores (`restore`), sent with its change set.
    */
   end(name: string | null, restore?: RestoreMark): Outgoing[]
+  /** What the last step `end` closed made; null too when no step has ended. */
+  lastEnded(): StepMade
+  /**
+   * Told what became of each change set of the tab's steps as the tab learns it; a follow-up, which
+   * tells no one when it is rejected (D6, 5), is told nothing. A change set dropped unsent (an undo or redo with nothing left to write, or one behind a rejected change set of its
+   * step) is told nothing.
+   */
+  onAnswer(listener: (answer: Answer) => void): () => void
   /** Puts back the open step's writes; nothing was sent but a preview, which it clears. */
   cancel(): Outgoing[]
   stepOpen(): boolean
@@ -294,6 +320,9 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   /** Who hears of changes to the working design, and to the access. */
   const listeners = new Set<ChangeListener>()
   const accessListeners = new Set<(access: Access) => void>()
+  /** What the last step ended made (see `lastEnded`), and who hears what became of the tab's change sets. */
+  let lastEnded: StepMade = null
+  const answerListeners = new Set<(answer: Answer) => void>()
   /**
    * Steps on the stacks that have something left to undo or redo that can't be written on the
    * working design as it is (D5, 4), each with the `state` it was found waiting on: a press passes
@@ -429,6 +458,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       tooBig(changes, { id: nextId, base: seq, kind: 'edit', ...(restore ? { restore } : {}) })
     ) {
       if (changes.length > 0) notices.push({ kind: 'tooBig', step: name })
+      lastEnded = changes.length > 0 ? 'tooBig' : null
       changeWorking([], () => (working = base.overlay()))
       return previewed ? cleared() : []
     }
@@ -442,7 +472,9 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     state++
     working = base.overlay()
     enqueue(changes, 'edit', step, rebased)
-    if (restore) (queue.at(-1) as Queued).restore = restore
+    const made = queue.at(-1) as Queued
+    if (restore) made.restore = restore
+    lastEnded = made.id
     return flush()
   }
 
@@ -883,6 +915,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       owe(written.filter((key) => unowed.delete(key)))
       // The working design shows the tab's own change set already: rebuilt, it stops holding its records over the confirmed design.
       if (!note) rebuild()
+      if (mine && mine.kind !== 'followUp') answer({ kind: 'accepted', changeSetId: mine.id })
     }
     if (!note) return changeWorking(written, take)
     note(written)
@@ -918,6 +951,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       goBack(q.step, side)
     }
     notices.push({ kind: 'rejected', changeSetId: q.id, changeSetKind: q.kind, ...(reason ? { reason } : {}) })
+    answer({ kind: 'rejected', changeSetId: q.id, ...(reason ? { reason } : {}) })
   }
 
   /**
@@ -936,6 +970,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
         renumbered.set(q.id, nextId)
         q.id = nextId++
       }
+      if (renumbered.size > 0) answer({ kind: 'renumbered', ids: renumbered })
       // A record owed until a renumbered change set settles is owed until it settles under its new id.
       for (const [key, upTo] of owed) {
         if (upTo < madeSince) continue
@@ -988,6 +1023,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
             }
             next.commit()
             settled.push(...q.changes.map(changedRecord))
+            if (q.kind !== 'followUp') answer({ kind: 'accepted', changeSetId: q.id })
           }
         }
         // D5, 2: whole records are compared, not only values.
@@ -1014,11 +1050,12 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
 
   /** The server no longer knows this tab (a new sync id, a dropped tab id): it joined as new, and its queue is gone. */
   function restart(message: Welcome): Outgoing[] {
-    const lost = queue.filter((q) => q.kind !== 'followUp').length
+    const lost = queue.filter((q) => q.kind !== 'followUp')
     const [, design] = designOf(message)
     tellPreviews(previewsOf.clear())
     changeWorking(recordKeys(confirmed, design), () => join(message, design))
-    if (lost > 0) notices.push({ kind: 'lost', changeSets: lost })
+    if (lost.length > 0) notices.push({ kind: 'lost', changeSets: lost.length })
+    for (const q of lost) answer({ kind: 'lost', changeSetId: q.id })
     return []
   }
 
@@ -1140,6 +1177,10 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     for (const listener of listeners) listener(changed)
   }
 
+  function answer(told: Answer) {
+    for (const listener of answerListeners) listener(told)
+  }
+
   function disconnect() {
     online = false
     takesPresence = false
@@ -1170,6 +1211,8 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     open: openStep,
     write,
     end,
+    lastEnded: () => lastEnded,
+    onAnswer: (listener) => listen(answerListeners, listener),
     cancel,
     stepOpen: () => open !== undefined,
     preview,

@@ -9,12 +9,13 @@ import {
   NEW_FRAME_FILLS,
   Page,
   PageId,
+  Paint,
   sizeProblem,
 } from '@dazbee/schema'
 
 import type { StoreWrite } from '../store.ts'
 import { idProblem, pageProblem } from './checks.ts'
-import { defineCommand } from './define.ts'
+import { defineCommand, strict } from './define.ts'
 import { deleteFrame, FrameName } from './frames.ts'
 import { copyFrameLayers, orderIndexes, type Slot, writeOrder } from './tree.ts'
 
@@ -53,6 +54,68 @@ export const pageAdd = defineCommand({
     const added: Frame = { ...frame, pageId: id, x: 0, y: 0, fills: NEW_FRAME_FILLS, order: first(frameId) }
     w.create('frame', frameId, added)
     return id
+  },
+})
+
+/**
+ * Adds pages after the last one, in order, each holding the frames given at their places, sizes and
+ * fills, as one command: what imports a whole file, whose design is read again once rather than once
+ * for each page and frame. Returns each page's id with its frames' ids, in order.
+ */
+export const pageAddMany = defineCommand({
+  name: 'page.addMany',
+  description:
+    'Adds pages after the last one, in order, each holding the frames given at their places, sizes and fills, and returns each page’s id with its frames’ ids. It refuses a frame size the editor does not take.',
+  step: 'addPage',
+  input: z.strictObject({
+    pages: z
+      .strictObject({
+        name: z.string().describe('The page’s name.'),
+        frames: z
+          .strictObject({
+            name: FrameName.describe('The frame’s name.'),
+            width: Frame.shape.width.describe('Its width, in pixels.'),
+            height: Frame.shape.height.describe('Its height, in pixels.'),
+            x: Frame.shape.x.describe('Where its left edge goes on the page.'),
+            y: Frame.shape.y.describe('Where its top edge goes on the page.'),
+            fills: strict(Paint).array().optional().describe('Its fills, the first drawn lowest; white when left out.'),
+          })
+          .array()
+          .min(1)
+          .describe('The frames the page holds, in order.'),
+      })
+      .array()
+      .min(1)
+      .describe('The pages to add, in order.'),
+  }),
+  check: (_ctx, { pages }) => {
+    for (const [p, page] of pages.entries()) {
+      for (const [f, frame] of page.frames.entries()) {
+        const problem = sizeProblem(frame.width, frame.height)
+        if (problem) return `page ${p + 1}, frame ${f + 1}: ${problem}`
+      }
+    }
+    return undefined
+  },
+  apply: ({ w, design, newId }, { pages }) => {
+    writeRepairedPages(w, design)
+    const added = pages.map((page) => ({ ...page, id: newId(), frameIds: page.frames.map(() => newId()) }))
+    const newPages: Slot[] = added.map(({ id }) => [id, null])
+    const orderOf = writeOrder(w, 'page', [...pageSlots(design), ...newPages], new Set(newPages.map(([id]) => id)))
+    for (const { id, name, frames, frameIds } of added) {
+      w.create('page', id, { name, order: orderOf(id) } satisfies Page)
+      const frameOrderOf = writeOrder(
+        w,
+        'frame',
+        frameIds.map((frameId): Slot => [frameId, null]),
+        new Set(frameIds),
+      )
+      for (const [i, { fills = NEW_FRAME_FILLS, ...frame }] of frames.entries()) {
+        const frameId = frameIds[i] as string
+        w.create('frame', frameId, { ...frame, pageId: id, fills, order: frameOrderOf(frameId) } satisfies Frame)
+      }
+    }
+    return added.map(({ id, frameIds }) => ({ id, frames: frameIds }))
   },
 })
 

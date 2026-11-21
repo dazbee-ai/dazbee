@@ -7,7 +7,7 @@ import { type CommandContext, CommandError } from './commands/define.ts'
 import { type CommandName, COMMANDS } from './commands/index.ts'
 import type { StepName } from './commands/step-names.ts'
 import { designView, type Unread } from './design-view.ts'
-import type { DesignStore, Step } from './store.ts'
+import type { DesignStore, EndedStep, Step } from './store.ts'
 
 /**
  * One gesture's undo step, from `beginGesture`: `end` closes it; `cancel` puts back all it wrote and
@@ -59,9 +59,13 @@ export class CommandFault extends Error {
 
 export type CommandInput<N extends CommandName> = z.input<(typeof COMMANDS)[N]['input']>
 export type CommandResult<N extends CommandName> = ReturnType<(typeof COMMANDS)[N]['apply']>
-/** An open gesture's step, with its name, which its first command gives when it opened without one. */
+/**
+ * An open gesture's step, with its name, which its first command gives when it opened without one;
+ * once it has ended, the step the store ended for it (null when it was put back instead).
+ */
 interface Gesture extends Step {
   name: StepName | undefined
+  ended?: EndedStep | null
 }
 /**
  * An open batch: the design as it found it, the commands it ran, the first fault among them, and
@@ -124,6 +128,10 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
   /** The calls to `untracked` made while a tracked gesture is open, to run once it ends (C40). */
   const waiting: (() => unknown)[] = []
   const readOnlyListeners = new Set<(refused: CommandError) => void>()
+  /** Each gesture's step by what `beginGesture` gave for it, for `whenConfirmed`. */
+  const gestures = new WeakMap<GestureStep, Gesture>()
+  /** Aborted once the session is destroyed: a confirmation still waited for fails as ended. */
+  const ending = new AbortController()
 
   /**
    * Throws the refusal of a write a read-only session makes, once its listeners are told; does
@@ -187,19 +195,20 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
    */
   function close(putBack?: () => void) {
     if (!open) return
-    const { log } = open
+    const gesture = open
     open = null
     try {
       putBack?.()
     } finally {
       try {
-        log.end()
+        gesture.log.end()
       } catch (error) {
         // The step could not be sent, as when a scratch store's server refused it: it is put back,
         // and told as a fault of the gesture.
         const fault = error instanceof CommandFault ? error : new CommandFault('gesture', null, error)
         if (!untold.includes(fault)) untold.push(fault)
       }
+      gesture.ended = putBack ? null : (logs.ended() ?? null)
       for (const steps of waiting.splice(0)) {
         // A change no one undoes runs nothing in a session that turned read-only meanwhile.
         if (readOnly()) continue
@@ -312,7 +321,7 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
     if (open) return { end: () => {}, cancel: () => {} }
     const gesture: Gesture = { ...writing.log.begin(), name: name ?? undefined }
     open = gesture
-    return {
+    const step: GestureStep = {
       end: () => {
         if (open === gesture) atRest(() => close())
       },
@@ -322,6 +331,22 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
         atRest(() => close(() => putBack(gesture)))
       },
     }
+    gestures.set(step, gesture)
+    return step
+  }
+
+  /**
+   * Resolves 'saved' once the sync server has stored the change set of the gesture `step` ended, at
+   * once when it changed nothing; offline, it waits. Fails with `NotSaved`: 'rejected' with the
+   * server's reason (the step has left both stacks, ADR-0015), 'tooBig' (put back, nothing sent),
+   * 'lost' (the server no longer knew the tab, its queue dropped) or 'ended' (the session was
+   * destroyed before the server answered). Throws for a gesture still open, cancelled or put back
+   * by a fault, or begun while another was open, whose step it joined.
+   */
+  function whenConfirmed(step: GestureStep): Promise<'saved'> {
+    const ended = gestures.get(step)?.ended
+    if (!ended) throw new Error('whenConfirmed takes a gesture that ended with a step of its own')
+    return store.whenConfirmed(ended, ending.signal)
   }
 
   /**
@@ -455,6 +480,7 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
   }
 
   function destroy() {
+    ending.abort()
     waiting.length = 0
     faultListeners.clear()
     readOnlyListeners.clear()
@@ -470,6 +496,7 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
     /** Whether a gesture is open: its commands are still being gathered into one undo step. */
     inGesture: () => open !== null,
     gesture,
+    whenConfirmed,
     undo: () => press('undo'),
     redo: () => press('redo'),
     canUndo: logs.canUndo,

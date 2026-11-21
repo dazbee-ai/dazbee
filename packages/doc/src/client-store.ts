@@ -14,9 +14,19 @@ import {
 
 import { openPlainHistory, type PlainHistory } from './plain-history.ts'
 import { sameValue } from './same-value.ts'
-import type { DesignStore, History, HistoryOf, Part, StoreChange, StorePreviews, TextAnchor } from './store.ts'
+import {
+  type DesignStore,
+  type EndedStep,
+  type History,
+  type HistoryOf,
+  NotSaved,
+  type Part,
+  type StoreChange,
+  type StorePreviews,
+  type TextAnchor,
+} from './store.ts'
 import { BINDINGS_KEY, changedRecord, META_ID, type Rec, type RecordKey, recordOf, TEXT_PROP } from './sync/changes.ts'
-import type { Client, Notice, Outgoing } from './sync/client.ts'
+import type { Answer, Client, Notice, Outgoing, StepMade } from './sync/client.ts'
 import { applyTextOp, type TextOp, type TextValue } from './text-value.ts'
 
 /** A tab's store on a design kept by the sync core. */
@@ -51,6 +61,12 @@ export class ScratchRejected extends Error {
     this.name = 'ScratchRejected'
     this.notices = notices
   }
+}
+
+/** What became of a step the store ended, once the server answered (undefined until then), and who waits for it. */
+interface Ended {
+  outcome: 'saved' | NotSaved | undefined
+  readonly waiting: Set<() => void>
 }
 
 /** A place in a text, as a client store keeps it: an offset moved along by each change to the text. */
@@ -105,6 +121,12 @@ export function clientStore(
   let restoring: RestoreMark | undefined
   /** Each anchored text layer's text as last seen, and its places. */
   const anchored = new Map<string, { text: string; places: Set<WeakRef<TextPlace>> }>()
+  /** What became of each step this tab ended, once known, and who waits for it. */
+  const endedSteps = new WeakMap<EndedStep, Ended>()
+  /** The ended steps whose change set waits for the server's answer, by the change set's id. */
+  const unanswered = new Map<number, Ended>()
+  /** The step the store ended last. */
+  let lastEnded: EndedStep | undefined
 
   const working = () => client.working()
   const has = (part: Part, id: string) => working().get(part, id) !== undefined
@@ -278,7 +300,59 @@ export function clientStore(
   function endStep(name: string | null) {
     const mark = restoring
     restoring = undefined
-    return client.end(name, mark)
+    const out = client.end(name, mark)
+    lastEnded = endedStep(client.lastEnded())
+    return out
+  }
+
+  /** The step that made `made` (see `Client.lastEnded`), waiting for the server's answer when it made a change set. */
+  function endedStep(made: StepMade): EndedStep {
+    const step: EndedStep = { endedStep: true }
+    const ended: Ended = {
+      outcome: made === null ? 'saved' : made === 'tooBig' ? new NotSaved('tooBig') : undefined,
+      waiting: new Set(),
+    }
+    endedSteps.set(step, ended)
+    if (typeof made === 'number') unanswered.set(made, ended)
+    return step
+  }
+
+  /** What became of a change set of the tab's: the step that made it hears it. */
+  function answered(answer: Answer) {
+    if (answer.kind === 'renumbered') return renumber(answer.ids)
+    const ended = unanswered.get(answer.changeSetId)
+    if (!ended) return
+    unanswered.delete(answer.changeSetId)
+    if (answer.kind === 'accepted') ended.outcome = 'saved'
+    else ended.outcome = new NotSaved(answer.kind, answer.kind === 'rejected' ? answer.reason : undefined)
+    for (const tell of [...ended.waiting]) tell()
+  }
+
+  /** Files each ended step whose change set took a new id under that id, all at once, as an old id may be another's new one. */
+  function renumber(ids: ReadonlyMap<number, number>) {
+    const moved = [...ids].flatMap(([from, to]): [number, Ended][] => {
+      const ended = unanswered.get(from)
+      return ended ? [[to, ended]] : []
+    })
+    for (const from of ids.keys()) unanswered.delete(from)
+    for (const [to, ended] of moved) unanswered.set(to, ended)
+  }
+
+  function whenConfirmed(step: EndedStep, signal?: AbortSignal): Promise<'saved'> {
+    const ended = endedSteps.get(step)
+    if (!ended) throw new Error('whenConfirmed takes a step this store ended')
+    return new Promise((resolve, reject) => {
+      const settle = () => {
+        ended.waiting.delete(settle)
+        signal?.removeEventListener('abort', settle)
+        const { outcome } = ended
+        if (outcome === 'saved') resolve(outcome)
+        else reject(outcome ?? new NotSaved('ended'))
+      }
+      if (ended.outcome !== undefined || signal?.aborted) return settle()
+      ended.waiting.add(settle)
+      signal?.addEventListener('abort', settle)
+    })
   }
 
   function markRestore(mark: RestoreMark) {
@@ -392,7 +466,11 @@ export function clientStore(
 
   function openHistory(session: HistoryOf): History {
     if (history) throw new Error('a plain store is one tab, with one session: another tab joins its server')
-    const opened = openPlainHistory(client, { deliver, openStep, endStep, stepWrote: () => stepWrote }, session)
+    const opened = openPlainHistory(
+      client,
+      { deliver, openStep, endStep, stepWrote: () => stepWrote, lastEnded: () => lastEnded },
+      session,
+    )
     history = opened
     const destroy = () => {
       opened.history.destroy()
@@ -402,6 +480,7 @@ export function clientStore(
   }
 
   client.onChange(changed)
+  client.onAnswer(answered)
 
   /** How many times the other tabs' previews changed, and who hears of it. */
   let previewRevision = 0
@@ -487,5 +566,6 @@ export function clientStore(
     textAnchor,
     anchorOffset,
     openHistory,
+    whenConfirmed,
   }
 }

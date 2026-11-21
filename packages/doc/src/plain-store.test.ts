@@ -282,6 +282,26 @@ describe('a local server', () => {
     expect(() => held.deliver()).toThrow(ScratchRejected)
   })
 
+  it("confirms a gesture's step as saved once the call that ended it returns, and a held tab's once it delivers", async () => {
+    const store = openPlainStore(testDesign())
+    const held = store.server.join({ held: true })
+    const [mine, theirs] = [openSession(store), openSession(held)]
+    const moved = (session: typeof mine, x: number) => {
+      const step = session.beginGesture('move')
+      session.run('node.update', { ids: ['box'], patch: { x } })
+      step.end()
+      return session.whenConfirmed(step)
+    }
+    const told: string[] = []
+    void moved(mine, 7).then((saved) => told.push(`mine ${saved}`))
+    void moved(theirs, 8).then((saved) => told.push(`theirs ${saved}`))
+    await Promise.resolve()
+    expect(told).toEqual(['mine saved'])
+    held.deliver()
+    await Promise.resolve()
+    expect(told).toEqual(['mine saved', 'theirs saved'])
+  })
+
   it('throws a rejection of a step written while the server delivers from the call it was written in, and never later', () => {
     const server = openLocalServer(readDesign(openPlainStore()), { scratch: true })
     const [a, b] = [server.join(), server.join()]

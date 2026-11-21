@@ -2,7 +2,7 @@
 // shows into the brand's library, then putting it down as one undo step once nothing is open on
 // the stage.
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { childrenOf, type Session } from '@dazbee/doc'
+import { childrenOf, placedRoots, type Session } from '@dazbee/doc'
 import type { LayerTree, Point } from '@dazbee/schema'
 import { type ConvertOptions, type Skipped, SvgError, svgToLayers } from '@dazbee/svg'
 
@@ -147,12 +147,14 @@ export function editorPlaceSvg({
     let ids: string[] = []
     const ok = runQuietly(() =>
       session.gesture(() => {
-        ids = session.run('design.place', {
-          parentId: frame.id,
-          tree,
-          dx: round(spot.x - (box.x + box.width / 2)),
-          dy: round(spot.y - (box.y + box.height / 2)),
-        })
+        ids = placedRoots(
+          session.run('design.place', {
+            parentId: frame.id,
+            tree,
+            dx: round(spot.x - (box.x + box.width / 2)),
+            dy: round(spot.y - (box.y + box.height / 2)),
+          }),
+        )
         // Text is measured in its font, as the editor lays it out.
         const placed = session.design()
         const fitTexts = (id: string) => {

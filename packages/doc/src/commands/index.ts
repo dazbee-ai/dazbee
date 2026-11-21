@@ -7,7 +7,7 @@ import { frameAdd, frameAddSize, frameDelete, frameDuplicate, frameResize, frame
 import { nodeBoolean, nodeBox, nodeEnclose, nodeGroup, nodeHug, nodeUngroup } from './groups.ts'
 import { guideAdd, guideClear, guideMove, guideRemove } from './guides.ts'
 import { nodeBind, nodeCreate, nodeDelete, nodeLock, nodeMask, nodeRename, nodeUpdate } from './layers.ts'
-import { pageAdd, pageDelete, pageDuplicate, pageMove, pageUpdate } from './pages.ts'
+import { pageAdd, pageAddMany, pageDelete, pageDuplicate, pageMove, pageUpdate } from './pages.ts'
 import { nodeReshape } from './paths.ts'
 import { designRestore } from './restore.ts'
 import { nodeStyle } from './style.ts'
@@ -40,6 +40,7 @@ export const COMMANDS = {
   'text.replace': textReplace,
   'text.fit': textFit,
   'page.add': pageAdd,
+  'page.addMany': pageAddMany,
   'page.update': pageUpdate,
   'page.duplicate': pageDuplicate,
   'page.move': pageMove,

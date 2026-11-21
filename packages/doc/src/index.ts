@@ -58,9 +58,19 @@ export { compactTree, DEFAULT_TREE_BYTES, type TreeLayer, type TreeOptions } fro
 export { STEP_NAMES, type StepName } from './commands/step-names.ts'
 export { type BoxLayout, changesLayout } from './commands/auto-layout.ts'
 export { wrapRefusal } from './commands/groups.ts'
+export { type PlacedTree, placedRoots } from './commands/arrange.ts'
+export { designSizeOf } from './sync/checks.ts'
 export { type FlipAxis } from './commands/flip.ts'
 export { smallerRatio } from './commands/fit.ts'
-export { type DesignStore, readDesign, type StorePreviews, type TextAnchor } from './store.ts'
+export {
+  type DesignStore,
+  type EndedStep,
+  NotSaved,
+  type NotSavedWhy,
+  readDesign,
+  type StorePreviews,
+  type TextAnchor,
+} from './store.ts'
 export { previewedDesign, type PreviewRead } from './previewed-design.ts'
 export { type ClientStore, clientStore, type ClientStoreOptions, ScratchRejected } from './client-store.ts'
 export {

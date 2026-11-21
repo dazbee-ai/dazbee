@@ -2,7 +2,7 @@
 // step of the session (a command alone, a batch or a gesture) is one client step, opened as it
 // begins and sent as it ends; what is written untracked is a step no one undoes.
 import type { StepName } from './commands/step-names.ts'
-import type { History, HistoryOf, Log } from './store.ts'
+import type { EndedStep, History, HistoryOf, Log } from './store.ts'
 import type { Client, Outgoing } from './sync/client.ts'
 
 /** What the history needs of its store. */
@@ -15,6 +15,8 @@ export interface HistoryStore {
   endStep(name: string | null): Outgoing[]
   /** Whether the open client step has written. */
   stepWrote(): boolean
+  /** The step `endStep` ended last. */
+  lastEnded(): EndedStep | undefined
 }
 
 /** A client store's history, with `changed`, which the store calls when a change set from the server arrives. */
@@ -35,6 +37,8 @@ export function openPlainHistory(
   const historyListeners = new Set<() => void>()
   /** Whether the open step is undoable: a tracked one, not one written untracked. */
   let openUndoable = false
+  /** The step the last `end` of a log ended, if it ended one. */
+  let ended: EndedStep | undefined
 
   const tellHistory = () => {
     for (const listener of [...historyListeners]) listener()
@@ -50,6 +54,7 @@ export function openPlainHistory(
         return { log, from: 0 }
       },
       end: () => {
+        ended = undefined
         if (!client.stepOpen()) return
         try {
           endStep()
@@ -65,7 +70,9 @@ export function openPlainHistory(
 
   /** Ends the open step and sends it: named by its command if it is undoable. */
   function endStep() {
-    store.deliver(store.endStep(openUndoable ? (naming ?? null) : null))
+    const messages = store.endStep(openUndoable ? (naming ?? null) : null)
+    ended = store.lastEnded()
+    store.deliver(messages)
   }
 
   /** Whether an open gesture of the session's own has written: on the undo stack, though not yet sent. */
@@ -143,6 +150,7 @@ export function openPlainHistory(
   const history: History = {
     tracked: logOf(true),
     aside: logOf(false),
+    ended: () => ended,
     name,
     beginWrite,
     press,

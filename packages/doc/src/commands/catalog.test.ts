@@ -19,6 +19,7 @@ const DESIGN_TYPES = [
   'node.create.layer',
   'node.style.style',
   'frame.update.fills',
+  'page.addMany.pages.frames.fills',
   'text.edit.op.style',
   'node.bind.value',
 ]

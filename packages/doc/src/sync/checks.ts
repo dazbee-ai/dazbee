@@ -9,6 +9,8 @@ import {
   checkLayer,
   checkPages,
   DesignMeta,
+  type DesignRecords,
+  type DesignSize,
   type Fail,
   Frame,
   type FrameEnd,
@@ -126,6 +128,25 @@ export function designBytes(state: DesignState): number {
   let bytes = sizeOf('meta', state.get('meta', 'meta') ?? {})
   for (const part of HELD_PARTS) for (const id of state.ids(part)) bytes += sizeOf(part, state.get(part, id) ?? {}, id)
   return bytes
+}
+
+/** A design's size as the sync server counts it, of its records: its layers, frames and pages, and its JSON's size in UTF-8 bytes. */
+export function designSizeOf(records: DesignRecords): DesignSize {
+  let bytes = sizeOf('meta', records.meta)
+  const held = [
+    ['page', records.pages],
+    ['frame', records.frames],
+    ['layer', records.nodes],
+  ] as const
+  // A held record is always an object: the state keeps only what a change set or a design's records made one.
+  for (const [part, byId] of held)
+    for (const [id, record] of Object.entries(byId)) bytes += sizeOf(part, record as Rec, id)
+  return {
+    layers: Object.keys(records.nodes).length,
+    frames: Object.keys(records.frames).length,
+    pages: Object.keys(records.pages).length,
+    bytes,
+  }
 }
 
 /**

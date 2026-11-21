@@ -5,7 +5,7 @@ import { type Change, type DesignRecords, parseDesign, SYNC_LIMITS, type Target 
 import { kindsDesign, linkedDesign, testDesign } from '../test-design.ts'
 import { seeded } from '../test-walk.ts'
 import type { Rec } from './changes.ts'
-import { bytesWritten, capIssue, changeSetIssue, designBytes, sizeOf, utf8Length } from './checks.ts'
+import { bytesWritten, capIssue, changeSetIssue, designBytes, designSizeOf, sizeOf, utf8Length } from './checks.ts'
 import { DesignState } from './state.ts'
 
 const parentOf = (id: string): Target => ({ part: 'layer', id, key: 'parentId' })
@@ -254,6 +254,19 @@ describe('designBytes', () => {
     ])
     expect(designBytes(before) + bytesWritten(after, before, written)).toBe(designBytes(after))
     expect(sizeOf('layer', { a: 1 }, 'x')).toBe('"x":{"a":1},'.length)
+  })
+})
+
+describe('designSizeOf', () => {
+  it('counts the layers, frames and pages of a design’s records, and their bytes as designBytes counts them', () => {
+    const design = records(linkedDesign())
+    const state = DesignState.fromRecords(design)
+    expect(designSizeOf(state.toRecords())).toEqual({
+      layers: Object.keys(design.nodes).length,
+      frames: Object.keys(design.frames).length,
+      pages: Object.keys(design.pages).length,
+      bytes: designBytes(state),
+    })
   })
 })
 

@@ -21,7 +21,8 @@ export type VectorTarget = 'pdf' | 'svg'
  *   document's raster DPI. Only a background blur, which reads what is behind it, comes as an image.
  * - SVG from Skia keeps shapes, solid colours, linear and radial gradients and clips, and text as
  *   paths. A layer with opacity, effects, an angular gradient, an image fill or a mask, and a text
- *   with colour emoji, whose glyphs have no path, comes as an image of itself; a blend mode or
+ *   with colour emoji, whose glyphs have no path, or with a gradient underline or strikethrough,
+ *   which is filled through a layer, comes as an image of itself; a blend mode or
  *   background blur, which mix with what is behind, as an image of the frame as drawn up to it.
  */
 export function drawVectorFrame(

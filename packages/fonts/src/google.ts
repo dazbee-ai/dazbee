@@ -1,346 +1,54 @@
-/**
- * The Google Fonts families Dazbee offers (#50). They are copied into our storage once, by
- * `pnpm --filter @dazbee/api fonts:google`, and from then on loaded from there like any other font
- * file: never from Google, the system or the browser at render time.
- */
+// Every Google Fonts family Dazbee offers, as `pnpm --filter @dazbee/fonts google-fonts` writes them
+// into `google-fonts.json` from Google's own metadata (`google-metadata.ts`). The files are copied
+// into our storage by `pnpm --filter @dazbee/api fonts:google`, and from then on loaded from there
+// like any other font file: never from Google, the system or the browser at render time.
+import list from './google-fonts.json' with { type: 'json' }
+
+/** A family's kind of letter, as Google Fonts sorts it. */
+export type FontCategory = 'sans-serif' | 'serif' | 'display' | 'handwriting' | 'monospace'
+
+/** The licences Dazbee takes a Google family under; a family under any other is left out. */
+export type GoogleLicence = 'OFL' | 'Apache-2.0' | 'UFL'
+
+/** One font file of a Google family, in its folder of google/fonts. */
+export interface GoogleFile {
+  /** Its name in the family's folder, such as `Inter[opsz,wght].ttf`. */
+  file: string
+  /** Its git blob SHA-1, which the bytes copied are checked against. */
+  blob: string
+  /** Its size in bytes. */
+  bytes: number
+  /** Its weight; a variable file's default, which its own `fvar` table confirms. */
+  weight: number
+  style: 'normal' | 'italic'
+}
+
+/** A Google Fonts family: what the chooser lists it by, and the files the import copies. */
 export interface GoogleFamily {
   family: string
-  category: 'sans-serif' | 'serif' | 'display' | 'handwriting' | 'monospace'
-  weights: readonly number[]
-  /** Whether each weight has an italic too. */
-  italic: boolean
+  category: FontCategory
+  /** Its place in Google Fonts' popularity order, 1 the most used. */
+  rank: number
+  licence: GoogleLicence
+  /** Its folder in google/fonts, such as `ofl/inter`. */
+  path: string
+  /** The writing systems it draws, as ISO 15924 codes such as `Latn`, `Arab` or `Jpan`, most families' first. */
+  scripts: string[]
+  /** Its variable axes, such as `wght` from 100 to 900; none for a family of static files. */
+  axes: { tag: string; min: number; max: number }[]
+  faces: GoogleFile[]
 }
 
-/**
- * About 300 of the most-used Google Fonts families, in the popularity order of Google Fonts' public
- * family metadata (`https://fonts.google.com/metadata/fonts`), each in that metadata's category. A
- * family takes its weights from 400 to 900 that Google serves as static files, with italics when
- * each of those weights has one. Left out: the script fonts and the fonts we ship, colour fonts,
- * barcode fonts, which draw no letters, and families made for Chinese, Japanese or Korean, whose
- * every face is megabytes.
- */
-export const GOOGLE_FONTS: readonly GoogleFamily[] = [
-  { family: 'Roboto', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Open Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Google Sans', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Inter', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Montserrat', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Poppins', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Lato', category: 'sans-serif', weights: [400, 700, 900], italic: true },
-  { family: 'Arimo', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Roboto Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Roboto Mono', category: 'monospace', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Oswald', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'DM Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Playfair Display', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Nunito', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Raleway', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Nunito Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Roboto Slab', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Manrope', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Rubik', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Outfit', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Plus Jakarta Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Merriweather', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Ubuntu', category: 'sans-serif', weights: [400, 500, 700], italic: true },
-  { family: 'Kanit', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Figtree', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Lora', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Archivo Black', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Bebas Neue', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'JetBrains Mono', category: 'monospace', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Work Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Archivo', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Prompt', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Barlow', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Black Ops One', category: 'display', weights: [400], italic: false },
-  { family: 'Mulish', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Saira', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'IBM Plex Sans', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Jost', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'PT Sans', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Share Tech', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Quicksand', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Bricolage Grotesque', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Smooch Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Space Grotesk', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Cormorant Garamond', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Source Code Pro', category: 'monospace', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Source Sans 3', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Karla', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Barlow Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Fira Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'IBM Plex Mono', category: 'monospace', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Instrument Serif', category: 'serif', weights: [400], italic: true },
-  { family: 'Noto Serif', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Libre Baskerville', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Titillium Web', category: 'sans-serif', weights: [400, 600, 700, 900], italic: false },
-  { family: 'Fraunces', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Anton', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Inter Tight', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Heebo', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'PT Serif', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Inconsolata', category: 'monospace', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Changa One', category: 'display', weights: [400], italic: true },
-  { family: 'EB Garamond', category: 'serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Libre Franklin', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Dancing Script', category: 'handwriting', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Cairo', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Alfa Slab One', category: 'display', weights: [400], italic: false },
-  { family: 'Public Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Google Sans Flex', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Sora', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Josefin Sans', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Geist', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Assistant', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Fjalla One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Hind Siliguri', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Lobster Two', category: 'display', weights: [400, 700], italic: true },
-  { family: 'Mukta', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Schibsted Grotesk', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Orbitron', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Urbanist', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Caveat', category: 'handwriting', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Newsreader', category: 'serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Baloo 2', category: 'display', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Fredoka', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Source Serif 4', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Instrument Sans', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Lexend', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Bitter', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Cabin', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Cinzel', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'DM Serif Display', category: 'serif', weights: [400], italic: true },
-  { family: 'Rajdhani', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Dosis', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Red Hat Display', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Roboto Flex', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Zeyada', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Merriweather Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Exo 2', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Tajawal', category: 'sans-serif', weights: [400, 500, 700, 800, 900], italic: false },
-  { family: 'Ramabhadra', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Geist Mono', category: 'monospace', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Anek Telugu', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Slabo 27px', category: 'serif', weights: [400], italic: false },
-  { family: 'Pacifico', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Oxygen', category: 'sans-serif', weights: [400, 700], italic: false },
-  { family: 'Barlow Semi Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Bodoni Moda', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Hanken Grotesk', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Hind', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Faustina', category: 'serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Epilogue', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Noto Sans Arabic', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Crimson Text', category: 'serif', weights: [400, 600, 700], italic: true },
-  { family: 'Arvo', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Teko', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Chakra Petch', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Roboto Serif', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Overpass', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'DM Mono', category: 'monospace', weights: [400, 500], italic: true },
-  { family: 'Lobster', category: 'display', weights: [400], italic: false },
-  { family: 'Bungee', category: 'display', weights: [400], italic: false },
-  { family: 'Shantell Sans', category: 'display', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'PT Sans Narrow', category: 'sans-serif', weights: [400, 700], italic: false },
-  { family: 'Comfortaa', category: 'display', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Space Mono', category: 'monospace', weights: [400, 700], italic: true },
-  { family: 'Asap', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Quantico', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Lilita One', category: 'display', weights: [400], italic: false },
-  { family: 'Be Vietnam Pro', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Abel', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Saira Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Questrial', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Shadows Into Light', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Unbounded', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Onest', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Maven Pro', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Domine', category: 'serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Zilla Slab', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Almarai', category: 'sans-serif', weights: [400, 700, 800], italic: false },
-  { family: 'Marcellus', category: 'serif', weights: [400], italic: false },
-  { family: 'IBM Plex Sans Arabic', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Archivo Narrow', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Albert Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Cormorant', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Spectral', category: 'serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Geologica', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'ABeeZee', category: 'sans-serif', weights: [400], italic: true },
-  { family: 'Abril Fatface', category: 'display', weights: [400], italic: false },
-  { family: 'Great Vibes', category: 'handwriting', weights: [400], italic: false },
-  { family: 'League Spartan', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Lexend Deca', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Syne', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Play', category: 'sans-serif', weights: [400, 700], italic: false },
-  { family: 'Frank Ruhl Libre', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Exo', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Gravitas One', category: 'display', weights: [400], italic: false },
-  { family: 'Permanent Marker', category: 'handwriting', weights: [400], italic: false },
-  { family: 'IBM Plex Serif', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Varela Round', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Satisfy', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Amiri', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Fira Sans Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Kalam', category: 'handwriting', weights: [400, 700], italic: false },
-  { family: 'Atkinson Hyperlegible', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Yellowtail', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Crimson Pro', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Sofia Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Chivo', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Indie Flower', category: 'handwriting', weights: [400], italic: false },
-  { family: 'News Cycle', category: 'sans-serif', weights: [400, 700], italic: false },
-  { family: 'Noto Kufi Arabic', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Literata', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Hammersmith One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Alegreya Sans', category: 'sans-serif', weights: [400, 500, 700, 800, 900], italic: true },
-  { family: 'Vollkorn', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Luckiest Guy', category: 'display', weights: [400], italic: false },
-  { family: 'Patrick Hand', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Catamaran', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Press Start 2P', category: 'display', weights: [400], italic: false },
-  { family: 'Courier Prime', category: 'monospace', weights: [400, 700], italic: true },
-  { family: 'Sarabun', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Playfair', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'DM Serif Text', category: 'serif', weights: [400], italic: true },
-  { family: 'Baskervville', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Hind Madurai', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Righteous', category: 'display', weights: [400], italic: false },
-  { family: 'Comic Neue', category: 'handwriting', weights: [400, 700], italic: true },
-  { family: 'Readex Pro', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Tenor Sans', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Prata', category: 'serif', weights: [400], italic: false },
-  { family: 'Google Sans Code', category: 'monospace', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Special Elite', category: 'display', weights: [400], italic: false },
-  { family: 'Lexend Giga', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Cardo', category: 'serif', weights: [400, 700], italic: false },
-  { family: 'Red Hat Text', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Alata', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Rowdies', category: 'display', weights: [400, 700], italic: false },
-  { family: 'Montserrat Alternates', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Rethink Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Noto Sans Display', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Golos Text', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Alegreya', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Russo One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'League Gothic', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Noto Nastaliq Urdu', category: 'serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Acme', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Bree Serif', category: 'serif', weights: [400], italic: false },
-  { family: 'Tinos', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Amatic SC', category: 'handwriting', weights: [400, 700], italic: false },
-  { family: 'Libre Caslon Text', category: 'serif', weights: [400, 700], italic: false },
-  { family: 'Viga', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Patua One', category: 'display', weights: [400], italic: false },
-  { family: 'Signika', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Share Tech Mono', category: 'monospace', weights: [400], italic: false },
-  { family: 'Bangers', category: 'display', weights: [400], italic: false },
-  { family: 'Oleo Script', category: 'display', weights: [400, 700], italic: false },
-  { family: 'Khand', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Aleo', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Crete Round', category: 'serif', weights: [400], italic: true },
-  { family: 'Yanone Kaffeesatz', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Sanchez', category: 'serif', weights: [400], italic: true },
-  { family: 'Antonio', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Londrina Solid', category: 'display', weights: [400, 900], italic: false },
-  { family: 'Fira Code', category: 'monospace', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Changa', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Vazirmatn', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Noticia Text', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Allura', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Cantarell', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'IBM Plex Sans Condensed', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Oxanium', category: 'display', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Titan One', category: 'display', weights: [400], italic: false },
-  { family: 'Alexandria', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Kumbh Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Passion One', category: 'display', weights: [400, 700, 900], italic: false },
-  { family: 'Kaushan Script', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Encode Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Biryani', category: 'sans-serif', weights: [400, 600, 700, 800, 900], italic: false },
-  { family: 'Courgette', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Old Standard TT', category: 'serif', weights: [400, 700], italic: false },
-  { family: 'Chelsea Market', category: 'display', weights: [400], italic: false },
-  { family: 'Antic Slab', category: 'serif', weights: [400], italic: false },
-  { family: 'Noto Sans Mono', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Gruppo', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Francois One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Philosopher', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Rubik Mono One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Pinyon Script', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Commissioner', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Cinzel Decorative', category: 'display', weights: [400, 700, 900], italic: false },
-  { family: 'Sacramento', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Saira Extra Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'VT323', category: 'monospace', weights: [400], italic: false },
-  { family: 'Paytone One', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Krub', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Yantramanav', category: 'sans-serif', weights: [400, 500, 700, 900], italic: false },
-  { family: 'Gabarito', category: 'display', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Audiowide', category: 'display', weights: [400], italic: false },
-  { family: 'Sen', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Gilda Display', category: 'serif', weights: [400], italic: false },
-  { family: 'Fugaz One', category: 'display', weights: [400], italic: false },
-  { family: 'Radio Canada', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'STIX Two Text', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Martel', category: 'serif', weights: [400, 600, 700, 800, 900], italic: false },
-  { family: 'Encode Sans Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: false },
-  { family: 'Josefin Slab', category: 'serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Playball', category: 'display', weights: [400], italic: false },
-  { family: 'Funnel Sans', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Advent Pro', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Delius', category: 'handwriting', weights: [400], italic: false },
-  { family: 'IBM Plex Sans Thai', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Volkhov', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Rammetto One', category: 'display', weights: [400], italic: false },
-  { family: 'Rokkitt', category: 'serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Didact Gothic', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Unna', category: 'serif', weights: [400, 700], italic: true },
-  { family: 'Forum', category: 'display', weights: [400], italic: false },
-  { family: 'Amaranth', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Quattrocento', category: 'serif', weights: [400, 700], italic: false },
-  { family: 'Creepster', category: 'display', weights: [400], italic: false },
-  { family: 'Ubuntu Condensed', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Playfair Display SC', category: 'serif', weights: [400, 700, 900], italic: true },
-  { family: 'Actor', category: 'sans-serif', weights: [400], italic: false },
-  { family: 'Neuton', category: 'serif', weights: [400, 700, 800], italic: false },
-  { family: 'PT Sans Caption', category: 'sans-serif', weights: [400, 700], italic: false },
-  { family: 'El Messiri', category: 'sans-serif', weights: [400, 500, 600, 700], italic: false },
-  { family: 'Andada Pro', category: 'serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Angkor', category: 'display', weights: [400], italic: false },
-  { family: 'Bai Jamjuree', category: 'sans-serif', weights: [400, 500, 600, 700], italic: true },
-  { family: 'Tangerine', category: 'handwriting', weights: [400, 700], italic: false },
-  { family: 'Quattrocento Sans', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Istok Web', category: 'sans-serif', weights: [400, 700], italic: true },
-  { family: 'Sofia Sans Condensed', category: 'sans-serif', weights: [400, 500, 600, 700, 800, 900], italic: true },
-  { family: 'Poiret One', category: 'display', weights: [400], italic: false },
-  { family: 'Abhaya Libre', category: 'serif', weights: [400, 500, 600, 700, 800], italic: false },
-  { family: 'Alex Brush', category: 'handwriting', weights: [400], italic: false },
-  { family: 'Gloria Hallelujah', category: 'handwriting', weights: [400], italic: false },
-  { family: 'PT Mono', category: 'monospace', weights: [400], italic: false },
-  { family: 'Host Grotesk', category: 'sans-serif', weights: [400, 500, 600, 700, 800], italic: true },
-  { family: 'Architects Daughter', category: 'handwriting', weights: [400], italic: false },
-]
+/** The commit of google/fonts the list was written from, which the import copies the files of. */
+export const GOOGLE_FONTS_COMMIT: string = list.commit
 
 /**
- * The Google Fonts CSS that names a family's TrueType files. Without a browser's user agent,
- * Google answers with one static TTF per weight and style.
+ * Every family Google Fonts serves under the OFL, Apache 2.0 or UFL, in its popularity order, but
+ * the families we ship (`FONT_FACES`), which the catalog has from our own files.
  */
-export function googleCssUrl({ family, weights, italic }: GoogleFamily): string {
-  const axes = italic
-    ? `ital,wght@${[0, 1].flatMap((i) => weights.map((w) => `${i},${w}`)).join(';')}`
-    : `wght@${weights.join(';')}`
-  return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}:${axes}`
-}
+export const GOOGLE_FONTS: readonly GoogleFamily[] = list.families as GoogleFamily[]
 
-/** The faces a Google Fonts stylesheet names: each one's weight, style and file URL. */
-export function googleFaces(css: string): { weight: number; style: 'normal' | 'italic'; url: string }[] {
-  const faces: { weight: number; style: 'normal' | 'italic'; url: string }[] = []
-  for (const [block] of css.matchAll(/@font-face\s*{[^}]*}/g)) {
-    const weight = /font-weight:\s*(\d+)/.exec(block)?.[1]
-    const style = /font-style:\s*(normal|italic)/.exec(block)?.[1]
-    const url = /src:\s*url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.ttf)\)/.exec(block)?.[1]
-    if (weight && (style === 'normal' || style === 'italic') && url) faces.push({ weight: Number(weight), style, url })
-  }
-  return faces
+/** Where google/fonts serves a family's file, at the commit the list was written from. */
+export function googleFileUrl(family: Pick<GoogleFamily, 'path'>, face: Pick<GoogleFile, 'file'>): string {
+  return `https://raw.githubusercontent.com/google/fonts/${GOOGLE_FONTS_COMMIT}/${family.path}/${encodeURIComponent(face.file)}`
 }

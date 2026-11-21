@@ -14,7 +14,7 @@ export interface StyledPiece {
    * Set on a made-up superscript or subscript: the size its letters stand in for, which its lines
    * keep, and the pixels its baseline moves, down for a positive value.
    */
-  script?: { fontSize: number; baselineShift: number }
+  superSub?: { fontSize: number; baselineShift: number }
 }
 
 /** The share of the size lower-case letters are drawn at as made-up small caps. */

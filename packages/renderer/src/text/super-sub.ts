@@ -1,13 +1,13 @@
 // Superscript and subscript (the `sups` and `subs` features): a piece keeps the feature where its
 // font draws every letter and digit of it with its own superscript or subscript glyphs; otherwise it
 // drops the feature and is drawn from the standard glyphs, at the font's superscript or subscript
-// size and moved off the baseline by its offset (its OS/2 values), as FigCraft and Figma draw it.
+// size and moved off the baseline by its offset (its OS/2 values).
 // Each font of a piece decides for its own characters. The text drawn keeps its length, so offsets
 // still match.
 import type { CanvasKit, FontCollection, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
 import { letterSpacingPx, type TextProps } from '@dazbee/schema'
 
-import { type FamilyFeatures, type FamilyScripts, scriptsOf } from './font-features.ts'
+import { type FamilyFeatures, type FamilySuperSubs, superSubsOf } from './font-features.ts'
 import type { StyledPiece } from './small-caps.ts'
 
 /**
@@ -23,35 +23,35 @@ export interface ShapedRun {
 export type Shape = (style: TextProps['style'], text: string) => ShapedRun[]
 
 type Style = TextProps['style']
-type ScriptTag = 'sups' | 'subs'
+type SuperSubTag = 'sups' | 'subs'
 
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u
 
 /**
  * The pieces split where superscripts and subscripts are made up, each made-up stretch smaller and
- * with its baseline moved (`script`). `shape` shapes a piece's text with and without its feature: a
+ * with its baseline moved (`superSub`). `shape` shapes a piece's text with and without its feature: a
  * font keeps the feature for its run of the piece where it drew each letter and digit of it with a
  * glyph of its own; where the run holds none, where it changed some glyph or, changing none, where
  * `familyFeatures` lists the feature for the piece's family.
  */
-export function madeUpScripts(
+export function madeUpSuperSubs(
   shown: string,
   pieces: readonly StyledPiece[],
   shape: Shape,
-  scripts: FamilyScripts | undefined,
+  superSubs: FamilySuperSubs | undefined,
   familyFeatures: FamilyFeatures | undefined,
 ): StyledPiece[] {
   const out: StyledPiece[] = []
   for (const piece of pieces) {
-    const tag = scriptTag(piece.style)
+    const tag = superSubTag(piece.style)
     if (!tag) {
       out.push(piece)
       continue
     }
     const text = shown.slice(piece.start, piece.end)
     const hasFeature = familyFeatures?.get(piece.style.fontFamily)?.has(tag) === true
-    const madeUp = madeUpAt(text, shape(piece.style, text), shape(withoutScripts(piece.style), text), hasFeature)
-    const small = madeUpPiece(piece, tag, scripts)
+    const madeUp = madeUpAt(text, shape(piece.style, text), shape(withoutSuperSubs(piece.style), text), hasFeature)
+    const small = madeUpPiece(piece, tag, superSubs)
     let from = 0
     for (let i = 1; i <= text.length; i++) {
       if (i < text.length && madeUp[i] === madeUp[from]) continue
@@ -97,19 +97,25 @@ export function paragraphShape(
 /**
  * The style a paragraph's lines keep, as tall as its letters would be at the size they stand in
  * for, where every piece of it is a made-up superscript or subscript: the style of the one standing
- * in for the largest size, at that size. Null where any piece is not.
+ * in for the largest size, at that size. Undefined where any piece is not, or there is none.
  */
-export function scriptLineStyle(pieces: readonly StyledPiece[]): Style | null {
-  let lines: Style | null = null
-  for (const { style, script } of pieces) {
-    if (!script) return null
-    if (!lines || script.fontSize > lines.fontSize) lines = { ...style, fontSize: script.fontSize }
+export function superSubLineStyle(pieces: readonly StyledPiece[]): Style | undefined {
+  let lines: Style | undefined
+  for (const { style, superSub } of pieces) {
+    if (!superSub) return undefined
+    if (!lines || superSub.fontSize > lines.fontSize) lines = { ...style, fontSize: superSub.fontSize }
   }
   return lines
 }
 
+/** The style without superscript and subscript, as the standard glyphs are shaped and list markers drawn. */
+export function withoutSuperSubs(style: Style): Style {
+  const features = Object.fromEntries(Object.entries(style.features ?? {}).filter(([tag]) => !isSuperSubTag(tag)))
+  return { ...style, features }
+}
+
 /** The feature a style draws its letters raised or lowered with, superscript first; null for neither. */
-function scriptTag(style: Style): ScriptTag | null {
+function superSubTag(style: Style): SuperSubTag | null {
   if (style.features?.sups === true) return 'sups'
   if (style.features?.subs === true) return 'subs'
   return null
@@ -118,7 +124,8 @@ function scriptTag(style: Style): ScriptTag | null {
 /**
  * For each UTF-16 unit of `text`, whether it is made up: its run's font drew a letter or digit of
  * it as without the feature, or changed no glyph of a run with no letter or digit and lacks the
- * feature. A unit no run draws, such as a line break, goes with the one before it.
+ * feature. Each cluster's first unit takes its run's answer, and every other unit the one before it,
+ * so the rest of a cluster, and a line break no run draws, go with what precedes them.
  */
 function madeUpAt(text: string, own: ShapedRun[], plain: ShapedRun[], hasFeature: boolean): boolean[] {
   const unitAt = utf16Offsets(text)
@@ -126,10 +133,11 @@ function madeUpAt(text: string, own: ShapedRun[], plain: ShapedRun[], hasFeature
   for (const run of plain) for (const [unit, ids] of clusters(run, unitAt)) plainAt.set(unit, ids)
   const at: (boolean | undefined)[] = Array.from({ length: text.length }, () => undefined)
   for (const run of own) {
+    const starts = clusters(run, unitAt)
     let changed = false
     let lacking = false
     let letters = false
-    for (const [unit, ids] of clusters(run, unitAt)) {
+    for (const [unit, ids] of starts) {
       const same = plainAt.get(unit) === ids
       changed ||= !same
       if (LETTER_OR_DIGIT.test(String.fromCodePoint(text.codePointAt(unit) ?? 0))) {
@@ -138,22 +146,10 @@ function madeUpAt(text: string, own: ShapedRun[], plain: ShapedRun[], hasFeature
       }
     }
     const madeUp = lacking || (!changed && (letters || !hasFeature))
-    const ends = Array.from(run.offsets, (offset) => unitAt[offset] ?? text.length)
-    for (let i = Math.min(...ends); i < Math.max(...ends); i++) at[i] = madeUp
+    for (const unit of starts.keys()) at[unit] = madeUp
   }
   let last = at.find((value) => value !== undefined) ?? true
   return at.map((value) => (last = value ?? last))
-}
-
-/** Each cluster of a run: the UTF-16 offset it starts at, and its glyph ids. */
-function clusters(run: ShapedRun, unitAt: readonly number[]): Map<number, string> {
-  const out = new Map<number, string>()
-  for (let i = 0; i < run.glyphs.length; i++) {
-    const unit = unitAt[run.offsets[i] ?? 0] ?? 0
-    const had = out.get(unit)
-    out.set(unit, had === undefined ? `${run.glyphs[i]}` : `${had},${run.glyphs[i]}`)
-  }
-  return out
 }
 
 /** For each UTF-8 offset into `text`, and its end, the UTF-16 offset of the code point it falls in. */
@@ -170,30 +166,34 @@ function utf16Offsets(text: string): number[] {
   return at
 }
 
-/** The style without superscript and subscript, as the standard glyphs are shaped. */
-function withoutScripts(style: Style): Style {
-  const features = Object.fromEntries(Object.entries(style.features ?? {}).filter(([tag]) => !isScriptTag(tag)))
-  return { ...style, features }
+/** Each cluster of a run: the UTF-16 offset it starts at, and its glyph ids. */
+function clusters(run: ShapedRun, unitAt: readonly number[]): Map<number, string> {
+  const out = new Map<number, string>()
+  for (let i = 0; i < run.glyphs.length; i++) {
+    const unit = unitAt[run.offsets[i] ?? 0] ?? 0
+    const had = out.get(unit)
+    out.set(unit, had === undefined ? `${run.glyphs[i]}` : `${had},${run.glyphs[i]}`)
+  }
+  return out
 }
 
 /** A piece's made-up superscript or subscript: smaller, the full size's letter spacing kept, and its baseline moved. */
-function madeUpPiece(piece: StyledPiece, tag: ScriptTag, scripts: FamilyScripts | undefined): StyledPiece {
+function madeUpPiece(piece: StyledPiece, tag: SuperSubTag, superSubs: FamilySuperSubs | undefined): StyledPiece {
   const { style } = piece
-  const placements = scriptsOf(scripts, style.fontFamily, style.fontWeight, style.fontStyle === 'italic')
+  const placements = superSubsOf(superSubs, style.fontFamily, style.fontWeight, style.fontStyle === 'italic')
   const { scale, shift } = tag === 'sups' ? placements.superscript : placements.subscript
   return {
     ...piece,
     style: {
-      ...withoutScripts(style),
+      ...withoutSuperSubs(style),
       fontSize: style.fontSize * scale,
       letterSpacing: { unit: 'px', value: letterSpacingPx(style.letterSpacing, style.fontSize) },
     },
-    script: { fontSize: style.fontSize, baselineShift: (tag === 'sups' ? -shift : shift) * style.fontSize },
+    superSub: { fontSize: style.fontSize, baselineShift: (tag === 'sups' ? -shift : shift) * style.fontSize },
   }
 }
 
 /** Whether a feature tag is superscript or subscript. */
-function isScriptTag(tag: string): tag is ScriptTag {
+function isSuperSubTag(tag: string): tag is SuperSubTag {
   return tag === 'sups' || tag === 'subs'
 }
-

@@ -85,6 +85,16 @@ describe('layoutText', () => {
     expect(raised.glyphs.map((g) => g.size)).toEqual([24, 24])
     expect(raised.height).toBe(plain.height)
   })
+
+  it('draws a list’s number as it is, though its paragraph is superscript in a font with superscript digits', () => {
+    const marker = (props: TextProps) => {
+      const laid = layoutText(ck, { ...props, list: 'number' }, shipped)
+      const ids = (laid.blocks[0]?.marker?.getShapedLines() ?? []).flatMap((l) => l.runs.flatMap((r) => [...r.glyphs]))
+      laid.delete()
+      return ids
+    }
+    expect(marker(textOf('12', sups(0, 2)))).toEqual(marker(textOf('12', [])))
+  })
 })
 
 describe('paragraphCache', () => {

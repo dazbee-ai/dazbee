@@ -10,28 +10,28 @@ export type FamilyFeatures = ReadonlyMap<string, ReadonlySet<string>>
  * A font's superscript or subscript: the share of the size its letters are drawn at, and how far
  * their baseline moves as a share of the em, up for a superscript and down for a subscript.
  */
-export interface ScriptPlacement {
+export interface SuperSubPlacement {
   scale: number
   shift: number
 }
 
 /** A font's superscript and subscript placements. */
-export interface Scripts {
-  superscript: ScriptPlacement
-  subscript: ScriptPlacement
+export interface SuperSubs {
+  superscript: SuperSubPlacement
+  subscript: SuperSubPlacement
 }
 
 /** A font file's superscript and subscript placements, with the weight and slant of the file. */
-export interface FontScripts extends Scripts {
+export interface FontSuperSubs extends SuperSubs {
   weight: number
   italic: boolean
 }
 
 /** The superscripts and subscripts of each family's files, by family. */
-export type FamilyScripts = ReadonlyMap<string, readonly FontScripts[]>
+export type FamilySuperSubs = ReadonlyMap<string, readonly FontSuperSubs[]>
 
 /** What common fonts carry, taken where a font leaves a value at zero: 65 % of the size, raised 35 % or lowered 14 % of an em. */
-export const USUAL_SCRIPTS: Scripts = {
+export const USUAL_SUPER_SUBS: SuperSubs = {
   superscript: { scale: 0.65, shift: 0.35 },
   subscript: { scale: 0.65, shift: 0.14 },
 }
@@ -78,36 +78,36 @@ export function familyFeatures(fonts: readonly { family: string; bytes: Uint8Arr
 /**
  * A font file's superscript and subscript size and offset, from its OS/2 table over its em (head),
  * with its weight and whether it is italic. A size or offset left at zero, or bytes it can't read,
- * take the usual values (`USUAL_SCRIPTS`).
+ * take the usual values (`USUAL_SUPER_SUBS`).
  */
-export function fontScripts(bytes: Uint8Array): FontScripts {
+export function fontSuperSubs(bytes: Uint8Array): FontSuperSubs {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   try {
     const os2 = tableAt(view, 'OS/2')
     const head = tableAt(view, 'head')
     const em = head === null ? 0 : view.getUint16(head + 18)
     if (os2 === null || em === 0) throw new RangeError('no OS/2 or head table')
-    const placement = (size: number, offset: number, usual: ScriptPlacement): ScriptPlacement => ({
+    const placement = (size: number, offset: number, usual: SuperSubPlacement): SuperSubPlacement => ({
       scale: size > 0 ? size / em : usual.scale,
       shift: offset !== 0 ? offset / em : usual.shift,
     })
     return {
       weight: view.getUint16(os2 + 4),
       italic: (view.getUint16(os2 + 62) & 1) === 1,
-      subscript: placement(view.getInt16(os2 + 12), view.getInt16(os2 + 16), USUAL_SCRIPTS.subscript),
-      superscript: placement(view.getInt16(os2 + 20), view.getInt16(os2 + 24), USUAL_SCRIPTS.superscript),
+      subscript: placement(view.getInt16(os2 + 12), view.getInt16(os2 + 16), USUAL_SUPER_SUBS.subscript),
+      superscript: placement(view.getInt16(os2 + 20), view.getInt16(os2 + 24), USUAL_SUPER_SUBS.superscript),
     }
   } catch {
-    return { weight: 400, italic: false, ...USUAL_SCRIPTS }
+    return { weight: 400, italic: false, ...USUAL_SUPER_SUBS }
   }
 }
 
 /** The superscripts and subscripts of each family's files, by family. */
-export function familyScripts(fonts: readonly { family: string; bytes: Uint8Array }[]): FamilyScripts {
-  const families = new Map<string, FontScripts[]>()
+export function familySuperSubs(fonts: readonly { family: string; bytes: Uint8Array }[]): FamilySuperSubs {
+  const families = new Map<string, FontSuperSubs[]>()
   for (const { family, bytes } of fonts) {
     const files = families.get(family) ?? []
-    files.push(fontScripts(bytes))
+    files.push(fontSuperSubs(bytes))
     families.set(family, files)
   }
   return families
@@ -117,14 +117,19 @@ export function familyScripts(fonts: readonly { family: string; bytes: Uint8Arra
  * The superscript and subscript placements a family draws at a weight and slant: those of its file
  * in that slant (else any) nearest the weight. The usual ones for a family with no files.
  */
-export function scriptsOf(scripts: FamilyScripts | undefined, family: string, weight: number, italic: boolean): Scripts {
+export function superSubsOf(
+  scripts: FamilySuperSubs | undefined,
+  family: string,
+  weight: number,
+  italic: boolean,
+): SuperSubs {
   const files = scripts?.get(family) ?? []
   const slanted = files.filter((file) => file.italic === italic)
-  const nearest = (slanted.length > 0 ? slanted : files).reduce<FontScripts | null>(
+  const nearest = (slanted.length > 0 ? slanted : files).reduce<FontSuperSubs | null>(
     (best, file) => (best && Math.abs(best.weight - weight) <= Math.abs(file.weight - weight) ? best : file),
     null,
   )
-  return nearest ? { superscript: nearest.superscript, subscript: nearest.subscript } : USUAL_SCRIPTS
+  return nearest ? { superscript: nearest.superscript, subscript: nearest.subscript } : USUAL_SUPER_SUBS
 }
 
 /** Where the table with this tag starts in a font file, or null when the file has none. */

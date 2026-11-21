@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
 
-import { familyFeatures, familyScripts, fontFeatureTags, fontScripts, scriptsOf, USUAL_SCRIPTS } from './font-features.ts'
+import {
+  familyFeatures,
+  familySuperSubs,
+  fontFeatureTags,
+  fontSuperSubs,
+  superSubsOf,
+  USUAL_SUPER_SUBS,
+} from './font-features.ts'
 
 const fileOf = (family: string) => {
   const file = loadFontFiles().find((f) => f.family === family)
@@ -60,9 +67,9 @@ describe('familyFeatures', () => {
   })
 })
 
-describe('fontScripts', () => {
+describe('fontSuperSubs', () => {
   it('reads a font’s superscript and subscript size and offset as shares of its em, with its weight and slant', () => {
-    expect(fontScripts(fileOf('Noto Sans'))).toEqual({
+    expect(fontSuperSubs(fileOf('Noto Sans'))).toEqual({
       weight: 400,
       italic: false,
       superscript: { scale: 0.6, shift: 0.35 },
@@ -72,7 +79,7 @@ describe('fontScripts', () => {
 
   it('takes the usual 65 %, raised 35 % or lowered 14 % of an em where a font leaves them at zero', () => {
     const unset = withOs2(fileOf('Noto Sans'), { subSize: 0, subOffset: 0, supSize: 0, supOffset: 0, italic: true })
-    expect(fontScripts(unset)).toEqual({
+    expect(fontSuperSubs(unset)).toEqual({
       weight: 400,
       italic: true,
       superscript: { scale: 0.65, shift: 0.35 },
@@ -81,26 +88,40 @@ describe('fontScripts', () => {
   })
 
   it('takes the usual values from bytes that are not a font', () => {
-    expect(fontScripts(new Uint8Array([1, 2, 3]))).toEqual({ weight: 400, italic: false, ...USUAL_SCRIPTS })
+    expect(fontSuperSubs(new Uint8Array([1, 2, 3]))).toEqual({ weight: 400, italic: false, ...USUAL_SUPER_SUBS })
   })
 })
 
-describe('scriptsOf', () => {
+describe('familySuperSubs', () => {
+  it('lists each family’s files’ superscripts and subscripts under the family', () => {
+    const sans = fileOf('Noto Sans')
+    const families = familySuperSubs([
+      { family: 'Sans', bytes: sans },
+      { family: 'Sans', bytes: fileOf('Noto Sans Devanagari') },
+      { family: 'Other', bytes: sans },
+    ])
+    expect([...families.keys()]).toEqual(['Sans', 'Other'])
+    expect(families.get('Sans')).toHaveLength(2)
+    expect(families.get('Other')).toEqual([fontSuperSubs(sans)])
+  })
+})
+
+describe('superSubsOf', () => {
   const sans = fileOf('Noto Sans')
-  const scripts = familyScripts([
+  const scripts = familySuperSubs([
     { family: 'Sans', bytes: withOs2(sans, { weight: 400, supSize: 500 }) },
     { family: 'Sans', bytes: withOs2(sans, { weight: 700, supSize: 700 }) },
     { family: 'Sans', bytes: withOs2(sans, { weight: 400, supSize: 800, italic: true }) },
   ])
 
   it('gives the scripts of the family’s file nearest the weight, in the slant asked for', () => {
-    expect(scriptsOf(scripts, 'Sans', 600, false).superscript.scale).toBe(0.7)
-    expect(scriptsOf(scripts, 'Sans', 500, false).superscript.scale).toBe(0.5)
-    expect(scriptsOf(scripts, 'Sans', 700, true).superscript.scale).toBe(0.8)
+    expect(superSubsOf(scripts, 'Sans', 600, false).superscript.scale).toBe(0.7)
+    expect(superSubsOf(scripts, 'Sans', 500, false).superscript.scale).toBe(0.5)
+    expect(superSubsOf(scripts, 'Sans', 700, true).superscript.scale).toBe(0.8)
   })
 
   it('gives the usual scripts for a family it has no file of', () => {
-    expect(scriptsOf(scripts, 'Other', 400, false)).toEqual(USUAL_SCRIPTS)
-    expect(scriptsOf(undefined, 'Sans', 400, false)).toEqual(USUAL_SCRIPTS)
+    expect(superSubsOf(scripts, 'Other', 400, false)).toEqual(USUAL_SUPER_SUBS)
+    expect(superSubsOf(undefined, 'Sans', 400, false)).toEqual(USUAL_SUPER_SUBS)
   })
 })

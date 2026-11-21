@@ -13,8 +13,8 @@ import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, wit
 import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
-import { madeUpScripts, paragraphShape, scriptLineStyle } from './script-position.ts'
-import { madeUpSmallCaps } from './small-caps.ts'
+import { madeUpSmallCaps, type StyledPiece } from './small-caps.ts'
+import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
@@ -58,7 +58,7 @@ export interface TextLayout {
   /** The base font size shrink to fit chose, over the one set; 1 without it. */
   scale: number
   /** The most pixels a made-up superscript or subscript moves its glyphs off their line's baseline; 0 without one. */
-  scriptShift: number
+  superSubShift: number
   align: TextProps['align']
   rtl: boolean
   delete(): void
@@ -68,7 +68,7 @@ export type ParagraphCache = ReturnType<typeof paragraphCache>
 
 type Style = TextProps['style']
 /** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
-type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familyScripts'>
+type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familySuperSubs'>
 
 const ELLIPSIS = '\u2026'
 /** The pass that draws a text's characters. */
@@ -185,11 +185,11 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Superscripts and subscripts the fonts lack are drawn smaller and moved off the baseline, and
   // small caps they lack as smaller capitals, in pieces of their own.
   const shape = paragraphShape(ck, resources.fonts, rtl, (style) => textStyle(ck, style, fallbacks, FILL))
-  const scripted = madeUpScripts(cased, pieces, shape, resources.familyScripts, resources.familyFeatures)
+  const scripted = madeUpSuperSubs(cased, pieces, shape, resources.familySuperSubs, resources.familyFeatures)
   const { shown, pieces: drawn } = madeUpSmallCaps(cased, scripted, resources.familyFeatures)
 
-  /** A paragraph's style; `lines` is the style its lines keep at least, where its own runs are smaller. */
-  const paragraphStyle = (style: Style, extra: { maxLines?: number; ellipsis?: string } = {}, lines?: Style) =>
+  /** A paragraph's style; `strut` is the style its lines are at least as tall as, where its own runs are smaller. */
+  const paragraphStyle = (style: Style, extra: { maxLines?: number; ellipsis?: string } = {}, strut?: Style) =>
     new ck.ParagraphStyle({
       textAlign: {
         start: ck.TextAlign.Start,
@@ -199,7 +199,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       }[props.align],
       textDirection: rtl ? ck.TextDirection.RTL : ck.TextDirection.LTR,
       textStyle: textStyle(ck, style, fallbacks, FILL),
-      ...(lines ? { strutStyle: strutStyle(ck, lines, fallbacks) } : {}),
+      ...(strut ? { strutStyle: strutStyle(ck, strut, fallbacks) } : {}),
       ...extra,
     })
   const outlined = (under: boolean) =>
@@ -207,8 +207,15 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
-  const push = (builder: ParagraphBuilder, piece: { style: Style; script?: { baselineShift: number } }, pass: TextPass) =>
-    pushPainted(ck, builder, textStyle(ck, piece.style, fallbacks, pass, piece.script?.baselineShift), piece.style, pass, box)
+  const push = (builder: ParagraphBuilder, piece: Pick<StyledPiece, 'style' | 'superSub'>, pass: TextPass) =>
+    pushPainted(
+      ck,
+      builder,
+      textStyle(ck, piece.style, fallbacks, pass, piece.superSub?.baselineShift),
+      piece.style,
+      pass,
+      box,
+    )
   /**
    * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.
    * `text` is what it draws in place of the shown text, of the same length.
@@ -223,9 +230,9 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   ) => {
     // An empty paragraph takes the style typing would give it: the character before's.
     const lead = start < end ? styleAt(start) : styleAt(Math.max(0, start - 1))
-    const lines = scriptLineStyle(drawn.filter((p) => p.start < end && p.end > start)) ?? undefined
+    const strut = superSubLineStyle(drawn.filter((p) => p.start < end && p.end > start))
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(
-      paragraphStyle(start === 0 && end === props.text.length ? base : lead, extra, lines),
+      paragraphStyle(start === 0 && end === props.text.length ? base : lead, extra, strut),
       resources.fonts,
     )
     for (const piece of drawn) {
@@ -259,8 +266,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const markers = ranges.map(({ start, end }) => {
     if (!props.list || start === end) return null
     number++
-    const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(styleAt(start)), resources.fonts)
-    push(builder, { style: styleAt(start) }, FILL)
+    // A marker is never raised or lowered, whichever its paragraph's first character is.
+    const style = withoutSuperSubs(styleAt(start))
+    const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(style), resources.fonts)
+    push(builder, { style }, FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.
     builder.addText(props.list === 'bullet' ? '\u2022' : `${number}.`)
     builder.pop()
@@ -372,7 +381,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     width,
     height: y,
     scale,
-    scriptShift: Math.max(0, ...drawn.map((p) => Math.abs(p.script?.baselineShift ?? 0))),
+    superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(p.superSub?.baselineShift ?? 0))),
     align: props.align,
     rtl,
     delete() {
@@ -452,7 +461,7 @@ function textStyle(
     : 0
   return new ck.TextStyle({
     color: color(ck, style.color),
-    fontFamilies: [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)],
+    fontFamilies: familiesOf(style, resources),
     fontSize: style.fontSize,
     fontStyle: {
       weight: { value: style.fontWeight },
@@ -474,7 +483,7 @@ function textStyle(
 function strutStyle(ck: CanvasKit, style: Style, resources: Pick<Resources, 'fallbackFamilies'>): StrutStyle {
   return {
     strutEnabled: true,
-    fontFamilies: [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)],
+    fontFamilies: familiesOf(style, resources),
     fontSize: style.fontSize,
     fontStyle: {
       weight: { value: style.fontWeight },
@@ -482,6 +491,11 @@ function strutStyle(ck: CanvasKit, style: Style, resources: Pick<Resources, 'fal
     },
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
   }
+}
+
+/** The families a style's characters are drawn from: its own, then the fallbacks. */
+function familiesOf(style: Style, resources: Pick<Resources, 'fallbackFamilies'>): string[] {
+  return [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)]
 }
 
 /**

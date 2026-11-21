@@ -9,10 +9,14 @@ import { BlockList, isIP } from 'node:net'
 import type { Readable } from 'node:stream'
 import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib'
 
-/** A file fetched from a link: its bytes, and the type its site said it is (which nothing trusts). */
+/**
+ * A file fetched from a link: its bytes, the type its site said it is (which nothing trusts), and its link after
+ * the redirects.
+ */
 export interface FetchedFile {
   bytes: Uint8Array
   contentType: string | null
+  url: string
 }
 
 /** How many decoded bytes a fetch may read, and how long it may take, redirects and all. */
@@ -30,8 +34,15 @@ export interface SafeFetchSettings {
 /** A lookup's answer: an error, or the address and its family, or every address when asked for all. */
 export type LookupCallback = (error: Error | null, address?: string | LookupAddress[], family?: number) => void
 
-/** A link that wasn't fetched, in a sentence a person or an agent can act on. */
-export class FetchRefused extends Error {}
+/** A link that wasn't fetched, in a sentence a person or an agent can act on, with the status its site answered. */
+export class FetchRefused extends Error {
+  /** The site's answer that refused it, such as 403; null when no answer did. */
+  readonly status: number | null
+  constructor(message: string, status: number | null = null) {
+    super(message)
+    this.status = status
+  }
+}
 
 /** `SafeFetchSettings` with nothing left out. */
 type Reach = Required<SafeFetchSettings>
@@ -130,7 +141,7 @@ export async function safeFetch(
         throw refusedStatus(url, status)
       }
       const bytes = await readBody(url, response, maxBytes, signal)
-      return { bytes, contentType: response.headers['content-type'] ?? null }
+      return { bytes, contentType: response.headers['content-type'] ?? null, url: url.href }
     }
   } catch (error) {
     if (error instanceof FetchRefused) throw error
@@ -237,18 +248,17 @@ function checkedLookup(url: URL, resolve: Reach['resolve']): RequestOptions['loo
 
 /** The refusal of an answer that is neither the file nor a redirect, by its status. */
 function refusedStatus(url: URL, status: number): FetchRefused {
-  const host = url.hostname
+  return new FetchRefused(statusSentence(url.hostname, status), status)
+}
+
+/** What a refusal by its status tells. */
+function statusSentence(host: string, status: number): string {
   if (status === 401 || status === 403 || status === 451)
-    return new FetchRefused(
-      `${host} refused to give Dazbee this file (${status}): it may need a sign-in or turn servers away; ask the person for another link, or for the file itself`,
-    )
-  if (status === 404 || status === 410)
-    return new FetchRefused(`Nothing is at that link on ${host} (${status}); check the link`)
-  if (status === 429)
-    return new FetchRefused(`${host} is turning requests away for now (429); try again later, or ask for another link`)
-  if (status >= 500)
-    return new FetchRefused(`${host} failed to answer (${status}); try again in a moment, or ask for another link`)
-  return new FetchRefused(`${host} answered ${status} instead of the file; ask for another link`)
+    return `${host} refused to give Dazbee this file (${status}): it may need a sign-in or turn servers away; ask the person for another link, or for the file itself`
+  if (status === 404 || status === 410) return `Nothing is at that link on ${host} (${status}); check the link`
+  if (status === 429) return `${host} is turning requests away for now (429); try again later, or ask for another link`
+  if (status >= 500) return `${host} failed to answer (${status}); try again in a moment, or ask for another link`
+  return `${host} answered ${status} instead of the file; ask for another link`
 }
 
 /**

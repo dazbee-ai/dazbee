@@ -1,14 +1,33 @@
-// The routes of a brand's kit: reading it and saving it whole.
+// The routes of a brand's kit: reading it, saving it whole, and filling it from the brand's website.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
-import { SaveBrandKit } from '@dazbee/schema'
+import { BrandFromWebsite, SaveBrandKit } from '@dazbee/schema'
+import type { Storage } from '@dazbee/storage'
 
+import { requestLimit } from '../admin/waiting-list.ts'
+import type { SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
 import { getBrandKit, saveBrandKit } from './brand-kits.ts'
+import { brandFromWebsite, ReadingWebsitesBusy, readingWebsitesBusy } from './from-website.ts'
 
-export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
+export function brandKitRoutes({
+  db,
+  storage,
+  outsideFetch,
+  websitesPerHour,
+}: {
+  db: Db
+  storage: Storage
+  /** How the safe fetch reaches outside sites. */
+  outsideFetch: SafeFetchSettings
+  /** The websites a member may read into kits in an hour, themselves and their agents together. */
+  websitesPerHour: number
+}): Hono<Env> {
   const app = new Hono<Env>()
+  const websites = requestLimit({ perWindow: websitesPerHour })
+  // The members reading a website now, each one at a time.
+  const readingMembers = new Set<string>()
 
   // Brand kits (#53): the colours, fonts and text styles designs bind to, the logo and the tone of voice.
   app.get('/brands/:brandId/kit', async (c) => {
@@ -23,6 +42,29 @@ export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
     const saved = await saveBrandKit(db, workspaceId, c.var.brand.id, input)
     if (saved === 'changed') return c.json(error('This kit changed since you opened it'), 409)
     return c.json(saved)
+  })
+
+  // The kit filled from the brand's website, by whoever may save the kit.
+  app.post('/brands/:brandId/kit/from-website', requireWriter, async (c) => {
+    const { workspaceId } = c.var.membership
+    const { userId } = c.var.session
+    const input = await body(c.req.raw, BrandFromWebsite)
+    if (input instanceof Response) return input
+    if (readingMembers.has(userId))
+      return c.json(error('This member is already reading a website into a kit; wait for it to finish'), 429)
+    // Checked before the read is counted, so a member Dazbee is too busy for keeps it.
+    if (readingWebsitesBusy()) throw new ReadingWebsitesBusy()
+    if (!websites.take(userId))
+      return c.json(
+        error(`This member has read as many websites as they may in an hour (${websitesPerHour}); try again later`),
+        429,
+      )
+    readingMembers.add(userId)
+    try {
+      return c.json(await brandFromWebsite(db, storage, outsideFetch, workspaceId, c.var.brand.id, input))
+    } finally {
+      readingMembers.delete(userId)
+    }
   })
 
   return app

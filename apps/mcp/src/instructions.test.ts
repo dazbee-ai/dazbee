@@ -122,6 +122,10 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain('list_fonts')
   })
 
+  it('tells of brand_from_website, which fills a brand kit from its website', () => {
+    expect(INSTRUCTIONS).toContain('brand_from_website fills a brand kit’s logo, colours and fonts from its website')
+  })
+
   it('fits the 4,096 characters Claude Code takes of a server’s instructions', () => {
     expect(INSTRUCTIONS.length).toBeLessThan(4096)
   })

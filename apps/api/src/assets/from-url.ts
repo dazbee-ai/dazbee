@@ -1,5 +1,6 @@
-// Pictures a brand adds from an outside link: fetched through the safe fetch, stored by their hash and recorded
-// with the upload path's checks (the hash, the header, CanvasKit's decode, the SVG reader), as an upload is.
+// Pictures a brand adds from outside, from a link or a website's logo: fetched through the safe fetch, stored by
+// their hash and recorded with the upload path's checks (the hash, the header, CanvasKit's decode, the SVG reader),
+// as an upload is.
 import { createHash } from 'node:crypto'
 
 import type { Db } from '@dazbee/db'
@@ -49,7 +50,7 @@ let adding = 0
  * It throws `FetchRefused` for a link the safe fetch refuses, `InvalidUpload` for a file that isn't a picture
  * Dazbee takes from a link, and `AddingFromUrlBusy` past `MAX_ADDING_AT_ONCE`.
  */
-export async function addAssetFromUrl(
+export function addAssetFromUrl(
   db: Db,
   storage: Storage,
   outside: SafeFetchSettings,
@@ -57,20 +58,48 @@ export async function addAssetFromUrl(
   brandId: string,
   input: AddAssetFromUrl,
 ): Promise<AssetSummary> {
+  return addingFromOutside(async () => {
+    const file = await safeFetch(input.url, { maxBytes: MAX_UPLOAD_BYTES, timeoutMs: FROM_URL_TIMEOUT_MS }, outside)
+    return recordFetched(db, storage, workspaceId, brandId, file, {
+      name: input.name ?? nameOf(input.url),
+      tags: input.tags ?? [],
+    })
+  })
+}
+
+/**
+ * What `add` gives, run while it holds one of the `MAX_ADDING_AT_ONCE` places for a picture from outside, as each
+ * holds a file and its decode; it throws `AddingFromUrlBusy` when none is free.
+ */
+export async function addingFromOutside<T>(add: () => Promise<T>): Promise<T> {
   if (adding >= MAX_ADDING_AT_ONCE) throw new AddingFromUrlBusy()
   adding++
   try {
-    const file = await safeFetch(input.url, { maxBytes: MAX_UPLOAD_BYTES, timeoutMs: FROM_URL_TIMEOUT_MS }, outside)
-    const contentType = pictureType(file)
-    const sha256 = createHash('sha256').update(file.bytes).digest('hex')
-    const key = originalKey(workspaceId, sha256)
-    if (!(await storage.exists(key))) await storage.put(key, file.bytes, contentType)
-    const name = input.name ?? nameOf(input.url)
-    const asset = await recordAsset(db, storage, workspaceId, brandId, sha256, name, file.bytes)
-    return withTags(db, workspaceId, brandId, asset, input.tags)
+    return await add()
   } finally {
     adding--
   }
+}
+
+/**
+ * The asset of a picture fetched from outside, recorded as an upload is: stored by its hash, a new asset named
+ * `name` or the brand's asset of the same bytes, with `tags` joining its own. It runs inside `addingFromOutside`,
+ * and throws `InvalidUpload` for a file that isn't a picture Dazbee takes from outside.
+ */
+export async function recordFetched(
+  db: Db,
+  storage: Storage,
+  workspaceId: string,
+  brandId: string,
+  file: FetchedFile,
+  { name, tags }: { name: string; tags: readonly string[] },
+): Promise<AssetSummary> {
+  const contentType = pictureType(file)
+  const sha256 = createHash('sha256').update(file.bytes).digest('hex')
+  const key = originalKey(workspaceId, sha256)
+  if (!(await storage.exists(key))) await storage.put(key, file.bytes, contentType)
+  const asset = await recordAsset(db, storage, workspaceId, brandId, sha256, name, file.bytes)
+  return withTags(db, workspaceId, brandId, asset, tags)
 }
 
 /**

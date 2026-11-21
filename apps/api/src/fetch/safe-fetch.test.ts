@@ -38,7 +38,11 @@ describe('safeFetch', () => {
     sites.serve('images.test', '/shoe.png', (_request, response) => {
       response.writeHead(200, { 'content-type': 'image/png' }).end(bytes)
     })
-    expect(await fetchFrom('https://images.test/shoe.png')).toEqual({ bytes, contentType: 'image/png' })
+    expect(await fetchFrom('https://images.test/shoe.png')).toEqual({
+      bytes,
+      contentType: 'image/png',
+      url: 'https://images.test/shoe.png',
+    })
     expect(sites.connected).toEqual([PUBLIC_ADDRESS])
   })
 
@@ -133,7 +137,9 @@ describe('safeFetch', () => {
     redirect('b.test', '/again', 'https://c.test/photo.jpg?size=large', 308)
     sites.resolveTo('c.test', [PUBLIC_ADDRESS])
     sites.serve('c.test', '/photo.jpg?size=large', (_request, response) => response.end(png(2, 2, 'end')))
-    expect((await fetchFrom('https://a.test/start')).bytes).toEqual(png(2, 2, 'end'))
+    const fetched = await fetchFrom('https://a.test/start')
+    expect(fetched.bytes).toEqual(png(2, 2, 'end'))
+    expect(fetched.url).toBe('https://c.test/photo.jpg?size=large')
     expect(sites.visits.map(({ host, path }) => `${host}${path}`)).toEqual([
       'a.test/start',
       'b.test/next',
@@ -209,10 +215,11 @@ describe('safeFetch', () => {
     [429, 'a.test is turning requests away for now (429); try again later, or ask for another link'],
     [503, 'a.test failed to answer (503); try again in a moment, or ask for another link'],
     [418, 'a.test answered 418 instead of the file; ask for another link'],
-  ])('tells a site’s %i in a sentence', async (status, sentence) => {
+  ])('tells a site’s %i in a sentence, keeping the status', async (status, sentence) => {
     sites.resolveTo('a.test', [PUBLIC_ADDRESS])
     sites.serve('a.test', '/photo.png', (_request, response) => response.writeHead(status).end('no'))
     expect(await refusalOf('https://a.test/photo.png')).toBe(sentence)
+    await expect(fetchFrom('https://a.test/photo.png')).rejects.toMatchObject({ status })
   })
 
   it('tells a host with no address, and a site that can’t be reached', async () => {
@@ -287,6 +294,7 @@ describe('safeFetch', () => {
     expect(await fetchFrom('https://a.test/logo.svg')).toEqual({
       bytes: new Uint8Array(svg),
       contentType: 'image/svg+xml',
+      url: 'https://a.test/logo.svg',
     })
   })
 

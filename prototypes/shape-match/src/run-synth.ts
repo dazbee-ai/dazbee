@@ -35,6 +35,7 @@ for (const b of blocks) {
     why: r.why,
     ssim: r.score?.ssim ?? null,
     deltaE: r.score?.deltaE ?? null,
+    deltaEContent: r.score?.deltaEContent ?? null,
     same: r.score?.same ?? false,
     layers: r.layers.length,
     truthLayers: b.layers.length,

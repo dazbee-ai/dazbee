@@ -56,14 +56,14 @@ export function score(target: Img, made: Img, keepMap = false): Score {
 const PAIRS = new Map<number, number>()
 
 /** ΔE00 of two colours rounded to 8 bits, as the PNGs hold them. */
-function pairDeltaE(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) {
+export function pairDeltaE(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) {
   const k1 = (Math.round(r1) << 16) | (Math.round(g1) << 8) | Math.round(b1)
   const k2 = (Math.round(r2) << 16) | (Math.round(g2) << 8) | Math.round(b2)
   if (k1 === k2) return 0
   const key = k1 * 16777216 + k2
   let d = PAIRS.get(key)
   if (d === undefined) {
-    if (PAIRS.size > 4_000_000) PAIRS.clear()
+    if (PAIRS.size > 1_000_000) PAIRS.clear()
     d = deltaE00(rgbToLab(k1 >> 16, (k1 >> 8) & 255, k1 & 255), rgbToLab(k2 >> 16, (k2 >> 8) & 255, k2 & 255))
     PAIRS.set(key, d)
   }

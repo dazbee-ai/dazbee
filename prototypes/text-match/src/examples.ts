@@ -16,7 +16,7 @@ import { makeDrawer, type TextLook, textProps } from './draw.ts'
 import { placeAndRank, untilt } from './match.ts'
 import { measure } from './measure.ts'
 import { type Rgba, writePng } from './png.ts'
-import { score } from './score.ts'
+import { ruleV2, score } from './score.ts'
 import { sideBySide } from './sheet.ts'
 
 const { values } = parseArgs({
@@ -80,7 +80,7 @@ for (const ad of ads) {
           const place = untilt({ ...fit.place }, { ...m, angle: Number(L.angle ?? 0) })
           oldImg = drawLook(faces, look, place)
           const s = score(b.block.rgba, oldImg, m.background)
-          oldScores.push({ id, family, keep: o.keep_as_image, ...s })
+          oldScores.push({ id, family, keep: o.keep_as_image, ...s, v2: ruleV2(b.block.rgba, oldImg, m.background) })
         }
       }
     }
@@ -93,4 +93,4 @@ for (const ad of ads) {
 }
 writeFileSync(join(out, 'old-worker-scores.json'), JSON.stringify(oldScores, null, 1))
 const same = oldScores.filter((s) => s.same).length
-console.log(`old worker: ${oldScores.length} blocks drawn, ${same} look the same by the shared rule`)
+console.log(`old worker: ${oldScores.length} blocks drawn, ${same} look the same by the shared rule, ${oldScores.filter((s) => (s.v2 as { same: boolean }).same).length} by rule v2`)

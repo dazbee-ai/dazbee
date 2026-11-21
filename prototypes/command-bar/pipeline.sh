@@ -8,9 +8,11 @@ train() {  # rank
   local r=$1
   if [ -f ../runs/r$r/log.jsonl ] && grep -q '"done"' ../runs/r$r/log.jsonl; then log "r$r trained"; return; fi
   log "train r$r"
-  local init=""
-  [ -f ../runs/r$r-init.safetensors ] && init="--init-from ../runs/r$r-init.safetensors"
-  python train_lora.py $init --rank $r --alpha $((2 * r)) --epochs 12 --patience 4 --max-len 544 --batch 8 --out ../runs/r$r
+  local init="" epochs=12
+  # A run cut short before its optimiser state was saved restarts from its last adapter, for
+  # the epochs that remain, with a fresh optimiser and schedule.
+  [ -f ../runs/r$r-init.safetensors ] && { init="--init-from ../runs/r$r-init.safetensors"; epochs=$(cat ../runs/r$r-init.epochs); }
+  python train_lora.py $init --rank $r --alpha $((2 * r)) --epochs $epochs --patience 4 --max-len 544 --batch 16 --out ../runs/r$r
 }
 stage() {  # model stage marker
   local m=$1 s=$2 mark=../results/.done-$1-$2

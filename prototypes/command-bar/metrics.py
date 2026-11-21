@@ -29,24 +29,49 @@ def canon(calls):
                              sort_keys=True) for c in calls)
 
 
+# Which call counts: "model" takes each turn's call as the model wrote it in its reasoning line
+# (model_call.py), "engine" the engine's call after its repair step and gates.
+CALLS = "model"
+
+
+def _turns(row):
+    """The router turn and the action turn that followed the router's pick, as CALLS reads them."""
+    from model_call import turn_call
+    from tools import ACTIONS, AREAS
+    r1 = row["r1"]
+    if CALLS == "engine":
+        route = r1["calls"][:1]
+    else:
+        route = turn_call(r1, AREAS)
+    area = route[0]["name"] if route else None
+    if area not in ACTIONS:
+        return r1, None, None
+    picked = r1["calls"][0]["name"] if r1["calls"] else None
+    t2 = row.get("r2") if picked == area else (row.get("others") or {}).get(area)
+    return r1, t2, area
+
+
 def final_call(row):
-    r1, r2 = row["r1"], row.get("r2")
-    if not r1["calls"] or not r2 or not r2["calls"]:
+    from model_call import turn_call
+    from tools import ACTIONS
+    r1, t2, area = _turns(row)
+    if t2 is None:
         return []
-    return r2["calls"][:1] if len(r2["calls"]) >= 1 else []
+    if CALLS == "engine":
+        return (t2.get("calls") or [])[:1]
+    return turn_call(t2, ACTIONS[area])
 
 
 def confidence(row, how="min"):
-    c1 = row["r1"].get("conf")
-    c2 = (row.get("r2") or {}).get("conf")
+    r1, t2, _ = _turns(row)
+    c1 = r1.get("conf")
+    c2 = (t2 or {}).get("conf")
     c1 = 1.0 if c1 is None else c1
     c2 = 1.0 if c2 is None else c2
     if how == "c2":
         return c2
     if how == "prod":
         return c1 * c2
-    if how == "head":
-        return row.get("head_conf", min(c1, c2))
     return min(c1, c2)
 
 
@@ -87,7 +112,7 @@ def evaluate(rows, how="min", threshold=None):
     off = [r for r in rows if not r["answers"]]
     exact = [canon(final_call(r)) == canon(r["answers"]) for r in rows]
     called = [(confidence(r, how), e) for r, e in zip(rows, exact) if final_call(r)]
-    route_ok = sum(1 for r in on if r["r1"]["calls"] and r["r1"]["calls"][0]["name"] == r["area"])
+    route_ok = sum(1 for r in on if _turns(r)[2] == r["area"])
     out = {
         "n": n,
         "exact": sum(exact) / n,
@@ -142,8 +167,10 @@ def candidates(row):
     turns = dict(row.get("others") or {})
     if picked and row.get("r2"):
         turns[picked] = row["r2"]
+    from model_call import turn_call
+    from tools import ACTIONS
     for area, t in turns.items():
-        made = t["calls"] or t["held"]
+        made = turn_call(t, ACTIONS[area]) if CALLS == "model" else (t["calls"] or t["held"])
         if made and t.get("conf") is not None:
             out.append((t["conf"], made[0]))
     seen, ranked = set(), []
@@ -173,10 +200,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--conf", default="min")
+    ap.add_argument("--calls", default="model", choices=["model", "engine"])
     ap.add_argument("--threshold", type=float)
     ap.add_argument("--pick")
     ap.add_argument("--target", type=float, default=0.01)
     args = ap.parse_args()
+    global CALLS
+    CALLS = args.calls
     if args.pick:
         print(json.dumps(pick(load(args.pick), args.conf, args.target)))
     for path in args.paths:

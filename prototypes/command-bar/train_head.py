@@ -34,6 +34,7 @@ sys.path.insert(0, HERE)
 
 from gen_data import reasoning  # noqa: E402
 from metrics import auroc, canon, ece  # noqa: E402
+from model_call import turn_call  # noqa: E402
 from tools import ACTIONS, AREAS, TOOL  # noqa: E402
 
 
@@ -48,11 +49,12 @@ def render(query, tools, calls, reasoning_line):
 
 
 def engine_examples(rows, source):
-    """Head examples from the engine's own calls, both turns, and other areas' turn two."""
+    """Head examples from the model's own calls through the engine (as it wrote them, before the
+    engine's repair), both turns, and other areas' turn two."""
     out = []
     for r in rows:
         gold_area, gold = r["area"], r["answers"]
-        made = r["r1"]["calls"] or r["r1"]["held"]
+        made = turn_call(r["r1"], AREAS)
         if made:
             ok = bool(gold_area) and made[0]["name"] == gold_area
             out.append((render(r["query"], AREAS, made[:1], r["r1"]["reasoning"]), int(ok), source + "/route"))
@@ -62,7 +64,7 @@ def engine_examples(rows, source):
         for a, t in (r.get("others") or {}).items():
             turns.append((a, t))
         for area, t in turns:
-            made = t["calls"] or t["held"]
+            made = turn_call(t, ACTIONS[area])
             if not made:
                 continue
             ok = area == gold_area and canon(made[:1]) == canon(gold)

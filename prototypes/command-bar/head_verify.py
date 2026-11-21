@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from tools import ACTIONS, AREAS  # noqa: E402
+from model_call import turn_call  # noqa: E402
 from train_head import render  # noqa: E402
 
 
@@ -53,7 +54,7 @@ def main():
         for tools, t in [(AREAS, r["r1"]), (ACTIONS.get(r["r1"]["calls"][0]["name"]) if r["r1"]["calls"] else None, r.get("r2"))]:
             if not tools or not t or t.get("conf") is None:
                 continue
-            made = t["calls"] or t["held"]
+            made = turn_call(t, tools)
             if not made:
                 continue
             ids = [BOS_ID] + tok.encode(render(r["query"], tools, made[:1], t["reasoning"]))

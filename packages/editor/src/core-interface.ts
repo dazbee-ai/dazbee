@@ -294,8 +294,8 @@ export interface EditorInput {
   /** Takes one key input. */
   key(e: KeyInput): KeyAnswer
   /**
-   * Types text that came with no key (the system's emoji keyboard, dictation, an input method's
-   * committed text) into the text being edited; false while none is.
+   * Types text into the text being edited over its selected range, as a paste of it; false while
+   * none is. The stage field sends what it takes in through `fieldChanged` instead.
    */
   text(text: string): boolean
   /**

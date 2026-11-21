@@ -718,7 +718,10 @@
 .stage-overlay .presence-frame {
   outline: 2px solid currentColor;
 }
-/* Another person's cursor: the dart's tip at their pointer, edged in white, their name in a tag beside it. */
+/*
+ * Another person's cursor: the dart's tip at their pointer, edged in white, their name in a tag beside
+ * it; an agent's tag starts with its avatar and holds its note under the name.
+ */
 .stage-overlay .presence-cursor {
   position: absolute;
   width: 0;
@@ -738,20 +741,40 @@
   stroke-width: 1.5px;
   stroke-linejoin: round;
 }
-.stage-overlay .presence-name {
+.stage-overlay .presence-tag {
   position: absolute;
   inset-inline-start: 12px;
   top: 16px;
-  max-width: 200px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  width: max-content;
+  max-width: 220px;
   padding: 3px 6px;
   border-radius: 4px;
   font-size: var(--text-caption);
-  font-weight: 600;
   line-height: 14px;
+}
+.stage-overlay .presence-tag:has(> .presence-name:empty:only-child) {
+  display: none;
+}
+.stage-overlay .presence-avatar {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.stage-overlay .presence-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.stage-overlay .presence-name:empty {
-  display: none;
+.stage-overlay .presence-note {
+  flex: 1 0 100%;
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }

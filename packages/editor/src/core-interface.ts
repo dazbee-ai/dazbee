@@ -121,6 +121,8 @@ export interface OtherPresence {
   person: number
   /** Their index into `PEOPLE_COLOURS`. */
   colour: number
+  /** The tab is an agent's, as its token says. */
+  agent?: true
   presence: Presence
 }
 

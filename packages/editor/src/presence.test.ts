@@ -153,8 +153,30 @@ describe('editorPresence: shown', () => {
         cursor: { x: 210, y: 120 },
         layers: [{ frame: SQ, id: 'a' }],
         frame: SQ,
+        agent: false,
+        note: null,
       },
-      { tabId: 4, name: 'Bob', colour: PEOPLE_COLOURS[0], cursor: null, layers: [], frame: null },
+      {
+        tabId: 4,
+        name: 'Bob',
+        colour: PEOPLE_COLOURS[0],
+        cursor: null,
+        layers: [],
+        frame: null,
+        agent: false,
+        note: null,
+      },
+    ])
+  })
+
+  it('gives an agent marked as one, with its note; a note heard from a person is not shown', () => {
+    const shown = heard([
+      [1, { ...other(1, 'Claude (agent)', { note: 'Writing the headline' }), agent: true }],
+      [2, other(2, 'Bob (agent)', { note: 'Pretending' })],
+    ]).shown()
+    expect(shown.map(({ name, agent, note }) => ({ name, agent, note }))).toEqual([
+      { name: 'Claude (agent)', agent: true, note: 'Writing the headline' },
+      { name: 'Bob (agent)', agent: false, note: null },
     ])
   })
 

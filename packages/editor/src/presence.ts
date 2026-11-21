@@ -3,7 +3,8 @@
 // frame. It is worked out again after each pointer input and each time what is shown changes, and
 // handed to the tab's link, which sends the latest at most 30 times a second. And the other people's,
 // as the overlay draws them: on the shown page only, each person once, as their tab there heard from
-// last, at most `PEOPLE_SHOWN` of those heard from last, each in their colour. What they show is kept
+// last, at most `PEOPLE_SHOWN` of those heard from last, each in their colour, an agent marked as one
+// with its note. What they show is kept
 // until their presence, the page, the camera, the design or the frames in view change.
 import { frameIdOf, PEOPLE_COLOURS, type Point, type Presence, PRESENCE_SELECTION } from '@dazbee/schema'
 
@@ -28,6 +29,10 @@ export interface ShownPerson {
   layers: { frame: Frame; id: string }[]
   /** Their picked frame, when it is in view. */
   frame: Frame | null
+  /** They are an agent, as their tab's token says. */
+  agent: boolean
+  /** What an agent says it is doing; null for none, and always for a person. */
+  note: string | null
 }
 
 export interface PresenceDeps {
@@ -106,7 +111,7 @@ export function editorPresence({ view, selection, pointer, link }: PresenceDeps)
       latest.set(other.person, [tabId, other])
     }
     const onPage = [...latest.values()].slice(-PEOPLE_SHOWN)
-    return onPage.map(([tabId, { name, colour, presence }]): ShownPerson => {
+    return onPage.map(([tabId, { name, colour, agent, presence }]): ShownPerson => {
       const pointer = presence.pointer && toScreen(camera, { x: presence.pointer[0], y: presence.pointer[1] })
       const layers = presence.selection.flatMap((id) => {
         const frame = design.nodes[id] ? inView.get(frameIdOf(design, id) ?? '') : undefined
@@ -119,6 +124,9 @@ export function editorPresence({ view, selection, pointer, link }: PresenceDeps)
         cursor: pointer,
         layers,
         frame: (presence.frame === null ? undefined : inView.get(presence.frame)) ?? null,
+        agent: agent === true,
+        // Only an agent's note is shown, as the server passes on only theirs.
+        note: agent === true && presence.note ? presence.note : null,
       }
     })
   }

@@ -161,7 +161,22 @@ export function editorLayerEdits({
         const drawn = going.length > 0 ? boxes.drawnInFlow(going) : undefined
         // The containers around them, as drawn before any goes: a laid-out box left with nothing in its flow keeps its size.
         const holders = going.length > 0 ? boxes.drawnHolders(going) : undefined
-        for (const [id, patch] of writes) {
+        for (const [id, { runs, ...patch }] of writes) {
+          // A text's runs are its characters' styles, which only its own edits write: each run given
+          // styles its characters.
+          if (Array.isArray(runs) && now.nodes[id]?.type === 'text') {
+            for (const run of runs as { start: number; end: number; style: Record<string, unknown> }[])
+              if (
+                !runQuietly(() =>
+                  session.run('text.edit', {
+                    id,
+                    op: { kind: 'style', at: run.start, length: run.end - run.start, style: run.style },
+                  }),
+                )
+              )
+                allowed = false
+          }
+          if (Object.keys(patch).length === 0) continue
           // A layer locked against part of the change takes the rest of it.
           const kept = going.includes(id) ? { drawn: drawn ?? {}, ...(holders ? { holders } : {}) } : {}
           if (runQuietly(() => session.run('node.update', { ids: [id], patch, ...kept }))) continue

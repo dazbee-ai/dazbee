@@ -332,6 +332,15 @@ describe('editorLayerEdits', () => {
       expect(log).toEqual(['fit words'])
     })
 
+    it('styles the characters of each run a patch gives a text, with its style, in the same undo step', () => {
+      const { edits, session, props } = harness()
+      const runs = [{ start: 1, end: 3, style: { features: { sups: false } } }]
+      expect(edits.setProps(['words'], () => ({ style: { ...STYLE, features: { subs: true } }, runs }))).toBe(true)
+      expect(props('words')).toMatchObject({ style: { features: { subs: true } }, runs })
+      session.undo()
+      expect(props('words')).toMatchObject({ style: STYLE, runs: [] })
+    })
+
     it('fits text again when its wrap style changes where its lines break', () => {
       const { edits, log } = harness()
       edits.setProps(['words'], () => ({ wrapStyle: 'balance' }))

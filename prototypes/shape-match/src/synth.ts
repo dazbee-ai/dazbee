@@ -670,7 +670,7 @@ function jpeg(ck: Awaited<ReturnType<typeof loadCanvasKit>>, img: Img, q: number
   return out
 }
 
-function degrade(ck: Awaited<ReturnType<typeof loadCanvasKit>>, img: Img, d: Degradation): Img {
+export function degrade(ck: Awaited<ReturnType<typeof loadCanvasKit>>, img: Img, d: Degradation): Img {
   switch (d) {
     case 'clean':
       return img

@@ -833,6 +833,9 @@ importers:
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5
+      hyparquet:
+        specifier: ^1.33.1
+        version: 1.33.1
 
   tests/deploy:
     devDependencies:
@@ -3218,6 +3221,9 @@ packages:
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
+
+  hyparquet@1.33.1:
+    resolution: {integrity: sha512-D623q+KpogNTsmb0sdWXKsi1zrgQTFf2A6MX0vKZChuG7kjA/O+ps7DDfSgGf0rs8SfFP7UqrsDYypxVmmgqZA==}
 
   iconoir-react@7.12.2:
     resolution: {integrity: sha512-BDOIt6qcGY4pgJ+5et2ZjuWEbVKwnpRyTLq7viN3bF+BzpxVWCNDBkMd8iVeHx+QglqciiS8ftgU5Ddvz0Rn6A==}
@@ -6279,6 +6285,8 @@ snapshots:
       setprototypeof: 1.2.0
       statuses: 2.0.2
       toidentifier: 1.0.1
+
+  hyparquet@1.33.1: {}
 
   iconoir-react@7.12.2(react@19.3.1):
     dependencies:

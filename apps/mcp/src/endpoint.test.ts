@@ -337,4 +337,73 @@ describe('mcpEndpoint', () => {
     await initialize(server.api.addAccess().token())
     expect((await server.fetch(post(INITIALIZE, server.api.addAccess().token()))).status).toBe(503)
   })
+
+  it('logs each tool call with its tool, milliseconds and the start of its refusal, and none of its input', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.call('list_brands')
+    await agent.call('open_design', { brand: 'brand-summer', design: 'anna-secret-launch' })
+    const calls = server.logged.filter((line) => line.event === 'tool call')
+    expect(calls).toEqual([
+      { event: 'tool call', tool: 'list_brands', ms: expect.any(Number), refused: false },
+      {
+        event: 'tool call',
+        tool: 'open_design',
+        ms: expect.any(Number),
+        refused: true,
+        refusal: 'There is no design “…” in this brand; list_designs names them.',
+      },
+    ])
+    expect(JSON.stringify(server.logged)).not.toContain('anna')
+  })
+
+  it('logs a call refused as too fast with its tool', async () => {
+    server = testServer({ limits: { callsBurst: 1 } })
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.call('list_brands')
+    await agent.call('list_brands')
+    expect(server.logged.at(-1)).toMatchObject({
+      event: 'tool call',
+      tool: 'list_brands',
+      refused: true,
+      refusal: expect.stringMatching(/^This agent is calling faster than Dazbee takes/),
+    })
+  })
+
+  it('logs each MCP session opened and ended, naming it without its id', async () => {
+    server = testServer()
+    const access = server.api.addAccess()
+    const agent = await server.connect(access.token())
+    const transport = agent.client.transport as unknown as { sessionId: string; terminateSession(): Promise<void> }
+    const { sessionId } = transport
+    await transport.terminateSession()
+    const idle = await server.connect(access.token())
+    server.wait(IDLE_MS + 1)
+    await expect(idle.call('list_brands')).rejects.toMatchObject({ code: 404 })
+    await server.connect(access.token())
+    await server.endpoint.close()
+    const sessions = server.logged.filter((line) => line.event !== 'tool call')
+    const [first, second, third] = sessions
+      .filter((line) => line.event === 'mcp session opened')
+      .map((line) => line.session)
+    expect(sessions).toEqual([
+      { event: 'mcp session opened', session: first },
+      { event: 'mcp session ended', session: first, why: 'client' },
+      { event: 'mcp session opened', session: second },
+      { event: 'mcp session ended', session: second, why: 'idle' },
+      { event: 'mcp session opened', session: third },
+      { event: 'mcp session ended', session: third, why: 'stopped' },
+    ])
+    expect(new Set([first, second, third]).size).toBe(3)
+    expect(JSON.stringify(server.logged)).not.toContain(sessionId)
+  })
+
+  it('logs an access’s oldest MCP session as replaced when it starts one past its limit', async () => {
+    server = testServer({ limits: { mcpSessionsPerAccess: 1 } })
+    const access = server.api.addAccess()
+    await server.connect(access.token())
+    server.wait(1000)
+    await server.connect(access.token())
+    expect(server.logged).toContainEqual({ event: 'mcp session ended', session: expect.any(String), why: 'replaced' })
+  })
 })

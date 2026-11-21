@@ -37,6 +37,8 @@ export interface TestServer {
   connect(token: string, clientInfo?: { name: string; title?: string }): Promise<TestClient>
   /** The sync server in memory holding the design: made when a tab first opens it, or when asked. */
   sync(designId: string): MemorySync
+  /** The lines the endpoint has logged, each parsed from its JSON. */
+  logged: Record<string, unknown>[]
 }
 
 /** What a test's server is given. */
@@ -66,6 +68,7 @@ export function testServer({
   const api = testApi({ now: () => time })
   // The sync server in memory of each design opened, by its id.
   const syncs = new Map<string, MemorySync>()
+  const logged: Record<string, unknown>[] = []
   const endpoint = mcpEndpoint({
     api: { url: 'http://api.test', fetch: api.fetch },
     sync: {
@@ -81,6 +84,7 @@ export function testServer({
       return () => void timers.delete(timer)
     },
     limits: { ...limitSettings({}), ...limits },
+    log: (line) => logged.push(JSON.parse(line)),
     ...(callTimeoutMs === undefined ? {} : { callTimeoutMs }),
     ...(startRenderWorker ? { startRenderWorker } : {}),
   })
@@ -107,6 +111,7 @@ export function testServer({
     api,
     endpoint,
     sync: syncOf,
+    logged,
     wait(ms) {
       time += ms
       for (const timer of [...timers].filter(({ due }) => due <= time)) {

@@ -3,23 +3,41 @@ import { describe, expect, it } from 'vitest'
 import { openSession, plainStore } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
+import type { ResourceBytes } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, parseDesign } from '@dazbee/schema'
 
 import { frameWarnings, runAgentBatchWithWarnings, whenWarned } from './agent-warnings.ts'
 
 const ck = await loadCanvasKit()
-const bytes = {
+/** A photo the size of the story, white on its left half and black on its right. */
+const halves = (() => {
+  const surface = ck.MakeSurface(360, 640)
+  if (!surface) throw new Error('no surface')
+  const canvas = surface.getCanvas()
+  canvas.clear(ck.WHITE)
+  const paint = new ck.Paint()
+  paint.setColor(ck.BLACK)
+  canvas.drawRect(ck.XYWHRect(180, 0, 180, 640), paint)
+  paint.delete()
+  const image = surface.makeImageSnapshot()
+  const png = image.encodeToBytes()
+  image.delete()
+  surface.dispose()
+  if (!png) throw new Error('no PNG')
+  return png
+})()
+const bytes: ResourceBytes = {
   fonts: loadFontFiles().map((f) => ({ family: f.family, bytes: f.bytes })),
   fallbackFamilies: [...FALLBACK_FAMILIES],
-  images: {},
+  images: { halves },
 }
 
 /** Fonts that are all here: `given`, or `bytes`. */
 const fontsHere = (given = bytes) => ({ fontsLoaded: () => Promise.resolve(), bytes: () => given })
 
 const style = { fontFamily: 'Noto Sans', fontSize: 24, color: '#111111FF' }
-/** A text that fits its box, clear of every platform’s safe-zone edge. */
+/** A text that fits its box, well inside its frame. */
 const title = {
   type: 'text',
   index: 'a1',
@@ -33,6 +51,18 @@ const square = {
   name: 'Square',
   props: { x: 20, y: 20, width: 40, height: 40, shape: { kind: 'rect' }, fills: [] },
 }
+const white = { type: 'solid', color: '#FFFFFFFF' }
+const black = { type: 'solid', color: '#000000FF' }
+/** A layer the story holds over the title, as `layer` says. */
+const over = (id: string, layer: { type: string; name: string; props: object; [key: string]: unknown }) => ({
+  [id]: { index: 'a2', parentId: 'story', link: id, ...layer },
+})
+/** A second text over the title, with its look, as `props` changes it. */
+const second = (props: object = {}) =>
+  over('second', { type: 'text', name: 'Second', props: { ...title.props, ...props } })
+/** A logo over the title: a black square with the logo's role, or what `own` gives, as `props` changes it. */
+const logo = (props: object = {}, own: object = { role: 'logo' }) =>
+  over('logo', { type: 'graphic', name: 'Logo', ...own, props: { ...square.props, fills: [black], ...props } })
 
 /**
  * A 9:16 frame, 360 × 640, holding a square and a text, each layer's props changed as `change`
@@ -40,7 +70,7 @@ const square = {
  */
 function storyWith(
   change: { square?: object; title?: object; more?: Record<string, object> } = {},
-  frame: { width?: number; height?: number; x?: number; y?: number } = {},
+  frame: { width?: number; height?: number; x?: number; y?: number; fills?: object[] } = {},
 ): Design {
   const layer = (base: { props: object }, id: string, props: object = {}) => ({
     ...base,
@@ -167,35 +197,118 @@ describe('frameWarnings', () => {
     expect(kindsOf(turned)).toEqual([])
   })
 
-  it('tells of text inside a platform’s safe-zone edge on a 9:16 frame, naming the platforms', () => {
-    expect(frameWarnings(ck, storyWith({ title: { y: 10 } }), 'story', bytes)).toEqual([
+  it('tells nothing of text inside a platform’s safe-zone edge', () => {
+    expect(kindsOf(storyWith({ title: { y: 10 } }))).toEqual([])
+    expect(kindsOf(storyWith({ title: { x: 290, width: 25, text: 'I' } }))).toEqual([])
+  })
+
+  it('tells of text smaller than the readable size for its frame, by its smallest letters', () => {
+    expect(frameWarnings(ck, storyWith({}, { width: 1080, height: 1920 }), 'story', bytes)).toEqual([
       {
         layerId: 'title',
-        kind: 'safeZone',
-        message:
-          'Text "Title" is inside the safe-zone edge of Meta, YouTube and TikTok, where the platform’s own buttons and captions cover it.',
+        kind: 'tooSmall',
+        message: 'Text "Title" is set at 24 px, under the readable size of 33 px for a 1080 × 1920 frame.',
       },
     ])
-    // YouTube's right edge is 64 px deep on a 360 px frame; Meta's 21.6 and TikTok's 40.
-    const right = frameWarnings(ck, storyWith({ title: { x: 290, width: 25, text: 'I' } }), 'story', bytes)
-    expect(right.map(({ kind, message }) => [kind, message])).toEqual([
-      [
-        'safeZone',
-        'Text "Title" is inside the safe-zone edge of YouTube, where the platform’s own buttons and captions cover it.',
-      ],
+    const big = { style: { ...style, fontSize: 40 } }
+    expect(kindsOf(storyWith({ title: big }, { width: 1080, height: 1920 }))).toEqual([])
+    // A banner shows at its own pixels.
+    const banner = { width: 300, height: 250 }
+    expect(kindsOf(storyWith({ title: { style: { ...style, fontSize: 10 } } }, banner))).toEqual([
+      ['title', 'tooSmall'],
     ])
-    expect(kindsOf(storyWith({ title: { y: 10 } }, { height: 360 }))).toEqual([])
-    // Only text is told of.
-    expect(kindsOf(storyWith({ square: { y: 0 } }))).toEqual([])
+    expect(kindsOf(storyWith({ title: { style: { ...style, fontSize: 11 } } }, banner))).toEqual([])
+    const run = { ...big, text: 'Sale now', runs: [{ start: 5, end: 8, style: { fontSize: 20 } }] }
+    expect(
+      frameWarnings(ck, storyWith({ title: run }, { width: 1080, height: 1920 }), 'story', bytes).map(
+        ({ message }) => message,
+      ),
+    ).toEqual(['Text "Title" is set at 20 px, under the readable size of 33 px for a 1080 × 1920 frame.'])
+  })
+
+  it('tells of text whose contrast with what is drawn behind it is under the ratio its size needs', () => {
+    const whiteText = { style: { ...style, color: '#FFFFFFFF' } }
+    expect(frameWarnings(ck, storyWith({ title: whiteText }, { fills: [white] }), 'story', bytes)).toEqual([
+      {
+        layerId: 'title',
+        kind: 'lowContrast',
+        message:
+          'Text "Title" is hard to read against what is drawn behind it: its contrast is 1.0:1 where lowest, and text this size needs 3:1.',
+      },
+    ])
+    expect(kindsOf(storyWith({}, { fills: [white] }))).toEqual([])
+    // Grey on white is 4.48:1: enough for large text, not for small.
+    const grey = (fontSize: number) => ({ style: { ...style, fontSize, color: '#777777FF' } })
+    expect(kindsOf(storyWith({ title: grey(24) }, { fills: [white] }))).toEqual([])
+    const small = frameWarnings(ck, storyWith({ title: grey(14) }, { fills: [white] }), 'story', bytes)
+    expect(small.map(({ kind }) => kind)).toEqual(['lowContrast'])
+    expect(small[0]?.message).toMatch(/and text this size needs 4\.5:1\.$/)
+    // A transparent frame shows on white.
+    expect(kindsOf(storyWith({ title: whiteText }))).toEqual([['title', 'lowContrast']])
+  })
+
+  it('measures contrast against the photo drawn behind the text', () => {
+    const photo = over('photo', {
+      type: 'graphic',
+      name: 'Photo',
+      index: 'a0V',
+      props: {
+        x: 0,
+        y: 0,
+        width: 360,
+        height: 640,
+        shape: { kind: 'rect' },
+        fills: [{ type: 'image', assetId: 'halves' }],
+      },
+    })
+    const whiteText = { width: 140, style: { ...style, color: '#FFFFFFFF' } }
+    expect(kindsOf(storyWith({ title: { ...whiteText, x: 20 }, more: photo }))).toEqual([['title', 'lowContrast']])
+    expect(kindsOf(storyWith({ title: { ...whiteText, x: 200 }, more: photo }))).toEqual([])
+  })
+
+  it('counts a text’s own outline as drawn behind its letters', () => {
+    const outline = { width: 3, color: '#000000FF', under: true }
+    const outlined = { style: { ...style, color: '#FFFFFFFF', outline } }
+    expect(kindsOf(storyWith({ title: outlined }, { fills: [white] }))).toEqual([])
+  })
+
+  it('tells of text whose letters overlap another text’s or the logo, once, on the layer above', () => {
+    expect(frameWarnings(ck, storyWith({ more: second({ x: 64 }) }), 'story', bytes)).toEqual([
+      { layerId: 'second', kind: 'overlap', message: 'Text "Second" overlaps text "Title".' },
+    ])
+    // Asked for only the text below, it is told of there.
+    expect(frameWarnings(ck, storyWith({ more: second({ x: 64 }) }), 'story', bytes, { layerIds: ['title'] })).toEqual([
+      { layerId: 'title', kind: 'overlap', message: 'Text "Title" overlaps text "Second".' },
+    ])
+    expect(kindsOf(storyWith({ more: second({ y: 300 }) }))).toEqual([])
+    // Boxes that overlap where no letters are don't count.
+    expect(kindsOf(storyWith({ more: second({ x: 180 }) }))).toEqual([])
+    expect(frameWarnings(ck, storyWith({ more: logo({ x: 60, y: 210 }) }), 'story', bytes)).toEqual([
+      { layerId: 'logo', kind: 'overlap', message: 'Logo "Logo" overlaps text "Title".' },
+    ])
+    const bound = { bindings: { image: 'brand:logo' } }
+    expect(kindsOf(storyWith({ more: logo({ x: 60, y: 210 }, bound) }))).toEqual([['logo', 'overlap']])
+    // Any other layer may sit under or over text.
+    expect(kindsOf(storyWith({ more: logo({ x: 60, y: 210 }, {}) }))).toEqual([])
+  })
+
+  it('tells of text or a logo partly cut off at the frame’s edge, by what it draws', () => {
+    expect(frameWarnings(ck, storyWith({ title: { x: 330 } }), 'story', bytes)).toEqual([
+      { layerId: 'title', kind: 'cutOff', message: 'Text "Title" is cut off at the edge of its frame "Story".' },
+    ])
+    // Its box passes the edge, but its letters don't.
+    expect(kindsOf(storyWith({ title: { x: 300, text: 'I' } }))).toEqual([])
+    expect(kindsOf(storyWith({ more: logo({ x: 340 }) }))).toEqual([['logo', 'cutOff']])
+    expect(kindsOf(storyWith({ more: logo({ x: 340 }, {}) }))).toEqual([])
   })
 
   it('checks only the layers asked for', () => {
-    const both = storyWith({ square: { x: 400 }, title: { y: 10 } })
+    const both = storyWith({ square: { x: 400 }, title: { x: 330 } })
     expect(kindsOf(both)).toEqual([
       ['square', 'outsideFrame'],
-      ['title', 'safeZone'],
+      ['title', 'cutOff'],
     ])
-    expect(kindsOf(both, ['title'])).toEqual([['title', 'safeZone']])
+    expect(kindsOf(both, ['title'])).toEqual([['title', 'cutOff']])
     expect(kindsOf(both, [])).toEqual([])
   })
 })
@@ -206,7 +319,7 @@ describe('runAgentBatchWithWarnings', () => {
   const headline = {
     type: 'text',
     name: 'Headline',
-    props: { x: 60, y: 10, width: 200, height: 60, boxMode: 'fixed', text: 'New', style },
+    props: { x: 330, y: 10, width: 200, height: 60, boxMode: 'fixed', text: 'New', style },
   }
 
   it('warns of the layers a kept batch added or changed, and of no other', async () => {
@@ -226,7 +339,7 @@ describe('runAgentBatchWithWarnings', () => {
     const created = result.steps[0]?.ok ? (result.steps[0].result as string) : ''
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
       ['square', 'outsideFrame'],
-      [created, 'safeZone'],
+      [created, 'cutOff'],
     ])
     session.undo()
     expect(session.design().nodes['square']?.props.x).toBe(20)
@@ -256,29 +369,29 @@ describe('runAgentBatchWithWarnings', () => {
     load()
     expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
       ['title', 'missingFont'],
-      ['branded', 'safeZone'],
+      ['branded', 'cutOff'],
     ])
   })
 
   it('reads the layers it touched as the design holds them once the fonts have loaded, and no others', async () => {
     const session = open()
     const stray = { type: 'graphic' as const, name: 'Stray', props: { ...square.props, x: 400 } }
-    const middle = { ...headline, props: { ...headline.props, y: 300 } }
+    const middle = { ...headline, props: { ...headline.props, x: 60, y: 300 } }
     const { warned, ...result } = runAgentBatchWithWarnings(
       ck,
       session,
       [{ command: 'node.create', input: { id: 'middle', parentId: 'story', layer: middle } }],
       {
-        // While the fonts load, the text is fitted again into the top edge, and another layer is added outside the frame.
+        // While the fonts load, the text is moved past the frame's edge, and another layer is added outside the frame.
         fontsLoaded: async () => {
-          session.run('node.update', { ids: ['middle'], patch: { y: 10 } })
+          session.run('node.update', { ids: ['middle'], patch: { x: 330 } })
           session.run('node.create', { id: 'stray', parentId: 'story', layer: stray })
         },
         bytes: () => bytes,
       },
     )
     expect(result.kept).toBe(true)
-    expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['middle', 'safeZone']])
+    expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['middle', 'cutOff']])
   })
 
   it('gives no warnings for a batch that was not kept', async () => {
@@ -306,12 +419,18 @@ describe('runAgentBatchWithWarnings', () => {
         name: 'Box',
         parentId: 'story',
         link: 'box',
-        props: { x: 60, y: 300, width: 200, height: 300 },
+        props: { x: 150, y: 300, width: 300, height: 300 },
       },
-      caption: { ...title, name: 'Caption', parentId: 'box', link: 'caption', props: { ...title.props, y: 300 } },
+      caption: {
+        ...title,
+        name: 'Caption',
+        parentId: 'box',
+        link: 'caption',
+        props: { ...title.props, x: 200, y: 300 },
+      },
     }
     const session = openSession(plainStore(storyWith({ more: turnable })))
-    // Half a turn about (160, 450) takes the caption from y 300 to y 540, in every platform's bottom edge.
+    // Half a turn about (300, 450) takes the caption's letters from x 200 to 250 to x 350 to 400, past the edge.
     const result = await whenWarned(
       runAgentBatchWithWarnings(
         ck,
@@ -320,7 +439,31 @@ describe('runAgentBatchWithWarnings', () => {
         fontsHere(),
       ),
     )
-    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'safeZone']])
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'cutOff']])
+  })
+
+  it('checks the contrast of a text it didn’t touch over a layer it changed, and nothing else of it', async () => {
+    const band = {
+      type: 'graphic',
+      index: 'a0V',
+      name: 'Band',
+      parentId: 'story',
+      link: 'band',
+      props: { x: 0, y: 180, width: 360, height: 100, shape: { kind: 'rect' }, fills: [white] },
+    }
+    const session = openSession(
+      plainStore(storyWith({ title: { style: { ...style, fontFamily: 'Nowhere Sans' } }, more: { band } })),
+    )
+    const darker = { fills: [{ type: 'solid', color: '#111111FF' }] }
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [{ command: 'node.update', input: { ids: ['band'], patch: darker } }],
+        fontsHere(),
+      ),
+    )
+    expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['title', 'lowContrast']])
   })
 
   it('checks the layers left in the box a layer was moved out of', async () => {

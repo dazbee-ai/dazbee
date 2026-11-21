@@ -172,6 +172,7 @@ describe('list_commands', () => {
     const agent = await connect()
     expect(await listed(agent, 'PAGE.')).toEqual([
       'page.add',
+      'page.addMany',
       'page.update',
       'page.duplicate',
       'page.move',

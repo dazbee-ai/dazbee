@@ -41,6 +41,7 @@ import {
   withinReach,
 } from './geometry.ts'
 import { type Corners, cornersOf, leaf, type Place, SHAPE_TYPES } from './graphics.ts'
+import { effectsOf } from './effects.ts'
 import { paintLayer } from './paints.ts'
 import { field, type FigmaFields, type FigmaNode, str } from './read.ts'
 
@@ -129,6 +130,10 @@ export function treeOf(build: LayerBuild, roots: readonly Piece[]): LayerTree | 
   if (roots.length === 0) return null
   adopt(build, ROOT, roots)
   settle(build.nodes, ROOT, build.shifts)
+  for (const [id, n] of build.sources) {
+    const effects = effectsOf(build.report, n)
+    if (effects.length > 0) Object.assign((build.nodes[id] as LayerInput).props, { effects })
+  }
   for (const [id, paints] of Object.entries(build.paints)) paintLayer(build.report, build.nodes[id] as LayerInput, paints)
   return { nodes: build.nodes, roots: roots.map((r) => r.id) } as LayerTree
 }

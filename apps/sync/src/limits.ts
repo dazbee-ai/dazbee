@@ -1,8 +1,9 @@
 // The sync server's limits, named once: on what a WebSocket may send and have waiting, on a member's
 // connections, and on the designs it keeps loaded; and how a connection is held to its message rate
 // and a member to their new connections. The limits on one message and on a design are the sync
-// core's (`SYNC_LIMITS`).
-import { SYNC_CLOSE } from '@dazbee/schema'
+// core's (`SYNC_LIMITS`). The limits on the designs kept loaded are server settings, read from the
+// environment at start; the rest are rules kept in code.
+import { type ServerSetting, serverSettings, SYNC_CLOSE } from '@dazbee/schema'
 
 export interface Limits {
   /** The largest message a tab may send before its hello, in bytes. */
@@ -55,6 +56,23 @@ export const LIMITS: Limits = {
   autosaveCheckMs: MINUTE_MS,
   helloMs: 10_000,
   loadedBytes: 200 * MIB,
+}
+
+/** The limits read from the environment, each LIMITS' value when unset, in the unit its variable names. */
+const LIMIT_SETTINGS: Readonly<Record<'loadedMb' | 'idleDesigns' | 'idleSeconds', ServerSetting>> = {
+  loadedMb: { name: 'SYNC_LOADED_MB', value: LIMITS.loadedBytes / MIB, least: 1, most: 65_536 },
+  idleDesigns: { name: 'SYNC_IDLE_DESIGNS', value: LIMITS.idleDesigns, least: 0, most: 10_000 },
+  idleSeconds: { name: 'SYNC_IDLE_SECONDS', value: LIMITS.idleMs / 1000, least: 0, most: 86_400 },
+}
+
+/**
+ * LIMITS with the designs kept loaded as `env` sets them: `SYNC_LOADED_MB`, `SYNC_IDLE_DESIGNS` and
+ * `SYNC_IDLE_SECONDS`. Throws, naming the variable, on a value that isn't a whole number in its range, so the
+ * server refuses to start on it.
+ */
+export function limitSettings(env: Readonly<Record<string, string | undefined>>): Limits {
+  const { loadedMb, idleDesigns, idleSeconds } = serverSettings(env, LIMIT_SETTINGS)
+  return { ...LIMITS, loadedBytes: loadedMb * MIB, idleDesigns, idleMs: idleSeconds * 1000 }
 }
 
 /** The name `SYNC_CLOSE` gives a code, as the close's reason. */

@@ -164,9 +164,14 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(await italics()).toEqual([700])
   })
 
-  it('gives Node the same bytes for the families a design names, uploads and Google alike', async () => {
+  it('gives Node the same bytes for the faces a design uses, uploads and Google alike', async () => {
     await upload('a', brand.id, bold)
-    const files = await fontFiles(db, storage, workspace.id, brand.id, ['Noto Sans', google.family, 'Not A Font'])
+    const uses = (...families: string[]) =>
+      families.map((family) => ({ family, weight: 400, style: 'normal' as const }))
+    const files = await fontFiles(db, storage, workspace.id, brand.id, [
+      ...uses('Noto Sans', google.family, 'Not A Font'),
+      { family: google.family, weight: 700, style: 'normal' },
+    ])
     const byFamily = (family: string) =>
       files
         .filter((f) => f.family === family)
@@ -176,7 +181,7 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(byFamily(google.family)).toEqual([sha256(regular), sha256(bold)].sort())
     expect(files).toHaveLength(3)
     // Another brand has no upload of that family.
-    expect(await fontFiles(db, storage, workspace.id, sibling.id, ['Noto Sans'])).toEqual([])
+    expect(await fontFiles(db, storage, workspace.id, sibling.id, uses('Noto Sans'))).toEqual([])
   })
 
   it('refuses a file that is not a font, and an upload of the wrong type', async () => {

@@ -11,7 +11,7 @@ import type { Storage } from '@dazbee/storage'
 import { designThumbnailKey } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
 import type { DrawJob, DrawResult } from './draw-worker.ts'
-import { brandResourcesFor } from './render.ts'
+import { brandResourcesFor, inDrawingTurn } from './render.ts'
 
 /** Where a design's stored picture is, and the size of the frame it shows. */
 export type ThumbnailCover = DesignCover & { key: string }
@@ -45,7 +45,7 @@ export async function designCover(db: Db, summary: DesignSummary): Promise<Desig
 /**
  * The stored picture of the design as it is now, made first if this version has none, and the
  * cover frame's size. It is drawn on its own thread (see draw-worker.ts), straight at its small
- * size. Null when the design has nothing to show.
+ * size, in its drawing turn (`inDrawingTurn`). Null when the design has nothing to show.
  */
 export async function ensureDesignThumbnail(
   db: Db,
@@ -61,11 +61,11 @@ export async function ensureDesignThumbnail(
   if (await storage.exists(key)) return shape
   let made = making.get(key)
   if (!made) {
-    made = (async () => {
+    made = inDrawingTurn(async () => {
       const resources = await brandResourcesFor(db, storage, workspaceId, summary.brandId, design)
       const png = await drawCover(design, cover, DESIGN_THUMBNAIL_SIZE, resources)
       await storage.put(key, png, 'image/png')
-    })().finally(() => making.delete(key))
+    }).finally(() => making.delete(key))
     making.set(key, made)
   }
   await made

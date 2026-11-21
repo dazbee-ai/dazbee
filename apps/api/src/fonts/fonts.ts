@@ -4,7 +4,7 @@
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
-import type { GoogleFamily } from '@dazbee/fonts'
+import { facesToLoad, type FontUse, type GoogleFamily } from '@dazbee/fonts'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import {
   byCodeUnits,
@@ -79,23 +79,30 @@ export async function fontLink(
 }
 
 /**
- * Every face of the named families as the brand sees them, with their bytes from our storage: what
- * a render in Node registers, the same files the editor loads (#50). Families the catalog doesn't
- * have are left out, and their text draws in the fallback fonts, as in the editor.
+ * The faces that draw these uses of the families as the brand sees them (`facesToLoad`), with their
+ * bytes from our storage: what a render in Node registers, the same files the editor loads (#50).
+ * Each family's faces come in the catalog's order. Families the catalog doesn't have are left out,
+ * and their text draws in the fallback fonts, as in the editor.
  */
 export async function fontFiles(
   db: Db,
   storage: Storage,
   workspaceId: string,
   brandId: string,
-  names: string[],
+  uses: readonly FontUse[],
 ): Promise<{ family: string; bytes: Uint8Array }[]> {
+  const names = [...new Set(uses.map((use) => use.family))]
   if (names.length === 0) return []
   const rows = await db
     .select()
     .from(fontFaces)
     .where(and(inArray(fontFaces.family, names), visibleTo(workspaceId, brandId)))
-  const picked = [...families(rows).values()].flat()
+  const picked = [...families(rows)].flatMap(([family, faces]) =>
+    facesToLoad(
+      faces.map((row) => ({ ...toFace(row), row })),
+      uses.filter((use) => use.family === family),
+    ).map(({ row }) => row),
+  )
   return Promise.all(
     picked.map(async (row) => {
       const bytes = await storage.get(keyOf(row))

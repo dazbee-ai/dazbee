@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { drawnRows, keptInPlace, layOut, ROW_HEIGHT, scrollToShow, scrollToShowWeights } from './drawn-rows.ts'
 import { fontRows } from './font-rows.ts'
-import { TEST_CATALOG } from './test-families.ts'
+import { LIBRARY_CATALOG, TEST_CATALOG } from './test-families.ts'
 
-const rows = fontRows(TEST_CATALOG, { query: '', category: null }, ['Family 150 display'], {
+const rows = fontRows(TEST_CATALOG, { query: '', category: null, script: null }, ['Family 150 display'], {
   family: null,
   weight: null,
 })
@@ -49,6 +49,23 @@ describe('drawnRows', () => {
     expect(drawnRows(rows, layout, layout.total - VIEW, VIEW).pinned).toBe('all')
   })
 
+  it('draws as few rows of the whole library’s 1,950 families, wherever the list is scrolled to', () => {
+    const library = fontRows(LIBRARY_CATALOG, { query: '', category: null, script: null }, [], {
+      family: null,
+      weight: null,
+    })
+    const stacked = layOut(library)
+    expect(stacked.total).toBe(1950 * ROW_HEIGHT.family)
+    for (const scrollTop of [0, stacked.total / 2, stacked.total - VIEW]) {
+      const { from, to, pinned } = drawnRows(library, stacked, scrollTop, VIEW)
+      expect(to - from).toBeLessThan(30)
+      expect(pinned).toBe('all')
+      const shown = library.slice(from, to).flatMap((row) => (row.kind === 'family' ? [row.family.family] : []))
+      const atTop = library[Math.floor(scrollTop / ROW_HEIGHT.family) + 1]
+      expect(atTop?.kind === 'family' && shown.includes(atTop.family.family)).toBe(true)
+    }
+  })
+
   it('draws nothing in an empty list', () => {
     expect(drawnRows([], layOut([]), 0, VIEW)).toEqual({ from: 0, to: 0, pinned: null })
   })
@@ -67,7 +84,10 @@ describe('scrollToShow', () => {
 describe('keptInPlace', () => {
   it('keeps a picked family where it showed, though the weights of the family picked before close above it', () => {
     const chosen = (family: string) =>
-      fontRows(TEST_CATALOG, { query: '', category: null }, ['Family 150 display'], { family, weight: 400 })
+      fontRows(TEST_CATALOG, { query: '', category: null, script: null }, ['Family 150 display'], {
+        family,
+        weight: 400,
+      })
     const before = chosen('Family 150 display')
     const after = chosen('Family 200 handwriting')
     const key = 'all Family 200 handwriting'
@@ -85,7 +105,7 @@ describe('keptInPlace', () => {
 })
 
 describe('scrollToShowWeights', () => {
-  const picked = fontRows(TEST_CATALOG, { query: '', category: null }, ['Family 150 display'], {
+  const picked = fontRows(TEST_CATALOG, { query: '', category: null, script: null }, ['Family 150 display'], {
     family: 'Family 200 handwriting',
     weight: 400,
   })

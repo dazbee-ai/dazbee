@@ -13,7 +13,7 @@ import { clipMask } from './clips.ts'
 import { filterEffects } from './filters.ts'
 import { imageLayer, newPictures, type SvgImage } from './images.ts'
 import { clamp01, length, numbers } from './lengths.ts'
-import { counted, layersPast, MAX_LAYERS, MAX_NESTING, MAX_WORK, pointsPast } from './limits.ts'
+import { type Counted, counted, layersPast, MAX_LAYERS, MAX_NESTING, MAX_WORK, tally } from './limits.ts'
 import { nameOf } from './names.ts'
 import { shape, SHAPES } from './shapes.ts'
 import { BLEND_MODES, readSheets, type Style, styleOf, styleText } from './style.ts'
@@ -29,6 +29,8 @@ export interface Converted {
   /** The file's own size, after `fit`. */
   width: number
   height: number
+  /** How much `fit` scaled the drawing by: 1 without it. */
+  scale: number
   skipped: Skipped[]
   /** The pictures the file's layers show, each under the key its paints name until it has an asset. */
   images: SvgImage[]
@@ -143,11 +145,10 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     if (++made > MAX_LAYERS) throw new SvgError('too-big', `it has more than ${counted(MAX_LAYERS)} layers`)
     return `svg${made}`
   }
-  let points = 0
-  const countPoints = (count: number) => {
-    const past = pointsPast(count, points)
+  const counts = tally()
+  const count = (what: Counted, n: number) => {
+    const past = counts(what, n)
     if (past) throw new SvgError('too-big', past)
-    points += count
   }
   const fontFamily = options.fontFamily ?? ((families: string[]) => families[0] ?? 'Noto Sans')
   const pictures = newPictures(options.name ?? nameOf(root, 'SVG'), options.assetIds)
@@ -160,7 +161,7 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     nodes,
     skipped,
     newId,
-    countPoints,
+    count,
     fontFamily,
     pictures,
   }
@@ -398,7 +399,7 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     plainRoot && only?.type === 'group' && !only.props.mask ? (pieces[0] as Piece) : group('', pieces, rootStyle)
   ;(nodes[rootPiece.id] as { name: string }).name = pictures.fileName
 
-  const past = layersPast(nodes)
+  const past = layersPast(nodes, Math.max(width, height) * fitScale)
   if (past) throw new SvgError('too-big', past)
   const tree = LayerTree.parse({ nodes, roots: [rootPiece.id] })
   return {
@@ -406,6 +407,7 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     root: rootPiece.id,
     width: width * fitScale,
     height: height * fitScale,
+    scale: fitScale,
     skipped: [...skipped],
     images: pictures.list,
   }

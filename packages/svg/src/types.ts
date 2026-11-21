@@ -7,6 +7,7 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Layer, LayerType, Rect } from '@dazbee/schema'
 
 import type { Pictures } from './images.ts'
+import type { Counted } from './limits.ts'
 import type { Rule } from './style.ts'
 import type { XmlElement } from './xml.ts'
 
@@ -50,8 +51,8 @@ export interface Context {
   skipped: Set<Skipped>
   /** A new layer's id. Throws SvgError past the layer limit. */
   newId: () => string
-  /** Counts a new outline's points. Throws SvgError past the limits on points. */
-  countPoints: (count: number) => void
+  /** Counts what one item has, such as an outline's points. Throws SvgError past the limits on it. */
+  count: (what: Counted, n: number) => void
   /** The family a text layer takes, from the families its CSS lists. */
   fontFamily: (families: string[]) => string
   /** The pictures the file embeds, read so far. */

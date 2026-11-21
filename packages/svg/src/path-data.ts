@@ -70,6 +70,17 @@ export const transformed = (ck: CanvasKit, path: Path, m: Matrix) => {
   const builder = new ck.PathBuilder(path)
   return builder.transform(ckMatrix(m)).detachAndDelete()
 }
+/** How long the path's outline is, every contour counted. */
+export function lengthOf(ck: CanvasKit, path: Path): number {
+  const contours = new ck.ContourMeasureIter(path, false, 1)
+  let length = 0
+  for (let contour = contours.next(); contour; contour = contours.next()) {
+    length += contour.length()
+    contour.delete()
+  }
+  contours.delete()
+  return length
+}
 export const boundsOf = (path: Path): Rect => {
   const [left = 0, top = 0, right = 0, bottom = 0] = path.computeTightBounds()
   return { x: left, y: top, width: right - left, height: bottom - top }

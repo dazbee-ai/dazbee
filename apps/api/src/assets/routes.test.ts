@@ -15,7 +15,7 @@ import {
 import { NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
 import { brand, call, db, request, run, SHORT_ID, sibling, uploadImage } from '../test-api.ts'
-import { DEEP_BLURS, png, sha256 } from '../test-files.ts'
+import { bigPictureSvg, png, sha256, slowPathsSvg } from '../test-files.ts'
 import { appendAccepted, appendEntry } from '../workspace/test-journal.ts'
 
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
@@ -268,7 +268,7 @@ describe('image uploads', { timeout: 30_000 }, () => {
     })
   })
 
-  it('refuses an SVG file too complex to draw, saying why, and answers other requests while one is drawn (#150)', async () => {
+  it('refuses an SVG file too complex or too big to draw, saying why, and answers other requests while one is drawn (#150)', async () => {
     /** Uploads the bytes and asks for them to be recorded, without waiting for the answer. */
     const record = async (text: string) => {
       const bytes = new TextEncoder().encode(`${text}<!-- ${run} -->`)
@@ -290,13 +290,39 @@ describe('image uploads', { timeout: 30_000 }, () => {
       json: { error: 'This SVG file is too complex to draw: its blurs and shadows nest more than 4 deep' },
     })
 
+    expect(await record(bigPictureSvg())).toEqual({
+      status: 400,
+      json: { error: 'This SVG file needs too much memory to draw' },
+    })
+
+    // A file of 500,000 points takes seconds to draw: the API answers meanwhile.
     let settled = false
-    const drawn = record(DEEP_BLURS).finally(() => (settled = true))
-    // Once its thread has started, ask the API for something else while the file is drawn.
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    const drawn = record(slowPathsSvg()).finally(() => (settled = true))
+    await new Promise((resolve) => setTimeout(resolve, 500))
     expect(await request(null, 'GET', '/health')).toMatchObject({ status: 200, json: { ok: true } })
     expect(settled).toBe(false)
-    expect(await drawn).toEqual({ status: 400, json: { error: 'This SVG file needs too much memory to draw' } })
+    expect((await drawn).status).toBe(201)
+  })
+
+  it('records an SVG file asked for six times at once by reading it once, all six given the asset (#150)', async () => {
+    const bytes = new TextEncoder().encode(`${slowPathsSvg()}<!-- ${run} six -->`)
+    const ticket = UploadTicket.parse(
+      (
+        await call('a', 'POST', `/brands/${brand.id}/assets/uploads`, {
+          sha256: sha256(bytes),
+          byteSize: bytes.length,
+          contentType: 'image/svg+xml',
+        })
+      ).json,
+    )
+    if (!ticket.upload) throw new Error('expected an upload URL')
+    await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
+    // More than may wait to be read, were each read on its own.
+    const asks = await Promise.all(
+      Array.from({ length: 6 }, () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha256(bytes) })),
+    )
+    expect(asks.map((ask) => ask.status)).toEqual([201, 201, 201, 201, 201, 201])
+    expect(new Set(asks.map((ask) => AssetSummary.parse(ask.json).id)).size).toBe(1)
   })
 
   // A guard: before the converter read pictures this passed too, as the picture was left out then.

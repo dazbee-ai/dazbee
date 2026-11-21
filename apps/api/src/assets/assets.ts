@@ -9,7 +9,6 @@ import {
   type AssetUse,
   imageAssetIds,
   imageFits,
-  type ImageHeader,
   type ImageType,
   parseDesign,
   readImageHeader,
@@ -18,10 +17,11 @@ import {
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
+import { logError } from '../log.ts'
 import { assetThumbnailKey, checkUpload, originalKey, signedUpload } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
-import { readSvgHeader, SvgRefused } from './svg-assets.ts'
-import { makeThumbnail } from './thumbnails.ts'
+import { readSvgAsset, SvgBusy, SvgRefused } from './svg-assets.ts'
+import { makeThumbnail, type Thumbnail, THUMBNAIL_SIZE } from './thumbnails.ts'
 
 export class InvalidUpload extends Error {}
 
@@ -44,6 +44,9 @@ const toSummary = (row: Omit<AssetSummary, 'createdAt'> & { createdAt: Date }): 
 
 /** A LIKE pattern that matches `text` literally. */
 const literal = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`)
+
+/** Each original being recorded, by workspace, brand and SHA-256: a second ask waits for the first. */
+const recording = new Map<string, Promise<AssetSummary>>()
 
 /**
  * The brand's assets, newest first. With a query, only those that match every word of it, by name
@@ -158,10 +161,11 @@ export async function findAsset(
 
 /**
  * Records the original stored under `sha256` as an asset of the brand, named `name`, after checking
- * the bytes hash to it, are an image CanvasKit decodes or an SVG file read as layers, and makes its thumbnail. Recording
- * the same bytes again gives back the same asset, under the name it has.
+ * the bytes hash to it, are an image CanvasKit decodes or an SVG file read as layers, and makes its
+ * thumbnail. Recording the same bytes again gives back the same asset, under the name it has; a
+ * second ask while the first is being recorded waits for it rather than reading the file again.
  */
-export async function recordAsset(
+export function recordAsset(
   db: Db,
   storage: Storage,
   workspaceId: string,
@@ -169,38 +173,12 @@ export async function recordAsset(
   sha256: string,
   name = '',
 ): Promise<AssetSummary> {
-  const existing = await findAsset(db, workspaceId, brandId, { sha256 })
-  if (existing) return existing
-  const key = originalKey(workspaceId, sha256)
-  const bytes = await storage.get(key)
-  if (!bytes) throw new InvalidUpload('Nothing was uploaded for that SHA-256')
-  const refuse = await checkUpload(storage, key, bytes, sha256, InvalidUpload)
-  let header: ImageHeader | null
-  try {
-    header = readImageHeader(bytes) ?? (await readSvgHeader(bytes))
-  } catch (error) {
-    if (error instanceof SvgRefused) throw await refuse(error.message)
-    throw error
+  const key = `${workspaceId}/${brandId}/${sha256}`
+  let recorded = recording.get(key)
+  if (!recorded) {
+    recorded = recordOnce(db, storage, workspaceId, brandId, sha256, name).finally(() => recording.delete(key))
+    recording.set(key, recorded)
   }
-  if (!header) throw await refuse('The upload is not a PNG, JPEG or WebP image, or an SVG file we can read')
-  if (header.contentType !== 'image/svg+xml' && !imageFits(header))
-    throw await refuse('This image is too big: at most 16,384 pixels a side and 100 megapixels')
-  const thumbnail = assetThumbnailKey(workspaceId, sha256)
-  if (!(await storage.exists(thumbnail))) {
-    let made: Awaited<ReturnType<typeof makeThumbnail>>
-    try {
-      made = await makeThumbnail(bytes, header.contentType)
-    } catch (error) {
-      throw await refuse(error instanceof SvgRefused ? error.message : 'The image could not be decoded')
-    }
-    await storage.put(thumbnail, made.bytes, made.contentType)
-  }
-  await db
-    .insert(assets)
-    .values({ id: newId(), workspaceId, brandId, sha256, byteSize: bytes.length, name, ...header })
-    .onConflictDoNothing()
-  const recorded = await findAsset(db, workspaceId, brandId, { sha256 })
-  if (!recorded) throw new Error('asset vanished after insert')
   return recorded
 }
 
@@ -296,4 +274,60 @@ async function assetUses(db: Db, workspaceId: string, brandId: string, id: strin
     .where(and(eq(brandKits.workspaceId, workspaceId), eq(brandKits.brandId, brandId)))
   if (kit?.logo === id) uses.push({ kind: 'logo', id: brandId, name: '' })
   return uses
+}
+
+/** Records the original as recordAsset says, reading it once. */
+async function recordOnce(
+  db: Db,
+  storage: Storage,
+  workspaceId: string,
+  brandId: string,
+  sha256: string,
+  name: string,
+): Promise<AssetSummary> {
+  const existing = await findAsset(db, workspaceId, brandId, { sha256 })
+  if (existing) return existing
+  const key = originalKey(workspaceId, sha256)
+  const bytes = await storage.get(key)
+  if (!bytes) throw new InvalidUpload('Nothing was uploaded for that SHA-256')
+  const refuse = await checkUpload(storage, key, bytes, sha256, InvalidUpload)
+  const image = readImageHeader(bytes)
+  const svg = image ? null : await readSvg(bytes, refuse)
+  const header = image ?? svg?.header
+  if (!header) throw await refuse('The upload is not a PNG, JPEG or WebP image, or an SVG file we can read')
+  if (image && !imageFits(image))
+    throw await refuse('This image is too big: at most 16,384 pixels a side and 100 megapixels')
+  const thumbnail = assetThumbnailKey(workspaceId, sha256)
+  if (!(await storage.exists(thumbnail))) {
+    let made: Thumbnail
+    try {
+      made = svg ? { bytes: svg.png, contentType: 'image/png' } : await makeThumbnail(bytes, header.contentType)
+    } catch {
+      throw await refuse('The image could not be decoded')
+    }
+    await storage.put(thumbnail, made.bytes, made.contentType)
+  }
+  await db
+    .insert(assets)
+    .values({ id: newId(), workspaceId, brandId, sha256, byteSize: bytes.length, name, ...header })
+    .onConflictDoNothing()
+  const recorded = await findAsset(db, workspaceId, brandId, { sha256 })
+  if (!recorded) throw new Error('asset vanished after insert')
+  return recorded
+}
+
+/**
+ * The bytes read and drawn as an SVG file; null when they aren't one. A file refused, or one the
+ * thread fails on, is refused with `refuse`, its bytes deleted; one that waits behind too many
+ * others is refused with its bytes kept, so it can be recorded again.
+ */
+async function readSvg(bytes: Uint8Array, refuse: (message: string) => Promise<InvalidUpload>) {
+  try {
+    return await readSvgAsset(bytes, THUMBNAIL_SIZE)
+  } catch (error) {
+    if (error instanceof SvgBusy) throw new InvalidUpload(error.message)
+    if (error instanceof SvgRefused) throw await refuse(error.message)
+    logError('svg-asset-failed', error)
+    throw await refuse('This SVG file could not be drawn')
+  }
 }

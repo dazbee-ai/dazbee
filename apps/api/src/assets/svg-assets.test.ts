@@ -4,8 +4,8 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { readImageHeader } from '@dazbee/schema'
 import { hugePath, NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
-import { DEEP_BLURS, png, SLOW_BLURS } from '../test-files.ts'
-import { readSvgHeader, SvgRefused, svgThumbnail } from './svg-assets.ts'
+import { bigPictureSvg, png, slowPathsSvg } from '../test-files.ts'
+import { readSvgAsset, SvgBusy, SvgRefused, svgThumbnail } from './svg-assets.ts'
 
 const ck = await loadCanvasKit()
 
@@ -53,8 +53,12 @@ async function pixelAt(svg: string, x: number, y: number) {
 /** The API's memory, in MB. */
 const rss = () => process.memoryUsage().rss / 2 ** 20
 
-/** How long `run` takes, in milliseconds, and the longest the API's own thread went without running a timer meanwhile. */
+/**
+ * How long `run` takes, in milliseconds, the longest the API's own thread went without running a
+ * timer meanwhile, and what it threw.
+ */
 async function timed(run: () => Promise<unknown>) {
+  let refused: unknown
   let last = performance.now()
   let longestGap = 0
   const ticks = setInterval(() => {
@@ -65,35 +69,74 @@ async function timed(run: () => Promise<unknown>) {
   const started = performance.now()
   try {
     await run()
+  } catch (error) {
+    refused = error
   } finally {
     clearInterval(ticks)
   }
-  return { ms: performance.now() - started, longestGap: Math.max(longestGap, performance.now() - last) }
+  return { ms: performance.now() - started, longestGap: Math.max(longestGap, performance.now() - last), refused }
 }
 
-describe('readSvgHeader', () => {
-  it('reads an SVG file at its own size, and nothing of a file that is not one', async () => {
+describe('readSvgAsset', () => {
+  it('reads an SVG file at its own size with its thumbnail, and nothing of a file that is not one', async () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120.5" height="80"><rect width="9" height="9"/></svg>'
-    expect(await readSvgHeader(encoded(svg))).toEqual({ contentType: 'image/svg+xml', width: 121, height: 80 })
-    expect(await readSvgHeader(encoded('<html><body/></html>'))).toBeNull()
-    expect(await readSvgHeader(encoded('<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'))).toBeNull()
+    const read = await readSvgAsset(encoded(svg), 320)
+    expect(read?.header).toEqual({ contentType: 'image/svg+xml', width: 121, height: 80 })
+    expect(readImageHeader(read?.png ?? new Uint8Array())).toMatchObject({ width: 320, height: 212 })
+    expect(await readSvgAsset(encoded('<html><body/></html>'), 320)).toBeNull()
+    expect(await readSvgAsset(encoded('<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'), 320)).toBeNull()
   })
 
   it('refuses 50 nested blurs and one path of 630,000 points within a second each, saying which limit each passes, the API not growing', async () => {
     // The thread started, as it is once it has read a file.
-    await readSvgHeader(SQUARE)
+    await readSvgAsset(SQUARE, 320)
     const before = rss()
     for (const [file, limit] of [
       [NESTED_BLURS, 'its blurs and shadows nest more than 4 deep'],
       [hugePath(), 'one of its paths has more than 250,000 points'],
     ] as const) {
-      let refused: unknown
-      const { ms } = await timed(() => readSvgHeader(encoded(file)).catch((error: unknown) => (refused = error)))
+      const { ms, refused } = await timed(() => readSvgAsset(encoded(file), 320))
       expect(refused).toBeInstanceOf(SvgRefused)
       expect((refused as Error).message).toBe(`This SVG file is too complex to draw: ${limit}`)
       expect(ms).toBeLessThan(1000)
     }
     expect(rss() - before).toBeLessThan(100)
+  })
+
+  it('refuses a file whose drawing needs more memory than its thread may take, the API answering meanwhile and its memory given back', async () => {
+    const before = rss()
+    const { longestGap, refused } = await timed(() => readSvgAsset(encoded(bigPictureSvg()), 320))
+    expect(refused).toBeInstanceOf(SvgRefused)
+    expect((refused as Error).message).toBe('This SVG file needs too much memory to draw')
+    expect(longestGap).toBeLessThan(250)
+    expect(rss() - before).toBeLessThan(100)
+    // A new thread draws the next file.
+    expect((await readSvgAsset(SQUARE, 320))?.header.width).toBe(10)
+  })
+
+  it('ends a drawing past its time limit and refuses the file, the API answering meanwhile', async () => {
+    await readSvgAsset(SQUARE, 320)
+    const { ms, longestGap, refused } = await timed(() => readSvgAsset(encoded(slowPathsSvg()), 320, 500))
+    expect(refused).toBeInstanceOf(SvgRefused)
+    expect((refused as Error).message).toBe('This SVG file took more than 0.5 seconds to draw')
+    expect(ms).toBeLessThan(1500)
+    expect(longestGap).toBeLessThan(250)
+  })
+
+  it('starts a file’s time once a new thread is ready, so starting one takes none of it', async () => {
+    // A thread ended past its time: the next file starts a new one.
+    await timed(() => readSvgAsset(encoded(slowPathsSvg()), 320, 200))
+    expect((await readSvgAsset(SQUARE, 320, 300))?.header.width).toBe(10)
+  })
+
+  it('refuses a file while four are being read or wait to be, keeping it to be added again', async () => {
+    const slow = encoded(slowPathsSvg())
+    const waiting = Array.from({ length: 4 }, () => timed(() => readSvgAsset(slow, 320, 300)))
+    await expect(readSvgAsset(SQUARE, 320)).rejects.toThrow(
+      new SvgBusy('Dazbee is reading other SVG files; add this one again in a minute'),
+    )
+    for (const { refused } of await Promise.all(waiting)) expect(refused).toBeInstanceOf(SvgRefused)
+    expect((await readSvgAsset(SQUARE, 320))?.header.width).toBe(10)
   })
 })
 
@@ -115,45 +158,5 @@ describe('svgThumbnail', () => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><image href="${dataUrl(garbled())}" width="50" height="50"/><image href="${dataUrl(solid(10, [200, 40, 40]))}" x="50" width="50" height="50"/></svg>`
     expect(await pixelAt(svg, 25, 25)).toEqual([0, 0, 0, 0])
     expect(await pixelAt(svg, 75, 25)).toEqual([200, 40, 40, 255])
-  })
-
-  it('refuses 50 nested blurs within a second, the API not growing', async () => {
-    await svgThumbnail(SQUARE, 320)
-    const before = rss()
-    let refused: unknown
-    const { ms } = await timed(() =>
-      svgThumbnail(encoded(NESTED_BLURS), 320).catch((error: unknown) => (refused = error)),
-    )
-    expect((refused as Error).message).toBe(
-      'This SVG file is too complex to draw: its blurs and shadows nest more than 4 deep',
-    )
-    expect(ms).toBeLessThan(1000)
-    expect(rss() - before).toBeLessThan(100)
-  })
-
-  it('refuses a file whose drawing needs more memory than its thread may take, the API answering meanwhile and its memory given back', async () => {
-    const before = rss()
-    let refused: unknown
-    const { longestGap } = await timed(() =>
-      svgThumbnail(encoded(DEEP_BLURS), 320).catch((error: unknown) => (refused = error)),
-    )
-    expect(refused).toBeInstanceOf(SvgRefused)
-    expect((refused as Error).message).toBe('This SVG file needs too much memory to draw')
-    expect(longestGap).toBeLessThan(250)
-    expect(rss() - before).toBeLessThan(100)
-    // A new thread draws the next file.
-    expect(readImageHeader(await svgThumbnail(SQUARE, 320))).toMatchObject({ width: 320, height: 320 })
-  })
-
-  it('ends a drawing past its time limit and refuses the file, the API answering meanwhile', async () => {
-    let refused: unknown
-    const { ms, longestGap } = await timed(() =>
-      svgThumbnail(encoded(SLOW_BLURS), 320, 500).catch((error: unknown) => (refused = error)),
-    )
-    expect(refused).toBeInstanceOf(SvgRefused)
-    expect((refused as Error).message).toBe('This SVG file took more than 0.5 seconds to draw')
-    expect(ms).toBeLessThan(1500)
-    expect(longestGap).toBeLessThan(250)
-    expect(readImageHeader(await svgThumbnail(SQUARE, 320))).toMatchObject({ width: 320, height: 320 })
   })
 })

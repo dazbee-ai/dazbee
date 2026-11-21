@@ -12,7 +12,7 @@ export interface Thumbnail {
 }
 
 /** The longest side of a thumbnail, in pixels: two library columns on a 2× screen. */
-const THUMBNAIL_SIZE = 320
+export const THUMBNAIL_SIZE = 320
 
 /**
  * The image scaled down to fit THUMBNAIL_SIZE (never up). A JPEG stays a JPEG; PNG and WebP, which

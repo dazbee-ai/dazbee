@@ -21,7 +21,7 @@ import type { Context } from './types.ts'
 import type { XmlElement } from './xml.ts'
 
 export function gradientPaint(
-  context: Pick<Context, 'ids' | 'rules' | 'viewport'>,
+  context: Pick<Context, 'ids' | 'rules' | 'viewport' | 'count'>,
   element: XmlElement,
   m: Matrix,
   user: Rect,
@@ -29,6 +29,7 @@ export function gradientPaint(
 ): Paint | null {
   const { rules, viewport } = context
   const { attrs, stops: stopElements } = gradientOf(context, element)
+  context.count('stops', stopElements.length)
   let last = 0
   const stops = stopElements.map((stop) => {
     const style = styleOf(stop, {}, rules)

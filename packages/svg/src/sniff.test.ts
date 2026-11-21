@@ -41,4 +41,11 @@ describe('svgMarkup', () => {
       expect(svgMarkup(file(100_000)) !== null, flood.name).toBe(flood.isSvg)
     }
   })
+
+  it('checks 4.9 MB of white space in a prolog within 50 ms', () => {
+    const file = `<?x?>${' '.repeat(4_900_000)}<svg/>`
+    const started = performance.now()
+    expect(svgMarkup(file)).not.toBeNull()
+    expect(performance.now() - started).toBeLessThan(50)
+  })
 })

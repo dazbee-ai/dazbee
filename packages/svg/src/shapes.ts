@@ -8,7 +8,7 @@ import { parsePaint } from './color.ts'
 import { gradientPaint } from './gradients.ts'
 import { clamp01, length, numbers } from './lengths.ts'
 import { nameOf } from './names.ts'
-import { boundsOf, pathData, transformed } from './path-data.ts'
+import { boundsOf, lengthOf, pathData, transformed } from './path-data.ts'
 import { holdsPicture, patternPaint } from './patterns.ts'
 import { BLEND_MODES, type Style } from './style.ts'
 import { apply, lengthScale, type Matrix, multiply, rotate, turnedBounds, turnOf } from './transform.ts'
@@ -52,6 +52,8 @@ export function shape(context: Context, element: XmlElement, style: Style, m: Ma
   const placed = new ck.PathBuilder(drawn).offset(-unturned.x, -unturned.y).detachAndDelete()
   drawn.delete()
   const d = pathData(placed)
+  const dashed = Boolean(style['stroke-dasharray']) && style['stroke-dasharray'] !== 'none'
+  const placedLength = dashed ? lengthOf(ck, placed) : 0
   placed.delete()
   if (!d) return null
   const centre = apply(rotate(rotation), unturned.x + unturned.width / 2, unturned.y + unturned.height / 2)
@@ -71,6 +73,7 @@ export function shape(context: Context, element: XmlElement, style: Style, m: Ma
     strokeWidth > 0 ? paintOf(context, style.stroke, style['stroke-opacity'], style, frame, user, unturned, name) : null
   if (strokePaint) {
     const dashes = numbers(style['stroke-dasharray']).map((n) => Math.max(0, n * lengthScale(m)))
+    countDashes(context, placedLength, dashes)
     strokes.push({
       paint: strokePaint,
       width: strokeWidth,
@@ -117,7 +120,7 @@ export function shape(context: Context, element: XmlElement, style: Style, m: Ma
 
 /** The element's outline in its own user space, or null when it has none. */
 export function outline(
-  context: Pick<Context, 'ck' | 'viewport' | 'countPoints'>,
+  context: Pick<Context, 'ck' | 'viewport' | 'count'>,
   element: XmlElement,
   style: Style,
 ): Path | null {
@@ -180,7 +183,7 @@ export function outline(
     return null
   }
   try {
-    context.countPoints(path.countPoints())
+    context.count('points', path.countPoints())
   } catch (error) {
     path.delete()
     throw error
@@ -224,4 +227,15 @@ export function paintOf(
     if (picture) return { ...picture, opacity }
   } else if (target?.name === 'pattern') skipped.add('pattern')
   return paint.fallback ? { type: 'solid', color: paint.fallback, ...extra } : null
+}
+
+/**
+ * Counts the dashes a stroke `length` long draws with the dash pattern, each length of the pattern
+ * a dash or a gap, and the lengths the pattern lists.
+ */
+function countDashes(context: Pick<Context, 'count'>, length: number, dashes: number[]) {
+  if (!dashes.some((n) => n > 0)) return
+  context.count('dash lengths', dashes.length)
+  const period = dashes.reduce((sum, n) => sum + n, 0)
+  context.count('dashes', Math.ceil((length / period) * dashes.length))
 }

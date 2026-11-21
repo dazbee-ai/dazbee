@@ -16,6 +16,15 @@ export interface Rule {
   declarations: Style
 }
 
+/**
+ * One property as an element sets it: the last value it gives, and whether an `inherit` comes after
+ * that value, which takes the parent's value when the parent has one.
+ */
+interface OwnProperty {
+  value: string | undefined
+  inherit: boolean
+}
+
 /** Properties a child takes from its parent unless it sets its own. */
 export const BLEND_MODES = new Set([
   'multiply',
@@ -78,6 +87,13 @@ const PROPERTIES = new Set([
 /** More rules than this are left out: every element is matched against each one. */
 const MAX_RULES = 1_000
 
+/**
+ * Each element's own style properties, from its attributes, the rules it matches and its style
+ * attribute, worked out once for each sheet: an element read again and again through uses costs
+ * no more than its own properties each time.
+ */
+const ownStyles = new WeakMap<readonly Rule[], WeakMap<XmlElement, Record<string, OwnProperty>>>()
+
 /** The rules of every <style> sheet in the file, in the order they apply. */
 export function readSheets(root: XmlElement): Rule[] {
   const rules: Rule[] = []
@@ -101,19 +117,10 @@ export function readSheets(root: XmlElement): Rule[] {
 export function styleOf(element: XmlElement, parent: Style, rules: readonly Rule[]): Style {
   const style: Style = {}
   for (const [name, value] of Object.entries(parent)) if (INHERITED.has(name)) style[name] = value
-  const set = (declarations: Style) => {
-    for (const [name, value] of Object.entries(declarations)) {
-      if (!PROPERTIES.has(name)) continue
-      if (value === 'inherit') {
-        if (parent[name] !== undefined) style[name] = parent[name]
-      } else {
-        style[name] = value
-      }
-    }
+  for (const [name, { value, inherit }] of Object.entries(ownStyle(element, rules))) {
+    const taken = inherit ? (parent[name] ?? value) : value
+    if (taken !== undefined) style[name] = taken
   }
-  set(element.attrs)
-  for (const rule of rules) if (matches(rule, element)) set(rule.declarations)
-  if (element.attrs.style) set(parseDeclarations(element.attrs.style))
   return style
 }
 
@@ -121,6 +128,27 @@ export function styleOf(element: XmlElement, parent: Style, rules: readonly Rule
 export function styleText(element: XmlElement): string {
   if (element.name === 'style') return textOf(element)
   return element.children.map((c) => (typeof c === 'string' ? '' : styleText(c))).join('')
+}
+
+/** The element's own style properties, in the order its attributes, matching rules and style attribute set them. */
+function ownStyle(element: XmlElement, rules: readonly Rule[]): Record<string, OwnProperty> {
+  let byElement = ownStyles.get(rules)
+  if (!byElement) ownStyles.set(rules, (byElement = new WeakMap()))
+  const known = byElement.get(element)
+  if (known) return known
+  const own: Record<string, OwnProperty> = {}
+  const set = (declarations: Style) => {
+    for (const [name, value] of Object.entries(declarations)) {
+      if (!PROPERTIES.has(name)) continue
+      own[name] = value === 'inherit' ? { value: own[name]?.value, inherit: true } : { value, inherit: false }
+    }
+  }
+  set(element.attrs)
+  const classes = new Set((element.attrs.class ?? '').split(/\s+/))
+  for (const rule of rules) if (matches(rule, element, classes)) set(rule.declarations)
+  if (element.attrs.style) set(parseDeclarations(element.attrs.style))
+  byElement.set(element, own)
+  return own
 }
 
 /**
@@ -192,10 +220,8 @@ function parseSelector(text: string) {
   return { tag, id: ids[0], classes, specificity: (ids.length ? 100 : 0) + classes.length * 10 + (tag ? 1 : 0) }
 }
 
-function matches(rule: Rule, element: XmlElement) {
+function matches(rule: Rule, element: XmlElement, classes: ReadonlySet<string>) {
   if (rule.tag && rule.tag !== element.name) return false
   if (rule.id && rule.id !== element.attrs.id) return false
-  if (rule.classes.length === 0) return true
-  const own = new Set((element.attrs.class ?? '').split(/\s+/))
-  return rule.classes.every((c) => own.has(c))
+  return rule.classes.every((c) => classes.has(c))
 }

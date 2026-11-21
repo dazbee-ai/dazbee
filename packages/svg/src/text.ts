@@ -35,6 +35,7 @@ export function textLayer(context: Context, element: XmlElement, style: Style, m
   walk(element, true)
   const content = lines.filter(Boolean).join('\n')
   if (!content) return null
+  context.count('characters', content.length)
   const firstSpan = element.children.find((c): c is XmlElement => typeof c !== 'string' && c.name === 'tspan')
   const x = numbers(element.attrs.x ?? firstSpan?.attrs.x)[0] ?? 0
   const y = numbers(element.attrs.y ?? firstSpan?.attrs.y)[0] ?? 0

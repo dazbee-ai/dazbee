@@ -19,19 +19,20 @@ export interface SvgThreadData {
   svgMemoryLimit: number
 }
 
-/** One file to read or draw: its markup, and what to make of it. */
-export type SvgWork = { text: string } & ({ kind: 'header' } | { kind: 'thumbnail'; size: number })
-/** A file sent to the thread, with the id its answer carries back. */
-export type SvgJob = SvgWork & { id: number }
+/** One file to read and draw: its markup, the longer side of its thumbnail, and the id its answer carries back. */
+export interface SvgJob {
+  id: number
+  text: string
+  size: number
+}
 
 /**
- * What the thread made of the file: its size or its thumbnail; that it can't be read as layers; the
- * limit it passes, as the end of a sentence; that drawing it needs more memory than the thread may
- * take; or why it failed otherwise.
+ * What the thread made of the file: its own size and its thumbnail; that it can't be read as layers;
+ * the limit it passes, as the end of a sentence; that drawing it needs more memory than the thread
+ * may take; or why it failed otherwise.
  */
 export type SvgAnswer =
-  | { header: { width: number; height: number } }
-  | { png: Uint8Array }
+  | { width: number; height: number; png: Uint8Array }
   | { unreadable: string }
   | { tooBig: string }
   | { tooMuchMemory: true }
@@ -39,6 +40,10 @@ export type SvgAnswer =
 
 /** An answer as the thread posts it: with its job's id, and the bytes CanvasKit's memory takes after it. */
 export type SvgReply = SvgAnswer & { id: number; memory: number }
+/** What the thread posts once CanvasKit and the fonts are loaded, before any job's time starts. */
+export interface SvgReady {
+  ready: true
+}
 
 /** A wasm memory, as far as capMemory reads and changes it: the API's types leave WebAssembly out. */
 interface WasmMemory {
@@ -56,6 +61,9 @@ const started = workerData as Partial<SvgThreadData> | null
 if (parentPort && started?.svgMemoryLimit) {
   const port = parentPort
   capMemory(started.svgMemoryLimit)
+  await loadCanvasKit()
+  loadFontFiles()
+  port.postMessage({ ready: true } satisfies SvgReady)
   port.on('message', (job: SvgJob) => {
     void answer(job).then(async (done) => {
       const reply: SvgReply = { ...done, id: job.id, memory: await memory() }
@@ -83,8 +91,7 @@ function capMemory(limit: number) {
 /** The job done, or why it wasn't. */
 async function answer(job: SvgJob): Promise<SvgAnswer> {
   try {
-    const done: SvgAnswer =
-      job.kind === 'header' ? { header: await svgSize(job.text) } : { png: await svgThumbnail(job.text, job.size) }
+    const done = await svgThumbnail(job.text, job.size)
     return overLimit ? { tooMuchMemory: true } : done
   } catch (error) {
     if (overLimit) return { tooMuchMemory: true }
@@ -101,14 +108,8 @@ async function memory(): Promise<number> {
   return ck.HEAPU8.length
 }
 
-/** The file's own size, as its layers are read. */
-async function svgSize(text: string): Promise<{ width: number; height: number }> {
-  const { width, height } = svgToLayers(await loadCanvasKit(), text)
-  return { width, height }
-}
-
-/** The file's layers drawn in a see-through frame, `size` pixels on the longer side, as a PNG. */
-async function svgThumbnail(text: string, size: number): Promise<Uint8Array> {
+/** The file's own size, and its layers drawn in a see-through frame, `size` pixels on the longer side, as a PNG. */
+async function svgThumbnail(text: string, size: number): Promise<{ width: number; height: number; png: Uint8Array }> {
   const ck = await loadCanvasKit()
   const read = svgToLayers(ck, text, { fit: size })
   // Only the pictures CanvasKit decodes are drawn: one with a good header and a broken body is left out.
@@ -141,11 +142,12 @@ async function svgThumbnail(text: string, size: number): Promise<Uint8Array> {
     },
     nodes,
   }
-  return renderDesign(ck, design, 'f', {
+  const { png } = renderDesign(ck, design, 'f', {
     fonts: loadFontFiles(),
     fallbackFamilies: [...FALLBACK_FAMILIES],
     images,
-  }).png
+  })
+  return { width: width / read.scale, height: height / read.scale, png }
 }
 
 /**

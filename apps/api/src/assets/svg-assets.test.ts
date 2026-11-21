@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { BroadcastChannel } from 'node:worker_threads'
+
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { readImageHeader } from '@dazbee/schema'
@@ -6,7 +8,16 @@ import { svgToLayers } from '@dazbee/svg'
 import { hugePath, NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
 import { bigPictureSvg, png, slowPathsSvg } from '../test-files.ts'
-import { readSvgAsset, SvgBusy, SvgRefused, svgThumbnail } from './svg-assets.ts'
+import {
+  readSvgAsset,
+  SVG_START_LIMIT_MS,
+  SvgBusy,
+  type SvgReader,
+  svgReader,
+  SvgRefused,
+  svgThumbnail,
+} from './svg-assets.ts'
+import { HELD_SVG_THREAD } from './test-held-svg-thread.ts'
 
 const ck = await loadCanvasKit()
 
@@ -77,6 +88,54 @@ async function timed(run: () => Promise<unknown>) {
   }
   return { ms: performance.now() - started, longestGap: Math.max(longestGap, performance.now() - last), refused }
 }
+
+/** The reader a test made, ended after it. */
+let made: SvgReader | undefined
+/** The channel to the test's held threads, closed after it. */
+let channel: BroadcastChannel | undefined
+
+/**
+ * A reader whose threads start held, until `go`; it is ended after the test. Unless told otherwise, a
+ * file waits for a start as long as the start may take, so a busy machine can't make it busy.
+ */
+function heldReader(settings: { startLimitMs?: number; waitLimitMs?: number } = {}) {
+  made = svgReader({
+    threadFile: new URL('./test-held-svg-thread.ts', import.meta.url),
+    waitLimitMs: SVG_START_LIMIT_MS,
+    ...settings,
+  })
+  return made
+}
+
+/**
+ * The held threads as the test sees them: how many have said `starting` and `ready`, a wait until
+ * so many have said one, and `go`, which lets every thread that is held start. With `release`,
+ * each thread is let go as soon as it says it is starting.
+ */
+function heldThreads(release = false) {
+  const said = { starting: 0, ready: 0 }
+  const waits: (() => void)[] = []
+  channel = new BroadcastChannel(HELD_SVG_THREAD)
+  const go = () => channel?.postMessage('go')
+  channel.onmessage = (event) => {
+    const word = (event as MessageEvent).data as keyof typeof said
+    said[word]++
+    if (release && word === 'starting') go()
+    for (const wake of waits.splice(0)) wake()
+  }
+  /** Resolves once `count` threads have said `word`. */
+  const until = async (word: keyof typeof said, count: number) => {
+    while (said[word] < count) await new Promise<void>((wake) => waits.push(wake))
+  }
+  return { said, until, go }
+}
+
+afterEach(async () => {
+  await made?.end()
+  made = undefined
+  channel?.close()
+  channel = undefined
+})
 
 describe('readSvgAsset', () => {
   it('reads an SVG file at its own size with its thumbnail, and nothing of a file that is not one', async () => {
@@ -170,5 +229,60 @@ describe('svgThumbnail', () => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><image href="${dataUrl(garbled())}" width="50" height="50"/><image href="${dataUrl(solid(10, [200, 40, 40]))}" x="50" width="50" height="50"/></svg>`
     expect(await pixelAt(svg, 25, 25)).toEqual([0, 0, 0, 0])
     expect(await pixelAt(svg, 75, 25)).toEqual([200, 40, 40, 255])
+  })
+})
+
+describe('svgReader', () => {
+  it('reads a file that comes while the thread starts, once the thread is ready', async () => {
+    const threads = heldThreads()
+    const reader = heldReader()
+    const reading = reader.read(SQUARE, 320)
+    await threads.until('starting', 1)
+    // Held a while after it said it is starting.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    threads.go()
+    expect((await reading)?.header.width).toBe(10)
+    expect(threads.said.starting).toBe(1)
+  })
+
+  it('starts the thread ahead of the first file, which then waits for no start', async () => {
+    const threads = heldThreads(true)
+    const reader = heldReader()
+    expect(await reader.start()).toBe(true)
+    expect((await reader.read(SQUARE, 320))?.header.width).toBe(10)
+    expect(threads.said.starting).toBe(1)
+  })
+
+  it('starts a thread again as soon as one that was ready ends, before any file asks for it', async () => {
+    const threads = heldThreads(true)
+    const reader = heldReader()
+    const { refused } = await timed(() => reader.read(encoded(slowPathsSvg()), 320, 200))
+    expect(refused).toBeInstanceOf(SvgRefused)
+    // Ended past the file's time, then started again with nothing asked.
+    await threads.until('ready', 2)
+    expect((await reader.read(SQUARE, 320))?.header.width).toBe(10)
+    expect(threads.said.starting).toBe(2)
+  })
+
+  it('answers busy a file the thread isn’t ready for within its wait, and keeps starting the thread for the next', async () => {
+    const threads = heldThreads()
+    const reader = heldReader({ waitLimitMs: 100 })
+    await expect(reader.read(SQUARE, 320)).rejects.toThrow(
+      new SvgBusy('Dazbee is getting ready to read SVG files; add this one again in a minute'),
+    )
+    await threads.until('starting', 1)
+    threads.go()
+    await threads.until('ready', 1)
+    expect((await reader.read(SQUARE, 320))?.header.width).toBe(10)
+    expect(threads.said.starting).toBe(1)
+  })
+
+  it('ends a thread not ready within its start limit, and answers busy the file waiting for it', async () => {
+    const reader = heldReader({ startLimitMs: 100 })
+    await expect(reader.read(SQUARE, 320)).rejects.toThrow(
+      new SvgBusy('Dazbee is getting ready to read SVG files; add this one again in a minute'),
+    )
+    // Each start is held past the limit, so each is ended without getting ready.
+    expect(await reader.start()).toBe(false)
   })
 })

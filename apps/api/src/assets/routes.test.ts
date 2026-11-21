@@ -1,5 +1,5 @@
 // The image routes, against Postgres from Docker Compose (`docker compose up -d --wait postgres`).
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import {
   AssetInUse,
@@ -18,6 +18,7 @@ import { inDrawingTurn } from '../drawing/drawing-turn.ts'
 import { brand, call, db, request, run, SHORT_ID, sibling, uploadImage } from '../test-api.ts'
 import { bigPictureSvg, png, sha256, slowPathsSvg } from '../test-files.ts'
 import { appendAccepted, appendEntry } from '../workspace/test-journal.ts'
+import { startSvgThread, SVG_START_LIMIT_MS } from './svg-assets.ts'
 
 const SQUARE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="9" height="9"/></svg>'
 
@@ -45,6 +46,9 @@ function holdDrawingTurn() {
   void inDrawingTurn(() => held)
   return release
 }
+
+// The SVG thread starts ahead of the first file, as it does when the API starts (main.ts).
+beforeAll(() => startSvgThread(), SVG_START_LIMIT_MS)
 
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
 describe('image uploads', { timeout: 30_000 }, () => {

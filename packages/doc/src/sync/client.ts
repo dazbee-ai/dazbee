@@ -1058,10 +1058,10 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   /**
    * Of the queued change sets from id `from` on, the leading run the server took under their ids as
    * they are, sent once before from a tab copy written since: those the welcome's catch-up holds
-   * under their ids with the same changes, or, in a whole-design catch-up, those not rejected each of
-   * whose changes writes a record the design holds already as it writes it. Changes are compared as
-   * the wire carries them, which keeps no -0. The change sets after them were made under ids the
-   * server took for others.
+   * under their ids with the same changes, or, in a whole-design catch-up, those not rejected whose
+   * creates' records the design holds and whose sets and deletes it holds already as they write them
+   * (a set on a record that is gone holds nothing). Changes are compared as the wire carries them,
+   * which keeps no -0. The change sets after them were made under ids the server took for others.
    */
   function takenAsTheyAre(message: Welcome, from: number): Set<number> {
     const { catchUp, processed } = message
@@ -1073,7 +1073,15 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     const holds = (changes: Change[]) => {
       if (!design) return false
       const next = design.overlay()
-      for (const change of changes) if (next.apply(change, 'lenient').length === 0) return false
+      for (const change of changes) {
+        // A create's id is the tab's own: live in the design, it is this create's record.
+        if (change.op === 'create') {
+          if (next.partOf(change.id) === undefined) return false
+          continue
+        }
+        const wrote = next.apply(change, 'lenient')
+        if (change.op === 'set' && wrote.length === 0) return false
+      }
       return next.ownKeys().every((key) => sameValue(next.getKey(key), design.getKey(key)))
     }
     const taken = new Set<number>()

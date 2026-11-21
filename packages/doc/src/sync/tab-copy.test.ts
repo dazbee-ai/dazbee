@@ -260,13 +260,23 @@ describe('restoreEntries', () => {
       ['the change sets it missed', 100],
       ['the whole design', 1],
     ] as const)(
-      'sends a change set the server took once only, though the device kept a -0 the server took as 0 (catch-up: %s)',
+      'sends the change sets the server took once only, one with a -0 the server took as 0 and one adding a layer (catch-up: %s)',
       (_, logChangeSets) => {
         const server = testServer(linkedDesign(), { limits: { logChangeSets } })
         const [a, b] = [joinClient(server), joinClient(server)]
         server.leave(a.tabId())
         const back = openClient(structuredClone(a.save()))
         edit(back, 'move', set({ part: 'layer', id: 'title', key: 'props', prop: 'x' }, -0))
+        // A layer it adds, named in the same step, is held by the design already when it comes back.
+        const added = {
+          type: 'group',
+          parentId: 'grp',
+          link: 'g2',
+          index: 'a5',
+          name: 'G',
+          props: { x: 0, y: 0, width: 10, height: 10 },
+        }
+        edit(back, 'add', { op: 'create', part: 'layer', id: 'g2', record: added }, set(name('layer', 'g2'), 'Added'))
         // The device keeps values as they are; the wire carries JSON. The tab copy's writes after the welcome are lost.
         const stale = structuredClone(back.save())
         const joined = server.join(wire(back.reconnect('t')), who())
@@ -279,7 +289,8 @@ describe('restoreEntries', () => {
         const rejoined = server.join(wire(again.reconnect('t')), who())
         if ('close' in rejoined) throw new Error(rejoined.reason)
         exchange(server, again, down(again, rejoined.out), [again, b])
-        expect([server.seq(), again.queued(), again.takeNotices()]).toEqual([3, 0, []])
+        expect([server.seq(), again.queued(), again.takeNotices()]).toEqual([4, 0, []])
+        expect(server.state().get('layer', 'g2')?.name).toBe('Added')
       },
     )
 

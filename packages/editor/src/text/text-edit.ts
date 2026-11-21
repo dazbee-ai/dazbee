@@ -70,6 +70,14 @@ export function step(text: string, offset: number, forward: boolean): number {
   return forward ? (edges.find((x) => x > offset) ?? text.length) : (edges.findLast((x) => x < offset) ?? 0)
 }
 
+/** The grapheme edge nearest an offset on the side it says: the offset itself when it is one. */
+export function graphemeEdge(text: string, offset: number, forward: boolean): number {
+  if (offset <= 0 || offset >= text.length) return Math.min(Math.max(offset, 0), text.length)
+  const around = graphemes.segment(text).containing(offset)
+  if (!around || around.index === offset || !forward) return around?.index ?? offset
+  return around.index + around.segment.length
+}
+
 /**
  * Where Backspace at an offset deletes back to: a letter's trailing mark alone (a Devanagari vowel
  * sign or virama, a Thai tone mark, an accent typed after its letter), so कि becomes क as Indic

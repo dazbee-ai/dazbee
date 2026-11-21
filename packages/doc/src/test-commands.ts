@@ -27,15 +27,21 @@ export interface World {
   random: () => number
 }
 
-/** One input the sweep runs: what it is, and whether the command has to refuse it. */
+/** Where in an input a value sits: the keys and indexes down to it. */
+export type Path = (string | number)[]
+
+/**
+ * One input the sweep runs: what it is, whether the command has to refuse it, and where it differs
+ * from the input as given (none for that one).
+ */
 export interface Case {
   label: string
   input: unknown
   refused: boolean
+  path?: Path
 }
 
 type Json = Record<string, unknown>
-type Path = (string | number)[]
 
 /**
  * Commands with a bug, registered only for the tests that call `registerBuggyCommands`:
@@ -412,7 +418,12 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
 export function casesOf(input: unknown, world: World): Case[] {
   const cases: Case[] = [{ label: 'as given', input, refused: false }]
   const vary = (label: string, path: Path, value: unknown, refused = false) =>
-    cases.push({ label: `${label} at ${path.join('.') || 'the input'}`, input: changed(input, path, value), refused })
+    cases.push({
+      label: `${label} at ${path.join('.') || 'the input'}`,
+      input: changed(input, path, value),
+      refused,
+      path,
+    })
   for (const { path, value } of sites(input)) {
     if (typeof value === 'number') for (const n of NUMBERS) vary(`the number ${n}`, path, n)
     if (typeof value === 'string') {

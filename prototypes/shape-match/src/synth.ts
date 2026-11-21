@@ -59,10 +59,10 @@ export interface SynthBlock {
   dev: boolean
 }
 
-const OUT = 'data/synth'
+const OUT = process.env.SYNTH_DIR ?? 'data/synth'
 const COUNT_PER_FAMILY = 13
 
-let seed = 20261121
+let seed = Number(process.env.SYNTH_SEED ?? 20261121)
 const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
 const between = (a: number, b: number) => a + (b - a) * rand()
 const int = (a: number, b: number) => Math.floor(between(a, b + 1))

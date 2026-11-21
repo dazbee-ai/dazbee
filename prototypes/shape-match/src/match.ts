@@ -31,7 +31,7 @@ import { fitGradient, innerPixels } from './gradient.ts'
 import { colourName, shapeName } from './names.ts'
 import { type Img, over, resize } from './pixels.ts'
 import { type Region, splitRegions } from './regions.ts'
-import { pairDeltaE, type Score, score } from './score.ts'
+import { pairDeltaE, resetPairs, type Score, score, scoreV2 } from './score.ts'
 import { contours, tracePath } from './trace.ts'
 
 export interface BrandColour {
@@ -113,6 +113,7 @@ interface Built {
 
 export function matchBlock(ck: CanvasKit, img: Img, cfg: Config, brand: BrandColour[] = []): Result {
   const t0 = performance.now()
+  resetPairs()
   let renders = 0
   const s = Math.min(1, cfg.fitMax / Math.max(img.w, img.h))
   const fw = Math.ceil(img.w * s - 1e-9)
@@ -198,20 +199,62 @@ export function matchBlock(ck: CanvasKit, img: Img, cfg: Config, brand: BrandCol
   renders++
   const sc = score(img, made, cfg.level === 'medium')
   if (!sc.same && cfg.paths) {
-    // The ladder's last step: every region as a traced path.
-    const traced = tracedOnly(ck, small, regions, img, s, fw, fh)
+    // The ladder's last step: every region traced as a path at full size (blocks up to 768 px),
+    // following the AI edge where a clean shape sits a pixel or two off it; gradients, the shadow
+    // and brand snaps as for the shapes.
+    const traced = tracedOnly(ck, small, regions, img, s, fw, fh, cfg)
     renders += traced.renders
     if (traced.layers.length > 0 && traced.layers.length <= cfg.maxLayers) {
-      const tm = drawLayers(ck, traced.layers, img.w, img.h)
+      let tl = traced.layers
+      if (cfg.shadows) {
+        const sh = fitShadow(ck, small, tl, img, s)
+        renders += sh.renders
+        tl = sh.layers
+      }
+      const tsnap = snapToBrand(ck, img, tl, brand, cfg.snapDeltaE)
+      renders += tsnap.renders
+      const tm = drawLayers(ck, tsnap.layers, img.w, img.h, 1, tsnap.variables)
       renders++
       const ts = score(img, tm, true)
       if (ts.same)
         return finer(
           ts,
-          traced.layers,
-          traced.layers.map(() => null),
+          tsnap.layers,
+          tsnap.layers.map(() => null),
         )
     }
+  }
+  if (sc.same && layers.some((l) => l.alt)) {
+    // Editable shapes over traced paths: each path's fitted shape (a star, polygon, ellipse or
+    // rectangle) takes its place, with its paint, binding and effects, when the block still looks the same.
+    let best = { sc, layers, params }
+    for (let i = 0; i < best.layers.length; i++) {
+      const l = best.layers[i]!
+      if (!l.alt) continue
+      const a = l.alt.layer
+      const swapped: OutLayer = {
+        ...a,
+        name: l.name.replace(/ shape$/, '') + ' ' + a.name.split(' ').slice(1).join(' '),
+        ...(l.bindings ? { bindings: l.bindings } : {}),
+        props: {
+          ...a.props,
+          ...((a.props.fills as unknown[]).length ? { fills: l.props.fills } : {}),
+          ...(l.props.effects ? { effects: l.props.effects } : {}),
+        },
+      }
+      const tryLayers = best.layers.map((x, j) => (j === i ? swapped : x))
+      renders++
+      const madeTry = drawLayers(ck, tryLayers, img.w, img.h, 1, snapped.variables)
+      const tsc = score(img, madeTry, cfg.level === 'medium')
+      // Rule v2 must agree too: the shared rule passes a 17-point star for a 20-point burst.
+      if (tsc.same && scoreV2(img, madeTry).same)
+        best = {
+          sc: tsc,
+          layers: tryLayers,
+          params: best.params.map((p, j) => (j === i ? (l.alt!.params as Params) : p)),
+        }
+    }
+    return finer(best.sc, best.layers, best.params)
   }
   return finer(sc, layers, params)
 
@@ -236,11 +279,15 @@ export function matchBlock(ck: CanvasKit, img: Img, cfg: Config, brand: BrandCol
             ps,
           )
       }
+      // At most 512 pixels on the long side: a part a pixel wide at full size still shows there.
+      const ps2 = Math.min(1, 512 / Math.max(img.w, img.h))
+      const view = ps2 < 1 ? resize(img, Math.ceil(img.w * ps2 - 1e-9), Math.ceil(img.h * ps2 - 1e-9)) : img
       const lost = worstPart(
-        blurredDeltaE(img, drawLayers(ck, ls, img.w, img.h, 1, snapped.variables)),
+        blurredDeltaE(view, drawLayers(ck, ls, img.w, img.h, ps2, snapped.variables)),
         regions,
-        img,
-        s,
+        view,
+        s / ps2,
+        fw,
       )
       if (process.env.DBG) console.log('worst part', lost.de.toFixed(2), (lost.share * 100).toFixed(1) + '%')
       if (lost.de > 12)
@@ -300,7 +347,7 @@ function buildRegion(
   const target = ring ?? win
   const paint = solid(r.rgb, r.alpha)
   const background = r.touchesEdge && sum(r.filled) >= fw * fh * 0.9
-  if (cfg.paths && r.marks && r.marks >= 6) {
+  if (cfg.paths && r.marks && r.marks >= 6 && alongBorder(r, fw)) {
     const dashed = dashedOutline(ck, r, fw, fh, s, cfg)
     if (dashed) {
       renders += dashed.renders
@@ -337,6 +384,8 @@ function buildRegion(
       renders++
       // A designer's primitive wins unless the path is clearly closer: thin outlines by 0.05.
       if (piou > iou + (outline ? 0.05 : 0.02)) {
+        // A fitted shape this close to the region may stand in for the path, if the block still looks the same.
+        if (iou >= 0.95) pathLayer.alt = { layer, params }
         layer = pathLayer
         params = null
         iou = piou
@@ -371,11 +420,20 @@ function dashedOutline(ck: CanvasKit, r: Region, fw: number, fh: number, s: numb
     }
   }
   if (process.env.DBG) console.log('dashed: closed', !!outer, 'marks', r.marks)
-  if (!outer) return null
-  const shapeMask = windowOf(outer, fw, fh, s, r.bbox, 4)
   const target = windowOf(r.mask, fw, fh, s, r.bbox, 4)
-  const base = fitShape(ck, shapeMask, { refineSteps: 20, kinds: ['rect', 'ellipse'] })
-  renders += base.renders
+  let base: Fit
+  if (outer) {
+    base = fitShape(ck, windowOf(outer, fw, fh, s, r.bbox, 4), { refineSteps: 20, kinds: ['rect', 'ellipse'] })
+    renders += base.renders
+  } else {
+    // Uneven dashes leave the ring open: the marks' convex hull is the frame's outer outline,
+    // fitted by the same shape fitter as any region, so a frame of any shape kind is found.
+    base = fitShape(ck, windowOf(hullMask(r.mask, fw, fh), fw, fh, s, r.bbox, 4), {
+      refineSteps: 20,
+      kinds: cfg.kinds.filter((k) => k !== 'line'),
+    })
+    renders += base.renders
+  }
   // Each mark is about l × t: l + t is half its edge, l·t its area.
   const loops = contours(r.mask, fw, fh, 0.5)
   let edge = 0
@@ -399,11 +457,17 @@ function dashedOutline(ck: CanvasKit, r: Region, fw: number, fh: number, s: numb
     iou: -1,
     renders: 0,
   }
-  for (let k = 0; k < 12; k++) {
-    const q = { ...best.params, dashOffset: (period * k) / 12 }
-    renders++
-    const v = iouOf(ck, q, target)
-    if (v > best.iou) best = { params: q, iou: v, renders: 0 }
+  // The period from the count is rough (specks count as marks) and its error adds up round the
+  // frame: periods within 15 % are searched with the pattern's start.
+  const duty = dash / period
+  for (let f = 0.85; f <= 1.151; f += 0.015) {
+    const per = period * f
+    for (let k = 0; k < 12; k++) {
+      const q = { ...best.params, dash: per * duty, gap: Math.max(0.5, per * (1 - duty)), dashOffset: (per * k) / 12 }
+      renders++
+      const v = iouOf(ck, q, target)
+      if (v > best.iou) best = { params: q, iou: v, renders: 0 }
+    }
   }
   const refined = refine(ck, best.params, best.iou, target, cfg.refineSteps)
   renders += refined.renders
@@ -423,8 +487,53 @@ function dashedOutline(ck: CanvasKit, r: Region, fw: number, fh: number, s: numb
       '→',
       refined.iou.toFixed(3),
     )
-  if (refined.iou < 0.55) return null
+  if (refined.iou < 0.4) return null
   return { fit: refined, renders }
+}
+
+/** A 0/1 mask of the convex hull of a mask's covered pixels (monotone chain). */
+function hullMask(m: Float32Array, w: number, h: number): Float32Array {
+  const pts: [number, number][] = []
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (m[y * w + x]! >= 0.5) pts.push([x + 0.5, y + 0.5])
+  pts.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const half = (list: [number, number][]) => {
+    const out: [number, number][] = []
+    for (const p of list) {
+      while (out.length >= 2 && cross(out[out.length - 2]!, out[out.length - 1]!, p) <= 0) out.pop()
+      out.push(p)
+    }
+    out.pop()
+    return out
+  }
+  const hull = [...half(pts), ...half([...pts].reverse())]
+  const out = new Float32Array(w * h)
+  if (hull.length < 3) return out
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const p: [number, number] = [x + 0.5, y + 0.5]
+      let inside = true
+      for (let k = 0; k < hull.length && inside; k++)
+        if (cross(hull[k]!, hull[(k + 1) % hull.length]!, p) < 0) inside = false
+      if (inside) out[y * w + x] = 1
+    }
+  return out
+}
+
+/** Whether 80 % of a group of marks lies near the edge of their box: a frame, not texture. */
+function alongBorder(r: Region, fw: number) {
+  const b = r.bbox
+  const band = Math.max(2, 0.15 * Math.min(b.x1 - b.x0, b.y1 - b.y0))
+  let near = 0
+  let all = 0
+  for (let y = b.y0; y <= b.y1; y++)
+    for (let x = b.x0; x <= b.x1; x++) {
+      if (r.mask[y * fw + x]! < 0.5) continue
+      all++
+      if (x - b.x0 < band || b.x1 - x < band || y - b.y0 < band || b.y1 - y < band) near++
+    }
+  return all > 0 && near >= 0.8 * all
 }
 
 /** Dilation (grow) or erosion of a 0/1 mask by a square of radius rad. */
@@ -924,17 +1033,57 @@ function snapToBrand(ck: CanvasKit, img: Img, layers: OutLayer[], brand: BrandCo
 }
 
 /** Every region as a traced path in its flat colour. */
-function tracedOnly(ck: CanvasKit, small: Img, regions: Region[], img: Img, s: number, fw: number, fh: number) {
-  void ck
-  void small
-  void img
-  const layers: OutLayer[] = []
-  for (const r of regions) {
-    const win = windowOf(r.filled, fw, fh, s, r.bbox, 3)
-    const traced = tracePath(win, 0.5)
-    if (traced) layers.push(pathLayerOf(traced, win, solid(r.rgb, r.alpha), `${colourName(r.rgb)} shape`))
+function tracedOnly(
+  ck: CanvasKit,
+  small: Img,
+  regions: Region[],
+  img: Img,
+  s: number,
+  fw: number,
+  fh: number,
+  cfg: Config,
+) {
+  let renders = 0
+  let regs = regions
+  let src = small
+  let S = s
+  let W = fw
+  let H = fh
+  if (s < 1 && Math.max(img.w, img.h) <= 768) {
+    // Split again at full size, so the paths follow the block's own edge pixel for pixel.
+    let covered = 0
+    for (let i = 0; i < img.w * img.h; i++) if (img.d[i * 4 + 3]! >= 0.5) covered++
+    const split = splitRegions(img, {
+      mergeDeltaE: cfg.mergeDeltaE,
+      k: cfg.k,
+      minArea: Math.max(4, cfg.minAreaShare * covered),
+      cut: 0.5,
+      maxRegions: cfg.maxRegions * 2,
+    })
+    if (!split.tooMany && split.regions.length > 0) {
+      regs = groupMarks(split.regions, covered).filter((r) => sum(r.mask) >= Math.max(2, covered * 0.0005))
+      if (cfg.gradients && regs.length <= 16) regs = mergeGradientBands(img, regs, split.labels, 1)
+      regs.sort((a, b) => sum(b.filled) - sum(a.filled))
+      src = img
+      S = 1
+      W = img.w
+      H = img.h
+    }
   }
-  return { layers, renders: 0 }
+  const layers: OutLayer[] = []
+  for (const r of regs) {
+    const win = windowOf(r.filled, W, H, S, r.bbox, 3)
+    const traced = tracePath(win, S === 1 ? 0.35 : 0.5)
+    if (!traced) continue
+    let layer = pathLayerOf(traced, win, solid(r.rgb, r.alpha), `${colourName(r.rgb)} shape`)
+    if (cfg.gradients && r.spread > 2.5) {
+      const g = gradientLayer(ck, src, r, layer, S, img)
+      renders += g.renders
+      if (g.layer) layer = g.layer
+    }
+    layers.push(layer)
+  }
+  return { layers, renders }
 }
 
 /**
@@ -981,9 +1130,8 @@ function blur1(src: Float32Array, w: number, h: number): Float32Array {
 }
 
 /** The worst region's mean ΔE at full size, over regions of 0.5 % of the block or more. */
-function worstPart(deMap: Float32Array, regions: Region[], img: Img, s: number) {
+function worstPart(deMap: Float32Array, regions: Region[], img: Img, s: number, fw: number) {
   let worst = { de: 0, share: 0 }
-  const fw = Math.ceil(img.w * s - 1e-9)
   let total = 0
   for (const r of regions) total += r.area
   for (const r of regions) {
@@ -992,7 +1140,8 @@ function worstPart(deMap: Float32Array, regions: Region[], img: Img, s: number) 
     let n = 0
     for (let y = 0; y < img.h; y++)
       for (let x = 0; x < img.w; x++) {
-        if (r.mask[Math.floor(y * s) * fw + Math.min(fw - 1, Math.floor(x * s))]! < 0.5) continue
+        const at = Math.min(r.mask.length - 1, Math.floor(y * s) * fw + Math.min(fw - 1, Math.floor(x * s)))
+        if (r.mask[at]! < 0.5) continue
         e += deMap[y * img.w + x]!
         n++
       }

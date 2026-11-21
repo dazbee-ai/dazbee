@@ -9,6 +9,7 @@ import { deltaE00, parseHex, rgbToLab } from './colour.ts'
 import { coverage, type OutLayer } from './draw.ts'
 import { softIoU } from './fit.ts'
 import { type Config, LIGHT, matchBlock, MEDIUM } from './match.ts'
+import { SYNTH_DIR } from './paths.ts'
 import { decodeFile } from './pixels.ts'
 import type { SynthBlock } from './synth.ts'
 
@@ -17,12 +18,13 @@ const level = process.argv[2] === 'medium' ? 'medium' : 'light'
 const part = process.argv[3] ?? 'test'
 const snap = process.argv[4] ? Number(process.argv[4]) : undefined
 const cfg: Config = { ...(level === 'medium' ? MEDIUM : LIGHT), ...(snap !== undefined ? { snapDeltaE: snap } : {}) }
-const index = JSON.parse(readFileSync('data/synth/index.json', 'utf8')) as SynthBlock[]
+const index = JSON.parse(readFileSync(`${SYNTH_DIR}/index.json`, 'utf8')) as SynthBlock[]
 const blocks = index.filter((b) => part === 'all' || (part === 'dev' ? b.dev : !b.dev))
 const lines: string[] = []
 for (const b of blocks) {
-  const img = decodeFile(ck, `data/synth/${b.id}.png`)
+  const img = decodeFile(ck, `${SYNTH_DIR}/${b.id}.png`)
   const r = matchBlock(ck, img, cfg, b.kit)
+  ;(globalThis as { gc?: () => void }).gc?.()
   const geo = geometry(b.layers, r.layers, img.w, img.h)
   const brand = brandCheck(b, r.layers, geo.pairs)
   const row = {
@@ -36,6 +38,9 @@ for (const b of blocks) {
     ssim: r.score?.ssim ?? null,
     deltaE: r.score?.deltaE ?? null,
     deltaEContent: r.score?.deltaEContent ?? null,
+    ssimV2: r.score?.v2?.ssim ?? null,
+    deltaEV2: r.score?.v2?.deltaE ?? null,
+    lostV2: r.score?.v2?.lost ?? null,
     same: r.score?.same ?? false,
     layers: r.layers.length,
     truthLayers: b.layers.length,
@@ -53,7 +58,10 @@ for (const b of blocks) {
     `${String(b.id).padStart(3)} ${b.family.padEnd(11)} ${b.degradation.padEnd(8)} ${b.truth.padEnd(7)} → ${r.decision.padEnd(7)} iou ${geo.meanIoU?.toFixed(3) ?? '-'} L${r.layers.length}/${b.layers.length} ${r.ms.toFixed(0)}ms ${r.why}`,
   )
 }
-writeFileSync(`out/synth-${level}-${part}${snap !== undefined ? '-snap' + snap : ''}.jsonl`, lines.join('\n') + '\n')
+writeFileSync(
+  `out/synth${SYNTH_DIR === 'data/synth' ? '' : '2'}-${level}${process.env.RULE === 'v2' ? '-v2' : ''}-${part}${snap !== undefined ? '-snap' + snap : ''}.jsonl`,
+  lines.join('\n') + '\n',
+)
 
 /** A layer without its effects: its own shape, for geometry. */
 function bare(l: OutLayer): OutLayer {

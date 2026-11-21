@@ -4,10 +4,22 @@
 // the UI Events and Input Events specs' examples and each browser's documented order.
 import type { FieldState } from '../text/field-change.ts'
 
-/** One event a browser sends the stage field, or the window while the field has the focus. */
+/**
+ * One event a browser sends the stage field, or the window while the field has the focus; or
+ * `frame`, a frame the browser draws once the events before it, sent in one task, are done.
+ */
 export interface FieldEvent {
   type:
-    'keydown' | 'keyup' | 'compositionstart' | 'compositionupdate' | 'compositionend' | 'beforeinput' | 'input' | 'blur'
+    | 'keydown'
+    | 'keyup'
+    | 'compositionstart'
+    | 'compositionupdate'
+    | 'compositionend'
+    | 'beforeinput'
+    | 'input'
+    | 'selectionchange'
+    | 'blur'
+    | 'frame'
   key?: string
   code?: string
   keyCode?: number
@@ -16,7 +28,10 @@ export interface FieldEvent {
   isComposing?: boolean
   /** For a `beforeinput`, whether the page may cancel it. */
   cancelable?: boolean
-  /** The field's value and selection after the event, `|` marking its caret and `[` `]` its selection. */
+  /**
+   * The field's value and selection after the event, `|` marking its caret and `[` `]` its
+   * selection; after a frame, as the field is given it.
+   */
   field: string
   /**
    * For a key down, that the editor takes it, so the browser sends nothing more for it; for a
@@ -33,33 +48,41 @@ export interface InputMethodSequence {
   events: FieldEvent[]
   /** The words and their caret or selection after the events. */
   typed: string
+  /**
+   * That each event's field is all the field holds, the text around the caret too; else it is what
+   * stands in place of the selected range typing starts with, the text around it left out.
+   */
+  whole?: true
 }
 
-/** The keyCode a key's key up says, by its key. */
-const KEY_CODES: Readonly<Record<string, number>> = { ' ': 32, Backspace: 8, Convert: 28, Enter: 13, Escape: 27 }
-
 /** A key going down or coming up, with the field as it stands. */
-const down = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
+export const down = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
   type: 'keydown',
   ...{ key, code, keyCode, isComposing, field },
 })
-const up = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
+export const up = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
   type: 'keyup',
   ...{ key, code, keyCode, isComposing, field },
 })
 /** A composition event. */
-const start = (field: string): FieldEvent => ({ type: 'compositionstart', data: '', field })
-const update = (data: string, field: string): FieldEvent => ({ type: 'compositionupdate', data, field })
-const end = (data: string, field: string): FieldEvent => ({ type: 'compositionend', data, field })
+export const start = (field: string): FieldEvent => ({ type: 'compositionstart', data: '', field })
+export const update = (data: string, field: string): FieldEvent => ({ type: 'compositionupdate', data, field })
+export const end = (data: string, field: string): FieldEvent => ({ type: 'compositionend', data, field })
 /** An input event; a `beforeinput` the page may cancel. */
-const before = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
+export const before = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
   type: 'beforeinput',
   ...{ inputType, data, isComposing, cancelable: !inputType.includes('Composition'), field },
 })
-const input = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
+export const input = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
   type: 'input',
   ...{ inputType, data, isComposing, field },
 })
+/** The field's selection moved with no change to its text; a frame drawn, the field as it is given. */
+export const selection = (field: string): FieldEvent => ({ type: 'selectionchange', field })
+export const frame = (field: string): FieldEvent => ({ type: 'frame', field })
+
+/** The keyCode a key's key up says, by its key. */
+const KEY_CODES: Readonly<Record<string, number>> = { ' ': 32, Backspace: 8, Convert: 28, Enter: 13, Escape: 27 }
 const blur = (field: string): FieldEvent => ({ type: 'blur', field })
 
 /** Microsoft Pinyin in Chrome on Windows: "nihao", its first candidate 你好 taken with Space. */
@@ -177,7 +200,7 @@ export const DEAD_KEY_WINDOWS: InputMethodSequence = {
     down('Dead', 'Quote', 222, false, '|'),
     up('Dead', 'Quote', 222, false, '|'),
     { ...down('é', 'KeyE', 69, false, '|'), prevented: true },
-    up('e', 'KeyE', 69, false, '|'),
+    up('e', 'KeyE', 69, false, 'é|'),
   ],
   typed: 'Hello thereé|',
 }
@@ -217,7 +240,7 @@ export const LAM_ALEF_KEY: InputMethodSequence = {
 export const INSCRIPT_CONJUNCT_KEY: InputMethodSequence = {
   name: 'the Devanagari InScript key that types क्ष',
   start: 'Hello there|',
-  events: [{ ...down('क्ष', 'Digit7', 55, false, '|'), prevented: true }, up('क्ष', 'Digit7', 55, false, '|')],
+  events: [{ ...down('क्ष', 'Digit7', 55, false, '|'), prevented: true }, up('क्ष', 'Digit7', 55, false, 'क्ष|')],
   typed: 'Hello thereक्ष|',
 }
 
@@ -328,7 +351,7 @@ export const SAFARI_BLUR_GOES_ON: InputMethodSequence = {
   typed: 'Hello there日本|',
 }
 
-/** Every written sequence. */
+/** Every written sequence of a computer's input methods and keys. */
 export const INPUT_METHOD_SEQUENCES: readonly InputMethodSequence[] = [
   PINYIN_CHROME_WINDOWS,
   JAPANESE_CONVERTED_CHROME_WINDOWS,

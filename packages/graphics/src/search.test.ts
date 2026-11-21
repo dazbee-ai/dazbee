@@ -4,9 +4,9 @@ import { findIcon, searchIcons } from './search.ts'
 
 describe('searchIcons', () => {
   it('finds the icon named as the query first in each set, the sets taking turns', () => {
-    const found = searchIcons('star', { limit: 4 }).map(({ graphic }) => graphic)
+    const found = searchIcons('star', { limit: 4 }).map(({ id }) => id)
     expect(found.slice(0, 2)).toEqual(['tabler/star', 'phosphor/star'])
-    expect(found.map((graphic) => graphic.split('/')[0])).toEqual(['tabler', 'phosphor', 'tabler', 'phosphor'])
+    expect(found.map((id) => id.split('/')[0])).toEqual(['tabler', 'phosphor', 'tabler', 'phosphor'])
   })
 
   it('needs every word to match, in the name or the tags', () => {

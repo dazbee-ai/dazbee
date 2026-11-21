@@ -1,11 +1,28 @@
-// What the tools that place on a frame of the open design share: the box they place in, the frame they place on
-// and the parts of a frame they place at.
+// What the tools that place on a frame of the open design share: the box they place in, the frame they place on,
+// the parts of a frame they place at, and running the placing batch and answering with the layer it placed.
 import { z } from 'zod'
 
+import type { AgentStep } from '@dazbee/doc'
 import type { Frame, Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
-import { ToolRefusal } from './define-tool.ts'
+import { agentBatchOn, answered, refusalOf } from './command-tools.ts'
+import { type ToolContext, ToolRefusal } from './define-tool.ts'
+
+/** The frame a tool places on: its id and its record. */
+export interface FrameTo {
+  id: string
+  frame: Frame
+}
+
+/** The agent batch that places a layer, and what its answer tells beside the layer, its box and the warnings. */
+export interface Placing {
+  steps: AgentStep[]
+  /** The layer placed, read from the first step's result. */
+  layerOf: (result: unknown) => string
+  /** What the answer tells between the layer's box and the warnings. */
+  told: Record<string, unknown>
+}
 
 /** The farthest a box's edges may sit from its frame's corner, and the longest side it may have, in design pixels. */
 const BOX_LIMIT = 100_000
@@ -21,6 +38,31 @@ export function placeBox(description: string) {
     })
     .strict()
     .describe(description)
+}
+
+/**
+ * Runs the batch on the open design as one agent step and answers once Dazbee has stored it: the layer placed, its
+ * box, what `placing` tells and the warnings for what it placed; refused, nothing changed, when a step is refused.
+ */
+export async function placeAndAnswer(
+  { answerBy }: ToolContext,
+  open: OpenDesign,
+  { steps, layerOf, told }: Placing,
+  note: string | undefined,
+): Promise<unknown> {
+  const done = await agentBatchOn(open, steps, answerBy, note)
+  const { kept, steps: outcomes, warnings, warningsError } = done.value
+  const [first] = outcomes
+  if (!kept || !first?.ok) throw new ToolRefusal(refusalOf(outcomes.find((step) => !step.ok)))
+  const layer = layerOf(first.result)
+  const props = open.tab.design().nodes[layer]?.props
+  return answered(open, done, {
+    layer,
+    ...(props ? { box: { x: props.x, y: props.y, width: props.width, height: props.height } } : {}),
+    ...told,
+    warnings,
+    ...(warningsError === undefined ? {} : { warningsError }),
+  })
 }
 
 /** The open design's frame, refused when it has none of that id. */

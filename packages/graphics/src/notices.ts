@@ -12,10 +12,27 @@ export interface IconSetNotice {
   licence: string
   /** The licence's text, as the set ships it. */
   text: string
+  /** The licence's text as paragraphs, each paragraph's lines joined, for a page to flow at any width. */
+  paragraphs: readonly string[]
+}
+
+/** A text's paragraphs, parted by blank lines, each one's lines joined by a space. */
+function paragraphsOf(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((paragraph) =>
+      paragraph
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(' '),
+    )
+    .filter(Boolean)
 }
 
 /** Every bundled set's notice, in the order the sets are listed. */
 export const ICON_SET_NOTICES: readonly IconSetNotice[] = ICON_SET_IDS.map((id) => {
   const { title, homepage } = ICON_SETS[id]
-  return { title, homepage, ...notices[id] }
+  const notice = notices[id]
+  return { title, homepage, ...notice, paragraphs: paragraphsOf(notice.text) }
 })

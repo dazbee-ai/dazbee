@@ -3,32 +3,21 @@
 // it, as one agent batch with its warnings.
 import { z } from 'zod'
 
-import { type AgentStep, placedRoots } from '@dazbee/doc'
+import { placedRoots } from '@dazbee/doc'
 import { logoBinding, placedImage, SvgError, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type AssetSummary, type Frame, isVectorAsset, RecordId, type Rect } from '@dazbee/schema'
+import { type AssetSummary, isVectorAsset, RecordId, type Rect } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
-import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
+import { Note, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
-import { centreOf, frameIn, placeBox, whole } from './place-on-frame.ts'
+import { centreOf, frameIn, type FrameTo, placeAndAnswer, placeBox, type Placing, whole } from './place-on-frame.ts'
 
-/** The agent batch that places an asset, and how its answer reads the layer placed from the first step's result. */
-interface PlaceBatch {
-  steps: AgentStep[]
-  layerOf: (result: unknown) => string
-  /** The token the layer's picture is bound to, if any. */
-  bound?: string
-  /** What an SVG file had that no layer shows. */
+/** The batch that places an asset, with what an SVG file had that no layer shows. */
+interface AssetPlacing extends Placing {
   leftOut: readonly string[]
-}
-
-/** The frame an asset goes in: its id and its record. */
-interface FrameTo {
-  id: string
-  frame: Frame
 }
 
 /** The name a logo placed takes, as the editor names it in English. */
@@ -61,20 +50,7 @@ export const ASSET_TOOLS: Tool[] = [
         const placing = isVectorAsset(stored.summary)
           ? await svgSteps(into, stored.summary.name, await stored.bytes(), box)
           : await imageSteps(context, open, into, stored.summary, box)
-        const done = await agentBatchOn(open, placing.steps, context.answerBy, note)
-        const { kept, steps, warnings, warningsError } = done.value
-        const [first] = steps
-        if (!kept || !first?.ok) throw new ToolRefusal(refusalOf(steps.find((step) => !step.ok)))
-        const layer = placing.layerOf(first.result)
-        const props = open.tab.design().nodes[layer]?.props
-        const value = answered(open, done, {
-          layer,
-          ...(props ? { box: { x: props.x, y: props.y, width: props.width, height: props.height } } : {}),
-          ...(placing.bound ? { bound: placing.bound } : {}),
-          ...(placing.leftOut.length > 0 ? { leftOut: placing.leftOut } : {}),
-          warnings,
-          ...(warningsError === undefined ? {} : { warningsError }),
-        })
+        const value = await placeAndAnswer(context, open, placing, note)
         return placing.leftOut.includes('image') ? withNote(value, PICTURES_LEFT_OUT) : value
       }),
   }),
@@ -100,7 +76,7 @@ async function svgSteps(
   name: string,
   bytes: Uint8Array,
   box: Rect | undefined,
-): Promise<PlaceBatch> {
+): Promise<AssetPlacing> {
   // Read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced.
   const text = new TextDecoder().decode(bytes)
   let read
@@ -115,6 +91,7 @@ async function svgSteps(
   return {
     steps: [{ command: 'design.place', input }],
     layerOf: (result) => placedRoots(result as Parameters<typeof placedRoots>[0])[0] ?? '',
+    told: read.leftOut.length > 0 ? { leftOut: read.leftOut } : {},
     leftOut: read.leftOut,
   }
 }
@@ -129,7 +106,7 @@ async function imageSteps(
   { id: frameId, frame }: FrameTo,
   asset: AssetSummary,
   box: Rect | undefined,
-): Promise<PlaceBatch> {
+): Promise<AssetPlacing> {
   // The kit as it is now: its logo may have changed since the design was opened.
   const logo = (await api.brandKit(open.brandId)).logoAssetId === asset.id
   const where = box ?? centreOf(whole(frame))
@@ -141,7 +118,7 @@ async function imageSteps(
       ...(binding ? [{ command: 'node.bind', input: { ids: [{ $ref: 'image' }], ...binding } }] : []),
     ],
     layerOf: String,
-    ...(binding ? { bound: binding.ref } : {}),
+    told: binding ? { bound: binding.ref } : {},
     leftOut: [],
   }
 }

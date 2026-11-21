@@ -3,17 +3,17 @@
 // brand kit colour, as one agent batch with its warnings. An icon placed doesn't join the asset library.
 import { z } from 'zod'
 
-import { type AgentStep, placedRoots } from '@dazbee/doc'
+import { placedRoots } from '@dazbee/doc'
 import { svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
 import { findIcon, type FoundIcon, ICON_SET_IDS, iconSvg, searchIcons } from '@dazbee/graphics'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { Frame, Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
-import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
+import { Note, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
-import { centreOf, frameIn, placeBox } from './place-on-frame.ts'
+import { centreOf, frameIn, type FrameTo, placeAndAnswer, placeBox, type Placing } from './place-on-frame.ts'
 
 /** The colour an icon's shapes are filled with, and the brand kit token they are bound to, if any. */
 interface IconFill {
@@ -67,7 +67,14 @@ export const GRAPHICS_TOOLS: Tool[] = [
       const icons = searchIcons(query, { limit, ...(set ? { set } : {}) })
       if (icons.length === 0)
         return `No icon matches “${query}”; try another word for the thing, or a more general one (“cup” for “espresso”)`
-      return { icons: icons.map((icon) => ({ ...icon, kind: 'icon', tags: icon.tags.slice(0, TAGS_TOLD) })) }
+      return {
+        icons: icons.map(({ id, ...icon }) => ({
+          graphic: id,
+          kind: 'icon',
+          ...icon,
+          tags: icon.tags.slice(0, TAGS_TOLD),
+        })),
+      }
     },
   }),
   defineTool({
@@ -97,20 +104,8 @@ export const GRAPHICS_TOOLS: Tool[] = [
         const drawn = styleOf(icon, style)
         const fill = await fillOf(context, open, colour)
         const where = box ?? middleOf(into)
-        const steps = await iconSteps(open, { id: frame, frame: into }, icon, drawn, fill, where)
-        const done = await agentBatchOn(open, steps, context.answerBy, note)
-        const { kept, steps: outcomes, warnings, warningsError } = done.value
-        const [first] = outcomes
-        if (!kept || !first?.ok) throw new ToolRefusal(refusalOf(outcomes.find((step) => !step.ok)))
-        const layer = placedRoots(first.result as Parameters<typeof placedRoots>[0])[0] ?? ''
-        const props = open.tab.design().nodes[layer]?.props
-        return answered(open, done, {
-          layer,
-          ...(props ? { box: { x: props.x, y: props.y, width: props.width, height: props.height } } : {}),
-          ...(fill.ref ? { bound: fill.ref } : {}),
-          warnings,
-          ...(warningsError === undefined ? {} : { warningsError }),
-        })
+        const placing = await iconPlacing({ id: frame, frame: into }, { icon, style: drawn }, fill, where)
+        return placeAndAnswer(context, open, placing, note)
       }),
   }),
 ]
@@ -119,7 +114,7 @@ export const GRAPHICS_TOOLS: Tool[] = [
 function styleOf(icon: FoundIcon, style: string | undefined): string {
   const drawn = style ?? icon.styles[0] ?? ''
   if (!icon.styles.includes(drawn))
-    throw new ToolRefusal(`“${icon.graphic}” is drawn in ${icon.styles.join(', ')}, not “${drawn}”`)
+    throw new ToolRefusal(`“${icon.id}” is drawn in ${icon.styles.join(', ')}, not “${drawn}”`)
   return drawn
 }
 
@@ -145,31 +140,33 @@ function middleOf({ width, height }: Frame): Rect {
 }
 
 /**
- * The icon's steps: its layers placed fitted inside `where` and centred in it, every graphic filled with the colour,
- * then bound to the kit's token when it is one.
+ * The batch that places the icon: its layers fitted inside `where` and centred in it, every graphic filled with the
+ * colour, then bound to the kit's token when it is one.
  */
-async function iconSteps(
-  open: OpenDesign,
-  { id: frameId, frame }: { id: string; frame: Frame },
-  icon: FoundIcon,
-  style: string,
+async function iconPlacing(
+  { id: frameId, frame }: FrameTo,
+  { icon, style }: { icon: FoundIcon; style: string },
   fill: IconFill,
   where: Rect,
-): Promise<AgentStep[]> {
+): Promise<Placing> {
   const ck = await loadCanvasKit()
   const size = Math.min(where.width, where.height)
   const svg = iconSvg(ck, icon.set, icon.name, style, { colour: fill.value, size })
   const read = await svgLayers(ck, svg, { name: nameOf(icon.name), frame, box: where })
   const input = svgPlaceInput(read, frameId, centreOf(where))
-  if (!input) throw new ToolRefusal(`The icon “${icon.graphic}” draws nothing in ${style}, so nothing was placed`)
+  if (!input) throw new ToolRefusal(`The icon “${icon.id}” draws nothing in ${style}, so nothing was placed`)
   const graphics = Object.entries(read.tree.nodes).flatMap(([key, node]) => (node.type === 'graphic' ? [key] : []))
   const ids = graphics.map((key) => ({ $ref: 'placed', field: `ids/${key}` }))
-  return [
-    { command: 'design.place', as: 'placed', input: { ...input, withIds: true } },
-    ...(fill.ref && ids.length > 0
-      ? [{ command: 'node.bind', input: { ids, property: 'fill', ref: fill.ref, value: fill.value } }]
-      : []),
-  ]
+  return {
+    steps: [
+      { command: 'design.place', as: 'placed', input: { ...input, withIds: true } },
+      ...(fill.ref && ids.length > 0
+        ? [{ command: 'node.bind', input: { ids, property: 'fill', ref: fill.ref, value: fill.value } }]
+        : []),
+    ],
+    layerOf: (result) => placedRoots(result as Parameters<typeof placedRoots>[0])[0] ?? '',
+    told: fill.ref ? { bound: fill.ref } : {},
+  }
 }
 
 /** An icon's name as its group is named: `shopping-cart` as “Shopping cart”. */

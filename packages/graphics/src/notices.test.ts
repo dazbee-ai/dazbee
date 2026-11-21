@@ -4,7 +4,6 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { ICON_SET_NOTICES } from './notices.ts'
-import type { IconIndex } from './search.ts'
 import { ICON_SET_IDS, ICON_SETS } from './sets.ts'
 
 const PACKAGE = join(import.meta.dirname, '..')
@@ -25,17 +24,13 @@ describe('ICON_SET_NOTICES', () => {
       expect(notice?.text).toBe(read('sets', id, 'LICENSE'))
     }
   })
-})
 
-describe('the bundled drawings', () => {
-  it('draw every icon the index lists in each of its styles, and no other', () => {
-    const index = JSON.parse(read('sets', 'index.json')) as IconIndex
-    for (const id of ICON_SET_IDS)
-      for (const style of ICON_SETS[id].styles) {
-        const drawn = Object.keys(JSON.parse(read('sets', id, `${style}.json`)) as object).sort()
-        const listed = index[id].flatMap(([name, styles]) => (styles.includes(style) ? [name] : [])).sort()
-        expect(drawn.length).toBeGreaterThan(0)
-        expect(drawn).toEqual(listed)
-      }
+  it('gives each licence as paragraphs, each one line, with every word of the text in order', () => {
+    for (const { text, paragraphs } of ICON_SET_NOTICES) {
+      expect(paragraphs[0]).toBe('MIT License')
+      expect(paragraphs).toHaveLength(5)
+      for (const paragraph of paragraphs) expect(paragraph).not.toMatch(/\n/)
+      expect(paragraphs.join(' ').split(' ')).toEqual(text.split(/\s+/).filter(Boolean))
+    }
   })
 })

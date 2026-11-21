@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
@@ -5,6 +8,11 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { svgToLayers } from '@dazbee/svg'
 
 import { iconSvg } from './icon-svg.ts'
+import type { IconIndex } from './search.ts'
+import { ICON_SET_IDS, ICON_SETS } from './sets.ts'
+
+/** The bundled sets' folder. */
+const SETS = join(import.meta.dirname, '..', 'sets')
 
 let ck: CanvasKit
 
@@ -39,6 +47,17 @@ describe('iconSvg', () => {
     expect(graphics).toHaveLength(2)
     expect(graphics.map(({ props }) => props.opacity).sort()).toEqual([0.2, 1])
     for (const { props } of graphics) expect(props.fills).toEqual([expect.objectContaining({ color: '#AA0000FF' })])
+  })
+
+  it('draws every icon the index lists in each of its styles, and no other', () => {
+    const index = JSON.parse(readFileSync(join(SETS, 'index.json'), 'utf8')) as IconIndex
+    for (const id of ICON_SET_IDS)
+      for (const style of ICON_SETS[id].styles) {
+        const drawn = Object.keys(JSON.parse(readFileSync(join(SETS, id, `${style}.json`), 'utf8')) as object).sort()
+        const listed = index[id].flatMap(([name, styles]) => (styles.includes(style) ? [name] : [])).sort()
+        expect(drawn.length).toBeGreaterThan(0)
+        expect(drawn).toEqual(listed)
+      }
   })
 
   it('refuses a style the set doesn’t draw the icon in', () => {

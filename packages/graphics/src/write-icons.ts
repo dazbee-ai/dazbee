@@ -5,6 +5,7 @@ import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { IconPath, PathHow } from './icon-svg.ts'
+import type { IconSetNotice } from './notices.ts'
 import type { IconIndex, IndexedIcon } from './search.ts'
 import { ICON_SETS, type IconSetId } from './sets.ts'
 
@@ -24,7 +25,7 @@ const PACKAGE = join(import.meta.dirname, '..')
 
 const sources: Record<IconSetId, SourceSet> = { tabler: await tabler(), phosphor: await phosphor() }
 const index: IconIndex = { tabler: [], phosphor: [] }
-const notices: Record<string, { version: string; licence: string; text: string }> = {}
+const notices: Partial<Record<IconSetId, Pick<IconSetNotice, 'version' | 'licence' | 'text'>>> = {}
 
 for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][]) {
   const { styles, lines } = ICON_SETS[set]
@@ -104,43 +105,6 @@ async function phosphor(): Promise<SourceSet> {
   }
 }
 
-/** The installed package's folder, where pnpm links it into this package's node_modules. */
-function packageDir(name: string) {
-  return join(PACKAGE, 'node_modules', name)
-}
-
-/** The installed package's version and licence. */
-async function manifest(dir: string) {
-  const { version, license } = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as {
-    version: string
-    license: string
-  }
-  return { dir, version, licence: license }
-}
-
-/** A node list's element as a path, refused when it is anything else. */
-function pathOnly(tag: string, path: SourcePath): SourcePath {
-  if (tag !== 'path') throw new Error(`a <${tag}> where only paths are expected`)
-  return path
-}
-
-/** An SVG file's paths, refused when it holds anything else. */
-function svgPaths(text: string, file: string): SourcePath[] {
-  const body = /^<svg[^>]*>(.*)<\/svg>\s*$/s.exec(text)?.[1]
-  if (body === undefined) throw new Error(`${file} is not one <svg>`)
-  const paths = [...body.matchAll(/<path([^>]*?)\/>/g)].map(([, attributes = '']) =>
-    Object.fromEntries([...attributes.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, value])),
-  ) as SourcePath[]
-  if (body.replace(/<path[^>]*?\/>/g, '').trim() !== '') throw new Error(`${file} holds more than paths`)
-  return paths
-}
-
-/** Lowercase tags, each once, without Phosphor's markers such as `*new*`. */
-function tagsOf(tags: unknown[]): string[] {
-  const words = tags.map((tag) => String(tag).trim().toLowerCase()).filter((tag) => tag && !tag.startsWith('*'))
-  return [...new Set(words)]
-}
-
 /**
  * A path as the bundle keeps it: its data alone when it is drawn as its style draws, else with what differs. A style
  * of lines strokes each path and fills none, any other fills each and strokes none.
@@ -158,4 +122,41 @@ function compact({ d, fill, stroke, opacity }: SourcePath, lines: boolean): Icon
 /** JSON of an object written one entry a line, so a new version's changes read line by line. */
 function linePerEntry(entries: [string, unknown][]) {
   return `{\n${entries.map(([key, value]) => `${JSON.stringify(key)}:${JSON.stringify(value)}`).join(',\n')}\n}\n`
+}
+
+/** The installed package's folder, where pnpm links it into this package's node_modules. */
+function packageDir(name: string) {
+  return join(PACKAGE, 'node_modules', name)
+}
+
+/** A node list's element as a path, refused when it is anything else. */
+function pathOnly(tag: string, path: SourcePath): SourcePath {
+  if (tag !== 'path') throw new Error(`a <${tag}> where only paths are expected`)
+  return path
+}
+
+/** The installed package's version and licence. */
+async function manifest(dir: string) {
+  const { version, license } = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as {
+    version: string
+    license: string
+  }
+  return { dir, version, licence: license }
+}
+
+/** Lowercase tags, each once, without Phosphor's markers such as `*new*`. */
+function tagsOf(tags: unknown[]): string[] {
+  const words = tags.map((tag) => String(tag).trim().toLowerCase()).filter((tag) => tag && !tag.startsWith('*'))
+  return [...new Set(words)]
+}
+
+/** An SVG file's paths, refused when it holds anything else. */
+function svgPaths(text: string, file: string): SourcePath[] {
+  const body = /^<svg[^>]*>(.*)<\/svg>\s*$/s.exec(text)?.[1]
+  if (body === undefined) throw new Error(`${file} is not one <svg>`)
+  const paths = [...body.matchAll(/<path([^>]*?)\/>/g)].map(([, attributes = '']) =>
+    Object.fromEntries([...attributes.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, value])),
+  ) as SourcePath[]
+  if (body.replace(/<path[^>]*?\/>/g, '').trim() !== '') throw new Error(`${file} holds more than paths`)
+  return paths
 }

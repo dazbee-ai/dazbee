@@ -51,12 +51,35 @@ export interface AgentWarningOptions {
 }
 
 /**
- * What came of an agent's batch, with the warnings for the layers it touched; when those could
- * not be read, none, and `warningsError` says why.
+ * Where an agent batch's warnings take their fonts from: an agent tab, which loads the faces of the
+ * families a step uses after the step.
  */
-export type AgentBatchWarned = AgentBatchResult & { warnings: AgentWarning[]; warningsError?: string }
+export interface WarningFonts {
+  /** Settles once the files of every face the design draws its text in are here, or failed to come. */
+  fontsLoaded(): Promise<void>
+  /** The fonts, images and brand kit values there are now. */
+  bytes(): ResourceBytes
+}
+
+/** The warnings for the layers an agent batch touched; when those could not be read, none, and `warningsError` says why. */
+export interface AgentBatchWarnings {
+  warnings: AgentWarning[]
+  warningsError?: string
+}
+
+/** What came of an agent's batch, with the warnings for the layers it touched. */
+export type AgentBatchWarned = AgentBatchResult & AgentBatchWarnings
+
+/** What came of an agent's batch, with the warnings for the layers it touched to come once its fonts are here. */
+export type AgentBatchRun = AgentBatchResult & { warned: Promise<AgentBatchWarnings> }
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
+
+/** A design's layers and frames as they were before a batch. */
+interface Before {
+  nodes: Readonly<Record<string, Layer>>
+  frames: Readonly<Record<string, unknown>>
+}
 
 /** A container's rotation, which turns the layers inside it about the container's centre. */
 interface Turn {
@@ -127,44 +150,32 @@ export function frameWarnings(
 }
 
 /**
- * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, then warns of what the
- * batch touched, as frameWarnings tells it, in the design's order of frames. A batch not kept has
- * no warnings. Once the batch is kept nothing is thrown: a check that fails gives `warningsError`,
- * so the caller still learns what the batch wrote.
+ * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, and gives what came of it at
+ * once. Its warnings come once `fonts` has loaded the faces the design draws its text in: of what
+ * the batch touched, as frameWarnings tells it with the fonts there are then, in the design's order
+ * of frames, read from the session's design then, which holds what fitting those fonts changed. A
+ * layer the batch didn't touch is not warned of, even if another tab changed it meanwhile. A batch
+ * not kept has no warnings. `warned` never rejects: a check that fails gives `warningsError`, so the
+ * caller still learns what the batch wrote.
  */
 export function runAgentBatchWithWarnings(
   ck: CanvasKit,
   session: Session,
   steps: readonly AgentStep[],
-  bytes: ResourceBytes,
+  fonts: WarningFonts,
   cache?: ResourceCache,
-): AgentBatchWarned {
+): AgentBatchRun {
   // The design is live, but its layers and frames are replaced, never changed, so these keep it as it was.
-  const before = session.design()
-  const nodesBefore = { ...before.nodes }
-  const framesBefore = { ...before.frames }
-  const result = runAgentBatch(session, steps)
-  if (!result.kept) return { ...result, warnings: [] }
   const design = session.design()
-  let owned: ResourceCache | undefined
-  try {
-    const touched = touchedLayers(design, nodesBefore, framesBefore)
-    owned = cache ?? resourceCache(ck)
-    const resources = owned
-    const warnings = Object.keys(design.frames).flatMap((frameId) => {
-      const ids = touched.get(frameId)
-      if (ids === undefined) return []
-      return frameWarnings(ck, design, frameId, bytes, {
-        ...(ids === 'all' ? {} : { layerIds: ids }),
-        cache: resources,
-      })
-    })
-    return { ...result, warnings }
-  } catch (error) {
-    return { ...result, warnings: [], warningsError: error instanceof Error ? error.message : String(error) }
-  } finally {
-    if (!cache) owned?.delete()
-  }
+  const before: Before = { nodes: { ...design.nodes }, frames: { ...design.frames } }
+  const result = runAgentBatch(session, steps)
+  if (!result.kept) return { ...result, warned: Promise.resolve({ warnings: [] }) }
+  return { ...result, warned: batchWarnings(ck, session, before, fonts, cache) }
+}
+
+/** What came of an agent's batch, with its warnings, once they have come. */
+export async function whenWarned({ warned, ...result }: AgentBatchRun): Promise<AgentBatchWarned> {
+  return { ...result, ...(await warned) }
 }
 
 /** A record's own value under `key`, never one its prototype gives. */
@@ -233,20 +244,51 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
 }
 
 /**
- * The layers a change from `nodesBefore` and `framesBefore` to `design` touched, by frame, or
+ * The warnings for what a kept batch touched, from `before` to the session's design as the batch left
+ * it, read from the session's design once `fonts` has loaded the faces it draws its text in.
+ */
+async function batchWarnings(
+  ck: CanvasKit,
+  session: Session,
+  before: Before,
+  fonts: WarningFonts,
+  cache: ResourceCache | undefined,
+): Promise<AgentBatchWarnings> {
+  let owned: ResourceCache | undefined
+  try {
+    const touched = touchedLayers(session.design(), before)
+    await fonts.fontsLoaded()
+    const design = session.design()
+    const bytes = fonts.bytes()
+    owned = cache ?? resourceCache(ck)
+    const resources = owned
+    const warnings = Object.keys(design.frames).flatMap((frameId) => {
+      const ids = touched.get(frameId)
+      if (ids === undefined) return []
+      return frameWarnings(ck, design, frameId, bytes, {
+        ...(ids === 'all' ? {} : { layerIds: ids }),
+        cache: resources,
+      })
+    })
+    return { warnings }
+  } catch (error) {
+    return { warnings: [], warningsError: error instanceof Error ? error.message : String(error) }
+  } finally {
+    if (!cache) owned?.delete()
+  }
+}
+
+/**
+ * The layers a change from `before` to `design` touched, by frame, or
  * `all` of a frame. A layer added or changed touches itself and the layers inside it; one taken
  * out of a group, box or frame, moved or removed, touches the layers left there. Inside a box that
  * lays out its layers, every layer of the outermost such box is touched, since they may have moved.
  * A frame changed touches every layer of it.
  */
-function touchedLayers(
-  design: Design,
-  nodesBefore: Readonly<Record<string, Layer>>,
-  framesBefore: Readonly<Record<string, unknown>>,
-): Map<string, Set<string> | 'all'> {
+function touchedLayers(design: Design, before: Before): Map<string, Set<string> | 'all'> {
   const touched = new Map<string, Set<string> | 'all'>()
   for (const [frameId, frame] of Object.entries(design.frames))
-    if (!sameValue(ownValue(framesBefore, frameId), frame)) touched.set(frameId, 'all')
+    if (!sameValue(ownValue(before.frames, frameId), frame)) touched.set(frameId, 'all')
   const touch = (from: string) => {
     const frameId = frameIdOf(design, from)
     if (frameId === undefined) return
@@ -256,9 +298,9 @@ function touchedLayers(
     for (const each of [top, ...descendants(design, top)]) if (each !== frameId) ids.add(each)
     touched.set(frameId, ids)
   }
-  for (const id of new Set([...Object.keys(nodesBefore), ...Object.keys(design.nodes)])) {
+  for (const id of new Set([...Object.keys(before.nodes), ...Object.keys(design.nodes)])) {
     const node = ownValue(design.nodes, id)
-    const was = ownValue(nodesBefore, id)
+    const was = ownValue(before.nodes, id)
     if (sameValue(was, node)) continue
     if (node) touch(id)
     if (was && was.parentId !== node?.parentId) touch(was.parentId)

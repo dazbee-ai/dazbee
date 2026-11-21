@@ -6,7 +6,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, parseDesign } from '@dazbee/schema'
 
-import { frameWarnings, runAgentBatchWithWarnings } from './agent-warnings.ts'
+import { frameWarnings, runAgentBatchWithWarnings, whenWarned } from './agent-warnings.ts'
 
 const ck = await loadCanvasKit()
 const bytes = {
@@ -14,6 +14,9 @@ const bytes = {
   fallbackFamilies: [...FALLBACK_FAMILIES],
   images: {},
 }
+
+/** Fonts that are all here: `given`, or `bytes`. */
+const fontsHere = (given = bytes) => ({ fontsLoaded: () => Promise.resolve(), bytes: () => given })
 
 const style = { fontFamily: 'Noto Sans', fontSize: 24, color: '#111111FF' }
 /** A text that fits its box, clear of every platform’s safe-zone edge. */
@@ -206,16 +209,18 @@ describe('runAgentBatchWithWarnings', () => {
     props: { x: 60, y: 10, width: 200, height: 60, boxMode: 'fixed', text: 'New', style },
   }
 
-  it('warns of the layers a kept batch added or changed, and of no other', () => {
+  it('warns of the layers a kept batch added or changed, and of no other', async () => {
     const session = open()
-    const result = runAgentBatchWithWarnings(
-      ck,
-      session,
-      [
-        { command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } },
-        { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
-      ],
-      bytes,
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [
+          { command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } },
+          { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
+        ],
+        fontsHere(),
+      ),
     )
     expect(result.kept).toBe(true)
     const created = result.steps[0]?.ok ? (result.steps[0].result as string) : ''
@@ -227,22 +232,73 @@ describe('runAgentBatchWithWarnings', () => {
     expect(session.design().nodes['square']?.props.x).toBe(20)
   })
 
-  it('gives no warnings for a batch that was not kept', () => {
+  it('reads its warnings with the fonts there are once the faces the batch uses have loaded', async () => {
     const session = open()
-    const result = runAgentBatchWithWarnings(
+    const arriving = { family: 'Brand Serif', bytes: bytes.fonts[0]?.bytes ?? new Uint8Array() }
+    let fonts = bytes
+    let load = () => {}
+    const loading = {
+      fontsLoaded: () => new Promise<void>((resolve) => (load = resolve)),
+      bytes: () => fonts,
+    }
+    const branded = { ...headline, props: { ...headline.props, style: { ...style, fontFamily: 'Brand Serif' } } }
+    const { warned, ...result } = runAgentBatchWithWarnings(
       ck,
       session,
       [
-        { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
-        { command: 'node.update', input: { ids: ['nowhere'], patch: { x: 0 } } },
+        { command: 'node.create', input: { id: 'branded', parentId: 'story', layer: branded } },
+        { command: 'node.update', input: { ids: ['title'], patch: { y: 300 } } },
       ],
-      bytes,
+      loading,
+    )
+    expect(result.kept).toBe(true)
+    fonts = { ...bytes, fonts: [...bytes.fonts, arriving] }
+    load()
+    expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
+      ['title', 'missingFont'],
+      ['branded', 'safeZone'],
+    ])
+  })
+
+  it('reads the layers it touched as the design holds them once the fonts have loaded, and no others', async () => {
+    const session = open()
+    const stray = { type: 'graphic' as const, name: 'Stray', props: { ...square.props, x: 400 } }
+    const middle = { ...headline, props: { ...headline.props, y: 300 } }
+    const { warned, ...result } = runAgentBatchWithWarnings(
+      ck,
+      session,
+      [{ command: 'node.create', input: { id: 'middle', parentId: 'story', layer: middle } }],
+      {
+        // While the fonts load, the text is fitted again into the top edge, and another layer is added outside the frame.
+        fontsLoaded: async () => {
+          session.run('node.update', { ids: ['middle'], patch: { y: 10 } })
+          session.run('node.create', { id: 'stray', parentId: 'story', layer: stray })
+        },
+        bytes: () => bytes,
+      },
+    )
+    expect(result.kept).toBe(true)
+    expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['middle', 'safeZone']])
+  })
+
+  it('gives no warnings for a batch that was not kept', async () => {
+    const session = open()
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [
+          { command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } },
+          { command: 'node.update', input: { ids: ['nowhere'], patch: { x: 0 } } },
+        ],
+        fontsHere(),
+      ),
     )
     expect(result).toMatchObject({ kept: false, warnings: [] })
     expect(session.design().nodes['square']?.props.x).toBe(20)
   })
 
-  it('checks the layers inside a layer the batch changed', () => {
+  it('checks the layers inside a layer the batch changed', async () => {
     const turnable = {
       box: {
         type: 'box',
@@ -256,16 +312,18 @@ describe('runAgentBatchWithWarnings', () => {
     }
     const session = openSession(plainStore(storyWith({ more: turnable })))
     // Half a turn about (160, 450) takes the caption from y 300 to y 540, in every platform's bottom edge.
-    const result = runAgentBatchWithWarnings(
-      ck,
-      session,
-      [{ command: 'node.update', input: { ids: ['box'], patch: { rotation: 180 } } }],
-      bytes,
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [{ command: 'node.update', input: { ids: ['box'], patch: { rotation: 180 } } }],
+        fontsHere(),
+      ),
     )
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'safeZone']])
   })
 
-  it('checks the layers left in the box a layer was moved out of', () => {
+  it('checks the layers left in the box a layer was moved out of', async () => {
     const holder = {
       type: 'box',
       index: 'a2',
@@ -283,24 +341,28 @@ describe('runAgentBatchWithWarnings', () => {
     }
     const dot = { ...square, name: 'Dot', parentId: 'holder', link: 'dot', props: { ...square.props, y: 320 } }
     const session = openSession(plainStore(storyWith({ more: { holder, note, dot } })))
-    const result = runAgentBatchWithWarnings(
-      ck,
-      session,
-      [{ command: 'node.move', input: { id: 'dot', parentId: 'story' } }],
-      bytes,
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [{ command: 'node.move', input: { id: 'dot', parentId: 'story' } }],
+        fontsHere(),
+      ),
     )
     expect(result.kept).toBe(true)
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['note', 'missingFont']])
   })
 
-  it('keeps the outcome of a kept batch when its warnings cannot be read', () => {
+  it('keeps the outcome of a kept batch when its warnings cannot be read', async () => {
     const session = open()
     const broken = { ...bytes, images: { torn: new Uint8Array([1, 2, 3]) } }
-    const result = runAgentBatchWithWarnings(
-      ck,
-      session,
-      [{ command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } }],
-      broken,
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [{ command: 'node.create', as: 'headline', input: { parentId: 'story', layer: headline } }],
+        fontsHere(broken),
+      ),
     )
     expect(result).toMatchObject({
       kept: true,
@@ -310,18 +372,34 @@ describe('runAgentBatchWithWarnings', () => {
     expect(result.steps[0]).toMatchObject({ ok: true, result: expect.any(String) })
   })
 
-  it('checks every layer of a frame the batch changed', () => {
+  it('checks every layer of a frame the batch changed', async () => {
     const session = open()
-    const result = runAgentBatchWithWarnings(
-      ck,
-      session,
-      [{ command: 'frame.update', input: { frameId: 'story', width: 60, height: 120 } }],
-      bytes,
+    const result = await whenWarned(
+      runAgentBatchWithWarnings(
+        ck,
+        session,
+        [{ command: 'frame.update', input: { frameId: 'story', width: 60, height: 120 } }],
+        fontsHere(),
+      ),
     )
     // The square, at 20 to 60 each way, still shows; the title, from x 60, does not.
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([
       ['title', 'outsideFrame'],
       ['title', 'missingFont'],
     ])
+  })
+})
+
+describe('whenWarned', () => {
+  it('gives what came of the batch with its warnings', async () => {
+    const run = runAgentBatchWithWarnings(
+      ck,
+      openSession(plainStore(storyWith())),
+      [{ command: 'node.update', input: { ids: ['square'], patch: { x: 400 } } }],
+      fontsHere(),
+    )
+    const { warned, ...result } = run
+    expect(await whenWarned(run)).toEqual({ ...result, ...(await warned) })
+    expect((await warned).warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['square', 'outsideFrame']])
   })
 })

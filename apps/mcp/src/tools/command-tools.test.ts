@@ -17,7 +17,7 @@ import { forkTestStore, openTestStore } from '@dazbee/doc/test-store'
 import { seeded } from '@dazbee/doc/test-walk'
 import { type AgentTab, openAgentTab } from '@dazbee/editor/agent-tab'
 import type { MemorySync } from '@dazbee/editor/test-link'
-import { runAgentBatchWithWarnings } from '@dazbee/export'
+import { type AgentWarning, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -237,6 +237,32 @@ describe('run_command', () => {
     expect(other.design().nodes['box']?.name).toBe('Card')
   })
 
+  it('does not warn a text set in a family the catalog has as having no font file when the step that sets it first runs', async () => {
+    const agent = await connect()
+    expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
+    const answer = (await agent.json('run_command', {
+      command: 'node.create',
+      input: {
+        parentId: 'sq',
+        layer: {
+          type: 'text',
+          name: 'Headline',
+          props: {
+            x: 40,
+            y: 40,
+            width: 600,
+            height: 100,
+            text: 'Sale',
+            style: { fontFamily: 'Brand Serif', fontWeight: 700, fontSize: 64, color: '#111111FF' },
+          },
+        },
+      },
+    })) as { warnings: AgentWarning[] }
+    const checked = (await agent.json('check_frame', { frame: 'sq' })) as AgentWarning[]
+    expect(checked.filter(({ kind }) => kind === 'missingFont')).toEqual([])
+    expect(answer.warnings).toEqual([])
+  })
+
   it('answers a refused command as a tool error, keeping nothing', async () => {
     const { agent, sync } = await withSecondTab()
     const result = await agent.call('run_command', { command: 'node.rename', input: { id: 'nowhere', name: 'Card' } })
@@ -350,9 +376,44 @@ describe('batch', () => {
       images: {},
       variables: brandVariables(TEST_BRAND_KIT),
     }
-    const expected = runAgentBatchWithWarnings(await loadCanvasKit(), copy, CARD, bytes)
+    const expected = await whenWarned(
+      runAgentBatchWithWarnings(await loadCanvasKit(), copy, CARD, {
+        fontsLoaded: () => Promise.resolve(),
+        bytes: () => bytes,
+      }),
+    )
     expect(expected.kept).toBe(true)
     expect(await agent.json('batch', { steps: CARD })).toEqual(JSON.parse(JSON.stringify(expected)))
+  })
+
+  it('warns of a family the catalog lacks, not of one it has, as check_frame does', async () => {
+    const agent = await connect()
+    expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
+    const text = (id: string, y: number, fontFamily: string) => ({
+      command: 'node.create',
+      input: {
+        id,
+        parentId: 'sq',
+        layer: {
+          type: 'text',
+          name: id,
+          props: {
+            x: 40,
+            y,
+            width: 600,
+            height: 100,
+            text: 'Sale',
+            style: { fontFamily, fontSize: 48, color: '#111111FF' },
+          },
+        },
+      },
+    })
+    const answer = (await agent.json('batch', {
+      steps: [text('in-catalog', 40, 'Brand Serif'), text('not-in-catalog', 200, 'Nowhere Sans')],
+    })) as { warnings: AgentWarning[] }
+    expect(answer.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['not-in-catalog', 'missingFont']])
+    const checked = (await agent.json('check_frame', { frame: 'sq' })) as AgentWarning[]
+    expect(checked.filter(({ layerId }) => layerId.endsWith('catalog'))).toEqual(answer.warnings)
   })
 
   it('keeps nothing of a batch with a refused step, and answers the refusal', async () => {

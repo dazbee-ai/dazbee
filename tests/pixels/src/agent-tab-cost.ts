@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { type AgentStep } from '@dazbee/doc'
 import { type AgentTab, openAgentTab } from '@dazbee/editor/agent-tab'
 import { memorySync } from '@dazbee/editor/test-link'
-import { frameWarnings, runAgentBatchWithWarnings } from '@dazbee/export'
+import { frameWarnings, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { bigCarousel } from './big-carousel.ts'
@@ -78,7 +78,7 @@ const steps: AgentStep[] = Array.from({ length: 1000 }, (_, i) => {
 })
 const tab = opened[0] ?? first
 const started = performance.now()
-const result = runAgentBatchWithWarnings(ck, tab.session, steps, tab.bytes(), tab.cache)
+const result = await whenWarned(runAgentBatchWithWarnings(ck, tab.session, steps, tab, tab.cache))
 const batchMs = performance.now() - started
 if (!result.kept) throw new Error(`the batch was not kept: ${JSON.stringify(result.steps.at(-1))}`)
 const storeStarted = performance.now()

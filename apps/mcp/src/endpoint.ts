@@ -8,6 +8,7 @@ import { readRequestBody } from '@modelcontextprotocol/sdk/server/requestBody.js
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import {
   CallToolRequestSchema,
+  type CallToolResult,
   ErrorCode,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
@@ -37,6 +38,7 @@ import {
   rateBuckets,
   STORE_WAIT_MS,
 } from './limits.ts'
+import { mcpLog, type SessionEnd } from './mcp-log.ts'
 import { oauthRoutes } from './oauth/routes.ts'
 import { type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
 import { promptMessage, PROMPTS } from './prompts.ts'
@@ -66,6 +68,8 @@ export interface EndpointSettings {
   startRenderWorker?: () => RenderThread
   /** What waits for the sync server to store a step: the real clock's timers unless a test gives another. */
   after?: StoreWait['after']
+  /** Where the log's lines go, each a JSON line (`mcp-log.ts`): stdout unless a test gives another. */
+  log?: (line: string) => void
 }
 
 /** The endpoint: a Hono app answering `/mcp` and the health check, and `close`, which ends every session. */
@@ -120,6 +124,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     callTimeoutMs = CALL_TIMEOUT_MS,
     after = afterTimeout,
   } = settings
+  const log = mcpLog(settings.log ?? console.log)
   const limits = settings.limits ?? limitSettings({})
   // The agent tabs every session's design takes a slot of.
   const slots = agentTabSlots(limits.agentTabs, limits.agentTabsPerAccess)
@@ -240,10 +245,14 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     server.setRequestHandler(CallToolRequestSchema, async ({ params }, extra) => {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
+      const startedAt = now()
       const context = contextOf(extra)
       const tooFast = tooFastFor(context)
-      if (tooFast) return { content: [{ type: 'text', text: tooFast }], isError: true }
-      return tool.call(params.arguments, context)
+      const result: CallToolResult = tooFast
+        ? { content: [{ type: 'text', text: tooFast }], isError: true }
+        : await tool.call(params.arguments, context)
+      log.call(tool.name, now() - startedAt, result)
+      return result
     })
     server.setRequestHandler(ListResourcesRequestSchema, () => ({ resources: RESOURCES }))
     server.setRequestHandler(ListResourceTemplatesRequestSchema, () => ({ resourceTemplates: RESOURCE_TEMPLATES }))
@@ -262,7 +271,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
-      onsessionclosed: (id) => void end(id),
+      onsessionclosed: (id) => void end(id, 'client'),
     })
     await server.connect(transport)
     const fresh = { inFlight: new Set<MessageId>(), waiting: new Set<(response: Response) => void>() }
@@ -299,8 +308,10 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     session.id = id
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
+    log.opened(id)
     const ofAccess = sessionsOf(session.accessId)
-    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.mcpSessionsPerAccess))) await end(old.id)
+    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.mcpSessionsPerAccess)))
+      await end(old.id, 'replaced')
   }
 
   /** The access's sessions, oldest first. */
@@ -311,14 +322,15 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   /** Ends every session that has had no call for its idle time. */
   async function endIdle(): Promise<void> {
     const before = now() - limits.mcpSessionIdleMinutes * 60_000
-    for (const session of [...sessions.values()]) if (session.lastCallAt <= before) await end(session.id)
+    for (const session of [...sessions.values()]) if (session.lastCallAt <= before) await end(session.id, 'idle')
   }
 
   /** Ends a session: requests it is still answering, and later ones with its id, answer 404. */
-  async function end(id: string): Promise<void> {
+  async function end(id: string, why: SessionEnd): Promise<void> {
     const session = sessions.get(id)
     if (!session) return
     sessions.delete(id)
+    log.ended(id, why)
     for (const answer of session.waiting) answer(sessionNotFound())
     await session.design.end()
     await session.server.close()
@@ -326,7 +338,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
 
   async function close(): Promise<void> {
     clearInterval(sweep)
-    for (const id of [...sessions.keys()]) await end(id)
+    for (const id of [...sessions.keys()]) await end(id, 'stopped')
     renders.close()
   }
 }

@@ -68,6 +68,66 @@ export const FIGMA_REPORT_LINES = {
   'vector-strokes-outlined': 'changed',
   /** Booleans holding a layer that is no shape, drawn as one path of their outline. */
   'booleans-flattened': 'changed',
+  /** Emoji paints. */
+  'emoji-paints': 'left-out',
+  /** Video paints. */
+  'video-paints': 'left-out',
+  /** Pattern paints. */
+  'pattern-paints': 'left-out',
+  /** Paints of a type Figma's documentation doesn't list. */
+  'unknown-paints': 'left-out',
+  /** Paints with no type, colour, stops or handles to draw them by. */
+  'unreadable-paints': 'left-out',
+  /** Image fills that name no image. */
+  'missing-images': 'left-out',
+  /** Radial and diamond gradients flattened to a line, which draw nothing. */
+  'flat-gradients': 'left-out',
+  /** Image fills' highlights and shadows adjustments. */
+  'image-highlights-shadows': 'left-out',
+  /** Noise effects. */
+  'noise-effects': 'left-out',
+  /** Texture effects. */
+  'texture-effects': 'left-out',
+  /** Effects of a type Figma's documentation doesn't list. */
+  'unknown-effects': 'left-out',
+  /** Effects with no type or colour to draw them by. */
+  'unreadable-effects': 'left-out',
+  /** Effects hidden in Figma, which Dazbee can't keep hidden. */
+  'hidden-effects': 'left-out',
+  /** Paints blended with what is under them in another way than normal, drawn normal. */
+  'paint-blend-modes': 'changed',
+  /** Linear gradients whose handles lie on one line, drawn from their start to their end. */
+  'gradient-handles-in-line': 'changed',
+  /** Oval radial and diamond gradients, drawn round with the same area. */
+  'radial-ovals-round': 'changed',
+  /** Diamond gradients, drawn as radial gradients through the same handles. */
+  'diamond-gradients': 'changed',
+  /** Angular gradients whose handles aren't square and of one length, drawn evenly from their start. */
+  'angular-gradients-changed': 'changed',
+  /** GIF fills, drawn as their still image. */
+  'gif-images': 'changed',
+  /** Image fills turned in Figma, drawn unturned. */
+  'image-rotations': 'changed',
+  /** Image fills whose tile size was brought within the sizes a tile can be. */
+  'tile-scales-clamped': 'changed',
+  /** Stretched image fills turned, mirrored or skewed in Figma, drawn covering their layer. */
+  'stretched-images-turned': 'changed',
+  /** Image fills on skewed shapes, drawn unskewed. */
+  'skewed-images': 'changed',
+  /** Strokes with a weight of their own on each side, drawn at the widest all round. */
+  'stroke-weights-widest': 'changed',
+  /** Smoothed corners, drawn round. */
+  'corner-smoothing': 'changed',
+  /** Inner shadows that shrink, drawn with no spread. */
+  'inner-shadow-spreads': 'changed',
+  /** Progressive blurs, drawn evenly at their end radius. */
+  'progressive-blurs': 'changed',
+  /** Shadows blended with what is under them in another way than normal, drawn normal. */
+  'effect-blend-modes': 'changed',
+  /** Layers in the linear burn or linear dodge blend modes, drawn normal. */
+  'linear-blend-modes': 'changed',
+  /** Vector masks with a blur or a soft or see-through paint, drawn as alpha masks. */
+  'vector-masks': 'changed',
 } as const satisfies Record<string, FigmaReportKind>
 
 export const FigmaReportLine = z.enum(Object.keys(FIGMA_REPORT_LINES) as [keyof typeof FIGMA_REPORT_LINES])

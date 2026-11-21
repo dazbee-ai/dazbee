@@ -26,6 +26,8 @@ export interface Piece {
  * node whose strokes it draws live, and where its gradients' handles go.
  */
 export interface LayerPaints {
+  /** The node they come from, which the report names. */
+  node: FigmaNode
   fills: readonly unknown[]
   strokes?: FigmaNode
   /** Takes a point of the Figma node's unit box, where its gradients' handles are, to the layer's unit box. */
@@ -40,6 +42,8 @@ export interface LayerBuild {
   figmaIds: Record<string, string>
   /** The Figma paints each layer takes, by its key. */
   paints: Record<string, LayerPaints>
+  /** The node each layer made from one was made from, by its key. */
+  sources: Map<string, FigmaNode>
   /** How far each container's layers move so that its turn draws them where they are, by its key. */
   shifts: Map<string, Point>
   report: Reporter
@@ -89,6 +93,7 @@ export function newLayerBuild(within: readonly FigmaNode[], report: Reporter, ck
     nodes: {},
     figmaIds: {},
     paints: {},
+    sources: new Map(),
     shifts: new Map(),
     report,
     fresh,
@@ -142,12 +147,13 @@ export function addLayer(
 ): string {
   build.nodes[id] = layer(id, type, n.name, props, n)
   build.figmaIds[id] = n.id
+  build.sources.set(id, n)
   return id
 }
 
 /** The paints of a layer that draws a node's own fills and strokes, its gradients' handles taken by `handles`. */
 export function paintsOf(n: FigmaNode, handles: Matrix): LayerPaints {
-  return { fills: list(field(n.fields, 'fills')), strokes: n, handles }
+  return { node: n, fills: list(field(n.fields, 'fills')), strokes: n, handles }
 }
 
 export function unreadable(build: LayerBuild, n: FigmaNode): null {

@@ -95,6 +95,18 @@ export function ownMap(value: unknown): Map<string, unknown> {
   return new Map(r ? Object.keys(r).map((key) => [key, r[key]]) : [])
 }
 
+/** A Figma colour, `{ r, g, b, a }` from 0 to 1 (`a` left out is 1), as `#RRGGBBAA`; undefined when r, g or b isn't a number. */
+export function colourOf(value: unknown): string | undefined {
+  const [r, g, b] = (['r', 'g', 'b'] as const).map((k) => num(field(value, k)))
+  if (r === undefined || g === undefined || b === undefined) return undefined
+  const a = num(field(value, 'a')) ?? 1
+  const hex = (c: number) =>
+    Math.round(Math.min(1, Math.max(0, c)) * 255)
+      .toString(16)
+      .padStart(2, '0')
+  return `#${hex(r)}${hex(g)}${hex(b)}${hex(a)}`.toUpperCase()
+}
+
 /** A node's `absoluteBoundingBox`, when it is four finite numbers with no negative side. */
 export function boxOf(fields: FigmaFields): Rect | undefined {
   const b = field(fields, 'absoluteBoundingBox')

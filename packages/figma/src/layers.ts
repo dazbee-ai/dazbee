@@ -41,6 +41,7 @@ import {
   withinReach,
 } from './geometry.ts'
 import { type Corners, cornersOf, leaf, type Place, SHAPE_TYPES } from './graphics.ts'
+import { paintLayer } from './paints.ts'
 import { field, type FigmaFields, type FigmaNode, str } from './read.ts'
 
 type BoxProps = Extract<LayerInput, { type: 'box' }>['props']
@@ -128,6 +129,7 @@ export function treeOf(build: LayerBuild, roots: readonly Piece[]): LayerTree | 
   if (roots.length === 0) return null
   adopt(build, ROOT, roots)
   settle(build.nodes, ROOT, build.shifts)
+  for (const [id, paints] of Object.entries(build.paints)) paintLayer(build.report, build.nodes[id] as LayerInput, paints)
   return { nodes: build.nodes, roots: roots.map((r) => r.id) } as LayerTree
 }
 

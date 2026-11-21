@@ -305,7 +305,6 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
     log.opened(id)
-    // Ends the access's sessions older than its newest MCP_SESSIONS_PER_ACCESS, which is at least 1.
     for (const old of sessionsOf(session.accessId).slice(0, -limits.mcpSessionsPerAccess)) await end(old.id, 'replaced')
   }
 

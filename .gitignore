@@ -16,3 +16,6 @@ apps/web/public/vendor/
 
 # try-it's logs and screenshots.
 /.try-it/
+
+# A Figma recording the record script is still writing, or that stopped part way.
+tests/pixels/fixtures/figma/recorded.partial/

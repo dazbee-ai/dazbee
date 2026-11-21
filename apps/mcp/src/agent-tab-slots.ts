@@ -1,3 +1,6 @@
+// The agent tabs the MCP server holds (ADR-0019), counted for the process and for each agent access. A tab opening
+// past its access's count takes over the access's oldest once it has opened, unless that one holds steps the sync
+// server hasn't stored; the process's count refuses one past it.
 /** The process's agent tabs, counted, so that agents can't open more than the server holds. */
 export interface AgentTabSlots {
   /**

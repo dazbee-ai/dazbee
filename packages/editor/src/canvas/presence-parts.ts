@@ -13,6 +13,12 @@ export interface PresenceParts {
   cursors: HTMLElement[]
 }
 
+/**
+ * How far a tag may reach past its pointer: its offset and its widest (`.presence-tag` in
+ * `stage-overlay.css`). A pointer nearer the stage's end than this has its tag on its start side.
+ */
+export const TAG_ROOM = 12 + 220
+
 /** The dart's outline, its tip at the pointer, pointing up and to the start. */
 const DART = 'M0 0 L3.5 15.5 L7.5 8.5 L15.5 4 Z'
 /** The dart's box, with room for its white edge. */
@@ -30,12 +36,14 @@ const LIGHT_TEXT = '#FFFFFF'
 
 /**
  * The parts of `people`: each one's layers outlined along their shape by `layerOutline` and their
- * picked frame by `frameOutline`, each given the person's colour as its colour, then each cursor.
+ * picked frame by `frameOutline`, each given the person's colour as its colour, then each cursor,
+ * its tag kept on the stage, `room` wide.
  */
 export function presenceParts(
   people: readonly ShownPerson[],
   layerOutline: (frame: Frame, id: string) => HTMLElement | null,
   frameOutline: (frame: Frame) => HTMLElement,
+  room = Infinity,
 ): PresenceParts {
   const outlines: HTMLElement[] = []
   const cursors: HTMLElement[] = []
@@ -49,7 +57,7 @@ export function presenceParts(
       el.dataset.tab = String(person.tabId)
     }
     outlines.push(...theirs)
-    if (person.cursor) cursors.push(cursorPart(person))
+    if (person.cursor) cursors.push(cursorPart(person, room))
   }
   return { outlines, cursors }
 }
@@ -61,11 +69,12 @@ export function textOn(colour: string): string {
   return light > LIGHT ? DARK_TEXT : LIGHT_TEXT
 }
 
-/** A person's cursor at their pointer: the dart, and their tag beside it. */
-function cursorPart(person: ShownPerson): HTMLElement {
+/** A person's cursor at their pointer: the dart, and their tag beside it, on its start side near the end of the stage, `room` wide. */
+function cursorPart(person: ShownPerson, room: number): HTMLElement {
   const el = document.createElement('div')
   el.className = 'presence-cursor'
   el.dataset.tab = String(person.tabId)
+  if ((person.cursor?.x ?? 0) + TAG_ROOM > room) el.dataset.flip = ''
   Object.assign(el.style, { left: px(person.cursor?.x ?? 0), top: px(person.cursor?.y ?? 0), color: person.colour })
   const svg = document.createElementNS(SVG, 'svg')
   svg.setAttribute('class', 'presence-dart')
@@ -85,11 +94,14 @@ function tagPart(person: ShownPerson): HTMLElement {
   if (person.agent) tag.append(avatarPart(person.colour))
   const name = document.createElement('div')
   name.className = 'presence-name'
+  // A name or note in a right-to-left script reads in its own direction on the left-to-right stage.
+  name.setAttribute('dir', 'auto')
   name.textContent = person.name
   tag.append(name)
   if (person.note !== undefined) {
     const note = document.createElement('div')
     note.className = 'presence-note'
+    note.setAttribute('dir', 'auto')
     note.textContent = person.note
     tag.append(note)
   }

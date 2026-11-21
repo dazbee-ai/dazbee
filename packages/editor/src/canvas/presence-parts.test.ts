@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ShownPerson } from '../presence.ts'
-import { presenceParts, textOn } from './presence-parts.ts'
+import { presenceParts, TAG_ROOM, textOn } from './presence-parts.ts'
 import { type Fake, fake, SQUARE, STORY } from './test-overlay.ts'
 
 const BOB: ShownPerson = {
@@ -81,6 +81,15 @@ describe('presenceParts', () => {
       ['presence-name', 'Claude (agent)'],
       ['presence-note', 'Writing the headline'],
     ])
+  })
+
+  it('puts the tag on the pointer’s start side when it would run past the stage’s end, and lets a note read in its own direction', () => {
+    const near = { ...BOB, cursor: { x: 1000 - TAG_ROOM + 1, y: 6 }, agent: true as const, note: 'أكتب العنوان' }
+    const far = { ...near, tabId: 8, cursor: { x: 1000 - TAG_ROOM, y: 6 } }
+    const [flipped, kept] = presenceParts([near, far], layerOutline, frameOutline, 1000).cursors as unknown as Fake[]
+    expect([flipped?.dataset.flip, kept?.dataset.flip]).toEqual(['', undefined])
+    const [, name, note] = flipped?.children[1]?.children ?? []
+    expect([name?.attributes.dir, note?.attributes.dir]).toEqual(['auto', 'auto'])
   })
 
   it('leaves out a layer the overlay has no box for', () => {

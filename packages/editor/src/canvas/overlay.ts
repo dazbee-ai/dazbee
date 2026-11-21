@@ -535,6 +535,7 @@ export function editorOverlay({
       },
       (frame) =>
         outline('presence-frame', frame, { x: 0, y: 0, width: frame.width, height: frame.height, rotation: 0 }),
+      view.viewport().width,
     )
     parts.push(...others.outlines)
     const selected = selection.pathEditing() || selection.cropping() ? null : selectionParts()

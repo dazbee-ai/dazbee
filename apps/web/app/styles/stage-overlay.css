@@ -756,6 +756,10 @@
   font-size: var(--text-caption);
   line-height: 14px;
 }
+.stage-overlay .presence-cursor[data-flip] .presence-tag {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
 .stage-overlay .presence-tag:has(> .presence-name:empty:only-child) {
   display: none;
 }

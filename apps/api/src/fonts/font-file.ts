@@ -4,6 +4,8 @@
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { FontType } from '@dazbee/schema'
 
+import { previewText } from './preview-text.ts'
+
 export interface FontInfo {
   contentType: FontType
   family: string
@@ -68,15 +70,21 @@ export function readFontInfo(bytes: Uint8Array): FontInfo | null {
 
 /**
  * The family's name drawn in the face itself, near black on clear, as a PNG: the font picker shows
- * it, so the browser never decodes the font. Throws when CanvasKit can't read the font.
+ * it, so the browser never decodes the font. A face that lacks its name's letters draws a few of
+ * the first of `scripts` (ISO 15924 codes) it has instead (`previewText`). Throws when CanvasKit
+ * can't read the font.
  */
 export async function fontPreview(
   bytes: Uint8Array,
   { family, weight, style }: Pick<FontInfo, 'family' | 'weight' | 'style'>,
+  scripts: readonly string[] = [],
 ): Promise<Uint8Array> {
   const ck = await loadCanvasKit()
   const typeface = ck.Typeface.MakeTypefaceFromData(bytes.slice().buffer)
   if (!typeface) throw new Error("CanvasKit can't read this font")
+  const font = new ck.Font(typeface, PREVIEW_SIZE)
+  const text = previewText(family, scripts, (chars) => font.getGlyphIDs(chars))
+  font.delete()
   typeface.delete()
   const provider = ck.TypefaceFontProvider.Make()
   const fonts = ck.FontCollection.Make()
@@ -92,12 +100,14 @@ export async function fontPreview(
           weight: { value: weight },
           slant: style === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
         },
+        // A variable face draws the weight asked for, not its default; a font of one weight ignores it.
+        fontVariations: [{ axis: 'wght', value: weight }],
       },
       maxLines: 1,
       ellipsis: '…',
     })
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle, fonts)
-    builder.addText(family)
+    builder.addText(text)
     const paragraph = builder.build()
     builder.delete()
     try {

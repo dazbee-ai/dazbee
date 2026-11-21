@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, faceFor, offeredFamilies, weightsOf } from './font-catalog.ts'
+import { categoryOf, faceFor, scriptsOf, weightsOf } from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -25,15 +25,17 @@ describe('categoryOf', () => {
   })
 })
 
-describe('offeredFamilies', () => {
-  it('leaves out the script fonts we copied, which text falls back to, and keeps a brand’s upload of one', () => {
-    const list = [
-      family('Inter', 'google'),
-      family('Noto Color Emoji', 'google'),
-      family('Noto Sans JP', 'google'),
-      family('Noto Sans Thai', 'upload'),
-    ]
-    expect(offeredFamilies(list).map((f) => f.family)).toEqual(['Inter', 'Noto Sans Thai'])
+describe('scriptsOf', () => {
+  it('reads Google’s scripts, and gives each font we ship the scripts it draws', () => {
+    expect(scriptsOf({ ...family('Cairo', 'google'), scripts: ['Arab', 'Latn'] })).toEqual(['Arab', 'Latn'])
+    expect(scriptsOf(family('Noto Sans', 'builtin'))).toEqual(['Latn', 'Cyrl', 'Grek'])
+    expect(scriptsOf(family('Noto Sans Devanagari', 'builtin'))).toEqual(['Deva'])
+    expect(scriptsOf(family('Noto Naskh Arabic', 'builtin'))).toEqual(['Arab'])
+  })
+
+  it('has none for an upload, or a Google family listed without them', () => {
+    expect(scriptsOf(family('Brand Grotesk', 'upload'))).toEqual([])
+    expect(scriptsOf(family('Gone Sans', 'google'))).toEqual([])
   })
 })
 

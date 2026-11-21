@@ -2,10 +2,12 @@
 // (`docker compose up -d --wait postgres`).
 import { describe, expect, it } from 'vitest'
 
-import { DesignSummary, DesignThumbnail, readImageHeader } from '@dazbee/schema'
+import { DesignSummary, DesignThumbnail, parseDesign, readImageHeader } from '@dazbee/schema'
 
 import { brand, call, db, sibling } from '../test-api.ts'
+import { fontFile } from '../test-files.ts'
 import { appendAccepted } from '../workspace/test-journal.ts'
+import { drawCover } from './design-thumbnails.ts'
 
 // A design's picture for the home's bento (#84), drawn with CanvasKit like an export.
 describe('design thumbnails', { timeout: 30_000 }, () => {
@@ -72,6 +74,19 @@ describe('design thumbnails', { timeout: 30_000 }, () => {
       (await call('a', 'GET', `/brands/${brand.id}/designs/${design.id}/thumbnail`)).json,
     )
     expect(keyOf(changed.url)).not.toBe(keyOf(first.url))
+  })
+
+  it('moves the font bytes to the drawing thread instead of copying them', async () => {
+    const parsed = parseDesign(story('#FF48B0FF'))
+    if (!parsed.success) throw new Error('the story fixture is a design')
+    const font = { family: 'Noto Sans', bytes: fontFile('NotoSans-Regular.ttf') }
+    const png = await drawCover(parsed.design, { frameId: 'st', width: 1080, height: 1920 }, 64, {
+      fonts: [font],
+      fallbackFamilies: [],
+      images: {},
+    })
+    expect(readImageHeader(png)).toMatchObject({ contentType: 'image/png', height: 64 })
+    expect(font.bytes.byteLength).toBe(0)
   })
 
   it("keeps a design's picture to its brand and workspace", async () => {

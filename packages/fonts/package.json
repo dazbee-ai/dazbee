@@ -4,10 +4,13 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./google": "./src/google.ts",
     "./node": "./src/node.ts",
-    "./test-fonts": "./src/test-fonts.ts"
+    "./test-fonts": "./src/test-fonts.ts",
+    "./shipped-ranks": "./src/shipped-ranks.ts"
   },
   "scripts": {
+    "google-fonts": "node src/write-google-fonts.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

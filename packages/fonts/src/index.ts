@@ -1,4 +1,5 @@
-export * from './google.ts'
+export type { FontCategory, GoogleFamily, GoogleFile, GoogleLicence } from './google.ts'
+export { variesInWeight } from './google-metadata.ts'
 export * from './scripts.ts'
 
 /** One font file we ship. Fonts are loaded from these bytes, never from the system (CLAUDE.md). */

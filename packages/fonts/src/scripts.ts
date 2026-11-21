@@ -1,10 +1,10 @@
 // The script fonts: Noto families a text draws the characters of other scripts and colour emoji in
-// when its own font lacks them. Each is copied from Google Fonts into our storage with the offered
-// families, loaded only once some text has its characters, and never offered in the font menu.
-import type { GoogleFamily } from './google.ts'
+// when its own font lacks them. Each is a Google Fonts family, copied into our storage and offered in
+// the chooser with the others; a text that isn't set in it loads it only once it has its characters.
 
 /** A script font: the Google family, and what in a text needs it. */
-export interface ScriptFont extends GoogleFamily {
+export interface ScriptFont {
+  family: string
   /** Matches a character, or a sequence, of a text that this family draws. */
   needs: RegExp
   /** Matches a text whose `needs` characters an earlier family draws, so this one isn't needed. */
@@ -25,9 +25,6 @@ const KANA_OR_HANGUL = new RegExp(`${KANA.source}|${HANGUL.source}`, 'u')
 
 const script = (family: string, needs: RegExp, unless?: RegExp): ScriptFont => ({
   family,
-  category: 'sans-serif',
-  weights: [400, 700],
-  italic: false,
   needs,
   ...(unless ? { unless } : {}),
 })
@@ -59,9 +56,6 @@ export const SCRIPT_FONTS: readonly ScriptFont[] = [
   script('Noto Sans Ethiopic', /\p{Script=Ethiopic}/u),
   {
     family: EMOJI_FAMILY,
-    category: 'sans-serif',
-    weights: [400],
-    italic: false,
     // A pictograph from U+2300 on (☀ ♥ ✔ ⭐ 😀), one before it asked to be an emoji (U+FE0F), a
     // skin tone, a flag's regional indicator or a keycap. The signs before U+2300 alone (© ® ™ ‼ ↔) are in Noto
     // Sans and keep their text look; any other font a text tries first keeps its own glyph too.

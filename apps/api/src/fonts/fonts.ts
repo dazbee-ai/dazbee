@@ -4,6 +4,8 @@
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
+import type { GoogleFamily } from '@dazbee/fonts'
+import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import {
   byCodeUnits,
   type FontFace,
@@ -37,17 +39,28 @@ const byFace = (a: Row, b: Row) => (a.style === b.style ? a.weight - b.weight : 
 const visibleTo = (workspaceId: string, brandId: string) =>
   or(eq(fontFaces.source, 'google'), and(eq(fontFaces.workspaceId, workspaceId), eq(fontFaces.brandId, brandId)))
 
-/** The catalog a brand picks from, families by name. */
+/** The Google Fonts families by name, once looked up. */
+let googleByName: ReadonlyMap<string, GoogleFamily> | undefined
+
+/**
+ * The catalog a brand picks from, families by name; a Google family with its place in Google
+ * Fonts' popularity order and its scripts, from `GOOGLE_FONTS`.
+ */
 export async function listFonts(db: Db, workspaceId: string, brandId: string): Promise<FontFamily[]> {
   const rows = await db.select().from(fontFaces).where(visibleTo(workspaceId, brandId))
   return [...families(rows)]
     .sort(([a], [b]) => byCodeUnits(a, b))
-    .map(([family, faces]) => ({
-      family,
-      source: faces[0]?.source ?? 'google',
-      category: faces[0]?.category ?? null,
-      faces: faces.map(toFace),
-    }))
+    .map(([family, faces]) => {
+      const source = faces[0]?.source ?? 'google'
+      const listed = source === 'google' ? googleFamilies().get(family) : undefined
+      return {
+        family,
+        source,
+        category: faces[0]?.category ?? null,
+        ...(listed ? { rank: listed.rank, scripts: listed.scripts } : {}),
+        faces: faces.map(toFace),
+      }
+    })
 }
 
 /** A face the brand can use and short-lived URLs to its file and preview, or null. */
@@ -165,14 +178,15 @@ export async function recordFont(
 /**
  * Puts a face in, taking the place of the one with the same family, weight and style in its scope.
  * A variable face never shares its family and style with another: one takes the place of every
- * face of its family and style, and any face takes the place of a variable one.
+ * face of its family and style, and any face takes the place of a variable one. Gives back the
+ * SHA-256 of each face it took the place of.
  */
-export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert) {
-  await db.transaction(async (tx) => {
+export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert): Promise<string[]> {
+  return db.transaction(async (tx) => {
     // Two uploads of one family and style at once wait for each other, so neither keeps a face the other replaces.
     const scope = [row.workspaceId ?? '', row.brandId ?? '', row.family, row.style].join('\n')
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${scope}))`)
-    await tx
+    const replaced = await tx
       .delete(fontFaces)
       .where(
         and(
@@ -183,7 +197,9 @@ export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert) {
           row.weightMin == null ? or(eq(fontFaces.weight, row.weight), isNotNull(fontFaces.weightMin)) : undefined,
         ),
       )
+      .returning({ sha256: fontFaces.sha256 })
     await tx.insert(fontFaces).values(row)
+    return replaced.map((one) => one.sha256)
   })
 }
 
@@ -198,6 +214,12 @@ function families(rows: Row[]): Map<string, Row[]> {
   }
   for (const faces of out.values()) faces.sort(byFace)
   return out
+}
+
+/** `GOOGLE_FONTS` by family name. */
+function googleFamilies(): ReadonlyMap<string, GoogleFamily> {
+  googleByName ??= new Map(GOOGLE_FONTS.map((family) => [family.family, family]))
+  return googleByName
 }
 
 async function visibleFace(db: Db, workspaceId: string, brandId: string, faceId: string) {

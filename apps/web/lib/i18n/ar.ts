@@ -1223,6 +1223,10 @@ export const ar: Messages = {
         handwriting: 'خط يد',
         monospace: 'أحادي المسافة',
       },
+      scripts: {
+        label: 'نظام الكتابة',
+        any: 'أي نظام كتابة',
+      },
       upload: 'ارفع خطًا (‎.ttf، ‎.otf)',
       uploading: 'جارٍ الرفع…',
       uploadFailed: 'تعذّر الرفع: {reason}',

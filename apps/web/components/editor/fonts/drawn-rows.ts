@@ -1,6 +1,6 @@
 // Which of the font chooser's rows are drawn: only those in view of its scrolled list, and a few past
-// either edge, so a few hundred families scroll smoothly; the heading pinned above the list; and the
-// scroll that shows a row.
+// either edge, so every Google family scrolls smoothly; the heading pinned above the list;
+// and the scroll that shows a row.
 import type { FontGroup, FontRow } from './font-rows.ts'
 
 /** Where each row sits down the list, and how tall the list is, in pixels. */

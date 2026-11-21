@@ -160,6 +160,30 @@ describe('fontPreview', () => {
     expect(header?.width).toBeGreaterThan(100)
   })
 
+  it('draws a variable face at the weight asked for, not its default', async () => {
+    const draw = (weight: number) => fontPreview(variableTestFont(), { family: 'Vary Sans', weight, style: 'normal' })
+    const [thin, regular, black] = await Promise.all([draw(100), draw(400), draw(900)])
+    const ink = async (png: Uint8Array) => {
+      const ck = await loadCanvasKit()
+      const image = ck.MakeImageFromEncoded(png)
+      if (!image) throw new Error('the preview is no image')
+      const pixels = image.readPixels(0, 0, {
+        width: image.width(),
+        height: image.height(),
+        colorType: ck.ColorType.RGBA_8888,
+        alphaType: ck.AlphaType.Unpremul,
+        colorSpace: ck.ColorSpace.SRGB,
+      })
+      image.delete()
+      let alpha = 0
+      for (let i = 3; i < (pixels?.length ?? 0); i += 4) alpha += pixels?.[i] ?? 0
+      return alpha
+    }
+    const [a, b, c] = await Promise.all([ink(thin), ink(regular), ink(black)])
+    expect(a).toBeLessThan(b)
+    expect(b).toBeLessThan(c)
+  })
+
   it('throws for bytes CanvasKit can’t read', async () => {
     await expect(fontPreview(new Uint8Array(100), { family: 'X', weight: 400, style: 'normal' })).rejects.toThrow(
       /can't read/,

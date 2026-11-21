@@ -271,7 +271,7 @@ A text layer setting that picks the largest font size, between a least and a mos
 _Avoid_: Auto size, fit text
 
 **Font catalog**:
-The families a brand can set text in: the fonts we ship (the fallbacks among them), the Google Fonts families we copied into our storage, and the brand's own uploads. The script fonts are in our storage too, but the menu does not offer them. A brand's upload of a family name is the one it sees. Every font file is loaded from our storage, never from Google, the system or the browser.
+The families a brand can set text in: the fonts we ship (the fallbacks among them), every Google Fonts family under the OFL, Apache 2.0 or UFL, copied into our storage from google/fonts (the script fonts among them), and the brand's own uploads. A brand's upload of a family name is the one it sees. Every font file is loaded from our storage, never from Google, the system or the browser.
 _Avoid_: Font library (that is the asset library's word), web fonts
 
 **Font face**:
@@ -283,7 +283,7 @@ One font file that draws a range of weights along its weight axis, read when it 
 _Avoid_: Axis font
 
 **Script font**:
-A Noto family a text falls back to for characters its own font lacks, of a script we don't ship (Japanese, Korean, Chinese, Thai, Hebrew and others) or colour emoji. It is copied into our storage with the Google Fonts families, loaded only once some text in the design has its characters, and never offered in the font menu.
+A Noto family a text falls back to for characters its own font lacks, of a script we don't ship (Japanese, Korean, Chinese, Thai, Hebrew and others) or colour emoji. It is one of the Google Fonts families in our storage and offered in the font chooser like them; a text not set in it loads it only once the text has its characters.
 _Avoid_: Fallback font (that is any font in the fallback list, the shipped ones too), emoji font (when every script font is meant)
 
 **Fill**:

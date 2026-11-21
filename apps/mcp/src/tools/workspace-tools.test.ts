@@ -102,6 +102,13 @@ describe('create_design', () => {
     expect(server.api.designsOf('brand-winter').map(({ id }) => id)).toContain(made.id)
   })
 
+  it('tells the agent to open the design and read the ad rules for each size next', async () => {
+    const agent = await agentOf()
+    const result = await agent.call('create_design', { brand: 'brand-winter', name: 'Holiday ad' })
+    const [, note] = result.content
+    expect(note?.type === 'text' ? note.text : '').toMatch(/open_design.*ad_rules/)
+  })
+
   it('tells a view access’s refusal (403) as a tool error', async () => {
     const agent = await agentOf({ writes: false })
     const result = await agent.call('create_design', { brand: 'brand-winter', name: 'Holiday ad' })

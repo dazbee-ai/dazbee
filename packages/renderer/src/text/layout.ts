@@ -149,7 +149,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const rtl = direction === 'rtl'
   const base = scaled(props.style, scale) as Style
   // A text tries the shipped fallbacks, then the script fonts its own characters need
-  // (`scriptFamilies`, as `textFamilies` loads them), so a character's font never hangs on which
+  // (`scriptFamilies`, as `textFontUses` loads them), so a character's font never hangs on which
   // other texts asked for theirs.
   const fallbacks = { fallbackFamilies: [...resources.fallbackFamilies, ...scriptFamilies(props.text)] }
   // Later runs win where runs overlap, so split the text at every run edge and merge per piece.

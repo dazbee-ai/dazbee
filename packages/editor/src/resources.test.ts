@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { variableTestFont } from '@dazbee/fonts/test-fonts'
 import { resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, parseDesign } from '@dazbee/schema'
@@ -61,69 +60,6 @@ function designOf(assetIds: string[]): Design {
   })
   if (!parsed.success) throw new Error(parsed.errors.join('\n'))
   return parsed.design
-}
-
-/** A design whose frame holds a text in `family` for each weight and style. */
-function textsIn(family: string, faces: { weight: number; style?: 'normal' | 'italic' }[]): Design {
-  const parsed = parseDesign({
-    meta: { designId: 'd', name: 'D' },
-    pages: { p: { name: 'Page', order: 'a0' } },
-    frames: { f: { pageId: 'p', name: 'F', width: 750, height: 500, x: 0, y: 0, order: 'a0' } },
-    nodes: Object.fromEntries(
-      faces.map(({ weight, style = 'normal' }, i) => [
-        `t${i}`,
-        {
-          type: 'text',
-          parentId: 'f',
-          link: `t${i}`,
-          index: `a${i}`,
-          name: 'Words',
-          props: {
-            ...{ x: 0, y: 0, width: 700, height: 60, text: 'Sale' },
-            style: { fontFamily: family, fontSize: 40, fontWeight: weight, fontStyle: style, color: '#000000FF' },
-          },
-        },
-      ]),
-    ),
-  })
-  if (!parsed.success) throw new Error(parsed.errors.join('\n'))
-  return parsed.design
-}
-
-/** Four faces of Brand Sans, each its own bytes: 400, 700 and 900 upright and 400 italic. */
-function brandSans() {
-  const [regular, bold, extraBold] = ['NotoSans-Regular.ttf', 'NotoSans-Bold.ttf', 'NotoSans-ExtraBold.ttf'].map(
-    (file) => loadFontFiles().find((f) => f.file === file)?.bytes ?? new Uint8Array(),
-  )
-  const faces = [
-    { family: 'Brand Sans', weight: 400, bytes: regular ?? new Uint8Array() },
-    { family: 'Brand Sans', weight: 700, bytes: bold ?? new Uint8Array() },
-    { family: 'Brand Sans', weight: 900, bytes: extraBold ?? new Uint8Array() },
-    { family: 'Brand Sans', weight: 400, style: 'italic' as const, bytes: new Uint8Array(regular ?? []) },
-  ]
-  return { faces, catalog: testCatalog(faces) }
-}
-
-/** Editor resources over a catalog, with no fonts or images to start. */
-function fromCatalog(sources: ReturnType<typeof testCatalog>['sources']) {
-  const done = new AbortController()
-  const resources = editorResources({
-    ck,
-    cache: resourceCache(ck),
-    first: { fonts: [], fallbackFamilies: [], images: {} },
-    firstFonts: NO_FONTS,
-    sources,
-    connected: () => true,
-    status: () => {},
-    signal: done.signal,
-  })
-  return {
-    resources,
-    end: () => {
-      resources.destroy()
-      done.abort()
-    },
-  }
 }
 
 /** A design of two frames on two pages, each with a photo layer: `here` on page p, `there` on page q. */
@@ -324,91 +260,5 @@ describe('editorResources', () => {
     expect(new Set(seen).size).toBe(4)
     resources.destroy()
     done.abort()
-  })
-})
-
-describe('editorResources loading fonts', () => {
-  it("fetches only the files of the faces a design's texts are drawn in, and a weight's face once a text asks for it", async () => {
-    const { faces, catalog } = brandSans()
-    const { resources, end } = fromCatalog(catalog.sources)
-    resources.load(textsIn('Brand Sans', [{ weight: 400 }]), ['f'])
-    await resources.loaded()
-    expect(catalog.asked).toEqual([['Brand Sans']])
-    expect(catalog.fetched).toEqual(['Brand Sans 400 normal'])
-    expect(resources.facesOf('Brand Sans').map((face) => `${face.weight} ${face.style}`)).toEqual([
-      '400 normal',
-      '700 normal',
-      '900 normal',
-      '400 italic',
-    ])
-    resources.load(textsIn('Brand Sans', [{ weight: 400 }, { weight: 800 }]), ['f'])
-    expect(resources.pending('Brand Sans')).toBe(true)
-    await resources.loaded()
-    // 800 draws in the 900, CSS's nearest heavier weight.
-    expect(catalog.asked).toHaveLength(1)
-    expect(catalog.fetched).toEqual(['Brand Sans 400 normal', 'Brand Sans 900 normal'])
-    expect(resources.bytes().fonts.map((font) => font.bytes)).toEqual([faces[0]?.bytes, faces[2]?.bytes])
-    end()
-  })
-
-  it('registers each family’s files in the catalog’s order, and gives an export only the faces its design uses', async () => {
-    const { faces, catalog } = brandSans()
-    const { resources, end } = fromCatalog(catalog.sources)
-    await resources.loadUses([{ family: 'Brand Sans', weight: 700, style: 'italic' }])
-    await resources.loadUses([{ family: 'Brand Sans', weight: 400, style: 'normal' }])
-    // Italic text at 700 draws in the upright 700, which CanvasKit scores above the italic 400.
-    expect(catalog.fetched).toEqual(['Brand Sans 700 normal', 'Brand Sans 400 normal'])
-    expect(resources.bytes().fonts.map((font) => font.bytes)).toEqual([faces[0]?.bytes, faces[1]?.bytes])
-    const regular = textsIn('Brand Sans', [{ weight: 400 }])
-    expect(resources.bytesFor(regular).fonts.map((font) => font.bytes)).toEqual([faces[0]?.bytes])
-    end()
-  })
-
-  it('fetches a face again at the next redraw after its file failed to come offline, and not on every redraw', async () => {
-    const { catalog } = brandSans()
-    let online = false
-    let calls = 0
-    const done = new AbortController()
-    const resources = editorResources({
-      ck,
-      cache: resourceCache(ck),
-      first: { fonts: [], fallbackFamilies: [], images: {} },
-      firstFonts: NO_FONTS,
-      sources: {
-        ...catalog.sources,
-        fontFile: (face) => {
-          calls++
-          return online ? catalog.sources.fontFile(face) : Promise.reject(new Error('offline'))
-        },
-      },
-      connected: () => online,
-      status: () => {},
-      signal: done.signal,
-    })
-    const design = textsIn('Brand Sans', [{ weight: 700 }])
-    resources.screen(design)
-    await resources.loaded()
-    expect(calls).toBe(1)
-    online = true
-    resources.screen(design)
-    await resources.loaded()
-    resources.screen(design)
-    await resources.loaded()
-    expect(calls).toBe(2)
-    expect(catalog.fetched).toEqual(['Brand Sans 700 normal'])
-    resources.destroy()
-    done.abort()
-  })
-
-  it("fetches a variable face's file once, whatever weights its texts ask for", async () => {
-    const catalog = testCatalog([
-      { family: 'Vary Sans', weight: 400, weights: { min: 100, max: 900 }, bytes: variableTestFont() },
-      { family: 'Vary Sans', weight: 400, weights: { min: 100, max: 900 }, style: 'italic', bytes: variableTestFont() },
-    ])
-    const { resources, end } = fromCatalog(catalog.sources)
-    resources.load(textsIn('Vary Sans', [{ weight: 100 }, { weight: 550 }, { weight: 900 }]), ['f'])
-    await resources.loaded()
-    expect(catalog.fetched).toEqual(['Vary Sans 400 normal'])
-    end()
   })
 })

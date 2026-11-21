@@ -17,7 +17,7 @@ export interface FontUse {
 }
 
 /**
- * A face of the catalogue as it is recorded: its weight, or a variable face's range of weights, its
+ * A face of the font catalog as it is recorded: its weight, or a variable face's range of weights, its
  * style, and where its file came from.
  */
 export interface CatalogFace {
@@ -92,40 +92,6 @@ export function facesToLoad<F extends CatalogFace>(
 }
 
 /**
- * The weights CanvasKit may read a face's file at: an upload's own, a variable face's file default
- * (`shared`, or anywhere in its range without it), or a Google static face's recorded weight and
- * the others its file may say.
- */
-export function readWeights(face: CatalogFace, shared?: number): number[] {
-  if (face.weights) {
-    if (face.source !== 'google') return [face.weight]
-    const { min, max } = face.weights
-    if (shared !== undefined) return [Math.min(max, Math.max(min, shared))]
-    return Array.from({ length: max - min + 1 }, (_, i) => min + i)
-  }
-  if (face.source !== 'google') return [face.weight]
-  return [face.weight, ...(GOOGLE_FILE_WEIGHTS[face.weight] ?? [])]
-}
-
-/**
- * The face CanvasKit draws text of `weight` and `style` in, among faces it reads at `styles`, by its
- * index: the one `matchStyleCSS3` scores highest for a pattern of normal width, the first of a tie.
- */
-export function drawnFace(styles: readonly FileStyle[], weight: number, style: FontStyle): number {
-  const pattern = { weight, slant: style === 'italic' ? ITALIC : UPRIGHT }
-  let best = -1
-  let index = 0
-  styles.forEach((current, i) => {
-    const score = (widthScore(current.width) << 16) + skiaScore(pattern, current)
-    if (score > best) {
-      best = score
-      index = i
-    }
-  })
-  return index
-}
-
-/**
  * Whether CanvasKit, reading a family's files at `styles` (one for each of `faces`), draws some
  * whole weight from 100 to 900, upright or italic, in a face `facesToLoad` leaves out: such a
  * family is one of `WHOLE_FAMILIES`. Checked without them.
@@ -171,9 +137,20 @@ function scoreRange(
   return { min, max }
 }
 
-/** `matchStyleCSS3`'s score for a face's width, against a pattern of normal width (5). */
-function widthScore(width: number): number {
-  return width <= 5 ? 5 + width : 10 - width
+/**
+ * The weights CanvasKit may read a face's file at: an upload's own, a variable face's file default
+ * (`shared`, or anywhere in its range without it), or a Google static face's recorded weight and
+ * the others its file may say.
+ */
+function readWeights(face: CatalogFace, shared?: number): number[] {
+  if (face.weights) {
+    if (face.source !== 'google') return [face.weight]
+    const { min, max } = face.weights
+    if (shared !== undefined) return [Math.min(max, Math.max(min, shared))]
+    return Array.from({ length: max - min + 1 }, (_, i) => min + i)
+  }
+  if (face.source !== 'google') return [face.weight]
+  return [face.weight, ...(GOOGLE_FILE_WEIGHTS[face.weight] ?? [])]
 }
 
 /** `matchStyleCSS3`'s score of a face for a pattern of normal width, less the width's part. */
@@ -188,4 +165,27 @@ function skiaScore(pattern: { weight: number; slant: number }, current: { weight
     return slant + (c <= p ? 500 + c : 1000 - c)
   }
   return slant + (c > p ? 1000 + p - c : c)
+}
+
+/**
+ * The face CanvasKit draws text of `weight` and `style` in, among faces it reads at `styles`, by its
+ * index: the one `matchStyleCSS3` scores highest for a pattern of normal width, the first of a tie.
+ */
+function drawnFace(styles: readonly FileStyle[], weight: number, style: FontStyle): number {
+  const pattern = { weight, slant: style === 'italic' ? ITALIC : UPRIGHT }
+  let best = -1
+  let index = 0
+  styles.forEach((current, i) => {
+    const score = (widthScore(current.width) << 16) + skiaScore(pattern, current)
+    if (score > best) {
+      best = score
+      index = i
+    }
+  })
+  return index
+}
+
+/** `matchStyleCSS3`'s score for a face's width, against a pattern of normal width (5). */
+function widthScore(width: number): number {
+  return width <= 5 ? 5 + width : 10 - width
 }

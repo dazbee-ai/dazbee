@@ -20,7 +20,7 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 }
 
 /**
- * The faces of the families the editor asks for (#50), from the brand's catalog, fetched once and
+ * The faces of the families the editor asks for, from the brand's catalog, fetched once and
  * again when a family isn't in it yet, as after an upload; and the file of each face it asks for.
  */
 export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {

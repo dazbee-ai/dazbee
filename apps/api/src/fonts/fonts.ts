@@ -80,7 +80,7 @@ export async function fontLink(
 
 /**
  * The faces that draw these uses of the families as the brand sees them (`facesToLoad`), with their
- * bytes from our storage: what a render in Node registers, the same files the editor loads (#50).
+ * bytes from our storage: what a render in Node registers, the same files the editor loads.
  * Each family's faces come in the catalog's order. Families the catalog doesn't have are left out,
  * and their text draws in the fallback fonts, as in the editor.
  */

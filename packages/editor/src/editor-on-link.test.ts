@@ -8,7 +8,7 @@ import type { Client } from '@dazbee/doc'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import type { Member } from '@dazbee/schema'
 
-import type { CatalogFont, FontSources } from './font-loads.ts'
+import type { FontSources, ListedFace } from './font-loads.ts'
 import { openTab } from './open-tab.ts'
 import type { ResourceSources } from './resources.ts'
 import { WORDS } from './test-actions.ts'
@@ -31,10 +31,10 @@ afterEach(async () => {
 /** A font the tests make wait: each load waits for `bring`, which gives it a wide face. */
 function slowFonts() {
   const wide = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
-  const loads: { families: string[]; resolve: (faces: CatalogFont[]) => void }[] = []
+  const loads: { families: string[]; resolve: (faces: ListedFace[]) => void }[] = []
   return {
     sources: {
-      fontFaces: (families: string[]) => new Promise<CatalogFont[]>((resolve) => loads.push({ families, resolve })),
+      fontFaces: (families: string[]) => new Promise<ListedFace[]>((resolve) => loads.push({ families, resolve })),
       fontFile: () => Promise.resolve(wide),
     } satisfies FontSources,
     /** Settles every load asked for so far. */

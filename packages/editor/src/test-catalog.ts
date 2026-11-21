@@ -1,6 +1,6 @@
 // A font catalog for tests, as the web app and the MCP server give one: each family's faces listed by
 // `fontFaces` and their files given by `fontFile`, noting what was asked of each.
-import type { CatalogFont, FontSources } from './font-loads.ts'
+import type { FontSources, ListedFace } from './font-loads.ts'
 
 /** A face of the test catalog: upright 400 unless it says otherwise. */
 export interface TestFace {
@@ -16,7 +16,7 @@ export interface TestFace {
  * `fetched` each file given, as `<family> <weight> <style>`.
  */
 export function testCatalog(faces: readonly TestFace[]) {
-  const listed: CatalogFont[] = faces.map((face, i) => ({
+  const listed: ListedFace[] = faces.map((face, i) => ({
     id: `face-${i}`,
     family: face.family,
     weight: face.weight ?? 400,

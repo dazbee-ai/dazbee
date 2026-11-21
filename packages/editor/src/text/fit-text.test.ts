@@ -9,7 +9,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import { type DesignRecords, type Layer, PROTOCOL, type ServerMessage, type TextProps } from '@dazbee/schema'
 
-import type { CatalogFont, FontSources } from '../font-loads.ts'
+import type { FontSources, ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { editorFitText } from './fit-text.ts'
@@ -20,11 +20,11 @@ const WIDE = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.b
 /** A font catalog whose answers a test settles, one at a time, in order; a face's file comes at once. */
 function slowFonts(bytes = WIDE) {
   const asked: string[][] = []
-  const loads: { families: string[]; resolve: (faces: CatalogFont[]) => void; reject: (error: Error) => void }[] = []
+  const loads: { families: string[]; resolve: (faces: ListedFace[]) => void; reject: (error: Error) => void }[] = []
   const sources: FontSources = {
     fontFaces: (families: string[]) => {
       asked.push(families)
-      return new Promise<CatalogFont[]>((resolve, reject) => loads.push({ families, resolve, reject }))
+      return new Promise<ListedFace[]>((resolve, reject) => loads.push({ families, resolve, reject }))
     },
     fontFile: () => Promise.resolve(bytes),
   }

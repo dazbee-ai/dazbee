@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-import { scriptFamilies } from '@dazbee/fonts'
-
 import { carryOverLayers } from './carry-over.ts'
 import { isRecord } from './json.ts'
 import { canHold, Layer } from './layers.ts'
@@ -102,12 +100,6 @@ export interface StructureLookup {
   linkTakenBy(frameId: string, link: string, id: string): string | undefined
 }
 
-/**
- * Each text's families, kept by its layer object and the variables they were read with: the screen
- * asks for the design's families on every redraw, and an unchanged layer is the same object.
- */
-const textFamiliesKept = new WeakMap<object, { variables: Variables | undefined; families: readonly string[] }>()
-
 /** Validates untrusted JSON as a design, its layers carried over first (`carryOverLayers`). Errors read `path: message`. */
 export function parseDesign(input: unknown): ParseResult {
   const nodes = isRecord(input) && isRecord(input.nodes) ? carryOverLayers(input.nodes) : undefined
@@ -169,34 +161,6 @@ function frameFinder(design: Design): (id: string) => string | undefined {
     return frame
   }
   return (id) => frameOf(id)
-}
-
-/**
- * Every font family the design's text is drawn in (`textFamilies`), sorted: the families the editor,
- * exports and Node renders load. The shipped fallbacks are not among them; the script fonts its
- * characters need are. With the brand's variables, a family bound to a brand font is the kit's.
- */
-export function fontFamilies(design: Design, variables?: Variables): string[] {
-  const families = new Set<string>()
-  for (const node of Object.values(design.nodes))
-    if (node.type === 'text') for (const family of textFamilies(node, variables)) families.add(family)
-  return [...families].sort()
-}
-
-/**
- * The families a text is drawn in, each once: its style's (a brand-bound one as the kit gives it),
- * its runs', then the script fonts its characters need (`scriptFamilies`). A text that grows with
- * its words waits for these to load before it is fitted.
- */
-export function textFamilies(layer: Extract<Layer, { type: 'text' }>, variables?: Variables): readonly string[] {
-  const kept = textFamiliesKept.get(layer)
-  if (kept && kept.variables === variables) return kept.families
-  const { style, runs, text } = bindProps(layer.type, layer.props, layer.bindings, variables)
-  const named = [style.fontFamily, ...runs.map((run) => run.style.fontFamily)]
-  const own = named.filter((family): family is string => typeof family === 'string' && family !== '')
-  const families = [...new Set([...own, ...scriptFamilies(text)])]
-  textFamiliesKept.set(layer, { variables, families })
-  return families
 }
 
 /**

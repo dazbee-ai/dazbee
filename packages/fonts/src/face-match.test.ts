@@ -28,6 +28,18 @@ const weightsOf = (faces: readonly CatalogFace[]) => faces.map((face) => `${face
 /** Nine upright weights and their italics, as an uploaded family of static files. */
 const NINE = [100, 200, 300, 400, 500, 600, 700, 800, 900].flatMap((w) => [upload(w), upload(w, 'italic')])
 
+describe('WHOLE_FAMILIES', () => {
+  it('was found in the files of the commit the Google list was written from', () => {
+    expect(whole.commit).toBe(GOOGLE_FONTS_COMMIT)
+  })
+
+  it('loads every face of a Google family whose files CanvasKit reads apart from the catalog', () => {
+    const family = [...WHOLE_FAMILIES][0] ?? ''
+    const faces = [400, 700].map((weight) => ({ family, weight, style: 'normal' as const, source: 'google' as const }))
+    expect(facesToLoad(faces, [{ weight: 400, style: 'normal' }])).toEqual(faces)
+  })
+})
+
 describe('facesToLoad', () => {
   it('loads only the face of each weight and style asked for, where the family has it', () => {
     const picked = facesToLoad(NINE, [
@@ -37,7 +49,7 @@ describe('facesToLoad', () => {
     expect(weightsOf(picked)).toEqual(['400 normal', '700 italic'])
   })
 
-  it('gives each face once, in the catalogue order, however often it is asked for', () => {
+  it("gives each face once, in the catalog's order, however often it is asked for", () => {
     const picked = facesToLoad(NINE, [
       { weight: 700, style: 'normal' },
       { weight: 400, style: 'normal' },
@@ -90,7 +102,7 @@ describe('facesToLoad', () => {
 
   it('loads the Thin and the ExtraLight of a Google family for 200, as its Thin may say 250 in its file', () => {
     // A Thin file at 250 and an ExtraLight at 200: CanvasKit draws 200 in the ExtraLight. At 250
-    // and 275, it draws 200 in the Thin. The catalogue can't tell them apart.
+    // and 275, it draws 200 in the Thin. The catalog can't tell them apart.
     const family = [google(100), google(200), google(400)]
     expect(weightsOf(facesToLoad(family, [{ weight: 200, style: 'normal' }]))).toEqual(['100 normal', '200 normal'])
     expect(weightsOf(facesToLoad(family, [{ weight: 400, style: 'normal' }]))).toEqual(['400 normal'])
@@ -104,18 +116,6 @@ describe('facesToLoad', () => {
   it('loads nothing for a family with no faces, and nothing when nothing is asked', () => {
     expect(facesToLoad([], [{ weight: 400, style: 'normal' }])).toEqual([])
     expect(facesToLoad(NINE, [])).toEqual([])
-  })
-})
-
-describe('WHOLE_FAMILIES', () => {
-  it('was found in the files of the commit the Google list was written from', () => {
-    expect(whole.commit).toBe(GOOGLE_FONTS_COMMIT)
-  })
-
-  it('loads every face of a Google family whose files CanvasKit reads apart from the catalogue', () => {
-    const family = [...WHOLE_FAMILIES][0] ?? ''
-    const faces = [400, 700].map((weight) => ({ family, weight, style: 'normal' as const, source: 'google' as const }))
-    expect(facesToLoad(faces, [{ weight: 400, style: 'normal' }])).toEqual(faces)
   })
 })
 

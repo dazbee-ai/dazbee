@@ -82,6 +82,10 @@ async function tableDirectory(read: ReadBytes): Promise<Map<string, { offset: nu
   return tables
 }
 
+function viewOf(bytes: Uint8Array): DataView {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+}
+
 /** A variable font's axes: each one's tag, range and default, the value its default instance has. */
 async function variationAxes(read: ReadBytes, offset: number, length: number) {
   const view = viewOf(await read(offset, length))
@@ -106,10 +110,6 @@ function widthClass(value: number): number {
     }
   }
   return 9
-}
-
-function viewOf(bytes: Uint8Array): DataView {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 }
 
 function tagAt(view: DataView, at: number): string {

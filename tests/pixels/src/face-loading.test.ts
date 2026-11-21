@@ -48,7 +48,7 @@ const UPLOADED = [
   face('Upload Test', { weight: 700, style: 'italic', source: 'upload' }, BOLD, { weight: 700, unitsPerEm: 1050 }),
 ]
 
-/** Google statics, whose Thin and ExtraLight files say 250 and 275 where the catalogue says 100 and 200. */
+/** Google statics, whose Thin and ExtraLight files say 250 and 275 where the catalog says 100 and 200. */
 const GOOGLE = [
   face('Google Test', { weight: 100, style: 'normal', source: 'google' }, REGULAR, { weight: 250, unitsPerEm: 900 }),
   face('Google Test', { weight: 200, style: 'normal', source: 'google' }, REGULAR, { weight: 275, unitsPerEm: 1100 }),

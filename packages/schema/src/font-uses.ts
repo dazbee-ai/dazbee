@@ -57,9 +57,7 @@ export function textFontUses(layer: Extract<Layer, { type: 'text' }>, variables?
 
 /** One font use's family, weight and style as one string. */
 function useKey(use: FontUse): string {
-  return `${use.family}
-${use.weight}
-${use.style}`
+  return [use.family, use.weight, use.style].join('\n')
 }
 
 /** Font uses by family, then style (upright first), then weight. */

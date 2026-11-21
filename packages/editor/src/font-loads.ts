@@ -1,7 +1,7 @@
-// The editor's fonts from the catalog (#50): each family's faces as the catalog lists them, asked for
+// The editor's fonts from the catalog: each family's faces as the catalog lists them, asked for
 // once, and the files of only the faces its texts are drawn in (`facesToLoad`), fetched as texts ask
 // for new weights and styles. A face's file is fetched once; the fonts we ship are always here.
-import { facesToLoad, FONT_FACES, type FontUse } from '@dazbee/fonts'
+import { type CatalogFace, facesToLoad, FONT_FACES, type FontStyle, type FontUse } from '@dazbee/fonts'
 import type { ResourceBytes } from '@dazbee/renderer'
 
 /**
@@ -12,15 +12,11 @@ export interface FontFace {
   family: string
   weight: number
   weights?: { min: number; max: number } | undefined
-  style: 'normal' | 'italic'
+  style: FontStyle
 }
 
-/** A face as the catalog lists it, which `fontFile` gives the file of. */
-export interface CatalogFont extends FontFace {
-  id: string
-  /** `google` for a Google face, recorded at the weight Google names it by; else an upload. */
-  source?: string | undefined
-}
+/** A face as the catalog lists it, with its id, which `fontFile` gives the file of. */
+export type ListedFace = CatalogFace & { id: string }
 
 /** Where the catalog's faces and files come from. */
 export interface FontSources {
@@ -28,16 +24,16 @@ export interface FontSources {
    * The faces the catalog lists for the named families, without their files. A family the catalog
    * doesn't have has none, and its text draws in the fallback fonts.
    */
-  fontFaces?: (families: string[]) => Promise<CatalogFont[]>
+  fontFaces?: (families: string[]) => Promise<ListedFace[]>
   /** The file of a face `fontFaces` listed, from our storage. */
-  fontFile?: (face: CatalogFont) => Promise<Uint8Array>
+  fontFile?: (face: ListedFace) => Promise<Uint8Array>
 }
 
 /** The fonts a design opened with: the families asked for, their faces, and the files fetched. */
 export interface OpenedFonts {
   families: readonly string[]
-  faces: readonly CatalogFont[]
-  files: readonly (CatalogFont & { bytes: Uint8Array })[]
+  faces: readonly ListedFace[]
+  files: readonly (ListedFace & { bytes: Uint8Array })[]
 }
 
 export interface FontLoadsDeps {
@@ -64,15 +60,16 @@ export const NO_FONTS: OpenedFonts = { families: [], faces: [], files: [] }
 
 export function editorFontLoads({ shipped, opened, sources, connected, status, signal, arrived }: FontLoadsDeps) {
   /** Each family's faces as the catalog listed them, in its order, once it answered. */
-  const catalog = new Map<string, CatalogFont[]>()
+  const catalog = new Map<string, ListedFace[]>()
   /** The families asked of the catalog, in the order asked: a list's families draw in this order. */
   const asked = new Set<string>()
   /** The weights and styles asked of each family, by their key. */
   const wanted = new Map<string, Map<string, FontUse>>()
   /** Each face's file, by face id, once here. */
   const files = new Map<string, Uint8Array>()
-  /** The faces whose file is on its way, or failed while connected and isn't asked for again. */
+  /** The faces whose file is on its way. */
   const fetching = new Set<string>()
+  /** The faces whose file failed to come while connected, which aren't asked for again. */
   const failed = new Set<string>()
   /** How many loads of each family are on their way: its catalog answer and its files. */
   const busy = new Map<string, number>()
@@ -150,7 +147,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     askCatalog(fresh)
     for (const family of grown) {
       const fetched = catalog.has(family) ? fetchFiles(family) : null
-      if (fetched) latest.set(family, track([family], fetched))
+      if (fetched) after(family, track([family], fetched))
     }
   }
   /** Asks for the faces of these families; each family's load settles once its files too are here. */
@@ -192,7 +189,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
         },
       ),
     )
-    for (const family of fresh) latest.set(family, loading)
+    for (const family of fresh) after(family, loading)
   }
   /**
    * Fetches the files of the faces drawing the family's uses that aren't here, on their way or
@@ -228,6 +225,13 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
       },
     )
   }
+  /** Makes `load` part of the family's latest load, which settles once every load before it has too. */
+  function after(family: string, load: Promise<void>) {
+    latest.set(
+      family,
+      Promise.all([latest.get(family), load]).then(() => undefined),
+    )
+  }
   /**
    * Counts `load` as one of the families' loads while it is on its way, and tells the settle
    * listeners when it ends, unless it failed offline (it says false then).
@@ -246,7 +250,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     return [...shipped, ...[...asked].flatMap((family) => here(catalog.get(family) ?? []))]
   }
   /** The files here of these faces, in their order. */
-  function here(faces: readonly CatalogFont[]): ResourceBytes['fonts'] {
+  function here(faces: readonly ListedFace[]): ResourceBytes['fonts'] {
     return faces.flatMap((face) => {
       const bytes = files.get(face.id)
       return bytes ? [{ family: face.family, bytes }] : []

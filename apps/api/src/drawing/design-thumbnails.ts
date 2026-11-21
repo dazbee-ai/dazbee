@@ -89,6 +89,30 @@ export async function ensureDesignThumbnail(
 }
 
 /**
+ * The design's cover frame drawn as PNG at its own size on the drawing thread, in its drawing turn,
+ * with the brand's fonts and images: a template's picture before it is made small. Null when the
+ * design has no frame.
+ */
+export async function drawFullCover(
+  db: Db,
+  storage: Storage,
+  workspaceId: string,
+  brandId: string,
+  design: Design,
+): Promise<Uint8Array | null> {
+  const cover = coverOf(design)
+  if (!cover) return null
+  return inDrawingTurn(async () =>
+    drawCover(
+      design,
+      cover,
+      Math.max(cover.width, cover.height),
+      await brandResourcesFor(db, storage, workspaceId, brandId, design),
+    ),
+  )
+}
+
+/**
  * A design's cover frame drawn as PNG on the drawing thread, at most `longest` pixels on its long
  * side (never larger than the frame), with `resources`, whose font and image bytes move to the
  * thread: the caller can't read them after.

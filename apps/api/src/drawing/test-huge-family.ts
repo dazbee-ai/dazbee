@@ -1,5 +1,5 @@
 // A family of faces each padded to the size of a large CJK face's file, uploaded straight into a
-// brand's catalogue, for tests of how much of a family drawing reads.
+// brand's catalog, for tests of how much of a family drawing reads.
 import { newId } from '@dazbee/db'
 import { restyledTestFont, variableTestFont } from '@dazbee/fonts/test-fonts'
 import type { Storage } from '@dazbee/storage'

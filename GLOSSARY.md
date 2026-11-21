@@ -278,6 +278,10 @@ _Avoid_: Font library (that is the asset library's word), web fonts
 One font file in the catalog: a family in one weight and style, or a **variable font**'s range of weights in one style. A design loads only the faces its texts are drawn in, never every face of a family.
 _Avoid_: Font (when one file is meant), variant
 
+**Font use**:
+A family in one weight and style that a design's text is drawn in: a text's own style's, each stretch its runs set, and the script fonts its characters need in each of those. The faces that draw a design's font uses are the ones that load.
+_Avoid_: Font weight (when the family and style are meant too)
+
 **Variable font**:
 One font file that draws a range of weights along its weight axis, read when it is uploaded; a text set to any weight in the range draws that weight. It is the only face of its family and style: an upload of one takes the place of the others, and any upload of that family and style takes its place.
 _Avoid_: Axis font

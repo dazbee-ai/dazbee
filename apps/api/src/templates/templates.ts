@@ -19,7 +19,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { findAsset } from '../assets/assets.ts'
 import { makeThumbnail } from '../assets/thumbnails.ts'
-import { renderCover } from '../drawing/render.ts'
+import { drawFullCover } from '../drawing/design-thumbnails.ts'
 import { templateThumbnailKey } from '../storage-keys.ts'
 import { createDesign, InvalidContent } from '../workspace/designs.ts'
 
@@ -114,8 +114,9 @@ export async function saveTemplate(
   const cover = coverFrame(design)?.[1]
   if (!cover) throw new InvalidContent('the design has no frame')
   const id = newId()
-  const rendered = await renderCover(db, storage, workspaceId, brandId, design)
-  const thumbnail = await makeThumbnail(rendered.png, 'image/png')
+  const png = await drawFullCover(db, storage, workspaceId, brandId, design)
+  if (!png) throw new InvalidContent('the design has no frame')
+  const thumbnail = await makeThumbnail(png, 'image/png')
   await storage.put(templateThumbnailKey(workspaceId, id), thumbnail.bytes, thumbnail.contentType)
   const [row] = await db
     .insert(templates)

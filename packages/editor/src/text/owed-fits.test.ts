@@ -7,7 +7,7 @@ import { EMOJI_FAMILY } from '@dazbee/fonts'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import type { Design, Layer, TextProps } from '@dazbee/schema'
 
-import type { CatalogFont } from '../font-loads.ts'
+import type { ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { owedFits } from './owed-fits.ts'
@@ -23,7 +23,7 @@ async function slowEmoji() {
   const waiting: (() => void)[] = []
   const fontFaces = (families: string[]) => {
     asked.push(families)
-    return new Promise<CatalogFont[]>((resolve) => {
+    return new Promise<ListedFace[]>((resolve) => {
       waiting.push(() =>
         resolve(families.map((family) => ({ id: family, family, weight: 400, style: 'normal' as const }))),
       )

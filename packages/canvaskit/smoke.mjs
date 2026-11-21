@@ -1,7 +1,8 @@
 // Checks a CanvasKit build in Node: it loads, draws a scene with text onto a PDF and an SVG canvas,
-// and still encodes PNG, JPEG and WebP like npm's full build. Writes smoke.pdf and smoke.svg beside it.
+// still encodes PNG, JPEG and WebP like npm's full build, and shifts a run's baseline. Writes smoke.pdf
+// and smoke.svg beside it.
 import { createRequire } from 'node:module'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const dir = resolve(process.argv[2] ?? join(import.meta.dirname, 'bin'))
@@ -62,5 +63,29 @@ for (const [name, format] of [
 }
 image.delete()
 surface.delete()
+
+// A run's baseline shift (the text style's baselineShift, added by build/build.sh) moves its glyphs
+// and the boxes that hold them by that many pixels, down for a positive shift.
+const fontProvider = ck.TypefaceFontProvider.Make()
+fontProvider.registerFont(readFileSync(join(import.meta.dirname, '../fonts/files/NotoSans-Regular.ttf')), 'Noto Sans')
+const runTop = (baselineShift) => {
+  const builder = ck.ParagraphBuilder.MakeFromFontProvider(
+    new ck.ParagraphStyle({ textStyle: new ck.TextStyle({ fontFamilies: ['Noto Sans'], fontSize: 40 }) }),
+    fontProvider,
+  )
+  builder.addText('x')
+  builder.pushStyle(new ck.TextStyle({ fontFamilies: ['Noto Sans'], fontSize: 40, baselineShift }))
+  builder.addText('2')
+  builder.pop()
+  const paragraph = builder.build()
+  paragraph.layout(1000)
+  const [box] = paragraph.getRectsForRange(1, 2, ck.RectHeightStyle.Tight, ck.RectWidthStyle.Tight)
+  paragraph.delete()
+  builder.delete()
+  return box.rect[1]
+}
+const shifted = runTop(-12) - runTop(0)
+check(Math.abs(shifted + 12) < 0.5, `a baseline shift of -12 raises its run by 12 (${shifted.toFixed(2)})`)
+fontProvider.delete()
 
 if (failures.length > 0) process.exit(1)

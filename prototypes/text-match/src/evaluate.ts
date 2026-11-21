@@ -108,7 +108,8 @@ let peakRss = 0
 for (const [n, item] of limited.entries()) {
   for (const version of versions) {
     const m = await matchBlock(ctx, item.block, version, item.truth?.kit)
-    peakRss = Math.max(peakRss, process.memoryUsage().rss)
+    const rss = process.memoryUsage().rss
+    peakRss = Math.max(peakRss, rss)
     const t = item.truth
     results.push({
       id: item.id,
@@ -127,6 +128,7 @@ for (const [n, item] of limited.entries()) {
       ...diagnostics(item.block, m),
       layer: m.layer,
       ms: m.ms,
+      rssMb: Math.round(rss / 2 ** 20),
       draws: m.draws,
       look: m.look,
       place: m.place,

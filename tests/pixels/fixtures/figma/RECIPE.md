@@ -2,22 +2,30 @@
 
 The Figma file the record script records once, for the pixel harness, as F22 of the Figma import spec (#93) describes. It has one frame for each risk in F22's table and one for each of the five fixture themes. Each risk is a guess about Figma that only a real file can check.
 
-## Build it by hand
+## Build it
 
-Build the file by hand in Figma Design, from the sections below. It can't be imported. Figma's own `.fig` format is private, and an SVG pasted into Figma loses text runs, masks, effects and image adjustments, which are the things this file exists to check.
+`build-file.js`, beside this file, builds the whole file through Figma's plugin API. The sections below say what it builds, and are the reference when the two differ. The file can't be imported: Figma's own `.fig` format is private, and an SVG pasted into Figma loses text runs, masks, effects and image adjustments, which are the things this file exists to check.
 
-Decision (Claude, 2026-11-21): the recipe is built by hand rather than by a Figma plugin script. A plugin would need the desktop app and code no test here can run, and a hand-built file is what a marketer's file is.
+1. In Chrome, open figma.com and create a new Design file in your drafts.
+2. Open the browser's developer console (F12 → Console). Figma's page has the plugin API there as `figma`.
+3. Paste the whole of `build-file.js` and press Enter. A file picker appears at the page's top left: choose the six images of `tests/pixels/assets/` named under [Fonts and images](#fonts-and-images). The script builds both pages and ends with a "Dazbee recording built" notice.
+4. Rename the file **Dazbee recording** (the file name's menu → Rename). The plugin API can't name a file.
+
+Decision (Claude, 2026-11-21): the file is built by a script through Figma's plugin API in the browser console, not by hand, so every value is exact and the file can be built again the same way. The console needs no plugin install and no desktop app. A hand-built file would differ from these values at every dragged handle.
 
 What the values mean:
 
 - Sizes, positions (X and Y in Figma's design panel, relative to the frame), turns, colours, font settings, effects and adjustments are **exact**. Type them in.
-- Gradient handles are dragged by hand. They need only match the description. The recording keeps whatever the file holds, and Figma's PNG of the frame is the truth it is compared with.
+- Gradient handles are described as a person would drag them; the script places them exactly there. The recording keeps whatever the file holds, and Figma's PNG of the frame is the truth it is compared with.
 - "Bottom to top" lists layers in the order you draw them. Figma's layers panel shows them the other way up, with the last one at the top.
 - A colour with eight digits ends in its opacity: `#00000040` is black at 25 %. In Figma, type the six digits and set the opacity beside them.
 
 ### Fonts and images
 
-- Use only **Noto Sans** Regular (400) and Bold (700), and **Noto Naskh Arabic** Regular. These are the only fonts the pixel harness has. Both are in Figma's Google Fonts.
+- Use only **Noto Sans** Regular (400) and Bold (700), and **Noto Sans Arabic** Regular. Both are in Figma's Google Fonts. The pixel harness has Noto Sans; it needs Noto Sans Arabic Regular added before it draws this file's Arabic texts.
+
+Decision (Claude, 2026-11-21): the Arabic texts use Noto Sans Arabic, because Figma's font list has no Noto Naskh Arabic and the same font must draw on both sides for the wrapping check.
+
 - The images are the stand-in photos in `tests/pixels/assets/`: `sneaker.jpg`, `card-1.jpg`, `card-2.jpg`, `card-3.jpg`, `tile.jpg` and `cutout.png`. To use one as a fill: Fill → the swatch → Image → Choose image, then pick its mode (Fill, Fit, Crop or Tile).
 
 ### Pages and frames
@@ -207,7 +215,7 @@ Frame 400 × 600. Each text uses Figma's Fixed size resizing: type its W and H a
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Wide                 | "The quick brown fox jumps over the lazy dog while the market opens at nine." Noto Sans Regular 28, `#1A1A1A`, align left, W 300, H 200, X 20, Y 20. |
 | Narrow               | "Wrapping changes when widths change by a pixel." Noto Sans Bold 32, `#1A1A1A`, align center, W 180, H 260, X 20, Y 240.                             |
-| Arabic               | "النص العربي يلتف داخل مربع ثابت العرض" Noto Naskh Arabic Regular 28, `#1A1A1A`, align left, W 160, H 260, X 220, Y 240.                             |
+| Arabic               | "النص العربي يلتف داخل مربع ثابت العرض" Noto Sans Arabic Regular 28, `#1A1A1A`, align left, W 160, H 260, X 220, Y 240.                              |
 
 ## Page "Themes"
 
@@ -238,7 +246,7 @@ Frame 1080 × 1920, fill `#0E1B2C`. Give the frame itself auto layout (Shift + A
 | Cards                            | Frame                                                                    | Auto layout Grid, 2 columns, 2 rows, column gap 24, row gap 32, width Fill container, height Hug. Inside, four rectangles of height 200, width Fill, fill `#23364F`, radius 24, in order. If your Figma has no Grid layout, use a wrapping horizontal layout of the same four at width 420 and say so in the PR.                                                 |
 | Small caps                       | Text "limited stock"                                                     | Noto Sans Regular 36, `#FFC83D`, letter spacing 2 px, Type details → Case: Small caps. Auto width.                                                                                                                                                                                                                                                               |
 | Truncated                        | Text "Ends Sunday at midnight, while stock lasts, in every store we run" | Noto Sans Regular 36, `#D9E2EC`, resizing Truncate text with Max lines 1, width Fill container.                                                                                                                                                                                                                                                                  |
-| Arabic                           | Text "تخفيضات الصيف"                                                     | Noto Naskh Arabic Regular 56, `#FFFFFF`, align left, Auto width.                                                                                                                                                                                                                                                                                                 |
+| Arabic                           | Text "تخفيضات الصيف"                                                     | Noto Sans Arabic Regular 56, `#FFFFFF`, align left, Auto width.                                                                                                                                                                                                                                                                                                  |
 | Button                           | Frame                                                                    | Horizontal auto layout, padding 28 top and bottom, 56 left and right, items centred, radius 999, fill `#FFC83D`, min width 360, hug. Inside, text "Shop now", Noto Sans Bold 44, `#0E1B2C`.                                                                                                                                                                      |
 | Sticker                          | Ellipse 160 × 160                                                        | Fill `#FF5A36`. In the auto layout settings, turn on Absolute position, then X 860, Y 60.                                                                                                                                                                                                                                                                        |
 

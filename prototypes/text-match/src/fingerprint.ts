@@ -55,7 +55,27 @@ export async function openModel(file: string, threads = 1) {
     const data = out.fingerprint!.data as Float32Array
     return windows.map((_, k) => data.subarray(k * dim, (k + 1) * dim))
   }
-  return { geometry, embedWindows, release: () => session.release() }
+  // Fewer numbers (train/pca.py): with FP_PCA=<k> and pca-<k>.f32 in the folder, a block's fingerprint
+  // is moved onto the gallery's first k principal directions; the gallery is fingerprints-pca<k>.f32.
+  const pcaFile = process.env.FP_PCA ? join(file, '..', `pca-${process.env.FP_PCA}.f32`) : ''
+  let projection: { mean: Float32Array; k: number; dirs: Float32Array } | null = null
+  if (pcaFile && existsSync(pcaFile)) {
+    const raw = readFileSync(pcaFile)
+    const all = new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4)
+    projection = { mean: all.subarray(0, dim), k: Number(process.env.FP_PCA), dirs: all.subarray(dim) }
+  }
+  /** A unit fingerprint moved onto the principal directions, unit length again (unchanged without FP_PCA). */
+  function project(v: Float32Array): Float32Array {
+    if (!projection) return v
+    const { mean, k, dirs } = projection
+    const out = new Float32Array(k)
+    for (let i = 0; i < dim; i++) {
+      const c = v[i]! - mean[i]!
+      for (let j = 0; j < k; j++) out[j]! += c * dirs[i * k + j]!
+    }
+    return meanUnit([out])
+  }
+  return { geometry, embedWindows, project, release: () => session.release() }
 }
 
 export type Model = Awaited<ReturnType<typeof openModel>>
@@ -115,7 +135,7 @@ export async function blockFingerprint(model: Model, level: Ink, lines: Line[]):
   const windows = VIEWS.flatMap((squeeze) =>
     lineStrips(level, lines, height, squeeze).flatMap((s) => windowsOf(s, height, window)),
   )
-  return meanUnit(await model.embedWindows(windows))
+  return model.project(meanUnit(await model.embedWindows(windows)))
 }
 
 export function meanUnit(vectors: Float32Array[]): Float32Array {

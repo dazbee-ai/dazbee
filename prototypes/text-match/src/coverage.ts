@@ -4,7 +4,7 @@
 // checked by loading the face (rare).
 //   node src/coverage.ts            builds .data/fonts/coverage.bin and coverage.json from the library
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 
@@ -66,6 +66,7 @@ if (import.meta.main) {
   const bits = new Uint8Array(files.length * BYTES)
   const all = String.fromCodePoint(...CODEPOINTS)
   files.forEach((file, i) => {
+    if (!existsSync(isAbsolute(file) ? file : join(FONTS_DIR, 'files', file))) return
     const tf = ck.Typeface.MakeTypefaceFromData(fontBytes(byFile.get(file)!).buffer as ArrayBuffer)
     if (!tf) return
     const font = new ck.Font(tf, 20)

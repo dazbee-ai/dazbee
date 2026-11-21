@@ -125,6 +125,7 @@ const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
  */
 const FUSE = Number(process.env.FUSE ?? 0.5)
 const FINALISTS_OF: Record<Version, number> = { light: 2, medium: 5 }
+const FINAL_FUSE = Number(process.env.FINAL_FUSE ?? 0.25)
 /** Which score orders candidates: the letters' shapes (default), the plain overlap, or both. */
 const RANK = process.env.RANK ?? 'shape'
 /** How much a brand font may trail the best other font and still be chosen. */
@@ -322,9 +323,16 @@ async function matchAt(ctx: MatchContext, block: Block, version: Version, kit?: 
   let finalists = [first, ...fits.filter((f) => f !== first).slice(0, finalistCount - 1)]
   if (version === 'medium')
     finalists = finalists.map((f, i) => (i < 2 ? tune(ctx.drawer, m, text, f, () => draws++) : f))
-  const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
+  const faceIndex = new Map(ctx.fingerprints.faces.map((id, i) => [id, i]))
+  const finished = finalists.map((f) => {
+    const i = faceIndex.get(faceId(f.face))
+    // The fingerprint's vote in the final pick too (FINAL_FUSE, 0.25 by default, chosen on the development parts).
+    const vote = i === undefined ? 0 : FINAL_FUSE * similarity(ctx.fingerprints, i, fp)
+    return { ...finish(ctx, block, m, text, f, kit, () => draws++), vote }
+  })
   const passing = finished.filter((f) => f.score.same)
-  const closest = (list: typeof finished) => [...list].sort((a, b) => quality(b.score) - quality(a.score))[0]!
+  const closest = (list: typeof finished) =>
+    [...list].sort((a, b) => quality(b.score) + b.vote - (quality(a.score) + a.vote))[0]!
   const won =
     passing.length > 0 ? (process.env.FINAL_PICK === 'first' ? passing[0]! : closest(passing)) : closest(finished)
   return {

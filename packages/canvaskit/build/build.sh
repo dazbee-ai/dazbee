@@ -22,6 +22,16 @@ python3 tools/git-sync-deps
 cp "$here/vector_bindings.cpp" modules/canvaskit/
 sed -i 's|^    "canvaskit_bindings.cpp",$|    "canvaskit_bindings.cpp",\n    "vector_bindings.cpp",|' modules/canvaskit/BUILD.gn
 grep -q '"vector_bindings.cpp"' modules/canvaskit/BUILD.gn
+# The text style's baseline shift (SkParagraph's TextStyle::setBaselineShift, in pixels, down is
+# positive), which npm's bindings leave out: a field of the style, 0 when not given.
+sed -i -e 's|^    SkScalar wordSpacing;$|&\n    SkScalar baselineShift;|' \
+  -e 's|^    ts.setHalfLeading(s.halfLeading);$|&\n    ts.setBaselineShift(s.baselineShift);|' \
+  -e 's|^        .field("wordSpacing",           &SimpleTextStyle::wordSpacing)$|&\n        .field("baselineShift",         \&SimpleTextStyle::baselineShift)|' \
+  modules/canvaskit/paragraph_bindings.cpp
+sed -i -e "s#^      s\['wordSpacing'\] = s\['wordSpacing'\] || 0;\$#&\n      s['baselineShift'] = s['baselineShift'] || 0;#" \
+  modules/canvaskit/paragraph.js
+test "$(grep -c 'baselineShift' modules/canvaskit/paragraph_bindings.cpp)" -eq 3
+grep -q "^      s\['baselineShift'\] = s\['baselineShift'\] || 0;\$" modules/canvaskit/paragraph.js
 # PDF on, and expat (built from source, like the other libraries) for Skia's SVG writer; the Android
 # font manager expat would also switch on stays off.
 sed -i -e 's|skia_enable_pdf=false|skia_enable_pdf=true skia_enable_fontmgr_android=false skia_use_system_expat=false|' \

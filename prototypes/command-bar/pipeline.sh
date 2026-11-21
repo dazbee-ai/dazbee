@@ -7,9 +7,10 @@ log() { echo "[$(date +%T)] $*"; }
 train() {  # rank
   local r=$1
   if [ -f ../runs/r$r/log.jsonl ] && grep -q '"done"' ../runs/r$r/log.jsonl; then log "r$r trained"; return; fi
-  rm -rf ../runs/r$r
   log "train r$r"
-  python train_lora.py --rank $r --alpha $((2 * r)) --epochs 12 --patience 4 --max-len 576 --batch 8 --out ../runs/r$r
+  local init=""
+  [ -f ../runs/r$r-init.safetensors ] && init="--init-from ../runs/r$r-init.safetensors"
+  python train_lora.py $init --rank $r --alpha $((2 * r)) --epochs 12 --patience 4 --max-len 544 --batch 8 --out ../runs/r$r
 }
 stage() {  # model stage marker
   local m=$1 s=$2 mark=../results/.done-$1-$2

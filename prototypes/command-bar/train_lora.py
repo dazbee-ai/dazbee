@@ -31,6 +31,9 @@ def main():
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--max-len", type=int, default=1024)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--init-from", help="an adapter to start from instead of a fresh one")
+    ap.add_argument("--no-qat", action="store_true",
+                    help="train on float weights (activations still A8); the export quantizes them")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -68,6 +71,11 @@ def main():
     scale = args.alpha / args.rank
     rng = np.random.default_rng(args.seed)
     lora = init_lora(params, paths, args.rank, jax.random.PRNGKey(args.seed))
+    if args.init_from:
+        from cactus.model.checkpoints import read_adapter
+        saved = read_adapter(args.init_from)["lora"]
+        lora = {p: {"A": jnp.asarray(saved["/".join(p)]["A"]), "B": jnp.asarray(saved["/".join(p)]["B"])}
+                for p in lora}
     emit(event="start", train=len(seqs), val=len(vseqs), seq_len=max_len, rank=args.rank,
          alpha=args.alpha, lr=args.lr, groups=len(paths), backend=jax.default_backend())
 
@@ -79,7 +87,9 @@ def main():
     state = opt.init(lora)
 
     def logits_of(lora, ids):
-        merged = cq_ste_params(merge_lora(params, lora, scale), WEIGHT_BITS)
+        merged = merge_lora(params, lora, scale)
+        if not args.no_qat:
+            merged = cq_ste_params(merged, WEIGHT_BITS)
         return model.apply({"params": merged}, ids, quant=True)
 
     def loss_fn(lora, ids, mask):
@@ -116,11 +126,27 @@ def main():
             exact += list(np.asarray(e)[:args.batch - pad])
         return ce / count, float(np.mean(exact))
 
-    vloss, vexact = validate(lora)
-    emit(event="epoch", epoch=0, val_loss=vloss, val_exact=vexact)
-    best, stale, t0 = (vexact, -vloss), 0, time.time()
-    for epoch in range(1, args.epochs + 1):
-        order = rng.permutation(len(seqs))
+    # Resumable: every epoch saves the adapter, the optimizer and where it stands, so a restart
+    # of the machine costs at most the epoch in progress.
+    state_path = os.path.join(args.out, "state.npz")
+    first = 1
+    if os.path.exists(state_path):
+        saved = np.load(state_path, allow_pickle=False)
+        leaves, treedef = jax.tree_util.tree_flatten((lora, state))
+        lora, state = jax.tree_util.tree_unflatten(
+            treedef, [jnp.asarray(saved[f"l{i}"]) for i in range(len(leaves))])
+        first = int(saved["epoch"]) + 1
+        best, stale = (float(saved["best_exact"]), float(saved["best_neg_loss"])), int(saved["stale"])
+        emit(event="resume", epoch=first - 1)
+    else:
+        vloss, vexact = validate(lora)
+        emit(event="epoch", epoch=0, val_loss=vloss, val_exact=vexact)
+        best, stale = (vexact, -vloss), 0
+    t0 = time.time()
+    for epoch in range(first, args.epochs + 1):
+        if stale >= args.patience:
+            break
+        order = np.random.default_rng(args.seed * 1000 + epoch).permutation(len(seqs))
         losses = []
         for s in range(0, len(seqs), args.batch):
             idx = order[s:s + args.batch]
@@ -144,9 +170,13 @@ def main():
             emit(event="best", epoch=epoch, val_exact=vexact, val_loss=vloss)
         else:
             stale += 1
-            if stale >= args.patience:
-                emit(event="early_stop", epoch=epoch)
-                break
+        leaves = jax.tree_util.tree_leaves((lora, state))
+        np.savez(state_path + ".tmp.npz", epoch=epoch, best_exact=best[0], best_neg_loss=best[1],
+                 stale=stale, **{f"l{i}": np.asarray(x) for i, x in enumerate(leaves)})
+        os.replace(state_path + ".tmp.npz", state_path)
+        if stale >= args.patience:
+            emit(event="early_stop", epoch=epoch)
+            break
     emit(event="done", best_val_exact=best[0], best_val_loss=-best[1],
          minutes=round((time.time() - t0) / 60, 1))
 

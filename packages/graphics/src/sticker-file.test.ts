@@ -1,13 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { imageFits, MAX_UPLOAD_BYTES, readImageHeader } from '@dazbee/schema'
+import { imageFits, MAX_UPLOAD_BYTES } from '@dazbee/schema'
 import { svgToLayers } from '@dazbee/svg'
 
+import { stickerPictures } from './pictures.ts'
 import type { StickerIndex } from './search.ts'
 import { STICKER_SET_IDS, STICKER_SETS } from './sets.ts'
 import { stickerFile } from './sticker-file.ts'
@@ -24,11 +25,16 @@ beforeAll(async () => {
 })
 
 describe('stickerFile', () => {
-  it('gives a picture style’s PNG, Fluent Emoji’s 3D at 256 pixels wide', () => {
-    const file = stickerFile('fluent-emoji', 'rocket', '3d')
-    expect(file.format).toBe('picture')
-    if (file.format !== 'picture') return
-    expect(readImageHeader(file.png)).toMatchObject({ contentType: 'image/png', width: 256, height: 256 })
+  it('gives what a picture style’s PNG is: Fluent Emoji’s 3D, its path in the source, SHA-256 and size', () => {
+    expect(stickerFile('fluent-emoji', 'rocket', '3d')).toEqual({
+      format: 'picture',
+      id: 'fluent-emoji/rocket/3d',
+      path: 'assets/Rocket/3D/rocket_3d.png',
+      sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      byteSize: expect.any(Number),
+      width: 256,
+      height: 256,
+    })
   })
 
   it('gives a drawing style’s SVG file, which the SVG reader makes layers of', () => {
@@ -46,25 +52,23 @@ describe('stickerFile', () => {
         const listed = index[set].flatMap(([name, styles]) => (styles.includes(style) ? [name] : [])).sort()
         const files =
           format === 'picture'
-            ? readdirSync(join(SETS, set, style)).map((file) => file.replace(/\.png$/, ''))
+            ? stickerPictures().flatMap(({ id }) =>
+                id.startsWith(`${set}/`) && id.endsWith(`/${style}`) ? [id.split('/')[1] ?? ''] : [],
+              )
             : Object.keys(JSON.parse(readFileSync(join(SETS, set, `${style}.json`), 'utf8')) as object)
         expect(listed.length).toBeGreaterThan(0)
         expect(files.sort()).toEqual(listed)
       }
   })
 
-  it('gives every picture as a PNG that fits the upload limits, and every drawing as layers the reader makes', () => {
+  it('gives every picture as a PNG within the upload limits, and every drawing as layers the reader makes', () => {
     for (const set of STICKER_SET_IDS)
       for (const [name, styles] of index[set])
         for (const style of styles) {
           const file = stickerFile(set, name, style)
           if (file.format === 'picture') {
-            const header = readImageHeader(file.png)
-            expect([name, header?.contentType]).toEqual([name, 'image/png'])
-            expect([name, header !== null && imageFits(header) && file.png.length <= MAX_UPLOAD_BYTES]).toEqual([
-              name,
-              true,
-            ])
+            const fits = imageFits(file) && file.byteSize <= MAX_UPLOAD_BYTES && file.path.endsWith('.png')
+            expect([name, fits]).toEqual([name, true])
             continue
           }
           const { tree } = svgToLayers(ck, file.svg, { name })

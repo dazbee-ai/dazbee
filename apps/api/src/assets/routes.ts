@@ -1,11 +1,12 @@
 // The routes of a brand's asset library, its images and SVG files: uploading and recording them, adding one
-// from an outside link, finding them by name and tag, naming and tagging them, their thumbnails, and deleting
+// from an outside link or from the files Dazbee bundles, finding them by name and tag, naming and tagging them, their thumbnails, and deleting
 // one nothing shows.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
 import {
   AddAssetFromUrl,
+  AddBundledAsset,
   type AssetInUse,
   type AssetLink,
   RecordAsset,
@@ -29,6 +30,7 @@ import {
   startUpload,
   updateAsset,
 } from './assets.ts'
+import { addBundledAsset, NotBundled } from './bundled.ts'
 import { addAssetFromUrl } from './from-url.ts'
 
 export function assetRoutes({
@@ -83,6 +85,18 @@ export function assetRoutes({
         429,
       )
     return c.json(await addAssetFromUrl(db, storage, outsideFetch, workspaceId, c.var.brand.id, input), 201)
+  })
+
+  app.post('/brands/:brandId/assets/from-bundle', requireWriter, async (c) => {
+    const { workspaceId } = c.var.membership
+    const input = await body(c.req.raw, AddBundledAsset)
+    if (input instanceof Response) return input
+    try {
+      return c.json(await addBundledAsset(db, storage, workspaceId, c.var.brand.id, input), 201)
+    } catch (e) {
+      if (e instanceof NotBundled) return c.json(error(e.message), 404)
+      throw e
+    }
   })
 
   app.get('/brands/:brandId/assets/:assetId', async (c) => {

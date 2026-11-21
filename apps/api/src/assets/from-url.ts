@@ -8,7 +8,6 @@ import {
   type AssetSummary,
   FROM_URL_TIMEOUT_MS,
   type ImageType,
-  MAX_ASSET_TAGS,
   MAX_SVG_BYTES,
   MAX_UPLOAD_BYTES,
   readImageHeader,
@@ -18,7 +17,7 @@ import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import { type FetchedFile, safeFetch, type SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { originalKey } from '../storage-keys.ts'
-import { InvalidUpload, recordAsset, updateAsset } from './assets.ts'
+import { InvalidUpload, recordAsset, withTags } from './assets.ts'
 
 /** Another picture is being added from a link; this one is refused until it ends. */
 export class AddingFromUrlBusy extends Error {
@@ -68,9 +67,7 @@ export async function addAssetFromUrl(
     if (!(await storage.exists(key))) await storage.put(key, file.bytes, contentType)
     const name = input.name ?? nameOf(input.url)
     const asset = await recordAsset(db, storage, workspaceId, brandId, sha256, name, file.bytes)
-    const tags = [...new Set([...asset.tags, ...(input.tags ?? [])])].slice(0, MAX_ASSET_TAGS)
-    if (tags.length === asset.tags.length) return asset
-    return (await updateAsset(db, workspaceId, brandId, asset.id, { tags })) ?? asset
+    return withTags(db, workspaceId, brandId, asset, input.tags)
   } finally {
     adding--
   }

@@ -249,6 +249,21 @@ export const AddAssetFromUrl = z.object({
 })
 export type AddAssetFromUrl = z.infer<typeof AddAssetFromUrl>
 
+/**
+ * Adds a file Dazbee bundles and keeps in its storage, such as a picture sticker, to a brand's asset library by its
+ * SHA-256, under `name` when it is new; `tags` join the asset's own, kept once each.
+ */
+export const AddBundledAsset = z.object({
+  sha256: Sha256,
+  name: AssetName,
+  tags: z
+    .array(AssetTag)
+    .max(MAX_ASSET_TAGS)
+    .transform((tags) => [...new Set(tags)])
+    .optional(),
+})
+export type AddBundledAsset = z.infer<typeof AddBundledAsset>
+
 /** A short-lived URL to read something from storage. */
 export const SignedLink = z.object({ url: z.url(), expiresAt: z.iso.datetime() })
 export type SignedLink = z.infer<typeof SignedLink>

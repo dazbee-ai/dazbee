@@ -1,13 +1,11 @@
 // Calls to the API on the private network, each with the agent's own token, and their answers read with the
 // schema's shapes. The API is the one checker of what the agent's access may reach (ADR-0019). A font file or an
-// image is read from the signed storage link the API answers, and an image added is sent to the signed upload link it
-// answers, neither of which is sent a token.
-import { createHash } from 'node:crypto'
-
+// image is read from the signed storage link the API answers, which is sent no token.
 import { z } from 'zod'
 
 import {
   type AddAssetFromUrl,
+  type AddBundledAsset,
   AgentMe,
   ApiError,
   AssetLink,
@@ -18,13 +16,11 @@ import {
   FontFamily,
   FontLink,
   FROM_URL_TIMEOUT_MS,
-  type ImageType,
   MAX_UPLOAD_BYTES,
   type StockPhotoId,
   StockResults,
   type StockSearch,
   SyncToken,
-  UploadTicket,
 } from '@dazbee/schema'
 
 /** Where the API is, and the fetch that reaches it. */
@@ -46,6 +42,8 @@ export interface AgentApi {
   searchStock(search: StockSearch): Promise<StockResults>
   /** The asset of the stock photo of `id`, which the API downloads and saves into the brand's library. */
   addStock(brandId: string, id: StockPhotoId): Promise<AssetSummary>
+  /** The asset of a file Dazbee bundles and keeps in its storage (a picture sticker), which the API adds to the brand's library. */
+  addBundledAsset(brandId: string, input: AddBundledAsset): Promise<AssetSummary>
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
@@ -57,18 +55,6 @@ export interface AgentApi {
   assetBytes(brandId: string, assetId: string): Promise<Uint8Array>
   /** An asset's record, with what reads its stored bytes from its signed link. */
   asset(brandId: string, assetId: string): Promise<StoredAsset>
-  /**
-   * Adds an image to the brand's asset library through the upload path, as a person's upload: the brand's asset
-   * when it already has those bytes, under the name it has.
-   */
-  addAsset(brandId: string, image: NewImage): Promise<AssetSummary>
-}
-
-/** An image to add to a brand's asset library: its bytes, their type, and the name a new asset takes. */
-export interface NewImage {
-  bytes: Uint8Array
-  contentType: ImageType
-  name: string
 }
 
 /** An asset as the API gives it: its record, and its stored bytes, read only when asked. */
@@ -153,6 +139,7 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
       ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/stock/photos?${stockQuery(search)}`, StockResults),
     addStock: (brandId, id) =>
       ask('POST', `${brandPath(brandId)}/assets/from-stock`, AssetSummary, { id }, FROM_URL_CALL_MS),
+    addBundledAsset: (brandId, input) => ask('POST', `${brandPath(brandId)}/assets/from-bundle`, AssetSummary, input),
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
@@ -163,14 +150,6 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     },
     assetBytes: async (brandId, assetId) => (await asset(brandId, assetId)).bytes(),
     asset,
-    addAsset: async (brandId, { bytes, contentType, name }) => {
-      const sha256 = createHash('sha256').update(bytes).digest('hex')
-      const start = { sha256, byteSize: bytes.length, contentType, name }
-      const ticket = await ask('POST', `${brandPath(brandId)}/assets/uploads`, UploadTicket, start)
-      if (ticket.asset) return ticket.asset
-      await uploaded(settings, ticket.upload, bytes)
-      return ask('POST', `${brandPath(brandId)}/assets`, AssetSummary, { sha256, name })
-    },
   }
 }
 
@@ -247,25 +226,4 @@ async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Arr
 /** A stock search as the API's query: its words, and its orientation and colour when given. */
 function stockQuery({ q, orientation, colour }: StockSearch): URLSearchParams {
   return new URLSearchParams({ q, ...(orientation ? { orientation } : {}), ...(colour ? { colour } : {}) })
-}
-
-/** Sends the bytes to a signed upload link with the headers it was signed with, and no token; throws `ApiRefusal` when storage refuses them. */
-async function uploaded(
-  settings: ApiSettings,
-  { url, headers }: { url: string; headers: Record<string, string> },
-  bytes: Uint8Array,
-): Promise<void> {
-  let response: Response
-  try {
-    const request = new Request(url, {
-      method: 'PUT',
-      headers,
-      body: new Uint8Array(bytes),
-      signal: AbortSignal.timeout(API_TIMEOUT_MS),
-    })
-    response = await (settings.fetch ?? fetch)(request)
-  } catch {
-    throw new ApiRefusal(503, 'Dazbee’s storage could not be reached; try again in a moment')
-  }
-  if (!response.ok) throw new ApiRefusal(502, `Dazbee’s storage answered ${response.status}`)
 }

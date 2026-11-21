@@ -10,6 +10,7 @@ import {
   imageAssetIds,
   imageFits,
   type ImageType,
+  MAX_ASSET_TAGS,
   parseDesign,
   readImageHeader,
   type UpdateAsset,
@@ -125,6 +126,19 @@ export async function updateAsset(
     .where(and(eq(assets.id, id), eq(assets.workspaceId, workspaceId), eq(assets.brandId, brandId)))
     .returning(summary)
   return row ? toSummary(row) : null
+}
+
+/** The asset with `tags` joining its own, kept once each and at most `MAX_ASSET_TAGS`; as it is when they add none. */
+export async function withTags(
+  db: Db,
+  workspaceId: string,
+  brandId: string,
+  asset: AssetSummary,
+  tags: readonly string[] = [],
+): Promise<AssetSummary> {
+  const joined = [...new Set([...asset.tags, ...tags])].slice(0, MAX_ASSET_TAGS)
+  if (joined.length === asset.tags.length) return asset
+  return (await updateAsset(db, workspaceId, brandId, asset.id, { tags: joined })) ?? asset
 }
 
 /**

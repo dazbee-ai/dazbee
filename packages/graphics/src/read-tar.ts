@@ -1,14 +1,15 @@
 // Reading a tar archive as it streams, as GitHub's repository archives are written.
 
-/** What the `tar` reader is told of each file: its path and its bytes. */
-export type TarFile = (path: string, bytes: Buffer) => void
+/** What the `tar` reader is told of each file: its path and its bytes; the reader waits for what it answers. */
+export type TarFile = (path: string, bytes: Buffer) => void | Promise<void>
 
 /** A tar block's size, which every header and every file's padded data is a whole number of. */
 const BLOCK = 512
 
 /**
- * Reads a tar stream, telling `onFile` each regular file's path and bytes, and answers the commit the archive's
- * global header names, as GitHub writes it. Long paths come in a pax header or a ustar prefix.
+ * Reads a tar stream, telling `onFile` each regular file's path and bytes and reading on once it is done, and answers
+ * the commit the archive's global header names, as GitHub writes it. Long paths come in a pax header or a ustar
+ * prefix.
  */
 export async function readTar(stream: AsyncIterable<Buffer>, onFile: TarFile): Promise<string> {
   let pending = Buffer.alloc(0)
@@ -32,7 +33,7 @@ export async function readTar(stream: AsyncIterable<Buffer>, onFile: TarFile): P
       if (type === 'g') commit = paxOf(data).comment ?? commit
       else if (type === 'x') nextPath = paxOf(data).path
       else {
-        if (type === '0' || type === '\0') onFile(path, Buffer.from(data))
+        if (type === '0' || type === '\0') await onFile(path, Buffer.from(data))
         nextPath = undefined
       }
       pending = pending.subarray(length)

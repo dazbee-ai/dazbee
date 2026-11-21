@@ -22,6 +22,14 @@ An icon is placed as an SVG file every shape of which is filled with one colour 
 | Humaaans     | drawing (an SVG)                         | CC0     | The 5 illustrations humaaans.com shows as SVG files, read 2026-11-22     |
 | Open Doodles | drawing (an SVG)                         | CC0     | The 33 doodles opendoodles.com offers as SVG files, read 2026-11-22      |
 
-A picture sticker joins the brand's asset library through the upload path, once for the same bytes, and is placed as an image; a drawing sticker is placed as the layers the SVG reader makes of it, in its own colours.
+A drawing sticker is placed as the layers the SVG reader makes of it, in its own colours. A picture sticker is placed as an image: the API copies the picture it keeps in storage into the brand's asset library, recorded with an upload's checks, once for the same bytes.
 
-`sets/fluent-emoji/` holds each emoji's 3D picture as `3d/<name>.png` and its flat drawings in `flat.json`; `sets/<set>/drawing.json` holds a CC0 set's SVG files by name; each set's LICENSE sits beside them, a CC0 set's being its makers' words above the CC0 1.0 legal code. `sets/stickers.json` is the stickers' search index and `src/sticker-notices.json` what the notices page lists. Never edit them by hand: change Fluent Emoji's commit in `src/sets.ts`, or a file's link and SHA-256 in `src/sticker-sources.json`, and run `pnpm --filter @dazbee/graphics stickers`, which downloads every source, refuses a file whose SHA-256 differs from its pin, and writes them all.
+`sets/fluent-emoji/flat.json` holds Fluent Emoji's flat drawings, and `sets/<set>/drawing.json` a CC0 set's SVG files, by name. Each set's LICENSE sits beside them; a CC0 set's LICENSE is its makers' words above the CC0 1.0 legal code. `sets/stickers.json` is the stickers' search index and `src/sticker-notices.json` is what the notices page lists. Never edit them by hand: change Fluent Emoji's commit in `src/sets.ts`, or a file's link and SHA-256 in `src/sticker-sources.json`, then run `pnpm --filter @dazbee/graphics stickers`. It downloads every source, refuses a file whose SHA-256 differs from its pin, and writes them all.
+
+The repository doesn't hold the 3D pictures (54 MB). `src/sticker-pictures.json` lists each one's path in Fluent Emoji's repository, its SHA-256, its size and its pixel size, and the pictures themselves live in Dazbee's storage under `bundled/<sha256>`. Store them once per environment, and again after `stickers` writes the list anew:
+
+```sh
+pnpm --filter @dazbee/api stickers:upload
+```
+
+It uses the API's storage settings from the environment. It reads the pictures from Fluent Emoji's archive at the pinned commit, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store doesn't download the archive. Until it has run, placing a 3D sticker is refused with a sentence that points the agent to the flat style, and every drawing still places.

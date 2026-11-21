@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./notices": "./src/notices.ts"
+    "./notices": "./src/notices.ts",
+    "./pictures": "./src/pictures.ts"
   },
   "scripts": {
     "icons": "node src/write-icons.ts",

@@ -1,9 +1,7 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, uploads into their asset libraries, pictures added from links, stock photos (`test-stock-api.ts`), the
+// assets, pictures added from links, stock photos (`test-stock-api.ts`), bundled files (`test-bundled-api.ts`), the
 // brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
 // accesses whose tokens the tests hand out and refuse.
-import { createHash } from 'node:crypto'
-
 import { Hono } from 'hono'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -16,12 +14,10 @@ import {
   CreateDesign,
   type DesignSummary,
   type FontFamily,
-  readImageHeader,
-  RecordAsset,
-  StartUpload,
   SyncTokenRequest,
 } from '@dazbee/schema'
 
+import { type TestBundled, testBundled } from './test-bundled-api.ts'
 import { type TestStock, testStock } from './test-stock-api.ts'
 
 /** An agent access as the tests give it. */
@@ -53,10 +49,6 @@ export interface TestApi {
   refuseAfterMe(token: string): void
   /** The brand's designs as the fake API holds them. */
   designsOf(brandId: string): DesignSummary[]
-  /** The brand's assets as the fake API holds them, those uploaded last. */
-  assetsOf(brandId: string): AssetSummary[]
-  /** How many files have been sent to the fake storage's upload links. */
-  uploads(): number
   /** Holds every answer past `GET /agent/me` until the function it gives is called. */
   hold(): () => void
   /** Answers every request 503 from now on, as an API that is down. */
@@ -69,6 +61,8 @@ export interface TestApi {
   addedFromUrl(): ({ brandId: string } & AddAssetFromUrl)[]
   /** The stock photo routes: whether stock search is off, and the searches and saves sent. */
   stock: TestStock
+  /** The bundled files' route: whether they are stored, and what it was sent and made. */
+  bundled: TestBundled
 }
 
 /** What a sync token of the fake API is for. */
@@ -303,10 +297,6 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   // The designs, which `POST …/designs` adds to.
   const designs = TEST_DESIGNS.map((design) => ({ ...design }))
   let made = 0
-  // The assets, which uploads add to, and the files sent to the upload links, by SHA-256.
-  const assets = TEST_ASSETS.map((asset) => ({ ...asset }))
-  const uploadedFiles = new Map<string, Uint8Array>()
-  let uploads = 0
   // What answers wait for while the tests hold them; whether the API is down; the requests it was sent.
   let held: Promise<void> | null = null
   let down = false
@@ -349,6 +339,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   app.get('/workspaces/:workspaceId/brands', (c) => c.json(visible(c.var.agent)))
   const stock = testStock(now)
   app.route('/', stock.app)
+  const bundled = testBundled(now)
+  app.route('/', bundled.app)
 
   app.get('/workspaces/:workspaceId/brands/:brandId/designs', (c) =>
     c.json(designs.filter((design) => design.brandId === c.req.param('brandId'))),
@@ -373,7 +365,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   app.get('/workspaces/:workspaceId/brands/:brandId/assets', (c) => {
     const query = (c.req.query('q') ?? '').toLowerCase()
     return c.json(
-      assets.filter(
+      TEST_ASSETS.filter(
         (asset) =>
           asset.brandId === c.req.param('brandId') &&
           (asset.name.toLowerCase().includes(query) || asset.tags.some((tag) => tag.includes(query))),
@@ -381,42 +373,10 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     )
   })
 
-  app.post('/workspaces/:workspaceId/brands/:brandId/assets/uploads', async (c) => {
-    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
-    const input = StartUpload.parse(await c.req.json())
-    const asset = assets.find(({ brandId, sha256 }) => brandId === c.req.param('brandId') && sha256 === input.sha256)
-    if (asset) return c.json({ asset, upload: null })
-    const expiresAt = new Date(now() + 60_000).toISOString()
-    const headers = { 'content-type': input.contentType }
-    return c.json({ asset: null, upload: { url: `${STORAGE}/uploads/${input.sha256}`, headers, expiresAt } })
-  })
-
-  app.post('/workspaces/:workspaceId/brands/:brandId/assets', async (c) => {
-    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
-    const { sha256, name = '' } = RecordAsset.parse(await c.req.json())
-    const brandId = c.req.param('brandId')
-    const known = assets.find((asset) => asset.brandId === brandId && asset.sha256 === sha256)
-    if (known) return c.json(known, 201)
-    const bytes = uploadedFiles.get(sha256)
-    const header = bytes && readImageHeader(bytes)
-    if (!bytes || !header) return c.json({ error: 'Nothing was uploaded for that SHA-256' }, 400)
-    const at = new Date(now()).toISOString()
-    const asset = {
-      id: `asset-new-${assets.length + 1}`,
-      brandId,
-      sha256,
-      byteSize: bytes.length,
-      name,
-      tags: [],
-      createdAt: at,
-      ...header,
-    }
-    assets.push(asset)
-    return c.json(asset, 201)
-  })
-
   app.get('/workspaces/:workspaceId/brands/:brandId/assets/:assetId', (c) => {
-    const asset = assets.find(({ id, brandId }) => id === c.req.param('assetId') && brandId === c.req.param('brandId'))
+    const asset = TEST_ASSETS.find(
+      ({ id, brandId }) => id === c.req.param('assetId') && brandId === c.req.param('brandId'),
+    )
     if (!asset) return c.json({ error: 'No such asset' }, 404)
     return c.json({ asset, url: `${STORAGE}/assets/${asset.id}`, expiresAt: new Date(now() + 60_000).toISOString() })
   })
@@ -473,36 +433,18 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   })
 
   return {
-    fetch: async (request) => (new URL(request.url).origin === STORAGE ? storage(request) : app.fetch(request)),
+    fetch: async (request) => (new URL(request.url).origin === STORAGE ? stored(request) : app.fetch(request)),
     syncTokenOf: (token) => syncTokens.get(token),
     addedFromUrl: () => addedFromUrl,
     stock,
+    bundled,
     addAccess,
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),
     designsOf: (brandId) => designs.filter((design) => design.brandId === brandId),
-    assetsOf: (brandId) => assets.filter((asset) => asset.brandId === brandId),
-    uploads: () => uploads,
     hold,
     goDown: () => void (down = true),
     requests: () => requests,
-  }
-
-  /** The fake storage: the files uploaded to its upload links, read back by their assets' signed links; and `stored`. */
-  async function storage(request: Request): Promise<Response> {
-    if (request.headers.has('authorization')) return new Response('A signed link takes no token', { status: 400 })
-    const path = new URL(request.url).pathname
-    if (request.method === 'PUT' && path.startsWith('/uploads/')) {
-      const bytes = new Uint8Array(await request.arrayBuffer())
-      const sha256 = createHash('sha256').update(bytes).digest('hex')
-      if (path !== `/uploads/${sha256}`) return new Response('The bytes are not the ones signed for', { status: 403 })
-      uploadedFiles.set(sha256, bytes)
-      uploads++
-      return new Response(null, { status: 200 })
-    }
-    const asset = assets.find(({ id }) => path === `/assets/${id}`)
-    const bytes = asset && uploadedFiles.get(asset.sha256)
-    return bytes ? new Response(new Uint8Array(bytes)) : stored(request)
   }
 
   function hold(): () => void {

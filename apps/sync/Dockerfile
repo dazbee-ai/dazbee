@@ -21,6 +21,8 @@ RUN npm install -g "pnpm@$(node -p "require('./package.json').packageManager.spl
 FROM base AS sources
 COPY --from=install /repo ./
 COPY packages packages
+# The bundled icons' and stickers' drawings (packages/graphics/sets) are the MCP server's alone.
+RUN rm -r packages/graphics/sets
 COPY apps/sync apps/sync
 
 FROM base

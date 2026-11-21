@@ -5,11 +5,12 @@ import { and, eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { agentAccesses, brands, memberships, newId, users } from '@dazbee/db'
-import { AgentMe, AssetSummary, BrandSummary, type MemberRole, SyncToken, UploadTicket } from '@dazbee/schema'
+import { AgentMe, AssetSummary, BrandSummary, type MemberRole, SyncToken } from '@dazbee/schema'
 import { verifySyncToken } from '@dazbee/sync-token'
 
 import { createApp } from '../app.ts'
 import { seedDevelopment, sessionOfRequest } from '../sign-in/session.ts'
+import { bundledKey } from '../storage-keys.ts'
 import { addPerson, addWorkspace, db, request, sessionSecret, storage, syncSecret, uploadImage } from '../test-api.ts'
 import { png, sha256 } from '../test-files.ts'
 import { issueTokens, makeAccess, refreshTokens } from './agent-accesses.ts'
@@ -27,8 +28,7 @@ const AGENTS_ROUTES = [
   'POST /workspaces/:workspaceId/brands/:brandId/assets/from-url',
   'GET /workspaces/:workspaceId/stock/photos',
   'POST /workspaces/:workspaceId/brands/:brandId/assets/from-stock',
-  'POST /workspaces/:workspaceId/brands/:brandId/assets/uploads',
-  'POST /workspaces/:workspaceId/brands/:brandId/assets',
+  'POST /workspaces/:workspaceId/brands/:brandId/assets/from-bundle',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
   'GET /workspaces/:workspaceId/brands/:brandId/kit',
@@ -263,26 +263,22 @@ describe('an agent token on the app as main.ts builds it', () => {
     expect(signed).toMatchObject({ ok: true, payload: { role: 'reviewer', userId: a.person.id } })
   })
 
-  it('uploads an image into its brand’s asset library, the same bytes once, and answers 403 to a view access', async () => {
+  it('adds a bundled file to its brand’s asset library, the same bytes once, and answers 403 to a view access', async () => {
     const a = await agent({ role: 'editor' })
     const bytes = png(4, 4, `sticker-${a.accessId}`)
-    const start = { sha256: sha256(bytes), byteSize: bytes.length, contentType: 'image/png', name: 'Rocket' }
-    const ticket = UploadTicket.parse((await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/uploads`, start)).json)
-    if (!ticket.upload) throw new Error('a new image is uploaded')
-    const put = await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
-    expect(put.status).toBe(200)
-    const recorded = await ask(a.accessToken, 'POST', `${a.brand(0)}/assets`, { sha256: start.sha256, name: 'Rocket' })
-    expect(recorded.status).toBe(201)
-    const asset = AssetSummary.parse(recorded.json)
-    expect(asset).toMatchObject({ name: 'Rocket', contentType: 'image/png', width: 4, height: 4 })
-    const again = UploadTicket.parse((await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/uploads`, start)).json)
-    expect(again.asset?.id).toBe(asset.id)
+    await storage.put(bundledKey(sha256(bytes)), bytes, 'image/png')
+    const input = { sha256: sha256(bytes), name: 'Rocket · Fluent Emoji', tags: ['sticker'] }
+    const added = await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/from-bundle`, input)
+    expect(added.status).toBe(201)
+    const asset = AssetSummary.parse(added.json)
+    expect(asset).toMatchObject({ name: input.name, tags: ['sticker'], contentType: 'image/png', width: 4, height: 4 })
+    const again = await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/from-bundle`, input)
+    expect(AssetSummary.parse(again.json).id).toBe(asset.id)
+    const unknown = { ...input, sha256: sha256(png(4, 4, `not-bundled-${a.accessId}`)) }
+    expect((await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/from-bundle`, unknown)).status).toBe(404)
 
     const viewer = await agent({ role: 'owner', writes: false })
-    expect((await ask(viewer.accessToken, 'POST', `${viewer.brand(0)}/assets/uploads`, start)).status).toBe(403)
-    expect((await ask(viewer.accessToken, 'POST', `${viewer.brand(0)}/assets`, { sha256: start.sha256 })).status).toBe(
-      403,
-    )
+    expect((await ask(viewer.accessToken, 'POST', `${viewer.brand(0)}/assets/from-bundle`, input)).status).toBe(403)
   })
 
   it('signs a writing access’s sync token as an Editor’s at most, with the agent’s name or "AI agent"', async () => {

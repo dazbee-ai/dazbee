@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { VIEW_ONLY } from '@dazbee/doc'
+import { stickerPicture } from '@dazbee/graphics/pictures'
 
-import { TEST_ASSETS } from '../test-api.ts'
 import { type TestServer, testServer, textOf } from '../test-client.ts'
 
 /** A design's layers, as the sync server holds them. */
@@ -268,8 +268,7 @@ describe('place_graphic', () => {
       expect(Math.min(x, y)).toBeGreaterThanOrEqual(99.5)
       expect(Math.max(x + width, y + height)).toBeLessThanOrEqual(500.5)
       expect(Math.max(width, height)).toBeGreaterThan(300)
-      expect(server.api.uploads()).toBe(0)
-      expect(server.api.assetsOf('brand-summer').map(({ id }) => id)).toEqual(TEST_ASSETS.map(({ id }) => id))
+      expect(server.api.bundled.asked).toEqual([])
     },
   )
 
@@ -286,11 +285,24 @@ describe('place_graphic', () => {
     const again = (await agent.json('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket' })) as typeof first
     expect(first.asset).toEqual(again.asset)
     expect(first.asset.name).toBe('Rocket · Fluent Emoji')
-    const added = server.api.assetsOf('brand-summer').filter(({ id }) => id === first.asset.id)
-    expect(added).toEqual([
-      expect.objectContaining({ name: 'Rocket · Fluent Emoji', contentType: 'image/png', width: 256, height: 256 }),
+    const rocket = stickerPicture('fluent-emoji', 'rocket', '3d')
+    expect(server.api.bundled.asked).toEqual([
+      {
+        brandId: 'brand-summer',
+        sha256: rocket?.sha256,
+        name: 'Rocket · Fluent Emoji',
+        tags: ['sticker', 'fluent emoji'],
+      },
+      {
+        brandId: 'brand-summer',
+        sha256: rocket?.sha256,
+        name: 'Rocket · Fluent Emoji',
+        tags: ['sticker', 'fluent emoji'],
+      },
     ])
-    expect(server.api.uploads()).toBe(1)
+    expect(server.api.bundled.added).toEqual([
+      expect.objectContaining({ id: first.asset.id, contentType: 'image/png', width: 256, height: 256 }),
+    ])
     for (const placed of [first, again])
       expect(layerOf(sync.state(), placed.layer)).toMatchObject({
         type: 'graphic',
@@ -315,6 +327,18 @@ describe('place_graphic', () => {
     const { agent } = await opened({ writes: false })
     const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket' })
     expect(result.isError).toBe(true)
-    expect(server.api.uploads()).toBe(0)
+    expect(server.api.bundled.asked).toEqual([])
+  })
+
+  it('refuses a picture sticker Dazbee’s storage doesn’t hold yet, pointing to its drawing, changing nothing', async () => {
+    const { agent, sync } = await opened()
+    server.api.bundled.stored = false
+    const before = sync.state().nodes
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket', style: '3d' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'The 3d picture of “fluent-emoji/rocket” isn’t in Dazbee’s storage yet, so nothing was placed; place its flat style instead.',
+    )
+    expect(sync.state().nodes).toEqual(before)
   })
 })

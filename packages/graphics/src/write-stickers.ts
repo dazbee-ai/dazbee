@@ -1,17 +1,19 @@
 // Writes the bundled sticker sets from their pinned sources: Fluent Emoji from its GitHub repository's archive at the
-// commit `sets.ts` pins (each emoji's default 3D picture as `sets/fluent-emoji/3d/<name>.png` and its flat drawings
-// in `flat.json`), and each CC0 set from the files on its makers' site that `sticker-sources.json` lists, each checked
-// against its SHA-256 (`sets/<set>/drawing.json`); each set's LICENSE beside it, the search index
-// (`sets/stickers.json`) and the notices the app lists (`src/sticker-notices.json`). Run
-// `pnpm --filter @dazbee/graphics stickers` after changing a pin.
+// commit `sets.ts` pins (its flat drawings in `sets/fluent-emoji/flat.json`, and what each default 3D picture is in
+// `src/sticker-pictures.json`, the pictures themselves being stored by `pnpm --filter @dazbee/api stickers:upload`),
+// and each CC0 set from the files on its makers' site that `sticker-sources.json` lists, each checked against its
+// SHA-256 (`sets/<set>/drawing.json`); each set's LICENSE beside it, the search index (`sets/stickers.json`) and the
+// notices the app lists (`src/sticker-notices.json`). Run `pnpm --filter @dazbee/graphics stickers` after changing a
+// pin, and the upload after it.
 import { createHash } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { Readable } from 'node:stream'
-import { createGunzip } from 'node:zlib'
 
+import { readImageHeader } from '@dazbee/schema'
+
+import { readFluentArchive } from './fluent-archive.ts'
 import type { SetNotice } from './notices.ts'
-import { readTar } from './read-tar.ts'
+import type { StickerPicture } from './pictures.ts'
 import type { IndexedGraphic } from './search.ts'
 import { linePerEntry, tagsOf } from './set-files.ts'
 import { STICKER_SET_IDS, STICKER_SETS, stickerPin, type StickerSetId } from './sets.ts'
@@ -28,15 +30,14 @@ interface SourceFile {
 /** Fluent Emoji's emoji, by its folder's name: its metadata, its default 3D picture and its default flat drawing. */
 interface Emoji {
   metadata?: { cldr?: string; keywords?: string[]; group?: string }
-  picture?: Uint8Array
+  picture?: Omit<StickerPicture, 'id'>
   drawing?: string
 }
 
 const PACKAGE = join(import.meta.dirname, '..')
-/** Where a Fluent Emoji file sits in the archive: its emoji's folder, the skin tone's folder if any, the style and the file. */
-const FLUENT_FILE = /^[^/]+\/assets\/([^/]+)\/(?:Default\/)?(3D|Flat)\/[^/]+\.(png|svg)$/
-const FLUENT_METADATA = /^[^/]+\/assets\/([^/]+)\/metadata\.json$/
-const FLUENT_LICENCE = /^[^/]+\/LICENSE$/
+/** Where a Fluent Emoji file sits in its repository: its emoji's folder, the skin tone's folder if any, the style and the file. */
+const FLUENT_FILE = /^assets\/([^/]+)\/(?:Default\/)?(3D|Flat)\/[^/]+\.(png|svg)$/
+const FLUENT_METADATA = /^assets\/([^/]+)\/metadata\.json$/
 
 const index: Partial<Record<StickerSetId, IndexedGraphic[]>> = {}
 const notices: Partial<Record<StickerSetId, Pick<SetNotice, 'version' | 'licence' | 'text'>>> = {}
@@ -52,13 +53,12 @@ for (const set of STICKER_SET_IDS) {
 await writeFile(join(PACKAGE, 'sets', 'stickers.json'), JSON.stringify(index))
 await writeFile(join(PACKAGE, 'src', 'sticker-notices.json'), `${JSON.stringify(notices, null, 2)}\n`)
 
-/** Fluent Emoji: the archive of its repository at the pinned commit, read as it downloads. */
+/**
+ * Fluent Emoji, from the archive of its repository at the pinned commit: its flat drawings, and for each 3D picture
+ * its path, SHA-256, size and pixel size, since the repository doesn't hold the pictures themselves.
+ */
 async function fluent() {
   const set = STICKER_SETS['fluent-emoji']
-  if (!('commit' in set.source)) throw new Error('Fluent Emoji is pinned to a commit')
-  const { repository, commit } = set.source
-  const response = await fetch(`https://codeload.github.com/${repository}/tar.gz/${commit}`)
-  if (!response.ok || !response.body) throw new Error(`GitHub answered ${response.status} for ${repository}`)
   const emoji = new Map<string, Emoji>()
   const entry = (folder: string) => {
     const known = emoji.get(folder) ?? {}
@@ -66,23 +66,22 @@ async function fluent() {
     return known
   }
   let licence = ''
-  const archived = await readTar(Readable.fromWeb(response.body).pipe(createGunzip()), (path, bytes) => {
+  await readFluentArchive((path, bytes) => {
     const [, folder = '', style] = FLUENT_FILE.exec(path) ?? []
     const [, described] = FLUENT_METADATA.exec(path) ?? []
-    if (style === '3D') entry(folder).picture = bytes
+    if (style === '3D') entry(folder).picture = pictureOf(path, bytes)
     else if (style === 'Flat') entry(folder).drawing = bytes.toString('utf8')
     else if (described) entry(described).metadata = JSON.parse(bytes.toString('utf8')) as NonNullable<Emoji['metadata']>
-    else if (FLUENT_LICENCE.test(path)) licence = bytes.toString('utf8')
+    else if (path === 'LICENSE') licence = bytes.toString('utf8')
   })
-  if (archived !== commit) throw new Error(`the archive is of ${archived}, not the pinned ${commit}`)
   const out = await emptied('fluent-emoji')
-  await mkdir(join(out, '3d'))
   const drawings: [string, string][] = []
+  const pictures: [string, Omit<StickerPicture, 'id'>][] = []
   const indexed: IndexedGraphic[] = []
   for (const [folder, { metadata, picture, drawing }] of [...emoji].sort(([a], [b]) => (a < b ? -1 : 1))) {
     const name = slugOf(folder)
     if (indexed.some(([each]) => each === name)) throw new Error(`two emoji are named ${name}`)
-    if (picture) await writeFile(join(out, '3d', `${name}.png`), picture)
+    if (picture) pictures.push([`fluent-emoji/${name}/3d`, picture])
     if (drawing) drawings.push([name, drawing])
     const styles = [...(picture ? ['3d'] : []), ...(drawing ? ['flat'] : [])]
     if (styles.length === 0) continue
@@ -90,9 +89,18 @@ async function fluent() {
     indexed.push([name, styles, tagsOf([cldr, ...keywords, group, ...set.tags])])
   }
   await writeFile(join(out, 'flat.json'), linePerEntry(drawings))
+  await writeFile(join(PACKAGE, 'src', 'sticker-pictures.json'), linePerEntry(pictures))
   await writeLicence('fluent-emoji', licence)
   index['fluent-emoji'] = indexed
-  console.log(`fluent-emoji ${stickerPin(set)}: ${indexed.length} emoji`)
+  console.log(`fluent-emoji ${stickerPin(set)}: ${indexed.length} emoji, ${pictures.length} pictures listed`)
+}
+
+/** A 3D picture as the manifest lists it; throws when it isn't a PNG. */
+function pictureOf(path: string, bytes: Buffer): Omit<StickerPicture, 'id'> {
+  const header = readImageHeader(bytes)
+  if (header?.contentType !== 'image/png') throw new Error(`${path} is not a PNG`)
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
+  return { path, sha256, byteSize: bytes.length, width: header.width, height: header.height }
 }
 
 /** A CC0 set: each file its site offers, checked against its pin, and the CC0 legal code below the set's dedication. */

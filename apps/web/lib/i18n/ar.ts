@@ -1005,6 +1005,8 @@ export const ar: Messages = {
       shrinkShort: { min: 'الأصغر', max: 'الأكبر' },
       outline: 'حدّ الحروف',
       outlineWidth: 'عرض حدّ الحروف',
+      outlinePlace: 'موضع حدّ الحروف',
+      outlinePlaces: { over: 'فوق الحروف', under: 'تحت الحروف' },
       image: 'الصورة',
       filter: 'المرشّح',
       filters: { none: 'الأصل', mono: 'أحادي', sepia: 'بني', vivid: 'زاهٍ', fade: 'باهت', warm: 'دافئ', cool: 'بارد' },

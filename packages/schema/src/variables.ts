@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { LayerType } from './layers.ts'
 import { boundFillIndex, boundImageIndex, type Paint } from './paint.ts'
 import { AssetId, Color } from './primitives.ts'
-import { type LetterSpacing, textStyleFields } from './typography.ts'
+import { inColour, type LetterSpacing, shownGradient, textStyleFields } from './typography.ts'
 
 /** A brand kit token's name: lowercase words joined by hyphens, such as `primary` or `sale-red`. */
 export const BrandToken = z
@@ -181,6 +181,24 @@ function baseStyle(key: 'color' | 'fontFamily'): Pick<BindableEntry, 'keys' | 'r
   }
 }
 
+/**
+ * A text's base colour, never its runs': none while a gradient shows over it, so setting a gradient
+ * ends a colour binding, and written with the gradient taken off, so the colour shows.
+ */
+function textColour(): Pick<BindableEntry, 'keys' | 'read' | 'write'> {
+  const colour = baseStyle('color')
+  return {
+    keys: ['color', 'gradient'],
+    read: (props) =>
+      props.style && shownGradient(props.style as Parameters<typeof shownGradient>[0]) ? undefined : colour.read(props),
+    write: (props, value) => {
+      const style = props.style as Record<string, unknown> | undefined
+      if (style?.gradient === undefined) return colour.write(props, value)
+      return { ...props, style: inColour(style, value as string) }
+    },
+  }
+}
+
 /** A text's look in its base style, never its runs; undefined without a style. */
 function readLook(props: Props): TextLook | undefined {
   const style = props.style as Record<string, unknown> | undefined
@@ -221,7 +239,7 @@ export const BINDABLE_PROPERTIES = {
     write: writeFill,
     added: (color: string): Paint => ({ type: 'solid', color }),
   },
-  textColor: { types: ['text'], kind: 'color', prop: 'style', styleKey: 'text', ...baseStyle('color') },
+  textColor: { types: ['text'], kind: 'color', prop: 'style', styleKey: 'text', ...textColour() },
   fontFamily: { types: ['text'], kind: 'font', prop: 'style', styleKey: 'text', ...baseStyle('fontFamily') },
   image: {
     types: ['graphic', 'box'],

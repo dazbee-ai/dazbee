@@ -11,6 +11,7 @@ import {
   type Constraints,
   type Design,
   type Features,
+  type GradientPaint,
   isNonEmpty,
   keepsEachCorner,
   type LetterSpacing,
@@ -40,6 +41,7 @@ export type Style = Record<string, unknown> & {
   lineHeight?: number
   textCase?: string
   features?: Features
+  gradient?: GradientPaint
 }
 
 /** What the edit panels act on: the layers and their values. */

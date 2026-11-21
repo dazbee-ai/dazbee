@@ -41,7 +41,12 @@ export function fillPath(
  * placed in the layer's box, mirrored as the layer is flipped; the paint's own opacity multiplies
  * its colours' alpha.
  */
-export function paintFor(ck: CanvasKit, fill: Paint, box: Rect & Flips, resources: Resources): CkPaint | null {
+export function paintFor(
+  ck: CanvasKit,
+  fill: Paint,
+  box: Rect & Flips,
+  resources: Pick<Resources, 'images' | 'imageSizes'>,
+): CkPaint | null {
   if (fill.visible === false) return null
   const paint = new ck.Paint()
   paint.setAntiAlias(true)

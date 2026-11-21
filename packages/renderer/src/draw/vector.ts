@@ -1,6 +1,6 @@
 import type { Canvas, CanvasKit } from '@dazbee/canvaskit'
 import { EMOJI_FAMILY, scriptFamilies } from '@dazbee/fonts'
-import type { Paint, Rect } from '@dazbee/schema'
+import { type Paint, type Rect, shownGradient, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { Scene, SceneLayer } from '../scene.ts'
@@ -21,7 +21,8 @@ export type VectorTarget = 'pdf' | 'svg'
  *   document's raster DPI. Only a background blur, which reads what is behind it, comes as an image.
  * - SVG from Skia keeps shapes, solid colours, linear and radial gradients and clips, and text as
  *   paths. A layer with opacity, effects, an angular gradient, an image fill or a mask, and a text
- *   with colour emoji, whose glyphs have no path, comes as an image of itself; a blend mode or
+ *   with colour emoji, whose glyphs have no path, or with a gradient underline or strikethrough,
+ *   which is filled through a layer, comes as an image of itself; a blend mode or
  *   background blur, which mix with what is behind, as an image of the frame as drawn up to it.
  */
 export function drawVectorFrame(
@@ -183,7 +184,20 @@ function svgSafe(layer: SceneLayer): boolean {
   if ('strokes' in props && !props.strokes.every((s) => svgPaint(s.paint))) return false
   // Colour emoji are pictures in the font, and Skia's SVG writer draws a glyph by its path alone.
   if (layer.type === 'text' && scriptFamilies(layer.props.text).includes(EMOJI_FAMILY)) return false
+  if (layer.type === 'text' && !svgTextPaints(layer.props)) return false
   return layer.children.every(svgSafe)
+}
+
+/**
+ * Whether Skia's SVG writer draws a text's gradients as they are: each one SVG holds (`svgPaint`),
+ * and no underline or strikethrough that could be painted with one, which is filled through a layer
+ * SVG drops. Runs can overlap, so a text with a gradient and a line anywhere counts as having both.
+ */
+function svgTextPaints(props: TextProps): boolean {
+  const styles = [props.style, ...props.runs.map((r) => withRunStyle(props.style, r.style))]
+  const gradients = styles.flatMap((style) => shownGradient(style) ?? [])
+  const lined = styles.some((style) => style.underline || style.strikethrough)
+  return gradients.every(svgPaint) && (gradients.length === 0 || !lined)
 }
 
 /** A group or box whose own drawing adds nothing an offscreen layer would change. */

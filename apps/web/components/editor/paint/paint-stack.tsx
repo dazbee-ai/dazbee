@@ -8,10 +8,8 @@ import * as Popover from '@radix-ui/react-popover'
 import { useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { inBrandRoleOrder, type Paint, withAlpha } from '@dazbee/schema'
+import { type Paint, withAlpha } from '@dazbee/schema'
 
-import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
-import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { useBesidePanel } from '@/components/editor/beside-panel.ts'
 import { ColorField, OpacityField } from '@/components/editor/edit-panel/colour-field.tsx'
 import { Choice } from '@/components/editor/edit-panel/fields.tsx'
@@ -19,7 +17,7 @@ import { clamp, NumberField } from '@/components/editor/edit-panel/number-field.
 import type { P } from '@/components/editor/edit-panel/target.ts'
 import { ImagePickerButton } from '@/components/editor/image-picker.tsx'
 import { usePopoverFocus } from '@/components/editor/popover-focus.tsx'
-import { CHIP, FACE_SIZE, ICON_BUTTON, KNOBS, SQUARE_SWATCH_TARGET, SWATCH_ROW } from '@/components/editor/styles.ts'
+import { CHIP, FACE_SIZE, ICON_BUTTON, KNOBS, SQUARE_SWATCH_TARGET } from '@/components/editor/styles.ts'
 import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
 import { EyeIcon, EyeSlashIcon, ImageIcon, MinusIcon } from '@/components/ui/icons.tsx'
 import { FOCUS_RING, POPOVER, SEGMENT, SEGMENTS, TOUCH_GAP } from '@/components/ui/looks.ts'
@@ -28,12 +26,11 @@ import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import { hexOf } from '@/lib/colour.ts'
 import { tidy } from '@/lib/editor/size.ts'
-import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
+import { BrandColours } from './brand-colours.tsx'
 import { angleOf, type Gradient, GradientBar, linearAt, type Stop, stopsCss } from './gradient-bar.tsx'
 import { RecentSwatches, useShownRecent } from './recent-swatches.tsx'
-import { Swatch } from './swatch.tsx'
 import { TileScaleField } from './tile-scale-field.tsx'
 
 /** An image asset's small picture, as the API serves it. */
@@ -204,7 +201,10 @@ export function PaintRow({
   )
 }
 
-/** One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image. */
+/**
+ * One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image.
+ * Without `offersImage`, as for a text, which an image can't paint, Image is not offered.
+ */
 export function PaintEditor({
   paint,
   workspaceId,
@@ -212,6 +212,8 @@ export function PaintEditor({
   editor,
   p,
   onSet,
+  offersImage = true,
+  colourName,
 }: {
   paint: Paint
   workspaceId: string
@@ -219,7 +221,11 @@ export function PaintEditor({
   editor: Editor
   p: P
   onSet: (to: (now: Paint) => Paint) => void
+  offersImage?: boolean
+  /** The name of a solid's colour field; the paint's colour without it. */
+  colourName?: string
 }) {
+  const types = offersImage ? PAINT_TYPES : PAINT_TYPES.filter((type) => type !== 'image')
   const [picked, setPicked] = useState(0)
   const recent = useShownRecent(workspaceId, brandId)
   const stop = isGradient(paint) ? paint.stops[Math.min(picked, paint.stops.length - 1)] : undefined
@@ -236,12 +242,12 @@ export function PaintEditor({
     <div className="flex flex-col gap-3 p-3" data-testid="paint-editor">
       <RadioGroup
         label={p.paintType}
-        options={PAINT_TYPES}
+        options={types}
         value={paint.type}
         onPick={(type) => type !== 'image' && onSet((now) => convert(now, type))}
         className={SEGMENTS}
       >
-        {PAINT_TYPES.map((type) => {
+        {types.map((type) => {
           const on = paint.type === type
           const label = type === 'solid' ? p.solid : p.paint[type]
           if (type === 'image' && !on) {
@@ -271,7 +277,7 @@ export function PaintEditor({
       {paint.type === 'solid' && (
         <>
           <ColorField
-            name={p.paintColour}
+            name={colourName ?? p.paintColour}
             value={paint.color}
             editor={editor}
             brandId={brandId}
@@ -493,36 +499,5 @@ function PaintSwatch({
         style={{ background: paintBackground(paint, workspaceId, brandId), opacity: paint.opacity ?? 1 }}
       />
     </span>
-  )
-}
-
-/** The brand's colours as small round buttons that pick one. */
-function BrandColours({
-  workspaceId,
-  brandId,
-  label,
-  onPick,
-}: {
-  workspaceId: string
-  brandId: string
-  label: string
-  onPick: (color: string) => void
-}) {
-  const colors = inBrandRoleOrder('color', useBrandKit(workspaceId, brandId)?.colors ?? [])
-  const roles = useMessages().editor.brandKit.brandRoles
-  if (colors.length === 0) return null
-  return (
-    <div role="group" aria-label={label} className={cn(SWATCH_ROW, 'gap-1')}>
-      {colors.map((c) => (
-        <Swatch
-          key={c.token}
-          color={c.value}
-          label={`${kitEntryName(roles, 'color', c)} ${hexOf(c.value)}`}
-          title={kitEntryName(roles, 'color', c)}
-          size="size-6"
-          onPick={() => onPick(c.value)}
-        />
-      ))}
-    </div>
   )
 }

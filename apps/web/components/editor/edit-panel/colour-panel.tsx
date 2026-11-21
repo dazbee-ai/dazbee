@@ -11,9 +11,11 @@ import {
   changeFill,
   type Design,
   inBrandRoleOrder,
+  inColour,
   type Paint,
   paintColour,
   showingFillIndex,
+  shownGradient,
 } from '@dazbee/schema'
 
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
@@ -40,7 +42,6 @@ import { designColours } from '@/lib/editor/design-colours.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
-import { ColorField } from './colour-field.tsx'
 import { EyedropperButton } from './eyedropper.tsx'
 import { PanelPart } from './fields.tsx'
 import { kindOf, type P, type PanelProps, set, shared, type Style, type Target, textStyle } from './target.ts'
@@ -49,6 +50,11 @@ export const NEW_FILL: Paint = { type: 'solid', color: '#D9D9D9FF' }
 
 /** A fill + adds over others: a see-through wash, so what was there still shows through it. */
 export const FILL_ON_TOP: Paint = { type: 'solid', color: '#00000033' }
+
+/** What a text style paints its characters with: its gradient while one shows, else its colour as a solid. */
+function textPaint(style: Style): Paint {
+  return shownGradient(style) ?? { type: 'solid', color: style.color }
+}
 
 /** The Colour panel: text's colour for text, else the colour of the fill that shows. */
 export function ColourPanel({ target, design, workspaceId, brandId }: PanelProps) {
@@ -99,7 +105,7 @@ export function FillsCard({
 /**
  * The colours to pick from, simple first: the brand kit's, which `onBrand` binds to (paint without
  * it), and the colours already in the design, with + first, which opens `picker` under them: any
- * colour, or for shapes, boxes and a frame's background a gradient or an image too.
+ * colour or gradient, and for shapes, boxes and a frame's background an image too.
  */
 export function ColourChoices({
   editor,
@@ -213,7 +219,10 @@ export function ColourChoices({
   )
 }
 
-/** The Colour panel of text: the kit's and the design's colours, and + with any colour by its hex and how much shows. */
+/**
+ * The Colour panel of text: the kit's and the design's colours, which take a gradient off, and + with
+ * any colour or a linear, radial or angular gradient, for the texts or the selected characters.
+ */
 function TextColourPanel({
   target,
   design,
@@ -229,16 +238,31 @@ function TextColourPanel({
   p: P
   b: Messages['editor']['bar']
 }) {
-  const { style, setStyle } = textStyle(target)
-  const color = style('color') as string | 'mixed'
+  const { styles, setStyle } = textStyle(target)
+  // The colour the swatches show: the texts' while none is painted with a gradient.
+  const color = shared(styles.map((s) => (shownGradient(s) ? undefined : s.color))) as string | 'mixed' | undefined
   // A range's colour builds on its first character's, as a layer's on its own.
   const first = (target.range?.[0]?.color as string | undefined) ?? ''
   const paint = (hex: string) =>
     target.range
       ? setStyle('color', hexChange(hex)(first))
-      : set(target, (now) => ({
-          style: { ...(now.style as Style), color: hexChange(hex)((now.style as Style).color) },
-        }))
+      : set(target, (now) => ({ style: inColour(now.style as Style, hexChange(hex)((now.style as Style).color)) }))
+  // The picker edits the first text's paint, or the selected range's first character's.
+  const firstStyle = target.range?.[0] ?? (target.props[0].style as Style)
+  const pickPaint = (to: (now: Paint) => Paint) => {
+    if (target.range) {
+      const next = to(textPaint(firstStyle))
+      if (next.type === 'image') return
+      target.editor.styleTextSelection(next.type === 'solid' ? { color: next.color } : { gradient: next })
+      return
+    }
+    set(target, (now) => {
+      const style = now.style as Style
+      const next = to(textPaint(style))
+      if (next.type === 'image') return null
+      return { style: next.type === 'solid' ? inColour(style, next.color) : { ...style, gradient: next } }
+    })
+  }
   return (
     <ColourChoices
       editor={target.editor}
@@ -251,19 +275,16 @@ function TextColourPanel({
       paint={paint}
       onBrand={(token, hex) => (target.range ? paint(hex) : target.editor.bindSelection('color', brandRef(token)))}
       picker={
-        <div className="p-3">
-          <ColorField
-            name={p.textColour}
-            value={color}
-            editor={target.editor}
-            brandId={brandId}
-            onSet={(to) =>
-              target.range
-                ? setStyle('color', to(first))
-                : set(target, (now) => ({ style: { ...(now.style as Style), color: to((now.style as Style).color) } }))
-            }
-          />
-        </div>
+        <PaintEditor
+          paint={textPaint(firstStyle)}
+          workspaceId={workspaceId}
+          brandId={brandId}
+          editor={target.editor}
+          p={p}
+          offersImage={false}
+          colourName={p.textColour}
+          onSet={pickPaint}
+        />
       }
     />
   )

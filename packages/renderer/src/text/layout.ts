@@ -1,19 +1,30 @@
-import type { CanvasKit, FontCollection, Paragraph, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
+import type {
+  CanvasKit,
+  FontCollection,
+  Paragraph,
+  ParagraphBuilder,
+  TextStyle as CkTextStyle,
+} from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
+import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
+import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
 /** One paragraph of a text layer (the text between line breaks), laid out where it sits in the layer. */
 export interface TextBlock {
   paragraph: Paragraph
-  /** The same paragraph with outlined runs stroked and the rest clear, drawn over it; null without outlines. */
+  /** The same paragraph with the runs outlined over the letters stroked and the rest clear, drawn over it; null without such outlines. */
   outline: Paragraph | null
+  /** The same with the runs outlined under the letters stroked, drawn before every block's fill; null without such outlines. */
+  outlineUnder: Paragraph | null
+  /** For each gradient whose runs are underlined or struck through, the same with only those lines, which it fills, drawn over it. */
+  gradientLines: { gradient: GradientPaint; paragraph: Paragraph }[]
   /** Its bullet or number, at (markerX, markerY) in the block, on the first line's baseline; null when not in a list. */
   marker: Paragraph | null
   markerX: number
@@ -56,6 +67,8 @@ type Style = TextProps['style']
 type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures'>
 
 const ELLIPSIS = '\u2026'
+/** The pass that draws a text's characters. */
+const FILL: TextPass = { kind: 'fill' }
 
 const WORD_CHAR = /[\p{L}\p{N}\p{M}]/u
 const LETTER = /\p{L}/u
@@ -176,21 +189,25 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         justify: ck.TextAlign.Justify,
       }[props.align],
       textDirection: rtl ? ck.TextDirection.RTL : ck.TextDirection.LTR,
-      textStyle: textStyle(ck, style, fallbacks),
+      textStyle: textStyle(ck, style, fallbacks, FILL),
       ...extra,
     })
-  const outlined = pieces.some((p) => (p.style.outline?.width ?? 0) > 0)
-  const clear = new ck.Paint()
-  clear.setColor(ck.TRANSPARENT)
+  const outlined = (under: boolean) =>
+    pieces.some((p) => (p.style.outline?.width ?? 0) > 0 && (p.style.outline?.under ?? false) === under)
+  // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
+  const box = { x: 0, y: 0, width: props.width, height: props.height }
+  /** Pushes a style onto a paragraph's builder, painted for the pass. */
+  const push = (builder: ParagraphBuilder, style: Style, pass: TextPass) =>
+    pushPainted(ck, builder, textStyle(ck, style, fallbacks, pass), style, pass, box)
   /**
-   * One paragraph of the text; with `outline`, its outline pass. `more` is drawn after it, as an
-   * ellipsis is. `text` is what it draws in place of the shown text, of the same length.
+   * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.
+   * `text` is what it draws in place of the shown text, of the same length.
    */
   const paragraphOf = (
     start: number,
     end: number,
     extra: { maxLines?: number; ellipsis?: string },
-    outline: boolean,
+    pass: TextPass,
     more = '',
     text = shown.slice(start, end),
   ) => {
@@ -204,29 +221,12 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       const from = Math.max(piece.start, start)
       const to = Math.min(piece.end, end)
       if (to <= from) continue
-      const style = textStyle(ck, piece.style, fallbacks, outline)
-      if (outline) {
-        const width = piece.style.outline?.width ?? 0
-        const stroke = new ck.Paint()
-        stroke.setAntiAlias(true)
-        if (width > 0 && piece.style.outline) {
-          stroke.setStyle(ck.PaintStyle.Stroke)
-          stroke.setStrokeWidth(width)
-          stroke.setStrokeJoin(ck.StrokeJoin.Round)
-          stroke.setColor(color(ck, piece.style.outline.color))
-        } else {
-          stroke.setColor(ck.TRANSPARENT)
-        }
-        builder.pushPaintStyle(style, stroke, clear)
-        stroke.delete()
-      } else {
-        builder.pushStyle(style)
-      }
+      push(builder, piece.style, pass)
       builder.addText(text.slice(from - start, to - start))
       builder.pop()
     }
     if (more) {
-      builder.pushStyle(textStyle(ck, styleAt(Math.max(start, end - 1)), fallbacks, outline))
+      push(builder, styleAt(Math.max(start, end - 1)), pass)
       builder.addText(more)
       builder.pop()
     }
@@ -247,7 +247,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     if (!props.list || start === end) return null
     number++
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(styleAt(start)), resources.fonts)
-    builder.pushStyle(textStyle(ck, styleAt(start), fallbacks))
+    push(builder, styleAt(start), FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.
     builder.addText(props.list === 'bullet' ? '\u2022' : `${number}.`)
     builder.pop()
@@ -263,7 +263,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     ? Math.ceil(Math.max(0, ...markers.map((m) => m?.getMaxIntrinsicWidth() ?? 0)) + base.fontSize / 2)
     : 0
 
-  let paragraphs = ranges.map(({ start, end }) => paragraphOf(start, end, {}, false))
+  let paragraphs = ranges.map(({ start, end }) => paragraphOf(start, end, {}, FILL))
   /** How the last paragraph was cut, so its outline pass is cut alike. */
   let cutWith: { extra: { maxLines?: number; ellipsis?: string }; more: string } = { extra: {}, more: '' }
   let width: number
@@ -290,7 +290,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       if (cut || last) {
         p.delete()
         cutWith = { extra: { maxLines: left, ellipsis: ELLIPSIS }, more: last ? ELLIPSIS : '' }
-        const remake = paragraphOf(range.start, range.end, cutWith.extra, false, cutWith.more)
+        const remake = paragraphOf(range.start, range.end, cutWith.extra, FILL, cutWith.more)
         remake.layout(inner)
         paragraphs[i] = remake
         for (const gone of paragraphs.slice(i + 1)) gone.delete()
@@ -309,30 +309,37 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     const { start, end } = ranges[i] as { start: number; end: number }
     const text = shown.slice(start, end)
     if (i === cutAt) return { paragraph, text, width: inner, dx: 0 }
-    return rewrap(paragraph, text, props, rtl, inner, (local) => paragraphOf(start, end, {}, false, '', local))
+    return rewrap(paragraph, text, props, rtl, inner, (local) => paragraphOf(start, end, {}, FILL, '', local))
   })
   const spacing = (props.paragraphSpacing ?? 0) * scale
   let y = 0
   const blocks: TextBlock[] = wraps.map((wrap, i) => {
     const { paragraph } = wrap
     const range = ranges[i] as { start: number; end: number }
-    let outline: Paragraph | null = null
-    if (outlined) {
-      const lastOne = i === paragraphs.length - 1
-      outline = paragraphOf(
+    const lastOne = i === paragraphs.length - 1
+    /** This paragraph drawn for another pass, cut and wrapped as its fill pass is. */
+    const passOf = (pass: TextPass) => {
+      const laid = paragraphOf(
         range.start,
         range.end,
         lastOne ? cutWith.extra : {},
-        true,
+        pass,
         lastOne ? cutWith.more : '',
         wrap.text,
       )
-      outline.layout(wrap.width)
+      laid.layout(wrap.width)
+      return laid
     }
+    const lined = linedGradients(pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style))
     const marker = markers[i] ?? null
     const block: TextBlock = {
       paragraph,
-      outline,
+      outline: outlined(false) ? passOf({ kind: 'outline', under: false }) : null,
+      outlineUnder: outlined(true) ? passOf({ kind: 'outline', under: true }) : null,
+      gradientLines: [...lined].map(([key, gradient]) => ({
+        gradient,
+        paragraph: passOf({ kind: 'lines', gradient: key }),
+      })),
       marker,
       markerX: rtl ? inner + gutter - (marker?.getMaxIntrinsicWidth() ?? 0) : 0,
       markerY: (paragraph.getLineMetrics()[0]?.baseline ?? 0) - (marker?.getLineMetrics()[0]?.baseline ?? 0),
@@ -346,7 +353,6 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     y += block.height + (i < paragraphs.length - 1 ? spacing : 0)
     return block
   })
-  clear.delete()
   return {
     blocks,
     dy: 0,
@@ -359,6 +365,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       for (const b of blocks) {
         b.paragraph.delete()
         b.outline?.delete()
+        b.outlineUnder?.delete()
+        for (const l of b.gradientLines) l.paragraph.delete()
         b.marker?.delete()
       }
     },
@@ -414,16 +422,16 @@ function withCase(text: string, styleAt: (offset: number) => Style): string {
   return out
 }
 
-/** A style for CanvasKit; for an outline pass, without the lines, which the fill pass draws. */
+/** A style for CanvasKit, with its underline and strikethrough only in the pass that draws them (`drawsLines`). */
 function textStyle(
   ck: CanvasKit,
   style: Style,
   resources: Pick<Resources, 'fallbackFamilies'>,
-  outline = false,
+  pass: TextPass,
 ): CkTextStyle {
-  const decoration = outline
-    ? 0
-    : (style.underline ? ck.UnderlineDecoration : 0) | (style.strikethrough ? ck.LineThroughDecoration : 0)
+  const decoration = drawsLines(style, pass)
+    ? (style.underline ? ck.UnderlineDecoration : 0) | (style.strikethrough ? ck.LineThroughDecoration : 0)
+    : 0
   return new ck.TextStyle({
     color: color(ck, style.color),
     fontFamilies: [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)],
@@ -439,7 +447,7 @@ function textStyle(
       ? { fontFeatures: Object.entries(style.features).map(([name, on]) => ({ name, value: on ? 1 : 0 })) }
       : {}),
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
-    ...(decoration ? { decoration, decorationColor: color(ck, style.color), decorationThickness: 1 } : {}),
+    ...(decoration ? { decoration, decorationColor: color(ck, linesColour(style, pass)), decorationThickness: 1 } : {}),
   })
 }
 

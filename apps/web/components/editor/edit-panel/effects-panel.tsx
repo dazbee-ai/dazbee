@@ -2,7 +2,7 @@
 
 // The Effects panel: a small chip for each effect, then each effect's numbers and colour, and
 // text's outline.
-import { type DropShadow, type Effect } from '@dazbee/schema'
+import { type DropShadow, type Effect, type TextStyle } from '@dazbee/schema'
 
 import { RemoveButton } from '@/components/editor/reorder-list.tsx'
 import { ICON_CHIP, KNOBS, PANEL_PART } from '@/components/editor/styles.ts'
@@ -16,12 +16,15 @@ import { format } from '@/lib/i18n/index.ts'
 
 import { ColorField } from './colour-field.tsx'
 import { type EffectChoice, EffectIcon } from './effect-icons.tsx'
-import { SwitchRow } from './fields.tsx'
+import { Choice, SwitchRow } from './fields.tsx'
 import { clamp, NumberField } from './number-field.tsx'
 import { kindOf, type P, type PanelProps, type Props, set, shared, type Style, type Target } from './target.ts'
 
 /** The effect chips, in the order the panel shows them; Outline is text's alone. */
 type Tile = EffectChoice
+
+/** A text's outline: its width and colour, and whether it is drawn under the letters. */
+type TextOutline = NonNullable<TextStyle['outline']>
 
 const EFFECT_FIELDS = {
   dropShadow: ['x', 'y', 'blur', 'spread'],
@@ -41,10 +44,19 @@ const NEW_EFFECT: Record<Effect['type'], Effect> = {
 
 const TILES: Tile[] = ['none', 'dropShadow', 'innerShadow', 'glow', 'outline', 'layerBlur', 'backgroundBlur']
 
+const OUTLINE_PLACES = ['over', 'under'] as const
+
+/** An outline drawn over the letters or under them; over, it says nothing of it. */
+function placed(outline: TextOutline, place: (typeof OUTLINE_PLACES)[number]): TextOutline {
+  if (place === 'under') return { ...outline, under: true }
+  const { width, color } = outline
+  return { width, color }
+}
+
 /**
  * The Effects panel: one grid of chips, each an icon and a short name, its full name its tooltip. A
  * chip adds its effect, or takes every effect of its type off; None takes them all off. Under the tiles, shown only while an effect is on: each effect with
- * its numbers and its own remove button, text's outline with its width and colour, and Add another,
+ * its numbers and its own remove button, text's outline with its width, colour and place, over or under the letters, and Add another,
  * which adds a second effect of a type.
  */
 export function EffectsPanel({ target, brandId }: PanelProps) {
@@ -94,12 +106,10 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
       off ? now.filter((e) => e.type !== tile) : now.some((e) => e.type === tile) ? now : [...now, NEW_EFFECT[tile]],
     )
   }
-  const outline = shared(
-    target.props.map((pr) => (pr.style as Style | undefined)?.outline as { width: number; color: string } | undefined),
-  )
-  const setOutline = (to: (was: { width: number; color: string }) => { width: number; color: string }) =>
+  const outline = shared(target.props.map((pr) => (pr.style as Style | undefined)?.outline as TextOutline | undefined))
+  const setOutline = (to: (was: TextOutline) => TextOutline) =>
     set(target, (now) => {
-      const was = (now.style as Style).outline as { width: number; color: string } | undefined
+      const was = (now.style as Style).outline as TextOutline | undefined
       return was ? { style: { ...(now.style as Style), outline: to(was) } } : null
     })
   const empty = list !== 'mixed' && list.length === 0 && !(text && outline && outline !== 'mixed' && outline.width > 0)
@@ -161,6 +171,14 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
                   onSet={(to) => setOutline((was) => ({ ...was, color: to(was.color) }))}
                 />
               </div>
+              <Choice
+                name={p.outlinePlace}
+                value={outline.under ? 'under' : 'over'}
+                options={OUTLINE_PLACES}
+                labels={p.outlinePlaces}
+                testId="outline-place"
+                onSet={(place) => setOutline((was) => placed(was, place))}
+              />
             </div>
           )}
           {list === 'mixed' ? (

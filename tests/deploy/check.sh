@@ -7,9 +7,11 @@
 #   1. <commit> twice: the web app and API swap green to blue, then back, and the tab stays open;
 #   2. an API image whose health check fails: deploy.sh fails and stops it, and the live API runs on;
 #   3. a sync image whose health check fails: deploy.sh fails, and the previous sync image runs again;
-#   4. a new commit: every app swaps, the sync server and the MCP server restart on it, the MCP
-#      server's OAuth metadata answers through Caddy, and only the images of the commits deployed and
-#      those a container uses are kept.
+#   4. a new commit whose sync and MCP images differ only in the commit they name: the web app and
+#      API swap, the sync server's and MCP server's containers keep running on their image, and only
+#      the images of the commits deployed and those a container uses are kept;
+#   5. a new commit whose MCP image changed: the MCP server restarts on it, its OAuth metadata
+#      answers through Caddy, and the sync server's container keeps running.
 #
 # No request the probe makes may fail throughout.
 #
@@ -20,10 +22,11 @@ shopt -s inherit_errexit
 readonly REGISTRY=ghcr.io/dazbee-ai
 readonly PROBE=dazbee-deploy-probe
 # Commits that are only tags here: an API whose health check fails, a sync server whose health check
-# fails, and a new commit of the same images.
+# fails, a new commit of the same images, and one whose MCP image changed.
 readonly BROKEN_API=000000000000000000000000000000000000a1a1
 readonly BROKEN_SYNC=000000000000000000000000000000000000b2b2
 readonly NEXT=000000000000000000000000000000000000c3c3
+readonly MCP_CHANGED=000000000000000000000000000000000000d4d4
 
 [ $# -eq 2 ] || {
   echo 'usage: check.sh <stack> <commit>' >&2
@@ -58,16 +61,24 @@ expect_mcp_serves() {
     fail 'the MCP server does not answer through Caddy'
 }
 
+# The id of a service's container.
+container_of() { compose ps -aq "$1"; }
+
+# Builds `app`'s image of <commit> again as <as>, with the Dockerfile lines given after its FROM.
+rebuild() {
+  local app=$1 as=$2
+  shift 2
+  { echo "FROM $REGISTRY/dazbee-$app:$commit" && printf '%s\n' "$@"; } |
+    docker buildx build --builder default -q -t "$REGISTRY/dazbee-$app:$as" - > /dev/null
+}
+
 # Tags each app's image of <commit> as <as>, then gives `broken`'s a health check that always fails.
 # A deploy removes the images of commits not deployed, so each step makes its own just before.
 images_of() {
   local as=$1 broken=${2:-} app
   for app in web api sync mcp; do docker tag "$REGISTRY/dazbee-$app:$commit" "$REGISTRY/dazbee-$app:$as"; done
   [ -n "$broken" ] || return 0
-  docker buildx build --builder default -q -t "$REGISTRY/dazbee-$broken:$as" - > /dev/null << EOF
-FROM $REGISTRY/dazbee-$broken:$commit
-HEALTHCHECK --interval=1s --timeout=1s --start-period=0s --retries=1 CMD ["false"]
-EOF
+  rebuild "$broken" "$as" 'HEALTHCHECK --interval=1s --timeout=1s --start-period=0s --retries=1 CMD ["false"]'
 }
 
 step 'On the server only the live colour runs'
@@ -148,18 +159,22 @@ expect_deployed sync "$commit"
 [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q sync)")" = healthy ] || fail 'sync is not healthy'
 expect_live web green
 
-step "4. A new commit"
+step "4. A new commit whose sync and MCP images differ only in the commit they name, as CI builds them"
 images_of "$NEXT"
+for app in sync mcp; do rebuild "$app" "$NEXT" "ENV BUILD_ID=$NEXT"; done
+sync_container=$(container_of sync)
+mcp_container=$(container_of mcp)
 deploy "$NEXT"
 expect_live api green
 expect_live web blue
 expect_state api-green "running $NEXT"
-expect_state sync "running $NEXT"
 expect_state web-blue "running $NEXT"
-expect_state mcp "running $NEXT"
+expect_state sync "running $commit"
+expect_state mcp "running $commit"
+[ "$(container_of sync)" = "$sync_container" ] || fail 'the sync server restarted on the same image'
+[ "$(container_of mcp)" = "$mcp_container" ] || fail 'the MCP server restarted on the same image'
+echo 'the sync server and the MCP server kept running'
 for app in api sync web mcp; do expect_deployed "$app" "$NEXT"; done
-expect_mcp_serves
-echo 'the MCP server answers through Caddy on the new commit'
 # The images of the commits deployed stay, and so does one a stopped container was made from.
 for app in api sync web mcp; do
   expect_image "$app" "$commit"
@@ -170,6 +185,17 @@ expect_no_image api "$BROKEN_API"
 expect_no_image sync "$BROKEN_SYNC"
 expect_no_image web "$BROKEN_API"
 expect_no_image mcp "$BROKEN_SYNC"
+
+step "5. A new commit whose MCP image changed"
+images_of "$MCP_CHANGED"
+rebuild mcp "$MCP_CHANGED" "ENV BUILD_ID=$MCP_CHANGED" 'USER root' 'RUN echo changed > /changed' 'USER node'
+deploy "$MCP_CHANGED"
+expect_state mcp "running $MCP_CHANGED"
+expect_state sync "running $commit"
+[ "$(container_of sync)" = "$sync_container" ] || fail 'the sync server restarted on the same image'
+expect_deployed mcp "$MCP_CHANGED"
+expect_mcp_serves
+echo 'the MCP server restarted on its changed image and answers through Caddy'
 
 step 'The probe stops'
 docker stop -t 30 "$PROBE" > /dev/null

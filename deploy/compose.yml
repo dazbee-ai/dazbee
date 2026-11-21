@@ -157,7 +157,13 @@ services:
   mcp:
     image: ghcr.io/dazbee-ai/dazbee-mcp:${MCP_TAG:-latest}
     restart: unless-stopped
-    logging: *logging
+    # Its log, a JSON line for each tool call and for each MCP session opened and ended, goes to the
+    # server's journal, which keeps it when the container is made again: `journalctl -t dazbee-mcp`
+    # reads every container's, `docker compose logs mcp` only the running one's.
+    logging:
+      driver: journald
+      options:
+        tag: dazbee-mcp
     mem_limit: 1024m
     # A quarter of the default 1024, so the web app, the API and the sync server go first on a busy CPU.
     cpu_shares: 256

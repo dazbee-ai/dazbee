@@ -15,10 +15,13 @@
 # so every new request goes to it; the requests the old colour holds end, and the old colour stops.
 # The sync server is stopped with SIGTERM, which folds every open design and closes each tab to
 # reconnect, then the new one starts; if it isn't healthy in time, the previous image starts again.
-# The MCP server restarts the same way: its agents' sessions end, and their clients start new ones. A
-# failed health check stops the new container, leaves the previous version of that app serving and
-# exits non-zero; apps swapped before it stay on the commit. Caddy, which holds the TLS connections,
-# is reloaded only when deploy/Caddyfile changed since the last deploy.
+# The MCP server restarts the same way: its agents' sessions end, and their clients start new ones.
+# Each of the two restarts only when the commit's image differs from the one its container runs in
+# its layers or its settings, the commit it names (BUILD_ID) aside; otherwise its container keeps
+# running on the image it has, unless compose.yml or the .env changed its service. A failed health
+# check stops the new container, leaves the previous version of that app serving and exits non-zero;
+# apps swapped before it stay on the commit. Caddy, which holds the TLS connections, is reloaded only
+# when deploy/Caddyfile changed since the last deploy.
 #
 # What it changes lives in live/, which copying deploy/ over never touches:
 #   live/upstreams.caddy   the live colours as the router imports them, which decide which runs on
@@ -77,6 +80,24 @@ running_tag() {
   id=$(compose ps -aq "$1")
   [ -n "$id" ] || return 0
   docker inspect -f '{{.Config.Image}}' "$id" | sed 's/.*://'
+}
+
+# What an image runs: its layers and its settings, without the commit it names in BUILD_ID, which
+# every commit's image changes.
+contents() {
+  docker image inspect -f '{{json .RootFS.Layers}} {{json .Config}}' "$1" | sed 's/"BUILD_ID=[^"]*"//'
+}
+
+# Whether the container of `app` runs an image with the same contents as the commit's; not when it
+# has no container or either image can't be read.
+runs_commit_contents() {
+  local id running next
+  id=$(compose ps -aq "$1")
+  [ -n "$id" ] || return 1
+  running=$(docker inspect -f '{{.Image}}' "$id") || return 1
+  running=$(contents "$running") || return 1
+  next=$(contents "$REGISTRY/dazbee-$1:$commit") || return 1
+  [ -n "$running" ] && [ "$running" = "$next" ]
 }
 
 # Sets one tag in live/images.env, keeping the others.
@@ -184,24 +205,27 @@ swap() {
 # Restarts `app`, the sync server or the MCP server, on the commit; `who` says who reconnects. Compose
 # stops the old container with SIGTERM, on which the sync server folds every open design and closes
 # each tab with 1001 to reconnect, and the MCP server ends every session, and waits for it to exit, up
-# to the service's stop_grace_period; then it starts the new one. On the image it already runs, nothing
-# restarts.
+# to the service's stop_grace_period; then it starts the new one. On the image it already runs, or one
+# with the same contents as the commit's, nothing restarts unless the service's settings changed.
 restart() {
-  local app=$1 who=$2 previous
+  local app=$1 who=$2 previous tag=$commit
   previous=$(running_tag "$app")
   if [ "$previous" = "$commit" ]; then
     log "$app: already on $commit"
+  elif runs_commit_contents "$app"; then
+    tag=$previous
+    log "$app: $commit's image runs the same as $previous's; staying on $previous"
   else
     log "$app: restarting on $commit; $who"
   fi
-  if start_healthy "$app" "$commit"; then
-    keep_tag "$(tag_setting "$app")" "$commit"
+  if start_healthy "$app" "$tag"; then
+    keep_tag "$(tag_setting "$app")" "$tag"
     record_deployed "$app"
     return 0
   fi
   log "$app: the new one failed its health check"
   compose logs --no-color --tail 50 "$app" || true
-  if [ -n "$previous" ] && [ "$previous" != "$commit" ]; then
+  if [ -n "$previous" ] && [ "$previous" != "$tag" ]; then
     log "$app: starting the previous image, $previous, again"
     start_healthy "$app" "$previous" || log "$app: the previous image is not healthy either"
   else

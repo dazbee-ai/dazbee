@@ -181,6 +181,23 @@ export function fitShape(ck: CanvasKit, mask: Mask, opt: FitOptions, outline?: {
     outline ? { ...p, outline: true, stroke: outline.stroke } : p,
   )
   const target = outline?.target ?? mask
+  if (starts.length === 0) {
+    // Nothing covered enough to start from: the window's box, at IoU 0, which every caller treats as a poor fit.
+    const box: Params = {
+      kind: 'rect',
+      cx: mask.ox + mask.bw / 2,
+      cy: mask.oy + mask.bh / 2,
+      w: mask.bw,
+      h: mask.bh,
+      rot: 0,
+      r: 0,
+      n: 0,
+      inner: 0.5,
+      stroke: outline?.stroke ?? 0,
+      outline: !!outline,
+    }
+    return { params: box, iou: 0, renders: 0 }
+  }
   let renders = 0
   const scored = starts.map((p) => {
     renders++

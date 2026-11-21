@@ -63,6 +63,48 @@ Looks-the-same is unchanged or better throughout: Medium kept every round-1 deci
 - **Speed**: the dashed search runs only on marks that lie along their box's edge (not texture specks on backgrounds); the lost-part check runs at no more than 512 px on the long side; Medium's slowest blocks went from 22 s to under 6 s; photos and cutouts the job marks are not fitted at all.
 - **Memory**: the ΔE memo holds one block's colours (it grew to a million pairs across a run); garbage is collected between blocks; full-size SSIM folds its product maps one at a time. The whole-run peak for Medium did not fall (476 MB against 464 MB), because the full-size tracing step and rule v2's full-size SSIM hold full-size buffers for the largest blocks. Breakdown (`src/memory.ts`, heaviest ad): Node 65 MB, modules 30 MB, CanvasKit 23 MB resident (its 128 MB wasm heap is reserved, mostly untouched), a 1,000-px block 16 MB as a float picture plus 60 to 100 MB of working buffers at its peak. The next cut, not made: keep pictures as 8-bit (a quarter of the float size) and fit large backgrounds at the fit size only.
 
+### Outside benchmark: Crello's test split
+
+[Crello](https://huggingface.co/datasets/cyberagent/crello) (CDLA-Permissive-2.0 plus VistaCreate's terms) was measured internally only. The dataset is not gated. Only the test split's four Parquet files were downloaded into the git-ignored `data/` folder; no Crello data, image or derived picture was committed, and the downloaded data was deleted after the measurement.
+
+**Sample.** 800 elements from the 1,971 test templates, picked by a hash of the template id and element index (never by content):
+
+- 400 shape elements (`SvgElement`), which should become shapes;
+- 200 coloured backgrounds, which should become shapes;
+- 200 image elements, which should stay pictures.
+
+**How it was run.**
+
+- Each element is its own pre-rendered PNG. It went through Light, Medium and the ladder, clean and with the synthetic set's all-at-once AI degradation, under the shared rule (v1) and rule v2.
+- IoU is the drawn layers' alpha against the clean element's alpha. Palette ΔE is each layer colour's ΔE00 to the nearest colour in the element's palette (present for 380 of the 400 shape elements and all backgrounds).
+- Nothing was tuned on Crello.
+- The ladder here has no block kinds, so the image elements test the matcher's own photo guard.
+- Runs shared the machine, so the times are indicative only.
+
+| Input       | Rule | Element type                        | Light           | Medium          | Ladder          | Ladder IoU mean (p10) | Ladder palette ΔE | Ladder layers | Ladder time median / p95 |
+| ----------- | ---- | ----------------------------------- | --------------- | --------------- | --------------- | --------------------- | ----------------- | ------------- | ------------------------ |
+| clean       | v1   | shape element                       | 196/400 (49 %)  | 330/400 (83 %)  | 333/400 (83 %)  | 0.951 (0.845)         | 0.05              | 1.66          | 0.50 s / 4.3 s           |
+| clean       | v1   | coloured background                 | 200/200 (100 %) | 200/200 (100 %) | 200/200 (100 %) | 1.000 (1.000)         | 0.01              | 1.00          | 0.54 s / 0.9 s           |
+| clean       | v1   | image element (wrongly made shapes) | 7/200 (4 %)     | 18/200 (9 %)    | 19/200 (10 %)   | -                     | -                 | -             | 0.27 s / 7.2 s           |
+| clean       | v2   | shape element                       | 180/400 (45 %)  | 332/400 (83 %)  | 335/400 (84 %)  | 0.949 (0.840)         | 0.06              | 1.71          | 0.72 s / 5.7 s           |
+| clean       | v2   | coloured background                 | 200/200 (100 %) | 200/200 (100 %) | 200/200 (100 %) | 1.000 (1.000)         | 0.01              | 1.00          | 1.84 s / 5.2 s           |
+| clean       | v2   | image element (wrongly made shapes) | 8/200 (4 %)     | 22/200 (11 %)   | 23/200 (12 %)   | -                     | -                 | -             | 0.24 s / 9.0 s           |
+| AI-degraded | v1   | shape element                       | 160/400 (40 %)  | 243/400 (61 %)  | 247/400 (62 %)  | 0.914 (0.657)         | 0.45              | 1.45          | 0.51 s / 3.8 s           |
+| AI-degraded | v1   | coloured background                 | 200/200 (100 %) | 200/200 (100 %) | 200/200 (100 %) | 1.000 (1.000)         | 0.37              | 1.00          | 0.51 s / 1.5 s           |
+| AI-degraded | v1   | image element (wrongly made shapes) | 7/200 (4 %)     | 12/200 (6 %)    | 14/200 (7 %)    | -                     | -                 | -             | 0.27 s / 4.8 s           |
+| AI-degraded | v2   | shape element                       | 179/400 (45 %)  | 305/400 (76 %)  | 308/400 (77 %)  | 0.901 (0.631)         | 0.46              | 1.52          | 0.63 s / 5.6 s           |
+| AI-degraded | v2   | coloured background                 | 200/200 (100 %) | 200/200 (100 %) | 200/200 (100 %) | 1.000 (1.000)         | 0.37              | 1.00          | 1.86 s / 4.2 s           |
+| AI-degraded | v2   | image element (wrongly made shapes) | 9/200 (5 %)     | 23/200 (12 %)   | 24/200 (12 %)   | -                     | -                 | -             | 0.18 s / 6.4 s           |
+
+**What it shows.**
+
+- **Real designers' shapes:** the ladder keeps 83 % of shape elements clean (84 % under v2) with IoU 0.95 and palette ΔE 0.05, and every coloured background in one layer. Light alone keeps 49 %; Medium carries the rest.
+- **AI-degraded copies:** 62 % under the shared rule and 77 % under v2. Grain and resampling hurt v1 most, as on the synthetic sets.
+- **Image elements made shapes:** 19 of 200 clean (v1). Looked at by eye, about 11 of Medium's 18 are flat panels, gradients, a blurred shadow or vector-like icons that shapes rightly hold. About 7 are real photos, mostly small products on large white backgrounds: a test tube, a paper crane, a lipstick, hands, a portrait, a stool, a watercolour.
+- **Rule v2 does not help with photos:** it makes slightly more image elements shapes (22 against 18 for Medium; it catches 3 and passes 7 others), because the blur and the lost-part bar let smooth photos through. Neither rule alone keeps photos out; in production the Layering job's block kinds must (with them the ladder makes no photo shapes). For uploaded pictures without kinds, the matcher needs a better photo guard; on Crello it was wrong on about 3.5 % (7 of 200).
+
+**Bug found and fixed (general).** A group of marks whose convex hull covered too few pixels gave the shape fitter no starting shape, and Medium crashed on 2 degraded elements. The fitter now returns the window's box at IoU 0 (a poor fit every caller already handles), and those runs were redone.
+
 ### Rule v2, proposed to both halves
 
 - **What it is.** The shared rule with three changes (`scoreV2` in `src/score.ts`):
@@ -74,7 +116,7 @@ Looks-the-same is unchanged or better throughout: Medium kept every round-1 deci
   - The bars (σ 1, ΔE 20, 1 %) were read from those 20 blocks, rounded.
 - **What it changes:**
   - It no longer fails grain.
-  - It judges big blocks at the size they are shown, where the shared rule's downsampling let a soft photo pass.
+  - It judges big blocks at the size they are shown. This let one soft test-ad photo pass the shared rule and not v2, but on Crello v2 lets slightly more smooth product photos through (above), so it is no photo guard.
   - It catches a lost thin rim and misshapen dashes, which a whole-block mean hides.
 - **What it still misses:**
   - Faint texture that the eye sees but that is under 20 ΔE (a gold badge's grain).
@@ -98,7 +140,7 @@ A repeat run of all 91 blocks of the frozen ads gave identical answers. One deve
 - **Same on unseen data.** It keeps 95 % of the unseen synthetic set (v2), with no picture made shapes.
 - **One CPU.** It answers an ad in 2.7 s median, 9 s at the 95th percentile and 17 s at worst (shared rule; 3.6 / 13.7 / 19.1 s under v2), against the old worker's 23.8 s / 231 s / 607 s.
 - **Memory.** Under 0.52 GB against its 1.1 GB.
-- **Rule v2 for the text half.** It removes the shared rule's grain and large-block blind spots and adds the lost-part check.
+- **Rule v2 for the text half.** It removes the shared rule's grain blind spot and adds the lost-part check; on Crello it keeps 84 % of shape elements clean and 77 % degraded (shared rule 83 % and 62 %). It is not a photo guard: photos are kept out by the job's block kinds.
 
 Dazbee's words are used throughout (`GLOSSARY.md`): a block becomes **graphics** (layers made of a **shape** plus fills, strokes and effects), or stays a **picture** (a graphic with an image fill).
 

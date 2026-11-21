@@ -103,6 +103,7 @@ describe('styleOf', () => {
       paragraphSpacing: 6,
       outline: null,
       features: { tnum: true },
+      gradient: null,
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -140,6 +141,29 @@ describe('restyle', () => {
       letterSpacing: { unit: 'percent', value: 0 },
     })
     expect(change?.patch).toHaveProperty('paragraphSpacing', undefined)
+  })
+
+  it('carries a text’s gradient and an outline under its letters, and clears a gradient the style lacks', () => {
+    const gradient = {
+      type: 'linear',
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 1 },
+      stops: [
+        { offset: 0, color: red },
+        { offset: 1, color: navy },
+      ],
+    }
+    const outline = { width: 2, color: red, under: true }
+    const swept = styleOf(text({ gradient, outline }))
+    expect(swept.text).toMatchObject({ gradient, outline })
+    expect(restyle(text(), swept)?.patch.style).toMatchObject({ gradient, outline })
+    expect(restyle(text({ gradient }), styleOf(text()))?.patch.style).not.toHaveProperty('gradient')
+  })
+
+  it('reads a style copied before texts had gradients as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { gradient?: unknown }).gradient
+    expect(LayerStyle.parse(copied).text?.gradient).toBeNull()
   })
 
   it('sets only what the layer has: a text’s style leaves a shape’s fills, and a shape’s leaves a text’s font', () => {

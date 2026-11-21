@@ -1,9 +1,10 @@
 import type { Canvas, CanvasKit } from '@dazbee/canvaskit'
 import { EMOJI_FAMILY, scriptFamilies } from '@dazbee/fonts'
-import type { Paint, Rect } from '@dazbee/schema'
+import { type Paint, type Rect, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { Scene, SceneLayer } from '../scene.ts'
+import { shownGradient } from '../text/text-paint.ts'
 import { drawLayers, drawScene } from './draw.ts'
 import { fillPath } from './paint.ts'
 import { boxPath, rectPath } from './paths.ts'
@@ -183,7 +184,20 @@ function svgSafe(layer: SceneLayer): boolean {
   if ('strokes' in props && !props.strokes.every((s) => svgPaint(s.paint))) return false
   // Colour emoji are pictures in the font, and Skia's SVG writer draws a glyph by its path alone.
   if (layer.type === 'text' && scriptFamilies(layer.props.text).includes(EMOJI_FAMILY)) return false
+  if (layer.type === 'text' && !svgTextPaints(layer.props)) return false
   return layer.children.every(svgSafe)
+}
+
+/**
+ * Whether Skia's SVG writer draws a text's gradients as they are: each one SVG holds (`svgPaint`),
+ * and no underline or strikethrough painted with one, which is filled through a layer SVG drops.
+ */
+function svgTextPaints(props: TextProps): boolean {
+  const styles = [props.style, ...props.runs.map((r) => withRunStyle(props.style, r.style))]
+  return styles.every((style) => {
+    const gradient = shownGradient(style)
+    return !gradient || (svgPaint(gradient) && !style.underline && !style.strikethrough)
+  })
 }
 
 /** A group or box whose own drawing adds nothing an offscreen layer would change. */

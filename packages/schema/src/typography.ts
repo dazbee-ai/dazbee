@@ -3,6 +3,7 @@
 // over the base style.
 import { z } from 'zod'
 
+import { GradientPaint } from './paint.ts'
 import { Color } from './primitives.ts'
 
 /** An OpenType feature tag: four printable ASCII characters, such as `liga`. */
@@ -43,10 +44,19 @@ export const textStyleFields = {
   strikethrough: z.boolean(),
   /** Drawn in another case, as CSS text-transform does; the text itself is kept as typed. */
   textCase: z.enum(['none', 'upper', 'lower', 'title']),
-  /** A line along the glyphs' edges, centred on them, drawn over the fill. Width 0 is none. */
-  outline: z.object({ width: z.number().min(0), color: Color }),
+  /**
+   * A line along the glyphs' edges: centred on them and drawn over the fill, or with `under` drawn
+   * under it at twice its width, so it reaches `width` past the letters and leaves their shape whole.
+   * Width 0 is none.
+   */
+  outline: z.object({ width: z.number().min(0), color: Color, under: z.boolean().optional() }),
   /** OpenType features turned on or off by tag; a run's set theirs over the base style's, tag by tag. */
   features: Features,
+  /**
+   * A gradient the characters are painted with in place of `color`, placed in the text layer's box,
+   * so a run's is the part of the box's gradient its characters cover. A hidden one shows the colour.
+   */
+  gradient: GradientPaint,
 }
 
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */
@@ -56,13 +66,14 @@ export function letterSpacingPx(spacing: LetterSpacing, fontSize: number): numbe
 
 /**
  * A style with a run's style over it: each key the run sets replaces the style's, except its
- * features, which it sets tag by tag over the style's.
+ * features, which it sets tag by tag over the style's, and its colour and gradient, which are one
+ * paint: a run that sets its colour and no gradient takes the style's gradient off, so it shows.
  */
-export function withRunStyle<T extends { features?: Features | undefined }>(
-  style: T,
-  run: { readonly [K in keyof T]?: T[K] | undefined },
-): T {
+export function withRunStyle<
+  T extends { features?: Features | undefined; color?: string | undefined; gradient?: GradientPaint | undefined },
+>(style: T, run: { readonly [K in keyof T]?: T[K] | undefined }): T {
   const out = { ...style, ...run }
   if (style.features && run.features) out.features = { ...style.features, ...run.features }
+  if (run.color !== undefined && run.gradient === undefined) delete out.gradient
   return out
 }

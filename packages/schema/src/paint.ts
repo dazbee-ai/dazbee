@@ -46,6 +46,10 @@ export const AngularPaint = z.object({
 })
 export type AngularPaint = z.infer<typeof AngularPaint>
 
+/** A linear, radial or angular gradient: what a text can be painted with in place of its colour. */
+export const GradientPaint = z.discriminatedUnion('type', [LinearPaint, RadialPaint, AngularPaint])
+export type GradientPaint = z.infer<typeof GradientPaint>
+
 /**
  * A crop is the fill's transform: the part of the image stretched over the layer's box, in image
  * pixels. It may reach past the image's edges, and the layer shows nothing there.

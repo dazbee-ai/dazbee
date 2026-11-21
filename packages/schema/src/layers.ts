@@ -255,6 +255,7 @@ export const TextStyle = z.object({
   textCase: textStyleFields.textCase.optional(),
   outline: textStyleFields.outline.optional(),
   features: textStyleFields.features.optional(),
+  gradient: textStyleFields.gradient.optional(),
 })
 export type TextStyle = z.infer<typeof TextStyle>
 

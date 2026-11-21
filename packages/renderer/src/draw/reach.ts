@@ -166,11 +166,17 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
       })
   }
   done()
-  // Outlines reach half their width past the glyphs.
+  // Outlines over the letters reach half their width past the glyphs, those under them all of it.
   const outline =
-    Math.max(props.style.outline?.width ?? 0, ...props.runs.map((r) => r.style.outline?.width ?? 0)) * scale
+    Math.max(...[props.style, ...props.runs.map((r) => r.style)].map((s) => outlineReach(s.outline))) * scale
   const largest = Math.max(props.style.fontSize, ...props.runs.map((r) => r.style.fontSize ?? 0)) * Math.max(1, scale)
-  return outset(box, largest / 2 + outline / 2)
+  return outset(box, largest / 2 + outline)
+}
+
+/** How far a text's outline reaches past its glyphs: half its width over the letters, all of it under them. */
+function outlineReach(outline: TextProps['style']['outline']): number {
+  if (!outline) return 0
+  return outline.under ? outline.width : outline.width / 2
 }
 
 /** A container's own box grown by everything its children draw, each turned as it is drawn. */

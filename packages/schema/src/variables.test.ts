@@ -142,6 +142,25 @@ describe('BINDABLE_PROPERTIES', () => {
     })
   })
 
+  it('reads no text colour while a gradient shows, and writing one takes the gradient off', () => {
+    const { textColor } = BINDABLE_PROPERTIES
+    const gradient = {
+      type: 'linear',
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 0 },
+      stops: [
+        { offset: 0, color: red },
+        { offset: 1, color: white },
+      ],
+    }
+    const swept = { ...textProps, style: { ...textProps.style, gradient } }
+    expect(textColor.read(swept)).toBeUndefined()
+    const hidden = { ...textProps, style: { ...textProps.style, gradient: { ...gradient, visible: false } } }
+    expect(textColor.read(hidden)).toBe(navy)
+    expect(textColor.write(swept, navy).style).toEqual(textProps.style)
+    expect(textColor.write(swept, red).style).toEqual({ ...textProps.style, color: red })
+  })
+
   it('reads and writes the picture of the topmost image fill that shows, keeping its settings and dropping a crop', () => {
     const { image } = BINDABLE_PROPERTIES
     const adjust = { exposure: 10, contrast: 0, saturation: 0, temperature: 0, tint: 0 }

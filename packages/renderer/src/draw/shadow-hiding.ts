@@ -8,6 +8,7 @@ import type { Stroke, TextProps } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
+import { shownGradient } from '../text/text-paint.ts'
 import { boxPath } from './paths.ts'
 import {
   type CastShadow,
@@ -185,12 +186,16 @@ function drawHidden(
   path?.delete()
 }
 
-/** Whether a text draws only opaque colours: its colour and its outline's, and each run's. */
+/** Whether a text draws only opaque colours: its colour or its gradient's, its outline's, and each run's. */
 function opaqueText(props: TextProps) {
-  const colors = [props.style, ...props.runs.map((r) => r.style)].flatMap((style) => [
-    style.color,
-    style.outline && style.outline.width > 0 ? style.outline.color : undefined,
-  ])
+  const colors = [props.style, ...props.runs.map((r) => r.style)].flatMap((style) => {
+    const gradient = shownGradient(style)
+    if (gradient && (gradient.opacity ?? 1) < 1) return ['#00000000']
+    return [
+      ...(gradient ? gradient.stops.map((s) => s.color) : [style.color]),
+      style.outline && style.outline.width > 0 ? style.outline.color : undefined,
+    ]
+  })
   return colors.every((c) => c === undefined || opaqueHex(c))
 }
 

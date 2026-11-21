@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest'
 import { RunStyle, TextStyle } from './layers.ts'
 import { Features, LetterSpacing, letterSpacingPx, withRunStyle } from './typography.ts'
 
+const sweep = {
+  type: 'linear' as const,
+  from: { x: 0, y: 0 },
+  to: { x: 1, y: 0 },
+  stops: [
+    { offset: 0, color: '#FF2E7EFF' },
+    { offset: 1, color: '#3D6BFFFF' },
+  ],
+}
+
 describe('LetterSpacing', () => {
   it('takes pixels or a percentage of the font size, and nothing else', () => {
     expect(LetterSpacing.parse({ unit: 'px', value: -1.5 })).toEqual({ unit: 'px', value: -1.5 })
@@ -14,6 +24,30 @@ describe('LetterSpacing', () => {
   it('is a percentage of 0 in a text style that sets none', () => {
     const style = TextStyle.parse({ fontFamily: 'Inter', fontSize: 20, color: '#000000FF' })
     expect(style.letterSpacing).toEqual({ unit: 'percent', value: 0 })
+  })
+})
+
+describe('gradient', () => {
+  it('takes a linear, radial or angular gradient, in a style and in a run', () => {
+    const style = TextStyle.parse({ fontFamily: 'Inter', fontSize: 20, color: '#000000FF', gradient: sweep })
+    expect(style.gradient).toEqual(sweep)
+    const ring = { type: 'radial', center: { x: 0.5, y: 0.5 }, radius: 0.5, stops: sweep.stops }
+    expect(RunStyle.parse({ gradient: ring })).toEqual({ gradient: ring })
+    const turn = { type: 'angular', center: { x: 0.5, y: 0.5 }, angle: 0, stops: sweep.stops }
+    expect(RunStyle.parse({ gradient: turn })).toEqual({ gradient: turn })
+  })
+
+  it('refuses a solid or an image, which are not gradients', () => {
+    expect(RunStyle.safeParse({ gradient: { type: 'solid', color: '#000000FF' } }).success).toBe(false)
+    const image = { type: 'image', assetId: 'a', fit: 'fill', opacity: 1 }
+    expect(RunStyle.safeParse({ gradient: image }).success).toBe(false)
+  })
+})
+
+describe('outline', () => {
+  it('is over the letters unless it says under', () => {
+    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF' } }).outline?.under).toBeUndefined()
+    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF', under: true } }).outline?.under).toBe(true)
   })
 })
 
@@ -53,6 +87,18 @@ describe('withRunStyle', () => {
     expect(withRunStyle<RunStyle>({ fontSize: 20 }, { features: { smcp: true } })).toEqual({
       fontSize: 20,
       features: { smcp: true },
+    })
+  })
+
+  it('takes a colour and a gradient as one paint: a run that sets either replaces both', () => {
+    const red = '#FF0000FF'
+    const blue = '#0000FFFF'
+    expect(withRunStyle<RunStyle>({ color: blue, gradient: sweep }, { color: red })).toEqual({ color: red })
+    expect(withRunStyle<RunStyle>({ color: blue }, { gradient: sweep })).toEqual({ color: blue, gradient: sweep })
+    expect(withRunStyle<RunStyle>({ color: blue, gradient: sweep }, { fontSize: 30 })).toEqual({
+      color: blue,
+      gradient: sweep,
+      fontSize: 30,
     })
   })
 })

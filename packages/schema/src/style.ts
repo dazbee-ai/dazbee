@@ -10,7 +10,7 @@ import { ContainerBlendMode } from './primitives.ts'
 import { textStyleFields } from './typography.ts'
 import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
-/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs and its OpenType features. Null is none. */
+/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its OpenType features and its gradient. Null is none. */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
   fontWeight: textStyleFields.fontWeight,
@@ -22,6 +22,8 @@ const TextLook = z.object({
   outline: textStyleFields.outline.nullable(),
   /** Left out of a style copied before texts had features, which is none. */
   features: textStyleFields.features.nullable().default(null),
+  /** Left out of a style copied before texts had gradients, which is none. */
+  gradient: textStyleFields.gradient.nullable().default(null),
 })
 
 export const LayerStyle = z.object({
@@ -55,7 +57,7 @@ type Props = Readonly<Record<string, unknown>>
 type TypedProps = Layer extends infer L ? (L extends Layer ? Pick<L, 'type' | 'props'> : never) : never
 
 /** The keys of a text's base style that its look holds as null when the text has none. */
-const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features'])
+const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features', 'gradient'])
 
 /** A layer's style. */
 export function styleOf(layer: Layer): LayerStyle {
@@ -81,6 +83,7 @@ export function styleOf(layer: Layer): LayerStyle {
       paragraphSpacing: layer.props.paragraphSpacing ?? null,
       outline: s.outline ?? null,
       features: s.features ?? null,
+      gradient: s.gradient ?? null,
     }
   }
   for (const property of BindableProperty.options) {
@@ -106,7 +109,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, features, ...look } = style.text
+    const { lineHeight, paragraphSpacing, outline, features, gradient, ...look } = style.text
     const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
       ...Object.fromEntries(kept),
@@ -114,6 +117,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
       ...(lineHeight === null ? {} : { lineHeight }),
       ...(outline === null ? {} : { outline }),
       ...(features === null ? {} : { features }),
+      ...(gradient === null ? {} : { gradient }),
     }
     wanted.paragraphSpacing = paragraphSpacing ?? undefined
   }

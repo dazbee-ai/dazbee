@@ -650,8 +650,8 @@ export function editorTyping({
     const node = editing && session.design().nodes[editing.id]
     if (!editing || !held || node?.type !== 'text') return false
     const { id } = editing
-    const was = editing.composing
-    const edit = readField(store, held, was, state, node.props.text.length, composing ?? undefined)
+    const composed = editing.composing
+    const edit = readField(store, held, composed, state, node.props.text.length, composing ?? undefined)
     if (composing !== null) {
       // A composition emptied at a caret draws nothing.
       if (!edit) {
@@ -664,7 +664,7 @@ export function editorTyping({
     }
     dropComposition()
     // A cancelled composition leaves the text and the range as they were.
-    if (!edit || (was && cancels(held.given, edit))) return true
+    if (!edit || (composed && cancels(held.given, edit))) return true
     const ops = replaceRangeOps(node.props.text, edit.range.start, edit.range.end, edit.typed)
     if (ops.length > 0 && write(() => editText(id, ops))) fitText(id)
     selectText(edit.selection, edit.backward)

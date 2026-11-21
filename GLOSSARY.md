@@ -534,7 +534,7 @@ What an input method is putting together at the caret before it is typed: pinyin
 _Avoid_: Preedit, marked text, IME text
 
 **Stage field**:
-The invisible text area beside the canvas that holds the focus while a text is being typed in, so that what the system types with no key lands in the text: an input method's composition and its commit, the emoji keyboard's pick, dictation, a key that types more than one letter, and a Backspace that came with no key. It holds the text around the caret, with the text’s selection, which a keyboard reads to predict, capitalise, correct and re-open the words before the caret, and none of what it types stays in it: it sends what changes in it, and where its caret moves, to the text. It shows nothing: what an input method composes is drawn in the text (see **Composition**).
+The invisible text area beside the canvas that holds the focus while a text is being typed in, so that what the system types with no key lands in the text: an input method's composition and its commit, the emoji keyboard's pick, dictation, a key that types more than one letter, and a Backspace that came with no key. It holds the text around the caret, with the text’s selection, which a keyboard reads to predict, capitalise, correct and re-open the words before the caret, and it holds nothing the text doesn’t: what changes in it, and where its caret moves, goes to the text. It shows nothing: what an input method composes is drawn in the text (see **Composition**).
 _Avoid_: Hidden input, proxy textarea, IME field
 
 **Hidden layers shown**:

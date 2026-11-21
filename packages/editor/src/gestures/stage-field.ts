@@ -7,7 +7,7 @@
 // its selection moves (`EditorInput.fieldChanged`); what an input method composes is drawn in the
 // text, not in the field. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
-import { type FieldState, holdsAround } from '../text/field-change.ts'
+import { type FieldState, holdsAround, sameSelection } from '../text/field-change.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 
 export interface StageFieldDeps {
@@ -78,9 +78,7 @@ export function editorStageField({
   /** Whether the field's selection moved, with nothing else changed, from where the editor takes it to be. */
   function moved() {
     const now = held()
-    if (!known || now.value !== known.value) return false
-    const turned = now.start < now.end && !now.backward !== !known.backward
-    return now.start !== known.start || now.end !== known.end || turned
+    return known !== null && now.value === known.value && !sameSelection(now, known)
   }
   /**
    * Takes the focus when the stage has it, while a text is edited, or after a key typing took
@@ -123,10 +121,8 @@ export function editorStageField({
     const given = input.fieldText()
     if (!given) return
     if (field.value !== given.value) field.value = given.value
-    const direction = given.backward ? 'backward' : 'forward'
-    const turned = given.start < given.end && (field.selectionDirection === 'backward') !== !!given.backward
-    if (field.selectionStart !== given.start || field.selectionEnd !== given.end || turned)
-      field.setSelectionRange(given.start, given.end, direction)
+    if (!sameSelection(held(), given))
+      field.setSelectionRange(given.start, given.end, given.backward ? 'backward' : 'forward')
     known = held()
   }
   /** Sends what the field holds to the editor: with `composed`, the input event's data while composing. */
@@ -138,6 +134,14 @@ export function editorStageField({
       sending = false
       known = held()
     }
+  }
+  /**
+   * Sends what the field holds outside a composition, then gives it new surrounding text at once
+   * when what it holds can't be kept: its caret near an edge of it.
+   */
+  function sendAndGive() {
+    send(null)
+    give()
   }
   /**
    * Sends the word an input method re-opened as the composition, once no input followed it in its
@@ -256,7 +260,7 @@ export function editorStageField({
       // The browser's own undo or redo, made though it was cancelled: the field is given its text again.
       else if (HISTORY_INPUTS.has(inputType)) give()
       // What a composition's end left, said again after it (Firefox), was read at its end.
-      else if (!COMPOSITION_INPUTS.has(inputType)) send(null)
+      else if (!COMPOSITION_INPUTS.has(inputType)) sendAndGive()
     },
     on,
   )
@@ -273,7 +277,7 @@ export function editorStageField({
   field.addEventListener(
     'selectionchange',
     () => {
-      if (!composing && !sending && editing() && moved()) send(null)
+      if (!composing && !sending && editing() && moved()) sendAndGive()
     },
     on,
   )

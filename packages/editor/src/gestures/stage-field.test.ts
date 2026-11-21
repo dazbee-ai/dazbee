@@ -12,15 +12,19 @@ import { editorDomInput } from './dom-input.ts'
 import { editorStageField } from './stage-field.ts'
 import {
   type FieldEvent,
-  GBOARD_REOPEN,
-  GBOARD_SPACE_CURSOR,
   INPUT_METHOD_SEQUENCES,
   type InputMethodSequence,
-  IOS_AUTOCORRECT,
   JAPANESE_ESCAPE_CHROME_WINDOWS,
   PINYIN_CHROME_WINDOWS,
   writtenField,
 } from './test-input-methods.ts'
+import {
+  GBOARD_AUTOCORRECT,
+  GBOARD_REOPEN,
+  GBOARD_SPACE_CURSOR,
+  IOS_AUTOCORRECT,
+  KEYBOARD_AND_DICTATION_SEQUENCES,
+} from './test-keyboards-and-dictation.ts'
 
 type Listener = (e: never) => void
 
@@ -310,7 +314,7 @@ function bareField() {
 }
 
 describe('editorStageField', () => {
-  for (const sequence of INPUT_METHOD_SEQUENCES) {
+  for (const sequence of [...INPUT_METHOD_SEQUENCES, ...KEYBOARD_AND_DICTATION_SEQUENCES]) {
     it(`types ${sequence.name} once, and gives the field no text while composing`, async () => {
       const { field, replay, typed } = await typingWith(sequence.start)
       replay(sequence)
@@ -448,6 +452,32 @@ describe('editorStageField', () => {
     const design = e.core.session.design()
     replay(GBOARD_SPACE_CURSOR)
     expect(e.core.session.design()).toBe(design)
+  })
+
+  it('lands each correction as one change of the text', async () => {
+    const cases = [
+      [IOS_AUTOCORRECT, ['Hello teh', 'Hello the', 'Hello the ']],
+      [GBOARD_AUTOCORRECT, ['Hello there', 'Hello there ', 'Hello there world', 'Hello there world ']],
+      [GBOARD_REOPEN, ['Hello there ', 'Hello there', 'Hello these', 'Hello these ']],
+    ] as const
+    for (const [sequence, seen] of cases) {
+      const { send, frame, words } = await typingWith(sequence.start)
+      const texts = [words()]
+      for (const event of sequence.events) {
+        send(event)
+        if (event.type === 'keyup') frame()
+        if (texts.at(-1) !== words()) texts.push(words())
+      }
+      expect(texts, sequence.name).toEqual(seen)
+    }
+  })
+
+  it('is given new text at once when its own caret comes near an edge of what it holds', async () => {
+    const { send, fieldNow, typed } = await typingWith(`${'a'.repeat(5_000)}|`)
+    expect(fieldNow()).toBe(`${'a'.repeat(1_000)}|`)
+    send({ type: 'selectionchange', field: `${'a'.repeat(30)}|${'a'.repeat(970)}` })
+    expect(fieldNow()).toBe(`${'a'.repeat(1_000)}|${'a'.repeat(970)}`)
+    expect(typed()).toBe(`${'a'.repeat(4_030)}|${'a'.repeat(970)}`)
   })
 
   it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {

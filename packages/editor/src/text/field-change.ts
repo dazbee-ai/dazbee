@@ -137,7 +137,7 @@ export function toldField(
 ): HeldField {
   const kept = held && keptHeld(store, held, text, range, backward)
   // Kept as it was given, it stands where it was anchored.
-  if (held && kept && !held.kept && sameField(kept, held.given)) return held
+  if (held && kept && !held.kept && kept.value === held.given.value && sameSelection(kept, held.given)) return held
   return heldField(store, id, kept ?? fieldText(text, range, backward), range)
 }
 
@@ -169,8 +169,7 @@ export function fieldChange(given: FieldState, state: FieldState, cover?: TextRa
   const was = given.value
   const now = state.value
   if (was === now && !cover) {
-    const turned = given.start < given.end && !given.backward !== !state.backward
-    if (given.start === state.start && given.end === state.end && !turned) return null
+    if (sameSelection(given, state)) return null
     // Only the selection moved: nothing is replaced.
     return { start: given.start, end: given.start, text: '', caret: state.end }
   }
@@ -283,6 +282,11 @@ export function heldComposition(store: Anchors, id: string, edit: FieldEdit, dat
   return { ...made, span, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
 }
 
+/** Whether two fields' selections stand at the same place, a range running the same way. */
+export function sameSelection(a: FieldState, b: FieldState): boolean {
+  return a.start === b.start && a.end === b.end && (a.start === a.end || !a.backward === !b.backward)
+}
+
 /** Whether the field holding `state` holds an input method's `data` around its caret: a word it re-opened there. */
 export function holdsAround(state: FieldState, data: string): boolean {
   return data !== '' && dataCover(null, state, data) !== null
@@ -292,11 +296,6 @@ export function holdsAround(state: FieldState, data: string): boolean {
 function keptHeld(store: Anchors, held: HeldField, text: string, range: TextRange, backward: boolean) {
   const ends = anchored(store, held.start, held.end)
   return ends && keptField(text, held.kept ?? held.given, ends, range, backward)
-}
-
-/** Whether two fields hold the same value and selection, running the same way. */
-function sameField(a: FieldState, b: FieldState) {
-  return a.value === b.value && a.start === b.start && a.end === b.end && !a.backward === !b.backward
 }
 
 /** The range between two anchors in a text; null once either is gone. */

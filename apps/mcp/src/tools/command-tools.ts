@@ -14,7 +14,7 @@ import {
   VIEW_ONLY,
 } from '@dazbee/doc'
 import { held, NOTE_SHOWN_MS, workedOn } from '@dazbee/editor/agent-tab'
-import { type AgentBatchWarned, runAgentBatchWithWarnings } from '@dazbee/export'
+import { type AgentBatchWarned, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { PRESENCE_NOTE, SYNC_LIMITS } from '@dazbee/schema'
 
@@ -231,8 +231,7 @@ async function agentBatchOn(
     shownAt(open, () => runAgentBatchWithWarnings(ck, withinDesignLimits(tab.session), steps, tab, tab.cache), note),
     answerBy,
   )
-  const { warned, ...result } = done.value
-  return { ...done, value: { ...result, ...(await warned) } }
+  return { ...done, value: await whenWarned(done.value) }
 }
 
 /**

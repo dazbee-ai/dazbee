@@ -17,7 +17,7 @@ import { forkTestStore, openTestStore } from '@dazbee/doc/test-store'
 import { seeded } from '@dazbee/doc/test-walk'
 import { type AgentTab, openAgentTab } from '@dazbee/editor/agent-tab'
 import type { MemorySync } from '@dazbee/editor/test-link'
-import { type AgentWarning, runAgentBatchWithWarnings } from '@dazbee/export'
+import { type AgentWarning, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -376,12 +376,13 @@ describe('batch', () => {
       images: {},
       variables: brandVariables(TEST_BRAND_KIT),
     }
-    const { warned, ...result } = runAgentBatchWithWarnings(await loadCanvasKit(), copy, CARD, {
-      fontsLoaded: () => Promise.resolve(),
-      bytes: () => bytes,
-    })
-    expect(result.kept).toBe(true)
-    const expected = { ...result, ...(await warned) }
+    const expected = await whenWarned(
+      runAgentBatchWithWarnings(await loadCanvasKit(), copy, CARD, {
+        fontsLoaded: () => Promise.resolve(),
+        bytes: () => bytes,
+      }),
+    )
+    expect(expected.kept).toBe(true)
     expect(await agent.json('batch', { steps: CARD })).toEqual(JSON.parse(JSON.stringify(expected)))
   })
 

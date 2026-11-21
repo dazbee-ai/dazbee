@@ -29,4 +29,5 @@ export {
   frameWarnings,
   runAgentBatchWithWarnings,
   type WarningFonts,
+  whenWarned,
 } from './agent-warnings.ts'

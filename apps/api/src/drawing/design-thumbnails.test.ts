@@ -2,6 +2,7 @@
 // (`docker compose up -d --wait postgres`).
 import { describe, expect, it } from 'vitest'
 
+import { restyledTestFont } from '@dazbee/fonts/test-fonts'
 import { DesignSummary, DesignThumbnail, parseDesign, readImageHeader } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
@@ -142,6 +143,29 @@ describe('the memory a design picture takes', { timeout: 180_000 }, () => {
         },
       },
     },
+  })
+
+  it('keeps no picture’s CJK-sized faces once the next is drawn', async () => {
+    const parsed = parseDesign(oneText('Huge', 400))
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    const cover = { frameId: 'sq', width: 400, height: 400 }
+    const font = () => restyledTestFont(fontFile('NotoSans-Regular.ttf'), { padding: HUGE_FACE_BYTES })
+    let most = 0
+    const watch = setInterval(() => (most = Math.max(most, process.memoryUsage().rss)), 5)
+    const before = process.memoryUsage().rss
+    try {
+      // Six pictures, each with its own copy of a 50 MB face, as six designs' pictures read them.
+      for (let i = 0; i < 6; i++)
+        await drawCover(parsed.design, cover, 64, {
+          fonts: [{ family: 'Huge', bytes: font() }],
+          fallbackFamilies: [],
+          images: {},
+        })
+    } finally {
+      clearInterval(watch)
+    }
+    // Kept, each face's file would stay twice, in JavaScript and in CanvasKit: 600 MB.
+    expect(most - before).toBeLessThan(400 * 1024 * 1024)
   })
 
   it('reads one face of a family of CJK-sized faces, and draws two pictures one after the other', async () => {

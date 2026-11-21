@@ -21,7 +21,8 @@ export interface DrawJob {
   /** What the design needs beyond the fonts we ship. */
   resources: ResourceBytes
 }
-export type DrawResult = { id: number; png: Uint8Array } | { id: number; error: string }
+/** The picture, or why it failed; with how many bytes CanvasKit's memory takes after drawing. */
+export type DrawResult = ({ id: number; png: Uint8Array } | { id: number; error: string }) & { memory: number }
 
 const shipped = loadFontFiles()
 let cache: ResourceCache | undefined
@@ -32,15 +33,23 @@ parentPort?.on('message', (job: DrawJob) => {
   queue = queue.then(async () => {
     try {
       const png = await draw(job)
-      parentPort?.postMessage({ id: job.id, png } satisfies DrawResult)
+      parentPort?.postMessage({ id: job.id, png, memory: await memory() } satisfies DrawResult)
     } catch (error) {
       parentPort?.postMessage({
         id: job.id,
         error: error instanceof Error ? error.message : String(error),
+        memory: await memory(),
       } satisfies DrawResult)
     }
   })
 })
+
+/** How many bytes CanvasKit's memory takes: it grows as fonts are registered, and never gives memory back. */
+async function memory(): Promise<number> {
+  // Emscripten's view of the module's memory, which CanvasKit's types leave out.
+  const ck = (await loadCanvasKit()) as unknown as { HEAPU8: Uint8Array }
+  return ck.HEAPU8.length
+}
 
 async function draw(job: DrawJob): Promise<Uint8Array> {
   const ck = await loadCanvasKit()

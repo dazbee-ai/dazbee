@@ -10,21 +10,10 @@ import { boundsOf } from '@dazbee/doc'
 import type { FigmaFrame, FigmaImport, FigmaPage, Rect } from '@dazbee/schema'
 import { SIZE_LIMITS } from '@dazbee/schema'
 
+import { COMPONENT_TYPES, FRAME_TYPES, type LayerBuild, newLayerBuild, type Piece } from './build.ts'
 import { placed } from './geometry.ts'
-import {
-  boxAround,
-  boxLook,
-  COMPONENT_TYPES,
-  convertLayers,
-  type Corners,
-  cornersOf,
-  FRAME_TYPES,
-  type LayerBuild,
-  laysOut,
-  newLayerBuild,
-  type Piece,
-  treeOf,
-} from './layers.ts'
+import { type Corners, cornersOf } from './graphics.ts'
+import { boxAround, boxLook, convertLayers, laysOut, treeOf } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'
 import { bool, boxOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { Reporter } from './report.ts'

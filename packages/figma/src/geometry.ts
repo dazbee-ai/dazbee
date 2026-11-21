@@ -1,7 +1,7 @@
 import type { Box, Point } from '@dazbee/doc'
 import type { Rect } from '@dazbee/schema'
 
-import type { LayerBuild } from './layers.ts'
+import type { LayerBuild } from './build.ts'
 import { boxOf, type FigmaNode } from './read.ts'
 
 /** Layers placed past these are brought within them, so every number the import writes stays finite. */

@@ -4,119 +4,35 @@
 // read from a work list, never by recursion, so a deep file can't run out of stack. What has no
 // layer to become is left out and reported.
 
-import { generateKeyBetween } from 'fractional-indexing'
-import type { z } from 'zod'
-
 import { boundsOf, type Box, type Point } from '@dazbee/doc'
-import { type BooleanOp, type FigmaReportLine, Layer, type LayerTree, type LineEnd, NodeId } from '@dazbee/schema'
+import type { BooleanOp, LayerTree } from '@dazbee/schema'
 
+import {
+  adopt,
+  COMPONENT_TYPES,
+  FRAME_TYPES,
+  layer,
+  type LayerBuild,
+  type LayerInput,
+  type Piece,
+  ROOT,
+  unreadable,
+} from './build.ts'
 import { placedBox } from './geometry.ts'
-import { boxOf, field, type FigmaFields, type FigmaNode, list, num, str } from './read.ts'
-import type { Reporter } from './report.ts'
+import { type Corners, cornersOf, leaf, SHAPE_TYPES } from './graphics.ts'
+import { boxOf, field, type FigmaFields, type FigmaNode, str } from './read.ts'
 
-/** A layer as the import writes it, before the schema fills in its defaults. */
-export type LayerInput = z.input<typeof Layer>
 type BoxProps = Extract<LayerInput, { type: 'box' }>['props']
-/** One radius for every corner, or each corner's from the top left clockwise. */
-export type Corners = number | [number, number, number, number]
 
-/** A layer made from a node: its key and its unturned box in its frame's pixels. */
-export interface Piece {
-  id: string
-  box: Box
-}
-
-/** One frame's layers as they are made, with the keys they are given and the report they add to. */
-export interface LayerBuild {
-  nodes: Record<string, LayerInput>
-  /** Each key made from a Figma node, mapped to the node's Figma id. */
-  figmaIds: Record<string, string>
-  report: Reporter
-  /** A key no layer of the frame has, and no Figma id under it will be given. */
-  fresh(): string
-  /** The key reserved for a node: its Figma id in the link's form, or a fresh one. */
-  keyOf(node: FigmaNode): string
-}
-
-/** Figma node types that become a frame at the top of a page, and a box inside a frame. */
-export const FRAME_TYPES: ReadonlySet<string> = new Set(['FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE'])
-/** Of those, the ones that stop being components when they come in. */
-export const COMPONENT_TYPES: ReadonlySet<string> = new Set(['COMPONENT', 'COMPONENT_SET', 'INSTANCE'])
 /** Layout modes that lay a frame's children out. */
 const LAID_OUT: ReadonlySet<string> = new Set(['HORIZONTAL', 'VERTICAL', 'GRID'])
 
-/** The parent a frame's top layers name until they are placed. */
-const ROOT = 'root'
-const MAX_NAME = 200
-
-/** Node types left out by their type, each with its report line. */
-const LEFT_OUT: ReadonlyMap<string, FigmaReportLine> = new Map([
-  ['SLICE', 'slices'],
-  ['TABLE', 'tables'],
-  ['TABLE_CELL', 'tables'],
-  ['TEXT_PATH', 'text-on-paths'],
-  ['TRANSFORM_GROUP', 'transform-groups'],
-  ['STICKY', 'figjam-items'],
-  ['SHAPE_WITH_TEXT', 'figjam-items'],
-  ['CONNECTOR', 'figjam-items'],
-  ['WASHI_TAPE', 'figjam-items'],
-  ['VECTOR', 'vector-shapes'],
-  ['STAR', 'vector-shapes'],
-  ['REGULAR_POLYGON', 'vector-shapes'],
-  ['TEXT', 'texts'],
-])
-/** Node types a boolean combines. */
-const SHAPE_TYPES: ReadonlySet<string> = new Set([
-  'RECTANGLE',
-  'ELLIPSE',
-  'LINE',
-  'VECTOR',
-  'STAR',
-  'REGULAR_POLYGON',
-  'BOOLEAN_OPERATION',
-])
 const BOOLEAN_OPS: ReadonlyMap<string, BooleanOp> = new Map([
   ['UNION', 'union'],
   ['SUBTRACT', 'subtract'],
   ['INTERSECT', 'intersect'],
   ['EXCLUDE', 'exclude'],
 ])
-const LINE_ENDS: ReadonlyMap<string, LineEnd> = new Map([
-  ['LINE_ARROW', 'arrow'],
-  ['TRIANGLE_FILLED', 'triangle'],
-  ['CIRCLE_FILLED', 'circle'],
-])
-/** Stroke caps that are no line end: the ends of a plain line. */
-const PLAIN_CAPS: ReadonlySet<string> = new Set(['NONE', 'ROUND', 'SQUARE'])
-
-/**
- * A build for one frame's layers. Every node under `within` that has a Figma id, which in the
- * link's form (`:` as `-`, `;` as `_`) is a key no node before it took, keeps that key; the rest
- * are given fresh ones, `n1`, `n2` and so on, skipping the reserved.
- */
-export function newLayerBuild(within: readonly FigmaNode[], report: Reporter): LayerBuild {
-  const reserved = new Map<FigmaNode, string>()
-  // `root` is the parent the tree's top layers name, so no layer is keyed by it.
-  const taken = new Set<string>([ROOT])
-  // In the file's order, so the first of two nodes with one key keeps it.
-  const stack = [...within].reverse()
-  for (let n = stack.pop(); n; n = stack.pop()) {
-    const key = n.id.replaceAll(':', '-').replaceAll(';', '_')
-    if (n.id && !taken.has(key) && NodeId.safeParse(key).success) {
-      reserved.set(n, key)
-      taken.add(key)
-    }
-    for (let i = n.children.length - 1; i >= 0; i--) stack.push(n.children[i] as FigmaNode)
-  }
-  let next = 0
-  const fresh = () => {
-    let key = `n${++next}`
-    while (taken.has(key)) key = `n${++next}`
-    taken.add(key)
-    return key
-  }
-  return { nodes: {}, figmaIds: {}, report, fresh, keyOf: (n) => reserved.get(n) ?? fresh() }
-}
 
 /**
  * The layers `children` become, bottom to top, in a frame whose top left is at `origin` on its
@@ -144,15 +60,6 @@ export function convertLayers(
   }
   const pieces = piecesOf(children, made)
   return { pieces: masked(build, pieces, laidOut), made: children.filter((c) => made.get(c)) }
-}
-
-/** Puts `pieces` inside `parentId`, bottom to top. */
-export function adopt(build: LayerBuild, parentId: string, pieces: readonly Piece[]) {
-  let index: string | null = null
-  for (const piece of pieces) {
-    index = generateKeyBetween(index, null)
-    Object.assign(build.nodes[piece.id] as object, { parentId, index })
-  }
 }
 
 /** A box of `box`'s size and place holding `pieces`, with `props` of its own. */
@@ -184,16 +91,6 @@ export function laysOut(fields: FigmaFields): boolean {
 /** What a frame's box draws of its own: whether it clips, and its corners. */
 export function boxLook(fields: FigmaFields): { clip: boolean; cornerRadius: Corners } {
   return { clip: field(fields, 'clipsContent') !== false, cornerRadius: cornersOf(fields) }
-}
-
-/** A frame's or box's corners: one radius, or each corner's from the top left clockwise. */
-export function cornersOf(fields: FigmaFields): Corners {
-  const radii = list(field(fields, 'rectangleCornerRadii')).map(num)
-  if (radii.length === 4 && radii.every((r) => r !== undefined && r >= 0)) {
-    const [tl, tr, br, bl] = radii as [number, number, number, number]
-    return tl === tr && tr === br && br === bl ? tl : [tl, tr, br, bl]
-  }
-  return Math.max(0, num(field(fields, 'cornerRadius')) ?? 0)
 }
 
 /** The layer a container node becomes from the pieces its children made, or null for none. */
@@ -248,31 +145,6 @@ function descends(build: LayerBuild, n: FigmaNode): boolean {
   return false
 }
 
-/** The layer a node with no layers of its own becomes, or null when it is left out. */
-function leaf(build: LayerBuild, n: FigmaNode, origin: Point): Piece | null {
-  if (!n.id || !n.type || FRAME_TYPES.has(n.type)) return unreadable(build, n)
-  const left = LEFT_OUT.get(n.type)
-  if (left) {
-    build.report.add(left, n)
-    return null
-  }
-  if (n.type !== 'RECTANGLE' && n.type !== 'ELLIPSE' && n.type !== 'LINE') {
-    // A boolean arrives here only when it holds a layer that is no shape, already reported.
-    if (n.type !== 'BOOLEAN_OPERATION') build.report.add('unknown-layers', n)
-    return null
-  }
-  if (n.type === 'ELLIPSE' && !isWhole(n.fields)) {
-    build.report.add('vector-shapes', n)
-    return null
-  }
-  const box = placedBox(build, n, origin)
-  if (!box) return unreadable(build, n)
-  const id = build.keyOf(n)
-  build.nodes[id] = layer(id, 'graphic', n.name, { ...box, shape: shapeOf(build, n) }, n)
-  build.figmaIds[id] = n.id
-  return { id, box }
-}
-
 /**
  * A parent's pieces with its masks as Dazbee draws them. A Figma mask masks every layer in front
  * of it, a later mask and its layers too, where a Dazbee mask stops at the next one; so each mask
@@ -298,58 +170,4 @@ function masked(build: LayerBuild, pieces: Piece[], laidOut: boolean): Piece[] {
     inner = { id, box: fit }
   }
   return [...pieces.slice(0, at[1]), inner as Piece]
-}
-
-/**
- * A layer of `type` named `name` with `props`, a mask when `from` masks the layers in front of it,
- * placed nowhere until it is adopted.
- */
-function layer<T extends LayerInput['type']>(
-  id: string,
-  type: T,
-  name: string,
-  props: object,
-  from?: FigmaNode,
-): LayerInput {
-  const mask =
-    from && field(from.fields, 'isMask') === true
-      ? field(from.fields, 'maskType') === 'LUMINANCE'
-        ? 'luminance'
-        : 'alpha'
-      : undefined
-  return {
-    type,
-    parentId: ROOT,
-    link: id,
-    index: 'a0',
-    name: name.slice(0, MAX_NAME),
-    props: { ...props, ...(mask ? { mask } : {}) },
-  } as LayerInput
-}
-
-function unreadable(build: LayerBuild, n: FigmaNode): null {
-  build.report.add('unreadable-layers', n)
-  return null
-}
-
-/** Whether an ellipse is whole: no arc cut from it and no hole in it. */
-function isWhole(fields: FigmaFields): boolean {
-  const arc = field(fields, 'arcData')
-  if (arc === undefined) return true
-  const start = num(field(arc, 'startingAngle')) ?? 0
-  const end = num(field(arc, 'endingAngle')) ?? 2 * Math.PI
-  const inner = num(field(arc, 'innerRadius')) ?? 0
-  return inner <= 0 && Math.abs(end - start) >= 2 * Math.PI - 1e-6
-}
-
-function shapeOf(build: LayerBuild, n: FigmaNode): Extract<LayerInput, { type: 'graphic' }>['props']['shape'] {
-  if (n.type === 'ELLIPSE') return { kind: 'ellipse' }
-  if (n.type === 'LINE') {
-    const cap = str(field(n.fields, 'strokeCap')) ?? 'NONE'
-    const end = LINE_ENDS.get(cap)
-    if (!end && !PLAIN_CAPS.has(cap)) build.report.add('line-ends', n)
-    return { kind: 'line', start: end ?? 'none', end: end ?? 'none' }
-  }
-  const corners = cornersOf(n.fields)
-  return typeof corners === 'number' ? { kind: 'rect', cornerRadius: corners } : { kind: 'rect', corners }
 }

@@ -259,7 +259,7 @@ The room added after each character of a text, in pixels or as a percentage of t
 _Avoid_: Tracking, kerning (the font's own spacing between two letters)
 
 **Font feature**:
-An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures or small caps; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals.
+An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures, small caps, superscript or subscript; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals. A superscript or subscript the font has no glyph for, for any letter or digit of a run, is made up for the whole run: the font's standard letters, at its superscript or subscript size and raised or lowered by its offset; a paragraph of nothing else keeps the full size's line height. Superscript and subscript turn each other off.
 _Avoid_: OpenType setting, typography option
 
 **Text gradient**:

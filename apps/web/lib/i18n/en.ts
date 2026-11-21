@@ -1096,6 +1096,8 @@ export const en = {
         ss04: 'Stylistic set 4',
         ss05: 'Stylistic set 5',
         smcp: 'Small capitals',
+        sups: 'Superscript',
+        subs: 'Subscript',
       },
       textColour: 'Text colour',
       textAlign: 'Alignment',

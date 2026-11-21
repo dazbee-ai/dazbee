@@ -2,6 +2,7 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { commandCatalog } from '@dazbee/doc'
+import { SYNC_CLOSE } from '@dazbee/schema'
 
 import { type TestClient, type TestServer, testServer } from './test-client.ts'
 
@@ -38,22 +39,31 @@ async function readError(agent: TestClient, uri: string): Promise<McpError> {
   return error as McpError
 }
 
-describe('the resources', () => {
-  it('lists the catalog and the design, and the templates of one command and one frame, each as JSON', async () => {
+describe('RESOURCES', () => {
+  it('lists the catalog and the open design, each as JSON with a description', async () => {
     const agent = await agentOf()
     const { resources } = await agent.client.listResources()
     expect(resources.map(({ uri, mimeType }) => [uri, mimeType])).toEqual([
       ['dazbee://commands', 'application/json'],
       ['dazbee://design', 'application/json'],
     ])
+    for (const listed of resources) expect(listed.description?.length).toBeGreaterThan(40)
+  })
+})
+
+describe('RESOURCE_TEMPLATES', () => {
+  it('lists the templates of one command and one frame, each as JSON with a description', async () => {
+    const agent = await agentOf()
     const { resourceTemplates } = await agent.client.listResourceTemplates()
     expect(resourceTemplates.map(({ uriTemplate, mimeType }) => [uriTemplate, mimeType])).toEqual([
       ['dazbee://command/{name}', 'application/json'],
       ['dazbee://frame/{id}', 'application/json'],
     ])
-    for (const listed of [...resources, ...resourceTemplates]) expect(listed.description?.length).toBeGreaterThan(40)
+    for (const listed of resourceTemplates) expect(listed.description?.length).toBeGreaterThan(40)
   })
+})
 
+describe('readResource', () => {
   it('reads the catalog as describe_command gives each command, without design.restore', async () => {
     const agent = await agentOf()
     const catalog = (await readJson(agent, 'dazbee://commands')) as { name: string }[]
@@ -81,7 +91,14 @@ describe('the resources', () => {
 
   it('answers not found for an unknown resource, a command or frame there is none of, and the design with none open', async () => {
     const agent = await agentOf()
-    for (const uri of ['dazbee://design', 'dazbee://frame/sq', 'dazbee://nothing', 'https://app.test/mcp']) {
+    for (const uri of ['dazbee://design', 'dazbee://frame/sq']) {
+      const error = await readError(agent, uri)
+      expect(error.code).toBe(ErrorCode.InvalidParams)
+      expect(error.message.endsWith(`: Resource ${uri} not found: No design is open; call open_design first`)).toBe(
+        true,
+      )
+    }
+    for (const uri of ['dazbee://nothing', 'https://app.test/mcp']) {
       const error = await readError(agent, uri)
       expect(error.code).toBe(ErrorCode.InvalidParams)
       expect(error.message.endsWith(`: Resource ${uri} not found`)).toBe(true)
@@ -92,6 +109,21 @@ describe('the resources', () => {
       expect(error.code).toBe(ErrorCode.InvalidParams)
       expect(error.message.endsWith(`: Resource ${uri} not found`)).toBe(true)
     }
+  })
+
+  it('answers not found for the design once it is closed for good, saying why', async () => {
+    const agent = await agentOf()
+    await agent.call('open_design', LAUNCH)
+    const sync = server.sync('design-launch')
+    sync.sockets.at(-1)?.closeWith(SYNC_CLOSE.designDeleted)
+    await sync.settle()
+    const error = await readError(agent, 'dazbee://design')
+    expect(error.code).toBe(ErrorCode.InvalidParams)
+    expect(
+      error.message.endsWith(
+        ': Resource dazbee://design not found: The design was deleted, so it is closed; open another with open_design',
+      ),
+    ).toBe(true)
   })
 
   it('counts each read against the access’s calls', async () => {

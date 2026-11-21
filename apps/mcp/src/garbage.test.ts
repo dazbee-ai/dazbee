@@ -1,9 +1,10 @@
 // The garbage walk: no input takes the MCP server down. Each seed opens a server on a design holding every kind of
 // layer and sends, from the seed alone, random arguments to every tool, a random input to a command through
-// run_command and random steps through batch, a line that is not JSON and a JSON-RPC message with a random method and
-// params; after each, ping answers and read_design still reads the open design. GARBAGE_SEEDS runs the seeds it names
+// run_command and random steps through batch, a resource to read, a prompt with random arguments, a line that is not
+// JSON and a JSON-RPC message with a random method and params; after each, ping answers and read_design still reads the open design. GARBAGE_SEEDS runs the seeds it names
 // (`GARBAGE_SEEDS=17`, `3,17` or `1-1000`), so a seed that fails runs alone.
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import type { Prompt } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { commandCatalog, openSession, readDesign } from '@dazbee/doc'
@@ -14,6 +15,7 @@ import { seeded, walkSeeds } from '@dazbee/doc/test-walk'
 import type { Design, DesignInput } from '@dazbee/schema'
 
 import { TOOLS } from './endpoint.ts'
+import { PROMPTS } from './prompts.ts'
 import { type TestClient, type TestServer, testServer, textOf } from './test-client.ts'
 
 /** A JSON Schema, as far as the walk reads one. */
@@ -107,55 +109,6 @@ afterEach(async () => {
   vi.restoreAllMocks()
 })
 
-describe('the garbage walk', () => {
-  it(
-    'answers random arguments, random command inputs and malformed lines, and still answers ping and reads the design after each',
-    async () => {
-      const failed: string[] = []
-      for (const seed of SEEDS) {
-        const problems = await walkRound(seed).catch((error: unknown) => [`threw ${String(error)}`])
-        if (problems.length > 0) failed.push(`seed ${seed}: ${problems.join('; ')}`)
-      }
-      expect(failed, 'run a seed alone with GARBAGE_SEEDS=<seed>').toEqual([])
-    },
-    WALK_TIMEOUT,
-  )
-
-  it(
-    'answers very deep and very long values, and values at the edge of a number',
-    async () => {
-      const round = await openRound(1)
-      const deep = (open: string, close: string, inner = '1') => `${open.repeat(10_000)}${inner}${close.repeat(10_000)}`
-      const long = 'x'.repeat(1_000_000)
-      const call = (name: string, args: string) =>
-        `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"${name}","arguments":${args}}}`
-      const lines = [
-        deep('[', ']', ''),
-        deep('{"a":', '}'),
-        call('run_command', `{"command":"node.update","input":${deep('[', ']', '')}}`),
-        call('run_command', `{"command":"node.update","input":{"ids":${deep('[', ']', '"r1"')}}}`),
-        call('batch', `{"steps":[{"command":"node.create","input":${deep('{"$ref":', '}', '"a"')}}]}`),
-        call('read_frame', `{"frame":"f","fields":${deep('[', ']', '')}}`),
-        `{"jsonrpc":"2.0","id":8,"method":"${long}"}`,
-        call(long, '{}'),
-        call('run_command', JSON.stringify({ command: 'node.rename', input: { id: 'r1', name: long } })),
-        call('list_commands', JSON.stringify({ filter: long })),
-        call('read_frame', '{"frame":"f","maxBytes":1e300}'),
-        call('render_frame', '{"frame":"f","maxSize":1e300}'),
-        call('run_command', '{"command":"node.update","input":{"ids":["r1"],"patch":{"x":1e300,"width":1e300}}}'),
-        call('run_command', '{"command":"frame.addSize","input":{"frameId":"f","width":1e300,"height":1e300}}'),
-        call('run_command', '{"command":"frame.update","input":{"frameId":"f","x":-1e300,"y":1e300}}'),
-        `{"jsonrpc":"2.0","id":1e300,"method":"ping"}`,
-        `{"jsonrpc":"2.0","id":9,"method":"resources/read","params":{"uri":"dazbee://frame/${long}"}}`,
-        `{"jsonrpc":"2.0","id":10,"method":"prompts/get","params":{"name":"make_ad","arguments":{"brand":"${long}","message":"${long}"}}}`,
-      ]
-      for (const line of lines) await sendThen(round, line.slice(0, 80), line)
-      expect(round.problems).toEqual([])
-    },
-    WALK_TIMEOUT,
-  )
-})
-
 /** One round of the walk, from `seed` alone: the problems it found. */
 async function walkRound(seed: number): Promise<string[]> {
   const round = await openRound(seed)
@@ -174,12 +127,16 @@ async function walkRound(seed: number): Promise<string[]> {
       return { command: name, input: commandInput(round, name), ...(random() < 0.5 ? { as: `s${i}` } : {}) }
     })
     await sendThen(round, 'batch', toolCall('batch', { steps }))
-    await sendThen(round, 'a line that is not JSON', randomText(random, 200))
+    await sendThen(round, 'resources/read', rpc('resources/read', { uri: randomUri(round) }))
+    const prompt = pick(random, PROMPTS)
+    const name = random() < 0.9 ? prompt.name : randomText(random, 12)
     await sendThen(
       round,
-      'a random JSON-RPC message',
-      JSON.stringify({ jsonrpc: '2.0', id: 1, method: pick(random, METHODS), params: randomJson(round, 0) }),
+      `prompts/get ${name}`,
+      rpc('prompts/get', { name, arguments: promptArguments(round, prompt) }),
     )
+    await sendThen(round, 'a line that is not JSON', randomText(random, 200))
+    await sendThen(round, 'a random JSON-RPC message', rpc(pick(random, METHODS), randomJson(round, 0)))
     return round.problems
   } finally {
     await server?.endpoint.close()
@@ -210,8 +167,9 @@ async function openRound(seed: number): Promise<Round> {
 
 /**
  * Sends `body` as one request on the round's session, then checks the server still answers: no request may answer
- * 500, a tool call answers a result with content or a JSON-RPC error, then ping answers and read_design reads the
- * design. Each problem goes into the round's, named by `what`.
+ * 500; a call of one of the server's tools with an object of arguments answers a result with content, its failure a
+ * tool error, and any other tool call a result or a JSON-RPC error; then ping answers and read_design reads the design.
+ * Each problem goes into the round's, named by `what`.
  */
 async function sendThen(round: Round, what: string, body: string): Promise<void> {
   const { agent, problems } = round
@@ -230,10 +188,12 @@ async function sendThen(round: Round, what: string, body: string): Promise<void>
   )
   const text = await response.text()
   if (response.status >= 500) problems.push(`${what}: answered ${response.status} ${text.slice(0, 300)}`)
-  if (body.includes('"method":"tools/call"') && response.status === 200) {
+  const call = toolCallOf(body)
+  if (call && response.status === 200) {
     const answer = JSON.parse(text) as { result?: { content?: unknown }; error?: unknown }
-    if (!Array.isArray(answer.result?.content) && answer.error === undefined)
-      problems.push(`${what}: answered neither content nor an error: ${text.slice(0, 300)}`)
+    const answered = Array.isArray(answer.result?.content)
+    if (!answered && (call.known || answer.error === undefined))
+      problems.push(`${what}: answered no result with content: ${text.slice(0, 300)}`)
   }
   try {
     expect(await agent.client.ping()).toEqual({})
@@ -247,7 +207,63 @@ async function sendThen(round: Round, what: string, body: string): Promise<void>
 
 /** A tools/call request for `name` with `args`, as a line. */
 function toolCall(name: string, args: unknown): string {
-  return JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } })
+  return rpc('tools/call', { name, arguments: args })
+}
+
+/** A JSON-RPC request calling `method` with `params`, as a line. */
+function rpc(method: string, params: unknown): string {
+  return JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+}
+
+/**
+ * Whether `body` is a tools/call request, and `known` when it calls one of the server's tools with an object of
+ * arguments, which only a tool error may refuse; undefined for anything else.
+ */
+function toolCallOf(body: string): { known: boolean } | undefined {
+  let message: unknown
+  try {
+    message = JSON.parse(body)
+  } catch {
+    return undefined
+  }
+  const { method, params } = (message ?? {}) as { method?: unknown; params?: { name?: unknown; arguments?: unknown } }
+  if (method !== 'tools/call') return undefined
+  const args = params?.arguments
+  const object = typeof args === 'object' && args !== null && !Array.isArray(args)
+  return { known: object && TOOLS.some(({ name }) => name === params?.name) }
+}
+
+/** A URI to read: one of the four resources' shapes with a real or random name, a broken escape or random text. */
+function randomUri(round: Round): string {
+  const { random, design } = round
+  const names = [
+    ...COMMANDS.map(({ name }) => name),
+    ...Object.keys(design.frames),
+    ...Object.keys(design.nodes),
+    randomText(random, 12),
+    encodeURIComponent(randomText(random, 12)),
+    '%E0%A4%A',
+    '..%2F..',
+    '__proto__',
+  ]
+  return pick(random, [
+    'dazbee://commands',
+    'dazbee://design',
+    `dazbee://command/${pick(random, names)}`,
+    `dazbee://frame/${pick(random, names)}`,
+    `dazbee://${randomText(random, 12)}`,
+    randomText(random, 20),
+  ])
+}
+
+/** A prompt's arguments: mostly its own, each a string, now and then one left out, one not a string or a trap key. */
+function promptArguments(round: Round, prompt: Prompt): Record<string, unknown> {
+  const { random } = round
+  const given = (prompt.arguments ?? [])
+    .filter(() => random() < 0.85)
+    .map(({ name }) => [name, random() < 0.95 ? randomString(round) : randomJson(round, 1)] as const)
+  const extra = random() < 0.15 ? [[pick(random, TRAP_KEYS), randomString(round)] as const] : []
+  return Object.fromEntries([...given, ...extra])
 }
 
 /**
@@ -368,3 +384,52 @@ function randomText(random: () => number, most: number): string {
 function pick<T>(random: () => number, items: readonly T[]): T {
   return items[Math.floor(random() * items.length)] as T
 }
+
+describe('the garbage walk', () => {
+  it(
+    'answers random arguments, random command inputs and malformed lines, and still answers ping and reads the design after each',
+    async () => {
+      const failed: string[] = []
+      for (const seed of SEEDS) {
+        const problems = await walkRound(seed).catch((error: unknown) => [`threw ${String(error)}`])
+        if (problems.length > 0) failed.push(`seed ${seed}: ${problems.join('; ')}`)
+      }
+      expect(failed, 'run a seed alone with GARBAGE_SEEDS=<seed>').toEqual([])
+    },
+    WALK_TIMEOUT,
+  )
+
+  it(
+    'answers very deep and very long values, and values at the edge of a number',
+    async () => {
+      const round = await openRound(1)
+      const deep = (open: string, close: string, inner = '1') => `${open.repeat(10_000)}${inner}${close.repeat(10_000)}`
+      const long = 'x'.repeat(1_000_000)
+      const call = (name: string, args: string) =>
+        `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"${name}","arguments":${args}}}`
+      const lines = [
+        deep('[', ']', ''),
+        deep('{"a":', '}'),
+        call('run_command', `{"command":"node.update","input":${deep('[', ']', '')}}`),
+        call('run_command', `{"command":"node.update","input":{"ids":${deep('[', ']', '"r1"')}}}`),
+        call('batch', `{"steps":[{"command":"node.create","input":${deep('{"$ref":', '}', '"a"')}}]}`),
+        call('read_frame', `{"frame":"f","fields":${deep('[', ']', '')}}`),
+        `{"jsonrpc":"2.0","id":8,"method":"${long}"}`,
+        call(long, '{}'),
+        call('run_command', JSON.stringify({ command: 'node.rename', input: { id: 'r1', name: long } })),
+        call('list_commands', JSON.stringify({ filter: long })),
+        call('read_frame', '{"frame":"f","maxBytes":1e300}'),
+        call('render_frame', '{"frame":"f","maxSize":1e300}'),
+        call('run_command', '{"command":"node.update","input":{"ids":["r1"],"patch":{"x":1e300,"width":1e300}}}'),
+        call('run_command', '{"command":"frame.addSize","input":{"frameId":"f","width":1e300,"height":1e300}}'),
+        call('run_command', '{"command":"frame.update","input":{"frameId":"f","x":-1e300,"y":1e300}}'),
+        `{"jsonrpc":"2.0","id":1e300,"method":"ping"}`,
+        `{"jsonrpc":"2.0","id":9,"method":"resources/read","params":{"uri":"dazbee://frame/${long}"}}`,
+        `{"jsonrpc":"2.0","id":10,"method":"prompts/get","params":{"name":"make_ad","arguments":{"brand":"${long}","message":"${long}"}}}`,
+      ]
+      for (const line of lines) await sendThen(round, line.slice(0, 80), line)
+      expect(round.problems).toEqual([])
+    },
+    WALK_TIMEOUT,
+  )
+})

@@ -242,7 +242,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     server.setRequestHandler(CallToolRequestSchema, async ({ params }, extra) => {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
-      const { context } = extra.authInfo?.extra?.call as Call
+      const context = contextOf(extra)
       const tooFast = tooFastFor(context)
       if (tooFast) return { content: [{ type: 'text', text: tooFast }], isError: true }
       return tool.call(params.arguments, context)
@@ -250,13 +250,17 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     server.setRequestHandler(ListResourcesRequestSchema, () => ({ resources: RESOURCES }))
     server.setRequestHandler(ListResourceTemplatesRequestSchema, () => ({ resourceTemplates: RESOURCE_TEMPLATES }))
     server.setRequestHandler(ReadResourceRequestSchema, async ({ params }, extra) => {
-      const { context } = extra.authInfo?.extra?.call as Call
+      const context = contextOf(extra)
       const tooFast = tooFastFor(context)
       if (tooFast) throw new McpError(ErrorCode.InvalidRequest, tooFast)
       return readResource(params.uri, context)
     })
     server.setRequestHandler(ListPromptsRequestSchema, () => ({ prompts: PROMPTS }))
-    server.setRequestHandler(GetPromptRequestSchema, ({ params }) => promptMessage(params.name, params.arguments))
+    server.setRequestHandler(GetPromptRequestSchema, ({ params }, extra) => {
+      const tooFast = tooFastFor(contextOf(extra))
+      if (tooFast) throw new McpError(ErrorCode.InvalidRequest, tooFast)
+      return promptMessage(params.name, params.arguments)
+    })
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
@@ -327,6 +331,11 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     for (const id of [...sessions.keys()]) await end(id)
     renders.close()
   }
+}
+
+/** What the request a handler answers passes to the tools, resources and prompts it calls. */
+function contextOf(extra: { authInfo?: { extra?: Record<string, unknown> } }): ToolContext {
+  return (extra.authInfo?.extra?.call as Call).context
 }
 
 /** The request's bearer token, or null without one. */

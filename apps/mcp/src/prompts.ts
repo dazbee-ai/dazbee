@@ -23,7 +23,7 @@ const CHECK = `Check as you go, and before you finish:
 - After each batch or run_command, read_frame each frame it changed, with fields ["x", "y", "width", "height", "role"], and check that every layer is where and as big as you meant. A refused batch changed nothing: fix the step it names and send the whole batch again.
 - At the end, render_frame each frame you made or changed and look at the picture, and run check_frame on it. Fix every warning and anything the picture shows wrong, then render and check that frame again, until check_frame lists nothing and the picture looks as meant.
 - Last, read_design: \`waiting\` is 0 and \`notices\` names no change the server refused.
-- Report the ids you made (the design, each frame, and the headline, cta, logo and product layers), and what you could not fix and why.`
+- Report the ids of what you made (a design, frames, layers) and of the frames you changed, and what you could not fix and why.`
 
 /** How a plan reaches the layers it changes without losing the brand kit's bindings. */
 const KEEP_BINDINGS =

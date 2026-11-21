@@ -131,6 +131,12 @@ export function answerBytes(text: string): number {
   return Buffer.byteLength(JSON.stringify(text))
 }
 
+/** Why texts taking `bytes` in an answer can't be sent: they pass what an answer may hold; undefined when they fit. */
+export function tooBigToAnswer(bytes: number): string | undefined {
+  if (bytes <= MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES) return undefined
+  return `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be`
+}
+
 /** A tool error: the sentence, ending with a full stop. */
 function refused(sentence: string): CallToolResult {
   return { content: [{ type: 'text', text: /[.?!]$/.test(sentence) ? sentence : `${sentence}.` }], isError: true }
@@ -165,10 +171,8 @@ function answer(given: unknown): CallToolResult {
     answered instanceof WithPicture ? [answered.value, Buffer.from(answered.png).toString('base64')] : [answered]
   const texts = [typeof value === 'string' ? value : JSON.stringify(value), ...notes]
   const bytes = texts.reduce((sum, text) => sum + answerBytes(text), picture === undefined ? 0 : answerBytes(picture))
-  if (bytes > MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES)
-    return refused(
-      `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be; ask for less`,
-    )
+  const tooBig = tooBigToAnswer(bytes)
+  if (tooBig) return refused(`${tooBig}; ask for less`)
   const image = picture === undefined ? [] : [{ type: 'image' as const, data: picture, mimeType: 'image/png' }]
   return { content: [...image, ...texts.map((text) => ({ type: 'text' as const, text }))] }
 }

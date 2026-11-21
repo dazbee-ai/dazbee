@@ -113,7 +113,7 @@ const BUSY = {
   accessFull: `This agent already has ${MAX_AGENT_TABS_PER_ACCESS} designs open in other sessions; end one of those sessions, or try again once one has ended`,
 }
 
-/** The refusal of a call on the session's design when none is open. */
+/** The refusal of a call on the session's design when none is open, saying why: never opened, or closed for good. */
 export class NoDesignOpen extends ToolRefusal {}
 
 /** At most `max` tabs in the process, and `perAccess` of one access. */
@@ -346,7 +346,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     if (now.kind === 'open') return openDesign(now.tab, now.brandId, now.name, now.kit, [])
     if (now.kind === 'ended') {
       state = { kind: 'none' }
-      throw new ToolRefusal(now.why)
+      throw new NoDesignOpen(now.why)
     }
     if (now.kind === 'none') throw new NoDesignOpen('No design is open; call open_design first')
     state = { kind: 'none' }

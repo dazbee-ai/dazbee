@@ -12,10 +12,9 @@ import {
 import { DEFAULT_TREE_BYTES } from '@dazbee/doc'
 
 import { ApiRefusal, TokenRefused } from './api.ts'
-import { ANSWER_ENVELOPE_BYTES, inMiB, MAX_ANSWER_BYTES } from './limits.ts'
 import { NoDesignOpen, type OpenDesign } from './open-design.ts'
 import { AGENT_CATALOG, describedCommand } from './tools/command-tools.ts'
-import { answerBytes, type ToolContext, ToolRefusal } from './tools/define-tool.ts'
+import { answerBytes, tooBigToAnswer, type ToolContext, ToolRefusal } from './tools/define-tool.ts'
 import { designAnswer, treeWithin } from './tools/design-tools.ts'
 
 const JSON_TYPE = 'application/json'
@@ -23,6 +22,8 @@ const COMMANDS_URI = 'dazbee://commands'
 const DESIGN_URI = 'dazbee://design'
 const COMMAND_PREFIX = 'dazbee://command/'
 const FRAME_PREFIX = 'dazbee://frame/'
+/** The catalog as `dazbee://commands` gives it, written once. */
+const CATALOG_JSON = JSON.stringify(AGENT_CATALOG.map(({ name }) => describedCommand(name)))
 
 /** The resources every session offers, in `resources/list` order. */
 export const RESOURCES: Resource[] = [
@@ -70,7 +71,7 @@ export async function readResource(uri: string, context: ToolContext): Promise<R
     return await contentsOf(uri, context)
   } catch (error) {
     if (error instanceof McpError) throw error
-    if (error instanceof NoDesignOpen) throw notFound(uri)
+    if (error instanceof NoDesignOpen) throw notFound(uri, error.message)
     if (error instanceof ToolRefusal || error instanceof ApiRefusal || error instanceof TokenRefused)
       throw new McpError(ErrorCode.InvalidRequest, error.message)
     console.error(`reading the resource ${uri} failed`, error)
@@ -80,11 +81,7 @@ export async function readResource(uri: string, context: ToolContext): Promise<R
 
 /** What reading `uri` gives, or throws. */
 async function contentsOf(uri: string, context: ToolContext): Promise<ReadResourceResult> {
-  if (uri === COMMANDS_URI)
-    return contents(
-      uri,
-      AGENT_CATALOG.map(({ name }) => describedCommand(name)),
-    )
+  if (uri === COMMANDS_URI) return contents(uri, CATALOG_JSON)
   if (uri === DESIGN_URI) return onOpenDesign(uri, context, designAnswer)
   const command = nameAfter(uri, COMMAND_PREFIX)
   if (command !== undefined) {
@@ -102,19 +99,19 @@ async function contentsOf(uri: string, context: ToolContext): Promise<ReadResour
   throw notFound(uri)
 }
 
-/** The SDK's error for a resource there is none of. */
-function notFound(uri: string): McpError {
-  return new McpError(ErrorCode.InvalidParams, `Resource ${uri} not found`)
+/** The SDK's error for a resource there is none of, with why when there is more to say. */
+function notFound(uri: string, why?: string): McpError {
+  return new McpError(ErrorCode.InvalidParams, `Resource ${uri} not found${why === undefined ? '' : `: ${why}`}`)
 }
 
-/** `value` as the resource's JSON text, then each note as plain text; refused when it would not fit an answer. */
+/**
+ * `value` as the resource's JSON text (`value` itself when it is JSON already), then each note as plain text; refused
+ * when it would not fit an answer.
+ */
 function contents(uri: string, value: unknown, notes: readonly string[] = []): ReadResourceResult {
-  const text = JSON.stringify(value)
-  const bytes = [text, ...notes].reduce((sum, part) => sum + answerBytes(part) + answerBytes(uri), 0)
-  if (bytes > MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES)
-    throw new ToolRefusal(
-      `The resource is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be; read_frame reads less`,
-    )
+  const text = typeof value === 'string' ? value : JSON.stringify(value)
+  const tooBig = tooBigToAnswer([text, ...notes].reduce((sum, part) => sum + answerBytes(part) + answerBytes(uri), 0))
+  if (tooBig) throw new ToolRefusal(`${tooBig}; read_frame reads less`)
   return {
     contents: [
       { uri, mimeType: JSON_TYPE, text },

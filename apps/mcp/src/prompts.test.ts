@@ -21,8 +21,8 @@ const FILLED: Record<string, Record<string, string>> = {
 }
 
 /** A client of a new access, connected to a new server. */
-async function agentOf(): Promise<TestClient> {
-  server = testServer()
+async function agentOf(options?: Parameters<typeof testServer>[0]): Promise<TestClient> {
+  server = testServer(options)
   return server.connect(server.api.addAccess().token())
 }
 
@@ -45,7 +45,7 @@ async function promptError(agent: TestClient, name: string, args: Record<string,
   return error as McpError
 }
 
-describe('the prompts', () => {
+describe('PROMPTS', () => {
   it('lists make_ad, add_sizes and review_frames with their arguments, and which are required', async () => {
     const agent = await agentOf()
     const { prompts } = await agent.client.listPrompts()
@@ -77,7 +77,9 @@ describe('the prompts', () => {
       for (const arg of prompt.arguments ?? []) expect(arg.description?.length).toBeGreaterThan(10)
     }
   })
+})
 
+describe('promptMessage', () => {
   it('puts the arguments in, or their defaults, and ends each plan with the shared check', async () => {
     const agent = await agentOf()
     const ad = await promptText(agent, 'make_ad', { brand: 'Summer', message: 'Half price this weekend' })
@@ -133,5 +135,13 @@ describe('the prompts', () => {
     expect(text).toContain('{brand}')
     const plain = await promptText(agent, 'make_ad', { brand: 'B', message: 'M' })
     expect(text.length - plain.length).toBeLessThan(3 * bomb.length)
+  })
+
+  it('counts each prompt asked for against the access’s calls', async () => {
+    const agent = await agentOf({ limits: { callsBurst: 1 } })
+    await promptText(agent, 'review_frames', {})
+    const error = await promptError(agent, 'review_frames', {})
+    expect(error.code).toBe(ErrorCode.InvalidRequest)
+    expect(error.message).toContain('This agent is calling faster than Dazbee takes; try again in 1 second.')
   })
 })

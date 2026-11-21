@@ -401,6 +401,44 @@ describe('a composition', () => {
       expect(textOf(b)).toBe('Hello these you')
     })
 
+    it('keeps a re-opened word whole where it was when the other tab deletes it and a space beside a word sharing its letters', async () => {
+      for (const picked of ['w399', 'XYZ']) {
+        mem = memorySync({
+          ...WORDS,
+          nodes: {
+            ...WORDS.nodes,
+            words: { ...WORDS.nodes.words, props: { ...WORDS.nodes.words?.props, text: 'w392 w393 w394 MID' } },
+          } as DesignInput['nodes'],
+        })
+        const a = await editorOn()
+        const b = await editorOn('bob')
+        a.core.select(['words'])
+        a.press('goIn')
+        a.modules.typing.caretTo(9)
+        const given = fieldOf(a)
+        a.core.input.fieldChanged(given, 'w393')
+        a.core.redraw()
+        b.core.select(['words'])
+        b.press('goIn')
+        b.modules.typing.selectText({ start: 4, end: 9 })
+        b.keys.press('Backspace')
+        b.keys.press('Escape')
+        await settle()
+        a.core.redraw()
+        // Deleting " w393" reads the same as deleting "w393 ": the word is drawn whole, where it was.
+        expect(drawnText(a), picked).toBe('w392 w393w394 MID')
+        const state = { value: `w392 ${picked} w394 MID`, start: 5 + picked.length, end: 5 + picked.length }
+        a.core.input.fieldChanged(state, picked)
+        a.core.input.fieldChanged(state, null)
+        a.keys.press('Escape')
+        await settle()
+        expect(textOf(a), picked).toBe(`w392 ${picked}w394 MID`)
+        expect(textOf(b), picked).toBe(`w392 ${picked}w394 MID`)
+        for (const e of editors.splice(0)) e.end()
+        for (const close of closing.splice(0)) await close()
+      }
+    })
+
     it('ends typing with nothing landed when the other tab deletes the text', async () => {
       mem = memorySync(WORDS)
       const a = await editorOn()

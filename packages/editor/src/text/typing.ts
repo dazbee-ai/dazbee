@@ -30,7 +30,16 @@ import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
 import { type Composed, composedPlaces, composedText } from './composition.ts'
 import type { FieldState, HeldComposition, HeldField } from './field-change.ts'
-import { cancels, followedField, heldComposition, heldField, readField, toldField } from './field-change.ts'
+import {
+  cancels,
+  composedRange,
+  followedField,
+  heldComposition,
+  heldField,
+  readField,
+  runsBack,
+  toldField,
+} from './field-change.ts'
 import type { RunStyle, TextRange } from './text-edit.ts'
 import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
@@ -321,7 +330,8 @@ export function editorTyping({
   function composedNow(): { composed: Composed; design: Design } | null {
     const composing = editing?.composing
     const node = editing && session.design().nodes[editing.id]
-    const range = composing && anchoredRange(composing.start, composing.end)
+    const held = editing?.field
+    const range = composing && held && node?.type === 'text' && composedRange(store, held, composing, node.props.text)
     if (!editing || !composing || !node || !range) return null
     const key = [session.design(), compositionCount, range.start, range.end, scenes.measure(), resources.bytes()]
     if (lastComposed?.key.every((k, i) => k === key[i])) return lastComposed.made
@@ -329,12 +339,6 @@ export function editorTyping({
     const design = composed && previewedDesign(session.design(), new Map([[editing.id, composed.layer]]))
     lastComposed = composed && design && { key, made: { composed, design } }
     return lastComposed?.made ?? null
-  }
-  /** The range between two anchors in the text being edited; null once it is gone. */
-  function anchoredRange(start: TextAnchor, end: TextAnchor): TextRange | null {
-    const from = store.anchorOffset(start)
-    const to = store.anchorOffset(end)
-    return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
   }
   /** Tells that the composition changed, started or ended: the frames' pictures and what is shown. */
   function compositionChanged() {
@@ -612,12 +616,6 @@ export function editorTyping({
     return true
   }
 
-  /** Whether the selected range of the text being edited runs back from its end, the caret at its start. */
-  function backward() {
-    const caret = editing && store.anchorOffset(editing.caret)
-    const anchor = editing && store.anchorOffset(editing.anchor)
-    return typeof caret === 'number' && typeof anchor === 'number' && caret < anchor
-  }
   /**
    * What the stage field holds for the text being edited, its selection's two ends held in the text:
    * what it holds kept, its selection at the text's, or else the text around the selected range.
@@ -626,7 +624,7 @@ export function editorTyping({
     const at = clipboardText()
     if (!editing || !at) return null
     if (!editing.composing || !editing.field)
-      editing.field = toldField(store, editing.id, editing.field, at.text, at.range, backward())
+      editing.field = toldField(store, editing.id, editing.field, at.text, at.range, runsBack(store, editing))
     return editing.field.given
   }
   /**
@@ -637,7 +635,7 @@ export function editorTyping({
     const at = clipboardText()
     const held = editing?.field
     if (editing && held && !editing.composing && at)
-      editing.field = followedField(store, editing.id, held, at.text, at.range, backward())
+      editing.field = followedField(store, editing.id, held, at.text, at.range, runsBack(store, editing))
   }
   /**
    * The stage field holds `state` now. While `composing`, the change is the composition, drawn

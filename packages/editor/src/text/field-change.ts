@@ -209,8 +209,8 @@ export function fieldChange(given: FieldState, state: FieldState, cover?: TextRa
  * The change the field holding `state` made to what it was given, in a text `length` long whose
  * offsets `ends` are where the given selection's two ends are: an offset before the selection
  * counts back from its start, one after it on from its end. With `place`, where the given value
- * lies in the text now, an offset whose text up to the selection no longer reads as the field was
- * given (another tab edited it) is placed through what changed there instead. With an input
+ * lies in the text now: once another tab edited it, so it no longer reads as the field was given,
+ * each offset is placed through that edit instead (`placedIn`), the change kept whole. With an input
  * method's `data`, the change covers all of it where the field holds it around its caret and it
  * holds the change: the whole of a word a phone keyboard re-opened. Null when nothing changed.
  */
@@ -226,18 +226,13 @@ export function fieldEdit(
   const cover = data ? dataCover(plain, state, data) : null
   const change = cover ? fieldChange(given, state, cover) : plain
   if (!change) return null
-  /** Whether the text from `from` to `to` still reads as the given value from `start` to `end`. */
-  const reads = (from: number, to: number, start: number, end: number) =>
-    asField(place?.text.slice(from, to) ?? '') === given.value.slice(start, end)
+  const edited = place && asField(place.text.slice(place.from, place.to)) !== given.value ? place : null
+  const keep = { start: change.start, end: change.end }
   // A change starts no later than the given selection and ends no earlier.
-  const before = (offset: number) => {
-    const at = Math.max(0, ends.start - (given.start - offset))
-    return !place || reads(at, ends.start, offset, given.start) ? at : placedIn(given.value, place, offset, false)
-  }
-  const after = (offset: number) => {
-    const at = ends.end + offset - given.end
-    return !place || reads(ends.end, at, given.end, offset) ? at : placedIn(given.value, place, offset, true)
-  }
+  const before = (offset: number) =>
+    edited ? placedIn(given.value, edited, offset, false, keep) : Math.max(0, ends.start - (given.start - offset))
+  const after = (offset: number) =>
+    edited ? placedIn(given.value, edited, offset, true, keep) : ends.end + offset - given.end
   const start = Math.min(before(change.start), length)
   const range = { start, end: Math.min(Math.max(start, after(change.end)), length) }
   const typed = paragraphsOf(change.text)
@@ -266,11 +261,33 @@ export function readField(
   text: string,
   data?: string,
 ): FieldEdit | null {
-  const ends = composing ? anchored(store, composing.start, composing.end) : anchored(store, held.start, held.end)
+  const ends = composing ? composedRange(store, held, composing, text) : anchored(store, held.start, held.end)
   const given = composing ? { value: held.given.value, ...composing.span } : held.given
   const value = anchored(store, held.from, held.to)
   const place = value ? { text, from: value.start, to: value.end } : undefined
   return ends && fieldEdit(given, ends, state, text.length, data, place)
+}
+
+/**
+ * The range in `text` a composition held while the field holds `held` replaces: between its two
+ * anchored ends, or, once those no longer hold the text it replaces (another tab's edit there, which
+ * an anchor can't tell from one beside it), placed through that edit with the range kept whole.
+ * Null once an end is gone.
+ */
+export function composedRange(
+  store: Anchors,
+  held: HeldField,
+  composing: HeldComposition,
+  text: string,
+): TextRange | null {
+  const ends = anchored(store, composing.start, composing.end)
+  const value = anchored(store, held.from, held.to)
+  const { span } = composing
+  if (!ends || !value || asField(text.slice(ends.start, ends.end)) === held.given.value.slice(span.start, span.end))
+    return ends
+  const place = { text, from: value.start, to: value.end }
+  const start = placedIn(held.given.value, place, span.start, false, span)
+  return { start, end: Math.max(start, placedIn(held.given.value, place, span.end, true, span)) }
 }
 
 /**
@@ -312,6 +329,13 @@ export function heldComposition(store: Anchors, id: string, edit: FieldEdit, dat
   return { ...made, span, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
 }
 
+/** Whether a selected range, its caret and its other end anchored in a text, runs back from its end, the caret at its start. */
+export function runsBack(store: Anchors, { caret, anchor }: { caret: TextAnchor; anchor: TextAnchor }): boolean {
+  const at = store.anchorOffset(caret)
+  const other = store.anchorOffset(anchor)
+  return at !== null && other !== null && at < other
+}
+
 /** Whether two fields' selections stand at the same place, a range running the same way. */
 export function sameSelection(a: FieldState, b: FieldState): boolean {
   return a.start === b.start && a.end === b.end && (a.start === a.end || !a.backward === !b.backward)
@@ -325,9 +349,11 @@ export function holdsAround(state: FieldState, data: string): boolean {
 /**
  * Where an offset of the given value `value` is in the text now that another tab edited it, at
  * `place`: in what both read alike before or after that edit, where it is there; inside it, after
- * what the other tab put there for a change's start, before it for its end, so both edits stay.
+ * what the other tab put there for a change's start, before it for its end, so both edits stay. An
+ * insert or a delete over repeated letters could stand at more than one place; it is taken to stand
+ * where it doesn't cut `keep`, the range being replaced, in two.
  */
-function placedIn(value: string, place: FieldPlace, offset: number, atEnd: boolean) {
+function placedIn(value: string, place: FieldPlace, offset: number, atEnd: boolean, keep: TextRange) {
   const now = asField(place.text.slice(place.from, place.to))
   let same = 0
   while (same < value.length && same < now.length && value[same] === now[same]) same++
@@ -338,6 +364,22 @@ function placedIn(value: string, place: FieldPlace, offset: number, atEnd: boole
     value.at(-1 - sameEnd) === now.at(-1 - sameEnd)
   )
     sameEnd++
+  const grown = now.length - value.length
+  const size = Math.abs(grown)
+  const longer = grown > 0 ? now : value
+  /** Whether an insert, or a delete, standing at `at` cuts the range kept in two. */
+  const cuts = (at: number) =>
+    grown > 0
+      ? keep.start < at && at < keep.end
+      : at < keep.end && at + size > keep.start && !(at <= keep.start && at + size >= keep.end)
+  let at = same
+  // Only an insert or a delete alone can stand further back, over letters it repeats.
+  if (size > 0 && same + sameEnd === Math.min(value.length, now.length))
+    while (cuts(at) && at > 0 && longer[at - 1] === longer[at - 1 + size]) at--
+  if (at < same && !cuts(at)) {
+    sameEnd += same - at
+    same = at
+  }
   if (offset <= same) return place.from + offset
   if (offset >= value.length - sameEnd) return place.to - (value.length - offset)
   return place.from + same + (atEnd ? 0 : now.length - same - sameEnd)

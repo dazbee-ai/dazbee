@@ -77,10 +77,16 @@ function pretty(paragraph: Paragraph, text: string, width: number, remake: (text
   return null
 }
 
-/** The narrowest width from `word` to `width` that keeps `lines` lines, to half a pixel; the paragraph is laid out at it. */
+/**
+ * The narrowest width from `word` to `width` that keeps `lines` lines, to half a pixel; the paragraph is laid out at
+ * it. SkParagraph lays a paragraph out at its width cut to a whole pixel, so a width under the longest word's rounded
+ * up would break that word: none is tried.
+ */
 function narrowestWidth(paragraph: Paragraph, lines: number, word: number, width: number): number {
-  let lo = word
+  let lo = Math.min(Math.ceil(word), width)
   let hi = width
+  paragraph.layout(lo)
+  if (paragraph.getLineMetrics().length === lines) return lo
   while (hi - lo > BALANCE_STEP) {
     const mid = (lo + hi) / 2
     paragraph.layout(mid)

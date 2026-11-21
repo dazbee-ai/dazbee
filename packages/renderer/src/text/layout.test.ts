@@ -95,6 +95,27 @@ describe('layoutText', () => {
     }
     expect(marker(textOf('12', sups(0, 2)))).toEqual(marker(textOf('12', [])))
   })
+
+  it('never breaks a word balancing lines whose longest word is a fraction of a pixel wide', () => {
+    // At every size the longest word fits the box and sets the narrowest width, most a fraction of a pixel wide.
+    const broken = []
+    for (let size = 60; size <= 110; size++) {
+      const props = TextProps.parse({
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 100,
+        text: 'The Stride Air is here',
+        wrapStyle: 'balance',
+        style: { fontFamily: 'Noto Sans', fontWeight: 800, fontSize: size, color: '#000000FF', textCase: 'upper' },
+      })
+      const laid = layoutText(ck, props, shipped)
+      const starts = (laid.blocks[0]?.paragraph.getLineMetrics() ?? []).map((line) => line.startIndex)
+      laid.delete()
+      if (starts.some((start) => start > 0 && props.text[start - 1] !== ' ')) broken.push(size)
+    }
+    expect(broken).toEqual([])
+  })
 })
 
 describe('paragraphCache', () => {

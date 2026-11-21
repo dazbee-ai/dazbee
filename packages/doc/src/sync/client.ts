@@ -213,12 +213,12 @@ export interface SavedClient {
   /** The next change set id: ids keep rising, so the server tells one sent again from a new one. */
   nextId: number
   /**
-   * The first id given since the tab came back from a saved copy, while the server hasn't welcomed
-   * it since: the copy may be older than what the tab sent, so these ids may be ones the server took
-   * already, and they take new ones once it is heard (rejoin). Kept across later reloads, which come
-   * back to it; absent when no id was given since.
+   * The first id given since the tab came back from its tab copy, while the server hasn't welcomed
+   * it since: the tab copy may be older than what the tab sent, so these ids may be ones the server
+   * took already, and they take new ones once it is heard (rejoin). Kept across later reloads;
+   * absent when no id was given since.
    */
-  madeSince?: number
+  firstIdSinceReload?: number
   queue: SavedQueued[]
   /** The steps the queued change sets apply, which `step` points into. */
   steps: SavedStep[]
@@ -312,12 +312,8 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   let open: OpenStep | undefined
   /** The next change set's id. */
   let nextId = 1
-  /**
-   * After a reload, the first id the first saved copy since the server last welcomed the tab had not
-   * given: an older copy than what the tab sent gives ids the server took already, so the change
-   * sets made since take new ones (rejoin), whichever reload made them.
-   */
-  let madeSince: number | undefined
+  /** Until the server welcomes the tab back, the first id given since its first reload (see `SavedClient.firstIdSinceReload`). */
+  let firstIdSinceReload: number | undefined
   /** Whether a welcome came on the connection that is open. */
   let online = false
   /** The undo history: steps to undo, and steps to redo, the latest last. */
@@ -388,7 +384,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     // After the change sets the server took in for this tab id already, which it would ignore.
     nextId = message.processed.lastChangeSet + 1
     online = true
-    madeSince = undefined
+    firstIdSinceReload = undefined
     undoStack = []
     redoStack = []
     waiting = new WeakMap()
@@ -402,7 +398,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
 
   function restore(saved: SavedClient) {
     ;({ syncId, tabId, secret, access, seq, nextId } = saved)
-    madeSince = saved.madeSince ?? nextId
+    firstIdSinceReload = saved.firstIdSinceReload ?? nextId
     changedFrom = seq
     for (const [key, upTo] of saved.owed) owed.set(key, upTo)
     confirmed = DesignState.fromRecords(saved.confirmed)
@@ -428,7 +424,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       seq,
       confirmed: confirmed.toRecords(),
       nextId,
-      ...(madeSince !== undefined && madeSince < nextId ? { madeSince } : {}),
+      ...(firstIdSinceReload !== undefined && firstIdSinceReload < nextId ? { firstIdSinceReload } : {}),
       queue: queue.map(({ step, ...q }) => (step ? { ...q, step: steps.indexOf(step) } : q)),
       steps: steps.map((step) => step.save()),
       ...(open ? { open: [...open.writes.values()] } : {}),
@@ -971,24 +967,24 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   function rejoin(message: Welcome): Outgoing[] {
     const { lastChangeSet } = message.processed
     // Back from a copy older than what it sent: the change sets made since the first reload take ids the server hasn't seen.
-    if (madeSince !== undefined && lastChangeSet >= madeSince) {
+    if (firstIdSinceReload !== undefined && lastChangeSet >= firstIdSinceReload) {
       nextId = lastChangeSet + 1
       const renumbered = new Map<number, number>()
       for (const q of queue) {
-        if (q.id < madeSince) continue
+        if (q.id < firstIdSinceReload) continue
         renumbered.set(q.id, nextId)
         q.id = nextId++
       }
       if (renumbered.size > 0) answer({ kind: 'renumbered', ids: renumbered })
       // A record owed until a renumbered change set settles is owed until it settles under its new id.
       for (const [key, upTo] of owed) {
-        if (upTo < madeSince) continue
+        if (upTo < firstIdSinceReload) continue
         const ids = [...renumbered].filter(([old]) => old <= upTo).map(([, id]) => id)
         owed.set(key, Math.max(lastChangeSet, ...ids))
       }
     }
     nextId = Math.max(nextId, lastChangeSet + 1)
-    madeSince = undefined
+    firstIdSinceReload = undefined
     // An undo or redo lost in flight is made again: what others wrote meanwhile comes before it.
     for (const q of queue) {
       if (q.sent && q.id > lastChangeSet && (q.kind === 'undo' || q.kind === 'redo')) q.step?.lost()

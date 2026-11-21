@@ -32,7 +32,7 @@ interface TabEntry {
 }
 
 /** The tab's small state, rewritten when it changes. */
-type HeadEntry = Pick<SavedClient, 'access' | 'madeSince' | 'nextId' | 'open' | 'owed'>
+type HeadEntry = Pick<SavedClient, 'access' | 'firstIdSinceReload' | 'nextId' | 'open' | 'owed'>
 
 /** A change set in the queue, with its step when it is the first queued to apply it, else that change set's id. */
 type QueueEntry = Omit<SavedQueued, 'step'> & { step?: SavedStep; stepOf?: number }
@@ -96,7 +96,7 @@ export class TabCopy {
       this.#logBytes += heardBytes
     }
     const head: HeadEntry = { access: saved.access, nextId: saved.nextId, owed: saved.owed }
-    if (saved.madeSince !== undefined) head.madeSince = saved.madeSince
+    if (saved.firstIdSinceReload !== undefined) head.firstIdSinceReload = saved.firstIdSinceReload
     if (saved.open) head.open = saved.open
     next.set('head', head)
     const firstOf = new Map<number, number>()
@@ -172,7 +172,7 @@ export function restoreEntries(entries: Entries): SavedClient {
     seq: log.at(-1)?.seq ?? tab.seq,
     confirmed: confirmed.toRecords(),
     nextId: head.nextId,
-    ...(head.madeSince === undefined ? {} : { madeSince: head.madeSince }),
+    ...(head.firstIdSinceReload === undefined ? {} : { firstIdSinceReload: head.firstIdSinceReload }),
     queue,
     steps,
     ...(head.open ? { open: head.open } : {}),

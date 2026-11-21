@@ -164,6 +164,7 @@ export async function findAsset(
  * the bytes hash to it, are an image CanvasKit decodes or an SVG file read as layers, and makes its
  * thumbnail. Recording the same bytes again gives back the same asset, under the name it has; a
  * second ask while the first is being recorded waits for it rather than reading the file again.
+ * `stored` is the original's bytes when the caller has just stored them, so they aren't read back.
  */
 export function recordAsset(
   db: Db,
@@ -172,11 +173,12 @@ export function recordAsset(
   brandId: string,
   sha256: string,
   name = '',
+  stored?: Uint8Array,
 ): Promise<AssetSummary> {
   const key = `${workspaceId}/${brandId}/${sha256}`
   let recorded = recording.get(key)
   if (!recorded) {
-    recorded = recordOnce(db, storage, workspaceId, brandId, sha256, name).finally(() => recording.delete(key))
+    recorded = recordOnce(db, storage, workspaceId, brandId, sha256, name, stored).finally(() => recording.delete(key))
     recording.set(key, recorded)
   }
   return recorded
@@ -276,7 +278,7 @@ async function assetUses(db: Db, workspaceId: string, brandId: string, id: strin
   return uses
 }
 
-/** Records the original as recordAsset says, reading it once. */
+/** Records the original as recordAsset says, reading it once: from `stored` when given, else from storage. */
 async function recordOnce(
   db: Db,
   storage: Storage,
@@ -284,11 +286,12 @@ async function recordOnce(
   brandId: string,
   sha256: string,
   name: string,
+  stored: Uint8Array | undefined,
 ): Promise<AssetSummary> {
   const existing = await findAsset(db, workspaceId, brandId, { sha256 })
   if (existing) return existing
   const key = originalKey(workspaceId, sha256)
-  const bytes = await storage.get(key)
+  const bytes = stored ?? (await storage.get(key))
   if (!bytes) throw new InvalidUpload('Nothing was uploaded for that SHA-256')
   const refuse = await checkUpload(storage, key, bytes, sha256, InvalidUpload)
   const image = readImageHeader(bytes)

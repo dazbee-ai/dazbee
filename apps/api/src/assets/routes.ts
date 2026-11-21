@@ -1,11 +1,22 @@
-// The routes of a brand's asset library, its images and SVG files: uploading and recording them, finding
-// them by name and tag, naming and tagging them, their thumbnails, and deleting one nothing shows.
+// The routes of a brand's asset library, its images and SVG files: uploading and recording them, adding one
+// from an outside link, finding them by name and tag, naming and tagging them, their thumbnails, and deleting
+// one nothing shows.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
-import { type AssetInUse, type AssetLink, RecordAsset, type SignedLink, StartUpload, UpdateAsset } from '@dazbee/schema'
+import {
+  AddAssetFromUrl,
+  type AssetInUse,
+  type AssetLink,
+  RecordAsset,
+  type SignedLink,
+  StartUpload,
+  UpdateAsset,
+} from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
+import { requestLimit } from '../admin/waiting-list.ts'
+import type { SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
 import { originalKey, signedLink } from '../storage-keys.ts'
 import {
@@ -18,9 +29,23 @@ import {
   startUpload,
   updateAsset,
 } from './assets.ts'
+import { addAssetFromUrl } from './from-url.ts'
 
-export function assetRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<Env> {
+export function assetRoutes({
+  db,
+  storage,
+  outsideFetch,
+  fromUrlPerHour,
+}: {
+  db: Db
+  storage: Storage
+  /** How the safe fetch reaches outside sites. */
+  outsideFetch: SafeFetchSettings
+  /** The pictures from links a member may add in an hour, themselves and their agents together. */
+  fromUrlPerHour: number
+}): Hono<Env> {
   const app = new Hono<Env>()
+  const fromUrl = requestLimit({ perWindow: fromUrlPerHour })
 
   // Images: uploads go straight to storage through a signed URL, then are recorded here (#35).
   // The asset library (#52) finds them by name and tag: ?q=summer sale.
@@ -43,6 +68,21 @@ export function assetRoutes({ db, storage }: { db: Db; storage: Storage }): Hono
     const input = await body(c.req.raw, RecordAsset)
     if (input instanceof Response) return input
     return c.json(await recordAsset(db, storage, workspaceId, c.var.brand.id, input.sha256, input.name), 201)
+  })
+
+  // A picture from an outside https link, fetched by the API and recorded as an upload is; an agent's way in.
+  app.post('/brands/:brandId/assets/from-url', requireWriter, async (c) => {
+    const { workspaceId } = c.var.membership
+    const input = await body(c.req.raw, AddAssetFromUrl)
+    if (input instanceof Response) return input
+    if (!fromUrl.take(c.var.session.userId))
+      return c.json(
+        error(
+          `This member has added as many pictures from links as they may in an hour (${fromUrlPerHour}); try again later`,
+        ),
+        429,
+      )
+    return c.json(await addAssetFromUrl(db, storage, outsideFetch, workspaceId, c.var.brand.id, input), 201)
   })
 
   app.get('/brands/:brandId/assets/:assetId', async (c) => {

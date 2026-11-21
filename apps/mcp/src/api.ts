@@ -4,6 +4,7 @@
 import { z } from 'zod'
 
 import {
+  type AddAssetFromUrl,
   AgentMe,
   ApiError,
   AssetLink,
@@ -13,6 +14,7 @@ import {
   DesignSummary,
   FontFamily,
   FontLink,
+  FROM_URL_TIMEOUT_MS,
   MAX_UPLOAD_BYTES,
   SyncToken,
 } from '@dazbee/schema'
@@ -30,6 +32,8 @@ export interface AgentApi {
   designs(brandId: string): Promise<DesignSummary[]>
   assets(brandId: string, query?: string): Promise<AssetSummary[]>
   createDesign(brandId: string, name: string): Promise<DesignSummary>
+  /** The asset of the picture at an https link, which the API fetches and adds to the brand's library. */
+  addAssetFromUrl(brandId: string, input: AddAssetFromUrl): Promise<AssetSummary>
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
@@ -67,6 +71,11 @@ export class TokenRefused extends Error {
 
 /** How long a call to the API may take before it counts as failed. */
 const API_TIMEOUT_MS = 30_000
+/**
+ * How long adding a picture from a link may take: the API's time to fetch it, then 30 seconds for its checks and
+ * decode, within the endpoint's `CALL_TIMEOUT_MS`.
+ */
+const FROM_URL_CALL_MS = FROM_URL_TIMEOUT_MS + 30_000
 
 /**
  * The access `token` belongs to, or null when the API refuses it (a token that is not a live agent access
@@ -88,9 +97,15 @@ export async function agentOf(settings: ApiSettings, token: string): Promise<Age
 export function agentApi(settings: ApiSettings, token: string, workspaceId: string, onRefused: () => void): AgentApi {
   const brands = `/workspaces/${encodeURIComponent(workspaceId)}/brands`
   const brandPath = (brandId: string) => `${brands}/${encodeURIComponent(brandId)}`
-  const ask = async <T>(method: string, path: string, shape: z.ZodType<T>, body?: unknown): Promise<T> => {
+  const ask = async <T>(
+    method: string,
+    path: string,
+    shape: z.ZodType<T>,
+    body?: unknown,
+    timeoutMs = API_TIMEOUT_MS,
+  ): Promise<T> => {
     try {
-      return await call(settings, token, method, path, shape, body)
+      return await call(settings, token, method, path, shape, body, timeoutMs)
     } catch (error) {
       if (error instanceof TokenRefused) onRefused()
       throw error
@@ -108,6 +123,8 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     assets: (brandId, query = '') =>
       ask('GET', `${brandPath(brandId)}/assets?${new URLSearchParams({ q: query })}`, AssetSummary.array()),
     createDesign: (brandId, name) => ask('POST', `${brandPath(brandId)}/designs`, DesignSummary, { name }),
+    addAssetFromUrl: (brandId, input) =>
+      ask('POST', `${brandPath(brandId)}/assets/from-url`, AssetSummary, input, FROM_URL_CALL_MS),
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
@@ -121,7 +138,10 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
   }
 }
 
-/** One call to the API, its answer read with `shape`; it throws `TokenRefused` on a 401 and `ApiRefusal` on any other error. */
+/**
+ * One call to the API, its answer read with `shape`, failing past `timeoutMs`; it throws `TokenRefused` on a 401
+ * and `ApiRefusal` on any other error.
+ */
 async function call<T>(
   settings: ApiSettings,
   token: string,
@@ -129,6 +149,7 @@ async function call<T>(
   path: string,
   shape: z.ZodType<T>,
   body?: unknown,
+  timeoutMs = API_TIMEOUT_MS,
 ): Promise<T> {
   const request = new Request(`${settings.url}${path}`, {
     method,
@@ -137,7 +158,7 @@ async function call<T>(
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   let response: Response
   try {

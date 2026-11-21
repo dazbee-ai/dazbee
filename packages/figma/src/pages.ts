@@ -10,6 +10,7 @@ import { boundsOf } from '@dazbee/doc'
 import type { FigmaFrame, FigmaImport, FigmaPage, Rect } from '@dazbee/schema'
 import { SIZE_LIMITS } from '@dazbee/schema'
 
+import { placed } from './geometry.ts'
 import {
   boxAround,
   boxLook,
@@ -22,7 +23,6 @@ import {
   laysOut,
   newLayerBuild,
   type Piece,
-  placed,
   treeOf,
 } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'

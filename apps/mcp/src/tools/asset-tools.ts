@@ -9,7 +9,7 @@ import { type AssetSummary, isVectorAsset, RecordId, type Rect } from '@dazbee/s
 import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
 import { Note, writing } from './command-tools.ts'
-import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
+import { defineTool, type Tool, type ToolContext, ToolRefusal, withNote } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
 import {
   type AssetPlacing,
@@ -99,9 +99,4 @@ async function imageSteps(
     told: binding ? { bound: binding.ref } : {},
     leftOut: [],
   }
-}
-
-/** `value`, told with `note` after the notes it has. */
-function withNote(value: unknown, note: string): WithNotes {
-  return value instanceof WithNotes ? new WithNotes(value.value, [...value.notes, note]) : new WithNotes(value, [note])
 }

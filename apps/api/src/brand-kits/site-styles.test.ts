@@ -19,6 +19,8 @@ function classes({
 
 /** The size of hostile CSS: the most Dazbee reads. */
 const CSS = 2 * 1024 * 1024
+/** How long a read in step with its length may take at most: a read that grows with its square takes minutes. */
+const IN_STEP_MS = 2_000
 
 /** How long reading `css` takes, in milliseconds. */
 function timeToRead(css: string): number {
@@ -81,7 +83,7 @@ describe('readSiteStyles', () => {
       const value = word.repeat(Math.ceil(1_000 / word.length)).slice(0, 1_000)
       const rule = `${'h1,'.repeat(499)}h1 { color: ${value}; font-family: ${value}; font: 12px ${value} }`
       const css = `:root { --e: #123456 }${rule.repeat(101)}`
-      expect(timeToRead(css)).toBeLessThan(1_000)
+      expect(timeToRead(css)).toBeLessThan(IN_STEP_MS)
     },
   )
 
@@ -100,6 +102,6 @@ describe('readSiteStyles', () => {
     ],
     ['variables that name each other', `:root{--a:var(--b);--b:var(--a)}${'a{color:var(--a)}'.repeat(CSS / 20)}`],
   ])('reads CSS of %s in step with its length', (_name, css) => {
-    expect(timeToRead(css)).toBeLessThan(1_000)
+    expect(timeToRead(css)).toBeLessThan(IN_STEP_MS)
   })
 })

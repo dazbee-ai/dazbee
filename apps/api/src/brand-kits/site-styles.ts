@@ -54,6 +54,8 @@ interface Block {
 /** What the reading collects across the sheets. */
 interface Collected {
   declarations: Declaration[]
+  /** The selectors of each rule's prelude read so far, up to `MAX_KNOWN_PRELUDES`. */
+  selectors: Map<string, Selected[]>
   variables: Map<string, string>
   faces: Map<string, number[]>
   googleFonts: GoogleFontFamily[]
@@ -67,7 +69,8 @@ const MAX_VARIABLES = 5_000
 const MAX_VALUE = 1_000
 /** How many of a rule's selectors are read. */
 const MAX_SELECTORS = 20
-/** How many values' colours are kept to be read again. */
+/** How many rules' preludes, and how many values' colours, are kept to be read again. */
+const MAX_KNOWN_PRELUDES = 5_000
 const MAX_READ_VALUES = 5_000
 /** A family's name as a site may give it: at most 40 letters, digits, spaces, dots, dashes and underscores. */
 const FAMILY_NAME = /^[\p{L}\p{N} ._-]{1,40}$/u
@@ -106,11 +109,12 @@ const FONT_SIZE =
 /** The CSS of the page's style sheets and style blocks, read with how the page's elements use classes. */
 export function readSiteStyles(sheets: readonly string[], classes: PageClasses): SiteStyles {
   const declarations: Declaration[] = []
+  const selectors = new Map<string, Selected[]>()
   const variables = new Map<string, string>()
   const faces = new Map<string, number[]>()
   const googleFonts: GoogleFontFamily[] = []
   for (const sheet of sheets)
-    readSheet(withoutComments(sheet), classes, { declarations, variables, faces, googleFonts })
+    readSheet(withoutComments(sheet), classes, { declarations, selectors, variables, faces, googleFonts })
 
   const used = new Map<Color, number>()
   const page: Record<'background' | 'text', { color: Color; rank: number } | null> = { background: null, text: null }
@@ -172,8 +176,13 @@ function readSheet(css: string, classes: PageClasses, into: Collected) {
   let deeper = 0
   let start = 0
   const segment = (end: number) => css.slice(start, end).trim()
+  const special = /["'{};(]/g
   for (let at = 0; at < css.length; at++) {
-    const char = css[at]
+    special.lastIndex = at
+    const found = special.exec(css)
+    if (!found) break
+    at = found.index
+    const char = found[0]
     if (char === '"' || char === "'") {
       at = quoteEnd(css, at)
       continue
@@ -188,7 +197,7 @@ function readSheet(css: string, classes: PageClasses, into: Collected) {
     start = at + 1
     if (char === '{') {
       if (deeper > 0 || stack.length >= MAX_DEPTH) deeper++
-      else stack.push(blockOf(text, stack, classes))
+      else stack.push(blockOf(text, stack, classes, into.selectors))
     } else if (char === '}') {
       if (deeper > 0) {
         deeper--
@@ -210,8 +219,13 @@ function readSheet(css: string, classes: PageClasses, into: Collected) {
   }
 }
 
-/** The block a prelude opens, inside the blocks open now. */
-function blockOf(prelude: string, stack: readonly Block[], classes: PageClasses): Block {
+/** The block a prelude opens, inside the blocks open now; `known` holds the selectors of preludes read before. */
+function blockOf(
+  prelude: string,
+  stack: readonly Block[],
+  classes: PageClasses,
+  known: Map<string, Selected[]>,
+): Block {
   const parent = stack.at(-1)
   const skipped = Boolean(parent?.skipped)
   if (prelude.startsWith('@')) {
@@ -219,16 +233,16 @@ function blockOf(prelude: string, stack: readonly Block[], classes: PageClasses)
       return { kind: 'font-face', selectors: [], skipped, face: { family: '', weights: [] } }
     return { kind: 'at', selectors: [], skipped: skipped || UNSHOWN_AT_RULE.test(prelude), face: null }
   }
-  return {
-    kind: 'rule',
-    selectors: merged(
+  let selectors = known.get(prelude)
+  if (!selectors) {
+    selectors = merged(
       splitOutside(prelude.slice(0, MAX_VALUE), ',')
         .slice(0, MAX_SELECTORS)
         .flatMap((selector) => targetOf(selector, classes)),
-    ),
-    skipped,
-    face: null,
+    )
+    if (known.size < MAX_KNOWN_PRELUDES) known.set(prelude, selectors)
   }
+  return { kind: 'rule', selectors, skipped, face: null }
 }
 
 /** Keeps a declaration of the block it is in: a variable, a `@font-face` descriptor, or a property of a rule. */

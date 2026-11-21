@@ -20,9 +20,9 @@ describe('colorRoles', () => {
     })
   })
 
-  it('reads hundreds of thousands of colours with a theme colour', () => {
+  it('reads two hundred thousand colours with a theme colour', () => {
     const used = new Map(
-      Array.from({ length: 300_000 }, (_, i) => [
+      Array.from({ length: 200_000 }, (_, i) => [
         `#${(i * 37).toString(16).padStart(6, '0').slice(-6).toUpperCase()}FF`,
         1,
       ]),

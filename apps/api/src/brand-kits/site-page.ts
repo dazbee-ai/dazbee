@@ -84,6 +84,11 @@ const MAX_STYLE_ATTRIBUTES = 500
 const MAX_LINKS = 16
 /** How deep the links that may hold the logo are followed. */
 const MAX_LINK_DEPTH = 8
+/** What runs between a tag's attributes, an attribute's name, spaces, and a value without quotes. */
+const GAP = /[\s/]+/y
+const ATTRIBUTE_NAME = /[^\s=>/]+/y
+const SPACES = /\s+/y
+const UNQUOTED_VALUE = /[^\s>]+/y
 /** The elements whose content is text, never tags. */
 const RAW_TEXT = new Set(['script', 'style', 'textarea', 'title', 'noscript', 'template', 'iframe', 'xmp'])
 /** A page title that says the site is checking for robots. */
@@ -230,7 +235,7 @@ function endOf(html: string, marker: string, from: number): number {
 /** The lower-case tag name at `from`, or '' when no name starts there. */
 function tagName(html: string, from: number): string {
   let end = from
-  while (end < html.length && end - from < 32 && /[a-zA-Z0-9-]/.test(html[end] ?? '')) end++
+  while (end < html.length && end - from < 32 && /[a-zA-Z0-9-]/.test(html.charAt(end))) end++
   if (end === from || !/[a-zA-Z]/.test(html[from] ?? '')) return ''
   return html.slice(from, end).toLowerCase()
 }
@@ -240,20 +245,16 @@ function readAttributes(html: string, from: number): { attributes: Attributes; e
   const attributes: Attributes = new Map()
   let at = from
   while (at < html.length) {
-    const char = html[at] ?? ''
-    if (char === '>') return { attributes, end: at + 1 }
-    if (/[\s/]/.test(char)) {
-      at++
-      continue
-    }
+    at = past(html, GAP, at)
+    if (at >= html.length) break
+    if (html[at] === '>') return { attributes, end: at + 1 }
     const nameStart = at
-    while (at < html.length && !/[\s=>/]/.test(html[at] ?? '')) at++
+    at = past(html, ATTRIBUTE_NAME, at)
     const name = html.slice(nameStart, Math.min(at, nameStart + 64)).toLowerCase()
-    while (at < html.length && /\s/.test(html[at] ?? '')) at++
+    at = past(html, SPACES, at)
     let value = ''
     if (html[at] === '=') {
-      at++
-      while (at < html.length && /\s/.test(html[at] ?? '')) at++
+      at = past(html, SPACES, at + 1)
       const quote = html[at]
       if (quote === '"' || quote === "'") {
         const close = html.indexOf(quote, at + 1)
@@ -262,13 +263,19 @@ function readAttributes(html: string, from: number): { attributes: Attributes; e
         at = end + 1
       } else {
         const start = at
-        while (at < html.length && !/[\s>]/.test(html[at] ?? '')) at++
+        at = past(html, UNQUOTED_VALUE, at)
         value = html.slice(start, Math.min(at, start + MAX_VALUE))
       }
     }
     if (name && !attributes.has(name) && attributes.size < MAX_ATTRIBUTES) attributes.set(name, decodeEntities(value))
   }
   return { attributes, end: html.length }
+}
+
+/** Where the run of characters `pattern` matches at `at` ends; `at` when none is there. */
+function past(html: string, pattern: RegExp, at: number): number {
+  pattern.lastIndex = at
+  return pattern.test(html) ? pattern.lastIndex : at
 }
 
 /** Where the element `name`'s closing tag starts, from `from`; the markup's end when it has none. */

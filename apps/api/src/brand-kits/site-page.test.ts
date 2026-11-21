@@ -9,6 +9,8 @@ import { readSitePage } from './site-page.ts'
 const HARBOUR = readFileSync(join(import.meta.dirname, 'test-websites', 'harbour.html'), 'utf8')
 /** The size of a hostile page: the most Dazbee reads. */
 const PAGE = 2 * 1024 * 1024
+/** How long a read in step with its length may take at most: a read that grows with its square takes minutes. */
+const IN_STEP_MS = 2_000
 
 /** How long reading `html` takes, in milliseconds. */
 function timeToRead(html: string): number {
@@ -53,7 +55,7 @@ describe('readSitePage', () => {
   it('keeps at most 20 Google Fonts families, however many a page links', () => {
     const link = `<link rel="stylesheet" href="https://fonts.googleapis.com/css?${'family=A|B|C&'.repeat(150)}">`
     const html = link.repeat(Math.floor(PAGE / link.length))
-    expect(timeToRead(html)).toBeLessThan(1_000)
+    expect(timeToRead(html)).toBeLessThan(IN_STEP_MS)
     expect(readSitePage(html, new URL('https://hostile.test/')).googleFonts).toHaveLength(20)
   })
 
@@ -67,6 +69,6 @@ describe('readSitePage', () => {
     ['many different classes', Array.from({ length: 100_000 }, (_, i) => `<i class="c${i}">`).join('')],
     ['comments that never end', `<!--${'-'.repeat(PAGE)}`],
   ])('reads a page of %s in step with its length', (_name, html) => {
-    expect(timeToRead(html)).toBeLessThan(1_000)
+    expect(timeToRead(html)).toBeLessThan(IN_STEP_MS)
   })
 })

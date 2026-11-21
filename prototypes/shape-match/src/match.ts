@@ -31,7 +31,7 @@ import { fitGradient, innerPixels } from './gradient.ts'
 import { colourName, shapeName } from './names.ts'
 import { type Img, over, resize } from './pixels.ts'
 import { type Region, splitRegions } from './regions.ts'
-import { type Score, score } from './score.ts'
+import { pairDeltaE, type Score, score } from './score.ts'
 import { contours, tracePath } from './trace.ts'
 
 export interface BrandColour {
@@ -219,6 +219,23 @@ export function matchBlock(ck: CanvasKit, img: Img, cfg: Config, brand: BrandCol
     if (!sc2.same)
       return done('picture', `looks different: SSIM ${sc2.ssim.toFixed(3)}, ΔE ${sc2.deltaE.toFixed(2)}`, ls, sc2, ps)
     if (cfg.level === 'medium' && sc2.deMap) {
+      // Painted scenes and photos come back as many free shapes over much of the block,
+      const paths = ls.filter((l) => (l.props.shape as { kind: string }).kind === 'path')
+      if (paths.length >= 4) {
+        const drawn = drawLayers(ck, paths, img.w, img.h, s)
+        let cover = 0
+        for (let i = 0; i < drawn.w * drawn.h; i++) cover += drawn.d[i * 4 + 3]!
+        const share = cover / (drawn.w * drawn.h)
+        // Or ten layers or more, six of them free shapes: more than a designer would pick.
+        if (share >= 0.3 || (ls.length >= 10 && paths.length >= 6))
+          return done(
+            'picture',
+            `a photo or painted scene: ${paths.length} free shapes over ${Math.round(100 * share)}%`,
+            ls,
+            sc2,
+            ps,
+          )
+      }
       const lost = worstPart(
         blurredDeltaE(img, drawLayers(ck, ls, img.w, img.h, 1, snapped.variables)),
         regions,
@@ -934,10 +951,7 @@ function blurredDeltaE(a: Img, b: Img): Float32Array {
     const pa = blur1(over(a, bg), a.w, a.h)
     const pb = blur1(over(b, bg), a.w, a.h)
     for (let i = 0; i < n; i++) {
-      const d = deltaE00(
-        rgbToLab(pa[i * 3]!, pa[i * 3 + 1]!, pa[i * 3 + 2]!),
-        rgbToLab(pb[i * 3]!, pb[i * 3 + 1]!, pb[i * 3 + 2]!),
-      )
+      const d = pairDeltaE(pa[i * 3]!, pa[i * 3 + 1]!, pa[i * 3 + 2]!, pb[i * 3]!, pb[i * 3 + 1]!, pb[i * 3 + 2]!)
       if (d > out[i]!) out[i] = d
     }
   }
@@ -966,7 +980,7 @@ function blur1(src: Float32Array, w: number, h: number): Float32Array {
   return out
 }
 
-/** The worst region's mean ΔE, over regions of 0.5 % of the block or more. */
+/** The worst region's mean ΔE at full size, over regions of 0.5 % of the block or more. */
 function worstPart(deMap: Float32Array, regions: Region[], img: Img, s: number) {
   let worst = { de: 0, share: 0 }
   const fw = Math.ceil(img.w * s - 1e-9)
@@ -978,9 +992,7 @@ function worstPart(deMap: Float32Array, regions: Region[], img: Img, s: number) 
     let n = 0
     for (let y = 0; y < img.h; y++)
       for (let x = 0; x < img.w; x++) {
-        const fx = Math.min(fw - 1, Math.floor(x * s))
-        const fy = Math.floor(y * s)
-        if (r.mask[fy * fw + fx]! < 0.5) continue
+        if (r.mask[Math.floor(y * s) * fw + Math.min(fw - 1, Math.floor(x * s))]! < 0.5) continue
         e += deMap[y * img.w + x]!
         n++
       }

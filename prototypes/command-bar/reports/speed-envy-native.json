@@ -1,0 +1,53 @@
+{
+  "cmd": "python bench_native.py --weights ../models/r16-head2/L20.cact --threads 4 --n 60",
+  "note": "envy (Ryzen 7 7700, 8 cores) in WSL, native engine, 4 threads, 60 test requests a run",
+  "repeats": 3,
+  "mean_ms_median": 95,
+  "mean_ms_min": 93,
+  "mean_ms_max": 96,
+  "p95_ms_median": 126,
+  "runs": [
+    {
+      "weights": "r16-head2/L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 3.6,
+      "mean_ms": 93,
+      "p50_ms": 97,
+      "p95_ms": 124,
+      "peak_ram_mb_per_engine": 173.2,
+      "prefill_tps_mean": 878,
+      "decode_tps_mean": 971,
+      "load_before": "13:18:38 up  4:02,  1 user,  load average: 2.15, 5.04, 3.34\n      1 root      20   0   21712  12276   9332 S   0.0   0.1   0:00.73 systemd\n      2 root      20   0    3060   1664   1664 S   0.0   0.0   0:00.07 init-sy+\n      7 root      20   0    3076   1792   1792 S   0.0   0.0   0:00.00 init\n     53 root      19  -1   50444  15616  14720 S   0.0   0.1   0:00.40 systemd+\n    100 root      20   0   24888   6144   4992 S   0.0   0.0   0:01.67 systemd+\n    116 systemd+  20   0   21344  12288  10368 S   0.0   0.1   0:00.10 systemd+\n    117 systemd+  20   0   91036   7552   6784 S   0.0   0.0   0:00.21 systemd+\n    161 root      20   0    4240   2560   2432 S   0.0   0.0   0:00.02 cron"
+    },
+    {
+      "weights": "r16-head2/L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 3.4,
+      "mean_ms": 95,
+      "p50_ms": 101,
+      "p95_ms": 128,
+      "peak_ram_mb_per_engine": 173.2,
+      "prefill_tps_mean": 871,
+      "decode_tps_mean": 938,
+      "load_before": "13:18:48 up  4:02,  1 user,  load average: 2.44, 5.01, 3.35\n      1 root      20   0   21712  12276   9332 S   0.0   0.1   0:00.73 systemd\n      2 root      20   0    3060   1664   1664 S   0.0   0.0   0:00.07 init-sy+\n      7 root      20   0    3076   1792   1792 S   0.0   0.0   0:00.00 init\n     53 root      19  -1   50444  15616  14720 S   0.0   0.1   0:00.40 systemd+\n    100 root      20   0   24888   6144   4992 S   0.0   0.0   0:01.67 systemd+\n    116 systemd+  20   0   21344  12288  10368 S   0.0   0.1   0:00.10 systemd+\n    117 systemd+  20   0   91036   7552   6784 S   0.0   0.0   0:00.21 systemd+\n    161 root      20   0    4240   2560   2432 S   0.0   0.0   0:00.02 cron"
+    },
+    {
+      "weights": "r16-head2/L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 3.5,
+      "mean_ms": 96,
+      "p50_ms": 100,
+      "p95_ms": 126,
+      "peak_ram_mb_per_engine": 172.9,
+      "prefill_tps_mean": 859,
+      "decode_tps_mean": 936,
+      "load_before": "13:19:00 up  4:02,  1 user,  load average: 2.68, 4.97, 3.36\n      1 root      20   0   21712  12276   9332 S   0.0   0.1   0:00.73 systemd\n      2 root      20   0    3060   1664   1664 S   0.0   0.0   0:00.07 init-sy+\n      7 root      20   0    3076   1792   1792 S   0.0   0.0   0:00.00 init\n     53 root      19  -1   50444  15616  14720 S   0.0   0.1   0:00.40 systemd+\n    100 root      20   0   24888   6144   4992 S   0.0   0.0   0:01.67 systemd+\n    116 systemd+  20   0   21344  12288  10368 S   0.0   0.1   0:00.10 systemd+\n    117 systemd+  20   0   91036   7552   6784 S   0.0   0.0   0:00.21 systemd+\n    161 root      20   0    4240   2560   2432 S   0.0   0.0   0:00.02 cron"
+    }
+  ]
+}

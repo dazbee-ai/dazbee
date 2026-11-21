@@ -1,0 +1,26 @@
+{
+  "archive": "r16-head2/L20.cact (63,474,900 bytes)",
+  "engine": "cactus.js and cactus.wasm from `cactus download wasm` (cactus-compute 4.2.6)",
+  "per_toolset": {
+    "how": "six engines (router and five areas), each set up once; a turn is cactus_reset and cactus_complete; 20 test requests a run",
+    "legion": {
+      "machine": "Ryzen 5 4600H laptop, Node 24, other agents' jobs using 10-40% CPU",
+      "request_ms_mean_runs": [1210, 1335, 1494],
+      "p95_runs": [1617, 1955, 2700],
+      "setup_ms_runs": [25392, 26313, 28780],
+      "wasm_heaps_mb": 1099
+    },
+    "envy": {
+      "machine": "Ryzen 7 7700 in WSL, Node 18, nothing else of this prototype running, Windows CPU about 1% busy after",
+      "request_ms_mean_runs": [751, 750, 752],
+      "p95_runs": [1067, 1047, 1046],
+      "setup_ms_runs": [16050, 15813, 15794],
+      "wasm_heaps_mb": 1099
+    }
+  },
+  "shared": {
+    "how": "one engine; each turn sets its tools with cactus_init, then cactus_complete; 4 test requests, one run",
+    "legion": { "request_ms_mean": 8757, "init_ms_mean": 4283, "complete_ms_mean": 721 },
+    "envy": { "request_ms_mean": 4431, "init_ms_mean": 2161, "complete_ms_mean": 371 }
+  }
+}

@@ -1,815 +1,815 @@
 {
- "val_file": "../results/r16-head-L20-validation-every.jsonl",
- "test_file": "../results/r16-head-L20-test-every.jsonl",
- "choices": [
-  {
-   "conf": "min",
-   "target": 0.01,
-   "threshold": 0.8371,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6269752534287418,
-    "ece": 0.2130898104265403,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8371,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7933673469387755,
-    "ece": 0.23042348668280876,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8371,
-    "acted": 12,
-    "acted_rate": 0.023809523809523808,
-    "acted_rate_on_topic": 0.025,
-    "wrong_actions": 1,
-    "wrong_rate_of_acted": 0.08333333333333333,
-    "wrong_per_100_requests": 0.1984126984126984
-   },
-   "test_fallback": {
-    "not_acted": 492,
-    "not_acted_on_topic": 428,
-    "gold_in_top1": 0.7313084112149533,
-    "gold_in_top2": 0.7967289719626168,
-    "off_topic_not_acted": 64
-   }
-  },
-  {
-   "conf": "min",
-   "target": 0.02,
-   "threshold": 0.8371,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6269752534287418,
-    "ece": 0.2130898104265403,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8371,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7933673469387755,
-    "ece": 0.23042348668280876,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8371,
-    "acted": 12,
-    "acted_rate": 0.023809523809523808,
-    "acted_rate_on_topic": 0.025,
-    "wrong_actions": 1,
-    "wrong_rate_of_acted": 0.08333333333333333,
-    "wrong_per_100_requests": 0.1984126984126984
-   },
-   "test_fallback": {
-    "not_acted": 492,
-    "not_acted_on_topic": 428,
-    "gold_in_top1": 0.7313084112149533,
-    "gold_in_top2": 0.7967289719626168,
-    "off_topic_not_acted": 64
-   }
-  },
-  {
-   "conf": "prod",
-   "target": 0.01,
-   "threshold": 0.8007,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6230992844364938,
-    "ece": 0.25789984537914684,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8007,
-    "acted": 6,
-    "acted_rate": 0.011904761904761904,
-    "acted_rate_on_topic": 0.013636363636363636,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7852891156462585,
-    "ece": 0.27574182738498787,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8007,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test_fallback": {
-    "not_acted": 495,
-    "not_acted_on_topic": 431,
-    "gold_in_top1": 0.7308584686774942,
-    "gold_in_top2": 0.7981438515081206,
-    "off_topic_not_acted": 64
-   }
-  },
-  {
-   "conf": "prod",
-   "target": 0.02,
-   "threshold": 0.8007,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6230992844364938,
-    "ece": 0.25789984537914684,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8007,
-    "acted": 6,
-    "acted_rate": 0.011904761904761904,
-    "acted_rate_on_topic": 0.013636363636363636,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7852891156462585,
-    "ece": 0.27574182738498787,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8007,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test_fallback": {
-    "not_acted": 495,
-    "not_acted_on_topic": 431,
-    "gold_in_top1": 0.7308584686774942,
-    "gold_in_top2": 0.7981438515081206,
-    "off_topic_not_acted": 64
-   }
-  },
-  {
-   "conf": "c2",
-   "target": 0.01,
-   "threshold": 0.8371,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6269752534287418,
-    "ece": 0.2130834123222749,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8371,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7934059987631417,
-    "ece": 0.23025205811138016,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8371,
-    "acted": 13,
-    "acted_rate": 0.025793650793650792,
-    "acted_rate_on_topic": 0.02727272727272727,
-    "wrong_actions": 1,
-    "wrong_rate_of_acted": 0.07692307692307693,
-    "wrong_per_100_requests": 0.1984126984126984
-   },
-   "test_fallback": {
-    "not_acted": 491,
-    "not_acted_on_topic": 427,
-    "gold_in_top1": 0.7306791569086651,
-    "gold_in_top2": 0.7962529274004684,
-    "off_topic_not_acted": 64
-   }
-  },
-  {
-   "conf": "c2",
-   "target": 0.02,
-   "threshold": 0.8371,
-   "validation": {
-    "n": 504,
-    "exact": 0.7837301587301587,
-    "exact_on_topic": 0.7818181818181819,
-    "refused_off_topic": 0.796875,
-    "router_on_topic": 0.9136363636363637,
-    "calls_made": 422,
-    "auroc": 0.6269752534287418,
-    "ece": 0.2130834123222749,
-    "ms_mean": 441.54087301587305,
-    "ms_p95": 612.0999999999999,
-    "threshold": 0.8371,
-    "acted": 9,
-    "acted_rate": 0.017857142857142856,
-    "acted_rate_on_topic": 0.020454545454545454,
-    "wrong_actions": 0,
-    "wrong_rate_of_acted": 0.0,
-    "wrong_per_100_requests": 0.0
-   },
-   "test": {
-    "n": 504,
-    "exact": 0.7579365079365079,
-    "exact_on_topic": 0.7636363636363637,
-    "refused_off_topic": 0.71875,
-    "router_on_topic": 0.8977272727272727,
-    "calls_made": 413,
-    "auroc": 0.7934059987631417,
-    "ece": 0.23025205811138016,
-    "ms_mean": 420.7291666666667,
-    "ms_p95": 618.0,
-    "threshold": 0.8371,
-    "acted": 13,
-    "acted_rate": 0.025793650793650792,
-    "acted_rate_on_topic": 0.02727272727272727,
-    "wrong_actions": 1,
-    "wrong_rate_of_acted": 0.07692307692307693,
-    "wrong_per_100_requests": 0.1984126984126984
-   },
-   "test_fallback": {
-    "not_acted": 491,
-    "not_acted_on_topic": 427,
-    "gold_in_top1": 0.7306791569086651,
-    "gold_in_top2": 0.7962529274004684,
-    "off_topic_not_acted": 64
-   }
-  }
- ],
- "test_curve_min": [
-  {
-   "t": 0.0,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8174603174603174,
-   "risk": 0.18446601941747576,
-   "acted": 412,
-   "wrong": 76
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.7996031746031746,
-   "risk": 0.17866004962779158,
-   "acted": 403,
-   "wrong": 72
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.7242063492063492,
-   "risk": 0.1534246575342466,
-   "acted": 365,
-   "wrong": 56
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.5734126984126984,
-   "risk": 0.08304498269896199,
-   "acted": 289,
-   "wrong": 24
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.35912698412698413,
-   "risk": 0.04972375690607733,
-   "acted": 181,
-   "wrong": 9
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.20436507936507936,
-   "risk": 0.029126213592232997,
-   "acted": 103,
-   "wrong": 3
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.057539682539682536,
-   "risk": 0.03448275862068961,
-   "acted": 29,
-   "wrong": 1
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.01984126984126984,
-   "risk": 0.0,
-   "acted": 10,
-   "wrong": 0
-  },
-  {
-   "t": 0.9,
-   "coverage": 0.005952380952380952,
-   "risk": 0.0,
-   "acted": 3,
-   "wrong": 0
-  }
- ],
- "val_curve_min": [
-  {
-   "t": 0.0,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.8253968253968254,
-   "risk": 0.1826923076923077,
-   "acted": 416,
-   "wrong": 76
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.7777777777777778,
-   "risk": 0.15306122448979587,
-   "acted": 392,
-   "wrong": 60
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.6388888888888888,
-   "risk": 0.13043478260869568,
-   "acted": 322,
-   "wrong": 42
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.44841269841269843,
-   "risk": 0.1415929203539823,
-   "acted": 226,
-   "wrong": 32
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.2222222222222222,
-   "risk": 0.1785714285714286,
-   "acted": 112,
-   "wrong": 20
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.047619047619047616,
-   "risk": 0.08333333333333337,
-   "acted": 24,
-   "wrong": 2
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.011904761904761904,
-   "risk": 0.0,
-   "acted": 6,
-   "wrong": 0
-  },
-  {
-   "t": 0.9,
-   "coverage": 0.003968253968253968,
-   "risk": 0.0,
-   "acted": 2,
-   "wrong": 0
-  },
-  {
-   "t": 0.925,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  },
-  {
-   "t": 0.95,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  }
- ],
- "test_curve_prod": [
-  {
-   "t": 0.0,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8154761904761905,
-   "risk": 0.18248175182481752,
-   "acted": 411,
-   "wrong": 75
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.7777777777777778,
-   "risk": 0.1658163265306123,
-   "acted": 392,
-   "wrong": 65
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.6706349206349206,
-   "risk": 0.13609467455621305,
-   "acted": 338,
-   "wrong": 46
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.4861111111111111,
-   "risk": 0.061224489795918324,
-   "acted": 245,
-   "wrong": 15
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.2857142857142857,
-   "risk": 0.04166666666666663,
-   "acted": 144,
-   "wrong": 6
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.14087301587301587,
-   "risk": 0.028169014084507005,
-   "acted": 71,
-   "wrong": 2
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.01984126984126984,
-   "risk": 0.0,
-   "acted": 10,
-   "wrong": 0
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.005952380952380952,
-   "risk": 0.0,
-   "acted": 3,
-   "wrong": 0
-  }
- ],
- "val_curve_prod": [
-  {
-   "t": 0.0,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8353174603174603,
-   "risk": 0.18289786223277915,
-   "acted": 421,
-   "wrong": 77
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.8115079365079365,
-   "risk": 0.17359413202933982,
-   "acted": 409,
-   "wrong": 71
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.751984126984127,
-   "risk": 0.14775725593667544,
-   "acted": 379,
-   "wrong": 56
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.5436507936507936,
-   "risk": 0.13868613138686137,
-   "acted": 274,
-   "wrong": 38
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.3531746031746032,
-   "risk": 0.1404494382022472,
-   "acted": 178,
-   "wrong": 25
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.12103174603174603,
-   "risk": 0.19672131147540983,
-   "acted": 61,
-   "wrong": 12
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.013888888888888888,
-   "risk": 0.0,
-   "acted": 7,
-   "wrong": 0
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.003968253968253968,
-   "risk": 0.0,
-   "acted": 2,
-   "wrong": 0
-  },
-  {
-   "t": 0.9,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  },
-  {
-   "t": 0.925,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  }
- ],
- "test_curve_c2": [
-  {
-   "t": 0.0,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8194444444444444,
-   "risk": 0.18644067796610164,
-   "acted": 413,
-   "wrong": 77
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8174603174603174,
-   "risk": 0.18446601941747576,
-   "acted": 412,
-   "wrong": 76
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.7996031746031746,
-   "risk": 0.17866004962779158,
-   "acted": 403,
-   "wrong": 72
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.7242063492063492,
-   "risk": 0.1534246575342466,
-   "acted": 365,
-   "wrong": 56
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.5734126984126984,
-   "risk": 0.08304498269896199,
-   "acted": 289,
-   "wrong": 24
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.35912698412698413,
-   "risk": 0.04972375690607733,
-   "acted": 181,
-   "wrong": 9
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.20436507936507936,
-   "risk": 0.029126213592232997,
-   "acted": 103,
-   "wrong": 3
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.05952380952380952,
-   "risk": 0.033333333333333326,
-   "acted": 30,
-   "wrong": 1
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.021825396825396824,
-   "risk": 0.0,
-   "acted": 11,
-   "wrong": 0
-  },
-  {
-   "t": 0.9,
-   "coverage": 0.005952380952380952,
-   "risk": 0.0,
-   "acted": 3,
-   "wrong": 0
-  },
-  {
-   "t": 0.925,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  }
- ],
- "val_curve_c2": [
-  {
-   "t": 0.0,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.1,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.2,
-   "coverage": 0.8373015873015873,
-   "risk": 0.18483412322274884,
-   "acted": 422,
-   "wrong": 78
-  },
-  {
-   "t": 0.3,
-   "coverage": 0.8253968253968254,
-   "risk": 0.1826923076923077,
-   "acted": 416,
-   "wrong": 76
-  },
-  {
-   "t": 0.4,
-   "coverage": 0.7777777777777778,
-   "risk": 0.15306122448979587,
-   "acted": 392,
-   "wrong": 60
-  },
-  {
-   "t": 0.5,
-   "coverage": 0.6388888888888888,
-   "risk": 0.13043478260869568,
-   "acted": 322,
-   "wrong": 42
-  },
-  {
-   "t": 0.6,
-   "coverage": 0.44841269841269843,
-   "risk": 0.1415929203539823,
-   "acted": 226,
-   "wrong": 32
-  },
-  {
-   "t": 0.7,
-   "coverage": 0.2222222222222222,
-   "risk": 0.1785714285714286,
-   "acted": 112,
-   "wrong": 20
-  },
-  {
-   "t": 0.8,
-   "coverage": 0.047619047619047616,
-   "risk": 0.08333333333333337,
-   "acted": 24,
-   "wrong": 2
-  },
-  {
-   "t": 0.85,
-   "coverage": 0.011904761904761904,
-   "risk": 0.0,
-   "acted": 6,
-   "wrong": 0
-  },
-  {
-   "t": 0.9,
-   "coverage": 0.003968253968253968,
-   "risk": 0.0,
-   "acted": 2,
-   "wrong": 0
-  },
-  {
-   "t": 0.925,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  },
-  {
-   "t": 0.95,
-   "coverage": 0.001984126984126984,
-   "risk": 0.0,
-   "acted": 1,
-   "wrong": 0
-  }
- ]
+  "val_file": "../results/r16-head-L20-validation-every.jsonl",
+  "test_file": "../results/r16-head-L20-test-every.jsonl",
+  "choices": [
+    {
+      "conf": "min",
+      "target": 0.01,
+      "threshold": 0.8371,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6328526125037753,
+        "ece": 0.21533277909738718,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8371,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.790765977443609,
+        "ece": 0.23163762135922333,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8371,
+        "acted": 12,
+        "acted_rate": 0.023809523809523808,
+        "acted_rate_on_topic": 0.025,
+        "wrong_actions": 1,
+        "wrong_rate_of_acted": 0.08333333333333333,
+        "wrong_per_100_requests": 0.1984126984126984
+      },
+      "test_fallback": {
+        "not_acted": 492,
+        "not_acted_on_topic": 428,
+        "gold_in_top1": 0.7313084112149533,
+        "gold_in_top2": 0.7967289719626168,
+        "off_topic_not_acted": 64
+      }
+    },
+    {
+      "conf": "min",
+      "target": 0.02,
+      "threshold": 0.8371,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6328526125037753,
+        "ece": 0.21533277909738718,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8371,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.790765977443609,
+        "ece": 0.23163762135922333,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8371,
+        "acted": 12,
+        "acted_rate": 0.023809523809523808,
+        "acted_rate_on_topic": 0.025,
+        "wrong_actions": 1,
+        "wrong_rate_of_acted": 0.08333333333333333,
+        "wrong_per_100_requests": 0.1984126984126984
+      },
+      "test_fallback": {
+        "not_acted": 492,
+        "not_acted_on_topic": 428,
+        "gold_in_top1": 0.7313084112149533,
+        "gold_in_top2": 0.7967289719626168,
+        "off_topic_not_acted": 64
+      }
+    },
+    {
+      "conf": "prod",
+      "target": 0.01,
+      "threshold": 0.8007,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6291150709755361,
+        "ece": 0.2601467789786224,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8007,
+        "acted": 6,
+        "acted_rate": 0.011904761904761904,
+        "acted_rate_on_topic": 0.013636363636363636,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.7824639724310777,
+        "ece": 0.2769531921116505,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8007,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test_fallback": {
+        "not_acted": 495,
+        "not_acted_on_topic": 431,
+        "gold_in_top1": 0.7308584686774942,
+        "gold_in_top2": 0.7981438515081206,
+        "off_topic_not_acted": 64
+      }
+    },
+    {
+      "conf": "prod",
+      "target": 0.02,
+      "threshold": 0.8007,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6291150709755361,
+        "ece": 0.2601467789786224,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8007,
+        "acted": 6,
+        "acted_rate": 0.011904761904761904,
+        "acted_rate_on_topic": 0.013636363636363636,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.7824639724310777,
+        "ece": 0.2769531921116505,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8007,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test_fallback": {
+        "not_acted": 495,
+        "not_acted_on_topic": 431,
+        "gold_in_top1": 0.7308584686774942,
+        "gold_in_top2": 0.7981438515081206,
+        "off_topic_not_acted": 64
+      }
+    },
+    {
+      "conf": "c2",
+      "target": 0.01,
+      "threshold": 0.8371,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6328526125037753,
+        "ece": 0.21532636579572448,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8371,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.7908051378446115,
+        "ece": 0.23146577669902915,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8371,
+        "acted": 13,
+        "acted_rate": 0.025793650793650792,
+        "acted_rate_on_topic": 0.02727272727272727,
+        "wrong_actions": 1,
+        "wrong_rate_of_acted": 0.07692307692307693,
+        "wrong_per_100_requests": 0.1984126984126984
+      },
+      "test_fallback": {
+        "not_acted": 491,
+        "not_acted_on_topic": 427,
+        "gold_in_top1": 0.7306791569086651,
+        "gold_in_top2": 0.7962529274004684,
+        "off_topic_not_acted": 64
+      }
+    },
+    {
+      "conf": "c2",
+      "target": 0.02,
+      "threshold": 0.8371,
+      "validation": {
+        "n": 504,
+        "exact": 0.7837301587301587,
+        "exact_on_topic": 0.7818181818181819,
+        "refused_off_topic": 0.796875,
+        "router_on_topic": 0.9136363636363637,
+        "calls_made": 421,
+        "auroc": 0.6328526125037753,
+        "ece": 0.21532636579572448,
+        "ms_mean": 441.54087301587305,
+        "ms_p95": 612.0999999999999,
+        "threshold": 0.8371,
+        "acted": 9,
+        "acted_rate": 0.017857142857142856,
+        "acted_rate_on_topic": 0.020454545454545454,
+        "wrong_actions": 0,
+        "wrong_rate_of_acted": 0.0,
+        "wrong_per_100_requests": 0.0
+      },
+      "test": {
+        "n": 504,
+        "exact": 0.7579365079365079,
+        "exact_on_topic": 0.7636363636363637,
+        "refused_off_topic": 0.71875,
+        "router_on_topic": 0.8977272727272727,
+        "calls_made": 412,
+        "auroc": 0.7908051378446115,
+        "ece": 0.23146577669902915,
+        "ms_mean": 420.7291666666667,
+        "ms_p95": 618.0,
+        "threshold": 0.8371,
+        "acted": 13,
+        "acted_rate": 0.025793650793650792,
+        "acted_rate_on_topic": 0.02727272727272727,
+        "wrong_actions": 1,
+        "wrong_rate_of_acted": 0.07692307692307693,
+        "wrong_per_100_requests": 0.1984126984126984
+      },
+      "test_fallback": {
+        "not_acted": 491,
+        "not_acted_on_topic": 427,
+        "gold_in_top1": 0.7306791569086651,
+        "gold_in_top2": 0.7962529274004684,
+        "off_topic_not_acted": 64
+      }
+    }
+  ],
+  "test_curve_min": [
+    {
+      "t": 0.0,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8154761904761905,
+      "risk": 0.18248175182481752,
+      "acted": 411,
+      "wrong": 75
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.7996031746031746,
+      "risk": 0.17866004962779158,
+      "acted": 403,
+      "wrong": 72
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.7242063492063492,
+      "risk": 0.1534246575342466,
+      "acted": 365,
+      "wrong": 56
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.5734126984126984,
+      "risk": 0.08304498269896199,
+      "acted": 289,
+      "wrong": 24
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.35912698412698413,
+      "risk": 0.04972375690607733,
+      "acted": 181,
+      "wrong": 9
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.20436507936507936,
+      "risk": 0.029126213592232997,
+      "acted": 103,
+      "wrong": 3
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.057539682539682536,
+      "risk": 0.03448275862068961,
+      "acted": 29,
+      "wrong": 1
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.01984126984126984,
+      "risk": 0.0,
+      "acted": 10,
+      "wrong": 0
+    },
+    {
+      "t": 0.9,
+      "coverage": 0.005952380952380952,
+      "risk": 0.0,
+      "acted": 3,
+      "wrong": 0
+    }
+  ],
+  "val_curve_min": [
+    {
+      "t": 0.0,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.8234126984126984,
+      "risk": 0.1807228915662651,
+      "acted": 415,
+      "wrong": 75
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.7757936507936508,
+      "risk": 0.15089514066496168,
+      "acted": 391,
+      "wrong": 59
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.6369047619047619,
+      "risk": 0.12772585669781933,
+      "acted": 321,
+      "wrong": 41
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.44642857142857145,
+      "risk": 0.13777777777777778,
+      "acted": 225,
+      "wrong": 31
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.22023809523809523,
+      "risk": 0.1711711711711712,
+      "acted": 111,
+      "wrong": 19
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.047619047619047616,
+      "risk": 0.08333333333333337,
+      "acted": 24,
+      "wrong": 2
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.011904761904761904,
+      "risk": 0.0,
+      "acted": 6,
+      "wrong": 0
+    },
+    {
+      "t": 0.9,
+      "coverage": 0.003968253968253968,
+      "risk": 0.0,
+      "acted": 2,
+      "wrong": 0
+    },
+    {
+      "t": 0.925,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    },
+    {
+      "t": 0.95,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    }
+  ],
+  "test_curve_prod": [
+    {
+      "t": 0.0,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8134920634920635,
+      "risk": 0.18048780487804883,
+      "acted": 410,
+      "wrong": 74
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.7777777777777778,
+      "risk": 0.1658163265306123,
+      "acted": 392,
+      "wrong": 65
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.6706349206349206,
+      "risk": 0.13609467455621305,
+      "acted": 338,
+      "wrong": 46
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.4861111111111111,
+      "risk": 0.061224489795918324,
+      "acted": 245,
+      "wrong": 15
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.2857142857142857,
+      "risk": 0.04166666666666663,
+      "acted": 144,
+      "wrong": 6
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.14087301587301587,
+      "risk": 0.028169014084507005,
+      "acted": 71,
+      "wrong": 2
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.01984126984126984,
+      "risk": 0.0,
+      "acted": 10,
+      "wrong": 0
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.005952380952380952,
+      "risk": 0.0,
+      "acted": 3,
+      "wrong": 0
+    }
+  ],
+  "val_curve_prod": [
+    {
+      "t": 0.0,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8333333333333334,
+      "risk": 0.18095238095238098,
+      "acted": 420,
+      "wrong": 76
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.8095238095238095,
+      "risk": 0.17156862745098034,
+      "acted": 408,
+      "wrong": 70
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.75,
+      "risk": 0.14550264550264547,
+      "acted": 378,
+      "wrong": 55
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.5416666666666666,
+      "risk": 0.1355311355311355,
+      "acted": 273,
+      "wrong": 37
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.35119047619047616,
+      "risk": 0.13559322033898302,
+      "acted": 177,
+      "wrong": 24
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.12103174603174603,
+      "risk": 0.19672131147540983,
+      "acted": 61,
+      "wrong": 12
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.013888888888888888,
+      "risk": 0.0,
+      "acted": 7,
+      "wrong": 0
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.003968253968253968,
+      "risk": 0.0,
+      "acted": 2,
+      "wrong": 0
+    },
+    {
+      "t": 0.9,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    },
+    {
+      "t": 0.925,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    }
+  ],
+  "test_curve_c2": [
+    {
+      "t": 0.0,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8174603174603174,
+      "risk": 0.18446601941747576,
+      "acted": 412,
+      "wrong": 76
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8154761904761905,
+      "risk": 0.18248175182481752,
+      "acted": 411,
+      "wrong": 75
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.7996031746031746,
+      "risk": 0.17866004962779158,
+      "acted": 403,
+      "wrong": 72
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.7242063492063492,
+      "risk": 0.1534246575342466,
+      "acted": 365,
+      "wrong": 56
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.5734126984126984,
+      "risk": 0.08304498269896199,
+      "acted": 289,
+      "wrong": 24
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.35912698412698413,
+      "risk": 0.04972375690607733,
+      "acted": 181,
+      "wrong": 9
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.20436507936507936,
+      "risk": 0.029126213592232997,
+      "acted": 103,
+      "wrong": 3
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.05952380952380952,
+      "risk": 0.033333333333333326,
+      "acted": 30,
+      "wrong": 1
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.021825396825396824,
+      "risk": 0.0,
+      "acted": 11,
+      "wrong": 0
+    },
+    {
+      "t": 0.9,
+      "coverage": 0.005952380952380952,
+      "risk": 0.0,
+      "acted": 3,
+      "wrong": 0
+    },
+    {
+      "t": 0.925,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    }
+  ],
+  "val_curve_c2": [
+    {
+      "t": 0.0,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.1,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.2,
+      "coverage": 0.8353174603174603,
+      "risk": 0.18289786223277915,
+      "acted": 421,
+      "wrong": 77
+    },
+    {
+      "t": 0.3,
+      "coverage": 0.8234126984126984,
+      "risk": 0.1807228915662651,
+      "acted": 415,
+      "wrong": 75
+    },
+    {
+      "t": 0.4,
+      "coverage": 0.7757936507936508,
+      "risk": 0.15089514066496168,
+      "acted": 391,
+      "wrong": 59
+    },
+    {
+      "t": 0.5,
+      "coverage": 0.6369047619047619,
+      "risk": 0.12772585669781933,
+      "acted": 321,
+      "wrong": 41
+    },
+    {
+      "t": 0.6,
+      "coverage": 0.44642857142857145,
+      "risk": 0.13777777777777778,
+      "acted": 225,
+      "wrong": 31
+    },
+    {
+      "t": 0.7,
+      "coverage": 0.22023809523809523,
+      "risk": 0.1711711711711712,
+      "acted": 111,
+      "wrong": 19
+    },
+    {
+      "t": 0.8,
+      "coverage": 0.047619047619047616,
+      "risk": 0.08333333333333337,
+      "acted": 24,
+      "wrong": 2
+    },
+    {
+      "t": 0.85,
+      "coverage": 0.011904761904761904,
+      "risk": 0.0,
+      "acted": 6,
+      "wrong": 0
+    },
+    {
+      "t": 0.9,
+      "coverage": 0.003968253968253968,
+      "risk": 0.0,
+      "acted": 2,
+      "wrong": 0
+    },
+    {
+      "t": 0.925,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    },
+    {
+      "t": 0.95,
+      "coverage": 0.001984126984126984,
+      "risk": 0.0,
+      "acted": 1,
+      "wrong": 0
+    }
+  ]
 }

@@ -1,0 +1,6 @@
+{"rule": "any call", "acted_rate": 0.8353174603174603, "acted": 421, "wrong": 77, "wrong_rate": 0.1828978622327791}
+{"rule": "r16 and r32 agree", "acted_rate": 0.7678571428571429, "acted": 387, "wrong": 60, "wrong_rate": 0.15503875968992248}
+{"rule": "agree, no other area claims it", "acted_rate": 0.5277777777777778, "acted": 266, "wrong": 39, "wrong_rate": 0.14661654135338345}
+{"rule": "agree, no other area, conf >= 0.5", "acted_rate": 0.42063492063492064, "acted": 212, "wrong": 31, "wrong_rate": 0.14622641509433962}
+{"rule": "agree, no other area, conf >= 0.6", "acted_rate": 0.29563492063492064, "acted": 149, "wrong": 25, "wrong_rate": 0.16778523489932887}
+{"rule": "agree, no other area, conf >= 0.7", "acted_rate": 0.1388888888888889, "acted": 70, "wrong": 17, "wrong_rate": 0.24285714285714285}

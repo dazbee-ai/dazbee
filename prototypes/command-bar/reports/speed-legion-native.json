@@ -1,50 +1,50 @@
 {
- "cmd": "python bench_native.py --weights r16-head/L20.cact --threads 4 --n 60",
- "note": "legion (Ryzen 5 4600H, 6 cores), native engine, 4 threads, 60 test requests a run; other agents jobs on the machine used 10-20% CPU when it started",
- "repeats": 3,
- "mean_ms_median": 471,
- "mean_ms_min": 457,
- "mean_ms_max": 475,
- "p95_ms_median": 640,
- "runs": [
-  {
-   "weights": "archives/r16-head-L20.cact",
-   "bytes": 63474900,
-   "threads": 4,
-   "requests": 60,
-   "setup_s": 8.9,
-   "mean_ms": 457,
-   "p50_ms": 472,
-   "p95_ms": 691,
-   "peak_ram_mb_per_engine": 176.7,
-   "prefill_tps_mean": 256,
-   "decode_tps_mean": 170
-  },
-  {
-   "weights": "archives/r16-head-L20.cact",
-   "bytes": 63474900,
-   "threads": 4,
-   "requests": 60,
-   "setup_s": 15.3,
-   "mean_ms": 475,
-   "p50_ms": 509,
-   "p95_ms": 627,
-   "peak_ram_mb_per_engine": 176.8,
-   "prefill_tps_mean": 230,
-   "decode_tps_mean": 158
-  },
-  {
-   "weights": "archives/r16-head-L20.cact",
-   "bytes": 63474900,
-   "threads": 4,
-   "requests": 60,
-   "setup_s": 10.5,
-   "mean_ms": 471,
-   "p50_ms": 508,
-   "p95_ms": 640,
-   "peak_ram_mb_per_engine": 176.8,
-   "prefill_tps_mean": 231,
-   "decode_tps_mean": 160
-  }
- ]
+  "cmd": "python bench_native.py --weights r16-head/L20.cact --threads 4 --n 60",
+  "note": "legion (Ryzen 5 4600H, 6 cores), native engine, 4 threads, 60 test requests a run; other agents jobs on the machine used 10-20% CPU when it started",
+  "repeats": 3,
+  "mean_ms_median": 471,
+  "mean_ms_min": 457,
+  "mean_ms_max": 475,
+  "p95_ms_median": 640,
+  "runs": [
+    {
+      "weights": "archives/r16-head-L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 8.9,
+      "mean_ms": 457,
+      "p50_ms": 472,
+      "p95_ms": 691,
+      "peak_ram_mb_per_engine": 176.7,
+      "prefill_tps_mean": 256,
+      "decode_tps_mean": 170
+    },
+    {
+      "weights": "archives/r16-head-L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 15.3,
+      "mean_ms": 475,
+      "p50_ms": 509,
+      "p95_ms": 627,
+      "peak_ram_mb_per_engine": 176.8,
+      "prefill_tps_mean": 230,
+      "decode_tps_mean": 158
+    },
+    {
+      "weights": "archives/r16-head-L20.cact",
+      "bytes": 63474900,
+      "threads": 4,
+      "requests": 60,
+      "setup_s": 10.5,
+      "mean_ms": 471,
+      "p50_ms": 508,
+      "p95_ms": 640,
+      "peak_ram_mb_per_engine": 176.8,
+      "prefill_tps_mean": 231,
+      "decode_tps_mean": 160
+    }
+  ]
 }

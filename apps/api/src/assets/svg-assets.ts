@@ -3,9 +3,9 @@
 // job; jobs go to the thread one at a time, in the drawing turn, and only a few may wait. Each job
 // has a time limit, which starts once the thread is ready, and the thread's CanvasKit memory and
 // heap have ceilings. The thread is ended past a job's time, when it fails, or once its memory grew
-// past what it started with. The API starts the thread when it starts, and a thread that was ready
-// is started again as soon as it ends, so a file seldom waits for one; a file that comes while one
-// starts waits for it as long as its request may wait. A file is refused with a sentence when it
+// past what it started with. The API starts the thread when it starts, and a thread a job ended is
+// started again at once, so a file seldom waits for one; a file that comes while one starts waits
+// for it as long as its request may wait. A file is refused with a sentence when it
 // passes the SVG reader's limits, needs more memory than the thread may take, or takes longer than
 // its time.
 import { Worker } from 'node:worker_threads'
@@ -14,6 +14,7 @@ import { type ImageHeader, MAX_SVG_BYTES } from '@dazbee/schema'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import { inDrawingTurn } from '../drawing/drawing-turn.ts'
+import { logError } from '../log.ts'
 import type { SvgAnswer, SvgJob, SvgReady, SvgReply, SvgThreadData } from './svg-worker.ts'
 
 /** A file refused with a sentence that says why, which the person who added it is told. */
@@ -52,28 +53,27 @@ export interface SvgReader {
   end(): Promise<void>
 }
 
-/** The thread, and whether it got ready: true once it posted `ready`, false when it stopped first. */
+/** The thread, and what the reader knows of it. */
 interface SvgThread {
   worker: Worker
+  /** Whether it got ready: true once it posted `ready`, false when it stopped first. */
   ready: Promise<boolean>
+  /** Whether it is doing a job, whose failures reach the job rather than the log. */
+  working: boolean
+  /** Whether a job ended it, after which another starts at once. */
+  restart: boolean
 }
 
 /** How long reading and drawing one file may take: the thread is ended past it. */
 export const SVG_TIME_LIMIT_MS = 10_000
 /**
- * How long the thread may take to get ready. A start loads CanvasKit's 9 MB of wasm and the fonts:
- * 0.7–1.0 s on an idle dev machine, 1.3 s pinned to one of its cores, and up to 10 s on that core
- * shared with four busy threads. The live server's one CPU may be slower, so a start there under
- * load may take 15 s; 60 s is four times that. No file waits that long for it (SVG_WAIT_LIMIT_MS):
- * past it, a start counts as stuck.
+ * How long the thread may take to get ready. A start loads CanvasKit's 9 MB of wasm and the fonts.
+ * Measured with the API's image in a container of 1 CPU and 512 MB: 1.2–2.1 s idle, 4.2–4.6 s beside
+ * four threads that keep the CPU busy, 6.4–8.8 s beside eight; on one core of a dev machine beside
+ * four, up to 10 s. 60 s leaves room for a slower CPU than the one measured: past it, a start counts
+ * as stuck. No file waits that long for it (SVG_WAIT_LIMIT_MS).
  */
 export const SVG_START_LIMIT_MS = 60_000
-/**
- * How long a file may wait for the thread to be ready, from when it comes. A typical file draws in
- * about a second, so a file that waits all of it is still answered within the 30 s an agent's call
- * to the API waits (apps/mcp/src/api.ts).
- */
-export const SVG_WAIT_LIMIT_MS = 20_000
 
 /** CanvasKit's memory when it starts, which the thread may keep. */
 const CANVASKIT_START_MEMORY = 128 * 2 ** 20
@@ -86,7 +86,14 @@ const SVG_MEMORY_LIMIT = 192 * 2 ** 20
 const SVG_HEAP_LIMITS = { maxOldGenerationSizeMb: 64, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 }
 /** The files that may be read at once or wait to be; each waits holding its bytes. */
 const MAX_SVG_JOBS = 4
+/**
+ * How long a file may wait for the thread to be ready, from when it comes. With its 10 s to draw, a
+ * file that waits all of it is still answered within the 30 s an agent's call to the API waits
+ * (apps/mcp/src/api.ts).
+ */
+const SVG_WAIT_LIMIT_MS = 15_000
 const TOO_MUCH_MEMORY = 'This SVG file needs too much memory to draw'
+const TOO_MANY = 'Dazbee is reading other SVG files; add this one again in a minute'
 const NOT_READY = 'Dazbee is getting ready to read SVG files; add this one again in a minute'
 
 /** The API's reader, whose thread main.ts starts with the API. */
@@ -134,8 +141,9 @@ export function svgReader(settings: Partial<SvgReaderSettings> = {}): SvgReader 
 
   /**
    * A new thread, which keeps the process alive only while it works on a file. It is ended when it
-   * isn't ready within startLimitMs. Once it was ready, it is started again as soon as it stops; one
-   * that never got ready is started again only when a file or `start` asks.
+   * isn't ready within startLimitMs. One a job ended is started again as soon as it stops; any other
+   * is started again only when a file or `start` asks, so a thread that keeps failing by itself
+   * isn't started over and over. A failure outside a job is logged.
    */
   function startThread(): SvgThread {
     const worker = new Worker(threadFile, {
@@ -143,9 +151,11 @@ export function svgReader(settings: Partial<SvgReaderSettings> = {}): SvgReader 
       resourceLimits: SVG_HEAP_LIMITS,
     })
     worker.unref()
-    let wasReady = false
     const ready = new Promise<boolean>((resolve) => {
-      const stuck = setTimeout(() => void worker.terminate(), startLimitMs).unref()
+      const stuck = setTimeout(() => {
+        logError('svg-thread-failed', new Error(`the SVG thread was not ready in ${startLimitMs / 1000} seconds`))
+        void worker.terminate()
+      }, startLimitMs).unref()
       const told = (message: SvgReady | SvgReply) => {
         if ('ready' in message) settle(true)
       }
@@ -154,22 +164,22 @@ export function svgReader(settings: Partial<SvgReaderSettings> = {}): SvgReader 
       worker.on('exit', stopped)
       /** Settles whether the thread got ready, once. */
       function settle(isReady: boolean) {
-        wasReady = isReady
         clearTimeout(stuck)
         worker.off('message', told)
         worker.off('exit', stopped)
         resolve(isReady)
       }
     })
-    worker.on('exit', () => {
-      if (thread?.worker !== worker) return
-      thread = undefined
-      if (wasReady && !ended) kept()
+    const made: SvgThread = { worker, ready, working: false, restart: false }
+    worker.on('error', (error) => {
+      if (!made.working) logError('svg-thread-failed', error)
     })
-    // A failure during a job reaches that job (replyFrom); any other ends the thread, whose exit is
-    // handled above.
-    worker.on('error', () => {})
-    return { worker, ready }
+    worker.on('exit', () => {
+      if (thread !== made) return
+      thread = undefined
+      if (made.restart && !ended) kept()
+    })
+    return made
   }
 
   /**
@@ -181,24 +191,28 @@ export function svgReader(settings: Partial<SvgReaderSettings> = {}): SvgReader 
    */
   async function onThread(bytes: Uint8Array, size: number, timeoutMs: number): Promise<SvgAnswer | null> {
     if (bytes.length > MAX_SVG_BYTES) return null
-    if (jobs >= MAX_SVG_JOBS) throw new SvgBusy('Dazbee is reading other SVG files; add this one again in a minute')
+    if (jobs >= MAX_SVG_JOBS) throw new SvgBusy(TOO_MANY)
     const waitUntil = Date.now() + waitLimitMs
     jobs++
     try {
       return await inDrawingTurn(async () => {
         const text = svgText(bytes)
         if (!text) return null
+        if (ended) throw new SvgBusy(NOT_READY)
         const used = kept()
         if (!(await readyBy(used, waitUntil))) throw new SvgBusy(NOT_READY)
         let reply: SvgReply
+        used.working = true
         try {
           reply = await replyFrom(used.worker, { id: nextJob++, text, size }, timeoutMs)
         } catch (error) {
-          await used.worker.terminate()
+          await endAfterJob(used)
           throw error
+        } finally {
+          used.working = false
         }
         if ('tooMuchMemory' in reply || 'error' in reply || reply.memory > CANVASKIT_START_MEMORY)
-          await used.worker.terminate()
+          await endAfterJob(used)
         return reply
       })
     } finally {
@@ -215,6 +229,12 @@ export function svgReader(settings: Partial<SvgReaderSettings> = {}): SvgReader 
       header: { contentType: SVG_TYPE, width: Math.max(1, Math.ceil(width)), height: Math.max(1, Math.ceil(height)) },
       png,
     }
+  }
+
+  /** Ends the thread a job left unfit for the next, which starts another once it has stopped. */
+  async function endAfterJob(used: SvgThread) {
+    used.restart = true
+    await used.worker.terminate()
   }
 
   function start(): Promise<boolean> {

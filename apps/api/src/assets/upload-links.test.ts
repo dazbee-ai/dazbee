@@ -7,6 +7,7 @@ import { AssetLink, AssetSummary, MAX_SVG_BYTES, MAX_UPLOAD_BYTES, UPLOAD_LINK_M
 
 import { endAccess, issueTokens, makeAccess } from '../agents/agent-accesses.ts'
 import { createApp } from '../app.ts'
+import { inDrawingTurn } from '../drawing/drawing-turn.ts'
 import { sessionOfRequest } from '../sign-in/session.ts'
 import {
   addPerson,
@@ -22,7 +23,7 @@ import {
   syncSecret,
   workspace,
 } from '../test-api.ts'
-import { png, sha256, slowPathsSvg } from '../test-files.ts'
+import { png, sha256 } from '../test-files.ts'
 import { addingFromOutside } from './from-url.ts'
 import { readSvgAsset } from './svg-assets.ts'
 import { MAX_RECEIVING_AT_ONCE, RECEIVE_TIMEOUT_MS, UPLOADS_PER_ADDRESS_PER_HOUR } from './upload-links.ts'
@@ -367,9 +368,15 @@ describe('upload links, against a sender who misuses them', { timeout: 60_000 },
 
   it('keeps the link when the SVG reader is busy with other files', async () => {
     const link = await newLink({ contentType: 'image/svg+xml', name: 'Busy reader' })
-    const slow = new TextEncoder().encode(slowPathsSvg())
-    const reading = Array.from({ length: 4 }, () => readSvgAsset(slow, 320, 300).catch(() => null))
+    // The drawing turn is held, so the four files still wait when the link's file comes.
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    void inDrawingTurn(() => held)
+    const square = (i: number) =>
+      new TextEncoder().encode(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/><!-- ${i} -->`)
+    const reading = Array.from({ length: 4 }, (_, i) => readSvgAsset(square(i), 32).catch(() => null))
     expect(await send(link.path, svg(`${run}-busy-reader`))).toEqual(busy)
+    release()
     await Promise.all(reading)
     expect((await send(link.path, svg(`${run}-busy-reader`))).status).toBe(201)
   })

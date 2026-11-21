@@ -8,15 +8,16 @@ import { readDesign, sameValue, type Session, type StepName } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import { type Design, fontFamilies, type Layer, type Member, type Variables } from '@dazbee/schema'
+import { type Design, fontUses, type Layer, type Member, type Variables } from '@dazbee/schema'
 
 import { type AgentPlace, agentPresence, type AgentWork, noteOf } from './agent-presence.ts'
 import { buildCore } from './core.ts'
 import type { LinkNotice, NoticeDetail } from './core-interface.ts'
+import { type OpenedFonts, openedFonts } from './font-loads.ts'
 import { SIZES_TEXT } from './layer-edits.ts'
 import { hug } from './layers/hug.ts'
 import { type OpenTab, openTab } from './open-tab.ts'
-import { loadFonts, type ResourceSources } from './resources.ts'
+import type { ResourceSources } from './resources.ts'
 import type { Stopped } from './save-state.ts'
 import type { LinkSocket } from './sync-link.ts'
 
@@ -53,12 +54,17 @@ export interface AgentTab {
   design(): Design
   /** Whether the tab may only view the design: a view access's, or one whose link stopped. */
   readOnly(): boolean
-  /** The fonts, images and brand kit values the tab has, for warnings and renders. */
+  /** The fonts, images and brand kit values the tab has, for warnings. */
   bytes(): ResourceBytes
+  /**
+   * What draws `design`: the shipped fonts and the files of only the faces its texts are drawn in,
+   * as the API draws it, with the images and brand kit values the tab has; for renders.
+   */
+  bytesFor(design: Design): ResourceBytes
   /** The cache the tab decodes its fonts and images in, for warnings and renders. */
   cache: ResourceCache
   /**
-   * Settles once the files of every family the design draws its text in are here, or failed to come: what its
+   * Settles once the files of every face the design draws its text in are here, or failed to come: what its
    * warnings read. No image is loaded for them.
    */
   fontsLoaded(): Promise<void>
@@ -122,7 +128,7 @@ export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> 
     ...(signal ? { signal } : {}),
   })
   try {
-    const fonts = await loadFonts(fontFamilies(readDesign(tab.store), variables), sources)
+    const fonts = await openedFonts(fontUses(readDesign(tab.store), variables), sources)
     return agentTabOn(tab, fonts, options)
   } catch (error) {
     await tab.close()
@@ -133,7 +139,7 @@ export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> 
 /** The core built on the open tab, with the design's own font files, as the agent tab. */
 function agentTabOn(
   tab: OpenTab,
-  fonts: Awaited<ReturnType<typeof loadFonts>>,
+  fonts: OpenedFonts,
   { ck, designId, sources, variables, noteMs = NOTE_SHOWN_MS }: AgentTabOptions,
 ): AgentTab {
   /** What the tab told and the agent has not read yet. */
@@ -157,17 +163,12 @@ function agentTabOn(
       ck,
       cache,
       first: {
-        fonts: [...loadFontFiles(), ...fonts].map(({ family, bytes }) => ({ family, bytes })),
+        fonts: [...loadFontFiles(), ...fonts.files].map(({ family, bytes }) => ({ family, bytes })),
         fallbackFamilies: [...FALLBACK_FAMILIES],
         images: {},
         ...(variables ? { variables } : {}),
       },
-      firstFaces: fonts.map(({ family, weight, weights, style }) => ({
-        family,
-        weight,
-        ...(weights ? { weights } : {}),
-        style,
-      })),
+      firstFonts: fonts,
       store: tab.store,
       connected: () => tab.link.status() === 'connected',
       remembered: { get: (key) => remembered.get(key) ?? null, set: (key, value) => void remembered.set(key, value) },
@@ -198,6 +199,7 @@ function agentTabOn(
   const design = () => session.design()
   const readOnly = () => tab.access.readOnly()
   const bytes = () => modules.resources.bytes()
+  const bytesFor = (drawn: Design) => modules.resources.bytesFor(drawn)
 
   const unsent = () => tab.link.client()?.queued() ?? 0
   const queuedIds = () => tab.link.client()?.queuedIds() ?? []
@@ -206,7 +208,7 @@ function agentTabOn(
     return status === 'connected' || status === 'disconnected' ? null : status
   }
   async function fontsLoaded() {
-    await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), bytes().variables)))
+    await modules.resources.loadUses(fontUses(session.design(), bytes().variables))
   }
   const takeNotices = () => notices.splice(0)
   function show(work: AgentWork, given?: string | null) {
@@ -278,6 +280,7 @@ function agentTabOn(
     design,
     readOnly,
     bytes,
+    bytesFor,
     cache,
     fontsLoaded,
     show,

@@ -8,7 +8,8 @@ import {
   type Bindings,
   boundValueOf,
   fitsProperty,
-  fontFamilies,
+  fontUses,
+  textFontUses,
   VALUE_KINDS,
   type ValueKind,
   type VariableRef,
@@ -17,14 +18,15 @@ import {
 } from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
-import { type EditorResources, SHIPPED_FAMILIES } from './resources.ts'
+import { SHIPPED_FAMILIES } from './font-loads.ts'
+import type { EditorResources } from './resources.ts'
 import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, idsOf } from './selection.ts'
 import type { EditorTyping } from './text/typing.ts'
 
 export interface BrandKitDeps {
   session: Session
-  resources: Pick<EditorResources, 'bytes' | 'loadFamilies' | 'setVariables'>
+  resources: Pick<EditorResources, 'bytes' | 'loadUses' | 'setVariables'>
   view: Pick<EditorView, 'redraw'>
   selection: Pick<EditorSelection, 'current'>
   typing: Pick<EditorTyping, 'fitText'>
@@ -62,7 +64,7 @@ export interface EditorBrandKit {
 export function editorBrandKit({ session, resources, view, selection, typing, signal }: BrandKitDeps): EditorBrandKit {
   function setVariables(variables: Variables) {
     resources.setVariables(variables)
-    resources.loadFamilies(fontFamilies(session.design(), variables))
+    void resources.loadUses(fontUses(session.design(), variables))
     followBrandLogo()
     view.redraw()
     return refitBrandText()
@@ -99,8 +101,8 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     return changed
   }
   /**
-   * Text bound to a brand font or text style the kit has changed since: once the family it gives has
-   * its files here, the text takes its family and look and its box fits them. A look that names no
+   * Text bound to a brand font or text style the kit has changed since: once the faces it is drawn in
+   * with the kit's value have their files here, the text takes its family and look and its box fits them. A look that names no
    * family keeps the text's own. A text left bound to a style and a font, as two tabs crossing can
    * leave it, is drawn in the style, so it settles on the style: binding it again ends the font's
    * binding. The kit lives outside the design, so this is a change no one undoes, as another tab's:
@@ -109,8 +111,13 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   async function refitBrandText() {
     const stale = [...staleBindings('textLook'), ...staleBindings('font')]
     if (stale.length === 0) return
-    const families = [...new Set(stale.flatMap((s) => familyOf(s.value) ?? []))]
-    await Promise.all(resources.loadFamilies(families))
+    const kit = resources.bytes().variables
+    await resources.loadUses(
+      stale.flatMap(({ id }) => {
+        const node = session.design().nodes[id]
+        return node?.type === 'text' ? textFontUses(node, kit) : []
+      }),
+    )
     if (signal.aborted) return
     // Fitted in the fallback fonts, a box would be wrong: only a family whose files came is written.
     const here = new Set([...SHIPPED_FAMILIES, ...resources.bytes().fonts.map((f) => f.family)])

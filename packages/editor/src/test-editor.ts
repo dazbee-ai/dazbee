@@ -7,18 +7,19 @@ import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type DesignInput, fontFamilies, imageAssetIds, parseDesign, type Point } from '@dazbee/schema'
+import { type DesignInput, fontUses, imageAssetIds, parseDesign, type Point } from '@dazbee/schema'
 
 import type { Insets, Viewport } from './canvas/camera.ts'
 import { labelBox } from './canvas/frames.ts'
 import { buildCore } from './core.ts'
 import type { CoreOptions, LinkNotices, NoticeDetail, TabAccess } from './core-interface.ts'
+import { openedFonts } from './font-loads.ts'
 import type { FrameSampler } from './gestures/colour-pick.ts'
 import { CORNER_REACH, type Grab, type LineEnd, lineEnds, ROTATE_REACH, screenCorners } from './gestures/hit-zones.ts'
 import type { KeyAnswer, KeyInput, KeyTarget, PointerInput } from './gestures/inputs.ts'
 import type { Handle } from './layers/transform.ts'
 import type { OpenTab } from './open-tab.ts'
-import { loadFonts, loadImages, type ResourceSources } from './resources.ts'
+import { loadImages, type ResourceSources } from './resources.ts'
 import { pressFor, type ShortcutAction } from './shortcuts.ts'
 
 export interface TestEditorOptions {
@@ -131,7 +132,7 @@ export async function testEditor(
   const opened = readDesign(store)
   const [images, fonts] = await Promise.all([
     loadImages(imageAssetIds(opened), sources),
-    loadFonts(fontFamilies(opened), sources),
+    openedFonts(fontUses(opened), sources),
   ])
   const cache = resourceCache(ck)
   const ending = new AbortController()
@@ -141,11 +142,11 @@ export async function testEditor(
     ck,
     cache,
     first: {
-      fonts: [...loadFontFiles(), ...fonts].map(({ family, bytes }) => ({ family, bytes })),
+      fonts: [...loadFontFiles(), ...fonts.files].map(({ family, bytes }) => ({ family, bytes })),
       fallbackFamilies: [...FALLBACK_FAMILIES],
       images,
     },
-    firstFaces: fonts.map(({ family, weight, style }) => ({ family, weight, style })),
+    firstFonts: fonts,
     store,
     connected: () => true,
     remembered: { get: (key) => remembered.get(key) ?? null, set: (key, value) => void remembered.set(key, value) },

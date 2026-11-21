@@ -65,7 +65,7 @@ export function VersionStage({
   ...opened
 }: Opened & {
   /** How the live editor loads a design's images and fonts, which the version's load with too. */
-  loads: Pick<ViewerSources, 'assetBytes' | 'fontFiles'>
+  loads: Pick<ViewerSources, 'assetBytes' | 'fontFaces' | 'fontFile'>
   /** The zoom the page shows: the viewer's while it shows, the live editor's again after. */
   zoom: ValueStore<number | null>
   insets: Insets | null

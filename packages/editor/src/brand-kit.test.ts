@@ -5,8 +5,10 @@ import type { ResourceBytes } from '@dazbee/renderer'
 import type { DesignInput, TextLook, TextProps, Variables } from '@dazbee/schema'
 
 import { type BrandKitDeps, editorBrandKit } from './brand-kit.ts'
+import { SHIPPED_FAMILIES } from './font-loads.ts'
 import { sessionOf } from './layers/test-boxes.ts'
 import { editorSelection } from './selection.ts'
+import { testCatalog } from './test-catalog.ts'
 import { testEditor } from './test-editor.ts'
 import { copyIn, frameDesign, linkedFrames } from './test-matrix/design-builders.ts'
 
@@ -150,17 +152,18 @@ function harness(failing: string[] = [], design = DESIGN) {
         log.push('setVariables')
         bytes = { ...bytes, variables }
       },
-      loadFamilies: (families) => {
+      loadUses: (uses) => {
+        const families = [...new Set(uses.map((use) => use.family))]
         log.push(`load ${families.join(',')}`)
-        return families.map(
-          (family) =>
-            new Promise<void>((resolve) =>
-              arrivals.push(() => {
-                if (!failing.includes(family))
-                  bytes = { ...bytes, fonts: [...bytes.fonts, { family, bytes: new Uint8Array() }] }
-                resolve()
-              }),
-            ),
+        // The fonts we ship are here already.
+        if (families.every((family) => SHIPPED_FAMILIES.has(family))) return Promise.resolve()
+        return new Promise<void>((resolve) =>
+          arrivals.push(() => {
+            for (const family of families)
+              if (!failing.includes(family))
+                bytes = { ...bytes, fonts: [...bytes.fonts, { family, bytes: new Uint8Array() }] }
+            resolve()
+          }),
         )
       },
     },
@@ -188,14 +191,7 @@ describe('editorBrandKit', () => {
     it('refits the text bound to a brand font whose family changed, in every frame, in its real files; an undo after leaves the refit', async () => {
       const extraBold = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
       const editor = await testEditor(BRAND_TEXT, {
-        sources: {
-          fontFiles: (families) =>
-            Promise.resolve(
-              families.includes(KIT_FAMILY)
-                ? [{ family: KIT_FAMILY, weight: 400, style: 'normal' as const, bytes: extraBold }]
-                : [],
-            ),
-        },
+        sources: testCatalog([{ family: KIT_FAMILY, bytes: extraBold }]).sources,
       })
       const { core } = editor
       const props = (id: string) => core.design().nodes[id]?.props as TextProps

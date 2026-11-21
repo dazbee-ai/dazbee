@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import type { DesignInput } from '@dazbee/schema'
 
+import type { FontSources } from '../font-loads.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 
 let editor: TestEditor | undefined
@@ -59,19 +60,22 @@ function catalog() {
   return {
     asked,
     state,
-    fontFiles: async (families: string[]) => {
-      asked.push(families)
-      if (state.failing && asked.length > 1) throw new Error('no network')
-      return families.includes('Have Sans')
-        ? [{ family: 'Have Sans', weight: 400, style: 'normal' as const, bytes: noto.bytes }]
-        : []
-    },
+    sources: {
+      fontFaces: async (families: string[]) => {
+        asked.push(families)
+        if (state.failing && asked.length > 1) throw new Error('no network')
+        return families.includes('Have Sans')
+          ? [{ id: 'have', family: 'Have Sans', weight: 400, style: 'normal' as const }]
+          : []
+      },
+      fontFile: () => Promise.resolve(noto.bytes),
+    } satisfies FontSources,
   }
 }
 
 describe('fontCheck', () => {
   it('lists the families the catalog has no file for and the characters no font has, for the frames asked', async () => {
-    editor = await testEditor(DESIGN, { sources: { fontFiles: catalog().fontFiles } })
+    editor = await testEditor(DESIGN, { sources: catalog().sources })
     expect(await editor.core.fontCheck(['sq'])).toEqual({
       families: ['Nope Sans', 'Run Sans'],
       characters: [{ text: 'ᚠ', layers: ['Headline'] }],
@@ -79,7 +83,7 @@ describe('fontCheck', () => {
   })
 
   it('reads a frame on another page, and gives a name once for texts that share it', async () => {
-    editor = await testEditor(DESIGN, { sources: { fontFiles: catalog().fontFiles } })
+    editor = await testEditor(DESIGN, { sources: catalog().sources })
     expect(await editor.core.fontCheck(['sq', 'far'])).toEqual({
       families: ['Nope Sans', 'Run Sans'],
       characters: [
@@ -92,9 +96,22 @@ describe('fontCheck', () => {
   it('lists no family whose load failed, which may well exist', async () => {
     const source = catalog()
     source.state.failing = true
-    editor = await testEditor(DESIGN, { sources: { fontFiles: source.fontFiles } })
+    editor = await testEditor(
+      { ...DESIGN, nodes: { body: text('sq', 'a2', 'Body', 'Fine words', 'Have Sans') } } as DesignInput,
+      { sources: source.sources },
+    )
+    // A family the text takes after the design opened, whose load fails.
+    const style = { fontFamily: 'Later Sans', fontSize: 40, color: '#000000FF' }
+    editor.core.session.run('node.update', { ids: ['body'], patch: { style } })
     expect((await editor.core.fontCheck(['sq'])).families).toEqual([])
-    expect(source.asked.length).toBeGreaterThan(1)
+    expect(source.asked).toEqual([['Have Sans'], ['Later Sans']])
+  })
+
+  it('lists a family the catalog had no faces for as the design opened, asking for it once', async () => {
+    const source = catalog()
+    editor = await testEditor(DESIGN, { sources: source.sources })
+    expect((await editor.core.fontCheck(['sq'])).families).toEqual(['Nope Sans', 'Run Sans'])
+    expect(source.asked).toHaveLength(1)
   })
 
   it('names a brand-bound text’s family as the kit gives it', async () => {
@@ -105,7 +122,7 @@ describe('fontCheck', () => {
           body: { ...text('sq', 'a2', 'Body', 'Fine', 'Have Sans'), bindings: { fontFamily: 'brand:heading' } },
         },
       } as DesignInput,
-      { sources: { fontFiles: catalog().fontFiles } },
+      { sources: catalog().sources },
     )
     await editor.core.setVariables({ 'brand:heading': 'Kit Sans' })
     expect((await editor.core.fontCheck(['sq'])).families).toEqual(['Kit Sans'])
@@ -143,11 +160,11 @@ describe('fontCheck', () => {
         { text: 'ᚱ', layers: ['Shrunk'] },
       ],
     }
-    editor = await testEditor(drawn, { sources: { fontFiles: catalog().fontFiles } })
+    editor = await testEditor(drawn, { sources: catalog().sources })
     expect(await editor.core.fontCheck(['sq'])).toEqual(want)
     editor.end()
     editor = await testEditor(drawn, {
-      sources: { fontFiles: catalog().fontFiles },
+      sources: catalog().sources,
       access: { readOnly: () => true, onChange: () => () => {} },
     })
     expect(editor.core.readOnly()).toBe(true)
@@ -155,7 +172,7 @@ describe('fontCheck', () => {
   })
 
   it('writes nothing to the design', async () => {
-    editor = await testEditor(DESIGN, { sources: { fontFiles: catalog().fontFiles } })
+    editor = await testEditor(DESIGN, { sources: catalog().sources })
     const before = JSON.stringify(editor.core.design())
     const undo = editor.core.canUndo()
     await editor.core.fontCheck(['sq', 'far'])

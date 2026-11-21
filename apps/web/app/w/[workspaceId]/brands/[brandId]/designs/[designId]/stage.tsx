@@ -305,7 +305,7 @@ export function EditorStage({
           member: { userId, workspaceId },
           syncToken: () => fetchSyncToken(workspaceId, brandId, designId),
           assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
-          fontFiles: fontLoader(workspaceId, brandId),
+          ...fontLoader(workspaceId, brandId),
           uploadImage: imageUploader(workspaceId, brandId),
           ...(variables ? { variables } : {}),
           onStatus: status.set,
@@ -500,7 +500,7 @@ export function EditorStage({
             }}
             loads={{
               assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
-              fontFiles: fontLoader(workspaceId, brandId),
+              ...fontLoader(workspaceId, brandId),
             }}
           />
         )}

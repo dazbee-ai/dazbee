@@ -1,6 +1,7 @@
 // What the editor loads through the app's own routes: an asset's bytes, the brand's font files and
 // its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
 // to keep the page.
+import type { FontSources } from '@dazbee/editor'
 import { BrandKit, FontFamily, type Variables } from '@dazbee/schema'
 
 import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
@@ -19,36 +20,30 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 }
 
 /**
- * The files of the families the editor asks for (#50), from the brand's catalog: fetched once, and
- * again when a family isn't in it yet, as after an upload.
+ * The faces of the families the editor asks for (#50), from the brand's catalog, fetched once and
+ * again when a family isn't in it yet, as after an upload; and the file of each face it asks for.
  */
-export function fontLoader(workspaceId: string, brandId: string) {
+export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {
   let catalog: Promise<FontFamily[]> | null = null
   const fetchCatalog = async () => {
     const response = await fetch(brandPath(workspaceId, brandId, 'fonts'))
     if (!response.ok) throw new Error(`fonts: ${response.status}`)
     return FontFamily.array().parse(await response.json())
   }
-  return async (families: string[]) => {
-    let known = await (catalog ??= fetchCatalog()).catch((error: unknown) => {
-      catalog = null
-      throw error
-    })
-    if (families.some((family) => !known.some((f) => f.family === family))) known = await (catalog = fetchCatalog())
-    const faces = known.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
-    return Promise.all(
-      faces.map(async (face) => {
-        const response = await fetch(brandPath(workspaceId, brandId, 'fonts', face.id))
-        if (!response.ok) throw new Error(`font ${face.family} ${face.weight}: ${response.status}`)
-        return {
-          family: face.family,
-          weight: face.weight,
-          ...(face.weights ? { weights: face.weights } : {}),
-          style: face.style,
-          bytes: new Uint8Array(await response.arrayBuffer()),
-        }
-      }),
-    )
+  return {
+    fontFaces: async (families) => {
+      let known = await (catalog ??= fetchCatalog()).catch((error: unknown) => {
+        catalog = null
+        throw error
+      })
+      if (families.some((family) => !known.some((f) => f.family === family))) known = await (catalog = fetchCatalog())
+      return known.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
+    },
+    fontFile: async (face) => {
+      const response = await fetch(brandPath(workspaceId, brandId, 'fonts', face.id))
+      if (!response.ok) throw new Error(`font ${face.family} ${face.weight}: ${response.status}`)
+      return new Uint8Array(await response.arrayBuffer())
+    },
   }
 }
 

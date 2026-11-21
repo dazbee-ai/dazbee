@@ -89,7 +89,7 @@ export const TEST_BRAND_KIT: BrandKit = {
   ],
 }
 
-/** The one family in every brand's font catalog, one face whose file is a shipped font's. */
+/** The one family in every brand's font catalog, a regular and a bold face whose files are shipped fonts'. */
 export const TEST_FONTS: FontFamily[] = [
   {
     family: 'Brand Serif',
@@ -97,6 +97,14 @@ export const TEST_FONTS: FontFamily[] = [
     category: null,
     faces: [
       { id: 'face-brand-serif', family: 'Brand Serif', weight: 400, style: 'normal', source: 'upload', byteSize: 1 },
+      {
+        id: 'face-brand-serif-bold',
+        family: 'Brand Serif',
+        weight: 700,
+        style: 'normal',
+        source: 'upload',
+        byteSize: 1,
+      },
     ],
   },
 ]
@@ -321,14 +329,16 @@ function visible(agent: AgentMe): BrandSummary[] {
 }
 
 /**
- * The fake storage behind the signed links: a font face's file is a shipped font's, and the bottle's is
- * `TEST_BOTTLE_PNG`. A request carrying a token is refused, as the agent's token must never reach storage.
+ * The fake storage behind the signed links: a font face's file is a shipped font's (the bold face's Noto Sans
+ * Bold, every other's the first shipped), and the bottle's is `TEST_BOTTLE_PNG`. A request carrying a token is refused, as the agent's token must never reach storage.
  */
 async function stored(request: Request): Promise<Response> {
   if (request.headers.has('authorization')) return new Response('A signed link takes no token', { status: 400 })
   const path = new URL(request.url).pathname
   if (path === '/assets/asset-bottle') return new Response(new Uint8Array(TEST_BOTTLE_PNG))
-  const [shipped] = loadFontFiles()
+  const [first] = loadFontFiles()
+  const bold = loadFontFiles().find((font) => font.file === 'NotoSans-Bold.ttf')
+  const shipped = path === '/fonts/face-brand-serif-bold' ? bold : first
   if (!path.startsWith('/fonts/') || !shipped) return new Response('Not found', { status: 404 })
   return new Response(new Uint8Array(shipped.bytes))
 }

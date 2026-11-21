@@ -12,6 +12,7 @@ import type { Frame } from '../canvas/frames.ts'
 import { frameScenes } from '../canvas/scenes.ts'
 import { keyInput } from '../gestures/test-inputs.ts'
 import type { EditorResources, ResourceSources } from '../resources.ts'
+import { testCatalog } from '../test-catalog.ts'
 import { testEditor } from '../test-editor.ts'
 import type { RunStyle } from './text-edit.ts'
 import { editorTyping, type TypingDeps } from './typing.ts'
@@ -124,10 +125,7 @@ const headline = (fontFamily: string): DesignInput => ({
   },
 })
 /** The files of the late family, as a font source gives them. */
-const lateFiles = () => {
-  const bytes = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
-  return [{ family: LATE_FAMILY, weight: 400, style: 'normal' as const, bytes }]
-}
+const lateBytes = () => loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
 
 describe('editorTyping', () => {
   it('types into nothing until typing starts', () => {
@@ -486,20 +484,21 @@ describe('editorTyping over text laid out with a font', () => {
         return { editor, caretX: () => editor.modules.typing.shown()?.caret?.x }
       }
       // Where the caret ends in the family when its files were there from the start.
-      const there = await typedAtEnd(LATE_FAMILY, { fontFiles: () => Promise.resolve(lateFiles()) })
+      const there = await typedAtEnd(LATE_FAMILY, testCatalog([{ family: LATE_FAMILY, bytes: lateBytes() }]).sources)
       const inFamily = there.caretX()
       there.editor.end()
 
       // The family's files are held back: the redraw that asks for them draws the text without them.
       let release = () => {}
       const held = new Promise<void>((resolve) => (release = resolve))
+      const catalog = testCatalog([{ family: LATE_FAMILY, bytes: lateBytes() }])
       const asked: string[][] = []
-      const fontFiles = async (families: string[]) => {
+      const fontFaces = async (families: string[]) => {
         asked.push(families)
         await held
-        return families.includes(LATE_FAMILY) ? lateFiles() : []
+        return catalog.sources.fontFaces(families)
       }
-      const { editor, caretX } = await typedAtEnd('Noto Sans', { fontFiles })
+      const { editor, caretX } = await typedAtEnd('Noto Sans', { ...catalog.sources, fontFaces })
       const { core, modules } = editor
       expect(caretX()).toBeGreaterThan(0)
       expect(caretX()).not.toBe(inFamily)

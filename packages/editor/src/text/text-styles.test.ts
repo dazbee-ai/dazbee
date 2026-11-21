@@ -10,11 +10,13 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type DesignInput, parseDesign } from '@dazbee/schema'
 
 import { pageFrames } from '../canvas/frames.ts'
+import { NO_FONTS } from '../font-loads.ts'
 import { editorLayerEdits } from '../layer-edits.ts'
 import { measure, testBoxes } from '../layers/test-boxes.ts'
 import { type EditorResources, editorResources } from '../resources.ts'
 import { editorSelection } from '../selection.ts'
 import { COPIES, everyCopy } from '../test-actions.ts'
+import { testCatalog } from '../test-catalog.ts'
 import { testEditor } from '../test-editor.ts'
 import { editorTextStyles } from './text-styles.ts'
 import { editorTyping } from './typing.ts'
@@ -255,26 +257,20 @@ describe('editorTextStyles', () => {
 })
 
 describe('editorTextStyles over the editor’s resources', () => {
-  it('lets Bold write once the files of a family arrive, which the arrival tells', async () => {
+  it("lets Bold write once the catalog lists a family's weights, before any of their files arrives", async () => {
     const ck = await loadCanvasKit()
     const file = (name: string) => loadFontFiles().find((f) => f.file === name)?.bytes ?? new Uint8Array()
     const done = new AbortController()
+    const catalog = testCatalog([
+      { family: 'Brand Sans', weight: 400, bytes: file('NotoSans-Regular.ttf') },
+      { family: 'Brand Sans', weight: 700, bytes: file('NotoSans-Bold.ttf') },
+    ])
     const resources = editorResources({
       ck,
       cache: resourceCache(ck),
       first: { fonts: [], fallbackFamilies: [], images: {} },
-      sources: {
-        fontFiles: (families) =>
-          Promise.resolve(
-            families.includes('Brand Sans')
-              ? [
-                  { family: 'Brand Sans', weight: 400, style: 'normal', bytes: file('NotoSans-Regular.ttf') },
-                  { family: 'Brand Sans', weight: 700, style: 'normal', bytes: file('NotoSans-Bold.ttf') },
-                ]
-              : [],
-          ),
-      },
-      firstFaces: [],
+      sources: catalog.sources,
+      firstFonts: NO_FONTS,
       connected: () => true,
       status: () => {},
       signal: done.signal,
@@ -286,7 +282,8 @@ describe('editorTextStyles over the editor’s resources', () => {
     const told: boolean[] = []
     resources.onArrive((fonts) => told.push(fonts))
     await Promise.all(resources.loadFamilies(['Brand Sans']))
-    expect(told).toEqual([true])
+    expect(told).toEqual([])
+    expect(catalog.fetched).toEqual([])
     expect(resources.facesOf('Brand Sans').map((f) => f.weight)).toEqual([400, 700])
     expect(styles.state()?.bold).toEqual({ on: false, disabled: false })
     styles.perform('bold')
@@ -301,23 +298,10 @@ describe('editorTextStyles over the editor’s resources', () => {
       ck,
       cache: resourceCache(ck),
       first: { fonts: [], fallbackFamilies: [], images: {} },
-      sources: {
-        fontFiles: (families) =>
-          Promise.resolve(
-            families.includes('Brand Sans')
-              ? [
-                  {
-                    family: 'Brand Sans',
-                    weight: 400,
-                    weights: { min: 100, max: 900 },
-                    style: 'normal' as const,
-                    bytes: variableTestFont(),
-                  },
-                ]
-              : [],
-          ),
-      },
-      firstFaces: [],
+      sources: testCatalog([
+        { family: 'Brand Sans', weight: 400, weights: { min: 100, max: 900 }, bytes: variableTestFont() },
+      ]).sources,
+      firstFonts: NO_FONTS,
       connected: () => true,
       status: () => {},
       signal: done.signal,

@@ -39,6 +39,7 @@ import type { Paint } from './canvas/redraw.ts'
 import type { Motion, Spot } from './canvas/view.ts'
 import type { ClipboardPayload, Remembered } from './clipboard.ts'
 import type { CopyMaker } from './display-copies.ts'
+import type { OpenedFonts } from './font-loads.ts'
 import type { FrameSampler } from './gestures/colour-pick.ts'
 import type { KeyAnswer, KeyInput, PointerAnswer, PointerInput } from './gestures/inputs.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -48,7 +49,7 @@ import type { UngroupState } from './layers/ungroup.ts'
 import type { WrapState } from './layers/wrap-state.ts'
 import type { LinkedMenu } from './linked-copies.ts'
 import type { SvgRead } from './place-svg.ts'
-import type { FontFace, ResourceSources } from './resources.ts'
+import type { ResourceSources } from './resources.ts'
 import type { Restored } from './restore.ts'
 import type { ShortcutAction, StageAction } from './shortcuts.ts'
 import type { FieldState } from './text/field-change.ts'
@@ -143,8 +144,8 @@ export interface CoreStart {
   cache: ResourceCache
   /** The bytes the design opens with: the fonts the app ships, the design's own fonts and its images. */
   first: ResourceBytes
-  /** The faces of the files `fontFiles` gave the design as it opened. */
-  firstFaces: readonly FontFace[]
+  /** The catalog's faces and the files the design opened with (`openedFonts`). */
+  firstFonts: OpenedFonts
   store: DesignStore
   /** Whether the sync server is connected: a font or image that fails offline waits for it. */
   connected: () => boolean

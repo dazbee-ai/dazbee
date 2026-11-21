@@ -9,6 +9,7 @@ import { ALL_PLATFORMS, LAYER_CLIPBOARD_TYPE, parseDesign, type Point, type Safe
 
 import { labelBox } from './canvas/frames.ts'
 import { openEditorCore } from './core.ts'
+import { NO_FONTS } from './font-loads.ts'
 import { type ShortcutAction, SHORTCUTS, stepOf } from './shortcuts.ts'
 import { DESIGN, WORDS } from './test-actions.ts'
 import { around, DESIGNS, ON_A_BOX, openPhotoPages, run, stored, textOf } from './test-core.ts'
@@ -525,7 +526,7 @@ describe('openEditorCore', () => {
         fallbackFamilies: [],
         images: {},
       },
-      firstFaces: [],
+      firstFonts: NO_FONTS,
       store: openTestStore(parsed.design),
       connected: () => true,
       remembered: { get: () => null, set: () => {} },

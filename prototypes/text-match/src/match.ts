@@ -74,8 +74,10 @@ interface Fitted {
   brandToken?: string
 }
 
-/** Typefaces read to check which letters a face has, kept across blocks (the most recent 400). */
+/** Typefaces read to check which letters a face has, kept across blocks (the most recent, up to 200 MB of files). */
 const typefaces = new Map<string, Typeface | null>()
+const typefaceBytes = new Map<string, number>()
+let typefaceTotal = 0
 
 const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
 /** Which score orders candidates: the letters' shapes (default), the plain overlap, or both. */
@@ -96,12 +98,17 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   const covers = (face: CatalogueFace) => {
     let tf = typefaces.get(face.file)
     if (tf === undefined) {
-      tf = ctx.ck.Typeface.MakeTypefaceFromData(fontBytes(face).buffer as ArrayBuffer)
+      const bytes = fontBytes(face)
+      tf = ctx.ck.Typeface.MakeTypefaceFromData(bytes.buffer as ArrayBuffer)
       typefaces.set(face.file, tf)
-      if (typefaces.size > 400) {
+      typefaceBytes.set(face.file, bytes.length)
+      typefaceTotal += bytes.length
+      while (typefaceTotal > 200 * 2 ** 20 && typefaces.size > 1) {
         const [oldest, old] = typefaces.entries().next().value!
         old?.delete()
         typefaces.delete(oldest)
+        typefaceTotal -= typefaceBytes.get(oldest) ?? 0
+        typefaceBytes.delete(oldest)
       }
     }
     if (!tf) return false

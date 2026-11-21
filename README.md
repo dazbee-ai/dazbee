@@ -48,6 +48,7 @@ packages/renderer/    lays out and draws a design with CanvasKit
 packages/editor/      the client-only editor: canvas, tools, gestures, sync and offline copy
 packages/export/      PNG, JPG, PDF and SVG exports, and their zips (ADR-0005); a frame drawn for an agent, and the warnings it is told
 packages/svg/         turns an SVG file into layers
+packages/figma/       turns a Figma file's JSON into pages, frames and layers, with a report of what it left out or drew another way
 packages/fonts/       the font files we ship, the Google font catalog list and their Node loader
 packages/db/          Drizzle tables and migrations (ADR-0009)
 packages/storage/     object storage over the S3 API (ADR-0010)

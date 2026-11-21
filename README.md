@@ -33,6 +33,8 @@ The capacity limits are settings read from the environment when a server starts,
 | `AGENT_SIGN_INS_PER_HOUR` | 60 | agents' sign-ins the API takes from one address in an hour |
 | `AGENT_REGISTRATIONS_PER_HOUR` | 500 | agent client registrations the API takes in all in an hour |
 
+`PIXABAY_API_KEY`, the API's setting, is Pixabay's key: set, agents search Pixabay's free stock photos and save them into a brand's images (`search_stock`, `add_stock`); unset or empty, both say stock search is off. The API keeps each Pixabay answer 24 hours and sends Pixabay at most 100 requests a minute, as Pixabay's terms ask.
+
 ## Layout
 
 ```

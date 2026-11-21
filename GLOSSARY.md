@@ -73,7 +73,7 @@ A named value a layer's property can follow. For now, the brand kit's tokens (`b
 _Avoid_: Field, slot, column, placeholder
 
 **Asset library**:
-A brand's images and SVG files, uploaded by a person or added by an agent from a link, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
+A brand's images and SVG files, uploaded by a person or added by an agent from a link or as a stock photo, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
 _Avoid_: Media library, uploads, gallery
 
 **Armed image**:

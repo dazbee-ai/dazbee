@@ -97,6 +97,8 @@ describe('mcpEndpoint', () => {
       'list_assets',
       'create_design',
       'add_image',
+      'search_stock',
+      'add_stock',
       'list_fonts',
       'ad_rules',
       'open_design',
@@ -123,7 +125,7 @@ describe('mcpEndpoint', () => {
       expect(typeof tool.annotations?.readOnlyHint, tool.name).toBe('boolean')
       expect(tool.annotations, tool.name).toMatchObject({
         destructiveHint: false,
-        openWorldHint: tool.name === 'add_image',
+        openWorldHint: ['add_image', 'search_stock', 'add_stock'].includes(tool.name),
       })
       expect(tool.title, tool.name).toBeTruthy()
     }
@@ -132,6 +134,8 @@ describe('mcpEndpoint', () => {
       list_brands: true,
       create_design: false,
       add_image: false,
+      search_stock: true,
+      add_stock: false,
       open_design: true,
       close_design: true,
       describe_command: true,

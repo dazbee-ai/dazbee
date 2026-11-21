@@ -44,6 +44,8 @@ import { sessionRefusal } from './sign-in/early-access.ts'
 import { signInRoutes } from './sign-in/routes.ts'
 import { bearerToken, type SessionOf } from './sign-in/session.ts'
 import type { SignInSettings } from './sign-in/sign-in.ts'
+import { type StockLibrary, StockRefused } from './stock/pixabay.ts'
+import { stockRoutes } from './stock/routes.ts'
 import { templateRoutes } from './templates/routes.ts'
 import { versionRoutes } from './versions/routes.ts'
 import { InvalidContent } from './workspace/designs.ts'
@@ -63,6 +65,7 @@ export function createApp({
   agentLimits = oauthLimitSettings({}),
   outsideFetch = {},
   fromUrlPerHour = FROM_URL_PER_HOUR,
+  stock = null,
 }: {
   db: Db
   storage: Storage
@@ -85,6 +88,8 @@ export function createApp({
   outsideFetch?: SafeFetchSettings
   /** The pictures from links a member may add in an hour, `FROM_URL_PER_HOUR` unless given. */
   fromUrlPerHour?: number
+  /** The stock library photos are searched in and saved from; none turns stock search off. */
+  stock?: StockLibrary | null
 }) {
   const app = new Hono<Env>()
 
@@ -106,6 +111,7 @@ export function createApp({
     .route('/', templateRoutes({ db, storage }))
     .route('/', brandKitRoutes({ db }))
     .route('/', fontRoutes({ db, storage }))
+    .route('/', stockRoutes({ db, storage, outsideFetch, stock, perHour: fromUrlPerHour }))
 
   app.use('/me', signedIn)
   app.use('/me/*', signedIn)
@@ -129,6 +135,7 @@ export function createApp({
   // A refusal a route lets through answers 400 with its message; any other error is ours.
   app.onError((e, c) => {
     if (e instanceof MemberRefusal) return c.json(error(e.message), e.status)
+    if (e instanceof StockRefused) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
     if (e instanceof SvgBusy) return c.json(error(e.message), 503)
     if (e instanceof AddingFromUrlBusy) return c.json(error(e.message), 503)

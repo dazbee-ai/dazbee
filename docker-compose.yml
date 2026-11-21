@@ -61,6 +61,8 @@ services:
       # Request access's Turnstile check; empty skips it. The web app, run with next dev, reads PILOT_HOST and
       # TURNSTILE_SITE_KEY from its own environment.
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Pixabay's key, which turns agents' stock photo search on; empty leaves it off.
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       STORAGE_ENDPOINT: http://storage:9000
       STORAGE_BUCKET: dazbee
       STORAGE_ACCESS_KEY_ID: dazbee

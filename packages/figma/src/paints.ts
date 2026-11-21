@@ -27,10 +27,7 @@ export type PaintInput = z.input<typeof Paint>
 export type StrokeInput = z.input<typeof Stroke>
 
 /** A gradient's colour at an offset from 0 to 1. */
-export interface Stop {
-  offset: number
-  color: string
-}
+export type Stop = { offset: number; color: string }
 
 /** A gradient's three handles in the layer's unit box: its start (value 0), its end (value 1) and its width. */
 export interface Handles {
@@ -51,13 +48,11 @@ export interface PaintPlace {
 
 /** Lengths under this, in the unit box or in pixels, are read as none. */
 const TINY = 1e-6
-/** Handles past this, in unit boxes, are no drawing Figma makes; they are brought within it. */
-const MAX_HANDLE = 1e6
 /** An oval whose shortest half-axis is more than this share of its longest is drawn as the circle it nearly is. */
 const ROUND_RATIO = 0.999
 /** Figma's numbers are 32-bit floats: handles within this share of square and of one length are read as both. */
 const SLACK = 1e-6
-/** Lengths past this, in pixels, are no drawing Figma makes; they are brought within it. */
+/** Lengths and handles past this, in pixels or unit boxes, are no drawing Figma makes; they are brought within it. */
 const MAX_LENGTH = 1e6
 /** The longest miter a join reaches, in half stroke widths, as FigCraft holds it. */
 const MAX_MITER = 100
@@ -76,20 +71,14 @@ const STROKE_JOINS: ReadonlyMap<string, 'miter' | 'round' | 'bevel'> = new Map([
   ['ROUND', 'round'],
   ['BEVEL', 'bevel'],
 ])
-/** Paint types Dazbee has no paint for, each with its report line. */
-const LEFT_OUT: ReadonlyMap<string, FigmaReportLine> = new Map([
+/** Figma's paint types: null for those Dazbee draws, else the line reporting them left out. */
+const PAINT_TYPES: ReadonlyMap<string, FigmaReportLine | null> = new Map([
+  ...['SOLID', 'GRADIENT_LINEAR', 'GRADIENT_RADIAL', 'GRADIENT_ANGULAR', 'GRADIENT_DIAMOND', 'IMAGE'].map(
+    (t) => [t, null] as const,
+  ),
   ['EMOJI', 'emoji-paints'],
   ['VIDEO', 'video-paints'],
   ['PATTERN', 'pattern-paints'],
-])
-/** Paint types Dazbee draws. */
-const KNOWN: ReadonlySet<string> = new Set([
-  'SOLID',
-  'GRADIENT_LINEAR',
-  'GRADIENT_RADIAL',
-  'GRADIENT_ANGULAR',
-  'GRADIENT_DIAMOND',
-  'IMAGE',
 ])
 /** A paint's blend modes that draw it over what is under it as Dazbee does. */
 const PLAIN_BLENDS: ReadonlySet<string> = new Set(['NORMAL', 'PASS_THROUGH'])
@@ -121,34 +110,6 @@ export function fillsOf(
 ): PaintInput[] {
   const note = (line: FigmaReportLine) => report.add(line, node)
   return paints.flatMap((p) => paintOf(note, p, at) ?? [])
-}
-
-/**
- * A node's strokes as Dazbee's: one for each of its stroke paints, all of one weight, align, dashes,
- * cap, join and miter limit. Differing weights on each side are drawn at the widest, reported; a
- * weight of 0 is no stroke.
- */
-export function strokesOf(report: Reporter, n: FigmaNode, at: PaintPlace): StrokeInput[] {
-  const width = weightOf(report, n)
-  if (!(width > 0)) return []
-  const { fields } = n
-  const dashes = list(field(fields, 'strokeDashes')).flatMap((d) => {
-    const length = num(d)
-    return length === undefined || length < 0 ? [] : [Math.min(length, MAX_LENGTH)]
-  })
-  const angle = num(field(fields, 'strokeMiterAngle'))
-  const look = {
-    width,
-    align: STROKE_ALIGNS.get(str(field(fields, 'strokeAlign')) ?? '') ?? 'center',
-    ...(dashes.some((d) => d > 0) ? { dashes } : {}),
-    cap: STROKE_CAPS.get(str(field(fields, 'strokeCap')) ?? '') ?? 'butt',
-    join: STROKE_JOINS.get(str(field(fields, 'strokeJoin')) ?? '') ?? 'miter',
-    // The angle below which Figma bevels a join, as a miter limit (props.rs:376-378).
-    ...(angle !== undefined && angle > 0 && angle < 180
-      ? { miterLimit: Math.min(MAX_MITER, Math.max(1, 1 / Math.sin((angle * Math.PI) / 360))) }
-      : {}),
-  }
-  return fillsOf(report, n, list(field(fields, 'strokes')), at).map((paint) => ({ paint, ...look }))
 }
 
 /**
@@ -229,12 +190,19 @@ export function ovalOf(h: Handles, width: number, height: number): { major: numb
   return { major, minor, angle: (Math.atan2(2 * sxy, sxx - syy) * 90) / Math.PI }
 }
 
+/** A rectangle shape's corners: its one radius, or each corner's; undefined for any other shape. */
+function rectCorners(shape: unknown): number | readonly number[] | undefined {
+  if (field(shape, 'kind') !== 'rect') return undefined
+  const corners = field(shape, 'corners')
+  return Array.isArray(corners) ? (corners as number[]) : (num(field(shape, 'cornerRadius')) ?? 0)
+}
+
 /** The paint a Figma paint becomes, or null, noted, when it is left out. */
 function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null {
   const p = record(value)
   const type = str(field(p, 'type'))
   const leftOut =
-    type === undefined ? undefined : (LEFT_OUT.get(type) ?? (KNOWN.has(type) ? undefined : 'unknown-paints'))
+    type === undefined ? null : (PAINT_TYPES.get(type) ?? (PAINT_TYPES.has(type) ? null : 'unknown-paints'))
   if (leftOut) {
     note(leftOut)
     return null
@@ -252,30 +220,49 @@ function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null 
 }
 
 /**
- * A solid or gradient as Dazbee's, without its opacity and visibility: null, noted, when it draws
- * nothing, and undefined when it lacks the colour, stops or handles to draw it by.
+ * A node's strokes as Dazbee's: one for each of its stroke paints, all of one weight, align, dashes,
+ * cap, join and miter limit. Differing weights on each side are drawn at the widest, reported; a
+ * weight of 0 is no stroke.
  */
-function drawnPaint(note: Note, p: unknown, type: string | undefined, at: PaintPlace): PaintInput | null | undefined {
-  if (type === 'SOLID') {
-    const color = colourOf(field(p, 'color'))
-    return color ? { type: 'solid', color } : undefined
+function strokesOf(report: Reporter, n: FigmaNode, at: PaintPlace): StrokeInput[] {
+  const width = weightOf(report, n)
+  if (!(width > 0)) return []
+  const { fields } = n
+  const dashes = list(field(fields, 'strokeDashes')).flatMap((d) => {
+    const length = num(d)
+    return length === undefined || length < 0 ? [] : [Math.min(length, MAX_LENGTH)]
+  })
+  const angle = num(field(fields, 'strokeMiterAngle'))
+  const look = {
+    width,
+    align: STROKE_ALIGNS.get(str(field(fields, 'strokeAlign')) ?? '') ?? 'center',
+    ...(dashes.some((d) => d > 0) ? { dashes } : {}),
+    cap: STROKE_CAPS.get(str(field(fields, 'strokeCap')) ?? '') ?? 'butt',
+    join: STROKE_JOINS.get(str(field(fields, 'strokeJoin')) ?? '') ?? 'miter',
+    // The angle below which Figma bevels a join, as a miter limit (props.rs:376-378).
+    ...(angle !== undefined && angle > 0 && angle < 180
+      ? { miterLimit: Math.min(MAX_MITER, Math.max(1, 1 / Math.sin((angle * Math.PI) / 360))) }
+      : {}),
   }
-  const h = handlesOf(p, at.handles)
-  const stops = stopsOf(p)
-  if (!h || !stops) return undefined
-  switch (type) {
-    case 'GRADIENT_LINEAR':
-      return linearPaint(h, stops, note)
-    case 'GRADIENT_ANGULAR':
-      return angularPaint(h, stops, note)
-    case 'GRADIENT_DIAMOND':
-      // A diamond's lines of equal colour are rhombi through ±a and ±u: drawn as the radial oval through them.
-      note('diamond-gradients')
-      return radialPaint(h, at.width, at.height, stops, note)
-    case 'GRADIENT_RADIAL':
-      return radialPaint(h, at.width, at.height, stops, note)
-  }
-  return undefined
+  return fillsOf(report, n, list(field(fields, 'strokes')), at).map((paint) => ({ paint, ...look }))
+}
+
+/**
+ * A node's stroke weight: its own on each side when it has them, the widest when they differ,
+ * reported; else `strokeWeight`, 1 when it has none, as Figma's default.
+ */
+function weightOf(report: Reporter, n: FigmaNode): number {
+  const sides = field(n.fields, 'individualStrokeWeights')
+  const each = (['top', 'right', 'bottom', 'left'] as const).map((k) => num(field(sides, k)))
+  if (!each.every((w) => w !== undefined && w >= 0))
+    return Math.min(MAX_LENGTH, num(field(n.fields, 'strokeWeight')) ?? 1)
+  const widest = Math.max(...(each as number[]))
+  if ((each as number[]).some((w) => w !== widest)) report.add('stroke-weights-widest', n)
+  return Math.min(MAX_LENGTH, widest)
+}
+
+function minus(p: Point, q: Point): Point {
+  return { x: p.x - q.x, y: p.y - q.y }
 }
 
 /**
@@ -315,40 +302,37 @@ function imagePaint(note: Note, p: unknown, at: PaintPlace): PaintInput | null {
 }
 
 /**
- * A gradient's handles taken by `handles` into the layer's unit box; a width handle left out is
- * square to the start and end, as long. Undefined when the start or end isn't a point.
+ * A solid or gradient as Dazbee's, without its opacity and visibility: null, noted, when it draws
+ * nothing, and undefined when it lacks the colour, stops or handles to draw it by.
  */
-function handlesOf(p: unknown, handles: Matrix): Handles | undefined {
-  const points = list(field(p, 'gradientHandlePositions')).map((v) => {
-    const [x, y] = [num(field(v, 'x')), num(field(v, 'y'))]
-    return x === undefined || y === undefined ? undefined : { x: within(x), y: within(y) }
-  })
-  const [start, end, width] = points
-  if (!start || !end) return undefined
-  const side = width ?? { x: start.x - (end.y - start.y), y: start.y + (end.x - start.x) }
-  const to = (q: Point) => apply(handles, q.x, q.y)
-  return { start: to(start), end: to(end), width: to(side) }
+function drawnPaint(note: Note, p: unknown, type: string | undefined, at: PaintPlace): PaintInput | null | undefined {
+  if (type === 'SOLID') {
+    const color = colourOf(field(p, 'color'))
+    return color ? { type: 'solid', color } : undefined
+  }
+  const h = handlesOf(p, at.handles)
+  const stops = stopsOf(p)
+  if (!h || !stops) return undefined
+  switch (type) {
+    case 'GRADIENT_LINEAR':
+      return linearPaint(h, stops, note)
+    case 'GRADIENT_ANGULAR':
+      return angularPaint(h, stops, note)
+    case 'GRADIENT_DIAMOND':
+      // A diamond's lines of equal colour are rhombi through ±a and ±u: drawn as the radial oval through them.
+      note('diamond-gradients')
+      return radialPaint(h, at.width, at.height, stops, note)
+    case 'GRADIENT_RADIAL':
+      return radialPaint(h, at.width, at.height, stops, note)
+  }
+  return undefined
 }
 
-/** A gradient's stops in order, a lone stop taken twice; undefined when it has none. */
-function stopsOf(p: unknown): Stop[] | undefined {
-  const stops = list(field(p, 'gradientStops')).flatMap((s) => {
-    const offset = num(field(s, 'position'))
-    const color = colourOf(field(s, 'color'))
-    return offset === undefined || !color ? [] : [{ offset: Math.min(1, Math.max(0, offset)), color }]
-  })
-  stops.sort((x, y) => x.offset - y.offset)
-  const [first] = stops
-  if (!first) return undefined
-  return stops.length === 1 ? [first, { ...first }] : stops
-}
-
-function minus(p: Point, q: Point): Point {
-  return { x: p.x - q.x, y: p.y - q.y }
-}
-
-function within(v: number): number {
-  return Math.min(MAX_HANDLE, Math.max(-MAX_HANDLE, v))
+/** Whether a node's unit box goes into the layer's skewed, in pixels, which an image fill can't follow. */
+function isSkewed({ handles: [a, b, c, d], width, height }: PaintPlace): boolean {
+  const across = Math.hypot(width * a, height * b)
+  const down = Math.hypot(width * c, height * d)
+  return Math.abs(width * width * a * c + height * height * b * d) > SLACK * across * down
 }
 
 /**
@@ -382,32 +366,35 @@ function cropOf(value: unknown) {
   return upright ? { x, y, width: a, height: d } : undefined
 }
 
-/** Whether a node's unit box goes into the layer's skewed, in pixels, which an image fill can't follow. */
-function isSkewed({ handles: [a, b, c, d], width, height }: PaintPlace): boolean {
-  const across = Math.hypot(width * a, height * b)
-  const down = Math.hypot(width * c, height * d)
-  return Math.abs(width * width * a * c + height * height * b * d) > SLACK * across * down
-}
-
 /**
- * A node's stroke weight: its own on each side when it has them, the widest when they differ,
- * reported; else `strokeWeight`, 1 when it has none, as Figma's default.
+ * A gradient's handles taken by `handles` into the layer's unit box; a width handle left out is
+ * square to the start and end, as long. Undefined when the start or end isn't a point.
  */
-function weightOf(report: Reporter, n: FigmaNode): number {
-  const sides = field(n.fields, 'individualStrokeWeights')
-  const each = (['top', 'right', 'bottom', 'left'] as const).map((k) => num(field(sides, k)))
-  const weight = (w: number) => Math.min(MAX_LENGTH, w)
-  if (each.every((w) => w !== undefined && w >= 0)) {
-    const widest = Math.max(...(each as number[]))
-    if ((each as number[]).some((w) => w !== widest)) report.add('stroke-weights-widest', n)
-    return weight(widest)
-  }
-  return weight(num(field(n.fields, 'strokeWeight')) ?? 1)
+function handlesOf(p: unknown, handles: Matrix): Handles | undefined {
+  const points = list(field(p, 'gradientHandlePositions')).map((v) => {
+    const [x, y] = [num(field(v, 'x')), num(field(v, 'y'))]
+    return x === undefined || y === undefined ? undefined : { x: within(x), y: within(y) }
+  })
+  const [start, end, width] = points
+  if (!start || !end) return undefined
+  const side = width ?? { x: start.x - (end.y - start.y), y: start.y + (end.x - start.x) }
+  const to = (q: Point) => apply(handles, q.x, q.y)
+  return { start: to(start), end: to(end), width: to(side) }
 }
 
-/** A rectangle shape's corners: its one radius, or each corner's; undefined for any other shape. */
-function rectCorners(shape: unknown): number | readonly number[] | undefined {
-  if (field(shape, 'kind') !== 'rect') return undefined
-  const corners = field(shape, 'corners')
-  return Array.isArray(corners) ? (corners as number[]) : (num(field(shape, 'cornerRadius')) ?? 0)
+/** A gradient's stops in order, a lone stop taken twice; undefined when it has none. */
+function stopsOf(p: unknown): Stop[] | undefined {
+  const stops = list(field(p, 'gradientStops')).flatMap((s) => {
+    const offset = num(field(s, 'position'))
+    const color = colourOf(field(s, 'color'))
+    return offset === undefined || !color ? [] : [{ offset: Math.min(1, Math.max(0, offset)), color }]
+  })
+  stops.sort((x, y) => x.offset - y.offset)
+  const [first] = stops
+  if (!first) return undefined
+  return stops.length === 1 ? [first, { ...first }] : stops
+}
+
+function within(v: number): number {
+  return Math.min(MAX_LENGTH, Math.max(-MAX_LENGTH, v))
 }

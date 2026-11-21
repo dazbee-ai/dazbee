@@ -22,6 +22,14 @@ describe('figmaToImport', () => {
         ],
         [{ path: 'M0 0L5 5L0 5Z', windingRule: 'EVENODD', overrideID: 1 }, { path: 'M1e308 0L-1e308 9Z' }, 'x'],
         { 1: { fills: 5 }, __proto__: { fills: [] } },
+        [
+          { type: 'GRADIENT_RADIAL', gradientHandlePositions: 'x', gradientStops: [{ position: 'a' }] },
+          { type: 'GRADIENT_ANGULAR', gradientHandlePositions: [{ x: 1e308, y: -1e308 }, { x: 0 }], gradientStops: [7] },
+          { type: 'IMAGE', imageRef: 5, filters: 3, scaleMode: 'STRETCH', imageTransform: 'x', rotation: 'x' },
+          { type: 'IMAGE', imageRef: 'abc', scaleMode: 'TILE', scalingFactor: -1e308, filters: { tint: 'x' } },
+          { type: 'DROP_SHADOW', color: 'red', offset: 4, radius: -1e308, spread: 'x' },
+          { type: 'SOLID', color: { r: null, g: 0, b: 0 }, opacity: 'x', visible: 'no' },
+        ],
       ]
       const fields = [
         'absoluteBoundingBox',
@@ -50,6 +58,13 @@ describe('figmaToImport', () => {
         'strokeGeometry',
         'fillOverrideTable',
         'fills',
+        'constraints',
+        'individualStrokeWeights',
+        'strokeAlign',
+        'strokeDashes',
+        'strokeJoin',
+        'strokeMiterAngle',
+        'cornerSmoothing',
       ]
       const types = [
         'FRAME',
@@ -102,6 +117,11 @@ describe('figmaToImport', () => {
           maskType: value,
           layoutMode: value,
           blendMode: value,
+          strokeAlign: value,
+          strokeJoin: value,
+          constraints: { horizontal: value, vertical: value },
+          fills: [{ type: value }, { type: 'IMAGE', imageRef: value, scaleMode: value, filters: { [value]: 1 } }],
+          effects: [{ type: value }, { type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0 }, blendMode: value }],
         }
         const kids = [
           node('BOOLEAN_OPERATION', '1:2', box(0, 0, 9, 9), {
@@ -118,7 +138,13 @@ describe('figmaToImport', () => {
         const nodes = result.converted.pages[0]?.frames[0]?.layers?.nodes ?? {}
         expect(nodes['1-2']?.props).toMatchObject({ op: 'union' })
         expect(nodes['1-4']?.props).toMatchObject({ shape: { kind: 'line', start: 'none', end: 'none' } })
+        expect(nodes['1-5']?.props).toMatchObject({ blendMode: 'normal', mask: 'alpha' })
+        expect(nodes['1-5']?.props.constraints).toBeUndefined()
+        const images = value === '__proto__' ? [] : [{ type: 'image', assetId: value, fit: 'fill' }]
+        expect(nodes['1-5']?.props).toMatchObject({ fills: images })
+        expect(result.imageRefs).toEqual(value === '__proto__' ? [] : [value])
       }
+      expect(({} as Record<string, unknown>).tint).toBeUndefined()
     })
 
     it("refuses a file that isn't a Figma design file, or past its limits", () => {

@@ -13,7 +13,7 @@ import { decodeFile, fromBytes, type Img, makeImg, savePng, sheet } from './pixe
 
 const ck = await loadCanvasKit()
 const fonts = loadFontFiles().map((f) => ({ family: f.family, bytes: f.bytes }))
-const ADS = 'C:/Users/imkes/Desktop/ming-setup/test_ads'
+const ADS = process.env.DELTAX_ADS ?? '../../../../ming-setup/test_ads'
 
 export function caption(text: string, width: number): Img {
   const w = Math.max(60, Math.ceil(width))

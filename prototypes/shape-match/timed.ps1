@@ -1,5 +1,5 @@
-# Runs each measuring command alone, pinned to one core (affinity mask 2), one after another.
-$dir = 'C:\Users\imkes\Desktop\DeltaX\dazbee-shape-match\prototypes\shape-match'
+# Runs each measuring command (from this folder) alone, pinned to one core (affinity mask 2), one after another.
+$dir = $PSScriptRoot
 $runs = @(
   @('startup', 'src/startup.ts'),
   @('startup2', 'src/startup.ts'),

@@ -6,7 +6,7 @@ import { drawLayers } from './draw.ts'
 import { matchBlock, MEDIUM } from './match.ts'
 import { decodeFile, makeImg, savePng, sheet } from './pixels.ts'
 const ck = await loadCanvasKit()
-const ADS = 'C:/Users/imkes/Desktop/ming-setup/test_ads'
+const ADS = process.env.DELTAX_ADS ?? '../../../../ming-setup/test_ads'
 mkdirSync('out/judge', { recursive: true })
 const scores: Record<string, unknown>[] = []
 for (const [i, item] of process.argv.slice(2).entries()) {

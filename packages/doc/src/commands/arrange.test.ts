@@ -8,6 +8,7 @@ import { childrenOf, isMaskGroup, readDesign } from '../index.ts'
 import type { DesignStore } from '../store.ts'
 import { badge, kindsDesign, openTestSession } from '../test-design.ts'
 import { openTestStore } from '../test-store.ts'
+import { placedRoots } from './arrange.ts'
 
 /** The banner's layers, its copies of the square's, as they are now. */
 const banner = (store: DesignStore) => {
@@ -416,7 +417,7 @@ describe('design.place', () => {
   it('places a tree with fresh ids and link ids on top, moved by the offset, in one undo step', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
-    const [g] = tab.run('design.place', { parentId: 'sq', tree: tree(), dx: 100, dy: 5 })
+    const [g] = placedRoots(tab.run('design.place', { parentId: 'sq', tree: tree(), dx: 100, dy: 5 }))
     const design = readDesign(store)
     expect(g).not.toBe('g')
     expect(childrenOf(design, 'sq').map(([id]) => id)).toEqual(['box', 'headline', g])
@@ -434,9 +435,9 @@ describe('design.place', () => {
   it('placing the same tree twice, in one frame or two, gives copies linked to nothing', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
-    const [a] = tab.run('design.place', { parentId: 'sq', tree: tree() })
-    const [b] = tab.run('design.place', { parentId: 'sq', tree: tree() })
-    const [c] = tab.run('design.place', { parentId: 'banner', tree: tree() })
+    const [a] = placedRoots(tab.run('design.place', { parentId: 'sq', tree: tree() }))
+    const [b] = placedRoots(tab.run('design.place', { parentId: 'sq', tree: tree() }))
+    const [c] = placedRoots(tab.run('design.place', { parentId: 'banner', tree: tree() }))
     const design = readDesign(store)
     expect(a).not.toBe(b)
     expect(childrenOf(design, 'sq').map(([id]) => id)).toEqual(['box', 'headline', a, b])
@@ -456,7 +457,9 @@ describe('design.place', () => {
     }
     tab.run('node.delete', { ids: ['banner-headline'] })
 
-    const [box, headline] = tab.run('design.place', { parentId: 'banner', tree: copied, keepLinksFrom: 'p1' })
+    const [box, headline] = placedRoots(
+      tab.run('design.place', { parentId: 'banner', tree: copied, keepLinksFrom: 'p1' }),
+    )
 
     const design = readDesign(store)
     // The banner still holds a copy of the box, so that one is a new layer; its headline was deleted.
@@ -477,8 +480,8 @@ describe('design.place', () => {
     const t = tree()
     const twice = { ...t, nodes: { ...t.nodes, label: { ...t.nodes.label, link: 'tile' } } }
 
-    const [first] = tab.run('design.place', { parentId: 'holder', tree: twice, keepLinksFrom: 'p1' })
-    const [second] = tab.run('design.place', { parentId: 'f2', tree: t, keepLinksFrom: 'p1' })
+    const [first] = placedRoots(tab.run('design.place', { parentId: 'holder', tree: twice, keepLinksFrom: 'p1' }))
+    const [second] = placedRoots(tab.run('design.place', { parentId: 'f2', tree: t, keepLinksFrom: 'p1' }))
 
     const links = (root: string) => {
       const design = readDesign(store)
@@ -490,7 +493,7 @@ describe('design.place', () => {
     const again = links(second ?? '')
     expect(again.filter((link) => ['g', 'tile', 'label'].includes(link ?? ''))).toEqual(['label'])
     // Another frame of the page holds none of them.
-    const [third] = tab.run('design.place', { parentId: 'sq', tree: t, keepLinksFrom: 'p1' })
+    const [third] = placedRoots(tab.run('design.place', { parentId: 'sq', tree: t, keepLinksFrom: 'p1' }))
     expect(links(third ?? '')).toEqual(['g', 'tile', 'label'])
   })
 
@@ -501,8 +504,8 @@ describe('design.place', () => {
     const copied = { roots: ['box'], nodes: { box: square.box as Layer } }
     tab.run('page.add', { id: 'p2', name: 'Page 2', frame: { id: 'p2-sq', name: 'Square', width: 1080, height: 1080 } })
 
-    const [onOther] = tab.run('design.place', { parentId: 'p2-sq', tree: copied, keepLinksFrom: 'p1' })
-    const [onP1] = tab.run('design.place', { parentId: 'p2-sq', tree: copied, keepLinksFrom: 'p2' })
+    const [onOther] = placedRoots(tab.run('design.place', { parentId: 'p2-sq', tree: copied, keepLinksFrom: 'p1' }))
+    const [onP1] = placedRoots(tab.run('design.place', { parentId: 'p2-sq', tree: copied, keepLinksFrom: 'p2' }))
 
     const design = readDesign(store)
     // Copied on p1, so it links to nothing on p2.

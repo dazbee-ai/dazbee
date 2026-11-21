@@ -22,6 +22,12 @@ import { missingLayer, parentProblem } from './checks.ts'
 import { defineCommand, strict } from './define.ts'
 import { copyLayers, drawnOrder, layerSlots, linkMaker, orderIndexes, type Slot, writeOrder } from './tree.ts'
 
+/** What `design.place` returns with `withIds`: the top layers' new ids, bottom to top, and each placed layer's new id by its key in the tree. */
+export interface PlacedTree {
+  roots: string[]
+  ids: Record<string, string>
+}
+
 /**
  * Moves a layer to another parent, or another place among its siblings, in its own frame or another
  * frame of its page. The layer and what it holds are first stored at their `drawn` boxes, what each
@@ -191,12 +197,12 @@ export const nodeDuplicate = defineCommand({
  * Places a tree of layers, such as the clipboard's, in a frame or container (#49): every layer gets
  * a fresh id and, unless `keepLinksFrom` keeps its own, a new link id; the roots go on top in their
  * order, and everything moves by `dx`, `dy`. Placing the same tree twice gives two copies. Returns
- * the new roots' ids, bottom to top.
+ * the new roots' ids, bottom to top; with `withIds`, those and each placed layer's new id by its key.
  */
 export const designPlace = defineCommand({
   name: 'design.place',
   description:
-    'Places a tree of layers, such as copied ones, on top of what a frame or a group or box holds, every layer with a new id, and returns the ids of the tree’s top layers. It refuses a parent that does not exist or cannot hold the tree’s top layers.',
+    'Places a tree of layers, such as copied ones, on top of what a frame or a group or box holds, every layer with a new id, and returns the list of the ids of the tree’s top layers; with withIds, it returns { roots, ids }, roots that list and ids each placed layer’s new id by its id in the tree. It refuses a parent that does not exist or cannot hold the tree’s top layers.',
   step: 'place',
   input: z.strictObject({
     parentId: z.union([FrameId, NodeId]).describe('The frame, or the group or box, the layers go into, on top.'),
@@ -211,10 +217,16 @@ export const designPlace = defineCommand({
     keepLinksFrom: PageId.optional().describe(
       'The page the layers were copied from: placed in a frame of that page, a layer stays linked to its original where it can.',
     ),
+    withIds: z
+      .literal(true)
+      .optional()
+      .describe(
+        'Returns { roots, ids } instead of the list: roots the top layers’ new ids, ids each placed layer’s new id by its id in the tree.',
+      ),
   }),
   check: ({ design }, { parentId, tree }) =>
     tree.roots.map((root) => parentProblem(design, parentId, tree.nodes[root]?.type ?? '')).find(Boolean),
-  apply: ({ w, design, newId }, { parentId, tree, dx, dy, keepLinksFrom }) => {
+  apply: ({ w, design, newId }, { parentId, tree, dx, dy, keepLinksFrom, withIds }): string[] | PlacedTree => {
     const frameId = frameIdOf(design, parentId)
     const keeps =
       frameId !== undefined && keepLinksFrom !== undefined && design.frames[frameId]?.pageId === keepLinksFrom
@@ -244,9 +256,15 @@ export const designPlace = defineCommand({
       const props = { ...node.props, x: node.props.x + dx, y: node.props.y + dy }
       w.create('layer', fresh(old), { ...node, ...where, link: linkOf(node.link), props } as LayerT)
     }
-    return tree.roots.map(fresh)
+    const roots = tree.roots.map(fresh)
+    return withIds ? { roots, ids: Object.fromEntries(ids) } : roots
   },
 })
+
+/** The top layers' new ids `design.place` returned, with `withIds` or without. */
+export function placedRoots(placed: string[] | PlacedTree): string[] {
+  return Array.isArray(placed) ? placed : placed.roots
+}
 
 /**
  * Plans a layer to stay where it is drawn as it moves under `parentId`: each layer it sits in turns

@@ -288,6 +288,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'design.place': ({ design }) => [
     { parentId: frame(design), tree: tree(design, holder(design)), dx: 10, dy: 20, keepLinksFrom: page(design) },
     { parentId: frame(design), tree: tree(design, free(design)) },
+    { parentId: frame(design), tree: tree(design, holder(design)), withIds: true },
   ],
   'node.copyToFrames': ({ design }) => [{ ids: [free(design)] }, { ids: [holder(design)] }],
   'node.group': ({ design, made }) => [

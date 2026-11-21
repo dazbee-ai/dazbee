@@ -209,6 +209,14 @@ describe('convertLayers', () => {
       expect(f.figmaIds).toEqual({ 'I12-34_56-78': 'I12:34;56:78' })
     })
 
+    it("gives a fresh key to the id `root`, which the tree's top layers name as their parent", () => {
+      const f = onlyFrame(
+        onePage([frame('1:1', box(0, 0, 400, 300), [group('root', [rectangle('1:2', box(0, 0, 1, 1))])])]),
+      )
+      expect(f.layers?.roots).toEqual(['n1'])
+      expect(childrenOf(layersOf(f), 'n1')).toEqual(['1-2'])
+    })
+
     it('gives a fresh key to an id that is no valid key, or repeats', () => {
       const ids = ['1:2', '1:2', 'a b', '__proto__', 'x'.repeat(70), 'n1']
       const f = onlyFrame(

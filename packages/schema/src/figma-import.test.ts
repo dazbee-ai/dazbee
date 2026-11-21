@@ -32,6 +32,26 @@ const imported = (overrides: object = {}) => ({
   ...overrides,
 })
 
+describe('FIGMA_REPORT_LINES', () => {
+  it('gives every line a kind', () => {
+    for (const kind of Object.values(FIGMA_REPORT_LINES)) expect(['left-out', 'changed']).toContain(kind)
+  })
+})
+
+describe('FigmaReport', () => {
+  it('reads items in their order, each with at most three layers', () => {
+    const item = { line: 'slices', kind: 'left-out', count: 4, nodes: [{ id: '1:9', name: 'Slice' }] }
+    expect(FigmaReport.parse({ fonts: ['Inter'], items: [item] }).items).toEqual([item])
+    const four = { ...item, nodes: [1, 2, 3, 4].map((n) => ({ id: `1:${n}`, name: 'S' })) }
+    expect(FigmaReport.safeParse({ fonts: [], items: [four] }).success).toBe(false)
+  })
+
+  it("refuses an item whose kind isn't its line's", () => {
+    const item = { line: 'slices', kind: 'changed', count: 1, nodes: [] }
+    expect(FigmaReport.safeParse({ fonts: [], items: [item] }).success).toBe(false)
+  })
+})
+
 describe('FigmaImport', () => {
   it('reads an import of a page with a frame of layers', () => {
     const parsed = FigmaImport.parse(imported())
@@ -75,23 +95,5 @@ describe('FigmaImport', () => {
   it('refuses a key of figmaIds that is no layer of the frame', () => {
     const pages = [{ name: 'P', figmaId: '0:1', frames: [frame({ figmaIds: { '1-3': '1:3', '9-9': '9:9' } })] }]
     expect(FigmaImport.safeParse(imported({ pages })).success).toBe(false)
-  })
-})
-
-describe('FigmaReport', () => {
-  it('reads items in their order, each with at most three layers', () => {
-    const item = { line: 'slices', kind: 'left-out', count: 4, nodes: [{ id: '1:9', name: 'Slice' }] }
-    expect(FigmaReport.parse({ fonts: ['Inter'], items: [item] }).items).toEqual([item])
-    const four = { ...item, nodes: [1, 2, 3, 4].map((n) => ({ id: `1:${n}`, name: 'S' })) }
-    expect(FigmaReport.safeParse({ fonts: [], items: [four] }).success).toBe(false)
-  })
-
-  it("refuses an item whose kind isn't its line's", () => {
-    const item = { line: 'slices', kind: 'changed', count: 1, nodes: [] }
-    expect(FigmaReport.safeParse({ fonts: [], items: [item] }).success).toBe(false)
-  })
-
-  it('gives every line a kind', () => {
-    for (const kind of Object.values(FIGMA_REPORT_LINES)) expect(['left-out', 'changed']).toContain(kind)
   })
 })

@@ -27,11 +27,11 @@ describe('newReport', () => {
     ])
   })
 
-  it('names each layer once in a line', () => {
+  it('counts layers that share an id, as a file with no ids or repeated ones has', () => {
     const report = newReport()
-    report.add('slices', at('1:1'))
-    report.add('slices', at('1:1'))
-    expect(report.report().items[0]).toMatchObject({ count: 1, nodes: [at('1:1')] })
+    report.add('unreadable-layers', at('', 'A'))
+    report.add('unreadable-layers', at('', 'B'))
+    expect(report.report().items[0]).toMatchObject({ count: 2, nodes: [at('', 'A'), at('', 'B')] })
   })
 
   it('gives a report the schema reads, with the fonts it is told', () => {

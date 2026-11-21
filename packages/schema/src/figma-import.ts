@@ -7,6 +7,10 @@ import { Paint } from './paint.ts'
 import { NodeId } from './primitives.ts'
 import { sizeIssue } from './sizes.ts'
 
+/** Whether what a report line names was left out, or drawn another way. */
+export const FigmaReportKind = z.enum(['left-out', 'changed'])
+export type FigmaReportKind = z.infer<typeof FigmaReportKind>
+
 /**
  * Each line an import report can hold, with whether what it names was left out or drawn another
  * way. Each has words of its own in the app.
@@ -46,7 +50,7 @@ export const FIGMA_REPORT_LINES = {
   sections: 'changed',
   /** Layers outside any frame, put in one frame that fits them. */
   'outside-frames': 'changed',
-  /** Components, component sets and instances, kept as boxes. */
+  /** Components, component sets and instances, which come in as plain frames and boxes. */
   'components-and-instances': 'changed',
   /** A linked layer inside a frame, imported on its own in a frame of its size. */
   'linked-layer-alone': 'changed',
@@ -56,7 +60,7 @@ export const FIGMA_REPORT_LINES = {
   'masks-separate': 'changed',
   /** Layers placed further out, or larger, than Dazbee places them, brought within its reach. */
   'positions-clamped': 'changed',
-} as const satisfies Record<string, 'left-out' | 'changed'>
+} as const satisfies Record<string, FigmaReportKind>
 
 export const FigmaReportLine = z.enum(Object.keys(FIGMA_REPORT_LINES) as [keyof typeof FIGMA_REPORT_LINES])
 export type FigmaReportLine = z.infer<typeof FigmaReportLine>
@@ -70,7 +74,7 @@ export const FIGMA_REPORT_ITEMS = 200
 export const FigmaReportItem = z
   .object({
     line: FigmaReportLine,
-    kind: z.enum(['left-out', 'changed']),
+    kind: FigmaReportKind,
     count: z.number().int().positive(),
     nodes: z.object({ id: z.string(), name: z.string() }).array().max(FIGMA_REPORT_NODES),
   })

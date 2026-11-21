@@ -10,14 +10,15 @@ import { newReport } from './report.ts'
 
 export { MAX_FIGMA_DEPTH, MAX_FIGMA_NODES } from './read.ts'
 
-export type FigmaConvertError = FigmaReadError | 'node-missing' | 'nothing-to-import'
+/** Why a file can't be imported; `not-convertible` when what it became breaks the import's own rules. */
+export type FigmaConvertError = FigmaReadError | 'node-missing' | 'nothing-to-import' | 'not-convertible'
 
 export interface FigmaToImportOptions {
   /** The node a link's `node-id` names, in the API's form (`1:2`); left out, the whole file. */
   nodeId?: string
 }
 
-export interface Converted {
+export interface ConvertedFile {
   converted: FigmaImport
   /** The image fills' `imageRef`s the import's layers use. */
   imageRefs: string[]
@@ -29,7 +30,7 @@ export interface Converted {
 export function figmaToImport(
   text: string,
   options: FigmaToImportOptions = {},
-): Converted | { error: FigmaConvertError } {
+): ConvertedFile | { error: FigmaConvertError } {
   const file = readFigmaFile(text)
   if ('error' in file) return file
   const target = linkTarget(file.document, options.nodeId)
@@ -37,7 +38,9 @@ export function figmaToImport(
   const report = newReport()
   const { pages, target: onto } = importPages(file.document, target, report)
   if (pages.length === 0) return { error: 'nothing-to-import' }
-  const converted = FigmaImport.parse({ name: file.name, target: onto, pages, report: report.report() })
+  const parsed = FigmaImport.safeParse({ name: file.name, target: onto, pages, report: report.report() })
+  if (!parsed.success) return { error: 'not-convertible' }
+  const converted = parsed.data
   const frames = converted.pages.flatMap((p) => p.frames)
   return {
     converted,

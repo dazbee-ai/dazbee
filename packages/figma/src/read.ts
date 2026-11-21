@@ -2,7 +2,7 @@
 // a value of the wrong type reads as missing and never throws, only a map's own keys are read, and
 // a file past the node or depth limit is refused.
 
-import type { Rect } from '@dazbee/schema'
+import { isRecord, type Rect } from '@dazbee/schema'
 
 /** A Figma node's fields, read only through `field`. */
 export type FigmaFields = Readonly<Record<string, unknown>>
@@ -81,7 +81,7 @@ export function bool(value: unknown): boolean | undefined {
 
 /** A plain object (no array, no null), or undefined. */
 export function record(value: unknown): FigmaFields | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as FigmaFields) : undefined
+  return isRecord(value) ? value : undefined
 }
 
 /** An array, or an empty one for anything else. */

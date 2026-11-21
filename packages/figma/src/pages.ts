@@ -6,32 +6,34 @@
 
 import type { z } from 'zod'
 
-import type { FigmaFrame, FigmaPage, Rect } from '@dazbee/schema'
+import { boundsOf } from '@dazbee/doc'
+import type { FigmaFrame, FigmaImport, FigmaPage, Rect } from '@dazbee/schema'
 import { SIZE_LIMITS } from '@dazbee/schema'
 
 import {
   boxAround,
+  boxLook,
   COMPONENT_TYPES,
   convertLayers,
+  type Corners,
   cornersOf,
   FRAME_TYPES,
-  LAID_OUT,
   type LayerBuild,
+  laysOut,
   newLayerBuild,
   type Piece,
   placed,
-  reported,
   treeOf,
 } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'
 import { bool, boxOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { Reporter } from './report.ts'
 
-export type FrameInput = z.input<typeof FigmaFrame>
-export type PageInput = z.input<typeof FigmaPage>
+type FrameInput = z.input<typeof FigmaFrame>
+type PageInput = z.input<typeof FigmaPage>
 
 /** The frame loose layers on a page are put in. */
-export const OUTSIDE_FRAMES = 'Outside frames'
+const OUTSIDE_FRAMES = 'Outside frames'
 
 const MAX_FRAME_NAME = 120
 const PLAIN_BLENDS: ReadonlySet<string> = new Set(['PASS_THROUGH', 'NORMAL'])
@@ -41,7 +43,7 @@ export function importPages(
   document: FigmaNode,
   target: LinkTarget,
   report: Reporter,
-): { pages: PageInput[]; target: 'pages' | 'shown-page' } {
+): { pages: PageInput[]; target: FigmaImport['target'] } {
   switch (target.kind) {
     case 'file':
       return {
@@ -55,7 +57,7 @@ export function importPages(
     case 'frame':
       return { pages: onePage(target.node, topLevelFrame(target.node, report)), target: 'shown-page' }
     case 'alone':
-      report.add('linked-layer-alone', reported(target.node))
+      report.add('linked-layer-alone', target.node)
       return { pages: onePage(target.node, aloneFrame(target.node, report)), target: 'shown-page' }
   }
 }
@@ -71,10 +73,10 @@ function pageFrom(holder: FigmaNode, name: string, report: Reporter): PageInput 
   for (let n = stack.pop(); n; n = stack.pop()) {
     if (n.type === 'SECTION' && n.id) {
       if (field(n.fields, 'visible') === false) {
-        report.add('hidden-frames', reported(n))
+        report.add('hidden-frames', n)
         continue
       }
-      report.add('sections', reported(n))
+      report.add('sections', n)
       for (let i = n.children.length - 1; i >= 0; i--) stack.push(n.children[i] as FigmaNode)
     } else if (FRAME_TYPES.has(n.type) && n.id) {
       const frame = topLevelFrame(n, report)
@@ -86,7 +88,7 @@ function pageFrom(holder: FigmaNode, name: string, report: Reporter): PageInput 
   const outside = looseFrame(holder, loose, report)
   if (outside) frames.push(outside)
   if (frames.length === 0) {
-    report.add('empty-pages', reported(holder))
+    report.add('empty-pages', holder)
     return null
   }
   return { name: name || 'Page', figmaId: holder.id, frames }
@@ -101,42 +103,43 @@ function onePage(node: FigmaNode, frame: FrameInput | null): PageInput[] {
 function topLevelFrame(n: FigmaNode, report: Reporter): FrameInput | null {
   const b = boxOf(n.fields)
   if (!b) {
-    report.add('unreadable-layers', reported(n))
+    report.add('unreadable-layers', n)
     return null
   }
   if (field(n.fields, 'visible') === false) {
-    report.add('hidden-frames', reported(n))
+    report.add('hidden-frames', n)
     return null
   }
-  if (field(n.fields, 'locked') === true) report.add('locked-frames', reported(n))
-  if (field(n.fields, 'clipsContent') === false) report.add('frames-unclipped', reported(n))
-  if (COMPONENT_TYPES.has(n.type)) report.add('components-and-instances', reported(n))
+  if (field(n.fields, 'locked') === true) report.add('locked-frames', n)
+  if (field(n.fields, 'clipsContent') === false) report.add('frames-unclipped', n)
+  if (COMPONENT_TYPES.has(n.type)) report.add('components-and-instances', n)
   const build = newLayerBuild(n.children, report)
-  const { pieces } = convertLayers(build, n.children, b, LAID_OUT.has(str(field(n.fields, 'layoutMode')) ?? ''))
-  const boxProps = { clip: field(n.fields, 'clipsContent') !== false, cornerRadius: cornersOf(n.fields) }
-  return frameOf(build, n, n.name, b, pieces, carriesBoxProps(n.fields) ? boxProps : null)
+  const { pieces } = convertLayers(build, n.children, b, laysOut(n.fields))
+  return frameOf(build, n, n.name, b, pieces, carriesBoxProps(n.fields) ? boxLook(n.fields) : null)
 }
 
 /** The frame a page's loose layers go into, fitting them; null when none of them makes a layer. */
 function looseFrame(page: FigmaNode, loose: FigmaNode[], report: Reporter): FrameInput | null {
   if (loose.length === 0) return null
-  const boxes = loose.flatMap((n) => boxOf(n.fields) ?? [])
-  const x = boxes.length > 0 ? Math.min(...boxes.map((b) => b.x)) : 0
-  const y = boxes.length > 0 ? Math.min(...boxes.map((b) => b.y)) : 0
   const build = newLayerBuild(loose, report)
-  const { pieces, made } = convertLayers(build, loose, { x, y }, false)
+  const { pieces, made } = convertLayers(build, loose, { x: 0, y: 0 }, false)
   if (pieces.length === 0) return null
-  for (const n of made) report.add('outside-frames', reported(n))
-  const width = Math.ceil(Math.max(...boxes.map((b) => b.x + b.width)) - x)
-  const height = Math.ceil(Math.max(...boxes.map((b) => b.y + b.height)) - y)
-  return frameOf(build, page, OUTSIDE_FRAMES, { x, y, width, height }, pieces, null)
+  for (const n of made) report.add('outside-frames', n)
+  // Made in the page's pixels, the layers move by the corner of the box that fits them.
+  const fit = boundsOf(pieces.map((p) => p.box))
+  for (const layer of Object.values(build.nodes)) {
+    layer.props.x -= fit.x
+    layer.props.y -= fit.y
+  }
+  const at = { x: fit.x, y: fit.y, width: Math.ceil(fit.width), height: Math.ceil(fit.height) }
+  return frameOf(build, page, OUTSIDE_FRAMES, at, pieces, null)
 }
 
 /** A layer inside a frame, imported on its own in a frame of its size. */
 function aloneFrame(n: FigmaNode, report: Reporter): FrameInput | null {
   const b = boxOf(n.fields)
   if (!b) {
-    report.add('unreadable-layers', reported(n))
+    report.add('unreadable-layers', n)
     return null
   }
   const build = newLayerBuild([n], report)
@@ -155,12 +158,12 @@ function frameOf(
   name: string,
   at: Rect,
   pieces: Piece[],
-  boxProps: { clip: boolean; cornerRadius: number | [number, number, number, number] } | null,
+  boxProps: { clip: boolean; cornerRadius: Corners } | null,
 ): FrameInput {
   const place = placed(build, from, at, { x: 0, y: 0 })
   const size = frameSize(place.width, place.height)
-  if (size.rounded) build.report.add('frames-rounded', reported(from))
-  if (size.resized) build.report.add('frames-resized', reported(from))
+  if (size.rounded) build.report.add('frames-rounded', from)
+  if (size.resized) build.report.add('frames-resized', from)
   const roots =
     boxProps || size.resized
       ? [
@@ -188,7 +191,7 @@ function frameOf(
  * A Figma frame's size as a frame's: rounded to whole pixels, then each side within the sizes a
  * frame can be, then the shorter side grown until the frame is within the longest ratio.
  */
-export function frameSize(width: number, height: number) {
+function frameSize(width: number, height: number) {
   const w = Math.round(width)
   const h = Math.round(height)
   const { minSide, maxSide, maxRatio } = SIZE_LIMITS
@@ -209,6 +212,6 @@ function carriesBoxProps(fields: FigmaFields): boolean {
     list(field(fields, 'effects')).some(shows) ||
     (num(field(fields, 'opacity')) ?? 1) < 1 ||
     !PLAIN_BLENDS.has(str(field(fields, 'blendMode')) ?? 'PASS_THROUGH') ||
-    LAID_OUT.has(str(field(fields, 'layoutMode')) ?? '')
+    laysOut(fields)
   )
 }

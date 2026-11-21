@@ -209,6 +209,18 @@ describe('importPages', () => {
       expect(countOf(text, 'sections')).toBe(2)
     })
 
+    it('fits the frame of loose layers to the layers they made, not to what was left out', () => {
+      const boxless = { id: '1:5', type: 'GROUP', name: 'Loose', children: [rectangle('1:6', box(300, 400, 60, 50))] }
+      const text = onePage([
+        node('TEXT', '1:2', box(-5000, 0, 10, 10)),
+        boxless as TestNode,
+        rectangle('1:3', box(200, 400, 50, 50)),
+      ])
+      const frames = imported(text).converted.pages[0]?.frames ?? []
+      expect(frames.map((f) => [f.x, f.y, f.width, f.height])).toEqual([[200, 400, 160, 50]])
+      expect(layersOf(frames[0] as never)['1-6']?.props).toMatchObject({ x: 100, y: 0 })
+    })
+
     it('puts layers outside any frame in one frame that fits them, reported', () => {
       const text = onePage([
         frame('1:1', box(0, 0, 100, 100)),

@@ -16,27 +16,23 @@ export interface ReportedNode {
 }
 
 export interface Reporter {
-  /** Counts `node` under `line`, once however often it is added; without a node, counts one more. */
+  /** Counts one more under `line`, naming `node` while the line names fewer than its most. */
   add(line: FigmaReportLine, node?: ReportedNode): void
   /** The report so far, with the font families no font was found for. */
   report(fonts?: string[]): FigmaReport
 }
 
 export function newReport(): Reporter {
-  const items = new Map<FigmaReportLine, { count: number; seen: Set<string>; nodes: ReportedNode[] }>()
+  const items = new Map<FigmaReportLine, { count: number; nodes: ReportedNode[] }>()
 
   function add(line: FigmaReportLine, node?: ReportedNode) {
     let item = items.get(line)
     if (!item) {
       if (items.size >= FIGMA_REPORT_ITEMS) return
-      item = { count: 0, seen: new Set(), nodes: [] }
+      item = { count: 0, nodes: [] }
       items.set(line, item)
     }
-    if (node) {
-      if (item.seen.has(node.id)) return
-      item.seen.add(node.id)
-      if (item.nodes.length < FIGMA_REPORT_NODES) item.nodes.push({ id: node.id, name: node.name })
-    }
+    if (node && item.nodes.length < FIGMA_REPORT_NODES) item.nodes.push({ id: node.id, name: node.name })
     item.count++
   }
 

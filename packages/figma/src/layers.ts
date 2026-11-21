@@ -24,6 +24,8 @@ import type { Reporter } from './report.ts'
 /** A layer as the import writes it, before the schema fills in its defaults. */
 export type LayerInput = z.input<typeof Layer>
 type BoxProps = Extract<LayerInput, { type: 'box' }>['props']
+/** One radius for every corner, or each corner's from the top left clockwise. */
+export type Corners = number | [number, number, number, number]
 
 /** A layer made from a node: its key and its unturned box in its frame's pixels. */
 export interface Piece {
@@ -48,8 +50,10 @@ export const FRAME_TYPES: ReadonlySet<string> = new Set(['FRAME', 'COMPONENT', '
 /** Of those, the ones that stop being components when they come in. */
 export const COMPONENT_TYPES: ReadonlySet<string> = new Set(['COMPONENT', 'COMPONENT_SET', 'INSTANCE'])
 /** Layout modes that lay a frame's children out. */
-export const LAID_OUT: ReadonlySet<string> = new Set(['HORIZONTAL', 'VERTICAL', 'GRID'])
+const LAID_OUT: ReadonlySet<string> = new Set(['HORIZONTAL', 'VERTICAL', 'GRID'])
 
+/** The parent a frame's top layers name until they are placed. */
+const ROOT = 'root'
 /** Layers placed past these are brought within them, so every number the import writes stays finite. */
 const MAX_COORDINATE = 10_000_000
 const MAX_SIZE = 1_000_000
@@ -102,7 +106,8 @@ const PLAIN_CAPS: ReadonlySet<string> = new Set(['NONE', 'ROUND', 'SQUARE'])
  */
 export function newLayerBuild(within: readonly FigmaNode[], report: Reporter): LayerBuild {
   const reserved = new Map<FigmaNode, string>()
-  const taken = new Set<string>()
+  // `root` is the parent the tree's top layers name, so no layer is keyed by it.
+  const taken = new Set<string>([ROOT])
   // In the file's order, so the first of two nodes with one key keeps it.
   const stack = [...within].reverse()
   for (let n = stack.pop(); n; n = stack.pop()) {
@@ -177,12 +182,9 @@ export function boxAround(
 /** The frame's layers as a tree whose roots are `roots`, or null when it has none. */
 export function treeOf(build: LayerBuild, roots: readonly Piece[]): LayerTree | null {
   if (roots.length === 0) return null
-  adopt(build, 'root', roots)
+  adopt(build, ROOT, roots)
   return { nodes: build.nodes, roots: roots.map((r) => r.id) } as LayerTree
 }
-
-/** A node as the report names it. */
-export const reported = (n: FigmaNode) => ({ id: n.id, name: n.name })
 
 /**
  * The box a node is placed by, in its frame's pixels, brought within Dazbee's reach (reported when
@@ -200,12 +202,22 @@ export function placed(build: LayerBuild, n: FigmaNode, b: Rect, origin: Point):
   const width = Math.min(b.width, MAX_SIZE)
   const height = Math.min(b.height, MAX_SIZE)
   if (x !== b.x - origin.x || y !== b.y - origin.y || width !== b.width || height !== b.height)
-    build.report.add('positions-clamped', reported(n))
+    build.report.add('positions-clamped', n)
   return { x, y, width, height, rotation: 0 }
 }
 
+/** Whether a frame lays its children out. */
+export function laysOut(fields: FigmaFields): boolean {
+  return LAID_OUT.has(str(field(fields, 'layoutMode')) ?? '')
+}
+
+/** What a frame's box draws of its own: whether it clips, and its corners. */
+export function boxLook(fields: FigmaFields): { clip: boolean; cornerRadius: Corners } {
+  return { clip: field(fields, 'clipsContent') !== false, cornerRadius: cornersOf(fields) }
+}
+
 /** A frame's or box's corners: one radius, or each corner's from the top left clockwise. */
-export function cornersOf(fields: FigmaFields): number | [number, number, number, number] {
+export function cornersOf(fields: FigmaFields): Corners {
   const radii = list(field(fields, 'rectangleCornerRadii')).map(num)
   if (radii.length === 4 && radii.every((r) => r !== undefined && r >= 0)) {
     const [tl, tr, br, bl] = radii as [number, number, number, number]
@@ -214,48 +226,22 @@ export function cornersOf(fields: FigmaFields): number | [number, number, number
   return Math.max(0, num(field(fields, 'cornerRadius')) ?? 0)
 }
 
-function clamp(n: number, low: number, high: number) {
-  return Math.min(high, Math.max(low, n))
-}
-
-function piecesOf(nodes: readonly FigmaNode[], made: ReadonlyMap<FigmaNode, Piece | null>): Piece[] {
-  return nodes.flatMap((n) => made.get(n) ?? [])
-}
-
-/** Whether a node's children are read as layers of its own. */
-function descends(build: LayerBuild, n: FigmaNode): boolean {
-  if (!n.id || !n.type) return false
-  if (n.type === 'GROUP' || n.type === 'SECTION') return true
-  // A frame with no box to place it by is left out whole, before its children make layers.
-  if (FRAME_TYPES.has(n.type)) return boxOf(n.fields) !== undefined
-  if (n.type !== 'BOOLEAN_OPERATION') return false
-  if (n.children.every((c) => SHAPE_TYPES.has(c.type))) return true
-  build.report.add('vector-shapes', reported(n))
-  return false
-}
-
 /** The layer a container node becomes from the pieces its children made, or null for none. */
 function container(build: LayerBuild, n: FigmaNode, inside: Piece[], origin: Point): Piece | null {
   if (FRAME_TYPES.has(n.type)) {
     const box = placedBox(build, n, origin)
     if (!box) return unreadable(build, n)
-    if (COMPONENT_TYPES.has(n.type)) build.report.add('components-and-instances', reported(n))
-    const pieces = masked(build, inside, LAID_OUT.has(str(field(n.fields, 'layoutMode')) ?? ''))
+    if (COMPONENT_TYPES.has(n.type)) build.report.add('components-and-instances', n)
+    const pieces = masked(build, inside, laysOut(n.fields))
     const id = build.keyOf(n)
-    build.nodes[id] = layer(
-      id,
-      'box',
-      n.name,
-      { ...box, clip: field(n.fields, 'clipsContent') !== false, cornerRadius: cornersOf(n.fields) },
-      n,
-    )
+    build.nodes[id] = layer(id, 'box', n.name, { ...box, ...boxLook(n.fields) }, n)
     build.figmaIds[id] = n.id
     adopt(build, id, pieces)
     return { id, box }
   }
-  if (n.type === 'SECTION') build.report.add('sections', reported(n))
+  if (n.type === 'SECTION') build.report.add('sections', n)
   if (inside.length === 0) {
-    if (n.type === 'BOOLEAN_OPERATION') build.report.add('vector-shapes', reported(n))
+    if (n.type === 'BOOLEAN_OPERATION') build.report.add('vector-shapes', n)
     return null
   }
   const pieces = n.type === 'BOOLEAN_OPERATION' ? inside : masked(build, inside, false)
@@ -276,21 +262,37 @@ function container(build: LayerBuild, n: FigmaNode, inside: Piece[], origin: Poi
   return { id, box: fit }
 }
 
+function piecesOf(nodes: readonly FigmaNode[], made: ReadonlyMap<FigmaNode, Piece | null>): Piece[] {
+  return nodes.flatMap((n) => made.get(n) ?? [])
+}
+
+/** Whether a node's children are read as layers of its own. */
+function descends(build: LayerBuild, n: FigmaNode): boolean {
+  if (!n.id || !n.type) return false
+  if (n.type === 'GROUP' || n.type === 'SECTION') return true
+  // A frame with no box to place it by is left out whole, before its children make layers.
+  if (FRAME_TYPES.has(n.type)) return boxOf(n.fields) !== undefined
+  if (n.type !== 'BOOLEAN_OPERATION') return false
+  if (n.children.every((c) => SHAPE_TYPES.has(c.type))) return true
+  build.report.add('vector-shapes', n)
+  return false
+}
+
 /** The layer a node with no layers of its own becomes, or null when it is left out. */
 function leaf(build: LayerBuild, n: FigmaNode, origin: Point): Piece | null {
   if (!n.id || !n.type || FRAME_TYPES.has(n.type)) return unreadable(build, n)
   const left = LEFT_OUT.get(n.type)
   if (left) {
-    build.report.add(left, reported(n))
+    build.report.add(left, n)
     return null
   }
   if (n.type !== 'RECTANGLE' && n.type !== 'ELLIPSE' && n.type !== 'LINE') {
     // A boolean arrives here only when it holds a layer that is no shape, already reported.
-    if (n.type !== 'BOOLEAN_OPERATION') build.report.add('unknown-layers', reported(n))
+    if (n.type !== 'BOOLEAN_OPERATION') build.report.add('unknown-layers', n)
     return null
   }
   if (n.type === 'ELLIPSE' && !isWhole(n.fields)) {
-    build.report.add('vector-shapes', reported(n))
+    build.report.add('vector-shapes', n)
     return null
   }
   const box = placedBox(build, n, origin)
@@ -299,60 +301,6 @@ function leaf(build: LayerBuild, n: FigmaNode, origin: Point): Piece | null {
   build.nodes[id] = layer(id, 'graphic', n.name, { ...box, shape: shapeOf(build, n) }, n)
   build.figmaIds[id] = n.id
   return { id, box }
-}
-
-function unreadable(build: LayerBuild, n: FigmaNode): null {
-  build.report.add('unreadable-layers', reported(n))
-  return null
-}
-
-/** Whether an ellipse is whole: no arc cut from it and no hole in it. */
-function isWhole(fields: FigmaFields): boolean {
-  const arc = field(fields, 'arcData')
-  if (arc === undefined) return true
-  const start = num(field(arc, 'startingAngle')) ?? 0
-  const end = num(field(arc, 'endingAngle')) ?? 2 * Math.PI
-  const inner = num(field(arc, 'innerRadius')) ?? 0
-  return inner <= 0 && Math.abs(end - start) >= 2 * Math.PI - 1e-6
-}
-
-function shapeOf(build: LayerBuild, n: FigmaNode): Extract<LayerInput, { type: 'graphic' }>['props']['shape'] {
-  if (n.type === 'ELLIPSE') return { kind: 'ellipse' }
-  if (n.type === 'LINE') {
-    const cap = str(field(n.fields, 'strokeCap')) ?? 'NONE'
-    const end = LINE_ENDS.get(cap)
-    if (!end && !PLAIN_CAPS.has(cap)) build.report.add('line-ends', reported(n))
-    return { kind: 'line', start: end ?? 'none', end: end ?? 'none' }
-  }
-  const corners = cornersOf(n.fields)
-  return typeof corners === 'number' ? { kind: 'rect', cornerRadius: corners } : { kind: 'rect', corners }
-}
-
-/**
- * A layer of `type` named `name` with `props`, a mask when `from` masks the layers in front of it,
- * placed nowhere until it is adopted.
- */
-function layer<T extends LayerInput['type']>(
-  id: string,
-  type: T,
-  name: string,
-  props: object,
-  from?: FigmaNode,
-): LayerInput {
-  const mask =
-    from && field(from.fields, 'isMask') === true
-      ? field(from.fields, 'maskType') === 'LUMINANCE'
-        ? 'luminance'
-        : 'alpha'
-      : undefined
-  return {
-    type,
-    parentId: 'root',
-    link: id,
-    index: 'a0',
-    name: name.slice(0, MAX_NAME),
-    props: { ...props, ...(mask ? { mask } : {}) },
-  } as LayerInput
 }
 
 /**
@@ -380,4 +328,62 @@ function masked(build: LayerBuild, pieces: Piece[], laidOut: boolean): Piece[] {
     inner = { id, box: fit }
   }
   return [...pieces.slice(0, at[1]), inner as Piece]
+}
+
+/**
+ * A layer of `type` named `name` with `props`, a mask when `from` masks the layers in front of it,
+ * placed nowhere until it is adopted.
+ */
+function layer<T extends LayerInput['type']>(
+  id: string,
+  type: T,
+  name: string,
+  props: object,
+  from?: FigmaNode,
+): LayerInput {
+  const mask =
+    from && field(from.fields, 'isMask') === true
+      ? field(from.fields, 'maskType') === 'LUMINANCE'
+        ? 'luminance'
+        : 'alpha'
+      : undefined
+  return {
+    type,
+    parentId: ROOT,
+    link: id,
+    index: 'a0',
+    name: name.slice(0, MAX_NAME),
+    props: { ...props, ...(mask ? { mask } : {}) },
+  } as LayerInput
+}
+
+function clamp(n: number, low: number, high: number) {
+  return Math.min(high, Math.max(low, n))
+}
+
+function unreadable(build: LayerBuild, n: FigmaNode): null {
+  build.report.add('unreadable-layers', n)
+  return null
+}
+
+/** Whether an ellipse is whole: no arc cut from it and no hole in it. */
+function isWhole(fields: FigmaFields): boolean {
+  const arc = field(fields, 'arcData')
+  if (arc === undefined) return true
+  const start = num(field(arc, 'startingAngle')) ?? 0
+  const end = num(field(arc, 'endingAngle')) ?? 2 * Math.PI
+  const inner = num(field(arc, 'innerRadius')) ?? 0
+  return inner <= 0 && Math.abs(end - start) >= 2 * Math.PI - 1e-6
+}
+
+function shapeOf(build: LayerBuild, n: FigmaNode): Extract<LayerInput, { type: 'graphic' }>['props']['shape'] {
+  if (n.type === 'ELLIPSE') return { kind: 'ellipse' }
+  if (n.type === 'LINE') {
+    const cap = str(field(n.fields, 'strokeCap')) ?? 'NONE'
+    const end = LINE_ENDS.get(cap)
+    if (!end && !PLAIN_CAPS.has(cap)) build.report.add('line-ends', n)
+    return { kind: 'line', start: end ?? 'none', end: end ?? 'none' }
+  }
+  const corners = cornersOf(n.fields)
+  return typeof corners === 'number' ? { kind: 'rect', cornerRadius: corners } : { kind: 'rect', corners }
 }

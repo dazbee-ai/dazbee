@@ -58,21 +58,30 @@ describe('textWithFeature', () => {
   const text = {
     style: TextStyle.parse({ fontFamily: 'Sans', fontSize: 20, color: '#000000FF', features: { liga: false } }),
     runs: [
-      { start: 0, end: 2, style: { features: { sups: true } } },
+      { start: 0, end: 2, style: { features: { sups: true, subs: false } } },
       { start: 2, end: 4, style: { color: '#FF0000FF' } },
+      { start: 4, end: 6, style: { features: { subs: false, liga: true } } },
     ],
   }
 
-  it('turns subscript on in the whole text’s style, and superscript off in a run that has it on', () => {
+  it('turns subscript on for the whole text: in its style, and in each run that sets superscript or subscript', () => {
     const turned = textWithFeature(text, 'subs', true)
     expect(turned.style.features).toEqual({ liga: false, subs: true, sups: false })
-    expect(turned.runs).toEqual([{ start: 0, end: 2, style: { features: { sups: false } } }, text.runs[1]])
+    expect(turned.runs).toEqual([
+      { start: 0, end: 2, style: { features: { sups: false, subs: true } } },
+      text.runs[1],
+      { start: 4, end: 6, style: { features: { subs: true, sups: false, liga: true } } },
+    ])
   })
 
-  it('leaves the runs as they are when turning a feature off', () => {
+  it('turns superscript off in each run that sets it, leaving the others', () => {
     const turned = textWithFeature(text, 'sups', false)
     expect(turned.style.features).toEqual({ liga: false, sups: false })
-    expect(turned.runs).toEqual(text.runs)
+    expect(turned.runs).toEqual([
+      { start: 0, end: 2, style: { features: { sups: false, subs: false } } },
+      text.runs[1],
+      text.runs[2],
+    ])
   })
 })
 

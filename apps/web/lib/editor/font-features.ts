@@ -61,9 +61,9 @@ export function turnedFeatures(tag: string, on: boolean): Features {
 }
 
 /**
- * A whole text's style and runs with a feature turned on or off (`turnedFeatures`) in its style;
- * a run that has on the feature this turns off has it turned off too, so no character is left
- * superscript and subscript at once.
+ * A whole text's style and runs with a feature turned on or off (`turnedFeatures`) in its style.
+ * A run that sets the feature, or the one it turns off, takes the same features, so the whole
+ * text is superscript or subscript alike, and no character both.
  */
 export function textWithFeature(
   text: Pick<TextProps, 'style' | 'runs'>,
@@ -71,12 +71,12 @@ export function textWithFeature(
   on: boolean,
 ): Pick<TextProps, 'style' | 'runs'> {
   const turned = turnedFeatures(tag, on)
-  const off = on ? TURNS_OFF[tag] : undefined
+  const sets = (features: Features | undefined) => Object.keys(turned).some((key) => features?.[key] !== undefined)
   return {
     style: withRunStyle(text.style, { features: turned }),
     runs: text.runs.map((run) =>
-      off && run.style.features?.[off] === true
-        ? { ...run, style: { ...run.style, features: { ...run.style.features, [off]: false } } }
+      sets(run.style.features)
+        ? { ...run, style: { ...run.style, features: { ...run.style.features, ...turned } } }
         : run,
     ),
   }

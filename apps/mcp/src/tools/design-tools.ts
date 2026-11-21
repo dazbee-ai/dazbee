@@ -1,5 +1,6 @@
 // The tools that open a design and read it: open_design opens the session's agent tab on a design, and the others
-// read what that tab shows, the design as the editor holds it.
+// read what that tab shows, the design as the editor holds it, the agent shown to the people in the design at the
+// frame or layer it reads.
 import { z } from 'zod'
 
 import { childrenOf, compactTree, DEFAULT_TREE_BYTES } from '@dazbee/doc'
@@ -59,6 +60,7 @@ export const DESIGN_TOOLS: Tool[] = [
       onDesign(context, ({ tab }) => {
         const design = tab.design()
         frameOf(design, frame)
+        tab.show({ layers: [], frame })
         return treeWithin(design, frame, fields ?? [], maxBytes ?? DEFAULT_TREE_BYTES)
       }),
   }),
@@ -74,9 +76,15 @@ export const DESIGN_TOOLS: Tool[] = [
         const design = tab.design()
         const children = childrenOf(design, id).map(([child]) => child)
         const layer = Object.hasOwn(design.nodes, id) ? design.nodes[id] : undefined
-        if (layer) return { id, ...layer, children }
+        if (layer) {
+          tab.show({ layers: [id], frame: null })
+          return { id, ...layer, children }
+        }
         const frame = Object.hasOwn(design.frames, id) ? design.frames[id] : undefined
-        if (frame) return { id, type: 'frame', ...frame, children }
+        if (frame) {
+          tab.show({ layers: [], frame: id })
+          return { id, type: 'frame', ...frame, children }
+        }
         throw new ToolRefusal(`The open design has no layer or frame “${id}”; read_frame lists a frame’s layers`)
       }),
   }),
@@ -90,6 +98,7 @@ export const DESIGN_TOOLS: Tool[] = [
     run: ({ frame }, context) =>
       onDesign(context, async ({ tab }) => {
         frameOf(tab.design(), frame)
+        tab.show({ layers: [], frame })
         await tab.fontsLoaded()
         return frameWarnings(await loadCanvasKit(), tab.design(), frame, tab.bytes(), { cache: tab.cache })
       }),

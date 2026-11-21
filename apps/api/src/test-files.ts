@@ -1,15 +1,59 @@
-// Files the API tests upload and read: images, fonts, and the SHA-256 they are stored under.
+// Files the API tests upload and read: images, fonts, and the SHA-256 they are stored under; and
+// Google families with google/fonts serving their files, as the font import reads them.
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
+import type { GoogleFamily } from '@dazbee/fonts'
+import { googleFileUrl } from '@dazbee/fonts/google'
 import { FONT_FILES_DIR } from '@dazbee/fonts/node'
 
 export const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex')
 
 /** One of the font files we ship. */
 export const fontFile = (file: string) => new Uint8Array(readFileSync(join(FONT_FILES_DIR, file)))
+
+/** A Google family of the files given, each a name, its bytes, weight and style, in a folder of its own. */
+export function googleFamily(
+  family: string,
+  files: { file: string; bytes: Uint8Array; weight: number; style?: 'normal' | 'italic' }[],
+): GoogleFamily & { served: Map<string, Uint8Array> } {
+  const path = `ofl/${family.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+  const faces = files.map(({ file, bytes, weight, style = 'normal' }) => ({
+    file,
+    blob: createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'),
+    bytes: bytes.length,
+    weight,
+    style,
+  }))
+  return {
+    family,
+    category: 'sans-serif',
+    rank: 1,
+    licence: 'OFL',
+    path,
+    scripts: ['Latn'],
+    axes: [],
+    faces,
+    served: new Map(files.map(({ file, bytes }) => [googleFileUrl({ path }, { file }), bytes])),
+  }
+}
+
+/**
+ * google/fonts as the import fetches it: the families' files at their URLs, each fetch counted in
+ * `asked`, and a 404 for anything else.
+ */
+export function fakeGoogleFonts(...families: { served: Map<string, Uint8Array> }[]) {
+  const asked: string[] = []
+  const get = (async (input: string | URL | Request) => {
+    const url = String(input)
+    asked.push(url)
+    const bytes = families.map((family) => family.served.get(url)).find(Boolean)
+    return bytes ? new Response(bytes.slice()) : new Response('not found', { status: 404 })
+  }) as typeof fetch
+  return { get, asked }
+}
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n

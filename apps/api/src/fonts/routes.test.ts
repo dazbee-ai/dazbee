@@ -2,53 +2,28 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { fontFaces } from '@dazbee/db'
-import { emojiTestFont, variableTestFont } from '@dazbee/fonts/test-fonts'
+import { fontFaces, newId } from '@dazbee/db'
+import { GOOGLE_FONTS } from '@dazbee/fonts/google'
+import { variableTestFont } from '@dazbee/fonts/test-fonts'
 import { FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
 
-import { googleFontKey } from '../storage-keys.ts'
 import { brand, call, db, otherBrand, run, SHORT_ID, sibling, storage, workspace } from '../test-api.ts'
-import { fontFile, sha256 } from '../test-files.ts'
-import { withoutSvgTable } from './font-file.ts'
+import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
 import { fontFiles } from './fonts.ts'
 import { importGoogleFamily } from './google.ts'
 
 // Recording a font draws its preview with CanvasKit, which takes seconds on a busy two-core CI runner.
 describe('fonts', { timeout: 30_000 }, () => {
-  /** A stand-in Google family, served by a fake Google from the Noto files, removed after the run. */
-  const googleFamily = {
-    family: `Test Sans ${run}`,
-    category: 'sans-serif',
-    weights: [400, 700],
-    italic: false,
-  } as const
-  /** A stand-in colour emoji family, whose one file carries an SVG table as Google's does. */
-  const emojiFamily = { family: `Test Emoji ${run}`, category: 'sans-serif', weights: [400], italic: false } as const
   const regular = fontFile('NotoSans-Regular.ttf')
   const bold = fontFile('NotoSans-Bold.ttf')
-  const emoji = emojiTestFont()
-
-  /** Google Fonts as the importer sees it: a stylesheet naming two TrueType files, and the files. */
-  const fakeGoogle = (async (input: string | URL | Request) => {
-    const url = String(input)
-    if (url.startsWith('https://fonts.googleapis.com/css2?family=Test+Sans+')) {
-      const face = (weight: number) =>
-        `@font-face {\n  font-family: '${googleFamily.family}';\n  font-style: normal;\n  font-weight: ${weight};\n  src: url(https://fonts.gstatic.com/s/test/v1/w${weight}.ttf) format('truetype');\n}\n`
-      return new Response(face(400) + face(700))
-    }
-    if (url.startsWith('https://fonts.googleapis.com/css2?family=Test+Emoji+'))
-      return new Response(
-        `@font-face {\n  font-family: '${emojiFamily.family}';\n  font-style: normal;\n  font-weight: 400;\n  src: url(https://fonts.gstatic.com/s/test/v1/emoji.ttf) format('truetype');\n}\n`,
-      )
-    if (url === 'https://fonts.gstatic.com/s/test/v1/w400.ttf') return new Response(regular)
-    if (url === 'https://fonts.gstatic.com/s/test/v1/w700.ttf') return new Response(bold)
-    if (url === 'https://fonts.gstatic.com/s/test/v1/emoji.ttf') return new Response(emoji)
-    return new Response('not found', { status: 404 })
-  }) as typeof fetch
+  /** A stand-in Google family of the Noto files, served by a fake google/fonts, removed after the run. */
+  const google = googleFamily(`Test Sans ${run}`, [
+    { file: 'TestSans-Regular.ttf', bytes: regular, weight: 400 },
+    { file: 'TestSans-Bold.ttf', bytes: bold, weight: 700 },
+  ])
 
   afterAll(async () => {
-    await db.delete(fontFaces).where(eq(fontFaces.family, googleFamily.family))
-    await db.delete(fontFaces).where(eq(fontFaces.family, emojiFamily.family))
+    await db.delete(fontFaces).where(eq(fontFaces.family, google.family))
     await db.delete(fontFaces).where(eq(fontFaces.family, 'Vary Sans'))
   })
 
@@ -72,19 +47,16 @@ describe('fonts', { timeout: 30_000 }, () => {
   }
 
   it('copies a Google family into our storage once, and every brand lists it', async () => {
-    expect(await importGoogleFamily(db, storage, googleFamily, fakeGoogle)).toBe(2)
-    expect(await importGoogleFamily(db, storage, googleFamily, fakeGoogle)).toBe(0)
-    const stored = await db
-      .select({ id: fontFaces.id })
-      .from(fontFaces)
-      .where(eq(fontFaces.family, googleFamily.family))
+    const { get } = fakeGoogleFonts(google)
+    expect(await importGoogleFamily(db, storage, google, { copied: new Map(), get })).toMatchObject({ copied: 2 })
+    const stored = await db.select({ id: fontFaces.id }).from(fontFaces).where(eq(fontFaces.family, google.family))
     expect(stored.map((f) => f.id)).toEqual([expect.stringMatching(SHORT_ID), expect.stringMatching(SHORT_ID)])
     for (const [as, brandId] of [
       ['a', brand.id],
       ['b', otherBrand.id],
     ] as const) {
       const catalog = FontFamily.array().parse((await call(as, 'GET', `/brands/${brandId}/fonts`)).json)
-      expect(catalog.find((f) => f.family === googleFamily.family)).toMatchObject({
+      expect(catalog.find((f) => f.family === google.family)).toMatchObject({
         source: 'google',
         category: 'sans-serif',
         faces: [
@@ -95,14 +67,27 @@ describe('fonts', { timeout: 30_000 }, () => {
     }
   })
 
-  it('copies a Google file without the SVG glyphs CanvasKit never draws', async () => {
-    const kept = withoutSvgTable(emoji)
-    expect(kept.length).toBeLessThan(emoji.length)
-    expect(await importGoogleFamily(db, storage, emojiFamily, fakeGoogle)).toBe(1)
-    const [row] = await db.select().from(fontFaces).where(eq(fontFaces.family, emojiFamily.family))
-    expect(row).toMatchObject({ sha256: sha256(kept), byteSize: kept.length })
-    expect(await storage.get(googleFontKey(sha256(kept)))).toEqual(kept)
-    expect(await importGoogleFamily(db, storage, emojiFamily, fakeGoogle)).toBe(0)
+  it('lists a Google family with its place in the popularity order and its scripts', async () => {
+    const [listed] = GOOGLE_FONTS
+    if (!listed) throw new Error('GOOGLE_FONTS is empty')
+    // A face of the family in a weight Google has none of, so it stands beside any face copied before.
+    const row = {
+      id: newId(),
+      source: 'google',
+      family: listed.family,
+      weight: 1,
+      style: 'italic',
+      sha256: 'f'.repeat(64),
+      byteSize: 1,
+    } as const
+    await db.insert(fontFaces).values(row)
+    try {
+      const catalog = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
+      expect(catalog.find((f) => f.family === listed.family)).toMatchObject({ rank: 1, scripts: listed.scripts })
+      expect(catalog.find((f) => f.family === google.family)).not.toHaveProperty('rank')
+    } finally {
+      await db.delete(fontFaces).where(eq(fontFaces.id, row.id))
+    }
   })
 
   it('uploads a font for a brand, named by its own tables, with a preview, and keeps it to that brand', async () => {
@@ -181,14 +166,14 @@ describe('fonts', { timeout: 30_000 }, () => {
 
   it('gives Node the same bytes for the families a design names, uploads and Google alike', async () => {
     await upload('a', brand.id, bold)
-    const files = await fontFiles(db, storage, workspace.id, brand.id, ['Noto Sans', googleFamily.family, 'Not A Font'])
+    const files = await fontFiles(db, storage, workspace.id, brand.id, ['Noto Sans', google.family, 'Not A Font'])
     const byFamily = (family: string) =>
       files
         .filter((f) => f.family === family)
         .map((f) => sha256(f.bytes))
         .sort()
     expect(byFamily('Noto Sans')).toEqual([sha256(bold)])
-    expect(byFamily(googleFamily.family)).toEqual([sha256(regular), sha256(bold)].sort())
+    expect(byFamily(google.family)).toEqual([sha256(regular), sha256(bold)].sort())
     expect(files).toHaveLength(3)
     // Another brand has no upload of that family.
     expect(await fontFiles(db, storage, workspace.id, sibling.id, ['Noto Sans'])).toEqual([])

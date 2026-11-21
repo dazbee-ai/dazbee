@@ -4,6 +4,8 @@
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
+import type { GoogleFamily } from '@dazbee/fonts'
+import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import {
   byCodeUnits,
   type FontFace,
@@ -37,17 +39,28 @@ const byFace = (a: Row, b: Row) => (a.style === b.style ? a.weight - b.weight : 
 const visibleTo = (workspaceId: string, brandId: string) =>
   or(eq(fontFaces.source, 'google'), and(eq(fontFaces.workspaceId, workspaceId), eq(fontFaces.brandId, brandId)))
 
-/** The catalog a brand picks from, families by name. */
+/** The Google Fonts families by name, once looked up. */
+let googleByName: ReadonlyMap<string, GoogleFamily> | undefined
+
+/**
+ * The catalog a brand picks from, families by name; a Google family with its place in Google
+ * Fonts' popularity order and its scripts, from `GOOGLE_FONTS`.
+ */
 export async function listFonts(db: Db, workspaceId: string, brandId: string): Promise<FontFamily[]> {
   const rows = await db.select().from(fontFaces).where(visibleTo(workspaceId, brandId))
   return [...families(rows)]
     .sort(([a], [b]) => byCodeUnits(a, b))
-    .map(([family, faces]) => ({
-      family,
-      source: faces[0]?.source ?? 'google',
-      category: faces[0]?.category ?? null,
-      faces: faces.map(toFace),
-    }))
+    .map(([family, faces]) => {
+      const source = faces[0]?.source ?? 'google'
+      const listed = source === 'google' ? googleFamilies().get(family) : undefined
+      return {
+        family,
+        source,
+        category: faces[0]?.category ?? null,
+        ...(listed ? { rank: listed.rank, scripts: listed.scripts } : {}),
+        faces: faces.map(toFace),
+      }
+    })
 }
 
 /** A face the brand can use and short-lived URLs to its file and preview, or null. */
@@ -185,6 +198,12 @@ export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert) {
       )
     await tx.insert(fontFaces).values(row)
   })
+}
+
+/** `GOOGLE_FONTS` by family name. */
+function googleFamilies(): ReadonlyMap<string, GoogleFamily> {
+  googleByName ??= new Map(GOOGLE_FONTS.map((family) => [family.family, family]))
+  return googleByName
 }
 
 /** The faces of each family as the brand sees them: where it uploaded a family Google has, only its own. */

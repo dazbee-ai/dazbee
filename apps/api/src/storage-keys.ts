@@ -17,6 +17,9 @@ export const templateThumbnailKey = (workspaceId: string, templateId: string) =>
   `workspaces/${workspaceId}/templates/${templateId}.png`
 
 export const googleFontKey = (sha256: string) => `fonts/google/${sha256}`
+/** Where the import notes each file of google/fonts it has copied: an empty object named by the file's git blob and the SHA-256 it was stored under. */
+export const GOOGLE_SOURCES = 'fonts/google/sources/'
+export const googleSourceKey = (blob: string, sha256: string) => `${GOOGLE_SOURCES}${blob}/${sha256}`
 export const uploadedFontKey = (workspaceId: string, sha256: string) => `workspaces/${workspaceId}/fonts/${sha256}`
 /** Each file's preview sits next to it. */
 export const previewKey = (fontKey: string) => `${fontKey}.preview.png`

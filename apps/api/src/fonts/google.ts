@@ -1,60 +1,142 @@
-// Google Fonts families copied into our storage, shared by every workspace.
+// Google Fonts families copied into our storage from google/fonts, shared by every workspace.
 import { createHash } from 'node:crypto'
 
 import { and, eq } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
-import { googleCssUrl, googleFaces, type GoogleFamily } from '@dazbee/fonts'
+import type { GoogleFamily, GoogleFile } from '@dazbee/fonts'
+import { googleFileUrl } from '@dazbee/fonts/google'
 import type { Storage } from '@dazbee/storage'
 
-import { googleFontKey, previewKey } from '../storage-keys.ts'
-import { fontPreview, withoutSvgTable } from './font-file.ts'
+import { GOOGLE_SOURCES, googleFontKey, googleSourceKey, previewKey } from '../storage-keys.ts'
+import { fontPreview, readFontInfo, withoutSvgTable } from './font-file.ts'
 import { replaceFace } from './fonts.ts'
 
 /**
- * Copies one Google Fonts family into our storage: every weight and style the catalog lists,
- * named as the catalog names it, without the SVG glyphs CanvasKit never draws. Faces already
- * copied with the same bytes are left as they are. Returns how many faces were copied anew.
+ * What copying one family did: the files copied anew and the bytes stored of them, the files
+ * copied before, and why the family stopped, if it did.
+ */
+export interface FamilyCopy {
+  copied: number
+  bytes: number
+  upToDate: number
+  failed: string | null
+}
+
+/** How many times a file is fetched before the family is given up on. */
+const ATTEMPTS = 3
+/** A file name Google gives a font variable in its weight, such as `Inter[opsz,wght].ttf`. */
+const VARIES_WEIGHT = /\[[^\]]*\bwght\b[^\]]*\]/
+
+/**
+ * Each file of google/fonts copied before, by its git blob: the SHA-256 it was stored under. A run
+ * reads them once, so a family copied before is left as it is without fetching a byte.
+ */
+export async function copiedSources(storage: Storage): Promise<Map<string, string>> {
+  const copied = new Map<string, string>()
+  for (const key of await storage.list(GOOGLE_SOURCES)) {
+    const [blob, sha256] = key.slice(GOOGLE_SOURCES.length).split('/')
+    if (blob && sha256) copied.set(blob, sha256)
+  }
+  return copied
+}
+
+/**
+ * Copies one Google Fonts family into our storage: each file the list names, from google/fonts at
+ * the list's commit, checked against its git blob, without the SVG glyphs CanvasKit never draws,
+ * with a preview, and recorded as the list names it (a variable file with its weight range). A
+ * file copied before whose face is still recorded is left as it is, so a run stopped part way
+ * picks up where it stopped. A file that can't be fetched or read stops the family, the files
+ * before it kept, and says why.
  */
 export async function importGoogleFamily(
   db: Db,
   storage: Storage,
-  entry: GoogleFamily,
-  get: typeof fetch = fetch,
-): Promise<number> {
-  const css = await get(googleCssUrl(entry))
-  if (!css.ok) throw new Error(`Google Fonts answered ${css.status} for ${entry.family}`)
-  const faces = googleFaces(await css.text())
-  if (faces.length === 0) throw new Error(`Google Fonts named no TrueType files for ${entry.family}`)
+  family: GoogleFamily,
+  { copied, get = fetch }: { copied: Map<string, string>; get?: typeof fetch },
+): Promise<FamilyCopy> {
   const have = await db
-    .select()
+    .select({ style: fontFaces.style, sha256: fontFaces.sha256 })
     .from(fontFaces)
-    .where(and(eq(fontFaces.source, 'google'), eq(fontFaces.family, entry.family)))
-  let copied = 0
-  for (const face of faces) {
-    const file = await get(face.url)
-    if (!file.ok)
-      throw new Error(`Google Fonts answered ${file.status} for ${entry.family} ${face.weight} ${face.style}`)
-    const bytes = withoutSvgTable(new Uint8Array(await file.arrayBuffer()))
-    const sha256 = createHash('sha256').update(bytes).digest('hex')
-    if (have.some((row) => row.weight === face.weight && row.style === face.style && row.sha256 === sha256)) continue
-    const key = googleFontKey(sha256)
-    const preview = await fontPreview(bytes, { family: entry.family, ...face })
-    await storage.put(key, bytes, 'font/ttf')
-    await storage.put(previewKey(key), preview, 'image/png')
-    await replaceFace(db, {
-      id: newId(),
-      workspaceId: null,
-      brandId: null,
-      source: 'google',
-      family: entry.family,
-      weight: face.weight,
-      style: face.style,
-      category: entry.category,
-      sha256,
-      byteSize: bytes.length,
-    })
-    copied++
+    .where(and(eq(fontFaces.source, 'google'), eq(fontFaces.family, family.family)))
+  const done: FamilyCopy = { copied: 0, bytes: 0, upToDate: 0, failed: null }
+  for (const face of family.faces) {
+    const stored = copied.get(face.blob)
+    if (stored && have.some((row) => row.style === face.style && row.sha256 === stored)) {
+      done.upToDate++
+      continue
+    }
+    try {
+      done.bytes += await copyFile(db, storage, family, face, get, copied)
+      done.copied++
+    } catch (reason) {
+      done.failed = `${face.file}: ${reason instanceof Error ? reason.message : String(reason)}`
+      break
+    }
   }
-  return copied
+  return done
+}
+
+/** Copies one file of the family and records its face; gives back how many bytes it stored. */
+async function copyFile(
+  db: Db,
+  storage: Storage,
+  family: GoogleFamily,
+  face: GoogleFile,
+  get: typeof fetch,
+  copied: Map<string, string>,
+): Promise<number> {
+  const bytes = withoutSvgTable(await fetchFile(family, face, get))
+  const info = readFontInfo(bytes)
+  if (!info) throw new Error('it is not a TrueType or OpenType font')
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
+  // A file Google names variable in its weight is recorded with its own range, at its own default;
+  // any other at the weight Google names it by.
+  const range = VARIES_WEIGHT.test(face.file) ? info.weights : undefined
+  const weight = range ? info.weight : face.weight
+  const key = googleFontKey(sha256)
+  const preview = await fontPreview(bytes, { family: family.family, weight, style: face.style }, family.scripts)
+  await storage.put(key, bytes, 'font/ttf')
+  await storage.put(previewKey(key), preview, 'image/png')
+  await replaceFace(db, {
+    id: newId(),
+    workspaceId: null,
+    brandId: null,
+    source: 'google',
+    family: family.family,
+    weight,
+    weightMin: range?.min ?? null,
+    weightMax: range?.max ?? null,
+    style: face.style,
+    category: family.category,
+    sha256,
+    byteSize: bytes.length,
+  })
+  // Noted last, so a run stopped before this point copies the file again.
+  await storage.put(googleSourceKey(face.blob, sha256), new Uint8Array(), 'application/octet-stream')
+  copied.set(face.blob, sha256)
+  return bytes.length
+}
+
+/** A file's bytes from google/fonts, tried `ATTEMPTS` times, refused unless they are the list's git blob. */
+async function fetchFile(family: GoogleFamily, face: GoogleFile, get: typeof fetch): Promise<Uint8Array> {
+  const url = googleFileUrl(family, face)
+  let problem = ''
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, 2 ** attempt * 250))
+    const response = await get(url).catch((reason: unknown) => reason as Error)
+    if (!(response instanceof Response)) problem = response.message
+    else if (!response.ok) problem = `google/fonts answered ${response.status}`
+    else {
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (gitBlob(bytes) === face.blob) return bytes
+      problem = `its ${bytes.length} bytes are not google/fonts' file`
+    }
+  }
+  throw new Error(problem)
+}
+
+/** Bytes' git blob SHA-1, as git names a file's content. */
+function gitBlob(bytes: Uint8Array): string {
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')
 }

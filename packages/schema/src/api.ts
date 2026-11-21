@@ -282,6 +282,10 @@ export const FontFamily = z.object({
   source: FontSource,
   /** Google's category, such as sans-serif or display; null for uploads. */
   category: z.string().nullable(),
+  /** A Google family's place in Google Fonts' popularity order, 1 the most used; none for others. */
+  rank: z.number().int().positive().optional(),
+  /** The writing systems a Google family draws, as ISO 15924 codes such as Latn or Arab; none for others. */
+  scripts: z.array(z.string()).optional(),
   faces: FontFace.array().min(1),
 })
 export type FontFamily = z.infer<typeof FontFamily>

@@ -85,6 +85,48 @@ describe('commandCatalog', () => {
     expect(group?.input).toMatchObject({ required: ['ids'] })
   })
 
+  it('names each layer type’s props for node.create’s layer: a text’s style keys, its align values, a shape’s kind', () => {
+    const create = commandCatalog().find((entry) => entry.name === 'node.create')
+    const layer = create?.input.properties?.['layer'] as z.core.JSONSchema.BaseSchema
+    expect(layer.description).toBe(COMMANDS['node.create'].input.shape.layer.description)
+    const options = (layer.anyOf ?? layer.oneOf ?? []) as z.core.JSONSchema.BaseSchema[]
+    const byType = Object.fromEntries(
+      options.map((option) => [(option.properties?.['type'] as { const: string }).const, option]),
+    )
+    expect(Object.keys(byType).sort()).toEqual(['boolean', 'box', 'graphic', 'group', 'text'])
+    expect(byType['text']).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining(['type', 'name', 'props']),
+      properties: {
+        role: { enum: expect.arrayContaining(['headline', 'cta']) },
+        props: {
+          properties: {
+            style: { properties: { fontSize: {}, fontFamily: {}, fontWeight: {} } },
+            align: { enum: ['start', 'center', 'end', 'justify'] },
+            effects: { type: 'array' },
+            constraints: { properties: { horizontal: { enum: expect.arrayContaining(['left']) } } },
+          },
+        },
+      },
+    })
+    expect(JSON.stringify(byType['text'])).not.toContain('"fills"')
+    const graphic = JSON.stringify(byType['graphic'])
+    for (const key of ['"shape"', '"kind"', '"ellipse"', '"fills"', '"strokes"']) expect(graphic).toContain(key)
+  })
+
+  it('names each layer type’s props for node.update’s patch, without a text’s words, which text.edit sets', () => {
+    const update = commandCatalog().find((entry) => entry.name === 'node.update')
+    const patch = update?.input.properties?.['patch'] as z.core.JSONSchema.BaseSchema
+    expect(patch.description).toBe(COMMANDS['node.update'].input.shape.patch.description)
+    const options = (patch.anyOf ?? []) as z.core.JSONSchema.BaseSchema[]
+    expect(options).toHaveLength(5)
+    const text = options.find((option) => option.properties?.['style'])
+    expect(text).toMatchObject({ additionalProperties: false, properties: { align: { enum: expect.any(Array) } } })
+    expect(text?.required ?? []).toEqual([])
+    expect(text?.properties?.['text']).toBeUndefined()
+    expect(text?.properties?.['runs']).toBeUndefined()
+  })
+
   it('throws, naming the command, on an input with a type JSON Schema cannot express', () => {
     const registry = COMMANDS as Record<string, unknown>
     // Listed as it is, past `defineCommand`, whose check of strictness refuses a date too.

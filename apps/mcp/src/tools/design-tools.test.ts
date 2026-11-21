@@ -233,11 +233,23 @@ describe('read_frame', () => {
     expect(new TextEncoder().encode(JSON.stringify(tree)).length).toBeLessThanOrEqual(1024)
   })
 
-  it('refuses a maxBytes over what an answer holds, a field no layer has and a frame the design lacks', async () => {
+  it('reads the fields it knows, a text’s fontSize among them, and skips the others with a note naming them', async () => {
+    const agent = await agentOf()
+    await agent.json('open_design', LAUNCH)
+    const result = await agent.call('read_frame', { frame: 'sq', fields: ['fontSize', 'nope'] })
+    expect(result.isError).toBeFalsy()
+    const tree = JSON.parse(textOf(result))
+    expect(tree.children).toContainEqual(expect.objectContaining({ id: 'headline', fontSize: 84 }))
+    const notes = result.content.slice(1).map((block) => (block.type === 'text' ? block.text : ''))
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toMatch(/“nope”/)
+    expect(notes[0]).toMatch(/fills.*fontSize/)
+  })
+
+  it('refuses a maxBytes over what an answer holds and a frame the design lacks', async () => {
     const agent = await agentOf()
     await agent.json('open_design', LAUNCH)
     expect(await refusal(agent, 'read_frame', { frame: 'sq', maxBytes: MAX_TREE_BYTES + 1 })).toMatch(/^`maxBytes`/)
-    expect(await refusal(agent, 'read_frame', { frame: 'sq', fields: ['colour'] })).toMatch(/no layer has "colour"/)
     expect(await refusal(agent, 'read_frame', { frame: 'nope' })).toBe(
       'The open design has no frame “nope”; read_design lists its frames.',
     )

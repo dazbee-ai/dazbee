@@ -1,7 +1,9 @@
 // What the commands are, for a caller that has not read the code, such as an agent: each command's
-// name, what it does, and its input as JSON Schema, made from the definitions by zod's converter.
+// name, what it does, and its input as JSON Schema, made from the definitions by zod's converter, with
+// the type `showAs` gave a field shown in its place.
 import { z } from 'zod'
 
+import { shownFor } from './define.ts'
 import { type CommandName, COMMANDS } from './index.ts'
 
 /** One command as the catalog lists it. */
@@ -19,10 +21,28 @@ export interface CatalogEntry<N extends string = string> {
 export function commandCatalog(): CatalogEntry<CommandName>[] {
   return Object.values(COMMANDS).map(({ name, description, input }) => {
     try {
-      const schema = z.toJSONSchema(input, { io: 'input', unrepresentable: 'throw' })
+      const schema = z.toJSONSchema(input, { io: 'input', unrepresentable: 'throw', override: showShown })
       return { name: name as CommandName, description, input: schema }
     } catch (error) {
       throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
     }
   })
+}
+
+/** Puts the JSON Schema of the type `showAs` gave a field in place of the field's own, keeping its description. */
+function showShown({
+  zodSchema,
+  jsonSchema,
+}: {
+  zodSchema: z.core.$ZodTypes
+  jsonSchema: z.core.JSONSchema.BaseSchema
+}) {
+  const shown = shownFor(zodSchema)
+  if (!shown) return
+  const { description } = jsonSchema
+  const replaced: z.core.JSONSchema.BaseSchema = z.toJSONSchema(shown, { io: 'input', unrepresentable: 'throw' })
+  delete replaced.$schema
+  // The converter keeps the object it hands the override, so the field's own keys are taken off it.
+  for (const key of Object.keys(jsonSchema)) Reflect.deleteProperty(jsonSchema, key)
+  Object.assign(jsonSchema, replaced, description === undefined ? {} : { description })
 }

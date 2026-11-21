@@ -209,6 +209,16 @@ describe('describe_command', () => {
     expect(await agent.json('describe_command', { command: 'frame.add' })).toEqual({ ...entry, input })
   })
 
+  it('names the props a text layer takes in node.create, so an agent need not guess them', async () => {
+    const agent = await connect()
+    const entry = (await agent.json('describe_command', { command: 'node.create' })) as {
+      input: { properties: { layer: unknown } }
+    }
+    const schema = JSON.stringify(entry.input.properties.layer)
+    for (const prop of ['fontSize', 'fontFamily', 'align', 'shape', 'fills']) expect(schema).toContain(`"${prop}"`)
+    expect(schema).toContain('"justify"')
+  })
+
   it('tells an unknown command, and design.restore, as tool errors', async () => {
     const agent = await connect()
     for (const command of ['node.explode', 'design.restore']) {

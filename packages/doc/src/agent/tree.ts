@@ -9,7 +9,8 @@ import { childrenOf } from '../children.ts'
 export interface TreeOptions {
   /**
    * Props to add to each layer that has them, by name, such as `x`, `fills` or `role`: a text's
-   * `text` is then given in full. Each must be one some layer type has.
+   * `text` is then given in full, and `fontSize`, `fontFamily` and `fontWeight` are those parts of
+   * a text's `style`. One that is not in `TREE_FIELDS` is left out.
    */
   fields?: readonly string[]
   /**
@@ -41,24 +42,30 @@ export const DEFAULT_TREE_BYTES = 100_000
 const TEXT_KEPT = 120
 /** What a layer has beside its props that `fields` may name. */
 const LAYER_KEYS = ['role', 'lock', 'bindings'] as const
-
-/** The props `fields` may name: those of every layer type, and what a layer has beside them. */
-const FIELDS = [
-  ...new Set([...Object.values(LAYER_PROPS).flatMap((props) => Object.keys(props.shape)), ...LAYER_KEYS]),
+/** The parts of a text's `style` that `fields` may name on their own. */
+const STYLE_PARTS = ['fontSize', 'fontFamily', 'fontWeight'] as const
+/**
+ * The fields `fields` may name: the props of every layer type, what a layer has beside them, and
+ * the parts of a text's style in `STYLE_PARTS`.
+ */
+export const TREE_FIELDS: readonly string[] = [
+  ...new Set([
+    ...Object.values(LAYER_PROPS).flatMap((props) => Object.keys(props.shape)),
+    ...LAYER_KEYS,
+    ...STYLE_PARTS,
+  ]),
 ].sort()
 
 /**
  * The frame `frameId` and the layers it holds as compact JSON (see `TreeLayer`): the frame's id,
  * name, width and height, and each layer's id, name, type, whether it shows, and a text's first
  * `TEXT_KEPT` characters, followed by `...` where there are more. It throws on a frame the design does
- * not have and on a field no layer type has.
+ * not have.
  */
 export function compactTree(design: Design, frameId: string, options: TreeOptions = {}): TreeLayer {
   const frame = Object.hasOwn(design.frames, frameId) ? design.frames[frameId] : undefined
   if (!frame) throw new Error(`no frame "${frameId}" in the design`)
-  const fields = options.fields ?? []
-  const unknown = fields.find((field) => !FIELDS.includes(field))
-  if (unknown !== undefined) throw new Error(`no layer has "${unknown}": the fields are ${FIELDS.join(', ')}`)
+  const fields = (options.fields ?? []).filter((field) => TREE_FIELDS.includes(field))
   const maxBytes = options.maxBytes ?? DEFAULT_TREE_BYTES
   const build = (cap: number): TreeLayer => ({
     id: frameId,
@@ -90,7 +97,11 @@ function childrenAt(design: Design, parentId: string, fields: readonly string[],
   if (children.length === 0) return {}
   const shown = children.slice(0, cap).map(([id, layer]): TreeLayer => {
     const props = layer.props as Record<string, unknown>
-    const own: Record<string, unknown> = { ...props, ...Object.fromEntries(LAYER_KEYS.map((key) => [key, layer[key]])) }
+    const own: Record<string, unknown> = {
+      ...(layer.type === 'text' && Object.fromEntries(STYLE_PARTS.map((part) => [part, layer.props.style[part]]))),
+      ...props,
+      ...Object.fromEntries(LAYER_KEYS.map((key) => [key, layer[key]])),
+    }
     const added = Object.fromEntries(fields.filter((field) => own[field] !== undefined).map((f) => [f, own[f]]))
     return {
       id,

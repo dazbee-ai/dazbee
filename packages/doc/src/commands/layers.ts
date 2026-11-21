@@ -28,7 +28,7 @@ import { sameValue } from '../same-value.ts'
 import { droppedIssue } from '../sync/checks.ts'
 import { boxPlan, DrawnBoxes, keepEmptied, writeDrawn } from './box-plan.ts'
 import { idProblem, lockFor, lockProblem, missingLayer, parentProblem } from './checks.ts'
-import { defineCommand, strict } from './define.ts'
+import { defineCommand, showAs, strict } from './define.ts'
 import { keepDrawnIn } from './paths.ts'
 import { layerSlots, writeOrder } from './tree.ts'
 
@@ -43,6 +43,28 @@ const LOCK_FLAGS_SAY: Record<(typeof LOCK_FLAGS)[number], string> = {
     'Locks its look, every property but its place, size, turn, flip, text and whether it shows: true to lock, false to unlock.',
   delete: 'Locks it against deleting: true to lock, false to unlock.',
 }
+
+/** A text's props that `node.update` refuses, which `text.edit` changes. */
+const TEXT_EDIT_PROPS = ['text', 'runs']
+
+/**
+ * A layer to add as the catalog shows it: one of each type, with the props that type takes. What
+ * `LayerInput` takes beside its props (type, name, role) stays the same.
+ */
+const ShownLayer = z.union(UnplacedLayer.options.map((option) => strict(option.omit({ lock: true, bindings: true }))))
+
+/**
+ * A patch as the catalog shows it: one of each layer type, any of the props that type takes, with
+ * no default, since a prop left out keeps its value; a text's words are left out, as `text.edit` sets them.
+ */
+const ShownPatch = z.union(
+  Object.entries(LAYER_PROPS).map(([type, props]) => {
+    const fields = Object.entries(props.shape as Record<string, z.ZodType>)
+      .filter(([key]) => !(type === 'text' && TEXT_EDIT_PROPS.includes(key)))
+      .map(([key, field]) => [key, z.optional(field instanceof z.ZodDefault ? field.unwrap() : field)])
+    return strict(z.object(Object.fromEntries(fields))).describe(`A ${type}’s properties.`)
+  }),
+)
 
 /**
  * A layer to add, without where it goes: validated as a layer of its type without its place, so
@@ -71,7 +93,10 @@ export const nodeCreate = defineCommand({
   input: z.strictObject({
     id: NodeId.optional().describe('The new layer’s id; a fresh one is made when left out.'),
     parentId: z.union([FrameId, NodeId]).describe('The frame, or the group or box, the layer goes into, on top.'),
-    layer: LayerInput.describe('The layer: its type, its name, an optional role, and its properties.'),
+    layer: showAs(
+      LayerInput.describe('The layer: its type, its name, an optional role, and its properties.'),
+      ShownLayer,
+    ),
   }),
   check: (ctx, { id, parentId, layer }) => {
     const { design } = ctx
@@ -101,9 +126,12 @@ export const nodeUpdate = defineCommand({
   batchable: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to change.'),
-    patch: z
-      .record(z.string(), z.unknown())
-      .describe('The properties to set, by name, with their new values; the same for every layer.'),
+    patch: showAs(
+      z
+        .record(z.string(), z.unknown())
+        .describe('The properties to set, by name, with their new values; the same for every layer.'),
+      ShownPatch,
+    ),
     drawn: DrawnBoxes.optional().describe(
       'Where the layers and what they hold are drawn, so a layer the change takes out of a row, column or grid stays where it is.',
     ),
@@ -120,7 +148,7 @@ export const nodeUpdate = defineCommand({
         if (!Object.hasOwn(LAYER_PROPS[node.type].shape, path)) return `a ${node.type} has no property "${path}"`
         const locked = lockProblem(id, node, lockFor(path))
         if (locked) return locked
-        if (node.type === 'text' && (path === 'text' || path === 'runs')) return 'change text with text.edit'
+        if (node.type === 'text' && TEXT_EDIT_PROPS.includes(path)) return 'change text with text.edit'
       }
       const patched = { ...node, props: { ...node.props, ...patch } }
       const layer = parseLayer(patched)

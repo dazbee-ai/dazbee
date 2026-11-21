@@ -3,7 +3,7 @@
 // frame or layer it reads.
 import { z } from 'zod'
 
-import { childrenOf, compactTree, DEFAULT_TREE_BYTES } from '@dazbee/doc'
+import { childrenOf, compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS } from '@dazbee/doc'
 import { frameWarnings } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { brandRef, brandTextStyleLook, type Design, framesOf, Id, inOrder, RecordId } from '@dazbee/schema'
@@ -41,7 +41,7 @@ export const DESIGN_TOOLS: Tool[] = [
   defineTool({
     name: 'read_frame',
     title: 'Read a frame',
-    description: `Gives a frame of the open design and the layers it holds, back to front, as a compact tree: each layer’s id, name, type, whether it shows, and a text’s first words. \`fields\` adds the props named, such as x, y, width, height, fills or role, to each layer that has them. Long lists of layers are cut to fit \`maxBytes\` (${DEFAULT_TREE_BYTES} unless given), and \`notShown\` says how many were left out; read_layer reads one layer in full.`,
+    description: `Gives a frame of the open design and the layers it holds, back to front, as a compact tree: each layer’s id, name, type, whether it shows, and a text’s first words. \`fields\` adds the props named, such as x, y, width, height, fills or role, to each layer that has them; fontSize, fontFamily and fontWeight name those parts of a text’s style, and a field no layer has is skipped with a note. Long lists of layers are cut to fit \`maxBytes\` (${DEFAULT_TREE_BYTES} unless given), and \`notShown\` says how many were left out; read_layer reads one layer in full.`,
     readOnly: true,
     input: z.object({
       frame: FrameId,
@@ -56,13 +56,18 @@ export const DESIGN_TOOLS: Tool[] = [
           `The most bytes the tree may take, ${MIN_TREE_BYTES} to ${MAX_TREE_BYTES} (${inMiB(MAX_TREE_BYTES)})`,
         ),
     }),
-    run: ({ frame, fields, maxBytes }, context) =>
-      onDesign(context, ({ tab }) => {
+    run: async ({ frame, fields = [], maxBytes }, context) => {
+      const tree = await onDesign(context, ({ tab }) => {
         const design = tab.design()
         frameOf(design, frame)
         tab.show({ layers: [], frame })
-        return treeWithin(design, frame, fields ?? [], maxBytes ?? DEFAULT_TREE_BYTES)
-      }),
+        return treeWithin(design, frame, fields, maxBytes ?? DEFAULT_TREE_BYTES)
+      })
+      const skipped = [...new Set(fields.filter((field) => !TREE_FIELDS.includes(field)))]
+      if (skipped.length === 0) return tree
+      const note = `read_frame skipped ${skipped.map((field) => `“${field}”`).join(', ')}, which no layer has; the fields are ${TREE_FIELDS.join(', ')}.`
+      return tree instanceof WithNotes ? new WithNotes(tree.value, [note, ...tree.notes]) : new WithNotes(tree, [note])
+    },
   }),
   defineTool({
     name: 'read_layer',
@@ -153,7 +158,7 @@ export function designAnswer({ tab, name, kit }: OpenDesign) {
 
 /**
  * The frame's compact tree in `maxBytes`, cut further where its JSON, written as the answer's text, would pass
- * what an answer may hold. A field no layer has is refused.
+ * what an answer may hold.
  */
 export function treeWithin(design: Design, frameId: string, fields: readonly string[], maxBytes: number) {
   for (let budget = maxBytes; ;) {

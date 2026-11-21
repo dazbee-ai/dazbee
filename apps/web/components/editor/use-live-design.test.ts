@@ -147,6 +147,21 @@ describe('liveDesignStore', () => {
     expect([during, after]).toEqual([0, 1])
   })
 
+  it('tells each follower of new brand kit values, which change what layers bound to them show, and not of a redraw alone', async () => {
+    const every = follow(e, 'every change')
+    const held = follow(e, 'held places')
+    await e.core.setVariables({ 'brand:primary': '#FF0000FF' })
+    e.core.redraw()
+    const told = [every.told(), held.told()]
+    e.core.redraw()
+    every.stop()
+    held.stop()
+    expect([told, [every.told(), held.told()]]).toEqual([
+      [1, 1],
+      [1, 1],
+    ])
+  })
+
   it('lets go of the editor when the last follower stops', () => {
     const held = follow(e, 'held places')
     held.stop()

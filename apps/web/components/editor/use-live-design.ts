@@ -49,10 +49,11 @@ export function useLiveDesign(editor: Editor, follows: Follows = 'every change')
 /**
  * A count of the design's changes, as `follows` says, read now and told of as it grows. Changes are
  * counted at the redraw after them, so a burst of edits is one count per frame, and a redraw that
- * only moved the view, such as a pan, is none. It follows the editor while it has a listener.
+ * only moved the view, such as a pan, is none. New brand kit values count as a change, since they
+ * change what bound layers show. It follows the editor while it has a listener.
  */
 export function liveDesignStore(
-  editor: Pick<Editor, 'design' | 'store' | 'onDraw' | 'onHistory' | 'gesturing'>,
+  editor: Pick<Editor, 'design' | 'store' | 'onDraw' | 'onHistory' | 'gesturing' | 'variables'>,
   follows: Follows,
 ): LiveDesignStore {
   const listeners = new Set<() => void>()
@@ -64,6 +65,8 @@ export function liveDesignStore(
   let held = false
   /** The design's parts as last told of, which a change of places only is told apart from; held only. */
   let told: Parts | null = null
+  /** The brand kit's values as last told of. */
+  let values = editor.variables()
   let stop = () => {}
 
   const read = () => version
@@ -80,6 +83,7 @@ export function liveDesignStore(
     changed = false
     held = false
     told = follows === 'held places' ? partsOf(editor.design()) : null
+    values = editor.variables()
     const stopChanges = editor.store.onChange(() => {
       changed = true
     })
@@ -93,7 +97,10 @@ export function liveDesignStore(
     }
   }
   function drawn() {
-    if (changed) {
+    if (editor.variables() !== values) {
+      values = editor.variables()
+      tell()
+    } else if (changed) {
       changed = false
       held = told !== null && editor.gesturing() && onlyPlaces(told, editor.design())
       if (!held) tell()

@@ -95,6 +95,19 @@ describe('editorStageField', () => {
     })
   })
 
+  it('keeps its font at 16 px or more, which iOS doesn’t zoom the page into, scaled down to a small caret’s height', async () => {
+    const { e, field, frame } = await typingWith('Hello there|')
+    expect(field.style.fontSize).toBe('16px')
+    e.modules.typing.styleRange({ id: 'words', range: { start: 0, end: 11 } }, { fontSize: 12 })
+    frame()
+    const caret = e.modules.typing.shown()?.caret
+    if (!caret) throw new Error('no caret shown')
+    expect(caret.height * 0.8).toBeLessThan(16)
+    const scale = (caret.height * 0.8) / 16
+    expect(field.style).toMatchObject({ fontSize: '16px', transform: `scale(${scale})`, transformOrigin: '0 0' })
+    expect(Number.parseFloat(field.style.height ?? '') * scale).toBeCloseTo(caret.height, 6)
+  })
+
   it('deletes back once in the text for a delete that came with no key, and nothing while composing', async () => {
     const { send, typed } = await typingWith('Hello there|')
     const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
@@ -231,6 +244,12 @@ describe('editorStageField', () => {
     expect(field.getAttribute('aria-hidden')).toBe(null)
     e.keys.press('Escape')
     expect(field.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('leaves suggestions, autocorrect and capitals to the keyboard’s own settings, and turns off spellchecking', async () => {
+    const { field } = await typingWith('Hello there|')
+    expect(['autocomplete', 'autocorrect', 'autocapitalize'].filter((name) => field.hasAttribute(name))).toEqual([])
+    expect([field.getAttribute('spellcheck'), field.getAttribute('data-gramm')]).toEqual(['false', 'false'])
   })
 
   it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {

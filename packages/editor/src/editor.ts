@@ -202,7 +202,7 @@ function live(
   const stageField = editorStageField({
     overlay: options.overlay,
     input: core.input,
-    editing: () => typing.editing() !== null,
+    editing: typing.editing,
     onTextSelection: shared.onTextSelection,
     label: options.typingFieldLabel,
     signal,

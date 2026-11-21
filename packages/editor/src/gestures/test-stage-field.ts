@@ -4,13 +4,16 @@
 import { expect, vi } from 'vitest'
 
 import { replaceRangeOps } from '@dazbee/doc'
+import type { Point } from '@dazbee/schema'
 
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { textParts } from '../text/typing-parts.ts'
 import { type DomInputDeps, editorDomInput } from './dom-input.ts'
+import type { PointerInput } from './inputs.ts'
 import { editorStageField } from './stage-field.ts'
 import { type FieldEvent, type InputMethodSequence, writtenField } from './test-input-methods.ts'
+import { pointerInput } from './test-inputs.ts'
 
 type Listener = (e: never) => void
 
@@ -25,7 +28,7 @@ export const page = {
   window: { listeners: new Map() } as Listening,
 }
 
-/** An element of the stand-in page: the overlay, its parts, the stage, the page's body. */
+/** An element of the stand-in page: the overlay, its parts, the stage, the page's body, a field of the page's. */
 class StandIn {
   tagName = 'DIV'
   isContentEditable = false
@@ -142,6 +145,8 @@ export async function typingWith(startAt: string) {
   page.window = new StandIn()
   const field = new TextArea()
   field.ownerDocument = { body }
+  /** A field of the page's, as a panel's number field. */
+  const pageField = Object.assign(new StandIn(), { tagName: 'INPUT' })
   const stage = new StandIn()
   stage.rect = { left: 0, top: 0, right: 4000, bottom: 4000, width: 4000, height: 4000 }
   const parts = () =>
@@ -178,7 +183,7 @@ export async function typingWith(startAt: string) {
   const stageField = editorStageField({
     overlay: overlay as unknown as HTMLElement,
     input: e.core.input,
-    editing: () => e.modules.typing.editing() !== null,
+    editing: e.modules.typing.editing,
     onTextSelection: e.core.onTextSelection,
     label: 'Text',
     signal,
@@ -250,6 +255,41 @@ export async function typingWith(startAt: string) {
     e.core.redraw()
     stageField.place()
   }
+  /**
+   * Sends the core a touch's pointer input at a stage point, the frame drawn before it as the page
+   * draws between events, so what the input does is all that happens after it.
+   */
+  function touchInput(type: PointerInput['type'], at: Point, detail = 0) {
+    e.core.redraw()
+    e.core.input.pointer(pointerInput({ type, at, detail, pointerType: 'touch' }))
+  }
+  /**
+   * Touches the stage as a phone's browser sends it: `count` taps at a stage point, each press heard
+   * by the window first, then its release and its click, which the window hears after the canvas,
+   * and after the second the double click; a tap given `to` drags there before its release.
+   */
+  function touch(at: Point, { count = 1, to = at }: { count?: number; to?: Point } = {}) {
+    for (let n = 1; n <= count; n++) {
+      fire(page.window, 'pointerdown', { pointerType: 'touch', target: stage })
+      touchInput('pointerdown', at)
+      if (to !== at) touchInput('pointermove', to)
+      touchInput('pointerup', to)
+      touchInput('click', to, n)
+      fire(page.window, 'click', { target: stage })
+      if (n === 2) touchInput('dblclick', to, 2)
+    }
+  }
+  /** Presses a key with nothing held, on the page with nothing focused on it, as the window hears it. */
+  function pressKey(code: string) {
+    const key = { key: code, code, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false, target: null }
+    fire(page.window, 'keydown', key)
+    fire(page.window, 'keyup', key)
+  }
+  /** Where the focus is: in the stage field, on the page's body, in the page's field, or elsewhere. */
+  function focused() {
+    const at = page.document.activeElement
+    return at === field ? 'stage field' : at === body ? 'body' : at === pageField ? 'page field' : 'elsewhere'
+  }
   /** Replays a written sequence, a frame drawn after each key comes up and at its end. */
   function replay(sequence: InputMethodSequence) {
     for (const event of sequence.events) {
@@ -258,7 +298,23 @@ export async function typingWith(startAt: string) {
     }
     frame()
   }
-  return { e, field, overlay, stageField, send, around, frame, replay, words, typed, fieldNow }
+  return {
+    e,
+    field,
+    pageField,
+    overlay,
+    stageField,
+    send,
+    around,
+    frame,
+    replay,
+    touch,
+    pressKey,
+    focused,
+    words,
+    typed,
+    fieldNow,
+  }
 }
 
 /** A stage field on a page of stand-ins; what it sends the editor, and a way to fire its events. */
@@ -285,7 +341,7 @@ export function bareField() {
       fieldText: () => null,
       fieldChanged: (state, composing) => sent.push(`changed ${state.value} ${composing}`) > 0,
     },
-    editing: () => true,
+    editing: () => ({ id: 'words', frameId: 'sq' }),
     onTextSelection: () => () => {},
     label: 'Text',
     signal: new AbortController().signal,

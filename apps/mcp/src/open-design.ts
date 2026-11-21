@@ -2,7 +2,8 @@
 // private address with sync tokens asked with the newest access token the session has seen, its fonts and images
 // read through the API. Its link may end while the agent pauses past its access token's hour; the next call opens
 // the design again in a new tab, whose undo starts empty. A link that ends for good closes the tab, and the next
-// call says why. The process holds a few agent tabs at most, and an access fewer.
+// call says why. The process holds a few agent tabs at most, and an access fewer: a session of the access that
+// opens one past those takes the slot of the access's oldest, whose next call says it was replaced.
 import { type AgentTab, type AgentTabOptions, openAgentTab, TabStopped } from '@dazbee/editor/agent-tab'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type AgentMe, type BrandKit, brandVariables, type DesignSummary } from '@dazbee/schema'
@@ -21,8 +22,19 @@ export interface SyncSettings {
 
 /** The process's agent tabs, counted, so that agents can't open more than the server holds. */
 export interface AgentTabSlots {
-  /** Takes a slot for one of the access's tabs, giving what lets it go; or why there is none, as the agent is told. */
-  take(accessId: string): (() => void) | string
+  /**
+   * Takes a slot for one of the access's tabs, taking over the access's oldest when it holds all it may; or gives
+   * why there is none, as the agent is told. `onTakenOver` runs once another tab takes this slot.
+   */
+  take(accessId: string, onTakenOver: () => void): AgentTabSlot | string
+}
+
+/** One tab's slot. */
+export interface AgentTabSlot {
+  /** Lets the slot go; nothing once let go or taken over. */
+  release(): void
+  /** Whether a newer tab of the access took the slot over. */
+  takenOver(): boolean
 }
 
 /** What a session's design is opened with. */
@@ -69,7 +81,7 @@ export interface OpenDesign {
 
 /**
  * The session's design. Each call waits for the one before it, and the tab closes only between calls, so a call's
- * work never runs on a closed tab. A few calls wait at most; once closed, it takes none.
+ * work never runs on a closed tab. A few calls wait at most; once the session ended, it takes none.
  */
 export interface SessionDesign {
   /** Opens the brand's design in a new agent tab, closing the one open before, and runs `work` on it. */
@@ -79,16 +91,27 @@ export interface SessionDesign {
    * expired. A tool refusal says why it was closed for good, or that none is open.
    */
   use<T>(call: DesignCall, work: (design: OpenDesign) => T | Promise<T>): Promise<T>
-  /** Closes the open design's tab, once the server has stored what it sent; no call is taken after. */
-  close(): Promise<void>
+  /**
+   * Closes the open design's tab once the calls before are over, letting its slot go, and answers whether a design
+   * was open; the session may open another.
+   */
+  close(): Promise<boolean>
+  /** Ends with the session: closes the open design's tab, once the server has stored what it sent; no call is taken after. */
+  end(): Promise<void>
 }
 
 /** The session's design, at each point. */
 type State =
   | { kind: 'none' }
-  | { kind: 'open'; brandId: string; designId: string; name: string; kit: BrandKit; tab: AgentTab; release: () => void }
+  | { kind: 'open'; brandId: string; designId: string; name: string; kit: BrandKit; tab: AgentTab; slot: AgentTabSlot }
   | { kind: 'paused'; brandId: string; designId: string }
   | { kind: 'ended'; why: string }
+
+/** A slot an access holds: what tells its tab once a newer tab takes it over, and whether it is still held. */
+interface HeldSlot {
+  onTakenOver: () => void
+  state: 'held' | 'released' | 'takenOver'
+}
 
 /** What the agent is told when the design is opened again. */
 export const REOPENED =
@@ -108,33 +131,41 @@ const FULL = 'Dazbee has as many designs open for agents as it can hold; try aga
 /** The refusal of a call on the session's design when none is open, saying why: never opened, or closed for good. */
 export class NoDesignOpen extends ToolRefusal {}
 
-/** At most `max` tabs in the process, and `perAccess` of one access. */
+/**
+ * At most `max` tabs in the process, and `perAccess` of one access: a tab past those of its access takes over the
+ * slot its access took first.
+ */
 export function agentTabSlots(max: number, perAccess: number): AgentTabSlots {
-  /** Why there is no slot for a tab, when the access holds all it may. */
-  const accessFull =
-    perAccess === 1
-      ? 'This agent already has a design open in another session; end that session, or try again once it has ended'
-      : `This agent already has ${perAccess} designs open in other sessions; end one of those sessions, or try again once one has ended`
-  /** The tabs open, by access. */
-  const open = new Map<string, number>()
-  /** The tabs open, of all accesses. */
+  /** The slots held, by access, oldest first. */
+  const held = new Map<string, HeldSlot[]>()
+  /** The slots held, of all accesses. */
   let total = 0
 
-  function take(accessId: string) {
-    const ofAccess = open.get(accessId) ?? 0
-    if (ofAccess >= perAccess) return accessFull
-    if (total >= max) return FULL
-    open.set(accessId, ofAccess + 1)
-    total++
-    let released = false
-    return () => {
-      if (released) return
-      released = true
-      total--
-      const left = (open.get(accessId) ?? 1) - 1
-      if (left === 0) open.delete(accessId)
-      else open.set(accessId, left)
+  function take(accessId: string, onTakenOver: () => void): AgentTabSlot | string {
+    const ofAccess = held.get(accessId) ?? []
+    const oldest = ofAccess.length >= perAccess ? ofAccess[0] : undefined
+    if (!oldest && total >= max) return FULL
+    if (oldest) {
+      letGo(accessId, oldest, 'takenOver')
+      oldest.onTakenOver()
     }
+    const slot: HeldSlot = { onTakenOver, state: 'held' }
+    held.set(accessId, [...(held.get(accessId) ?? []), slot])
+    total++
+    return {
+      release: () => letGo(accessId, slot, 'released'),
+      takenOver: () => slot.state === 'takenOver',
+    }
+  }
+
+  /** Takes a held slot out of the access's, as `why` says; nothing once it is out. */
+  function letGo(accessId: string, slot: HeldSlot, why: 'released' | 'takenOver') {
+    if (slot.state !== 'held') return
+    slot.state = why
+    total--
+    const left = (held.get(accessId) ?? []).filter((other) => other !== slot)
+    if (left.length === 0) held.delete(accessId)
+    else held.set(accessId, left)
   }
 
   return { take }
@@ -148,12 +179,12 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
   let running: Promise<unknown> = Promise.resolve()
   /** How many calls are running or waiting. */
   let waiting = 0
-  /** Whether the session closed its design for good. */
-  let closed = false
+  /** Whether the session ended, closing its design for good. */
+  let ended = false
 
-  /** Runs `work` once the calls before it are over; refused when too many wait, or once closed. */
+  /** Runs `work` once the calls before it are over; refused when too many wait, or once the session ended. */
   function inTurn<T>(work: () => Promise<T>): Promise<T> {
-    if (closed) return Promise.reject(new ToolRefusal('This session has ended; start a new one'))
+    if (ended) return Promise.reject(new ToolRefusal('This session has ended; start a new one'))
     if (waiting >= MAX_DESIGN_CALLS_WAITING)
       return Promise.reject(
         new ToolRefusal('Other calls on the open design are still being answered; wait for their answers first'),
@@ -204,21 +235,21 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
   /** Opens the design in a new tab, in a slot of its own, and makes it the open one. */
   async function start(summary: DesignSummary, api: AgentApi, notes: string[]): Promise<OpenDesign> {
     const { brandId, id: designId, name } = summary
-    const release = settings.slots.take(caller.agent.id)
-    if (typeof release === 'string') throw new ToolRefusal(release)
+    const slot = settings.slots.take(caller.agent.id, () => afterCalls(replaced))
+    if (typeof slot === 'string') throw new ToolRefusal(slot)
     try {
       const [first, kit] = await Promise.all([
         api.syncToken(brandId, designId, caller.agentName()),
         api.brandKit(brandId),
       ])
       const tab = await joinTab(brandId, designId, first, kit)
-      state = { kind: 'open', brandId, designId, name, kit, tab, release }
+      state = { kind: 'open', brandId, designId, name, kit, tab, slot }
       const why = tab.stopped()
-      if (why) await end(tab, STOPPED[why])
-      else tab.onStopped((stopped) => afterCalls(() => end(tab, STOPPED[stopped])))
+      if (why) await endTab(tab, STOPPED[why])
+      else tab.onStopped((stopped) => afterCalls(() => endTab(tab, STOPPED[stopped])))
       return openDesign(tab, brandId, name, kit, notes)
     } catch (error) {
-      release()
+      slot.release()
       if (error instanceof TabStopped) throw new ToolRefusal(STOPPED[error.state])
       throw error
     }
@@ -251,7 +282,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
         const tab = opened
         if (tab && error instanceof TokenRefused && settings.now() >= expiresAt) afterCalls(() => pause(tab))
         else if (tab && error instanceof ApiRefusal && (error.status === 403 || error.status === 404))
-          afterCalls(() => end(tab, STOPPED.NoAccess))
+          afterCalls(() => endTab(tab, STOPPED.NoAccess))
         throw error
       }
     }
@@ -299,16 +330,21 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
    */
   async function pause(tab: AgentTab) {
     if (state.kind !== 'open' || state.tab !== tab || tab.unsent() > 0) return
-    const { brandId, designId, release } = state
+    const { brandId, designId, slot } = state
     state = { kind: 'paused', brandId, designId }
-    release()
+    slot.release()
     await tab.close()
   }
 
+  /** A newer tab of the access took the open tab's slot over: the next call says the design was opened elsewhere. */
+  async function replaced() {
+    if (state.kind === 'open' && state.slot.takenOver()) await endTab(state.tab, STOPPED.Replaced)
+  }
+
   /** The tab's link ended for good: the next call says `why`. */
-  async function end(tab: AgentTab, why: string) {
+  async function endTab(tab: AgentTab, why: string) {
     if (state.kind !== 'open' || state.tab !== tab) return
-    state.release()
+    state.slot.release()
     state = { kind: 'ended', why }
     await tab.close()
   }
@@ -318,15 +354,16 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     const was = state
     state = { kind: 'none' }
     if (was.kind !== 'open') return
-    was.release()
+    was.slot.release()
     await was.tab.close()
   }
 
   /** The open design, opened again when it was paused; closed when the call's access no longer sees its brand. */
   async function current({ api, agent }: DesignCall): Promise<OpenDesign> {
+    await replaced()
     const was = state
     if (was.kind === 'open' && agent.brandIds !== null && !agent.brandIds.includes(was.brandId))
-      await end(was.tab, STOPPED.NoAccess)
+      await endTab(was.tab, STOPPED.NoAccess)
     const now = state
     if (now.kind === 'open') return openDesign(now.tab, now.brandId, now.name, now.kit, [])
     if (now.kind === 'ended') {
@@ -361,13 +398,21 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
     return inTurn(async () => work(await current(call)))
   }
 
-  async function close() {
-    if (closed) return
-    closed = true
+  function close() {
+    return inTurn(async () => {
+      const wasOpen = state.kind === 'open' || state.kind === 'paused'
+      await closeTab()
+      return wasOpen
+    })
+  }
+
+  async function end() {
+    if (ended) return
+    ended = true
     const last = running.then(closeTab, closeTab)
     running = last.catch(() => undefined)
     await last
   }
 
-  return { open, use, close }
+  return { open, use, close, end }
 }

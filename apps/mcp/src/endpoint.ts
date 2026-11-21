@@ -292,7 +292,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   async function keep(session: McpSession): Promise<void> {
     const id = session.transport.sessionId
     if (id === undefined) {
-      await session.design.close()
+      await session.design.end()
       return session.server.close()
     }
     session.id = id
@@ -319,7 +319,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     if (!session) return
     sessions.delete(id)
     for (const answer of session.waiting) answer(sessionNotFound())
-    await session.design.close()
+    await session.design.end()
     await session.server.close()
   }
 

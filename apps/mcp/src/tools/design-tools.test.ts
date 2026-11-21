@@ -93,7 +93,23 @@ describe('open_design', () => {
     expect(server.api.syncTokenOf('sync-1')).toBeUndefined()
   })
 
-  it('answers busy past MCP_AGENT_TABS in the server, and past MCP_AGENT_TABS_PER_ACCESS of one access', async () => {
+  it('opens a design while an earlier session that was never ended holds the access’s tab, closing that tab', async () => {
+    server = testServer()
+    const access = server.api.addAccess()
+    const first = await server.connect(access.token())
+    expect((await first.call('open_design', LAUNCH)).isError).toBeFalsy()
+    // The first client goes away without ending its session, as a finished chat does.
+    const second = await server.connect(access.token())
+    const opened = await second.call('open_design', LAUNCH)
+    expect(opened.isError ? textOf(opened) : 'opened').toBe('opened')
+    expect(await refusal(first, 'read_design')).toBe(
+      'The design was opened again in another session of this agent, so it is closed here.',
+    )
+    expect(await refusal(first, 'read_design')).toBe('No design is open; call open_design first.')
+    expect((await second.call('read_design')).isError).toBeFalsy()
+  })
+
+  it('answers busy past MCP_AGENT_TABS in the server, and takes over the oldest past MCP_AGENT_TABS_PER_ACCESS', async () => {
     const limits = { agentTabs: 6, agentTabsPerAccess: 2 }
     server = testServer({ limits })
     const accesses = Array.from({ length: limits.agentTabs / limits.agentTabsPerAccess + 1 }, () =>
@@ -110,11 +126,13 @@ describe('open_design', () => {
     const firsts = [await server.connect(first.token()), await server.connect(first.token())]
     for (const agent of firsts) expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
     const third = await server.connect(first.token())
-    expect(await refusal(third, 'open_design', LAUNCH)).toMatch(/already has 2 designs open/)
+    expect((await third.call('open_design', LAUNCH)).isError).toBeFalsy()
+    expect(await refusal(firsts[0] as TestClient, 'read_design')).toMatch(/opened again in another session/)
+    expect((await firsts[1]?.call('read_design'))?.isError).toBeFalsy()
     const last = await server.connect(rest.at(-1)?.token() ?? '')
     expect(await refusal(last, 'open_design', LAUNCH)).toMatch(/as many designs open for agents as it can hold/)
     // A session ending lets its tab go.
-    await (firsts[0]?.client.transport as StreamableHTTPClientTransport).terminateSession()
+    await (firsts[1]?.client.transport as StreamableHTTPClientTransport).terminateSession()
     expect((await last.call('open_design', LAUNCH)).isError).toBeFalsy()
   })
 
@@ -128,9 +146,8 @@ describe('open_design', () => {
       agents.push(agent)
     }
     const second = await server.connect(accesses[0]?.token() ?? '')
-    expect(await refusal(second, 'open_design', LAUNCH)).toBe(
-      'This agent already has a design open in another session; end that session, or try again once it has ended.',
-    )
+    expect((await second.call('open_design', LAUNCH)).isError).toBeFalsy()
+    expect(await refusal(agents[0] as TestClient, 'read_design')).toMatch(/opened again in another session/)
     const last = await server.connect(accesses[30]?.token() ?? '')
     expect(await refusal(last, 'open_design', LAUNCH)).toMatch(/as many designs open for agents as it can hold/)
   })
@@ -169,6 +186,22 @@ describe('open_design', () => {
     expect((await agent.call('read_design')).content).toHaveLength(1)
   })
 
+  it('answers the six calls Claude sends at once: opening the design, and reading and checking two frames', async () => {
+    const agent = await agentOf()
+    const release = server.api.hold()
+    const calls = [
+      agent.call('open_design', LAUNCH),
+      agent.call('read_frame', { frame: 'sq' }),
+      agent.call('read_frame', { frame: 'banner' }),
+      agent.call('check_frame', { frame: 'sq' }),
+      agent.call('check_frame', { frame: 'banner' }),
+      agent.call('read_design'),
+    ]
+    release()
+    const refused = (await Promise.all(calls)).filter((result) => result.isError).map(textOf)
+    expect(refused).toEqual([])
+  })
+
   it('takes a few calls on the design at once, and refuses those past them', async () => {
     const agent = await agentOf()
     const release = server.api.hold()
@@ -178,6 +211,24 @@ describe('open_design', () => {
     )
     release()
     for (const result of await Promise.all(held)) expect(result.isError).toBeFalsy()
+  })
+})
+
+describe('close_design', () => {
+  it('closes the open design and lets its tab’s slot go at once', async () => {
+    server = testServer({ limits: { agentTabs: 1 } })
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', LAUNCH)
+    expect(await agent.json('close_design')).toEqual({ closed: true })
+    expect(await refusal(agent, 'read_design')).toBe('No design is open; call open_design first.')
+    const other = await server.connect(server.api.addAccess().token())
+    expect((await other.call('open_design', LAUNCH)).isError).toBeFalsy()
+  })
+
+  it('says none was closed while no design is open, and leaves the session open for another', async () => {
+    const agent = await agentOf()
+    expect(await agent.json('close_design')).toEqual({ closed: false })
+    expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
   })
 })
 

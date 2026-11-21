@@ -1,7 +1,7 @@
 // The garbage walk: no input takes the MCP server down. Each seed opens a server on a design holding every kind of
 // layer and sends, from the seed alone, random arguments to every tool, a random input to a command through
 // run_command and random steps through batch, a resource to read, a prompt with random arguments, a line that is not
-// JSON and a JSON-RPC message with a random method and params; after each, ping answers and read_design still reads the open design. GARBAGE_SEEDS runs the seeds it names
+// JSON and a JSON-RPC message with a random method and params; after each, ping answers and read_design still reads the open design, opened again after close_design. GARBAGE_SEEDS runs the seeds it names
 // (`GARBAGE_SEEDS=17`, `3,17` or `1-1000`), so a seed that fails runs alone.
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Prompt } from '@modelcontextprotocol/sdk/types.js'
@@ -115,7 +115,12 @@ async function walkRound(seed: number): Promise<string[]> {
   const { random } = round
   try {
     for (const { name, input } of TOOL_ARGS)
-      await sendThen(round, `${name} with random arguments`, toolCall(name, fromSchema(round, input, 0)))
+      await sendThen(
+        round,
+        `${name} with random arguments`,
+        toolCall(name, fromSchema(round, input, 0)),
+        name === 'close_design',
+      )
     const command = COMMANDS[seed % COMMANDS.length]?.name ?? 'node.update'
     await sendThen(
       round,
@@ -168,10 +173,10 @@ async function openRound(seed: number): Promise<Round> {
 /**
  * Sends `body` as one request on the round's session, then checks the server still answers: no request may answer
  * 500; a call of one of the server's tools with an object of arguments answers a result with content, its failure a
- * tool error, and any other tool call a result or a JSON-RPC error; then ping answers and read_design reads the design.
- * Each problem goes into the round's, named by `what`.
+ * tool error, and any other tool call a result or a JSON-RPC error; then ping answers and read_design reads the design,
+ * opened again first when `reopen` says the call closed it. Each problem goes into the round's, named by `what`.
  */
-async function sendThen(round: Round, what: string, body: string): Promise<void> {
+async function sendThen(round: Round, what: string, body: string, reopen = false): Promise<void> {
   const { agent, problems } = round
   const transport = agent.client.transport as StreamableHTTPClientTransport
   const response = await round.server.fetch(
@@ -197,6 +202,7 @@ async function sendThen(round: Round, what: string, body: string): Promise<void>
   }
   try {
     expect(await agent.client.ping()).toEqual({})
+    if (reopen) await agent.call('open_design', LAUNCH)
     const read = await agent.call('read_design')
     if (read.isError) problems.push(`${what}: read_design then answered “${textOf(read)}”`)
     else expect(JSON.parse(textOf(read))).toMatchObject({ name: 'Launch' })

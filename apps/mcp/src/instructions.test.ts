@@ -87,6 +87,15 @@ describe('INSTRUCTIONS', () => {
     expect(redAt(drawn, 5, 55)).toBe(false)
   })
 
+  it('says calls on the open design are answered one at a time, in order, and close_design ends it', () => {
+    expect(INSTRUCTIONS).toContain('Calls on the open design are answered one at a time, in the order sent')
+    expect(INSTRUCTIONS).toContain('close_design closes it once you are done')
+  })
+
+  it('says commands run only through run_command and batch, never as tools of their own', () => {
+    expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
+  })
+
   it('tells of the Before agent version, kept before each run of the agent’s changes', () => {
     expect(INSTRUCTIONS).toContain(
       'Before your first change to a design, and before your first change after a person’s edit',

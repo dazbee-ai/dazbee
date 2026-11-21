@@ -33,6 +33,7 @@ export { blankDesign, coverFrame, FRAME_GAP, frameIdOf, framesOf, NEW_FRAME_FILL
 export * from './effects.ts'
 export * from './export.ts'
 export * from './figma-import.ts'
+export * from './font-uses.ts'
 export * from './image-header.ts'
 export { deepFreeze, isRecord } from './json.ts'
 export * from './layers.ts'

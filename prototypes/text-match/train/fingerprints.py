@@ -13,7 +13,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from train import Fingerprint, embed_strips, load
+from train import Fingerprint, PretrainedFingerprint, embed_strips, load
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
     a = p.parse_args()
     args = json.load(open(os.path.join(a.model, "metrics.json")))["args"]
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = Fingerprint(args["width"], args["dim"])
+    model = PretrainedFingerprint(args["dim"]) if args.get("arch") == "resnet18" else Fingerprint(args["width"], args["dim"])
     model.load_state_dict(torch.load(os.path.join(a.model, "model.pt"), map_location="cpu"))
     model.to(dev).eval()
     meta, strips, widths, labels = load(a.proto)

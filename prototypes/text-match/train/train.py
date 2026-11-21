@@ -30,7 +30,8 @@ H, W_STRIP, WIN = 32, 320, 128
 
 def load(path, per_face=None):
     meta = json.load(open(os.path.join(path, "meta.json")))
-    strips = np.fromfile(os.path.join(path, "strips.u8"), dtype=np.uint8).reshape(-1, H, W_STRIP)
+    # Mapped, not read: several sets of 4 GB train together without copies.
+    strips = np.memmap(os.path.join(path, "strips.u8"), dtype=np.uint8, mode="r").reshape(-1, H, W_STRIP)
     widths = np.fromfile(os.path.join(path, "widths.u16"), dtype=np.uint16).astype(np.int64)
     labels = np.fromfile(os.path.join(path, "labels.u16"), dtype=np.uint16).astype(np.int64)
     if per_face:
@@ -82,6 +83,26 @@ class Fingerprint(nn.Module):
         # Mean over the width keeps each height row: where the strokes sit up and down matters.
         y = y.mean(dim=3).flatten(1)
         return F.normalize(self.head(y), dim=1)
+
+
+class PretrainedFingerprint(nn.Module):
+    """torchvision's ResNet-18 with ImageNet weights (BSD-3), read at the strip's own scale: the ink in
+    all three channels, the first max-pool left out so a 32x128 window ends 2x8; mean over the width,
+    as Fingerprint does, then a unit 128-number fingerprint."""
+
+    def __init__(self, dim=128):
+        super().__init__()
+        import torchvision
+
+        r = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
+        self.stem = nn.Sequential(r.conv1, r.bn1, r.relu)
+        self.body = nn.Sequential(r.layer1, r.layer2, r.layer3, r.layer4)
+        self.head = nn.Linear(512 * 2, dim)
+
+    def forward(self, x):
+        x = (x - 0.45) / 0.226
+        y = self.body(self.stem(x.expand(-1, 3, -1, -1)))
+        return F.normalize(self.head(y.mean(dim=3).flatten(1)), dim=1)
 
 
 class CosFace(nn.Module):
@@ -143,6 +164,31 @@ def augment(x, gen):
     x = x.clamp(0, 1) ** gamma * peak
     x = x + torch.randn(x.shape, device=dev, generator=gen) * (torch.rand(n, 1, 1, 1, device=dev, generator=gen) * 0.08)
     return x.clamp(0, 1)
+
+
+def augment_strong(x, gen):
+    """augment() plus what generated pictures add: wobbly edges (a smooth random displacement of up to
+    1.5 px), resolution lost down to 8 px high, and strokes a pixel thinner or thicker now and then."""
+    n = x.shape[0]
+    dev = x.device
+    coarse = (torch.rand(n, 2, 4, 8, device=dev, generator=gen) - 0.5) * 2
+    field = F.interpolate(coarse, size=(H, WIN), mode="bicubic", align_corners=False).permute(0, 2, 3, 1)
+    field = field * torch.tensor([1.5 * 2 / WIN, 1.5 * 2 / H], device=dev)
+    base = F.affine_grid(torch.eye(2, 3, device=dev).expand(n, 2, 3), x.shape, align_corners=False)
+    x = F.grid_sample(x, base + field, align_corners=False)
+    low = torch.rand(n, device=dev, generator=gen) < 0.3
+    if low.any():
+        h = int(torch.randint(8, 16, (1,), device=dev, generator=gen).item())
+        small = F.interpolate(x[low], size=(h, max(8, round(WIN * h / H))), mode="area")
+        x[low] = F.interpolate(small, size=(H, WIN), mode="bilinear", align_corners=False)
+    morph = torch.rand(n, device=dev, generator=gen)
+    thick = morph < 0.1
+    thin = morph > 0.9
+    if thick.any():
+        x[thick] = F.max_pool2d(x[thick], 3, 1, 1) * 0.5 + x[thick] * 0.5
+    if thin.any():
+        x[thin] = -F.max_pool2d(-x[thin], 3, 1, 1) * 0.5 + x[thin] * 0.5
+    return augment(x, gen)
 
 
 def crops(strips, widths, gen, dev):
@@ -229,7 +275,10 @@ def main():
     p.add_argument("--batch", type=int, default=256)
     p.add_argument("--lr", type=float, default=2e-3)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--gpu-data-gb", type=float, default=2.0)
+    p.add_argument("--gpu-data-gb", type=float, default=2.0, help="unused: samples stay mapped")
+    p.add_argument("--gpu-memory-gb", type=float, default=5.5, help="the most card memory this run may take (shared cards)")
+    p.add_argument("--arch", default="small", help="small (Fingerprint) or resnet18 (ImageNet weights)")
+    p.add_argument("--aug", default="base", help="base or strong")
     p.add_argument("--amp", type=int, default=1, help="half precision on CUDA (1) or full (0)")
     p.add_argument("--out", required=True)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -237,11 +286,15 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     torch.manual_seed(a.seed)
     dev = torch.device(a.device)
-    # Several sample sets of the same faces (each drawn with its own seed) train as one.
+    if dev.type == "cuda":
+        total = torch.cuda.get_device_properties(0).total_memory
+        torch.cuda.set_per_process_memory_fraction(min(1.0, a.gpu_memory_gb * 2**30 / total), 0)
+    # Several sample sets of the same faces (each drawn with its own seed) train as one, mapped.
     parts = [load(d) for d in a.data.split(",")]
     meta = parts[0][0]
     assert all(p[0]["faces"] == meta["faces"] for p in parts), "the sample sets must list the same faces"
-    strips = np.concatenate([p[1] for p in parts])
+    owner = np.concatenate([np.full(len(p[3]), k) for k, p in enumerate(parts)])
+    row = np.concatenate([np.arange(len(p[3])) for p in parts])
     widths = np.concatenate([p[2] for p in parts])
     labels = np.concatenate([p[3] for p in parts])
     if a.per_face:
@@ -250,11 +303,23 @@ def main():
         for i, l in enumerate(labels):
             seen[l] = seen.get(l, 0) + 1
             keep[i] = seen[l] <= a.per_face
-        strips, widths, labels = strips[keep], widths[keep], labels[keep]
+        owner, row, widths, labels = owner[keep], row[keep], widths[keep], labels[keep]
+
+    def gather(idx):
+        out = np.empty((len(idx), H, W_STRIP), dtype=np.uint8)
+        for k in range(len(parts)):
+            sel = np.where(owner[idx] == k)[0]
+            if len(sel):
+                rows = row[idx[sel]]
+                order = np.argsort(rows)
+                out[sel[order]] = parts[k][1][rows[order]]
+        return out
+
     faces = meta["faces"]
     val = load(a.val)
     proto = load(a.proto)
-    model = Fingerprint(a.width, a.dim).to(dev)
+    model = (PretrainedFingerprint(a.dim) if a.arch == "resnet18" else Fingerprint(a.width, a.dim)).to(dev)
+    aug = augment_strong if a.aug == "strong" else augment
     head = CosFace(a.dim, len(faces)).to(dev)
     params = sum(p.numel() for p in model.parameters())
     opt = torch.optim.AdamW(list(model.parameters()) + list(head.parameters()), lr=a.lr, weight_decay=5e-4)
@@ -264,9 +329,6 @@ def main():
     torch.backends.cudnn.benchmark = True
     gen = torch.Generator(device=dev)
     gen.manual_seed(a.seed)
-    # uint8, made 0..1 per batch; kept on the card when it fits under --gpu-data-gb, else in main memory.
-    on_card = strips.nbytes / 2**30 <= a.gpu_data_gb
-    strips_t = torch.from_numpy(strips).to(dev) if on_card else torch.from_numpy(strips)
     labels_t = torch.from_numpy(labels).to(dev)
     widths_t = torch.from_numpy(widths).to(dev)
     started = time.time()
@@ -277,8 +339,8 @@ def main():
         total = 0.0
         for s in range(0, len(perm), a.batch):
             idx = perm[s : s + a.batch]
-            batch = strips_t[idx] if on_card else strips_t[idx.cpu()].to(dev, non_blocking=True)
-            x = augment(crops(batch, widths_t[idx], gen, dev), gen)
+            batch = torch.from_numpy(gather(idx.cpu().numpy())).to(dev, non_blocking=True)
+            x = aug(crops(batch, widths_t[idx], gen, dev), gen)
             with torch.autocast(dev.type, dtype=torch.float16, enabled=a.amp and dev.type == "cuda"):
                 loss = head(model(x).float(), labels_t[idx])
             opt.zero_grad()

@@ -275,7 +275,7 @@ The families a brand can set text in: the fonts we ship (the fallbacks among the
 _Avoid_: Font library (that is the asset library's word), web fonts
 
 **Font face**:
-One font file in the catalog: a family in one weight and style, or a **variable font**'s range of weights in one style.
+One font file in the catalog: a family in one weight and style, or a **variable font**'s range of weights in one style. A design loads only the faces its texts are drawn in, never every face of a family.
 _Avoid_: Font (when one file is meant), variant
 
 **Variable font**:

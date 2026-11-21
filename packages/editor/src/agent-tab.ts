@@ -11,7 +11,6 @@ import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/r
 import { type Design, fontFamilies, type Layer, type Member, type Presence, type Variables } from '@dazbee/schema'
 
 import { agentPresence, type AgentWork, noteOf } from './agent-presence.ts'
-
 import { buildCore } from './core.ts'
 import type { LinkNotice, NoticeDetail } from './core-interface.ts'
 import { SIZES_TEXT } from './layer-edits.ts'

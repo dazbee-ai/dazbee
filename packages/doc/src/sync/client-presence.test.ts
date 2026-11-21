@@ -80,8 +80,13 @@ describe('openClient: presence', () => {
       joined.out[0]?.message as Extract<ServerMessage, { type: 'welcome' }>,
     )
     delete old.presenceNote
-    const { note: _, ...noNote } = here
-    expect(openClient(old as ServerMessage).presenceMessage(here)).toEqual({ type: 'presence', ...noNote })
+    expect(openClient(old as ServerMessage).presenceMessage(here)).toEqual({
+      type: 'presence',
+      page: 'p1',
+      pointer: [4, 5],
+      selection: ['box'],
+      frame: null,
+    })
   })
 
   it('sends only the fields the server takes, and gives a new map each time what it keeps changes', () => {

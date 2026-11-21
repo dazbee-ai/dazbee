@@ -490,11 +490,11 @@ A tab's open step as the other tabs see it while it is open: its changes so far,
 _Avoid_: Draft, ghost, live update
 
 **Presence**:
-Where a tab's person is in a design as the other people there see it: their pointer in page coordinates, while it is on the stage and the tab is shown, their selected layers and picked frame, and their page, drawn in a colour the sync server gives each member. Never stored, ordered or undone, and the latest wins; a person's own other tabs don't show it.
+Where a tab's person is in a design as the other people there see it: their pointer in page coordinates, while it is on the stage and the tab is shown, their selected layers and picked frame, and their page, drawn in a colour the sync server gives each person. An agent is a person of its own, apart from the member it works for, so that member sees it too: its avatar and name in its cursor's tag, its pointer and outlines at what its last call changed or read, and a short note of what it is doing, shown for a few seconds. Never stored, ordered or undone, and the latest wins; a person's own other tabs don't show it.
 _Avoid_: Awareness, cursors (a cursor is only the pointer part), live users
 
 **Agent tab**:
-The tab an agent works in, which Dazbee's MCP server holds for it: the editor without a screen, open on one design and joined to the sync server as a member's tab is, with its own undo. Open tabs get its steps once they are stored, and list it by the agent's name.
+The tab an agent works in, which Dazbee's MCP server holds for it: the editor without a screen, open on one design and joined to the sync server as a member's tab is, with its own undo. Open tabs get its steps once they are stored, list it by the agent's name and show it in presence where it works.
 _Avoid_: Bot session, headless editor, agent connection
 
 **Tab copy**:

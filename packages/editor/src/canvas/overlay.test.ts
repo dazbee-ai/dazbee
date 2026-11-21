@@ -64,7 +64,15 @@ describe('editorOverlay', () => {
     })
 
     it("draws the other people's selections after the drop target, before the tab's own, and their cursors over all but the loupe", () => {
-      const bob = { tabId: 7, name: 'Bob', colour: '#9747FF', cursor: { x: 40, y: 50 }, frame: SQUARE }
+      const bob = {
+        tabId: 7,
+        name: 'Bob',
+        colour: '#9747FF',
+        cursor: { x: 40, y: 50 },
+        frame: SQUARE,
+        agent: false,
+        note: null,
+      }
       const picking = { at: { x: 2, y: 3 }, pointerType: 'mouse', state: 'drawing' as const, hex: null, window: null }
       const { overlay, drawn, part } = harness({ people: [{ ...bob, layers: [{ frame: SQUARE, id: 'b' }] }], picking })
       overlay.draw()

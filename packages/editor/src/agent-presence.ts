@@ -1,7 +1,7 @@
 // Where an agent shows as it works, as FigCraft's agent presence (`crates/engine/src/sharing/agent.rs`):
 // what a step worked on, the presence that shows it to the people in the design (its layers outlined or
 // its frame picked, its pointer just past them), and the note it says it with, made fit to send.
-import { type Design, frameIdOf, PRESENCE_NOTE, PRESENCE_SELECTION, type Presence, type Rect } from '@dazbee/schema'
+import { type Design, frameIdOf, type Presence, PRESENCE_NOTE, PRESENCE_SELECTION, type Rect } from '@dazbee/schema'
 
 import { frameIn } from './canvas/frames.ts'
 
@@ -66,14 +66,20 @@ export function agentPresence(
     })
     return {
       page,
-      pointer: corners.length > 0 ? [Math.max(...corners.map(([x]) => x)), Math.max(...corners.map(([, y]) => y))] : null,
+      pointer:
+        corners.length > 0 ? [Math.max(...corners.map(([x]) => x)), Math.max(...corners.map(([, y]) => y))] : null,
       selection: onPage.map(({ id }) => id),
       frame: null,
     }
   }
   const frame = work.frame === null ? undefined : frameIn(design, work.frame)
   if (!frame) return null
-  return { page: frame.pageId, pointer: [frame.x + frame.width, frame.y + frame.height], selection: [], frame: frame.id }
+  return {
+    page: frame.pageId,
+    pointer: [frame.x + frame.width, frame.y + frame.height],
+    selection: [],
+    frame: frame.id,
+  }
 }
 
 /**

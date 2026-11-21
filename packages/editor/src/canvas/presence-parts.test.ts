@@ -28,8 +28,10 @@ const CAT: ShownPerson = {
   note: null,
 }
 /** Iconoir's sparks, the agent's avatar: the big star, then the small one. */
-const SPARKS_BIG = 'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z'
-const SPARKS_SMALL = 'M2 6.5C5.13376 6.5 6.5 5.18153 6.5 2C6.5 5.18153 7.85669 6.5 11 6.5C7.85669 6.5 6.5 7.85669 6.5 11C6.5 7.85669 5.13376 6.5 2 6.5Z'
+const SPARKS_BIG =
+  'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z'
+const SPARKS_SMALL =
+  'M2 6.5C5.13376 6.5 6.5 5.18153 6.5 2C6.5 5.18153 7.85669 6.5 11 6.5C7.85669 6.5 6.5 7.85669 6.5 11C6.5 7.85669 5.13376 6.5 2 6.5Z'
 
 /** A layer's outline as the overlay builds one, named by its frame and layer. */
 const layerOutline = (frame: { id: string }, id: string) => fake(`layer ${frame.id} ${id}`) as unknown as HTMLElement
@@ -77,7 +79,10 @@ describe('presenceParts', () => {
     for (const tag of tags) {
       expect([tag?.className, tag?.style]).toEqual(['presence-tag', { background: '#14AE5C', color: '#FFFFFF' }])
       const [avatar] = tag?.children ?? []
-      expect([avatar?.attributes.class, avatar?.style]).toEqual(['presence-avatar', { background: '#FFFFFF', fill: '#14AE5C' }])
+      expect([avatar?.attributes.class, avatar?.style]).toEqual([
+        'presence-avatar',
+        { background: '#FFFFFF', fill: '#14AE5C' },
+      ])
       expect(avatar?.children.map((path) => path.attributes.d)).toEqual([SPARKS_BIG, SPARKS_SMALL])
     }
     expect(tags[0]?.children.slice(1).map((c) => [c.className, c.textContent])).toEqual([

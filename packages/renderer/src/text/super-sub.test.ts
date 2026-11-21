@@ -128,6 +128,20 @@ describe('madeUpSuperSubs', () => {
     ])
   })
 
+  it('decides pieces side by side that differ only in colour together, a digit with the letter before it', () => {
+    const pieces = [
+      { start: 0, end: 1, style: style({ features: { sups: true } }) },
+      { start: 1, end: 2, style: style({ features: { sups: true }, color: '#FF0000FF' }) },
+      { start: 2, end: 3, style: style({ features: { sups: true }, fontSize: 20 }) },
+    ]
+    const made = madeUpSuperSubs('x22', pieces, shape, SUPER_SUBS, HAS_BOTH)
+    expect(made.map((p) => [p.start, p.end, p.style.color, p.superSub?.baselineShift])).toEqual([
+      [0, 1, '#000000FF', -20],
+      [1, 2, '#FF0000FF', -20],
+      [2, 3, '#000000FF', undefined],
+    ])
+  })
+
   it('decides a right-to-left run of one letter by its own font, not by the letter before it', () => {
     const sups = style({ features: { sups: true } })
     const made = madeUpSuperSubs('n ب', [{ start: 0, end: 3, style: sups }], shape, SUPER_SUBS, HAS_BOTH)

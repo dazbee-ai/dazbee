@@ -29,10 +29,11 @@ const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u
 
 /**
  * The pieces split where superscripts and subscripts are made up, each made-up stretch smaller and
- * with its baseline moved (`superSub`). `shape` shapes a piece's text with and without its feature: a
- * font keeps the feature for its run of the piece where it drew each letter and digit of it with a
+ * with its baseline moved (`superSub`). Pieces side by side that differ only in paint are decided
+ * together, so a letter and a mark on it go alike. `shape` shapes their text with and without the
+ * feature: a font keeps the feature for its run of it where it drew each letter and digit of it with a
  * glyph of its own; where the run holds none, where it changed some glyph or, changing none, where
- * `familyFeatures` lists the feature for the piece's family.
+ * `familyFeatures` lists the feature for the family.
  */
 export function madeUpSuperSubs(
   shown: string,
@@ -42,23 +43,25 @@ export function madeUpSuperSubs(
   familyFeatures: FamilyFeatures | undefined,
 ): StyledPiece[] {
   const out: StyledPiece[] = []
-  for (const piece of pieces) {
-    const tag = superSubTag(piece.style)
-    if (!tag) {
-      out.push(piece)
+  for (const group of shapedAlike(pieces)) {
+    const [first] = group
+    const tag = first && superSubTag(first.style)
+    if (!first || !tag) {
+      out.push(...group)
       continue
     }
-    const text = shown.slice(piece.start, piece.end)
-    const hasFeature = familyFeatures?.get(piece.style.fontFamily)?.has(tag) === true
-    const madeUp = madeUpAt(text, shape(piece.style, text), shape(withoutSuperSubs(piece.style), text), hasFeature)
-    const small = madeUpPiece(piece, tag, superSubs)
-    let from = 0
-    for (let i = 1; i <= text.length; i++) {
-      if (i < text.length && madeUp[i] === madeUp[from]) continue
-      const start = piece.start + from
-      const end = piece.start + i
-      out.push(madeUp[from] ? { ...small, start, end } : { ...piece, start, end })
-      from = i
+    const start = first.start
+    const text = shown.slice(start, group.at(-1)?.end ?? start)
+    const hasFeature = familyFeatures?.get(first.style.fontFamily)?.has(tag) === true
+    const madeUp = madeUpAt(text, shape(first.style, text), shape(withoutSuperSubs(first.style), text), hasFeature)
+    for (const piece of group) {
+      const small = madeUpPiece(piece, tag, superSubs)
+      let from = piece.start
+      for (let i = piece.start + 1; i <= piece.end; i++) {
+        if (i < piece.end && madeUp[i - start] === madeUp[from - start]) continue
+        out.push(madeUp[from - start] ? { ...small, start: from, end: i } : { ...piece, start: from, end: i })
+        from = i
+      }
     }
   }
   return out
@@ -112,6 +115,36 @@ export function superSubLineStyle(pieces: readonly StyledPiece[]): Style | undef
 export function withoutSuperSubs(style: Style): Style {
   const features = Object.fromEntries(Object.entries(style.features ?? {}).filter(([tag]) => !isSuperSubTag(tag)))
   return { ...style, features }
+}
+
+/**
+ * The pieces in groups to decide together: side by side, raised or lowered alike, and shaped alike,
+ * differing at most in paint. A piece neither raised nor lowered is a group of its own.
+ */
+function shapedAlike(pieces: readonly StyledPiece[]): StyledPiece[][] {
+  const groups: StyledPiece[][] = []
+  for (const piece of pieces) {
+    const group = groups.at(-1)
+    const last = group?.at(-1)
+    const tag = superSubTag(piece.style)
+    if (
+      group &&
+      last &&
+      tag &&
+      last.end === piece.start &&
+      superSubTag(last.style) === tag &&
+      shapeKey(last.style) === shapeKey(piece.style)
+    )
+      group.push(piece)
+    else groups.push([piece])
+  }
+  return groups
+}
+
+/** What of a style its glyphs are shaped by. */
+function shapeKey(style: Style): string {
+  const { fontFamily, fontSize, fontWeight, fontStyle, letterSpacing, features } = style
+  return JSON.stringify([fontFamily, fontSize, fontWeight, fontStyle, letterSpacing, features])
 }
 
 /** The feature a style draws its letters raised or lowered with, superscript first; null for neither. */

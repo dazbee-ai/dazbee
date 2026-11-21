@@ -1,0 +1,8 @@
+# Regenerable or large: Needle training rows (gen_data.py), the public forgetting set
+# (forget_set.py), archives, training runs and raw engine results.
+data/*.needle.jsonl
+data/forget.jsonl
+models/
+runs/
+results/
+__pycache__/

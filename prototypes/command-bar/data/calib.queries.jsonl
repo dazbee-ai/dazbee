@@ -1,0 +1,800 @@
+{"query": "can you make the text bolder for me", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "Un-strike the copy.", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "un-strike {o}"}
+{"query": "change it to title case thanks", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "change {o} to title case"}
+{"query": "i'd like to rotate the button 45 degrees and make it red", "answers": [], "area": null, "category": "multi", "template": "rotate {o} 45 degrees and make it red"}
+{"query": "I'd like to sharpen the image", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "Pls make the selected layers one group for me", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Let's set the offer text to semibold", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "i want to spread the logos evenly side by side htanks", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "ok align these three right for me", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Go ahead and this text at 32 points.", "answers": [{"name": "set_font_size", "arguments": {"size": 32}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "make it editable again pls", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "I'd like to give the name an underline now", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "let's undo that.", "answers": [], "area": null, "category": "unsupported", "template": "undo that"}
+{"query": "quickly make the text larger thx", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "quickly more line spacing please", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "Demibold the offer text", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "demibold {o}"}
+{"query": "Pls move it left for me", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move it {d}"}
+{"query": "Pls set the subheading in lower case letters for me", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "redesign this whole thing!", "answers": [], "area": null, "category": "big", "template": "redesign this whole thing"}
+{"query": "quickly 64px left thx", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 64}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Strike out the offer text", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "Go ahead and 20pt text please.", "answers": [{"name": "set_font_size", "arguments": {"size": 20}}], "area": "size_and_shape", "category": "action", "template": "{n}pt text please"}
+{"query": "Hey, tilt the star 120 degrees", "answers": [{"name": "rotate", "arguments": {"degrees": 120}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "horizontal flip on the photo", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "i want to build me a whole campaign for running shoes", "answers": [], "area": null, "category": "big", "template": "build me a whole campaign for {p}"}
+{"query": "Ok decrease the leading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "now set the line to the secondary colour from the brand kit now", "answers": [{"name": "use_brand_colour", "arguments": {"role": "secondary"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "Pls move the buttons to the left edge now", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "align everything selected along the ecnter line please", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "align {o} along the center line"}
+{"query": "I want to unbold the price", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "hey, make the text larger", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "Ok make the text larger for me", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "i'd like to clone the image", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "clone {o}"}
+{"query": "let's round the image by 10", "answers": [{"name": "round_corners", "arguments": {"radius": 10}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "ok unbold the price pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "now text align left", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Reduce tracking on this pls", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Hey, 30px right thanks", "answers": [{"name": "move_layers", "arguments": {"direction": "right", "pixels": 30}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Now strike out the CTA pls", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "Quickly scale the frame's picture down", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "Quickly give it an underline thx", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "i'd like to unbold the text thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "go ahead and bring the button forward", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "quickly make the text larger", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "hey, change the heading to a thin font weight for me", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "let's ungroup now", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup"}
+{"query": "add tracking to it", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "add tracking to {o}"}
+{"query": "I want to text align left pls", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Can you toggle the title hidden please", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "Break apart the group now", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "break apart the group"}
+{"query": "Right align the text.", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "Could you add a new rfame now", "answers": [], "area": null, "category": "unsupported", "template": "add a new frame"}
+{"query": "give the caption an underline thanks", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "I'd like to align these shapes to the bottom!", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "Please good morning lpease", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "hey, move the line left a bit please", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move {o} {d} a bit"}
+{"query": "distribute all of them vertically thx", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "could you ditch the icon.", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "ditch {o}"}
+{"query": "i want to apply the body font to the body copy", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "Pls no underline on the body copy now", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "let's horizontal flip on the background shape!", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "Please right align the text please", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "pls reveal the image!", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "can you unbold the body copy pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "grow the background shape 75%", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 75}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "put the title behind everything thx", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "scrap the background shape thx", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "scrap {o}"}
+{"query": "let's reduce tracking on the caption now", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Ok change the fill to #BC2898", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#BC2898"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "Push the icons to the top of the frame", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "REMOVE THE ROUNDED CORNERS FROM THE LOGO", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "Could you change the weight of the offer text to medium.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "change the weight of {o} to medium"}
+{"query": "Please the name at 40 points thanks", "answers": [{"name": "set_font_size", "arguments": {"size": 40}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "let's put the image behind everything thanks", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "chaneg the fill to #ECF593 thanks", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#ECF593"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "Make the text smaller", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "make the text smaller"}
+{"query": "Reduce tracking on it", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "go ahead and push the boxes to the top of the frame.", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "please move the selection above everything now", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "Now write a headline for black friday now", "answers": [], "area": null, "category": "big", "template": "write a headline for {p}"}
+{"query": "Hey, upper case the first letter of each word in the body copy thx", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "now lighter weight for the text thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "Now send the photo down one level thx", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "send {o} down one level"}
+{"query": "now flip the circle vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "Good morning thanks", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "Ultra bold the button text now", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "let's move the line up a bit please", "answers": [{"name": "move_layers", "arguments": {"direction": "up", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move {o} {d} a bit"}
+{"query": "please write a caption for the spring collection please", "answers": [], "area": null, "category": "big", "template": "write a caption for {p}"}
+{"query": "push the cards to the top of the frame!", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "ULTRA BOLD IT FOR ME", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "now good morning for me", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "HEY, MOVE THE ICON ABOVE EVERYTIHNG", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "ok flip the product shot vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "Blur the image please", "answers": [], "area": null, "category": "unsupported", "template": "blur the image"}
+{"query": "MORE LINE SPACING NOW", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "can you good morning for me", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "can you make the headline editable again thanks", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "horizontal flip on the button", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "Pls move that", "answers": [], "area": "arrange", "category": "vague", "template": "move {o}"}
+{"query": "Make the CTA bolder now", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "i want to change it to a thin font weight please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "I'd like to stop", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "mirror image the shape!", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "mirror image {o}"}
+{"query": "ok un-italic the headline for me", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "now reduce tracking on the heading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Quickly right align the text", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "I want to make the lines of the headline justified for me", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "go ahead and un-italic the offer text please", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "PLEASE ALIGN THE BOXES RIGHT", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Un-italic the CTA", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "let's unbold it thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "put the image behind everything for me", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "now change the weight of the heading to medium please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "change the weight of {o} to medium"}
+{"query": "Could you bring that forward please", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "I'd like to put the button behind everything!", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "Now spread these evenly side by side thanks", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Now set the body copy in lower case letters!", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "i'd like to ditch the image for me", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "ditch {o}"}
+{"query": "change the image thx", "answers": [], "area": null, "category": "vague", "template": "change {o}"}
+{"query": "OK MAKE THE SUBHEADING BOLDER PLEASE", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "i want to decrease the leading pls", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "Can you push the selected layers to the top of the frame pls", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "tilt the circle 60 degrees please", "answers": [{"name": "rotate", "arguments": {"degrees": 60}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "Turn the icon clockwise by 15 degrees pls", "answers": [{"name": "rotate", "arguments": {"degrees": 15}}], "area": "size_and_shape", "category": "action", "template": "turn {o} clockwise by {n} degrees"}
+{"query": "Could you change this now", "answers": [], "area": null, "category": "vague", "template": "change {o}"}
+{"query": "Please rounded corners please.", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "strike out the subheading.", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "Make the text larger", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "hey, ultra bold the copy now", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "I want to round the product shot by 2.", "answers": [{"name": "round_corners", "arguments": {"radius": 2}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "let's reduce tracking on the heading.", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "ok rounded corners please", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "COULD YOU APPLY THE BODY FONT TO THE NAME FOR ME", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "make the shape locked please", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "text align left", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Go ahead and align these two left pls", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "align {o} left"}
+{"query": "good morning", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "hey, align the boxes right", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "go ahead and reveal the logo for me", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "pls strike out the heading", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "I'd like to make a duplicate now", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "make a duplicate"}
+{"query": "Make the text bolder", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "please demibold the price for me", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "demibold {o}"}
+{"query": "ungroup", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup"}
+{"query": "pls blur the image for me", "answers": [], "area": null, "category": "unsupported", "template": "blur the image"}
+{"query": "align them along the center line please", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "align {o} along the center line"}
+{"query": "Hey, italicize the price", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "i want to scale that down thx", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "quickly push these three to the top of the frame!", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "RIGHT AILGN THE TEXT NOW", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "text align left pls", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Could you un-italic it!", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "pls rewrite the headline to be catchier thanks", "answers": [], "area": null, "category": "big", "template": "rewrite the headline to be catchier"}
+{"query": "i'd like to dupe the title", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "dupe {o}"}
+{"query": "rotate the headline 45 degrees and make it red!", "answers": [], "area": null, "category": "multi", "template": "rotate {o} 45 degrees and make it red"}
+{"query": "Could you make these three one group thanks", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Now set the name in lower case letters thx", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "let's pink for the image", "answers": [{"name": "set_colour", "arguments": {"colour": "pink"}}], "area": "colour_and_brand", "category": "action", "template": "{c} for {o}"}
+{"query": "Hey, vertically center the boxes", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "hey, horizontal flip on the star please", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "Distribute these two vertically", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "i'd like to turn the icon clockwise by 60 degrees thanks", "answers": [{"name": "rotate", "arguments": {"degrees": 60}}], "area": "size_and_shape", "category": "action", "template": "turn {o} clockwise by {n} degrees"}
+{"query": "Pls align these layers along the center line thanks", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "align {o} along the center line"}
+{"query": "pls italiczie the caption", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "HEY, MAKE THE HEADING ALL LOWERCASE THX", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "make {o} all lowercase"}
+{"query": "Ok colour the photo with our text colour thx", "answers": [{"name": "use_brand_colour", "arguments": {"role": "text"}}], "area": "colour_and_brand", "category": "action", "template": "colour {o} with our {r} colour"}
+{"query": "Go ahead and stop thanks", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "give this text an undreline", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "Go ahead and medium weight for the price", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "i want to erduce tracking on the tagline for me", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Pls remove the rounded corners from the button for me", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "I'd like to ultra bold the body copy!", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "I'd like to make everything selected one group.", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Demibold the heading pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "demibold {o}"}
+{"query": "ok align these left please", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "align {o} left"}
+{"query": "The date at 56 points thx", "answers": [{"name": "set_font_size", "arguments": {"size": 56}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "Could you tilt it 5 degrees", "answers": [{"name": "rotate", "arguments": {"degrees": 5}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "Now decrease the leading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "Now break apart the group", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "break apart the group"}
+{"query": "lighter weight for the subheading please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "ok make the opacity 25%", "answers": [{"name": "set_opacity", "arguments": {"percent": 25, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "hey, red for the headline now", "answers": [{"name": "set_colour", "arguments": {"colour": "red"}}], "area": "colour_and_brand", "category": "action", "template": "{c} for {o}"}
+{"query": "i want to test!", "answers": [], "area": null, "category": "unrelated", "template": "test"}
+{"query": "Could you brown for the button pls", "answers": [{"name": "set_colour", "arguments": {"colour": "brown"}}], "area": "colour_and_brand", "category": "action", "template": "{c} for {o}"}
+{"query": "I want to remove the strikethrough from the heading", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "remove the strikethrough from {o}"}
+{"query": "i want to move the selection above everything please", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "Ok set the CTA in lower case letters thx", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "Please horizontal flip on the star", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "rounded corners please please", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Can you italicize the copy thanks", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "Give this text an underline thanks", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "Pls move it down thx", "answers": [{"name": "move_layers", "arguments": {"direction": "down", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move it {d}"}
+{"query": "please unbold the copy please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "Let's set the body copy to semibold pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "pls align the icons right!", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Hey, flip the selection vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "i'd like to vertically centre these three pls", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "Ok undo that", "answers": [], "area": null, "category": "unsupported", "template": "undo that"}
+{"query": "Could you stop", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "change the subheading to title case thanks", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "change {o} to title case"}
+{"query": "Let's change the weight of the heading to medium!", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "change the weight of {o} to medium"}
+{"query": "Vertically centre them for me", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "could you push these shapes to the top of the frame", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "grow the logo 150% now", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 150}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "align the logos to the bottom now", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "now italicize the offer text thanks", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "Spread everything selected evenly side by side", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Could you right align the text", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "Change the heading to a thin font weight", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "go ahead and open up the tracking on the heading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "open up the tracking on {o}"}
+{"query": "Rotate the logo 45 degrees anticlockwise now", "answers": [{"name": "rotate", "arguments": {"degrees": -45}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "put the rectangle behind everything", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "30px left thx", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 30}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "now remove the rounded corners from the line", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "i'd like to build me a whole campaign for the spring collection for me", "answers": [], "area": null, "category": "big", "template": "build me a whole campaign for {p}"}
+{"query": "Upper case the first letter of each word in the offer text", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "make a flyer for a cocnert now", "answers": [], "area": null, "category": "big", "template": "make a flyer for {p}"}
+{"query": "I want to put the logo behind everything", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "Go ahead and italiczie the name.", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "hey, make it locked", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "could you distribute these two vertically for me", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "Grow the title 20% for me", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 20}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "i want to decrease the leading now", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "let's make the name shouty caps pls", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "Pls medium wieght for the name!", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "Please bring the star forward now", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "spread these three evenly side by side thx", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "hey, toggle the circle hidden!", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "good morning please", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "Now move everything selected to the left edge now", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "Go aheda and vertically centre the cards", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "flip the frame's picture vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "Can you add a new frame now", "answers": [], "area": null, "category": "unsupported", "template": "add a new frame"}
+{"query": "round the background shape by 16 now", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "more line spacing", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "let's give the background shape 25% transparency pls", "answers": [{"name": "set_opacity", "arguments": {"percent": 25, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "Let's make the box lockde", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "i'd like to change the fill to #787149!", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#787149"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "Now medium weight for the name", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "round the photo by 10 for me", "answers": [{"name": "round_corners", "arguments": {"radius": 10}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "Can you make the text smaller thx", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "make the text smaller"}
+{"query": "Hey, increase tracking", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase tracking"}
+{"query": "quickly the kit's heading font please", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "Can you stop now", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "Now stop the copy being all caps!", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "hey, good morning!", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "give the frame's picture 50% transparency!", "answers": [{"name": "set_opacity", "arguments": {"percent": 50, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "let's move the selected layers to the left edge thanks", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "pls rounded cornres please please", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Could you write a caption for our app launch thx", "answers": [], "area": null, "category": "big", "template": "write a caption for {p}"}
+{"query": "centre the boxes horizontally pls", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "centre {o} horizontally"}
+{"query": "hey, make the copy the heading font thanks", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "make {o} the heading font"}
+{"query": "Ok apply the body font to the acption", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "Let's 2px down", "answers": [{"name": "move_layers", "arguments": {"direction": "down", "pixels": 2}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Text alignment centre please", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "text alignment centre please"}
+{"query": "please italicize the heading", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "Hey, fix this now", "answers": [], "area": null, "category": "vague", "template": "fix this"}
+{"query": "go ahead and make it nicer for me", "answers": [], "area": null, "category": "vague", "template": "make it nicer"}
+{"query": "PLS ALIGN THE CARDS RIGHT FOR ME", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Go ahead and ultra bold the headline", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "Make the opacity 95%.", "answers": [{"name": "set_opacity", "arguments": {"percent": 95, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "make the opacity 60% for me", "answers": [{"name": "set_opacity", "arguments": {"percent": 60, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "Please flip the button vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "Go ahead and toggle the icon hidden thanks", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "MAKE THE CAPTION THE HEADING FONT THANKS", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "make {o} the heading font"}
+{"query": "i want to improve the image thanks", "answers": [], "area": null, "category": "vague", "template": "improve {o}"}
+{"query": "Can you change the fill to #b7bfbf thx", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#b7bfbf"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "add a new fraem", "answers": [], "area": null, "category": "unsupported", "template": "add a new frame"}
+{"query": "I'd like to make every letter of the button text a capital", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make every letter of {o} a capital"}
+{"query": "go ahead and no underline on the caption", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "Hey, make this all lowercase.", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "make {o} all lowercase"}
+{"query": "tilt the product shot 15 degrees", "answers": [{"name": "rotate", "arguments": {"degrees": 15}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "remove the rounded corners from the button.", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "I'D LIKE TO CENTER THE TEXT!", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "center the text"}
+{"query": "can you make the heading shouty caps", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "move the card.", "answers": [], "area": "arrange", "category": "vague", "template": "move {o}"}
+{"query": "now stop the subheading being all caps now", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "ok make the title the heading font now", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "make {o} the heading font"}
+{"query": "I want to change the weight of the text to medium", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "change the weight of {o} to medium"}
+{"query": "Now make the date the heading font now", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "make {o} the heading font"}
+{"query": "i want to align these layers right pls", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Hey, vertically centre the logos", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "can you reduce tracking on the offer text!", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "i want to make every letter of it a capital", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make every letter of {o} a capital"}
+{"query": "Tilt the image 90° to the left thanks", "answers": [{"name": "rotate", "arguments": {"degrees": -90}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n}° to the left"}
+{"query": "Now mirror image the box!", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "mirror image {o}"}
+{"query": "change the name to a thin font weight pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "could you decrease the leading!", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "Let's build me a whole campaign for a charity run please", "answers": [], "area": null, "category": "big", "template": "build me a whole campaign for {p}"}
+{"query": "stop thanks", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "Go ahead and increase the line height of the name pls", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase the line height of {o}"}
+{"query": "Please set this text in lower case letters for me", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "Quickly pin the frame's picture so nothing changes it", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "pin {o} so nothing changes it"}
+{"query": "Please remove the rounded corners from the icon for me", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "can you give it 50% transparency now", "answers": [{"name": "set_opacity", "arguments": {"percent": 50, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "hey, center all of them horizontally thx", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "centre {o} horizontally"}
+{"query": "I'd like to text align left thx", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "please make the paragraph centered for me", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "make the paragraph centered"}
+{"query": "let's bring the selection forward thanks", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "hey, vertically centre these layers", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "change the CTA to a thin font weight thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "I want to redesign this whole thing", "answers": [], "area": null, "category": "big", "template": "redesign this whole thing"}
+{"query": "now rotate the photo 135 degrees anticlockwise please", "answers": [{"name": "rotate", "arguments": {"degrees": -135}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "Quickly ditch that", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "ditch {o}"}
+{"query": "Move the circle abvoe everything now", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "Please push the cards to the top of the frame for me", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "quickly 144pt text please", "answers": [{"name": "set_font_size", "arguments": {"size": 144}}], "area": "size_and_shape", "category": "action", "template": "{n}pt text please"}
+{"query": "i want to pin it so nothing changes it", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "pin {o} so nothing changes it"}
+{"query": "could you make all of them one group", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "quickly toggle the card hidden", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "Change the fill to blue!", "answers": [{"name": "set_colour", "arguments": {"colour": "blue"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {c}"}
+{"query": "now round the photo by 40 for me", "answers": [{"name": "round_corners", "arguments": {"radius": 40}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "ok set the frame's picture to the accent colour from the brand kit", "answers": [{"name": "use_brand_colour", "arguments": {"role": "accent"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "Can you stop the name being all caps pls", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "go ahead and sharpen the image for me", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "change the fill to white thanks", "answers": [{"name": "set_colour", "arguments": {"colour": "white"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {c}"}
+{"query": "shrink the circle by 5% thx", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 5}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "Quickly lower the selection one layer.", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "lower {o} one layer"}
+{"query": "Could you fix this thanks", "answers": [], "area": null, "category": "vague", "template": "fix this"}
+{"query": "Could you shrink the frame's picture by 30% for me", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 30}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "could you text ailgn left", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Make the headline shouty caps thanks", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "go ahead and colour the star with our background colour now", "answers": [{"name": "use_brand_colour", "arguments": {"role": "background"}}], "area": "colour_and_brand", "category": "action", "template": "colour {o} with our {r} colour"}
+{"query": "Let's remove the uppercase from the name thanks", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "remove the uppercase from {o}"}
+{"query": "quickly push these layers to the top of the frame please", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "let's make this editable again thanks", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "Pls text align left thanks", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Pls strike out the button text pls", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "pls decrease the leading pls", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "I WANT TO 15PX LEFT NOW", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 15}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Add tracking to the text", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "add tracking to {o}"}
+{"query": "let's ungroup", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup"}
+{"query": "change the fill to #E81E92 thanks", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#E81E92"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "ok give this a 20 degree rotation thx", "answers": [{"name": "rotate", "arguments": {"degrees": 20}}], "area": "size_and_shape", "category": "action", "template": "give {o} a {n} degree rotation"}
+{"query": "Hey, crop the photo thanks", "answers": [], "area": null, "category": "unsupported", "template": "crop the photo"}
+{"query": "MAKE THE LINES OF IT JUSTIFIED", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "I'd like to nudge the image down", "answers": [{"name": "move_layers", "arguments": {"direction": "down", "pixels": 10}}], "area": "arrange", "category": "action", "template": "nudge {o} {d}"}
+{"query": "test please", "answers": [], "area": null, "category": "unrelated", "template": "test"}
+{"query": "I'D LIKE TO BRING THE CARD FORWARD PLS", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "Can you move the headline above everything", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "Go ahead and move it above everything please", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "apply the body font to the name.", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "quickly lighter weight for the title please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "shrink the circle by 15% for me", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 15}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "Pls change the fill to grey pelase", "answers": [{"name": "set_colour", "arguments": {"colour": "grey"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {c}"}
+{"query": "I WANT TO MAKE THE HEADLINE SHOUTY CAPS FOR ME", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "quickly clone the product shot", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "clone {o}"}
+{"query": "can you 20pt text please", "answers": [{"name": "set_font_size", "arguments": {"size": 20}}], "area": "size_and_shape", "category": "action", "template": "{n}pt text please"}
+{"query": "pls make the photo editable again thanks", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "I want to dupe the background shape thx", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "dupe {o}"}
+{"query": "I want to rotate the icon 45 degrees and make it red.", "answers": [], "area": null, "category": "multi", "template": "rotate {o} 45 degrees and make it red"}
+{"query": "Add tracking to the price", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "add tracking to {o}"}
+{"query": "dupe the photo!", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "dupe {o}"}
+{"query": "go ahead and horizontal flip on that now", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "please give the box 0% transparency.", "answers": [{"name": "set_opacity", "arguments": {"percent": 0, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "stop the text being all caps", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "pls sharpen the image thanks", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "8px left please", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 8}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Lowre the line one layer", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "lower {o} one layer"}
+{"query": "align these left.", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "align {o} left"}
+{"query": "Can you bold the title and underline the price pls", "answers": [], "area": null, "category": "multi", "template": "bold the title and underline the price"}
+{"query": "now center the text please", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "center the text"}
+{"query": "I'd like to remove the strikethrough from the heading thanks", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "remove the strikethrough from {o}"}
+{"query": "vertically center these two", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "Could you medium weight for the heading", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "Now make the opacity 90%", "answers": [{"name": "set_opacity", "arguments": {"percent": 90, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "decrease the leading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "unbold the title.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "hey, toggle the title hidden now", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "Hey, grow the photo 75% now", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 75}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "let's grow the line 50%", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 50}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "can you undo that please", "answers": [], "area": null, "category": "unsupported", "template": "undo that"}
+{"query": "Please center the text thx", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "center the text"}
+{"query": "now no underline on the caption pls", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "COULD YOU TEXT ALIGN LEFT NOW", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "Make the headline locked!", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "rotate the image 180 degrees anticlockwise", "answers": [{"name": "rotate", "arguments": {"degrees": -180}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "i want to golden please now", "answers": [{"name": "set_colour", "arguments": {"colour": "gold"}}], "area": "colour_and_brand", "category": "action", "template": "{c} please"}
+{"query": "Ok rbing the product shot forward for me", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "rounded corners please!", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Can you round the selection by 12", "answers": [{"name": "round_corners", "arguments": {"radius": 12}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "could you set the photo to the accent color from the brand kit thanks", "answers": [{"name": "use_brand_colour", "arguments": {"role": "accent"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "now align everything selected right.", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Could you add tracking to it", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "add tracking to {o}"}
+{"query": "Quickly change the text to title case", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "change {o} to title case"}
+{"query": "i'd like to undo that for me", "answers": [], "area": null, "category": "unsupported", "template": "undo that"}
+{"query": "I'd like to remove the strikethrough from the headline", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "remove the strikethrough from {o}"}
+{"query": "let's change the weight of the date to medium please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "change the weight of {o} to medium"}
+{"query": "hey, reveal the button", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "go ahead and the kit's heading font please thanks", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "Let's remove the rounded corners from the button!", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "Hey, make the lines of the tagline justified", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "Make the lines of the price justified thanks", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "go ahead and make the text smaller thanks", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "make the text smaller"}
+{"query": "Please spread the boxes evenly side by side", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "could you un-italic the text thx", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "SEND THE LINE DOWN ONE LEVEL", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "send {o} down one level"}
+{"query": "can you make the button locked!", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "now give the button text an underline", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "go ahead and text alignment centre please.", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "text alignment centre please"}
+{"query": "i'd like to nudge the line right please", "answers": [{"name": "move_layers", "arguments": {"direction": "right", "pixels": 10}}], "area": "arrange", "category": "action", "template": "nudge {o} {d}"}
+{"query": "toggle the frame's picture hidden pls", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "go ahead and set the logo to the background colour from the brand kit thx", "answers": [{"name": "use_brand_colour", "arguments": {"role": "background"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "Let's align these to the bottom.", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "i want to scale the line down thanks", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "I'd like to un-italic the date for me", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "hey, set the frame's picture to the secondary colour from the brand kit now", "answers": [{"name": "use_brand_colour", "arguments": {"role": "secondary"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "Let's align the rectangle for me", "answers": [], "area": "arrange", "category": "vague", "template": "align {o}"}
+{"query": "i'd like to rotate the star 90 degrees anticlockwise", "answers": [{"name": "rotate", "arguments": {"degrees": -90}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "could you sharpen the image please", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "hey, vertically centre these shapes", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "Quickly round the card by 12 tahnks", "answers": [{"name": "round_corners", "arguments": {"radius": 12}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "I'd like to line these layers up along the bottom", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "line {o} up along the bottom"}
+{"query": "now set the subheading in lower case letters please", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "I'D LIKE TO ALIGN ALL OF THEM TO THE BOTTOM PLEASE", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "Let's align these shapes right thanks", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "go ahead and no underline on the button text thx", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "hey, unbold the button text", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "i want to bold the title and underline the price pls", "answers": [], "area": null, "category": "multi", "template": "bold the title and underline the price"}
+{"query": "take the line through the text off please", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "take the line through {o} off"}
+{"query": "The kit's heading font please for me", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "could you remove the rounded corners from the line now", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "I want to center the text", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "center the text"}
+{"query": "Let's change the name to a thin font weight", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "Arrange the photo", "answers": [], "area": "arrange", "category": "vague", "template": "arrange {o}"}
+{"query": "i'd like to make a flyer for running shoes!", "answers": [], "area": null, "category": "big", "template": "make a flyer for {p}"}
+{"query": "i'd like to change the text to title case thanks", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "change {o} to title case"}
+{"query": "Could you make everything selected one group thx", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "20px left please", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 20}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "please change the fill to goldne please", "answers": [{"name": "set_colour", "arguments": {"colour": "gold"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {c}"}
+{"query": "I want to brown please now", "answers": [{"name": "set_colour", "arguments": {"colour": "brown"}}], "area": "colour_and_brand", "category": "action", "template": "{c} please"}
+{"query": "I want to pin the photo so nothing hcanges it.", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "pin {o} so nothing changes it"}
+{"query": "i want to apply the body font to the caption thanks", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "Let's scrap the photo", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "scrap {o}"}
+{"query": "Can you the kit's heading font please for me", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "LET'S DECREASE THE LEADING!", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "set the price in lower case letters", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "go ahead and apply the body font to the CTA!", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "go ahead and no underline on the headline thanks", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "Ok make the opacity 40%.", "answers": [{"name": "set_opacity", "arguments": {"percent": 40, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "hey, rewrite the headline to be catchier thx", "answers": [], "area": null, "category": "big", "template": "rewrite the headline to be catchier"}
+{"query": "now reduce tarcking on the body copy", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "OPEN UP THE TRACKING ON THE SUBHEADING PLEASE", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "open up the tracking on {o}"}
+{"query": "ok un-italic the headline", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "can you change the fill to #54DAF1 pls", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#54DAF1"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "Could you change the fill to #11E2A6 please", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#11E2A6"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "let's italicize the CTA please", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "Please build me a whole campaign for our summer sale", "answers": [], "area": null, "category": "big", "template": "build me a whole campaign for {p}"}
+{"query": "Ok the kit's heading font please", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "Go ahead and un-strike this thx", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "un-strike {o}"}
+{"query": "can you give the image 100% transparency!", "answers": [{"name": "set_opacity", "arguments": {"percent": 100, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "I want to bold the title and underline the price thanks", "answers": [], "area": null, "category": "multi", "template": "bold the title and underline the price"}
+{"query": "LET'S UPPER CASE THE FIRST LETTER OF EACH WORD IN THE NAME.", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "Hey, apply the body font to the date now", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "now flip the card vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "ok stop it beign all caps", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "ok rounded corners please.", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Medium weight for the taglien", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "Hey, bring the circle forward", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "Pleaes no underline on the heading", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "Pls 10px left thanks", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 10}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "go ahead and colour the selection with our text colour", "answers": [{"name": "use_brand_colour", "arguments": {"role": "text"}}], "area": "colour_and_brand", "category": "action", "template": "colour {o} with our {r} colour"}
+{"query": "Quickly spread the cards evenly side by side now", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Now lower the title one layer", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "lower {o} one layer"}
+{"query": "improve the title thanks", "answers": [], "area": null, "category": "vague", "template": "improve {o}"}
+{"query": "Could you lighter weight for the copy thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "Ultra bold the date", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "Hey, ungroup these please", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup these"}
+{"query": "quickly grow that 20%", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 20}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "I want to spread the buttons out vertically now", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "spread {o} out vertically"}
+{"query": "i want to ultra bold the button text thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "italicize the button text.", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "make the opacity 10% please", "answers": [{"name": "set_opacity", "arguments": {"percent": 10, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "flip the star vertical pls", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "move the buttons to the left edge", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "Quickly centre these three horizontally please", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "centre {o} horizontally"}
+{"query": "Ok redesign this whole thing please", "answers": [], "area": null, "category": "big", "template": "redesign this whole thing"}
+{"query": "please spread all of them evenly side by side pls", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "I want to the title at 12 points", "answers": [{"name": "set_font_size", "arguments": {"size": 12}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "Hey, bin the product shot.", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "bin {o}"}
+{"query": "PLEASE BREAK APART THE GROUP NOW", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "break apart the group"}
+{"query": "Could you ultra bold the body copy now", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "go ahead and decrease the elading thx", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "i'd like to change the tagline to title case pls", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "change {o} to title case"}
+{"query": "right align the text", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "go ahead and make the icons one group for me", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Let's scale the image down", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "I want to move the line above veerything", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "ok spread these evenly side by side for me", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Now make the icon editable again thx", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "pls make the opacity 5%!", "answers": [{"name": "set_opacity", "arguments": {"percent": 5, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "hey, make the cards bottom aligned for me", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "make {o} bottom aligned"}
+{"query": "take the line through the name off!", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "take the line through {o} off"}
+{"query": "Please demibold the tagline pls", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "demibold {o}"}
+{"query": "pls give the background shape 95% tranpsarency now", "answers": [{"name": "set_opacity", "arguments": {"percent": 95, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "Can you bring the photo forward", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "now strike out the tagline pls", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "i'd like to give the star 30% transparency", "answers": [{"name": "set_opacity", "arguments": {"percent": 30, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "move the logos to the left edge", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "Now push everything selected to the top of the frame", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "please hsrink this by 30% thx", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 30}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "redesign this whole thing", "answers": [], "area": null, "category": "big", "template": "redesign this whole thing"}
+{"query": "Could you give the icon 10% transparency please", "answers": [{"name": "set_opacity", "arguments": {"percent": 10, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "ok 40pt text please thanks", "answers": [{"name": "set_font_size", "arguments": {"size": 40}}], "area": "size_and_shape", "category": "action", "template": "{n}pt text please"}
+{"query": "Can you good morning now", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "i'd like to apply the body font to the name please", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "Go ahead and strike out the subheading for me", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "move the cards to the left edge pls", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "ok tilt the line 180 degrees", "answers": [{"name": "rotate", "arguments": {"degrees": 180}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "now flip the shape vertical!", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "ok make the opacity 0% pls", "answers": [{"name": "set_opacity", "arguments": {"percent": 0, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "Let's good morning", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "pls center these horizontally thx", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "centre {o} horizontally"}
+{"query": "could you strike out the headline!", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "ok grow the frame's picture 75% for me", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 75}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "i'd like to remove the rounded conrers from the shape", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "more line spcaing", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "now set the caption to semibold!", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "ok make the lines of this text justified", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "ok make the text larger", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "Make the paragraph centered thx", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "make the paragraph centered"}
+{"query": "ok make the text larger.", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "Could you scrap the circle now", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "scrap {o}"}
+{"query": "Let's give the headline an underline for me", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "i want to give the heading an underline.", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "hey, text align left pls", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "ok make the background shape locked for me", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "Hey, italicize the tagline please", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "ALIGN THE SELECTED LAYERS ALONG THE CENTER LINE.", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "align {o} along the center line"}
+{"query": "align the icons right!", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "now centre the cards horizontally", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "centre {o} horizontally"}
+{"query": "Quickly make the lines of the name justified thanks", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "now 25px up.", "answers": [{"name": "move_layers", "arguments": {"direction": "up", "pixels": 25}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Let's un-italic this text!", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "quickly give the rectangle 0% transparency!", "answers": [{"name": "set_opacity", "arguments": {"percent": 0, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "i'd like to send the star down one level for me", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "send {o} down one level"}
+{"query": "let's push them to the top of the frame now", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "ROUNDED CORNERS PLEASE", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "distribute all of them vertically", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "Please more line spacing thx", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "Pls write a headline for a concert!", "answers": [], "area": null, "category": "big", "template": "write a headline for {p}"}
+{"query": "ok unbold the date now", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "could you upper case the first letter of each word in the title!", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "Pls shrink the frame's picutre by 50%", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 50}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "Hey, make the star locked thanks", "answers": [{"name": "lock_layers", "arguments": {"action": "lock"}}], "area": "layers", "category": "action", "template": "make {o} locked"}
+{"query": "hey, make it shouty caps for me", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "hey, make the tagline bolder", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "stop", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "Ok ultra bold the subheading please", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "Distribute these three vertically", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "Please the heading at 10 points", "answers": [{"name": "set_font_size", "arguments": {"size": 10}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "I'd like to dupe the imaeg", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "dupe {o}"}
+{"query": "let's apply the body font to the button text now", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "now medium weight for the price", "answers": [{"name": "set_text_weight", "arguments": {"weight": "medium"}}], "area": "text_style", "category": "action", "template": "medium weight for {o}"}
+{"query": "I'd like to shrink the background shape by 50% now", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 50}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "Quickly come up with a slogan for our summer sale", "answers": [], "area": null, "category": "big", "template": "come up with a slogan for {p}"}
+{"query": "line all of them up along the bottom thx", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "line {o} up along the bottom"}
+{"query": "Could you lower the box one layer thx", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "lower {o} one layer"}
+{"query": "Now decrease the leading now", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "Lighter weight for this", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "I want to shrink the background shape by 25% thanks", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 25}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "let's make the lines of the price justified for me", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "now bring the card forward!", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "Unbold the text thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}
+{"query": "Please make the text all lowercase!", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "make {o} all lowercase"}
+{"query": "could you give that 0% transparency please", "answers": [{"name": "set_opacity", "arguments": {"percent": 0, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "Go ahead and underline the words in the title pls", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "underline the words in {o}"}
+{"query": "translate this ad into spanish please", "answers": [], "area": null, "category": "big", "template": "translate this ad into spanish"}
+{"query": "can you line them up along the bottom for me", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "line {o} up along the bottom"}
+{"query": "let's sharpen the image", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "Please rotate the shape 45 degrees and make it red.", "answers": [], "area": null, "category": "multi", "template": "rotate {o} 45 degrees and make it red"}
+{"query": "stop now", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "pls set the line to the background color from the brand kit", "answers": [{"name": "use_brand_colour", "arguments": {"role": "background"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "Quickyl stop!", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "I want to flip the circle vertical", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "Rewrite the headline to be catchier", "answers": [], "area": null, "category": "big", "template": "rewrite the headline to be catchier"}
+{"query": "can you put the card behind everything.", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "Let's grow it 100% thx", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 100}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "Ok break apart the group thanks", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "break apart the group"}
+{"query": "Now mirror image the shape for me", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "mirror image {o}"}
+{"query": "Quickly dupe the icon pls", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "dupe {o}"}
+{"query": "go ahead and push everything selected to the top of the frame pls", "answers": [{"name": "align_layers", "arguments": {"edge": "top"}}], "area": "arrange", "category": "action", "template": "push {o} to the top of the frame"}
+{"query": "I want to toggle the product shot hidden please", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "Spread all of them evenly side by side please", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Could you make it the heading font thx", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "make {o} the heading font"}
+{"query": "go ahead and toggle the shape hidden", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "let's change it please", "answers": [], "area": null, "category": "vague", "template": "change {o}"}
+{"query": "ok no underline on the title!", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "Align these layers right pls", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "pls set the date to semibold.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "let's write a headline for a car wash", "answers": [], "area": null, "category": "big", "template": "write a headline for {p}"}
+{"query": "Please text align left!", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "this at 24 points thanks", "answers": [{"name": "set_font_size", "arguments": {"size": 24}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "Please stop the subheading being all caps please", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "CENTER THE TEXT THX", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "center the text"}
+{"query": "let's lower this one layer", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "lower {o} one layer"}
+{"query": "Change it to a thin font weight thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "make the caption shouty caps", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "i want to align the selected layers along the center line.", "answers": [{"name": "align_layers", "arguments": {"edge": "center"}}], "area": "arrange", "category": "action", "template": "align {o} along the center line"}
+{"query": "ok scrap the shape", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "scrap {o}"}
+{"query": "give the shape 25% transparency", "answers": [{"name": "set_opacity", "arguments": {"percent": 25, "measure": "transparency"}}], "area": "colour_and_brand", "category": "action", "template": "give {o} {n}% transparency"}
+{"query": "align all of them right", "answers": [{"name": "align_layers", "arguments": {"edge": "right"}}], "area": "arrange", "category": "action", "template": "align {o} right"}
+{"query": "Go ahead and scale the logo down thx", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "Pls right align the text pls", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "qiuckly move it above everything pls", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "Go ahead and remove the uppercase from this text for me", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "remove the uppercase from {o}"}
+{"query": "Can you make the text smaller thanks", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "make the text smaller"}
+{"query": "I WANT TO THIS TEXT AT 56 POINTS THANKS", "answers": [{"name": "set_font_size", "arguments": {"size": 56}}], "area": "size_and_shape", "category": "action", "template": "{o} at {n} points"}
+{"query": "ok make the opacity 0%", "answers": [{"name": "set_opacity", "arguments": {"percent": 0, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "no underline on the date!", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "Could you un-italic the text", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "ok un-italic it!", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "Quickly sharpen the image now", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "Align the prdouct shot!", "answers": [], "area": "arrange", "category": "vague", "template": "align {o}"}
+{"query": "I'd like to tilt the card 180° to the left pls", "answers": [{"name": "rotate", "arguments": {"degrees": -180}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n}° to the left"}
+{"query": "I'd like to flip the logo vertical for me", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "i want to algin the cards to the bottom now", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "Sharpen the image", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "QUICKLY APPLY THE BODY FONT TO THE COPY", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "please spread the selected layers evenly side by side", "answers": [{"name": "distribute_layers", "arguments": {"direction": "horizontally"}}], "area": "arrange", "category": "action", "template": "spread {o} evenly side by side"}
+{"query": "Quickly put the photo behind everything for me", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "Lighter weight for the caption.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "i want to crop the photo now", "answers": [], "area": null, "category": "unsupported", "template": "crop the photo"}
+{"query": "Uqickly vertically centre these two", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "quickly make the frame's picture editable again", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "Pls turn that clockwise by 15 degrees", "answers": [{"name": "rotate", "arguments": {"degrees": 15}}], "area": "size_and_shape", "category": "action", "template": "turn {o} clockwise by {n} degrees"}
+{"query": "hey, make the text smaller", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "make the text smaller"}
+{"query": "Please horizontal flip on the selection pls", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "horizontal flip on {o}"}
+{"query": "ultra bold it.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "GO AHEAD AND CLONE THE BUTTON", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "clone {o}"}
+{"query": "Spread these out vertically for me", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "spread {o} out vertically"}
+{"query": "can you shrink the logo by 25%", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 25}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "shrink the image by 20%", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 20}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "now rounded corners please now", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Go ahead and rounded corners please pls", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "hey, good morning", "answers": [], "area": null, "category": "unrelated", "template": "good morning"}
+{"query": "ok apply the body font to the subheading now", "answers": [{"name": "use_brand_font", "arguments": {"font": "body"}}], "area": "colour_and_brand", "category": "action", "template": "apply the body font to {o}"}
+{"query": "now ungroup these", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup these"}
+{"query": "Reveal the rectangle", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "Let's put the logo behind everything", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "OK VERTICALLY CENTRE EVERYTHING SELECTED", "answers": [{"name": "align_layers", "arguments": {"edge": "middle"}}], "area": "arrange", "category": "action", "template": "vertically centre {o}"}
+{"query": "Could you spread the buttons out vertically please", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "spread {o} out vertically"}
+{"query": "Can you navy blue for the line!", "answers": [{"name": "set_colour", "arguments": {"colour": "navy"}}], "area": "colour_and_brand", "category": "action", "template": "{c} for {o}"}
+{"query": "please make the body copy bolder", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "Let's mirror image the shape", "answers": [{"name": "flip", "arguments": {"axis": "horizontal"}}], "area": "size_and_shape", "category": "action", "template": "mirror image {o}"}
+{"query": "go ahead and more line spacing now", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "Set this to semibold", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "Underline the words in the offer text", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "underline the words in {o}"}
+{"query": "Make it nicer", "answers": [], "area": null, "category": "vague", "template": "make it nicer"}
+{"query": "Let's sharpen the image thx", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "Ok give the taglien an underline for me", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": true}}], "area": "text_style", "category": "action", "template": "give {o} an underline"}
+{"query": "ok tilt the star 45 degrees please", "answers": [{"name": "rotate", "arguments": {"degrees": 45}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n} degrees"}
+{"query": "pls grow the line 20%.", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 20}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "could you move the box down a bit", "answers": [{"name": "move_layers", "arguments": {"direction": "down", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move {o} {d} a bit"}
+{"query": "now right align the text pls", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "test", "answers": [], "area": null, "category": "unrelated", "template": "test"}
+{"query": "let's ungroup these", "answers": [{"name": "group_layers", "arguments": {"action": "ungroup"}}], "area": "layers", "category": "action", "template": "ungroup these"}
+{"query": "Now reveal the background shape", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "could you align everything selected to the bottom for me", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "Pls bin the star pls", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "bin {o}"}
+{"query": "COULD YOU ALIGN THE TEXT THX", "answers": [], "area": "text_style", "category": "vague", "template": "align the text"}
+{"query": "pls reveal the box", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "Now increase tracking thx", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase tracking"}
+{"query": "Hey, reduec tracking on the CTA", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Pls make that editable again", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "HEY, MAKE THESE SHAPES ONE GROUP PLEASE", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "ok change the offer text to a thin font weight", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "could you make the lines of the copy justified", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "Now make these two one group", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Now remove the uppercase from the subheading now", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "remove the uppercase from {o}"}
+{"query": "DISTRIBUTE THE LOGOS VERTICALLY PLEASE", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "distribute {o} vertically"}
+{"query": "decresae the leading thx", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "decrease the leading"}
+{"query": "quickly test now", "answers": [], "area": null, "category": "unrelated", "template": "test"}
+{"query": "now lighter weight for the subheading thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "could you set the shape to the text colour from the brand kit", "answers": [{"name": "use_brand_colour", "arguments": {"role": "text"}}], "area": "colour_and_brand", "category": "action", "template": "set {o} to the {r} colour from the brand kit"}
+{"query": "could you blur the image for me", "answers": [], "area": null, "category": "unsupported", "template": "blur the image"}
+{"query": "quickly round it by 8 thanks", "answers": [{"name": "round_corners", "arguments": {"radius": 8}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "PLEASE OPEN UP THE TRACKING ON IT", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "open up the tracking on {o}"}
+{"query": "make this shouty caps now", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make {o} shouty caps"}
+{"query": "could you make the offer text bolder", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "ok make the text larger thx", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "could you toggle the product shot hidden now", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "make a duplicate for me", "answers": [{"name": "duplicate_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "make a duplicate"}
+{"query": "Go ahead and reveal the line now", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "let's set the text in lower case letters for me", "answers": [{"name": "set_text_case", "arguments": {"case": "lowercase"}}], "area": "text_style", "category": "action", "template": "set {o} in lower case letters"}
+{"query": "make the text larger for me", "answers": [{"name": "resize", "arguments": {"direction": "bigger"}}], "area": "size_and_shape", "category": "action", "template": "make the text larger"}
+{"query": "hey, make the lines of the headline justified.", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "Rotate the image 90 degrees anticlockwise", "answers": [{"name": "rotate", "arguments": {"degrees": -90}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "flip that vertical please", "answers": [{"name": "flip", "arguments": {"axis": "vertical"}}], "area": "size_and_shape", "category": "action", "template": "flip {o} vertical"}
+{"query": "ok shrink the icon by 5%", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 5}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "set the tagline to semibold thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "set {o} to semibold"}
+{"query": "go ahead and make the opacity 80%", "answers": [{"name": "set_opacity", "arguments": {"percent": 80, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "Can you reveal the image now", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "pls tilt this 120° to the left", "answers": [{"name": "rotate", "arguments": {"degrees": -120}}], "area": "size_and_shape", "category": "action", "template": "tilt {o} {n}° to the left"}
+{"query": "stop pls", "answers": [], "area": null, "category": "negated", "template": "stop"}
+{"query": "Make the opacity 90% for me", "answers": [{"name": "set_opacity", "arguments": {"percent": 90, "measure": "opacity"}}], "area": "colour_and_brand", "category": "action", "template": "make the opacity {n}%"}
+{"query": "increase the line height of the tagline thanks", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase the line height of {o}"}
+{"query": "MORE LINE SPACING FOR ME", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "change the fill to #ccd4d1!", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#ccd4d1"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "ultra bold this text", "answers": [{"name": "set_text_weight", "arguments": {"weight": "black"}}], "area": "text_style", "category": "action", "template": "ultra bold {o}"}
+{"query": "Let's no underline on this text", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "please change the fill to #e70982 now", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#e70982"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "scale the shape down now", "answers": [{"name": "resize", "arguments": {"direction": "smaller"}}], "area": "size_and_shape", "category": "action", "template": "scale {o} down"}
+{"query": "go ahead and redesign this whole thing", "answers": [], "area": null, "category": "big", "template": "redesign this whole thing"}
+{"query": "Please move it now", "answers": [], "area": "arrange", "category": "vague", "template": "move {o}"}
+{"query": "pelase align the cards to the bottom", "answers": [{"name": "align_layers", "arguments": {"edge": "bottom"}}], "area": "arrange", "category": "action", "template": "align {o} to the bottom"}
+{"query": "make every letter of the price a capital for me", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make every letter of {o} a capital"}
+{"query": "please make the price bolder", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "Pls make the product shot editable again please", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "let's right align the text please", "answers": [{"name": "align_text", "arguments": {"align": "right"}}], "area": "text_style", "category": "action", "template": "right align the text"}
+{"query": "Go ahead and move it right pls", "answers": [{"name": "move_layers", "arguments": {"direction": "right", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move it {d}"}
+{"query": "I WANT TO LIGHTER WEIGHT FOR THE TEXT", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "Now come up with a slogan for our summer sale", "answers": [], "area": null, "category": "big", "template": "come up with a slogan for {p}"}
+{"query": "Can you improve the image", "answers": [], "area": null, "category": "vague", "template": "improve {o}"}
+{"query": "Hey, make the button editable again thx", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "pls upper case the first letter of each word in the subheading thx", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "hey, increase tracking!", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase tracking"}
+{"query": "quickly change the subheading to a thin font weight thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "ok make the button text bolder for me", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "hey, spread them out vertically now", "answers": [{"name": "distribute_layers", "arguments": {"direction": "vertically"}}], "area": "arrange", "category": "action", "template": "spread {o} out vertically"}
+{"query": "now make these shapes one group", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "Pls demibold the offer text", "answers": [{"name": "set_text_weight", "arguments": {"weight": "semibold"}}], "area": "text_style", "category": "action", "template": "demibold {o}"}
+{"query": "ok grow the frame's pitcure 15% pls", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 15}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "please add a new frame pls", "answers": [], "area": null, "category": "unsupported", "template": "add a new frame"}
+{"query": "HEY, BLUR THE IMAGE NOW", "answers": [], "area": null, "category": "unsupported", "template": "blur the image"}
+{"query": "I want to strike out the headline thanks", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "Let's make the lines of the caption justified", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "I'd like to round the photo by 16 for me", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "Let's make the date bolder!", "answers": [{"name": "set_text_weight", "arguments": {"weight": "bold"}}], "area": "text_style", "category": "action", "template": "make {o} bolder"}
+{"query": "move these layers to the left edge for me", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "move {o} to the left edge"}
+{"query": "quickly scrap the circle thx", "answers": [{"name": "delete_layers", "arguments": {}}], "area": "layers", "category": "action", "template": "scrap {o}"}
+{"query": "Let's open up the tracking on the headline.", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "open up the tracking on {o}"}
+{"query": "now lighter weight for the subheading for me", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "let's ruond the title by 6!", "answers": [{"name": "round_corners", "arguments": {"radius": 6}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "Shrink the frame's picture by 150% please", "answers": [{"name": "resize", "arguments": {"direction": "smaller", "percent": 150}}], "area": "size_and_shape", "category": "action", "template": "shrink {o} by {n}%"}
+{"query": "go ahead and italicize this text thx", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "now remove the rounded corners from that pls", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "i want to put that behind everything pls", "answers": [{"name": "change_layer_order", "arguments": {"to": "back"}}], "area": "arrange", "category": "action", "template": "put {o} behind everything"}
+{"query": "go ahead and make these three one group", "answers": [{"name": "group_layers", "arguments": {"action": "group"}}], "area": "layers", "category": "action", "template": "make {o} one group"}
+{"query": "I'd like to un-strike the price!", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "un-strike {o}"}
+{"query": "pls come up with a slogan for our usmmer sale", "answers": [], "area": null, "category": "big", "template": "come up with a slogan for {p}"}
+{"query": "No underline on this thanks", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "could you lighter weight for the price thanks", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "Ok reveal the card now", "answers": [{"name": "hide_layers", "arguments": {"action": "show"}}], "area": "layers", "category": "action", "template": "reveal {o}"}
+{"query": "could you sharpen the image for me", "answers": [], "area": null, "category": "unsupported", "template": "sharpen the image"}
+{"query": "could you upper case the first letter of each word in the price.", "answers": [{"name": "set_text_case", "arguments": {"case": "title case"}}], "area": "text_style", "category": "action", "template": "upper case the first letter of each word in {o}"}
+{"query": "ok change the fill to #CE308D.", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#CE308D"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "Can you move the icon above everything thx", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "I'd like to nudge the box right", "answers": [{"name": "move_layers", "arguments": {"direction": "right", "pixels": 10}}], "area": "arrange", "category": "action", "template": "nudge {o} {d}"}
+{"query": "please remove the rounded corners from the image please", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "quickly send the background shape down one level now", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "send {o} down one level"}
+{"query": "Go ahead and text alignment centre please", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "text alignment centre please"}
+{"query": "i want to take the line through the price off", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "take the line through {o} off"}
+{"query": "Hey, add a new frame!", "answers": [], "area": null, "category": "unsupported", "template": "add a new frame"}
+{"query": "Ok text align left thanks", "answers": [{"name": "align_text", "arguments": {"align": "left"}}], "area": "text_style", "category": "action", "template": "text align left"}
+{"query": "NOW ROUNDED CORNERS PLEASE", "answers": [{"name": "round_corners", "arguments": {"radius": 16}}], "area": "size_and_shape", "category": "action", "template": "rounded corners please"}
+{"query": "Make every letter of the heading a capital.", "answers": [{"name": "set_text_case", "arguments": {"case": "uppercase"}}], "area": "text_style", "category": "action", "template": "make every letter of {o} a capital"}
+{"query": "Quickly stop the CTA being all caps", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "pls make the lines of the body copy justified now", "answers": [{"name": "align_text", "arguments": {"align": "justify"}}], "area": "text_style", "category": "action", "template": "make the lines of {o} justified"}
+{"query": "Take the line through the date off thx", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "take the line through {o} off"}
+{"query": "fix this please", "answers": [], "area": null, "category": "vague", "template": "fix this"}
+{"query": "Now change the headline to a thin font weight thx", "answers": [{"name": "set_text_weight", "arguments": {"weight": "thin"}}], "area": "text_style", "category": "action", "template": "change {o} to a thin font weight"}
+{"query": "i want to remove the rounded corners from the rectangle!", "answers": [{"name": "round_corners", "arguments": {"radius": 0}}], "area": "size_and_shape", "category": "action", "template": "remove the rounded corners from {o}"}
+{"query": "now move the shape above everything thanks", "answers": [{"name": "change_layer_order", "arguments": {"to": "front"}}], "area": "arrange", "category": "action", "template": "move {o} above everything"}
+{"query": "please rotate the rectangle 180 degrees anticlockwise", "answers": [{"name": "rotate", "arguments": {"degrees": -180}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "hey, round the image by 20", "answers": [{"name": "round_corners", "arguments": {"radius": 20}}], "area": "size_and_shape", "category": "action", "template": "round {o} by {n}"}
+{"query": "go ahead and align the cards left", "answers": [{"name": "align_layers", "arguments": {"edge": "left"}}], "area": "arrange", "category": "action", "template": "align {o} left"}
+{"query": "could you lighter weight for the offer text", "answers": [{"name": "set_text_weight", "arguments": {"weight": "light"}}], "area": "text_style", "category": "action", "template": "lighter weight for {o}"}
+{"query": "hey, orange for the button for me", "answers": [{"name": "set_colour", "arguments": {"colour": "orange"}}], "area": "colour_and_brand", "category": "action", "template": "{c} for {o}"}
+{"query": "Could you no underline on the date", "answers": [{"name": "style_text", "arguments": {"style": "underline", "on": false}}], "area": "text_style", "category": "action", "template": "no underline on {o}"}
+{"query": "increase the line height of the subheading", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "increase the line height of {o}"}
+{"query": "Send this down one level thx", "answers": [{"name": "change_layer_order", "arguments": {"to": "backward"}}], "area": "arrange", "category": "action", "template": "send {o} down one level"}
+{"query": "Strike out the price please", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "pls arrange the shape thx", "answers": [], "area": "arrange", "category": "vague", "template": "arrange {o}"}
+{"query": "let's stop the button text being all caps now", "answers": [{"name": "set_text_case", "arguments": {"case": "normal"}}], "area": "text_style", "category": "action", "template": "stop {o} being all caps"}
+{"query": "turn the star clockwise by 60 degrees thanks", "answers": [{"name": "rotate", "arguments": {"degrees": 60}}], "area": "size_and_shape", "category": "action", "template": "turn {o} clockwise by {n} degrees"}
+{"query": "test!", "answers": [], "area": null, "category": "unrelated", "template": "test"}
+{"query": "go ahead and make it nicer thanks", "answers": [], "area": null, "category": "vague", "template": "make it nicer"}
+{"query": "i'd like to undo that.", "answers": [], "area": null, "category": "unsupported", "template": "undo that"}
+{"query": "Un-italic the subheading", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": false}}], "area": "text_style", "category": "action", "template": "un-italic {o}"}
+{"query": "go ahead and colour the headline with our accent colour for me", "answers": [{"name": "use_brand_colour", "arguments": {"role": "accent"}}], "area": "colour_and_brand", "category": "action", "template": "colour {o} with our {r} colour"}
+{"query": "Change the fill to #A59BFE", "answers": [{"name": "set_hex_colour", "arguments": {"hex": "#A59BFE"}}], "area": "colour_and_brand", "category": "action", "template": "change the fill to {h}"}
+{"query": "ok the kit's heading font please thanks", "answers": [{"name": "use_brand_font", "arguments": {"font": "heading"}}], "area": "colour_and_brand", "category": "action", "template": "the kit's heading font please"}
+{"query": "pls reduce tracking on the caption!", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "Ok strike out this text now", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": true}}], "area": "text_style", "category": "action", "template": "strike out {o}"}
+{"query": "PLEASE TEXT ALIGNMENT CENTER PLEASE PLEASE", "answers": [{"name": "align_text", "arguments": {"align": "center"}}], "area": "text_style", "category": "action", "template": "text alignment centre please"}
+{"query": "let's bold the title and underline the price thx", "answers": [], "area": null, "category": "multi", "template": "bold the title and underline the price"}
+{"query": "can you more line spacing thx", "answers": [{"name": "change_spacing", "arguments": {"spacing": "line spacing", "direction": "more"}}], "area": "text_style", "category": "action", "template": "more line spacing"}
+{"query": "hey, reduce tracking on the body copy.", "answers": [{"name": "change_spacing", "arguments": {"spacing": "letter spacing", "direction": "less"}}], "area": "text_style", "category": "action", "template": "reduce tracking on {o}"}
+{"query": "now rotate the logo 15 degrees anticlockwise!", "answers": [{"name": "rotate", "arguments": {"degrees": -15}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "make the product shot editable again now", "answers": [{"name": "lock_layers", "arguments": {"action": "unlock"}}], "area": "layers", "category": "action", "template": "make {o} editable again"}
+{"query": "I'd like to 64px left please", "answers": [{"name": "move_layers", "arguments": {"direction": "left", "pixels": 64}}], "area": "arrange", "category": "action", "template": "{n}px {d}"}
+{"query": "Quickly rotate the product shot 60 degrees anticlockwise for me", "answers": [{"name": "rotate", "arguments": {"degrees": -60}}], "area": "size_and_shape", "category": "action", "template": "rotate {o} {n} degrees anticlockwise"}
+{"query": "Hey, move it down!", "answers": [{"name": "move_layers", "arguments": {"direction": "down", "pixels": 10}}], "area": "arrange", "category": "action", "template": "move it {d}"}
+{"query": "Can you remove the strikethrough from the title", "answers": [{"name": "style_text", "arguments": {"style": "strikethrough", "on": false}}], "area": "text_style", "category": "action", "template": "remove the strikethrough from {o}"}
+{"query": "can you italicize the text please", "answers": [{"name": "style_text", "arguments": {"style": "italic", "on": true}}], "area": "text_style", "category": "action", "template": "italicize {o}"}
+{"query": "Bring the product shot forward.", "answers": [{"name": "change_layer_order", "arguments": {"to": "forward"}}], "area": "arrange", "category": "action", "template": "bring {o} forward"}
+{"query": "grow the shape 50%", "answers": [{"name": "resize", "arguments": {"direction": "bigger", "percent": 50}}], "area": "size_and_shape", "category": "action", "template": "grow {o} {n}%"}
+{"query": "Toggle the shape hidden please", "answers": [{"name": "hide_layers", "arguments": {"action": "hide"}}], "area": "layers", "category": "action", "template": "toggle {o} hidden"}
+{"query": "unbold this text.", "answers": [{"name": "set_text_weight", "arguments": {"weight": "regular"}}], "area": "text_style", "category": "action", "template": "unbold {o}"}

@@ -134,6 +134,10 @@ _Avoid_: Format, dimensions
 A place ads run, such as Meta, TikTok and YouTube, or Google Display, grouping the sizes the Add a frame card offers. One size may sit in two channels, each under its own name: a frame added from a tile takes the tile's name, and a size typed in takes the first one's.
 _Avoid_: Platform, network, placement
 
+**Readable size**:
+The smallest font size, in a frame's pixels, that reads where the frame is shown: 11 CSS pixels there, with a Google Display size shown at its own pixels and any other frame wider than a phone fitted to a phone's width (360 CSS pixels), so 33 px in a 1080-wide frame. Agent warnings tell of text under it.
+_Avoid_: Minimum font size, legible size
+
 **Scale**:
 How many pixels of an exported PNG, JPG or WebP there are to one of its frame, each way: 1x, 2x or 3x. At 2x a 1080×1080 frame exports as 2160×2160, drawn twice as dense, its file named `Sale@2x.png`. PDF and SVG have none.
 _Avoid_: Resolution, density, size (a frame's own)
@@ -396,7 +400,7 @@ A frame drawn as a PNG for an agent to look at, on the CPU surface: its longer s
 _Avoid_: Screenshot (that is of the screen), preview, thumbnail
 
 **Agent warning**:
-A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box (too tall, or a word too wide) or passes its line limit, a layer wholly outside its frame, or text inside a platform's safe-zone edge on a 9:16 frame. An agent batch's result carries those for the layers it touched: those it added, changed or took out, with the layers inside them and the rest of an auto layout box they are in, and every layer of a frame it changed.
+A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box (too tall, or a word too wide) or passes its line limit, text smaller than the readable size for its frame, text whose contrast with what is drawn behind it (photos included) is under the ratio its size needs, text whose letters overlap other text or the logo, text or a logo partly cut off at the frame's edge, or a layer wholly outside its frame; text inside the logo counts as the logo's picture. Only defects are told of, never a style choice, and a design is kept as it is either way. An agent batch's result carries those for the layers it touched: those it added, changed or took out, with the layers inside them and the rest of an auto layout box they are in, every layer of a frame it changed, and the contrast of every text in a frame it touched.
 _Avoid_: Error, lint, refusal (a refused command wrote nothing)
 
 **Ad rules**:

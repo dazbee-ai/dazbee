@@ -5,17 +5,14 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import {
   type AgentBatchResult,
   type AgentStep,
-  boundsOf,
   centreOf,
   cornersOf,
   descendants,
   frameIdOf,
   intersects,
-  type Point,
   runAgentBatch,
   sameValue,
   type Session,
-  turn,
 } from '@dazbee/doc'
 import {
   drawnFamilies,
@@ -26,15 +23,15 @@ import {
   type ResourceBytes,
   type ResourceCache,
   resourceCache,
-  type Resources,
   type SceneLayer,
   textMeasure,
 } from '@dazbee/renderer'
-import { type Design, type Layer, type Rect, SAFE_ZONES, safeZoneBands } from '@dazbee/schema'
+import type { Design, Layer, Rect } from '@dazbee/schema'
 
-/** What a warning is about. */
-export type AgentWarningKind =
-  'missingFont' | 'missingCharacters' | 'overflow' | 'pastMaxLines' | 'outsideFrame' | 'safeZone'
+import { cutOffWarning, isLogo, type Marked, overlapWarnings } from './ink-warnings.ts'
+import { placed, type Turn } from './layer-ink.ts'
+import { contrastWarning, drawnSmallest, type Letters, smallestLetters, tooSmallWarning } from './text-readability.ts'
+import type { AgentWarningKind, Check, TextLayer } from './types.ts'
 
 /** One thing in a frame that won't look as designed, as a sentence about the layer it is in. */
 export interface AgentWarning {
@@ -45,7 +42,10 @@ export interface AgentWarning {
 
 /** Which layers to check, and the resource cache to draw with. */
 export interface AgentWarningOptions {
-  /** The layers to check, at any depth; every layer the frame shows when left out. */
+  /**
+   * The layers to check, at any depth, and the contrast of every text in the frame, since what is
+   * drawn behind a text changes with them; every layer the frame shows when left out.
+   */
   layerIds?: Iterable<string>
   cache?: ResourceCache
 }
@@ -73,41 +73,26 @@ export type AgentBatchWarned = AgentBatchResult & AgentBatchWarnings
 /** What came of an agent's batch, with the warnings for the layers it touched to come once its fonts are here. */
 export type AgentBatchRun = AgentBatchResult & { warned: Promise<AgentBatchWarnings> }
 
-type TextLayer = Extract<SceneLayer, { type: 'text' }>
-
 /** A design's layers and frames as they were before a batch. */
 interface Before {
   nodes: Readonly<Record<string, Layer>>
   frames: Readonly<Record<string, unknown>>
 }
 
-/** A container's rotation, which turns the layers inside it about the container's centre. */
-interface Turn {
-  about: Point
-  degrees: number
-}
-
-/** What every check of one frame reads. */
-interface Check {
-  ck: CanvasKit
-  resources: Resources
-  /** The families `bytes` has files for. */
-  have: ReadonlySet<string>
-  frame: { name: string; width: number; height: number }
-  nameOf: (id: string) => string
-  warn: (layerId: string, kind: AgentWarningKind, message: string) => void
-}
-
 /** How far laid-out lines may pass a fixed box before they overflow it, as fitting text allows. */
 const OVERFLOW_SLACK = 0.01
-
 /**
  * What in frame `frameId` won't look as designed, layer by layer back to front. In a text: a
  * family `bytes` has no file for, so it draws in a fallback font; characters no font has; lines
- * taller than a fixed box, or a word wider than it; lines past its `maxLines`, cut off; on a 9:16
- * frame, its box inside a platform's safe-zone edge. Any layer: everything it draws, shadows
- * included, wholly outside the frame, told of only for the outermost such layer checked. Hidden
- * layers are not checked.
+ * taller than a fixed box, or a word wider than it; lines past its `maxLines`, cut off; letters
+ * smaller than the readable size for the frame (`readableTextSize`); and letters whose contrast with
+ * what is drawn around them is under WCAG 2's ratio for their size where a tenth of them are lowest
+ * (`contrastWarning`). A text or a logo (a layer with the logo's role, or bound to the brand's
+ * logo): its ink partly past the frame's edge; its ink on another's, told of once, on the upper layer
+ * when both are checked. A text inside the logo is part of the logo's picture, so only what won't draw
+ * as designed in it is told. Any layer: everything it draws, shadows included, wholly outside the
+ * frame, told of only for the outermost such layer checked. Hidden layers and masks' shapes are not
+ * checked.
  */
 export function frameWarnings(
   ck: CanvasKit,
@@ -127,22 +112,39 @@ export function frameWarnings(
     const check: Check = {
       ck,
       resources,
+      scene,
       have: new Set(bytes.fonts.map((font) => font.family)),
       frame: { name: frame.name, width: frame.width, height: frame.height },
       nameOf: (id) => ownValue(design.nodes, id)?.name || id,
       warn: (layerId, kind, message) => warnings.push({ layerId, kind, message }),
     }
-    const walk = (layers: readonly SceneLayer[], turns: readonly Turn[], outsideTold: boolean) => {
+    // The texts and logos checked so far, back to front.
+    const marked: Marked[] = []
+    const walk = (layers: readonly SceneLayer[], turns: readonly Turn[], outsideTold: boolean, inLogo: boolean) => {
       for (const layer of layers) {
         const asked = !wanted || wanted.has(layer.id)
-        const told = outsideTold || (asked && toldOutside(check, layer, turns))
-        if (asked && layer.type === 'text') textWarnings(check, layer, turns)
+        const reach = placed(cornersOf({ ...layerReach(ck, layer, resources), rotation: 0 }), turns)
+        const told = outsideTold || (asked && toldOutside(check, layer, reach))
+        const logo = !inLogo && isLogo(ownValue(design.nodes, layer.id))
+        const read = layer.type === 'text' && !layer.props.mask && !inLogo
+        if (!told && !layer.props.mask && (logo || read)) {
+          const mark: Marked = { layer, turns, reach, asked, logo }
+          if (asked) cutOffWarning(check, mark)
+          overlapWarnings(check, mark, marked)
+          marked.push(mark)
+        }
+        if (layer.type === 'text' && asked) textWarnings(check, layer, turns, read ? reach : undefined)
+        else if (read && !told) {
+          // What is drawn behind a text may have changed with any layer of the frame, moved or hidden ones too.
+          const smallest = drawnSmallest(check, layer)
+          if (smallest) contrastWarning(check, layer, turns, reach, smallest)
+        }
         const { rotation } = layer.props
         const inside = rotation === 0 ? turns : [...turns, { about: centreOf(layer.props), degrees: rotation }]
-        walk(layer.children, inside, told)
+        walk(layer.children, inside, told, inLogo || logo)
       }
     }
-    walk(scene.layers, [], false)
+    walk(scene.layers, [], false, false)
     return warnings
   } finally {
     if (!cache) owned.delete()
@@ -154,7 +156,8 @@ export function frameWarnings(
  * once. Its warnings come once `fonts` has loaded the faces the design draws its text in: of what
  * the batch touched, as frameWarnings tells it with the fonts there are then, in the design's order
  * of frames, read from the session's design then, which holds what fitting those fonts changed. A
- * layer the batch didn't touch is not warned of, even if another tab changed it meanwhile. A batch
+ * layer the batch didn't touch is not warned of, even if another tab changed it meanwhile, but for
+ * the contrast of a text in a frame it touched, which any layer behind the text may change. A batch
  * not kept has no warnings. `warned` never rejects: a check that fails gives `warningsError`, so the
  * caller still learns what the batch wrote.
  */
@@ -183,11 +186,10 @@ function ownValue<T>(records: Readonly<Record<string, T>>, key: string): T | und
   return Object.hasOwn(records, key) ? records[key] : undefined
 }
 
-/** Tells of a layer that draws nothing inside its frame; whether it did. */
-function toldOutside({ ck, resources, frame, nameOf, warn }: Check, layer: SceneLayer, turns: readonly Turn[]) {
-  const reach = layerReach(ck, layer, resources)
+/** Tells of a layer that draws nothing inside its frame, `reach` being all it draws; whether it did. */
+function toldOutside({ frame, nameOf, warn }: Check, layer: SceneLayer, reach: Rect) {
   const inFrame = { x: 0, y: 0, width: frame.width, height: frame.height }
-  if (intersects(placed(cornersOf({ ...reach, rotation: 0 }), turns), inFrame)) return false
+  if (intersects(reach, inFrame)) return false
   warn(
     layer.id,
     'outsideFrame',
@@ -196,13 +198,17 @@ function toldOutside({ ck, resources, frame, nameOf, warn }: Check, layer: Scene
   return true
 }
 
-/** Tells what won't draw as designed in one text layer. */
-function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
+/**
+ * Tells what won't draw as designed in one text layer; with `reach`, everything it draws in the frame's
+ * pixels, also whether it reads, which a text inside the logo isn't asked.
+ */
+function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[], reach: Rect | undefined) {
   const { ck, resources, have, nameOf } = check
   const { props } = layer
   const name = nameOf(layer.id)
   const warn = (kind: AgentWarningKind, message: string) => check.warn(layer.id, kind, message)
   const laid = layoutText(ck, props, resources)
+  let smallest: Letters | undefined
   try {
     for (const family of new Set(drawnFamilies(layer)))
       if (!have.has(family))
@@ -232,15 +238,13 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
       warn('overflow', `Text "${name}" overflows its fixed box: a word is wider than the box, ${props.width} px.`)
     if (cut)
       warn('pastMaxLines', `Text "${name}" has more lines than its limit of ${props.maxLines}, so the rest is cut off.`)
+    smallest = smallestLetters(props, laid.scale)
   } finally {
     laid.delete()
   }
-  const platforms = coveringPlatforms(check.frame, placed(cornersOf(props), turns))
-  if (platforms.length > 0)
-    warn(
-      'safeZone',
-      `Text "${name}" is inside the safe-zone edge of ${listed(platforms)}, where the platform’s own buttons and captions cover it.`,
-    )
+  if (!smallest || !reach) return
+  tooSmallWarning(check, layer, smallest)
+  contrastWarning(check, layer, turns, reach, smallest)
 }
 
 /**
@@ -306,24 +310,6 @@ function touchedLayers(design: Design, before: Before): Map<string, Set<string> 
     if (was && was.parentId !== node?.parentId) touch(was.parentId)
   }
   return touched
-}
-
-/** The box around `corners` once each container's rotation in `turns`, innermost first, has turned them. */
-function placed(corners: readonly Point[], turns: readonly Turn[]): Rect {
-  const points = corners.map((corner) => turns.reduceRight((p, { about, degrees }) => turn(p, about, degrees), corner))
-  return boundsOf(points.map((p) => ({ ...p, width: 0, height: 0, rotation: 0 })))
-}
-
-/** The platforms whose safe-zone edge `box` is inside; none on a frame that isn't 9:16. */
-function coveringPlatforms(frame: { width: number; height: number }, box: Rect): string[] {
-  return SAFE_ZONES.filter(({ platform }) =>
-    safeZoneBands(frame.width, frame.height, platform).some((band) => intersects(band, box)),
-  ).map(({ platform }) => platform)
-}
-
-/** Names as a sentence lists them: `A`, `A and B`, `A, B and C`. */
-function listed(names: readonly string[]): string {
-  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }
 
 /** Layer `id`, or the outermost box holding it whose auto layout places the layers in it. */

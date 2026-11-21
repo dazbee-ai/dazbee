@@ -24,10 +24,10 @@ export {
   type AgentBatchWarned,
   type AgentBatchWarnings,
   type AgentWarning,
-  type AgentWarningKind,
   type AgentWarningOptions,
   frameWarnings,
   runAgentBatchWithWarnings,
   type WarningFonts,
   whenWarned,
 } from './agent-warnings.ts'
+export type { AgentWarningKind } from './types.ts'

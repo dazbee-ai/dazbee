@@ -106,7 +106,7 @@ export const DESIGN_TOOLS: Tool[] = [
     name: 'check_frame',
     title: 'Check a frame',
     description:
-      'Lists what in a frame of the open design won’t look as designed, each a sentence about one layer with its id and kind: a font with no file, characters no font has, text that overflows its fixed box or passes its line limit, a layer wholly outside the frame, or text inside a platform’s safe-zone edge on a 9:16 frame. Fix these before saying a frame is done.',
+      'Lists what in a frame of the open design won’t look as designed, each a sentence about one layer with its id and kind: a font with no file, characters no font has, text that overflows its fixed box or passes its line limit, text smaller than the readable size for the frame, text hard to read against what is drawn behind it, text overlapping other text or the logo, text or a logo partly cut off at the frame’s edge, or a layer wholly outside the frame. Fix these before saying a frame is done.',
     readOnly: true,
     input: z.object({ frame: FrameId }),
     run: ({ frame }, context) =>

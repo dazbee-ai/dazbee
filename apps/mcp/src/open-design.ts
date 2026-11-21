@@ -133,12 +133,14 @@ interface HeldSlot {
 export const REOPENED =
   'The design was opened again, since its connection ended while this agent was away: the steps before can no longer be undone'
 
+/** What the agent is told when another session of the access took the design's tab over. */
+const REPLACED = 'The design was opened again in another session of this agent, so it is closed here'
 /** Why a design closed for good, by why its tab stopped. */
 const STOPPED: Record<NonNullable<ReturnType<AgentTab['stopped']>>, string> = {
   Deleted: 'The design was deleted, so it is closed; open another with open_design',
   Outdated:
     'The design was saved by a newer version of Dazbee than this server runs, so it is closed; try again in a few minutes',
-  Replaced: 'The design was opened again in another session of this agent, so it is closed here',
+  Replaced: REPLACED,
   NoAccess: 'This agent may no longer open the design, so it is closed',
 }
 /** Why there is no slot for a tab, when the process holds all it may. */
@@ -163,7 +165,7 @@ export function agentTabSlots(max: number, perAccess: number): AgentTabSlots {
 
   function take(accessId: string, holder: SlotHolder, takesOver: boolean): AgentTabSlot | string {
     const full = oldestPast(accessId)
-    if (full && !takesOver) return STOPPED.Replaced
+    if (full && !takesOver) return REPLACED
     if (full && full.holder.unsent() > 0) return UNSENT
     if (!full && total >= max) return FULL
     const slot: HeldSlot = { holder, takesOver, state: 'opening' }
@@ -179,7 +181,7 @@ export function agentTabSlots(max: number, perAccess: number): AgentTabSlots {
   /** Holds `slot`, taking over the access's oldest when it holds all it may; or why it can't. */
   function hold(accessId: string, slot: HeldSlot): string | undefined {
     const oldest = oldestPast(accessId)
-    if (oldest && !slot.takesOver) return STOPPED.Replaced
+    if (oldest && !slot.takesOver) return REPLACED
     if (oldest && oldest.holder.unsent() > 0) return UNSENT
     if (oldest) {
       oldest.state = 'takenOver'
@@ -397,7 +399,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
 
   /** A newer tab of the access took the open tab's slot over: the next call says the design was opened elsewhere. */
   async function replaced() {
-    if (state.kind === 'open' && state.slot.takenOver()) await endTab(state.tab, STOPPED.Replaced)
+    if (state.kind === 'open' && state.slot.takenOver()) await endTab(state.tab, REPLACED)
   }
 
   /** The tab's link ended for good: the next call says `why`. */
@@ -478,5 +480,5 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
 
 /** A slot's refusal as a tool's: the design opened in another session leaves none open here. */
 function refusalOf(why: string): ToolRefusal {
-  return why === STOPPED.Replaced ? new NoDesignOpen(why) : new ToolRefusal(why)
+  return why === REPLACED ? new NoDesignOpen(why) : new ToolRefusal(why)
 }

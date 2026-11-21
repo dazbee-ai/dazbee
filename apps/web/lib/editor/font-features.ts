@@ -1,6 +1,6 @@
 // The OpenType features the Text tab's Font features section offers, which of them it shows for
 // the selected texts, and whether each is on.
-import type { Features } from '@dazbee/schema'
+import { type Features, type TextProps, withRunStyle } from '@dazbee/schema'
 
 /** An offered feature: its tag, whether fonts turn it on by default, and whether it is made up where a font lacks it. */
 export interface OfferedFeature {
@@ -33,8 +33,8 @@ export const OFFERED_FEATURES: readonly OfferedFeature[] = [
   { tag: 'subs', onByDefault: false, madeUp: true },
 ]
 
-/** The features that turn each other off: a text is superscript or subscript, never both. */
-const EITHER: Readonly<Record<string, string>> = { sups: 'subs', subs: 'sups' }
+/** The feature each feature turned on turns off: a character is superscript or subscript, never both. */
+const TURNS_OFF: Readonly<Record<string, string>> = { sups: 'subs', subs: 'sups' }
 
 /**
  * The offered features to show for these styles: those every style's font has (`has` gives a
@@ -56,8 +56,30 @@ export function shownFeatures(
 
 /** The features to set when a switch turns `tag` on or off: superscript turned on turns subscript off, and the other way round. */
 export function turnedFeatures(tag: string, on: boolean): Features {
-  const other = EITHER[tag]
+  const other = TURNS_OFF[tag]
   return on && other ? { [tag]: true, [other]: false } : { [tag]: on }
+}
+
+/**
+ * A whole text's style and runs with a feature turned on or off (`turnedFeatures`) in its style;
+ * a run that has on the feature this turns off has it turned off too, so no character is left
+ * superscript and subscript at once.
+ */
+export function textWithFeature(
+  text: Pick<TextProps, 'style' | 'runs'>,
+  tag: string,
+  on: boolean,
+): Pick<TextProps, 'style' | 'runs'> {
+  const turned = turnedFeatures(tag, on)
+  const off = on ? TURNS_OFF[tag] : undefined
+  return {
+    style: withRunStyle(text.style, { features: turned }),
+    runs: text.runs.map((run) =>
+      off && run.style.features?.[off] === true
+        ? { ...run, style: { ...run.style, features: { ...run.style.features, [off]: false } } }
+        : run,
+    ),
+  }
 }
 
 /** Whether a feature is on in every style (true), in some (mixed) or in none (false); one a style doesn't set is as fonts have it. */

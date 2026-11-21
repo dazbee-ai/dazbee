@@ -50,11 +50,16 @@ export const square = {
   props: { x: 20, y: 20, width: 40, height: 40, shape: { kind: 'rect' }, fills: [] },
 }
 export const white = { type: 'solid', color: '#FFFFFFFF' }
-const black = { type: 'solid', color: '#000000FF' }
+export const black = { type: 'solid', color: '#000000FF' }
 /** A layer the story holds over the title, as `layer` says. */
-export const over = (id: string, layer: { type: string; name: string; props: object; [key: string]: unknown }) => ({
+const over = (id: string, layer: { type: string; name: string; props: object; [key: string]: unknown }) => ({
   [id]: { index: 'a2', parentId: 'story', link: id, ...layer },
 })
+/** A rectangle behind the title, at `box`, filled with `fill`. */
+export const behind = (id: string, box: object, fill: object) =>
+  over(id, { type: 'graphic', name: id, index: 'a0V', props: { ...square.props, ...box, fills: [fill] } })
+/** Where a band across the story sits behind the title. */
+export const band = { x: 0, y: 180, width: 360, height: 100 }
 /** A second text over the title, with its look, as `props` changes it. */
 export const second = (props: object = {}) =>
   over('second', { type: 'text', name: 'Second', props: { ...title.props, ...props } })

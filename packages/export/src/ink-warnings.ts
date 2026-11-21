@@ -15,14 +15,15 @@ export interface Marked {
   reach: Rect
   asked: boolean
   logo: boolean
-  /** The layers it is inside, outermost first. */
-  holders: readonly string[]
   ink?: Ink
 }
 
-/** The least ink, in the frame's square pixels, past the frame's edge that cuts a layer off, above anti-aliasing. */
+/**
+ * The least ink, in the frame's square pixels, past the frame's edge that cuts a layer off, and that
+ * two layers share to overlap: two pixels, so a letter shaved or touched shows, and an edge pixel
+ * anti-aliasing half covers doesn't.
+ */
 const CUT_AREA = 2
-/** The least ink, in the frame's square pixels, two layers share that makes them overlap. */
 const OVERLAP_AREA = 2
 
 /** Whether a layer is the logo: it has the logo's role, or draws the brand's logo. */
@@ -40,11 +41,11 @@ export function cutOffWarning(check: Check, mark: Marked) {
 
 /**
  * Tells of each text or logo below `mark` whose ink `mark`'s overlaps, on `mark` when it was asked
- * for, else on the one below. Two logos, and a layer and one it is inside, are not compared.
+ * for, else on the one below. Two logos are not compared.
  */
 export function overlapWarnings(check: Check, mark: Marked, below: readonly Marked[]) {
   for (const under of below) {
-    if (!(mark.asked || under.asked) || (mark.logo && under.logo) || mark.holders.includes(under.layer.id)) continue
+    if (!(mark.asked || under.asked) || (mark.logo && under.logo)) continue
     if (!intersects(mark.reach, under.reach)) continue
     if (sharedInk(inkFor(check, mark), inkFor(check, under)) < OVERLAP_AREA) continue
     const [told, other] = mark.asked ? [mark, under] : [under, mark]

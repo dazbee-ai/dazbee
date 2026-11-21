@@ -4,12 +4,14 @@ import { openSession, plainStore } from '@dazbee/doc'
 
 import { frameWarnings, runAgentBatchWithWarnings, whenWarned } from './agent-warnings.ts'
 import {
+  band,
+  behind,
+  black,
   bytes,
   ck,
   fontsHere,
   kindsOf,
   logo,
-  over,
   second,
   square,
   storyWith,
@@ -171,19 +173,7 @@ describe('frameWarnings', () => {
   })
 
   it('measures contrast against the photo drawn behind the text', () => {
-    const photo = over('photo', {
-      type: 'graphic',
-      name: 'Photo',
-      index: 'a0V',
-      props: {
-        x: 0,
-        y: 0,
-        width: 360,
-        height: 640,
-        shape: { kind: 'rect' },
-        fills: [{ type: 'image', assetId: 'halves' }],
-      },
-    })
+    const photo = behind('photo', { x: 0, y: 0, width: 360, height: 640 }, { type: 'image', assetId: 'halves' })
     const whiteText = { width: 140, style: { ...style, color: '#FFFFFFFF' } }
     expect(kindsOf(storyWith({ title: { ...whiteText, x: 20 }, more: photo }))).toEqual([['title', 'lowContrast']])
     expect(kindsOf(storyWith({ title: { ...whiteText, x: 200 }, more: photo }))).toEqual([])
@@ -193,6 +183,59 @@ describe('frameWarnings', () => {
     const outline = { width: 3, color: '#000000FF', under: true }
     const outlined = { style: { ...style, color: '#FFFFFFFF', outline } }
     expect(kindsOf(storyWith({ title: outlined }, { fills: [white] }))).toEqual([])
+  })
+
+  it('counts a dark glow or drop shadow around white letters as drawn behind them', () => {
+    const glow = { type: 'glow', blur: 4, spread: 2, color: '#000000FF' }
+    const shadow = { type: 'dropShadow', x: 1, y: 1, blur: 4, spread: 2, color: '#000000FF' }
+    const whiteText = { style: { ...style, color: '#FFFFFFFF' } }
+    expect(kindsOf(storyWith({ title: { ...whiteText, effects: [glow] } }, { fills: [white] }))).toEqual([])
+    expect(kindsOf(storyWith({ title: { ...whiteText, effects: [shadow] } }, { fills: [white] }))).toEqual([])
+  })
+
+  it('takes text inside the logo as part of the logo’s picture, not as text to read', () => {
+    const mark = {
+      mark: {
+        type: 'group',
+        index: 'a2',
+        name: 'Mark',
+        role: 'logo',
+        parentId: 'story',
+        link: 'mark',
+        props: { x: 60, y: 300, width: 100, height: 40 },
+      },
+      word: {
+        ...title,
+        name: 'Word',
+        parentId: 'mark',
+        link: 'word',
+        props: {
+          ...title.props,
+          y: 300,
+          width: 100,
+          height: 40,
+          text: 'Brand',
+          style: { ...style, fontSize: 6, color: '#FFFFFFFF' },
+        },
+      },
+      tm: {
+        ...title,
+        index: 'a2',
+        name: 'Tm',
+        parentId: 'mark',
+        link: 'tm',
+        props: {
+          ...title.props,
+          x: 62,
+          y: 300,
+          width: 100,
+          height: 40,
+          text: 'Brand',
+          style: { ...style, fontSize: 6 },
+        },
+      },
+    }
+    expect(kindsOf(storyWith({ more: mark }))).toEqual([])
   })
 
   it('tells of text whose letters overlap another text’s or the logo, once, on the layer above', () => {
@@ -365,18 +408,25 @@ describe('runAgentBatchWithWarnings', () => {
     expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['caption', 'cutOff']])
   })
 
-  it('checks the contrast of a text it didn’t touch over a layer it changed, and nothing else of it', async () => {
-    const band = {
-      type: 'graphic',
-      index: 'a0V',
-      name: 'Band',
-      parentId: 'story',
-      link: 'band',
-      props: { x: 0, y: 180, width: 360, height: 100, shape: { kind: 'rect' }, fills: [white] },
+  it('checks the contrast of every text in a frame it changed, from wherever a layer was moved', async () => {
+    const whiteTitle = { style: { ...style, color: '#FFFFFFFF' } }
+    for (const patch of [{ y: 500 }, { visible: false }]) {
+      const session = openSession(plainStore(storyWith({ title: whiteTitle, more: behind('band', band, black) })))
+      const result = await whenWarned(
+        runAgentBatchWithWarnings(
+          ck,
+          session,
+          [{ command: 'node.update', input: { ids: ['band'], patch } }],
+          fontsHere(),
+        ),
+      )
+      expect(result.warnings.map(({ layerId, kind }) => [layerId, kind])).toEqual([['title', 'lowContrast']])
     }
-    const session = openSession(
-      plainStore(storyWith({ title: { style: { ...style, fontFamily: 'Nowhere Sans' } }, more: { band } })),
-    )
+  })
+
+  it('checks the contrast of a text it didn’t touch over a layer it changed, and nothing else of it', async () => {
+    const nowhere = { style: { ...style, fontFamily: 'Nowhere Sans' } }
+    const session = openSession(plainStore(storyWith({ title: nowhere, more: behind('band', band, white) })))
     const darker = { fills: [{ type: 'solid', color: '#111111FF' }] }
     const result = await whenWarned(
       runAgentBatchWithWarnings(

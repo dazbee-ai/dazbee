@@ -33,7 +33,7 @@ export interface DrawnRegion {
   pixels: Uint8Array
 }
 
-/** The most pixels a region is drawn with for a check: a bigger region is drawn smaller. */
+/** The most pixels a region is drawn with for a check, 16 MB of RGBA: a bigger region is drawn smaller. */
 const MAX_DRAWN_PIXELS = 4_000_000
 
 /** The box around `corners` once each container's rotation in `turns`, innermost first, has turned them. */
@@ -126,16 +126,28 @@ export function inkWhere(ink: Ink, at: (x: number, y: number) => boolean): numbe
 
 /** How much of the frame, in square pixels, both layers put ink on, read at the finer of their two scales. */
 export function sharedInk(a: Ink, b: Ink): number {
-  const left = Math.max(a.region.x, b.region.x)
-  const top = Math.max(a.region.y, b.region.y)
-  const right = Math.min(a.region.x + a.region.width, b.region.x + b.region.width)
-  const bottom = Math.min(a.region.y + a.region.height, b.region.y + b.region.height)
-  if (right <= left || bottom <= top) return 0
+  const both = overlapOf(a.region, b.region)
+  if (!both) return 0
   const step = 1 / Math.max(a.scale, b.scale)
   let count = 0
-  for (let y = top + step / 2; y < bottom; y += step)
-    for (let x = left + step / 2; x < right; x += step) if (inkedAt(a, x, y) && inkedAt(b, x, y)) count++
+  for (let y = both.y + step / 2; y < both.y + both.height; y += step)
+    for (let x = both.x + step / 2; x < both.x + both.width; x += step)
+      if (inkedAt(a, x, y) && inkedAt(b, x, y)) count++
   return count * step * step
+}
+
+/** The part two boxes share, or undefined when they share none. */
+export function overlapOf(a: Rect, b: Rect): Rect | undefined {
+  const x = Math.max(a.x, b.x)
+  const y = Math.max(a.y, b.y)
+  const right = Math.min(a.x + a.width, b.x + b.width)
+  const bottom = Math.min(a.y + a.height, b.y + b.height)
+  return right > x && bottom > y ? { x, y, width: right - x, height: bottom - y } : undefined
+}
+
+/** Whether pixel `i` of a mask is ink: covered at least half as much as its most covered pixel. */
+function inked(ink: Ink, i: number): boolean {
+  return ink.most > 0 && (ink.alpha[i] ?? 0) * 2 >= ink.most
 }
 
 /** Whether the layer puts ink on the frame's point (x, y). */
@@ -144,9 +156,4 @@ function inkedAt(ink: Ink, x: number, y: number): boolean {
   const row = Math.floor((y - ink.region.y) * ink.scale)
   if (col < 0 || row < 0 || col >= ink.width || row >= ink.height) return false
   return inked(ink, row * ink.width + col)
-}
-
-/** Whether pixel `i` of a mask is ink: covered at least half as much as its most covered pixel. */
-function inked(ink: Ink, i: number): boolean {
-  return ink.most > 0 && (ink.alpha[i] ?? 0) * 2 >= ink.most
 }

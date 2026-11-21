@@ -2,12 +2,10 @@
 // what is drawn around them, measured on the pixels the CPU surface draws (ADR-0005): the frame and
 // every layer up to the text, the text included, so photos, gradients, the text's own outline and its
 // shadows all count. A frame that is transparent there shows on white.
-import type { CanvasKit } from '@dazbee/canvaskit'
-import { cornersOf } from '@dazbee/doc'
-import { drawScene, layerReach, layoutText, type Resources, type Scene, type SceneLayer } from '@dazbee/renderer'
+import { drawScene, layoutText, type SceneLayer } from '@dazbee/renderer'
 import { readableTextSize, type Rect, shownScale, type TextProps, withRunStyle } from '@dazbee/schema'
 
-import { drawnRegion, fitScale, inkOf, placed, type Turn } from './layer-ink.ts'
+import { drawnRegion, fitScale, inkOf, overlapOf, type Turn } from './layer-ink.ts'
 import type { Check, TextLayer } from './types.ts'
 
 /** The size and weight of some of a text's letters. */
@@ -23,23 +21,46 @@ const LARGE_TEXT_CONTRAST = 3
 const LARGE_TEXT_PX = 24
 const LARGE_BOLD_TEXT_PX = (14 * 4) / 3
 
-/** The size, in drawn pixels, the smallest letters are drawn at to be measured, up to MAX_MEASURE_SCALE. */
+/**
+ * The size, in drawn pixels, the smallest letters are drawn at to be measured, so a regular weight's
+ * strokes are a few pixels wide and have an inside clear of their anti-aliased edges; drawn at most
+ * MAX_MEASURE_SCALE times the frame's size.
+ */
 const MEASURE_SIZE = 32
 const MAX_MEASURE_SCALE = 4
-/** How far around its letters, as a share of the smallest size, a text is compared with what is drawn there. */
+/**
+ * How far around its letters, as a share of the smallest size, a text is compared with what is drawn
+ * there, and at least MIN_RING drawn pixels: about a regular weight's stroke, so the ring holds what
+ * the eye sets a letter against, an outline or a glow included, and not what lies a word away.
+ */
 const RING_SHARE = 0.08
-/** The share of a letter's coverage that counts as its inside, clear of its anti-aliased edge. */
+const MIN_RING = 2
+/** The share of a letter's most coverage that counts as its inside, clear of its anti-aliased edge. */
 const CORE_SHARE = 0.9
-/** The share of a text's letters whose contrast is told of: the ratio a tenth of them are at or under. */
+/**
+ * The share of a text's letters whose contrast is told of: the ratio a tenth of them are at or under,
+ * so a word over a bright patch of a photo counts, and a stray pixel doesn't.
+ */
 const LOW_SHARE = 0.1
+/** The least side of the squares a text is measured in, in drawn pixels. */
+const MIN_CELL = 4
 
-/** Tells of a text whose letters, the smallest being `smallest`, are hard to read against what is drawn around them. */
-export function contrastWarning(check: Check, layer: TextLayer, turns: readonly Turn[], smallest: Letters) {
-  const { ck, resources, scene, frame } = check
+/**
+ * Tells of a text whose letters, the smallest being `smallest`, are hard to read against what is drawn
+ * around them; `reach` is everything it draws, in the frame's pixels.
+ */
+export function contrastWarning(
+  check: Check,
+  layer: TextLayer,
+  turns: readonly Turn[],
+  reach: Rect,
+  smallest: Letters,
+) {
+  const { frame } = check
   const shown = smallest.size / shownScale(frame.width, frame.height)
   const large = shown >= LARGE_TEXT_PX || (shown >= LARGE_BOLD_TEXT_PX && smallest.weight >= 700)
   const needed = large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST
-  const ratio = lowContrast(ck, scene, layer, turns, resources, smallest.size)
+  const ratio = lowContrast(check, layer, turns, reach, smallest.size)
   if (ratio !== undefined && ratio < needed)
     check.warn(
       layer.id,
@@ -100,20 +121,18 @@ export function smallestLetters(props: TextProps, scale: number): Letters | unde
  * them, and each square counts as much as the letters in it.
  */
 function lowContrast(
-  ck: CanvasKit,
-  scene: Scene,
+  { ck, resources, scene }: Check,
   layer: TextLayer,
   turns: readonly Turn[],
-  resources: Resources,
+  reach: Rect,
   smallest: number,
 ): number | undefined {
   const frame = { x: 0, y: 0, width: scene.width, height: scene.height }
   const wanted = Math.min(MAX_MEASURE_SCALE, Math.max(1, MEASURE_SIZE / smallest))
-  const reach = placed(cornersOf({ ...layerReach(ck, layer, resources), rotation: 0 }), turns)
-  const region = within(grown(reach, smallest * RING_SHARE + 2), frame)
+  const region = overlapOf(grown(reach, smallest * RING_SHARE + MIN_RING), frame)
   if (!region) return undefined
   const scale = fitScale(region, wanted)
-  const ring = Math.max(2, Math.round(smallest * scale * RING_SHARE))
+  const ring = Math.max(MIN_RING, Math.round(smallest * scale * RING_SHARE))
   const drawn = drawnRegion(ck, region, scale, (canvas) => {
     canvas.clipRect(ck.XYWHRect(0, 0, scene.width, scene.height), ck.ClipOp.Intersect, true)
     drawScene(ck, canvas, { ...scene, layers: upTo(scene.layers, layer.id) }, resources)
@@ -124,7 +143,7 @@ function lowContrast(
   const { width, height } = letters
   const touched = letters.alpha.map((a) => (a > 0 ? 1 : 0))
   const near = dilated(touched, width, height, ring)
-  const side = Math.max(4, Math.round(smallest * scale))
+  const side = Math.max(MIN_CELL, Math.round(smallest * scale))
   const across = Math.ceil(width / side)
   const cells = new Map<number, { inside: number[]; around: number[] }>()
   for (let row = 0; row < height; row++)
@@ -160,15 +179,6 @@ function tenths(value: number): number {
 /** `box` grown by `by` on every side. */
 function grown(box: Rect, by: number): Rect {
   return { x: box.x - by, y: box.y - by, width: box.width + 2 * by, height: box.height + 2 * by }
-}
-
-/** The part of `box` inside `frame`, or undefined when none is. */
-function within(box: Rect, frame: Rect): Rect | undefined {
-  const x = Math.max(box.x, frame.x)
-  const y = Math.max(box.y, frame.y)
-  const right = Math.min(box.x + box.width, frame.x + frame.width)
-  const bottom = Math.min(box.y + box.height, frame.y + frame.height)
-  return right > x && bottom > y ? { x, y, width: right - x, height: bottom - y } : undefined
 }
 
 /** The layers drawn up to layer `id`, it included: a container holding it keeps only its layers up to it. */

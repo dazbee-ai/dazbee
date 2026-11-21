@@ -43,8 +43,8 @@ export interface AgentWarning {
 /** Which layers to check, and the resource cache to draw with. */
 export interface AgentWarningOptions {
   /**
-   * The layers to check, at any depth, with the contrast of each text drawn over one of them, whose
-   * background they are; every layer the frame shows when left out.
+   * The layers to check, at any depth, and the contrast of every text in the frame, since what is
+   * drawn behind a text changes with them; every layer the frame shows when left out.
    */
   layerIds?: Iterable<string>
   cache?: ResourceCache
@@ -87,10 +87,12 @@ const OVERFLOW_SLACK = 0.01
  * taller than a fixed box, or a word wider than it; lines past its `maxLines`, cut off; letters
  * smaller than the readable size for the frame (`readableTextSize`); and letters whose contrast with
  * what is drawn around them is under WCAG 2's ratio for their size where a tenth of them are lowest
- * (`lowContrast`). A text or a logo (a layer with the logo's role, or bound to the brand's logo):
- * its ink partly past the frame's edge; its ink on another's, told of once, on the upper layer when
- * both are checked. Any layer: everything it draws, shadows included, wholly outside the frame, told
- * of only for the outermost such layer checked. Hidden layers and masks' shapes are not checked.
+ * (`contrastWarning`). A text or a logo (a layer with the logo's role, or bound to the brand's
+ * logo): its ink partly past the frame's edge; its ink on another's, told of once, on the upper layer
+ * when both are checked. A text inside the logo is part of the logo's picture, so only what won't draw
+ * as designed in it is told. Any layer: everything it draws, shadows included, wholly outside the
+ * frame, told of only for the outermost such layer checked. Hidden layers and masks' shapes are not
+ * checked.
  */
 export function frameWarnings(
   ck: CanvasKit,
@@ -116,40 +118,33 @@ export function frameWarnings(
       nameOf: (id) => ownValue(design.nodes, id)?.name || id,
       warn: (layerId, kind, message) => warnings.push({ layerId, kind, message }),
     }
-    // The texts and logos checked so far, and what the layers asked for draw.
+    // The texts and logos checked so far, back to front.
     const marked: Marked[] = []
-    const askedReach: Rect[] = []
-    const walk = (
-      layers: readonly SceneLayer[],
-      turns: readonly Turn[],
-      outsideTold: boolean,
-      holders: readonly string[],
-    ) => {
+    const walk = (layers: readonly SceneLayer[], turns: readonly Turn[], outsideTold: boolean, inLogo: boolean) => {
       for (const layer of layers) {
         const asked = !wanted || wanted.has(layer.id)
         const reach = placed(cornersOf({ ...layerReach(ck, layer, resources), rotation: 0 }), turns)
         const told = outsideTold || (asked && toldOutside(check, layer, reach))
-        const logo = isLogo(ownValue(design.nodes, layer.id))
-        if (!told && !layer.props.mask && (logo || layer.type === 'text')) {
-          const mark: Marked = { layer, turns, reach, asked, logo, holders }
+        const logo = !inLogo && isLogo(ownValue(design.nodes, layer.id))
+        const read = layer.type === 'text' && !layer.props.mask && !inLogo
+        if (!told && !layer.props.mask && (logo || read)) {
+          const mark: Marked = { layer, turns, reach, asked, logo }
           if (asked) cutOffWarning(check, mark)
           overlapWarnings(check, mark, marked)
           marked.push(mark)
         }
-        if (layer.type === 'text' && !layer.props.mask) {
-          if (asked) textWarnings(check, layer, turns)
-          else if (!told && askedReach.some((under) => intersects(under, reach))) {
-            const smallest = drawnSmallest(check, layer)
-            if (smallest) contrastWarning(check, layer, turns, smallest)
-          }
+        if (layer.type === 'text' && asked) textWarnings(check, layer, turns, read ? reach : undefined)
+        else if (read && !told) {
+          // What is drawn behind a text may have changed with any layer of the frame, moved or hidden ones too.
+          const smallest = drawnSmallest(check, layer)
+          if (smallest) contrastWarning(check, layer, turns, reach, smallest)
         }
-        if (asked) askedReach.push(reach)
         const { rotation } = layer.props
         const inside = rotation === 0 ? turns : [...turns, { about: centreOf(layer.props), degrees: rotation }]
-        walk(layer.children, inside, told, [...holders, layer.id])
+        walk(layer.children, inside, told, inLogo || logo)
       }
     }
-    walk(scene.layers, [], false, [])
+    walk(scene.layers, [], false, false)
     return warnings
   } finally {
     if (!cache) owned.delete()
@@ -161,7 +156,8 @@ export function frameWarnings(
  * once. Its warnings come once `fonts` has loaded the faces the design draws its text in: of what
  * the batch touched, as frameWarnings tells it with the fonts there are then, in the design's order
  * of frames, read from the session's design then, which holds what fitting those fonts changed. A
- * layer the batch didn't touch is not warned of, even if another tab changed it meanwhile. A batch
+ * layer the batch didn't touch is not warned of, even if another tab changed it meanwhile, but for
+ * the contrast of a text in a frame it touched, which any layer behind the text may change. A batch
  * not kept has no warnings. `warned` never rejects: a check that fails gives `warningsError`, so the
  * caller still learns what the batch wrote.
  */
@@ -202,8 +198,11 @@ function toldOutside({ frame, nameOf, warn }: Check, layer: SceneLayer, reach: R
   return true
 }
 
-/** Tells what won't draw as designed in one text layer. */
-function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
+/**
+ * Tells what won't draw as designed in one text layer; with `reach`, everything it draws in the frame's
+ * pixels, also whether it reads, which a text inside the logo isn't asked.
+ */
+function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[], reach: Rect | undefined) {
   const { ck, resources, have, nameOf } = check
   const { props } = layer
   const name = nameOf(layer.id)
@@ -243,9 +242,9 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
   } finally {
     laid.delete()
   }
-  if (!smallest) return
+  if (!smallest || !reach) return
   tooSmallWarning(check, layer, smallest)
-  contrastWarning(check, layer, turns, smallest)
+  contrastWarning(check, layer, turns, reach, smallest)
 }
 
 /**

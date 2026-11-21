@@ -1,7 +1,16 @@
 // Laid out to fit: a layer copied from a frame of one size into a frame of another, every size it
 // holds scaled with its box, and a text's scale raised to keep its letters readable.
-import { LayerLimits, type LetterSpacing, type Rect, smallestLetters, type TextProps, TILE_SCALE } from '@dazbee/schema'
+import {
+  type Constraints,
+  LayerLimits,
+  type LetterSpacing,
+  type Rect,
+  smallestLetters,
+  type TextProps,
+  TILE_SCALE,
+} from '@dazbee/schema'
 
+import { LEFT_TOP } from '../constraints.ts'
 import { round } from '../geometry.ts'
 import { scaled } from '../text-scale.ts'
 
@@ -67,6 +76,22 @@ interface LookLike {
   effects?: EffectLike[]
 }
 
+/** The side of a box a raised text grows from, along one axis. */
+type Side = 'start' | 'end' | 'centre'
+
+/** The most room, as a share of the frame's width, a raised text keeps from each of the frame's sides. */
+const EDGE_ROOM = 1 / 10
+/** The side each constraint keeps a raised text to as it grows. */
+const KEPT_SIDE: Record<Constraints['horizontal'] | Constraints['vertical'], Side> = {
+  left: 'start',
+  top: 'start',
+  right: 'end',
+  bottom: 'end',
+  center: 'centre',
+  leftRight: 'centre',
+  topBottom: 'centre',
+  scale: 'centre',
+}
 /** The smallest font size a scaled text gets, so rounding never leaves it at 0. */
 const MIN_FONT_SIZE = 0.01
 /** The thinnest a scaled stroke gets, so rounding never leaves it at 0, which the schema refuses. */
@@ -112,14 +137,45 @@ export function smallerRatio(fit: { from: Size; to: Size }): number {
 
 /**
  * The factor a text is scaled by in place of `s` so its smallest letters, at the least its shrink to
- * fit draws them, are at least `readable` (rounded up to hundredths, as its sizes are): `s` for a
+ * fit draws them, are at least `readable` once each of its sizes is rounded to hundredths: `s` for a
  * text they already are at that scale, and for one of only spaces.
  */
 export function readableScale(props: TextProps, s: number, readable: number): number {
-  const shrink = props.shrinkToFit ? props.shrinkToFit.min / props.style.fontSize : 1
-  const smallest = smallestLetters(props, shrink)?.size
+  const smallest = drawnSmallest(props)
   if (smallest === undefined || smallest * s >= readable) return s
-  return Math.ceil(readable * 100) / 100 / smallest
+  // Each size rounds on its own, so the least a shrink to fit draws a smaller run at may land a hair under; a hundredth more makes up for it.
+  let target = Math.ceil(readable * 100) / 100
+  while ((drawnSmallest(scaledSizes(props, target / smallest)) ?? readable) < readable) target += 0.01
+  return target / smallest
+}
+
+/**
+ * The box of a text whose sizes were raised `raise` times past the scale that gave it `scaled`, from
+ * `props`, the box the rule placed it in, in a frame of `size`: `raise` times `scaled` along each
+ * side, so its lines break where they did, or the placed box where that is larger. Its width is held
+ * inside the frame, keeping from each side the room the placed box has on its nearer one, at most
+ * EDGE_ROOM of the frame's width. A text held narrower than it wanted wraps into more lines, so its
+ * box mode becomes auto height, and it is fitted to its words after; until then its height grows as
+ * many times as the width it wanted is that width, rounded up. It grows from the side its
+ * constraints keep to, from its centre for one kept to both, centred or scaled, and is moved back
+ * inside the frame, at its top or left edge where it is taller or wider than the frame.
+ */
+export function readableBox(
+  props: Rect & { constraints?: Constraints | undefined },
+  scaled: Rect,
+  raise: number,
+  size: Size,
+): Rect & { boxMode?: 'autoHeight' } {
+  const { horizontal, vertical } = props.constraints ?? LEFT_TOP
+  const margin = Math.max(0, Math.min(props.x, size.width - props.x - props.width, size.width * EDGE_ROOM))
+  const wanted = Math.max(props.width, scaled.width * raise)
+  const width = Math.max(props.width, Math.min(wanted, size.width - 2 * margin))
+  const lines = wanted > width ? Math.ceil(wanted / width) : 1
+  const height = Math.max(props.height, scaled.height * raise * lines)
+  const x = grownFrom(KEPT_SIDE[horizontal], { at: props.x, was: props.width, to: width, room: size.width })
+  const y = grownFrom(KEPT_SIDE[vertical], { at: props.y, was: props.height, to: height, room: size.height })
+  const box = { x: round(x) + 0, y: round(y) + 0, width: round(width), height: round(height) }
+  return lines > 1 ? { ...box, boxMode: 'autoHeight' } : box
 }
 
 /**
@@ -269,4 +325,19 @@ function scaledDashes(dashes: number[], s: number): number[] {
   const longest = Math.max(0, ...dashes)
   if (longest === 0 || out.some((n) => n > 0)) return out
   return dashes.map((n) => length(MIN_DASH * n, 1 / longest))
+}
+
+/** The smallest letters of a text as it draws them at the least its shrink to fit allows. */
+function drawnSmallest(props: TextProps): number | undefined {
+  const fit = props.shrinkToFit
+  return smallestLetters(props, fit ? fit.min / props.style.fontSize : 1)?.size
+}
+
+/**
+ * Where a side `was` long at `at` starts once grown to `to`, kept at `keep`, then moved back inside
+ * `room`: at its start when it is longer than the room.
+ */
+function grownFrom(keep: Side, { at, was, to, room }: { at: number; was: number; to: number; room: number }): number {
+  const start = keep === 'start' ? at : keep === 'end' ? at + was - to : at + (was - to) / 2
+  return Math.min(Math.max(start, 0), Math.max(0, room - to))
 }

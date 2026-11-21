@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { GraphicProps, TextProps } from '@dazbee/schema'
+import { GraphicProps, smallestLetters, TextProps } from '@dazbee/schema'
 
-import { fitted, scaledSizes } from './fit.ts'
+import { fitted, readableScale, scaledSizes } from './fit.ts'
 
 const square = { width: 1080, height: 1080 }
 const mpu = { width: 300, height: 250 }
 const PAD = { top: 10, right: 10, bottom: 10, left: 10 }
 const black = { type: 'solid', color: '#000000FF' }
+const STYLE_OF_TEXT = { fontFamily: 'Noto Sans', fontSize: 40, color: '#111111FF' }
 /** A layer of `props` in a 100 × 100 box at the top left, fitted from the square to one `factor` times its size. */
 const at = <P extends Record<string, unknown>>(factor: number, props: P) => {
   const layer = { x: 0, y: 0, width: 100, height: 100, ...props }
@@ -402,6 +403,33 @@ describe('fitted', () => {
     expect(fitted(drawn, drawn, { from: square, to: half }).shape).toEqual(drawn.shape)
     const ellipse = { ...path, shape: { kind: 'ellipse' } }
     expect(fitted(ellipse, ellipse, { from: square, to: half }).shape).toEqual(ellipse.shape)
+  })
+})
+
+describe('readableScale', () => {
+  const text = (more: object) =>
+    TextProps.parse({ x: 0, y: 0, width: 400, height: 100, text: 'Sale ends', style: { ...STYLE_OF_TEXT }, ...more })
+
+  it('leaves the scale of a text whose letters it sets at the readable size or over', () => {
+    expect(readableScale(text({}), 0.5, 11)).toBe(0.5)
+  })
+
+  it('raises the scale of a text it would set under the readable size so its smallest letters read', () => {
+    const props = text({ runs: [{ start: 0, end: 4, style: { fontSize: 30 } }] })
+    const t = readableScale(props, 250 / 1080, 11)
+    expect(smallestLetters(scaledSizes(props, t), 1)?.size).toBe(11)
+  })
+
+  it('sets the smallest letters a shrink to fit draws at its least at the readable size, though each size rounds on its own', () => {
+    // At 11 / 31.5 the least, the font size and the run round to 12.57, 27.94 and 24.44, which draw the run at 10.9956.
+    const props = text({
+      style: { ...STYLE_OF_TEXT, fontSize: 80 },
+      runs: [{ start: 0, end: 4, style: { fontSize: 70 } }],
+      shrinkToFit: { min: 36, max: 80 },
+    })
+    const scaled = scaledSizes(props, readableScale(props, 250 / 1080, 11))
+    const least = (scaled.shrinkToFit?.min ?? 0) / scaled.style.fontSize
+    expect(smallestLetters(scaled, least)?.size).toBeGreaterThanOrEqual(11)
   })
 })
 

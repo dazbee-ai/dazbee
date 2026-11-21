@@ -20,12 +20,12 @@ import {
 } from '@dazbee/schema'
 
 import { descendants } from '../children.ts'
-import { followingBoxes, guessesUnder, LEFT_TOP, stayedBoxes, stayedGuides } from '../constraints.ts'
+import { followingBoxes, guessesUnder, stayedBoxes, stayedGuides } from '../constraints.ts'
 import { round } from '../geometry.ts'
 import type { StoreWrite } from '../store.ts'
 import { frameProblem, idProblem, pageProblem } from './checks.ts'
 import { type CommandContext, defineCommand, strict } from './define.ts'
-import { readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
+import { readableBox, readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
 import { keepDrawnIn } from './paths.ts'
 import { copyFrameLayers, type Slot, writeOrder } from './tree.ts'
 
@@ -38,9 +38,6 @@ interface ResizePlan {
 
 /** A frame's name as a command takes it. */
 export const FrameName = z.string().trim().min(1).max(120)
-
-/** The most room, as a share of the frame's width, a text raised by Add size keeps from each of the frame's sides. */
-const EDGE_ROOM = 1 / 10
 
 /**
  * Adds an empty white frame to a page, after its last frame: at `x`, `y` when given, else where
@@ -212,7 +209,7 @@ export const frameDuplicate = defineCommand({
 export const frameAddSize = defineCommand({
   name: 'frame.addSize',
   description:
-    'Copies a frame at another size, after the last frame of its page, named by the size (such as 1200×628), and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. A text that scale would set under the readable size for the new frame (the size check_frame warns under) is set at that size instead, its sizes kept in proportion and its box grown to hold it. The frame and its layers are not changed. It refuses a missing frame, an id already in use and a size the editor does not take.',
+    'Copies a frame at another size, after the last frame of its page, named by the size (such as 1200×628), and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. A text that scale would set under the readable size for the new frame (the size check_frame warns under) is set at that size instead, its sizes kept in proportion and its box grown to hold it; one whose lines can’t then break where they did inside the frame grows with its words (auto height). The frame and its layers are not changed. It refuses a missing frame, an id already in use and a size the editor does not take.',
   step: 'addSize',
   input: z.strictObject({
     frameId: FrameId.describe('The frame to copy.'),
@@ -295,15 +292,15 @@ function sizedLayers(design: Design, frameId: string, size: Size): Map<string, L
   const by = (n: number) => round(n * s) + 0
   const ids = descendants(design, frameId)
   const nodes = { ...design.nodes }
-  // The boxes the scale gave the raised texts, and how many times larger their letters are than it would set them.
-  const raised = new Map<string, { scaled: Rect; k: number }>()
+  // The boxes the scale gave the raised texts, and how many times larger their sizes are than it would set them.
+  const raised = new Map<string, { scaled: Rect; raise: number }>()
   for (const id of ids) {
     const node = design.nodes[id] as Layer
     const { x, y, width, height } = node.props
     const box = { x: by(x), y: by(y), width: by(width), height: by(height) }
-    const t = node.type === 'text' ? readableScale(node.props, s, readable) : s
-    if (t > s) raised.set(id, { scaled: box, k: t / s })
-    nodes[id] = { ...node, props: { ...scaledSizes(node.props, t), ...box } } as Layer
+    const textScale = node.type === 'text' ? readableScale(node.props, s, readable) : s
+    if (textScale > s) raised.set(id, { scaled: box, raise: textScale / s })
+    nodes[id] = { ...node, props: { ...scaledSizes(node.props, textScale), ...box } } as Layer
   }
   const from = { x: 0, y: 0, width: frame.width * s, height: frame.height * s }
   const guesses = guessesUnder({ ...design, nodes }, frameId, from)
@@ -318,50 +315,7 @@ function sizedLayers(design: Design, frameId: string, size: Size): Map<string, L
     ids.map((id) => {
       const props = { ...(nodes[id] as Layer).props, ...boxes.get(id) }
       const text = raised.get(id)
-      return [id, text ? { ...props, ...readableBox(props, text.scaled, text.k, size) } : props]
+      return [id, text ? { ...props, ...readableBox(props, text.scaled, text.raise, size) } : props]
     }),
   )
-}
-
-/**
- * The box of a text whose letters were raised `k` times past the scale that gave it `scaled`, from
- * the box the rule placed it in: `k` times `scaled` along each side, so its lines break where they
- * did, or the placed box where that is larger. Its width is held inside the frame, keeping from each
- * side the room the placed box has on its nearer one, at most EDGE_ROOM of the frame's width; held
- * narrower than it wanted, its height grows as many times as the width it wanted is that width,
- * rounded up, for the lines it then wraps into, and a text that grows with its words is fitted to
- * them after. It grows from the side its constraints keep to, from its middle for one kept to both,
- * centred or scaled, and is moved back inside the frame where it fits.
- */
-function readableBox(props: Layer['props'], scaled: Rect, k: number, size: Size): Rect {
-  const { horizontal, vertical } = props.constraints ?? LEFT_TOP
-  const margin = Math.max(0, Math.min(props.x, size.width - props.x - props.width, size.width * EDGE_ROOM))
-  const wanted = Math.max(props.width, scaled.width * k)
-  const width = Math.max(props.width, Math.min(wanted, size.width - 2 * margin))
-  const lines = wanted > width ? Math.ceil(wanted / width) : 1
-  const height = Math.max(props.height, scaled.height * k * lines)
-  const x = grownFrom(
-    horizontal === 'left' ? 'start' : horizontal === 'right' ? 'end' : 'middle',
-    props.x,
-    props.width,
-    width,
-    size.width,
-  )
-  const y = grownFrom(
-    vertical === 'top' ? 'start' : vertical === 'bottom' ? 'end' : 'middle',
-    props.y,
-    props.height,
-    height,
-    size.height,
-  )
-  return { x: round(x) + 0, y: round(y) + 0, width: round(width), height: round(height) }
-}
-
-/**
- * Where a side `was` long at `at` starts once grown to `to`, kept at its start, end or middle, then
- * moved back inside `room` where it fits.
- */
-function grownFrom(keep: 'start' | 'end' | 'middle', at: number, was: number, to: number, room: number): number {
-  const start = keep === 'start' ? at : keep === 'end' ? at + was - to : at + (was - to) / 2
-  return to > room ? start : Math.min(Math.max(start, 0), room - to)
 }

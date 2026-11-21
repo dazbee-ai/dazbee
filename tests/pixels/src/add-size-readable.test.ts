@@ -38,7 +38,8 @@ const text = (
 
 /**
  * An ad in the 1080 square, each text fitting its box there: a headline and a subline that grow with
- * their words, a price that shrinks to fit its fixed box, a button label and small print in fixed boxes.
+ * their words, a tag that grows across with them, a price that shrinks to fit its fixed box, a button
+ * label and two lines of small print in fixed boxes.
  */
 const AD: DesignInput = {
   meta: { designId: 'd', name: 'Ad' },
@@ -60,7 +61,10 @@ const AD: DesignInput = {
     subline: text('a1', 'Fresh styles for every day of the season', [90, 300, 900, 130], 44),
     price: text('a2', '$49', [640, 520, 360, 180], 120, { boxMode: 'fixed', shrinkToFit: { min: 60, max: 120 } }),
     button: text('a3', 'Shop now', [390, 860, 300, 70], 40, { boxMode: 'fixed', align: 'center' }),
-    legal: text('a4', 'Offer ends Sunday. Terms apply.', [90, 990, 900, 50], 30, { boxMode: 'fixed' }),
+    legal: text('a4', 'Offer ends Sunday. Terms apply to every order, in store and online.', [90, 960, 900, 82], 30, {
+      boxMode: 'fixed',
+    }),
+    tag: text('a5', 'Free delivery on every order over $50', [90, 60, 560, 41], 30, { boxMode: 'autoWidth' }),
   },
 }
 

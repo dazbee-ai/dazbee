@@ -127,7 +127,7 @@ The bands of a 9:16 frame that a platform's own interface covers (its profile, c
 _Avoid_: Safe area, title safe, UI overlay
 
 **Size**:
-A frame's width × height, such as 1080×1080, shown in its label. Add size makes a new frame of another size from a frame, named by that size (1200×628), holding linked copies of its layers, scaled to the new size and placed by their constraints; a layer with none gets them guessed from where it sits, and its copy keeps them. A text the scale would set under the readable size for the new frame is set at it, its box grown to hold it.
+A frame's width × height, such as 1080×1080, shown in its label. Add size makes a new frame of another size from a frame, named by that size (1200×628), holding linked copies of its layers, scaled to the new size and placed by their constraints; a layer with none gets them guessed from where it sits, and its copy keeps them. A text the scale would set under the readable size for the new frame is set at it, its box grown to hold it, and one that then wraps into more lines grows with its words.
 _Avoid_: Format, dimensions
 
 **Channel**:

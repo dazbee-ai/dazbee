@@ -317,7 +317,7 @@ describe('frame.addSize', () => {
     })
   })
 
-  it('holds a raised text too wide for the frame inside it, with the room it had on its nearer side, and as tall as the lines it wraps into', () => {
+  it('holds a raised text too wide for the frame inside it, with the room it had on its nearer side, growing with its words from there', () => {
     const input = adOf(
       Object.fromEntries([
         layer('legal', 'sq', 'text', [90, 1000, 900, 40], {
@@ -325,11 +325,31 @@ describe('frame.addSize', () => {
           boxMode: 'fixed',
           style: { ...STYLE, fontSize: 24 },
         }),
+        layer('tag', 'sq', 'text', [90, 60, 900, 40], { boxMode: 'autoWidth', style: { ...STYLE, fontSize: 24 } }),
+        layer('note', 'sq', 'text', [90, 500, 300, 40], { boxMode: 'fixed', style: { ...STYLE, fontSize: 24 } }),
       ]),
     )
-    const { box } = addSize(input, 300, 250)
+    const { box, copy } = addSize(input, 300, 250)
     // Wanting 412.5 wide, it gets the 258.34 that leaves 20.83 each side: two lines, each 9.26 × 1.98 tall, kept to the bottom.
     expect(box('legal')).toEqual({ x: 20.82, y: 204.07, width: 258.34, height: 36.67 })
+    // Its lines break elsewhere, so it grows with its words at that width, as does a text that grew across with them.
+    expect(copy('legal').props).toMatchObject({ boxMode: 'autoHeight' })
+    expect(copy('tag').props).toMatchObject({ boxMode: 'autoHeight' })
+    // A text whose box grows as much as its letters, its lines breaking where they did, keeps its box mode.
+    expect(copy('note').props).toMatchObject({ boxMode: 'fixed', width: 137.49 })
+  })
+
+  it('puts a raised text kept to the bottom that comes out taller than the frame at its top, where its first lines show', () => {
+    const input = adOf(
+      Object.fromEntries([
+        layer('legal', 'sq', 'text', [90, 900, 900, 100], {
+          text: 'Terms apply',
+          constraints: { horizontal: 'left', vertical: 'bottom' },
+          style: { ...STYLE, fontSize: 24 },
+        }),
+      ]),
+    )
+    expect(addSize(input, 320, 50).box('legal')).toMatchObject({ y: 0, height: 91.67 })
   })
 
   it('names the new frame by its size', () => {

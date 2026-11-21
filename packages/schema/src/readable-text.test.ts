@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { PHONE_WIDTH, READABLE_TEXT_PX, readableTextSize, shownScale } from './readable-text.ts'
+import { TextProps } from './layers.ts'
+import { PHONE_WIDTH, READABLE_TEXT_PX, readableTextSize, shownScale, smallestLetters } from './readable-text.ts'
 import { SIZE_PRESETS } from './sizes.ts'
 
 describe('shownScale', () => {
@@ -28,5 +29,25 @@ describe('readableTextSize', () => {
     for (const { width, height } of SIZE_PRESETS) {
       expect(readableTextSize(width, height)).toBeGreaterThanOrEqual(READABLE_TEXT_PX)
     }
+  })
+})
+
+describe('smallestLetters', () => {
+  const text = (words: string, runs: object[]) =>
+    TextProps.parse({
+      ...{ x: 0, y: 0, width: 300, height: 100, text: words, runs },
+      style: { fontFamily: 'Noto Sans', fontSize: 40, fontWeight: 700, color: '#111111FF' },
+    })
+
+  it('gives the size, at the scale given, and weight of the smallest letters, a run over only spaces left out', () => {
+    const props = text('Sale ends soon', [
+      { start: 4, end: 5, style: { fontSize: 8 } },
+      { start: 5, end: 9, style: { fontSize: 20, fontWeight: 400 } },
+    ])
+    expect(smallestLetters(props, 0.5)).toEqual({ size: 10, weight: 400 })
+  })
+
+  it('gives nothing for a text of only spaces', () => {
+    expect(smallestLetters(text('   ', []), 1)).toBeUndefined()
   })
 })

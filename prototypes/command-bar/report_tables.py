@@ -20,8 +20,11 @@ def main():
     ap.add_argument("--split", default="test")
     ap.add_argument("--conf", default="min")
     ap.add_argument("--threshold", type=float, default=0.5)
+    ap.add_argument("--calls", default="model", choices=["model", "engine"])
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+    import metrics
+    metrics.CALLS = args.calls
     rows = {}
     for path in sorted(glob.glob(os.path.join(args.results, f"*-{args.split}.jsonl"))):
         m = re.match(rf"(.+)-(L\d\d|published)-{args.split}\.jsonl$", os.path.basename(path))
@@ -31,7 +34,7 @@ def main():
         rows.setdefault(model, {})[depth] = evaluate(load(path), args.conf, args.threshold)
     lines = []
     for model, depths in rows.items():
-        lines += [f"### {model} ({args.split}, {next(iter(depths.values()))['n']} requests)", "",
+        lines += [f"### {model} ({args.split}, {next(iter(depths.values()))['n']} requests, {args.calls} calls)", "",
                   "| depth | exact | exact on-topic | refused off-topic | router right | AUROC | ECE | ms mean | ms p95 |",
                   "|---|---|---|---|---|---|---|---|---|"]
         for depth in sorted(depths, key=lambda d: (d != "published", d), reverse=True):

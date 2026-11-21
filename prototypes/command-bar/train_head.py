@@ -140,6 +140,8 @@ def main():
     ap.add_argument("--val", required=True, help="score.py output on validation, for early stopping")
     ap.add_argument("--gold-weight", type=float, default=0.5,
                     help="share of a gold or near-miss example in the loss, next to an engine one")
+    ap.add_argument("--select", default="bce", choices=["bce", "auroc"],
+                    help="keep the epoch with the lowest validation loss, or the highest AUROC")
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--epochs", type=int, default=8)
@@ -176,7 +178,8 @@ def main():
         rows = load(path)
         name = os.path.basename(path)
         train += engine_examples(rows, name)
-        train += gold_examples(rows, rng, name)
+        if args.gold_weight > 0:
+            train += gold_examples(rows, rng, name)
     val_rows = load(args.val)
     val = engine_examples(val_rows, "val")
     emit(event="data", train=len(train), train_pos=sum(l for _, l, _ in train),
@@ -250,8 +253,9 @@ def main():
         return bce, a, z
 
     best = None
+    key = (lambda bce, a: bce) if args.select == "bce" else (lambda bce, a: -a)
     bce, a, z = report(0, head, {})
-    best = (bce, 0)
+    best = (key(bce, a), 0)
     np_head = jax.tree.map(np.asarray, head)
     save_file(flatten(np_head), os.path.join(args.out, "head.safetensors"))
     t0 = time.time()
@@ -266,12 +270,12 @@ def main():
             losses.append(float(loss))
         bce, a, z = report(epoch, head, {"train_loss": float(np.mean(losses)),
                                          "minutes": round((time.time() - t0) / 60, 1)})
-        if bce < best[0]:
-            best = (bce, epoch)
+        if key(bce, a) < best[0]:
+            best = (key(bce, a), epoch)
             save_file(flatten(jax.tree.map(np.asarray, head)), os.path.join(args.out, "head.safetensors"))
             np.save(os.path.join(args.out, "val_logits.npy"), z)
             emit(event="best", epoch=epoch, val_bce=bce, val_auroc=a)
-    emit(event="done", best_epoch=best[1], best_val_bce=best[0], minutes=round((time.time() - t0) / 60, 1))
+    emit(event="done", best_epoch=best[1], best_score=best[0], minutes=round((time.time() - t0) / 60, 1))
 
     # Platt scaling on validation, folded into the head's last projection: logit' = a * logit + c.
     from safetensors.numpy import load_file

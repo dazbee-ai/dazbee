@@ -58,9 +58,9 @@ def valid(call, tools):
     return True
 
 
-def turn_call(turn, tools):
+def turn_call(turn, tools, include_held=False):
     """A turn's call as the model meant it: from its reasoning line when that is a valid call or a
-    refusal, else the engine's call, else the call it withheld."""
+    refusal, else the engine's call (and, with include_held, the call the engine withheld)."""
     if not turn:
         return []
     r = from_reasoning(turn.get("reasoning"))
@@ -68,4 +68,4 @@ def turn_call(turn, tools):
         return []
     if r and valid(r[0], tools):
         return r
-    return (turn.get("calls") or turn.get("held") or [])[:1]
+    return (turn.get("calls") or (turn.get("held") if include_held else None) or [])[:1]

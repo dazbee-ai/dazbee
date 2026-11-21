@@ -170,7 +170,7 @@ def candidates(row):
     from model_call import turn_call
     from tools import ACTIONS
     for area, t in turns.items():
-        made = turn_call(t, ACTIONS[area]) if CALLS == "model" else (t["calls"] or t["held"])
+        made = turn_call(t, ACTIONS[area], include_held=True) if CALLS == "model" else (t["calls"] or t["held"])
         if made and t.get("conf") is not None:
             out.append((t["conf"], made[0]))
     seen, ranked = set(), []

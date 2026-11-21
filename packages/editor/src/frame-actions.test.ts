@@ -160,13 +160,13 @@ describe('editorFrameActions', () => {
   })
 
   describe('addSize', () => {
-    it('adds a size of a frame, under its name, holding linked copies of its layers laid out to fit, and picks it and shows it, as one undo step', () => {
+    it('adds a size of a frame, named by its size, holding linked copies of its layers laid out to fit, and picks it and shows it, as one undo step', () => {
       const { frameActions, session, selection, frame, log, layersOf } = harness()
       selection.pickFrame(frame.id)
       const id = frameActions.addSize(frame.id, { width: 540, height: 1080 }) ?? ''
       expect(session.design().frames[id]).toMatchObject({
         pageId: 'p1',
-        name: 'Square',
+        name: '540×1080',
         width: 540,
         height: 1080,
         x: 2680,
@@ -193,15 +193,17 @@ describe('editorFrameActions', () => {
       ).toEqual(['a', 'row'])
     })
 
+    /** A text in the square frame, at 72 px unless told another, its link its index. */
+    const text = (index: string, box: { x: number; y: number; width: number; height: number }, fontSize = 72) => ({
+      type: 'text' as const,
+      parentId: 'sq',
+      link: index,
+      index,
+      name: 'Text',
+      props: { ...box, text: 'Summer sale', style: { fontFamily: 'Noto Sans', fontSize, color: '#111111FF' } },
+    })
+
     it('fits a text the placing made wider to its words, and only it, in the same undo step', () => {
-      const text = (index: string, box: { x: number; y: number; width: number; height: number }) => ({
-        type: 'text' as const,
-        parentId: 'sq',
-        link: index,
-        index,
-        name: 'Text',
-        props: { ...box, text: 'Summer sale', style: { fontFamily: 'Noto Sans', fontSize: 60, color: '#111111FF' } },
-      })
       const { frameActions, session, frame, log, layersOf } = harness({
         ...DESIGN,
         // The headline is guessed left and right; the tag, small at the top left, left and top.
@@ -216,6 +218,57 @@ describe('editorFrameActions', () => {
       expect(log.filter((line) => line.startsWith('fit'))).toEqual([`fit ${fitted}`])
       expect(headline?.props).toMatchObject({ x: 52.33, width: 1095.33, height: 50 })
       expect(session.undoName()).toBe('addSize')
+      session.undo()
+      expect(session.design().frames[id]).toBeUndefined()
+      expect(session.canUndo()).toBe(false)
+    })
+
+    it('fits a text raised to the readable size to its words, though the placing left its width, in the same undo step', () => {
+      const { frameActions, session, frame, log, layersOf } = harness({
+        ...DESIGN,
+        // At 540 × 540 the scale halves 24 px to 12, under the readable 16.5: the band, as wide as the
+        // frame, keeps the width the scale gives it, but its words take more lines.
+        nodes: { band: text('a1', { x: 0, y: 60, width: 1080, height: 40 }, 24) },
+      })
+      const id = frameActions.addSize(frame.id, { width: 540, height: 540 }) ?? ''
+      const band = layersOf(id)[0]
+      const bandId = Object.keys(session.design().nodes).find((key) => session.design().nodes[key] === band)
+      expect(band?.props).toMatchObject({ width: 540, height: 50, style: { fontSize: 16.5 } })
+      expect(log.filter((line) => line.startsWith('fit'))).toEqual([`fit ${bandId}`])
+      expect(session.undoName()).toBe('addSize')
+      session.undo()
+      expect(session.design().frames[id]).toBeUndefined()
+      expect(session.canUndo()).toBe(false)
+    })
+
+    it('fits a group to a text in a fixed box it holds, raised to the readable size, in the same undo step', () => {
+      const legal = text('a0', { x: 100, y: 900, width: 600, height: 40 }, 24)
+      const { frameActions, session, frame, layersOf } = harness({
+        ...DESIGN,
+        nodes: {
+          foot: {
+            type: 'group',
+            parentId: 'sq',
+            link: 'foot',
+            index: 'a0',
+            name: 'Foot',
+            props: { x: 100, y: 900, width: 600, height: 40 },
+          },
+          legal: { ...legal, parentId: 'foot', props: { ...legal.props, boxMode: 'fixed' as const } },
+        },
+      })
+      const id = frameActions.addSize(frame.id, { width: 540, height: 540 }) ?? ''
+      const nodes = session.design().nodes
+      const foot = layersOf(id)[0]
+      const inFoot = Object.values(nodes).find((node) => node.link === 'a0' && node !== nodes.legal)
+      // 24 px halved is under the readable 16.5: the text grows past the box the group was scaled to, and the group holds it.
+      expect(inFoot?.props).toMatchObject({ width: 412.5, style: { fontSize: 16.5 } })
+      expect(foot?.props).toMatchObject({
+        x: inFoot?.props.x,
+        y: inFoot?.props.y,
+        width: inFoot?.props.width,
+        height: inFoot?.props.height,
+      })
       session.undo()
       expect(session.design().frames[id]).toBeUndefined()
       expect(session.canUndo()).toBe(false)

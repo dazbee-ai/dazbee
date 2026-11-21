@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Design, DesignInput, Layer, Rect } from '@dazbee/schema'
+import {
+  type Design,
+  type DesignInput,
+  type Layer,
+  readableTextSize,
+  type Rect,
+  SIZE_PRESETS,
+  smallestLetters,
+  type TextProps,
+} from '@dazbee/schema'
 
 import { readDesign } from '../index.ts'
 import { openTestSession } from '../test-design.ts'
@@ -103,6 +112,39 @@ function addSize(input: DesignInput, width: number, height: number) {
   return { store, tab, before, design, frameId, copy, box }
 }
 
+/**
+ * An ad of texts in the 1080 square, each readable there: a headline, a subline whose first word is
+ * set smaller, small print in a fixed box, and a price that shrinks to fit.
+ */
+const textAd = (): DesignInput =>
+  adOf(
+    Object.fromEntries([
+      layer('headline', 'sq', 'text', [90, 200, 900, 180], {
+        text: 'Big summer sale',
+        style: { ...STYLE, fontSize: 72 },
+      }),
+      layer('subline', 'sq', 'text', [90, 400, 600, 50], {
+        text: 'Only this week',
+        style: { ...STYLE, fontSize: 40 },
+        runs: [{ start: 0, end: 4, style: { fontSize: 34 } }],
+      }),
+      layer('legal', 'sq', 'text', [90, 1000, 900, 40], {
+        text: 'Terms apply',
+        boxMode: 'fixed',
+        style: { ...STYLE, fontSize: 34 },
+      }),
+      layer('price', 'sq', 'text', [640, 600, 340, 120], {
+        text: '$49',
+        boxMode: 'fixed',
+        style: { ...STYLE, fontSize: 80 },
+        shrinkToFit: { min: 36, max: 80 },
+      }),
+    ]),
+  )
+/** The size a text's smallest letters are drawn at, at the least its shrink to fit allows. */
+const smallestDrawn = (props: TextProps) =>
+  smallestLetters(props, props.shrinkToFit ? props.shrinkToFit.min / props.style.fontSize : 1)?.size ?? 0
+
 const overlaps = (a: Rect, b: Rect) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 const inside = (b: Rect, width: number, height: number) =>
@@ -116,12 +158,16 @@ describe('frame.addSize', () => {
   describe.each(SIZES)('the sample ad at %i × %i', (width, height) => {
     const ids = ['photo', 'logo', 'badge', 'headline', 'product', 'button', 'legal']
 
-    it('keeps every layer in the frame, overlaps none that did not overlap in the square, and fills it with the photo', () => {
-      const { before, box } = addSize(sampleAd(), width, height)
+    it('keeps every layer in the frame, overlaps none that did not overlap in the square but a text raised to the readable size, and fills it with the photo', () => {
+      const { before, box, copy } = addSize(sampleAd(), width, height)
+      // A text set larger than the scale sets it takes more room than the scale leaves it.
+      const raised = (id: string) =>
+        copy(id).type === 'text' &&
+        (copy(id).props as TextProps).style.fontSize > (60 * Math.min(width, height)) / 1080 + 0.01
       for (const id of ids) expect(inside(box(id), width, height), id).toBe(true)
       for (const a of ids)
         for (const b of ids)
-          if (a < b && overlaps(box(a), box(b)))
+          if (a < b && !raised(a) && !raised(b) && overlaps(box(a), box(b)))
             expect(overlaps(boxOf(before, a), boxOf(before, b)), `${a} and ${b}`).toBe(true)
       expect(box('photo')).toEqual({ x: 0, y: 0, width, height })
     })
@@ -221,6 +267,95 @@ describe('frame.addSize', () => {
     const { box, copy } = addSize(input, 1080, 1920)
     expect(box('panel')).toEqual({ x: 0, y: 0, width: 1080, height: 200 })
     expect(copy('mark').props.constraints).toEqual({ horizontal: 'right', vertical: 'center' })
+  })
+
+  it.each(SIZE_PRESETS.map((preset) => [preset.width, preset.height] as const))(
+    'sets no text of the ad at %i × %i under the readable size there',
+    (width, height) => {
+      const { copy } = addSize(textAd(), width, height)
+      const readable = readableTextSize(width, height)
+      for (const id of ['headline', 'subline', 'legal', 'price'])
+        expect(smallestDrawn(copy(id).props as TextProps), id).toBeGreaterThanOrEqual(readable)
+    },
+  )
+
+  it('raises a text as a whole, its runs keeping their share of its size', () => {
+    // 250 / 1080 would set the subline's first word at 7.87: it is raised to 11, the rest with it.
+    const { copy } = addSize(textAd(), 300, 250)
+    expect(copy('subline').props).toMatchObject({ style: { fontSize: 12.94 }, runs: [{ style: { fontSize: 11 } }] })
+  })
+
+  it('grows a raised text’s box as much as its letters, from the side it keeps to, so its lines break where they did', () => {
+    const at = (x: number, constraints: object) =>
+      addSize(
+        adOf(
+          Object.fromEntries([
+            layer('sub', 'sq', 'text', [x, 400, 500, 100], { constraints, style: { ...STYLE, fontSize: 34 } }),
+          ]),
+        ),
+        300,
+        250,
+      ).box('sub')
+    // 250 / 1080 sets 34 at 7.87; 11 is 1.4 times that, so the 115.74 × 23.15 box the scale gives grows to 161.76 × 32.36.
+    expect(at(90, { horizontal: 'left', vertical: 'top' })).toEqual({
+      x: 20.83,
+      y: 92.59,
+      width: 161.76,
+      height: 32.36,
+    })
+    expect(at(490, { horizontal: 'right', vertical: 'bottom' })).toEqual({
+      x: 117.41,
+      y: 83.38,
+      width: 161.76,
+      height: 32.36,
+    })
+    expect(at(290, { horizontal: 'center', vertical: 'center' })).toEqual({
+      x: 69.12,
+      y: 87.99,
+      width: 161.76,
+      height: 32.36,
+    })
+  })
+
+  it('holds a raised text too wide for the frame inside it, with the room it had on its nearer side, growing with its words from there', () => {
+    const input = adOf(
+      Object.fromEntries([
+        layer('legal', 'sq', 'text', [90, 1000, 900, 40], {
+          text: 'Terms apply',
+          boxMode: 'fixed',
+          style: { ...STYLE, fontSize: 24 },
+        }),
+        layer('tag', 'sq', 'text', [90, 60, 900, 40], { boxMode: 'autoWidth', style: { ...STYLE, fontSize: 24 } }),
+        layer('note', 'sq', 'text', [90, 500, 300, 40], { boxMode: 'fixed', style: { ...STYLE, fontSize: 24 } }),
+      ]),
+    )
+    const { box, copy } = addSize(input, 300, 250)
+    // Wanting 412.5 wide, it gets the 258.34 that leaves 20.83 each side: two lines, each 9.26 × 1.98 tall, kept to the bottom.
+    expect(box('legal')).toEqual({ x: 20.82, y: 204.07, width: 258.34, height: 36.67 })
+    // Its lines break elsewhere, so it grows with its words at that width, as does a text that grew across with them.
+    expect(copy('legal').props).toMatchObject({ boxMode: 'autoHeight' })
+    expect(copy('tag').props).toMatchObject({ boxMode: 'autoHeight' })
+    // A text whose box grows as much as its letters, its lines breaking where they did, keeps its box mode.
+    expect(copy('note').props).toMatchObject({ boxMode: 'fixed', width: 137.49 })
+  })
+
+  it('puts a raised text kept to the bottom that comes out taller than the frame at its top, where its first lines show', () => {
+    const input = adOf(
+      Object.fromEntries([
+        layer('legal', 'sq', 'text', [90, 900, 900, 100], {
+          text: 'Terms apply',
+          constraints: { horizontal: 'left', vertical: 'bottom' },
+          style: { ...STYLE, fontSize: 24 },
+        }),
+      ]),
+    )
+    expect(addSize(input, 320, 50).box('legal')).toMatchObject({ y: 0, height: 91.67 })
+  })
+
+  it('names the new frame by its size', () => {
+    const { design, frameId } = addSize(sampleAd(), 1200, 628)
+    expect(design.frames[frameId]?.name).toBe('1200×628')
+    expect(design.frames.sq?.name).toBe('Square')
   })
 
   it('writes nothing of the original frame and its layers, and undo removes the new frame whole, in one step', () => {

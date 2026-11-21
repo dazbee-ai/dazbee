@@ -3,16 +3,10 @@
 // every layer up to the text, the text included, so photos, gradients, the text's own outline and its
 // shadows all count. A frame that is transparent there shows on white.
 import { drawScene, layoutText, type SceneLayer } from '@dazbee/renderer'
-import { readableTextSize, type Rect, shownScale, type TextProps, withRunStyle } from '@dazbee/schema'
+import { type Letters, readableTextSize, type Rect, shownScale, smallestLetters } from '@dazbee/schema'
 
 import { drawnRegion, fitScale, inkOf, overlapOf, type Turn } from './layer-ink.ts'
 import type { Check, TextLayer } from './types.ts'
-
-/** The size and weight of some of a text's letters. */
-export interface Letters {
-  size: number
-  weight: number
-}
 
 /** WCAG 2's contrast ratios: for text, and for large text, from LARGE_TEXT_PX, or LARGE_BOLD_TEXT_PX when bold. */
 const TEXT_CONTRAST = 4.5
@@ -89,28 +83,6 @@ export function drawnSmallest({ ck, resources }: Check, layer: TextLayer): Lette
   } finally {
     laid.delete()
   }
-}
-
-/**
- * The size, as drawn with `scale` for shrink to fit, and weight of a text's smallest letters, the
- * thinnest of those; undefined for a text of only spaces.
- */
-export function smallestLetters(props: TextProps, scale: number): Letters | undefined {
-  const edges = [...new Set([0, props.text.length, ...props.runs.flatMap((r) => [r.start, r.end])])].sort(
-    (a, b) => a - b,
-  )
-  let smallest: Letters | undefined
-  for (let i = 0; i + 1 < edges.length; i++) {
-    const start = edges[i] ?? 0
-    const end = edges[i + 1] ?? start
-    if (!/\S/u.test(props.text.slice(start, end))) continue
-    let style = props.style
-    for (const run of props.runs) if (run.start <= start && run.end >= end) style = withRunStyle(style, run.style)
-    const piece = { size: style.fontSize * scale, weight: style.fontWeight }
-    if (!smallest || piece.size < smallest.size || (piece.size === smallest.size && piece.weight < smallest.weight))
-      smallest = piece
-  }
-  return smallest
 }
 
 /**

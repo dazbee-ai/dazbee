@@ -1,5 +1,5 @@
 // Commands on frames: add, change, resize (with their layers following), copy (with linked copies
-// of every layer) and delete.
+// of every layer, also at another size, its text kept readable) and delete.
 import { z } from 'zod'
 
 import {
@@ -14,6 +14,7 @@ import {
   newFramePosition,
   PageId,
   Paint,
+  readableTextSize,
   type Rect,
   sizeProblem,
 } from '@dazbee/schema'
@@ -24,7 +25,7 @@ import { round } from '../geometry.ts'
 import type { StoreWrite } from '../store.ts'
 import { frameProblem, idProblem, pageProblem } from './checks.ts'
 import { type CommandContext, defineCommand, strict } from './define.ts'
-import { scaledSizes, type Size, smallerRatio } from './fit.ts'
+import { readableBox, readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
 import { keepDrawnIn } from './paths.ts'
 import { copyFrameLayers, type Slot, writeOrder } from './tree.ts'
 
@@ -201,13 +202,14 @@ export const frameDuplicate = defineCommand({
 })
 
 /**
- * As frame.duplicate, at another size: every copy is scaled to it and placed by its constraints,
- * guessed where its original has none (`sizedLayers`). Returns the new frame's id.
+ * As frame.duplicate, at another size, and named by it: every copy is scaled to it and placed by its
+ * constraints, guessed where its original has none, and no text is set under the readable size for
+ * it (`sizedLayers`). Returns the new frame's id.
  */
 export const frameAddSize = defineCommand({
   name: 'frame.addSize',
   description:
-    'Copies a frame at another size, after the last frame of its page, and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. The frame and its layers are not changed. It refuses a missing frame, an id already in use and a size the editor does not take.',
+    'Copies a frame at another size, after the last frame of its page, named by the size (such as 1200×628), and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. A text that scale would set under the readable size for the new frame (the size check_frame warns under) is set at that size instead, its sizes kept in proportion and its box grown to hold it; one whose lines can’t then break where they did inside the frame grows with its words (auto height). The frame and its layers are not changed. It refuses a missing frame, an id already in use and a size the editor does not take.',
   step: 'addSize',
   input: z.strictObject({
     frameId: FrameId.describe('The frame to copy.'),
@@ -251,8 +253,8 @@ function nextOnPage(w: StoreWrite, design: Design, pageId: string, id: string) {
 
 /**
  * A copy of a frame placed by the frame rule, with a copy of every layer keeping its link id, sized
- * to a new size when it has one (`sizedLayers`). A copy at a new size has no guides: they belong to
- * the frame's own size.
+ * to a new size when it has one (`sizedLayers`). A copy at a new size is named by it, such as
+ * "1200×628", and has no guides: they belong to the frame's own size.
  */
 function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: Size) {
   const { w, design } = ctx
@@ -262,6 +264,7 @@ function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: S
     ...frame,
     ...(!size && guides && { guides }),
     ...nextOnPage(w, design, frame.pageId, newId),
+    ...(size && { name: `${size.width}×${size.height}` }),
     width: to.width,
     height: to.height,
   }
@@ -272,24 +275,32 @@ function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: S
 }
 
 /**
- * The props of a frame's layers, by id, for their copies in a frame of `size`, in two steps. First
+ * The props of a frame's layers, by id, for their copies in a frame of `size`, in three steps. First
  * every layer is scaled by the smaller ratio (`smallerRatio`) about the frame's top left: its box,
- * and its sizes as `scaledSizes` scales them. Then the frame, which that scale leaves short of
- * `size` along one side, is resized to it with its layers following their constraints
- * (`followingBoxes`), whatever their locks: a layer whose constraints say where it goes and that has
- * none of its own takes the guess (`guessesUnder`) from where the scale left it, and keeps it.
+ * and its sizes as `scaledSizes` scales them, but the sizes of a text that scale would set under the
+ * readable size for `size` by the larger factor that sets its smallest letters at it
+ * (`readableScale`). Then the frame, which that scale leaves short of `size` along one side, is
+ * resized to it with its layers following their constraints (`followingBoxes`), whatever their
+ * locks: a layer whose constraints say where it goes and that has none of its own takes the guess
+ * (`guessesUnder`) from where the scale left it, and keeps it. Last, each raised text's box grows
+ * to hold its letters (`readableBox`).
  */
 function sizedLayers(design: Design, frameId: string, size: Size): Map<string, Layer['props']> {
   const frame = design.frames[frameId] as Frame
   const s = smallerRatio({ from: frame, to: size })
+  const readable = readableTextSize(size.width, size.height)
   const by = (n: number) => round(n * s) + 0
   const ids = descendants(design, frameId)
   const nodes = { ...design.nodes }
+  // The boxes the scale gave the raised texts, and how many times larger their sizes are than it would set them.
+  const raised = new Map<string, { scaled: Rect; raise: number }>()
   for (const id of ids) {
     const node = design.nodes[id] as Layer
     const { x, y, width, height } = node.props
     const box = { x: by(x), y: by(y), width: by(width), height: by(height) }
-    nodes[id] = { ...node, props: { ...scaledSizes(node.props, s), ...box } } as Layer
+    const textScale = node.type === 'text' ? readableScale(node.props, s, readable) : s
+    if (textScale > s) raised.set(id, { scaled: box, raise: textScale / s })
+    nodes[id] = { ...node, props: { ...scaledSizes(node.props, textScale), ...box } } as Layer
   }
   const from = { x: 0, y: 0, width: frame.width * s, height: frame.height * s }
   const guesses = guessesUnder({ ...design, nodes }, frameId, from)
@@ -300,5 +311,11 @@ function sizedLayers(design: Design, frameId: string, size: Size): Map<string, L
   // The rule reads the guesses as the copies' own constraints.
   const placed: Design = { ...design, nodes }
   const boxes = followingBoxes(placed, frameId, from, { x: 0, y: 0, ...size }, { locks: 'ignore' })
-  return new Map(ids.map((id) => [id, { ...(nodes[id] as Layer).props, ...boxes.get(id) }]))
+  return new Map(
+    ids.map((id) => {
+      const props = { ...(nodes[id] as Layer).props, ...boxes.get(id) }
+      const text = raised.get(id)
+      return [id, text ? { ...props, ...readableBox(props, text.scaled, text.raise, size) } : props]
+    }),
+  )
 }

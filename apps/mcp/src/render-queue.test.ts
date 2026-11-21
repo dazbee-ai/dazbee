@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { testDesign } from '@dazbee/doc/test-design'
 import { type Design, parseDesign } from '@dazbee/schema'
 
-import { MAX_RENDER_PIXELS } from './limits.ts'
+import { BIG_RENDER_FONT_BYTES, MAX_RENDER_PIXELS } from './limits.ts'
 import { type FrameRender, renderQueue, type RenderThread } from './render-queue.ts'
 import type { RenderAnswer, RenderJob } from './render-worker.ts'
 import { ToolRefusal } from './tools/define-tool.ts'
@@ -156,6 +156,17 @@ describe('renderQueue', () => {
     expect(workers).toHaveLength(2)
     workers[1]?.answer(drawn(workers[1].posted[0]))
     await next
+  })
+
+  it('ends the worker after a render whose font files pass BIG_RENDER_FONT_BYTES', async () => {
+    const { queue, workers } = fakeQueue()
+    // A CJK face's file: Skia keeps the file of a face it drew with after the worker frees it.
+    const font = { family: 'Huge Serif', bytes: new Uint8Array(BIG_RENDER_FONT_BYTES + 1) }
+    const heavy = queue.draw('ann', async () => ({ ...(await squareAt(100)()), fonts: [font] }))
+    await made()
+    workers[0]?.answer(drawn(workers[0].posted[0]))
+    await heavy
+    expect(workers[0]?.ended).toBe(true)
   })
 
   it('refuses a render that takes too long, ends its worker, and draws the next on a fresh one', async () => {

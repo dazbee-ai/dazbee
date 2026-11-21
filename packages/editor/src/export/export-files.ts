@@ -10,7 +10,7 @@ import type { EditorPngCopy, PngChoice } from './png-copy.ts'
 
 export interface ExportFilesDeps {
   session: Pick<Session, 'design'>
-  resources: Pick<EditorResources, 'bytes' | 'load' | 'loaded'>
+  resources: Pick<EditorResources, 'bytesFor' | 'load' | 'loaded'>
   /** The export worker's client: exports are drawn in a worker of their own, started at the first one. */
   exporter: Pick<ExportClient, 'run'>
   /** What Copy as PNG takes and draws. */
@@ -34,7 +34,9 @@ export function editorExportFiles({ session, resources, exporter, pngCopy }: Exp
     // A family picked or an image placed a moment ago is drawn as itself, never the fallback or a gap.
     resources.load(session.design(), request.frameIds)
     await resources.loaded()
-    return exporter.run(session.design(), request, resources.bytes(), progress)
+    // Drawn with the files of only the faces the design uses, as the API draws it.
+    const design = session.design()
+    return exporter.run(design, request, resources.bytesFor(design), progress)
   }
 
   function png() {
@@ -49,7 +51,7 @@ export function editorExportFiles({ session, resources, exporter, pngCopy }: Exp
     const copy = pngCopy.pngToCopy(choice)
     if (!copy || copy === 'tooBig') return copy
     const { design, frameId, scale } = copy
-    const file = await exporter.run(design, { frameIds: [frameId], type: 'png', scale }, resources.bytes())
+    const file = await exporter.run(design, { frameIds: [frameId], type: 'png', scale }, resources.bytesFor(design))
     return file.bytes
   }
 

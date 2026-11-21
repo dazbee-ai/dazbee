@@ -7,7 +7,7 @@ import { Worker } from 'node:worker_threads'
 import { AGENT_RENDER_MAX_SCALE, type AgentRender } from '@dazbee/export'
 import { type Design, readImageHeader } from '@dazbee/schema'
 
-import { BIG_RENDER_PIXELS, MAX_RENDER_PIXELS, RENDER_TIMEOUT_MS } from './limits.ts'
+import { BIG_RENDER_FONT_BYTES, BIG_RENDER_PIXELS, MAX_RENDER_PIXELS, RENDER_TIMEOUT_MS } from './limits.ts'
 import type { RenderAnswer, RenderJob } from './render-worker.ts'
 import { ToolRefusal } from './tools/define-tool.ts'
 
@@ -135,7 +135,8 @@ export function renderQueue({ waiting, timeoutMs = RENDER_TIMEOUT_MS, start = st
     if (!frame) return settle(current, () => current.reject(new Error(`no frame "${render.frameId}"`)))
     const { maxSize, pixels } = drawnAt(frame, render.maxSize)
     current.job = { ...render, design: JSON.stringify(render.design), maxSize, id: nextId++ }
-    current.big = pixels + decodedPixels(render.images) > BIG_RENDER_PIXELS
+    const fontBytes = render.fonts.reduce((sum, font) => sum + font.bytes.byteLength, 0)
+    current.big = pixels + decodedPixels(render.images) > BIG_RENDER_PIXELS || fontBytes > BIG_RENDER_FONT_BYTES
     current.at = performance.now()
     const worker = (thread ??= started())
     worker.ref()

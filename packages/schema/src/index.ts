@@ -14,7 +14,6 @@ export {
   type DesignInput,
   type Fail,
   DesignMeta,
-  fontFamilies,
   Frame,
   type FrameEnd,
   frameOfLayer,
@@ -27,12 +26,12 @@ export {
   type ParseResult,
   SCHEMA_VERSION,
   type StructureLookup,
-  textFamilies,
 } from './design.ts'
 export { blankDesign, coverFrame, FRAME_GAP, frameIdOf, framesOf, NEW_FRAME_FILLS, newFramePosition } from './frames.ts'
 export * from './effects.ts'
 export * from './export.ts'
 export * from './figma-import.ts'
+export * from './font-uses.ts'
 export * from './image-header.ts'
 export { deepFreeze, isRecord } from './json.ts'
 export * from './layers.ts'

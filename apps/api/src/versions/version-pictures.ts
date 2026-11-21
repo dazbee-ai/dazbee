@@ -6,7 +6,7 @@ import { type Db, setVersionThumbnail, versionThumbnail } from '@dazbee/db'
 import type { Storage } from '@dazbee/storage'
 
 import { coverOf, drawCover } from '../drawing/design-thumbnails.ts'
-import { brandResourcesFor } from '../drawing/render.ts'
+import { brandResourcesFor, inDrawingTurn } from '../drawing/render.ts'
 import { versionDesign } from './versions.ts'
 
 /** The longest side of a version's picture: the card's row on a 2× screen. */
@@ -39,8 +39,14 @@ export async function versionPicture(
       const design = await versionDesign(db, designId, versionId)
       const cover = design && coverOf(design)
       if (!design || !cover) return null
-      const resources = await brandResourcesFor(db, storage, workspaceId, brandId, design)
-      const png = await drawCover(design, cover, VERSION_PICTURE_SIZE, resources)
+      const png = await inDrawingTurn(async () =>
+        drawCover(
+          design,
+          cover,
+          VERSION_PICTURE_SIZE,
+          await brandResourcesFor(db, storage, workspaceId, brandId, design),
+        ),
+      )
       await setVersionThumbnail(db, designId, versionId, png)
       return png
     })().finally(() => drawing.delete(key))

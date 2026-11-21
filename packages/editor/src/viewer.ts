@@ -8,7 +8,7 @@
 import { plainStore } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { resourceCache } from '@dazbee/renderer'
-import { fontFamilies, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
+import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
@@ -17,10 +17,11 @@ import { buildCore } from './core.ts'
 import type { TabAccess } from './core-interface.ts'
 import { ON_DEVICE, SCREEN_MOTION } from './editor.ts'
 import type { Viewer, ViewerOptions } from './editor-interface.ts'
+import { openedFonts } from './font-loads.ts'
 import { editorDomInput, onMac } from './gestures/dom-input.ts'
 import { editorStageField } from './gestures/stage-field.ts'
 import { imageClient } from './image-client.ts'
-import { loadFonts, loadImages } from './resources.ts'
+import { loadImages } from './resources.ts'
 import { loadCanvasKit, shippedFonts } from './vendor.ts'
 
 /** A viewer's access: it only ever views, and a refused edit goes untold, as the page says it views a version. */
@@ -35,7 +36,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     loadCanvasKit(),
     shippedFonts(),
     loadImages(imageAssetIds(design, firstPage, options.variables), options),
-    loadFonts(fontFamilies(design, options.variables), options),
+    openedFonts(fontUses(design, options.variables), options),
   ])
   // A cache of the viewer's own, freed with it: the live editor's stays as it was.
   const cache = resourceCache(ck)
@@ -47,17 +48,12 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     ck,
     cache,
     first: {
-      fonts: [...shipped, ...fonts.map(({ family, bytes }) => ({ family, bytes }))],
+      fonts: [...shipped, ...fonts.files.map(({ family, bytes }) => ({ family, bytes }))],
       fallbackFamilies: [...FALLBACK_FAMILIES],
       images,
       ...(options.variables ? { variables: options.variables } : {}),
     },
-    firstFaces: fonts.map(({ family, weight, weights, style }) => ({
-      family,
-      weight,
-      ...(weights ? { weights } : {}),
-      style,
-    })),
+    firstFonts: fonts,
     store: plainStore(design),
     connected: () => true,
     access: VIEWS_ONLY,

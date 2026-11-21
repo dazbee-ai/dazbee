@@ -8,6 +8,7 @@ import type { Client } from '@dazbee/doc'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import type { Member } from '@dazbee/schema'
 
+import type { FontSources, ListedFace } from './font-loads.ts'
 import { openTab } from './open-tab.ts'
 import type { ResourceSources } from './resources.ts'
 import { WORDS } from './test-actions.ts'
@@ -30,14 +31,16 @@ afterEach(async () => {
 /** A font the tests make wait: each load waits for `bring`, which gives it a wide face. */
 function slowFonts() {
   const wide = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
-  const loads: { families: string[]; resolve: (files: unknown[]) => void }[] = []
+  const loads: { families: string[]; resolve: (faces: ListedFace[]) => void }[] = []
   return {
-    fontFiles: (families: string[]) =>
-      new Promise<never[]>((resolve) => loads.push({ families, resolve: resolve as never })),
+    sources: {
+      fontFaces: (families: string[]) => new Promise<ListedFace[]>((resolve) => loads.push({ families, resolve })),
+      fontFile: () => Promise.resolve(wide),
+    } satisfies FontSources,
     /** Settles every load asked for so far. */
     bring() {
       for (const load of loads.splice(0))
-        load.resolve(load.families.map((family) => ({ family, weight: 400, style: 'normal', bytes: wide })))
+        load.resolve(load.families.map((family) => ({ id: family, family, weight: 400, style: 'normal' })))
     },
   }
 }
@@ -312,8 +315,8 @@ describe('two editors on one design', () => {
   it('sends the follow-up a crossing edit owes once the font its text waits for loads (D6)', async () => {
     mem = memorySync(WORDS)
     const fonts = slowFonts()
-    const a = await editorOn('ann', ANN, { fontFiles: fonts.fontFiles })
-    const b = await editorOn('bob', { userId: 'bob', workspaceId: 'w1' }, { fontFiles: fonts.fontFiles })
+    const a = await editorOn('ann', ANN, fonts.sources)
+    const b = await editorOn('bob', { userId: 'bob', workspaceId: 'w1' }, fonts.sources)
     const style = (a.core.design().nodes.words?.props as { style: Record<string, unknown> }).style
     /** One step on the tab's client that sets a prop of the words, sent at once. */
     const step = (e: typeof a, prop: string, to: unknown) => {

@@ -13,6 +13,7 @@ import { brandVariables, type DesignInput, parseDesign } from '@dazbee/schema'
 
 import { MAX_RENDER_PIXELS } from '../limits.ts'
 import type { RenderThread } from '../render-queue.ts'
+import type { RenderJob } from '../render-worker.ts'
 import { TEST_BOTTLE_PNG, TEST_BRAND_KIT } from '../test-api.ts'
 import { type TestServer, testServer, textOf } from '../test-client.ts'
 
@@ -132,6 +133,29 @@ describe('render_frame', () => {
     const result = await agent.call('render_frame', { frame: 'nope' })
     expect(result.isError).toBe(true)
     expect(textOf(result)).toBe('The open design has no frame “nope”; read_design lists its frames.')
+  })
+
+  it('sends the worker the files of only the faces the design’s texts are drawn in', async () => {
+    const jobs: RenderJob[] = []
+    const design = testDesign()
+    const headline = design.nodes.headline as { props: { style: Record<string, unknown> } }
+    headline.props.style = { ...headline.props.style, fontFamily: 'Brand Serif', fontWeight: 700 }
+    const agent = await agentOn(design, {
+      startRenderWorker: () => {
+        const worker = new Worker(new URL('../render-worker.ts', import.meta.url)) as RenderThread
+        const post = worker.postMessage.bind(worker)
+        worker.postMessage = (job: RenderJob) => {
+          jobs.push(job)
+          post(job)
+        }
+        return worker
+      },
+    })
+    pictureOf(await agent.call('render_frame', { frame: 'sq' }))
+    const bold = loadFontFiles().find((font) => font.file === 'NotoSans-Bold.ttf')?.bytes
+    expect(jobs.map((job) => job.fonts.map((font) => [font.family, font.bytes.length]))).toEqual([
+      [['Brand Serif', bold?.length]],
+    ])
   })
 
   it('draws on the worker, so another session’s read answers while a large frame is drawn', async () => {

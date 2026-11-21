@@ -10,6 +10,7 @@ export {
   type ViewerOptions,
 } from './editor-interface.ts'
 export { startEditor } from './editor.ts'
+export { type FontSources } from './font-loads.ts'
 export { startViewer } from './viewer.ts'
 export { VersionUnanswered } from './sync-link.ts'
 export { type Spot } from './canvas/view.ts'

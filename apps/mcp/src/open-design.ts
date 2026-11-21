@@ -287,21 +287,9 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
   function sourcesOf(brandId: string): AgentTabOptions['sources'] {
     return {
       assetBytes: imagesOf(brandId),
-      fontFiles: async (families) => {
-        const api = newestApi()
-        const faces = (await api.fonts(brandId))
-          .filter(({ family }) => families.includes(family))
-          .flatMap((f) => f.faces)
-        return Promise.all(
-          faces.map(async ({ id, family, weight, weights, style }) => ({
-            family,
-            weight,
-            ...(weights ? { weights } : {}),
-            style,
-            bytes: await api.fontBytes(brandId, id),
-          })),
-        )
-      },
+      fontFaces: async (families) =>
+        (await newestApi().fonts(brandId)).filter(({ family }) => families.includes(family)).flatMap((f) => f.faces),
+      fontFile: (face) => newestApi().fontBytes(brandId, face.id),
     }
   }
 

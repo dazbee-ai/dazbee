@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest'
 
 import { parseDesign } from '@dazbee/schema'
 
+import { uploadedFontKey } from '../storage-keys.ts'
 import { brand, call, db, run, sibling, storage, uploadImage, workspace } from '../test-api.ts'
-import { png } from '../test-files.ts'
+import { png, sha256 } from '../test-files.ts'
 import { brandResourcesFor } from './render.ts'
+import { uploadHugeFamily } from './test-huge-family.ts'
 
 /** A design whose one graphic draws `assetId`, its picture bound to the brand's logo. */
 function logoDesign(assetId: string) {
@@ -57,5 +59,33 @@ describe('brandResourcesFor', { timeout: 30_000 }, () => {
     const resources = await brandResourcesFor(db, storage, workspace.id, sibling.id, logoDesign(stored.id))
     expect(resources.variables).toEqual({})
     expect(Object.keys(resources.images)).toEqual([stored.id])
+  })
+
+  it('reads only the faces its texts are drawn in, of a family of six', async () => {
+    const family = `Faces ${run}`
+    const keys = await uploadHugeFamily(storage, workspace.id, brand.id, family, 0)
+    const parsed = parseDesign({
+      meta: { designId: 'd', name: 'Faces' },
+      pages: { p1: { name: 'Page 1', order: 'a0' } },
+      frames: { sq: { pageId: 'p1', name: 'Square', width: 100, height: 100, x: 0, y: 0, order: 'a0' } },
+      nodes: {
+        t: {
+          type: 'text',
+          parentId: 'sq',
+          link: 't',
+          index: 'a0',
+          name: 'Words',
+          props: {
+            ...{ x: 0, y: 0, width: 100, height: 40, text: 'Big sale' },
+            style: { fontFamily: family, fontSize: 20, color: '#000000FF' },
+            runs: [{ start: 0, end: 3, style: { fontWeight: 700 } }],
+          },
+        },
+      },
+    })
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    const resources = await brandResourcesFor(db, storage, workspace.id, brand.id, parsed.design)
+    const read = resources.fonts.map((font) => uploadedFontKey(workspace.id, sha256(font.bytes)))
+    expect(read).toEqual([keys.get('400 normal'), keys.get('700 normal')])
   })
 })

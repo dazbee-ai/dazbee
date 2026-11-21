@@ -9,6 +9,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import { type DesignRecords, type Layer, PROTOCOL, type ServerMessage, type TextProps } from '@dazbee/schema'
 
+import type { FontSources, ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { editorFitText } from './fit-text.ts'
@@ -16,23 +17,27 @@ import { editorFitText } from './fit-text.ts'
 /** A font file of a family we don't ship, which looks unlike the fallbacks. */
 const WIDE = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
 
-/** A font source whose loads a test settles, one at a time, in order. */
-function slowFonts() {
+/** A font catalog whose answers a test settles, one at a time, in order; a face's file comes at once. */
+function slowFonts(bytes = WIDE) {
   const asked: string[][] = []
-  const loads: { families: string[]; resolve: (files: unknown[]) => void; reject: (error: Error) => void }[] = []
+  const loads: { families: string[]; resolve: (faces: ListedFace[]) => void; reject: (error: Error) => void }[] = []
+  const sources: FontSources = {
+    fontFaces: (families: string[]) => {
+      asked.push(families)
+      return new Promise<ListedFace[]>((resolve, reject) => loads.push({ families, resolve, reject }))
+    },
+    fontFile: () => Promise.resolve(bytes),
+  }
   return {
     asked,
-    fontFiles: (families: string[]) => {
-      asked.push(families)
-      return new Promise<never[]>((resolve, reject) => loads.push({ families, resolve: resolve as never, reject }))
-    },
-    /** Settles the oldest load with the files of the families it asked for, or none. */
-    bring(withFiles = true) {
+    sources,
+    /** Settles the oldest load with an upright 400 face of each family it asked for, or none. */
+    bring(withFaces = true) {
       const load = loads.shift()
-      const files = withFiles
-        ? (load?.families ?? []).map((family) => ({ family, weight: 400, style: 'normal', bytes: WIDE }))
+      const faces = withFaces
+        ? (load?.families ?? []).map((family) => ({ id: family, family, weight: 400, style: 'normal' as const }))
         : []
-      load?.resolve(files)
+      load?.resolve(faces)
     },
     fail() {
       loads.shift()?.reject(new Error('the font store is down'))
@@ -113,7 +118,7 @@ describe('editorFitText', () => {
 
   it('waits for a font on its way, asking for it once, then fits in it once it is here', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const fit = editorFitText({ scenes, resources })
     let settles = 0
@@ -133,7 +138,7 @@ describe('editorFitText', () => {
 
   it('waits for the brand font a text is bound to, in the family the kit gives it', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     resources.setVariables({ 'brand:heading': 'Kit' })
     const fit = editorFitText({ scenes, resources })
@@ -147,16 +152,10 @@ describe('editorFitText', () => {
   })
 
   it('waits for the emoji font a text’s emoji need, asking for it once, then fits in it', async () => {
-    const asked: string[][] = []
-    let bring = () => {}
-    const fontFiles = (families: string[]) => {
-      asked.push(families)
-      return new Promise<{ family: string; weight: number; style: 'normal'; bytes: Uint8Array }[]>((resolve) => {
-        bring = () =>
-          resolve(families.map((family) => ({ family, weight: 400, style: 'normal', bytes: emojiTestFont() })))
-      })
-    }
-    editor = await testEditor(WORDS, { sources: { fontFiles } })
+    const fonts = slowFonts(emojiTestFont())
+    const { asked } = fonts
+    const bring = () => fonts.bring()
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const fit = editorFitText({ scenes, resources })
     const plain = wordsIn('Noto Sans')
@@ -174,7 +173,7 @@ describe('editorFitText', () => {
 
   it('waits for nothing and asks for no font for a fixed box, or a layer that is no text', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const fit = editorFitText({ scenes, resources })
     const fixed = wordsIn('Late')
@@ -185,7 +184,7 @@ describe('editorFitText', () => {
 
   it('fits with the fallbacks once a font’s load brings no files, or fails while connected', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const fit = editorFitText({ scenes, resources })
     let settles = 0
@@ -205,7 +204,7 @@ describe('editorFitText', () => {
 
   it('ends two tabs’ crossing edits on a growing text with the box typing gives, once its font is here', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const records = JSON.parse(JSON.stringify(editor.core.design())) as DesignRecords
     records.nodes.words = wordsIn('Late') as never
@@ -247,7 +246,7 @@ describe('editorFitText', () => {
 
   it('gives the doc’s recompute the box typing would give, once the font is here', async () => {
     const fonts = slowFonts()
-    editor = await testEditor(WORDS, { sources: { fontFiles: fonts.fontFiles } })
+    editor = await testEditor(WORDS, { sources: fonts.sources })
     const { scenes, resources } = editor.modules
     const recompute = derivedValues(editorFitText({ scenes, resources }))
     const records = JSON.parse(JSON.stringify(editor.core.design())) as DesignRecords

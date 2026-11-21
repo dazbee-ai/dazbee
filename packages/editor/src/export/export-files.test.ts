@@ -23,7 +23,7 @@ function harness(choice: PngChoice | null, copy: PngCopy | 'tooBig' | null) {
   const files = editorExportFiles({
     session: { design: () => TAB },
     resources: {
-      bytes: () => BYTES,
+      bytesFor: () => BYTES,
       load: (design, frameIds) => void log.push(`load ${design.meta.designId} ${frameIds.join(' ')}`),
       loaded: async () => {
         log.push('loaded')

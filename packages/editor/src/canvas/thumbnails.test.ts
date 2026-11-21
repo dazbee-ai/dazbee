@@ -8,6 +8,7 @@ import { resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { parseDesign } from '@dazbee/schema'
 
+import { NO_FONTS } from '../font-loads.ts'
 import { editorResources } from '../resources.ts'
 import { frameScenes } from './scenes.ts'
 import { GHOST_SIDE, thumbnailCache } from './thumbnails.ts'
@@ -45,7 +46,7 @@ function opened() {
     ck,
     cache: resourceCache(ck),
     first: { fonts: [], fallbackFamilies: [], images: {} },
-    firstFaces: [],
+    firstFonts: NO_FONTS,
     sources: {},
     connected: () => true,
     status: () => {},

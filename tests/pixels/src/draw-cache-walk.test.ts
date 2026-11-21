@@ -150,7 +150,7 @@ function walkResources(signal: AbortSignal, variables: Record<string, string> = 
     ck,
     cache,
     first: { ...fixtureResources(), variables },
-    firstFaces: [],
+    firstFonts: { families: [], faces: [], files: [] },
     sources: {},
     connected: () => true,
     status: () => {},

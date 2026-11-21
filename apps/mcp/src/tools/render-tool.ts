@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { AGENT_RENDER_MAX_SIZE, AGENT_RENDER_SIZES } from '@dazbee/export'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { fontFamilies, imageAssetIds } from '@dazbee/schema'
+import { imageAssetIds } from '@dazbee/schema'
 
 import { inMiB, MAX_RENDER_IMAGE_BYTES, MAX_RENDER_IMAGE_PIXELS, RENDER_MS_PER_RENDER } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
@@ -51,14 +51,14 @@ export const RENDER_TOOLS: Tool[] = [
 ]
 
 /**
- * The render of the frame as the tab holds it now: the design, the fonts the app doesn't ship of the families it
- * draws, and the images the frame draws, read from the API for this render alone. Refused when the images pass what
+ * The render of the frame as the tab holds it now: the design, the files of the faces its texts are drawn in that the
+ * app doesn't ship, and the images the frame draws, read from the API for this render alone. Refused when the images pass what
  * one render may send or decode, or one didn't load.
  */
 async function renderOf({ tab, imageBytes }: OpenDesign, frameId: string, maxSize: number): Promise<FrameRender> {
   await tab.fontsLoaded()
   const design = tab.design()
-  const { fonts, variables } = tab.bytes()
+  const { fonts, variables } = tab.bytesFor(design)
   const images: Record<string, Uint8Array> = {}
   let bytes = 0
   for (const id of imageAssetIds(design, [frameId], variables)) {
@@ -75,12 +75,11 @@ async function renderOf({ tab, imageBytes }: OpenDesign, frameId: string, maxSiz
       `The frame’s images are more than the ${MAX_RENDER_IMAGE_PIXELS / 1_000_000} million pixels a render may draw`,
     )
   const shipped = new Set(loadFontFiles().map((font) => font.bytes))
-  const families = new Set(fontFamilies(design, variables))
   return {
     design,
     frameId,
     maxSize,
-    fonts: fonts.filter((font) => families.has(font.family) && !shipped.has(font.bytes)),
+    fonts: fonts.filter((font) => !shipped.has(font.bytes)),
     images,
     ...(variables ? { variables } : {}),
   }

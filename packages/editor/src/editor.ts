@@ -5,7 +5,7 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { readDesign } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import { fontFamilies, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
+import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
@@ -16,11 +16,12 @@ import { buildCore } from './core.ts'
 import type { Editor, EditorOptions } from './editor-interface.ts'
 import { exportClient } from './export/export-client.ts'
 import { editorExportFiles } from './export/export-files.ts'
+import { NO_FONTS, type OpenedFonts, openedFonts } from './font-loads.ts'
 import { editorDomInput, onMac } from './gestures/dom-input.ts'
 import { editorStageField } from './gestures/stage-field.ts'
 import { imageClient } from './image-client.ts'
 import { type OpenTab, openTab } from './open-tab.ts'
-import { type FontFace, loadFonts, loadImages } from './resources.ts'
+import { loadImages } from './resources.ts'
 import { type SaveStateWatch, watchSaveState } from './save-state.ts'
 import { tokenSource } from './token-source.ts'
 import type { PlacedAsset, PlaceImageOptions } from './tools.ts'
@@ -85,8 +86,8 @@ export async function startEditor(options: EditorOptions) {
         if (kept) return {}
         throw error
       }),
-      loadFonts(fontFamilies(opened, options.variables), options).catch((error: unknown) => {
-        if (kept) return []
+      openedFonts(fontUses(opened, options.variables), options).catch((error: unknown): OpenedFonts => {
+        if (kept) return NO_FONTS
         throw error
       }),
     ])
@@ -95,10 +96,10 @@ export async function startEditor(options: EditorOptions) {
       cache,
       {
         ...resourceBytes,
-        fonts: [...resourceBytes.fonts, ...fonts.map(({ family, bytes }) => ({ family, bytes }))],
+        fonts: [...resourceBytes.fonts, ...fonts.files.map(({ family, bytes }) => ({ family, bytes }))],
         images,
       },
-      fonts.map(({ family, weight, weights, style }) => ({ family, weight, ...(weights ? { weights } : {}), style })),
+      fonts,
       tab,
       saving,
       options,
@@ -116,7 +117,7 @@ function live(
   ck: CanvasKit,
   cache: ResourceCache,
   firstBytes: ResourceBytes,
-  firstFaces: readonly FontFace[],
+  firstFonts: OpenedFonts,
   tab: OpenTab,
   saving: SaveStateWatch,
   options: EditorOptions,
@@ -135,7 +136,7 @@ function live(
     ck,
     cache,
     first: firstBytes,
-    firstFaces,
+    firstFonts,
     store: tab.store,
     connected: saving.connected,
     // A Reviewer's tab, or one whose link ended, may only view the design (C35).

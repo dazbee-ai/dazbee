@@ -1,45 +1,32 @@
 // The fonts and images the editor draws with: the bytes it has, decoded once, and the ones still
-// coming, which the screen draws in placeholders until they arrive. Images are drawn from display
-// copies no bigger than the screen shows them (display-copies.ts).
+// coming, which the screen draws in placeholders until they arrive. Only the faces the design's
+// texts are drawn in load (font-loads.ts). Images are drawn from display copies no bigger than the
+// screen shows them (display-copies.ts).
 import type { CanvasKit, Image } from '@dazbee/canvaskit'
-import { FONT_FACES } from '@dazbee/fonts'
+import type { FontUse } from '@dazbee/fonts'
 import type { ResourceBytes, ResourceCache, Resources } from '@dazbee/renderer'
-import { type Design, fontFamilies, imageAssetIds, type Variables } from '@dazbee/schema'
+import { type Design, fontUses, imageAssetIds, type Variables } from '@dazbee/schema'
 
 import { type AlphaMap, alphaMap } from './canvas/alpha-map.ts'
 import { type CopyMaker, displayCopies, type ImageUse } from './display-copies.ts'
+import { editorFontLoads, type FontFace, type FontSources, type OpenedFonts, SHIPPED_FAMILIES } from './font-loads.ts'
 
 /**
- * One face of a family the editor has the file of: its weight, or a variable font's range of
- * weights with its default as the weight, and whether it is upright or italic.
+ * Where fonts and images come from, beside the fonts we ship: the catalog's faces of the families
+ * the design uses, which Bold picks weights from, and the files of those its texts are drawn in.
  */
-export interface FontFace {
-  family: string
-  weight: number
-  weights?: { min: number; max: number }
-  style: 'normal' | 'italic'
-}
-
-/** Where fonts and images come from, beside the fonts we ship. */
-export interface ResourceSources {
+export interface ResourceSources extends FontSources {
   /** The stored bytes of an image asset (#35); designs with image fills need it. */
   assetBytes?: (assetId: string) => Promise<Uint8Array>
-  /**
-   * The font files of the named families, from our storage (#50): the editor asks for the families
-   * the design uses that it doesn't ship, when it opens and whenever text names a new one. A family
-   * the catalog doesn't have is left out, and its text draws in the fallback fonts. Each file names
-   * the weight and style it is, which Bold picks from.
-   */
-  fontFiles?: (families: string[]) => Promise<(FontFace & { bytes: Uint8Array })[]>
 }
 
 export interface ResourcesDeps {
   ck: CanvasKit
   cache: ResourceCache
-  /** The bytes the design opened with. */
+  /** The bytes the design opened with: the shipped fonts, the files of `firstFonts` and the first images. */
   first: ResourceBytes
-  /** The faces of the files `fontFiles` gave the design as it opened; the shipped faces come with the editor. */
-  firstFaces: readonly FontFace[]
+  /** The catalog's faces and files the design opened with (`openedFonts`). */
+  firstFonts: OpenedFonts
   sources: ResourceSources
   /** Whether the sync server is connected: a font or image that fails offline waits for it. */
   connected: () => boolean
@@ -74,14 +61,21 @@ export interface EditorResources {
    */
   show(uses: ReadonlyMap<string, readonly ImageUse[]>, pixelsPerUnit: number): void
   /**
-   * Asks for the files of the families not asked for yet. Returns each family's load, settled when
-   * its files are here or failed to come; undefined for a family that never loads (shipped, or no
-   * way to load it).
+   * Asks the catalog for the faces of the families not asked for yet. Returns each family's load,
+   * settled when its faces, and the files its texts asked for meanwhile, are here or failed to come;
+   * undefined for a family that never loads (shipped, or no way to load it).
    */
   loadFamilies(families: readonly string[]): (Promise<void> | undefined)[]
+  /** Asks for the files of the faces drawing these uses (`facesToLoad`); settles when they are here or failed to come. */
+  loadUses(uses: readonly FontUse[]): Promise<void>
+  /**
+   * The bytes that draw `current`: the shipped fonts and the files of only the faces its texts are
+   * drawn in, as the API draws it, with the brand kit's values and the images here. An export draws with these.
+   */
+  bytesFor(current: Design): ResourceBytes
   /** Settles once the fonts and images asked for so far are here or failed to come. */
   loaded(): Promise<undefined>
-  /** The faces of a family the editor has the files of, shipped ones included; none until they arrive. */
+  /** The faces of a family as the catalog lists them, shipped ones included; none until the catalog answers. */
   facesOf(family: string): FontFace[]
   /** The families whose files the editor has, shipped ones included (#50). */
   families(): string[]
@@ -98,7 +92,7 @@ export interface EditorResources {
   onArrive(listener: (fonts: boolean) => void): () => boolean
   /** Calls back when `bytes` changes: fonts or images arrived, or the brand kit's values were set. It is a new object then. */
   onBytes(listener: () => void): () => boolean
-  /** Whether a load of `family`'s files is on its way: asked for, and not yet here, empty or failed. */
+  /** Whether a load of `family`'s faces or files is on its way: asked for, and not yet here, empty or failed. */
   pending(family: string): boolean
   /**
    * Calls back when a load of families settles, whatever it brought: files, none, or a failure while
@@ -108,14 +102,11 @@ export interface EditorResources {
   destroy(): void
 }
 
-/** The families we ship are loaded already; the rest come from the catalog, when the editor was given a way. */
-export const SHIPPED_FAMILIES = new Set(FONT_FACES.map((f) => f.family))
-
 export function editorResources({
   ck,
   cache,
   first,
-  firstFaces,
+  firstFonts,
   sources,
   connected,
   status,
@@ -123,10 +114,18 @@ export function editorResources({
   after,
   copyMaker,
 }: ResourcesDeps): EditorResources {
+  /** The catalog's faces and the files of those the design's texts are drawn in. */
+  const fonts = editorFontLoads({
+    shipped: first.fonts.filter((font) => SHIPPED_FAMILIES.has(font.family)),
+    opened: firstFonts,
+    sources,
+    connected,
+    status,
+    signal,
+    arrived: fontsArrived,
+  })
   /** The bytes the editor has, which grow as fonts and images arrive. */
-  let resourceBytes = first
-  /** The faces of the font files the editor has. */
-  let faces: FontFace[] = [...FONT_FACES.map(faceOf), ...firstFaces]
+  let resourceBytes: ResourceBytes = { ...first, fonts: fonts.fonts() }
   /** The fonts decoded, from the cache; images are the display copies'. */
   let resources = cache.resources(fontsOf(resourceBytes))
   /** Told when fonts or images arrive. */
@@ -155,21 +154,8 @@ export function editorResources({
   const drawnWith = new Map<string, { ids: readonly string[]; resources: Resources }>()
   /** The images on their way. */
   const loading = new Set<string>()
-  // Families text names after the design opened (a pick in the font menu, another tab) load in the
-  // background (#50); until then that text draws in the fallback fonts. Exports wait for them.
-  const fontsAsked = new Set([...SHIPPED_FAMILIES, ...resourceBytes.fonts.map((f) => f.family)])
-  /** Settles when every family asked for so far is here or failed to come. */
-  let fontsLoading: Promise<void> = Promise.resolve()
-  /** Each family asked for after the design opened, settled when its files are here or failed to come. */
-  const familyLoads = new Map<string, Promise<void>>()
   /** Images a design named after it opened (one placed from the asset library, #52); exports wait for them too. */
   let imagesLoading: Promise<void> = Promise.resolve()
-  /** The families whose load is on its way. */
-  const pendingFamilies = new Set<string>()
-  /** The families the catalog answered with no file. */
-  const answeredEmpty = new Set<string>()
-  /** Told when a load of families settles. */
-  const settleListeners = new Set<() => void>()
   /** Each decoded image's alpha map, by asset id, with the image it was drawn from. */
   const alphaMaps = new Map<string, { image: Image; map: AlphaMap }>()
 
@@ -190,7 +176,7 @@ export function editorResources({
   const clear: Image = maybeClear
 
   function screen(current: Design, frameIds?: readonly string[]): Resources {
-    askFamilies(fontFamilies(current, resourceBytes.variables))
+    fonts.ask(fontUses(current, resourceBytes.variables))
     const ids = imageAssetIds(current, frameIds, resourceBytes.variables)
     copies.make(ids)
     const shown = decoded()
@@ -210,7 +196,7 @@ export function editorResources({
     return kept.fonts === shown.fonts && ids.every((id) => kept.images.get(id) === (shown.images.get(id) ?? clear))
   }
   function load(current: Design, frameIds: readonly string[]) {
-    askFamilies(fontFamilies(current, resourceBytes.variables))
+    fonts.ask(fontUses(current, resourceBytes.variables))
     fetchImages(imageAssetIds(current, frameIds, resourceBytes.variables))
   }
   /** Fetches the bytes of these images not here and not on their way; `imagesLoading` settles when they are here. */
@@ -246,6 +232,9 @@ export function editorResources({
   function bytes() {
     return resourceBytes
   }
+  function bytesFor(current: Design): ResourceBytes {
+    return { ...resourceBytes, fonts: fonts.fontsFor(fontUses(current, resourceBytes.variables)) }
+  }
   /** The fonts and the copies as they are now, with the alpha map of each copy made since. */
   function decoded() {
     if (drawable.fonts === resources.fonts && drawable.images === copies.images()) return drawable
@@ -257,14 +246,7 @@ export function editorResources({
     return { ...resources, images: copies.images(), imageSizes: copies.sizes() }
   }
   function loaded() {
-    return Promise.all([fontsLoading, imagesLoading]).then(() => undefined)
-  }
-  function families() {
-    return [...new Set(resourceBytes.fonts.map((f) => f.family))]
-  }
-  function lacking() {
-    const have = new Set(families())
-    return [...answeredEmpty].filter((family) => !have.has(family))
+    return Promise.all([fonts.loaded(), imagesLoading]).then(() => undefined)
   }
   function alpha(assetId: string) {
     decoded()
@@ -280,51 +262,12 @@ export function editorResources({
     }
   }
 
-  function loadFamilies(families: readonly string[]) {
-    askFamilies(families)
-    return families.map((family) => familyLoads.get(family))
-  }
-  /** Asks for the files of the families not asked for yet; `fontsLoading` settles when they are here. */
-  function askFamilies(families: readonly string[]) {
-    if (!sources.fontFiles) return
-    const fresh = families.filter((family) => !fontsAsked.has(family))
-    if (fresh.length === 0) return
-    for (const family of fresh) {
-      fontsAsked.add(family)
-      pendingFamilies.add(family)
-    }
-    /** The load is over: told unless it failed offline, to be asked for again. */
-    const settled = (told: boolean) => {
-      for (const family of fresh) pendingFamilies.delete(family)
-      if (told && !signal.aborted) for (const listener of [...settleListeners]) listener()
-    }
-    const loading = loadFonts(fresh, sources).then(
-      (fonts) => {
-        const given = new Set(fonts.map((font) => font.family))
-        for (const family of fresh) if (!SHIPPED_FAMILIES.has(family) && !given.has(family)) answeredEmpty.add(family)
-        if (signal.aborted || fonts.length === 0) return settled(true)
-        resourceBytes = {
-          ...resourceBytes,
-          fonts: [...resourceBytes.fonts, ...fonts.map(({ family, bytes }) => ({ family, bytes }))],
-        }
-        faces = [...faces, ...fonts.map(faceOf)]
-        resources = cache.resources(fontsOf(resourceBytes))
-        tellBytes()
-        for (const listener of arriveListeners) listener(true)
-        settled(true)
-      },
-      (error: unknown) => {
-        // Offline, a family waits for the connection; the next redraw asks for it again.
-        if (!connected()) {
-          for (const family of fresh) fontsAsked.delete(family)
-          return settled(false)
-        }
-        status(`Error: a font did not load (${error instanceof Error ? error.message : String(error)})`)
-        settled(true)
-      },
-    )
-    for (const family of fresh) familyLoads.set(family, loading)
-    fontsLoading = Promise.all([fontsLoading, loading]).then(() => undefined)
+  /** The files that came are registered: the cache decodes them, and the screen draws with them. */
+  function fontsArrived() {
+    resourceBytes = { ...resourceBytes, fonts: fonts.fonts() }
+    resources = cache.resources(fontsOf(resourceBytes))
+    tellBytes()
+    for (const listener of arriveListeners) listener(true)
   }
   function setVariables(variables: Variables) {
     resourceBytes = { ...resourceBytes, variables }
@@ -345,15 +288,10 @@ export function editorResources({
     return () => bytesListeners.delete(listener)
   }
 
-  function onSettle(listener: () => void) {
-    settleListeners.add(listener)
-    return () => settleListeners.delete(listener)
-  }
-
   function destroy() {
     arriveListeners.clear()
     bytesListeners.clear()
-    settleListeners.clear()
+    fonts.destroy()
     alphaMaps.clear()
     copies.destroy()
     clear.delete()
@@ -365,17 +303,19 @@ export function editorResources({
     screen,
     load,
     show,
-    loadFamilies,
+    loadFamilies: fonts.loadFamilies,
+    loadUses: fonts.loadUses,
+    bytesFor,
     loaded,
-    facesOf: (family: string) => faces.filter((face) => face.family === family),
-    families,
-    lacking,
+    facesOf: fonts.facesOf,
+    families: fonts.families,
+    lacking: fonts.lacking,
     alpha,
     setVariables,
     onArrive,
     onBytes,
-    pending: (family: string) => pendingFamilies.has(family),
-    onSettle,
+    pending: fonts.pending,
+    onSettle: fonts.onSettle,
     destroy,
   }
 }
@@ -388,22 +328,7 @@ export async function loadImages(ids: string[], sources: ResourceSources): Promi
   return Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await assetBytes(id)] as const)))
 }
 
-/** The files of the families we don't ship, from `fontFiles`; none without it. */
-export async function loadFonts(
-  families: string[],
-  sources: ResourceSources,
-): Promise<(FontFace & { bytes: Uint8Array })[]> {
-  const wanted = families.filter((family) => !SHIPPED_FAMILIES.has(family))
-  if (wanted.length === 0 || !sources.fontFiles) return []
-  return sources.fontFiles(wanted)
-}
-
 /** The bytes with no images: the cache decodes the fonts, and the display copies the images. */
 function fontsOf(bytes: ResourceBytes): ResourceBytes {
   return { ...bytes, images: {} }
-}
-
-/** A face of a font file: its family, weight or weights, and style. */
-function faceOf({ family, weight, weights, style }: FontFace): FontFace {
-  return { family, weight, ...(weights ? { weights } : {}), style }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { type Design, fontFamilies, parseDesign } from './design.ts'
+import { type Design, parseDesign } from './design.ts'
+import { fontUses } from './font-uses.ts'
 import {
   BINDABLE_PROPERTIES,
   bindablePropertyOf,
@@ -15,6 +16,7 @@ import {
   VALUE_KINDS,
   valueKindOf,
   VariableRef,
+  type Variables,
 } from './variables.ts'
 
 const red = '#E0262BFF'
@@ -226,7 +228,10 @@ describe('Bindings', () => {
     expect(Bindings.parse({ fill: 'brand:primary', stroke: 'brand:accent' })).toEqual({ fill: 'brand:primary' })
   })
 
-  it('stores bindings on a layer, and fontFamilies adds the bound brand family', () => {
+  it('stores bindings on a layer, and fontUses gives the bound brand family', () => {
+    const fontFamilies = (drawn: Design, variables?: Variables) => [
+      ...new Set(fontUses(drawn, variables).map((use) => use.family)),
+    ]
     const json = {
       meta: { designId: 'd', name: 'Kit' },
       pages: { p1: { name: 'Page 1', order: 'a0' } },

@@ -2,12 +2,15 @@
 // (`docker compose up -d --wait postgres`).
 import { describe, expect, it } from 'vitest'
 
+import { restyledTestFont } from '@dazbee/fonts/test-fonts'
 import { DesignSummary, DesignThumbnail, parseDesign, readImageHeader } from '@dazbee/schema'
+import type { Storage } from '@dazbee/storage'
 
-import { brand, call, db, sibling } from '../test-api.ts'
+import { brand, call, db, run, sibling, storage, workspace } from '../test-api.ts'
 import { fontFile } from '../test-files.ts'
 import { appendAccepted } from '../workspace/test-journal.ts'
-import { drawCover } from './design-thumbnails.ts'
+import { drawCover, ensureDesignThumbnail } from './design-thumbnails.ts'
+import { HUGE_FACE_BYTES, uploadHugeFamily } from './test-huge-family.ts'
 
 // A design's picture for the home's bento (#84), drawn with CanvasKit like an export.
 describe('design thumbnails', { timeout: 30_000 }, () => {
@@ -114,5 +117,101 @@ describe('design thumbnails', { timeout: 30_000 }, () => {
       status: 404,
       json: nothing,
     })
+  })
+})
+
+// A design set in one of the largest CJK families must fit the API's 512 MB: its picture reads only
+// the faces its texts use, and pictures asked for at once read their files one picture at a time.
+describe('the memory a design picture takes', { timeout: 180_000 }, () => {
+  /** A design of one square frame with one text in `family` at `weight`. */
+  const oneText = (family: string, weight: number) => ({
+    meta: { designId: 'ignored', name: `Huge ${weight}` },
+    pages: { p1: { name: 'Page 1', order: 'a0' } },
+    frames: {
+      sq: { pageId: 'p1', name: 'Square', width: 400, height: 400, x: 0, y: 0, order: 'a0' },
+    },
+    nodes: {
+      t: {
+        type: 'text',
+        parentId: 'sq',
+        link: 't',
+        index: 'a0',
+        name: 'Words',
+        props: {
+          ...{ x: 10, y: 10, width: 380, height: 100, text: 'Hamburgefonstiv' },
+          style: { fontFamily: family, fontSize: 40, fontWeight: weight, color: '#000000FF' },
+        },
+      },
+    },
+  })
+
+  it('keeps no picture’s CJK-sized faces once the next is drawn', async () => {
+    const parsed = parseDesign(oneText('Huge', 400))
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    const cover = { frameId: 'sq', width: 400, height: 400 }
+    const font = () => restyledTestFont(fontFile('NotoSans-Regular.ttf'), { padding: HUGE_FACE_BYTES })
+    let most = 0
+    const watch = setInterval(() => (most = Math.max(most, process.memoryUsage().rss)), 5)
+    const before = process.memoryUsage().rss
+    try {
+      // Six pictures, each with its own copy of a 50 MB face, as six designs' pictures read them.
+      for (let i = 0; i < 6; i++)
+        await drawCover(parsed.design, cover, 64, {
+          fonts: [{ family: 'Huge', bytes: font() }],
+          fallbackFamilies: [],
+          images: {},
+        })
+    } finally {
+      clearInterval(watch)
+    }
+    // Kept, each face's file would stay twice, in JavaScript and in CanvasKit: 600 MB.
+    expect(most - before).toBeLessThan(400 * 1024 * 1024)
+  })
+
+  it('reads one face of a family of CJK-sized faces, and draws two pictures one after the other', async () => {
+    const family = `Huge ${run}`
+    const keys = await uploadHugeFamily(storage, workspace.id, brand.id, family)
+    const faceOf = new Map([...keys].map(([face, key]) => [key, face]))
+    /** What happened, in order: a face's file read, or a picture stored. */
+    const events: string[] = []
+    const reads = new Map<string, number>()
+    const watched: Storage = {
+      ...storage,
+      get: async (key) => {
+        const bytes = await storage.get(key)
+        const face = faceOf.get(key)
+        if (bytes && face) {
+          events.push(`read ${face}`)
+          reads.set(face, (reads.get(face) ?? 0) + bytes.length)
+        }
+        return bytes
+      },
+      put: async (key, bytes, type) => {
+        if (key.includes('/thumbnail-')) events.push('stored')
+        return storage.put(key, bytes, type)
+      },
+    }
+    const [regular, bold] = await Promise.all(
+      [400, 700].map(async (weight) =>
+        DesignSummary.parse(
+          (await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Huge', content: oneText(family, weight) }))
+            .json,
+        ),
+      ),
+    )
+    if (!regular || !bold) throw new Error('no designs')
+    await Promise.all([
+      ensureDesignThumbnail(db, watched, workspace.id, regular),
+      ensureDesignThumbnail(db, watched, workspace.id, bold),
+    ])
+    expect([...reads.keys()].sort()).toEqual(['400 normal', '700 normal'])
+    for (const bytes of reads.values()) expect(bytes).toBeLessThan(HUGE_FACE_BYTES + 1024 * 1024)
+    // Each picture's face is read only once the picture before it is stored.
+    expect(events.map((event) => event.replace(/\d+/, 'n'))).toEqual([
+      'read n normal',
+      'stored',
+      'read n normal',
+      'stored',
+    ])
   })
 })

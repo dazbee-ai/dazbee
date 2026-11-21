@@ -9,7 +9,7 @@ import { EMOJI_FAMILY } from '@dazbee/fonts'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import { renderDesign, renderVector, type ResourceBytes } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { fontFamilies, parseDesign } from '@dazbee/schema'
+import { fontUses, parseDesign } from '@dazbee/schema'
 
 import { fixtureResources, OUTPUT_DIR } from './pixels.ts'
 
@@ -74,7 +74,7 @@ describe('script fonts', () => {
   it('names the emoji font among the families the design is drawn in', () => {
     const parsed = parseDesign(design)
     if (!parsed.success) throw new Error(parsed.errors.join('\n'))
-    expect(fontFamilies(parsed.design)).toEqual([EMOJI_FAMILY, 'Noto Sans'])
+    expect([...new Set(fontUses(parsed.design).map((use) => use.family))]).toEqual([EMOJI_FAMILY, 'Noto Sans'])
   })
 
   it('draws emoji in colour with the emoji font, and none without it', () => {

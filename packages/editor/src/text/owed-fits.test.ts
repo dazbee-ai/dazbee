@@ -7,6 +7,7 @@ import { EMOJI_FAMILY } from '@dazbee/fonts'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import type { Design, Layer, TextProps } from '@dazbee/schema'
 
+import type { ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { owedFits } from './owed-fits.ts'
@@ -20,15 +21,16 @@ const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 async function slowEmoji() {
   const asked: string[][] = []
   const waiting: (() => void)[] = []
-  const fontFiles = (families: string[]) => {
+  const fontFaces = (families: string[]) => {
     asked.push(families)
-    return new Promise<{ family: string; weight: number; style: 'normal'; bytes: Uint8Array }[]>((resolve) => {
+    return new Promise<ListedFace[]>((resolve) => {
       waiting.push(() =>
-        resolve(families.map((family) => ({ family, weight: 400, style: 'normal', bytes: emojiTestFont() }))),
+        resolve(families.map((family) => ({ id: family, family, weight: 400, style: 'normal' as const }))),
       )
     })
   }
-  editor = await testEditor(WORDS, { sources: { fontFiles } })
+  const fontFile = () => Promise.resolve(emojiTestFont())
+  editor = await testEditor(WORDS, { sources: { fontFaces, fontFile } })
   const { core, modules } = editor
   core.session.run('node.update', { ids: ['words'], patch: { boxMode: 'autoWidth' } })
   const words = () => core.design().nodes.words as Layer & { props: TextProps }

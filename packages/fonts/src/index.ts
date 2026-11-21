@@ -1,4 +1,6 @@
 export type { FontCategory, GoogleFamily, GoogleFile, GoogleLicence } from './google.ts'
+export type { CatalogFace, FontStyle, FontUse } from './face-match.ts'
+export { facesToLoad, WHOLE_FAMILIES } from './face-match.ts'
 export { variesInWeight } from './google-metadata.ts'
 export * from './scripts.ts'
 

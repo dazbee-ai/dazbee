@@ -7,7 +7,9 @@ import { type Design, parseDesign } from '@dazbee/schema'
 
 import { opacityAt } from './canvas/alpha-map.ts'
 import { type CopyMaker, madeCopy } from './display-copies.ts'
+import { NO_FONTS } from './font-loads.ts'
 import { editorResources } from './resources.ts'
+import { testCatalog } from './test-catalog.ts'
 
 const ck = await loadCanvasKit()
 
@@ -90,7 +92,7 @@ function opened(images: Record<string, Uint8Array>, copyMaker?: CopyMaker, fetch
     ck,
     cache: resourceCache(ck),
     first: { fonts: [], fallbackFamilies: [], images },
-    firstFaces: [],
+    firstFonts: NO_FONTS,
     sources: {
       assetBytes: (assetId) => {
         fetched.push(assetId)
@@ -232,18 +234,10 @@ describe('editorResources', () => {
       ck,
       cache: resourceCache(ck),
       first: { fonts: [], fallbackFamilies: [], images: {} },
-      firstFaces: [],
+      firstFonts: NO_FONTS,
       sources: {
         assetBytes: () => Promise.resolve(png),
-        fontFiles: (families) =>
-          Promise.resolve(
-            families.map((family) => ({
-              family,
-              weight: 400,
-              style: 'normal' as const,
-              bytes: shipped?.bytes ?? new Uint8Array(),
-            })),
-          ),
+        ...testCatalog([{ family: 'Extra Sans', bytes: shipped?.bytes ?? new Uint8Array() }]).sources,
       },
       connected: () => true,
       status: () => {},
@@ -256,8 +250,7 @@ describe('editorResources', () => {
     expect(seen).toHaveLength(2)
     expect(seen[1]?.images.photo).toBe(png)
     expect(resources.resources().familyFeatures?.get('Extra Sans')).toBeUndefined()
-    resources.loadFamilies(['Extra Sans'])
-    await resources.loaded()
+    await resources.loadUses([{ family: 'Extra Sans', weight: 400, style: 'normal' }])
     expect(seen).toHaveLength(3)
     expect(seen[2]?.fonts.map((f) => f.family)).toEqual(['Extra Sans'])
     // The features its files have are read once they arrive.

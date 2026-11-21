@@ -1,7 +1,8 @@
-// The tools that need no open design: the access's brands, a brand's designs and images, and a new design.
+// The tools that need no open design: the access's brands, a brand's designs and images, a new design, and a
+// picture added from a link.
 import { z } from 'zod'
 
-import { RecordId } from '@dazbee/schema'
+import { AddAssetFromUrl, type AssetSummary, MAX_ASSET_TAGS, MAX_UPLOAD_BYTES, RecordId } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import { inSeconds } from '../limits.ts'
@@ -44,15 +45,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
       brand: BrandId,
       query: z.string().max(200).optional().describe('A part of a name or tag to look for, at most 200 characters'),
     }),
-    run: async ({ brand, query }, { api }) =>
-      (await api.assets(brand, query)).map(({ id, name, tags, contentType, width, height }) => ({
-        id,
-        name,
-        tags,
-        type: contentType,
-        width,
-        height,
-      })),
+    run: async ({ brand, query }, { api }) => (await api.assets(brand, query)).map(listedImage),
   }),
   defineTool({
     name: 'create_design',
@@ -75,12 +68,55 @@ export const WORKSPACE_TOOLS: Tool[] = [
         return new WithNotes({ id: design.id, name: design.name }, [AFTER_CREATE])
       } catch (error) {
         counted()
-        if (error instanceof ApiRefusal && error.status === 403)
-          throw new ToolRefusal(
-            'This agent may only view designs, so it can’t make one; the person who connected it can connect it again to edit',
-          )
-        throw error
+        throw viewOnly(error, 'make one')
+      }
+    },
+  }),
+  defineTool({
+    name: 'add_image',
+    title: 'Add an image from a link',
+    description: `Adds the picture at an https link (PNG, JPEG, WebP or SVG, at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB) to a brand’s images, as a person’s upload is, and answers it as list_assets does, with the id to place it by. The same picture twice gives the same image, keeping its name, with the tags given added. A link Dazbee can’t use (a private address, a site that refuses, a web page rather than a picture, too big) comes back as a sentence: ask the person for another link. Needs an access that edits.`,
+    readOnly: false,
+    openWorld: true,
+    input: z.object({
+      brand: BrandId,
+      link: AddAssetFromUrl.shape.url.describe(
+        'The picture’s own https link, such as https://example.com/shoe.jpg, not the page that shows it',
+      ),
+      name: AddAssetFromUrl.shape.name.describe(
+        'The image’s name among the brand’s images; left out, the link’s file name',
+      ),
+      tags: AddAssetFromUrl.shape.tags.describe(
+        `Words the image is found by, such as "product": at most ${MAX_ASSET_TAGS}`,
+      ),
+    }),
+    run: async ({ brand, link, name, tags }, { api }) => {
+      try {
+        const asset = await api.addAssetFromUrl(brand, {
+          url: link,
+          ...(name === undefined ? {} : { name }),
+          ...(tags === undefined ? {} : { tags }),
+        })
+        return listedImage(asset)
+      } catch (error) {
+        throw viewOnly(error, 'add an image')
       }
     },
   }),
 ]
+
+/** An image as list_assets and add_image answer it. */
+function listedImage({ id, name, tags, contentType, width, height }: AssetSummary) {
+  return { id, name, tags, type: contentType, width, height }
+}
+
+/**
+ * `error` as the tool's refusal: the API's 403 to an agent that may only view, saying it can't `action`; any other
+ * error as it is.
+ */
+function viewOnly(error: unknown, action: string): unknown {
+  if (!(error instanceof ApiRefusal) || error.status !== 403) return error
+  return new ToolRefusal(
+    `This agent may only view designs, so it can’t ${action}: its access only views, or the member who connected it is a Reviewer. The person who connected it can connect it again to edit, if their role edits`,
+  )
+}

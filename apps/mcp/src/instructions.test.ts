@@ -93,6 +93,10 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain('Opening a design in another session of this agent, such as a new chat, closes')
   })
 
+  it('tells of add_image, which brings a picture in from a link before it is placed', () => {
+    expect(INSTRUCTIONS).toContain('add_image adds the picture at an https link to a brand’s images')
+  })
+
   it('says commands run only through run_command and batch, never as tools of their own', () => {
     expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
     expect(INSTRUCTIONS).toContain('node.update and text.replace, for two, are run_command')
@@ -122,5 +126,11 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain(
       'Before your first change to a design, and before your first change after a person’s edit',
     )
+  })
+
+  it('names add_image, list_fonts, ad_rules, place_asset, search_graphics and place_graphic, and stays under 4,096 characters', () => {
+    for (const tool of ['add_image', 'list_fonts', 'ad_rules', 'place_asset', 'search_graphics', 'place_graphic'])
+      expect(INSTRUCTIONS).toContain(tool)
+    expect(INSTRUCTIONS.length).toBeLessThan(4_096)
   })
 })

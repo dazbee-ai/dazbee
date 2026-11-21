@@ -1,6 +1,6 @@
-// The tools that open a design and read it: open_design opens the session's agent tab on a design, and the others
-// read what that tab shows, the design as the editor holds it, the agent shown to the people in the design at the
-// frame or layer it reads.
+// The tools that open a design and read it: open_design opens the session's agent tab on a design, close_design
+// closes it, and the others read what that tab shows, the design as the editor holds it, the agent shown to the
+// people in the design at the frame or layer it reads.
 import { z } from 'zod'
 
 import { childrenOf, compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS } from '@dazbee/doc'
@@ -28,6 +28,15 @@ export const DESIGN_TOOLS: Tool[] = [
     }),
     run: ({ brand, design }, { api, agent, design: session }) =>
       session.open(brand, design, { api, agent }, answered(designAnswer)),
+  }),
+  defineTool({
+    name: 'close_design',
+    title: 'Close the open design',
+    description:
+      'Closes the design open in this session’s agent tab once the calls before it are answered, giving back the tab Dazbee held for it. Answers `closed`: whether a design was open. Call it when you are done with a design.',
+    readOnly: true,
+    input: z.object({}),
+    run: async (_input, { design }) => ({ closed: await design.close() }),
   }),
   defineTool({
     name: 'read_design',

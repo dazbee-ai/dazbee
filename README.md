@@ -20,7 +20,7 @@ The capacity limits are settings read from the environment when a server starts,
 | Setting | Default | What it limits |
 |---|---|---|
 | `MCP_AGENT_TABS` | 30 | agent tabs open at once in the MCP server |
-| `MCP_AGENT_TABS_PER_ACCESS` | 1 | agent tabs one agent access may have open |
+| `MCP_AGENT_TABS_PER_ACCESS` | 1 | agent tabs one agent access may have open; an MCP session opening one more takes over the access's oldest |
 | `MCP_SESSIONS` | 200 | MCP sessions in all |
 | `MCP_SESSIONS_PER_ACCESS` | 4 | MCP sessions one access may hold; a new one ends the oldest |
 | `MCP_SESSION_IDLE_MINUTES` | 30 | how long an unused session lives |

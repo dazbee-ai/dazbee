@@ -10,7 +10,10 @@ export interface LimitSettings {
    * process's 140 MiB (`tests/pixels/src/agent-tab-cost.ts`).
    */
   agentTabs: number
-  /** The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`. */
+  /**
+   * The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`; an MCP
+   * session opening one past it takes over the access's oldest agent tab.
+   */
   agentTabsPerAccess: number
   /** The sessions held at once, of all accesses, `MCP_SESSIONS`; past it, a new one is refused as busy. */
   mcpSessions: number
@@ -58,8 +61,11 @@ export const MAX_ANSWER_BYTES = 8 * 1024 * 1024
 /** Room kept in an answer for what wraps a tool's text: its content block, `isError` and the JSON-RPC envelope. */
 export const ANSWER_ENVELOPE_BYTES = 2 * 1024
 
-/** The most calls on a session's design running or waiting at once; past it, a call is refused. */
-export const MAX_DESIGN_CALLS_WAITING = 4
+/**
+ * The most calls on a session's design running or waiting at once; past it, a call is refused. A call still waiting
+ * when `CALL_TIMEOUT_MS` passes is answered 503, and a step that waited past its answer time doesn't run.
+ */
+export const MAX_DESIGN_CALLS_WAITING = 16
 
 /** How long open_design waits for the sync server's welcome. */
 export const OPEN_DESIGN_TIMEOUT_MS = 30_000

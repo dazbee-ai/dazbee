@@ -1,10 +1,11 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
+// assets, pictures added from links, the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
 // accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
 import {
+  AddAssetFromUrl,
   type AgentMe,
   type AssetSummary,
   type BrandKit,
@@ -52,6 +53,8 @@ export interface TestApi {
   requests(): number
   /** What a sync token the fake API signed is for, or undefined for one it never signed. */
   syncTokenOf(token: string): TestSyncToken | undefined
+  /** The pictures added from links, each its brand and the body sent, in order. */
+  addedFromUrl(): ({ brandId: string } & AddAssetFromUrl)[]
 }
 
 /** What a sync token of the fake API is for. */
@@ -224,6 +227,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   let requests = 0
   // The sync tokens signed, each to what it is for.
   const syncTokens = new Map<string, TestSyncToken>()
+  // The pictures added from links.
+  const addedFromUrl: ({ brandId: string } & AddAssetFromUrl)[] = []
 
   const app = new Hono<{ Variables: { agent: AgentMe } }>()
 
@@ -296,6 +301,35 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     return c.json({ asset, url: `${STORAGE}/assets/${asset.id}`, expiresAt: new Date(now() + 60_000).toISOString() })
   })
 
+  // A link on inside.example is refused as the API's safe fetch refuses a private address, and text that is no link
+  // as it refuses that; any other link is a 640 × 480 PNG.
+  app.post('/workspaces/:workspaceId/brands/:brandId/assets/from-url', async (c) => {
+    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
+    const input = AddAssetFromUrl.safeParse(await c.req.json())
+    if (!input.success) return c.json({ error: 'url: give a link of at most 2048 characters' }, 400)
+    const host = URL.parse(input.data.url)?.hostname
+    if (host === undefined) return c.json({ error: 'That is not a link' }, 400)
+    if (host === 'inside.example')
+      return c.json(
+        { error: `Dazbee fetches only from public websites, and ${host} is a private or local address` },
+        400,
+      )
+    addedFromUrl.push({ brandId: c.req.param('brandId'), ...input.data })
+    const asset: AssetSummary = {
+      id: `asset-from-url-${addedFromUrl.length}`,
+      brandId: c.req.param('brandId'),
+      sha256: 'c'.repeat(64),
+      contentType: 'image/png',
+      byteSize: 30_000,
+      width: 640,
+      height: 480,
+      name: input.data.name ?? 'boots.png',
+      tags: input.data.tags ?? [],
+      createdAt: new Date(now()).toISOString(),
+    }
+    return c.json(asset, 201)
+  })
+
   app.post('/workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token', async (c) => {
     const designId = c.req.param('designId')
     if (!designs.some((design) => design.id === designId && design.brandId === c.req.param('brandId')))
@@ -321,6 +355,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   return {
     fetch: async (request) => (new URL(request.url).origin === STORAGE ? stored(request) : app.fetch(request)),
     syncTokenOf: (token) => syncTokens.get(token),
+    addedFromUrl: () => addedFromUrl,
     addAccess,
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),

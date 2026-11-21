@@ -158,7 +158,8 @@ export async function findAsset(
 /**
  * Records the original stored under `sha256` as an asset of the brand, named `name`, after checking
  * the bytes hash to it, are an image CanvasKit decodes or an SVG file read as layers, and makes its thumbnail. Recording
- * the same bytes again gives back the same asset, under the name it has.
+ * the same bytes again gives back the same asset, under the name it has. `stored` is the original's bytes when the
+ * caller has just stored them, so they aren't read back.
  */
 export async function recordAsset(
   db: Db,
@@ -167,11 +168,12 @@ export async function recordAsset(
   brandId: string,
   sha256: string,
   name = '',
+  stored?: Uint8Array,
 ): Promise<AssetSummary> {
   const existing = await findAsset(db, workspaceId, brandId, { sha256 })
   if (existing) return existing
   const key = originalKey(workspaceId, sha256)
-  const bytes = await storage.get(key)
+  const bytes = stored ?? (await storage.get(key))
   if (!bytes) throw new InvalidUpload('Nothing was uploaded for that SHA-256')
   const refuse = await checkUpload(storage, key, bytes, sha256, InvalidUpload)
   const header = readImageHeader(bytes) ?? (await readSvgHeader(bytes))

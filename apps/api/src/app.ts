@@ -23,9 +23,11 @@ import { agentConsentRoutes } from './agents/consent-routes.ts'
 import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from './agents/oauth-routes.ts'
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
+import { AddingFromUrlBusy, FROM_URL_PER_HOUR } from './assets/from-url.ts'
 import { assetRoutes } from './assets/routes.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
 import { brandKitRoutes } from './brand-kits/routes.ts'
+import { FetchRefused, type SafeFetchSettings } from './fetch/safe-fetch.ts'
 import { InvalidFont } from './fonts/fonts.ts'
 import { fontRoutes } from './fonts/routes.ts'
 import { brandScope, type Env, error, membershipScope, requireSession } from './http.ts'
@@ -58,6 +60,8 @@ export function createApp({
   requests = requestLimit(),
   turnstile = null,
   agentLimits = oauthLimitSettings({}),
+  outsideFetch = {},
+  fromUrlPerHour = FROM_URL_PER_HOUR,
 }: {
   db: Db
   storage: Storage
@@ -76,6 +80,10 @@ export function createApp({
   turnstile?: TurnstileCheck | null
   /** The limits on agents' sign-ins and registrations, as the environment sets them; their defaults unless given. */
   agentLimits?: OAuthLimitSettings
+  /** How the safe fetch reaches outside sites: the system's DNS and `node:https` unless given. */
+  outsideFetch?: SafeFetchSettings
+  /** The pictures from links a member may add in an hour, `FROM_URL_PER_HOUR` unless given. */
+  fromUrlPerHour?: number
 }) {
   const app = new Hono<Env>()
 
@@ -93,7 +101,7 @@ export function createApp({
   const records = new Hono<Env>()
     .route('/', brandRoutes({ db, storage, syncSecret }))
     .route('/', versionRoutes({ db, storage }))
-    .route('/', assetRoutes({ db, storage }))
+    .route('/', assetRoutes({ db, storage, outsideFetch, fromUrlPerHour }))
     .route('/', templateRoutes({ db, storage }))
     .route('/', brandKitRoutes({ db }))
     .route('/', fontRoutes({ db, storage }))
@@ -121,9 +129,11 @@ export function createApp({
   app.onError((e, c) => {
     if (e instanceof MemberRefusal) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
+    if (e instanceof AddingFromUrlBusy) return c.json(error(e.message), 503)
     if (e instanceof InvalidContent) return c.json(error(`The design is not valid: ${e.message}`), 400)
     if (
       e instanceof InvalidUpload ||
+      e instanceof FetchRefused ||
       e instanceof InvalidKit ||
       e instanceof InvalidFont ||
       e instanceof InvalidInvite ||

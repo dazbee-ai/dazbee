@@ -24,6 +24,7 @@ const AGENTS_ROUTES = [
   'POST /workspaces/:workspaceId/brands/:brandId/designs',
   'GET /workspaces/:workspaceId/brands/:brandId/assets',
   'GET /workspaces/:workspaceId/brands/:brandId/assets/:assetId',
+  'POST /workspaces/:workspaceId/brands/:brandId/assets/from-url',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
   'GET /workspaces/:workspaceId/brands/:brandId/kit',
@@ -249,6 +250,9 @@ describe('an agent token on the app as main.ts builds it', () => {
   it('answers 403 to a view access making a design, and signs its sync token as a Reviewer’s', async () => {
     const a = await agent({ role: 'owner', writes: false })
     expect((await ask(a.accessToken, 'POST', `${a.brand(0)}/designs`, { name: 'No' })).status).toBe(403)
+    expect(
+      (await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/from-url`, { url: 'https://a.test/a.png' })).status,
+    ).toBe(403)
     const design = await designOf(a)
     const asked = await ask(a.accessToken, 'POST', `${a.brand(0)}/designs/${design}/sync-token`)
     const signed = verifySyncToken(syncSecret, SyncToken.parse(asked.json).token, design)

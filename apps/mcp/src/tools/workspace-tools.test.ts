@@ -124,3 +124,68 @@ describe('create_design', () => {
     expect(textOf(result)).toMatch(/^`name`: /)
   })
 })
+
+describe('add_image', () => {
+  it('adds the picture at a link to the brand’s images and answers it as list_assets does', async () => {
+    const agent = await agentOf()
+    const added = await agent.json('add_image', {
+      brand: 'brand-winter',
+      link: 'https://shop.example/boots.png',
+      name: 'Boots',
+      tags: ['product'],
+    })
+    expect(added).toEqual({
+      id: 'asset-from-url-1',
+      name: 'Boots',
+      tags: ['product'],
+      type: 'image/png',
+      width: 640,
+      height: 480,
+    })
+    expect(server.api.addedFromUrl()).toEqual([
+      { brandId: 'brand-winter', url: 'https://shop.example/boots.png', name: 'Boots', tags: ['product'] },
+    ])
+  })
+
+  it('sends only the link when no name or tags are given', async () => {
+    const agent = await agentOf()
+    await agent.json('add_image', { brand: 'brand-winter', link: 'https://shop.example/boots.png' })
+    expect(server.api.addedFromUrl()).toEqual([{ brandId: 'brand-winter', url: 'https://shop.example/boots.png' }])
+  })
+
+  it('tells the API’s refusal of the link as its sentence', async () => {
+    const agent = await agentOf()
+    const result = await agent.call('add_image', { brand: 'brand-winter', link: 'https://inside.example/a.png' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'Dazbee fetches only from public websites, and inside.example is a private or local address.',
+    )
+  })
+
+  it('tells a view access’s refusal (403) as a tool error, adding nothing', async () => {
+    const agent = await agentOf({ writes: false })
+    const result = await agent.call('add_image', { brand: 'brand-winter', link: 'https://shop.example/boots.png' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/may only view designs, so it can’t add an image/)
+    expect(server.api.addedFromUrl()).toEqual([])
+  })
+
+  it('tells a brand outside the access as the API’s refusal', async () => {
+    const agent = await agentOf({ brandIds: ['brand-winter'] })
+    const result = await agent.call('add_image', { brand: 'brand-summer', link: 'https://shop.example/boots.png' })
+    expect(textOf(result)).toBe('No such brand.')
+  })
+
+  it('refuses an unknown argument, naming the ones it takes, and a tag that is too long', async () => {
+    const agent = await agentOf()
+    const unknown = await agent.call('add_image', { brand: 'brand-winter', link: 'https://a.example/a.png', url: 'x' })
+    expect(textOf(unknown)).toBe('Unknown argument `url` (add_image takes brand, link, name, tags).')
+    const long = await agent.call('add_image', {
+      brand: 'brand-winter',
+      link: 'https://a.example/a.png',
+      tags: ['x'.repeat(41)],
+    })
+    expect(long.isError).toBe(true)
+    expect(textOf(long)).toMatch(/^`tags.0`: /)
+  })
+})

@@ -110,6 +110,8 @@ describe('mcpEndpoint', () => {
       'undo',
       'redo',
       'place_asset',
+      'search_graphics',
+      'place_graphic',
     ])
     expect(tools.map(({ name }) => name)).toEqual(TOOLS.map(({ name }) => name))
     for (const tool of tools) {
@@ -130,6 +132,8 @@ describe('mcpEndpoint', () => {
       batch: false,
       undo: false,
       redo: false,
+      search_graphics: true,
+      place_graphic: false,
     })
   })
 

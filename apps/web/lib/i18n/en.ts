@@ -167,9 +167,18 @@ export const en = {
       line: 'Try again. If it keeps happening, reload the page.',
       action: 'Try again',
     },
+    /** The third-party notices: the icon sets Dazbee bundles, each with its licence in full. */
+    notices: {
+      title: 'Third-party notices',
+      line: 'Dazbee bundles these icon sets for you and your agents to place in designs. Each is used under the licence below.',
+      about: 'Version {version} · {licence} licence',
+      action: 'Back to home',
+    },
   },
   settings: {
     title: 'Settings',
+    /** The link at the foot of Settings to the third-party notices. */
+    notices: 'Third-party notices',
     /** The person's own settings, the same in every workspace. */
     you: 'You',
     yourWorkspaces: 'Your workspaces',

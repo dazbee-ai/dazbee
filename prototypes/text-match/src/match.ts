@@ -285,7 +285,8 @@ function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit:
 function choose(fits: Fitted[]): Fitted | undefined {
   const best = fits[0]
   const brand = fits.find((f) => f.brandToken)
-  if (brand && best && brand.rank >= best.rank - BRAND_MARGIN) return brand
+  // The margin is in the letters' shape score, whatever else the rank adds.
+  if (brand && best && brand.shape >= best.shape - BRAND_MARGIN) return brand
   return best
 }
 

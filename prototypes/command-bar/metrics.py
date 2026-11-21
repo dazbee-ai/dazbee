@@ -135,6 +135,40 @@ def pick(rows, how="min", target=0.01):
     return best
 
 
+def candidates(row):
+    """Every call turn two wrote, in each area (score.py --every-area), best confidence first."""
+    out = []
+    picked = row["r1"]["calls"][0]["name"] if row["r1"]["calls"] else None
+    turns = dict(row.get("others") or {})
+    if picked and row.get("r2"):
+        turns[picked] = row["r2"]
+    for area, t in turns.items():
+        made = t["calls"] or t["held"]
+        if made and t.get("conf") is not None:
+            out.append((t["conf"], made[0]))
+    seen, ranked = set(), []
+    for conf, call in sorted(out, key=lambda x: -x[0]):
+        key = canon([call])[0]
+        if key not in seen:
+            seen.add(key)
+            ranked.append((conf, call))
+    return ranked
+
+
+def fallback(rows, how="min", threshold=0.5):
+    """Requests the bar does not act on: how often the right call is among its two best guesses
+    (turn two run in every area, ranked by confidence), and how often it shows nothing."""
+    exact = [canon(final_call(r)) == canon(r["answers"]) for r in rows]
+    held = [r for r, e in zip(rows, exact)
+            if not (final_call(r) and confidence(r, how) >= threshold)]
+    on = [r for r in held if r["answers"]]
+    top2 = sum(1 for r in on if canon(r["answers"])[0] in [canon([c])[0] for _, c in candidates(r)[:2]])
+    top1 = sum(1 for r in on if canon(r["answers"])[0] in [canon([c])[0] for _, c in candidates(r)[:1]])
+    return {"not_acted": len(held), "not_acted_on_topic": len(on),
+            "gold_in_top1": top1 / max(1, len(on)), "gold_in_top2": top2 / max(1, len(on)),
+            "off_topic_not_acted": len(held) - len(on)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="*")

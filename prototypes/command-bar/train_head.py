@@ -4,7 +4,8 @@ open path for this, and `cactus build --lora` drops the base head.
 The head reads every hidden-state row (the embedding and the 20 blocks) of the prompt plus the
 call the model wrote, and gives one logit; the engine reports min(sigmoid(logit), decode
 probability). The prompt is the training render with compact tools JSON, followed by what the
-model generated (head_check.py found this is the sequence the engine scores). Here the backbone
+model generated: its reasoning line in a think block, then the call (head_check.py found this
+is the sequence the engine scores). Here the backbone
 is the LoRA-merged checkpoint under the export's numerics (CQ4 weights, A8), frozen; only the
 head trains, from the base head's values, with binary cross-entropy:
 
@@ -31,17 +32,19 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+from gen_data import reasoning  # noqa: E402
 from metrics import auroc, canon, ece  # noqa: E402
 from tools import ACTIONS, AREAS, TOOL  # noqa: E402
 
 
-def render(query, tools, calls):
-    from cactus.model.tokenizer import (IM_END, IM_START, TOOL_CALL_END, TOOL_CALL_START,
-                                        TOOLS_END, TOOLS_START)
+def render(query, tools, calls, reasoning_line):
+    from cactus.model.tokenizer import (IM_END, IM_START, THINK_END, THINK_START, TOOL_CALL_END,
+                                        TOOL_CALL_START, TOOLS_END, TOOLS_START)
     tj = json.dumps(tools, separators=(",", ":"), ensure_ascii=False)
     cj = json.dumps(calls, separators=(",", ":"), ensure_ascii=False)
+    think = THINK_START + "\n" + (reasoning_line or "").strip() + "\n" + THINK_END + "\n"
     return (IM_START + "user\n" + TOOLS_START + tj + TOOLS_END + "\n" + query + IM_END + "\n"
-            + IM_START + "assistant\n" + TOOL_CALL_START + cj + TOOL_CALL_END)
+            + IM_START + "assistant\n" + think + TOOL_CALL_START + cj + TOOL_CALL_END)
 
 
 def engine_examples(rows, source):
@@ -52,7 +55,7 @@ def engine_examples(rows, source):
         made = r["r1"]["calls"] or r["r1"]["held"]
         if made:
             ok = bool(gold_area) and made[0]["name"] == gold_area
-            out.append((render(r["query"], AREAS, made[:1]), int(ok), source + "/route"))
+            out.append((render(r["query"], AREAS, made[:1], r["r1"]["reasoning"]), int(ok), source + "/route"))
         turns = []
         if r.get("r2") and r["r1"]["calls"]:
             turns.append((r["r1"]["calls"][0]["name"], r["r2"]))
@@ -63,7 +66,7 @@ def engine_examples(rows, source):
             if not made:
                 continue
             ok = area == gold_area and canon(made[:1]) == canon(gold)
-            out.append((render(r["query"], ACTIONS[area], made[:1]), int(ok), source + "/act"))
+            out.append((render(r["query"], ACTIONS[area], made[:1], t["reasoning"]), int(ok), source + "/act"))
     return out
 
 
@@ -121,9 +124,9 @@ def gold_examples(rows, rng, source):
             continue
         call = r["answers"][0]
         tools = ACTIONS[r["area"]]
-        out.append((render(r["query"], tools, [call]), 1, source + "/gold"))
+        out.append((render(r["query"], tools, [call], reasoning(call)), 1, source + "/gold"))
         for c in near_misses(call, rng):
-            out.append((render(r["query"], tools, [c]), 0, source + "/near"))
+            out.append((render(r["query"], tools, [c], reasoning(c)), 0, source + "/near"))
     return out
 
 
@@ -139,6 +142,7 @@ def main():
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--max-len", type=int, default=576)
+    ap.add_argument("--limit", type=int, default=0, help="first rows of each file only, for a smoke test")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -162,7 +166,9 @@ def main():
         logf.flush()
 
     rng = random.Random(0)
-    load = lambda p: [json.loads(l) for l in open(p, encoding="utf-8")]
+    def load(p):
+        rows = [json.loads(l) for l in open(p, encoding="utf-8")]
+        return rows[:args.limit] if args.limit else rows
     train = []
     for path in args.engine:
         rows = load(path)
@@ -175,7 +181,8 @@ def main():
          val=len(val), val_pos=sum(l for _, l, _ in val))
 
     # The base checkpoint's head is where training starts.
-    full, config = load_params(args.checkpoint, args.lora, keep_base_head=True)
+    full, config = load_params(args.checkpoint, None if args.lora == "none" else args.lora,
+                               keep_base_head=True)
     config.dtype = "float32"
     full = jax.tree.map(lambda a: jnp.asarray(np.asarray(a), jnp.float32), full)
     head = full[ConfidenceHead.key]

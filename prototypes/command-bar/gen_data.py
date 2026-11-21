@@ -598,21 +598,35 @@ def make_split(split, n_on, n_off, seed):
     return rows
 
 
+REFUSE = "No tool here does this."
+
+
+def reasoning(call):
+    """The short line the engine has the model write before its call (it always opens a
+    <think> block): the tool, then each argument and its value."""
+    if call is None:
+        return REFUSE
+    if not call["arguments"]:
+        return f"{call['name']}, no arguments."
+    return f"{call['name']}: " + ", ".join(f"{k} {json.dumps(v)}" for k, v in call["arguments"].items()) + "."
+
+
 def needle_rows(rows, rng, misroute=0.35):
     """Needle training rows for both turns: the router's pick, then the area's call. Some requests
-    also appear with another area's tools and no call, so a misroute ends in nothing. No
-    reasoning line: the model answers with the call straight away, which decodes fewer tokens."""
+    also appear with another area's tools and no call, so a misroute ends in nothing."""
     out = []
     for r in rows:
         q, area = r["query"], r["area"]
         call = r["answers"][0] if r["answers"] else None
         route = {"name": area, "arguments": {}} if area else None
-        out.append({"query": q, "tools": AREAS, "answers": [route] if route else []})
+        out.append({"query": q, "tools": AREAS, "answers": [route] if route else [],
+                    "reasoning": reasoning(route)})
         if area:
-            out.append({"query": q, "tools": ACTIONS[area], "answers": [call] if call else []})
+            out.append({"query": q, "tools": ACTIONS[area], "answers": [call] if call else [],
+                        "reasoning": reasoning(call)})
         if rng.random() < misroute:
             other = rng.choice([a for a in ACTIONS if a != area])
-            out.append({"query": q, "tools": ACTIONS[other], "answers": []})
+            out.append({"query": q, "tools": ACTIONS[other], "answers": [], "reasoning": REFUSE})
     rng.shuffle(out)
     return out
 

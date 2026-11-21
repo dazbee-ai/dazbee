@@ -128,6 +128,9 @@ def main():
                 idx = np.concatenate([idx, order[:args.batch - len(idx)]])
             lora, state, loss = step(lora, state, jnp.asarray(seqs[idx]), jnp.asarray(masks[idx]))
             losses.append(float(loss))
+            if len(losses) % 100 == 0:
+                emit(event="steps", epoch=epoch, done=len(losses), loss=float(np.mean(losses[-100:])),
+                     minutes=round((time.time() - t0) / 60, 2))
         vloss, vexact = validate(lora)
         emit(event="epoch", epoch=epoch, train_loss=float(np.mean(losses)), val_loss=vloss,
              val_exact=vexact, minutes=round((time.time() - t0) / 60, 1))

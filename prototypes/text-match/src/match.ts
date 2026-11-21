@@ -119,11 +119,12 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     return [...ids].every((g) => g !== 0)
   }
 
-  // The faces allowed: in the menu, drawing the text's script.
+  // The faces allowed: drawing the text's script, no colour fonts (Dazbee's catalogue leaves them
+  // out), and in the 321-family mode only the faces Dazbee offers today.
   const byId = new Map(ctx.catalogue.map((f) => [faceId(f), f]))
   const allowed = ctx.fingerprints.faces
     .map((id, i) => ({ face: byId.get(id), i }))
-    .filter(({ face }) => face && (!ctx.subset || face.menu) && face.scripts?.includes(script))
+    .filter(({ face }) => face && !(face as { colour?: boolean }).colour && (!ctx.subset || face.menu) && face.scripts?.includes(script))
     .map(({ i }) => i)
   const fp = await blockFingerprint(ctx.model, m.level, m.lines)
   const near = nearest(ctx.fingerprints, fp, allowed, SHORTLIST[version] * 3)

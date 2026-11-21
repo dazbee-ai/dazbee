@@ -39,6 +39,7 @@ export function TextStyleSample({
         // A family with no stored picture: its name in the app's own font, set as the style sets it.
         <span
           className={cn('truncate text-small', !family && 'text-muted')}
+          // The words for a font that isn't set aren't the style's sample, so they keep their own case.
           style={{
             fontWeight: style.fontWeight,
             fontStyle: style.fontStyle,
@@ -46,7 +47,8 @@ export function TextStyleSample({
               style.letterSpacing.unit === 'px'
                 ? `${style.letterSpacing.value}px`
                 : `${style.letterSpacing.value / 100}em`,
-            textTransform: style.textCase && style.textCase !== 'none' ? CSS_CASES[style.textCase] : undefined,
+            textTransform:
+              family && style.textCase && style.textCase !== 'none' ? CSS_CASES[style.textCase] : undefined,
           }}
         >
           {family ?? t.notSet}

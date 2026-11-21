@@ -321,7 +321,7 @@ export function BrandKitPanel({
                               family={family}
                             />
                           </span>
-                          <span className="shrink-0 truncate text-caption text-muted">{style.name}</span>
+                          <span className="max-w-[45%] min-w-0 truncate text-caption text-muted">{style.name}</span>
                           {on && <CheckIcon size={14} aria-hidden className="shrink-0" />}
                         </button>
                       </li>

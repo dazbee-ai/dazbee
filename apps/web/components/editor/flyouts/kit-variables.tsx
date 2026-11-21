@@ -1,8 +1,9 @@
 'use client'
 
-// The brand kit in the editor while it is open, whether the Brand flyout is or not. Each kit the tab
-// shows after the first (a change made in the flyout, a kit fetched since, or the newer kit shown
-// after a refused save) gives the bound layers its values at once, the logo's when it is known, and
+// The brand kit in the editor while it is open, whether the Brand flyout is or not. The kit is
+// fetched again each time the person comes back to the tab, so a change made on the Brand kit page
+// or in another tab reaches it. Each kit the tab shows after the first (a change made in the flyout,
+// a kit fetched since, or the newer kit shown after a refused save) gives the bound layers its values at once, the logo's when it is known, and
 // again once a new logo is found in the library. A save refused while the flyout is closed says so
 // as the stage's notice, since the flyout that would say it isn't there, and so does one whose newer
 // kit couldn't be fetched.
@@ -13,7 +14,7 @@ import { type BrandKit, brandVariables } from '@dazbee/schema'
 
 import { partNames, refusedWords } from '@/components/brand-kit/kit-changes.ts'
 import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
-import { useBrandKit, useKitTrouble } from '@/components/brand-kit/use-brand-kit.ts'
+import { loadKit, useBrandKit, useKitTrouble } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditState } from '@/components/editor/edit-store.ts'
 import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
@@ -51,6 +52,18 @@ export function KitVariables({
       if (found && given.current === kit) void editor.setVariables(brandVariables(kit, found))
     })
   }, [editor, kit, workspaceId, brandId])
+
+  useEffect(() => {
+    const fetchAgain = () => {
+      if (document.visibilityState === 'visible') void loadKit(workspaceId, brandId)
+    }
+    document.addEventListener('visibilitychange', fetchAgain)
+    window.addEventListener('focus', fetchAgain)
+    return () => {
+      document.removeEventListener('visibilitychange', fetchAgain)
+      window.removeEventListener('focus', fetchAgain)
+    }
+  }, [workspaceId, brandId])
 
   useEffect(() => {
     if (trouble === told.current) return

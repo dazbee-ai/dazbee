@@ -96,6 +96,8 @@ export async function loadKit(workspaceId: string, brandId: string) {
   if (revisions.get(brandId) !== before || waiting.has(brandId) || sending.has(brandId)) return
   // A change whose save failed shows until the next change saves it.
   if (troubles.get(brandId)?.kind === 'failed') return
+  // The kit it shows already: nothing changes, and nothing is told.
+  if (fetched && kits.has(brandId) && storedKits.get(brandId)?.updatedAt === fetched.updatedAt) return
   if (fetched) show(brandId, fetched)
   else if (!kits.has(brandId)) showUnreadable(brandId, [])
 }

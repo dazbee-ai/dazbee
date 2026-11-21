@@ -68,6 +68,23 @@ const dE = (a: string, b: string) => {
   return ciede2000(lab(p[0]!, p[1]!, p[2]!), lab(q[0]!, q[1]!, q[2]!))
 }
 
+const { measure } = await import('./measure.ts')
+const { hasTransparency } = await import('./match.ts')
+const { blurMatchedScore, inkDifference, whiteBlackScore } = await import('./score.ts')
+
+/** Not the shared rule, measured after the match's time is taken: see score.ts. */
+function diagnostics(block: Block, match: Awaited<ReturnType<typeof matchBlock>>) {
+  const m = measure(block)
+  drawer.use(catalogue.filter((f) => f.family === match.look.family))
+  const pixels = { width: block.rgba.width, height: block.rgba.height, data: drawer.draw(block.rgba.width, block.rgba.height, null, match.layer) }
+  const flat = !hasTransparency(block.rgba)
+  return {
+    matched: blurMatchedScore(block.rgba, pixels, m.background, flat ? m.ink.data : undefined),
+    ink: inkDifference(m.ink.data, pixels),
+    whiteBlack: whiteBlackScore(block.rgba, pixels, m.background, flat),
+  }
+}
+
 const results: Record<string, unknown>[] = []
 let peakRss = 0
 for (const [n, item] of limited.entries()) {
@@ -87,9 +104,7 @@ for (const [n, item] of limited.entries()) {
       ssim: m.score.ssim,
       deltaE: m.score.deltaE,
       same: m.score.same,
-      matched: m.matched,
-      ink: m.ink,
-      whiteBlack: m.whiteBlack,
+      ...diagnostics(item.block, m),
       layer: m.layer,
       ms: m.ms,
       draws: m.draws,

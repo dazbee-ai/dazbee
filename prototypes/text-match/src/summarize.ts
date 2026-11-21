@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { DATA_DIR } from './catalogue.ts'
+import { isHeldOut } from './deltax.ts'
 
 interface R {
   id: string
@@ -80,13 +81,19 @@ for (const name of process.argv.slice(2)) {
   if (file.set === 'deltax') {
     rows.push('| version | blocks | looks the same | kept as picture | median SSIM | median ΔE | ms/block median | p95 | s/ad median | p95 | draws/block | same family as old worker | same face as old worker |')
     rows.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+    const parts: [string, (r: R) => boolean][] = [
+      ['all', () => true],
+      ['held-out ads', (r) => isHeldOut(r.ad!)],
+      ['development ads', (r) => !isHeldOut(r.ad!)],
+    ]
+    for (const [part, inPart] of parts)
     for (const v of versions) {
-      const rs = file.results.filter((r) => r.version === v)
+      const rs = file.results.filter((r) => r.version === v && inPart(r))
       const perAd = new Map<string, number>()
       for (const r of rs) perAd.set(r.ad!, (perAd.get(r.ad!) ?? 0) + r.ms)
       const withOld = rs.map((r) => ({ r, o: oldOf(r.id) })).filter((x) => x.o)
       rows.push(
-        `| ${v} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${f2(q(rs.map((r) => r.ssim), 0.5))} | ${f1(q(rs.map((r) => r.deltaE), 0.5))} | ${q(rs.map((r) => r.ms), 0.5).toFixed(0)} | ${q(rs.map((r) => r.ms), 0.95).toFixed(0)} | ${(q([...perAd.values()], 0.5) / 1000).toFixed(1)} | ${(q([...perAd.values()], 0.95) / 1000).toFixed(1)} | ${q(rs.map((r) => r.draws), 0.5)} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family)))} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family && x.o!.weight === x.r.look.weight && x.o!.style === x.r.look.style)))} |`,
+        `| ${v}, ${part} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${f2(q(rs.map((r) => r.ssim), 0.5))} | ${f1(q(rs.map((r) => r.deltaE), 0.5))} | ${q(rs.map((r) => r.ms), 0.5).toFixed(0)} | ${q(rs.map((r) => r.ms), 0.95).toFixed(0)} | ${(q([...perAd.values()], 0.5) / 1000).toFixed(1)} | ${(q([...perAd.values()], 0.95) / 1000).toFixed(1)} | ${q(rs.map((r) => r.draws), 0.5)} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family)))} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family && x.o!.weight === x.r.look.weight && x.o!.style === x.r.look.style)))} |`,
       )
     }
   } else {

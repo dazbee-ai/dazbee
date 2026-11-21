@@ -21,6 +21,14 @@ export interface AdBlock {
   block: Block
 }
 
+/**
+ * The held-out ads: every third ad by name, from the third. They were never looked at while the
+ * matcher was built (no pictures, no per-block results), and their numbers are reported apart.
+ */
+export function isHeldOut(name: string): boolean {
+  return adNames().indexOf(name) % 3 === 2
+}
+
 export function adNames(): string[] {
   return readdirSync(TEST_ADS).sort()
 }

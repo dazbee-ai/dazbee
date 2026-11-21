@@ -11,7 +11,7 @@ import { parseArgs } from 'node:util'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { DATA_DIR, loadCatalogue } from './catalogue.ts'
-import { loadAd } from './deltax.ts'
+import { isHeldOut, loadAd } from './deltax.ts'
 import { makeDrawer, textProps } from './draw.ts'
 import { measure } from './measure.ts'
 import { writePng } from './png.ts'
@@ -37,7 +37,7 @@ if (values.agree) {
     text: string
     look: import('./draw.ts').TextLook
     place: import('./draw.ts').Placed
-  }[]).filter((r) => r.version === 'medium')
+  }[]).filter((r) => r.version === 'medium' && !isHeldOut(r.id.split('#')[0]!))
   const sorted = [...results].sort((a, b) => a.ssim - b.ssim)
   const picks = Array.from({ length: 20 }, (_, i) => sorted[Math.round((i * (sorted.length - 1)) / 19)]!)
   const ck = await loadCanvasKit()

@@ -9,6 +9,8 @@ import {
   ApiError,
   AssetLink,
   AssetSummary,
+  type BrandFromWebsite,
+  BrandFromWebsiteAnswer,
   BrandKit,
   BrandSummary,
   DesignSummary,
@@ -20,6 +22,7 @@ import {
   StockResults,
   type StockSearch,
   SyncToken,
+  WEBSITE_READ_TIMEOUT_MS,
 } from '@dazbee/schema'
 
 /** Where the API is, and the fetch that reaches it. */
@@ -44,6 +47,8 @@ export interface AgentApi {
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
+  /** The brand's kit filled from its website, which the API reads, and what the site gave. */
+  brandFromWebsite(brandId: string, input: BrandFromWebsite): Promise<BrandFromWebsiteAnswer>
   /** The brand's font catalog: its families and their faces. */
   fonts(brandId: string): Promise<FontFamily[]>
   /** A face's font file. */
@@ -83,6 +88,11 @@ const API_TIMEOUT_MS = 30_000
  * decode, within the endpoint's `CALL_TIMEOUT_MS`.
  */
 const FROM_URL_CALL_MS = FROM_URL_TIMEOUT_MS + 30_000
+/**
+ * How long filling a kit from a website may take: the API's time to read the site, then 20 seconds to record its
+ * logo and save the kit, within the endpoint's `CALL_TIMEOUT_MS`.
+ */
+const WEBSITE_CALL_MS = WEBSITE_READ_TIMEOUT_MS + 20_000
 
 /**
  * The access `token` belongs to, or null when the API refuses it (a token that is not a live agent access
@@ -139,6 +149,8 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
+    brandFromWebsite: (brandId, input) =>
+      ask('POST', `${brandPath(brandId)}/kit/from-website`, BrandFromWebsiteAnswer, input, WEBSITE_CALL_MS),
     fonts: (brandId) => ask('GET', `${brandPath(brandId)}/fonts`, FontFamily.array()),
     fontBytes: async (brandId, faceId) => {
       const link = await ask('GET', `${brandPath(brandId)}/fonts/faces/${encodeURIComponent(faceId)}`, FontLink)

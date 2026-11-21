@@ -1,5 +1,5 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, pictures added from links, stock photos (`test-stock-api.ts`), the brand kit and font catalog every brand has, sync tokens, the storage the signed links point at, and agent
+// assets, pictures added from links, stock photos (`test-stock-api.ts`), the brand kit and font catalog every brand has, websites read into kits, sync tokens, the storage the signed links point at, and agent
 // accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
@@ -8,6 +8,8 @@ import {
   AddAssetFromUrl,
   type AgentMe,
   type AssetSummary,
+  BrandFromWebsite,
+  type BrandFromWebsiteAnswer,
   type BrandKit,
   type BrandSummary,
   CreateDesign,
@@ -59,6 +61,8 @@ export interface TestApi {
   addedFromUrl(): ({ brandId: string } & AddAssetFromUrl)[]
   /** The stock photo routes: whether stock search is off, and the searches and saves sent. */
   stock: TestStock
+  /** The websites read into kits, each its brand and the body sent, in order. */
+  fromWebsite(): ({ brandId: string } & BrandFromWebsite)[]
 }
 
 /** What a sync token of the fake API is for. */
@@ -259,6 +263,33 @@ export const TEST_ASSETS: AssetSummary[] = [
   },
 ]
 
+/** What the fake API answers for every site read into a kit: the Northwind sample's, its heading kept. */
+export const TEST_WEBSITE_ANSWER: BrandFromWebsiteAnswer = {
+  site: 'https://northwind.example/',
+  kit: { ...TEST_BRAND_KIT, updatedAt: '2026-11-22T10:00:00.000Z' },
+  filled: ['logo', 'primary', 'secondary', 'background', 'text', 'body'],
+  kept: ['heading'],
+  colors: { primary: '#4338CAFF', secondary: '#F59E0BFF', background: '#FFFFFFFF', text: '#111827FF' },
+  fonts: [
+    { role: 'heading', site: 'Meridian Display', family: 'Playfair Display', match: 'closest' },
+    { role: 'body', site: 'Inter', family: 'Inter', match: 'same' },
+  ],
+  logo: {
+    id: 'asset-site-logo',
+    brandId: 'brand-winter',
+    sha256: 'e'.repeat(64),
+    contentType: 'image/png',
+    byteSize: 4_000,
+    width: 160,
+    height: 40,
+    name: 'Northwind Studio logo',
+    tags: ['logo'],
+    createdAt: '2026-11-22T10:00:00.000Z',
+  },
+  candidates: { logo: 'https://northwind.example/apple-touch-icon.png', shareImage: null },
+  notes: ['Dazbee couldn’t read 1 of the site’s 2 style sheets, so some of its colours and fonts may be missing'],
+}
+
 /** The stored file of the bottle asset: a 4 × 4 PNG of orange and blue squares. */
 export const TEST_BOTTLE_PNG = Uint8Array.from(
   Buffer.from(
@@ -301,6 +332,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   const syncTokens = new Map<string, TestSyncToken>()
   // The pictures added from links.
   const addedFromUrl: ({ brandId: string } & AddAssetFromUrl)[] = []
+  // The websites read into kits.
+  const fromWebsite: ({ brandId: string } & BrandFromWebsite)[] = []
 
   const app = new Hono<{ Variables: { agent: AgentMe } }>()
 
@@ -417,6 +450,23 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
 
   app.get('/workspaces/:workspaceId/brands/:brandId/kit', (c) => c.json(TEST_BRAND_KIT))
 
+  // A site on walled.example turns Dazbee away, as the API says; any other site is the Northwind sample's answer.
+  app.post('/workspaces/:workspaceId/brands/:brandId/kit/from-website', async (c) => {
+    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
+    const input = BrandFromWebsite.safeParse(await c.req.json())
+    if (!input.success) return c.json({ error: 'url: give a link of at most 2048 characters' }, 400)
+    if (input.data.url.includes('walled.example'))
+      return c.json(
+        {
+          error:
+            'walled.example turned Dazbee away (403): it lets only people in a browser read it, so Dazbee can’t; ask the person for their logo, brand colours and fonts instead',
+        },
+        400,
+      )
+    fromWebsite.push({ brandId: c.req.param('brandId'), ...input.data })
+    return c.json(TEST_WEBSITE_ANSWER)
+  })
+
   app.get('/workspaces/:workspaceId/brands/:brandId/fonts', (c) => c.json(TEST_FONTS))
 
   app.get('/workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId', (c) => {
@@ -431,6 +481,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     syncTokenOf: (token) => syncTokens.get(token),
     addedFromUrl: () => addedFromUrl,
     stock,
+    fromWebsite: () => fromWebsite,
     addAccess,
     refuse: (token) => void tokens.delete(token),
     refuseAfterMe: (token) => void afterMe.add(token),

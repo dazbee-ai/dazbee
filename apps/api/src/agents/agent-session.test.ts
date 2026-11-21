@@ -30,6 +30,7 @@ const AGENTS_ROUTES = [
   'GET /workspaces/:workspaceId/brands/:brandId/fonts',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
   'GET /workspaces/:workspaceId/brands/:brandId/kit',
+  'POST /workspaces/:workspaceId/brands/:brandId/kit/from-website',
   'POST /workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token',
 ]
 

@@ -1,30 +1,32 @@
 'use client'
 
 // The font of the selected text: a family from the brand's uploads, the Google Fonts we copied
-// into our storage, or the fonts we ship, and its weight. A search and a category's chip narrow the
-// few hundred families, listed as the brand's, the ones used last, then all, with the chosen
-// family's weights under it; only the rows in view are drawn. A brand can upload a TrueType or
+// into our storage, or the fonts we ship, and its weight. A search, a category's chip and a script
+// narrow the whole library of families, listed as the brand's, the ones used last, then all, most
+// used first, with the chosen family's weights under it; only the rows in view are drawn, each with
+// its preview. A brand can upload a TrueType or
 // OpenType file from the same list.
 import { type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
 import { type Design, FontFace, FontFamily } from '@dazbee/schema'
 
-import { FONT_CATEGORIES, type FontCategory } from '@/components/brand-kit/font-catalog.ts'
+import type { FontCategory } from '@/components/brand-kit/font-catalog.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
-import { CHIP, PANEL_BUTTON, PANEL_HEADING } from '@/components/editor/styles.ts'
+import { CHIP, PANEL_BUTTON, PANEL_HEADING, SELECT } from '@/components/editor/styles.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { NoMatch } from '@/components/ui/empty-state.tsx'
 import { MagnifyingGlassIcon, UploadSimpleIcon } from '@/components/ui/icons.tsx'
 import { useOverlayScroll } from '@/components/ui/overlay-scroll.ts'
+import { offersChoice, Select } from '@/components/ui/select.tsx'
 import { brandPath, readJson } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
-import { useMessages } from '@/lib/i18n/client.tsx'
+import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 import { ChooserRow } from './chooser-row.tsx'
 import { drawnRows, keptInPlace, layOut, scrollToShow, scrollToShowWeights } from './drawn-rows.ts'
-import { type ChosenFont, fontPick, type FontRow, fontRows, stepActive } from './font-rows.ts'
+import { type ChosenFont, filterChoices, fontPick, type FontRow, fontRows, stepActive } from './font-rows.ts'
 import { recentFonts } from './recent-fonts.ts'
 
 /** How tall the list shows at most, in pixels (`max-h-[min(20rem,…)]`), as the rows drawn before it is measured. */
@@ -151,17 +153,27 @@ function FontList({
   // A tab that may only view shows the fonts and picks none (C35); the fieldset round it turns off
   // the search, the chips and the upload, but not the families, which are options rather than controls.
   const viewOnly = useViewOnly()
+  const locale = useLocale()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<FontCategory | null>(null)
+  const [script, setScript] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const listRef = useOverlayScroll(list)
 
   const rows = useMemo(
-    () => fontRows(catalog, { query, category }, recent, { family: current.family, weight: current.weight }),
-    [catalog, query, category, recent, current.family, current.weight],
+    () => fontRows(catalog, { query, category, script }, recent, { family: current.family, weight: current.weight }),
+    [catalog, query, category, script, recent, current.family, current.weight],
   )
+  const choices = useMemo(() => filterChoices(catalog, { category, script }), [catalog, category, script])
+  const scriptOptions = useMemo(() => {
+    const names = new Intl.DisplayNames([locale], { type: 'script', fallback: 'code' })
+    return [
+      { value: '', label: t.editor.fonts.scripts.any },
+      ...choices.scripts.map((code) => ({ value: code, label: names.of(code) ?? code })),
+    ]
+  }, [choices.scripts, locale, t])
   const layout = useMemo(() => layOut(rows), [rows])
   // The row the arrow keys move from and Enter picks; the first family when it is no longer listed.
   const [activeKey, setActive] = useState<string | null>(null)
@@ -216,10 +228,11 @@ function FontList({
     onPick(row)
   }
 
-  /** A new search or chip lists from the top. */
-  const narrow = (next: { query?: string; category?: FontCategory | null }) => {
+  /** A new search, chip or script lists from the top. */
+  const narrow = (next: { query?: string; category?: FontCategory | null; script?: string | null }) => {
     if (next.query !== undefined) setQuery(next.query)
     if (next.category !== undefined) setCategory(next.category)
+    if (next.script !== undefined) setScript(next.script)
     opening.current = false
     anchor.current = null
     setActive(null)
@@ -288,8 +301,19 @@ function FontList({
           className="h-full min-w-0 flex-1 bg-transparent text-small outline-none placeholder:text-subtle focus-visible:outline-none!"
         />
       </div>
+      {offersChoice(scriptOptions) && (
+        <Select
+          name="font-script"
+          label={t.editor.fonts.scripts.label}
+          value={script ?? ''}
+          options={scriptOptions}
+          onChange={(code) => narrow({ script: code === '' ? null : code })}
+          className={SELECT}
+          testId="font-script"
+        />
+      )}
       <div role="group" aria-label={t.editor.fonts.categories.label} className="flex flex-wrap gap-1.5">
-        {FONT_CATEGORIES.map((one) => (
+        {choices.categories.map((one) => (
           <button
             key={one}
             type="button"

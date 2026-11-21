@@ -1368,6 +1368,10 @@ export const en = {
         handwriting: 'Handwriting',
         monospace: 'Mono',
       },
+      scripts: {
+        label: 'Script',
+        any: 'Any script',
+      },
       upload: 'Upload a font (.ttf, .otf)',
       uploading: 'Uploading…',
       uploadFailed: 'Upload failed: {reason}',

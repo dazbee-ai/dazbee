@@ -46,6 +46,7 @@ import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'
 import { afterTimeout, type StoreWait } from './store-wait.ts'
 import { ADVICE_TOOLS } from './tools/advice-tools.ts'
 import { ASSET_TOOLS } from './tools/asset-tools.ts'
+import { BRAND_TOOLS } from './tools/brand-tools.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
@@ -114,6 +115,7 @@ interface Call {
 export const TOOLS: Tool[] = [
   ...WORKSPACE_TOOLS,
   ...STOCK_TOOLS,
+  ...BRAND_TOOLS,
   ...ADVICE_TOOLS,
   ...DESIGN_TOOLS,
   ...RENDER_TOOLS,

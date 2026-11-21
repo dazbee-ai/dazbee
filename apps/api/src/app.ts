@@ -27,6 +27,7 @@ import { AddingFromUrlBusy, FROM_URL_PER_HOUR } from './assets/from-url.ts'
 import { assetRoutes } from './assets/routes.ts'
 import { SvgBusy } from './assets/svg-assets.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
+import { ReadingWebsitesBusy, WEBSITES_PER_HOUR } from './brand-kits/from-website.ts'
 import { brandKitRoutes } from './brand-kits/routes.ts'
 import { FetchRefused, type SafeFetchSettings } from './fetch/safe-fetch.ts'
 import { InvalidFont } from './fonts/fonts.ts'
@@ -66,6 +67,7 @@ export function createApp({
   outsideFetch = {},
   fromUrlPerHour = FROM_URL_PER_HOUR,
   stock = null,
+  websitesPerHour = WEBSITES_PER_HOUR,
 }: {
   db: Db
   storage: Storage
@@ -90,6 +92,8 @@ export function createApp({
   fromUrlPerHour?: number
   /** The stock library photos are searched in and saved from; none turns stock search off. */
   stock?: StockLibrary | null
+  /** The websites a member may read into kits in an hour, `WEBSITES_PER_HOUR` unless given. */
+  websitesPerHour?: number
 }) {
   const app = new Hono<Env>()
 
@@ -109,7 +113,7 @@ export function createApp({
     .route('/', versionRoutes({ db, storage }))
     .route('/', assetRoutes({ db, storage, outsideFetch, fromUrlPerHour }))
     .route('/', templateRoutes({ db, storage }))
-    .route('/', brandKitRoutes({ db }))
+    .route('/', brandKitRoutes({ db, storage, outsideFetch, websitesPerHour }))
     .route('/', fontRoutes({ db, storage }))
     .route('/', stockRoutes({ db, storage, outsideFetch, stock, perHour: fromUrlPerHour }))
 
@@ -138,7 +142,7 @@ export function createApp({
     if (e instanceof StockRefused) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
     if (e instanceof SvgBusy) return c.json(error(e.message), 503)
-    if (e instanceof AddingFromUrlBusy) return c.json(error(e.message), 503)
+    if (e instanceof AddingFromUrlBusy || e instanceof ReadingWebsitesBusy) return c.json(error(e.message), 503)
     if (e instanceof InvalidContent) return c.json(error(`The design is not valid: ${e.message}`), 400)
     if (
       e instanceof InvalidUpload ||

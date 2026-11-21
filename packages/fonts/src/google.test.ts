@@ -44,7 +44,7 @@ const FAMILIES_IN_USE = [
 describe('GOOGLE_FONTS', () => {
   const names = GOOGLE_FONTS.map((f) => f.family)
 
-  it('offers the whole Google Fonts library, about 1,900 families', () => {
+  it('offers every Google Fonts family, about 1,900', () => {
     expect(names.length).toBeGreaterThanOrEqual(1800)
   })
 

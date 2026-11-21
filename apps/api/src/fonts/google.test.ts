@@ -68,8 +68,12 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     const boldUrl = [...google.served.keys()][1] ?? ''
     const failing = (async (input: string | URL | Request) =>
       String(input) === boldUrl ? new Response('busy', { status: 503 }) : fake.get(input)) as typeof fetch
-    const first = await importGoogleFamily(db, storage, google, { copied: new Map(), get: failing })
+    const waits: number[] = []
+    const wait = async (ms: number) => void waits.push(ms)
+    const first = await importGoogleFamily(db, storage, google, { copied: new Map(), get: failing, wait })
     expect(first).toMatchObject({ copied: 1, upToDate: 0, failed: 'HaltedSans-Bold.ttf: google/fonts answered 503' })
+    // A busy answer is tried twice more, after a longer wait each time.
+    expect(waits).toEqual([15_000, 30_000])
     expect((await faces('Halted Sans')).map((f) => f.weight)).toEqual([400])
 
     fake.asked.length = 0
@@ -90,6 +94,42 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     const again = await importGoogleFamily(db, storage, google, { copied: await copiedSources(storage), get: fake.get })
     expect(again).toMatchObject({ copied: 1, upToDate: 0 })
     expect(await faces('Forgotten Sans')).toHaveLength(1)
+  })
+
+  it('tries a file again when the connection drops while its bytes come', async () => {
+    const google = family('Dropped Sans', [{ file: 'DroppedSans-Regular.ttf', bytes: regular, weight: 400 }])
+    const fake = fakeGoogleFonts(google)
+    let drops = 1
+    const dropping = (async (input: string | URL | Request) => {
+      if (drops-- > 0) return new Response(new ReadableStream({ pull: (c) => c.error(new Error('reset')) }))
+      return fake.get(input)
+    }) as typeof fetch
+    const done = await importGoogleFamily(db, storage, google, {
+      copied: new Map(),
+      get: dropping,
+      wait: async () => {},
+    })
+    expect(done).toMatchObject({ copied: 1, failed: null })
+  })
+
+  it('deletes the file a new commit’s file takes the place of, with its preview and note', async () => {
+    // Bytes of this run alone: Noto Sans with this run's id after its tables, which a font reader ignores.
+    const old = new Uint8Array([...regular, ...new TextEncoder().encode(`run ${run}`)])
+    const before = family('Updated Sans', [{ file: 'UpdatedSans-Regular.ttf', bytes: old, weight: 400 }])
+    const copied = new Map<string, string>()
+    await importGoogleFamily(db, storage, before, { copied, get: fakeGoogleFonts(before).get })
+    expect(await storage.exists(googleFontKey(sha256(old)))).toBe(true)
+    // The next commit's Regular has other bytes.
+    const after = googleFamily(before.family, [{ file: 'UpdatedSans-Regular.ttf', bytes: bold, weight: 400 }])
+    expect(await importGoogleFamily(db, storage, after, { copied, get: fakeGoogleFonts(after).get })).toMatchObject({
+      copied: 1,
+    })
+    expect((await faces('Updated Sans')).map((f) => f.sha256)).toEqual([sha256(bold)])
+    expect(await storage.exists(googleFontKey(sha256(old)))).toBe(false)
+    expect(await storage.exists(previewKey(googleFontKey(sha256(old))))).toBe(false)
+    expect(await storage.exists(googleSourceKey(before.faces[0]?.blob ?? '', sha256(old)))).toBe(false)
+    expect(copied.has(before.faces[0]?.blob ?? '')).toBe(false)
+    expect(await storage.exists(googleFontKey(sha256(bold)))).toBe(true)
   })
 
   it('refuses bytes that are not google/fonts’ file, recording nothing', async () => {

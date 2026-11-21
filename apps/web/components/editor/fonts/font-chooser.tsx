@@ -2,10 +2,9 @@
 
 // The font of the selected text: a family from the brand's uploads, the Google Fonts we copied
 // into our storage, or the fonts we ship, and its weight. A search, a category's chip and a script
-// narrow the whole library of families, listed as the brand's, the ones used last, then all, most
-// used first, with the chosen family's weights under it; only the rows in view are drawn, each with
-// its preview. A brand can upload a TrueType or
-// OpenType file from the same list.
+// narrow the families, listed as the brand's, the ones used last, then all, most used first, with
+// the chosen family's weights under it; only the rows in view are drawn, each with its preview. A
+// brand can upload a TrueType or OpenType file from the same list.
 import { type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'

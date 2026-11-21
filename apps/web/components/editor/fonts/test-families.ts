@@ -1,5 +1,5 @@
 // Catalogs for the chooser's tests: 300 Google families, 60 in each category, and two brand uploads;
-// and the whole library's size of them.
+// and as many as every Google family.
 import type { FontFamily, FontSource } from '@dazbee/schema'
 
 import { FONT_CATEGORIES, type FontCategory } from '@/components/brand-kit/font-catalog.ts'
@@ -51,5 +51,5 @@ export const TEST_CATALOG: readonly FontFamily[] = [
   testFamily('Harbour Script', 'upload', null),
 ]
 
-/** 1,950 Google families, as many as the whole library, named and ranked as `TEST_CATALOG`'s are. */
-export const LIBRARY_CATALOG: readonly FontFamily[] = googleFamilies(1950, 390)
+/** 1,950 Google families, as many as Google Fonts has, named and ranked as `TEST_CATALOG`'s are. */
+export const EVERY_GOOGLE_FAMILY: readonly FontFamily[] = googleFamilies(1950, 390)

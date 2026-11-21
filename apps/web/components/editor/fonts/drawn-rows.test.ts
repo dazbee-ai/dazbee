@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { drawnRows, keptInPlace, layOut, ROW_HEIGHT, scrollToShow, scrollToShowWeights } from './drawn-rows.ts'
 import { fontRows } from './font-rows.ts'
-import { LIBRARY_CATALOG, TEST_CATALOG } from './test-families.ts'
+import { EVERY_GOOGLE_FAMILY, TEST_CATALOG } from './test-families.ts'
 
 const rows = fontRows(TEST_CATALOG, { query: '', category: null, script: null }, ['Family 150 display'], {
   family: null,
@@ -49,19 +49,19 @@ describe('drawnRows', () => {
     expect(drawnRows(rows, layout, layout.total - VIEW, VIEW).pinned).toBe('all')
   })
 
-  it('draws as few rows of the whole library’s 1,950 families, wherever the list is scrolled to', () => {
-    const library = fontRows(LIBRARY_CATALOG, { query: '', category: null, script: null }, [], {
+  it('draws as few rows of every Google family, 1,950 of them, wherever the list is scrolled to', () => {
+    const every = fontRows(EVERY_GOOGLE_FAMILY, { query: '', category: null, script: null }, [], {
       family: null,
       weight: null,
     })
-    const stacked = layOut(library)
+    const stacked = layOut(every)
     expect(stacked.total).toBe(1950 * ROW_HEIGHT.family)
     for (const scrollTop of [0, stacked.total / 2, stacked.total - VIEW]) {
-      const { from, to, pinned } = drawnRows(library, stacked, scrollTop, VIEW)
+      const { from, to, pinned } = drawnRows(every, stacked, scrollTop, VIEW)
       expect(to - from).toBeLessThan(30)
       expect(pinned).toBe('all')
-      const shown = library.slice(from, to).flatMap((row) => (row.kind === 'family' ? [row.family.family] : []))
-      const atTop = library[Math.floor(scrollTop / ROW_HEIGHT.family) + 1]
+      const shown = every.slice(from, to).flatMap((row) => (row.kind === 'family' ? [row.family.family] : []))
+      const atTop = every[Math.floor(scrollTop / ROW_HEIGHT.family) + 1]
       expect(atTop?.kind === 'family' && shown.includes(atTop.family.family)).toBe(true)
     }
   })

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
-import type { GoogleFamily, GoogleFile } from '@dazbee/fonts'
+import { type GoogleFamily, type GoogleFile, variesInWeight } from '@dazbee/fonts'
 import { googleFileUrl } from '@dazbee/fonts/google'
 import type { Storage } from '@dazbee/storage'
 
@@ -25,8 +25,6 @@ export interface FamilyCopy {
 
 /** How many times a file is fetched before the family is given up on. */
 const ATTEMPTS = 3
-/** A file name Google gives a font variable in its weight, such as `Inter[opsz,wght].ttf`. */
-const VARIES_WEIGHT = /\[[^\]]*\bwght\b[^\]]*\]/
 
 /**
  * Each file of google/fonts copied before, by its git blob: the SHA-256 it was stored under. A run
@@ -53,7 +51,11 @@ export async function importGoogleFamily(
   db: Db,
   storage: Storage,
   family: GoogleFamily,
-  { copied, get = fetch }: { copied: Map<string, string>; get?: typeof fetch },
+  {
+    copied,
+    get = fetch,
+    wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  }: { copied: Map<string, string>; get?: typeof fetch; wait?: (ms: number) => Promise<void> },
 ): Promise<FamilyCopy> {
   const have = await db
     .select({ style: fontFaces.style, sha256: fontFaces.sha256 })
@@ -67,7 +69,7 @@ export async function importGoogleFamily(
       continue
     }
     try {
-      done.bytes += await copyFile(db, storage, family, face, get, copied)
+      done.bytes += await copyFile(db, storage, family, face, { get, wait }, copied)
       done.copied++
     } catch (reason) {
       done.failed = `${face.file}: ${reason instanceof Error ? reason.message : String(reason)}`
@@ -83,22 +85,22 @@ async function copyFile(
   storage: Storage,
   family: GoogleFamily,
   face: GoogleFile,
-  get: typeof fetch,
+  { get, wait }: { get: typeof fetch; wait: (ms: number) => Promise<void> },
   copied: Map<string, string>,
 ): Promise<number> {
-  const bytes = withoutSvgTable(await fetchFile(family, face, get))
+  const bytes = withoutSvgTable(await fetchFile(family, face, get, wait))
   const info = readFontInfo(bytes)
   if (!info) throw new Error('it is not a TrueType or OpenType font')
   const sha256 = createHash('sha256').update(bytes).digest('hex')
   // A file Google names variable in its weight is recorded with its own range, at its own default;
   // any other at the weight Google names it by.
-  const range = VARIES_WEIGHT.test(face.file) ? info.weights : undefined
+  const range = variesInWeight(face.file) ? info.weights : undefined
   const weight = range ? info.weight : face.weight
   const key = googleFontKey(sha256)
   const preview = await fontPreview(bytes, { family: family.family, weight, style: face.style }, family.scripts)
   await storage.put(key, bytes, 'font/ttf')
   await storage.put(previewKey(key), preview, 'image/png')
-  await replaceFace(db, {
+  const replaced = await replaceFace(db, {
     id: newId(),
     workspaceId: null,
     brandId: null,
@@ -115,22 +117,60 @@ async function copyFile(
   // Noted last, so a run stopped before this point copies the file again.
   await storage.put(googleSourceKey(face.blob, sha256), new Uint8Array(), 'application/octet-stream')
   copied.set(face.blob, sha256)
+  await removeUnused(db, storage, replaced, copied)
   return bytes.length
 }
 
-/** A file's bytes from google/fonts, tried `ATTEMPTS` times, refused unless they are the list's git blob. */
-async function fetchFile(family: GoogleFamily, face: GoogleFile, get: typeof fetch): Promise<Uint8Array> {
+/**
+ * Deletes from storage the files of the Google faces just replaced that no Google face holds any
+ * more, with their previews and the notes that they were copied, so a new commit's files take the
+ * place of the old ones rather than adding to them.
+ */
+async function removeUnused(db: Db, storage: Storage, replaced: string[], copied: Map<string, string>) {
+  for (const sha256 of new Set(replaced)) {
+    const [held] = await db
+      .select({ id: fontFaces.id })
+      .from(fontFaces)
+      .where(and(eq(fontFaces.source, 'google'), eq(fontFaces.sha256, sha256)))
+      .limit(1)
+    if (held) continue
+    await storage.delete(googleFontKey(sha256))
+    await storage.delete(previewKey(googleFontKey(sha256)))
+    for (const [blob, stored] of copied)
+      if (stored === sha256) {
+        await storage.delete(googleSourceKey(blob, sha256))
+        copied.delete(blob)
+      }
+  }
+}
+
+/**
+ * A file's bytes from google/fonts, tried `ATTEMPTS` times, refused unless they are the list's git
+ * blob. A connection that drops is tried again soon; a busy answer (429 or 5xx) after a longer wait.
+ */
+async function fetchFile(
+  family: GoogleFamily,
+  face: GoogleFile,
+  get: typeof fetch,
+  wait: (ms: number) => Promise<void>,
+): Promise<Uint8Array> {
   const url = googleFileUrl(family, face)
   let problem = ''
+  let busy = false
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, 2 ** attempt * 250))
-    const response = await get(url).catch((reason: unknown) => reason as Error)
-    if (!(response instanceof Response)) problem = response.message
-    else if (!response.ok) problem = `google/fonts answered ${response.status}`
-    else {
-      const bytes = new Uint8Array(await response.arrayBuffer())
-      if (gitBlob(bytes) === face.blob) return bytes
-      problem = `its ${bytes.length} bytes are not google/fonts' file`
+    if (attempt > 1) await wait((busy ? 15_000 : 1_000) * 2 ** (attempt - 2))
+    try {
+      const response = await get(url)
+      busy = response.status === 429 || response.status >= 500
+      if (!response.ok) problem = `google/fonts answered ${response.status}`
+      else {
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        if (gitBlob(bytes) === face.blob) return bytes
+        problem = `its ${bytes.length} bytes are not google/fonts' file`
+      }
+    } catch (reason) {
+      busy = false
+      problem = reason instanceof Error ? reason.message : String(reason)
     }
   }
   throw new Error(problem)

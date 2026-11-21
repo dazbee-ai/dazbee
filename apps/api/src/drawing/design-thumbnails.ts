@@ -74,7 +74,8 @@ export async function ensureDesignThumbnail(
 
 /**
  * A design's cover frame drawn as PNG on the drawing thread, at most `longest` pixels on its long
- * side (never larger than the frame), with `resources`.
+ * side (never larger than the frame), with `resources`, whose font and image bytes move to the
+ * thread: the caller can't read them after.
  */
 export function drawCover(
   design: Design,
@@ -102,7 +103,10 @@ function drawOnThread(job: Omit<DrawJob, 'id'>): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     waiting.set(id, { resolve, reject })
     thread.ref()
-    thread.postMessage({ ...job, id } satisfies DrawJob)
+    // The font and image bytes move to the thread rather than being copied, as a CJK family's files run to 100 MB.
+    const bytes = [...job.resources.fonts.map((font) => font.bytes), ...Object.values(job.resources.images)]
+    const moved = [...new Set(bytes.map((one) => one.buffer))].filter((buffer) => buffer instanceof ArrayBuffer)
+    thread.postMessage({ ...job, id } satisfies DrawJob, moved)
   }).finally(() => {
     if (waiting.size === 0) thread.unref()
   })

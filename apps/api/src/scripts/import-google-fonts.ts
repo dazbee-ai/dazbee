@@ -12,7 +12,7 @@ import { openStorage, storageSettings } from '@dazbee/storage'
 import { copiedSources, type FamilyCopy, importGoogleFamily } from '../fonts/google.ts'
 
 /** How many families are copied at once. */
-const AT_ONCE = 3
+const AT_ONCE = 2
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')

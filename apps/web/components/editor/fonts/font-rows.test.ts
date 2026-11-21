@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { filterChoices, fontPick, type FontRow, fontRows, stepActive } from './font-rows.ts'
-import { LIBRARY_CATALOG, TEST_CATALOG, testFamily } from './test-families.ts'
+import { EVERY_GOOGLE_FAMILY, TEST_CATALOG, testFamily } from './test-families.ts'
 
 const ANY = { query: '', category: null, script: null }
 const NONE_CHOSEN = { family: null, weight: null }
@@ -71,9 +71,9 @@ describe('fontRows', () => {
     expect(under(rows, 'all')).toEqual(['Family 103 serif', 'Family 113 serif'])
   })
 
-  it('lists the whole library’s 1,950 families, and a search through them', () => {
-    expect(under(fontRows(LIBRARY_CATALOG, ANY, [], NONE_CHOSEN), 'all')).toHaveLength(1950)
-    expect(under(fontRows(LIBRARY_CATALOG, { ...ANY, query: '1949' }, [], NONE_CHOSEN), 'all')).toEqual([
+  it('lists every Google family, 1,950 of them, and a search through them', () => {
+    expect(under(fontRows(EVERY_GOOGLE_FAMILY, ANY, [], NONE_CHOSEN), 'all')).toHaveLength(1950)
+    expect(under(fontRows(EVERY_GOOGLE_FAMILY, { ...ANY, query: '1949' }, [], NONE_CHOSEN), 'all')).toEqual([
       'Family 1949 monospace',
     ])
   })

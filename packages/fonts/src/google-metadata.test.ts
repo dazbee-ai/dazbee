@@ -207,7 +207,7 @@ describe('googleFontList', () => {
     ])
   })
 
-  it('keeps a variable file alone in its style, leaving out the static files of weights it draws', () => {
+  it('keeps a variable file alone in its style, leaving out the static files of that style', () => {
     const files = [
       'M[wght].ttf',
       'M-Italic[wght].ttf italic',
@@ -227,7 +227,6 @@ describe('googleFontList', () => {
     })
     expect(families[0]?.faces.map((face) => [face.file, face.weight, face.style])).toEqual([
       ['M[wght].ttf', 400, 'normal'],
-      ['M-Black.ttf', 900, 'normal'],
       ['M-Italic[wght].ttf', 400, 'italic'],
     ])
   })

@@ -178,14 +178,15 @@ export async function recordFont(
 /**
  * Puts a face in, taking the place of the one with the same family, weight and style in its scope.
  * A variable face never shares its family and style with another: one takes the place of every
- * face of its family and style, and any face takes the place of a variable one.
+ * face of its family and style, and any face takes the place of a variable one. Gives back the
+ * SHA-256 of each face it took the place of.
  */
-export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert) {
-  await db.transaction(async (tx) => {
+export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert): Promise<string[]> {
+  return db.transaction(async (tx) => {
     // Two uploads of one family and style at once wait for each other, so neither keeps a face the other replaces.
     const scope = [row.workspaceId ?? '', row.brandId ?? '', row.family, row.style].join('\n')
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${scope}))`)
-    await tx
+    const replaced = await tx
       .delete(fontFaces)
       .where(
         and(
@@ -196,14 +197,10 @@ export async function replaceFace(db: Db, row: typeof fontFaces.$inferInsert) {
           row.weightMin == null ? or(eq(fontFaces.weight, row.weight), isNotNull(fontFaces.weightMin)) : undefined,
         ),
       )
+      .returning({ sha256: fontFaces.sha256 })
     await tx.insert(fontFaces).values(row)
+    return replaced.map((one) => one.sha256)
   })
-}
-
-/** `GOOGLE_FONTS` by family name. */
-function googleFamilies(): ReadonlyMap<string, GoogleFamily> {
-  googleByName ??= new Map(GOOGLE_FONTS.map((family) => [family.family, family]))
-  return googleByName
 }
 
 /** The faces of each family as the brand sees them: where it uploaded a family Google has, only its own. */
@@ -217,6 +214,12 @@ function families(rows: Row[]): Map<string, Row[]> {
   }
   for (const faces of out.values()) faces.sort(byFace)
   return out
+}
+
+/** `GOOGLE_FONTS` by family name. */
+function googleFamilies(): ReadonlyMap<string, GoogleFamily> {
+  googleByName ??= new Map(GOOGLE_FONTS.map((family) => [family.family, family]))
+  return googleByName
 }
 
 async function visibleFace(db: Db, workspaceId: string, brandId: string, faceId: string) {

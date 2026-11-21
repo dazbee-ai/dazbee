@@ -13,7 +13,7 @@ import type { OpenDesign } from '../open-design.ts'
 import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
-import { centreOf, frameIn, PlaceBox, whole } from './place-on-frame.ts'
+import { centreOf, frameIn, placeBox, whole } from './place-on-frame.ts'
 
 /** The agent batch that places an asset, and how its answer reads the layer placed from the first step's result. */
 interface PlaceBatch {
@@ -36,6 +36,10 @@ const LOGO_NAME = 'Logo'
 /** What an agent is told when an SVG file's embedded pictures are left out. */
 const PICTURES_LEFT_OUT =
   'The SVG file’s embedded pictures are left out, since an agent can’t add them to the asset library; a person who places the file in the editor keeps them.'
+/** Where an asset goes. */
+const PlaceBox = placeBox(
+  'Where it goes, in design pixels from the frame’s top-left corner: an image covers the box, an SVG file fits inside it with its shape kept, centred. Left out, it goes in the middle of the frame: an image at its own size or at most half the frame’s width and height, an SVG file at its own size or at most 60% of the frame’s shorter side.',
+)
 
 export const ASSET_TOOLS: Tool[] = [
   defineTool({

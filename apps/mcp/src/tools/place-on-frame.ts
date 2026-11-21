@@ -10,18 +10,18 @@ import { ToolRefusal } from './define-tool.ts'
 /** The farthest a box's edges may sit from its frame's corner, and the longest side it may have, in design pixels. */
 const BOX_LIMIT = 100_000
 
-/** A box on the frame, in design pixels from its top-left corner. */
-export const PlaceBox = z
-  .object({
-    x: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s left edge, from the frame’s left edge'),
-    y: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s top edge, from the frame’s top edge'),
-    width: z.number().positive().max(BOX_LIMIT).describe('The box’s width'),
-    height: z.number().positive().max(BOX_LIMIT).describe('The box’s height'),
-  })
-  .strict()
-  .describe(
-    'Where it goes, in design pixels from the frame’s top-left corner: an image covers the box, an SVG file fits inside it with its shape kept, centred. Left out, it goes in the middle of the frame: an image at its own size or at most half the frame’s width and height, an SVG file at its own size or at most 60% of the frame’s shorter side.',
-  )
+/** A box on the frame, in design pixels from its top-left corner, described as the tool taking it places in it. */
+export function placeBox(description: string) {
+  return z
+    .object({
+      x: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s left edge, from the frame’s left edge'),
+      y: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s top edge, from the frame’s top edge'),
+      width: z.number().positive().max(BOX_LIMIT).describe('The box’s width'),
+      height: z.number().positive().max(BOX_LIMIT).describe('The box’s height'),
+    })
+    .strict()
+    .describe(description)
+}
 
 /** The open design's frame, refused when it has none of that id. */
 export function frameIn(open: OpenDesign, frameId: string): Frame {

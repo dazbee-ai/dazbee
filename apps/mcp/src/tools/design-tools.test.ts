@@ -10,7 +10,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type Design, type DesignInput, parseDesign, SYNC_CLOSE } from '@dazbee/schema'
 
-import { MAX_AGENT_TABS, MAX_AGENT_TABS_PER_ACCESS, MAX_DESIGN_CALLS_WAITING, MAX_TREE_BYTES } from '../limits.ts'
+import { MAX_DESIGN_CALLS_WAITING, MAX_TREE_BYTES } from '../limits.ts'
 import { REOPENED } from '../open-design.ts'
 import { TEST_SYNC_TOKEN_MS } from '../test-api.ts'
 import { type TestClient, type TestServer, testServer, textOf } from '../test-client.ts'
@@ -82,15 +82,16 @@ describe('open_design', () => {
     expect(server.api.syncTokenOf('sync-1')).toBeUndefined()
   })
 
-  it('answers busy past the tabs the server holds, and past those one access holds', async () => {
-    server = testServer()
-    const accesses = Array.from({ length: MAX_AGENT_TABS / MAX_AGENT_TABS_PER_ACCESS + 1 }, () =>
+  it('answers busy past MCP_AGENT_TABS in the server, and past MCP_AGENT_TABS_PER_ACCESS of one access', async () => {
+    const limits = { agentTabs: 6, agentTabsPerAccess: 2 }
+    server = testServer({ limits })
+    const accesses = Array.from({ length: limits.agentTabs / limits.agentTabsPerAccess + 1 }, () =>
       server.api.addAccess(),
     )
     const [first, ...rest] = accesses
     if (!first) throw new Error('no access')
     for (const access of rest.slice(0, -1)) {
-      for (let tab = 0; tab < MAX_AGENT_TABS_PER_ACCESS; tab++) {
+      for (let tab = 0; tab < limits.agentTabsPerAccess; tab++) {
         const agent = await server.connect(access.token())
         expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
       }
@@ -104,6 +105,23 @@ describe('open_design', () => {
     // A session ending lets its tab go.
     await (firsts[0]?.client.transport as StreamableHTTPClientTransport).terminateSession()
     expect((await last.call('open_design', LAUNCH)).isError).toBeFalsy()
+  })
+
+  it('holds one design open for each access unless set otherwise, and as many tabs as 30 accesses take', async () => {
+    server = testServer()
+    const accesses = Array.from({ length: 31 }, () => server.api.addAccess())
+    const agents = []
+    for (const access of accesses.slice(0, 30)) {
+      const agent = await server.connect(access.token())
+      expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
+      agents.push(agent)
+    }
+    const second = await server.connect(accesses[0]?.token() ?? '')
+    expect(await refusal(second, 'open_design', LAUNCH)).toBe(
+      'This agent already has a design open in another session; end that session, or try again once it has ended.',
+    )
+    const last = await server.connect(accesses[30]?.token() ?? '')
+    expect(await refusal(last, 'open_design', LAUNCH)).toMatch(/as many designs open for agents as it can hold/)
   })
 
   it('closes the tab when the design is deleted, and says so once', async () => {

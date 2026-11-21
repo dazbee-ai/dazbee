@@ -11,7 +11,8 @@ import type { Storage } from '@dazbee/storage'
 import { designThumbnailKey } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
 import type { DrawJob, DrawResult } from './draw-worker.ts'
-import { brandResourcesFor, inDrawingTurn } from './render.ts'
+import { inDrawingTurn } from './drawing-turn.ts'
+import { brandResourcesFor } from './render.ts'
 
 /** Where a design's stored picture is, and the size of the frame it shows. */
 export type ThumbnailCover = DesignCover & { key: string }

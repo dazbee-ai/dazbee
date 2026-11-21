@@ -1,6 +1,6 @@
-// How a reader's time grows with the length of its input, and how long one read takes, measured so
-// that a crowded machine doesn't change the answer: what the tests of hostile files check linear
-// time and a bounded time with.
+// How a reader's time grows with the length of its input, how many times longer one run takes
+// than another, and how long one read takes, measured so that a crowded machine doesn't change the
+// answer: what the tests of hostile files check linear time and a bounded time with.
 
 /** The most `growth` may give for an input ten times as long: well above linear, well below quadratic. */
 export const MAX_GROWTH = 30
@@ -18,32 +18,25 @@ let clock: (() => number) | undefined
  * The samples stop once they have taken 1 s in all, so quadratic code fails after about one sample.
  */
 export function growth<T>(read: (text: string) => T, small: string, large: string): { result: T; times: number } {
-  const now = pickedClock()
-  const timed = (run: () => T) => {
-    const started = now()
-    const result = run()
-    return { result, took: now() - started }
-  }
   const tenSmall = () => {
-    for (let run = 1; run < 10; run++) read(small)
-    return read(small)
+    for (let run = 0; run < 10; run++) read(small)
   }
-  // An untimed first run, so the code the runs take is compiled before they are timed.
-  read(small)
-  let fastestTen = Number.POSITIVE_INFINITY
-  let fastestLarge = Number.POSITIVE_INFINITY
-  let result: T | undefined
-  let spent = 0
-  for (let sample = 0; sample < 5 && spent < 1_000; sample++) {
-    const ten = timed(tenSmall).took
-    const ran = timed(() => read(large))
-    fastestTen = Math.min(fastestTen, ten)
-    fastestLarge = Math.min(fastestLarge, ran.took)
-    result = ran.result
-    spent += ten + ran.took
-  }
-  // The first sample always runs, so `result` is what `read` made of `large`.
-  return { result: result as T, times: (10 * fastestLarge) / fastestTen }
+  const { result, took, baselineTook } = fastest(
+    () => read(large),
+    tenSmall,
+    () => read(small),
+  )
+  return { result, times: (10 * took) / baselineTook }
+}
+
+/**
+ * What `run` gives, and how many times longer it takes than `baseline`, the same work without what
+ * the test adds. Each sample times `baseline` then `run`, so a crowded machine slows both alike, and
+ * the fastest of up to 5 samples of each counts, as in `growth`.
+ */
+export function timesAsLong<T>(run: () => T, baseline: () => unknown): { result: T; times: number } {
+  const { result, took, baselineTook } = fastest(run, baseline, baseline)
+  return { result, times: took / baselineTook }
 }
 
 /** How long `run` takes, in milliseconds, by the clock `growth` times with. */
@@ -52,6 +45,32 @@ export function timeOf(run: () => void): number {
   const started = now()
   run()
   return now() - started
+}
+
+/**
+ * The fastest time of `run` and of `baseline`, from up to 5 samples that each time `baseline` then
+ * `run`, after one untimed call of `warm`, so the code they run is compiled before it is timed. The
+ * samples stop once they have taken 1 s in all, so code that runs away fails after about one sample.
+ */
+function fastest<T>(run: () => T, baseline: () => unknown, warm: () => unknown) {
+  const now = pickedClock()
+  warm()
+  let took = Number.POSITIVE_INFINITY
+  let baselineTook = Number.POSITIVE_INFINITY
+  let result: T | undefined
+  let spent = 0
+  for (let sample = 0; sample < 5 && spent < 1_000; sample++) {
+    const started = now()
+    baseline()
+    const between = now()
+    result = run()
+    const ended = now()
+    baselineTook = Math.min(baselineTook, between - started)
+    took = Math.min(took, ended - between)
+    spent += ended - started
+  }
+  // The first sample always runs, so `result` is what `run` gave.
+  return { result: result as T, took, baselineTook }
 }
 
 /**

@@ -13,6 +13,7 @@ import { clipMask } from './clips.ts'
 import { filterEffects } from './filters.ts'
 import { imageLayer, newPictures, type SvgImage } from './images.ts'
 import { clamp01, length, numbers } from './lengths.ts'
+import { type Counted, counted, layersPast, MAX_LAYERS, MAX_NESTING, MAX_WORK, tally } from './limits.ts'
 import { nameOf } from './names.ts'
 import { shape, SHAPES } from './shapes.ts'
 import { BLEND_MODES, readSheets, type Style, styleOf, styleText } from './style.ts'
@@ -28,6 +29,8 @@ export interface Converted {
   /** The file's own size, after `fit`. */
   width: number
   height: number
+  /** How much `fit` scaled the drawing by: 1 without it. */
+  scale: number
   skipped: Skipped[]
   /** The pictures the file's layers show, each under the key its paints name until it has an asset. */
   images: SvgImage[]
@@ -47,20 +50,14 @@ export interface ConvertOptions {
 export type SvgProblem = 'unreadable' | 'not-svg' | 'empty' | 'too-big'
 export class SvgError extends Error {
   readonly problem: SvgProblem
+  /** What is wrong with the file; for one too big to read, which limit it passed, as the end of a sentence ("it has more than 5,000 layers"). */
+  readonly detail: string | undefined
   constructor(problem: SvgProblem, detail?: string) {
     super(detail ? `${problem}: ${detail}` : problem)
     this.problem = problem
+    this.detail = detail
   }
 }
-
-/** More layers than this, or a file larger than MAX_SVG_BYTES, is refused, so a hostile file can't run away with the page. */
-const MAX_LAYERS = 5_000
-/**
- * Elements read, counting each time a <use> reads one again, and how deep elements and uses may
- * nest: past these the file is refused, so a fan of uses that draw nothing can't run away either.
- */
-const MAX_WORK = 100_000
-const MAX_NESTING = 400
 
 /** Elements that define things for others and draw nothing where they stand. */
 const DEFINITIONS = new Set([
@@ -100,7 +97,7 @@ const union = (boxes: Rect[]): Rect => {
 
 /** Reads an SVG file into layers. Throws SvgError when the file can't be read or draws nothing. */
 export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions = {}): Converted {
-  if (text.length > MAX_SVG_BYTES) throw new SvgError('too-big')
+  if (text.length > MAX_SVG_BYTES) throw new SvgError('too-big', `it is larger than ${MAX_SVG_BYTES / 1_000_000} MB`)
   let root: XmlElement
   try {
     root = parseXml(text)
@@ -140,17 +137,34 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
   const nodes: Record<string, LayerInput> = {}
   let work = 0
   const spend = () => {
-    if (++work > MAX_WORK) throw new SvgError('too-big', `more than ${MAX_WORK} elements to read`)
+    if (++work > MAX_WORK) throw new SvgError('too-big', `it has more than ${counted(MAX_WORK)} elements to read`)
   }
   let nesting = 0
   let made = 0
   const newId = () => {
-    if (++made > MAX_LAYERS) throw new SvgError('too-big', `more than ${MAX_LAYERS} layers`)
+    if (++made > MAX_LAYERS) throw new SvgError('too-big', `it has more than ${counted(MAX_LAYERS)} layers`)
     return `svg${made}`
+  }
+  const counts = tally()
+  const count = (what: Counted, n: number) => {
+    const past = counts(what, n)
+    if (past) throw new SvgError('too-big', past)
   }
   const fontFamily = options.fontFamily ?? ((families: string[]) => families[0] ?? 'Noto Sans')
   const pictures = newPictures(options.name ?? nameOf(root, 'SVG'), options.assetIds)
-  const context: Context = { ck, ids, parents, rules, viewport, nodes, skipped, newId, fontFamily, pictures }
+  const context: Context = {
+    ck,
+    ids,
+    parents,
+    rules,
+    viewport,
+    nodes,
+    skipped,
+    newId,
+    count,
+    fontFamily,
+    pictures,
+  }
   /** Layers that have effects or hold one that has: what a clip around them cuts reaches past their box. */
   const reaching = new Set<string>()
 
@@ -247,7 +261,7 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
   /** The layers for one element, with `m` taking its user space to the design's. */
   function convert(element: XmlElement, parentStyle: Style, parentMatrix: Matrix, using: string[]): Piece | null {
     spend()
-    if (++nesting > MAX_NESTING) throw new SvgError('too-big', `nested more than ${MAX_NESTING} deep`)
+    if (++nesting > MAX_NESTING) throw new SvgError('too-big', `its elements nest more than ${MAX_NESTING} deep`)
     try {
       return convertElement(element, parentStyle, parentMatrix, using)
     } finally {
@@ -385,12 +399,15 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     plainRoot && only?.type === 'group' && !only.props.mask ? (pieces[0] as Piece) : group('', pieces, rootStyle)
   ;(nodes[rootPiece.id] as { name: string }).name = pictures.fileName
 
+  const past = layersPast(nodes, Math.max(width, height) * fitScale)
+  if (past) throw new SvgError('too-big', past)
   const tree = LayerTree.parse({ nodes, roots: [rootPiece.id] })
   return {
     tree,
     root: rootPiece.id,
     width: width * fitScale,
     height: height * fitScale,
+    scale: fitScale,
     skipped: [...skipped],
     images: pictures.list,
   }

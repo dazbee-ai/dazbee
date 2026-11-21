@@ -34,6 +34,8 @@ export function clipMask(
       ? multiply(translate(inside.x, inside.y), scale(inside.width, inside.height))
       : m
   const at = multiply(units, parseTransform(clip.attrs.transform ?? ''))
+  // Each shape is joined to those before it, so the clip's shapes are counted before any is.
+  context.count('clip shapes', clip.children.filter((c) => typeof c !== 'string').length)
   let combined: Path | null = null
   let rectangles = 0
   let parts = 0

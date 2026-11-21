@@ -1,3 +1,5 @@
+import type { FontCategory } from './google.ts'
+
 export type { FontCategory, GoogleFamily, GoogleFile, GoogleLicence } from './google.ts'
 export type { CatalogFace, FontStyle, FontUse } from './face-match.ts'
 export { facesToLoad, WHOLE_FAMILIES } from './face-match.ts'
@@ -23,6 +25,9 @@ export const FONT_FACES: readonly FontFile[] = [
   { family: 'Noto Naskh Arabic', weight: 400, style: 'normal', file: 'NotoNaskhArabic-Regular.ttf' },
   { family: 'Noto Naskh Arabic', weight: 700, style: 'normal', file: 'NotoNaskhArabic-Bold.ttf' },
 ]
+
+/** Every category, in the order the chooser's chips show them. */
+export const FONT_CATEGORIES: readonly FontCategory[] = ['sans-serif', 'serif', 'display', 'handwriting', 'monospace']
 
 /** Used for any character a layer's own family lacks, such as Latin digits inside Arabic text. */
 export const FALLBACK_FAMILY = 'Noto Sans'

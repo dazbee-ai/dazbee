@@ -2,16 +2,10 @@
 // three headings in order (the brand's fonts, the ones used last, then all, most used first), the
 // chosen family's weights under it, and how the arrow keys move between them; and the chips and
 // scripts worth offering.
+import { FONT_CATEGORIES } from '@dazbee/fonts'
 import { byCodeUnits, type FontFamily } from '@dazbee/schema'
 
-import {
-  categoryOf,
-  FONT_CATEGORIES,
-  type FontCategory,
-  nearest,
-  scriptsOf,
-  weightsOf,
-} from '@/components/brand-kit/font-catalog.ts'
+import { categoryOf, type FontCategory, nearest, scriptsOf, weightsOf } from '@/components/brand-kit/font-catalog.ts'
 
 /** The chooser's groups, in the order it lists them. */
 export type FontGroup = 'brand' | 'recent' | 'all'

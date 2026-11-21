@@ -214,8 +214,9 @@ async function writing(
 }
 
 /**
- * Runs `steps` as an agent batch with its warnings on the open design, once its fonts are here, waiting for the store;
- * the agent shown at what it changed, with `note`.
+ * Runs `steps` as an agent batch on the open design, once its fonts are here, waiting for the store; the agent shown
+ * at what it changed, with `note`. Its warnings are read once the tab has loaded the faces of the families the batch
+ * uses, as check_frame reads them.
  */
 async function agentBatchOn(
   open: OpenDesign,
@@ -226,14 +227,12 @@ async function agentBatchOn(
   const { tab } = open
   await tab.fontsLoaded()
   const ck = await loadCanvasKit()
-  return open.write(
-    shownAt(
-      open,
-      () => runAgentBatchWithWarnings(ck, withinDesignLimits(tab.session), steps, tab.bytes(), tab.cache),
-      note,
-    ),
+  const done = await open.write(
+    shownAt(open, () => runAgentBatchWithWarnings(ck, withinDesignLimits(tab.session), steps, tab, tab.cache), note),
     answerBy,
   )
+  const { warned, ...result } = done.value
+  return { ...done, value: { ...result, ...(await warned) } }
 }
 
 /**

@@ -51,10 +51,27 @@ export interface AgentWarningOptions {
 }
 
 /**
- * What came of an agent's batch, with the warnings for the layers it touched; when those could
- * not be read, none, and `warningsError` says why.
+ * Where an agent batch's warnings take their fonts from: an agent tab, which loads the faces of the
+ * families a step uses after the step.
  */
-export type AgentBatchWarned = AgentBatchResult & { warnings: AgentWarning[]; warningsError?: string }
+export interface WarningFonts {
+  /** Settles once the files of every face the design draws its text in are here, or failed to come. */
+  fontsLoaded(): Promise<void>
+  /** The fonts, images and brand kit values there are now. */
+  bytes(): ResourceBytes
+}
+
+/** The warnings for the layers an agent batch touched; when those could not be read, none, and `warningsError` says why. */
+export interface AgentBatchWarnings {
+  warnings: AgentWarning[]
+  warningsError?: string
+}
+
+/** What came of an agent's batch, with the warnings for the layers it touched. */
+export type AgentBatchWarned = AgentBatchResult & AgentBatchWarnings
+
+/** What came of an agent's batch, with the warnings for the layers it touched to come once its fonts are here. */
+export type AgentBatchRun = AgentBatchResult & { warned: Promise<AgentBatchWarnings> }
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
@@ -127,44 +144,28 @@ export function frameWarnings(
 }
 
 /**
- * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, then warns of what the
- * batch touched, as frameWarnings tells it, in the design's order of frames. A batch not kept has
- * no warnings. Once the batch is kept nothing is thrown: a check that fails gives `warningsError`,
- * so the caller still learns what the batch wrote.
+ * Runs `steps` as runAgentBatch does, as one undo step, all or nothing, and gives what came of it at
+ * once. Its warnings come once `fonts` has loaded the faces the design draws its text in: of what
+ * the batch touched, as frameWarnings tells it with the fonts there are then, in the design's order
+ * of frames, read from the design as the batch left it. A batch not kept has no warnings. `warned`
+ * never rejects: a check that fails gives `warningsError`, so the caller still learns what the batch
+ * wrote.
  */
 export function runAgentBatchWithWarnings(
   ck: CanvasKit,
   session: Session,
   steps: readonly AgentStep[],
-  bytes: ResourceBytes,
+  fonts: WarningFonts,
   cache?: ResourceCache,
-): AgentBatchWarned {
+): AgentBatchRun {
   // The design is live, but its layers and frames are replaced, never changed, so these keep it as it was.
   const before = session.design()
   const nodesBefore = { ...before.nodes }
   const framesBefore = { ...before.frames }
   const result = runAgentBatch(session, steps)
-  if (!result.kept) return { ...result, warnings: [] }
-  const design = session.design()
-  let owned: ResourceCache | undefined
-  try {
-    const touched = touchedLayers(design, nodesBefore, framesBefore)
-    owned = cache ?? resourceCache(ck)
-    const resources = owned
-    const warnings = Object.keys(design.frames).flatMap((frameId) => {
-      const ids = touched.get(frameId)
-      if (ids === undefined) return []
-      return frameWarnings(ck, design, frameId, bytes, {
-        ...(ids === 'all' ? {} : { layerIds: ids }),
-        cache: resources,
-      })
-    })
-    return { ...result, warnings }
-  } catch (error) {
-    return { ...result, warnings: [], warningsError: error instanceof Error ? error.message : String(error) }
-  } finally {
-    if (!cache) owned?.delete()
-  }
+  if (!result.kept) return { ...result, warned: Promise.resolve({ warnings: [] }) }
+  const warned = batchWarnings(ck, session.design(), nodesBefore, framesBefore, fonts, cache)
+  return { ...result, warned }
 }
 
 /** A record's own value under `key`, never one its prototype gives. */
@@ -230,6 +231,41 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[]) {
       'safeZone',
       `Text "${name}" is inside the safe-zone edge of ${listed(platforms)}, where the platform’s own buttons and captions cover it.`,
     )
+}
+
+/**
+ * The warnings for what a kept batch touched, from `nodesBefore` and `framesBefore` to `design`, read
+ * once `fonts` has loaded the faces the design draws its text in.
+ */
+async function batchWarnings(
+  ck: CanvasKit,
+  design: Design,
+  nodesBefore: Readonly<Record<string, Layer>>,
+  framesBefore: Readonly<Record<string, unknown>>,
+  fonts: WarningFonts,
+  cache: ResourceCache | undefined,
+): Promise<AgentBatchWarnings> {
+  let owned: ResourceCache | undefined
+  try {
+    await fonts.fontsLoaded()
+    const touched = touchedLayers(design, nodesBefore, framesBefore)
+    const bytes = fonts.bytes()
+    owned = cache ?? resourceCache(ck)
+    const resources = owned
+    const warnings = Object.keys(design.frames).flatMap((frameId) => {
+      const ids = touched.get(frameId)
+      if (ids === undefined) return []
+      return frameWarnings(ck, design, frameId, bytes, {
+        ...(ids === 'all' ? {} : { layerIds: ids }),
+        cache: resources,
+      })
+    })
+    return { warnings }
+  } catch (error) {
+    return { warnings: [], warningsError: error instanceof Error ? error.message : String(error) }
+  } finally {
+    if (!cache) owned?.delete()
+  }
 }
 
 /**

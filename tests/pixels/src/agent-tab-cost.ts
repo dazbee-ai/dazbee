@@ -78,7 +78,8 @@ const steps: AgentStep[] = Array.from({ length: 1000 }, (_, i) => {
 })
 const tab = opened[0] ?? first
 const started = performance.now()
-const result = runAgentBatchWithWarnings(ck, tab.session, steps, tab.bytes(), tab.cache)
+const { warned, ...ran } = runAgentBatchWithWarnings(ck, tab.session, steps, tab, tab.cache)
+const result = { ...ran, ...(await warned) }
 const batchMs = performance.now() - started
 if (!result.kept) throw new Error(`the batch was not kept: ${JSON.stringify(result.steps.at(-1))}`)
 const storeStarted = performance.now()

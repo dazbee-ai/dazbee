@@ -1,4 +1,4 @@
-export { buildPattern, findPattern, PATTERNS } from './catalog.ts'
+export { buildPattern, findPattern, missingContent, PATTERNS, unusedContent } from './catalog.ts'
 export { PATTERN_STYLES } from './styles.ts'
 export type {
   ContentPart,
@@ -10,4 +10,4 @@ export type {
   PatternStyle,
   Picture,
 } from './types.ts'
-export { type PatternFrame, patternSteps } from './batch.ts'
+export { type BuiltFrame, builtFrames, type PatternFrame, patternSteps } from './batch.ts'

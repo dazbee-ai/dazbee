@@ -1,5 +1,5 @@
 // The colours and fonts a pattern is drawn in: each brand role's value in the kit, or the style's where the kit sets
-// none, bound to the role either way, so a role set later changes the ad. And the ink a text takes on a colour: the
+// none, bound to the brand role either way, so a role set later changes the ad. And the ink a text takes on a colour: the
 // first of the colours offered that reads on it, as WCAG 2 reckons contrast.
 import { type BrandKit, brandRef, type VariableRef } from '@dazbee/schema'
 
@@ -33,7 +33,7 @@ export const LARGE_TEXT_CONTRAST = 3
 export const WHITE: Swatch = { value: '#FFFFFFFF' }
 export const INK: Swatch = { value: '#111111FF' }
 
-/** The pattern's colours and fonts from the kit, the style's where the kit sets none, each bound to its role. */
+/** The pattern's colours and fonts from the kit, the style's where the kit sets none, each bound to its brand role. */
 export function paletteOf(kit: BrandKit, style: Style): Palette {
   const colour = (role: keyof Style['colours']): Swatch => {
     const set = kit.colors.find((entry) => entry.token === role)

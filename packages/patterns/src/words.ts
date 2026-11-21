@@ -341,7 +341,7 @@ function textOf(
   return { props, ink, font }
 }
 
-/** A text part with its ink and font bound to their roles. */
+/** A text part with its ink and font bound to their brand roles. */
 function textPart(part: WordPart, { props, ink, font }: SetText): Part {
   const lead = part.kind === 'headline' || part.kind === 'number'
   return {

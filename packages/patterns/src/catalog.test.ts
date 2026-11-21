@@ -102,10 +102,23 @@ describe('buildPattern', () => {
     expect(nodes.ground?.props).toMatchObject({ fills: [{ type: 'solid', color: '#0A7A3FFF' }] })
     expect(nodes.headline?.bindings).toMatchObject({ fontFamily: 'brand:heading' })
     expect(nodes.headline?.props).toMatchObject({ style: { fontFamily: 'Brand Sans' } })
-    // The body font isn't set in the kit: the style's own is used, still bound to the role.
+    // The body font isn't set in the kit: the style's own is used, still bound to the brand role.
     expect(nodes.subline?.bindings).toMatchObject({ fontFamily: 'brand:body' })
     expect(nodes.subline?.props).toMatchObject({ style: { fontFamily: 'Outfit' } })
     expect(nodes.logo).toMatchObject({ role: 'logo', bindings: { image: 'brand:logo' } })
+  })
+
+  it('binds a logo to the Logo brand role only when it is the kit’s logo', () => {
+    const { nodes } = buildPattern('words-only', {
+      style: 'bold',
+      kit: KIT,
+      content: { ...CONTENT, logo: { ...logo, assetId: 'other' } },
+      width: 1080,
+      height: 1080,
+      measure,
+    })
+    expect(nodes.logo?.role).toBe('logo')
+    expect(nodes.logo?.bindings).toBeUndefined()
   })
 
   it('arranges each size for its shape: the photo beside the band in a wide frame, under it in a square', () => {

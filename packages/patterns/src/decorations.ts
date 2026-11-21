@@ -26,7 +26,7 @@ export function insetFrame(b: Build, colour: Swatch, inset: number, opacity = 1)
   )
 }
 
-/** Dots, each a circle in its colour, bound to its role. */
+/** Dots, each a circle in its colour, bound to its brand role. */
 export function dots(b: Build, key: string, list: readonly Dot[], parent?: string) {
   for (const [i, { x, y, r, colour, opacity }] of list.entries())
     b.tree.add(
@@ -36,7 +36,7 @@ export function dots(b: Build, key: string, list: readonly Dot[], parent?: strin
     )
 }
 
-/** A bar of colour over `box`, bound to its role. */
+/** A bar of colour over `box`, bound to its brand role. */
 export function bar(b: Build, key: string, name: string, box: Rect, colour: Swatch, radius = 0, parent?: string) {
   b.tree.add(key, rect(name, box, solid(colour), { radius }), parent)
 }

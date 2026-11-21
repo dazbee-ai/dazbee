@@ -1,21 +1,22 @@
 // Every pattern in every style at every size of the Meta, TikTok and YouTube, and Google Display channels, built
 // with a stand-in brand's kit, logo, photo and words by the agent batch apply_pattern runs: each frame's design
-// check is clean. Built with no brand kit at a square, a story and a wide frame, each style's own colours and fonts
-// give a clean check too. With PATTERN_PICTURES naming a folder, each frame is drawn there as a PNG, with an
-// index.html that shows them by pattern and style, for the owner to review.
+// check is clean. At a square, a story and a wide frame, the check is clean too with no brand kit (each style's own
+// colours and fonts) and with a brand's own fonts and only the content each pattern needs. With PATTERN_PICTURES
+// naming a folder, each frame is drawn there as a PNG, with an index.html that shows them by pattern and style, for
+// the owner to review.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { copiesOf } from '@dazbee/doc'
+import { testEditor } from '@dazbee/editor/test-editor'
 import type { AgentBatchWarned } from '@dazbee/export'
 import { PATTERN_STYLES, PATTERNS } from '@dazbee/patterns'
 import { renderDesign, type ResourceBytes } from '@dazbee/renderer'
 import { brandVariables, type Design, EMPTY_BRAND_KIT, type Frame, framesOf } from '@dazbee/schema'
 
 import { rgbaAt } from './pixels.ts'
-import { builtPattern, CHANNEL_SIZES, ck, STRIDE_KIT } from './test-patterns.ts'
+import { builtPattern, CHANNEL_SIZES, ck, CONTENT, patternBytes, STRIDE_KIT } from './test-patterns.ts'
 
 /** A picture drawn for the review: which set, pattern and style it is of, its file and its size. */
 interface Drawn {
@@ -35,6 +36,15 @@ const KITLESS_SIZES = [
   { width: 1080, height: 1920 },
   { width: 1280, height: 720 },
 ]
+
+/** The stand-in brand with fonts of its own: a serif for headings and a sans for the rest. */
+const FONTED_KIT = {
+  ...STRIDE_KIT,
+  fonts: [
+    { token: 'heading', name: 'Heading', family: 'DM Serif Display' },
+    { token: 'body', name: 'Body', family: 'Jost' },
+  ],
+}
 
 /** The pictures drawn so far. */
 const drawn: Drawn[] = []
@@ -65,17 +75,46 @@ describe.each(PATTERNS.map((pattern) => [pattern.id]))('the %s pattern', (id) =>
     },
     60_000,
   )
+
+  it.each(PATTERN_STYLES.map((style) => [style]))(
+    'draws in the %s style with a brand’s own fonts and only the content it needs, with a clean design check',
+    async (style) => {
+      const pattern = PATTERNS.find((each) => each.id === id)
+      const full = CONTENT[id] ?? { headline: '' }
+      const needed = {
+        headline: full.headline,
+        ...Object.fromEntries(pattern?.needs.map((part) => [part, full[part]]) ?? []),
+      }
+      const { session, result } = await builtPattern(id, style, KITLESS_SIZES, { kit: FONTED_KIT, content: needed })
+      expect(told(session.design(), result)).toEqual([])
+    },
+    60_000,
+  )
 })
 
 describe('a pattern’s frames', () => {
-  it('hold linked copies of each text, which Copy to other frames reaches in every size', async () => {
+  it('hold linked copies of each text: a headline changed in one size goes to every size with Copy to other frames', async () => {
     const { session } = await builtPattern('words-only', 'bold', CHANNEL_SIZES)
-    const design = session.design()
-    const headlines = Object.entries(design.nodes).filter(([, node]) => node.name === 'Headline')
-    expect(headlines).toHaveLength(CHANNEL_SIZES.length)
-    const [[first = ''] = []] = headlines
-    const others = headlines.slice(1).map(([id]) => id)
-    expect(copiesOf(design, first).sort()).toEqual(others.sort())
+    const images = patternBytes().images
+    const e = await testEditor(session.design(), {
+      sources: { assetBytes: async (id) => images[id] ?? new Uint8Array() },
+    })
+    try {
+      const headlines = () =>
+        Object.entries(e.core.session.design().nodes).filter(([, node]) => node.name === 'Headline')
+      expect(headlines()).toHaveLength(CHANNEL_SIZES.length)
+      const [[first = ''] = []] = headlines()
+      const length = CONTENT['words-only']?.headline.length ?? 0
+      e.core.session.run('text.edit', { id: first, op: { kind: 'delete', at: 0, length } })
+      e.core.session.run('text.edit', { id: first, op: { kind: 'insert', at: 0, text: 'Free returns, always' } })
+      e.core.select([first])
+      expect(e.core.perform('textToLinked')).toBe(true)
+      expect(new Set(headlines().map(([, node]) => (node.type === 'text' ? node.props.text : '')))).toEqual(
+        new Set(['Free returns, always']),
+      )
+    } finally {
+      e.end()
+    }
   })
 
   it('change with the brand kit: a new primary colour draws the ground in it', async () => {

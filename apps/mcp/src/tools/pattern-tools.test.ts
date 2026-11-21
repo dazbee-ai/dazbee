@@ -6,12 +6,6 @@ import type { DesignInput } from '@dazbee/schema'
 
 import { type TestServer, testServer, textOf } from '../test-client.ts'
 
-/** A design's frames and layers, as the sync server holds them. */
-interface Stored {
-  frames: Readonly<Record<string, { name: string; width: number; height: number; pageId: string }>>
-  nodes: Readonly<Record<string, StoredLayer>>
-}
-
 /** A layer as a design holds it. */
 interface StoredLayer {
   type: string
@@ -22,9 +16,16 @@ interface StoredLayer {
   props: Record<string, unknown>
 }
 
+/** A design's frames and layers, as the sync server holds them. */
+interface Stored {
+  frames: Readonly<Record<string, { name: string; width: number; height: number; pageId: string }>>
+  nodes: Readonly<Record<string, StoredLayer>>
+}
+
 /** What apply_pattern answers. */
 interface Applied {
   frames: { id: string; name: string; width: number; height: number; layers: Record<string, string> }[]
+  leftOut?: string[]
   warnings: unknown[]
 }
 
@@ -144,6 +145,20 @@ describe('apply_pattern', () => {
     const photo = design.nodes[answer.frames[0]?.layers.photo ?? '']
     expect(photo?.props.fills).toMatchObject([{ type: 'image', assetId: 'asset-bottle' }])
     expect(answer.frames[0]?.layers).not.toHaveProperty('logo')
+  })
+
+  it('binds a logo it is given to brand:logo only when it is the kit’s, and says what of the content it left out', async () => {
+    const { agent, sync } = await opened()
+    const answer = (await agent.json('apply_pattern', {
+      pattern: 'words-only',
+      style: 'minimal',
+      sizes: [{ width: 1080, height: 1080 }],
+      content: { ...WORDS, highlight: 'nowhere', attribution: 'Priya', logo: 'asset-bottle' },
+    })) as Applied
+    const logo = stored(sync).nodes[answer.frames[0]?.layers.logo ?? '']
+    expect(logo?.props.fills).toMatchObject([{ type: 'image', assetId: 'asset-bottle' }])
+    expect(logo?.bindings).toBeUndefined()
+    expect(answer.leftOut).toEqual(['attribution: the pattern doesn’t use it', 'highlight: the pattern doesn’t use it'])
   })
 
   it('refuses a pattern there isn’t, content a pattern needs, a frame that isn’t empty and an SVG photo, changing nothing', async () => {

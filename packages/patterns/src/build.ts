@@ -7,17 +7,19 @@ import { fitted, picture, rect, solid, type TreeBuilder } from './tree.ts'
 import type { PatternContent, PatternStyle } from './types.ts'
 import type { Setting, WordPart } from './words.ts'
 
-/** A frame being built: its tree, how its words are set, its style's name and the content. */
+/** A frame being built: its tree, how its words are set, its style's name, the content and the kit's logo. */
 export interface Build extends Setting {
   tree: TreeBuilder
   styleName: PatternStyle
   content: PatternContent
+  /** The brand kit's logo, an asset's id; none while the kit has no logo. */
+  kitLogo: string | null
 }
 
 /** The contrast under which two colours read as one. */
 const SAME_COLOUR = 1.4
 
-/** The background: a rectangle over the whole frame in a colour, bound to its role. */
+/** The background: a rectangle over the whole frame in a colour, bound to its brand role. */
 export function backdrop(b: Build, colour: Swatch): void {
   const { width, height } = b.frame
   b.tree.add('background', { ...rect('Background', { x: 0, y: 0, width, height }, solid(colour)), role: 'background' })
@@ -31,7 +33,7 @@ export function photo(b: Build, box: Rect, radius = 0): boolean {
 }
 
 /**
- * The logo, bound to the Logo role, fitted inside `room` with its shape kept and lined up by `align`; the box it
+ * The logo, bound to the Logo brand role when it is the kit's logo, fitted inside `room` with its shape kept and lined up by `align`; the box it
  * takes, or none without a logo.
  */
 export function logo(b: Build, room: Rect, align: 'start' | 'center' | 'end' = 'start', on?: Swatch): Rect | undefined {
@@ -44,7 +46,8 @@ export function logo(b: Build, room: Rect, align: 'start' | 'center' | 'end' = '
     const radius = Math.round(tab.height * b.style.buttonRound)
     b.tree.add('logo-tab', rect('Logo tab', tab, solid(b.palette.background), { radius }))
   }
-  b.tree.add('logo', picture('Logo', box, b.content.logo, { fit: 'fit', logo: true }))
+  const bound = b.content.logo.assetId === b.kitLogo
+  b.tree.add('logo', { ...picture('Logo', box, b.content.logo, { fit: 'fit', logo: bound }), role: 'logo' })
   return box
 }
 

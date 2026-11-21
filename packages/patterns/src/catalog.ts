@@ -11,7 +11,7 @@ import { SPLIT, split } from './patterns/split.ts'
 import { WORDS_ONLY, wordsOnly } from './patterns/words-only.ts'
 import { STYLES } from './styles.ts'
 import { treeBuilder } from './tree.ts'
-import type { Pattern, PatternInput, PatternLayers } from './types.ts'
+import type { ContentPart, Pattern, PatternInput, PatternLayers } from './types.ts'
 
 /** A pattern, and what builds it in a frame. */
 interface Built {
@@ -19,7 +19,7 @@ interface Built {
   build: (b: Build) => void
 }
 
-/** Every pattern, in the order `list_patterns` gives them. */
+/** Every pattern, and what builds it, in the order they are listed. */
 const BUILT: readonly Built[] = [
   { pattern: PHOTO_BAND, build: photoBand },
   { pattern: SPLIT, build: split },
@@ -29,12 +29,36 @@ const BUILT: readonly Built[] = [
   { pattern: WORDS_ONLY, build: wordsOnly },
 ]
 
-/** Every pattern, as `list_patterns` tells them. */
+/** Every pattern, as an agent is told of them. */
 export const PATTERNS: readonly Pattern[] = BUILT.map(({ pattern }) => pattern)
 
 /** The pattern of an id; undefined for none. */
 export function findPattern(id: string): Pattern | undefined {
   return PATTERNS.find((pattern) => pattern.id === id)
+}
+
+/** The content a pattern needs and isn't given. */
+export function missingContent(pattern: Pattern, content: Partial<Record<ContentPart, unknown>>): ContentPart[] {
+  return pattern.needs.filter((part) => content[part] === undefined || content[part] === '')
+}
+
+/**
+ * The content given that a pattern doesn't use: the parts it neither needs nor takes, and words to set apart that
+ * the headline doesn't hold.
+ */
+export function unusedContent(pattern: Pattern, content: Partial<Record<ContentPart, unknown>>): ContentPart[] {
+  const used = new Set<ContentPart>([...pattern.needs, ...pattern.takes])
+  const given = (Object.keys(content) as ContentPart[]).filter((part) => content[part] !== undefined)
+  const unused = given.filter((part) => !used.has(part))
+  const { headline, highlight } = content
+  if (
+    used.has('highlight') &&
+    typeof highlight === 'string' &&
+    typeof headline === 'string' &&
+    !headline.toLowerCase().includes(highlight.toLowerCase())
+  )
+    unused.push('highlight')
+  return unused
 }
 
 /**
@@ -44,7 +68,7 @@ export function findPattern(id: string): Pattern | undefined {
 export function buildPattern(id: string, input: PatternInput): PatternLayers {
   const built = BUILT.find(({ pattern }) => pattern.id === id)
   if (!built) throw new Error(`no pattern "${id}"`)
-  const missing = built.pattern.needs.filter((part) => input.content[part] === undefined || input.content[part] === '')
+  const missing = missingContent(built.pattern, input.content)
   if (missing.length > 0) throw new Error(`the pattern "${id}" needs ${missing.join(', ')}`)
   const style = STYLES[input.style]
   const palette = paletteOf(input.kit, style)
@@ -57,6 +81,7 @@ export function buildPattern(id: string, input: PatternInput): PatternLayers {
     frame: frameRoom(input.width, input.height, style.margin),
     measure: input.measure,
     content: input.content,
+    kitLogo: input.kit.logoAssetId,
   }
   backdrop(b, palette.background)
   built.build(b)

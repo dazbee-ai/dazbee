@@ -12,6 +12,12 @@ export interface PatternFrame {
   frameId?: string
 }
 
+/** A size's frame as the batch built it: its id, and each layer's id by the part it is. */
+export interface BuiltFrame {
+  frameId: string
+  layers: Record<string, string>
+}
+
 /** The steps that place each size's layers, its frame added first when none is named. */
 export function patternSteps(
   pageId: string,
@@ -33,16 +39,38 @@ export function patternSteps(
       : [
           {
             command: 'frame.add',
-            as: `frame-${i + 1}`,
+            as: frameStep(i),
             input: { pageId, name: `${frame.width} × ${frame.height}`, width: frame.width, height: frame.height },
           },
         ]
-    const parentId = frame.frameId ?? { $ref: `frame-${i + 1}` }
+    const parentId = frame.frameId ?? { $ref: frameStep(i) }
     const place = {
       command: 'design.place',
-      as: `layers-${i + 1}`,
+      as: layersStep(i),
       input: { parentId, tree: { nodes, roots: layers.roots }, keepLinksFrom: pageId, withIds: true },
     }
     return [...add, place]
   })
+}
+
+/** Each size's frame as the batch's steps' results tell it, in the order of the sizes. */
+export function builtFrames(
+  sizes: readonly PatternFrame[],
+  outcomes: readonly { as?: string; ok: boolean; result?: unknown }[],
+): BuiltFrame[] {
+  const result = (as: string) => outcomes.find((step) => step.as === as && step.ok)?.result
+  return sizes.map((frame, i) => {
+    const placed = result(layersStep(i)) as { ids?: Record<string, string> } | undefined
+    return { frameId: frame.frameId ?? String(result(frameStep(i))), layers: placed?.ids ?? {} }
+  })
+}
+
+/** The name of the step that adds the frame of the size at `i`. */
+function frameStep(i: number): string {
+  return `frame-${i + 1}`
+}
+
+/** The name of the step that places the layers of the size at `i`. */
+function layersStep(i: number): string {
+  return `layers-${i + 1}`
 }

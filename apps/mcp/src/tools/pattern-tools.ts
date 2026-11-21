@@ -1,24 +1,38 @@
 // The tools for patterns: list_patterns tells the patterns an agent can build an ad from, and apply_pattern builds
 // one in a style at several sizes of the open design, each frame arranged for its shape, as one agent batch: in the
 // empty frame named, and in new frames. Each part's copies are linked copies across the sizes; colours, fonts and the
-// logo are bound to the brand's roles. Nothing records which pattern built a frame, so everything can be changed.
+// kit's logo are bound to the brand roles. Nothing records which pattern built a frame, so everything can be changed.
 import { randomBytes } from 'node:crypto'
 
 import { z } from 'zod'
 
 import {
   buildPattern,
+  builtFrames,
   findPattern,
+  missingContent,
   PATTERN_STYLES,
   type PatternContent,
+  type PatternFrame,
   type PatternLayers,
   PATTERNS,
   patternSteps,
+  type PatternStyle,
   type Picture,
+  unusedContent,
 } from '@dazbee/patterns'
 import { textMeasure } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type Design, inOrder, isVectorAsset, RecordId, SIZE_LIMITS, sizeProblem, textFontUses } from '@dazbee/schema'
+import {
+  type BrandKit,
+  inOrder,
+  isVectorAsset,
+  RecordId,
+  SIZE_LIMITS,
+  sizeProblem,
+  textFontUses,
+  type Variables,
+} from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
@@ -27,10 +41,18 @@ import { defineTool, type Tool, type ToolContext, ToolRefusal } from './define-t
 import { FrameId } from './design-tools.ts'
 import { frameIn } from './place-on-frame.ts'
 
+/** The content filled in from the brand's assets, and what of the content given is left out of the ad. */
+interface Filled {
+  content: PatternContent
+  leftOut: string[]
+}
+
 /** The most sizes one call builds. */
 const MOST_SIZES = 12
 /** The longest a text of the content may be. */
 const MOST_WORDS = 300
+/** The styles, as a sentence names them. */
+const STYLES_SAID = `${PATTERN_STYLES.slice(0, -1).join(', ')} and ${PATTERN_STYLES.at(-1)}`
 
 /** A size a pattern is built at. */
 const Size = z
@@ -59,7 +81,9 @@ const Content = z
     ).optional(),
     logo: z
       .union([RecordId, z.literal(false)])
-      .describe('The logo, an image of the brand’s by its id; the brand kit’s logo when left out; false for none')
+      .describe(
+        'The logo, an image of the brand’s by its id; the brand kit’s logo, bound to brand:logo, when left out; false for none',
+      )
       .optional(),
   })
   .strict()
@@ -69,8 +93,7 @@ export const PATTERN_TOOLS: Tool[] = [
   defineTool({
     name: 'list_patterns',
     title: 'List patterns',
-    description:
-      'Lists the patterns apply_pattern builds an ad from: proven structures, each arranged for every size, filled from the brand kit and the content given. Each has its id, name, the kinds of ad it suits, what content it needs and takes, and a line on what it is; `kind` keeps those that suit a kind of ad, such as “sale or offer”. Every pattern comes in the styles bold, minimal, playful and premium.',
+    description: `Lists the patterns apply_pattern builds an ad from: proven structures, each arranged for every size, filled from the brand kit and the content given. Each has its id, name, the kinds of ad it suits, what content it needs and takes, and a line on what it is; \`kind\` keeps those that suit a kind of ad, such as “sale or offer”. Every pattern comes in the styles ${STYLES_SAID}.`,
     readOnly: true,
     input: z.object({
       kind: z.string().trim().min(1).max(60).optional().describe('A kind of ad, such as “sale or offer” or “quote”'),
@@ -88,11 +111,11 @@ export const PATTERN_TOOLS: Tool[] = [
   defineTool({
     name: 'apply_pattern',
     title: 'Build an ad from a pattern',
-    description: `Builds a pattern (list_patterns) in a style at each size given, one frame a size, each arranged for its shape, as one undo step, and answers once Dazbee has stored it: each frame's id, size and the ids of the layers it made, and the warnings. The first size goes in \`frame\` when it names an empty frame, at that frame's size; the rest go in new frames on its page, or the first page. The texts of the sizes are linked copies; colours, fonts and the logo are bound to the brand kit's roles, the style's own where a role is not set. It is a starting point: change anything after, then look at each frame with render_frame and fix what check_frame warns of. Up to ${MOST_SIZES} sizes.`,
+    description: `Builds a pattern (list_patterns) in a style at each size given, one frame a size, each arranged for its shape, as one undo step, and answers once Dazbee has stored it: each frame's id, name, size and the ids of the layers it made by the part each is, what of the content was left out, and the warnings. The first size goes in \`frame\` when it names an empty frame, at that frame's size; the rest go in new frames on its page, or the first page. Each part's copies in the sizes are linked copies; colours, fonts and the kit's logo are bound to the brand roles, the style's own where a role is not set. It is a starting point: change anything after, then look at each frame with render_frame and fix what check_frame warns of. Up to ${MOST_SIZES} sizes.`,
     readOnly: false,
     input: z.object({
       pattern: z.string().trim().min(1).max(60).describe('The pattern’s id, as list_patterns gives it'),
-      style: z.enum(PATTERN_STYLES).describe('The style: bold, minimal, playful or premium'),
+      style: z.enum(PATTERN_STYLES).describe(`The style: ${STYLES_SAID.replace(' and ', ' or ')}`),
       sizes: z
         .array(Size)
         .max(MOST_SIZES)
@@ -103,22 +126,33 @@ export const PATTERN_TOOLS: Tool[] = [
       note: Note,
     }),
     run: ({ pattern, style, sizes = [], frame, content, note }, context) =>
-      writing(context, ['design.place'], async (open) => {
+      writing(context, [], async (open) => {
         const found = findPattern(pattern)
         if (!found) throw new ToolRefusal(`There is no pattern “${pattern}”; list_patterns lists them`)
-        const missing = found.needs.filter((part) => content[part as keyof typeof content] === undefined)
+        const missing = missingContent(found, content)
         if (missing.length > 0)
           throw new ToolRefusal(`The ${found.id} pattern needs ${missing.join(', ')} in the content; nothing was built`)
         const { pageId, frames } = framesFor(open, frame, sizes)
         const kit = await context.api.brandKit(open.brandId)
         const filled = await contentOf(context, open, content, kit.logoAssetId)
-        const layers = await built(open, found.id, style, frames, filled, kit)
-        const steps = patternSteps(pageId, layers, freshId)
-        const done = await agentBatchOn(open, steps, context.answerBy, note)
+        const layers = await built(open, found.id, style, frames, filled.content, kit)
+        const done = await agentBatchOn(open, patternSteps(pageId, layers, freshId), context.answerBy, note)
         const { kept, steps: outcomes, warnings, warningsError } = done.value
         if (!kept) throw new ToolRefusal(refusalOf(outcomes.find((step) => !step.ok)))
+        const design = open.tab.design()
+        const leftOut = [
+          ...unusedContent(found, content).map((part) => `${part}: the pattern doesn’t use it`),
+          ...filled.leftOut,
+        ]
         return answered(open, done, {
-          frames: madeFrames(open.tab.design(), frames, outcomes),
+          frames: builtFrames(frames, outcomes).map(({ frameId, layers: ids }, i) => ({
+            id: frameId,
+            name: design.frames[frameId]?.name ?? '',
+            width: frames[i]?.width,
+            height: frames[i]?.height,
+            layers: ids,
+          })),
+          ...(leftOut.length > 0 ? { leftOut } : {}),
           warnings,
           ...(warningsError === undefined ? {} : { warningsError }),
         })
@@ -126,13 +160,17 @@ export const PATTERN_TOOLS: Tool[] = [
   }),
 ]
 
-/** A new id for a link or a layer. */
+/** A new id for a link or a layer: 120 random bits, as letters, digits, - and _. */
 function freshId(): string {
   return randomBytes(15).toString('base64url')
 }
 
 /** The page the frames go on and each size's frame: the empty frame named first, at its size, then new ones. */
-function framesFor(open: OpenDesign, frameId: string | undefined, sizes: readonly { width: number; height: number }[]) {
+function framesFor(
+  open: OpenDesign,
+  frameId: string | undefined,
+  sizes: readonly PatternFrame[],
+): { pageId: string; frames: PatternFrame[] } {
   const design = open.tab.design()
   if (!frameId && sizes.length === 0) throw new ToolRefusal('Give the sizes to build at, or an empty frame to build in')
   for (const { width, height } of sizes) {
@@ -151,14 +189,18 @@ function framesFor(open: OpenDesign, frameId: string | undefined, sizes: readonl
   return { pageId: first[0], frames: [...sizes] }
 }
 
-/** The content with its pictures' sizes read from the brand's assets, and the kit's logo where none is named. */
+/**
+ * The content with its pictures' sizes read from the brand's assets, and the kit's logo where none is named; a kit
+ * logo that is an SVG file is left out, and said so.
+ */
 async function contentOf(
   { api }: ToolContext,
   open: OpenDesign,
   { photo, logo, ...words }: z.output<typeof Content>,
   kitLogo: string | null,
-): Promise<PatternContent> {
-  const picture = async (assetId: string, what: string): Promise<Picture | undefined> => {
+): Promise<Filled> {
+  const leftOut: string[] = []
+  const picture = async (assetId: string, what: 'photo' | 'logo'): Promise<Picture | undefined> => {
     let summary
     try {
       summary = (await api.asset(open.brandId, assetId)).summary
@@ -168,7 +210,12 @@ async function contentOf(
       throw error
     }
     if (!isVectorAsset(summary)) return { assetId, width: summary.width, height: summary.height }
-    if (what === 'logo') return undefined
+    if (what === 'logo' && logo === undefined) {
+      leftOut.push(
+        `logo: the brand kit’s logo is an SVG file, which a pattern doesn’t place; place it with place_asset`,
+      )
+      return undefined
+    }
     throw new ToolRefusal(
       `The ${what} “${assetId}” is an SVG file; give an image, or place the SVG with place_asset after`,
     )
@@ -178,11 +225,12 @@ async function contentOf(
   const placedLogo = logoId ? await picture(logoId, 'logo') : undefined
   // The words given; one left out is left out of the content.
   const given = Object.fromEntries(Object.entries(words).filter(([, value]) => value !== undefined))
-  return {
+  const content = {
     ...(given as Omit<PatternContent, 'photo' | 'logo'>),
     ...(placedPhoto ? { photo: placedPhoto } : {}),
     ...(placedLogo ? { logo: placedLogo } : {}),
   }
+  return { content, leftOut }
 }
 
 /**
@@ -192,10 +240,10 @@ async function contentOf(
 async function built(
   open: OpenDesign,
   pattern: string,
-  style: (typeof PATTERN_STYLES)[number],
-  frames: readonly { width: number; height: number; frameId?: string }[],
+  style: PatternStyle,
+  frames: readonly PatternFrame[],
   content: PatternContent,
-  kit: Awaited<ReturnType<ToolContext['api']['brandKit']>>,
+  kit: BrandKit,
 ) {
   const { tab } = open
   const ck = await loadCanvasKit()
@@ -204,32 +252,11 @@ async function built(
     return frames.map((frame) => ({ frame, layers: buildPattern(pattern, { style, kit, content, ...frame, measure }) }))
   }
   const variables = tab.bytes().variables
-  const uses = build().flatMap(({ layers }) => usesOf(layers, variables))
-  await tab.fontsFor(uses)
+  await tab.fontsFor(build().flatMap(({ layers }) => usesOf(layers, variables)))
   return build()
 }
 
 /** The faces a pattern's texts are drawn in. */
-function usesOf(layers: PatternLayers, variables: Parameters<typeof textFontUses>[1]) {
+function usesOf(layers: PatternLayers, variables: Variables | undefined) {
   return Object.values(layers.nodes).flatMap((node) => (node.type === 'text' ? textFontUses(node, variables) : []))
-}
-
-/** Each frame the batch built: its id, name and size, and its layers' ids by the part each is. */
-function madeFrames(
-  design: Design,
-  frames: readonly { width: number; height: number; frameId?: string }[],
-  outcomes: readonly { ok: boolean; as?: string; result?: unknown }[],
-) {
-  const result = (as: string) => outcomes.find((step) => step.as === as && step.ok)?.result
-  return frames.map((frame, i) => {
-    const id = frame.frameId ?? String(result(`frame-${i + 1}`))
-    const placed = result(`layers-${i + 1}`) as { ids: Record<string, string> } | undefined
-    return {
-      id,
-      name: design.frames[id]?.name ?? '',
-      width: frame.width,
-      height: frame.height,
-      layers: placed?.ids ?? {},
-    }
-  })
 }

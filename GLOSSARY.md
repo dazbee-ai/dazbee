@@ -411,6 +411,10 @@ _Avoid_: Guide (a ruler line), guidelines, spec, constraints (a layer's pinning)
 A proven structure for an ad, such as a full photo with a band of words or a product centred with a badge, that builds a frame's layers at any size from a brand's words, pictures, logo and colours. It is a starting point the agent or a person then changes freely; nothing remembers which pattern built a frame.
 _Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), preset, theme
 
+**Pattern style**:
+One of the four ways a pattern is drawn: bold, minimal, playful or premium. It sets the decoration, the type (the Google Fonts pairing used where the brand kit sets no Heading or Body font, the weights, case and spacing) and the room, and the colours used where the kit sets none; never the structure, so a pattern holds the same parts in every style.
+_Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
+
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
 _Avoid_: Symbol, glyph, clip art, Daz (the bee)

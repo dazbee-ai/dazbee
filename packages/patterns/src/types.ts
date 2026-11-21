@@ -28,12 +28,12 @@ export interface PatternContent {
   /** Who said a quote, such as “Priya, Mumbai”. */
   attribution?: string
   photo?: Picture
-  /** The logo, an image: placed bound to the Logo role. */
+  /** The logo, an image: bound to the Logo brand role when it is the kit's logo. */
   logo?: Picture
 }
 
-/** What a part of the content is called, as `list_patterns` names it. */
-export type ContentPart = Exclude<keyof PatternContent, 'headline'> | 'headline'
+/** What a part of the content is called, as an agent names it. */
+export type ContentPart = keyof PatternContent
 
 /**
  * Lays out a text as it is drawn: its width and height at `width`, or at its own width when `width` is null. The
@@ -51,7 +51,7 @@ export interface PatternInput {
   measure: Measure
 }
 
-/** A pattern as `list_patterns` tells it and `buildPattern` builds it. */
+/** A pattern as an agent is told of it and `buildPattern` builds it. */
 export interface Pattern {
   id: string
   name: string

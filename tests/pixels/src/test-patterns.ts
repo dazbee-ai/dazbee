@@ -26,16 +26,6 @@ export const CHANNEL_SIZES: readonly { width: number; height: number }[] = SIZE_
   (preset, i, all) => all.findIndex((other) => other.width === preset.width && other.height === preset.height) === i,
 )
 
-/** The family each font file in `assets/fonts` is registered as. */
-const FAMILIES: Record<string, string> = {
-  'Anton-Regular.ttf': 'Anton',
-  'Outfit[wght].ttf': 'Outfit',
-  'Fredoka[wdth,wght].ttf': 'Fredoka',
-  'DMSerifDisplay-Regular.ttf': 'DM Serif Display',
-  'DMSerifDisplay-Italic.ttf': 'DM Serif Display',
-  'Jost[wght].ttf': 'Jost',
-}
-
 /** A stand-in brand: a sneaker maker with an orange, navy and yellow kit and its logo, and no fonts of its own. */
 export const STRIDE_KIT: BrandKit = {
   colors: [
@@ -110,6 +100,16 @@ export const CONTENT: Record<string, PatternContent> = {
     button: 'Join free',
     logo: PICTURES.logo,
   },
+}
+
+/** The family each font file in `assets/fonts` is registered as. */
+const FAMILIES: Record<string, string> = {
+  'Anton-Regular.ttf': 'Anton',
+  'Outfit[wght].ttf': 'Outfit',
+  'Fredoka[wdth,wght].ttf': 'Fredoka',
+  'DMSerifDisplay-Regular.ttf': 'DM Serif Display',
+  'DMSerifDisplay-Italic.ttf': 'DM Serif Display',
+  'Jost[wght].ttf': 'Jost',
 }
 
 /** The shipped fonts, the styles' families, every stand-in picture and the kit's values. */

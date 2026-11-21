@@ -13,7 +13,7 @@ import {
 import type { Swatch } from './palette.ts'
 import type { Picture } from './types.ts'
 
-/** A layer as a pattern makes it: its type, name, role, props as the schema takes them, and bindings. */
+/** A layer as a pattern makes it: its type, name, what it is in the ad (its role), props as the schema takes them, and bindings. */
 export interface Part {
   type: UnplacedLayer['type']
   name: string
@@ -64,7 +64,7 @@ export function treeBuilder(): TreeBuilder {
   return { add, moveDown, tree: () => ({ nodes, roots }) }
 }
 
-/** A solid fill of a colour, bound to its role when it has one. */
+/** A solid fill of a colour, bound to its brand role when it has one. */
 export function solid(swatch: Swatch, opacity?: number): Fill {
   const paint: Paint = { type: 'solid', color: swatch.value, ...(opacity === undefined ? {} : { opacity }) }
   return { fills: [paint], ...(swatch.ref ? { bindings: { fill: swatch.ref } } : {}) }
@@ -145,7 +145,7 @@ export function stroke(color: string, width: number): Stroke {
 
 /**
  * A picture covering the box (`fill`) or whole inside it (`fit`), cropped to the box's shape by its corners; the
- * logo's is bound to the Logo role.
+ * kit's logo is bound to the Logo brand role.
  */
 export function picture(
   name: string,

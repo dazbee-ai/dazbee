@@ -222,8 +222,8 @@ export type PreviewChange = z.infer<typeof PreviewChange>
  * Where a tab's person is and what they have selected, as the other people in the design see it:
  * never stored, ordered or undone, and the latest wins. `pointer` is in page coordinates, null while
  * it is off the stage or the tab is hidden; `frame` is the picked frame; `note` is what an agent says
- * it is doing, shown beside its cursor. A server built before notes closes the connection on one, so
- * a tab sends it only on a connection whose welcome says `presenceNote`.
+ * it is doing, shown beside its cursor, which a tab sends only on a connection whose welcome says
+ * `presenceNote`: a server without it closes the connection on one.
  */
 export const Presence = z.strictObject({
   page: Id,

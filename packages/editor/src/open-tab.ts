@@ -264,7 +264,7 @@ export async function openTab(options: OpenTabOptions): Promise<OpenTab> {
   }
 }
 
-/** The other members' tabs' latest presence the link's client heard, each with its member's name. */
+/** The other people's tabs' latest presence the link's client heard, each with the name its tab is listed by. */
 function othersOf(link: SyncLink): ReadonlyMap<number, OtherPresence> {
   const client = link.client()
   if (!client) return NONE

@@ -14,19 +14,8 @@ const BOB: ShownPerson = {
     { frame: STORY, id: 'b' },
   ],
   frame: null,
-  agent: false,
-  note: null,
 }
-const CAT: ShownPerson = {
-  tabId: 9,
-  name: 'Cat',
-  colour: '#14AE5C',
-  cursor: null,
-  layers: [],
-  frame: STORY,
-  agent: false,
-  note: null,
-}
+const CAT: ShownPerson = { tabId: 9, name: 'Cat', colour: '#14AE5C', cursor: null, layers: [], frame: STORY }
 /** Iconoir's sparks, the agent's avatar: the big star, then the small one. */
 const SPARKS_BIG =
   'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z'

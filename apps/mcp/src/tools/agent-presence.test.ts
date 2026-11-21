@@ -93,6 +93,26 @@ describe('the agent in presence', () => {
     await shows(bob, { pointer: [300, 200], selection: ['box'], frame: null })
   })
 
+  it('shows nothing of a step that was refused, its note neither', async () => {
+    const { agent, bob } = await watched()
+    await agent.call('read_layer', { id: 'box' })
+    await shows(bob, { selection: ['box'] })
+    const ran = await agent.call('run_command', {
+      command: 'node.rename',
+      input: { id: 'nothing-here', name: 'Sun' },
+      note: 'Naming a layer',
+    })
+    expect(ran.isError).toBe(true)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(shown(await heard(bob))).toEqual({ pointer: [300, 200], selection: ['box'], frame: null, note: undefined })
+  })
+
+  it('moves to the frame render_frame draws', async () => {
+    const { agent, bob } = await watched()
+    expect((await agent.call('render_frame', { frame: 'banner', maxSize: 64 })).isError).toBeFalsy()
+    await shows(bob, { pointer: [1600, 50], selection: [], frame: 'banner' })
+  })
+
   it('refuses a note longer than 200 characters before anything runs', async () => {
     const { agent } = await watched()
     const ran = await agent.call('run_command', {

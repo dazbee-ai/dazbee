@@ -87,7 +87,7 @@ function tagPart(person: ShownPerson): HTMLElement {
   name.className = 'presence-name'
   name.textContent = person.name
   tag.append(name)
-  if (person.note !== null) {
+  if (person.note !== undefined) {
     const note = document.createElement('div')
     note.className = 'presence-note'
     note.textContent = person.note

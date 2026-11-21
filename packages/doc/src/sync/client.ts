@@ -108,7 +108,7 @@ export interface Client {
   shown(): ReadState
   /** Told which records the previews show otherwise. */
   onPreview(listener: ChangeListener): () => void
-  /** The other members' tabs' latest presence, by tab id, the one heard from last at the end: a new map after each change. */
+  /** The other people's tabs' latest presence, by tab id, the one heard from last at the end: a new map after each change. */
   presence(): ReadonlyMap<number, SeenPresence>
   /** Told whenever `presence()` changes. */
   onPresence(listener: () => void): () => void
@@ -326,7 +326,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   /** Whether it also said the server takes a presence's note. */
   let takesNote = false
   /**
-   * The other members' tabs' latest presence, the one heard from last at the end, replaced whole on
+   * The other people's tabs' latest presence, the one heard from last at the end, replaced whole on
    * each change, and who hears when it changes.
    */
   let presenceOf: ReadonlyMap<number, SeenPresence> = new Map()

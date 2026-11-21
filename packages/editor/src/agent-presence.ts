@@ -11,6 +11,9 @@ export interface AgentWork {
   frame: string | null
 }
 
+/** Where an agent shows as it works: its presence but for the note, which it gives apart. */
+export type AgentPlace = Omit<Presence, 'note'>
+
 /** A design's layers and frames as they were, for `workedOn`: a session's design changes in place. */
 export type Held = Pick<Design, 'nodes' | 'frames'>
 
@@ -47,11 +50,7 @@ export function held(design: Design): Held {
  * corner of what it shows, in page coordinates, `boxOf` giving a layer's box in its frame. Null when
  * the design holds none of it.
  */
-export function agentPresence(
-  design: Design,
-  work: AgentWork,
-  boxOf: (id: string) => Rect | null,
-): Omit<Presence, 'note'> | null {
+export function agentPresence(design: Design, work: AgentWork, boxOf: (id: string) => Rect | null): AgentPlace | null {
   const placed = work.layers.flatMap((id) => {
     const frameId = frameIdOf(design, id)
     const frame = frameId === undefined ? undefined : frameIn(design, frameId)

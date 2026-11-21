@@ -236,12 +236,16 @@ async function agentBatchOn(
   )
 }
 
-/** `step`, the agent then shown to the people in the design at what it changed, with `note`. */
+/**
+ * `step`, the agent then shown to the people in the design at what it changed, with `note`; a step that changed
+ * nothing, such as a refused one, shows nothing.
+ */
 function shownAt<T>({ tab }: OpenDesign, step: () => T, note?: string): () => T {
   return () => {
     const before = held(tab.design())
     const result = step()
-    tab.show(workedOn(before, tab.design()), note)
+    const work = workedOn(before, tab.design())
+    if (work.layers.length > 0 || work.frame !== null) tab.show(work, note)
     return result
   }
 }

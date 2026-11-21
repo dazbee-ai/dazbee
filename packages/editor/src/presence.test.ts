@@ -153,19 +153,8 @@ describe('editorPresence: shown', () => {
         cursor: { x: 210, y: 120 },
         layers: [{ frame: SQ, id: 'a' }],
         frame: SQ,
-        agent: false,
-        note: null,
       },
-      {
-        tabId: 4,
-        name: 'Bob',
-        colour: PEOPLE_COLOURS[0],
-        cursor: null,
-        layers: [],
-        frame: null,
-        agent: false,
-        note: null,
-      },
+      { tabId: 4, name: 'Bob', colour: PEOPLE_COLOURS[0], cursor: null, layers: [], frame: null },
     ])
   })
 
@@ -176,7 +165,7 @@ describe('editorPresence: shown', () => {
     ]).shown()
     expect(shown.map(({ name, agent, note }) => ({ name, agent, note }))).toEqual([
       { name: 'Claude (agent)', agent: true, note: 'Writing the headline' },
-      { name: 'Bob (agent)', agent: false, note: null },
+      { name: 'Bob (agent)', agent: undefined, note: undefined },
     ])
   })
 

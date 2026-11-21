@@ -566,9 +566,7 @@ function sizeCaps(limits: ServerLimits): DesignSize {
 /** Tab `tabId`'s presence, as the other people's tabs hear it: an agent's marked as one. */
 function presenceMessage(tabId: number, conn: Connected, presence: Presence): ServerMessage {
   const { person, colour } = conn
-  return conn.agent === undefined
-    ? { type: 'presence', tabId, person, colour, presence }
-    : { type: 'presence', tabId, person, colour, agent: true, presence }
+  return { type: 'presence', tabId, person, colour, ...(conn.agent === undefined ? {} : { agent: true }), presence }
 }
 
 /** Whose tab it is, for its number and colour: its member, or the agent working for them. */

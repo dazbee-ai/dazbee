@@ -29,10 +29,10 @@ export interface ShownPerson {
   layers: { frame: Frame; id: string }[]
   /** Their picked frame, when it is in view. */
   frame: Frame | null
-  /** They are an agent, as their tab's token says. */
-  agent: boolean
-  /** What an agent says it is doing; null for none, and always for a person. */
-  note: string | null
+  /** They are an agent, as their tab's token says; left out for a person. */
+  agent?: true
+  /** What an agent says it is doing, when it says it; never a person's. */
+  note?: string
 }
 
 export interface PresenceDeps {
@@ -124,9 +124,8 @@ export function editorPresence({ view, selection, pointer, link }: PresenceDeps)
         cursor: pointer,
         layers,
         frame: (presence.frame === null ? undefined : inView.get(presence.frame)) ?? null,
-        agent: agent === true,
         // Only an agent's note is shown, as the server passes on only theirs.
-        note: agent === true && presence.note ? presence.note : null,
+        ...(agent ? { agent, ...(presence.note ? { note: presence.note } : {}) } : {}),
       }
     })
   }

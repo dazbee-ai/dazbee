@@ -8,9 +8,9 @@ import { readDesign, sameValue, type Session, type StepName } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import { type Design, fontFamilies, type Layer, type Member, type Presence, type Variables } from '@dazbee/schema'
+import { type Design, fontFamilies, type Layer, type Member, type Variables } from '@dazbee/schema'
 
-import { agentPresence, type AgentWork, noteOf } from './agent-presence.ts'
+import { type AgentPlace, agentPresence, type AgentWork, noteOf } from './agent-presence.ts'
 import { buildCore } from './core.ts'
 import type { LinkNotice, NoticeDetail } from './core-interface.ts'
 import { SIZES_TEXT } from './layer-edits.ts'
@@ -133,9 +133,11 @@ function agentTabOn(
   const remembered = new Map<string, string>()
   /** Whether `close` has been called. */
   let closed = false
-  /** Where the agent last worked, and the note it gave with the wait that takes it away. */
-  let shown: Omit<Presence, 'note'> | null = null
+  /** Where the agent last worked, as the people in the design see it. */
+  let shown: AgentPlace | null = null
+  /** The note the agent last gave, while it shows. */
   let note: string | null = null
+  /** The wait that takes the note away. */
   let noteTimer: ReturnType<typeof setTimeout> | undefined
 
   const cache = resourceCache(ck)

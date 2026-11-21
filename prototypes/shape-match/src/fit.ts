@@ -202,7 +202,42 @@ export function fitShape(ck: CanvasKit, mask: Mask, opt: FitOptions, outline?: {
     refine(ck, s.params, s.iou, target, i === 0 ? opt.refineSteps : Math.floor(opt.refineSteps / 4)),
   )
   for (const r of refined) renders += r.renders
+  // A star's points and a polygon's sides: the frequency estimate is a start; neighbours are tried.
+  for (const [k, r] of refined.entries()) {
+    if (r.params.kind !== 'star' && r.params.kind !== 'polygon') continue
+    let best = r
+    for (const dn of [-3, -2, -1, 1, 2, 3]) {
+      const n = r.params.n + dn
+      if (n < 3 || (r.params.kind === 'polygon' && n > 12)) continue
+      // Each count at six turns across one point's period: the best turn differs with the count.
+      for (let k6 = 0; k6 < 6; k6++) {
+        const q = { ...r.params, n, rot: r.params.rot + (k6 * 360) / n / 6 }
+        renders++
+        const v = iouOf(ck, q, target)
+        if (v > best.iou) best = { params: q, iou: v, renders: 0 }
+      }
+    }
+    if (best !== r) {
+      const again = refine(ck, best.params, best.iou, target, Math.floor(opt.refineSteps / 2))
+      renders += again.renders
+      refined[k] = again
+    }
+  }
   refined.sort((a, b) => b.iou - a.iou)
+  if (process.env.DBG)
+    for (const r of refined)
+      console.log(
+        'fit',
+        r.params.kind,
+        'n',
+        r.params.n,
+        'r',
+        r.params.r.toFixed(1),
+        'inner',
+        r.params.inner.toFixed(2),
+        'iou',
+        r.iou.toFixed(4),
+      )
   const best = refined[0]!
   const simplest = refined
     .filter((r) => r.iou >= best.iou - 0.004)

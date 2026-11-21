@@ -14,6 +14,8 @@ export interface OutLayer {
   bindings?: { fill?: `brand:${string}` }
   /** A boolean's shapes, first to last. */
   children?: OutLayer[]
+  /** A traced path's best fitted shape, tried in its place once the block looks the same. */
+  alt?: { layer: OutLayer; params: unknown }
 }
 
 let cache: ResourceCache | undefined

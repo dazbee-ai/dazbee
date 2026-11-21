@@ -2,9 +2,107 @@
 
 PROTOTYPE, never merged. Branch `shape-match-prototype`. It answers one question: how should Dazbee's Layering job vectorise the non-text blocks of a flat ad, and is a lean version (Light) as accurate as a fuller one (Medium) on a one-CPU server?
 
+## Round 2: the current answer
+
+Round 1 is kept below for its research, design and first measurements; where they differ, this section holds.
+
+### Headline: the ladder against the old worker on the same rule
+
+The old worker's own answers (its shapes regression's output on one core) were turned into Dazbee graphics, drawn by Dazbee's renderer and scored exactly as ours. The ladder: a block the layering job marks a photo or cutout stays a picture; otherwise Light first, and Medium too when Light needs more than two layers or fails, keeping whichever looks the same in fewer layers.
+
+test-ad shape blocks that look the same (shape, graphic and background blocks, 149):
+
+| Kind                                   | Rule        | Light     | Medium     | **Ladder**                                     | Old worker |
+| -------------------------------------- | ----------- | --------- | ---------- | ---------------------------------------------- | ---------- |
+| shape (97)                             | v1 shared   | 55        | 88         | **88**                                         | 80         |
+| shape (97)                             | v2 proposed | 43        | 89         | **89**                                         | 79         |
+| graphic (35)                           | v1          | 14        | 32         | **33**                                         | 29         |
+| graphic (35)                           | v2          | 16        | 32         | **33**                                         | 32         |
+| background (17)                        | v1          | 12        | 13         | **14**                                         | 12         |
+| background (17)                        | v2          | 11        | 12         | **13**                                         | 11         |
+| **all 149**                            | **v1**      | 81 (54 %) | 133 (89 %) | **135 (91 %)**                                 | 121 (81 %) |
+| **all 149**                            | **v2**      | 70 (47 %) | 133 (89 %) | **135 (91 %)**                                 | 122 (82 %) |
+| development ads (32 ads, 102 blocks)   | v1 / v2     | 63 / 53   | 99 / 99    | **99 / 99**                                    | 89 / 86    |
+| frozen ads (16 ads, 47 blocks)         | v1 / v2     | 18 / 17   | 34 / 34    | **36 / 36**                                    | 32 / 36    |
+| photos and cutouts made shapes (of 72) | v1 / v2     | 0 / 0     | 4 / 3      | **0 / 0 with the job's kinds** (4 / 3 without) | not sent   |
+
+The old worker's 141 in round 1 was by its own check; on the shared rule it is 121. The ladder leads on every kind under both rules, and ties the old worker on the frozen ads under v2 (36 each). The frozen ads are harder for both (77 % against 97 % on the development ads for the ladder; 77 % against 84 % for the old worker under v2).
+
+Synthetic sets (blocks that should be shapes and look the same; pictures wrongly made shapes):
+
+| Set                                                           | Rule | Light          | Medium         | **Ladder**         | Pictures made shapes | Ladder IoU mean (p10) | Ladder layers (truth 1.1) |
+| ------------------------------------------------------------- | ---- | -------------- | -------------- | ------------------ | -------------------- | --------------------- | ------------------------- |
+| held-out part of set 1 (208)                                  | v1   | 99/190 (52 %)  | 157/190 (83 %) | **162/190 (85 %)** | 0/18                 | 0.951 (0.834)         | 1.19                      |
+| held-out part of set 1 (208)                                  | v2   | 108/190 (57 %) | 178/190 (94 %) | **182/190 (96 %)** | 0/18                 | 0.953 (0.833)         | 1.18                      |
+| **set 2, new seed, never looked at before its one run (312)** | v1   | 158/286 (55 %) | 248/286 (87 %) | **249/286 (87 %)** | 0/26                 | 0.962 (0.875)         | 1.16                      |
+| **set 2**                                                     | v2   | 158/286 (55 %) | 271/286 (95 %) | **273/286 (95 %)** | 0/26                 | 0.963 (0.894)         | 1.18                      |
+
+Brand snaps on set 2: the ladder bound 89 of 90 kit-coloured layers to the right token, with 2 wrong bindings under v1 and none under v2.
+
+Time and memory (one core, garbage collected between blocks; per ad = all its shape, graphic, background, photo and cutout blocks):
+
+|                                                                            | Round 1                 | Round 2, no kinds       | Round 2, with the job's kinds |
+| -------------------------------------------------------------------------- | ----------------------- | ----------------------- | ----------------------------- |
+| Ladder, time per ad, median / p95 / slowest (v1)                           | 9.6 s / 45.4 s / 56.4 s | 4.9 s / 17.0 s / 21.6 s | **2.7 s / 9.0 s / 16.7 s**    |
+| Ladder, time per ad (v2)                                                   |                         | 6.7 s / 20.8 s / 23.4 s | 3.6 s / 13.7 s / 19.1 s       |
+| Medium, time per shape block median / p95 (v1)                             | 1.77 s / 11.8 s         | 0.72 s / 2.9 s          |                               |
+| Peak working set, whole test-ad run, Light / Medium (v1)                    | 410 / 464 MB            | 360 / 476 MB            |                               |
+| Peak working set, Medium under v2                                          |                         | 514 MB                  |                               |
+| Peak resident memory on the heaviest ad (two 1,000-px backgrounds), Medium | 290 MB                  | 275 MB                  |                               |
+
+Looks-the-same is unchanged or better throughout: Medium kept every round-1 decision on test-ad before the full-size tracing step was added, which then raised it from 130 to 133.
+
+### What changed, all general methods
+
+- **Fair comparison** (`src/score-old.ts`): the old answers' paths, fills, linear gradients (CSS angle, which reproduces its purple-to-blue backdrop), strokes, shadows (canvas `shadowBlur` is Dazbee's blur, both σ = blur / 2) and layer blurs mapped into Dazbee graphics, scaled from the ad's pixels to the block's (19 ads are stretched between the two). Where its format is unclear (whether a layer blur is a σ or a radius), both readings are drawn and the better one counts for the old worker.
+- **Shape kinds by rotational symmetry with a count search**: a star's points and a polygon's sides start from the outline's strongest angular frequency, then neighbouring counts are tried, each at six turns across a point's period, and the best fit kept (`src/fit.ts`). Any regular burst, star or polygon; an irregular burst stays a path.
+- **Editable shape over a traced path**: when a region is traced because no shape kind held it within IoU 0.965, its best fitted shape (IoU 0.95 or more) is put back in the path's place if the block still looks the same under both rules. Rule v2 must agree, because the shared rule passes a 17-point star for a 20-point burst.
+- **Dashed strokes along any outline**: marks of one colour lying along the edge of their box are one stroke; the outline is the marks closed into a ring, or else their convex hull, fitted by the same shape fitter as any region (so a dashed ellipse or polygon works as a dashed rectangle does); the dash period is searched within 15 % of the one implied by the count, with the pattern's start.
+- **Full-size tracing as the last step**: when the shape answer doesn't look the same, every region is split and traced again at full size (blocks up to 768 px), with gradients, the shadow and brand snaps. AI-drawn pills and buttons whose edge is a pixel or two off a perfect pill now pass as one path that follows the edge, where the clean pill shape didn't (this was most of the old worker's lead under v2).
+- **Grain**: rule v2 blurs both pictures by 1 px before comparing, so a flat rebuild of a grainy block is judged by its shapes and colours (grain blocks on the held-out set: ladder 39 % under v1, 100 % under v2). Keeping the grain itself would be a tiled image fill at low opacity over the flat fill, which Dazbee can draw; it needs one shared grain picture uploaded as an asset, so it is proposed, not built.
+- **Speed**: the dashed search runs only on marks that lie along their box's edge (not texture specks on backgrounds); the lost-part check runs at no more than 512 px on the long side; Medium's slowest blocks went from 22 s to under 6 s; photos and cutouts the job marks are not fitted at all.
+- **Memory**: the ΔE memo holds one block's colours (it grew to a million pairs across a run); garbage is collected between blocks; full-size SSIM folds its product maps one at a time. The whole-run peak for Medium did not fall (476 MB against 464 MB), because the full-size tracing step and rule v2's full-size SSIM hold full-size buffers for the largest blocks. Breakdown (`src/memory.ts`, heaviest ad): Node 65 MB, modules 30 MB, CanvasKit 23 MB resident (its 128 MB wasm heap is reserved, mostly untouched), a 1,000-px block 16 MB as a float picture plus 60 to 100 MB of working buffers at its peak. The next cut, not made: keep pictures as 8-bit (a quarter of the float size) and fit large backgrounds at the fit size only.
+
+### Rule v2, proposed to both halves
+
+- **What it is.** The shared rule with three changes (`scoreV2` in `src/score.ts`):
+  1. Both pictures are blurred by a 1-pixel Gaussian before comparing, so grain and sub-pixel edge shifts fade while real differences stay.
+  2. SSIM is taken at the block's own size, with no downsampling.
+  3. No more than 1 % of the block's pixels may differ by a blurred ΔE00 over 20.
+- **Agreement with the 20 blind-judged blocks:** the shared rule alone 13 of 20; rule v2 alone 14 of 20; the ladder's decision 15 of 20 under the shared rule and 17 of 20 under v2.
+  - The 17 counts my second look at the coupon. Its full-size traced rebuild changed after round 1 and now looks the same to me; that look was not blind.
+  - The bars (σ 1, ΔE 20, 1 %) were read from those 20 blocks, rounded.
+- **What it changes:**
+  - It no longer fails grain.
+  - It judges big blocks at the size they are shown, where the shared rule's downsampling let a soft photo pass.
+  - It catches a lost thin rim and misshapen dashes, which a whole-block mean hides.
+- **What it still misses:**
+  - Faint texture that the eye sees but that is under 20 ΔE (a gold badge's grain).
+  - A very faint large circle on a gradient backdrop.
+
+### Held out, and generic
+
+- **Frozen ads.** 16 test ads (every third in name order) were frozen at the start of round 2 and no change was checked on them; they were seen in round 1, including some of the judged blocks.
+- **Unseen synthetic set.** Synthetic set 2 (new seed, 312 blocks) was generated at the start of round 2 and opened only for its one final run. It is the truly unseen set; there the ladder keeps 87 % (v1) and 95 % (v2), and no picture became shapes.
+- **No case-specific thresholds.** No code names a shape, an ad or a test case. The values kept from round 1 were set on sets (the synthetic development part, the 20 judged blocks), never on a single case. The one round-1 fallback that assumed a rectangular frame (the marks' box) was replaced by the general convex-hull fit.
+
+### Determinism
+
+A repeat run of all 91 blocks of the frozen ads gave identical answers. One development block (a dashed coupon) came back a picture instead of shapes in 4 of about 14 single runs made while the machine was heavily loaded by other work. Nothing in the pipeline reads time or randomness, and the renderer drew the same pixels on repeated calls. The cause was not found, and production needs a same-input-same-answer check before shipping.
+
+### Recommendation (round 2)
+
+**Build the ladder, judged by rule v2, with the layering job's block kinds.**
+
+- **Most accurate on the same rule.** On test-ad it keeps 135 of 149 shape blocks against the old worker's 122 (v2) or 121 (shared rule).
+- **Same on unseen data.** It keeps 95 % of the unseen synthetic set (v2), with no picture made shapes.
+- **One CPU.** It answers an ad in 2.7 s median, 9 s at the 95th percentile and 17 s at worst (shared rule; 3.6 / 13.7 / 19.1 s under v2), against the old worker's 23.8 s / 231 s / 607 s.
+- **Memory.** Under 0.52 GB against its 1.1 GB.
+- **Rule v2 for the text half.** It removes the shared rule's grain and large-block blind spots and adds the lost-part check.
+
 Dazbee's words are used throughout (`GLOSSARY.md`): a block becomes **graphics** (layers made of a **shape** plus fills, strokes and effects), or stays a **picture** (a graphic with an image fill).
 
-## Headline
+## Round 1 headline
 
 Every number is measured, each process pinned to one CPU core, every answer drawn by Dazbee's renderer. **Ladder** = Light first, and Medium too when Light's answer needs more than two layers or doesn't look the same; the block takes whichever looks the same in fewer layers.
 
@@ -29,7 +127,7 @@ Every number is measured, each process pinned to one CPU core, every answer draw
 
 Sources: `out/testads-*.jsonl`, `out/synth-*-test.jsonl`, `out/timed-summary.txt`, `src/compare.ts`, `src/ladder.ts`; the old worker's numbers from its own shapes regression on one core (`out/old-worker/`), which matched its committed baseline to the byte. The ladder's numbers are put together from the Light and Medium runs block by block (`src/ladder.ts`), not from a run of its own.
 
-## Recommendation
+## Round 1 recommendation
 
 **Build the ladder**: one package with Light's and Medium's steps, Light run first, Medium run when Light's answer needs more than two layers or doesn't look the same, every answer judged by Dazbee's renderer with Medium's finer decision.
 
@@ -231,6 +329,20 @@ node src/compare.ts                       # against the old worker's answers and
 node src/examples.ts out/examples <ad>/block_NN.png ...
 node src/judge.ts <ad>/block_NN.png ...   # blind judging sheets
 timed.ps1                                 # every measurement alone on one core
+```
+
+Round 2 adds:
+
+```
+SYNTH_SEED=4242 SYNTH_DIR=data/synth2 node src/synth.ts   # the unseen synthetic set
+node src/score-old.ts                     # the old worker's answers drawn by Dazbee and scored with both rules
+RULE=v2 node src/run-testads.ts medium     # any run under rule v2 (default: the shared rule)
+node src/run-testads.ts medium dev|frozen  # the 32 development or 16 frozen ads
+node src/final.ts                         # every round-2 table
+node src/judged.ts                        # agreement with the 20 hand judgements
+node --expose-gc src/memory.ts <ad>       # memory, stage by stage
+node src/calibrate.ts                     # rule v2's numbers on the judged blocks
+timed4.ps1                                # every round-2 measurement on one core
 ```
 
 The test ads are read from `ming-setup/test_ads` and never copied in; `data/` and `out/` are git-ignored.

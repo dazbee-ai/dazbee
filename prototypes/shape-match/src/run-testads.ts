@@ -7,7 +7,8 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { LIGHT, matchBlock, MEDIUM } from './match.ts'
 import { decodeFile } from './pixels.ts'
 
-export const ADS = process.env.TESTADS_ADS ?? '../../../../ming-setup/test_ads'
+import { ADS, isFrozenAd } from './paths.ts'
+export { ADS }
 /** The kinds the old worker converts (its `convert` list), and the kinds that must stay pictures. */
 export const CONVERT = ['shape', 'graphic', 'background']
 export const PICTURE = ['photo', 'cutout']
@@ -17,12 +18,15 @@ const ck = await loadCanvasKit()
 const startup = performance.now() - t0
 const level = process.argv[2] === 'medium' ? 'medium' : 'light'
 const cfg = level === 'medium' ? MEDIUM : LIGHT
-const only = process.argv.slice(3)
+// dev: the 32 ads developed on; frozen: the 16 held out from round 2; all, or ad names.
+const set = ['dev', 'frozen', 'all'].includes(process.argv[3] ?? '') ? process.argv[3]! : 'all'
+const only = set === 'all' && process.argv[3] ? process.argv.slice(3) : []
 mkdirSync('out', { recursive: true })
 const lines: string[] = []
-const ads = readdirSync(ADS)
-  .filter((d) => only.length === 0 || only.includes(d))
-  .sort()
+const allAds = readdirSync(ADS).sort()
+const ads = allAds.filter(
+  (d) => (only.length === 0 || only.includes(d)) && (set === 'all' || (set === 'frozen') === isFrozenAd(allAds, d)),
+)
 for (const ad of ads) {
   const blocks = JSON.parse(readFileSync(`${ADS}/${ad}/blocks.json`, 'utf8')) as {
     blocks: { file: string; kind: string; name: string; element: string; rect: number[] }[]
@@ -45,6 +49,9 @@ for (const ad of ads) {
       ssim: r.score?.ssim ?? null,
       deltaE: r.score?.deltaE ?? null,
       deltaEContent: r.score?.deltaEContent ?? null,
+      ssimV2: r.score?.v2?.ssim ?? null,
+      deltaEV2: r.score?.v2?.deltaE ?? null,
+      lostV2: r.score?.v2?.lost ?? null,
       same: r.score?.same ?? false,
       layers: r.layers.length,
       names: r.layers.map((l) => l.name),
@@ -56,15 +63,20 @@ for (const ad of ads) {
       renders: r.renders,
     }
     lines.push(JSON.stringify(row))
+    // Free one block's buffers before the next: a worker does the same between blocks.
+    ;(globalThis as { gc?: () => void }).gc?.()
     console.log(
       `${ad.padEnd(24)} ${b.file} ${b.kind.padEnd(10)} ${r.decision.padEnd(7)} ${r.score ? r.score.ssim.toFixed(3) + ' ' + r.score.deltaE.toFixed(2) : '-'} L${r.layers.length} ${r.ms.toFixed(0)}ms ${r.why}`,
     )
   }
 }
 const usage = process.resourceUsage()
-writeFileSync(`out/testads-${level}${only.length ? '-part' : ''}.jsonl`, lines.join('\n') + '\n')
 writeFileSync(
-  `out/testads-${level}${only.length ? '-part' : ''}-run.json`,
+  `out/testads-${level}${process.env.RULE === 'v2' ? '-v2' : ''}${set !== 'all' ? '-' + set : ''}${only.length ? '-part' : ''}.jsonl`,
+  lines.join('\n') + '\n',
+)
+writeFileSync(
+  `out/testads-${level}${process.env.RULE === 'v2' ? '-v2' : ''}${set !== 'all' ? '-' + set : ''}${only.length ? '-part' : ''}-run.json`,
   JSON.stringify({
     startupMs: startup,
     maxRssMB: usage.maxRSS / 1024,

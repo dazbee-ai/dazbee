@@ -310,3 +310,59 @@ function ssimOf(ya: Float32Array, yb: Float32Array, w: number, h: number): numbe
   }
   return total / (w * h)
 }
+
+/**
+ * The shapes prototype's proposed rule v2, for both halves: both pictures over the background and
+ * blurred by 1 px; SSIM on luminance at the block's own size (no averaging down) ≥ 0.90; the mean ΔE
+ * over the foreground ≤ 5 (as the shared rule); and no more than 1% of all pixels apart by a ΔE over 20.
+ */
+export function ruleV2(block: Rgba, drawn: Rgba, background: readonly number[], blockInk?: Float32Array): Score & { farShare: number } {
+  const w = block.width
+  const h = block.height
+  const n = w * h
+  const a = blurRgb(over(block, background), w, h)
+  const b = blurRgb(over(drawn, background), w, h)
+  const ya = new Float32Array(n)
+  const yb = new Float32Array(n)
+  let far = 0
+  let sum = 0
+  let fg = 0
+  for (let i = 0; i < n; i++) {
+    ya[i] = 0.2126 * a[i * 3]! + 0.7152 * a[i * 3 + 1]! + 0.0722 * a[i * 3 + 2]!
+    yb[i] = 0.2126 * b[i * 3]! + 0.7152 * b[i * 3 + 1]! + 0.0722 * b[i * 3 + 2]!
+    const d = ciede2000(lab(a[i * 3]!, a[i * 3 + 1]!, a[i * 3 + 2]!), lab(b[i * 3]!, b[i * 3 + 1]!, b[i * 3 + 2]!))
+    if (d > 20) far++
+    const isFg = (blockInk ? blockInk[i]! > 0.5 : block.data[i * 4 + 3]! > 127) || drawn.data[i * 4 + 3]! > 127
+    if (isFg) {
+      sum += d
+      fg++
+    }
+  }
+  const ssim = ssimOf(ya, yb, w, h)
+  const deltaE = fg ? sum / fg : 0
+  const farShare = far / n
+  return { ssim, deltaE, farShare, same: ssim >= SAME_SSIM && deltaE <= SAME_DELTA_E && farShare <= 0.01 }
+}
+
+/** A Gaussian blur of σ 1 px over an RGB picture, edges mirrored. */
+function blurRgb(rgb: Float32Array, w: number, h: number): Float32Array {
+  const k = [-2, -1, 0, 1, 2].map((t) => Math.exp(-(t * t) / 2))
+  const s = k.reduce((x, y) => x + y, 0)
+  const kn = k.map((v) => v / s)
+  const pass = (src: Float32Array, dx: number, dy: number) => {
+    const out = new Float32Array(src.length)
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        for (let c = 0; c < 3; c++) {
+          let v = 0
+          for (let t = -2; t <= 2; t++) {
+            const xx = Math.min(w - 1, Math.max(0, x + t * dx))
+            const yy = Math.min(h - 1, Math.max(0, y + t * dy))
+            v += kn[t + 2]! * src[(yy * w + xx) * 3 + c]!
+          }
+          out[(y * w + x) * 3 + c] = v
+        }
+    return out
+  }
+  return pass(pass(rgb, 1, 0), 0, 1)
+}

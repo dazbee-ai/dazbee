@@ -25,6 +25,8 @@ const { values } = parseArgs({
     part: { type: 'string', default: 'test' },
     out: { type: 'string' },
     limit: { type: 'string' },
+    // Only these items, by id (comma-separated), for looking into one block.
+    ids: { type: 'string' },
     // Match against Dazbee's current catalogue (321 families) only, instead of the whole library.
     subset: { type: 'boolean', default: false },
   },
@@ -59,7 +61,9 @@ if (values.set === 'testads') {
     items.push({ id: t.id, block, truth: t })
   }
 }
-const limited = values.limit ? items.slice(0, Number(values.limit)) : items
+const wanted = values.ids ? new Set(values.ids.split(',')) : null
+const chosen = wanted ? items.filter((i) => wanted.has(i.id)) : items
+const limited = values.limit ? chosen.slice(0, Number(values.limit)) : chosen
 
 const rgbOf = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
 const dE = (a: string, b: string) => {

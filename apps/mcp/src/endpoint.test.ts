@@ -96,6 +96,8 @@ describe('mcpEndpoint', () => {
       'list_designs',
       'list_assets',
       'create_design',
+      'list_fonts',
+      'ad_rules',
       'open_design',
       'close_design',
       'read_design',

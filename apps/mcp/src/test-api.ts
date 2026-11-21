@@ -89,7 +89,11 @@ export const TEST_BRAND_KIT: BrandKit = {
   ],
 }
 
-/** The one family in every brand's font catalog, a regular and a bold face whose files are shipped fonts'. */
+/**
+ * Every brand's font catalog: its own upload, Brand Serif, in a regular and a bold face; and three Google families,
+ * Inter and Playfair Display variable in weight, upright and italic, and Bebas Neue in one face. Every face's file is
+ * a shipped font's.
+ */
 export const TEST_FONTS: FontFamily[] = [
   {
     family: 'Brand Serif',
@@ -103,6 +107,70 @@ export const TEST_FONTS: FontFamily[] = [
         weight: 700,
         style: 'normal',
         source: 'upload',
+        byteSize: 1,
+      },
+    ],
+  },
+  {
+    family: 'Inter',
+    source: 'google',
+    category: 'sans-serif',
+    rank: 5,
+    scripts: ['Latn'],
+    faces: [
+      {
+        id: 'face-inter',
+        family: 'Inter',
+        weight: 400,
+        weights: { min: 100, max: 900 },
+        style: 'normal',
+        source: 'google',
+        byteSize: 1,
+      },
+      {
+        id: 'face-inter-italic',
+        family: 'Inter',
+        weight: 400,
+        weights: { min: 100, max: 900 },
+        style: 'italic',
+        source: 'google',
+        byteSize: 1,
+      },
+    ],
+  },
+  {
+    family: 'Bebas Neue',
+    source: 'google',
+    category: 'display',
+    rank: 60,
+    scripts: ['Latn'],
+    faces: [
+      { id: 'face-bebas-neue', family: 'Bebas Neue', weight: 400, style: 'normal', source: 'google', byteSize: 1 },
+    ],
+  },
+  {
+    family: 'Playfair Display',
+    source: 'google',
+    category: 'serif',
+    rank: 30,
+    scripts: ['Latn'],
+    faces: [
+      {
+        id: 'face-playfair',
+        family: 'Playfair Display',
+        weight: 400,
+        weights: { min: 400, max: 900 },
+        style: 'normal',
+        source: 'google',
+        byteSize: 1,
+      },
+      {
+        id: 'face-playfair-italic',
+        family: 'Playfair Display',
+        weight: 400,
+        weights: { min: 400, max: 900 },
+        style: 'italic',
+        source: 'google',
         byteSize: 1,
       },
     ],

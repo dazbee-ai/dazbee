@@ -44,6 +44,7 @@ import { promptMessage, PROMPTS } from './prompts.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
 import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'
 import { afterTimeout, type StoreWait } from './store-wait.ts'
+import { ADVICE_TOOLS } from './tools/advice-tools.ts'
 import { ASSET_TOOLS } from './tools/asset-tools.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
@@ -111,6 +112,7 @@ interface Call {
 /** The tools every session offers, in `tools/list` order. */
 export const TOOLS: Tool[] = [
   ...WORKSPACE_TOOLS,
+  ...ADVICE_TOOLS,
   ...DESIGN_TOOLS,
   ...RENDER_TOOLS,
   ...COMMAND_TOOLS,

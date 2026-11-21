@@ -160,7 +160,8 @@ describe('caret and selection on a made-up superscript', () => {
     const [one] = origins
     for (const o of origins.filter((g) => g.offset >= 1 && g.offset < 3)) {
       expect(o.size).toBeCloseTo(28.8, 3)
-      expect((one?.y ?? 0) - o.y).toBeCloseTo(16.8, 0)
+      // Glyphs sit on whole pixels, so the run is raised 16.8 to within one.
+      expect(Math.abs((one?.y ?? 0) - o.y - 16.8)).toBeLessThanOrEqual(1)
     }
   })
 

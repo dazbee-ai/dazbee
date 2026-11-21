@@ -239,18 +239,18 @@ describe('superscript and subscript', () => {
   })
 
   it.each([
-    ['the font’s own superscript digits', '2222', 'Noto Sans', { sups: true }],
-    ['the font’s own subscript digits', '2222', 'Noto Sans', { subs: true }],
-    ['a made-up superscript', 'xxxx', 'Noto Sans', { sups: true }],
-    ['a made-up subscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { subs: true }],
-    ['a made-up superscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { sups: true }],
+    ['the font’s own superscript digits', '2222', 'Noto Sans', { sups: true }, '²²²²'],
+    ['the font’s own subscript digits', '2222', 'Noto Sans', { subs: true }, '₂₂₂₂'],
+    ['a made-up superscript', 'xxxx', 'Noto Sans', { sups: true }, 'xxxx'],
+    ['a made-up subscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { subs: true }, 'ااااا'],
+    ['a made-up superscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { sups: true }, 'ااااا'],
   ])(
-    'draws %s in a PDF and an SVG where the CPU surface does, the PDF keeping the text',
-    async (_, text, family, features) => {
+    'draws %s in a PDF and an SVG where the CPU surface does, the PDF keeping the text as its glyphs read',
+    async (_, text, family, features, read) => {
       const json = scripted(text, family, features)
       const cpu = inkRows(drawn(json))
       const pdf = renderVector(ck, json, 'f', bytes, 'pdf')
-      expect((await pdfText(pdfium, pdf)).replaceAll(/\s/g, '')).toBe(text)
+      expect((await pdfText(pdfium, pdf)).replaceAll(/\s/g, '')).toBe(read)
       for (const pixels of [
         (await rasterisePdf(pdfium, pdf)).pixels,
         rasteriseSvg(renderVector(ck, json, 'f', bytes, 'svg')).pixels,

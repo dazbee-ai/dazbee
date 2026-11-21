@@ -1,0 +1,5 @@
+# Fonts, ads, samples, models and outputs: data, never committed.
+.data/
+out/
+.venv/
+__pycache__/

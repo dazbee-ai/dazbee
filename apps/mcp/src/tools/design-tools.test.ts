@@ -30,6 +30,8 @@ const FRAMES = [
 const TOKEN_LEFT_MS = 5 * 60 * 1000
 /** The design the tests open. */
 const LAUNCH = { brand: 'brand-summer', design: 'design-launch' }
+/** Another brand's design. */
+const SNOW = { brand: 'brand-winter', design: 'design-snow' }
 
 /** A client of an access with `options`, connected to a new server holding `designs`. */
 async function agentOf(options?: Parameters<TestServer['api']['addAccess']>[0], designs?: Record<string, DesignInput>) {
@@ -102,6 +104,62 @@ describe('open_design', () => {
     const second = await server.connect(access.token())
     const opened = await second.call('open_design', LAUNCH)
     expect(opened.isError ? textOf(opened) : 'opened').toBe('opened')
+    expect(await refusal(first, 'read_design')).toBe(
+      'The design was opened again in another session of this agent, so it is closed here.',
+    )
+    expect(await refusal(first, 'read_design')).toBe('No design is open; call open_design first.')
+    expect((await second.call('read_design')).isError).toBeFalsy()
+  })
+
+  it('leaves the earlier session’s tab as it was when the newer session’s design fails to open', async () => {
+    server = testServer()
+    const access = server.api.addAccess()
+    const first = await server.connect(access.token())
+    expect((await first.call('open_design', LAUNCH)).isError).toBeFalsy()
+    const snow = server.sync('design-snow')
+    const opening = snow.socket
+    snow.socket = (url) => {
+      const socket = opening(url)
+      queueMicrotask(() => socket.closeWith(SYNC_CLOSE.designDeleted))
+      return socket
+    }
+    const second = await server.connect(access.token())
+    expect((await second.call('open_design', SNOW)).isError).toBe(true)
+    expect((await first.call('read_design')).isError).toBeFalsy()
+  })
+
+  it('refuses a newer session while the earlier session’s tab holds steps Dazbee hasn’t stored, and keeps them', async () => {
+    server = testServer()
+    const access = server.api.addAccess()
+    const first = await server.connect(access.token())
+    expect((await first.call('open_design', LAUNCH)).isError).toBeFalsy()
+    const sync = server.sync('design-launch')
+    sync.down()
+    const renaming = first.call('run_command', { command: 'node.rename', input: { id: 'box', name: 'Kept' } })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    const second = await server.connect(access.token())
+    expect(await refusal(second, 'open_design', SNOW)).toBe(
+      'This agent’s design in another session holds steps Dazbee hasn’t stored yet; try again once they are stored.',
+    )
+    sync.up()
+    await renaming
+    await vi.waitFor(() => expect(sync.nameOf('box')).toBe('Kept'), { timeout: 15_000 })
+  })
+
+  it('tells an earlier session back from a pause that a newer one took the access’s tab, leaving the newer one open', async () => {
+    server = testServer()
+    const access = server.api.addAccess({ tokenMs: TOKEN_LEFT_MS })
+    const first = await server.connect(access.token())
+    await first.json('open_design', LAUNCH)
+    const sync = server.sync('design-launch')
+    server.wait(Math.max(TOKEN_LEFT_MS, TEST_SYNC_TOKEN_MS) + 1)
+    const asked = server.api.requests()
+    sync.sockets.at(-1)?.closeWith(SYNC_CLOSE.tokenExpired)
+    await vi.waitFor(() => expect(server.api.requests()).toBeGreaterThan(asked), { timeout: 5000 })
+    await sync.settle()
+    const second = await server.connect(access.token())
+    expect((await second.call('open_design', LAUNCH)).isError).toBeFalsy()
+    first.token = access.token()
     expect(await refusal(first, 'read_design')).toBe(
       'The design was opened again in another session of this agent, so it is closed here.',
     )

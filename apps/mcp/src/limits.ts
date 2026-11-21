@@ -11,8 +11,8 @@ export interface LimitSettings {
    */
   agentTabs: number
   /**
-   * The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`; a session
-   * opening one past it closes the access's oldest.
+   * The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`; an MCP
+   * session opening one past it takes over the access's oldest agent tab.
    */
   agentTabsPerAccess: number
   /** The sessions held at once, of all accesses, `MCP_SESSIONS`; past it, a new one is refused as busy. */

@@ -1,8 +1,9 @@
 // The garbage walk: no input takes the MCP server down. Each seed opens a server on a design holding every kind of
 // layer and sends, from the seed alone, random arguments to every tool, a random input to a command through
 // run_command and random steps through batch, a resource to read, a prompt with random arguments, a line that is not
-// JSON and a JSON-RPC message with a random method and params; after each, ping answers and read_design still reads the open design, opened again after close_design. GARBAGE_SEEDS runs the seeds it names
-// (`GARBAGE_SEEDS=17`, `3,17` or `1-1000`), so a seed that fails runs alone.
+// JSON and a JSON-RPC message with a random method and params; after each, ping answers and read_design still reads
+// the open design, opened again after close_design. GARBAGE_SEEDS runs the seeds it names (`GARBAGE_SEEDS=17`,
+// `3,17` or `1-1000`), so a seed that fails runs alone.
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Prompt } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'

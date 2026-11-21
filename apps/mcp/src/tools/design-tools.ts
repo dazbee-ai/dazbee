@@ -1,7 +1,6 @@
 // The tools that open a design and read it: open_design opens the session's agent tab on a design, close_design
-// closes it, and the others
-// read what that tab shows, the design as the editor holds it, the agent shown to the people in the design at the
-// frame or layer it reads.
+// closes it, and the others read what that tab shows, the design as the editor holds it, the agent shown to the
+// people in the design at the frame or layer it reads.
 import { z } from 'zod'
 
 import { childrenOf, compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS } from '@dazbee/doc'

@@ -87,9 +87,10 @@ describe('INSTRUCTIONS', () => {
     expect(redAt(drawn, 5, 55)).toBe(false)
   })
 
-  it('says calls on the open design are answered one at a time, in order, and close_design ends it', () => {
+  it('says calls on the open design are answered in order, and what closes it: close_design or another session', () => {
     expect(INSTRUCTIONS).toContain('Calls on the open design are answered one at a time, in the order sent')
     expect(INSTRUCTIONS).toContain('close_design closes it once you are done')
+    expect(INSTRUCTIONS).toContain('Opening a design in another session of this agent, such as a new chat, closes')
   })
 
   it('says commands run only through run_command and batch, never as tools of their own', () => {

@@ -6,25 +6,15 @@
 
 import type { z } from 'zod'
 
+import type { CanvasKit } from '@dazbee/canvaskit'
 import { boundsOf } from '@dazbee/doc'
 import type { FigmaFrame, FigmaImport, FigmaPage, Rect } from '@dazbee/schema'
 import { SIZE_LIMITS } from '@dazbee/schema'
 
-import {
-  boxAround,
-  boxLook,
-  COMPONENT_TYPES,
-  convertLayers,
-  type Corners,
-  cornersOf,
-  FRAME_TYPES,
-  type LayerBuild,
-  laysOut,
-  newLayerBuild,
-  type Piece,
-  placed,
-  treeOf,
-} from './layers.ts'
+import { COMPONENT_TYPES, FRAME_TYPES, type LayerBuild, newLayerBuild, type Piece } from './build.ts'
+import { isUpright, placed, placementOf, spaceOf } from './geometry.ts'
+import { type Corners, cornersOf } from './graphics.ts'
+import { boxAround, boxLook, convertLayers, laysOut, treeOf } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'
 import { bool, boxOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { Reporter } from './report.ts'
@@ -43,22 +33,23 @@ export function importPages(
   document: FigmaNode,
   target: LinkTarget,
   report: Reporter,
+  ck: CanvasKit,
 ): { pages: PageInput[]; target: FigmaImport['target'] } {
   switch (target.kind) {
     case 'file':
       return {
-        pages: document.children.flatMap((p) => (p.type === 'CANVAS' ? (pageFrom(p, p.name, report) ?? []) : [])),
+        pages: document.children.flatMap((p) => (p.type === 'CANVAS' ? (pageFrom(p, p.name, report, ck) ?? []) : [])),
         target: 'pages',
       }
     case 'page':
-      return { pages: [pageFrom(target.page, target.page.name, report)].filter((p) => p !== null), target: 'pages' }
+      return { pages: [pageFrom(target.page, target.page.name, report, ck)].filter((p) => p !== null), target: 'pages' }
     case 'section':
-      return { pages: [pageFrom(target.node, target.node.name, report)].filter((p) => p !== null), target: 'pages' }
+      return { pages: [pageFrom(target.node, target.node.name, report, ck)].filter((p) => p !== null), target: 'pages' }
     case 'frame':
-      return { pages: onePage(target.node, topLevelFrame(target.node, report)), target: 'shown-page' }
+      return { pages: onePage(target.node, topLevelFrame(target.node, report, ck)), target: 'shown-page' }
     case 'alone':
       report.add('linked-layer-alone', target.node)
-      return { pages: onePage(target.node, aloneFrame(target.node, report)), target: 'shown-page' }
+      return { pages: onePage(target.node, aloneFrame(target.node, report, ck)), target: 'shown-page' }
   }
 }
 
@@ -66,7 +57,7 @@ export function importPages(
  * A page holding the frames among `holder`'s children, sections opened in place, and one more
  * holding its loose layers; null, reported, when it would hold none.
  */
-function pageFrom(holder: FigmaNode, name: string, report: Reporter): PageInput | null {
+function pageFrom(holder: FigmaNode, name: string, report: Reporter, ck: CanvasKit): PageInput | null {
   const frames: FrameInput[] = []
   const loose: FigmaNode[] = []
   const stack = [...holder.children].reverse()
@@ -79,13 +70,13 @@ function pageFrom(holder: FigmaNode, name: string, report: Reporter): PageInput 
       report.add('sections', n)
       for (let i = n.children.length - 1; i >= 0; i--) stack.push(n.children[i] as FigmaNode)
     } else if (FRAME_TYPES.has(n.type) && n.id) {
-      const frame = topLevelFrame(n, report)
+      const frame = topLevelFrame(n, report, ck)
       if (frame) frames.push(frame)
     } else {
       loose.push(n)
     }
   }
-  const outside = looseFrame(holder, loose, report)
+  const outside = looseFrame(holder, loose, report, ck)
   if (outside) frames.push(outside)
   if (frames.length === 0) {
     report.add('empty-pages', holder)
@@ -100,7 +91,7 @@ function onePage(node: FigmaNode, frame: FrameInput | null): PageInput[] {
 }
 
 /** A frame at the top of a page as a Dazbee frame; null, reported, when it is hidden or can't be placed. */
-function topLevelFrame(n: FigmaNode, report: Reporter): FrameInput | null {
+function topLevelFrame(n: FigmaNode, report: Reporter, ck: CanvasKit): FrameInput | null {
   const b = boxOf(n.fields)
   if (!b) {
     report.add('unreadable-layers', n)
@@ -113,15 +104,17 @@ function topLevelFrame(n: FigmaNode, report: Reporter): FrameInput | null {
   if (field(n.fields, 'locked') === true) report.add('locked-frames', n)
   if (field(n.fields, 'clipsContent') === false) report.add('frames-unclipped', n)
   if (COMPONENT_TYPES.has(n.type)) report.add('components-and-instances', n)
-  const build = newLayerBuild(n.children, report)
+  // A frame doesn't turn: it comes in upright where its box is, and its content where Figma draws it.
+  if (!isUpright(placementOf(n, spaceOf(n.parent))?.world)) report.add('frames-turned', n)
+  const build = newLayerBuild(n.children, report, ck)
   const { pieces } = convertLayers(build, n.children, b, laysOut(n.fields))
   return frameOf(build, n, n.name, b, pieces, carriesBoxProps(n.fields) ? boxLook(n.fields) : null)
 }
 
 /** The frame a page's loose layers go into, fitting them; null when none of them makes a layer. */
-function looseFrame(page: FigmaNode, loose: FigmaNode[], report: Reporter): FrameInput | null {
+function looseFrame(page: FigmaNode, loose: FigmaNode[], report: Reporter, ck: CanvasKit): FrameInput | null {
   if (loose.length === 0) return null
-  const build = newLayerBuild(loose, report)
+  const build = newLayerBuild(loose, report, ck)
   const { pieces, made } = convertLayers(build, loose, { x: 0, y: 0 }, false)
   if (pieces.length === 0) return null
   for (const n of made) report.add('outside-frames', n)
@@ -136,13 +129,13 @@ function looseFrame(page: FigmaNode, loose: FigmaNode[], report: Reporter): Fram
 }
 
 /** A layer inside a frame, imported on its own in a frame of its size. */
-function aloneFrame(n: FigmaNode, report: Reporter): FrameInput | null {
+function aloneFrame(n: FigmaNode, report: Reporter, ck: CanvasKit): FrameInput | null {
   const b = boxOf(n.fields)
   if (!b) {
     report.add('unreadable-layers', n)
     return null
   }
-  const build = newLayerBuild([n], report)
+  const build = newLayerBuild([n], report, ck)
   const { pieces } = convertLayers(build, [n], b, false)
   return frameOf(build, n, n.name, b, pieces, null)
 }
@@ -160,19 +153,19 @@ function frameOf(
   pieces: Piece[],
   boxProps: { clip: boolean; cornerRadius: Corners } | null,
 ): FrameInput {
-  const place = placed(build, from, at, { x: 0, y: 0 })
+  const place = placed(build.report, from, at, { x: 0, y: 0 })
   const size = frameSize(place.width, place.height)
   if (size.rounded) build.report.add('frames-rounded', from)
   if (size.resized) build.report.add('frames-resized', from)
-  const roots =
+  const inner = { x: 0, y: 0, width: place.width, height: place.height, rotation: 0 }
+  const box =
     boxProps || size.resized
-      ? [
-          boxAround(build, name, { x: 0, y: 0, width: place.width, height: place.height, rotation: 0 }, pieces, {
-            ...(boxProps ?? {}),
-            constraints: { horizontal: 'leftRight', vertical: 'topBottom' },
-          }),
-        ]
-      : pieces
+      ? boxAround(build, name, inner, pieces, {
+          ...(boxProps ?? {}),
+          constraints: { horizontal: 'leftRight', vertical: 'topBottom' },
+        })
+      : null
+  const roots = box ? [box] : pieces
   const trimmed = name.trim().slice(0, MAX_FRAME_NAME).trim()
   return {
     name: trimmed || 'Frame',

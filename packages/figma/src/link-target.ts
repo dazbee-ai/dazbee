@@ -1,7 +1,7 @@
 // What a Figma link imports, by the node its `node-id` names: the whole file, a page, a top-level
 // frame, a section's frames, or a layer inside a frame on its own.
 
-import { FRAME_TYPES } from './layers.ts'
+import { FRAME_TYPES } from './build.ts'
 import type { FigmaNode } from './read.ts'
 
 export type LinkTarget =

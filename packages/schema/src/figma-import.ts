@@ -34,8 +34,8 @@ export const FIGMA_REPORT_LINES = {
   'hidden-frames': 'left-out',
   /** Pages with nothing to import. */
   'empty-pages': 'left-out',
-  /** Vectors, stars, polygons, arcs and rings, and booleans holding a layer that is no shape. */
-  'vector-shapes': 'left-out',
+  /** Vectors, stars, polygons, arcs and rings, or vectors' strokes, with no outline in the file to draw them by. */
+  'shapes-without-outlines': 'left-out',
   /** Texts. */
   texts: 'left-out',
   /** Frames whose size was rounded to whole pixels. */
@@ -60,6 +60,14 @@ export const FIGMA_REPORT_LINES = {
   'masks-separate': 'changed',
   /** Layers placed further out, or larger, than Dazbee places them, brought within its reach. */
   'positions-clamped': 'changed',
+  /** Top-level frames turned or mirrored in Figma, which come in upright with their content where it was. */
+  'frames-turned': 'changed',
+  /** Skewed texts, boxes and shapes with no outline, drawn turned and flipped without the skew. */
+  'skewed-layers': 'changed',
+  /** Vector strokes, kept as outlines filled with the stroke's paints. */
+  'vector-strokes-outlined': 'changed',
+  /** Booleans holding a layer that is no shape, drawn as one path of their outline. */
+  'booleans-flattened': 'changed',
 } as const satisfies Record<string, FigmaReportKind>
 
 export const FigmaReportLine = z.enum(Object.keys(FIGMA_REPORT_LINES) as [keyof typeof FIGMA_REPORT_LINES])

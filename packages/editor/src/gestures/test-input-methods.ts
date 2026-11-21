@@ -1,8 +1,7 @@
 // Written sequences of the events browsers send the stage field as a person types through an input
 // method, a dead key, the emoji panel or a key that types more than one letter, each with the
-// field's value and selection after it, for tests to replay through a stand-in field. Each is
-// written from the UI Events and Input Events specs' examples and each browser's documented order;
-// one recorded on a real device replaces a written one where they differ.
+// field's value and selection after it, for tests to replay through a stand-in field. Each follows
+// the UI Events and Input Events specs' examples and each browser's documented order.
 import type { FieldState } from '../text/field-change.ts'
 
 /** One event a browser sends the stage field, or the window while the field has the focus. */
@@ -15,6 +14,8 @@ export interface FieldEvent {
   inputType?: string
   data?: string | null
   isComposing?: boolean
+  /** For a `beforeinput`, whether the page may cancel it. */
+  cancelable?: boolean
   /** The field's value and selection after the event, `|` marking its caret and `[` `]` its selection. */
   field: string
   /**
@@ -27,7 +28,7 @@ export interface FieldEvent {
 /** An input method's events in one browser on one system, from typing's start to its end. */
 export interface InputMethodSequence {
   name: string
-  /** The words and their caret or selection as typing starts, marked as `FieldEvent.field` is. */
+  /** The words and their caret or selection as typing starts, written as `FieldEvent.field` writes them. */
   start: string
   events: FieldEvent[]
   /** The words and their caret or selection after the events. */
@@ -37,17 +38,41 @@ export interface InputMethodSequence {
 /** The keyCode a key's key up says, by its key. */
 const KEY_CODES: Readonly<Record<string, number>> = { ' ': 32, Backspace: 8, Convert: 28, Enter: 13, Escape: 27 }
 
+/** A key going down or coming up, with the field as it stands. */
+const down = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
+  type: 'keydown',
+  ...{ key, code, keyCode, isComposing, field },
+})
+const up = (key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent => ({
+  type: 'keyup',
+  ...{ key, code, keyCode, isComposing, field },
+})
+/** A composition event. */
+const start = (field: string): FieldEvent => ({ type: 'compositionstart', data: '', field })
+const update = (data: string, field: string): FieldEvent => ({ type: 'compositionupdate', data, field })
+const end = (data: string, field: string): FieldEvent => ({ type: 'compositionend', data, field })
+/** An input event; a `beforeinput` the page may cancel. */
+const before = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
+  type: 'beforeinput',
+  ...{ inputType, data, isComposing, cancelable: !inputType.includes('Composition'), field },
+})
+const input = (inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent => ({
+  type: 'input',
+  ...{ inputType, data, isComposing, field },
+})
+const blur = (field: string): FieldEvent => ({ type: 'blur', field })
+
 /** Microsoft Pinyin in Chrome on Windows: "nihao", its first candidate 你好 taken with Space. */
 export const PINYIN_CHROME_WINDOWS: InputMethodSequence = {
   name: 'Microsoft Pinyin in Chrome on Windows',
   start: 'Hello there|',
   events: [
-    ...chromeComposing('n', 'KeyN', 'n', '|', 'n|', true),
-    ...chromeComposing('i', 'KeyI', 'ni', 'n|', 'ni|'),
-    ...chromeComposing('h', 'KeyH', 'ni h', 'ni|', 'ni h|'),
-    ...chromeComposing('a', 'KeyA', 'ni ha', 'ni h|', 'ni ha|'),
-    ...chromeComposing('o', 'KeyO', 'ni hao', 'ni ha|', 'ni hao|'),
-    ...chromeCommit(' ', 'Space', '你好', 'ni hao|', '你好|'),
+    ...windowsComposing('n', 'KeyN', 'n', '|', 'n|', true),
+    ...windowsComposing('i', 'KeyI', 'ni', 'n|', 'ni|'),
+    ...windowsComposing('h', 'KeyH', 'ni h', 'ni|', 'ni h|'),
+    ...windowsComposing('a', 'KeyA', 'ni ha', 'ni h|', 'ni ha|'),
+    ...windowsComposing('o', 'KeyO', 'ni hao', 'ni ha|', 'ni hao|'),
+    ...windowsCommit(' ', 'Space', '你好', 'ni hao|', '你好|'),
   ],
   typed: 'Hello there你好|',
 }
@@ -57,13 +82,13 @@ export const JAPANESE_CONVERTED_CHROME_WINDOWS: InputMethodSequence = {
   name: 'the Japanese IME converting in Chrome on Windows',
   start: 'Hello [there]',
   events: [
-    ...chromeComposing('n', 'KeyN', 'ｎ', '[there]', 'ｎ|', true),
-    ...chromeComposing('i', 'KeyI', 'に', 'ｎ|', 'に|'),
-    ...chromeComposing('h', 'KeyH', 'にｈ', 'に|', 'にｈ|'),
-    ...chromeComposing('o', 'KeyO', 'にほ', 'にｈ|', 'にほ|'),
-    ...chromeComposing('n', 'KeyN', 'にほｎ', 'にほ|', 'にほｎ|'),
-    ...chromeComposing('Convert', 'Space', '日本', 'にほｎ|', '日本|'),
-    ...chromeCommit('Enter', 'Enter', '日本', '日本|', '日本|'),
+    ...windowsComposing('n', 'KeyN', 'ｎ', '[there]', 'ｎ|', true),
+    ...windowsComposing('i', 'KeyI', 'に', 'ｎ|', 'に|'),
+    ...windowsComposing('h', 'KeyH', 'にｈ', 'に|', 'にｈ|'),
+    ...windowsComposing('o', 'KeyO', 'にほ', 'にｈ|', 'にほ|'),
+    ...windowsComposing('n', 'KeyN', 'にほｎ', 'にほ|', 'にほｎ|'),
+    ...windowsComposing('Convert', 'Space', '日本', 'にほｎ|', '日本|'),
+    ...windowsCommit('Enter', 'Enter', '日本', '日本|', '日本|'),
   ],
   typed: 'Hello 日本|',
 }
@@ -73,9 +98,9 @@ export const JAPANESE_ESCAPE_CHROME_WINDOWS: InputMethodSequence = {
   name: 'the Japanese IME cancelled with Escape in Chrome on Windows',
   start: 'Hello [there]',
   events: [
-    ...chromeComposing('k', 'KeyK', 'ｋ', '[there]', 'ｋ|', true),
-    ...chromeComposing('a', 'KeyA', 'か', 'ｋ|', 'か|'),
-    ...chromeCommit('Escape', 'Escape', '', 'か|', '|'),
+    ...windowsComposing('k', 'KeyK', 'ｋ', '[there]', 'ｋ|', true),
+    ...windowsComposing('a', 'KeyA', 'か', 'ｋ|', 'か|'),
+    ...windowsCommit('Escape', 'Escape', '', 'か|', '|'),
   ],
   typed: 'Hello [there]',
 }
@@ -88,9 +113,9 @@ export const KOREAN_CHROME_WINDOWS: InputMethodSequence = {
   name: 'Korean syllable by syllable in Chrome on Windows',
   start: 'Hello there|',
   events: [
-    ...chromeComposing('g', 'KeyG', 'ㅎ', '|', 'ㅎ|', true),
-    ...chromeComposing('k', 'KeyK', '하', 'ㅎ|', '하|'),
-    ...chromeComposing('s', 'KeyS', '한', '하|', '한|'),
+    ...windowsComposing('g', 'KeyG', 'ㅎ', '|', 'ㅎ|', true),
+    ...windowsComposing('k', 'KeyK', '하', 'ㅎ|', '하|'),
+    ...windowsComposing('s', 'KeyS', '한', '하|', '한|'),
     // ㄱ can't join 한: 한 ends and ㄱ starts the next syllable, on one key.
     down('Process', 'KeyR', 229, true, '한|'),
     before('insertCompositionText', '한', true, '한|'),
@@ -102,11 +127,11 @@ export const KOREAN_CHROME_WINDOWS: InputMethodSequence = {
     update('ㄱ', '한|'),
     input('insertCompositionText', 'ㄱ', true, '한ㄱ|'),
     up('r', 'KeyR', 82, true, '한ㄱ|'),
-    ...chromeComposing('n', 'KeyN', '구', '한ㄱ|', '한구|'),
-    ...chromeComposing('r', 'KeyR', '국', '한구|', '한국|'),
+    ...windowsComposing('n', 'KeyN', '구', '한ㄱ|', '한구|'),
+    ...windowsComposing('r', 'KeyR', '국', '한구|', '한국|'),
     // Backspace inside the syllable takes back its last letter.
-    ...chromeComposing('Backspace', 'Backspace', '구', '한국|', '한구|'),
-    ...chromeComposing('r', 'KeyR', '국', '한구|', '한국|'),
+    ...windowsComposing('Backspace', 'Backspace', '구', '한국|', '한구|'),
+    ...windowsComposing('r', 'KeyR', '국', '한구|', '한국|'),
     // Space ends the syllable, then types itself.
     down('Process', 'Space', 229, true, '한국|'),
     before('insertCompositionText', '국', true, '한국|'),
@@ -208,20 +233,7 @@ export const INSCRIPT_CONJUNCT_FIELD: InputMethodSequence = {
 export const FIREFOX_END: InputMethodSequence = {
   name: 'the end of a composition in Firefox',
   start: 'Hello [there]',
-  events: [
-    down('Process', 'KeyN', 229, false, '[there]'),
-    start('[there]'),
-    before('insertCompositionText', 'n', true, '[there]'),
-    update('n', '[there]'),
-    input('insertCompositionText', 'n', true, 'n|'),
-    up('n', 'KeyN', 78, true, 'n|'),
-    down('Process', 'Space', 229, true, 'n|'),
-    before('insertCompositionText', '你', true, 'n|'),
-    update('你', 'n|'),
-    end('你', '你|'),
-    input('insertCompositionText', '你', false, '你|'),
-    up(' ', 'Space', 32, false, '你|'),
-  ],
+  events: firefoxCommit('[there]', false),
   typed: 'Hello 你|',
 }
 
@@ -230,12 +242,7 @@ export const FIREFOX_CANCEL: InputMethodSequence = {
   name: 'a composition cancelled in Firefox',
   start: 'Hello [there]',
   events: [
-    down('Process', 'KeyN', 229, false, '[there]'),
-    start('[there]'),
-    before('insertCompositionText', 'n', true, '[there]'),
-    update('n', '[there]'),
-    input('insertCompositionText', 'n', true, 'n|'),
-    up('n', 'KeyN', 78, true, 'n|'),
+    ...windowsComposing('n', 'KeyN', 'n', '[there]', 'n|', true),
     down('Process', 'Escape', 229, true, 'n|'),
     before('insertCompositionText', '', true, 'n|'),
     update('', 'n|'),
@@ -250,21 +257,7 @@ export const FIREFOX_CANCEL: InputMethodSequence = {
 export const FIREFOX_136_END: InputMethodSequence = {
   name: 'the end of a composition in Firefox 136',
   start: 'Hello there|',
-  events: [
-    down('Process', 'KeyN', 229, false, '|'),
-    start('|'),
-    before('insertCompositionText', 'n', true, '|'),
-    update('n', '|'),
-    input('insertCompositionText', 'n', true, 'n|'),
-    up('n', 'KeyN', 78, true, 'n|'),
-    down('Process', 'Space', 229, true, 'n|'),
-    before('insertCompositionText', '你', true, 'n|'),
-    update('你', 'n|'),
-    input('insertCompositionText', '你', true, '你|'),
-    end('你', '你|'),
-    input('insertCompositionText', '你', false, '你|'),
-    up(' ', 'Space', 32, false, '你|'),
-  ],
+  events: firefoxCommit('|', true),
   typed: 'Hello there你|',
 }
 
@@ -282,14 +275,10 @@ export const SAFARI_END: InputMethodSequence = {
     input('insertCompositionText', 'に', true, 'に|'),
     down('Process', 'KeyI', 229, true, 'に|'),
     up('i', 'KeyI', 73, true, 'に|'),
-    update('にほん', 'に|'),
     before('insertCompositionText', 'にほん', true, 'に|'),
+    update('にほん', 'に|'),
     input('insertCompositionText', 'にほん', true, 'にほん|'),
-    before('deleteCompositionText', null, true, 'にほん|'),
-    input('deleteCompositionText', null, true, '|'),
-    before('insertFromComposition', 'にほん', true, '|'),
-    input('insertFromComposition', 'にほん', true, 'にほん|'),
-    end('にほん', 'にほん|'),
+    ...safariCommit('にほん'),
     down('Enter', 'Enter', 229, false, 'にほん|'),
     up('Enter', 'Enter', 13, false, 'にほん|'),
   ],
@@ -301,13 +290,42 @@ export const BLUR_END: InputMethodSequence = {
   name: 'a blur that ends a composition, and a late compositionend',
   start: 'Hello there|',
   events: [
-    ...chromeComposing('n', 'KeyN', 'n', '|', 'n|', true),
-    ...chromeComposing('i', 'KeyI', 'ni', 'n|', 'ni|'),
+    ...windowsComposing('n', 'KeyN', 'n', '|', 'n|', true),
+    ...windowsComposing('i', 'KeyI', 'ni', 'n|', 'ni|'),
     blur('ni|'),
     input('insertCompositionText', 'ni', false, 'ni|'),
     end('ni', 'ni|'),
   ],
   typed: 'Hello thereni|',
+}
+
+/** A blur that ends a composition, and nothing after it. */
+export const BLUR_ALONE: InputMethodSequence = {
+  name: 'a blur that ends a composition',
+  start: 'Hello there|',
+  events: [...windowsComposing('n', 'KeyN', 'n', '|', 'n|', true), blur('n|')],
+  typed: 'Hello theren|',
+}
+
+/**
+ * Safari with the window put behind and brought back mid-composition: the blur ends it for the
+ * page, but the input method goes on composing in the field until its own end.
+ */
+export const SAFARI_BLUR_GOES_ON: InputMethodSequence = {
+  name: 'a composition that goes on after a blur in Safari',
+  start: 'Hello there|',
+  events: [
+    start('|'),
+    before('insertCompositionText', 'にほ', true, '|'),
+    update('にほ', '|'),
+    input('insertCompositionText', 'にほ', true, 'にほ|'),
+    blur('にほ|'),
+    before('insertCompositionText', '日本', true, 'にほ|'),
+    update('日本', 'にほ|'),
+    input('insertCompositionText', '日本', true, '日本|'),
+    ...safariCommit('日本'),
+  ],
+  typed: 'Hello there日本|',
 }
 
 /** Every written sequence. */
@@ -327,24 +345,26 @@ export const INPUT_METHOD_SEQUENCES: readonly InputMethodSequence[] = [
   FIREFOX_136_END,
   SAFARI_END,
   BLUR_END,
+  BLUR_ALONE,
+  SAFARI_BLUR_GOES_ON,
 ]
 
-/** A field's value and selection written as `FieldEvent.field` writes them. */
-export function markedField(marked: string): FieldState {
-  const caret = marked.indexOf('|')
-  if (caret >= 0) return { value: marked.replace('|', ''), start: caret, end: caret }
-  const start = marked.indexOf('[')
-  const end = marked.indexOf(']') - 1
-  if (start < 0 || end < start) throw new Error(`no caret or selection in ${marked}`)
-  return { value: marked.replace('[', '').replace(']', ''), start, end }
+/** A field's value and selection from how `FieldEvent.field` writes them. */
+export function writtenField(written: string): FieldState {
+  const caret = written.indexOf('|')
+  if (caret >= 0) return { value: written.replace('|', ''), start: caret, end: caret }
+  const start = written.indexOf('[')
+  const end = written.indexOf(']') - 1
+  if (start < 0 || end < start) throw new Error(`no caret or selection in ${written}`)
+  return { value: written.replace('[', '').replace(']', ''), start, end }
 }
 
 /**
- * One key Chrome on Windows sends while an input method composes, the field holding `was` before it
+ * One key a browser on Windows sends while an input method composes, the field holding `was` before it
  * and `after` after it: the key down as `Process` with keyCode 229, the composition's start for the
  * first, the composed text, and the key up.
  */
-function chromeComposing(key: string, code: string, composed: string, was: string, after: string, first = false) {
+function windowsComposing(key: string, code: string, composed: string, was: string, after: string, first = false) {
   return [
     down('Process', code, 229, !first, was),
     ...(first ? [start(was)] : []),
@@ -355,8 +375,8 @@ function chromeComposing(key: string, code: string, composed: string, was: strin
   ]
 }
 
-/** The key Chrome on Windows sends as an input method commits what it composed, or with nothing, cancels it. */
-function chromeCommit(key: string, code: string, composed: string, was: string, after: string) {
+/** The key a browser on Windows sends as an input method commits what it composed, or with nothing, cancels it. */
+function windowsCommit(key: string, code: string, composed: string, was: string, after: string) {
   return [
     down('Process', code, 229, true, was),
     before('insertCompositionText', composed, true, was),
@@ -372,34 +392,30 @@ function keyCode(key: string) {
   return KEY_CODES[key] ?? key.toUpperCase().charCodeAt(0)
 }
 
-function down(key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent {
-  return { type: 'keydown', key, code, keyCode, isComposing, field }
+/**
+ * Firefox committing 你 for "n" typed at `was`, with Space: `compositionend`, then an `input` no
+ * longer composing; from 136 on, an `input` still composing before `compositionend` too.
+ */
+function firefoxCommit(was: string, from136: boolean) {
+  return [
+    ...windowsComposing('n', 'KeyN', 'n', was, 'n|', true),
+    down('Process', 'Space', 229, true, 'n|'),
+    before('insertCompositionText', '你', true, 'n|'),
+    update('你', 'n|'),
+    ...(from136 ? [input('insertCompositionText', '你', true, '你|')] : []),
+    end('你', '你|'),
+    input('insertCompositionText', '你', false, '你|'),
+    up(' ', 'Space', 32, false, '你|'),
+  ]
 }
 
-function up(key: string, code: string, keyCode: number, isComposing: boolean, field: string): FieldEvent {
-  return { type: 'keyup', key, code, keyCode, isComposing, field }
-}
-
-function start(field: string): FieldEvent {
-  return { type: 'compositionstart', data: '', field }
-}
-
-function update(data: string, field: string): FieldEvent {
-  return { type: 'compositionupdate', data, field }
-}
-
-function end(data: string, field: string): FieldEvent {
-  return { type: 'compositionend', data, field }
-}
-
-function before(inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent {
-  return { type: 'beforeinput', inputType, data, isComposing, field }
-}
-
-function input(inputType: string, data: string | null, isComposing: boolean, field: string): FieldEvent {
-  return { type: 'input', inputType, data, isComposing, field }
-}
-
-function blur(field: string): FieldEvent {
-  return { type: 'blur', field }
+/** Safari committing what it composed, at the field's start: the composed text deleted, the commit inserted from it, and its end. */
+function safariCommit(composed: string) {
+  return [
+    before('deleteCompositionText', null, true, `${composed}|`),
+    input('deleteCompositionText', null, true, '|'),
+    before('insertFromComposition', composed, true, '|'),
+    input('insertFromComposition', composed, true, `${composed}|`),
+    end(composed, `${composed}|`),
+  ]
 }

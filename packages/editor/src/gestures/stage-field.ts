@@ -59,7 +59,9 @@ export function editorStageField({
   /** Whether an input method is composing in the field: from its `compositionstart` to its `compositionend`, or a blur. */
   let composing = false
   /** What the field held as the composition started, to tell a commit from a cancel at its end. */
-  let before: FieldState | null = null
+  let atStart: FieldState | null = null
+  /** What the field held as the last composition ended, sent as its commit. */
+  let atEnd: FieldState | null = null
   /** Whether a change is being sent to the editor: the text's selection it moves is the field's own. */
   let sending = false
   /** Whether the field is owed the text it holds, once it may be given it: never while composing or sending. */
@@ -133,8 +135,9 @@ export function editorStageField({
   function endComposition() {
     composing = false
     const now = held()
-    const change = before && fieldChange(before, now)
-    before = null
+    const change = atStart && fieldChange(atStart, now)
+    atStart = null
+    atEnd = now
     send(null)
     if (!change || change.text === '') owed = true
   }
@@ -199,7 +202,8 @@ export function editorStageField({
     'beforeinput',
     (e) => {
       if (HISTORY_INPUTS.has(e.inputType)) e.preventDefault()
-      if (e.inputType !== 'deleteContentBackward') return
+      // A delete the browser would make anyway is read from the field as it makes it.
+      if (e.inputType !== 'deleteContentBackward' || !e.cancelable) return
       // Backspace with no key the editor took, an input method's or a phone keyboard's: Backspace's own step.
       e.preventDefault()
       if (!composing) input.deleteBackward()
@@ -210,15 +214,22 @@ export function editorStageField({
     'compositionstart',
     () => {
       composing = true
-      before = held()
+      atStart = held()
     },
     on,
   )
   field.addEventListener(
     'input',
     (e) => {
-      const { inputType, data } = e as InputEvent
+      const { inputType, data, isComposing } = e as InputEvent
+      // A composition a blur ended goes on where the browser kept it (Safari, the window back in front).
+      if (!composing && isComposing) {
+        composing = true
+        atStart = atEnd ?? held()
+      }
       if (composing) send(data ?? '')
+      // The browser's own undo or redo, made though it was cancelled: the field is given its text again.
+      else if (HISTORY_INPUTS.has(inputType)) give()
       // What a composition's end left, said again after it (Firefox), was read at its end.
       else if (!COMPOSITION_INPUTS.has(inputType)) send(null)
     },

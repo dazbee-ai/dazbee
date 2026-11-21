@@ -13,8 +13,8 @@ import {
   INPUT_METHOD_SEQUENCES,
   type InputMethodSequence,
   JAPANESE_ESCAPE_CHROME_WINDOWS,
-  markedField,
   PINYIN_CHROME_WINDOWS,
+  writtenField,
 } from './test-input-methods.ts'
 
 type Listener = (e: never) => void
@@ -89,8 +89,8 @@ class TextArea extends StandIn {
     this.selectionEnd = end
   }
   /** What the browser leaves in it, as an input method or a key does. */
-  hold(marked: string) {
-    const { value, start, end } = markedField(marked)
+  hold(written: string) {
+    const { value, start, end } = writtenField(written)
     this.held = value
     this.selectionStart = start
     this.selectionEnd = end
@@ -105,7 +105,6 @@ class TextArea extends StandIn {
   }
   remove() {}
 }
-
 
 const editors: TestEditor[] = []
 
@@ -195,7 +194,7 @@ async function typingWith(startAt: string) {
     keyTaken: stageField.keyTaken,
     signal,
   })
-  const { value, start, end } = markedField(startAt)
+  const { value, start, end } = writtenField(startAt)
   if (value !== 'Hello there') throw new Error(`the words are not ${value}`)
   e.core.select(['words'])
   e.press('goIn')
@@ -203,37 +202,39 @@ async function typingWith(startAt: string) {
 
   /** Sends one written event as the browser does: what it changes is in the field as it fires. */
   function send(event: FieldEvent) {
-    const { type, field: marked, prevented, ...rest } = event
-    const composition = type.startsWith('composition')
-    if (type === 'input' || type === 'compositionend' || type === 'blur') field.hold(marked)
-    else expect(fieldNow(), `the field before ${type} ${event.data ?? event.key ?? ''}`).toBe(marked)
-    if (composition) field.closed = true
+    const { type, field: written, prevented, ...rest } = event
+    if (type === 'input' || type === 'compositionend' || type === 'blur') field.hold(written)
+    else expect(fieldNow(), `the field before ${type} ${event.data ?? event.key ?? ''}`).toBe(written)
+    // The browser composes from its compositionstart to its compositionend, a blur between or not.
+    if (type === 'compositionstart') field.closed = true
     let taken = false
     if (type === 'keydown' || type === 'keyup') taken = fire(page.window, type, { ...rest, target: field })
     else if (type === 'blur') field.blur()
     else taken = fire(field, type, rest)
-    if (type === 'compositionend' || type === 'blur') field.closed = false
-    else if (composition) field.closed = stageField.composing()
+    if (type === 'compositionend') field.closed = false
     if (type === 'keydown' || type === 'beforeinput')
       expect(taken, `${type} ${rest.key ?? rest.inputType}`).toBe(!!prevented)
   }
-  /** What the field holds, marked as a written event marks it. */
+  /** What the field holds, as a written event writes it. */
   function fieldNow() {
     const { value: now, selectionStart: from, selectionEnd: to } = field
     if (from === to) return `${now.slice(0, from)}|${now.slice(from)}`
     return `${now.slice(0, from)}[${now.slice(from, to)}]${now.slice(to)}`
   }
+  /** The words as the design holds them. */
+  function words() {
+    return (e.core.design().nodes.words?.props as { text: string }).text
+  }
   /** The words and their caret, `|`, or selected range, in `[` `]`; a caret is found by typing `|` at it. */
   function typed() {
     const selected = e.modules.typing.selectedText()
-    const text = () => (e.core.design().nodes.words?.props as { text: string }).text
     if (selected) {
-      const words = text()
+      const text = words()
       const { start: from, end: to } = selected.range
-      return `${words.slice(0, from)}[${words.slice(from, to)}]${words.slice(to)}`
+      return `${text.slice(0, from)}[${text.slice(from, to)}]${text.slice(to)}`
     }
     e.keys.press('|')
-    return text()
+    return words()
   }
   /** Draws, as the next frame does, and places the field after the overlay. */
   function frame() {
@@ -248,7 +249,44 @@ async function typingWith(startAt: string) {
     }
     frame()
   }
-  return { e, field, overlay, stageField, send, replay, typed, fieldNow }
+  return { e, field, overlay, stageField, send, frame, replay, words, typed, fieldNow }
+}
+
+/** A stage field on a page of stand-ins; what it sends the editor, and a way to fire its events. */
+function bareField() {
+  const listeners = new Map<string, (e: unknown) => void>()
+  const element = {
+    style: {},
+    value: '',
+    setAttribute: () => {},
+    toggleAttribute: () => {},
+    focus: () => {},
+    blur: () => {},
+    remove: () => {},
+    addEventListener: (type: string, listener: (e: unknown) => void) => listeners.set(type, listener),
+  }
+  vi.stubGlobal('document', { createElement: () => element, activeElement: element })
+  vi.stubGlobal('window', { addEventListener: () => {} })
+  const sent: string[] = []
+  editorStageField({
+    overlay: { after: () => {} } as unknown as HTMLElement,
+    input: {
+      deleteBackward: () => sent.push('delete back') > 0,
+      fieldText: () => null,
+      fieldChanged: (state, composing) => sent.push(`changed ${state.value} ${composing}`) > 0,
+    },
+    editing: () => true,
+    onTextSelection: () => () => {},
+    label: 'Text',
+    signal: new AbortController().signal,
+  })
+  /** Fires an event of the field's; whether its default was prevented. */
+  const fireOn = (type: string, extra: Record<string, unknown> = {}) => {
+    let prevented = false
+    listeners.get(type)?.({ preventDefault: () => (prevented = true), ...extra })
+    return prevented
+  }
+  return { sent, fire: fireOn }
 }
 
 describe('editorStageField', () => {
@@ -262,13 +300,13 @@ describe('editorStageField', () => {
   }
 
   it('makes one undo step of what an input method typed, and redoes it', async () => {
-    const { e, replay } = await typingWith(PINYIN_CHROME_WINDOWS.start)
+    const { e, replay, words } = await typingWith(PINYIN_CHROME_WINDOWS.start)
     replay(PINYIN_CHROME_WINDOWS)
     e.core.stopEditing()
     e.core.session.undo()
-    expect((e.core.design().nodes.words?.props as { text: string }).text).toBe('Hello there')
+    expect(words()).toBe('Hello there')
     e.core.session.redo()
-    expect((e.core.design().nodes.words?.props as { text: string }).text).toBe('Hello there你好')
+    expect(words()).toBe('Hello there你好')
   })
 
   it('holds the selected text as typing starts, and the caret alone once a key moves it', async () => {
@@ -291,14 +329,25 @@ describe('editorStageField', () => {
   })
 
   it('stands at the caret the overlay draws inside the composition, at the caret’s height', async () => {
-    const { e, field, send, stageField } = await typingWith('Hello there|')
-    const before = e.modules.typing.shown()?.caret
-    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 18)) send(event)
-    e.core.redraw()
-    stageField.place()
+    const { e, field, send, frame } = await typingWith('Hello there|')
+    // "ni hao" composed, the input method's cursor at its end, then moved back one letter inside it.
+    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 26)) send(event)
+    frame()
+    const atEnd = e.modules.typing.shown()?.caret
+    send({ type: 'keydown', key: 'Process', code: 'ArrowLeft', keyCode: 229, isComposing: true, field: 'ni hao|' })
+    send({
+      type: 'beforeinput',
+      inputType: 'insertCompositionText',
+      data: 'ni hao',
+      isComposing: true,
+      field: 'ni hao|',
+    })
+    send({ type: 'compositionupdate', data: 'ni hao', field: 'ni hao|' })
+    send({ type: 'input', inputType: 'insertCompositionText', data: 'ni hao', isComposing: true, field: 'ni ha|o' })
+    frame()
     const caret = e.modules.typing.shown()?.caret
-    if (!before || !caret) throw new Error('no caret shown')
-    expect(caret.x).toBeGreaterThan(before.x)
+    if (!atEnd || !caret) throw new Error('no caret shown')
+    expect(caret.x).toBeLessThan(atEnd.x)
     expect(field.style).toMatchObject({
       left: `${caret.x}px`,
       top: `${caret.y}px`,
@@ -309,20 +358,32 @@ describe('editorStageField', () => {
 
   it('deletes back once in the text for a delete that came with no key, and nothing while composing', async () => {
     const { send, typed } = await typingWith('Hello there|')
-    send({ type: 'beforeinput', inputType: 'deleteContentBackward', data: null, field: '|', prevented: true })
+    const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
+    send({ type: 'beforeinput', ...deleted, field: '|' })
     send({ type: 'compositionstart', data: '', field: '|' })
-    send({ type: 'beforeinput', inputType: 'deleteContentBackward', data: null, field: '|', prevented: true })
+    send({ type: 'beforeinput', ...deleted, field: '|' })
     send({ type: 'compositionend', data: '', field: '|' })
     expect(typed()).toBe('Hello ther|')
   })
 
-  it('cancels the browser’s own undo and redo, which change nothing', async () => {
-    const { send, typed } = await typingWith('Hello there|')
-    send({ type: 'beforeinput', inputType: 'insertText', data: '!', field: '|' })
+  it('reads a delete the browser makes anyway from the field, once', async () => {
+    const { send, typed } = await typingWith('Hello [there]')
+    send({ type: 'beforeinput', inputType: 'deleteContentBackward', data: null, cancelable: false, field: '[there]' })
+    send({ type: 'input', inputType: 'deleteContentBackward', data: null, field: '|' })
+    expect(typed()).toBe('Hello |')
+  })
+
+  it('cancels the browser’s own undo and redo, and gives the field its text again after one made anyway', async () => {
+    const { send, frame, typed, fieldNow } = await typingWith('Hello [there]')
+    send({ type: 'beforeinput', inputType: 'insertText', data: '!', cancelable: true, field: '[there]' })
     send({ type: 'input', inputType: 'insertText', data: '!', field: '!|' })
-    send({ type: 'beforeinput', inputType: 'historyUndo', data: null, field: '!|', prevented: true })
-    send({ type: 'beforeinput', inputType: 'historyRedo', data: null, field: '!|', prevented: true })
-    expect(typed()).toBe('Hello there!|')
+    const undo = { inputType: 'historyUndo', data: null, cancelable: true, prevented: true } as const
+    send({ type: 'beforeinput', ...undo, field: '!|' })
+    send({ type: 'beforeinput', ...undo, inputType: 'historyRedo', field: '!|' })
+    send({ type: 'input', inputType: 'historyUndo', data: null, field: '[there]' })
+    frame()
+    expect(fieldNow()).toBe('|')
+    expect(typed()).toBe('Hello !|')
   })
 
   it('commits the composition where it was composed before a press on the stage moves the caret', async () => {
@@ -333,56 +394,17 @@ describe('editorStageField', () => {
     expect(page.document.activeElement).toBe(field)
     expect(typed()).toBe('Hello thereni|')
   })
-})
 
-describe('editorStageField on a bare page', () => {
-  /** A stage field on a page of stand-ins; what it sends the editor, and a way to fire its events. */
-  function bareField() {
-    const listeners = new Map<string, (e: unknown) => void>()
-    const element = {
-      style: {},
-      value: '',
-      setAttribute: () => {},
-      toggleAttribute: () => {},
-      focus: () => {},
-      blur: () => {},
-      remove: () => {},
-      addEventListener: (type: string, listener: (e: unknown) => void) => listeners.set(type, listener),
-    }
-    vi.stubGlobal('document', { createElement: () => element, activeElement: element })
-    vi.stubGlobal('window', { addEventListener: () => {} })
-    const sent: string[] = []
-    editorStageField({
-      overlay: { after: () => {} } as unknown as HTMLElement,
-      input: {
-        deleteBackward: () => sent.push('delete back') > 0,
-        fieldText: () => null,
-        fieldChanged: (state, composing) => sent.push(`changed ${state.value} ${composing}`) > 0,
-      },
-      editing: () => true,
-      onTextSelection: () => () => {},
-      label: 'Text',
-      signal: new AbortController().signal,
-    })
-    /** Fires an event of the field's; whether its default was prevented. */
-    const fire = (type: string, extra: Record<string, unknown> = {}) => {
-      let prevented = false
-      listeners.get(type)?.({ preventDefault: () => (prevented = true), ...extra })
-      return prevented
-    }
-    return { sent, fire }
-  }
-
-  it('deletes back in the text being edited for a delete that came with no key, and puts nothing in the field', () => {
+  it('deletes back in the text being edited for a delete that came with no key, and puts nothing in the field, on a bare page', () => {
     const { sent, fire } = bareField()
-    expect(fire('beforeinput', { inputType: 'deleteContentBackward' })).toBe(true)
+    expect(fire('beforeinput', { inputType: 'deleteContentBackward', cancelable: true })).toBe(true)
     expect(sent).toEqual(['delete back'])
   })
 
-  it('deletes nothing while an input method composes', () => {
+  it('deletes nothing while an input method composes, on a bare page', () => {
     const { sent, fire } = bareField()
     fire('compositionstart')
-    expect(fire('beforeinput', { inputType: 'deleteContentBackward' })).toBe(true)
+    expect(fire('beforeinput', { inputType: 'deleteContentBackward', cancelable: true })).toBe(true)
     expect(sent).toEqual([])
   })
 })

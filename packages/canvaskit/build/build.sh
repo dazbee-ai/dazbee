@@ -42,6 +42,11 @@ sed -i -e 's#^\(    SkScalar \(correctAscent\|correctDescent\|ascent\|descent\)(
   modules/skparagraph/src/Run.h
 test "$(grep -c 'fBaselineShift;$' modules/skparagraph/src/Run.cpp)" -eq 0
 test "$(grep -c 'scent() const { return .* + fBaselineShift; }' modules/skparagraph/src/Run.h)" -eq 0
+# Where a run is drawn clipped (a style starting inside a cluster), the clip moves with its glyphs.
+sed -i -e 's|^\(        record.fClipRect = extendHeight(context)\).makeOffset(this->offset());$|\1.makeOffset(this->offset() + SkPoint::Make(0, style.getBaselineShift()));|' \
+  -e 's|^\(            SkRect clip = extendHeight(context)\);$|\1.makeOffset(0, style.getBaselineShift());|' \
+  modules/skparagraph/src/TextLine.cpp
+test "$(grep -c 'extendHeight(context).makeOffset(.*getBaselineShift()' modules/skparagraph/src/TextLine.cpp)" -eq 2
 # PDF on, and expat (built from source, like the other libraries) for Skia's SVG writer; the Android
 # font manager expat would also switch on stays off.
 sed -i -e 's|skia_enable_pdf=false|skia_enable_pdf=true skia_enable_fontmgr_android=false skia_use_system_expat=false|' \

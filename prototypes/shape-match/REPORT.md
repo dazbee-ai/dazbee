@@ -105,6 +105,59 @@ Looks-the-same is unchanged or better throughout: Medium kept every round-1 deci
 
 **Bug found and fixed (general).** A group of marks whose convex hull covered too few pixels gave the shape fitter no starting shape, and Medium crashed on 2 degraded elements. The fitter now returns the window's box at IoU 0 (a poor fit every caller already handles), and those runs were redone.
 
+### The photo guard (round 3)
+
+Crello showed that pictures uploaded without the Layering job's block kinds need the matcher's own photo guard. It is now built (`src/photo.ts`), general, and kept.
+
+**What it measures.** How much of the block its own shape answer leaves unexplained, so a flat panel still becomes a shape and a small product on white stays a picture. Six measures of the block against its rebuild, at no more than 384 px:
+
+1. shading lost (low-frequency luminance residual);
+2. detail lost (gradient magnitude the rebuild lacks);
+3. gradient-direction entropy;
+4. colour count (4-bit);
+5. the blurred colour residual;
+6. the share of strongly graded pixels.
+
+These are combined by a logistic model whose weights and bar are in `src/photo-guard.json`. A shapes answer scoring at or over the bar stays a picture. `PHOTO_GUARD=off` turns it off.
+
+**Trained on development data only** (`src/train-photo.ts`):
+
+- the 32 development DeltaX ads (photo and cutout blocks against shape, graphic and background blocks, by the ads' own kinds);
+- the synthetic set's development third;
+- 141 photos made from the same development ads' photo and cutout blocks (`src/photo-data.ts`): each product placed small on a white canvas and on a flat colour at seeded sizes and places, plus a crop;
+- no openly licensed outside photos were needed.
+
+The bar is the highest score among development shape answers that looked the same, so no development shape is lost. On development data it stops 45 of the 73 photo answers that had passed the rule. A bar at the 99th percentile would stop 60 but lose 4 of 308 development shapes, so it was not used.
+
+**Old guard against new** (the ladder without block kinds; every set run once with the scores recorded, both guards read from the same runs; `src/guard-eval.ts`):
+
+| Set                                               | Rule | Photos made shapes, old       | new       | Shapes kept as pictures, old       | new       | Shapes that look the same, old | new |
+| ------------------------------------------------- | ---- | ----------------------------- | --------- | ---------------------------------- | --------- | ------------------------------ | --- |
+| Set                                               | Rule | Photos made shapes, old guard | new guard | Shapes kept as pictures, old guard | new guard | Shapes that look the same, old | new |
+| ---                                               | ---  | ---                           | ---       | ---                                | ---       | ---                            | --- |
+| DeltaX development ads (32)                       | v1   | 4/47                          | 3/47      | 3/102                              | 3/102     | 99                             | 99  |
+| DeltaX development ads (32)                       | v2   | 3/47                          | 2/47      | 3/102                              | 3/102     | 99                             | 99  |
+| DeltaX frozen ads (16)                            | v1   | 0/25                          | 0/25      | 11/47                              | 12/47     | 36                             | 35  |
+| DeltaX frozen ads (16)                            | v2   | 0/25                          | 0/25      | 11/47                              | 11/47     | 36                             | 36  |
+| synthetic set 1, development third                | v1   | 0/8                           | 0/8       | 8/96                               | 8/96      | 88                             | 88  |
+| synthetic set 1, development third                | v2   | 0/8                           | 0/8       | 1/96                               | 1/96      | 95                             | 95  |
+| synthetic set 1, held-out part                    | v1   | 0/18                          | 0/18      | 28/190                             | 28/190    | 162                            | 162 |
+| synthetic set 1, held-out part                    | v2   | 0/18                          | 0/18      | 8/190                              | 8/190     | 182                            | 182 |
+| synthetic set 2 (unseen)                          | v1   | 0/26                          | 0/26      | 37/286                             | 37/286    | 249                            | 249 |
+| synthetic set 2 (unseen)                          | v2   | 0/26                          | 0/26      | 13/286                             | 13/286    | 273                            | 273 |
+| Crello sample, clean (image elements as pictures) | v1   | 19/200                        | 15/200    | 67/600                             | 67/600    | 533                            | 533 |
+| Crello sample, clean (image elements as pictures) | v2   | 23/200                        | 19/200    | 65/600                             | 65/600    | 535                            | 535 |
+
+**What the guard stops on Crello.** Looked at by eye under the shared rule, the 4 image elements it stops are all real photos (a test tube, a paper crane, a lipstick, hands).
+
+- Of the 15 image elements still made shapes, about 11 are flat panels, gradients, a blurred shadow or vector icons that shapes rightly hold.
+- About 4 are photo-like: a portrait, a stool, and two faint textures.
+- So real-photo mistakes on Crello fall from about 8 to about 4.
+
+**Cost.** No shape lost on Crello, on either synthetic set, or on the development ads. On the frozen DeltaX ads, none under rule v2; one block under the shared rule (36 → 35 look the same). That is the one place it costs anything. Kept, since the recommended rule is v2.
+
+**Still open:** the remaining photo-like answers (a portrait on white, a stool, faint textures) score under the bar. More varied photo training data (openly licensed product photos, with licences noted) would be the next step. With the job's block kinds, photos never reach the matcher.
+
 ### Rule v2, proposed to both halves
 
 - **What it is.** The shared rule with three changes (`scoreV2` in `src/score.ts`):

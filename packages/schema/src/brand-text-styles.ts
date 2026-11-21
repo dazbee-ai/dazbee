@@ -1,13 +1,13 @@
 // Brand text styles: a kit's named text looks, such as Headline, each a font, a weight, a line
 // height, a letter spacing and a case, and no size. The kit's form adds Headline, Subhead and Body
-// first; a style set in a kit font follows it as the kit changes.
+// first; a style set in a kit font follows it as the kit changes, and texts bound to a style follow
+// its look.
 import { z } from 'zod'
 
 import type { BrandKit } from './api.ts'
 import { brandRoleOf, freeToken } from './brand-roles.ts'
-import { textStyleFields } from './layers.ts'
-import { NO_LETTER_SPACING } from './typography.ts'
-import { BrandToken } from './variables.ts'
+import { NO_LETTER_SPACING, textStyleFields } from './typography.ts'
+import { BrandToken, type TextLook } from './variables.ts'
 
 /**
  * The font a brand text style is set in: a kit font's token, a brand role such as Heading or one of
@@ -96,6 +96,22 @@ export function newBrandTextStyle(
 export function brandTextStyleFamily(kit: BrandKit, style: BrandTextStyle): string | undefined {
   const { font } = style
   return 'family' in font ? font.family : kit.fonts.find((f) => f.token === font.token)?.family
+}
+
+/**
+ * The look a style gives the texts that follow it: its weight, slant, letter spacing, line height
+ * and case, in the family `brandTextStyleFamily` gives, left out while that is not set.
+ */
+export function brandTextStyleLook(kit: BrandKit, style: BrandTextStyle): TextLook {
+  const family = brandTextStyleFamily(kit, style)
+  return {
+    ...(family === undefined ? {} : { fontFamily: family }),
+    fontWeight: style.fontWeight,
+    fontStyle: style.fontStyle,
+    ...(style.lineHeight === undefined ? {} : { lineHeight: style.lineHeight }),
+    letterSpacing: style.letterSpacing,
+    ...(style.textCase === undefined ? {} : { textCase: style.textCase }),
+  }
 }
 
 /**

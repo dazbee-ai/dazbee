@@ -10,7 +10,7 @@ import { childrenOf, descendants } from './children.ts'
 import { defineCommand } from './commands/define.ts'
 import { COMMANDS } from './commands/index.ts'
 import type { Session } from './session.ts'
-import { badge } from './test-design.ts'
+import { badge, HEADLINE_LOOK } from './test-design.ts'
 
 /**
  * A design the sweep runs commands on, with the id of a layer deleted from it, and the id an input
@@ -176,6 +176,11 @@ const flowed = (design: Design) =>
     return parent?.type === 'box' && !!parent.props.layout && !layer.props.absolute
   })[0] ?? free(design)
 const typed = (design: Design) => layersOf(design, (layer) => layer.type === 'text')[0] ?? free(design)
+/** A text's base style; none for a layer that is no text. */
+const baseStyleOf = (design: Design, id: string) => {
+  const layer = design.nodes[id]
+  return layer?.type === 'text' ? layer.props.style : undefined
+}
 const masking = (design: Design) => layersOf(design, (layer) => !!layer.props.mask)[0] ?? free(design)
 const path = (design: Design) =>
   layersOf(design, (layer) => layer.type === 'graphic' && layer.props.shape.kind === 'path')[0] ?? free(design)
@@ -237,6 +242,8 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [free(design)], patch: { fills: [{ type: 'solid', color: '#00AA00FF' }] } },
     // The picture node.bind binds to the logo, replaced by hand.
     { ids: [free(design)], patch: { fills: [{ type: 'image', assetId: 'photo', fit: 'fill', opacity: 1 }] } },
+    // The look node.bind binds to a text style, its weight changed by hand.
+    { ids: [typed(design)], patch: { style: { ...baseStyleOf(design, typed(design)), fontWeight: 900 } } },
   ],
   'node.move': ({ design, random }) => [
     { id: free(design), parentId: frame(design), before: childrenOf(design, frame(design))[0]?.[0] },
@@ -257,6 +264,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { ids: [typed(design)], property: 'textColor', ref: 'brand:ink', value: '#222222FF' },
     { ids: [free(design)], property: 'fill', ref: null },
     { ids: [free(design)], property: 'image', ref: 'brand:logo', value: 'logo-1' },
+    { ids: [typed(design)], property: 'textStyle', ref: 'brand:headline', value: HEADLINE_LOOK },
   ],
   'node.style': ({ design }) => [
     { ids: [free(design), typed(design)], style },

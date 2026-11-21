@@ -1,7 +1,7 @@
 import { expect } from 'vitest'
 import type { z } from 'zod'
 
-import { type DesignInput, type Shape } from '@dazbee/schema'
+import { type DesignInput, type Shape, type TextLook } from '@dazbee/schema'
 
 import { CommandFault, openSession, type Session, type SessionOptions } from './session.ts'
 import type { DesignStore } from './store.ts'
@@ -16,6 +16,16 @@ const boxProps = {
   height: 100,
   shape: { kind: 'rect' as const },
   fills: [{ type: 'solid' as const, color: '#FF5A36FF' }],
+}
+
+/** A brand text style's look, as the kit gives it: what tests bind a text's text style to. */
+export const HEADLINE_LOOK: TextLook = {
+  fontFamily: 'Playfair Display',
+  fontWeight: 700,
+  fontStyle: 'normal',
+  lineHeight: 1.1,
+  letterSpacing: { unit: 'percent', value: -1 },
+  textCase: 'upper',
 }
 
 const headlineProps = {

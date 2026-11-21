@@ -99,6 +99,7 @@ export function KitEditor({
       section={section}
       catalog={catalog}
       wide={wide}
+      binding={binding}
     />
   )
 

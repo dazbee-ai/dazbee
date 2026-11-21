@@ -3,7 +3,7 @@
 import { z } from 'zod'
 
 import {
-  BINDABLE_PROPERTIES,
+  bindableEntry,
   BindableProperty,
   canBind,
   carryOverLayer,
@@ -14,7 +14,9 @@ import {
   LayerLock,
   LOCK_FLAGS,
   NodeId,
+  overlappingBindings,
   parseLayer,
+  TextLook,
   UnplacedLayer,
   valueKindOf,
   VariableRef,
@@ -26,7 +28,7 @@ import { sameValue } from '../same-value.ts'
 import { droppedIssue } from '../sync/checks.ts'
 import { boxPlan, DrawnBoxes, keepEmptied, writeDrawn } from './box-plan.ts'
 import { idProblem, lockFor, lockProblem, missingLayer, parentProblem } from './checks.ts'
-import { defineCommand } from './define.ts'
+import { defineCommand, strict } from './define.ts'
 import { keepDrawnIn } from './paths.ts'
 import { layerSlots, writeOrder } from './tree.ts'
 
@@ -94,7 +96,7 @@ export const nodeCreate = defineCommand({
 export const nodeUpdate = defineCommand({
   name: 'node.update',
   description:
-    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture) ends that binding. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
+    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture, a text’s look bound to a text style: its family, weight, slant, line height, letter spacing or case) ends that binding; a text’s size or a range’s own style keeps it. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
   step: 'edit',
   batchable: true,
   input: z.strictObject({
@@ -240,16 +242,17 @@ export const nodeLock = defineCommand({
 })
 
 /**
- * Binds a property of layers to a brand kit token, or unbinds it with a null ref (#53). Binding
- * also stores the token's value as the property's own, so a design drawn without the brand kit (or
+ * Binds a property of layers to a brand kit token, or unbinds it with a null ref. Binding also
+ * stores the token's value as the property's own, so a design drawn without the brand kit (or
  * before it loads) still looks as it did; a fill binds the topmost solid fill and a picture the topmost
- * image fill, each added on top if there is none.
+ * image fill, each added on top if there is none. Binding ends the layer's bindings it writes over:
+ * a text style ends the font's, and a font the text style's.
  * Unbinding keeps the value the property has.
  */
 export const nodeBind = defineCommand({
   name: 'node.bind',
   description:
-    'Binds a fill, text colour, font or picture of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. Every kit has the brand roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text (colours), brand:heading and brand:body (fonts) and brand:logo (the picture of a graphic’s or box’s topmost image fill, an image asset’s id): a layer bound to a role follows whichever brand the design is in. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
+    'Binds a fill, text colour, font, picture or text style of layers to a brand kit token, storing the token’s value too, or unbinds it, keeping the value it has. Every kit has the brand roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text (colours), brand:heading and brand:body (fonts) and brand:logo (the picture of a graphic’s or box’s topmost image fill, an image asset’s id): a layer bound to a role follows whichever brand the design is in. A kit’s text styles (brand:headline) bind a text’s textStyle to a look: its family, weight, slant, line height, letter spacing and case, never its size. Binding a text style ends the text’s font binding, and binding a font ends its text style binding. It refuses a missing layer, one whose type has no such property, one with its style locked, and a binding without a value that fits.',
   step: 'bind',
   batchable: true,
   setsBindings: true,
@@ -258,10 +261,10 @@ export const nodeBind = defineCommand({
     property: BindableProperty.describe('The property to bind.'),
     ref: VariableRef.nullable().describe('The brand kit token to bind to, or null to unbind.'),
     value: z
-      .string()
+      .union([z.string(), strict(TextLook)])
       .optional()
       .describe(
-        'The token’s value now: a colour as #RRGGBBAA, a font family’s name or an image asset’s id. Needed to bind.',
+        'The token’s value now: a colour as #RRGGBBAA, a font family’s name, an image asset’s id, or a text style’s look as read_design gives it. Needed to bind.',
       ),
   }),
   check: ({ design }, { ids, property, ref, value }) => {
@@ -277,16 +280,18 @@ export const nodeBind = defineCommand({
     return undefined
   },
   apply: ({ w, design }, { ids, property, ref, value }) => {
-    const entry = BINDABLE_PROPERTIES[property]
+    const entry = bindableEntry(property)
     for (const id of ids) {
       if (!design.nodes[id]) continue
-      if (ref) w.setBinding(id, property, ref)
-      else w.unsetBinding(id, property)
+      if (ref) {
+        w.setBinding(id, property, ref)
+        for (const other of overlappingBindings(property)) if (w.binding(id, other)) w.unsetBinding(id, other)
+      } else w.unsetBinding(id, property)
       if (value === undefined) continue
       // Read as written so far: a batch binding a layer twice keeps both.
       let props: Record<string, unknown> = { [entry.prop]: w.prop(id, entry.prop) }
       // A fill or picture bound with no fill that shows to take the value gets one on top; unbound, it keeps what it has.
-      if (ref && 'added' in entry && entry.read(props) === undefined)
+      if (ref && entry.added && typeof value === 'string' && entry.read(props) === undefined)
         props = { fills: [...((props.fills ?? []) as unknown[]), entry.added(value)] }
       w.setProp(id, entry.prop, entry.write(props, value)[entry.prop])
     }

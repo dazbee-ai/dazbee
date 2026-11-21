@@ -174,6 +174,16 @@ describe('loadKit', () => {
     expect(kitTrouble(brandId)).toBeNull()
   })
 
+  it('keeps the kit it shows when it fetches the same kit again, and shows a kit saved elsewhere since', async () => {
+    await loadKit('w', brandId)
+    const first = shownKit(brandId)
+    await loadKit('w', brandId)
+    expect(shownKit(brandId)).toBe(first)
+    savedElsewhere('Theirs.')
+    await loadKit('w', brandId)
+    expect(shownKit(brandId)?.voice).toBe('Theirs.')
+  })
+
   it('keeps a change waiting to be saved over the kit it fetches', async () => {
     await loadKit('w', brandId)
     changeVoice('Mine.')

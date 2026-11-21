@@ -11,7 +11,7 @@ import { STEP_NAMES } from './step-names.ts'
 
 /**
  * The fields whose type is one of the schema's design types, said as a whole: a layer, its style, a
- * paint or a text run's style. Their own fields are the schema's, not the command's.
+ * paint, a text run's style or a text style's look. Their own fields are the schema's, not the command's.
  */
 const DESIGN_TYPES = [
   'design.place.tree',
@@ -20,6 +20,7 @@ const DESIGN_TYPES = [
   'node.style.style',
   'frame.update.fills',
   'text.edit.op.style',
+  'node.bind.value',
 ]
 
 /**

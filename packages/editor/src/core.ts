@@ -66,6 +66,8 @@ import { editorViewOnly } from './view-only.ts'
 
 /** The access of a tab whose caller gives none: it may always edit. */
 const MAY_EDIT: TabAccess = { readOnly: () => false, onChange: () => () => {} }
+/** The brand kit's values while the editor has none: one object, so a reader can tell when they change. */
+const NO_VARIABLES: Variables = {}
 
 /** The open core. */
 export function openEditorCore(start: CoreStart): EditorCore {
@@ -860,7 +862,7 @@ export function buildCore({
     loadedFamilies: () => resources.families(),
     fontCheck: fontCheck.check,
     setFont: layerEdits.setFont,
-    variables: () => resources.bytes().variables ?? {},
+    variables: () => resources.bytes().variables ?? NO_VARIABLES,
     setVariables: (variables: Variables) => brandKit.setVariables(variables),
     bindSelection: (kind: ValueKind, ref: VariableRef | null) => brandKit.bindSelection(kind, ref),
     pickColour,

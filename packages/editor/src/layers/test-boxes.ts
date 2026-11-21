@@ -168,6 +168,7 @@ export function testBoxes(
     },
     resources: {
       resources: () => ({ images: decoded, imageSizes: new Map(Object.entries(own)) }) as unknown as Resources,
+      bytes: () => ({ fonts: [], fallbackFamilies: [], images: {} }),
     },
     selection,
     drawn: () => session.design(),

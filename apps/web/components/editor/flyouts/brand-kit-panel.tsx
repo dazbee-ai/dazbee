@@ -1,10 +1,10 @@
 'use client'
 
-// The brand kit (#53), in the Brand flyout. It opens as a picker, as in the final mock: the logo,
-// the colours as named tiles and the fonts in their own face, the brand roles first. Picking a
-// colour or font binds the selected layers to it, so they follow the brand: change the colour and
-// every design using it changes. The logo is placed as a logo that follows the brand, and selected
-// pictures can follow it too. Edit turns the flyout into the kit's form (kit-editor.tsx), where
+// The brand kit, in the Brand flyout. It opens as a picker, as in the final mock: the logo, the
+// colours as named tiles, the fonts in their own face, the brand roles first, and the text styles
+// each in its look. Picking a colour, font or text style binds the selected layers to it, so they
+// follow the brand: change the colour and every design using it changes. The logo is placed as a
+// logo that follows the brand, and selected pictures can follow it too. Edit turns the flyout into the kit's form (kit-editor.tsx), where
 // each change is saved as it is made. A kit with nothing in it shows Daz asleep under Edit.
 import { useEffect, useState } from 'react'
 
@@ -14,6 +14,7 @@ import {
   bindablePropertyOf,
   boundValueOf,
   brandRef,
+  brandTextStyleFamily,
   brandVariables,
   type Design,
   inBrandRoleOrder,
@@ -29,6 +30,7 @@ import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { KitTroubleNotice } from '@/components/brand-kit/kit-trouble-notice.tsx'
 import { KitUnreadable } from '@/components/brand-kit/kit-unreadable.tsx'
+import { TextStyleSample } from '@/components/brand-kit/text-style-sample.tsx'
 import { loadKit, useBrandKit, useKitTrouble } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
 import { CHIP } from '@/components/editor/styles.ts'
@@ -43,13 +45,17 @@ import { placeAsset } from '@/lib/editor/place-asset.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
+/** The look of a font's or text style's row in the picker, which binds the selected texts with a press. */
+const PICK_ROW =
+  'flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[8px] py-2 text-start enabled:hover:bg-hover enabled:hover:lit enabled:active:bg-pressed enabled:active:lit disabled:cursor-default aria-pressed:text-accent-text'
+
 /** Whether every selected layer that can follow a token of this kind follows this one. */
 function follows(design: Design, ids: string[], kind: ValueKind, token: string) {
   const refs = ids.flatMap((id) => {
     const node = design.nodes[id]
     if (!node) return []
     const property = bindablePropertyOf(node.type, kind)
-    // A layer with no colour to bind counts as not following; one with no font or picture is left out.
+    // A layer with no colour to bind counts as not following; one with no font, picture or look is left out.
     if (!property) return kind === 'color' ? [undefined] : []
     if (kind === 'image' && !showsPicture(design, id)) return []
     return [node.bindings?.[property]]
@@ -263,7 +269,7 @@ export function BrandKitPanel({
                           aria-pressed={on}
                           disabled={!textSelected}
                           onClick={() => apply('font', f.token)}
-                          className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[8px] py-2 text-start enabled:hover:bg-hover enabled:hover:lit enabled:active:bg-pressed enabled:active:lit disabled:cursor-default aria-pressed:text-accent-text"
+                          className={PICK_ROW}
                         >
                           <span className="min-w-0 flex-1">
                             {family ? (
@@ -273,6 +279,49 @@ export function BrandKitPanel({
                             )}
                           </span>
                           <span className="shrink-0 text-caption text-muted">{name}</span>
+                          {on && <CheckIcon size={14} aria-hidden className="shrink-0" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section
+              aria-labelledby="kit-text-styles"
+              className="flex flex-col gap-1 border-t border-line px-[18px] py-4"
+            >
+              <h3 id="kit-text-styles" className={cn(heading, 'pb-1.5')}>
+                {t.textStyles}
+              </h3>
+              {kit.textStyles.length === 0 ? (
+                <p className="text-tiny text-muted">{t.noTextStyles}</p>
+              ) : (
+                <ul className="flex flex-col">
+                  {kit.textStyles.map((style) => {
+                    const on = follows(design, selection, 'textLook', style.token)
+                    const family = brandTextStyleFamily(kit, style)
+                    return (
+                      <li key={style.token} data-token={style.token} className="border-t border-line first:border-t-0">
+                        <button
+                          type="button"
+                          aria-label={format(on ? t.unbind : t.apply, { name: style.name })}
+                          aria-pressed={on}
+                          disabled={!textSelected}
+                          onClick={() => apply('textLook', style.token)}
+                          className={PICK_ROW}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <TextStyleSample
+                              workspaceId={workspaceId}
+                              brandId={brandId}
+                              style={style}
+                              known={catalog.find((f) => f.family === family)}
+                              family={family}
+                            />
+                          </span>
+                          <span className="max-w-[45%] min-w-0 truncate text-caption text-muted">{style.name}</span>
                           {on && <CheckIcon size={14} aria-hidden className="shrink-0" />}
                         </button>
                       </li>
@@ -312,6 +361,7 @@ export function BrandKitPanel({
           apply,
           canColor: selection.length > 0,
           canFont: textSelected,
+          canTextStyle: textSelected,
         }}
       />
     </div>

@@ -11,12 +11,13 @@ import {
   type Layer,
   type Paint,
   styleOf,
+  VALUE_KINDS,
 } from '@dazbee/schema'
 
 import { openSession } from '../session.ts'
 import { type DesignStore, readDesign } from '../store.ts'
 import { casesOf, COMMAND_INPUTS, sweepWorld } from '../test-commands.ts'
-import { kindsDesign, linkedDesign, openTestSession, testDesign } from '../test-design.ts'
+import { HEADLINE_LOOK, kindsDesign, linkedDesign, openTestSession, testDesign } from '../test-design.ts'
 import { forkTestStore, openTestStore } from '../test-store.ts'
 import { seeded } from '../test-walk.ts'
 import { COMMANDS } from './index.ts'
@@ -40,6 +41,17 @@ function boundDesign(): DesignInput {
   const design = testDesign()
   Object.assign(design.nodes.box as object, { bindings: { fill: 'brand:primary' } })
   Object.assign(design.nodes.headline as object, { bindings: { textColor: 'brand:ink', fontFamily: 'brand:heading' } })
+  return design
+}
+
+/** The test design with the headline in the Headline style's look, its colour and its text style bound. */
+function styledDesign(): DesignInput {
+  const design = testDesign()
+  const headline = design.nodes.headline as { props: { style: object } }
+  Object.assign(headline, {
+    props: { ...headline.props, style: { ...headline.props.style, ...HEADLINE_LOOK } },
+    bindings: { textColor: 'brand:ink', textStyle: 'brand:headline' },
+  })
   return design
 }
 
@@ -75,9 +87,14 @@ function changedUnderBinding(before: Design, after: Design): string[] {
     const now = after.nodes[id]
     if (!now) return []
     return Object.entries(now.bindings ?? {}).flatMap(([property, ref]) => {
-      const { read } = BINDABLE_PROPERTIES[property as BindableProperty]
-      if (was.bindings?.[property as BindableProperty] !== ref || read(was.props) === read(now.props)) return []
-      return [`${id}'s ${property} went from ${read(was.props)} to ${read(now.props)}, still bound to ${ref}`]
+      const { read, kind } = BINDABLE_PROPERTIES[property as BindableProperty]
+      if (
+        was.bindings?.[property as BindableProperty] !== ref ||
+        VALUE_KINDS[kind].same(read(was.props), read(now.props))
+      )
+        return []
+      const [from, to] = [read(was.props), read(now.props)].map((value) => JSON.stringify(value))
+      return [`${id}'s ${property} went from ${from} to ${to}, still bound to ${ref}`]
     })
   })
 }
@@ -240,6 +257,47 @@ describe('endingEditedBindings', () => {
         fill(fills)
         expect(layer('box').bindings).toBeUndefined()
       }
+    })
+  })
+
+  describe('a text bound to a brand text style', () => {
+    it('ends when its weight is changed by hand; one undo brings both back, redo ends it again', () => {
+      const { tab, layer, style } = open(styledDesign())
+      tab.run('node.update', { ids: ['headline'], patch: { style: { ...style('headline'), fontWeight: 900 } } })
+      expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink' })
+      tab.undo()
+      expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink', textStyle: 'brand:headline' })
+      expect(style('headline').fontWeight).toBe(700)
+      tab.redo()
+      expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink' })
+      expect(style('headline').fontWeight).toBe(900)
+    })
+
+    const ended: [string, Record<string, unknown>][] = [
+      ['its family', { fontFamily: 'Inter' }],
+      ['its slant', { fontStyle: 'italic' }],
+      ['its line height', { lineHeight: 1.5 }],
+      ['its line height, to the font’s own', { lineHeight: undefined }],
+      ['its letter spacing', { letterSpacing: { unit: 'percent', value: 4 } }],
+      ['its case', { textCase: 'lower' }],
+    ]
+    it.each(ended)('ends when %s is changed by hand', (_, change) => {
+      const { tab, layer, style } = open(styledDesign())
+      tab.run('node.update', { ids: ['headline'], patch: { style: { ...style('headline'), ...change } } })
+      expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink' })
+    })
+
+    it('stays when the text is resized, recoloured, underlined, or a range of it given its own weight', () => {
+      const { tab, layer, style } = open(styledDesign())
+      tab.run('node.update', {
+        ids: ['headline'],
+        patch: { width: 1920, height: 200, style: { ...style('headline'), fontSize: 168 } },
+      })
+      tab.run('node.update', { ids: ['headline'], patch: { style: { ...style('headline'), underline: true } } })
+      tab.run('text.edit', { id: 'headline', op: { kind: 'style', at: 0, length: 6, style: { fontWeight: 300 } } })
+      expect(layer('headline').bindings).toEqual({ textColor: 'brand:ink', textStyle: 'brand:headline' })
+      tab.run('node.update', { ids: ['headline'], patch: { style: { ...style('headline'), color: '#00AA00FF' } } })
+      expect(layer('headline').bindings).toEqual({ textStyle: 'brand:headline' })
     })
   })
 

@@ -4,7 +4,7 @@ import { BINDABLE_PROPERTIES } from '@dazbee/schema'
 
 import { descendants, readDesign } from '../index.ts'
 import type { DesignStore } from '../store.ts'
-import { badge, openTestSession, testDesign } from '../test-design.ts'
+import { badge, HEADLINE_LOOK, openTestSession, testDesign } from '../test-design.ts'
 import { openShapes, openTestStore } from '../test-store.ts'
 import { nodeBind } from './layers.ts'
 
@@ -496,6 +496,34 @@ describe('node.bind', () => {
       { type: 'solid', color: '#FF5A36FF' },
       { type: 'image', assetId: 'logo-1', fit: 'fit', opacity: 1 },
     ])
+  })
+
+  it('binds a text’s look to a brand text style, ending its font’s binding; binding a font ends the style’s', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const look = HEADLINE_LOOK
+    const headline = () => readDesign(store).nodes.headline
+    tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:heading', value: 'Lora' })
+    tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: look })
+    expect(headline()?.bindings).toEqual({ textStyle: 'brand:headline' })
+    expect(headline()?.props).toMatchObject({ style: { ...look, fontSize: 84, color: '#111111FF' } })
+    tab.undo()
+    expect(headline()?.bindings).toEqual({ fontFamily: 'brand:heading' })
+    expect(headline()?.props).toMatchObject({ style: { fontFamily: 'Lora', fontWeight: 400 } })
+    tab.redo()
+    tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:body', value: 'Inter' })
+    expect(headline()?.bindings).toEqual({ fontFamily: 'brand:body' })
+    // Unbinding a style keeps the look; a look is no colour, and a family no look.
+    tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: look })
+    tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: null })
+    expect(headline()).not.toHaveProperty('bindings')
+    expect(headline()?.props).toMatchObject({ style: look })
+    expect(() =>
+      tab.run('node.bind', { ids: ['headline'], property: 'textColor', ref: 'brand:headline', value: look }),
+    ).toThrow(/#RRGGBBAA/)
+    expect(() =>
+      tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: 'Inter' }),
+    ).toThrow(/a text style’s look/)
   })
 })
 

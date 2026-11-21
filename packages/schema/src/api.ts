@@ -3,7 +3,7 @@
 import { z } from 'zod'
 
 import { BRAND_KIT_LIMITS, BRAND_ROLE_TOKENS, brandRoleOf, LOGO_ROLE } from './brand-roles.ts'
-import { BrandTextStyle } from './brand-text-styles.ts'
+import { BrandTextStyle, brandTextStyleLook } from './brand-text-styles.ts'
 import { Color } from './primitives.ts'
 import { Member } from './sync.ts'
 import { brandRef, BrandToken, type Variables } from './variables.ts'
@@ -493,7 +493,8 @@ export type AgentMe = z.infer<typeof AgentMe>
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'
 
 /**
- * The values a kit gives its tokens, for drawing designs bound to them. With the kit's logo asset,
+ * The values a kit gives its tokens, for drawing designs bound to them: each colour, font and text
+ * style's look, its font resolved through the kit. With the kit's logo asset,
  * `brand:logo` is its id when it is an image; an SVG file can't be a fill, so it gives none. The
  * logo's token is reserved: it is the logo's even where a kit holds a colour or font with it, which
  * a layer bound to it then keeps as it stores it.
@@ -502,6 +503,7 @@ export const brandVariables = (kit: BrandKit, logo?: Pick<AssetSummary, 'id' | '
   Object.fromEntries([
     ...kit.colors.map((c) => [brandRef(c.token), c.value]),
     ...kit.fonts.map((f) => [brandRef(f.token), f.family]),
+    ...kit.textStyles.map((style) => [brandRef(style.token), brandTextStyleLook(kit, style)]),
     ...(logo && logo.id === kit.logoAssetId && !isVectorAsset(logo) ? [[brandRef(LOGO_ROLE), logo.id]] : []),
   ])
 

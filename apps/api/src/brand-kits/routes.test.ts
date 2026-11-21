@@ -46,7 +46,18 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     const changed = { ...kit, colors: [{ ...kit.colors[0], value: '#1F9D55FF' }] }
     await call('a', 'PUT', `/brands/${brand.id}/kit`, changed)
     const read = BrandKit.parse((await call('a', 'GET', `/brands/${brand.id}/kit`)).json)
-    expect(brandVariables(read)).toEqual({ 'brand:primary': '#1F9D55FF', 'brand:heading': 'Playfair Display' })
+    expect(brandVariables(read)).toEqual({
+      'brand:primary': '#1F9D55FF',
+      'brand:heading': 'Playfair Display',
+      'brand:headline': {
+        fontFamily: 'Playfair Display',
+        fontWeight: 700,
+        fontStyle: 'normal',
+        lineHeight: 1.1,
+        letterSpacing: { unit: 'percent', value: -1 },
+        textCase: 'upper',
+      },
+    })
   })
 
   it('keeps the text styles when a tab built before saves the kit without them', async () => {

@@ -280,7 +280,7 @@ function live(
   saving.start()
 
   brandKit.followBrandLogo()
-  void brandKit.refitBrandFonts()
+  void brandKit.refitBrandText()
 
   return {
     ...shared,

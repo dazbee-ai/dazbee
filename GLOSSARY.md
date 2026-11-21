@@ -49,7 +49,7 @@ What a workspace makes work for: a solo user's business, a company's product lin
 _Avoid_: Client, customer, project (an agency's clients are brands too, ADR-0013)
 
 **Brand kit**:
-A brand's logo, colours, fonts, text styles and tone of voice, applied automatically. Its colours, fonts and logo are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour, font family or picture bound to one follows the brand, so changing the brand colour or logo changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
+A brand's logo, colours, fonts, text styles and tone of voice, applied automatically. Its colours, fonts, logo and text styles are exposed to designs as variables, `brand:<token>`: a layer's fill, text colour, font family, picture or text's look bound to one follows the brand, so changing the brand colour, logo or a text style changes every design that uses it. Its colours and fonts are its brand roles (the colours Primary, Secondary, Accent, Background and Text, the fonts Heading and Body), then the brand's own.
 _Avoid_: Brand guide, theme, style
 
 **Brand role**:
@@ -57,7 +57,7 @@ One of the places every brand kit has: the colours Primary, Secondary, Accent, B
 _Avoid_: Role (a layer's meaning in the ad), slot, theme colour
 
 **Brand text style**:
-A named text look in a brand kit, such as Headline, Subhead or Body: a font, a weight and slant, a line height, a letter spacing and a case, and no size, so one style fits every ad size and each text keeps its own size. Its font is a kit font it follows, such as the Heading role, or a family of its own. A kit holds up to twelve, each with a token of its own (`headline`) that is never a brand role's.
+A named text look in a brand kit, such as Headline, Subhead or Body: a font, a weight and slant, a line height, a letter spacing and a case, and no size, so one style fits every ad size and each text keeps its own size. Its font is a kit font it follows, such as the Heading role, or a family of its own. A kit holds up to twelve, each with a token of its own (`headline`) that is never a brand role's. A text bound to one follows it: changing the style in the kit restyles every text that follows it, each keeping its own size. Editing one of the style's settings on the text by hand ends that; a size or a range's own style doesn't. Binding a style ends the text's own font binding, and binding a font ends its style's.
 _Avoid_: Typography preset, type style, paragraph style
 
 **Binding**:
@@ -65,11 +65,11 @@ A layer property that follows a variable, such as a fill bound to `brand:primary
 _Avoid_: Link (see Link id), sync, style reference
 
 **Bindable property**:
-A property a layer can bind: the colour of its fill, its text's colour, its font family or the picture of its image fill. Each takes one kind of value, such as a colour, and only the layer types that have it can bind it.
+A property a layer can bind: the colour of its fill, its text's colour, its font family, the picture of its image fill, or its text style (a text's look: its family, weight, slant, line height, letter spacing and case). Each takes one kind of value, such as a colour or a look, and only the layer types that have it can bind it.
 _Avoid_: Binding target, slot, field
 
 **Variable**:
-A named value a layer's property can follow. For now, the brand kit's tokens (`brand:<token>`).
+A named value a layer's property can follow. For now, the brand kit's tokens (`brand:<token>`). A value is one thing, such as a colour, or a text style's look of several fields, compared whole.
 _Avoid_: Field, slot, column, placeholder
 
 **Asset library**:

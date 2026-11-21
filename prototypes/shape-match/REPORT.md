@@ -166,6 +166,48 @@ Links were checked one by one in this session (DOI lookups or the page itself).
 - **Shadows.** A drop shadow is "a blurred, offset version of the input image's alpha mask drawn in a particular color, composited below the image" ([Filter Effects](https://www.w3.org/TR/filter-effects-1/#funcdef-filter-drop-shadow)); so it is a search over offset, blur and opacity.
 - **Design tools.** Illustrator's Image Trace ([options](https://helpx.adobe.com/illustrator/desktop/manage-objects/traces-mockups-symbols/image-trace-panel-options.html)) makes live circles and rectangles only when they are isolated and perfect, and only linear gradients. Figma's Vectorize ([help](https://help.figma.com/hc/en-us/articles/38031452710807)) is an AI action for lettering and illustrations, no shapes or gradients. [Vectorizer.AI](https://vectorizer.ai/) claims fitted circles, ellipses, rounded rectangles and stars (vendor claims). Recraft ([docs](https://www.recraft.ai/docs/recraft-studio/format-conversions-and-scaling/vectorizing)), Kittl ([help](https://help.kittl.com/ai-tools/ai-vectorizer)) and Canva ([help](https://www.canva.com/en_au/help/convert-images-to-vectors/)) trace to paths with a colour count.
 
+### 2026 methods, checked in round 2
+
+Read on 2026-11-21 from each paper's own page; none was run.
+
+- **LayerD** (Suzuki et al., ICCV 2025: [paper](https://openaccess.thecvf.com/content/ICCV2025/html/Suzuki_LayerD_Decomposing_Raster_Graphic_Designs_into_Layers_ICCV_2025_paper.html), [arXiv 2509.25134](https://arxiv.org/abs/2509.25134), [project](https://cyberagentailab.github.io/LayerD)).
+  - **What it does:** peels a flat design into layers by repeated top-layer matting (a BiRefNet-style model) and background completion (LaMa), then recovers each layer's colours by inverting the alpha blend.
+  - **Flat-colour refinement:** where the surroundings are nearly gradient-free, it snaps pixels to a small palette taken from percentiles in Lab (at most 2 colours for backgrounds, 10 for foregrounds) and recomputes soft edges.
+  - **Metric:** layers aligned by dynamic time warping, with up to 5 greedy merges of adjacent layers allowed, each pair scored by alpha soft IoU plus RGB L1.
+  - **Output:** RGBA raster layers; the authors name vectorisation as future work, with their layers as its input.
+  - **For us:** it would replace the GPU separation step upstream, not this one. Its palette snap is what our colour split already does (k-means in Lab, colours under ΔE 7 merged). Its metric could score the whole Layering job.
+- **CreatiParser** (Chen et al., [arXiv 2604.19632](https://arxiv.org/abs/2604.19632), 2026).
+  - **What it does:** a vision-language model reads text into a re-editable text protocol, and a multi-branch RGBA diffusion model generates the background and sticker layers. It is aligned to human preference with a reward model and GRPO.
+  - **Evaluated on:** Parser-40K and Crello.
+  - **Output:** raster layers from diffusion, on a GPU.
+  - **For us:** a separation step, not a vectoriser.
+- **Synthetic layered design data** (Wu et al., [arXiv 2605.15167](https://arxiv.org/abs/2605.15167), 2026, SynLayers).
+  - **Finding:** purely synthetic layered designs beat a real dataset (PrismLayersPro) for training a decomposition model, with gains levelling off near 50 K samples. Synthetic data also keeps the layer-count distribution balanced.
+  - **For us:** it supports this prototype's use of a generated set with exact truth for tuning. Ours is for measuring and setting thresholds, not training, so a few hundred blocks suffice.
+- **LaDe** (Lungu-Stan et al., Adobe, CVPR 2026 workshop: [arXiv 2603.17965](https://arxiv.org/abs/2603.17965)).
+  - **What it does:** one latent diffusion model for text-to-image, text-to-layers and design decomposition. A vision-language model describes the layers, and only the layers are denoised.
+  - **Evaluated on:** Crello's test set, judged by vision-language models.
+  - **Output:** raster, on a GPU.
+- **Graphic-Design-Bench** (Deganutti et al., [arXiv 2604.04192](https://arxiv.org/abs/2604.04192), 2026).
+  - **What it is:** 50 understanding and generation tasks over layout, typography, infographics, templates and animation, built on the LICA layered-composition data.
+  - **Metrics:** spatial, perceptual, text, semantic and structural.
+  - **For us:** the abstract mentions producing valid vector graphics, but names no task that turns a raster element into vector shapes. Whether one fits can't be confirmed without the full paper.
+
+**Does anything here beat this prototype on accuracy with general methods?** Not for this step under the brief's limits (one CPU, no model). The 2026 work all decomposes into raster layers with GPU models; the vectorising of each layer that Dazbee needs comes after it. The one transferable idea, LayerD's palette snap for near-flat regions, is already how our colour split works.
+
+**Which public benchmark could score the shape matcher: Crello** ([dataset card](https://huggingface.co/datasets/cyberagent/crello/blob/main/README.md), the data LayerD, CreatiParser and LaDe evaluate on).
+
+- **What it holds:** every element of about 23,000 real templates, with its type (`SvgElement`, `ColoredBackground`, `ImageElement`, `SvgMaskElement`, `TextElement`), its box and angle, a pre-rendered PNG of the element alone, and the vector element's colour palette where the source has one.
+- **How it would score us:**
+  - Feed each `SvgElement` and `ColoredBackground` PNG (real designers' shapes, rendered clean) through the ladder and score it with the same rule.
+  - Use its alpha as the geometry truth (IoU) and its palette as the colour truth.
+  - Use `ImageElement` PNGs as must-stay-picture blocks.
+  - Add the same AI degradations as the synthetic set to approach AI ads.
+- **What it can't give:** exact shape kinds or path data (the card ships only the PNGs and palettes), so "how many layers a designer would pick" is not in it.
+- **Licence:** CDLA-Permissive-2.0, plus agreeing to VistaCreate's licence terms; the distributor does not own the templates. Fine for measuring internally; check the terms before keeping any of it.
+- **Recommended:** run Crello's test split (1,971 templates) as the next measurement, before production.
+- **The whole Layering job:** LayerD's merge-tolerant layer metric on Crello would score it end to end.
+
 **What was used**, all written fresh in TypeScript, no library added: k-means in CIELAB with seeded k-means++ starts and ΔE merging (Celebi; not Wu); moments for the centre and angle, the area formula for a rounded rectangle's radius (area = wh − (4 − π)r²), the angular profile's strongest frequency for star points and polygon sides, then coordinate-descent refinement by render-and-compare (primitive's idea, without randomness); marching squares at half coverage and least-squares cubic Béziers with Newton re-parameterisation and splitting (Schneider's method, re-derived, not copied); least-squares linear gradients and a searched radial centre; drop shadows by search; layers stacked largest first, as in VTracer's stacked mode. PNG decoding and encoding go through Dazbee's own CanvasKit build, so the pictures are read from bytes we control.
 
 ## Design

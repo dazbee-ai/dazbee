@@ -14,7 +14,7 @@ import type { SetNotice } from './notices.ts'
 import { readTar } from './read-tar.ts'
 import type { IndexedGraphic } from './search.ts'
 import { linePerEntry, tagsOf } from './set-files.ts'
-import { STICKER_SETS, stickerPin, type StickerSetId } from './sets.ts'
+import { STICKER_SET_IDS, STICKER_SETS, stickerPin, type StickerSetId } from './sets.ts'
 import sources from './sticker-sources.json' with { type: 'json' }
 
 /** One file of a CC0 set, as `sticker-sources.json` pins it. */
@@ -43,7 +43,12 @@ const notices: Partial<Record<StickerSetId, Pick<SetNotice, 'version' | 'licence
 
 await fluent()
 const cc0 = new TextDecoder().decode(await pinned(sources.cc0))
-for (const set of ['open-peeps', 'humaaans', 'open-doodles'] as const) await fromSite(set, sources.files[set], cc0)
+for (const set of STICKER_SET_IDS) {
+  if (!('read' in STICKER_SETS[set].source)) continue
+  const files: SourceFile[] | undefined = (sources.files as Partial<Record<StickerSetId, SourceFile[]>>)[set]
+  if (!files) throw new Error(`sticker-sources.json lists no files of ${set}`)
+  await fromSite(set, files, cc0)
+}
 await writeFile(join(PACKAGE, 'sets', 'stickers.json'), JSON.stringify(index))
 await writeFile(join(PACKAGE, 'src', 'sticker-notices.json'), `${JSON.stringify(notices, null, 2)}\n`)
 

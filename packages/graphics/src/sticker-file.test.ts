@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { readImageHeader } from '@dazbee/schema'
+import { imageFits, MAX_UPLOAD_BYTES, readImageHeader } from '@dazbee/schema'
 import { svgToLayers } from '@dazbee/svg'
 
 import type { StickerIndex } from './search.ts'
@@ -59,7 +59,12 @@ describe('stickerFile', () => {
         for (const style of styles) {
           const file = stickerFile(set, name, style)
           if (file.format === 'picture') {
-            expect([name, readImageHeader(file.png)?.contentType]).toEqual([name, 'image/png'])
+            const header = readImageHeader(file.png)
+            expect([name, header?.contentType]).toEqual([name, 'image/png'])
+            expect([name, header !== null && imageFits(header) && file.png.length <= MAX_UPLOAD_BYTES]).toEqual([
+              name,
+              true,
+            ])
             continue
           }
           const { tree } = svgToLayers(ck, file.svg, { name })

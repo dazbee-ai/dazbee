@@ -122,9 +122,9 @@ export const STICKER_SET_IDS = Object.keys(STICKER_SETS) as StickerSetId[]
 /** Every bundled set's id, the icon sets first. */
 export const GRAPHIC_SET_IDS: readonly GraphicSetId[] = [...ICON_SET_IDS, ...STICKER_SET_IDS]
 
-/** What kind of graphic a set holds. */
-export function kindOf(set: GraphicSetId): GraphicKind {
-  return Object.hasOwn(ICON_SETS, set) ? 'icon' : 'sticker'
+/** Whether a set is an icon set. */
+export function isIconSet(set: GraphicSetId): set is IconSetId {
+  return Object.hasOwn(ICON_SETS, set)
 }
 
 /** What a sticker set's files are pinned to, as its notice names the version: a commit's first 7 characters, or the day its site was read. */

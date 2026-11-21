@@ -285,10 +285,10 @@ describe('place_graphic', () => {
     }
     const again = (await agent.json('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket' })) as typeof first
     expect(first.asset).toEqual(again.asset)
-    expect(first.asset.name).toBe('Rocket')
+    expect(first.asset.name).toBe('Rocket · Fluent Emoji')
     const added = server.api.assetsOf('brand-summer').filter(({ id }) => id === first.asset.id)
     expect(added).toEqual([
-      expect.objectContaining({ name: 'Rocket', contentType: 'image/png', width: 256, height: 256 }),
+      expect.objectContaining({ name: 'Rocket · Fluent Emoji', contentType: 'image/png', width: 256, height: 256 }),
     ])
     expect(server.api.uploads()).toBe(1)
     for (const placed of [first, again])

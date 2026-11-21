@@ -6,20 +6,13 @@ import { z } from 'zod'
 
 import { placedRoots } from '@dazbee/doc'
 import { svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
-import {
-  findGraphic,
-  type FoundGraphic,
-  GRAPHIC_SET_IDS,
-  type IconSetId,
-  iconSvg,
-  searchGraphics,
-} from '@dazbee/graphics'
+import { findGraphic, type FoundGraphic, GRAPHIC_SET_IDS, iconSvg, searchGraphics } from '@dazbee/graphics'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { Frame, Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
 import { Note, writing } from './command-tools.ts'
-import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
+import { defineTool, type Tool, type ToolContext, ToolRefusal, withNote } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
 import { centreOf, frameIn, type FrameTo, placeAndAnswer, placeBox, type Placing } from './place-on-frame.ts'
 import { stickerPlacing } from './sticker-placing.ts'
@@ -125,10 +118,7 @@ export const GRAPHICS_TOOLS: Tool[] = [
         if (found.kind === 'sticker') {
           const placing = await stickerPlacing(context, open, into, { sticker: found, ...what }, where)
           const value = await placeAndAnswer(context, open, placing, note)
-          if (colour === undefined) return value
-          return value instanceof WithNotes
-            ? new WithNotes(value.value, [...value.notes, COLOUR_UNUSED])
-            : new WithNotes(value, [COLOUR_UNUSED])
+          return colour === undefined ? value : withNote(value, COLOUR_UNUSED)
         }
         if (colour === undefined)
           throw new ToolRefusal('An icon is placed in a colour: give colour, such as brand:primary or #1A2B3C')
@@ -179,13 +169,13 @@ async function fillOf({ api }: ToolContext, open: OpenDesign, colour: string): P
  */
 async function iconPlacing(
   { id: frameId, frame }: FrameTo,
-  { icon, style, name }: { icon: FoundGraphic; style: string; name: string },
+  { icon, style, name }: { icon: Extract<FoundGraphic, { kind: 'icon' }>; style: string; name: string },
   fill: IconFill,
   where: Rect,
 ): Promise<Placing> {
   const ck = await loadCanvasKit()
   const size = Math.min(where.width, where.height)
-  const svg = iconSvg(ck, icon.set as IconSetId, icon.name, style, { colour: fill.value, size })
+  const svg = iconSvg(ck, icon.set, icon.name, style, { colour: fill.value, size })
   const read = await svgLayers(ck, svg, { name, frame, box: where })
   const input = svgPlaceInput(read, frameId, centreOf(where))
   if (!input) throw new ToolRefusal(`The icon “${icon.id}” draws nothing in ${style}, so nothing was placed`)

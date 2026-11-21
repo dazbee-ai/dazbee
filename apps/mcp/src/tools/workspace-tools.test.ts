@@ -75,6 +75,8 @@ describe('list_assets', () => {
     expect(await agent.json('list_assets', { brand: 'brand-summer' })).toEqual([
       { id: 'asset-logo', name: 'Logo', tags: ['logo'], type: 'image/svg+xml', width: 400, height: 120 },
       { id: 'asset-bottle', name: 'Bottle', tags: ['product', 'summer'], type: 'image/png', width: 1600, height: 2400 },
+      { id: 'asset-mark', name: 'Mark', tags: ['brand'], type: 'image/png', width: 400, height: 400 },
+      { id: 'asset-card', name: 'Card', tags: ['card'], type: 'image/svg+xml', width: 400, height: 300 },
     ])
   })
 

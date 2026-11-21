@@ -74,7 +74,7 @@ export const TEST_SYNC_TOKEN_MS = 10 * 60 * 1000
 export const TEST_BRAND_KIT: BrandKit = {
   colors: [{ token: 'primary', name: 'Primary', value: '#FF5A36FF' }],
   fonts: [{ token: 'heading', name: 'Heading', family: 'Brand Serif' }],
-  logoAssetId: null,
+  logoAssetId: 'asset-mark',
   voice: '',
   textStyles: [
     {
@@ -158,6 +158,30 @@ export const TEST_ASSETS: AssetSummary[] = [
     tags: ['product', 'summer'],
     createdAt: '2026-11-01T09:00:00.000Z',
   },
+  {
+    id: 'asset-mark',
+    brandId: 'brand-summer',
+    sha256: 'c'.repeat(64),
+    contentType: 'image/png',
+    byteSize: 50_000,
+    width: 400,
+    height: 400,
+    name: 'Mark',
+    tags: ['brand'],
+    createdAt: '2026-11-01T09:00:00.000Z',
+  },
+  {
+    id: 'asset-card',
+    brandId: 'brand-summer',
+    sha256: 'd'.repeat(64),
+    contentType: 'image/svg+xml',
+    byteSize: 900,
+    width: 400,
+    height: 300,
+    name: 'Card',
+    tags: ['card'],
+    createdAt: '2026-11-01T09:00:00.000Z',
+  },
 ]
 
 /** The stored file of the bottle asset: a 4 × 4 PNG of orange and blue squares. */
@@ -167,6 +191,19 @@ export const TEST_BOTTLE_PNG = Uint8Array.from(
     'base64',
   ),
 )
+
+/** The stored file of the logo asset: a badge, a mark drawn on it and a word, 400 × 120. */
+export const TEST_LOGO_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120" viewBox="0 0 400 120">' +
+  '<rect id="Badge" width="120" height="120" rx="24" fill="#FF5A36"/>' +
+  '<path id="Peak" d="M20 100 L60 20 L100 100 Z" fill="#FFFFFF"/>' +
+  '<text id="Word" x="140" y="80" font-family="Noto Sans" font-size="48" fill="#111111">Summer</text></svg>'
+
+/** The stored file of the card asset: a grey card holding the bottle's picture, embedded, 400 × 300. */
+export const TEST_CARD_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">' +
+  '<rect id="Card" width="400" height="300" fill="#EEEEEE"/>' +
+  `<image id="Photo" x="20" y="20" width="80" height="80" href="data:image/png;base64,${Buffer.from(TEST_BOTTLE_PNG).toString('base64')}"/></svg>`
 
 /** Where the fake API's signed storage links point. */
 const STORAGE = 'http://storage.test'
@@ -330,12 +367,16 @@ function visible(agent: AgentMe): BrandSummary[] {
 
 /**
  * The fake storage behind the signed links: a font face's file is a shipped font's (the bold face's Noto Sans
- * Bold, every other's the first shipped), and the bottle's is `TEST_BOTTLE_PNG`. A request carrying a token is refused, as the agent's token must never reach storage.
+ * Bold, every other's the first shipped), the bottle's and the mark's are `TEST_BOTTLE_PNG`, and the SVG files are
+ * `TEST_LOGO_SVG` and `TEST_CARD_SVG`. A request carrying a token is refused, as the agent's token must never reach storage.
  */
 async function stored(request: Request): Promise<Response> {
   if (request.headers.has('authorization')) return new Response('A signed link takes no token', { status: 400 })
   const path = new URL(request.url).pathname
-  if (path === '/assets/asset-bottle') return new Response(new Uint8Array(TEST_BOTTLE_PNG))
+  if (path === '/assets/asset-bottle' || path === '/assets/asset-mark')
+    return new Response(new Uint8Array(TEST_BOTTLE_PNG))
+  if (path === '/assets/asset-logo') return new Response(TEST_LOGO_SVG)
+  if (path === '/assets/asset-card') return new Response(TEST_CARD_SVG)
   const [first] = loadFontFiles()
   const bold = loadFontFiles().find((font) => font.file === 'NotoSans-Bold.ttf')
   const shipped = path === '/fonts/face-brand-serif-bold' ? bold : first

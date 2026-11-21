@@ -44,6 +44,7 @@ import { promptMessage, PROMPTS } from './prompts.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
 import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'
 import { afterTimeout, type StoreWait } from './store-wait.ts'
+import { ASSET_TOOLS } from './tools/asset-tools.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
@@ -107,7 +108,7 @@ interface Call {
 }
 
 /** The tools every session offers, in `tools/list` order. */
-export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...DESIGN_TOOLS, ...RENDER_TOOLS, ...COMMAND_TOOLS]
+export const TOOLS: Tool[] = [...WORKSPACE_TOOLS, ...DESIGN_TOOLS, ...RENDER_TOOLS, ...COMMAND_TOOLS, ...ASSET_TOOLS]
 
 /** How often sessions past their idle time are looked for, besides at each request. */
 const IDLE_SWEEP_MS = 60_000

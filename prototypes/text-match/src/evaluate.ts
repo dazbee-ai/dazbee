@@ -27,6 +27,8 @@ const { values } = parseArgs({
     limit: { type: 'string' },
     // Only these items, by id (comma-separated), for looking into one block.
     ids: { type: 'string' },
+    // Only these test ads (comma-separated), for a timing run.
+    ads: { type: 'string' },
     // Match against Dazbee's current catalogue (321 families) only, instead of the whole library.
     subset: { type: 'boolean', default: false },
   },
@@ -50,7 +52,8 @@ interface Item {
 }
 const items: Item[] = []
 if (values.set === 'testads') {
-  for (const name of adNames()) for (const b of loadAd(name).blocks) items.push({ id: `${name}#${b.index}`, ad: name, block: b.block, lettering: b.lettering })
+  const ads = values.ads ? values.ads.split(',') : adNames()
+  for (const name of ads) for (const b of loadAd(name).blocks) items.push({ id: `${name}#${b.index}`, ad: name, block: b.block, lettering: b.lettering })
 } else {
   const dir = join(DATA_DIR, 'synthetic')
   const truths = JSON.parse(readFileSync(join(dir, 'truth.json'), 'utf8')) as Truth[]

@@ -41,9 +41,9 @@ export const textStyleFields = {
   lineHeight: z.number().positive(),
   underline: z.boolean(),
   strikethrough: z.boolean(),
-  /** Drawn in another case, as CSS text-transform does; the text itself is kept as typed (#47). */
+  /** Drawn in another case, as CSS text-transform does; the text itself is kept as typed. */
   textCase: z.enum(['none', 'upper', 'lower', 'title']),
-  /** A line along the glyphs' edges, centred on them, drawn over the fill (#47). Width 0 is none. */
+  /** A line along the glyphs' edges, centred on them, drawn over the fill. Width 0 is none. */
   outline: z.object({ width: z.number().min(0), color: Color }),
   /** OpenType features turned on or off by tag; a run's set theirs over the base style's, tag by tag. */
   features: Features,

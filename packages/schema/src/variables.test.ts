@@ -64,6 +64,30 @@ describe('BrandToken', () => {
   })
 })
 
+describe('VALUE_KINDS', () => {
+  it('takes a colour whose hex digits differ only in case as the same', () => {
+    expect(VALUE_KINDS.color.same(red, red.toLowerCase())).toBe(true)
+    expect(VALUE_KINDS.color.same(red, navy)).toBe(false)
+    expect(VALUE_KINDS.font.same('Inter', 'inter')).toBe(false)
+  })
+
+  it('compares looks whole, a case of none as none at all, and a family only where both name one', () => {
+    const { textLook } = VALUE_KINDS
+    const noFamily = without(headline, 'fontFamily')
+    const ownLineHeight = without(headline, 'lineHeight')
+    const noCase = without(headline, 'textCase')
+    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'percent', value: -1 } })).toBe(true)
+    expect(textLook.same(headline, { ...headline, fontWeight: 600 })).toBe(false)
+    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'px', value: -1 } })).toBe(false)
+    expect(textLook.same(headline, ownLineHeight)).toBe(false)
+    expect(textLook.same(headline, { ...headline, fontFamily: 'Inter' })).toBe(false)
+    expect(textLook.same(headline, noFamily)).toBe(true)
+    expect(textLook.same({ ...headline, textCase: 'none' }, noCase)).toBe(true)
+    expect(textLook.same(headline, undefined)).toBe(false)
+    expect(textLook.same(undefined, undefined)).toBe(true)
+  })
+})
+
 describe('BINDABLE_PROPERTIES', () => {
   it('reads and writes the colour of the topmost solid fill that shows', () => {
     const { fill } = BINDABLE_PROPERTIES
@@ -155,9 +179,7 @@ describe('BINDABLE_PROPERTIES', () => {
     expect(image.write(props, 'logo')).toBe(props)
     expect(image.read({})).toBeUndefined()
   })
-})
 
-describe('BINDABLE_PROPERTIES textStyle', () => {
   it('reads a text’s look from its base style, never its runs', () => {
     expect(BINDABLE_PROPERTIES.textStyle.read(lookProps)).toEqual({
       fontFamily: 'Noto Sans',
@@ -194,40 +216,6 @@ describe('BINDABLE_PROPERTIES textStyle', () => {
     const noFamily = without(headline, 'fontFamily')
     expect(BINDABLE_PROPERTIES.textStyle.write(shown, headline)).toBe(shown)
     expect(BINDABLE_PROPERTIES.textStyle.write(shown, noFamily)).toBe(shown)
-  })
-})
-
-describe('VALUE_KINDS', () => {
-  it('takes a colour whose hex digits differ only in case as the same', () => {
-    expect(VALUE_KINDS.color.same(red, red.toLowerCase())).toBe(true)
-    expect(VALUE_KINDS.color.same(red, navy)).toBe(false)
-    expect(VALUE_KINDS.font.same('Inter', 'inter')).toBe(false)
-  })
-
-  it('compares looks whole, a case of none as none at all, and a family only where both name one', () => {
-    const { textLook } = VALUE_KINDS
-    const noFamily = without(headline, 'fontFamily')
-    const ownLineHeight = without(headline, 'lineHeight')
-    const noCase = without(headline, 'textCase')
-    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'percent', value: -1 } })).toBe(true)
-    expect(textLook.same(headline, { ...headline, fontWeight: 600 })).toBe(false)
-    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'px', value: -1 } })).toBe(false)
-    expect(textLook.same(headline, ownLineHeight)).toBe(false)
-    expect(textLook.same(headline, { ...headline, fontFamily: 'Inter' })).toBe(false)
-    expect(textLook.same(headline, noFamily)).toBe(true)
-    expect(textLook.same({ ...headline, textCase: 'none' }, noCase)).toBe(true)
-    expect(textLook.same(headline, undefined)).toBe(false)
-    expect(textLook.same(undefined, undefined)).toBe(true)
-  })
-})
-
-describe('overlappingBindings', () => {
-  it('names the bindings a binding writes over: a text style and a font family each set the family', () => {
-    expect(overlappingBindings('textStyle')).toEqual(['fontFamily'])
-    expect(overlappingBindings('fontFamily')).toEqual(['textStyle'])
-    expect(overlappingBindings('textColor')).toEqual([])
-    expect(overlappingBindings('fill')).toEqual([])
-    expect(overlappingBindings('image')).toEqual([])
   })
 })
 
@@ -326,6 +314,16 @@ describe('fitsProperty', () => {
     expect(fitsProperty('textStyle', 'Playfair Display')).toBe(false)
     expect(fitsProperty('fontFamily', headline)).toBe(false)
     expect(fitsProperty('fill', headline)).toBe(false)
+  })
+})
+
+describe('overlappingBindings', () => {
+  it('names the bindings a binding writes over: a text style and a font family each set the family', () => {
+    expect(overlappingBindings('textStyle')).toEqual(['fontFamily'])
+    expect(overlappingBindings('fontFamily')).toEqual(['textStyle'])
+    expect(overlappingBindings('textColor')).toEqual([])
+    expect(overlappingBindings('fill')).toEqual([])
+    expect(overlappingBindings('image')).toEqual([])
   })
 })
 

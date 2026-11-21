@@ -10,29 +10,19 @@ import {
   bindProps,
   type DesignInput,
   type Layer,
-  type TextLook,
   type Variables,
   type VariableValue,
 } from '@dazbee/schema'
 
-import { testDesign } from './test-design.ts'
+import { HEADLINE_LOOK, testDesign } from './test-design.ts'
 import { closeTabs, deliver, endChecks, type SimTab, type Tabs, tabsOn } from './test-tabs.ts'
 
 /** What the end checks find when nothing is lost. */
 const CLEAN = { leftOut: [], repaired: [], missing: [] }
 
-/** The Headline text style's look, as the kit gives it. */
-const HEADLINE: TextLook = {
-  fontFamily: 'Playfair Display',
-  fontWeight: 700,
-  fontStyle: 'normal',
-  lineHeight: 1.1,
-  letterSpacing: { unit: 'percent', value: -1 },
-}
-
 /** The brand kit's tokens, as the tabs draw them. */
 const VARIABLES: Variables = {
-  'brand:headline': HEADLINE,
+  'brand:headline': HEADLINE_LOOK,
   'brand:primary': '#FF5A36FF',
   'brand:accent': '#00AA00FF',
   'brand:ink': '#111111FF',
@@ -164,7 +154,12 @@ for (const later of ['A', 'B'] as const) {
         boundDesign(),
         later,
         (tab) =>
-          tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: HEADLINE }),
+          tab.run('node.bind', {
+            ids: ['headline'],
+            property: 'textStyle',
+            ref: 'brand:headline',
+            value: HEADLINE_LOOK,
+          }),
         (tab) => {
           const { style } = layerIn(tab, 'headline').props as { style: object }
           tab.run('node.update', { ids: ['headline'], patch: { style: { ...style, fontFamily: 'Lora' } } })
@@ -184,7 +179,12 @@ for (const later of ['A', 'B'] as const) {
         boundDesign(),
         later,
         (tab) =>
-          tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: HEADLINE }),
+          tab.run('node.bind', {
+            ids: ['headline'],
+            property: 'textStyle',
+            ref: 'brand:headline',
+            value: HEADLINE_LOOK,
+          }),
         (tab) => tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:body', value: 'Inter' }),
       )
       // A ends the font binding it saw; B, ordered later, binds the font again over A's style.
@@ -192,7 +192,7 @@ for (const later of ['A', 'B'] as const) {
         later === 'A' ? { textStyle: 'brand:headline' } : { textStyle: 'brand:headline', fontFamily: 'brand:body' }
       for (const tab of [a, b]) {
         expect(layerIn(tab, 'headline').bindings).toEqual(bindings)
-        expect(drawn(tab, 'headline', 'textStyle')).toEqual(HEADLINE)
+        expect(drawn(tab, 'headline', 'textStyle')).toEqual(HEADLINE_LOOK)
       }
       expect(await endChecks(world)).toEqual(CLEAN)
     })

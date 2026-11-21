@@ -45,6 +45,10 @@ import { placeAsset } from '@/lib/editor/place-asset.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
+/** The look of a font's or text style's row in the picker, which binds the selected texts with a press. */
+const PICK_ROW =
+  'flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[8px] py-2 text-start enabled:hover:bg-hover enabled:hover:lit enabled:active:bg-pressed enabled:active:lit disabled:cursor-default aria-pressed:text-accent-text'
+
 /** Whether every selected layer that can follow a token of this kind follows this one. */
 function follows(design: Design, ids: string[], kind: ValueKind, token: string) {
   const refs = ids.flatMap((id) => {
@@ -265,7 +269,7 @@ export function BrandKitPanel({
                           aria-pressed={on}
                           disabled={!textSelected}
                           onClick={() => apply('font', f.token)}
-                          className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[8px] py-2 text-start enabled:hover:bg-hover enabled:hover:lit enabled:active:bg-pressed enabled:active:lit disabled:cursor-default aria-pressed:text-accent-text"
+                          className={PICK_ROW}
                         >
                           <span className="min-w-0 flex-1">
                             {family ? (
@@ -306,7 +310,7 @@ export function BrandKitPanel({
                           aria-pressed={on}
                           disabled={!textSelected}
                           onClick={() => apply('textLook', style.token)}
-                          className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[8px] py-2 text-start enabled:hover:bg-hover enabled:hover:lit enabled:active:bg-pressed enabled:active:lit disabled:cursor-default aria-pressed:text-accent-text"
+                          className={PICK_ROW}
                         >
                           <span className="min-w-0 flex-1">
                             <TextStyleSample

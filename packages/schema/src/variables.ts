@@ -41,6 +41,23 @@ export type VariableValue = string | TextLook
 /** The keys of a text's base style a look sets. */
 const LOOK_KEYS = ['fontFamily', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'textCase'] as const
 
+/** Whether two looks are one, compared whole: a case of none is none at all, and a family counts where both name one. */
+function sameLook(a: unknown, b: unknown): boolean {
+  if (a === undefined || b === undefined) return a === b
+  const x = a as Partial<TextLook>
+  const y = b as Partial<TextLook>
+  const spacing = (s: LetterSpacing | undefined) => (s ? `${s.unit}:${s.value}` : undefined)
+  const textCase = (look: Partial<TextLook>) => (look.textCase === 'none' ? undefined : look.textCase)
+  return (
+    (x.fontFamily === undefined || y.fontFamily === undefined || x.fontFamily === y.fontFamily) &&
+    x.fontWeight === y.fontWeight &&
+    x.fontStyle === y.fontStyle &&
+    x.lineHeight === y.lineHeight &&
+    spacing(x.letterSpacing) === spacing(y.letterSpacing) &&
+    textCase(x) === textCase(y)
+  )
+}
+
 /**
  * The kinds of value a bindable property takes, each with the values that fit it, what to say of
  * one that doesn't, and when two values are one, as the rule that a hand edit ends a binding
@@ -245,6 +262,9 @@ export type Variables = Readonly<Record<string, VariableValue>>
 
 export const brandRef = (token: string): VariableRef => `brand:${token}` as VariableRef
 
+/** What the list says of a bindable property, as one shape whatever the property. */
+export const bindableEntry = (property: BindableProperty): BindableEntry => BINDABLE_PROPERTIES[property]
+
 /** Whether a layer of this type has a bindable property. */
 export const canBind = (type: string, property: BindableProperty) =>
   (BINDABLE_PROPERTIES[property].types as readonly string[]).includes(type)
@@ -262,9 +282,9 @@ export const fitsProperty = (property: BindableProperty, value: unknown): value 
  * set the family.
  */
 export function overlappingBindings(property: BindableProperty): BindableProperty[] {
-  const { prop, keys } = BINDABLE_PROPERTIES[property] as BindableEntry
+  const { prop, keys } = bindableEntry(property)
   return BindableProperty.options.filter((other) => {
-    const entry = BINDABLE_PROPERTIES[other] as BindableEntry
+    const entry = bindableEntry(other)
     return other !== property && entry.prop === prop && !!entry.keys?.some((key) => keys?.includes(key))
   })
 }
@@ -297,24 +317,7 @@ export function bindProps<P extends Record<string, unknown>>(
     const ref = bindings[property]
     const value = ref === undefined ? undefined : variables[ref]
     if (value === undefined || !canBind(type, property) || !fitsProperty(property, value)) continue
-    out = (BINDABLE_PROPERTIES[property] as BindableEntry).write(out, value)
+    out = bindableEntry(property).write(out, value)
   }
   return out
-}
-
-/** Whether two looks are one, compared whole: a case of none is none at all, and a family counts where both name one. */
-function sameLook(a: unknown, b: unknown): boolean {
-  if (a === undefined || b === undefined) return a === b
-  const x = a as Partial<TextLook>
-  const y = b as Partial<TextLook>
-  const spacing = (s: LetterSpacing | undefined) => (s ? `${s.unit}:${s.value}` : undefined)
-  const textCase = (look: Partial<TextLook>) => (look.textCase === 'none' ? undefined : look.textCase)
-  return (
-    (x.fontFamily === undefined || y.fontFamily === undefined || x.fontFamily === y.fontFamily) &&
-    x.fontWeight === y.fontWeight &&
-    x.fontStyle === y.fontStyle &&
-    x.lineHeight === y.lineHeight &&
-    spacing(x.letterSpacing) === spacing(y.letterSpacing) &&
-    textCase(x) === textCase(y)
-  )
 }

@@ -4,7 +4,7 @@ import { BINDABLE_PROPERTIES } from '@dazbee/schema'
 
 import { descendants, readDesign } from '../index.ts'
 import type { DesignStore } from '../store.ts'
-import { badge, openTestSession, testDesign } from '../test-design.ts'
+import { badge, HEADLINE_LOOK, openTestSession, testDesign } from '../test-design.ts'
 import { openShapes, openTestStore } from '../test-store.ts'
 import { nodeBind } from './layers.ts'
 
@@ -501,12 +501,7 @@ describe('node.bind', () => {
   it('binds a text’s look to a brand text style, ending its font’s binding; binding a font ends the style’s', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
-    const look = {
-      fontFamily: 'Playfair Display',
-      fontWeight: 700,
-      fontStyle: 'italic',
-      letterSpacing: { unit: 'percent', value: -1 },
-    } as const
+    const look = HEADLINE_LOOK
     const headline = () => readDesign(store).nodes.headline
     tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:heading', value: 'Lora' })
     tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: look })

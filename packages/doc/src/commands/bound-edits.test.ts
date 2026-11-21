@@ -11,14 +11,13 @@ import {
   type Layer,
   type Paint,
   styleOf,
-  type TextLook,
   VALUE_KINDS,
 } from '@dazbee/schema'
 
 import { openSession } from '../session.ts'
 import { type DesignStore, readDesign } from '../store.ts'
 import { casesOf, COMMAND_INPUTS, sweepWorld } from '../test-commands.ts'
-import { kindsDesign, linkedDesign, openTestSession, testDesign } from '../test-design.ts'
+import { HEADLINE_LOOK, kindsDesign, linkedDesign, openTestSession, testDesign } from '../test-design.ts'
 import { forkTestStore, openTestStore } from '../test-store.ts'
 import { seeded } from '../test-walk.ts'
 import { COMMANDS } from './index.ts'
@@ -35,15 +34,6 @@ const GRADIENT: Paint = {
     { offset: 1, color: '#000000FF' },
   ],
 }
-/** A brand text style's look, as the kit gives it. */
-const HEADLINE: TextLook = {
-  fontFamily: 'Playfair Display',
-  fontWeight: 700,
-  fontStyle: 'normal',
-  lineHeight: 1.1,
-  letterSpacing: { unit: 'percent', value: -1 },
-  textCase: 'upper',
-}
 const MARK = { versionId: 'v1', kind: 'named', name: 'Sent to client', takenAt: '2026-11-16T14:30:00.000Z' } as const
 
 /** The test design with the box's fill bound to the primary colour, and the headline's colour and font bound. */
@@ -59,7 +49,7 @@ function styledDesign(): DesignInput {
   const design = testDesign()
   const headline = design.nodes.headline as { props: { style: object } }
   Object.assign(headline, {
-    props: { ...headline.props, style: { ...headline.props.style, ...HEADLINE } },
+    props: { ...headline.props, style: { ...headline.props.style, ...HEADLINE_LOOK } },
     bindings: { textColor: 'brand:ink', textStyle: 'brand:headline' },
   })
   return design

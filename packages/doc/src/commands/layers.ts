@@ -3,8 +3,7 @@
 import { z } from 'zod'
 
 import {
-  BINDABLE_PROPERTIES,
-  type BindableEntry,
+  bindableEntry,
   BindableProperty,
   canBind,
   carryOverLayer,
@@ -281,7 +280,7 @@ export const nodeBind = defineCommand({
     return undefined
   },
   apply: ({ w, design }, { ids, property, ref, value }) => {
-    const entry: BindableEntry = BINDABLE_PROPERTIES[property]
+    const entry = bindableEntry(property)
     for (const id of ids) {
       if (!design.nodes[id]) continue
       if (ref) {

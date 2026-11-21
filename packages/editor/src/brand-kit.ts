@@ -47,8 +47,8 @@ export interface EditorBrandKit {
   /**
    * Text bound to a brand font or text style the kit has changed since takes its family and look
    * once the family's files are here, its box fitting it: a change no one undoes. While a drag or a
-   * typing session is open the refit waits for it to end (C40), so the promise can settle before the
-   * refit lands.
+   * typing session is open the refit waits for it to end, so the promise can settle before the refit
+   * lands.
    */
   refitBrandText(): Promise<void>
   /**

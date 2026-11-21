@@ -27,6 +27,26 @@ const STYLES: { [K in keyof RunStyle]-?: RunStyle[K][] } = {
     { width: 2, color: '#000000FF' },
   ],
   features: [{ liga: false }, { tnum: true, liga: true }],
+  gradient: [
+    {
+      type: 'linear',
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 0 },
+      stops: [
+        { offset: 0, color: '#FF0000FF' },
+        { offset: 1, color: '#0000FFFF' },
+      ],
+    },
+    {
+      type: 'radial',
+      center: { x: 0.5, y: 0.5 },
+      radius: 0.5,
+      stops: [
+        { offset: 0, color: '#FFFFFFFF' },
+        { offset: 1, color: '#000000FF' },
+      ],
+    },
+  ],
 }
 
 /** One UTF-16 unit of a text and the style it has: the reference the walk checks `applyTextOp` against. */
@@ -43,7 +63,17 @@ function unitsOf({ text, runs }: TextValue): Unit[] {
   }))
 }
 
-const sorted = (style: RunStyle) => Object.fromEntries(Object.entries(style).sort(([a], [b]) => a.localeCompare(b)))
+/** A value with every object's keys sorted, at any depth, so two styles that hold the same compare equal as JSON. */
+const sorted = (value: unknown): unknown =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, v]) => [key, sorted(v)]),
+      )
+    : Array.isArray(value)
+      ? value.map(sorted)
+      : value
 
 /** The units as a text, and its runs: neighbours with the same style joined, unstyled units in none. */
 function valueOf(units: readonly Unit[]): TextValue {
@@ -134,6 +164,15 @@ describe('applyTextOp', () => {
     expect(applyTextOp(value, { kind: 'style', at: 0, length: 2, style: { features: { tnum: true } } }).runs).toEqual([
       { start: 0, end: 2, style: { features: { liga: false, tnum: true } } },
       { start: 2, end: 4, style: { features: { liga: false } } },
+    ])
+  })
+
+  it('takes a gradient off the characters a colour is styled over, so the colour shows', () => {
+    const gradient = STYLES.gradient[0] as NonNullable<RunStyle['gradient']>
+    const value = { text: 'Sale', runs: [{ start: 0, end: 4, style: { gradient, fontWeight: 700 } }] }
+    expect(applyTextOp(value, { kind: 'style', at: 0, length: 2, style: { color: '#00FF00FF' } }).runs).toEqual([
+      { start: 0, end: 2, style: { fontWeight: 700, color: '#00FF00FF' } },
+      { start: 2, end: 4, style: { gradient, fontWeight: 700 } },
     ])
   })
 

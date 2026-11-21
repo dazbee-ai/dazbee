@@ -1129,6 +1129,8 @@ export const en = {
       shrinkShort: { min: 'Smallest', max: 'Largest' },
       outline: 'Outline',
       outlineWidth: 'Outline width',
+      outlinePlace: 'Where the outline is drawn',
+      outlinePlaces: { over: 'Over the letters', under: 'Under the letters' },
       image: 'Image',
       filter: 'Filter',
       filters: {

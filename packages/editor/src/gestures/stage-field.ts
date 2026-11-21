@@ -7,6 +7,7 @@
 // its selection moves (`EditorInput.fieldChanged`); what an input method composes is drawn in the
 // text, not in the field. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
+import type { Picked } from '../selection.ts'
 import { type FieldState, holdsAround, sameSelection } from '../text/field-change.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 
@@ -14,8 +15,8 @@ export interface StageFieldDeps {
   /** The stage's overlay: the field goes after it in the page, and stands at the caret it draws. */
   overlay: HTMLElement
   input: Pick<EditorInput, 'deleteBackward' | 'fieldText' | 'fieldChanged'>
-  /** Whether a text is being edited now. */
-  editing: () => boolean
+  /** The text being edited now, by its layer and its frame; null when none is. */
+  editing: () => Readonly<Picked> | null
   /** Adds a listener told when the text being edited, or its caret or range, changes. */
   onTextSelection: (listener: () => void) => () => unknown
   /** The field's name, for a screen reader, in the page's words. */
@@ -66,8 +67,12 @@ export function editorStageField({
   let known: FieldState | null = null
   /** The word an input method re-opened in the field with no input, sent as a composition once its task ends. */
   let reopened: string | null = null
-  /** Whether the last press on the page was a touch or a pen's, after which the field takes no focus: a tablet's keyboard would open. */
+  /** Whether the last press on the page was a touch or a pen's, after which the field takes no focus but for typing it starts: a tablet's keyboard would open. */
   let touched = false
+  /** Whether a key went down since the last press on the page: typing starting then is the key's, not a touch's. */
+  let keyed = false
+  /** The text being edited as the field last followed it: typing starts when it was none, or another. */
+  let followed: Picked | null = null
   const on = { signal }
 
   /** What the field holds now: its value and its selection. */
@@ -83,17 +88,26 @@ export function editorStageField({
   /**
    * Takes the focus when the stage has it, while a text is edited, or after a key typing took
    * (`byKey`) from wherever it is but a field or a pop-up; gives it back to the page when none is.
+   * After a touch it takes the focus only as typing starts, from wherever it is, in the touch's own
+   * event, so a phone's keyboard opens for it.
    */
   function follow(byKey = false) {
+    const text = editing()
+    const started = text !== null && (text.id !== followed?.id || text.frameId !== followed.frameId)
+    followed = text && { id: text.id, frameId: text.frameId }
     // Out of the accessibility tree while nothing is edited: a reader would find an empty field.
-    if (editing()) field.removeAttribute('aria-hidden')
+    if (text) field.removeAttribute('aria-hidden')
     else field.setAttribute('aria-hidden', 'true')
-    if (!editing()) {
+    if (!text) {
       if (document.activeElement === field) drop()
       return
     }
     const at = document.activeElement
-    if (touched || at === field) return
+    if (at === field) return
+    if (touched) {
+      if (started && !keyed) field.focus({ preventScroll: true })
+      return
+    }
     const free = at === null || at === document.body || (byKey && !inField(at) && !at.closest(POP_UPS))
     if (free) field.focus({ preventScroll: true })
   }
@@ -194,10 +208,9 @@ export function editorStageField({
   field.setAttribute('aria-label', label)
   field.setAttribute('aria-hidden', 'true')
   field.tabIndex = -1
+  // No spellchecking marks or saved suggestions; autocorrect and capitals follow the keyboard's settings.
   for (const [name, value] of [
     ['autocomplete', 'off'],
-    ['autocorrect', 'off'],
-    ['autocapitalize', 'off'],
     ['spellcheck', 'false'],
     ['data-gramm', 'false'],
   ] as const)
@@ -310,12 +323,20 @@ export function editorStageField({
     },
     on,
   )
-  // A key the editor may take reads the text's caret from where the field last moved it.
-  window.addEventListener('keydown', catchUp, { ...on, capture: true })
+  window.addEventListener(
+    'keydown',
+    () => {
+      keyed = true
+      // A key the editor may take reads the text's caret from where the field last moved it.
+      catchUp()
+    },
+    { ...on, capture: true },
+  )
   window.addEventListener(
     'pointerdown',
     (e) => {
       touched = e.pointerType === 'touch' || e.pointerType === 'pen'
+      keyed = false
       // A press on the stage while composing: the composition lands before the caret moves.
       if (e.target instanceof Node && overlay.parentElement?.contains(e.target) && !inField(e.target)) commit()
     },

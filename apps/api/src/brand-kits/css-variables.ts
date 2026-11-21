@@ -6,9 +6,9 @@ const MAX_VARIABLE_DEPTH = 4
 /**
  * What reads values with their `var()`s replaced by the variables' values, or their fallbacks: each variable read
  * once, inside others at most `MAX_VARIABLE_DEPTH` deep, a cycle read as nothing, and every value cut at
- * `MAX_VALUE`, so no CSS makes a value grow past it.
+ * `maxValue` characters, so no CSS makes a value grow past it.
  */
-export function variableReader(variables: ReadonlyMap<string, string>, MAX_VALUE: number): (value: string) => string {
+export function variableReader(variables: ReadonlyMap<string, string>, maxValue: number): (value: string) => string {
   const read = new Map<string, string>()
   return (value) => resolve(value, 0)
 
@@ -17,12 +17,12 @@ export function variableReader(variables: ReadonlyMap<string, string>, MAX_VALUE
     const pattern = /var\(\s*(--[\w-]{1,100})\s*(?:,([^()]{0,200}))?\)/g
     let out = ''
     let last = 0
-    for (let match = pattern.exec(value); match && out.length < MAX_VALUE; match = pattern.exec(value)) {
+    for (let match = pattern.exec(value); match && out.length < maxValue; match = pattern.exec(value)) {
       const [whole, name = '', fallback] = match
       out += value.slice(last, match.index) + (depth >= MAX_VARIABLE_DEPTH ? '' : variableOf(name, fallback, depth))
       last = match.index + whole.length
     }
-    return (out.length < MAX_VALUE ? out + value.slice(last) : out).slice(0, MAX_VALUE)
+    return (out.length < maxValue ? out + value.slice(last) : out).slice(0, maxValue)
   }
 
   function variableOf(name: string, fallback: string | undefined, depth: number): string {

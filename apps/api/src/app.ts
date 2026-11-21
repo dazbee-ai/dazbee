@@ -20,7 +20,7 @@ import type { TurnstileCheck } from './admin/turnstile.ts'
 import { type RequestLimit, requestLimit } from './admin/waiting-list.ts'
 import { agentGate, agentRoutes } from './agents/agent-routes.ts'
 import { agentConsentRoutes } from './agents/consent-routes.ts'
-import { agentOAuthRoutes } from './agents/oauth-routes.ts'
+import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from './agents/oauth-routes.ts'
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { assetRoutes } from './assets/routes.ts'
@@ -57,6 +57,7 @@ export function createApp({
   admins = new Set(),
   requests = requestLimit(),
   turnstile = null,
+  agentLimits = oauthLimitSettings({}),
 }: {
   db: Db
   storage: Storage
@@ -73,6 +74,8 @@ export function createApp({
   requests?: RequestLimit
   /** The Turnstile check on requests to join; none skips it. */
   turnstile?: TurnstileCheck | null
+  /** The limits on agents' sign-ins and registrations, as the environment sets them; their defaults unless given. */
+  agentLimits?: OAuthLimitSettings
 }) {
   const app = new Hono<Env>()
 
@@ -101,7 +104,7 @@ export function createApp({
   app.route('/', meRoutes({ db, deleters, endWorkosSession: (request) => endWorkosSession(signIn, request) }))
 
   // Agents' sign-in answers the client without a session; the person's consent below needs theirs.
-  app.route('/', agentOAuthRoutes({ db }))
+  app.route('/', agentOAuthRoutes({ db, limits: agentLimits }))
   app.use('/agent/*', signedIn)
   app.route('/', agentRoutes())
 

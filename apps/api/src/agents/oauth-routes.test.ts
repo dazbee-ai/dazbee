@@ -7,8 +7,10 @@ import { and, eq } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
 
 import { agentAccesses, agentAuthorizations, agentClients, agentTokens, memberships } from '@dazbee/db'
+import { AGENT_CLIENT_IP_HEADER, AGENT_RESOURCE_HEADER } from '@dazbee/schema'
 
 import { db } from '../test-api.ts'
+import { agentOAuthRoutes, oauthLimitSettings } from './oauth-routes.ts'
 import {
   address,
   asAgent,
@@ -311,6 +313,36 @@ describe('agentOAuthRoutes', () => {
       expect(await start(usual, from)).toMatchObject({ status: 429 })
       expect((await start(usual)).status).toBe(201)
     })
+
+    it('holds sign-ins from one address and registrations in all to the limits it is given', async () => {
+      const routes = agentOAuthRoutes({ db, limits: { signInsPerHour: 2, registrationsPerHour: 3 } })
+      const post = (path: string, body: unknown, headers: Record<string, string>) =>
+        routes.request(path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...headers },
+          body: JSON.stringify(body),
+        })
+      const registerFrom = (from: string) =>
+        post('/agent/clients', { redirect_uris: [REDIRECT] }, { [AGENT_CLIENT_IP_HEADER]: from })
+      const registered = await registerFrom(address())
+      expect(registered.status).toBe(201)
+      for (let i = 0; i < 2; i++) expect((await registerFrom(address())).status).toBe(201)
+      expect((await registerFrom(address())).status).toBe(429)
+      const { client_id: clientId } = (await registered.json()) as { client_id: string }
+      const usual = {
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: REDIRECT,
+        code_challenge: pkce().challenge,
+        code_challenge_method: 'S256',
+      }
+      const startFrom = (from: string) =>
+        post('/agent/authorizations', usual, { [AGENT_RESOURCE_HEADER]: RESOURCE, [AGENT_CLIENT_IP_HEADER]: from })
+      const from = address()
+      for (let i = 0; i < 2; i++) expect((await startFrom(from)).status).toBe(201)
+      expect((await startFrom(from)).status).toBe(429)
+      expect((await startFrom(address())).status).toBe(201)
+    })
   })
 
   describe('the code', () => {
@@ -435,5 +467,28 @@ describe('agentOAuthRoutes', () => {
         expect(lines).not.toContain(secret)
       }
     })
+  })
+})
+
+describe('oauthLimitSettings', () => {
+  it('takes 60 sign-ins from one address and 500 registrations in all in an hour when the environment sets none', () => {
+    expect(oauthLimitSettings({})).toEqual({ signInsPerHour: 60, registrationsPerHour: 500 })
+    expect(oauthLimitSettings({ AGENT_SIGN_INS_PER_HOUR: ' ' })).toEqual(oauthLimitSettings({}))
+  })
+
+  it('reads AGENT_SIGN_INS_PER_HOUR and AGENT_REGISTRATIONS_PER_HOUR', () => {
+    expect(oauthLimitSettings({ AGENT_SIGN_INS_PER_HOUR: '10', AGENT_REGISTRATIONS_PER_HOUR: '2000' })).toEqual({
+      signInsPerHour: 10,
+      registrationsPerHour: 2000,
+    })
+  })
+
+  it('refuses a value that isn’t a whole number in its range, naming the variable', () => {
+    expect(() => oauthLimitSettings({ AGENT_SIGN_INS_PER_HOUR: '0' })).toThrow(
+      'AGENT_SIGN_INS_PER_HOUR must be a whole number from 1 to 100000, not “0”',
+    )
+    expect(() => oauthLimitSettings({ AGENT_REGISTRATIONS_PER_HOUR: 'many' })).toThrow(
+      'AGENT_REGISTRATIONS_PER_HOUR must be a whole number from 1 to 100000, not “many”',
+    )
   })
 })

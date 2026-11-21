@@ -1,13 +1,20 @@
 // The API's public routes of agents' OAuth sign-in (ADR-0019), which `apps/mcp` asks for the client, with the
 // OAuth parameters as they came and the client's address and the resource it serves in headers: registering a
 // client and starting an authorization, each limited per address, and the token endpoint's code swap, refresh
-// and revoke, each answered in OAuth's words. The person answers a sign-in through `consent-routes.ts`.
+// and revoke, each answered in OAuth's words. The person answers a sign-in through `consent-routes.ts`. The limits
+// on sign-ins and on registrations in all are server settings, read from the environment at start.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
-import { AGENT_CLIENT_IP_HEADER, AGENT_RESOURCE_HEADER, OAuthParams } from '@dazbee/schema'
+import {
+  AGENT_CLIENT_IP_HEADER,
+  AGENT_RESOURCE_HEADER,
+  OAuthParams,
+  type ServerSetting,
+  serverSettings,
+} from '@dazbee/schema'
 
-import { type RequestLimit, requestLimit } from '../admin/waiting-list.ts'
+import { requestLimit } from '../admin/waiting-list.ts'
 import type { Env } from '../http.ts'
 import { ACCESS_TOKEN_TTL_MS, type AgentTokens, refreshTokens, revokeToken } from './agent-accesses.ts'
 import {
@@ -21,44 +28,48 @@ import {
   wrongResource,
 } from './oauth.ts'
 
-/** The limits on the public routes, each kept in this server's memory, within an hour. */
-export interface OAuthLimits {
-  /** Registrations from one address. */
-  registrations: RequestLimit
-  /** Registrations from every address together, so a flood of addresses can't fill the table. */
-  allRegistrations: RequestLimit
-  /** Authorization requests from one address. */
-  authorizations: RequestLimit
+/** The limits on the public routes the environment sets, each counted within an hour. */
+export interface OAuthLimitSettings {
+  /** How many sign-ins one address may start, `AGENT_SIGN_INS_PER_HOUR`. */
+  signInsPerHour: number
+  /** How many clients may register in all, so a flood of addresses can't fill the table, `AGENT_REGISTRATIONS_PER_HOUR`. */
+  registrationsPerHour: number
 }
 
 /** How many clients one address may register within an hour. */
 export const REGISTRATIONS_PER_HOUR = 20
-/** How many clients may register within an hour in all. */
-export const ALL_REGISTRATIONS_PER_HOUR = 500
-/** How many sign-ins one address may start within an hour. */
-export const AUTHORIZATIONS_PER_HOUR = 60
 
 /** What the token endpoint's answers never let a cache keep (RFC 6749 §5.1). */
 const NO_STORE = { 'cache-control': 'no-store', pragma: 'no-cache' }
 
-/** The public routes `apps/mcp` asks for a client: registration, authorization, tokens and revoke. */
+/** The limits read from the environment, with the value each takes when unset. */
+const LIMIT_SETTINGS: Readonly<Record<keyof OAuthLimitSettings, ServerSetting>> = {
+  signInsPerHour: { name: 'AGENT_SIGN_INS_PER_HOUR', value: 60, least: 1, most: 100_000 },
+  registrationsPerHour: { name: 'AGENT_REGISTRATIONS_PER_HOUR', value: 500, least: 1, most: 100_000 },
+}
+
+/**
+ * The public routes `apps/mcp` asks for a client: registration, authorization, tokens and revoke, held to `limits`,
+ * their defaults unless given, each counted in this server's memory.
+ */
 export function agentOAuthRoutes({
   db,
-  limits = {
-    registrations: requestLimit({ perWindow: REGISTRATIONS_PER_HOUR }),
-    allRegistrations: requestLimit({ perWindow: ALL_REGISTRATIONS_PER_HOUR }),
-    authorizations: requestLimit({ perWindow: AUTHORIZATIONS_PER_HOUR }),
-  },
+  limits = oauthLimitSettings({}),
 }: {
   db: Db
-  limits?: OAuthLimits
+  limits?: OAuthLimitSettings
 }): Hono<Env> {
+  // Registrations from one address, and from every address together.
+  const registrations = requestLimit({ perWindow: REGISTRATIONS_PER_HOUR })
+  const allRegistrations = requestLimit({ perWindow: limits.registrationsPerHour })
+  // Authorization requests from one address.
+  const authorizations = requestLimit({ perWindow: limits.signInsPerHour })
   const app = new Hono<Env>()
 
   app.post('/agent/clients', async (c) => {
     const metadata = readClientMetadata(await jsonOf(c.req.raw))
     if ('error' in metadata) return c.json(metadata, 400)
-    if (!limits.registrations.take(clientOf(c.req.header(AGENT_CLIENT_IP_HEADER))) || !limits.allRegistrations.take(''))
+    if (!registrations.take(clientOf(c.req.header(AGENT_CLIENT_IP_HEADER))) || !allRegistrations.take(''))
       return c.json({ error: 'too_many_requests', error_description: 'Too many registrations; try again later' }, 429)
     return c.json(await registerClient(db, metadata), 201)
   })
@@ -66,7 +77,7 @@ export function agentOAuthRoutes({
   app.post('/agent/authorizations', async (c) => {
     const params = OAuthParams.safeParse(await jsonOf(c.req.raw))
     if (!params.success) return c.json({ error: 'invalid_request', error_description: 'Unreadable request' }, 400)
-    if (!limits.authorizations.take(clientOf(c.req.header(AGENT_CLIENT_IP_HEADER))))
+    if (!authorizations.take(clientOf(c.req.header(AGENT_CLIENT_IP_HEADER))))
       return c.json({ error: 'too_many_requests', error_description: 'Too many sign-ins; try again later' }, 429)
     const started = await startAuthorization(db, params.data, c.req.header(AGENT_RESOURCE_HEADER) ?? null)
     return c.json(started, 'request' in started ? 201 : 400)
@@ -95,6 +106,14 @@ export function agentOAuthRoutes({
   })
 
   return app
+}
+
+/**
+ * The limits `env` sets, each its default when unset or empty. Throws, naming the variable, on a value that isn't a
+ * whole number in its range, so the server refuses to start on it.
+ */
+export function oauthLimitSettings(env: Readonly<Record<string, string | undefined>>): OAuthLimitSettings {
+  return serverSettings(env, LIMIT_SETTINGS)
 }
 
 /** The request's body as JSON, or undefined when it is not JSON. */

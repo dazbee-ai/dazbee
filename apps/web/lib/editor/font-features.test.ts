@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { featureOn, OFFERED_FEATURES, shownFeatures } from './font-features.ts'
+import { featureOn, OFFERED_FEATURES, shownFeatures, turnedFeatures } from './font-features.ts'
 
 const offered = (tag: string) => {
   const feature = OFFERED_FEATURES.find((f) => f.tag === tag)
@@ -12,18 +12,31 @@ describe('shownFeatures', () => {
   const fonts: Record<string, string[]> = { Sans: ['liga', 'tnum', 'ss01'], Serif: ['liga', 'frac'] }
   const has = (family: string) => new Set(fonts[family] ?? [])
 
-  it('shows the features every text’s font has, and small caps always, in the order they are offered', () => {
-    expect(shownFeatures([{ fontFamily: 'Sans' }], has).map((f) => f.tag)).toEqual(['liga', 'tnum', 'ss01', 'smcp'])
+  it('shows the features every text’s font has, and small caps, superscript and subscript always, in the order they are offered', () => {
+    expect(shownFeatures([{ fontFamily: 'Sans' }], has).map((f) => f.tag)).toEqual([
+      'liga',
+      'tnum',
+      'ss01',
+      'smcp',
+      'sups',
+      'subs',
+    ])
     expect(shownFeatures([{ fontFamily: 'Sans' }, { fontFamily: 'Serif' }], has).map((f) => f.tag)).toEqual([
       'liga',
       'smcp',
+      'sups',
+      'subs',
     ])
-    expect(shownFeatures([{ fontFamily: 'Not loaded' }], () => null).map((f) => f.tag)).toEqual(['smcp'])
+    expect(shownFeatures([{ fontFamily: 'Not loaded' }], () => null).map((f) => f.tag)).toEqual([
+      'smcp',
+      'sups',
+      'subs',
+    ])
   })
 
   it('still shows a feature a text has turned away from the fonts’ way, so it can be turned back', () => {
     const turned = [{ fontFamily: 'Serif', features: { tnum: true, calt: true } }]
-    expect(shownFeatures(turned, has).map((f) => f.tag)).toEqual(['liga', 'tnum', 'frac', 'smcp'])
+    expect(shownFeatures(turned, has).map((f) => f.tag)).toEqual(['liga', 'tnum', 'frac', 'smcp', 'sups', 'subs'])
   })
 })
 
@@ -33,5 +46,17 @@ describe('featureOn', () => {
     expect(featureOn([{}, { features: { liga: false } }], offered('liga'))).toBe('mixed')
     expect(featureOn([{}, {}], offered('tnum'))).toBe(false)
     expect(featureOn([{ features: { tnum: true } }], offered('tnum'))).toBe(true)
+  })
+})
+
+describe('turnedFeatures', () => {
+  it('turns superscript on with subscript off, and subscript on with superscript off', () => {
+    expect(turnedFeatures('sups', true)).toEqual({ sups: true, subs: false })
+    expect(turnedFeatures('subs', true)).toEqual({ subs: true, sups: false })
+  })
+
+  it('turns any other feature, or either one off, alone', () => {
+    expect(turnedFeatures('sups', false)).toEqual({ sups: false })
+    expect(turnedFeatures('smcp', true)).toEqual({ smcp: true })
   })
 })

@@ -12,7 +12,10 @@ export interface OfferedFeature {
 /** What a text's style says of its font and features. */
 type FeatureStyle = { fontFamily?: string; features?: Features | undefined }
 
-/** The features offered, in the order the section lists them. Small caps a font lacks are drawn from capitals. */
+/**
+ * The features offered, in the order the section lists them. Small caps a font lacks are drawn
+ * from capitals, and superscripts and subscripts from its standard letters, smaller and moved.
+ */
 export const OFFERED_FEATURES: readonly OfferedFeature[] = [
   { tag: 'liga', onByDefault: true, madeUp: false },
   { tag: 'calt', onByDefault: true, madeUp: false },
@@ -26,7 +29,12 @@ export const OFFERED_FEATURES: readonly OfferedFeature[] = [
   { tag: 'ss04', onByDefault: false, madeUp: false },
   { tag: 'ss05', onByDefault: false, madeUp: false },
   { tag: 'smcp', onByDefault: false, madeUp: true },
+  { tag: 'sups', onByDefault: false, madeUp: true },
+  { tag: 'subs', onByDefault: false, madeUp: true },
 ]
+
+/** The features that turn each other off: a text is superscript or subscript, never both. */
+const EITHER: Readonly<Record<string, string>> = { sups: 'subs', subs: 'sups' }
 
 /**
  * The offered features to show for these styles: those every style's font has (`has` gives a
@@ -44,6 +52,12 @@ export function shownFeatures(
       families.every((family) => has(family)?.has(feature.tag)) ||
       styles.some((style) => (style.features?.[feature.tag] ?? feature.onByDefault) !== feature.onByDefault),
   )
+}
+
+/** The features to set when a switch turns `tag` on or off: superscript turned on turns subscript off, and the other way round. */
+export function turnedFeatures(tag: string, on: boolean): Features {
+  const other = EITHER[tag]
+  return on && other ? { [tag]: true, [other]: false } : { [tag]: on }
 }
 
 /** Whether a feature is on in every style (true), in some (mixed) or in none (false); one a style doesn't set is as fonts have it. */

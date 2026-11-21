@@ -301,6 +301,10 @@ export function fitFace(drawer: Drawer, m: Measured, text: string, face: Catalog
   const baseLines = findLines(baseInk.ink, baseInk.box, n)
   const ratios = m.lines.map((l, i) => l.box.h / Math.max(1, baseLines[i]!.box.h)).filter((r) => Number.isFinite(r) && r > 0)
   const size = 100 * median(ratios)
+  // A face whose letters would need a size far from the block's line height cannot be it (and would
+  // be drawn on huge surfaces): a quarter to four times the height of one line of the block.
+  const perLine = m.box.h / n
+  if (!(size >= perLine / 4 && size <= perLine * 4)) return null
   // Letter spacing: the width the lines lack at this size, shared over the places spacing goes. How
   // many there are is measured (a line laid out with and without spacing), since a script's clusters
   // and ligatures make it differ from the count of characters.
@@ -396,6 +400,7 @@ function refit(drawer: Drawer, m: Measured, text: string, fit: Fitted, counted: 
     lineHeight = clamp(lineHeight + sum / (lines.length - 1) / size, 0.5, 3)
   }
   const look = { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) }
+  if (!(size >= m.box.h / lines.length / 4 && size <= (m.box.h / lines.length) * 4)) return fit
   const tried = placeAndRank(drawer, m, text, fit.face, look, counted)
   return tried && tried.overlap > fit.overlap
     ? { ...tried, ...(fit.lineGaps ? { lineGaps: fit.lineGaps } : {}), ...(fit.brandToken ? { brandToken: fit.brandToken } : {}) }

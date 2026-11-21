@@ -60,7 +60,15 @@ export { type BoxLayout, changesLayout } from './commands/auto-layout.ts'
 export { wrapRefusal } from './commands/groups.ts'
 export { type FlipAxis } from './commands/flip.ts'
 export { smallerRatio } from './commands/fit.ts'
-export { type DesignStore, readDesign, type StorePreviews, type TextAnchor } from './store.ts'
+export {
+  type DesignStore,
+  type EndedStep,
+  NotSaved,
+  type NotSavedWhy,
+  readDesign,
+  type StorePreviews,
+  type TextAnchor,
+} from './store.ts'
 export { previewedDesign, type PreviewRead } from './previewed-design.ts'
 export { type ClientStore, clientStore, type ClientStoreOptions, ScratchRejected } from './client-store.ts'
 export {

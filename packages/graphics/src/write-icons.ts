@@ -5,8 +5,8 @@ import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { IconPath, PathHow } from './icon-svg.ts'
-import type { IconSetNotice } from './notices.ts'
-import type { IconIndex, IndexedIcon } from './search.ts'
+import type { SetNotice } from './notices.ts'
+import type { IconIndex, IndexedGraphic } from './search.ts'
 import { linePerEntry, tagsOf } from './set-files.ts'
 import { ICON_SETS, type IconSetId } from './sets.ts'
 
@@ -26,7 +26,7 @@ const PACKAGE = join(import.meta.dirname, '..')
 
 const sources: Record<IconSetId, SourceSet> = { tabler: await tabler(), phosphor: await phosphor() }
 const index: IconIndex = { tabler: [], phosphor: [] }
-const notices: Partial<Record<IconSetId, Pick<IconSetNotice, 'version' | 'licence' | 'text'>>> = {}
+const notices: Partial<Record<IconSetId, Pick<SetNotice, 'version' | 'licence' | 'text'>>> = {}
 
 for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][]) {
   const { styles, lines } = ICON_SETS[set]
@@ -41,7 +41,7 @@ for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][])
     await writeFile(join(out, `${style}.json`), linePerEntry(entries))
   }
   await copyFile(join(source.dir, 'LICENSE'), join(out, 'LICENSE'))
-  index[set] = [...source.tags].map(([name, tags]): IndexedIcon => {
+  index[set] = [...source.tags].map(([name, tags]): IndexedGraphic => {
     const has = styles.filter((style) => source.drawings[style]?.has(name))
     return [name, has, tags]
   })

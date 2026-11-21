@@ -7,10 +7,11 @@
 #   1. <commit> twice: the web app and API swap green to blue, then back, and the tab stays open;
 #   2. an API image whose health check fails: deploy.sh fails and stops it, and the live API runs on;
 #   3. a sync image whose health check fails: deploy.sh fails, and the previous sync image runs again;
-#   4. a new commit: every app swaps, the sync server restarts on it, and only the images of the
-#      commits deployed and those a container uses are kept.
+#   4. a new commit: every app swaps, the sync server and the MCP server restart on it, the MCP
+#      server's OAuth metadata answers through Caddy, and only the images of the commits deployed and
+#      those a container uses are kept.
 #
-# No request may fail throughout.
+# No request the probe makes may fail throughout.
 #
 #   tests/deploy/check.sh <stack> <commit>
 set -euo pipefail
@@ -50,12 +51,18 @@ expect_image() { docker image inspect "$REGISTRY/dazbee-$1:$2" > /dev/null 2>&1 
 expect_no_image() { ! docker image inspect "$REGISTRY/dazbee-$1:$2" > /dev/null 2>&1 || fail "the $1 image of $2 was kept"; }
 # The API answers through Caddy's internal site.
 expect_api_serves() { compose exec -T caddy wget -qO /dev/null http://caddy:8080/health || fail 'the API does not answer'; }
+# The MCP server's authorization server metadata answers through Caddy's public site.
+expect_mcp_serves() {
+  curl -sSf --resolve app.dazbee.com:443:127.0.0.1 --cacert certs/origin.pem \
+    https://app.dazbee.com/.well-known/oauth-authorization-server | grep -q '"issuer":"https://app.dazbee.com"' ||
+    fail 'the MCP server does not answer through Caddy'
+}
 
 # Tags each app's image of <commit> as <as>, then gives `broken`'s a health check that always fails.
 # A deploy removes the images of commits not deployed, so each step makes its own just before.
 images_of() {
   local as=$1 broken=${2:-} app
-  for app in web api sync; do docker tag "$REGISTRY/dazbee-$app:$commit" "$REGISTRY/dazbee-$app:$as"; done
+  for app in web api sync mcp; do docker tag "$REGISTRY/dazbee-$app:$commit" "$REGISTRY/dazbee-$app:$as"; done
   [ -n "$broken" ] || return 0
   docker buildx build --builder default -q -t "$REGISTRY/dazbee-$broken:$as" - > /dev/null << EOF
 FROM $REGISTRY/dazbee-$broken:$commit
@@ -107,7 +114,8 @@ expect_state web-blue "running $commit"
 expect_state api-blue "running $commit"
 expect_state web-green "exited $commit"
 expect_state api-green "exited $commit"
-for app in api sync web; do expect_deployed "$app" "$commit"; done
+expect_state mcp "running $commit"
+for app in api sync web mcp; do expect_deployed "$app" "$commit"; done
 
 step "1. $commit again, blue to green"
 deploy "$commit"
@@ -148,9 +156,12 @@ expect_live web blue
 expect_state api-green "running $NEXT"
 expect_state sync "running $NEXT"
 expect_state web-blue "running $NEXT"
-for app in api sync web; do expect_deployed "$app" "$NEXT"; done
+expect_state mcp "running $NEXT"
+for app in api sync web mcp; do expect_deployed "$app" "$NEXT"; done
+expect_mcp_serves
+echo 'the MCP server answers through Caddy on the new commit'
 # The images of the commits deployed stay, and so does one a stopped container was made from.
-for app in api sync web; do
+for app in api sync web mcp; do
   expect_image "$app" "$commit"
   expect_image "$app" "$NEXT"
 done
@@ -158,6 +169,7 @@ expect_image api "$BROKEN_SYNC"
 expect_no_image api "$BROKEN_API"
 expect_no_image sync "$BROKEN_SYNC"
 expect_no_image web "$BROKEN_API"
+expect_no_image mcp "$BROKEN_SYNC"
 
 step 'The probe stops'
 docker stop -t 30 "$PROBE" > /dev/null

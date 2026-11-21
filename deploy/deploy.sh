@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Puts one commit live: the API first (its migrations run when it starts), then the sync server, then
-# the web app. Run it from anywhere on the server; it works in the folder that holds deploy/, the
-# .env, live/ and certs/.
+# Puts one commit live: the API first (its migrations run when it starts), then the sync server, the
+# web app, and last the MCP server. Run it from anywhere on the server; it works in the folder that
+# holds deploy/, the .env, live/ and certs/.
 #
 #   deploy/deploy.sh [--dir <folder>] [--from <folder>] [--local] <commit>
 #
@@ -14,7 +14,8 @@
 # it is healthy, live/upstreams.caddy names it and the router (deploy/router.Caddyfile) is reloaded,
 # so every new request goes to it; the requests the old colour holds end, and the old colour stops.
 # The sync server is stopped with SIGTERM, which folds every open design and closes each tab to
-# reconnect, then the new one starts; if it isn't healthy in time, the previous image starts again. A
+# reconnect, then the new one starts; if it isn't healthy in time, the previous image starts again.
+# The MCP server restarts the same way: its agents' sessions end, and their clients start new ones. A
 # failed health check stops the new container, leaves the previous version of that app serving and
 # exits non-zero; apps swapped before it stay on the commit. Caddy, which holds the TLS connections,
 # is reloaded only when deploy/Caddyfile changed since the last deploy.
@@ -33,7 +34,7 @@ set -euo pipefail
 shopt -s inherit_errexit
 
 readonly REGISTRY=ghcr.io/dazbee-ai
-readonly APPS=(api sync web)
+readonly APPS=(api sync web mcp)
 # How long a new container has to pass its health check.
 readonly HEALTH_SECONDS=60
 # How long the old colour runs once the router sends to the new one, for the requests it holds to end.
@@ -88,7 +89,7 @@ keep_tag() {
 start_images_env() {
   [ -f live/images.env ] && return 0
   local service
-  for service in web-blue web-green api-blue api-green sync; do
+  for service in web-blue web-green api-blue api-green sync mcp; do
     echo "$(tag_setting "$service")=$(running_tag "$service")"
   done | sort | write_file live/images.env
 }
@@ -180,29 +181,31 @@ swap() {
   record_deployed "$app"
 }
 
-# Restarts the sync server on the commit. Compose stops the old container with SIGTERM, which folds
-# every open design and closes each tab with 1001 to reconnect, and waits for it to exit, up to the
-# service's stop_grace_period; then it starts the new one. On the image it already runs, nothing restarts.
-swap_sync() {
-  local previous
-  previous=$(running_tag sync)
+# Restarts `app`, the sync server or the MCP server, on the commit; `who` says who reconnects. Compose
+# stops the old container with SIGTERM, on which the sync server folds every open design and closes
+# each tab with 1001 to reconnect, and the MCP server ends every session, and waits for it to exit, up
+# to the service's stop_grace_period; then it starts the new one. On the image it already runs, nothing
+# restarts.
+restart() {
+  local app=$1 who=$2 previous
+  previous=$(running_tag "$app")
   if [ "$previous" = "$commit" ]; then
-    log "sync: already on $commit"
+    log "$app: already on $commit"
   else
-    log "sync: restarting on $commit; open designs reconnect"
+    log "$app: restarting on $commit; $who"
   fi
-  if start_healthy sync "$commit"; then
-    keep_tag SYNC_TAG "$commit"
-    record_deployed sync
+  if start_healthy "$app" "$commit"; then
+    keep_tag "$(tag_setting "$app")" "$commit"
+    record_deployed "$app"
     return 0
   fi
-  log 'sync: the new one failed its health check'
-  compose logs --no-color --tail 50 sync || true
+  log "$app: the new one failed its health check"
+  compose logs --no-color --tail 50 "$app" || true
   if [ -n "$previous" ] && [ "$previous" != "$commit" ]; then
-    log "sync: starting the previous image, $previous, again"
-    start_healthy sync "$previous" || log "sync: the previous image is not healthy either"
+    log "$app: starting the previous image, $previous, again"
+    start_healthy "$app" "$previous" || log "$app: the previous image is not healthy either"
   else
-    compose stop sync || true
+    compose stop "$app" || true
   fi
   return 1
 }
@@ -291,8 +294,9 @@ apply_caddyfile
 
 # Each step fails the script when its app isn't healthy.
 swap api
-swap_sync
+restart sync 'open designs reconnect'
 swap web
+restart mcp 'agents start new sessions'
 record_history
 prune
 log "deployed $commit"

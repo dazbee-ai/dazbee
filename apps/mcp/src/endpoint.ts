@@ -33,9 +33,6 @@ import {
   type LimitSettings,
   limitSettings,
   MAX_BODY_BYTES,
-  MAX_MCP_SESSIONS,
-  MAX_MCP_SESSIONS_PER_ACCESS,
-  MCP_SESSION_IDLE_MS,
   rateBuckets,
   STORE_WAIT_MS,
 } from './limits.ts'
@@ -124,7 +121,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   } = settings
   const limits = settings.limits ?? limitSettings({})
   // The agent tabs every session's design takes a slot of.
-  const slots = agentTabSlots()
+  const slots = agentTabSlots(limits.agentTabs, limits.agentTabsPerAccess)
   // Each access's calls, and the designs it made in the last hour.
   const calls = rateBuckets(limits.callsBurst, 1000 / limits.callsPerSecond, now)
   const designs = hourRate(limits.designsPerHour, now)
@@ -162,7 +159,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     const sessionId = request.headers.get('mcp-session-id')
     const session = sessionId === null ? undefined : sessions.get(sessionId)
     if (sessionId !== null && session?.accessId !== agent.id) return sessionNotFound()
-    if (!session && sessions.size >= MAX_MCP_SESSIONS && sessionsOf(agent.id).length < MAX_MCP_SESSIONS_PER_ACCESS)
+    if (!session && sessions.size >= limits.mcpSessions && sessionsOf(agent.id).length < limits.mcpSessionsPerAccess)
       return jsonRpcError(503, -32000, 'Too many sessions; try again later')
     const body = request.method === 'POST' ? await readMessage(request) : undefined
     if (body instanceof Response) return body
@@ -302,7 +299,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
     const ofAccess = sessionsOf(session.accessId)
-    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - MAX_MCP_SESSIONS_PER_ACCESS))) await end(old.id)
+    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.mcpSessionsPerAccess))) await end(old.id)
   }
 
   /** The access's sessions, oldest first. */
@@ -312,7 +309,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
 
   /** Ends every session that has had no call for its idle time. */
   async function endIdle(): Promise<void> {
-    const before = now() - MCP_SESSION_IDLE_MS
+    const before = now() - limits.mcpSessionIdleMinutes * 60_000
     for (const session of [...sessions.values()]) if (session.lastCallAt <= before) await end(session.id)
   }
 

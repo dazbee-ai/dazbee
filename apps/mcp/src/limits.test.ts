@@ -237,6 +237,11 @@ describe('MAX_BATCH_STEPS', () => {
 describe('limitSettings', () => {
   it('takes each limit’s default when unset or empty', () => {
     expect(limitSettings({})).toEqual({
+      agentTabs: 30,
+      agentTabsPerAccess: 1,
+      mcpSessions: 200,
+      mcpSessionsPerAccess: 4,
+      mcpSessionIdleMinutes: 30,
       callsBurst: 60,
       callsPerSecond: 2,
       designsPerHour: 30,
@@ -244,11 +249,18 @@ describe('limitSettings', () => {
       renderEverySeconds: 6,
       rendersWaiting: 8,
     })
-    expect(limitSettings({ MCP_RENDERS_BURST: '', MCP_RENDERS_WAITING: ' ' })).toEqual(limitSettings({}))
+    expect(limitSettings({ MCP_RENDERS_BURST: '', MCP_RENDERS_WAITING: ' ', MCP_AGENT_TABS: '' })).toEqual(
+      limitSettings({}),
+    )
   })
 
   it('reads each limit from its variable', () => {
     const env = {
+      MCP_AGENT_TABS: '12',
+      MCP_AGENT_TABS_PER_ACCESS: '3',
+      MCP_SESSIONS: '50',
+      MCP_SESSIONS_PER_ACCESS: '2',
+      MCP_SESSION_IDLE_MINUTES: '10',
       MCP_CALLS_BURST: '120',
       MCP_CALLS_PER_SECOND: '5',
       MCP_DESIGNS_PER_HOUR: '10',
@@ -257,6 +269,11 @@ describe('limitSettings', () => {
       MCP_RENDERS_WAITING: '0',
     }
     expect(limitSettings(env)).toEqual({
+      agentTabs: 12,
+      agentTabsPerAccess: 3,
+      mcpSessions: 50,
+      mcpSessionsPerAccess: 2,
+      mcpSessionIdleMinutes: 10,
       callsBurst: 120,
       callsPerSecond: 5,
       designsPerHour: 10,
@@ -277,6 +294,21 @@ describe('limitSettings', () => {
       expect(() => limitSettings({ MCP_CALLS_BURST: value })).toThrow(/MCP_CALLS_BURST/)
     expect(() => limitSettings({ MCP_CALLS_PER_SECOND: '0' })).toThrow(/MCP_CALLS_PER_SECOND/)
     expect(() => limitSettings({ MCP_DESIGNS_PER_HOUR: 'x' })).toThrow(/MCP_DESIGNS_PER_HOUR/)
+    expect(() => limitSettings({ MCP_AGENT_TABS: '0' })).toThrow(
+      'MCP_AGENT_TABS must be a whole number from 1 to 1000, not “0”',
+    )
+    expect(() => limitSettings({ MCP_AGENT_TABS_PER_ACCESS: '101' })).toThrow(
+      'MCP_AGENT_TABS_PER_ACCESS must be a whole number from 1 to 100, not “101”',
+    )
+    expect(() => limitSettings({ MCP_SESSIONS: '-5' })).toThrow(
+      'MCP_SESSIONS must be a whole number from 1 to 100000, not “-5”',
+    )
+    expect(() => limitSettings({ MCP_SESSIONS_PER_ACCESS: '0' })).toThrow(
+      'MCP_SESSIONS_PER_ACCESS must be a whole number from 1 to 100, not “0”',
+    )
+    expect(() => limitSettings({ MCP_SESSION_IDLE_MINUTES: '1441' })).toThrow(
+      'MCP_SESSION_IDLE_MINUTES must be a whole number from 1 to 1440, not “1441”',
+    )
   })
 
   it('refuses a render past MCP_RENDERS_WAITING waiting as busy, with the seconds to wait', async () => {

@@ -1,23 +1,32 @@
-# Production: Caddy in front of the web app, the API, the sync server and Postgres 16, on one server.
+# Production: Caddy in front of the web app, the API, the sync server, the MCP server and Postgres 16, on one
+# server.
 # Run it from the folder that holds this deploy/ folder, the .env, live/ and certs/ (/opt/dazbee on
 # the server), with the image tags deploy/deploy.sh keeps in live/images.env read after the .env:
 #
 #   docker compose -f deploy/compose.yml --project-directory . --env-file .env --env-file live/images.env up -d
 #
-# A plain `up` starts Caddy, the router, Postgres and the sync server. The web app's and API's colours
-# are under the `blue` and `green` profiles, and only deploy/deploy.sh starts and stops them. The
-# router needs live/upstreams.caddy, which deploy.sh writes; on a new server, start everything with
-# deploy.sh, or copy deploy/upstreams.caddy into live/ first.
+# A plain `up` starts Caddy, the router, Postgres, the sync server and the MCP server. The web app's
+# and API's colours are under the `blue` and `green` profiles, and only deploy/deploy.sh starts and
+# stops them. The router needs live/upstreams.caddy, which deploy.sh writes; on a new server, start
+# everything with deploy.sh, or copy deploy/upstreams.caddy into live/ first.
 # Each colour's image tag comes from WEB_BLUE_TAG, WEB_GREEN_TAG, API_BLUE_TAG and API_GREEN_TAG, and
-# the sync server's from SYNC_TAG, each `latest` when unset. backup-db and backup-store, under the
-# `backup` profile, are run only by deploy/backup.sh and deploy/restore.sh. Settings come from the
-# .env, whose names deploy/env.example lists; each service gets only the ones it reads.
+# the sync server's from SYNC_TAG and the MCP server's from MCP_TAG, each `latest` when unset.
+# backup-db and backup-store, under the `backup` profile, are run only by deploy/backup.sh and
+# deploy/restore.sh. Settings come from the .env, whose names deploy/env.example lists; each service
+# gets only the ones it reads.
 #
-# Memory caps sit above what each container used idle and with a design open. With both colours of
-# the web app and API running, as during a swap, they add up to no more than 3.5 GB: Caddy 128 MB,
-# the router 64 MB, web 2 x 384 MB, API 2 x 512 MB, sync 1024 MB and Postgres 384 MB make 3392 MB.
-# The backup's two containers, 128 MB each, run one at a time and only for a backup or a restore, so
-# even during a swap the total stays at 3520 MB.
+# The capacity limits are settings too, each listed below with the value it takes when the .env leaves
+# it out, which is the app's own default. An app refuses to start on a value that isn't a whole number
+# in its range, and a deploy then leaves its previous version serving.
+#
+# Memory caps sit above what each container used idle and with a design open; the MCP server's is
+# about 140 MB plus up to 29 MB for each of its 30 agent tabs. They are ceilings, not use. With one
+# colour of the web app and API, they add up to 3520 MB: Caddy 128 MB, the router 64 MB, web 384 MB, API 512 MB, sync 1024 MB, MCP 1024 MB and
+# Postgres 384 MB. Only while both colours run, as during a swap, do they pass the server's 3915 MB, at
+# 4416 MB, with 2 GB of swap behind them. The backup's two containers, 128 MB each, run one at a time
+# and only for a backup or a restore. Move to a bigger server when available memory stays under 1 GB.
+# On the one CPU, the MCP server gets a quarter of the others' weight (cpu_shares), so people's editing
+# goes first when it is busy.
 name: dazbee
 
 x-logging: &logging
@@ -64,6 +73,9 @@ x-api: &api
     ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
     ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    # Agents' sign-ins one address may start in an hour, and client registrations in all in an hour.
+    AGENT_SIGN_INS_PER_HOUR: ${AGENT_SIGN_INS_PER_HOUR:-60}
+    AGENT_REGISTRATIONS_PER_HOUR: ${AGENT_REGISTRATIONS_PER_HOUR:-500}
   depends_on:
     postgres:
       condition: service_healthy
@@ -130,9 +142,49 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://dazbee:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/dazbee
       SYNC_TOKEN_SECRET: ${SYNC_TOKEN_SECRET:?set SYNC_TOKEN_SECRET in .env}
+      # The design bytes held loaded at once, in MB; the designs kept loaded with no tab, and for how
+      # many seconds.
+      SYNC_LOADED_MB: ${SYNC_LOADED_MB:-200}
+      SYNC_IDLE_DESIGNS: ${SYNC_IDLE_DESIGNS:-50}
+      SYNC_IDLE_SECONDS: ${SYNC_IDLE_SECONDS:-60}
     depends_on:
       postgres:
         condition: service_healthy
+
+  # The MCP server agents connect to (ADR-0019), which Caddy sends app.dazbee.com's /mcp, /oauth/* and
+  # /.well-known/oauth-* to. It holds no secret and no database: it calls the API and the sync server
+  # on their private addresses with each agent's own token.
+  mcp:
+    image: ghcr.io/dazbee-ai/dazbee-mcp:${MCP_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 1024m
+    # A quarter of the default 1024, so the web app, the API and the sync server go first on a busy CPU.
+    cpu_shares: 256
+    # A stop ends every agent's session; its client starts a new one.
+    stop_grace_period: 30s
+    environment:
+      NODE_ENV: production
+      API_URL: http://caddy:8080
+      SYNC_URL: ws://sync:1234
+      PUBLIC_URL: https://app.dazbee.com
+      # Agent tabs open at once, and those one agent access may have open.
+      MCP_AGENT_TABS: ${MCP_AGENT_TABS:-30}
+      MCP_AGENT_TABS_PER_ACCESS: ${MCP_AGENT_TABS_PER_ACCESS:-1}
+      # MCP sessions in all, those one access may hold, and the minutes an unused one lives.
+      MCP_SESSIONS: ${MCP_SESSIONS:-200}
+      MCP_SESSIONS_PER_ACCESS: ${MCP_SESSIONS_PER_ACCESS:-4}
+      MCP_SESSION_IDLE_MINUTES: ${MCP_SESSION_IDLE_MINUTES:-30}
+      # Each access's calls: so many at once, then so many each second.
+      MCP_CALLS_BURST: ${MCP_CALLS_BURST:-60}
+      MCP_CALLS_PER_SECOND: ${MCP_CALLS_PER_SECOND:-2}
+      # Each access's renders: so many at once, then one every so many seconds; and the renders that may
+      # wait in the process.
+      MCP_RENDERS_BURST: ${MCP_RENDERS_BURST:-10}
+      MCP_RENDER_EVERY_SECONDS: ${MCP_RENDER_EVERY_SECONDS:-6}
+      MCP_RENDERS_WAITING: ${MCP_RENDERS_WAITING:-8}
+      # The new designs one access may make in an hour.
+      MCP_DESIGNS_PER_HOUR: ${MCP_DESIGNS_PER_HOUR:-30}
 
   postgres:
     image: postgres:16-alpine

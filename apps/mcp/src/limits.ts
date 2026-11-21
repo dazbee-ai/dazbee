@@ -1,8 +1,23 @@
 // What the MCP server holds each agent to, so that one busy agent can't slow the one server. The capacity limits
 // are server settings, read from the environment at start; the rest are rules kept in code.
+import { type ServerSetting, serverSettings } from '@dazbee/schema'
 
 /** The capacity limits the server runs with, each read from its environment variable by `limitSettings`. */
 export interface LimitSettings {
+  /**
+   * The agent tabs open at once in the process, each the editor's core on one design, `MCP_AGENT_TABS`; past it,
+   * open_design answers busy. One tab takes about 5-12 MiB, and up to 29 MiB with its images decoded, beside the
+   * process's 140 MiB (`tests/pixels/src/agent-tab-cost.ts`).
+   */
+  agentTabs: number
+  /** The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`. */
+  agentTabsPerAccess: number
+  /** The sessions held at once, of all accesses, `MCP_SESSIONS`; past it, a new one is refused as busy. */
+  mcpSessions: number
+  /** The sessions an agent access holds at once, `MCP_SESSIONS_PER_ACCESS`; a new one ends the oldest. */
+  mcpSessionsPerAccess: number
+  /** How many minutes a session lasts without a call, `MCP_SESSION_IDLE_MINUTES`. */
+  mcpSessionIdleMinutes: number
   /** The calls an access may make at once, `MCP_CALLS_BURST`. */
   callsBurst: number
   /** The calls an access gets back each second, `MCP_CALLS_PER_SECOND`. */
@@ -34,14 +49,6 @@ export interface HourRate {
   take(accessId: string): number | (() => void)
 }
 
-/** A setting's environment variable, its value when unset, and the least and most it may be. */
-interface Setting {
-  name: string
-  value: number
-  least: number
-  most: number
-}
-
 /** The largest request body taken: a bigger one is refused (413) before any of it is parsed. */
 export const MAX_BODY_BYTES = 4 * 1024 * 1024
 
@@ -50,25 +57,6 @@ export const MAX_ANSWER_BYTES = 8 * 1024 * 1024
 
 /** Room kept in an answer for what wraps a tool's text: its content block, `isError` and the JSON-RPC envelope. */
 export const ANSWER_ENVELOPE_BYTES = 2 * 1024
-
-/** How long a session lasts without a call. */
-export const MCP_SESSION_IDLE_MS = 30 * 60 * 1000
-
-/** The most sessions an agent access holds at once; a new one ends the oldest. */
-export const MAX_MCP_SESSIONS_PER_ACCESS = 4
-
-/** The most sessions held at once, of all accesses; past it, a new one is refused as busy. */
-export const MAX_MCP_SESSIONS = 200
-
-/**
- * The most agent tabs open at once in the process, each the editor's core on one design; past it, open_design
- * answers busy. One tab takes about 10 MiB on the big carousel benchmark, and about 30 MiB with its images decoded
- * (`tests/pixels/src/agent-tab-cost.ts`): 20 keep the process under 1 GiB beside what every tab shares.
- */
-export const MAX_AGENT_TABS = 20
-
-/** The most agent tabs one agent access holds open at once, across its sessions; past it, open_design answers busy. */
-export const MAX_AGENT_TABS_PER_ACCESS = 2
 
 /** The most calls on a session's design running or waiting at once; past it, a call is refused. */
 export const MAX_DESIGN_CALLS_WAITING = 4
@@ -132,7 +120,12 @@ export const RENDER_TIMEOUT_MS = 20_000
 export const RENDER_MS_PER_RENDER = 2000
 
 /** The capacity limits read from the environment, with the value each takes when unset. */
-const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, Setting>> = {
+const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, ServerSetting>> = {
+  agentTabs: { name: 'MCP_AGENT_TABS', value: 30, least: 1, most: 1000 },
+  agentTabsPerAccess: { name: 'MCP_AGENT_TABS_PER_ACCESS', value: 1, least: 1, most: 100 },
+  mcpSessions: { name: 'MCP_SESSIONS', value: 200, least: 1, most: 100_000 },
+  mcpSessionsPerAccess: { name: 'MCP_SESSIONS_PER_ACCESS', value: 4, least: 1, most: 100 },
+  mcpSessionIdleMinutes: { name: 'MCP_SESSION_IDLE_MINUTES', value: 30, least: 1, most: 1440 },
   callsBurst: { name: 'MCP_CALLS_BURST', value: 60, least: 1, most: 100_000 },
   callsPerSecond: { name: 'MCP_CALLS_PER_SECOND', value: 2, least: 1, most: 10_000 },
   designsPerHour: { name: 'MCP_DESIGNS_PER_HOUR', value: 30, least: 1, most: 100_000 },
@@ -154,22 +147,7 @@ export function inMiB(bytes: number): string {
  * isn't a whole number in its range, so the server refuses to start on it.
  */
 export function limitSettings(env: Readonly<Record<string, string | undefined>>): LimitSettings {
-  const read = ({ name, value, least, most }: Setting) => {
-    const given = env[name]?.trim()
-    if (!given) return value
-    const number = /^\d+$/.test(given) ? Number(given) : NaN
-    if (!(number >= least && number <= most))
-      throw new Error(`${name} must be a whole number from ${least} to ${most}, not “${given}”`)
-    return number
-  }
-  return {
-    callsBurst: read(LIMIT_SETTINGS.callsBurst),
-    callsPerSecond: read(LIMIT_SETTINGS.callsPerSecond),
-    designsPerHour: read(LIMIT_SETTINGS.designsPerHour),
-    rendersBurst: read(LIMIT_SETTINGS.rendersBurst),
-    renderEverySeconds: read(LIMIT_SETTINGS.renderEverySeconds),
-    rendersWaiting: read(LIMIT_SETTINGS.rendersWaiting),
-  }
+  return serverSettings(env, LIMIT_SETTINGS)
 }
 
 /** A bucket of `size` for each key, refilling one every `everyMs` by `now`; a key whose bucket is full is forgotten. */

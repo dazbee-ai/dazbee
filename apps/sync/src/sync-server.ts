@@ -18,7 +18,7 @@ export interface OpenSyncServerOptions {
   /** The key sync tokens are signed with. */
   secret: string
   port: number
-  /** The limits, `LIMITS` unless a test gives smaller ones. */
+  /** The limits: as the environment sets them (`limitSettings`), or a test's smaller ones; `LIMITS` unless given. */
   limits?: Limits
   /** When a connection is asked for a fresh token, `RENEWAL` unless a test gives sooner. */
   renewal?: Renewal

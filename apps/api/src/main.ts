@@ -1,4 +1,5 @@
-// The API server: migrates the database, then serves. Settings come from the environment only.
+// The API server: migrates the database, then serves. Settings come from the environment only, and a limit set out
+// of its range stops it from starting (`oauthLimitSettings`).
 import { serve } from '@hono/node-server'
 
 import { migrateDatabase, openDatabase } from '@dazbee/db'
@@ -8,6 +9,7 @@ import { syncTokenSecret } from '@dazbee/sync-token'
 
 import { adminEmails } from './admin/admins.ts'
 import { turnstileCheck } from './admin/turnstile.ts'
+import { oauthLimitSettings } from './agents/oauth-routes.ts'
 import { createApp } from './app.ts'
 import { finishSoon } from './me/pending-deletions.ts'
 import { workosInvites } from './members/invites-provider.ts'
@@ -20,6 +22,7 @@ const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')
 const port = Number(process.env.API_PORT ?? 8787)
 const syncSecret = syncTokenSecret()
+const agentLimits = oauthLimitSettings(process.env)
 const storage = openStorage(storageSettings())
 // Local and CI storage starts empty; deployed buckets are made once, by hand.
 if (process.env.STORAGE_CREATE_BUCKET === 'on') await storage.ensureBucket()
@@ -54,7 +57,7 @@ const invites = {
 const build = process.env.BUILD_ID || 'dev'
 // Requests to join pass Cloudflare Turnstile's check when TURNSTILE_SECRET_KEY is set.
 const turnstile = turnstileCheck()
-const app = createApp({ db, storage, sessionOf, syncSecret, build, signIn, invites, admins, turnstile })
+const app = createApp({ db, storage, sessionOf, syncSecret, build, signIn, invites, admins, turnstile, agentLimits })
 // What deleted accounts left outside the database and couldn't delete then is tried again, beside serving.
 finishSoon(db, { storage, signIn: signIn?.provider ?? null, invites: invites.workos })
 const ways =

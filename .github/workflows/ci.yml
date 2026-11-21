@@ -88,12 +88,12 @@ jobs:
           provenance: false
           cache-from: type=gha,scope=sync
           cache-to: type=gha,scope=sync,mode=max
-      # The MCP server's image is only built: deploy/compose.yml doesn't run it, so it is neither started below nor pushed.
       - uses: docker/build-push-action@v7
         with:
           file: apps/mcp/Dockerfile
           build-args: BUILD_ID=${{ github.sha }}
           tags: ${{ env.REGISTRY }}/dazbee-mcp:${{ github.sha }}
+          load: true
           provenance: false
           cache-from: type=gha,scope=mcp
           cache-to: type=gha,scope=mcp,mode=max
@@ -114,7 +114,7 @@ jobs:
             echo "STORAGE_BUCKET=dazbee"
             echo "STORAGE_ACCESS_KEY_ID=test"
             echo "STORAGE_SECRET_ACCESS_KEY=test"
-            for name in WEB_BLUE_TAG WEB_GREEN_TAG API_BLUE_TAG API_GREEN_TAG SYNC_TAG; do echo "$name=$GITHUB_SHA"; done
+            for name in WEB_BLUE_TAG WEB_GREEN_TAG API_BLUE_TAG API_GREEN_TAG SYNC_TAG MCP_TAG; do echo "$name=$GITHUB_SHA"; done
           } > "$stack/.env"
           cd "$stack"
           # Both colours at once: the migration lock keeps their APIs from migrating the new database together.
@@ -124,7 +124,7 @@ jobs:
         run: |
           compose() { docker compose -f deploy/compose.yml --project-directory . --profile blue --profile green "$@"; }
           https() { curl -sS --resolve app.dazbee.com:443:127.0.0.1 --resolve sync.dazbee.com:443:127.0.0.1 --cacert certs/origin.pem "$@"; }
-          for service in web-blue web-green api-blue api-green sync postgres; do
+          for service in web-blue web-green api-blue api-green sync mcp postgres; do
             read -r health ports < <(docker inspect -f '{{.State.Health.Status}} {{len .HostConfig.PortBindings}}' "$(compose ps -q "$service")")
             echo "$service: $health, $ports published ports"
             [ "$health" = healthy ]
@@ -137,6 +137,13 @@ jobs:
           echo "/ without a session is sent to /login"
           https -f -o /dev/null https://sync.dazbee.com/
           echo "the sync server answers through Caddy"
+          https -f https://app.dazbee.com/.well-known/oauth-authorization-server | grep -q '"issuer":"https://app.dazbee.com"'
+          https -f https://app.dazbee.com/.well-known/oauth-protected-resource/mcp | grep -q '"resource":"https://app.dazbee.com/mcp"'
+          [ "$(https -o /dev/null -w '%{http_code}' -X POST https://app.dazbee.com/mcp)" = 401 ]
+          echo "the MCP server answers /mcp and its OAuth metadata through Caddy"
+          health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)
+          grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
+          echo "mcp/health names build $GITHUB_SHA"
           for api in caddy:8080 api-blue:8787 api-green:8787; do
             health=$(compose exec -T caddy wget -qO- "http://$api/health")
             grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
@@ -173,7 +180,7 @@ jobs:
       - if: env.PUSH == 'true'
         name: Push the images
         run: |
-          for app in web api sync; do
+          for app in web api sync mcp; do
             docker tag "$REGISTRY/dazbee-$app:$GITHUB_SHA" "$REGISTRY/dazbee-$app:latest"
             docker push "$REGISTRY/dazbee-$app:$GITHUB_SHA"
             docker push "$REGISTRY/dazbee-$app:latest"

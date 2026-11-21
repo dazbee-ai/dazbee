@@ -8,12 +8,7 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type AgentMe, type BrandKit, brandVariables, type DesignSummary } from '@dazbee/schema'
 
 import { type AgentApi, agentApi, ApiRefusal, type ApiSettings, TokenRefused } from './api.ts'
-import {
-  MAX_AGENT_TABS,
-  MAX_AGENT_TABS_PER_ACCESS,
-  MAX_DESIGN_CALLS_WAITING,
-  OPEN_DESIGN_TIMEOUT_MS,
-} from './limits.ts'
+import { MAX_DESIGN_CALLS_WAITING, OPEN_DESIGN_TIMEOUT_MS } from './limits.ts'
 import { type StoreWait, type Written, written } from './store-wait.ts'
 import { ToolRefusal } from './tools/define-tool.ts'
 
@@ -26,8 +21,8 @@ export interface SyncSettings {
 
 /** The process's agent tabs, counted, so that agents can't open more than the server holds. */
 export interface AgentTabSlots {
-  /** Takes a slot for one of the access's tabs, giving what lets it go; or why there is none. */
-  take(accessId: string): (() => void) | 'full' | 'accessFull'
+  /** Takes a slot for one of the access's tabs, giving what lets it go; or why there is none, as the agent is told. */
+  take(accessId: string): (() => void) | string
 }
 
 /** What a session's design is opened with. */
@@ -107,17 +102,19 @@ const STOPPED: Record<NonNullable<ReturnType<AgentTab['stopped']>>, string> = {
   Replaced: 'The design was opened again in another session of this agent, so it is closed here',
   NoAccess: 'This agent may no longer open the design, so it is closed',
 }
-/** Why there is no slot for a tab. */
-const BUSY = {
-  full: 'Dazbee has as many designs open for agents as it can hold; try again in a minute',
-  accessFull: `This agent already has ${MAX_AGENT_TABS_PER_ACCESS} designs open in other sessions; end one of those sessions, or try again once one has ended`,
-}
+/** Why there is no slot for a tab, when the process holds all it may. */
+const FULL = 'Dazbee has as many designs open for agents as it can hold; try again in a minute'
 
 /** The refusal of a call on the session's design when none is open, saying why: never opened, or closed for good. */
 export class NoDesignOpen extends ToolRefusal {}
 
 /** At most `max` tabs in the process, and `perAccess` of one access. */
-export function agentTabSlots(max = MAX_AGENT_TABS, perAccess = MAX_AGENT_TABS_PER_ACCESS): AgentTabSlots {
+export function agentTabSlots(max: number, perAccess: number): AgentTabSlots {
+  /** Why there is no slot for a tab, when the access holds all it may. */
+  const accessFull =
+    perAccess === 1
+      ? 'This agent already has a design open in another session; end that session, or try again once it has ended'
+      : `This agent already has ${perAccess} designs open in other sessions; end one of those sessions, or try again once one has ended`
   /** The tabs open, by access. */
   const open = new Map<string, number>()
   /** The tabs open, of all accesses. */
@@ -125,8 +122,8 @@ export function agentTabSlots(max = MAX_AGENT_TABS, perAccess = MAX_AGENT_TABS_P
 
   function take(accessId: string) {
     const ofAccess = open.get(accessId) ?? 0
-    if (ofAccess >= perAccess) return 'accessFull' as const
-    if (total >= max) return 'full' as const
+    if (ofAccess >= perAccess) return accessFull
+    if (total >= max) return FULL
     open.set(accessId, ofAccess + 1)
     total++
     let released = false
@@ -208,7 +205,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
   async function start(summary: DesignSummary, api: AgentApi, notes: string[]): Promise<OpenDesign> {
     const { brandId, id: designId, name } = summary
     const release = settings.slots.take(caller.agent.id)
-    if (typeof release === 'string') throw new ToolRefusal(BUSY[release])
+    if (typeof release === 'string') throw new ToolRefusal(release)
     try {
       const [first, kit] = await Promise.all([
         api.syncToken(brandId, designId, caller.agentName()),

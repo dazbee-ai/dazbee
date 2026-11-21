@@ -2,7 +2,7 @@
 
 // The Effects panel: a small chip for each effect, then each effect's numbers and colour, and
 // text's outline.
-import { type DropShadow, type Effect } from '@dazbee/schema'
+import { type DropShadow, type Effect, type TextStyle } from '@dazbee/schema'
 
 import { RemoveButton } from '@/components/editor/reorder-list.tsx'
 import { ICON_CHIP, KNOBS, PANEL_PART } from '@/components/editor/styles.ts'
@@ -24,7 +24,7 @@ import { kindOf, type P, type PanelProps, type Props, set, shared, type Style, t
 type Tile = EffectChoice
 
 /** A text's outline: its width and colour, and whether it is drawn under the letters. */
-type TextOutline = { width: number; color: string; under?: boolean }
+type TextOutline = NonNullable<TextStyle['outline']>
 
 const EFFECT_FIELDS = {
   dropShadow: ['x', 'y', 'blur', 'spread'],

@@ -203,7 +203,7 @@ export function PaintRow({
 
 /**
  * One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image.
- * Without `image`, as for a text, which an image can't paint, Image is not offered.
+ * Without `offersImage`, as for a text, which an image can't paint, Image is not offered.
  */
 export function PaintEditor({
   paint,
@@ -212,7 +212,7 @@ export function PaintEditor({
   editor,
   p,
   onSet,
-  image = true,
+  offersImage = true,
   colourName,
 }: {
   paint: Paint
@@ -221,11 +221,11 @@ export function PaintEditor({
   editor: Editor
   p: P
   onSet: (to: (now: Paint) => Paint) => void
-  image?: boolean
+  offersImage?: boolean
   /** The name of a solid's colour field; the paint's colour without it. */
   colourName?: string
 }) {
-  const types = image ? PAINT_TYPES : PAINT_TYPES.filter((type) => type !== 'image')
+  const types = offersImage ? PAINT_TYPES : PAINT_TYPES.filter((type) => type !== 'image')
   const [picked, setPicked] = useState(0)
   const recent = useShownRecent(workspaceId, brandId)
   const stop = isGradient(paint) ? paint.stops[Math.min(picked, paint.stops.length - 1)] : undefined

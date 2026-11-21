@@ -24,7 +24,7 @@ export interface TextBlock {
   /** The same with the runs outlined under the letters stroked, drawn before every block's fill; null without such outlines. */
   outlineUnder: Paragraph | null
   /** For each gradient whose runs are underlined or struck through, the same with only those lines, which it fills, drawn over it. */
-  lines: { gradient: GradientPaint; paragraph: Paragraph }[]
+  gradientLines: { gradient: GradientPaint; paragraph: Paragraph }[]
   /** Its bullet or number, at (markerX, markerY) in the block, on the first line's baseline; null when not in a list. */
   marker: Paragraph | null
   markerX: number
@@ -336,7 +336,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       paragraph,
       outline: outlined(false) ? passOf({ kind: 'outline', under: false }) : null,
       outlineUnder: outlined(true) ? passOf({ kind: 'outline', under: true }) : null,
-      lines: [...lined].map(([key, gradient]) => ({ gradient, paragraph: passOf({ kind: 'lines', gradient: key }) })),
+      gradientLines: [...lined].map(([key, gradient]) => ({
+        gradient,
+        paragraph: passOf({ kind: 'lines', gradient: key }),
+      })),
       marker,
       markerX: rtl ? inner + gutter - (marker?.getMaxIntrinsicWidth() ?? 0) : 0,
       markerY: (paragraph.getLineMetrics()[0]?.baseline ?? 0) - (marker?.getLineMetrics()[0]?.baseline ?? 0),
@@ -363,7 +366,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         b.paragraph.delete()
         b.outline?.delete()
         b.outlineUnder?.delete()
-        for (const l of b.lines) l.paragraph.delete()
+        for (const l of b.gradientLines) l.paragraph.delete()
         b.marker?.delete()
       }
     },

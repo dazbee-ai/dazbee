@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { RunStyle, TextStyle } from './layers.ts'
-import { Features, LetterSpacing, letterSpacingPx, withRunStyle } from './typography.ts'
+import { Features, inColour, LetterSpacing, letterSpacingPx, shownGradient, withRunStyle } from './typography.ts'
 
 const sweep = {
   type: 'linear' as const,
@@ -27,30 +27,6 @@ describe('LetterSpacing', () => {
   })
 })
 
-describe('gradient', () => {
-  it('takes a linear, radial or angular gradient, in a style and in a run', () => {
-    const style = TextStyle.parse({ fontFamily: 'Inter', fontSize: 20, color: '#000000FF', gradient: sweep })
-    expect(style.gradient).toEqual(sweep)
-    const ring = { type: 'radial', center: { x: 0.5, y: 0.5 }, radius: 0.5, stops: sweep.stops }
-    expect(RunStyle.parse({ gradient: ring })).toEqual({ gradient: ring })
-    const turn = { type: 'angular', center: { x: 0.5, y: 0.5 }, angle: 0, stops: sweep.stops }
-    expect(RunStyle.parse({ gradient: turn })).toEqual({ gradient: turn })
-  })
-
-  it('refuses a solid or an image, which are not gradients', () => {
-    expect(RunStyle.safeParse({ gradient: { type: 'solid', color: '#000000FF' } }).success).toBe(false)
-    const image = { type: 'image', assetId: 'a', fit: 'fill', opacity: 1 }
-    expect(RunStyle.safeParse({ gradient: image }).success).toBe(false)
-  })
-})
-
-describe('outline', () => {
-  it('is over the letters unless it says under', () => {
-    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF' } }).outline?.under).toBeUndefined()
-    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF', under: true } }).outline?.under).toBe(true)
-  })
-})
-
 describe('Features', () => {
   it('takes four-letter tags turned on or off, in a style and in a run', () => {
     expect(Features.parse({ liga: false, tnum: true, ss01: true })).toEqual({ liga: false, tnum: true, ss01: true })
@@ -68,11 +44,50 @@ describe('Features', () => {
   })
 })
 
+describe('textStyleFields', () => {
+  it('takes a gradient that is linear, radial or angular, in a style and in a run', () => {
+    const style = TextStyle.parse({ fontFamily: 'Inter', fontSize: 20, color: '#000000FF', gradient: sweep })
+    expect(style.gradient).toEqual(sweep)
+    const ring = { type: 'radial', center: { x: 0.5, y: 0.5 }, radius: 0.5, stops: sweep.stops }
+    expect(RunStyle.parse({ gradient: ring })).toEqual({ gradient: ring })
+    const turn = { type: 'angular', center: { x: 0.5, y: 0.5 }, angle: 0, stops: sweep.stops }
+    expect(RunStyle.parse({ gradient: turn })).toEqual({ gradient: turn })
+  })
+
+  it('refuses a solid or an image, which are not gradients', () => {
+    expect(RunStyle.safeParse({ gradient: { type: 'solid', color: '#000000FF' } }).success).toBe(false)
+    const image = { type: 'image', assetId: 'a', fit: 'fill', opacity: 1 }
+    expect(RunStyle.safeParse({ gradient: image }).success).toBe(false)
+  })
+
+  it('takes an outline over the letters unless it says under', () => {
+    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF' } }).outline?.under).toBeUndefined()
+    expect(RunStyle.parse({ outline: { width: 2, color: '#000000FF', under: true } }).outline?.under).toBe(true)
+  })
+})
+
 describe('letterSpacingPx', () => {
   it('gives pixels as they are, and a percentage of the font size it is set at', () => {
     expect(letterSpacingPx({ unit: 'px', value: 1.5 }, 40)).toBe(1.5)
     expect(letterSpacingPx({ unit: 'percent', value: 2 }, 50)).toBe(1)
     expect(letterSpacingPx({ unit: 'percent', value: -10 }, 30)).toBe(-3)
+  })
+})
+
+describe('shownGradient', () => {
+  it('gives a style’s gradient while it shows, and none when it is hidden or left out', () => {
+    expect(shownGradient({ gradient: sweep })).toBe(sweep)
+    expect(shownGradient({ gradient: { ...sweep, visible: false } })).toBeNull()
+    expect(shownGradient({})).toBeNull()
+  })
+})
+
+describe('inColour', () => {
+  it('sets the colour and takes the gradient off', () => {
+    expect(inColour({ color: '#000000FF', gradient: sweep, fontSize: 20 }, '#FF0000FF')).toEqual({
+      color: '#FF0000FF',
+      fontSize: 20,
+    })
   })
 })
 

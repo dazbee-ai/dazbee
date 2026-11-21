@@ -69,6 +69,16 @@ export function shownGradient(style: { readonly gradient?: GradientPaint | undef
   return style.gradient && style.gradient.visible !== false ? style.gradient : null
 }
 
+/** A style painted in a colour: its gradient taken off, so the colour shows. */
+export function inColour<T extends { color?: string | undefined; gradient?: GradientPaint | undefined }>(
+  style: T,
+  color: string,
+): T {
+  const out = { ...style, color }
+  delete out.gradient
+  return out
+}
+
 /**
  * A style with a run's style over it: each key the run sets replaces the style's, except its
  * features, which it sets tag by tag over the style's, and its colour and gradient, which are one

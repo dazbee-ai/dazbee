@@ -11,6 +11,7 @@ import {
   changeFill,
   type Design,
   inBrandRoleOrder,
+  inColour,
   type Paint,
   paintColour,
   showingFillIndex,
@@ -53,13 +54,6 @@ export const FILL_ON_TOP: Paint = { type: 'solid', color: '#00000033' }
 /** What a text style paints its characters with: its gradient while one shows, else its colour as a solid. */
 function textPaint(style: Style): Paint {
   return shownGradient(style) ?? { type: 'solid', color: style.color }
-}
-
-/** A text style painted in a colour: its gradient taken off, so the colour shows. */
-function coloured(style: Style, color: string): Style {
-  const next: Style = { ...style, color }
-  delete next.gradient
-  return next
 }
 
 /** The Colour panel: text's colour for text, else the colour of the fill that shows. */
@@ -252,7 +246,7 @@ function TextColourPanel({
   const paint = (hex: string) =>
     target.range
       ? setStyle('color', hexChange(hex)(first))
-      : set(target, (now) => ({ style: coloured(now.style as Style, hexChange(hex)((now.style as Style).color)) }))
+      : set(target, (now) => ({ style: inColour(now.style as Style, hexChange(hex)((now.style as Style).color)) }))
   // The picker edits the first text's paint, or the selected range's first character's.
   const firstStyle = target.range?.[0] ?? (target.props[0].style as Style)
   const pickPaint = (to: (now: Paint) => Paint) => {
@@ -266,7 +260,7 @@ function TextColourPanel({
       const style = now.style as Style
       const next = to(textPaint(style))
       if (next.type === 'image') return null
-      return { style: next.type === 'solid' ? coloured(style, next.color) : { ...style, gradient: next } }
+      return { style: next.type === 'solid' ? inColour(style, next.color) : { ...style, gradient: next } }
     })
   }
   return (
@@ -287,7 +281,7 @@ function TextColourPanel({
           brandId={brandId}
           editor={target.editor}
           p={p}
-          image={false}
+          offersImage={false}
           colourName={p.textColour}
           onSet={pickPaint}
         />

@@ -251,7 +251,7 @@ function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resources: Re
   for (const b of blocks) if (b.outlineUnder) drawPass(ck, canvas, b.outlineUnder, b.x, dy + b.y, resources)
   for (const b of blocks) {
     canvas.drawParagraph(b.paragraph, b.x, dy + b.y)
-    for (const lines of b.lines) drawFilledLines(ck, canvas, lines, b.x, dy + b.y, box, resources)
+    for (const lines of b.gradientLines) drawFilledLines(ck, canvas, lines, b.x, dy + b.y, box, resources)
     if (b.outline) drawPass(ck, canvas, b.outline, b.x, dy + b.y, resources)
     if (b.marker) canvas.drawParagraph(b.marker, b.markerX, dy + b.y + b.markerY)
   }
@@ -269,7 +269,7 @@ function drawPass(ck: CanvasKit, canvas: Canvas, pass: Paragraph, x: number, y: 
 function drawFilledLines(
   ck: CanvasKit,
   canvas: Canvas,
-  lines: TextBlock['lines'][number],
+  lines: TextBlock['gradientLines'][number],
   x: number,
   y: number,
   box: Rect,
@@ -278,8 +278,10 @@ function drawFilledLines(
   const paint = paintFor(ck, lines.gradient, box, resources)
   if (!paint) return
   const { paragraph } = lines
+  // Lines can sit past a tight line's box, so the layer reaches a paragraph's height past it each way.
   const width = Math.max(paragraph.getMaxWidth(), paragraph.getLongestLine())
-  const bounds = ck.XYWHRect(x - 1, y - 1, width + 2, paragraph.getHeight() + 2)
+  const reach = paragraph.getHeight()
+  const bounds = ck.XYWHRect(x - reach, y - reach, width + 2 * reach, 3 * reach)
   canvas.saveLayer(undefined, bounds)
   drawPass(ck, canvas, paragraph, x, y, resources)
   paint.setBlendMode(ck.BlendMode.SrcIn)

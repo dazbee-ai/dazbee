@@ -22,7 +22,7 @@ type Style = Pick<TextProps['style'], 'color' | 'gradient' | 'outline' | 'underl
 const NO_IMAGES: ReadonlyMap<string, Image> = new Map()
 
 /** A gradient's key: equal for gradients that paint alike. */
-export const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)
+const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)
 
 /** The gradients whose characters have an underline or strikethrough, which a lines pass each paints, by key. */
 export function linedGradients(styles: readonly Style[]): Map<string, GradientPaint> {
@@ -71,13 +71,13 @@ export function pushPainted(
   }
   const clear = new ck.Paint()
   clear.setColor(ck.TRANSPARENT)
-  const front =
+  const characters =
     (pass.kind === 'fill' && gradient && paintFor(ck, gradient, box, { images: NO_IMAGES })) || new ck.Paint()
-  front.setAntiAlias(true)
-  if (pass.kind === 'outline') strokeFor(ck, front, style, pass.under)
-  else if (pass.kind === 'lines') front.setColor(ck.TRANSPARENT)
-  builder.pushPaintStyle(ckStyle, front, clear)
-  front.delete()
+  characters.setAntiAlias(true)
+  if (pass.kind === 'outline') strokeFor(ck, characters, style, pass.under)
+  else if (pass.kind === 'lines') characters.setColor(ck.TRANSPARENT)
+  builder.pushPaintStyle(ckStyle, characters, clear)
+  characters.delete()
   clear.delete()
 }
 

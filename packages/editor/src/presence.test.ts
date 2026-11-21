@@ -158,6 +158,17 @@ describe('editorPresence: shown', () => {
     ])
   })
 
+  it('gives an agent marked as one, with its note; a note heard from a person is not shown', () => {
+    const shown = heard([
+      [1, { ...other(1, 'Claude (agent)', { note: 'Writing the headline' }), agent: true }],
+      [2, other(2, 'Bob (agent)', { note: 'Pretending' })],
+    ]).shown()
+    expect(shown.map(({ name, agent, note }) => ({ name, agent, note }))).toEqual([
+      { name: 'Claude (agent)', agent: true, note: 'Writing the headline' },
+      { name: 'Bob (agent)', agent: undefined, note: undefined },
+    ])
+  })
+
   it('gives what it gave until the presence heard changes', () => {
     const presence = heard([[1, other(1, 'Bob')]])
     const first = presence.shown()

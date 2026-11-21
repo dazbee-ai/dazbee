@@ -1,6 +1,7 @@
 // The editor's commands for an agent: their list, one line each, and one command's whole catalog entry; and the
 // tools that run them on the open design (one command, an agent batch, undo and redo), each answered once the sync
-// server has stored the step. A restore is left out, since an agent has no way to read a version's records.
+// server has stored the step, the agent shown to the people in the design at what the step changed, with the note it
+// gave. A restore is left out, since an agent has no way to read a version's records.
 import { z } from 'zod'
 
 import {
@@ -12,9 +13,10 @@ import {
   type Session,
   VIEW_ONLY,
 } from '@dazbee/doc'
+import { held, NOTE_SHOWN_MS, workedOn } from '@dazbee/editor/agent-tab'
 import { type AgentBatchWarned, runAgentBatchWithWarnings } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { SYNC_LIMITS } from '@dazbee/schema'
+import { PRESENCE_NOTE, SYNC_LIMITS } from '@dazbee/schema'
 
 import { MAX_BATCH_STEPS } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
@@ -26,6 +28,18 @@ const RESTORE = 'design.restore'
 
 /** A command's name, as list_commands gives it. */
 const CommandName = z.string().max(200).describe('The command’s name, as list_commands gives it, such as node.create')
+
+/** The most characters a note may be given with; the people in the design see at most `PRESENCE_NOTE` of them. */
+const MOST_NOTE = 200
+
+/** What a step does, as the people in the design see it beside the agent's cursor. */
+const Note = z
+  .string()
+  .max(MOST_NOTE)
+  .optional()
+  .describe(
+    `What this does, in a few words, shown beside your cursor to the people with the design open for ${NOTE_SHOWN_MS / 1000} seconds, such as “Writing the headline”; ${PRESENCE_NOTE} characters at most are shown`,
+  )
 
 /** The commands an agent may run, as the catalog describes them. */
 export const AGENT_CATALOG: CatalogEntry[] = commandCatalog().filter((entry) => entry.name !== RESTORE)
@@ -74,11 +88,12 @@ export const COMMAND_TOOLS: Tool[] = [
     input: z.object({
       command: CommandName,
       input: z.unknown().optional().describe('The command’s input, as describe_command gives its schema'),
+      note: Note,
     }),
-    run: ({ command, input }, context) =>
+    run: ({ command, input, note }, context) =>
       writing(context, [command], async (open) => {
         const step: AgentStep = input === undefined ? { command } : { command, input }
-        const done = await agentBatchOn(open, [step], context.answerBy)
+        const done = await agentBatchOn(open, [step], context.answerBy, note)
         const [outcome] = done.value.steps
         if (!outcome || !outcome.ok) throw new ToolRefusal(refusalOf(outcome))
         const { warnings, warningsError } = done.value
@@ -111,8 +126,9 @@ export const COMMAND_TOOLS: Tool[] = [
         .min(1, 'a batch takes at least one step')
         .max(MAX_BATCH_STEPS, `a batch takes at most ${MAX_BATCH_STEPS} steps; split it`)
         .describe('The steps, run in order'),
+      note: Note,
     }),
-    run: ({ steps }, context) =>
+    run: ({ steps, note }, context) =>
       writing(
         context,
         steps.map(({ command }) => command),
@@ -122,7 +138,7 @@ export const COMMAND_TOOLS: Tool[] = [
             ...(input === undefined ? {} : { input }),
             ...(as === undefined ? {} : { as }),
           }))
-          const done = await agentBatchOn(open, given, context.answerBy)
+          const done = await agentBatchOn(open, given, context.answerBy, note)
           return answered(open, done, done.value)
         },
       ),
@@ -197,19 +213,46 @@ async function writing(
   })
 }
 
-/** Runs `steps` as an agent batch with its warnings on the open design, once its fonts are here, waiting for the store. */
+/**
+ * Runs `steps` as an agent batch with its warnings on the open design, once its fonts are here, waiting for the store;
+ * the agent shown at what it changed, with `note`.
+ */
 async function agentBatchOn(
   open: OpenDesign,
   steps: readonly AgentStep[],
   answerBy: number,
+  note: string | undefined,
 ): Promise<Written<AgentBatchWarned>> {
   const { tab } = open
   await tab.fontsLoaded()
   const ck = await loadCanvasKit()
   return open.write(
-    () => runAgentBatchWithWarnings(ck, withinDesignLimits(tab.session), steps, tab.bytes(), tab.cache),
+    shownAt(
+      open,
+      () => runAgentBatchWithWarnings(ck, withinDesignLimits(tab.session), steps, tab.bytes(), tab.cache),
+      note,
+    ),
     answerBy,
   )
+}
+
+/**
+ * `step`, the agent then shown to the people in the design at what it changed, with `note` (null takes the last one
+ * away); a step that changed nothing, such as a refused one, shows nothing. Showing it is for the eye only, so its
+ * failure never fails the step, which has run.
+ */
+function shownAt<T>({ tab }: OpenDesign, step: () => T, note?: string | null): () => T {
+  return () => {
+    const before = held(tab.design())
+    const result = step()
+    try {
+      const work = workedOn(before, tab.design())
+      if (work.layers.length > 0 || work.frame !== null) tab.show(work, note)
+    } catch {
+      // The step's answer stands without its presence.
+    }
+    return result
+  }
 }
 
 /**
@@ -267,7 +310,11 @@ function pressed(context: ToolContext, side: 'undo' | 'redo'): Promise<unknown> 
     const [can, name] =
       side === 'undo' ? [session.canUndo(), session.undoName()] : [session.canRedo(), session.redoName()]
     if (!can) return `There is no step of this agent’s to ${side}`
-    const done = await open.write(() => (side === 'undo' ? session.undo() : session.redo()), context.answerBy)
+    const done = await open.write(
+      // The note said what the step undone or redone did, not what this does.
+      shownAt(open, () => (side === 'undo' ? session.undo() : session.redo()), null),
+      context.answerBy,
+    )
     return answered(open, done, `${side === 'undo' ? 'Undid' : 'Redid'} “${name ?? 'the step'}”`)
   })
 }

@@ -114,21 +114,23 @@ export interface PageSession extends Omit<Session, 'run' | 'batch' | 'undo' | 'r
   redo(): ReturnType<Session['redo']> | undefined
 }
 
-/** Another member's tab's latest presence, as the tab's link heard it, with the member's name. */
+/** Another person's tab's latest presence, as the tab's link heard it, with the name its tab is listed by. */
 export interface OtherPresence {
   name: string
-  /** The member's number while the design is loaded: the same for each of their tabs. */
+  /** The person's number while the design is loaded: the same for each of their tabs. */
   person: number
   /** Their index into `PEOPLE_COLOURS`. */
   colour: number
+  /** The tab is an agent's, as its token says. */
+  agent?: true
   presence: Presence
 }
 
-/** The tab's presence and the other members': what the tab's link sends and hears. */
+/** The tab's presence and the other people's: what the tab's link sends and hears. */
 export interface TabPresence {
   /** Sends the tab's presence; the link sends the latest at most 30 times a second. */
   send(presence: Presence): void
-  /** The other members' tabs' latest presence, by tab id, the one heard from last at the end. */
+  /** The other people's tabs' latest presence, by tab id, the one heard from last at the end. */
   others(): ReadonlyMap<number, OtherPresence>
   /** Told whenever `others()` changes. */
   onChange(listener: () => void): () => void

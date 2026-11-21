@@ -35,6 +35,7 @@ export const RENDER_TOOLS: Tool[] = [
     run: ({ frame, maxSize = AGENT_RENDER_MAX_SIZE }, context) =>
       onDesign(context, async (open) => {
         frameOf(open.tab.design(), frame)
+        open.tab.show({ layers: [], frame })
         const { renders } = context
         const busy = renders.busy()
         if (busy > 0) throw new ToolRefusal(`Dazbee is drawing other renders; try again in ${busy} seconds`)

@@ -37,8 +37,8 @@ export interface OpenTabOptions {
   session?: Session
   now?: () => number
   random?: () => number
-  /** A test's smaller limits. */
-  client?: Pick<ClientOptions, 'limits'>
+  /** A test's smaller limits; an agent tab's presence, which goes only to a server that takes a note. */
+  client?: Pick<ClientOptions, 'limits' | 'presenceNeedsNote'>
 }
 
 /** The editor's half of the sync: its recompute (D6), and when the fonts it waited for settled. */
@@ -264,7 +264,7 @@ export async function openTab(options: OpenTabOptions): Promise<OpenTab> {
   }
 }
 
-/** The other members' tabs' latest presence the link's client heard, each with its member's name. */
+/** The other people's tabs' latest presence the link's client heard, each with the name its tab is listed by. */
 function othersOf(link: SyncLink): ReadonlyMap<number, OtherPresence> {
   const client = link.client()
   if (!client) return NONE

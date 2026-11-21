@@ -50,10 +50,12 @@ export type Notice =
 /** Told which records the working design shows differently, after every change to it. */
 export type ChangeListener = (changed: ReadonlySet<RecordKey>) => void
 
-/** Another member's tab's latest presence, as the server told it: the member's number and colour with it. */
+/** Another person's tab's latest presence, as the server told it: the person's number and colour with it. */
 export interface SeenPresence {
   person: number
   colour: number
+  /** The tab is an agent's, as its token says. */
+  agent?: true
   presence: Presence
 }
 
@@ -106,7 +108,7 @@ export interface Client {
   shown(): ReadState
   /** Told which records the previews show otherwise. */
   onPreview(listener: ChangeListener): () => void
-  /** The other members' tabs' latest presence, by tab id, the one heard from last at the end: a new map after each change. */
+  /** The other people's tabs' latest presence, by tab id, the one heard from last at the end: a new map after each change. */
   presence(): ReadonlyMap<number, SeenPresence>
   /** Told whenever `presence()` changes. */
   onPresence(listener: () => void): () => void
@@ -203,6 +205,11 @@ export interface ClientOptions {
   recompute?: Recompute
   /** The clock a follow-up waiting on the recompute is dropped by, in milliseconds. */
   now?: () => number
+  /**
+   * The tab's presence goes only to a server whose welcome says it takes a note: an agent tab's, which a
+   * server without notes would show as its member's own.
+   */
+  presenceNeedsNote?: boolean
 }
 
 /** A change set in the queue, with the undo step it applies. */
@@ -321,8 +328,10 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   const previewListeners = new Set<ChangeListener>()
   /** Whether the welcome of the connection open said the server takes presence. */
   let takesPresence = false
+  /** Whether it also said the server takes a presence's note. */
+  let takesNote = false
   /**
-   * The other members' tabs' latest presence, the one heard from last at the end, replaced whole on
+   * The other people's tabs' latest presence, the one heard from last at the end, replaced whole on
    * each change, and who hears when it changes.
    */
   let presenceOf: ReadonlyMap<number, SeenPresence> = new Map()
@@ -334,6 +343,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   function join(message: Welcome, design: DesignState) {
     ;({ syncId, tabId, secret, seq, size } = message)
     takesPresence = message.presence === true
+    takesNote = message.presenceNote === true
     setAccess(message.access)
     setTabs(message.tabs)
     confirmed = design
@@ -723,6 +733,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
         size = message.size
         setTabs(message.tabs)
         takesPresence = message.presence === true
+        takesNote = message.presenceNote === true
         // Everyone's latest presence comes again behind the welcome.
         clearPresence()
         // Under another sync id or as another tab id, the server no longer knows this tab.
@@ -755,11 +766,11 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
         return []
       case 'presence':
         if (online && message.tabId !== tabId) {
-          const { person, colour, presence } = message
+          const { person, colour, agent, presence } = message
           // At the end: the tab heard from last.
           const next = new Map(presenceOf)
           next.delete(message.tabId)
-          presenceOf = next.set(message.tabId, { person, colour, presence })
+          presenceOf = next.set(message.tabId, { person, colour, ...(agent ? { agent } : {}), presence })
           tellPresence()
         }
         return []
@@ -796,9 +807,11 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     for (const listener of presenceListeners) listener()
   }
 
-  /** Only the fields the server takes: it closes the connection on any other. */
-  function presenceMessage({ page, pointer, selection, frame }: Presence): Outgoing | undefined {
-    return online && takesPresence ? { type: 'presence', page, pointer, selection, frame } : undefined
+  /** Only the fields the server takes: it closes the connection on any other, a note too when it takes none. */
+  function presenceMessage({ page, pointer, selection, frame, note }: Presence): Outgoing | undefined {
+    if (!online || !takesPresence || (options.presenceNeedsNote && !takesNote)) return undefined
+    const noted = takesNote && note !== undefined ? { note } : {}
+    return { type: 'presence', page, pointer, selection, frame, ...noted }
   }
 
   function setTabs(tabs: Record<number, string>) {
@@ -1130,6 +1143,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   function disconnect() {
     online = false
     takesPresence = false
+    takesNote = false
     // Others' previews and presence are not kept past the connection: a cleared one could not come.
     tellPreviews(previewsOf.clear())
     clearPresence()

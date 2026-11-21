@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ShownPerson } from '../presence.ts'
-import { presenceParts, textOn } from './presence-parts.ts'
+import { presenceParts, TAG_ROOM, textOn } from './presence-parts.ts'
 import { type Fake, fake, SQUARE, STORY } from './test-overlay.ts'
 
 const BOB: ShownPerson = {
@@ -16,6 +16,11 @@ const BOB: ShownPerson = {
   frame: null,
 }
 const CAT: ShownPerson = { tabId: 9, name: 'Cat', colour: '#14AE5C', cursor: null, layers: [], frame: STORY }
+/** Iconoir's sparks, the agent's avatar: the big star, then the small one. */
+const SPARKS_BIG =
+  'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z'
+const SPARKS_SMALL =
+  'M2 6.5C5.13376 6.5 6.5 5.18153 6.5 2C6.5 5.18153 7.85669 6.5 11 6.5C7.85669 6.5 6.5 7.85669 6.5 11C6.5 7.85669 5.13376 6.5 2 6.5Z'
 
 /** A layer's outline as the overlay builds one, named by its frame and layer. */
 const layerOutline = (frame: { id: string }, id: string) => fake(`layer ${frame.id} ${id}`) as unknown as HTMLElement
@@ -46,14 +51,45 @@ describe('presenceParts', () => {
       '7',
       { left: '120.5px', top: '40px', color: '#9747FF' },
     ])
-    const [dart, name] = cursor?.children ?? []
+    const [dart, tag] = cursor?.children ?? []
     expect(dart?.attributes.class).toBe('presence-dart')
     expect(dart?.children[0]?.attributes.d).toBe('M0 0 L3.5 15.5 L7.5 8.5 L15.5 4 Z')
-    expect([name?.className, name?.textContent, name?.style]).toEqual([
-      'presence-name',
-      'Bob',
-      { background: '#9747FF', color: '#FFFFFF' },
+    expect([tag?.className, tag?.style]).toEqual(['presence-tag', { background: '#9747FF', color: '#FFFFFF' }])
+    // A person's tag holds their name alone: no avatar, no note.
+    expect(tag?.children.map((c) => [c.className, c.textContent])).toEqual([['presence-name', 'Bob']])
+  })
+
+  it("starts an agent's tag with its avatar, and puts its note under its name", () => {
+    const claude: ShownPerson = { ...CAT, tabId: 3, name: 'Claude (agent)', cursor: { x: 5, y: 6 }, agent: true }
+    const noted = { ...claude, note: 'Writing the headline' }
+    const tags = presenceParts([claude, noted], layerOutline, frameOutline).cursors.map(
+      (cursor) => (cursor as unknown as Fake).children[1],
+    )
+    for (const tag of tags) {
+      expect([tag?.className, tag?.style]).toEqual(['presence-tag', { background: '#14AE5C', color: '#FFFFFF' }])
+      const [avatar] = tag?.children ?? []
+      expect([avatar?.attributes.class, avatar?.style]).toEqual([
+        'presence-avatar',
+        { background: '#FFFFFF', fill: '#14AE5C' },
+      ])
+      expect(avatar?.children.map((path) => path.attributes.d)).toEqual([SPARKS_BIG, SPARKS_SMALL])
+    }
+    expect(tags[0]?.children.slice(1).map((c) => [c.className, c.textContent])).toEqual([
+      ['presence-name', 'Claude (agent)'],
     ])
+    expect(tags[1]?.children.slice(1).map((c) => [c.className, c.textContent])).toEqual([
+      ['presence-name', 'Claude (agent)'],
+      ['presence-note', 'Writing the headline'],
+    ])
+  })
+
+  it('puts the tag on the pointer’s start side when it would run past the stage’s end, and lets a note read in its own direction', () => {
+    const near = { ...BOB, cursor: { x: 1000 - TAG_ROOM + 1, y: 6 }, agent: true as const, note: 'أكتب العنوان' }
+    const far = { ...near, tabId: 8, cursor: { x: 1000 - TAG_ROOM, y: 6 } }
+    const [flipped, kept] = presenceParts([near, far], layerOutline, frameOutline, 1000).cursors as unknown as Fake[]
+    expect([flipped?.dataset.flip, kept?.dataset.flip]).toEqual(['', undefined])
+    const [, name, note] = flipped?.children[1]?.children ?? []
+    expect([name?.attributes.dir, note?.attributes.dir]).toEqual(['auto', 'auto'])
   })
 
   it('leaves out a layer the overlay has no box for', () => {

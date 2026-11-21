@@ -95,9 +95,12 @@ export const SYNC_LIMITS = {
 /** The most selected layer ids a presence carries: the most outlined for one person (FigCraft's `MAX_OUTLINES`). */
 export const PRESENCE_SELECTION = 500
 
+/** The longest note a presence carries, in UTF-16 units: FigCraft's cursor chat's 100 characters. */
+export const PRESENCE_NOTE = 100
+
 /**
- * The colours people are shown in, as FigCraft's: the server gives each member one by its index, the
- * first no other member connected to the design has.
+ * The colours people are shown in, as FigCraft's: the server gives each person (a member, or an agent
+ * working for one) one by its index, the first no other person connected to the design has.
  */
 export const PEOPLE_COLOURS = [
   '#0D99FF',
@@ -218,13 +221,16 @@ export type PreviewChange = z.infer<typeof PreviewChange>
 /**
  * Where a tab's person is and what they have selected, as the other people in the design see it:
  * never stored, ordered or undone, and the latest wins. `pointer` is in page coordinates, null while
- * it is off the stage or the tab is hidden; `frame` is the picked frame.
+ * it is off the stage or the tab is hidden; `frame` is the picked frame; `note` is what an agent says
+ * it is doing, shown beside its cursor, which a tab sends only on a connection whose welcome says
+ * `presenceNote`: a server without it closes the connection on one.
  */
 export const Presence = z.strictObject({
   page: Id,
   pointer: z.tuple([z.number(), z.number()]).nullable(),
   selection: Id.array().max(PRESENCE_SELECTION),
   frame: Id.nullable(),
+  note: z.string().max(PRESENCE_NOTE).optional(),
 })
 export type Presence = z.infer<typeof Presence>
 
@@ -316,6 +322,8 @@ export type ServerMessage =
       catchUp: CatchUp
       /** The server takes presence: a tab sends it only when its welcome says so. */
       presence?: true
+      /** The server takes a presence's note: a tab sends one only when its welcome says so. */
+      presenceNote?: true
     }
   /** To every tab, the author too as its confirmation, once the change set is stored. */
   | ({ type: 'accepted'; size: DesignSize } & Accepted)
@@ -324,10 +332,11 @@ export type ServerMessage =
   /** Another tab's preview, passed on unchecked but for shape, size and role. */
   | { type: 'preview'; tabId: number; after: number; changes: PreviewChange[] }
   /**
-   * Another member's tab's presence: `person` is the member's number while the design is loaded,
-   * the same for each of their tabs, and `colour` their index into `PEOPLE_COLOURS`.
+   * Another person's tab's presence: `person` is their number while the design is loaded, the same
+   * for each of their tabs, and `colour` their index into `PEOPLE_COLOURS`. `agent` marks an agent's
+   * tab, as its token says: an agent is a person of its own, apart from the member it works for.
    */
-  | { type: 'presence'; tabId: number; person: number; colour: number; presence: Presence }
+  | { type: 'presence'; tabId: number; person: number; colour: number; agent?: true; presence: Presence }
   | { type: 'joined'; tabId: number; name: string }
   | { type: 'left'; tabId: number }
   /** Asks for a renewed token. */
@@ -418,6 +427,18 @@ export function readTabVersion(sent: string | null): number | null {
   if (sent === null || !/^[1-9][0-9]*$/.test(sent)) return null
   const version = Number(sent)
   return Number.isSafeInteger(version) ? version : null
+}
+
+/**
+ * `text` as a presence's note is shown: control characters as spaces (FigCraft's cursor chat), the
+ * characters that change the writing direction taken out, so a note can't turn the words around it,
+ * and trimmed.
+ */
+export function cleanNote(text: string): string {
+  return text
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .trim()
 }
 
 /** Whether two members are the same user in the same workspace. */

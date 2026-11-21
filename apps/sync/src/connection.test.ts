@@ -286,6 +286,19 @@ describe('hello', () => {
     for (const tab of [ann, claude, bob]) tab.close()
   })
 
+  it('passes an agent’s presence, marked as an agent’s and with its note, to the tab of the member it works for', async () => {
+    const { url } = await started()
+    const design = await storeSaved()
+    const ann = await joined(url, design)
+    const claude = await joined(url, design, tokenFor(design, { agent: 'Claude (agent)' }))
+    const here = { page: 'p1', pointer: [300, 200], selection: ['box'], frame: null, note: 'Colouring the box' }
+    claude.send({ type: 'presence', ...here })
+    const heard = await ann.next('presence')
+    expect(heard).toMatchObject({ tabId: welcomeOf(claude).tabId, agent: true, presence: here })
+    expect(heard.colour).not.toBe(0)
+    for (const tab of [ann, claude]) tab.close()
+  })
+
   it('joins as a new tab a resume by another member, holding a tab id and its secret (I12)', async () => {
     const { url } = await started()
     const design = await storeSaved()

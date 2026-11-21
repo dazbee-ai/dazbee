@@ -79,8 +79,20 @@ describe('compactTree', () => {
     })
   })
 
-  it('refuses a field no layer has, listing those there are', () => {
-    expect(() => compactTree(nested(), 'sq', { fields: ['colour'] })).toThrow(/no layer has "colour".*fills/)
+  it('reads fontSize, fontFamily and fontWeight as a text’s style parts', () => {
+    const tree = compactTree(nested(), 'sq', { fields: ['fontSize', 'fontFamily', 'fontWeight'] })
+    expect(tree.children?.[0]).toEqual({ id: 'bg', name: 'bg', type: 'graphic', visible: true })
+    expect(tree.children?.[1]?.children?.[0]).toMatchObject({
+      id: 'title',
+      fontSize: 60,
+      fontFamily: 'Noto Sans',
+      fontWeight: 400,
+    })
+  })
+
+  it('leaves out a field no layer has, reading the others', () => {
+    const tree = compactTree(nested(), 'sq', { fields: ['colour', 'x'] })
+    expect(tree.children?.[0]).toEqual({ id: 'bg', name: 'bg', type: 'graphic', visible: true, x: 0 })
   })
 
   it('refuses a frame the design does not have, a name every object has too', () => {

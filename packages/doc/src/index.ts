@@ -54,7 +54,7 @@ export {
   type AgentStepPlace,
   runAgentBatch,
 } from './agent/batch.ts'
-export { compactTree, DEFAULT_TREE_BYTES, type TreeLayer, type TreeOptions } from './agent/tree.ts'
+export { compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS, type TreeLayer, type TreeOptions } from './agent/tree.ts'
 export { STEP_NAMES, type StepName } from './commands/step-names.ts'
 export { type BoxLayout, changesLayout } from './commands/auto-layout.ts'
 export { wrapRefusal } from './commands/groups.ts'

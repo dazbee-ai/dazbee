@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 import { MAX_UPLOAD_BYTES } from '@dazbee/schema'
 
-import { FRAME_TYPES } from '../src/layers.ts'
+import { FRAME_TYPES } from '../src/build.ts'
 import { field, type FigmaNode, MAX_FIGMA_NODES, ownMap, readFigmaFile, record as asRecord } from '../src/read.ts'
 import { download, isTimeout, readCapped } from './download.ts'
 

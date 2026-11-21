@@ -651,7 +651,7 @@ export function editorTyping({
     if (!editing || !held || node?.type !== 'text') return false
     const { id } = editing
     const composed = editing.composing
-    const edit = readField(store, held, composed, state, node.props.text.length, composing ?? undefined)
+    const edit = readField(store, held, composed, state, node.props.text, composing ?? undefined)
     if (composing !== null) {
       // A composition emptied at a caret draws nothing.
       if (!edit) {

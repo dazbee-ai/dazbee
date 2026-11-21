@@ -218,6 +218,24 @@ describe('fieldEdit', () => {
     expect(fieldEdit(field('Hello wor'), ends, field('Hello wor'), 9, 'Hello')).toBeNull()
   })
 
+  it('places a change through another tab’s edit between it and the caret, keeping both', () => {
+    // "there" deleted by another tab, then "these" picked for it: inserted where it was.
+    const given = field('Hello there you', 11)
+    const place = { text: 'Hello  you', from: 0, to: 10 }
+    const ends = { start: 6, end: 6 }
+    expect(fieldEdit(given, ends, field('Hello these you', 11), 10, 'these', place)).toMatchObject({
+      range: { start: 6, end: 6 },
+      typed: 'these',
+      selection: { start: 11, end: 11 },
+    })
+    // "Hello" made "Hi" by another tab, before the word: the word is found where it moved to.
+    const before = { text: 'Hi there you', from: 0, to: 12 }
+    expect(fieldEdit(given, { start: 8, end: 8 }, field('Hello these you', 11), 12, 'these', before)).toMatchObject({
+      range: { start: 3, end: 8 },
+      typed: 'these',
+    })
+  })
+
   it('keeps the field’s selection running backward', () => {
     const edit = fieldEdit(
       field('Hello there'),

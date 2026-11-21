@@ -374,6 +374,33 @@ describe('a composition', () => {
       expect(textOf(b)).toBe('Hello these')
     })
 
+    it('inserts a word picked for the one before the caret where it was, once the other tab deleted it, before the input method composed', async () => {
+      mem = memorySync(WORDS)
+      const a = await editorOn()
+      const b = await editorOn('bob')
+      typingAtEnd(a)
+      for (const key of [' ', 'y', 'o', 'u']) a.keys.press(key)
+      for (let n = 0; n < 4; n++) a.keys.press('ArrowLeft')
+      a.modules.typing.pause()
+      await settle()
+      expect(fieldOf(a)).toEqual({ value: 'Hello there you', start: 11, end: 11 })
+      b.core.select(['words'])
+      b.press('goIn')
+      b.modules.typing.selectText({ start: 6, end: 11 })
+      b.keys.press('Backspace')
+      b.keys.press('Escape')
+      await settle()
+      expect(textOf(a)).toBe('Hello  you')
+      // The keyboard's suggestion "these" picked for "there", which shares its first letters.
+      const picked = { value: 'Hello these you', start: 11, end: 11 }
+      a.core.input.fieldChanged(picked, 'these')
+      a.core.input.fieldChanged(picked, null)
+      a.keys.press('Escape')
+      await settle()
+      expect(textOf(a)).toBe('Hello these you')
+      expect(textOf(b)).toBe('Hello these you')
+    })
+
     it('ends typing with nothing landed when the other tab deletes the text', async () => {
       mem = memorySync(WORDS)
       const a = await editorOn()

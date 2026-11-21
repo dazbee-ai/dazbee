@@ -39,7 +39,17 @@ export interface HeldField {
   given: FieldState
   start: TextAnchor
   end: TextAnchor
+  /** The two ends of the given value in the text, the end staying before what is typed right after it. */
+  from: TextAnchor
+  to: TextAnchor
   kept?: FieldState | undefined
+}
+
+/** Where what the field was given lies in the text now: the text, and the given value's two ends in it. */
+export interface FieldPlace {
+  text: string
+  from: number
+  to: number
 }
 
 /**
@@ -108,8 +118,8 @@ export function keptField(
 }
 
 /**
- * The field taken to hold `given`, its selection's two ends anchored at `range` in text `id`; the end
- * stays before what another tab types right after it.
+ * The field taken to hold `given`, its selection's two ends anchored at `range` in text `id`, and
+ * the given value's own two ends; each end stays before what another tab types right after it.
  */
 export function heldField(
   store: Pick<DesignStore, 'textAnchor'>,
@@ -117,7 +127,14 @@ export function heldField(
   given: FieldState,
   range: TextRange,
 ): HeldField {
-  return { given, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
+  const from = Math.max(0, range.start - given.start)
+  return {
+    given,
+    start: store.textAnchor(id, range.start),
+    end: store.textAnchor(id, range.end, true),
+    from: store.textAnchor(id, from),
+    to: store.textAnchor(id, from + given.value.length, true),
+  }
 }
 
 /**
@@ -151,7 +168,9 @@ export function followedField(
   range: TextRange,
   backward: boolean,
 ): HeldField {
-  return { ...heldField(store, id, held.given, range), kept: keptHeld(store, held, text, range, backward) ?? undefined }
+  const kept = keptHeld(store, held, text, range, backward) ?? undefined
+  // The given value stays where it was: only the selection's ends move.
+  return { ...held, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true), kept }
 }
 
 /**
@@ -189,9 +208,11 @@ export function fieldChange(given: FieldState, state: FieldState, cover?: TextRa
 /**
  * The change the field holding `state` made to what it was given, in a text `length` long whose
  * offsets `ends` are where the given selection's two ends are: an offset before the selection
- * counts back from its start, one after it on from its end. With an input method's `data`, the
- * change covers all of it where the field holds it around its caret and it holds the change: the
- * whole of a word a phone keyboard re-opened. Null when nothing changed.
+ * counts back from its start, one after it on from its end. With `place`, where the given value
+ * lies in the text now, an offset whose text up to the selection no longer reads as the field was
+ * given (another tab edited it) is placed through what changed there instead. With an input
+ * method's `data`, the change covers all of it where the field holds it around its caret and it
+ * holds the change: the whole of a word a phone keyboard re-opened. Null when nothing changed.
  */
 export function fieldEdit(
   given: FieldState,
@@ -199,14 +220,24 @@ export function fieldEdit(
   state: FieldState,
   length: number,
   data?: string,
+  place?: FieldPlace,
 ): FieldEdit | null {
   const plain = fieldChange(given, state)
   const cover = data ? dataCover(plain, state, data) : null
   const change = cover ? fieldChange(given, state, cover) : plain
   if (!change) return null
+  /** Whether the text from `from` to `to` still reads as the given value from `start` to `end`. */
+  const reads = (from: number, to: number, start: number, end: number) =>
+    asField(place?.text.slice(from, to) ?? '') === given.value.slice(start, end)
   // A change starts no later than the given selection and ends no earlier.
-  const before = (offset: number) => Math.max(0, ends.start - (given.start - offset))
-  const after = (offset: number) => ends.end + offset - given.end
+  const before = (offset: number) => {
+    const at = Math.max(0, ends.start - (given.start - offset))
+    return !place || reads(at, ends.start, offset, given.start) ? at : placedIn(given.value, place, offset, false)
+  }
+  const after = (offset: number) => {
+    const at = ends.end + offset - given.end
+    return !place || reads(ends.end, at, given.end, offset) ? at : placedIn(given.value, place, offset, true)
+  }
   const start = Math.min(before(change.start), length)
   const range = { start, end: Math.min(Math.max(start, after(change.end)), length) }
   const typed = paragraphsOf(change.text)
@@ -222,22 +253,24 @@ export function fieldEdit(
 }
 
 /**
- * The change the field holding `state` made to what `held` was given, in a text `length` long, with
- * an input method's `data` (`fieldEdit`): read through the two ends of the composition when there is
- * one, as it is through the selection's, so another tab's edit inside what the field holds never
- * moves it. Null when nothing changed, or an end is gone.
+ * The change the field holding `state` made to what `held` was given, in `text`, with an input
+ * method's `data` (`fieldEdit`): read through the two ends of the composition when there is one, as
+ * it is through the selection's, and placed through another tab's edit of what the field holds.
+ * Null when nothing changed, or an end is gone.
  */
 export function readField(
   store: Anchors,
   held: HeldField,
   composing: HeldComposition | undefined,
   state: FieldState,
-  length: number,
+  text: string,
   data?: string,
 ): FieldEdit | null {
   const ends = composing ? anchored(store, composing.start, composing.end) : anchored(store, held.start, held.end)
   const given = composing ? { value: held.given.value, ...composing.span } : held.given
-  return ends && fieldEdit(given, ends, state, length, data)
+  const value = anchored(store, held.from, held.to)
+  const place = value ? { text, from: value.start, to: value.end } : undefined
+  return ends && fieldEdit(given, ends, state, text.length, data, place)
 }
 
 /**
@@ -287,6 +320,27 @@ export function sameSelection(a: FieldState, b: FieldState): boolean {
 /** Whether the field holding `state` holds an input method's `data` around its caret: a word it re-opened there. */
 export function holdsAround(state: FieldState, data: string): boolean {
   return data !== '' && dataCover(null, state, data) !== null
+}
+
+/**
+ * Where an offset of the given value `value` is in the text now that another tab edited it, at
+ * `place`: in what both read alike before or after that edit, where it is there; inside it, after
+ * what the other tab put there for a change's start, before it for its end, so both edits stay.
+ */
+function placedIn(value: string, place: FieldPlace, offset: number, atEnd: boolean) {
+  const now = asField(place.text.slice(place.from, place.to))
+  let same = 0
+  while (same < value.length && same < now.length && value[same] === now[same]) same++
+  let sameEnd = 0
+  while (
+    sameEnd < value.length - same &&
+    sameEnd < now.length - same &&
+    value.at(-1 - sameEnd) === now.at(-1 - sameEnd)
+  )
+    sameEnd++
+  if (offset <= same) return place.from + offset
+  if (offset >= value.length - sameEnd) return place.to - (value.length - offset)
+  return place.from + same + (atEnd ? 0 : now.length - same - sameEnd)
 }
 
 /** Text as a text area holds it: a line break written as \r, alone or before \n, as \n, one unit for one. */

@@ -7,6 +7,7 @@ import { readImageHeader } from '@dazbee/schema'
 import { svgToLayers } from '@dazbee/svg'
 import { hugePath, NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
+import { inDrawingTurn } from '../drawing/drawing-turn.ts'
 import { bigPictureSvg, png, slowPathsSvg } from '../test-files.ts'
 import {
   readSvgAsset,
@@ -197,19 +198,21 @@ describe('readSvgAsset', () => {
     expect(longestGap).toBeLessThan(reading / 2)
   })
 
-  it('starts a file’s time once a new thread is ready, so starting one takes none of it', async () => {
-    // A thread ended past its time: the next file starts a new one.
-    await timed(() => readSvgAsset(encoded(slowPathsSvg()), 320, 200))
-    expect((await readSvgAsset(SQUARE, 320, 300))?.header.width).toBe(10)
-  })
-
   it('refuses a file while four are being read or wait to be, keeping it to be added again', async () => {
-    const slow = encoded(slowPathsSvg())
-    const waiting = Array.from({ length: 4 }, () => timed(() => readSvgAsset(slow, 320, 300)))
+    // The drawing turn is held, so the four files wait in it until it is let go.
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    void inDrawingTurn(() => held)
+    const waiting = Array.from({ length: 4 }, (_, i) =>
+      readSvgAsset(encoded(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/><!-- ${i} -->`), 32).catch(
+        () => null,
+      ),
+    )
     await expect(readSvgAsset(SQUARE, 320)).rejects.toThrow(
       new SvgBusy('Dazbee is reading other SVG files; add this one again in a minute'),
     )
-    for (const { refused } of await Promise.all(waiting)) expect(refused).toBeInstanceOf(SvgRefused)
+    release()
+    await Promise.all(waiting)
     expect((await readSvgAsset(SQUARE, 320))?.header.width).toBe(10)
   })
 })
@@ -250,6 +253,17 @@ describe('svgReader', () => {
     threads.go()
     expect((await reading)?.header.width).toBe(10)
     expect(threads.said.starting).toBe(1)
+  })
+
+  it('starts a file’s time once the thread is ready, so a start takes none of it', async () => {
+    const threads = heldThreads()
+    const reader = heldReader()
+    const reading = reader.read(SQUARE, 320, 2_000)
+    await threads.until('starting', 1)
+    // Held past the file's 2 s to draw.
+    await new Promise((resolve) => setTimeout(resolve, 2_500))
+    threads.go()
+    expect((await reading)?.header.width).toBe(10)
   })
 
   it('starts the thread ahead of the first file, which then waits for no start', async () => {

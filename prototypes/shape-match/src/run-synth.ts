@@ -50,6 +50,8 @@ for (const b of blocks) {
     snapsWanted: brand.wanted,
     snapsWrong: brand.wrong,
     ms: r.ms,
+    photoP: r.photo?.p ?? null,
+    photoF: r.photo?.features ?? null,
     renders: r.renders,
     kinds: r.layers.map((l) => (l.props.shape as { kind: string }).kind),
   }
@@ -59,7 +61,7 @@ for (const b of blocks) {
   )
 }
 writeFileSync(
-  `out/synth${SYNTH_DIR === 'data/synth' ? '' : '2'}-${level}${process.env.RULE === 'v2' ? '-v2' : ''}-${part}${snap !== undefined ? '-snap' + snap : ''}.jsonl`,
+  `out/${SYNTH_DIR.split('/').pop()}-${level}${process.env.RULE === 'v2' ? '-v2' : ''}-${part}${snap !== undefined ? '-snap' + snap : ''}.jsonl`,
   lines.join('\n') + '\n',
 )
 

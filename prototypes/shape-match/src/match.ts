@@ -29,6 +29,7 @@ import {
 } from './fit.ts'
 import { fitGradient, innerPixels } from './gradient.ts'
 import { colourName, shapeName } from './names.ts'
+import { type Features, loadGuard, PHOTO_SIDE, photoFeatures, photoScore } from './photo.ts'
 import { type Img, over, resize } from './pixels.ts'
 import { type Region, splitRegions } from './regions.ts'
 import { pairDeltaE, resetPairs, type Score, score, scoreV2 } from './score.ts'
@@ -103,6 +104,8 @@ export interface Result {
   ms: number
   /** The fitted shape of each layer, for geometry checks. */
   params: (Params | null)[]
+  /** The photo guard's measures of the answer, and its score once trained (src/photo.ts). */
+  photo?: { features: Features; p: number | null }
 }
 
 interface Built {
@@ -133,15 +136,37 @@ export function matchBlock(ck: CanvasKit, img: Img, cfg: Config, brand: BrandCol
     layers: OutLayer[],
     sc: Score | null,
     params: (Params | null)[] = [],
-  ): Result => ({
-    decision,
-    why,
-    layers,
-    score: sc,
-    renders,
-    ms: performance.now() - t0,
-    params,
-  })
+  ): Result => {
+    // The photo guard's measures of any answer with layers, picture or not: what the layers leave unexplained.
+    let photo: Result['photo']
+    if (layers.length > 0) {
+      const k = Math.min(1, PHOTO_SIDE / Math.max(img.w, img.h))
+      const features = photoFeatures(img, drawLayers(ck, layers, img.w, img.h, k))
+      const g = loadGuard()
+      photo = { features, p: g ? photoScore(features, g) : null }
+      // The photo guard: shapes that leave this much of the block unexplained are a photo, kept a picture.
+      if (
+        decision === 'shapes' &&
+        g &&
+        photo.p !== null &&
+        photo.p >= g.threshold &&
+        process.env.PHOTO_GUARD !== 'off'
+      ) {
+        decision = 'picture'
+        why = `a photo: its layers leave its shading, texture and colours unexplained (score ${photo.p.toFixed(2)})`
+      }
+    }
+    return {
+      decision,
+      why,
+      layers,
+      score: sc,
+      renders,
+      ms: performance.now() - t0,
+      params,
+      ...(photo ? { photo } : {}),
+    }
+  }
   if (covered < 4) return done('picture', 'nothing to draw', [], null)
   const split = splitRegions(small, {
     mergeDeltaE: cfg.mergeDeltaE,

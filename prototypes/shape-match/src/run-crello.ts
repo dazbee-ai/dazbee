@@ -65,6 +65,8 @@ for (const e of index) {
       iou,
       paletteDE,
       ms: r.ms,
+      photoP: r.photo?.p ?? null,
+      photoF: r.photo?.features ?? null,
     }),
   )
   ;(globalThis as { gc?: () => void }).gc?.()

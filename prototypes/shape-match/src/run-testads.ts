@@ -60,6 +60,8 @@ for (const ad of ads) {
       shadows: r.layers.filter((l) => Array.isArray(l.props.effects) && (l.props.effects as unknown[]).length > 0)
         .length,
       ms: r.ms,
+      photoP: r.photo?.p ?? null,
+      photoF: r.photo?.features ?? null,
       renders: r.renders,
     }
     lines.push(JSON.stringify(row))

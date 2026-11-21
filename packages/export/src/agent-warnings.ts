@@ -5,17 +5,14 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import {
   type AgentBatchResult,
   type AgentStep,
-  boundsOf,
   centreOf,
   cornersOf,
   descendants,
   frameIdOf,
   intersects,
-  type Point,
   runAgentBatch,
   sameValue,
   type Session,
-  turn,
 } from '@dazbee/doc'
 import {
   drawnFamilies,
@@ -31,6 +28,8 @@ import {
   textMeasure,
 } from '@dazbee/renderer'
 import { type Design, type Layer, type Rect, SAFE_ZONES, safeZoneBands } from '@dazbee/schema'
+
+import { placed, type Turn } from './layer-ink.ts'
 
 /** What a warning is about. */
 export type AgentWarningKind =
@@ -79,12 +78,6 @@ type TextLayer = Extract<SceneLayer, { type: 'text' }>
 interface Before {
   nodes: Readonly<Record<string, Layer>>
   frames: Readonly<Record<string, unknown>>
-}
-
-/** A container's rotation, which turns the layers inside it about the container's centre. */
-interface Turn {
-  about: Point
-  degrees: number
 }
 
 /** What every check of one frame reads. */
@@ -306,12 +299,6 @@ function touchedLayers(design: Design, before: Before): Map<string, Set<string> 
     if (was && was.parentId !== node?.parentId) touch(was.parentId)
   }
   return touched
-}
-
-/** The box around `corners` once each container's rotation in `turns`, innermost first, has turned them. */
-function placed(corners: readonly Point[], turns: readonly Turn[]): Rect {
-  const points = corners.map((corner) => turns.reduceRight((p, { about, degrees }) => turn(p, about, degrees), corner))
-  return boundsOf(points.map((p) => ({ ...p, width: 0, height: 0, rotation: 0 })))
 }
 
 /** The platforms whose safe-zone edge `box` is inside; none on a frame that isn't 9:16. */

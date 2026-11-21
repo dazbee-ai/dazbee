@@ -3,6 +3,7 @@ packages:
   - packages/*
   - tests/*
   - tools/*
+  - prototypes/*
 allowBuilds:
   esbuild: true
   sharp: true

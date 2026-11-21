@@ -5,10 +5,14 @@ import { RecordId } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import { inSeconds } from '../limits.ts'
-import { defineTool, type Tool, ToolRefusal } from './define-tool.ts'
+import { defineTool, type Tool, ToolRefusal, WithNotes } from './define-tool.ts'
 
 /** A brand's id, as `list_brands` gives it. */
-const BrandId = RecordId.describe('The brand’s id, as list_brands gives it')
+export const BrandId = RecordId.describe('The brand’s id, as list_brands gives it')
+
+/** What a new design's answer tells the agent to do next. */
+const AFTER_CREATE =
+  'Next: open_design it, and read ad_rules for each size you will make (with the kind of ad) before you design.'
 
 export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
@@ -54,7 +58,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
     name: 'create_design',
     title: 'Create a design',
     description:
-      'Makes a new design in a brand, holding one page with an empty 1080×1080 frame, and answers its id and name. Needs an access that edits.',
+      'Makes a new design in a brand, holding one page with an empty 1080×1080 frame, and answers its id and name, and what to do next. Needs an access that edits.',
     readOnly: false,
     input: z.object({
       brand: BrandId,
@@ -68,7 +72,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
         )
       try {
         const design = await api.createDesign(brand, name)
-        return { id: design.id, name: design.name }
+        return new WithNotes({ id: design.id, name: design.name }, [AFTER_CREATE])
       } catch (error) {
         counted()
         if (error instanceof ApiRefusal && error.status === 403)

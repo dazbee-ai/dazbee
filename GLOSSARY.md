@@ -123,7 +123,7 @@ A line across one frame, vertical or horizontal, that a person drags from a rule
 _Avoid_: Ruler guide, guideline, snap line (the line drawn while a layer snaps)
 
 **Safe zone**:
-The bands of a 9:16 frame that a platform's own interface covers (its profile, caption, buttons and call to action), as Meta, YouTube and TikTok publish them. From the View menu a person shows one platform's over each 9:16 frame, or all of them together (their union, each edge as deep as the deepest platform's); no export draws them.
+The parts of a frame that a platform's own interface covers (its profile, caption, buttons and call to action), as the platform publishes them for one aspect ratio: Meta, YouTube and TikTok for 9:16, YouTube also for 1:1 and 16:9. From the View menu a person shows one platform's over each 9:16 frame, or all of them together (their union, each edge as deep as the deepest platform's); no export draws them. The ad rules give every ratio's to agents.
 _Avoid_: Safe area, title safe, UI overlay
 
 **Size**:

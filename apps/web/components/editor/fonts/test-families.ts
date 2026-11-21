@@ -1,8 +1,9 @@
 // Catalogs for the chooser's tests: 300 Google families, 60 in each category, and two brand uploads;
 // and as many as every Google family.
+import { FONT_CATEGORIES } from '@dazbee/fonts'
 import type { FontFamily, FontSource } from '@dazbee/schema'
 
-import { FONT_CATEGORIES, type FontCategory } from '@/components/brand-kit/font-catalog.ts'
+import type { FontCategory } from '@/components/brand-kit/font-catalog.ts'
 
 /** A family of Regular and Bold in a category, from a source, with Google's rank and scripts when given. */
 export function testFamily(

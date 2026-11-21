@@ -1,5 +1,6 @@
 // CanvasKit's own types (canvaskit.d.ts, from npm's canvaskit-wasm 0.42.0, the same Skia commit)
-// plus the PDF and SVG documents and text as shapes that our build adds (build/vector_bindings.cpp).
+// plus the PDF and SVG documents and text as shapes that our build adds (build/vector_bindings.cpp),
+// and the text style's baseline shift it adds (build/build.sh), in canvaskit.d.ts's TextStyle.
 import type { Canvas, CanvasKit as BaseCanvasKit, CanvasKitInitOptions, EmbindObject, SkPicture } from './canvaskit'
 
 export * from './canvaskit'

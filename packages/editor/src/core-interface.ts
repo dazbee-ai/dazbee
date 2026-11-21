@@ -453,7 +453,9 @@ export interface EditorBase {
    * height of becomes Fixed, as a resize makes it. The change stays on these layers:
    * their linked copies in other frames keep their own values. X and Y of a group or box carry what
    * it holds along; groups fit what they hold again. A fill, text colour or font set by hand no
-   * longer follows the brand. False when a change isn't allowed, such as on a locked layer.
+   * longer follows the brand. Each run it gives a text styles that run's characters with its style,
+   * as an edit of the text's characters does. False when a change isn't allowed, such as on a
+   * locked layer.
    */
   setProps(
     ids: string[],

@@ -2,7 +2,7 @@ import type { CanvasKit, FontCollection, Image, TypefaceFontProvider } from '@da
 import type { Variables } from '@dazbee/schema'
 
 import type { LayerPictures } from './pictures.ts'
-import { type FamilyFeatures, familyFeatures } from './text/font-features.ts'
+import { type FamilyFeatures, familyFeatures, type FamilySuperSubs, familySuperSubs } from './text/font-features.ts'
 import type { ParagraphCache } from './text/layout.ts'
 
 /** An image's width and height in its own pixels. */
@@ -21,6 +21,12 @@ export interface Resources {
    * small caps a family lacks are made up from capitals. Without it, every family lacks them.
    */
   familyFeatures?: FamilyFeatures
+  /**
+   * The superscript and subscript size and offset of each family's files (`familySuperSubs`), which
+   * superscripts and subscripts a font has no glyphs for are made up with. Without it, every family
+   * takes the usual ones.
+   */
+  familySuperSubs?: FamilySuperSubs
   images: ReadonlyMap<string, Image>
   /**
    * Each image's own size, where the image drawn is a smaller display copy of it, as the editor's
@@ -75,6 +81,7 @@ export function resourceCache(ck: CanvasKit) {
         provider: TypefaceFontProvider
         collection: FontCollection
         features: FamilyFeatures
+        scripts: FamilySuperSubs
       }
     | undefined
 
@@ -84,6 +91,7 @@ export function resourceCache(ck: CanvasKit) {
       fonts: registered.collection,
       fallbackFamilies: [...bytes.fallbackFamilies],
       familyFeatures: registered.features,
+      familySuperSubs: registered.scripts,
       images: imagesFor(bytes.images),
     }
   }
@@ -97,7 +105,7 @@ export function resourceCache(ck: CanvasKit) {
     for (const font of list) provider.registerFont(font.bytes, font.family)
     const collection = ck.FontCollection.Make()
     collection.setDefaultFontManager(provider)
-    fonts = { list: [...list], provider, collection, features: familyFeatures(list) }
+    fonts = { list: [...list], provider, collection, features: familyFeatures(list), scripts: familySuperSubs(list) }
     return fonts
   }
 

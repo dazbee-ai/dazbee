@@ -3273,6 +3273,8 @@ export interface TextShadow {
 
 export interface TextStyle {
     backgroundColor?: InputColor;
+    /** Pixels the run's glyphs and boxes move off the line's baseline, down for a positive value; our build adds it. */
+    baselineShift?: number;
     color?: InputColor;
     decoration?: number;
     decorationColor?: InputColor;

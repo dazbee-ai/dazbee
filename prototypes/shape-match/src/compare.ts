@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 
 import { load, q } from './summary.ts'
 
-const BASE = 'C:/Users/imkes/Desktop/test-ad/dx-stunnr-text-worker/shapes_baseline.json'
+const BASE = process.env.OLD_WORKER_BASELINE ?? '../../../dx-stunnr-text-worker/shapes_baseline.json'
 const baseline = JSON.parse(readFileSync(BASE, 'utf8')) as {
   ads: Record<string, { element: string; shapes: boolean; names: string[]; why: string }[]>
 }

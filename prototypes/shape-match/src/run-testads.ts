@@ -7,7 +7,7 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { LIGHT, matchBlock, MEDIUM } from './match.ts'
 import { decodeFile } from './pixels.ts'
 
-export const ADS = 'C:/Users/imkes/Desktop/ming-setup/test_ads'
+export const ADS = process.env.TESTADS_ADS ?? '../../../../ming-setup/test_ads'
 /** The kinds the old worker converts (its `convert` list), and the kinds that must stay pictures. */
 export const CONVERT = ['shape', 'graphic', 'background']
 export const PICTURE = ['photo', 'cutout']

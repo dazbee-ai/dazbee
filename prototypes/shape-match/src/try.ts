@@ -5,7 +5,7 @@ import { drawLayers } from './draw.ts'
 import { LIGHT, matchBlock, MEDIUM } from './match.ts'
 import { decodeFile, savePng, sheet } from './pixels.ts'
 const ck = await loadCanvasKit()
-const root = 'C:/Users/imkes/Desktop/ming-setup/test_ads'
+const root = process.env.TESTADS_ADS ?? '../../../../ming-setup/test_ads'
 mkdirSync('out/try', { recursive: true })
 for (const arg of process.argv.slice(2)) {
   const [ad, file] = arg.startsWith('synth:') ? ['synth', `${arg.slice(6)}.png`] : arg.split('/')

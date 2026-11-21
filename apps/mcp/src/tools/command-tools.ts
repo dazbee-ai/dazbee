@@ -237,15 +237,20 @@ async function agentBatchOn(
 }
 
 /**
- * `step`, the agent then shown to the people in the design at what it changed, with `note`; a step that changed
- * nothing, such as a refused one, shows nothing.
+ * `step`, the agent then shown to the people in the design at what it changed, with `note` (null takes the last one
+ * away); a step that changed nothing, such as a refused one, shows nothing. Showing it is for the eye only, so its
+ * failure never fails the step, which has run.
  */
-function shownAt<T>({ tab }: OpenDesign, step: () => T, note?: string): () => T {
+function shownAt<T>({ tab }: OpenDesign, step: () => T, note?: string | null): () => T {
   return () => {
     const before = held(tab.design())
     const result = step()
-    const work = workedOn(before, tab.design())
-    if (work.layers.length > 0 || work.frame !== null) tab.show(work, note)
+    try {
+      const work = workedOn(before, tab.design())
+      if (work.layers.length > 0 || work.frame !== null) tab.show(work, note)
+    } catch {
+      // The step's answer stands without its presence.
+    }
     return result
   }
 }
@@ -306,7 +311,8 @@ function pressed(context: ToolContext, side: 'undo' | 'redo'): Promise<unknown> 
       side === 'undo' ? [session.canUndo(), session.undoName()] : [session.canRedo(), session.redoName()]
     if (!can) return `There is no step of this agent’s to ${side}`
     const done = await open.write(
-      shownAt(open, () => (side === 'undo' ? session.undo() : session.redo())),
+      // The note said what the step undone or redone did, not what this does.
+      shownAt(open, () => (side === 'undo' ? session.undo() : session.redo()), null),
       context.answerBy,
     )
     return answered(open, done, `${side === 'undo' ? 'Undid' : 'Redid'} “${name ?? 'the step'}”`)

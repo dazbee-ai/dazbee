@@ -89,6 +89,21 @@ describe('openClient: presence', () => {
     })
   })
 
+  it('sends an agent tab’s presence only to a server that takes a note, as one without would show it as its member', () => {
+    const server = testServer()
+    const joined = server.join(wire({ type: 'hello', protocol: 1, token: 't', waiting: 0 }), who())
+    if ('close' in joined) throw new Error(joined.reason)
+    const welcome = wire(joined.out[0]?.message as Extract<ServerMessage, { type: 'welcome' }>)
+    const here = { page: 'p1', pointer: null, selection: [], frame: null }
+    expect(openClient(welcome, { presenceNeedsNote: true }).presenceMessage(here)).toEqual({
+      type: 'presence',
+      ...here,
+    })
+    const old: Partial<typeof welcome> = { ...welcome }
+    delete old.presenceNote
+    expect(openClient(old as ServerMessage, { presenceNeedsNote: true }).presenceMessage(here)).toBeUndefined()
+  })
+
   it('sends only the fields the server takes, and gives a new map each time what it keeps changes', () => {
     const server = testServer()
     const a = joinClient(server)

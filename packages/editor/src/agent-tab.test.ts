@@ -116,6 +116,8 @@ describe('openAgentTab', () => {
       })
       // A call that worked on nothing keeps the pointer where it was, and the note until its time is up.
       tab.show({ layers: [], frame: null })
+      await server.settle()
+      expect(heard()?.presence.note).toBe('Colouring the box')
       await vi.waitFor(
         async () => {
           await server.settle()

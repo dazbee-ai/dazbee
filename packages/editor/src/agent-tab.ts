@@ -66,9 +66,9 @@ export interface AgentTab {
    * Shows the people in the design where the agent worked: `work`'s layers outlined, else its frame
    * picked, the pointer just past them; work the design no longer holds leaves it where it was.
    * `note`, what the agent says it is doing, shows beside the pointer until `NOTE_SHOWN_MS` after the
-   * last `show` that gave one.
+   * last `show` that gave one; null takes it away at once, as for a step that isn't what it said.
    */
-  show(work: AgentWork, note?: string): void
+  show(work: AgentWork, note?: string | null): void
   /** What the tab told since the last call, oldest first, at most `KEPT_NOTICES` of the newest. */
   takeNotices(): NoticeDetail[]
   /** How many of the tab's change sets the server has not confirmed: steps not yet stored. */
@@ -111,7 +111,16 @@ const UNTOLD: ReadonlySet<NoticeDetail[0]> = new Set(['noDeviceCopy'])
 /** Opens the agent tab once the sync server has welcomed it, with the design's fonts loaded. */
 export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> {
   const { designId, url, token, socket, sources, variables, signal } = options
-  const tab = await openTab({ designId, member: NO_MEMBER, url, token, socket, ...(signal ? { signal } : {}) })
+  const tab = await openTab({
+    designId,
+    member: NO_MEMBER,
+    url,
+    token,
+    socket,
+    // A server without notes would show the agent as its member.
+    client: { presenceNeedsNote: true },
+    ...(signal ? { signal } : {}),
+  })
   try {
     const fonts = await loadFonts(fontFamilies(readDesign(tab.store), variables), sources)
     return agentTabOn(tab, fonts, options)
@@ -200,10 +209,13 @@ function agentTabOn(
     await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), bytes().variables)))
   }
   const takeNotices = () => notices.splice(0)
-  function show(work: AgentWork, given?: string) {
+  function show(work: AgentWork, given?: string | null) {
     shown = agentPresence(session.design(), work, core.boxOf) ?? shown
-    const cleaned = given === undefined ? '' : noteOf(given)
-    if (cleaned !== '') {
+    const cleaned = given === undefined || given === null ? '' : noteOf(given)
+    if (given === null) {
+      note = null
+      clearTimeout(noteTimer)
+    } else if (cleaned !== '') {
       note = cleaned
       clearTimeout(noteTimer)
       noteTimer = setTimeout(() => {

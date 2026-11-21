@@ -205,6 +205,11 @@ export interface ClientOptions {
   recompute?: Recompute
   /** The clock a follow-up waiting on the recompute is dropped by, in milliseconds. */
   now?: () => number
+  /**
+   * The tab's presence goes only to a server whose welcome says it takes a note: an agent tab's, which a
+   * server without notes would show as its member's own.
+   */
+  presenceNeedsNote?: boolean
 }
 
 /** A change set in the queue, with the undo step it applies. */
@@ -804,7 +809,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
 
   /** Only the fields the server takes: it closes the connection on any other, a note too when it takes none. */
   function presenceMessage({ page, pointer, selection, frame, note }: Presence): Outgoing | undefined {
-    if (!online || !takesPresence) return undefined
+    if (!online || !takesPresence || (options.presenceNeedsNote && !takesNote)) return undefined
     const noted = takesNote && note !== undefined ? { note } : {}
     return { type: 'presence', page, pointer, selection, frame, ...noted }
   }

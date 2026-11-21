@@ -70,7 +70,7 @@ describe('the agent in presence', () => {
     expect(shown(message)).toEqual({ pointer: [300, 200], selection: ['box'], frame: null, note: 'Naming the box' })
   })
 
-  it('moves to what a batch and an undo changed, the note kept from the batch', async () => {
+  it('moves to what a batch and an undo changed, the undo taking the batch’s note away', async () => {
     const { agent, bob } = await watched()
     await agent.call('batch', {
       steps: [{ command: 'node.update', input: { ids: ['box'], patch: { x: 80 } } }],
@@ -79,7 +79,7 @@ describe('the agent in presence', () => {
     await shows(bob, { pointer: [280, 200], selection: ['box'], note: 'Nudging the box' })
     await agent.call('run_command', { command: 'node.rename', input: { id: 'headline', name: 'Title' } })
     await agent.call('undo')
-    await shows(bob, { selection: ['headline'], note: 'Nudging the box' })
+    await shows(bob, { selection: ['headline'], note: undefined })
   })
 
   it('moves to the frame read_frame and check_frame look at, and to the layer read_layer reads', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { readTabVersion, SYNC_CLOSE, TabMessage } from './sync.ts'
+import { cleanNote, readTabVersion, SYNC_CLOSE, TabMessage } from './sync.ts'
 
 describe('SYNC_CLOSE', () => {
   it('gives each reason its own code, in the range a WebSocket leaves to applications', () => {
@@ -30,5 +30,13 @@ describe('readTabVersion', () => {
     expect(readTabVersion('12')).toBe(12)
     for (const sent of [null, '', '0', '-1', '1.5', '01', '1e3', 'Infinity', ' 1', '99999999999999999999'])
       expect(readTabVersion(sent)).toBeNull()
+  })
+})
+
+describe('cleanNote', () => {
+  it('turns control characters into spaces, drops what changes the writing direction, and trims', () => {
+    expect(cleanNote('  Writing\tthe\nheadline \u0007 ')).toBe('Writing the headline')
+    expect(cleanNote('‮enilwen‬ ⁧كتابة⁩')).toBe('enilwen كتابة')
+    expect(cleanNote('👨‍👩‍👧 family')).toBe('👨‍👩‍👧 family')
   })
 })

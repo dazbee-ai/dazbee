@@ -429,6 +429,18 @@ export function readTabVersion(sent: string | null): number | null {
   return Number.isSafeInteger(version) ? version : null
 }
 
+/**
+ * `text` as a presence's note is shown: control characters as spaces (FigCraft's cursor chat), the
+ * characters that change the writing direction taken out, so a note can't turn the words around it,
+ * and trimmed.
+ */
+export function cleanNote(text: string): string {
+  return text
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .trim()
+}
+
 /** Whether two members are the same user in the same workspace. */
 export function sameMember(a: Member, b: Member): boolean {
   return a.userId === b.userId && a.workspaceId === b.workspaceId

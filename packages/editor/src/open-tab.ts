@@ -37,8 +37,8 @@ export interface OpenTabOptions {
   session?: Session
   now?: () => number
   random?: () => number
-  /** A test's smaller limits. */
-  client?: Pick<ClientOptions, 'limits'>
+  /** A test's smaller limits; an agent tab's presence, which goes only to a server that takes a note. */
+  client?: Pick<ClientOptions, 'limits' | 'presenceNeedsNote'>
 }
 
 /** The editor's half of the sync: its recompute (D6), and when the fonts it waited for settled. */

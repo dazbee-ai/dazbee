@@ -224,6 +224,16 @@ describe('openServer: presence', () => {
     ])
   })
 
+  it('passes an agent’s note cleaned of control characters and direction changes, and none left empty', () => {
+    const server = openServer(fresh(), testOptions())
+    const ann = joined(server)
+    const claude = joined(server, agentTab())
+    const noteHeard = (note: string) =>
+      (heard(to(ann.tabId, server.receive(claude.tabId, presence({ ...HERE, note }), 80)))[0] as { presence: Presence })
+        .presence.note
+    expect([noteHeard('\u202Eesrever\u202C on\tthe box'), noteHeard(' \n ')]).toEqual(['esrever on the box', undefined])
+  })
+
   it('closes a connection whose note is longer than a presence takes', () => {
     const server = openServer(fresh(), testOptions())
     const claude = joined(server, agentTab())

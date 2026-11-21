@@ -1,7 +1,15 @@
 // Where an agent shows as it works, as FigCraft's agent presence (`crates/engine/src/sharing/agent.rs`):
 // what a step worked on, the presence that shows it to the people in the design (its layers outlined or
 // its frame picked, its pointer just past them), and the note it says it with, made fit to send.
-import { type Design, frameIdOf, type Presence, PRESENCE_NOTE, PRESENCE_SELECTION, type Rect } from '@dazbee/schema'
+import {
+  cleanNote,
+  type Design,
+  frameIdOf,
+  type Presence,
+  PRESENCE_NOTE,
+  PRESENCE_SELECTION,
+  type Rect,
+} from '@dazbee/schema'
 
 import { frameIn } from './canvas/frames.ts'
 
@@ -82,11 +90,10 @@ export function agentPresence(design: Design, work: AgentWork, boxOf: (id: strin
 }
 
 /**
- * `text` as a presence's note, as FigCraft's cursor chat takes it: control characters as spaces,
- * trimmed, and cut to `PRESENCE_NOTE` UTF-16 units with an ellipsis, never inside a character.
+ * `text` as a presence's note, as FigCraft's cursor chat takes it: cleaned (`cleanNote`), and cut to `PRESENCE_NOTE` UTF-16 units with an ellipsis, never inside a character.
  */
 export function noteOf(text: string): string {
-  const note = text.replace(/\p{Cc}/gu, ' ').trim()
+  const note = cleanNote(text)
   if (note.length <= PRESENCE_NOTE) return note
   let kept = ''
   for (const character of note) {

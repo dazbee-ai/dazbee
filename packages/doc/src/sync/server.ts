@@ -15,6 +15,7 @@ import {
   type Accepted,
   type Access,
   type CatchUp,
+  cleanNote,
   type DesignSize,
   type Entry,
   type Member,
@@ -320,7 +321,8 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
       if (wireBytes > limits.presenceBytes) return []
       const { page, pointer, selection, frame, note } = message
       // Only an agent says what it is doing: a person's tab has no way to give a note.
-      const noted = conn.agent !== undefined && note !== undefined && note !== '' ? { note } : {}
+      const cleaned = conn.agent === undefined || note === undefined ? '' : cleanNote(note)
+      const noted = cleaned === '' ? {} : { note: cleaned }
       conn.presence = { page, pointer, selection, frame, ...noted }
       const passed = presenceMessage(tabId, conn, conn.presence)
       // To the other people's tabs: a person's own tabs never show them their own cursor.

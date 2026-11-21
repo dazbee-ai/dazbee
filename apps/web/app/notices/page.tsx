@@ -1,5 +1,6 @@
-// The third-party notices: each icon set Dazbee bundles for agents to place, with its version, its licence's name
-// and the licence in full, as the set ships it. Open to anyone, signed in or not.
+// The third-party notices: each icon set Dazbee bundles for agents to place, its name linking to its site in a new
+// tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's width.
+// Open to anyone, signed in or not.
 import Link from 'next/link'
 
 import { ICON_SET_NOTICES } from '@dazbee/graphics/notices'
@@ -34,19 +35,27 @@ export default async function NoticesPage() {
             className="rounded-[20px] border border-line bg-surface p-5 shadow-panel md:p-7"
           >
             <h2 id={`notice-${i}`} className="font-display text-heading font-bold tracking-tight md:leading-tight">
-              <a href={notice.homepage} target="_blank" rel="noreferrer" className="hover:underline">
+              <a
+                href={notice.homepage}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-line-strong decoration-2 underline-offset-4 hover:decoration-current"
+              >
                 {notice.title}
               </a>
             </h2>
             <p className="mt-1 text-label text-muted">
               {format(words.about, { version: notice.version, licence: notice.licence })}
             </p>
-            <pre
+            <div
               dir="ltr"
-              className="mt-4 overflow-x-auto rounded-row border border-line bg-bg p-4 font-mono text-caption whitespace-pre-wrap text-muted"
+              lang="en"
+              className="mt-4 flex flex-col gap-3 rounded-row border border-line bg-bg p-4 text-small text-muted"
             >
-              {notice.text}
-            </pre>
+              {notice.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
           </section>
         ))}
         <Link href="/" className={cn(buttonStyles({ variant: 'secondary', size: 'lg' }), 'self-start')}>

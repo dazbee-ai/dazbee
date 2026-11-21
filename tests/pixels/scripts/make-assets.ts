@@ -1,10 +1,11 @@
 // Draws the stand-in photos the fixtures name and saves them in assets/: as JPEG, or as PNG for a
 // cutout, whose clear pixels need alpha.
 // They are committed; rerun only to change them: node scripts/make-assets.ts [name ...] (only those named).
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { Canvas, CanvasKit } from '@dazbee/canvaskit'
+import { FONT_FILES_DIR } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 type Painter = (canvas: Canvas, w: number, h: number) => void
@@ -51,6 +52,27 @@ const studio =
 
 const sneaker: Painter = (canvas, w, h) => {
   studio('#FFE8D1', '#F2B48C', 'rgba(255,255,255,0.8)')(canvas, w, h)
+  shoe(canvas, w, h)
+}
+
+/** The sneaker on clear, as a product's cutout is: a PNG with its soft shadow under it. */
+const sneakerCutout: Painter = (canvas, w, h) => {
+  canvas.drawOval(
+    ck.XYWHRect(w * 0.12, h * 0.655, w * 0.76, h * 0.06),
+    paint((p) => {
+      p.setColor(ck.Color(0, 0, 0, 0.3))
+      p.setMaskFilter(ck.MaskFilter.MakeBlur(ck.BlurStyle.Normal, 14, true))
+    }),
+  )
+  canvas.save()
+  canvas.translate(-286, -374)
+  canvas.scale(1.4, 1.4)
+  shoe(canvas, w, h)
+  canvas.restore()
+}
+
+/** The sneaker's upper, sole and stripe. */
+function shoe(canvas: Canvas, w: number, h: number) {
   const s = h / 1200
   canvas.save()
   canvas.translate(w * 0.2, h * 0.3)
@@ -100,6 +122,77 @@ const card =
     )
   }
 
+/**
+ * A brand's logo, as a PNG on clear: a round mark, an orange disc with three speed bars, and the word "stride" in
+ * Noto Sans ExtraBold.
+ */
+const logo: Painter = (canvas, w, h) => {
+  const r = h * 0.44
+  canvas.drawCircle(
+    h / 2,
+    h / 2,
+    r,
+    paint((p) => p.setColor(ck.parseColorString('#FF5A36'))),
+  )
+  for (let i = 0; i < 3; i++) {
+    const bar = ck.Path.MakeFromSVGString(
+      `M${h * 0.3 + i * h * 0.06} ${h * 0.3 + i * h * 0.13} L${h * 0.72} ${h * 0.3 + i * h * 0.13} L${h * 0.68} ${h * 0.38 + i * h * 0.13} L${h * 0.26 + i * h * 0.06} ${h * 0.38 + i * h * 0.13} Z`,
+    )
+    if (!bar) throw new Error('bad logo bar')
+    canvas.drawPath(
+      bar,
+      paint((p) => p.setColor(ck.parseColorString('#FFFFFF'))),
+    )
+  }
+  const fonts = ck.TypefaceFontProvider.Make()
+  fonts.registerFont(new Uint8Array(readFileSync(join(FONT_FILES_DIR, 'NotoSans-ExtraBold.ttf'))), 'Noto Sans')
+  const style = new ck.ParagraphStyle({
+    textStyle: {
+      color: ck.parseColorString('#14213D'),
+      fontFamilies: ['Noto Sans'],
+      fontSize: h * 0.66,
+      fontStyle: { weight: ck.FontWeight.ExtraBold },
+      letterSpacing: -h * 0.02,
+    },
+  })
+  const builder = ck.ParagraphBuilder.MakeFromFontProvider(style, fonts)
+  builder.addText('stride')
+  const words = builder.build()
+  words.layout(w)
+  canvas.drawParagraph(words, h * 1.08, (h - words.getHeight()) / 2)
+  words.delete()
+  builder.delete()
+  fonts.delete()
+}
+
+/** A person's portrait for a quote, drawn: a head and shoulders on a soft studio ground. */
+const portrait: Painter = (canvas, w, h) => {
+  studio('#E8EEF7', '#B8C6DB', 'rgba(255,255,255,0.7)')(canvas, w, h)
+  const shoulders = ck.Path.MakeFromSVGString(
+    `M${w * 0.14} ${h} C ${w * 0.16} ${h * 0.74} ${w * 0.32} ${h * 0.66} ${w * 0.5} ${h * 0.66} C ${w * 0.68} ${h * 0.66} ${w * 0.84} ${h * 0.74} ${w * 0.86} ${h} Z`,
+  )
+  if (!shoulders) throw new Error('bad shoulders')
+  canvas.drawPath(
+    shoulders,
+    paint((p) => p.setShader(linear(0, h * 0.66, 0, h, ['#2F4B7C', '#1B2C4A']))),
+  )
+  canvas.drawRect(
+    ck.XYWHRect(w * 0.44, h * 0.52, w * 0.12, h * 0.16),
+    paint((p) => p.setColor(ck.parseColorString('#C98B62'))),
+  )
+  canvas.drawOval(
+    ck.XYWHRect(w * 0.33, h * 0.2, w * 0.34, h * 0.4),
+    paint((p) => p.setShader(radial(w * 0.45, h * 0.35, w * 0.25, ['#E3A985', '#C98B62']))),
+  )
+  canvas.drawArc(
+    ck.XYWHRect(w * 0.31, h * 0.16, w * 0.38, h * 0.3),
+    180,
+    180,
+    true,
+    paint((p) => p.setColor(ck.parseColorString('#2B1D16'))),
+  )
+}
+
 /** A small repeating tile, for the tile fit (#48): a dot on a two-tone ground, cut by a stripe. */
 const pattern: Painter = (canvas, w, h) => {
   canvas.drawPaint(paint((p) => p.setColor(ck.parseColorString('#FFD23F'))))
@@ -143,6 +236,9 @@ const assets: Record<string, [number, number, Painter, ('jpg' | 'png')?]> = {
   'card-1-tall': [1200, 1000, card('#E3F2FD', '#90CAF9', '#1E88E5')],
   tile: [120, 120, pattern],
   cutout: [400, 400, lemon, 'png'],
+  'sneaker-cutout': [1200, 800, sneakerCutout, 'png'],
+  logo: [600, 160, logo, 'png'],
+  portrait: [800, 800, portrait],
 }
 
 const only = process.argv.slice(2)

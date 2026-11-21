@@ -49,8 +49,9 @@ const UNSENT =
 
 /**
  * At most `max` tabs in the process, and `perAccess` of one access: a tab past those of its access takes over the
- * access's oldest once it has opened. Until the oldest closes, both are counted, so taking over may pass `max` for as
- * long as the old tab takes to close.
+ * access's oldest once it has opened. A slot that will take over is never refused as past `max`, and the old tab
+ * stays counted until it closes, so the process may pass `max` by the access's tabs opening at once, for as long as
+ * they take to open and the old tabs take to close.
  */
 export function agentTabSlots(max: number, perAccess: number): AgentTabSlots {
   /** Each access's slots, in the order taken. */

@@ -13,7 +13,7 @@ import { clipMask } from './clips.ts'
 import { filterEffects } from './filters.ts'
 import { imageLayer, newPictures, type SvgImage } from './images.ts'
 import { clamp01, length, numbers } from './lengths.ts'
-import { MAX_LAYERS, MAX_NESTING, MAX_WORK } from './limits.ts'
+import { counted, layersPast, MAX_LAYERS, MAX_NESTING, MAX_WORK, pointsPast } from './limits.ts'
 import { nameOf } from './names.ts'
 import { shape, SHAPES } from './shapes.ts'
 import { BLEND_MODES, readSheets, type Style, styleOf, styleText } from './style.ts'
@@ -48,9 +48,12 @@ export interface ConvertOptions {
 export type SvgProblem = 'unreadable' | 'not-svg' | 'empty' | 'too-big'
 export class SvgError extends Error {
   readonly problem: SvgProblem
+  /** What is wrong with the file; for one too big to read, which limit it passed, as the end of a sentence ("it has more than 5,000 layers"). */
+  readonly detail: string | undefined
   constructor(problem: SvgProblem, detail?: string) {
     super(detail ? `${problem}: ${detail}` : problem)
     this.problem = problem
+    this.detail = detail
   }
 }
 
@@ -92,7 +95,7 @@ const union = (boxes: Rect[]): Rect => {
 
 /** Reads an SVG file into layers. Throws SvgError when the file can't be read or draws nothing. */
 export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions = {}): Converted {
-  if (text.length > MAX_SVG_BYTES) throw new SvgError('too-big')
+  if (text.length > MAX_SVG_BYTES) throw new SvgError('too-big', `it is larger than ${MAX_SVG_BYTES / 1_000_000} MB`)
   let root: XmlElement
   try {
     root = parseXml(text)
@@ -132,17 +135,35 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
   const nodes: Record<string, LayerInput> = {}
   let work = 0
   const spend = () => {
-    if (++work > MAX_WORK) throw new SvgError('too-big', `more than ${MAX_WORK} elements to read`)
+    if (++work > MAX_WORK) throw new SvgError('too-big', `it has more than ${counted(MAX_WORK)} elements to read`)
   }
   let nesting = 0
   let made = 0
   const newId = () => {
-    if (++made > MAX_LAYERS) throw new SvgError('too-big', `more than ${MAX_LAYERS} layers`)
+    if (++made > MAX_LAYERS) throw new SvgError('too-big', `it has more than ${counted(MAX_LAYERS)} layers`)
     return `svg${made}`
+  }
+  let points = 0
+  const countPoints = (count: number) => {
+    const past = pointsPast(count, points)
+    if (past) throw new SvgError('too-big', past)
+    points += count
   }
   const fontFamily = options.fontFamily ?? ((families: string[]) => families[0] ?? 'Noto Sans')
   const pictures = newPictures(options.name ?? nameOf(root, 'SVG'), options.assetIds)
-  const context: Context = { ck, ids, parents, rules, viewport, nodes, skipped, newId, fontFamily, pictures }
+  const context: Context = {
+    ck,
+    ids,
+    parents,
+    rules,
+    viewport,
+    nodes,
+    skipped,
+    newId,
+    countPoints,
+    fontFamily,
+    pictures,
+  }
   /** Layers that have effects or hold one that has: what a clip around them cuts reaches past their box. */
   const reaching = new Set<string>()
 
@@ -239,7 +260,7 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
   /** The layers for one element, with `m` taking its user space to the design's. */
   function convert(element: XmlElement, parentStyle: Style, parentMatrix: Matrix, using: string[]): Piece | null {
     spend()
-    if (++nesting > MAX_NESTING) throw new SvgError('too-big', `nested more than ${MAX_NESTING} deep`)
+    if (++nesting > MAX_NESTING) throw new SvgError('too-big', `its elements nest more than ${MAX_NESTING} deep`)
     try {
       return convertElement(element, parentStyle, parentMatrix, using)
     } finally {
@@ -377,6 +398,8 @@ export function svgToLayers(ck: CanvasKit, text: string, options: ConvertOptions
     plainRoot && only?.type === 'group' && !only.props.mask ? (pieces[0] as Piece) : group('', pieces, rootStyle)
   ;(nodes[rootPiece.id] as { name: string }).name = pictures.fileName
 
+  const past = layersPast(nodes)
+  if (past) throw new SvgError('too-big', past)
   const tree = LayerTree.parse({ nodes, roots: [rootPiece.id] })
   return {
     tree,

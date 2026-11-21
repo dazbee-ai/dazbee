@@ -116,7 +116,11 @@ export function shape(context: Context, element: XmlElement, style: Style, m: Ma
 }
 
 /** The element's outline in its own user space, or null when it has none. */
-export function outline(context: Pick<Context, 'ck' | 'viewport'>, element: XmlElement, style: Style): Path | null {
+export function outline(
+  context: Pick<Context, 'ck' | 'viewport' | 'countPoints'>,
+  element: XmlElement,
+  style: Style,
+): Path | null {
   const { ck, viewport } = context
   const a = element.attrs
   const n = (key: string, whole: number) => length(a[key], whole)
@@ -174,6 +178,12 @@ export function outline(context: Pick<Context, 'ck' | 'viewport'>, element: XmlE
   if (path.isEmpty()) {
     path.delete()
     return null
+  }
+  try {
+    context.countPoints(path.countPoints())
+  } catch (error) {
+    path.delete()
+    throw error
   }
   path.setFillType(style['fill-rule'] === 'evenodd' ? ck.FillType.EvenOdd : ck.FillType.Winding)
   return path

@@ -12,9 +12,10 @@ import {
   TemplateSummary,
   UploadTicket,
 } from '@dazbee/schema'
+import { NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
-import { brand, call, db, run, SHORT_ID, sibling, uploadImage } from '../test-api.ts'
-import { png, sha256 } from '../test-files.ts'
+import { brand, call, db, request, run, SHORT_ID, sibling, uploadImage } from '../test-api.ts'
+import { DEEP_BLURS, png, sha256 } from '../test-files.ts'
 import { appendAccepted, appendEntry } from '../workspace/test-journal.ts'
 
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
@@ -265,6 +266,37 @@ describe('image uploads', { timeout: 30_000 }, () => {
     expect((await call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha256(page) })).json).toEqual({
       error: 'The upload is not a PNG, JPEG or WebP image, or an SVG file we can read',
     })
+  })
+
+  it('refuses an SVG file too complex to draw, saying why, and answers other requests while one is drawn (#150)', async () => {
+    /** Uploads the bytes and asks for them to be recorded, without waiting for the answer. */
+    const record = async (text: string) => {
+      const bytes = new TextEncoder().encode(`${text}<!-- ${run} -->`)
+      const ticket = UploadTicket.parse(
+        (
+          await call('a', 'POST', `/brands/${brand.id}/assets/uploads`, {
+            sha256: sha256(bytes),
+            byteSize: bytes.length,
+            contentType: 'image/svg+xml',
+          })
+        ).json,
+      )
+      if (!ticket.upload) throw new Error('expected an upload URL')
+      await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
+      return call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha256(bytes) })
+    }
+    expect(await record(NESTED_BLURS)).toEqual({
+      status: 400,
+      json: { error: 'This SVG file is too complex to draw: its blurs and shadows nest more than 4 deep' },
+    })
+
+    let settled = false
+    const drawn = record(DEEP_BLURS).finally(() => (settled = true))
+    // Once its thread has started, ask the API for something else while the file is drawn.
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(await request(null, 'GET', '/health')).toMatchObject({ status: 200, json: { ok: true } })
+    expect(settled).toBe(false)
+    expect(await drawn).toEqual({ status: 400, json: { error: 'This SVG file needs too much memory to draw' } })
   })
 
   // A guard: before the converter read pictures this passed too, as the picture was left out then.

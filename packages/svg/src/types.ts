@@ -50,6 +50,8 @@ export interface Context {
   skipped: Set<Skipped>
   /** A new layer's id. Throws SvgError past the layer limit. */
   newId: () => string
+  /** Counts a new outline's points. Throws SvgError past the limits on points. */
+  countPoints: (count: number) => void
   /** The family a text layer takes, from the families its CSS lists. */
   fontFamily: (families: string[]) => string
   /** The pictures the file embeds, read so far. */

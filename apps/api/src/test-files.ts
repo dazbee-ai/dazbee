@@ -1,4 +1,4 @@
-// Files the API tests upload and read: images, fonts, and the SHA-256 they are stored under; and
+// Files the API tests upload and read: images, SVG files too much to draw, fonts, and the SHA-256 they are stored under; and
 // Google families with google/fonts serving their files, as the font import reads them.
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -13,6 +13,15 @@ export const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).
 
 /** One of the font files we ship. */
 export const fontFile = (file: string) => new Uint8Array(readFileSync(join(FONT_FILES_DIR, file)))
+
+/**
+ * SVG files within the reader's limits that are still too much to draw: four blurred groups, as
+ * many as may nest, each blurred as wide as an effect may be, whose offscreen drawings need about
+ * 650 MB; and 100 squares, as many blurs as a file may have, each blurred as wide as the drawing,
+ * which take about 16 s.
+ */
+export const DEEP_BLURS = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="b"><feGaussianBlur stdDeviation="1000"/></filter>${'<g filter="url(#b)">'.repeat(4)}<rect width="100" height="100"/>${'</g>'.repeat(4)}</svg>`
+export const SLOW_BLURS = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="b"><feGaussianBlur stdDeviation="50"/></filter>${'<rect filter="url(#b)" width="100" height="100"/>'.repeat(100)}</svg>`
 
 /** A Google family of the files given, each a name, its bytes, weight and style, in a folder of its own. */
 export function googleFamily(

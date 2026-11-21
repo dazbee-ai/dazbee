@@ -9,6 +9,7 @@ import {
   type AssetUse,
   imageAssetIds,
   imageFits,
+  type ImageHeader,
   type ImageType,
   parseDesign,
   readImageHeader,
@@ -19,7 +20,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { assetThumbnailKey, checkUpload, originalKey, signedUpload } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
-import { readSvgHeader } from './svg-worker.ts'
+import { readSvgHeader, SvgRefused } from './svg-assets.ts'
 import { makeThumbnail } from './thumbnails.ts'
 
 export class InvalidUpload extends Error {}
@@ -174,7 +175,13 @@ export async function recordAsset(
   const bytes = await storage.get(key)
   if (!bytes) throw new InvalidUpload('Nothing was uploaded for that SHA-256')
   const refuse = await checkUpload(storage, key, bytes, sha256, InvalidUpload)
-  const header = readImageHeader(bytes) ?? (await readSvgHeader(bytes))
+  let header: ImageHeader | null
+  try {
+    header = readImageHeader(bytes) ?? (await readSvgHeader(bytes))
+  } catch (error) {
+    if (error instanceof SvgRefused) throw await refuse(error.message)
+    throw error
+  }
   if (!header) throw await refuse('The upload is not a PNG, JPEG or WebP image, or an SVG file we can read')
   if (header.contentType !== 'image/svg+xml' && !imageFits(header))
     throw await refuse('This image is too big: at most 16,384 pixels a side and 100 megapixels')
@@ -183,8 +190,8 @@ export async function recordAsset(
     let made: Awaited<ReturnType<typeof makeThumbnail>>
     try {
       made = await makeThumbnail(bytes, header.contentType)
-    } catch {
-      throw await refuse('The image could not be decoded')
+    } catch (error) {
+      throw await refuse(error instanceof SvgRefused ? error.message : 'The image could not be decoded')
     }
     await storage.put(thumbnail, made.bytes, made.contentType)
   }

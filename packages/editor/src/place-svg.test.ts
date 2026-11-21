@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { Session } from '@dazbee/doc'
 import type { Point } from '@dazbee/schema'
+import { hugePath, NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
 import type { Spot } from './canvas/view.ts'
 import type { EditorPlaceSvg } from './place-svg.ts'
@@ -76,6 +77,17 @@ describe('editorPlaceSvg', () => {
       const { svg, session, log } = harness()
       expect(await svg.readSvg('<html></html>', 'Page')).toBeNull()
       expect(log).toEqual(['svgUnreadable'])
+      expect(session.canUndo()).toBe(false)
+    })
+
+    it('refuses 50 nested blurs and one path of 630,000 points as it refuses a file it can’t read, within a second each', async () => {
+      const { svg, session, log } = harness()
+      for (const file of [NESTED_BLURS, hugePath()]) {
+        const started = performance.now()
+        expect(await svg.readSvg(file, 'Hostile')).toBeNull()
+        expect(performance.now() - started).toBeLessThan(1000)
+      }
+      expect(log).toEqual(['svgUnreadable', 'svgUnreadable'])
       expect(session.canUndo()).toBe(false)
     })
   })

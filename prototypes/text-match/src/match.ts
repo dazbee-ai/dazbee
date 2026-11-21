@@ -74,6 +74,9 @@ interface Fitted {
   brandToken?: string
 }
 
+/** Typefaces read to check which letters a face has, kept across blocks (the most recent 400). */
+const typefaces = new Map<string, Typeface | null>()
+
 const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
 /** Which score orders candidates: the letters' shapes (default), the plain overlap, or both. */
 const RANK = process.env.RANK ?? 'shape'
@@ -88,7 +91,6 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   const m = measure(block)
   const text = block.text
   const script = scriptOf(text)
-  const typefaces = new Map<string, Typeface | null>()
 
   /** Whether a face draws every letter of the text itself, without a fallback. */
   const covers = (face: CatalogueFace) => {
@@ -96,6 +98,11 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     if (tf === undefined) {
       tf = ctx.ck.Typeface.MakeTypefaceFromData(fontBytes(face).buffer as ArrayBuffer)
       typefaces.set(face.file, tf)
+      if (typefaces.size > 400) {
+        const [oldest, old] = typefaces.entries().next().value!
+        old?.delete()
+        typefaces.delete(oldest)
+      }
     }
     if (!tf) return false
     const letters = [...new Set(text.replace(/\s/g, ''))].join('')
@@ -170,7 +177,6 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   fits.sort((a, b) => b.rank - a.rank)
   const first = choose(fits)
   if (!first) {
-    for (const tf of typefaces.values()) tf?.delete()
     return keep(m, text, shortlist, draws, started)
   }
   // The finalists: the choice and the next best (tuned in Medium), each drawn in full and scored by
@@ -179,7 +185,6 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   if (version === 'medium') finalists = finalists.map((f) => tune(ctx.drawer, m, text, f, () => draws++))
   const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
   const won = finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
-  for (const tf of typefaces.values()) tf?.delete()
   return {
     keepAsPicture: !won.score.same,
     ...won,

@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util'
 
 const t0 = performance.now()
 const { loadCanvasKit } = await import('@dazbee/renderer/node')
-const { DATA_DIR, loadCatalogue, FONTS_DIR } = await import('./catalogue.ts')
+const { DATA_DIR, fallbackFaces, FONTS_DIR, LIBRARY } = await import('./catalogue.ts')
 const { adNames, loadAd } = await import('./testads.ts')
 const { makeDrawer } = await import('./draw.ts')
 const { loadFingerprints, openModel } = await import('./fingerprint.ts')
@@ -32,8 +32,8 @@ const { values } = parseArgs({
 const versions = values.versions!.split(',') as ('light' | 'medium')[]
 
 const ck = await loadCanvasKit()
-const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
-const catalogue = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
+const drawer = makeDrawer(ck, fallbackFaces(LIBRARY))
+const catalogue = LIBRARY
 const model = await openModel(join(values.model!, 'model.onnx'), 1)
 const fingerprints = loadFingerprints(values.model!)
 const ctx = { ck, drawer, model, fingerprints, catalogue, subset: values.subset! }

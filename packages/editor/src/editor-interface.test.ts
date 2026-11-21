@@ -152,6 +152,8 @@ describe('Editor', () => {
       | 'placeSvg'
       | 'whenSettled'
       | 'placeWhenSettled'
+      | 'placeFigma'
+      | 'designSize'
       | 'spotAt'
       | 'pickColour'
       | 'stopPicking'

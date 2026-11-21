@@ -2,7 +2,7 @@
 // The editor's core: every module that decides what the design, the selection, the camera or the
 // tool becomes, built in the code layout's order on what it is handed, with no browser. The page's
 // side, `editor.ts`, builds the shell on its modules; a test opens it in Node.
-import { derivedValues, frameIdOf, openSession, type Session } from '@dazbee/doc'
+import { derivedValues, designSizeOf, frameIdOf, openSession, type Session } from '@dazbee/doc'
 import type { Design, Point, SafeZoneChoice, ValueKind, VariableRef, Variables } from '@dazbee/schema'
 
 import { toggled } from './across-frames.ts'
@@ -46,6 +46,7 @@ import { editorLinkNotices } from './link-notices.ts'
 import { editorLinkedCopies, isLinkedAction } from './linked-copies.ts'
 import { listenerSet } from './listener-set.ts'
 import { editorPlace } from './place.ts'
+import { editorPlaceFigma } from './place-figma.ts'
 import { editorPlaceImages } from './place-images.ts'
 import { editorPlaceSvg } from './place-svg.ts'
 import { editorPresence } from './presence.ts'
@@ -353,6 +354,15 @@ export function buildCore({
     uploads,
     open: { gesturing, dragging, stopEditing, settle },
     ...(after ? { after } : {}),
+    signal,
+  })
+  const placeFigma = editorPlaceFigma({
+    session,
+    store,
+    view,
+    typing,
+    whenSettled: placeSvg.whenSettled,
+    gesturing,
     signal,
   })
   const placeImages = editorPlaceImages({
@@ -876,6 +886,8 @@ export function buildCore({
     whenSettled: placeSvg.whenSettled,
     placeSvg: placeSvg.placeSvg,
     placeWhenSettled: placeSvg.placeWhenSettled,
+    placeFigma: placeFigma.placeFigma,
+    designSize: () => designSizeOf(store.snapshot()),
     fillWithImage: (id: string, asset: PlacedAsset) => place.fillWithImage(id, asset),
     pageThumbnail: thumbnails.page,
     layerThumbnail: thumbnails.layer,

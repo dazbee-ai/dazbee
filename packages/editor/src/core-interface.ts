@@ -20,6 +20,7 @@ import type {
   ChangeSetKind,
   Design,
   DesignSize,
+  FigmaImport,
   Point,
   Presence,
   Rect,
@@ -48,6 +49,7 @@ import type { MaskState, MaskWhy } from './layers/masks.ts'
 import type { UngroupState } from './layers/ungroup.ts'
 import type { WrapState } from './layers/wrap-state.ts'
 import type { LinkedMenu } from './linked-copies.ts'
+import type { PlacedFigma } from './place-figma.ts'
 import type { SvgRead } from './place-svg.ts'
 import type { ResourceSources } from './resources.ts'
 import type { Restored } from './restore.ts'
@@ -759,6 +761,22 @@ export interface EditorBase {
   placeSvg(read: SvgRead): string | null
   /** Places an SVG file `readSvg` read once `whenSettled` resolves, as `placeSvg` does; null when it placed nothing. */
   placeWhenSettled(read: SvgRead): Promise<string | null>
+  /**
+   * Places an import from Figma once `whenSettled` resolves, as one undo step named `importFigma`: a
+   * file's or a page's pages each a new page at the end, named as in Figma, with its frames where
+   * Figma has them, or a frame link's frame on the shown page by the frame rule, each frame's layers
+   * in it and its texts that grow with their words fitted. Undo takes it all back; the images it
+   * shows stay in the library. Nothing is placed in an editor that has ended or only views, or past
+   * a design limit counted on the design as it is then. Placed, it gives each Figma node id's new
+   * page, frame or layer, and `confirmed`, which resolves 'saved' once the sync server has stored the
+   * step and fails with `NotSaved` ('rejected', 'tooBig', 'lost' or 'ended') otherwise.
+   */
+  placeFigma(figma: FigmaImport): Promise<PlacedFigma>
+  /**
+   * The design's size as the sync server counts it, as this tab holds it now, its steps not yet
+   * confirmed included: its layers, frames, pages and bytes, which an import is checked against.
+   */
+  designSize(): DesignSize
   /**
    * Puts an image into a layer as its fill, as one undo step: in place of its topmost image fill
    * (keeping its fit, adjustments and filter, the crop reset), or on top of its fills when it has

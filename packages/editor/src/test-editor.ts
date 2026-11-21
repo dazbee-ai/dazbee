@@ -1,7 +1,7 @@
 // The editor's core opened in Node for the tests, on `buildCore`, with real CanvasKit and the fonts
 // the app ships, and a mouse, keys and a clipboard in stage points: each sends the pointer and key
 // inputs a browser sends, in a browser's order.
-import { readDesign } from '@dazbee/doc'
+import { type DesignStore, readDesign } from '@dazbee/doc'
 import { openTestStore } from '@dazbee/doc/test-store'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -40,6 +40,11 @@ export interface TestEditorOptions {
    * core's recompute bound to it. The design is the tab's, and `design` only names its fonts.
    */
   tab?: OpenTab
+  /**
+   * The store the core opens on without a tab, such as a held tab of a local server or one whose
+   * client has smaller limits; a scratch test store holding `design` unless given.
+   */
+  store?: DesignStore
   /** What draws the frames picking a colour reads; the core draws them itself unless told. */
   sampler?: FrameSampler
   /** Whether the stage may show the hidden layers, as a version viewed may not; it may unless told. */
@@ -120,6 +125,7 @@ export async function testEditor(
     tab,
     sampler,
     hiddenShowable,
+    store: givenStore,
     ...given
   }: TestEditorOptions = {},
 ) {
@@ -128,7 +134,7 @@ export async function testEditor(
   const access = tab?.access ?? given.access
   const linkNotices = tab?.linkNotices ?? given.linkNotices
   const ck = await loadCanvasKit()
-  const store = tab?.store ?? openTestStore(parsed.design)
+  const store = tab?.store ?? givenStore ?? openTestStore(parsed.design)
   const opened = readDesign(store)
   const [images, fonts] = await Promise.all([
     loadImages(imageAssetIds(opened), sources),

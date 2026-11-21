@@ -15,15 +15,19 @@ export interface Score {
   same: boolean
 }
 
-/** Both pictures over the background (RGB 0–255), compared. Same size. */
-export function score(block: Rgba, drawn: Rgba, background: readonly number[]): Score {
+/**
+ * Both pictures over the background (RGB 0–255), compared. Same size. A flat block (no transparency)
+ * gives its foreground as `blockInk` (0 to 1 a pixel), since its alpha covers everything.
+ */
+export function score(block: Rgba, drawn: Rgba, background: readonly number[], blockInk?: Float32Array): Score {
   const a = over(block, background)
   const b = over(drawn, background)
   const ssim = lumaSsim(a, b, block.width, block.height)
   let sum = 0
   let n = 0
   for (let i = 0; i < block.width * block.height; i++) {
-    if (block.data[i * 4 + 3]! <= 127 && drawn.data[i * 4 + 3]! <= 127) continue
+    const fg = blockInk ? blockInk[i]! > 0.5 : block.data[i * 4 + 3]! > 127
+    if (!fg && drawn.data[i * 4 + 3]! <= 127) continue
     sum += ciede2000(lab(a[i * 3]!, a[i * 3 + 1]!, a[i * 3 + 2]!), lab(b[i * 3]!, b[i * 3 + 1]!, b[i * 3 + 2]!))
     n++
   }
@@ -173,4 +177,136 @@ export function ciede2000(p: readonly number[], q: readonly number[]): number {
   const Sh = 1 + 0.015 * Cmp * T
   const Rt = -Math.sin(2 * dTheta * rad) * Rc
   return Math.sqrt((dLp / Sl) ** 2 + (dCp / Sc) ** 2 + (dHp / Sh) ** 2 + Rt * (dCp / Sc) * (dHp / Sh))
+}
+
+/**
+ * Not the shared rule: the same comparison after the drawn text is blurred as much as the block is
+ * soft (the σ of 0, 0.6, 1, 1.5 or 2.2 px that scores best), so a crisp result for a soft generated
+ * block is judged by its letters, not by its sharpness. Reported beside the shared rule.
+ */
+export function blurMatchedScore(block: Rgba, drawn: Rgba, background: readonly number[], blockInk?: Float32Array): Score & { sigma: number } {
+  let best: (Score & { sigma: number }) | null = null
+  for (const sigma of [0, 0.6, 1, 1.5, 2.2]) {
+    const s = { ...score(block, sigma === 0 ? drawn : blurRgba(drawn, sigma), background, blockInk), sigma }
+    if (!best || (s.same && !best.same) || (s.same === best.same && s.ssim - s.deltaE / 100 > best.ssim - best.deltaE / 100)) best = s
+  }
+  return best!
+}
+
+/** A Gaussian blur of an RGBA picture, done on premultiplied colour. */
+export function blurRgba(img: Rgba, sigma: number): Rgba {
+  const { width: w, height: h } = img
+  const rad = Math.ceil(sigma * 3)
+  const k = Array.from({ length: 2 * rad + 1 }, (_, i) => Math.exp(-((i - rad) ** 2) / (2 * sigma * sigma)))
+  const sum = k.reduce((a, b) => a + b, 0)
+  const kn = k.map((v) => v / sum)
+  const p = new Float32Array(w * h * 4)
+  for (let i = 0; i < w * h; i++) {
+    const a = img.data[i * 4 + 3]! / 255
+    for (let c = 0; c < 3; c++) p[i * 4 + c] = img.data[i * 4 + c]! * a
+    p[i * 4 + 3] = img.data[i * 4 + 3]!
+  }
+  const pass = (src: Float32Array, dx: number, dy: number) => {
+    const out = new Float32Array(src.length)
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        for (let c = 0; c < 4; c++) {
+          let v = 0
+          for (let t = -rad; t <= rad; t++) {
+            const xx = Math.max(0, Math.min(w - 1, x + t * dx))
+            const yy = Math.max(0, Math.min(h - 1, y + t * dy))
+            v += kn[t + rad]! * src[(yy * w + xx) * 4 + c]!
+          }
+          out[(y * w + x) * 4 + c] = v
+        }
+    return out
+  }
+  const q = pass(pass(p, 1, 0), 0, 1)
+  const data = new Uint8Array(w * h * 4)
+  for (let i = 0; i < w * h; i++) {
+    const a = q[i * 4 + 3]!
+    for (let c = 0; c < 3; c++) data[i * 4 + c] = a > 0.5 ? Math.round(Math.min(255, (q[i * 4 + c]! * 255) / a)) : 0
+    data[i * 4 + 3] = Math.round(a)
+  }
+  return { width: w, height: h, data }
+}
+
+/**
+ * Not the shared rule: the share of the block's ink the drawing misses, and of the drawing's ink the
+ * block lacks, each with a pixel of give (a pixel counts as covered when any pixel around it is), so a
+ * lost or added stroke shows even where SSIM and the mean ΔE hide it.
+ */
+export function inkDifference(blockInk: Float32Array, drawn: Rgba): { missed: number; extra: number } {
+  const { width: w, height: h } = drawn
+  const near = (test: (i: number) => boolean, x: number, y: number) => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx
+        const yy = y + dy
+        if (xx >= 0 && yy >= 0 && xx < w && yy < h && test(yy * w + xx)) return true
+      }
+    return false
+  }
+  let ink = 0
+  let missed = 0
+  let drawnInk = 0
+  let extra = 0
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x
+      if (blockInk[i]! > 0.5) {
+        ink++
+        if (!near((j) => drawn.data[j * 4 + 3]! > 64, x, y)) missed++
+      }
+      if (drawn.data[i * 4 + 3]! > 127) {
+        drawnInk++
+        if (!near((j) => blockInk[j]! > 0.25, x, y)) extra++
+      }
+    }
+  return { missed: ink ? missed / ink : 0, extra: drawnInk ? extra / drawnInk : 0 }
+}
+
+/**
+ * Not the shared rule: the shapes prototype's proposed variant. Both pictures over white and over
+ * black, SSIM at full resolution and the mean ΔE over every pixel of the block, the worse of the two
+ * backgrounds kept; the same thresholds. A flat block is compared on its own pixels only.
+ */
+export function whiteBlackScore(block: Rgba, drawn: Rgba, background: readonly number[], flat: boolean): Score {
+  const backs = flat ? [background] : [[255, 255, 255], [0, 0, 0]]
+  let worst: Score | null = null
+  for (const bg of backs) {
+    const a = over(block, bg)
+    const b = over(drawn, bg)
+    const n = block.width * block.height
+    const ya = new Float32Array(n)
+    const yb = new Float32Array(n)
+    let sum = 0
+    for (let i = 0; i < n; i++) {
+      ya[i] = 0.2126 * a[i * 3]! + 0.7152 * a[i * 3 + 1]! + 0.0722 * a[i * 3 + 2]!
+      yb[i] = 0.2126 * b[i * 3]! + 0.7152 * b[i * 3 + 1]! + 0.0722 * b[i * 3 + 2]!
+      sum += ciede2000(lab(a[i * 3]!, a[i * 3 + 1]!, a[i * 3 + 2]!), lab(b[i * 3]!, b[i * 3 + 1]!, b[i * 3 + 2]!))
+    }
+    const ssim = ssimOf(ya, yb, block.width, block.height)
+    const deltaE = sum / n
+    if (!worst || ssim < worst.ssim || deltaE > worst.deltaE)
+      worst = { ssim: Math.min(ssim, worst?.ssim ?? 1), deltaE: Math.max(deltaE, worst?.deltaE ?? 0), same: false }
+  }
+  return { ...worst!, same: worst!.ssim >= SAME_SSIM && worst!.deltaE <= SAME_DELTA_E }
+}
+
+function ssimOf(ya: Float32Array, yb: Float32Array, w: number, h: number): number {
+  const mu1 = gauss(ya, w, h)
+  const mu2 = gauss(yb, w, h)
+  const s11 = gauss(ya.map((v) => v * v), w, h)
+  const s22 = gauss(yb.map((v) => v * v), w, h)
+  const s12 = gauss(ya.map((v, i) => v * yb[i]!), w, h)
+  const c1 = (0.01 * 255) ** 2
+  const c2 = (0.03 * 255) ** 2
+  let total = 0
+  for (let i = 0; i < w * h; i++) {
+    const m1 = mu1[i]!
+    const m2 = mu2[i]!
+    total += ((2 * m1 * m2 + c1) * (2 * (s12[i]! - m1 * m2) + c2)) / ((m1 * m1 + m2 * m2 + c1) * (s11[i]! - m1 * m1 + s22[i]! - m2 * m2 + c2))
+  }
+  return total / (w * h)
 }

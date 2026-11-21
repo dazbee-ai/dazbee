@@ -12,7 +12,7 @@ import { type Drawer, type Placed, type TextLook, textProps } from './draw.ts'
 import { blockFingerprint, type Fingerprints, type Model, nearest } from './fingerprint.ts'
 import { type Box, type Ink, inkBox } from './ink.ts'
 import { type Block, findLines, hex, type Measured, measure } from './measure.ts'
-import { ciede2000, lab, type Score, score } from './score.ts'
+import { blurMatchedScore, ciede2000, inkDifference, lab, type Score, score, whiteBlackScore } from './score.ts'
 
 export type Version = 'light' | 'medium'
 
@@ -50,6 +50,12 @@ export interface Match {
   bindings: { fontFamily?: string; textColor?: string }
   brandTextStyle?: string
   score: Score
+  /** The same comparison with the drawing blurred to the block's softness (not the shared rule). */
+  matched: Score & { sigma: number }
+  /** Shares of the block's ink missed and of the drawn ink extra (not the shared rule). */
+  ink: { missed: number; extra: number }
+  /** The shapes prototype's proposed variant of the rule (not the shared rule). */
+  whiteBlack: Score
   /** The faces tried, best first, by id. */
   shortlist: string[]
   draws: number
@@ -61,13 +67,22 @@ interface Fitted {
   look: TextLook
   /** The layer in the level block: before the tilt is put back. */
   place: Placed
+  /** What candidates are ordered by. */
   rank: number
+  /** How well the ink overlaps where it is drawn (softIou). */
+  overlap: number
+  /** How well the letters' shapes match, each piece free to move a little (elasticIou). */
+  shape: number
   /** The drawn text's lines, in the level block once placed. */
   lines: Box[]
+  /** How many places letter spacing goes in each line: between its ink's first and last glyph. */
+  lineGaps?: number[]
   brandToken?: string
 }
 
 const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
+/** Which score orders candidates: the letters' shapes (default), the plain overlap, or both. */
+const RANK = process.env.RANK ?? 'shape'
 /** How much a brand font may trail the best other font and still be chosen. */
 const BRAND_MARGIN = 0.03
 /** A colour this close to a brand colour (ΔE) is taken as that colour and bound to it. */
@@ -159,25 +174,43 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   const brandLead = fits.findIndex((f) => f.brandToken)
   if (brandLead >= leaders) fits[brandLead] = refit(ctx.drawer, m, text, fits[brandLead]!, () => draws++)
   fits.sort((a, b) => b.rank - a.rank)
-  let best = choose(fits)
-  if (!best) {
+  const first = choose(fits)
+  if (!first) {
     for (const tf of typefaces.values()) tf?.delete()
     return keep(m, text, shortlist, draws, started)
   }
-  if (version === 'medium') {
-    const runners = fits.filter((f) => f !== best).slice(0, 1)
-    const tuned = [best, ...runners].map((f) => tune(ctx.drawer, m, text, f, () => draws++))
-    tuned.sort((a, b) => b.rank - a.rank)
-    best = choose(tuned) ?? tuned[0]!
+  // The finalists: the choice and the next best (tuned in Medium), each drawn in full and scored by
+  // the shared rule; the first that looks the same wins, else the one that comes closest.
+  let finalists = [first, ...fits.filter((f) => f !== first).slice(0, 1)]
+  if (version === 'medium') finalists = finalists.map((f) => tune(ctx.drawer, m, text, f, () => draws++))
+  const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
+  const won = finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
+  for (const tf of typefaces.values()) tf?.delete()
+  return {
+    keepAsPicture: !won.score.same,
+    ...won,
+    shortlist: fits.map((f) => faceId(f.face)),
+    draws,
+    ms: performance.now() - started,
   }
+}
 
-  // Colour, outline and brand bindings.
+/** How close a result comes to looking the same: SSIM, less a hundredth of the mean ΔE. */
+const quality = (s: Score) => s.ssim - s.deltaE / 100
+
+/**
+ * A fit made into the text layer: its colour and outline from the block, snapped to the brand's
+ * colours when close (and bound to them), its brand text style when one matches and draws as well,
+ * placed back in the tilted block and scored by the shared rule.
+ */
+function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit: Fitted, kit: Kit | undefined, counted: () => void) {
+  let best = fit
   const bindings: Match['bindings'] = {}
   let color = hex(m.fill)
-  const near2 = nearestBrandColor(m.fill, kit)
-  if (near2) {
-    color = near2.value
-    bindings.textColor = `brand:${near2.token}`
+  const near = nearestBrandColor(m.fill, kit)
+  if (near) {
+    color = near.value
+    bindings.textColor = `brand:${near.token}`
   }
   if (best.brandToken) bindings.fontFamily = `brand:${best.brandToken}`
   let look: TextLook = { ...best.look, color }
@@ -194,32 +227,24 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
       text,
       best.face,
       { ...best.look, spacing: style.spacing, ...(style.lineHeight ? { lineHeight: style.lineHeight } : {}) },
-      () => draws++,
+      counted,
     )
-    if (styled && styled.rank >= best.rank - 0.01) {
+    if (styled && styled.overlap >= best.overlap - 0.01) {
       best = { ...styled, brandToken: best.brandToken! }
       look = { ...look, spacing: styled.look.spacing, ...(styled.look.lineHeight ? { lineHeight: styled.look.lineHeight } : {}) }
     } else style = undefined
   }
-
   const place = untilt(best.place, m)
   const layer = textProps(text, look, place)
   const drawn = ctx.drawer.draw(block.rgba.width, block.rgba.height, null, layer)
-  draws++
-  const s = score(block.rgba, { width: block.rgba.width, height: block.rgba.height, data: drawn }, m.background)
-  for (const tf of typefaces.values()) tf?.delete()
-  return {
-    keepAsPicture: !s.same,
-    layer,
-    look,
-    place,
-    bindings,
-    ...(style ? { brandTextStyle: style.token } : {}),
-    score: s,
-    shortlist: fits.map((f) => faceId(f.face)),
-    draws,
-    ms: performance.now() - started,
-  }
+  counted()
+  const pixels = { width: block.rgba.width, height: block.rgba.height, data: drawn }
+  const flat = m.ink.data.length > 0 && !hasTransparency(block.rgba)
+  const s = score(block.rgba, pixels, m.background, flat ? m.ink.data : undefined)
+  const matched = blurMatchedScore(block.rgba, pixels, m.background, flat ? m.ink.data : undefined)
+  const ink = inkDifference(m.ink.data, pixels)
+  const whiteBlack = whiteBlackScore(block.rgba, pixels, m.background, flat)
+  return { layer, look, place, bindings, ...(style ? { brandTextStyle: style.token } : {}), score: s, matched, ink, whiteBlack }
 }
 
 /** The best fit, a brand font first when it trails the best by no more than BRAND_MARGIN. */
@@ -240,6 +265,9 @@ function keep(m: Measured, text: string, shortlist: CatalogueFace[], draws: numb
     place,
     bindings: {},
     score: { ssim: 0, deltaE: 99, same: false },
+    matched: { ssim: 0, deltaE: 99, same: false, sigma: 0 },
+    ink: { missed: 1, extra: 1 },
+    whiteBlack: { ssim: 0, deltaE: 99, same: false },
     shortlist: shortlist.map(faceId),
     draws,
     ms: performance.now() - started,
@@ -254,7 +282,7 @@ const graphemes = (s: string) => [...new Intl.Segmenter(undefined, { granularity
  * apart; drawn again in the block, moved so the ink centres meet, and ranked by how well the ink
  * overlaps.
  */
-function fitFace(drawer: Drawer, m: Measured, text: string, face: CatalogueFace, counted: () => void): Fitted | null {
+export function fitFace(drawer: Drawer, m: Measured, text: string, face: CatalogueFace, counted: () => void): Fitted | null {
   const lines = text.split('\n')
   const n = lines.length
   const base: TextLook = {
@@ -272,11 +300,19 @@ function fitFace(drawer: Drawer, m: Measured, text: string, face: CatalogueFace,
   const baseLines = findLines(baseInk.ink, baseInk.box, n)
   const ratios = m.lines.map((l, i) => l.box.h / Math.max(1, baseLines[i]!.box.h)).filter((r) => Number.isFinite(r) && r > 0)
   const size = 100 * median(ratios)
-  // Letter spacing: the width the lines lack at this size, shared over their characters.
+  // Letter spacing: the width the lines lack at this size, shared over the places spacing goes. How
+  // many there are is measured (a line laid out with and without spacing), since a script's clusters
+  // and ligatures make it differ from the count of characters.
+  const lineGaps = lines.map((l) => {
+    if (!l.trim()) return 0
+    const plain = drawer.measure(l, { ...base, lineHeight: undefined, size: 100, spacing: 0 }).width
+    const spaced = drawer.measure(l, { ...base, lineHeight: undefined, size: 100, spacing: 20 }).width
+    return Math.max(0, (spaced - plain) / 20 - 1)
+  })
   let room = 0
   let gaps = 0
   m.lines.forEach((l, i) => {
-    const k = graphemes(lines[i] ?? '') - 1
+    const k = lineGaps[i] ?? 0
     if (k <= 0) return
     room += l.box.w - (baseLines[i]!.box.w * size) / 100
     gaps += k
@@ -295,11 +331,12 @@ function fitFace(drawer: Drawer, m: Measured, text: string, face: CatalogueFace,
   }
   const outline = m.outline ? { width: m.outline.width, color: '#000000FF' } : undefined
   const look: TextLook = { ...base, size, spacing, ...(lineHeight ? { lineHeight } : {}), ...(outline ? { outline } : {}) }
-  return placeAndRank(drawer, m, text, face, look, counted)
+  const fit = placeAndRank(drawer, m, text, face, look, counted)
+  return fit ? { ...fit, lineGaps } : null
 }
 
 /** Draws the look in the level block, moves it so the ink boxes' centres meet, and ranks it. */
-function placeAndRank(
+export function placeAndRank(
   drawer: Drawer,
   m: Measured,
   text: string,
@@ -322,9 +359,11 @@ function placeAndRank(
   if (!box) return null
   const dx = m.box.x + m.box.w / 2 - (box.x - pad + box.w / 2) + nudge.dx
   const dy = m.box.y + m.box.h / 2 - (box.y - pad + box.h / 2) + nudge.dy
-  const rank = softIou(m.level, ink, dx - pad, dy - pad)
+  const overlap = softIou(m.level, ink, dx - pad, dy - pad)
+  const shape = elasticIou(m.level, ink, dx - pad, dy - pad, look.size)
+  const rank = RANK === 'overlap' ? overlap : RANK === 'mix' ? (shape + overlap) / 2 : shape
   const lines = findLines(ink, box, m.lines.length).map((l) => ({ ...l.box, x: l.box.x - pad + dx, y: l.box.y - pad + dy }))
-  return { face, look, place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 }, rank, lines }
+  return { face, look, place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 }, rank, overlap, shape, lines }
 }
 
 /**
@@ -339,7 +378,7 @@ function refit(drawer: Drawer, m: Measured, text: string, fit: Fitted, counted: 
   let room = 0
   let gaps = 0
   m.lines.forEach((l, i) => {
-    const k = graphemes(lines[i] ?? '') - 1
+    const k = fit.lineGaps?.[i] ?? graphemes(lines[i] ?? '') - 1
     if (k <= 0) return
     room += l.box.w - fit.lines[i]!.w * ratio
     gaps += k
@@ -355,7 +394,9 @@ function refit(drawer: Drawer, m: Measured, text: string, fit: Fitted, counted: 
   }
   const look = { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) }
   const tried = placeAndRank(drawer, m, text, fit.face, look, counted)
-  return tried && tried.rank > fit.rank ? { ...tried, ...(fit.brandToken ? { brandToken: fit.brandToken } : {}) } : fit
+  return tried && tried.overlap > fit.overlap
+    ? { ...tried, ...(fit.lineGaps ? { lineGaps: fit.lineGaps } : {}), ...(fit.brandToken ? { brandToken: fit.brandToken } : {}) }
+    : fit
 }
 
 /**
@@ -381,7 +422,7 @@ function tune(drawer: Drawer, m: Measured, text: string, start: Fitted, counted:
         if (key === 'dx') n2.dx += sign * steps.dx!
         if (key === 'dy') n2.dy += sign * steps.dy!
         const tried = placeAndRank(drawer, m, text, best.face, look, counted, n2)
-        if (tried && tried.rank > best.rank + 1e-4) {
+        if (tried && tried.overlap > best.overlap + 1e-4) {
           best = { ...tried, ...(start.brandToken ? { brandToken: start.brandToken } : {}) }
           nudge = n2
           break
@@ -437,6 +478,62 @@ export function softIou(a: Ink, b: Ink, dx: number, dy: number): number {
   return union > 0 ? inter / union : 0
 }
 
+/**
+ * How well the letters' shapes match when each piece of the drawn text may move a little: the drawn
+ * ink is cut into tiles half the font size wide, each tile is moved up to 8% of the size (at least
+ * 2 px) each way to where it overlaps the block best, and the overlaps are summed as an intersection
+ * over a union. Spacing that drifts along a line costs little; a wrong letter shape costs a lot.
+ */
+export function elasticIou(a: Ink, b: Ink, dx: number, dy: number, size: number): number {
+  const box = inkBox(b, 0.05)
+  if (!box) return 0
+  const tile = Math.max(6, Math.round(size * 0.5))
+  const r = Math.max(2, Math.round(size * 0.08))
+  const ia = Math.round(dx)
+  const ja = Math.round(dy)
+  let inter = 0
+  let union = 0
+  let massA = 0
+  for (let i = 0; i < a.data.length; i++) massA += a.data[i]!
+  let coveredA = 0
+  for (let ty = box.y; ty < box.y + box.h; ty += tile)
+    for (let tx = box.x; tx < box.x + box.w; tx += tile) {
+      let best = -1
+      let bestI = 0
+      let bestU = 0
+      let bestA = 0
+      for (let sy = -r; sy <= r; sy++)
+        for (let sx = -r; sx <= r; sx++) {
+          let I = 0
+          let U = 0
+          let A = 0
+          for (let y = ty; y < Math.min(ty + tile, box.y + box.h); y++)
+            for (let x = tx; x < Math.min(tx + tile, box.x + box.w); x++) {
+              const vb = b.data[y * b.width + x]!
+              const ax = x + ia + sx
+              const ay = y + ja + sy
+              const va = ax < 0 || ay < 0 || ax >= a.width || ay >= a.height ? 0 : a.data[ay * a.width + ax]!
+              I += Math.min(va, vb)
+              U += Math.max(va, vb)
+              A += va
+            }
+          const v = U > 0 ? I / U : 0
+          if (v > best || (v === best && sx === 0 && sy === 0)) {
+            best = v
+            bestI = I
+            bestU = U
+            bestA = A
+          }
+        }
+      inter += bestI
+      union += bestU
+      coveredA += bestA
+    }
+  // Block ink no tile reached is all missed.
+  union += Math.max(0, massA - coveredA)
+  return union > 0 ? inter / union : 0
+}
+
 function sampleAt(d: Float32Array, w: number, h: number, fx: number, fy: number) {
   const x0 = Math.floor(fx)
   const y0 = Math.floor(fy)
@@ -464,7 +561,7 @@ function blur(ink: Ink): Float32Array {
 }
 
 /** The layer placed in the block itself: its centre turned back by the block's tilt about the block's centre. */
-function untilt(place: Placed, m: Measured): Placed {
+export function untilt(place: Placed, m: Measured): Placed {
   if (Math.abs(m.angle) < 0.01) return place
   const a = (m.angle * Math.PI) / 180
   const cx = m.level.width / 2
@@ -503,6 +600,13 @@ function brandStyle(kit: Kit, fit: Fitted, lines: number) {
     return { token: s.token, spacing, lineHeight: lines > 1 ? s.lineHeight : undefined }
   }
   return undefined
+}
+
+/** Whether a picture is a cut-out: more than 5% of it less than opaque. */
+function hasTransparency(img: { width: number; height: number; data: Uint8Array }) {
+  let clear = 0
+  for (let i = 0; i < img.width * img.height; i++) if (img.data[i * 4 + 3]! < 250) clear++
+  return clear > img.width * img.height * 0.05
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))

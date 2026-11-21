@@ -25,16 +25,18 @@ const { values } = parseArgs({
     part: { type: 'string', default: 'test' },
     out: { type: 'string' },
     limit: { type: 'string' },
+    // Match against Dazbee's current catalogue (321 families) only, instead of the whole library.
+    subset: { type: 'boolean', default: false },
   },
 })
 const versions = values.versions!.split(',') as ('light' | 'medium')[]
 
 const ck = await loadCanvasKit()
-const catalogue = loadCatalogue()
-const drawer = makeDrawer(ck, catalogue.filter((f) => f.source === 'shipped'))
+const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+const catalogue = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
 const model = await openModel(join(values.model!, 'model.onnx'), 1)
 const fingerprints = loadFingerprints(values.model!)
-const ctx = { ck, drawer, model, fingerprints, catalogue }
+const ctx = { ck, drawer, model, fingerprints, catalogue, subset: values.subset! }
 const startupMs = performance.now() - t0
 
 interface Item {
@@ -85,6 +87,10 @@ for (const [n, item] of limited.entries()) {
       ssim: m.score.ssim,
       deltaE: m.score.deltaE,
       same: m.score.same,
+      matched: m.matched,
+      ink: m.ink,
+      whiteBlack: m.whiteBlack,
+      layer: m.layer,
       ms: m.ms,
       draws: m.draws,
       look: m.look,
@@ -94,7 +100,7 @@ for (const [n, item] of limited.entries()) {
       shortlist: m.shortlist.slice(0, 5),
       ...(t
         ? {
-            truth: { face: t.face, family: t.family, category: t.category, script: t.script, form: t.form, degradation: t.degradation, lowContrast: t.lowContrast, brand: !!t.kit, kitHasFont: t.kitHasFont, look: t.look, rotation: t.rotation },
+            truth: { face: t.face, family: t.family, inSubset: t.inSubset, category: t.category, script: t.script, form: t.form, degradation: t.degradation, lowContrast: t.lowContrast, brand: !!t.kit, kitHasFont: t.kitHasFont, look: t.look, rotation: t.rotation },
             familyOk: m.look.family === t.family,
             faceOk: m.look.family === t.family && m.look.weight === t.look.weight && m.look.style === t.look.style,
             inShortlist: m.shortlist.some((f) => f.startsWith(`${t.family}|`)),
@@ -116,6 +122,7 @@ const ru = process.resourceUsage()
 const size = (p: string) => statSync(p).size
 const out = {
   set: values.set,
+  subset: values.subset,
   part: values.part,
   model: values.model,
   startupMs,
@@ -125,7 +132,7 @@ const out = {
   sizes: {
     modelBytes: size(join(values.model!, 'model.onnx')),
     fingerprintsBytes: size(join(values.model!, 'fingerprints.f32')) + size(join(values.model!, 'fingerprint-faces.json')),
-    catalogueBytes: size(join(FONTS_DIR, 'catalogue-scripts.json')),
+    catalogueBytes: size(join(FONTS_DIR, 'library.json')),
   },
   results,
 }

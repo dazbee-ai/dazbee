@@ -1,8 +1,8 @@
 // PROTOTYPE. The whole Google Fonts library as a face list, read from a clone of github.com/google/fonts:
 // every family under ofl/, apache/ and ufl/ (other licences skipped), each static file as one face and
 // each variable file as one face per hundred of weight its weight axis reaches. Dazbee's current
-// catalogue (GOOGLE_FONTS and SCRIPT_FONTS, 321 families, and the shipped Noto faces) is marked
-// `menu: true`, the subset matches can be limited to.
+// catalogue (GOOGLE_FONTS and SCRIPT_FONTS, 321 families, and the shipped Noto faces, in the weights
+// and styles it offers) is marked `menu: true`, the subset matches can be limited to.
 //   node src/library.ts .data/google-fonts
 // Writes .data/fonts/library.json.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -11,10 +11,12 @@ import { join, resolve } from 'node:path'
 import { FONT_FACES, GOOGLE_FONTS, SCRIPT_FONTS } from '@dazbee/fonts'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
-import { type CatalogueFace, type Category, FONTS_DIR, SCRIPT_PROBES, SCRIPTS } from './catalogue.ts'
+import { type CatalogueFace, type Category, faceId, FONTS_DIR, loadCatalogue, SCRIPT_PROBES, SCRIPTS } from './catalogue.ts'
 
 const repo = resolve(process.argv[2]!)
 const subset = new Set([...GOOGLE_FONTS, ...SCRIPT_FONTS].map((f) => f.family).concat(FONT_FACES.map((f) => f.family)))
+// The faces Dazbee offers today (fetch-fonts.ts): the subset is these faces, not every weight of their families.
+const offered = new Set(loadCatalogue().map(faceId))
 const CATEGORIES: Record<string, Category> = {
   SANS_SERIF: 'sans-serif',
   SERIF: 'serif',
@@ -59,7 +61,7 @@ for (const license of ['ofl', 'apache', 'ufl']) {
       typeface.delete()
       for (const w of weights) {
         if (faces.some((f) => f.family === family && f.weight === w && f.style === style)) continue
-        faces.push({ family, weight: w, style, category, file, source: 'google', menu: subset.has(family), scripts, license, variable })
+        faces.push({ family, weight: w, style, category, file, source: 'google', menu: offered.has(faceId({ family, weight: w, style })), scripts, license, variable })
         added++
       }
     }

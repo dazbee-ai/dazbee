@@ -3,6 +3,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 
+import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+
 export const PROTOTYPE_DIR = join(import.meta.dirname, '..')
 export const DATA_DIR = join(PROTOTYPE_DIR, '.data')
 export const FONTS_DIR = join(DATA_DIR, 'fonts')
@@ -52,3 +54,9 @@ export const faceId = (f: Pick<CatalogueFace, 'family' | 'weight' | 'style'>) =>
 export function fontBytes(face: CatalogueFace): Uint8Array {
   return new Uint8Array(readFileSync(isAbsolute(face.file) ? face.file : join(FONTS_DIR, 'files', face.file)))
 }
+
+/** The whole Google Fonts library (library.ts), loaded on first use. */
+export const LIBRARY: CatalogueFace[] = existsSync(join(FONTS_DIR, 'library.json')) ? loadCatalogue(join(FONTS_DIR, 'library.json')) : []
+
+/** The faces of the families text falls back to, from a face list, for a drawer to keep registered. */
+export const fallbackFaces = (faces: readonly CatalogueFace[]) => faces.filter((f) => FALLBACK_FAMILIES.includes(f.family))

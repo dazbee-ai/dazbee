@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
-import { DATA_DIR, loadCatalogue } from './catalogue.ts'
+import { DATA_DIR, fallbackFaces, LIBRARY } from './catalogue.ts'
 import { isHeldOut, loadAd } from './deltax.ts'
 import { makeDrawer, textProps } from './draw.ts'
 import { measure } from './measure.ts'
@@ -41,8 +41,8 @@ if (values.agree) {
   const sorted = [...results].sort((a, b) => a.ssim - b.ssim)
   const picks = Array.from({ length: 20 }, (_, i) => sorted[Math.round((i * (sorted.length - 1)) / 19)]!)
   const ck = await loadCanvasKit()
-  const library = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
-  const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+  const library = LIBRARY
+  const drawer = makeDrawer(ck, fallbackFaces(LIBRARY))
   const out: unknown[] = []
   for (const [i, r] of picks.entries()) {
     const [ad, index] = r.id.split('#')

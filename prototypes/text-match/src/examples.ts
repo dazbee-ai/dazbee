@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
-import { type CatalogueFace, DATA_DIR, loadCatalogue } from './catalogue.ts'
+import { type CatalogueFace, DATA_DIR, fallbackFaces, LIBRARY } from './catalogue.ts'
 import { loadAd } from './deltax.ts'
 import { makeDrawer, type TextLook, textProps } from './draw.ts'
 import { placeAndRank, untilt } from './match.ts'
@@ -28,8 +28,8 @@ const { values } = parseArgs({
   },
 })
 const ck = await loadCanvasKit()
-const library = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
-const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+const library = LIBRARY
+const drawer = makeDrawer(ck, fallbackFaces(LIBRARY))
 const results = JSON.parse(readFileSync(join(DATA_DIR, 'results', `${values.results}.json`), 'utf8')).results as {
   id: string
   version: string

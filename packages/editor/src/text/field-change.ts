@@ -71,13 +71,14 @@ const EDGE_LEAST = 100
 /**
  * What the field holds for a text and its selected range: the range, selected, with up to 1,000
  * UTF-16 units of the text on each side of it, cut at grapheme edges; nothing for a range over
- * 4,000 units. `backward` says the range runs back from its end.
+ * 4,000 units. `backward` says the range runs back from its end. A line break written as \r is held
+ * as \n, as a text area holds it, one unit for one, so offsets in the field are the text's.
  */
 export function fieldText(text: string, range: TextRange, backward = false): FieldState {
   if (range.end - range.start > FIELD_MOST) return { value: '', start: 0, end: 0 }
   const from = graphemeEdge(text, range.start - AROUND_MOST, true)
   const to = graphemeEdge(text, range.end + AROUND_MOST, false)
-  const held = { value: text.slice(from, to), start: range.start - from, end: range.end - from }
+  const held = { value: asField(text.slice(from, to)), start: range.start - from, end: range.end - from }
   return backward ? { ...held, backward } : held
 }
 
@@ -98,12 +99,8 @@ export function keptField(
   const { value } = held
   const from = ends.start - held.start
   const to = ends.end + value.length - held.end
-  const matches =
-    from >= 0 &&
-    to <= text.length &&
-    text.slice(from, ends.start) === value.slice(0, held.start) &&
-    text.slice(ends.start, ends.end) === value.slice(held.start, held.end) &&
-    text.slice(ends.end, to) === value.slice(held.end)
+  // The selection is as long as it was, and the text there reads as the field holds it.
+  const matches = from >= 0 && to - from === value.length && asField(text.slice(from, to)) === value
   if (!matches || range.end - range.start > FIELD_MOST || range.start < from || range.end > to) return null
   if ((from > 0 && range.start - from < EDGE_LEAST) || (to < text.length && to - range.end < EDGE_LEAST)) return null
   const kept = { value, start: range.start - from, end: range.end - from }
@@ -290,6 +287,11 @@ export function sameSelection(a: FieldState, b: FieldState): boolean {
 /** Whether the field holding `state` holds an input method's `data` around its caret: a word it re-opened there. */
 export function holdsAround(state: FieldState, data: string): boolean {
   return data !== '' && dataCover(null, state, data) !== null
+}
+
+/** Text as a text area holds it: a line break written as \r, alone or before \n, as \n, one unit for one. */
+function asField(text: string) {
+  return text.replaceAll('\r', '\n')
 }
 
 /** What the field holding `held` keeps for the selected range of `text`, as `keptField` keeps it; null when it must be given new text. */

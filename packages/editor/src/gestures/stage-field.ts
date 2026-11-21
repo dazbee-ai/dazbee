@@ -117,7 +117,7 @@ export function editorStageField({
    */
   function give() {
     if (composing || sending || !editing()) return
-    if (moved()) send(null)
+    catchUp()
     const given = input.fieldText()
     if (!given) return
     if (field.value !== given.value) field.value = given.value
@@ -134,6 +134,14 @@ export function editorStageField({
       sending = false
       known = held()
     }
+  }
+  /**
+   * Sends a selection the field moved whose `selectionchange`, a task of its own, hasn't come yet,
+   * so the event about to be read (a key, an input, a composition's start) reads from where it is.
+   * It changes the editor only, never the field, so it may run inside a composition event.
+   */
+  function catchUp() {
+    if (!composing && !sending && editing() && moved()) send(null)
   }
   /**
    * Sends what the field holds outside a composition, then gives it new surrounding text at once
@@ -223,6 +231,7 @@ export function editorStageField({
   field.addEventListener(
     'beforeinput',
     (e) => {
+      catchUp()
       if (HISTORY_INPUTS.has(e.inputType)) e.preventDefault()
       // A delete the browser would make anyway is read from the field as it makes it.
       if (e.inputType !== 'deleteContentBackward' || !e.cancelable) return
@@ -235,6 +244,7 @@ export function editorStageField({
   field.addEventListener(
     'compositionstart',
     () => {
+      catchUp()
       composing = true
     },
     on,
@@ -299,6 +309,8 @@ export function editorStageField({
     },
     on,
   )
+  // A key the editor may take reads the text's caret from where the field last moved it.
+  window.addEventListener('keydown', catchUp, { ...on, capture: true })
   window.addEventListener(
     'pointerdown',
     (e) => {

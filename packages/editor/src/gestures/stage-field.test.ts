@@ -88,10 +88,11 @@ class TextArea extends StandIn {
   get value() {
     return this.held
   }
+  /** Takes a value as a browser's text area does: each line break, \r\n and \r too, as \n. */
   set value(value: string) {
     if (this.closed) this.forced.push(value)
-    this.held = value
-    this.selectionStart = this.selectionEnd = value.length
+    this.held = value.replace(/\r\n?/gu, '\n')
+    this.selectionStart = this.selectionEnd = this.held.length
     this.selectionDirection = 'none'
   }
   setSelectionRange(start: number, end: number, direction: 'forward' | 'backward' | 'none' = 'none') {
@@ -478,6 +479,44 @@ describe('editorStageField', () => {
     send({ type: 'selectionchange', field: `${'a'.repeat(30)}|${'a'.repeat(970)}` })
     expect(fieldNow()).toBe(`${'a'.repeat(1_000)}|${'a'.repeat(970)}`)
     expect(typed()).toBe(`${'a'.repeat(4_030)}|${'a'.repeat(970)}`)
+  })
+
+  it('sends a selection the field moved before the next event reads it, though its selectionchange is still to come', async () => {
+    const composed = await typingWith('Hello there|')
+    composed.e.modules.typing.styleRange({ id: 'words', range: { start: 9, end: 11 } }, { fontWeight: 700 })
+    composed.field.hold('Hello th|ere')
+    composed.send({ type: 'compositionstart', data: '', field: 'Hello th|ere' })
+    composed.send({
+      type: 'input',
+      inputType: 'insertCompositionText',
+      data: 'x',
+      isComposing: true,
+      field: 'Hello thx|ere',
+    })
+    composed.send({ type: 'compositionend', data: 'x', field: 'Hello thx|ere' })
+    expect(composed.words()).toBe('Hello thxere')
+    expect((composed.e.core.design().nodes.words?.props as { runs: unknown[] }).runs).toEqual([
+      { start: 10, end: 12, style: { fontWeight: 700 } },
+    ])
+    const deleted = await typingWith('Hello there|')
+    deleted.field.hold('Hello th|ere')
+    const backspace = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
+    deleted.send({ type: 'beforeinput', ...backspace, field: 'Hello th|ere' })
+    expect(deleted.typed()).toBe('Hello t|ere')
+  })
+
+  it('holds a line break written as \\r or \\r\\n as the text area does, one unit for each, and types at the caret', async () => {
+    const { e, send, fieldNow, frame, typed } = await typingWith('a\r\nb|\rc')
+    e.modules.typing.styleRange({ id: 'words', range: { start: 3, end: 4 } }, { fontWeight: 700 })
+    frame()
+    expect(fieldNow()).toBe('a\n\nb|\nc')
+    send({ type: 'input', inputType: 'insertText', data: 'x', field: 'a\n\nbx|\nc' })
+    frame()
+    expect(fieldNow()).toBe('a\n\nbx|\nc')
+    expect((e.core.design().nodes.words?.props as { runs: unknown[] }).runs).toEqual([
+      { start: 3, end: 5, style: { fontWeight: 700 } },
+    ])
+    expect(typed()).toBe('a\r\nbx|\rc')
   })
 
   it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {

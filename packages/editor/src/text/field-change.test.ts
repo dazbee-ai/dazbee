@@ -31,6 +31,12 @@ describe('fieldText', () => {
     )
   })
 
+  it('holds a line break written as \\r or \\r\\n as \\n, one unit for one, as a text area holds it', () => {
+    const held = fieldText('a\r\nb\rc', { start: 3, end: 3 })
+    expect(held).toEqual(field('a\n\nb\nc', 3))
+    expect(keptField('a\r\nb\rc', held, { start: 3, end: 3 }, { start: 5, end: 5 })).toEqual(field('a\n\nb\nc', 5))
+  })
+
   it('says a selection runs backward', () => {
     expect(fieldText('Big sale', { start: 4, end: 8 }, true)).toEqual({ ...field('Big sale', 4, 8), backward: true })
   })

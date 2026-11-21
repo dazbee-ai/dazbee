@@ -231,6 +231,13 @@ describe('superscript and subscript', () => {
     expect((raised.bottom - raised.top) / (plain.bottom - plain.top)).toBeCloseTo(0.6, 1)
   })
 
+  it('draws a made-up superscript whole where a colour starts inside a letter, at an accent drawn on it', () => {
+    const style = { fontFamily: 'Noto Sans', fontWeight: 400, features: { sups: true } }
+    const whole = inkRows(drawn(design(style, { text: 'xé' })))
+    const split = inkRows(drawn(design(style, { text: 'xé', runs: [{ start: 2, end: 3, style: { color: RED } }] })))
+    expect(split.top).toBe(whole.top)
+  })
+
   it('lowers a made-up subscript 7.5 % of an em', () => {
     const plain = inkRows(drawn(scripted('xxxx', 'Noto Sans')))
     const lowered = inkRows(drawn(scripted('xxxx', 'Noto Sans', { subs: true })))

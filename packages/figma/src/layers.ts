@@ -22,6 +22,7 @@ import {
   ROOT,
   unreadable,
 } from './build.ts'
+import { effectsOf } from './effects.ts'
 import {
   boxMapOf,
   type Flips,
@@ -41,7 +42,9 @@ import {
   withinReach,
 } from './geometry.ts'
 import { type Corners, cornersOf, leaf, type Place, SHAPE_TYPES } from './graphics.ts'
+import { paintLayer } from './paints.ts'
 import { field, type FigmaFields, type FigmaNode, str } from './read.ts'
+import { constraintsOf, settingsOf } from './settings.ts'
 
 type BoxProps = Extract<LayerInput, { type: 'box' }>['props']
 
@@ -128,6 +131,9 @@ export function treeOf(build: LayerBuild, roots: readonly Piece[]): LayerTree | 
   if (roots.length === 0) return null
   adopt(build, ROOT, roots)
   settle(build.nodes, ROOT, build.shifts)
+  for (const [id, n] of build.sources) dress(build, build.nodes[id] as LayerInput, n)
+  for (const [id, paints] of Object.entries(build.paints))
+    paintLayer(build.report, build.nodes[id] as LayerInput, paints)
   return { nodes: build.nodes, roots: roots.map((r) => r.id) } as LayerTree
 }
 
@@ -173,6 +179,22 @@ function container(build: LayerBuild, n: FigmaNode, inside: Piece[], entered: En
   build.shifts.set(id, shiftOf(box))
   adopt(build, id, pieces)
   return { id, box }
+}
+
+/**
+ * Gives a layer its node's settings and effects, and its constraints where they are read: in a
+ * frame or a box, from a node whose parent is a frame.
+ */
+function dress(build: LayerBuild, layer: LayerInput, n: FigmaNode) {
+  const { props, lock } = settingsOf(build.report, n, layer.type)
+  const effects = effectsOf(build.report, n)
+  const parent = build.nodes[layer.parentId]
+  const constraints =
+    (layer.parentId === ROOT || parent?.type === 'box') && FRAME_TYPES.has(n.parent?.type ?? '')
+      ? constraintsOf(n)
+      : undefined
+  Object.assign(layer.props, props, effects.length > 0 ? { effects } : {}, constraints ? { constraints } : {})
+  if (lock) layer.lock = lock
 }
 
 function piecesOf(nodes: readonly FigmaNode[], made: ReadonlyMap<FigmaNode, Piece | null>): Piece[] {

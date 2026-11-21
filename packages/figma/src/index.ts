@@ -2,7 +2,7 @@
 // Dazbee pages, frames and layers with an import report of what it left out or drew another way.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { type DesignSize, FigmaImport } from '@dazbee/schema'
+import { type DesignSize, type FigmaFrame, FigmaImport, type Paint } from '@dazbee/schema'
 
 import { linkTarget } from './link-target.ts'
 import { importPages } from './pages.ts'
@@ -19,9 +19,14 @@ export interface FigmaToImportOptions {
   nodeId?: string
 }
 
+/**
+ * A file as the import holds it before its images are fetched. Its image paints hold their Figma
+ * `imageRef` as their asset id, and a stretched image's crop in shares of the image, until
+ * `withImages` gives each its asset and sizes its crop by the image.
+ */
 export interface ConvertedFile {
   converted: FigmaImport
-  /** The image fills' `imageRef`s the import's layers use. */
+  /** The image fills' `imageRef`s the import's frames and layers use, each once. */
   imageRefs: string[]
   /** What the import adds to a design, counted as the design's own size is. */
   size: DesignSize
@@ -46,7 +51,7 @@ export function figmaToImport(
   const frames = converted.pages.flatMap((p) => p.frames)
   return {
     converted,
-    imageRefs: [],
+    imageRefs: imageRefsOf(frames),
     size: {
       layers: frames.reduce((sum, f) => sum + Object.keys(f.layers?.nodes ?? {}).length, 0),
       frames: frames.length,
@@ -54,4 +59,21 @@ export function figmaToImport(
       bytes: new TextEncoder().encode(JSON.stringify(converted)).length,
     },
   }
+}
+
+/** The `imageRef`s the frames' image paints hold, each once, in the order first met. */
+function imageRefsOf(frames: readonly FigmaFrame[]): string[] {
+  const refs = new Set<string>()
+  const add = (paints: readonly Paint[]) => {
+    for (const p of paints) if (p.type === 'image') refs.add(p.assetId)
+  }
+  for (const f of frames) {
+    add(f.fills)
+    for (const layer of Object.values(f.layers?.nodes ?? {})) {
+      const props = layer.props as { fills?: Paint[]; strokes?: { paint: Paint }[] }
+      add(props.fills ?? [])
+      add((props.strokes ?? []).map((s) => s.paint))
+    }
+  }
+  return [...refs]
 }

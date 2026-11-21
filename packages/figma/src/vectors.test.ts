@@ -29,7 +29,7 @@ describe('outlinesOf', () => {
       name: 'Vector 1:2',
       props: { x: 10, y: 20, width: 40, height: 10, shape: { kind: 'path', d: strokeOutline, fillRule: 'nonzero' } },
     })
-    expect(built(text).paints['1-2']).toEqual({ fills: [red], handles: expect.anything() })
+    expect(built(text).paints['1-2']).toEqual({ fills: [red], handles: expect.anything(), node: expect.anything() })
     expect(linesOf(text)).toEqual(['vector-strokes-outlined'])
   })
 
@@ -53,8 +53,8 @@ describe('outlinesOf', () => {
     expect(nodes[fill ?? '']?.props).toMatchObject({ x: 10, y: 20, shape: { kind: 'path', d: closed } })
     expect(nodes[stroke ?? '']?.props).toMatchObject({ x: 10, y: 20, shape: { kind: 'path', d: strokeOutline } })
     const { paints } = built(text)
-    expect(paints[fill ?? '']).toEqual({ fills: [blue], handles: expect.anything() })
-    expect(paints[stroke ?? '']).toEqual({ fills: [red], handles: expect.anything() })
+    expect(paints[fill ?? '']).toEqual({ fills: [blue], handles: expect.anything(), node: expect.anything() })
+    expect(paints[stroke ?? '']).toEqual({ fills: [red], handles: expect.anything(), node: expect.anything() })
     expect(imported(text).converted.report.items).toEqual([
       { line: 'vector-strokes-outlined', kind: 'changed', count: 1, nodes: [{ id: '1:2', name: 'Vector 1:2' }] },
     ])
@@ -203,7 +203,7 @@ describe('outlinesOf', () => {
     expect([...(path?.computeTightBounds() ?? [])]).toEqual([0, 0, 15, 10])
     for (const x of [2, 7, 12]) expect(path?.contains(x, 5)).toBe(true)
     path?.delete()
-    expect(built(text).paints['1-3']).toEqual({ fills: [red], handles: expect.anything() })
+    expect(built(text).paints['1-3']).toEqual({ fills: [red], handles: expect.anything(), node: expect.anything() })
     expect(linesOf(text)).toEqual([])
   })
 

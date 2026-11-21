@@ -11,6 +11,7 @@ import type { Matrix } from '@dazbee/svg'
 
 import { field, type FigmaNode, list } from './read.ts'
 import type { Reporter } from './report.ts'
+import { maskOf } from './settings.ts'
 
 /** A layer as the import writes it, before the schema fills in its defaults. */
 export type LayerInput = z.input<typeof Layer>
@@ -26,6 +27,8 @@ export interface Piece {
  * node whose strokes it draws live, and where its gradients' handles go.
  */
 export interface LayerPaints {
+  /** The node they come from, which the report names. */
+  node: FigmaNode
   fills: readonly unknown[]
   strokes?: FigmaNode
   /** Takes a point of the Figma node's unit box, where its gradients' handles are, to the layer's unit box. */
@@ -40,6 +43,8 @@ export interface LayerBuild {
   figmaIds: Record<string, string>
   /** The Figma paints each layer takes, by its key. */
   paints: Record<string, LayerPaints>
+  /** The node each layer made from one was made from, by its key. */
+  sources: Map<string, FigmaNode>
   /** How far each container's layers move so that its turn draws them where they are, by its key. */
   shifts: Map<string, Point>
   report: Reporter
@@ -89,6 +94,7 @@ export function newLayerBuild(within: readonly FigmaNode[], report: Reporter, ck
     nodes: {},
     figmaIds: {},
     paints: {},
+    sources: new Map(),
     shifts: new Map(),
     report,
     fresh,
@@ -105,34 +111,15 @@ export function adopt(build: LayerBuild, parentId: string, pieces: readonly Piec
   }
 }
 
-/**
- * A layer of `type` named `name` with `props`, a mask when `from` masks the layers in front of it,
- * placed nowhere until it is adopted.
- */
-export function layer<T extends LayerInput['type']>(
-  id: string,
-  type: T,
-  name: string,
-  props: object,
-  from?: FigmaNode,
-): LayerInput {
-  const mask =
-    from && field(from.fields, 'isMask') === true
-      ? field(from.fields, 'maskType') === 'LUMINANCE'
-        ? 'luminance'
-        : 'alpha'
-      : undefined
-  return {
-    type,
-    parentId: ROOT,
-    link: id,
-    index: 'a0',
-    name: name.slice(0, MAX_NAME),
-    props: { ...props, ...(mask ? { mask } : {}) },
-  } as LayerInput
+/** A layer of `type` named `name` with `props`, placed nowhere until it is adopted. */
+export function layer<T extends LayerInput['type']>(id: string, type: T, name: string, props: object): LayerInput {
+  return { type, parentId: ROOT, link: id, index: 'a0', name: name.slice(0, MAX_NAME), props } as LayerInput
 }
 
-/** Makes the layer of `type` a node becomes, keyed by the node unless `id` is given, and maps its key to the node. */
+/**
+ * Makes the layer of `type` a node becomes, keyed by the node unless `id` is given, a mask when the
+ * node masks the layers in front of it, and maps its key to the node.
+ */
 export function addLayer(
   build: LayerBuild,
   n: FigmaNode,
@@ -140,14 +127,15 @@ export function addLayer(
   props: object,
   id = build.keyOf(n),
 ): string {
-  build.nodes[id] = layer(id, type, n.name, props, n)
+  build.nodes[id] = layer(id, type, n.name, { ...props, ...maskOf(build.report, n) })
   build.figmaIds[id] = n.id
+  build.sources.set(id, n)
   return id
 }
 
 /** The paints of a layer that draws a node's own fills and strokes, its gradients' handles taken by `handles`. */
 export function paintsOf(n: FigmaNode, handles: Matrix): LayerPaints {
-  return { fills: list(field(n.fields, 'fills')), strokes: n, handles }
+  return { node: n, fills: list(field(n.fields, 'fills')), strokes: n, handles }
 }
 
 export function unreadable(build: LayerBuild, n: FigmaNode): null {

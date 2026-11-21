@@ -27,6 +27,9 @@ export interface FigmaFile {
 
 export type FigmaReadError = 'not-json' | 'not-design-file' | 'too-many-nodes' | 'too-deep'
 
+/** Lengths past this, in pixels or unit boxes, are no drawing Figma makes; they are brought within it. */
+export const MAX_LENGTH = 1e6
+
 /** A file of more nodes than this, the document and its pages among them, is refused. */
 export const MAX_FIGMA_NODES = 50_000
 /** A file whose nodes nest deeper than this, the document being level 0, is refused. */
@@ -66,6 +69,11 @@ export function field(value: unknown, key: string): unknown {
   return r && Object.hasOwn(r, key) ? r[key] : undefined
 }
 
+/** `v` brought within `low` and `high`. */
+export function within(v: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, v))
+}
+
 /** A finite number, or undefined. */
 export function num(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -93,6 +101,18 @@ export function list(value: unknown): readonly unknown[] {
 export function ownMap(value: unknown): Map<string, unknown> {
   const r = record(value)
   return new Map(r ? Object.keys(r).map((key) => [key, r[key]]) : [])
+}
+
+/** A Figma colour, `{ r, g, b, a }` from 0 to 1 (`a` left out is 1), as `#RRGGBBAA`; undefined when r, g or b isn't a number. */
+export function colourOf(value: unknown): string | undefined {
+  const [r, g, b] = (['r', 'g', 'b'] as const).map((k) => num(field(value, k)))
+  if (r === undefined || g === undefined || b === undefined) return undefined
+  const a = num(field(value, 'a')) ?? 1
+  const hex = (c: number) =>
+    Math.round(within(c, 0, 1) * 255)
+      .toString(16)
+      .padStart(2, '0')
+  return `#${hex(r)}${hex(g)}${hex(b)}${hex(a)}`.toUpperCase()
 }
 
 /** A node's `absoluteBoundingBox`, when it is four finite numbers with no negative side. */

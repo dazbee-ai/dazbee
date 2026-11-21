@@ -154,7 +154,7 @@ function outlined(
   // The data is drawn in the box as the matrix sizes it, before the box is brought within reach.
   const drawnIn = { width: pose.box.width, height: pose.box.height }
   const graphic = (id: string, at: Box, o: Outline) => {
-    build.paints[id] = { fills: o.fills, ...(o.strokes ? { strokes: n } : {}), handles }
+    build.paints[id] = { node: n, fills: o.fills, ...(o.strokes ? { strokes: n } : {}), handles }
     return { ...at, ...pose.flips, shape: { kind: 'path', d: o.d, fillRule: o.fillRule, drawnIn } }
   }
   if (outlines.length === 1) {

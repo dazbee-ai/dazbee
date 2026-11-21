@@ -13,6 +13,7 @@ import {
   page,
   placedAt,
   rectangle,
+  solid,
   type TestNode,
   turned,
 } from './test-figma.ts'
@@ -180,6 +181,63 @@ describe('importPages', () => {
         }),
       )
       expect(f.layers?.roots).toEqual(['1-2'])
+    })
+
+    it('gives a plain frame its own fills', () => {
+      const f = one(frame('1:1', box(0, 0, 400, 300), [], { fills: [solid('#ffffff')] }))
+      expect(f.fills).toEqual([{ type: 'solid', color: '#FFFFFFFF' }])
+    })
+
+    it('gives the box that carries a frame’s look its fills and strokes, or that holds a resized frame’s content its fills', () => {
+      const look = {
+        fills: [solid('#ffffff')],
+        strokes: [solid('#000000')],
+        strokeWeight: 2,
+        cornerRadius: 12,
+      }
+      for (const [at, extra] of [
+        [box(0, 0, 400, 300), look],
+        [box(0, 0, 24, 24), { fills: [solid('#ffffff')] }],
+      ] as const) {
+        const f = one(frame('1:1', at, [], extra))
+        const [root] = f.layers?.roots ?? []
+        expect(f.fills).toEqual([])
+        expect(layersOf(f)[root ?? '']?.props).toMatchObject({ fills: [{ type: 'solid', color: '#FFFFFFFF' }] })
+      }
+      const [root] = one(frame('1:1', box(0, 0, 400, 300), [], look)).layers?.roots ?? []
+      expect(layersOf(one(frame('1:1', box(0, 0, 400, 300), [], look)))[root ?? '']?.props).toMatchObject({
+        cornerRadius: 12,
+        strokes: [{ paint: { type: 'solid', color: '#000000FF' }, width: 2 }],
+      })
+    })
+
+    it('takes a turned frame’s gradient into the upright frame’s unit box', () => {
+      // A 100 × 50 frame turned 90°: its own (x, y) is at (50 − y, x) on the page, in a 50 × 100 box.
+      const linear = {
+        type: 'GRADIENT_LINEAR',
+        gradientHandlePositions: [
+          { x: 0, y: 0.5 },
+          { x: 1, y: 0.5 },
+          { x: 0, y: 1 },
+        ],
+        gradientStops: [
+          { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+          { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } },
+        ],
+      }
+      const f = one(frame('1:1', box(0, 0, 0, 0), [], { ...placedAt(turned(90, 50, 0), 100, 50), fills: [linear] }))
+      const [paint] = f.fills as { from: { x: number; y: number }; to: { x: number; y: number } }[]
+      expect(
+        [paint?.from.x, paint?.from.y, paint?.to.x, paint?.to.y].map((v) => Math.round((v ?? NaN) * 1e9) / 1e9),
+      ).toEqual([0.5, 0, 0.5, 1])
+    })
+
+    it('reports a top-level frame’s hidden effects', () => {
+      const text = onePage([
+        frame('1:1', box(0, 0, 100, 100), [], { effects: [{ type: 'LAYER_BLUR', radius: 4, visible: false }] }),
+      ])
+      expect(onlyFrame(text).layers).toBeNull()
+      expect(linesOf(text)).toEqual(['hidden-effects'])
     })
 
     it('names a frame as a frame can be named', () => {

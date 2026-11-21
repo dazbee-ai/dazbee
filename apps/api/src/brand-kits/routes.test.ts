@@ -39,9 +39,10 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
       logoAssetId: null,
       voice: '',
       textStyles: [],
+      updatedAt: null,
     })
     const saved = await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
-    expect(saved).toEqual({ status: 200, json: kit })
+    expect(saved).toEqual({ status: 200, json: { ...kit, updatedAt: expect.any(String) } })
     const changed = { ...kit, colors: [{ ...kit.colors[0], value: '#1F9D55FF' }] }
     await call('a', 'PUT', `/brands/${brand.id}/kit`, changed)
     const read = BrandKit.parse((await call('a', 'GET', `/brands/${brand.id}/kit`)).json)
@@ -51,7 +52,7 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
   it('keeps the text styles when a tab built before saves the kit without them', async () => {
     await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
     const saved = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...before, voice: 'Bold.' })
-    expect(saved).toEqual({ status: 200, json: { ...kit, voice: 'Bold.' } })
+    expect(saved).toEqual({ status: 200, json: { ...kit, voice: 'Bold.', updatedAt: expect.any(String) } })
     expect((await call('a', 'PUT', `/brands/${sibling.id}/kit`, before)).json).toMatchObject({ textStyles: [] })
     expect((await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, textStyles: [] })).json).toMatchObject({
       textStyles: [],
@@ -63,7 +64,7 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
     const red = { token: 'headline', name: 'Headline', value: '#E0262BFF' }
     const refused = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...before, colors: [red] })
     expect(refused).toEqual({ status: 400, json: { error: 'the token "headline" names two things' } })
-    expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toEqual(kit)
+    expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toEqual({ ...kit, updatedAt: expect.any(String) })
   })
 
   it('never stores two things under one token when a save without text styles meets one with them', async () => {
@@ -76,6 +77,46 @@ describe('brand kits (#53)', { timeout: 30_000 }, () => {
       ])
       const stored = (await call('a', 'GET', `/brands/${sibling.id}/kit`)).json
       expect(BrandKit.safeParse(stored).success).toBe(true)
+    }
+  })
+
+  it('refuses the second of two saves made from the same kit, and keeps the first', async () => {
+    await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
+    const { updatedAt } = (await call('a', 'GET', `/brands/${brand.id}/kit`)).json as { updatedAt: string }
+    const first = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, voice: 'First.', basedOn: updatedAt })
+    expect(first.status).toBe(200)
+    const second = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, voice: 'Second.', basedOn: updatedAt })
+    expect(second).toEqual({ status: 409, json: { error: 'This kit changed since you opened it' } })
+    expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toMatchObject({ voice: 'First.' })
+    const next = await call('a', 'PUT', `/brands/${brand.id}/kit`, {
+      ...kit,
+      voice: 'Third.',
+      basedOn: (first.json as { updatedAt: string }).updatedAt,
+    })
+    expect(next.json).toMatchObject({ voice: 'Third.' })
+  })
+
+  it('refuses a save made from no kit once the brand has one', async () => {
+    await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)
+    const refused = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, voice: 'Empty tab.', basedOn: null })
+    expect(refused.status).toBe(409)
+    expect((await call('a', 'GET', `/brands/${brand.id}/kit`)).json).toMatchObject({ voice: kit.voice })
+  })
+
+  it('takes a save that names no kit it was made from, as a tab built before does', async () => {
+    await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, voice: 'Newer.' })
+    const saved = await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, voice: 'Older tab.' })
+    expect(saved).toMatchObject({ status: 200, json: { voice: 'Older tab.' } })
+  })
+
+  it('gives each save of a kit a later time than the one before', async () => {
+    let last = (await call('a', 'PUT', `/brands/${brand.id}/kit`, kit)).json as { updatedAt: string }
+    for (let round = 0; round < 5; round++) {
+      const saved = (await call('a', 'PUT', `/brands/${brand.id}/kit`, { ...kit, basedOn: last.updatedAt })).json as {
+        updatedAt: string
+      }
+      expect(Date.parse(saved.updatedAt)).toBeGreaterThan(Date.parse(last.updatedAt))
+      last = saved
     }
   })
 

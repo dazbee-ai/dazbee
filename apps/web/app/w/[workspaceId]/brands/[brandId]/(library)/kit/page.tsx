@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
 import { KitPage } from '@/components/brand-kit/kit-page.tsx'
+import { KitUnreadable } from '@/components/brand-kit/kit-unreadable.tsx'
 import { KitView } from '@/components/brand-kit/kit-view.tsx'
 import { LibraryShell } from '@/components/library/library-shell.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
@@ -62,6 +63,8 @@ export default async function BrandKitPage({ params }: { params: Promise<{ works
         </div>
         {changes ? (
           <KitPage workspaceId={workspaceId} brandId={brand.id} kit={kit} />
+        ) : !kit ? (
+          <KitUnreadable brandId={brand.id} />
         ) : kitIsEmpty(kit) ? (
           <EmptyState pose="palette" title={t.library.emptyKit.title} line={t.library.review.emptyKit} />
         ) : (

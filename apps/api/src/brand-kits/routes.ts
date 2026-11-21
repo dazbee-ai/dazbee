@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import type { Db } from '@dazbee/db'
 import { SaveBrandKit } from '@dazbee/schema'
 
-import { body, type Env, requireWriter } from '../http.ts'
+import { body, type Env, error, requireWriter } from '../http.ts'
 import { getBrandKit, saveBrandKit } from './brand-kits.ts'
 
 export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
@@ -20,7 +20,9 @@ export function brandKitRoutes({ db }: { db: Db }): Hono<Env> {
     const { workspaceId } = c.var.membership
     const input = await body(c.req.raw, SaveBrandKit)
     if (input instanceof Response) return input
-    return c.json(await saveBrandKit(db, workspaceId, c.var.brand.id, input))
+    const saved = await saveBrandKit(db, workspaceId, c.var.brand.id, input)
+    if (saved === 'changed') return c.json(error('This kit changed since you opened it'), 409)
+    return c.json(saved)
   })
 
   return app

@@ -12,7 +12,6 @@ import {
   AssetLink,
   AssetSummary,
   AssetUse,
-  BrandKit,
   BrandSummary,
   DesignCover,
   DesignSummary,
@@ -36,6 +35,7 @@ import {
   SignInLink,
   type SignInRefusal,
   SignInRefused,
+  StoredBrandKit,
   SyncToken,
   TemplateSummary,
   type UpdateAsset,
@@ -403,13 +403,21 @@ export async function fontLink(workspaceId: string, brandId: string, faceId: str
   }
 }
 
-/** The brand's kit (#53): its colours, fonts and text styles designs bind to, its logo and its tone of voice. */
-export const getBrandKit = (workspaceId: string, brandId: string) =>
-  call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`)
+/**
+ * The brand's kit (#53): its colours, fonts and text styles designs bind to, its logo, its tone of
+ * voice and when it was saved; null when the kit the API gives can't be read.
+ */
+export async function getBrandKit(workspaceId: string, brandId: string): Promise<StoredBrandKit | null> {
+  const kit = StoredBrandKit.safeParse(await call(z.unknown(), `${brandRoot(workspaceId, brandId)}/kit`))
+  return kit.success ? kit.data : null
+}
 
-/** Saves the brand's whole kit (#53); a kit that leaves its text styles out keeps the ones it has. */
+/**
+ * Saves the brand's whole kit (#53); a kit that leaves its text styles out keeps the ones it has. A
+ * save made from a kit saved since is refused with 409.
+ */
 export const saveBrandKit = (workspaceId: string, brandId: string, kit: SaveBrandKit) =>
-  call(BrandKit, `${brandRoot(workspaceId, brandId)}/kit`, { method: 'PUT', body: kit })
+  call(StoredBrandKit, `${brandRoot(workspaceId, brandId)}/kit`, { method: 'PUT', body: kit })
 
 /** A request to the API: its method, its body sent as JSON, and headers of its own. */
 type CallInit = { method: string; body?: unknown; headers?: Record<string, string> }

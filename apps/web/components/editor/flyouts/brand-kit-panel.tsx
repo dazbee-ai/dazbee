@@ -6,14 +6,13 @@
 // every design using it changes. The logo is placed as a logo that follows the brand, and selected
 // pictures can follow it too. Edit turns the flyout into the kit's form (kit-editor.tsx), where
 // each change is saved as it is made. A kit with nothing in it shows Daz asleep under Edit.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
 import {
   type AssetSummary,
   bindablePropertyOf,
   boundValueOf,
-  type BrandKit,
   brandRef,
   brandVariables,
   type Design,
@@ -28,7 +27,9 @@ import { KitEditor, useKitSaver } from '@/components/brand-kit/kit-editor.tsx'
 import { kitIsEmpty } from '@/components/brand-kit/kit-empty.ts'
 import { kitLogo, knownAsset } from '@/components/brand-kit/kit-logo.ts'
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
-import { loadKit, useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
+import { KitTroubleNotice } from '@/components/brand-kit/kit-trouble-notice.tsx'
+import { KitUnreadable } from '@/components/brand-kit/kit-unreadable.tsx'
+import { loadKit, useBrandKit, useKitTrouble } from '@/components/brand-kit/use-brand-kit.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
 import { CHIP } from '@/components/editor/styles.ts'
 import { useViewOnly, ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
@@ -88,6 +89,7 @@ export function BrandKitPanel({
 }) {
   const t = useMessages().editor.brandKit
   const kit = useBrandKit(workspaceId, brandId)
+  const trouble = useKitTrouble(brandId)
   const [editingKit, setEditing] = useState(false)
   // A tab that may only view shows the kit: it applies, places and edits nothing (C35).
   const viewOnly = useViewOnly()
@@ -99,30 +101,20 @@ export function BrandKitPanel({
   const { catalog } = useFontCatalog(workspaceId, brandId)
   const { design } = useEditorDesign(editor)
   const selection = useSelection(editor)
-  /** The kit last shown, so a logo found after a newer change doesn't bring back an older kit. */
-  const shown = useRef<BrandKit | null>(null)
-  /**
-   * Gives the editor the kit's values at once, the logo's when it is known, and again once a new
-   * logo is found in the library.
-   */
-  const showVariables = (next: BrandKit) => {
-    shown.current = next
-    const logo = knownAsset(next.logoAssetId)
-    void editor.setVariables(brandVariables(next, logo))
-    if (logo || !next.logoAssetId) return
-    void kitLogo(workspaceId, brandId, next.logoAssetId).then((found) => {
-      if (found && shown.current === next) void editor.setVariables(brandVariables(next, found))
-    })
-  }
-  // A change shows at once in every bound layer too; one waiting to be saved is saved when the flyout closes.
-  const { change, error } = useKitSaver(workspaceId, brandId, showVariables)
+  // A change shows at once in every bound layer too (KitVariables); one waiting to be saved is saved
+  // when the flyout closes.
+  const { change } = useKitSaver(workspaceId, brandId)
   const logoAsset = useKitLogo(workspaceId, brandId, kit?.logoAssetId ?? null)
 
   useEffect(() => {
     void loadKit(workspaceId, brandId)
   }, [workspaceId, brandId])
-
-  if (!kit) return <div className="p-4 text-small text-muted" aria-busy="true" />
+  if (!kit)
+    return trouble?.kind === 'unreadable' ? (
+      <KitUnreadable brandId={brandId} tight />
+    ) : (
+      <div className="p-4 text-small text-muted" aria-busy="true" />
+    )
 
   const apply = (kind: ValueKind, token: string) => {
     // A second press on what the selection already follows lets it go.
@@ -168,6 +160,7 @@ export function BrandKitPanel({
             </button>
           </div>
         )}
+        <KitTroubleNotice brandId={brandId} className="px-[18px] pb-3" />
         {kitIsEmpty(kit) ? (
           <EmptyState pose="sleep" tight {...t.empty} />
         ) : (
@@ -288,11 +281,6 @@ export function BrandKitPanel({
                 </ul>
               )}
             </section>
-            {error && (
-              <p role="alert" className="px-[18px] pb-4 text-tiny text-danger">
-                {format(t.saveFailed, { reason: error })}
-              </p>
-            )}
           </ViewOnlyFieldset>
         )}
       </div>
@@ -312,13 +300,13 @@ export function BrandKitPanel({
           {t.done}
         </button>
       </div>
+      <KitTroubleNotice brandId={brandId} className="px-[18px] pb-3" />
 
       <KitEditor
         workspaceId={workspaceId}
         brandId={brandId}
         kit={kit}
         change={change}
-        error={error}
         binding={{
           follows: (kind, token) => follows(design, selection, kind, token),
           apply,

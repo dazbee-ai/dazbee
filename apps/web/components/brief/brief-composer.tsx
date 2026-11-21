@@ -1,7 +1,7 @@
 // The brand home's brief (#84), as in the final mock: one line asking what we are making today, the
 // last word in the AI colours, and a composer with a gradient edge around the brief's form
 // (#136). Until AI drafts arrive (phase 2), Make drafts opens a blank design in the sizes picked.
-import type { BrandKit } from '@dazbee/schema'
+import type { StoredBrandKit } from '@dazbee/schema'
 
 import type { Messages } from '@/lib/i18n/index.ts'
 
@@ -20,8 +20,8 @@ export function BriefComposer({
   workspaceId: string
   brandId: string
   brandName: string
-  /** The brand's whole kit, to pick from in the Brand kit popover. */
-  kit: BrandKit
+  /** The brand's whole kit, to pick from in the Brand kit popover; null when it couldn't be read. */
+  kit: StoredBrandKit | null
   /** The brand's designs a brief can start from as its reference ad, newest first. */
   references: BriefReference[]
   action: (form: FormData) => Promise<void>

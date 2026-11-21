@@ -28,7 +28,6 @@ describe('stickerFile', () => {
   it('gives what a picture style’s PNG is: Fluent Emoji’s 3D, its path in the source, SHA-256 and size', () => {
     expect(stickerFile('fluent-emoji', 'rocket', '3d')).toEqual({
       format: 'picture',
-      id: 'fluent-emoji/rocket/3d',
       path: 'assets/Rocket/3D/rocket_3d.png',
       sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
       byteSize: expect.any(Number),
@@ -52,8 +51,10 @@ describe('stickerFile', () => {
         const listed = index[set].flatMap(([name, styles]) => (styles.includes(style) ? [name] : [])).sort()
         const files =
           format === 'picture'
-            ? stickerPictures().flatMap(({ id }) =>
-                id.startsWith(`${set}/`) && id.endsWith(`/${style}`) ? [id.split('/')[1] ?? ''] : [],
+            ? stickerPictures().flatMap((picture) =>
+                picture.sticker.startsWith(`${set}/`) && picture.style === style
+                  ? [picture.sticker.split('/')[1] ?? '']
+                  : [],
               )
             : Object.keys(JSON.parse(readFileSync(join(SETS, set, `${style}.json`), 'utf8')) as object)
         expect(listed.length).toBeGreaterThan(0)

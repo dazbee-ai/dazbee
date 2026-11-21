@@ -13,7 +13,7 @@ import { readImageHeader } from '@dazbee/schema'
 
 import { readFluentArchive } from './fluent-archive.ts'
 import type { SetNotice } from './notices.ts'
-import type { StickerPicture } from './pictures.ts'
+import type { PictureFile } from './pictures.ts'
 import type { IndexedGraphic } from './search.ts'
 import { linePerEntry, tagsOf } from './set-files.ts'
 import { STICKER_SET_IDS, STICKER_SETS, stickerPin, type StickerSetId } from './sets.ts'
@@ -30,7 +30,7 @@ interface SourceFile {
 /** Fluent Emoji's emoji, by its folder's name: its metadata, its default 3D picture and its default flat drawing. */
 interface Emoji {
   metadata?: { cldr?: string; keywords?: string[]; group?: string }
-  picture?: Omit<StickerPicture, 'id'>
+  picture?: PictureFile
   drawing?: string
 }
 
@@ -76,7 +76,7 @@ async function fluent() {
   })
   const out = await emptied('fluent-emoji')
   const drawings: [string, string][] = []
-  const pictures: [string, Omit<StickerPicture, 'id'>][] = []
+  const pictures: [string, PictureFile][] = []
   const indexed: IndexedGraphic[] = []
   for (const [folder, { metadata, picture, drawing }] of [...emoji].sort(([a], [b]) => (a < b ? -1 : 1))) {
     const name = slugOf(folder)
@@ -96,7 +96,7 @@ async function fluent() {
 }
 
 /** A 3D picture as the manifest lists it; throws when it isn't a PNG. */
-function pictureOf(path: string, bytes: Buffer): Omit<StickerPicture, 'id'> {
+function pictureOf(path: string, bytes: Buffer): PictureFile {
   const header = readImageHeader(bytes)
   if (header?.contentType !== 'image/png') throw new Error(`${path} is not a PNG`)
   const sha256 = createHash('sha256').update(bytes).digest('hex')

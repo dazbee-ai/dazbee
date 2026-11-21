@@ -13,9 +13,6 @@ import { type FrameTo, type Placing, svgSteps } from './place-on-frame.ts'
 /** A sticker as a search finds it. */
 type FoundSticker = Extract<FoundGraphic, { kind: 'sticker' }>
 
-/** The tags a picture sticker's asset has, beside its set's name. */
-const STICKER_TAGS = ['sticker']
-
 /**
  * The batch that places the sticker in `style` fitted inside `where`, its shape kept, centred: a drawing's layers,
  * named `name`, or a picture's image, the picture first added to the brand's asset library named by `name` and its
@@ -31,14 +28,14 @@ export async function stickerPlacing(
 ): Promise<Placing> {
   const file = stickerFile(sticker.set, sticker.name, style)
   if (file.format === 'drawing') return svgSteps(into, name, file.svg, where)
-  const { title } = STICKER_SETS[sticker.set]
-  const input = { sha256: file.sha256, name: `${name} · ${title}`, tags: [...STICKER_TAGS, title.toLowerCase()] }
+  const { title, styles } = STICKER_SETS[sticker.set]
+  const input = { sha256: file.sha256, name: `${name} · ${title}`, tags: ['sticker', title.toLowerCase()] }
   let asset: AssetSummary
   try {
     asset = await api.addBundledAsset(open.brandId, input)
   } catch (error) {
     if (!(error instanceof ApiRefusal && error.status === 404)) throw error
-    const drawn = STICKER_SETS[sticker.set].styles.find(({ format }) => format === 'drawing')
+    const drawn = styles.find(({ format }) => format === 'drawing')
     throw new ToolRefusal(
       `The ${style} picture of “${sticker.id}” isn’t in Dazbee’s storage yet, so nothing was placed${drawn ? `; place its ${drawn.name} style instead` : ''}`,
     )

@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./notices": "./src/notices.ts",
-    "./pictures": "./src/pictures.ts"
+    "./pictures": "./src/pictures.ts",
+    "./archive": "./src/fluent-archive.ts"
   },
   "scripts": {
     "icons": "node src/write-icons.ts",

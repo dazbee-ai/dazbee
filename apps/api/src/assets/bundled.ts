@@ -28,8 +28,9 @@ export class NotBundled extends Error {
 
 /**
  * The brand's asset of the bundled file `input.sha256`: the one it has of those bytes, or a new one named
- * `input.name`, copied from the bundled file; either way with `input.tags` joining its own. It throws `NotBundled`
- * when storage holds no such file.
+ * `input.name`, recorded from the workspace's original, which is copied from the bundled file first when the
+ * workspace doesn't hold it yet; either way with `input.tags` joining its own. It throws `NotBundled` when storage
+ * holds no bundled file of that SHA-256, whatever the workspace holds.
  */
 export async function addBundledAsset(
   db: Db,
@@ -38,6 +39,7 @@ export async function addBundledAsset(
   brandId: string,
   input: AddBundledAsset,
 ): Promise<AssetSummary> {
+  if (!(await storage.exists(bundledKey(input.sha256)))) throw new NotBundled()
   const asset =
     (await findAsset(db, workspaceId, brandId, { sha256: input.sha256 })) ??
     (await recordBundled(db, storage, workspaceId, brandId, input))

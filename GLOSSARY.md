@@ -412,7 +412,7 @@ A proven structure for an ad, such as a full photo with a band of words or a pro
 _Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), preset, theme
 
 **Bundled graphic**:
-An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer.
+An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file is a **bundled file**: Dazbee keeps it in its storage (`bundled/<sha256>`), not in the repository, and a brand adds it to its asset library by its SHA-256.
 _Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker), clip art
 
 **Icon**:

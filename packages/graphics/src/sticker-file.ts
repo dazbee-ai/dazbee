@@ -1,11 +1,11 @@
 // A bundled sticker's file in one of its styles: what a picture is (its PNG file sits in Dazbee's storage, not here),
 // or a drawing's SVG text, as its set ships it.
 import { readBundled } from './bundled.ts'
-import { type StickerPicture, stickerPicture } from './pictures.ts'
+import { type PictureFile, stickerPicture } from './pictures.ts'
 import { stickerFormat, type StickerSetId } from './sets.ts'
 
 /** A sticker's file: a picture, which joins the brand's asset library, or a drawing, placed as layers. */
-export type StickerFile = ({ format: 'picture' } & StickerPicture) | { format: 'drawing'; svg: string }
+export type StickerFile = ({ format: 'picture' } & PictureFile) | { format: 'drawing'; svg: string }
 
 /** Each style's drawings once read, by `set/style`. */
 const drawings = new Map<string, Readonly<Record<string, string>>>()
@@ -16,7 +16,8 @@ export function stickerFile(set: StickerSetId, name: string, style: string): Sti
   if (format === 'picture') {
     const picture = stickerPicture(set, name, style)
     if (!picture) throw new Error(`${set} has no ${style} picture of ${name}`)
-    return { format, ...picture }
+    const { path, sha256, byteSize, width, height } = picture
+    return { format, path, sha256, byteSize, width, height }
   }
   const svg = format && drawingsOf(set, style)[name]
   if (!svg) throw new Error(`${set} has no ${style} drawing of ${name}`)

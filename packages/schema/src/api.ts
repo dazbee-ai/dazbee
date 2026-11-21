@@ -215,16 +215,17 @@ export const AssetTag = z.string().trim().toLowerCase().min(1).max(40)
 export type AssetTag = z.infer<typeof AssetTag>
 /** Most tags one asset has. */
 export const MAX_ASSET_TAGS = 20
+/** An asset's tags as an ask gives them: at most `MAX_ASSET_TAGS`, kept once each, in the order given. */
+const AssetTags = z
+  .array(AssetTag)
+  .max(MAX_ASSET_TAGS)
+  .transform((tags) => [...new Set(tags)])
 
 /** Renames an asset or sets its tags (#52); tags are kept once each, in the order given. */
 export const UpdateAsset = z
   .object({
     name: AssetName.optional(),
-    tags: z
-      .array(AssetTag)
-      .max(MAX_ASSET_TAGS)
-      .transform((tags) => [...new Set(tags)])
-      .optional(),
+    tags: AssetTags.optional(),
   })
   .refine((u) => u.name !== undefined || u.tags !== undefined, 'send a name, tags or both')
 export type UpdateAsset = z.infer<typeof UpdateAsset>
@@ -241,11 +242,7 @@ export const FROM_URL_TIMEOUT_MS = 20_000
 export const AddAssetFromUrl = z.object({
   url: z.string().trim().min(1).max(MAX_URL_LENGTH),
   name: AssetName.optional(),
-  tags: z
-    .array(AssetTag)
-    .max(MAX_ASSET_TAGS)
-    .transform((tags) => [...new Set(tags)])
-    .optional(),
+  tags: AssetTags.optional(),
 })
 export type AddAssetFromUrl = z.infer<typeof AddAssetFromUrl>
 
@@ -256,11 +253,7 @@ export type AddAssetFromUrl = z.infer<typeof AddAssetFromUrl>
 export const AddBundledAsset = z.object({
   sha256: Sha256,
   name: AssetName,
-  tags: z
-    .array(AssetTag)
-    .max(MAX_ASSET_TAGS)
-    .transform((tags) => [...new Set(tags)])
-    .optional(),
+  tags: AssetTags.optional(),
 })
 export type AddBundledAsset = z.infer<typeof AddBundledAsset>
 

@@ -25,19 +25,6 @@ function source(files: { sha256: string; bytes: Uint8Array }[]) {
   return { read, asked }
 }
 
-describe('storeBundled', () => {
-  it('stores each file storage doesn’t hold, and reads nothing when it holds them all', async () => {
-    const files = [file('a'), file('b')]
-    const { read, asked } = source(files)
-    expect(await storeBundled(storage, files, read)).toEqual({ stored: 2, already: 0 })
-    expect(await storage.get(bundledKey(files[0]?.sha256 ?? ''))).toEqual(files[0]?.bytes)
-    expect(await storeBundled(storage, files, read)).toEqual({ stored: 0, already: 2 })
-    expect(asked).toEqual([2])
-    const more = [...files, file('c')]
-    expect(await storeBundled(storage, more, source(more).read)).toEqual({ stored: 1, already: 2 })
-  })
-})
-
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
 describe('addBundledAsset', { timeout: 30_000 }, () => {
   it('copies a bundled file into the brand’s library once, named, with its tags joining', async () => {
@@ -54,10 +41,31 @@ describe('addBundledAsset', { timeout: 30_000 }, () => {
     expect(other.id).not.toBe(asset.id)
   })
 
+  it('refuses a SHA-256 storage keeps no bundled file of, even one the workspace holds as an upload', async () => {
+    const { sha256: uploaded, bytes } = file('uploaded')
+    await storage.put(originalKey(workspace.id, uploaded), bytes, 'image/png')
+    await expect(
+      addBundledAsset(db, storage, workspace.id, brand.id, { sha256: uploaded, name: 'Up' }),
+    ).rejects.toThrow(NotBundled)
+  })
+
   it('refuses a SHA-256 storage keeps no bundled file of', async () => {
     const { sha256: sha } = file('missing')
     await expect(
       addBundledAsset(db, storage, workspace.id, brand.id, { sha256: sha, name: 'Missing' }),
     ).rejects.toThrow(NotBundled)
+  })
+})
+
+describe('storeBundled', () => {
+  it('stores each file storage doesn’t hold, and reads nothing when it holds them all', async () => {
+    const files = [file('a'), file('b')]
+    const { read, asked } = source(files)
+    expect(await storeBundled(storage, files, read)).toEqual({ stored: 2, already: 0 })
+    expect(await storage.get(bundledKey(files[0]?.sha256 ?? ''))).toEqual(files[0]?.bytes)
+    expect(await storeBundled(storage, files, read)).toEqual({ stored: 0, already: 2 })
+    expect(asked).toEqual([2])
+    const more = [...files, file('c')]
+    expect(await storeBundled(storage, more, source(more).read)).toEqual({ stored: 1, already: 2 })
   })
 })

@@ -32,4 +32,4 @@ The repository doesn't hold the 3D pictures (54 MB). `src/sticker-pictures.json`
 pnpm --filter @dazbee/api stickers:upload
 ```
 
-It uses the API's storage settings from the environment. It reads the pictures from Fluent Emoji's archive at the pinned commit, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store doesn't download the archive. Until it has run, placing a 3D sticker is refused with a sentence that points the agent to the flat style, and every drawing still places.
+It uses the API's storage settings from the environment; in a deployed API container, which has no pnpm, run `node apps/api/src/scripts/upload-stickers.ts` from the image's root. It reads the pictures from Fluent Emoji's archive at the pinned commit, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store doesn't download the archive. Until it has run, placing a 3D sticker is refused with a sentence that points the agent to the flat style, and every drawing still places.

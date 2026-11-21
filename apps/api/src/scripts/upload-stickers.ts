@@ -3,7 +3,8 @@
 // the SHA-256 its manifest (`sticker-pictures.json`) lists. Run it once per environment, and again after
 // `pnpm --filter @dazbee/graphics stickers` writes the manifest anew: files stored before are skipped, and a run with
 // nothing to store doesn't download the archive. Settings come from the environment, as the API's do.
-import { readStickerPictures, stickerPictures } from '@dazbee/graphics/pictures'
+import { readStickerPictures } from '@dazbee/graphics/archive'
+import { stickerPictures } from '@dazbee/graphics/pictures'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
 import { storeBundled } from '../assets/bundled.ts'

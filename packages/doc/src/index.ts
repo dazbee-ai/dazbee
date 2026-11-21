@@ -59,6 +59,7 @@ export { STEP_NAMES, type StepName } from './commands/step-names.ts'
 export { type BoxLayout, changesLayout } from './commands/auto-layout.ts'
 export { wrapRefusal } from './commands/groups.ts'
 export { type PlacedTree, placedRoots } from './commands/arrange.ts'
+export { designSizeOf } from './sync/checks.ts'
 export { type FlipAxis } from './commands/flip.ts'
 export { smallerRatio } from './commands/fit.ts'
 export {

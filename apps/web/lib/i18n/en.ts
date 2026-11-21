@@ -488,6 +488,7 @@ export const en = {
       deleteGuide: 'delete guide',
       deleteGuides: 'remove guides',
       restore: 'restore',
+      importFigma: 'import from Figma',
     } satisfies Record<StepName, string>,
     undoStep: 'Undo {step}',
     redoStep: 'Redo {step}',

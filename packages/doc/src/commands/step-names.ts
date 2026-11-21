@@ -48,5 +48,6 @@ export const STEP_NAMES = [
   'deleteGuide',
   'deleteGuides',
   'restore',
+  'importFigma',
 ] as const
 export type StepName = (typeof STEP_NAMES)[number]

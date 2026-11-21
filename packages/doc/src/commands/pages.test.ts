@@ -71,6 +71,50 @@ describe('page.add', () => {
   })
 })
 
+describe('page.addMany', () => {
+  const cover = { name: 'Cover', width: 400, height: 300, x: -50, y: 20, fills: [] }
+  const back = { name: 'Back', width: 1080, height: 1080, x: 500, y: 20 }
+  const frames = [cover, back]
+
+  it('adds pages after the last one, in order, each with its frames where given, in one undo step', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    const added = tab.run('page.addMany', {
+      pages: [
+        { name: 'One', frames },
+        { name: 'Two', frames: [cover] },
+      ],
+    })
+    const design = readDesign(store)
+    expect(inOrder(design.pages).map(([id, page]) => [id, page.name])).toEqual([
+      ['p1', 'Page 1'],
+      [added[0]?.id, 'One'],
+      [added[1]?.id, 'Two'],
+    ])
+    expect(added.map(({ id }) => framesOf(design, id).map(([frameId]) => frameId))).toEqual(
+      added.map((page) => page.frames),
+    )
+    expect(framesOf(design, added[0]?.id ?? '').map(([, f]) => [f.name, f.x, f.y, f.width, f.height, f.fills])).toEqual(
+      [
+        ['Cover', -50, 20, 400, 300, []],
+        ['Back', 500, 20, 1080, 1080, [{ type: 'solid', color: '#FFFFFFFF' }]],
+      ],
+    )
+    tab.undo()
+    expect(Object.keys(readDesign(store).pages)).toEqual(['p1'])
+    expect(Object.keys(readDesign(store).frames)).toEqual(
+      Object.keys(design.frames).filter((id) => !added.some((p) => p.frames.includes(id))),
+    )
+  })
+
+  it('refuses a frame size the editor does not take, naming the page and frame', () => {
+    const tab = openTestSession(openTestStore())
+    expect(() => tab.run('page.addMany', { pages: [{ name: 'P', frames: [cover, { ...back, width: 40 }] }] })).toThrow(
+      /page 1, frame 2: .*at least 50 px/,
+    )
+  })
+})
+
 describe('page.duplicate', () => {
   it('copies the page after itself, with its frames and their layers under fresh ids', () => {
     const store = openTestStore()

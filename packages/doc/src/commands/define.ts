@@ -88,8 +88,8 @@ const KINDS_WITH_NOTHING_INSIDE = [
 ]
 const KINDS_WALKED = ['object', 'array', 'record', 'union', 'tuple', 'optional', 'nullable', 'default', 'pipe']
 
-/** The types `showAs` gave a type of a command's input, which the catalog shows in its place. */
-const SHOWN = new WeakMap<z.core.$ZodType, z.ZodType>()
+/** The types `catalogAs` gave a type of a command's input, which the catalog shows in its place. */
+const CATALOG_TYPES = new WeakMap<z.core.$ZodType, z.ZodType>()
 
 /**
  * A command refused, as data: `input` when its input is not one the schema takes, with the
@@ -142,18 +142,18 @@ export function strict<T extends z.ZodType>(type: T): T {
 }
 
 /**
- * `type`, with `shown` as the type the command catalog shows for it: for a field of a command's
+ * `type`, with `listed` as the type the command catalog shows for it: for a field of a command's
  * input that takes more than its own type says, settled in a transform or in `check` (a layer's
  * `props`), so a caller reads what it takes. What the field takes stays `type`'s.
  */
-export function showAs<T extends z.ZodType>(type: T, shown: z.ZodType): T {
-  SHOWN.set(type, shown)
+export function catalogAs<T extends z.ZodType>(type: T, listed: z.ZodType): T {
+  CATALOG_TYPES.set(type, listed)
   return type
 }
 
-/** The type `showAs` gave `type` for the catalog to show, if any. */
-export function shownFor(type: z.core.$ZodType): z.ZodType | undefined {
-  return SHOWN.get(type)
+/** The type `catalogAs` gave `type` for the catalog to show, if any. */
+export function catalogTypeOf(type: z.core.$ZodType): z.ZodType | undefined {
+  return CATALOG_TYPES.get(type)
 }
 
 /**

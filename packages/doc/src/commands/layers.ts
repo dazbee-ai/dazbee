@@ -28,7 +28,7 @@ import { sameValue } from '../same-value.ts'
 import { droppedIssue } from '../sync/checks.ts'
 import { boxPlan, DrawnBoxes, keepEmptied, writeDrawn } from './box-plan.ts'
 import { idProblem, lockFor, lockProblem, missingLayer, parentProblem } from './checks.ts'
-import { defineCommand, showAs, strict } from './define.ts'
+import { catalogAs, defineCommand, strict } from './define.ts'
 import { keepDrawnIn } from './paths.ts'
 import { layerSlots, writeOrder } from './tree.ts'
 
@@ -48,16 +48,17 @@ const LOCK_FLAGS_SAY: Record<(typeof LOCK_FLAGS)[number], string> = {
 const TEXT_EDIT_PROPS = ['text', 'runs']
 
 /**
- * A layer to add as the catalog shows it: one of each type, with the props that type takes. What
- * `LayerInput` takes beside its props (type, name, role) stays the same.
+ * A layer to add as the catalog shows it: one of each type, with the props that type takes, every
+ * object strict, since a key the schema does not name is not kept. What `LayerInput` takes beside
+ * its props (type, name, role) stays the same.
  */
-const ShownLayer = z.union(UnplacedLayer.options.map((option) => strict(option.omit({ lock: true, bindings: true }))))
+const CatalogLayer = z.union(UnplacedLayer.options.map((option) => strict(option.omit({ lock: true, bindings: true }))))
 
 /**
  * A patch as the catalog shows it: one of each layer type, any of the props that type takes, with
  * no default, since a prop left out keeps its value; a text's words are left out, as `text.edit` sets them.
  */
-const ShownPatch = z.union(
+const CatalogPatch = z.union(
   Object.entries(LAYER_PROPS).map(([type, props]) => {
     const fields = Object.entries(props.shape as Record<string, z.ZodType>)
       .filter(([key]) => !(type === 'text' && TEXT_EDIT_PROPS.includes(key)))
@@ -93,9 +94,9 @@ export const nodeCreate = defineCommand({
   input: z.strictObject({
     id: NodeId.optional().describe('The new layer’s id; a fresh one is made when left out.'),
     parentId: z.union([FrameId, NodeId]).describe('The frame, or the group or box, the layer goes into, on top.'),
-    layer: showAs(
+    layer: catalogAs(
       LayerInput.describe('The layer: its type, its name, an optional role, and its properties.'),
-      ShownLayer,
+      CatalogLayer,
     ),
   }),
   check: (ctx, { id, parentId, layer }) => {
@@ -126,11 +127,11 @@ export const nodeUpdate = defineCommand({
   batchable: true,
   input: z.strictObject({
     ids: NodeId.array().min(1).describe('The layers to change.'),
-    patch: showAs(
+    patch: catalogAs(
       z
         .record(z.string(), z.unknown())
         .describe('The properties to set, by name, with their new values; the same for every layer.'),
-      ShownPatch,
+      CatalogPatch,
     ),
     drawn: DrawnBoxes.optional().describe(
       'Where the layers and what they hold are drawn, so a layer the change takes out of a row, column or grid stays where it is.',

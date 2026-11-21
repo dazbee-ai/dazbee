@@ -399,6 +399,26 @@ _Avoid_: Screenshot (that is of the screen), preview, thumbnail
 A sentence an agent is told about one layer of a frame that won't look as designed, with the layer's id: a font with no file, characters no font has, text that overflows its fixed box (too tall, or a word too wide) or passes its line limit, a layer wholly outside its frame, or text inside a platform's safe-zone edge on a 9:16 frame. An agent batch's result carries those for the layers it touched: those it added, changed or took out, with the layers inside them and the rest of an auto layout box they are in, and every layer of a frame it changed.
 _Avoid_: Error, lint, refusal (a refused command wrote nothing)
 
+**Ad rules**:
+Advice an agent reads for one size or channel before it designs: where a platform's interface may cover the ad, how large text should be to read at that size, how much to say, and what tends to work there. Advice, never a limit: a design that ignores it is still kept and drawn as it is.
+_Avoid_: Guide (a ruler line), guidelines, spec, constraints (a layer's pinning)
+
+**Pattern**:
+A proven structure for an ad, such as a full photo with a band of words or a product centred with a badge, that builds a frame's layers at any size from a brand's words, pictures, logo and colours. It is a starting point the agent or a person then changes freely; nothing remembers which pattern built a frame.
+_Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), preset, theme
+
+**Icon**:
+A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
+_Avoid_: Symbol, glyph, clip art, Daz (the bee)
+
+**Sticker**:
+A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person. A picture sticker joins the brand's asset library when placed, as any image does.
+_Avoid_: Clip art, emoji (one kind of sticker), illustration alone
+
+**Stock photo**:
+A free photo found through a stock library's search and saved into the brand's asset library, tagged with where it came from and who took it.
+_Avoid_: Library photo, free image
+
 **Gesture**:
 One continuous act of the person editing, such as a drag or typing into a text until they leave it, pause for 2 seconds or hide the tab (the next key starts another). Every command run during a gesture is one undo step, unless Undo is pressed while it is open, which makes what it wrote so far a step of its own. Other tabs draw its preview while it is open and get its change set once it ends.
 _Avoid_: Batch, transaction (a gesture spans many)

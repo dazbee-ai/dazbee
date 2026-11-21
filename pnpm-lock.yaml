@@ -644,12 +644,18 @@ importers:
 
   packages/figma:
     dependencies:
+      '@dazbee/canvaskit':
+        specifier: workspace:*
+        version: link:../canvaskit
       '@dazbee/doc':
         specifier: workspace:*
         version: link:../doc
       '@dazbee/schema':
         specifier: workspace:*
         version: link:../schema
+      '@dazbee/svg':
+        specifier: workspace:*
+        version: link:../svg
       fractional-indexing:
         specifier: ^4.0.0
         version: 4.0.0
@@ -660,6 +666,9 @@ importers:
       '@dazbee/config':
         specifier: workspace:*
         version: link:../config
+      '@dazbee/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5

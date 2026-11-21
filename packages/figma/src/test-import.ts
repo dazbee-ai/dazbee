@@ -1,13 +1,20 @@
 // Imports test files and checks what every import holds to, for the converter's tests.
 import { expect } from 'vitest'
 
-import { boundsOf } from '@dazbee/doc'
+import { boundsOf, centreOf, type Point, turn } from '@dazbee/doc'
+import { loadCanvasKit } from '@dazbee/renderer/node'
 import { FigmaImport, type FigmaReportLine, type Layer } from '@dazbee/schema'
 
+import { newLayerBuild } from './build.ts'
 import { figmaToImport } from './index.ts'
+import { convertLayers, treeOf } from './layers.ts'
+import { boxOf, readFigmaFile } from './read.ts'
+import { newReport } from './report.ts'
+
+export const ck = await loadCanvasKit()
 
 export const imported = (text: string, nodeId?: string) => {
-  const result = figmaToImport(text, nodeId === undefined ? {} : { nodeId })
+  const result = figmaToImport(ck, text, nodeId === undefined ? {} : { nodeId })
   if ('error' in result) throw new Error(result.error)
   checkInvariants(text, result.converted)
   return result
@@ -58,4 +65,31 @@ export function checkInvariants(text: string, converted: FigmaImport) {
       expect({ x, y, width, height }).toEqual({ x: fit.x, y: fit.y, width: fit.width, height: fit.height })
     }
   }
+}
+
+/** The build of the first frame's layers on the file's first page, with the paints each layer takes. */
+export function built(text: string) {
+  const file = readFigmaFile(text)
+  if ('error' in file) throw new Error(file.error)
+  const f = file.document.children[0]?.children[0]
+  const at = f && boxOf(f.fields)
+  if (!f || !at) throw new Error('no frame')
+  const build = newLayerBuild(f.children, newReport(), ck)
+  treeOf(build, convertLayers(build, f.children, at, false).pieces)
+  return build
+}
+
+/**
+ * Where the point `r` of a layer's own box (its top left at 0, 0) is drawn in its frame: mirrored
+ * by the layer's flips, turned about its centre, then about each container's centre in turn.
+ */
+export function drawnAt(nodes: Record<string, Layer>, id: string, r: Point): Point {
+  const layer = nodes[id] as Layer
+  const { x, y, width, height } = layer.props
+  const flips = layer.props as { flipX?: boolean; flipY?: boolean }
+  let p = { x: x + (flips.flipX ? width - r.x : r.x), y: y + (flips.flipY ? height - r.y : r.y) }
+  for (let at: Layer | undefined = layer; at; at = nodes[at.parentId]) {
+    p = turn(p, centreOf({ ...at.props, rotation: at.props.rotation }), at.props.rotation)
+  }
+  return p
 }

@@ -2,12 +2,27 @@ import { describe, expect, it } from 'vitest'
 
 import { figmaToImport } from './index.ts'
 import { box, figmaFile, frame, group, node, onePage, rectangle, type TestNode } from './test-figma.ts'
-import { checkInvariants, layersOf, onlyFrame } from './test-import.ts'
+import { checkInvariants, ck, layersOf, onlyFrame } from './test-import.ts'
 
 describe('figmaToImport', () => {
   describe('hostile files', () => {
     it('never throws on junk in any field', () => {
-      const junk = [null, -1, 'x', [], {}, { x: 'y' }, Number.MAX_VALUE, true]
+      const junk = [
+        null,
+        -1,
+        'x',
+        [],
+        {},
+        { x: 'y' },
+        Number.MAX_VALUE,
+        true,
+        [
+          [1, 0, 1e300],
+          [0, Number.MAX_VALUE, 0],
+        ],
+        [{ path: 'M0 0L5 5L0 5Z', windingRule: 'EVENODD', overrideID: 1 }, { path: 'M1e308 0L-1e308 9Z' }, 'x'],
+        { 1: { fills: 5 }, __proto__: { fills: [] } },
+      ]
       const fields = [
         'absoluteBoundingBox',
         'children',
@@ -28,6 +43,13 @@ describe('figmaToImport', () => {
         'opacity',
         'blendMode',
         'strokeWeight',
+        'relativeTransform',
+        'size',
+        'rotation',
+        'fillGeometry',
+        'strokeGeometry',
+        'fillOverrideTable',
+        'fills',
       ]
       const types = [
         'FRAME',
@@ -39,6 +61,9 @@ describe('figmaToImport', () => {
         'SECTION',
         'INSTANCE',
         'TEXT',
+        'VECTOR',
+        'STAR',
+        'REGULAR_POLYGON',
         '',
         'CANVAS',
       ]
@@ -50,7 +75,7 @@ describe('figmaToImport', () => {
             children: [rectangle(`2:${i}`, box(0, 0, 1, 1))],
           }))
           const text = onePage([frame('1:1', box(0, 0, 400, 300), children as TestNode[]), ...(children as TestNode[])])
-          const result = figmaToImport(text)
+          const result = figmaToImport(ck, text)
           if (!('error' in result)) checkInvariants(text, result.converted)
         }
       }
@@ -87,7 +112,7 @@ describe('figmaToImport', () => {
           rectangle('1:5', box(0, 0, 9, 9), { ...fields, isMask: true }),
         ]
         const text = onePage([frame('1:1', box(0, 0, 400, 300), kids, fields), node(value, '1:6', box(0, 0, 1, 1))])
-        const result = figmaToImport(text)
+        const result = figmaToImport(ck, text)
         if ('error' in result) throw new Error(result.error)
         checkInvariants(text, result.converted)
         const nodes = result.converted.pages[0]?.frames[0]?.layers?.nodes ?? {}
@@ -97,8 +122,8 @@ describe('figmaToImport', () => {
     })
 
     it("refuses a file that isn't a Figma design file, or past its limits", () => {
-      expect(figmaToImport('{')).toEqual({ error: 'not-json' })
-      expect(figmaToImport(figmaFile([], { editorType: 'slides' }))).toEqual({ error: 'not-design-file' })
+      expect(figmaToImport(ck, '{')).toEqual({ error: 'not-json' })
+      expect(figmaToImport(ck, figmaFile([], { editorType: 'slides' }))).toEqual({ error: 'not-design-file' })
     })
 
     it('builds a tree 250 levels deep without running out of stack', () => {

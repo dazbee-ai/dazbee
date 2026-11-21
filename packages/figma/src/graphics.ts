@@ -1,13 +1,47 @@
-import type { Point } from '@dazbee/doc'
-import type { FigmaReportLine, LineEnd } from '@dazbee/schema'
+// The graphics a Figma node with no layers of its own becomes: rectangles, whole ellipses and
+// lines as their own shapes; vectors, stars, polygons, arcs and rings as paths of the outlines the
+// file gives, as is a skewed shape, which no box can show; and the types left out by what they are.
 
-import { FRAME_TYPES, layer, type LayerBuild, type LayerInput, type Piece, unreadable } from './build.ts'
-import { placedBox } from './geometry.ts'
+import type { Box } from '@dazbee/doc'
+import type { FigmaReportLine, LineEnd } from '@dazbee/schema'
+import { type Matrix, multiply } from '@dazbee/svg'
+
+import { adopt, layer, type LayerBuild, type LayerInput, made, paintsOf, type Piece, unreadable } from './build.ts'
+import {
+  boxMapOf,
+  handlesOf,
+  type Placement,
+  placementOf,
+  poseOf,
+  shiftOf,
+  type Space,
+  unturned,
+  withinReach,
+} from './geometry.ts'
 import { field, type FigmaFields, type FigmaNode, list, num, str } from './read.ts'
+import { type Outline, type OutlineRule, outlinesOf } from './vectors.ts'
 
 /** One radius for every corner, or each corner's from the top left clockwise. */
 export type Corners = number | [number, number, number, number]
 
+/** Where a node is made: the space its matrix is relative to, its parent's unturned pixels, and whether a boolean combines it. */
+export interface Place {
+  space: Space
+  /** Takes the page's pixels to its parent's unturned pixels. */
+  view: Matrix
+  inBoolean: boolean
+}
+
+/** Node types a boolean combines. */
+export const SHAPE_TYPES: ReadonlySet<string> = new Set([
+  'RECTANGLE',
+  'ELLIPSE',
+  'LINE',
+  'VECTOR',
+  'STAR',
+  'REGULAR_POLYGON',
+  'BOOLEAN_OPERATION',
+])
 /** Node types left out by their type, each with its report line. */
 const LEFT_OUT: ReadonlyMap<string, FigmaReportLine> = new Map([
   ['SLICE', 'slices'],
@@ -19,20 +53,16 @@ const LEFT_OUT: ReadonlyMap<string, FigmaReportLine> = new Map([
   ['SHAPE_WITH_TEXT', 'figjam-items'],
   ['CONNECTOR', 'figjam-items'],
   ['WASHI_TAPE', 'figjam-items'],
-  ['VECTOR', 'vector-shapes'],
-  ['STAR', 'vector-shapes'],
-  ['REGULAR_POLYGON', 'vector-shapes'],
   ['TEXT', 'texts'],
 ])
-/** Node types a boolean combines. */
-export const SHAPE_TYPES: ReadonlySet<string> = new Set([
-  'RECTANGLE',
-  'ELLIPSE',
-  'LINE',
-  'VECTOR',
-  'STAR',
-  'REGULAR_POLYGON',
-  'BOOLEAN_OPERATION',
+/** How each shape's outlines become paths outside a boolean: a vector's by its own rules, the rest as one shape. */
+const OUTLINE_RULES: ReadonlyMap<string, OutlineRule> = new Map([
+  ['VECTOR', 'vector'],
+  ['STAR', 'shape'],
+  ['REGULAR_POLYGON', 'shape'],
+  ['ELLIPSE', 'shape'],
+  ['RECTANGLE', 'shape'],
+  ['BOOLEAN_OPERATION', 'shape'],
 ])
 const LINE_ENDS: ReadonlyMap<string, LineEnd> = new Map([
   ['LINE_ARROW', 'arrow'],
@@ -52,28 +82,84 @@ export function cornersOf(fields: FigmaFields): Corners {
   return Math.max(0, num(field(fields, 'cornerRadius')) ?? 0)
 }
 
-/** The layer a node with no layers of its own becomes, or null when it is left out. */
-export function leaf(build: LayerBuild, n: FigmaNode, origin: Point): Piece | null {
-  if (!n.id || !n.type || FRAME_TYPES.has(n.type)) return unreadable(build, n)
+/**
+ * The layer a node with no layers of its own becomes at `place`, or null when it is left out. A
+ * boolean arrives here only when it holds a layer that is no shape: it is drawn as its own outline.
+ */
+export function leaf(build: LayerBuild, n: FigmaNode, place: Place): Piece | null {
+  if (!n.id || !n.type) return unreadable(build, n)
   const left = LEFT_OUT.get(n.type)
   if (left) {
     build.report.add(left, n)
     return null
   }
-  if (n.type !== 'RECTANGLE' && n.type !== 'ELLIPSE' && n.type !== 'LINE') {
-    // A boolean arrives here only when it holds a layer that is no shape, already reported.
-    if (n.type !== 'BOOLEAN_OPERATION') build.report.add('unknown-layers', n)
+  if (!SHAPE_TYPES.has(n.type)) {
+    build.report.add('unknown-layers', n)
     return null
   }
-  if (n.type === 'ELLIPSE' && !isWhole(n.fields)) {
-    build.report.add('vector-shapes', n)
-    return null
+  const placement = placementOf(n, place.space)
+  if (!placement) return unreadable(build, n)
+  const x = multiply(place.view, placement.world)
+  if (n.type === 'LINE') return line(build, n, x, placement)
+  const rule = place.inBoolean ? 'in-boolean' : (OUTLINE_RULES.get(n.type) as OutlineRule)
+  if (n.type === 'BOOLEAN_OPERATION') build.report.add('booleans-flattened', n)
+  if (n.type !== 'RECTANGLE' && !(n.type === 'ELLIPSE' && isWhole(n.fields)))
+    return outlined(build, n, x, placement, rule)
+  const pose = poseOf(x, placement.width, placement.height, false)
+  if (pose.skewed) {
+    if (list(field(n.fields, 'fillGeometry')).length > 0) return outlined(build, n, x, placement, rule)
+    build.report.add('skewed-layers', n)
   }
-  const box = placedBox(build, n, origin)
-  if (!box) return unreadable(build, n)
-  const id = build.keyOf(n)
-  build.nodes[id] = layer(id, 'graphic', n.name, { ...box, shape: shapeOf(build, n) }, n)
-  build.figmaIds[id] = n.id
+  const box = withinReach(build.report, n, pose.box, placement.clamped)
+  const id = made(build, n, 'graphic', { ...box, ...pose.flips, shape: shapeOf(build, n) })
+  build.paints[id] = paintsOf(n, handlesOf(pose.toBox, placement.width, placement.height, box))
+  return { id, box }
+}
+
+/** A line from its start to its end as its matrix places them, which no mirror or skew changes. */
+function line(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placement): Piece {
+  const { width, height } = placement
+  const length = Math.hypot(x[0], x[1]) * width
+  const across = Math.hypot(x[2], x[3]) * height
+  const centre = { x: x[4] + (x[0] * width + x[2] * height) / 2, y: x[5] + (x[1] * width + x[3] * height) / 2 }
+  const rotation = (Math.atan2(x[1], x[0]) * 180) / Math.PI
+  const drawn = { x: centre.x - length / 2, y: centre.y - across / 2, width: length, height: across, rotation }
+  const box = withinReach(build.report, n, drawn, placement.clamped)
+  const id = made(build, n, 'graphic', { ...box, shape: shapeOf(build, n) })
+  build.paints[id] = paintsOf(n, handlesOf(boxMapOf(x, drawn, {}), width, height, box))
+  return { id, box }
+}
+
+/**
+ * The path graphics a node's outlines become by `rule`, any skew taken into their data: one keyed
+ * by the node, or several in a group keyed by it and turned as it is, each flipped as it is.
+ */
+function outlined(build: LayerBuild, n: FigmaNode, x: Matrix, placement: Placement, rule: OutlineRule): Piece | null {
+  const pose = poseOf(x, placement.width, placement.height, true)
+  const outlines = outlinesOf(build.ck, build.report, n, rule, pose.toBox)
+  if (outlines.length === 0) return null
+  const box = withinReach(build.report, n, pose.box, placement.clamped)
+  const handles = handlesOf(pose.toBox, placement.width, placement.height, pose.box)
+  // The data is drawn in the box as the matrix sizes it, before the box is brought within reach.
+  const drawnIn = { width: pose.box.width, height: pose.box.height }
+  const graphic = (id: string, at: Box, o: Outline) => {
+    build.paints[id] = { fills: o.fills, ...(o.strokes ? { strokes: n } : {}), handles }
+    return { ...at, ...pose.flips, shape: { kind: 'path', d: o.d, fillRule: o.fillRule, drawnIn } }
+  }
+  if (outlines.length === 1) {
+    const id = build.keyOf(n)
+    made(build, n, 'graphic', graphic(id, box, outlines[0] as Outline), id)
+    return { id, box }
+  }
+  const own = unturned(box)
+  const pieces = outlines.map((o) => {
+    const id = build.fresh()
+    build.nodes[id] = layer(id, 'graphic', n.name, graphic(id, own, o))
+    return { id, box: own }
+  })
+  const id = made(build, n, 'group', box)
+  build.shifts.set(id, shiftOf(box))
+  adopt(build, id, pieces)
   return { id, box }
 }
 

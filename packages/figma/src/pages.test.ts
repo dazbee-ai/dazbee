@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
+import { multiply } from '@dazbee/svg'
+
 import { figmaToImport } from './index.ts'
-import { box, figmaFile, frame, node, onePage, page, rectangle, type TestNode } from './test-figma.ts'
-import { childrenOf, countOf, imported, layersOf, linesOf, onlyFrame } from './test-import.ts'
+import {
+  box,
+  figmaFile,
+  frame,
+  MIRROR_X,
+  node,
+  onePage,
+  page,
+  placedAt,
+  rectangle,
+  type TestNode,
+  turned,
+} from './test-figma.ts'
+import { childrenOf, ck, countOf, imported, layersOf, linesOf, onlyFrame } from './test-import.ts'
 
 describe('importPages', () => {
   describe('pages and links', () => {
@@ -79,14 +93,14 @@ describe('importPages', () => {
     })
 
     it('refuses a link to a node the file lacks', () => {
-      expect(figmaToImport(file, { nodeId: '9:9' })).toEqual({ error: 'node-missing' })
+      expect(figmaToImport(ck, file, { nodeId: '9:9' })).toEqual({ error: 'node-missing' })
     })
 
     it('skips an empty page, and refuses a file with nothing to import', () => {
       const text = figmaFile([page('0:1', 'Empty', []), page('0:2', 'Ads', [frame('1:1', box(0, 0, 100, 100))])])
       expect(imported(text).converted.pages.map((p) => p.name)).toEqual(['Ads'])
       expect(linesOf(text)).toContain('empty-pages')
-      expect(figmaToImport(figmaFile([page('0:1', 'Empty', [])]))).toEqual({ error: 'nothing-to-import' })
+      expect(figmaToImport(ck, figmaFile([page('0:1', 'Empty', [])]))).toEqual({ error: 'nothing-to-import' })
     })
 
     it('tells the size the import adds to a design', () => {
@@ -181,6 +195,26 @@ describe('importPages', () => {
       ])
       expect(imported(text).converted.pages[0]?.frames.map((f) => f.figmaId)).toEqual(['1:2', '1:3'])
       expect(linesOf(text)).toEqual(['hidden-frames', 'locked-frames', 'frames-unclipped'])
+    })
+
+    it('brings a turned or mirrored frame in upright at its box, its content where Figma draws it, reported', () => {
+      const at = turned(90, 300, 100)
+      const kid = multiply(at, turned(0, 10, 20))
+      const text = onePage([
+        frame('1:1', box(0, 0, 0, 0), [rectangle('1:2', box(0, 0, 0, 0), placedAt(kid, 30, 10, at))], {
+          ...placedAt(at, 200, 100),
+        }),
+        frame('1:3', box(0, 0, 0, 0), [], placedAt(multiply(turned(0, 500, 100), MIRROR_X), 100, 100)),
+        frame('1:4', box(0, 0, 100, 100), [], placedAt(turned(0, 0, 0), 100, 100)),
+      ])
+      const [first] = imported(text).converted.pages[0]?.frames ?? []
+      expect(first).toMatchObject({ x: 200, y: 100, width: 100, height: 200 })
+      expect(layersOf(onlyFrame(text))['1-2']?.props).toMatchObject({ width: 30, height: 10 })
+      // Its centre, (25, 25) of the frame's own pixels, is at (75, 25) of the upright frame's.
+      expect(layersOf(onlyFrame(text))['1-2']?.props.x).toBeCloseTo(60)
+      expect(layersOf(onlyFrame(text))['1-2']?.props.y).toBeCloseTo(20)
+      expect(layersOf(onlyFrame(text))['1-2']?.props.rotation).toBeCloseTo(90)
+      expect(countOf(text, 'frames-turned')).toBe(2)
     })
 
     it('makes a top-level component, component set or instance a frame, reported', () => {

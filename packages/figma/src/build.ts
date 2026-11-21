@@ -1,10 +1,15 @@
+// One frame's layers as the import makes them: the keys they are given, the layers themselves
+// before they are placed, the Figma paints each takes, and the report they add to.
+
 import { generateKeyBetween } from 'fractional-indexing'
 import type { z } from 'zod'
 
-import type { Box } from '@dazbee/doc'
+import type { CanvasKit } from '@dazbee/canvaskit'
+import type { Box, Point } from '@dazbee/doc'
 import { Layer, NodeId } from '@dazbee/schema'
+import type { Matrix } from '@dazbee/svg'
 
-import { field, type FigmaNode } from './read.ts'
+import { field, type FigmaNode, list } from './read.ts'
 import type { Reporter } from './report.ts'
 
 /** A layer as the import writes it, before the schema fills in its defaults. */
@@ -16,11 +21,27 @@ export interface Piece {
   box: Box
 }
 
+/**
+ * The Figma paints a layer takes, for the paints step to map: its fills as the file lists them, the
+ * node whose strokes it draws live, and where its gradients' handles go.
+ */
+export interface LayerPaints {
+  fills: readonly unknown[]
+  strokes?: FigmaNode
+  /** Takes a point of the Figma node's unit box, where its gradients' handles are, to the layer's unit box. */
+  handles: Matrix
+}
+
 /** One frame's layers as they are made, with the keys they are given and the report they add to. */
 export interface LayerBuild {
+  ck: CanvasKit
   nodes: Record<string, LayerInput>
   /** Each key made from a Figma node, mapped to the node's Figma id. */
   figmaIds: Record<string, string>
+  /** The Figma paints each layer takes, by its key. */
+  paints: Record<string, LayerPaints>
+  /** How far each container's layers move so that its turn draws them where they are, by its key. */
+  shifts: Map<string, Point>
   report: Reporter
   /** A key no layer of the frame has, and no Figma id under it will be given. */
   fresh(): string
@@ -42,7 +63,7 @@ const MAX_NAME = 200
  * link's form (`:` as `-`, `;` as `_`) is a key no node before it took, keeps that key; the rest
  * are given fresh ones, `n1`, `n2` and so on, skipping the reserved.
  */
-export function newLayerBuild(within: readonly FigmaNode[], report: Reporter): LayerBuild {
+export function newLayerBuild(within: readonly FigmaNode[], report: Reporter, ck: CanvasKit): LayerBuild {
   const reserved = new Map<FigmaNode, string>()
   // `root` is the parent the tree's top layers name, so no layer is keyed by it.
   const taken = new Set<string>([ROOT])
@@ -63,7 +84,16 @@ export function newLayerBuild(within: readonly FigmaNode[], report: Reporter): L
     taken.add(key)
     return key
   }
-  return { nodes: {}, figmaIds: {}, report, fresh, keyOf: (n) => reserved.get(n) ?? fresh() }
+  return {
+    ck,
+    nodes: {},
+    figmaIds: {},
+    paints: {},
+    shifts: new Map(),
+    report,
+    fresh,
+    keyOf: (n) => reserved.get(n) ?? fresh(),
+  }
 }
 
 /** Puts `pieces` inside `parentId`, bottom to top. */
@@ -100,6 +130,24 @@ export function layer<T extends LayerInput['type']>(
     name: name.slice(0, MAX_NAME),
     props: { ...props, ...(mask ? { mask } : {}) },
   } as LayerInput
+}
+
+/** Makes the layer of `type` a node becomes, keyed by the node unless `id` is given, and maps its key to the node. */
+export function made(
+  build: LayerBuild,
+  n: FigmaNode,
+  type: LayerInput['type'],
+  props: object,
+  id = build.keyOf(n),
+): string {
+  build.nodes[id] = layer(id, type, n.name, props, n)
+  build.figmaIds[id] = n.id
+  return id
+}
+
+/** The paints of a layer that draws a node's own fills and strokes, its gradients' handles taken by `handles`. */
+export function paintsOf(n: FigmaNode, handles: Matrix): LayerPaints {
+  return { fills: list(field(n.fields, 'fills')), strokes: n, handles }
 }
 
 export function unreadable(build: LayerBuild, n: FigmaNode): null {

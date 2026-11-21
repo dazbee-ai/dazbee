@@ -75,7 +75,7 @@ describe('convertLayers', () => {
       expect(nodes['1-4']?.props).toMatchObject({ shape: { kind: 'rect', cornerRadius: 2 } })
     })
 
-    it('makes a whole ellipse an ellipse, and leaves an arc for the vector shapes', () => {
+    it('makes a whole ellipse an ellipse, and leaves out an arc or ring with no outline', () => {
       const text = onePage([
         frame('1:1', box(0, 0, 400, 300), [
           node('ELLIPSE', '1:2', box(0, 0, 10, 10)),
@@ -93,7 +93,7 @@ describe('convertLayers', () => {
       const nodes = layersOf(onlyFrame(text))
       expect(Object.keys(nodes)).toEqual(['1-2', '1-3'])
       expect(nodes['1-2']?.props).toMatchObject({ shape: { kind: 'ellipse' } })
-      expect(countOf(text, 'vector-shapes')).toBe(2)
+      expect(countOf(text, 'shapes-without-outlines')).toBe(2)
     })
 
     it('makes a line a line with its ends', () => {
@@ -135,7 +135,7 @@ describe('convertLayers', () => {
       expect(childrenOf(layersOf(f), '1-2')).toEqual(['1-3', '1-4'])
     })
 
-    it('leaves a boolean holding a layer that is no shape for the vector shapes', () => {
+    it('leaves out a boolean holding a layer that is no shape when it has no outline of its own', () => {
       const text = onePage([
         frame('1:1', box(0, 0, 400, 300), [
           node('BOOLEAN_OPERATION', '1:2', box(0, 0, 20, 20), {
@@ -145,7 +145,13 @@ describe('convertLayers', () => {
       ])
       expect(onlyFrame(text).layers).toBeNull()
       expect(imported(text).converted.report.items).toEqual([
-        { line: 'vector-shapes', kind: 'left-out', count: 1, nodes: [{ id: '1:2', name: 'boolean_operation' }] },
+        { line: 'booleans-flattened', kind: 'changed', count: 1, nodes: [{ id: '1:2', name: 'boolean_operation' }] },
+        {
+          line: 'shapes-without-outlines',
+          kind: 'left-out',
+          count: 1,
+          nodes: [{ id: '1:2', name: 'boolean_operation' }],
+        },
       ])
     })
 
@@ -161,9 +167,6 @@ describe('convertLayers', () => {
         ['CONNECTOR', 'figjam-items'],
         ['WASHI_TAPE', 'figjam-items'],
         ['HOLOGRAM', 'unknown-layers'],
-        ['VECTOR', 'vector-shapes'],
-        ['STAR', 'vector-shapes'],
-        ['REGULAR_POLYGON', 'vector-shapes'],
         ['TEXT', 'texts'],
       ]
       const text = onePage([

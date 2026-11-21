@@ -1,15 +1,18 @@
-// The stage field: a text area the page keeps beside the stage's overlay while a text is edited,
-// with the focus in it, so that what the system types with no key reaches the text: the emoji
-// keyboard's pick, dictation, an input method's committed text, and its Backspace, which deletes
-// back as the key does. It holds no text of its own but while an input method composes, when it
-// shows what is composed at the caret. The keys typed in it are the stage's (`isStageField`).
+// The stage field: an invisible text area the page keeps beside the stage's overlay while a text is
+// edited, with the focus in it, so that what the system types with no key reaches the text: an
+// input method's composition and its commit, the emoji keyboard's pick, dictation, a key that types
+// more than one letter, and a Backspace with no key, which deletes back as the key does. It holds
+// the text it was given (`EditorInput.fieldText`) and sends what changes in it
+// (`EditorInput.fieldChanged`); what an input method composes is drawn in the text, not in the
+// field. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
+import { fieldChange, type FieldState } from '../text/field-change.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 
 export interface StageFieldDeps {
   /** The stage's overlay: the field goes after it in the page, and stands at the caret it draws. */
   overlay: HTMLElement
-  input: Pick<EditorInput, 'text' | 'deleteBackward'>
+  input: Pick<EditorInput, 'deleteBackward' | 'fieldText' | 'fieldChanged'>
   /** Whether a text is being edited now. */
   editing: () => boolean
   /** Adds a listener told when the text being edited, or its caret or range, changes. */
@@ -25,14 +28,24 @@ export interface StageField {
   composing(): boolean
   /** Told when typing took a key: the field takes the focus back from a pop-up's button that took it. */
   keyTaken(): void
-  /** Moves the field to the caret as the overlay last drew it; called after each overlay draw. */
+  /**
+   * Moves the field to the caret as the overlay last drew it, inside the composition while one is
+   * composed, and gives it the text it holds when it is owed it; called after each overlay draw.
+   */
   place(): void
 }
 
 /** What holds the focus apart from the stage: a key typed there leaves it there. */
 const POP_UPS = '[role="dialog"], [role="menu"], [role="listbox"], dialog'
-/** The `beforeinput`s an input method makes while it composes, which the field lets it make. */
-const COMPOSING_INPUTS = new Set(['insertCompositionText', 'deleteCompositionText'])
+/** The `beforeinput`s that would undo or redo in the field: Undo is the editor's own. */
+const HISTORY_INPUTS = new Set(['historyUndo', 'historyRedo'])
+/** The `input`s a composition makes, which, after its end, say again what its end left in the field. */
+const COMPOSITION_INPUTS = new Set([
+  'insertCompositionText',
+  'deleteCompositionText',
+  'insertFromComposition',
+  'deleteByComposition',
+])
 
 export function editorStageField({
   overlay,
@@ -43,12 +56,22 @@ export function editorStageField({
   signal,
 }: StageFieldDeps): StageField {
   const field = document.createElement('textarea')
-  /** Whether an input method is composing in the field: from its `compositionstart` to its `compositionend`. */
+  /** Whether an input method is composing in the field: from its `compositionstart` to its `compositionend`, or a blur. */
   let composing = false
+  /** What the field held as the composition started, to tell a commit from a cancel at its end. */
+  let before: FieldState | null = null
+  /** Whether a change is being sent to the editor: the text's selection it moves is the field's own. */
+  let sending = false
+  /** Whether the field is owed the text it holds, once it may be given it: never while composing or sending. */
+  let owed = false
   /** Whether the last press on the page was a touch or a pen's, after which the field takes no focus: a tablet's keyboard would open. */
   let touched = false
   const on = { signal }
 
+  /** What the field holds now: its value and its selection. */
+  function held(): FieldState {
+    return { value: field.value, start: field.selectionStart, end: field.selectionEnd }
+  }
   /**
    * Takes the focus when the stage has it, while a text is edited, or after a key typing took
    * (`byKey`) from wherever it is but a field or a pop-up; gives it back to the page when none is.
@@ -67,9 +90,8 @@ export function editorStageField({
   }
   /** Drops what an input method composes and gives the focus back to the page: typing stopped. */
   function drop() {
-    field.value = ''
     composing = false
-    shown(false)
+    field.value = ''
     field.blur()
   }
   /** Ends a composition where it was composed, as a press is about to move the caret, and keeps the focus. */
@@ -78,23 +100,60 @@ export function editorStageField({
     field.blur()
     field.focus({ preventScroll: true })
   }
-  /** Shows the composition at the caret, or hides the field. */
-  function shown(show: boolean) {
-    field.style.opacity = show ? '1' : '0'
-    field.style.width = '1px'
-    if (show) field.style.width = `${field.scrollWidth + 2}px`
+  /**
+   * Gives the field the text and selection the editor has it hold, outside a composition and a
+   * change being sent; else it is owed them until it may take them.
+   */
+  function give() {
+    if (composing || sending) {
+      owed = true
+      return
+    }
+    owed = false
+    const given = editing() ? input.fieldText() : null
+    if (!given) return
+    if (field.value !== given.value) field.value = given.value
+    if (field.selectionStart !== given.start || field.selectionEnd !== given.end)
+      field.setSelectionRange(given.start, given.end)
+  }
+  /** Sends what the field holds to the editor: with `composed`, the input event's data while composing. */
+  function send(composed: string | null) {
+    sending = true
+    try {
+      input.fieldChanged(held(), composed)
+    } finally {
+      sending = false
+    }
+  }
+  /**
+   * Ends the composition with what the field holds as its commit. One that put nothing in place of
+   * what the field held at its start was cancelled: the editor gives back the text and its range as
+   * they were, and the field is owed them again.
+   */
+  function endComposition() {
+    composing = false
+    const now = held()
+    const change = before && fieldChange(before, now)
+    before = null
+    send(null)
+    if (!change || change.text === '') owed = true
   }
   /** Moves the field to the overlay's caret, or the end of its range, as last drawn, inside the stage. */
   function place() {
-    const parts = overlay.querySelectorAll<HTMLElement>('.caret, .text-selection')
-    const at = parts[parts.length - 1]?.getBoundingClientRect()
-    if (!at) return
-    // Kept inside the stage, so focusing and composing never scroll anything to show it.
-    const stage = overlay.getBoundingClientRect()
-    field.style.left = `${Math.min(Math.max(at.right, stage.left), stage.right - 1)}px`
-    field.style.top = `${Math.min(Math.max(at.top, stage.top), stage.bottom - at.height)}px`
-    field.style.height = `${at.height}px`
-    field.style.fontSize = `${at.height * 0.8}px`
+    const caret = overlay.querySelector<HTMLElement>('.caret')?.getBoundingClientRect()
+    const range = [...overlay.querySelectorAll<HTMLElement>('.text-selection')].at(-1)?.getBoundingClientRect()
+    const at = caret ?? range
+    if (at) {
+      // The caret is drawn centred on its place; a range ends at its last box's end.
+      const x = caret ? (caret.left + caret.right) / 2 : at.right
+      // Kept inside the stage, so focusing and composing never scroll anything to show it.
+      const stage = overlay.getBoundingClientRect()
+      field.style.left = `${Math.min(Math.max(x, stage.left), stage.right - 1)}px`
+      field.style.top = `${Math.min(Math.max(at.top, stage.top), stage.bottom - at.height)}px`
+      field.style.height = `${at.height}px`
+      field.style.fontSize = `${at.height * 0.8}px`
+    }
+    if (owed) give()
   }
 
   field.setAttribute(STAGE_FIELD_MARK, '')
@@ -122,12 +181,13 @@ export function editorStageField({
     resize: 'none',
     // Presses, wheels and the hover cursor over it stay the canvas's.
     pointerEvents: 'none',
+    // Its text stays on one line, scrolled to its own caret, which the input method's window opens by.
     overflow: 'hidden',
     whiteSpace: 'pre',
     lineHeight: '1',
     font: 'inherit',
-    color: '#15121a',
-    background: '#ffffff',
+    color: 'transparent',
+    background: 'transparent',
     caretColor: 'transparent',
     opacity: '0',
     zIndex: '1',
@@ -138,13 +198,11 @@ export function editorStageField({
   field.addEventListener(
     'beforeinput',
     (e) => {
-      if (COMPOSING_INPUTS.has(e.inputType)) return
-      // Nothing else goes into the field: text with no key is typed into the text being edited.
+      if (HISTORY_INPUTS.has(e.inputType)) e.preventDefault()
+      if (e.inputType !== 'deleteContentBackward') return
+      // Backspace with no key the editor took, an input method's or a phone keyboard's: Backspace's own step.
       e.preventDefault()
-      if (composing) return
-      if (e.inputType === 'insertText' && e.data) input.text(e.data)
-      // Backspace with no key the editor took: an input method's, or a phone keyboard's.
-      if (e.inputType === 'deleteContentBackward') input.deleteBackward()
+      if (!composing) input.deleteBackward()
     },
     on,
   )
@@ -152,18 +210,25 @@ export function editorStageField({
     'compositionstart',
     () => {
       composing = true
-      shown(true)
+      before = held()
     },
     on,
   )
-  field.addEventListener('input', () => shown(composing), on)
+  field.addEventListener(
+    'input',
+    (e) => {
+      const { inputType, data } = e as InputEvent
+      if (composing) send(data ?? '')
+      // What a composition's end left, said again after it (Firefox), was read at its end.
+      else if (!COMPOSITION_INPUTS.has(inputType)) send(null)
+    },
+    on,
+  )
   field.addEventListener(
     'compositionend',
-    (e) => {
-      composing = false
-      field.value = ''
-      shown(false)
-      if (e.data) input.text(e.data)
+    () => {
+      // A late one, after a blur ended its composition, ends nothing.
+      if (composing) endComposition()
     },
     on,
   )
@@ -171,8 +236,8 @@ export function editorStageField({
   field.addEventListener(
     'blur',
     (e) => {
-      // A browser that ends a composition on blur without its `compositionend` leaves none open.
-      composing = false
+      // A browser that ends a composition on blur without its `compositionend` commits what it left.
+      if (composing) endComposition()
       if (e.relatedTarget === null && editing()) requestAnimationFrame(() => follow())
     },
     on,
@@ -194,7 +259,11 @@ export function editorStageField({
     },
     { ...on, capture: true },
   )
-  const stopFollowing = onTextSelection(() => follow())
+  // Typing starting, or the text's caret or range moved by anything but the field: it takes the text it holds.
+  const stopFollowing = onTextSelection(() => {
+    follow()
+    if (!sending) give()
+  })
   signal.addEventListener('abort', () => stopFollowing())
 
   // A press on the stage keeps the focus in the field, so what the system types next lands at once:

@@ -1,4 +1,4 @@
-// Starts the sync server (#677, D10); settings come from the environment only, and a limit set out of
+// Starts the sync server; settings come from the environment only, and a limit set out of
 // its range stops it from starting (`limitSettings`). A signal to stop closes every tab, which
 // reconnects elsewhere, and folds and unloads every design before the process exits.
 import { openDatabase } from '@dazbee/db'

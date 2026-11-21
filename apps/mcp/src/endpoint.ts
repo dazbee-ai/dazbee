@@ -159,7 +159,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     const sessionId = request.headers.get('mcp-session-id')
     const session = sessionId === null ? undefined : sessions.get(sessionId)
     if (sessionId !== null && session?.accessId !== agent.id) return sessionNotFound()
-    if (!session && sessions.size >= limits.sessions && sessionsOf(agent.id).length < limits.sessionsPerAccess)
+    if (!session && sessions.size >= limits.mcpSessions && sessionsOf(agent.id).length < limits.mcpSessionsPerAccess)
       return jsonRpcError(503, -32000, 'Too many sessions; try again later')
     const body = request.method === 'POST' ? await readMessage(request) : undefined
     if (body instanceof Response) return body
@@ -299,7 +299,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
     const ofAccess = sessionsOf(session.accessId)
-    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.sessionsPerAccess))) await end(old.id)
+    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.mcpSessionsPerAccess))) await end(old.id)
   }
 
   /** The access's sessions, oldest first. */
@@ -309,7 +309,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
 
   /** Ends every session that has had no call for its idle time. */
   async function endIdle(): Promise<void> {
-    const before = now() - limits.sessionIdleMinutes * 60_000
+    const before = now() - limits.mcpSessionIdleMinutes * 60_000
     for (const session of [...sessions.values()]) if (session.lastCallAt <= before) await end(session.id)
   }
 

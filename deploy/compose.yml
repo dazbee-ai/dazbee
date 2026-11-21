@@ -20,10 +20,9 @@
 # in its range, and a deploy then leaves its previous version serving.
 #
 # Memory caps sit above what each container used idle and with a design open; the MCP server's is
-# about 140 MB plus up to 29 MB for each of its 30 agent tabs. They are ceilings, not use: on
-# 2026-11-21 the server, of 3915 MB, used 908 MB. With one colour of the web app and API, they add up
-# to 3520 MB: Caddy 128 MB, the router 64 MB, web 384 MB, API 512 MB, sync 1024 MB, MCP 1024 MB and
-# Postgres 384 MB. Only while both colours run, as during a swap, do they pass the server's memory, at
+# about 140 MB plus up to 29 MB for each of its 30 agent tabs. They are ceilings, not use. With one
+# colour of the web app and API, they add up to 3520 MB: Caddy 128 MB, the router 64 MB, web 384 MB, API 512 MB, sync 1024 MB, MCP 1024 MB and
+# Postgres 384 MB. Only while both colours run, as during a swap, do they pass the server's 3915 MB, at
 # 4416 MB, with 2 GB of swap behind them. The backup's two containers, 128 MB each, run one at a time
 # and only for a backup or a restore. Move to a bigger server when available memory stays under 1 GB.
 # On the one CPU, the MCP server gets a quarter of the others' weight (cpu_shares), so people's editing

@@ -32,12 +32,15 @@ import {
 export interface OAuthLimitSettings {
   /** How many sign-ins one address may start, `AGENT_SIGN_INS_PER_HOUR`. */
   signInsPerHour: number
-  /** How many clients may register in all, so a flood of addresses can't fill the table, `AGENT_REGISTRATIONS_PER_HOUR`. */
+  /**
+   * How many clients may register from every address together, so a flood of addresses can't fill the table,
+   * `AGENT_REGISTRATIONS_PER_HOUR`.
+   */
   registrationsPerHour: number
 }
 
 /** How many clients one address may register within an hour. */
-export const REGISTRATIONS_PER_HOUR = 20
+export const REGISTRATIONS_PER_ADDRESS_PER_HOUR = 20
 
 /** What the token endpoint's answers never let a cache keep (RFC 6749 §5.1). */
 const NO_STORE = { 'cache-control': 'no-store', pragma: 'no-cache' }
@@ -60,7 +63,7 @@ export function agentOAuthRoutes({
   limits?: OAuthLimitSettings
 }): Hono<Env> {
   // Registrations from one address, and from every address together.
-  const registrations = requestLimit({ perWindow: REGISTRATIONS_PER_HOUR })
+  const registrations = requestLimit({ perWindow: REGISTRATIONS_PER_ADDRESS_PER_HOUR })
   const allRegistrations = requestLimit({ perWindow: limits.registrationsPerHour })
   // Authorization requests from one address.
   const authorizations = requestLimit({ perWindow: limits.signInsPerHour })

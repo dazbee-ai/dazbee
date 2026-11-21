@@ -13,11 +13,11 @@ export interface LimitSettings {
   /** The agent tabs one agent access holds open at once, across its sessions, `MCP_AGENT_TABS_PER_ACCESS`. */
   agentTabsPerAccess: number
   /** The sessions held at once, of all accesses, `MCP_SESSIONS`; past it, a new one is refused as busy. */
-  sessions: number
+  mcpSessions: number
   /** The sessions an agent access holds at once, `MCP_SESSIONS_PER_ACCESS`; a new one ends the oldest. */
-  sessionsPerAccess: number
+  mcpSessionsPerAccess: number
   /** How many minutes a session lasts without a call, `MCP_SESSION_IDLE_MINUTES`. */
-  sessionIdleMinutes: number
+  mcpSessionIdleMinutes: number
   /** The calls an access may make at once, `MCP_CALLS_BURST`. */
   callsBurst: number
   /** The calls an access gets back each second, `MCP_CALLS_PER_SECOND`. */
@@ -123,9 +123,9 @@ export const RENDER_MS_PER_RENDER = 2000
 const LIMIT_SETTINGS: Readonly<Record<keyof LimitSettings, ServerSetting>> = {
   agentTabs: { name: 'MCP_AGENT_TABS', value: 30, least: 1, most: 1000 },
   agentTabsPerAccess: { name: 'MCP_AGENT_TABS_PER_ACCESS', value: 1, least: 1, most: 100 },
-  sessions: { name: 'MCP_SESSIONS', value: 200, least: 1, most: 100_000 },
-  sessionsPerAccess: { name: 'MCP_SESSIONS_PER_ACCESS', value: 4, least: 1, most: 100 },
-  sessionIdleMinutes: { name: 'MCP_SESSION_IDLE_MINUTES', value: 30, least: 1, most: 1440 },
+  mcpSessions: { name: 'MCP_SESSIONS', value: 200, least: 1, most: 100_000 },
+  mcpSessionsPerAccess: { name: 'MCP_SESSIONS_PER_ACCESS', value: 4, least: 1, most: 100 },
+  mcpSessionIdleMinutes: { name: 'MCP_SESSION_IDLE_MINUTES', value: 30, least: 1, most: 1440 },
   callsBurst: { name: 'MCP_CALLS_BURST', value: 60, least: 1, most: 100_000 },
   callsPerSecond: { name: 'MCP_CALLS_PER_SECOND', value: 2, least: 1, most: 10_000 },
   designsPerHour: { name: 'MCP_DESIGNS_PER_HOUR', value: 30, least: 1, most: 100_000 },

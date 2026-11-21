@@ -7,7 +7,7 @@ import { BASE_URL, type TestServer, testServer } from './test-client.ts'
 /** The capacity limits when the environment sets none. */
 const LIMITS = limitSettings({})
 /** How long a session lives without a call, unless set otherwise. */
-const IDLE_MS = LIMITS.sessionIdleMinutes * 60_000
+const IDLE_MS = LIMITS.mcpSessionIdleMinutes * 60_000
 
 const POINTER = `Bearer resource_metadata="${BASE_URL}/.well-known/oauth-protected-resource/mcp"`
 
@@ -166,7 +166,7 @@ describe('mcpEndpoint', () => {
   })
 
   it('ends a session idle past MCP_SESSION_IDLE_MINUTES', async () => {
-    server = testServer({ limits: { sessionIdleMinutes: 5 } })
+    server = testServer({ limits: { mcpSessionIdleMinutes: 5 } })
     const agent = await server.connect(server.api.addAccess().token())
     server.wait(5 * 60_000 - 1000)
     expect((await agent.call('list_brands')).isError).toBeFalsy()
@@ -282,7 +282,7 @@ describe('mcpEndpoint', () => {
     const sessionId = await initialize(token)
     const release = server.api.hold()
     const running = server.fetch(post(listDesigns(2), token, sessionId))
-    for (let i = 0; i < LIMITS.sessionsPerAccess; i++) await initialize(access.token())
+    for (let i = 0; i < LIMITS.mcpSessionsPerAccess; i++) await initialize(access.token())
     expect((await running).status).toBe(404)
     release()
   })
@@ -312,15 +312,18 @@ describe('mcpEndpoint', () => {
 
   it('refuses a new session as busy once the server holds its most, unless the access ends its own oldest', async () => {
     server = testServer()
-    const accesses = Array.from({ length: LIMITS.sessions / LIMITS.sessionsPerAccess }, () => server.api.addAccess())
-    for (const access of accesses) for (let j = 0; j < LIMITS.sessionsPerAccess; j++) await initialize(access.token())
+    const accesses = Array.from({ length: LIMITS.mcpSessions / LIMITS.mcpSessionsPerAccess }, () =>
+      server.api.addAccess(),
+    )
+    for (const access of accesses)
+      for (let j = 0; j < LIMITS.mcpSessionsPerAccess; j++) await initialize(access.token())
     const response = await server.fetch(post(INITIALIZE, server.api.addAccess().token()))
     expect(response.status).toBe(503)
     expect((await server.fetch(post(INITIALIZE, accesses[0]?.token()))).status).toBe(200)
   })
 
   it('holds MCP_SESSIONS in all and MCP_SESSIONS_PER_ACCESS of one access, as set', async () => {
-    server = testServer({ limits: { sessions: 3, sessionsPerAccess: 2 } })
+    server = testServer({ limits: { mcpSessions: 3, mcpSessionsPerAccess: 2 } })
     const access = server.api.addAccess()
     const first = await server.connect(access.token())
     server.wait(1000)

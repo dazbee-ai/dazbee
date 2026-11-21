@@ -212,6 +212,13 @@ export interface SavedClient {
   confirmed: DesignRecords
   /** The next change set id: ids keep rising, so the server tells one sent again from a new one. */
   nextId: number
+  /**
+   * The first id given since the tab came back from a saved copy, while the server hasn't welcomed
+   * it since: the copy may be older than what the tab sent, so these ids may be ones the server took
+   * already, and they take new ones once it is heard (rejoin). Kept across later reloads, which come
+   * back to it; absent when no id was given since.
+   */
+  madeSince?: number
   queue: SavedQueued[]
   /** The steps the queued change sets apply, which `step` points into. */
   steps: SavedStep[]
@@ -306,8 +313,9 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   /** The next change set's id. */
   let nextId = 1
   /**
-   * After a reload, the first id the saved copy had not given: an older copy than what the tab
-   * sent gives ids the server took already, so the change sets made since take new ones (rejoin).
+   * After a reload, the first id the first saved copy since the server last welcomed the tab had not
+   * given: an older copy than what the tab sent gives ids the server took already, so the change
+   * sets made since take new ones (rejoin), whichever reload made them.
    */
   let madeSince: number | undefined
   /** Whether a welcome came on the connection that is open. */
@@ -394,7 +402,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
 
   function restore(saved: SavedClient) {
     ;({ syncId, tabId, secret, access, seq, nextId } = saved)
-    madeSince = nextId
+    madeSince = saved.madeSince ?? nextId
     changedFrom = seq
     for (const [key, upTo] of saved.owed) owed.set(key, upTo)
     confirmed = DesignState.fromRecords(saved.confirmed)
@@ -420,6 +428,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       seq,
       confirmed: confirmed.toRecords(),
       nextId,
+      ...(madeSince !== undefined && madeSince < nextId ? { madeSince } : {}),
       queue: queue.map(({ step, ...q }) => (step ? { ...q, step: steps.indexOf(step) } : q)),
       steps: steps.map((step) => step.save()),
       ...(open ? { open: [...open.writes.values()] } : {}),
@@ -961,7 +970,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
    */
   function rejoin(message: Welcome): Outgoing[] {
     const { lastChangeSet } = message.processed
-    // Back from a copy older than what it sent: the change sets made since the reload take ids the server hasn't seen.
+    // Back from a copy older than what it sent: the change sets made since the first reload take ids the server hasn't seen.
     if (madeSince !== undefined && lastChangeSet >= madeSince) {
       nextId = lastChangeSet + 1
       const renumbered = new Map<number, number>()

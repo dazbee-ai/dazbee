@@ -4,20 +4,20 @@ import { describe, expect, it } from 'vitest'
 
 import type { Accepted, Change, RestoreMark, Target } from '@dazbee/schema'
 
+import { sameValue } from '../same-value.ts'
 import { linkedDesign } from '../test-design.ts'
 import { type Client, openClient, type SavedClient } from './client.ts'
-import type { Outgoing } from './server.ts'
+import type { Outgoing, Server } from './server.ts'
 import { type Entries, FOLD_LOG, putEntries, restoreEntries, TabCopy } from './tab-copy.ts'
-import { down, edit, joinClient, testServer, up, who, wire } from './test-session.ts'
+import { down, edit, exchange, joinClient, testServer, up, who, wire } from './test-session.ts'
 import { groupHeights, withGroupHeights } from './test-sim-edits.ts'
 
 const name = (part: 'page' | 'layer', id: string): Target => ({ part, id, key: 'name' })
 const set = (value: Target, to: unknown): Change => ({ op: 'set', value, to })
 
-/** A tab's copy, kept as it writes it. */
-function copyOf(c: Client) {
-  const copy = new TabCopy()
-  const entries: Entries = new Map()
+/** A tab's copy, kept as it writes it: a new one, or the one in `entries` it took up after a reload. */
+function copyOf(c: Client, entries: Entries = new Map()) {
+  const copy = new TabCopy(entries)
   let heard: Accepted[] = []
   /** Writes the copy; returns what the write put and removed. */
   const write = () => {
@@ -156,5 +156,65 @@ describe('restoreEntries', () => {
     copy.write()
     const saved = wire(a.save())
     expect([saved.owed.length > 0, restoreEntries(copy.entries)]).toEqual([true, saved])
+  })
+
+  describe('reloaded more than once before the tab comes back, from a copy older than what it sent', () => {
+    /** The names the server took for page p1 and layer title, in its order, from every accepted change set. */
+    const namesTaken = (server: Server) =>
+      server
+        .takeJournal()
+        .flatMap((entry) =>
+          entry.kind === 'accepted'
+            ? entry.changeSet.changes.flatMap((change) =>
+                change.op === 'set' && change.value.key === 'name' && change.value.id !== 'price' ? [change.to] : [],
+              )
+            : [],
+        )
+
+    it.each([
+      [2, 'alone'],
+      [3, 'alone'],
+      [2, 'with a second tab'],
+      [3, 'with a second tab'],
+    ])('sends every edit made offline across %i reloads once, in order (%s)', (reloads, others) => {
+      const server = testServer(linkedDesign())
+      const a = joinClient(server)
+      const b = others === 'alone' ? undefined : joinClient(server)
+      const everyone = (c: Client) => (b ? [c, b] : [c])
+      const first = copyOf(a)
+      first.write()
+      // a sends two change sets its copy never holds, and hears neither answer.
+      for (const n of [1, 2]) {
+        const out = up(server, a, edit(a, 'rename', set(name('layer', 'title'), `Sent ${n}`)))
+        if (b) down(b, out)
+      }
+      server.leave(a.tabId())
+      let tab = a
+      for (let n = 1; n <= reloads; n++) {
+        tab = openClient(restoreEntries(first.entries))
+        const copy = copyOf(tab, first.entries)
+        edit(tab, 'rename', set(name('page', 'p1'), `Offline ${n}`))
+        copy.write()
+        if (b) exchange(server, b, edit(b, 'rename', set(name('layer', 'price'), `Theirs ${n}`)), [b])
+      }
+      const joined = server.join(wire(tab.reconnect('t')), who())
+      if ('close' in joined) throw new Error(joined.reason)
+      exchange(server, tab, down(tab, joined.out), everyone(tab))
+      const offline = Array.from({ length: reloads }, (_, n) => `Offline ${n + 1}`)
+      expect(namesTaken(server)).toEqual(['Sent 1', 'Sent 2', ...offline])
+      expect([tab.queued(), tab.takeNotices()]).toEqual([0, []])
+      for (const c of everyone(tab)) expect(sameValue(c.working().toRecords(), server.state().toRecords())).toBe(true)
+    })
+
+    it('stores nothing more for a tab that made no change set since its reload', () => {
+      const server = testServer(linkedDesign())
+      const a = joinClient(server)
+      const copy = copyOf(a)
+      edit(a, 'rename', set(name('page', 'p1'), 'Queued'))
+      copy.write()
+      const reloaded = openClient(restoreEntries(copy.entries))
+      expect(wire(reloaded.save())).toEqual(wire(a.save()))
+      expect(Object.keys(copy.entries.get('head') as object).sort()).toEqual(['access', 'nextId', 'owed'])
+    })
   })
 })

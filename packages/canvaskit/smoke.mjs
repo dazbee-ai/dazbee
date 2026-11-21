@@ -64,28 +64,43 @@ for (const [name, format] of [
 image.delete()
 surface.delete()
 
-// A run's baseline shift (the text style's baselineShift, added by build/build.sh) moves its glyphs
-// and the boxes that hold them by that many pixels, down for a positive shift.
+// A run's baseline shift (the text style's baselineShift, added by build/build.sh) moves the glyphs
+// it draws by that many pixels, down for a positive shift, and leaves its line's height as it was.
 const fontProvider = ck.TypefaceFontProvider.Make()
 fontProvider.registerFont(readFileSync(join(import.meta.dirname, '../fonts/files/NotoSans-Regular.ttf')), 'Noto Sans')
-const runTop = (baselineShift) => {
+const shiftedRun = (baselineShift) => {
   const builder = ck.ParagraphBuilder.MakeFromFontProvider(
     new ck.ParagraphStyle({ textStyle: new ck.TextStyle({ fontFamilies: ['Noto Sans'], fontSize: 40 }) }),
     fontProvider,
   )
-  builder.addText('x')
-  builder.pushStyle(new ck.TextStyle({ fontFamilies: ['Noto Sans'], fontSize: 40, baselineShift }))
+  builder.pushStyle(new ck.TextStyle({ color: ck.BLACK, fontFamilies: ['Noto Sans'], fontSize: 40, baselineShift }))
   builder.addText('2')
   builder.pop()
   const paragraph = builder.build()
   paragraph.layout(1000)
-  const [box] = paragraph.getRectsForRange(1, 2, ck.RectHeightStyle.Tight, ck.RectWidthStyle.Tight)
+  const textSurface = ck.MakeSurface(80, 120)
+  textSurface.getCanvas().clear(ck.WHITE)
+  textSurface.getCanvas().drawParagraph(paragraph, 0, 30)
+  const pixels = textSurface
+    .getCanvas()
+    .readPixels(0, 0, { ...textSurface.imageInfo(), colorType: ck.ColorType.RGBA_8888 })
+  const height = paragraph.getHeight()
+  textSurface.delete()
   paragraph.delete()
   builder.delete()
-  return box.rect[1]
+  // The first row with a dark pixel: the top of the glyph's ink.
+  const row = Array.from({ length: 120 }, (_, y) => y).find((y) =>
+    Array.from({ length: 80 }, (_, x) => pixels[(y * 80 + x) * 4]).some((red) => red < 128),
+  )
+  return { top: row ?? -1, height }
 }
-const shifted = runTop(-12) - runTop(0)
-check(Math.abs(shifted + 12) < 0.5, `a baseline shift of -12 raises its run by 12 (${shifted.toFixed(2)})`)
+const plainRun = shiftedRun(0)
+const raisedRun = shiftedRun(-12)
+check(
+  raisedRun.top - plainRun.top === -12,
+  `a baseline shift of -12 raises its glyph by 12 (${raisedRun.top - plainRun.top})`,
+)
+check(raisedRun.height === plainRun.height, `and keeps its line's height (${raisedRun.height}, ${plainRun.height})`)
 fontProvider.delete()
 
 if (failures.length > 0) process.exit(1)

@@ -108,7 +108,7 @@ export function createApp({
   app.route('/', devInviteRoutes({ db, dev: invites.dev && { ...invites.dev, dazbee: !invites.workos } }))
   app.route('/', adminRoutes({ db, sessionOf, admins, invites: providers }))
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
-  app.route('/', uploadRoutes({ db, storage }))
+  app.route('/', uploadRoutes({ db, storage, admins }))
 
   const signedIn = requireSession(sessionOf, sessionRefusal(db, admins))
   const records = new Hono<Env>()

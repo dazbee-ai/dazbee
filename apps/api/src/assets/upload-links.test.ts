@@ -2,12 +2,14 @@
 // session, against Postgres and storage from Docker Compose.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { dazbeeInvites, newId } from '@dazbee/db'
 import { AssetLink, AssetSummary, MAX_SVG_BYTES, MAX_UPLOAD_BYTES, UPLOAD_LINK_MS, UploadLink } from '@dazbee/schema'
 
 import { endAccess, issueTokens, makeAccess } from '../agents/agent-accesses.ts'
 import { createApp } from '../app.ts'
 import { sessionOfRequest } from '../sign-in/session.ts'
 import {
+  addPerson,
   authorization,
   brand,
   db,
@@ -20,8 +22,10 @@ import {
   syncSecret,
   workspace,
 } from '../test-api.ts'
-import { png, sha256 } from '../test-files.ts'
+import { png, sha256, slowPathsSvg } from '../test-files.ts'
 import { addingFromOutside } from './from-url.ts'
+import { readSvgAsset } from './svg-assets.ts'
+import { MAX_RECEIVING_AT_ONCE, RECEIVE_TIMEOUT_MS, UPLOADS_PER_ADDRESS_PER_HOUR } from './upload-links.ts'
 
 const app = createApp({
   db,
@@ -286,3 +290,139 @@ describe(
     })
   },
 )
+
+/** A body that sends `first`, then waits until `breakOff` ends it with an error. */
+function stalled(first: Uint8Array) {
+  let breakOff = () => {}
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(first)
+      breakOff = () => controller.error(new Error('the sender went away'))
+    },
+  })
+  return { body, breakOff: () => breakOff() }
+}
+
+/** Sends `body`, a stream, to the link's path with no session. */
+async function sendStream(path: string, body: ReadableStream<Uint8Array>) {
+  const response = await app.request(path, { method: 'PUT', body, duplex: 'half' } as RequestInit)
+  return { status: response.status, json: (await response.json()) as unknown }
+}
+
+/** Lets a request that has just been sent reach its first wait. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 300))
+
+const brokeOff = {
+  status: 400,
+  json: { error: 'The file broke off before it all arrived; ask upload_image for a new one' },
+}
+const busy = {
+  status: 503,
+  json: { error: 'Dazbee is busy adding other pictures; send the file to the same link again in a minute' },
+}
+
+describe('upload links, against a sender who misuses them', { timeout: 60_000 }, () => {
+  it('holds up no picture from a link while a file arrives slowly, and spends the link when it breaks off', async () => {
+    const link = await newLink({ contentType: 'image/png', name: 'Slow' })
+    const sender = stalled(png(2, 2, `${run}-slow`).subarray(0, 10))
+    const sent = sendStream(link.path, sender.body)
+    await settle()
+    await expect(addingFromOutside(() => Promise.resolve('free'))).resolves.toBe('free')
+    sender.breakOff()
+    expect(await sent).toEqual(brokeOff)
+    expect((await send(link.path, png(2, 2, `${run}-slow`))).status).toBe(410)
+  })
+
+  it('spends a link whose file takes longer than the time a file may take to arrive', async () => {
+    const link = await newLink({ contentType: 'image/png', name: 'Late' })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    const sender = stalled(png(2, 2, `${run}-late-file`).subarray(0, 10))
+    const sent = sendStream(link.path, sender.body)
+    await settle()
+    await vi.advanceTimersByTimeAsync(RECEIVE_TIMEOUT_MS)
+    expect(await sent).toEqual({
+      status: 408,
+      json: { error: 'The file took longer than 60 seconds to arrive; ask upload_image for a new one' },
+    })
+    expect((await send(link.path, png(2, 2, `${run}-late-file`))).status).toBe(410)
+  })
+
+  it('takes only so many files arriving at once, keeping the link of one it turns away', async () => {
+    const senders = await Promise.all(
+      Array.from({ length: MAX_RECEIVING_AT_ONCE }, async (_, i) => {
+        const link = await newLink({ contentType: 'image/png', name: `Arriving ${i}` })
+        const sender = stalled(png(2, 2, `${run}-arriving`).subarray(0, 10))
+        return { sender, sent: sendStream(link.path, sender.body) }
+      }),
+    )
+    await settle()
+    const turnedAway = await newLink({ contentType: 'image/png', name: 'Turned away' })
+    expect(await send(turnedAway.path, png(3, 2, `${run}-turned-away`))).toEqual(busy)
+    for (const { sender, sent } of senders) {
+      sender.breakOff()
+      expect(await sent).toEqual(brokeOff)
+    }
+    expect((await send(turnedAway.path, png(3, 2, `${run}-turned-away`))).status).toBe(201)
+  })
+
+  it('keeps the link when the SVG reader is busy with other files', async () => {
+    const link = await newLink({ contentType: 'image/svg+xml', name: 'Busy reader' })
+    const slow = new TextEncoder().encode(slowPathsSvg())
+    const reading = Array.from({ length: 4 }, () => readSvgAsset(slow, 320, 300).catch(() => null))
+    expect(await send(link.path, svg(`${run}-busy-reader`))).toEqual(busy)
+    await Promise.all(reading)
+    expect((await send(link.path, svg(`${run}-busy-reader`))).status).toBe(201)
+  })
+
+  it('refuses a picture of more pixels than a picture from outside may have, before it is decoded', async () => {
+    const link = await newLink({ contentType: 'image/png', name: 'Huge' })
+    const huge = png(2, 2, `${run}-huge`)
+    const view = new DataView(huge.buffer, huge.byteOffset)
+    view.setUint32(16, 6000)
+    view.setUint32(20, 5000)
+    expect(await send(link.path, huge)).toEqual({
+      status: 400,
+      json: {
+        error:
+          'The picture is over 25 megapixels, the most an agent may add; send a smaller one with a new link from upload_image',
+      },
+    })
+  })
+
+  it('refuses an address past the files it may send in an hour, whatever their links', async () => {
+    const fresh = createApp({
+      db,
+      storage,
+      sessionOf: sessionOfRequest({ db, secret: sessionSecret, dev: false }),
+      syncSecret,
+      build: 'test-build',
+    })
+    const put = (address: string) =>
+      fresh.request('/uploads/short', { method: 'PUT', body: 'x', headers: { 'cf-connecting-ip': address } })
+    for (let i = 0; i < UPLOADS_PER_ADDRESS_PER_HOUR; i++) expect((await put('203.0.113.9')).status).toBe(404)
+    const past = await put('203.0.113.9')
+    expect(past.status).toBe(429)
+    expect(await past.json()).toEqual({
+      error: `This address has sent as many files as it may in an hour (${UPLOADS_PER_ADDRESS_PER_HOUR}); try again later`,
+    })
+    expect((await put('203.0.113.10')).status).toBe(404)
+  })
+
+  it('refuses a file once an admin has removed the access of the person who asked for the link', async () => {
+    const person = await addPerson([[workspace.id, 'editor']])
+    const asked = await askLink({ contentType: 'image/png', name: 'Removed' }, authorization(person.as))
+    const link = UploadLink.parse(asked.json)
+    const now = new Date()
+    await db.insert(dazbeeInvites).values({
+      id: newId(),
+      email: person.email,
+      expiresAt: now,
+      acceptedAt: now,
+      removedAt: now,
+    })
+    expect(await send(link.path, png(2, 2, `${run}-removed`))).toEqual({
+      status: 403,
+      json: { error: 'The access that asked for this upload link may no longer add images to this brand' },
+    })
+  })
+})

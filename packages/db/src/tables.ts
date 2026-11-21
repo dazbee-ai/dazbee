@@ -27,6 +27,8 @@ const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   fromDriver: (value) => new Uint8Array(value),
 })
 
+/** The types of image an asset, or the file an upload link takes, may be. */
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 
@@ -373,7 +375,7 @@ export const assets = pgTable(
       .references(() => workspaces.id),
     brandId: text('brand_id').notNull(),
     sha256: text().notNull(),
-    contentType: text('content_type', { enum: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] }).notNull(),
+    contentType: text('content_type', { enum: IMAGE_TYPES }).notNull(),
     byteSize: integer('byte_size').notNull(),
     width: integer().notNull(),
     height: integer().notNull(),
@@ -638,7 +640,7 @@ export const uploadLinks = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     accessId: text('access_id').references(() => agentAccesses.id, { onDelete: 'cascade' }),
-    contentType: text('content_type', { enum: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] }).notNull(),
+    contentType: text('content_type', { enum: IMAGE_TYPES }).notNull(),
     name: text().notNull(),
     tags: text()
       .array()

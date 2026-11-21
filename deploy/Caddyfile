@@ -43,22 +43,27 @@ app.dazbee.com {
 			lb_try_duration 10s
 		}
 	}
-	# A file sent to an upload link: its body at most the upload limit, MAX_UPLOAD_BYTES (30 MiB), streamed to the
-	# API, which checks it again. It is never sent again, as its body is gone once sent; a link the API never saw
-	# is still unused, so the agent sends the file again.
+	# A file sent to an upload link, streamed to the API, which refuses one over the upload limit, MAX_UPLOAD_BYTES
+	# (30 MiB), with its own sentence. Caddy cuts a body off 1 MiB past that, so the API sees a file over the limit
+	# and says so, and answers what it cuts off with the same sentence. It is never sent again, as its body is gone
+	# once sent; a link the API never saw is still unused, so the agent sends the file again.
 	@upload {
 		method PUT
 		path /uploads/*
 	}
 	handle @upload {
 		request_body {
-			max_size 30MiB
+			max_size 31MiB
 		}
 		reverse_proxy router:8787 {
 			transport http {
 				keepalive off
 			}
 		}
+	}
+	handle_errors 413 {
+		header Content-Type application/json
+		respond `{"error":"The file is over 30 MB, the most a picture may have; send a smaller one with a new link from upload_image"}` 413
 	}
 	handle {
 		reverse_proxy router:3000 {

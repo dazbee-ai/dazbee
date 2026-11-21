@@ -10,7 +10,6 @@ import { agentAccesses, type Db, uploadLinks } from '@dazbee/db'
 import {
   type AssetSummary,
   type ImageType,
-  MAX_SVG_BYTES,
   maxBytesOf,
   readImageHeader,
   roleWrites,
@@ -20,11 +19,13 @@ import {
   type UploadLink,
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
-import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
+import { SVG_TYPE } from '@dazbee/svg'
 
+import type { Admins } from '../admin/admins.ts'
+import { isRemovedUser } from '../admin/dazbee-invites.ts'
 import { hashOf } from '../agents/agent-accesses.ts'
 import { findAccess } from '../workspace/workspace.ts'
-import { addingFromOutside, AddingFromUrlBusy, MAX_FROM_URL_PIXELS, recordPicture } from './from-url.ts'
+import { addingFromOutside, AddingFromUrlBusy, MAX_OUTSIDE_PIXELS, pictureTypeOf, recordPicture } from './from-url.ts'
 import { SvgBusy } from './svg-assets.ts'
 
 /** Who asks for an upload link, and for which brand: a member, through their agent access when `accessId` is set. */
@@ -37,7 +38,7 @@ export interface LinkAsker {
 
 /** A file sent to an upload link, or the link itself, refused: the answer's status and its sentence. */
 export class UploadLinkRefused extends Error {
-  readonly status: 400 | 403 | 404 | 408 | 410 | 413 | 503
+  readonly status: 400 | 403 | 404 | 408 | 410 | 413 | 429 | 503
   constructor(status: UploadLinkRefused['status'], message: string) {
     super(message)
     this.status = status
@@ -46,6 +47,13 @@ export class UploadLinkRefused extends Error {
 
 /** How long a file may take to arrive once it starts: 30 MiB at 4 Mbit/s. */
 export const RECEIVE_TIMEOUT_MS = 60_000
+/** The files sent to upload links one address may send in an hour, refused or not. */
+export const UPLOADS_PER_ADDRESS_PER_HOUR = 120
+/**
+ * The files arriving at upload links at once in the process: two, as each holds up to `MAX_UPLOAD_BYTES` twice
+ * over (its pieces, then the whole) beside the one picture from outside being recorded.
+ */
+export const MAX_RECEIVING_AT_ONCE = 2
 
 /** A link's token: 32 random bytes in base64url. */
 const TOKEN = /^[\w-]{43}$/
@@ -60,6 +68,9 @@ const TYPE_NAMES: Record<ImageType, string> = {
 }
 /** What every refusal that spends the link ends with. */
 const NEW_LINK = 'ask upload_image for a new one'
+
+/** The files arriving at upload links now. */
+let receiving = 0
 
 /**
  * A new upload link for one file of `input.contentType`, named `input.name` and tagged `input.tags`, into the
@@ -91,14 +102,15 @@ export async function createUploadLink(
 
 /**
  * The asset of the file `request` sends to the upload link of `token`, recorded into the link's brand as an upload
- * is. The first request that reaches the file spends the link; it is kept for another try only when Dazbee was busy
- * or the file broke off. It throws `UploadLinkRefused` for an unknown, used or expired link, a member or access that
- * may no longer add to the brand, a file over the type's limit, of another type, or that is not a picture, and
- * `InvalidUpload` for one the upload path refuses.
+ * is. The first request that reaches the file spends the link, which is kept for another try only when Dazbee was
+ * too busy to take it. The file arrives outside the one place for a picture from outside, at most
+ * `MAX_RECEIVING_AT_ONCE` at a time, so a slow sender holds up only other uploads. It throws `UploadLinkRefused` for
+ * an unknown, used or expired link, a member or access that may no longer add to the brand, a file over the type's
+ * limit, slower than `RECEIVE_TIMEOUT_MS`, broken off, of another type, or not a picture, and for Dazbee being busy;
+ * and `InvalidUpload` for one the upload path refuses.
  */
 export async function uploadToLink(
-  db: Db,
-  storage: Storage,
+  { db, storage, admins }: { db: Db; storage: Storage; admins: Admins },
   token: string,
   request: Request,
   now = new Date(),
@@ -113,42 +125,41 @@ export async function uploadToLink(
       410,
       `This upload link has expired: a link works for ${UPLOAD_LINK_MS / 60_000} minutes; ${NEW_LINK}`,
     )
-  if (!(await mayStillAdd(db, link)))
+  if (!(await mayStillAdd(db, admins, link)))
     throw new UploadLinkRefused(
       403,
       'The access that asked for this upload link may no longer add images to this brand',
     )
+  if (receiving >= MAX_RECEIVING_AT_ONCE) throw busy()
+  receiving++
+  let bytes: Uint8Array
   try {
-    return await addingFromOutside(async () => {
-      if (!(await claim(db, hash, now))) throw new UploadLinkRefused(410, `This upload link has been used; ${NEW_LINK}`)
-      try {
-        const bytes = await receive(request, link.contentType)
-        checkType(bytes, link.contentType)
-        return await recordPicture(db, storage, link.workspaceId, link.brandId, bytes, link.contentType, {
-          name: link.name,
-          tags: link.tags,
-        })
-      } catch (error) {
-        if (error instanceof SvgBusy || (error instanceof UploadLinkRefused && error.status === 408))
-          await release(db, hash)
-        throw error
-      }
-    })
+    if (!(await claim(db, hash, now))) throw new UploadLinkRefused(410, `This upload link has been used; ${NEW_LINK}`)
+    bytes = await receive(request, link.contentType)
+  } finally {
+    receiving--
+  }
+  checkType(bytes, link.contentType)
+  try {
+    return await addingFromOutside(() =>
+      recordPicture(db, storage, link.workspaceId, link.brandId, bytes, link.contentType, {
+        name: link.name,
+        tags: link.tags,
+      }),
+    )
   } catch (error) {
-    if (error instanceof AddingFromUrlBusy)
-      throw new UploadLinkRefused(
-        503,
-        'Dazbee is busy adding another picture; send the file to the same link again in a moment',
-      )
-    throw error
+    if (!(error instanceof SvgBusy || error instanceof AddingFromUrlBusy)) throw error
+    await release(db, hash)
+    throw busy()
   }
 }
 
 /**
- * Whether the link's member still writes in its brand, and its agent access, when it has one, is live, edits and
- * reaches the brand: either may have changed since the link was made.
+ * Whether the link's member is still let in, still writes in its brand, and its agent access, when it has one, is
+ * live, edits and reaches the brand: any of these may have changed since the link was made.
  */
-async function mayStillAdd(db: Db, link: typeof uploadLinks.$inferSelect): Promise<boolean> {
+async function mayStillAdd(db: Db, admins: Admins, link: typeof uploadLinks.$inferSelect): Promise<boolean> {
+  if (await isRemovedUser(db, link.userId, admins)) return false
   const member = await findAccess(db, link.workspaceId, link.userId)
   if (!member || !roleWrites(member.role) || (member.brandIds && !member.brandIds.includes(link.brandId))) return false
   if (!link.accessId) return true
@@ -197,7 +208,7 @@ async function receive(request: Request, type: ImageType): Promise<Uint8Array> {
         reject(
           new UploadLinkRefused(
             408,
-            `The file took longer than ${RECEIVE_TIMEOUT_MS / 1000} seconds to arrive; send it to the same link again`,
+            `The file took longer than ${RECEIVE_TIMEOUT_MS / 1000} seconds to arrive; ${NEW_LINK}`,
           ),
         ),
       RECEIVE_TIMEOUT_MS,
@@ -207,7 +218,7 @@ async function receive(request: Request, type: ImageType): Promise<Uint8Array> {
     for (;;) {
       const read = await Promise.race([reader.read(), late]).catch((error: unknown) => {
         if (error instanceof UploadLinkRefused) throw error
-        throw new UploadLinkRefused(408, 'The file broke off before it all arrived; send it to the same link again')
+        throw new UploadLinkRefused(400, `The file broke off before it all arrived; ${NEW_LINK}`)
       })
       if (read.done) break
       size += read.value.byteLength
@@ -230,14 +241,11 @@ async function receive(request: Request, type: ImageType): Promise<Uint8Array> {
 }
 
 /**
- * Refuses bytes that aren't a picture of `type`: a PNG, JPEG or WebP by its header, at most `MAX_FROM_URL_PIXELS`,
+ * Refuses bytes that aren't a picture of `type`: a PNG, JPEG or WebP by its header, at most `MAX_OUTSIDE_PIXELS`,
  * or an SVG file by its markup.
  */
 function checkType(bytes: Uint8Array, type: ImageType): void {
-  const header = readImageHeader(bytes)
-  const sent =
-    header?.contentType ??
-    (svgMarkup(Buffer.from(bytes.subarray(0, MAX_SVG_BYTES + 1)).toString('utf8')) ? SVG_TYPE : null)
+  const sent = pictureTypeOf(bytes)
   if (!sent)
     throw new UploadLinkRefused(
       400,
@@ -248,9 +256,18 @@ function checkType(bytes: Uint8Array, type: ImageType): void {
       400,
       `The file is a ${TYPE_NAMES[sent]}, but this link is for a ${TYPE_NAMES[type]}; ask upload_image for a link of the file’s type`,
     )
-  if (header && header.width * header.height > MAX_FROM_URL_PIXELS)
+  const header = readImageHeader(bytes)
+  if (header && header.width * header.height > MAX_OUTSIDE_PIXELS)
     throw new UploadLinkRefused(
       400,
-      `The picture is over ${MAX_FROM_URL_PIXELS / 1_000_000} megapixels, the most an agent may add; send a smaller one with a new link from upload_image`,
+      `The picture is over ${MAX_OUTSIDE_PIXELS / 1_000_000} megapixels, the most an agent may add; send a smaller one with a new link from upload_image`,
     )
+}
+
+/** Dazbee too busy to take the file now; the link is kept. */
+function busy(): UploadLinkRefused {
+  return new UploadLinkRefused(
+    503,
+    'Dazbee is busy adding other pictures; send the file to the same link again in a minute',
+  )
 }

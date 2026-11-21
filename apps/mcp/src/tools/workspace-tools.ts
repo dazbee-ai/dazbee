@@ -24,8 +24,11 @@ export const BrandId = RecordId.describe('The brand’s id, as list_brands gives
 const AFTER_CREATE =
   'Next: open_design it, and read ad_rules for each size you will make (with the kind of ad) before you design.'
 
+/** How long an upload link works, in minutes. */
+const LINK_MINUTES = UPLOAD_LINK_MS / 60_000
+
 /** What an upload link's answer tells the agent about sending the file. */
-const AFTER_UPLOAD_LINK = `Send the file once, within ${UPLOAD_LINK_MS / 60_000} minutes: its answer is the image as JSON (id, name, type, size), checked as a person’s upload is, or {"error": a sentence}. A used or expired link, a file too big or of another type is refused: ask upload_image for a new link. Then place it with place_asset; list_assets finds it by its name.`
+const AFTER_UPLOAD_LINK = `Send the file once, within ${LINK_MINUTES} minutes: its answer is the image as JSON (id, name, type, size), checked as a person’s upload is, or {"error": a sentence}. A used or expired link, a file too big or of another type is refused: ask upload_image for a new link; when Dazbee is busy, send the file to the same link again. Then place it with place_asset; list_assets finds it by its name.`
 
 export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
@@ -118,7 +121,7 @@ export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
     name: 'upload_image',
     title: 'Upload an image from this machine',
-    description: `Answers a one-time link that adds one file from the person’s machine to a brand’s images, as a person’s upload is: a PNG, JPEG or WebP of at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB, or an SVG of at most ${MAX_SVG_BYTES / 1_000_000} MB, of the type given. Send the file to the link within ${UPLOAD_LINK_MS / 60_000} minutes with the command the answer gives (curl -T); its answer is the image, with the id to place it by. Only for an agent that runs commands on the machine holding the file; otherwise use add_image with a link. Needs an access that edits.`,
+    description: `Answers a one-time link that adds one file from the person’s machine to a brand’s images, as a person’s upload is: a PNG, JPEG or WebP of at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB and 25 megapixels, or an SVG of at most ${MAX_SVG_BYTES / 1_000_000} MB, of the type given. Send the file to the link within ${LINK_MINUTES} minutes with the command the answer gives (curl -T); its answer is the image, with the id to place it by. Only for an agent that runs commands on the machine holding the file; otherwise use add_image with a link. Needs an access that edits.`,
     readOnly: false,
     input: z.object({
       brand: BrandId,

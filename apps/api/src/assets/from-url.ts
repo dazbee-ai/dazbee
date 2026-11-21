@@ -1,6 +1,6 @@
-// Pictures a brand adds from outside, from a link or a website's logo: fetched through the safe fetch, stored by
-// their hash and recorded with the upload path's checks (the hash, the header, CanvasKit's decode, the SVG reader),
-// as an upload is.
+// Pictures a brand adds from outside, from a link or a website's logo, fetched through the safe fetch, or sent to an
+// agent's upload link: stored by their hash and recorded with the upload path's checks (the hash, the header,
+// CanvasKit's decode, the SVG reader), as an upload is, one at a time.
 import { createHash } from 'node:crypto'
 
 import type { Db } from '@dazbee/db'
@@ -35,7 +35,7 @@ export const FROM_URL_PER_HOUR = 60
  * little more. Its decode (4 bytes a pixel, and a third more for the thumbnail's mipmaps) then fits beside everything
  * else in the API's 512 MB.
  */
-export const MAX_FROM_URL_PIXELS = 25_000_000
+export const MAX_OUTSIDE_PIXELS = 25_000_000
 
 /**
  * The most pictures added from links at once in the process: one, as each holds up to `MAX_UPLOAD_BYTES` and a
@@ -123,20 +123,30 @@ export async function recordPicture(
 }
 
 /**
+ * The type of picture the bytes are, by their header for a PNG, JPEG or WebP, or by the markup of their first
+ * `MAX_SVG_BYTES` for an SVG file; null for anything else.
+ */
+export function pictureTypeOf(bytes: Uint8Array): ImageType | null {
+  const header = readImageHeader(bytes)
+  if (header) return header.contentType
+  return svgMarkup(Buffer.from(bytes.subarray(0, MAX_SVG_BYTES + 1)).toString('utf8')) ? SVG_TYPE : null
+}
+
+/**
  * The type of picture the file is, read from its bytes: a PNG, JPEG or WebP by its header, at most
- * `MAX_FROM_URL_PIXELS`, or an SVG file by its markup, at most `MAX_SVG_BYTES`. It throws `InvalidUpload` for
+ * `MAX_OUTSIDE_PIXELS`, or an SVG file by its markup, at most `MAX_SVG_BYTES`. It throws `InvalidUpload` for
  * anything else, saying what the site sent when that is a media type.
  */
 function pictureType({ bytes, contentType }: FetchedFile): ImageType {
   const header = readImageHeader(bytes)
   if (header) {
-    if (header.width * header.height > MAX_FROM_URL_PIXELS)
+    if (header.width * header.height > MAX_OUTSIDE_PIXELS)
       throw new InvalidUpload(
-        `A picture from a link is at most ${MAX_FROM_URL_PIXELS / 1_000_000} megapixels; ask for a smaller one`,
+        `A picture from a link is at most ${MAX_OUTSIDE_PIXELS / 1_000_000} megapixels; ask for a smaller one`,
       )
     return header.contentType
   }
-  if (svgMarkup(Buffer.from(bytes.subarray(0, Math.min(bytes.length, MAX_SVG_BYTES + 1))).toString('utf8'))) {
+  if (pictureTypeOf(bytes) === SVG_TYPE) {
     if (bytes.length > MAX_SVG_BYTES)
       throw new InvalidUpload(`An SVG file is at most ${MAX_SVG_BYTES / 1_000_000} MB; ask for a smaller one`)
     return SVG_TYPE

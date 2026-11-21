@@ -1,6 +1,8 @@
 # Caddy in front of the production stack: app.dazbee.com and pilot.dazbee.com (the early-access admin page)
-# to the web app, sync.dazbee.com to the sync server, and http://caddy:8080, which only the containers reach,
-# to the API. Both public sites use
+# to the web app, app.dazbee.com's /mcp, /oauth/* and /.well-known/oauth-* to the MCP server (ADR-0019),
+# sync.dazbee.com to the sync server, and http://caddy:8080, which only the containers reach, to the API.
+# Ports 80 and 443 take connections from Cloudflare's addresses only (deploy/setup.sh), so the
+# CF-Connecting-IP the MCP server counts sign-ins by comes from Cloudflare. Both public sites use
 # Cloudflare's origin certificate, from the certs/ folder beside compose's .env, as origin.pem and
 # origin.key.
 #
@@ -32,8 +34,18 @@
 
 app.dazbee.com {
 	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
-	reverse_proxy router:3000 {
-		import router
+	@mcp path /mcp /oauth/* /.well-known/oauth-*
+	handle @mcp {
+		# Waits a moment for an MCP server that is restarting, as each deploy restarts it: a request that
+		# never reached it is sent again, and of those that did, only a GET.
+		reverse_proxy mcp:3100 {
+			lb_try_duration 10s
+		}
+	}
+	handle {
+		reverse_proxy router:3000 {
+			import router
+		}
 	}
 }
 

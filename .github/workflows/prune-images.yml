@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [web, api, sync]
+        app: [web, api, sync, mcp]
     steps:
       - uses: actions/delete-package-versions@v5
         with:

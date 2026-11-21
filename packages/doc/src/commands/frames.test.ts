@@ -224,7 +224,7 @@ describe('frame.addSize', () => {
     props: { x: 150, y: 750, width: 100, height: 100, rotation: 15, shape: { kind: 'ellipse' } },
   } as const
 
-  it('copies a frame at a new size by the frame rule, every layer linked, scaled and placed by its constraints', () => {
+  it('copies a frame at a new size by the frame rule, named by it, every layer linked, scaled and placed by its constraints', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     tab.run('node.create', { id: 'card', parentId: 'sq', layer: card })
@@ -235,7 +235,15 @@ describe('frame.addSize', () => {
     const mpu = tab.run('frame.addSize', { frameId: 'sq', newId: 'mpu', width: 300, height: 250 })
 
     const design = readDesign(store)
-    expect(design.frames[mpu]).toEqual({ ...before.frames.sq, width: 300, height: 250, x: 1800, y: 0, order: 'a2' })
+    expect(design.frames[mpu]).toEqual({
+      ...before.frames.sq,
+      name: '300×250',
+      width: 300,
+      height: 250,
+      x: 1800,
+      y: 0,
+      order: 'a2',
+    })
     const copies = Object.fromEntries(childrenOf(design, mpu).map(([, n]) => [n.link, n]))
     const link = (id: string) => before.nodes[id]?.link ?? ''
     expect(Object.keys(copies)).toEqual(['box', 'headline', link('card')])

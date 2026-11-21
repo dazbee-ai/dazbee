@@ -1,6 +1,7 @@
 // How big text must be to read in a frame, where the frame is shown: a Google Display size at its own
 // pixels, as a banner is placed; any other frame fitted to a phone's width, as a feed, story or video
-// ad fills the screen's width; and its text there at least the size a phone's text reads at.
+// ad fills the screen's width; and its text there at least the size a phone's text reads at. A
+// text's smallest letters are what is held to it.
 import type { TextProps } from './layers.ts'
 import { SIZE_PRESETS } from './sizes.ts'
 import { withRunStyle } from './typography.ts'

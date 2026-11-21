@@ -1,6 +1,6 @@
 // Laid out to fit: a layer copied from a frame of one size into a frame of another, every size it
-// holds scaled with its box.
-import { LayerLimits, type LetterSpacing, type Rect, TILE_SCALE } from '@dazbee/schema'
+// holds scaled with its box, and a text's scale raised to keep its letters readable.
+import { LayerLimits, type LetterSpacing, type Rect, smallestLetters, type TextProps, TILE_SCALE } from '@dazbee/schema'
 
 import { round } from '../geometry.ts'
 import { scaled } from '../text-scale.ts'
@@ -108,6 +108,18 @@ export function fitted<P extends Readonly<Record<string, unknown>>>(
 export function smallerRatio(fit: { from: Size; to: Size }): number {
   const { sx, sy } = ratios(fit)
   return Math.min(sx, sy)
+}
+
+/**
+ * The factor a text is scaled by in place of `s` so its smallest letters, at the least its shrink to
+ * fit draws them, are at least `readable` (rounded up to hundredths, as its sizes are): `s` for a
+ * text they already are at that scale, and for one of only spaces.
+ */
+export function readableScale(props: TextProps, s: number, readable: number): number {
+  const shrink = props.shrinkToFit ? props.shrinkToFit.min / props.style.fontSize : 1
+  const smallest = smallestLetters(props, shrink)?.size
+  if (smallest === undefined || smallest * s >= readable) return s
+  return Math.ceil(readable * 100) / 100 / smallest
 }
 
 /**

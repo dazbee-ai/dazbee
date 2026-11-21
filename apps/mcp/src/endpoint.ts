@@ -8,7 +8,6 @@ import { readRequestBody } from '@modelcontextprotocol/sdk/server/requestBody.js
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import {
   CallToolRequestSchema,
-  type CallToolResult,
   ErrorCode,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
@@ -38,7 +37,7 @@ import {
   rateBuckets,
   STORE_WAIT_MS,
 } from './limits.ts'
-import { mcpLog, type SessionEnd } from './mcp-log.ts'
+import { mcpLog, type McpSessionEnd } from './mcp-log.ts'
 import { oauthRoutes } from './oauth/routes.ts'
 import { type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
 import { promptMessage, PROMPTS } from './prompts.ts'
@@ -124,7 +123,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     callTimeoutMs = CALL_TIMEOUT_MS,
     after = afterTimeout,
   } = settings
-  const log = mcpLog(settings.log ?? console.log)
+  const log = mcpLog(settings.log ?? console.log, now)
   const limits = settings.limits ?? limitSettings({})
   // The agent tabs every session's design takes a slot of.
   const slots = agentTabSlots(limits.agentTabs, limits.agentTabsPerAccess)
@@ -245,14 +244,11 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     server.setRequestHandler(CallToolRequestSchema, async ({ params }, extra) => {
       const tool = TOOLS.find(({ name }) => name === params.name)
       if (!tool) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${params.name}`)
-      const startedAt = now()
       const context = contextOf(extra)
       const tooFast = tooFastFor(context)
-      const result: CallToolResult = tooFast
-        ? { content: [{ type: 'text', text: tooFast }], isError: true }
-        : await tool.call(params.arguments, context)
-      log.call(tool.name, now() - startedAt, result)
-      return result
+      return log.call(tool.name, async () =>
+        tooFast ? { content: [{ type: 'text', text: tooFast }], isError: true } : tool.call(params.arguments, context),
+      )
     })
     server.setRequestHandler(ListResourcesRequestSchema, () => ({ resources: RESOURCES }))
     server.setRequestHandler(ListResourceTemplatesRequestSchema, () => ({ resourceTemplates: RESOURCE_TEMPLATES }))
@@ -309,9 +305,8 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
     session.agentName = agentName(session.server.getClientVersion())
     sessions.set(id, session)
     log.opened(id)
-    const ofAccess = sessionsOf(session.accessId)
-    for (const old of ofAccess.slice(0, Math.max(0, ofAccess.length - limits.mcpSessionsPerAccess)))
-      await end(old.id, 'replaced')
+    // Ends the access's sessions older than its newest MCP_SESSIONS_PER_ACCESS, which is at least 1.
+    for (const old of sessionsOf(session.accessId).slice(0, -limits.mcpSessionsPerAccess)) await end(old.id, 'replaced')
   }
 
   /** The access's sessions, oldest first. */
@@ -326,7 +321,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   }
 
   /** Ends a session: requests it is still answering, and later ones with its id, answer 404. */
-  async function end(id: string, why: SessionEnd): Promise<void> {
+  async function end(id: string, why: McpSessionEnd): Promise<void> {
     const session = sessions.get(id)
     if (!session) return
     sessions.delete(id)

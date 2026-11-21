@@ -50,6 +50,10 @@ state_of() { docker inspect -f '{{.State.Status}} {{.Config.Image}}' "$(compose 
 expect_state() { [ "$(state_of "$1")" = "$2" ] || fail "$1 is $(state_of "$1"), not $2"; }
 expect_live() { [ "$(< "live/$1")" = "$2" ] || fail "live/$1 says $(< "live/$1"), not $2"; }
 expect_deployed() { grep -qx "$1 $2" live/deployed || fail "live/deployed has no '$1 $2': $(< live/deployed)"; }
+# The id of a service's container.
+container_of() { compose ps -aq "$1"; }
+# A service's container is still the one given: it kept running.
+expect_kept() { [ "$(container_of "$1")" = "$2" ] || fail "$1 restarted on the same image"; }
 expect_image() { docker image inspect "$REGISTRY/dazbee-$1:$2" > /dev/null 2>&1 || fail "the $1 image of $2 was removed"; }
 expect_no_image() { ! docker image inspect "$REGISTRY/dazbee-$1:$2" > /dev/null 2>&1 || fail "the $1 image of $2 was kept"; }
 # The API answers through Caddy's internal site.
@@ -60,9 +64,6 @@ expect_mcp_serves() {
     https://app.dazbee.com/.well-known/oauth-authorization-server | grep -q '"issuer":"https://app.dazbee.com"' ||
     fail 'the MCP server does not answer through Caddy'
 }
-
-# The id of a service's container.
-container_of() { compose ps -aq "$1"; }
 
 # Builds `app`'s image of <commit> again as <as>, with the Dockerfile lines given after its FROM.
 rebuild() {
@@ -171,8 +172,8 @@ expect_state api-green "running $NEXT"
 expect_state web-blue "running $NEXT"
 expect_state sync "running $commit"
 expect_state mcp "running $commit"
-[ "$(container_of sync)" = "$sync_container" ] || fail 'the sync server restarted on the same image'
-[ "$(container_of mcp)" = "$mcp_container" ] || fail 'the MCP server restarted on the same image'
+expect_kept sync "$sync_container"
+expect_kept mcp "$mcp_container"
 echo 'the sync server and the MCP server kept running'
 for app in api sync web mcp; do expect_deployed "$app" "$NEXT"; done
 # The images of the commits deployed stay, and so does one a stopped container was made from.
@@ -192,7 +193,7 @@ rebuild mcp "$MCP_CHANGED" "ENV BUILD_ID=$MCP_CHANGED" 'USER root' 'RUN echo cha
 deploy "$MCP_CHANGED"
 expect_state mcp "running $MCP_CHANGED"
 expect_state sync "running $commit"
-[ "$(container_of sync)" = "$sync_container" ] || fail 'the sync server restarted on the same image'
+expect_kept sync "$sync_container"
 expect_deployed mcp "$MCP_CHANGED"
 expect_mcp_serves
 echo 'the MCP server restarted on its changed image and answers through Caddy'

@@ -17,8 +17,9 @@
 # reconnect, then the new one starts; if it isn't healthy in time, the previous image starts again.
 # The MCP server restarts the same way: its agents' sessions end, and their clients start new ones.
 # Each of the two restarts only when the commit's image differs from the one its container runs in
-# its layers or its settings, the commit it names (BUILD_ID) aside; otherwise its container keeps
-# running on the image it has, unless compose.yml or the .env changed its service. A failed health
+# its layers or its settings, the commit it names (BUILD_ID) aside, or when its container isn't
+# healthy; otherwise its container keeps running on the image it has, unless compose.yml or the .env
+# changed its service. A failed health
 # check stops the new container, leaves the previous version of that app serving and exits non-zero;
 # apps swapped before it stay on the commit. Caddy, which holds the TLS connections, is reloaded only
 # when deploy/Caddyfile changed since the last deploy.
@@ -84,19 +85,21 @@ running_tag() {
 
 # What an image runs: its layers and its settings, without the commit it names in BUILD_ID, which
 # every commit's image changes.
-contents() {
+image_contents() {
   docker image inspect -f '{{json .RootFS.Layers}} {{json .Config}}' "$1" | sed 's/"BUILD_ID=[^"]*"//'
 }
 
-# Whether the container of `app` runs an image with the same contents as the commit's; not when it
-# has no container or either image can't be read.
+# Whether the container of `app` is healthy and runs an image with the same contents as the commit's;
+# not when it has no container or either image can't be read.
 runs_commit_contents() {
-  local id running next
+  local id health image running next
   id=$(compose ps -aq "$1")
   [ -n "$id" ] || return 1
-  running=$(docker inspect -f '{{.Image}}' "$id") || return 1
-  running=$(contents "$running") || return 1
-  next=$(contents "$REGISTRY/dazbee-$1:$commit") || return 1
+  health=$(docker inspect -f '{{.State.Health.Status}}' "$id") || return 1
+  [ "$health" = healthy ] || return 1
+  image=$(docker inspect -f '{{.Image}}' "$id") || return 1
+  running=$(image_contents "$image") || return 1
+  next=$(image_contents "$REGISTRY/dazbee-$1:$commit") || return 1
   [ -n "$running" ] && [ "$running" = "$next" ]
 }
 
@@ -205,8 +208,9 @@ swap() {
 # Restarts `app`, the sync server or the MCP server, on the commit; `who` says who reconnects. Compose
 # stops the old container with SIGTERM, on which the sync server folds every open design and closes
 # each tab with 1001 to reconnect, and the MCP server ends every session, and waits for it to exit, up
-# to the service's stop_grace_period; then it starts the new one. On the image it already runs, or one
-# with the same contents as the commit's, nothing restarts unless the service's settings changed.
+# to the service's stop_grace_period; then it starts the new one. On the image it already runs, or a
+# healthy container's image with the same contents as the commit's, nothing restarts unless the
+# service's settings changed.
 restart() {
   local app=$1 who=$2 previous tag=$commit
   previous=$(running_tag "$app")

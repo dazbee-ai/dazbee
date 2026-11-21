@@ -343,7 +343,7 @@ describe('mcpEndpoint', () => {
     const agent = await server.connect(server.api.addAccess().token())
     await agent.call('list_brands')
     await agent.call('open_design', { brand: 'brand-summer', design: 'anna-secret-launch' })
-    const calls = server.logged.filter((line) => (line as { event: string }).event === 'tool call')
+    const calls = server.logged.filter((line) => line.event === 'tool call')
     expect(calls).toEqual([
       { event: 'tool call', tool: 'list_brands', ms: expect.any(Number), refused: false },
       {
@@ -382,10 +382,10 @@ describe('mcpEndpoint', () => {
     await expect(idle.call('list_brands')).rejects.toMatchObject({ code: 404 })
     await server.connect(access.token())
     await server.endpoint.close()
-    const sessions = server.logged.filter((line) => (line as { event: string }).event !== 'tool call')
+    const sessions = server.logged.filter((line) => line.event !== 'tool call')
     const [first, second, third] = sessions
-      .filter((line) => (line as { event: string }).event === 'mcp session opened')
-      .map((line) => (line as { session: string }).session)
+      .filter((line) => line.event === 'mcp session opened')
+      .map((line) => line.session)
     expect(sessions).toEqual([
       { event: 'mcp session opened', session: first },
       { event: 'mcp session ended', session: first, why: 'client' },

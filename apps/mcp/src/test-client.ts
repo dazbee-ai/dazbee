@@ -38,7 +38,7 @@ export interface TestServer {
   /** The sync server in memory holding the design: made when a tab first opens it, or when asked. */
   sync(designId: string): MemorySync
   /** The lines the endpoint has logged, each parsed from its JSON. */
-  logged: unknown[]
+  logged: Record<string, unknown>[]
 }
 
 /** What a test's server is given. */
@@ -68,7 +68,7 @@ export function testServer({
   const api = testApi({ now: () => time })
   // The sync server in memory of each design opened, by its id.
   const syncs = new Map<string, MemorySync>()
-  const logged: unknown[] = []
+  const logged: Record<string, unknown>[] = []
   const endpoint = mcpEndpoint({
     api: { url: 'http://api.test', fetch: api.fetch },
     sync: {

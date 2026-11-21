@@ -1,9 +1,9 @@
 {
   "repo": "dazbee-ai/dazbee",
-  "tag": "canvaskit-835059fc13abaa5c",
-  "recipe": "835059fc13abaa5c",
+  "tag": "canvaskit-7e62116e081ead42",
+  "recipe": "7e62116e081ead42",
   "files": {
-    "canvaskit.js": "4786417b4febfdeca77dd39e45e9f1259431013bbbf6ad75919bc433f140c197",
-    "canvaskit.wasm": "ffcaea78d30e6b719607fae023c66f94d0cdbbd3a0428a33279b4c3749b7d771"
+    "canvaskit.js": "efce47d736396525305720111221652c253eed52c80eab44075bd7b2d654add7",
+    "canvaskit.wasm": "50824f112ff86d1892aeb5d1f6bdd115c5947f34f1b743cca63b7acd7120b9c7"
   }
 }

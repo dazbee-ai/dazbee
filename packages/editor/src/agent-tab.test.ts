@@ -1,6 +1,6 @@
 // The agent tab on the sync link's server in memory: the editor's core opened in Node, joined to
 // the server as a member's tab.
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { readDesign, VIEW_ONLY } from '@dazbee/doc'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -77,6 +77,55 @@ describe('openAgentTab', () => {
     await tab.close()
     await server.settle()
     expect(server.nameOf('box')).toBe('Sun')
+  })
+
+  it('shows where it worked to its member’s own tab, with its note, and takes the note away after its time', async () => {
+    const server = memorySync(undefined, {
+      who: (token) =>
+        token === 'claude'
+          ? { member: { userId: 'ann', workspaceId: 'w1' }, name: 'Ann', access: 'edit', agent: 'Claude (agent)' }
+          : undefined,
+    })
+    const ann = await openTab({
+      designId: 'd1',
+      member: { userId: 'ann', workspaceId: 'w1' },
+      url: 'ws://s',
+      token: () => Promise.resolve('ann'),
+      socket: (url) => server.socket(url),
+    })
+    const tab = await openAgentTab({
+      ck: await loadCanvasKit(),
+      designId: 'd1',
+      url: 'ws://s',
+      token: () => Promise.resolve('claude'),
+      socket: (url) => server.socket(url),
+      sources: {},
+      noteMs: 200,
+    })
+    opened.push(tab)
+    try {
+      const heard = () => [...ann.presence.others().values()][0]
+      tab.show({ layers: ['box'], frame: null }, 'Colouring the box')
+      await vi.waitFor(async () => {
+        await server.settle()
+        expect(heard()).toMatchObject({
+          name: 'Claude (agent)',
+          agent: true,
+          presence: { page: 'p1', pointer: [300, 200], selection: ['box'], frame: null, note: 'Colouring the box' },
+        })
+      })
+      // A call that worked on nothing keeps the pointer where it was, and the note until its time is up.
+      tab.show({ layers: [], frame: null })
+      await vi.waitFor(
+        async () => {
+          await server.settle()
+          expect(heard()?.presence).toEqual({ page: 'p1', pointer: [300, 200], selection: ['box'], frame: null })
+        },
+        { timeout: 2000, interval: 20 },
+      )
+    } finally {
+      await ann.close()
+    }
   })
 
   it('a view-only tab refuses a write, and close() closes its socket', async () => {

@@ -1,13 +1,16 @@
 // The agent tab (ADR-0019): the editor's core opened in Node on one design, joined to the sync
-// server as a member's tab, with a stage of no size, nothing drawn, no presence and no tab copies.
-// Its session fits what each step changed as the editor's own edits do: the texts to their words
-// and the groups to what they hold, in the same step. It reads no browser global.
+// server as a member's tab, with a stage of no size, nothing drawn and no tab copies. Its session fits
+// what each step changed as the editor's own edits do: the texts to their words and the groups to
+// what they hold, in the same step. Its presence shows the people in the design where the agent last
+// worked and the note it gave, for a while. It reads no browser global.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { readDesign, sameValue, type Session, type StepName } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import { type Design, fontFamilies, type Layer, type Member, type Variables } from '@dazbee/schema'
+import { type Design, fontFamilies, type Layer, type Member, type Presence, type Variables } from '@dazbee/schema'
+
+import { agentPresence, type AgentWork, noteOf } from './agent-presence.ts'
 
 import { buildCore } from './core.ts'
 import type { LinkNotice, NoticeDetail } from './core-interface.ts'
@@ -35,6 +38,8 @@ export interface AgentTabOptions {
   variables?: Variables
   /** Stops waiting for the server's welcome. */
   signal?: AbortSignal
+  /** How long a note shows after `show` gave it: `NOTE_SHOWN_MS` unless a test gives another. */
+  noteMs?: number
 }
 
 /** The agent tab, open on its design. */
@@ -57,6 +62,13 @@ export interface AgentTab {
    * warnings read. No image is loaded for them.
    */
   fontsLoaded(): Promise<void>
+  /**
+   * Shows the people in the design where the agent worked: `work`'s layers outlined, else its frame
+   * picked, the pointer just past them; work the design no longer holds leaves it where it was.
+   * `note`, what the agent says it is doing, shows beside the pointer until `NOTE_SHOWN_MS` after the
+   * last `show` that gave one.
+   */
+  show(work: AgentWork, note?: string): void
   /** What the tab told since the last call, oldest first, at most `KEPT_NOTICES` of the newest. */
   takeNotices(): NoticeDetail[]
   /** How many of the tab's change sets the server has not confirmed: steps not yet stored. */
@@ -88,6 +100,8 @@ export type ChangeSetNotice = Extract<LinkNotice, { kind: 'rejected' | 'lost' | 
 export const KEPT_NOTICES = 50
 /** How long `close` waits for the server to store the steps it has not confirmed yet. */
 export const CLOSE_WAIT_MS = 10_000
+/** How long an agent's note shows after it was given: FigCraft's cursor chat's 5 seconds. */
+export const NOTE_SHOWN_MS = 5000
 
 /** Names the tab copies, of which an agent tab keeps none (Node has no IndexedDB). */
 const NO_MEMBER: Member = { userId: '', workspaceId: '' }
@@ -111,7 +125,7 @@ export async function openAgentTab(options: AgentTabOptions): Promise<AgentTab> 
 function agentTabOn(
   tab: OpenTab,
   fonts: Awaited<ReturnType<typeof loadFonts>>,
-  { ck, designId, sources, variables }: AgentTabOptions,
+  { ck, designId, sources, variables, noteMs = NOTE_SHOWN_MS }: AgentTabOptions,
 ): AgentTab {
   /** What the tab told and the agent has not read yet. */
   const notices: NoticeDetail[] = []
@@ -119,6 +133,10 @@ function agentTabOn(
   const remembered = new Map<string, string>()
   /** Whether `close` has been called. */
   let closed = false
+  /** Where the agent last worked, and the note it gave with the wait that takes it away. */
+  let shown: Omit<Presence, 'note'> | null = null
+  let note: string | null = null
+  let noteTimer: ReturnType<typeof setTimeout> | undefined
 
   const cache = resourceCache(ck)
   const ending = new AbortController()
@@ -180,6 +198,23 @@ function agentTabOn(
     await Promise.all(modules.resources.loadFamilies(fontFamilies(session.design(), bytes().variables)))
   }
   const takeNotices = () => notices.splice(0)
+  function show(work: AgentWork, given?: string) {
+    shown = agentPresence(session.design(), work, core.boxOf) ?? shown
+    const cleaned = given === undefined ? '' : noteOf(given)
+    if (cleaned !== '') {
+      note = cleaned
+      clearTimeout(noteTimer)
+      noteTimer = setTimeout(() => {
+        note = null
+        present()
+      }, noteMs)
+    }
+    present()
+  }
+  /** Hands the tab's link where the agent worked, with its note while it shows. */
+  function present() {
+    if (shown && !closed) tab.presence.send(note === null ? shown : { ...shown, note })
+  }
   function onStopped(listener: (why: Stopped) => void) {
     return tab.link.onStatus(() => {
       const why = stopped()
@@ -231,6 +266,7 @@ function agentTabOn(
     bytes,
     cache,
     fontsLoaded,
+    show,
     takeNotices,
     unsent,
     queuedIds,
@@ -244,6 +280,7 @@ function agentTabOn(
   async function close() {
     if (closed) return
     closed = true
+    clearTimeout(noteTimer)
     await sent()
     ending.abort()
     cache.delete()

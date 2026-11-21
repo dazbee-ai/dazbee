@@ -86,7 +86,8 @@ export function editorStageField({
    */
   function follow(byKey = false) {
     // Out of the accessibility tree while nothing is edited: a reader would find an empty field.
-    field.toggleAttribute('aria-hidden', !editing())
+    if (editing()) field.removeAttribute('aria-hidden')
+    else field.setAttribute('aria-hidden', 'true')
     if (!editing()) {
       if (document.activeElement === field) drop()
       return

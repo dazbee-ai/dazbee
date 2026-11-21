@@ -226,6 +226,13 @@ describe('editorStageField', () => {
     expect(typed()).toBe('a\r\nbx|\rc')
   })
 
+  it('is out of the accessibility tree once typing stops, and in it while a text is edited', async () => {
+    const { e, field } = await typingWith('Hello there|')
+    expect(field.getAttribute('aria-hidden')).toBe(null)
+    e.keys.press('Escape')
+    expect(field.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {
     const { e, field, fieldNow } = await typingWith('Hello there|')
     const sent = vi.spyOn(e.core.input, 'fieldChanged')

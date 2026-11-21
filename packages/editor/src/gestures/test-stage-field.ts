@@ -44,6 +44,9 @@ class StandIn {
   hasAttribute(name: string) {
     return this.attributes.has(name)
   }
+  removeAttribute(name: string) {
+    this.attributes.delete(name)
+  }
   toggleAttribute(name: string, on: boolean) {
     if (on) this.attributes.set(name, '')
     else this.attributes.delete(name)
@@ -266,6 +269,7 @@ export function bareField() {
     value: '',
     setAttribute: () => {},
     toggleAttribute: () => {},
+    removeAttribute: () => {},
     focus: () => {},
     blur: () => {},
     remove: () => {},

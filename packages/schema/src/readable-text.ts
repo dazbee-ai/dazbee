@@ -1,7 +1,15 @@
 // How big text must be to read in a frame, where the frame is shown: a Google Display size at its own
 // pixels, as a banner is placed; any other frame fitted to a phone's width, as a feed, story or video
 // ad fills the screen's width; and its text there at least the size a phone's text reads at.
+import type { TextProps } from './layers.ts'
 import { SIZE_PRESETS } from './sizes.ts'
+import { withRunStyle } from './typography.ts'
+
+/** The size and weight of some of a text's letters. */
+export interface Letters {
+  size: number
+  weight: number
+}
 
 /**
  * The width, in CSS pixels, a frame wider than it is shown at. StatCounter's mobile screen resolutions
@@ -32,4 +40,26 @@ export function shownScale(width: number, height: number): number {
 /** The smallest font size, in the frame's pixels, that reads in a frame this size where it is shown. */
 export function readableTextSize(width: number, height: number): number {
   return READABLE_TEXT_PX * shownScale(width, height)
+}
+
+/**
+ * The size, as drawn with `scale` for shrink to fit, and weight of a text's smallest letters, the
+ * thinnest of those; undefined for a text of only spaces.
+ */
+export function smallestLetters(props: TextProps, scale: number): Letters | undefined {
+  const edges = [...new Set([0, props.text.length, ...props.runs.flatMap((r) => [r.start, r.end])])].sort(
+    (a, b) => a - b,
+  )
+  let smallest: Letters | undefined
+  for (let i = 0; i + 1 < edges.length; i++) {
+    const start = edges[i] ?? 0
+    const end = edges[i + 1] ?? start
+    if (!/\S/u.test(props.text.slice(start, end))) continue
+    let style = props.style
+    for (const run of props.runs) if (run.start <= start && run.end >= end) style = withRunStyle(style, run.style)
+    const piece = { size: style.fontSize * scale, weight: style.fontWeight }
+    if (!smallest || piece.size < smallest.size || (piece.size === smallest.size && piece.weight < smallest.weight))
+      smallest = piece
+  }
+  return smallest
 }

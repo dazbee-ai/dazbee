@@ -213,7 +213,7 @@ function colours(rgba: Rgba, ink: Ink): { fill: number[]; outline: { width: numb
     return r.length > 0 ? { color: [median(r), median(g), median(b)], count: r.length } : null
   }
   const coreFrom = Math.max(2, Math.min(4, Math.floor(maxDepth / 2)))
-  const core = pick((d) => d >= coreFrom) ?? pick(() => true)!
+  const core = pick((d) => d >= coreFrom) ?? pick(() => true) ?? faintest(rgba, ink)
   const edge = pick((d) => d <= 1.5)
   if (!edge || maxDepth < 4 || core.count < 30) return { fill: core.color, outline: null }
   const coreLab = lab(core.color[0]!, core.color[1]!, core.color[2]!)
@@ -231,6 +231,22 @@ function colours(rgba: Rgba, ink: Ink): { fill: number[]; outline: { width: numb
   const thickness = perimeter > 0 ? ring / perimeter : 0
   if (thickness < 0.8) return { fill: core.color, outline: null }
   return { fill: core.color, outline: { width: Math.round(thickness * 2) / 2, color: edge.color } }
+}
+
+/** The colour of faint ink, where no pixel is solid: the median of the pixels a quarter inked or more. */
+function faintest(rgba: Rgba, ink: Ink): { color: number[]; count: number } {
+  const r: number[] = []
+  const g: number[] = []
+  const b: number[] = []
+  let best = 0
+  for (let i = 0; i < ink.data.length; i++) best = Math.max(best, ink.data[i]!)
+  for (let i = 0; i < ink.data.length; i++)
+    if (ink.data[i]! >= Math.min(0.25, best * 0.8)) {
+      r.push(rgba.data[i * 4]!)
+      g.push(rgba.data[i * 4 + 1]!)
+      b.push(rgba.data[i * 4 + 2]!)
+    }
+  return { color: [median(r), median(g), median(b)], count: r.length }
 }
 
 export const hex = (c: readonly number[], alpha = 255) =>

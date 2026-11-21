@@ -12,7 +12,7 @@ import { type Drawer, type Placed, type TextLook, textProps } from './draw.ts'
 import { blockFingerprint, type Fingerprints, type Model, nearest } from './fingerprint.ts'
 import { type Box, type Ink, inkBox } from './ink.ts'
 import { type Block, findLines, hex, type Measured, measure } from './measure.ts'
-import { blurMatchedScore, ciede2000, inkDifference, lab, type Score, score, whiteBlackScore } from './score.ts'
+import { ciede2000, lab, type Score, score } from './score.ts'
 
 export type Version = 'light' | 'medium'
 
@@ -50,12 +50,6 @@ export interface Match {
   bindings: { fontFamily?: string; textColor?: string }
   brandTextStyle?: string
   score: Score
-  /** The same comparison with the drawing blurred to the block's softness (not the shared rule). */
-  matched: Score & { sigma: number }
-  /** Shares of the block's ink missed and of the drawn ink extra (not the shared rule). */
-  ink: { missed: number; extra: number }
-  /** The shapes prototype's proposed variant of the rule (not the shared rule). */
-  whiteBlack: Score
   /** The faces tried, best first, by id. */
   shortlist: string[]
   draws: number
@@ -239,12 +233,9 @@ function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit:
   const drawn = ctx.drawer.draw(block.rgba.width, block.rgba.height, null, layer)
   counted()
   const pixels = { width: block.rgba.width, height: block.rgba.height, data: drawn }
-  const flat = m.ink.data.length > 0 && !hasTransparency(block.rgba)
+  const flat = !hasTransparency(block.rgba)
   const s = score(block.rgba, pixels, m.background, flat ? m.ink.data : undefined)
-  const matched = blurMatchedScore(block.rgba, pixels, m.background, flat ? m.ink.data : undefined)
-  const ink = inkDifference(m.ink.data, pixels)
-  const whiteBlack = whiteBlackScore(block.rgba, pixels, m.background, flat)
-  return { layer, look, place, bindings, ...(style ? { brandTextStyle: style.token } : {}), score: s, matched, ink, whiteBlack }
+  return { layer, look, place, bindings, ...(style ? { brandTextStyle: style.token } : {}), score: s }
 }
 
 /** The best fit, a brand font first when it trails the best by no more than BRAND_MARGIN. */
@@ -265,9 +256,6 @@ function keep(m: Measured, text: string, shortlist: CatalogueFace[], draws: numb
     place,
     bindings: {},
     score: { ssim: 0, deltaE: 99, same: false },
-    matched: { ssim: 0, deltaE: 99, same: false, sigma: 0 },
-    ink: { missed: 1, extra: 1 },
-    whiteBlack: { ssim: 0, deltaE: 99, same: false },
     shortlist: shortlist.map(faceId),
     draws,
     ms: performance.now() - started,
@@ -344,6 +332,8 @@ export function placeAndRank(
   look: TextLook,
   counted: () => void,
   nudge = { dx: 0, dy: 0 },
+  /** The letters' shape score to keep, instead of measuring it again (tuning moves only the fit). */
+  keepShape?: number,
 ): Fitted | null {
   const natural = drawer.measure(text, look)
   // First guess: the layer's box where the ink box is, then corrected by where the ink lands.
@@ -360,7 +350,7 @@ export function placeAndRank(
   const dx = m.box.x + m.box.w / 2 - (box.x - pad + box.w / 2) + nudge.dx
   const dy = m.box.y + m.box.h / 2 - (box.y - pad + box.h / 2) + nudge.dy
   const overlap = softIou(m.level, ink, dx - pad, dy - pad)
-  const shape = elasticIou(m.level, ink, dx - pad, dy - pad, look.size)
+  const shape = keepShape ?? elasticIou(m.level, ink, dx - pad, dy - pad, look.size)
   const rank = RANK === 'overlap' ? overlap : RANK === 'mix' ? (shape + overlap) / 2 : shape
   const lines = findLines(ink, box, m.lines.length).map((l) => ({ ...l.box, x: l.box.x - pad + dx, y: l.box.y - pad + dy }))
   return { face, look, place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 }, rank, overlap, shape, lines }
@@ -421,7 +411,7 @@ function tune(drawer: Drawer, m: Measured, text: string, start: Fitted, counted:
         if (key === 'outline' && look.outline) look.outline = { ...look.outline, width: Math.max(0, look.outline.width + sign * steps.outline!) }
         if (key === 'dx') n2.dx += sign * steps.dx!
         if (key === 'dy') n2.dy += sign * steps.dy!
-        const tried = placeAndRank(drawer, m, text, best.face, look, counted, n2)
+        const tried = placeAndRank(drawer, m, text, best.face, look, counted, n2, best.shape)
         if (tried && tried.overlap > best.overlap + 1e-4) {
           best = { ...tried, ...(start.brandToken ? { brandToken: start.brandToken } : {}) }
           nudge = n2
@@ -459,7 +449,8 @@ export function alphaInk(px: Uint8Array, width: number, height: number): Ink {
  */
 export function softIou(a: Ink, b: Ink, dx: number, dy: number): number {
   const bb = blur(b)
-  const ab = blur(a)
+  let ab = blurred.get(a)
+  if (!ab) blurred.set(a, (ab = blur(a)))
   let inter = 0
   let union = 0
   let inside = 0
@@ -502,29 +493,37 @@ export function elasticIou(a: Ink, b: Ink, dx: number, dy: number, size: number)
       let bestI = 0
       let bestU = 0
       let bestA = 0
-      for (let sy = -r; sy <= r; sy++)
-        for (let sx = -r; sx <= r; sx++) {
-          let I = 0
-          let U = 0
-          let A = 0
-          for (let y = ty; y < Math.min(ty + tile, box.y + box.h); y++)
-            for (let x = tx; x < Math.min(tx + tile, box.x + box.w); x++) {
-              const vb = b.data[y * b.width + x]!
-              const ax = x + ia + sx
-              const ay = y + ja + sy
-              const va = ax < 0 || ay < 0 || ax >= a.width || ay >= a.height ? 0 : a.data[ay * a.width + ax]!
-              I += Math.min(va, vb)
-              U += Math.max(va, vb)
-              A += va
-            }
-          const v = U > 0 ? I / U : 0
-          if (v > best || (v === best && sx === 0 && sy === 0)) {
-            best = v
-            bestI = I
-            bestU = U
-            bestA = A
+      let bx = 0
+      let by = 0
+      const tryShift = (sx: number, sy: number) => {
+        let I = 0
+        let U = 0
+        let A = 0
+        for (let y = ty; y < Math.min(ty + tile, box.y + box.h); y++)
+          for (let x = tx; x < Math.min(tx + tile, box.x + box.w); x++) {
+            const vb = b.data[y * b.width + x]!
+            const ax = x + ia + sx
+            const ay = y + ja + sy
+            const va = ax < 0 || ay < 0 || ax >= a.width || ay >= a.height ? 0 : a.data[ay * a.width + ax]!
+            I += Math.min(va, vb)
+            U += Math.max(va, vb)
+            A += va
           }
+        const v = U > 0 ? I / U : 0
+        if (v > best) {
+          best = v
+          bestI = I
+          bestU = U
+          bestA = A
+          bx = sx
+          by = sy
         }
+      }
+      // Coarse, every other pixel, then the pixels round the best.
+      for (let sy = -r; sy <= r; sy += 2) for (let sx = -r; sx <= r; sx += 2) tryShift(sx, sy)
+      const cx = bx
+      const cy = by
+      for (let sy = cy - 1; sy <= cy + 1; sy++) for (let sx = cx - 1; sx <= cx + 1; sx++) if (sx !== cx || sy !== cy) tryShift(sx, sy)
       inter += bestI
       union += bestU
       coveredA += bestA
@@ -533,6 +532,9 @@ export function elasticIou(a: Ink, b: Ink, dx: number, dy: number, size: number)
   union += Math.max(0, massA - coveredA)
   return union > 0 ? inter / union : 0
 }
+
+/** The block's ink blurred once, for every candidate compared with it. */
+const blurred = new WeakMap<Ink, Float32Array>()
 
 function sampleAt(d: Float32Array, w: number, h: number, fx: number, fy: number) {
   const x0 = Math.floor(fx)
@@ -603,7 +605,7 @@ function brandStyle(kit: Kit, fit: Fitted, lines: number) {
 }
 
 /** Whether a picture is a cut-out: more than 5% of it less than opaque. */
-function hasTransparency(img: { width: number; height: number; data: Uint8Array }) {
+export function hasTransparency(img: { width: number; height: number; data: Uint8Array }) {
   let clear = 0
   for (let i = 0; i < img.width * img.height; i++) if (img.data[i * 4 + 3]! < 250) clear++
   return clear > img.width * img.height * 0.05

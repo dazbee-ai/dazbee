@@ -111,6 +111,13 @@ export const MAX_RENDER_IMAGE_PIXELS = 48_000_000
 export const BIG_RENDER_PIXELS = 32_000_000
 
 /**
+ * A render whose font files take more than this many bytes ends the render worker once done too: Skia keeps the
+ * file of each face it drew with while its glyphs are cached, after the worker frees the fonts, so a worker that drew
+ * several CJK faces of 50 MB would hold them all.
+ */
+export const BIG_RENDER_FONT_BYTES = 16 * 1024 * 1024
+
+/**
  * How long one render may take, its images read and its frame drawn; past it the worker is ended, the render refused,
  * and the next starts a fresh worker.
  */

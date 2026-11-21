@@ -13,9 +13,10 @@ import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, wit
 import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
-import { madeUpSmallCaps, type StyledPiece } from './small-caps.ts'
+import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
+import type { StyledPiece } from './types.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
 /** One paragraph of a text layer (the text between line breaks), laid out where it sits in the layer. */

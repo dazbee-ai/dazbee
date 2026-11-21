@@ -1,21 +1,10 @@
 // Small caps drawn where the font has none: a style with the `smcp` feature on whose family lacks
 // it draws its lower-case letters as capitals at 72% of its size, keeping the letter spacing of the
 // full size. The text drawn keeps its length, so offsets still match.
-import { letterSpacingPx, type TextProps } from '@dazbee/schema'
+import { letterSpacingPx } from '@dazbee/schema'
 
 import type { FamilyFeatures } from './font-features.ts'
-
-/** A stretch of a text's characters with the one style they are drawn in. */
-export interface StyledPiece {
-  start: number
-  end: number
-  style: TextProps['style']
-  /**
-   * Set on a made-up superscript or subscript: the size its letters stand in for, which its lines
-   * keep, and the pixels its baseline moves, down for a positive value.
-   */
-  superSub?: { fontSize: number; baselineShift: number }
-}
+import type { StyledPiece } from './types.ts'
 
 /** The share of the size lower-case letters are drawn at as made-up small caps. */
 const SMALL_CAP_SCALE = 0.72

@@ -8,7 +8,7 @@ import type { CanvasKit, FontCollection, TextStyle as CkTextStyle } from '@dazbe
 import { letterSpacingPx, type TextProps } from '@dazbee/schema'
 
 import { type FamilyFeatures, type FamilySuperSubs, superSubsOf } from './font-features.ts'
-import type { StyledPiece } from './small-caps.ts'
+import type { StyledPiece } from './types.ts'
 
 /**
  * A run of glyphs of one font, as shaping gives it: each glyph's id and, for each glyph and one past

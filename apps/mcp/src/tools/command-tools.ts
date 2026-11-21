@@ -33,7 +33,7 @@ const CommandName = z.string().max(200).describe('The command’s name, as list_
 const MOST_NOTE = 200
 
 /** What a step does, as the people in the design see it beside the agent's cursor. */
-const Note = z
+export const Note = z
   .string()
   .max(MOST_NOTE)
   .optional()
@@ -169,19 +169,12 @@ export function describedCommand(command: string): CatalogEntry | undefined {
   return entry && { ...entry, input: withoutDialect(entry.input) }
 }
 
-/** A command as one line: its name, what it does, and its input's fields, `?` marking those that may be left out. */
-function commandLine({ name, description, input }: CatalogEntry): string {
-  const required = new Set(input.required ?? [])
-  const fields = Object.keys(input.properties ?? {}).map((field) => (required.has(field) ? field : `${field}?`))
-  return `${name}: ${description.replace(/\s+/g, ' ')} Input: ${fields.length > 0 ? fields.join(', ') : 'none'}.`
-}
-
 /**
  * Runs `work` on the open design once it may be changed: refused before anything runs for a command agents can't
  * run or a tab that may only view the design, and a command's fault told as a tool error. What the agent is to be
  * told of the design first (that it was opened again) comes after the answer, or after the refusal's sentence.
  */
-async function writing(
+export async function writing(
   { api, agent, design }: ToolContext,
   commands: readonly string[],
   work: (open: OpenDesign) => Promise<unknown>,
@@ -218,7 +211,7 @@ async function writing(
  * at what it changed, with `note`. Its warnings are read once the tab has loaded the faces of the families the batch
  * uses, as check_frame reads them.
  */
-async function agentBatchOn(
+export async function agentBatchOn(
   open: OpenDesign,
   steps: readonly AgentStep[],
   answerBy: number,
@@ -232,6 +225,33 @@ async function agentBatchOn(
     answerBy,
   )
   return { ...done, value: await whenWarned(done.value) }
+}
+
+/** The sentence a refused step is told with: the command, why it was refused, and that nothing changed. */
+export function refusalOf(outcome: AgentBatchWarned['steps'][number] | undefined): string {
+  if (!outcome || outcome.ok) return 'The command was refused; nothing was changed'
+  return `${outcome.command}: ${outcome.reason}; nothing was changed`
+}
+
+/**
+ * `value` for a step whose store `done` tells: a tool error when the server didn't keep it; with a note when it
+ * wasn't confirmed in time, and one with the tab's notices since the last answer.
+ */
+export function answered(open: OpenDesign, done: Written<unknown>, value: unknown): unknown {
+  if (done.stored.kind === 'notKept') throw new ToolRefusal(notKeptSentence(done.stored.why))
+  const notices = open.tab.takeNotices().map(([notice, detail]) => ({ notice, ...detail }))
+  const notes = [
+    ...(done.stored.kind === 'unconfirmed' ? [NOT_CONFIRMED] : []),
+    ...(notices.length > 0 ? [`What happened to the design since the last answer: ${JSON.stringify(notices)}`] : []),
+  ]
+  return notes.length > 0 ? new WithNotes(value, notes) : value
+}
+
+/** A command as one line: its name, what it does, and its input's fields, `?` marking those that may be left out. */
+function commandLine({ name, description, input }: CatalogEntry): string {
+  const required = new Set(input.required ?? [])
+  const fields = Object.keys(input.properties ?? {}).map((field) => (required.has(field) ? field : `${field}?`))
+  return `${name}: ${description.replace(/\s+/g, ' ')} Input: ${fields.length > 0 ? fields.join(', ') : 'none'}.`
 }
 
 /**
@@ -279,26 +299,6 @@ function withinDesignLimits(session: Session): Session {
       return result
     },
   }
-}
-
-/** The sentence a refused step is told with: the command, why it was refused, and that nothing changed. */
-function refusalOf(outcome: AgentBatchWarned['steps'][number] | undefined): string {
-  if (!outcome || outcome.ok) return 'The command was refused; nothing was changed'
-  return `${outcome.command}: ${outcome.reason}; nothing was changed`
-}
-
-/**
- * `value` for a step whose store `done` tells: a tool error when the server didn't keep it; with a note when it
- * wasn't confirmed in time, and one with the tab's notices since the last answer.
- */
-function answered(open: OpenDesign, done: Written<unknown>, value: unknown): unknown {
-  if (done.stored.kind === 'notKept') throw new ToolRefusal(notKeptSentence(done.stored.why))
-  const notices = open.tab.takeNotices().map(([notice, detail]) => ({ notice, ...detail }))
-  const notes = [
-    ...(done.stored.kind === 'unconfirmed' ? [NOT_CONFIRMED] : []),
-    ...(notices.length > 0 ? [`What happened to the design since the last answer: ${JSON.stringify(notices)}`] : []),
-  ]
-  return notes.length > 0 ? new WithNotes(value, notes) : value
 }
 
 /** Undoes or redoes the agent's last step, answering its name once stored, or that there is none. */

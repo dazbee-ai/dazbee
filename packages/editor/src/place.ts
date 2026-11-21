@@ -3,7 +3,7 @@
 // becomes a text layer), placing an image, and putting an image into a layer as its fill, with the
 // layer a dragged image would go into.
 import { ancestorsOf, childrenOf, frameIdOf, placedRoots, type Session } from '@dazbee/doc'
-import { brandRef, canHold, type Layer, LayerClipboard, LOGO_ROLE, type Paint, type Point } from '@dazbee/schema'
+import { canHold, type Layer, LayerClipboard, type Paint, type Point } from '@dazbee/schema'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import type { EditorActions } from './actions.ts'
@@ -17,13 +17,14 @@ import {
   rememberedLayers,
 } from './clipboard.ts'
 import type { NoticeDetail } from './core-interface.ts'
-import { newImage, withImage } from './gestures/drawing/draw-tools.ts'
+import { withImage } from './gestures/drawing/draw-tools.ts'
 import type { EditorBoxes } from './layers/boxes.ts'
 import { hug as hugIn } from './layers/hug.ts'
 import { boundsOf, localTo, round } from './layers/transform.ts'
 import { type PastedText, pastedText } from './pasted-text.ts'
 import type { EditorPlaceImages } from './place-images.ts'
 import type { EditorPlaceSvg } from './place-svg.ts'
+import { logoBinding, placedImage } from './placed-asset.ts'
 import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn, idsOf, type Picked } from './selection.ts'
 import { stepOf } from './shortcuts.ts'
@@ -379,7 +380,7 @@ export function editorPlace({
     if (!copied) return false
     return pasteTree(copied, false, pointer())
   }
-  function placeImage(asset: PlacedAsset, where?: Point | Spot, { logo }: PlaceImageOptions = {}): string | null {
+  function placeImage(asset: PlacedAsset, where?: Point | Spot, options: PlaceImageOptions = {}): string | null {
     // A point off every frame places nothing; with no point, it goes where `frameToPlaceIn` says.
     const spot = where && ('frameId' in where ? where : spotOn(where))
     if (where && !spot) return null
@@ -388,13 +389,12 @@ export function editorPlace({
     const at = spot ? { x: spot.x, y: spot.y } : { x: frame.width / 2, y: frame.height / 2 }
     typing.stop()
     let id = ''
-    const layer = { ...newImage(asset, at, frame), ...(logo ? { name: logo.name, role: 'logo' } : {}) }
+    const layer = placedImage(asset, frame, at, options)
     if (
       !runQuietly(() =>
         session.gesture(() => {
           id = session.run('node.create', { parentId: frame.id, layer })
-          if (logo)
-            session.run('node.bind', { ids: [id], property: 'image', ref: brandRef(LOGO_ROLE), value: asset.id })
+          if (options.logo) session.run('node.bind', { ids: [id], ...logoBinding(asset.id) })
         }),
       )
     )

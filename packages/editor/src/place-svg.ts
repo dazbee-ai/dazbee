@@ -3,13 +3,12 @@
 // the stage.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { childrenOf, placedRoots, type Session } from '@dazbee/doc'
-import type { LayerTree, Point } from '@dazbee/schema'
-import { type ConvertOptions, type Skipped, SvgError, svgToLayers } from '@dazbee/svg'
+import type { Point } from '@dazbee/schema'
+import { SvgError } from '@dazbee/svg'
 
 import type { EditorView, Spot } from './canvas/view.ts'
 import type { CoreStart, NoticeDetail } from './core-interface.ts'
-import { round } from './layers/transform.ts'
-import { svgLayers } from './placed-asset.ts'
+import { type SvgLayers, svgLayers, svgPlaceInput } from './placed-asset.ts'
 import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn } from './selection.ts'
 import type { EditorTyping } from './text/typing.ts'
@@ -17,16 +16,9 @@ import type { EditorTools } from './tools.ts'
 import type { EditorUploads } from './uploads.ts'
 
 /** An SVG file read for placing: where it goes, and its layers with the uploaded pictures' assets. */
-export interface SvgRead {
+export interface SvgRead extends SvgLayers {
   /** The spot it goes on, centred, read when it was asked for: a pan or a zoom since doesn't move it. */
   spot: Spot
-  tree: LayerTree
-  /** The group that holds the file's layers. */
-  root: string
-  /** What the file had that no layer shows. */
-  leftOut: readonly Skipped[]
-  /** How many of its pictures didn't upload, so no layer shows them. */
-  notUploaded: number
 }
 
 export interface PlaceSvgDeps {
@@ -107,37 +99,28 @@ export function editorPlaceSvg({
         : frameToPlaceIn(view, selection)
     if (!frame || signal.aborted) return null
     const spot = given ?? { frameId: frame.id, x: frame.width / 2, y: frame.height / 2 }
-    return svgLayers(text, name, frame, spot, uploads, signal, converted)
-  }
-
-  /** The file as layers, or null when it can't be read, which is told. */
-  function converted(text: string, options: ConvertOptions) {
+    let read: SvgLayers
     try {
-      return svgToLayers(ck, text, options)
+      read = await svgLayers(ck, text, { name, frame, ...(uploads.can() ? { upload: uploads.upload } : {}) })
     } catch (error) {
       if (!(error instanceof SvgError)) throw error
       notify('svgUnreadable')
       return null
     }
+    return signal.aborted ? null : { spot, ...read }
   }
 
-  function placeSvg({ spot, tree, root, leftOut, notUploaded }: SvgRead): string | null {
+  function placeSvg(read: SvgRead): string | null {
+    const { spot, leftOut, notUploaded } = read
     // The frame may have gone, or its page be no longer shown, while the pictures uploaded.
     const frame = view.frameOf(spot.frameId)
-    const box = tree.nodes[root]?.props
-    if (signal.aborted || open.dragging() || !frame || !session.design().frames[frame.id] || !box) return null
+    const input = frame && svgPlaceInput(read, frame.id, spot)
+    if (signal.aborted || open.dragging() || !frame || !session.design().frames[frame.id] || !input) return null
     typing.stop()
     let ids: string[] = []
     const ok = runQuietly(() =>
       session.gesture(() => {
-        ids = placedRoots(
-          session.run('design.place', {
-            parentId: frame.id,
-            tree,
-            dx: round(spot.x - (box.x + box.width / 2)),
-            dy: round(spot.y - (box.y + box.height / 2)),
-          }),
-        )
+        ids = placedRoots(session.run('design.place', input))
         // Text is measured in its font, as the editor lays it out.
         const placed = session.design()
         const fitTexts = (id: string) => {

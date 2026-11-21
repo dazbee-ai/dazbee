@@ -51,6 +51,8 @@ export interface DesignCall {
 /** The open design: its tab, its name and its brand's kit, and what the agent is to be told of it first. */
 export interface OpenDesign {
   tab: AgentTab
+  /** The brand the design is in. */
+  brandId: string
   name: string
   kit: BrandKit
   /** An image asset's stored bytes, read through the API for the design's brand and kept by no one. */
@@ -161,6 +163,7 @@ export function sessionDesign(settings: DesignSettings, caller: DesignCaller): S
   function openDesign(tab: AgentTab, brandId: string, name: string, kit: BrandKit, notes: string[]): OpenDesign {
     return {
       tab,
+      brandId,
       name,
       kit,
       notes,

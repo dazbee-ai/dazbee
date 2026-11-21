@@ -39,6 +39,14 @@ export interface AgentApi {
   fontBytes(brandId: string, faceId: string): Promise<Uint8Array>
   /** An image asset's stored bytes. */
   assetBytes(brandId: string, assetId: string): Promise<Uint8Array>
+  /** An asset's record, with what reads its stored bytes from its signed link. */
+  asset(brandId: string, assetId: string): Promise<StoredAsset>
+}
+
+/** An asset as the API gives it: its record, and its stored bytes, read only when asked. */
+export interface StoredAsset {
+  summary: AssetSummary
+  bytes(): Promise<Uint8Array>
 }
 
 /** The API answered a call with an error: its status and the sentence it gave. */
@@ -89,6 +97,11 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     }
   }
 
+  const asset = async (brandId: string, assetId: string): Promise<StoredAsset> => {
+    const link = await ask('GET', `${brandPath(brandId)}/assets/${encodeURIComponent(assetId)}`, AssetLink)
+    return { summary: link.asset, bytes: () => linkedBytes(settings, link.url) }
+  }
+
   return {
     brands: () => ask('GET', brands, BrandSummary.array()),
     designs: (brandId) => ask('GET', `${brandPath(brandId)}/designs`, DesignSummary.array()),
@@ -103,10 +116,8 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
       const link = await ask('GET', `${brandPath(brandId)}/fonts/faces/${encodeURIComponent(faceId)}`, FontLink)
       return linkedBytes(settings, link.url)
     },
-    assetBytes: async (brandId, assetId) => {
-      const link = await ask('GET', `${brandPath(brandId)}/assets/${encodeURIComponent(assetId)}`, AssetLink)
-      return linkedBytes(settings, link.url)
-    },
+    assetBytes: async (brandId, assetId) => (await asset(brandId, assetId)).bytes(),
+    asset,
   }
 }
 

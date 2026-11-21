@@ -83,7 +83,7 @@ export type ValueKind = keyof typeof VALUE_KINDS
 type Props = Readonly<Record<string, unknown>>
 
 /** What the list says of a bindable property. */
-interface BindableEntry {
+export interface BindableEntry {
   /** The layer types that have it. */
   types: readonly LayerType[]
   /** The kind of value it takes, from `VALUE_KINDS`. */

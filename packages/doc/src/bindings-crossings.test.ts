@@ -10,7 +10,9 @@ import {
   bindProps,
   type DesignInput,
   type Layer,
+  type TextLook,
   type Variables,
+  type VariableValue,
 } from '@dazbee/schema'
 
 import { testDesign } from './test-design.ts'
@@ -19,8 +21,18 @@ import { closeTabs, deliver, endChecks, type SimTab, type Tabs, tabsOn } from '.
 /** What the end checks find when nothing is lost. */
 const CLEAN = { leftOut: [], repaired: [], missing: [] }
 
+/** The Headline text style's look, as the kit gives it. */
+const HEADLINE: TextLook = {
+  fontFamily: 'Playfair Display',
+  fontWeight: 700,
+  fontStyle: 'normal',
+  lineHeight: 1.1,
+  letterSpacing: { unit: 'percent', value: -1 },
+}
+
 /** The brand kit's tokens, as the tabs draw them. */
 const VARIABLES: Variables = {
+  'brand:headline': HEADLINE,
   'brand:primary': '#FF5A36FF',
   'brand:accent': '#00AA00FF',
   'brand:ink': '#111111FF',
@@ -65,7 +77,7 @@ async function crossing(design: DesignInput, later: 'A' | 'B', inA: (a: Session)
 const layerIn = (tab: Session, id: string) => tab.design().nodes[id] as Layer
 
 /** The value `property` of layer `id` draws with the brand kit's tokens. */
-function drawn(tab: Session, id: string, property: BindableProperty): string | undefined {
+function drawn(tab: Session, id: string, property: BindableProperty): VariableValue | undefined {
   const layer = layerIn(tab, id)
   return BINDABLE_PROPERTIES[property].read(bindProps(layer.type, layer.props, layer.bindings, VARIABLES))
 }
@@ -75,7 +87,7 @@ function expectBound(tabs: Session[], id: string, bindings: Partial<Record<Binda
   for (const tab of tabs) {
     expect(layerIn(tab, id).bindings ?? {}).toEqual(bindings)
     for (const [property, ref] of Object.entries(bindings))
-      expect(drawn(tab, id, property as BindableProperty)).toBe(VARIABLES[ref])
+      expect(drawn(tab, id, property as BindableProperty)).toEqual(VARIABLES[ref])
   }
 }
 
@@ -144,6 +156,44 @@ for (const later of ['A', 'B'] as const) {
           tab.run('node.bind', { ids: ['headline'], property: 'textColor', ref: 'brand:accent', value: '#00AA00FF' }),
       )
       expectBound([a, b], 'headline', { fontFamily: 'brand:heading', textColor: 'brand:accent' })
+      expect(await endChecks(world)).toEqual(CLEAN)
+    })
+
+    it('A binds a text’s style while B sets its font by hand: the style bound and drawn either way', async () => {
+      const { world, a, b } = await crossing(
+        boundDesign(),
+        later,
+        (tab) =>
+          tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: HEADLINE }),
+        (tab) => {
+          const { style } = layerIn(tab, 'headline').props as { style: object }
+          tab.run('node.update', { ids: ['headline'], patch: { style: { ...style, fontFamily: 'Lora' } } })
+        },
+      )
+      expectBound([a, b], 'headline', { textStyle: 'brand:headline' })
+      // The style is one value: the later step's is stored, and the binding draws the kit's look over it.
+      for (const tab of [a, b])
+        expect(layerIn(tab, 'headline').props).toMatchObject({
+          style: { fontFamily: later === 'A' ? 'Playfair Display' : 'Lora' },
+        })
+      expect(await endChecks(world)).toEqual(CLEAN)
+    })
+
+    it('A binds a text’s style while B binds its font: the style alone, or both drawn in the style’s look', async () => {
+      const { world, a, b } = await crossing(
+        boundDesign(),
+        later,
+        (tab) =>
+          tab.run('node.bind', { ids: ['headline'], property: 'textStyle', ref: 'brand:headline', value: HEADLINE }),
+        (tab) => tab.run('node.bind', { ids: ['headline'], property: 'fontFamily', ref: 'brand:body', value: 'Inter' }),
+      )
+      // A ends the font binding it saw; B, ordered later, binds the font again over A's style.
+      const bindings =
+        later === 'A' ? { textStyle: 'brand:headline' } : { textStyle: 'brand:headline', fontFamily: 'brand:body' }
+      for (const tab of [a, b]) {
+        expect(layerIn(tab, 'headline').bindings).toEqual(bindings)
+        expect(drawn(tab, 'headline', 'textStyle')).toEqual(HEADLINE)
+      }
       expect(await endChecks(world)).toEqual(CLEAN)
     })
 

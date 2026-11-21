@@ -1,5 +1,6 @@
 // The brand kit in the editor: the values bound properties take, binding the selection to a
-// brand colour, font or logo or unbinding it, and text that follows a brand font taking its new family.
+// brand colour, font, logo or text style or unbinding it, and text that follows a brand font or text
+// style taking its new family and look.
 import type { Session } from '@dazbee/doc'
 import {
   BINDABLE_PROPERTIES,
@@ -7,9 +8,11 @@ import {
   boundValueOf,
   fitsProperty,
   fontFamilies,
+  VALUE_KINDS,
   type ValueKind,
   type VariableRef,
   type Variables,
+  type VariableValue,
 } from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
@@ -31,21 +34,23 @@ export interface BrandKitDeps {
 export interface EditorBrandKit {
   /**
    * Gives bound properties new values, as when the brand kit changes: bound layers redraw with them,
-   * pictures bound to the logo take the kit's, the families of brand fonts load, and text bound to a
-   * brand font whose family changed refits; the promise settles then.
+   * pictures bound to the logo take the kit's, the families of brand fonts and text styles load, and
+   * text bound to a brand font or text style that changed refits; the promise settles then.
    */
   setVariables(variables: Variables): Promise<void>
   /**
-   * Binds the selected layers to a brand colour, font or logo, or unbinds them with null, each
-   * storing the kit's value it showed, in one undo step; returns how many changed.
+   * Binds the selected layers to a brand colour, font, logo or text style, or unbinds them with null,
+   * each storing the kit's value it showed, in one undo step; returns how many changed. Text bound to
+   * a font or text style fits its new look.
    */
   bindSelection(kind: ValueKind, ref: VariableRef | null): number
   /**
-   * Text bound to a brand font whose family the kit has changed since takes it once its files are
-   * here, its box fitting it: a change no one undoes. While a drag or a typing session is open the
-   * refit waits for it to end (C40), so the promise can settle before the refit lands.
+   * Text bound to a brand font or text style the kit has changed since takes its family and look
+   * once the family's files are here, its box fitting it: a change no one undoes. While a drag or a
+   * typing session is open the refit waits for it to end (C40), so the promise can settle before the
+   * refit lands.
    */
-  refitBrandFonts(): Promise<void>
+  refitBrandText(): Promise<void>
   /**
    * Pictures bound to the brand's logo store the kit's logo when it has changed since, so the
    * picture a crop or the Colour panel acts on is the one drawn: a change no one undoes.
@@ -59,7 +64,7 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     resources.loadFamilies(fontFamilies(session.design(), variables))
     followBrandLogo()
     view.redraw()
-    return refitBrandFonts()
+    return refitBrandText()
   }
   function bindSelection(kind: ValueKind, ref: VariableRef | null): number {
     const current = session.design()
@@ -87,32 +92,35 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
         )
           continue
         changed++
-        if (kind === 'font') typing.fitText(id)
+        if (kind === 'font' || kind === 'textLook') typing.fitText(id)
       }
     })
     return changed
   }
   /**
-   * Text bound to a brand font whose family the kit has changed since: once that family's files are
-   * here, it takes it and its box fits it. The kit lives outside the design, so this
-   * is a change no one undoes, as another tab's: undo could not put the kit back with it. Run when the
-   * kit changes and when the design opens.
+   * Text bound to a brand font or text style the kit has changed since: once the family it gives has
+   * its files here, the text takes its family and look and its box fits them. A look that names no
+   * family keeps the text's own. The kit lives outside the design, so this is a change no one undoes,
+   * as another tab's: undo could not put the kit back with it. Run when the kit changes and when the
+   * design opens.
    */
-  async function refitBrandFonts() {
-    const stale = staleBindings('font')
+  async function refitBrandText() {
+    const stale = [...staleBindings('font'), ...staleBindings('textLook')]
     if (stale.length === 0) return
-    const families = [...new Set(stale.map((s) => s.value))]
+    const families = [...new Set(stale.flatMap((s) => familyOf(s.value) ?? []))]
     await Promise.all(resources.loadFamilies(families))
     if (signal.aborted) return
     // Fitted in the fallback fonts, a box would be wrong: only a family whose files came is written.
     const here = new Set([...SHIPPED_FAMILIES, ...resources.bytes().fonts.map((f) => f.family)])
     session.untracked(() => {
-      for (const { id, property, ref, value: family } of stale) {
+      for (const { id, property, ref, value } of stale) {
         const node = session.design().nodes[id]
-        // Still bound, the kit still gives this family (not a newer one), and the text has not taken it already.
-        if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== family) continue
-        if (BINDABLE_PROPERTIES[property].read(node.props) === family || !here.has(family)) continue
-        if (!runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value: family }))) continue
+        // Still bound, the kit still gives this value (not a newer one), and the text has not taken it already.
+        if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== value) continue
+        const { read, kind } = BINDABLE_PROPERTIES[property]
+        const family = familyOf(value)
+        if (VALUE_KINDS[kind].same(read(node.props), value) || (family !== undefined && !here.has(family))) continue
+        if (!runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value }))) continue
         typing.fitText(id)
       }
     })
@@ -126,7 +134,7 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
         const node = session.design().nodes[id]
         // Still bound, and the kit still gives this picture: not one another tab or a newer kit changed.
         if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== value) continue
-        if (BINDABLE_PROPERTIES[property].read(node.props) === value) continue
+        if (VALUE_KINDS.image.same(BINDABLE_PROPERTIES[property].read(node.props), value)) continue
         runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value }))
       }
     })
@@ -142,7 +150,7 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
         ref &&
         value &&
         fitsProperty(property, value) &&
-        value !== BINDABLE_PROPERTIES[property].read(node.props)
+        !VALUE_KINDS[kind].same(value, BINDABLE_PROPERTIES[property].read(node.props))
         ? [{ id, property, ref, value }]
         : []
     })
@@ -151,7 +159,12 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   return {
     setVariables,
     bindSelection,
-    refitBrandFonts,
+    refitBrandText,
     followBrandLogo,
   }
+}
+
+/** The family a brand font or text style's value gives; none for a look that names none. */
+function familyOf(value: VariableValue): string | undefined {
+  return typeof value === 'string' ? value : value.fontFamily
 }

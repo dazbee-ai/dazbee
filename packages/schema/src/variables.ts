@@ -189,7 +189,8 @@ function textColour(): Pick<BindableEntry, 'keys' | 'read' | 'write'> {
   const colour = baseStyle('color')
   return {
     keys: ['color', 'gradient'],
-    read: (props) => (props.style && shownGradient(props.style as Parameters<typeof shownGradient>[0]) ? undefined : colour.read(props)),
+    read: (props) =>
+      props.style && shownGradient(props.style as Parameters<typeof shownGradient>[0]) ? undefined : colour.read(props),
     write: (props, value) => {
       const style = props.style as Record<string, unknown> | undefined
       if (style?.gradient === undefined) return colour.write(props, value)

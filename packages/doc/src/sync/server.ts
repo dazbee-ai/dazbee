@@ -6,8 +6,9 @@
 // accepts a restore, Before agent as it accepts an agent's edit when the last edit since the design
 // loaded was a person's or there was none, and an Autosave when the host asks. An agent's tab is
 // named to the others by the agent's name. It keeps each connected tab's latest presence in memory
-// only and passes it to the other members' tabs, each member in a colour of their own (FigCraft's
-// server and hub).
+// only and passes it to the other people's tabs, each person in a colour of their own (FigCraft's
+// server and hub). An agent is a person of its own, apart from its member, marked as an agent's,
+// and the only one whose presence carries a note.
 import { nanoid } from 'nanoid'
 
 import {
@@ -132,7 +133,10 @@ interface Connected {
   access: Access
   /** Its previews passed on in the second since `since` (D11's preview rate). */
   previews: { since: number; count: number }
-  /** Its member's number while the design is loaded, and their index into `PEOPLE_COLOURS`. */
+  /**
+   * Its person's number while the design is loaded, and their index into `PEOPLE_COLOURS`: its
+   * member's, or for an agent's tab the agent's own, apart from its member's.
+   */
   person: number
   colour: number
   /** Its latest presence, if it sent one. */
@@ -159,7 +163,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
   let entry = dead ? loaded.lastEntry : replayed.entry
   let bytes = designBytes(state)
   const connected = new Map<number, Connected>()
-  /** Each member's number and colour while the design is loaded, by user and workspace, and the next number to give. */
+  /** Each person's number and colour while the design is loaded, by `personKey`, and the next number to give. */
   const people = new Map<string, { person: number; colour: number }>()
   let nextPerson = 1
   /** The latest accepted change sets, oldest first, with their sizes. */
@@ -213,7 +217,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
       ...(who.agent === undefined ? {} : { agent: who.agent }),
       access: who.access,
       previews: { since: 0, count: 0 },
-      ...personOf(tabId, who.member),
+      ...personOf(tabId, who),
       // A tab taking over from its own connection is where it was: the others still show it there.
       ...(before?.presence ? { presence: before.presence } : {}),
     }
@@ -230,11 +234,12 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
       processed: { lastChangeSet: tab.lastChangeSet, rejected: [...tab.rejected] },
       catchUp,
       presence: true,
+      presenceNote: true,
     }
     const out: Outgoing[] = [{ to: tabId, message: welcome }]
-    // Where the other members are, after the welcome.
+    // Where the other people are, after the welcome.
     for (const [id, other] of connected) {
-      if (other.presence && !sameMember(other.member, who.member)) {
+      if (other.presence && other.person !== conn.person) {
         out.push({ to: tabId, message: presenceMessage(id, other, other.presence) })
       }
     }
@@ -243,16 +248,18 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
   }
 
   /**
-   * The member's number and colour while the design is loaded, given as they first join: their
-   * connected tab's; else the colour that was theirs, unless another member connected now has it;
-   * else the first no other connected member has, or the one the count of those members picks.
+   * The person's number and colour while the design is loaded, given as they first join: their
+   * connected tab's; else the colour that was theirs, unless another person connected now has it;
+   * else the first no other connected person has, or the one the count of those people picks. An
+   * agent's tab is a person of its own, by its member and the agent's name.
    */
-  function personOf(tabId: number, member: Member): { person: number; colour: number } {
-    const key = `${member.workspaceId}/${member.userId}`
-    // Every tab of a member has one colour.
-    const own = [...connected].find(([id, c]) => id !== tabId && sameMember(c.member, member))?.[1]
+  function personOf(tabId: number, who: Who): { person: number; colour: number } {
+    const key = personKey(who)
+    const theirs = (c: Connected) => personKey(c) === key
+    // Every tab of a person has one colour.
+    const own = [...connected].find(([id, c]) => id !== tabId && theirs(c))?.[1]
     if (own) return { person: own.person, colour: own.colour }
-    const others = [...connected].filter(([id, c]) => id !== tabId && !sameMember(c.member, member)).map(([, c]) => c)
+    const others = [...connected].filter(([id, c]) => id !== tabId && !theirs(c)).map(([, c]) => c)
     const taken = new Set(others.map((c) => c.colour))
     const known = people.get(key)
     if (known && !taken.has(known.colour)) return known
@@ -311,12 +318,14 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     }
     if (message.type === 'presence') {
       if (wireBytes > limits.presenceBytes) return []
-      const { page, pointer, selection, frame } = message
-      conn.presence = { page, pointer, selection, frame }
+      const { page, pointer, selection, frame, note } = message
+      // Only an agent says what it is doing: a person's tab has no way to give a note.
+      const noted = conn.agent !== undefined && note !== undefined && note !== '' ? { note } : {}
+      conn.presence = { page, pointer, selection, frame, ...noted }
       const passed = presenceMessage(tabId, conn, conn.presence)
-      // To the other members' tabs: a member's own tabs never show them their own cursor.
+      // To the other people's tabs: a person's own tabs never show them their own cursor.
       return [...connected]
-        .filter(([, other]) => !sameMember(other.member, conn.member))
+        .filter(([, other]) => other.person !== conn.person)
         .map(([id]) => ({ to: id, message: passed }))
     }
     if (message.type === 'preview') {
@@ -554,9 +563,18 @@ function sizeCaps(limits: ServerLimits): DesignSize {
   }
 }
 
-/** Tab `tabId`'s presence, as the other members' tabs hear it. */
+/** Tab `tabId`'s presence, as the other people's tabs hear it: an agent's marked as one. */
 function presenceMessage(tabId: number, conn: Connected, presence: Presence): ServerMessage {
-  return { type: 'presence', tabId, person: conn.person, colour: conn.colour, presence }
+  const { person, colour } = conn
+  return conn.agent === undefined
+    ? { type: 'presence', tabId, person, colour, presence }
+    : { type: 'presence', tabId, person, colour, agent: true, presence }
+}
+
+/** Whose tab it is, for its number and colour: its member, or the agent working for them. */
+function personKey({ member, agent }: { member: Member; agent?: string }): string {
+  const memberKey = JSON.stringify([member.workspaceId, member.userId])
+  return agent === undefined ? memberKey : `${memberKey} agent ${JSON.stringify(agent)}`
 }
 
 /** A connection closed for a message the sync core does not read. */

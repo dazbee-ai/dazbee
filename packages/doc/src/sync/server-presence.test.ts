@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { type Member, PEOPLE_COLOURS, type Presence, type ServerMessage } from '@dazbee/schema'
 
-import { openServer } from './server.ts'
+import { openServer, type Who } from './server.ts'
 import { BOB, editor, fresh, joined, testOptions, to, viewer } from './test-server.ts'
 
 const CAT: Member = { userId: 'cat', workspaceId: 'w1' }
 const HERE: Presence = { page: 'p1', pointer: [120.5, 40], selection: ['badge'], frame: null }
+
+/** An agent's tab, working for Ann unless another member is given. */
+const agentTab = (agent = 'Claude (agent)', member?: Member): Who => ({ ...editor(member), agent })
 
 const presence = (p: Presence = HERE) => ({ type: 'presence', ...p })
 const heard = (messages: ServerMessage[]) => messages.filter((m) => m.type === 'presence')
@@ -144,5 +147,88 @@ describe('openServer: presence', () => {
     expect(
       server.receive(a.tabId, { type: 'presence', page: 'p1', pointer: [0], selection: [], frame: null }, 60),
     ).toEqual(expect.objectContaining({ close: 4400 }))
+  })
+
+  it('says in each welcome that it takes a presence’s note', () => {
+    const server = openServer(fresh(), testOptions())
+    expect(joined(server).welcome.presenceNote).toBe(true)
+  })
+
+  it("passes an agent's presence to its own member's tabs too, marked as an agent's, with its note, in a colour of its own", () => {
+    const server = openServer(fresh(), testOptions())
+    const ann = joined(server)
+    server.receive(ann.tabId, presence(), 60)
+    const claude = joined(server, agentTab())
+    const out = server.receive(claude.tabId, presence({ ...HERE, note: 'Writing the headline' }), 80)
+    expect(to(claude.tabId, out)).toEqual([])
+    expect(to(ann.tabId, out)).toEqual([
+      {
+        type: 'presence',
+        tabId: claude.tabId,
+        person: 2,
+        colour: 1,
+        agent: true,
+        presence: { ...HERE, note: 'Writing the headline' },
+      },
+    ])
+    // The agent's tab hears its member, another person to it.
+    expect(heard(to(claude.tabId, claude.out))).toEqual([
+      { type: 'presence', tabId: ann.tabId, person: 1, colour: 0, presence: HERE },
+    ])
+  })
+
+  it("gives one agent's tabs one person and colour, and another agent of the same member another", () => {
+    const server = openServer(fresh(), testOptions())
+    const ann = joined(server)
+    const claude = joined(server, agentTab())
+    const claude2 = joined(server, agentTab())
+    const codex = joined(server, agentTab('Codex (agent)'))
+    const of = (tabId: number, hearer: number) =>
+      heard(to(hearer, server.receive(tabId, presence(), 60)))[0] as { person: number; colour: number }
+    expect(of(claude.tabId, ann.tabId)).toMatchObject({ person: 2, colour: 1 })
+    // One agent's own other tab doesn't show it.
+    expect(heard(to(claude2.tabId, server.receive(claude.tabId, presence(), 60)))).toEqual([])
+    expect(of(claude2.tabId, ann.tabId)).toMatchObject({ person: 2, colour: 1 })
+    expect(of(codex.tabId, ann.tabId)).toMatchObject({ person: 3, colour: 2 })
+    // Bob's agent of the same name is his own, not Ann's.
+    const bobs = joined(server, agentTab('Claude (agent)', BOB))
+    expect(of(bobs.tabId, ann.tabId)).toMatchObject({ person: 4, colour: 3 })
+  })
+
+  it("drops a person's note: only an agent gives one", () => {
+    const server = openServer(fresh(), testOptions())
+    const a = joined(server)
+    const b = joined(server, editor(BOB))
+    const out = server.receive(a.tabId, presence({ ...HERE, note: 'Approve this, Bob' }), 60)
+    expect(to(b.tabId, out)).toEqual([{ type: 'presence', tabId: a.tabId, person: 1, colour: 0, presence: HERE }])
+    const c = joined(server, editor(CAT))
+    expect(heard(to(c.tabId, c.out))).toEqual([
+      { type: 'presence', tabId: a.tabId, person: 1, colour: 0, presence: HERE },
+    ])
+  })
+
+  it("sends a tab that joins an agent's latest presence, its note and mark with it", () => {
+    const server = openServer(fresh(), testOptions())
+    const claude = joined(server, agentTab())
+    server.receive(claude.tabId, presence({ ...HERE, note: 'Checking the sizes' }), 60)
+    const ann = joined(server)
+    expect(heard(to(ann.tabId, ann.out))).toEqual([
+      {
+        type: 'presence',
+        tabId: claude.tabId,
+        person: 1,
+        colour: 0,
+        agent: true,
+        presence: { ...HERE, note: 'Checking the sizes' },
+      },
+    ])
+  })
+
+  it('closes a connection whose note is longer than a presence takes', () => {
+    const server = openServer(fresh(), testOptions())
+    const claude = joined(server, agentTab())
+    expect(server.receive(claude.tabId, presence({ ...HERE, note: 'x'.repeat(101) }), 160)).toEqual(
+      expect.objectContaining({ close: 4400 }),
+    )
   })
 })

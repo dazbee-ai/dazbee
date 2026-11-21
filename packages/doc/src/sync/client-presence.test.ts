@@ -66,6 +66,24 @@ describe('openClient: presence', () => {
     expect(a.presenceMessage({ page: 'p1', pointer: null, selection: [], frame: null })).toBeUndefined()
   })
 
+  it('sends a note only to a server whose welcome says it takes one, and keeps an agent’s mark', () => {
+    const server = testServer()
+    const a = joinClient(server)
+    const claude = joinClient(server, { ...who(), agent: 'Claude (agent)' })
+    const here = { page: 'p1', pointer: [4, 5] as [number, number], selection: ['box'], frame: null, note: 'Sizing' }
+    down(a, up(server, claude, [claude.presenceMessage(here) ?? fail()]))
+    expect([...a.presence()]).toEqual([[claude.tabId(), { person: 2, colour: 1, agent: true, presence: here }]])
+    // A server built before notes would close the connection on one.
+    const joined = server.join(wire({ type: 'hello', protocol: 1, token: 't', waiting: 0 }), who())
+    if ('close' in joined) throw new Error(joined.reason)
+    const old: Partial<Extract<ServerMessage, { type: 'welcome' }>> = wire(
+      joined.out[0]?.message as Extract<ServerMessage, { type: 'welcome' }>,
+    )
+    delete old.presenceNote
+    const { note: _, ...noNote } = here
+    expect(openClient(old as ServerMessage).presenceMessage(here)).toEqual({ type: 'presence', ...noNote })
+  })
+
   it('sends only the fields the server takes, and gives a new map each time what it keeps changes', () => {
     const server = testServer()
     const a = joinClient(server)

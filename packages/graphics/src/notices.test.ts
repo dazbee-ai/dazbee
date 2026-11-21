@@ -8,7 +8,8 @@ import type { IconIndex } from './search.ts'
 import { ICON_SET_IDS, ICON_SETS } from './sets.ts'
 
 const PACKAGE = join(import.meta.dirname, '..')
-const read = (...path: string[]) => readFileSync(join(PACKAGE, ...path), 'utf8')
+/** A file of this package as text, its line ends as LF whatever the checkout wrote. */
+const read = (...path: string[]) => readFileSync(join(PACKAGE, ...path), 'utf8').replaceAll(/\r\n/g, '\n')
 
 describe('ICON_SET_NOTICES', () => {
   it('names each set at the version this package pins, with the licence its package ships', () => {

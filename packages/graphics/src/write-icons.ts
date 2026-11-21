@@ -46,7 +46,8 @@ for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][])
   notices[set] = {
     version: source.version,
     licence: source.licence,
-    text: await readFile(join(source.dir, 'LICENSE'), 'utf8'),
+    // Its lines end in LF, as the app shows them, whichever ends the package's file has.
+    text: (await readFile(join(source.dir, 'LICENSE'), 'utf8')).replaceAll(/\r\n/g, '\n'),
   }
   console.log(`${set} ${source.version}: ${source.tags.size} icons`)
 }

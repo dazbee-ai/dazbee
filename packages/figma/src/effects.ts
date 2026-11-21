@@ -5,16 +5,12 @@ import type { z } from 'zod'
 
 import type { Effect } from '@dazbee/schema'
 
-import { bool, colourOf, field, type FigmaNode, list, num, record, str } from './read.ts'
+import { bool, colourOf, field, type FigmaNode, list, MAX_LENGTH, num, record, str, within } from './read.ts'
 import type { Reporter } from './report.ts'
+import { PLAIN_BLENDS } from './settings.ts'
 
 /** An effect as the import writes it, before the schema fills in its defaults. */
 export type EffectInput = z.input<typeof Effect>
-
-/** Lengths past this, in pixels, are no drawing Figma makes; they are brought within it. */
-const MAX_LENGTH = 1e6
-/** A shadow's blend modes that draw it as Dazbee does. */
-const PLAIN_BLENDS: ReadonlySet<string> = new Set(['NORMAL', 'PASS_THROUGH'])
 
 /**
  * A node's effects as Dazbee's, in the file's order. Figma's `radius` is Dazbee's blur, both twice
@@ -30,7 +26,7 @@ export function effectsOf(report: Reporter, n: FigmaNode): EffectInput[] {
       report.add('hidden-effects', n)
       return []
     }
-    const radius = length(num(field(e, 'radius')) ?? 0)
+    const radius = within(num(field(e, 'radius')) ?? 0, 0, MAX_LENGTH)
     switch (type) {
       case 'DROP_SHADOW':
       case 'INNER_SHADOW': {
@@ -68,12 +64,7 @@ export function effectsOf(report: Reporter, n: FigmaNode): EffectInput[] {
   })
 }
 
-/** A length that isn't negative, within reach. */
-function length(v: number): number {
-  return Math.min(MAX_LENGTH, Math.max(0, v))
-}
-
 /** An offset or spread within reach, 0 when there is none. */
 function shift(v: number | undefined): number {
-  return Math.min(MAX_LENGTH, Math.max(-MAX_LENGTH, v ?? 0))
+  return within(v ?? 0, -MAX_LENGTH, MAX_LENGTH)
 }

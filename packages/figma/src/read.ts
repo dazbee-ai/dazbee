@@ -27,6 +27,9 @@ export interface FigmaFile {
 
 export type FigmaReadError = 'not-json' | 'not-design-file' | 'too-many-nodes' | 'too-deep'
 
+/** Lengths past this, in pixels or unit boxes, are no drawing Figma makes; they are brought within it. */
+export const MAX_LENGTH = 1e6
+
 /** A file of more nodes than this, the document and its pages among them, is refused. */
 export const MAX_FIGMA_NODES = 50_000
 /** A file whose nodes nest deeper than this, the document being level 0, is refused. */
@@ -66,6 +69,11 @@ export function field(value: unknown, key: string): unknown {
   return r && Object.hasOwn(r, key) ? r[key] : undefined
 }
 
+/** `v` brought within `low` and `high`. */
+export function within(v: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, v))
+}
+
 /** A finite number, or undefined. */
 export function num(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -101,7 +109,7 @@ export function colourOf(value: unknown): string | undefined {
   if (r === undefined || g === undefined || b === undefined) return undefined
   const a = num(field(value, 'a')) ?? 1
   const hex = (c: number) =>
-    Math.round(Math.min(1, Math.max(0, c)) * 255)
+    Math.round(within(c, 0, 1) * 255)
       .toString(16)
       .padStart(2, '0')
   return `#${hex(r)}${hex(g)}${hex(b)}${hex(a)}`.toUpperCase()

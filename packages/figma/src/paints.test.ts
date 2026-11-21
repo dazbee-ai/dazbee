@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { apply, type Matrix } from '@dazbee/svg'
 
-import { angularPaint, linearPaint, ovalOf, radialPaint } from './paints.ts'
+import { angularPaint, linearPaint, ovalOf, paintsFrom, radialPaint } from './paints.ts'
+import { newReport } from './report.ts'
 import { box, frame, onePage, outline, rectangle, solid, type TestNode, vector } from './test-figma.ts'
 import { built, imported, layersOf, linesOf, onlyFrame } from './test-import.ts'
 
@@ -252,6 +253,18 @@ describe('paintLayer', () => {
       const text = inFrame([vector('1:2', SKEWED, 20, 10, { fillGeometry: [outline(SQUARE)], fills: [image()] })])
       expect(linesOf(text)).toEqual(['skewed-images'])
     })
+  })
+})
+
+describe('paintsFrom', () => {
+  it('names the node in each line it reports', () => {
+    const report = newReport()
+    const at = { handles: [1, 0, 0, 1, 0, 0] as Matrix, width: 100, height: 100 }
+    const kept = paintsFrom(report, { id: '7:1', name: 'Card' }, [solid('#ffffff'), { type: 'EMOJI' }], at)
+    expect(kept).toEqual([{ type: 'solid', color: '#FFFFFFFF' }])
+    expect(report.report().items).toEqual([
+      { line: 'emoji-paints', kind: 'left-out', count: 1, nodes: [{ id: '7:1', name: 'Card' }] },
+    ])
   })
 })
 

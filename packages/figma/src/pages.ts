@@ -18,14 +18,15 @@ import { boxMapOf, handlesOf, isUpright, placed, type Placement, placementOf, sp
 import { cornersOf } from './graphics.ts'
 import { boxAround, boxLook, convertLayers, laysOut, treeOf } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'
-import { fillsOf, type PaintInput } from './paints.ts'
+import { type PaintInput, paintsFrom } from './paints.ts'
 import { bool, boxOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { Reporter } from './report.ts'
-import { lookOf } from './settings.ts'
+import { PLAIN_BLENDS, transparencyOf } from './settings.ts'
 
 type FrameInput = z.input<typeof FigmaFrame>
 type PageInput = z.input<typeof FigmaPage>
-type BoxProps = Parameters<typeof boxAround>[4]
+/** What the box that carries a top-level frame's look is given. */
+type FrameBoxProps = Parameters<typeof boxAround>[4]
 
 /** A top-level frame's node, whose fills the frame draws, and where its matrix places it on its page. */
 interface FrameNode {
@@ -37,7 +38,6 @@ interface FrameNode {
 const OUTSIDE_FRAMES = 'Outside frames'
 
 const MAX_FRAME_NAME = 120
-const PLAIN_BLENDS: ReadonlySet<string> = new Set(['PASS_THROUGH', 'NORMAL'])
 const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
 
 /** The pages a link's target imports, and whether they go in as pages or onto the page shown. */
@@ -121,9 +121,9 @@ function topLevelFrame(n: FigmaNode, report: Reporter, ck: CanvasKit): FrameInpu
   if (!isUpright(placement?.world)) report.add('frames-turned', n)
   const build = newLayerBuild(n.children, report, ck)
   const { pieces } = convertLayers(build, n.children, b, laysOut(n.fields))
-  const look = carriesBoxProps(n.fields)
-    ? { ...boxLook(n.fields), ...lookOf(report, n, 'box'), effects: effectsOf(report, n) }
-    : null
+  // Its effects are read even when it has none to show, so the hidden ones are reported.
+  const effects = effectsOf(report, n)
+  const look = carriesBoxProps(n.fields) ? { ...boxLook(n.fields), ...transparencyOf(report, n, 'box'), effects } : null
   return frameOf(build, n, n.name, b, pieces, look, { node: n, placement })
 }
 
@@ -168,7 +168,7 @@ function frameOf(
   name: string,
   at: Rect,
   pieces: Piece[],
-  boxProps: BoxProps | null,
+  boxProps: FrameBoxProps | null,
   own?: FrameNode,
 ): FrameInput {
   const place = placed(build.report, from, at, { x: 0, y: 0 })
@@ -188,7 +188,7 @@ function frameOf(
   if (own && box) build.paints[box.id] = paintsOf(own.node, frameHandles(own, at))
   else if (own) {
     const paintAt = { handles: frameHandles(own, at), width: size.width, height: size.height }
-    fills = fillsOf(build.report, own.node, list(field(own.node.fields, 'fills')), paintAt)
+    fills = paintsFrom(build.report, own.node, list(field(own.node.fields, 'fills')), paintAt)
   }
   const trimmed = name.trim().slice(0, MAX_FRAME_NAME).trim()
   return {
@@ -205,16 +205,6 @@ function frameOf(
 }
 
 /**
- * Takes a point of a top-level frame's unit box, where its gradients' handles are, to the same point
- * of the unit box of `at`, its upright box on the page.
- */
-function frameHandles({ placement }: FrameNode, at: Rect): Matrix {
-  if (!placement) return IDENTITY
-  const upright = { ...at, rotation: 0 }
-  return handlesOf(boxMapOf(placement.world, upright, {}), placement.width, placement.height, upright)
-}
-
-/**
  * A Figma frame's size as a frame's: rounded to whole pixels, then each side within the sizes a
  * frame can be, then the shorter side grown until the frame is within the longest ratio.
  */
@@ -227,6 +217,16 @@ function frameSize(width: number, height: number) {
   if (fw > fh * maxRatio) fh = Math.ceil(fw / maxRatio)
   else if (fh > fw * maxRatio) fw = Math.ceil(fh / maxRatio)
   return { width: fw, height: fh, rounded: w !== width || h !== height, resized: fw !== w || fh !== h }
+}
+
+/**
+ * Takes a point of a top-level frame's unit box, where its gradients' handles are, to the same point
+ * of the unit box of `at`, its upright box on the page.
+ */
+function frameHandles({ placement }: FrameNode, at: Rect): Matrix {
+  if (!placement) return IDENTITY
+  const upright = { ...at, rotation: 0 }
+  return handlesOf(boxMapOf(placement.world, upright, {}), placement.width, placement.height, upright)
 }
 
 /** Whether a frame has what a Dazbee frame can't carry: strokes, corners, effects, opacity, a blend mode or auto layout. */

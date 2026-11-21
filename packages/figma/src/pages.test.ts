@@ -232,6 +232,14 @@ describe('importPages', () => {
       ).toEqual([0.5, 0, 0.5, 1])
     })
 
+    it('reports a top-level frame’s hidden effects', () => {
+      const text = onePage([
+        frame('1:1', box(0, 0, 100, 100), [], { effects: [{ type: 'LAYER_BLUR', radius: 4, visible: false }] }),
+      ])
+      expect(onlyFrame(text).layers).toBeNull()
+      expect(linesOf(text)).toEqual(['hidden-effects'])
+    })
+
     it('names a frame as a frame can be named', () => {
       expect(one(frame('1:1', box(0, 0, 100, 100), [], { name: '   ' })).name).toBe('Frame')
       expect(one(frame('1:1', box(0, 0, 100, 100), [], { name: 'x'.repeat(130) })).name).toHaveLength(120)

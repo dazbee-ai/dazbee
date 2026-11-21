@@ -57,6 +57,24 @@ describe('settingsOf', () => {
   })
 })
 
+describe('transparencyOf', () => {
+  it('gives a top-level frame’s opacity, blend mode and effects to the box that carries its look', () => {
+    const f = onlyFrame(
+      inFrame([rect('1:2')], {
+        opacity: 0.5,
+        blendMode: 'MULTIPLY',
+        effects: [{ type: 'LAYER_BLUR', radius: 3, visible: true }],
+      }),
+    )
+    const [inner] = f.layers?.roots ?? []
+    expect(layersOf(f)[inner ?? '']?.props).toMatchObject({
+      opacity: 0.5,
+      blendMode: 'multiply',
+      effects: [{ type: 'layerBlur', radius: 3 }],
+    })
+  })
+})
+
 describe('maskOf', () => {
   const maskThen = (mask: Record<string, unknown>) => inFrame([rect('1:2', { isMask: true, ...mask }), rect('1:3')])
 
@@ -140,23 +158,5 @@ describe('constraintsOf', () => {
     const loose = onePage([rect('1:2', right), node('FRAME', '1:3', box(500, 0, 50, 50), { children: [] })])
     const outside = imported(loose).converted.pages[0]?.frames.find((f) => f.name === 'Outside frames')
     expect(outside?.layers?.nodes['1-2']?.props.constraints).toBeUndefined()
-  })
-})
-
-describe('lookOf', () => {
-  it('gives a top-level frame’s opacity, blend mode and effects to the box that carries its look', () => {
-    const f = onlyFrame(
-      inFrame([rect('1:2')], {
-        opacity: 0.5,
-        blendMode: 'MULTIPLY',
-        effects: [{ type: 'LAYER_BLUR', radius: 3, visible: true }],
-      }),
-    )
-    const [inner] = f.layers?.roots ?? []
-    expect(layersOf(f)[inner ?? '']?.props).toMatchObject({
-      opacity: 0.5,
-      blendMode: 'multiply',
-      effects: [{ type: 'layerBlur', radius: 3 }],
-    })
   })
 })

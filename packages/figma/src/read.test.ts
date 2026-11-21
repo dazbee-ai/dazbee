@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { boxOf, field, MAX_FIGMA_DEPTH, MAX_FIGMA_NODES, num, ownMap, readFigmaFile, record } from './read.ts'
+import {
+  boxOf,
+  colourOf,
+  field,
+  MAX_FIGMA_DEPTH,
+  MAX_FIGMA_NODES,
+  num,
+  ownMap,
+  readFigmaFile,
+  record,
+  within,
+} from './read.ts'
 import { box, figmaFile, frame, page, rectangle } from './test-figma.ts'
 
 const nested = (depth: number) => {
@@ -94,6 +105,12 @@ describe('field', () => {
   })
 })
 
+describe('within', () => {
+  it('brings a number within its bounds', () => {
+    expect([within(-2, 0, 1), within(0.5, 0, 1), within(7, 0, 1)]).toEqual([0, 0.5, 1])
+  })
+})
+
 describe('num', () => {
   it('reads finite numbers only', () => {
     expect(num(2.5)).toBe(2.5)
@@ -118,6 +135,16 @@ describe('ownMap', () => {
     expect([...map.keys()]).toEqual(['__proto__', 'constructor', 'toString', 'a'])
     expect(map.get('hasOwnProperty')).toBeUndefined()
     expect(ownMap('x').size).toBe(0)
+  })
+})
+
+describe('colourOf', () => {
+  it('reads a colour from 0 to 1 as #RRGGBBAA, its alpha 1 when left out, its parts brought within 0 to 1', () => {
+    expect(colourOf({ r: 1, g: 0.5, b: 0, a: 0.25 })).toBe('#FF800040')
+    expect(colourOf({ r: 0, g: 0, b: 1 })).toBe('#0000FFFF')
+    expect(colourOf({ r: 2, g: -1, b: 0, a: 1 })).toBe('#FF0000FF')
+    expect(colourOf({ r: 1, g: 'x', b: 0 })).toBeUndefined()
+    expect(colourOf('red')).toBeUndefined()
   })
 })
 

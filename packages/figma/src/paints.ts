@@ -18,8 +18,9 @@ import {
 import { apply, type Matrix } from '@dazbee/svg'
 
 import type { LayerInput, LayerPaints } from './build.ts'
-import { bool, colourOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
+import { bool, colourOf, field, type FigmaNode, list, MAX_LENGTH, num, record, str, within } from './read.ts'
 import type { ReportedNode, Reporter } from './report.ts'
+import { PLAIN_BLENDS } from './settings.ts'
 
 /** A paint as the import writes it, before the schema fills in its defaults. */
 export type PaintInput = z.input<typeof Paint>
@@ -27,7 +28,7 @@ export type PaintInput = z.input<typeof Paint>
 export type StrokeInput = z.input<typeof Stroke>
 
 /** A gradient's colour at an offset from 0 to 1. */
-export type Stop = { offset: number; color: string }
+export type Stop = LinearPaint['stops'][number]
 
 /** A gradient's three handles in the layer's unit box: its start (value 0), its end (value 1) and its width. */
 export interface Handles {
@@ -52,8 +53,6 @@ const TINY = 1e-6
 const ROUND_RATIO = 0.999
 /** Figma's numbers are 32-bit floats: handles within this share of square and of one length are read as both. */
 const SLACK = 1e-6
-/** Lengths and handles past this, in pixels or unit boxes, are no drawing Figma makes; they are brought within it. */
-const MAX_LENGTH = 1e6
 /** The longest miter a join reaches, in half stroke widths, as FigCraft holds it. */
 const MAX_MITER = 100
 const STROKE_ALIGNS: ReadonlyMap<string, 'inside' | 'center' | 'outside'> = new Map([
@@ -80,18 +79,16 @@ const PAINT_TYPES: ReadonlyMap<string, FigmaReportLine | null> = new Map([
   ['VIDEO', 'video-paints'],
   ['PATTERN', 'pattern-paints'],
 ])
-/** A paint's blend modes that draw it over what is under it as Dazbee does. */
-const PLAIN_BLENDS: ReadonlySet<string> = new Set(['NORMAL', 'PASS_THROUGH'])
-/** Image filters Dazbee adjusts by, in the order of its adjustments. */
-const FILTERS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint'] as const
-/** Image filters Dazbee has no adjustment for. */
-const HIDDEN_FILTERS = ['highlights', 'shadows'] as const
+/** Figma's image filters that are Dazbee's adjustments, in their order. */
+const ADJUSTMENTS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint'] as const
+/** Figma's image filters Dazbee has no adjustment for. */
+const UNADJUSTED = ['highlights', 'shadows'] as const
 
 /** Writes a layer's fills and strokes from the Figma paints it takes. */
 export function paintLayer(report: Reporter, layer: LayerInput, paints: LayerPaints) {
   if (layer.type !== 'graphic' && layer.type !== 'box' && layer.type !== 'boolean') return
   const at = { handles: paints.handles, width: layer.props.width, height: layer.props.height }
-  const fills = fillsOf(report, paints.node, paints.fills, at)
+  const fills = paintsFrom(report, paints.node, paints.fills, at)
   const strokes = paints.strokes ? strokesOf(report, paints.strokes, at) : []
   Object.assign(layer.props, fills.length > 0 ? { fills } : {}, strokes.length > 0 ? { strokes } : {})
   // A box's or rectangle's corners are drawn round; a path's outline already holds its smoothing.
@@ -102,7 +99,7 @@ export function paintLayer(report: Reporter, layer: LayerInput, paints: LayerPai
 }
 
 /** The Dazbee paints a node's Figma paints become, bottom to top, each left out or changed reported. */
-export function fillsOf(
+export function paintsFrom(
   report: Reporter,
   node: ReportedNode,
   paints: readonly unknown[],
@@ -190,6 +187,34 @@ export function ovalOf(h: Handles, width: number, height: number): { major: numb
   return { major, minor, angle: (Math.atan2(2 * sxy, sxx - syy) * 90) / Math.PI }
 }
 
+/**
+ * A node's strokes as Dazbee's: one for each of its stroke paints, all of one weight, align, dashes,
+ * cap, join and miter limit. Differing weights on each side are drawn at the widest, reported; a
+ * weight of 0 is no stroke.
+ */
+function strokesOf(report: Reporter, n: FigmaNode, at: PaintPlace): StrokeInput[] {
+  const width = weightOf(report, n)
+  if (!(width > 0)) return []
+  const { fields } = n
+  const dashes = list(field(fields, 'strokeDashes')).flatMap((d) => {
+    const length = num(d)
+    return length === undefined || length < 0 ? [] : [Math.min(length, MAX_LENGTH)]
+  })
+  const angle = num(field(fields, 'strokeMiterAngle'))
+  const look = {
+    width,
+    align: STROKE_ALIGNS.get(str(field(fields, 'strokeAlign')) ?? '') ?? 'center',
+    ...(dashes.some((d) => d > 0) ? { dashes } : {}),
+    cap: STROKE_CAPS.get(str(field(fields, 'strokeCap')) ?? '') ?? 'butt',
+    join: STROKE_JOINS.get(str(field(fields, 'strokeJoin')) ?? '') ?? 'miter',
+    // The angle below which Figma bevels a join, as a miter limit: 1 / sin(angle / 2), as FigCraft reads it.
+    ...(angle !== undefined && angle > 0 && angle < 180
+      ? { miterLimit: Math.min(MAX_MITER, Math.max(1, 1 / Math.sin((angle * Math.PI) / 360))) }
+      : {}),
+  }
+  return paintsFrom(report, n, list(field(fields, 'strokes')), at).map((paint) => ({ paint, ...look }))
+}
+
 /** A rectangle shape's corners: its one radius, or each corner's; undefined for any other shape. */
 function rectCorners(shape: unknown): number | readonly number[] | undefined {
   if (field(shape, 'kind') !== 'rect') return undefined
@@ -211,7 +236,7 @@ function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null 
   if (paint === undefined) note('unreadable-paints')
   if (!paint) return null
   if (!PLAIN_BLENDS.has(str(field(p, 'blendMode')) ?? 'NORMAL')) note('paint-blend-modes')
-  const opacity = Math.min(1, Math.max(0, num(field(p, 'opacity')) ?? 1))
+  const opacity = within(num(field(p, 'opacity')) ?? 1, 0, 1)
   return {
     ...paint,
     ...(opacity < 1 ? { opacity } : {}),
@@ -219,32 +244,8 @@ function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null 
   }
 }
 
-/**
- * A node's strokes as Dazbee's: one for each of its stroke paints, all of one weight, align, dashes,
- * cap, join and miter limit. Differing weights on each side are drawn at the widest, reported; a
- * weight of 0 is no stroke.
- */
-function strokesOf(report: Reporter, n: FigmaNode, at: PaintPlace): StrokeInput[] {
-  const width = weightOf(report, n)
-  if (!(width > 0)) return []
-  const { fields } = n
-  const dashes = list(field(fields, 'strokeDashes')).flatMap((d) => {
-    const length = num(d)
-    return length === undefined || length < 0 ? [] : [Math.min(length, MAX_LENGTH)]
-  })
-  const angle = num(field(fields, 'strokeMiterAngle'))
-  const look = {
-    width,
-    align: STROKE_ALIGNS.get(str(field(fields, 'strokeAlign')) ?? '') ?? 'center',
-    ...(dashes.some((d) => d > 0) ? { dashes } : {}),
-    cap: STROKE_CAPS.get(str(field(fields, 'strokeCap')) ?? '') ?? 'butt',
-    join: STROKE_JOINS.get(str(field(fields, 'strokeJoin')) ?? '') ?? 'miter',
-    // The angle below which Figma bevels a join, as a miter limit (props.rs:376-378).
-    ...(angle !== undefined && angle > 0 && angle < 180
-      ? { miterLimit: Math.min(MAX_MITER, Math.max(1, 1 / Math.sin((angle * Math.PI) / 360))) }
-      : {}),
-  }
-  return fillsOf(report, n, list(field(fields, 'strokes')), at).map((paint) => ({ paint, ...look }))
+function minus(p: Point, q: Point): Point {
+  return { x: p.x - q.x, y: p.y - q.y }
 }
 
 /**
@@ -259,10 +260,6 @@ function weightOf(report: Reporter, n: FigmaNode): number {
   const widest = Math.max(...(each as number[]))
   if ((each as number[]).some((w) => w !== widest)) report.add('stroke-weights-widest', n)
   return Math.min(MAX_LENGTH, widest)
-}
-
-function minus(p: Point, q: Point): Point {
-  return { x: p.x - q.x, y: p.y - q.y }
 }
 
 /**
@@ -280,7 +277,7 @@ function imagePaint(note: Note, p: unknown, at: PaintPlace): PaintInput | null {
   if (str(field(p, 'gifRef'))) note('gif-images')
   if ((num(field(p, 'rotation')) ?? 0) % 360 !== 0) note('image-rotations')
   if (isSkewed(at)) note('skewed-images')
-  const adjust = adjustOf(note, record(field(p, 'filters')))
+  const adjust = adjustOf(note, field(p, 'filters'))
   const paint = { type: 'image' as const, assetId, ...(adjust ? { adjust } : {}) }
   switch (str(field(p, 'scaleMode'))) {
     case 'FIT':
@@ -340,11 +337,9 @@ function isSkewed({ handles: [a, b, c, d], width, height }: PaintPlace): boolean
  * from -100 to 100 in the same direction (a positive tint is magenta in both); undefined when all
  * are 0. Highlights and shadows Dazbee has no adjustment for, noted.
  */
-function adjustOf(note: Note, filters: FigmaFields | undefined) {
-  if (HIDDEN_FILTERS.some((k) => (num(field(filters, k)) ?? 0) !== 0)) note('image-highlights-shadows')
-  const amounts = FILTERS.map(
-    (k) => Math.round(Math.min(1, Math.max(-1, num(field(filters, k)) ?? 0)) * 100 * 1e6) / 1e6,
-  )
+function adjustOf(note: Note, filters: unknown) {
+  if (UNADJUSTED.some((k) => (num(field(filters, k)) ?? 0) !== 0)) note('image-highlights-shadows')
+  const amounts = ADJUSTMENTS.map((k) => Math.round(within(num(field(filters, k)) ?? 0, -1, 1) * 100 * 1e6) / 1e6)
   if (amounts.every((a) => a === 0)) return undefined
   const [exposure, contrast, saturation, temperature, tint] = amounts as [number, number, number, number, number]
   return { exposure, contrast, saturation, temperature, tint }
@@ -373,7 +368,9 @@ function cropOf(value: unknown) {
 function handlesOf(p: unknown, handles: Matrix): Handles | undefined {
   const points = list(field(p, 'gradientHandlePositions')).map((v) => {
     const [x, y] = [num(field(v, 'x')), num(field(v, 'y'))]
-    return x === undefined || y === undefined ? undefined : { x: within(x), y: within(y) }
+    return x === undefined || y === undefined
+      ? undefined
+      : { x: within(x, -MAX_LENGTH, MAX_LENGTH), y: within(y, -MAX_LENGTH, MAX_LENGTH) }
   })
   const [start, end, width] = points
   if (!start || !end) return undefined
@@ -387,14 +384,10 @@ function stopsOf(p: unknown): Stop[] | undefined {
   const stops = list(field(p, 'gradientStops')).flatMap((s) => {
     const offset = num(field(s, 'position'))
     const color = colourOf(field(s, 'color'))
-    return offset === undefined || !color ? [] : [{ offset: Math.min(1, Math.max(0, offset)), color }]
+    return offset === undefined || !color ? [] : [{ offset: within(offset, 0, 1), color }]
   })
   stops.sort((x, y) => x.offset - y.offset)
   const [first] = stops
   if (!first) return undefined
   return stops.length === 1 ? [first, { ...first }] : stops
-}
-
-function within(v: number): number {
-  return Math.min(MAX_LENGTH, Math.max(-MAX_LENGTH, v))
 }

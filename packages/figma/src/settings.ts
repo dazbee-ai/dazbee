@@ -4,14 +4,17 @@
 import type { BlendMode, Constraints, ContainerBlendMode, LayerLock } from '@dazbee/schema'
 
 import type { LayerInput } from './build.ts'
-import { bool, field, type FigmaNode, list, num, record, str } from './read.ts'
+import { bool, field, type FigmaNode, list, num, record, str, within } from './read.ts'
 import type { Reporter } from './report.ts'
 
-/** What a layer shows of itself: its opacity and blend mode, each left out at Dazbee's default. */
-export interface Look {
+/** How much a layer shows through and how it blends with what is under it, each left out at Dazbee's default. */
+export interface Transparency {
   opacity?: number
   blendMode?: ContainerBlendMode
 }
+
+/** Figma's blend modes that draw a paint, a shadow or a layer over what is under it as normal does. */
+export const PLAIN_BLENDS: ReadonlySet<string> = new Set(['NORMAL', 'PASS_THROUGH'])
 
 /** Figma's blend modes that Dazbee has, by name. */
 const BLENDS: ReadonlyMap<string, BlendMode> = new Map([
@@ -52,23 +55,23 @@ const VERTICAL: ReadonlyMap<string, Constraints['vertical']> = new Map([
 ])
 const LOCKED: LayerLock = { move: true, resize: true, content: true, style: true, delete: true }
 
-/** A layer of `type`'s settings from its node: whether it shows, its look, and its lock, which locks all five. */
+/** A layer of `type`'s settings from its node: whether it shows, its transparency, and its lock, which locks all five. */
 export function settingsOf(
   report: Reporter,
   n: FigmaNode,
   type: LayerInput['type'],
-): { props: Look & { visible?: false }; lock?: LayerLock } {
+): { props: Transparency & { visible?: false }; lock?: LayerLock } {
   const visible = bool(field(n.fields, 'visible')) === false ? { visible: false as const } : {}
   const lock = bool(field(n.fields, 'locked')) === true ? { lock: LOCKED } : {}
-  return { props: { ...visible, ...lookOf(report, n, type) }, ...lock }
+  return { props: { ...visible, ...transparencyOf(report, n, type) }, ...lock }
 }
 
 /**
  * A layer of `type`'s opacity and blend mode. Blend modes map by name: pass-through is a
  * container's own and a graphic's normal, and linear burn and linear dodge are drawn normal, reported.
  */
-export function lookOf(report: Reporter, n: FigmaNode, type: LayerInput['type']): Look {
-  const opacity = Math.min(1, Math.max(0, num(field(n.fields, 'opacity')) ?? 1))
+export function transparencyOf(report: Reporter, n: FigmaNode, type: LayerInput['type']): Transparency {
+  const opacity = within(num(field(n.fields, 'opacity')) ?? 1, 0, 1)
   const name = str(field(n.fields, 'blendMode')) ?? ''
   if (LINEAR_BLENDS.has(name)) report.add('linear-blend-modes', n)
   const blendMode: ContainerBlendMode | undefined =

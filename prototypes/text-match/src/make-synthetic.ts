@@ -40,6 +40,8 @@ export interface Truth {
   text: string
   face: string
   family: string
+  /** Whether the true face is in Dazbee's current catalogue. */
+  inSubset: boolean
   category: string
   look: TextLook
   rotation: number
@@ -58,10 +60,11 @@ const r = rng(Number(values.seed))
 const dir = join(DATA_DIR, 'synthetic')
 mkdirSync(dir, { recursive: true })
 const ck = await loadCanvasKit()
-const catalogue = loadCatalogue()
-const drawer = makeDrawer(ck, catalogue.filter((f) => f.source === 'shipped'))
-const menu = catalogue.filter((f) => f.menu)
-const of = (s: Script) => menu.filter((f) => f.scripts?.includes(s))
+const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+// The whole library (library.ts); half the blocks are set in Dazbee's current catalogue, half outside it.
+const library = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
+const of = (s: Script, inSubset?: boolean) =>
+  library.filter((f) => f.scripts?.includes(s) && (inSubset === undefined || f.menu === inSubset))
 const truths: Truth[] = []
 
 const randomColor = () => [Math.floor(r() * 256), Math.floor(r() * 256), Math.floor(r() * 256)]
@@ -70,7 +73,8 @@ const dE = (a: number[], b: number[]) => ciede2000(lab(a[0]!, a[1]!, a[2]!), lab
 for (let k = 0; k < count; k++) {
   const u = r()
   const script: Script = u < 0.7 ? 'latin' : u < 0.85 ? 'arabic' : 'devanagari'
-  const face: CatalogueFace = pick(r, of(script))
+  const inSubset = r() < 0.5
+  const face: CatalogueFace = pick(r, of(script, inSubset).length > 0 ? of(script, inSubset) : of(script))
   const lines = 1 + (r() < 0.65 ? 0 : r() < 0.7 ? 1 : 2)
   const text = Array.from({ length: lines }, () => {
     const n = 1 + Math.floor(r() * 3)
@@ -133,6 +137,7 @@ for (let k = 0; k < count; k++) {
     text,
     face: faceId(face),
     family: face.family,
+    inSubset: face.menu,
     category: face.category,
     look,
     rotation,

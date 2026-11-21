@@ -193,11 +193,26 @@ def evaluate(model, proto, val, dev):
     sim = ve @ means.t()
     order = sim.argsort(dim=1, descending=True).cpu().numpy()
     family = np.array([f.split("|")[0] for f in faces])
+    res = topk(order, vl, family, "")
+    subset = pmeta.get("subset")
+    if subset and len(subset) < len(faces):
+        # Matching against Dazbee's current catalogue only: its samples, ranked among its faces.
+        keep = np.zeros(len(faces), dtype=bool)
+        keep[subset] = True
+        sim_s = sim.clone()
+        sim_s[:, torch.from_numpy(~keep).to(sim.device)] = -2
+        order_s = sim_s.argsort(dim=1, descending=True).cpu().numpy()
+        rows = np.where(keep[vl])[0]
+        res.update(topk(order_s[rows], vl[rows], family, "subset_"))
+    return res
+
+
+def topk(order, labels, family, prefix):
     res = {}
     for k in (1, 5, 25):
-        res[f"face_top{k}"] = float(np.mean([vl[i] in order[i, :k] for i in range(len(vl))]))
-        res[f"family_top{k}"] = float(
-            np.mean([family[vl[i]] in set(family[order[i, :k]]) for i in range(len(vl))])
+        res[f"{prefix}face_top{k}"] = float(np.mean([labels[i] in order[i, :k] for i in range(len(labels))]))
+        res[f"{prefix}family_top{k}"] = float(
+            np.mean([family[labels[i]] in set(family[order[i, :k]]) for i in range(len(labels))])
         )
     return res
 
@@ -214,6 +229,7 @@ def main():
     p.add_argument("--batch", type=int, default=256)
     p.add_argument("--lr", type=float, default=2e-3)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--gpu-data-gb", type=float, default=2.0)
     p.add_argument("--amp", type=int, default=1, help="half precision on CUDA (1) or full (0)")
     p.add_argument("--out", required=True)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -221,7 +237,20 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     torch.manual_seed(a.seed)
     dev = torch.device(a.device)
-    meta, strips, widths, labels = load(a.data, a.per_face)
+    # Several sample sets of the same faces (each drawn with its own seed) train as one.
+    parts = [load(d) for d in a.data.split(",")]
+    meta = parts[0][0]
+    assert all(p[0]["faces"] == meta["faces"] for p in parts), "the sample sets must list the same faces"
+    strips = np.concatenate([p[1] for p in parts])
+    widths = np.concatenate([p[2] for p in parts])
+    labels = np.concatenate([p[3] for p in parts])
+    if a.per_face:
+        keep = np.zeros(len(labels), dtype=bool)
+        seen = {}
+        for i, l in enumerate(labels):
+            seen[l] = seen.get(l, 0) + 1
+            keep[i] = seen[l] <= a.per_face
+        strips, widths, labels = strips[keep], widths[keep], labels[keep]
     faces = meta["faces"]
     val = load(a.val)
     proto = load(a.proto)
@@ -235,7 +264,9 @@ def main():
     torch.backends.cudnn.benchmark = True
     gen = torch.Generator(device=dev)
     gen.manual_seed(a.seed)
-    strips_t = torch.from_numpy(strips).to(dev)  # uint8: a quarter of the memory; made 0..1 per batch
+    # uint8, made 0..1 per batch; kept on the card when it fits under --gpu-data-gb, else in main memory.
+    on_card = strips.nbytes / 2**30 <= a.gpu_data_gb
+    strips_t = torch.from_numpy(strips).to(dev) if on_card else torch.from_numpy(strips)
     labels_t = torch.from_numpy(labels).to(dev)
     widths_t = torch.from_numpy(widths).to(dev)
     started = time.time()
@@ -246,7 +277,8 @@ def main():
         total = 0.0
         for s in range(0, len(perm), a.batch):
             idx = perm[s : s + a.batch]
-            x = augment(crops(strips_t[idx], widths_t[idx], gen, dev), gen)
+            batch = strips_t[idx] if on_card else strips_t[idx.cpu()].to(dev, non_blocking=True)
+            x = augment(crops(batch, widths_t[idx], gen, dev), gen)
             with torch.autocast(dev.type, dtype=torch.float16, enabled=a.amp and dev.type == "cuda"):
                 loss = head(model(x).float(), labels_t[idx])
             opt.zero_grad()

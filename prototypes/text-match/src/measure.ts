@@ -198,7 +198,8 @@ function colours(rgba: Rgba, ink: Ink): { fill: number[]; outline: { width: numb
       const right = x < width - 1 ? depth[i + 1]! : 0
       depth[i] = Math.min(depth[i]!, Math.min(down, right) + 1)
     }
-  const maxDepth = Math.max(...depth)
+  let maxDepth = 0
+  for (const d of depth) if (d > maxDepth) maxDepth = d
   const pick = (test: (d: number) => boolean) => {
     const r: number[] = []
     const g: number[] = []

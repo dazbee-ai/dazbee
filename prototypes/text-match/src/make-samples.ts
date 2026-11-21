@@ -3,7 +3,7 @@
 // as its ink strip (STRIP_HEIGHT high, up to STRIP_WIDTH wide). Runs on `--threads` worker threads.
 //   node src/make-samples.ts --per-face 24 --seed 1 --out train24 [--threads 8]
 // Writes .data/samples/<out>/: strips.u8 (count × 32 × 320), widths.u16, labels.u16, meta.json.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { cpus } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -47,32 +47,42 @@ if (isMainThread) {
       })
     }),
   )
-  // Joins the parts in face order.
-  const all: { label: number; width: number; strip: Uint8Array }[] = []
-  for (const part of parts) {
-    const meta = JSON.parse(readFileSync(`${part}.json`, 'utf8')) as { labels: number[]; widths: number[] }
-    const strips = readFileSync(`${part}.u8`)
-    meta.labels.forEach((label, i) =>
-      all.push({ label, width: meta.widths[i]!, strip: strips.subarray(i * STRIP_HEIGHT * STRIP_WIDTH, (i + 1) * STRIP_HEIGHT * STRIP_WIDTH) }),
-    )
-  }
-  all.sort((a, b) => a.label - b.label)
-  const strips = new Uint8Array(all.length * STRIP_HEIGHT * STRIP_WIDTH)
-  all.forEach((s, i) => strips.set(s.strip, i * STRIP_HEIGHT * STRIP_WIDTH))
-  writeFileSync(join(dir, 'strips.u8'), strips)
-  writeFileSync(join(dir, 'widths.u16'), new Uint16Array(all.map((s) => s.width)))
-  writeFileSync(join(dir, 'labels.u16'), new Uint16Array(all.map((s) => s.label)))
+  const labels = joinParts(dir, parts)
   const seconds = (performance.now() - started) / 1000
   writeFileSync(
     join(dir, 'meta.json'),
-    JSON.stringify({ faces: faces.map(faceId), count: all.length, perFace, height: STRIP_HEIGHT, width: STRIP_WIDTH, seconds, threads }, null, 1),
+    JSON.stringify({ faces: faces.map(faceId), subset: faces.flatMap((f, i) => (f.menu ? [i] : [])), count: labels, perFace, height: STRIP_HEIGHT, width: STRIP_WIDTH, seconds, threads }, null, 1),
   )
+  console.log(`${labels} samples of ${faces.length} faces in ${seconds.toFixed(0)} s on ${threads} threads`)
+} else {
+  await work()
+}
+
+/**
+ * Joins the threads' parts into strips.u8, widths.u16 and labels.u16, part after part (training reads
+ * the samples in any order), appending so a set past 2 GB is written too; then deletes the parts.
+ * Returns how many samples there are.
+ */
+export function joinParts(dir: string, parts: string[]): number {
+  const labels: number[] = []
+  const widths: number[] = []
+  rmSync(join(dir, 'strips.u8'), { force: true })
+  for (const part of parts) {
+    const meta = JSON.parse(readFileSync(`${part}.json`, 'utf8')) as { labels: number[]; widths: number[] }
+    labels.push(...meta.labels)
+    widths.push(...meta.widths)
+    appendFileSync(join(dir, 'strips.u8'), readFileSync(`${part}.u8`))
+  }
+  writeFileSync(join(dir, 'widths.u16'), new Uint16Array(widths))
+  writeFileSync(join(dir, 'labels.u16'), new Uint16Array(labels))
   for (const part of parts) {
     rmSync(`${part}.json`)
     rmSync(`${part}.u8`)
   }
-  console.log(`${all.length} samples of ${faces.length} faces in ${seconds.toFixed(0)} s on ${threads} threads`)
-} else {
+  return labels.length
+}
+
+async function work() {
   const { indices, perFace, seed, dir, part, facesPath } = workerData as {
     facesPath?: string
     indices: number[]

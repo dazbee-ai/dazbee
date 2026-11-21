@@ -12,9 +12,9 @@ import { writePng } from './png.ts'
 import { sideBySide } from './sheet.ts'
 const [adName = 'bakery_crumb', modelDir = join(DATA_DIR, 'models', 'smoke')] = process.argv.slice(2)
 const ck = await loadCanvasKit()
-const catalogue = loadCatalogue()
-const drawer = makeDrawer(ck, catalogue.filter((f) => f.source === 'shipped'))
-const ctx = { ck, drawer, catalogue, model: await openModel(join(modelDir, 'model.onnx')), fingerprints: loadFingerprints(modelDir) }
+const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+const catalogue = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
+const ctx = { ck, drawer, catalogue, subset: process.argv[4] === 'subset', model: await openModel(join(modelDir, 'model.onnx')), fingerprints: loadFingerprints(modelDir) }
 const out = join(DATA_DIR, 'try'); mkdirSync(out, { recursive: true })
 for (const b of loadAd(adName).blocks) {
   const m = measure(b.block)

@@ -219,5 +219,41 @@ describe('restoreEntries', () => {
       expect([tab.queued(), tab.takeNotices()]).toEqual([0, []])
       for (const c of everyone(tab)) expect(sameValue(c.working().toRecords(), server.state().toRecords())).toBe(true)
     })
+
+    it.each([
+      ['the change sets it missed', 100, 'page', 'p1'],
+      ['the whole design', 1, 'layer', 'price'],
+    ] as const)(
+      'sends a change set the server took once only, back from a tab copy written before it came back (catch-up: %s)',
+      (_, logChangeSets, part, id) => {
+        const server = testServer(linkedDesign(), { limits: { logChangeSets } })
+        const [a, b] = [joinClient(server), joinClient(server)]
+        const first = copyOf(a)
+        first.write()
+        server.leave(a.tabId())
+        // Reloaded before the server welcomed it, the tab edits, and its tab copy holds the edit.
+        const back = openClient(restoreEntries(first.entries))
+        const copy = copyOf(back, first.entries)
+        edit(back, 'rename', set(name('page', 'p1'), 'Mine'))
+        copy.write()
+        const stale = new Map(wire([...first.entries]))
+        // It comes back and the server takes the edit; the tab copy's writes since are lost.
+        const joined = server.join(wire(back.reconnect('t')), who())
+        if ('close' in joined) throw new Error(joined.reason)
+        exchange(server, back, down(back, joined.out), [back, b])
+        server.leave(back.tabId())
+        // Another tab writes after it: twice, so that a log of one change set catches the tab up with the whole design.
+        exchange(server, b, edit(b, 'rename', set(name(part, id), 'Theirs')), [b])
+        exchange(server, b, edit(b, 'rename', set(name('layer', 'title'), 'Later')), [b])
+        const again = openClient(restoreEntries(stale))
+        const rejoined = server.join(wire(again.reconnect('t')), who())
+        if ('close' in rejoined) throw new Error(rejoined.reason)
+        exchange(server, again, down(again, rejoined.out), [again, b])
+        expect(namesTaken(server).filter((taken) => taken === 'Mine')).toEqual(['Mine'])
+        expect(server.state().get(part, id)?.name).toBe('Theirs')
+        expect([again.queued(), again.takeNotices()]).toEqual([0, []])
+        expect(sameValue(again.working().toRecords(), server.state().toRecords())).toBe(true)
+      },
+    )
   })
 })

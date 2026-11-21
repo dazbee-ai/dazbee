@@ -966,12 +966,14 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
    */
   function rejoin(message: Welcome): Outgoing[] {
     const { lastChangeSet } = message.processed
-    // Back from a copy older than what it sent: the change sets made since the first reload take ids the server hasn't seen.
+    // Back from a copy older than what it sent: the change sets made since the first reload take ids the server
+    // hasn't seen, but for those it took as they are.
     if (firstIdSinceReload !== undefined && lastChangeSet >= firstIdSinceReload) {
+      const taken = takenAsTheyAre(message, firstIdSinceReload)
       nextId = lastChangeSet + 1
       const renumbered = new Map<number, number>()
       for (const q of queue) {
-        if (q.id < firstIdSinceReload) continue
+        if (q.id < firstIdSinceReload || taken.has(q.id)) continue
         renumbered.set(q.id, nextId)
         q.id = nextId++
       }
@@ -1051,6 +1053,39 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     online = true
     changeWorking([], rebuild)
     return flush()
+  }
+
+  /**
+   * Of the queued change sets from id `from` on, the leading run the server took under their ids as
+   * they are, sent once before from a tab copy written since: those the welcome's catch-up holds
+   * under their ids with the same changes, or, in a whole-design catch-up, those not rejected whose
+   * changes the design holds already. The change sets after them were made under ids the server
+   * took for others.
+   */
+  function takenAsTheyAre(message: Welcome, from: number): Set<number> {
+    const { catchUp, processed } = message
+    const logged =
+      'changeSets' in catchUp
+        ? new Map(catchUp.changeSets.filter((acc) => acc.author === tabId).map((acc) => [acc.changeSetId, acc.changes]))
+        : undefined
+    const design = 'design' in catchUp ? DesignState.fromRecords(catchUp.design) : undefined
+    const holds = (changes: Change[]) => {
+      if (!design) return false
+      const next = design.overlay()
+      for (const change of changes) next.apply(change, 'lenient')
+      return next.ownKeys().every((key) => sameValue(next.getKey(key), design.getKey(key)))
+    }
+    const taken = new Set<number>()
+    for (const q of queue) {
+      if (q.id < from) continue
+      if (q.id > processed.lastChangeSet) break
+      const same = logged
+        ? sameValue(logged.get(q.id), q.changes)
+        : !processed.rejected.includes(q.id) && holds(q.changes)
+      if (!same) break
+      taken.add(q.id)
+    }
+    return taken
   }
 
   /** The server no longer knows this tab (a new sync id, a dropped tab id): it joined as new, and its queue is gone. */

@@ -26,7 +26,7 @@ import {
   type TextAnchor,
 } from './store.ts'
 import { BINDINGS_KEY, changedRecord, META_ID, type Rec, type RecordKey, recordOf, TEXT_PROP } from './sync/changes.ts'
-import type { Answer, Client, Notice, Outgoing } from './sync/client.ts'
+import type { Answer, Client, Notice, Outgoing, StepMade } from './sync/client.ts'
 import { applyTextOp, type TextOp, type TextValue } from './text-value.ts'
 
 /** A tab's store on a design kept by the sync core. */
@@ -306,7 +306,7 @@ export function clientStore(
   }
 
   /** The step that made `made` (see `Client.lastEnded`), waiting for the server's answer when it made a change set. */
-  function endedStep(made: number | 'tooBig' | null): EndedStep {
+  function endedStep(made: StepMade): EndedStep {
     const step: EndedStep = { endedStep: true }
     const ended: Ended = {
       outcome: made === null ? 'saved' : made === 'tooBig' ? new NotSaved('tooBig') : undefined,

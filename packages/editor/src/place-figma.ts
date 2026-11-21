@@ -15,7 +15,8 @@ export type DesignLimit = 'designLayers' | 'designFrames' | 'designPages' | 'des
 export type PlacedFigma =
   /**
    * Placed as one undo step: each Figma node id of the import by the Dazbee page, frame or layer it
-   * became, and `whenConfirmed` on the step, which settles once the sync server answers it.
+   * became, and `whenConfirmed` on the step, which settles once the sync server answers it. When it
+   * fails as 'rejected' or 'tooBig', nothing of the import stays, and `ids` name what is gone.
    */
   | { placed: true; ids: ReadonlyMap<string, string>; confirmed: Promise<'saved'> }
   /** Nothing placed: the editor has ended, or the tab may only view the design. */
@@ -47,6 +48,8 @@ export interface EditorPlaceFigma {
    * design limit (`SYNC_LIMITS`), counted on the design as it is then, nothing is written.
    */
   placeFigma(figma: FigmaImport): Promise<PlacedFigma>
+  /** The design's size as the sync server counts it, as this tab holds it now, its steps not yet confirmed included. */
+  designSize(): DesignSize
 }
 
 /** The limits an import is checked against, by the part of a design's size each caps. */
@@ -66,6 +69,8 @@ export function editorPlaceFigma({
   gesturing,
   signal,
 }: PlaceFigmaDeps): EditorPlaceFigma {
+  const designSize = () => designSizeOf(store.snapshot())
+
   async function placeFigma(figma: FigmaImport): Promise<PlacedFigma> {
     // A gesture begun as the wait ends is waited for too, so the import is a step of its own.
     do {
@@ -78,18 +83,18 @@ export function editorPlaceFigma({
 
   /** Places `figma` now, with nothing open on the stage. */
   function place(figma: FigmaImport): PlacedFigma {
-    const before = designSizeOf(store.snapshot())
-    const counted = passed(before, added(figma, before))
+    const before = designSize()
+    const counted = passed(before, countedWith(figma, before))
     if (counted) return { placed: false, why: 'limit', limit: counted }
     typing.stop()
     const step = session.beginGesture('importFigma')
     let ids: Map<string, string>
     try {
       ids = write(figma)
-      const past = passed(before, designSizeOf(store.snapshot()))
-      if (past) {
+      const written = passed(before, designSize())
+      if (written) {
         step.cancel()
-        return { placed: false, why: 'limit', limit: past }
+        return { placed: false, why: 'limit', limit: written }
       }
     } catch (error) {
       step.cancel()
@@ -157,11 +162,11 @@ export function editorPlaceFigma({
     for (const [key, id] of ids) if (tree.nodes[key]?.type === 'text') typing.fitText(id)
   }
 
-  return { placeFigma }
+  return { placeFigma, designSize }
 }
 
-/** What `figma` adds to a design's layers, frames and pages; its bytes are counted once it is written. */
-function added(figma: FigmaImport, before: DesignSize): DesignSize {
+/** A design of size `before` with `figma`'s layers, frames and pages counted in; its bytes are counted once it is written. */
+function countedWith(figma: FigmaImport, before: DesignSize): DesignSize {
   const frames = figma.pages.flatMap((page) => page.frames)
   return {
     layers: before.layers + frames.reduce((sum, f) => sum + Object.keys(f.layers?.nodes ?? {}).length, 0),

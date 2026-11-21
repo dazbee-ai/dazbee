@@ -57,6 +57,12 @@ export type Answer =
   | { kind: 'rejected'; changeSetId: number; reason?: RejectReason }
   | { kind: 'lost'; changeSetId: number }
 
+/**
+ * What a step that ended made: the id of its change set; 'tooBig' when it was over a change set's
+ * limits and put back; null when it changed nothing.
+ */
+export type StepMade = number | 'tooBig' | null
+
 /** Told which records the working design shows differently, after every change to it. */
 export type ChangeListener = (changed: ReadonlySet<RecordKey>) => void
 
@@ -103,11 +109,8 @@ export interface Client {
    * send now. A restore's step gives the version it restores (`restore`), sent with its change set.
    */
   end(name: string | null, restore?: RestoreMark): Outgoing[]
-  /**
-   * What the last step `end` closed made: the id of its change set; 'tooBig' when it was over a
-   * change set's limits and put back; null when it changed nothing, or no step has ended.
-   */
-  lastEnded(): number | 'tooBig' | null
+  /** What the last step `end` closed made; null too when no step has ended. */
+  lastEnded(): StepMade
   /**
    * Told what became of each change set of the tab's steps as the tab learns it; a follow-up, which
    * tells no one when it is rejected (D6, 5), is told nothing. A change set dropped unsent (an undo or redo with nothing left to write, or one behind a rejected change set of its
@@ -316,7 +319,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   const listeners = new Set<ChangeListener>()
   const accessListeners = new Set<(access: Access) => void>()
   /** What the last step ended made (see `lastEnded`), and who hears what became of the tab's change sets. */
-  let lastEnded: number | 'tooBig' | null = null
+  let lastEnded: StepMade = null
   const answerListeners = new Set<(answer: Answer) => void>()
   /**
    * Steps on the stacks that have something left to undo or redo that can't be written on the

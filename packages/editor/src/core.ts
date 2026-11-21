@@ -2,7 +2,7 @@
 // The editor's core: every module that decides what the design, the selection, the camera or the
 // tool becomes, built in the code layout's order on what it is handed, with no browser. The page's
 // side, `editor.ts`, builds the shell on its modules; a test opens it in Node.
-import { derivedValues, designSizeOf, frameIdOf, openSession, type Session } from '@dazbee/doc'
+import { derivedValues, frameIdOf, openSession, type Session } from '@dazbee/doc'
 import type { Design, Point, SafeZoneChoice, ValueKind, VariableRef, Variables } from '@dazbee/schema'
 
 import { toggled } from './across-frames.ts'
@@ -887,7 +887,7 @@ export function buildCore({
     placeSvg: placeSvg.placeSvg,
     placeWhenSettled: placeSvg.placeWhenSettled,
     placeFigma: placeFigma.placeFigma,
-    designSize: () => designSizeOf(store.snapshot()),
+    designSize: placeFigma.designSize,
     fillWithImage: (id: string, asset: PlacedAsset) => place.fillWithImage(id, asset),
     pageThumbnail: thumbnails.page,
     layerThumbnail: thumbnails.layer,

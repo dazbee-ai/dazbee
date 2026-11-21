@@ -44,6 +44,7 @@ export function testStock(now: () => number): TestStock {
   const stock: TestStock = { app, off: false, searches: [], saved: [] }
 
   app.get('/workspaces/:workspaceId/stock/photos', (c) => {
+    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
     if (stock.off) return c.json({ error: OFF }, 503)
     const search = StockSearch.safeParse(c.req.query())
     if (!search.success) return c.json({ error: 'q: give 1 to 100 characters' }, 400)

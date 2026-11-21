@@ -10,7 +10,10 @@ import type { AccessRequest, DazbeeInvite, RequestAccess } from '@dazbee/schema'
 import type { InvitesProvider } from '../members/invites-provider.ts'
 import { inviteToDazbee } from './dazbee-invites.ts'
 
-/** Counts the requests each address sends, and refuses one past the limit within the window. */
+/**
+ * Counts the requests each address (or other key, such as a member's id) sends, and refuses one past the limit within
+ * the window.
+ */
 export interface RequestLimit {
   /** Whether a request from `address` is within the limit, counting it when it is. */
   take(address: string, now?: number): boolean
@@ -84,7 +87,7 @@ export async function dismissRequest(db: Db, requestId: string): Promise<boolean
 }
 
 /**
- * A limit on requests, kept in this server's memory: `perWindow` from one address within `windowMs`; unless given,
+ * A limit on requests, kept in this server's memory: `perWindow` from one address or key within `windowMs`; unless given,
  * `REQUESTS_PER_WINDOW` within `REQUEST_WINDOW_MS`, the limit on requests to join.
  */
 export function requestLimit({ perWindow = REQUESTS_PER_WINDOW, windowMs = REQUEST_WINDOW_MS } = {}): RequestLimit {

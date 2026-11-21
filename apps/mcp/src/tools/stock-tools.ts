@@ -2,7 +2,7 @@
 // naming Pixabay as their source, and add_stock saves one into a brand's images, where place_asset places it.
 import { z } from 'zod'
 
-import { MAX_STOCK_QUERY, STOCK_COLOURS, STOCK_ORIENTATIONS, STOCK_PHOTO_MAX_SIDE, StockPhotoId } from '@dazbee/schema'
+import { MAX_STOCK_QUERY, STOCK_PHOTO_MAX_SIDE, StockPhotoId, type StockResults, StockSearch } from '@dazbee/schema'
 
 import { defineTool, type Tool, WithNotes } from './define-tool.ts'
 import { BrandId, listedImage, viewOnly } from './workspace-tools.ts'
@@ -18,30 +18,29 @@ export const STOCK_TOOLS: Tool[] = [
   defineTool({
     name: 'search_stock',
     title: 'Search stock photos',
-    description: `Searches Pixabay’s free stock photos for a photo that fits the ad when the brand has none of its own. Give English words for what the photo shows, such as “woman running beach”. It answers up to 20 photos, best first, each with its id for add_stock, a small preview link to look at, the size it is saved at (at most ${STOCK_PHOTO_MAX_SIDE} px a side), its photographer, its tags and its Pixabay page. When stock search is off on the server it says so: don’t try again, use add_image or the brand’s images.`,
+    description: `Searches Pixabay’s free stock photos for a photo that fits the ad when the brand has none of its own. Give English words for what the photo shows, such as “woman running beach”. It answers up to 20 photos, best first, each with its id for add_stock, a small preview link to look at, the size it is saved at (at most ${STOCK_PHOTO_MAX_SIDE} px a side), its photographer, its tags and its Pixabay page. When stock search is off on the server it says so: don’t try again, use add_image or the brand’s images. Needs an access that edits.`,
     readOnly: true,
     openWorld: true,
     input: z.object({
-      query: z
-        .string()
-        .trim()
-        .min(1)
-        .max(MAX_STOCK_QUERY)
-        .describe(`Words for what the photo shows, in English: at most ${MAX_STOCK_QUERY} characters`),
-      orientation: z
-        .enum(STOCK_ORIENTATIONS)
-        .optional()
-        .describe(
-          'The shape of photo to keep to: landscape for wide frames, portrait for tall ones; any when left out',
-        ),
-      colour: z.enum(STOCK_COLOURS).optional().describe('A colour the photo mostly has, such as one of the brand’s'),
+      query: StockSearch.shape.q.describe(
+        `Words for what the photo shows, in English: at most ${MAX_STOCK_QUERY} characters`,
+      ),
+      orientation: StockSearch.shape.orientation.describe(
+        'The shape of photo to keep to: landscape for wide frames, portrait for tall ones; any when left out',
+      ),
+      colour: StockSearch.shape.colour.describe('A colour the photo mostly has, such as one of the brand’s'),
     }),
     run: async ({ query, orientation, colour }, { api }) => {
-      const found = await api.searchStock({
-        q: query,
-        ...(orientation === undefined ? {} : { orientation }),
-        ...(colour === undefined ? {} : { colour }),
-      })
+      let found: StockResults
+      try {
+        found = await api.searchStock({
+          q: query,
+          ...(orientation === undefined ? {} : { orientation }),
+          ...(colour === undefined ? {} : { colour }),
+        })
+      } catch (error) {
+        throw viewOnly(error, 'search stock photos')
+      }
       if (found.photos.length === 0) return `Pixabay has no photo for “${query}”; try fewer or other words, in English`
       return new WithNotes(found, [AFTER_SEARCH])
     },

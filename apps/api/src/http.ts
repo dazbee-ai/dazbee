@@ -54,12 +54,13 @@ export async function body<T extends z.ZodType>(
     return Response.json(error('The body is not JSON'), { status: 400 })
   }
   const parsed = schema.safeParse(json)
-  if (!parsed.success)
-    return Response.json(
-      error(parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; ')),
-      { status: 400 },
-    )
+  if (!parsed.success) return Response.json(error(issuesOf(parsed.error, 'body')), { status: 400 })
   return parsed.data
+}
+
+/** A refused input's issues as one sentence: each field, or `whole` for the input itself, and what is wrong with it. */
+export function issuesOf(failed: z.ZodError, whole: string): string {
+  return failed.issues.map((i) => `${i.path.join('.') || whole}: ${i.message}`).join('; ')
 }
 
 /**

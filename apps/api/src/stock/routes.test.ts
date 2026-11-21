@@ -9,10 +9,14 @@ import { PUBLIC_ADDRESS, testSites } from '../fetch/test-sites.ts'
 import { sessionOfRequest } from '../sign-in/session.ts'
 import { authorization, brand, db, run, sessionSecret, storage, syncSecret, workspace } from '../test-api.ts'
 import { png, sha256 } from '../test-files.ts'
-import { pixabay } from './pixabay.ts'
+import { pixabay, pixabayFromEnv } from './pixabay.ts'
+import { STOCK_SEARCHES_PER_MINUTE } from './routes.ts'
 import { TEST_PIXABAY_URL, testPixabay } from './test-pixabay.ts'
 
 const KEY = 'test-pixabay-key-0123456789'
+/** Tags as Pixabay gives a photo many, some of them again. */
+const LONG_TAGS =
+  'skateboard, skater, teen, style, sports, young, active, skateboarding, entertainment, urban, board, youth, skateboard, skateboard, teen'
 const sites = await testSites()
 sites.resolveTo('pixabay.com', [PUBLIC_ADDRESS])
 
@@ -105,6 +109,24 @@ describe('GET /workspaces/:workspaceId/stock/photos', () => {
     })
   })
 
+  it('tells each photo’s tags once each, at most 10, as Pixabay repeats them', async () => {
+    const { library, search } = stockApp()
+    library.add({ id: 104, tags: LONG_TAGS })
+    const [photo] = StockResults.parse((await search({ q: 'skateboard' })).json).photos
+    expect(photo?.tags).toEqual([
+      'skateboard',
+      'skater',
+      'teen',
+      'style',
+      'sports',
+      'young',
+      'active',
+      'skateboarding',
+      'entertainment',
+      'urban',
+    ])
+  })
+
   it('answers no photos when Pixabay finds none', async () => {
     const { search } = stockApp()
     expect((await search({ q: 'nothing here' })).json).toEqual({ source: 'Pixabay', photos: [] })
@@ -195,9 +217,22 @@ describe('GET /workspaces/:workspaceId/stock/photos', () => {
     expect(await add(101)).toEqual({ status: 503, json: off })
   })
 
-  it('lets a Reviewer search', async () => {
+  it('refuses a Reviewer, asking Pixabay nothing', async () => {
+    const { library, search } = stockApp()
+    expect((await search({ q: 'shoe' }, 'r')).status).toBe(403)
+    expect(library.requests).toHaveLength(0)
+  })
+
+  it('keeps each member to their searches a minute, so no one uses up Pixabay’s for every workspace', async () => {
     const { search } = stockApp()
-    expect((await search({ q: 'shoe' }, 'r')).status).toBe(200)
+    for (let i = 0; i < STOCK_SEARCHES_PER_MINUTE; i++) expect((await search({ q: 'shoe' })).status).toBe(200)
+    expect(await search({ q: 'shoe' })).toEqual({
+      status: 429,
+      json: {
+        error: `This member has searched stock photos as often as they may for now (${STOCK_SEARCHES_PER_MINUTE} times a minute); try again in a minute`,
+      },
+    })
+    expect((await search({ q: 'shoe' }, 'editor')).status).toBe(200)
   })
 })
 
@@ -221,6 +256,13 @@ describe('POST /brands/:brandId/assets/from-stock', { timeout: 30_000 }, () => {
     })
     expect(library.requests).toHaveLength(1)
     expect(sites.visits.at(-1)).toMatchObject({ host: 'pixabay.com', path: '/get/g301_1280.png' })
+  })
+
+  it('names a photo from its first tags, whole and once each, when Pixabay gives many', async () => {
+    const { library, add } = stockApp()
+    const photo = library.add({ id: 306, tags: LONG_TAGS })
+    serveDownload(photo.largeImageURL, png(7, 5, `${run}-stock-306`))
+    expect(AssetSummary.parse((await add(306)).json).name).toBe('Skateboard, skater, teen, style, sports, young')
   })
 
   it('looks a photo up by its id when no search found it', async () => {
@@ -265,5 +307,13 @@ describe('POST /brands/:brandId/assets/from-stock', { timeout: 30_000 }, () => {
     expect((await add(305, 'r')).status).toBe(403)
     expect((await add('305')).status).toBe(400)
     expect(library.requests).toHaveLength(0)
+  })
+})
+
+describe('pixabayFromEnv', () => {
+  it('turns stock search on only when PIXABAY_API_KEY is set', () => {
+    expect(pixabayFromEnv({})).toBeNull()
+    expect(pixabayFromEnv({ PIXABAY_API_KEY: '  ' })).toBeNull()
+    expect(pixabayFromEnv({ PIXABAY_API_KEY: KEY })).not.toBeNull()
   })
 })

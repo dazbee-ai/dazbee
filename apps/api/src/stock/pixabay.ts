@@ -82,19 +82,36 @@ const PixabayHit = z.object({
 })
 type PixabayHit = z.infer<typeof PixabayHit>
 
+/** Answers kept, by what was asked: when each was asked, and its photos, while asked too; and how many are kept at most. */
+interface Kept {
+  answers: Map<string, { at: number; hits: Promise<PixabayHit[]> }>
+  most: number
+}
+
 /** Pixabay's answer to a search or a look-up. */
 const PixabayAnswer = z.object({ hits: z.array(PixabayHit) })
 
 /** How long an answer is kept, as Pixabay's terms ask. */
 const KEEP_MS = 24 * 60 * 60 * 1000
-/** The most answers kept, so searches can't fill the memory; the oldest goes first. */
-const MAX_KEPT = 10_000
+/**
+ * The most searches kept, about 15 KB each at most, so that searches can't fill the API's memory; the oldest goes
+ * first.
+ */
+const MAX_SEARCHES_KEPT = 2_000
+/** The most photos kept on their own, each shared with the search that found it. */
+const MAX_PHOTOS_KEPT = 40_000
 /** How many photos a search answers. */
 const PER_PAGE = 20
+/** How many of a photo's tags a search tells. */
+const TAGS_TOLD = 10
+/** How long a saved photo's name made from its tags is at most, in characters. */
+const NAME_LENGTH = 48
 /** How long Pixabay may take to answer. */
 const TIMEOUT_MS = 10_000
 /** The window requests are counted in. */
 const MINUTE_MS = 60_000
+/** What every request to Pixabay is counted under, as one key's requests are counted together. */
+const ALL_REQUESTS = 'pixabay'
 /** Each orientation a search keeps to, as Pixabay names it. */
 const ORIENTATIONS: Record<NonNullable<StockSearch['orientation']>, string> = {
   any: 'all',
@@ -116,8 +133,9 @@ export function pixabay({
   perMinute = PIXABAY_PER_MINUTE,
   url = PIXABAY_URL,
 }: PixabaySettings): StockLibrary {
-  // Each answer kept, by what was asked: when it was asked, and its photos, while asked too.
-  const kept = new Map<string, { at: number; hits: Promise<PixabayHit[]> }>()
+  // The searches kept, by their words, orientation and colour, and the photos kept, by their id.
+  const searches: Kept = { answers: new Map(), most: MAX_SEARCHES_KEPT }
+  const photos: Kept = { answers: new Map(), most: MAX_PHOTOS_KEPT }
   // The requests sent in the last minute.
   const requests = requestLimit({ perWindow: perMinute, windowMs: MINUTE_MS })
   // Until when no request is sent, as Pixabay said when it turned one away.
@@ -129,14 +147,13 @@ export function pixabay({
     const params = new URLSearchParams({ q, image_type: 'photo', safesearch: 'true', per_page: String(PER_PAGE) })
     if (orientation !== 'any') params.set('orientation', ORIENTATIONS[orientation])
     if (asked.colour) params.set('colors', asked.colour)
-    const { hits } = answer(`search:${q}|${orientation}|${asked.colour ?? ''}`, params)
+    const { hits } = answer(searches, `${q}|${orientation}|${asked.colour ?? ''}`, params)
     return { source: STOCK_SOURCE, photos: (await hits).map(photoOf) }
   }
 
   async function photo(id: StockPhotoId, { fresh = false } = {}): Promise<StockDownload> {
-    const asked = `photo:${id}`
-    if (fresh) kept.delete(asked)
-    const { hits, wasKept } = answer(asked, new URLSearchParams({ id: String(id) }))
+    if (fresh) photos.answers.delete(String(id))
+    const { hits, wasKept } = answer(photos, String(id), new URLSearchParams({ id: String(id) }))
     const [hit] = await hits
     if (!hit)
       throw new StockRefused(`Pixabay has no photo with the id ${id}; search again and use an id it answers`, 400)
@@ -144,42 +161,40 @@ export function pixabay({
   }
 
   /**
-   * The photos Pixabay answers `params`: as kept under `asked` within the last 24 hours, else asked now and kept,
-   * along with each photo it gives, so saving one asks nothing more. An answer that fails is not kept.
+   * The photos Pixabay answers `params`: as `kept` under `asked` within the last 24 hours, else asked now and kept;
+   * a search's photos are kept on their own too, so saving one asks nothing more. An answer that fails is not kept.
    */
-  function answer(asked: string, params: URLSearchParams): { hits: Promise<PixabayHit[]>; wasKept: boolean } {
+  function answer(
+    kept: Kept,
+    asked: string,
+    params: URLSearchParams,
+  ): { hits: Promise<PixabayHit[]>; wasKept: boolean } {
     const at = now()
-    const found = kept.get(asked)
+    const found = kept.answers.get(asked)
     if (found && at - found.at < KEEP_MS) return { hits: found.hits, wasKept: true }
-    const hits = ask(params).then((photos) => {
-      if (!params.has('id')) for (const hit of photos) keep(`photo:${hit.id}`, at, Promise.resolve([hit]))
-      return photos
+    const lookUp = kept === photos
+    const hits = ask(params, lookUp).then((found) => {
+      if (!lookUp) for (const hit of found) keep(photos, String(hit.id), at, Promise.resolve([hit]))
+      return found
     })
-    keep(asked, at, hits)
+    keep(kept, asked, at, hits)
     hits.catch(() => {
-      if (kept.get(asked)?.hits === hits) kept.delete(asked)
+      if (kept.answers.get(asked)?.hits === hits) kept.answers.delete(asked)
     })
     return { hits, wasKept: false }
-  }
-
-  /** Keeps `hits` under `asked` as asked at `at`, letting the oldest answer go past `MAX_KEPT`. */
-  function keep(asked: string, at: number, hits: Promise<PixabayHit[]>) {
-    kept.delete(asked)
-    kept.set(asked, { at, hits })
-    while (kept.size > MAX_KEPT) kept.delete(kept.keys().next().value ?? '')
   }
 
   /**
    * The photos Pixabay answers to one request of `params`, counted against the requests a minute. A look-up of an id
    * Pixabay doesn't know answers none.
    */
-  async function ask(params: URLSearchParams): Promise<PixabayHit[]> {
+  async function ask(params: URLSearchParams, lookUp: boolean): Promise<PixabayHit[]> {
     const busy = () =>
       new StockRefused(
         `Dazbee has searched Pixabay as often as it may for now (${perMinute} times a minute, as Pixabay asks); try again in a minute`,
         429,
       )
-    if (now() < pausedUntil || !requests.take('', now())) throw busy()
+    if (now() < pausedUntil || !requests.take(ALL_REQUESTS, now())) throw busy()
     let response: Response
     try {
       response = await send(`${url}?${new URLSearchParams({ key, ...Object.fromEntries(params) })}`, {
@@ -194,7 +209,7 @@ export function pixabay({
       throw busy()
     }
     const text = await response.text().catch(() => '')
-    if (response.status === 400 && params.has('id') && /\bid\b/i.test(text)) return []
+    if (response.status === 400 && lookUp && /\bid\b/i.test(text)) return []
     if (!response.ok) {
       logEvent('pixabay-refused', { status: response.status })
       throw new StockRefused(`Pixabay refused Dazbee’s search (${response.status}); try again later`, 502)
@@ -208,6 +223,13 @@ export function pixabay({
   }
 
   return { search, photo }
+}
+
+/** Keeps `hits` in `kept` under `asked` as asked at `at`, letting the oldest answer go past the most it keeps. */
+function keep(kept: Kept, asked: string, at: number, hits: Promise<PixabayHit[]>) {
+  kept.answers.delete(asked)
+  kept.answers.set(asked, { at, hits })
+  while (kept.answers.size > kept.most) kept.answers.delete(kept.answers.keys().next().value ?? '')
 }
 
 /** A photo as a search answers it, with the size its largest picture Dazbee may download has. */
@@ -224,19 +246,28 @@ function photoOf(hit: PixabayHit): StockPhoto {
   }
 }
 
-/** The words Pixabay finds a photo by. */
+/** The words Pixabay finds a photo by, once each, at most `TAGS_TOLD`. */
 function tagsOf(hit: PixabayHit): string[] {
-  return hit.tags
+  const tags = hit.tags
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean)
+  return [...new Set(tags)].slice(0, TAGS_TOLD)
 }
 
-/** A photo's name in the asset library: its tags, the first word capitalised, else its id. */
+/**
+ * A photo's name in the asset library: its first tags, whole, within `NAME_LENGTH` characters, the first word
+ * capitalised; else its id.
+ */
 function nameOf(hit: PixabayHit): string {
-  const tags = tagsOf(hit).join(', ')
-  if (!tags) return `Pixabay photo ${hit.id}`
-  return `${tags.charAt(0).toUpperCase()}${tags.slice(1)}`.slice(0, 120)
+  const [first, ...rest] = tagsOf(hit)
+  if (!first) return `Pixabay photo ${hit.id}`
+  let name = first
+  for (const tag of rest) {
+    if (name.length + 2 + tag.length > NAME_LENGTH) break
+    name = `${name}, ${tag}`
+  }
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)}`.slice(0, 120)
 }
 
 /** The seconds Pixabay says to wait after turning a request away: its reset header, else a minute. */

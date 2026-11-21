@@ -71,6 +71,14 @@ describe('search_stock', () => {
     expect(textOf(result)).toMatch(/^Dazbee has searched Pixabay as often as it may for now/)
   })
 
+  it('tells a view access’s refusal (403) as a tool error, searching nothing', async () => {
+    const agent = await agentOf({ writes: false })
+    const result = await agent.call('search_stock', { query: 'shoe' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/may only view designs, so it can’t search stock photos/)
+    expect(server.api.stock.searches).toEqual([])
+  })
+
   it('refuses a colour Pixabay doesn’t know, and a search past 100 characters', async () => {
     const agent = await agentOf()
     expect((await agent.call('search_stock', { query: 'shoe', colour: 'mauve' })).isError).toBe(true)

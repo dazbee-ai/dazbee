@@ -1,6 +1,7 @@
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SPRITES } from './town-sprites.js'
+import { FREE } from './town-free.js'
 
 // The town (a tile map): a 2D isometric city on a fixed grid, like a city-builder game. No 3D: the ground is one
 // flat plane sheared into the 2:1 iso view, and every building is a painted sprite (public/sprites/city, warped onto the
@@ -92,6 +93,8 @@ function build(world) {
     }
   world.appendChild(ground)
 
+  // every lot sprite's footprint (world px), stacking value and screen box, so moving things can be stacked against it
+  const LOTS = []
   // anything standing up is placed in screen px in one layer and stacked by depth
   const things = el('t-things')
   const put = (n, x, y) => {
@@ -102,7 +105,7 @@ function build(world) {
 
   // a painted sprite on the lot i..i+W, j..j+D (cells); returns the element and its screen box
   // flip = true mirrors it: the same building seen from the other side, so its footprint turns (W and D swap)
-  const sprite = (name, i, j, flip = false) => {
+  const sprite = (name, i, j, flip = false, solid = true) => {
     const m = SPRITES[name]
     const W = flip ? m.D : m.W,
       D = flip ? m.W : m.D
@@ -124,6 +127,18 @@ function build(world) {
     img.loading = 'lazy'
     n.appendChild(img)
     put(n, fx, fy)
+    if (solid)
+      LOTS.push({
+        x1: i * CELL,
+        y1: j * CELL,
+        x2: fx,
+        y2: fy,
+        z: depth(fx, fy),
+        l: X - ox / 2,
+        r: X - ox / 2 + m.w / 2,
+        t: Y - m.oy / 2,
+        b: Y - m.oy / 2 + m.h / 2,
+      })
     return n
   }
   // paint an ad onto a sprite's blank panel, fitted at its own aspect ratio
@@ -172,20 +187,32 @@ function build(world) {
     else put(n, x + w, y + d)
     return n
   }
+  // a sprite that stands on a point (a tree, lamp, bench, person or car): its bottom centre on the spot
+  const freeImg = (name, k = 1, flip = false) => {
+    const m = FREE[name],
+      w = m.w * k,
+      h = m.h * k
+    const n = el(`t-sprite${flip ? ' is-flip' : ''}`, { left: px(-w / 2), top: px(-h), width: px(w), height: px(h) })
+    const img = document.createElement('img')
+    img.src = m.src
+    img.alt = ''
+    img.decoding = 'async'
+    img.draggable = false
+    img.loading = 'lazy'
+    n.appendChild(img)
+    return n
+  }
+  const free = (name, x, y, k = 1, flip = false) => {
+    const n = freeImg(name, k, flip)
+    const [X, Y] = scr(x, y)
+    n.style.left = px(X + parseFloat(n.style.left))
+    n.style.top = px(Y + parseFloat(n.style.top))
+    return put(n, x, y)
+  }
+  // trees: mostly round ones, every few a tall poplar; mirrored at random so they don't repeat
   const tree = (x, y, k = 1) => {
-    const g = el('t-group')
-    box({ x: x - 4, y: y - 4, w: 8, d: 8, h: 14 * k, c: 'trunk', parent: g })
-    box({
-      x: x - 17 * k,
-      y: y - 17 * k,
-      w: 34 * k,
-      d: 34 * k,
-      h: 30 * k,
-      z: 14 * k,
-      c: k > 0.9 ? 'leaf' : 'leaf2',
-      parent: g,
-    })
-    return put(g, x + 17 * k, y + 17 * k)
+    const h = Math.abs(Math.round(x * 7 + y * 13)) % 9
+    return free(h < 2 ? 'n-tree-tall' : 'n-tree-round', x, y, k, h % 2 === 1)
   }
   const cellTree = (i, j, k) => tree((i + 0.5) * CELL, (j + 0.5) * CELL, k)
 
@@ -198,8 +225,18 @@ function build(world) {
   // block plans, in lot cells 0..6 from the block's far corner. Every building sits on a lot of exactly its size.
   // the office tower and the shop row carry blank ad boards, so in the made-up blocks they are rare (most real
   // buildings have none); everything else is mirrored at random so neighbours don't repeat
-  const BIG = ['b-market'] // the office tower's blank wall is only for the banner; a plain glass tower comes with its art
-  const MIDS = ['b-gym', 'b-apartments', 'b-gym', 'b-apartments', 'b-gym', 'b-apartments', 'b-shop-row']
+  const BIG = ['b-market', 'b-office-tower-glass', 'b-hotel', 'b-office-tower-glass'] // the office tower's blank wall is only for the banner
+  const MIDS = [
+    'b-gym',
+    'b-apartments',
+    'b-apartments-brick',
+    'b-shop-row-b',
+    'b-gym',
+    'b-apartments-brick',
+    'b-apartments',
+    'b-shop-row',
+  ]
+  const HOUSES = ['b-house-a', 'b-house-b', 'b-house-c', 'b-house-d']
   const pick = (r, list) => list[Math.floor(r() * list.length)]
   const any = (r, name, i, j) => sprite(name, i, j, r() < 0.5)
   const PLANS = {
@@ -213,9 +250,11 @@ function build(world) {
             cellTree(i + a + 1.5, j + b + 1.4, 0.75)
             continue
           }
-          any(r, r() < 0.5 ? 'b-house-a' : 'b-house-b', i + a, j + b)
+          any(r, a === 4 && b === 0 && r() < 0.35 ? 'b-corner-cafe' : pick(r, HOUSES), i + a, j + b)
         }
       for (const a of [1, 3, 5]) cellTree(i + a, j + 5.6, 0.8)
+      free('n-lamp', (i + 6.15) * CELL, (j + 2.1) * CELL)
+      free('n-lamp', (i + 1.5) * CELL, (j + 2.85) * CELL)
     },
     shops: (r, i, j) => {
       flat('t-plaza', i, j, 7, 7)
@@ -247,8 +286,13 @@ function build(world) {
       flat('t-pave', i - 0.2, j + 3, 7.4, 1)
       flat('t-pave', i + 3, j - 0.2, 1, 7.4) // paths across, to the fountain
       flat('t-pave', i + 2, j + 2, 3, 3)
-      flat('t-pool', i + 2.5, j + 2.5, 2, 2)
+      sprite('n-fountain', i + 2.5, j + 2.5)
       sprite('s-kiosk', i + 4.2, j + 4.2)
+      free('n-bench', (i + 1.4) * CELL, (j + 4.15) * CELL, 1, true)
+      free('n-bench', (i + 4.15) * CELL, (j + 1.4) * CELL)
+      free('n-lamp', (i + 2.15) * CELL, (j + 2.15) * CELL)
+      free('n-lamp', (i + 2.15) * CELL, (j + 5.2) * CELL)
+      free('n-lamp', (i + 5.2) * CELL, (j + 2.15) * CELL)
       ;[
         [0.6, 0.6],
         [1.8, 1.6],
@@ -260,12 +304,44 @@ function build(world) {
       ].forEach(([a, b], t) => cellTree(i + a, j + b, 0.8 + (t % 3) * 0.15))
     },
   }
+  // a landmark on a lawn: a paved apron round it, two paths out to the pavements, trees, lamps and benches on the grass
+  const civic = (r, i, j, name) => {
+    const m = SPRITES[name],
+      a = i + Math.floor((7 - m.W) / 2),
+      b = j + Math.floor((7 - m.D) / 2)
+    flat('t-park', i, j, 7, 7)
+    flat('t-plaza', a - 0.5, b - 0.5, m.W + 1, m.D + 1)
+    const px0 = a + m.W / 2 - 0.5,
+      py0 = b + m.D / 2 - 0.5
+    flat('t-pave', px0, b + m.D + 0.5, 1, j + 7.2 - (b + m.D + 0.5)) // out to the near pavements
+    flat('t-pave', a + m.W + 0.5, py0, i + 7.2 - (a + m.W + 0.5), 1)
+    sprite(name, a, b)
+    const clear = (x, y) =>
+      (x > a - 0.9 && x < a + m.W + 0.9 && y > b - 0.9 && y < b + m.D + 0.9) ||
+      (x > px0 - 0.4 && x < px0 + 1.4 && y > b) ||
+      (y > py0 - 0.4 && y < py0 + 1.4 && x > a)
+    for (let x = i + 0.5; x < i + 7; x += 1.3)
+      for (let y = j + 0.5; y < j + 7; y += 1.3) {
+        const tx = x + (r() - 0.5) * 0.5,
+          ty = y + (r() - 0.5) * 0.5
+        if (!clear(tx, ty) && r() < 0.75) cellTree(tx, ty, 0.85 + r() * 0.3)
+      }
+    free('n-lamp', (px0 - 0.15) * CELL, (j + 6.6) * CELL)
+    free('n-lamp', (i + 6.6) * CELL, (py0 - 0.15) * CELL)
+    free('n-bench', (px0 + 1.35) * CELL, (b + m.D + 1.4) * CELL, 1, true)
+    free('n-bench', (a + m.W + 1.4) * CELL, (py0 + 1.35) * CELL)
+  }
+  const CIVIC = { '5,5': 'l-town-hall', '3,5': 'l-library', '5,3': 'l-museum', '2,4': 'l-school', '4,2': 'l-cinema' }
   const centre = new Set(['3,3', '4,3', '3,4', '4,4'])
   for (let bi = 0; bi < M / P; bi++)
     for (let bj = 0; bj < M / P; bj++) {
       if (centre.has(`${bi},${bj}`) || !seen(bi, bj)) continue
       const r = seeded(bi * 97 + bj * 31 + 11),
         v = r()
+      if (CIVIC[`${bi},${bj}`]) {
+        civic(r, bi * P + 2, bj * P + 2, CIVIC[`${bi},${bj}`])
+        continue
+      }
       const plan = v < 0.14 ? 'park' : v < 0.52 ? 'houses' : v < 0.78 ? 'shops' : 'flats'
       PLANS[plan](r, bi * P + 2, bj * P + 2)
     }
@@ -303,8 +379,11 @@ function build(world) {
   flat('t-pave', 41.8, 45.5, 7.4, 1)
   flat('t-pave', 45.5, 41.8, 1, 7.4)
   flat('t-pave', 44.5, 44.5, 3, 3)
-  flat('t-pool', 45, 45, 2, 2)
+  sprite('n-fountain', 45, 45)
   sprite('s-kiosk', 47, 47)
+  free('p-cafe', 47.2 * CELL, 48.6 * CELL)
+  free('n-bench', 43.6 * CELL, 46.15 * CELL, 1, true)
+  free('n-lamp', 44.6 * CELL, 44.6 * CELL)
   ;[
     [44.2, 42.5],
     [46.4, 42.6],
@@ -315,23 +394,22 @@ function build(world) {
 
   // movers: cars both ways on the roads near the middle, people on the pavements
   const movers = []
-  const COLORS = ['#d2402b', '#1f5f9e', '#f7f5ef', '#2b2f2d', '#f2c650', '#5e7f3e', '#e98aa2', '#7d93a8']
-  const vehicle = (along, c) => {
+  // the cars are painted facing the viewer, so every street runs one way, toward the bottom of the screen
+  const CARS = [
+    'v-hatchback-red',
+    'v-hatchback-cream',
+    'v-taxi',
+    'v-van',
+    'v-hatchback-cream',
+    'v-hatchback-red',
+    'v-taxi',
+    'v-bus',
+  ]
+  const vehicle = (along, name) => {
     const g = el('t-mover')
-    const L = 58,
-      Wd = 26
-    const [w, d] = along === 'x' ? [L, Wd] : [Wd, L]
-    box({ x: -w / 2, y: -d / 2, z: 3, w, d, h: 14, c, parent: g })
-    box({
-      x: -w / 2 + (along === 'x' ? 14 : 4),
-      y: -d / 2 + (along === 'x' ? 4 : 14),
-      z: 17,
-      w: along === 'x' ? 26 : 18,
-      d: along === 'x' ? 18 : 26,
-      h: 11,
-      c: 'glass',
-      parent: g,
-    })
+    const n = freeImg(`${name}-${along === 'x' ? 'se' : 'sw'}`)
+    n.style.top = px(parseFloat(n.style.top) + FREE[`${name}-se`].w * 0.2) // the car's middle, not its nearest wheel, on the lane
+    g.appendChild(n)
     things.appendChild(g)
     return g
   }
@@ -339,28 +417,18 @@ function build(world) {
   for (let k = 0; k < M; k += P) {
     if (Math.abs(k - CC) > 2 * P) continue
     for (let n = 0; n < 4; n++) {
-      const dir = n % 2 ? -1 : 1,
-        start = ((n >> 1) * 0.5 + rc() * 0.4) % 1
-      const lane = (k + (dir > 0 ? 0.72 : 0.28)) * CELL
-      movers.push({ m: vehicle('x', COLORS[Math.floor(rc() * COLORS.length)]), axis: 'x', at: lane, dir, start })
-      const laneV = (k + (dir > 0 ? 0.28 : 0.72)) * CELL
-      movers.push({
-        m: vehicle('y', COLORS[Math.floor(rc() * COLORS.length)]),
-        axis: 'y',
-        at: laneV,
-        dir,
-        start: (start + 0.37) % 1,
-      })
+      const start = ((n >> 1) * 0.5 + rc() * 0.4) % 1,
+        lane = (k + (n % 2 ? 0.3 : 0.7)) * CELL
+      const a = CARS[Math.floor(rc() * CARS.length)],
+        b = CARS[Math.floor(rc() * CARS.length)]
+      movers.push({ m: vehicle('x', a), axis: 'x', at: lane, start, bus: a === 'v-bus' })
+      movers.push({ m: vehicle('y', b), axis: 'y', at: lane, start: (start + 0.37) % 1, bus: b === 'v-bus' })
     }
   }
 
   const people = []
-  const body = (coat, hair, parent) => {
-    box({ x: -4, y: -4, w: 8, d: 8, h: 18, c: coat, parent })
-    return box({ x: -3.5, y: -3.5, z: 18, w: 7, d: 7, h: 8, c: [hair, TONES.skin[1], TONES.skin[2]], parent })
-  }
-  const COATS = ['#1f5f9e', '#d2402b', '#5e7f3e', '#2b2f2d', '#c4693f', '#e98aa2', '#f2c650', '#7d93a8']
   const rp = seeded(777)
+  const WALKERS = ['p-walk-a', 'p-walk-b', 'p-dog', 'p-walk-a', 'p-buggy', 'p-walk-b', 'p-runner']
   for (let n = 0; n < 30; n++) {
     const bi = 2 + Math.floor(rp() * 4),
       bj = 2 + Math.floor(rp() * 4)
@@ -368,89 +436,250 @@ function build(world) {
       side = rp() < 0.5 ? -0.5 : 1.5 // the pavement either side of the road
     const at = ((horiz ? bj : bi) * P + side) * CELL
     const from = ((horiz ? bi : bj) * P + 2 + rp() * 3) * CELL
+    const who = WALKERS[n % WALKERS.length]
     const g = el('t-mover')
-    body(COATS[n % COATS.length], '#3b2c22', g)
+    g.appendChild(freeImg(`${who}-${horiz ? 'se' : 'sw'}`))
     things.appendChild(g)
-    people.push({ m: g, axis: horiz ? 'x' : 'y', at, from, to: from + (2 + rp() * 2) * CELL })
+    people.push({ m: g, axis: horiz ? 'x' : 'y', at, from, to: from + (2 + rp() * 2) * CELL, fast: who === 'p-runner' })
   }
 
   // the speakers: someone by each banner who says that size's line in a speech bubble on the close shots
   const speakers = []
-  const figure = (x, y, coat, hair, walk) => {
+  const figure = (x, y, name, flip) => {
     const g = el('t-mover t-speaker')
-    const head = body(coat, hair, g)
+    const head = freeImg(name, 1, flip)
+    g.appendChild(head)
     things.appendChild(g)
-    speakers.push({ m: g, head, x, y, walk })
+    speakers.push({ m: g, head, x, y, walk: ['x', 0] })
   }
-  figure(37.2 * CELL, 38.6 * CELL, '#d2402b', '#3b2c22', ['x', -1.2 * CELL]) // on the pavement in front of the shops
-  figure(38.5 * CELL, 44.6 * CELL, '#1f5f9e', '#1d1d1f', ['y', -0.8 * CELL]) // at the bus stop, by the poster
-  figure(43.5 * CELL, 38.6 * CELL, '#5e7f3e', '#8a6a48', ['x', 1.2 * CELL]) // under the tower
-  figure(41.5 * CELL, 44.5 * CELL, '#c4693f', '#2b2f2d', ['y', 1.4 * CELL]) // by the roadside board
+  figure(37.2 * CELL, 38.6 * CELL, 'p-talk-pointing', true) // on the pavement in front of the shops, pointing at them
+  figure(38.5 * CELL, 44.6 * CELL, 'p-talk-phone', false) // at the bus stop, by the poster
+  figure(43.5 * CELL, 38.6 * CELL, 'p-talk-waving', false) // under the tower
+  figure(43.7 * CELL, 45.2 * CELL, 'p-talk-pointing', false) // on the lawn in front of the roadside board's face
 
   world.appendChild(things)
+
+  // clouds: soft shadows drifting over the town (always), and the clouds themselves floating above them once their art
+  // exists in /sprites/city/sky (k-cloud-a/b/c.webp). Kept faint so the banners stay the thing you look at.
+  const sky = el('t-clouds')
+  const rk = seeded(31)
+  const clouds = [...Array(6)].map((_, k) => {
+    const g = el('t-cloud')
+    const w = 1200 + rk() * 900,
+      h = w * (0.4 + rk() * 0.12)
+    const sh = el('t-cloud__shade', { width: px(w), height: px(h), left: px(-w / 2), top: px(-h / 2) })
+    g.appendChild(sh)
+    sky.appendChild(g)
+    const c = {
+      g,
+      w,
+      x: -2600 + k * 900 + rk() * 300,
+      y: 2560 - 1300 + rk() * 2400,
+      v: 9 + rk() * 7,
+      name: 'abc'[k % 3],
+    }
+    g.style.transform = `translate(${c.x}px, ${c.y}px)`
+    return c
+  })
+  ;['a', 'b', 'c'].forEach((n) => {
+    const probe = new Image()
+    probe.onload = () =>
+      clouds
+        .filter((c) => c.name === n)
+        .forEach((c) => {
+          const img = document.createElement('img')
+          img.src = probe.src
+          img.alt = ''
+          img.className = 't-cloud__img'
+          img.style.width = px(c.w * 0.9)
+          img.style.left = px(-c.w * 0.45 - 70)
+          img.style.bottom = px(380)
+          c.g.appendChild(img)
+        })
+    probe.src = `/sprites/city/sky/k-cloud-${n}.webp`
+  })
+  world.appendChild(sky)
   world.appendChild(frag)
-  return { movers, people, speakers }
+  return { movers, people, speakers, clouds, lots: LOTS }
 }
 
-// place a mover at world (x, y): screen position and stacking
-const place = (m, x, y) => {
+// Stacking moving things. A building's stacking value is its nearest corner, which is right for things on the
+// pavements in line with that corner but wrong beside a long wall: someone standing just in front of the south wall,
+// near its west end, has a smaller x + y than the corner and would be drawn behind the building (head cut off).
+// So each mover is checked against the buildings its picture overlaps: in front of the footprint (x >= x2 or y >= y2)
+// means drawn above it, behind it (x < x1 or y < y1) means below it.
+const BUCKET = 256
+const index = (lots) => {
+  const g = new Map()
+  lots.forEach((L) => {
+    for (let bx = Math.floor(L.l / BUCKET); bx <= Math.floor(L.r / BUCKET); bx++) {
+      for (let by = Math.floor(L.t / BUCKET); by <= Math.floor(L.b / BUCKET); by++) {
+        const k = bx * 10007 + by
+        if (!g.has(k)) g.set(k, [])
+        g.get(k).push(L)
+      }
+    }
+  })
+  return g
+}
+const stackAt = (grid, x, y, half = 40, up = 70) => {
   const [X, Y] = scr(x, y)
-  m.style.transform = `translate(${X}px, ${Y}px)`
-  m.style.zIndex = depth(x, y)
+  let z = depth(x, y),
+    lo = -Infinity,
+    hi = Infinity
+  const seenL = new Set()
+  for (let bx = Math.floor((X - half) / BUCKET); bx <= Math.floor((X + half) / BUCKET); bx++) {
+    for (let by = Math.floor((Y - up) / BUCKET); by <= Math.floor((Y + 8) / BUCKET); by++) {
+      const list = grid.get(bx * 10007 + by)
+      if (!list) continue
+      for (const L of list) {
+        if (seenL.has(L)) continue
+        seenL.add(L)
+        if (L.r < X - half || L.l > X + half || L.b < Y - up || L.t > Y + 8) continue
+        if (x >= L.x2 || y >= L.y2) lo = Math.max(lo, L.z + 1)
+        else if (x < L.x1 || y < L.y1) hi = Math.min(hi, L.z - 1)
+      }
+    }
+  }
+  if (lo > hi) return lo // can't satisfy both: rather show it than hide it
+  return Math.min(Math.max(z, lo), hi)
+}
+const placer = (grid) => (m, x, y, half, up) => {
+  const [X, Y] = scr(x, y)
+  m.style.transform = `translate(${X.toFixed(1)}px, ${Y.toFixed(1)}px)`
+  m.style.zIndex = stackAt(grid, x, y, half, up)
 }
 
-function life({ movers, people, speakers }) {
+function life({ movers, people, speakers, clouds, lots }) {
   const tl = gsap.timeline({ paused: true })
   const span = M * CELL
+  const place = placer(index(lots))
   speakers.forEach((s, k) => {
     const [ax, d] = s.walk
     const o = { t: 0 }
-    place(s.m, s.x, s.y)
-    tl.add(
-      gsap.to(o, {
-        t: 1,
-        duration: 4 + k * 0.5,
-        ease: 'sine.inOut',
+    place(s.m, s.x, s.y, 30, 60)
+    if (d)
+      tl.add(
+        gsap.to(o, {
+          t: 1,
+          duration: 4 + k * 0.5,
+          ease: 'sine.inOut',
+          repeat: -1,
+          yoyo: true,
+          onUpdate: () => place(s.m, s.x + (ax === 'x' ? d * o.t : 0), s.y + (ax === 'y' ? d * o.t : 0), 30, 60),
+        }),
+        0,
+      )
+  })
+
+  // traffic: each vehicle has its own cruising speed, keeps a gap to the one ahead in its lane, and waits before a
+  // junction while something is crossing it (first come, first served)
+  const rv = seeded(99)
+  const cars = movers.map((c, k) => {
+    const v0 = c.bus ? 70 + rv() * 20 : 105 + rv() * 85
+    return { ...c, k, s: c.start * span, v: v0 * 0.6, v0, len: c.bus ? 150 : 74 }
+  })
+  const lanes = new Map()
+  cars.forEach((c) => {
+    const key = `${c.axis}${c.at}`
+    if (!lanes.has(key)) lanes.set(key, [])
+    lanes.get(key).push(c)
+  })
+  const near = (a, b) => (((b - a) % span) + span) % span // distance ahead along a looping road
+  let last = 0
+  const step = () => {
+    const now = performance.now(),
+      dt = last && now - last < 200 ? (now - last) / 1000 : 0
+    last = now
+    if (!dt) return
+    for (const [, list] of lanes) list.sort((a, b) => a.s - b.s)
+    for (const c of cars) {
+      let target = c.v0
+      // the one ahead in the lane
+      const list = lanes.get(`${c.axis}${c.at}`)
+      if (list.length > 1) {
+        const i = list.indexOf(c),
+          ahead = list[(i + 1) % list.length]
+        const gap = near(c.s, ahead.s) - (c.len + ahead.len) / 2
+        if (gap < 26) target = 0
+        else if (gap < 110) target = Math.min(target, (ahead.v * (gap - 26)) / 84 + 10)
+      }
+      // the junction ahead: wait at the line while a crossing vehicle is in it, or about to be and nearer to it
+      const front = c.s + c.len / 2,
+        kx = Math.ceil(front / (P * CELL)) * P,
+        entry = kx * CELL,
+        dist = entry - front
+      if (dist > 0 && dist < 70) {
+        const row = Math.floor(c.at / CELL) * CELL // my road, as the crossing car sees it
+        for (const o of cars) {
+          if (o.axis === c.axis || Math.floor(o.at / CELL) !== kx) continue
+          const lo = o.s - o.len / 2,
+            hi = o.s + o.len / 2,
+            odist = row - hi
+          const busy = hi > row - 4 && lo < row + CELL + 4
+          const coming = odist > 0 && odist < 46 && o.v > 5 && (odist < dist || (odist === dist && o.k < c.k))
+          if (busy || coming) {
+            target = Math.min(target, Math.max(0, (dist - 6) * 2))
+            break
+          }
+        }
+      }
+      const a = target > c.v ? 70 : 260 // gentle pull-away, firmer braking
+      c.v += Math.sign(target - c.v) * Math.min(Math.abs(target - c.v), a * dt)
+      c.s = (c.s + c.v * dt) % span
+      if (c.axis === 'x') place(c.m, c.s, c.at, c.bus ? 80 : 46, 60)
+      else place(c.m, c.at, c.s, c.bus ? 80 : 46, 60)
+    }
+  }
+  step()
+  tl.add(gsap.to({}, { duration: 1, repeat: -1, onUpdate: step, onRepeat: step }), 0)
+
+  // the clouds drift slowly across, wrapping round
+  let cl = 0
+  tl.add(
+    gsap.to(
+      {},
+      {
+        duration: 1,
         repeat: -1,
-        yoyo: true,
-        onUpdate: () => place(s.m, s.x + (ax === 'x' ? d * o.t : 0), s.y + (ax === 'y' ? d * o.t : 0)),
-      }),
-      0,
-    )
-  })
-  movers.forEach(({ m, axis, at, dir, start }) => {
-    const o = { t: 0 },
-      dur = 30 + ((at * 7) % 13)
-    const one = gsap.to(o, {
-      t: 1,
-      duration: dur,
-      ease: 'none',
-      repeat: -1,
-      onUpdate: () => {
-        const s = dir > 0 ? o.t * span : span - o.t * span
-        if (axis === 'x') place(m, s, at)
-        else place(m, at, s)
+        onUpdate: () => {
+          const now = performance.now(),
+            dt = cl && now - cl < 200 ? (now - cl) / 1000 : 0
+          cl = now
+          clouds.forEach((c) => {
+            c.x += c.v * dt
+            c.y += c.v * 0.22 * dt
+            if (c.x > 2700) {
+              c.x -= 5400
+              c.y -= 5400 * 0.22
+            }
+            if (c.y > 2560 + 1500) c.y -= 2800
+            else if (c.y < 2560 - 1500) c.y += 2800
+            c.g.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px)`
+          })
+        },
       },
-    })
-    one.progress(start)
-    tl.add(one, 0)
-  })
-  people.forEach(({ m, axis, at, from, to }, k) => {
+    ),
+    0,
+  )
+
+  people.forEach(({ m, axis, at, from, to, fast }, k) => {
+    // one way (they are painted walking toward the viewer), fading in and out at the ends of their stretch
     const o = { t: 0 },
-      dur = 9 + (k % 7) * 1.6
+      dur = (9 + (k % 7) * 1.6) * (fast ? 0.45 : 1)
     const one = gsap.to(o, {
       t: 1,
       duration: dur,
       ease: 'none',
       repeat: -1,
-      yoyo: true,
       onUpdate: () => {
         const s = from + (to - from) * o.t
-        if (axis === 'x') place(m, s, at)
-        else place(m, at, s)
+        m.style.opacity = Math.min(1, o.t * 8, (1 - o.t) * 8)
+        if (axis === 'x') place(m, s, at, 20, 50)
+        else place(m, at, s, 20, 50)
       },
     })
-    one.totalTime((k * 3.7) % (dur * 2))
+    one.totalTime((k * 3.7) % dur)
     tl.add(one, 0)
   })
   return tl

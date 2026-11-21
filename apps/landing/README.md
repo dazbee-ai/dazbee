@@ -20,7 +20,7 @@ dazbee.com is a Cloudflare Pages site uploaded by hand: build, then upload `dist
 index.html          the page, its sections in order
 src/main.js         entry: fonts, styles, GSAP, nav, and each section's scene; reduced motion is handled here
 src/styles/         tokens.css holds every colour, type size and space; one file each for base, components, sections and the try-out
-src/scenes/         one file per moving section: the valley hero (a WebGL shader), the routes ring, why, try-out, the city, how, sign-off
+src/scenes/         one file per moving section: the valley hero (a WebGL shader), the concert, why, try-out, the city, how, sign-off
 src/content/        the example brief, its routes and the try-out's ready-made concepts
 src/ui/             the phone menu and the pilot form's checks
 public/             served as is: images, sprites, favicon, share image

@@ -60,9 +60,9 @@ export const COMMAND_TOOLS: Tool[] = [
       command: z.string().max(200).describe('The command’s name, as list_commands gives it, such as node.create'),
     }),
     run: async ({ command }) => {
-      const entry = AGENT_CATALOG.find(({ name }) => name === command)
+      const entry = describedCommand(command)
       if (!entry) throw new ToolRefusal(`There is no command “${command}”; list_commands lists them`)
-      return { ...entry, input: withoutDialect(entry.input) }
+      return entry
     },
   }),
   defineTool({
@@ -146,6 +146,12 @@ export const COMMAND_TOOLS: Tool[] = [
     run: (_input, context) => pressed(context, 'redo'),
   }),
 ]
+
+/** An agent's command's catalog entry as describe_command gives it, its input without the JSON Schema dialect line. */
+export function describedCommand(command: string): CatalogEntry | undefined {
+  const entry = AGENT_CATALOG.find(({ name }) => name === command)
+  return entry && { ...entry, input: withoutDialect(entry.input) }
+}
 
 /** A command as one line: its name, what it does, and its input's fields, `?` marking those that may be left out. */
 function commandLine({ name, description, input }: CatalogEntry): string {

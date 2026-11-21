@@ -71,7 +71,11 @@ describe('mcpEndpoint', () => {
   it('gives the instructions and fixed capabilities on initialize', async () => {
     server = testServer()
     const { client } = await server.connect(server.api.addAccess().token())
-    expect(client.getServerCapabilities()).toEqual({ tools: { listChanged: false } })
+    expect(client.getServerCapabilities()).toEqual({
+      tools: { listChanged: false },
+      resources: { subscribe: false, listChanged: false },
+      prompts: { listChanged: false },
+    })
     expect(client.getServerVersion()).toMatchObject({ name: 'dazbee', version: 'test' })
     const instructions = client.getInstructions() ?? ''
     for (const words of ['y DOWN', 'top-left corner', 'list_commands', 'one undo step', 'render_frame', 'check_frame'])

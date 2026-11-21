@@ -108,11 +108,17 @@ export function paintLayer(report: Reporter, layer: LayerInput, paints: LayerPai
   // A box's or rectangle's corners are drawn round; a path's outline already holds its smoothing.
   const corners = layer.type === 'box' ? layer.props.cornerRadius : rectCorners(field(layer.props, 'shape'))
   const rounded = typeof corners === 'number' ? corners > 0 : corners?.some((r) => r > 0)
-  if (rounded && (num(field(paints.node.fields, 'cornerSmoothing')) ?? 0) > 0) report.add('corner-smoothing', paints.node)
+  if (rounded && (num(field(paints.node.fields, 'cornerSmoothing')) ?? 0) > 0)
+    report.add('corner-smoothing', paints.node)
 }
 
 /** The Dazbee paints a node's Figma paints become, bottom to top, each left out or changed reported. */
-export function fillsOf(report: Reporter, node: ReportedNode, paints: readonly unknown[], at: PaintPlace): PaintInput[] {
+export function fillsOf(
+  report: Reporter,
+  node: ReportedNode,
+  paints: readonly unknown[],
+  at: PaintPlace,
+): PaintInput[] {
   const note = (line: FigmaReportLine) => report.add(line, node)
   return paints.flatMap((p) => paintOf(note, p, at) ?? [])
 }
@@ -227,7 +233,8 @@ export function ovalOf(h: Handles, width: number, height: number): { major: numb
 function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null {
   const p = record(value)
   const type = str(field(p, 'type'))
-  const leftOut = type === undefined ? undefined : (LEFT_OUT.get(type) ?? (KNOWN.has(type) ? undefined : 'unknown-paints'))
+  const leftOut =
+    type === undefined ? undefined : (LEFT_OUT.get(type) ?? (KNOWN.has(type) ? undefined : 'unknown-paints'))
   if (leftOut) {
     note(leftOut)
     return null
@@ -237,7 +244,11 @@ function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null 
   if (!paint) return null
   if (!PLAIN_BLENDS.has(str(field(p, 'blendMode')) ?? 'NORMAL')) note('paint-blend-modes')
   const opacity = Math.min(1, Math.max(0, num(field(p, 'opacity')) ?? 1))
-  return { ...paint, ...(opacity < 1 ? { opacity } : {}), ...(bool(field(p, 'visible')) === false ? { visible: false } : {}) }
+  return {
+    ...paint,
+    ...(opacity < 1 ? { opacity } : {}),
+    ...(bool(field(p, 'visible')) === false ? { visible: false } : {}),
+  }
 }
 
 /**
@@ -247,7 +258,7 @@ function paintOf(note: Note, value: unknown, at: PaintPlace): PaintInput | null 
 function drawnPaint(note: Note, p: unknown, type: string | undefined, at: PaintPlace): PaintInput | null | undefined {
   if (type === 'SOLID') {
     const color = colourOf(field(p, 'color'))
-    return color && { type: 'solid', color }
+    return color ? { type: 'solid', color } : undefined
   }
   const h = handlesOf(p, at.handles)
   const stops = stopsOf(p)
@@ -347,7 +358,9 @@ function within(v: number): number {
  */
 function adjustOf(note: Note, filters: FigmaFields | undefined) {
   if (HIDDEN_FILTERS.some((k) => (num(field(filters, k)) ?? 0) !== 0)) note('image-highlights-shadows')
-  const amounts = FILTERS.map((k) => Math.round(Math.min(1, Math.max(-1, num(field(filters, k)) ?? 0)) * 100 * 1e6) / 1e6)
+  const amounts = FILTERS.map(
+    (k) => Math.round(Math.min(1, Math.max(-1, num(field(filters, k)) ?? 0)) * 100 * 1e6) / 1e6,
+  )
   if (amounts.every((a) => a === 0)) return undefined
   const [exposure, contrast, saturation, temperature, tint] = amounts as [number, number, number, number, number]
   return { exposure, contrast, saturation, temperature, tint }

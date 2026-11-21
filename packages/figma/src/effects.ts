@@ -23,7 +23,7 @@ const PLAIN_BLENDS: ReadonlySet<string> = new Set(['NORMAL', 'PASS_THROUGH'])
  * unknown, unreadable and hidden effects are left out, reported.
  */
 export function effectsOf(report: Reporter, n: FigmaNode): EffectInput[] {
-  return list(field(n.fields, 'effects')).flatMap((value) => {
+  return list(field(n.fields, 'effects')).flatMap((value): EffectInput[] => {
     const e = record(value)
     const type = str(field(e, 'type'))
     if (e && bool(field(e, 'visible')) === false) {

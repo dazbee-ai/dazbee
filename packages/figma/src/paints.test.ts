@@ -123,7 +123,9 @@ describe('paintLayer', () => {
 
     it('makes no stroke of weight 0, and reads Figma’s defaults as Dazbee’s', () => {
       expect(propsOf(rectWith({ ...stroked, strokeWeight: 0 })).strokes).toEqual([])
-      expect(propsOf(rectWith({ strokes: [solid('#ff0000')], strokeWeight: 1, strokeAlign: 'OUTSIDE' })).strokes).toEqual([
+      expect(
+        propsOf(rectWith({ strokes: [solid('#ff0000')], strokeWeight: 1, strokeAlign: 'OUTSIDE' })).strokes,
+      ).toEqual([
         {
           paint: { type: 'solid', color: '#FF0000FF' },
           width: 1,
@@ -160,8 +162,14 @@ describe('paintLayer', () => {
   })
 
   describe('image fills', () => {
-    const image = (extra: Record<string, unknown> = {}) => ({ type: 'IMAGE', imageRef: REF, scaleMode: 'FILL', ...extra })
-    const fillOf = (extra: Record<string, unknown>) => (propsOf(rectWith({ fills: [image(extra)] })).fills as unknown[])[0]
+    const image = (extra: Record<string, unknown> = {}) => ({
+      type: 'IMAGE',
+      imageRef: REF,
+      scaleMode: 'FILL',
+      ...extra,
+    })
+    const fillOf = (extra: Record<string, unknown>) =>
+      (propsOf(rectWith({ fills: [image(extra)] })).fills as unknown[])[0]
 
     it('keys an image fill by its imageRef, covering, fitting or tiling as Figma does', () => {
       expect(fillOf({ opacity: 0.5 })).toEqual({ type: 'image', assetId: REF, fit: 'fill', opacity: 0.5 })
@@ -265,7 +273,8 @@ describe('linearPaint', () => {
     const h = { start: pt(0.1, 0.2), end: pt(0.9, 0.6), width: pt(0.3, 0.9) }
     const lines: string[] = []
     const paint = linearPaint(h, stops, (line) => lines.push(line))
-    for (const p of SAMPLES) expect(Math.abs(dazbeeValue(paint.from, paint.to, p) - figmaValue(h, p))).toBeLessThan(1e-9)
+    for (const p of SAMPLES)
+      expect(Math.abs(dazbeeValue(paint.from, paint.to, p) - figmaValue(h, p))).toBeLessThan(1e-9)
     expect(paint).toMatchObject({ type: 'linear', from: h.start, stops })
     expect(lines).toEqual([])
   })

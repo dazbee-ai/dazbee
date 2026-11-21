@@ -10,23 +10,35 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { boundsOf } from '@dazbee/doc'
 import type { FigmaFrame, FigmaImport, FigmaPage, Rect } from '@dazbee/schema'
 import { SIZE_LIMITS } from '@dazbee/schema'
+import type { Matrix } from '@dazbee/svg'
 
-import { COMPONENT_TYPES, FRAME_TYPES, type LayerBuild, newLayerBuild, type Piece } from './build.ts'
-import { isUpright, placed, placementOf, spaceOf } from './geometry.ts'
-import { type Corners, cornersOf } from './graphics.ts'
+import { COMPONENT_TYPES, FRAME_TYPES, type LayerBuild, newLayerBuild, paintsOf, type Piece } from './build.ts'
+import { effectsOf } from './effects.ts'
+import { boxMapOf, handlesOf, isUpright, placed, type Placement, placementOf, spaceOf } from './geometry.ts'
+import { cornersOf } from './graphics.ts'
 import { boxAround, boxLook, convertLayers, laysOut, treeOf } from './layers.ts'
 import { type LinkTarget, pageOf } from './link-target.ts'
+import { fillsOf, type PaintInput } from './paints.ts'
 import { bool, boxOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { Reporter } from './report.ts'
+import { lookOf } from './settings.ts'
 
 type FrameInput = z.input<typeof FigmaFrame>
 type PageInput = z.input<typeof FigmaPage>
+type BoxProps = Parameters<typeof boxAround>[4]
+
+/** A top-level frame's node, whose fills the frame draws, and where its matrix places it on its page. */
+interface FrameNode {
+  node: FigmaNode
+  placement: Placement | undefined
+}
 
 /** The frame loose layers on a page are put in. */
 const OUTSIDE_FRAMES = 'Outside frames'
 
 const MAX_FRAME_NAME = 120
 const PLAIN_BLENDS: ReadonlySet<string> = new Set(['PASS_THROUGH', 'NORMAL'])
+const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
 
 /** The pages a link's target imports, and whether they go in as pages or onto the page shown. */
 export function importPages(
@@ -105,10 +117,14 @@ function topLevelFrame(n: FigmaNode, report: Reporter, ck: CanvasKit): FrameInpu
   if (field(n.fields, 'clipsContent') === false) report.add('frames-unclipped', n)
   if (COMPONENT_TYPES.has(n.type)) report.add('components-and-instances', n)
   // A frame doesn't turn: it comes in upright where its box is, and its content where Figma draws it.
-  if (!isUpright(placementOf(n, spaceOf(n.parent))?.world)) report.add('frames-turned', n)
+  const placement = placementOf(n, spaceOf(n.parent))
+  if (!isUpright(placement?.world)) report.add('frames-turned', n)
   const build = newLayerBuild(n.children, report, ck)
   const { pieces } = convertLayers(build, n.children, b, laysOut(n.fields))
-  return frameOf(build, n, n.name, b, pieces, carriesBoxProps(n.fields) ? boxLook(n.fields) : null)
+  const look = carriesBoxProps(n.fields)
+    ? { ...boxLook(n.fields), ...lookOf(report, n, 'box'), effects: effectsOf(report, n) }
+    : null
+  return frameOf(build, n, n.name, b, pieces, look, { node: n, placement })
 }
 
 /** The frame a page's loose layers go into, fitting them; null when none of them makes a layer. */
@@ -143,7 +159,8 @@ function aloneFrame(n: FigmaNode, report: Reporter, ck: CanvasKit): FrameInput |
 /**
  * A frame for `pieces` at `at` on its page: its size brought to whole pixels a frame can be, each
  * change reported. When it carries `boxProps`, or its size had to change, the pieces go into a box
- * of `at`'s size at its top left, which follows the frame's edges when the frame is resized.
+ * of `at`'s size at its top left, which follows the frame's edges when the frame is resized. The
+ * fills of `own`, a top-level frame's node, are that box's, with its strokes, or else the frame's.
  */
 function frameOf(
   build: LayerBuild,
@@ -151,7 +168,8 @@ function frameOf(
   name: string,
   at: Rect,
   pieces: Piece[],
-  boxProps: { clip: boolean; cornerRadius: Corners } | null,
+  boxProps: BoxProps | null,
+  own?: FrameNode,
 ): FrameInput {
   const place = placed(build.report, from, at, { x: 0, y: 0 })
   const size = frameSize(place.width, place.height)
@@ -166,6 +184,12 @@ function frameOf(
         })
       : null
   const roots = box ? [box] : pieces
+  let fills: PaintInput[] = []
+  if (own && box) build.paints[box.id] = paintsOf(own.node, frameHandles(own, at))
+  else if (own) {
+    const paintAt = { handles: frameHandles(own, at), width: size.width, height: size.height }
+    fills = fillsOf(build.report, own.node, list(field(own.node.fields, 'fills')), paintAt)
+  }
   const trimmed = name.trim().slice(0, MAX_FRAME_NAME).trim()
   return {
     name: trimmed || 'Frame',
@@ -174,10 +198,20 @@ function frameOf(
     y: place.y,
     width: size.width,
     height: size.height,
-    fills: [],
+    fills,
     layers: treeOf(build, roots),
     figmaIds: build.figmaIds,
   }
+}
+
+/**
+ * Takes a point of a top-level frame's unit box, where its gradients' handles are, to the same point
+ * of the unit box of `at`, its upright box on the page.
+ */
+function frameHandles({ placement }: FrameNode, at: Rect): Matrix {
+  if (!placement) return IDENTITY
+  const upright = { ...at, rotation: 0 }
+  return handlesOf(boxMapOf(placement.world, upright, {}), placement.width, placement.height, upright)
 }
 
 /**

@@ -204,7 +204,10 @@ export function PaintRow({
   )
 }
 
-/** One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image. */
+/**
+ * One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image.
+ * Without `image`, as for a text, which an image can't paint, Image is not offered.
+ */
 export function PaintEditor({
   paint,
   workspaceId,
@@ -212,6 +215,8 @@ export function PaintEditor({
   editor,
   p,
   onSet,
+  image = true,
+  colourName,
 }: {
   paint: Paint
   workspaceId: string
@@ -219,7 +224,11 @@ export function PaintEditor({
   editor: Editor
   p: P
   onSet: (to: (now: Paint) => Paint) => void
+  image?: boolean
+  /** The name of a solid's colour field; the paint's colour without it. */
+  colourName?: string
 }) {
+  const types = image ? PAINT_TYPES : PAINT_TYPES.filter((type) => type !== 'image')
   const [picked, setPicked] = useState(0)
   const recent = useShownRecent(workspaceId, brandId)
   const stop = isGradient(paint) ? paint.stops[Math.min(picked, paint.stops.length - 1)] : undefined
@@ -236,12 +245,12 @@ export function PaintEditor({
     <div className="flex flex-col gap-3 p-3" data-testid="paint-editor">
       <RadioGroup
         label={p.paintType}
-        options={PAINT_TYPES}
+        options={types}
         value={paint.type}
         onPick={(type) => type !== 'image' && onSet((now) => convert(now, type))}
         className={SEGMENTS}
       >
-        {PAINT_TYPES.map((type) => {
+        {types.map((type) => {
           const on = paint.type === type
           const label = type === 'solid' ? p.solid : p.paint[type]
           if (type === 'image' && !on) {
@@ -271,7 +280,7 @@ export function PaintEditor({
       {paint.type === 'solid' && (
         <>
           <ColorField
-            name={p.paintColour}
+            name={colourName ?? p.paintColour}
             value={paint.color}
             editor={editor}
             brandId={brandId}

@@ -64,6 +64,11 @@ export function letterSpacingPx(spacing: LetterSpacing, fontSize: number): numbe
   return spacing.unit === 'px' ? spacing.value : (fontSize * spacing.value) / 100
 }
 
+/** The gradient a style paints its characters with: its own while it shows; null without one. */
+export function shownGradient(style: { readonly gradient?: GradientPaint | undefined }): GradientPaint | null {
+  return style.gradient && style.gradient.visible !== false ? style.gradient : null
+}
+
 /**
  * A style with a run's style over it: each key the run sets replaces the style's, except its
  * features, which it sets tag by tag over the style's, and its colour and gradient, which are one

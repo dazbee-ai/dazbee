@@ -28,6 +28,7 @@ const CHECKED = [
   'shapes-and-effects',
   'strokes-and-effects',
   'text-and-group-bounds',
+  'text-paint',
   'text-styles',
   'wrap-and-limits',
 ]
@@ -73,6 +74,7 @@ describe('Node CPU render', () => {
       'shapes-and-effects/sq',
       'strokes-and-effects/sq',
       'text-and-group-bounds/sq',
+      'text-paint/pt',
       'text-styles/pt',
       'wrap-and-limits/sq',
     ])

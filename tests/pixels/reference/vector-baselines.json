@@ -279,6 +279,16 @@
       "limit": 0.05
     }
   },
+  "text-paint pt": {
+    "pdf": {
+      "percent": 1.536,
+      "limit": 1.97
+    },
+    "svg": {
+      "percent": 1.025,
+      "limit": 1.331
+    }
+  },
   "text-styles pt": {
     "pdf": {
       "percent": 2.683,

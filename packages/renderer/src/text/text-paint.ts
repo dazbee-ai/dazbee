@@ -4,7 +4,7 @@
 // SkParagraph paints those lines in one colour only. The paragraph builder takes a piece's paint
 // with its style, and the passes are laid out alike, so their glyphs fall on one another.
 import type { CanvasKit, Image, Paint as CkPaint, ParagraphBuilder, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
-import type { GradientPaint, Rect, TextProps } from '@dazbee/schema'
+import { type GradientPaint, type Rect, shownGradient, type TextProps } from '@dazbee/schema'
 
 import { color } from '../color.ts'
 import { paintFor } from '../draw/paint.ts'
@@ -20,11 +20,6 @@ type Style = Pick<TextProps['style'], 'color' | 'gradient' | 'outline' | 'underl
 
 /** What a gradient is drawn with: it reads no image. */
 const NO_IMAGES: ReadonlyMap<string, Image> = new Map()
-
-/** The gradient a style paints its characters with: its own, while it shows; null without one. */
-export function shownGradient(style: Pick<Style, 'gradient'>): GradientPaint | null {
-  return style.gradient && style.gradient.visible !== false ? style.gradient : null
-}
 
 /** A gradient's key: equal for gradients that paint alike. */
 export const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)

@@ -1,0 +1,1456 @@
+{
+  "meta": {
+    "designId": "text-paint",
+    "name": "Text paint"
+  },
+  "pages": {
+    "p1": {
+      "name": "Page 1",
+      "order": "a0"
+    }
+  },
+  "frames": {
+    "pt": {
+      "pageId": "p1",
+      "name": "Portrait",
+      "width": 1080,
+      "height": 920,
+      "x": 0,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a0"
+    }
+  },
+  "nodes": {
+    "whole-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "whole-en",
+      "index": "a001",
+      "name": "whole en",
+      "props": {
+        "x": 30,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Summer sale",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 44,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "run-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "run-en",
+      "index": "a002",
+      "name": "run en",
+      "props": {
+        "x": 30,
+        "y": 120,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 13,
+            "style": {
+              "gradient": {
+                "type": "radial",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.6,
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FFB800FF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#E0262BFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Up to 50% off today",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700
+        }
+      }
+    },
+    "angular-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "angular-en",
+      "index": "a003",
+      "name": "angular en",
+      "props": {
+        "x": 30,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Angular sweep",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "angular",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "angle": 30,
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 0.5,
+                "color": "#3D6BFFFF"
+              },
+              {
+                "offset": 1,
+                "color": "#FF2E7EFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "faded-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "faded-en",
+      "index": "a004",
+      "name": "faded en",
+      "props": {
+        "x": 30,
+        "y": 280,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "See-through",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ],
+            "opacity": 0.5
+          }
+        }
+      }
+    },
+    "lines-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "lines-en",
+      "index": "a005",
+      "name": "lines en",
+      "props": {
+        "x": 30,
+        "y": 360,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 4,
+            "end": 7,
+            "style": {
+              "strikethrough": true,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0.5
+                },
+                "to": {
+                  "x": 1,
+                  "y": 0.5
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FF2E7EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#3D6BFFFF"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "start": 12,
+            "end": 15,
+            "style": {
+              "underline": true,
+              "fontWeight": 700,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0
+                },
+                "to": {
+                  "x": 1,
+                  "y": 1
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#00B37EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#0059FFFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Was 999 now 499",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "over-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "over-en",
+      "index": "a006",
+      "name": "over en",
+      "props": {
+        "x": 30,
+        "y": 430,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Outline over",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF"
+          }
+        }
+      }
+    },
+    "under-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "under-en",
+      "index": "a007",
+      "name": "under en",
+      "props": {
+        "x": 30,
+        "y": 510,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Outline under",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "both-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "both-en",
+      "index": "a008",
+      "name": "both en",
+      "props": {
+        "x": 30,
+        "y": 590,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 0,
+            "end": 3,
+            "style": {
+              "outline": {
+                "width": 2,
+                "color": "#1F2329FF"
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Gradient under",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 5,
+            "color": "#FFFFFFFF",
+            "under": true
+          }
+        }
+      }
+    },
+    "list-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "list-en",
+      "index": "a009",
+      "name": "list en",
+      "props": {
+        "x": 30,
+        "y": 670,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Free delivery\nEasy returns",
+        "list": "bullet",
+        "paragraphSpacing": 6,
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "turned-en": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "turned-en",
+      "index": "a010",
+      "name": "turned en",
+      "props": {
+        "x": 70,
+        "y": 800,
+        "width": 240,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Turned",
+        "rotation": 15,
+        "flipX": true,
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "whole-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "whole-hi",
+      "index": "a011",
+      "name": "whole hi",
+      "props": {
+        "x": 380,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "गर्मी की सेल",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 44,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "run-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "run-hi",
+      "index": "a012",
+      "name": "run hi",
+      "props": {
+        "x": 380,
+        "y": 120,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 3,
+            "end": 10,
+            "style": {
+              "gradient": {
+                "type": "radial",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.6,
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FFB800FF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#E0262BFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "आज 50% तक की छूट",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700
+        }
+      }
+    },
+    "angular-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "angular-hi",
+      "index": "a013",
+      "name": "angular hi",
+      "props": {
+        "x": 380,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "श्री गणेश",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "angular",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "angle": 30,
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 0.5,
+                "color": "#3D6BFFFF"
+              },
+              {
+                "offset": 1,
+                "color": "#FF2E7EFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "faded-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "faded-hi",
+      "index": "a014",
+      "name": "faded hi",
+      "props": {
+        "x": 380,
+        "y": 280,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "पारदर्शी अक्षर",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ],
+            "opacity": 0.5
+          }
+        }
+      }
+    },
+    "lines-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "lines-hi",
+      "index": "a015",
+      "name": "lines hi",
+      "props": {
+        "x": 380,
+        "y": 360,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 5,
+            "end": 9,
+            "style": {
+              "strikethrough": true,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0.5
+                },
+                "to": {
+                  "x": 1,
+                  "y": 0.5
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FF2E7EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#3D6BFFFF"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "start": 13,
+            "end": 17,
+            "style": {
+              "underline": true,
+              "fontWeight": 700,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0
+                },
+                "to": {
+                  "x": 1,
+                  "y": 1
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#00B37EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#0059FFFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "पहले ₹999 अब ₹499",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "over-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "over-hi",
+      "index": "a016",
+      "name": "over hi",
+      "props": {
+        "x": 380,
+        "y": 430,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "ऊपर रूपरेखा",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF"
+          }
+        }
+      }
+    },
+    "under-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "under-hi",
+      "index": "a017",
+      "name": "under hi",
+      "props": {
+        "x": 380,
+        "y": 510,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "नीचे रूपरेखा",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "both-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "both-hi",
+      "index": "a018",
+      "name": "both hi",
+      "props": {
+        "x": 380,
+        "y": 590,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 0,
+            "end": 3,
+            "style": {
+              "outline": {
+                "width": 2,
+                "color": "#1F2329FF"
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "क्षमा कीजिए",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 5,
+            "color": "#FFFFFFFF",
+            "under": true
+          }
+        }
+      }
+    },
+    "list-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "list-hi",
+      "index": "a019",
+      "name": "list hi",
+      "props": {
+        "x": 380,
+        "y": 670,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "मुफ़्त डिलीवरी\nआसान वापसी",
+        "list": "bullet",
+        "paragraphSpacing": 6,
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "turned-hi": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "turned-hi",
+      "index": "a020",
+      "name": "turned hi",
+      "props": {
+        "x": 420,
+        "y": 800,
+        "width": 240,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "घुमाया",
+        "rotation": 15,
+        "flipX": true,
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 48,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "whole-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "whole-ar",
+      "index": "a021",
+      "name": "whole ar",
+      "props": {
+        "x": 730,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "تخفيضات الصيف",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 44,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "run-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "run-ar",
+      "index": "a022",
+      "name": "run ar",
+      "props": {
+        "x": 730,
+        "y": 120,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 4,
+            "end": 7,
+            "style": {
+              "gradient": {
+                "type": "radial",
+                "center": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "radius": 0.6,
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FFB800FF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#E0262BFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "end",
+        "text": "خصم 50% اليوم فقط",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700
+        }
+      }
+    },
+    "angular-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "angular-ar",
+      "index": "a023",
+      "name": "angular ar",
+      "props": {
+        "x": 730,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "تدرج دائري",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "angular",
+            "center": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "angle": 30,
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 0.5,
+                "color": "#3D6BFFFF"
+              },
+              {
+                "offset": 1,
+                "color": "#FF2E7EFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "faded-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "faded-ar",
+      "index": "a024",
+      "name": "faded ar",
+      "props": {
+        "x": 730,
+        "y": 280,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "حروف شفافة",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ],
+            "opacity": 0.5
+          }
+        }
+      }
+    },
+    "lines-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "lines-ar",
+      "index": "a025",
+      "name": "lines ar",
+      "props": {
+        "x": 730,
+        "y": 360,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 4,
+            "end": 7,
+            "style": {
+              "strikethrough": true,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0.5
+                },
+                "to": {
+                  "x": 1,
+                  "y": 0.5
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#FF2E7EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#3D6BFFFF"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "start": 13,
+            "end": 16,
+            "style": {
+              "underline": true,
+              "fontWeight": 700,
+              "gradient": {
+                "type": "linear",
+                "from": {
+                  "x": 0,
+                  "y": 0
+                },
+                "to": {
+                  "x": 1,
+                  "y": 1
+                },
+                "stops": [
+                  {
+                    "offset": 0,
+                    "color": "#00B37EFF"
+                  },
+                  {
+                    "offset": 1,
+                    "color": "#0059FFFF"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "align": "end",
+        "text": "كان ٩٩٩ الآن ٤٩٩",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "over-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "over-ar",
+      "index": "a026",
+      "name": "over ar",
+      "props": {
+        "x": 730,
+        "y": 430,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "حد فوق الحروف",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF"
+          }
+        }
+      }
+    },
+    "under-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "under-ar",
+      "index": "a027",
+      "name": "under ar",
+      "props": {
+        "x": 730,
+        "y": 510,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "حد تحت الحروف",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 40,
+          "color": "#FF2E7EFF",
+          "fontWeight": 700,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "both-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "both-ar",
+      "index": "a028",
+      "name": "both ar",
+      "props": {
+        "x": 730,
+        "y": 590,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 0,
+            "end": 3,
+            "style": {
+              "outline": {
+                "width": 2,
+                "color": "#1F2329FF"
+              }
+            }
+          }
+        ],
+        "align": "end",
+        "text": "تدرج مع حد",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 40,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 5,
+            "color": "#FFFFFFFF",
+            "under": true
+          }
+        }
+      }
+    },
+    "list-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "list-ar",
+      "index": "a029",
+      "name": "list ar",
+      "props": {
+        "x": 730,
+        "y": 670,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "توصيل مجاني\nإرجاع سهل",
+        "list": "bullet",
+        "paragraphSpacing": 6,
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 30,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0
+            },
+            "to": {
+              "x": 1,
+              "y": 1
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#00B37EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#0059FFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "turned-ar": {
+      "type": "text",
+      "parentId": "pt",
+      "link": "turned-ar",
+      "index": "a030",
+      "name": "turned ar",
+      "props": {
+        "x": 770,
+        "y": 800,
+        "width": 240,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "مائل",
+        "rotation": 15,
+        "flipX": true,
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 48,
+          "color": "#1F2329FF",
+          "fontWeight": 700,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    }
+  }
+}

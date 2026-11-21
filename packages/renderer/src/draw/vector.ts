@@ -1,10 +1,9 @@
 import type { Canvas, CanvasKit } from '@dazbee/canvaskit'
 import { EMOJI_FAMILY, scriptFamilies } from '@dazbee/fonts'
-import { type Paint, type Rect, type TextProps, withRunStyle } from '@dazbee/schema'
+import { type Paint, type Rect, shownGradient, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { Scene, SceneLayer } from '../scene.ts'
-import { shownGradient } from '../text/text-paint.ts'
 import { drawLayers, drawScene } from './draw.ts'
 import { fillPath } from './paint.ts'
 import { boxPath, rectPath } from './paths.ts'

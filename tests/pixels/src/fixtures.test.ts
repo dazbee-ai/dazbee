@@ -32,6 +32,7 @@ describe('pixel fixtures', () => {
       'stress',
       'strokes-and-effects',
       'text-and-group-bounds',
+      'text-paint',
       'text-styles',
       'wrap-and-limits',
     ])

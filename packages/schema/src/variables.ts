@@ -7,7 +7,7 @@ import { z } from 'zod'
 import type { LayerType } from './layers.ts'
 import { boundFillIndex, boundImageIndex, type Paint } from './paint.ts'
 import { AssetId, Color } from './primitives.ts'
-import { type LetterSpacing, textStyleFields } from './typography.ts'
+import { type LetterSpacing, shownGradient, textStyleFields } from './typography.ts'
 
 /** A brand kit token's name: lowercase words joined by hyphens, such as `primary` or `sale-red`. */
 export const BrandToken = z
@@ -187,11 +187,9 @@ function baseStyle(key: 'color' | 'fontFamily'): Pick<BindableEntry, 'keys' | 'r
  */
 function textColour(): Pick<BindableEntry, 'keys' | 'read' | 'write'> {
   const colour = baseStyle('color')
-  const swept = (style: Record<string, unknown> | undefined) =>
-    style?.gradient !== undefined && (style.gradient as { visible?: unknown }).visible !== false
   return {
     keys: ['color', 'gradient'],
-    read: (props) => (swept(props.style as Record<string, unknown> | undefined) ? undefined : colour.read(props)),
+    read: (props) => (props.style && shownGradient(props.style as Parameters<typeof shownGradient>[0]) ? undefined : colour.read(props)),
     write: (props, value) => {
       const style = props.style as Record<string, unknown> | undefined
       if (style?.gradient === undefined) return colour.write(props, value)

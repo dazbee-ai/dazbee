@@ -4,11 +4,10 @@
 // outside its outline. Any other layer, and one a layer blur moves, hides them by its pixels, as far
 // as they are opaque. Each run of hidden shadows in a row is hidden in one pass.
 import type { Canvas, CanvasKit, Path } from '@dazbee/canvaskit'
-import type { Stroke, TextProps } from '@dazbee/schema'
+import { shownGradient, type Stroke, type TextProps } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
-import { shownGradient } from '../text/text-paint.ts'
 import { boxPath } from './paths.ts'
 import {
   type CastShadow,

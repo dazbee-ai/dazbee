@@ -51,6 +51,39 @@ function refusal(text: string): string {
   return 'read'
 }
 
+/**
+ * What `refusal` says of the file, read with a CanvasKit that counts the paths it copies and the
+ * outlines it joins: the steps after an outline is read whose cost grows with its points and shapes.
+ */
+function copiesAndJoins(text: string) {
+  const made = { copies: 0, joins: 0 }
+  const Path = new Proxy(ck.Path, {
+    get: (target, key) =>
+      key === 'MakeFromOp'
+        ? (...args: Parameters<typeof target.MakeFromOp>) => {
+            made.joins++
+            return target.MakeFromOp(...args)
+          }
+        : Reflect.get(target, key),
+  })
+  const PathBuilder = new Proxy(ck.PathBuilder, {
+    construct: (target, args) => {
+      made.copies++
+      return Reflect.construct(target, args)
+    },
+  })
+  const counting = new Proxy(ck, {
+    get: (target, key) => (key === 'Path' ? Path : key === 'PathBuilder' ? PathBuilder : Reflect.get(target, key)),
+  })
+  try {
+    svgToLayers(counting, text)
+  } catch (error) {
+    if (error instanceof SvgError && error.problem === 'too-big') return { said: error.detail ?? '', ...made }
+    throw error
+  }
+  return { said: 'read', ...made }
+}
+
 /** What `refusal` says of the file, and how long it took, in milliseconds. */
 function timed(text: string) {
   const started = performance.now()
@@ -59,10 +92,10 @@ function timed(text: string) {
 }
 
 describe('tally', () => {
-  it('refuses one path of 630,000 points within a second, saying a path has too many points', () => {
-    const { said, ms } = timed(hugePath())
+  it('refuses one path of 630,000 points before it copies the path, saying a path has too many points', () => {
+    const { said, copies } = copiesAndJoins(hugePath())
     expect(said).toBe('one of its paths has more than 250,000 points')
-    expect(ms).toBeLessThan(1000)
+    expect(copies).toBe(0)
   })
 
   it('reads a path of as many points as one may have, and refuses one more', () => {
@@ -117,7 +150,7 @@ describe('tally', () => {
     expect(refusal(painted(200, MAX_ALL_STOPS / 200 + 1))).toBe('its gradients have more than 20,000 stops in all')
   })
 
-  it('refuses a clip path of too many shapes within a second, and counts the shapes each time one clips', () => {
+  it('refuses a clip path of too many shapes before it joins any, and counts the shapes each time one clips', () => {
     const shapes = (count: number) =>
       Array.from(
         { length: count },
@@ -126,9 +159,9 @@ describe('tally', () => {
     const clipped = (count: number, uses = 1) =>
       svg(`<clipPath id="c">${shapes(count)}</clipPath>${times(uses, `<g clip-path="url(#c)">${square}</g>`)}`)
     expect(refusal(clipped(MAX_CLIP_SHAPES))).toBe('read')
-    const { said, ms } = timed(clipped(720))
+    const { said, joins } = copiesAndJoins(clipped(720))
     expect(said).toBe(`one of its clip paths joins more than ${MAX_CLIP_SHAPES} shapes`)
-    expect(ms).toBeLessThan(1000)
+    expect(joins).toBe(0)
     expect(refusal(clipped(50, MAX_ALL_CLIP_SHAPES / 50))).toBe('read')
     expect(refusal(clipped(50, MAX_ALL_CLIP_SHAPES / 50 + 1))).toBe('its clip paths join more than 1,000 shapes in all')
   })

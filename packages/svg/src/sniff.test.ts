@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { svgMarkup } from './sniff.ts'
-import { growth, MAX_GROWTH } from './test-growth.ts'
+import { growth, MAX_GROWTH, timesAsLong } from './test-growth.ts'
 
 describe('svgMarkup', () => {
   it('takes markup that opens with <svg after a declaration, comments and a doctype', () => {
@@ -42,10 +42,15 @@ describe('svgMarkup', () => {
     }
   })
 
-  it('checks 4.9 MB of white space in a prolog within 50 ms', () => {
+  it('checks 4.9 MB of white space in a prolog in less than 3 times what a loop over its characters takes', () => {
     const file = `<?x?>${' '.repeat(4_900_000)}<svg/>`
-    const started = performance.now()
-    expect(svgMarkup(file)).not.toBeNull()
-    expect(performance.now() - started).toBeLessThan(50)
+    const loop = () => {
+      let spaces = 0
+      for (let at = 0; at < file.length; at++) if (file.charCodeAt(at) === 32) spaces++
+      return spaces
+    }
+    const checked = timesAsLong(() => svgMarkup(file), loop)
+    expect(checked.result).not.toBeNull()
+    expect(checked.times).toBeLessThan(3)
   })
 })

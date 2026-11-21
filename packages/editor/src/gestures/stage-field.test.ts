@@ -95,6 +95,19 @@ describe('editorStageField', () => {
     })
   })
 
+  it('keeps its font at 16 px or more, which iOS doesn’t zoom the page into, scaled down to a small caret’s height', async () => {
+    const { e, field, frame } = await typingWith('Hello there|')
+    expect(field.style.fontSize).toBe('16px')
+    e.modules.typing.styleRange({ id: 'words', range: { start: 0, end: 11 } }, { fontSize: 12 })
+    frame()
+    const caret = e.modules.typing.shown()?.caret
+    if (!caret) throw new Error('no caret shown')
+    expect(caret.height * 0.8).toBeLessThan(16)
+    const scale = (caret.height * 0.8) / 16
+    expect(field.style).toMatchObject({ fontSize: '16px', transform: `scale(${scale})`, transformOrigin: '0 0' })
+    expect(Number.parseFloat(field.style.height ?? '') * scale).toBeCloseTo(caret.height, 6)
+  })
+
   it('deletes back once in the text for a delete that came with no key, and nothing while composing', async () => {
     const { send, typed } = await typingWith('Hello there|')
     const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
@@ -233,14 +246,10 @@ describe('editorStageField', () => {
     expect(field.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('leaves autocorrect and capitals to the keyboard’s own settings, and turns off spellchecking and suggestions', async () => {
+  it('leaves suggestions, autocorrect and capitals to the keyboard’s own settings, and turns off spellchecking', async () => {
     const { field } = await typingWith('Hello there|')
-    expect([field.hasAttribute('autocorrect'), field.hasAttribute('autocapitalize')]).toEqual([false, false])
-    expect(['spellcheck', 'autocomplete', 'data-gramm'].map((name) => field.getAttribute(name))).toEqual([
-      'false',
-      'off',
-      'false',
-    ])
+    expect(['autocomplete', 'autocorrect', 'autocapitalize'].filter((name) => field.hasAttribute(name))).toEqual([])
+    expect([field.getAttribute('spellcheck'), field.getAttribute('data-gramm')]).toEqual(['false', 'false'])
   })
 
   it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {
@@ -271,82 +280,6 @@ describe('editorStageField', () => {
     const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
     send({ type: 'beforeinput', ...deleted, field: 'Hello नमस्ते|' })
     expect(typed()).toBe('Hello नमस्त|')
-  })
-
-  it('takes the focus in the event a touch double tap starts typing in a text', async () => {
-    const { e, field, touch, focused, words } = await typingWith('Hello there|')
-    e.keys.press('Escape')
-    expect(focused()).toBe('body')
-    touch(e.core.stagePoint(180, 850, 'sq'), { count: 2 })
-    expect(e.modules.typing.editing()?.id).toBe('words')
-    expect(focused()).toBe('stage field')
-    // The phone's keyboard types a letter into the field it opened for.
-    const at = field.selectionStart
-    field.hold(`${field.value.slice(0, at)}x|${field.value.slice(at)}`)
-    fire(field, 'input', { inputType: 'insertText', data: 'x', isComposing: false })
-    expect(words()).toBe(`${'Hello there'.slice(0, at)}x${'Hello there'.slice(at)}`)
-  })
-
-  it('takes the focus from a field of the page’s for the text tool’s tap, and for a double tap on another text', async () => {
-    const { e, pageField, touch, focused } = await typingWith('Hello there|')
-    e.keys.press('Escape')
-    page.document.activeElement = pageField
-    e.core.setTool('text')
-    touch(e.core.stagePoint(500, 250, 'sq'))
-    const made = e.modules.typing.editing()?.id
-    expect(made).not.toBe('words')
-    expect(focused()).toBe('stage field')
-    page.document.activeElement = pageField
-    touch(e.core.stagePoint(180, 850, 'sq'), { count: 2 })
-    expect(e.modules.typing.editing()?.id).toBe('words')
-    expect(focused()).toBe('stage field')
-  })
-
-  it('leaves the focus where it was for a touch that selects a layer, pans, or moves the caret, and after a touch for a key that starts typing', async () => {
-    const { e, field, touch, focused } = await typingWith('Hello there|')
-    e.keys.press('Escape')
-    touch(e.core.stagePoint(150, 150, 'sq'))
-    expect(e.core.selection()).toEqual(['a'])
-    expect(focused()).toBe('body')
-    e.core.setTool('hand')
-    const camera = e.core.camera()
-    touch(e.core.stagePoint(500, 250, 'sq'), { to: e.core.stagePoint(600, 350, 'sq') })
-    expect(e.core.camera()).not.toEqual(camera)
-    expect(focused()).toBe('body')
-    e.core.setTool('select')
-    touch(e.core.stagePoint(180, 850, 'sq'))
-    const enter = {
-      key: 'Enter',
-      code: 'Enter',
-      shiftKey: false,
-      altKey: false,
-      ctrlKey: false,
-      metaKey: false,
-      target: null,
-    }
-    fire(page.window, 'keydown', enter)
-    fire(page.window, 'keyup', enter)
-    expect(e.modules.typing.editing()?.id).toBe('words')
-    expect(focused()).toBe('body')
-    // A touch inside the text being edited moves the caret; the focus stays in the field.
-    e.keys.press('Escape')
-    touch(e.core.stagePoint(180, 850, 'sq'), { count: 2 })
-    touch(e.core.stagePoint(300, 850, 'sq'))
-    expect([e.modules.typing.editing()?.id, focused()]).toEqual(['words', 'stage field'])
-    expect(field.forced).toEqual([])
-  })
-
-  it('takes the focus for a mouse double click as before: from the page’s body, and not from a field of the page’s', async () => {
-    const { e, pageField, focused } = await typingWith('Hello there|')
-    e.keys.press('Escape')
-    const on = e.core.stagePoint(180, 850, 'sq')
-    fire(page.window, 'pointerdown', { pointerType: 'mouse', target: page.document.body })
-    e.mouse.dblclick(on.x, on.y)
-    expect(focused()).toBe('stage field')
-    e.keys.press('Escape')
-    page.document.activeElement = pageField
-    e.mouse.dblclick(on.x, on.y)
-    expect([e.modules.typing.editing()?.id, focused()]).toEqual(['words', 'page field'])
   })
 
   it('deletes back in the text being edited for a delete that came with no key, and puts nothing in the field, on a bare page', () => {

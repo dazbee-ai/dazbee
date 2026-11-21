@@ -7,7 +7,7 @@
 // its selection moves (`EditorInput.fieldChanged`); what an input method composes is drawn in the
 // text, not in the field. The keys typed in it are the stage's (`isStageField`).
 import type { EditorInput } from '../core-interface.ts'
-import type { Picked } from '../selection.ts'
+import { type Picked, samePick } from '../selection.ts'
 import { type FieldState, holdsAround, sameSelection } from '../text/field-change.ts'
 import { inField, STAGE_FIELD_MARK } from './dom-input.ts'
 
@@ -49,6 +49,8 @@ const COMPOSITION_INPUTS = new Set([
   'insertFromComposition',
   'deleteByComposition',
 ])
+/** The smallest font size, in CSS pixels, of a field that iOS Safari doesn't zoom the page into as it takes the focus. */
+const UNZOOMED_FONT = 16
 
 export function editorStageField({
   overlay,
@@ -85,6 +87,10 @@ export function editorStageField({
     const now = held()
     return known !== null && now.value === known.value && !sameSelection(now, known)
   }
+  /** Whether an event's target is on the stage: the canvas, the overlay or what is beside them. */
+  function onStage(target: EventTarget | null): target is Node {
+    return target instanceof Node && overlay.parentElement?.contains(target) === true
+  }
   /**
    * Takes the focus when the stage has it, while a text is edited, or after a key typing took
    * (`byKey`) from wherever it is but a field or a pop-up; gives it back to the page when none is.
@@ -93,7 +99,7 @@ export function editorStageField({
    */
   function follow(byKey = false) {
     const text = editing()
-    const started = text !== null && (text.id !== followed?.id || text.frameId !== followed.frameId)
+    const started = text !== null && (followed === null || !samePick(text, followed))
     followed = text && { id: text.id, frameId: text.frameId }
     // Out of the accessibility tree while nothing is edited: a reader would find an empty field.
     if (text) field.removeAttribute('aria-hidden')
@@ -197,8 +203,12 @@ export function editorStageField({
       const stage = overlay.getBoundingClientRect()
       field.style.left = `${Math.min(Math.max(x, stage.left), stage.right - 1)}px`
       field.style.top = `${Math.min(Math.max(at.top, stage.top), stage.bottom - at.height)}px`
-      field.style.height = `${at.height}px`
-      field.style.fontSize = `${at.height * 0.8}px`
+      // Its font is 80% of the caret's height, scaled down from the size iOS doesn't zoom into when smaller.
+      const size = at.height * 0.8
+      const scale = Math.min(1, size / UNZOOMED_FONT)
+      field.style.height = `${at.height / scale}px`
+      field.style.fontSize = `${Math.max(size, UNZOOMED_FONT)}px`
+      field.style.transform = scale < 1 ? `scale(${scale})` : ''
     }
     sendReopened()
     give()
@@ -208,9 +218,8 @@ export function editorStageField({
   field.setAttribute('aria-label', label)
   field.setAttribute('aria-hidden', 'true')
   field.tabIndex = -1
-  // No spellchecking marks or saved suggestions; autocorrect and capitals follow the keyboard's settings.
+  // No spellchecking marks; suggestions, autocorrect and capitals follow the keyboard's own settings.
   for (const [name, value] of [
-    ['autocomplete', 'off'],
     ['spellcheck', 'false'],
     ['data-gramm', 'false'],
   ] as const)
@@ -233,6 +242,8 @@ export function editorStageField({
     whiteSpace: 'pre',
     lineHeight: '1',
     font: 'inherit',
+    fontSize: `${UNZOOMED_FONT}px`,
+    transformOrigin: '0 0',
     color: 'transparent',
     background: 'transparent',
     caretColor: 'transparent',
@@ -338,14 +349,26 @@ export function editorStageField({
       touched = e.pointerType === 'touch' || e.pointerType === 'pen'
       keyed = false
       // A press on the stage while composing: the composition lands before the caret moves.
-      if (e.target instanceof Node && overlay.parentElement?.contains(e.target) && !inField(e.target)) commit()
+      if (onStage(e.target) && !inField(e.target)) commit()
     },
     { ...on, capture: true },
   )
-  // Typing starting, or the text's caret or range moved by anything but the field: it takes the text it holds.
+  // A tap in the text still edited after it, once the keyboard went away with the field's focus
+  // (iOS's Done, a panel's button that took it): the field takes it back, and the keyboard opens.
+  // A tap's click while picking a colour stops at the canvas.
+  window.addEventListener(
+    'click',
+    (e) => {
+      const away = editing() && document.activeElement !== field
+      if (away && touched && !keyed && onStage(e.target) && !inField(e.target)) field.focus({ preventScroll: true })
+    },
+    on,
+  )
+  // Typing starting, or the text's caret or range moved by anything but the field: it takes the text
+  // it holds, then the focus, so a keyboard opening reads the text around the caret.
   const stopFollowing = onTextSelection(() => {
-    follow()
     if (!sending) give()
+    follow()
   })
   signal.addEventListener('abort', () => stopFollowing())
 
@@ -354,8 +377,7 @@ export function editorStageField({
   window.addEventListener(
     'mousedown',
     (e) => {
-      if (document.activeElement === field && e.target instanceof Node && overlay.parentElement?.contains(e.target))
-        e.preventDefault()
+      if (document.activeElement === field && onStage(e.target)) e.preventDefault()
     },
     { ...on, capture: true },
   )

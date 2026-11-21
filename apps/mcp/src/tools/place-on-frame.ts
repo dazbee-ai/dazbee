@@ -2,7 +2,9 @@
 // the parts of a frame they place at, and running the placing batch and answering with the layer it placed.
 import { z } from 'zod'
 
-import type { AgentStep } from '@dazbee/doc'
+import { type AgentStep, placedRoots } from '@dazbee/doc'
+import { SvgError, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
+import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { Frame, Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
@@ -22,6 +24,11 @@ export interface Placing {
   layerOf: (result: unknown) => string
   /** What the answer tells between the layer's box and the warnings. */
   told: Record<string, unknown>
+}
+
+/** The batch that places an asset, with what an SVG file had that no layer shows. */
+export interface AssetPlacing extends Placing {
+  leftOut: readonly string[]
 }
 
 /** The farthest a box's edges may sit from its frame's corner, and the longest side it may have, in design pixels. */
@@ -81,4 +88,33 @@ export function whole({ width, height }: Frame): Rect {
 /** The middle of a box. */
 export function centreOf({ x, y, width, height }: Rect) {
   return { x: x + width / 2, y: y + height / 2 }
+}
+
+/**
+ * The SVG file's step: the layers the editor makes of it, its pictures left out, fitted inside `box` and centred in
+ * it, or in the middle of the frame, scaled down as the editor scales it.
+ */
+export async function svgSteps(
+  { id: frameId, frame }: FrameTo,
+  name: string,
+  bytes: Uint8Array,
+  box: Rect | undefined,
+): Promise<AssetPlacing> {
+  // Read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced.
+  const text = new TextDecoder().decode(bytes)
+  let read
+  try {
+    read = await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })
+  } catch (error) {
+    if (!(error instanceof SvgError)) throw error
+    throw new ToolRefusal(`The SVG file “${name}” can’t be read as layers (${error.problem}), so nothing was placed`)
+  }
+  const input = svgPlaceInput(read, frameId, centreOf(box ?? whole(frame)))
+  if (!input) throw new ToolRefusal(`The SVG file “${name}” draws nothing, so nothing was placed`)
+  return {
+    steps: [{ command: 'design.place', input }],
+    layerOf: (result) => placedRoots(result as Parameters<typeof placedRoots>[0])[0] ?? '',
+    told: read.leftOut.length > 0 ? { leftOut: read.leftOut } : {},
+    leftOut: read.leftOut,
+  }
 }

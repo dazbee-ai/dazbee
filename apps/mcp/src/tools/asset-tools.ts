@@ -3,9 +3,7 @@
 // it, as one agent batch with its warnings.
 import { z } from 'zod'
 
-import { placedRoots } from '@dazbee/doc'
-import { logoBinding, placedImage, SvgError, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
-import { loadCanvasKit } from '@dazbee/renderer/node'
+import { logoBinding, placedImage } from '@dazbee/editor/placed-asset'
 import { type AssetSummary, isVectorAsset, RecordId, type Rect } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
@@ -13,12 +11,16 @@ import type { OpenDesign } from '../open-design.ts'
 import { Note, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
-import { centreOf, frameIn, type FrameTo, placeAndAnswer, placeBox, type Placing, whole } from './place-on-frame.ts'
-
-/** The batch that places an asset, with what an SVG file had that no layer shows. */
-interface AssetPlacing extends Placing {
-  leftOut: readonly string[]
-}
+import {
+  type AssetPlacing,
+  centreOf,
+  frameIn,
+  type FrameTo,
+  placeAndAnswer,
+  placeBox,
+  svgSteps,
+  whole,
+} from './place-on-frame.ts'
 
 /** The name a logo placed takes, as the editor names it in English. */
 const LOGO_NAME = 'Logo'
@@ -64,35 +66,6 @@ async function assetOf({ api }: ToolContext, open: OpenDesign, assetId: string) 
     if (error instanceof ApiRefusal && error.status === 404)
       throw new ToolRefusal(`The brand has no image or SVG file “${assetId}”; list_assets lists them`)
     throw error
-  }
-}
-
-/**
- * The SVG file's step: the layers the editor makes of it, its pictures left out, fitted inside `box` and centred in
- * it, or in the middle of the frame, scaled down as the editor scales it.
- */
-async function svgSteps(
-  { id: frameId, frame }: FrameTo,
-  name: string,
-  bytes: Uint8Array,
-  box: Rect | undefined,
-): Promise<AssetPlacing> {
-  // Read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced.
-  const text = new TextDecoder().decode(bytes)
-  let read
-  try {
-    read = await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })
-  } catch (error) {
-    if (!(error instanceof SvgError)) throw error
-    throw new ToolRefusal(`The SVG file “${name}” can’t be read as layers (${error.problem}), so nothing was placed`)
-  }
-  const input = svgPlaceInput(read, frameId, centreOf(box ?? whole(frame)))
-  if (!input) throw new ToolRefusal(`The SVG file “${name}” draws nothing, so nothing was placed`)
-  return {
-    steps: [{ command: 'design.place', input }],
-    layerOf: (result) => placedRoots(result as Parameters<typeof placedRoots>[0])[0] ?? '',
-    told: read.leftOut.length > 0 ? { leftOut: read.leftOut } : {},
-    leftOut: read.leftOut,
   }
 }
 

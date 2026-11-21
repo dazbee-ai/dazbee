@@ -22,6 +22,7 @@ import { Hono } from 'hono'
 import { ACCESS_TOKEN_PREFIX, type AgentMe } from '@dazbee/schema'
 
 import { agentName } from './agent-name.ts'
+import { agentTabSlots } from './agent-tab-slots.ts'
 import { agentApi, agentOf, type ApiSettings } from './api.ts'
 import { INSTRUCTIONS } from './instructions.ts'
 import {
@@ -37,7 +38,7 @@ import {
   STORE_WAIT_MS,
 } from './limits.ts'
 import { oauthRoutes } from './oauth/routes.ts'
-import { agentTabSlots, type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
+import { type SessionDesign, sessionDesign, type SyncSettings } from './open-design.ts'
 import { promptMessage, PROMPTS } from './prompts.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
 import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'

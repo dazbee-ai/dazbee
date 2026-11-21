@@ -55,6 +55,8 @@ export interface ToolDefinition<S extends z.ZodObject> {
   description: string
   /** Whether the tool only reads: it changes nothing in the workspace or a design. */
   readOnly: boolean
+  /** Whether the tool reaches outside Dazbee, such as a site a link names; it doesn't unless given. */
+  openWorld?: boolean
   input: S
   /**
    * What the tool answers: text as it is, anything else as JSON, and `WithNotes`'s notes after it. It throws
@@ -88,7 +90,7 @@ export class WithNotes {
 
 /** A tool keeping the rules above, from its definition. */
 export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>): Tool {
-  const { name, title, description, readOnly, input } = definition
+  const { name, title, description, readOnly, openWorld = false, input } = definition
   if (description.length <= 40) throw new Error(`${name}: a tool’s description is more than 40 characters`)
   const inputSchema = withoutDialect(z.toJSONSchema(input.strict(), { io: 'input' }))
   const listing = {
@@ -96,7 +98,7 @@ export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>)
     title,
     description,
     inputSchema: inputSchema as ToolListing['inputSchema'],
-    annotations: { title, readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false },
+    annotations: { title, readOnlyHint: readOnly, destructiveHint: false, openWorldHint: openWorld },
   } satisfies ToolListing
 
   return { name, listing, call }

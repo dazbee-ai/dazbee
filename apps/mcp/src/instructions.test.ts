@@ -93,6 +93,10 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain('Opening a design in another session of this agent, such as a new chat, closes')
   })
 
+  it('tells of add_image, which brings a picture in from a link before it is placed', () => {
+    expect(INSTRUCTIONS).toContain('add_image adds the picture at an https link to a brand’s images')
+  })
+
   it('says commands run only through run_command and batch, never as tools of their own', () => {
     expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
   })

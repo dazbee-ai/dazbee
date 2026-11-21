@@ -96,6 +96,7 @@ describe('mcpEndpoint', () => {
       'list_designs',
       'list_assets',
       'create_design',
+      'add_image',
       'open_design',
       'close_design',
       'read_design',
@@ -116,13 +117,17 @@ describe('mcpEndpoint', () => {
       expect(tool.inputSchema.type, tool.name).toBe('object')
       expect(tool.description?.length, tool.name).toBeGreaterThan(40)
       expect(typeof tool.annotations?.readOnlyHint, tool.name).toBe('boolean')
-      expect(tool.annotations, tool.name).toMatchObject({ destructiveHint: false, openWorldHint: false })
+      expect(tool.annotations, tool.name).toMatchObject({
+        destructiveHint: false,
+        openWorldHint: tool.name === 'add_image',
+      })
       expect(tool.title, tool.name).toBeTruthy()
     }
     const readOnly = Object.fromEntries(tools.map(({ name, annotations }) => [name, annotations?.readOnlyHint]))
     expect(readOnly).toMatchObject({
       list_brands: true,
       create_design: false,
+      add_image: false,
       open_design: true,
       close_design: true,
       describe_command: true,

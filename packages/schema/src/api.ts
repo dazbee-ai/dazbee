@@ -229,6 +229,26 @@ export const UpdateAsset = z
   .refine((u) => u.name !== undefined || u.tags !== undefined, 'send a name, tags or both')
 export type UpdateAsset = z.infer<typeof UpdateAsset>
 
+/** The longest link a picture is added from. */
+export const MAX_URL_LENGTH = 2048
+/** How long the API takes at most to fetch a picture from a link, redirects and all. */
+export const FROM_URL_TIMEOUT_MS = 20_000
+
+/**
+ * Adds the picture at an https link to a brand's asset library, under `name` when it is new; `tags` join the
+ * asset's own, kept once each.
+ */
+export const AddAssetFromUrl = z.object({
+  url: z.string().trim().min(1).max(MAX_URL_LENGTH),
+  name: AssetName.optional(),
+  tags: z
+    .array(AssetTag)
+    .max(MAX_ASSET_TAGS)
+    .transform((tags) => [...new Set(tags)])
+    .optional(),
+})
+export type AddAssetFromUrl = z.infer<typeof AddAssetFromUrl>
+
 /** A short-lived URL to read something from storage. */
 export const SignedLink = z.object({ url: z.url(), expiresAt: z.iso.datetime() })
 export type SignedLink = z.infer<typeof SignedLink>

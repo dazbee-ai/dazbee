@@ -1,22 +1,17 @@
 // The colours a website's CSS names, read from its values, and the colours it gives a brand kit's colour roles:
 // the page's own background and text, and its most used colours that are neither white, black nor grey.
-import type { BrandRole } from '@dazbee/schema'
+import type { BRAND_ROLES, Color } from '@dazbee/schema'
 
-/** A colour as `#RRGGBBFF`, the kit's form, always opaque. */
-export type Hex = `#${string}`
-
-/** The colour roles a site fills, each with its colour. */
-export type ColorRoles = Partial<
-  Record<Extract<BrandRole, 'primary' | 'secondary' | 'accent' | 'background' | 'text'>, Hex>
->
+/** The colour roles a site fills, each with its colour, in the kit's form `#RRGGBBFF`, always opaque. */
+export type ColorRoles = Partial<Record<(typeof BRAND_ROLES.color)[number], Color>>
 
 /** What a site's CSS says of its colours. */
 export interface SiteColors {
   /** Each colour the CSS uses, with how much it is used, weighted by where. */
-  used: ReadonlyMap<Hex, number>
+  used: ReadonlyMap<Color, number>
   /** The page's own background and text colours, when the CSS sets them. */
-  background: Hex | null
-  text: Hex | null
+  background: Color | null
+  text: Color | null
   /** Whether any CSS was read at all: without it, the page's defaults say nothing. */
   read: boolean
 }
@@ -57,8 +52,8 @@ const COLOR_TOKEN = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\([^()]{0,200}\)|\b[a-z]{
  * The colours named in a CSS value, in order, each opaque; a colour drawn at less than half its strength is left
  * out, as it is a shade or an overlay rather than the colour.
  */
-export function colorsIn(value: string): Hex[] {
-  const found: Hex[] = []
+export function colorsIn(value: string): Color[] {
+  const found: Color[] = []
   for (const [token] of value.slice(0, MAX_VALUE).matchAll(COLOR_TOKEN)) {
     const color = parseColor(token)
     if (color) found.push(color)
@@ -67,7 +62,7 @@ export function colorsIn(value: string): Hex[] {
 }
 
 /** One CSS colour as `#RRGGBBFF`, or null for anything else or a colour less than half opaque. */
-export function parseColor(token: string): Hex | null {
+export function parseColor(token: string): Color | null {
   const text = token.trim().toLowerCase()
   if (text.startsWith('#')) return hexColor(text.slice(1))
   const call = /^(rgba?|hsla?)\((.*)\)$/.exec(text)
@@ -82,18 +77,21 @@ export function parseColor(token: string): Hex | null {
  * The colour roles a site fills: Background and Text from the page's own colours (white and black, as a browser
  * draws a page that sets none, once any CSS was read), then Primary, Secondary and Accent from its most used colours
  * that aren't white, black or grey, each clearly different from the others and used at least `MIN_SHARE` as much as
- * Primary. The site's theme colour, when it is such a colour, counts as much as its most used one.
+ * Primary. The site's theme colour, when it is such a colour, counts as much as its most used one, and comes first of
+ * colours used as much.
  */
-export function colorRoles({ used, background, text, read }: SiteColors, themeColor: Hex | null): ColorRoles {
+export function colorRoles({ used, background, text, read }: SiteColors, themeColor: Color | null): ColorRoles {
   const roles: ColorRoles = {}
   const page = { background: background ?? (read ? '#FFFFFFFF' : null), text: text ?? (read ? '#000000FF' : null) }
   if (page.background) roles.background = page.background
   if (page.text) roles.text = page.text
   const weights = new Map(used)
   if (themeColor && chroma(themeColor) >= MIN_CHROMA)
-    weights.set(themeColor, (weights.get(themeColor) ?? 0) + Math.max(0, ...weights.values()))
-  const ranked = [...weights].filter(([color]) => chroma(color) >= MIN_CHROMA).sort((a, b) => b[1] - a[1])
-  const picked: [Hex, number][] = []
+    weights.set(themeColor, (weights.get(themeColor) ?? 0) + mostUsed(weights))
+  const ranked = [...weights]
+    .filter(([color]) => chroma(color) >= MIN_CHROMA)
+    .sort((a, b) => b[1] - a[1] || Number(b[0] === themeColor) - Number(a[0] === themeColor))
+  const picked: [Color, number][] = []
   for (const entry of ranked) {
     const [color, weight] = entry
     const first = picked[0]
@@ -109,8 +107,15 @@ export function colorRoles({ used, background, text, read }: SiteColors, themeCo
   return roles
 }
 
+/** How much the most used colour is used; 0 for none. */
+function mostUsed(weights: ReadonlyMap<string, number>): number {
+  let most = 0
+  for (const weight of weights.values()) most = Math.max(most, weight)
+  return most
+}
+
 /** A hex colour's digits as a colour, or null. */
-function hexColor(digits: string): Hex | null {
+function hexColor(digits: string): Color | null {
   if (!/^[0-9a-f]+$/.test(digits)) return null
   const full =
     digits.length === 3 || digits.length === 4
@@ -125,7 +130,7 @@ function hexColor(digits: string): Hex | null {
 }
 
 /** An rgb() or hsl() call's colour, its arguments split by commas or spaces with the alpha after a slash. */
-function callColor(name: string, args: string): Hex | null {
+function callColor(name: string, args: string): Color | null {
   const parts = args
     .replace('/', ' / ')
     .split(/[\s,]+/)
@@ -157,7 +162,7 @@ function number(text: string, full: number): number | null {
 }
 
 /** An HSL colour, hue in degrees and saturation and lightness from 0 to 1, as a colour. */
-function hslHex(h: number, s: number, l: number): Hex {
+function hslHex(h: number, s: number, l: number): Color {
   const hue = (((h % 360) + 360) % 360) / 360
   const c = (1 - Math.abs(2 * l - 1)) * s
   const channel = (offset: number) => {
@@ -169,34 +174,34 @@ function hslHex(h: number, s: number, l: number): Hex {
 }
 
 /** Channels from 0 to 255, clamped and rounded, as an opaque colour. */
-function toHex(r: number, g: number, b: number): Hex {
+function toHex(r: number, g: number, b: number): Color {
   const two = (v: number) =>
     Math.round(Math.min(255, Math.max(0, v)))
       .toString(16)
       .padStart(2, '0')
-  return `#${two(r)}${two(g)}${two(b)}FF`.toUpperCase() as Hex
+  return `#${two(r)}${two(g)}${two(b)}FF`.toUpperCase()
 }
 
 /** A colour's red, green and blue, from 0 to 255. */
-function channels(color: Hex): [number, number, number] {
+function channels(color: Color): [number, number, number] {
   return [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16)) as [number, number, number]
 }
 
 /** How far a colour is from grey, from 0 to 1: its strongest channel less its weakest. */
-function chroma(color: Hex): number {
+function chroma(color: Color): number {
   const rgb = channels(color)
   return (Math.max(...rgb) - Math.min(...rgb)) / 255
 }
 
 /** How different two colours look: the CIE76 distance of their CIELAB values. */
-function difference(a: Hex, b: Hex): number {
+function difference(a: Color, b: Color): number {
   const [l1, a1, b1] = lab(a)
   const [l2, a2, b2] = lab(b)
   return Math.hypot(l1 - l2, a1 - a2, b1 - b2)
 }
 
 /** A colour's CIELAB value under D65 light. */
-function lab(color: Hex): [number, number, number] {
+function lab(color: Color): [number, number, number] {
   const [r, g, b] = channels(color).map((v) => {
     const c = v / 255
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4

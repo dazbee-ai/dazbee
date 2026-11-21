@@ -1,5 +1,4 @@
-// A brand kit filled from the brand's website (#135): what is asked, and what the API answers, which an agent's
-// brand_from_website and a later editor feature both read.
+// A brand kit filled from the brand's website: what is asked, and what the API answers.
 import { z } from 'zod'
 
 import { AssetSummary, MAX_URL_LENGTH, StoredBrandKit } from './api.ts'
@@ -7,7 +6,7 @@ import { BRAND_ROLES, LOGO_ROLE } from './brand-roles.ts'
 import { Color } from './primitives.ts'
 
 /** How long reading a website's files may take together, before its logo is recorded and its kit saved. */
-export const WEBSITE_READ_TIMEOUT_MS = 35_000
+export const WEBSITE_READ_TIMEOUT_MS = 30_000
 
 /** Reads the website at `url` into the brand's kit: its empty roles, and with `replace` the roles already set too. */
 export const BrandFromWebsite = z.object({

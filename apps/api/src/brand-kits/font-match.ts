@@ -3,14 +3,10 @@
 // has that; else the closest Google family: of the same category (from the stack's generic family, else the name's
 // words), drawing the weights the site uses, sharing a word of its name that describes a design (Grotesk, Slab,
 // Display), and more used. A site's font files are never fetched.
-import type { FontFamily, FontMatchKind } from '@dazbee/schema'
+import type { FontFamily, WebsiteFont } from '@dazbee/schema'
 
 /** A site's font as the catalog has it: the family the site names first, the catalog's family, and how it matched. */
-export interface FontMatch {
-  site: string
-  family: string
-  match: FontMatchKind
-}
+export type FontMatch = Omit<WebsiteFont, 'role'>
 
 /** A catalog family as matching reads it. */
 interface Candidate {

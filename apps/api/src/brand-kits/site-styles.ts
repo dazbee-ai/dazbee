@@ -3,9 +3,11 @@
 // font stacks of its headings and its text; its `@font-face` families with their weights; and the Google Fonts it
 // imports. One pass over the text with a bounded stack, values and variables capped, so CSS of any shape takes time
 // in step with its length.
-import { type GoogleFontFamily, googleFontsOf } from './google-font-links.ts'
-import { colorsIn, type Hex, type SiteColors } from './site-colors.ts'
-import type { PageClasses } from './site-page.ts'
+import type { Color } from '@dazbee/schema'
+
+import { addGoogleFonts, type GoogleFontFamily } from './google-font-links.ts'
+import { colorsIn, type SiteColors } from './site-colors.ts'
+import { BUTTON_WORDS, type PageClasses } from './site-page.ts'
 
 /** A font role's stack: the families a rule names, in order. */
 export interface SiteFonts {
@@ -25,12 +27,17 @@ export interface SiteStyles {
 /** What a rule's selector styles. */
 type Target = 'page' | 'heading' | 'button' | 'link' | 'band' | 'paragraph' | 'other'
 
-/** A declaration kept to read once every variable is known: what its rule styles, how much it counts, its value. */
-interface Declaration {
+/** What one selector of a rule styles, and how much the rule's declarations count for it. */
+interface Selected {
   target: Target
   /** For the page and headings, which of several rules wins: the body over html, h1 over h2. */
   rank: number
   weight: number
+}
+
+/** A declaration kept to read once every variable is known: what its rule's selectors style, and its value. */
+interface Declaration {
+  selectors: Selected[]
   property: string
   value: string
 }
@@ -38,17 +45,31 @@ interface Declaration {
 /** A block the reading is inside: a rule, an at-rule, or a `@font-face`, and whether its declarations count. */
 interface Block {
   kind: 'rule' | 'at' | 'font-face'
-  selectors: { target: Target; rank: number; weight: number }[]
+  selectors: Selected[]
   skipped: boolean
   face: { family: string; weights: number[] } | null
+}
+
+/** What the reading collects across the sheets. */
+interface Collected {
+  declarations: Declaration[]
+  variables: Map<string, string>
+  faces: Map<string, number[]>
+  googleFonts: GoogleFontFamily[]
 }
 
 /** How deep blocks are followed; deeper ones are read past. */
 const MAX_DEPTH = 32
 /** How many declarations and variables are kept, and the longest value of each. */
-const MAX_DECLARATIONS = 50_000
+const MAX_DECLARATIONS = 20_000
 const MAX_VARIABLES = 5_000
 const MAX_VALUE = 1_000
+/** How many of a rule's selectors are read. */
+const MAX_SELECTORS = 20
+/** How many values' colours are kept to be read again. */
+const MAX_READ_VALUES = 5_000
+/** A family's name as a site may give it: at most 40 letters, digits, spaces, dots, dashes and underscores. */
+const FAMILY_NAME = /^[\p{L}\p{N} ._-]{1,40}$/u
 /** How many times variables are read inside variables. */
 const MAX_VARIABLE_DEPTH = 4
 /** How much a colour counts for each property, by what its rule styles. */
@@ -92,28 +113,28 @@ export function readSiteStyles(sheets: readonly string[], classes: PageClasses):
   for (const sheet of sheets)
     readSheet(withoutComments(sheet), classes, { declarations, variables, faces, googleFonts })
 
-  const used = new Map<Hex, number>()
-  const page: Record<'background' | 'text', { color: Hex; rank: number } | null> = { background: null, text: null }
+  const used = new Map<Color, number>()
+  const page: Record<'background' | 'text', { color: Color; rank: number } | null> = { background: null, text: null }
   const fonts: Record<'heading' | 'body' | 'paragraph', { stack: string[]; rank: number } | null> = {
     heading: null,
     body: null,
     paragraph: null,
   }
   const resolved = variableReader(variables)
-  for (const declaration of declarations) {
-    const value = resolved(declaration.value)
-    const { target, rank, weight, property } = declaration
+  const colorsOf = valueColors()
+  for (const { selectors, property, value: written } of declarations) {
+    const value = resolved(written)
     const kind = COLOR_PROPERTIES[property]
-    if (kind) {
-      const colors = colorsIn(value)
-      const counts = (COLOR_WEIGHTS[kind][target] ?? 0) * weight
-      for (const color of colors) if (counts > 0) used.set(color, (used.get(color) ?? 0) + counts)
-      const first = colors[0]
-      const side = kind === 'background' ? 'background' : kind === 'color' ? 'text' : null
-      if (first && side && target === 'page' && rank >= (page[side]?.rank ?? 0)) page[side] = { color: first, rank }
-    }
-    if (property === 'font-family' || property === 'font') {
-      const stack = property === 'font' ? stackOfShorthand(value) : stackOf(value)
+    const colors = kind ? colorsOf(value) : []
+    const stack = property === 'font' ? stackOfShorthand(value) : property === 'font-family' ? stackOf(value) : []
+    for (const { target, rank, weight } of selectors) {
+      if (kind) {
+        const counts = (COLOR_WEIGHTS[kind][target] ?? 0) * weight
+        for (const color of colors) if (counts > 0) used.set(color, (used.get(color) ?? 0) + counts)
+        const first = colors[0]
+        const side = kind === 'background' ? 'background' : kind === 'color' ? 'text' : null
+        if (first && side && target === 'page' && rank >= (page[side]?.rank ?? 0)) page[side] = { color: first, rank }
+      }
       const role =
         target === 'page' ? 'body' : target === 'heading' ? 'heading' : target === 'paragraph' ? 'paragraph' : null
       if (role && stack.length > 0 && rank >= (fonts[role]?.rank ?? 0)) fonts[role] = { stack, rank }
@@ -133,8 +154,8 @@ export function readSiteStyles(sheets: readonly string[], classes: PageClasses):
   }
 }
 
-/** The families a `font-family` value names, unquoted, at most ten. */
-export function stackOf(value: string): string[] {
+/** The families a `font-family` value names, unquoted, at most ten, each a name a family may have. */
+function stackOf(value: string): string[] {
   return splitOutside(value, ',')
     .map((family) =>
       family
@@ -142,16 +163,8 @@ export function stackOf(value: string): string[] {
         .replace(/^(["'])(.*)\1$/, '$2')
         .trim(),
     )
-    .filter((family) => family.length > 0 && family.length <= 100 && !family.includes('(') && !KEYWORDS.test(family))
+    .filter((family) => FAMILY_NAME.test(family) && !KEYWORDS.test(family))
     .slice(0, 10)
-}
-
-/** What the reading collects across the sheets. */
-interface Collected {
-  declarations: Declaration[]
-  variables: Map<string, string>
-  faces: Map<string, number[]>
-  googleFonts: GoogleFontFamily[]
 }
 
 /** Reads one sheet, its comments taken out, into what is collected. */
@@ -209,7 +222,11 @@ function blockOf(prelude: string, stack: readonly Block[], classes: PageClasses)
   }
   return {
     kind: 'rule',
-    selectors: splitOutside(prelude.slice(0, MAX_VALUE), ',').flatMap((selector) => targetOf(selector, classes)),
+    selectors: merged(
+      splitOutside(prelude.slice(0, MAX_VALUE), ',')
+        .slice(0, MAX_SELECTORS)
+        .flatMap((selector) => targetOf(selector, classes)),
+    ),
     skipped,
     face: null,
   }
@@ -235,15 +252,15 @@ function declare(text: string, block: Block | undefined, into: Collected) {
     return
   }
   if (!COLOR_PROPERTIES[property] && property !== 'font-family' && property !== 'font') return
-  for (const { target, rank, weight } of block.selectors)
-    if (into.declarations.length < MAX_DECLARATIONS) into.declarations.push({ target, rank, weight, property, value })
+  if (block.selectors.length > 0 && into.declarations.length < MAX_DECLARATIONS)
+    into.declarations.push({ selectors: block.selectors, property, value })
 }
 
 /** Notes the Google Fonts an `@import` loads. */
 function importOf(text: string, into: Collected) {
   const link = /url\(\s*["']?([^"')\s]+)|["']([^"']+)["']/i.exec(text)
   const url = link?.[1] ?? link?.[2]
-  if (url) into.googleFonts.push(...googleFontsOf(url))
+  if (url) addGoogleFonts(into.googleFonts, url)
 }
 
 /**
@@ -252,7 +269,7 @@ function importOf(text: string, into: Collected) {
  * of classes no element of the page carries counts a quarter, and one the page's elements use counts more the more
  * they use it; a state such as hover counts half. A selector for a dark scheme counts nothing.
  */
-function targetOf(selector: string, classes: PageClasses): { target: Target; rank: number; weight: number }[] {
+function targetOf(selector: string, classes: PageClasses): Selected[] {
   if (DARK_SELECTOR.test(selector)) return []
   const subject = splitOutside(selector.trim(), ' >+~').at(-1) ?? ''
   const tag = /^[a-z][a-z0-9-]*/i.exec(subject)?.[0].toLowerCase() ?? ''
@@ -265,11 +282,7 @@ function targetOf(selector: string, classes: PageClasses): { target: Target; ran
   if (tag === 'html' || /^:root/i.test(subject)) return [{ target: 'page', rank: 1, weight }]
   if (heading) return [{ target: 'heading', rank: 7 - Number(heading[1]), weight }]
   if (names.some((name) => classes.heading.has(name))) return [{ target: 'heading', rank: 4, weight }]
-  if (
-    tag === 'button' ||
-    names.some((name) => classes.button.has(name)) ||
-    /(^|[^a-z0-9])(btn|button|cta)([^a-z0-9]|$)/i.test(subject)
-  )
+  if (tag === 'button' || names.some((name) => classes.button.has(name)) || BUTTON_WORDS.test(subject))
     return [{ target: 'button', rank: 0, weight }]
   if (tag === 'a') return [{ target: 'link', rank: 0, weight }]
   if (tag === 'p') return [{ target: 'paragraph', rank: 0, weight }]
@@ -310,6 +323,29 @@ function variableReader(variables: ReadonlyMap<string, string>): (value: string)
       read.set(name, done)
     }
     return done
+  }
+}
+
+/** A rule's selectors with those that style the same thing at the same rank as one, their weights added. */
+function merged(selectors: Selected[]): Selected[] {
+  const byTarget = new Map<string, Selected>()
+  for (const selected of selectors) {
+    const key = `${selected.target} ${selected.rank}`
+    const same = byTarget.get(key)
+    byTarget.set(key, same ? { ...same, weight: same.weight + selected.weight } : selected)
+  }
+  return [...byTarget.values()]
+}
+
+/** What reads a value's colours, keeping those of up to `MAX_READ_VALUES` values to give again. */
+function valueColors(): (value: string) => Color[] {
+  const read = new Map<string, Color[]>()
+  return (value) => {
+    const known = read.get(value)
+    if (known) return known
+    const colors = colorsIn(value)
+    if (read.size < MAX_READ_VALUES) read.set(value, colors)
+    return colors
   }
 }
 

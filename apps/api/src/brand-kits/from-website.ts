@@ -1,4 +1,4 @@
-// A brand kit filled from the brand's website (#135): the site read, its logo added to the brand's asset library
+// A brand kit filled from the brand's website: the site read, its logo added to the brand's asset library
 // through the checks a picture from a link gets, and the kit's empty roles filled, or with `replace` every role the
 // site gives, saved over the kit as it was read.
 import type { Db } from '@dazbee/db'
@@ -11,6 +11,7 @@ import {
   brandRolesOf,
   LOGO_ROLE,
   type StoredBrandKit,
+  WEBSITE_READ_TIMEOUT_MS,
   type WebsiteRole,
   withBrandRole,
 } from '@dazbee/schema'
@@ -22,13 +23,20 @@ import { SvgBusy } from '../assets/svg-assets.ts'
 import { FetchRefused, type SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { listFonts } from '../fonts/fonts.ts'
 import { getBrandKit, InvalidKit, saveBrandKit } from './brand-kits.ts'
-import { fetchLogo, type LogoSource, readWebsite, type Website } from './website.ts'
+import type { LogoSource } from './site-page.ts'
+import { fetchLogo, readWebsite, type Website } from './website.ts'
 
 /** Dazbee is reading as many websites as it reads at once; this one is refused until one ends. */
 export class ReadingWebsitesBusy extends Error {
   constructor() {
     super('Dazbee is reading other websites; try again in a moment')
   }
+}
+
+/** A logo a read added to the asset library, and where on the site it came from. */
+interface AddedLogo {
+  asset: AssetSummary
+  source: LogoSource
 }
 
 /** The websites a member may read into kits in an hour, themselves and their agents together. */
@@ -58,9 +66,10 @@ export async function brandFromWebsite(
   brandId: string,
   input: BrandFromWebsite,
 ): Promise<BrandFromWebsiteAnswer> {
-  if (reading >= MAX_READING_AT_ONCE) throw new ReadingWebsitesBusy()
+  if (readingWebsitesBusy()) throw new ReadingWebsitesBusy()
   reading++
   try {
+    const until = Date.now() + WEBSITE_READ_TIMEOUT_MS
     const link = websiteLink(input.url)
     const replace = input.replace ?? false
     const before = await getBrandKit(db, workspaceId, brandId)
@@ -70,9 +79,9 @@ export async function brandFromWebsite(
         notes: ['Every role a website fills is set in this kit already; ask again with replace to replace them'],
       }
     const catalog = await listFonts(db, workspaceId, brandId)
-    const website = await readWebsite(link, outside, catalog, { logos: replace || !before.logoAssetId })
-    const notes = [...website.notes]
     const wantLogo = replace || !before.logoAssetId
+    const website = await readWebsite(link, outside, catalog, { logos: wantLogo, until })
+    const notes = [...website.notes]
     const added = wantLogo ? await addLogo(db, storage, outside, workspaceId, brandId, website, notes) : null
     const logo = added?.asset ?? null
     if (wantLogo && website.logos.length === 0)
@@ -89,6 +98,11 @@ export async function brandFromWebsite(
   } finally {
     reading--
   }
+}
+
+/** Whether Dazbee is reading as many websites as it reads at once, so that another would be refused. */
+export function readingWebsitesBusy(): boolean {
+  return reading >= MAX_READING_AT_ONCE
 }
 
 /** A website's address as a link to read: https added when it names no scheme, and an http link read over https. */
@@ -133,18 +147,19 @@ async function addLogo(
   brandId: string,
   website: Website,
   notes: string[],
-): Promise<{ asset: AssetSummary; source: LogoSource } | null> {
+): Promise<AddedLogo | null> {
   let fetches = 0
   for (const source of website.logos) {
     if (source.kind === 'link' && fetches++ >= MAX_LOGO_FETCHES) break
     try {
-      const asset = await addingFromOutside(async () => {
-        const file =
-          source.kind === 'svg'
-            ? { bytes: new TextEncoder().encode(source.markup), contentType: 'image/svg+xml', url: website.site }
-            : await fetchLogo(source.url, website.budget, outside)
-        return recordFetched(db, storage, workspaceId, brandId, file, { name: `${website.name} logo`, tags: ['logo'] })
-      })
+      // Fetched before taking the place for adding a picture, so a slow site holds no one else's.
+      const file =
+        source.kind === 'svg'
+          ? { bytes: new TextEncoder().encode(source.markup), contentType: 'image/svg+xml', url: website.site }
+          : await fetchLogo(source.url, website.budget, outside)
+      const asset = await addingFromOutside(() =>
+        recordFetched(db, storage, workspaceId, brandId, file, { name: `${website.name} logo`, tags: ['logo'] }),
+      )
       return { asset, source }
     } catch (error) {
       if (error instanceof AddingFromUrlBusy || error instanceof SvgBusy) {
@@ -210,7 +225,7 @@ function answerOf(
   website: Website,
   kit: StoredBrandKit,
   { filled, kept }: { filled: WebsiteRole[]; kept: WebsiteRole[] },
-  added: { asset: AssetSummary; source: LogoSource } | null,
+  added: AddedLogo | null,
   notes: string[],
 ): BrandFromWebsiteAnswer {
   const other = website.logos.find((source) => source.kind === 'link' && source !== added?.source)

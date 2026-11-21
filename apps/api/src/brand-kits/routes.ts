@@ -9,7 +9,7 @@ import { requestLimit } from '../admin/waiting-list.ts'
 import type { SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
 import { getBrandKit, saveBrandKit } from './brand-kits.ts'
-import { brandFromWebsite } from './from-website.ts'
+import { brandFromWebsite, ReadingWebsitesBusy, readingWebsitesBusy } from './from-website.ts'
 
 export function brandKitRoutes({
   db,
@@ -27,7 +27,7 @@ export function brandKitRoutes({
   const app = new Hono<Env>()
   const websites = requestLimit({ perWindow: websitesPerHour })
   // The members reading a website now, each one at a time.
-  const reading = new Set<string>()
+  const readingMembers = new Set<string>()
 
   // Brand kits (#53): the colours, fonts and text styles designs bind to, the logo and the tone of voice.
   app.get('/brands/:brandId/kit', async (c) => {
@@ -44,24 +44,26 @@ export function brandKitRoutes({
     return c.json(saved)
   })
 
-  // The kit filled from the brand's website (#135), by whoever may save the kit: an agent's way in, and the editor's.
+  // The kit filled from the brand's website, by whoever may save the kit.
   app.post('/brands/:brandId/kit/from-website', requireWriter, async (c) => {
     const { workspaceId } = c.var.membership
     const { userId } = c.var.session
     const input = await body(c.req.raw, BrandFromWebsite)
     if (input instanceof Response) return input
-    if (reading.has(userId))
+    if (readingMembers.has(userId))
       return c.json(error('This member is already reading a website into a kit; wait for it to finish'), 429)
+    // Checked before the read is counted, so a member Dazbee is too busy for keeps it.
+    if (readingWebsitesBusy()) throw new ReadingWebsitesBusy()
     if (!websites.take(userId))
       return c.json(
         error(`This member has read as many websites as they may in an hour (${websitesPerHour}); try again later`),
         429,
       )
-    reading.add(userId)
+    readingMembers.add(userId)
     try {
       return c.json(await brandFromWebsite(db, storage, outsideFetch, workspaceId, c.var.brand.id, input))
     } finally {
-      reading.delete(userId)
+      readingMembers.delete(userId)
     }
   })
 

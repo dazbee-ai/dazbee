@@ -67,7 +67,7 @@ describe('brand_from_website', () => {
     const agent = await agentOf({ writes: false })
     const result = await agent.call('brand_from_website', { brand: 'brand-winter', link: 'northwind.example' })
     expect(result.isError).toBe(true)
-    expect(textOf(result)).toMatch(/^This agent can’t change the brand kit: its access only views/)
+    expect(textOf(result)).toMatch(/^This agent may only view designs, so it can’t change the brand kit/)
     expect(server.api.fromWebsite()).toEqual([])
   })
 

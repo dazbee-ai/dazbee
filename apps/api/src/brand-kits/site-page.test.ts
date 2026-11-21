@@ -25,9 +25,9 @@ describe('readSitePage', () => {
     expect(page.stylesheets).toEqual(['https://harbour.test/assets/site.css?v=42'])
     expect(page.themeColor).toBe('#1f4d3a')
     expect(page.icons).toEqual([
-      { url: 'https://harbour.test/favicon.ico', size: 48, type: null, rel: 'icon' },
-      { url: 'https://harbour.test/icon.svg', size: 0, type: 'image/svg+xml', rel: 'icon' },
-      { url: 'https://harbour.test/apple-touch-icon.png', size: 180, type: null, rel: 'apple-touch-icon' },
+      { url: 'https://harbour.test/favicon.ico', size: 48, type: null },
+      { url: 'https://harbour.test/icon.svg', size: 0, type: 'image/svg+xml' },
+      { url: 'https://harbour.test/apple-touch-icon.png', size: 180, type: null },
     ])
     expect(page.shareImage).toBe('https://harbour.test/share/summer-blend.jpg')
     expect(page.logo?.kind).toBe('svg')
@@ -48,6 +48,13 @@ describe('readSitePage', () => {
       new URL('https://a.test/'),
     )
     expect(page.logo).toBeNull()
+  })
+
+  it('keeps at most 20 Google Fonts families, however many a page links', () => {
+    const link = `<link rel="stylesheet" href="https://fonts.googleapis.com/css?${'family=A|B|C&'.repeat(150)}">`
+    const html = link.repeat(Math.floor(PAGE / link.length))
+    expect(timeToRead(html)).toBeLessThan(1_000)
+    expect(readSitePage(html, new URL('https://hostile.test/')).googleFonts).toHaveLength(20)
   })
 
   it.each([

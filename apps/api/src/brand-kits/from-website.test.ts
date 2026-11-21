@@ -14,6 +14,7 @@ import { createApp } from '../app.ts'
 import { PUBLIC_ADDRESS, testSites } from '../fetch/test-sites.ts'
 import { sessionOfRequest } from '../sign-in/session.ts'
 import {
+  addPerson,
   authorization,
   db,
   personA,
@@ -291,6 +292,12 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
           'walled.test turned Dazbee away (403): it lets only people in a browser read it, so Dazbee can’t; ask the person for their logo, brand colours and fonts instead',
       },
     })
+    sites.resolveTo('busy-wall.test', [PUBLIC_ADDRESS])
+    sites.serve('busy-wall.test', '/', (_request, response) => response.writeHead(503).end(sample('challenge.html')))
+    expect((await fromWebsite(brandId, { url: 'https://busy-wall.test/' })).json).toEqual({
+      error:
+        'busy-wall.test answered 503: it is down, or checking for robots; try once more, and if it answers the same, ask the person for their logo, brand colours and fonts instead',
+    })
     serve('checking.test', '/', sample('challenge.html'), 'text/html')
     expect(await fromWebsite(brandId, { url: 'https://checking.test/' })).toEqual({
       status: 400,
@@ -308,6 +315,74 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
       error: 'Dazbee found no public website at inside.test; check the link, or ask the person for another',
     })
     expect((await kitCall('GET', brandId)).json).toMatchObject({ colors: [], fonts: [], logoAssetId: null })
+  })
+
+  it('names the logo by the site’s title without the characters a name can’t hold', async () => {
+    serve(
+      'odd-title.test',
+      '/',
+      '<title>\u0000Acme‮ Tools | Home</title><header><a href="/"><img src="/acme-logo.png"></a></header>',
+      'text/html',
+    )
+    serve('odd-title.test', '/acme-logo.png', png(20, 10, `${run}-odd-title`), 'image/png')
+    const answered = await fromWebsite(await newBrand(), { url: 'https://odd-title.test/' })
+    expect(answered.status).toBe(200)
+    expect(BrandFromWebsiteAnswer.parse(answered.json).logo?.name).toBe('Acme Tools logo')
+  })
+
+  it('leaves adding pictures by link free while it fetches a site’s logo', async () => {
+    serve('slow-logo.test', '/', '<header><a href="/"><img src="/logo.png"></a></header>', 'text/html')
+    let answer = () => {}
+    sites.serve('slow-logo.test', '/logo.png', (_request, response) => {
+      answer = () => response.writeHead(200, { 'content-type': 'image/png' }).end(png(8, 8, `${run}-slow-logo`))
+    })
+    serve('slow-logo.test', '/photo.png', png(3, 3, `${run}-photo-meanwhile`), 'image/png')
+    const brandId = await newBrand()
+    const reading = fromWebsite(brandId, { url: 'https://slow-logo.test/' })
+    await vi.waitFor(() => expect(sites.visits.some(({ path }) => path === '/logo.png')).toBe(true))
+    const added = await app.request(`/workspaces/${workspace.id}/brands/${brandId}/assets/from-url`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...authorization('editor') },
+      body: JSON.stringify({ url: 'https://slow-logo.test/photo.png' }),
+    })
+    expect(added.status).toBe(201)
+    answer()
+    expect((await reading).status).toBe(200)
+  })
+
+  it('counts no read against a member Dazbee was too busy to serve', async () => {
+    const limited = createApp({
+      db,
+      storage,
+      sessionOf: sessionOfRequest({ db, secret: sessionSecret, dev: false }),
+      syncSecret,
+      build: 'test-build',
+      outsideFetch: sites.settings,
+      websitesPerHour: 1,
+    })
+    const brandId = await newBrand()
+    sites.resolveTo('held.test', [PUBLIC_ADDRESS])
+    const waiting: (() => void)[] = []
+    sites.serve('held.test', '/', (_request, response) => {
+      waiting.push(() => response.writeHead(200, { 'content-type': 'text/html' }).end('<title>Held</title>'))
+    })
+    const holders = await Promise.all([0, 1, 2, 3].map(() => addPerson([[workspace.id, 'editor']])))
+    const held = holders.map((person) =>
+      fromWebsite(brandId, { url: 'https://held.test/' }, { headers: authorization(person.as), on: limited }),
+    )
+    await vi.waitFor(() => expect(waiting).toHaveLength(4))
+    const late = await addPerson([[workspace.id, 'editor']])
+    const as = { headers: authorization(late.as), on: limited }
+    expect(await fromWebsite(brandId, { url: 'https://held.test/' }, as)).toEqual({
+      status: 503,
+      json: { error: 'Dazbee is reading other websites; try again in a moment' },
+    })
+    for (const release of waiting.splice(0)) release()
+    await Promise.all(held)
+    sites.serve('held.test', '/', (_request, response) =>
+      response.writeHead(200, { 'content-type': 'text/html' }).end('<title>Free</title>'),
+    )
+    expect((await fromWebsite(brandId, { url: 'https://held.test/' }, as)).status).toBe(200)
   })
 
   it('refuses a Reviewer and an access that only views before fetching, and fills the kit for one that edits', async () => {

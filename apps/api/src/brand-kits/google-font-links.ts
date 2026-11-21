@@ -1,5 +1,6 @@
 // The families a Google Fonts link loads, with the weights it asks for, read from the link alone: Dazbee never
 // fetches Google's CSS for them, as its catalog holds Google's families already.
+import { MAX_URL_LENGTH } from '@dazbee/schema'
 
 /** A family a Google Fonts link loads, with the weights it asks for. */
 export interface GoogleFontFamily {
@@ -7,16 +8,29 @@ export interface GoogleFontFamily {
   weights: number[]
 }
 
+/** The most families a site's Google Fonts links give, all its links together. */
+export const MAX_GOOGLE_FAMILIES = 20
+
+/**
+ * Adds the families a Google Fonts link loads to `families`, while they are fewer than `MAX_GOOGLE_FAMILIES`.
+ */
+export function addGoogleFonts(families: GoogleFontFamily[], link: string) {
+  if (families.length < MAX_GOOGLE_FAMILIES)
+    families.push(...googleFontsOf(link).slice(0, MAX_GOOGLE_FAMILIES - families.length))
+}
+
 /**
  * The families a Google Fonts link loads, with the weights it asks for: the css2 API's `family=Name:wght@400;700`
- * (or `ital,wght@0,400;1,700`) and the first API's `family=Name:400,700italic|Other`. Nothing for any other link.
+ * (or `ital,wght@0,400;1,700`) and the first API's `family=Name:400,700italic|Other`, at most `MAX_GOOGLE_FAMILIES`.
+ * Nothing for any other link, or one longer than a link may be.
  */
 export function googleFontsOf(link: string): GoogleFontFamily[] {
-  const url = URL.parse(link)
+  const url = link.length > MAX_URL_LENGTH ? null : URL.parse(link)
   if (!url || url.hostname !== 'fonts.googleapis.com') return []
   const families: GoogleFontFamily[] = []
   for (const param of url.searchParams.getAll('family'))
-    for (const spec of param.split('|').slice(0, 20)) {
+    for (const spec of param.split('|')) {
+      if (families.length === MAX_GOOGLE_FAMILIES) return families
       const [name = '', axes = ''] = spec.split(':', 2)
       const family = name.trim().slice(0, 100)
       if (family) families.push({ family, weights: weightsOf(axes) })

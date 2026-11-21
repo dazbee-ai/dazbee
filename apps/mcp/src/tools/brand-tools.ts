@@ -3,9 +3,8 @@ import { z } from 'zod'
 
 import { BrandFromWebsite, type BrandFromWebsiteAnswer, type WebsiteFont } from '@dazbee/schema'
 
-import { ApiRefusal } from '../api.ts'
-import { defineTool, type Tool, ToolRefusal, WithNotes } from './define-tool.ts'
-import { BrandId } from './workspace-tools.ts'
+import { defineTool, type Tool, WithNotes } from './define-tool.ts'
+import { BrandId, viewOnly } from './workspace-tools.ts'
 
 export const BRAND_TOOLS: Tool[] = [
   defineTool({
@@ -28,11 +27,7 @@ export const BRAND_TOOLS: Tool[] = [
       try {
         answer = await api.brandFromWebsite(brand, { url: link, ...(replace === undefined ? {} : { replace }) })
       } catch (error) {
-        if (error instanceof ApiRefusal && error.status === 403)
-          throw new ToolRefusal(
-            'This agent can’t change the brand kit: its access only views, or the member who connected it is a Reviewer. The person who connected it can connect it again to edit, if their role edits',
-          )
-        throw error
+        throw viewOnly(error, 'change the brand kit')
       }
       return new WithNotes(
         {

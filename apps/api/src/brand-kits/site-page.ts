@@ -2,7 +2,9 @@
 // icons, web manifest and share picture, the logo in its header, its Google Fonts and whether it is a check for
 // robots rather than the page. One pass over the markup, finding each tag's end by searching forward only, so a
 // page of any shape takes time in step with its length.
-import { type GoogleFontFamily, googleFontsOf } from './google-font-links.ts'
+import { MAX_URL_LENGTH } from '@dazbee/schema'
+
+import { addGoogleFonts, type GoogleFontFamily, googleFontsOf } from './google-font-links.ts'
 
 /** How the page's elements use classes, which says what a class-only CSS rule styles. */
 export interface PageClasses {
@@ -21,11 +23,10 @@ export interface SiteIcon {
   url: string
   size: number
   type: string | null
-  rel: 'icon' | 'apple-touch-icon'
 }
 
-/** The page's logo: an SVG drawing in its markup, or a picture it links. */
-export type SiteLogo = { kind: 'svg'; markup: string } | { kind: 'image'; url: string }
+/** A logo a site offers: an SVG drawing in its markup, or a picture at a link. */
+export type LogoSource = { kind: 'svg'; markup: string } | { kind: 'link'; url: string }
 
 /** What the page says of its brand. */
 export interface SitePage {
@@ -45,7 +46,7 @@ export interface SitePage {
   manifest: string | null
   /** The https link of its share picture (`og:image`). */
   shareImage: string | null
-  logo: SiteLogo | null
+  logo: LogoSource | null
   googleFonts: GoogleFontFamily[]
 }
 
@@ -60,7 +61,7 @@ interface LinkHint {
 
 /** A logo found so far, with how sure the reading is of it. */
 interface LogoCandidate {
-  logo: SiteLogo
+  logo: LogoSource
   score: number
 }
 
@@ -94,7 +95,7 @@ const BOT_WALL_MARKS = ['chl_page', 'cf-chl-', 'captcha-delivery.com', 'px-captc
 /** Words of a class, id or label that say logo. */
 const LOGO_WORDS = /logo|brand/i
 /** Words of a class that say button. */
-const BUTTON_WORDS = /(^|[^a-z0-9])(btn|button|cta)([^a-z0-9]|$)/i
+export const BUTTON_WORDS = /(^|[^a-z0-9])(btn|button|cta)([^a-z0-9]|$)/i
 /** The named entities a title uses. */
 const ENTITIES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 
@@ -188,7 +189,7 @@ export function readSitePage(html: string, base: URL): SitePage {
         if (!url || svg) break
         const words = `${attributes.get('alt') ?? ''} ${attributes.get('class') ?? ''} ${attributes.get('id') ?? ''} ${fileName(url)}`
         const score = (/logo/i.test(words) ? 3 : 0) + (inLink.logo ? 3 : 0) + (inLink.home ? 2 : 0) + (header ? 1 : 0)
-        offer({ logo: { kind: 'image', url }, score })
+        offer({ logo: { kind: 'link', url }, score })
         break
       }
       case 'link':
@@ -306,25 +307,17 @@ function readLink(page: SitePage, attributes: Attributes, base: URL) {
   const url = linkOf(href, base)
   if (!url) return
   if (rel.includes('stylesheet') && !rel.includes('alternate')) {
-    const fonts = googleFontsOf(url)
-    if (fonts.length > 0) page.googleFonts.push(...fonts)
+    if (googleFontsOf(url).length > 0) addGoogleFonts(page.googleFonts, url)
     else if (!/^print$/i.test((attributes.get('media') ?? '').trim()) && page.stylesheets.length < MAX_LINKS)
       page.stylesheets.push(url)
   } else if (
     (rel.includes('icon') || rel.some((r) => r.startsWith('apple-touch-icon'))) &&
     page.icons.length < MAX_LINKS
   ) {
-    const sizes = (attributes.get('sizes') ?? '').toLowerCase()
-    const size = sizes.includes('any')
-      ? Infinity
-      : Math.max(0, ...[...sizes.matchAll(/(\d{1,5})x(\d{1,5})/g)].map((m) => Math.max(Number(m[1]), Number(m[2]))))
+    const sizes = attributes.get('sizes') ?? ''
+    const size = /any/i.test(sizes) ? Infinity : largestSide(sizes)
     const apple = rel.some((r) => r.startsWith('apple-touch-icon'))
-    page.icons.push({
-      url,
-      size: size || (apple ? 180 : 0),
-      type: attributes.get('type')?.toLowerCase() ?? null,
-      rel: apple ? 'apple-touch-icon' : 'icon',
-    })
+    page.icons.push({ url, size: size || (apple ? 180 : 0), type: attributes.get('type')?.toLowerCase() ?? null })
   } else if (rel.includes('manifest') && !page.manifest) page.manifest = url
 }
 
@@ -338,14 +331,22 @@ function readMeta(page: SitePage, attributes: Attributes, base: URL) {
     page.shareImage = linkOf(content, base)
 }
 
-/** `href` read against `base` as an https link of at most 2,048 characters, or null. */
-function linkOf(href: string | undefined, base: URL): string | null {
+/** `href` read against `base` as an https link no longer than a link may be, without its fragment, or null. */
+export function linkOf(href: string | undefined, base: URL): string | null {
   const text = href?.trim()
   if (!text) return null
   const url = URL.parse(text, base.href)
-  if (!url || url.protocol !== 'https:' || url.href.length > 2048) return null
+  if (!url || url.protocol !== 'https:' || url.href.length > MAX_URL_LENGTH) return null
   url.hash = ''
   return url.href
+}
+
+/** The largest side an icon's sizes name, such as 192 for "48x48 192x192"; 0 when they name none. */
+export function largestSide(sizes: string): number {
+  let largest = 0
+  for (const [, width, height] of sizes.slice(0, 1_000).matchAll(/(\d{1,5})x(\d{1,5})/gi))
+    largest = Math.max(largest, Number(width), Number(height))
+  return largest
 }
 
 /** Whether a link leads to the site's home page. */

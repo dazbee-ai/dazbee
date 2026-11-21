@@ -1,18 +1,14 @@
 // A brand's website read for its brand kit, through the safe fetch: its page, up to four of its style sheets, and
 // its web manifest when the page links no logo; its colours by role, its fonts as the catalog's families, and its
 // logos best first, each fetched only when asked for. Every fetch of one read comes out of one budget of fetches and
-// time, and every file is capped in size. It changes nothing, so the editor can show what a site gives before a
-// person keeps it.
-import { type FontFamily, WEBSITE_READ_TIMEOUT_MS, type WebsiteFont } from '@dazbee/schema'
+// time, and every file is capped in size. It changes nothing.
+import type { FontFamily, WebsiteFont } from '@dazbee/schema'
 
 import { type FetchedFile, FetchRefused, safeFetch, type SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { matchFont } from './font-match.ts'
 import { type ColorRoles, colorRoles, parseColor } from './site-colors.ts'
-import { readSitePage, type SiteIcon, type SitePage } from './site-page.ts'
+import { largestSide, linkOf, type LogoSource, readSitePage, type SiteIcon, type SitePage } from './site-page.ts'
 import { readSiteStyles, type SiteStyles } from './site-styles.ts'
-
-/** A logo the site offers: an SVG drawing in its page, or a picture at a link. */
-export type LogoSource = { kind: 'svg'; markup: string } | { kind: 'link'; url: string }
 
 /** The fetches a read may still make, and when its time is up, on `Date.now`'s clock. */
 export interface FetchBudget {
@@ -39,13 +35,13 @@ export interface Website {
 }
 
 /** The most fetches one read makes: its page, four style sheets, its manifest and two logos. */
-export const MAX_SITE_FETCHES = 8
+const MAX_SITE_FETCHES = 8
 /** The largest page read, the largest style sheet, all the CSS read together, the largest manifest and logo. */
-export const MAX_PAGE_BYTES = 2 * 1024 * 1024
-export const MAX_STYLESHEET_BYTES = 1024 * 1024
-export const MAX_CSS_CHARACTERS = 2 * 1024 * 1024
-export const MAX_MANIFEST_BYTES = 64 * 1024
-export const MAX_LOGO_BYTES = 5_000_000
+const MAX_PAGE_BYTES = 2 * 1024 * 1024
+const MAX_STYLESHEET_BYTES = 1024 * 1024
+const MAX_CSS_CHARACTERS = 2 * 1024 * 1024
+const MAX_MANIFEST_BYTES = 64 * 1024
+const MAX_LOGO_BYTES = 5_000_000
 
 /** How many of the page's style sheets are read. */
 const MAX_STYLESHEETS = 4
@@ -61,7 +57,8 @@ const PAGE_TYPES = /^(text\/html|application\/xhtml\+xml|text\/plain)$/
 
 /**
  * The website at `link` as a brand kit takes it, its fonts matched to `catalog`; `logos` says whether its logos are
- * wanted, so that its manifest is fetched for them when the page offers none. It throws `FetchRefused` with a
+ * wanted, so that its manifest is fetched for them when the page offers none; its fetches end by `until`, on
+ * `Date.now`'s clock. It throws `FetchRefused` with a
  * sentence for a page that can't be read: one the safe fetch refuses, a site that turns Dazbee away or shows a check
  * for robots, or a file that isn't a web page.
  */
@@ -69,9 +66,9 @@ export async function readWebsite(
   link: string,
   outside: SafeFetchSettings,
   catalog: readonly FontFamily[],
-  { logos: wantLogos }: { logos: boolean },
+  { logos: wantLogos, until }: { logos: boolean; until: number },
 ): Promise<Website> {
-  const budget: FetchBudget = { left: MAX_SITE_FETCHES, until: Date.now() + WEBSITE_READ_TIMEOUT_MS }
+  const budget: FetchBudget = { left: MAX_SITE_FETCHES, until }
   const pageFile = await fetchPage(link, budget, outside)
   const site = new URL(pageFile.url)
   const page = readSitePage(new TextDecoder().decode(pageFile.bytes), site)
@@ -99,6 +96,32 @@ export function fetchLogo(url: string, budget: FetchBudget, outside: SafeFetchSe
   return fetchWithin(url, budget, MAX_LOGO_BYTES, FILE_MS, outside)
 }
 
+/** The page at `link`, refused in a sentence when the site turns Dazbee away or sends something else. */
+async function fetchPage(link: string, budget: FetchBudget, outside: SafeFetchSettings): Promise<FetchedFile> {
+  let file: FetchedFile
+  try {
+    file = await fetchWithin(link, budget, MAX_PAGE_BYTES, PAGE_MS, outside)
+  } catch (error) {
+    if (error instanceof FetchRefused && error.status !== null && TURNED_AWAY.has(error.status))
+      throw new FetchRefused(
+        `${new URL(link).hostname} turned Dazbee away (${error.status}): it lets only people in a browser read it, so Dazbee can’t; ask the person for their logo, brand colours and fonts instead`,
+        error.status,
+      )
+    if (error instanceof FetchRefused && error.status === 503)
+      throw new FetchRefused(
+        `${new URL(link).hostname} answered 503: it is down, or checking for robots; try once more, and if it answers the same, ask the person for their logo, brand colours and fonts instead`,
+        error.status,
+      )
+    throw error
+  }
+  const type = file.contentType?.split(';')[0]?.trim().toLowerCase() ?? ''
+  if (type && !PAGE_TYPES.test(type)) {
+    const named = /^[a-z0-9.+-]{1,40}\/[a-z0-9.+-]{1,60}$/.test(type) ? ` (it is ${type})` : ''
+    throw new FetchRefused(`That link is not a web page${named}; give the address of the brand’s website`)
+  }
+  return file
+}
+
 /** `link` fetched out of `budget`, at most `maxBytes`, in at most `capMs` or what is left of the read's time. */
 async function fetchWithin(
   link: string,
@@ -112,27 +135,6 @@ async function fetchWithin(
     throw new FetchRefused('Dazbee read as many of the site’s files as it reads at once')
   budget.left--
   return safeFetch(link, { maxBytes, timeoutMs }, outside)
-}
-
-/** The page at `link`, refused in a sentence when the site turns Dazbee away or sends something else. */
-async function fetchPage(link: string, budget: FetchBudget, outside: SafeFetchSettings): Promise<FetchedFile> {
-  let file: FetchedFile
-  try {
-    file = await fetchWithin(link, budget, MAX_PAGE_BYTES, PAGE_MS, outside)
-  } catch (error) {
-    if (error instanceof FetchRefused && error.status !== null && TURNED_AWAY.has(error.status))
-      throw new FetchRefused(
-        `${new URL(link).hostname} turned Dazbee away (${error.status}): it lets only people in a browser read it, so Dazbee can’t; ask the person for their logo, brand colours and fonts instead`,
-        error.status,
-      )
-    throw error
-  }
-  const type = file.contentType?.split(';')[0]?.trim().toLowerCase() ?? ''
-  if (type && !PAGE_TYPES.test(type)) {
-    const named = /^[a-z0-9.+-]{1,40}\/[a-z0-9.+-]{1,60}$/.test(type) ? ` (it is ${type})` : ''
-    throw new FetchRefused(`That link is not a web page${named}; give the address of the brand’s website`)
-  }
-  return file
 }
 
 /**
@@ -177,7 +179,7 @@ async function logoSources(
   manifest: boolean,
 ): Promise<LogoSource[]> {
   const sources: LogoSource[] = []
-  if (page.logo) sources.push(page.logo.kind === 'svg' ? page.logo : { kind: 'link', url: page.logo.url })
+  if (page.logo) sources.push(page.logo)
   const svgIcon = page.icons.find(isSvgIcon)
   if (svgIcon) sources.push({ kind: 'link', url: svgIcon.url })
   let icons = page.icons.filter((icon) => !isSvgIcon(icon) && icon.size >= MIN_ICON_SIZE && !isIco(icon))
@@ -220,14 +222,21 @@ async function manifestIcons(link: string, budget: FetchBudget, outside: SafeFet
     const { src, sizes, type, purpose } = (icon ?? {}) as Record<string, unknown>
     if (typeof src !== 'string') return []
     if (typeof purpose === 'string' && !purpose.split(/\s+/).includes('any')) return []
-    const url = URL.parse(src, link)
-    if (!url || url.protocol !== 'https:' || url.href.length > 2048) return []
-    const size = Math.max(
-      0,
-      ...[...String(sizes ?? '').matchAll(/(\d{1,5})x(\d{1,5})/g)].map((m) => Math.max(Number(m[1]), Number(m[2]))),
-    )
-    return [{ url: url.href, size, type: typeof type === 'string' ? type.toLowerCase() : null, rel: 'icon' }]
+    const url = linkOf(src, new URL(link))
+    if (!url) return []
+    const size = largestSide(typeof sizes === 'string' ? sizes : '')
+    return [{ url, size, type: typeof type === 'string' ? type.toLowerCase() : null }]
   })
+}
+
+/**
+ * A site's name: its title's first part, before a separator such as "|" or "·", without control or formatting
+ * characters, else its host.
+ */
+function siteName(title: string, site: URL): string {
+  const shown = title.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ')
+  const first = shown.split(/\s[|·•—–:-]\s/)[0]?.trim() ?? ''
+  return (first || site.hostname.replace(/^www\./, '')).slice(0, 80)
 }
 
 /**
@@ -250,10 +259,4 @@ function siteFonts(styles: SiteStyles, page: SitePage, catalog: readonly FontFam
     const matched = matchFont(stack, weightsOf(stack[0] ?? ''), catalog)
     return matched ? [{ role, ...matched }] : []
   })
-}
-
-/** A site's name: its title's first part, before a separator such as "|" or "·", else its host. */
-function siteName(title: string, site: URL): string {
-  const first = title.split(/\s[|·•—–:-]\s/)[0]?.trim() ?? ''
-  return (first || site.hostname.replace(/^www\./, '')).slice(0, 80)
 }

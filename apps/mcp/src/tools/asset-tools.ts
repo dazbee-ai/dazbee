@@ -13,6 +13,7 @@ import type { OpenDesign } from '../open-design.ts'
 import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
+import { centreOf, frameIn, PlaceBox, whole } from './place-on-frame.ts'
 
 /** The agent batch that places an asset, and how its answer reads the layer placed from the first step's result. */
 interface PlaceBatch {
@@ -30,26 +31,11 @@ interface FrameTo {
   frame: Frame
 }
 
-/** The farthest a box's edges may sit from its frame's corner, and the longest side it may have, in design pixels. */
-const BOX_LIMIT = 100_000
 /** The name a logo placed takes, as the editor names it in English. */
 const LOGO_NAME = 'Logo'
 /** What an agent is told when an SVG file's embedded pictures are left out. */
 const PICTURES_LEFT_OUT =
   'The SVG file’s embedded pictures are left out, since an agent can’t add them to the asset library; a person who places the file in the editor keeps them.'
-
-/** A box on the frame, in design pixels from its top-left corner. */
-const PlaceBox = z
-  .object({
-    x: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s left edge, from the frame’s left edge'),
-    y: z.number().min(-BOX_LIMIT).max(BOX_LIMIT).describe('The box’s top edge, from the frame’s top edge'),
-    width: z.number().positive().max(BOX_LIMIT).describe('The box’s width'),
-    height: z.number().positive().max(BOX_LIMIT).describe('The box’s height'),
-  })
-  .strict()
-  .describe(
-    'Where it goes, in design pixels from the frame’s top-left corner: an image covers the box, an SVG file fits inside it with its shape kept, centred. Left out, it goes in the middle of the frame: an image at its own size or at most half the frame’s width and height, an SVG file at its own size or at most 60% of the frame’s shorter side.',
-  )
 
 export const ASSET_TOOLS: Tool[] = [
   defineTool({
@@ -154,24 +140,6 @@ async function imageSteps(
     ...(binding ? { bound: binding.ref } : {}),
     leftOut: [],
   }
-}
-
-/** The open design's frame, refused when it has none of that id. */
-function frameIn(open: OpenDesign, frameId: string): Frame {
-  const { frames } = open.tab.design()
-  const frame = Object.hasOwn(frames, frameId) ? frames[frameId] : undefined
-  if (!frame) throw new ToolRefusal(`The open design has no frame “${frameId}”; read_design lists its frames`)
-  return frame
-}
-
-/** The frame's whole area, in its own pixels. */
-function whole({ width, height }: Frame): Rect {
-  return { x: 0, y: 0, width, height }
-}
-
-/** The middle of a box. */
-function centreOf({ x, y, width, height }: Rect) {
-  return { x: x + width / 2, y: y + height / 2 }
 }
 
 /** `value`, told with `note` after the notes it has. */

@@ -29,11 +29,17 @@ export interface FieldChange {
   caret: number
 }
 
-/** What the stage field was given, and its selection's two ends anchored in the text. */
+/**
+ * What the stage field was given, and its selection's two ends anchored in the text. Once the text's
+ * selection moves and the field is not yet told, the ends stand at the text's selection, so what the
+ * field changes at its own lands there, and `kept` is what it keeps holding once told, with its
+ * selection at those ends; none when it must be given new text.
+ */
 export interface HeldField {
   given: FieldState
   start: TextAnchor
   end: TextAnchor
+  kept?: FieldState | undefined
 }
 
 /**

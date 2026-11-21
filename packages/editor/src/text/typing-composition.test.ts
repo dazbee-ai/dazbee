@@ -216,7 +216,7 @@ describe('a composition', () => {
 
     it('draws it replaced and leaves it in the design; the commit replaces it in one edit, in its run', async () => {
       const { e, runs, given } = await overBoldWord()
-      expect(given).toEqual({ value: 'there', start: 0, end: 5 })
+      expect(given).toEqual({ value: 'Hello there', start: 6, end: 11 })
       e.core.input.fieldChanged(composedIn(given, 'wo'), 'wo')
       e.core.redraw()
       expect(drawnText(e)).toBe('Hello wo')
@@ -234,7 +234,7 @@ describe('a composition', () => {
     it('moves the range and writes nothing when only the field’s selection moves', async () => {
       const { e, runs, given } = await overBoldWord()
       const changes = e.core.session.changes()
-      e.core.input.fieldChanged({ ...given, end: 2 }, null)
+      e.core.input.fieldChanged({ ...given, end: 8 }, null)
       expect(e.core.session.changes()).toBe(changes)
       expect(runs()).toEqual([{ start: 6, end: 11, style: { fontWeight: 700 } }])
       expect(e.modules.typing.selectedText()?.range).toEqual({ start: 6, end: 8 })
@@ -248,8 +248,60 @@ describe('a composition', () => {
       expect(drawnText(e)).toBe('Hello there')
       expect(e.modules.typing.selectedText()?.range).toEqual({ start: 6, end: 11 })
       // What the field holds after the cancel still stands for the range.
-      e.core.input.fieldChanged({ value: 'x', start: 1, end: 1 }, null)
+      e.core.input.fieldChanged({ value: 'Hello x', start: 7, end: 7 }, null)
       expect(textOf(e)).toBe('Hello x')
+    })
+  })
+
+  describe('over a word a phone keyboard re-opened', () => {
+    it('underlines the whole word, and replaces it with the commit in its run', async () => {
+      const e = await testEditor(WORDS)
+      editors.push(e)
+      typingAtEnd(e)
+      e.modules.typing.styleRange({ id: 'words', range: { start: 6, end: 11 } }, { fontWeight: 700 })
+      const given = fieldOf(e)
+      e.core.input.fieldChanged(given, 'there')
+      e.core.redraw()
+      const word = e.modules.typing.shown()?.composition ?? []
+      e.core.input.fieldChanged({ value: 'Hello th', start: 8, end: 8 }, 'th')
+      e.core.redraw()
+      const part = e.modules.typing.shown()?.composition ?? []
+      expect(word[0]?.width).toBeGreaterThan(part[0]?.width ?? Infinity)
+      e.core.input.fieldChanged({ value: 'Hello these', start: 11, end: 11 }, 'these')
+      e.core.input.fieldChanged({ value: 'Hello these', start: 11, end: 11 }, null)
+      expect(textOf(e)).toBe('Hello these')
+      expect((e.core.design().nodes.words?.props as { runs: unknown[] }).runs).toEqual([
+        { start: 6, end: 11, style: { fontWeight: 700 } },
+      ])
+    })
+
+    it('deletes the word when the keyboard commits nothing in its place: no cancel, as nothing was selected', async () => {
+      const e = await testEditor(WORDS)
+      editors.push(e)
+      const given = fieldOf(e, true)
+      e.core.input.fieldChanged(given, 'there')
+      e.core.input.fieldChanged({ value: 'Hello ', start: 6, end: 6 }, '')
+      e.core.input.fieldChanged({ value: 'Hello ', start: 6, end: 6 }, null)
+      expect(textOf(e)).toBe('Hello ')
+    })
+  })
+
+  describe('the field’s selection', () => {
+    it('moves the text’s caret, and its range running backward, with nothing written', async () => {
+      const e = await testEditor(WORDS)
+      editors.push(e)
+      const given = fieldOf(e, true)
+      const design = e.core.session.design()
+      e.core.input.fieldChanged({ ...given, start: 3, end: 3 }, null)
+      e.core.input.fieldChanged({ ...given, start: 6, end: 11, backward: true }, null)
+      expect(e.core.session.design()).toBe(design)
+      expect(e.modules.typing.selectedText()?.range).toEqual({ start: 6, end: 11 })
+      e.keys.press('Shift+ArrowLeft')
+      expect(e.modules.typing.selectedText()?.range).toEqual({ start: 5, end: 11 })
+      expect(e.core.input.fieldText()).toEqual({ value: 'Hello there', start: 5, end: 11, backward: true })
+      e.core.input.fieldChanged({ value: 'Hello there', start: 3, end: 3 }, null)
+      e.keys.press('|')
+      expect(textOf(e)).toBe('Hel|lo there')
     })
   })
 
@@ -294,6 +346,32 @@ describe('a composition', () => {
       await settle()
       expect(textOf(a)).toBe('你! there')
       expect(textOf(b)).toBe('你! there')
+    })
+
+    it('inserts the commit where a word a phone keyboard re-opened was, once the other tab deleted it', async () => {
+      mem = memorySync(WORDS)
+      const a = await editorOn()
+      const b = await editorOn('bob')
+      const given = fieldOf(a, true)
+      // The keyboard re-opens "there" before the caret, and the person then picks "these".
+      a.core.input.fieldChanged(given, 'there')
+      a.core.redraw()
+      b.core.select(['words'])
+      b.press('goIn')
+      b.modules.typing.selectText({ start: 6, end: 11 })
+      b.keys.press('Backspace')
+      b.keys.press('Escape')
+      await settle()
+      expect(textOf(a)).toBe('Hello ')
+      const picked = { value: 'Hello these', start: 11, end: 11 }
+      a.core.input.fieldChanged(picked, 'these')
+      a.core.redraw()
+      expect(drawnText(a)).toBe('Hello these')
+      a.core.input.fieldChanged(picked, null)
+      a.keys.press('Escape')
+      await settle()
+      expect(textOf(a)).toBe('Hello these')
+      expect(textOf(b)).toBe('Hello these')
     })
 
     it('ends typing with nothing landed when the other tab deletes the text', async () => {

@@ -13,6 +13,7 @@ import { clipMask } from './clips.ts'
 import { filterEffects } from './filters.ts'
 import { imageLayer, newPictures, type SvgImage } from './images.ts'
 import { clamp01, length, numbers } from './lengths.ts'
+import { MAX_LAYERS, MAX_NESTING, MAX_WORK } from './limits.ts'
 import { nameOf } from './names.ts'
 import { shape, SHAPES } from './shapes.ts'
 import { BLEND_MODES, readSheets, type Style, styleOf, styleText } from './style.ts'
@@ -52,15 +53,6 @@ export class SvgError extends Error {
     this.problem = problem
   }
 }
-
-/** More layers than this, or a file larger than MAX_SVG_BYTES, is refused, so a hostile file can't run away with the page. */
-const MAX_LAYERS = 5_000
-/**
- * Elements read, counting each time a <use> reads one again, and how deep elements and uses may
- * nest: past these the file is refused, so a fan of uses that draw nothing can't run away either.
- */
-const MAX_WORK = 100_000
-const MAX_NESTING = 400
 
 /** Elements that define things for others and draw nothing where they stand. */
 const DEFINITIONS = new Set([

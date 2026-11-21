@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { png } from '../test-files.ts'
-import { svgThumbnail } from './svg-assets.ts'
+import { svgThumbnail } from './svg-worker.ts'
 
 const ck = await loadCanvasKit()
 

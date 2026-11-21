@@ -4,7 +4,7 @@
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type ImageType, isVectorAsset } from '@dazbee/schema'
 
-import { svgThumbnail } from './svg-assets.ts'
+import { svgThumbnail } from './svg-worker.ts'
 
 export interface Thumbnail {
   bytes: Uint8Array

@@ -19,7 +19,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { assetThumbnailKey, checkUpload, originalKey, signedUpload } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
-import { readSvgHeader } from './svg-assets.ts'
+import { readSvgHeader } from './svg-worker.ts'
 import { makeThumbnail } from './thumbnails.ts'
 
 export class InvalidUpload extends Error {}

@@ -14,9 +14,7 @@ import { findAsset } from '../assets/assets.ts'
 import { getBrandKit } from '../brand-kits/brand-kits.ts'
 import { fontFiles } from '../fonts/fonts.ts'
 import { originalKey } from '../storage-keys.ts'
-
-/** The picture drawn now, or the last one asked for: each starts once the one before it ends. */
-let drawingTurn: Promise<unknown> = Promise.resolve()
+import { inDrawingTurn } from './drawing-turn.ts'
 
 /**
  * What drawing the design for this brand needs beyond the fonts we ship: the faces of the brand's
@@ -45,17 +43,6 @@ export async function brandResourcesFor(
     ),
   ])
   return { fonts, fallbackFamilies: [...FALLBACK_FAMILIES], images: Object.fromEntries(images.flat()), variables }
-}
-
-/**
- * Runs `draw` once every picture asked for before it has been drawn: a picture reads its font and
- * image bytes inside its turn, so the API holds one design's bytes at a time, not every waiting
- * picture's. A CJK family's face runs to 50 MB.
- */
-export function inDrawingTurn<T>(draw: () => Promise<T>): Promise<T> {
-  const turn = drawingTurn.then(draw, draw)
-  drawingTurn = turn.catch(() => undefined)
-  return turn
 }
 
 /** The design's cover frame (see `coverFrame`), as an export draws it, in its drawing turn. */

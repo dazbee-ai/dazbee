@@ -6,7 +6,8 @@ import { type Db, setVersionThumbnail, versionThumbnail } from '@dazbee/db'
 import type { Storage } from '@dazbee/storage'
 
 import { coverOf, drawCover } from '../drawing/design-thumbnails.ts'
-import { brandResourcesFor, inDrawingTurn } from '../drawing/render.ts'
+import { inDrawingTurn } from '../drawing/drawing-turn.ts'
+import { brandResourcesFor } from '../drawing/render.ts'
 import { versionDesign } from './versions.ts'
 
 /** The longest side of a version's picture: the card's row on a 2× screen. */

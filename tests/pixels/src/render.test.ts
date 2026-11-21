@@ -75,6 +75,7 @@ describe('Node CPU render', () => {
       'strokes-and-effects/sq',
       'text-and-group-bounds/sq',
       'text-paint/pt',
+      'text-paint/ss',
       'text-styles/pt',
       'wrap-and-limits/sq',
     ])

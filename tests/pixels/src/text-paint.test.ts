@@ -1,6 +1,7 @@
 // Text paint (#108): a gradient paints a text or a run in the text layer's box, its underline with
 // it, and an outline under the letters leaves their shape whole and reaches its width past them, on
-// the CPU surface and in PDF and SVG exports.
+// the CPU surface and in PDF and SVG exports; superscripts and subscripts are drawn in the font's own
+// glyphs or made up smaller and moved off the baseline, alike in each.
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { layerReach, makeResources, render, renderDesign, renderVector } from '@dazbee/renderer'
@@ -211,4 +212,53 @@ describe('outline under the letters', () => {
       expect(Math.abs((inked(pixels, 80)[0] ?? 0) - (left ?? 0))).toBeLessThanOrEqual(1)
     }
   })
+})
+
+describe('superscript and subscript', () => {
+  /** The first and last rows anything is drawn in. */
+  const inkRows = (pixels: Uint8Array) => {
+    const rows = Array.from({ length: HEIGHT }, (_, y) => y).filter((y) => inked(pixels, y).length > 0)
+    return { top: rows[0] ?? -1, bottom: rows.at(-1) ?? -1 }
+  }
+  const scripted = (text: string, fontFamily: string, features: Record<string, boolean> = {}) =>
+    design({ fontFamily, fontWeight: 400, features }, { text })
+
+  it('raises a made-up superscript 35 % of an em, its letters at 60 % of the size, where the font has no glyph for a letter', () => {
+    const plain = inkRows(drawn(scripted('xxxx', 'Noto Sans')))
+    const raised = inkRows(drawn(scripted('xxxx', 'Noto Sans', { sups: true })))
+    expect(plain.bottom - raised.bottom).toBeGreaterThanOrEqual(33)
+    expect(plain.bottom - raised.bottom).toBeLessThanOrEqual(35)
+    expect((raised.bottom - raised.top) / (plain.bottom - plain.top)).toBeCloseTo(0.6, 1)
+  })
+
+  it('lowers a made-up subscript 7.5 % of an em', () => {
+    const plain = inkRows(drawn(scripted('xxxx', 'Noto Sans')))
+    const lowered = inkRows(drawn(scripted('xxxx', 'Noto Sans', { subs: true })))
+    expect(lowered.bottom - plain.bottom).toBeGreaterThanOrEqual(6)
+    expect(lowered.bottom - plain.bottom).toBeLessThanOrEqual(8)
+  })
+
+  it.each([
+    ['the font’s own superscript digits', '2222', 'Noto Sans', { sups: true }],
+    ['the font’s own subscript digits', '2222', 'Noto Sans', { subs: true }],
+    ['a made-up superscript', 'xxxx', 'Noto Sans', { sups: true }],
+    ['a made-up subscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { subs: true }],
+    ['a made-up superscript in a font with none', 'ااااا', 'Noto Naskh Arabic', { sups: true }],
+  ])(
+    'draws %s in a PDF and an SVG where the CPU surface does, the PDF keeping the text',
+    async (_, text, family, features) => {
+      const json = scripted(text, family, features)
+      const cpu = inkRows(drawn(json))
+      const pdf = renderVector(ck, json, 'f', bytes, 'pdf')
+      expect((await pdfText(pdfium, pdf)).replaceAll(/\s/g, '')).toBe(text)
+      for (const pixels of [
+        (await rasterisePdf(pdfium, pdf)).pixels,
+        rasteriseSvg(renderVector(ck, json, 'f', bytes, 'svg')).pixels,
+      ]) {
+        const rows = inkRows(pixels)
+        expect(Math.abs(rows.top - cpu.top)).toBeLessThanOrEqual(1)
+        expect(Math.abs(rows.bottom - cpu.bottom)).toBeLessThanOrEqual(1)
+      }
+    },
+  )
 })

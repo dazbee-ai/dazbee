@@ -24,6 +24,21 @@
         }
       ],
       "order": "a0"
+    },
+    "ss": {
+      "pageId": "p1",
+      "name": "Superscript and subscript",
+      "width": 1080,
+      "height": 560,
+      "x": 1140,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a1"
     }
   },
   "nodes": {
@@ -1449,6 +1464,767 @@
             "color": "#1F2329FF",
             "under": true
           }
+        }
+      }
+    },
+    "own-sups-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-sups-en",
+      "index": "b001",
+      "name": "own sups en",
+      "props": {
+        "x": 30,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 7,
+            "style": {
+              "features": {
+                "sups": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "E = mc2",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "own-sups-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-sups-hi",
+      "index": "b002",
+      "name": "own sups hi",
+      "props": {
+        "x": 380,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 14,
+            "end": 15,
+            "style": {
+              "features": {
+                "sups": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "start",
+        "text": "क्षेत्रफल 25 m2",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "own-sups-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-sups-ar",
+      "index": "b003",
+      "name": "own sups ar",
+      "props": {
+        "x": 730,
+        "y": 30,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 12,
+            "end": 13,
+            "style": {
+              "features": {
+                "sups": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "end",
+        "text": "المساحة 25 m2",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "made-up-sups-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-sups-en",
+      "index": "b004",
+      "name": "made-up sups en",
+      "props": {
+        "x": 30,
+        "y": 115,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 1,
+            "end": 3,
+            "style": {
+              "features": {
+                "sups": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "1st place",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "made-up-sups-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-sups-hi",
+      "index": "b005",
+      "name": "made-up sups hi",
+      "props": {
+        "x": 380,
+        "y": 115,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 8,
+            "style": {
+              "features": {
+                "sups": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "कीमत ₹99",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "made-up-sups-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-sups-ar",
+      "index": "b006",
+      "name": "made-up sups ar",
+      "props": {
+        "x": 730,
+        "y": 115,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 8,
+            "style": {
+              "features": {
+                "sups": true
+              }
+            }
+          }
+        ],
+        "align": "end",
+        "text": "السعر 99",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "own-subs-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-subs-en",
+      "index": "b007",
+      "name": "own subs en",
+      "props": {
+        "x": 30,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 1,
+            "end": 2,
+            "style": {
+              "features": {
+                "subs": true
+              }
+            }
+          },
+          {
+            "start": 10,
+            "end": 11,
+            "style": {
+              "features": {
+                "subs": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "H2O and CO2",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "own-subs-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-subs-hi",
+      "index": "b008",
+      "name": "own subs hi",
+      "props": {
+        "x": 380,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 5,
+            "end": 8,
+            "style": {
+              "fontFamily": "Noto Sans"
+            }
+          },
+          {
+            "start": 6,
+            "end": 7,
+            "style": {
+              "features": {
+                "subs": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "start",
+        "text": "पानी H2O",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "own-subs-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "own-subs-ar",
+      "index": "b009",
+      "name": "own subs ar",
+      "props": {
+        "x": 730,
+        "y": 200,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 4,
+            "end": 7,
+            "style": {
+              "fontFamily": "Noto Sans"
+            }
+          },
+          {
+            "start": 5,
+            "end": 6,
+            "style": {
+              "features": {
+                "subs": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "end",
+        "text": "ماء H2O",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400
+        }
+      }
+    },
+    "made-up-subs-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-subs-en",
+      "index": "b010",
+      "name": "made-up subs en",
+      "props": {
+        "x": 30,
+        "y": 285,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 8,
+            "style": {
+              "features": {
+                "subs": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Index ab",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#FF2E7EFF",
+          "fontWeight": 400,
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "made-up-subs-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-subs-hi",
+      "index": "b011",
+      "name": "made-up subs hi",
+      "props": {
+        "x": 380,
+        "y": 285,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 8,
+            "end": 9,
+            "style": {
+              "features": {
+                "subs": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "सूचकांक क",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#FF2E7EFF",
+          "fontWeight": 400,
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "made-up-subs-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "made-up-subs-ar",
+      "index": "b012",
+      "name": "made-up subs ar",
+      "props": {
+        "x": 730,
+        "y": 285,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 5,
+            "end": 6,
+            "style": {
+              "features": {
+                "subs": true
+              }
+            }
+          }
+        ],
+        "align": "end",
+        "text": "مؤشر ب",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#FF2E7EFF",
+          "fontWeight": 400,
+          "outline": {
+            "width": 3,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        }
+      }
+    },
+    "whole-sups-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "whole-sups-en",
+      "index": "b013",
+      "name": "whole sups en",
+      "props": {
+        "x": 30,
+        "y": 370,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "Footnote",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 1.5,
+            "color": "#1F2329FF"
+          },
+          "features": {
+            "sups": true
+          }
+        }
+      }
+    },
+    "whole-sups-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "whole-sups-hi",
+      "index": "b014",
+      "name": "whole sups hi",
+      "props": {
+        "x": 380,
+        "y": 370,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "start",
+        "text": "टिप्पणी",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 1.5,
+            "color": "#1F2329FF"
+          },
+          "features": {
+            "sups": true
+          }
+        }
+      }
+    },
+    "whole-sups-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "whole-sups-ar",
+      "index": "b015",
+      "name": "whole sups ar",
+      "props": {
+        "x": 730,
+        "y": 370,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [],
+        "align": "end",
+        "text": "حاشية",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 1.5,
+            "color": "#1F2329FF"
+          },
+          "features": {
+            "sups": true
+          }
+        }
+      }
+    },
+    "lined-sups-en": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "lined-sups-en",
+      "index": "b016",
+      "name": "lined sups en",
+      "props": {
+        "x": 30,
+        "y": 455,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 8,
+            "style": {
+              "features": {
+                "sups": true
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Brand TM",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "underline": true,
+          "strikethrough": true
+        }
+      }
+    },
+    "lined-sups-hi": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "lined-sups-hi",
+      "index": "b017",
+      "name": "lined sups hi",
+      "props": {
+        "x": 380,
+        "y": 455,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 7,
+            "end": 9,
+            "style": {
+              "features": {
+                "sups": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "start",
+        "text": "ब्रांड TM",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "underline": true,
+          "strikethrough": true
+        }
+      }
+    },
+    "lined-sups-ar": {
+      "type": "text",
+      "parentId": "ss",
+      "link": "lined-sups-ar",
+      "index": "b018",
+      "name": "lined sups ar",
+      "props": {
+        "x": 730,
+        "y": 455,
+        "width": 320,
+        "height": 60,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 6,
+            "end": 8,
+            "style": {
+              "features": {
+                "sups": true
+              },
+              "fontFamily": "Noto Sans"
+            }
+          }
+        ],
+        "align": "end",
+        "text": "علامة TM",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 36,
+          "color": "#1F2329FF",
+          "fontWeight": 400,
+          "underline": true,
+          "strikethrough": true
         }
       }
     }

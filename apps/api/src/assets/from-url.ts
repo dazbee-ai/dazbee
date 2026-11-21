@@ -30,12 +30,13 @@ export class AddingFromUrlBusy extends Error {
 
 /** The pictures from links a member may add in an hour, themselves and their agents together. */
 export const FROM_URL_PER_HOUR = 60
-
 /**
- * The most pixels a picture from a link has: a 6,000 × 4,000 photo and a little more. Its decode (4 bytes a pixel,
- * and a third more for the thumbnail's mipmaps) then fits beside everything else in the API's 512 MB.
+ * The most pixels a picture from outside has, from a link or an agent's upload link: a 6,000 × 4,000 photo and a
+ * little more. Its decode (4 bytes a pixel, and a third more for the thumbnail's mipmaps) then fits beside everything
+ * else in the API's 512 MB.
  */
-const MAX_FROM_URL_PIXELS = 25_000_000
+export const MAX_FROM_URL_PIXELS = 25_000_000
+
 /**
  * The most pictures added from links at once in the process: one, as each holds up to `MAX_UPLOAD_BYTES` and a
  * decode while it is fetched and recorded.
@@ -93,13 +94,29 @@ export async function recordFetched(
   workspaceId: string,
   brandId: string,
   file: FetchedFile,
+  named: { name: string; tags: readonly string[] },
+): Promise<AssetSummary> {
+  return recordPicture(db, storage, workspaceId, brandId, file.bytes, pictureType(file), named)
+}
+
+/**
+ * The asset of a picture from outside whose type is `contentType`, checked already: stored by its hash and recorded
+ * as an upload is, a new asset named `name` or the brand's asset of the same bytes, with `tags` joining its own. It
+ * runs inside `addingFromOutside`, and throws `InvalidUpload` for bytes the upload path refuses.
+ */
+export async function recordPicture(
+  db: Db,
+  storage: Storage,
+  workspaceId: string,
+  brandId: string,
+  bytes: Uint8Array,
+  contentType: ImageType,
   { name, tags }: { name: string; tags: readonly string[] },
 ): Promise<AssetSummary> {
-  const contentType = pictureType(file)
-  const sha256 = createHash('sha256').update(file.bytes).digest('hex')
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
   const key = originalKey(workspaceId, sha256)
-  if (!(await storage.exists(key))) await storage.put(key, file.bytes, contentType)
-  const asset = await recordAsset(db, storage, workspaceId, brandId, sha256, name, file.bytes)
+  if (!(await storage.exists(key))) await storage.put(key, bytes, contentType)
+  const asset = await recordAsset(db, storage, workspaceId, brandId, sha256, name, bytes)
   const merged = [...new Set([...asset.tags, ...tags])].slice(0, MAX_ASSET_TAGS)
   if (merged.length === asset.tags.length) return asset
   return (await updateAsset(db, workspaceId, brandId, asset.id, { tags: merged })) ?? asset

@@ -1,6 +1,7 @@
 # Caddy in front of the production stack: app.dazbee.com and pilot.dazbee.com (the early-access admin page)
 # to the web app, app.dazbee.com's /mcp, /oauth/* and /.well-known/oauth-* to the MCP server (ADR-0019),
-# sync.dazbee.com to the sync server, and http://caddy:8080, which only the containers reach, to the API.
+# a PUT to app.dazbee.com's /uploads/*, an agent's upload link (ADR-0010), to the API, sync.dazbee.com to the
+# sync server, and http://caddy:8080, which only the containers reach, to the API.
 # Ports 80 and 443 take connections from Cloudflare's addresses only (deploy/setup.sh), so the
 # CF-Connecting-IP the MCP server counts sign-ins by comes from Cloudflare. Both public sites use
 # Cloudflare's origin certificate, from the certs/ folder beside compose's .env, as origin.pem and
@@ -40,6 +41,23 @@ app.dazbee.com {
 		# never reached it is sent again, and of those that did, only a GET.
 		reverse_proxy mcp:3100 {
 			lb_try_duration 10s
+		}
+	}
+	# A file sent to an upload link: its body at most the upload limit, MAX_UPLOAD_BYTES (30 MiB), streamed to the
+	# API, which checks it again. It is never sent again, as its body is gone once sent; a link the API never saw
+	# is still unused, so the agent sends the file again.
+	@upload {
+		method PUT
+		path /uploads/*
+	}
+	handle @upload {
+		request_body {
+			max_size 30MiB
+		}
+		reverse_proxy router:8787 {
+			transport http {
+				keepalive off
+			}
 		}
 	}
 	handle {

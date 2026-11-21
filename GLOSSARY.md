@@ -73,7 +73,7 @@ A named value a layer's property can follow. For now, the brand kit's tokens (`b
 _Avoid_: Field, slot, column, placeholder
 
 **Asset library**:
-A brand's images and SVG files, uploaded by a person or added by an agent from a link or as a stock photo, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
+A brand's images and SVG files, uploaded by a person or added by an agent from a link, through an upload link or as a stock photo, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
 _Avoid_: Media library, uploads, gallery
 
 **Armed image**:
@@ -418,6 +418,10 @@ _Avoid_: Symbol, glyph, clip art, Daz (the bee)
 **Sticker**:
 A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person. A picture sticker joins the brand's asset library when placed, as any image does.
 _Avoid_: Clip art, emoji (one kind of sticker), illustration alone
+
+**Upload link**:
+A one-time link an agent asks for to send one file from the machine it runs on into a brand's asset library: one brand, one type, one name, ten minutes, and the first file sent spends it. It reads nothing and opens nothing else.
+_Avoid_: Upload URL, signed URL (those reach storage), share link
 
 **Stock photo**:
 A free photo found through a stock library's search and saved into the brand's asset library, tagged with where it came from and who took it.

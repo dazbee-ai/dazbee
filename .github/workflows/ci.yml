@@ -141,6 +141,12 @@ jobs:
           https -f https://app.dazbee.com/.well-known/oauth-protected-resource/mcp | grep -q '"resource":"https://app.dazbee.com/mcp"'
           [ "$(https -o /dev/null -w '%{http_code}' -X POST https://app.dazbee.com/mcp)" = 401 ]
           echo "the MCP server answers /mcp and its OAuth metadata through Caddy"
+          upload=https://app.dazbee.com/uploads/$(printf 'x%.0s' {1..43})
+          https -X PUT --data-binary x "$upload" | grep -q 'not an upload link Dazbee gave'
+          head -c $((30 * 1024 * 1024 + 1)) /dev/zero > "$RUNNER_TEMP/too-big"
+          [ "$(https -o /dev/null -w '%{http_code}' -T "$RUNNER_TEMP/too-big" "$upload")" = 413 ]
+          [ "$(https -o /dev/null -w '%{http_code}' "$upload")" = 404 ]
+          echo "a PUT to /uploads/* reaches the API through Caddy, its body capped at 30 MiB; a GET does not"
           health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)
           grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
           echo "mcp/health names build $GITHUB_SHA"

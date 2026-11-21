@@ -195,6 +195,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       context: {
         agent,
         api: agentApi(api, token, agent.workspaceId, refuse),
+        baseUrl,
         design: opened.design,
         answerBy: now() + callTimeoutMs - ANSWER_MARGIN_MS,
         takeDesign: () => designs.take(agent.id),

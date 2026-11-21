@@ -1,6 +1,7 @@
 // The routes of a brand's asset library, its images and SVG files: uploading and recording them, adding one
-// from an outside link, finding them by name and tag, naming and tagging them, their thumbnails, and deleting
-// one nothing shows.
+// from an outside link or through an agent's upload link, finding them by name and tag, naming and tagging them,
+// their thumbnails, and deleting one nothing shows; and the upload links themselves, which take a file with no
+// session.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
@@ -11,7 +12,9 @@ import {
   RecordAsset,
   type SignedLink,
   StartUpload,
+  StartUploadLink,
   UpdateAsset,
+  UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
@@ -30,6 +33,7 @@ import {
   updateAsset,
 } from './assets.ts'
 import { addAssetFromUrl } from './from-url.ts'
+import { createUploadLink, uploadToLink } from './upload-links.ts'
 
 export function assetRoutes({
   db,
@@ -46,6 +50,7 @@ export function assetRoutes({
 }): Hono<Env> {
   const app = new Hono<Env>()
   const fromUrl = requestLimit({ perWindow: fromUrlPerHour })
+  const linksAsked = requestLimit({ perWindow: fromUrlPerHour })
 
   // Images: uploads go straight to storage through a signed URL, then are recorded here (#35).
   // The asset library (#52) finds them by name and tag: ?q=summer sale.
@@ -83,6 +88,23 @@ export function assetRoutes({
         429,
       )
     return c.json(await addAssetFromUrl(db, storage, outsideFetch, workspaceId, c.var.brand.id, input), 201)
+  })
+
+  // A one-time link an agent sends one file to from its machine (`upload_image`), taken by `uploadRoutes`.
+  app.post('/brands/:brandId/assets/upload-links', requireWriter, async (c) => {
+    const { workspaceId } = c.var.membership
+    const input = await body(c.req.raw, StartUploadLink)
+    if (input instanceof Response) return input
+    const { userId, agent } = c.var.session
+    if (!linksAsked.take(userId))
+      return c.json(
+        error(
+          `This member has asked for as many upload links as they may in an hour (${fromUrlPerHour}); try again later`,
+        ),
+        429,
+      )
+    const asker = { workspaceId, brandId: c.var.brand.id, userId, accessId: agent?.accessId ?? null }
+    return c.json(await createUploadLink(db, asker, input), 201)
   })
 
   app.get('/brands/:brandId/assets/:assetId', async (c) => {
@@ -127,5 +149,17 @@ export function assetRoutes({
     return c.json((await signedLink(storage, await ensureThumbnail(storage, workspaceId, asset))) satisfies SignedLink)
   })
 
+  return app
+}
+
+/**
+ * `PUT /uploads/:token`: the file sent to an upload link, with no session, recorded into the link's brand; the answer
+ * is its asset. Caddy sends only this method and path of the API to the internet, with a body cap.
+ */
+export function uploadRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<Env> {
+  const app = new Hono<Env>()
+  app.put(`${UPLOAD_LINK_PATH}:token`, async (c) =>
+    c.json(await uploadToLink(db, storage, c.req.param('token'), c.req.raw), 201),
+  )
   return app
 }

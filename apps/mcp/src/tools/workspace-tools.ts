@@ -1,8 +1,17 @@
-// The tools that need no open design: the access's brands, a brand's designs and images, a new design, and a
-// picture added from a link.
+// The tools that need no open design: the access's brands, a brand's designs and images, a new design, a picture
+// added from a link, and the one-time link a file on the agent's machine is uploaded to.
 import { z } from 'zod'
 
-import { AddAssetFromUrl, type AssetSummary, MAX_ASSET_TAGS, MAX_UPLOAD_BYTES, RecordId } from '@dazbee/schema'
+import {
+  AddAssetFromUrl,
+  type AssetSummary,
+  MAX_ASSET_TAGS,
+  MAX_SVG_BYTES,
+  MAX_UPLOAD_BYTES,
+  RecordId,
+  StartUploadLink,
+  UPLOAD_LINK_MS,
+} from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import { inSeconds } from '../limits.ts'
@@ -14,6 +23,9 @@ export const BrandId = RecordId.describe('The brand’s id, as list_brands gives
 /** What a new design's answer tells the agent to do next. */
 const AFTER_CREATE =
   'Next: open_design it, and read ad_rules for each size you will make (with the kind of ad) before you design.'
+
+/** What an upload link's answer tells the agent about sending the file. */
+const AFTER_UPLOAD_LINK = `Send the file once, within ${UPLOAD_LINK_MS / 60_000} minutes: its answer is the image as JSON (id, name, type, size), checked as a person’s upload is, or {"error": a sentence}. A used or expired link, a file too big or of another type is refused: ask upload_image for a new link. Then place it with place_asset; list_assets finds it by its name.`
 
 export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
@@ -100,6 +112,39 @@ export const WORKSPACE_TOOLS: Tool[] = [
         return listedImage(asset)
       } catch (error) {
         throw viewOnly(error, 'add an image')
+      }
+    },
+  }),
+  defineTool({
+    name: 'upload_image',
+    title: 'Upload an image from this machine',
+    description: `Answers a one-time link that adds one file from the person’s machine to a brand’s images, as a person’s upload is: a PNG, JPEG or WebP of at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB, or an SVG of at most ${MAX_SVG_BYTES / 1_000_000} MB, of the type given. Send the file to the link within ${UPLOAD_LINK_MS / 60_000} minutes with the command the answer gives (curl -T); its answer is the image, with the id to place it by. Only for an agent that runs commands on the machine holding the file; otherwise use add_image with a link. Needs an access that edits.`,
+    readOnly: false,
+    input: z.object({
+      brand: BrandId,
+      name: StartUploadLink.shape.name.describe('The image’s name among the brand’s images, 1 to 120 characters'),
+      type: StartUploadLink.shape.contentType.describe(
+        'The file’s type: image/png, image/jpeg, image/webp or image/svg+xml; a file of another type is refused',
+      ),
+      tags: StartUploadLink.shape.tags.describe(
+        `Words the image is found by, such as "product": at most ${MAX_ASSET_TAGS}`,
+      ),
+    }),
+    run: async ({ brand, name, type, tags }, { api, baseUrl }) => {
+      try {
+        const upload = await api.uploadLink(brand, { contentType: type, name, ...(tags === undefined ? {} : { tags }) })
+        const link = `${baseUrl}${upload.path}`
+        return new WithNotes(
+          {
+            link,
+            expires: upload.expiresAt,
+            maxBytes: upload.maxBytes,
+            send: `curl -sS -T '<path of the file>' '${link}'`,
+          },
+          [AFTER_UPLOAD_LINK],
+        )
+      } catch (error) {
+        throw viewOnly(error, 'upload an image')
       }
     },
   }),

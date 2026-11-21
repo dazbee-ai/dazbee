@@ -196,3 +196,57 @@ describe('add_image', () => {
     expect(textOf(long)).toMatch(/^`tags.0`: /)
   })
 })
+
+describe('upload_image', () => {
+  it('answers a one-time link on Dazbee’s public address for the brand, name and type, and how to send the file', async () => {
+    const agent = await agentOf()
+    const result = await agent.call('upload_image', {
+      brand: 'brand-winter',
+      name: 'Studio shot',
+      type: 'image/jpeg',
+      tags: ['product'],
+    })
+    expect(JSON.parse(textOf(result))).toEqual({
+      link: 'https://app.test/uploads/test-token-1',
+      expires: '2026-11-21T00:10:00.000Z',
+      maxBytes: 31_457_280,
+      send: "curl -sS -T '<path of the file>' 'https://app.test/uploads/test-token-1'",
+    })
+    const [, note] = result.content
+    expect(note?.type === 'text' && note.text).toMatch(
+      /^Send the file once, within 10 minutes: its answer is the image/,
+    )
+    expect(server.api.uploadLinks()).toEqual([
+      { brandId: 'brand-winter', contentType: 'image/jpeg', name: 'Studio shot', tags: ['product'] },
+    ])
+  })
+
+  it('gives an SVG file’s link the SVG limit', async () => {
+    const agent = await agentOf()
+    const answer = await agent.json('upload_image', { brand: 'brand-winter', name: 'Logo', type: 'image/svg+xml' })
+    expect(answer).toMatchObject({ maxBytes: 5_000_000 })
+  })
+
+  it('tells a view access’s refusal (403) as a tool error, asking for no link', async () => {
+    const agent = await agentOf({ writes: false })
+    const result = await agent.call('upload_image', { brand: 'brand-winter', name: 'Shot', type: 'image/png' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toMatch(/may only view designs, so it can’t upload an image/)
+    expect(server.api.uploadLinks()).toEqual([])
+  })
+
+  it('tells a brand outside the access as the API’s refusal', async () => {
+    const agent = await agentOf({ brandIds: ['brand-winter'] })
+    const result = await agent.call('upload_image', { brand: 'brand-summer', name: 'Shot', type: 'image/png' })
+    expect(textOf(result)).toBe('No such brand.')
+  })
+
+  it('refuses a type Dazbee doesn’t take and a missing name, naming the field', async () => {
+    const agent = await agentOf()
+    const gif = await agent.call('upload_image', { brand: 'brand-winter', name: 'Shot', type: 'image/gif' })
+    expect(gif.isError).toBe(true)
+    expect(textOf(gif)).toMatch(/^`type`: /)
+    const unnamed = await agent.call('upload_image', { brand: 'brand-winter', type: 'image/png' })
+    expect(textOf(unnamed)).toBe('`name` is required.')
+  })
+})

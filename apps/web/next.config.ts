@@ -29,15 +29,18 @@ const config: NextConfig = {
     },
     { source: '/agents/connect', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
   ],
-  // With MCP_DEV_URL set, the MCP server's paths go to it, so one base URL serves both, as Caddy does in production.
+  // With MCP_DEV_URL set, the MCP server's paths go to it, and an agent's upload links to the API, so one base URL
+  // serves all three, as Caddy does in production.
   rewrites: async () => {
     const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')
     if (!mcp) return []
+    const api = (process.env.API_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
     return {
       beforeFiles: [
         { source: '/mcp', destination: `${mcp}/mcp` },
         { source: '/oauth/:path*', destination: `${mcp}/oauth/:path*` },
         { source: '/.well-known/:doc(oauth-[^/]+)/:path*', destination: `${mcp}/.well-known/:doc/:path*` },
+        { source: '/uploads/:token', destination: `${api}/uploads/:token` },
       ],
       afterFiles: [],
       fallback: [],

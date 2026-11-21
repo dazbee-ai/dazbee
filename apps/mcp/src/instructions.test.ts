@@ -136,8 +136,25 @@ describe('INSTRUCTIONS', () => {
     )
   })
 
-  it('names add_image, list_fonts, ad_rules, place_asset, search_graphics and place_graphic, and stays under 4,096 characters', () => {
-    for (const tool of ['add_image', 'list_fonts', 'ad_rules', 'place_asset', 'search_graphics', 'place_graphic'])
+  it('tells of upload_image, which gives a link to send a file from the agent’s machine to', () => {
+    expect(INSTRUCTIONS).toContain('upload_image gives a link to send a file from this machine to')
+  })
+
+  it('says never to invent facts, and to render and check a frame before saying it is done', () => {
+    expect(INSTRUCTIONS).toContain('Never invent a price, date or claim')
+    expect(INSTRUCTIONS).toContain('look at it with render_frame and fix what check_frame warns about')
+  })
+
+  it('names add_image, upload_image, list_fonts, ad_rules, place_asset, search_graphics and place_graphic, and stays under 4,096 characters', () => {
+    for (const tool of [
+      'add_image',
+      'upload_image',
+      'list_fonts',
+      'ad_rules',
+      'place_asset',
+      'search_graphics',
+      'place_graphic',
+    ])
       expect(INSTRUCTIONS).toContain(tool)
     expect(INSTRUCTIONS.length).toBeLessThan(4_096)
   })

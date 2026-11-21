@@ -97,6 +97,7 @@ describe('mcpEndpoint', () => {
       'list_assets',
       'create_design',
       'add_image',
+      'upload_image',
       'search_stock',
       'add_stock',
       'brand_from_website',

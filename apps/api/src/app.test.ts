@@ -65,6 +65,7 @@ const OUTSIDE_A_WORKSPACE = [
   '/me/*',
   '/me/deletion',
   '/access-requests',
+  '/uploads/:token',
 ]
 
 const WRITER_REFUSAL = 'Only an Owner, Admin or Editor can do this'
@@ -180,7 +181,7 @@ describe('roles', () => {
 })
 
 describe('workspaces', () => {
-  it('has no route outside a workspace but the health check, /me, sign-in, the development accept, the request to join and /admin, whatever route is added later', () => {
+  it('has no route outside a workspace but the health check, /me, sign-in, the development accept, the request to join, upload links and /admin, whatever route is added later', () => {
     const outside = app.routes
       .map((r) => r.path)
       .filter((path) => !inAWorkspace(path) && !OUTSIDE_A_WORKSPACE.includes(path) && !path.startsWith('/admin/'))

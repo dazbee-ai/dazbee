@@ -24,7 +24,11 @@ describe('figmaToImport', () => {
         { 1: { fills: 5 }, __proto__: { fills: [] } },
         [
           { type: 'GRADIENT_RADIAL', gradientHandlePositions: 'x', gradientStops: [{ position: 'a' }] },
-          { type: 'GRADIENT_ANGULAR', gradientHandlePositions: [{ x: 1e308, y: -1e308 }, { x: 0 }], gradientStops: [7] },
+          {
+            type: 'GRADIENT_ANGULAR',
+            gradientHandlePositions: [{ x: 1e308, y: -1e308 }, { x: 0 }],
+            gradientStops: [7],
+          },
           { type: 'IMAGE', imageRef: 5, filters: 3, scaleMode: 'STRETCH', imageTransform: 'x', rotation: 'x' },
           { type: 'IMAGE', imageRef: 'abc', scaleMode: 'TILE', scalingFactor: -1e308, filters: { tint: 'x' } },
           { type: 'DROP_SHADOW', color: 'red', offset: 4, radius: -1e308, spread: 'x' },

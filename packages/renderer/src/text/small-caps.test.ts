@@ -37,4 +37,17 @@ describe('madeUpSmallCaps', () => {
     )
     expect(shown).toBe('STRAßE')
   })
+
+  it('keeps a made-up superscript’s size and baseline shift on each piece it splits it into', () => {
+    const script = { fontSize: 50, baselineShift: -17.5 }
+    const { pieces } = madeUpSmallCaps(
+      'aB',
+      [{ start: 0, end: 2, style: style({ features: { smcp: true } }), script }],
+      new Map(),
+    )
+    expect(pieces.map((p) => [p.start, p.end, p.script])).toEqual([
+      [0, 1, script],
+      [1, 2, script],
+    ])
+  })
 })

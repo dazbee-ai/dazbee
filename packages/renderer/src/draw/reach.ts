@@ -143,10 +143,10 @@ function union(a: Rect, b: Rect): Rect {
  * Where a text layer's lines sit, from the same paragraph drawing lays out, which can be outside
  * its box: a fixed box overflows, an auto width box grows. Glyphs can reach past their line's
  * ascent, descent and advance (marks, swashes, wide letters), so each side gets half the largest
- * font size more.
+ * font size more, and as far again as a made-up superscript or subscript moves its glyphs.
  */
 function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect {
-  const { blocks, dy, scale, done } = laidOut(ck, props, resources)
+  const { blocks, dy, scale, scriptShift, done } = laidOut(ck, props, resources)
   let box: Rect = props
   for (const b of blocks) {
     for (const line of b.paragraph.getLineMetrics()) {
@@ -170,7 +170,7 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
   const outline =
     Math.max(...[props.style, ...props.runs.map((r) => r.style)].map((s) => outlineReach(s.outline))) * scale
   const largest = Math.max(props.style.fontSize, ...props.runs.map((r) => r.style.fontSize ?? 0)) * Math.max(1, scale)
-  return outset(box, largest / 2 + outline)
+  return outset(box, largest / 2 + outline + scriptShift)
 }
 
 /** How far a text's outline reaches past its glyphs: half its width over the letters, all of it under them. */

@@ -10,6 +10,11 @@ export interface StyledPiece {
   start: number
   end: number
   style: TextProps['style']
+  /**
+   * Set on a made-up superscript or subscript: the size its letters stand in for, which its lines
+   * keep, and the pixels its baseline moves, down for a positive value.
+   */
+  script?: { fontSize: number; baselineShift: number }
 }
 
 /** The share of the size lower-case letters are drawn at as made-up small caps. */
@@ -52,7 +57,7 @@ export function madeUpSmallCaps(
         const want = lower ? small : full
         const last = split.at(-1)
         if (last && last.end === i && last.style === want) last.end = i + ch.length
-        else split.push({ start: i, end: i + ch.length, style: want })
+        else split.push({ ...piece, start: i, end: i + ch.length, style: want })
         i += ch.length
       }
     }

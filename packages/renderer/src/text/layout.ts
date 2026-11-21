@@ -3,6 +3,7 @@ import type {
   FontCollection,
   Paragraph,
   ParagraphBuilder,
+  StrutStyle,
   TextStyle as CkTextStyle,
 } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
@@ -12,6 +13,7 @@ import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, wit
 import { color } from '../color.ts'
 import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
+import { madeUpScripts, paragraphShape, scriptLineStyle } from './script-position.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
@@ -55,6 +57,8 @@ export interface TextLayout {
   height: number
   /** The base font size shrink to fit chose, over the one set; 1 without it. */
   scale: number
+  /** The most pixels a made-up superscript or subscript moves its glyphs off their line's baseline; 0 without one. */
+  scriptShift: number
   align: TextProps['align']
   rtl: boolean
   delete(): void
@@ -64,7 +68,7 @@ export type ParagraphCache = ReturnType<typeof paragraphCache>
 
 type Style = TextProps['style']
 /** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
-type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures'>
+type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familyScripts'>
 
 const ELLIPSIS = '\u2026'
 /** The pass that draws a text's characters. */
@@ -177,10 +181,15 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   })
   const styleAt = (offset: number) =>
     pieces.find((p) => offset >= p.start && offset < p.end)?.style ?? pieces.at(-1)?.style ?? base
-  // Small caps the fonts lack are drawn as smaller capitals, in pieces of their own.
-  const { shown, pieces: drawn } = madeUpSmallCaps(withCase(props.text, styleAt), pieces, resources.familyFeatures)
+  const cased = withCase(props.text, styleAt)
+  // Superscripts and subscripts the fonts lack are drawn smaller and moved off the baseline, and
+  // small caps they lack as smaller capitals, in pieces of their own.
+  const shape = paragraphShape(ck, resources.fonts, rtl, (style) => textStyle(ck, style, fallbacks, FILL))
+  const scripted = madeUpScripts(cased, pieces, shape, resources.familyScripts, resources.familyFeatures)
+  const { shown, pieces: drawn } = madeUpSmallCaps(cased, scripted, resources.familyFeatures)
 
-  const paragraphStyle = (style: Style, extra: { maxLines?: number; ellipsis?: string } = {}) =>
+  /** A paragraph's style; `lines` is the style its lines keep at least, where its own runs are smaller. */
+  const paragraphStyle = (style: Style, extra: { maxLines?: number; ellipsis?: string } = {}, lines?: Style) =>
     new ck.ParagraphStyle({
       textAlign: {
         start: ck.TextAlign.Start,
@@ -190,6 +199,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       }[props.align],
       textDirection: rtl ? ck.TextDirection.RTL : ck.TextDirection.LTR,
       textStyle: textStyle(ck, style, fallbacks, FILL),
+      ...(lines ? { strutStyle: strutStyle(ck, lines, fallbacks) } : {}),
       ...extra,
     })
   const outlined = (under: boolean) =>
@@ -197,8 +207,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
-  const push = (builder: ParagraphBuilder, style: Style, pass: TextPass) =>
-    pushPainted(ck, builder, textStyle(ck, style, fallbacks, pass), style, pass, box)
+  const push = (builder: ParagraphBuilder, piece: { style: Style; script?: { baselineShift: number } }, pass: TextPass) =>
+    pushPainted(ck, builder, textStyle(ck, piece.style, fallbacks, pass, piece.script?.baselineShift), piece.style, pass, box)
   /**
    * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.
    * `text` is what it draws in place of the shown text, of the same length.
@@ -213,20 +223,23 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   ) => {
     // An empty paragraph takes the style typing would give it: the character before's.
     const lead = start < end ? styleAt(start) : styleAt(Math.max(0, start - 1))
+    const lines = scriptLineStyle(drawn.filter((p) => p.start < end && p.end > start)) ?? undefined
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(
-      paragraphStyle(start === 0 && end === props.text.length ? base : lead, extra),
+      paragraphStyle(start === 0 && end === props.text.length ? base : lead, extra, lines),
       resources.fonts,
     )
     for (const piece of drawn) {
       const from = Math.max(piece.start, start)
       const to = Math.min(piece.end, end)
       if (to <= from) continue
-      push(builder, piece.style, pass)
+      push(builder, piece, pass)
       builder.addText(text.slice(from - start, to - start))
       builder.pop()
     }
     if (more) {
-      push(builder, styleAt(Math.max(start, end - 1)), pass)
+      const last = Math.max(start, end - 1)
+      const piece = drawn.find((p) => last >= p.start && last < p.end)
+      push(builder, piece ?? { style: styleAt(last) }, pass)
       builder.addText(more)
       builder.pop()
     }
@@ -247,7 +260,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     if (!props.list || start === end) return null
     number++
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(styleAt(start)), resources.fonts)
-    push(builder, styleAt(start), FILL)
+    push(builder, { style: styleAt(start) }, FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.
     builder.addText(props.list === 'bullet' ? '\u2022' : `${number}.`)
     builder.pop()
@@ -359,6 +372,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     width,
     height: y,
     scale,
+    scriptShift: Math.max(0, ...drawn.map((p) => Math.abs(p.script?.baselineShift ?? 0))),
     align: props.align,
     rtl,
     delete() {
@@ -422,12 +436,16 @@ function withCase(text: string, styleAt: (offset: number) => Style): string {
   return out
 }
 
-/** A style for CanvasKit, with its underline and strikethrough only in the pass that draws them (`drawsLines`). */
+/**
+ * A style for CanvasKit, with its underline and strikethrough only in the pass that draws them
+ * (`drawsLines`), and its baseline moved down by `baselineShift` pixels.
+ */
 function textStyle(
   ck: CanvasKit,
   style: Style,
   resources: Pick<Resources, 'fallbackFamilies'>,
   pass: TextPass,
+  baselineShift = 0,
 ): CkTextStyle {
   const decoration = drawsLines(style, pass)
     ? (style.underline ? ck.UnderlineDecoration : 0) | (style.strikethrough ? ck.LineThroughDecoration : 0)
@@ -443,12 +461,27 @@ function textStyle(
     // A variable font draws its default instance unless told the weight; a static one ignores it.
     fontVariations: [{ axis: 'wght', value: style.fontWeight }],
     letterSpacing: letterSpacingPx(style.letterSpacing, style.fontSize),
+    baselineShift,
     ...(style.features
       ? { fontFeatures: Object.entries(style.features).map(([name, on]) => ({ name, value: on ? 1 : 0 })) }
       : {}),
     ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
     ...(decoration ? { decoration, decorationColor: color(ck, linesColour(style, pass)), decorationThickness: 1 } : {}),
   })
+}
+
+/** Lines at least as tall as the style's would be, for a paragraph whose own letters are smaller. */
+function strutStyle(ck: CanvasKit, style: Style, resources: Pick<Resources, 'fallbackFamilies'>): StrutStyle {
+  return {
+    strutEnabled: true,
+    fontFamilies: [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)],
+    fontSize: style.fontSize,
+    fontStyle: {
+      weight: { value: style.fontWeight },
+      slant: style.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
+    },
+    ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
+  }
 }
 
 /**

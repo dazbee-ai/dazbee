@@ -90,12 +90,13 @@ export function resourceCache(ck: CanvasKit) {
 
   function fontsFor(list: ResourceBytes['fonts']) {
     if (fonts && sameFonts(fonts.list, list)) return fonts
-    // A provider can't drop a font, so a changed set of fonts is registered again from scratch.
+    // A provider can't drop a font, so a changed set of fonts is registered again from scratch, the
+    // old set freed first: CanvasKit's memory then holds one set's files at a time, not two.
+    freeFonts()
     const provider = ck.TypefaceFontProvider.Make()
     for (const font of list) provider.registerFont(font.bytes, font.family)
     const collection = ck.FontCollection.Make()
     collection.setDefaultFontManager(provider)
-    freeFonts()
     fonts = { list: [...list], provider, collection, features: familyFeatures(list) }
     return fonts
   }

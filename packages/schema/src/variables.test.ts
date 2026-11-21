@@ -10,6 +10,9 @@ import {
   BrandToken,
   canBind,
   fitsProperty,
+  overlappingBindings,
+  type TextLook,
+  VALUE_KINDS,
   valueKindOf,
   VariableRef,
 } from './variables.ts'
@@ -22,6 +25,33 @@ const TYPES = ['graphic', 'box', 'boolean', 'text', 'group']
 const textProps = {
   style: { fontFamily: 'Noto Sans', color: navy, fontSize: 40 },
   runs: [{ start: 0, end: 2, style: { color: '#00FF00FF', fontFamily: 'Inter' } }],
+}
+/** A brand text style's look, as the kit gives it. */
+const headline: TextLook = {
+  fontFamily: 'Playfair Display',
+  fontWeight: 700,
+  fontStyle: 'italic',
+  lineHeight: 1.1,
+  letterSpacing: { unit: 'percent', value: -1 },
+  textCase: 'upper',
+}
+/** A look without one of the settings a look may leave out. */
+function without(look: TextLook, key: 'fontFamily' | 'lineHeight' | 'textCase'): TextLook {
+  return Object.fromEntries(Object.entries(look).filter(([k]) => k !== key)) as TextLook
+}
+/** A text in its own look, with a run of its own weight. */
+const lookProps = {
+  style: {
+    fontFamily: 'Noto Sans',
+    fontWeight: 400,
+    fontStyle: 'normal',
+    fontSize: 40,
+    color: navy,
+    lineHeight: 1.4,
+    letterSpacing: { unit: 'percent', value: 0 },
+    underline: true,
+  },
+  runs: [{ start: 0, end: 2, style: { fontWeight: 900 } }],
 }
 
 describe('BrandToken', () => {
@@ -127,10 +157,84 @@ describe('BINDABLE_PROPERTIES', () => {
   })
 })
 
+describe('BINDABLE_PROPERTIES textStyle', () => {
+  it('reads a text’s look from its base style, never its runs', () => {
+    expect(BINDABLE_PROPERTIES.textStyle.read(lookProps)).toEqual({
+      fontFamily: 'Noto Sans',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      lineHeight: 1.4,
+      letterSpacing: { unit: 'percent', value: 0 },
+    })
+    expect(BINDABLE_PROPERTIES.textStyle.read({})).toBeUndefined()
+  })
+
+  it('writes a look into the base style, keeping its size, colour and the rest, and its runs', () => {
+    const written = BINDABLE_PROPERTIES.textStyle.write(lookProps, headline)
+    expect(written.style).toEqual({ ...lookProps.style, ...headline })
+    expect(written.runs).toBe(lookProps.runs)
+  })
+
+  it('takes out a line height or case the look leaves out, and keeps the family when it names none', () => {
+    const cased = { style: { ...lookProps.style, textCase: 'title' } }
+    const plain: TextLook = { fontWeight: 300, fontStyle: 'normal', letterSpacing: { unit: 'px', value: 2 } }
+    expect(BINDABLE_PROPERTIES.textStyle.write(cased, plain).style).toEqual({
+      fontFamily: 'Noto Sans',
+      fontWeight: 300,
+      fontStyle: 'normal',
+      fontSize: 40,
+      color: navy,
+      letterSpacing: { unit: 'px', value: 2 },
+      underline: true,
+    })
+  })
+
+  it('gives back the same props when the text shows the look already', () => {
+    const shown = BINDABLE_PROPERTIES.textStyle.write(lookProps, headline)
+    const noFamily = without(headline, 'fontFamily')
+    expect(BINDABLE_PROPERTIES.textStyle.write(shown, headline)).toBe(shown)
+    expect(BINDABLE_PROPERTIES.textStyle.write(shown, noFamily)).toBe(shown)
+  })
+})
+
+describe('VALUE_KINDS', () => {
+  it('takes a colour whose hex digits differ only in case as the same', () => {
+    expect(VALUE_KINDS.color.same(red, red.toLowerCase())).toBe(true)
+    expect(VALUE_KINDS.color.same(red, navy)).toBe(false)
+    expect(VALUE_KINDS.font.same('Inter', 'inter')).toBe(false)
+  })
+
+  it('compares looks whole, a case of none as none at all, and a family only where both name one', () => {
+    const { textLook } = VALUE_KINDS
+    const noFamily = without(headline, 'fontFamily')
+    const ownLineHeight = without(headline, 'lineHeight')
+    const noCase = without(headline, 'textCase')
+    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'percent', value: -1 } })).toBe(true)
+    expect(textLook.same(headline, { ...headline, fontWeight: 600 })).toBe(false)
+    expect(textLook.same(headline, { ...headline, letterSpacing: { unit: 'px', value: -1 } })).toBe(false)
+    expect(textLook.same(headline, ownLineHeight)).toBe(false)
+    expect(textLook.same(headline, { ...headline, fontFamily: 'Inter' })).toBe(false)
+    expect(textLook.same(headline, noFamily)).toBe(true)
+    expect(textLook.same({ ...headline, textCase: 'none' }, noCase)).toBe(true)
+    expect(textLook.same(headline, undefined)).toBe(false)
+    expect(textLook.same(undefined, undefined)).toBe(true)
+  })
+})
+
+describe('overlappingBindings', () => {
+  it('names the bindings a binding writes over: a text style and a font family each set the family', () => {
+    expect(overlappingBindings('textStyle')).toEqual(['fontFamily'])
+    expect(overlappingBindings('fontFamily')).toEqual(['textStyle'])
+    expect(overlappingBindings('textColor')).toEqual([])
+    expect(overlappingBindings('fill')).toEqual([])
+    expect(overlappingBindings('image')).toEqual([])
+  })
+})
+
 describe('Bindings', () => {
   it('holds a binding for each bindable property, and no other', () => {
     expect(Object.keys(Bindings.shape)).toEqual(Object.keys(BINDABLE_PROPERTIES))
-    expect(Object.keys(Bindings.shape)).toEqual(['fill', 'textColor', 'fontFamily', 'image'])
+    expect(Object.keys(Bindings.shape)).toEqual(['fill', 'textColor', 'fontFamily', 'image', 'textStyle'])
     expect(Bindings.parse({ fill: 'brand:primary', stroke: 'brand:accent' })).toEqual({ fill: 'brand:primary' })
   })
 
@@ -167,6 +271,12 @@ describe('Bindings', () => {
     expect(fontFamilies(design)).toEqual(['Noto Sans'])
     expect(fontFamilies(design, { 'brand:heading': 'Playfair Display' })).toEqual(['Playfair Display'])
     expect(fontFamilies(design, { 'brand:heading': ' ' })).toEqual(['Noto Sans'])
+    const styled = parseDesign({
+      ...json,
+      nodes: { t: { ...json.nodes.t, bindings: { textStyle: 'brand:headline' } } },
+    })
+    if (!styled.success) throw new Error(styled.errors.join('\n'))
+    expect(fontFamilies(styled.design, { 'brand:headline': headline })).toEqual(['Playfair Display'])
     expect(
       parseDesign({ ...json, nodes: { t: { ...json.nodes.t, bindings: { fontFamily: 'brand:Heading' } } } }).success,
     ).toBe(false)
@@ -179,6 +289,7 @@ describe('canBind', () => {
     for (const property of ['textColor', 'fontFamily'] as const)
       expect(TYPES.filter((type) => canBind(type, property))).toEqual(['text'])
     expect(TYPES.filter((type) => canBind(type, 'image'))).toEqual(['graphic', 'box'])
+    expect(TYPES.filter((type) => canBind(type, 'textStyle'))).toEqual(['text'])
   })
 })
 
@@ -188,6 +299,9 @@ describe('valueKindOf', () => {
     expect(valueKindOf('textColor').unfit).toBe('colours are #RRGGBBAA')
     expect(valueKindOf('fontFamily').unfit).toBe('a font family needs a name')
     expect(valueKindOf('image').unfit).toBe('a picture is an asset’s id')
+    expect(valueKindOf('textStyle').unfit).toBe(
+      'a text style’s look is a weight, a slant and a letter spacing, with a family, line height and case where it sets them',
+    )
   })
 })
 
@@ -201,6 +315,17 @@ describe('fitsProperty', () => {
     expect(fitsProperty('fontFamily', ' ')).toBe(false)
     expect(fitsProperty('image', 'logo-1')).toBe(true)
     expect(fitsProperty('image', 'a logo')).toBe(false)
+  })
+
+  it('takes a look for a text style, and a look for nothing else', () => {
+    const noFamily = without(headline, 'fontFamily')
+    expect(fitsProperty('textStyle', headline)).toBe(true)
+    expect(fitsProperty('textStyle', noFamily)).toBe(true)
+    expect(fitsProperty('textStyle', { ...headline, fontFamily: ' ' })).toBe(false)
+    expect(fitsProperty('textStyle', { ...headline, fontWeight: 950 })).toBe(false)
+    expect(fitsProperty('textStyle', 'Playfair Display')).toBe(false)
+    expect(fitsProperty('fontFamily', headline)).toBe(false)
+    expect(fitsProperty('fill', headline)).toBe(false)
   })
 })
 
@@ -220,6 +345,11 @@ describe('bindablePropertyOf', () => {
     expect(bindablePropertyOf('box', 'image')).toBe('image')
     expect(bindablePropertyOf('boolean', 'image')).toBeUndefined()
     expect(bindablePropertyOf('text', 'image')).toBeUndefined()
+  })
+
+  it('gives a text its text style', () => {
+    expect(bindablePropertyOf('text', 'textLook')).toBe('textStyle')
+    expect(bindablePropertyOf('box', 'textLook')).toBeUndefined()
   })
 })
 
@@ -274,5 +404,24 @@ describe('bindProps', () => {
     expect(bound.runs).toBe(props.runs)
     // A text layer has no fill to bind, a graphic no text.
     expect(bindProps('text', props, { fill: 'brand:primary' }, { 'brand:primary': red })).toBe(props)
+  })
+
+  it('sets a text’s look from its brand text style, keeping its size, and keeps the stored one without a value', () => {
+    const bound = bindProps('text', lookProps, { textStyle: 'brand:headline' }, { 'brand:headline': headline })
+    expect(bound.style).toEqual({ ...lookProps.style, ...headline })
+    expect(bindProps('text', lookProps, { textStyle: 'brand:headline' }, { 'brand:headline': 'Inter' })).toBe(lookProps)
+    expect(bindProps('text', lookProps, { fontFamily: 'brand:headline' }, { 'brand:headline': headline })).toBe(
+      lookProps,
+    )
+  })
+
+  it('draws a text bound to a text style and a font in the style’s family', () => {
+    const bound = bindProps(
+      'text',
+      lookProps,
+      { fontFamily: 'brand:body', textStyle: 'brand:headline' },
+      { 'brand:body': 'Inter', 'brand:headline': headline },
+    )
+    expect(bound.style.fontFamily).toBe('Playfair Display')
   })
 })

@@ -111,6 +111,30 @@ describe('brandVariables', () => {
     expect(brandVariables({ ...kit, logoAssetId: null }, { id: 'logo-1', contentType: 'image/png' })).toEqual(without)
   })
 
+  it('gives each text style as its look, in the family of the kit font it follows or its own', () => {
+    const styled = BrandKit.parse({
+      ...kit,
+      fonts: [...kit.fonts, { token: 'script', name: 'Script', family: 'Pacifico' }],
+      textStyles: [
+        { ...HEADLINE, textCase: 'upper' },
+        { ...HEADLINE, token: 'quote', name: 'Quote', font: { token: 'script' }, lineHeight: undefined },
+        { ...HEADLINE, token: 'small', name: 'Small', font: { family: 'Inter' }, fontStyle: 'italic' },
+        { ...HEADLINE, token: 'body-text', name: 'Body', font: { token: 'body' } },
+      ],
+    })
+    const look = { fontWeight: 700, letterSpacing: { unit: 'percent', value: -1 } }
+    expect(brandVariables(styled)).toEqual({
+      'brand:primary': '#14213DFF',
+      'brand:heading': 'Lora',
+      'brand:script': 'Pacifico',
+      'brand:headline': { ...look, fontFamily: 'Lora', fontStyle: 'normal', lineHeight: 1.1, textCase: 'upper' },
+      'brand:quote': { ...look, fontFamily: 'Pacifico', fontStyle: 'normal' },
+      'brand:small': { ...look, fontFamily: 'Inter', fontStyle: 'italic', lineHeight: 1.1 },
+      // Body is not set: the look keeps each text's own family.
+      'brand:body-text': { ...look, fontStyle: 'normal', lineHeight: 1.1 },
+    })
+  })
+
   it('gives the logo its token even where the kit holds a colour or font with it', () => {
     const own = { ...kit, colors: [...kit.colors, { token: 'logo', name: 'Logo', value: '#E0262BFF' }] }
     expect(brandVariables(own, { id: 'logo-1', contentType: 'image/png' })['brand:logo']).toBe('logo-1')

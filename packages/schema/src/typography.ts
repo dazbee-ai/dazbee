@@ -1,5 +1,6 @@
-// A text's typographic settings beside its font: letter spacing in pixels or as a share of the font
-// size, and the OpenType features turned on or off; with how a run's style sits over the base style.
+// A text's typographic settings: the fields of its character style, letter spacing in pixels or as
+// a share of the font size, and the OpenType features turned on or off; with how a run's style sits
+// over the base style.
 import { z } from 'zod'
 
 import { Color } from './primitives.ts'

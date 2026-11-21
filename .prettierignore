@@ -7,3 +7,4 @@ packages/canvaskit/.skia/**
 **/.next/**
 **/dist/**
 tests/pixels/output/**
+tests/pixels/fixtures/figma/recorded/**

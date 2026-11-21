@@ -135,8 +135,10 @@ export function toldField(
   range: TextRange,
   backward: boolean,
 ): HeldField {
-  const given = (held && keptHeld(store, held, text, range, backward)) ?? fieldText(text, range, backward)
-  return heldField(store, id, given, range)
+  const kept = held && keptHeld(store, held, text, range, backward)
+  // Kept as it was given, it stands where it was anchored.
+  if (held && kept && !held.kept && sameField(kept, held.given)) return held
+  return heldField(store, id, kept ?? fieldText(text, range, backward), range)
 }
 
 /**
@@ -286,6 +288,24 @@ export function holdsAround(state: FieldState, data: string): boolean {
   return data !== '' && dataCover(null, state, data) !== null
 }
 
+/** What the field holding `held` keeps for the selected range of `text`, as `keptField` keeps it; null when it must be given new text. */
+function keptHeld(store: Anchors, held: HeldField, text: string, range: TextRange, backward: boolean) {
+  const ends = anchored(store, held.start, held.end)
+  return ends && keptField(text, held.kept ?? held.given, ends, range, backward)
+}
+
+/** Whether two fields hold the same value and selection, running the same way. */
+function sameField(a: FieldState, b: FieldState) {
+  return a.value === b.value && a.start === b.start && a.end === b.end && !a.backward === !b.backward
+}
+
+/** The range between two anchors in a text; null once either is gone. */
+function anchored(store: Anchors, start: TextAnchor, end: TextAnchor): TextRange | null {
+  const from = store.anchorOffset(start)
+  const to = store.anchorOffset(end)
+  return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
+}
+
 /**
  * Where `data` stands in what the field holds around its caret, holding all the change makes, as a
  * range of the value it was given: the occurrence ending nearest the caret. Null when there is none.
@@ -303,17 +323,4 @@ function dataCover(change: FieldChange | null, state: FieldState, data: string):
   if (found === null) return null
   const grown = found + data.length - to
   return { start: found, end: (change ? change.end : to) + grown }
-}
-
-/** What the field holding `held` keeps for the selected range of `text`, as `keptField` keeps it; null when it must be given new text. */
-function keptHeld(store: Anchors, held: HeldField, text: string, range: TextRange, backward: boolean) {
-  const ends = anchored(store, held.start, held.end)
-  return ends && keptField(text, held.kept ?? held.given, ends, range, backward)
-}
-
-/** The range between two anchors in a text; null once either is gone. */
-function anchored(store: Anchors, start: TextAnchor, end: TextAnchor): TextRange | null {
-  const from = store.anchorOffset(start)
-  const to = store.anchorOffset(end)
-  return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
 }

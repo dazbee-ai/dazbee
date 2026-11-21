@@ -132,6 +132,16 @@ describe('gradient text', () => {
     expect(ink.some((x) => near(at(pixels, x, row), GREEN))).toBe(false)
   })
 
+  it('draws a gradient underline in an SVG as its image, also where the underline comes from another run', () => {
+    const svg = (runs: unknown[]) => new TextDecoder().decode(renderVector(ck, design({}, { runs }), 'f', bytes, 'svg'))
+    expect(svg([{ start: 0, end: 6, style: { gradient: SWEEP } }])).not.toContain('<image')
+    const crossing = [
+      { start: 0, end: 6, style: { gradient: SWEEP } },
+      { start: 3, end: 9, style: { underline: true } },
+    ]
+    expect(svg(crossing)).toContain('<image')
+  })
+
   it('keeps the text as text in a PDF, and draws it in the gradient there and in an SVG', async () => {
     const json = design({ gradient: SWEEP })
     const pdf = renderVector(ck, json, 'f', bytes, 'pdf')

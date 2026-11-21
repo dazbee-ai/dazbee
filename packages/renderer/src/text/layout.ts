@@ -194,7 +194,6 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     })
   const outlined = (under: boolean) =>
     pieces.some((p) => (p.style.outline?.width ?? 0) > 0 && (p.style.outline?.under ?? false) === under)
-  const lined = linedGradients(pieces.map((p) => p.style))
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
@@ -331,6 +330,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       laid.layout(wrap.width)
       return laid
     }
+    const lined = linedGradients(pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style))
     const marker = markers[i] ?? null
     const block: TextBlock = {
       paragraph,

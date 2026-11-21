@@ -278,10 +278,11 @@ function drawFilledLines(
   const paint = paintFor(ck, lines.gradient, box, resources)
   if (!paint) return
   const { paragraph } = lines
-  // Lines can sit past a tight line's box, so the layer reaches a paragraph's height past it each way.
+  // Lines can sit past a tight line's box, and a long word past the paragraph's width either way,
+  // so the layer reaches a paragraph's height and its longest line past it on each side.
   const width = Math.max(paragraph.getMaxWidth(), paragraph.getLongestLine())
   const reach = paragraph.getHeight()
-  const bounds = ck.XYWHRect(x - reach, y - reach, width + 2 * reach, 3 * reach)
+  const bounds = ck.XYWHRect(x - reach - width, y - reach, 3 * width + 2 * reach, 3 * reach)
   canvas.saveLayer(undefined, bounds)
   drawPass(ck, canvas, paragraph, x, y, resources)
   paint.setBlendMode(ck.BlendMode.SrcIn)

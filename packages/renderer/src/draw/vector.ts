@@ -190,14 +190,14 @@ function svgSafe(layer: SceneLayer): boolean {
 
 /**
  * Whether Skia's SVG writer draws a text's gradients as they are: each one SVG holds (`svgPaint`),
- * and no underline or strikethrough painted with one, which is filled through a layer SVG drops.
+ * and no underline or strikethrough that could be painted with one, which is filled through a layer
+ * SVG drops. Runs can overlap, so a text with a gradient and a line anywhere counts as having both.
  */
 function svgTextPaints(props: TextProps): boolean {
   const styles = [props.style, ...props.runs.map((r) => withRunStyle(props.style, r.style))]
-  return styles.every((style) => {
-    const gradient = shownGradient(style)
-    return !gradient || (svgPaint(gradient) && !style.underline && !style.strikethrough)
-  })
+  const gradients = styles.flatMap((style) => shownGradient(style) ?? [])
+  const lined = styles.some((style) => style.underline || style.strikethrough)
+  return gradients.every(svgPaint) && (gradients.length === 0 || !lined)
 }
 
 /** A group or box whose own drawing adds nothing an offscreen layer would change. */

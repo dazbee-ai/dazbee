@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 import { Effect } from './effects.ts'
 import { Paint } from './paint.ts'
-import { BlendMode, Color, ContainerBlendMode, FractionalIndex, FrameId, LinkId, NodeId } from './primitives.ts'
-import { Features, LetterSpacing, NO_LETTER_SPACING } from './typography.ts'
+import { BlendMode, ContainerBlendMode, FractionalIndex, FrameId, LinkId, NodeId } from './primitives.ts'
+import { NO_LETTER_SPACING, textStyleFields } from './typography.ts'
 import { Bindings } from './variables.ts'
 
 /**
@@ -242,27 +242,6 @@ export const BooleanProps = z.object({
   strokes: Stroke.array().default([]),
 })
 export type BooleanProps = z.infer<typeof BooleanProps>
-
-/** The fields of a text's character style, as the base style and a run's style take them. */
-export const textStyleFields = {
-  fontFamily: z.string().min(1),
-  fontWeight: z.number().int().min(100).max(900),
-  fontStyle: z.enum(['normal', 'italic']),
-  fontSize: z.number().positive(),
-  color: Color,
-  /** The room after each character: pixels, or a percentage of the font size the characters are set at. */
-  letterSpacing: LetterSpacing,
-  /** A multiple of the font size; omitted means the font's own line height. */
-  lineHeight: z.number().positive(),
-  underline: z.boolean(),
-  strikethrough: z.boolean(),
-  /** Drawn in another case, as CSS text-transform does; the text itself is kept as typed (#47). */
-  textCase: z.enum(['none', 'upper', 'lower', 'title']),
-  /** A line along the glyphs' edges, centred on them, drawn over the fill (#47). Width 0 is none. */
-  outline: z.object({ width: z.number().min(0), color: Color }),
-  /** OpenType features turned on or off by tag; a run's set theirs over the base style's, tag by tag. */
-  features: Features,
-}
 
 /** A text layer's base character style. */
 export const TextStyle = z.object({

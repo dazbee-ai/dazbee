@@ -2,6 +2,8 @@
 // size, and the OpenType features turned on or off; with how a run's style sits over the base style.
 import { z } from 'zod'
 
+import { Color } from './primitives.ts'
+
 /** An OpenType feature tag: four printable ASCII characters, such as `liga`. */
 const FEATURE_TAG = /^[\x20-\x7E]{4}$/
 
@@ -24,6 +26,27 @@ export type Features = z.infer<typeof Features>
 
 /** Letter spacing of none, as a percentage so it follows the size: what a text without its own has. */
 export const NO_LETTER_SPACING: LetterSpacing = { unit: 'percent', value: 0 }
+
+/** The fields of a text's character style, as the base style and a run's style take them. */
+export const textStyleFields = {
+  fontFamily: z.string().min(1),
+  fontWeight: z.number().int().min(100).max(900),
+  fontStyle: z.enum(['normal', 'italic']),
+  fontSize: z.number().positive(),
+  color: Color,
+  /** The room after each character: pixels, or a percentage of the font size the characters are set at. */
+  letterSpacing: LetterSpacing,
+  /** A multiple of the font size; omitted means the font's own line height. */
+  lineHeight: z.number().positive(),
+  underline: z.boolean(),
+  strikethrough: z.boolean(),
+  /** Drawn in another case, as CSS text-transform does; the text itself is kept as typed (#47). */
+  textCase: z.enum(['none', 'upper', 'lower', 'title']),
+  /** A line along the glyphs' edges, centred on them, drawn over the fill (#47). Width 0 is none. */
+  outline: z.object({ width: z.number().min(0), color: Color }),
+  /** OpenType features turned on or off by tag; a run's set theirs over the base style's, tag by tag. */
+  features: Features,
+}
 
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */
 export function letterSpacingPx(spacing: LetterSpacing, fontSize: number): number {

@@ -4,9 +4,10 @@
 import { z } from 'zod'
 
 import { Effect } from './effects.ts'
-import { type Layer, Radius, Stroke, TextStyle, textStyleFields } from './layers.ts'
+import { type Layer, Radius, Stroke, TextStyle } from './layers.ts'
 import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
+import { textStyleFields } from './typography.ts'
 import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
 /** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs and its OpenType features. Null is none. */

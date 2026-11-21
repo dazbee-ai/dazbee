@@ -5,8 +5,7 @@ import { z } from 'zod'
 
 import type { BrandKit } from './api.ts'
 import { brandRoleOf, freeToken } from './brand-roles.ts'
-import { textStyleFields } from './layers.ts'
-import { NO_LETTER_SPACING } from './typography.ts'
+import { NO_LETTER_SPACING, textStyleFields } from './typography.ts'
 import { BrandToken } from './variables.ts'
 
 /**

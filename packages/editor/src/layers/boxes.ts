@@ -14,8 +14,10 @@ import {
 } from '@dazbee/doc'
 import { imageSizeOf, type SceneLayer } from '@dazbee/renderer'
 import {
+  bindableEntry,
   canHold,
   type Design,
+  fitsProperty,
   type GraphicProps,
   type ImagePaint,
   isNonEmpty,
@@ -97,7 +99,7 @@ export interface SnapBoxes {
 export interface BoxesDeps {
   session: Session
   scenes: Pick<FrameScenes, 'scene' | 'hit' | 'under' | 'laidOut' | 'laidOutLayer'>
-  resources: Pick<EditorResources, 'resources'>
+  resources: Pick<EditorResources, 'resources' | 'bytes'>
   selection: Pick<EditorSelection, 'current' | 'entered'>
   /** The design as last drawn. */
   drawn: () => Design
@@ -183,7 +185,10 @@ export interface EditorBoxes {
   storedBoxes<B extends Partial<Box>>(boxes: ReadonlyMap<string, B>, into?: string): Map<string, B>
   /** Where to store a new layer's box, or its point, drawn at `box` under `parentId`, so it is drawn there, as `storedBoxes` stores layers. */
   storedNewBox<B extends Partial<Box>>(box: B, parentId: string): B
-  /** A layer's properties as drawn: its x, y, width and height where auto layout places and sizes it. */
+  /**
+   * A layer's properties as drawn: its x, y, width and height where auto layout places and sizes it,
+   * and a text's look as the brand text style bound to it gives it, which its stored look can lag.
+   */
   drawnProps(id: string, from?: Design): Readonly<Record<string, unknown>>
   /** Whether every layer of a frame that two designs both hold is drawn in the same place, at the same size and turn, in each. */
   drawnAlike(frameId: string, before: Design, after: Design): boolean
@@ -534,6 +539,14 @@ export function editorBoxes({ session, scenes, resources, selection, drawn, fram
     return box && { x: box.x, y: box.y, width: box.width, height: box.height }
   }
 
+  /** A layer's props as drawn: placed by auto layout, and in the look of the text style bound to it. */
+  function drawnProps(id: string, from: Design = session.design()) {
+    const props = places.drawnProps(id, from)
+    const ref = from.nodes[id]?.bindings?.textStyle
+    const look = ref === undefined ? undefined : resources.bytes().variables?.[ref]
+    return look !== undefined && fitsProperty('textStyle', look) ? bindableEntry('textStyle').write(props, look) : props
+  }
+
   return {
     boxIn,
     containersOf,
@@ -556,7 +569,7 @@ export function editorBoxes({ session, scenes, resources, selection, drawn, fram
     drawnHolders: places.drawnHolders,
     storedBoxes: places.storedBoxes,
     storedNewBox: places.storedNewBox,
-    drawnProps: places.drawnProps,
+    drawnProps,
     drawnAlike,
     parentFor,
     pickAt,

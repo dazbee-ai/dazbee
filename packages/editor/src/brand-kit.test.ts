@@ -115,12 +115,25 @@ const BRAND_TEXT: DesignInput = linkedFrames(
   [{ id: 'story', name: 'Story', width: 1080, height: 1920, values: { wide: { style: { ...BOUND, fontSize: 48 } } } }],
 )
 
+/** The design with its heading bound to the Headline style, in its look, and to the heading font too. */
+const BOTH_BOUND: DesignInput = {
+  ...DESIGN,
+  nodes: {
+    ...DESIGN.nodes,
+    heading: {
+      ...(DESIGN.nodes.heading as object),
+      props: { ...(DESIGN.nodes.heading?.props as object), style: { ...STYLE, ...HEADLINE } },
+      bindings: { fontFamily: 'brand:heading', textStyle: 'brand:headline' },
+    },
+  } as unknown as DesignInput['nodes'],
+}
+
 /**
  * The brand kit on a real session and selection, with bytes that gain a family's files when its
  * load is let go, unless it is one of `failing`, logging what it asks of resources, the view and typing.
  */
-function harness(failing: string[] = []) {
-  const session = sessionOf(DESIGN)
+function harness(failing: string[] = [], design = DESIGN) {
+  const session = sessionOf(design)
   const log: string[] = []
   const selection = editorSelection({ drawn: () => session.design(), frames: () => [], changed: () => {} })
   let bytes: ResourceBytes = { fonts: [], fallbackFamilies: [], images: {}, variables: KIT }
@@ -393,6 +406,25 @@ describe('editorBrandKit', () => {
       expect(log).toContain('fit words')
     })
 
+    it('settles a text left bound to a style and a font, as two tabs can leave it, on the style it is drawn in', async () => {
+      for (const variables of [
+        { ...KIT, 'brand:heading': 'Inter' },
+        { ...KIT, 'brand:headline': { ...HEADLINE, fontWeight: 300 } },
+        KIT,
+      ]) {
+        const { kit, session, arrive } = harness([], BOTH_BOUND)
+        const done = kit.setVariables(variables)
+        arrive()
+        await done
+        const look = variables['brand:headline'] as TextLook
+        expect(session.design().nodes.heading).toMatchObject({
+          bindings: { textStyle: 'brand:headline' },
+          props: { style: look },
+        })
+        expect(session.design().nodes.heading?.bindings?.fontFamily).toBeUndefined()
+      }
+    })
+
     it('leaves a text bound to a style be when the family’s files don’t come', async () => {
       const { kit, session, select, arrive } = harness(['Inter'])
       select(['words'])
@@ -401,6 +433,41 @@ describe('editorBrandKit', () => {
       arrive()
       await done
       expect(session.design().nodes.words?.props).toMatchObject({ style: { fontFamily: 'Noto Sans', fontWeight: 700 } })
+    })
+  })
+
+  describe('a text bound to a text style, edited by hand', () => {
+    it('starts a hand edit of a text from the look its text style draws, which its stored look can lag', async () => {
+      const style = { ...STYLE, fontWeight: 400, lineHeight: 1.4 }
+      const { core, end } = await testEditor(
+        frameDesign({
+          name: 'Styled',
+          nodes: {
+            title: {
+              type: 'text',
+              parentId: 'sq',
+              index: 'a0',
+              name: 'Title',
+              bindings: { textStyle: 'brand:headline' },
+              props: { x: 0, y: 0, width: 400, height: 40, text: 'Sale', boxMode: 'fixed', style },
+            },
+          },
+        }),
+      )
+      // The look's family never loads, so the text keeps storing its old look while the kit's is drawn.
+      const look = {
+        fontFamily: 'Gone Display',
+        fontWeight: 700,
+        fontStyle: 'italic',
+        letterSpacing: { unit: 'percent', value: 2 },
+      } as const
+      await core.setVariables({ 'brand:headline': look })
+      expect(core.design().nodes.title?.props).toMatchObject({ style })
+      expect(core.drawnPropsOf('title')).toMatchObject({ style: { ...look, fontSize: 20 } })
+      core.setProps(['title'], (_, now) => ({ style: { ...(now.style as object), lineHeight: 2 } }))
+      expect(core.design().nodes.title).toMatchObject({ props: { style: { ...look, lineHeight: 2, fontSize: 20 } } })
+      expect(core.design().nodes.title?.bindings).toBeUndefined()
+      end()
     })
   })
 

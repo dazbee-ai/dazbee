@@ -5,6 +5,7 @@ import type { Session } from '@dazbee/doc'
 import {
   BINDABLE_PROPERTIES,
   bindablePropertyOf,
+  type Bindings,
   boundValueOf,
   fitsProperty,
   fontFamilies,
@@ -100,12 +101,13 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
   /**
    * Text bound to a brand font or text style the kit has changed since: once the family it gives has
    * its files here, the text takes its family and look and its box fits them. A look that names no
-   * family keeps the text's own. The kit lives outside the design, so this is a change no one undoes,
-   * as another tab's: undo could not put the kit back with it. Run when the kit changes and when the
-   * design opens.
+   * family keeps the text's own. A text left bound to a style and a font, as two tabs crossing can
+   * leave it, is drawn in the style, so it settles on the style: binding it again ends the font's
+   * binding. The kit lives outside the design, so this is a change no one undoes, as another tab's:
+   * undo could not put the kit back with it. Run when the kit changes and when the design opens.
    */
   async function refitBrandText() {
-    const stale = [...staleBindings('font'), ...staleBindings('textLook')]
+    const stale = [...staleBindings('textLook'), ...staleBindings('font')]
     if (stale.length === 0) return
     const families = [...new Set(stale.flatMap((s) => familyOf(s.value) ?? []))]
     await Promise.all(resources.loadFamilies(families))
@@ -119,7 +121,8 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
         if (!node || node.bindings?.[property] !== ref || resources.bytes().variables?.[ref] !== value) continue
         const { read, kind } = BINDABLE_PROPERTIES[property]
         const family = familyOf(value)
-        if (VALUE_KINDS[kind].same(read(node.props), value) || (family !== undefined && !here.has(family))) continue
+        const shown = VALUE_KINDS[kind].same(read(node.props), value) && !styleAndFont(node.bindings)
+        if (shown || (family !== undefined && !here.has(family))) continue
         if (!runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value }))) continue
         typing.fitText(id)
       }
@@ -139,20 +142,21 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
       }
     })
   }
-  /** The layers bound to a token of this kind whose stored value the kit's now differs from, with that value. */
+  /**
+   * The layers bound to a token of this kind whose stored value the kit's now differs from, with that
+   * value. A text bound to a style and a font counts as its style's and never its font's.
+   */
   function staleBindings(kind: ValueKind) {
     const kit = resources.bytes().variables ?? {}
     return Object.entries(session.design().nodes).flatMap(([id, node]) => {
       const property = bindablePropertyOf(node.type, kind)
       const ref = property ? node.bindings?.[property] : undefined
       const value = ref ? kit[ref] : undefined
-      return property &&
-        ref &&
-        value &&
-        fitsProperty(property, value) &&
-        !VALUE_KINDS[kind].same(value, BINDABLE_PROPERTIES[property].read(node.props))
-        ? [{ id, property, ref, value }]
-        : []
+      if (!property || !ref || !value || !fitsProperty(property, value)) return []
+      const both = styleAndFont(node.bindings)
+      if (kind === 'font' && both) return []
+      const shown = VALUE_KINDS[kind].same(value, BINDABLE_PROPERTIES[property].read(node.props))
+      return shown && !(kind === 'textLook' && both) ? [] : [{ id, property, ref, value }]
     })
   }
 
@@ -167,4 +171,9 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
 /** The family a brand font or text style's value gives; none for a look that names none. */
 function familyOf(value: VariableValue): string | undefined {
   return typeof value === 'string' ? value : value.fontFamily
+}
+
+/** Whether a text is bound to both a text style and a font, as two tabs crossing can leave it. */
+function styleAndFont(bindings: Bindings | undefined) {
+  return bindings?.textStyle !== undefined && bindings.fontFamily !== undefined
 }

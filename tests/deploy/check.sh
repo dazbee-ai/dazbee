@@ -53,7 +53,8 @@ expect_no_image() { ! docker image inspect "$REGISTRY/dazbee-$1:$2" > /dev/null 
 expect_api_serves() { compose exec -T caddy wget -qO /dev/null http://caddy:8080/health || fail 'the API does not answer'; }
 # The MCP server's authorization server metadata answers through Caddy's public site.
 expect_mcp_serves() {
-  curl -sSf --resolve app.dazbee.com:443:127.0.0.1 --cacert certs/origin.pem \n    https://app.dazbee.com/.well-known/oauth-authorization-server | grep -q '"issuer":"https://app.dazbee.com"' ||
+  curl -sSf --resolve app.dazbee.com:443:127.0.0.1 --cacert certs/origin.pem \
+    https://app.dazbee.com/.well-known/oauth-authorization-server | grep -q '"issuer":"https://app.dazbee.com"' ||
     fail 'the MCP server does not answer through Caddy'
 }
 

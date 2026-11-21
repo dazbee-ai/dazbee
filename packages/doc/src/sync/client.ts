@@ -212,6 +212,13 @@ export interface SavedClient {
   confirmed: DesignRecords
   /** The next change set id: ids keep rising, so the server tells one sent again from a new one. */
   nextId: number
+  /**
+   * The first id given since the tab came back from its tab copy, while the server hasn't welcomed
+   * it since: the tab copy may be older than what the tab sent, so these ids may be ones the server
+   * took already, and they take new ones once it is heard (rejoin). Kept across later reloads;
+   * absent when no id was given since.
+   */
+  firstIdSinceReload?: number
   queue: SavedQueued[]
   /** The steps the queued change sets apply, which `step` points into. */
   steps: SavedStep[]
@@ -305,11 +312,8 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
   let open: OpenStep | undefined
   /** The next change set's id. */
   let nextId = 1
-  /**
-   * After a reload, the first id the saved copy had not given: an older copy than what the tab
-   * sent gives ids the server took already, so the change sets made since take new ones (rejoin).
-   */
-  let madeSince: number | undefined
+  /** Until the server welcomes the tab back, the first id given since its first reload (see `SavedClient.firstIdSinceReload`). */
+  let firstIdSinceReload: number | undefined
   /** Whether a welcome came on the connection that is open. */
   let online = false
   /** The undo history: steps to undo, and steps to redo, the latest last. */
@@ -380,7 +384,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     // After the change sets the server took in for this tab id already, which it would ignore.
     nextId = message.processed.lastChangeSet + 1
     online = true
-    madeSince = undefined
+    firstIdSinceReload = undefined
     undoStack = []
     redoStack = []
     waiting = new WeakMap()
@@ -394,7 +398,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
 
   function restore(saved: SavedClient) {
     ;({ syncId, tabId, secret, access, seq, nextId } = saved)
-    madeSince = nextId
+    firstIdSinceReload = saved.firstIdSinceReload ?? nextId
     changedFrom = seq
     for (const [key, upTo] of saved.owed) owed.set(key, upTo)
     confirmed = DesignState.fromRecords(saved.confirmed)
@@ -420,6 +424,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
       seq,
       confirmed: confirmed.toRecords(),
       nextId,
+      ...(firstIdSinceReload !== undefined && firstIdSinceReload < nextId ? { firstIdSinceReload } : {}),
       queue: queue.map(({ step, ...q }) => (step ? { ...q, step: steps.indexOf(step) } : q)),
       steps: steps.map((step) => step.save()),
       ...(open ? { open: [...open.writes.values()] } : {}),
@@ -961,25 +966,27 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
    */
   function rejoin(message: Welcome): Outgoing[] {
     const { lastChangeSet } = message.processed
-    // Back from a copy older than what it sent: the change sets made since the reload take ids the server hasn't seen.
-    if (madeSince !== undefined && lastChangeSet >= madeSince) {
+    // Back from a copy older than what it sent: the change sets made since the first reload take ids the server
+    // hasn't seen, but for those it took as they are.
+    if (firstIdSinceReload !== undefined && lastChangeSet >= firstIdSinceReload) {
+      const taken = takenAsTheyAre(message, firstIdSinceReload)
       nextId = lastChangeSet + 1
       const renumbered = new Map<number, number>()
       for (const q of queue) {
-        if (q.id < madeSince) continue
+        if (q.id < firstIdSinceReload || taken.has(q.id)) continue
         renumbered.set(q.id, nextId)
         q.id = nextId++
       }
       if (renumbered.size > 0) answer({ kind: 'renumbered', ids: renumbered })
       // A record owed until a renumbered change set settles is owed until it settles under its new id.
       for (const [key, upTo] of owed) {
-        if (upTo < madeSince) continue
+        if (upTo < firstIdSinceReload) continue
         const ids = [...renumbered].filter(([old]) => old <= upTo).map(([, id]) => id)
         owed.set(key, Math.max(lastChangeSet, ...ids))
       }
     }
     nextId = Math.max(nextId, lastChangeSet + 1)
-    madeSince = undefined
+    firstIdSinceReload = undefined
     // An undo or redo lost in flight is made again: what others wrote meanwhile comes before it.
     for (const q of queue) {
       if (q.sent && q.id > lastChangeSet && (q.kind === 'undo' || q.kind === 'redo')) q.step?.lost()
@@ -1046,6 +1053,47 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
     online = true
     changeWorking([], rebuild)
     return flush()
+  }
+
+  /**
+   * Of the queued change sets from id `from` on, the leading run the server took under their ids as
+   * they are, sent once before from a tab copy written since: those the welcome's catch-up holds
+   * under their ids with the same changes, or, in a whole-design catch-up, those not rejected whose
+   * creates' records the design holds and whose sets and deletes it holds already as they write them
+   * (a set on a record that is gone holds nothing). Changes are compared as the wire carries them,
+   * which keeps no -0. The change sets after them were made under ids the server took for others.
+   */
+  function takenAsTheyAre(message: Welcome, from: number): Set<number> {
+    const { catchUp, processed } = message
+    const logged =
+      'changeSets' in catchUp
+        ? new Map(catchUp.changeSets.filter((acc) => acc.author === tabId).map((acc) => [acc.changeSetId, acc.changes]))
+        : undefined
+    const design = 'design' in catchUp ? DesignState.fromRecords(catchUp.design) : undefined
+    const holds = (changes: Change[]) => {
+      if (!design) return false
+      const next = design.overlay()
+      for (const change of changes) {
+        // A create's id is the tab's own: live in the design, it is this create's record.
+        if (change.op === 'create') {
+          if (next.partOf(change.id) === undefined) return false
+          continue
+        }
+        const wrote = next.apply(change, 'lenient')
+        if (change.op === 'set' && wrote.length === 0) return false
+      }
+      return next.ownKeys().every((key) => sameValue(next.getKey(key), design.getKey(key)))
+    }
+    const taken = new Set<number>()
+    for (const q of queue) {
+      if (q.id < from) continue
+      if (q.id > processed.lastChangeSet) break
+      const changes = JSON.parse(JSON.stringify(q.changes)) as Change[]
+      const same = logged ? sameValue(logged.get(q.id), changes) : !processed.rejected.includes(q.id) && holds(changes)
+      if (!same) break
+      taken.add(q.id)
+    }
+    return taken
   }
 
   /** The server no longer knows this tab (a new sync id, a dropped tab id): it joined as new, and its queue is gone. */

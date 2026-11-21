@@ -4,8 +4,10 @@
 // holds its name, which only an Owner or Admin can change, and its members, whose roles and brands only an
 // Owner or Admin changes. An Owner or Admin also sees Invite, whose brands start at the brand Settings was
 // opened from (`?brand=`), and the pending invites. Last, everyone sees Agents: the accesses they gave agents in
-// this workspace, each to end, and how to connect one at the MCP server's address.
+// this workspace, each to end, and how to connect one at the MCP server's address. At the foot, a link to the
+// third-party notices.
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { LibraryShell } from '@/components/library/library-shell.tsx'
@@ -121,6 +123,11 @@ export default async function SettingsPage({
             />
           </section>
         </div>
+        <p className="mt-6 text-label text-muted md:mt-8">
+          <Link href="/notices" className="rounded-row hover:text-text hover:underline">
+            {t.settings.notices}
+          </Link>
+        </p>
       </div>
     </LibraryShell>
   )

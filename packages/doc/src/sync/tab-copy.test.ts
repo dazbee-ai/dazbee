@@ -4,20 +4,32 @@ import { describe, expect, it } from 'vitest'
 
 import type { Accepted, Change, RestoreMark, Target } from '@dazbee/schema'
 
+import { sameValue } from '../same-value.ts'
 import { linkedDesign } from '../test-design.ts'
 import { type Client, openClient, type SavedClient } from './client.ts'
-import type { Outgoing } from './server.ts'
+import type { Outgoing, Server } from './server.ts'
 import { type Entries, FOLD_LOG, putEntries, restoreEntries, TabCopy } from './tab-copy.ts'
-import { down, edit, joinClient, testServer, up, who, wire } from './test-session.ts'
+import { down, edit, exchange, joinClient, testServer, up, who, wire } from './test-session.ts'
 import { groupHeights, withGroupHeights } from './test-sim-edits.ts'
 
 const name = (part: 'page' | 'layer', id: string): Target => ({ part, id, key: 'name' })
 const set = (value: Target, to: unknown): Change => ({ op: 'set', value, to })
 
-/** A tab's copy, kept as it writes it. */
-function copyOf(c: Client) {
-  const copy = new TabCopy()
-  const entries: Entries = new Map()
+/** The names the server took for page p1 and layer title, in its order, from every accepted change set. */
+const namesTaken = (server: Server) =>
+  server
+    .takeJournal()
+    .flatMap((entry) =>
+      entry.kind === 'accepted'
+        ? entry.changeSet.changes.flatMap((change) =>
+            change.op === 'set' && change.value.key === 'name' && change.value.id !== 'price' ? [change.to] : [],
+          )
+        : [],
+    )
+
+/** A tab's copy, kept as it writes it: a new one, or the one in `entries` it took up after a reload. */
+function copyOf(c: Client, entries: Entries = new Map()) {
+  const copy = new TabCopy(entries)
   let heard: Accepted[] = []
   /** Writes the copy; returns what the write put and removed. */
   const write = () => {
@@ -90,6 +102,17 @@ describe('TabCopy', () => {
     expect(restoreEntries(copy.entries)).toEqual(wire(a.save()))
   })
 
+  it('stores nothing more for a tab that made no change set since its reload', () => {
+    const server = testServer(linkedDesign())
+    const a = joinClient(server)
+    const copy = copyOf(a)
+    edit(a, 'rename', set(name('page', 'p1'), 'Queued'))
+    copy.write()
+    const reloaded = openClient(restoreEntries(copy.entries))
+    expect(wire(reloaded.save())).toEqual(wire(a.save()))
+    expect(Object.keys(copy.entries.get('head') as object).sort()).toEqual(['access', 'nextId', 'owed'])
+  })
+
   it('writes the tab entry again when the log no longer leads to the confirmed design', () => {
     const server = testServer(linkedDesign(), { limits: { logChangeSets: 1 } })
     const [a, b] = [joinClient(server), joinClient(server)]
@@ -156,5 +179,139 @@ describe('restoreEntries', () => {
     copy.write()
     const saved = wire(a.save())
     expect([saved.owed.length > 0, restoreEntries(copy.entries)]).toEqual([true, saved])
+  })
+
+  describe('reloaded more than once before the tab comes back, from a copy older than what it sent', () => {
+    it.each([
+      [2, 'alone'],
+      [3, 'alone'],
+      [2, 'with a second tab'],
+      [3, 'with a second tab'],
+    ])('sends every edit made offline across %i reloads once, in order (%s)', (reloads, others) => {
+      const server = testServer(linkedDesign())
+      const a = joinClient(server)
+      const b = others === 'alone' ? undefined : joinClient(server)
+      const everyone = (c: Client) => (b ? [c, b] : [c])
+      const first = copyOf(a)
+      // a sends one change set its tab copy holds, then two it never holds, and hears no answer.
+      const kept = edit(a, 'rename', set(name('layer', 'title'), 'Kept'))
+      first.write()
+      if (b) down(b, up(server, a, kept))
+      else up(server, a, kept)
+      for (const n of [1, 2]) {
+        const out = up(server, a, edit(a, 'rename', set(name('layer', 'title'), `Sent ${n}`)))
+        if (b) down(b, out)
+      }
+      server.leave(a.tabId())
+      let tab = a
+      for (let n = 1; n <= reloads; n++) {
+        tab = openClient(restoreEntries(first.entries))
+        const copy = copyOf(tab, first.entries)
+        edit(tab, 'rename', set(name('page', 'p1'), `Offline ${n}`))
+        copy.write()
+        if (b) exchange(server, b, edit(b, 'rename', set(name('layer', 'price'), `Theirs ${n}`)), [b])
+      }
+      const joined = server.join(wire(tab.reconnect('t')), who())
+      if ('close' in joined) throw new Error(joined.reason)
+      exchange(server, tab, down(tab, joined.out), everyone(tab))
+      const offline = Array.from({ length: reloads }, (_, n) => `Offline ${n + 1}`)
+      expect(namesTaken(server)).toEqual(['Kept', 'Sent 1', 'Sent 2', ...offline])
+      expect([tab.queued(), tab.takeNotices()]).toEqual([0, []])
+      for (const c of everyone(tab)) expect(sameValue(c.working().toRecords(), server.state().toRecords())).toBe(true)
+    })
+
+    it.each([
+      ['the change sets it missed', 100, 'page', 'p1'],
+      ['the whole design', 1, 'layer', 'price'],
+    ] as const)(
+      'sends a change set the server took once only, back from a tab copy written before it came back (catch-up: %s)',
+      (_, logChangeSets, part, id) => {
+        const server = testServer(linkedDesign(), { limits: { logChangeSets } })
+        const [a, b] = [joinClient(server), joinClient(server)]
+        const first = copyOf(a)
+        first.write()
+        server.leave(a.tabId())
+        // Reloaded before the server welcomed it, the tab edits, and its tab copy holds the edit.
+        const back = openClient(restoreEntries(first.entries))
+        const copy = copyOf(back, first.entries)
+        edit(back, 'rename', set(name('page', 'p1'), 'Mine'))
+        copy.write()
+        const stale = new Map(wire([...first.entries]))
+        // It comes back and the server takes the edit; the tab copy's writes since are lost.
+        const joined = server.join(wire(back.reconnect('t')), who())
+        if ('close' in joined) throw new Error(joined.reason)
+        exchange(server, back, down(back, joined.out), [back, b])
+        server.leave(back.tabId())
+        // Another tab writes after it: twice, so that a log of one change set catches the tab up with the whole design.
+        exchange(server, b, edit(b, 'rename', set(name(part, id), 'Theirs')), [b])
+        exchange(server, b, edit(b, 'rename', set(name('layer', 'title'), 'Later')), [b])
+        const again = openClient(restoreEntries(stale))
+        const rejoined = server.join(wire(again.reconnect('t')), who())
+        if ('close' in rejoined) throw new Error(rejoined.reason)
+        exchange(server, again, down(again, rejoined.out), [again, b])
+        expect(namesTaken(server).filter((taken) => taken === 'Mine')).toEqual(['Mine'])
+        expect(server.state().get(part, id)?.name).toBe('Theirs')
+        expect([again.queued(), again.takeNotices()]).toEqual([0, []])
+        expect(sameValue(again.working().toRecords(), server.state().toRecords())).toBe(true)
+      },
+    )
+
+    it.each([
+      ['the change sets it missed', 100],
+      ['the whole design', 1],
+    ] as const)(
+      'sends the change sets the server took once only, one with a -0 the server took as 0 and one adding a layer (catch-up: %s)',
+      (_, logChangeSets) => {
+        const server = testServer(linkedDesign(), { limits: { logChangeSets } })
+        const [a, b] = [joinClient(server), joinClient(server)]
+        server.leave(a.tabId())
+        const back = openClient(structuredClone(a.save()))
+        edit(back, 'move', set({ part: 'layer', id: 'title', key: 'props', prop: 'x' }, -0))
+        // A layer it adds, named in the same step, is held by the design already when it comes back.
+        const added = {
+          type: 'group',
+          parentId: 'grp',
+          link: 'g2',
+          index: 'a5',
+          name: 'G',
+          props: { x: 0, y: 0, width: 10, height: 10 },
+        }
+        edit(back, 'add', { op: 'create', part: 'layer', id: 'g2', record: added }, set(name('layer', 'g2'), 'Added'))
+        // The device keeps values as they are; the wire carries JSON. The tab copy's writes after the welcome are lost.
+        const stale = structuredClone(back.save())
+        const joined = server.join(wire(back.reconnect('t')), who())
+        if ('close' in joined) throw new Error(joined.reason)
+        exchange(server, back, down(back, joined.out), [back, b])
+        server.leave(back.tabId())
+        exchange(server, b, edit(b, 'rename', set(name('layer', 'price'), 'Theirs')), [b])
+        exchange(server, b, edit(b, 'rename', set(name('layer', 'title'), 'Later')), [b])
+        const again = openClient(stale)
+        const rejoined = server.join(wire(again.reconnect('t')), who())
+        if ('close' in rejoined) throw new Error(rejoined.reason)
+        exchange(server, again, down(again, rejoined.out), [again, b])
+        expect([server.seq(), again.queued(), again.takeNotices()]).toEqual([4, 0, []])
+        expect(server.state().get('layer', 'g2')?.name).toBe('Added')
+      },
+    )
+
+    it('tells the person of an edit made under a reused id that no longer applies, after a catch-up of the whole design', () => {
+      const server = testServer(linkedDesign(), { limits: { logChangeSets: 1 } })
+      const [a, b] = [joinClient(server), joinClient(server)]
+      const first = copyOf(a)
+      first.write()
+      // a sends a change set its tab copy never holds, and hears no answer.
+      down(b, up(server, a, edit(a, 'rename', set(name('layer', 'title'), 'Sent'))))
+      server.leave(a.tabId())
+      const back = openClient(restoreEntries(first.entries))
+      edit(back, 'rename', set(name('layer', 'price'), 'Mine'))
+      // Another tab deletes the layer the edit renames, and writes once more.
+      exchange(server, b, edit(b, 'delete', { op: 'delete', part: 'layer', id: 'price' }), [b])
+      exchange(server, b, edit(b, 'rename', set(name('page', 'p1'), 'Later')), [b])
+      const joined = server.join(wire(back.reconnect('t')), who())
+      if ('close' in joined) throw new Error(joined.reason)
+      exchange(server, back, down(back, joined.out), [back, b])
+      expect(server.state().get('layer', 'title')?.name).toBe('Sent')
+      expect([back.queued(), back.takeNotices()]).toMatchObject([0, [{ kind: 'rejected', changeSetKind: 'edit' }]])
+    })
   })
 })

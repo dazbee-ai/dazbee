@@ -2,9 +2,10 @@
 // the arrows), adding a frame of a size or a size of a frame, resizing a frame by its typed size,
 // and showing a frame just added.
 import { descendants, round, type Session, smallerRatio } from '@dazbee/doc'
-import { type Design, type Frame, sizeIssue } from '@dazbee/schema'
+import { type Design, sizeIssue } from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
+import { hug } from './layers/hug.ts'
 import { listenerSet } from './listener-set.ts'
 import { runQuietly } from './run-quietly.ts'
 import type { EditorSelection } from './selection.ts'
@@ -40,10 +41,11 @@ export interface EditorFrameActions {
    */
   addFrame(size: Size, name?: string): string | null
   /**
-   * Add size: a frame of a size on a frame's page, holding linked copies of its layers scaled to it
-   * and placed by their constraints (`frame.addSize`), under its name, where the frame rule puts
-   * it, each text whose width the placing changed fitted to its words, as one undo step, then shown
-   * as `showAdded` does. Returns its id; null, with nothing changed, for a frame gone or a size past
+   * Add size: a frame of a size on a frame's page, named by its size, holding linked copies of its
+   * layers scaled to it and placed by their constraints, no text under the readable size there
+   * (`frame.addSize`), where the frame rule puts it, each text whose width the placing changed or
+   * whose letters were raised fitted to its words, and the groups around it to it, as one undo step,
+   * then shown as `showAdded` does. Returns its id; null, with nothing changed, for a frame gone or a size past
    * the limits.
    */
   addSize(frameId: string, size: Size): string | null
@@ -111,13 +113,22 @@ export function editorFrameActions({
 
   function addSize(frameId: string, { width, height }: Size) {
     const before = session.design()
-    const size = { width, height }
+    const scaled = scaledTexts(before, frameId, { width, height })
     return added(() =>
       session.gesture('addSize', () => {
         const id = session.run('frame.addSize', { frameId, width, height })
         const now = session.design()
-        const scaled = scaledWidths(before, frameId, size)
-        fitResizedTexts(now, id, (copy) => scaled.get(now.nodes[copy]?.link ?? ''), typing.fitText)
+        // A fixed box isn't fitted to its words, so the groups around one the placing changed are fitted to it here.
+        const fixed: string[] = []
+        for (const copy of descendants(now, id)) {
+          const node = now.nodes[copy]
+          const was = node?.type === 'text' ? scaled.get(node.link) : undefined
+          if (node?.type !== 'text' || !was) continue
+          if (node.props.width === was.width && node.props.style.fontSize === was.fontSize) continue
+          typing.fitText(copy)
+          if (node.props.boxMode === 'fixed') fixed.push(copy)
+        }
+        hug(session, fixed)
         return id
       }),
     )
@@ -188,16 +199,19 @@ export function actsOnFrame(action: ShortcutAction) {
 }
 
 /**
- * The width each layer of a frame takes from Add size's scale to `size` alone, before its
- * constraints place it, by its link id, which its copy shares.
+ * The width and font size each text of a frame takes from Add size's scale to `size` alone, before
+ * its constraints place it or its letters are raised to the readable size, by its link id, which its
+ * copy shares.
  */
-function scaledWidths(design: Design, frameId: string, size: Size): Map<string, number> {
-  const frame = design.frames[frameId] as Frame
+function scaledTexts(design: Design, frameId: string, size: Size): Map<string, { width: number; fontSize: number }> {
+  const frame = design.frames[frameId]
+  const texts = new Map<string, { width: number; fontSize: number }>()
+  if (!frame) return texts
   const s = smallerRatio({ from: frame, to: size })
-  const widths = new Map<string, number>()
   for (const id of descendants(design, frameId)) {
     const node = design.nodes[id]
-    if (node) widths.set(node.link, round(node.props.width * s))
+    if (node?.type === 'text')
+      texts.set(node.link, { width: round(node.props.width * s), fontSize: round(node.props.style.fontSize * s) })
   }
-  return widths
+  return texts
 }

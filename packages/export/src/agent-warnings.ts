@@ -26,11 +26,11 @@ import {
   type SceneLayer,
   textMeasure,
 } from '@dazbee/renderer'
-import type { Design, Layer, Rect } from '@dazbee/schema'
+import { type Design, type Layer, type Letters, type Rect, smallestLetters } from '@dazbee/schema'
 
 import { cutOffWarning, isLogo, type Marked, overlapWarnings } from './ink-warnings.ts'
 import { placed, type Turn } from './layer-ink.ts'
-import { contrastWarning, drawnSmallest, type Letters, smallestLetters, tooSmallWarning } from './text-readability.ts'
+import { contrastWarning, drawnSmallest, tooSmallWarning } from './text-readability.ts'
 import type { AgentWarningKind, Check, TextLayer } from './types.ts'
 
 /** One thing in a frame that won't look as designed, as a sentence about the layer it is in. */

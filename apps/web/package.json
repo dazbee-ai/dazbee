@@ -17,6 +17,7 @@
     "@dazbee/doc": "workspace:*",
     "@dazbee/editor": "workspace:*",
     "@dazbee/fonts": "workspace:*",
+    "@dazbee/graphics": "workspace:*",
     "@dazbee/schema": "workspace:*",
     "@dazbee/svg": "workspace:*",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",

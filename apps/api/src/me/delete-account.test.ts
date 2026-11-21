@@ -40,6 +40,12 @@ import {
 import { png } from '../test-files.ts'
 import { finishDeletions, FOLDER_SETTLE_MS } from './pending-deletions.ts'
 
+/**
+ * How long a wait for the deletions that run after the answer may take: on a CI runner busy with every
+ * package's tests at once, they take several times as long as on a dev machine.
+ */
+const DELETIONS_WAIT = { timeout: 20_000, interval: 50 }
+
 /** A WorkOS failure that isn't a missing record. */
 const outage = () => Object.assign(new Error('WorkOS is down'), { status: 500 })
 
@@ -93,7 +99,7 @@ const finished = (targets: string[]) =>
     const left = await pendingFor(targets)
     if (left.some((row) => row.kind !== 'storage-folder')) throw new Error('still deleting')
     for (const row of left) if ((await storage.list(row.target)).length > 0) throw new Error('still deleting files')
-  })
+  }, DELETIONS_WAIT)
 
 /** The next start, once storage folders have settled, for what the targets name. */
 const nextStart = async (targets: string[]) =>
@@ -302,7 +308,7 @@ describe('DELETE /me', () => {
     expect(await db.select().from(users).where(eq(users.id, person.id))).toEqual([])
     const targets = [`workspaces/${own.id}/`, organizationOf(own.id), person.workosUserId]
     // The deletions after the answer have run and failed.
-    await vi.waitFor(() => expect(console.log).toHaveBeenCalledTimes(3))
+    await vi.waitFor(() => expect(console.log).toHaveBeenCalledTimes(3), DELETIONS_WAIT)
     expect((await pendingFor(targets)).map((row) => row.kind).sort()).toEqual([
       'storage-folder',
       'workos-organization',

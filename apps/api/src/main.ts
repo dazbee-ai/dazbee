@@ -11,6 +11,7 @@ import { adminEmails } from './admin/admins.ts'
 import { turnstileCheck } from './admin/turnstile.ts'
 import { oauthLimitSettings } from './agents/oauth-routes.ts'
 import { createApp } from './app.ts'
+import { startSvgThread } from './assets/svg-assets.ts'
 import { finishSoon } from './me/pending-deletions.ts'
 import { workosInvites } from './members/invites-provider.ts'
 import { devInvites } from './sign-in/dev-invites.ts'
@@ -83,6 +84,8 @@ const ways =
     .filter(Boolean)
     .join(' and ') || 'no way to sign in'
 const server = serve({ fetch: app.fetch, port }, () => console.log(`api on http://localhost:${port} with ${ways}`))
+// The SVG thread loads CanvasKit beside serving, so the first SVG file seldom waits for it and /health never does.
+void startSvgThread()
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => server.close(() => void close()))

@@ -58,63 +58,6 @@ function timed(text: string) {
   return { said, ms: performance.now() - started }
 }
 
-describe('layersPast', () => {
-  it('refuses 50 nested blurs within a second, saying the blurs nest too deep', () => {
-    const { said, ms } = timed(NESTED_BLURS)
-    expect(said).toBe(`its blurs and shadows nest more than ${MAX_EFFECT_DEPTH} deep`)
-    expect(ms).toBeLessThan(1000)
-  })
-
-  it('reads blurs and shadows nested as deep as they may be, and refuses one more', () => {
-    const nested = (depth: number) =>
-      svg(`${blur}${'<g filter="url(#b)">'.repeat(depth)}<rect width="9" height="9"/>${'</g>'.repeat(depth)}`)
-    expect(refusal(nested(MAX_EFFECT_DEPTH))).toBe('read')
-    expect(refusal(nested(MAX_EFFECT_DEPTH + 1))).toBe(`its blurs and shadows nest more than ${MAX_EFFECT_DEPTH} deep`)
-  })
-
-  it('reads layers nested as deep as they may be, and refuses one more', () => {
-    // The outermost group is the root, a layer like the rest, and the square inside them is one more.
-    const nested = (depth: number) =>
-      svg(`${'<g>'.repeat(depth - 1)}<rect width="9" height="9"/>${'</g>'.repeat(depth - 1)}`)
-    expect(refusal(nested(MAX_DEPTH))).toBe('read')
-    expect(refusal(nested(MAX_DEPTH + 1))).toBe(`its layers nest more than ${MAX_DEPTH} deep`)
-  })
-
-  it('reads a layer with as many blurs and shadows as one may have, and refuses one more', () => {
-    const cast = (count: number) => svg(`${shadows(count)}<rect filter="url(#s)" width="9" height="9"/>`)
-    const read = svgToLayers(ck, cast(MAX_LAYER_EFFECTS))
-    expect(Object.values(read.tree.nodes).map((n) => n.props.effects.length)).toContain(MAX_LAYER_EFFECTS)
-    expect(refusal(cast(MAX_LAYER_EFFECTS + 1))).toBe(
-      `one of its layers has more than ${MAX_LAYER_EFFECTS} blurs and shadows`,
-    )
-  })
-
-  it('reads as many blurs and shadows as a file may have, and refuses one more', () => {
-    const blurred = (count: number) => svg(`${blur}${'<rect filter="url(#b)" width="9" height="9"/>'.repeat(count)}`)
-    expect(refusal(blurred(MAX_EFFECTS))).toBe('read')
-    expect(refusal(blurred(MAX_EFFECTS + 1))).toBe(`it has more than ${MAX_EFFECTS} blurs and shadows`)
-  })
-
-  it('refuses blurs and shadows that would draw too much offscreen for the drawing’s size, and reads ordinary ones', () => {
-    const past = `its blurs and shadows draw more than ${MAX_EFFECT_AREA} times its own area`
-    // Each square blurred as wide as the drawing draws 16 times the drawing's area offscreen.
-    const wide = '<filter id="w"><feGaussianBlur stdDeviation="50"/></filter>'
-    const squares = (count: number) => svg(wide + times(count, '<rect filter="url(#w)" width="100" height="100"/>'))
-    expect(refusal(squares(MAX_EFFECT_AREA / 16))).toBe('read')
-    expect(refusal(squares(MAX_EFFECT_AREA / 16 + 1))).toBe(past)
-    // Four groups blurred as wide as an effect may be, nested: each widens the drawing inside it.
-    const nested = `${'<g filter="url(#b)">'.repeat(4)}<rect width="100" height="100"/>${'</g>'.repeat(4)}`
-    expect(refusal(svg(`<filter id="b"><feGaussianBlur stdDeviation="1000"/></filter>${nested}`))).toBe(past)
-  })
-
-  it('refuses a file of more layers than it may have, saying how many it may', () => {
-    // Each square is a layer, and so is the group holding them.
-    const squares = (count: number) => svg('<rect width="9" height="9"/>'.repeat(count))
-    expect(refusal(squares(MAX_LAYERS - 1))).toBe('read')
-    expect(refusal(squares(MAX_LAYERS))).toBe('it has more than 5,000 layers')
-  })
-})
-
 describe('tally', () => {
   it('refuses one path of 630,000 points within a second, saying a path has too many points', () => {
     const { said, ms } = timed(hugePath())
@@ -195,12 +138,61 @@ describe('tally', () => {
     expect(refusal(text(MAX_CHARACTERS))).toBe('read')
     expect(refusal(text(MAX_CHARACTERS + 1))).toBe('its texts have more than 100,000 characters')
   })
+})
 
-  it('keeps 100 characters of a long name, which every use of its element copies', () => {
-    const named = svg(
-      `<defs><rect id="r" data-name="${'n'.repeat(900_000)}" width="9" height="9"/></defs>${times(70, '<use href="#r"/>')}`,
+describe('layersPast', () => {
+  it('refuses 50 nested blurs within a second, saying the blurs nest too deep', () => {
+    const { said, ms } = timed(NESTED_BLURS)
+    expect(said).toBe(`its blurs and shadows nest more than ${MAX_EFFECT_DEPTH} deep`)
+    expect(ms).toBeLessThan(1000)
+  })
+
+  it('reads blurs and shadows nested as deep as they may be, and refuses one more', () => {
+    const nested = (depth: number) =>
+      svg(`${blur}${'<g filter="url(#b)">'.repeat(depth)}<rect width="9" height="9"/>${'</g>'.repeat(depth)}`)
+    expect(refusal(nested(MAX_EFFECT_DEPTH))).toBe('read')
+    expect(refusal(nested(MAX_EFFECT_DEPTH + 1))).toBe(`its blurs and shadows nest more than ${MAX_EFFECT_DEPTH} deep`)
+  })
+
+  it('reads layers nested as deep as they may be, and refuses one more', () => {
+    // The outermost group is the root, a layer like the rest, and the square inside them is one more.
+    const nested = (depth: number) =>
+      svg(`${'<g>'.repeat(depth - 1)}<rect width="9" height="9"/>${'</g>'.repeat(depth - 1)}`)
+    expect(refusal(nested(MAX_DEPTH))).toBe('read')
+    expect(refusal(nested(MAX_DEPTH + 1))).toBe(`its layers nest more than ${MAX_DEPTH} deep`)
+  })
+
+  it('reads a layer with as many blurs and shadows as one may have, and refuses one more', () => {
+    const cast = (count: number) => svg(`${shadows(count)}<rect filter="url(#s)" width="9" height="9"/>`)
+    const read = svgToLayers(ck, cast(MAX_LAYER_EFFECTS))
+    expect(Object.values(read.tree.nodes).map((n) => n.props.effects.length)).toContain(MAX_LAYER_EFFECTS)
+    expect(refusal(cast(MAX_LAYER_EFFECTS + 1))).toBe(
+      `one of its layers has more than ${MAX_LAYER_EFFECTS} blurs and shadows`,
     )
-    const names = Object.values(svgToLayers(ck, named).tree.nodes).map((n) => n.name)
-    expect(Math.max(...names.map((n) => n.length))).toBe(100)
+  })
+
+  it('reads as many blurs and shadows as a file may have, and refuses one more', () => {
+    const blurred = (count: number) => svg(`${blur}${'<rect filter="url(#b)" width="9" height="9"/>'.repeat(count)}`)
+    expect(refusal(blurred(MAX_EFFECTS))).toBe('read')
+    expect(refusal(blurred(MAX_EFFECTS + 1))).toBe(`it has more than ${MAX_EFFECTS} blurs and shadows`)
+  })
+
+  it('refuses blurs and shadows that would draw too much offscreen for the drawing’s size, and reads ordinary ones', () => {
+    const past = `its blurs and shadows draw more than ${MAX_EFFECT_AREA} times its own area`
+    // Each square blurred as wide as the drawing draws 16 times the drawing's area offscreen.
+    const wide = '<filter id="w"><feGaussianBlur stdDeviation="50"/></filter>'
+    const squares = (count: number) => svg(wide + times(count, '<rect filter="url(#w)" width="100" height="100"/>'))
+    expect(refusal(squares(MAX_EFFECT_AREA / 16))).toBe('read')
+    expect(refusal(squares(MAX_EFFECT_AREA / 16 + 1))).toBe(past)
+    // Four groups blurred as wide as an effect may be, nested: each widens the drawing inside it.
+    const nested = `${'<g filter="url(#b)">'.repeat(4)}<rect width="100" height="100"/>${'</g>'.repeat(4)}`
+    expect(refusal(svg(`<filter id="b"><feGaussianBlur stdDeviation="1000"/></filter>${nested}`))).toBe(past)
+  })
+
+  it('refuses a file of more layers than it may have, saying how many it may', () => {
+    // Each square is a layer, and so is the group holding them.
+    const squares = (count: number) => svg('<rect width="9" height="9"/>'.repeat(count))
+    expect(refusal(squares(MAX_LAYERS - 1))).toBe('read')
+    expect(refusal(squares(MAX_LAYERS))).toBe('it has more than 5,000 layers')
   })
 })

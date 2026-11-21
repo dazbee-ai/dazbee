@@ -95,7 +95,8 @@ describe('readSvgAsset', () => {
       [NESTED_BLURS, 'its blurs and shadows nest more than 4 deep'],
       [hugePath(), 'one of its paths has more than 250,000 points'],
     ] as const) {
-      const { ms, refused } = await timed(() => readSvgAsset(encoded(file), 320))
+      const bytes = encoded(file)
+      const { ms, refused } = await timed(() => readSvgAsset(bytes, 320))
       expect(refused).toBeInstanceOf(SvgRefused)
       expect((refused as Error).message).toBe(`This SVG file is too complex to draw: ${limit}`)
       expect(ms).toBeLessThan(1000)
@@ -105,7 +106,8 @@ describe('readSvgAsset', () => {
 
   it('refuses a file whose drawing needs more memory than its thread may take, the API answering meanwhile and its memory given back', async () => {
     const before = rss()
-    const { longestGap, refused } = await timed(() => readSvgAsset(encoded(bigPictureSvg()), 320))
+    const bytes = encoded(bigPictureSvg())
+    const { longestGap, refused } = await timed(() => readSvgAsset(bytes, 320))
     expect(refused).toBeInstanceOf(SvgRefused)
     expect((refused as Error).message).toBe('This SVG file needs too much memory to draw')
     expect(longestGap).toBeLessThan(250)
@@ -116,7 +118,8 @@ describe('readSvgAsset', () => {
 
   it('ends a drawing past its time limit and refuses the file, the API answering meanwhile', async () => {
     await readSvgAsset(SQUARE, 320)
-    const { ms, longestGap, refused } = await timed(() => readSvgAsset(encoded(slowPathsSvg()), 320, 500))
+    const bytes = encoded(slowPathsSvg())
+    const { ms, longestGap, refused } = await timed(() => readSvgAsset(bytes, 320, 500))
     expect(refused).toBeInstanceOf(SvgRefused)
     expect((refused as Error).message).toBe('This SVG file took more than 0.5 seconds to draw')
     expect(ms).toBeLessThan(1500)

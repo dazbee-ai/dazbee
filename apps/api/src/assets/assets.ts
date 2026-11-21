@@ -318,14 +318,14 @@ async function recordOnce(
 
 /**
  * The bytes read and drawn as an SVG file; null when they aren't one. A file refused, or one the
- * thread fails on, is refused with `refuse`, its bytes deleted; one that waits behind too many
- * others is refused with its bytes kept, so it can be recorded again.
+ * thread fails on, is refused with `refuse`, its bytes deleted; SvgBusy, for one that would wait
+ * behind too many others, goes through with its bytes kept, so it can be recorded again.
  */
 async function readSvg(bytes: Uint8Array, refuse: (message: string) => Promise<InvalidUpload>) {
   try {
     return await readSvgAsset(bytes, THUMBNAIL_SIZE)
   } catch (error) {
-    if (error instanceof SvgBusy) throw new InvalidUpload(error.message)
+    if (error instanceof SvgBusy) throw error
     if (error instanceof SvgRefused) throw await refuse(error.message)
     logError('svg-asset-failed', error)
     throw await refuse('This SVG file could not be drawn')

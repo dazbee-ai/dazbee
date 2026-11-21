@@ -1,6 +1,5 @@
-// The two small SVG files the security review found could stall or crash the API while their
-// thumbnails were drawn: 50 blurs nested inside each other, and one path of 630,000 points. Tests
-// in every workspace that reads SVG files check that both are refused.
+// Two small SVG files whose drawing explodes: 50 blurs nested inside each other, and one path of
+// 630,000 points. Tests in every workspace that reads SVG files check that both are refused.
 
 /** 50 groups nested inside each other around one square, each blurred as wide as the widest blur an effect may have: 1.3 KB. */
 export const NESTED_BLURS = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="b"><feGaussianBlur stdDeviation="1000"/></filter>${'<g filter="url(#b)">'.repeat(50)}<rect width="100" height="100"/>${'</g>'.repeat(50)}</svg>`

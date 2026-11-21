@@ -35,7 +35,7 @@ interface SvgThread {
 export const SVG_TIME_LIMIT_MS = 10_000
 
 /** How long the thread may take to load CanvasKit and the fonts before it is taken to have failed. */
-const SVG_START_LIMIT_MS = 10_000
+const SVG_START_LIMIT_MS = 5_000
 /** CanvasKit's memory when it starts, which the thread may keep. */
 const CANVASKIT_START_MEMORY = 128 * 2 ** 20
 /**
@@ -82,12 +82,8 @@ export async function readSvgAsset(
 }
 
 /** The SVG file's thumbnail, as readSvgAsset draws it; throws when it can't be read. */
-export async function svgThumbnail(
-  bytes: Uint8Array,
-  size: number,
-  timeoutMs = SVG_TIME_LIMIT_MS,
-): Promise<Uint8Array> {
-  const read = await readSvgAsset(bytes, size, timeoutMs)
+export async function svgThumbnail(bytes: Uint8Array, size: number): Promise<Uint8Array> {
+  const read = await readSvgAsset(bytes, size)
   if (!read) throw new Error('not an SVG file that can be read as layers')
   return read.png
 }

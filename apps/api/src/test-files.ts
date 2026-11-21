@@ -82,11 +82,31 @@ export function slowPathsSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><path d="M0 0${zigzag(1)}"/><path d="M0 0${zigzag(500)}"/></svg>`
 }
 
+/** A real, decodable RGBA PNG whose colours come from `seed`, so different seeds give different bytes. */
+export function png(width: number, height: number, seed: string): Uint8Array {
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header.set([8, 6, 0, 0, 0], 8)
+  const rows = Buffer.alloc(height * (1 + width * 4))
+  for (let i = 0; i < rows.length; i++)
+    rows[i] = i % (1 + width * 4) === 0 ? 0 : (seed.charCodeAt(i % seed.length) * (i + 7)) & 0xff
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  return new Uint8Array(
+    Buffer.concat([
+      signature,
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(rows)),
+      chunk('IEND', new Uint8Array()),
+    ]),
+  )
+}
+
 /**
  * A see-through PNG of any size, made without holding its pixels: each row of zeros is compressed
  * once, as a block of its own that ends on a whole byte, and repeated.
  */
-export function clearPng(width: number, height: number): Uint8Array {
+function clearPng(width: number, height: number): Uint8Array {
   const header = Buffer.alloc(13)
   header.writeUInt32BE(width, 0)
   header.writeUInt32BE(height, 4)
@@ -105,26 +125,6 @@ export function clearPng(width: number, height: number): Uint8Array {
   const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
   return new Uint8Array(
     Buffer.concat([signature, chunk('IHDR', header), chunk('IDAT', stream), chunk('IEND', new Uint8Array())]),
-  )
-}
-
-/** A real, decodable RGBA PNG whose colours come from `seed`, so different seeds give different bytes. */
-export function png(width: number, height: number, seed: string): Uint8Array {
-  const header = Buffer.alloc(13)
-  header.writeUInt32BE(width, 0)
-  header.writeUInt32BE(height, 4)
-  header.set([8, 6, 0, 0, 0], 8)
-  const rows = Buffer.alloc(height * (1 + width * 4))
-  for (let i = 0; i < rows.length; i++)
-    rows[i] = i % (1 + width * 4) === 0 ? 0 : (seed.charCodeAt(i % seed.length) * (i + 7)) & 0xff
-  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-  return new Uint8Array(
-    Buffer.concat([
-      signature,
-      chunk('IHDR', header),
-      chunk('IDAT', deflateSync(rows)),
-      chunk('IEND', new Uint8Array()),
-    ]),
   )
 }
 

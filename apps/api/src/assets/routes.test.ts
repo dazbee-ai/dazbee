@@ -18,6 +18,23 @@ import { brand, call, db, request, run, SHORT_ID, sibling, uploadImage } from '.
 import { bigPictureSvg, png, sha256, slowPathsSvg } from '../test-files.ts'
 import { appendAccepted, appendEntry } from '../workspace/test-journal.ts'
 
+/** Uploads an SVG file, marked as this run's and `mark`, without recording it; gives the SHA-256 it is stored under. */
+async function putSvg(text: string, mark: string) {
+  const bytes = new TextEncoder().encode(`${text}<!-- ${run} ${mark} -->`)
+  const ticket = UploadTicket.parse(
+    (
+      await call('a', 'POST', `/brands/${brand.id}/assets/uploads`, {
+        sha256: sha256(bytes),
+        byteSize: bytes.length,
+        contentType: 'image/svg+xml',
+      })
+    ).json,
+  )
+  if (!ticket.upload) throw new Error('expected an upload URL')
+  await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
+  return sha256(bytes)
+}
+
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
 describe('image uploads', { timeout: 30_000 }, () => {
   it('uploads, records and fetches an image by asset id', async () => {
@@ -268,23 +285,10 @@ describe('image uploads', { timeout: 30_000 }, () => {
     })
   })
 
-  it('refuses an SVG file too complex or too big to draw, saying why, and answers other requests while one is drawn (#150)', async () => {
-    /** Uploads the bytes and asks for them to be recorded, without waiting for the answer. */
-    const record = async (text: string) => {
-      const bytes = new TextEncoder().encode(`${text}<!-- ${run} -->`)
-      const ticket = UploadTicket.parse(
-        (
-          await call('a', 'POST', `/brands/${brand.id}/assets/uploads`, {
-            sha256: sha256(bytes),
-            byteSize: bytes.length,
-            contentType: 'image/svg+xml',
-          })
-        ).json,
-      )
-      if (!ticket.upload) throw new Error('expected an upload URL')
-      await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
-      return call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha256(bytes) })
-    }
+  it('refuses an SVG file too complex or too big to draw, saying why, and answers other requests while one is drawn', async () => {
+    /** Uploads the file and asks for it to be recorded. */
+    const record = async (text: string) =>
+      call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: await putSvg(text, 'refused') })
     expect(await record(NESTED_BLURS)).toEqual({
       status: 400,
       json: { error: 'This SVG file is too complex to draw: its blurs and shadows nest more than 4 deep' },
@@ -304,25 +308,28 @@ describe('image uploads', { timeout: 30_000 }, () => {
     expect((await drawn).status).toBe(201)
   })
 
-  it('records an SVG file asked for six times at once by reading it once, all six given the asset (#150)', async () => {
-    const bytes = new TextEncoder().encode(`${slowPathsSvg()}<!-- ${run} six -->`)
-    const ticket = UploadTicket.parse(
-      (
-        await call('a', 'POST', `/brands/${brand.id}/assets/uploads`, {
-          sha256: sha256(bytes),
-          byteSize: bytes.length,
-          contentType: 'image/svg+xml',
-        })
-      ).json,
-    )
-    if (!ticket.upload) throw new Error('expected an upload URL')
-    await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
+  it('records an SVG file asked for six times at once by reading it once, all six given the asset', async () => {
+    const stored = await putSvg(slowPathsSvg(), 'six')
     // More than may wait to be read, were each read on its own.
     const asks = await Promise.all(
-      Array.from({ length: 6 }, () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha256(bytes) })),
+      Array.from({ length: 6 }, () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: stored })),
     )
     expect(asks.map((ask) => ask.status)).toEqual([201, 201, 201, 201, 201, 201])
     expect(new Set(asks.map((ask) => AssetSummary.parse(ask.json).id)).size).toBe(1)
+  })
+
+  it('answers 503 for an SVG file asked for while four others are read or wait, keeping it to record later', async () => {
+    const stored = await Promise.all(Array.from({ length: 5 }, (_, i) => putSvg(slowPathsSvg(), `busy ${i}`)))
+    const asks = stored.slice(0, 4).map((one) => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: one }))
+    // Once the four are read or waiting.
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const fifth = () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: stored[4] })
+    expect(await fifth()).toEqual({
+      status: 503,
+      json: { error: 'Dazbee is reading other SVG files; add this one again in a minute' },
+    })
+    expect((await Promise.all(asks)).map((ask) => ask.status)).toEqual([201, 201, 201, 201])
+    expect((await fifth()).status).toBe(201)
   })
 
   // A guard: before the converter read pictures this passed too, as the picture was left out then.

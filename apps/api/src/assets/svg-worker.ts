@@ -54,10 +54,12 @@ interface WasmMemory {
 /** The bytes of one page of wasm memory. */
 const WASM_PAGE = 65_536
 
+/** What the thread was started with, when it was started as the SVG thread. */
+const started = workerData as Partial<SvgThreadData> | null
+
 /** Whether CanvasKit asked for more memory than its limit: what it drew can't be trusted, nor the thread after. */
 let overLimit = false
 
-const started = workerData as Partial<SvgThreadData> | null
 if (parentPort && started?.svgMemoryLimit) {
   const port = parentPort
   capMemory(started.svgMemoryLimit)
@@ -91,7 +93,7 @@ function capMemory(limit: number) {
 /** The job done, or why it wasn't. */
 async function answer(job: SvgJob): Promise<SvgAnswer> {
   try {
-    const done = await svgThumbnail(job.text, job.size)
+    const done = await readAndDraw(job.text, job.size)
     return overLimit ? { tooMuchMemory: true } : done
   } catch (error) {
     if (overLimit) return { tooMuchMemory: true }
@@ -109,7 +111,7 @@ async function memory(): Promise<number> {
 }
 
 /** The file's own size, and its layers drawn in a see-through frame, `size` pixels on the longer side, as a PNG. */
-async function svgThumbnail(text: string, size: number): Promise<{ width: number; height: number; png: Uint8Array }> {
+async function readAndDraw(text: string, size: number): Promise<{ width: number; height: number; png: Uint8Array }> {
   const ck = await loadCanvasKit()
   const read = svgToLayers(ck, text, { fit: size })
   // Only the pictures CanvasKit decodes are drawn: one with a good header and a broken body is left out.

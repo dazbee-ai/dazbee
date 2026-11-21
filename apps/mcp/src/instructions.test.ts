@@ -127,4 +127,10 @@ describe('INSTRUCTIONS', () => {
       'Before your first change to a design, and before your first change after a person’s edit',
     )
   })
+
+  it('names add_image, list_fonts, ad_rules, place_asset, search_graphics and place_graphic, and stays under 4,096 characters', () => {
+    for (const tool of ['add_image', 'list_fonts', 'ad_rules', 'place_asset', 'search_graphics', 'place_graphic'])
+      expect(INSTRUCTIONS).toContain(tool)
+    expect(INSTRUCTIONS.length).toBeLessThan(4_096)
+  })
 })

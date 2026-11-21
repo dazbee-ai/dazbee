@@ -25,9 +25,8 @@ import {
 
 /**
  * The most times longer a spread may take to draw than spread 0: about twice the most measured on
- * CI runners under the whole suite's load (cards 1.53, the path 2.58; the PR gives the numbers), and
- * well under what drawing the spread by its pixels (cards 23, the path 104) or the path's by path
- * ops (113) measured.
+ * CI runners under the whole suite's load (cards 1.53, the path 2.58), and well under what drawing
+ * the spread by its pixels (cards 23, the path 104) or the path's band by path ops (113) measured.
  */
 const SPREAD_COST = 5
 

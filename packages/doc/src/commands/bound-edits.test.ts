@@ -72,13 +72,13 @@ function boundEverywhere(design: DesignInput): DesignInput {
 /**
  * Whether a case differs from its input only inside the props of a layer the input brings, which
  * the command makes (`layer.props` of node.create, `tree.nodes.<id>.props` of design.place): the
- * rule compares only the layers the design held before, and the command writes those props into
- * the layer it makes alone. The sweep runs these cases.
+ * rule compares only the layers the design held before, and both commands write those props into
+ * the layers they make and into no other. The sweep runs these cases.
  */
 function inBroughtProps(path: Path | undefined) {
   if (!path) return false
-  const props = path[0] === 'layer' ? 1 : path[0] === 'tree' && path[1] === 'nodes' ? 3 : -1
-  return props > 0 && path[props] === 'props'
+  const [first, second, , fourth] = path
+  return (first === 'layer' && second === 'props') || (first === 'tree' && second === 'nodes' && fourth === 'props')
 }
 
 function open(design = boundDesign()) {
@@ -391,7 +391,7 @@ describe('endingEditedBindings', () => {
         let fork: DesignStore = forkTestStore(store)
         let tab = openSession(fork)
         for (const input of COMMAND_INPUTS[name]?.(world) ?? []) {
-          for (const one of casesOf(input, world).filter((one) => !inBroughtProps(one.path))) {
+          for (const one of casesOf(input, world).filter((variant) => !inBroughtProps(variant.path))) {
             try {
               tab.run(name as never, one.input as never)
             } catch {

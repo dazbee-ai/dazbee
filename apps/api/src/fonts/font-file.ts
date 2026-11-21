@@ -100,6 +100,8 @@ export async function fontPreview(
           weight: { value: weight },
           slant: style === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
         },
+        // A variable face draws the weight asked for, not its default; a font of one weight ignores it.
+        fontVariations: [{ axis: 'wght', value: weight }],
       },
       maxLines: 1,
       ellipsis: '…',

@@ -1,6 +1,6 @@
 # The recorded Figma file
 
-The Figma file the record script records once, for the pixel harness (spec #93, F22). It has one frame for each risk in F22's table and one for each of the five fixture themes. Each risk is a guess about Figma that only a real file can check.
+The Figma file the record script records once, for the pixel harness, as F22 of the Figma import spec (#93) describes. It has one frame for each risk in F22's table and one for each of the five fixture themes. Each risk is a guess about Figma that only a real file can check.
 
 ## Build it by hand
 
@@ -38,7 +38,7 @@ What the values mean:
 | group children are in the frame's or the group's space  | [Nested group](#nested-group)                                                                  |
 | `/files?ids=` returns the node's ancestors              | the second run, a link to the layer **B** in [Nested group](#nested-group) (`node-link.json`)  |
 | a mirrored layer's matrix is a flip then a turn         | [Flipped text](#flipped-text), [Flipped box](#flipped-box) and [Flipped image](#flipped-image) |
-| Figma's sign-in redirect and error parameters           | no frame: the owner's first sign-in through the draft OAuth app (9.3d3) checks it              |
+| Figma's sign-in redirect and error parameters           | no frame: the owner's first sign-in through the draft OAuth app checks it                      |
 | `imageTransform` maps the unit box into the image       | [Stretched image](#stretched-image)                                                            |
 | filter strengths ×100                                   | [Filters](#filters)                                                                            |
 | nested masks (F12)                                      | [Two masks](#two-masks)                                                                        |
@@ -303,20 +303,24 @@ On page "Themes", after the frames above:
 
 ## Record it
 
-The owner, or anyone with a Figma account, records the file once, after the record script merges and before the pixel harness ticket (9.3a3c). The token never goes into this repo, a file, a chat or a command line.
+The owner, or anyone with a Figma account, records the file once, before the pixel harness that reads it is built. The token never goes into this repo, a file, a chat or a command line.
 
 1. **Make a token.** In Figma: your account menu → Settings → Security → Personal access tokens → Generate new token. Pick the shortest expiry offered. Give it one scope, **File content: Read-only** (`file_content:read`), and no access to anything else. Copy it once.
-2. **Set it in your own shell**, typed at a hidden prompt, so it stays out of your shell's history:
-   - PowerShell: `$env:FIGMA_TOKEN = Read-Host 'Figma token' -MaskInput`
+2. **Open a new terminal** for the recording, so no other command in it sees the token, and go to the repo's root. Set the token there at a hidden prompt, so it stays out of the shell's history:
+   - PowerShell 7 (`pwsh`): `$env:FIGMA_TOKEN = Read-Host 'Figma token' -MaskInput`. Windows PowerShell 5.1 has no `-MaskInput`; use `pwsh`.
    - bash or zsh: `read -rs FIGMA_TOKEN && export FIGMA_TOKEN`
-3. **Record the file.** In Figma, Share → Copy link (a link to the file, with no `node-id`). From the repo's root, quoting the link:
+3. **Record the file.** In Figma, Share → Copy link (a link to the file, with no `node-id`). Then, quoting the link:
    `pnpm --filter @dazbee/figma record 'https://www.figma.com/design/<key>/Dazbee-recording'`
-   It makes three calls to the Figma API: the file, its image list and one render of every visible top-level frame. It then downloads the images and renders, with no token. The recording replaces `tests/pixels/fixtures/figma/recorded/` only once every file is written:
+   It makes three calls to the Figma API: the file, its image list and one render of every visible top-level frame. It then downloads the images and renders, with no token. The recording replaces `tests/pixels/fixtures/figma/recorded/` only once every file is written, keeping a `node-link.json` already there:
    - `file.json`: the file with `geometry=paths`, names and ids kept. Under `recording` it lists the image hosts, each saved image and render, and every one that failed and why. It holds no token and no image URL.
-   - `images/<imageRef>.<png|jpg|gif|webp>`: each image fill's bytes, named by what the bytes are.
-   - `figma/<frame id>.png`: Figma's own PNG of each top-level frame at scale 1, `1:2` written as `1-2`.
-4. **Record the node link.** Copy the link to the layer **B** in [Nested group](#nested-group) (right-click → Copy link to selection), then run the same command with that link. It makes one call and writes `recorded/node-link.json`, which says whether Figma sent back the layer's page.
-5. **Delete the token.** In Figma's Personal access tokens, revoke it. Then clear it from the shell: `Remove-Item Env:FIGMA_TOKEN` in PowerShell, or `unset FIGMA_TOKEN` in bash or zsh.
-6. **Commit the recording**: `git add tests/pixels/fixtures/figma/recorded` and commit it on a branch, with a PR. Before committing, `git grep -n figd_ -- tests/pixels/fixtures/figma` should find nothing (Figma's personal tokens start with `figd_`).
+   - `images/<imageRef>.<png|jpg|gif|webp>`: each image fill's bytes. `recording.images` maps each `imageRef` to its file.
+   - `figma/<frame id>.png`: Figma's own PNG of each visible top-level frame at scale 1, `1:2` written as `1-2`. `recording.renders` maps each frame id to its name and file.
+4. **Record the node link.** Copy the link to the layer **B** in [Nested group](#nested-group) (right-click → Copy link to selection), then run the same command with that link, quoted. It makes one call and writes `recorded/node-link.json`, which says whether Figma sent back the layer's page.
+5. **Delete the token.** In Figma's Personal access tokens, revoke it. Then close the terminal.
+6. **Commit the recording** on a branch, with a PR: `git add tests/pixels/fixtures/figma/recorded`, then check that `git grep --cached -nE 'figd_|X-Amz-|Signature=|Expires=' -- tests/pixels/fixtures/figma` finds nothing. Figma's personal tokens start with `figd_`, and the others are parts of a signed storage URL.
 
 The first run uses two of Figma's Tier 1 calls and one Tier 2 call, and the node link one more Tier 1 call. Figma allows Full and Dev seats 10 to 20 Tier 1 calls a minute, but View and Collab seats only about 20 a month, so record from a Full or Dev seat. A 429 says when to try again. The script never retries on its own.
+
+Decision (Claude, 2026-11-21): an image fill is saved under the type its bytes are (`.png`, `.jpg`, `.gif` or `.webp`), not always as `.png`, because Figma serves the image as it was uploaded; `recording.images` names each file.
+
+Decision (Claude, 2026-11-21): frames are rendered with `use_absolute_bounds=true`, so each PNG is the frame's own box, as a Dazbee frame (which always clips) is drawn, and not the box of whatever passes its edge, such as a shadow.

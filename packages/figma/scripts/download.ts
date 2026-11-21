@@ -1,39 +1,51 @@
-// Downloads for the record script from hosts other than the Figma API: image fills and frame
-// renders. Nothing here is given the token, so no request it makes can carry it.
+// Fetching for the record script: downloads of image fills and frame renders from Figma's storage,
+// and reading any answer's body within a cap. Nothing here is given the token, so no request it
+// makes can carry it.
 
 export type Downloaded = { bytes: Uint8Array; extension: string } | { reason: string }
 
-export const NO_URL = 'Figma gave no URL'
-
 const DOWNLOAD_MS = 60_000
+const MAX_REDIRECTS = 3
 
 /**
  * Downloads `url` with no token, cookie or credential, up to `cap` bytes as decoded. A failure is a
- * reason the recording lists, never an error. Only https, unless `allowHttp` (a test's stub server).
+ * reason the recording lists, never an error. Only https, unless `allowHttp` (a test's stub server);
+ * at most three redirects, each checked again.
  */
 export async function download(url: unknown, cap: number, allowHttp = false): Promise<Downloaded> {
-  if (typeof url !== 'string') return { reason: NO_URL }
-  let parsed: URL
+  if (typeof url !== 'string') return { reason: 'Figma gave no URL' }
+  let at: URL
   try {
-    parsed = new URL(url)
+    at = new URL(url)
   } catch {
     return { reason: 'not a URL' }
   }
-  if (parsed.protocol !== 'https:' && !(allowHttp && parsed.protocol === 'http:')) return { reason: 'not an https URL' }
-  let response: Response
-  try {
-    response = await fetch(parsed, { credentials: 'omit', signal: AbortSignal.timeout(DOWNLOAD_MS) })
-  } catch (error) {
-    return { reason: isTimeout(error) ? `took longer than ${DOWNLOAD_MS / 1000} s` : 'could not be reached' }
+  if (!allowed(at, allowHttp)) return { reason: 'not an https URL' }
+  for (let hop = 0; ; hop++) {
+    let response: Response
+    try {
+      response = await fetch(at, { credentials: 'omit', redirect: 'manual', signal: AbortSignal.timeout(DOWNLOAD_MS) })
+    } catch (error) {
+      return { reason: isTimeout(error) ? `took longer than ${DOWNLOAD_MS / 1000} s` : 'could not be reached' }
+    }
+    const location = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null
+    if (location !== null) {
+      await response.body?.cancel()
+      if (hop === MAX_REDIRECTS) return { reason: `more than ${MAX_REDIRECTS} redirects` }
+      const next = URL.parse(location, at.href)
+      if (!next || !allowed(next, allowHttp)) return { reason: 'redirected to a URL that is not https' }
+      at = next
+      continue
+    }
+    if (!response.ok) {
+      await response.body?.cancel()
+      return { reason: `Figma’s storage answered ${response.status}` }
+    }
+    const bytes = await readCapped(response, cap).catch(() => null)
+    if (!bytes) return { reason: `larger than ${cap / 1024 / 1024} MB` }
+    const extension = imageExtension(bytes)
+    return extension ? { bytes, extension } : { reason: 'not a PNG, JPEG, GIF or WebP' }
   }
-  if (!response.ok) {
-    await response.body?.cancel()
-    return { reason: `Figma’s storage answered ${response.status}` }
-  }
-  const bytes = await readCapped(response, cap).catch(() => null)
-  if (!bytes) return { reason: `larger than ${cap / 1024 / 1024} MB` }
-  const extension = imageExtension(bytes)
-  return extension ? { bytes, extension } : { reason: 'not a PNG, JPEG, GIF or WebP' }
 }
 
 /** The body's bytes, or a rejection past `cap` bytes as decoded. */
@@ -62,6 +74,10 @@ export async function readCapped(response: Response, cap: number): Promise<Uint8
 /** Whether a fetch failed by its time running out. */
 export function isTimeout(error: unknown): boolean {
   return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+}
+
+function allowed(url: URL, allowHttp: boolean): boolean {
+  return url.protocol === 'https:' || (allowHttp && url.protocol === 'http:')
 }
 
 function imageExtension(b: Uint8Array): string | undefined {

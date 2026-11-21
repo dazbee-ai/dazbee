@@ -249,7 +249,7 @@ describe('record', () => {
       { imageRef: '../escape', reason: 'not a name the recording can save' },
       { imageRef: '__proto__', reason: 'not a name the recording can save' },
     ])
-    expect(summary.failedImages).toBe(3)
+    expect(summary).toMatchObject({ kind: 'file', images: 2, failedImages: 3, renders: 2 })
     expect(readdirSync(join(out, 'images')).sort()).toEqual([`${REF_A}.png`, `${REF_B}.jpg`])
     expect(existsSync(join(dir, 'escape'))).toBe(false)
     expect(Object.prototype).not.toHaveProperty('imageRef')
@@ -298,6 +298,19 @@ describe('record', () => {
     expect(api.seen).toHaveLength(1)
   })
 
+  it('redacts the token in Figma’s words before cutting them short', async () => {
+    const cdn = await cdnStub()
+    // A token not shaped like a Figma one, so only the redaction of the token in use can catch it.
+    const token = 'plain-token-0123456789abcdef'
+    const err = `${'x'.repeat(190)}${token}`
+    const file: Route = () => ({ status: 400, body: JSON.stringify({ status: 400, err }) })
+    const api = await figmaApi(cdn, { file })
+    const options = { apiBase: api.base, token, key: 'KEY123', outDir: join(dir, 'recorded') }
+    const error = (await record(options).catch((e: Error) => e)) as Error
+    expect(error.message).toContain('400')
+    expect(error.message).not.toContain(token.slice(0, 10))
+  })
+
   it('says when to try again after a 429, and tries no second time', async () => {
     const cdn = await cdnStub()
     const file: Route = () => ({
@@ -338,18 +351,33 @@ describe('record', () => {
     const summary = await run(api, out, '1:5')
     expect(api.seen).toHaveLength(1)
     expect(new URL(api.seen[0]?.url ?? '', 'http://stub').searchParams.get('ids')).toBe('1:5')
-    expect(summary.pageReturned).toBe(true)
+    expect(summary).toEqual({ kind: 'node', pageReturned: true })
     const saved = JSON.parse(readFileSync(join(out, 'node-link.json'), 'utf8'))
     expect(saved.recording).toEqual({ nodeId: '1:5', pageReturned: true })
     expect(saved.thumbnailUrl).toBeUndefined()
     expect(readFileSync(join(out, 'file.json'), 'utf8')).toBe('earlier')
     expect(allText(out)).not.toContain(TOKEN)
   })
+
+  it('keeps a node link recorded before when the whole file is recorded again', async () => {
+    const cdn = await cdnStub()
+    const api = await figmaApi(cdn)
+    const out = join(dir, 'recorded')
+    await run(api, out, '1:5')
+    await run(api, out)
+    expect(JSON.parse(readFileSync(join(out, 'node-link.json'), 'utf8')).recording.nodeId).toBe('1:5')
+    expect(existsSync(join(out, 'file.json'))).toBe(true)
+    expect(existsSync(`${out}.partial`)).toBe(false)
+  })
 })
 
 describe('redact', () => {
   it('replaces every copy of the token', () => {
     expect(redact(`a ${TOKEN} b ${TOKEN}`, TOKEN)).toBe('a [FIGMA_TOKEN] b [FIGMA_TOKEN]')
+  })
+
+  it('replaces anything shaped like a Figma token, not only the one in use', () => {
+    expect(redact('old figd_Another-Token_123 here', TOKEN)).toBe('old [FIGMA_TOKEN] here')
   })
 })
 
@@ -376,5 +404,13 @@ describe('main', () => {
     expect(code).toBe(1)
     expect(env.FIGMA_TOKEN).toBeUndefined()
     expect(lines.join('\n')).not.toContain(TOKEN)
+  })
+
+  it('refuses to run while certificates go unchecked, so the token can’t be read on its way', async () => {
+    const lines: string[] = []
+    const env = { FIGMA_TOKEN: TOKEN, NODE_TLS_REJECT_UNAUTHORIZED: '0' }
+    const code = await main(['https://www.figma.com/design/AbC123/F'], env, (l) => lines.push(l))
+    expect(code).toBe(1)
+    expect(lines.join('\n')).toContain('NODE_TLS_REJECT_UNAUTHORIZED')
   })
 })

@@ -1,22 +1,24 @@
 // Records one real Figma file for the pixel harness: its JSON with `geometry=paths`, the bytes of
-// its image fills and Figma's own PNG of each top-level frame at scale 1. Run by hand, never in CI:
-//
-//   FIGMA_TOKEN=<personal access token> pnpm --filter @dazbee/figma record '<link>'
+// its image fills and Figma's own PNG of each top-level frame at scale 1. Run by hand, never in CI,
+// as `pnpm --filter @dazbee/figma record '<link>'` with the token in FIGMA_TOKEN, set as
+// tests/pixels/fixtures/figma/RECIPE.md's "Record it" says.
 //
 // The token goes only to https://api.figma.com, as `X-Figma-Token`, and is written nowhere: image
-// and render downloads (download.ts) are never given the token, the API's redirects are refused, and every error is redacted.
-// A link with a `node-id` records only `/files?ids=` for that node, as `node-link.json`.
-import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+// and render downloads (download.ts) are never given it, the API's redirects are refused, and every
+// error is redacted. A link with a `node-id` records only `/files?ids=` for that node, as
+// `node-link.json`.
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { MAX_UPLOAD_BYTES } from '@dazbee/schema'
 
 import { FRAME_TYPES } from '../src/layers.ts'
+import { field, type FigmaNode, MAX_FIGMA_NODES, ownMap, readFigmaFile, record as asRecord } from '../src/read.ts'
 import { download, isTimeout, readCapped } from './download.ts'
 
 export interface RecordOptions {
-  /** The Figma API's origin; the command line always passes `FIGMA_API`. */
+  /** The Figma API's origin; the command line always passes https://api.figma.com. */
   apiBase: string
   token: string
   /** The file's key, or a branch's key. */
@@ -29,36 +31,103 @@ export interface RecordOptions {
   allowHttp?: boolean
 }
 
-export interface RecordSummary {
-  /** The files written, relative to the recording's folder. */
-  written: string[]
-  images: number
-  failedImages: number
-  renders: number
-  failedRenders: number
-  imageHosts: string[]
-  /** For a node link, whether `/files?ids=` returned the node's page along with it. */
-  pageReturned?: boolean
-}
+/** What a run recorded: a whole file, or a node link and whether `/files?ids=` returned the node's page with it. */
+export type RecordSummary =
+  | {
+      kind: 'file'
+      images: number
+      failedImages: number
+      renders: number
+      failedRenders: number
+      imageHosts: string[]
+    }
+  | { kind: 'node'; pageReturned: boolean }
 
-type Json = Record<string, unknown>
+/** Figma's file JSON as a plain object the recording adds its own field to. */
+type FileJson = Record<string, unknown>
 
 interface Frame {
   id: string
   name: string
 }
 
-export const FIGMA_API = 'https://api.figma.com'
-/** Where the recording lands: `tests/pixels/fixtures/figma/recorded` at the repo's root. */
-export const RECORDED_DIR = fileURLToPath(new URL('../../../tests/pixels/fixtures/figma/recorded', import.meta.url))
+interface Saved {
+  /** Each saved item's key and its file, relative to the recording's folder. */
+  saved: Record<string, unknown>
+  failed: Record<string, unknown>[]
+}
 
-const FILE_BYTES = 200 * 1024 * 1024
+const FIGMA_API = 'https://api.figma.com'
+/** Where the recording lands: `tests/pixels/fixtures/figma/recorded` at the repo's root. */
+const RECORDED_DIR = fileURLToPath(new URL('../../../tests/pixels/fixtures/figma/recorded', import.meta.url))
+/** The most an API answer may hold, as decoded. */
+const ANSWER_BYTES = 200 * 1024 * 1024
 const RENDER_BYTES = 100 * 1024 * 1024
 const API_MS = 120_000
 const KEY = /^[A-Za-z0-9]{1,128}$/
-const NODE_ID = /^[A-Za-z0-9:;]{1,64}$/
-const IMAGE_REF = /^[A-Za-z0-9]{1,128}$/
-const UNSAFE_NAME = 'not a name the recording can save'
+/** A node id as Figma makes them: `1:2`, or an instance's child `I1:2;3:4`. */
+const NODE_ID = /^I?\d+:\d+(;\d+:\d+)*$/
+/** An `imageRef` as Figma makes them: a lowercase hex hash, so no two differ only in case. */
+const IMAGE_REF = /^[0-9a-f]{16,128}$/
+const UNSAFE_NAME_REASON = 'not a name the recording can save'
+/** Figma's personal access tokens; any one in a message is redacted, not only the one in use. */
+const ANY_FIGMA_TOKEN = /figd_[A-Za-z0-9_-]+/g
+
+/** Records the file `options.key` names; throws with a message that never holds the token. */
+export async function record(options: RecordOptions): Promise<RecordSummary> {
+  if (!KEY.test(options.key) || (options.nodeId !== undefined && !NODE_ID.test(options.nodeId)))
+    throw new Error('The file key or node id is not one Figma makes.')
+  const api = apiClient(options)
+  const fileQuery: Record<string, string> = { geometry: 'paths' }
+  if (options.nodeId) fileQuery.ids = options.nodeId
+  const file = await api.json(`/v1/files/${options.key}`, fileQuery, 'the file')
+  const document = designDocument(file)
+  const thumbnail = typeof file.thumbnailUrl === 'string' ? [file.thumbnailUrl] : []
+  delete file.thumbnailUrl
+  if (options.nodeId) return recordNodeLink(options, file, document, thumbnail)
+
+  const imagesAnswer = await api.json(`/v1/files/${options.key}/images`, {}, 'the image list')
+  const imageUrls = ownMap(field(field(imagesAnswer, 'meta'), 'images') ?? imagesAnswer.images)
+  const frames = topFrames(document)
+  const renderQuery = { ids: frames.map((f) => f.id).join(','), format: 'png', scale: '1', use_absolute_bounds: 'true' }
+  const renderUrls =
+    frames.length === 0
+      ? new Map<string, unknown>()
+      : ownMap((await api.json(`/v1/images/${options.key}`, renderQuery, 'the frame renders')).images)
+
+  const staging = `${options.outDir}.partial`
+  rmSync(staging, { recursive: true, force: true })
+  mkdirSync(join(staging, 'images'), { recursive: true })
+  mkdirSync(join(staging, 'figma'), { recursive: true })
+  const images = await saveImages(imageUrls, staging, options.allowHttp)
+  const renders = await saveRenders(frames, renderUrls, staging, options.allowHttp)
+  const imageHosts = hostsOf(imageUrls.values())
+  file.recording = {
+    imageHosts,
+    renderHosts: hostsOf(renderUrls.values()),
+    images: images.saved,
+    failedImages: images.failed,
+    renders: renders.saved,
+    failedRenders: renders.failed,
+  }
+  const secrets = [options.token, ...thumbnail, ...urlStrings(imageUrls.values()), ...urlStrings(renderUrls.values())]
+  writeFileSync(join(staging, 'file.json'), cleanJson(file, secrets))
+
+  // A node link recorded before stays beside the new recording.
+  const nodeLink = join(options.outDir, 'node-link.json')
+  if (existsSync(nodeLink)) renameSync(nodeLink, join(staging, 'node-link.json'))
+  rmSync(options.outDir, { recursive: true, force: true })
+  mkdirSync(dirname(options.outDir), { recursive: true })
+  renameSync(staging, options.outDir)
+  return {
+    kind: 'file',
+    images: Object.keys(images.saved).length,
+    failedImages: images.failed.length,
+    renders: Object.keys(renders.saved).length,
+    failedRenders: renders.failed.length,
+    imageHosts,
+  }
+}
 
 /** The file key and node a Figma file link names, or why it names none. */
 export function parseFigmaLink(link: string): { key: string; nodeId?: string } | { error: string } {
@@ -81,99 +150,9 @@ export function parseFigmaLink(link: string): { key: string; nodeId?: string } |
   return NODE_ID.test(nodeId) ? { key, nodeId } : { error: 'The link’s node-id is not one Figma makes.' }
 }
 
-/** Records the file `options.key` names; throws with a message that never holds the token. */
-export async function record(options: RecordOptions): Promise<RecordSummary> {
-  if (!KEY.test(options.key) || (options.nodeId !== undefined && !NODE_ID.test(options.nodeId)))
-    throw new Error('The file key or node id is not one Figma makes.')
-  const api = apiClient(options)
-  const fileQuery: Record<string, string> = { geometry: 'paths' }
-  if (options.nodeId) fileQuery.ids = options.nodeId
-  const file = await api.json(`/v1/files/${options.key}`, fileQuery, FILE_BYTES, 'the file')
-  if (file.editorType !== 'figma') throw new Error('The link is not a Figma design file.')
-  const thumbnail = typeof file.thumbnailUrl === 'string' ? [file.thumbnailUrl] : []
-  delete file.thumbnailUrl
-  if (options.nodeId) return recordNodeLink(options, file, thumbnail)
-
-  const imagesAnswer = await api.json(`/v1/files/${options.key}/images`, {}, FILE_BYTES, 'the image list')
-  const imageUrls = urlMap(field(imagesAnswer, 'meta', 'images') ?? imagesAnswer.images)
-  const frames = topFrames(file.document)
-  const renderUrls =
-    frames.length === 0
-      ? new Map<string, unknown>()
-      : urlMap(
-          (
-            await api.json(
-              `/v1/images/${options.key}`,
-              { ids: frames.map((f) => f.id).join(','), format: 'png', scale: '1', use_absolute_bounds: 'true' },
-              FILE_BYTES,
-              'the frame renders',
-            )
-          ).images,
-        )
-
-  const staging = `${options.outDir}.partial`
-  rmSync(staging, { recursive: true, force: true })
-  mkdirSync(join(staging, 'images'), { recursive: true })
-  mkdirSync(join(staging, 'figma'), { recursive: true })
-  const written: string[] = []
-
-  const images: Json = {}
-  const failedImages: Json[] = []
-  for (const [ref, url] of imageUrls) {
-    const got = IMAGE_REF.test(ref) ? await download(url, MAX_UPLOAD_BYTES, options.allowHttp) : { reason: UNSAFE_NAME }
-    if ('reason' in got) {
-      failedImages.push({ imageRef: ref, reason: got.reason })
-      continue
-    }
-    const name = `images/${ref}.${got.extension}`
-    writeFileSync(join(staging, name), got.bytes)
-    images[ref] = name
-    written.push(name)
-  }
-
-  const renders: Json = {}
-  const failedRenders: Json[] = []
-  for (const frame of frames) {
-    const got = await download(renderUrls.get(frame.id), RENDER_BYTES, options.allowHttp)
-    if ('reason' in got || got.extension !== 'png') {
-      failedRenders.push({ ...frame, reason: 'reason' in got ? got.reason : 'Figma’s render is not a PNG' })
-      continue
-    }
-    const name = `figma/${frame.id.replaceAll(':', '-').replaceAll(';', '_')}.png`
-    writeFileSync(join(staging, name), got.bytes)
-    renders[frame.id] = { name: frame.name, file: name }
-    written.push(name)
-  }
-
-  const imageHosts = hostsOf(imageUrls.values())
-  file.recording = {
-    imageHosts,
-    renderHosts: hostsOf(renderUrls.values()),
-    images,
-    failedImages,
-    renders,
-    failedRenders,
-  }
-  const secrets = [options.token, ...thumbnail, ...urlStrings(imageUrls.values()), ...urlStrings(renderUrls.values())]
-  writeFileSync(join(staging, 'file.json'), cleanJson(file, secrets))
-  written.unshift('file.json')
-
-  rmSync(options.outDir, { recursive: true, force: true })
-  mkdirSync(dirname(options.outDir), { recursive: true })
-  renameSync(staging, options.outDir)
-  return {
-    written,
-    images: Object.keys(images).length,
-    failedImages: failedImages.length,
-    renders: Object.keys(renders).length,
-    failedRenders: failedRenders.length,
-    imageHosts,
-  }
-}
-
-/** `text` with every copy of `token` replaced by `[FIGMA_TOKEN]`. */
+/** `text` with every copy of `token`, and anything shaped like a Figma token, replaced by `[FIGMA_TOKEN]`. */
 export function redact(text: string, token: string): string {
-  return token ? text.replaceAll(token, '[FIGMA_TOKEN]') : text
+  return (token ? text.replaceAll(token, '[FIGMA_TOKEN]') : text).replace(ANY_FIGMA_TOKEN, '[FIGMA_TOKEN]')
 }
 
 /** The command line: records the link in `args[0]` with `FIGMA_TOKEN` from `env`; returns the exit code. */
@@ -193,6 +172,10 @@ export async function main(
     log('FIGMA_TOKEN holds characters a Figma token never has (spaces or line breaks); copy it again.')
     return 1
   }
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    log('NODE_TLS_REJECT_UNAUTHORIZED is 0, so the token could be read on its way to Figma; unset it first.')
+    return 1
+  }
   const link = parseFigmaLink(args[0] ?? '')
   if ('error' in link) {
     log(`${link.error}\nUsage: pnpm --filter @dazbee/figma record '<link to a Figma design file>'`)
@@ -200,9 +183,8 @@ export async function main(
   }
   try {
     log(link.nodeId ? `Reading node ${link.nodeId} from Figma…` : 'Reading the file from Figma…')
-    const outDir = RECORDED_DIR
-    const summary = await record({ apiBase: FIGMA_API, token, ...link, outDir })
-    for (const line of summaryLines(summary, outDir)) log(line)
+    const summary = await record({ apiBase: FIGMA_API, token, ...link, outDir: RECORDED_DIR })
+    for (const line of summaryLines(summary)) log(line)
     return 0
   } catch (error) {
     log(redact(error instanceof Error ? error.message : 'The recording failed.', token))
@@ -210,26 +192,10 @@ export async function main(
   }
 }
 
-function recordNodeLink(options: RecordOptions, file: Json, thumbnail: string[]): RecordSummary {
-  const pageReturned = pagesOf(file.document).length > 0
-  file.recording = { nodeId: options.nodeId, pageReturned }
-  mkdirSync(options.outDir, { recursive: true })
-  writeFileSync(join(options.outDir, 'node-link.json'), cleanJson(file, [options.token, ...thumbnail]))
-  return {
-    written: ['node-link.json'],
-    images: 0,
-    failedImages: 0,
-    renders: 0,
-    failedRenders: 0,
-    imageHosts: [],
-    pageReturned,
-  }
-}
-
 /** Calls to the Figma API, each with the token, to its origin alone, following no redirect. */
 function apiClient(options: RecordOptions) {
   const origin = new URL(options.apiBase).origin
-  const json = async (path: string, query: Record<string, string>, cap: number, what: string): Promise<Json> => {
+  const json = async (path: string, query: Record<string, string>, what: string): Promise<FileJson> => {
     const url = new URL(path, origin)
     for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v)
     if (url.origin !== origin) throw new Error(`Refused to send the token outside ${origin}.`)
@@ -247,55 +213,97 @@ function apiClient(options: RecordOptions) {
           : `Figma could not be reached for ${what}, or answered with a redirect, which is not followed.`,
       )
     }
-    const body = await readCapped(response, cap).catch(() => null)
+    const body = await readCapped(response, ANSWER_BYTES).catch(() => null)
     const text = body ? new TextDecoder().decode(body) : ''
-    if (!response.ok) throw new Error(redact(statusMessage(response, text, what), options.token))
-    if (!body) throw new Error(`Figma’s answer for ${what} was larger than ${cap / 1024 / 1024} MB.`)
+    if (!response.ok) throw new Error(redact(statusMessage(response, text, what, options.token), options.token))
+    if (!body) throw new Error(`Figma’s answer for ${what} was larger than ${ANSWER_BYTES / 1024 / 1024} MB.`)
     let parsed: unknown
     try {
       parsed = JSON.parse(text)
     } catch {
       throw new Error(`Figma’s answer for ${what} was not JSON.`)
     }
-    if (!isJson(parsed)) throw new Error(`Figma’s answer for ${what} was not a JSON object.`)
-    return parsed
+    const fields = asRecord(parsed)
+    if (!fields) throw new Error(`Figma’s answer for ${what} was not a JSON object.`)
+    return { ...fields }
   }
   return { json }
 }
 
-function statusMessage(response: Response, text: string, what: string): string {
-  const lines = [`Figma answered ${response.status} for ${what}.`]
-  let said: unknown
-  try {
-    const body: unknown = JSON.parse(text)
-    said = isJson(body) ? (body.err ?? body.message) : undefined
-  } catch {
-    said = undefined
-  }
-  if (typeof said === 'string' && said) lines.push(`Figma said: ${said.slice(0, 200)}`)
-  if (response.status === 403)
-    lines.push('The token may have expired, lack the File content: read scope, or belong to someone without access.')
-  if (response.status === 404) lines.push('Figma has no file with that key; check the link.')
-  if (response.status === 429) {
-    const after = response.headers.get('retry-after')
-    lines.push(after ? `Try again in ${after} s.` : 'Try again later.')
-    if (response.headers.get('x-figma-rate-limit-type') === 'low')
-      lines.push('Figma allows View and Collab seats about 20 file reads a month.')
-  }
-  return lines.join('\n')
+/** The file's document read as nodes, or an error naming why the file can't be recorded. */
+function designDocument(file: FileJson): FigmaNode {
+  const read = readFigmaFile(JSON.stringify(file))
+  if (!('error' in read)) return read.document
+  throw new Error(
+    read.error === 'too-many-nodes'
+      ? `The file has more than ${MAX_FIGMA_NODES} nodes, more than Dazbee imports; record a smaller file.`
+      : read.error === 'too-deep'
+        ? 'The file nests its layers deeper than Dazbee imports; record a flatter file.'
+        : 'The link is not a Figma design file.',
+  )
 }
 
-/** The file as indented JSON; throws, writing nothing, when it holds the token or a recorded URL. */
-function cleanJson(file: Json, secrets: string[]): string {
-  const text = `${JSON.stringify(file, null, 2)}\n`
-  for (const secret of secrets)
-    if (secret && text.includes(secret)) throw new Error('The recording held the token or a URL; nothing was written.')
-  return text
+function recordNodeLink(
+  options: RecordOptions,
+  file: FileJson,
+  document: FigmaNode,
+  thumbnail: string[],
+): RecordSummary {
+  const pageReturned = document.children.some((n) => n.type === 'CANVAS')
+  file.recording = { nodeId: options.nodeId, pageReturned }
+  mkdirSync(options.outDir, { recursive: true })
+  writeFileSync(join(options.outDir, 'node-link.json'), cleanJson(file, [options.token, ...thumbnail]))
+  return { kind: 'node', pageReturned }
 }
 
-/** A map from Figma's JSON as own entries, so no key reaches an object's prototype. */
-function urlMap(value: unknown): Map<string, unknown> {
-  return new Map(isJson(value) ? Object.entries(value) : [])
+/** The visible top-level frames, components and instances of every page, through sections. */
+function topFrames(document: FigmaNode): Frame[] {
+  const frames: Frame[] = []
+  const pages = document.children.filter((n) => n.type === 'CANVAS')
+  const stack = pages.flatMap((p) => p.children).reverse()
+  for (let node = stack.pop(); node; node = stack.pop()) {
+    if (node.fields.visible === false) continue
+    if (node.type === 'SECTION') stack.push(...[...node.children].reverse())
+    else if (FRAME_TYPES.has(node.type) && NODE_ID.test(node.id)) frames.push({ id: node.id, name: node.name })
+  }
+  return frames
+}
+
+/** Saves each image fill's bytes as `images/<imageRef>.<type>`, listing every one that fails. */
+async function saveImages(urls: Map<string, unknown>, staging: string, allowHttp?: boolean): Promise<Saved> {
+  const result: Saved = { saved: {}, failed: [] }
+  for (const [ref, url] of urls) {
+    const got = IMAGE_REF.test(ref) ? await download(url, MAX_UPLOAD_BYTES, allowHttp) : { reason: UNSAFE_NAME_REASON }
+    if ('reason' in got) {
+      result.failed.push({ imageRef: ref, reason: got.reason })
+      continue
+    }
+    const file = `images/${ref}.${got.extension}`
+    writeFileSync(join(staging, file), got.bytes)
+    result.saved[ref] = file
+  }
+  return result
+}
+
+/** Saves Figma's PNG of each frame as `figma/<id>.png`, `1:2` as `1-2`, listing every one that fails. */
+async function saveRenders(
+  frames: Frame[],
+  urls: Map<string, unknown>,
+  staging: string,
+  allowHttp?: boolean,
+): Promise<Saved> {
+  const result: Saved = { saved: {}, failed: [] }
+  for (const frame of frames) {
+    const got = await download(urls.get(frame.id), RENDER_BYTES, allowHttp)
+    if ('reason' in got || got.extension !== 'png') {
+      result.failed.push({ ...frame, reason: 'reason' in got ? got.reason : 'Figma’s render is not a PNG' })
+      continue
+    }
+    const file = `figma/${frame.id.replaceAll(':', '-').replaceAll(';', '_')}.png`
+    writeFileSync(join(staging, file), got.bytes)
+    result.saved[frame.id] = { name: frame.name, file }
+  }
+  return result
 }
 
 function hostsOf(urls: Iterable<unknown>): string[] {
@@ -310,53 +318,53 @@ function hostsOf(urls: Iterable<unknown>): string[] {
   return [...hosts].sort()
 }
 
-function urlStrings(values: Iterable<unknown>): string[] {
-  return [...values].filter((v): v is string => typeof v === 'string')
+/** The file as indented JSON; throws, writing nothing, when it holds the token or a recorded URL. */
+function cleanJson(file: FileJson, secrets: string[]): string {
+  const text = `${JSON.stringify(file, null, 2)}\n`
+  for (const secret of secrets)
+    if (secret && text.includes(secret)) throw new Error('The recording held the token or a URL; nothing was written.')
+  return text
 }
 
-/** The visible top-level frames, components and instances of every page, through sections. */
-function topFrames(document: unknown): Frame[] {
-  const frames: Frame[] = []
-  const stack = pagesOf(document).flatMap(childrenOf).reverse()
-  for (let node = stack.pop(); node; node = stack.pop()) {
-    if (node.visible === false || typeof node.id !== 'string') continue
-    if (node.type === 'SECTION') stack.push(...childrenOf(node).reverse())
-    else if (typeof node.type === 'string' && FRAME_TYPES.has(node.type))
-      frames.push({ id: node.id, name: typeof node.name === 'string' ? node.name : '' })
-  }
-  return frames.filter((f) => NODE_ID.test(f.id))
-}
-
-function pagesOf(document: unknown): Json[] {
-  return isJson(document) ? childrenOf(document).filter((n) => n.type === 'CANVAS') : []
-}
-
-function childrenOf(node: Json): Json[] {
-  return Array.isArray(node.children) ? node.children.filter(isJson) : []
-}
-
-function field(value: unknown, ...path: string[]): unknown {
-  let at = value
-  for (const key of path) at = isJson(at) && Object.hasOwn(at, key) ? at[key] : undefined
-  return at
-}
-
-function isJson(value: unknown): value is Json {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function summaryLines(s: RecordSummary, outDir: string): string[] {
-  if (s.pageReturned !== undefined)
+function summaryLines(s: RecordSummary): string[] {
+  if (s.kind === 'node')
     return [
-      `Saved ${join(outDir, 'node-link.json')}.`,
+      `Saved ${join(RECORDED_DIR, 'node-link.json')}.`,
       s.pageReturned ? 'Figma returned the node with its page.' : 'Figma returned the node without its page.',
     ]
   return [
-    `Saved the recording in ${outDir}:`,
+    `Saved the recording in ${RECORDED_DIR}:`,
     `  file.json, ${s.images} images (${s.failedImages} failed), ${s.renders} frame renders (${s.failedRenders} failed).`,
     `  Image hosts: ${s.imageHosts.join(', ') || 'none'}.`,
     'Failed images and renders are listed in file.json under "recording".',
   ]
+}
+
+/** Figma's status for `what`, its own words with the token redacted, and what to do next. */
+function statusMessage(response: Response, text: string, what: string, token: string): string {
+  const lines = [`Figma answered ${response.status} for ${what}.`]
+  let said: unknown
+  try {
+    const body = asRecord(JSON.parse(text))
+    said = body?.err ?? body?.message
+  } catch {
+    said = undefined
+  }
+  if (typeof said === 'string' && said) lines.push(`Figma said: ${redact(said, token).slice(0, 200)}`)
+  if (response.status === 403)
+    lines.push('The token may have expired, lack the File content: read scope, or belong to someone without access.')
+  if (response.status === 404) lines.push('Figma has no file with that key; check the link.')
+  if (response.status === 429) {
+    const after = response.headers.get('retry-after')
+    lines.push(after ? `Try again in ${after} s.` : 'Try again later.')
+    if (response.headers.get('x-figma-rate-limit-type') === 'low')
+      lines.push('Figma allows View and Collab seats about 20 file reads a month.')
+  }
+  return lines.join('\n')
+}
+
+function urlStrings(values: Iterable<unknown>): string[] {
+  return [...values].filter((v): v is string => typeof v === 'string')
 }
 
 if (import.meta.main ?? process.argv[1] === import.meta.filename) {

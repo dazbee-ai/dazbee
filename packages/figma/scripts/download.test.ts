@@ -16,6 +16,16 @@ const BODIES: Record<string, Uint8Array> = {
 const seen: IncomingHttpHeaders[] = []
 const server = createServer((req, res) => {
   seen.push(req.headers)
+  const hops = /^\/hop\/(\d+)$/.exec(req.url ?? '')
+  if (hops) {
+    const left = Number(hops[1])
+    res.writeHead(302, { location: left === 0 ? '/png' : `/hop/${left - 1}` }).end()
+    return
+  }
+  if (req.url === '/to-file') {
+    res.writeHead(302, { location: 'file:///etc/hosts' }).end()
+    return
+  }
   const body = BODIES[req.url ?? '']
   if (!body) {
     res.writeHead(403).end()
@@ -51,6 +61,12 @@ describe('download', () => {
     const before = seen.length
     expect(await download(`${base}/png`, 100)).toEqual({ reason: 'not an https URL' })
     expect(seen.length).toBe(before)
+  })
+
+  it('follows up to three redirects, checking each, and refuses a fourth', async () => {
+    expect(await download(`${base}/hop/2`, 100, true)).toMatchObject({ extension: 'png' })
+    expect(await download(`${base}/hop/3`, 100, true)).toEqual({ reason: 'more than 3 redirects' })
+    expect(await download(`${base}/to-file`, 100, true)).toEqual({ reason: 'redirected to a URL that is not https' })
   })
 
   it('sends no credential', async () => {

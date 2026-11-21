@@ -416,7 +416,7 @@ A small drawing from one of the icon sets Dazbee bundles, placed on a frame as e
 _Avoid_: Symbol, glyph, clip art, Daz (the bee)
 
 **Sticker**:
-A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person. A picture sticker joins the brand's asset library when placed, as any image does.
+A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person, placed in its own colours. A picture sticker (a PNG file) joins the brand's asset library when placed, once however often, and is placed as an image; a drawing sticker (an SVG file) is placed as editable layers and joins nothing.
 _Avoid_: Clip art, emoji (one kind of sticker), illustration alone
 
 **Stock photo**:

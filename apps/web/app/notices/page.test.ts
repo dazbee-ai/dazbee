@@ -39,8 +39,7 @@ describe('generateMetadata', () => {
 
 describe('NoticesPage', () => {
   it('lists each bundled set with its version, its licence’s name and the licence in full', async () => {
-    const [tabler, phosphor, ...rest] = await noticesRead()
-    expect(rest).toEqual([])
+    const [tabler, phosphor, ...stickers] = await noticesRead()
     expect(tabler).toMatch(
       /^Tabler Icons Version 3\.52\.0 · MIT licence MIT License Copyright \(c\) 2020-2026 Paweł Kuna /,
     )
@@ -51,12 +50,26 @@ describe('NoticesPage', () => {
       expect(notice).toContain('The above copyright notice and this permission notice shall be included in all copies')
       expect(notice).toMatch(/OTHER DEALINGS IN THE SOFTWARE\.$/)
     }
+    const [fluent, ...cc0] = stickers
+    expect(fluent).toMatch(
+      /^Fluent Emoji Version 1ffb34c · MIT licence MIT License Copyright \(c\) Microsoft Corporation\. /,
+    )
+    expect(cc0.map((notice) => notice.split(' Version ')[0])).toEqual(['Open Peeps', 'Humaaans', 'Open Doodles'])
+    for (const notice of cc0) {
+      expect(notice).toMatch(/^[\w ]+ Version 2026-11-22 · CC0-1\.0 licence [\w ]+ by Pablo Stanley\. /)
+      expect(notice).toContain('Creative Commons Legal Code CC0 1.0 Universal')
+      expect(notice).toMatch(/this CC0 or use of the Work\.$/)
+    }
   })
 
   it('links each set’s name to its site, in a new tab', async () => {
     const markup = renderToStaticMarkup(await NoticesPage())
     expect(markup).toMatch(/<a href="https:\/\/tabler\.io\/icons" target="_blank" rel="noreferrer"/)
     expect(markup).toMatch(/<a href="https:\/\/phosphoricons\.com" target="_blank" rel="noreferrer"/)
+    expect(markup).toMatch(
+      /<a href="https:\/\/github\.com\/microsoft\/fluentui-emoji" target="_blank" rel="noreferrer"/,
+    )
+    expect(markup).toMatch(/<a href="https:\/\/www\.openpeeps\.com" target="_blank" rel="noreferrer"/)
   })
 
   it('speaks Arabic around the licences, which stay in English', async () => {

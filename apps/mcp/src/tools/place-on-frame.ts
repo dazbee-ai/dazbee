@@ -1,5 +1,6 @@
 // What the tools that place on a frame of the open design share: the box they place in, the frame they place on,
-// the parts of a frame they place at, and running the placing batch and answering with the layer it placed.
+// the parts of a frame they place at, the step that places an SVG file's layers, and running the placing batch and
+// answering with the layer it placed.
 import { z } from 'zod'
 
 import { type AgentStep, placedRoots } from '@dazbee/doc'
@@ -26,7 +27,7 @@ export interface Placing {
   told: Record<string, unknown>
 }
 
-/** The batch that places an asset, with what an SVG file had that no layer shows. */
+/** The batch that places an asset or a sticker, with what an SVG file had that no layer shows. */
 export interface AssetPlacing extends Placing {
   leftOut: readonly string[]
 }
@@ -97,11 +98,9 @@ export function centreOf({ x, y, width, height }: Rect) {
 export async function svgSteps(
   { id: frameId, frame }: FrameTo,
   name: string,
-  bytes: Uint8Array,
+  text: string,
   box: Rect | undefined,
 ): Promise<AssetPlacing> {
-  // Read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced.
-  const text = new TextDecoder().decode(bytes)
   let read
   try {
     read = await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })

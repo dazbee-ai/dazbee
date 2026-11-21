@@ -1,9 +1,9 @@
-// The third-party notices: each icon set Dazbee bundles for agents to place, its name linking to its site in a new
-// tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's width.
+// The third-party notices: each icon and sticker set Dazbee bundles for agents to place, its name linking to its site
+// in a new tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's width.
 // Open to anyone, signed in or not.
 import Link from 'next/link'
 
-import { ICON_SET_NOTICES } from '@dazbee/graphics/notices'
+import { SET_NOTICES } from '@dazbee/graphics/notices'
 
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
@@ -27,7 +27,7 @@ export default async function NoticesPage() {
           <h1 className="font-display text-title font-bold tracking-tight md:leading-tight">{words.title}</h1>
           <p className="text-card text-muted">{words.line}</p>
         </header>
-        {ICON_SET_NOTICES.map((notice, i) => (
+        {SET_NOTICES.map((notice, i) => (
           <section
             key={notice.title}
             aria-labelledby={`notice-${i}`}

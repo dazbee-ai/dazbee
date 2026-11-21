@@ -5,13 +5,13 @@ import { and, eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { agentAccesses, brands, memberships, newId, users } from '@dazbee/db'
-import { AgentMe, BrandSummary, type MemberRole, SyncToken } from '@dazbee/schema'
+import { AgentMe, AssetSummary, BrandSummary, type MemberRole, SyncToken, UploadTicket } from '@dazbee/schema'
 import { verifySyncToken } from '@dazbee/sync-token'
 
 import { createApp } from '../app.ts'
 import { seedDevelopment, sessionOfRequest } from '../sign-in/session.ts'
 import { addPerson, addWorkspace, db, request, sessionSecret, storage, syncSecret, uploadImage } from '../test-api.ts'
-import { png } from '../test-files.ts'
+import { png, sha256 } from '../test-files.ts'
 import { issueTokens, makeAccess, refreshTokens } from './agent-accesses.ts'
 
 const HOUR = 60 * 60 * 1000
@@ -27,6 +27,8 @@ const AGENTS_ROUTES = [
   'POST /workspaces/:workspaceId/brands/:brandId/assets/from-url',
   'GET /workspaces/:workspaceId/stock/photos',
   'POST /workspaces/:workspaceId/brands/:brandId/assets/from-stock',
+  'POST /workspaces/:workspaceId/brands/:brandId/assets/uploads',
+  'POST /workspaces/:workspaceId/brands/:brandId/assets',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts',
   'GET /workspaces/:workspaceId/brands/:brandId/fonts/faces/:faceId',
   'GET /workspaces/:workspaceId/brands/:brandId/kit',
@@ -259,6 +261,28 @@ describe('an agent token on the app as main.ts builds it', () => {
     const asked = await ask(a.accessToken, 'POST', `${a.brand(0)}/designs/${design}/sync-token`)
     const signed = verifySyncToken(syncSecret, SyncToken.parse(asked.json).token, design)
     expect(signed).toMatchObject({ ok: true, payload: { role: 'reviewer', userId: a.person.id } })
+  })
+
+  it('uploads an image into its brand’s asset library, the same bytes once, and answers 403 to a view access', async () => {
+    const a = await agent({ role: 'editor' })
+    const bytes = png(4, 4, `sticker-${a.accessId}`)
+    const start = { sha256: sha256(bytes), byteSize: bytes.length, contentType: 'image/png', name: 'Rocket' }
+    const ticket = UploadTicket.parse((await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/uploads`, start)).json)
+    if (!ticket.upload) throw new Error('a new image is uploaded')
+    const put = await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
+    expect(put.status).toBe(200)
+    const recorded = await ask(a.accessToken, 'POST', `${a.brand(0)}/assets`, { sha256: start.sha256, name: 'Rocket' })
+    expect(recorded.status).toBe(201)
+    const asset = AssetSummary.parse(recorded.json)
+    expect(asset).toMatchObject({ name: 'Rocket', contentType: 'image/png', width: 4, height: 4 })
+    const again = UploadTicket.parse((await ask(a.accessToken, 'POST', `${a.brand(0)}/assets/uploads`, start)).json)
+    expect(again.asset?.id).toBe(asset.id)
+
+    const viewer = await agent({ role: 'owner', writes: false })
+    expect((await ask(viewer.accessToken, 'POST', `${viewer.brand(0)}/assets/uploads`, start)).status).toBe(403)
+    expect((await ask(viewer.accessToken, 'POST', `${viewer.brand(0)}/assets`, { sha256: start.sha256 })).status).toBe(
+      403,
+    )
   })
 
   it('signs a writing access’s sync token as an Editor’s at most, with the agent’s name or "AI agent"', async () => {

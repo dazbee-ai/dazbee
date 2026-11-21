@@ -24,6 +24,7 @@ import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from '.
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { assetRoutes } from './assets/routes.ts'
+import { SvgBusy } from './assets/svg-assets.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
 import { brandKitRoutes } from './brand-kits/routes.ts'
 import { InvalidFont } from './fonts/fonts.ts'
@@ -121,6 +122,7 @@ export function createApp({
   app.onError((e, c) => {
     if (e instanceof MemberRefusal) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
+    if (e instanceof SvgBusy) return c.json(error(e.message), 503)
     if (e instanceof InvalidContent) return c.json(error(`The design is not valid: ${e.message}`), 400)
     if (
       e instanceof InvalidUpload ||

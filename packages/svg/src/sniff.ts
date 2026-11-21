@@ -4,12 +4,16 @@
 /** An SVG file's media type, as clipboards and uploads name it. */
 export const SVG_TYPE = 'image/svg+xml'
 
+/** The white space at one place in the text, skipped in one step rather than a test for each character. */
+const SPACE = /\s*/y
+
 /** Text that is an SVG file, trimmed, or null: markup opening with <svg after any declaration, comment or doctype. */
 export function svgMarkup(text: string | undefined): string | null {
   const trimmed = text?.trim() ?? ''
   let at = 0
   for (;;) {
-    while (/\s/.test(trimmed[at] ?? '')) at++
+    SPACE.lastIndex = at
+    at += SPACE.exec(trimmed)?.[0].length ?? 0
     if (trimmed.startsWith('<?', at)) at = after(trimmed, '?>', at)
     else if (trimmed.startsWith('<!--', at)) at = after(trimmed, '-->', at)
     else if (trimmed.startsWith('<!', at)) {

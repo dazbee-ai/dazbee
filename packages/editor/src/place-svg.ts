@@ -9,6 +9,7 @@ import { type ConvertOptions, type Skipped, SvgError, svgToLayers } from '@dazbe
 import type { EditorView, Spot } from './canvas/view.ts'
 import type { CoreStart, NoticeDetail } from './core-interface.ts'
 import { round } from './layers/transform.ts'
+import { svgLayers } from './placed-asset.ts'
 import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, firstFrameOf, frameToPlaceIn } from './selection.ts'
 import type { EditorTyping } from './text/typing.ts'
@@ -76,8 +77,6 @@ export interface EditorPlaceSvg {
   placeWhenSettled(read: SvgRead): Promise<string | null>
 }
 
-/** The share of a frame's shorter side a placed SVG may take before it is scaled down to it. */
-const SVG_ROOM = 0.6
 /** How often placing checks again whether a drag, scrub, pen path or typing has ended. */
 const IDLE_CHECK_MS = 50
 /** How long placing waits for a pen path, which only a key or a click ends, before it ends it. */
@@ -108,23 +107,7 @@ export function editorPlaceSvg({
         : frameToPlaceIn(view, selection)
     if (!frame || signal.aborted) return null
     const spot = given ?? { frameId: frame.id, x: frame.width / 2, y: frame.height / 2 }
-    const natural = converted(text, { name })
-    if (!natural) return null
-    const room = Math.min(frame.width, frame.height) * SVG_ROOM
-    const fit = Math.max(natural.width, natural.height) > room ? { fit: room } : {}
-    const uploader = uploads.can()
-    const assets = uploader ? await uploads.upload(natural.images) : {}
-    const assetIds = Object.fromEntries(Object.entries(assets).map(([key, asset]) => [key, asset.id]))
-    if (signal.aborted) return null
-    const made = natural.images.length > 0 || 'fit' in fit ? converted(text, { name, ...fit, assetIds }) : natural
-    if (!made) return null
-    // Without an uploader the pictures have no assets, so they are left out.
-    const leftOut =
-      natural.images.length > 0 && !uploader && !made.skipped.includes('image')
-        ? [...made.skipped, 'image' as const]
-        : made.skipped
-    const notUploaded = uploader ? natural.images.filter((image) => !(image.key in assetIds)).length : 0
-    return { spot, tree: made.tree, root: made.root, leftOut, notUploaded }
+    return svgLayers(text, name, frame, spot, uploads, signal, converted)
   }
 
   /** The file as layers, or null when it can't be read, which is told. */

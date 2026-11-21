@@ -12,16 +12,19 @@ import {
   type LinearPaint,
   type Paint,
   type RadialPaint,
+  type Stroke,
   TILE_SCALE,
 } from '@dazbee/schema'
 import { apply, type Matrix } from '@dazbee/svg'
 
 import type { LayerInput, LayerPaints } from './build.ts'
-import { bool, colourOf, field, type FigmaFields, list, num, record, str } from './read.ts'
+import { bool, colourOf, field, type FigmaFields, type FigmaNode, list, num, record, str } from './read.ts'
 import type { ReportedNode, Reporter } from './report.ts'
 
 /** A paint as the import writes it, before the schema fills in its defaults. */
 export type PaintInput = z.input<typeof Paint>
+/** A stroke as the import writes it, before the schema fills in its defaults. */
+export type StrokeInput = z.input<typeof Stroke>
 
 /** A gradient's colour at an offset from 0 to 1. */
 export interface Stop {
@@ -54,6 +57,25 @@ const MAX_HANDLE = 1e6
 const ROUND_RATIO = 0.999
 /** Figma's numbers are 32-bit floats: handles within this share of square and of one length are read as both. */
 const SLACK = 1e-6
+/** Lengths past this, in pixels, are no drawing Figma makes; they are brought within it. */
+const MAX_LENGTH = 1e6
+/** The longest miter a join reaches, in half stroke widths, as FigCraft holds it. */
+const MAX_MITER = 100
+const STROKE_ALIGNS: ReadonlyMap<string, 'inside' | 'center' | 'outside'> = new Map([
+  ['INSIDE', 'inside'],
+  ['CENTER', 'center'],
+  ['OUTSIDE', 'outside'],
+])
+/** Stroke caps as Dazbee's; a line's ends (arrows and the like) are its shape's, and its stroke is butt. */
+const STROKE_CAPS: ReadonlyMap<string, 'butt' | 'round' | 'square'> = new Map([
+  ['ROUND', 'round'],
+  ['SQUARE', 'square'],
+])
+const STROKE_JOINS: ReadonlyMap<string, 'miter' | 'round' | 'bevel'> = new Map([
+  ['MITER', 'miter'],
+  ['ROUND', 'round'],
+  ['BEVEL', 'bevel'],
+])
 /** Paint types Dazbee has no paint for, each with its report line. */
 const LEFT_OUT: ReadonlyMap<string, FigmaReportLine> = new Map([
   ['EMOJI', 'emoji-paints'],
@@ -81,13 +103,46 @@ export function paintLayer(report: Reporter, layer: LayerInput, paints: LayerPai
   if (layer.type !== 'graphic' && layer.type !== 'box' && layer.type !== 'boolean') return
   const at = { handles: paints.handles, width: layer.props.width, height: layer.props.height }
   const fills = fillsOf(report, paints.node, paints.fills, at)
-  if (fills.length > 0) Object.assign(layer.props, { fills })
+  const strokes = paints.strokes ? strokesOf(report, paints.strokes, at) : []
+  Object.assign(layer.props, fills.length > 0 ? { fills } : {}, strokes.length > 0 ? { strokes } : {})
+  // A box's or rectangle's corners are drawn round; a path's outline already holds its smoothing.
+  const corners = layer.type === 'box' ? layer.props.cornerRadius : rectCorners(field(layer.props, 'shape'))
+  const rounded = typeof corners === 'number' ? corners > 0 : corners?.some((r) => r > 0)
+  if (rounded && (num(field(paints.node.fields, 'cornerSmoothing')) ?? 0) > 0) report.add('corner-smoothing', paints.node)
 }
 
 /** The Dazbee paints a node's Figma paints become, bottom to top, each left out or changed reported. */
 export function fillsOf(report: Reporter, node: ReportedNode, paints: readonly unknown[], at: PaintPlace): PaintInput[] {
   const note = (line: FigmaReportLine) => report.add(line, node)
   return paints.flatMap((p) => paintOf(note, p, at) ?? [])
+}
+
+/**
+ * A node's strokes as Dazbee's: one for each of its stroke paints, all of one weight, align, dashes,
+ * cap, join and miter limit. Differing weights on each side are drawn at the widest, reported; a
+ * weight of 0 is no stroke.
+ */
+export function strokesOf(report: Reporter, n: FigmaNode, at: PaintPlace): StrokeInput[] {
+  const width = weightOf(report, n)
+  if (!(width > 0)) return []
+  const { fields } = n
+  const dashes = list(field(fields, 'strokeDashes')).flatMap((d) => {
+    const length = num(d)
+    return length === undefined || length < 0 ? [] : [Math.min(length, MAX_LENGTH)]
+  })
+  const angle = num(field(fields, 'strokeMiterAngle'))
+  const look = {
+    width,
+    align: STROKE_ALIGNS.get(str(field(fields, 'strokeAlign')) ?? '') ?? 'center',
+    ...(dashes.some((d) => d > 0) ? { dashes } : {}),
+    cap: STROKE_CAPS.get(str(field(fields, 'strokeCap')) ?? '') ?? 'butt',
+    join: STROKE_JOINS.get(str(field(fields, 'strokeJoin')) ?? '') ?? 'miter',
+    // The angle below which Figma bevels a join, as a miter limit (props.rs:376-378).
+    ...(angle !== undefined && angle > 0 && angle < 180
+      ? { miterLimit: Math.min(MAX_MITER, Math.max(1, 1 / Math.sin((angle * Math.PI) / 360))) }
+      : {}),
+  }
+  return fillsOf(report, n, list(field(fields, 'strokes')), at).map((paint) => ({ paint, ...look }))
 }
 
 /**
@@ -319,4 +374,27 @@ function isSkewed({ handles: [a, b, c, d], width, height }: PaintPlace): boolean
   const across = Math.hypot(width * a, height * b)
   const down = Math.hypot(width * c, height * d)
   return Math.abs(width * width * a * c + height * height * b * d) > SLACK * across * down
+}
+
+/**
+ * A node's stroke weight: its own on each side when it has them, the widest when they differ,
+ * reported; else `strokeWeight`, 1 when it has none, as Figma's default.
+ */
+function weightOf(report: Reporter, n: FigmaNode): number {
+  const sides = field(n.fields, 'individualStrokeWeights')
+  const each = (['top', 'right', 'bottom', 'left'] as const).map((k) => num(field(sides, k)))
+  const weight = (w: number) => Math.min(MAX_LENGTH, w)
+  if (each.every((w) => w !== undefined && w >= 0)) {
+    const widest = Math.max(...(each as number[]))
+    if ((each as number[]).some((w) => w !== widest)) report.add('stroke-weights-widest', n)
+    return weight(widest)
+  }
+  return weight(num(field(n.fields, 'strokeWeight')) ?? 1)
+}
+
+/** A rectangle shape's corners: its one radius, or each corner's; undefined for any other shape. */
+function rectCorners(shape: unknown): number | readonly number[] | undefined {
+  if (field(shape, 'kind') !== 'rect') return undefined
+  const corners = field(shape, 'corners')
+  return Array.isArray(corners) ? (corners as number[]) : (num(field(shape, 'cornerRadius')) ?? 0)
 }

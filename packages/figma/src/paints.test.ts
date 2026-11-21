@@ -99,6 +99,66 @@ describe('paintLayer', () => {
     ])
   })
 
+  describe('strokes', () => {
+    const stroked = {
+      strokes: [solid('#ff0000'), { ...solid('#0000ff'), visible: false }],
+      strokeWeight: 3,
+      strokeAlign: 'INSIDE',
+      strokeDashes: [4, 2],
+      strokeCap: 'ROUND',
+      strokeJoin: 'BEVEL',
+      strokeMiterAngle: 60,
+    }
+
+    it('makes one stroke for each stroke paint, sharing the weight, align, dashes, cap, join and miter limit', () => {
+      const shared = { width: 3, align: 'inside', dashes: [4, 2], cap: 'round', join: 'bevel', dashOffset: 0 }
+      const strokes = propsOf(rectWith(stroked)).strokes as { miterLimit: number }[]
+      expect(strokes).toMatchObject([
+        { paint: { type: 'solid', color: '#FF0000FF' }, ...shared },
+        { paint: { type: 'solid', color: '#0000FFFF', visible: false }, ...shared },
+      ])
+      // props.rs:376-378: 1 / sin(60° / 2).
+      expect(strokes[0]?.miterLimit).toBeCloseTo(2, 12)
+    })
+
+    it('makes no stroke of weight 0, and reads Figma’s defaults as Dazbee’s', () => {
+      expect(propsOf(rectWith({ ...stroked, strokeWeight: 0 })).strokes).toEqual([])
+      expect(propsOf(rectWith({ strokes: [solid('#ff0000')], strokeWeight: 1, strokeAlign: 'OUTSIDE' })).strokes).toEqual([
+        {
+          paint: { type: 'solid', color: '#FF0000FF' },
+          width: 1,
+          align: 'outside',
+          dashes: [],
+          dashOffset: 0,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+        },
+      ])
+    })
+
+    it('draws differing weights on each side at the widest, reported', () => {
+      const individualStrokeWeights = { top: 1, right: 4, bottom: 1, left: 2 }
+      const text = rectWith({ ...stroked, individualStrokeWeights })
+      expect((propsOf(text).strokes as { width: number }[]).map((s) => s.width)).toEqual([4, 4])
+      expect(linesOf(text)).toEqual(['stroke-weights-widest'])
+      const even = rectWith({ ...stroked, individualStrokeWeights: { top: 2, right: 2, bottom: 2, left: 2 } })
+      expect((propsOf(even).strokes as { width: number }[]).map((s) => s.width)).toEqual([2, 2])
+      expect(linesOf(even)).toEqual([])
+    })
+
+    it('reports smoothed corners on a rounded rectangle or box, drawn round', () => {
+      const text = inFrame([
+        rectangle('1:2', box(0, 0, 40, 40), { cornerRadius: 8, cornerSmoothing: 0.6 }),
+        rectangle('1:3', box(0, 0, 40, 40), { cornerSmoothing: 0.6 }),
+        frame('1:4', box(0, 0, 40, 40), [], { rectangleCornerRadii: [0, 4, 0, 0], cornerSmoothing: 1 }),
+      ])
+      expect(imported(text).converted.report.items).toMatchObject([
+        { line: 'corner-smoothing', count: 2, nodes: [{ id: '1:2' }, { id: '1:4' }] },
+      ])
+    })
+  })
+
   describe('image fills', () => {
     const image = (extra: Record<string, unknown> = {}) => ({ type: 'IMAGE', imageRef: REF, scaleMode: 'FILL', ...extra })
     const fillOf = (extra: Record<string, unknown>) => (propsOf(rectWith({ fills: [image(extra)] })).fills as unknown[])[0]

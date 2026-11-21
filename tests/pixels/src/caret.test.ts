@@ -55,7 +55,7 @@ function only(laid: TextLayout): Paragraph {
   return block.paragraph
 }
 
-/** Where each glyph is drawn, by the UTF-16 offset of its cluster, from the shaped lines rather than from selection boxes. */
+/** Where each glyph is drawn (its origin on its baseline), by the UTF-16 offset of its cluster, from the shaped lines rather than from selection boxes. */
 function glyphOrigins(paragraph: Paragraph, text: string) {
   const utf16At = new Map<number, number>()
   let bytes = 0
@@ -70,6 +70,8 @@ function glyphOrigins(paragraph: Paragraph, text: string) {
       [...run.glyphs].map((_, i) => ({
         offset: utf16At.get(run.offsets[i] ?? -1) ?? -1,
         x: run.positions[2 * i] ?? Number.NaN,
+        y: run.positions[2 * i + 1] ?? Number.NaN,
+        size: run.size,
       })),
     ),
   )
@@ -131,6 +133,59 @@ describe.each([...SAMPLES, MIXED])('caret and selection in $label', (sample) => 
     for (let x = -10; x <= paragraph.getMaxWidth() + 10; x += 2) {
       expect(edges).toContain(caretAt(ck, laid, x, lineTop + line.height / 2))
     }
+  })
+})
+
+describe('caret and selection on a made-up superscript', () => {
+  const text = '1st place'
+  const laid = layoutText(
+    ck,
+    TextProps.parse({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      boxMode: 'autoWidth',
+      text,
+      runs: [{ start: 1, end: 3, style: { features: { sups: true } } }],
+      style: { fontFamily: 'Noto Sans', fontSize: 48, color: '#000000FF' },
+    }),
+    resources,
+  )
+  afterAll(() => laid.delete())
+  const origins = glyphOrigins(only(laid), text)
+  const raised = graphemes(text).slice(1, 3)
+
+  it('draws the run 35 % of an em above the baseline, at 60 % of the size', () => {
+    const [one] = origins
+    for (const o of origins.filter((g) => g.offset >= 1 && g.offset < 3)) {
+      expect(o.size).toBeCloseTo(28.8, 3)
+      expect((one?.y ?? 0) - o.y).toBeCloseTo(16.8, 0)
+    }
+  })
+
+  it.each(raised)('"$text" has one box around its raised glyph, from the line’s top to its bottom', (g) => {
+    const [box, ...more] = selectionBoxes(ck, laid, g.start, g.end)
+    expect(more).toHaveLength(0)
+    const glyph = origins.find((o) => o.offset === g.start)
+    if (!box || !glyph) throw new Error('no box or glyph')
+    const [line] = only(laid).getLineMetrics()
+    expect(glyph.x).toBeGreaterThanOrEqual(box.x - 1)
+    expect(glyph.x).toBeLessThanOrEqual(box.x + box.width + 1)
+    expect(box.y).toBeLessThanOrEqual(glyph.y - 28.8 * 0.75)
+    expect(box.y + box.height).toBeGreaterThanOrEqual(line?.baseline ?? Number.POSITIVE_INFINITY)
+  })
+
+  it.each(raised)('a click on "$text", even at the raised glyph’s height, puts the caret on its near edge', (g) => {
+    const [box] = selectionBoxes(ck, laid, g.start, g.end)
+    const glyph = origins.find((o) => o.offset === g.start)
+    if (!box || !glyph) throw new Error('no box or glyph')
+    for (const y of [glyph.y - 10, box.y + box.height / 2]) {
+      expect(caretAt(ck, laid, box.x + box.width * 0.25, y)).toBe(g.start)
+      expect(caretAt(ck, laid, box.x + box.width * 0.75, y)).toBe(g.end)
+    }
+    const caret = caretPosition(ck, laid, g.start)
+    expect(caret.y).toBeLessThanOrEqual(glyph.y - 28.8 * 0.75)
   })
 })
 

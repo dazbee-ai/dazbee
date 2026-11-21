@@ -91,12 +91,13 @@ describe('readSvgAsset', () => {
   it('refuses 50 nested blurs and one path of 630,000 points as it reads them, saying which limit each passes, the API not growing', async () => {
     // The thread started, as it is once it has read a file.
     await readSvgAsset(SQUARE, 320)
+    // The files are made before the API's memory is read, so what making them took is not counted.
+    const files = [
+      [encoded(NESTED_BLURS), 'its blurs and shadows nest more than 4 deep'],
+      [encoded(hugePath()), 'one of its paths has more than 250,000 points'],
+    ] as const
     const before = rss()
-    for (const [file, limit] of [
-      [NESTED_BLURS, 'its blurs and shadows nest more than 4 deep'],
-      [hugePath(), 'one of its paths has more than 250,000 points'],
-    ] as const) {
-      const bytes = encoded(file)
+    for (const [bytes, limit] of files) {
       const { refused } = await timed(() => readSvgAsset(bytes, 320))
       expect(refused).toBeInstanceOf(SvgRefused)
       // The thread reads a file before it draws it, so the reader's sentence means nothing was drawn.

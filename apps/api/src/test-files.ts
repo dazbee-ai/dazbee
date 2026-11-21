@@ -75,10 +75,13 @@ export function bigPictureSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><image href="${href}" width="100" height="100"/></svg>`
 }
 
-/** An SVG file within the reader's limits that takes seconds to draw: two filled paths of 250,000 points zigzagging across it. */
-export function slowPathsSvg(): string {
+/**
+ * An SVG file within the reader's limits that takes seconds to draw: two filled paths of `points`
+ * points each zigzagging across it, 250,000 unless given.
+ */
+export function slowPathsSvg(points = 250_000): string {
   const zigzag = (from: number) =>
-    Array.from({ length: 249_999 }, (_, i) => `L${(from + i) % 1000} ${((from + i) * 7) % 1000}`).join('')
+    Array.from({ length: points - 1 }, (_, i) => `L${(from + i) % 1000} ${((from + i) * 7) % 1000}`).join('')
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><path d="M0 0${zigzag(1)}"/><path d="M0 0${zigzag(500)}"/></svg>`
 }
 

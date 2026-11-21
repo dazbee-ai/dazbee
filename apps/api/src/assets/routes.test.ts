@@ -14,9 +14,12 @@ import {
 } from '@dazbee/schema'
 import { NESTED_BLURS } from '@dazbee/svg/test-hostile-files'
 
+import { inDrawingTurn } from '../drawing/drawing-turn.ts'
 import { brand, call, db, request, run, SHORT_ID, sibling, uploadImage } from '../test-api.ts'
 import { bigPictureSvg, png, sha256, slowPathsSvg } from '../test-files.ts'
 import { appendAccepted, appendEntry } from '../workspace/test-journal.ts'
+
+const SQUARE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="9" height="9"/></svg>'
 
 /** Uploads an SVG file, marked as this run's and `mark`, without recording it; gives the SHA-256 it is stored under. */
 async function putSvg(text: string, mark: string) {
@@ -33,6 +36,14 @@ async function putSvg(text: string, mark: string) {
   if (!ticket.upload) throw new Error('expected an upload URL')
   await fetch(ticket.upload.url, { method: 'PUT', body: bytes, headers: ticket.upload.headers })
   return sha256(bytes)
+}
+
+/** Holds the drawing turn until the function it gives is called: each SVG file asked for meanwhile waits to be read. */
+function holdDrawingTurn() {
+  let release = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  void inDrawingTurn(() => held)
+  return release
 }
 
 // Recording an image makes its thumbnail with CanvasKit, which takes seconds to load on a busy CI runner.
@@ -299,37 +310,53 @@ describe('image uploads', { timeout: 30_000 }, () => {
       json: { error: 'This SVG file needs too much memory to draw' },
     })
 
-    // A file of 500,000 points takes seconds to draw: the API answers meanwhile.
-    let settled = false
-    const drawn = record(slowPathsSvg()).finally(() => (settled = true))
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // A file of 100,000 points takes a while to draw, on its thread: the API runs its timers and
+    // answers meanwhile, never held for half of what recording the file takes.
+    const slow = await putSvg(slowPathsSvg(50_000), 'refused')
+    let longestGap = 0
+    let last = performance.now()
+    const ticks = setInterval(() => {
+      const now = performance.now()
+      longestGap = Math.max(longestGap, now - last)
+      last = now
+    }, 5)
+    const started = performance.now()
+    const drawn = call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: slow })
     expect(await request(null, 'GET', '/health')).toMatchObject({ status: 200, json: { ok: true } })
-    expect(settled).toBe(false)
     expect((await drawn).status).toBe(201)
+    clearInterval(ticks)
+    expect(Math.max(longestGap, performance.now() - last)).toBeLessThan((performance.now() - started) / 2)
   })
 
   it('records an SVG file asked for six times at once by reading it once, all six given the asset', async () => {
-    const stored = await putSvg(slowPathsSvg(), 'six')
-    // More than may wait to be read, were each read on its own.
-    const asks = await Promise.all(
-      Array.from({ length: 6 }, () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: stored })),
-    )
+    const stored = await putSvg(SQUARE_SVG, 'six')
+    // More than may wait to be read, were each read on its own: with the drawing turn held, all six
+    // are asked for before any is read.
+    const release = holdDrawingTurn()
+    const waiting = Array.from({ length: 6 }, () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: stored }))
+    await Promise.race([Promise.all(waiting), new Promise((resolve) => setTimeout(resolve, 1_000))])
+    release()
+    const asks = await Promise.all(waiting)
     expect(asks.map((ask) => ask.status)).toEqual([201, 201, 201, 201, 201, 201])
     expect(new Set(asks.map((ask) => AssetSummary.parse(ask.json).id)).size).toBe(1)
   })
 
   it('answers 503 for an SVG file asked for while four others are read or wait, keeping it to record later', async () => {
-    const stored = await Promise.all(Array.from({ length: 5 }, (_, i) => putSvg(slowPathsSvg(), `busy ${i}`)))
-    const asks = stored.slice(0, 4).map((one) => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: one }))
-    // Once the four are read or waiting.
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    const fifth = () => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: stored[4] })
-    expect(await fifth()).toEqual({
+    const stored = await Promise.all(Array.from({ length: 5 }, (_, i) => putSvg(SQUARE_SVG, `busy ${i}`)))
+    // With the drawing turn held, four of the five wait to be read, and the last of them to arrive
+    // is answered at once.
+    const release = holdDrawingTurn()
+    const record = (sha: string) => call('a', 'POST', `/brands/${brand.id}/assets`, { sha256: sha })
+    const asks = stored.map(record)
+    const first = await Promise.race(asks.map(async (ask, i) => ({ answer: await ask, i })))
+    expect(first.answer).toEqual({
       status: 503,
       json: { error: 'Dazbee is reading other SVG files; add this one again in a minute' },
     })
-    expect((await Promise.all(asks)).map((ask) => ask.status)).toEqual([201, 201, 201, 201])
-    expect((await fifth()).status).toBe(201)
+    release()
+    const answers = await Promise.all(asks)
+    expect(answers.filter((_, i) => i !== first.i).map((ask) => ask.status)).toEqual([201, 201, 201, 201])
+    expect((await record(stored[first.i] as string)).status).toBe(201)
   })
 
   // A guard: before the converter read pictures this passed too, as the picture was left out then.

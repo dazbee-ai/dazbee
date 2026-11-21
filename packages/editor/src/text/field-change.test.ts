@@ -2,7 +2,16 @@
 // in it read as one edit placed where the caret was.
 import { describe, expect, it } from 'vitest'
 
-import { compositionOf, fieldChange, fieldEdit, type FieldState, fieldText, keptField } from './field-change.ts'
+import {
+  cancels,
+  compositionOf,
+  fieldChange,
+  fieldEdit,
+  type FieldState,
+  fieldText,
+  holdsAround,
+  keptField,
+} from './field-change.ts'
 
 /** A field holding `value`, its selection `start`–`end` (a caret where they meet). */
 const field = (value: string, start = value.length, end = start): FieldState => ({ value, start, end })
@@ -235,5 +244,35 @@ describe('compositionOf', () => {
     expect(compositionOf(edit('你hao', 4), 'hao').part).toEqual({ start: 1, end: 4 })
     expect(compositionOf(edit('aXa', 1), 'a').part).toEqual({ start: 0, end: 1 })
     expect(compositionOf(edit('你好'), 'zz').part).toEqual({ start: 0, end: 2 })
+  })
+})
+
+describe('cancels', () => {
+  /** The edit a field given `given` makes as it comes to hold `value`, its caret at `caret`. */
+  const edit = (given: FieldState, value: string, caret: number) => {
+    const made = fieldEdit(given, { start: given.start, end: given.end }, field(value, caret), given.value.length)
+    if (!made) throw new Error('no edit')
+    return made
+  }
+
+  it('reads a commit that puts nothing in place of the selected range, or changes nothing, as a cancel', () => {
+    const selected = field('Big sale', 4, 8)
+    expect(cancels(selected, edit(selected, 'Big ', 4))).toBe(true)
+    expect(cancels(selected, edit(selected, 'Big sale', 8))).toBe(true)
+    expect(cancels(selected, edit(selected, 'Big deal', 8))).toBe(false)
+  })
+
+  it('reads one that deletes a word re-opened at a caret as a delete', () => {
+    const atCaret = field('Big sale')
+    expect(cancels(atCaret, edit(atCaret, 'Big ', 4))).toBe(false)
+  })
+})
+
+describe('holdsAround', () => {
+  it('says the field holds an input method’s data around its caret, a word it re-opened', () => {
+    expect(holdsAround(field('Big sale'), 'sale')).toBe(true)
+    expect(holdsAround(field('Big sale', 5), 'sale')).toBe(true)
+    expect(holdsAround(field('Big sale'), 'Big')).toBe(false)
+    expect(holdsAround(field('Big sale'), '')).toBe(false)
   })
 })

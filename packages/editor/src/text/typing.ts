@@ -28,9 +28,9 @@ import { paragraphsOf } from '../pasted-text.ts'
 import type { EditorResources } from '../resources.ts'
 import { runQuietly } from '../run-quietly.ts'
 import type { Picked } from '../selection.ts'
-import { type Composed, composedPlaces, composedText, type Composing } from './composition.ts'
-import type { FieldState, HeldField } from './field-change.ts'
-import { compositionOf, fieldEdit, fieldText as fieldTextOf, heldField, keptField } from './field-change.ts'
+import { type Composed, composedPlaces, composedText } from './composition.ts'
+import type { FieldState, HeldComposition, HeldField } from './field-change.ts'
+import { cancels, followedField, heldComposition, heldField, readField, toldField } from './field-change.ts'
 import type { RunStyle, TextRange } from './text-edit.ts'
 import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
@@ -187,11 +187,8 @@ interface Editing extends Picked {
   created: boolean
   /** What the stage field is taken to hold, and its selection's two ends in the text; none until it is given its text. */
   field?: HeldField | undefined
-  /**
-   * What an input method composes, drawn and never written, with `span`, the range it replaces in
-   * what the field was given; none when nothing is composed.
-   */
-  composing?: (Composing & { span: TextRange }) | undefined
+  /** What an input method composes, drawn and never written; none when nothing is composed. */
+  composing?: HeldComposition | undefined
 }
 
 /** How long typing waits with no key before it ends its step (C47), in milliseconds. */
@@ -622,25 +619,15 @@ export function editorTyping({
     return typeof caret === 'number' && typeof anchor === 'number' && caret < anchor
   }
   /**
-   * What the field holds, kept for the text's selected range as `keptField` keeps it; null when it
-   * must be given new text.
-   */
-  function keptNow(text: string, range: TextRange): FieldState | null {
-    const held = editing?.field
-    const ends = held && anchoredRange(held.start, held.end)
-    return held && ends ? keptField(text, held.kept ?? held.given, ends, range, backward()) : null
-  }
-  /**
    * What the stage field holds for the text being edited, its selection's two ends held in the text:
    * what it holds kept, its selection at the text's, or else the text around the selected range.
    */
   function fieldText(): FieldState | null {
     const at = clipboardText()
     if (!editing || !at) return null
-    if (editing.composing && editing.field) return editing.field.given
-    const given = keptNow(at.text, at.range) ?? fieldTextOf(at.text, at.range, backward())
-    editing.field = heldField(store, editing.id, given, at.range)
-    return given
+    if (!editing.composing || !editing.field)
+      editing.field = toldField(store, editing.id, editing.field, at.text, at.range, backward())
+    return editing.field.given
   }
   /**
    * The field's selection's ends stand at the text's selection once it moves, outside a composition,
@@ -649,9 +636,8 @@ export function editorTyping({
   function fieldFollows() {
     const at = clipboardText()
     const held = editing?.field
-    if (!editing || !held || editing.composing || !at) return
-    const kept = keptNow(at.text, at.range) ?? undefined
-    editing.field = { ...heldField(store, editing.id, held.given, at.range), kept }
+    if (editing && held && !editing.composing && at)
+      editing.field = followedField(store, editing.id, held, at.text, at.range, backward())
   }
   /**
    * The stage field holds `state` now. While `composing`, the change is the composition, drawn
@@ -665,33 +651,20 @@ export function editorTyping({
     if (!editing || !held || node?.type !== 'text') return false
     const { id } = editing
     const was = editing.composing
-    // Once composed, a composition is read through its own two ends, as the selection is through its.
-    const ends = was ? anchoredRange(was.start, was.end) : anchoredRange(held.start, held.end)
-    const given = was ? { value: held.given.value, ...was.span } : held.given
-    const edit = ends && fieldEdit(given, ends, state, node.props.text.length, composing ?? undefined)
+    const edit = readField(store, held, was, state, node.props.text.length, composing ?? undefined)
     if (composing !== null) {
       // A composition emptied at a caret draws nothing.
       if (!edit) {
         dropComposition()
         return true
       }
-      const { range, ...made } = compositionOf(edit, composing)
-      editing.composing = {
-        ...made,
-        span: { start: edit.change.start, end: edit.change.end },
-        start: store.textAnchor(id, range.start),
-        end: store.textAnchor(id, range.end, true),
-      }
+      editing.composing = heldComposition(store, id, edit, composing)
       compositionChanged()
       return true
     }
     dropComposition()
-    if (!edit) return true
-    // A commit that puts nothing in place of the selected range, or deletes nothing, was cancelled:
-    // the text and the range are as they were. One that deletes a word re-opened at the caret deletes it.
-    const { change } = edit
-    const inRange = held.given.start <= change.start && change.end <= held.given.end
-    if (was && change.text === '' && (change.start === change.end || inRange)) return true
+    // A cancelled composition leaves the text and the range as they were.
+    if (!edit || (was && cancels(held.given, edit))) return true
     const ops = replaceRangeOps(node.props.text, edit.range.start, edit.range.end, edit.typed)
     if (ops.length > 0 && write(() => editText(id, ops))) fitText(id)
     selectText(edit.selection, edit.backward)

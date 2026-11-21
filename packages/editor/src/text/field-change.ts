@@ -4,7 +4,7 @@
 import { type DesignStore, splitsPair, type TextAnchor } from '@dazbee/doc'
 
 import { paragraphsOf } from '../pasted-text.ts'
-import type { Composition } from './composition.ts'
+import type { Composing, Composition } from './composition.ts'
 import { graphemeEdge, type TextRange } from './text-edit.ts'
 
 /**
@@ -54,6 +54,12 @@ export interface FieldEdit {
   selection: TextRange
   backward: boolean
 }
+
+/** A composition held while typing (`Composing`), with `span`, the range it replaces in what the field was given. */
+export type HeldComposition = Composing & { span: TextRange }
+
+/** What the field's reading asks of the store: anchors in a text, and where they are now. */
+type Anchors = Pick<DesignStore, 'textAnchor' | 'anchorOffset'>
 
 /** The longest selected range the field holds, in UTF-16 units; a longer one is held as nothing. */
 const FIELD_MOST = 4_000
@@ -115,6 +121,38 @@ export function heldField(
   range: TextRange,
 ): HeldField {
   return { given, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
+}
+
+/**
+ * The field once it is told of the selected range of text `id` holding `text`: what `held` holds
+ * kept, its selection at the range, or else the text around the range (`fieldText`).
+ */
+export function toldField(
+  store: Anchors,
+  id: string,
+  held: HeldField | undefined,
+  text: string,
+  range: TextRange,
+  backward: boolean,
+): HeldField {
+  const given = (held && keptHeld(store, held, text, range, backward)) ?? fieldText(text, range, backward)
+  return heldField(store, id, given, range)
+}
+
+/**
+ * The field once the selected range of text `id` holding `text` moves and the field is not yet
+ * told: its selection's ends at the range, so what it changes at its own lands there, with what it
+ * keeps holding once told.
+ */
+export function followedField(
+  store: Anchors,
+  id: string,
+  held: HeldField,
+  text: string,
+  range: TextRange,
+  backward: boolean,
+): HeldField {
+  return { ...heldField(store, id, held.given, range), kept: keptHeld(store, held, text, range, backward) ?? undefined }
 }
 
 /**
@@ -186,6 +224,35 @@ export function fieldEdit(
 }
 
 /**
+ * The change the field holding `state` made to what `held` was given, in a text `length` long, with
+ * an input method's `data` (`fieldEdit`): read through the two ends of the composition when there is
+ * one, as it is through the selection's, so another tab's edit inside what the field holds never
+ * moves it. Null when nothing changed, or an end is gone.
+ */
+export function readField(
+  store: Anchors,
+  held: HeldField,
+  composing: HeldComposition | undefined,
+  state: FieldState,
+  length: number,
+  data?: string,
+): FieldEdit | null {
+  const ends = composing ? anchored(store, composing.start, composing.end) : anchored(store, held.start, held.end)
+  const given = composing ? { value: held.given.value, ...composing.span } : held.given
+  return ends && fieldEdit(given, ends, state, length, data)
+}
+
+/**
+ * Whether a composition's commit read as `edit` cancelled it: it puts nothing in place of the
+ * selected range the field was given, or changes nothing. One that deletes a word re-opened at a
+ * caret deletes it.
+ */
+export function cancels(given: FieldState, { change }: FieldEdit): boolean {
+  const inRange = given.start <= change.start && change.end <= given.end
+  return change.text === '' && (change.start === change.end || inRange)
+}
+
+/**
  * The composition a change made while an input method composes: the range it replaces, its text,
  * the part being composed (the input event's `data` where it stands around the field's caret, else
  * the whole change) and the input method's cursor, at the field's caret.
@@ -201,6 +268,22 @@ export function compositionOf({ range, change }: FieldEdit, data: string): Compo
     }
   }
   return { range, text, part, cursor }
+}
+
+/**
+ * The composition a change made while an input method composes (`compositionOf`), held in text
+ * `id` while typing: the range it replaces as two ends anchored there, the end staying before what
+ * another tab types right after it, and as its span in what the field was given.
+ */
+export function heldComposition(store: Anchors, id: string, edit: FieldEdit, data: string): HeldComposition {
+  const { range, ...made } = compositionOf(edit, data)
+  const span = { start: edit.change.start, end: edit.change.end }
+  return { ...made, span, start: store.textAnchor(id, range.start), end: store.textAnchor(id, range.end, true) }
+}
+
+/** Whether the field holding `state` holds an input method's `data` around its caret: a word it re-opened there. */
+export function holdsAround(state: FieldState, data: string): boolean {
+  return data !== '' && dataCover(null, state, data) !== null
 }
 
 /**
@@ -220,4 +303,17 @@ function dataCover(change: FieldChange | null, state: FieldState, data: string):
   if (found === null) return null
   const grown = found + data.length - to
   return { start: found, end: (change ? change.end : to) + grown }
+}
+
+/** What the field holding `held` keeps for the selected range of `text`, as `keptField` keeps it; null when it must be given new text. */
+function keptHeld(store: Anchors, held: HeldField, text: string, range: TextRange, backward: boolean) {
+  const ends = anchored(store, held.start, held.end)
+  return ends && keptField(text, held.kept ?? held.given, ends, range, backward)
+}
+
+/** The range between two anchors in a text; null once either is gone. */
+function anchored(store: Anchors, start: TextAnchor, end: TextAnchor): TextRange | null {
+  const from = store.anchorOffset(start)
+  const to = store.anchorOffset(end)
+  return from === null || to === null ? null : { start: from, end: Math.max(from, to) }
 }

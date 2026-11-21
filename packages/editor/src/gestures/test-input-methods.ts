@@ -4,10 +4,22 @@
 // the UI Events and Input Events specs' examples and each browser's documented order.
 import type { FieldState } from '../text/field-change.ts'
 
-/** One event a browser sends the stage field, or the window while the field has the focus. */
+/**
+ * One event a browser sends the stage field, or the window while the field has the focus; or
+ * `frame`, a frame the browser draws once the events before it, sent in one task, are done.
+ */
 export interface FieldEvent {
   type:
-    'keydown' | 'keyup' | 'compositionstart' | 'compositionupdate' | 'compositionend' | 'beforeinput' | 'input' | 'blur'
+    | 'keydown'
+    | 'keyup'
+    | 'compositionstart'
+    | 'compositionupdate'
+    | 'compositionend'
+    | 'beforeinput'
+    | 'input'
+    | 'selectionchange'
+    | 'blur'
+    | 'frame'
   key?: string
   code?: string
   keyCode?: number
@@ -16,7 +28,10 @@ export interface FieldEvent {
   isComposing?: boolean
   /** For a `beforeinput`, whether the page may cancel it. */
   cancelable?: boolean
-  /** The field's value and selection after the event, `|` marking its caret and `[` `]` its selection. */
+  /**
+   * The field's value and selection after the event, `|` marking its caret and `[` `]` its
+   * selection; after a frame, as the field is given it.
+   */
   field: string
   /**
    * For a key down, that the editor takes it, so the browser sends nothing more for it; for a
@@ -33,6 +48,11 @@ export interface InputMethodSequence {
   events: FieldEvent[]
   /** The words and their caret or selection after the events. */
   typed: string
+  /**
+   * That each event's field is all the field holds, the text around the caret too; else it is what
+   * stands in place of the selected range typing starts with, the text around it left out.
+   */
+  whole?: true
 }
 
 /** The keyCode a key's key up says, by its key. */
@@ -61,6 +81,9 @@ const input = (inputType: string, data: string | null, isComposing: boolean, fie
   ...{ inputType, data, isComposing, field },
 })
 const blur = (field: string): FieldEvent => ({ type: 'blur', field })
+/** The field's selection moved with no change to its text; a frame drawn, the field as it is given. */
+const selection = (field: string): FieldEvent => ({ type: 'selectionchange', field })
+const frame = (field: string): FieldEvent => ({ type: 'frame', field })
 
 /** Microsoft Pinyin in Chrome on Windows: "nihao", its first candidate 你好 taken with Space. */
 export const PINYIN_CHROME_WINDOWS: InputMethodSequence = {
@@ -177,7 +200,7 @@ export const DEAD_KEY_WINDOWS: InputMethodSequence = {
     down('Dead', 'Quote', 222, false, '|'),
     up('Dead', 'Quote', 222, false, '|'),
     { ...down('é', 'KeyE', 69, false, '|'), prevented: true },
-    up('e', 'KeyE', 69, false, '|'),
+    up('e', 'KeyE', 69, false, 'é|'),
   ],
   typed: 'Hello thereé|',
 }
@@ -217,7 +240,7 @@ export const LAM_ALEF_KEY: InputMethodSequence = {
 export const INSCRIPT_CONJUNCT_KEY: InputMethodSequence = {
   name: 'the Devanagari InScript key that types क्ष',
   start: 'Hello there|',
-  events: [{ ...down('क्ष', 'Digit7', 55, false, '|'), prevented: true }, up('क्ष', 'Digit7', 55, false, '|')],
+  events: [{ ...down('क्ष', 'Digit7', 55, false, '|'), prevented: true }, up('क्ष', 'Digit7', 55, false, 'क्ष|')],
   typed: 'Hello thereक्ष|',
 }
 
@@ -328,6 +351,132 @@ export const SAFARI_BLUR_GOES_ON: InputMethodSequence = {
   typed: 'Hello there日本|',
 }
 
+/**
+ * Gboard in English in Chrome for Android: a space, then "wrld" composed a letter at a time and
+ * committed as its autocorrection "world" at the next space, which follows it.
+ */
+export const GBOARD_AUTOCORRECT: InputMethodSequence = {
+  name: 'Gboard’s autocorrection at the space in Chrome for Android',
+  start: 'Hello there|',
+  events: [
+    ...androidKey(
+      false,
+      'Hello there|',
+      'Hello there |',
+      [before('insertText', ' ', false, 'Hello there|')],
+      [input('insertText', ' ', false, 'Hello there |')],
+    ),
+    ...androidComposing('Hello there |', ['w', 'wr', 'wrl', 'wrld']),
+    ...androidKey(true, 'Hello there wrld|', 'Hello there world |', androidCommit('world', 'Hello there wrld|'), [
+      before('insertText', ' ', false, 'Hello there world|'),
+      input('insertText', ' ', false, 'Hello there world |'),
+    ]),
+  ],
+  typed: 'Hello there world |',
+  whole: true,
+}
+
+/**
+ * Gboard in English in Chrome for Android: Backspace with no key (cancelled, so Backspace's own step
+ * deletes the space), the word before the caret re-opened as a composition with no change to the
+ * field, and the suggestion "these" picked, with the space Gboard puts after it.
+ */
+export const GBOARD_REOPEN: InputMethodSequence = {
+  name: 'Gboard re-opening the word before the caret in Chrome for Android',
+  start: 'Hello there |',
+  events: [
+    down('Unidentified', '', 229, false, 'Hello there |'),
+    { ...before('deleteContentBackward', null, false, 'Hello there |'), prevented: true },
+    up('Unidentified', '', 229, false, 'Hello there|'),
+    start('Hello there|'),
+    update('there', 'Hello there|'),
+    frame('Hello there|'),
+    ...androidKey(true, 'Hello there|', 'Hello these |', androidCommit('these', 'Hello there|'), [
+      before('insertText', ' ', false, 'Hello these|'),
+      input('insertText', ' ', false, 'Hello these |'),
+    ]),
+  ],
+  typed: 'Hello these |',
+  whole: true,
+}
+
+/** Gboard's space bar dragged in Chrome for Android: the field's caret moves back three letters, and nothing is typed. */
+export const GBOARD_SPACE_CURSOR: InputMethodSequence = {
+  name: 'Gboard’s space-bar cursor in Chrome for Android',
+  start: 'Hello there|',
+  events: [selection('Hello ther|e'), selection('Hello the|re'), selection('Hello th|ere'), frame('Hello th|ere')],
+  typed: 'Hello th|ere',
+  whole: true,
+}
+
+/** Gboard in Hindi (Devanagari) in Chrome for Android: नमस्ते composed a letter at a time and committed with a space. */
+export const GBOARD_HINDI: InputMethodSequence = {
+  name: 'Gboard composing a Hindi word in Chrome for Android',
+  start: 'Hello there |',
+  events: androidWord('Hello there ', ['न', 'नम', 'नमस', 'नमस्', 'नमस्त', 'नमस्ते']),
+  typed: 'Hello there नमस्ते |',
+  whole: true,
+}
+
+/** Gboard in Arabic in Chrome for Android: مرحبا composed a letter at a time and committed with a space. */
+export const GBOARD_ARABIC: InputMethodSequence = {
+  name: 'Gboard composing an Arabic word in Chrome for Android',
+  start: 'Hello there |',
+  events: androidWord('Hello there ', ['م', 'مر', 'مرح', 'مرحب', 'مرحبا']),
+  typed: 'Hello there مرحبا |',
+  whole: true,
+}
+
+/**
+ * The iPhone's keyboard in Safari: "teh" corrected to "the" as Space is tapped, the correction
+ * replacing the word before the caret with no key, then Space's key, which typing takes.
+ */
+export const IOS_AUTOCORRECT: InputMethodSequence = {
+  name: 'the iPhone’s autocorrection at the space in Safari',
+  start: 'Hello teh|',
+  events: [
+    before('insertReplacementText', 'the', false, 'Hello teh|'),
+    input('insertReplacementText', 'the', false, 'Hello the|'),
+    { ...down(' ', 'Space', 32, false, 'Hello the|'), prevented: true },
+    up(' ', 'Space', 32, false, 'Hello the |'),
+  ],
+  typed: 'Hello the |',
+  whole: true,
+}
+
+/** Dictation on an iPhone in Safari: a sentence inserted with no key, then its correction replacing it. */
+export const IOS_DICTATION: InputMethodSequence = {
+  name: 'dictation and its correction on an iPhone in Safari',
+  start: 'Hello there|',
+  events: [
+    before('insertText', ' how are you', false, 'Hello there|'),
+    input('insertText', ' how are you', false, 'Hello there how are you|'),
+    frame('Hello there how are you|'),
+    before('insertReplacementText', 'How are you?', false, 'Hello there how are you|'),
+    input('insertReplacementText', 'How are you?', false, 'Hello there How are you?|'),
+  ],
+  typed: 'Hello there How are you?|',
+  whole: true,
+}
+
+/** Dictation on a Mac in Chrome: the words heard so far composed, and the sentence committed once it ends. */
+export const MAC_DICTATION: InputMethodSequence = {
+  name: 'dictation on a Mac in Chrome',
+  start: 'Hello there|',
+  events: [
+    start('Hello there|'),
+    ...[' how', ' how are', ' how are you'].flatMap((heard, n, all) => [
+      before('insertCompositionText', heard, true, `Hello there${all[n - 1] ?? ''}|`),
+      update(heard, `Hello there${all[n - 1] ?? ''}|`),
+      input('insertCompositionText', heard, true, `Hello there${heard}|`),
+      frame(`Hello there${heard}|`),
+    ]),
+    end(' how are you', 'Hello there how are you|'),
+  ],
+  typed: 'Hello there how are you|',
+  whole: true,
+}
+
 /** Every written sequence. */
 export const INPUT_METHOD_SEQUENCES: readonly InputMethodSequence[] = [
   PINYIN_CHROME_WINDOWS,
@@ -347,6 +496,14 @@ export const INPUT_METHOD_SEQUENCES: readonly InputMethodSequence[] = [
   BLUR_END,
   BLUR_ALONE,
   SAFARI_BLUR_GOES_ON,
+  GBOARD_AUTOCORRECT,
+  GBOARD_REOPEN,
+  GBOARD_SPACE_CURSOR,
+  GBOARD_HINDI,
+  GBOARD_ARABIC,
+  IOS_AUTOCORRECT,
+  IOS_DICTATION,
+  MAC_DICTATION,
 ]
 
 /** A field's value and selection from how `FieldEvent.field` writes them. */
@@ -417,5 +574,51 @@ function safariCommit(composed: string) {
     before('insertFromComposition', composed, true, '|'),
     input('insertFromComposition', composed, true, `${composed}|`),
     end(composed, `${composed}|`),
+  ]
+}
+
+/**
+ * One change a keyboard makes in Chrome for Android, the field holding `was` before it and `after`
+ * after it: a key down and up saying only keyCode 229, around the events the change sends.
+ */
+function androidKey(composing: boolean, was: string, after: string, ...changes: FieldEvent[][]) {
+  return [down('Unidentified', '', 229, composing, was), ...changes.flat(), up('Unidentified', '', 229, false, after)]
+}
+
+/** A keyboard in Chrome for Android composing each of `steps` in turn at the caret of `was`, the composition's start before the first. */
+function androidComposing(was: string, steps: string[]) {
+  const at = (typed: string) => was.replace('|', `${typed}|`)
+  return steps.flatMap((composed, n) => {
+    const held = at(steps[n - 1] ?? '')
+    return [
+      down('Unidentified', '', 229, n > 0, held),
+      ...(n === 0 ? [start(held)] : []),
+      before('insertCompositionText', composed, true, held),
+      update(composed, held),
+      input('insertCompositionText', composed, true, at(composed)),
+      up('Unidentified', '', 229, true, at(composed)),
+    ]
+  })
+}
+
+/** A keyboard in Chrome for Android committing `word` in place of what it composes, the field holding `was` before it and `after` after it. */
+function androidCommit(word: string, was: string, after = was.replace(/\S*\|/u, `${word}|`)) {
+  return [
+    before('insertCompositionText', word, true, was),
+    update(word, was),
+    input('insertCompositionText', word, true, after),
+    end(word, after),
+  ]
+}
+
+/** A keyboard in Chrome for Android composing each of `steps` after `typed`, and committing the last with a space. */
+function androidWord(typed: string, steps: string[]) {
+  const word = steps.at(-1) ?? ''
+  return [
+    ...androidComposing(`${typed}|`, steps),
+    ...androidKey(true, `${typed}${word}|`, `${typed}${word} |`, androidCommit(word, `${typed}${word}|`), [
+      before('insertText', ' ', false, `${typed}${word}|`),
+      input('insertText', ' ', false, `${typed}${word} |`),
+    ]),
   ]
 }

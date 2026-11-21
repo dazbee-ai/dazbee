@@ -3,6 +3,8 @@
 // the field is never given text while composing, and it stands at the overlay's caret.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { replaceRangeOps } from '@dazbee/doc'
+
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { textParts } from '../text/typing-parts.ts'
@@ -10,8 +12,11 @@ import { editorDomInput } from './dom-input.ts'
 import { editorStageField } from './stage-field.ts'
 import {
   type FieldEvent,
+  GBOARD_REOPEN,
+  GBOARD_SPACE_CURSOR,
   INPUT_METHOD_SEQUENCES,
   type InputMethodSequence,
+  IOS_AUTOCORRECT,
   JAPANESE_ESCAPE_CHROME_WINDOWS,
   PINYIN_CHROME_WINDOWS,
   writtenField,
@@ -70,6 +75,7 @@ class TextArea extends StandIn {
   tabIndex = 0
   selectionStart = 0
   selectionEnd = 0
+  selectionDirection: 'forward' | 'backward' | 'none' = 'none'
   /** Set while the browser composes in it, or sends it a composition event: it takes no value then. */
   closed = false
   /** Each value or selection the page gave it while it was closed. */
@@ -82,11 +88,13 @@ class TextArea extends StandIn {
     if (this.closed) this.forced.push(value)
     this.held = value
     this.selectionStart = this.selectionEnd = value.length
+    this.selectionDirection = 'none'
   }
-  setSelectionRange(start: number, end: number) {
+  setSelectionRange(start: number, end: number, direction: 'forward' | 'backward' | 'none' = 'none') {
     if (this.closed) this.forced.push(`${start}-${end}`)
     this.selectionStart = start
     this.selectionEnd = end
+    this.selectionDirection = direction
   }
   /** What the browser leaves in it, as an input method or a key does. */
   hold(written: string) {
@@ -94,6 +102,7 @@ class TextArea extends StandIn {
     this.held = value
     this.selectionStart = start
     this.selectionEnd = end
+    this.selectionDirection = 'none'
   }
   focus() {
     page.document.activeElement = this
@@ -195,15 +204,26 @@ async function typingWith(startAt: string) {
     signal,
   })
   const { value, start, end } = writtenField(startAt)
-  if (value !== 'Hello there') throw new Error(`the words are not ${value}`)
+  for (const op of replaceRangeOps(words(), 0, words().length, value))
+    e.core.session.run('text.edit', { id: 'words', op })
   e.core.select(['words'])
   e.press('goIn')
   e.modules.typing.selectText({ start, end })
 
+  /** A written event whose field holds what stands in place of the selected range, with the text around it the field holds. */
+  function around(event: FieldEvent): FieldEvent {
+    return { ...event, field: `${value.slice(0, start)}${event.field}${value.slice(end)}` }
+  }
   /** Sends one written event as the browser does: what it changes is in the field as it fires. */
   function send(event: FieldEvent) {
     const { type, field: written, prevented, ...rest } = event
-    if (type === 'input' || type === 'compositionend' || type === 'blur') field.hold(written)
+    if (type === 'frame') {
+      frame()
+      expect(fieldNow(), 'the field after a frame').toBe(written)
+      return
+    }
+    if (type === 'input' || type === 'compositionend' || type === 'blur' || type === 'selectionchange')
+      field.hold(written)
     else expect(fieldNow(), `the field before ${type} ${event.data ?? event.key ?? ''}`).toBe(written)
     // The browser composes from its compositionstart to its compositionend, a blur between or not.
     if (type === 'compositionstart') field.closed = true
@@ -244,12 +264,12 @@ async function typingWith(startAt: string) {
   /** Replays a written sequence, a frame drawn after each key comes up and at its end. */
   function replay(sequence: InputMethodSequence) {
     for (const event of sequence.events) {
-      send(event)
+      send(sequence.whole ? event : around(event))
       if (event.type === 'keyup') frame()
     }
     frame()
   }
-  return { e, field, overlay, stageField, send, frame, replay, words, typed, fieldNow }
+  return { e, field, overlay, stageField, send, around, frame, replay, words, typed, fieldNow }
 }
 
 /** A stage field on a page of stand-ins; what it sends the editor, and a way to fire its events. */
@@ -309,41 +329,48 @@ describe('editorStageField', () => {
     expect(words()).toBe('Hello there你好')
   })
 
-  it('holds the selected text as typing starts, and the caret alone once a key moves it', async () => {
+  it('holds the text around the selected range as typing starts, and moves its selection with a key', async () => {
     const { e, fieldNow } = await typingWith('Hello [there]')
-    expect(fieldNow()).toBe('[there]')
+    expect(fieldNow()).toBe('Hello [there]')
     e.keys.press('ArrowLeft')
-    expect(fieldNow()).toBe('|')
+    expect(fieldNow()).toBe('Hello |there')
   })
 
   it('keeps what an input method committed, which the text holds at its place, for the next composition', async () => {
     const { replay, fieldNow } = await typingWith(PINYIN_CHROME_WINDOWS.start)
     replay(PINYIN_CHROME_WINDOWS)
-    expect(fieldNow()).toBe('你好|')
+    expect(fieldNow()).toBe('Hello there你好|')
   })
 
   it('is given the selected word back once the input method cancels over it', async () => {
     const { replay, fieldNow } = await typingWith(JAPANESE_ESCAPE_CHROME_WINDOWS.start)
     replay(JAPANESE_ESCAPE_CHROME_WINDOWS)
-    expect(fieldNow()).toBe('[there]')
+    expect(fieldNow()).toBe('Hello [there]')
   })
 
   it('stands at the caret the overlay draws inside the composition, at the caret’s height', async () => {
-    const { e, field, send, frame } = await typingWith('Hello there|')
+    const { e, field, send, around, frame } = await typingWith('Hello there|')
     // "ni hao" composed, the input method's cursor at its end, then moved back one letter inside it.
-    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 26)) send(event)
+    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 26)) send(around(event))
     frame()
     const atEnd = e.modules.typing.shown()?.caret
-    send({ type: 'keydown', key: 'Process', code: 'ArrowLeft', keyCode: 229, isComposing: true, field: 'ni hao|' })
+    const composed = 'Hello thereni hao|'
+    send({ type: 'keydown', key: 'Process', code: 'ArrowLeft', keyCode: 229, isComposing: true, field: composed })
     send({
       type: 'beforeinput',
       inputType: 'insertCompositionText',
       data: 'ni hao',
       isComposing: true,
-      field: 'ni hao|',
+      field: composed,
     })
-    send({ type: 'compositionupdate', data: 'ni hao', field: 'ni hao|' })
-    send({ type: 'input', inputType: 'insertCompositionText', data: 'ni hao', isComposing: true, field: 'ni ha|o' })
+    send({ type: 'compositionupdate', data: 'ni hao', field: composed })
+    send({
+      type: 'input',
+      inputType: 'insertCompositionText',
+      data: 'ni hao',
+      isComposing: true,
+      field: 'Hello thereni ha|o',
+    })
     frame()
     const caret = e.modules.typing.shown()?.caret
     if (!atEnd || !caret) throw new Error('no caret shown')
@@ -359,40 +386,98 @@ describe('editorStageField', () => {
   it('deletes back once in the text for a delete that came with no key, and nothing while composing', async () => {
     const { send, typed } = await typingWith('Hello there|')
     const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
-    send({ type: 'beforeinput', ...deleted, field: '|' })
-    send({ type: 'compositionstart', data: '', field: '|' })
-    send({ type: 'beforeinput', ...deleted, field: '|' })
-    send({ type: 'compositionend', data: '', field: '|' })
+    send({ type: 'beforeinput', ...deleted, field: 'Hello there|' })
+    send({ type: 'compositionstart', data: '', field: 'Hello ther|' })
+    send({ type: 'beforeinput', ...deleted, field: 'Hello ther|' })
+    send({ type: 'compositionend', data: '', field: 'Hello ther|' })
     expect(typed()).toBe('Hello ther|')
   })
 
   it('reads a delete the browser makes anyway from the field, once', async () => {
     const { send, typed } = await typingWith('Hello [there]')
-    send({ type: 'beforeinput', inputType: 'deleteContentBackward', data: null, cancelable: false, field: '[there]' })
-    send({ type: 'input', inputType: 'deleteContentBackward', data: null, field: '|' })
+    const deleted = { inputType: 'deleteContentBackward', data: null } as const
+    send({ type: 'beforeinput', ...deleted, cancelable: false, field: 'Hello [there]' })
+    send({ type: 'input', ...deleted, field: 'Hello |' })
     expect(typed()).toBe('Hello |')
   })
 
   it('cancels the browser’s own undo and redo, and gives the field its text again after one made anyway', async () => {
     const { send, frame, typed, fieldNow } = await typingWith('Hello [there]')
-    send({ type: 'beforeinput', inputType: 'insertText', data: '!', cancelable: true, field: '[there]' })
-    send({ type: 'input', inputType: 'insertText', data: '!', field: '!|' })
+    send({ type: 'beforeinput', inputType: 'insertText', data: '!', cancelable: true, field: 'Hello [there]' })
+    send({ type: 'input', inputType: 'insertText', data: '!', field: 'Hello !|' })
     const undo = { inputType: 'historyUndo', data: null, cancelable: true, prevented: true } as const
-    send({ type: 'beforeinput', ...undo, field: '!|' })
-    send({ type: 'beforeinput', ...undo, inputType: 'historyRedo', field: '!|' })
-    send({ type: 'input', inputType: 'historyUndo', data: null, field: '[there]' })
+    send({ type: 'beforeinput', ...undo, field: 'Hello !|' })
+    send({ type: 'beforeinput', ...undo, inputType: 'historyRedo', field: 'Hello !|' })
+    send({ type: 'input', inputType: 'historyUndo', data: null, field: 'Hello [there]' })
     frame()
-    expect(fieldNow()).toBe('|')
+    expect(fieldNow()).toBe('Hello !|')
     expect(typed()).toBe('Hello !|')
   })
 
   it('commits the composition where it was composed before a press on the stage moves the caret', async () => {
-    const { field, overlay, send, typed } = await typingWith('Hello there|')
-    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 12)) send(event)
+    const { field, overlay, send, around, typed } = await typingWith('Hello there|')
+    for (const event of PINYIN_CHROME_WINDOWS.events.slice(0, 12)) send(around(event))
     fire(page.window, 'pointerdown', { pointerType: 'mouse', target: overlay })
     expect(field.forced).toEqual([])
     expect(page.document.activeElement).toBe(field)
     expect(typed()).toBe('Hello thereni|')
+  })
+
+  it('keeps a bold word bold when the iPhone’s keyboard corrects it', async () => {
+    const { e, replay, words } = await typingWith(IOS_AUTOCORRECT.start)
+    e.modules.typing.styleRange({ id: 'words', range: { start: 6, end: 9 } }, { fontWeight: 700 })
+    replay(IOS_AUTOCORRECT)
+    expect(words()).toBe('Hello the ')
+    expect((e.core.design().nodes.words?.props as { runs: unknown[] }).runs).toEqual([
+      { start: 6, end: 10, style: { fontWeight: 700 } },
+    ])
+  })
+
+  it('composes over the word a keyboard re-opens once no input follows in its task, and not before', async () => {
+    const { e, send } = await typingWith(GBOARD_REOPEN.start)
+    const reopened = GBOARD_REOPEN.events.findIndex((event) => event.type === 'frame')
+    for (const event of GBOARD_REOPEN.events.slice(0, reopened)) send(event)
+    expect(e.modules.typing.composition().composed).toBeNull()
+    send(GBOARD_REOPEN.events[reopened] as FieldEvent)
+    expect(e.modules.typing.composition().composed?.layer.props).toMatchObject({ text: 'Hello there' })
+    expect(e.modules.typing.shown()?.composition).toHaveLength(1)
+  })
+
+  it('moves the text’s caret with the keyboard’s space-bar cursor, and writes nothing', async () => {
+    const { e, replay } = await typingWith(GBOARD_SPACE_CURSOR.start)
+    const design = e.core.session.design()
+    replay(GBOARD_SPACE_CURSOR)
+    expect(e.core.session.design()).toBe(design)
+  })
+
+  it('moves the field’s selection with an arrow key typing takes, and sends nothing back', async () => {
+    const { e, field, fieldNow } = await typingWith('Hello there|')
+    const sent = vi.spyOn(e.core.input, 'fieldChanged')
+    const given = field.value
+    e.keys.press('ArrowLeft')
+    expect(fieldNow()).toBe('Hello ther|e')
+    fire(field, 'selectionchange')
+    expect(field.value).toBe(given)
+    expect(sent).not.toHaveBeenCalled()
+  })
+
+  it('keeps a selection made with Shift running backward, in the field and in the text', async () => {
+    const { e, field, frame, typed } = await typingWith('Hello there|')
+    e.keys.press('Shift+ArrowLeft')
+    e.keys.press('Shift+ArrowLeft')
+    expect(field.selectionDirection).toBe('backward')
+    fire(field, 'selectionchange')
+    frame()
+    e.keys.press('Shift+ArrowLeft')
+    expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([8, 11, 'backward'])
+    expect(typed()).toBe('Hello th[ere]')
+  })
+
+  it('still takes a Hindi vowel sign alone for a delete that came with no key', async () => {
+    const { send, typed } = await typingWith('Hello नमस्ते|')
+    const deleted = { inputType: 'deleteContentBackward', data: null, cancelable: true, prevented: true } as const
+    send({ type: 'beforeinput', ...deleted, field: 'Hello नमस्ते|' })
+    expect(typed()).toBe('Hello नमस्त|')
   })
 
   it('deletes back in the text being edited for a delete that came with no key, and puts nothing in the field, on a bare page', () => {

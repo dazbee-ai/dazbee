@@ -50,12 +50,14 @@ export type Notice =
 /**
  * What became of one of the tab's change sets: the server accepted it; rejected it (`reason` absent
  * when the tab learned it on reconnecting); or it was lost with the queue, the server no longer
- * knowing the tab.
+ * knowing the tab. Or the change sets the tab made since a reload took new ids, each old id with its
+ * new one, on coming back from a copy older than what it had sent: later answers name the new ids.
  */
 export type Answer =
   | { kind: 'accepted'; changeSetId: number }
   | { kind: 'rejected'; changeSetId: number; reason?: RejectReason }
   | { kind: 'lost'; changeSetId: number }
+  | { kind: 'renumbered'; ids: ReadonlyMap<number, number> }
 
 /**
  * What a step that ended made: the id of its change set; 'tooBig' when it was over a change set's
@@ -968,6 +970,7 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
         renumbered.set(q.id, nextId)
         q.id = nextId++
       }
+      if (renumbered.size > 0) answer({ kind: 'renumbered', ids: renumbered })
       // A record owed until a renumbered change set settles is owed until it settles under its new id.
       for (const [key, upTo] of owed) {
         if (upTo < madeSince) continue

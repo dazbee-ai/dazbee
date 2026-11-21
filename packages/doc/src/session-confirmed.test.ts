@@ -8,7 +8,7 @@ import type { DesignRecords } from '@dazbee/schema'
 import { clientStore } from './client-store.ts'
 import { openSession } from './session.ts'
 import { NotSaved } from './store.ts'
-import type { Client, ClientOptions, Outgoing } from './sync/client.ts'
+import { type Client, type ClientOptions, openClient, type Outgoing, type SavedClient } from './sync/client.ts'
 import { firstSaved } from './sync/journal.ts'
 import { openServer } from './sync/server.ts'
 import {
@@ -112,6 +112,28 @@ describe('whenConfirmed', () => {
     up(server, client, sent.splice(0))
     exchange(server, client, comeBack(server, client), [client])
     expect(await settled(confirmed)).toEqual({ why: 'rejected', reason: undefined })
+  })
+
+  it('answers each step under the id its change set took again after a reload from a copy older than what the tab sent', async () => {
+    const { server, client, session, sent, deliver } = tabOn()
+    renameBox(session, 'Kept')
+    deliver()
+    const copy = wire(client.save()) as SavedClient
+    // Two more steps reach the server, but their answers are lost with the connection.
+    renameBox(session, 'Sent once')
+    renameBox(session, 'Sent twice')
+    up(server, client, sent.splice(0))
+    otherDeletesBox(server, joinClient(server), [])
+    // The tab reloads from the older copy, and makes two steps offline under ids the server took already.
+    const reloaded = openClient(copy)
+    const again: Outgoing[] = []
+    const tab = openSession(clientStore(reloaded, (messages) => again.push(...messages)))
+    const page = tab.beginGesture('renamePage')
+    tab.run('page.update', { id: 'p1', name: 'Renamed' })
+    page.end()
+    const [renamed, box] = [tab.whenConfirmed(page), tab.whenConfirmed(renameBox(tab, 'Gone'))]
+    exchange(server, reloaded, [...comeBack(server, reloaded), ...again.splice(0)], [reloaded])
+    expect([await settled(renamed), await settled(box)]).toEqual(['saved', { why: 'rejected', reason: 'cannotApply' }])
   })
 
   it('fails as lost when the server no longer knows the tab, its queue dropped', async () => {

@@ -319,12 +319,23 @@ export function clientStore(
 
   /** What became of a change set of the tab's: the step that made it hears it. */
   function answered(answer: Answer) {
+    if (answer.kind === 'renumbered') return renumber(answer.ids)
     const ended = unanswered.get(answer.changeSetId)
     if (!ended) return
     unanswered.delete(answer.changeSetId)
     if (answer.kind === 'accepted') ended.outcome = 'saved'
     else ended.outcome = new NotSaved(answer.kind, answer.kind === 'rejected' ? answer.reason : undefined)
     for (const tell of [...ended.waiting]) tell()
+  }
+
+  /** Files each ended step whose change set took a new id under that id, all at once, as an old id may be another's new one. */
+  function renumber(ids: ReadonlyMap<number, number>) {
+    const moved = [...ids].flatMap(([from, to]): [number, Ended][] => {
+      const ended = unanswered.get(from)
+      return ended ? [[to, ended]] : []
+    })
+    for (const from of ids.keys()) unanswered.delete(from)
+    for (const [to, ended] of moved) unanswered.set(to, ended)
   }
 
   function whenConfirmed(step: EndedStep, signal?: AbortSignal): Promise<'saved'> {

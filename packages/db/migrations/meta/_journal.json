@@ -57,6 +57,13 @@
       "when": 1795210475508,
       "tag": "0007_brand-text-styles",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795297975146,
+      "tag": "0008_upload-links",
+      "breakpoints": true
     }
   ]
 }

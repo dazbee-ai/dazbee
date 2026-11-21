@@ -27,6 +27,8 @@ const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   fromDriver: (value) => new Uint8Array(value),
 })
 
+/** The types of image an asset, or the file an upload link takes, may be. */
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 
@@ -373,7 +375,7 @@ export const assets = pgTable(
       .references(() => workspaces.id),
     brandId: text('brand_id').notNull(),
     sha256: text().notNull(),
-    contentType: text('content_type', { enum: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] }).notNull(),
+    contentType: text('content_type', { enum: IMAGE_TYPES }).notNull(),
     byteSize: integer('byte_size').notNull(),
     width: integer().notNull(),
     height: integer().notNull(),
@@ -617,5 +619,43 @@ export const agentAuthorizations = pgTable(
       'agent_authorizations_kind',
       sql`${t.kind} in (${sql.raw(AGENT_AUTHORIZATION_KINDS.map((kind) => `'${kind}'`).join(', '))})`,
     ),
+  ],
+)
+
+/**
+ * A one-time link an agent sends one file to (`upload_image`), kept only as the SHA-256 of its random token, so no
+ * row holds a link. It adds one file of `content_type` to one brand's asset library, named `name` and tagged
+ * `tags`, for the member who asked for it, through their agent access when `access_id` is set. It works until
+ * `expires_at`, and the first file sent to it spends it (`used_at`).
+ */
+export const uploadLinks = pgTable(
+  'upload_links',
+  {
+    hash: text().primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    brandId: text('brand_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accessId: text('access_id').references(() => agentAccesses.id, { onDelete: 'cascade' }),
+    contentType: text('content_type', { enum: IMAGE_TYPES }).notNull(),
+    name: text().notNull(),
+    tags: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('upload_links_expires').on(t.expiresAt),
+    foreignKey({
+      name: 'upload_links_brand_in_workspace',
+      columns: [t.brandId, t.workspaceId],
+      foreignColumns: [brands.id, brands.workspaceId],
+    }).onDelete('cascade'),
   ],
 )

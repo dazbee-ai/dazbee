@@ -2,7 +2,8 @@
 // only: a workspace the person is not a member of, a brand or design of another workspace, and a brand outside
 // a limited member's, are answered as if they didn't exist (ADR-0016). Outside a workspace there are only
 // /health, sign-in's /auth/* (with the development invites' accept route), the person's own /me and
-// /me/*, early access's /admin/*, for admins only, and its public request to join, /access-requests. A person
+// /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, and the file
+// sent to an agent's upload link, PUT /uploads/:token, whose token is its only key. A person
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a
@@ -24,8 +25,9 @@ import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from '.
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { AddingFromUrlBusy, FROM_URL_PER_HOUR } from './assets/from-url.ts'
-import { assetRoutes } from './assets/routes.ts'
+import { assetRoutes, uploadRoutes } from './assets/routes.ts'
 import { SvgBusy } from './assets/svg-assets.ts'
+import { UploadLinkRefused } from './assets/upload-links.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
 import { ReadingWebsitesBusy, WEBSITES_PER_HOUR } from './brand-kits/from-website.ts'
 import { brandKitRoutes } from './brand-kits/routes.ts'
@@ -106,6 +108,7 @@ export function createApp({
   app.route('/', devInviteRoutes({ db, dev: invites.dev && { ...invites.dev, dazbee: !invites.workos } }))
   app.route('/', adminRoutes({ db, sessionOf, admins, invites: providers }))
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
+  app.route('/', uploadRoutes({ db, storage, admins }))
 
   const signedIn = requireSession(sessionOf, sessionRefusal(db, admins))
   const records = new Hono<Env>()
@@ -139,7 +142,7 @@ export function createApp({
   // A refusal a route lets through answers 400 with its message; any other error is ours.
   app.onError((e, c) => {
     if (e instanceof MemberRefusal) return c.json(error(e.message), e.status)
-    if (e instanceof StockRefused) return c.json(error(e.message), e.status)
+    if (e instanceof StockRefused || e instanceof UploadLinkRefused) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
     if (e instanceof SvgBusy) return c.json(error(e.message), 503)
     if (e instanceof AddingFromUrlBusy || e instanceof ReadingWebsitesBusy) return c.json(error(e.message), 503)

@@ -1,6 +1,7 @@
-// The routes of a brand's asset library, its images and SVG files: uploading and recording them, adding one from an
-// outside link or from the files Dazbee bundles, finding them by name and tag, naming and tagging them, their
-// thumbnails, and deleting one nothing shows.
+// The routes of a brand's asset library, its images and SVG files: uploading and recording them, adding one
+// from an outside link, through an agent's upload link or from the files Dazbee bundles, finding them by name
+// and tag, naming and tagging them, their thumbnails, and deleting one nothing shows; and the upload links
+// themselves, which take a file with no session.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
@@ -12,10 +13,13 @@ import {
   RecordAsset,
   type SignedLink,
   StartUpload,
+  StartUploadLink,
   UpdateAsset,
+  UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
+import type { Admins } from '../admin/admins.ts'
 import { requestLimit } from '../admin/waiting-list.ts'
 import type { SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
@@ -32,6 +36,7 @@ import {
 } from './assets.ts'
 import { addBundledAsset, NotBundled } from './bundled.ts'
 import { addAssetFromUrl } from './from-url.ts'
+import { createUploadLink, UPLOADS_PER_ADDRESS_PER_HOUR, uploadToLink } from './upload-links.ts'
 
 export function assetRoutes({
   db,
@@ -48,6 +53,8 @@ export function assetRoutes({
 }): Hono<Env> {
   const app = new Hono<Env>()
   const fromUrl = requestLimit({ perWindow: fromUrlPerHour })
+  // Upload links count as many in an hour as pictures from links do, apart from them.
+  const uploadLinkLimit = requestLimit({ perWindow: fromUrlPerHour })
 
   // Images: uploads go straight to storage through a signed URL, then are recorded here (#35).
   // The asset library (#52) finds them by name and tag: ?q=summer sale.
@@ -99,6 +106,23 @@ export function assetRoutes({
     }
   })
 
+  // A one-time link an agent sends one file to from its machine (`upload_image`), taken by `uploadRoutes`.
+  app.post('/brands/:brandId/assets/upload-links', requireWriter, async (c) => {
+    const { workspaceId } = c.var.membership
+    const input = await body(c.req.raw, StartUploadLink)
+    if (input instanceof Response) return input
+    const { userId, agent } = c.var.session
+    if (!uploadLinkLimit.take(userId))
+      return c.json(
+        error(
+          `This member has asked for as many upload links as they may in an hour (${fromUrlPerHour}); try again later`,
+        ),
+        429,
+      )
+    const asker = { workspaceId, brandId: c.var.brand.id, userId, accessId: agent?.accessId ?? null }
+    return c.json(await createUploadLink(db, asker, input), 201)
+  })
+
   app.get('/brands/:brandId/assets/:assetId', async (c) => {
     const { workspaceId } = c.var.membership
     const asset = await findAsset(db, workspaceId, c.var.brand.id, { id: c.req.param('assetId') })
@@ -141,5 +165,26 @@ export function assetRoutes({
     return c.json((await signedLink(storage, await ensureThumbnail(storage, workspaceId, asset))) satisfies SignedLink)
   })
 
+  return app
+}
+
+/**
+ * `PUT /uploads/:token`: the file sent to an upload link, with no session, recorded into the link's brand; the answer
+ * is its asset. Caddy sends only this method and path of the API to the internet, with a body cap.
+ */
+export function uploadRoutes({ db, storage, admins }: { db: Db; storage: Storage; admins: Admins }): Hono<Env> {
+  const app = new Hono<Env>()
+  // Counted by the address Cloudflare names, the only way in.
+  const perAddress = requestLimit({ perWindow: UPLOADS_PER_ADDRESS_PER_HOUR })
+  app.put(`${UPLOAD_LINK_PATH}:token`, async (c) => {
+    if (!perAddress.take(c.req.header('cf-connecting-ip')?.trim() ?? ''))
+      return c.json(
+        error(
+          `This address has sent as many files as it may in an hour (${UPLOADS_PER_ADDRESS_PER_HOUR}); try again later`,
+        ),
+        429,
+      )
+    return c.json(await uploadToLink({ db, storage, admins }, c.req.param('token'), c.req.raw), 201)
+  })
   return app
 }

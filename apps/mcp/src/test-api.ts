@@ -1,7 +1,7 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, pictures added from links, stock photos (`test-stock-api.ts`), bundled files (`test-bundled-api.ts`), the
-// brand kit and font catalog every brand has, websites read into kits, sync tokens, the storage the signed links
-// point at, and agent accesses whose tokens the tests hand out and refuse.
+// assets, pictures added from links, upload links, stock photos (`test-stock-api.ts`), bundled files
+// (`test-bundled-api.ts`), the brand kit and font catalog every brand has, websites read into kits, sync tokens, the
+// storage the signed links point at, and agent accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -16,7 +16,11 @@ import {
   CreateDesign,
   type DesignSummary,
   type FontFamily,
+  maxBytesOf,
+  StartUploadLink,
   SyncTokenRequest,
+  UPLOAD_LINK_MS,
+  UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
 
 import { type TestBundled, testBundled } from './test-bundled-api.ts'
@@ -61,6 +65,8 @@ export interface TestApi {
   syncTokenOf(token: string): TestSyncToken | undefined
   /** The pictures added from links, each its brand and the body sent, in order. */
   addedFromUrl(): ({ brandId: string } & AddAssetFromUrl)[]
+  /** The upload links asked for, each its brand and the body sent, in order. */
+  uploadLinks(): ({ brandId: string } & StartUploadLink)[]
   /** The stock photo routes: whether stock search is off, and the searches and saves sent. */
   stock: TestStock
   /** The bundled files' route: whether they are stored, and what it was sent and made. */
@@ -336,6 +342,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   const syncTokens = new Map<string, TestSyncToken>()
   // The pictures added from links.
   const addedFromUrl: ({ brandId: string } & AddAssetFromUrl)[] = []
+  // The upload links asked for.
+  const uploadLinks: ({ brandId: string } & StartUploadLink)[] = []
   // The websites read into kits.
   const fromWebsite: ({ brandId: string } & BrandFromWebsite)[] = []
 
@@ -443,6 +451,17 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     return c.json(asset, 201)
   })
 
+  // Each upload link's token numbers it.
+  app.post('/workspaces/:workspaceId/brands/:brandId/assets/upload-links', async (c) => {
+    if (!c.var.agent.writes) return c.json({ error: 'Only an Owner, Admin or Editor can do this' }, 403)
+    const input = StartUploadLink.safeParse(await c.req.json())
+    if (!input.success) return c.json({ error: 'name: give 1 to 120 characters' }, 400)
+    uploadLinks.push({ brandId: c.req.param('brandId'), ...input.data })
+    const expiresAt = new Date(now() + UPLOAD_LINK_MS).toISOString()
+    const path = `${UPLOAD_LINK_PATH}test-token-${uploadLinks.length}`
+    return c.json({ path, expiresAt, maxBytes: maxBytesOf(input.data.contentType) }, 201)
+  })
+
   app.post('/workspaces/:workspaceId/brands/:brandId/designs/:designId/sync-token', async (c) => {
     const designId = c.req.param('designId')
     if (!designs.some((design) => design.id === designId && design.brandId === c.req.param('brandId')))
@@ -486,6 +505,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     fetch: async (request) => (new URL(request.url).origin === STORAGE ? stored(request) : app.fetch(request)),
     syncTokenOf: (token) => syncTokens.get(token),
     addedFromUrl: () => addedFromUrl,
+    uploadLinks: () => uploadLinks,
     stock,
     bundled,
     fromWebsite: () => fromWebsite,

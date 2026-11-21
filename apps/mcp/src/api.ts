@@ -19,10 +19,12 @@ import {
   FontLink,
   FROM_URL_TIMEOUT_MS,
   MAX_UPLOAD_BYTES,
+  type StartUploadLink,
   type StockPhotoId,
   StockResults,
   type StockSearch,
   SyncToken,
+  UploadLink,
   WEBSITE_READ_TIMEOUT_MS,
 } from '@dazbee/schema'
 
@@ -41,6 +43,8 @@ export interface AgentApi {
   createDesign(brandId: string, name: string): Promise<DesignSummary>
   /** The asset of the picture at an https link, which the API fetches and adds to the brand's library. */
   addAssetFromUrl(brandId: string, input: AddAssetFromUrl): Promise<AssetSummary>
+  /** A one-time link the agent sends one file to, which the API records into the brand's library. */
+  uploadLink(brandId: string, input: StartUploadLink): Promise<UploadLink>
   /** The stock photos a search finds, naming the library they come from. */
   searchStock(search: StockSearch): Promise<StockResults>
   /** The asset of the stock photo of `id`, which the API downloads and saves into the brand's library. */
@@ -145,6 +149,7 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     createDesign: (brandId, name) => ask('POST', `${brandPath(brandId)}/designs`, DesignSummary, { name }),
     addAssetFromUrl: (brandId, input) =>
       ask('POST', `${brandPath(brandId)}/assets/from-url`, AssetSummary, input, FROM_URL_CALL_MS),
+    uploadLink: (brandId, input) => ask('POST', `${brandPath(brandId)}/assets/upload-links`, UploadLink, input),
     searchStock: (search) =>
       ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/stock/photos?${stockQuery(search)}`, StockResults),
     addStock: (brandId, id) =>

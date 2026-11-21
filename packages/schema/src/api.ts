@@ -257,6 +257,33 @@ export const AddBundledAsset = z.object({
 })
 export type AddBundledAsset = z.infer<typeof AddBundledAsset>
 
+/** How long an upload link works after it is made. */
+export const UPLOAD_LINK_MS = 10 * 60 * 1000
+/** Where upload links are, on the public address agents reach Dazbee at: the path, then the link's token. */
+export const UPLOAD_LINK_PATH = '/uploads/'
+
+/**
+ * Asks for a one-time link that adds one file of `contentType` to a brand's asset library, under `name`, or the
+ * brand's asset of the same bytes; `tags` join the asset's own.
+ */
+export const StartUploadLink = z.object({
+  contentType: ImageType,
+  name: AssetName,
+  tags: AddAssetFromUrl.shape.tags,
+})
+export type StartUploadLink = z.infer<typeof StartUploadLink>
+
+/**
+ * An upload link: its path on the public address (`UPLOAD_LINK_PATH` and its token), when it stops working, and the
+ * most bytes the file may have. PUT the file's bytes to it, once.
+ */
+export const UploadLink = z.object({
+  path: z.string().startsWith(UPLOAD_LINK_PATH),
+  expiresAt: z.iso.datetime(),
+  maxBytes: z.number().int().positive(),
+})
+export type UploadLink = z.infer<typeof UploadLink>
+
 /** A short-lived URL to read something from storage. */
 export const SignedLink = z.object({ url: z.url(), expiresAt: z.iso.datetime() })
 export type SignedLink = z.infer<typeof SignedLink>
@@ -523,6 +550,9 @@ export type AgentMe = z.infer<typeof AgentMe>
 
 /** Whether an asset is an SVG file, placed as layers rather than as an image fill. */
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'
+
+/** The most bytes a file of `type` may have: an SVG file `MAX_SVG_BYTES`, a picture `MAX_UPLOAD_BYTES`. */
+export const maxBytesOf = (type: ImageType): number => (type === 'image/svg+xml' ? MAX_SVG_BYTES : MAX_UPLOAD_BYTES)
 
 /**
  * The values a kit gives its tokens, for drawing designs bound to them: each colour, font and text

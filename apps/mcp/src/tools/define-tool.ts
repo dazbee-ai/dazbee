@@ -23,12 +23,14 @@ export interface AccessRenders {
 }
 
 /**
- * What a tool call runs with: the API as the calling agent sees it, the agent's access, its session's design, the
- * renders it may ask for, when it is to be answered by, and the new designs it may make.
+ * What a tool call runs with: the API as the calling agent sees it, the agent's access, the public base URL, its
+ * session's design, the renders it may ask for, when it is to be answered by, and the new designs it may make.
  */
 export interface ToolContext {
   api: AgentApi
   agent: AgentMe
+  /** The public base URL the agent reaches Dazbee at, without a trailing slash, which upload links are under. */
+  baseUrl: string
   design: SessionDesign
   renders: AccessRenders
   /** When the call is to be answered by, on the endpoint's clock: a step's wait for the store ends before it. */

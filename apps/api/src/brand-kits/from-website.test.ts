@@ -1,15 +1,9 @@
 // Filling a brand kit from the brand's website, through POST /brands/:brandId/kit/from-website, against Postgres and
 // storage from Docker Compose, stored sample pages served by stand-in sites, and catalog families the tests add.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
-import { inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { brands, fontFaces, newId } from '@dazbee/db'
 import { AssetLink, BrandFromWebsiteAnswer } from '@dazbee/schema'
 
-import { issueTokens, makeAccess } from '../agents/agent-accesses.ts'
 import { createApp } from '../app.ts'
 import { PUBLIC_ADDRESS, testSites } from '../fetch/test-sites.ts'
 import { sessionOfRequest } from '../sign-in/session.ts'
@@ -17,7 +11,6 @@ import {
   addPerson,
   authorization,
   db,
-  personA,
   run,
   sessionSecret,
   storage,
@@ -26,6 +19,7 @@ import {
   workspace,
 } from '../test-api.ts'
 import { png } from '../test-files.ts'
+import { accessToken, addSampleFamilies, kitCall, newBrand, sample } from './test-websites.ts'
 
 const sites = await testSites()
 const app = createApp({
@@ -37,56 +31,16 @@ const app = createApp({
   outsideFetch: sites.settings,
 })
 
-/** A stored sample page or style sheet. */
-const sample = (file: string) => readFileSync(join(import.meta.dirname, 'test-websites', file), 'utf8')
-
-/** The catalog families the sample pages need, each added as one face of its own, removed after the run. */
-const FAMILIES = [
-  ['Fraunces', 'serif'],
-  ['Work Sans', 'sans-serif'],
-  ['Hanken Grotesk', 'sans-serif'],
-  ['Lora', 'serif'],
-  ['Playfair Display', 'serif'],
-  ['Inter', 'sans-serif'],
-] as const
-const faceIds: string[] = []
+let removeSampleFamilies = () => Promise.resolve()
 
 beforeAll(async () => {
-  for (const [family, category] of FAMILIES) {
-    const id = newId()
-    // A weight no copied Google face has, so the face stands beside the family's own where they are copied.
-    const added = await db
-      .insert(fontFaces)
-      .values({
-        id,
-        source: 'google',
-        family,
-        weight: 401,
-        weightMin: 100,
-        weightMax: 900,
-        style: 'normal',
-        category,
-        sha256: 'f'.repeat(64),
-        byteSize: 1,
-      })
-      .onConflictDoNothing()
-      .returning({ id: fontFaces.id })
-    faceIds.push(...added.map((row) => row.id))
-  }
+  removeSampleFamilies = await addSampleFamilies()
 })
 
 afterAll(async () => {
-  if (faceIds.length > 0) await db.delete(fontFaces).where(inArray(fontFaces.id, faceIds))
+  await removeSampleFamilies()
   await sites.close()
 })
-
-let brandsMade = 0
-/** A new brand of the workspace, its kit empty. */
-async function newBrand() {
-  const made = { id: `brand-site-${(brandsMade += 1)}-${run}`, workspaceId: workspace.id, name: `Site ${brandsMade}` }
-  await db.insert(brands).values(made)
-  return made.id
-}
 
 /** Serves `body` at https://`host``path` as `contentType`. */
 function serve(host: string, path: string, body: string | Uint8Array, contentType: string) {
@@ -180,7 +134,7 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
       logoAssetId: mark.id,
       voice: 'Warm.',
     }
-    expect((await kitCall('PUT', brandId, own)).status).toBe(200)
+    expect((await kitCall(app, 'PUT', brandId, own)).status).toBe(200)
     const kept = BrandFromWebsiteAnswer.parse((await fromWebsite(brandId, { url: 'https://harbour.test/' })).json)
     expect(kept.filled).toEqual(['secondary', 'background', 'text', 'body'])
     expect(kept.kept).toEqual(['logo', 'primary', 'heading'])
@@ -229,7 +183,7 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
       value: '#123456FF',
     }))
     const fonts = ['heading', 'body'].map((token) => ({ token, name: token, family: 'Lora' }))
-    await kitCall('PUT', brandId, { colors, fonts, logoAssetId: mark.id, voice: '' })
+    await kitCall(app, 'PUT', brandId, { colors, fonts, logoAssetId: mark.id, voice: '' })
     const visits = sites.visits.length
     const answer = BrandFromWebsiteAnswer.parse((await fromWebsite(brandId, { url: 'https://harbour.test/' })).json)
     expect(answer).toMatchObject({
@@ -314,7 +268,7 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
     expect((await fromWebsite(brandId, { url: 'https://inside.test/' })).json).toEqual({
       error: 'Dazbee found no public website at inside.test; check the link, or ask the person for another',
     })
-    expect((await kitCall('GET', brandId)).json).toMatchObject({ colors: [], fonts: [], logoAssetId: null })
+    expect((await kitCall(app, 'GET', brandId)).json).toMatchObject({ colors: [], fonts: [], logoAssetId: null })
   })
 
   it('names the logo by the site’s title without the characters a name can’t hold', async () => {
@@ -440,27 +394,3 @@ describe('brandFromWebsite, through POST /brands/:brandId/kit/from-website', { t
     expect((await fromWebsite(brandId, { url: 'https://slow-site.test/' }, { on: limited })).status).toBe(200)
   })
 })
-
-/** Asks the brand's kit with `method`, as the Owner. */
-async function kitCall(method: string, brandId: string, body?: unknown) {
-  const response = await app.request(`/workspaces/${workspace.id}/brands/${brandId}/kit`, {
-    method,
-    headers: { 'content-type': 'application/json', ...authorization('a') },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
-  return { status: response.status, json: (await response.json()) as unknown }
-}
-
-/** The bearer header of a new agent access of the Owner's to every brand, which edits when `writes`. */
-async function accessToken(writes: boolean) {
-  const access = await makeAccess(db, {
-    userId: personA.id,
-    workspaceId: workspace.id,
-    brandIds: null,
-    writes,
-    clientId: null,
-    clientName: 'Claude Code',
-  })
-  const { accessToken: token } = await issueTokens(db, access, new Date())
-  return { authorization: `Bearer ${token}` }
-}

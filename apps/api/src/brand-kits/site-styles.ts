@@ -5,6 +5,7 @@
 // in step with its length.
 import type { Color } from '@dazbee/schema'
 
+import { variableReader } from './css-variables.ts'
 import { addGoogleFonts, type GoogleFontFamily } from './google-font-links.ts'
 import { colorsIn, type SiteColors } from './site-colors.ts'
 import { BUTTON_WORDS, type PageClasses } from './site-page.ts'
@@ -70,8 +71,6 @@ const MAX_SELECTORS = 20
 const MAX_READ_VALUES = 5_000
 /** A family's name as a site may give it: at most 40 letters, digits, spaces, dots, dashes and underscores. */
 const FAMILY_NAME = /^[\p{L}\p{N} ._-]{1,40}$/u
-/** How many times variables are read inside variables. */
-const MAX_VARIABLE_DEPTH = 4
 /** How much a colour counts for each property, by what its rule styles. */
 const COLOR_WEIGHTS: Record<'background' | 'color' | 'border', Partial<Record<Target, number>>> = {
   background: { button: 6, band: 2, heading: 2, link: 1, other: 1, paragraph: 1, page: 1 },
@@ -120,7 +119,7 @@ export function readSiteStyles(sheets: readonly string[], classes: PageClasses):
     body: null,
     paragraph: null,
   }
-  const resolved = variableReader(variables)
+  const resolved = variableReader(variables, MAX_VALUE)
   const colorsOf = valueColors()
   for (const { selectors, property, value: written } of declarations) {
     const value = resolved(written)
@@ -289,41 +288,6 @@ function targetOf(selector: string, classes: PageClasses): Selected[] {
   if (/^(header|nav|footer)$/.test(tag) || /header|hero|banner|navbar|footer/i.test(names.join(' ')))
     return [{ target: 'band', rank: 0, weight }]
   return [{ target: 'other', rank: 0, weight }]
-}
-
-/**
- * What reads values with their `var()`s replaced by the variables' values, or their fallbacks: each variable read
- * once, inside others at most `MAX_VARIABLE_DEPTH` deep, a cycle read as nothing, and every value cut at
- * `MAX_VALUE`, so no CSS makes a value grow past it.
- */
-function variableReader(variables: ReadonlyMap<string, string>): (value: string) => string {
-  const read = new Map<string, string>()
-  return (value) => resolve(value, 0)
-
-  function resolve(value: string, depth: number): string {
-    if (!value.includes('var(')) return value
-    const pattern = /var\(\s*(--[\w-]{1,100})\s*(?:,([^()]{0,200}))?\)/g
-    let out = ''
-    let last = 0
-    for (let match = pattern.exec(value); match && out.length < MAX_VALUE; match = pattern.exec(value)) {
-      const [whole, name = '', fallback] = match
-      out += value.slice(last, match.index) + (depth >= MAX_VARIABLE_DEPTH ? '' : variableOf(name, fallback, depth))
-      last = match.index + whole.length
-    }
-    return (out.length < MAX_VALUE ? out + value.slice(last) : out).slice(0, MAX_VALUE)
-  }
-
-  function variableOf(name: string, fallback: string | undefined, depth: number): string {
-    const value = variables.get(name)
-    if (value === undefined) return resolve(fallback?.trim() ?? '', depth + 1)
-    let done = read.get(name)
-    if (done === undefined) {
-      read.set(name, '')
-      done = resolve(value, depth + 1)
-      read.set(name, done)
-    }
-    return done
-  }
 }
 
 /** A rule's selectors with those that style the same thing at the same rank as one, their weights added. */

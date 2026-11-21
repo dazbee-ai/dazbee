@@ -2,9 +2,8 @@
 // icons, web manifest and share picture, the logo in its header, its Google Fonts and whether it is a check for
 // robots rather than the page. One pass over the markup, finding each tag's end by searching forward only, so a
 // page of any shape takes time in step with its length.
-import { MAX_URL_LENGTH } from '@dazbee/schema'
-
 import { addGoogleFonts, type GoogleFontFamily, googleFontsOf } from './google-font-links.ts'
+import { largestSide, linkOf } from './site-links.ts'
 
 /** How the page's elements use classes, which says what a class-only CSS rule styles. */
 export interface PageClasses {
@@ -329,24 +328,6 @@ function readMeta(page: SitePage, attributes: Attributes, base: URL) {
     page.themeColor = content.trim().slice(0, 100)
   if ((name === 'og:image' || name === 'og:image:secure_url') && !page.shareImage)
     page.shareImage = linkOf(content, base)
-}
-
-/** `href` read against `base` as an https link no longer than a link may be, without its fragment, or null. */
-export function linkOf(href: string | undefined, base: URL): string | null {
-  const text = href?.trim()
-  if (!text) return null
-  const url = URL.parse(text, base.href)
-  if (!url || url.protocol !== 'https:' || url.href.length > MAX_URL_LENGTH) return null
-  url.hash = ''
-  return url.href
-}
-
-/** The largest side an icon's sizes name, such as 192 for "48x48 192x192"; 0 when they name none. */
-export function largestSide(sizes: string): number {
-  let largest = 0
-  for (const [, width, height] of sizes.slice(0, 1_000).matchAll(/(\d{1,5})x(\d{1,5})/gi))
-    largest = Math.max(largest, Number(width), Number(height))
-  return largest
 }
 
 /** Whether a link leads to the site's home page. */

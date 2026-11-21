@@ -7,7 +7,8 @@ import type { FontFamily, WebsiteFont } from '@dazbee/schema'
 import { type FetchedFile, FetchRefused, safeFetch, type SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { matchFont } from './font-match.ts'
 import { type ColorRoles, colorRoles, parseColor } from './site-colors.ts'
-import { largestSide, linkOf, type LogoSource, readSitePage, type SiteIcon, type SitePage } from './site-page.ts'
+import { largestSide, linkOf } from './site-links.ts'
+import { type LogoSource, readSitePage, type SiteIcon, type SitePage } from './site-page.ts'
 import { readSiteStyles, type SiteStyles } from './site-styles.ts'
 
 /** The fetches a read may still make, and when its time is up, on `Date.now`'s clock. */

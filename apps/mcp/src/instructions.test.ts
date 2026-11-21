@@ -95,6 +95,27 @@ describe('INSTRUCTIONS', () => {
 
   it('says commands run only through run_command and batch, never as tools of their own', () => {
     expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
+    expect(INSTRUCTIONS).toContain('node.update and text.replace, for two, are run_command')
+  })
+
+  it('says node.style sets a whole copied style, and one prop changes with node.update', () => {
+    expect(INSTRUCTIONS).toContain(
+      'node.style sets a whole style copied from a layer; change one prop with node.update',
+    )
+  })
+
+  it('says to wait for open_design’s answer before any other call on the design', () => {
+    expect(INSTRUCTIONS).toContain('wait for its answer before any other call on the design')
+  })
+
+  it('points to ad_rules before designing, for advice and the plans, and to list_fonts', () => {
+    expect(INSTRUCTIONS).toContain('Before you design a size, read ad_rules for it')
+    expect(INSTRUCTIONS).toContain('the plans make_ad, add_sizes and review_frames')
+    expect(INSTRUCTIONS).toContain('list_fonts')
+  })
+
+  it('fits the 4,096 characters Claude Code takes of a server’s instructions', () => {
+    expect(INSTRUCTIONS.length).toBeLessThan(4096)
   })
 
   it('tells of the Before agent version, kept before each run of the agent’s changes', () => {

@@ -5,7 +5,7 @@
 // that previews it, the face of a weight and slant, and the weight it is set in.
 import { useCallback, useEffect, useState } from 'react'
 
-import { FONT_FACES, type GoogleFamily } from '@dazbee/fonts'
+import { FONT_CATEGORIES, FONT_FACES, type GoogleFamily } from '@dazbee/fonts'
 import { SHIPPED_RANKS } from '@dazbee/fonts/shipped-ranks'
 import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
 
@@ -14,9 +14,6 @@ import type { Messages } from '@/lib/i18n/index.ts'
 
 /** A family's kind of letter: Google's categories, which the chooser's chips filter by. */
 export type FontCategory = GoogleFamily['category']
-
-/** Every category, in the order the chooser's chips show them. */
-export const FONT_CATEGORIES: readonly FontCategory[] = ['sans-serif', 'serif', 'display', 'handwriting', 'monospace']
 
 /** The category of each font we ship, which the catalog doesn't carry. */
 const SHIPPED_CATEGORIES: Readonly<Record<string, FontCategory>> = {

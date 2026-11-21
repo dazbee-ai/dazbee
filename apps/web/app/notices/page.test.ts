@@ -19,13 +19,14 @@ beforeEach(() => {
   } as unknown as Awaited<ReturnType<typeof cookies>>)
 })
 
-/** Each set's notice as a person reads it: its text with the markup taken out and its parts spaced. */
+/** Each set's notice as a person reads it: its text with the markup and direction marks taken out, its parts spaced. */
 async function noticesRead() {
   const markup = renderToStaticMarkup(await NoticesPage())
   return [...markup.matchAll(/data-testid="notice"[^>]*>([\s\S]*?)<\/section>/g)].map(([, inner = '']) =>
     inner
       .replace(/<[^>]+>/g, ' ')
       .replace(/&quot;/g, '"')
+      .replace(/[\u2066\u2069]/g, '')
       .replace(/\s+/g, ' ')
       .trim(),
   )
@@ -76,5 +77,11 @@ describe('NoticesPage', () => {
     locale = 'ar'
     const [tabler] = await noticesRead()
     expect(tabler).toMatch(/^Tabler Icons الإصدار 3\.52\.0 · ترخيص MIT MIT License /)
+  })
+
+  it('keeps each version and licence name left to right inside Arabic, so a date reads 2026-11-22', async () => {
+    locale = 'ar'
+    const markup = renderToStaticMarkup(await NoticesPage())
+    expect(markup).toContain('الإصدار \u20662026-11-22\u2069 · ترخيص \u2066CC0-1.0\u2069')
   })
 })

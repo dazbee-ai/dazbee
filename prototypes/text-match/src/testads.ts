@@ -38,9 +38,18 @@ export function loadAd(name: string): { blocks: AdBlock[]; ad: Rgba } {
   const meta = JSON.parse(readFileSync(join(dir, 'blocks.json'), 'utf8')) as {
     bucket: [number, number]
     source_size: [number, number]
-    blocks: { file: string; rect: [number, number, number, number]; rotated_box: { angle: number } | null; element: string; kind: string }[]
+    blocks: {
+      file: string
+      rect: [number, number, number, number]
+      rotated_box: { angle: number } | null
+      element: string
+      kind: string
+    }[]
   }
-  const readings = JSON.parse(readFileSync(join(dir, 'readings.json'), 'utf8')) as Record<string, { text: string; lettering: string }>
+  const readings = JSON.parse(readFileSync(join(dir, 'readings.json'), 'utf8')) as Record<
+    string,
+    { text: string; lettering: string }
+  >
   const ad = readPng(join(dir, 'ad.png'))
   const scale = meta.source_size[0] / meta.bucket[0]
   const blocks: AdBlock[] = []

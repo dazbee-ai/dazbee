@@ -17,27 +17,36 @@ import { measure } from './measure.ts'
 import { writePng } from './png.ts'
 import { sideBySide } from './sheet.ts'
 
-const { values } = parseArgs({ options: { results: { type: 'string', default: 'testads-lib' }, agree: { type: 'boolean', default: false } } })
+const { values } = parseArgs({
+  options: { results: { type: 'string', default: 'testads-lib' }, agree: { type: 'boolean', default: false } },
+})
 const dir = join(DATA_DIR, 'judge')
 mkdirSync(dir, { recursive: true })
 
 if (values.agree) {
-  const pairs = JSON.parse(readFileSync(join(dir, 'judge.json'), 'utf8')) as { n: string; same: boolean; ssim: number; deltaE: number }[]
+  const pairs = JSON.parse(readFileSync(join(dir, 'judge.json'), 'utf8')) as {
+    n: string
+    same: boolean
+    ssim: number
+    deltaE: number
+  }[]
   const verdicts = JSON.parse(readFileSync(join(dir, 'verdicts.json'), 'utf8')) as Record<string, boolean>
   const agree = pairs.filter((p) => verdicts[p.n] === p.same).length
   console.log(`${agree} of ${pairs.length} agree`)
   for (const p of pairs) console.log(p.n, 'rule', p.same, 'eye', verdicts[p.n], p.ssim.toFixed(3), p.deltaE.toFixed(1))
 } else {
-  const results = (JSON.parse(readFileSync(join(DATA_DIR, 'results', `${values.results}.json`), 'utf8')).results as {
-    id: string
-    version: string
-    ssim: number
-    deltaE: number
-    same: boolean
-    text: string
-    look: import('./draw.ts').TextLook
-    place: import('./draw.ts').Placed
-  }[]).filter((r) => r.version === 'medium' && !isHeldOut(r.id.split('#')[0]!))
+  const results = (
+    JSON.parse(readFileSync(join(DATA_DIR, 'results', `${values.results}.json`), 'utf8')).results as {
+      id: string
+      version: string
+      ssim: number
+      deltaE: number
+      same: boolean
+      text: string
+      look: import('./draw.ts').TextLook
+      place: import('./draw.ts').Placed
+    }[]
+  ).filter((r) => r.version === 'medium' && !isHeldOut(r.id.split('#')[0]!))
   const sorted = [...results].sort((a, b) => a.ssim - b.ssim)
   const picks = Array.from({ length: 20 }, (_, i) => sorted[Math.round((i * (sorted.length - 1)) / 19)]!)
   const ck = await loadCanvasKit()
@@ -49,7 +58,11 @@ if (values.agree) {
     const b = loadAd(ad!).blocks.find((x) => x.index === Number(index))!
     const m = measure(b.block)
     drawer.use(library.filter((f) => f.family === r.look.family))
-    const drawn = { width: b.block.rgba.width, height: b.block.rgba.height, data: drawer.draw(b.block.rgba.width, b.block.rgba.height, null, textProps(r.text, r.look, r.place)) }
+    const drawn = {
+      width: b.block.rgba.width,
+      height: b.block.rgba.height,
+      data: drawer.draw(b.block.rgba.width, b.block.rgba.height, null, textProps(r.text, r.look, r.place)),
+    }
     const n = String(i + 1).padStart(2, '0')
     writePng(join(dir, `${n}.png`), sideBySide([b.block.rgba, drawn], m.background))
     out.push({ n, id: r.id, family: r.look.family, ssim: r.ssim, deltaE: r.deltaE, same: r.same })

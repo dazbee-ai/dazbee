@@ -54,7 +54,9 @@ const mean = (v: boolean[]) => (v.length ? v.filter(Boolean).length / v.length :
 const f1 = (v: number) => (Number.isFinite(v) ? v.toFixed(1) : '–')
 const f2 = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : '–')
 
-const baseline = JSON.parse(readFileSync('C:\\Users\\imkes\\Desktop\\test-ad\\dx-stunnr-text-worker\\baseline.json', 'utf8')) as {
+const baseline = JSON.parse(
+  readFileSync('C:\\Users\\imkes\\Desktop\\test-ad\\dx-stunnr-text-worker\\baseline.json', 'utf8'),
+) as {
   ads: Record<string, { index: number; live: boolean; family: string; weight: number; style: string }[]>
 }
 const oldOf = (id: string) => {
@@ -75,11 +77,15 @@ for (const name of process.argv.slice(2)) {
     results: R[]
   }
   console.log(`\n### ${name} (${file.set}, ${file.subset ? "Dazbee's 321 families" : 'whole library'})\n`)
-  console.log(`startup ${(file.startupMs / 1000).toFixed(1)} s · peak RSS ${file.peakRssMb.toFixed(0)} MB (max ${file.maxRssMb.toFixed(0)} MB) · model ${(file.sizes.modelBytes! / 1e6).toFixed(1)} MB · fingerprints ${(file.sizes.fingerprintsBytes! / 1e6).toFixed(1)} MB\n`)
+  console.log(
+    `startup ${(file.startupMs / 1000).toFixed(1)} s · peak RSS ${file.peakRssMb.toFixed(0)} MB (max ${file.maxRssMb.toFixed(0)} MB) · model ${(file.sizes.modelBytes! / 1e6).toFixed(1)} MB · fingerprints ${(file.sizes.fingerprintsBytes! / 1e6).toFixed(1)} MB\n`,
+  )
   const versions = [...new Set(file.results.map((r) => r.version))]
   const rows: string[] = []
   if (file.set === 'testads') {
-    rows.push('| version | blocks | looks the same | kept as picture | median SSIM | median ΔE | ms/block median | p95 | s/ad median | p95 | draws/block | same family as old worker | same face as old worker |')
+    rows.push(
+      '| version | blocks | looks the same | kept as picture | median SSIM | median ΔE | ms/block median | p95 | s/ad median | p95 | draws/block | same family as old worker | same face as old worker |',
+    )
     rows.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
     const parts: [string, (r: R) => boolean][] = [
       ['all', () => true],
@@ -87,17 +93,40 @@ for (const name of process.argv.slice(2)) {
       ['development ads', (r) => !isHeldOut(r.ad!)],
     ]
     for (const [part, inPart] of parts)
-    for (const v of versions) {
-      const rs = file.results.filter((r) => r.version === v && inPart(r))
-      const perAd = new Map<string, number>()
-      for (const r of rs) perAd.set(r.ad!, (perAd.get(r.ad!) ?? 0) + r.ms)
-      const withOld = rs.map((r) => ({ r, o: oldOf(r.id) })).filter((x) => x.o)
-      rows.push(
-        `| ${v}, ${part} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${f2(q(rs.map((r) => r.ssim), 0.5))} | ${f1(q(rs.map((r) => r.deltaE), 0.5))} | ${q(rs.map((r) => r.ms), 0.5).toFixed(0)} | ${q(rs.map((r) => r.ms), 0.95).toFixed(0)} | ${(q([...perAd.values()], 0.5) / 1000).toFixed(1)} | ${(q([...perAd.values()], 0.95) / 1000).toFixed(1)} | ${q(rs.map((r) => r.draws), 0.5)} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family)))} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family && x.o!.weight === x.r.look.weight && x.o!.style === x.r.look.style)))} |`,
-      )
-    }
+      for (const v of versions) {
+        const rs = file.results.filter((r) => r.version === v && inPart(r))
+        const perAd = new Map<string, number>()
+        for (const r of rs) perAd.set(r.ad!, (perAd.get(r.ad!) ?? 0) + r.ms)
+        const withOld = rs.map((r) => ({ r, o: oldOf(r.id) })).filter((x) => x.o)
+        rows.push(
+          `| ${v}, ${part} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${f2(
+            q(
+              rs.map((r) => r.ssim),
+              0.5,
+            ),
+          )} | ${f1(
+            q(
+              rs.map((r) => r.deltaE),
+              0.5,
+            ),
+          )} | ${q(
+            rs.map((r) => r.ms),
+            0.5,
+          ).toFixed(0)} | ${q(
+            rs.map((r) => r.ms),
+            0.95,
+          ).toFixed(
+            0,
+          )} | ${(q([...perAd.values()], 0.5) / 1000).toFixed(1)} | ${(q([...perAd.values()], 0.95) / 1000).toFixed(1)} | ${q(
+            rs.map((r) => r.draws),
+            0.5,
+          )} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family)))} | ${pct(mean(withOld.map((x) => x.o!.family === x.r.look.family && x.o!.weight === x.r.look.weight && x.o!.style === x.r.look.style)))} |`,
+        )
+      }
   } else {
-    rows.push('| version | blocks | looks the same | same family | exact face | family in shortlist | kept | size err (median) | spacing err, % pts | line height err | colour ΔE | tilt err ° | outline right | ms/block median | p95 |')
+    rows.push(
+      '| version | blocks | looks the same | same family | exact face | family in shortlist | kept | size err (median) | spacing err, % pts | line height err | colour ΔE | tilt err ° | outline right | ms/block median | p95 |',
+    )
     rows.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
     for (const v of versions) {
       const rs = file.results.filter((r) => r.version === v)
@@ -111,7 +140,11 @@ for (const name of process.argv.slice(2)) {
       ['form', (r: R) => r.truth!.form],
       ['contrast', (r: R) => (r.truth!.lowContrast ? 'low contrast' : 'normal contrast')],
       ['tilt', (r: R) => (r.truth!.rotation ? 'tilted' : 'level')],
-      ['brand', (r: R) => (r.truth!.brand ? (r.truth!.kitHasFont ? 'brand, kit has the font' : 'brand, kit lacks the font') : 'no brand')],
+      [
+        'brand',
+        (r: R) =>
+          r.truth!.brand ? (r.truth!.kitHasFont ? 'brand, kit has the font' : 'brand, kit lacks the font') : 'no brand',
+      ],
     ] as const) {
       rows.push(`| **by ${label}** |||||||||||||||`)
       for (const v of versions) {
@@ -126,7 +159,9 @@ for (const name of process.argv.slice(2)) {
       console.log(rows.join('\n'))
       rows.length = 0
       console.log('\nBrand bindings (synthetic brand blocks):\n')
-      console.log('| version | kit has the font: bound to brand:heading and right | kit lacks it: wrongly bound | colour bound to brand:primary |')
+      console.log(
+        '| version | kit has the font: bound to brand:heading and right | kit lacks it: wrongly bound | colour bound to brand:primary |',
+      )
       console.log('|---|---|---|---|')
       for (const v of versions) {
         const b = brand.filter((r) => r.version === v)
@@ -142,5 +177,36 @@ for (const name of process.argv.slice(2)) {
 }
 
 function line(label: string, rs: R[]) {
-  return `| ${label} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => !!r.familyOk)))} | ${pct(mean(rs.map((r) => !!r.faceOk)))} | ${pct(mean(rs.map((r) => !!r.inShortlist)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${pct(q(rs.map((r) => r.sizeErr!), 0.5))} | ${f1(q(rs.map((r) => r.spacingErr!), 0.5))} | ${f2(q(rs.filter((r) => r.lineHeightErr != null).map((r) => r.lineHeightErr!), 0.5))} | ${f1(q(rs.map((r) => r.colorDE!), 0.5))} | ${f1(q(rs.filter((r) => r.truth!.rotation).map((r) => r.rotationErr!), 0.5))} | ${pct(mean(rs.map((r) => !!r.outlineFound)))} | ${q(rs.map((r) => r.ms), 0.5).toFixed(0)} | ${q(rs.map((r) => r.ms), 0.95).toFixed(0)} |`
+  return `| ${label} | ${rs.length} | ${pct(mean(rs.map((r) => r.same)))} | ${pct(mean(rs.map((r) => !!r.familyOk)))} | ${pct(mean(rs.map((r) => !!r.faceOk)))} | ${pct(mean(rs.map((r) => !!r.inShortlist)))} | ${pct(mean(rs.map((r) => r.keep)))} | ${pct(
+    q(
+      rs.map((r) => r.sizeErr!),
+      0.5,
+    ),
+  )} | ${f1(
+    q(
+      rs.map((r) => r.spacingErr!),
+      0.5,
+    ),
+  )} | ${f2(
+    q(
+      rs.filter((r) => r.lineHeightErr != null).map((r) => r.lineHeightErr!),
+      0.5,
+    ),
+  )} | ${f1(
+    q(
+      rs.map((r) => r.colorDE!),
+      0.5,
+    ),
+  )} | ${f1(
+    q(
+      rs.filter((r) => r.truth!.rotation).map((r) => r.rotationErr!),
+      0.5,
+    ),
+  )} | ${pct(mean(rs.map((r) => !!r.outlineFound)))} | ${q(
+    rs.map((r) => r.ms),
+    0.5,
+  ).toFixed(0)} | ${q(
+    rs.map((r) => r.ms),
+    0.95,
+  ).toFixed(0)} |`
 }

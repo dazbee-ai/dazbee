@@ -94,7 +94,9 @@ export function makeDrawer(ck: CanvasKit, shipped: readonly CatalogueFace[]) {
   /** The natural width and height Dazbee gives the text set in this look, as a text that grows draws it. */
   function measure(text: string, look: TextLook): { width: number; height: number } {
     const resources = cache.resources(resourceBytes())
-    const parsed = parseDesign(design(1, 1, null, textProps(text, look, { x: 0, y: 0, width: 1, height: 1, rotation: 0 })))
+    const parsed = parseDesign(
+      design(1, 1, null, textProps(text, look, { x: 0, y: 0, width: 1, height: 1, rotation: 0 })),
+    )
     if (!parsed.success) throw new Error(parsed.errors.join('\n'))
     const props = parsed.design.nodes.t!.props as TextProps
     return textMeasure(ck, resources)(props, null)
@@ -104,12 +106,7 @@ export function makeDrawer(ck: CanvasKit, shipped: readonly CatalogueFace[]) {
    * The frame's pixels, RGBA unpremultiplied: the text layer drawn on `background` (#RRGGBBAA), or
    * on nothing when it is null.
    */
-  function draw(
-    width: number,
-    height: number,
-    background: string | null,
-    props: Record<string, unknown>,
-  ): Uint8Array {
+  function draw(width: number, height: number, background: string | null, props: Record<string, unknown>): Uint8Array {
     const parsed = parseDesign(design(width, height, background, props))
     if (!parsed.success) throw new Error(parsed.errors.join('\n'))
     const resources = cache.resources(resourceBytes())

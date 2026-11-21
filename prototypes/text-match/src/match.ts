@@ -7,10 +7,14 @@
 // Either keeps the block as a picture when the best result does not look the same (score.ts).
 import type { CanvasKit, Typeface } from '@dazbee/canvaskit'
 
-import { type CatalogueFace, faceId, fontBytes, scriptOf } from './catalogue.ts'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+import { type CatalogueFace, faceId, FONTS_DIR, fontBytes, scriptOf } from './catalogue.ts'
+import { coversFromIndex } from './coverage.ts'
 import { type Drawer, type Placed, type TextLook, textProps } from './draw.ts'
-import { blockFingerprint, type Fingerprints, type Model, nearest } from './fingerprint.ts'
-import { type Box, type Ink, inkBox } from './ink.ts'
+import { blockFingerprint, type Fingerprints, type Model, nearest, similarity } from './fingerprint.ts'
+import { type Box, type Ink, inkBox, inkOf } from './ink.ts'
 import { type Block, findLines, hex, type Measured, measure } from './measure.ts'
 import { ciede2000, lab, type Score, score } from './score.ts'
 
@@ -74,10 +78,44 @@ interface Fitted {
   brandToken?: string
 }
 
-/** Typefaces read to check which letters a face has, kept across blocks (the most recent, up to 200 MB of files). */
+/** Typefaces read to check letters the coverage index lacks, kept across blocks (the most recent, up to 32 MB of files). */
 const typefaces = new Map<string, Typeface | null>()
 const typefaceBytes = new Map<string, number>()
 let typefaceTotal = 0
+
+function coversByLoading(ck: CanvasKit, face: CatalogueFace, text: string) {
+  let tf = typefaces.get(face.file)
+  if (tf === undefined) {
+    const bytes = fontBytes(face)
+    tf = ck.Typeface.MakeTypefaceFromData(bytes.buffer as ArrayBuffer)
+    typefaces.set(face.file, tf)
+    typefaceBytes.set(face.file, bytes.length)
+    typefaceTotal += bytes.length
+    while (typefaceTotal > 32 * 2 ** 20 && typefaces.size > 1) {
+      const [oldest, old] = typefaces.entries().next().value!
+      old?.delete()
+      typefaces.delete(oldest)
+      typefaceTotal -= typefaceBytes.get(oldest) ?? 0
+      typefaceBytes.delete(oldest)
+    }
+  }
+  if (!tf) return false
+  const letters = [...new Set(text.replace(/\s/g, ''))].join('')
+  const font = new ck.Font(tf, 20)
+  const ids = font.getGlyphIDs(letters)
+  font.delete()
+  return [...ids].every((g) => g !== 0)
+}
+
+/**
+ * Novelty faces that draw a pattern instead of letters' strokes (a grid of squares, stripes, a filled
+ * box: train/novelty.py, from each face's drawn probe), left out of the candidates as colour fonts are.
+ */
+const NOVELTY: ReadonlySet<string> = new Set(
+  existsSync(join(FONTS_DIR, 'novelty.json')) && process.env.NOVELTY !== '0'
+    ? (JSON.parse(readFileSync(join(FONTS_DIR, 'novelty.json'), 'utf8')) as string[])
+    : [],
+)
 
 const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
 /**
@@ -94,7 +132,85 @@ const BRAND_MARGIN = 0.03
 /** A colour this close to a brand colour (ΔE) is taken as that colour and bound to it. */
 const BRAND_COLOR_DELTA = 8
 
+/**
+ * The tallest line, in pixels, the match works at: a block with taller lines is matched shrunk to this
+ * and its result scaled back and scored once at full size, so a huge block costs what a normal one does.
+ */
+const WORK_LINE = Number(process.env.WORK_LINE ?? 160)
+
 export async function matchBlock(ctx: MatchContext, block: Block, version: Version, kit?: Kit): Promise<Match> {
+  const started = performance.now()
+  const lines = block.text.split('\n').length
+  // The ink's height without the tilt undone is enough to decide.
+  const box = inkBox(inkOf(block.rgba))
+  const k = box ? WORK_LINE / (box.h / lines) : 1
+  if (!(k < 0.95)) return matchAt(ctx, block, version, kit)
+  const full = measure(block)
+  const small = await matchAt(ctx, scaleBlock(block, k), version, kit)
+  const look: TextLook = {
+    ...small.look,
+    size: small.look.size / k,
+    ...(small.look.outline
+      ? { outline: { ...small.look.outline, width: Math.round((small.look.outline.width / k) * 2) / 2 } }
+      : {}),
+  }
+  const place = {
+    ...small.place,
+    x: small.place.x / k,
+    y: small.place.y / k,
+    width: small.place.width / k,
+    height: small.place.height / k,
+  }
+  const layer = textProps(block.text, look, place)
+  ctx.drawer.use(
+    ctx.catalogue.filter((f) => f.family === look.family && f.weight === look.weight && f.style === look.style),
+  )
+  const drawn = ctx.drawer.draw(block.rgba.width, block.rgba.height, null, layer)
+  const pixels = { width: block.rgba.width, height: block.rgba.height, data: drawn }
+  const s = score(block.rgba, pixels, full.background, hasTransparency(block.rgba) ? undefined : full.ink.data)
+  return {
+    ...small,
+    layer,
+    look,
+    place,
+    score: s,
+    keepAsPicture: !s.same,
+    draws: small.draws + 1,
+    ms: performance.now() - started,
+  }
+}
+
+/** A block shrunk by `k` (area-averaged, premultiplied), with what is behind it. */
+function scaleBlock(block: Block, k: number): Block {
+  const shrink = (img: Block['rgba']) => {
+    const w = Math.max(1, Math.round(img.width * k))
+    const h = Math.max(1, Math.round(img.height * k))
+    const acc = new Float64Array(w * h * 4)
+    const cnt = new Float64Array(w * h)
+    for (let y = 0; y < img.height; y++) {
+      const ty = Math.min(h - 1, Math.floor((y * h) / img.height))
+      for (let x = 0; x < img.width; x++) {
+        const tx = Math.min(w - 1, Math.floor((x * w) / img.width))
+        const i = (y * img.width + x) * 4
+        const o = ty * w + tx
+        const a = img.data[i + 3]! / 255
+        for (let c = 0; c < 3; c++) acc[o * 4 + c]! += img.data[i + c]! * a
+        acc[o * 4 + 3]! += a
+        cnt[o]! += 1
+      }
+    }
+    const data = new Uint8Array(w * h * 4)
+    for (let o = 0; o < w * h; o++) {
+      const a = acc[o * 4 + 3]!
+      for (let c = 0; c < 3; c++) data[o * 4 + c] = a > 0 ? Math.round(acc[o * 4 + c]! / a) : 0
+      data[o * 4 + 3] = Math.round((255 * a) / Math.max(1, cnt[o]!))
+    }
+    return { width: w, height: h, data }
+  }
+  return { ...block, rgba: shrink(block.rgba), ...(block.behind ? { behind: shrink(block.behind) } : {}) }
+}
+
+async function matchAt(ctx: MatchContext, block: Block, version: Version, kit?: Kit): Promise<Match> {
   const started = performance.now()
   let draws = 0
   const m = measure(block)
@@ -102,36 +218,21 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   const script = scriptOf(text)
 
   /** Whether a face draws every letter of the text itself, without a fallback. */
-  const covers = (face: CatalogueFace) => {
-    let tf = typefaces.get(face.file)
-    if (tf === undefined) {
-      const bytes = fontBytes(face)
-      tf = ctx.ck.Typeface.MakeTypefaceFromData(bytes.buffer as ArrayBuffer)
-      typefaces.set(face.file, tf)
-      typefaceBytes.set(face.file, bytes.length)
-      typefaceTotal += bytes.length
-      while (typefaceTotal > 200 * 2 ** 20 && typefaces.size > 1) {
-        const [oldest, old] = typefaces.entries().next().value!
-        old?.delete()
-        typefaces.delete(oldest)
-        typefaceTotal -= typefaceBytes.get(oldest) ?? 0
-        typefaceBytes.delete(oldest)
-      }
-    }
-    if (!tf) return false
-    const letters = [...new Set(text.replace(/\s/g, ''))].join('')
-    const font = new ctx.ck.Font(tf, 20)
-    const ids = font.getGlyphIDs(letters)
-    font.delete()
-    return [...ids].every((g) => g !== 0)
-  }
+  const covers = (face: CatalogueFace) => coversFromIndex(face, text) ?? coversByLoading(ctx.ck, face, text)
 
   // The faces allowed: drawing the text's script, no colour fonts (Dazbee's catalogue leaves them
   // out), and in the 321-family mode only the faces Dazbee offers today.
   const byId = new Map(ctx.catalogue.map((f) => [faceId(f), f]))
   const allowed = ctx.fingerprints.faces
     .map((id, i) => ({ face: byId.get(id), i }))
-    .filter(({ face }) => face && !(face as { colour?: boolean }).colour && (!ctx.subset || face.menu) && face.scripts?.includes(script))
+    .filter(
+      ({ face, i }) =>
+        face &&
+        !(face as { colour?: boolean }).colour &&
+        !NOVELTY.has(ctx.fingerprints.faces[i]!) &&
+        (!ctx.subset || face.menu) &&
+        face.scripts?.includes(script),
+    )
     .map(({ i }) => i)
   const fp = await blockFingerprint(ctx.model, m.level, m.lines)
   const near = nearest(ctx.fingerprints, fp, allowed, SHORTLIST[version] * 3)
@@ -175,6 +276,7 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
           f.family === t.face.family &&
           f.style === t.face.style &&
           f.weight !== t.face.weight &&
+          !NOVELTY.has(faceId(f)) &&
           !fits.some((x) => x.face === f),
       ),
     )
@@ -189,16 +291,15 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     for (const f of fits) {
       const i = index.get(faceId(f.face))
       if (i === undefined) continue
-      let sim = 0
-      for (let k = 0; k < fp.length; k++) sim += ctx.fingerprints.vectors[i * fp.length + k]! * fp[k]!
-      f.rank = f.shape + FUSE * sim
+      f.rank = f.shape + FUSE * similarity(ctx.fingerprints, i, fp)
     }
   }
   fits.sort((a, b) => b.rank - a.rank)
   // The leaders corrected from their own draws: Light its best two once, Medium its best three twice.
   const leaders = version === 'light' ? 2 : 3
   for (let i = 0; i < Math.min(leaders, fits.length); i++)
-    for (let r = 0; r < (version === 'light' ? 1 : 2); r++) fits[i] = refit(ctx.drawer, m, text, fits[i]!, () => draws++)
+    for (let r = 0; r < (version === 'light' ? 1 : 2); r++)
+      fits[i] = refit(ctx.drawer, m, text, fits[i]!, () => draws++)
   const brandLead = fits.findIndex((f) => f.brandToken)
   if (brandLead >= leaders) fits[brandLead] = refit(ctx.drawer, m, text, fits[brandLead]!, () => draws++)
   if (FUSE > 0) {
@@ -206,9 +307,7 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     for (const f of fits) {
       const i = index.get(faceId(f.face))
       if (i === undefined) continue
-      let sim = 0
-      for (let k = 0; k < fp.length; k++) sim += ctx.fingerprints.vectors[i * fp.length + k]! * fp[k]!
-      f.rank = f.shape + FUSE * sim
+      f.rank = f.shape + FUSE * similarity(ctx.fingerprints, i, fp)
     }
   }
   fits.sort((a, b) => b.rank - a.rank)
@@ -220,9 +319,11 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   // the shared rule; the first that looks the same wins, else the one that comes closest.
   const finalistCount = process.env.FINALISTS ? Number(process.env.FINALISTS) : FINALISTS_OF[version]
   let finalists = [first, ...fits.filter((f) => f !== first).slice(0, finalistCount - 1)]
-  if (version === 'medium') finalists = finalists.map((f, i) => (i < 2 ? tune(ctx.drawer, m, text, f, () => draws++) : f))
+  if (version === 'medium')
+    finalists = finalists.map((f, i) => (i < 2 ? tune(ctx.drawer, m, text, f, () => draws++) : f))
   const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
-  const won = finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
+  const won =
+    finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
   return {
     keepAsPicture: !won.score.same,
     ...won,
@@ -240,7 +341,15 @@ const quality = (s: Score) => s.ssim - s.deltaE / 100
  * colours when close (and bound to them), its brand text style when one matches and draws as well,
  * placed back in the tilted block and scored by the shared rule.
  */
-function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit: Fitted, kit: Kit | undefined, counted: () => void) {
+function finish(
+  ctx: MatchContext,
+  block: Block,
+  m: Measured,
+  text: string,
+  fit: Fitted,
+  kit: Kit | undefined,
+  counted: () => void,
+) {
   let best = fit
   const bindings: Match['bindings'] = {}
   let color = hex(m.fill)
@@ -253,7 +362,10 @@ function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit:
   let look: TextLook = { ...best.look, color }
   if (m.outline) {
     const oc = nearestBrandColor(m.outline.color, kit)
-    look = { ...look, outline: { width: best.look.outline?.width ?? m.outline.width, color: oc ? oc.value : hex(m.outline.color) } }
+    look = {
+      ...look,
+      outline: { width: best.look.outline?.width ?? m.outline.width, color: oc ? oc.value : hex(m.outline.color) },
+    }
   }
   // A brand text style is taken when it draws as well as the fit (within 0.01), placed again with its values.
   let style = best.brandToken ? brandStyle(kit!, best, m.lines.length) : undefined
@@ -268,7 +380,11 @@ function finish(ctx: MatchContext, block: Block, m: Measured, text: string, fit:
     )
     if (styled && styled.overlap >= best.overlap - 0.01) {
       best = { ...styled, brandToken: best.brandToken! }
-      look = { ...look, spacing: styled.look.spacing, ...(styled.look.lineHeight ? { lineHeight: styled.look.lineHeight } : {}) }
+      look = {
+        ...look,
+        spacing: styled.look.spacing,
+        ...(styled.look.lineHeight ? { lineHeight: styled.look.lineHeight } : {}),
+      }
     } else style = undefined
   }
   const place = untilt(best.place, m)
@@ -291,7 +407,15 @@ function choose(fits: Fitted[]): Fitted | undefined {
 }
 
 function keep(m: Measured, text: string, shortlist: CatalogueFace[], draws: number, started: number): Match {
-  const look: TextLook = { family: 'Noto Sans', weight: 400, style: 'normal', size: m.box.h, spacing: 0, align: 'start', color: hex(m.fill) }
+  const look: TextLook = {
+    family: 'Noto Sans',
+    weight: 400,
+    style: 'normal',
+    size: m.box.h,
+    spacing: 0,
+    align: 'start',
+    color: hex(m.fill),
+  }
   const place = { x: m.box.x, y: m.box.y, width: m.box.w, height: m.box.h, rotation: m.angle }
   return {
     keepAsPicture: true,
@@ -314,7 +438,13 @@ const graphemes = (s: string) => [...new Intl.Segmenter(undefined, { granularity
  * apart; drawn again in the block, moved so the ink centres meet, and ranked by how well the ink
  * overlaps.
  */
-export function fitFace(drawer: Drawer, m: Measured, text: string, face: CatalogueFace, counted: () => void): Fitted | null {
+export function fitFace(
+  drawer: Drawer,
+  m: Measured,
+  text: string,
+  face: CatalogueFace,
+  counted: () => void,
+): Fitted | null {
   const lines = text.split('\n')
   const n = lines.length
   const base: TextLook = {
@@ -330,7 +460,9 @@ export function fitFace(drawer: Drawer, m: Measured, text: string, face: Catalog
   const baseInk = drawAlone(drawer, text, base, counted)
   if (!baseInk) return null
   const baseLines = findLines(baseInk.ink, baseInk.box, n)
-  const ratios = m.lines.map((l, i) => l.box.h / Math.max(1, baseLines[i]!.box.h)).filter((r) => Number.isFinite(r) && r > 0)
+  const ratios = m.lines
+    .map((l, i) => l.box.h / Math.max(1, baseLines[i]!.box.h))
+    .filter((r) => Number.isFinite(r) && r > 0)
   const size = 100 * median(ratios)
   // A face whose letters would need a size far from the block's line height cannot be it (and would
   // be drawn on huge surfaces): a quarter to four times the height of one line of the block.
@@ -366,7 +498,13 @@ export function fitFace(drawer: Drawer, m: Measured, text: string, face: Catalog
     lineHeight = clamp(sum / (n - 1), 0.5, 3)
   }
   const outline = m.outline ? { width: m.outline.width, color: '#000000FF' } : undefined
-  const look: TextLook = { ...base, size, spacing, ...(lineHeight ? { lineHeight } : {}), ...(outline ? { outline } : {}) }
+  const look: TextLook = {
+    ...base,
+    size,
+    spacing,
+    ...(lineHeight ? { lineHeight } : {}),
+    ...(outline ? { outline } : {}),
+  }
   const fit = placeAndRank(drawer, m, text, face, look, counted)
   return fit ? { ...fit, lineGaps } : null
 }
@@ -390,7 +528,12 @@ export function placeAndRank(
   const pad = Math.ceil(Math.max(look.size, 16))
   const w = m.level.width + 2 * pad
   const h = m.level.height + 2 * pad
-  const px = drawer.draw(w, h, null, textProps(text, look, { x: guess.x + pad, y: guess.y + pad, ...natural, rotation: 0 }))
+  const px = drawer.draw(
+    w,
+    h,
+    null,
+    textProps(text, look, { x: guess.x + pad, y: guess.y + pad, ...natural, rotation: 0 }),
+  )
   counted()
   const ink = alphaInk(px, w, h)
   const box = inkBox(ink)
@@ -400,8 +543,20 @@ export function placeAndRank(
   const overlap = softIou(m.level, ink, dx - pad, dy - pad)
   const shape = keepShape ?? elasticIou(m.level, ink, dx - pad, dy - pad, look.size)
   const rank = RANK === 'overlap' ? overlap : RANK === 'mix' ? (shape + overlap) / 2 : shape
-  const lines = findLines(ink, box, m.lines.length).map((l) => ({ ...l.box, x: l.box.x - pad + dx, y: l.box.y - pad + dy }))
-  return { face, look, place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 }, rank, overlap, shape, lines }
+  const lines = findLines(ink, box, m.lines.length).map((l) => ({
+    ...l.box,
+    x: l.box.x - pad + dx,
+    y: l.box.y - pad + dy,
+  }))
+  return {
+    face,
+    look,
+    place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 },
+    rank,
+    overlap,
+    shape,
+    lines,
+  }
 }
 
 /**
@@ -427,14 +582,21 @@ function refit(drawer: Drawer, m: Measured, text: string, fit: Fitted, counted: 
     const centre = (b: Box) => b.y + b.h / 2
     let sum = 0
     for (let i = 0; i + 1 < lines.length; i++)
-      sum += centre(m.lines[i + 1]!.box) - centre(m.lines[i]!.box) - (centre(fit.lines[i + 1]!) - centre(fit.lines[i]!)) * ratio
+      sum +=
+        centre(m.lines[i + 1]!.box) -
+        centre(m.lines[i]!.box) -
+        (centre(fit.lines[i + 1]!) - centre(fit.lines[i]!)) * ratio
     lineHeight = clamp(lineHeight + sum / (lines.length - 1) / size, 0.5, 3)
   }
   const look = { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) }
   if (!(size >= m.box.h / lines.length / 4 && size <= (m.box.h / lines.length) * 4)) return fit
   const tried = placeAndRank(drawer, m, text, fit.face, look, counted)
   return tried && tried.overlap > fit.overlap
-    ? { ...tried, ...(fit.lineGaps ? { lineGaps: fit.lineGaps } : {}), ...(fit.brandToken ? { brandToken: fit.brandToken } : {}) }
+    ? {
+        ...tried,
+        ...(fit.lineGaps ? { lineGaps: fit.lineGaps } : {}),
+        ...(fit.brandToken ? { brandToken: fit.brandToken } : {}),
+      }
     : fit
 }
 
@@ -457,7 +619,8 @@ function tune(drawer: Drawer, m: Measured, text: string, start: Fitted, counted:
         if (key === 'size') look.size = best.look.size * (1 + sign * steps.size!)
         if (key === 'spacing') look.spacing = best.look.spacing + sign * steps.spacing!
         if (key === 'lineHeight') look.lineHeight = (best.look.lineHeight ?? 1.2) + sign * steps.lineHeight!
-        if (key === 'outline' && look.outline) look.outline = { ...look.outline, width: Math.max(0, look.outline.width + sign * steps.outline!) }
+        if (key === 'outline' && look.outline)
+          look.outline = { ...look.outline, width: Math.max(0, look.outline.width + sign * steps.outline!) }
         if (key === 'dx') n2.dx += sign * steps.dx!
         if (key === 'dy') n2.dy += sign * steps.dy!
         const tried = placeAndRank(drawer, m, text, best.face, look, counted, n2, best.shape)
@@ -572,7 +735,8 @@ export function elasticIou(a: Ink, b: Ink, dx: number, dy: number, size: number)
       for (let sy = -r; sy <= r; sy += 2) for (let sx = -r; sx <= r; sx += 2) tryShift(sx, sy)
       const cx = bx
       const cy = by
-      for (let sy = cy - 1; sy <= cy + 1; sy++) for (let sx = cx - 1; sx <= cx + 1; sx++) if (sx !== cx || sy !== cy) tryShift(sx, sy)
+      for (let sy = cy - 1; sy <= cy + 1; sy++)
+        for (let sx = cx - 1; sx <= cx + 1; sx++) if (sx !== cx || sy !== cy) tryShift(sx, sy)
       inter += bestI
       union += bestU
       coveredA += bestA
@@ -591,7 +755,12 @@ function sampleAt(d: Float32Array, w: number, h: number, fx: number, fy: number)
   const ax = fx - x0
   const ay = fy - y0
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : d[y * w + x]!)
-  return at(x0, y0) * (1 - ax) * (1 - ay) + at(x0 + 1, y0) * ax * (1 - ay) + at(x0, y0 + 1) * (1 - ax) * ay + at(x0 + 1, y0 + 1) * ax * ay
+  return (
+    at(x0, y0) * (1 - ax) * (1 - ay) +
+    at(x0 + 1, y0) * ax * (1 - ay) +
+    at(x0, y0 + 1) * (1 - ax) * ay +
+    at(x0 + 1, y0 + 1) * ax * ay
+  )
 }
 
 function blur(ink: Ink): Float32Array {
@@ -630,7 +799,10 @@ function nearestBrandColor(rgb: readonly number[], kit?: Kit): { token: string; 
   let best: { token: string; value: string; d: number } | null = null
   for (const c of kit.colors) {
     const v = c.value
-    const d = ciede2000(here, lab(parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)))
+    const d = ciede2000(
+      here,
+      lab(parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)),
+    )
     if (d <= BRAND_COLOR_DELTA && (!best || d < best.d)) best = { ...c, d }
   }
   return best
@@ -645,7 +817,8 @@ function brandStyle(kit: Kit, fit: Fitted, lines: number) {
     const token = 'token' in s.font ? s.font.token : undefined
     const family = 'family' in s.font ? s.font.family : kit.fonts.find((f) => f.token === token)?.family
     if (family !== fit.face.family || s.fontWeight !== fit.face.weight || s.fontStyle !== fit.face.style) continue
-    const spacing = s.letterSpacing.unit === 'percent' ? s.letterSpacing.value : (s.letterSpacing.value / fit.look.size) * 100
+    const spacing =
+      s.letterSpacing.unit === 'percent' ? s.letterSpacing.value : (s.letterSpacing.value / fit.look.size) * 100
     if (Math.abs(spacing - fit.look.spacing) > 2) continue
     if (lines > 1 && s.lineHeight && Math.abs(s.lineHeight - (fit.look.lineHeight ?? 1.2)) > 0.1) continue
     return { token: s.token, spacing, lineHeight: lines > 1 ? s.lineHeight : undefined }

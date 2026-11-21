@@ -124,7 +124,7 @@ export function lab(r: number, g: number, b: number): [number, number, number] {
   const x = (0.4124564 * R + 0.3575761 * G + 0.1804375 * B) / 0.95047
   const y = 0.2126729 * R + 0.7151522 * G + 0.072175 * B
   const z = (0.0193339 * R + 0.119192 * G + 0.9503041 * B) / 1.08883
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116)
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116)
   return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))]
 }
 
@@ -184,11 +184,21 @@ export function ciede2000(p: readonly number[], q: readonly number[]): number {
  * soft (the σ of 0, 0.6, 1, 1.5 or 2.2 px that scores best), so a crisp result for a soft generated
  * block is judged by its letters, not by its sharpness. Reported beside the shared rule.
  */
-export function blurMatchedScore(block: Rgba, drawn: Rgba, background: readonly number[], blockInk?: Float32Array): Score & { sigma: number } {
+export function blurMatchedScore(
+  block: Rgba,
+  drawn: Rgba,
+  background: readonly number[],
+  blockInk?: Float32Array,
+): Score & { sigma: number } {
   let best: (Score & { sigma: number }) | null = null
   for (const sigma of [0, 0.6, 1, 1.5, 2.2]) {
     const s = { ...score(block, sigma === 0 ? drawn : blurRgba(drawn, sigma), background, blockInk), sigma }
-    if (!best || (s.same && !best.same) || (s.same === best.same && s.ssim - s.deltaE / 100 > best.ssim - best.deltaE / 100)) best = s
+    if (
+      !best ||
+      (s.same && !best.same) ||
+      (s.same === best.same && s.ssim - s.deltaE / 100 > best.ssim - best.deltaE / 100)
+    )
+      best = s
   }
   return best!
 }
@@ -272,7 +282,12 @@ export function inkDifference(blockInk: Float32Array, drawn: Rgba): { missed: nu
  * backgrounds kept; the same thresholds. A flat block is compared on its own pixels only.
  */
 export function whiteBlackScore(block: Rgba, drawn: Rgba, background: readonly number[], flat: boolean): Score {
-  const backs = flat ? [background] : [[255, 255, 255], [0, 0, 0]]
+  const backs = flat
+    ? [background]
+    : [
+        [255, 255, 255],
+        [0, 0, 0],
+      ]
   let worst: Score | null = null
   for (const bg of backs) {
     const a = over(block, bg)
@@ -297,16 +312,30 @@ export function whiteBlackScore(block: Rgba, drawn: Rgba, background: readonly n
 function ssimOf(ya: Float32Array, yb: Float32Array, w: number, h: number): number {
   const mu1 = gauss(ya, w, h)
   const mu2 = gauss(yb, w, h)
-  const s11 = gauss(ya.map((v) => v * v), w, h)
-  const s22 = gauss(yb.map((v) => v * v), w, h)
-  const s12 = gauss(ya.map((v, i) => v * yb[i]!), w, h)
+  const s11 = gauss(
+    ya.map((v) => v * v),
+    w,
+    h,
+  )
+  const s22 = gauss(
+    yb.map((v) => v * v),
+    w,
+    h,
+  )
+  const s12 = gauss(
+    ya.map((v, i) => v * yb[i]!),
+    w,
+    h,
+  )
   const c1 = (0.01 * 255) ** 2
   const c2 = (0.03 * 255) ** 2
   let total = 0
   for (let i = 0; i < w * h; i++) {
     const m1 = mu1[i]!
     const m2 = mu2[i]!
-    total += ((2 * m1 * m2 + c1) * (2 * (s12[i]! - m1 * m2) + c2)) / ((m1 * m1 + m2 * m2 + c1) * (s11[i]! - m1 * m1 + s22[i]! - m2 * m2 + c2))
+    total +=
+      ((2 * m1 * m2 + c1) * (2 * (s12[i]! - m1 * m2) + c2)) /
+      ((m1 * m1 + m2 * m2 + c1) * (s11[i]! - m1 * m1 + s22[i]! - m2 * m2 + c2))
   }
   return total / (w * h)
 }
@@ -316,7 +345,12 @@ function ssimOf(ya: Float32Array, yb: Float32Array, w: number, h: number): numbe
  * blurred by 1 px; SSIM on luminance at the block's own size (no averaging down) ≥ 0.90; the mean ΔE
  * over the foreground ≤ 5 (as the shared rule); and no more than 1% of all pixels apart by a ΔE over 20.
  */
-export function ruleV2(block: Rgba, drawn: Rgba, background: readonly number[], blockInk?: Float32Array): Score & { farShare: number } {
+export function ruleV2(
+  block: Rgba,
+  drawn: Rgba,
+  background: readonly number[],
+  blockInk?: Float32Array,
+): Score & { farShare: number } {
   const w = block.width
   const h = block.height
   const n = w * h

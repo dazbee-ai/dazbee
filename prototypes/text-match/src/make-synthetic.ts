@@ -26,11 +26,17 @@ const EVAL_WORDS: Record<Script, string[]> = {
   latin: `harbour velvet canyon orchard lantern meadow citrus copper ember willow saffron marble
   thunder cascade horizon pepper almond cobalt crimson sterling nectar falcon prairie ginger
   voyage atlas fable glacier harvest jubilee kindred lagoon mosaic nimbus opal paddle quartz
-  riverside sorbet tundra umbrella vortex whisper yonder zephyr 2026 $49 75% 12:30 No.1`.split(/\s+/).filter(Boolean),
+  riverside sorbet tundra umbrella vortex whisper yonder zephyr 2026 $49 75% 12:30 No.1`
+    .split(/\s+/)
+    .filter(Boolean),
   arabic: `بحر جبل نخلة قمر شمس نجمة زهرة حديقة مدينة سوق كتاب مدرسة ملعب سيارة طائرة قطار مطعم
-  حلويات عصير فاكهة خضار مكتبة متحف شاطئ صحراء واحة`.split(/\s+/).filter(Boolean),
+  حلويات عصير فاكهة خضار مكتبة متحف شاطئ صحراء واحة`
+    .split(/\s+/)
+    .filter(Boolean),
   devanagari: `समुद्र पहाड़ नदी चाँद सूरज तारा फूल बगीचा शहर बाज़ार किताब विद्यालय मैदान गाड़ी विमान रेल
-  मिठाई रस फल सब्ज़ी पुस्तकालय संग्रहालय किनारा रेगिस्तान`.split(/\s+/).filter(Boolean),
+  मिठाई रस फल सब्ज़ी पुस्तकालय संग्रहालय किनारा रेगिस्तान`
+    .split(/\s+/)
+    .filter(Boolean),
 }
 
 export interface Truth {
@@ -54,13 +60,18 @@ export interface Truth {
   kitHasFont?: boolean
 }
 
-const { values } = parseArgs({ options: { count: { type: 'string', default: '360' }, seed: { type: 'string', default: '7' } } })
+const { values } = parseArgs({
+  options: { count: { type: 'string', default: '360' }, seed: { type: 'string', default: '7' } },
+})
 const count = Number(values.count)
 const r = rng(Number(values.seed))
 const dir = join(DATA_DIR, 'synthetic')
 mkdirSync(dir, { recursive: true })
 const ck = await loadCanvasKit()
-const drawer = makeDrawer(ck, loadCatalogue().filter((f) => f.source === 'shipped'))
+const drawer = makeDrawer(
+  ck,
+  loadCatalogue().filter((f) => f.source === 'shipped'),
+)
 // The whole library (library.ts); half the blocks are set in Dazbee's current catalogue, half outside it.
 const library = loadCatalogue(join(DATA_DIR, 'fonts', 'library.json'))
 const of = (s: Script, inSubset?: boolean) =>
@@ -98,7 +109,10 @@ for (let k = 0; k < count; k++) {
   }
   const outlined = r() < 0.15
   const outline = outlined
-    ? { width: Math.max(1, Math.min(Math.round(size * 0.08 * 2) / 2, 1 + Math.round(r() * 10) / 2)), color: hex(dE([0, 0, 0], fill) > 40 ? [0, 0, 0] : [255, 255, 255]) }
+    ? {
+        width: Math.max(1, Math.min(Math.round(size * 0.08 * 2) / 2, 1 + Math.round(r() * 10) / 2)),
+        color: hex(dE([0, 0, 0], fill) > 40 ? [0, 0, 0] : [255, 255, 255]),
+      }
     : undefined
   const rotation = r() < 0.25 ? Math.round((r() < 0.5 ? -1 : 1) * (1 + r() * 9) * 2) / 2 : 0
   const look: TextLook = {
@@ -116,7 +130,12 @@ for (let k = 0; k < count; k++) {
   const natural = drawer.measure(text, look)
   const pad = Math.ceil(size * 0.6 + 10)
   const side = Math.ceil(Math.hypot(natural.width, natural.height)) + 2 * pad
-  const px = drawer.draw(side, side, null, textProps(text, look, { x: (side - natural.width) / 2, y: (side - natural.height) / 2, ...natural, rotation }))
+  const px = drawer.draw(
+    side,
+    side,
+    null,
+    textProps(text, look, { x: (side - natural.width) / 2, y: (side - natural.height) / 2, ...natural, rotation }),
+  )
   const box = inkBox(alphaInk(px, side, side), 0.02)
   if (!box) continue
   const m = 3
@@ -149,9 +168,15 @@ for (let k = 0; k < count; k++) {
   if (r() < 0.25) {
     // A pretend brand: Heading and Body fonts, its colours, a Headline style.
     const hasFont = r() < 0.67
-    const other = pick(r, of(script).filter((f) => f.family !== face.family))
+    const other = pick(
+      r,
+      of(script).filter((f) => f.family !== face.family),
+    )
     const heading = hasFont ? face.family : other.family
-    const body = pick(r, of(script).filter((f) => f.family !== face.family)).family
+    const body = pick(
+      r,
+      of(script).filter((f) => f.family !== face.family),
+    ).family
     const near = fill.map((c) => Math.max(0, Math.min(255, c + Math.round((r() - 0.5) * 6))))
     truth.kit = {
       fonts: [
@@ -202,7 +227,8 @@ function backdrop(w: number, h: number, base: number[]): Rgba {
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const t = (x / w - 0.5) * gx + (y / h - 0.5) * gy
-      for (let c = 0; c < 3; c++) data[(y * w + x) * 4 + c] = Math.max(0, Math.min(255, Math.round(base[c]! + t + (r() - 0.5) * 6)))
+      for (let c = 0; c < 3; c++)
+        data[(y * w + x) * 4 + c] = Math.max(0, Math.min(255, Math.round(base[c]! + t + (r() - 0.5) * 6)))
       data[(y * w + x) * 4 + 3] = 255
     }
   return { width: w, height: h, data }
@@ -247,7 +273,8 @@ function flatten(img: Rgba, behind: Rgba): Rgba {
   const out = new Uint8Array(img.data.length)
   for (let i = 0; i < img.width * img.height; i++) {
     const a = img.data[i * 4 + 3]! / 255
-    for (let c = 0; c < 3; c++) out[i * 4 + c] = Math.round(img.data[i * 4 + c]! * a + behind.data[i * 4 + c]! * (1 - a))
+    for (let c = 0; c < 3; c++)
+      out[i * 4 + c] = Math.round(img.data[i * 4 + c]! * a + behind.data[i * 4 + c]! * (1 - a))
     out[i * 4 + 3] = 255
   }
   return { width: img.width, height: img.height, data: out }

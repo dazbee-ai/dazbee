@@ -1,6 +1,8 @@
-// PROTOTYPE. Runs Light and Medium over the real test ads or the synthetic set and writes every
-// block's result to .data/results/<out>.json. Meant to run on one core (see REPORT.md):
+// PROTOTYPE. Runs Light and Medium over the real test ads or a set with known fonts (synthetic, own,
+// lica: sets.ts) and writes every block's result to .data/results/<out>.json. Meant to run on one core
+// (see REPORT.md):
 //   cmd /c start /affinity 1 /wait /b node src/evaluate.ts --set testads --model .data/models/w32-p48 --out testads
+// `--onnx` picks another ONNX file in the model folder and `--fp` another fingerprint set (int8 copies).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -12,9 +14,9 @@ const { adNames, loadAd } = await import('./testads.ts')
 const { makeDrawer } = await import('./draw.ts')
 const { loadFingerprints, openModel } = await import('./fingerprint.ts')
 const { matchBlock } = await import('./match.ts')
-const { readPng } = await import('./png.ts')
+const { loadSet } = await import('./sets.ts')
 const { ciede2000, lab } = await import('./score.ts')
-type Truth = import('./make-synthetic.ts').Truth
+type Truth = import('./sets.ts').Item['truth']
 type Block = import('./measure.ts').Block
 
 const { values } = parseArgs({
@@ -31,6 +33,10 @@ const { values } = parseArgs({
     ads: { type: 'string' },
     // Match against Dazbee's current catalogue (321 families) only, instead of the whole library.
     subset: { type: 'boolean', default: false },
+    onnx: { type: 'string', default: 'model.onnx' },
+    fp: { type: 'string', default: '' },
+    // Run every k-th item from the n-th (n/k), so parts can run side by side.
+    shard: { type: 'string' },
   },
 })
 const versions = values.versions!.split(',') as ('light' | 'medium')[]
@@ -38,8 +44,8 @@ const versions = values.versions!.split(',') as ('light' | 'medium')[]
 const ck = await loadCanvasKit()
 const drawer = makeDrawer(ck, fallbackFaces(LIBRARY))
 const catalogue = LIBRARY
-const model = await openModel(join(values.model!, 'model.onnx'), 1)
-const fingerprints = loadFingerprints(values.model!)
+const model = await openModel(join(values.model!, values.onnx!), 1)
+const fingerprints = loadFingerprints(values.model!, values.fp!)
 const ctx = { ck, drawer, model, fingerprints, catalogue, subset: values.subset! }
 const startupMs = performance.now() - t0
 
@@ -53,20 +59,18 @@ interface Item {
 const items: Item[] = []
 if (values.set === 'testads') {
   const ads = values.ads ? values.ads.split(',') : adNames()
-  for (const name of ads) for (const b of loadAd(name).blocks) items.push({ id: `${name}#${b.index}`, ad: name, block: b.block, lettering: b.lettering })
+  for (const name of ads)
+    for (const b of loadAd(name).blocks)
+      items.push({ id: `${name}#${b.index}`, ad: name, block: b.block, lettering: b.lettering })
 } else {
-  const dir = join(DATA_DIR, 'synthetic')
-  const truths = JSON.parse(readFileSync(join(dir, 'truth.json'), 'utf8')) as Truth[]
-  for (const t of truths) {
-    if (values.part !== 'all' && t.part !== values.part) continue
-    const rgba = readPng(join(dir, `${t.id}.png`))
-    const block: Block = { rgba, text: t.text, ...(t.form === 'cutout' ? { behind: readPng(join(dir, `${t.id}-behind.png`)) } : {}) }
-    items.push({ id: t.id, block, truth: t })
-  }
+  for (const it of loadSet(values.set as import('./sets.ts').SetName, values.part!)) items.push(it)
 }
 const wanted = values.ids ? new Set(values.ids.split(',')) : null
 const chosen = wanted ? items.filter((i) => wanted.has(i.id)) : items
-const limited = values.limit ? chosen.slice(0, Number(values.limit)) : chosen
+const sharded = values.shard
+  ? chosen.filter((_, i) => i % Number(values.shard!.split('/')[1]) === Number(values.shard!.split('/')[0]))
+  : chosen
+const limited = values.limit ? sharded.slice(0, Number(values.limit)) : sharded
 
 const rgbOf = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
 const dE = (a: string, b: string) => {
@@ -83,7 +87,11 @@ const { blurMatchedScore, inkDifference, whiteBlackScore } = await import('./sco
 function diagnostics(block: Block, match: Awaited<ReturnType<typeof matchBlock>>) {
   const m = measure(block)
   drawer.use(catalogue.filter((f) => f.family === match.look.family))
-  const pixels = { width: block.rgba.width, height: block.rgba.height, data: drawer.draw(block.rgba.width, block.rgba.height, null, match.layer) }
+  const pixels = {
+    width: block.rgba.width,
+    height: block.rgba.height,
+    data: drawer.draw(block.rgba.width, block.rgba.height, null, match.layer),
+  }
   const flat = !hasTransparency(block.rgba)
   return {
     matched: blurMatchedScore(block.rgba, pixels, m.background, flat ? m.ink.data : undefined),
@@ -122,9 +130,26 @@ for (const [n, item] of limited.entries()) {
       shortlist: m.shortlist.slice(0, 5),
       ...(t
         ? {
-            truth: { face: t.face, family: t.family, inSubset: t.inSubset, category: t.category, script: t.script, form: t.form, degradation: t.degradation, lowContrast: t.lowContrast, brand: !!t.kit, kitHasFont: t.kitHasFont, look: t.look, rotation: t.rotation },
+            truth: {
+              face: t.face,
+              family: t.family,
+              inSubset: t.inSubset,
+              category: t.category,
+              script: t.script,
+              form: t.form,
+              degradation: t.degradation,
+              lowContrast: t.lowContrast,
+              brand: !!t.kit,
+              kitHasFont: t.kitHasFont,
+              look: t.look,
+              rotation: t.rotation,
+              kind: t.kind,
+            },
             familyOk: m.look.family === t.family,
-            faceOk: m.look.family === t.family && m.look.weight === t.look.weight && m.look.style === t.look.style,
+            // Null when only the family is known.
+            faceOk: t.face
+              ? m.look.family === t.family && m.look.weight === t.look.weight && m.look.style === t.look.style
+              : null,
             inShortlist: m.shortlist.some((f) => f.startsWith(`${t.family}|`)),
             sizeErr: Math.abs(m.look.size - t.look.size) / t.look.size,
             spacingErr: Math.abs(m.look.spacing - t.look.spacing),
@@ -152,12 +177,14 @@ const out = {
   maxRssMb: ru.maxRSS / 1024,
   cpuUserMs: ru.userCPUTime / 1000,
   sizes: {
-    modelBytes: size(join(values.model!, 'model.onnx')),
-    fingerprintsBytes: size(join(values.model!, 'fingerprints.f32')) + size(join(values.model!, 'fingerprint-faces.json')),
+    modelBytes: size(join(values.model!, values.onnx!)),
+    fingerprintsBytes: size(join(values.model!, `fingerprints${values.fp ? `-${values.fp}` : ''}.f32`)),
     catalogueBytes: size(join(FONTS_DIR, 'library.json')),
   },
   results,
 }
 mkdirSync(join(DATA_DIR, 'results'), { recursive: true })
 writeFileSync(join(DATA_DIR, 'results', `${values.out ?? values.set}.json`), JSON.stringify(out, null, 1))
-console.log(`\n${results.length} results; startup ${startupMs.toFixed(0)} ms; peak rss ${(peakRss / 2 ** 20).toFixed(0)} MB`)
+console.log(
+  `\n${results.length} results; startup ${startupMs.toFixed(0)} ms; peak rss ${(peakRss / 2 ** 20).toFixed(0)} MB`,
+)

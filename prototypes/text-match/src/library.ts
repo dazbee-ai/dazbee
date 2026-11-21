@@ -11,7 +11,15 @@ import { join, resolve } from 'node:path'
 import { FONT_FACES, GOOGLE_FONTS, SCRIPT_FONTS } from '@dazbee/fonts'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
-import { type CatalogueFace, type Category, faceId, FONTS_DIR, loadCatalogue, SCRIPT_PROBES, SCRIPTS } from './catalogue.ts'
+import {
+  type CatalogueFace,
+  type Category,
+  faceId,
+  FONTS_DIR,
+  loadCatalogue,
+  SCRIPT_PROBES,
+  SCRIPTS,
+} from './catalogue.ts'
 
 const repo = resolve(process.argv[2]!)
 const subset = new Set([...GOOGLE_FONTS, ...SCRIPT_FONTS].map((f) => f.family).concat(FONT_FACES.map((f) => f.family)))
@@ -61,7 +69,18 @@ for (const license of ['ofl', 'apache', 'ufl']) {
       typeface.delete()
       for (const w of weights) {
         if (faces.some((f) => f.family === family && f.weight === w && f.style === style)) continue
-        faces.push({ family, weight: w, style, category, file, source: 'google', menu: offered.has(faceId({ family, weight: w, style })), scripts, license, variable })
+        faces.push({
+          family,
+          weight: w,
+          style,
+          category,
+          file,
+          source: 'google',
+          menu: offered.has(faceId({ family, weight: w, style })),
+          scripts,
+          license,
+          variable,
+        })
         added++
       }
     }

@@ -17,4 +17,11 @@ for (const face of faces) {
   typeface.delete()
 }
 writeFileSync(join(FONTS_DIR, 'catalogue-scripts.json'), JSON.stringify(faces, null, 1))
-for (const s of SCRIPTS) console.log(s, faces.filter((f) => f.scripts!.includes(s)).length, 'faces', new Set(faces.filter((f) => f.scripts!.includes(s)).map((f) => f.family)).size, 'families')
+for (const s of SCRIPTS)
+  console.log(
+    s,
+    faces.filter((f) => f.scripts!.includes(s)).length,
+    'faces',
+    new Set(faces.filter((f) => f.scripts!.includes(s)).map((f) => f.family)).size,
+    'families',
+  )

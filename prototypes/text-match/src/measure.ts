@@ -121,6 +121,8 @@ export function findLines(level: Ink, box: Box, n: number): Line[] {
       start = -1
     }
   }
+  // No row with ink (a faint block): one band over the whole box.
+  if (bands.length === 0) bands.push([0, box.h])
   while (bands.length > n) {
     // Joins the smallest band to the neighbour it is closest to.
     let k = 0
@@ -250,4 +252,11 @@ function faintest(rgba: Rgba, ink: Ink): { color: number[]; count: number } {
 }
 
 export const hex = (c: readonly number[], alpha = 255) =>
-  `#${[...c.slice(0, 3), alpha].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('').toUpperCase()}`
+  `#${[...c.slice(0, 3), alpha]
+    .map((v) =>
+      Math.round(Math.max(0, Math.min(255, v)))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')
+    .toUpperCase()}`

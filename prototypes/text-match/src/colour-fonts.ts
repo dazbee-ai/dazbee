@@ -13,10 +13,15 @@ for (const face of LIBRARY) {
     const b = fontBytes(face)
     const view = new DataView(b.buffer, b.byteOffset, b.byteLength)
     const n = view.getUint16(4)
-    tags.set(face.file, Array.from({ length: n }, (_, i) => String.fromCharCode(...b.subarray(12 + i * 16, 16 + i * 16))))
+    tags.set(
+      face.file,
+      Array.from({ length: n }, (_, i) => String.fromCharCode(...b.subarray(12 + i * 16, 16 + i * 16))),
+    )
   }
   ;(face as { colour?: boolean }).colour = tags.get(face.file)!.some((t) => COLOUR_TABLES.has(t))
 }
 writeFileSync(join(FONTS_DIR, 'library.json'), JSON.stringify(LIBRARY, null, 1))
 const colour = LIBRARY.filter((f) => (f as { colour?: boolean }).colour)
-console.log(`${colour.length} colour faces in ${new Set(colour.map((f) => f.family)).size} families: ${[...new Set(colour.map((f) => f.family))].join(', ')}`)
+console.log(
+  `${colour.length} colour faces in ${new Set(colour.map((f) => f.family)).size} families: ${[...new Set(colour.map((f) => f.family))].join(', ')}`,
+)

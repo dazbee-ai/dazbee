@@ -46,13 +46,17 @@ for (const ad of ads) {
   const { blocks } = loadAd(ad)
   const oldFile = join(values.old!, `${ad}.json`)
   const old = existsSync(oldFile)
-    ? (JSON.parse(readFileSync(oldFile, 'utf8')) as { blocks: { index: number; keep_as_image: boolean; layer: Record<string, unknown> }[] }).blocks
+    ? (
+        JSON.parse(readFileSync(oldFile, 'utf8')) as {
+          blocks: { index: number; keep_as_image: boolean; layer: Record<string, unknown> }[]
+        }
+      ).blocks
     : null
   for (const b of blocks) {
     const id = `${ad}#${b.index}`
     const m = measure(b.block)
     const size = { width: b.block.rgba.width, height: b.block.rgba.height }
-    const drawLook = (faces: CatalogueFace[], look: TextLook, place: typeof results[0]['place']): Rgba => {
+    const drawLook = (faces: CatalogueFace[], look: TextLook, place: (typeof results)[0]['place']): Rgba => {
       drawer.use(faces)
       return { ...size, data: drawer.draw(size.width, size.height, null, textProps(b.block.text, look, place)) }
     }
@@ -72,7 +76,9 @@ for (const ad of ads) {
           ...(b.block.text.includes('\n') ? { lineHeight: Number(L.lineHeight) * 1.13 } : {}),
           align: L.textAlign === 'center' ? 'center' : L.textAlign === 'right' ? 'end' : 'start',
           color: `${String(L.fill).toUpperCase()}FF`,
-          ...(Number(L.strokeWidth) > 0 && L.stroke ? { outline: { width: Number(L.strokeWidth) / b.scale, color: `${String(L.stroke).toUpperCase()}FF` } } : {}),
+          ...(Number(L.strokeWidth) > 0 && L.stroke
+            ? { outline: { width: Number(L.strokeWidth) / b.scale, color: `${String(L.stroke).toUpperCase()}FF` } }
+            : {}),
         }
         drawer.use(faces)
         const fit = placeAndRank(drawer, { ...m }, b.block.text, faces[0]!, look, () => {})
@@ -87,10 +93,20 @@ for (const ad of ads) {
     if (picked && !picked.has(id)) continue
     const ours = ['light', 'medium'].map((v) => results.find((r) => r.id === id && r.version === v))
     const imgs: Rgba[] = [b.block.rgba, oldImg ?? { ...size, data: new Uint8Array(size.width * size.height * 4) }]
-    for (const r of ours) if (r) imgs.push(drawLook(library.filter((f) => f.family === r.look.family), r.look, r.place))
+    for (const r of ours)
+      if (r)
+        imgs.push(
+          drawLook(
+            library.filter((f) => f.family === r.look.family),
+            r.look,
+            r.place,
+          ),
+        )
     writePng(join(out, `${ad}-${b.index}.png`), sideBySide(imgs, m.background))
   }
 }
 writeFileSync(join(out, 'old-worker-scores.json'), JSON.stringify(oldScores, null, 1))
 const same = oldScores.filter((s) => s.same).length
-console.log(`old worker: ${oldScores.length} blocks drawn, ${same} look the same by the shared rule, ${oldScores.filter((s) => (s.v2 as { same: boolean }).same).length} by rule v2`)
+console.log(
+  `old worker: ${oldScores.length} blocks drawn, ${same} look the same by the shared rule, ${oldScores.filter((s) => (s.v2 as { same: boolean }).same).length} by rule v2`,
+)

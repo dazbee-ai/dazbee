@@ -17,11 +17,11 @@ export interface Box {
   h: number
 }
 
-/** The model's input: a strip this many pixels high. */
+/** The first models' input: a strip this many pixels high. A model's own `model.json` may give another (fingerprint.ts). */
 export const STRIP_HEIGHT = 32
-/** The widest strip a sample keeps. */
+/** The widest strip a sample of the first models keeps. */
 export const STRIP_WIDTH = 320
-/** The model sees windows of this width; a block's strip is cut into overlapping windows. */
+/** The first models see windows of this width; a block's strip is cut into overlapping windows. */
 export const WINDOW = 128
 
 /**
@@ -102,17 +102,18 @@ export function inkBox(ink: Ink, threshold = 0.5, within?: Box): Box | null {
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 
-/** Samples a region of the ink into a new size, averaging 3×3 bilinear taps per pixel. */
-export function resample(ink: Ink, box: Box, width: number, height: number): Float32Array {
+/** Samples a region of the ink into a new size, averaging `taps`×`taps` bilinear taps per pixel. */
+export function resample(ink: Ink, box: Box, width: number, height: number, taps = 3): Float32Array {
   const out = new Float32Array(width * height)
   const sx = box.w / width
   const sy = box.h / height
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       let sum = 0
-      for (let j = 0; j < 3; j++)
-        for (let i = 0; i < 3; i++) sum += bilinear(ink, box.x + (x + (i + 0.5) / 3) * sx - 0.5, box.y + (y + (j + 0.5) / 3) * sy - 0.5)
-      out[y * width + x] = sum / 9
+      for (let j = 0; j < taps; j++)
+        for (let i = 0; i < taps; i++)
+          sum += bilinear(ink, box.x + (x + (i + 0.5) / taps) * sx - 0.5, box.y + (y + (j + 0.5) / taps) * sy - 0.5)
+      out[y * width + x] = sum / (taps * taps)
     }
   return out
 }
@@ -125,21 +126,32 @@ export function bilinear(ink: Ink, fx: number, fy: number): number {
   const at = (x: number, y: number) =>
     x < 0 || y < 0 || x >= ink.width || y >= ink.height ? 0 : ink.data[y * ink.width + x]!
   return (
-    at(x0, y0) * (1 - ax) * (1 - ay) + at(x0 + 1, y0) * ax * (1 - ay) + at(x0, y0 + 1) * (1 - ax) * ay + at(x0 + 1, y0 + 1) * ax * ay
+    at(x0, y0) * (1 - ax) * (1 - ay) +
+    at(x0 + 1, y0) * ax * (1 - ay) +
+    at(x0, y0 + 1) * (1 - ax) * ay +
+    at(x0 + 1, y0 + 1) * ax * ay
   )
 }
 
 /**
- * One line's ink as the model reads it: its ink box scaled to STRIP_HEIGHT high, keeping its shape,
- * with a pixel of room above and below. Width up to `maxWidth`.
+ * One line's ink as the model reads it: its ink box scaled to `height` high, keeping its shape (times
+ * `squeeze` across), with a pixel in 32 of room above and below. Width up to `maxWidth`.
  */
-export function lineStrip(ink: Ink, box: Box, maxWidth = Infinity): { width: number; data: Uint8Array } {
-  const inner = STRIP_HEIGHT - 2
-  const scale = inner / box.h
-  const width = Math.max(1, Math.min(maxWidth, Math.round(box.w * scale)))
-  const region = { x: box.x, y: box.y - 1 / scale, w: width / scale, h: STRIP_HEIGHT / scale }
-  const f = resample(ink, region, width, STRIP_HEIGHT)
-  const data = new Uint8Array(width * STRIP_HEIGHT)
+export function lineStrip(
+  ink: Ink,
+  box: Box,
+  maxWidth = Infinity,
+  height = STRIP_HEIGHT,
+  squeeze = 1,
+): { width: number; data: Uint8Array } {
+  const room = height / 32
+  const scale = (height - 2 * room) / box.h
+  const width = Math.max(1, Math.min(maxWidth, Math.round(box.w * scale * squeeze)))
+  const region = { x: box.x, y: box.y - room / scale, w: width / (scale * squeeze), h: height / scale }
+  // The first models were trained on 3×3 taps; others take enough taps to average a big block's pixels.
+  const taps = height === STRIP_HEIGHT ? 3 : Math.max(3, Math.ceil(2 / (scale * Math.min(1, squeeze))))
+  const f = resample(ink, region, width, height, taps)
+  const data = new Uint8Array(width * height)
   for (let i = 0; i < f.length; i++) data[i] = Math.round(Math.min(1, f[i]!) * 255)
   return { width, data }
 }

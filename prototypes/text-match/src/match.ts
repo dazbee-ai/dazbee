@@ -80,6 +80,13 @@ const typefaceBytes = new Map<string, number>()
 let typefaceTotal = 0
 
 const SHORTLIST: Record<Version, number> = { light: 5, medium: 25 }
+/**
+ * How much the fingerprint's similarity adds to a candidate's rank (0: shape only), and how many
+ * candidates are drawn in full and scored by the shared rule at the end: chosen on the synthetic
+ * development part (FUSE 0, 0.25, 0.5, 1 × 2 or 5 finalists), never the test part.
+ */
+const FUSE = Number(process.env.FUSE ?? 0.5)
+const FINALISTS_OF: Record<Version, number> = { light: 2, medium: 5 }
 /** Which score orders candidates: the letters' shapes (default), the plain overlap, or both. */
 const RANK = process.env.RANK ?? 'shape'
 /** How much a brand font may trail the best other font and still be chosen. */
@@ -175,6 +182,18 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     for (const s of siblings) if (covers(s)) fitOne(s, top.find((t) => t.face.family === s.family)?.brandToken)
   }
 
+  // Each fit's rank adds the fingerprint's own vote: the shape score plus FUSE × the cosine
+  // similarity of the block's fingerprint to the face's.
+  if (FUSE > 0) {
+    const index = new Map(ctx.fingerprints.faces.map((id, i) => [id, i]))
+    for (const f of fits) {
+      const i = index.get(faceId(f.face))
+      if (i === undefined) continue
+      let sim = 0
+      for (let k = 0; k < fp.length; k++) sim += ctx.fingerprints.vectors[i * fp.length + k]! * fp[k]!
+      f.rank = f.shape + FUSE * sim
+    }
+  }
   fits.sort((a, b) => b.rank - a.rank)
   // The leaders corrected from their own draws: Light its best two once, Medium its best three twice.
   const leaders = version === 'light' ? 2 : 3
@@ -182,6 +201,16 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
     for (let r = 0; r < (version === 'light' ? 1 : 2); r++) fits[i] = refit(ctx.drawer, m, text, fits[i]!, () => draws++)
   const brandLead = fits.findIndex((f) => f.brandToken)
   if (brandLead >= leaders) fits[brandLead] = refit(ctx.drawer, m, text, fits[brandLead]!, () => draws++)
+  if (FUSE > 0) {
+    const index = new Map(ctx.fingerprints.faces.map((id, i) => [id, i]))
+    for (const f of fits) {
+      const i = index.get(faceId(f.face))
+      if (i === undefined) continue
+      let sim = 0
+      for (let k = 0; k < fp.length; k++) sim += ctx.fingerprints.vectors[i * fp.length + k]! * fp[k]!
+      f.rank = f.shape + FUSE * sim
+    }
+  }
   fits.sort((a, b) => b.rank - a.rank)
   const first = choose(fits)
   if (!first) {
@@ -189,8 +218,9 @@ export async function matchBlock(ctx: MatchContext, block: Block, version: Versi
   }
   // The finalists: the choice and the next best (tuned in Medium), each drawn in full and scored by
   // the shared rule; the first that looks the same wins, else the one that comes closest.
-  let finalists = [first, ...fits.filter((f) => f !== first).slice(0, 1)]
-  if (version === 'medium') finalists = finalists.map((f) => tune(ctx.drawer, m, text, f, () => draws++))
+  const finalistCount = process.env.FINALISTS ? Number(process.env.FINALISTS) : FINALISTS_OF[version]
+  let finalists = [first, ...fits.filter((f) => f !== first).slice(0, finalistCount - 1)]
+  if (version === 'medium') finalists = finalists.map((f, i) => (i < 2 ? tune(ctx.drawer, m, text, f, () => draws++) : f))
   const finished = finalists.map((f) => finish(ctx, block, m, text, f, kit, () => draws++))
   const won = finished.find((f) => f.score.same) ?? [...finished].sort((a, b) => quality(b.score) - quality(a.score))[0]!
   return {

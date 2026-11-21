@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { childrenOf, compactTree, DEFAULT_TREE_BYTES } from '@dazbee/doc'
 import { frameWarnings } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { brandRef, type Design, framesOf, Id, inOrder, RecordId } from '@dazbee/schema'
+import { brandRef, brandTextStyleLook, type Design, framesOf, Id, inOrder, RecordId } from '@dazbee/schema'
 
 import { inMiB, MAX_TREE_BYTES, MIN_TREE_BYTES } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
@@ -32,7 +32,7 @@ export const DESIGN_TOOLS: Tool[] = [
     name: 'read_design',
     title: 'Read the open design',
     description:
-      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, and x and y on the page, in design pixels), the brand kit’s tokens (brand:<token>) with their values, `waiting`: how many of this agent’s steps Dazbee hasn’t stored yet, and what happened to the design since the last answer, such as a change the server refused.',
+      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, and x and y on the page, in design pixels), the brand kit’s tokens (brand:<token>) with their values (a text style’s value is its look, which node.bind binds a text’s textStyle to), `waiting`: how many of this agent’s steps Dazbee hasn’t stored yet, and what happened to the design since the last answer, such as a change the server refused.',
     readOnly: true,
     input: z.object({}),
     run: (_input, context) => onDesign(context, designAnswer),
@@ -131,6 +131,11 @@ export function designAnswer({ tab, name, kit }: OpenDesign) {
     tokens: [
       ...kit.colors.map((color) => ({ token: brandRef(color.token), name: color.name, value: color.value })),
       ...kit.fonts.map((font) => ({ token: brandRef(font.token), name: font.name, value: font.family })),
+      ...kit.textStyles.map((style) => ({
+        token: brandRef(style.token),
+        name: style.name,
+        value: brandTextStyleLook(kit, style),
+      })),
     ],
     waiting: tab.unsent(),
     notices: tab.takeNotices().map(([notice, detail]) => ({ notice, ...detail })),

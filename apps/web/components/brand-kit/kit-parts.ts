@@ -1,13 +1,17 @@
 // What the brand kit form's parts share: binding from the editor, and their looks.
 import type { KitKind } from '@dazbee/schema'
 
-/** Binds the selected layers to a kit colour or font, in the editor. */
+/** What the selected layers can follow in the kit: a colour, a font, or a text style's look. */
+export type KitBindingKind = KitKind | 'textLook'
+
+/** Binds the selected layers to a kit colour, font or text style, in the editor. */
 export interface KitBinding {
-  follows: (kind: KitKind, token: string) => boolean
-  apply: (kind: KitKind, token: string) => void
-  /** Whether anything is selected that can follow a colour, or a font. */
+  follows: (kind: KitBindingKind, token: string) => boolean
+  apply: (kind: KitBindingKind, token: string) => void
+  /** Whether anything is selected that can follow a colour, a font, or a text style. */
   canColor: boolean
   canFont: boolean
+  canTextStyle: boolean
 }
 
 // As the mock's flyouts: small spaced capitals over each part, quiet fields, round swatches.

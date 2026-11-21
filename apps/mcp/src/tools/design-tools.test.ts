@@ -61,6 +61,17 @@ describe('open_design', () => {
       tokens: [
         { token: 'brand:primary', name: 'Primary', value: '#FF5A36FF' },
         { token: 'brand:heading', name: 'Heading', value: 'Brand Serif' },
+        {
+          token: 'brand:headline',
+          name: 'Headline',
+          value: {
+            fontFamily: 'Brand Serif',
+            fontWeight: 700,
+            fontStyle: 'normal',
+            lineHeight: 1.1,
+            letterSpacing: { unit: 'percent', value: -1 },
+          },
+        },
       ],
       waiting: 0,
       notices: [],

@@ -835,6 +835,7 @@ export const ar: Messages = {
       empty: { title: 'لا شيء في الهوية بعد', line: 'ستظهر ألوان هذه العلامة التجارية وخطوطها وشعاراتها هنا.' },
       noColors: 'لا ألوان بعد. أضفها من تعديل.',
       noFonts: 'لا خطوط بعد. أضفها من تعديل.',
+      noTextStyles: 'لا أنماط نص بعد. أضفها من تعديل.',
       brandRoles: {
         primary: 'الأساسي',
         secondary: 'الثانوي',

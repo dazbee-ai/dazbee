@@ -2,7 +2,8 @@
 
 // The brand kit form's text styles: each a name, its family drawn in the face it sets, and its
 // font, weight, slant, line height, letter spacing and case. None holds a size: each text keeps its
-// own. A style set in a kit font follows that font as the kit changes.
+// own. A style set in a kit font follows that font as the kit changes. In the editor, each binds the
+// selected texts to it, so they follow it.
 import type { KeyboardEvent } from 'react'
 
 import {
@@ -14,7 +15,7 @@ import {
   newBrandTextStyle,
 } from '@dazbee/schema'
 
-import { PlusIcon, TextItalicIcon, XIcon } from '@/components/ui/icons.tsx'
+import { CheckIcon, PlusIcon, TextAaIcon, TextItalicIcon, XIcon } from '@/components/ui/icons.tsx'
 import { DASHED_BUTTON, TOUCH_FIELD } from '@/components/ui/looks.ts'
 import { Select } from '@/components/ui/select.tsx'
 import { cn } from '@/lib/cn.ts'
@@ -22,7 +23,7 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 import { nearest, weightName, weightsOf } from './font-catalog.ts'
-import { field, heading, iconButton } from './kit-parts.ts'
+import { field, heading, iconButton, type KitBinding } from './kit-parts.ts'
 import {
   keptLetterSpacing,
   keptLineHeight,
@@ -58,6 +59,7 @@ export function KitTextStyles({
   section,
   catalog,
   wide,
+  binding,
 }: {
   workspaceId: string
   brandId: string
@@ -66,6 +68,7 @@ export function KitTextStyles({
   section: string
   catalog: FontFamily[]
   wide: boolean
+  binding: KitBinding | undefined
 }) {
   const t = useMessages().editor.brandKit
   const full = kit.textStyles.length >= BRAND_KIT_LIMITS.textStyle
@@ -93,6 +96,7 @@ export function KitTextStyles({
               kit={kit}
               change={change}
               catalog={catalog}
+              binding={binding}
             />
           ))}
         </ul>
@@ -107,7 +111,10 @@ export function KitTextStyles({
   )
 }
 
-/** A style's name and remove button, its family drawn in the face it sets, and its settings. */
+/**
+ * A style's name, its binding button in the editor and its remove button, its family drawn in the
+ * face it sets, and its settings.
+ */
 function TextStyleRow({
   workspaceId,
   brandId,
@@ -116,6 +123,7 @@ function TextStyleRow({
   kit,
   change,
   catalog,
+  binding,
 }: {
   workspaceId: string
   brandId: string
@@ -124,11 +132,13 @@ function TextStyleRow({
   kit: BrandKit
   change: (next: BrandKit) => void
   catalog: FontFamily[]
+  binding: KitBinding | undefined
 }) {
   const messages = useMessages()
   const t = messages.editor.brandKit
   const props = messages.editor.props
   const { name } = style
+  const on = binding?.follows('textLook', style.token) ?? false
   /** The catalog's family a style set in `font` is drawn in, and its weights; none while it is not set. */
   const drawnIn = (font: BrandTextStyle['font']) => {
     const known = catalog.find((f) => f.family === brandTextStyleFamily(kit, { ...style, font }))
@@ -175,6 +185,18 @@ function TextStyleRow({
           onKeyDown={blurOnEnter}
           className={cn(field, 'flex-1 font-medium')}
         />
+        {binding && (
+          <button
+            type="button"
+            aria-label={format(on ? t.unbind : t.apply, { name })}
+            aria-pressed={on}
+            disabled={!binding.canTextStyle}
+            onClick={() => binding.apply('textLook', style.token)}
+            className={iconButton}
+          >
+            {on ? <CheckIcon size={15} aria-hidden /> : <TextAaIcon size={15} aria-hidden />}
+          </button>
+        )}
         <button type="button" aria-label={format(t.remove, { name })} onClick={remove} className={iconButton}>
           <XIcon size={13} aria-hidden />
         </button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { filterChoices, fontPick, type FontRow, fontRows, stepActive } from './font-rows.ts'
+import { filterChoices, fontPick, type FontRow, fontRows, scriptNames, stepActive } from './font-rows.ts'
 import { EVERY_GOOGLE_FAMILY, TEST_CATALOG, testFamily } from './test-families.ts'
 
 const ANY = { query: '', category: null, script: null }
@@ -219,6 +219,21 @@ describe('filterChoices', () => {
       categories: ['serif'],
       scripts: ['Arab'],
     })
+  })
+})
+
+describe('scriptNames', () => {
+  it('names a script in the person’s language, Chinese by its kind', () => {
+    const english = scriptNames('en')
+    expect(['Arab', 'Deva', 'Jpan', 'Kore', 'Hans', 'Hant'].map(english)).toEqual([
+      'Arabic',
+      'Devanagari',
+      'Japanese',
+      'Korean',
+      'Simplified Chinese',
+      'Traditional Chinese',
+    ])
+    expect(scriptNames('ar')('Arab')).toBe('العربية')
   })
 })
 

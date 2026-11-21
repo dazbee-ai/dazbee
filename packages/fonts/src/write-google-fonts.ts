@@ -1,4 +1,5 @@
-// Writes `google-fonts.json`, the Google Fonts families Dazbee offers, from Google's own metadata:
+// Writes `google-fonts.json`, the Google Fonts families Dazbee offers, and `shipped-ranks.json`, the
+// place in Google Fonts' popularity order of each family we ship, from Google's own metadata:
 // google/fonts at its latest commit, or the one given (`pnpm --filter @dazbee/fonts google-fonts
 // <commit>`), Google Fonts' public family listing and Unicode's script names. Run it to take in
 // Google's new families and updates, then copy them into storage with the API's `fonts:google`.
@@ -15,6 +16,7 @@ const ALIASES = 'https://www.unicode.org/Public/UCD/latest/ucd/PropertyValueAlia
 /** How many METADATA.pb files are fetched at once. */
 const AT_ONCE = 16
 const OUT = join(import.meta.dirname, 'google-fonts.json')
+const SHIPPED_OUT = join(import.meta.dirname, 'shipped-ranks.json')
 
 const commit = process.argv[2] ?? (await text(`${REPOSITORY}/commits/main`, 'application/vnd.github.sha')).trim()
 if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`not a commit: ${commit}`)
@@ -31,7 +33,7 @@ const metadata = await inBatches(folders, async (path) => ({
   text: await text(`https://raw.githubusercontent.com/google/fonts/${commit}/${path}/METADATA.pb`),
 }))
 const listing = (JSON.parse(await text(LISTING)) as { familyMetadataList: ListedFamily[] }).familyMetadataList
-const { families, leftOut } = googleFontList({
+const { families, shipped, leftOut } = googleFontList({
   metadata,
   tree: blobs,
   listing,
@@ -40,6 +42,7 @@ const { families, leftOut } = googleFontList({
 })
 
 await writeFile(OUT, format(commit, families))
+await writeFile(SHIPPED_OUT, `${JSON.stringify(Object.fromEntries(shipped.map((f) => [f.family, f.rank])), null, 2)}\n`)
 const faces = families.flatMap((family) => family.faces)
 const gigabytes = faces.reduce((sum, face) => sum + face.bytes, 0) / 1e9
 console.log(`Wrote ${families.length} families, ${faces.length} files, ${gigabytes.toFixed(2)} GB, to ${OUT}`)

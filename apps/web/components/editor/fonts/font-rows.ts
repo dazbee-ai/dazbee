@@ -105,6 +105,17 @@ export function filterChoices(
 }
 
 /**
+ * How a script is named in `locale`, by its ISO 15924 code: Arabic, Japanese; Simplified Chinese
+ * and Traditional Chinese for Hans and Hant, which the scripts' own names leave unsaid; the code
+ * for one the browser has no name for.
+ */
+export function scriptNames(locale: string): (code: string) => string {
+  const scripts = new Intl.DisplayNames([locale], { type: 'script', fallback: 'code' })
+  const languages = new Intl.DisplayNames([locale], { type: 'language', fallback: 'code' })
+  return (code) => (code === 'Hans' || code === 'Hant' ? languages.of(`zh-${code}`) : scripts.of(code)) ?? code
+}
+
+/**
  * The key of the family or weight `step` rows on from the one keyed `key`, past the headings, or the
  * first family when no row is; it stops at either end. Null in a list with no family.
  */

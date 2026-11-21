@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { GOOGLE_FONTS, googleFileUrl } from './google.ts'
 import { FONT_FACES } from './index.ts'
 import { SCRIPT_FONTS } from './scripts.ts'
+import { SHIPPED_RANKS } from './shipped-ranks.ts'
 
 /** Google's categories, as the list names them. */
 const CATEGORIES = ['sans-serif', 'serif', 'display', 'handwriting', 'monospace']
@@ -67,8 +68,11 @@ describe('GOOGLE_FONTS', () => {
     expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([])
   })
 
-  it('lists the families in popularity order, ranked from 1', () => {
-    expect(GOOGLE_FONTS.map((f) => f.rank)).toEqual(GOOGLE_FONTS.map((_, i) => i + 1))
+  it('lists the families in popularity order, the places of the families we ship left to them', () => {
+    const places = [...GOOGLE_FONTS.map((f) => f.rank), ...Object.values(SHIPPED_RANKS)].sort((a, b) => a - b)
+    expect(places).toEqual(places.map((_, i) => i + 1))
+    expect(GOOGLE_FONTS.map((f) => f.rank)).toEqual(GOOGLE_FONTS.map((f) => f.rank).sort((a, b) => a - b))
+    expect(Object.keys(SHIPPED_RANKS).sort()).toEqual([...new Set(FONT_FACES.map((f) => f.family))].sort())
   })
 
   it('names no font we ship, and every script font', () => {

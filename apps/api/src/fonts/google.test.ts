@@ -140,13 +140,13 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     expect(await faces('Swapped Sans')).toEqual([])
   })
 
-  it('records a variable file once in its style, with its weight range and its own default weight', async () => {
+  it('records a variable file once in its style, with its weight range, at the weight Google names it by', async () => {
     const variable = variableTestFont()
-    const google = family('Ranged Sans', [{ file: 'RangedSans[wght].ttf', bytes: variable, weight: 400 }])
+    const google = family('Ranged Sans', [{ file: 'RangedSans[wght].ttf', bytes: variable, weight: 300 }])
     const done = await importGoogleFamily(db, storage, google, { copied: new Map(), get: fakeGoogleFonts(google).get })
     expect(done).toMatchObject({ copied: 1, failed: null })
     expect((await faces('Ranged Sans')).map((f) => [f.weight, f.weightMin, f.weightMax, f.style])).toEqual([
-      [400, 100, 900, 'normal'],
+      [300, 100, 900, 'normal'],
     ])
   })
 

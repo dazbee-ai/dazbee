@@ -92,10 +92,10 @@ async function copyFile(
   const info = readFontInfo(bytes)
   if (!info) throw new Error('it is not a TrueType or OpenType font')
   const sha256 = createHash('sha256').update(bytes).digest('hex')
-  // A file Google names variable in its weight is recorded with its own range, at its own default;
-  // any other at the weight Google names it by.
+  // A file Google names variable in its weight is recorded with its own range; every file at the
+  // weight Google names it by (Regular for a variable one, within its range), which its preview shows.
   const range = variesInWeight(face.file) ? info.weights : undefined
-  const weight = range ? info.weight : face.weight
+  const weight = range ? Math.min(range.max, Math.max(range.min, face.weight)) : face.weight
   const key = googleFontKey(sha256)
   const preview = await fontPreview(bytes, { family: family.family, weight, style: face.style }, family.scripts)
   await storage.put(key, bytes, 'font/ttf')

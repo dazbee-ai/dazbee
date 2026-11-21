@@ -12,7 +12,7 @@ import { type Design, FontFace, FontFamily } from '@dazbee/schema'
 
 import type { FontCategory } from '@/components/brand-kit/font-catalog.ts'
 import { useEditorDesign, useSelection } from '@/components/editor/editor-hooks.ts'
-import { CHIP, PANEL_BUTTON, PANEL_HEADING, SELECT } from '@/components/editor/styles.ts'
+import { CHIP, PANEL_BUTTON, PANEL_HEADING } from '@/components/editor/styles.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { NoMatch } from '@/components/ui/empty-state.tsx'
 import { MagnifyingGlassIcon, UploadSimpleIcon } from '@/components/ui/icons.tsx'
@@ -25,7 +25,15 @@ import { format } from '@/lib/i18n/index.ts'
 
 import { ChooserRow } from './chooser-row.tsx'
 import { drawnRows, keptInPlace, layOut, scrollToShow, scrollToShowWeights } from './drawn-rows.ts'
-import { type ChosenFont, filterChoices, fontPick, type FontRow, fontRows, stepActive } from './font-rows.ts'
+import {
+  type ChosenFont,
+  filterChoices,
+  fontPick,
+  type FontRow,
+  fontRows,
+  scriptNames,
+  stepActive,
+} from './font-rows.ts'
 import { recentFonts } from './recent-fonts.ts'
 
 /** How tall the list shows at most, in pixels (`max-h-[min(20rem,…)]`), as the rows drawn before it is measured. */
@@ -167,10 +175,10 @@ function FontList({
   )
   const choices = useMemo(() => filterChoices(catalog, { category, script }), [catalog, category, script])
   const scriptOptions = useMemo(() => {
-    const names = new Intl.DisplayNames([locale], { type: 'script', fallback: 'code' })
+    const name = scriptNames(locale)
     return [
       { value: '', label: t.editor.fonts.scripts.any },
-      ...choices.scripts.map((code) => ({ value: code, label: names.of(code) ?? code })),
+      ...choices.scripts.map((code) => ({ value: code, label: name(code) })),
     ]
   }, [choices.scripts, locale, t])
   const layout = useMemo(() => layOut(rows), [rows])
@@ -300,35 +308,38 @@ function FontList({
           className="h-full min-w-0 flex-1 bg-transparent text-small outline-none placeholder:text-subtle focus-visible:outline-none!"
         />
       </div>
-      {offersChoice(scriptOptions) && (
-        <Select
-          name="font-script"
-          label={t.editor.fonts.scripts.label}
-          value={script ?? ''}
-          options={scriptOptions}
-          onChange={(code) => narrow({ script: code === '' ? null : code })}
-          className={SELECT}
-          testId="font-script"
-        />
-      )}
-      <div role="group" aria-label={t.editor.fonts.categories.label} className="flex flex-wrap gap-1.5">
-        {choices.categories.map((one) => (
-          <button
-            key={one}
-            type="button"
-            aria-pressed={category === one}
-            data-testid={`font-category-${one}`}
-            // A click leaves the focus in the search, where the arrow keys move through the list.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => narrow({ category: category === one ? null : one })}
-            className={cn(
-              CHIP,
-              'px-2.5 aria-pressed:border-transparent aria-pressed:bg-accent-soft aria-pressed:text-text',
-            )}
-          >
-            {t.editor.fonts.categories[one]}
-          </button>
-        ))}
+      {/* The chips and the script share a row, so the list keeps its room where the panel is short. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div role="group" aria-label={t.editor.fonts.categories.label} className="contents">
+          {choices.categories.map((one) => (
+            <button
+              key={one}
+              type="button"
+              aria-pressed={category === one}
+              data-testid={`font-category-${one}`}
+              // A click leaves the focus in the search, where the arrow keys move through the list.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => narrow({ category: category === one ? null : one })}
+              className={cn(
+                CHIP,
+                'px-2.5 aria-pressed:border-transparent aria-pressed:bg-accent-soft aria-pressed:text-text',
+              )}
+            >
+              {t.editor.fonts.categories[one]}
+            </button>
+          ))}
+        </div>
+        {offersChoice(scriptOptions) && (
+          <Select
+            name="font-script"
+            label={t.editor.fonts.scripts.label}
+            value={script ?? ''}
+            options={scriptOptions}
+            onChange={(code) => narrow({ script: code === '' ? null : code })}
+            className="h-7 max-w-full px-2.5 text-tiny font-semibold"
+            testId="font-script"
+          />
+        )}
       </div>
       {/* The list alone scrolls, and gives way first where the panel is short, so the upload below stays in reach. */}
       <div className="flex min-h-0 flex-col">

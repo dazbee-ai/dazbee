@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { FONT_FACES, type GoogleFamily } from '@dazbee/fonts'
+import { SHIPPED_RANKS } from '@dazbee/fonts/shipped-ranks'
 import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
@@ -31,11 +32,12 @@ const SHIPPED_SCRIPTS: Readonly<Record<string, readonly string[]>> = {
   'Noto Naskh Arabic': ['Arab'],
 }
 
-/** The fonts we ship, as catalog families; they have no stored preview. */
+/** The fonts we ship, as catalog families, each at its place in Google Fonts' popularity order; they have no stored preview. */
 const SHIPPED: FontFamily[] = [...new Set(FONT_FACES.map((f) => f.family))].map((family) => ({
   family,
   source: 'builtin',
   category: null,
+  ...(SHIPPED_RANKS[family] ? { rank: SHIPPED_RANKS[family] } : {}),
   faces: FONT_FACES.filter((f) => f.family === family).map((f) => ({
     id: `builtin-${f.file.replace(/\.\w+$/, '')}`,
     family,

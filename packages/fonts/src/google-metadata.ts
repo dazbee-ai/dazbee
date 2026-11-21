@@ -34,9 +34,10 @@ export interface ListedFamily {
   defaultSort: number
 }
 
-/** The families offered, and each family left out with why. */
+/** The families offered, each family left out with why, and the place in the order of each family we ship. */
 export interface FontList {
   families: GoogleFamily[]
+  shipped: { family: string; rank: number }[]
   leftOut: { family: string; reason: string }[]
 }
 
@@ -85,7 +86,8 @@ const SUBSET_SCRIPTS: Readonly<Record<string, readonly string[]>> = {
 /**
  * The families Dazbee offers: every family Google Fonts lists whose METADATA.pb names the OFL,
  * Apache 2.0 or UFL and whose files are all in the tree, but those named `shipped`, ranked by
- * the listing's popularity (then Google Fonts' own order, then name). Every other family is left out, saying why.
+ * the listing's popularity (then Google Fonts' own order, then name) among themselves and the
+ * shipped ones, whose places are given too. Every other family is left out, saying why.
  */
 export function googleFontList({
   metadata,
@@ -113,6 +115,7 @@ export function googleFontList({
     primaryScript: string | null
   }[] = []
   const seen = new Set<string>()
+  const shippedListed: { name: string; popularity: number; defaultSort: number }[] = []
   for (const { path, text } of [...metadata].sort((a, b) => byCodeUnits(a.path, b.path))) {
     const meta = parseMetadata(text)
     const listedFamily = listed.get(meta.name)
@@ -121,8 +124,14 @@ export function googleFontList({
     const category = listedFamily && CATEGORIES[listedFamily.category]
     if (!licence) refuse(`its licence is ${meta.license}`)
     else if (!listedFamily) refuse('Google Fonts does not serve it')
-    else if (shipped.has(meta.name)) refuse('we ship it')
-    else if (seen.has(meta.name)) refuse(`another folder holds it too, so ${path} is left out`)
+    else if (shipped.has(meta.name)) {
+      refuse('we ship it')
+      shippedListed.push({
+        name: meta.name,
+        popularity: listedFamily.popularity,
+        defaultSort: listedFamily.defaultSort,
+      })
+    } else if (seen.has(meta.name)) refuse(`another folder holds it too, so ${path} is left out`)
     else if (!category) refuse(`Google Fonts' category ${listedFamily.category} is not one we know`)
     else {
       const faces = facesOf(meta, path, files)
@@ -151,15 +160,15 @@ export function googleFontList({
       leftOut.push({ family: family.family, reason: 'google/fonts has no METADATA.pb for it' })
   const drawnBy = new Map<string, number>()
   for (const { family } of kept) for (const code of family.scripts) drawnBy.set(code, (drawnBy.get(code) ?? 0) + 1)
+  const ranked = [...kept.map(({ family, ...order }) => ({ name: family.family, ...order })), ...shippedListed].sort(
+    (a, b) => a.popularity - b.popularity || a.defaultSort - b.defaultSort || byCodeUnits(a.name, b.name),
+  )
+  const rankOf = new Map(ranked.map((one, i) => [one.name, i + 1]))
   const families = kept
-    .sort(
-      (a, b) =>
-        a.popularity - b.popularity || a.defaultSort - b.defaultSort || byCodeUnits(a.family.family, b.family.family),
-    )
-    .map(({ family, primaryScript }, i) => ({
+    .map(({ family, primaryScript }) => ({
       family: family.family,
       category: family.category,
-      rank: i + 1,
+      rank: rankOf.get(family.family) ?? 0,
       licence: family.licence,
       path: family.path,
       scripts: [...family.scripts].sort(
@@ -171,7 +180,9 @@ export function googleFontList({
       axes: family.axes,
       faces: family.faces,
     }))
-  return { families, leftOut: leftOut.sort((a, b) => byCodeUnits(a.family, b.family)) }
+    .sort((a, b) => a.rank - b.rank)
+  const shippedRanks = shippedListed.map(({ name }) => ({ family: name, rank: rankOf.get(name) ?? 0 }))
+  return { families, shipped: shippedRanks, leftOut: leftOut.sort((a, b) => byCodeUnits(a.family, b.family)) }
 }
 
 /** Whether google/fonts names the file variable in its weight, as `Inter[opsz,wght].ttf`. */

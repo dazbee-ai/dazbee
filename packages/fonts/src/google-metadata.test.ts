@@ -169,6 +169,21 @@ describe('googleFontList', () => {
     expect(leftOut).toEqual([{ family: 'Four', reason: 'its licence is PROPRIETARY' }])
   })
 
+  it('ranks a family we ship among the others, leaving its place to it', () => {
+    const names = ['Ay', 'Noto Sans', 'Bee']
+    const { families, shipped } = list({
+      metadata: names.map((name, i) => ({ path: `ofl/f${i}`, text: metadata(name, 'OFL', ['F.ttf']) })),
+      tree: treeOf(...names.map((_, i) => `ofl/f${i}/F.ttf`)),
+      listing: [listed('Ay', 1), listed('Noto Sans', 2), listed('Bee', 3)],
+      shipped: new Set(['Noto Sans']),
+    })
+    expect(families.map((f) => [f.family, f.rank])).toEqual([
+      ['Ay', 1],
+      ['Bee', 3],
+    ])
+    expect(shipped).toEqual([{ family: 'Noto Sans', rank: 2 }])
+  })
+
   it('ranks by popularity, then Google Fonts’ own order, then name', () => {
     const names = ['Cee', 'Bee', 'Ay', 'Dee']
     const { families } = list({

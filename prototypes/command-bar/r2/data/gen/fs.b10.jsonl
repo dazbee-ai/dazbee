@@ -1,0 +1,50 @@
+{"query": "Set the headline's font size to 56 px.", "cls": "fs", "value": 56, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Title ka font size 56 kar do na", "cls": "fs", "value": 56, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "This heading looks tiny. It needs to be 60 pt.", "cls": "fs", "value": 60, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "subhedng size 44 krdo", "cls": "fs", "value": 44, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Make the tagline 52px.", "cls": "fs", "value": 52, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, CTA text ka font size 48 chahiye.", "cls": "fs", "value": 48, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The hero text feels too small at this scale. I'd go with 128 px.", "cls": "fs", "value": 128, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "48 pt for the button label", "cls": "fs", "value": 48, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Price ko 120 px ka kar do, abhi chhota lag raha hai.", "cls": "fs", "value": 120, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "disc lamer fnt 15 kro", "cls": "fs", "value": 15, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Give the offer text a font size of 80.", "cls": "fs", "value": 80, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The intro line is too big. It should be 72 pt.", "cls": "fs", "value": 72, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Is quote ka font size 96 px kar dijiye.", "cls": "fs", "value": 96, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Make the cover title one hundred points.", "cls": "fs", "value": 100, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "80px krdo yr", "cls": "fs", "value": 80, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The footnote is a little oversized. 8 pt would look right.", "cls": "fs", "value": 8, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Set this text to 32.", "cls": "fs", "value": 32, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka font size 15 pt kar do please.", "cls": "fs", "value": 15, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Could the section label be 42 px? It's hard to read as is.", "cls": "fs", "value": 42, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "26 kar do iska fnt", "cls": "fs", "value": 26, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Use a 10 pt font size for the credits.", "cls": "fs", "value": 10, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala 84 px ka kar do na.", "cls": "fs", "value": 84, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The date is getting lost at its current size. It needs to be 22 px.", "cls": "fs", "value": 22, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Set the big number's font size to 200 px.", "cls": "fs", "value": 200, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "fine prnt 9pt krdo", "cls": "fs", "value": 9, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy ka font size sixteen points chahiye.", "cls": "fs", "value": 16, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "72 px for the pull quote, please.", "cls": "fs", "value": 72, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The sale headline doesn't look big enough. 100 px is more like it.", "cls": "fs", "value": 100, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag ko 12 px ka kar do.", "cls": "fs", "value": 12, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "ise 72pt kr do", "cls": "fs", "value": 72, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Set the selected text to twelve points.", "cls": "fs", "value": 12, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "That banner text is way too big. It should be 90 px.", "cls": "fs", "value": 90, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Opening line ka font size 128 chahiye, bhai.", "cls": "fs", "value": 128, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "24 fnt sze plz", "cls": "fs", "value": 24, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Change the byline's font size to 30 px.", "cls": "fs", "value": 30, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The street address looks cramped at this size. It should be 24 pt.", "cls": "fs", "value": 24, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Isko thoda aur bada kar do, 90 px.", "cls": "fs", "value": 90, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "itm name 26 krdo", "cls": "fs", "value": 26, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Make the RSVP line 15 pt.", "cls": "fs", "value": 15, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The page number is huge right now. It really only needs to be 20 px.", "cls": "fs", "value": 20, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Naam ka font size 52 kar do yaar.", "cls": "fs", "value": 52, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Can you set the selected text to fifty-six pixels?", "cls": "fs", "value": 56, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "badge txt 42px kro", "cls": "fs", "value": 42, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The source line looks too prominent. It should be 12 pt.", "cls": "fs", "value": 12, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh time wala text 24 kar dijiye.", "cls": "fs", "value": 24, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Set the chapter title's font size to 96 pt.", "cls": "fs", "value": 96, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "The menu item looks too small here. I'd use 26 px.", "cls": "fs", "value": 26, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "9 pt krdo na pls", "cls": "fs", "value": 9, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Poster pe venue name ka font size 64 px kar do.", "cls": "fs", "value": 64, "batch": "fs/10", "model": "gpt-6.2-sol"}
+{"query": "Make it thirty pixels.", "cls": "fs", "value": 30, "batch": "fs/10", "model": "gpt-6.2-sol"}

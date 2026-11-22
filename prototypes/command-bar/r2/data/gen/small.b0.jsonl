@@ -1,0 +1,46 @@
+{"query": "Could you please scale the headline down to 90% of its current size?", "cls": "small", "value": 90, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Shrink the logo to 33%.", "cls": "small", "value": 33, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "um can you make the product shot like 40 percent of its current size", "cls": "small", "value": 40, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could the subheading be one-third as big (33%)?", "cls": "small", "value": 33, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Down to 25%.", "cls": "small", "value": 25, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind scaling the selected badge down to fifty percent of its current size?", "cls": "small", "value": 50, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Make this sticker 15% as big as it is now.", "cls": "small", "value": 15, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "yeah just scale the photo down to 80 percent", "cls": "small", "value": 80, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Can you set the caption's font size to 40% of what it is now?", "cls": "small", "value": 40, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could you bring the button down to eighty percent of its original size?", "cls": "small", "value": 80, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Scale these down to 80%.", "cls": "small", "value": 80, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Please make the packshot 50% as big as it is now.", "cls": "small", "value": 50, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Shrink the background shape to 5% of its current size.", "cls": "small", "value": 5, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Can you make the banner 60% as big?", "cls": "small", "value": 60, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Scale the frame down to ten percent of its current size.", "cls": "small", "value": 10, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could you make the selected card just 5% of the size it is now, please?", "cls": "small", "value": 5, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Make the hero image 20% of its current size.", "cls": "small", "value": 20, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Shrink to 10%.", "cls": "small", "value": 10, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "hey can you take the offer text down to 33 percent of its current size", "cls": "small", "value": 33, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could the price text be ten percent as large as it is now?", "cls": "small", "value": 10, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Scale them down to 10% of their current size.", "cls": "small", "value": 10, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Shrink it.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could you make the tagline's font a little smaller, please?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "um yeah can you make that photo a bit smaller", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Scale down.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Make the price smaller.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind reducing the size of the selected shape a little?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could the logo be a little smaller?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Reduce size.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Take the title down in size a bit.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "uh just make the sticker a little smaller please", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Can you shrink the card a bit?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Smaller, please.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Please decrease the font size of the selected offer text.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Make these smaller.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could you scale the product shot down a touch?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "yeah i think the button should be a bit smaller", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Shrink the frame.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Can we go smaller on the caption?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like the background shape to be a little smaller, please.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Downsize the banner.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "hey could you make the box smaller for me", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Can you reduce the size of the selection?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Go smaller.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Make the badge less big.", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}
+{"query": "Could you bring the subheading's font size down a notch?", "cls": "small", "value": null, "batch": "small/0", "model": "gpt-6.2-sol"}

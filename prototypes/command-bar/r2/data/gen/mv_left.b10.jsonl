@@ -1,0 +1,50 @@
+{"query": "Nudge the headline 15 px to the left.", "cls": "mv:left", "value": 15, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Hero image ko 300 pixels baayen le jao.", "cls": "mv:left", "value": 300, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The CTA is 30 px too far right.", "cls": "mv:left", "value": 30, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "4px bayen plz", "cls": "mv:left", "value": 4, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Slide the price left by 75 pixels.", "cls": "mv:left", "value": 75, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh banner 150 px left kar do.", "cls": "mv:left", "value": 150, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot is sitting 120 pixels too far to the right.", "cls": "mv:left", "value": 120, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "logo 30px lft kro", "cls": "mv:left", "value": 30, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Shift the caption twenty-four pixels left.", "cls": "mv:left", "value": 24, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko 500 px left le jao please.", "cls": "mv:left", "value": 500, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "These are 48 px too far right.", "cls": "mv:left", "value": 48, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "20px bayn krdo", "cls": "mv:left", "value": 20, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Push the photo 300 pixels to the left.", "cls": "mv:left", "value": 300, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Button ko twenty pixels baayen karo na.", "cls": "mv:left", "value": 20, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The product shot is a full 250 px too far right.", "cls": "mv:left", "value": 250, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "75px lft bhai", "cls": "mv:left", "value": 75, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Bump the badge 16 px left.", "cls": "mv:left", "value": 16, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text 75 pixels baayen kar dijiye.", "cls": "mv:left", "value": 75, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The icon looks 5 pixels too far right.", "cls": "mv:left", "value": 5, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "ise 12px bayn", "cls": "mv:left", "value": 12, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Translate the frame 20 px to the left.", "cls": "mv:left", "value": 20, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Sticker ko 8 px left karo yaar.", "cls": "mv:left", "value": 8, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The subheading is ten pixels too far to the right.", "cls": "mv:left", "value": 10, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "1px lft krdo", "cls": "mv:left", "value": 1, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Take the selection 32 pixels to the left.", "cls": "mv:left", "value": 32, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Scoot the card a little to the left.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ko thoda baayen kar do na.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The title feels too far to the right.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "bayn krdo", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Can you shift this left a bit?", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh box zara left le jao.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker is sitting too far right.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "isko lft kro", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Move them farther left.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ko baayen kar dijiye please.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The logo looks too close to the right edge.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "btn bayen kro", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Give the price a tiny nudge left.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, photo thodi left chahiye.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "There's too much space to the left of the selected shape.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "thda lft yaar", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Drag the frame over to the left.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "In sab ko zara baayen le jao.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The CTA feels pushed too far to the right.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "badge lft kr", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Slide it left, please.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ko aur baayen karo.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "The banner is hugging the right edge.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "ye wala bayn kro", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}
+{"query": "Nudge the selected elements leftward.", "cls": "mv:left", "value": null, "batch": "mv:left/10", "model": "gpt-6.2-sol"}

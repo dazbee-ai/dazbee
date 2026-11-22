@@ -1,0 +1,50 @@
+{"query": "Brand text colour", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Use kit text", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Brand text swatch", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Kit text colour", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Brand type colour", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Apply brand text", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Brand text tone", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Kit text swatch", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Set the headline to the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Use the brand kit text swatch on the title.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Make the subheading the same colour as the text swatch in our brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Recolour the tagline with the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Put the CTA in the kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Set this button to the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Use the brand text colour for the price.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Switch the offer text to the text colour from our brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Match the caption colour to the brand kit’s text swatch.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Apply the brand kit’s text colour to the logo.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Recolour the product shot using the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Give the packshot the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Use the brand text swatch on the hero image.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Set the photo colour to the text swatch from the brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Make this badge the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Recolour the sticker to match the kit’s text swatch.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Set the icon to the brand text colour token.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Fill the shape with the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Use the kit’s text swatch for this box.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "The card isn’t using the text colour from the brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "That banner colour is off—it’s not the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "The background shape looks wrong in anything but the kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "The frame is still the wrong colour for the brand kit’s text swatch.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "The lockup isn’t in our brand text colour yet.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "The eyebrow looks off in that colour instead of the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "These are still not the colour of the text swatch in our brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "That’s the wrong swatch on the hero; it isn’t the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Even with the kerning right, the headline looks off when it’s not in the brand kit’s text colour.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Could you please apply the text colour from our brand kit to whatever I have selected right now?", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind using the brand kit’s text colour for the selected elements on this artboard?", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Could you recolour the little icon I’ve selected with the swatch designated for text in the brand kit, please?", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Please set the colour of this selection to the one listed as Text in the brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Can you make them match the text colour defined in our brand kit?", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Would you please use the brand kit’s text colour for this photo?", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "hey can you make this the text colour from the brand kit please", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "um could you put the selected stuff in our brand kit text colour", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "yeah just use the text swatch from the brand kit on it", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "okay so can you colour these with the text colour in the brand kit", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "could you make the call to action that text colour from our brand kit please", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "can we use the brand kit text colour on the little label here", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Map the selected lockup to the brand kit’s Text colour token.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}
+{"query": "Swap the selected wordmark to the Text swatch in the brand kit.", "cls": "brand:text", "value": null, "batch": "brand:text/0", "model": "gpt-6.2-sol"}

@@ -1,0 +1,44 @@
+{"query": "Raise one layer", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Up one layer", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Advance one layer", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Forward one step", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "One layer forward", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Raise one notch", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Bump forward once", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Bring the headline forward one layer.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Move the title up one spot in the stack.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Put the subheading just above the layer immediately above it.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Could you bump the tagline forward a single step?", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Bring the CTA one layer closer to the front.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Move the button ahead of just the next layer.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Raise the price by one stacking level.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Move the offer text up exactly one layer in the stack.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Nudge the caption forward one layer, please.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Move the logo up one slot in the layer order.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "move teh photo one layer up in the stak", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "stikcer one layre forward", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "bring this shpe forwrd once", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "box ko ek layer aage kar do", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "yeh card stack mein bas ek step upar", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "banner ko ek layer forward karna", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "background shape ko bas ek layer upar le jao", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "is frame ko layer order mein ek step aage karo", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "ise zara stack mein ek level upar kar do", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "in dono ko ek step forward kar do", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "jo select hai usko ek layer aage lao", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala bas next layer ke upar chahiye", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The headline is one layer too far back.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The logo should be just above the layer that's directly over it now.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "This badge is sitting one slot too low in the stack.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The only thing in the wrong order here is the button and the layer right above it.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The packshot is one stacking level behind where it should be.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The price should be above the very next layer, not below it.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The caption is tucked one layer deeper than it needs to be.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "These are sitting a single step too far back in the layer order.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "The photo belongs one slot closer to the front.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Raise the selection one step in the z-order.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Please bring it just one layer forward.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Move these one position toward the front of the stack.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Bump them up one stacking slot.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Put this one rung higher in the layer stack.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}
+{"query": "Bring the selected graphic in front of the next layer only.", "cls": "order:forward", "value": null, "batch": "order:forward/1", "model": "gpt-6.2-sol"}

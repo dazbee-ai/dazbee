@@ -1,0 +1,50 @@
+{"query": "Remove italics from the headline.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Un-italicize the title.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Turn off italics for this subheading.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Set the tagline in upright type.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Make the CTA text non-italic.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Take the button label out of italics.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Switch the price to the upright version of this font.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "No italics on the offer text, please.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Clear the italic formatting on the caption.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Make the selected body copy upright.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Toggle italics off for the disclaimer.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Put this quote back in non-italic type.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Drop the italics on the hashtag.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "The date should be upright, not italic.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Unitalic this.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Take it out of italics.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Selection: italics off", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Get rid of the italic slant on the byline.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh headline italic mein nahi chahiye.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Title ka italic hata do na.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ko italic se seedhe type mein kar do.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline se italics nikaal do please.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Is CTA pe italic off karo yaar.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Button label ka italic band kijiye.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Price ko non-italic kar do bhai.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text italic mat rakho.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka italic hatao, please.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy ko wapas upright type mein kar do.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer pe italics nahi chahiye.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Is quote ko bina italics ke rakho.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag se italic hata dena.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh date seedhi type mein chahiye, italic nahi.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Is wale text ka italic off kar do.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "The italics on the event name look out of place.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "That italic slant on the venue name looks wrong.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Not a fan of the italics on this pull quote.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "The footer copy looks odd in italics.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Why is the RSVP label italicized?", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "These italics make the promo code harder to read.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "The section heading looks awkward all slanted like that.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "The italics on the menu item are bugging me.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh italic wala look yahan ajeeb lag raha hai.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "Naam italic mein thoda weird lag raha hai.", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "ye italc hta", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "iska itlik of kro", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "titl ka italc htao", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "itlic band krdo", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "ye no italcs pls", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "itlc nikal do", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}
+{"query": "italc nhi chahye", "cls": "it-", "value": null, "batch": "it-/10", "model": "gpt-6.2-sol"}

@@ -1,0 +1,48 @@
+{"query": "Title-case it", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Use title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Titlecase selection", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Headline: title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Put the subheading in title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Capitalize the first letter of every word in the tagline", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Make the CTA text title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Start each word on the button with a capital", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Set the price label in title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Give the offer text title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Make every word in the caption start with a capital letter", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Switch the selected body copy to title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Convert this disclaimer to title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Use a capital first letter for each word in the quote", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Title-case the words in this hashtag", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Put the date text in title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Make this footer line title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Set the event name so each word starts with a capital", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Can you title-case this bullet point?", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "make it titel case pls", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "titl case the header", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "put this lable in titlecase", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "can u do tittle case on this", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "caps at the start of ech word pls", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "pls make the nav text titel case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "title case the selction", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "make each wrd start w a capital", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "change dis text to title case", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "ise title case mein kar do", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "har word ka pehla letter capital kar do", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala title case mein chahiye", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "button label ko title case kar do na", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "is heading mein har word ka first letter bada kar do", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "caption ko zara title case mein kar dena", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "is offer line ke har word ki shuruaat capital se karo", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "jo text select kiya hai usko title case mein karo", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "product name ka har word capital letter se start karo", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "yeh subtitle title case mein chahiye bas", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The headline looks off without a capital at the start of every word.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "This label is all lowercase, but it's meant to be title case.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The poster title is shouting in all caps when it should be in title case.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "Only the first word of the subhead starts with a capital. They all should.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The menu item looks odd with those lowercase word starts.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The case on this badge is all over the place. It should be title case.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The button copy looks like a sentence instead of title case.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "This caption is missing the initial capitals on some words.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The promo line doesn't look right in lowercase. It's supposed to be title case.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}
+{"query": "The tab label looks off with only one word capitalized at the start.", "cls": "case:title", "value": null, "batch": "case:title/1", "model": "gpt-6.2-sol"}

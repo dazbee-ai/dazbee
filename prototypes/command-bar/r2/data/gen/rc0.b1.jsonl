@@ -1,0 +1,42 @@
+{"query": "Zero corner radius", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Unround it", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Sharp corners", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Remove corner rounding", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Square them off", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "No rounded corners", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Make the headline box corners square.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Set the title's corner radius to zero.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Take the rounding off the subheading box.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Give the tagline block sharp corners.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Square off the CTA corners, please.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Remove the corner rounding from the price label.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Make the offer text box corners right angles.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "I want the caption box corners sharp, not rounded.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Take the logo's corner radius down to zero.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "make the product shot corners squre", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "remove the roundng on the packshot", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "dont round the photo coners", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "sqare off the badge corners", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "can u unrounnd the icon corners", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "yeh shape ke corners square kar do", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "is box ka corner radius zero kar do", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "card ke corners se rounding hata do", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "banner ke chaaro corners sharp chahiye", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "frame ke corners round mat rakho", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "ise zara square corners de do", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "in sab ka corner radius zero kar do", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala round corners ke bina chahiye", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Those rounded corners look out of place here.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Why does this still have rounded corners?", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "The card would look cleaner without any corner rounding.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "The button corners look pillowy instead of square.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "The rounded corners on the banner don't fit this layout.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "The photo still has curves where the corners should be sharp.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Those badge corners aren't supposed to be rounded.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "I'm not a fan of the rounding on this frame's corners.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "This looks off with anything other than square corners.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Can this have perfectly square corners?", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Get rid of every bit of rounding on these corners.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Give them all hard corners.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Turn off rounded corners for the selected tile.", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}
+{"query": "Could you take the radius off the corners of this callout?", "cls": "rc0", "value": null, "batch": "rc0/1", "model": "gpt-6.2-sol"}

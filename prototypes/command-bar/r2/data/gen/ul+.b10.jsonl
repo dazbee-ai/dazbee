@@ -1,0 +1,50 @@
+{"query": "Underline the selected text.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Can you underline the headline?", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Put an underline on this title.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Apply underline formatting to the subheading.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Underline the tagline for me.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "I'd like the CTA text underlined.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Please underline the button label.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Give the price an underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Underline the offer text here.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Could you make this caption underlined?", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Set the body copy to underlined.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Underline this disclaimer.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Add an underline to the quote.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Can I get an underline on this hashtag?", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Make the date underlined.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Underline it, please.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala text underline kar do.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko zara underline karo.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Title ke neeche underline laga do na.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ko underline kijiye, please.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline pe underline chahiye yaar.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, CTA text underline kar do.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Is button label pe underline laga do.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Price ko underline karna hai.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Offer wali line underline kar do na.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Jo caption select kiya hai, usko underline kijiye.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy pe bhi nahi, bas isi selected text pe underline chahiye.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer ke text ko underline kar do please.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh quote underlined chahiye.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag ko zara underline kar dena.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Is date ko underline karo na.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Selection pe underline laga do bhai.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "The headline looks unfinished without an underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "This title is missing its underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "The link text doesn't look clickable without an underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "The promo code looks odd without an underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "There's supposed to be an underline on this footer text.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "The byline looks a bit bare without its underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "This section label still isn't underlined.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "The event name looks too plain without an underline.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh heading bina underline ke adhoori lag rahi hai.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "Is naam pe underline missing hai.", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "ise underlne krdo", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "ye undrline kro", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "title underlin krdo", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "price pe undrline", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "isko underlien kro", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "cta undrline krna", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "ye wala undrln plz", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}
+{"query": "date underlne krna", "cls": "ul+", "value": null, "batch": "ul+/10", "model": "gpt-6.2-sol"}

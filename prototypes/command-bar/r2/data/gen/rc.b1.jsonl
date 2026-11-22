@@ -1,0 +1,50 @@
+{"query": "Round corners 48px", "cls": "rc", "value": 48, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "5px corner radius", "cls": "rc", "value": 5, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "rnd this box's corners to 16 px", "cls": "rc", "value": 16, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "headline ke corners 40px round kar do", "cls": "rc", "value": 40, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The title block looks too sharp at the corners; a 20px radius would be better.", "cls": "rc", "value": 20, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "8px corners", "cls": "rc", "value": 8, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "subheading ke corners ka radius 28 px kar do", "cls": "rc", "value": 28, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "tagline corners: four pixels", "cls": "rc", "value": 4, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "round teh CTA corners 4px", "cls": "rc", "value": 4, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The button corners look too square without an 8px radius.", "cls": "rc", "value": 8, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Set the price badge's corner radius to 32 pixels.", "cls": "rc", "value": 32, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "offer text box ke corners 12px round karo", "cls": "rc", "value": 12, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "caption box corners, 48px radius pls", "cls": "rc", "value": 48, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "round logo corners to 24px", "cls": "rc", "value": 24, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The product shot would look less boxy with fifty-pixel corners.", "cls": "rc", "value": 50, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "60px corner rounding", "cls": "rc", "value": 60, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "packshot ke kone 3 px round kar do", "cls": "rc", "value": 3, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "hero image corner raduis 48px", "cls": "rc", "value": 48, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Could the photo have a 24px corner radius? It looks pretty angular now.", "cls": "rc", "value": 24, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Set the sticker's corners to a 999px radius.", "cls": "rc", "value": 999, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "is icon ke corners 64 px round karna", "cls": "rc", "value": 64, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "give this shape a forty-eight pixel corner radius", "cls": "rc", "value": 48, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "card corners roudn 24px", "cls": "rc", "value": 24, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The banner corners are too sharp as is; I'd prefer a 14px radius.", "cls": "rc", "value": 14, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "999px corner radius", "cls": "rc", "value": 999, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Round corners", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Round this", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Soften the corners", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Rounded corners please", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "round 'em", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "roudn the frame cornrss", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "make the backgrnd shape's corners roundd", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "can u round teh corners on this", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wale corners gol kar do", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "is box ke kone zara round karna", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "badge ke corners thode gol chahiye", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "inke corners round kar do pls", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Those pointy corners on the card look a bit harsh.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The photo corners look too square.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The CTA would look better without those sharp corners.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "It's the square corners that make this feel so boxy.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Give the selection rounded corners.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Can you round the corners of the headline box?", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Round off the corners on the price tag.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Curved corners", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "pls round the packshot cornrs", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "button ke edges pe jo corners hain unko round karo", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "The caption box's corners feel a little too angular.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Put rounded corners on these.", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}
+{"query": "Can we get rid of the sharp corners on the sticker?", "cls": "rc", "value": null, "batch": "rc/1", "model": "gpt-6.2-sol"}

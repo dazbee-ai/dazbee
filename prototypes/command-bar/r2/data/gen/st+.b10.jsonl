@@ -1,0 +1,50 @@
+{"query": "Add a strikethrough to the selected headline.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Cross out the title.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Put a line through the subheading.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Apply strikethrough to the tagline.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Strike through the CTA text.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Cross out this button label.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Slash the old price.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Give the offer text a strikethrough.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Run a line through the middle of the caption.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Set the selected body copy to strikethrough.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Please strike out the disclaimer.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Put a line right through this quote.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Can you cross out the hashtag?", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Format the date with a strikethrough.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Strike this out.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Is text ko cross out kar do.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Purane price ke beech mein line laga do.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh heading pe strikethrough chahiye.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Button label ko cross kar do na.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ke beech se seedhi line kheench do.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Is tagline ko zara strike out kijiye.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, is date pe strikethrough laga do.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Yaar, offer text ko cross out karo.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Is quote ke words ke beech se line nikaal do.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala naam cross out karna hai.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Selected disclaimer ke through ek line laga do please.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Is hashtag pe line maar do, beech mein.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "The old price still looks active without a line through it.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "The title is missing its strikethrough.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "That date still isn't crossed out.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "The offer text looks like it still applies without the strikethrough.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "This looks underlined, not crossed out.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "The checked-off item still doesn't have a line through it.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "The retired promo code looks valid without a line through it.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "That deleted phrase doesn't look crossed out yet.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Purana rate abhi bhi current lag raha hai, line hi nahi hai uske beech mein.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh caption abhi tak crossed out nahi hai.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "ise strikethru krdo", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "prce cross kro", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "titel pe strikethru", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "yeh cros krdo", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "date pe strikthru pls", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "capton cross kro", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "bech me line lagao", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "ispe strikethro lagao", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Strike through the selected menu item.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Put a strikethrough on the sold-out size.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "That word needs a line through it.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Cross out the previous plan name.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}
+{"query": "Strikethrough on the selection, please.", "cls": "st+", "value": null, "batch": "st+/10", "model": "gpt-6.2-sol"}

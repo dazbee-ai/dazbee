@@ -1,0 +1,49 @@
+{"query": "Rotate the headline 22° clockwise.", "cls": "rot+", "value": 22, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Title ko daayen 90 degree ghumao.", "cls": "rot+", "value": 90, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The subheading looks too upright; it needs a 40° clockwise turn.", "cls": "rot+", "value": 40, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "tagline 25° daayn ghumao", "cls": "rot+", "value": 25, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Turn the CTA twelve degrees to the right.", "cls": "rot+", "value": 12, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Button ko clockwise 270 degree ghuma do na.", "cls": "rot+", "value": 270, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The price is at the wrong angle by 135°; clockwise would do it.", "cls": "rot+", "value": 135, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Give the offer text a 30-degree clockwise turn.", "cls": "rot+", "value": 30, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "caption 12° dayen ghmao", "cls": "rot+", "value": 12, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ko 75 degree right rotate kijiye.", "cls": "rot+", "value": 75, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot looks a little stiff at this angle. It'd look better turned 12° to the right.", "cls": "rot+", "value": 12, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "hero img 90° daaye ghma do", "cls": "rot+", "value": 90, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Spin the photo clockwise by 200 degrees.", "cls": "rot+", "value": 200, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Badge ko bees degree daayen ghuma do, please.", "cls": "rot+", "value": 20, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker's pointing the wrong way; it's 270° clockwise from where it is now to where it should be.", "cls": "rot+", "value": 270, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "icon 330° clokwise ghmao", "cls": "rot+", "value": 330, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Twist this shape 20° to the right.", "cls": "rot+", "value": 20, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh box 72 degree daayen ghumana hai.", "cls": "rot+", "value": 72, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The card looks a bit flat. Another twelve degrees clockwise would look better.", "cls": "rot+", "value": 12, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "ise 3° dayn ghma", "cls": "rot+", "value": 3, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Rotate the banner clockwise by 12 degrees, please.", "cls": "rot+", "value": 12, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko zara 10 degree right mein ghuma do.", "cls": "rot+", "value": 10, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The frame's sideways; a 90-degree clockwise turn would put it the way I want.", "cls": "rot+", "value": 90, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "isko 120° clokwise ghumao", "cls": "rot+", "value": 120, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Rotate these by 330° clockwise.", "cls": "rot+", "value": 330, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Inko 120 degree daayen ghuma do yaar.", "cls": "rot+", "value": 120, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "That arrow isn't quite pointing where it should; it needs twenty degrees clockwise.", "cls": "rot+", "value": 20, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "selction 90° daayn ghuma", "cls": "rot+", "value": 90, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Turn the QR code sixty degrees clockwise.", "cls": "rot+", "value": 60, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh doodle 200 degree clockwise kar do, bhai.", "cls": "rot+", "value": 200, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The ribbon feels too level as is. A 15° clockwise tilt would look better.", "cls": "rot+", "value": 15, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "ye 300° clokwise ghma do", "cls": "rot+", "value": 300, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Give the wordmark a ninety-degree turn to the right.", "cls": "rot+", "value": 90, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Is illustration ko 45 degree daayen ghumao na.", "cls": "rot+", "value": 45, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The cutout is upside down; it needs a 180° clockwise turn.", "cls": "rot+", "value": 180, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "inhe 20° dayen ghmao", "cls": "rot+", "value": 20, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Rotate the speech bubble 72 degrees to the right.", "cls": "rot+", "value": 72, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Coupon ko 35 degree clockwise ghuma dijiye.", "cls": "rot+", "value": 35, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The star's angle looks wrong. It'd sit better 35° clockwise from here.", "cls": "rot+", "value": 35, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "ye wala 10° daayn ghma", "cls": "rot+", "value": 10, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Swing the line forty degrees clockwise.", "cls": "rot+", "value": 40, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Selected group ko thoda right mein ghumao, 15 degree.", "cls": "rot+", "value": 15, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "That mockup feels too straight. Fifteen degrees clockwise would look more natural.", "cls": "rot+", "value": 15, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Rotate it clockwise through 120°.", "cls": "rot+", "value": 120, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Isko clockwise poora 360 degree ghuma do.", "cls": "rot+", "value": 360, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "iska 200° clokwise rotat kro", "cls": "rot+", "value": 200, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "The label's just a bit off; seven degrees clockwise should do it.", "cls": "rot+", "value": 7, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Ye divider zara daayen 20 degree ghuma dena.", "cls": "rot+", "value": 20, "batch": "rot+/10", "model": "gpt-6.2-sol"}
+{"query": "Turn the selected layer 45° clockwise from its current angle.", "cls": "rot+", "value": 45, "batch": "rot+/10", "model": "gpt-6.2-sol"}

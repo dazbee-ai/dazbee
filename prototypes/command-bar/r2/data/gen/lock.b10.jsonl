@@ -1,0 +1,50 @@
+{"query": "Lock the selection so it can't be moved or edited.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Freeze this headline exactly as it is.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock the title layer, please.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Make the selected subheading read-only and keep it in place.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Protect the tagline from accidental drags and edits.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock this CTA.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Freeze the button where it is, with no further edits allowed.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Keep the price exactly as shown and lock it in place.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock down the offer text so no one can change or move it.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock the selected caption layer.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Make sure the logo can't be nudged or altered.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock this product shot as-is.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Prevent changes to the packshot, including its position.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock the hero image against moving or editing.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Freeze this photo in its current state.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Put a lock on the badge.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock these stickers so they stay exactly as they are.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Disable moving and editing for the selected icon.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock this shape in its current state.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Lock these boxes against edits and drags.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Is card ko lock kar do, na move ho na edit.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko lock kijiye, jaisa hai waisa hi rahe.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape pe taala lagao, hilna ya badalna nahi chahiye.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh frame lock kar do na.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "In sab ko lock karo yaar, galti se bhi move ya edit na ho.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, selected layer pe lock laga do.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko lock karo, na text badle na position.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Logo jahan hai wahin rahe aur koi edit na kar paye, lock kar do please.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala button lock kar do bhai.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Jo select kiya hai uspe taala laga do.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "The layout looks off whenever this logo gets bumped, and the logo itself is still too easy to edit by mistake.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "This title looks right now, but it's still way too easy to drag it or type over it.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "The approved price keeps getting nudged or overwritten while I'm working around it.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "This photo looks exactly right, but one stray click and I can still move it or change it.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "The banner is already final, yet it's still letting me drag it around and edit it.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "The offer text keeps ending up in the wrong spot or with different wording after accidental clicks.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "This badge looks good as-is; the problem is it's still movable and editable.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "These icons are already right, but they keep getting bumped or changed when I work nearby.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "The alignment looks wrong every time this card gets nudged, and its contents are still open to accidental edits.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh caption ab sahi dikh raha hai, par galti se abhi bhi move ya edit ho jata hai.", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "ise lok krdo", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "ye wala lck kro", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "logo lok krdo na", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "inpe tala lgao", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "ye teeno lok krdo", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "foto lck krdo", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "cta ko lok kro", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "isko taala lga do", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "ye layer lok kro plz", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}
+{"query": "stikr lck kro na", "cls": "lock", "value": null, "batch": "lock/10", "model": "gpt-6.2-sol"}

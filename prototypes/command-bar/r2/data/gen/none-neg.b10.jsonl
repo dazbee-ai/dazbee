@@ -1,0 +1,50 @@
+{"query": "Don't make the headline bold.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Leave the logo alone.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Cancel that.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Never mind.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Keep it as it is.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Please don't crop the hero image.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Don't apply that to these.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Stop resizing the card.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Actually, no shadow on the badge.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Don't move the price.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Leave the caption untouched.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Let's not round the corners on this box.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Hold off on changing the CTA.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Don't replace the packshot.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Scratch that last request.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Is button ko aur bada mat karo.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ko neeche nahi le jana, please.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh sticker mat hatao yaar.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Product shot ko ulta mat karo bhai.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Icon ko laal nahi karna.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko kinare pe mat le jao.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text ko chhupana mat.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Frame ka lock mat kholo please.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko aur gehra mat karna.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "In dono ko alag mat karo na.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ko itna mota mat kijiye.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Iski ek aur copy nahi chahiye.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Rehne do, selection jaisi hai theek hai.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ko baayen mat khiskao.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "That outline makes the icon look cheap.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The headline looks shouty in bold.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot feels cramped with that crop.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The badge looks tacky with that glow.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The button looks weird when it stretches across the card.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The tagline is harder to read in italics.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "That tilt makes the logo look wonky.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "This card looks too busy with a border.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker looks out of place up there.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "The price gets lost in that pale yellow.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "hatao mt", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "cncl krdo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "rehne doo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "logo mt chhedo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "upe mat kro", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "ghumao mt yr", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "neela nhi pls", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "copy mt bnao", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "chota ni krna", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "taala mt lgao", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}
+{"query": "caption mt mitao", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/10", "model": "gpt-6.2-sol"}

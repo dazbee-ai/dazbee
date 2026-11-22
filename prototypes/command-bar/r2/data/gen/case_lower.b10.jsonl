@@ -1,0 +1,50 @@
+{"query": "Make the selected text all lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Set the headline in lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Use only lowercase letters in the title.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Lowercase the entire subheading.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Put the tagline in all small letters.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Convert the CTA text to lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Change the button label to all lowercase, please.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Make every letter in the price line lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "All lowercase for the offer text, thanks.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Switch this caption to lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Lowercase all the letters in the body copy.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "No capital letters anywhere in the disclaimer, please.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Set this quote entirely in lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Make the hashtag lowercase from start to finish.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Make any letters in the date lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "All lowercase here.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Lowercase it.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Small letters only for this one.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh headline poori lowercase kar do.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Title ke saare letters chhote kar do, lowercase mein.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Is subheading ko all lowercase mein rakho na.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline mein koi bhi capital letter nahi chahiye.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, CTA ka poora text lowercase kar do.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Button pe jo likha hai, sab small letters mein kar do.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Is offer text ke saare letters lowercase kijiye.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Caption mein bas lowercase letters chahiye yaar.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala poora lower case mein kar do please.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer ke sabhi letters lowercase karo.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Quote mein ek bhi capital nahi chahiye.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag pura lowercase karna hai.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Date mein jo letters hain unko lowercase kar do na.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Is selection ko bilkul lowercase mein chahiye.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Even one capital in this heading looks out of place.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "The title looks off with any uppercase letters at all.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "The tagline doesn't look right unless it's entirely lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Any caps in the button label make it look too shouty.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "I don't like seeing any capital letters in this caption.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "This offer line looks weird with even a single uppercase letter.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "The body copy still isn't all lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "The disclaimer looks wrong with capitals anywhere in it.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Those capitals don't belong in this otherwise lowercase quote.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "This hashtag looks awkward with uppercase letters in it.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Header mein ek bhi capital achha nahi lag raha.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh text full lowercase nahi hai abhi.", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "sb lowercse krdo", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "isko pura lowrcase kro", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "sare leters lowr krdo", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "titel all lowrcase krdo", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "yeh ful lowercase kro", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}
+{"query": "captin pura lowrcase plz", "cls": "case:lower", "value": null, "batch": "case:lower/10", "model": "gpt-6.2-sol"}

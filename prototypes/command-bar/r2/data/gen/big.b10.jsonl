@@ -1,0 +1,50 @@
+{"query": "Make the headline 80% bigger.", "cls": "big", "value": 80, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh button 20% bada kar do.", "cls": "big", "value": 20, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The logo looks a quarter too small for what I’m going for—give it a 25% size boost.", "cls": "big", "value": 25, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "ise 25% bda kro", "cls": "big", "value": 25, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Enlarge the product shot by forty percent.", "cls": "big", "value": 40, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Can you bump up the tagline’s font size by 50%?", "cls": "big", "value": 50, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Badge ko 30% aur bada kar do na.", "cls": "big", "value": 30, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "That price is hard to read at this size; it needs to be 33% bigger.", "cls": "big", "value": 33, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Increase the size of this icon by 300%.", "cls": "big", "value": 300, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "ye 33% bda plz", "cls": "big", "value": 33, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Scale the selected cards up by thirty-three percent.", "cls": "big", "value": 33, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ko 80% bada karo bhai.", "cls": "big", "value": 80, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The caption feels a little too small. It could use a 15% bump.", "cls": "big", "value": 15, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Make the hero image 120% larger.", "cls": "big", "value": 120, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Is sticker ka size 75% badha do.", "cls": "big", "value": 75, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "75% bigger please", "cls": "big", "value": 75, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "b 5% bda kro", "cls": "big", "value": 5, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The subheading needs a little more size, maybe fifteen percent more.", "cls": "big", "value": 15, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Bump the CTA text up by 10%.", "cls": "big", "value": 10, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh background shape 33% scale up kar do.", "cls": "big", "value": 33, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The frame looks a touch undersized. I’d go 10% bigger.", "cls": "big", "value": 10, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "enlarge this box by seventy-five percent", "cls": "big", "value": 75, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "banner 80% bdaa", "cls": "big", "value": 80, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "In dono ko 20% bada kar dijiye.", "cls": "big", "value": 20, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The offer text is way too small as is; it needs to be 40% bigger.", "cls": "big", "value": 40, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Make this a little bigger.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Title ka font size badha do please.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "That photo feels tiny here.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "isko bda kro", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Scale up the selection.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Can we go bigger on the price?", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala thoda aur bada chahiye.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The badge looks too small at this size.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "btn bdaa plz", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Enlarge the selected shapes.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Logo zara bada kar do yaar.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The product shot is getting lost because it’s so small.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Increase the font size of the caption.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "inhe bda krdo", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Could you make the card a bit larger?", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Is icon ka size badhao na.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The heading looks undersized.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Go much bigger with the sticker.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "yeh aur bda", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Hero image ko thoda scale up kijiye.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "These are a little too small for the layout.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Make the frame larger, please.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ka size aur badha do, bhai.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "tagline bdi kro", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}
+{"query": "The text on this button is too small to read comfortably.", "cls": "big", "value": null, "batch": "big/10", "model": "gpt-6.2-sol"}

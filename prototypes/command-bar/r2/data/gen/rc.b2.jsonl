@@ -1,0 +1,49 @@
+{"query": "Round the hero image corners to 60 px.", "cls": "rc", "value": 60, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Give the CTA a sixteen-pixel corner radius.", "cls": "rc", "value": 16, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Could you round the corners of the headline box just slightly, to 2 px?", "cls": "rc", "value": 2, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "the corners on this badge are too sharp for a 50px radius spec", "cls": "rc", "value": 50, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "set the packshot corner raduis to 40px", "cls": "rc", "value": 40, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "uh can you round off the corners on the price pill to 50 pixels", "cls": "rc", "value": 50, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Please apply a fifty-pixel radius to the corners of the logo lockup frame.", "cls": "rc", "value": 50, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "64px rounding on the selected background shape", "cls": "rc", "value": 64, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The photo corners still look square; they should have a 30 px radius.", "cls": "rc", "value": 30, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "make the offer text box corners round 28px pls", "cls": "rc", "value": 28, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Set the eyebrow label’s corner radius to six pixels.", "cls": "rc", "value": 6, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind rounding the corners of the selected card to a radius of 16 pixels?", "cls": "rc", "value": 16, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "okay so for the banner i just want the corners rounded to 60 pixels", "cls": "rc", "value": 60, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Use a 32 px corner radius on the product shot.", "cls": "rc", "value": 32, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "round the caption box corners by 1px", "cls": "rc", "value": 1, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "10px corner rounding for the tagline box", "cls": "rc", "value": 10, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "round of the sticker corners to 6 pixles", "cls": "rc", "value": 6, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Set the selected frame on the artboard to a thirty-two-pixel corner radius.", "cls": "rc", "value": 32, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "yeah just give it an 8 pixel corner radius", "cls": "rc", "value": 8, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The subheading container still has sharp corners instead of the 28px rounding it needs.", "cls": "rc", "value": 28, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Could you apply a six-pixel corner radius to the selected title block?", "cls": "rc", "value": 6, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "6px rad on the button corners thx", "cls": "rc", "value": 6, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Round these corners to 48 px.", "cls": "rc", "value": 48, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The thumbnail tile needs the 6 px corner radius from the component spec.", "cls": "rc", "value": 6, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Round the corners of the selection.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The headline backplate looks too sharp at the corners.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "can you uh round the corners on this for me", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "roudn the corners on the logo tile pls", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Apply corner rounding to the selected CTA component.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind giving the title box rounded corners so it feels a little less rigid?", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The hero crop feels too boxy with those square corners.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Round off the packshot frame corners.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "yeah just make the corners round on the thing ive got selected", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "soften the cornr edges on the sticker", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The price badge really doesn't need corners that pointy.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Give the offer box a rounded-rectangle treatment.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Could you please round the corners of the caption background?", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "round the corners on them", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The lockup container corners are looking a bit severe.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "roundd the icon tile corners", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Give the eyebrow tag rounded corners.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "hey can we get rid of the sharp corners on the photo by rounding them", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The banner's square corners feel out of place here.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Please give the selected shape on the artboard a rounded corner treatment.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "make the button corners less pointy pls", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "Radius on the corners of this card, please.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "round the coners of the subheading bg", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "I'd love it if you could round off the corners of the panel behind the tagline.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}
+{"query": "The product shot still has those harsh square corners.", "cls": "rc", "value": null, "batch": "rc/2", "model": "gpt-6.2-sol"}

@@ -1,0 +1,50 @@
+{"query": "Distribute the selected layers vertically with equal gaps.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Space these evenly from top to bottom.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Make the vertical gaps between the icons equal.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Give the selected buttons even spacing top to bottom.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Even out the vertical spacing between the product tiles.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Leave the same amount of space between each pair of neighboring logos in the stack.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Equalize the top-to-bottom gaps between the cards.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Spread the badges so every vertical gap is the same.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Space the selected photos evenly down the page.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Make the gaps above and below the logo match.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Give everything selected equal vertical gaps.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Distribute the shapes so the space between them is even vertically.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Can you make the gaps between these headlines consistent from top to bottom?", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Same vertical gap between each of these, please.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Even gaps down the stack, please.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Inko upar se neeche tak equal gap pe rakh do.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Selected layers ke beech ka vertical gap same kar do.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh icons upar se neeche evenly space karo na.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Buttons ke beech upar se neeche tak ek jaisa gap chahiye.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Cards ke vertical gaps barabar kar do yaar.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "In photos ko top se bottom tak equal spacing de do.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ke upar aur neeche ka gap same kar do.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Jo bhi select hai uske beech ka gap upar se neeche tak barabar kijiye.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, badges ke beech vertical space equal kar do.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Tiles ke beech ka gap upar se neeche tak same chahiye.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Shapes ko vertically distribute karo, beech ka gap same rakho.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "In text boxes ke beech upar se neeche tak same gap rakhna please.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The gaps between these rows look uneven.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The cards are bunched up at the top with big gaps farther down.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "There’s way more room above the logo than below it.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The gaps between these stacked buttons are all over the place.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The product tiles don't have consistent spacing from top to bottom.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Some of these photos are almost touching vertically, and others have huge gaps.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The space between the selected layers keeps changing as you go down.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "The badges look unevenly spaced down the column.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Upar icons chipke hue hain, neeche gap zyada hai.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "In cards ka vertical gap kahin bada hai, kahin chhota.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ke upar ka gap neeche se zyada lag raha hai.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh buttons upar se neeche uneven lag rahe hain, gaps same nahi hain.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "vert gap brabr kro", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "upr se niche eqal gap", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "inko verticly even kro", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "icons ka vert gap sme kro", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "upr niche gap brabar krdo", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "cards ka vrtical gap eql kro", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "top to botom same gap krdo", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "photos ka vert gap barabr kro", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Space the selected swatches with equal gaps down the column.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Make the vertical space between the stickers uniform.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}
+{"query": "Even out the gaps down this stack of labels.", "cls": "dist:v", "value": null, "batch": "dist:v/10", "model": "gpt-6.2-sol"}

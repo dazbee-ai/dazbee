@@ -1,0 +1,49 @@
+{"query": "Put the headline in title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "yeh title title case mein kar do", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The subheading looks odd without a capital at the start of every word.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "ise titl case kro", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Capitalize the first letter of each word in the tagline.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ke har word ka first letter capital kar do na", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The button label looks too lowercase. It should start each word with a capital.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "lbl taitl case krdo", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Title-case the selected price text.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "offer text ko title case mein kar dijiye", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The caption's capitalization looks uneven—not every word starts with a capital.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "captn titl case kro", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Set this paragraph in title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "disclaimer mein har word ka pehla letter capital chahiye", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The quote looks odd with only the first word capitalized.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "isko titlle case kr", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Use title case for the selected hashtag.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "date text ko title case kar do please", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The text in the badge looks off without capitals at the start of each word.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "yeh title cse kro", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Can you make every word in the menu label start with a capital?", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "yeh wala text title case mein chahiye yaar", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The section heading looks too shouty in all caps. It should be in title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "subhd titl case krdo", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Apply title case to the footer text.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "bhai is line mein har word ka pehla akshar capital kar do", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The product name looks unfinished with some words starting lowercase.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Convert the selected words to title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Is text box ka text zara title case mein kar do", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The event name looks off in sentence case. It should be title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "slogn taitl case kro", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Give the navigation text an uppercase first letter on every word.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "yeh card title hai, har word ka first letter capital hona chahiye", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The testimonial looks inconsistent when only some words start with capitals.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Make this title case, please.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "tooltip ko title case karna hai", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The banner copy doesn't look right in lowercase. Every word should start with a capital.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Format the form label in title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "selected copy ko title case mein kar sakte ho?", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Some words in the slide title still start lowercase, and it looks uneven.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Title case for the byline, please.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "yeh titl case me krna", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Change it so each word starts with a capital letter.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "tab ke naam ko title case mein kar do na", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker text looks wrong in all caps; it should be title case.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Make the first letter of every word uppercase and the rest lowercase.", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "body copy titl cse me kro", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "Could the selected text be in title case?", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}
+{"query": "chart label mein har shabd ka pehla letter capital kijiye", "cls": "case:title", "value": null, "batch": "case:title/10", "model": "gpt-6.2-sol"}

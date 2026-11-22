@@ -1,0 +1,49 @@
+{"query": "Round the corners of the selected card to 30 px.", "cls": "rc", "value": 30, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh headline box ke corners thirty pixels round kar do.", "cls": "rc", "value": 30, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "btn crners 1px round kro", "cls": "rc", "value": 1, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The hero image corners look too sharp; a 24 px radius would look better.", "cls": "rc", "value": 24, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Give the price badge a 12px corner radius.", "cls": "rc", "value": 12, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Is sticker ka corner radius 999 px kar do na.", "cls": "rc", "value": 999, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Set the packshot's corner radius to fifty pixels.", "cls": "rc", "value": 50, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "ispe 28px roundng krdo", "cls": "rc", "value": 28, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Caption box ke corners 4 px round kar dijiye.", "cls": "rc", "value": 4, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Round this by 2px at the corners.", "cls": "rc", "value": 2, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "bg shape 100px radius krdo pls", "cls": "rc", "value": 100, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "These banner corners are too square for the look I want. They need a 28 px radius.", "cls": "rc", "value": 28, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Make the tagline box corners rounded with an eight-pixel radius.", "cls": "rc", "value": 8, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ke corners 64 px round kar do yaar.", "cls": "rc", "value": 64, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "icon crnrs 3px rnd kro", "cls": "rc", "value": 3, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Set the corner radius on these to 40px.", "cls": "rc", "value": 40, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "That box still looks too square; sixty-four pixels of corner rounding would help.", "cls": "rc", "value": 64, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ke corners pe 28 px radius chahiye.", "cls": "rc", "value": 28, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Apply a 12-pixel corner radius to the offer text box.", "cls": "rc", "value": 12, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "title box 24px cornr rdius kro", "cls": "rc", "value": 24, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The subheading box corners are a little sharp. Four pixels of rounding should do it.", "cls": "rc", "value": 4, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Give them rounded corners with a radius of 28 px.", "cls": "rc", "value": 28, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, is frame ke corners ka radius 12 px kar do.", "cls": "rc", "value": 12, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Round the corners of the selected shape to three pixels.", "cls": "rc", "value": 3, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Round off the corners of the selection.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh button ke kone gol kar do na.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The title box corners look too pointy.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "isko rnd cornr krdo", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Give the product shot rounded corners.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Badge ke corners thode round kar dijiye.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Why are the corners on this card so sharp?", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "photo k kone gol kro", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Can you round the corners on the caption box?", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Is background shape ke kone gol chahiye.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker feels too square at the corners.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "plz iske crnrs gol krdo", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Round the corners on these.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Logo frame ke corners zara round karo.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The hero image would look better without those sharp corners.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "cta k crnr rnd kro", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "I'd like rounded corners on the offer text box.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Is tagline box ke kone gol kar do, please.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "The banner corners look a little too sharp to me.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "in k kone gl krdo", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Soften the icon by rounding its corners.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ke corners round kar do yaar.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Those square corners on the price tag are bugging me.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "frame k crners gol krdo", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}
+{"query": "Make its corners rounded.", "cls": "rc", "value": null, "batch": "rc/10", "model": "gpt-6.2-sol"}

@@ -1,0 +1,49 @@
+{"query": "Up 50px", "cls": "mv:up", "value": 50, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Raise the headline 24 px", "cls": "mv:up", "value": 24, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "moev it up 20px", "cls": "mv:up", "value": 20, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "title ko 40 px upar karo", "cls": "mv:up", "value": 40, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The hero image is 150 pixels too low.", "cls": "mv:up", "value": 150, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Shift the banner up 200 pixels.", "cls": "mv:up", "value": 200, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Up thirty-two pixels", "cls": "mv:up", "value": 32, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "packshot ko 48px upar le jao", "cls": "mv:up", "value": 48, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The price is sitting 12px too low.", "cls": "mv:up", "value": 12, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Nudge up 3px", "cls": "mv:up", "value": 3, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "bump teh badge up 16 px", "cls": "mv:up", "value": 16, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Could you bring the photo up by two hundred pixels?", "cls": "mv:up", "value": 200, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "in sab ko 32 px upar karo", "cls": "mv:up", "value": 32, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "This card is a full 300 pixels below where it should be.", "cls": "mv:up", "value": 300, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Button up 24px", "cls": "mv:up", "value": 24, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Move the tagline up twenty-five pixels.", "cls": "mv:up", "value": 25, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "yeh icon 20px upar kar do", "cls": "mv:up", "value": 20, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "shfit the caption up 20px pls", "cls": "mv:up", "value": 20, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The background shape looks 250px too low.", "cls": "mv:up", "value": 250, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Take the frame up 300 pixels.", "cls": "mv:up", "value": 300, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "CTA up 32px", "cls": "mv:up", "value": 32, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "product shot ko 300 px upar le jao", "cls": "mv:up", "value": 300, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The subheading is about eight pixels too low.", "cls": "mv:up", "value": 8, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "move em up 60px plz", "cls": "mv:up", "value": 60, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Lift the offer text by 12 pixels.", "cls": "mv:up", "value": 12, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Higher", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Raise logo", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Bring this up", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "move teh sticker upp", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "shfit these higher pls", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "box up a lil plz", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "ise zara upar le jao", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala button thoda upar karo", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "selection ko upar shift kar do", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "photo zara upar karna", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The caption feels too close to the bottom edge.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "That badge looks like it's sitting a bit low.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "There's too much space above the headline.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The price feels like it's sagging down there.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The product shot is lower than I'd like.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Can you slide the card a little higher?", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Bump the subheading toward the top.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Move them straight up, please.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Lift that shape a touch.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "I'd like the CTA to sit higher.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "up a smidge", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "drag the frame up a bit", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "Take the hero image higher.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}
+{"query": "The offer text is sitting too low for this layout.", "cls": "mv:up", "value": null, "batch": "mv:up/1", "model": "gpt-6.2-sol"}

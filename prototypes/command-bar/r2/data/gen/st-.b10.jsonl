@@ -1,0 +1,50 @@
+{"query": "Remove the strikethrough from the selected text.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Uncross the headline.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Take the line through the title off.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Turn off strikethrough on the subheading.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Clear the strike formatting from the tagline.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Please remove the line that runs through the CTA text.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Undo the strikethrough on the button label.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Get rid of the line through the price.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "I don't want the offer text crossed out.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Can you unstrike the caption?", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Switch strikethrough off for the body copy.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Remove the cross-out on the disclaimer.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Uncross this quote, please.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Take the strikethrough off the hashtag.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Remove the line through the date.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "It shouldn't be struck through.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "No strikethrough on this selection, please.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Drop the strike from the footer text.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "This heading looks like it's been canceled.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "That line through the promo code makes it look expired.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "The RSVP label has an annoying line right through the letters.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "The event date looks crossed out for no reason.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "The line through the product name is distracting.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "The menu item looks like it's been crossed off.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "That strike through the opening hours makes them look outdated.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "The line through the contact email makes it look invalid.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Is text ka strikethrough hata do.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Headline ke beech se line hatao na.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Title pe jo cross-out hai woh nikaal do.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ka strikethrough off kar do please.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ke upar se jo line ja rahi hai, woh hata do yaar.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Button label ke letters ke beech wali line mita do.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Price ko uncross kar do bhai.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text pe strike nahi chahiye.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Caption se strikethrough hata dijiye.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy ke beech ki line nikaal do please.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer pe laga hua strike hatao.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Quote ka cross-out hata do na.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag pe line kyun hai, crossed out lag raha hai.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "Date ke beech wali line se lag raha hai event cancel hai.", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "strikethru hta do", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "ispe strke htao", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "price uncrss krdo", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "titel ka strike hta", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "bech ki line htao", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "strike of krdo", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "label ka strikthru hta", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "yeh crosout htao", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "naam ka strke nikalo", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}
+{"query": "dat pe strike hta", "cls": "st-", "value": null, "batch": "st-/10", "model": "gpt-6.2-sol"}

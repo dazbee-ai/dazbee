@@ -1,0 +1,46 @@
+{"query": "Send the selection backward one layer.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Move the headline down one spot in the layer stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Push the title just behind the layer directly below it.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Drop the subheading one level in the stacking order.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Put the tagline one layer farther back.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Send the CTA back a single step in the stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Move the button behind the very next layer down.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Bump the price down one notch in the layer order.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Lower the offer text by one layer, please.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Take the caption one step back in the stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Send the logo backward once.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Shift the product shot one position toward the back of the stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Put the packshot right behind the layer immediately underneath it.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Move the hero image down exactly one position in the layers.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Nudge the photo back one layer.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Can you put the badge one step lower in the stack?", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Could you drop the sticker behind just the next layer down?", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "One layer back for the icon, please.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The shape needs to go back a single layer.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Move these down one step in the stacking order.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh box layer stack mein ek step neeche kar do.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Card ko bas ek layer peeche bhej do na.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko stack mein ek position neeche le jao, please.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko sirf ek layer peeche kijiye.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Frame ko ek step backward kar do yaar.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Isko layers mein bas ek slot neeche karo.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Inko ek hi layer peeche bhejo bhai.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala stack mein ek notch neeche chahiye.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ko uske just neeche wali layer ke peeche kar do.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ko ek baar Send Backward kar do.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ko stack mein ek step peeche karna hai.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Price tag ko layer order mein sirf ek jagah neeche le jao.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The headline is one layer too far forward.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The button's sitting one spot too high in the stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The badge is on top of the layer it should be right behind.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The caption is one step too close to the front of the stack.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "That sticker is covering the one layer it should sit directly behind.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "This card looks off sitting one layer ahead of where it belongs.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh icon stack mein ek layer zyada aage hai.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "The photo's just one notch too far forward in the layer order.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ek layr piche", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Btn ek layer pichhe kro", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Ye wala ek step bak krdo", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Bnr ek layr peechhe", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Send it back by one stacking position.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}
+{"query": "Step the selected elements backward one layer.", "cls": "order:backward", "value": null, "batch": "order:backward/10", "model": "gpt-6.2-sol"}

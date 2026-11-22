@@ -1,0 +1,49 @@
+{"query": "Uppercase", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Block capitals", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Caps only", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Uppercase headline", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Capitalize every letter", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Make it uppercase", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Title in caps", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Set the subheading in all capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Put the tagline in ALL CAPS.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Can you make every letter in the CTA uppercase?", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Switch the button label to block capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Make the price text all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Use uppercase for the offer text.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Turn the whole caption into capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Set all of this body copy in uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "I want the disclaimer in all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Could the entire quote be in capital letters?", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Uppercase all the letters in this hashtag.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Put the date text in block capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "make it upercase pls", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "all capz on this", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "titl in all caps plz", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "upppercase the tag line", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "evry letter in caps pls", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "this lable needs all caps", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "make the captin all capitls", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "pls put the whole thing in uppr case", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "all caps for teh footer", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "block capz for this bit", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "ise all caps mein kar do", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala uppercase karna", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "headline ke saare letters caps mein chahiye", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "poora title capital letters mein daal do", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "zara button ka text all caps kar do", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "iss caption ko uppercase mein likho", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "tagline poori caps mein honi chahiye", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "jo select kiya hai usko block capitals mein karo", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "offer text ka har letter uppercase kar do", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "yeh quote pura capital mein chahiye", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The headline's still in title case instead of all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The button label looks wrong with lowercase letters.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The promo code isn't all uppercase yet.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The name on this badge still has lowercase letters in it.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "This reads like a sentence when it should be in block capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "Only the first letter of the section label is capitalized right now.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The lowercase letters in the banner text look out of place.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The event name is still mixed case, not all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The sale sticker was supposed to be in all capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}
+{"query": "The lettering on this tab isn't uniformly uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/1", "model": "gpt-6.2-sol"}

@@ -1,0 +1,50 @@
+{"query": "Delete the selection.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Get rid of this headline.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Remove the title, please.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Trash this subheading.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Bin the tagline.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Ditch the CTA.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Take this button out.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Lose the price.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Can you delete this offer text?", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Please drop the caption.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Remove these.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Get them off the canvas.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "I don't want this card here.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "We don't need this banner.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "This stray icon is just visual clutter.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "That extra frame is doing nothing for the layout.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "The photo looks out of place here; I'd rather go without it.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "This duplicate logo shouldn't be on the page.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "The layout was cleaner without this background shape.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "That badge adds nothing but clutter.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "This second packshot is redundant.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "This box makes the whole thing feel busier than it needs to be.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Laser-focused on one thing: delete this sticker.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Just delete it.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Take the hero image off the page.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala hata do.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko delete kar do na.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, ye sticker nikaal do.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Please ye laal badge hata dijiye.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Yaar is box ko mita do.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Jo select kiya hai, usko delete karo.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Ye beech wala icon hatao.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Dono selected shapes nikaal do please.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Neeche wala caption hata dijiye.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Is product shot ko yahan se hata do.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Ye neela button nahi chahiye, hata do.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Ye tagline bas jagah le rahi hai.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Is extra photo ke bina design zyada saaf lagta hai.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Yaar ye banner bilkul faltu lag raha hai.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "Ye duplicate price yahan nahi hona chahiye.", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "ye hta do", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "isko delte kro", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "logo htao plz", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "ye nikaldo", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "caption mta do", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "ye stiker hta", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "isko delet krdo", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "ye titl htao", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "inhe hta do", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}
+{"query": "btn nikaal pls", "cls": "del", "value": null, "batch": "del/10", "model": "gpt-6.2-sol"}

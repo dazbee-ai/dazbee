@@ -1,0 +1,50 @@
+{"query": "Send the selection to the very back.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Put the headline behind everything else.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Move the title to the bottom of the layer stack.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Place the subheading underneath every other layer.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Make the tagline the backmost object.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Send the CTA all the way to the back.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Put the button below all the other layers.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Move the price behind absolutely everything else.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Set the offer text as the lowest layer.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Can you put the caption behind all the other elements?", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Logo to the very back, please.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Drop the product shot to the bottom of the stack.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Send this packshot behind every other object.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Put the hero image at the very bottom of the layer order.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Send these to back.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Put them behind everything else on the canvas.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Ise zara sabse peeche bhej do.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala layer stack mein ekdum neeche kar do.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ko baaki sab layers ke neeche daal do na.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Badge ko sabse peeche rakh do yaar.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Ye sticker har doosri layer ke peeche chahiye.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Icon ko bilkul last mein rakho, sab layers ke neeche.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Laal shape ko send to back kar do.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Is box ko ekdum bottom layer pe le jao please.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, card ko baaki sab cheezon ke peeche bhej do.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko layer order mein sabse neeche kijiye.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko sab layers ke peeche kar do na.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Frame ko ekdum peeche bhejo, baaki sab layers ke neeche.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "In dono ko poore stack ke neeche daal do.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "Ye selected cheez sabse neeche wali layer honi chahiye.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "This looks wrong sitting above other layers; it belongs right at the bottom of the stack.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The logo is still in front of some things when it should be behind everything.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The photo looks out of place anywhere but the very back.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker is still too high in the layer stack. It should be the bottommost layer.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "There shouldn't be a single layer underneath this box.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The banner shouldn't be in front of anything at all.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "This card is meant to sit behind the whole design, not just the text.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "It looks off with anything stacked behind it.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The background shape still has layers under it, which doesn't look right.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot is stuck in the middle of the stack when it belongs behind the lot.", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "ise sbse piche kro", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "sbse peechhe bhejo", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "logo ko send to bck kro", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "ye ekdm bckmost kro", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "btn ko sbse piche", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "sb layers k niche daalo", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "foto sbke piche kro", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "isko vry back me kro", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "card sbse peeche plz", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}
+{"query": "ye dono sb layers se niche", "cls": "order:back", "value": null, "batch": "order:back/10", "model": "gpt-6.2-sol"}

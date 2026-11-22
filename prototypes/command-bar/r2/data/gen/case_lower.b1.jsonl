@@ -1,0 +1,49 @@
+{"query": "all lowercase", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "small letters only", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "no capitals", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "lowercase this", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "lowercase the headline", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Put the title in all lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Make every letter in the subheading lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Set the tagline in lowercase only.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Change the CTA text to lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Can the whole button label be in small letters?", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Make any letters in the price lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Switch the offer text to all lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Use lowercase throughout the caption.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Put the entire body copy in lowercase, please.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Make the disclaimer all lowercase, even the first letter.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Convert the quote to lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Make the hashtag lowercase all the way through.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Lowercase the letters in the date.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Set the selection to lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "make it all lowercas pls", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "lowrcase the badge txt", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "all smal leters plz", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "put teh footer in lowercase", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "can u make the logo text all lowecase", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "no capitel letters in the byline pls", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "the whole menu label in lowercse thx", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "mak evry letter lowercase", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "turn this into all lower casee", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "lowercase the hole product name", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala pura lowercase kar do", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "title ke saare letters small kar do", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "is caption mein koi capital letter mat rakho", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "button ka text pura lowercase chahiye", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "tagline ko bas small letters mein rakho", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "is heading ko zara all lowercase mein kar do", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "yeh naam pura lowercase mein likh do", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "offer line ke sab letters lowercase kar dena", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "isme ek bhi capital letter nahi chahiye", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "jo text select hai usko small letters mein kar do", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The capitals in this heading feel shouty. I was going for an all-lowercase look.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The section label looks out of place next to the other all-lowercase labels.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "That capital at the start of the otherwise lowercase caption is bugging me.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The mixed case in this handle looks off. The style here is lowercase only.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "Those caps in the URL are throwing off the all-lowercase look.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The fine print still has capitals, but it's supposed to be all lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The card title feels too formal with any uppercase at all.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The capitals in that short bio don't fit the rest of the lowercase layout.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "This pull quote looks wrong with capital letters in it.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}
+{"query": "The RSVP label is the odd one out; every other label is entirely lowercase.", "cls": "case:lower", "value": null, "batch": "case:lower/1", "model": "gpt-6.2-sol"}

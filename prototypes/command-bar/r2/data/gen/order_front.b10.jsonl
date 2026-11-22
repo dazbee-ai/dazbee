@@ -1,0 +1,50 @@
+{"query": "Bring the selection to the very front.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Put the headline on top of every other layer.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Move the title to the front of the stack.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Bring the subheading all the way forward.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Make the tagline the frontmost element.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Place the CTA in front of everything else.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Move this button to the top of the layer stack.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Set the price to the highest stacking order.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Put the offer text ahead of every other object in the stack.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Bring the caption right to the front, please.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "The logo should sit in front of every other element.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Can you put the product shot above all the other layers?", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Bring the packshot to the absolute front.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Put the hero image at the very top of the layer order.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Bring these to the front as a selection.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Isko layer stack mein sabse upar kar do.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ko sab layers ke aage le aao na.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh badge ekdum front pe chahiye.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Sticker ko baaki sab ke aage rakh do, please.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, icon ko layers mein sabse upar kar do.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh shape sabke aage chahiye, ekdum front mein.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Box ko layer stack ke top pe le jao.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Card ko zara saari layers se upar rakho.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko bilkul front pe le aao yaar.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ko bhi stack mein sabse upar kar do.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Jo frame select hai, usko sabke aage kar dijiye.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "In sabko layer stack ke ekdum front pe le aao.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala sabse aage kar do, layers mein.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "I don't want any other layer covering this photo.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "The badge still looks buried. Nothing should be layered over it.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "The headline looks wrong with other elements sitting in front of it.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "That sticker isn't the topmost layer like it should be.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Why is anything stacked above the price?", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "The logo looks tucked behind the design when it should be out in front of all of it.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "The button still isn't at the very front.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "These are still sitting under other layers when they should be above them all.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh CTA abhi bhi daba hua lag raha hai, iske aage koi layer nahi honi chahiye.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Photo sabke aage honi chahiye thi, abhi bhi peeche lag rahi hai.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "There shouldn't be anything layered over the caption.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "That frame looks buried in the stack instead of sitting on top of it.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "isko ekdum frnt krdo", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "logo sbsse aage plz", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "badge bilkul frnt pe", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "ise layrs me sbse upr", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "cta frntmost krdo", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "ye sabke age kro", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "stikr ko ekdm frnt", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Move them in front of all the unselected objects.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "Stack this above everything else.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}
+{"query": "All the way to the front with this one.", "cls": "order:front", "value": null, "batch": "order:front/10", "model": "gpt-6.2-sol"}

@@ -1,0 +1,49 @@
+{"query": "Rotate the headline 180° counterclockwise.", "cls": "rot-", "value": 180, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Turn the title left by 72 degrees.", "cls": "rot-", "value": 72, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Can you rotate the subheading 40° anticlockwise?", "cls": "rot-", "value": 40, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Could you please give the tagline a one hundred eighty degree counterclockwise turn?", "cls": "rot-", "value": 180, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "CTA ko 2 degree left ghumao", "cls": "rot-", "value": 2, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Give the button a -7° turn.", "cls": "rot-", "value": 7, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "hey can you turn the price five degrees to the left please", "cls": "rot-", "value": 5, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Rotate the offer text 45° CCW.", "cls": "rot-", "value": 45, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Caption ko 60 degree anticlockwise kar do", "cls": "rot-", "value": 60, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Could the logo be rotated by 270 degrees counterclockwise?", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Give the product shot a 270° left turn.", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Please apply a rotation of minus 300 degrees to the packshot.", "cls": "rot-", "value": 300, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Spin the hero image 20° anticlockwise.", "cls": "rot-", "value": 20, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "uh just turn the photo twenty degrees to the left for me", "cls": "rot-", "value": 20, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Badge ko 40 degree baayen ghumana hai", "cls": "rot-", "value": 40, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Turn this sticker counterclockwise by 60°.", "cls": "rot-", "value": 60, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Can the icon go 90 degrees to the left?", "cls": "rot-", "value": 90, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Give that shape one full 360° turn anticlockwise.", "cls": "rot-", "value": 360, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Rotate the box by -8°.", "cls": "rot-", "value": 8, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind turning the card 150 degrees counterclockwise?", "cls": "rot-", "value": 150, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Banner ko please 200 degrees left rotate karo", "cls": "rot-", "value": 200, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "yeah so rotate the background shape ten degrees anticlockwise", "cls": "rot-", "value": 10, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Turn the frame 45° to the left.", "cls": "rot-", "value": 45, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Can you give this a 180° anticlockwise spin?", "cls": "rot-", "value": 180, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Please rotate it by minus 200 degrees.", "cls": "rot-", "value": 200, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Inko 200 degree counterclockwise ghuma do", "cls": "rot-", "value": 200, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Could you turn them 135 degrees left, please?", "cls": "rot-", "value": 135, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Rotate the selection forty degrees CCW.", "cls": "rot-", "value": 40, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Nudge the arrow's angle by -8°.", "cls": "rot-", "value": 8, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "um turn the illustration 270 degrees to the left please", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Watermark ko 72 degree left ki taraf ghumao", "cls": "rot-", "value": 72, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Spin the monogram counterclockwise through 270°.", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Could you apply a -270° rotation to the selected group?", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Rotate the footer text 120° anticlockwise.", "cls": "rot-", "value": 120, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Can you tilt the speech bubble three degrees to the left?", "cls": "rot-", "value": 3, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Ye label 8 degrees anticlockwise ghuma do please", "cls": "rot-", "value": 8, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Give the ribbon a 15° counterclockwise twist.", "cls": "rot-", "value": 15, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "when you get a sec could you rotate the thumbnail 75 degrees to the left", "cls": "rot-", "value": 75, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Rotate the emblem another 270° anticlockwise.", "cls": "rot-", "value": 270, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Is circle ko 180 degree baayen ghumao", "cls": "rot-", "value": 180, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Tip the callout 5° to the left.", "cls": "rot-", "value": 5, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Would you please apply a rotation of minus eight degrees to the text box?", "cls": "rot-", "value": 8, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Can we rotate the portrait 75° CCW?", "cls": "rot-", "value": 75, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "uh yeah give the rectangle a 12 degree counterclockwise turn", "cls": "rot-", "value": 12, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Give the wordmark a half-turn of 180° to the left.", "cls": "rot-", "value": 180, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Could you rotate the swatch by -90°?", "cls": "rot-", "value": 90, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Spin the seal 360 degrees counterclockwise.", "cls": "rot-", "value": 360, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Is doodle ko 150 degrees anticlockwise ghumana hai", "cls": "rot-", "value": 150, "batch": "rot-/0", "model": "gpt-6.2-sol"}
+{"query": "Please give the selected graphic a 200° turn to the left.", "cls": "rot-", "value": 200, "batch": "rot-/0", "model": "gpt-6.2-sol"}

@@ -1,0 +1,49 @@
+{"query": "Move the headline down 250 px.", "cls": "mv:down", "value": 250, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Can you drop the product shot by 50 pixels?", "cls": "mv:down", "value": 50, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The title looks 24 px too high.", "cls": "mv:down", "value": 24, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "yeh wala 4 px neeche kar do", "cls": "mv:down", "value": 4, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Could you please bring the subheading down by 30 pixels?", "cls": "mv:down", "value": 30, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "um can we take the hero image down like 200 pixels", "cls": "mv:down", "value": 200, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The badge is sitting 2 px too high.", "cls": "mv:down", "value": 2, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "CTA ko 8 pixels neeche le jao", "cls": "mv:down", "value": 8, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Could the price come down eight pixels?", "cls": "mv:down", "value": 8, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Shift these down 48px.", "cls": "mv:down", "value": 48, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The caption feels three pixels too high.", "cls": "mv:down", "value": 3, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Please nudge the logo down by 8 px.", "cls": "mv:down", "value": 8, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "haan is box ko 48 pixels neeche kar do please", "cls": "mv:down", "value": 48, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind moving the offer text ten pixels lower?", "cls": "mv:down", "value": 10, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The sticker looks about 5 pixels too high to me.", "cls": "mv:down", "value": 5, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Bring the banner down by 48 pixels.", "cls": "mv:down", "value": 48, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Can the background shape sit 64 px lower?", "cls": "mv:down", "value": 64, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "uh yeah move that photo down 100 pixels please", "cls": "mv:down", "value": 100, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "packshot ko 25 px neeche shift karo", "cls": "mv:down", "value": 25, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "I'd like the frame to sit five pixels lower, please.", "cls": "mv:down", "value": 5, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The button sits 4 px above where it should be.", "cls": "mv:down", "value": 4, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Any chance you could nudge the tagline down 8 pixels?", "cls": "mv:down", "value": 8, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "in sab ko 100 px neeche le jao", "cls": "mv:down", "value": 100, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Lower the card by fifteen pixels.", "cls": "mv:down", "value": 15, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "This looks a little too high.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Can you shift the lockup down a bit?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "ise zara neeche le jao", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "I think the footer text would sit better a little lower, if you could move it down.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "uh yeah just scoot those down a touch", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Bring the illustration down.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The avatar feels too close to the top edge.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Could the text block sit a little lower?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "yeh arrow thoda neeche karo", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Drop the selection a bit.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The discount tag is riding a little high.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Could you please move the mockup a little farther down the page?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "okay can we just bring them down a bit", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "divider ko halka sa neeche shift karo", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind sliding the quote down a touch?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "The seal looks like it's sitting too high.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Move the image group lower.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "haan woh wali line thodi neeche kar do", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Can you nudge the disclaimer down?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "That circle is a bit higher than I'd like.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "If you could lower the contact details a little, that would be great.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "um just move it down a smidge please", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "qr code ko zara neeche le aao", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Could the sponsor logos come down a little?", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}
+{"query": "Slide the blue rectangle down a notch.", "cls": "mv:down", "value": null, "batch": "mv:down/2", "model": "gpt-6.2-sol"}

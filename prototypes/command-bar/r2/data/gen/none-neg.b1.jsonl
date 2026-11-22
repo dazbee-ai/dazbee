@@ -1,0 +1,50 @@
+{"query": "Cancel", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Never mind", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Stop", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "No changes", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Leave it", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Keep as is", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Not this one", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Don't apply", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Skip that", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Hold off", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "dont make the headline bold", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "dont chnage the title", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "nevermnd the subheading edit", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "leave teh tagline alone", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "cnacel the cta change", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "dont resize tht button pls", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "keep the price as-is plz", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "dont toch the offer text", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "nah dont crop the photo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "stop messin w the caption", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Logo ko mat chhedo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Product shot ko waise hi rehne do", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Packshot ka edit cancel karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Hero image crop mat karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Badge ko abhi change mat karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala sticker aise hi rehne do", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Icon ka color mat badlo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Shape ko move mat karna", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Box ka edit rehne do yaar", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "In cards ko mat badlo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "The banner already looks right to me.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "That preview makes the background shape look way too busy.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "The frame was fine before this preview.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "I liked the logo better the way it was.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "The title looks too heavy in this preview.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "That crop makes the hero image feel cramped.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "The button looks better with its current styling.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "This preview makes the price harder to read.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "I don't think the caption needs anything.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Those stickers already look good where they are.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Please leave the selection exactly as it is.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Actually, don't go through with that edit.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Can we leave the packshot untouched?", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "I changed my mind about editing the badge.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Keep these the way they are.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Don't do anything to them.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Let's not update the offer text after all.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Stop the edit on this card.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Don't apply that to this.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}
+{"query": "Leave the photo just like it is.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/1", "model": "gpt-6.2-sol"}

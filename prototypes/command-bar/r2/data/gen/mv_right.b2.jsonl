@@ -1,0 +1,50 @@
+{"query": "Can you move the headline 8 pixels to the right?", "cls": "mv:right", "value": 8, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Right 16px", "cls": "mv:right", "value": 16, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The subheading is thirty pixels too far left.", "cls": "mv:right", "value": 30, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could the tagline be shifted 300 pixels to the right?", "cls": "mv:right", "value": 300, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Please slide the CTA 500 px to the right.", "cls": "mv:right", "value": 500, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "uh can you move the button like six pixels to the right", "cls": "mv:right", "value": 6, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "250px right", "cls": "mv:right", "value": 250, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The price is sitting 100 pixels too far left.", "cls": "mv:right", "value": 100, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind nudging the offer text 150 pixels to the right for me?", "cls": "mv:right", "value": 150, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Move the caption ten pixels right.", "cls": "mv:right", "value": 10, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Can the logo go 64px farther right?", "cls": "mv:right", "value": 64, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "yeah just move the product shot 200 pixels to the right please", "cls": "mv:right", "value": 200, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Right by 20px", "cls": "mv:right", "value": 20, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The packshot feels too far left by 120 pixels.", "cls": "mv:right", "value": 120, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could you bump the hero image four pixels to the right?", "cls": "mv:right", "value": 4, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Shift this right 200px.", "cls": "mv:right", "value": 200, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The photo would sit better 250 pixels to the right.", "cls": "mv:right", "value": 250, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "um just nudge the badge three pixels right", "cls": "mv:right", "value": 3, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "4px rightward", "cls": "mv:right", "value": 4, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could you please scoot the sticker 12 px to the right?", "cls": "mv:right", "value": 12, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The icon is 250px left of where it should be.", "cls": "mv:right", "value": 250, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Push the shape right by twenty-five pixels.", "cls": "mv:right", "value": 25, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Nudge right 8px", "cls": "mv:right", "value": 8, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "so could you move these 100 pixels over to the right for me", "cls": "mv:right", "value": 100, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "I'd like the background shape moved one hundred pixels to the right, please.", "cls": "mv:right", "value": 100, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Can you move the box to the right?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Nudge right", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The card looks too far left.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could the banner sit a little farther to the right?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "uh yeah just scoot the frame over to the right a bit", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Shift right", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The title is sitting too far to the left.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Would you mind sliding the selection a bit to the right, please?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Right a smidge", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Can you bump them over to the right?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The watermark feels a little too far left.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "hey could you just slide it a touch farther right for me", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Scoot it right", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could the footer text be moved to the right?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "This illustration is too far left for my liking.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "If you could move the divider a little to the right, that would be great.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Further right", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "um can we get the little arrow a bit more to the right please", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "The callout looks like it's sitting too far left.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Can you bring the avatar over to the right a touch?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Slide this right", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "I'd like the text block a little farther to the right, please.", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "the date is kind of too far to the left", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "Could you move the swatches to the right for me?", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}
+{"query": "just push that ribbon over to the right a bit please", "cls": "mv:right", "value": null, "batch": "mv:right/2", "model": "gpt-6.2-sol"}

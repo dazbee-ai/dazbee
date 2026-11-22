@@ -1,0 +1,50 @@
+{"query": "Could you please right-align the headline within its current text box?", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like each line of the title to end at the right edge of its text box, please.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Would you set the paragraph alignment for the selected subheading to Right?", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Please make the lines of the tagline line up on the right within the box they're already in.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Could you change the alignment of the call-to-action text so it sits flush right inside its box?", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "I'd appreciate it if you could set the button label's text alignment to right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "When you get a chance, please align the price text to the right within its own text box.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind making the selected offer copy right-aligned within its existing box?", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "um can you make the caption text line up on the right inside the box", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "yeah just right align the body copy in its box", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "so like have the disclaimer lines all end at the right side of the box", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "hey can you put the quote on right alignment please", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "uh the hashtag text can you make it flush right in there", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "actually can you set the date text to align right", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "okay so this text should line up along the right edge of its own box", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "could you just make the words in the selection line up from the right", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "right aling the byline", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "set the footnote text to rigth align", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "righ align the event name in its box", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "make the adress text flush rigt", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "txt alignmnt to right for the credits", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "aline the product name text rite pls", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "put the promo code on rite text align", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "right alingment for this lil label pls", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right-align", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Align text right", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Flush right", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right justify", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right-align subtitle", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right-align text", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right text alignment", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Right-align price", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The caption looks off with a ragged right edge like that.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The headline is still hugging the wrong side of its text box; it belongs on the right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "I don't like how the footer copy is centered in its box. The lines should end flush right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The quote looks awkward with the left edge lined up instead of the right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Those uneven line endings on the right side of the disclaimer are bugging me.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The RSVP text looks odd sitting in the middle of its box instead of lining up on the right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The speaker's name is hugging the left side of its text box when it should be hugging the right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "The address block looks messy with the line ends all over the place on the right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Set this text box's paragraph alignment to Right.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Line up the ends of the menu description with the right edge of its box.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Use right alignment for the selected chapter heading.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Make the text in the sale badge flush with the right side of its text box.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Switch the testimonial to right-aligned text.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Have every line of the venue info end at the right text margin.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Align the list of ingredients to the right inside the current text box.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Text align: right for the page number.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Give the selected artist bio a flush-right edge.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}
+{"query": "Change only the text alignment to right; leave the box where it is.", "cls": "ta:right", "value": null, "batch": "ta:right/0", "model": "gpt-6.2-sol"}

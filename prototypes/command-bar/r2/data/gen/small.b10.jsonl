@@ -1,0 +1,46 @@
+{"query": "Shrink the headline by 10%.", "cls": "small", "value": 10, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ka size 50% kam kar do.", "cls": "small", "value": 50, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Make the subheading 15% smaller, please.", "cls": "small", "value": 15, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "This product shot is about 30% too big for the layout.", "cls": "small", "value": 30, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Reduce the background shape by 80%.", "cls": "small", "value": 80, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "tagline 30% chota krdo", "cls": "small", "value": 30, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka font 5% chhota karo na.", "cls": "small", "value": 5, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Scale these down by thirty percent.", "cls": "small", "value": 30, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Make the sticker 80% smaller.", "cls": "small", "value": 80, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "icon 80% chhota kro", "cls": "small", "value": 80, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Knock 25% off the size of the price text.", "cls": "small", "value": 25, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot is still huge. It needs to be 80% smaller.", "cls": "small", "value": 80, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Shrink the watermark by ninety percent.", "cls": "small", "value": 90, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Title ka font 20% kam kijiye.", "cls": "small", "value": 20, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "box 10% smller pls", "cls": "small", "value": 10, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The offer text could stand to be 15% smaller.", "cls": "small", "value": 15, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Reduce the frame size by 50%.", "cls": "small", "value": 50, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Hero image ko 30% chhota kar do yaar.", "cls": "small", "value": 30, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Make this arrow 90% smaller.", "cls": "small", "value": 90, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Could you shrink the card by thirty percent?", "cls": "small", "value": 30, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "cta 15% chota plz", "cls": "small", "value": 15, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Make it smaller.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala thoda chhota kar do na.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The headline is way too big.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "logo chota kr", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Reduce the font size of the offer text.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Can you scale down the photo a bit?", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Button kuch zyada hi bada lag raha hai.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "ise chhota kro pls", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The product shot is taking up too much space.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Shrink these a little.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka font aur chhota kijiye.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker looks oversized.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Bring down the size of the price text.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "badge chota kardo plz", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "This frame feels too big for the design.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ko zara chhota kar do bhai.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Scale down the selection.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The tagline looks huge at this size.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "inko chota krdo", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Make the background shape a touch smaller.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ka size kam karo please.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "That icon is bigger than it needs to be.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "Shrink the card for me.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "hero img chota kro", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}
+{"query": "The CTA text feels too large.", "cls": "small", "value": null, "batch": "small/10", "model": "gpt-6.2-sol"}

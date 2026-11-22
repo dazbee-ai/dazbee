@@ -1,0 +1,49 @@
+{"query": "Flip horizontal", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror left-right", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Horizontal mirror", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip it horizontally", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Reflect across vertical", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror these horizontally", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip this left-to-right", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Could you please mirror the headline horizontally so its left and right sides trade places?", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like the selected title reflected across its vertical centerline, please.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "hey can you just flip the subheading left to right for me", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "um yeah mirror the tagline horizontally so it faces the other way", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "would you mind flipping the button left to right not top to bottom", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The arrow on this CTA faces right and I need the whole CTA mirrored to face left.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Apply a horizontal flip to the price callout.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Can you make the offer text a left-right mirror of what it is now?", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The caption is the wrong way around; I was expecting its left-right reflection.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror the logo lockup across its vertical axis.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The product shot is facing out of the layout instead of into it; it needs to face the opposite side.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "H-flip the packshot.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The subject in the hero is looking screen right when they should be looking screen left.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "could you make this photo face the other way like a mirror image", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Swap the left and right sides of the badge as a mirror flip.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "This sticker is pointing left when it should point right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Give the icon a left-right reflection.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror the shape side to side.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "I need the box reflected over a vertical line through its center.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Could you show me the horizontally mirrored version of this card?", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The banner feels backwards; the right edge should be on the left and the left edge on the right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The slant on the background shape runs the wrong way; I need its horizontal reflection.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip the selected frame on the horizontal axis, left to right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "yeah just mirror this selection left to right please", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip them horizontally", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Make this a horizontal mirror image of itself.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Horizontal flip on the eyebrow layer, please.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror the kerned wordmark as a unit, left to right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip the selected illustration left-to-right on the artboard.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The mascot's looking off to the left, but it should be looking to the right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "hey so for this little ribbon can you just make it the left right mirror version", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Reflect the chevron left to right.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The notch is on the wrong side of the ticket; I need the mirror version with it on the other side.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Would you be able to mirror the selected mockup horizontally for me?", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Flip the glyph so what’s on the left is on the right and vice versa.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Mirror this cutout across the vertical centerline.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "The speech bubble tail is on the left, but it needs to be on the right as a mirror image.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Side-to-side flip", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "can we get the selected portrait facing the opposite side with a horizontal mirror", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Apply Flip Horizontal to the footer mark.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "I'd prefer the left-right mirror of this corner graphic.", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}
+{"query": "Could you flip over the selected texture from left to right, as if it were in a mirror?", "cls": "flipH", "value": null, "batch": "flipH/0", "model": "gpt-6.2-sol"}

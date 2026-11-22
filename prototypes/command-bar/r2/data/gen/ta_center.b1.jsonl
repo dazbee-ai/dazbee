@@ -1,0 +1,50 @@
+{"query": "Center-align text", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center the lines", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Text alignment: center", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center-align headline", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center-align caption", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center paragraph alignment", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Set the title's alignment to center.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Can you center-align this subheading?", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Align the tagline to the center of its text box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Set the CTA text to centered alignment.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center the button label within its own text box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Make the price text center-aligned.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center each line of the offer text in its box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Use centered alignment for the selected body copy.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center-align the disclaimer in its text box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Put each line of the quote in the horizontal center of its box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Apply center alignment to the hashtag.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Could you change the date's text alignment to center?", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Set it to center alignment.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center the text inside the selected box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "centar align this txt", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "set hedaline aligment to center pls", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "cnter the lines in this textbox", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "make the prcie text centred plz", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "centrealign the captin", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "text aligment to centr", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "can u centre align the qoute", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "alignthe copy center in its box", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "iske text ko center align kar do", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "yeh headline center aligned chahiye", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "caption ki alignment center pe kar do", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "tagline ko uske text box ke beech mein align karo", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "is quote ki har line ko center mein align kar do", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "button label ka text center align karna hai", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "price ka text zara center aligned kar do", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "yeh jo select kiya hai, iska text alignment center rakho", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The lines are hugging the left edge of the box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The subtitle reads like a right-aligned block, which looks odd here.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The quote feels lopsided with all the lines starting at the left edge.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "There's way more space to the left of the date than to the right inside its box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The caption looks off with its lines lined up on one edge instead of down the middle.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The price looks jammed against the right side of its text box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The text box is where I want it, but the lines inside it sit too far left.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "The disclaimer looks unbalanced with the short lines all hugging the right edge.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "I'd like the event name centered within its text box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Please switch the footer copy to centered text alignment.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Align the selected byline to the middle of its box horizontally.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Center the lines of the promo code text in their box.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Give the section heading centered alignment.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}
+{"query": "Use center alignment for the address lines.", "cls": "ta:center", "value": null, "batch": "ta:center/1", "model": "gpt-6.2-sol"}

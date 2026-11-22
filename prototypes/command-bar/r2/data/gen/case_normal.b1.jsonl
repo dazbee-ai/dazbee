@@ -1,0 +1,50 @@
+{"query": "Undo case transform", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Restore typed case", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Original capitalization", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Revert casing", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Use typed casing", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Unapply title case", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Remove uppercase styling", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Reset case styling", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Take the headline out of all caps and show it as typed", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Put the title back to the capitalization I entered", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Remove the automatic title casing on the subheading", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Show the tagline in its original case", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Turn off the forced uppercase on the CTA text", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Restore the button label's capitalization from before the case change", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Display the price exactly as typed, without the caps override", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Revert the case change on the offer text", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Use the caption's own capitalization instead of title case", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Remove the case transform from the body copy", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Make the disclaimer use its original casing again", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Keep the capitals in the quote where I originally typed them", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Restore the hashtag's case as entered", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Take the all-caps treatment off the date", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "undo teh caps thing on this", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "put it back how i typd it case-wise", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "remvoe auto titlecase from the event name", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "dont force caps on the footer just use what i typed", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "need the orginal casing on the byline pls", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "turn offf uppercase on the menu label", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "no case transfrom on the badge text pls", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "drop the tilte case on the section header, as typed pls", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "isko jaisa type kiya tha usi case mein kar do", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "headline pe jo all caps laga hai woh hata do", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "button label ki original casing wapas lao", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala title case hatao, jaise likha tha waise hi", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "caption ko wapas mere typed case mein dikhao", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "offer text pe uppercase force mat karo, jo type kiya tha wahi case rakho", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "is selection ka case change undo kar do", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "tagline pe auto capitalization nahi chahiye, original wala case rakho", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The opening line looks like it's shouting in all caps; it wasn't typed that way.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The card title has capitals on every word now, which isn't how I wrote it.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "That product name lost its mixed case when the caps style kicked in.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The forced uppercase on this little note feels way too loud.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The label shouldn't be picking up extra capitals from the title case setting.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The all-caps look on the RSVP line is overriding what I entered.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "This pull quote looked better with the capitalization I gave it.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The speaker's name isn't showing the capitalization I entered.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Why's the email address showing in all caps when I didn't type it like that?", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "The title case on the fine print looks odd; the case I typed was fine.", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Strip the casing override from the selected text", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}
+{"query": "Switch the promo code back to its as-entered case", "cls": "case:normal", "value": null, "batch": "case:normal/1", "model": "gpt-6.2-sol"}

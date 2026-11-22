@@ -1,0 +1,50 @@
+{"query": "Left-align the headline.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Set the title’s paragraph alignment to left.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Make the subheading flush left in its box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Align the tagline to the left edge of its own text box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Have each line of the CTA text start at the left margin.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Set the button label’s text alignment to left.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Can you left-align the price text inside its box?", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Make the offer copy read flush left.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Use left alignment for the caption.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Align the body copy along the left margin of its text box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Left-align the disclaimer text, please.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Set the quote flush left within its frame.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Text alignment for the hashtag: left.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Could the date be left-aligned within its box?", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Align the selected text left within the current box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Flush left, please.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Make all the lines in here share the same left edge.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Left-align the text, not the box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko box ke andar left align kar do.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh title baayen kinare se shuru hona chahiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ki lines box mein baayen taraf align kijiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ka alignment left kar do na.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ki har line box ke left margin se shuru karo.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Button label ka text left align karo, bhai.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Price ka text isi box mein left aligned chahiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Offer copy ko baayen kinare pe flush left kar do.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ki har line left se start ho, please.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy ko left align kar do yaar.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer ki lines box ke baayen kinare se shuru honi chahiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Is quote ko apne box mein left align kijiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala text baayen taraf se align kar do na.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Date ka text alignment left chahiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Iski lines ka left edge ek seedhi line mein chahiye.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The centered headline looks awkward; it needs a flush left edge.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The testimonial lines start all over the place instead of at the left margin.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "That right-aligned price looks wrong; it should start at the left of its box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The paragraph looks odd with its lines floating in the middle instead of starting flush left.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The caption would be easier to scan if every line started at the left edge.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The footer copy feels off without a consistent left edge.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The menu item looks stranded on the right side of its text box.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh title beech mein ajeeb lag raha hai, left aligned better lagega.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ki lines baayen kinare se shuru nahi ho rahi, isliye ajeeb lag raha hai.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "The centered disclaimer is hard to follow; the lines should start at the left margin.", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "ise left algn krdo", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "yeh lft align kro", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "titel left alin kr", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "tagline lft algn na", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "cption left aling kro", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "isko left alig kr", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}
+{"query": "price lft alin krdo", "cls": "ta:left", "value": null, "batch": "ta:left/10", "model": "gpt-6.2-sol"}

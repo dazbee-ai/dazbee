@@ -1,0 +1,50 @@
+{"query": "Could you please move the headline down by 120 pixels?", "cls": "mv:down", "value": 120, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "drop the title 32px", "cls": "mv:down", "value": 32, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "uh can we move the subheading down 16 pixels", "cls": "mv:down", "value": 16, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "nudge the taglien down 30 px", "cls": "mv:down", "value": 30, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like the selected CTA moved down by 300 pixels, please.", "cls": "mv:down", "value": 300, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Can you move the button 200px lower?", "cls": "mv:down", "value": 200, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "shift the price down 300 pixels", "cls": "mv:down", "value": 300, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "bump it down 3px", "cls": "mv:down", "value": 3, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "yeah just bring the offer text down thirty pixels", "cls": "mv:down", "value": 30, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could the caption be moved down by 48 pixels?", "cls": "mv:down", "value": 48, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "move the lgoo down 150px pls", "cls": "mv:down", "value": 150, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Slide the product shot down 32 pixels.", "cls": "mv:down", "value": 32, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "can you nudge the packshot down thirty-two pixels", "cls": "mv:down", "value": 32, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Please shift the selected hero image 60 pixels down.", "cls": "mv:down", "value": 60, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "uh just nudge the photo down 6 pixels", "cls": "mv:down", "value": 6, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "badge down 8px pls", "cls": "mv:down", "value": 8, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could you drop the sticker by 40 pixels?", "cls": "mv:down", "value": 40, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "move the icn down 15 px", "cls": "mv:down", "value": 15, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "so can we take this shape down 200 pixels", "cls": "mv:down", "value": 200, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Bring the box down 25 pixels, please.", "cls": "mv:down", "value": 25, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could you move the card down ten pixels?", "cls": "mv:down", "value": 10, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "lower the banner 300px", "cls": "mv:down", "value": 300, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind moving the background shape down by 32 pixels?", "cls": "mv:down", "value": 32, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "okay move this frame down 500 pixels", "cls": "mv:down", "value": 500, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "nudg these down 20px", "cls": "mv:down", "value": 20, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Move them down.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could you please move the entire selection a little lower on the canvas?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "um yeah scoot this down a bit", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "can u move the headlne down", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Can you bring the title down a little?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Lower the subheading.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "I'd appreciate it if you could shift the tagline slightly downward.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "hey can we put the cta a bit lower", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "buton down pls", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could the price sit a touch lower?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Slide the offer text down.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "so uh move the caption down a little", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Please bring the selected logo a little farther down the page.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "prodcut shot needs to go lower", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Can the packshot move down a bit?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Drop the hero image lower.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "i think the photo should come down a bit", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "nudge the badg dwn", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind sliding the sticker down a little?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Bump the icon down.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "uh could you shift the shape down for me", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "box a lil lower plz", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Could the card be moved farther down?", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "Take the banner down a notch.", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}
+{"query": "bring the frame down some", "cls": "mv:down", "value": null, "batch": "mv:down/0", "model": "gpt-6.2-sol"}

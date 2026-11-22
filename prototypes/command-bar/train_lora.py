@@ -34,6 +34,8 @@ def main():
     ap.add_argument("--init-from", help="an adapter to start from instead of a fresh one")
     ap.add_argument("--no-qat", action="store_true",
                     help="train on float weights (activations still A8); the export quantizes them")
+    ap.add_argument("--keep-epochs", action="store_true",
+                    help="also keep every epoch's adapter, for picking one by engine scores")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -164,6 +166,8 @@ def main():
                             for p, v in lora.items()},
                    "scale": float(scale), "base": args.checkpoint, "rank": args.rank, "seed": args.seed}
         write_adapter(os.path.join(args.out, "last.safetensors"), adapter)
+        if args.keep_epochs:
+            write_adapter(os.path.join(args.out, f"epoch-{epoch:02d}.safetensors"), adapter)
         if (vexact, -vloss) > best:
             best, stale = (vexact, -vloss), 0
             write_adapter(os.path.join(args.out, "best.safetensors"), adapter)

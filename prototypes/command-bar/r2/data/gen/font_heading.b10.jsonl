@@ -1,0 +1,50 @@
+{"query": "Set the selected text in the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Use our brand kit’s heading typeface for the headline.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Switch the title to the heading font from the brand kit.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Give this subheading the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Could you put the tagline in the kit’s heading typeface?", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Make the CTA text use our brand heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Apply the brand kit’s heading typeface to the button label.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Set the price in the kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Use the brand heading font on the offer text.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Change the caption’s font to the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Put this body copy in the brand kit’s heading typeface.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Use the kit’s heading font for the disclaimer, please.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "The quote should use the brand kit’s heading typeface.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Brand kit heading font for the hashtag.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Set the date in our brand’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Switch it to the kit’s heading typeface.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "I want this in the heading font from the brand kit.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Brand kit → heading font for this selection.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko brand kit ke heading font mein kar do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Title pe brand kit wala heading font laga do na.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh subheading brand kit ke heading font mein chahiye.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai tagline pe kit ka heading font laga do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "CTA text ko brand kit ke heading typeface mein kar dijiye.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Button label pe zara brand kit wala heading font laga do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Price ko hamari brand kit ke heading font mein rakho.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text pe brand kit ka heading font chahiye yaar.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka font brand kit ke heading font pe switch kar do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Is date pe brand kit wala heading font lagao please.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Bas is quote ka font brand kit wala heading font kar do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Isko brand kit ka heading typeface de do na.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Please yeh disclaimer brand kit ke heading font mein kar do.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag pe apni brand kit ka heading font laga dena.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "The event name looks off without the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "This headline still isn’t in our brand kit’s heading typeface.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "The font on this label doesn’t match the kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "The price looks out of place in anything but our brand heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "This footer note is still using a different font from the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "The RSVP text looks wrong in this font; it’s meant to be in the brand kit’s heading font.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "I don’t like how the pull quote looks without the kit’s heading typeface.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "This badge text isn’t using the heading font from our brand kit yet.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh title brand kit ke heading font ke bina ajeeb lag raha hai.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka font brand kit wale heading font se match nahi kar raha.", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "brnd kit ka heding font lgao", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "title pe brand kt ka hedng fnt", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "isko kit ka heding font krdo", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "price pe brnad kit ka heading fnt", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "tagline ko brandkit ka heding font do", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "cta pe kit wala hedng font lga", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "yeh brnd kit ke heading fnt me kro", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}
+{"query": "date pe brand kit ka hedng font plz", "cls": "font:heading", "value": null, "batch": "font:heading/10", "model": "gpt-6.2-sol"}

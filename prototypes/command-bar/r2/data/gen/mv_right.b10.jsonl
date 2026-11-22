@@ -1,0 +1,49 @@
+{"query": "Nudge the headline 10 px to the right.", "cls": "mv:right", "value": 10, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ko 5 px daayen kar do na", "cls": "mv:right", "value": 5, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Move the product shot sixty-four pixels right.", "cls": "mv:right", "value": 64, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The logo is 75 px too far left.", "cls": "mv:right", "value": 75, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "4px rite pls", "cls": "mv:right", "value": 4, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Is card ko 50 pixels right le jao please", "cls": "mv:right", "value": 50, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Shift these 24 px to the right", "cls": "mv:right", "value": 24, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The hero image is sitting 250 pixels left of where it belongs.", "cls": "mv:right", "value": 250, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "yeh badge 40px dayen krdo", "cls": "mv:right", "value": 40, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Scoot the price three pixels to the right.", "cls": "mv:right", "value": 3, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ko 200 px right shift karo", "cls": "mv:right", "value": 200, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The caption looks 3 px too far left.", "cls": "mv:right", "value": 3, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Slide the selected frame 500 px to the right.", "cls": "mv:right", "value": 500, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ko fifty pixels daayen le jaiye", "cls": "mv:right", "value": 50, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "icon 6px rght kr", "cls": "mv:right", "value": 6, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Bump the sticker 15 pixels to the right.", "cls": "mv:right", "value": 15, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The packshot is 120 px left of its intended spot.", "cls": "mv:right", "value": 120, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala box 20 px right kar do yaar", "cls": "mv:right", "value": 20, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Translate the selection 16 px to the right.", "cls": "mv:right", "value": 16, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Push the subheading eight pixels right.", "cls": "mv:right", "value": 8, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ko 200px daayen kar do bhai", "cls": "mv:right", "value": 200, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "25px dayn kro", "cls": "mv:right", "value": 25, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Move the offer text 120 pixels farther right.", "cls": "mv:right", "value": 120, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The background shape needs to sit 300 px farther right.", "cls": "mv:right", "value": 300, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Nudge the title a bit to the right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Ise zara daayen le jao", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The logo feels too far left.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "dayn krdo", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Slide the photo over to the right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala sticker thoda right karo na", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The price is sitting too far to the left.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Scoot them right a touch.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "badge rght kro", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Button ko daayen shift kijiye please", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "This card feels too close to the left edge.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Move the blue shape farther right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Is caption ko thoda aur right le jao", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Bump the selection right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "ye rite kr", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The CTA looks too far left under the headline.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Can you ease the packshot a little to the right?", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading zara daayen kar do yaar", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Shift these over to the right, please.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The frame is hugging the left margin.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "box dain kro", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Hero image ko thoda right le jao bhai", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Give the banner a little nudge to the right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "The tagline is sitting left of where it should be.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}
+{"query": "Move it a little farther right.", "cls": "mv:right", "value": null, "batch": "mv:right/10", "model": "gpt-6.2-sol"}

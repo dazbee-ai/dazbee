@@ -1,0 +1,50 @@
+{"query": "Ungroup the selection.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Break apart this group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Split the selected group into separate objects.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the headline, please.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Separate the pieces of the title group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the selected subheading.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Break up the tagline group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup all of these.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Release these layers from their group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Could you ungroup the CTA?", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Break the button group into its individual layers.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the price block.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Separate the elements in this offer text group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the caption block.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Break apart the logo group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the product shot and its grouped elements.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Separate the layers in the packshot group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the hero image block.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "This photo layout feels like one big lump with everything grouped together.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The badge pieces are stuck together as one group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker group looks too much like a single object.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "These icons are all bundled into one group, which isn't what I want.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The shapes look fused together because they're still grouped.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "This box still looks like one block instead of separate pieces.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The card is still one big group, but its parts should be separate.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The banner's pieces are still stuck in the same group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "The background shapes look like one object when they're grouped like this.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Everything in this frame is still bunched into one group.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala group tod do.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko ungroup kar do na.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Title group ke elements alag kar do.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading wala group ungroup kijiye.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ke layers group se alag karo.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, yeh CTA wala group tod do.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Button ke parts ko group se alag kar do please.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Price wala group khol do yaar.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text ke saare elements group se alag chahiye.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Is caption group ko zara tod do.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Logo group ke pieces alag kar do na.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Product shot wala group ek hi block jaisa lag raha hai, sab grouped hai.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Packshot ke layers abhi bhi ek group mein chipke hain yaar.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "Hero image wala group break kar do.", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "isko ungrop kro", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "grp todo plz", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "ye ungup krdo", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "badge ungrp kro", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "stikr grp todo", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "icons ungrup kro", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "shpes ka grp todo", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}
+{"query": "inhe grp se alg kro", "cls": "ungroup", "value": null, "batch": "ungroup/10", "model": "gpt-6.2-sol"}

@@ -1,0 +1,50 @@
+{"query": "90° left", "cls": "rot-", "value": 90, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "CCW 72°", "cls": "rot-", "value": 72, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "-35° rotation", "cls": "rot-", "value": 35, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "turn the headline anticlockwize 90 deg", "cls": "rot-", "value": 90, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "title ko 1 degree left ghumao", "cls": "rot-", "value": 1, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The subheading feels about 10° too far clockwise.", "cls": "rot-", "value": 10, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Rotate the tagline eight degrees counterclockwise.", "cls": "rot-", "value": 8, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "3° anticlockwise", "cls": "rot-", "value": 3, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "cta ko 3 deg ulta clockwise nahi, left ghumao", "cls": "rot-", "value": 3, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "spin the button 330° ccw", "cls": "rot-", "value": 330, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "330° CCW", "cls": "rot-", "value": 330, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "rotait the price 120 degrees to the left", "cls": "rot-", "value": 120, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The offer text would read better turned 30° to the left.", "cls": "rot-", "value": 30, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "caption ko 35 degree anticlockwise kar do", "cls": "rot-", "value": 35, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "logo ccw 2°", "cls": "rot-", "value": 2, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "turn the product shot thirty degrees anticlockwise", "cls": "rot-", "value": 30, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "packshot ko 120° left ki taraf ghumao", "cls": "rot-", "value": 120, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Rotate the hero image by -200°.", "cls": "rot-", "value": 200, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "the photo looks 25 degrees too far to the right rotation-wise", "cls": "rot-", "value": 25, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "1° left pls", "cls": "rot-", "value": 1, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "giv the badge a 135deg anticlockwse turn", "cls": "rot-", "value": 135, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "sticker ko 40 degree ccw ghumana hai", "cls": "rot-", "value": 40, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The icon is tilted three degrees too far clockwise.", "cls": "rot-", "value": 3, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Turn the shape left by 40°.", "cls": "rot-", "value": 40, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "20° CCW", "cls": "rot-", "value": 20, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "box ko 45 degrees left mein rotate karo", "cls": "rot-", "value": 45, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Give the card a 180° counterclockwise turn.", "cls": "rot-", "value": 180, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "banner needs ten degrees less clockwise rotation", "cls": "rot-", "value": 10, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "roate the background shape 45 deg anticlockwise", "cls": "rot-", "value": 45, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "frame ko 72° anticlockwise ghuma do", "cls": "rot-", "value": 72, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Tilt this 5° left.", "cls": "rot-", "value": 5, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "it looks 2° too far clockwise", "cls": "rot-", "value": 2, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Rotate these by -90°.", "cls": "rot-", "value": 90, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "turn em 7° counterclokwise", "cls": "rot-", "value": 7, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "selection ko 8 degrees left ghumao pls", "cls": "rot-", "value": 8, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "75° counterclockwise", "cls": "rot-", "value": 75, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The underline is two degrees too far clockwise.", "cls": "rot-", "value": 2, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Rotate the selected arrow 30° anticlockwise.", "cls": "rot-", "value": 30, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "ye wala 90 degree left ghumao", "cls": "rot-", "value": 90, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Give the illustration a full 360° spin to the left.", "cls": "rot-", "value": 360, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "label 180deg ccw plz", "cls": "rot-", "value": 180, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "Turn the selected monogram 300 degrees counterclockwise.", "cls": "rot-", "value": 300, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "ribbon ko 180° anticlockwise ghuma do", "cls": "rot-", "value": 180, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The thumbnail looks upside down; it needs a 180° left turn.", "cls": "rot-", "value": 180, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "rotate the watermark by -300 deg", "cls": "rot-", "value": 300, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "90° anticlockwise", "cls": "rot-", "value": 90, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "bubble ko thirty degrees left rotate karo", "cls": "rot-", "value": 30, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "the seal's 120° too far clockwise", "cls": "rot-", "value": 120, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "spin this doodle 300° anti clokwise", "cls": "rot-", "value": 300, "batch": "rot-/1", "model": "gpt-6.2-sol"}
+{"query": "The chevron needs an eight-degree turn to the left.", "cls": "rot-", "value": 8, "batch": "rot-/1", "model": "gpt-6.2-sol"}

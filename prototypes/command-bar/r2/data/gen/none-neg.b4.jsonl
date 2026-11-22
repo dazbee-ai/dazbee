@@ -1,0 +1,50 @@
+{"query": "Cancel", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Never mind", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Leave it", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Stop there", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "No changes", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Leave these alone", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Skip that", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Keep as is", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't make the headline bold", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Can we leave the title exactly as it is for now?", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "uh actually dont move the subheading", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Tagline ko mat badlo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Please don't resize the CTA.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Button ko waise hi rehne do", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "No need to touch the price.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "actually lets not change the offer text after all", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Caption ko italic mat karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Please leave the logo alone.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Can you leave the product shot just the way it is, please?", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't crop the packshot.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Hero image ko abhi mat change karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "um yeah dont apply that filter to the photo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Badge ka color mat badalna", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't rotate the sticker.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "On second thought, please don't swap out the icon.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Yeh shape mat hatao", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Could you please leave the box exactly where it is?", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Card ko stretch mat karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "hey actually just leave the banner the way it is", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't adjust the opacity of the background shape.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Please don't round the corners on this frame.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Ise mat chhedo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Wait don't apply that to these", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "If you haven't moved them yet, please leave them where they are.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Cancel the change to the selection.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Lockup ko bilkul mat chhedna", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Leave the kerning on this wordmark alone.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't uppercase the eyebrow.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Can you skip the artboard resize?", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Nahi woh alignment change cancel kar do", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Let's not recenter the hero.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "uh wait dont knock out the background on the packshot", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Please don't apply the new tracking to this line.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala jaisa hai waisa hi rakho please", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Hold off on recoloring the CTA.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Agar abhi tak apply nahi kiya toh please mat karo", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "No shadow", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Don't touch it", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "oh hang on i didnt mean to ask for that can you cancel it", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}
+{"query": "Please leave the logo lockup at its current scale.", "cls": "none", "value": null, "category": "neg", "batch": "none-neg/4", "model": "gpt-6.2-sol"}

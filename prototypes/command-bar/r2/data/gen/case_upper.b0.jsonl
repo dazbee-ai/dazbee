@@ -1,0 +1,50 @@
+{"query": "Put the headline in all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Uppercase this.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Set the title in block capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Make every letter in the subheading uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "ALL CAPS for the tagline", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Switch the price to uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Convert the offer text to all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Capitalize the entire caption, not just the first letter.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Change the body copy to all capitals.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Put the disclaimer in uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Is quote ko all caps mein kar do.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala hashtag poora uppercase kar do.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Date mein jo letters hain unko caps mein kar do.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Button label ko zara all caps mein karna.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Jo text select kiya hai use bade letters mein likh do.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Bas isko uppercase mein kar do please.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Yeh naam capital letters mein chahiye, poora.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Is line ke saare letters caps mein daal do.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Can you make the event name all caps?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Could the location line be in uppercase?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Would you put the coupon code in all capitals?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Can we have the menu label in block capitals?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Could you switch the byline to all caps?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Can this word be entirely uppercase?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Would you mind changing the selected testimonial to uppercase?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Could you please set the entire sentence I've selected in capital letters?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like the text in this badge to be written entirely in uppercase, please.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Please change the case of the selected product name so that every letter is a capital.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "When you get a chance, could you make the full section heading all caps?", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "I’d appreciate it if you could put the entire footer note in uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "um yeah can you make the text i picked all caps", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "okay so the bit that says limited edition make that uppercase", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "uh put the whole address line in capital letters please", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "yeah i want that little line under the logo in all caps", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "just make it all uppercase for me", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "so can we get the speaker name in all capital letters", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Set the primary CTA in all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Uppercase the hero copy.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Run the eyebrow in caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Make the packshot callout all caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Set the wordmark text in the lockup to uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Use all caps for this artboard's kicker.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Flip the nav item to uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Give the promo ribbon an all-caps treatment.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Set the legal line in full caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Make the supers on this frame uppercase.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Case: uppercase for the selection", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Put what's highlighted in block caps.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "I want this text in capitals throughout.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}
+{"query": "Use uppercase for the tab name.", "cls": "case:upper", "value": null, "batch": "case:upper/0", "model": "gpt-6.2-sol"}

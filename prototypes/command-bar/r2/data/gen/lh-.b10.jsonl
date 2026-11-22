@@ -1,0 +1,50 @@
+{"query": "Reduce the headline’s line spacing.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Bring the lines of the title closer together.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Use a smaller line height for the subheading.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Tighten the leading on the tagline.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Give the CTA text a little less space between lines.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Make the lines in the button label sit closer together.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Lower the line height on the price text.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Can you close up the gaps between the lines of the offer text?", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Set the caption in tighter leading.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Decrease the spacing between lines in the body copy.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Pull the disclaimer lines in closer.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "A bit less line spacing in the quote, please.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Tighten the space between the lines of the hashtag block.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Make the date’s lines a little closer together.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Dial down the line height on this selection.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Less space between these lines, please.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Ye headline ki line spacing thodi kam kar do.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Title ki lines thodi paas lao na.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Is subheading ka line height thoda chhota kar do.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline mein lines ke beech ka gap kam kijiye.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "CTA text ki leading thodi kam chahiye.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Button label ki lines aur paas kar do please.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Price text mein line spacing kam karo bhai.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Offer wali copy ki lines ke beech thodi kam jagah rakho.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ka line height zara kam kar do yaar.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy mein ek line se agli line tak ka gap kam karo.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Disclaimer ki lines ko zara paas paas kar do.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Is quote ki leading thodi tight kar do na.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Date wali lines ke beech ka space kam chahiye.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Is selected text ki lines ke beech ka gap thoda ghata do.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The headline has too much air between its lines.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The lines in this pull quote look way too far apart.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "This caption’s line height feels too tall.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The footer note has a huge gap between each line.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The product name’s lines look oddly spread out.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "There’s a little too much leading in the intro.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The lines in this address block feel disconnected with all that space between them.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "The menu description looks too loose between lines.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Is title ki lines ke beech bahut gap hai.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh tagline ki lines kuch zyada hi door door hain.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Fine print ka line height zyada lag raha hai.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "Is paragraph mein lines ke beech kuch zyada hi jagah hai yaar.", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "line spcing km kro", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "line hight kam krdo", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "lines paas kro na", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "caption ka line gap km", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "title ki leding kam kro", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "linon ka gap ghatao plz", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "iskii line spacing km", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}
+{"query": "line heigt thoda km", "cls": "lh-", "value": null, "batch": "lh-/10", "model": "gpt-6.2-sol"}

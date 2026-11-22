@@ -1,0 +1,50 @@
+{"query": "Flip the headline vertically.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror the title from top to bottom.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Give the subheading a vertical flip.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Swap the top and bottom of the tagline.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the CTA upside down, not sideways.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Can you flip this button top to bottom?", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Vertical flip on the price, please.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the offer text over a horizontal axis.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror the caption vertically.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the logo so its top becomes its bottom.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Top-to-bottom flip on the product shot.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Please flip the packshot vertically.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the hero image upside down while keeping left and right in place.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Vertically flip this photo.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Give these a top-to-bottom mirror flip.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip them vertically, please.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Reflect the selection across its horizontal centerline.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Just flip it top to bottom.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Flip this vertically, no rotation.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The badge still looks too upright; the top should be where the bottom is.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The sticker looks wrong with that little notch at the top; it should be at the bottom on the same side.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The icon’s top and bottom are the wrong way round, but left and right look right.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The shape looks off with the narrow end up top. That’s supposed to be the bottom.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The box still reads right side up instead of mirrored top to bottom.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The card’s top corners are supposed to be its bottom corners, on their same sides.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The banner doesn’t have that top-to-bottom mirror look yet.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The background shape has its curve on top when it should be underneath, not on the opposite side.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "The frame’s top and bottom look reversed; the sides are fine.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "This is still right side up when it should be vertically mirrored.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Is headline ko vertically flip kar do.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh title upar se neeche flip karo.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading ka top aur bottom swap kar do, please.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Tagline ko top-to-bottom mirror kar do na.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "CTA ko vertically ulta kar do, yaar.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Button ko upar-neeche flip karo, daayen-baayen nahi.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Price ka vertical flip chahiye.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text ko top se bottom flip kijiye.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Caption ko aise flip karo ki upar wala hissa neeche aa jaaye.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Logo ka top-to-bottom flip kar do bhai.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh product shot vertically flip karna hai.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "In dono ko upar-neeche flip kar do.", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala vrtical flip kro", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "foto upr-niche flp kro", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "logo top-botom flip krdo", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "ise verticl ulta kro", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "stikr upr neeche flip kro", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "badge vertcal flip krdo na", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "card upr-nichay flp", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "bttn top-botm flip kro", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}
+{"query": "inhe vrticl flip krdo", "cls": "flipV", "value": null, "batch": "flipV/10", "model": "gpt-6.2-sol"}

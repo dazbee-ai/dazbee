@@ -1,0 +1,50 @@
+{"query": "Set the headline to 70% opacity.", "cls": "op", "value": 70, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "make this 35% opaque", "cls": "op", "value": 35, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could the subheading be at 50% opacity?", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The tagline looks a little washed out; 85% opacity would feel right.", "cls": "op", "value": 85, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "CTA opacity 30", "cls": "op", "value": 30, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can you put the button at seventy percent opacity?", "cls": "op", "value": 70, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The price is pulling too much focus at its current opacity. I'd go with 35%.", "cls": "op", "value": 35, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set the offer text opacity to 0%.", "cls": "op", "value": 0, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Make the caption half opaque (50%).", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Logo lockup at 95% opacity, please.", "cls": "op", "value": 95, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The product shot is competing with the copy; it should be closer to a watermark at 10% opacity.", "cls": "op", "value": 10, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could we run the packshot at 65% opacity?", "cls": "op", "value": 65, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "hero image opacity: 5%", "cls": "op", "value": 5, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "This photo still feels too solid. 33% opacity would be plenty.", "cls": "op", "value": 33, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Put the badge at sixty-five percent opacity.", "cls": "op", "value": 65, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can the sticker be 95% opaque?", "cls": "op", "value": 95, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set icon opacity to 90.", "cls": "op", "value": 90, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "That shape still reads way too strong behind the text. 12% opacity would do it.", "cls": "op", "value": 12, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "50% opacity on the box pls", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could you dial the card back to 20% opacity?", "cls": "op", "value": 20, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Banner at 33% opacity.", "cls": "op", "value": 33, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The background shape is too heavy at full opacity. I'd rather see it at 50%.", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can the frame sit at 33% opacity?", "cls": "op", "value": 33, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "make these 12% opaque", "cls": "op", "value": 12, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Give them 45% opacity.", "cls": "op", "value": 45, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The selected layers are a bit loud together. 33% opacity would be enough.", "cls": "op", "value": 33, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Take it down to five percent opacity.", "cls": "op", "value": 5, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could the eyebrow sit at 12% opacity?", "cls": "op", "value": 12, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set the wordmark opacity to 70%.", "cls": "op", "value": 70, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The fill on this pill feels too heavy; I'd like the pill itself at 60% opacity.", "cls": "op", "value": 60, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Artboard overlay: 20% opacity.", "cls": "op", "value": 20, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can you bring the title up to 80% opacity?", "cls": "op", "value": 80, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "make the promo ribbon 60% opaque", "cls": "op", "value": 60, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could we set the footer lockup to sixty percent opacity?", "cls": "op", "value": 60, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The watermark still shows, and it shouldn't. It needs 0% opacity.", "cls": "op", "value": 0, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set the selected group to 70% opacity.", "cls": "op", "value": 70, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The fine print looks faint at its current opacity. 90% would be better.", "cls": "op", "value": 90, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can I get the divider at fifty percent opacity?", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "opacity zero on this layer", "cls": "op", "value": 0, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Bring the partner logo to 90% opacity.", "cls": "op", "value": 90, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The gradient overlay is swallowing the photo. 35% opacity should be enough.", "cls": "op", "value": 35, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could you set the drop shadow layer to 15% opacity?", "cls": "op", "value": 15, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set the QR code opacity to 85%.", "cls": "op", "value": 85, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "This seal is a little faint; it would look better at 85% opacity.", "cls": "op", "value": 85, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Can the carousel dots be 50% opaque?", "cls": "op", "value": 50, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "30% opacity on the hero scrim", "cls": "op", "value": 30, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Make the testimonial quote 75% opaque.", "cls": "op", "value": 75, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Could the nav label be at ninety percent opacity?", "cls": "op", "value": 90, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "The texture is too prominent right now. I'd keep it at 20% opacity.", "cls": "op", "value": 20, "batch": "op/0", "model": "gpt-6.2-sol"}
+{"query": "Set selection opacity to 60.", "cls": "op", "value": 60, "batch": "op/0", "model": "gpt-6.2-sol"}

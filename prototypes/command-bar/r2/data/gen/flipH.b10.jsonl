@@ -1,0 +1,50 @@
+{"query": "Flip the headline horizontally.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror the title left to right.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Apply a horizontal flip to the subheading.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Give the tagline a left-right mirror flip.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Can you flip the CTA left to right?", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror this button across its vertical centerline.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the price text horizontally please", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Make the offer text a left-right mirror image of itself.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Horizontal mirror on the caption", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the logo so its left and right sides swap.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror the product shot horizontally.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Flip the packshot so it faces the other way.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Left-right flip on the hero image, please.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Flip this photo across its vertical axis.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror the badge from left to right.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Please flip the sticker horizontally.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Swap the left and right sides of this icon with a mirror flip.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Flip these left to right.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Mirror them horizontally", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Selection: flip horizontal", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Is shape ko zara horizontally flip kar do", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Box ka left-right mirror kar do na", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Bhai, card ko left se right mirror karo", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Banner ka horizontal flip chahiye", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Background shape ke baayen aur daayen sides mirror kar do", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Frame ko left-right flip kijiye please", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala horizontally mirror kar do yaar", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Ise flip karo taaki baayen wala side daayen aa jaaye", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "In dono ko left-right mirror kar do", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Jo select kiya hai uska horizontal mirror chahiye", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Is mascot ko flip kar do na, doosri taraf muh ho", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Photo ko baayen-daayen ulta kar do, mirror jaisa", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The arrow points right, but it should point left.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The product is facing out of the layout instead of into it.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The photo looks backwards; its left and right sides are reversed.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The mascot is looking to the left when it should be looking to the right.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The reflection has the same left-right orientation as the original. That looks off.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The profile shot is facing the wrong way.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The curl on this flourish is on the wrong side; it should be the mirror of what it is now.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh chevron galat taraf point kar raha hai", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "Is sticker ka muh daayen hai, baayen hona chahiye", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "The hook on this icon should curve left, not right.", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "ise horz flp krdo", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "yeh lft-rght flp kro", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "logo horiz miror kr", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "ico ka lr flp", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "isko horizntl flip kro", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "pic left rite miror kro", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "isko horz mirr krdo na", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}
+{"query": "btn ko l-r flp krdo", "cls": "flipH", "value": null, "batch": "flipH/10", "model": "gpt-6.2-sol"}

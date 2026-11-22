@@ -1,0 +1,49 @@
+{"query": "Can you ungroup the headline?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Could you break apart the title group?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Can the subheading group be split up?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Could you ungroup the tagline?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Can you make the CTA's pieces separate objects?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Could you take the button out of its group?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Can we ungroup the price and offer text?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Would you break up the caption group?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Can you split the logo group into its individual layers?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Could the product shot group be ungrouped?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The packshot and its label are stuck in one group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The hero image and its overlay keep getting selected together.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "I can't select the photo on its own because it's grouped.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The badge looks like one object, but it should be separate pieces.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The sticker's layers are all still bundled together.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Every time I click the icon, I get the whole group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The shape is still stuck inside that group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The box and its label shouldn't be grouped.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The card's layers are still acting like one object.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "I only clicked the banner text, but it selected the whole group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Take the background shape out of the group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup everything in the current selection.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Break this group into separate objects.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Split them back into individual layers.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Just ungroup it for me.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Release these from the group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Undo the grouping on the footer elements.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "I'd like the selected group broken apart.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Make the frames individually selectable by ungrouping them.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Take the arrow out of its group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Separate the layers in this group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Break the menu group up into its original items.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Let's ungroup the testimonials.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup the star and the text next to it.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Split the header group back up.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Break apart", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup this", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup selection", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Split the group", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup these", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup pls", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Ungroup selected items", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Release from group", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Dissolve this group", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Can the QR code come out of its group?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Why are the swatches still grouped together?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "The fine print is still grouped with the rest of the offer.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Get the divider out of that group.", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}
+{"query": "Could you ungroup the social icons so each one is its own object?", "cls": "ungroup", "value": null, "batch": "ungroup/0", "model": "gpt-6.2-sol"}

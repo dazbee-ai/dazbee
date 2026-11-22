@@ -1,0 +1,50 @@
+{"query": "Clockwise 5°", "cls": "rot+", "value": 5, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The headline looks a little too far left; it needs a five-degree clockwise turn.", "cls": "rot+", "value": 5, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "title ko 75° clockwise ghuma do", "cls": "rot+", "value": 75, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "90° CW", "cls": "rot+", "value": 90, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "rotat the tagline 2 deg clockwize", "cls": "rot+", "value": 2, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Give the CTA a 25-degree turn to the right.", "cls": "rot+", "value": 25, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "button ko right mein 135 degree ghuma do", "cls": "rot+", "value": 135, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "spin this 330° clockwise", "cls": "rot+", "value": 330, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Right turn 45°", "cls": "rot+", "value": 45, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The price looks off at this angle. It needs 30° more clockwise rotation.", "cls": "rot+", "value": 30, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "offr text 135 deg clockwsie pls", "cls": "rot+", "value": 135, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Can you rotate the caption ten degrees clockwise?", "cls": "rot+", "value": 10, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "logo ko 300° clockwise ghumao", "cls": "rot+", "value": 300, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Turn the product shot 60 degrees to the right.", "cls": "rot+", "value": 60, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "CW by 8°", "cls": "rot+", "value": 8, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The packshot looks wrong at this angle; it needs a 270° clockwise turn.", "cls": "rot+", "value": 270, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "hero image ko 35 degree right ghuma do na", "cls": "rot+", "value": 35, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "foto ko 30° clockwse ghumao", "cls": "rot+", "value": 30, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The badge is just a hair too far left—two degrees clockwise would do it.", "cls": "rot+", "value": 2, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Rotate 90° clockwise", "cls": "rot+", "value": 90, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "twist the sticker 40° to the right", "cls": "rot+", "value": 40, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "yeh icon 180 degree clockwise ghuma do", "cls": "rot+", "value": 180, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "shpae needs 8° clockwize", "cls": "rot+", "value": 8, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The box still looks too far counterclockwise; it needs a 40-degree turn to the right.", "cls": "rot+", "value": 40, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "25° clockwise please", "cls": "rot+", "value": 25, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Could you turn the card thirty-five degrees clockwise?", "cls": "rot+", "value": 35, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "banner ko 72° right ki taraf ghuma do", "cls": "rot+", "value": 72, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "rotate the bg shape 120 deg clockwis", "cls": "rot+", "value": 120, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The frame would look better turned 20° farther to the right.", "cls": "rot+", "value": 20, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "isko bees degree clockwise ghuma do", "cls": "rot+", "value": 20, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Give it a full 360° spin clockwise.", "cls": "rot+", "value": 360, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "60° CW please", "cls": "rot+", "value": 60, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "these are a quarter turn off; they need 90° clockwise", "cls": "rot+", "value": 90, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "in sab ko ninety degrees right ghuma do", "cls": "rot+", "value": 90, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "can u roatte the selection 35° cw", "cls": "rot+", "value": 35, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Turn the subheading a quarter turn clockwise (90°).", "cls": "rot+", "value": 90, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "yeh wala 60 degree clockwise kar do", "cls": "rot+", "value": 60, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The wordmark's leaning a touch too far left. Eight degrees clockwise should fix it.", "cls": "rot+", "value": 8, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "arrow: 150° clockwise", "cls": "rot+", "value": 150, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "this label looks upside down; needs a 180° clockwise turn", "cls": "rot+", "value": 180, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "rotat that star 135 degress cw", "cls": "rot+", "value": 135, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "map pin ko 8° right mein ghuma do", "cls": "rot+", "value": 8, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "180° clockwise flip", "cls": "rot+", "value": 180, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "Please rotate the ribbon fifteen degrees to the right.", "cls": "rot+", "value": 15, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The monogram's only slightly off—2° clockwise would look right.", "cls": "rot+", "value": 2, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "divider 30deg clockwize plz", "cls": "rot+", "value": 30, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "yeh speech bubble ko 25 degree clockwise ghumana", "cls": "rot+", "value": 25, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "I'd like the seal rotated clockwise by 72 degrees.", "cls": "rot+", "value": 72, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "45° rightward rotation", "cls": "rot+", "value": 45, "batch": "rot+/1", "model": "gpt-6.2-sol"}
+{"query": "The corner tab looks a bit too far left; it only needs 5° clockwise.", "cls": "rot+", "value": 5, "batch": "rot+/1", "model": "gpt-6.2-sol"}

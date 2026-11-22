@@ -1,0 +1,49 @@
+{"query": "Set the headline to regular weight.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Unbold the selected text.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Turn off bold on the button label.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Make the price normal weight.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Remove the bold from the caption.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Don't make the tagline bold anymore.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Switch the disclaimer from Bold to Regular.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Put the quote back to regular weight.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "No bold on the date, please.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Just regular weight for this bit.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh title bold nahi chahiye, regular kar do.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "CTA text ka bold hatao na.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Is price ko normal weight mein kar do bhai.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Subheading se bold nikaal do please.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh wala bold off kar do.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Body copy ka font weight regular kijiye.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Hashtag ko unbold karo yaar.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Offer text ko wapas normal weight mein laao.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Is line se bold hata do.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Footer wala text regular kar do na.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "That bold headline is a bit much; regular would look better.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The byline looks odd in bold next to the regular text.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Why is the date bold? It should be regular like the rest.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The button label feels shouty in bold.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The bold weight on this caption is distracting.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "This disclaimer isn't supposed to be bold.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The quote looks too heavy in bold; I'd rather see it in regular.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The bold on the price is overkill.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Yeh tagline bold mein kuch zyada hi moti lag rahi hai.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Is naam pe bold ajeeb lag raha hai.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "bld hta do", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "ise unblod kro", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "titel bold htado", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "ye norml krdo", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "date bld off kro", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "regulr krdo na", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "bold niklo pls", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "prce unbold kro", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "bold nhi chahye", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "isko bld se reglr kro", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Use the Regular font weight for the product name.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Take bold off the speaker's name.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Can you make this bullet point non-bold?", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Change the selected word to normal weight.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Unbold the link text.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Back to regular for the event details.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Page number ka bold off karo.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "The RSVP text really doesn't need the bold.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}
+{"query": "Regular weight here, please.", "cls": "w:regular", "value": null, "batch": "w:regular/10", "model": "gpt-6.2-sol"}

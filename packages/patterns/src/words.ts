@@ -196,6 +196,8 @@ const TIGHT_BOUGHT = 1.2
 const OPTICAL = 0.44
 /** The lead text's least size, as a multiple of the readable size. */
 const LEAD_LEAST = 1.25
+/** The fits fewestLeftOut has found, by the setting they were found in and the words. */
+const FITTED = new WeakMap<Setting, Map<string, Fit & { parts: WordPart[] }>>()
 
 /** Sets the words in their room as auto layout columns, and gives the size they were set at and the box they take. */
 export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, parent?: string): SetWords {
@@ -400,6 +402,23 @@ function leadWidthOf(
  * the subline, the kicker and the attribution in turn while they don't fit at their smallest.
  */
 function fewestLeftOut(setting: Setting, words: Words): Fit & { parts: WordPart[] } {
+  // A frame's build fits the same words in the same room many times over while it weighs its arrangements: each is
+  // measured once.
+  let known = FITTED.get(setting)
+  if (!known) {
+    known = new Map()
+    FITTED.set(setting, known)
+  }
+  const key = JSON.stringify(words)
+  const fitted = known.get(key)
+  if (fitted) return fitted
+  const fit = fewestLeftOutOnce(setting, words)
+  known.set(key, fit)
+  return fit
+}
+
+/** fewestLeftOut, measured. */
+function fewestLeftOutOnce(setting: Setting, words: Words): Fit & { parts: WordPart[] } {
   const { height } = setting.frame
   let parts = words.parts.filter(
     (part) =>

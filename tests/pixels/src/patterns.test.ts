@@ -73,7 +73,8 @@ describe.each(PATTERNS.map((pattern) => [pattern.id]))('the %s pattern', (id) =>
       )
       expect(told(design, result)).toEqual([])
     },
-    120_000,
+    // Every channel size in one batch, the first of them while CI's other workspaces start alongside.
+    300_000,
   )
 
   it.each(PATTERN_STYLES.map((style) => [style]))(

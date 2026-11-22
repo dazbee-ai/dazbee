@@ -30,8 +30,8 @@ import type { TextFiles } from './text-files.ts'
 
 /**
  * What the text matcher needs besides the job: CanvasKit, its files, the model's runtime, a source of
- * fonts, and the faces of the kit's families that have no fingerprint (a brand's uploads), as the
- * font catalog lists them.
+ * fonts, the faces of the kit's families that have no fingerprint (a brand's uploads), as the
+ * font catalog lists them, and who is told as each step starts.
  */
 export interface TextMatcherDeps {
   ck: CanvasKit
@@ -39,7 +39,15 @@ export interface TextMatcherDeps {
   model: ModelRuntime
   fonts: FontSource
   kitFaces?: readonly CatalogFace[]
+  step?: (step: TextStep) => void
 }
+
+/**
+ * The text matcher's steps, in order: reading the piece, shortlisting faces by its fingerprint,
+ * fitting and judging them, and Hybrid's finer fit of the face picked.
+ */
+export const TEXT_STEPS = ['reading', 'shortlist', 'fitting', 'finerFit'] as const
+export type TextStep = (typeof TEXT_STEPS)[number]
 
 /** A text piece of a job. */
 export type TextPieceOfJob = Extract<Piece, { kind: 'text' }>
@@ -71,12 +79,14 @@ export async function matchTextWithFace(
 ): Promise<TextMatch> {
   const { ck, files, fonts } = deps
   const { words } = piece
+  deps.step?.('reading')
   const pixels = piecePixels(ck, job.picture, piece.rect)
   const { whole, work, scale } = readPiece({
     pixels,
     words,
     ...(piece.angle !== undefined ? { angle: piece.angle } : {}),
   })
+  deps.step?.('shortlist')
   const fingerprint = await pieceFingerprint(deps.model, files, work.level, work.lines)
   const listed = await shortlist({
     ck,
@@ -93,6 +103,7 @@ export async function matchTextWithFace(
   if (candidates.length === 0) return { answer: pictureAnswer('failed') }
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [whole.background]
   const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
+  deps.step?.('fitting')
   const drawer = textDrawer(ck, drawnFaces(candidates, faces))
   let light: Verified | undefined
   let finer: Verified | undefined
@@ -109,6 +120,7 @@ export async function matchTextWithFace(
       light = verify(drawer, target, finalists, listed.similarities)
     }
     if (light && job.setting === 'hybrid') {
+      deps.step?.('finerFit')
       const finerFitted = finerFit(drawer, work, words, light.fit)
       if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }

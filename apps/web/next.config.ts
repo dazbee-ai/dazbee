@@ -33,6 +33,11 @@ const config: NextConfig = {
       source: '/vendor/fonts/:file',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
     },
+    // ONNX Runtime Web's files sit under their version, so a file at one address never changes.
+    {
+      source: '/vendor/onnxruntime/:version/:file',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
   ],
   // The Google faces' files and the matchers' files go to the API, and with MCP_DEV_URL set, the MCP server's paths go
   // to it and an agent's upload links to the API, so one base URL serves them all, as Caddy does in production.

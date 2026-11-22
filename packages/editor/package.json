@@ -15,6 +15,7 @@
     "./frames": "./src/canvas/frames.ts",
     "./thumbnails": "./src/canvas/thumbnails.ts",
     "./resources": "./src/resources.ts",
+    "./match-client": "./src/matching/match-client.ts",
     "./agent-tab": "./src/agent-tab.ts",
     "./placed-asset": "./src/placed-asset.ts",
     "./test-editor": "./src/test-editor.ts",
@@ -31,9 +32,11 @@
     "@dazbee/doc": "workspace:*",
     "@dazbee/export": "workspace:*",
     "@dazbee/fonts": "workspace:*",
+    "@dazbee/matchers": "workspace:*",
     "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*",
-    "@dazbee/svg": "workspace:*"
+    "@dazbee/svg": "workspace:*",
+    "onnxruntime-web": "1.31.1"
   },
   "devDependencies": {
     "@dazbee/config": "workspace:*",

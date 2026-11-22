@@ -1,6 +1,6 @@
 // The headers the web app's Next config sends: no other site may frame any page, so none can lay the Connect an
 // agent page under its own and have Allow pressed, and that page names no referrer, so no address it leaves holds
-// its sign-in request, and the fonts we ship are kept for good. The Google faces' files are passed on to the
+// its sign-in request, and the fonts we ship and ONNX Runtime Web's files are kept for good. The Google faces' files are passed on to the
 // API; with MCP_DEV_URL set, the MCP server's paths and an agent's upload links are too.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -24,15 +24,15 @@ describe('config', () => {
     ])
   })
 
-  it('has browsers and Cloudflare keep the fonts we ship for good, and nothing else under /vendor/', async () => {
+  it('has browsers and Cloudflare keep the fonts we ship and ONNX Runtime Web for good, and nothing else under /vendor/', async () => {
     const rules = (await config.headers?.()) ?? []
+    const kept = ['/vendor/fonts/:file', '/vendor/onnxruntime/:version/:file']
 
-    expect(rules.filter((rule) => rule.source.startsWith('/vendor/')).map((rule) => rule.source)).toEqual([
-      '/vendor/fonts/:file',
-    ])
-    expect(rules.find((rule) => rule.source === '/vendor/fonts/:file')?.headers).toEqual([
-      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-    ])
+    expect(rules.filter((rule) => rule.source.startsWith('/vendor/')).map((rule) => rule.source)).toEqual(kept)
+    for (const source of kept)
+      expect(rules.find((rule) => rule.source === source)?.headers).toEqual([
+        { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+      ])
   })
 
   describe('rewrites', () => {

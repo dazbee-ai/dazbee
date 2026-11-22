@@ -47,6 +47,16 @@ describe('fonts', { timeout: 30_000 }, () => {
     return { face: FontFace.parse(recorded.json), uploaded: true }
   }
 
+  /** The id of the stand-in Google family's face of this weight, once copied. */
+  async function googleFaceId(weight: number) {
+    const [row] = await db
+      .select({ id: fontFaces.id })
+      .from(fontFaces)
+      .where(and(eq(fontFaces.family, google.family), eq(fontFaces.weight, weight)))
+    if (!row) throw new Error(`${google.family} ${weight} was not copied`)
+    return row.id
+  }
+
   it('copies a Google family into our storage once, and every brand lists it', async () => {
     const { get } = fakeGoogleFonts(google)
     expect(await importGoogleFamily(db, storage, google, { copied: new Map(), get })).toMatchObject({ copied: 2 })
@@ -67,16 +77,6 @@ describe('fonts', { timeout: 30_000 }, () => {
       })
     }
   })
-
-  /** The id of the stand-in Google family's face of this weight, once copied. */
-  async function googleFaceId(weight: number) {
-    const [row] = await db
-      .select({ id: fontFaces.id })
-      .from(fontFaces)
-      .where(and(eq(fontFaces.family, google.family), eq(fontFaces.weight, weight)))
-    if (!row) throw new Error(`${google.family} ${weight} was not copied`)
-    return row.id
-  }
 
   it('serves a Google face’s file and preview to anyone, at addresses kept for good', async () => {
     const id = await googleFaceId(400)
@@ -109,9 +109,11 @@ describe('fonts', { timeout: 30_000 }, () => {
       `/fonts/google/${face.id}.png`,
       '/fonts/google/nosuchface00.ttf',
       `/fonts/google/${google400}.otf`,
+      `/fonts/google/${google400}.constructor`,
       `/fonts/google/${google400}`,
       `/fonts/google/${google400}.ttf?v=2`,
       `/fonts/google/sources/${google400}.ttf`,
+      `/fonts/google/%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}.ttf`,
     ]) {
       const refused = await app.request(path)
       expect({ path, status: refused.status }).toEqual({ path, status: 404 })
@@ -129,6 +131,43 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(refused.status).toBe(429)
     expect(refused.headers.get('cache-control')).toBe('no-store')
     expect((await ask('203.0.113.8')).status).toBe(200)
+    // An IPv6 network of one customer, its /64, counts as one address.
+    expect((await ask('2001:db8:1:2::1')).status).toBe(200)
+    expect((await ask('2001:db8:1:2:ffff::9')).status).toBe(429)
+    expect((await ask('2001:db8:1:3::1')).status).toBe(200)
+  })
+
+  it('answers HEAD with the file’s headers, and closes its read of storage', async () => {
+    const id = await googleFaceId(400)
+    let closed = false
+    const watched = {
+      ...storage,
+      stream: async (key: string) => {
+        const stored = await storage.stream(key)
+        if (!stored) return null
+        const reader = stored.body.getReader()
+        const body = new ReadableStream<Uint8Array>({
+          pull: async (controller) => {
+            const { done, value } = await reader.read()
+            if (done) controller.close()
+            else controller.enqueue(value)
+          },
+          cancel: async () => {
+            closed = true
+            await reader.cancel()
+          },
+        })
+        return { ...stored, body }
+      },
+    }
+    const head = await googleFontRoutes({ db, storage: watched }).request(`/fonts/google/${id}.ttf`, {
+      method: 'HEAD',
+    })
+    expect(head.status).toBe(200)
+    expect(head.headers.get('content-length')).toBe(String(regular.length))
+    expect(head.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect(await head.text()).toBe('')
+    expect(closed).toBe(true)
   })
 
   it('lists a Google family with its place in the popularity order and its scripts', async () => {

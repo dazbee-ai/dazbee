@@ -2,7 +2,7 @@
 // face's from its permanent address) and its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
 // to keep the page.
 import type { FontSources } from '@dazbee/editor'
-import { BrandKit, FontFamily, googleFontPaths, type Variables } from '@dazbee/schema'
+import { BrandKit, FontFamily, googleFacePaths, type Variables } from '@dazbee/schema'
 
 import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
@@ -27,14 +27,14 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {
   let catalog: Promise<FontFamily[]> | null = null
   /** The permanent address of each Google face's file the catalog listed, by face id. */
-  const permanent = new Map<string, string>()
+  const googleFiles = new Map<string, string>()
   const fetchCatalog = async () => {
     const response = await fetch(brandPath(workspaceId, brandId, 'fonts'))
     if (!response.ok) throw new Error(`fonts: ${response.status}`)
     const families = FontFamily.array().parse(await response.json())
     for (const face of families.flatMap((family) => family.faces)) {
-      const paths = googleFontPaths(face)
-      if (paths) permanent.set(face.id, paths.file)
+      const paths = googleFacePaths(face)
+      if (paths) googleFiles.set(face.id, paths.file)
     }
     return families
   }
@@ -48,7 +48,7 @@ export function fontLoader(workspaceId: string, brandId: string): Required<FontS
       return known.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
     },
     fontFile: async (face) => {
-      const response = await fetch(permanent.get(face.id) ?? brandPath(workspaceId, brandId, 'fonts', face.id))
+      const response = await fetch(googleFiles.get(face.id) ?? brandPath(workspaceId, brandId, 'fonts', face.id))
       if (!response.ok) throw new Error(`font ${face.family} ${face.weight}: ${response.status}`)
       return new Uint8Array(await response.arrayBuffer())
     },

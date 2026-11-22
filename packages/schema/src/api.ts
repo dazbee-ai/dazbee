@@ -606,7 +606,7 @@ export function faceWeights(face: { weight: number; weights?: { min: number; max
  * A Google face's file and preview at their permanent addresses (`GOOGLE_FONT_PATH`); null for a brand's upload,
  * which loads through its brand, and a font we ship.
  */
-export function googleFontPaths(face: { id: string; source: FontSource }): { file: string; preview: string } | null {
+export function googleFacePaths(face: { id: string; source: FontSource }): { file: string; preview: string } | null {
   if (face.source !== 'google') return null
   return { file: `${GOOGLE_FONT_PATH}${face.id}.ttf`, preview: `${GOOGLE_FONT_PATH}${face.id}.png` }
 }

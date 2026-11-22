@@ -5,7 +5,7 @@ import {
   brandVariables,
   EMPTY_BRAND_KIT,
   faceWeights,
-  googleFontPaths,
+  googleFacePaths,
   MEMBER_ROLES,
   roleManages,
   roleWrites,
@@ -179,16 +179,16 @@ describe('faceWeights', () => {
   })
 })
 
-describe('googleFontPaths', () => {
+describe('googleFacePaths', () => {
   it('gives a Google face its file and preview at addresses named by its id', () => {
-    expect(googleFontPaths({ id: 'k3v9x2m1q8z0', source: 'google' })).toEqual({
+    expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'google' })).toEqual({
       file: '/fonts/google/k3v9x2m1q8z0.ttf',
       preview: '/fonts/google/k3v9x2m1q8z0.png',
     })
   })
 
   it('gives a brand’s upload and a font we ship none', () => {
-    expect(googleFontPaths({ id: 'k3v9x2m1q8z0', source: 'upload' })).toBeNull()
-    expect(googleFontPaths({ id: 'builtin-NotoSans-Regular', source: 'builtin' })).toBeNull()
+    expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'upload' })).toBeNull()
+    expect(googleFacePaths({ id: 'builtin-NotoSans-Regular', source: 'builtin' })).toBeNull()
   })
 })

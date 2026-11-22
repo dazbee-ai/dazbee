@@ -13,8 +13,13 @@ import { fontLink, googleFaceFile, listFonts, recordFont, startFontUpload } from
 /** The Google files and previews one address may ask the API for in a minute; Cloudflare answers repeats itself. */
 export const GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE = 600
 
-/** A Google face's name at its address: its id, then `.ttf` for its file or `.png` for its preview. */
-const GOOGLE_FONT_NAME = /^([\w-]{1,64})\.(ttf|png)$/
+/** A Google face's name at its address: its id, then its extension. */
+const GOOGLE_FACE_FILE_NAME = /^([\w-]{1,64})\.([a-z]+)$/
+/** What each extension at a Google face's address serves, and as what. */
+const GOOGLE_FACE_FILES: ReadonlyMap<string, { kind: 'file' | 'preview'; contentType: string }> = new Map([
+  ['ttf', { kind: 'file', contentType: 'font/ttf' }],
+  ['png', { kind: 'preview', contentType: 'image/png' }],
+])
 /** What every answer at a Google address that is not the file says: keep it nowhere, so a face added later shows. */
 const KEEP_NOTHING = { 'cache-control': 'no-store' }
 
@@ -53,7 +58,8 @@ export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<
 /**
  * The Google faces' files and previews at `GOOGLE_FONT_PATH`, for anyone, with no session: open-licence files that
  * are the same for everyone, kept by browsers and Cloudflare for good. Only faces of the Google catalog are read,
- * never a brand's upload. An address with a query string is refused, so none can ask past Cloudflare's copy.
+ * never a brand's upload. Only the one spelling of each address is served, with no query string and no escapes,
+ * so none can ask past Cloudflare's copy.
  */
 export function googleFontRoutes({
   db,
@@ -68,22 +74,43 @@ export function googleFontRoutes({
   // Counted by the address Cloudflare names, the only way in.
   const perAddress = requestLimit({ perWindow: perAddressPerMinute, windowMs: 60_000 })
   app.get(`${GOOGLE_FONT_PATH}:name`, async (c) => {
-    const name = GOOGLE_FONT_NAME.exec(c.req.param('name'))
-    if (!name?.[1] || new URL(c.req.url).search !== '') return c.json(error('No such font'), 404, KEEP_NOTHING)
-    if (!perAddress.take(c.req.header('cf-connecting-ip')?.trim() ?? ''))
+    const url = new URL(c.req.url)
+    const name = GOOGLE_FACE_FILE_NAME.exec(c.req.param('name'))
+    const served = name?.[2] ? GOOGLE_FACE_FILES.get(name[2]) : undefined
+    if (!name?.[1] || !served || url.search !== '' || url.pathname !== `${GOOGLE_FONT_PATH}${name[0]}`)
+      return c.json(error('No such font'), 404, KEEP_NOTHING)
+    if (!perAddress.take(networkOf(c.req.header('cf-connecting-ip')?.trim() ?? '')))
       return c.json(error('This address has asked for too many font files; try again in a minute'), 429, KEEP_NOTHING)
-    const preview = name[2] === 'png'
-    const stored = await googleFaceFile(db, storage, name[1], preview ? 'preview' : 'file')
+    const stored = await googleFaceFile(db, storage, name[1], served.kind)
     if (!stored) return c.json(error('No such font'), 404, KEEP_NOTHING)
-    return c.body(stored.body, 200, {
-      'content-type': preview ? 'image/png' : 'font/ttf',
+    const headers = {
+      'content-type': served.contentType,
       'content-length': String(stored.byteSize),
       'cache-control': 'public, max-age=31536000, immutable',
       // Only the app's own pages load them: another site can't put them in its pages.
       'cross-origin-resource-policy': 'same-origin',
       'x-content-type-options': 'nosniff',
-    })
+    }
+    if (c.req.method === 'HEAD') {
+      await stored.body.cancel()
+      return c.body(null, 200, headers)
+    }
+    return c.body(stored.body, 200, headers)
   })
   app.get(`${GOOGLE_FONT_PATH}*`, (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
   return app
+}
+
+/** The address a limit counts: an IPv4 address as it is, an IPv6 address by its /64, one customer's network. */
+function networkOf(address: string): string {
+  if (!address.includes(':')) return address
+  const [head = '', tail] = address.split('::')
+  const left = head ? head.split(':') : []
+  const right = tail ? tail.split(':') : []
+  const groups =
+    tail === undefined ? left : [...left, ...Array<string>(8 - left.length - right.length).fill('0'), ...right]
+  return `${groups
+    .slice(0, 4)
+    .map((group) => Number.parseInt(group, 16).toString(16))
+    .join(':')}::/64`
 }

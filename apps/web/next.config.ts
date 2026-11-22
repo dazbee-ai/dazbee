@@ -28,13 +28,16 @@ const config: NextConfig = {
       ],
     },
     { source: '/agents/connect', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
-    // CanvasKit's wasm carries its hash in its name and the fonts we ship are pinned, as the offline worker takes them.
-    { source: '/vendor/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+    // The fonts we ship are pinned, as the offline worker takes them, so browsers and Cloudflare keep them for good.
+    {
+      source: '/vendor/fonts/:file',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
   ],
   // The Google faces' files go to the API, and with MCP_DEV_URL set, the MCP server's paths go to it and an agent's
   // upload links to the API, so one base URL serves them all, as Caddy does in production.
   rewrites: async () => {
-    const api = (process.env.API_URL || 'http://localhost:8787').replace(/\/+$/, '')
+    const api = (process.env.API_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
     const fonts = { source: '/fonts/google/:name', destination: `${api}/fonts/google/:name` }
     const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')
     if (!mcp) return { beforeFiles: [fonts], afterFiles: [], fallback: [] }

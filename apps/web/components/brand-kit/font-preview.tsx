@@ -3,7 +3,7 @@
 // A family's name drawn in its own face, from the picture of it the API stores (a Google face's at its
 // permanent address), so the browser never decodes a design font; its files load in the editor only once a
 // layer uses it.
-import { type FontFace, type FontFamily, googleFontPaths } from '@dazbee/schema'
+import { type FontFace, type FontFamily, googleFacePaths } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
@@ -49,7 +49,7 @@ export function FontPreview({
     // has its size given before it loads, so its row never changes size as it arrives; the name is
     // drawn at its start, its own width.
     <img
-      src={googleFontPaths(face)?.preview ?? brandPath(workspaceId, brandId, 'fonts', face.id, 'preview')}
+      src={googleFacePaths(face)?.preview ?? brandPath(workspaceId, brandId, 'fonts', face.id, 'preview')}
       alt={family.family}
       loading="lazy"
       width={PREVIEW_WIDTH}

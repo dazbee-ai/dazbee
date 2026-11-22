@@ -87,7 +87,7 @@ export async function googleFaceFile(
   storage: Storage,
   faceId: string,
   kind: 'file' | 'preview',
-): Promise<{ body: ReadableStream<Uint8Array>; byteSize: number } | null> {
+): ReturnType<Storage['stream']> {
   const [row] = await db
     .select({ sha256: fontFaces.sha256 })
     .from(fontFaces)

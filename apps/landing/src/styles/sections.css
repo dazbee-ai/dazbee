@@ -478,7 +478,7 @@
   padding-top: 8px;
   border-top: 1px dashed var(--line-2);
 }
-/* the stadium (v3.5): art-size frame scaled to the column; layers stacked back to front */
+/* the stadium: art-size frame scaled to the column; layers stacked back to front */
 .sd {
   position: relative;
   width: calc(100% - 2 * clamp(8px, 1.6vw, 28px));
@@ -1736,7 +1736,7 @@
 .t-flat {
   position: absolute;
 }
-/* ground tiles, unprojected from the iso art in art/city/ground */
+/* ground tiles (public/sprites/city/ground), repeated on the flat plane the town shears into the iso view */
 .t-grass {
   background: #8cbf4f url(/sprites/city/ground/lawn.jpg) 0 0 / 128px 128px;
 }
@@ -3014,7 +3014,7 @@
 .town__camera {
 } /* no will-change: a promoted camera keeps its first raster scale, so zooming out needed many times more tiles than the GPU allows and patches of ground went missing */
 
-/* ---------- phones (v3.5): one column where two or three got too narrow ---------- */
+/* ---------- phones: one column where two or three got too narrow ---------- */
 @media (max-width: 639px) {
   .notes {
     grid-template-columns: minmax(0, 1fr);
@@ -3035,121 +3035,7 @@
   }
 }
 
-/* 2026-11-21: the audience town (replaces the concert). The sizes section's town, framed in a rounded box: the camera
-   visits one neighbourhood at a time; the route's board glows, its people stand on rings of its colour */
-.aud {
-  position: relative;
-  width: calc(100% - 2 * clamp(8px, 1.6vw, 28px));
-  max-width: 1680px;
-  margin: var(--s-5) auto 0;
-  border-radius: 22px;
-  overflow: hidden;
-  isolation: isolate;
-  background: #9fc56b;
-  box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.8);
-}
-.aud__stage {
-  position: relative;
-  height: clamp(460px, 72vh, 760px);
-  overflow: hidden;
-}
-.aud__stage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  box-shadow: inset 0 0 120px 20px rgba(14, 22, 34, 0.35);
-}
-.aud .town__talk {
-  z-index: 3;
-}
-.aud .orbit__tip {
-  z-index: 5;
-}
-.aud__ring {
-  border-radius: 50%;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--acc) 70%, #fff) 0 45%,
-    color-mix(in srgb, var(--acc) 55%, transparent) 62%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity 0.6s var(--ease);
-}
-.aud__ring.is-on {
-  opacity: 0.95;
-  animation: aud-ring 1.8s ease-in-out infinite;
-}
-@keyframes aud-ring {
-  50% {
-    opacity: 0.55;
-  }
-}
-.aud__who {
-  pointer-events: auto;
-}
-.aud__who > .t-sprite {
-  cursor: pointer;
-}
-.t-panel > .bn {
-  width: 100%;
-  border-radius: 2px;
-  box-shadow: none;
-}
-.t-panel {
-  transition: filter 0.6s var(--ease);
-  cursor: pointer;
-}
-.t-panel.is-on > .bn {
-  box-shadow:
-    0 0 0 1.5px #fff,
-    0 0 24px 4px color-mix(in srgb, var(--acc) 80%, transparent);
-}
-@media (max-width: 759px) {
-  .aud {
-    width: calc(100% - 16px);
-    border-radius: 18px;
-  }
-  .aud .orbit__tip {
-    width: 232px;
-  }
-}
-.aud__face {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  width: 100%;
-  height: 100%;
-  border-radius: 2px;
-  overflow: hidden;
-}
-.aud__face > .bn {
-  height: 100%;
-  width: auto;
-  flex: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-.t-panel.is-on > .aud__face {
-  box-shadow:
-    0 0 0 1.5px #fff,
-    0 0 24px 4px color-mix(in srgb, var(--acc) 80%, transparent);
-}
-@media (max-width: 759px) {
-  .aud .bubble__in {
-    max-width: 200px;
-  }
-}
-.aud .bubble:not(.is-left) .bubble__in {
-  margin-left: var(--shift, 0px);
-}
-.aud .bubble:not(.is-left) .bubble__in::after {
-  left: calc(13px - var(--shift, 0px));
-}
-
-/* ---------- the city (v3.6) ---------- */
+/* ---------- the city ---------- */
 .city {
   position: relative;
 }
@@ -3636,6 +3522,15 @@
   }
   .city__beat p {
     font-size: 14px;
+  }
+  /* the words sit across the top on a phone, so the paper behind them is a band at the top, not a margin */
+  .city__veil--side {
+    background: linear-gradient(
+      180deg,
+      rgba(247, 245, 239, 0.97) 0,
+      rgba(247, 245, 239, 0.94) calc(var(--nav) + 230px),
+      rgba(247, 245, 239, 0) calc(var(--nav) + 340px)
+    );
   }
 }
 

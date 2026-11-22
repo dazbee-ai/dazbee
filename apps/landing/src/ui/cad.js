@@ -1,6 +1,5 @@
 // Banners drawn in code. cad(): the try-out's templates (stat, quote, poster, split, steps, macro), styled in try.css.
 // photo: a concept visual (public/images/brimble) with the headline, brand and button set in code, so it fits any ratio.
-// ad(): the old example brand's three classic routes (proof, routine, ingredient), styled in components.css.
 export const esc = (t) =>
   String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
@@ -25,14 +24,4 @@ export function cad(r, brand, objKind, size = 'k-45') {
     body = `<b class="cad__title">${esc(r.title)}</b>${obj}${r.calls.map((c, i) => `<span class="cad__call cad__call--${i + 1}">${esc(c)}</span>`).join('')}${cta}`
   const img = r.img ? `;--img:url(/images/brimble/${r.img}.webp);--pos:${r.pos || '50% 50%'}` : ''
   return `<div class="cad cad--${r.tpl} ${size}" style="--bg:${bg};--fg:${fg};--acc:${acc}${img}"><span class="cad__brand">${esc(brand)}</span>${body}</div>`
-}
-
-const AD_COPY = {
-  proof: ['Day 1.<br>Day 14.', 'Day 1.<br>Day 14.'],
-  routine: ['Two steps.<br>Morning and night.', 'Two steps.'],
-  ingredient: ['Oat and ceramide.<br>That&#39;s the list.', 'Oat and ceramide.'],
-}
-export function ad(route, size = 's-45', style = '') {
-  const wide = size === 's-191'
-  return `<div class="ad ad--${route} ${size}"${style ? ` style="${style}"` : ''}><span class="ad__brand">Sorrel &amp; Oat</span><b>${AD_COPY[route][wide ? 1 : 0]}</b><span class="ad__pack"></span><span class="ad__cta">${wide ? 'Shop' : 'Shop the cleanser'}</span></div>`
 }

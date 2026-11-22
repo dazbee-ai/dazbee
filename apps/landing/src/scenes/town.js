@@ -1,13 +1,12 @@
 import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SPRITES } from './town-sprites.js'
 import { FREE } from './town-free.js'
 
 // The town (a tile map): a 2D isometric city on a fixed grid, like a city-builder game. No 3D: the ground is one
 // flat plane sheared into the 2:1 iso view, and every building is a painted sprite (public/sprites/city, warped onto the
 // grid, see town-sprites.js) standing on a lot of exactly its footprint. Things are stacked back to front by their nearest
-// corner, so nothing overlaps wrongly. One route's banner is painted onto four of the sprites in the four Meta sizes
-// around the central crossroads. The camera starts close on the first, visits each size, then pulls back.
+// corner, so nothing overlaps wrongly. build() lays the town out and life() moves its people, cars and clouds; the
+// city (city.js) places its own blocks and boards through build()'s layout.
 //
 // Grid: one cell is 64 world px. Screen: x' = x - y, y' = (x + y) / 2 - z, so a cell is a 128 x 64 diamond.
 // The map repeats every 10 cells: road (0), pavement (1), seven cells of lots (2 to 8), pavement (9).
@@ -19,15 +18,6 @@ const P = 10,
 const scr = (x, y, z = 0) => [x - y, (x + y) / 2 - z] // world px -> screen px
 const depth = (x, y) => Math.round((x + y) * 4) // stacking order: further down the screen is nearer
 
-const COPY = {
-  proof: { b: 'Day 1.<br>Day 14.', short: 'Day 1.<br>Day 14.' },
-  routine: { b: 'Two steps.<br>Morning and night.', short: 'Two steps.' },
-}
-const ad = (route, size) => {
-  const wide = size === 's-191'
-  return `<div class="ad ad--${route} ${size}"><span class="ad__brand">Sorrel &amp; Oat</span><b>${wide ? COPY[route].short : COPY[route].b}</b><span class="ad__pack"></span><span class="ad__cta">${wide ? 'Shop' : 'Shop the cleanser'}</span></div>`
-}
-
 // blank ad faces on the art, in sprite px: left and right x, top y at the left x, height, and which way the wall runs
 // (+1: the wall faces down-left, its top edge falls to the right; -1: faces down-right, the top edge rises)
 const PANELS = {
@@ -35,7 +25,7 @@ const PANELS = {
   'b-shop-row': { x1: 300, x2: 444, y1: 96, h: 76, m: -0.5 },
   's-billboard-wide': { x1: 80, x2: 592, y1: 284, h: 185, m: -0.5 },
   's-bus-shelter': { x1: 60, x2: 112, y1: 141, h: 106, m: 0.5 },
-  // v3.6 carriers (measured on the fitted sprites; m is the wall's screen slope, + falls to the right)
+  // carriers (measured on the fitted sprites; m is the wall's screen slope, + falls to the right)
   's-digital-stop': { x1: 303, x2: 346, y1: 79, h: 94, m: -0.502 },
   'b-flats-wall': { x1: 41, x2: 199, y1: 163, h: 370, m: 0.527 },
   'b-media-corner': { x1: 192, x2: 321, y1: 241, h: 142, m: 0 },
@@ -54,21 +44,10 @@ const seeded = (seed) => {
   return r
 }
 
-const TONES = {
-  leaf: ['#8fc25e', '#6fa046', '#5a8a3a'],
-  leaf2: ['#b4d877', '#8fb85a', '#77a048'],
-  trunk: ['#a07a52', '#8a6a48', '#735638'],
-  skin: ['#efc9a2', '#e2b48a', '#cf9f76'],
-  glass: ['#f3f0ea', '#c9d5e6', '#aebdd3'],
-  lamp: ['#fff4cf', '#f2d27a', '#d9b65c'],
-  slab: ['#efe8da', '#d9cfbb', '#c7bca6'],
-}
-const tone = (c) => (Array.isArray(c) ? c : TONES[c] || [c, c, `color-mix(in srgb, ${c} 78%, black)`])
-
 function build(
   world,
   {
-    layout = sizesLayout,
+    layout,
     own = new Set(),
     crowd = 30,
     land = () => true,
@@ -168,7 +147,7 @@ function build(
   }
   // paint an ad onto a sprite's blank panel, fitted at its own aspect ratio (size: a Meta size, 'fill' or a number)
   // lot sprites are drawn at half their pixels, point sprites (street furniture, buses) at a third
-  const paint = (host, name, route, size, target, html = ad(route, size)) => {
+  const paint = (host, name, route, size, target, html) => {
     const p = PANELS[name]
     const k = FREE[name] ? 1 / 3 : 0.5
     const n2 = Math.sqrt(1 + p.m * p.m)
@@ -198,25 +177,6 @@ function build(
     return n
   }
 
-  // a small iso block (people, cars, trees until their art exists): top, south and east faces in screen space
-  const box = ({ x, y, z = 0, w, d, h, c, parent }) => {
-    const [t, s, e] = tone(c)
-    const n = el('t-box')
-    const face = (cls, bg, W, Hh, m) => {
-      const f = el(cls, { width: px(W), height: px(Hh), background: bg, transform: `matrix(${m.join(',')})` })
-      n.appendChild(f)
-      return f
-    }
-    const [ax, ay] = scr(x, y, z + h)
-    face('t-f', t, w, d, [1, 0.5, -1, 0.5, ax, ay])
-    const [bx, by] = scr(x, y + d, z + h)
-    face('t-f', s, w, h, [1, 0.5, 0, 1, bx, by])
-    const [cx, cy] = scr(x + w, y, z + h)
-    face('t-f', e, d, h, [-1, 0.5, 0, 1, cx, cy])
-    if (parent) parent.appendChild(n)
-    else put(n, x + w, y + d)
-    return n
-  }
   // a sprite that stands on a point (a tree, lamp, bench, person or car): its bottom centre on the spot
   const freeImg = (name, k = 1, flip = false) => {
     const m = FREE[name],
@@ -315,7 +275,7 @@ function build(
       cellTree(i + 3.4, j + 5, 0.9)
       cellTree(i + 6.4, j + 5.5, 0.8)
     },
-    // a full block (v3.6): big building and two mid ones at the back, two mid ones at the front, the corner building on
+    // a full block: big building and two mid ones at the back, two mid ones at the front, the corner building on
     // the near corner (its two shop fronts on the two streets), street things in the lanes between
     dense: (r, i, j) => {
       flat('t-plaza', i, j, 7, 7)
@@ -383,10 +343,9 @@ function build(
     free('n-bench', (a + m.W + 1.4) * CELL, (py0 + 1.35) * CELL)
   }
   const CIVIC = { '5,5': 'l-town-hall', '3,5': 'l-library', '5,3': 'l-museum', '2,4': 'l-school', '4,2': 'l-cinema' }
-  const centre = layout === sizesLayout ? new Set(['3,3', '4,3', '3,4', '4,4']) : new Set()
   for (let bi = 0; bi < M / P; bi++)
     for (let bj = 0; bj < M / P; bj++) {
-      if (centre.has(`${bi},${bj}`) || own.has(`${bi},${bj}`) || !seen(bi, bj)) continue
+      if (own.has(`${bi},${bj}`) || !seen(bi, bj)) continue
       const r = seeded(bi * 97 + bj * 31 + 11),
         v = r()
       if (CIVIC[`${bi},${bj}`]) {
@@ -554,61 +513,6 @@ function build(
   return { movers, people, speakers, clouds, lots: LOTS, extra, things, sea, back }
 }
 
-// the sizes section's four centre blocks: one route's banner in the four Meta sizes round the middle crossroads, and
-// someone by each banner who says that size's line
-function sizesLayout({ sprite, paint, flat, free, cellTree, figure, CELL }) {
-  // the four centre blocks carry the banners, each right by the middle crossroads (cells 38 to 42)
-  // NW: the shop row's roof board, square (1:1)
-  sprite('b-house-a', 32, 32)
-  sprite('b-house-b', 34, 32)
-  sprite('b-market', 32, 35)
-  sprite('b-apartments', 36, 32)
-  const shops = sprite('b-shop-row', 36, 35)
-  paint(shops, 'b-shop-row', 'proof', 's-11', 0)
-  cellTree(35.5, 37.5, 0.8)
-  // SW: the bus shelter's poster, portrait (4:5), houses behind
-  const stop = sprite('s-bus-shelter', 37, 42)
-  paint(stop, 's-bus-shelter', 'proof', 's-45', 1)
-  sprite('b-house-a', 32, 42)
-  sprite('b-house-b', 34, 42)
-  sprite('b-house-a', 32, 45)
-  sprite('b-house-b', 34, 45)
-  flat('t-pave', 31.8, 44, 6.4, 1)
-  flat('t-pave', 36, 41.8, 1, 7.4)
-  cellTree(37.5, 46.5, 0.9)
-  cellTree(38.2, 48.2, 0.8)
-  // NE: the office tower's wrap, story size (9:16)
-  sprite('b-gym', 42, 32)
-  sprite('b-shop-row', 45, 32)
-  const tower = sprite('b-office-tower', 42, 35)
-  paint(tower, 'b-office-tower', 'proof', 's-916', 2)
-  sprite('b-apartments', 46, 35)
-  // SE: the roadside board, landscape (1.91:1), on the edge of a little park with a café
-  flat('t-park', 42, 42, 7, 7)
-  const board = sprite('s-billboard-wide', 42, 42)
-  paint(board, 's-billboard-wide', 'proof', 's-191', 3)
-  flat('t-pave', 41.8, 45.5, 7.4, 1)
-  flat('t-pave', 45.5, 41.8, 1, 7.4)
-  flat('t-pave', 44.5, 44.5, 3, 3)
-  sprite('n-fountain', 45, 45)
-  sprite('s-kiosk', 47, 47)
-  free('p-cafe', 47.2 * CELL, 48.6 * CELL)
-  free('n-bench', 43.6 * CELL, 46.15 * CELL, 1, true)
-  free('n-lamp', 44.6 * CELL, 44.6 * CELL)
-  ;[
-    [44.2, 42.5],
-    [46.4, 42.6],
-    [48.4, 43.5],
-    [43, 47.2],
-    [48.2, 45.6],
-  ].forEach(([a, b], t) => cellTree(a, b, 0.8 + (t % 2) * 0.2))
-
-  figure(37.2 * CELL, 38.6 * CELL, 'p-talk-pointing', true) // on the pavement in front of the shops, pointing at them
-  figure(38.5 * CELL, 44.6 * CELL, 'p-talk-phone', false) // at the bus stop, by the poster
-  figure(43.5 * CELL, 38.6 * CELL, 'p-talk-waving', false) // under the tower
-  figure(43.7 * CELL, 45.2 * CELL, 'p-talk-pointing', false) // on the lawn in front of the roadside board's face
-}
-
 // Stacking moving things. A building's stacking value is its nearest corner, which is right for things on the
 // pavements in line with that corner but wrong beside a long wall: someone standing just in front of the south wall,
 // near its west end, has a smaller x + y than the corner and would be drawn behind the building (head cut off).
@@ -661,7 +565,7 @@ function life({ movers, people, speakers, clouds, lots, things, sea = 0, back = 
   const span = M * CELL
   const place = placer(index(lots))
   const seaPx = sea * CELL
-  // traffic lights (v3.6): one phase for every junction, 12 s round: along x green, all red, along y green, all red
+  // traffic lights: one phase for every junction, 12 s round: along x green, all red, along y green, all red
   let phase = 'x',
     clock = 0
   const lightAt = (t) => {
@@ -824,192 +728,4 @@ function life({ movers, people, speakers, clouds, lots, things, sea = 0, back = 
   return tl
 }
 
-export function town(section, { still = false } = {}) {
-  if (!section) return null
-  const pin = section.querySelector('.town__pin')
-  const stage = section.querySelector('.town__stage')
-  const camera = section.querySelector('[data-camera]')
-  const world = section.querySelector('[data-world]')
-  const items = [...section.querySelectorAll('[data-size]')]
-  const parts = build(world)
-  const faces = [0, 1, 2, 3].map((i) => world.querySelector(`[data-target="${i}"]`))
-
-  // camera maths: with no camera transform the world sits 1:1 in the stage centre; translate then scale about it
-  // shot 0 is the whole town across the full width; shots 1 to 4 are close on each banner
-  let shots = []
-  const measure = () => {
-    const prev = camera.style.transform
-    camera.style.transform = 'none'
-    const sr = stage.getBoundingClientRect()
-    const cx = sr.left + sr.width / 2,
-      cy = sr.top + sr.height / 2
-    const W = sr.width,
-      H = sr.height,
-      wide = W >= 1024
-    const ox = wide ? W * 0.05 : 0,
-      oy = wide ? H * 0.04 : -H * 0.1
-    const s0 = Math.max(W / 2 / 1950, H / 2 / 1200) // the smallest scale at which the built part of the city covers the stage
-    shots = [{ x: 0, y: H * 0.03, scale: s0 }]
-    faces.forEach((f) => {
-      const r = f.getBoundingClientRect()
-      const dx = r.left + r.width / 2 - cx,
-        dy = r.top + r.height / 2 - cy
-      const S = Math.min(1.7, (H * (wide ? 0.48 : 0.34)) / r.height, (W * (wide ? 0.42 : 0.74)) / r.width)
-      shots.push({ x: ox - S * dx, y: oy - S * dy, scale: S })
-    })
-    camera.style.transform = prev
-  }
-  measure()
-  const shot = (i, k) => () => {
-    if (!shots.length) measure()
-    return shots[i][k]
-  }
-  const at = (i) => ({ x: shot(i, 'x'), y: shot(i, 'y'), scale: shot(i, 'scale') })
-
-  const tl = life(parts)
-
-  // speech bubbles, in screen space, following the speaker's head
-  const LINES = [
-    ['Every route,', '1080 × 1080 · Feed, square'],
-    ['in every size.', '1080 × 1350 · Feed, portrait'],
-    ['One route, refitted for each placement.', '1080 × 1920 · Stories and Reels'],
-    ['Change it once. Every size follows.', '1200 × 628 · Landscape'],
-  ]
-  const talk = document.createElement('div')
-  talk.className = 'town__talk'
-  talk.setAttribute('aria-hidden', 'true')
-  talk.innerHTML = LINES.map(
-    ([a, b]) => `<div class="bubble"><div class="bubble__in"><b>${a}</b><span class="mono">${b}</span></div></div>`,
-  ).join('')
-  pin.appendChild(talk)
-  const bubbles = [...talk.children]
-  let speaking = 0
-  const follow = () => {
-    const pr = pin.getBoundingClientRect()
-    bubbles.forEach((bb, i) => {
-      bb.classList.toggle('is-on', i === speaking)
-      if (i !== speaking) return
-      const h = parts.speakers[i].head.getBoundingClientRect(),
-        f = faces[i].getBoundingClientRect()
-      let x = h.left + h.width / 2 - pr.left
-      const y = h.top - pr.top
-      const left = h.left + h.width / 2 < f.left + f.width / 2 // the speaker stands left of the banner: talk to the left, away from it
-      bb.classList.toggle('is-left', left)
-
-      bb.style.transform = `translate(${x}px, ${y}px)`
-    })
-  }
-  const talking = parts.speakers.map(({ head }) =>
-    gsap.to(head, { y: -4, duration: 0.2, repeat: -1, yoyo: true, ease: 'sine.inOut', paused: true }),
-  )
-  const speak = (i) => {
-    if (i === speaking) return
-    speaking = i
-    follow()
-    talking.forEach((t, k) => {
-      if (k === i) t.play()
-      else {
-        t.pause()
-        gsap.to(parts.speakers[k].head, { y: 0, duration: 0.2 })
-      }
-    })
-    parts.speakers.forEach(({ m }, k) => m.classList.toggle('is-talking', k === i))
-  }
-
-  if (still) {
-    gsap.set(camera, at(0))
-    items.forEach((li) => li.classList.add('is-on'))
-    section.classList.add('is-wide')
-    speaking = -1
-    follow()
-    const onResize = () => {
-      measure()
-      gsap.set(camera, at(0))
-    }
-    window.addEventListener('resize', onResize)
-    return {
-      kill() {
-        window.removeEventListener('resize', onResize)
-      },
-    }
-  }
-
-  const onRefreshInit = () => {
-    measure()
-  }
-  ScrollTrigger.addEventListener('refreshInit', onRefreshInit)
-
-  const mark = (i) => items.forEach((li, k) => li.classList.toggle('is-on', k === i))
-  const marks = []
-  mark(0)
-  const cam = gsap.timeline({
-    defaults: { ease: 'power2.inOut', duration: 1 },
-    scrollTrigger: {
-      trigger: pin,
-      start: 'top top',
-      end: '+=160%',
-      pin: true,
-      scrub: 1,
-      anticipatePin: 1,
-      invalidateOnRefresh: true,
-      onUpdate: (self) => {
-        const t = self.progress * cam.duration()
-        let on = -1
-        marks.forEach(([a, b, i]) => {
-          if (t >= a && t < b) on = i
-        })
-        const wideNow = t > marks[marks.length - 1][1]
-        section.classList.toggle('is-wide', wideNow)
-        if (wideNow) {
-          items.forEach((li) => li.classList.add('is-on'))
-          speak(-1)
-        } else {
-          mark(on)
-          if (on >= 0) speak(on)
-          else speak(-1)
-        }
-      },
-    },
-  })
-  // start close on the first size, visit the others, then pull back over the whole town
-  cam.set(camera, at(1), 0).to({}, { duration: 0.6 })
-  marks.push([0, 0.9, 0])
-  for (let i = 2; i <= 4; i++) {
-    const a = cam.duration()
-    cam.to(camera, at(i))
-    cam.to({}, { duration: 0.6 })
-    marks.push([a + 0.5, cam.duration() + 0.4, i - 1])
-  }
-  cam.to(camera, { ...at(0), duration: 1.4, ease: 'power3.inOut' }).to({}, { duration: 0.5 })
-
-  // keep the city moving the whole time it is on screen. Made after the pin, so its end counts the pinned scroll
-  // shown a screen early, so its first paint happens off screen
-  const watch = ScrollTrigger.create({
-    trigger: section,
-    start: 'top bottom+=100%',
-    end: 'bottom top-=50%',
-    refreshPriority: -1,
-    onToggle: (self) => {
-      tl.paused(!self.isActive)
-      world.style.visibility = self.isActive ? '' : 'hidden'
-      if (self.isActive) gsap.ticker.add(follow)
-      else gsap.ticker.remove(follow)
-    },
-  })
-  if (watch.isActive) gsap.ticker.add(follow)
-  if (!watch.isActive) world.style.visibility = 'hidden' // off screen, the browser skips the whole city
-
-  return {
-    kill() {
-      tl.kill()
-      watch.kill()
-      gsap.ticker.remove(follow)
-      cam.scrollTrigger?.kill()
-      cam.kill()
-      ScrollTrigger.removeEventListener('refreshInit', onRefreshInit)
-    },
-  }
-}
-
-// the audience section builds its own copy of the town with its own blocks (see audience.js)
-export { build, life, scr, CELL, P }
+export { build, life, CELL, P }

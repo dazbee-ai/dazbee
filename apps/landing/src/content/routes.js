@@ -1,9 +1,9 @@
 import { cad } from '../ui/cad.js'
 
-// The example brief's routes (v3.6: Brimble, a made-up sparkling botanical soda, 3 g of sugar a can): six distinct
+// The example brief's routes (Brimble, a made-up sparkling botanical soda, 3 g of sugar a can): six distinct
 // concepts on one brief. Each has its own visual (public/images/brimble, made with image AI) with the words set in
 // code, so it fits any size. Each route also names the buyer it speaks to (who, why): distinct routes reach more people.
-// Used by the city, the how section and the board.
+// Used by the city and the how section.
 export const BRIEF = { brand: 'Brimble', title: 'Dry-ish January, sparkling soda', line: 'All the fizz, 3 g of sugar' }
 const R = (o) => ({ ...o, html: (s) => cad({ tpl: 'photo', ...o }, BRIEF.brand, 'can', s) })
 export const ROUTES = [

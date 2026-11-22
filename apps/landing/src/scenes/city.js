@@ -1,14 +1,12 @@
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin'
-
-gsap.registerPlugin(ScrollToPlugin)
 import { ROUTES, PLAIN, banner } from '../content/routes.js'
 import { build, life, CELL, P } from './town.js'
 import { SPRITES } from './town-sprites.js'
 import { FREE } from './town-free.js'
 
-// The city (v3.6). One painted iso city replaces three sections: "Meta wants more concepts" (the problem), the
+// The city. One painted iso city replaces three sections: "Meta wants more concepts" (the problem), the
 // audience town (who each route is for) and the sizes town. It is pinned and the scroll drives it:
 //  1 in through the clouds; "Meta wants more concepts." stands in the middle, the next line arrives, then both dock
 //    left. The city is grey, like television before colour, the same plain ad is on every board, and only the few
@@ -19,6 +17,8 @@ import { FREE } from './town-free.js'
 //  3 the camera visits six boards one by one, each a different size, not only Meta's.
 //  4 it pulls back over the busy city, then carries on down past the front of the city into the next section's paper.
 // The city is packed like a picture book: every block built, people everywhere, something to find on every street.
+
+gsap.registerPlugin(ScrollToPlugin)
 
 const BACK = 66 // cells: where x + y is under this, the land is behind the mountains
 const HIT = 2860 // world screen px (x = 0): where the Dazbee chip lands and the colour starts
@@ -341,7 +341,7 @@ const rng = (seed) => () => {
 const SEEN = (bi, bj) =>
   bi + bj >= 6 && bi + bj <= 12 && Math.abs(bi - bj) <= 3 && bi >= 0 && bj >= 0 && bi < 8 && bj < 8
 
-function layout({ sprite, paint, flat, free, cellTree, figure, el, things, plan, thing, pick, CORNERS, MIDS, BIG }) {
+function layout({ sprite, paint, flat, free, cellTree, figure, el, things, thing, pick, CORNERS, MIDS, BIG }) {
   const boards = [],
     standers = []
   const r = rng(9091)
@@ -576,13 +576,7 @@ function layout({ sprite, paint, flat, free, cellTree, figure, el, things, plan,
         n.insertAdjacentHTML('beforeend', '<i class="t-light__r"></i><i class="t-light__g"></i>')
       })
     }
-  // where the chip lands: a point the camera maths can find on screen
-  const mark = el('t-mark')
-  mark.style.left = '0px'
-  mark.style.top = `${HIT}px`
-  things.appendChild(mark)
-  void plan
-  return { boards, standers, wheel, mark }
+  return { boards, standers, wheel }
 }
 
 export function city(section, { still = false } = {}) {
@@ -634,7 +628,7 @@ export function city(section, { still = false } = {}) {
       'v-hatchback-cream',
     ],
   })
-  const { boards, standers, wheel, mark } = parts.extra
+  const { boards, standers, wheel } = parts.extra
 
   // the buses carry boards too
   let bus = 0
@@ -935,6 +929,7 @@ export function city(section, { still = false } = {}) {
     dists = null
     lastR = -1
     applyWave()
+    if (still) gsap.set(camera, shots.wide)
   })
   ro.observe(stage)
 
@@ -950,6 +945,7 @@ export function city(section, { still = false } = {}) {
     gsap.set(lead, { autoAlpha: 0 })
     gsap.set(veilFull, { opacity: 0 })
     gsap.set(veilSide, { opacity: 1 })
+    gsap.set([drop, ripple], { autoAlpha: 0 })
     return {
       kill() {
         ro.disconnect()
@@ -1142,7 +1138,6 @@ export function city(section, { still = false } = {}) {
   if (!watch.isActive) world.style.visibility = 'hidden'
   else gsap.ticker.add(spin)
   setBeat(0)
-  void mark
 
   return {
     kill() {

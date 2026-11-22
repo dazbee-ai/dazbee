@@ -1,4 +1,4 @@
-// made by tools/free-sprites.py: sprites that stand on a point; w x h in css px, drawn with the bottom centre on the spot
+// sprites that stand on a point (trees, lamps, benches, people, cars); w x h in css px, drawn with the bottom centre on the spot
 export const FREE = {
   'p-walk-a-se': {
     src: '/sprites/city/people/p-walk-a-se.webp',

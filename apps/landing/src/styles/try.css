@@ -1366,7 +1366,7 @@
   }
 }
 
-/* photo: a concept visual with the words set in code (v3.6, Brimble). The picture covers the frame, centred on its
+/* photo: a concept visual with the words set in code. The picture covers the frame, centred on its
    subject; a soft wash of the banner's own paper sits under the words so they always read */
 .cad--photo {
   background: var(--bg) var(--img) var(--pos, 50% 50%) / cover no-repeat;

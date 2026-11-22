@@ -14,12 +14,35 @@ import { snapToBrand } from './brand-snap.ts'
 import { hexColour } from './colour.ts'
 import { splitColours } from './colour-split.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { fitShape, type ShapeKind, shapeLayer, windowOf } from './fit-shapes.ts'
+import { fitShape, type Fitted, type ShapeKind, shapeLayer } from './fit-shapes.ts'
+import { type FitWindow, windowOf } from './fit-window.ts'
 import { type FloatPicture, shrinkFloats, toFloatPicture } from './float-picture.ts'
 import { layerName } from './layer-names.ts'
 import { piecePixels } from './piece-pixels.ts'
 import { isRing, ringWidth } from './rings.ts'
 import { coveredAbove, type StackedPart, stackParts, sum } from './stacking.ts'
+
+/** A piece made ready to split and fit: its pixels as floats, shrunk to the fitting size, and what counts as covered. */
+export interface PreparedPiece {
+  full: FloatPicture
+  /** Fitting pixels to a piece pixel, at most 1. */
+  scale: number
+  fitted: FloatPicture
+  /** The alpha from which a pixel is covered. */
+  cut: number
+  /** How many fitting pixels are covered. */
+  covered: number
+}
+
+/** A part's best shape: its graphic, the fit, whether it is a ring, and the window its coverage was judged in. */
+export interface PartShape {
+  layer: ShapeLayer
+  fitted: Fitted
+  ring: boolean
+  /** The ring itself for a ring, else the part's filled coverage. */
+  target: FitWindow
+  background: boolean
+}
 
 /** The first pass's settings. */
 export const FIRST_PASS = {
@@ -54,14 +77,8 @@ export function firstPass(ck: CanvasKit, job: MatchJob, piece: Piece): MatchAnsw
 
 /** Rebuilds a piece's pixels as graphics that look the same, or says why they stay a picture. */
 export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colors']): MatchAnswer {
-  const full = toFloatPicture(piece)
-  const scale = Math.min(1, FIRST_PASS.fitSide / Math.max(full.width, full.height))
-  const width = Math.ceil(full.width * scale - 1e-9)
-  const height = Math.ceil(full.height * scale - 1e-9)
-  const fitted = scale < 1 ? shrinkFloats(full, width, height) : full
-  const cut = coverageCut(fitted)
-  let covered = 0
-  for (let i = 0; i < width * height; i++) if ((fitted.data[i * 4 + 3] ?? 0) >= cut) covered++
+  const { full, scale, fitted, cut, covered } = preparePiece(piece)
+  const { width, height } = fitted
   if (covered < 4) return pictureAnswer('looksDifferent')
   const split = splitColours(fitted, {
     mergeDeltaE: FIRST_PASS.mergeDeltaE,
@@ -77,14 +94,75 @@ export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colo
     return pictureAnswer('tooManyParts')
   }
   const stacked = stackParts(parts, fitted)
-  const graphics = stacked.map((part, i) =>
-    graphicOf(ck, part, fitted, scale, coveredAbove(stacked, i, width * height), split.labels),
+  const graphics = stacked.map(
+    (part, i) =>
+      partShape(ck, part, fitted, scale, FIRST_PASS, coveredAbove(stacked, i, width * height), split.labels).layer,
   )
   const kept = withoutUnseen(ck, fitted, graphics, full.width, full.height, scale)
   const { layers, variables } = snapToBrand(ck, piece, kept, colors)
   if (layers.length > FIRST_PASS.maxLayers) return pictureAnswer('tooManyParts')
   const judged = looksSame('shape', piece, drawGraphics(ck, layers, full.width, full.height, 1, variables))
   return judged.same ? layersAnswer(layers, judged.scores) : pictureAnswer('looksDifferent', judged.scores)
+}
+
+/** A piece's pixels as floats, shrunk to at most 256 px on the long side, with its covered pixels counted. */
+export function preparePiece(piece: Pixels): PreparedPiece {
+  const full = toFloatPicture(piece)
+  const scale = Math.min(1, FIRST_PASS.fitSide / Math.max(full.width, full.height))
+  const width = Math.ceil(full.width * scale - 1e-9)
+  const height = Math.ceil(full.height * scale - 1e-9)
+  const fitted = scale < 1 ? shrinkFloats(full, width, height) : full
+  const cut = coverageCut(fitted)
+  let covered = 0
+  for (let i = 0; i < width * height; i++) if ((fitted.data[i * 4 + 3] ?? 0) >= cut) covered++
+  return { full, scale, fitted, cut, covered }
+}
+
+/**
+ * A part's best shape in its flat colour, filled, or stroked inside its outer edge when it is a
+ * ring. A filled shape may reach under the parts over it, `above`, at no cost. Without `labels` a
+ * part is a ring only by its see-through hole or thinness.
+ */
+export function partShape(
+  ck: CanvasKit,
+  part: StackedPart,
+  fitted: FloatPicture,
+  scale: number,
+  settings: { draws: number; kinds: readonly ShapeKind[] },
+  above?: Float32Array,
+  labels?: Int32Array,
+): PartShape {
+  const { width, height } = fitted
+  const ring = isRing(part, labels)
+  const window = windowOf(
+    ring ? part.outer : part.filled,
+    width,
+    height,
+    scale,
+    part.box,
+    WINDOW_PAD,
+    ring ? undefined : above,
+  )
+  const target = ring ? windowOf(part.mask, width, height, scale, part.box, WINDOW_PAD) : window
+  const fit = ring
+    ? fitShape(
+        ck,
+        window,
+        { draws: settings.draws, kinds: settings.kinds.filter((kind) => kind !== 'line') },
+        { target, stroke: ringWidth(part, width, height) / scale },
+      )
+    : fitShape(ck, window, settings)
+  const background = part.touchesEdge && sum(part.filled) >= width * height * BACKGROUND_SHARE
+  const layer = shapeLayer(fit.fit, flatPaint(part), layerName(part.rgb, fit.fit, background))
+  return { layer: background ? { ...layer, role: 'background' } : layer, fitted: fit, ring, target, background }
+}
+
+/** A part's flat colour, see-through by its alpha when it is under 0.97. */
+export function flatPaint(part: StackedPart): Paint {
+  const color = hexColour(...part.rgb)
+  return part.alpha < SEE_THROUGH
+    ? { type: 'solid', color, opacity: Math.round(part.alpha * 1000) / 1000 }
+    : { type: 'solid', color }
 }
 
 /**
@@ -97,51 +175,4 @@ function coverageCut(fitted: FloatPicture): number {
   for (let i = 0; i < n; i++) alphas[i] = fitted.data[i * 4 + 3] ?? 0
   alphas.sort()
   return Math.max(0.08, Math.min(0.5, 0.5 * (alphas[Math.floor(alphas.length * 0.995)] ?? 0)))
-}
-
-/**
- * A part's graphic: its best shape in its flat colour, filled, or stroked inside its outer edge
- * when it is a ring. A filled shape may reach under the parts over it at no cost.
- */
-function graphicOf(
-  ck: CanvasKit,
-  part: StackedPart,
-  fitted: FloatPicture,
-  scale: number,
-  above: Float32Array,
-  labels: Int32Array,
-): ShapeLayer {
-  const { width, height } = fitted
-  const ring = isRing(part, labels)
-  const window = windowOf(
-    ring ? part.outer : part.filled,
-    width,
-    height,
-    scale,
-    part.box,
-    WINDOW_PAD,
-    ring ? undefined : above,
-  )
-  const fit = ring
-    ? fitShape(
-        ck,
-        window,
-        { draws: FIRST_PASS.draws, kinds: FIRST_PASS.kinds.filter((kind) => kind !== 'line') },
-        {
-          target: windowOf(part.mask, width, height, scale, part.box, WINDOW_PAD),
-          stroke: ringWidth(part, width, height) / scale,
-        },
-      ).fit
-    : fitShape(ck, window, { draws: FIRST_PASS.draws, kinds: FIRST_PASS.kinds }).fit
-  const background = part.touchesEdge && sum(part.filled) >= width * height * BACKGROUND_SHARE
-  const layer = shapeLayer(fit, flatPaint(part), layerName(part.rgb, fit, background))
-  return background ? { ...layer, role: 'background' } : layer
-}
-
-/** A part's flat colour, see-through by its alpha when it is under 0.97. */
-function flatPaint(part: StackedPart): Paint {
-  const color = hexColour(...part.rgb)
-  return part.alpha < SEE_THROUGH
-    ? { type: 'solid', color, opacity: Math.round(part.alpha * 1000) / 1000 }
-    : { type: 'solid', color }
 }

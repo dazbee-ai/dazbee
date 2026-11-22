@@ -17,8 +17,12 @@ export interface StackedPart extends Part {
 
 /** The parts back to front, the largest filled outline first, each with its holes worked out. */
 export function stackParts(parts: readonly Part[], picture: FloatPicture): StackedPart[] {
-  const stacked = parts.map((part) => withHoles(part, picture))
-  return stacked.sort((a, b) => sum(b.filled) - sum(a.filled))
+  return backToFront(parts.map((part) => withHoles(part, picture)))
+}
+
+/** Parts back to front, the largest filled outline first; parts as large keep their order. */
+export function backToFront<T extends StackedPart>(parts: readonly T[]): T[] {
+  return [...parts].sort((a, b) => sum(b.filled) - sum(a.filled))
 }
 
 /** What the parts after the one at `index` cover, the most of any of them a pixel: its shape may reach under it. */
@@ -37,7 +41,7 @@ export function sum(mask: Float32Array): number {
 }
 
 /** A part with its covered holes filled, every hole filled, and its share of see-through hole. */
-function withHoles(part: Part, picture: FloatPicture): StackedPart {
+export function withHoles(part: Part, picture: FloatPicture): StackedPart {
   const { filled, outer, seeThrough } = fillHoles(part.mask, picture, part.box)
   let maskSum = 0
   let holeSum = 0

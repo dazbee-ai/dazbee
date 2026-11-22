@@ -1,5 +1,5 @@
 // Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and pieces of the
-// shape prototype's synthetic set 2 with the prototype's first-pass answers for them.
+// shape prototype's synthetic set 2 with the prototype's first-pass or full-pass answers for them.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -10,7 +10,7 @@ import type { Paint, Shape } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
-/** The prototype's first-pass answer for a piece: its decision, why, the fitted rule's numbers and its graphics. */
+/** The prototype's answer for a piece: its decision, why, the fitted rule's numbers and its graphics. */
 export interface PrototypeAnswer {
   decision: 'shapes' | 'picture'
   why: string
@@ -28,7 +28,13 @@ export interface PrototypePiece {
   pixels: Pixels
 }
 
+/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's full-pass answer. */
+export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass'> {
+  fullPass: PrototypeAnswer
+}
+
 const FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype')
+const FULL_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'shape-prototype-full')
 
 /** The prototype's pieces, read with CanvasKit as the matchers read pictures. */
 export function prototypePieces(ck: CanvasKit): PrototypePiece[] {
@@ -36,6 +42,17 @@ export function prototypePieces(ck: CanvasKit): PrototypePiece[] {
     pieces: Omit<PrototypePiece, 'pixels'>[]
   }
   return pieces.map((piece) => ({ ...piece, pixels: decodePng(ck, readFileSync(join(FIXTURES, `${piece.id}.png`))) }))
+}
+
+/** The prototype's pieces with its full-pass answers, read with CanvasKit as the matchers read pictures. */
+export function prototypeFullPieces(ck: CanvasKit): PrototypeFullPiece[] {
+  const { pieces } = JSON.parse(readFileSync(join(FULL_FIXTURES, 'answers.json'), 'utf8')) as {
+    pieces: Omit<PrototypeFullPiece, 'pixels'>[]
+  }
+  return pieces.map((piece) => ({
+    ...piece,
+    pixels: decodePng(ck, readFileSync(join(FULL_FIXTURES, `${piece.id}.png`))),
+  }))
 }
 
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */
@@ -73,4 +90,23 @@ export function graphic(
       strokes: paint.stroke ? [paint.stroke] : [],
     },
   }
+}
+
+/** Pixels as a PNG in base64, as a job's picture. */
+export function pngBase64(ck: CanvasKit, pixels: Pixels): string {
+  const image = ck.MakeImage(
+    {
+      width: pixels.width,
+      height: pixels.height,
+      colorType: ck.ColorType.RGBA_8888,
+      alphaType: ck.AlphaType.Unpremul,
+      colorSpace: ck.ColorSpace.SRGB,
+    },
+    pixels.pixels,
+    pixels.width * 4,
+  )
+  const bytes = image?.encodeToBytes()
+  image?.delete()
+  if (!bytes) throw new Error('could not encode the picture')
+  return Buffer.from(bytes).toString('base64')
 }

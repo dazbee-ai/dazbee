@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type GraphicProps, type MatchAnswer, MatchJob, type Paint, UnplacedLayer } from '@dazbee/schema'
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { firstPass, firstPassOf } from './first-pass.ts'
-import { graphic, prototypePieces } from './test-pieces.ts'
+import { graphic, pngBase64, prototypePieces } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
 const NAVY: Paint = { type: 'solid', color: '#1E3A8AFF' }
@@ -38,24 +37,6 @@ const onlyGraphic = (answer: MatchAnswer): GraphicProps => {
   return graphics[0] as GraphicProps
 }
 
-const pngBase64 = (pixels: Pixels): string => {
-  const image = ck.MakeImage(
-    {
-      width: pixels.width,
-      height: pixels.height,
-      colorType: ck.ColorType.RGBA_8888,
-      alphaType: ck.AlphaType.Unpremul,
-      colorSpace: ck.ColorSpace.SRGB,
-    },
-    pixels.pixels,
-    pixels.width * 4,
-  )
-  const bytes = image?.encodeToBytes()
-  image?.delete()
-  if (!bytes) throw new Error('could not encode the picture')
-  return Buffer.from(bytes).toString('base64')
-}
-
 const PROTOTYPE = prototypePieces(ck)
 
 describe('firstPass', () => {
@@ -67,7 +48,7 @@ describe('firstPass', () => {
       200,
     )
     const job = MatchJob.parse({
-      picture: pngBase64(picture),
+      picture: pngBase64(ck, picture),
       pieces: [{ kind: 'shape', rect: { x: 280.4, y: 30, width: 140, height: 140 } }],
       kit: { colors: {}, fonts: {}, textStyles: [] },
     })

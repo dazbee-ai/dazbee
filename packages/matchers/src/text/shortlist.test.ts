@@ -184,12 +184,9 @@ describe('shortlist', () => {
     }
   })
 
-  it('shortlists a face that draws only capitals for words in capitals, and never for words with a lowercase letter', async () => {
+  it('shortlists a face that draws only capitals for words in either case', async () => {
     const sixCaps = fingerprintOfKey('Six Caps|400|normal')
-    const capitals = await shortlistFor(sixCaps, 'TRAIN LIKE YOU MEAN IT')
-    const mixed = await shortlistFor(sixCaps, 'Train like you mean it')
-    expect(capitals.nearest[0]?.key).toBe('Six Caps|400|normal')
-    expect(mixed.nearest).toHaveLength(5)
-    for (const face of mixed.nearest) expect(files.capitals.has(files.rows.get(face.key) ?? -1)).toBe(false)
+    for (const words of ['TRAIN LIKE YOU MEAN IT', 'Train like you mean it'])
+      expect((await shortlistFor(sixCaps, words)).nearest[0]?.key).toBe('Six Caps|400|normal')
   })
 })

@@ -3,7 +3,7 @@
 // It reads the ConvNeXt-Atto model (epoch 14) and its 128-number projection, the gallery of font fingerprints (8
 // clean and 8 realistic samples a face) and the novelty list; keeps only the keys that name a face of
 // `GOOGLE_FONTS` (`faceOfKey`); builds the coverage index from each kept key's file in the google/fonts checkout
-// beside them, at the list's commit, and measures from each face the kinds the shortlist passes over
+// beside them, at the list's commit, and measures from each face what kind of face it is
 // (`face-kinds.ts`); writes the files and prints the manifest and those faces by kind.
 // Run it again when the model is retrained. The files it writes, all little-endian:
 // - `text-model.onnx`: the model; a 1×64×256 window of ink (0 to 1) in, `fingerprint` (512 numbers) out.
@@ -13,9 +13,9 @@
 // - `text-keys.json`: the keys (`family|weight|style`), one a fingerprint.
 // - `text-coverage.bin`: for each key in order, a bit for each of `MATCH_CHARACTERS` in order (bit i of byte i ÷ 8,
 //   from the lowest), set when the key's file draws it itself; 232 bytes a key.
-// - `text-face-kinds.json`: the kept keys the shortlist passes over, by kind (`FaceKinds`): the novelty list's; the
-//   faces that draw no distinct letters; the colour faces; and, passed over only for words with a lowercase letter,
-//   the faces that draw their lowercase letters as capitals.
+// - `text-face-kinds.json`: kept keys by kind (`FaceKinds`): the novelty list's, the faces that draw no distinct
+//   letters and the colour faces, which the shortlist passes over; and the faces that draw their lowercase letters as
+//   capitals, which it lists for any words.
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

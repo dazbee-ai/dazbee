@@ -16,8 +16,8 @@ export type TextFileName =
 export type TextFileBytes = Readonly<Record<TextFileName, Uint8Array>>
 
 /**
- * `text-face-kinds.json`: the keys of faces the shortlist passes over, by kind. `pack-text-files.ts` measures all but
- * the novelty keys from each face itself.
+ * `text-face-kinds.json`: keys by kind of face. The shortlist passes over the novelty, no-letter and colour faces.
+ * `pack-text-files.ts` measures all but the novelty keys from each face itself.
  */
 export interface FaceKinds {
   /** Novelty faces, as the novelty list the pack script reads names them: decorations rather than plain letters. */
@@ -26,7 +26,7 @@ export interface FaceKinds {
   noLetters: string[]
   /** Colour faces: a COLR, CBDT, sbix or SVG table, drawing their letters in colours of their own. */
   colour: string[]
-  /** Faces that draw their lowercase letters as their capitals' shapes, or as smaller capitals. */
+  /** Faces that draw their lowercase letters as their capitals' shapes, or as smaller capitals: listed for any words. */
   capitals: string[]
 }
 
@@ -46,8 +46,6 @@ export interface TextFiles {
   directions: Float32Array
   /** Rows whose faces are never shortlisted: novelty faces, faces that draw no distinct letters, and colour faces. */
   neverListed: ReadonlySet<number>
-  /** Rows whose faces draw their lowercase letters as capitals, shortlisted only for words with no lowercase letter. */
-  capitals: ReadonlySet<number>
   /** For each row, the scripts whose letters its face draws every one of. */
   scripts: readonly ReadonlySet<Script>[]
   /** A bit a character of `MATCH_CHARACTERS` a row, set when the row's face draws it itself. */
@@ -102,7 +100,6 @@ export function readTextFiles(bytes: TextFileBytes): TextFiles {
     mean: projection.subarray(0, MODEL_NUMBERS),
     directions: projection.subarray(MODEL_NUMBERS),
     neverListed: rowsOf([...kinds.novelty, ...kinds.noLetters, ...kinds.colour]),
-    capitals: rowsOf(kinds.capitals),
     scripts,
     coverage,
   }

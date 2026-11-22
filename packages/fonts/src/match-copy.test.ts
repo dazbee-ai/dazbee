@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { characterGlyphs, tableDirectory } from './font-tables.ts'
 import { MATCH_COPY_VERSION } from './match-characters.ts'
 import { matchCopy } from './match-copy.ts'
 import { FONT_FILES_DIR } from './node.ts'
@@ -16,6 +17,13 @@ function tables(font: Uint8Array): string[] {
   ).sort()
 }
 
+/** The characters a font's character map gives a glyph. */
+function charactersOf(font: Uint8Array): Set<number> {
+  const view = new DataView(font.buffer, font.byteOffset, font.byteLength)
+  const cmap = tableDirectory(view)?.find((table) => table.tag === 'cmap')
+  return new Set(cmap ? characterGlyphs(view, cmap.at, cmap.length).keys() : [])
+}
+
 describe('matchCopy', () => {
   it('cuts a font smaller, keeping every table, its variation axes and layout features among them', () => {
     const arabic = new Uint8Array(readFileSync(join(FONT_FILES_DIR, 'NotoNaskhArabic-Regular.ttf')))
@@ -27,6 +35,20 @@ describe('matchCopy', () => {
     const variable = variableTestFont()
     expect(tables(matchCopy(variable) ?? new Uint8Array())).toEqual(tables(variable))
     expect(tables(variable)).toEqual(expect.arrayContaining(['fvar', 'gvar']))
+  })
+
+  it('cuts a font to other characters when given them, mapping those and no others of the ones ads use', () => {
+    const latin = new Uint8Array(readFileSync(join(FONT_FILES_DIR, 'NotoSans-Regular.ttf')))
+    const whole = matchCopy(latin)
+    const cut = matchCopy(
+      latin,
+      [...'Sale '].map((char) => char.codePointAt(0) ?? 0),
+    )
+    expect(cut?.length).toBeLessThan(whole?.length ?? 0)
+    expect(tables(cut ?? new Uint8Array())).toEqual(tables(latin))
+    const mapped = charactersOf(cut ?? new Uint8Array())
+    expect([...'Sale '].every((char) => mapped.has(char.codePointAt(0) ?? 0))).toBe(true)
+    expect(mapped.has('Z'.codePointAt(0) ?? 0)).toBe(false)
   })
 
   it('makes none of bytes that are not a font', () => {

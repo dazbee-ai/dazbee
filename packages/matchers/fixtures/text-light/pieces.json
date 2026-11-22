@@ -1,0 +1,89 @@
+{
+  "pieces": [
+    {
+      "id": "latin-plain",
+      "key": "Montserrat|800|normal",
+      "words": "Fresh Deals\nEvery Day",
+      "size": 56,
+      "colour": "#1A1A1A",
+      "background": "#FFFFFF",
+      "align": "center"
+    },
+    {
+      "id": "latin-outlined",
+      "key": "Montserrat|800|normal",
+      "words": "Shop Now",
+      "size": 64,
+      "colour": "#FFD400",
+      "background": null,
+      "outline": {
+        "width": 3,
+        "color": "#111111"
+      }
+    },
+    {
+      "id": "latin-tilted",
+      "key": "Montserrat|800|normal",
+      "words": "Big Summer Sale",
+      "size": 52,
+      "colour": "#C2185B",
+      "background": null,
+      "rotation": -6
+    },
+    {
+      "id": "latin-tight",
+      "key": "Montserrat|800|normal",
+      "words": "LIMITED OFFER",
+      "size": 52,
+      "colour": "#0D47A1",
+      "background": "#F5F5F5",
+      "spacing": -5
+    },
+    {
+      "id": "latin-loose",
+      "key": "Montserrat|800|normal",
+      "words": "NEW ARRIVALS",
+      "size": 44,
+      "colour": "#212121",
+      "background": null,
+      "spacing": 30
+    },
+    {
+      "id": "arabic-plain",
+      "key": "Cairo|600|normal",
+      "words": "تخفيضات الصيف",
+      "size": 60,
+      "colour": "#1B5E20",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": "arabic-outlined",
+      "key": "Cairo|600|normal",
+      "words": "عرض خاص",
+      "size": 64,
+      "colour": "#FFFFFF",
+      "background": null,
+      "outline": {
+        "width": 3,
+        "color": "#000000"
+      }
+    },
+    {
+      "id": "devanagari-plain",
+      "key": "Hind|500|normal",
+      "words": "दिवाली सेल",
+      "size": 64,
+      "colour": "#BF360C",
+      "background": "#FFF8E1"
+    },
+    {
+      "id": "devanagari-tilted",
+      "key": "Hind|700|normal",
+      "words": "आज ही खरीदें",
+      "size": 60,
+      "colour": "#4A148C",
+      "background": null,
+      "rotation": 5
+    }
+  ]
+}

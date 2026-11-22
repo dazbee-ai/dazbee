@@ -146,7 +146,7 @@ export function lineStrip(ink: Ink, box: Box, height: number): Strip {
 }
 
 /** Whether a picture is a cut-out: more than 5% of its pixels less than opaque. */
-function isCutOut({ width, height, pixels }: Pixels): boolean {
+export function isCutOut({ width, height, pixels }: Pixels): boolean {
   let clear = 0
   for (let i = 0; i < width * height; i++) if ((pixels[i * 4 + 3] ?? 0) < OPAQUE_FROM) clear++
   return clear > width * height * CUT_OUT_SHARE

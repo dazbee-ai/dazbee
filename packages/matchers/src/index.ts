@@ -4,6 +4,7 @@ export { fullPass } from './shape/full-pass.ts'
 export { matchShapes } from './shape/match-shapes.ts'
 export { pieceFingerprint } from './text/fingerprint.ts'
 export { type FontSource, loadFaces } from './text/font-source.ts'
+export { matchText, type TextMatcherDeps, type TextPieceOfJob } from './text/match-text.ts'
 export {
   MODEL_INPUT,
   MODEL_NUMBERS,

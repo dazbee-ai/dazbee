@@ -1,11 +1,11 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from './colour.ts'
 import { LOOKS_SAME, looksSame } from './rule.ts'
-import { drawShapes, ellipse, type PrototypePair, prototypePairs, recoloured, rect, ring } from './test-pictures.ts'
+import { drawShapes, ellipse, prototypePairs, recoloured, rect, ring } from './test-pictures.ts'
 
 const WHITE: Rgb = [255, 255, 255]
 const BLACK: Rgb = [0, 0, 0]
@@ -38,16 +38,22 @@ const withoutLastThird = (picture: Pixels): Pixels => {
   return { width, height, pixels }
 }
 
-let pairs: PrototypePair[] = []
+/** Read once for the file, before its tests are collected, so each pair and view is a test of its own. */
+const pairs = await prototypePairs()
 const pair = (id: string) => {
   const found = pairs.find((p) => p.id === id)
   if (!found) throw new Error(`no pair ${id}`)
   return found
 }
 
-beforeAll(async () => {
-  pairs = await prototypePairs()
-})
+/** Each pair seen each way the prototype scored it. */
+const PROTOTYPE_CASES = pairs.flatMap((p) =>
+  p.seen.map((prototype) => ({
+    name: `${p.id} over ${prototype.backgrounds ? prototype.backgrounds.map((b) => b.join(' ')).join(', ') : 'the see-through grey'}`,
+    pair: p,
+    prototype,
+  })),
+)
 
 describe('looksSame', () => {
   it('passes identical pictures, text and shapes alike', () => {
@@ -115,28 +121,26 @@ describe('looksSame', () => {
     )
   })
 
-  it('gives the text prototype’s numbers and decisions on its pieces and rebuilds', () => {
+  it('is checked against the prototype on 12 pairs, some of which don’t look the same', () => {
     expect(pairs).toHaveLength(12)
-    let differentText = 0
-    for (const { id, piece, rebuild, pieceInk, inkColour, seen } of pairs) {
-      for (const prototype of seen) {
-        const options = {
-          ...(prototype.backgrounds ? { backgrounds: prototype.backgrounds } : {}),
-          ...(pieceInk ? { pieceInk } : {}),
-        }
-        const text = looksSame('text', piece, rebuild, options)
-        const shape = looksSame('shape', piece, rebuild, options)
-        const scores = { ssim: prototype.ssim, inkMissed: prototype.inkMissed, far: prototype.far }
-        expect({ id, ...text }).toEqual({ id, same: prototype.textLooksSame, scores: { ...scores, inkColour } })
-        expect({ id, ...shape }).toEqual({ id, same: prototype.shapeLooksSame, scores })
-        if (!prototype.textLooksSame) differentText++
-      }
+    expect(PROTOTYPE_CASES.filter((c) => !c.prototype.textLooksSame).length).toBeGreaterThan(0)
+  })
+
+  it.each(PROTOTYPE_CASES)('gives the text prototype’s numbers and decisions: $name', ({ pair: p, prototype }) => {
+    const options = {
+      ...(prototype.backgrounds ? { backgrounds: prototype.backgrounds } : {}),
+      ...(p.pieceInk ? { pieceInk: p.pieceInk } : {}),
     }
-    expect(differentText).toBeGreaterThan(0)
+    const scores = { ssim: prototype.ssim, inkMissed: prototype.inkMissed, far: prototype.far }
+    expect(looksSame('text', p.piece, p.rebuild, options)).toEqual({
+      same: prototype.textLooksSame,
+      scores: { ...scores, inkColour: p.inkColour },
+    })
+    expect(looksSame('shape', p.piece, p.rebuild, options)).toEqual({ same: prototype.shapeLooksSame, scores })
   })
 
   it('gives the same answer each time', () => {
-    const { piece, rebuild, pieceInk, background } = pair('s316')
+    const { piece, rebuild, pieceInk, background } = pair('s150')
     const seen = { backgrounds: [background, WHITE], ...(pieceInk ? { pieceInk } : {}) }
     expect(looksSame('text', piece, rebuild, seen)).toEqual(looksSame('text', piece, rebuild, seen))
   })

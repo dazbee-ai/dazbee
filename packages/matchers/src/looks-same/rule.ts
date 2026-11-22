@@ -211,32 +211,53 @@ function over(picture: Pixels, background: Rgb): Float32Array {
 
 /** An RGB picture blurred by a Gaussian of σ (radius 3σ), its edges clamped. */
 function blurRgb(rgb: Float32Array, width: number, height: number, sigma: number): Float32Array {
-  const radius = Math.ceil(3 * sigma)
-  const taps = normalisedGaussian(radius, sigma)
-  const pass = (from: Float32Array, dx: number, dy: number) => {
-    const out = new Float32Array(from.length)
-    for (let y = 0; y < height; y++)
-      for (let x = 0; x < width; x++)
-        for (let c = 0; c < 3; c++) {
-          let v = 0
-          for (let t = -radius; t <= radius; t++) {
-            const xx = Math.min(width - 1, Math.max(0, x + t * dx))
-            const yy = Math.min(height - 1, Math.max(0, y + t * dy))
-            v += (taps[t + radius] ?? 0) * (from[(yy * width + xx) * 3 + c] ?? 0)
-          }
-          out[(y * width + x) * 3 + c] = v
-        }
-    return out
-  }
-  return pass(pass(rgb, 1, 0), 0, 1)
+  const taps = normalisedGaussian(Math.ceil(3 * sigma), sigma)
+  return blurAlong(blurAlong(rgb, width, height, 3, taps, 'x'), width, height, 3, taps, 'y')
 }
 
 /** The taps of a Gaussian of σ from -radius to radius, summing to 1. */
-function normalisedGaussian(radius: number, sigma: number): number[] {
+function normalisedGaussian(radius: number, sigma: number): Float64Array {
   const taps = Array.from({ length: 2 * radius + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)))
   let sum = 0
   for (const tap of taps) sum += tap
-  return taps.map((tap) => tap / sum)
+  return Float64Array.from(taps, (tap) => tap / sum)
+}
+
+/**
+ * One pass of a separable blur along x or y, each of a picture's channels on its own, its edges
+ * clamped. Each output value sums its taps from the first to the last.
+ */
+function blurAlong(
+  from: Float32Array,
+  width: number,
+  height: number,
+  channels: number,
+  taps: Float64Array,
+  along: 'x' | 'y',
+): Float32Array {
+  const out = new Float32Array(from.length)
+  const count = taps.length
+  const radius = (count - 1) / 2
+  const length = along === 'x' ? width : height
+  // For each place along the axis, the place each tap reads, clamped to the picture.
+  const reads = new Int32Array(length * count)
+  for (let at = 0; at < length; at++)
+    for (let t = 0; t < count; t++) reads[at * count + t] = Math.min(length - 1, Math.max(0, at + t - radius))
+  // How far apart in `from` two neighbours along the axis are.
+  const step = along === 'x' ? channels : width * channels
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const first = (along === 'x' ? x : y) * count
+      const start = along === 'x' ? y * width * channels : x * channels
+      const o = (y * width + x) * channels
+      for (let c = 0; c < channels; c++) {
+        const channelStart = start + c
+        let v = 0
+        for (let t = 0; t < count; t++) v += (taps[t] ?? 0) * (from[channelStart + (reads[first + t] ?? 0) * step] ?? 0)
+        out[o + c] = v
+      }
+    }
+  return out
 }
 
 /** Rec. 709 luminance of gamma-encoded RGB. */
@@ -275,24 +296,8 @@ function meanSsim(x: Float32Array, y: Float32Array, width: number, height: numbe
 }
 
 /** One channel blurred by the SSIM window's 11 taps, its edges clamped. */
-function ssimBlur(src: Float32Array, width: number, height: number, taps: readonly number[]): Float32Array {
-  const across = new Float32Array(width * height)
-  const out = new Float32Array(width * height)
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      let s = 0
-      for (let t = -5; t <= 5; t++)
-        s += (taps[t + 5] ?? 0) * (src[y * width + Math.min(width - 1, Math.max(0, x + t))] ?? 0)
-      across[y * width + x] = s
-    }
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      let s = 0
-      for (let t = -5; t <= 5; t++)
-        s += (taps[t + 5] ?? 0) * (across[Math.min(height - 1, Math.max(0, y + t)) * width + x] ?? 0)
-      out[y * width + x] = s
-    }
-  return out
+function ssimBlur(src: Float32Array, width: number, height: number, taps: Float64Array): Float32Array {
+  return blurAlong(blurAlong(src, width, height, 1, taps, 'x'), width, height, 1, taps, 'y')
 }
 
 /** ΔE00 between pixel i of two RGB pictures, each colour rounded to 8 bits; remembered by colour pair. */

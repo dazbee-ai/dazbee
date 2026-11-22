@@ -5,7 +5,7 @@
 import { placedRoots } from '@dazbee/doc'
 import { svgPlaceInput } from '@dazbee/editor/placed-asset'
 import { type FoundGraphic, ILLUSTRATION_SETS, illustrationOf, paintsWith, swapAccent } from '@dazbee/graphics'
-import type { Layer, LayerTree, Rect } from '@dazbee/schema'
+import { type Layer, type LayerTree, MAX_SVG_BYTES, type Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
 import { type ToolContext, ToolRefusal } from './define-tool.ts'
@@ -48,6 +48,8 @@ export async function illustrationPlacing(
   const input = { sha256: file.sha256, name: `${name} · ${title}`, tags: ['illustration', title.toLowerCase()] }
   const notStored = `The illustration “${illustration.id}” isn’t in Dazbee’s storage yet, so nothing was placed`
   const asset = await bundledAsset(context, open, input, notStored)
+  if (asset.sha256 !== file.sha256 || asset.contentType !== 'image/svg+xml' || asset.byteSize > MAX_SVG_BYTES)
+    throw new Error(`the asset of ${illustration.id} is not its SVG file`)
   const text = svgTextOf(await (await context.api.asset(open.brandId, asset.id)).bytes())
   const swapping = accent !== undefined && paintsWith(text, from)
   const placing = !swapping

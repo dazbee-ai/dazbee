@@ -72,11 +72,12 @@ export interface IllustrationSet {
   /**
    * A GitHub repository at a commit, its SVG files in `folder`, where the files may paint the accent with a CSS
    * variable (`accentVariable`), which is written as the accent before anything reads them; or the makers' gallery,
-   * whose list pages are read for the scenes drawn in `galleryStyle` as its pages call it, on a day (YYYY-MM-DD).
+   * whose list pages are read for the scenes drawn in `galleryStyle` as its pages call it, on a day (YYYY-MM-DD),
+   * each scene's file fetched only from a link that starts with `files`.
    */
   source:
     | { repository: string; commit: string; folder: string; accentVariable?: string }
-    | { gallery: string; galleryStyle: string; read: string }
+    | { gallery: string; galleryStyle: string; files: string; read: string }
   /** The licence's name, as a notice names it (“unDraw licence”), and the page its text was read from. */
   licence: { name: string; url: string }
   /** The one colour the set's scenes accent with (#rrggbb, lowercase), which placing may swap for another. */
@@ -172,7 +173,12 @@ export const ILLUSTRATION_SETS: Readonly<Record<IllustrationSetId, IllustrationS
     creator: { name: 'ManyPixels', url: 'https://www.manypixels.co' },
     style: 'flat',
     homepage: 'https://www.manypixels.co/gallery',
-    source: { gallery: 'https://www.manypixels.co/gallery', galleryStyle: 'Chromablue', read: '2026-11-22' },
+    source: {
+      gallery: 'https://www.manypixels.co/gallery',
+      galleryStyle: 'Chromablue',
+      files: 'https://cdn.prod.website-files.com/',
+      read: '2026-11-22',
+    },
     licence: { name: 'ManyPixels', url: 'https://www.manypixels.co/gallery' },
     accent: '#68e1fd',
     tags: ['scene', 'illustration', 'flat', 'manypixels'],
@@ -182,7 +188,12 @@ export const ILLUSTRATION_SETS: Readonly<Record<IllustrationSetId, IllustrationS
     creator: { name: 'ManyPixels', url: 'https://www.manypixels.co' },
     style: 'isometric',
     homepage: 'https://www.manypixels.co/gallery',
-    source: { gallery: 'https://www.manypixels.co/gallery', galleryStyle: 'Birdview', read: '2026-11-22' },
+    source: {
+      gallery: 'https://www.manypixels.co/gallery',
+      galleryStyle: 'Birdview',
+      files: 'https://cdn.prod.website-files.com/',
+      read: '2026-11-22',
+    },
     licence: { name: 'ManyPixels', url: 'https://www.manypixels.co/gallery' },
     accent: '#68e1fd',
     tags: ['scene', 'illustration', 'isometric', '3d', 'manypixels'],

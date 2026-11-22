@@ -40,7 +40,7 @@ describe('readRepositorySet', () => {
 
 describe('readIllustrationFiles', () => {
   it('tells each wanted file once its SHA-256 is the pinned one, from the archive and from links', async () => {
-    const link = 'https://gallery.example/team.svg'
+    const link = 'https://cdn.prod.website-files.com/team.svg'
     const wanted = [
       { set: 'undraw' as const, source: 'svgs/delivery.svg', sha256: sha256(WRITTEN) },
       { set: 'manypixels-chromablue' as const, source: link, sha256: sha256('<svg/>') },
@@ -65,5 +65,18 @@ describe('readIllustrationFiles', () => {
     await expect(readIllustrationFiles(changed, async () => {}, readers)).rejects.toThrow(/not the pinned/)
     const gone = [{ set: 'undraw' as const, source: 'svgs/gone.svg', sha256: sha256(WRITTEN) }]
     await expect(readIllustrationFiles(gone, async () => {}, readers)).rejects.toThrow(/lack svgs\/gone\.svg/)
+  })
+
+  it('refuses a gallery set’s file at a link outside its files, fetching nothing', async () => {
+    const fetched: string[] = []
+    const link = async (url: string) => {
+      fetched.push(url)
+      return new TextEncoder().encode('<svg/>')
+    }
+    const elsewhere = [{ set: 'manypixels-birdview' as const, source: 'https://elsewhere.example/a.svg', sha256: '0' }]
+    await expect(readIllustrationFiles(elsewhere, async () => {}, { archive: archive({}), link })).rejects.toThrow(
+      /not a link to manypixels-birdview/,
+    )
+    expect(fetched).toEqual([])
   })
 })

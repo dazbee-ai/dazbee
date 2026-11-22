@@ -29,8 +29,11 @@ interface GalleryScene {
 }
 
 const PACKAGE = join(import.meta.dirname, '..')
-/** How long to wait before each list page fetched from a gallery. */
+/** How long to wait before each list page fetched from a gallery, and the most bytes one may have. */
 const PAGE_PAUSE_MS = 2000
+const MAX_PAGE_BYTES = 5_000_000
+/** The longest word a scene's tags keep from what its gallery says of it. */
+const MAX_TAG_LENGTH = 30
 /** The most list pages a gallery is read to, so a page that links to itself can't keep the writer going. */
 const MAX_PAGES = 200
 
@@ -58,7 +61,7 @@ for (const set of ILLUSTRATION_SET_IDS) {
     }
   } else {
     const named = new Set<string>()
-    for (const scene of await galleryScenes(source.gallery, source.galleryStyle)) {
+    for (const scene of await galleryScenes(source)) {
       const name = unique(slugOf(scene.name), named)
       add(name, scene.url, await cached(scene.url, fetchLink), [...scene.name.split(WORD_BREAK), ...scene.words])
     }
@@ -68,8 +71,8 @@ for (const set of ILLUSTRATION_SET_IDS) {
 await writeFile(join(PACKAGE, 'src', 'illustrations.json'), linePerEntry(entries))
 
 /**
- * The file as the manifest lists it, its tags its own words and the set's, with the topics its words put it in; undefined, told
- * why, when it is larger than an upload may be or the SVG reader can't read it whole.
+ * The file as the manifest lists it, its tags its own plain words and the set's, with the topics its words put it in;
+ * undefined, told why, when it is larger than an upload may be or the SVG reader can't read it whole.
  */
 function checked(
   set: IllustrationSetId,
@@ -87,7 +90,9 @@ function checked(
   }
   if (read.skipped.length > 0) return leftOut(source, `the reader leaves out its ${read.skipped.join(', ')}`)
   const sha256 = createHash('sha256').update(bytes).digest('hex')
-  const own = words.map((word) => word.trim().toLowerCase()).filter(Boolean)
+  const own = words
+    .flatMap((word) => word.toLowerCase().split(WORD_BREAK))
+    .filter((word) => word && word.length <= MAX_TAG_LENGTH)
   const tags = tagsOf([...own.filter((word) => !/^\d+$/.test(word)), ...ILLUSTRATION_SETS[set].tags])
   const topics = topicsOf(own).filter((topic) => !tags.includes(topic))
   const size = { width: Math.round(read.width * 100) / 100, height: Math.round(read.height * 100) / 100 }
@@ -117,15 +122,25 @@ function unique(name: string, taken: Set<string>): string {
   return made
 }
 /**
- * The scenes a gallery's list pages offer in `style`, page after page as each links to the next, a pause after each
- * page; the link to the next page is the one whose number is one more.
+ * The scenes a gallery's list pages offer in `galleryStyle` whose files are links to `files`, page after page as each
+ * links to the next, a pause before each page; the link to the next page is the one whose number is one more.
  */
-async function galleryScenes(gallery: string, style: string): Promise<GalleryScene[]> {
+async function galleryScenes({
+  gallery,
+  galleryStyle,
+  files,
+}: {
+  gallery: string
+  galleryStyle: string
+  files: string
+}): Promise<GalleryScene[]> {
   const scenes: GalleryScene[] = []
   let url: string | undefined = gallery
   for (let page = 1; url && page <= MAX_PAGES; page++) {
-    const html = new TextDecoder().decode(await cached(url, (page) => fetchLink(page, PAGE_PAUSE_MS)))
-    scenes.push(...scenesOf(html).filter((scene) => scene.style === style))
+    const html = new TextDecoder().decode(
+      await cached(url, (page) => fetchLink(page, { pauseMs: PAGE_PAUSE_MS, maxBytes: MAX_PAGE_BYTES })),
+    )
+    scenes.push(...scenesOf(html).filter((scene) => scene.style === galleryStyle && scene.url.startsWith(files)))
     const next = new RegExp(`href="(\\?[0-9a-z]+_page=${page + 1})"`).exec(html)?.[1]
     url = next ? new URL(next, gallery).href : undefined
   }

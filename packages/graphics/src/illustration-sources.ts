@@ -18,6 +18,10 @@ export interface IllustrationReaders {
 export const USER_AGENT = 'illustration-set-fetch/1.0 (node)'
 /** How long to wait before each file fetched from a gallery, so its server is never pressed. */
 const GALLERY_PAUSE_MS = 250
+/** How long one fetch from a gallery may take before it fails. */
+const FETCH_TIMEOUT_MS = 30_000
+/** The most bytes a file fetched from a gallery may have: an SVG upload's most (MAX_SVG_BYTES in @dazbee/schema). */
+const MAX_FILE_BYTES = 5_000_000
 
 const READERS: IllustrationReaders = { archive: readGitHubArchive, link: fetchLink }
 
@@ -67,18 +71,40 @@ export async function readIllustrationFiles<I extends Pick<Illustration, 'set' |
         },
         readers,
       )
-    } else for (const illustration of ofSet) await tell(illustration, await readers.link(illustration.source))
+    } else
+      for (const illustration of ofSet) {
+        const { source } = ILLUSTRATION_SETS[set]
+        if (!('files' in source) || !illustration.source.startsWith(source.files))
+          throw new Error(`${illustration.source} is not a link to ${set}'s files`)
+        await tell(illustration, await readers.link(illustration.source))
+      }
   }
   const missing = wanted.filter((illustration) => !told.has(illustration))
   if (missing.length > 0) throw new Error(`the sources lack ${missing.map(({ source }) => source).join(', ')}`)
 }
 
-/** The bytes at a gallery's link, fetched after a pause of `pauseMs`; throws when the gallery doesn't give them. */
-export async function fetchLink(url: string, pauseMs = GALLERY_PAUSE_MS): Promise<Uint8Array> {
+/**
+ * The bytes at a gallery's link, fetched after a pause of `pauseMs`; throws when the gallery doesn't give them within
+ * FETCH_TIMEOUT_MS, or gives more than `maxBytes`.
+ */
+export async function fetchLink(
+  url: string,
+  { pauseMs = GALLERY_PAUSE_MS, maxBytes = MAX_FILE_BYTES }: { pauseMs?: number; maxBytes?: number } = {},
+): Promise<Uint8Array> {
   await new Promise((resolve) => setTimeout(resolve, pauseMs))
-  const response = await fetch(url, { headers: { 'user-agent': USER_AGENT } })
-  if (!response.ok) throw new Error(`${url} answered ${response.status}`)
-  return new Uint8Array(await response.arrayBuffer())
+  const response = await fetch(url, {
+    headers: { 'user-agent': USER_AGENT },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  })
+  if (!response.ok || !response.body) throw new Error(`${url} answered ${response.status}`)
+  const chunks: Uint8Array[] = []
+  let length = 0
+  for await (const chunk of response.body) {
+    length += chunk.length
+    if (length > maxBytes) throw new Error(`${url} gives more than ${maxBytes} bytes`)
+    chunks.push(chunk)
+  }
+  return new Uint8Array(Buffer.concat(chunks))
 }
 
 /** A repository set's file with the accent written for the CSS variable it paints the accent with, if any. */

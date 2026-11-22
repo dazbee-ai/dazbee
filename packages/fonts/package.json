@@ -8,7 +8,8 @@
     "./node": "./src/node.ts",
     "./test-fonts": "./src/test-fonts.ts",
     "./shipped-ranks": "./src/shipped-ranks.ts",
-    "./match-copy": "./src/match-copy.ts"
+    "./match-copy": "./src/match-copy.ts",
+    "./font-tables": "./src/font-tables.ts"
   },
   "scripts": {
     "google-fonts": "node src/write-google-fonts.ts",

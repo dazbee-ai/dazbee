@@ -143,7 +143,7 @@ STYLES = [
     "plain and casual",
     "very short, one to three words, like a command",
     "with typos and misspellings, lowercase, sloppy",
-    "Hinglish (Hindi and English mixed, written in Latin letters, e.g. 'ise zara upar le jao', 'yeh wala hata do')",
+    "Hinglish (Hindi and English mixed, written in Latin letters, mixing Hindi words and English design words in one sentence)",
     "how marketers and designers talk (jargon: CTA, hero, packshot, lockup, kerning, eyebrow, artboard)",
     "indirect: a complaint about how it looks now, so the fix is implied",
     "as a question ('can you ...?', 'could the ... be ...?')",

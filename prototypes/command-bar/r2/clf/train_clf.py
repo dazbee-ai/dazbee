@@ -81,6 +81,7 @@ def main():
     ap.add_argument("--smoothing", type=float, default=0.1)
     ap.add_argument("--no-r1", action="store_true", help="leave round 1's templated requests out")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--lora", type=int, default=0, help="LoRA rank instead of full fine-tuning (big decoders)")
     args = ap.parse_args()
 
     from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_cosine_schedule_with_warmup
@@ -106,8 +107,13 @@ def main():
     if tok.pad_token is None:  # decoder models: pad with the end token, classify at the last real one
         tok.pad_token = tok.eos_token
     model.config.pad_token_id = tok.pad_token_id
+    if args.lora:
+        from peft import LoraConfig, get_peft_model
+        model = get_peft_model(model, LoraConfig(r=args.lora, lora_alpha=2 * args.lora, lora_dropout=0.05,
+                                                 target_modules="all-linear", modules_to_save=["score"],
+                                                 task_type="SEQ_CLS"))
     steps = args.epochs * -(-len(train) // args.batch)
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.01)
     sched = get_cosine_schedule_with_warmup(opt, int(0.06 * steps), steps)
     lossf = torch.nn.CrossEntropyLoss(label_smoothing=args.smoothing)
     emit(event="start", base=args.base, train=len(train), val=len(val), labels=len(LABELS),
@@ -161,7 +167,11 @@ def main():
              minutes=round((time.time() - t0) / 60, 2))
         if acc > best:
             best = acc
-            model.save_pretrained(os.path.join(args.out, "best"))
+            if args.lora:
+                import copy
+                copy.deepcopy(model).merge_and_unload().save_pretrained(os.path.join(args.out, "best"))
+            else:
+                model.save_pretrained(os.path.join(args.out, "best"))
             tok.save_pretrained(os.path.join(args.out, "best"))
             emit(event="best", epoch=epoch, val_exact=acc)
         torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),

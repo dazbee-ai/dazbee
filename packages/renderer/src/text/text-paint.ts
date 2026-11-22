@@ -2,7 +2,8 @@
 // placed in the text layer's box; an outline pass over or under the letters with each outline's
 // stroke; and a lines pass for each gradient whose runs are underlined or struck through, as
 // SkParagraph paints those lines in one colour only. The paragraph builder takes a piece's paint
-// with its style, and the passes are laid out alike, so their glyphs fall on one another.
+// with its style, and the passes are laid out alike, so their glyphs fall on one another; a placed
+// text's letters are drawn with the same paints (`passPaint`).
 import type { CanvasKit, Image, Paint as CkPaint, ParagraphBuilder, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
 import { type GradientPaint, type Rect, shownGradient, type TextProps } from '@dazbee/schema'
 
@@ -18,11 +19,11 @@ export type TextPass = { kind: 'fill' } | { kind: 'outline'; under: boolean } | 
 
 type Style = Pick<TextProps['style'], 'color' | 'gradient' | 'outline' | 'underline' | 'strikethrough'>
 
+/** A gradient's key: equal for gradients that paint alike. */
+export const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)
+
 /** What a gradient is drawn with: it reads no image. */
 const NO_IMAGES: ReadonlyMap<string, Image> = new Map()
-
-/** A gradient's key: equal for gradients that paint alike. */
-const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)
 
 /** The gradients whose characters have an underline or strikethrough, which a lines pass each paints, by key. */
 export function linedGradients(styles: readonly Style[]): Map<string, GradientPaint> {
@@ -51,10 +52,30 @@ export function linesColour(style: Style, pass: TextPass): string {
 }
 
 /**
- * Pushes one piece's style onto the builder, painted for the pass: in the fill pass in its gradient
- * across the layer's `box` where it has one, else in its colour; in an outline pass with the stroke
- * of an outline drawn there, an outline under the letters twice as wide; in a lines pass with its
- * characters clear. The caller pops it.
+ * The paint a style's characters get in a pass: in the fill pass its gradient across the layer's
+ * `box` where it has one, else its colour; in an outline pass the stroke of an outline drawn there,
+ * an outline under the letters twice as wide; null where the pass draws none of its characters (an
+ * outline pass without such an outline, and a lines pass). The caller deletes it.
+ */
+export function passPaint(ck: CanvasKit, style: Style, pass: TextPass, box: Rect): CkPaint | null {
+  if (pass.kind === 'lines') return null
+  if (pass.kind === 'outline') {
+    const { outline } = style
+    if (!outline || outline.width <= 0 || (outline.under ?? false) !== pass.under) return null
+  }
+  const gradient = shownGradient(style)
+  const paint =
+    (pass.kind === 'fill' && gradient && paintFor(ck, gradient, box, { images: NO_IMAGES })) || new ck.Paint()
+  paint.setAntiAlias(true)
+  if (pass.kind === 'outline') strokeFor(ck, paint, style, pass.under)
+  else if (!gradient) paint.setColor(color(ck, style.color))
+  return paint
+}
+
+/**
+ * Pushes one piece's style onto the builder, its characters painted for the pass (`passPaint`): a
+ * coloured fill pass with the style alone, and clear in a pass that draws none of them. The caller
+ * pops it.
  */
 export function pushPainted(
   ck: CanvasKit,
@@ -64,32 +85,31 @@ export function pushPainted(
   pass: TextPass,
   box: Rect,
 ) {
-  const gradient = shownGradient(style)
-  if (pass.kind === 'fill' && !gradient) {
+  if (pass.kind === 'fill' && !shownGradient(style)) {
     builder.pushStyle(ckStyle)
     return
   }
   const clear = new ck.Paint()
   clear.setColor(ck.TRANSPARENT)
-  const characters =
-    (pass.kind === 'fill' && gradient && paintFor(ck, gradient, box, { images: NO_IMAGES })) || new ck.Paint()
-  characters.setAntiAlias(true)
-  if (pass.kind === 'outline') strokeFor(ck, characters, style, pass.under)
-  else if (pass.kind === 'lines') characters.setColor(ck.TRANSPARENT)
+  const characters = passPaint(ck, style, pass, box) ?? clearCharacters(ck)
   builder.pushPaintStyle(ckStyle, characters, clear)
   characters.delete()
   clear.delete()
 }
 
-/** Makes `paint` the stroke of the style's outline when it is drawn in this outline pass, else clear. */
+/** Makes `paint` the stroke of the style's outline, drawn over the letters or under them. */
 function strokeFor(ck: CanvasKit, paint: CkPaint, style: Style, under: boolean) {
-  const { outline } = style
-  if (!outline || outline.width <= 0 || (outline.under ?? false) !== under) {
-    paint.setColor(ck.TRANSPARENT)
-    return
-  }
+  const width = style.outline?.width ?? 0
   paint.setStyle(ck.PaintStyle.Stroke)
-  paint.setStrokeWidth(under ? outline.width * 2 : outline.width)
+  paint.setStrokeWidth(under ? width * 2 : width)
   paint.setStrokeJoin(ck.StrokeJoin.Round)
-  paint.setColor(color(ck, outline.color))
+  paint.setColor(color(ck, style.outline?.color ?? style.color))
+}
+
+/** Characters a pass doesn't draw: clear. */
+function clearCharacters(ck: CanvasKit): CkPaint {
+  const paint = new ck.Paint()
+  paint.setAntiAlias(true)
+  paint.setColor(ck.TRANSPARENT)
+  return paint
 }

@@ -7,7 +7,14 @@ import { TextStyle } from '@dazbee/schema'
 import { loadCanvasKit } from '../node.ts'
 import { resourceCache } from '../resources.ts'
 import type { FamilySuperSubs } from './font-features.ts'
-import { madeUpSuperSubs, paragraphShape, type ShapedRun, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
+import {
+  madeUpSuperSubs,
+  paragraphShape,
+  type ShapedRun,
+  superSubLineStyle,
+  utf16Offsets,
+  withoutSuperSubs,
+} from './super-sub.ts'
 
 const style = (more: Record<string, unknown> = {}) =>
   TextStyle.parse({ fontFamily: 'Plain', fontSize: 50, color: '#000000FF', ...more })
@@ -200,5 +207,12 @@ describe('withoutSuperSubs', () => {
     expect(withoutSuperSubs(style({ features: { sups: true, subs: false, liga: false } })).features).toEqual({
       liga: false,
     })
+  })
+})
+
+describe('utf16Offsets', () => {
+  it('gives each UTF-8 byte the UTF-16 offset of its character, and the end past the last', () => {
+    // a is one byte and one unit, é two bytes and one unit, 😀 four bytes and two units.
+    expect(utf16Offsets('aé😀')).toEqual([0, 1, 1, 2, 2, 2, 2, 4])
   })
 })

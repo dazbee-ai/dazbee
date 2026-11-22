@@ -1,4 +1,4 @@
-"""PROTOTYPE, never merged. Fine-tunes a small encoder to pick a request's outcome class (84
+"""PROTOTYPE, never merged. Fine-tunes a small encoder to pick a request's outcome class (82
 edits or no call); slots.py reads the number or hex code. Resumable per epoch (model, optimiser,
 schedule and the best score so far are saved after every epoch).
 
@@ -103,7 +103,7 @@ def main():
     tok = AutoTokenizer.from_pretrained(args.base)
     model = AutoModelForSequenceClassification.from_pretrained(
         args.base, num_labels=len(LABELS), id2label=dict(enumerate(LABELS)), label2id=lab,
-        ignore_mismatched_sizes=True).to(dev)
+        ignore_mismatched_sizes=True, dtype=torch.float32).to(dev)
     if tok.pad_token is None:  # decoder models: pad with the end token, classify at the last real one
         tok.pad_token = tok.eos_token
     model.config.pad_token_id = tok.pad_token_id

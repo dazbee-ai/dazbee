@@ -88,13 +88,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--weights", required=True)
     ap.add_argument("--schema", default="r1", choices=list(SCHEMAS))
-    ap.add_argument("--queries", help="a .jsonl of rows with query and answers (default: the frozen test set)")
+    ap.add_argument("--queries", help="a .jsonl of rows with query and answers, or a frozen .txt test set "
+                                      "(default: test.frozen.txt)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--threads", type=int, default=4)
     args = ap.parse_args()
-    rows = ([json.loads(l) for l in open(args.queries, encoding="utf-8")] if args.queries else read_test())
+    if args.queries and args.queries.endswith(".txt"):
+        rows = read_test(args.queries)
+    elif args.queries:
+        rows = [json.loads(l) for l in open(args.queries, encoding="utf-8")]
+    else:
+        rows = read_test()
     if args.limit:
         rows = rows[:args.limit]
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)

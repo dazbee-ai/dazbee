@@ -1,8 +1,311 @@
-# Quick command bar on Needle 3: prototype report
+# Quick command bar: prototype report
 
 PROTOTYPE, never merged; branch `command-bar-prototype`. Every number below was measured on
 the files in this folder (the raw engine results stay on the training machine); where each
-comes from is named next to it. Written 2026-11-21.
+comes from is named next to it. Round 1 (Needle 3) written 2026-11-21, round 2 2026-11-22.
+
+# Round 2 (2026-11-22): a small classifier instead of Needle
+
+## Answer
+
+**A small text classifier is far better than Needle for this bar: 96.6% exact on a new frozen
+test set (96.0% on a second one), against 68.0% for round 1's Needle LoRA and 68.2% for Needle
+trained on the same new data. It is 23 MB and takes 1.2 ms a request natively and 3.1 ms in
+WebAssembly (one thread, envy).** It is MiniLM-L6 (`sentence-transformers/all-MiniLM-L6-v2`,
+22.7M parameters, Apache-2.0), fine-tuned to pick one of 82 outcomes or "no call". A short rule
+file (`r2/slots.py`) reads the number or hex code from the request. It is one model with one
+forward pass: no router, no second turn, no tool prompt, and no engine repair step to work
+around.
+
+Recommendation: build the bar on the MiniLM-L6 classifier, not on Needle. Let it act alone at
+or above the confidence threshold chosen on validation (0.79). On the test set that acts on 82%
+of requests, 1.0% of them wrong; on the second test set 82.5%, 1.8% wrong. Below the threshold,
+show its best two guesses as buttons: the right outcome is among the top two for 98.8% of test
+requests. Log what people type and which button they press, and retrain on it; the training run
+takes 15 minutes on a laptop GPU.
+
+How I picked it: by validation alone, MiniLM-L12 seed 0 was best (97.3% against 97.0%, 7 of
+1,945 requests). On the first test set the two tie at 96.6%. MiniLM-L6 is ahead on the second
+test set (96.0% against 94.5%) and in the browser engine (96.6% against 96.0%). It has
+confidence that separates right from wrong far better (AUROC 0.95 against 0.86), is two-thirds
+the size and is twice as fast. Speed and memory come after accuracy, and accuracy is a tie
+within noise, so I chose MiniLM-L6 (Claude, 2026-11-22). MiniLM-L12 is the fallback; the code
+and numbers for both are here.
+
+The goals, measured on the new frozen test set (`r2/data/test.frozen.txt`, 500 requests):
+
+| goal, in order                  | target                     | round 1 Needle LoRA     | round 2 classifier (MiniLM-L6)                       |
+| ------------------------------- | -------------------------- | ----------------------- | ---------------------------------------------------- |
+| 1. exact call                   | well above 75.8%, aim ~90% | 68.0%                   | **96.6%** (second test set: 96.0%)                   |
+| 2. right outcome in the top two | ≥95%                       | –                       | **98.8%** (second test set: 98.5%)                   |
+| 3. one engine instead of six    | one, ~175 MB in a browser  | six, 1.1 GB WebAssembly | **one model**, +175 MB Node memory, library included |
+| 4. size                         | ≤63.5 MB                   | 63.5 MB (4-bit)         | **23.2 MB** (int8)                                   |
+
+Before and after, every model on the same two frozen test sets (exact outcome; each row is the
+8-bit or 4-bit file that would ship, unless a float32 score is named):
+
+| model                                                  | data    | test exact               | top two | refusals | Hinglish | indirect | second test set | size     |
+| ------------------------------------------------------ | ------- | ------------------------ | ------- | -------- | -------- | -------- | --------------- | -------- |
+| Needle, untrained, round 1 schema (two turns)          | –       | 35.2%                    | –       | 86.2%    | 8.8%     | 22.2%    | –               | 63.5 MB  |
+| Needle, round 1 LoRA r16, round 1 schema               | round 1 | 68.0%                    | –       | 78.5%    | 36.8%    | 55.6%    | –               | 63.5 MB  |
+| Needle, round 2 LoRA r16, one-turn schema (one engine) | v2      | 68.2%                    | –       | 70.8%    | 48.5%    | 55.6%    | 65.5%           | 63.4 MB  |
+| MiniLM-L12 classifier                                  | v1      | 94.6%                    | 97.6%   | 93.8%    | 80.9%    | 91.1%    | 91.0%           | 34.2 MB  |
+| MiniLM-L12 classifier                                  | v2      | 96.6%                    | 99.2%   | 98.5%    | 95.6%    | 93.3%    | 94.5%           | 34.2 MB  |
+| Ettin-32M classifier (MIT)                             | v2      | 33.2% (96.6% in float32) | 41.4%   | 73.8%    | 5.9%     | 28.9%    | 29.5%           | 32.7 MB  |
+| bge-small classifier (MIT)                             | v3      | 95.8%                    | 98.2%   | 98.5%    | 95.6%    | 82.2%    | 95.5%           | 34.2 MB  |
+| MiniLM-L12 classifier, seed 0 (best on validation)     | v3      | 96.6%                    | 98.2%   | 96.9%    | 94.1%    | 86.7%    | 94.5%           | 34.2 MB  |
+| MiniLM-L12 classifier, seed 1                          | v3      | 97.4%                    | 98.8%   | 98.5%    | 94.1%    | 91.1%    | 96.0%           | 34.2 MB  |
+| MiniLM-L12 classifier, seed 2                          | v3      | 96.6%                    | 98.6%   | 96.9%    | 97.1%    | 88.9%    | 95.5%           | 34.2 MB  |
+| **MiniLM-L6 classifier (recommended)**                 | v3      | **96.6%**                | 98.8%   | 98.5%    | 97.1%    | 88.9%    | **96.0%**       | 23.2 MB  |
+| SmolLM2-135M as a classifier (Apache-2.0)              | v3      | 91.6% (94.2% in float32) | 96.2%   | 96.9%    | 80.9%    | 86.7%    | 94.0%           | 137.5 MB |
+| Qwen3-0.6B, LoRA r16, as a classifier (Apache-2.0)     | v3      | 88.2% (95.0% in float32) | 95.2%   | 93.8%    | 77.9%    | 91.1%    | 87.0%           | 600 MB   |
+
+Data: v1 is the first 10.1k generated requests plus round 1's templates. v2 fixes a labelling
+bug and adds 4.6k Hinglish and implied-fix requests. v3 rewrites two more mislabelled batches
+(section R3). Needle round 2 and the v2 MiniLM-L12 row trained on the same data, so they compare
+like for like. Refusals are the 65 test requests that need no call; Hinglish (68) and indirect
+(45) are the test set's hardest styles. Each test request is worth 0.2 points, each request on
+the second set 0.5. Results: `r2/reports/`.
+
+## R1. The two test sets
+
+`r2/data/test.frozen.txt`: 500 requests I wrote by hand on 2026-11-22. I committed them
+(`87d5722`) before any training data was generated, and no model trained on them. The styles:
+casual 125, short 62, misspelt 71, Hinglish 68, marketer talk 64, indirect (the fix is implied:
+"the logo is way too small") 45. Plus 65 no-call requests (13%): generative asks, unrelated
+chat, edits the bar doesn't have, vague edits, negations and two edits at once. Every one of
+the 82 outcomes appears at least once. Each line is `outcome code | request`.
+`r2/outcomes.py` turns a code into round 1's call, with defaults filled in: "bigger" and "20%
+bigger" run the same command, so they count as the same outcome.
+
+`r2/data/test2.frozen.txt`: 200 more requests in the same style mix, written and committed
+(`e20d8b6`) after the first classifier had been scored on the first set. That was before any
+model trained on the data changes that the first set's errors led to (section R3). It checks
+that those changes don't just fit the first set. They held: the first classifier scored 91.0%
+on it, the final ones 94.5-96.0%.
+
+Values: a code's number is the one the request names. Where it names none, the tool's default
+applies (resize 20%, corners 16 px, nudge 10 px). "Double" is +100% and "half" is -50%. The
+value rule (`r2/slots.py`) reads the right value on all 435 action requests of the first set
+when it is given the right class. I wrote it after the test set and checked it once, with no
+changes after.
+
+## R2. Free fixes on Needle (no training)
+
+`r2/schemas.py` has four schemas for the same 82 outcomes, each with a mapping back to round 1's
+calls. `r2/score_needle.py` scores them through the real engine (cactus-compute 4.2.6, native,
+four processes), reading the call from the reasoning line as in round 1:
+
+| schema                                                                                                         | untrained Needle | round 1 LoRA r16 |
+| -------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------- |
+| `r1`: round 1's two turns and names                                                                            | 35.2%            | 68.0%            |
+| `words`: the same two turns, names as people type them, no shared prefixes, no area named "text", defaults set | 35.4%            | 28.0%            |
+| `flat24`: all 24 tools in one engine (Needle then retrieves five)                                              | 29.8%            | 26.4%            |
+| `one`: one turn, five tools, the edit as an enum option and an optional number                                 | 31.6%            | 25.4%            |
+
+The renames, defaults and ranges in the schema bought nothing measurable (+0.2 points, one
+request). The round 1 LoRA drops to 25-28% with any new names, because it learned the old ones.
+The one-turn schema is worth having only for speed and memory (one engine), and only once
+trained (section R4).
+
+## R3. Data
+
+**Through the ChatGPT plan only.** `r2/gen_plan.py` calls the owner's ChatGPT plan through
+`chatgpt_plan.py`'s sign-in (passed as `--plan-script`, outside this repository). It used no API
+key and no paid API. Every row was written by **gpt-6.2-sol** at low reasoning effort, and each
+row records that in its `model` field. 14,843 rows in `r2/data/gen/`, one file per class and
+batch. Each call asks for 50 requests for one outcome. It describes the edit precisely, names
+four of eight styles to mix (casual, terse, misspelt, Hinglish, marketer jargon, implied fix,
+question, long or spoken), and lists the numbers or hex codes to use. Every row is checked: the
+value it names must be written in the request and be in range; a request that should name no
+number must have none; and it must not equal a request in either test set. About 98% of the
+rows passed (10,126 of 10,399 in the first run, 4,619 of 4,649 in the second, 99 of 100 in the
+rewrite).
+
+Validation is a fixed tenth of the generated rows, picked by a hash of the request, plus round
+1's validation split. Round 1's other templated splits are added to training (4,311 rows).
+Final training set: 17,420 requests, 13% no call (`r2/clf/data.py`).
+
+**Two bugs in the generated data and one targeted addition, all found from errors:**
+
+- v1 → v2, bug: the "big" no-call kind (generative asks) shared its key with the outcome "big"
+  (bigger), so its prompt asked for "make it bigger" and 300 such rows were labelled no call.
+  That was most of v1's misses on "bigger". Rewritten.
+- v1 → v2, addition: one batch per class asking mainly for Hinglish and implied fixes, with a
+  list of everyday Hindi words (`HINGLISH_FROM`, 4.6k rows). I added it because Hinglish was
+  the weakest style on the first test set (81%). That choice was guided by the test set, which
+  is why the second test set exists: on it, Hinglish went from 85% to 96-100%.
+- v2 → v3, bug: an example Hinglish phrase in the style hint ("ise zara upar le jao", move it
+  up) led two "unsupported edit" batches to write 100 move and delete requests labelled no
+  call. That caused "nudge it up a little" to be refused. The hint now has no example phrases,
+  and the batches were rewritten.
+
+## R4. Models
+
+**Classifiers** (`r2/clf/train_clf.py`): the encoder plus a linear head over 83 labels (82
+outcomes and no call). AdamW, lr 8e-5, cosine schedule, batch 32, 15 epochs, label smoothing
+0.1. Training adds typing noise on the fly: a swapped, dropped, doubled or wrong letter in a
+quarter of requests, plus lowercase and caps changes. It saves state every epoch, and the epoch
+with the best validation exact share is kept. One run is 11-30 minutes on this laptop's GTX 1650,
+depending on what else runs. `r2/clf/export_eval.py` exports to ONNX, quantizes the weights to
+8 bits (onnxruntime's dynamic int8, per channel) and scores the int8 file.
+
+- **MiniLM-L6** (22.7M, Apache-2.0), recommended: validation 97.0%. On test 96.6% in int8 and
+  96.8% in float32. Confidence AUROC is 0.95, the best of all models here. 23.2 MB int8.
+- **MiniLM-L12** (33M, Apache-2.0): best on validation (97.3%, seed 0). The int8 file scores
+  96.6% on test, against 96.0% for the float32 one. 34.2 MB.
+- **Seeds**: three seeds of MiniLM-L12 on v3 score 96.6%, 97.4% and 96.6% on test, and 94.5%,
+  96.0% and 95.5% on the second set. A seed moves the score by about a point, so differences
+  under a point between models are noise. I chose between models on validation (and, for
+  L6 against L12, on size and speed; see the answer), never on the best test score.
+- **bge-small-en-v1.5** (33M, MIT): close, 95.8% / 95.5% on the two sets, but weaker on
+  implied fixes (82%).
+- **Ettin-32M** (2025, ModernBERT design, MIT): as good in float32 (96.6%), but standard int8
+  quantization breaks it (33.2%). Unsigned, not per-channel int8 brings it back to 94.6% on
+  test, still 2 points below its float32. Not worth it over MiniLM.
+- **Small decoder language models as classifiers** (the same head on the last token, trained
+  on envy's GPU in float32): SmolLM2-135M full fine-tune, 6 epochs, validation 95.4%; Qwen3-0.6B
+  LoRA r16, 3 epochs, validation 97.0%. In float32 they score 94.2% and 95.0% on test, below
+  the MiniLMs. int8 costs them more (91.6% and 88.2%), and they are 6 and 26 times MiniLM-L6's
+  size (137.5 and 600 MB int8; 8 and 22 ms a request on one envy core, against 1.2 ms). A first
+  SmolLM run learned nothing (15% on validation): transformers 5 loads these models in bfloat16
+  by default, where AdamW's small steps vanish. Loading in float32 fixed it. FunctionGemma-270M
+  and LFM2 were not tried: larger decoders had already lost to MiniLM.
+
+**Needle round 2** (`r2/needle_rows.py`, `train_lora.py --keep-epochs`, `r2/pick_epochs.sh`,
+`r2/after_needle.sh`): trained exactly as served. The same five-tool one-turn schema and
+compact tools JSON the engine sends, a reasoning line then the call, and one request per row.
+That makes one engine and no router. LoRA r16 (alpha 32, lr 1e-4) on q/k/v/gate/out of all 20
+layers with the 4-bit weights simulated in the loss, batch 16, sequences of 800 tokens (the
+tools prompt alone is about 650). The run takes 31 minutes an epoch on envy's RTX 4070 Super,
+and I ran 4 epochs. Every epoch's adapter was exported at 4 bits and scored by the engine on
+800 validation requests: 54.4%, 61.0%, 64.6%, 64.4%. Epoch 3 was kept. On test it scores 68.2%
+with the reasoning-line call and 58.4% with the engine's repaired call; on the second set
+65.5%. Its errors are mostly the wrong option of the right tool ("vertically center" read as
+align center, "move down one step in the stack" as move down) and wrong refusals. Cactus
+advises 10-30 epochs. More epochs would help, but not enough to close 30 points on a curve
+that had already flattened. Rank 32 and the two-turn `words` schema were not trained: the
+classifier settled the question first, and each Needle epoch costs half an hour.
+
+## R5. Confidence and acting alone
+
+The classifier's confidence is its top softmax probability. AUROC between right and wrong
+calls, MiniLM-L6: 0.95 on test and 0.92 on the second set (MiniLM-L12 seed 0: 0.86 and 0.88).
+For comparison, Needle's head in round 1 scored 0.82 and the engine's own score 0.50. Each
+model's threshold was chosen on validation as the lowest at which at most 1% of the actions it
+takes are wrong: 0.79 for MiniLM-L6, 0.85 for MiniLM-L12. Applied to the test sets:
+
+| model, set              | acts alone on | wrong share of those | right outcome in the two buttons, all requests |
+| ----------------------- | ------------- | -------------------- | ---------------------------------------------- |
+| MiniLM-L6, test (500)   | 82.0%         | 1.0% (4 of 410)      | 98.8%                                          |
+| MiniLM-L6, second (200) | 82.5%         | 1.8% (3 of 165)      | 98.5%                                          |
+| MiniLM-L12, test        | 79.6%         | 0.8% (3 of 398)      | 98.2%                                          |
+| MiniLM-L12, second      | 78.0%         | 1.3% (2 of 156)      | 97.5%                                          |
+
+Round 1 acted alone on 2% under the same rule. Validation here comes from the same generator as
+the training data, so a threshold set on it errs on the lax side. Real requests should set it
+again (section R8).
+
+## R6. Speed, memory, size
+
+Classifiers, one request at a time over all 500 test requests, tokenizing included, after 10
+warm-up requests (`r2/clf/bench_native.py`, `r2/clf/bench_wasm.mjs`; `r2/reports/speed.json`):
+
+| model      | machine                          | engine                                     | median   | p95      | memory                                |
+| ---------- | -------------------------------- | ------------------------------------------ | -------- | -------- | ------------------------------------- |
+| MiniLM-L6  | envy, Ryzen 7 7700 (WSL)         | onnxruntime 1.32 native, 1 thread          | 1.2 ms   | 1.3 ms   | +55 MB process peak                   |
+| MiniLM-L6  | envy                             | onnxruntime 1.32 native, 4 threads         | 0.7 ms   | 0.8 ms   | +55 MB                                |
+| MiniLM-L6  | envy (Windows, Node 24)          | onnxruntime-web 1.31 WebAssembly, 1 thread | 3.1 ms   | 4.6 ms   | +175 MB Node memory, library included |
+| MiniLM-L12 | envy (WSL)                       | onnxruntime 1.32 native, 1 thread          | 2.5 ms   | 3.0 ms   | +78 MB                                |
+| MiniLM-L12 | envy                             | onnxruntime 1.32 native, 4 threads         | 1.4 ms   | 2.0 ms   | +78 MB                                |
+| MiniLM-L12 | envy (Windows, Node 24)          | onnxruntime-web 1.31 WebAssembly, 1 thread | 6.7 ms   | 10.0 ms  | +235 MB                               |
+| MiniLM-L12 | this laptop, Ryzen 5 4600H, busy | onnxruntime-web WebAssembly, 1 thread      | 21-24 ms | 31-36 ms | +160-230 MB                           |
+
+The WebAssembly runs are each the median of three, and load in 0.25-0.34 s on envy (1 s on the
+laptop). MiniLM-L6 in WebAssembly picks the same class as the native int8 run on 99.6% of
+requests and scores the same 96.6% exact. MiniLM-L12 agrees on 98.8% and scores 96.0%; its six
+differing requests were all close calls, where onnxruntime-web's int8 kernels round
+differently. The laptop numbers were taken with a GPU training run and other agents' jobs
+running.
+
+Needle round 2, one engine, on envy: native 76 ms median and 99 ms p95 (4 threads, 100 test
+requests, 166 MB per engine; a GPU training run was going beside it). Round 1 took 95 ms with
+two turns and six engines. In WebAssembly it takes 518-563 ms a request (three runs of 20) with
+a 153 MB heap and 6 s to set up; round 1 took 751 ms with six engines and 1.1 GB. One engine
+fixes Needle's browser memory problem, but it is still about 170 times slower than MiniLM-L6
+there (520 against 3.1 ms) and 28 points less accurate.
+
+## R7. What helped, what didn't
+
+Helped, most first:
+
+1. **A classifier instead of a generator.** The bar's job is to pick one of 82 outcomes and
+   read a number. A 23-33M encoder doing exactly that beats a 4-bit generative model that writes
+   JSON through a tool prompt by 28 points, at a hundredth of the latency.
+2. **Varied data from a big model, and reading its errors.** Fixing the first label bug and
+   adding the Hinglish batches (v1 → v2) moved MiniLM-L12 from 94.6% to 96.6% on test and from
+   91.0% to 94.5% on the second set. Each label bug showed up as one cluster of confident
+   errors. A classifier trained on round 1's templated requests alone was not measured.
+3. **One-turn schema for Needle.** Same accuracy as two turns, one engine, faster, and a
+   seventh of the browser memory.
+
+Didn't help:
+
+- Renaming tools and enum options, defaults, ranges (Needle untrained: +0.2 points).
+- More Needle epochs past 3 (64.6% → 64.4% on validation).
+- Ettin-32M: no better in float32, and fragile under int8.
+- Bigger pretrained decoders (SmolLM2-135M, Qwen3-0.6B): less accurate after int8, and 6-26
+  times larger.
+
+## R8. What production would need
+
+- **Where it runs.** In the browser tab: a 23 MB file (cacheable), onnxruntime-web and a
+  tokenizer, about 3 ms a request on a desktop CPU. No server round trip and no GPU. A server
+  copy needs only onnxruntime: 1.2 ms on one core.
+- **The outcome list is the contract.** Adding an edit means a new class, its requests through
+  `gen_plan.py`, and a 15-minute retrain. The executor maps each class to Dazbee commands, as
+  round 1's `tools.py` `DAZBEE` table does.
+- **Real requests.** The test sets are mine and the training data is GPT's. Real users will
+  phrase things neither of us did. Log requests, the chosen button and undo-right-after (a
+  wrong auto action). Retrain on them, and set the threshold again on a held-out slice of real
+  requests.
+- **Delete never auto-runs**, whatever the confidence (round 1's rule stands).
+- **Selection context** is still not passed in. "Bigger" on text is resolved by the executor.
+- **Export detail:** onnxruntime's quantizer hung on Windows (onnx 1.23's external-data writer)
+  for two of the models. `export_eval.py` infers shapes in memory instead. Checked on one model:
+  the file it writes gives the same classes and confidences on all 500 test requests.
+
+## R9. Decisions taken without the owner (Claude, 2026-11-22)
+
+- Scored on outcomes (class plus value, defaults filled) rather than raw JSON, so different
+  schemas and models compare on what the editor would do.
+- Wrote a second frozen test set once the first had guided the data, rather than report only
+  the first.
+- Among MiniLM-L12 seeds, kept the best on validation (seed 0), although seed 1 scores higher
+  on test.
+- Recommended MiniLM-L6 over MiniLM-L12 seed 0. They are 0.4 points apart on validation and
+  tie on the first test set. L6 is better on the second set and in the browser engine, better
+  calibrated, smaller and faster (the answer).
+- Stopped Needle at 4 epochs and skipped rank 32 and two-turn Needle training on the same
+  data: the classifier settled it.
+- int8 per-channel weights for the MiniLMs. Validation, on the v2 MiniLM-L12: float32 97.0%,
+  int8 per channel 96.6%, unsigned int8 96.8%, reduced range 95.2%.
+
+Licences (none decided; noted as asked): MiniLM-L6 and MiniLM-L12 Apache-2.0; bge-small MIT;
+Ettin MIT; SmolLM2 Apache-2.0; Qwen3-0.6B Apache-2.0; Needle 3 and the Cactus engine
+Apache-2.0; onnxruntime and onnxruntime-web MIT; transformers.js Apache-2.0 (each from its
+Hugging Face card or package metadata).
+
+Files: `r2/outcomes.py` (outcome codes and scoring), `r2/slots.py` (values), `r2/schemas.py`,
+`r2/score_needle.py`, `r2/summarise.py`, `r2/bench_needle.py`, `r2/needle_rows.py`,
+`r2/pick_epochs.sh`, `r2/after_needle.sh` (Needle), `r2/gen_plan.py` (data),
+`r2/clf/data.py`, `r2/clf/train_clf.py`, `r2/clf/export_eval.py`, `r2/clf/bench_native.py`,
+`r2/clf/bench_wasm.mjs`, `r2/clf/score_wasm.py` (classifier); data in `r2/data/`, results in
+`r2/reports/`. Model weights are not committed: the recommended one is retrained by
+`python r2/clf/train_clf.py --base sentence-transformers/all-MiniLM-L6-v2 --out <dir>` and
+`python r2/clf/export_eval.py --run <dir>`.
+
+# Round 1 (2026-11-21): Needle 3
 
 ## Answer
 

@@ -6,13 +6,18 @@
 // shared: one engine; each turn sets its tools with cactus_init, then cactus_complete.
 // per-toolset: one engine per toolset (router and five areas), each set up once; a turn is
 // cactus_reset and cactus_complete on that toolset's engine.
+// TOOLS=<file> takes the toolsets from a file {router, areas} instead; with no router it is one
+// turn on the toolset "all" (round 2's one-turn schema: one engine).
 const fs = require('node:fs')
 const path = require('node:path')
 
 const [dir, archive, queriesPath, countArg, mode = 'shared'] = process.argv.slice(2)
 const createCactus = require(path.resolve(dir, 'cactus.js'))
-const tools = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'tools.json'), 'utf8'))
-const toolsets = { router: tools.areas, ...tools.actions }
+const tools = JSON.parse(fs.readFileSync(process.env.TOOLS || path.join(__dirname, 'data', 'tools.json'), 'utf8'))
+const oneTurn = Boolean(process.env.TOOLS) && !tools.router
+const toolsets = process.env.TOOLS
+  ? { ...(tools.router ? { router: tools.router } : {}), ...tools.areas }
+  : { router: tools.areas, ...tools.actions }
 const queries = fs
   .readFileSync(queriesPath, 'utf8')
   .trim()
@@ -82,9 +87,12 @@ async function main() {
       completes.push(ms)
       return r
     }
-    const r1 = turn('router')
-    const area = r1.function_calls?.[0]?.name
-    if (area && toolsets[area]) turn(area)
+    if (oneTurn) turn('all')
+    else {
+      const r1 = turn('router')
+      const area = r1.function_calls?.[0]?.name
+      if (area && toolsets[area]) turn(area)
+    }
     total.push(performance.now() - t)
   }
   const stat = (xs) => {

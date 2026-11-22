@@ -1,7 +1,7 @@
 """PROTOTYPE, never merged. Round 2's outcomes: what a request should do in the editor, apart
 from how any model or tool schema writes it.
 
-An outcome is a class (one of 84, or no call) plus, for some classes, a value (a number or a hex
+An outcome is a class (one of 82, or no call) plus, for some classes, a value (a number or a hex
 code). `call_of` writes it as round 1's call (tools.py), the canonical form every model's answer
 is turned into before scoring; `outcome_of` reads a round 1 call back. Defaults are filled in, so
 "make it bigger" and "make it 20% bigger" are the same outcome, as they run the same command.

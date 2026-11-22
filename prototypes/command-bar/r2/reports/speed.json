@@ -1,0 +1,9 @@
+{"note": "one request at a time over the 500 frozen test requests, tokenizing included, 10 warm-up requests; envy idle but for a GPU training run",
+ "classifier_final_m12_s0": [
+  {"machine": "envy WSL", "engine": "onnxruntime 1.32.0 native", "threads": 1, "load_ms": 265, "ms_median": 2.47, "ms_p95": 3.04, "peak_rss_growth_mb": 78},
+  {"machine": "envy WSL", "engine": "onnxruntime 1.32.0 native", "threads": 4, "load_ms": 201, "ms_median": 1.43, "ms_p95": 1.99, "peak_rss_growth_mb": 78},
+  {"machine": "envy Windows, Node 24", "engine": "onnxruntime-web 1.31 wasm", "threads": 1, "runs": [{"load_ms": 336, "ms_median": 6.73, "ms_p95": 9.94, "rss_growth_mb": 234}, {"load_ms": 332, "ms_median": 6.69, "ms_p95": 9.98, "rss_growth_mb": 238}, {"load_ms": 328, "ms_median": 6.75, "ms_p95": 9.96, "rss_growth_mb": 235}], "same_class_as_native": 0.988, "exact_wasm": 0.96},
+  {"machine": "laptop Ryzen 5 4600H, busy", "engine": "onnxruntime-web 1.31 wasm", "threads": 1, "runs": [{"load_ms": 1996, "ms_median": 23.67, "ms_p95": 36.48, "rss_growth_mb": 226}, {"load_ms": 958, "ms_median": 20.81, "ms_p95": 30.9, "rss_growth_mb": 210}, {"load_ms": 979, "ms_median": 21.82, "ms_p95": 32.72, "rss_growth_mb": 162}]}],
+ "needle_r2_one_turn": [
+  {"machine": "envy WSL", "engine": "cactus 4.2.6 native", "threads": 4, "requests": 100, "p50_ms": 76, "p95_ms": 99, "peak_ram_mb_per_engine": 166.4, "engines": 1},
+  {"machine": "envy WSL, Node 18", "engine": "cactus wasm", "requests": 20, "runs": [{"setup_ms": 5935, "p50": 563, "p95": 614, "wasm_heaps_mb": 153}, {"setup_ms": 6027, "p50": 519, "p95": 619, "wasm_heaps_mb": 153}, {"setup_ms": 5888, "p50": 518, "p95": 608, "wasm_heaps_mb": 153}]}]}

@@ -20,6 +20,24 @@ from outcomes import DEFAULTS, LABELS, NONE, read_test  # noqa: E402
 from slots import value_for  # noqa: E402
 
 
+def _shape_infer_in_memory():
+    """onnxruntime's quantizer saves the model with external data to infer shapes; onnx 1.23's
+    external-data writer hangs on some of these models on Windows. They are far below protobuf's
+    2 GB limit, so shapes are inferred in memory instead."""
+    import onnx
+    from onnxruntime.quantization import base_quantizer, onnx_quantizer, quant_utils, quantize
+
+    def infer(model):
+        if not isinstance(model, onnx.ModelProto):
+            model = onnx.load(str(model))
+        out = onnx.shape_inference.infer_shapes(model)
+        quant_utils.add_infer_metadata(out)
+        return out
+
+    for module in (base_quantizer, onnx_quantizer, quant_utils, quantize):
+        module.save_and_reload_model_with_shape_infer = infer
+
+
 def export(run, max_len=64):
     import torch
     from onnxruntime.quantization import QuantType, quantize_dynamic
@@ -45,6 +63,7 @@ def export(run, max_len=64):
                       output_names=["logits"], opset_version=17, dynamo=False,
                       dynamic_axes={**{k: {0: "b", 1: "t"} for k in names}, "logits": {0: "b"}})
     q = os.path.join(out, "model.int8.onnx")
+    _shape_infer_in_memory()
     quantize_dynamic(fp32, q, weight_type=QuantType.QInt8, per_channel=True)
     tok.save_pretrained(out)
     json.dump({"labels": LABELS, "inputs": names, "max_len": max_len}, open(os.path.join(out, "labels.json"), "w"))

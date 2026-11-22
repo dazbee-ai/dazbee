@@ -18,7 +18,7 @@ while true; do
       --out $O/$e-val.jsonl --procs 3 --threads 2
     rm -rf $M/$e
   done
-  if grep -q '"done"' $R/log.jsonl 2>/dev/null; then
+  if grep -q '"event": "done"' $R/log.jsonl 2>/dev/null; then
     left=0
     for a in $R/epoch-*.safetensors; do e=$(basename $a .safetensors); [ -f $O/$e-val.jsonl ] || left=1; done
     [ $left = 0 ] && break

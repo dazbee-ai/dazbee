@@ -4,7 +4,7 @@
 // time, drawing on the CPU surface (ADR-0005), with each piece's shortlisted faces fetched at once:
 // a Google face's match copy, or its whole face for characters ads rarely use, and a brand's
 // upload through the brand. It runs in the editor's worker (`editor-worker`), loaded with the
-// first match message.
+// first match message. Each answer tells what the worker holds, so the pool can retire it.
 import * as ort from 'onnxruntime-web/wasm'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
@@ -42,6 +42,10 @@ interface Started {
 let started: Promise<Started> | undefined
 /** The jobs this worker was sent and not yet told to forget, by id. */
 const jobs = new Map<number, WorkerJob>()
+/** CanvasKit's and ONNX Runtime's WebAssembly memories, once they are instantiated. */
+const memories = new Set<WebAssembly.Memory>()
+/** The bytes of the faces this worker has read. */
+let facesRead = 0
 
 /** Answers a match message: starts the worker, matches a piece, or forgets a job. */
 export async function matchMessage(message: MatchMessage, answer: (reply: MatchReply) => void): Promise<void> {
@@ -62,7 +66,7 @@ export async function matchMessage(message: MatchMessage, answer: (reply: MatchR
   const sent = jobs.get(message.jobId)
   const piece = sent?.job.pieces[message.index]
   if (!started || !sent || piece?.kind !== 'text') {
-    answer({ kind: 'matchAnswer', id: message.id, answer: { kind: 'picture', why: 'failed' }, heap: 0 })
+    answer({ kind: 'matchAnswer', id: message.id, answer: { kind: 'picture', why: 'failed' }, memory: held() })
     return
   }
   const { id } = message
@@ -76,12 +80,12 @@ export async function matchMessage(message: MatchMessage, answer: (reply: MatchR
       kitFaces: kitFaces(sent, fingerprinted),
       step: (step) => answer({ kind: 'matchStep', id, step }),
     })
-    answer({ kind: 'matchAnswer', id, answer: matched, heap: heapBytes(ck) })
+    answer({ kind: 'matchAnswer', id, answer: matched, memory: held() })
   } catch (error) {
     // CanvasKit or ONNX Runtime out of memory, or aborted: its WebAssembly can't be trusted again.
     if (error instanceof RangeError || error instanceof WebAssembly.RuntimeError)
       answer({ kind: 'matchBroken', id, message: messageOf(error) })
-    else answer({ kind: 'matchAnswer', id, answer: { kind: 'picture', why: 'failed' }, heap: 0 })
+    else answer({ kind: 'matchAnswer', id, answer: { kind: 'picture', why: 'failed' }, memory: held() })
   }
 }
 
@@ -93,12 +97,37 @@ async function start(modules: CompiledModules): Promise<Started> {
   const files = Promise.all(
     TEXT_FILES.map(async (name) => [name, await fileBytes(textMatcherFile(name))] as const),
   ).then((read) => readTextFiles(Object.fromEntries(read) as TextFileBytes))
-  const loaded = canvasKitFrom(modules.canvasKit)
-  const opened = Promise.all([loaded, fileBytes(textMatcherFile('text-model.onnx'))]).then(([, bytes]) =>
-    openModel(bytes, modules.onnxRuntime),
-  )
-  const [ck, read, model] = await Promise.all([loaded, files, opened])
+  const instantiated = keepingMemories(() => {
+    const loaded = canvasKitFrom(modules.canvasKit)
+    const opened = Promise.all([loaded, fileBytes(textMatcherFile('text-model.onnx'))]).then(([, bytes]) =>
+      openModel(bytes, modules.onnxRuntime),
+    )
+    return Promise.all([loaded, opened])
+  })
+  const [[ck, model], read] = await Promise.all([instantiated, files])
   return { ck, files: read, model, fingerprinted: new Set(read.faces.map((face) => face.family)) }
+}
+
+/**
+ * Runs `load`, keeping in `memories` each WebAssembly memory a module it instantiates is given or
+ * makes: ONNX Runtime is given its memory, CanvasKit makes its own.
+ */
+async function keepingMemories<T>(load: () => Promise<T>): Promise<T> {
+  const { instantiate } = WebAssembly
+  WebAssembly.instantiate = (async (source: BufferSource | WebAssembly.Module, imports?: WebAssembly.Imports) => {
+    const made = await instantiate(source as BufferSource, imports)
+    // Given a compiled module it answers an instance; given bytes, the module and its instance.
+    const instance: WebAssembly.Instance = made instanceof WebAssembly.Instance ? made : made.instance
+    const given = Object.values(imports ?? {}).flatMap((module) => Object.values(module))
+    for (const value of [...given, ...Object.values(instance.exports)])
+      if (value instanceof WebAssembly.Memory) memories.add(value)
+    return made
+  }) as typeof instantiate
+  try {
+    return await load()
+  } finally {
+    WebAssembly.instantiate = instantiate
+  }
 }
 
 /**
@@ -143,7 +172,10 @@ function fontSource({ catalog, uploadPath }: MatchFonts): FontSource {
       const url = found && faceUrl(found.face, copy, uploadPath)
       if (!url) return null
       const response = await fetch(url)
-      return response.ok ? new Uint8Array(await response.arrayBuffer()) : null
+      if (!response.ok) return null
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      facesRead += bytes.byteLength
+      return bytes
     },
   }
 }
@@ -161,10 +193,15 @@ function kitFaces({ job, fonts }: WorkerJob, fingerprinted: ReadonlySet<string>)
   return fonts.catalog.filter((family) => families.has(family.family)).flatMap((family) => family.faces)
 }
 
-/** The bytes CanvasKit's memory takes: it grows as a piece needs and never gives memory back. */
-function heapBytes(ck: CanvasKit): number {
-  // Emscripten's view of the module's memory, which CanvasKit's types leave out.
-  return (ck as unknown as { HEAPU8: Uint8Array }).HEAPU8.buffer.byteLength
+/**
+ * The bytes this worker holds that grow as it matches: its WebAssembly memories, which grow as a
+ * piece needs and never give memory back, and the faces it has read, which it holds until they are
+ * collected.
+ */
+function held(): number {
+  let bytes = facesRead
+  for (const memory of memories) bytes += memory.buffer.byteLength
+  return bytes
 }
 
 function messageOf(error: unknown): string {

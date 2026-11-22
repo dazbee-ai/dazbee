@@ -1,4 +1,7 @@
 // Reading a tar archive as it streams, as GitHub's repository archives are written.
+import { Readable } from 'node:stream'
+import type { ReadableStream } from 'node:stream/web'
+import { createGunzip } from 'node:zlib'
 
 /** What the `tar` reader is told of each file: its path and its bytes; the reader waits for what it answers. */
 export type TarFile = (path: string, bytes: Buffer) => void | Promise<void>
@@ -40,6 +43,17 @@ export async function readTar(stream: AsyncIterable<Buffer>, onFile: TarFile): P
     }
   }
   return commit
+}
+
+export async function readGitHubArchive(
+  { repository, commit }: { repository: string; commit: string },
+  onFile: TarFile,
+): Promise<void> {
+  const response = await fetch(`https://codeload.github.com/${repository}/tar.gz/${commit}`)
+  if (!response.ok || !response.body) throw new Error(`GitHub answered ${response.status} for ${repository}`)
+  const body = Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(createGunzip())
+  const archived = await readTar(body, (path, bytes) => onFile(path.slice(path.indexOf('/') + 1), bytes))
+  if (archived !== commit) throw new Error(`the archive is of ${archived}, not the pinned ${commit}`)
 }
 
 /** A NUL-ended text field of a tar header. */

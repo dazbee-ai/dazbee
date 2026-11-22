@@ -2,12 +2,9 @@
 // file, for `write-stickers.ts`, or the picture stickers' files, each checked against the SHA-256 the list gives, for
 // the API's `stickers:upload` to store.
 import { createHash } from 'node:crypto'
-import { Readable } from 'node:stream'
-import type { ReadableStream } from 'node:stream/web'
-import { createGunzip } from 'node:zlib'
 
 import type { PictureFile } from './pictures.ts'
-import { readTar, type TarFile } from './read-tar.ts'
+import { readGitHubArchive, type TarFile } from './read-tar.ts'
 import { STICKER_SETS } from './sets.ts'
 
 /**
@@ -17,12 +14,7 @@ import { STICKER_SETS } from './sets.ts'
 export async function readFluentArchive(onFile: TarFile): Promise<void> {
   const { source } = STICKER_SETS['fluent-emoji']
   if (!('commit' in source)) throw new Error('Fluent Emoji is pinned to a commit')
-  const { repository, commit } = source
-  const response = await fetch(`https://codeload.github.com/${repository}/tar.gz/${commit}`)
-  if (!response.ok || !response.body) throw new Error(`GitHub answered ${response.status} for ${repository}`)
-  const body = Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(createGunzip())
-  const archived = await readTar(body, (path, bytes) => onFile(path.slice(path.indexOf('/') + 1), bytes))
-  if (archived !== commit) throw new Error(`the archive is of ${archived}, not the pinned ${commit}`)
+  await readGitHubArchive(source, onFile)
 }
 
 /**

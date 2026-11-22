@@ -1,0 +1,218 @@
+# Round 2 second frozen test set: 200 more requests written by hand by Claude on 2026-11-22,
+# after the first classifier was scored on test.frozen.txt and before any model trained on the
+# Hinglish batches was scored. It checks that choices made after seeing test.frozen.txt's errors
+# hold on requests nobody tuned for. Same codes and style mix as test.frozen.txt. Never trained on.
+
+@ casual
+w:bold | could you bold the subtitle
+w:light | set the quote in a light weight
+w:regular | the name doesn't need to be bold, regular please
+case:upper | make the button text all capitals
+case:title | put the product name in title case
+case:lower | change the tagline to lowercase
+it+ | put the slogan in italics
+ul+ | underline the website address
+st+ | add a strikethrough to the old date
+ta:center | center align the text in the caption box
+ta:left | left align the paragraph
+ls+ | widen the letter spacing on the logo text
+lh- | bring the lines of the paragraph closer together
+big | make the product photo larger
+big:30 | enlarge the badge by 30%
+small | make the logo a little smaller
+small:15 | shrink the headline 15 percent
+fs:28 | set the caption to font size 28
+rot:60 | rotate the star 60 degrees
+rot:-20 | turn the sticker 20 degrees counterclockwise
+flipH | flip the arrow horizontally so it points left
+flipV | turn the image upside down
+rc | give the rectangle rounded corners
+rc:32 | set a 32px corner radius on the card
+rc:0 | remove the rounded corners from the box
+brand:secondary | colour the strip with our secondary brand colour
+brand:accent | use the brand accent colour on the icon
+col:orange | make the button orange
+col:teal | change the circle to teal
+col:navy | colour the headline navy blue
+hex:#7B2CBF | make the shape #7B2CBF
+op:45 | set the photo to 45% opacity
+tr:25 | make the box 25% transparent
+font:body | change the caption to the brand body font
+al:right | align the selected items to the right
+al:middle | align these to the vertical middle
+dist:v | distribute the cards vertically
+order:front | bring the price tag to the front
+order:backward | move the circle one layer back
+mv:left:30 | move the logo 30 pixels left
+mv:up | nudge the badge up slightly
+dup | duplicate the icon
+del | delete the second photo
+group | group the logo and the tagline
+ungroup | break up this group
+lock | lock the frame so it stays put
+unlock | unlock the header image
+hide | hide the guide shape
+show | make the watermark visible again
+case:normal | undo the all caps on the title
+
+@ short
+w:bold | bold it
+it+ | italics pls
+ul- | underline off
+case:upper | uppercase
+ta:right | right align
+big | larger
+small | shrink
+fs:44 | 44pt
+rot:30 | rotate 30
+flipH | flip it
+rc | round corners
+col:pink | pink
+col:white | white text
+op:90 | opacity 90
+brand:primary | brand primary
+font:heading | heading typeface
+al:center | center align these
+dist:h | space evenly across
+order:back | send back fully
+mv:right | nudge right
+dup | duplicate
+del | remove
+lock | lock this
+hide | hide it
+show | show
+
+@ misspelt
+w:bold | bolde the tagline
+w:light | make it lite weight
+case:upper | all capz
+case:title | titlecase the headr
+it- | unitalic the qoute
+ul+ | undreline the cta text
+st+ | strikethru the price
+ta:left | left alighn the text
+ls- | tigten the tracking
+lh+ | incrase the line hight
+big | make the imgae biger
+small | make teh logo smaler
+small:40 | shirnk it 40%
+fs:22 | font sizw 22
+rot:90 | rotaet 90 degree
+flipV | fipl vertical
+rc:10 | radus 10 on the corners
+col:blue | make it bleu
+col:black | blakc text pls
+hex:#3A86FF | colour #3a86ff plz
+tr:35 | 35% trasparent
+al:top | allign top
+order:front | bring it to the frnt
+mv:left | nudeg left
+dup | duplciate the logo
+del | dleete that
+group | grpup them
+unlock | unlcok it
+
+@ hinglish
+w:bold | price ko bold kar do yaar
+w:regular | heading ka bold hatao
+case:upper | isko capital mein likho, sab caps
+it+ | quote italic kar do
+ul- | link se underline hata do
+ta:right | text ko right side align karo
+lh- | lines thodi paas paas karo
+big | photo thoda bada karo
+small | badge ko thoda chhota kar do na
+small:30 | logo 30% chhota karo
+fs:32 | font size 32 rakho
+rot:45 | 45 degree se ghuma do
+flipV | isko ulta karo upar se neeche
+rc | corners gol kar do
+col:red | button laal kar do
+col:blue | heading neela kar do
+col:white | text safed karo
+brand:primary | brand wala primary colour lagao
+op:60 | opacity 60 percent kar do
+al:right | sab ko right side align karo
+order:back | isko sabse peeche kar do
+mv:down | thoda neeche khiskao
+dup | iska ek copy aur bana do
+del | ye wala logo hatao
+group | in sab ko ek group mein karo
+lock | logo pe lock laga do
+show | chhupa hua layer wapas dikhao
+
+@ marketer
+w:semibold | semibold the eyebrow so it holds its own
+case:upper | eyebrow text in caps please
+ls+ | open up the tracking on the headline a touch
+lh+ | the body copy needs more leading
+big | the packshot needs more presence, make it bigger
+small:20 | scale the lockup down 20%
+fs:56 | set the hero line at 56px
+rot:-5 | tilt the price burst 5 degrees left
+rc:6 | 6px radius on the buttons
+brand:primary | cta in brand primary
+brand:background | flood the backing panel with the kit background colour
+col:yellow | make the price burst yellow so it screams sale
+hex:#111827 | headline to #111827
+op:20 | ghost the logo back to 20% opacity
+tr:80 | overlay at 80% transparency
+font:heading | set the offer in the brand heading face
+al:left | snap all the selected copy to the left edge
+dist:h | even out the gaps between the four tiles
+order:front | the sale sticker must sit on top of everything
+mv:up:8 | lift the cta 8px
+dup | dupe this tile for the fourth product
+del | remove the placeholder packshot
+group | group the price lockup
+lock | lock the brand bar so nobody moves it
+hide | hide the legal line in this version
+flipH | flip the hero model to face the copy
+
+@ indirect
+big | the button is too small to tap
+small | the logo is overpowering everything
+w:bold | the price gets lost, it needs to be bold
+ls- | the letters in the tagline are too far apart
+lh+ | the paragraph lines are touching each other
+case:normal | why is this all uppercase? put it back to normal case
+order:front | the badge is hidden behind the photo
+order:back | the shape is covering the headline, send it behind everything
+mv:left | it's too close to the right edge, move it left a bit
+dup | i need one more of these buttons
+del | this extra icon isn't needed
+lock | i keep dragging the background by mistake, lock it
+show | the logo disappeared, show it again
+ungroup | i need to move these one by one, ungroup them
+rc:0 | the button shouldn't have rounded corners
+col:black | the text is hard to read, make it black
+it- | the headline shouldn't be slanted
+small:50 | make it half as big
+
+@ nocall
+-big | make a linkedin post about our webinar
+-big | write three headline options
+-big | design a whatsapp status for the sale
+-big | iske liye ek naya banner bana do
+-unrel | good night
+-unrel | what's 15% of 2400
+-unrel | shukriya
+-unrel | can you order lunch
+-unsup | add a shadow under the card
+-unsup | crop the photo tighter
+-unsup | change the font to poppins
+-unsup | photo ka background remove karo
+-unsup | export as jpg
+-unsup | add an outline to the text
+-vague | make it nicer
+-vague | change the size
+-vague | colour badal do
+-vague | tilt it
+-vague | adjust the spacing
+-neg | don't touch the logo
+-neg | rehne do
+-neg | no don't make it bigger
+-multi | make it red and bold
+-multi | logo ko bada karo aur center mein rakho
+-multi | duplicate the card and send it back
+-multi | italic and underline the quote

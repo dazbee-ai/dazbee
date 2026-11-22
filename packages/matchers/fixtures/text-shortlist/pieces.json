@@ -1,0 +1,64 @@
+{
+  "pieces": [
+    {
+      "id": "latin-1",
+      "key": "Roboto|700|normal",
+      "words": "SUMMER SALE\nUp to 50% off"
+    },
+    {
+      "id": "latin-2",
+      "key": "Playfair Display|400|italic",
+      "words": "Timeless Elegance"
+    },
+    {
+      "id": "latin-3",
+      "key": "Lobster|400|normal",
+      "words": "Fresh Bakery"
+    },
+    {
+      "id": "latin-4",
+      "key": "Oswald|500|normal",
+      "words": "LIMITED EDITION"
+    },
+    {
+      "id": "latin-5",
+      "key": "Montserrat|800|normal",
+      "words": "Shop Now"
+    },
+    {
+      "id": "latin-6",
+      "key": "Pacifico|400|normal",
+      "words": "Good Vibes Only"
+    },
+    {
+      "id": "arabic-1",
+      "key": "Cairo|600|normal",
+      "words": "تخفيضات الصيف"
+    },
+    {
+      "id": "arabic-2",
+      "key": "Amiri|400|normal",
+      "words": "عرض خاص لفترة محدودة"
+    },
+    {
+      "id": "arabic-3",
+      "key": "Tajawal|700|normal",
+      "words": "اشتر الآن\nخصم ٤٠٪"
+    },
+    {
+      "id": "devanagari-1",
+      "key": "Hind|500|normal",
+      "words": "दिवाली सेल"
+    },
+    {
+      "id": "devanagari-2",
+      "key": "Mukta|400|normal",
+      "words": "आज ही खरीदें"
+    },
+    {
+      "id": "devanagari-3",
+      "key": "Rozha One|400|normal",
+      "words": "शानदार ऑफ़र"
+    }
+  ]
+}

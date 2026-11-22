@@ -111,7 +111,8 @@ const GB = 2 ** 30
 
 /**
  * A text worker's peak memory, its share of the budget: a worker is retired once a piece leaves it
- * past this. Chrome's renderer process grew by 1,330 MB matching the 48 test ads in three workers.
+ * past this. Over the 48 test ads in three workers, Chrome's renderer process grew by 1,528 MB
+ * (509 MB a worker) with none retired, and by 1,323 MB (441 MB a worker) retiring each past this.
  */
 export const TEXT_WORKER_PEAK = 448 * MB
 /**

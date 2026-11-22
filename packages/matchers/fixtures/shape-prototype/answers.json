@@ -1,0 +1,709 @@
+{
+  "source": "shape-match-prototype at 74c97b9: src/match.ts matchBlock with LIGHT, the fitted shape rule deciding (text-match-prototype src/rule.ts), the package's sRGB-to-Lab and CIEDE2000, no photo guard; synthetic set 2 (SYNTH_SEED=4242)",
+  "pieces": [
+    {
+      "id": "s9",
+      "family": "rect",
+      "degradation": "jpeg",
+      "kit": {
+        "primary": "#778648FF",
+        "secondary": "#00A2B3FF",
+        "accent": "#E38E3DFF",
+        "background": "#2A5753FF",
+        "text": "#C35133FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999650986905684,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Green rectangle",
+            "props": {
+              "x": 10,
+              "y": 10,
+              "width": 130,
+              "height": 75,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 0
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#719E87FF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s10",
+      "family": "rect",
+      "degradation": "blur",
+      "kit": {
+        "primary": "#4A662AFF",
+        "secondary": "#5B4738FF",
+        "accent": "#FFE27BFF",
+        "background": "#FF81DDFF",
+        "text": "#00797BFF"
+      },
+      "firstPass": {
+        "decision": "picture",
+        "why": "looks different: SSIM 0.895, ΔE 1.98",
+        "fitted": {
+          "ssim": 0.9767865596632783,
+          "far": 0.021014729950900164,
+          "inkMissed": 0
+        },
+        "layers": []
+      }
+    },
+    {
+      "id": "s14",
+      "family": "rounded",
+      "degradation": "jpeg",
+      "kit": {
+        "primary": "#FFBAFFFF",
+        "secondary": "#2142BAFF",
+        "accent": "#9480A2FF",
+        "background": "#92B3C0FF",
+        "text": "#4F5647FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999351938181645,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Lavender rounded rectangle",
+            "props": {
+              "x": 5,
+              "y": 5,
+              "width": 197,
+              "height": 47,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 12.280772658468717
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#FFBAFFFF"
+                }
+              ],
+              "strokes": []
+            },
+            "bindings": {
+              "fill": "brand:primary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s38",
+      "family": "pill",
+      "degradation": "clean",
+      "kit": {
+        "primary": "#DCCCFFFF",
+        "secondary": "#9D62CCFF",
+        "accent": "#304110FF",
+        "background": "#4FACDCFF",
+        "text": "#69D167FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999972338057481,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Lavender pill",
+            "props": {
+              "x": 9.027450978755951,
+              "y": 9,
+              "width": 81.9450980424881,
+              "height": 34,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 17
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#F8C6FCFF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s50",
+      "family": "circle",
+      "degradation": "clean",
+      "kit": {
+        "primary": "#FFCED9FF",
+        "secondary": "#80CDEEFF",
+        "accent": "#CE0057FF",
+        "background": "#FFAB44FF",
+        "text": "#007663FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999808644089434,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Blush circle",
+            "props": {
+              "x": 5.058823525905609,
+              "y": 5.047058820724487,
+              "width": 49.88235294818878,
+              "height": 49.905882358551025,
+              "rotation": 0,
+              "shape": {
+                "kind": "ellipse"
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#FFCED9FF"
+                }
+              ],
+              "strokes": []
+            },
+            "bindings": {
+              "fill": "brand:primary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s56",
+      "family": "ellipse",
+      "degradation": "resample",
+      "kit": {
+        "primary": "#41AB81FF",
+        "secondary": "#A04770FF",
+        "accent": "#D074E1FF",
+        "background": "#FFC8FFFF",
+        "text": "#00626DFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999189738808552,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Gold oval",
+            "props": {
+              "x": 4.9852941036224365,
+              "y": 4.981372535228729,
+              "width": 74.02941179275513,
+              "height": 67.0686274766922,
+              "rotation": 0,
+              "shape": {
+                "kind": "ellipse"
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#BCAC35FF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s73",
+      "family": "line",
+      "degradation": "ai",
+      "kit": {
+        "primary": "#9FB3C8FF",
+        "secondary": "#00FFBBFF",
+        "accent": "#BA9875FF",
+        "background": "#2A5500FF",
+        "text": "#005B9CFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.98967582144039,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Pink banner",
+            "props": {
+              "x": 6.4410480260849,
+              "y": 5.817685574293137,
+              "width": 223.01310044527054,
+              "height": 4.526200920343399,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 0
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#D95ACDFF",
+                  "opacity": 0.898
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s81",
+      "family": "star",
+      "degradation": "jpeg",
+      "kit": {
+        "primary": "#354A1FFF",
+        "secondary": "#CF9FFFFF",
+        "accent": "#368168FF",
+        "background": "#6E2239FF",
+        "text": "#37C4B9FF"
+      },
+      "firstPass": {
+        "decision": "picture",
+        "why": "looks different: SSIM 0.676, ΔE 9.96",
+        "fitted": {
+          "ssim": 0.9991391719368317,
+          "far": 0.3150912106135987,
+          "inkMissed": 0.09491150442477876
+        },
+        "layers": []
+      }
+    },
+    {
+      "id": "s127",
+      "family": "ring",
+      "degradation": "wobble",
+      "kit": {
+        "primary": "#527F5BFF",
+        "secondary": "#8D5E5FFF",
+        "accent": "#005FBBFF",
+        "background": "#B9E8B3FF",
+        "text": "#A087A9FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9918881011131463,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Green circle outline",
+            "props": {
+              "x": 3.8813725411891937,
+              "y": 4.281372547149658,
+              "width": 71.3352941274643,
+              "height": 70.43333333730698,
+              "rotation": 0,
+              "shape": {
+                "kind": "ellipse"
+              },
+              "fills": [],
+              "strokes": [
+                {
+                  "paint": {
+                    "type": "solid",
+                    "color": "#527F5BFF"
+                  },
+                  "width": 3.6207131200934937,
+                  "align": "inside"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s135",
+      "family": "outline",
+      "degradation": "resample",
+      "kit": {
+        "primary": "#8EC598FF",
+        "secondary": "#455300FF",
+        "accent": "#356B7EFF",
+        "background": "#8D4183FF",
+        "text": "#914337FF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.999980371603504,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Mint rounded rectangle outline",
+            "props": {
+              "x": 5.360784292221069,
+              "y": 5.352941155433655,
+              "width": 115.27843141555786,
+              "height": 38.29411768913269,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 10.971823711341868
+              },
+              "fills": [],
+              "strokes": [
+                {
+                  "paint": {
+                    "type": "solid",
+                    "color": "#8EC598FF"
+                  },
+                  "width": 4.719197701445907,
+                  "align": "inside"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s154",
+      "family": "badge",
+      "degradation": "resample",
+      "kit": {
+        "primary": "#AF003CFF",
+        "secondary": "#39E8F1FF",
+        "accent": "#E9AB87FF",
+        "background": "#223E36FF",
+        "text": "#8E5600FF"
+      },
+      "firstPass": {
+        "decision": "picture",
+        "why": "too detailed: 304 parts",
+        "fitted": null,
+        "layers": []
+      }
+    },
+    {
+      "id": "s235",
+      "family": "overlap",
+      "degradation": "wobble",
+      "kit": {
+        "primary": "#00A6F0FF",
+        "secondary": "#0057A9FF",
+        "accent": "#ACBA76FF",
+        "background": "#A576D9FF",
+        "text": "#42673CFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9969628096454601,
+          "far": 0.002777777777777778,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Cyan rounded rectangle",
+            "props": {
+              "x": 7.352941155433655,
+              "y": 6.56470587849617,
+              "width": 128.96470591425896,
+              "height": 75.19215688109398,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 4
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#00A6F0FF"
+                }
+              ],
+              "strokes": []
+            },
+            "bindings": {
+              "fill": "brand:primary"
+            }
+          },
+          {
+            "type": "graphic",
+            "name": "Blush oval",
+            "props": {
+              "x": 88.0315043926239,
+              "y": 35.41666665673256,
+              "width": 118.9175152182579,
+              "height": 64.62549021840096,
+              "rotation": 0,
+              "shape": {
+                "kind": "ellipse"
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#CFB7C8FF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s254",
+      "family": "rotated",
+      "degradation": "wobble",
+      "kit": {
+        "primary": "#D39EA4FF",
+        "secondary": "#E55255FF",
+        "accent": "#54958AFF",
+        "background": "#804E4FFF",
+        "text": "#007BCCFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.999752406438347,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Coral rounded rectangle",
+            "props": {
+              "x": 7.905174675948565,
+              "y": 31.63799001222985,
+              "width": 79.38958460117416,
+              "height": 32.34111462728151,
+              "rotation": 3.316014706494057,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 6.518822838185191
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#D99786FF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s261",
+      "family": "translucent",
+      "degradation": "clean",
+      "kit": {
+        "primary": "#00DFFFFF",
+        "secondary": "#00394CFF",
+        "accent": "#7D364FFF",
+        "background": "#009188FF",
+        "text": "#F3E3CDFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999999379498966,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Cyan rounded rectangle",
+            "props": {
+              "x": 8,
+              "y": 8,
+              "width": 77,
+              "height": 125,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 12.860953987762473
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#00DFFFFF",
+                  "opacity": 0.741
+                }
+              ],
+              "strokes": []
+            },
+            "bindings": {
+              "fill": "brand:primary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s202",
+      "family": "linear",
+      "degradation": "resample",
+      "kit": {
+        "primary": "#7285A1FF",
+        "secondary": "#927965FF",
+        "accent": "#003866FF",
+        "background": "#00B284FF",
+        "text": "#AA586CFF"
+      },
+      "firstPass": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9897495800876118,
+          "far": 0,
+          "inkMissed": 0.0011068068622025456
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Beige rounded rectangle",
+            "props": {
+              "x": 52.55425417423248,
+              "y": 10.27450978755951,
+              "width": 28.15554976463318,
+              "height": 128.45098042488098,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 8.250993533292503
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#AAC090FF"
+                }
+              ],
+              "strokes": []
+            }
+          },
+          {
+            "type": "graphic",
+            "name": "Silver banner",
+            "props": {
+              "x": 31.552084237337112,
+              "y": 9.77450978755951,
+              "width": 20.947915762662888,
+              "height": 129.45098042488098,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 0
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#99B3A3FF"
+                }
+              ],
+              "strokes": []
+            }
+          },
+          {
+            "type": "graphic",
+            "name": "Sky blue rounded rectangle",
+            "props": {
+              "x": 10.290196061134338,
+              "y": 10.27450978755951,
+              "width": 21.168583691120148,
+              "height": 128.45098042488098,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 7.248030609663132
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#89A7B5FF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "s295",
+      "family": "photo",
+      "degradation": "blur",
+      "kit": {
+        "primary": "#DF95AEFF",
+        "secondary": "#6FB976FF",
+        "accent": "#586232FF",
+        "background": "#C5A07CFF",
+        "text": "#685171FF"
+      },
+      "firstPass": {
+        "decision": "picture",
+        "why": "too many parts: 25",
+        "fitted": null,
+        "layers": []
+      }
+    }
+  ]
+}

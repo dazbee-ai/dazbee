@@ -751,6 +751,9 @@ importers:
 
   packages/matchers:
     dependencies:
+      '@dazbee/canvaskit':
+        specifier: workspace:*
+        version: link:../canvaskit
       '@dazbee/fonts':
         specifier: workspace:*
         version: link:../fonts

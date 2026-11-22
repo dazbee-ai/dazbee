@@ -116,11 +116,11 @@ const fixtureImages = fixtureResources().images
 
 /** The stand-in pictures, as apply_pattern gives them. */
 export const PICTURES = Object.fromEntries(
-  (['logo', 'logo-white', 'logo-boxed', 'sneaker', 'sneaker-cutout', 'portrait'] as const).map((id) => [
+  (['logo', 'logo-white', 'logo-boxed', 'sneaker', 'sneaker-cutout', 'portrait', 'app-screen'] as const).map((id) => [
     id,
     pictureOf(id, fixtureImages[id] ?? new Uint8Array()),
   ]),
-) as Record<'logo' | 'logo-white' | 'logo-boxed' | 'sneaker' | 'sneaker-cutout' | 'portrait', Picture>
+) as Record<'logo' | 'logo-white' | 'logo-boxed' | 'sneaker' | 'sneaker-cutout' | 'portrait' | 'app-screen', Picture>
 
 /** Each pattern's stand-in words and pictures, as a marketer would give them. */
 export const CONTENT: Record<string, PatternContent> = {
@@ -171,6 +171,103 @@ export const CONTENT: Record<string, PatternContent> = {
     highlight: 'Free delivery',
     subline: 'Join Stride Club today. It takes a minute.',
     button: 'Join free',
+    logo: PICTURES.logo,
+  },
+  'full-photo': {
+    kicker: 'New season',
+    headline: 'Made for the long way home',
+    highlight: 'long way',
+    subline: 'The Stride Air, cushioned for every kilometre.',
+    button: 'Shop now',
+    photo: PICTURES.sneaker,
+    logo: PICTURES.logo,
+  },
+  'photo-card': {
+    kicker: 'Members get 20% off',
+    headline: 'Your weekend run starts here',
+    subline: 'Join Stride Club for early drops and free returns.',
+    button: 'Join free',
+    photo: PICTURES.sneaker,
+    logo: PICTURES.logo,
+  },
+  poster: {
+    kicker: 'Stride presents',
+    headline: 'The city half marathon',
+    subline: 'Sunday 7 December, from 5:30 am.',
+    button: 'Register now',
+    photo: PICTURES.sneaker,
+    logo: PICTURES.logo,
+  },
+  arch: {
+    kicker: 'Introducing',
+    headline: 'The Stride Air',
+    subline: 'Our lightest runner yet, made for the city.',
+    button: 'Shop now',
+    photo: PICTURES['sneaker-cutout'],
+    logo: PICTURES.logo,
+  },
+  podium: {
+    kicker: 'New in',
+    headline: 'Stride Air Runner',
+    subline: 'Cushioned, light and made to last.',
+    button: 'Shop now',
+    photo: PICTURES['sneaker-cutout'],
+    logo: PICTURES.logo,
+  },
+  spotlight: {
+    kicker: 'Coming soon',
+    headline: 'Meet the Stride Air 2',
+    subline: 'Lighter and faster, out 1 December.',
+    button: 'Get notified',
+    photo: PICTURES['sneaker-cutout'],
+    logo: PICTURES.logo,
+  },
+  'price-tag': {
+    kicker: 'Best seller',
+    headline: 'Stride Air Runner',
+    number: '₹4,999',
+    subline: 'Free delivery and returns.',
+    button: 'Buy now',
+    photo: PICTURES['sneaker-cutout'],
+    logo: PICTURES.logo,
+  },
+  coupon: {
+    kicker: 'This weekend only',
+    badge: '−30%',
+    headline: 'Off every pair',
+    subline: 'Use code STRIDE30 at checkout.',
+    button: 'Shop the sale',
+    logo: PICTURES.logo,
+  },
+  'event-date': {
+    kicker: 'Save the date',
+    number: '28 Nov',
+    headline: 'Our pop-up store opens',
+    subline: 'Bandra West, 11 am to 9 pm.',
+    button: 'Get directions',
+    logo: PICTURES.logo,
+  },
+  ticket: {
+    kicker: 'Stride Run Club',
+    number: '28 Nov',
+    headline: 'City night run',
+    subline: 'Marine Drive, 6 pm. 5 km, every pace.',
+    button: 'Get your place',
+    logo: PICTURES.logo,
+  },
+  'app-phone': {
+    kicker: 'New app',
+    headline: 'Track every run',
+    subline: 'Plans, pace and progress in the Stride app.',
+    button: 'Get the app',
+    photo: PICTURES['app-screen'],
+    logo: PICTURES.logo,
+  },
+  'app-icon': {
+    kicker: 'Now on iOS and Android',
+    headline: 'Stride Run Club',
+    subline: 'Free plans and weekly challenges.',
+    button: 'Download free',
     logo: PICTURES.logo,
   },
 }

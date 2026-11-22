@@ -6,7 +6,7 @@
 // room, the quote fills its middle and the button sits at its foot.
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import { type Build, ground, inRow, isShort, logoAtStart, logoOnTop, pinsButton, roles, rowLeast } from '../build.ts'
+import { type Build, ground, isShort, logoAtStart, logoOnTop, pinsButton, roles, rowed, rowLeast } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { insetFrame } from '../decorations.ts'
 import { contrast, inkOn, LARGE_TEXT_CONTRAST, ornamentColour, type Swatch } from '../palette.ts'
@@ -136,12 +136,13 @@ export function quote(b: Build) {
     justify: 'center',
     // A banner's quote starts at its mark.
     ...(banner ? { align: 'start' as const } : {}),
-    most: Math.round(short * b.style.headlineMax * QUOTE_MOST),
+    // A banner's quote is as large as its height takes, as any banner's lead.
+    ...(banner ? {} : { most: Math.round(short * b.style.headlineMax * QUOTE_MOST) }),
     ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
     ...(pinsButton(b) ? { pin: true, together: true } : {}),
   }
   if (banner) {
-    const set = inRow(b) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
+    const set = rowed(b, words) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
     hungMark(b, set, markColour, colour)
   } else {
     const set = stackWords(b.tree, b, words)

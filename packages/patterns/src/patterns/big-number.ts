@@ -18,6 +18,7 @@ import {
   logoRowHeight,
   pinsButton,
   roles,
+  rowed,
   rowLeast,
 } from '../build.ts'
 import { ctaFill } from '../button.ts'
@@ -153,7 +154,7 @@ export function bigNumber(b: Build) {
     const set = stackWords(b.tree, b, numberIn(left.width))
     const wordsRoom = after(set.leadWidth)
     const words = of(tag ?? [...kicker, ...rest], wordsRoom)
-    if (inRow(b)) rowWords(b.tree, b, words)
+    if (rowed(b, words)) rowWords(b.tree, b, words)
     else stackWords(b.tree, b, words)
     return
   }

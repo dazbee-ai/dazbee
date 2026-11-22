@@ -1,4 +1,5 @@
-// Every pattern in every style at every size of the Meta, TikTok and YouTube, and Google Display channels, built
+// The first six patterns swept (test-pattern-sweeps.ts), and what every pattern's frames share. Every pattern in every
+// style at every size of the Meta, TikTok and YouTube, and Google Display channels, built
 // with a stand-in brand's kit, logo, photo and words by the agent batch apply_pattern runs: each frame's design
 // check is clean. At a square, a story and a wide frame, the check is clean too with no brand kit (each style's own
 // colours and fonts) and with a brand's own fonts and only the content each pattern needs; and at those and the
@@ -14,12 +15,17 @@ import { renderDesign } from '@dazbee/renderer'
 import { brandVariables, framesOf } from '@dazbee/schema'
 
 import { rgbaAt } from './pixels.ts'
-import { patternSweeps } from './test-pattern-sweeps.ts'
+import { PATTERN_GROUPS, patternSweeps } from './test-pattern-sweeps.ts'
 import { builtPattern, CHANNEL_SIZES, ck, CONTENT, patternBytes, STRIDE_KIT } from './test-patterns.ts'
 
-patternSweeps(PATTERNS)
+patternSweeps('first')
 
 describe('a pattern’s frames', () => {
+  it('are each swept in one file of the suite', () => {
+    const swept = Object.values(PATTERN_GROUPS).flat()
+    expect([...swept].sort()).toEqual(PATTERNS.map((pattern) => pattern.id).sort())
+  })
+
   it('set an underlined highlight clear of the next line', async () => {
     // A ground no colour of the kit reads on as small text, so the bold style underlines its highlight.
     const grey = {

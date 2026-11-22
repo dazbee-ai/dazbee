@@ -1,14 +1,14 @@
 // The sweeps that check patterns at every size: each pattern in every style at every size of the Meta, TikTok and
 // YouTube, and Google Display channels with a stand-in brand, with no brand kit, with a brand's own fonts and only the
 // content it needs, and with two more stand-in brands; each frame's design check is clean. With PATTERN_PICTURES naming
-// a folder, each frame is drawn there as a PNG, with an index.html that shows them by pattern and style.
+// a folder, each frame is drawn there as a PNG, with a page for each group that shows them by pattern and style.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
 import type { AgentBatchWarned } from '@dazbee/export'
-import { type Pattern, PATTERN_STYLES } from '@dazbee/patterns'
+import { type Pattern, PATTERN_STYLES, PATTERNS } from '@dazbee/patterns'
 import { renderDesign, type ResourceBytes } from '@dazbee/renderer'
 import { type Design, EMPTY_BRAND_KIT, type Frame, framesOf } from '@dazbee/schema'
 
@@ -53,8 +53,20 @@ const BRAND_SIZES = [
   { width: 320, height: 50 },
 ]
 
-/** Checks `patterns` in every sweep, and draws their pictures for the review where asked. */
-export function patternSweeps(patterns: readonly Pattern[]) {
+/**
+ * The patterns each file of the pixel suite sweeps, by its name, so the files run at once: the first six, those of
+ * photos and products, and those of offers, dates and apps.
+ */
+export const PATTERN_GROUPS = {
+  first: ['photo-band', 'split', 'product-badge', 'big-number', 'quote', 'words-only'],
+  'photos-products': ['full-photo', 'photo-card', 'poster', 'arch', 'podium', 'spotlight'],
+  'offers-dates-apps': ['price-tag', 'coupon', 'event-date', 'ticket', 'app-phone', 'app-icon'],
+} as const
+
+/** Checks the group's patterns in every sweep, and draws their pictures for the review where asked. */
+export function patternSweeps(group: keyof typeof PATTERN_GROUPS) {
+  const ids: readonly string[] = PATTERN_GROUPS[group]
+  const patterns = PATTERNS.filter((pattern) => ids.includes(pattern.id))
   describe.each(patterns.map((pattern) => [pattern.id]))('the %s pattern', (id) => {
     it.each(PATTERN_STYLES.map((style) => [style]))(
       'draws in the %s style at every channel size with a clean design check',
@@ -115,7 +127,7 @@ export function patternSweeps(patterns: readonly Pattern[]) {
 
   afterAll(() => {
     if (!PICTURES_DIR || drawn.length === 0) return
-    writeFileSync(join(PICTURES_DIR, 'index.html'), reviewPage(patterns))
+    writeFileSync(join(PICTURES_DIR, `index-${group}.html`), reviewPage(patterns))
   })
 }
 

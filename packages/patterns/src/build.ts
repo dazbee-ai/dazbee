@@ -2,13 +2,13 @@
 // pattern places alike: the background, the ground the words sit on, the photo and the logo.
 import { isNineBySixteen, type Rect } from '@dazbee/schema'
 
-import { BUTTON_SIDE_TIGHT, buttonSize } from './button.ts'
+import { BUTTON_SIDE_TIGHT, buttonSize, ctaFill } from './button.ts'
 import { coverCrop, type Cropped, meets, subjectOf } from './crop.ts'
 import { type FrameRoom, SHORT_FRAME } from './frame-shape.ts'
-import { contrast, deepColour, INK, inkOn, lchOf, mixed, type Swatch, WHITE, withAlpha } from './palette.ts'
+import { contrast, deepColour, INK, inkOn, type Swatch, WHITE, withAlpha } from './palette.ts'
 import { inkReads, leastInkContrast, oneInk } from './picture-look.ts'
 import { rolesFor, type StyleRoles } from './styles.ts'
-import { linear, picture, rect, round, solid, stroke, type TreeBuilder } from './tree.ts'
+import { picture, rect, round, solid, stroke, type TreeBuilder } from './tree.ts'
 import type { PatternContent, PatternStyle } from './types.ts'
 import {
   leadBeside,
@@ -55,9 +55,6 @@ const SAME_COLOUR = 1.4
 const SAME_BOX = 1.1
 /** The logo's area, as a wordmark 3.5 times as wide as it is tall at the base height takes it. */
 const LOGO_RATIO = 3.5
-/** The opacity of the colour a 9:16 frame's foot is tinted with at its foot, and the least chroma of that tint. */
-const FOOT_TINT = 0.06
-const FOOT_CHROMA = 8
 /** A square mark's least and most size on a display frame, as a share of its shorter side. */
 const MARK_LEAST = 0.09
 const MARK_MOST_DISPLAY = 0.14
@@ -91,23 +88,6 @@ const ROW_TEXT_LEAST = 9
 export function backdrop(b: Build, colour: Swatch): void {
   const { width, height } = b.frame
   b.tree.add('background', { ...rect('Background', { x: 0, y: 0, width, height }, solid(colour)), role: 'background' })
-}
-
-/**
- * In a 9:16 frame of a style that sets its words on the plain background, a soft tint from the safe room's foot to
- * the frame's foot, where the platforms' interface goes, growing from nothing to a faint tint of the primary colour
- * (of the accent where that tint would read as grey): the ground carries on there with no edge to catch the eye, and
- * the frame doesn't end in a blank field. Nothing else is set there.
- */
-export function footTint(b: Build): void {
-  const { frame, palette } = b
-  if (!isNineBySixteen(frame.width, frame.height) || roles(b).ground !== 'background') return
-  const y = Math.round(frame.safe.y + frame.safe.height)
-  const box = { x: 0, y, width: frame.width, height: frame.height - y }
-  const tinted = (swatch: Swatch) => lchOf(mixed(palette.background.value, swatch.value, FOOT_TINT)).chroma
-  const colour = tinted(palette.primary) >= FOOT_CHROMA ? palette.primary : palette.accent
-  const fill = linear([0.5, 0], [0.5, 1], [withAlpha(colour.value, 0), withAlpha(colour.value, FOOT_TINT)])
-  b.tree.add('foot', { ...rect('Foot', box, fill), role: 'background' })
 }
 
 /** The style's roles in this pattern. */
@@ -342,16 +322,16 @@ export function buttonLeastWidth(b: Build): number {
 
 /**
  * The logo at the top of `room`, lined up on the words' grid line (their start edge, or their middle where they are
- * centred, as `align` or the style lines them), on `surface`; the room left under it, the margin between. A room too
- * low to hold the words under it takes it at its start, beside them. The room is all left without a logo, or where
- * it is too narrow for the logo beside the words.
+ * centred, as `align` or the style lines them), on `surface`; the room left under it, the margin between. A banner,
+ * whose words span its width, and a room too low to hold the words under it take it at its start, beside them. The
+ * room is all left without a logo, or where it is too narrow for the logo beside the words.
  */
 export function logoOnTop(b: Build, room: Rect, surface: Swatch, align = b.style.align): Rect {
   if (!b.content.logo) return room
   const { frame } = b
   const over = logoRoom(b, { x: room.x, y: room.y }, room.width, surface)
   const under = room.height - over.height - frame.margin * 0.8
-  if (under < frame.readable * WORDS_UNDER_LOGO) {
+  if (under < frame.readable * WORDS_UNDER_LOGO || frame.shape === 'banner') {
     // A wide or low room takes the logo at its start, beside the words; one too narrow for both leaves it out.
     const box = logoRoom(b, { x: room.x, y: room.y }, room.width * 0.3, surface)
     if (room.width - box.width - frame.margin < frame.readable * ROW_TEXT_LEAST) return room
@@ -525,6 +505,15 @@ export function usualWords(content: PatternContent): WordPart[] {
     },
     ...(content.subline ? [{ kind: 'subline' as const, text: content.subline }] : []),
   ]
+}
+
+/** The usual words with the button, its colour one that stands out on `surface`, the style's button role first. */
+export function wordsOn(b: Build, surface: Swatch): Pick<Words, 'parts' | 'button' | 'buttonFill'> {
+  const { content, palette } = b
+  return {
+    parts: usualWords(content),
+    ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, surface, roles(b).cta) } : {}),
+  }
 }
 
 /**

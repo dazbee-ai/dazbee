@@ -4,7 +4,18 @@
 // frame the logo heads the safe room, the headline grows into its middle and the button sits at its foot.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, inRow, isTall, logoAtStart, logoOnTop, pinsButton, roles, usualWords } from '../build.ts'
+import {
+  type Build,
+  ground,
+  inRow,
+  isTall,
+  logoAtStart,
+  logoOnTop,
+  pinsButton,
+  roles,
+  rowed,
+  usualWords,
+} from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { bar, dots, insetFrame } from '../decorations.ts'
 import { INK, inkOn, mixed, ornamentColour, withAlpha } from '../palette.ts'
@@ -42,8 +53,7 @@ export function wordsOnly(b: Build) {
   }
   if (styleName === 'premium' && !inRow(b)) insetFrame(b, ornamentColour(palette, colour.value).colour, 0.8)
   decorateUnder(b)
-  const row = inRow(b)
-  const room: Rect = row ? logoAtStart(b, safe, colour) : logoOnTop(b, safe, colour)
+  const room: Rect = inRow(b) ? logoAtStart(b, safe, colour) : logoOnTop(b, safe, colour)
   const tall = isTall(b)
   const words: Words = {
     parts: usualWords(content),
@@ -56,6 +66,7 @@ export function wordsOnly(b: Build) {
     justify: styleName === 'minimal' && !tall ? 'start' : 'optical',
     ...(tall ? { most: Math.round(b.style.headlineMax * short * TALL_GROWS) } : {}),
   }
+  const row = rowed(b, words)
   const set = row ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
   if (row || styleName !== 'premium') return
   const mark = ornamentColour(palette, colour.value)

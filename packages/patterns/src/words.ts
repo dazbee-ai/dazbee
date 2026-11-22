@@ -161,8 +161,11 @@ const DISPLAY_LABEL_SHARE = 0.45
 const BUTTON_AREA_QUIET = 0.6
 /** The most a kicker's size is of the lead's, so it labels the headline and never competes with it. */
 const KICKER_UNDER_LEAD = 0.4
-/** The largest a display banner's lead is, as a share of its height; and a display tower's, of its width. */
-const BANNER_LEAD_MOST = 0.24
+/**
+ * The largest a banner's lead is, as a share of its height, so a billboard's lead is sized from its height and its
+ * words span its width; and a display tower's, of its width.
+ */
+const BANNER_LEAD_MOST = 0.34
 const TOWER_LEAD_MOST = 0.3
 /** The most lines a display tower's headline takes, where its height lets it break more. */
 const TOWER_LINES = 5
@@ -336,6 +339,8 @@ export function leadWidth(setting: Setting, part: WordPart, size: number, lines:
   return Math.ceil(Math.max(...runs, (whole / lines) * 1.1))
 }
 
+/** A billboard's button label beside its words, as a share of its height. */
+const BILLBOARD_LABEL = 0.072
 /** The least room at each end of a strip's button label, as a share of its size. */
 const BUTTON_SIDE_SLIM = 0.6
 
@@ -354,10 +359,14 @@ function rowTries(setting: Setting, words: Words) {
   const { room } = words
   const least = buttonLeast(frame)
   const gap = rowGap(setting, words)
-  // A wide, low room in a larger frame labels its button at the readable size, under a lead that leads it.
+  // A wide, low room in a larger frame labels its button at the readable size, under a lead that leads it; a
+  // billboard's first at a share of its height, so its button holds its own beside a lead sized from that height.
+  const billboard = frame.shape === 'banner' && frame.height > SHORT_FRAME
+  const tall = Math.max(frame.readable, Math.round(frame.height * BILLBOARD_LABEL))
   const tries =
     frame.height > SHORT_FRAME
       ? [
+          ...(billboard && tall > frame.readable ? [{ label: tall, side: BUTTON_SIDE, floor: false }] : []),
           { label: frame.readable, side: BUTTON_SIDE, floor: false },
           { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: false },
         ]
@@ -371,7 +380,7 @@ function rowTries(setting: Setting, words: Words) {
   return tries.map(({ label, side, floor }) => {
     const height = exactHeight(frame, label)
     const button = words.button ? buttonSize(setting, words.button, label, least, side, height) : undefined
-    const width = room.width - (button ? button.width + gap : 0)
+    const width = Math.max(0, room.width - (button ? button.width + gap : 0))
     const texts: Words = {
       ...words,
       room: { ...room, width },

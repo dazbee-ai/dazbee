@@ -67,7 +67,8 @@ describe('a pattern’s logo', () => {
     },
   )
 
-  it.each(EVERY)(
+  // A pattern that needs the logo makes it its picture, as an app's icon, so its logo isn't kept under its lead.
+  it.each(EVERY.filter(([id]) => !PATTERNS.find((pattern) => pattern.id === id)?.needs.includes('logo')))(
     'keeps the logo under the lead in %s in the %s style at every channel size, for a wordmark, a white one and a boxed mark',
     (id, style) => {
       for (const look of [TWO_INKS, WHITE_MARK.look, BOXED.look])
@@ -236,5 +237,61 @@ describe('a pattern’s logo', () => {
       measure,
     }).nodes['logo-label']
     if (label) expect(label.props.height).toBeLessThan(250 * 0.6)
+  })
+})
+
+describe('a 9:16 frame', () => {
+  it('ends in a foot under its safe room in the style’s way where no photo fills it, so it never ends in a blank field', () => {
+    for (const style of PATTERN_STYLES) {
+      const { nodes, roots } = buildPattern('words-only', {
+        style,
+        kit: KIT,
+        content: CONTENT,
+        width: 1080,
+        height: 1920,
+        measure,
+      })
+      const foot = nodes.foot?.props
+      const button = nodes.button?.props
+      if (!foot || !button) throw new Error(`no foot in ${style}`)
+      // From under the button, the safe room's foot, to the frame's foot, the whole width.
+      expect({ style, under: foot.y >= button.y + button.height - 1 }).toEqual({ style, under: true })
+      expect({ style, reaches: foot.y + foot.height >= 1920 && foot.width >= 1080 }).toEqual({ style, reaches: true })
+      // Over the ground, under everything set after it.
+      expect(roots.indexOf('foot')).toBe(roots.indexOf(nodes.ground ? 'ground' : 'background') + 1)
+    }
+  })
+
+  it('leaves its foot to a photo that fills it', () => {
+    const { nodes } = buildPattern('full-photo', {
+      style: 'bold',
+      kit: KIT,
+      content: CONTENT,
+      width: 1080,
+      height: 1920,
+      measure,
+    })
+    expect(nodes.photo?.props.height).toBe(1920)
+    expect(nodes.foot).toBeUndefined()
+  })
+})
+
+describe('a billboard', () => {
+  it('sizes its lead from its height and spans its width: the logo at its start, the words, the button at its end', () => {
+    for (const id of ['words-only', 'big-number'])
+      for (const style of PATTERN_STYLES) {
+        const { nodes } = buildPattern(id, { style, kit: KIT, content: CONTENT, width: 970, height: 250, measure })
+        const mark = nodes.logo?.props
+        const lead = nodes.number ?? nodes.headline
+        const button = nodes.button?.props
+        if (!mark || lead?.type !== 'text' || !button) throw new Error(`no billboard of ${id} in ${style}`)
+        const at = `${id} ${style}`
+        expect({ at, large: lead.props.style.fontSize >= 250 * 0.2 }).toEqual({ at, large: true })
+        expect({ at, logoFirst: mark.x + mark.width <= lead.props.x }).toEqual({ at, logoFirst: true })
+        expect({
+          at,
+          buttonLast: button.x >= lead.props.x + Math.min(lead.props.width, measure(lead.props, null).width),
+        }).toEqual({ at, buttonLast: true })
+      }
   })
 })

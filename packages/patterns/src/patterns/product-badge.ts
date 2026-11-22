@@ -16,6 +16,7 @@ import {
   logoOnTop,
   logoRoom,
   roles,
+  rowed,
   rowLabel,
   stripHolds,
   usualWords,
@@ -186,7 +187,7 @@ function sideBySide(b: Build, colour: Swatch, fill: ButtonFill): Placed {
     surface: colour.value,
     ...(content.button ? { button: content.button, buttonFill: fill } : {}),
   }
-  const placed = inRow(b) ? rowWords(b.tree, b, set) : stackWords(b.tree, b, set)
+  const placed = rowed(b, set) ? rowWords(b.tree, b, set) : stackWords(b.tree, b, set)
   if (!content.photo || productWidth === 0 || chip) {
     if (!content.photo || productWidth === 0) return { limit: productRoom, size: placed.size }
     // In a short frame the offer is the chip: the product shows whole, with no badge over it.

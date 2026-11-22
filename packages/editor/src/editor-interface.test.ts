@@ -144,6 +144,7 @@ describe('Editor', () => {
       | 'fontCheck'
       | 'loadedFamilies'
       | 'setFont'
+      | 'fontsUploaded'
       | 'variables'
       | 'setVariables'
       | 'bindSelection'

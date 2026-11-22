@@ -167,6 +167,13 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     askCatalog(names.filter((family) => !asked.has(family)))
     return names.map((family) => latest.get(family))
   }
+  /**
+   * Asks the catalog again for the faces of those of these families it was asked for, as after the brand uploaded
+   * faces of them: each draws as it did until the answer comes. A family not asked for yet is asked when a text needs it.
+   */
+  function askAgain(names: readonly string[]) {
+    askCatalog(names.filter((family) => asked.has(family)))
+  }
   /** Asks for these uses; settles when their families' faces and files are here or failed to come. */
   async function loadUses(uses: readonly FontUse[]) {
     ask(uses)
@@ -296,6 +303,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     loaded,
     ask,
     loadFamilies,
+    askAgain,
     loadUses,
     onSettle,
     destroy,

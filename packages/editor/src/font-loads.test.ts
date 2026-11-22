@@ -5,7 +5,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
 
 import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS, openedFonts } from './font-loads.ts'
-import { testCatalog } from './test-catalog.ts'
+import { testCatalog, type TestFace } from './test-catalog.ts'
 
 /** Four faces of Brand Sans, each its own bytes: 400, 700 and 900 upright and 400 italic. */
 function brandSans() {
@@ -212,6 +212,25 @@ describe('editorFontLoads', () => {
     expect(none.loads.drawable('Noto Sans')).toBe(true)
     none.end()
     expect(loadsOf({}, () => true, SHIPPED).loads.drawable('Noto Sans')).toBe(true)
+  })
+
+  it("draws a shipped family in the brand's file once it says it uploaded one, the family asked for again", async () => {
+    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
+    const faces: TestFace[] = []
+    const sources: FontSources = {
+      fontFaces: (families) => testCatalog(faces).sources.fontFaces(families),
+      fontFile: (face) => testCatalog(faces).sources.fontFile(face),
+    }
+    const { loads, end } = loadsOf(sources, () => true, SHIPPED)
+    const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 400, style: 'normal' }]
+    await loads.loadUses(naskh)
+    expect(loads.fonts()).toEqual(SHIPPED)
+    faces.push({ family: 'Noto Naskh Arabic', bytes: upload })
+    loads.askAgain(['Noto Naskh Arabic', 'Never Asked'])
+    await loads.loaded()
+    const naskhFiles = loads.fonts().filter((font) => font.family === 'Noto Naskh Arabic')
+    expect(naskhFiles.map((font) => font.bytes)).toEqual([upload])
+    end()
   })
 })
 

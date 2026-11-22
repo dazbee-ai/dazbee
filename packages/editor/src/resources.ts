@@ -67,6 +67,11 @@ export interface EditorResources {
    * an upload of its name.
    */
   loadFamilies(families: readonly string[]): (Promise<void> | undefined)[]
+  /**
+   * Asks the catalog again for the faces of those of these families it was asked for, as after the brand uploaded
+   * faces of them: a shipped family then draws in the upload. Each draws as it did until the answer comes.
+   */
+  askAgain(families: readonly string[]): void
   /** Asks for the files of the faces drawing these uses (`facesToLoad`); settles when they are here or failed to come. */
   loadUses(uses: readonly FontUse[]): Promise<void>
   /**
@@ -315,6 +320,7 @@ export function editorResources({
     load,
     show,
     loadFamilies: fonts.loadFamilies,
+    askAgain: fonts.askAgain,
     loadUses: fonts.loadUses,
     bytesFor,
     loaded,

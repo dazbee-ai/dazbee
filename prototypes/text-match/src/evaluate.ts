@@ -195,3 +195,5 @@ writeFileSync(join(DATA_DIR, 'results', `${values.out ?? values.set}.json`), JSO
 console.log(
   `\n${results.length} results; startup ${startupMs.toFixed(0)} ms; peak rss ${(peakRss / 2 ** 20).toFixed(0)} MB`,
 )
+// Nothing is left to do; a stray handle must not keep the process alive.
+process.exit(0)

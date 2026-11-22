@@ -25,13 +25,47 @@ Medium against the whole library, on the test parts, each scored once at the end
 
 Decision (owner, 2026-11-22): the text rule's ink-missed limit is 0.25, not the fitted 0.12. The owner judged a round-3 rebuild with 0.131 ink missed (fresh_perfume_noir block 1, Sedan) as the same, after an earlier judged pair at 0.19 was also "same"; the one "different" pair near the old limit was a grid-pattern font, which round 3 no longer picks. Rescored from the stored round-3 results (SSIM ≥ 0.46, ink missed ≤ 0.25, ink colour ΔE00 ≤ 10):
 
-| Test part | Ink ≤ 0.12 | Ink ≤ 0.20 | **Ink ≤ 0.25** |
-|---|---|---|---|
-| test-ad, all 48 ads (221) | 92.8% | 96.4% | **96.8%** |
-| test-ad, 16 held-out ads (69) | 95.7% | 98.6% | **98.6%** |
-| Own realistic (300) | 92.0% | 93.7% | **94.0%** |
-| LICA (668) | 81.9% | 83.8% | **85.3%** |
-| Synthetic (240) | 90.8% | 92.1% | **92.5%** |
+| Test part                    | Ink ≤ 0.12 | Ink ≤ 0.20 | **Ink ≤ 0.25** |
+| ---------------------------- | ---------- | ---------- | -------------- |
+| test-ad, all 48 ads (221)     | 92.8%      | 96.4%      | **96.8%**      |
+| test-ad, 16 held-out ads (69) | 95.7%      | 98.6%      | **98.6%**      |
+| Own realistic (300)          | 92.0%      | 93.7%      | **94.0%**      |
+| LICA (668)                   | 81.9%      | 83.8%      | **85.3%**      |
+| Synthetic (240)              | 90.8%      | 92.1%      | **92.5%**      |
+
+### Light with round 3's setup (2026-11-22)
+
+Light uses round 3's recogniser (ConvNeXt-Atto, epoch 14, 128-number fingerprints), leaves the pattern fonts out, and keeps Medium's round-3 settings where they apply. Those are the closest passing finalist with the fingerprint's 0.25 vote (2 finalists in Light) and the 160-px working scale. "Looks the same" is the owner's rule with the colour guard at ink 0.25, and every row was scored again at that bar.
+
+Two rows are not measured under Light's exact conditions:
+
+- **Medium round 3** was run with 512-number fingerprints, and its finalists were picked under the old 0.12 bar; it was then rescored at 0.25.
+- **Round 2** rows are round 2's setup, frozen, rescored at 0.25.
+
+| Test part                       |                                      | Light round 3         | Medium round 3        | Light round 2         | Medium round 2        |
+| ------------------------------- | ------------------------------------ | --------------------- | --------------------- | --------------------- | --------------------- |
+| Synthetic (240)                 | looks the same / family / exact face | 88.8% / 76.7% / 62.1% | 92.5% / 78.3% / 61.7% | 89.2% / 63.3% / 51.3% | 89.2% / 67.9% / 52.9% |
+| Own realistic (300)             | looks the same / family / exact face | 88.7% / 79.3% / 66.3% | 94.0% / 76.3% / 62.3% | 86.3% / 59.0% / 42.7% | 89.0% / 66.0% / 51.3% |
+| LICA (668; exact face over 632) | looks the same / family / exact face | 83.7% / 59.4% / 49.8% | 85.3% / 60.3% / 49.7% | 79.8% / 46.7% / 39.1% | 84.7% / 51.3% / 43.4% |
+| Test ads, all 48 (221)          | looks the same                       | 92.8%                 | 96.8%                 | 91.9%                 | 95.9%                 |
+| Test ads, 16 held-out (69)      | looks the same                       | 92.8%                 | 98.6%                 | 91.3%                 | 97.1%                 |
+
+Time and memory were measured on envy, one core, the same 12 test ads (56 blocks), three runs each, median of the runs (`train/timing3.mjs`):
+
+|                | Per block, median (p95) | Per ad, median (p95) | Peak RSS |
+| -------------- | ----------------------- | -------------------- | -------- |
+| Light round 3  | 0.16 s (0.90 s)         | 1.2 s (2.0 s)        | 933 MB   |
+| Medium round 3 | 0.60 s (4.7 s)          | 5.0 s (9.0 s)        | 1,088 MB |
+| Light round 2  | 0.19 s (0.86 s)         | 1.3 s (14.3 s)       | 558 MB   |
+| Medium round 2 | 0.72 s (5.0 s)          | 5.1 s (82 s)         | 897 MB   |
+
+- **Fonts:** with the new recogniser, Light now finds the family and exact face about as well as Medium. It does better on the own test, about equal on LICA, and on synthetic it is lower on family but equal on exact face.
+- **Looks the same:** Light trails Medium by 1.6–5.8 points, because it does not tune size, spacing and position.
+- **Speed:** Light is about 4× faster per block.
+- **Settings chosen on the development parts:**
+  - The final-pick vote helps Light (LICA family 66.4% → 69.8%, exact face 45.8% → 50.9%).
+  - The working scale changes no choice on the development parts and cuts Light's slowest ad from 14.3 s to 2.0 s, so Light keeps both.
+- **Memory:** Light's peak rose from 558 to 933 MB for the same reason as Medium's: large CJK font files in its shortlists.
 
 ## Round 3 recommendation
 

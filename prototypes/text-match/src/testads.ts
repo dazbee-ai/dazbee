@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import type { Block } from './measure.ts'
 import { type Rgba, readPng } from './png.ts'
 
-export const TEST_ADS = 'C:\\Users\\imkes\\Desktop\\ming-setup\\test_ads'
+export const TEST_ADS = process.env.TEST_ADS_DIR ?? 'C:\\Users\\imkes\\Desktop\\ming-setup\\test_ads'
 
 export interface AdBlock {
   ad: string

@@ -30,7 +30,7 @@ const q = (v: number[], p: number) => {
 }
 
 console.log(
-  '| Run | Blocks | Looks the same: rule + colour guard (ink bar 0.12 / 0.20) | Rule alone | v1 / v2 | Family | Exact face | Family in shortlist | Median SSIM / ΔE (v1) | Per block, median (p95) | Peak RSS |',
+  "| Run | Blocks | Looks the same: rule + colour guard (the rule's ink bar, then 0.20) | Rule alone | v1 / v2 | Family | Exact face | Family in shortlist | Median SSIM / ΔE (v1) | Per block, median (p95) | Peak RSS |",
 )
 console.log('|---|---|---|---|---|---|---|---|---|---|---|')
 for (const tag of process.argv.slice(2)) {

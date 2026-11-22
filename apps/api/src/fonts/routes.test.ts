@@ -231,6 +231,8 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(new Uint8Array(await (await fetch(link.url)).arrayBuffer())).toEqual(bold)
     const preview = new Uint8Array(await (await fetch(link.previewUrl)).arrayBuffer())
     expect([...preview.subarray(1, 4)]).toEqual([...new TextEncoder().encode('PNG')])
+    // A face that draws its name previews it, as when no scripts are asked for.
+    expect(preview).toEqual(await fontPreview(bold, { family: 'Noto Sans', weight: 700, style: 'normal' }))
 
     const mine = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
     expect(mine.find((f) => f.family === 'Noto Sans')?.faces.map((f) => f.id)).toEqual([face.id])

@@ -36,6 +36,8 @@ const UNICODE_SCRIPTS =
   'Osge Osma Ougr Palm Pauc Perm Phag Phli Phlp Phnx Plrd Prti Rjng Rohg Runr Samr Sarb Saur Sgnw Shaw Shrd Sidd ' +
   'Sidt Sind Sinh Sogd Sogo Sora Soyo Sund Sunu Sylo Syrc Tagb Takr Tale Talu Taml Tang Tavt Tayo Telu Tfng Tglg ' +
   'Thaa Thai Tibt Tirh Tnsa Todr Tols Toto Tutg Ugar Vaii Vith Wara Wcho Xpeo Xsux Yezi Yiii Zanb'
+/** The codes `scriptsOf` names for a face's characters that are no letters: signs, then mathematics. */
+const SIGN_SCRIPTS = ['Zsym', 'Zmth'] as const
 /** A letter of any script. */
 const LETTER = /\p{L}/u
 
@@ -86,7 +88,7 @@ export function scriptsOf(codePoints: Iterable<number>): string[] {
   for (const point of codePoints) {
     const char = String.fromCodePoint(point)
     if (!LETTER.test(char)) {
-      for (const code of ['Zsym', 'Zmth']) if (SCRIPT_CHARACTERS[code]?.test(char)) signs.add(code)
+      for (const code of SIGN_SCRIPTS) if (SCRIPT_CHARACTERS[code]?.test(char)) signs.add(code)
       continue
     }
     const script = last?.[1].test(char) ? last : patterns.find(([, pattern]) => pattern.test(char))
@@ -95,7 +97,7 @@ export function scriptsOf(codePoints: Iterable<number>): string[] {
     letters.set(script[0], (letters.get(script[0]) ?? 0) + 1)
   }
   const byLetters = [...letters].sort(([a, m], [b, n]) => n - m || byCodeUnits(a, b)).map(([code]) => code)
-  return [...byLetters, ...['Zsym', 'Zmth'].filter((code) => signs.has(code))]
+  return [...byLetters, ...SIGN_SCRIPTS.filter((code) => signs.has(code))]
 }
 
 /** Whether the face has a glyph for every character of the text. */

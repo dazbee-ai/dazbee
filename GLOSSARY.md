@@ -635,11 +635,11 @@ The rule a matcher's answer must pass to replace its piece, fitted to the owner'
 _Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
 
 **Light**:
-The text matcher's quicker setting: a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept.
+The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well.
 _Avoid_: Fast mode, lite
 
 **Hybrid**:
-The text matcher's setting that every person gets: Light's font, then its size, spacing, line height and place fitted finer on that one font.
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font.
 _Avoid_: Full, accurate mode, medium
 
 **Font fingerprint**:

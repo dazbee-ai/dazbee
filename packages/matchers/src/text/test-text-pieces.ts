@@ -1,6 +1,6 @@
 // Text pieces for the text matcher's tests: text drawn by Dazbee's renderer in a shipped face and cut
-// round its ink; the shortlist's pieces, drawn the same way in Google faces and kept as PNGs; and
-// Light's pieces, drawn when the test runs in Google faces cut to the test's characters.
+// round its ink; the shortlist's pieces, drawn the same way in Google faces and kept as PNGs; Light's
+// pieces, drawn when the test runs in Google faces cut to the test's characters; and a job of a piece.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -8,9 +8,11 @@ import { join } from 'node:path'
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type Pixels, renderPixels } from '@dazbee/renderer'
+import { type MatchAnswer, MatchJob, type MatchKit, type MatchSetting, type UnplacedLayer } from '@dazbee/schema'
 
 import { decodePng } from '../shape/test-pieces.ts'
 import { parseFontKey } from './font-key.ts'
+import type { TextPieceOfJob } from './match-text.ts'
 
 /** A text to draw and how. */
 export interface DrawnText {
@@ -69,6 +71,8 @@ export const SHORTLIST_FIXTURES = join(import.meta.dirname, '..', '..', 'fixture
 export const LIGHT_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-light')
 /** The words of the noise piece of Light's test. */
 export const NOISE_WORDS = 'Sale'
+/** A brand kit with nothing in it. */
+export const NO_KIT: MatchKit = { colors: {}, fonts: {}, textStyles: [] }
 
 /** The frame the text is drawn in before it is cut round its ink. */
 const FRAME = { width: 1400, height: 900 }
@@ -168,6 +172,49 @@ export function lightPieces(ck: CanvasKit, fonts: ReadonlyMap<string, Uint8Array
     if (!face || !bytes) throw new Error(`Light's test has no face ${drawing.key}`)
     return { ...drawing, pixels: drawText(ck, { ...drawing, ...face }, [{ family: face.family, bytes }]) }
   })
+}
+
+/** A job of one text piece, the whole picture, saying `words`, with a kit (none by default) and a setting. */
+export function textJob(
+  ck: CanvasKit,
+  pixels: Pixels,
+  words: string,
+  { kit = NO_KIT, setting }: { kit?: MatchKit; setting?: MatchSetting } = {},
+): { job: MatchJob; piece: TextPieceOfJob } {
+  const image = ck.MakeImage(
+    {
+      width: pixels.width,
+      height: pixels.height,
+      colorType: ck.ColorType.RGBA_8888,
+      alphaType: ck.AlphaType.Unpremul,
+      colorSpace: ck.ColorSpace.SRGB,
+    },
+    pixels.pixels,
+    pixels.width * 4,
+  )
+  const png = image?.encodeToBytes()
+  image?.delete()
+  if (!png) throw new Error('CanvasKit could not encode the piece')
+  const piece: TextPieceOfJob = {
+    kind: 'text',
+    rect: { x: 0, y: 0, width: pixels.width, height: pixels.height },
+    words,
+  }
+  const job = MatchJob.parse({
+    picture: Buffer.from(png).toString('base64'),
+    pieces: [piece],
+    kit,
+    ...(setting ? { setting } : {}),
+  })
+  return { job, piece }
+}
+
+/** The one text layer of an answer; throws for a picture's answer or another layer. */
+export function textLayerOf(answer: MatchAnswer): Extract<UnplacedLayer, { type: 'text' }> {
+  if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
+  const [layer] = answer.layers
+  if (layer?.type !== 'text') throw new Error('the answer is no text layer')
+  return layer
 }
 
 /** A piece of grey noise the same every time, 240 × 80. */

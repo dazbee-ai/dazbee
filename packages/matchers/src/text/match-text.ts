@@ -1,36 +1,53 @@
 // The text matcher: a job's text piece rebuilt as one text layer that looks the same, or kept a
-// picture with why. Light's steps: the piece is read, its font fingerprint shortlists faces, each face
-// is fitted and ranked, the best two corrected once and ranked again, and the two finalists verified.
-// A piece read shrunk is verified shrunk, then its answer is scaled back and judged once at full size.
+// picture with why. Light's steps: the piece is read, its font fingerprint shortlists faces, the brand
+// kit's first, each face is fitted and ranked, the best two corrected once (and the best kit font) and
+// ranked again, and two finalists verified, a kit font first when it fits nearly as well. Hybrid, the
+// default, then fits the face Light picked finer and finishes it again. A piece read shrunk is matched
+// shrunk, then its answer is scaled back and judged once at full size.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
+import type { CatalogFace } from '@dazbee/fonts'
 import type { MatchAnswer, MatchJob, Piece, Rgb } from '@dazbee/schema'
 
 import { pictureAnswer } from '../shape/answer.ts'
 import { piecePixels } from '../shape/parts/piece-pixels.ts'
 import { textAnswer } from './answer.ts'
+import { pickFit } from './brand-first.ts'
 import { type Placed, textDrawer, type TextLook } from './draw-text.ts'
+import { finerFit } from './finer-fit.ts'
 import { pieceFingerprint } from './fingerprint.ts'
+import { type FontKey } from './font-key.ts'
 import { type FontSource, loadFaces } from './font-source.ts'
 import { correct } from './light/correct.ts'
 import { fitFace, type Fitted } from './light/fit.ts'
 import { rankFits } from './light/rank.ts'
-import { FINALISTS, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
+import { FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
 import { readPiece } from './read-piece.ts'
 import { type Candidate, shortlist } from './shortlist.ts'
 import type { TextFiles } from './text-files.ts'
 
-/** What the text matcher needs besides the job: CanvasKit, its files, the model's runtime and a source of fonts. */
+/**
+ * What the text matcher needs besides the job: CanvasKit, its files, the model's runtime, a source of
+ * fonts, and the faces of the kit's families that have no fingerprint (a brand's uploads), as the
+ * font catalog lists them.
+ */
 export interface TextMatcherDeps {
   ck: CanvasKit
   files: TextFiles
   model: ModelRuntime
   fonts: FontSource
+  kitFaces?: readonly CatalogFace[]
 }
 
 /** A text piece of a job. */
 export type TextPieceOfJob = Extract<Piece, { kind: 'text' }>
+
+/** The text matcher's answer for a piece, and the face it picked, also when the piece stays a picture. */
+export interface TextMatch {
+  answer: MatchAnswer
+  face?: FontKey
+}
 
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
@@ -41,6 +58,15 @@ const CORRECTED = 2
  * do, `looksDifferent` otherwise.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
+  return (await matchTextWithFace(job, piece, deps)).answer
+}
+
+/** `matchText`'s answer, with the face it picked. */
+export async function matchTextWithFace(
+  job: MatchJob,
+  piece: TextPieceOfJob,
+  deps: TextMatcherDeps,
+): Promise<TextMatch> {
   const { ck, files, fonts } = deps
   const { words } = piece
   const pixels = piecePixels(ck, job.picture, piece.rect)
@@ -50,28 +76,51 @@ export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: Text
     ...(piece.angle !== undefined ? { angle: piece.angle } : {}),
   })
   const fingerprint = await pieceFingerprint(deps.model, files, work.level, work.lines)
-  const listed = await shortlist({ ck, files, fingerprint, words, kitFonts: {}, kitFaces: [], fonts })
-  if (listed.candidates.length === 0) return pictureAnswer('noFont')
+  const listed = await shortlist({
+    ck,
+    files,
+    fingerprint,
+    words,
+    kitFonts: job.kit.fonts,
+    kitFaces: deps.kitFaces ?? [],
+    fonts,
+  })
+  if (listed.candidates.length === 0) return { answer: pictureAnswer('noFont') }
   const faces = await facesOf(fonts, listed.candidates, listed.loaded, words)
   const candidates = listed.candidates.filter((face) => faces.has(face.key))
-  if (candidates.length === 0) return pictureAnswer('failed')
+  if (candidates.length === 0) return { answer: pictureAnswer('failed') }
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [whole.background]
+  const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
   const drawer = textDrawer(ck, drawnFaces(candidates, faces))
   let won: Verified | undefined
   try {
     const fits = candidates.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     rankFits(fits, listed.similarities)
     for (let i = 0; i < Math.min(CORRECTED, fits.length); i++) fits[i] = correct(drawer, work, words, fits[i] as Fitted)
+    const brandLead = fits.findIndex((fit) => fit.face.brandToken !== undefined)
+    if (brandLead >= CORRECTED) fits[brandLead] = correct(drawer, work, words, fits[brandLead] as Fitted)
     rankFits(fits, listed.similarities)
-    won = verify(drawer, { reading: work, words, backgrounds }, fits.slice(0, FINALISTS), listed.similarities)
+    const first = pickFit(fits)
+    if (first) {
+      const finalists = [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)]
+      won = verify(drawer, target, finalists, listed.similarities)
+    }
+    if (won && job.setting === 'hybrid') {
+      const finer = finerFit(drawer, work, words, won.fit)
+      if (finer !== won.fit) won = finish(drawer, target, finer)
+    }
   } finally {
     drawer.delete()
   }
-  if (!won) return pictureAnswer('looksDifferent')
-  const answer = scale === 1 ? won : atWholeSize(ck, won, scale, faces, { reading: whole, words, backgrounds })
-  return answer.same
-    ? textAnswer(words, answer.look, answer.place, answer.scores)
-    : pictureAnswer('looksDifferent', answer.scores)
+  if (!won) return { answer: pictureAnswer('looksDifferent') }
+  const answer = scale === 1 ? won : atWholeSize(ck, won, scale, faces, { ...target, reading: whole })
+  const face = { family: answer.face.family, weight: answer.face.weight, style: answer.face.style }
+  return {
+    answer: answer.same
+      ? textAnswer(words, answer.look, answer.place, answer.scores, answer.bindings, answer.styleLook)
+      : pictureAnswer('looksDifferent', answer.scores),
+    face,
+  }
 }
 
 /** The bytes of each candidate's face, those the shortlist loaded and the rest asked for at once; none for a face no font draws. */
@@ -101,7 +150,8 @@ function drawnFaces(candidates: readonly Candidate[], faces: ReadonlyMap<string,
 
 /**
  * The answer found on the shrunk piece scaled back to the whole piece, drawn in its face alone and
- * judged at full size.
+ * judged at full size; in the piece's own colours, unbound, when its kit colours look different there
+ * and those look the same.
  */
 function atWholeSize(
   ck: CanvasKit,
@@ -110,12 +160,7 @@ function atWholeSize(
   faces: ReadonlyMap<string, Uint8Array>,
   target: VerifyTarget,
 ): Verified {
-  const { look, place } = won
-  const whole: TextLook = {
-    ...look,
-    size: look.size / scale,
-    ...(look.outline ? { outline: { ...look.outline, width: Math.round((look.outline.width / scale) * 2) / 2 } } : {}),
-  }
+  const { place } = won
   const placed: Placed = {
     ...place,
     x: place.x / scale,
@@ -125,8 +170,25 @@ function atWholeSize(
   }
   const drawer = textDrawer(ck, drawnFaces([won.face], faces))
   try {
-    return { face: won.face, look: whole, place: placed, ...judgeText(drawer, target, whole, placed) }
+    const whole = wholeLook(won.look, scale)
+    const judged: Verified = { ...won, look: whole, place: placed, ...judgeText(drawer, target, whole, placed) }
+    if (judged.same || !won.ownLook) return judged
+    const own = wholeLook(won.ownLook, scale)
+    const plain = judgeText(drawer, target, own, placed)
+    if (!plain.same) return judged
+    const bindings = { ...won.bindings }
+    delete bindings.textColor
+    return { ...judged, look: own, bindings, ...plain }
   } finally {
     drawer.delete()
+  }
+}
+
+/** A look found on the shrunk piece at the whole piece's size, its outline to the half pixel. */
+function wholeLook(look: TextLook, scale: number): TextLook {
+  return {
+    ...look,
+    size: look.size / scale,
+    ...(look.outline ? { outline: { ...look.outline, width: Math.round((look.outline.width / scale) * 2) / 2 } } : {}),
   }
 }

@@ -27,14 +27,20 @@ export interface Fitted {
   lineGaps: number[]
 }
 
+/** How far a placed draw is moved past where its ink centre meets the piece's, in pixels. */
+export interface Nudge {
+  dx: number
+  dy: number
+}
+
 /** Letter spacing is kept within these, in %. */
 export const SPACING_RANGE = { min: -25, max: 120 }
 /** Line height is kept within these, a multiple of the size. */
 export const LINE_HEIGHT_RANGE = { min: 0.5, max: 3 }
+/** The line height faces are first drawn at, a multiple of the size, when the words have lines. */
+export const BASE_LINE_HEIGHT = 1.2
 /** The size faces are first drawn at to read their lines. */
 const BASE_SIZE = 100
-/** The line height faces are first drawn at, a multiple of the size, when the words have lines. */
-const BASE_LINE_HEIGHT = 1.2
 /** The letter spacing, in %, a line is laid out with to count the places spacing goes. */
 const PROBE_SPACING = 20
 /** A face whose size is outside this many times the piece's line height either way can't be it. */
@@ -108,8 +114,9 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
 }
 
 /**
- * The look drawn over the level piece and moved so the ink boxes' centres meet, with its overlap and
- * letter shape there; null when it draws no ink.
+ * The look drawn over the level piece and moved so the ink boxes' centres meet, then by `nudge`, with
+ * its overlap there and its letter shape, measured there or `keptShape` when given; null when it
+ * draws no ink.
  */
 export function placeByInk(
   drawer: TextDrawer,
@@ -117,6 +124,8 @@ export function placeByInk(
   words: string,
   face: Candidate,
   look: TextLook,
+  nudge: Nudge = { dx: 0, dy: 0 },
+  keptShape?: number,
 ): Omit<Fitted, 'lineGaps'> | null {
   const { box, level } = reading
   const natural = drawer.measure(words, look)
@@ -134,9 +143,9 @@ export function placeByInk(
   const ink = alphaInk(drawn.pixels, width, height)
   const inked = inkBox(ink)
   if (!inked) return null
-  const dx = box.x + box.w / 2 - (inked.x - pad + inked.w / 2)
-  const dy = box.y + box.h / 2 - (inked.y - pad + inked.h / 2)
-  const shape = letterShape(level, ink, dx - pad, dy - pad, look.size)
+  const dx = box.x + box.w / 2 - (inked.x - pad + inked.w / 2) + nudge.dx
+  const dy = box.y + box.h / 2 - (inked.y - pad + inked.h / 2) + nudge.dy
+  const shape = keptShape ?? letterShape(level, ink, dx - pad, dy - pad, look.size)
   return {
     face,
     look,

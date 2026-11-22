@@ -1,9 +1,13 @@
-// The matchers on pictures drawn by Dazbee's renderer: one picture holding a piece of every shape kind,
-// each matched as a shape piece of its job by the shape matcher's ladder, comes back as graphics of
-// that kind with its paint, bound to the brand kit where its colour is the kit's; a painted scene stays a picture.
-import { describe, expect, it } from 'vitest'
+// The matchers on pictures drawn by Dazbee's renderer: a text in each script, matched by the text
+// matcher in Hybrid, comes back as one text layer in the face it was drawn in; and one picture holding
+// a piece of every shape kind, each matched as a shape piece of its job by the shape matcher's ladder,
+// comes back as graphics of that kind with its paint, bound to the brand kit where its colour is the
+// kit's; a painted scene stays a picture.
+import { afterAll, describe, expect, it } from 'vitest'
 
-import { matchShapes } from '@dazbee/matchers'
+import { matchShapes, matchText } from '@dazbee/matchers'
+import { textMatcherFiles } from '@dazbee/matchers/test-text-files'
+import { lightFonts, lightPieces, textJob } from '@dazbee/matchers/test-text-pieces'
 import { renderPixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type MatchAnswer, MatchJob, type Paint, type PictureWhy, type UnplacedLayer } from '@dazbee/schema'
@@ -11,6 +15,14 @@ import { type MatchAnswer, MatchJob, type Paint, type PictureWhy, type UnplacedL
 import { encodePng } from './pixels.ts'
 
 const ck = await loadCanvasKit()
+const text = await textMatcherFiles()
+const textFonts = lightFonts()
+/** A text in each script, drawn in a Google face cut to the characters of the text matcher's test. */
+const TEXTS = [
+  { id: 'latin-plain', face: 'Montserrat|800|normal' },
+  { id: 'arabic-plain', face: 'Cairo|600|normal' },
+  { id: 'devanagari-plain', face: 'Hind|500|normal' },
+]
 const NAVY: Paint = { type: 'solid', color: '#1E3A8AFF' }
 const CORAL: Paint = { type: 'solid', color: '#F2765AFF' }
 /** Each piece's cell in the picture, in rows of four. */
@@ -264,6 +276,27 @@ const JOB = MatchJob.parse({
   picture: Buffer.from(encodePng(ck, PICTURE)).toString('base64'),
   pieces: PIECES.map((_, i) => ({ kind: 'shape', rect: { ...cellOf(i), width: CELL, height: CELL } })),
   kit: { colors: { primary: '#1E3A8AFF' }, fonts: {}, textStyles: [] },
+})
+
+afterAll(() => text.model.release())
+
+describe('matchText', () => {
+  const pieces = lightPieces(ck, textFonts)
+  it.each(TEXTS)('gives the $id text back as one text layer in $face', async ({ id, face }) => {
+    const drawn = pieces.find((piece) => piece.id === id)
+    if (!drawn) throw new Error(`no text ${id}`)
+    expect(drawn.key).toBe(face)
+    const { job, piece } = textJob(ck, drawn.pixels, drawn.words)
+    const deps = { ck, ...text, fonts: { face: async (key: string) => textFonts.get(key) ?? null } }
+    const answer = await matchText(job, piece, deps)
+    expect(await matchText(job, piece, deps)).toEqual(answer)
+    if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
+    const [layer] = answer.layers
+    if (layer?.type !== 'text') throw new Error('no text layer')
+    const { style } = layer.props
+    expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(face)
+    expect(layer.props.text).toBe(drawn.words)
+  })
 })
 
 describe('matchShapes', () => {

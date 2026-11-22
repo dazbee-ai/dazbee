@@ -635,7 +635,7 @@ The text matcher's setting that every person gets: Light's font, then its size, 
 _Avoid_: Full, accurate mode, medium
 
 **Font fingerprint**:
-The numbers the text matcher's model reads from text drawn in one font face, which lets it put fonts that look like a piece first.
+The numbers the text matcher's model reads from text drawn in one family at one weight and style, which lets it put fonts that look like a piece first.
 _Avoid_: Embedding, signature, font hash
 
 **Match copy**:

@@ -5,6 +5,7 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
 import { LOOKS_SAME } from '../looks-same/rule.ts'
+import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { matchText, matchTextWithFace } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
@@ -77,15 +78,15 @@ describe('matchText', () => {
     expect(Math.abs(style.letterSpacing.value - (piece.spacing ?? 0))).toBeLessThan(SPACING_WITHIN)
   })
 
-  it.each(ROUND_TRIPS)('fits %s finer in Hybrid, the default, in the face Light picks', async (id) => {
+  it.each(ROUND_TRIPS)('fits %s finer in Hybrid, the default, in the face Light picks, its drawn face', async (id) => {
     const piece = pieceOf(id)
     const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
     expect(job.setting).toBe('hybrid')
     const deps = { ck, files, model, fonts: FIXTURE_FONTS }
     const hybrid = await matchTextWithFace(job, jobPiece, deps)
     expect(await matchTextWithFace(job, jobPiece, deps)).toEqual(hybrid)
-    const light = await matchTextWithFace({ ...job, setting: 'light' }, jobPiece, deps)
-    expect(hybrid.face).toEqual(light.face)
+    // Light gives each round trip back in its drawn face (above).
+    expect(hybrid.face && fontKey(hybrid.face)).toBe(piece.key)
     if (id === HYBRID_PICTURE) {
       // The finer fit finds the 3 px outline drawn, and the colour guard then fails.
       expect(hybrid.answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })

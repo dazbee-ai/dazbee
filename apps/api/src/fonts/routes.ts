@@ -15,7 +15,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { requestLimit } from '../admin/waiting-list.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
-import { GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE, KEEP_FOR_GOOD, KEEP_NOTHING, networkOf } from '../permanent-files.ts'
+import { FILES_PER_ADDRESS_PER_MINUTE, KEEP_FOR_GOOD, KEEP_NOTHING, networkOf } from '../permanent-files.ts'
 import {
   fontCatalogParts,
   fontLink,
@@ -95,7 +95,7 @@ export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<
 export function googleFontRoutes({
   db,
   storage,
-  perAddressPerMinute = GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE,
+  perAddressPerMinute = FILES_PER_ADDRESS_PER_MINUTE,
   listCheckMs = GOOGLE_LIST_CHECK_MS,
 }: {
   db: Db

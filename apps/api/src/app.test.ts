@@ -69,6 +69,8 @@ const OUTSIDE_A_WORKSPACE = [
   '/fonts/google/faces/:name',
   '/fonts/google/lists/:name',
   '/fonts/google/*',
+  '/matchers/:name',
+  '/matchers/*',
 ]
 
 const WRITER_REFUSAL = 'Only an Owner, Admin or Editor can do this'
@@ -83,6 +85,7 @@ const MIDDLEWARE_PATHS = [
   '/*',
   '/admin/*',
   '/fonts/google/*',
+  '/matchers/*',
   '/me',
   '/me/*',
   '/agent/*',

@@ -9,6 +9,7 @@ import {
   type FontFamily,
   googleFacePaths,
   googleFontListPath,
+  matcherFilePath,
   MEMBER_ROLES,
   roleManages,
   roleWrites,
@@ -199,6 +200,12 @@ describe('googleFacePaths', () => {
 describe('googleFontListPath', () => {
   it('names the Google list by the hash of its bytes, at an address kept for good', () => {
     expect(googleFontListPath('0123456789abcdef01234567')).toBe('/fonts/google/lists/0123456789abcdef01234567.js')
+  })
+})
+
+describe('matcherFilePath', () => {
+  it('names a matcher file by its SHA-256, at a .bin address kept for good', () => {
+    expect(matcherFilePath('ab'.repeat(32))).toBe(`/matchers/${'ab'.repeat(32)}.bin`)
   })
 })
 

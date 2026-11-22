@@ -4,8 +4,8 @@
 // /health, sign-in's /auth/* (with the development invites' accept route), the person's own /me and
 // /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, the file
 // sent to an agent's upload link, PUT /uploads/:token, whose token is its only key, and the Google faces' files
-// and previews, GET /fonts/google/faces/:name, and their list, GET /fonts/google/lists/:name, which anyone may
-// read. A person
+// and previews, GET /fonts/google/faces/:name, and their list, GET /fonts/google/lists/:name, and the matchers'
+// files, GET /matchers/:name, which anyone may read. A person
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a
@@ -38,6 +38,7 @@ import { InvalidFont } from './fonts/fonts.ts'
 import { fontRoutes, googleFontRoutes } from './fonts/routes.ts'
 import { brandScope, type Env, error, membershipScope, requireSession } from './http.ts'
 import { logError } from './log.ts'
+import { matcherFileRoutes } from './matchers/routes.ts'
 import { meRoutes } from './me/routes.ts'
 import { InvalidLimit } from './members/brand-limits.ts'
 import { InvalidInvite, InviteConflict } from './members/invites.ts'
@@ -112,6 +113,7 @@ export function createApp({
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
   app.route('/', uploadRoutes({ db, storage, admins }))
   app.route('/', googleFontRoutes({ db, storage }))
+  app.route('/', matcherFileRoutes({ storage }))
 
   const signedIn = requireSession(sessionOf, sessionRefusal(db, admins))
   const records = new Hono<Env>()

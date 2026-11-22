@@ -469,7 +469,7 @@ function FramePanel({ editor, frameId, workspaceId, brandId }: Omit<FrameSection
  */
 function FontPanel({ target, workspaceId, brandId }: PanelProps) {
   const { bar, editPanel } = useMessages().editor
-  const { catalog, refresh } = useFontCatalog(workspaceId, brandId)
+  const { catalog, fetched, refresh } = useFontCatalog(workspaceId, brandId)
   return (
     <PanelFrame id={FONT_CHOOSER} title={bar.panels.font} focus={false} back={editPanel.backToText} fills>
       <ViewOnlyFieldset>
@@ -478,6 +478,7 @@ function FontPanel({ target, workspaceId, brandId }: PanelProps) {
           workspaceId={workspaceId}
           brandId={brandId}
           catalog={catalog}
+          fetched={fetched}
           refresh={refresh}
           onDone={() => closePanel(FONT_CHOOSER, true)}
         />

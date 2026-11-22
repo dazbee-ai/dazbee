@@ -47,7 +47,7 @@ import { format } from '@/lib/i18n/index.ts'
 import { layerName } from '@/lib/layer-name.ts'
 
 import { fetchSyncToken, renameFromEditor } from './actions.ts'
-import { assetBytes, brandKitVariables, fontLoader, imageUploader, keepForOffline } from './editor-io.ts'
+import { assetBytes, fontLoader, imageUploader, keepForOffline, startStageEditor } from './editor-io.ts'
 
 declare global {
   interface Window {
@@ -294,29 +294,29 @@ export function EditorStage({
     let editor: Editor | undefined
     const unmounted = new AbortController()
     const [stage, layer] = [canvas.current, overlay.current]
-    brandKitVariables(workspaceId, brandId)
-      .then((variables) =>
-        startEditor({
-          canvas: stage,
-          overlay: layer,
-          typingFieldLabel: messages.current.editor.typingField,
-          designId,
-          syncUrl,
-          member: { userId, workspaceId },
-          syncToken: () => fetchSyncToken(workspaceId, brandId, designId),
-          assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
-          ...fontLoader(workspaceId, brandId),
-          uploadImage: imageUploader(workspaceId, brandId),
-          ...(variables ? { variables } : {}),
-          onStatus: status.set,
-          onZoom: zoom.set,
-          frameName: (width, height) => frameName(messages.current, width, height),
-          layerName: (kind) => layerName(messages.current, kind),
-          radiusLabel: (radius) => format(messages.current.editor.radiusPill, { radius }),
-          signal: unmounted.signal,
-        }),
-      )
+    startStageEditor(workspaceId, brandId, unmounted.signal, (variables) =>
+      startEditor({
+        canvas: stage,
+        overlay: layer,
+        typingFieldLabel: messages.current.editor.typingField,
+        designId,
+        syncUrl,
+        member: { userId, workspaceId },
+        syncToken: () => fetchSyncToken(workspaceId, brandId, designId),
+        assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
+        ...fontLoader(workspaceId, brandId),
+        uploadImage: imageUploader(workspaceId, brandId),
+        ...(variables ? { variables } : {}),
+        onStatus: status.set,
+        onZoom: zoom.set,
+        frameName: (width, height) => frameName(messages.current, width, height),
+        layerName: (kind) => layerName(messages.current, kind),
+        radiusLabel: (radius) => format(messages.current.editor.radiusPill, { radius }),
+        signal: unmounted.signal,
+      }),
+    )
       .then((started) => {
+        if (!started) return
         if (unmounted.signal.aborted) return started.destroy()
         editor = started
         window.dazbee = started

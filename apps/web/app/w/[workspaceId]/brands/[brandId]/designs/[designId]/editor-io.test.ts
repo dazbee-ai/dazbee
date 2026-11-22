@@ -6,7 +6,7 @@ import type { FontFamily } from '@dazbee/schema'
 
 import * as fontCatalog from '@/components/brand-kit/font-catalog.ts'
 
-import { fontLoader } from './editor-io.ts'
+import { fontLoader, startStageEditor } from './editor-io.ts'
 
 const CATALOG: FontFamily[] = [
   {
@@ -24,14 +24,15 @@ const CATALOG: FontFamily[] = [
 ]
 
 /**
- * Answers the families asked for at the brand's fonts route, from `catalog`, and three bytes anywhere else, noting
- * each address asked.
+ * Answers the families asked for at the brand's fonts route, from `catalog`, no brand kit, and three bytes anywhere
+ * else, noting each address asked.
  */
 function fakeFetch(catalog = CATALOG) {
   const asked: string[] = []
   vi.stubGlobal('fetch', (url: string) => {
     asked.push(url)
     const { pathname, searchParams } = new URL(url, 'https://app.example')
+    if (pathname.endsWith('/kit/data')) return Promise.resolve(new Response('No kit', { status: 404 }))
     if (!pathname.endsWith('/fonts')) return Promise.resolve(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
     const families = searchParams.getAll('family')
     return Promise.resolve(Response.json(catalog.filter((f) => families.includes(f.family))))
@@ -42,6 +43,40 @@ function fakeFetch(catalog = CATALOG) {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+})
+
+describe('startStageEditor', () => {
+  it('starts one editor for a stage mounted twice as strict mode mounts it, asking for each address once', async () => {
+    const asked = fakeFetch()
+    /** A stage's mount: an editor that loads the design's fonts, as `startEditor` does on opening. */
+    const mount = (signal: AbortSignal) =>
+      startStageEditor('w1', 'b1', signal, async () => {
+        const { fontFaces, fontFile } = fontLoader('w1', 'b1')
+        const faces = await fontFaces(['Lora', 'House Sans'])
+        await Promise.all(faces.map(fontFile))
+        return faces.map((face) => face.id)
+      })
+    const first = new AbortController()
+    const firstMount = mount(first.signal)
+    first.abort()
+    const secondMount = mount(new AbortController().signal)
+    expect(await firstMount).toBeNull()
+    expect(await secondMount).toEqual(['lora00000400', 'house0000400'])
+    expect(asked).toEqual([
+      '/w/w1/brands/b1/kit/data',
+      '/w/w1/brands/b1/fonts?family=Lora&family=House+Sans',
+      '/fonts/google/faces/lora00000400.ttf',
+      '/w/w1/brands/b1/fonts/house0000400',
+    ])
+  })
+
+  it('asks for the brand kit again for a stage mounted after the first ask settled', async () => {
+    const asked = fakeFetch()
+    const signal = new AbortController().signal
+    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
+    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
+    expect(asked).toEqual(['/w/w1/brands/b1/kit/data', '/w/w1/brands/b1/kit/data'])
+  })
 })
 
 describe('fontLoader', () => {

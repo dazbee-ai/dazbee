@@ -1,6 +1,6 @@
 // What the editor loads through the app's own routes: an asset's bytes, the brand's font files (a Google
-// face's from its permanent address) and its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
-// to keep the page.
+// face's from its permanent address) and its brand kit's values, and the pictures of an SVG file it uploads; starting
+// the stage's editor once for a stage mounted twice; and asking the offline worker to keep the page.
 import type { FontSources } from '@dazbee/editor'
 import { BrandKit, FontFamily, googleFacePaths, MOST_FONT_FAMILIES_ASKED, type Variables } from '@dazbee/schema'
 
@@ -9,15 +9,35 @@ import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
 import { mascotSrc } from '@/components/ui/mascot.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
+import { sharedAsks } from '@/lib/shared-asks.ts'
 import { sendAsset } from '@/lib/upload-asset.ts'
 
 /** The file extension of each picture type an SVG file's pictures are sniffed as. */
 const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
 
+/** The brand kit's values being asked for, by `<workspace>/<brand>`, shared by a stage mounted again meanwhile. */
+const kitAsks = sharedAsks<Variables | undefined>()
+
 export async function assetBytes(workspaceId: string, brandId: string, assetId: string) {
   const response = await fetch(brandPath(workspaceId, brandId, 'assets', assetId))
   if (!response.ok) throw new Error(`asset ${assetId}: ${response.status}`)
   return new Uint8Array(await response.arrayBuffer())
+}
+
+/**
+ * Starts the stage's editor with the brand kit's values (`brandKitVariables`), or none when the mount ended first.
+ * React's strict mode mounts the stage twice in development and ends the first mount at once: both share one ask for
+ * the kit, and only the second starts an editor, so the design's fonts and files are fetched once.
+ */
+export async function startStageEditor<E>(
+  workspaceId: string,
+  brandId: string,
+  signal: AbortSignal,
+  start: (variables: Variables | undefined) => Promise<E>,
+): Promise<E | null> {
+  const variables = await brandKitVariables(workspaceId, brandId)
+  if (signal.aborted) return null
+  return start(variables)
 }
 
 /**
@@ -79,10 +99,12 @@ export function imageUploader(workspaceId: string, brandId: string) {
  * The values of the brand kit's tokens, its logo's included, for layers bound to them. Without
  * a connection the editor starts without them, and bound layers keep the values they were bound with.
  */
-export async function brandKitVariables(workspaceId: string, brandId: string): Promise<Variables | undefined> {
-  const response = await fetch(brandPath(workspaceId, brandId, 'kit', 'data')).catch(() => null)
-  if (!response?.ok) return undefined
-  return kitVariables(workspaceId, brandId, BrandKit.parse(await response.json()))
+export function brandKitVariables(workspaceId: string, brandId: string): Promise<Variables | undefined> {
+  return kitAsks(`${workspaceId}/${brandId}`, async () => {
+    const response = await fetch(brandPath(workspaceId, brandId, 'kit', 'data')).catch(() => null)
+    if (!response?.ok) return undefined
+    return kitVariables(workspaceId, brandId, BrandKit.parse(await response.json()))
+  })
 }
 
 /**

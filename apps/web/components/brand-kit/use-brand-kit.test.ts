@@ -8,6 +8,7 @@ import {
   changeKit,
   dismissKitTrouble,
   kitTrouble,
+  loadFirstKit,
   loadKit,
   SAVE_DELAY_MS,
   saveWaitingKit,
@@ -20,6 +21,8 @@ interface Route {
   puts: Record<string, unknown>[]
   shut: Promise<void> | null
   reads: 'ok' | 'down'
+  /** How many times the kit was read. */
+  read: number
 }
 
 const stored = (voice: string, updatedAt: string | null): StoredBrandKit => ({
@@ -64,9 +67,10 @@ function shut() {
 beforeEach(() => {
   vi.useFakeTimers()
   brandId = `brand-${++brand}`
-  route = { kit: stored('First.', '2026-11-21T10:00:00.000Z'), puts: [], shut: null, reads: 'ok' }
+  route = { kit: stored('First.', '2026-11-21T10:00:00.000Z'), puts: [], shut: null, reads: 'ok', read: 0 }
   vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
     if (init?.method !== 'PUT') {
+      route.read++
       if (route.reads === 'down') throw new TypeError('Failed to fetch')
       return Response.json(route.kit)
     }
@@ -191,6 +195,20 @@ describe('loadKit', () => {
     expect(shownKit(brandId)?.voice).toBe('Mine.')
     await vi.runAllTimersAsync()
     expect((route.kit as StoredBrandKit).voice).toBe('Mine.')
+  })
+})
+
+describe('loadFirstKit', () => {
+  it('fetches the kit once for what mounts twice while the fetch is out, as strict mode mounts', async () => {
+    await Promise.all([loadFirstKit('w', brandId), loadFirstKit('w', brandId)])
+    expect(route.read).toBe(1)
+    expect(shownKit(brandId)?.voice).toBe('First.')
+  })
+
+  it('fetches no kit the brand shows already', async () => {
+    await loadKit('w', brandId)
+    await loadFirstKit('w', brandId)
+    expect(route.read).toBe(1)
   })
 })
 

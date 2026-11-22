@@ -14,6 +14,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { type BrandKit, StoredBrandKit } from '@dazbee/schema'
 
 import { brandPath, RouteError } from '@/lib/brand-routes.ts'
+import { sharedAsks } from '@/lib/shared-asks.ts'
 
 import { changedParts, type KitPart } from './kit-changes.ts'
 
@@ -49,6 +50,8 @@ const sending = new Map<string, Promise<void>>()
 /** Counts each brand's changes and saves, so a fetch out meanwhile brings back nothing older. */
 const revisions = new Map<string, number>()
 const listeners = new Map<string, Set<() => void>>()
+/** Each brand's fetch of a kit shown nowhere yet, shared by what mounts meanwhile, as strict mode mounts twice. */
+const firstLoads = sharedAsks<undefined>()
 
 /** The kit the brand shows, or null while there is none: not fetched yet, or unreadable. */
 export function shownKit(brandId: string): BrandKit | null {
@@ -117,9 +120,18 @@ export function useBrandKit(workspaceId: string, brandId: string, first?: Stored
     () => null,
   )
   useEffect(() => {
-    if (!kits.has(brandId) && !troubles.has(brandId)) void loadKit(workspaceId, brandId)
+    void loadFirstKit(workspaceId, brandId)
   }, [workspaceId, brandId])
   return kit
+}
+
+/**
+ * Fetches the brand's kit when it shows nowhere yet (`loadKit`), as something showing it mounts: what mounts while the
+ * fetch is out shares it, as React's strict mode mounts each thing twice in development.
+ */
+export async function loadFirstKit(workspaceId: string, brandId: string): Promise<void> {
+  if (kits.has(brandId) || troubles.has(brandId)) return
+  await firstLoads(brandId, () => loadKit(workspaceId, brandId).then(() => undefined))
 }
 
 /** What keeps the brand's kit from being saved as it shows, or null. */

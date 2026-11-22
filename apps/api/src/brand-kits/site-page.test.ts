@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { readSitePage } from './site-page.ts'
 
@@ -9,9 +9,11 @@ import { readSitePage } from './site-page.ts'
 const HARBOUR = readFileSync(join(import.meta.dirname, 'test-websites', 'harbour.html'), 'utf8')
 /** The size of a hostile page: the most Dazbee reads. */
 const PAGE = 2 * 1024 * 1024
-/** The most `growth` may give: about 10 for a read in step with its length, about 100 for one that grows with its square. */
+/** The most `timeToRead` may give as growth: about 10 for a read in step with its length, about 100 for one that grows with its square. */
 const MAX_GROWTH = 30
-/** How much processor time `growth` spends sampling before it stops: a read that grows with its square fails after one sample. */
+/** How many times as long as a page of the sample site of the same length a hostile page may take to read. */
+const MAX_SLOWER = 10
+/** How much processor time `timeToRead` spends sampling before it stops. */
 const SAMPLING_MS = 1_500
 /** How long each half of a sample runs, in ms: many steps of a processor clock that steps by 15.6 ms on Windows. */
 const HALF_SAMPLE_MS = 200
@@ -25,22 +27,28 @@ function cpuMs(): number {
   return (user + system) / 1000
 }
 
-/**
- * How many times longer reading a page of `PAGE` characters takes than reading one a tenth as long, both
- * made by `page`, in processor time. Each sample reads the short page 10 times as often as the long page,
- * so both halves take about as long and are slowed alike, as often as the long page reads in
- * `HALF_SAMPLE_MS`; the fastest of up to 3 samples of each half counts.
- */
-function growth(page: (length: number) => string): number {
-  const short = page(PAGE / 10)
-  const long = page(PAGE)
-  read(short)
+/** How many times `html` reads in `HALF_SAMPLE_MS` of processor time, at least once. */
+function readsInHalfSample(html: string): number {
   let runs = 0
   const started = cpuMs()
   do {
-    read(long)
+    read(html)
     runs++
   } while (cpuMs() - started < HALF_SAMPLE_MS)
+  return runs
+}
+
+/**
+ * How reading a page of `length` characters made by `page` takes in processor time: `ms`, one read, and
+ * `growth`, how many times longer it takes than reading one a tenth as long. Each sample reads the short page
+ * 10 times as often as the long page, so both halves take about as long and are slowed alike, as often as
+ * the long page reads in `HALF_SAMPLE_MS`; the fastest of up to 3 samples of each half counts.
+ */
+function timeToRead(page: (length: number) => string, length: number): { ms: number; growth: number } {
+  const short = page(length / 10)
+  const long = page(length)
+  read(short)
+  const runs = readsInHalfSample(long)
   let shortTook = Number.POSITIVE_INFINITY
   let longTook = Number.POSITIVE_INFINITY
   const sampling = cpuMs()
@@ -52,7 +60,30 @@ function growth(page: (length: number) => string): number {
     shortTook = Math.min(shortTook, between - before)
     longTook = Math.min(longTook, cpuMs() - between)
   }
-  return (10 * longTook) / shortTook
+  return { ms: longTook / runs, growth: (10 * longTook) / shortTook }
+}
+
+/** How long a page of the sample site repeated to `PAGE` characters takes to read, in processor time. */
+let sitePageMs = 0
+
+beforeAll(() => {
+  const page = HARBOUR.repeat(Math.ceil(PAGE / HARBOUR.length)).slice(0, PAGE)
+  read(page)
+  const started = cpuMs()
+  const runs = readsInHalfSample(page)
+  sitePageMs = (cpuMs() - started) / runs
+})
+
+/**
+ * Checks that a hostile page of `PAGE` characters made by `page` reads in step with its length, and not much
+ * slower than a site's page. Growth is checked on pages a tenth as long first, so a read that grows with its
+ * square fails in seconds rather than reading the whole page for minutes.
+ */
+function expectInStep(page: (length: number) => string) {
+  expect(timeToRead(page, PAGE / 10).growth).toBeLessThan(MAX_GROWTH)
+  const { ms, growth } = timeToRead(page, PAGE)
+  expect(growth).toBeLessThan(MAX_GROWTH)
+  expect(ms).toBeLessThan(MAX_SLOWER * sitePageMs)
 }
 
 describe('readSitePage', () => {
@@ -91,7 +122,7 @@ describe('readSitePage', () => {
   it('keeps at most 20 Google Fonts families, however many a page links', () => {
     const link = `<link rel="stylesheet" href="https://fonts.googleapis.com/css?${'family=A|B|C&'.repeat(150)}">`
     const page = (length: number) => link.repeat(Math.floor(length / link.length))
-    expect(growth(page)).toBeLessThan(MAX_GROWTH)
+    expectInStep(page)
     expect(read(page(PAGE)).googleFonts).toHaveLength(20)
   })
 
@@ -105,6 +136,6 @@ describe('readSitePage', () => {
     ['many different classes', (length) => Array.from({ length: length / 20 }, (_, i) => `<i class="c${i}">`).join('')],
     ['comments that never end', (length) => `<!--${'-'.repeat(length)}`],
   ])('reads a page of %s in step with its length', (_name, page) => {
-    expect(growth(page)).toBeLessThan(MAX_GROWTH)
+    expectInStep(page)
   })
 })

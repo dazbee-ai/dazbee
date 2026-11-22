@@ -142,7 +142,8 @@ describe('inviting', () => {
     const answered = new Promise<void>((resolve) => (release = resolve))
     let asked = 0
     vi.spyOn(workos.invites, 'invite').mockImplementation(async (...args) => {
-      if ((asked += 1) === 2) release()
+      asked += 1
+      if (asked === 2) release()
       await answered
       return send(...args)
     })

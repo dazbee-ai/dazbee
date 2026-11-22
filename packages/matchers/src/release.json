@@ -1,0 +1,30 @@
+{
+  "repo": "dazbee-ai/dazbee",
+  "tag": "matchers-720a5f0be73f9b24",
+  "files": {
+    "text-model.onnx": {
+      "sha256": "ecb59a9e52fb17d63dabcd0b5e979ce884d12e870552a312ec2de20edb777f79",
+      "size": 14870556
+    },
+    "text-projection.f32": {
+      "sha256": "4f7367e1f604799ab14b7bd31b55c94a38068c92a87f3356b08aeac17e4d6229",
+      "size": 264192
+    },
+    "text-fingerprints.f32": {
+      "sha256": "d92751397d8f34a912927ade99407c02f63be02372ff99cf88f464fba6ad3116",
+      "size": 4017664
+    },
+    "text-keys.json": {
+      "sha256": "06e7bf103227be9c5094e60b893acbbf0f423f03f8e5cb1d8d5e018076835fd3",
+      "size": 201030
+    },
+    "text-coverage.bin": {
+      "sha256": "7cdb3e489cb48e3acbb3bfee2221b352832077296d807ac3234b609be679f1a3",
+      "size": 1820504
+    },
+    "text-novelty.json": {
+      "sha256": "54709d05ef5e708fae8d9c27839d49ff9fb02132d1050eb0a4b9e93407ce4477",
+      "size": 1119
+    }
+  }
+}

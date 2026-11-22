@@ -390,6 +390,12 @@ export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
 export const GOOGLE_FONT_LIST_PATH = '/fonts/google/lists/'
 
 /**
+ * Where the app serves the matchers' files to anyone, by their SHA-256, as `<sha256>.bin`: a file at one address never
+ * changes, so browsers and Cloudflare keep it for good; `.bin` is an extension Cloudflare keeps at its edge.
+ */
+export const MATCHER_FILE_PATH = '/matchers/'
+
+/**
  * A brand's font catalog in its two parts: the address of the Google list, the same for every brand
  * (`googleFontListPath`), and the brand's own uploads. `brandCatalog` joins them.
  */
@@ -633,6 +639,9 @@ export function googleFacePaths(face: { id: string; source: FontSource }): { fil
 
 /** The address of the Google list whose bytes hash to `hash`, kept for good (`GOOGLE_FONT_LIST_PATH`). */
 export const googleFontListPath = (hash: string) => `${GOOGLE_FONT_LIST_PATH}${hash}.js`
+
+/** The address of the matchers' file whose bytes hash to `sha256`, kept for good (`MATCHER_FILE_PATH`). */
+export const matcherFilePath = (sha256: string) => `${MATCHER_FILE_PATH}${sha256}.bin`
 
 /**
  * The families a brand can use, by name in code-unit order: the Google list's and the brand's uploads, where a brand's

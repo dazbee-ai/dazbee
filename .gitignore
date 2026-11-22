@@ -19,3 +19,6 @@ apps/web/public/vendor/
 
 # A Figma recording the record script is still writing, or that stopped part way.
 tests/pixels/fixtures/figma/recorded.partial/
+
+# The matchers' files, fetched from their release on demand (pnpm --filter @dazbee/matchers files).
+packages/matchers/.files/

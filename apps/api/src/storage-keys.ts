@@ -22,6 +22,12 @@ export const templateThumbnailKey = (workspaceId: string, templateId: string) =>
  */
 export const BUNDLED = 'bundled/'
 export const bundledKey = (sha256: string) => `${BUNDLED}${sha256}`
+/**
+ * The matchers' files (the text matcher's model, fingerprints and their lists), stored once for every workspace by
+ * `matchers:upload` from the release `@dazbee/matchers/release` names, by their SHA-256; apart from `bundled/`,
+ * which a brand can add to its assets.
+ */
+export const matcherFileKey = (sha256: string) => `matchers/${sha256}`
 export const googleFontKey = (sha256: string) => `fonts/google/${sha256}`
 /** Where the import notes each file of google/fonts it has copied: an empty object named by the file's git blob and the SHA-256 it was stored under. */
 export const GOOGLE_SOURCES = 'fonts/google/sources/'

@@ -3,9 +3,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./release": "./src/release.json",
+    "./release-files": "./src/release-files.ts"
   },
   "scripts": {
+    "files": "node scripts/fetch-files.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

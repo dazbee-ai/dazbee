@@ -156,6 +156,7 @@ describe('fonts', { timeout: 30_000 }, () => {
       `/fonts/google/faces/${google400}.constructor`,
       `/fonts/google/faces/${google400}`,
       `/fonts/google/faces/${google400}.ttf?v=2`,
+      `/fonts/google/faces/${google400}.ttf?`,
       `/fonts/google/${google400}.ttf`,
       `/fonts/google/sources/${google400}.ttf`,
       `/fonts/google/faces/%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}.ttf`,

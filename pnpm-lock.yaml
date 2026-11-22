@@ -190,6 +190,9 @@ importers:
       '@dazbee/graphics':
         specifier: workspace:*
         version: link:../../packages/graphics
+      '@dazbee/matchers':
+        specifier: workspace:*
+        version: link:../../packages/matchers
       '@dazbee/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer

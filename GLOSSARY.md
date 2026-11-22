@@ -453,8 +453,8 @@ One of the four ways a pattern is drawn: bold, minimal, playful or premium. It s
 _Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
 
 **Bundled graphic**:
-An icon, a sticker or an illustration, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file and an illustration's file are **bundled files**: Dazbee keeps them in its storage (`bundled/<sha256>`), not in the repository, and a brand adds one to its asset library by its SHA-256.
-_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker or an illustration), clip art
+An icon, a sticker, an illustration or an artwork graphic, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file, an illustration's file and an artwork graphic's file are **bundled files**: Dazbee keeps them in its storage (`bundled/<sha256>`), not in the repository, and a brand adds one to its asset library by its SHA-256.
+_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker, an illustration or an artwork graphic), clip art
 
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
@@ -471,6 +471,10 @@ _Avoid_: Sticker (a single picture or person), clip art, artwork
 **Illustration accent**:
 The one colour an illustration set's scenes accent with, such as unDraw's purple, which placing may swap for another colour wherever a scene paints with it; a brand kit colour given as the accent binds the fills that are the accent alone.
 _Avoid_: Accent alone (the brand kit's Accent role, `brand:accent`, which an illustration accent may be set to), highlight colour
+
+**Artwork graphic**:
+A graphic of one of Dazbee's artwork sets, each set holding one kind: an object (a colour drawing of a thing), a 3D object (a rendered picture), a shape, a hand-drawn accent (an arrow, an underline, a circle), an effect (a light, spark or smoke picture laid over a photo) or a background (a pattern repeated over the frame). It joins the brand's asset library when placed, once however often; a picture is placed as an image, an effect drawn light in the screen blend, and an SVG file as editable layers in its own colours or, for a set drawn in a few colours, in a colour given (a brand kit colour binds them).
+_Avoid_: Asset alone, clip art, decoration
 
 **Upload link**:
 A one-time link an agent asks for to send one file from the machine it runs on into a brand's asset library: one brand, one type, one name, ten minutes, and the first file sent spends it. It reads nothing and opens nothing else.

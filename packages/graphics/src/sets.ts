@@ -2,7 +2,9 @@
 // is pinned. An icon set is taken from an npm package pinned in this package's devDependencies (`write-icons.ts`); a
 // sticker set from a GitHub repository at a commit, or from files on its makers' site pinned by their SHA-256 in
 // `sticker-sources.json` (`write-stickers.ts`); an illustration set from a GitHub repository at a commit, or from the
-// files its makers' gallery offers, each pinned by its SHA-256 in `illustrations.json` (`write-illustrations.ts`).
+// files its makers' gallery offers, each pinned by its SHA-256 in `illustrations.json` (`write-illustrations.ts`). The
+// artwork sets (objects, 3D objects, shapes, accents, effects and backgrounds) are in `artwork-sets.ts`.
+import { ARTWORK_SET_IDS, ARTWORK_SETS, type ArtworkKind, type ArtworkSetId, isArtworkSet } from './artwork-sets.ts'
 
 /** An icon set's id, the first part of each of its icons' ids (`tabler/shopping-cart`). */
 export type IconSetId = 'tabler' | 'phosphor'
@@ -14,13 +16,13 @@ export type StickerSetId = 'fluent-emoji' | 'open-peeps' | 'humaaans' | 'open-do
 export type IllustrationSetId = 'undraw' | 'manypixels-chromablue' | 'manypixels-birdview'
 
 /** Any bundled set's id. */
-export type GraphicSetId = IconSetId | StickerSetId | IllustrationSetId
+export type GraphicSetId = IconSetId | StickerSetId | IllustrationSetId | ArtworkSetId
 
 /**
- * What a bundled graphic is: an icon, placed in one colour; a sticker, placed as it is drawn; or an illustration, a
- * whole scene placed as it is drawn, whose accent colour may be swapped.
+ * What a bundled graphic is: an icon, placed in one colour; a sticker, placed as it is drawn; an illustration, a
+ * whole scene placed as it is drawn, whose accent colour may be swapped; or an artwork set's kind of graphic.
  */
-export type GraphicKind = 'icon' | 'sticker' | 'illustration'
+export type GraphicKind = 'icon' | 'sticker' | 'illustration' | ArtworkKind
 
 /**
  * How a sticker style is placed: a picture (a PNG file) joins the brand's asset library and is placed as an image; a
@@ -202,12 +204,24 @@ export const ILLUSTRATION_SETS: Readonly<Record<IllustrationSetId, IllustrationS
 
 export const ILLUSTRATION_SET_IDS = Object.keys(ILLUSTRATION_SETS) as IllustrationSetId[]
 
-/** Every bundled set's id: the icon sets, the sticker sets, then the illustration sets. */
-export const GRAPHIC_SET_IDS: readonly GraphicSetId[] = [...ICON_SET_IDS, ...STICKER_SET_IDS, ...ILLUSTRATION_SET_IDS]
+/** Every bundled set's id: the icon sets, the sticker sets, the illustration sets, then the artwork sets. */
+export const GRAPHIC_SET_IDS: readonly GraphicSetId[] = [
+  ...ICON_SET_IDS,
+  ...STICKER_SET_IDS,
+  ...ILLUSTRATION_SET_IDS,
+  ...ARTWORK_SET_IDS,
+]
 
 /** Whether a set is an icon set. */
 export function isIconSet(set: GraphicSetId): set is IconSetId {
   return Object.hasOwn(ICON_SETS, set)
+}
+
+/** What kind of graphic a set holds. */
+export function kindOfSet(set: GraphicSetId): GraphicKind {
+  if (isIconSet(set)) return 'icon'
+  if (isIllustrationSet(set)) return 'illustration'
+  return isArtworkSet(set) ? ARTWORK_SETS[set].kind : 'sticker'
 }
 
 /** Whether a set is an illustration set. */

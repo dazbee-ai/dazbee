@@ -1,17 +1,28 @@
-// The tools for the graphics Dazbee bundles: search_graphics finds icons, stickers and illustrations by words, and
-// place_graphic places one on a frame of the open design as one agent batch with its warnings: an icon as the layers
-// the SVG reader makes of it, every shape filled with a colour or bound to a brand kit colour, which doesn't join the
-// asset library; a sticker as it is drawn, a drawing as layers and a picture as an image, which joins the asset
-// library; an illustration as layers in its own colours or with its accent swapped, which joins the asset library.
+// The tools for the graphics Dazbee bundles: search_graphics finds icons, stickers, illustrations and artwork by words,
+// and place_graphic places one on a frame of the open design as one agent batch with its warnings: an icon as the
+// layers the SVG reader makes of it, every shape filled with a colour or bound to a brand kit colour, which doesn't join
+// the asset library; a sticker as it is drawn, a drawing as layers and a picture as an image, which joins the asset
+// library; an illustration as layers in its own colours or with its accent swapped, which joins the asset library; and
+// an artwork graphic (an object, 3D object, shape, accent, effect or background) as `artwork-placing.ts` places it.
 import { z } from 'zod'
 
 import { placedRoots } from '@dazbee/doc'
 import { svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
-import { findGraphic, type FoundGraphic, GRAPHIC_SET_IDS, iconSvg, searchGraphics } from '@dazbee/graphics'
+import {
+  ARTWORK_KINDS,
+  ARTWORK_SETS,
+  type ArtworkKind,
+  findGraphic,
+  type FoundGraphic,
+  GRAPHIC_SET_IDS,
+  iconSvg,
+  searchGraphics,
+} from '@dazbee/graphics'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { Frame, Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
+import { type ArtworkColours, artworkPlacing, type FoundArtwork } from './artwork-placing.ts'
 import { Note, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal, withNote } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
@@ -24,6 +35,7 @@ import {
   placeAndAnswer,
   placeBox,
   type Placing,
+  whole,
 } from './place-on-frame.ts'
 import { stickerPlacing } from './sticker-placing.ts'
 
@@ -35,6 +47,26 @@ const TAGS_TOLD = 8
 const SHARE = { icon: 0.25, sticker: 0.4 } as const
 /** The share of the frame's width and height an illustration placed with no box fits in, in the middle. */
 const ILLUSTRATION_SHARE = 0.8
+/**
+ * The share of the frame's shorter side taken by the square an artwork graphic placed with no box fits in, in the
+ * middle; an effect and a background are placed over the whole frame.
+ */
+const ARTWORK_SHARE: Readonly<Record<ArtworkKind, number | 'frame'>> = {
+  object: 0.4,
+  '3d': 0.4,
+  shape: 0.4,
+  accent: 0.4,
+  effect: 'frame',
+  background: 'frame',
+}
+/** What an agent is told when it gives an artwork graphic a colour it can't take. */
+const ARTWORK_COLOUR_UNUSED = `This graphic keeps the colours it is drawn in (only a background and the graphics of ${Object.values(
+  ARTWORK_SETS,
+)
+  .flatMap(({ title, paints }) => (paints ? [title] : []))
+  .join(
+    ', ',
+  )} that paint with their set’s colours take a colour, and only a background takes a backdrop), so the colour given was left unused.`
 /** What an agent is told when it gives a sticker or an illustration a colour. */
 const COLOUR_UNUSED = {
   sticker: 'A sticker keeps the colours it is drawn in, so the colour given was left unused.',
@@ -45,6 +77,7 @@ const ACCENT_UNUSED = {
   icon: 'An icon takes a colour rather than an accent, so the accent given was left unused.',
   sticker: 'A sticker keeps the colours it is drawn in, so the accent given was left unused.',
   illustration: 'This illustration doesn’t paint with its set’s accent colour, so it keeps its own colours.',
+  artwork: 'Only an illustration takes an accent; give colour instead, so the accent given was left unused.',
 } as const
 
 /** An icon's colour: a hex colour, or a brand kit colour it is bound to. */
@@ -55,7 +88,14 @@ const IconColour = z
     'a colour is #RRGGBB, #RRGGBBAA or a brand kit colour as brand:<token>, such as brand:primary',
   )
   .describe(
-    'For an icon, the colour every shape of it is filled with: a hex colour such as #1A2B3C, or a brand kit colour as brand:<token> (the roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text, or the kit’s own colours), which the shapes are bound to, so they follow the kit. A sticker keeps its own colours: leave it out',
+    'For an icon, the colour every shape of it is filled with: a hex colour such as #1A2B3C, or a brand kit colour as brand:<token> (the roles brand:primary, brand:secondary, brand:accent, brand:background and brand:text, or the kit’s own colours), which the shapes are bound to, so they follow the kit. For a shape (Coolshapes), an accent (dddoodle), a background (Pattern Monster, its pattern’s lines) or a Streamline Plump or Freehand object, the colour it is drawn in instead of its own, its lighter or darker tones following; left out, it keeps its own. Stickers and other artwork keep their own colours: leave it out',
+  )
+
+/** A background's backdrop: a colour, or none. */
+const Backdrop = z
+  .union([IconColour, z.literal('none')])
+  .describe(
+    'For a background, the colour behind its pattern, as colour takes it, or none so what is under the pattern shows; left out, the pattern’s own (white)',
   )
 
 /** An illustration's accent: a hex colour, or a brand kit colour it is bound to. */
@@ -71,22 +111,22 @@ const Accent = z
 
 /** Where a graphic goes. */
 const GraphicBox = placeBox(
-  'Where it goes, in design pixels from the frame’s top-left corner: the graphic fits inside the box with its shape kept, centred. Left out, an icon fits a square of a quarter of the frame’s shorter side and a sticker one of 40%, in the middle of the frame, and an illustration fits 80% of the frame’s width and height, in the middle.',
+  'Where it goes, in design pixels from the frame’s top-left corner: the graphic fits inside the box with its shape kept, centred. Left out, an icon fits a square of a quarter of the frame’s shorter side and a sticker one of 40%, in the middle of the frame, an illustration fits 80% of the frame’s width and height, an object, 3D object, shape or accent a square of 40%, in the middle, and an effect or background the whole frame.',
 )
 
 export const GRAPHICS_TOOLS: Tool[] = [
   defineTool({
     name: 'search_graphics',
-    title: 'Search icons, stickers and illustrations',
+    title: 'Search graphics',
     description:
-      'Searches the icons, stickers and illustrations Dazbee bundles, free to use in any ad with no credit. Icons, drawn in one colour you choose: Tabler (outline and filled) and Phosphor (regular, thin, light, bold, fill and duotone). Stickers, placed in their own colours: Fluent Emoji (3d, a picture, and flat), Open Peeps and Open Doodles (hand-drawn people) and Humaaans (flat people). Illustrations, whole scenes of people and things (shopping, delivery, payments, food, travel, fitness, health, learning, work and teams, apps, celebrations), placed in their own colours or with their accent colour swapped: unDraw (flat, the largest), ManyPixels Chromablue (flat) and ManyPixels Birdview (isometric). Give English words for the thing, such as “cart”, “rocket”, “person reading” or “delivery”, and a kind to keep to icons, stickers or illustrations; it answers the best matches of each set in turn, each with its id for place_graphic, its kind, set, name, styles (the first is placed when none is asked for) and tags. Keep to one set and style in a design so its graphics look alike, and to one illustration set above all: set keeps a search to one set.',
+      'Searches the icons, stickers, illustrations and artwork Dazbee bundles, free to use in ads, each set’s licence listed on Dazbee’s notices page. Icons, drawn in one colour you choose: Tabler (outline and filled) and Phosphor (regular, thin, light, bold, fill and duotone). Stickers, placed in their own colours: Fluent Emoji (3d, a picture, and flat), Open Peeps and Open Doodles (hand-drawn people) and Humaaans (flat people). Illustrations, whole scenes of people and things (shopping, delivery, payments, food, travel, fitness, health, learning, work and teams, apps, celebrations), placed in their own colours or with their accent colour swapped: unDraw (flat, the largest), ManyPixels Chromablue (flat) and ManyPixels Birdview (isometric). Objects, colour drawings of things: Streamline Kameleon (flat, on a circle), Plump (rounded, two blues), Freehand (hand-drawn) and Stickies (playful, outlined). 3D objects, rendered pictures: 3dicons, each in four colour styles (color, gradient, clay, premium) from three angles (dynamic, front, iso). Shapes: Coolshapes (flowers, wheels, moons, polygons, blobs; white until given a colour). Hand-drawn accents: dddoodle (arrows, underlines, circles, boxes, scribbles). Effects, light and smoke pictures to lay over a photo: Kenney Particle Pack and Kenney Smoke Particles. Backgrounds, seamless patterns repeated over the frame: Pattern Monster. Give English words for the thing, such as “cart”, “rocket”, “person reading”, “arrow” or “waves”, and a kind to keep to one kind; it answers the best matches of each set in turn, each with its id for place_graphic, its kind, set, name, styles (the first is placed when none is asked for) and tags. Keep to one set and style in a design so its graphics look alike, and to one illustration set above all: set keeps a search to one set.',
     readOnly: true,
     input: z.object({
       query: z.string().trim().min(1).max(100).describe('Words for what the graphic shows, in English'),
       kind: z
-        .enum(['icon', 'sticker', 'illustration'])
+        .enum(['icon', 'sticker', 'illustration', ...ARTWORK_KINDS])
         .optional()
-        .describe('Only icons, only stickers or only illustrations; all three when left out'),
+        .describe('Only graphics of this kind; every kind when left out'),
       set: z.enum(GRAPHIC_SET_IDS).optional().describe('Only graphics of this set'),
       limit: z
         .number()
@@ -111,9 +151,9 @@ export const GRAPHICS_TOOLS: Tool[] = [
   }),
   defineTool({
     name: 'place_graphic',
-    title: 'Place an icon, a sticker or an illustration',
+    title: 'Place a graphic',
     description:
-      'Places an icon, a sticker or an illustration search_graphics found on a frame of the open design as one undo step, and answers once Dazbee has stored it: the new layer’s id and box, and the warnings for what it placed. An icon becomes a group of editable shapes, each filled with the colour given; a brand kit colour (brand:primary) binds them, so they follow the kit; lines of an outline style become filled shapes; it doesn’t join the brand’s asset library. A sticker keeps its own colours: a drawing becomes a group of editable layers, and a picture (Fluent Emoji’s 3d style) joins the brand’s asset library, once however often it is placed, and becomes an image, the answer naming its asset. An illustration becomes a group of editable layers in its own colours, or with its set’s accent colour swapped for the accent given, and joins the brand’s asset library as an SVG file, the answer naming its asset. Keep to one illustration set in a design.',
+      'Places a graphic search_graphics found on a frame of the open design as one undo step, and answers once Dazbee has stored it: the new layer’s id and box, and the warnings for what it placed. An icon becomes a group of editable shapes, each filled with the colour given; a brand kit colour (brand:primary) binds them, so they follow the kit; lines of an outline style become filled shapes; it doesn’t join the brand’s asset library. A sticker keeps its own colours: a drawing becomes a group of editable layers, and a picture (Fluent Emoji’s 3d style) joins the brand’s asset library, once however often it is placed, and becomes an image, the answer naming its asset. An illustration becomes a group of editable layers in its own colours, or with its set’s accent colour swapped for the accent given, and joins the brand’s asset library as an SVG file, the answer naming its asset. Keep to one illustration set in a design. An object, a shape or an accent becomes editable layers in its own colours, or, for Coolshapes, dddoodle and Streamline Plump and Freehand, in the colour given; a 3D object or an effect becomes an image, an effect drawn light in the screen blend so its dark drops out over a photo, and by default over the whole frame; a background is its pattern repeated over the whole frame (or the box), its lines in the colour given and its backdrop in the backdrop given. Each joins the brand’s asset library, the answer naming its asset.',
     readOnly: false,
     input: z.object({
       frame: FrameId,
@@ -132,10 +172,11 @@ export const GRAPHICS_TOOLS: Tool[] = [
         .describe('One of its styles, as search_graphics lists them; its first when left out'),
       colour: IconColour.optional(),
       accent: Accent.optional(),
+      backdrop: Backdrop.optional(),
       box: GraphicBox.optional(),
       note: Note,
     }),
-    run: ({ frame, graphic, style, colour, accent, box, note }, context) =>
+    run: ({ frame, graphic, style, colour, accent, backdrop, box, note }, context) =>
       writing(context, [], async (open) => {
         const into = { id: frame, frame: frameIn(open, frame) }
         const found = findGraphic(graphic)
@@ -146,6 +187,22 @@ export const GRAPHICS_TOOLS: Tool[] = [
         const what = { name: nameOf(found.name), style: styleOf(found, style) }
         const noted = (value: unknown, notes: (string | false)[]) =>
           notes.reduce((answer, note) => (note ? withNote(answer, note) : answer), value)
+        if (isArtwork(found)) {
+          const share = ARTWORK_SHARE[found.kind]
+          const where = box ?? (share === 'frame' ? whole(into.frame) : middleOf(into.frame, share))
+          const colours: ArtworkColours = {
+            ...(colour === undefined ? {} : { colour: await fillOf(context, open, colour) }),
+            ...(backdrop === undefined
+              ? {}
+              : { backdrop: backdrop === 'none' ? null : await fillOf(context, open, backdrop) }),
+          }
+          const placing = await artworkPlacing(context, open, into, { artwork: found, ...what }, where, colours)
+          const value = await placeAndAnswer(context, open, placing, note)
+          return noted(value, [
+            placing.colourUnused && ARTWORK_COLOUR_UNUSED,
+            accent !== undefined && ACCENT_UNUSED.artwork,
+          ])
+        }
         if (found.kind === 'illustration') {
           const where = box ?? insideOf(into.frame, ILLUSTRATION_SHARE)
           const fill = accent === undefined ? undefined : await fillOf(context, open, accent)
@@ -178,6 +235,11 @@ export const GRAPHICS_TOOLS: Tool[] = [
       }),
   }),
 ]
+
+/** Whether a graphic is an artwork set's. */
+function isArtwork(graphic: FoundGraphic): graphic is FoundArtwork {
+  return (ARTWORK_KINDS as readonly string[]).includes(graphic.kind)
+}
 
 /** An icon's or sticker's name as its layer is named: `shopping-cart` as “Shopping cart”. */
 function nameOf(name: string): string {

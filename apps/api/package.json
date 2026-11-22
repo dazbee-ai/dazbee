@@ -8,6 +8,7 @@
     "fonts:match-copies": "node src/scripts/make-match-copies.ts",
     "stickers:upload": "node src/scripts/upload-stickers.ts",
     "illustrations:upload": "node src/scripts/upload-illustrations.ts",
+    "artwork:upload": "node src/scripts/upload-artwork.ts",
     "matchers:upload": "node src/scripts/upload-matcher-files.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

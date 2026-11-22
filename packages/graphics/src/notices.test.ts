@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { ARTWORK_SET_IDS, ARTWORK_SETS, artworkPinOf } from './artwork-sets.ts'
 import { SET_NOTICES } from './notices.ts'
 import {
   ICON_SET_IDS,
@@ -17,13 +18,17 @@ import {
 const PACKAGE = join(import.meta.dirname, '..')
 /** A file of this package as text, its line ends as LF whatever the checkout wrote. */
 const read = (...path: string[]) => readFileSync(join(PACKAGE, ...path), 'utf8').replaceAll(/\r\n/g, '\n')
-/** The icon sets' notices, then the sticker sets', then the illustration sets'. */
+/** The icon sets' notices, then the sticker sets', the illustration sets' and the artwork sets'. */
 const icons = SET_NOTICES.slice(0, ICON_SET_IDS.length)
 const stickers = SET_NOTICES.slice(ICON_SET_IDS.length, ICON_SET_IDS.length + STICKER_SET_IDS.length)
-const illustrations = SET_NOTICES.slice(ICON_SET_IDS.length + STICKER_SET_IDS.length)
+const illustrations = SET_NOTICES.slice(
+  ICON_SET_IDS.length + STICKER_SET_IDS.length,
+  ICON_SET_IDS.length + STICKER_SET_IDS.length + ILLUSTRATION_SET_IDS.length,
+)
+const artwork = SET_NOTICES.slice(ICON_SET_IDS.length + STICKER_SET_IDS.length + ILLUSTRATION_SET_IDS.length)
 
 describe('SET_NOTICES', () => {
-  it('lists the icon sets, then the sticker sets, then the illustration sets', () => {
+  it('lists the icon sets, then the sticker sets, the illustration sets and the artwork sets', () => {
     expect(SET_NOTICES.map(({ title }) => title)).toEqual([
       'Tabler Icons',
       'Phosphor Icons',
@@ -34,6 +39,16 @@ describe('SET_NOTICES', () => {
       'unDraw',
       'ManyPixels Chromablue',
       'ManyPixels Birdview',
+      'Streamline Kameleon',
+      'Streamline Plump',
+      'Streamline Freehand',
+      'Streamline Stickies',
+      '3dicons',
+      'Coolshapes',
+      'dddoodle',
+      'Kenney Particle Pack',
+      'Kenney Smoke Particles',
+      'Pattern Monster',
     ])
   })
 
@@ -78,6 +93,22 @@ describe('SET_NOTICES', () => {
       expect(notice).toMatchObject({ version: pinOf(set), licence: set.licence.name, homepage: set.homepage })
       expect(notice?.paragraphs[0]).toContain(`read at ${set.licence.url} on `)
       expect(notice?.paragraphs.join(' ')).toContain('can be used for free')
+    }
+  })
+
+  it('credits each artwork set’s creator, linking to their site, at its pin, with its licence in full', () => {
+    for (const [i, id] of ARTWORK_SET_IDS.entries()) {
+      const set = ARTWORK_SETS[id]
+      const notice = artwork[i]
+      expect(notice).toMatchObject({ version: artworkPinOf(set), licence: set.licence.name, creator: set.creator })
+      expect(notice?.paragraphs[0]).toContain(
+        `by ${set.creator.name} (${set.creator.url}). Used under ${set.licence.name}`,
+      )
+      const text = notice?.paragraphs.join(' ') ?? ''
+      if (set.licence.spdx === 'CC-BY-4.0')
+        expect(text).toContain('Creative Commons Attribution 4.0 International Public License')
+      if (set.licence.spdx === 'CC0-1.0') expect(text).toContain('CC0 1.0 Universal')
+      if (set.licence.spdx === 'MIT') expect(text).toContain('Permission is hereby granted, free of charge')
     }
   })
 

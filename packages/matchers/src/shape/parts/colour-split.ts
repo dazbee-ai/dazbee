@@ -4,7 +4,7 @@
 // the labels cut into connected parts. Each part has a soft coverage mask: inside, the piece's alpha
 // over the part's; at an edge with another colour, how far the pixel's colour lies towards the part's.
 
-import { ciede2000, type Lab, srgbToLab } from '../looks-same/colour.ts'
+import { ciede2000, type Lab, srgbToLab } from '../../looks-same/colour.ts'
 import { labToSrgb, type SrgbFloat } from './colour.ts'
 import { colourRuns } from './colour-runs.ts'
 import type { FloatPicture } from './float-picture.ts'

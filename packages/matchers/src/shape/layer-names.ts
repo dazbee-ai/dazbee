@@ -2,8 +2,8 @@
 // and a shape word, such as "Navy pill" or "White circle outline".
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
-import { hexRgb } from './colour.ts'
 import type { ShapeFit } from './fit-shapes.ts'
+import { hexRgb } from './parts/colour.ts'
 
 /** The colour words, each with the colour it names. */
 const COLOUR_WORDS: readonly (readonly [string, `#${string}`])[] = [

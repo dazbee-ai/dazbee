@@ -2,9 +2,9 @@
 // colours together run as one gradient are joined into one part, closest colours first, so the full
 // pass fits one gradient across them.
 
-import { ciede2000 } from '../looks-same/colour.ts'
+import { ciede2000 } from '../../looks-same/colour.ts'
+import { fitGradient, GRADIENT_SPREAD, innerPixels } from '../gradient.ts'
 import type { FloatPicture } from './float-picture.ts'
-import { fitGradient, GRADIENT_SPREAD, innerPixels } from './gradient.ts'
 import type { MarkedPart } from './marks.ts'
 import { sum } from './stacking.ts'
 

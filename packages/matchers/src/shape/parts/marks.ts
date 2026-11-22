@@ -1,7 +1,7 @@
 // Marks: four or more small parts of one colour (dots, dashes, specks of a pattern) become one part,
 // which the full pass draws as one traced path rather than a graphic each.
 
-import { ciede2000 } from '../looks-same/colour.ts'
+import { ciede2000 } from '../../looks-same/colour.ts'
 import type { StackedPart } from './stacking.ts'
 
 /** A stacked part, with how many marks it was made of when it is a group of them. */

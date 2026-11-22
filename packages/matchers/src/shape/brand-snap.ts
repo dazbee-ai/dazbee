@@ -10,8 +10,8 @@ import type { Color, MatchKit, VariableRef } from '@dazbee/schema'
 
 import { ciede2000, type Lab, srgbToLab } from '../looks-same/colour.ts'
 import { looksSame } from '../looks-same/rule.ts'
-import { hexRgb } from './colour.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
+import { hexRgb } from './parts/colour.ts'
 
 /** The graphics after the snap, and the kit's colours by `brand:<token>` to draw bound fills with. */
 export interface Snapped {

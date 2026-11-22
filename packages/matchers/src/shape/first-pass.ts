@@ -11,16 +11,16 @@ import type { MatchAnswer, MatchJob, MatchKit, Paint, Piece } from '@dazbee/sche
 import { looksSame } from '../looks-same/rule.ts'
 import { layersAnswer, pictureAnswer, withoutUnseen } from './answer.ts'
 import { snapToBrand } from './brand-snap.ts'
-import { hexColour } from './colour.ts'
-import { splitColours } from './colour-split.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { fitShape, type Fitted, type ShapeKind, shapeLayer } from './fit-shapes.ts'
 import { type FitWindow, windowOf } from './fit-window.ts'
-import { type FloatPicture, shrinkFloats, toFloatPicture } from './float-picture.ts'
 import { layerName } from './layer-names.ts'
-import { piecePixels } from './piece-pixels.ts'
-import { isRing, ringWidth } from './rings.ts'
-import { coveredAbove, type StackedPart, stackParts, sum } from './stacking.ts'
+import { hexColour } from './parts/colour.ts'
+import { splitColours } from './parts/colour-split.ts'
+import { type FloatPicture, shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
+import { piecePixels } from './parts/piece-pixels.ts'
+import { isRing, ringWidth } from './parts/rings.ts'
+import { coveredAbove, type StackedPart, stackParts, sum } from './parts/stacking.ts'
 
 /** A piece made ready to split and fit: its pixels as floats, shrunk to the fitting size, and what counts as covered. */
 export interface PreparedPiece {

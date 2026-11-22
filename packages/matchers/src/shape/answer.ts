@@ -5,7 +5,7 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { type LooksSameScores, type MatchAnswer, type PictureWhy, UnplacedLayer } from '@dazbee/schema'
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { type FloatPicture, toFloatPicture } from './float-picture.ts'
+import { type FloatPicture, toFloatPicture } from './parts/float-picture.ts'
 
 /** A layer may go when the picture without it differs from the piece by at most this much more, of 255. */
 const UNSEEN_BY = 0.25

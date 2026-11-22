@@ -4,13 +4,13 @@ import { z } from 'zod'
 
 import { AGENT_RENDER_MAX_SIZE, AGENT_RENDER_SIZES } from '@dazbee/export'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { imageAssetIds } from '@dazbee/schema'
 
-import { inMiB, MAX_RENDER_IMAGE_BYTES, MAX_RENDER_IMAGE_PIXELS, RENDER_MS_PER_RENDER } from '../limits.ts'
+import { RENDER_MS_PER_RENDER } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
-import { decodedPixels, type FrameRender } from '../render-queue.ts'
+import type { FrameRender } from '../render-queue.ts'
 import { defineTool, type Tool, ToolRefusal, WithPicture } from './define-tool.ts'
 import { FrameId, frameOf, onDesign } from './design-tools.ts'
+import { frameImages } from './frame-images.ts'
 
 const [LEAST_SIZE, MOST_SIZE] = AGENT_RENDER_SIZES
 
@@ -55,25 +55,12 @@ export const RENDER_TOOLS: Tool[] = [
  * app doesn't ship, and the images the frame draws, read from the API for this render alone. Refused when the images pass what
  * one render may send or decode, or one didn't load.
  */
-async function renderOf({ tab, imageBytes }: OpenDesign, frameId: string, maxSize: number): Promise<FrameRender> {
+async function renderOf(open: OpenDesign, frameId: string, maxSize: number): Promise<FrameRender> {
+  const { tab } = open
   await tab.fontsLoaded()
   const design = tab.design()
   const { fonts, variables } = tab.bytesFor(design)
-  const images: Record<string, Uint8Array> = {}
-  let bytes = 0
-  for (const id of imageAssetIds(design, [frameId], variables)) {
-    const image = await imageBytes(id).catch(() => {
-      throw new ToolRefusal(`The frame’s image ${id} could not be read; try again in a moment`)
-    })
-    bytes += image.length
-    if (bytes > MAX_RENDER_IMAGE_BYTES)
-      throw new ToolRefusal(`The frame’s images are more than the ${inMiB(MAX_RENDER_IMAGE_BYTES)} a render may draw`)
-    images[id] = image
-  }
-  if (decodedPixels(images) > MAX_RENDER_IMAGE_PIXELS)
-    throw new ToolRefusal(
-      `The frame’s images are more than the ${MAX_RENDER_IMAGE_PIXELS / 1_000_000} million pixels a render may draw`,
-    )
+  const images = await frameImages(open, design, [frameId])
   const shipped = new Set(loadFontFiles().map((font) => font.bytes))
   return {
     design,

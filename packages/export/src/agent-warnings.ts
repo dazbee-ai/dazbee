@@ -59,6 +59,11 @@ export interface WarningFonts {
   fontsLoaded(): Promise<void>
   /** The fonts, images and brand kit values there are now. */
   bytes(): ResourceBytes
+  /**
+   * The images of `frameIds` in `design` that `bytes` doesn't hold, by asset id, read for these warnings alone: for a
+   * tab that keeps no images, since what is drawn behind a text decides its contrast.
+   */
+  imagesFor?(design: Design, frameIds: readonly string[]): Promise<Record<string, Uint8Array>>
 }
 
 /** The warnings for the layers an agent batch touched; when those could not be read, none, and `warningsError` says why. */
@@ -249,7 +254,8 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[], re
 
 /**
  * The warnings for what a kept batch touched, from `before` to the session's design as the batch left
- * it, read from the session's design once `fonts` has loaded the faces it draws its text in.
+ * it, read from the session's design once `fonts` has loaded the faces it draws its text in, with the
+ * images of the frames it touched that `fonts` reads for them.
  */
 async function batchWarnings(
   ck: CanvasKit,
@@ -263,7 +269,9 @@ async function batchWarnings(
     const touched = touchedLayers(session.design(), before)
     await fonts.fontsLoaded()
     const design = session.design()
-    const bytes = fonts.bytes()
+    const read = fonts.bytes()
+    const images = fonts.imagesFor ? await fonts.imagesFor(design, [...touched.keys()]) : {}
+    const bytes = { ...read, images: { ...read.images, ...images } }
     owned = cache ?? resourceCache(ck)
     const resources = owned
     const warnings = Object.keys(design.frames).flatMap((frameId) => {

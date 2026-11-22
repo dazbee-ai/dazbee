@@ -400,4 +400,15 @@ describe('check_frame', () => {
     expect(warnings).toEqual(frameWarnings(await loadCanvasKit(), storedDesign('design-launch'), 'sq', bytes))
     expect(warnings).toContainEqual(expect.objectContaining({ layerId: 'headline', kind: 'missingFont' }))
   })
+
+  it('checks a frame that draws an image, reading the image for the check', async () => {
+    const design = testDesign()
+    const box = design.nodes.box as { props: Record<string, unknown> }
+    box.props = { ...box.props, fills: [{ type: 'image', assetId: 'asset-bottle', fit: 'fill', opacity: 1 }] }
+    const agent = await agentOf(undefined, { 'design-launch': design })
+    await agent.json('open_design', LAUNCH)
+    const result = await agent.call('check_frame', { frame: 'sq' })
+    expect(result.isError).toBeFalsy()
+    expect(JSON.parse(textOf(result))).toEqual(expect.any(Array))
+  })
 })

@@ -275,4 +275,41 @@ describe('matchPool', () => {
     expect(made).toHaveLength(3)
     expect(answers.size).toBe(0)
   })
+
+  it('starts counting again after a piece is answered, so failures far apart don’t end the job', async () => {
+    const { made, add, startNewest, answers } = pool(PHONE)
+    add(3)
+    await startNewest()
+    made[0]?.crash()
+    await startNewest()
+    made[1]?.answerLast()
+    made[1]?.crash()
+    await startNewest()
+    expect(made[2]?.pieces().map((piece) => piece.index)).toEqual([1])
+    expect(answers).toEqual(new Map([[0, TEXT]]))
+  })
+
+  it('matches again a piece whose worker couldn’t load the matcher’s code, as a crash, not a start', async () => {
+    const { made, add, startNewest, matcher } = pool(LAPTOP)
+    add(1)
+    await startNewest()
+    made[0]?.reply({ kind: 'matchStartFailed', message: 'chunk failed to load' })
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(made[1]?.pieces().map((piece) => piece.index)).toEqual([0])
+    expect(matcher.unsupported).toBe(false)
+  })
+
+  it('answers the pieces left `failed` and ends every worker when destroyed', async () => {
+    const { made, add, startNewest, answers, matcher, alive } = pool(LAPTOP)
+    add(2)
+    await startNewest()
+    matcher.destroy()
+    expect(alive()).toHaveLength(0)
+    expect([...answers.values()]).toEqual([
+      { kind: 'picture', why: 'failed' },
+      { kind: 'picture', why: 'failed' },
+    ])
+    expect(made).toHaveLength(2)
+  })
 })

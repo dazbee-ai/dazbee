@@ -66,7 +66,7 @@ function client(browser: Browser, answering = true) {
       page: { hidden: () => false, onChange: () => () => {} },
     }),
   )
-  return { matcher: matchClient({ browser, makePool }), made, makePool }
+  return { matcher: matchClient({ browser: () => browser, makePool }), made, makePool }
 }
 
 beforeEach(() => {
@@ -102,10 +102,10 @@ describe('matchClient', () => {
     ['without WebAssembly', { ...LAPTOP, webAssembly: false }],
     ['without module workers', { ...LAPTOP, moduleWorkers: false }],
     ['that says it has 1 GB of memory', { ...LAPTOP, memoryGb: 1 }],
-  ])('answers every text piece `unsupported` in a browser %s, and starts nothing', async (_, browser) => {
+  ])('answers every piece `unsupported` in a browser %s, and starts nothing', async (_, browser) => {
     const { matcher, makePool, made } = client(browser)
     const unsupported = { kind: 'picture', why: 'unsupported' }
-    expect(await matcher.match(JOB, { fonts })).toEqual([unsupported, null, unsupported])
+    expect(await matcher.match(JOB, { fonts })).toEqual([unsupported, unsupported, unsupported])
     expect(makePool).not.toHaveBeenCalled()
     expect(made).toHaveLength(0)
   })

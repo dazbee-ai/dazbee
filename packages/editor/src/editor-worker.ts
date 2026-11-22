@@ -28,12 +28,17 @@ scope.onmessage = ({ data: job }) => {
   else void match(job, answer)
 }
 
-/** Answers a match message with the matcher's code, loaded once; a worker whose code doesn't load didn't start. */
+/**
+ * Answers a match message with the matcher's code, loaded once. A worker whose code doesn't load
+ * didn't start, or broke on the piece it was sent.
+ */
 async function match(message: MatchMessage, answer: (reply: MatchReply) => void) {
   try {
     await (await (matcher ??= import('./matching/match-worker.ts'))).matchMessage(message, answer)
   } catch (error) {
     matcher = undefined
-    answer({ kind: 'matchStartFailed', message: error instanceof Error ? error.message : String(error) })
+    const said = error instanceof Error ? error.message : String(error)
+    if (message.kind === 'matchStart') answer({ kind: 'matchStartFailed', message: said })
+    else if (message.kind === 'matchPiece') answer({ kind: 'matchBroken', id: message.id, message: said })
   }
 }

@@ -6,6 +6,8 @@ import { WASM_FILE } from '@dazbee/canvaskit/wasm'
 import release from '@dazbee/matchers/release' with { type: 'json' }
 import { matcherFilePath } from '@dazbee/schema'
 
+import type { CompiledModules } from './match-pool.ts'
+
 /** A file the matcher keeps: its address, and the SHA-256 its bytes must hash to, when it has one. */
 export interface MatcherFile {
   url: string
@@ -38,11 +40,6 @@ export function textMatcherFile(name: TextMatcherFileName): MatcherFile {
   return { url: matcherFilePath(sha256), sha256 }
 }
 
-/** Every file kept in the cache now: a kept file not among them is from an older release or runtime. */
-export function currentFiles(): MatcherFile[] {
-  return [...Object.keys(release.files).map((name) => textMatcherFile(name as TextMatcherFileName)), ONNX_RUNTIME_WASM]
-}
-
 /**
  * The file's bytes: the kept copy, else fetched and, when they are the file (its SHA-256, when it
  * has one), kept. It throws when the fetch fails or gives other bytes, which are not kept.
@@ -51,8 +48,34 @@ export async function fileBytes(file: MatcherFile, deps: FileDeps = browserFiles
   return new Uint8Array(await (await keptFile(file, deps)).arrayBuffer())
 }
 
+/** Deletes the kept files no longer among `currentFiles()`, so an older release's files leave the disk. */
+export async function forgetOldFiles(deps: FileDeps = browserFiles()): Promise<void> {
+  const cache = await openCache(deps)
+  if (!cache) return
+  const current = new Set(currentFiles().map((file) => file.url))
+  for (const request of await cache.keys()) if (!current.has(new URL(request.url).pathname)) await cache.delete(request)
+}
+
+/**
+ * CanvasKit's and ONNX Runtime's WebAssembly compiled on the page, once for every matcher worker:
+ * a compiled module posted to a worker shares its machine code there instead of compiling again.
+ */
+export async function compileMatcherModules(deps: FileDeps = browserFiles()): Promise<CompiledModules> {
+  const [canvasKit, onnxRuntime] = await Promise.all([
+    deps.fetch(`/vendor/${WASM_FILE}`).then(compileResponse),
+    keptFile(ONNX_RUNTIME_WASM, deps).then(compileResponse),
+  ])
+  void forgetOldFiles(deps).catch(() => undefined)
+  return { canvasKit, onnxRuntime }
+}
+
+/** This browser's Cache Storage, where it has one, and its fetch. */
+function browserFiles(): FileDeps {
+  return { caches: globalThis.caches, fetch: (url) => fetch(url) }
+}
+
 /** The file as `fileBytes` gives it, as a response: the kept copy is read as it streams from the disk. */
-export async function keptFile(file: MatcherFile, deps: FileDeps = browserFiles()): Promise<Response> {
+async function keptFile(file: MatcherFile, deps: FileDeps = browserFiles()): Promise<Response> {
   const cache = await openCache(deps)
   const kept = await cache?.match(file.url)
   if (kept) return kept
@@ -69,34 +92,6 @@ export async function keptFile(file: MatcherFile, deps: FileDeps = browserFiles(
   return new Response(bytes, { headers })
 }
 
-/** Deletes the kept files no longer among `currentFiles()`, so an older release's files leave the disk. */
-export async function forgetOldFiles(deps: FileDeps = browserFiles()): Promise<void> {
-  const cache = await openCache(deps)
-  if (!cache) return
-  const current = new Set(currentFiles().map((file) => file.url))
-  for (const request of await cache.keys()) if (!current.has(new URL(request.url).pathname)) await cache.delete(request)
-}
-
-/**
- * CanvasKit's and ONNX Runtime's WebAssembly compiled on the page, once for every matcher worker:
- * a compiled module posted to a worker shares its machine code there instead of compiling again.
- */
-export async function compileMatcherModules(
-  deps: FileDeps = browserFiles(),
-): Promise<{ canvasKit: WebAssembly.Module; onnxRuntime: WebAssembly.Module }> {
-  const [canvasKit, onnxRuntime] = await Promise.all([
-    deps.fetch(`/vendor/${WASM_FILE}`).then(compileResponse),
-    keptFile(ONNX_RUNTIME_WASM, deps).then(compileResponse),
-  ])
-  void forgetOldFiles(deps).catch(() => undefined)
-  return { canvasKit, onnxRuntime }
-}
-
-/** This browser's Cache Storage, where it has one, and its fetch. */
-export function browserFiles(): FileDeps {
-  return { caches: globalThis.caches, fetch: (url) => fetch(url) }
-}
-
 /** The matcher's cache; none where the browser has no Cache Storage or refuses it, as a private window may. */
 async function openCache(deps: FileDeps): Promise<Pick<Cache, 'match' | 'put' | 'keys' | 'delete'> | undefined> {
   return deps.caches?.open(MATCHER_CACHE).catch(() => undefined)
@@ -111,6 +106,11 @@ async function sha256Of(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
 /** What a kept file is served as. */
 function contentType(url: string): string {
   return url.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream'
+}
+
+/** Every file kept in the cache now: a kept file not among them is from an older release or runtime. */
+function currentFiles(): MatcherFile[] {
+  return [...Object.keys(release.files).map((name) => textMatcherFile(name as TextMatcherFileName)), ONNX_RUNTIME_WASM]
 }
 
 /** A WebAssembly file compiled as it streams in when served as WebAssembly, else from its bytes. */

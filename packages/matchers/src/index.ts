@@ -5,7 +5,7 @@ export { matchShapes } from './shape/match-shapes.ts'
 export { pieceFingerprint } from './text/fingerprint.ts'
 export { faceOfKey, type FontKey, parseFontKey } from './text/font-key.ts'
 export { type FontSource, loadFaces } from './text/font-source.ts'
-export { matchText, type TextMatcherDeps, type TextPieceOfJob, TEXT_STEPS, type TextStep } from './text/match-text.ts'
+export { matchText, type TextMatcherDeps, type TextPieceOfJob, type TextStep } from './text/match-text.ts'
 export {
   MODEL_INPUT,
   MODEL_NUMBERS,

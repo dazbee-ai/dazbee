@@ -135,16 +135,23 @@ describe('inviting', () => {
 
   it('leaves one pending invite when the same email is invited twice at once', async () => {
     const email = fresh()
-    // WorkOS answers slowly, so both requests are in flight together.
+    // WorkOS holds the invite it is asked to send until the other request is answered, or until it is asked
+    // twice, so the other request always finds the first being sent.
     const send = workos.invites.invite.bind(workos.invites)
+    let release = () => {}
+    const answered = new Promise<void>((resolve) => (release = resolve))
+    let asked = 0
     vi.spyOn(workos.invites, 'invite').mockImplementation(async (...args) => {
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      if ((asked += 1) === 2) release()
+      await answered
       return send(...args)
     })
-    const both = await Promise.all([
+    const requests = [
       call('a', 'POST', '/invites', { email, role: 'editor' }),
       call('admin', 'POST', '/invites', { email, role: 'reviewer' }),
-    ])
+    ]
+    void Promise.race(requests).then(release, release)
+    const both = await Promise.all(requests)
     expect(both.map((answer) => answer.status).sort()).toEqual([201, 409])
     const sentOne = both.find((answer) => answer.status === 201)
     const refused = both.find((answer) => answer.status === 409)

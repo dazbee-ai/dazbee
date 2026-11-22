@@ -4,17 +4,24 @@ import type { MatchAnswer, MatchJob } from '@dazbee/schema'
 
 import {
   type Device,
-  HEAP_LIMIT,
+  DONE_MS,
   IDLE_MS,
   type MatchMessage,
   matchPool,
   type MatchReply,
   type MatchWorker,
+  PIECE_REST,
   poolLimit,
+  TEXT_WORKER_PEAK,
+  WORKER_REST,
 } from './match-pool.ts'
 
 /** The answer the stand-in workers give. */
 const TEXT: MatchAnswer = { kind: 'picture', why: 'looksDifferent' }
+/** The most a worker may say it holds after its `pieces`-th piece and stay within its share. */
+const share = (pieces: number) => TEXT_WORKER_PEAK - WORKER_REST - pieces * PIECE_REST
+/** What a fresh worker says it holds: CanvasKit's and ONNX Runtime's memories. */
+const FRESH = 186 * 2 ** 20
 
 /** A stand-in worker: it keeps what it is posted and answers when told. */
 class FakeWorker implements MatchWorker {
@@ -38,11 +45,11 @@ class FakeWorker implements MatchWorker {
   pieces() {
     return this.posted.flatMap((message) => (message.kind === 'matchPiece' ? [message] : []))
   }
-  /** Answers its last piece with `answer`, CanvasKit's heap at `heap`. */
-  answerLast(answer: MatchAnswer = TEXT, heap = 128 * 2 ** 20) {
+  /** Answers its last piece with `answer`, saying it holds `memory`. */
+  answerLast(answer: MatchAnswer = TEXT, memory = FRESH) {
     const piece = this.pieces().at(-1)
     if (!piece) throw new Error('no piece was posted')
-    this.reply({ kind: 'matchAnswer', id: piece.id, answer, heap })
+    this.reply({ kind: 'matchAnswer', id: piece.id, answer, memory })
   }
 }
 
@@ -156,7 +163,7 @@ describe('matchPool', () => {
     expect(made.map((worker) => worker.pieces().length)).toEqual(Array(workers).fill(1))
   })
 
-  it('compiles once for every worker, and leaves no worker and nothing compiled 15 s after the last piece', async () => {
+  it('compiles once for every worker, and leaves no worker and nothing compiled 2 s after the last job', async () => {
     const { made, compile, add, startNewest, alive, answers } = pool(LAPTOP)
     add(2)
     await startNewest()
@@ -164,13 +171,30 @@ describe('matchPool', () => {
     expect(compile).toHaveBeenCalledTimes(1)
     for (const worker of made) worker.answerLast()
     expect(answers.size).toBe(2)
-    await vi.advanceTimersByTimeAsync(IDLE_MS - 1)
+    await vi.advanceTimersByTimeAsync(DONE_MS - 1)
     expect(alive()).toHaveLength(2)
     await vi.advanceTimersByTimeAsync(1)
     expect(alive()).toHaveLength(0)
     add(1, 1)
     await startNewest()
     expect(compile).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a worker with nothing to do 15 s while a job is still matched, so the next job reuses it', async () => {
+    const { made, add, startNewest, alive } = pool(LAPTOP)
+    add(2)
+    await startNewest()
+    await startNewest()
+    made[0]?.answerLast()
+    await vi.advanceTimersByTimeAsync(IDLE_MS - 1)
+    expect(alive()).toHaveLength(2)
+    add(1, 1)
+    expect(made[0]?.pieces().map((piece) => piece.jobId)).toEqual([0, 1])
+    made[1]?.answerLast()
+    made[0]?.answerLast()
+    await vi.advanceTimersByTimeAsync(DONE_MS)
+    expect(alive()).toHaveLength(0)
+    expect(made).toHaveLength(2)
   })
 
   it('tells a worker a job once, and to forget it once the job ends', async () => {
@@ -198,15 +222,49 @@ describe('matchPool', () => {
     expect(made[2]?.pieces().map((piece) => piece.index)).toEqual([0])
   })
 
-  it('ends a worker whose piece left CanvasKit’s heap past 512 MB, and starts a fresh one for the next', async () => {
-    const { made, add, startNewest, answers } = pool(PHONE)
-    add(2)
+  it('retires a worker whose piece left it past its share, and a fresh one from the same modules takes the next', async () => {
+    const { made, add, startNewest, answers, compile } = pool(PHONE)
+    add(3)
     await startNewest()
-    made[0]?.answerLast(TEXT, HEAP_LIMIT + 1)
-    expect(answers.get(0)).toEqual(TEXT)
+    made[0]?.answerLast(TEXT, share(1))
+    expect(made[0]?.terminated).toBe(false)
+    expect(made[0]?.pieces()).toHaveLength(2)
+    made[0]?.answerLast(TEXT, share(2) + 1)
+    expect(answers.get(1)).toEqual(TEXT)
     expect(made[0]?.terminated).toBe(true)
     await startNewest()
-    expect(made[1]?.pieces().map((piece) => piece.index)).toEqual([1])
+    expect(made[1]?.pieces().map((piece) => piece.index)).toEqual([2])
+    expect(compile).toHaveBeenCalledTimes(1)
+  })
+
+  it('never runs more workers than the budget holds while it retires them over a long run', async () => {
+    const { made, add, answers, alive } = pool(LAPTOP)
+    add(30)
+    let most = 0
+    for (let round = 0; round < 100 && answers.size < 30; round++) {
+      await vi.advanceTimersByTimeAsync(0)
+      // A worker still starting says it started; each matching one answers, holding more for later pieces.
+      for (const worker of alive()) {
+        const piece = worker.pieces().at(-1)
+        if (worker.posted.length === 1) worker.reply({ kind: 'matchReady' })
+        else if (piece && !answers.has(piece.index)) worker.answerLast(TEXT, FRESH + piece.index * 30 * 2 ** 20)
+        most = Math.max(most, alive().length)
+      }
+    }
+    expect(answers.size).toBe(30)
+    expect(most).toBe(poolLimit(LAPTOP))
+    expect(made.length).toBeGreaterThan(poolLimit(LAPTOP))
+  })
+
+  it('lets the compiled modules go with a worker retired when nothing waits', async () => {
+    const { made, add, startNewest, compile, alive } = pool(PHONE)
+    add(1)
+    await startNewest()
+    made[0]?.answerLast(TEXT, share(1) + 1)
+    expect(alive()).toHaveLength(0)
+    add(1, 1)
+    await startNewest()
+    expect(compile).toHaveBeenCalledTimes(2)
   })
 
   it('puts a crashed worker’s piece back on the queue, and the pool drops by one', async () => {

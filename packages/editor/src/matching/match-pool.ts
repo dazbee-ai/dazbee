@@ -2,10 +2,12 @@
 // the first piece comes: then it starts workers one at a time, each once the one before has started
 // and pieces still wait, up to the most the device's cores and memory allow, always leaving a core
 // to the page. CanvasKit's and ONNX Runtime's WebAssembly are compiled once on the page and posted
-// to each worker. A worker is ended 15 s after it has nothing to do, at once when the tab is hidden
-// or the page is left, and after a piece that leaves CanvasKit's heap past 512 MB; the compiled
-// modules go with the last one. A worker that crashes is ended, its piece goes back on the queue and
-// the pool shrinks by one; when a single worker fails twice, the pieces left stay pictures.
+// to each worker. A worker is ended 15 s after it has nothing to do, 2 s once no job is left, and at
+// once when the tab is hidden or the page is left; the compiled modules go with the last one. A
+// worker past its share of the memory budget after a piece is retired, and a fresh one from the same
+// compiled modules takes the next piece, so a long run stays within the budget. A worker that crashes is ended, its piece
+// goes back on the queue and the pool shrinks by one; when a single worker fails twice, the pieces
+// left stay pictures.
 import type { TextStep } from '@dazbee/matchers'
 import type { FontFamily, MatchAnswer, MatchJob, PictureWhy } from '@dazbee/schema'
 
@@ -38,14 +40,15 @@ export type MatchMessage =
   | { kind: 'matchForget'; jobId: number }
 
 /**
- * What a worker answers: it started or couldn't, a piece's step began, a piece's answer with
- * CanvasKit's heap after it, or a piece broke the worker (it ran out of memory), which then is ended.
+ * What a worker answers: it started or couldn't, a piece's step began, a piece's answer with the
+ * bytes it holds after it (its WebAssembly memories and the faces it has read), or a piece broke the
+ * worker (it ran out of memory), which then is ended.
  */
 export type MatchReply =
   | { kind: 'matchReady' }
   | { kind: 'matchStartFailed'; message: string }
   | { kind: 'matchStep'; id: number; step: TextStep }
-  | { kind: 'matchAnswer'; id: number; answer: MatchAnswer; heap: number }
+  | { kind: 'matchAnswer'; id: number; answer: MatchAnswer; memory: number }
   | { kind: 'matchBroken'; id: number; message: string }
 
 /** What the pool is sized from: the device's cores and its memory in GB, when the browser says. */
@@ -90,27 +93,44 @@ interface Task {
   index: number
 }
 
-/** A worker: starting, idle (with the timer that ends it) or matching a piece; and the jobs it was sent. */
+/**
+ * A worker: starting, idle (with the timer that ends it) or matching a piece; the jobs it was sent,
+ * and how many pieces it has matched.
+ */
 interface Slot {
   worker: MatchWorker
   state: 'starting' | 'idle' | 'busy'
   task?: Task | undefined
   idle?: ReturnType<typeof setTimeout> | undefined
   jobs: Set<number>
+  pieces: number
 }
 
 const MB = 2 ** 20
 const GB = 2 ** 30
 
 /**
- * A text worker's peak memory: CanvasKit's heap, ONNX Runtime's and the model, a piece's fonts. Chrome's
- * renderer process grew by 404 MB matching a held-out piece in one worker, and by 1,101 MB in three.
+ * A text worker's peak memory, its share of the budget: a worker is retired once a piece leaves it
+ * past this. Over the 48 test ads in three workers, Chrome's renderer process grew by 1,528 MB
+ * (509 MB a worker) with none retired, and by 1,323 MB (441 MB a worker) retiring each past this.
  */
-export const TEXT_WORKER_PEAK = 410 * MB
-/** How long a worker with nothing to do is kept for a piece that may come. */
+export const TEXT_WORKER_PEAK = 448 * MB
+/**
+ * What a started text worker holds that it doesn't count in its answers: its JavaScript, the matcher's
+ * files and the model's bytes, its share of the compiled code. Three fresh workers grew Chrome's
+ * renderer process by 324 MB each, 186 MB of it their WebAssembly memories.
+ */
+export const WORKER_REST = 144 * MB
+/**
+ * What a piece leaves in a worker beyond the faces it read, until it is collected, since Chrome
+ * reports no worker's own memory: over the 48 test ads, three workers grew Chrome's renderer process
+ * by 2.7 MB a piece, and one worker read 1.1 MB of faces a piece.
+ */
+export const PIECE_REST = 2 * MB
+/** How long a worker with nothing to do is kept, while a job is still being matched, for a piece that may come. */
 export const IDLE_MS = 15_000
-/** CanvasKit's heap past which a worker is ended after its piece: the heap never gives memory back. */
-export const HEAP_LIMIT = 512 * MB
+/** How long a worker is kept once no job is left, for a job that follows at once. */
+export const DONE_MS = 2_000
 
 /** The share of the device's memory the pool may take. */
 const MEMORY_SHARE = 1 / 4
@@ -132,7 +152,7 @@ export function matchPool({
   /** Starts a worker. */
   start: () => MatchWorker
   device: Device
-  /** Compiles the modules each worker is posted, once while any worker lives. */
+  /** Compiles the modules each worker is posted, once while any worker lives or one is replaced. */
   compile: () => Promise<CompiledModules>
   page: PageShown
 }): MatchPool {
@@ -198,7 +218,8 @@ export function matchPool({
       give(slot, task)
     }
     if (queue.length > 0 && slots.length < limit() && !slots.some((slot) => slot.state === 'starting')) startWorker()
-    for (const slot of slots) if (slot.state === 'idle' && !slot.idle) slot.idle = setTimeout(() => end(slot), IDLE_MS)
+    const kept = jobs.size > 0 ? IDLE_MS : DONE_MS
+    for (const slot of slots) if (slot.state === 'idle' && !slot.idle) slot.idle = setTimeout(() => end(slot), kept)
   }
 
   function give(slot: Slot, task: Task) {
@@ -220,7 +241,7 @@ export function matchPool({
   }
 
   function startWorker() {
-    const slot: Slot = { worker: start(), state: 'starting', jobs: new Set() }
+    const slot: Slot = { worker: start(), state: 'starting', jobs: new Set(), pieces: 0 }
     slots.push(slot)
     slot.worker.onmessage = ({ data }: MessageEvent<MatchReply>) => heard(slot, data)
     slot.worker.onerror = (event) => {
@@ -253,9 +274,12 @@ export function matchPool({
     slot.task = undefined
     slot.state = 'idle'
     failsAtOne = 0
-    if (reply.heap > HEAP_LIMIT) end(slot)
+    slot.pieces++
+    // Past its share, the worker is retired, and the compiled modules kept for the replacement `fill` starts.
+    if (reply.memory + WORKER_REST + slot.pieces * PIECE_REST > TEXT_WORKER_PEAK) end(slot, true)
     answered(task, reply.answer)
     fill()
+    if (slots.length === 0) modules = undefined
   }
 
   function answered(task: Task, answer: MatchAnswer) {
@@ -266,12 +290,20 @@ export function matchPool({
     pooled.listener.answer(task.index, answer)
   }
 
-  /** A job all answered or cancelled: the workers sent it forget it. */
+  /**
+   * A job all answered or cancelled: the workers sent it forget it, and once no job is left, the idle
+   * ones are timed again to end sooner.
+   */
   function ended(pooled: PooledJob) {
     jobs.delete(pooled.job.id)
-    for (const slot of slots)
+    for (const slot of slots) {
       if (slot.jobs.delete(pooled.job.id))
         slot.worker.postMessage({ kind: 'matchForget', jobId: pooled.job.id } satisfies MatchMessage)
+      if (jobs.size === 0) {
+        clearTimeout(slot.idle)
+        slot.idle = undefined
+      }
+    }
   }
 
   /**
@@ -304,13 +336,14 @@ export function matchPool({
     }
   }
 
-  function end(slot: Slot) {
+  /** Ends the worker; the compiled modules go with the last one, unless it ends for a replacement. */
+  function end(slot: Slot, replaced = false) {
     const at = slots.indexOf(slot)
     if (at < 0) return
     slots.splice(at, 1)
     clearTimeout(slot.idle)
     slot.worker.terminate()
-    if (slots.length === 0) modules = undefined
+    if (slots.length === 0 && !replaced) modules = undefined
   }
 
   /** Hidden or left, every worker ends at once and its piece waits for the page to be shown again. */

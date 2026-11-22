@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type GraphicProps, type MatchAnswer, MatchJob, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
+import { type GraphicProps, type MatchAnswer, MatchJob, type Paint, type Shape } from '@dazbee/schema'
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { fullPass, fullPassOf } from './full-pass.ts'
-import { graphic, pngBase64, type PrototypeAnswer, prototypeFullPieces } from './test-pieces.ts'
+import { graphic, pngBase64, prototypeAnswer, prototypeFullPieces } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
 const NAVY: Paint = { type: 'solid', color: '#1E3A8AFF' }
@@ -41,20 +41,6 @@ const linear = (from: string, to: string, end = { x: 1, y: 0 }): Paint => ({
     { offset: 1, color: to as `#${string}` },
   ],
 })
-
-/** The prototype's answer in the matcher's words. */
-const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnswer): MatchAnswer => {
-  const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
-  if (decision === 'shapes') {
-    if (!scores) throw new Error('shapes without the rule’s numbers')
-    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores }
-  }
-  return {
-    kind: 'picture',
-    why: why.startsWith('looks different') ? 'looksDifferent' : why.startsWith('a photo') ? 'photo' : 'tooManyParts',
-    ...(scores ? { scores } : {}),
-  }
-}
 
 const PROTOTYPE = prototypeFullPieces(ck)
 

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import type { Paint, Shape } from '@dazbee/schema'
+import { type MatchAnswer, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
@@ -53,6 +53,20 @@ export function prototypeFullPieces(ck: CanvasKit): PrototypeFullPiece[] {
     ...piece,
     pixels: decodePng(ck, readFileSync(join(FULL_FIXTURES, `${piece.id}.png`))),
   }))
+}
+
+/** The prototype's answer in the matcher's words. */
+export const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnswer): MatchAnswer => {
+  const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
+  if (decision === 'shapes') {
+    if (!scores) throw new Error('shapes without the rule’s numbers')
+    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores }
+  }
+  return {
+    kind: 'picture',
+    why: why.startsWith('looks different') ? 'looksDifferent' : why.startsWith('a photo') ? 'photo' : 'tooManyParts',
+    ...(scores ? { scores } : {}),
+  }
 }
 
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */

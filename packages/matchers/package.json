@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./release": "./src/release.json",
-    "./release-files": "./src/release-files.ts"
+    "./release-files": "./src/release-files.ts",
+    "./model-runtime-node": "./src/text/model-runtime-node.ts"
   },
   "scripts": {
     "files": "node scripts/fetch-files.ts",

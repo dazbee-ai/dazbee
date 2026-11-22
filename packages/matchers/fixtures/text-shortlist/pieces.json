@@ -1,0 +1,119 @@
+{
+  "pieces": [
+    {
+      "id": "latin-1",
+      "key": "Roboto|700|normal",
+      "file": "ofl/roboto/Roboto[wdth,wght].ttf",
+      "words": "SUMMER SALE\nUp to 50% off",
+      "size": 64,
+      "colour": "#1A1A1A",
+      "background": "#FFD23F",
+      "align": "center"
+    },
+    {
+      "id": "latin-2",
+      "key": "Playfair Display|400|italic",
+      "file": "ofl/playfairdisplay/PlayfairDisplay-Italic[wght].ttf",
+      "words": "Timeless Elegance",
+      "size": 56,
+      "colour": "#FFFFFF",
+      "background": null
+    },
+    {
+      "id": "latin-3",
+      "key": "Lobster|400|normal",
+      "file": "ofl/lobster/Lobster-Regular.ttf",
+      "words": "Fresh Bakery",
+      "size": 72,
+      "colour": "#C2185B",
+      "background": "#FFF3E0"
+    },
+    {
+      "id": "latin-4",
+      "key": "Oswald|500|normal",
+      "file": "ofl/oswald/Oswald[wght].ttf",
+      "words": "LIMITED EDITION",
+      "size": 60,
+      "colour": "#0D47A1",
+      "background": null,
+      "rotation": -4
+    },
+    {
+      "id": "latin-5",
+      "key": "Montserrat|800|normal",
+      "file": "ofl/montserrat/Montserrat[wght].ttf",
+      "words": "Shop Now",
+      "size": 64,
+      "colour": "#FFFFFF",
+      "background": null,
+      "outline": {
+        "width": 3,
+        "color": "#111111"
+      }
+    },
+    {
+      "id": "latin-6",
+      "key": "Pacifico|400|normal",
+      "file": "ofl/pacifico/Pacifico-Regular.ttf",
+      "words": "Good Vibes Only",
+      "size": 54,
+      "colour": "#2E7D32",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": "arabic-1",
+      "key": "Cairo|600|normal",
+      "file": "ofl/cairo/Cairo[slnt,wght].ttf",
+      "words": "تخفيضات الصيف",
+      "size": 60,
+      "colour": "#FFFFFF",
+      "background": "#00695C"
+    },
+    {
+      "id": "arabic-2",
+      "key": "Amiri|400|normal",
+      "file": "ofl/amiri/Amiri-Regular.ttf",
+      "words": "عرض خاص لفترة محدودة",
+      "size": 56,
+      "colour": "#3E2723",
+      "background": null
+    },
+    {
+      "id": "arabic-3",
+      "key": "Tajawal|700|normal",
+      "file": "ofl/tajawal/Tajawal-Bold.ttf",
+      "words": "اشتر الآن\nخصم ٤٠٪",
+      "size": 56,
+      "colour": "#000000",
+      "background": "#FFEB3B",
+      "align": "center"
+    },
+    {
+      "id": "devanagari-1",
+      "key": "Hind|500|normal",
+      "file": "ofl/hind/Hind-Medium.ttf",
+      "words": "दिवाली सेल",
+      "size": 64,
+      "colour": "#BF360C",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": "devanagari-2",
+      "key": "Mukta|400|normal",
+      "file": "ofl/mukta/Mukta-Regular.ttf",
+      "words": "आज ही खरीदें",
+      "size": 56,
+      "colour": "#FFFFFF",
+      "background": null
+    },
+    {
+      "id": "devanagari-3",
+      "key": "Rozha One|400|normal",
+      "file": "ofl/rozhaone/RozhaOne-Regular.ttf",
+      "words": "शानदार ऑफ़र",
+      "size": 64,
+      "colour": "#4A148C",
+      "background": "#F3E5F5"
+    }
+  ]
+}

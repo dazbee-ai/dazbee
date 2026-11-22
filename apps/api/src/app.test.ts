@@ -5,6 +5,7 @@
 // copy stored content into a new design.
 import { describe, expect, it, vi } from 'vitest'
 
+import { MATCH_COPY_VERSION } from '@dazbee/fonts'
 import { ApiError, BrandSummary, DesignSummary, TemplateSummary } from '@dazbee/schema'
 
 import { addPerson, app, brand, call, request, sibling, workspace } from './test-api.ts'
@@ -67,6 +68,7 @@ const OUTSIDE_A_WORKSPACE = [
   '/access-requests',
   '/uploads/:token',
   '/fonts/google/faces/:name',
+  `/fonts/google/match/v${MATCH_COPY_VERSION}/:name`,
   '/fonts/google/lists/:name',
   '/fonts/google/*',
   '/matchers/:name',

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "fonts:google": "node src/scripts/import-google-fonts.ts",
+    "fonts:match-copies": "node src/scripts/make-match-copies.ts",
     "stickers:upload": "node src/scripts/upload-stickers.ts",
     "matchers:upload": "node src/scripts/upload-matcher-files.ts",
     "typecheck": "tsc --noEmit",

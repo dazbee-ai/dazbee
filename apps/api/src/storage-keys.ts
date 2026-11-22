@@ -2,6 +2,7 @@
 // the check an uploaded object passes before it is recorded.
 import { createHash } from 'node:crypto'
 
+import { MATCH_COPY_VERSION } from '@dazbee/fonts'
 import type { DesignSummary, SignedLink } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
@@ -29,6 +30,12 @@ export const bundledKey = (sha256: string) => `${BUNDLED}${sha256}`
  */
 export const matcherFileKey = (sha256: string) => `matchers/${sha256}`
 export const googleFontKey = (sha256: string) => `fonts/google/${sha256}`
+/**
+ * The Google faces' match copies (`@dazbee/fonts/match-copy`) made as `MATCH_COPY_VERSION` says, each by the SHA-256 of
+ * the face's file it was cut from.
+ */
+export const GOOGLE_MATCH_COPIES = `fonts/google/match/v${MATCH_COPY_VERSION}/`
+export const googleMatchKey = (sha256: string) => `${GOOGLE_MATCH_COPIES}${sha256}`
 /** Where the import notes each file of google/fonts it has copied: an empty object named by the file's git blob and the SHA-256 it was stored under. */
 export const GOOGLE_SOURCES = 'fonts/google/sources/'
 export const googleSourceKey = (blob: string, sha256: string) => `${GOOGLE_SOURCES}${blob}/${sha256}`

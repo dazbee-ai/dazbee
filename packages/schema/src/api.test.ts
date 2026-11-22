@@ -184,10 +184,11 @@ describe('faceWeights', () => {
 })
 
 describe('googleFacePaths', () => {
-  it('gives a Google face its file and preview at addresses named by its id', () => {
+  it('gives a Google face its file, preview and match copy at addresses named by its id', () => {
     expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'google' })).toEqual({
       file: '/fonts/google/faces/k3v9x2m1q8z0.ttf',
       preview: '/fonts/google/faces/k3v9x2m1q8z0.png',
+      match: '/fonts/google/match/v1/k3v9x2m1q8z0.ttf',
     })
   })
 

@@ -22,7 +22,15 @@ import {
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
-import { checkUpload, googleFontKey, previewKey, signedLink, signedUpload, uploadedFontKey } from '../storage-keys.ts'
+import {
+  checkUpload,
+  googleFontKey,
+  googleMatchKey,
+  previewKey,
+  signedLink,
+  signedUpload,
+  uploadedFontKey,
+} from '../storage-keys.ts'
 import { fontPreview, fontScripts, readFontInfo } from './font-file.ts'
 
 export class InvalidFont extends Error {}
@@ -143,15 +151,15 @@ export async function fontLink(
 }
 
 /**
- * The file or preview of a Google face, streamed from our storage, with its size (the file's as recorded, the
- * preview's when storage names it), or null for a face that isn't one of the Google catalog's: a brand's upload is
- * never read here.
+ * The file, preview or match copy of a Google face, streamed from our storage, with its size (the file's as recorded,
+ * the preview's and the match copy's when storage names it), or null for a face that isn't one of the Google
+ * catalog's, as a brand's upload is never read here, and for a match copy not made yet.
  */
 export async function googleFaceFile(
   db: Db,
   storage: Storage,
   faceId: string,
-  kind: 'file' | 'preview',
+  kind: 'file' | 'preview' | 'match',
 ): ReturnType<Storage['stream']> {
   const [row] = await db
     .select({ sha256: fontFaces.sha256, byteSize: fontFaces.byteSize })
@@ -160,6 +168,7 @@ export async function googleFaceFile(
   if (!row) return null
   const key = googleFontKey(row.sha256)
   if (kind === 'preview') return storage.stream(previewKey(key))
+  if (kind === 'match') return storage.stream(googleMatchKey(row.sha256))
   const stored = await storage.stream(key)
   return stored && { ...stored, byteSize: row.byteSize }
 }

@@ -1,12 +1,13 @@
 // The routes of the fonts a brand can use: the catalog, all of it, the families asked for, or in its two parts,
-// uploading a font, and a face's file and preview; and the Google list and the Google faces' files and previews,
-// which anyone may read at their permanent addresses.
+// uploading a font, and a face's file and preview; and the Google list and the Google faces' files, previews and match
+// copies, which anyone may read at their permanent addresses.
 import { type Context, Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
 import {
   GOOGLE_FONT_LIST_PATH,
   GOOGLE_FONT_PATH,
+  GOOGLE_MATCH_PATH,
   MOST_FONT_FAMILIES_ASKED,
   RecordFont,
   StartFontUpload,
@@ -14,6 +15,7 @@ import {
 import type { Storage } from '@dazbee/storage'
 
 import { body, type Env, error, requireWriter } from '../http.ts'
+import { logError } from '../log.ts'
 import {
   FILES_PER_ADDRESS_PER_MINUTE,
   isOneSpelling,
@@ -47,6 +49,10 @@ const GOOGLE_FACE_FILES: ReadonlyMap<string, { kind: 'file' | 'preview'; content
   ['ttf', { kind: 'file', contentType: 'font/ttf' }],
   ['png', { kind: 'preview', contentType: 'image/png' }],
 ])
+/** A Google face's match copy's name at its address: the face's id, then `.ttf`. */
+const GOOGLE_MATCH_NAME = /^([\w-]{1,64})\.ttf$/
+/** The fewest bytes a font file has: the head of its table directory. */
+const SMALLEST_FONT = 12
 /** The Google list's name at its address: the hash of its bytes, then `.js` (`GOOGLE_FONT_LIST_PATH`). */
 const GOOGLE_LIST_NAME = /^([0-9a-f]{32})\.js$/
 
@@ -93,8 +99,8 @@ export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<
 }
 
 /**
- * The Google faces' files and previews at `GOOGLE_FONT_PATH`, and the Google list at `GOOGLE_FONT_LIST_PATH`, for
- * anyone, with no session: open-licence files and their list, the same for everyone, kept by browsers and Cloudflare
+ * The Google faces' files and previews at `GOOGLE_FONT_PATH`, their match copies at `GOOGLE_MATCH_PATH`, and the Google
+ * list at `GOOGLE_FONT_LIST_PATH`, for anyone, with no session: open-licence files and their list, the same for everyone, kept by browsers and Cloudflare
  * for good. Only faces of the Google catalog are read, never a brand's upload. Only the one spelling of each address
  * is served, with no query string and no escapes, so none can ask past Cloudflare's copy, and the list only at the
  * hash of its bytes, so an address never holds two lists.
@@ -139,6 +145,25 @@ export function googleFontRoutes({
       'content-type': served.contentType,
       ...(stored.byteSize === null ? {} : { 'content-length': String(stored.byteSize) }),
     })
+  })
+  app.get(`${GOOGLE_MATCH_PATH}:name`, async (c) => {
+    const name = GOOGLE_MATCH_NAME.exec(c.req.param('name'))
+    if (!name?.[1] || !isOneSpelling(c, `${GOOGLE_MATCH_PATH}${name[0]}`))
+      return c.json(error('No such font'), 404, KEEP_NOTHING)
+    if (!mayAsk(c)) return tooMany(c)
+    // A face whose copy isn't made yet, before `fonts:match-copies` runs: kept nowhere, so it is served once made.
+    const stored = await googleFaceFile(db, storage, name[1], 'match')
+    if (!stored) return c.json(error('No such font'), 404, KEEP_NOTHING)
+    // Kept for good only with the length storage names, and only one no shorter than a font's table directory's head.
+    if (stored.byteSize === null || stored.byteSize < SMALLEST_FONT) {
+      await stored.body.cancel()
+      logError('match-copy-size', new Error('A stored match copy has no length a font can have'), {
+        faceId: name[1],
+        stored: stored.byteSize,
+      })
+      return c.json(error('Something went wrong on our side'), 500, KEEP_NOTHING)
+    }
+    return storedFileAnswer(c, stored, { 'content-type': 'font/ttf', 'content-length': String(stored.byteSize) })
   })
   app.get(`${GOOGLE_FONT_LIST_PATH}:name`, async (c) => {
     const name = GOOGLE_LIST_NAME.exec(c.req.param('name'))

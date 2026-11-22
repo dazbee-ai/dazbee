@@ -137,6 +137,15 @@ describe('kitColoured', () => {
     expect(layer.props.style.color).not.toBe(NEAR_MISS)
     expect(layer.bindings).toBeUndefined()
   })
+
+  it('keeps hollow text drawn in a kit colour hollow: its outline takes the colour, its missing fill binds none', async () => {
+    const piece = pieceOf('latin-hollow-italic')
+    const ink = `${piece.outline?.color}FF`
+    const layer = textLayerOf(await matchTwice(piece, { colors: { ink } }))
+    expect(layer.props.style.color.slice(7)).toBe('00')
+    expect(layer.props.style.outline?.color).toBe(ink)
+    expect(layer.bindings).toBeUndefined()
+  })
 })
 
 describe('kitStyle', () => {

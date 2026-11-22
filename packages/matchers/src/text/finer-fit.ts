@@ -1,6 +1,7 @@
 // Hybrid's finer fit of the one face Light picked: its size, letter spacing, line height, place across
-// and down, and outline width, each moved up by a step and then down, the first move whose drawn ink
-// overlaps the piece's better kept; 3 rounds over the 6 settings, every step halved after each round.
+// and down, and outline width (not the line of hollow letters), each moved up by a step and then down,
+// the first move whose drawn ink overlaps the piece's better kept; 3 rounds over the 6 settings, every
+// step halved after each round.
 // It is bounded by its rounds and reads no clock, so a slow device gets a fast one's answer.
 
 import type { TextDrawer, TextLook } from './draw-text.ts'
@@ -41,7 +42,8 @@ export function finerFit(drawer: TextDrawer, reading: PieceReading, words: strin
   for (let round = 0; round < ROUNDS; round++) {
     for (const setting of settings) {
       if (setting === 'lineHeight' && !lined) continue
-      if (setting === 'outline' && !best.look.outline) continue
+      // Hollow letters' line keeps the width read: a wider one would only fill the letters out.
+      if (setting === 'outline' && (!best.look.outline || reading.hollow)) continue
       for (const sign of [1, -1]) {
         const look = moved(best.look, setting, sign * steps[setting])
         const place: Nudge = {

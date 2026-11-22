@@ -684,8 +684,12 @@ The text matcher's quicker setting: the brand kit's fonts and a short list of fo
 _Avoid_: Fast mode, lite
 
 **Hybrid**:
-The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font, kept when it looks the same, else Light's answer when that does, else the closer of the two, approximate.
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font (a hollow text's line keeps the width read), kept when it looks the same, else Light's answer when that does, else the closer of the two, approximate.
 _Avoid_: Full, accurate mode, medium
+
+**Hollow text**:
+Text drawn as only a line round its letters, with no fill. The text matcher reads it as the filled letters the line goes round, and gives a text with no fill and a text outline in the line's colour and width.
+_Avoid_: Outline text, outlined text (text with a fill and an outline), stroked text
 
 **Font fingerprint**:
 The numbers the text matcher's model reads from text drawn in one family at one weight and style, which lets it put fonts that look like a piece first.

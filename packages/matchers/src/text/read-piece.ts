@@ -1,12 +1,25 @@
 // Reading a text piece: its ink, tilt, lines, alignment, fill colour, outline and background, which
-// the text matcher starts every candidate from and the font fingerprint reads. A piece whose lines
-// are taller than the matcher works at is read again shrunk to that height.
+// the text matcher starts every candidate from and the font fingerprint reads. Hollow letters, drawn
+// only as a line round each letter, are read as the filled letters that line outlines, with no fill
+// and an outline in the line's colour and width. A piece whose lines are taller than the matcher
+// works at is read again shrunk to that height, hollow when the piece read whole is.
 
 import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
-import { borderColour, type Box, type Ink, inkBox, inkOf, median, rotateInk } from './ink.ts'
+import {
+  borderColour,
+  type Box,
+  type Hollow,
+  hollowOf,
+  type Ink,
+  inkBox,
+  inkOf,
+  median,
+  rotateInk,
+  shrinkInk,
+} from './ink.ts'
 
 /** A text piece as the text matcher reads it: its pixels, the words it says and its tilt when known. */
 export interface TextPiece {
@@ -22,7 +35,7 @@ export interface PieceReading {
   /** The pixels read. */
   pixels: Pixels
   ink: Ink
-  /** The ink turned level: the tilt undone. */
+  /** The ink turned level, the tilt undone, with hollow letters filled. */
   level: Ink
   /** The tilt in degrees clockwise. */
   angle: number
@@ -30,10 +43,15 @@ export interface PieceReading {
   box: Box
   /** Each line's box in the level ink, one a line of the words, top to bottom. */
   lines: Box[]
-  /** The letters' colour: the median of the ink 2 px or more from its edges. */
+  /** The letters' colour: the median of the ink 2 px or more from its edges; for hollow letters, their line's. */
   fill: Rgb
-  /** A ring at the letters' edges in another colour, its width in pixels; null when there is none. */
+  /**
+   * A ring at the letters' edges in another colour, or the line round hollow letters, its width in
+   * pixels; null when there is none.
+   */
   outline: { width: number; colour: Rgb } | null
+  /** Whether the letters are hollow: drawn only as their outline, with no fill. */
+  hollow: boolean
   /** The colour behind the letters: the median of the picture's outermost pixels. */
   background: Rgb
   align: 'start' | 'center' | 'end'
@@ -59,18 +77,30 @@ const MAX_TILT = 15
 const LINE_ROW_SHARE = 0.02
 /** An edge ring is an outline when its colour is more than this ΔE00 from the fill's. */
 const OUTLINE_DELTA_E = 12
+/** A pixel inked more than this is solid ink. */
+const SOLID_INK = 0.6
 
 /** How many lines words have. */
 const lineCount = (words: string) => words.split('\n').length
 
 /** A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to it. */
 export function readPiece(piece: TextPiece): ReadPiece {
-  const whole = readAt(piece)
+  const ink = inkOf(piece.pixels, borderColour(piece.pixels))
+  const found = hollowOf(ink)
+  // The line round hollow letters is set to the half pixel, as an outline is read.
+  const hollow = found && { ...found, width: Math.max(0.5, Math.round(found.width * 2) / 2) }
+  const whole = readAt(piece, ink, hollow)
   // The height of the ink as it is, tilt and all, is enough to decide.
   const box = inkBox(inkOf(piece.pixels))
   const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1
   if (!(scale < SHRINK_BELOW)) return { whole, work: whole, scale: 1 }
-  return { whole, work: readAt({ ...piece, pixels: shrinkPixels(piece.pixels, scale) }), scale }
+  const pixels = shrinkPixels(piece.pixels, scale)
+  // Hollow letters keep their filled shape and line width shrunk, as the thinner line may not close them.
+  const shrunk = hollow && {
+    filled: shrinkInk(hollow.filled, pixels.width, pixels.height),
+    width: hollow.width * scale,
+  }
+  return { whole, work: readAt({ ...piece, pixels }, inkOf(pixels, borderColour(pixels)), shrunk), scale }
 }
 
 /**
@@ -104,16 +134,27 @@ export function findLines(level: Ink, box: Box, count: number): Box[] {
   })
 }
 
-/** The piece's reading at the size its pixels are. */
-function readAt(piece: TextPiece): PieceReading {
-  const background = borderColour(piece.pixels)
-  const ink = inkOf(piece.pixels, background)
-  const angle = piece.angle ?? estimateAngle(ink)
-  const level = rotateInk(ink, -angle)
+/** The piece's reading at the size its pixels are, from its ink and, for hollow letters, their filled ink. */
+function readAt(piece: TextPiece, ink: Ink, hollow: Hollow | null): PieceReading {
+  const letters = hollow?.filled ?? ink
+  const angle = piece.angle ?? estimateAngle(letters)
+  const level = rotateInk(letters, -angle)
   const box = inkBox(level) ?? { x: 0, y: 0, w: level.width, h: level.height }
   const lines = findLines(level, box, lineCount(piece.words))
-  const { fill, outline } = colours(piece.pixels, ink)
-  return { pixels: piece.pixels, ink, level, angle, box, lines, fill, outline, background, align: alignOf(lines) }
+  const { fill, outline } = hollow ? hollowColours(piece.pixels, ink, hollow.width) : colours(piece.pixels, ink)
+  return {
+    pixels: piece.pixels,
+    ink,
+    level,
+    angle,
+    box,
+    lines,
+    fill,
+    outline,
+    hollow: hollow !== null,
+    background: borderColour(piece.pixels),
+    align: alignOf(lines),
+  }
 }
 
 /** Pixels shrunk by `scale`, each the mean of those it covers, colour weighted by alpha. */
@@ -200,6 +241,25 @@ function estimateAngle(ink: Ink): number {
 }
 
 /**
+ * Hollow letters' colours: the median colour of their solid line, or of their faintest ink when none
+ * of it is solid, as both the fill the letters are fitted with and their outline, `width` wide.
+ */
+function hollowColours(picture: Pixels, ink: Ink, width: number): Pick<PieceReading, 'fill' | 'outline'> {
+  const { pixels } = picture
+  const r: number[] = []
+  const g: number[] = []
+  const b: number[] = []
+  for (let i = 0; i < ink.data.length; i++)
+    if ((ink.data[i] ?? 0) > SOLID_INK) {
+      r.push(pixels[i * 4] ?? 0)
+      g.push(pixels[i * 4 + 1] ?? 0)
+      b.push(pixels[i * 4 + 2] ?? 0)
+    }
+  const colour: Rgb = r.length > 0 ? [median(r), median(g), median(b)] : faintest(picture, ink).colour
+  return { fill: colour, outline: { width, colour } }
+}
+
+/**
  * The fill colour and any outline. The fill is the median of the inner ink, 2 px or more from its
  * edges; an outline is a ring at the edges whose colour is more than ΔE00 12 from the fill's, as
  * wide as the ring's area over the edges' length.
@@ -277,7 +337,7 @@ function sharpness(ink: Ink, degrees: number): number {
 /** Which pixels are solid ink (over 0.6), and each solid pixel's city-block steps to the nearest pixel that isn't. */
 function depths({ width, height, data }: Ink): { solid: Uint8Array; depth: Float32Array } {
   const solid = new Uint8Array(width * height)
-  for (let i = 0; i < solid.length; i++) solid[i] = (data[i] ?? 0) > 0.6 ? 1 : 0
+  for (let i = 0; i < solid.length; i++) solid[i] = (data[i] ?? 0) > SOLID_INK ? 1 : 0
   const depth = new Float32Array(width * height)
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {

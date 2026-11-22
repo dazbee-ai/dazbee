@@ -44,6 +44,8 @@ const ROUND_TRIPS = [
   'latin-tilted',
   'latin-tight',
   'latin-loose',
+  'latin-hollow',
+  'latin-hollow-italic',
   'arabic-plain',
   'arabic-outlined',
   'arabic-tilted',
@@ -51,6 +53,11 @@ const ROUND_TRIPS = [
   'devanagari-tilted',
   'devanagari-loose',
 ]
+
+/** The round trips drawn hollow: an outline alone, with no fill. */
+const HOLLOW = ['latin-hollow', 'latin-hollow-italic']
+/** An outline width found within this many pixels of the width drawn comes back right. */
+const OUTLINE_WITHIN = 1
 
 /** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
 const LIGHT_KEPT = 'arabic-outlined'
@@ -117,6 +124,20 @@ describe('matchText', () => {
     const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
   })
+
+  it.each(HOLLOW.flatMap((id) => (['light', 'hybrid'] as const).map((setting) => [id, setting] as const)))(
+    'gives %s back hollow in %s: no fill, and an outline in its colour and width',
+    async (id, setting) => {
+      const piece = pieceOf(id)
+      const answer = await matchTwice(piece.pixels, piece.words, setting)
+      expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+      const { style } = textLayerOf(answer).props
+      expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(piece.key)
+      expect(style.color.slice(7)).toBe('00')
+      expect(style.outline?.color).toBe(`${piece.outline?.color}FF`)
+      expect(Math.abs((style.outline?.width ?? 0) - (piece.outline?.width ?? 0))).toBeLessThanOrEqual(OUTLINE_WITHIN)
+    },
+  )
 
   it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {
     const { light, hybrid } = await lightAndHybrid(LIGHT_KEPT)

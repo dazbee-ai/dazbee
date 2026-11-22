@@ -1,5 +1,5 @@
-// The font fingerprint's model run by onnxruntime-node on one CPU thread, for Node: the tests, the
-// measurement scripts and the worker app. Its own export, so nothing that runs in a browser imports
+// The font fingerprint's model run by onnxruntime-node on one CPU thread, for Node: the tests and the
+// measurement scripts. Its own export, so nothing that runs in a browser imports
 // onnxruntime-node, which only the packages that run it in Node depend on.
 
 import * as ort from 'onnxruntime-node'

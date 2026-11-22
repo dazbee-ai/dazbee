@@ -649,7 +649,3 @@ _Avoid_: Embedding, signature, font hash
 **Match copy**:
 A copy of a Google font face cut down to the characters ads use, which only the text matcher loads, so a person downloads less while it works. Text with other characters loads the whole face.
 _Avoid_: Subset, cut-down file, display copy (that is an image's)
-
-**Make editable**:
-Rebuilding a picture on a frame as layers with a matcher, as text or as shapes, in one undo step: where the rebuild looks the same, its layers take the picture's place; otherwise the picture stays and the person is told why.
-_Avoid_: Convert, vectorise (the layering step), trace

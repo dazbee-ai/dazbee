@@ -1,9 +1,8 @@
 // The matchers' contract: a match job, a picture and the pieces of it a matcher rebuilds as layers,
 // and the answer for each piece, its layers or why it stays a picture. The browser's matcher
-// workers, the worker app, the API and the MCP server all speak it.
+// workers and the matchers' tests and scripts in Node speak it.
 import { z } from 'zod'
 
-import { FontFace } from './api.ts'
 import { BRAND_KIT_LIMITS } from './brand-roles.ts'
 import { BrandTextStyle } from './brand-text-styles.ts'
 import { readImageHeader } from './image-header.ts'
@@ -94,16 +93,6 @@ const matchJobFields = {
  */
 export const MatchJob = z.object(matchJobFields).superRefine(pictureHoldsPieces, { when: wellFormed })
 export type MatchJob = z.infer<typeof MatchJob>
-
-/** A face of a font the brand uploaded, and the storage key of its file. */
-export const UploadedFace = z.object({ face: FontFace, key: z.string().min(1).max(512) })
-export type UploadedFace = z.infer<typeof UploadedFace>
-
-/** A match job as the worker app takes it: the job, and each face of the kit's uploaded families, which only the API fills in. */
-export const ServerMatchJob = z
-  .object({ ...matchJobFields, uploads: UploadedFace.array().max(256) })
-  .superRefine(pictureHoldsPieces, { when: wellFormed })
-export type ServerMatchJob = z.infer<typeof ServerMatchJob>
 
 /** The looks-the-same rule's numbers for a rebuild; `inkColour`, the colour guard's ΔE00, for text only. */
 export const LooksSameScores = z.object({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 
-import { MatchAnswer, MatchJob, MatchKit, MAX_MATCH_PICTURE_BYTES, Piece, ServerMatchJob } from './matching.ts'
+import { MatchAnswer, MatchJob, MatchKit, MAX_MATCH_PICTURE_BYTES, Piece } from './matching.ts'
 
 /** A PNG's signature and header for a picture of this size, padded with zeros to `bytes`. */
 const pngOf = (width: number, height: number, bytes = 64) => {
@@ -100,22 +100,6 @@ describe('MatchJob', () => {
     expect(issues(MatchJob, { ...JOB, backgrounds: [white, white, white, white] })).toEqual([])
     expect(issues(MatchJob, { ...JOB, backgrounds: [white, white, white, white, white] })).toEqual(['backgrounds'])
     expect(issues(MatchJob, { ...JOB, backgrounds: [[256, 0, 0]] })).toEqual(['backgrounds.0.0'])
-  })
-})
-
-describe('ServerMatchJob', () => {
-  it('is a match job with the storage key of each uploaded face', () => {
-    const face = { id: 'f1', family: 'Brand Sans', weight: 400, style: 'normal', source: 'upload', byteSize: 1000 }
-    const job = ServerMatchJob.parse({ ...JOB, uploads: [{ face, key: 'fonts/brand/abc' }] })
-    expect(job.uploads[0]?.key).toBe('fonts/brand/abc')
-    expect(issues(ServerMatchJob, JOB)).toEqual(['uploads'])
-    expect(
-      issues(ServerMatchJob, {
-        ...JOB,
-        uploads: [],
-        pieces: [{ ...SHAPE_PIECE, rect: { x: 0, y: 0, width: 401, height: 1 } }],
-      }),
-    ).toEqual(['pieces.0.rect'])
   })
 })
 

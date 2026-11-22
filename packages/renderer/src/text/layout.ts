@@ -1,14 +1,15 @@
-import type { CanvasKit, Paragraph, ParagraphBuilder, StrutStyle, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
+import type { CanvasKit, Paragraph, ParagraphBuilder } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
+import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from '@dazbee/schema'
 
-import { color } from '../color.ts'
 import type { Resources } from '../resources.ts'
+import { strutStyle, textStyle } from './canvaskit-style.ts'
 import type { Placement } from './placed.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
-import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
+import { withCase } from './text-case.ts'
+import { linedGradients, pushPainted, type TextPass } from './text-paint.ts'
 import type { StyledPiece } from './types.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
@@ -73,10 +74,6 @@ type Style = TextProps['style']
 const ELLIPSIS = '\u2026'
 /** The pass that draws a text's characters. */
 const FILL: TextPass = { kind: 'fill' }
-
-const WORD_CHAR = /[\p{L}\p{N}\p{M}]/u
-const LETTER = /\p{L}/u
-const APOSTROPHE = /['’]/u
 
 /**
  * Shapes and lays out a text layer, a paragraph at a time (#47): lists put each paragraph's lines
@@ -380,85 +377,4 @@ export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
     props.shrinkToFit,
     fallbackFamilies,
   ])
-}
-
-/** The text with each piece's case applied, a code point at a time and only where that keeps its length, so offsets still match. */
-function withCase(text: string, styleAt: (offset: number) => Style): string {
-  let out = ''
-  let i = 0
-  let before = ''
-  let prev = ''
-  for (const ch of text) {
-    const mode = styleAt(i).textCase ?? 'none'
-    let next = ch
-    if (mode === 'upper' || (mode === 'title' && startsWord(before, prev, ch))) next = ch.toUpperCase()
-    else if (mode === 'lower') next = ch.toLowerCase()
-    out += next.length === ch.length ? next : ch
-    before = prev
-    prev = ch
-    i += ch.length
-  }
-  return out
-}
-
-/**
- * A style for CanvasKit, with its underline and strikethrough only in the pass that draws them
- * (`drawsLines`), and its baseline moved down by `baselineShift` pixels.
- */
-function textStyle(
-  ck: CanvasKit,
-  style: Style,
-  resources: Pick<Resources, 'fallbackFamilies'>,
-  pass: TextPass,
-  baselineShift = 0,
-): CkTextStyle {
-  const decoration = drawsLines(style, pass)
-    ? (style.underline ? ck.UnderlineDecoration : 0) | (style.strikethrough ? ck.LineThroughDecoration : 0)
-    : 0
-  return new ck.TextStyle({
-    color: color(ck, style.color),
-    fontFamilies: familiesOf(style, resources),
-    fontSize: style.fontSize,
-    fontStyle: {
-      weight: { value: style.fontWeight },
-      slant: style.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
-    },
-    // A variable font draws its default instance unless told the weight; a static one ignores it.
-    fontVariations: [{ axis: 'wght', value: style.fontWeight }],
-    letterSpacing: letterSpacingPx(style.letterSpacing, style.fontSize),
-    baselineShift,
-    ...(style.features
-      ? { fontFeatures: Object.entries(style.features).map(([name, on]) => ({ name, value: on ? 1 : 0 })) }
-      : {}),
-    ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
-    ...(decoration ? { decoration, decorationColor: color(ck, linesColour(style, pass)), decorationThickness: 1 } : {}),
-  })
-}
-
-/** Lines at least as tall as the style's would be, for a paragraph whose own letters are smaller. */
-function strutStyle(ck: CanvasKit, style: Style, resources: Pick<Resources, 'fallbackFamilies'>): StrutStyle {
-  return {
-    strutEnabled: true,
-    fontFamilies: familiesOf(style, resources),
-    fontSize: style.fontSize,
-    fontStyle: {
-      weight: { value: style.fontWeight },
-      slant: style.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
-    },
-    ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
-  }
-}
-
-/** The families a style's characters are drawn from: its own, then the fallbacks. */
-function familiesOf(style: Style, resources: Pick<Resources, 'fallbackFamilies'>): string[] {
-  return [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)]
-}
-
-/**
- * Whether `ch`, after `prev` and `before` it, starts a word: it follows no letter, number or mark,
- * and is not a letter after an apostrophe that follows a letter, number or mark.
- */
-function startsWord(before: string, prev: string, ch: string): boolean {
-  if (WORD_CHAR.test(prev)) return false
-  return !(APOSTROPHE.test(prev) && WORD_CHAR.test(before) && LETTER.test(ch))
 }

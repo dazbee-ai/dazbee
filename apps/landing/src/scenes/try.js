@@ -80,7 +80,7 @@ export function tryOut(section, { still = false } = {}) {
     if (k) setCat(k)
   })
   section.querySelector('[data-sample]').addEventListener('click', () => {
-    const k = state.cat || 'skincare'
+    const k = state.cat || 'food'
     const c = CATEGORIES[k]
     setCat(k)
     briefForm.brief.value = c.sample.brief
@@ -159,7 +159,7 @@ export function tryOut(section, { still = false } = {}) {
     ideasEl.innerHTML = routes()
       .map(
         (r, i) => `
-      <li class="idea" style="--acc:${r.pal[2]};--bg:${r.pal[0]};--fg:${r.pal[1]}">
+      <li class="idea" style="--acc:${r.pal[2]};--bg:${r.pal[0]};--fg:${r.pal[1]}${r.img ? `;--img:url(/images/brimble/${r.img}.webp);--pos:${r.pos}` : ''}">
         <span class="idea__n px">0${i + 1}</span>
         <span class="idea__wire wire--${r.tpl}" aria-hidden="true"><i></i><i></i><i></i></span>
         <h4>${esc(r.name)}</h4>

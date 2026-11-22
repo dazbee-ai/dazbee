@@ -16,17 +16,17 @@ export function howScene(section, { still = false } = {}) {
   const reviewEl = section.querySelector('[data-st-review]')
   const lines = [...section.querySelectorAll('[data-type-line]')]
   const sw = [...brief.querySelectorAll('.stage__kit i')]
-  const routine = ROUTES.find((r) => r.id === 'routine')
+  const routine = ROUTES[0]
 
   routesEl.innerHTML = `<div class="st-grid">${ROUTES.map((r) => `<div class="st-slot"><div class="st-card">${banner(r, '45')}<span class="px">${r.name}</span></div></div>`).join('')}</div>
     <p class="st-more"><span class="st-plus" aria-hidden="true">+</span>Add another route</p>`
   sizesEl.innerHTML = `<div class="st-sizes">${SIZES.map((s) => `<figure>${banner(routine, s.id)}<figcaption class="mono">${s.label}</figcaption></figure>`).join('')}</div>
-    <p class="st-note"><span class="px">Routine</span> Change the headline once and every size follows.</p>`
+    <p class="st-note"><span class="px">${routine.name}</span> Change the headline once and every size follows.</p>`
   reviewEl.insertAdjacentHTML(
     'beforeend',
     `
     <div class="st-phone">${banner(routine, '45')}<span class="pin" style="--x:74%;--y:30%">1</span><span class="stamp px">Approved</span></div>
-    <div class="st-bubble"><b>Brand lead</b>Love this. Approving routine.</div>`,
+    <div class="st-bubble"><b>Brand lead</b>Love this. Approving ${routine.name.toLowerCase()}.</div>`,
   )
 
   const cards = [...routesEl.querySelectorAll('.st-card')]

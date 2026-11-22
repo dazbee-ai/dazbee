@@ -1,4 +1,6 @@
+export { paintsWith, swapAccent } from './accent.ts'
 export { iconSvg } from './icon-svg.ts'
+export { illustrationOf } from './illustrations.ts'
 export { findGraphic, type FoundGraphic, searchGraphics } from './search.ts'
-export { GRAPHIC_SET_IDS, STICKER_SETS } from './sets.ts'
+export { GRAPHIC_SET_IDS, ILLUSTRATION_SETS, STICKER_SETS } from './sets.ts'
 export { stickerFile } from './sticker-file.ts'

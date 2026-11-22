@@ -19,7 +19,7 @@ import {
   placeAndAnswer,
   placeBox,
   svgSteps,
-  textOf,
+  svgTextOf,
   whole,
 } from './place-on-frame.ts'
 
@@ -51,7 +51,7 @@ export const ASSET_TOOLS: Tool[] = [
         const into = { id: frame, frame: frameIn(open, frame) }
         const stored = await assetOf(context, open, asset)
         const placing = isVectorAsset(stored.summary)
-          ? await svgSteps(into, stored.summary.name, textOf(await stored.bytes()), box)
+          ? await svgSteps(into, stored.summary.name, svgTextOf(await stored.bytes()), box)
           : await imageSteps(context, open, into, stored.summary, box)
         const value = await placeAndAnswer(context, open, placing, note)
         return placing.leftOut.includes('image') ? withNote(value, PICTURES_LEFT_OUT) : value

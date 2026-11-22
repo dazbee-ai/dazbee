@@ -1,9 +1,11 @@
-// Files Dazbee bundles and keeps in its storage rather than in the repository, such as Fluent Emoji's 3D pictures:
-// stored once under `bundled/<sha256>` from their pinned source, and added to a brand's asset library by copying the
-// stored file into the workspace's originals and recording it as an upload is (the hash, the header, the decode).
+// Files Dazbee bundles and keeps in its storage rather than in the repository, such as Fluent Emoji's 3D pictures and
+// the illustrations' SVG files: stored once under `bundled/<sha256>` from their pinned source, and added to a brand's
+// asset library by copying the stored file into the workspace's originals and recording it as an upload is (the hash,
+// the header, the decode, and for an SVG file the SVG reader's thread and limits).
 import type { Db } from '@dazbee/db'
 import { type AddBundledAsset, type AssetSummary, readImageHeader } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
+import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import { BUNDLED, bundledKey, originalKey } from '../storage-keys.ts'
 import { findAsset, recordAsset, withTags } from './assets.ts'
@@ -82,7 +84,9 @@ async function recordBundled(
   return recordAsset(db, storage, workspaceId, brandId, sha256, name, bytes)
 }
 
-/** A file's type as its header says, for storage to serve it with. */
+/** A file's type as its header says, or SVG for SVG markup, for storage to serve it with. */
 function contentTypeOf(bytes: Uint8Array): string {
-  return readImageHeader(bytes)?.contentType ?? 'application/octet-stream'
+  const image = readImageHeader(bytes)?.contentType
+  if (image) return image
+  return svgMarkup(new TextDecoder().decode(bytes)) ? SVG_TYPE : 'application/octet-stream'
 }

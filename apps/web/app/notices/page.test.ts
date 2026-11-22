@@ -40,7 +40,9 @@ describe('generateMetadata', () => {
 
 describe('NoticesPage', () => {
   it('lists each bundled set with its version, its licence’s name and the licence in full', async () => {
-    const [tabler, phosphor, ...stickers] = await noticesRead()
+    const [tabler, phosphor, ...rest] = await noticesRead()
+    const stickers = rest.slice(0, 4)
+    const illustrations = rest.slice(4)
     expect(tabler).toMatch(
       /^Tabler Icons Version 3\.52\.0 · MIT licence MIT License Copyright \(c\) 2020-2026 Paweł Kuna /,
     )
@@ -61,6 +63,23 @@ describe('NoticesPage', () => {
       expect(notice).toContain('Creative Commons Legal Code CC0 1.0 Universal')
       expect(notice).toMatch(/this CC0 or use of the Work\.$/)
     }
+    expect(illustrations.map((notice) => notice.split(' By ')[0])).toEqual([
+      'unDraw',
+      'ManyPixels Chromablue',
+      'ManyPixels Birdview',
+    ])
+    expect(illustrations[0]).toMatch(
+      /^unDraw By Katerina Limpitsouni Version 9c02f98 · unDraw licence unDraw, by Katerina Limpitsouni\. /,
+    )
+    for (const notice of illustrations.slice(1)) {
+      expect(notice).toMatch(/^ManyPixels \w+ By ManyPixels Version 2026-11-22 · ManyPixels licence ManyPixels \w+, /)
+      expect(notice).toContain(
+        'Copyright 2020 MANYPIXELS PTE LTD All images, assets and vectors published on ManyPixels',
+      )
+    }
+    expect(illustrations[0]).toContain('Copyright 2026 Katerina Limpitsouni All images, assets and vectors published')
+    expect(illustrations[0]).toMatch(/must not be used otherwise\.$/)
+    for (const notice of [tabler, phosphor, ...stickers]) expect(notice).not.toContain(' By ')
   })
 
   it('links each set’s name to its site, in a new tab', async () => {
@@ -71,6 +90,13 @@ describe('NoticesPage', () => {
       /<a href="https:\/\/github\.com\/microsoft\/fluentui-emoji" target="_blank" rel="noreferrer"/,
     )
     expect(markup).toMatch(/<a href="https:\/\/www\.openpeeps\.com" target="_blank" rel="noreferrer"/)
+    expect(markup).toMatch(/<a href="https:\/\/undraw\.co" target="_blank" rel="noreferrer"[^>]*>unDraw<\/a>/)
+    expect(markup).toMatch(
+      /<a href="https:\/\/undraw\.co" target="_blank" rel="noreferrer"[^>]*>Katerina Limpitsouni<\/a>/,
+    )
+    expect(markup).toMatch(
+      /<a href="https:\/\/www\.manypixels\.co" target="_blank" rel="noreferrer"[^>]*>ManyPixels<\/a>/,
+    )
   })
 
   it('speaks Arabic around the licences, which stay in English', async () => {

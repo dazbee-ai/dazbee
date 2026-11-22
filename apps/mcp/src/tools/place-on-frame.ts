@@ -1,13 +1,15 @@
 // What the tools that place on a frame of the open design share: the box they place in, the frame they place on,
-// the parts of a frame they place at, the step that places an SVG file's layers, and running the placing batch and
-// answering with the layer it placed.
+// the parts of a frame they place at, the colour they place in, a bundled file added to the brand's library, an SVG
+// file's text and the step that places its layers, and running the placing batch and answering with the layer it
+// placed.
 import { z } from 'zod'
 
 import { type AgentStep, placedRoots } from '@dazbee/doc'
-import { SvgError, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
+import { SvgError, type SvgLayers, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { Frame, Rect } from '@dazbee/schema'
+import type { AddBundledAsset, AssetSummary, Frame, Rect } from '@dazbee/schema'
 
+import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
 import { agentBatchOn, answered, refusalOf } from './command-tools.ts'
 import { type ToolContext, ToolRefusal } from './define-tool.ts'
@@ -16,6 +18,12 @@ import { type ToolContext, ToolRefusal } from './define-tool.ts'
 export interface FrameTo {
   id: string
   frame: Frame
+}
+
+/** A colour a graphic is placed in: a hex colour (#RRGGBBAA), and the brand kit token it is bound to, if any. */
+export interface ColourFill {
+  value: string
+  ref?: `brand:${string}`
 }
 
 /** The agent batch that places a layer, and what its answer tells beside the layer, its box and the warnings. */
@@ -73,6 +81,24 @@ export async function placeAndAnswer(
   })
 }
 
+/**
+ * The brand's asset of a file Dazbee bundles, which the API adds from its storage, once for the same bytes; refused
+ * with `notStored` when storage doesn't hold the file yet.
+ */
+export async function bundledAsset(
+  { api }: ToolContext,
+  open: OpenDesign,
+  input: AddBundledAsset,
+  notStored: string,
+): Promise<AssetSummary> {
+  try {
+    return await api.addBundledAsset(open.brandId, input)
+  } catch (error) {
+    if (!(error instanceof ApiRefusal && error.status === 404)) throw error
+    throw new ToolRefusal(notStored)
+  }
+}
+
 /** The open design's frame, refused when it has none of that id. */
 export function frameIn(open: OpenDesign, frameId: string): Frame {
   const { frames } = open.tab.design()
@@ -101,13 +127,7 @@ export async function svgSteps(
   text: string,
   box: Rect | undefined,
 ): Promise<AssetPlacing> {
-  let read
-  try {
-    read = await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })
-  } catch (error) {
-    if (!(error instanceof SvgError)) throw error
-    throw new ToolRefusal(`The SVG file “${name}” can’t be read as layers (${error.problem}), so nothing was placed`)
-  }
+  const read = await svgRead(frame, name, text, box)
   const input = svgPlaceInput(read, frameId, centreOf(box ?? whole(frame)))
   if (!input) throw new ToolRefusal(`The SVG file “${name}” draws nothing, so nothing was placed`)
   return {
@@ -118,7 +138,20 @@ export async function svgSteps(
   }
 }
 
+/**
+ * The layers the editor makes of the SVG file, its pictures left out, fitted inside `box` or scaled down to the frame
+ * as the editor scales it; refused when the SVG reader can't read it.
+ */
+export async function svgRead(frame: Frame, name: string, text: string, box: Rect | undefined): Promise<SvgLayers> {
+  try {
+    return await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })
+  } catch (error) {
+    if (!(error instanceof SvgError)) throw error
+    throw new ToolRefusal(`The SVG file “${name}” can’t be read as layers (${error.problem}), so nothing was placed`)
+  }
+}
+
 /** An SVG file's text, read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced. */
-export function textOf(bytes: Uint8Array): string {
+export function svgTextOf(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes)
 }

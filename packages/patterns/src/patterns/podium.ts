@@ -4,14 +4,13 @@
 // tier with a fine accent rim and a soft light behind the product (premium); always plainly apart from the product.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, roles, usualWords } from '../build.ts'
-import { ctaFill } from '../button.ts'
+import { type Build, ground, wordsOn } from '../build.ts'
 import { dotGroup, glow } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { deepColour, mixed, ornamentColour, type Swatch, WHITE } from '../palette.ts'
 import { lightColour, standProduct } from '../product-stage.ts'
 import { ellipse, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const PODIUM: Pattern = {
   id: 'podium',
@@ -30,14 +29,10 @@ const TIER = { width: 0.86, face: 0.16, height: 0.13 }
 
 /** Builds the product on a podium in the frame. */
 export function podium(b: Build) {
-  const { palette, content } = b
   const colour = ground(b)
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual: { ratio: PODIUM_RATIO, draw: (box) => drawPodium(b, box, colour), short: false },
   })
 }

@@ -5,12 +5,13 @@ import { PATTERN_STYLES } from '../styles.ts'
 import { CHANNEL_SIZES, CONTENT, KIT, measure, within } from '../test-input.ts'
 
 describe('the product with a price tag', () => {
-  it('shows the price in its tag at every channel size, as a chip before the words in a short frame', () => {
+  it('shows the price in its tag at every channel size, as a chip before the words in a short frame, one linked part', () => {
     for (const style of PATTERN_STYLES)
       for (const { width, height } of CHANNEL_SIZES) {
         const { nodes } = buildPattern('price-tag', { style, kit: KIT, content: CONTENT, width, height, measure })
         const at = `${style} ${width}×${height}`
-        const price = height <= 100 ? nodes.number : nodes.price
+        // One part at every size, so the price is a linked copy across them.
+        const price = nodes.price
         const holder = (height <= 100 ? nodes.stub : nodes.tag)?.props
         if (price?.type !== 'text' || !holder) throw new Error(`no price at ${at}`)
         expect({ at, text: price.props.text }).toEqual({ at, text: CONTENT.number })

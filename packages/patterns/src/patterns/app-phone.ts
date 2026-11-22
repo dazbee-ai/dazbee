@@ -4,14 +4,13 @@
 // inside a fine ring (premium).
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, roles, usualWords } from '../build.ts'
-import { ctaFill } from '../button.ts'
+import { type Build, ground, wordsOn } from '../build.ts'
 import { coverCrop } from '../crop.ts'
 import { dotGroup, glow } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { contrast, INK, inkOn, mixed, ornamentColour, type Swatch, withAlpha } from '../palette.ts'
 import { ellipse, path, picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const APP_PHONE: Pattern = {
   id: 'app-phone',
@@ -35,14 +34,10 @@ const BODY_SEEN = 1.6
 
 /** Builds the app on a phone in the frame. */
 export function appPhone(b: Build) {
-  const { palette, content } = b
   const colour = ground(b)
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual: { ratio: PHONE_RATIO, draw: (box) => phone(b, box, colour), short: false },
   })
 }

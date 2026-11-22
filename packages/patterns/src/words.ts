@@ -20,6 +20,10 @@ export type TextKind = 'kicker' | 'headline' | 'number' | 'subline' | 'attributi
 export interface WordPart {
   kind: TextKind
   text: string
+  /** Its layer's key, which links it across the sizes, where it isn't its kind: such as a price set as a number. */
+  key?: string
+  /** Its layer's name, where it isn't its kind's. */
+  name?: string
   /** Words of it set apart. */
   highlight?: string
   /** Its ink, where it isn't the first of the kit's text and background colours that reads. */
@@ -239,7 +243,7 @@ export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, pa
     const height = heights.get(part) ?? 0
     const set = textOf(setting, words, part, sizeOf(part, parts, size, frame), align, room.width, size)
     const placed = { ...set, props: { ...set.props, y: round(y), height: round(height) } }
-    tree.add(part.kind, textPart(part, placed), i <= titled ? holder : outer)
+    tree.add(part.key ?? part.kind, textPart(part, placed), i <= titled ? holder : outer)
     y += height + (i < titled ? inner : gap)
   }
   if (button && words.button) {
@@ -282,7 +286,7 @@ export function rowWords(tree: TreeBuilder, setting: Setting, words: Words, pare
     const height = fit.heights.get(part) ?? 0
     const text = textOf(setting, texts, part, sizeOf(part, fit.parts, fit.size, frame), 'start', width, fit.size)
     tree.add(
-      part.kind,
+      part.key ?? part.kind,
       textPart(part, { ...text, props: { ...text.props, y: round(y), height: round(height) } }),
       holder,
     )
@@ -362,11 +366,11 @@ function rowTries(setting: Setting, words: Words) {
   // A wide, low room in a larger frame labels its button at the readable size, under a lead that leads it; a
   // billboard's first at a share of its height, so its button holds its own beside a lead sized from that height.
   const billboard = frame.shape === 'banner' && frame.height > SHORT_FRAME
-  const tall = Math.max(frame.readable, Math.round(frame.height * BILLBOARD_LABEL))
+  const label = Math.max(frame.readable, Math.round(frame.height * BILLBOARD_LABEL))
   const tries =
     frame.height > SHORT_FRAME
       ? [
-          ...(billboard && tall > frame.readable ? [{ label: tall, side: BUTTON_SIDE, floor: false }] : []),
+          ...(billboard && label > frame.readable ? [{ label, side: BUTTON_SIDE, floor: false }] : []),
           { label: frame.readable, side: BUTTON_SIDE, floor: false },
           { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: false },
         ]
@@ -871,7 +875,7 @@ function textPart(part: WordPart, { props, ink, font }: SetText): Part {
   const lead = part.kind === 'headline' || part.kind === 'number'
   return {
     type: 'text',
-    name: NAMES[part.kind],
+    name: part.name ?? NAMES[part.kind],
     role: part.kind === 'number' ? 'price' : lead ? 'headline' : part.kind === 'subline' ? 'subhead' : 'body',
     props,
     bindings: { ...(font.ref ? { fontFamily: font.ref } : {}), ...(ink.ref ? { textColor: ink.ref } : {}) },

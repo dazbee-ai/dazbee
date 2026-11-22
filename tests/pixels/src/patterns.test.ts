@@ -1,12 +1,6 @@
-// The first six patterns swept (test-pattern-sweeps.ts), and what every pattern's frames share. Every pattern in every
-// style at every size of the Meta, TikTok and YouTube, and Google Display channels, built
-// with a stand-in brand's kit, logo, photo and words by the agent batch apply_pattern runs: each frame's design
-// check is clean. At a square, a story and a wide frame, the check is clean too with no brand kit (each style's own
-// colours and fonts) and with a brand's own fonts and only the content each pattern needs; and at those and the
-// display sizes with two more stand-in brands, a light one with a white wordmark and one with a square mark on its
-// own box and a serif font. An underlined highlight is drawn clear of the next line. With PATTERN_PICTURES naming a
-// folder, each frame is drawn there as a PNG, with an index.html that shows them by pattern and style, for the owner
-// to review.
+// The patterns of bands, badges, numbers, quotes and words swept in every style at every channel size and with the
+// other stand-in brands (test-pattern-sweeps.ts), and what every pattern's frames share: an underlined highlight drawn
+// clear of the next line, texts linked across the sizes, and the ground following the brand kit.
 import { describe, expect, it } from 'vitest'
 
 import { testEditor } from '@dazbee/editor/test-editor'
@@ -18,7 +12,7 @@ import { rgbaAt } from './pixels.ts'
 import { PATTERN_GROUPS, patternSweeps } from './test-pattern-sweeps.ts'
 import { builtPattern, CHANNEL_SIZES, ck, CONTENT, patternBytes, STRIDE_KIT } from './test-patterns.ts'
 
-patternSweeps('first')
+patternSweeps('bands-numbers-quotes')
 
 describe('a pattern’s frames', () => {
   it('are each swept in one file of the suite', () => {

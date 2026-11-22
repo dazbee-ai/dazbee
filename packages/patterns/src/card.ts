@@ -12,11 +12,10 @@ import {
   isTall,
   logoAtStart,
   logoOnTop,
-  roles,
   rowed,
   usualWords,
+  wordsOn,
 } from './build.ts'
-import { ctaFill } from './button.ts'
 import { apart, deepColour, mixed, ornamentColour, type Swatch, withAlpha } from './palette.ts'
 import { lookStyle } from './text-look.ts'
 import { ellipse, line, rect, round, solid, stroke, treeBuilder } from './tree.ts'
@@ -28,6 +27,8 @@ export interface CardSpec {
   stub: WordPart[]
   /** A line of dashes, as a coupon's cut line; or a row of punched holes, as a ticket's. */
   tear: 'dashes' | 'holes'
+  /** The words a short frame's chip holds, its lead among them; the stub's lead when left out. */
+  chip?: WordPart[]
   /**
    * What a short frame's words sit on beside the chip: the card's colour over the whole frame, as a coupon is one,
    * or the ground, as a pattern that sets its words on the ground at every other size does. The card's when left out.
@@ -35,7 +36,7 @@ export interface CardSpec {
   shortOn?: 'card' | 'ground'
 }
 
-/** The least proportion of a card across a room, its height over its width. */
+/** The most a card across a room is tall, as a share of its width. */
 const CARD_DOWN_MOST = 0.62
 /** The stub's share of the card: across it, at most across it, and down it. */
 const STUB = { across: 0.3, most: 0.46, down: 0.4 }
@@ -59,10 +60,9 @@ const CARD_APART = { ratio: 1.3, difference: 18 }
 
 /** Builds a card in the frame. */
 export function card(b: Build, spec: CardSpec) {
-  const { frame, palette, content } = b
+  const { frame, palette } = b
   const colour = ground(b)
   const fill = cardColour(b, colour)
-  const button = content.button ? { button: content.button, buttonFill: ctaFill(palette, fill, roles(b).cta) } : {}
   if (isShort(b)) {
     shortCard(b, spec, colour)
     return
@@ -141,8 +141,7 @@ export function card(b: Build, spec: CardSpec) {
     : { ...inset(main), y: main.y + pad + notch / 2, height: main.height - 2 * pad - notch / 2 }
   // The stub's lead leads the card: the main part's headline stays under half its size.
   const words: Words = {
-    parts: usualWords(content),
-    ...button,
+    ...wordsOn(b, fill),
     room: mainRoom,
     surface: fill.value,
     justify: 'center',
@@ -150,6 +149,88 @@ export function card(b: Build, spec: CardSpec) {
   }
   if (rowed(b, words)) rowWords(b.tree, b, words)
   else stackWords(b.tree, b, words)
+}
+
+/**
+ * The card's colour on the ground: a pale tint of the primary in a minimal style, edged; else the first of the kit's
+ * background, secondary and primary plainly apart from it.
+ */
+function cardColour(b: Build, colour: Swatch): Swatch {
+  const { palette } = b
+  if (b.styleName === 'minimal') return { value: mixed(colour.value, palette.primary.value, MINIMAL_TINT) }
+  const offered = [palette.background, palette.secondary, palette.primary, deepColour(palette)]
+  const shows = (swatch: Swatch) =>
+    swatch.value !== colour.value && apart(swatch.value, colour.value, CARD_APART.ratio, CARD_APART.difference)
+  return offered.find(shows) ?? { value: mixed(colour.value, palette.text.value, MINIMAL_TINT) }
+}
+
+/** A short frame's card: the stub as a chip after the logo, then the words in a row. */
+function shortCard(b: Build, spec: CardSpec, colour: Swatch) {
+  const { frame, content } = b
+  // The whole frame is the card, so its words are set on the card's colour at every size; or they stay on the ground.
+  const onCard = spec.shortOn !== 'ground'
+  const surface = onCard ? cardColour(b, colour) : colour
+  const whole = { x: 0, y: 0, width: frame.width, height: frame.height }
+  if (onCard) b.tree.add('card', { ...rect('Card', whole, solid(surface)), role: 'background' })
+  let room = logoAtStart(b, frame.safe, surface)
+  const fill = stubColour(b, surface, colour)
+  const pad = Math.round(frame.margin * 0.6)
+  const chipWords = (width: number): Words => ({
+    key: 'stub-words',
+    parts: spec.chip ?? spec.stub.filter((part) => part.kind === 'number'),
+    room: { ...room, x: room.x + pad, width },
+    surface: fill.value,
+    align: 'start',
+    floor: true,
+  })
+  // Set once to learn how wide the lead is, then in a room as wide as it, so the chip holds the words' box.
+  const tried = stackWords(treeBuilder(), b, chipWords(Math.round(room.width * 0.3)))
+  const chip = stackWords(b.tree, b, chipWords(tried.leadWidth + 1))
+  const box = { x: room.x, y: frame.safe.y, width: chip.leadWidth + 2 * pad, height: frame.safe.height }
+  const radius = Math.round(box.height * b.style.buttonRound)
+  // The chip goes over the card, under the words set before it.
+  const under = onCard ? 'card' : b.tree.tree().nodes.ground ? 'ground' : 'background'
+  b.tree.addOver('stub', { ...rect('Stub', box, solid(fill), { radius }), role: 'background' }, under)
+  const right = box.x + box.width + frame.margin
+  room = { ...room, x: right, width: room.x + room.width - right }
+  const of = (parts: WordPart[]): Words => ({ ...wordsOn(b, surface), parts, room, surface: surface.value })
+  // Beside the chip, the words that fit, in a row in a strip and stacked over the button in a mobile banner: all of
+  // them, the headline alone, else only the button.
+  const row = inRow(b)
+  const fits = (parts: WordPart[]) => (row ? rowFits(b, of(parts)) : fitsRoom(b, of(parts)))
+  const tries = [usualWords(content), [{ kind: 'headline' as const, text: content.headline }], []]
+  const words = of(tries.find(fits) ?? [])
+  if (row) rowWords(b.tree, b, words)
+  else stackWords(b.tree, b, words)
+}
+
+/** How wide a stub's lead is set, per pixel of its size: its width at 100 px over 100. */
+function numberWidth(b: Build, part: WordPart): number {
+  const props = TextProps.parse({
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    text: part.text,
+    style: { ...lookStyle(b, b.style.headline, 100), color: '#000000FF' },
+    boxMode: 'autoWidth',
+  })
+  return b.measure(props, null).width / 100
+}
+
+/**
+ * The stub's colour in a loud style: the first of the accent, secondary and deep colour plainly apart from the card
+ * and from what the card is on, so the stub shows as a part of the card; else, and in a quiet style, the card's own.
+ */
+function stubColour(b: Build, fill: Swatch, colour: Swatch): Swatch {
+  const { palette } = b
+  if (b.styleName !== 'bold' && b.styleName !== 'playful') return fill
+  const shows = (swatch: Swatch) =>
+    [fill, colour].every(
+      (other) =>
+        swatch.value !== other.value && apart(swatch.value, other.value, CARD_APART.ratio, CARD_APART.difference),
+    )
+  return [palette.accent, palette.secondary, deepColour(palette)].find(shows) ?? fill
 }
 
 /** The tear between the stub and the main part, and a notch bitten from each of the card's edges at it. */
@@ -167,8 +248,10 @@ function tear(b: Build, way: CardSpec['tear'], box: Rect, across: boolean, at: n
     const lineBox = { x: centre.x - span / 2, y: centre.y - weight, width: span, height: 2 * weight }
     const dash = Math.max(3, Math.round(short * 0.03))
     const part = line('Tear', lineBox, ink.colour, weight)
-    const colour = withAlpha(ink.colour.value, Math.min(1, ink.opacity + 0.3))
-    const strokes = [{ ...stroke(colour, weight), dashes: [dash, Math.round(dash * 0.8)], align: 'center' as const }]
+    const dashColour = withAlpha(ink.colour.value, Math.min(1, ink.opacity + 0.3))
+    const strokes = [
+      { ...stroke(dashColour, weight), dashes: [dash, Math.round(dash * 0.8)], align: 'center' as const },
+    ]
     b.tree.add('tear', { ...part, props: { ...part.props, strokes, ...(across ? { rotation: 90 } : {}) } })
   } else {
     const hole = Math.max(3, Math.round(short * 0.025))
@@ -198,91 +281,4 @@ function tear(b: Build, way: CardSpec['tear'], box: Rect, across: boolean, at: n
       ),
     )
   }
-}
-
-/** A short frame's card: the stub as a chip after the logo, then the words in a row. */
-function shortCard(b: Build, spec: CardSpec, colour: Swatch) {
-  const { frame, palette, content } = b
-  // The whole frame is the card, so its words are set on the card's colour at every size; or they stay on the ground.
-  const onCard = spec.shortOn !== 'ground'
-  const surface = onCard ? cardColour(b, colour) : colour
-  const whole = { x: 0, y: 0, width: frame.width, height: frame.height }
-  if (onCard) b.tree.add('card', { ...rect('Card', whole, solid(surface)), role: 'background' })
-  let room = logoAtStart(b, frame.safe, surface)
-  const fill = stubColour(b, surface, colour)
-  const pad = Math.round(frame.margin * 0.6)
-  const chipWords = (width: number): Words => ({
-    key: 'stub-words',
-    parts: spec.stub.filter((part) => part.kind === 'number'),
-    room: { ...room, x: room.x + pad, width },
-    surface: fill.value,
-    align: 'start',
-    floor: true,
-  })
-  // Set once to learn how wide the lead is, then in a room as wide as it, so the chip holds the words' box.
-  const tried = stackWords(treeBuilder(), b, chipWords(Math.round(room.width * 0.3)))
-  const chip = stackWords(b.tree, b, chipWords(tried.leadWidth + 1))
-  const box = { x: room.x, y: frame.safe.y, width: chip.leadWidth + 2 * pad, height: frame.safe.height }
-  const radius = Math.round(box.height * b.style.buttonRound)
-  // The chip goes over the card, under the words set before it.
-  const under = onCard ? 'card' : b.tree.tree().nodes.ground ? 'ground' : 'background'
-  b.tree.addOver('stub', { ...rect('Stub', box, solid(fill), { radius }), role: 'background' }, under)
-  const right = box.x + box.width + frame.margin
-  room = { ...room, x: right, width: room.x + room.width - right }
-  const of = (parts: WordPart[]): Words => ({
-    parts,
-    ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, surface, roles(b).cta) } : {}),
-    room,
-    surface: surface.value,
-  })
-  // Beside the chip, the words that fit, in a row in a strip and stacked over the button in a mobile banner: all of
-  // them, the headline alone, else only the button.
-  const row = inRow(b)
-  const fits = (parts: WordPart[]) => (row ? rowFits(b, of(parts)) : fitsRoom(b, of(parts)))
-  const tries = [usualWords(content), [{ kind: 'headline' as const, text: content.headline }], []]
-  const words = of(tries.find(fits) ?? [])
-  if (row) rowWords(b.tree, b, words)
-  else stackWords(b.tree, b, words)
-}
-
-/** How wide a stub's lead is set, per pixel of its size: its width at 100 px over 100. */
-function numberWidth(b: Build, part: WordPart): number {
-  const props = TextProps.parse({
-    x: 0,
-    y: 0,
-    width: 1,
-    height: 1,
-    text: part.text,
-    style: { ...lookStyle(b, b.style.headline, 100), color: '#000000FF' },
-    boxMode: 'autoWidth',
-  })
-  return b.measure(props, null).width / 100
-}
-
-/**
- * The card's colour on the ground: a pale tint of the primary in a minimal style, edged; else the first of the kit's
- * background, secondary and primary plainly apart from it.
- */
-function cardColour(b: Build, colour: Swatch): Swatch {
-  const { palette } = b
-  if (b.styleName === 'minimal') return { value: mixed(colour.value, palette.primary.value, MINIMAL_TINT) }
-  const offered = [palette.background, palette.secondary, palette.primary, deepColour(palette)]
-  const shows = (swatch: Swatch) =>
-    swatch.value !== colour.value && apart(swatch.value, colour.value, CARD_APART.ratio, CARD_APART.difference)
-  return offered.find(shows) ?? { value: mixed(colour.value, palette.text.value, MINIMAL_TINT) }
-}
-
-/**
- * The stub's colour in a loud style: the first of the accent, secondary and deep colour plainly apart from the card
- * and from what the card is on, so the stub shows as a part of the card; else, and in a quiet style, the card's own.
- */
-function stubColour(b: Build, fill: Swatch, colour: Swatch): Swatch {
-  const { palette } = b
-  if (b.styleName !== 'bold' && b.styleName !== 'playful') return fill
-  const shows = (swatch: Swatch) =>
-    [fill, colour].every(
-      (other) =>
-        swatch.value !== other.value && apart(swatch.value, other.value, CARD_APART.ratio, CARD_APART.difference),
-    )
-  return [palette.accent, palette.secondary, deepColour(palette)].find(shows) ?? fill
 }

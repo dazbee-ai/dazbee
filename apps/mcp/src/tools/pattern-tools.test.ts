@@ -26,7 +26,7 @@ interface Stored {
 interface Applied {
   frames: { id: string; name: string; width: number; height: number; layers: Record<string, string> }[]
   leftOut?: string[]
-  draft: string
+  startingPoint: string
   suggestions: string[]
   warnings: unknown[]
 }
@@ -194,7 +194,7 @@ describe('apply_pattern', () => {
       sizes: [{ width: 1080, height: 1080 }],
       content: { ...WORDS, highlight: undefined },
     })) as Applied
-    expect(photoless.draft).toMatch(/first draft/)
+    expect(photoless.startingPoint).toMatch(/first draft/)
     expect(photoless.suggestions.length).toBeGreaterThanOrEqual(2)
     expect(photoless.suggestions.length).toBeLessThanOrEqual(3)
     // No photo, so no crop to change; no highlight given, so setting words apart is suggested.

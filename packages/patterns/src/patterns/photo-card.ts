@@ -11,20 +11,22 @@ import {
   type Build,
   groundColour,
   isShort,
+  keepUnderLogo,
   logo,
   logoOnTop,
   logoRoom,
   logoRowHeight,
   photo,
+  photoLogo,
   photoSurface,
   wordsOn,
 } from '../build.ts'
 import { coverCrop } from '../crop.ts'
 import { dotGroup } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { ornamentColour, withAlpha } from '../palette.ts'
 import { rect, round, solid, stroke, treeBuilder } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 import { stackWords, type Words } from '../words.ts'
 
 export const PHOTO_CARD: Pattern = {
@@ -54,7 +56,7 @@ export function photoCard(b: Build) {
       ...rect('Ground', { x: 0, y: 0, width: frame.width, height: frame.height }, solid(colour)),
       role: 'background',
     })
-    layOut(b, {
+    placeVisualAndWords(b, {
       ground: colour,
       words: wordsOn(b, colour),
       ...(given ? { visual: { ratio: 1.6, draw: (box: Rect) => photo(b, box) } } : {}),
@@ -89,9 +91,11 @@ export function photoCard(b: Build) {
   const card = across
     ? { x: safe.x, y: Math.round(safe.y + (safe.height - cardHeight) / 2), width: cardWidth, height: cardHeight }
     : { x: safe.x, y: safe.y + safe.height - cardHeight, width: cardWidth, height: cardHeight }
-  const keep = across
+  const clear = across
     ? { x: card.x + card.width + margin, y: 0, width: width - card.x - card.width - margin, height }
     : { x: 0, y: 0, width, height: Math.max(Math.min(width, height) * 0.3, card.y - margin) }
+  // Down a frame the subject keeps clear of a top corner for the logo too.
+  const keep = across ? clear : keepUnderLogo(b, clear, Boolean(content.logo))
   // A photo whose subject can't show whole clear of the card over the whole frame stops half way under the card.
   const whole = !given.look || coverCrop(given, { x: 0, y: 0, width, height }, keep).whole
   const box = whole
@@ -99,7 +103,7 @@ export function photoCard(b: Build) {
     : across
       ? { x: card.x + card.width / 2, y: 0, width: width - card.x - card.width / 2, height }
       : { x: 0, y: 0, width, height: card.y + card.height / 2 }
-  photo(b, box, 0, keep)
+  const shot = photo(b, box, 0, keep)
   const short = Math.min(width, height)
   const radius = styleName === 'playful' ? Math.round(short * 0.04) : 0
   if (styleName === 'bold') {
@@ -131,7 +135,7 @@ export function photoCard(b: Build) {
   }
   if (across) stackWords(b.tree, b, of(logoOnTop(b, inner(card), colour)))
   else {
-    if (content.logo) {
+    if (content.logo && !photoLogo(b, shot)) {
       const surface = photoSurface(b)
       logo(b, logoRoom(b, { x: safe.x, y: safe.y }, safe.width, surface), 'start', surface)
     }

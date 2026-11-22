@@ -54,11 +54,11 @@ const BRAND_SIZES = [
 ]
 
 /**
- * The patterns each file of the pixel suite sweeps, by its name, so the files run at once: the first six, those of
- * photos and products, and those of offers, dates and apps.
+ * The patterns each file of the pixel suite sweeps, by its name, so the files run at once: those of bands, badges,
+ * numbers, quotes and words, those of photos and products, and those of offers, dates and apps.
  */
 export const PATTERN_GROUPS = {
-  first: ['photo-band', 'split', 'product-badge', 'big-number', 'quote', 'words-only'],
+  'bands-numbers-quotes': ['photo-band', 'split', 'product-badge', 'big-number', 'quote', 'words-only'],
   'photos-products': ['full-photo', 'photo-card', 'poster', 'arch', 'podium', 'spotlight'],
   'offers-dates-apps': ['price-tag', 'coupon', 'event-date', 'ticket', 'app-phone', 'app-icon'],
 } as const

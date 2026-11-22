@@ -9,8 +9,6 @@ import { z } from 'zod'
 import {
   buildPatterns,
   builtFrames,
-  DRAFT,
-  draftSuggestions,
   findPattern,
   missingContent,
   PATTERN_STYLES,
@@ -43,6 +41,7 @@ import type { OpenDesign } from '../open-design.ts'
 import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
+import { patternSuggestions, STARTING_POINT } from './pattern-suggestions.ts'
 import { frameIn } from './place-on-frame.ts'
 
 /** The content filled in from the brand's assets, and what of the content given is left out of the ad. */
@@ -164,8 +163,8 @@ export const PATTERN_TOOLS: Tool[] = [
             layers: ids,
           })),
           ...(leftOut.length > 0 ? { leftOut } : {}),
-          draft: DRAFT,
-          suggestions: draftSuggestions(found, style, kit, filled.content),
+          startingPoint: STARTING_POINT,
+          suggestions: patternSuggestions(found, style, kit, filled.content),
           warnings,
           ...(warningsError === undefined ? {} : { warningsError }),
         })

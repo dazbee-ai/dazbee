@@ -4,14 +4,13 @@
 // two soft rings of the accent with a group of dots (playful), or inside a fine accent line (premium).
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, isShort, roles, usualWords } from '../build.ts'
-import { ctaFill } from '../button.ts'
+import { type Build, ground, isShort, wordsOn } from '../build.ts'
 import { dotGroup } from '../decorations.ts'
-import { layOut } from '../layout.ts'
-import { contrast, deepColour, INK, ornamentColour, type Swatch, WHITE, withAlpha } from '../palette.ts'
+import { contrast, deepColour, INK, inkOn, ornamentColour, type Swatch, WHITE, withAlpha } from '../palette.ts'
 import { leastInkContrast } from '../picture-look.ts'
 import { ellipse, fitted, picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern, Picture } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const APP_ICON: Pattern = {
   id: 'app-icon',
@@ -33,7 +32,7 @@ const INK_READS = 3
 
 /** Builds the app icon in the frame. */
 export function appIcon(b: Build) {
-  const { palette, content } = b
+  const { content } = b
   const colour = ground(b)
   const logo = content.logo
   // A short frame, with no room for the icon, sets the logo at its start as any pattern does; elsewhere the logo is
@@ -41,12 +40,9 @@ export function appIcon(b: Build) {
   const words = { ...content }
   if (!isShort(b)) delete words.logo
   const plain: Build = { ...b, content: words }
-  layOut(plain, {
+  placeVisualAndWords(plain, {
     ground: colour,
-    words: {
-      parts: usualWords(words),
-      ...(words.button ? { button: words.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(plain, colour),
     ...(logo && !isShort(b) ? { visual: { ratio: 1, draw: (box: Rect) => icon(b, box, colour, logo) } } : {}),
   })
 }
@@ -111,7 +107,11 @@ function icon(b: Build, box: Rect, colour: Swatch, logo: Picture) {
     return
   }
   const fill = tileColour(b, colour, logo)
-  b.tree.add('tile', { ...rect('Tile', tile, solid(fill), { radius, ...shadow }), role: 'decoration' })
+  // A tile of the ground's own colour is edged in a hairline of the ground's ink, so it keeps its shape.
+  const hairline = inkOn(colour.value, [palette.text, palette.background]).value
+  const edged = contrast(fill.value, colour.value) < TILE_SHOWS
+  const edge = edged ? { strokes: [stroke(withAlpha(hairline, 0.18), Math.max(1, round(side * 0.006)))] } : {}
+  b.tree.add('tile', { ...rect('Tile', tile, solid(fill), { radius, ...shadow, ...edge }), role: 'decoration' })
   const inset = side * INSET
   const room = { x: tile.x + inset, y: tile.y + inset, width: side - 2 * inset, height: side - 2 * inset }
   const ink = logo.look?.subject ?? { x: 0, y: 0, width: logo.width, height: logo.height }
@@ -120,17 +120,20 @@ function icon(b: Build, box: Rect, colour: Swatch, logo: Picture) {
   b.tree.add('logo', { ...part, role: 'logo' })
 }
 
-/** The tile's colour: of the kit's background, white, its secondary and primary, and near black, the first apart from the ground that the logo's ink reads on. */
+/**
+ * The tile's colour: of the kit's background, white, its secondary and primary, and near black, the first the logo's
+ * ink reads on, those apart from the ground first; else the one it reads best on.
+ */
 function tileColour(b: Build, colour: Swatch, logo: Picture): Swatch {
   const { palette } = b
-  const offered = [palette.background, WHITE, palette.secondary, palette.primary, INK].filter(
-    (swatch) => contrast(swatch.value, colour.value) >= TILE_SHOWS,
-  )
-  const pool = offered.length > 0 ? offered : [WHITE, INK]
+  const all = [palette.background, WHITE, palette.secondary, palette.primary, INK]
+  const shown = all.filter((swatch) => contrast(swatch.value, colour.value) >= TILE_SHOWS)
   const look = logo.look
-  if (!look) return pool[0] ?? WHITE
+  if (!look) return shown[0] ?? WHITE
+  const reads = (swatch: Swatch) => leastInkContrast(look, swatch.value) >= INK_READS
   return (
-    pool.find((swatch) => leastInkContrast(look, swatch.value) >= INK_READS) ??
-    pool.reduce((a, c) => (leastInkContrast(look, c.value) > leastInkContrast(look, a.value) ? c : a))
+    shown.find(reads) ??
+    all.find(reads) ??
+    all.reduce((a, c) => (leastInkContrast(look, c.value) > leastInkContrast(look, a.value) ? c : a))
   )
 }

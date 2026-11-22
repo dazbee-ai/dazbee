@@ -5,14 +5,14 @@
 // short frame sets the date as a chip before its words.
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import { type Build, ground, isShort, roles, usualWords } from '../build.ts'
+import { type Build, ground, isShort, wordsOn } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { card } from '../card.ts'
-import { layOut } from '../layout.ts'
 import { apart, deepColour, mixed, ornamentColour, type Swatch, withAlpha } from '../palette.ts'
 import { inkFor, lookStyle } from '../text-look.ts'
 import { ellipse, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const EVENT_DATE: Pattern = {
   id: 'event-date',
@@ -37,19 +37,21 @@ const DAY = /^\d{1,2}(st|nd|rd|th)?$/iu
 
 /** Builds the event date in the frame. */
 export function eventDate(b: Build) {
-  const { palette, content } = b
+  const { content } = b
   // A short frame, with no room for the page, sets the date as a chip before its words, as a ticket does.
   if (isShort(b)) {
-    card(b, { stub: [{ kind: 'number', text: content.number ?? '' }], tear: 'holes', shortOn: 'ground' })
+    const { day, rest } = dateParts(content.number ?? '')
+    const chip = [
+      { kind: 'number' as const, key: 'date-day', name: 'Day', text: day },
+      ...(rest ? [{ kind: 'attribution' as const, key: 'date-rest', name: 'Month', text: rest }] : []),
+    ]
+    card(b, { stub: chip, chip, tear: 'holes', shortOn: 'ground' })
     return
   }
   const colour = ground(b)
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual: { ratio: PAGE_RATIO, draw: (box) => page(b, box, colour) },
   })
 }
@@ -79,7 +81,7 @@ function page(b: Build, box: Rect, colour: Swatch) {
       ? { strokes: [stroke(withAlpha(palette.primary.value, 0.45), Math.max(1, round(box.width * 0.006)))] }
       : {}
   b.tree.add('page', rect('Page', box, solid(fill), { radius, ...edge }))
-  const stripColour = stripOf(b, fill)
+  const stripColour = stripOf(b, fill, colour)
   const strip = { ...box, height: Math.round(Math.max(box.height * STRIP, frame.readable * STRIP_LEAST)) }
   b.tree.add('page-strip', rect('Page strip', strip, solid(stripColour), { radius: [radius, radius, 0, 0] }))
   if (styleName === 'playful') {
@@ -130,6 +132,34 @@ function page(b: Build, box: Rect, colour: Swatch) {
   dateText(b, 'date-day', 'Day', day, body, size, fill, b.style.headline)
 }
 
+/** The page's colour: a pale tint in a minimal style, else the first of the kit's light colours apart from the ground. */
+function pageColour(b: Build, colour: Swatch): Swatch {
+  const { palette } = b
+  if (b.styleName === 'minimal') return { value: mixed(colour.value, palette.primary.value, 0.05) }
+  const offered = [palette.background, palette.secondary, palette.primary, deepColour(palette)]
+  const shows = (swatch: Swatch) =>
+    swatch.value !== colour.value && apart(swatch.value, colour.value, PAGE_APART.ratio, PAGE_APART.difference)
+  return offered.find(shows) ?? { value: mixed(colour.value, palette.text.value, 0.08) }
+}
+
+/**
+ * The strip's colour: the first of the style's colour (the accent in a loud style, the primary in a minimal one, the
+ * deep colour in a premium one), then the kit's others, plainly apart from the page and from the ground round it, so
+ * the strip shows as the page's own.
+ */
+function stripOf(b: Build, page: Swatch, ground: Swatch): Swatch {
+  const { palette, styleName } = b
+  const first =
+    styleName === 'premium' ? deepColour(palette) : styleName === 'minimal' ? palette.primary : palette.accent
+  const offered = [first, palette.accent, palette.primary, palette.secondary, deepColour(palette), palette.text]
+  const shows = (swatch: Swatch) =>
+    [page, ground].every(
+      (other) =>
+        swatch.value !== other.value && apart(swatch.value, other.value, PAGE_APART.ratio, PAGE_APART.difference),
+    )
+  return offered.find(shows) ?? ctaFill(palette, page, 'accent').fill
+}
+
 /** A text of the date centred in `box` at `size`, in an ink that reads on `surface`, bound to its font and ink. */
 function dateText(
   b: Build,
@@ -178,21 +208,4 @@ function dateProps(
     verticalAlign: 'middle',
     boxMode: 'fixed',
   })
-}
-
-/** The page's colour: a pale tint in a minimal style, else the first of the kit's light colours apart from the ground. */
-function pageColour(b: Build, colour: Swatch): Swatch {
-  const { palette } = b
-  if (b.styleName === 'minimal') return { value: mixed(colour.value, palette.primary.value, 0.05) }
-  const offered = [palette.background, palette.secondary, palette.primary, deepColour(palette)]
-  const shows = (swatch: Swatch) =>
-    swatch.value !== colour.value && apart(swatch.value, colour.value, PAGE_APART.ratio, PAGE_APART.difference)
-  return offered.find(shows) ?? { value: mixed(colour.value, palette.text.value, 0.08) }
-}
-
-/** The strip's colour on the page: the accent (bold, playful), the primary (minimal) or the deep colour (premium). */
-function stripOf(b: Build, page: Swatch): Swatch {
-  const { palette, styleName } = b
-  if (styleName === 'premium') return deepColour(palette)
-  return ctaFill(palette, page, styleName === 'minimal' ? 'primary' : 'accent').fill
 }

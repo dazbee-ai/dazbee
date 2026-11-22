@@ -1,13 +1,11 @@
-// What a pattern's build is: a first draft to adapt to the brief, never the finished ad. The ways it is suggested an
-// agent makes the draft the brand's own are chosen from what the pattern and the brand kit hold, so ads built from
-// one pattern don't all look alike.
+// What apply_pattern tells an agent of a pattern's build: a first draft to adapt to the brief, never the finished ad,
+// and two or three ways to make it the brand's own, chosen from what the pattern and the brand kit hold, so ads built
+// from one pattern don't all look alike.
+import { type Pattern, type PatternContent, type PatternStyle, STYLE_FONTS } from '@dazbee/patterns'
 import type { BrandKit } from '@dazbee/schema'
 
-import { STYLES } from './styles.ts'
-import type { Pattern, PatternContent, PatternStyle } from './types.ts'
-
 /** What an agent is told of a pattern's build. */
-export const DRAFT =
+export const STARTING_POINT =
   'A first draft from a pattern, not the finished ad: adapt it to the brief and make it this brand’s own before you finish, changing at least one of the suggestions below or something better, then render_frame and check_frame each frame.'
 
 /** The most ways suggested. */
@@ -23,11 +21,11 @@ const GRAPHIC_FOR: Readonly<Record<string, string>> = {
 }
 
 /**
- * Two or three concrete ways to make a pattern's draft the brand's own, chosen from what the pattern and the brand
- * kit hold: a face with character where the kit sets none, the photo's crop or focal point where there is a photo, a
- * brand graphic or icon that says the brief, and a treatment of the headline.
+ * Two or three concrete ways to make a pattern's build the brand's own, chosen from what the pattern and the brand
+ * kit hold: a face with character where the kit sets none, the photo's crop or focal point where there is a photo
+ * (a cut-out's size or angle), a brand graphic or icon that says the brief, and a treatment of the headline.
  */
-export function draftSuggestions(
+export function patternSuggestions(
   pattern: Pattern,
   style: PatternStyle,
   kit: BrandKit,
@@ -37,12 +35,16 @@ export function draftSuggestions(
   const heading = kit.fonts.find((font) => font.token === 'heading')
   if (!heading)
     ways.push(
-      `Choose a heading face for this brand: the kit sets none, so the ${style} style’s ${STYLES[style].fonts.heading} is used. list_fonts finds one with character; set the kit’s Heading role, or bind the headline’s fontFamily with node.bind.`,
+      `Choose a heading face for this brand: the kit sets none, so the ${style} style’s ${STYLE_FONTS[style].heading} is used. list_fonts finds one with character; set the kit’s Heading role, or bind the headline’s fontFamily with node.bind.`,
     )
   const takesPhoto = pattern.needs.includes('photo') || pattern.takes.includes('photo')
-  if (takesPhoto && content.photo)
+  if (takesPhoto && content.photo?.look?.extent)
     ways.push(
-      'Move the photo’s focal point: change the crop of the Photo or Product layer’s image fill (node.update) so the subject sits closer or off-centre, or try another of the brand’s photos (list_assets) or a stock photo (search_stock).',
+      'Give the product more presence: set it larger, so it breaks out of what it stands on, or at an angle (node.update), or try another cut-out of it from list_assets.',
+    )
+  else if (takesPhoto && content.photo)
+    ways.push(
+      'Move the photo’s focal point: change the crop of its image fill (node.update) so the subject sits closer or off-centre, or try another of the brand’s photos (list_assets) or a stock photo (search_stock).',
     )
   else if (takesPhoto)
     ways.push(

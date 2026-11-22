@@ -151,6 +151,14 @@ export const STYLES: Readonly<Record<PatternStyle, Style>> = {
   },
 }
 
+/** The Google Fonts families each style pairs where the brand kit sets no Heading or Body font. */
+export const STYLE_FONTS: Readonly<Record<PatternStyle, Style['fonts']>> = {
+  bold: STYLES.bold.fonts,
+  minimal: STYLES.minimal.fonts,
+  playful: STYLES.playful.fonts,
+  premium: STYLES.premium.fonts,
+}
+
 /** A style's roles for a pattern: its own, with the pattern's variant over them. */
 export function rolesFor(style: Style, pattern: string): StyleRoles {
   return { ...style.roles, ...style.variants[pattern] }

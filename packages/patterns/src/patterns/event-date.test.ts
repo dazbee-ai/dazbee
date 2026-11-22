@@ -12,12 +12,16 @@ describe('the event date', () => {
     expect(dateParts('Tonight')).toEqual({ day: 'Tonight', rest: '' })
   })
 
-  it('shows the date at every channel size, as a chip before the words in a short frame', () => {
+  it('shows the day and month at every channel size, as a chip before the words in a short frame, each one linked part', () => {
     const content = { ...CONTENT, number: '28 Nov' }
     for (const style of PATTERN_STYLES)
       for (const { width, height } of CHANNEL_SIZES) {
         const { nodes } = buildPattern('event-date', { style, kit: KIT, content, width, height, measure })
-        const shown = Object.values(nodes).some((node) => node.type === 'text' && /28/.test(node.props.text))
+        // The day and the month are one part each at every size, so each is a linked copy across them.
+        const day = nodes['date-day']
+        const month = nodes['date-rest']
+        const shown =
+          day?.type === 'text' && day.props.text === '28' && month?.type === 'text' && month.props.text === 'Nov'
         expect({ style, width, height, shown }).toEqual({ style, width, height, shown: true })
       }
   })

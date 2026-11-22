@@ -4,15 +4,14 @@
 // a gold beam on a deep ground (premium).
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, roles, usualWords } from '../build.ts'
-import { ctaFill } from '../button.ts'
+import { type Build, ground, wordsOn } from '../build.ts'
 import { meets } from '../crop.ts'
 import { glow } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { contrast, inkOn, type Swatch, withAlpha } from '../palette.ts'
 import { standProduct } from '../product-stage.ts'
 import { linear, path, round, solid, star } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const SPOTLIGHT: Pattern = {
   id: 'spotlight',
@@ -35,14 +34,10 @@ const SHOWS = 1.3
 
 /** Builds the spotlight in the frame. */
 export function spotlight(b: Build) {
-  const { palette, content } = b
   const colour = ground(b)
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual: { ratio: BEAM_RATIO, draw: (box) => drawBeam(b, box, colour), short: false },
   })
 }

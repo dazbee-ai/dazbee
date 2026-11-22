@@ -4,15 +4,16 @@
 // (minimal), rounded in the accent (playful), or in the accent with a fine inner line (premium).
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import { type Build, ground, isShort, roles, usualWords } from '../build.ts'
+import { type Build, ground, isShort, wordsOn } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { card } from '../card.ts'
-import { layOut, type Visual } from '../layout.ts'
+import { subjectOf } from '../crop.ts'
 import { type Swatch, withAlpha } from '../palette.ts'
 import { standProduct } from '../product-stage.ts'
 import { inkFor, lookStyle } from '../text-look.ts'
 import { ellipse, path, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords, type Visual } from '../visual-words.ts'
 
 export const PRICE_TAG: Pattern = {
   id: 'price-tag',
@@ -24,29 +25,32 @@ export const PRICE_TAG: Pattern = {
   takes: ['kicker', 'subline', 'button', 'highlight', 'logo'],
 }
 
-/** The product and its tag's width over their height. */
-const RATIO = 1.15
-/** The tag's height as a share of the visual's height, its words' share of its height, and its room at the ends. */
-const TAG = { down: 0.2, words: 0.5, ends: 0.42 }
+/** The product and its tag's width over their height: the product's own with room, kept between these. */
+const RATIO = { least: 0.9, most: 1.8, room: 1.15 }
+/**
+ * The tag's height as a share of the visual's height, its words' share of its height, the room at their ends, and
+ * the share of its width over the product.
+ */
+const TAG = { down: 0.24, words: 0.5, ends: 0.42, onProduct: 0.6 }
 /** How far the tag's point reaches, as a share of its height. */
 const POINT = 0.42
 
 /** Builds the product with a price tag in the frame. */
 export function priceTag(b: Build) {
-  const { palette, content } = b
+  const { content } = b
   // A short frame, with no room for the product, sets the price as a chip before the words that fit beside it.
   if (isShort(b)) {
-    card(b, { stub: [{ kind: 'number', text: content.number ?? '' }], tear: 'dashes', shortOn: 'ground' })
+    const price = { kind: 'number' as const, key: 'price', name: 'Price', text: content.number ?? '' }
+    card(b, { stub: [price], tear: 'dashes', shortOn: 'ground' })
     return
   }
   const colour = ground(b)
-  const visual: Visual = { ratio: RATIO, draw: (box) => productAndTag(b, box, colour), short: false }
-  layOut(b, {
+  const subject = content.photo ? subjectOf(content.photo) : { width: 4, height: 3 }
+  const ratio = Math.min(RATIO.most, Math.max(RATIO.least, (subject.width / subject.height) * RATIO.room))
+  const visual: Visual = { ratio, draw: (box) => productAndTag(b, box, colour), short: false }
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual,
   })
 }
@@ -54,16 +58,15 @@ export function priceTag(b: Build) {
 /** The product in `box`, under the tag at its top right. */
 function productAndTag(b: Build, box: Rect, colour: Swatch) {
   const height = Math.max(b.frame.readable * 2, box.height * TAG.down)
-  const width = Math.min(box.width * 0.6, height * tagRatio(b, height))
-  const tagBox = { x: box.x + box.width - width, y: box.y, width, height: width / tagRatio(b, height) }
-  const room = {
-    x: box.x,
-    y: box.y + tagBox.height * 0.55,
-    width: box.width - width * 0.35,
-    height: box.height - tagBox.height * 0.55,
-  }
-  standProduct(b, room, colour)
-  tag(b, tagBox, colour)
+  const ratio = tagRatio(b, height)
+  const width = Math.min(box.width * 0.6, height * ratio)
+  const tall = width / ratio
+  const room = { x: box.x, y: box.y + tall * 0.5, width: box.width, height: box.height - tall * 0.5 }
+  const product = standProduct(b, room, colour)?.box ?? room
+  // The tag hangs from the product's top corner, inside the box.
+  const x = Math.min(box.x + box.width - width, product.x + product.width - width * TAG.onProduct)
+  const y = Math.max(box.y, product.y - tall * 0.5)
+  tag(b, { x: round(x), y: round(y), width: round(width), height: round(tall) }, colour)
 }
 
 /** The tag's width over its height, for its price set at the size it takes `height` tall. */

@@ -5,15 +5,14 @@
 // product's own, so it keeps its silhouette.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, roles, usualWords } from '../build.ts'
-import { ctaFill } from '../button.ts'
+import { type Build, ground, wordsOn } from '../build.ts'
 import { coverCrop } from '../crop.ts'
 import { dotGroup, glow } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { deepColour, mixed, ornamentColour, type Swatch } from '../palette.ts'
 import { isCutOut, lightColour, standProduct } from '../product-stage.ts'
 import { picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const ARCH: Pattern = {
   id: 'arch',
@@ -33,14 +32,10 @@ const PRODUCT_DOWN = 0.62
 
 /** Builds the product in an arch in the frame. */
 export function arch(b: Build) {
-  const { palette, content } = b
   const colour = ground(b)
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
-    words: {
-      parts: usualWords(content),
-      ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    },
+    words: wordsOn(b, colour),
     visual: { ratio: ARCH_RATIO, draw: (box) => drawArch(b, box, colour), short: false },
   })
 }

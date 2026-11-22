@@ -22,7 +22,7 @@ export interface Visual {
 }
 
 /** What a layout sets: the words on their ground, and the visual. */
-export interface Layout {
+export interface VisualAndWords {
   /** The colour behind the words. */
   ground: Swatch
   /** The words, but their room and the colour behind them. */
@@ -62,7 +62,7 @@ const BANNER_VISUAL_MOST = 0.36
 const BETWEEN = 0.8
 
 /** Sets a pattern's visual and words in the frame, each where its shape puts it. */
-export function layOut(b: Build, layout: Layout): Placed {
+export function placeVisualAndWords(b: Build, layout: VisualAndWords): Placed {
   const { frame } = b
   if (frame.shape === 'strip' || frame.shape === 'banner') return inBanner(b, layout)
   const square = frame.shape === 'square'
@@ -72,8 +72,20 @@ export function layOut(b: Build, layout: Layout): Placed {
   return stacked(b, layout)
 }
 
+/** The largest box of `ratio` inside `room`, centred down it, and across it or at its start. */
+export function fitIn(room: Rect, ratio: number, align: 'start' | 'center' = 'center'): Rect {
+  const width = Math.min(room.width, room.height * ratio)
+  const height = width / ratio
+  return {
+    x: Math.round(room.x + (align === 'center' ? (room.width - width) / 2 : 0)),
+    y: Math.round(room.y + (room.height - height) / 2),
+    width: Math.round(width),
+    height: Math.round(height),
+  }
+}
+
 /** A banner or strip: the logo at its start, the visual at its start or end, the words between in a row or a stack. */
-function inBanner(b: Build, { ground, words, visual, first = true }: Layout): Placed {
+function inBanner(b: Build, { ground, words, visual, first = true }: VisualAndWords): Placed {
   const { frame } = b
   let room = frame.safe
   let box: Rect | undefined
@@ -98,7 +110,7 @@ function inBanner(b: Build, { ground, words, visual, first = true }: Layout): Pl
 }
 
 /** A wide frame or a small display square: the visual on one side, the logo and words on the other. */
-function sideBySide(b: Build, { ground, words, visual, first = true, wordsShare }: Layout): Placed {
+function sideBySide(b: Build, { ground, words, visual, first = true, wordsShare }: VisualAndWords): Placed {
   const { frame } = b
   const { safe } = frame
   const gap = Math.round(frame.margin * BETWEEN)
@@ -122,7 +134,7 @@ function sideBySide(b: Build, { ground, words, visual, first = true, wordsShare 
  * the room under it, at its foot where the visual goes first, else at its top; the visual fills the rest. A 9:16
  * frame keeps its words with their button at the safe room's foot.
  */
-function stacked(b: Build, { ground, words, visual, first = true, wordsShare, buttonApart }: Layout): Placed {
+function stacked(b: Build, { ground, words, visual, first = true, wordsShare, buttonApart }: VisualAndWords): Placed {
   const { frame } = b
   const room = logoOnTop(b, frame.safe, ground)
   const tall = isTall(b)
@@ -186,16 +198,4 @@ function stacked(b: Build, { ground, words, visual, first = true, wordsShare, bu
   const set = stackWords(b.tree, b, of(wordsRoom))
   if (apart) stackWords(b.tree, b, buttonWords(buttonRoom))
   return { set, visual: box }
-}
-
-/** The largest box of `ratio` inside `room`, centred down it, and across it or at its start. */
-export function fitIn(room: Rect, ratio: number, align: 'start' | 'center' = 'center'): Rect {
-  const width = Math.min(room.width, room.height * ratio)
-  const height = width / ratio
-  return {
-    x: Math.round(room.x + (align === 'center' ? (room.width - width) / 2 : 0)),
-    y: Math.round(room.y + (room.height - height) / 2),
-    width: Math.round(width),
-    height: Math.round(height),
-  }
 }

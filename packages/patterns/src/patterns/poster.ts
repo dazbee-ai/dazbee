@@ -7,10 +7,10 @@ import type { Rect } from '@dazbee/schema'
 import { type Build, ground, photo, wordsOn } from '../build.ts'
 import { subjectOf } from '../crop.ts'
 import { dotGroup } from '../decorations.ts'
-import { layOut } from '../layout.ts'
 import { mixed, ornamentColour, type Swatch, withAlpha } from '../palette.ts'
 import { rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
+import { placeVisualAndWords } from '../visual-words.ts'
 
 export const POSTER: Pattern = {
   id: 'poster',
@@ -31,7 +31,7 @@ export function poster(b: Build) {
   const given = b.content.photo
   const subject = given ? subjectOf(given) : { width: 4, height: 3 }
   const ratio = Math.min(RATIO.most, Math.max(RATIO.least, (subject.width / subject.height) * RATIO.room))
-  layOut(b, {
+  placeVisualAndWords(b, {
     ground: colour,
     words: wordsOn(b, colour),
     visual: { ratio, draw: (box) => framed(b, box, colour), short: false, fill: true },

@@ -1,0 +1,461 @@
+{
+  "source": "text-match-prototype at 8596833: src/rule.ts measure and looksSame, src/score.ts score",
+  "pairs": [
+    {
+      "id": "s196",
+      "width": 586,
+      "height": 154,
+      "ink": false,
+      "background": [5, 219, 185],
+      "inkColour": 13.15217525343989,
+      "seen": [
+        {
+          "backgrounds": [[5, 219, 185]],
+          "ssim": 0.9892828097696312,
+          "inkMissed": 0,
+          "far": 0.05067304816033503,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.9892647897565945,
+          "inkMissed": 0,
+          "far": 0.004247681723003291,
+          "textLooksSame": false,
+          "shapeLooksSame": true
+        },
+        {
+          "backgrounds": [
+            [5, 219, 185],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.9823592877989911,
+          "inkMissed": 0,
+          "far": 0.05067304816033503,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s316",
+      "width": 602,
+      "height": 278,
+      "ink": true,
+      "background": [18, 56, 99],
+      "inkColour": 0,
+      "seen": [
+        {
+          "backgrounds": [[18, 56, 99]],
+          "ssim": 0.9237313328219949,
+          "inkMissed": 0.25319795789594446,
+          "far": 0.5823624528380116,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.3686019233626294,
+          "inkMissed": 0.25319795789594446,
+          "far": 0.7185621294415191,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [18, 56, 99],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.09802821513121691,
+          "inkMissed": 0.25319795789594446,
+          "far": 0.81641029893445,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s213",
+      "width": 536,
+      "height": 126,
+      "ink": true,
+      "background": [59, 79, 121],
+      "inkColour": 3.8998581579581155,
+      "seen": [
+        {
+          "backgrounds": [[59, 79, 121]],
+          "ssim": 0.9235113938603968,
+          "inkMissed": 0.2352356333267051,
+          "far": 0.40522169009732734,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.5486489265248553,
+          "inkMissed": 0.2352356333267051,
+          "far": 0.9652402286420516,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [59, 79, 121],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.07621167892816677,
+          "inkMissed": 0.2352356333267051,
+          "far": 0.9973737061640662,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s221",
+      "width": 55,
+      "height": 29,
+      "ink": false,
+      "background": [9, 225, 23],
+      "inkColour": 0.50739407080657,
+      "seen": [
+        {
+          "backgrounds": [[9, 225, 23]],
+          "ssim": 0.8364416421440701,
+          "inkMissed": 0.3333333333333333,
+          "far": 0.34065934065934067,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.8107973372511169,
+          "inkMissed": 0.3333333333333333,
+          "far": 0.46153846153846156,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [9, 225, 23],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.7156606742893425,
+          "inkMissed": 0.3333333333333333,
+          "far": 0.4945054945054945,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s318",
+      "width": 92,
+      "height": 32,
+      "ink": false,
+      "background": [179, 246, 128],
+      "inkColour": 24.89578417539213,
+      "seen": [
+        {
+          "backgrounds": [[179, 246, 128]],
+          "ssim": 0.8145715954774262,
+          "inkMissed": 0,
+          "far": 0.47294716740929343,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.7320289459309172,
+          "inkMissed": 0,
+          "far": 0.5423297262889879,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [179, 246, 128],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.8145715954774262,
+          "inkMissed": 0,
+          "far": 0.9764481222151495,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s353",
+      "width": 83,
+      "height": 70,
+      "ink": true,
+      "background": [208, 114, 10],
+      "inkColour": 0,
+      "seen": [
+        {
+          "backgrounds": [[208, 114, 10]],
+          "ssim": 0.9928631553551416,
+          "inkMissed": 0.26405363589479114,
+          "far": 0.08005249343832022,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.7221057098775641,
+          "inkMissed": 0.26405363589479114,
+          "far": 0.9930008748906387,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [208, 114, 10],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.08102624424836513,
+          "inkMissed": 0.26405363589479114,
+          "far": 1,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s264",
+      "width": 100,
+      "height": 77,
+      "ink": false,
+      "background": [112, 241, 234],
+      "inkColour": 1.107436023725709,
+      "seen": [
+        {
+          "backgrounds": [[112, 241, 234]],
+          "ssim": 0.7549117480005169,
+          "inkMissed": 0.26404833836858005,
+          "far": 0.4299954689623924,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.8429822648052344,
+          "inkMissed": 0.26404833836858005,
+          "far": 0.10149524241051201,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [112, 241, 234],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.6334417331191516,
+          "inkMissed": 0.26404833836858005,
+          "far": 0.4807430901676484,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s333",
+      "width": 38,
+      "height": 27,
+      "ink": true,
+      "background": [195, 80, 40],
+      "inkColour": 0.7800358496813329,
+      "seen": [
+        {
+          "backgrounds": [[195, 80, 40]],
+          "ssim": 0.9977590872181786,
+          "inkMissed": 0.21875,
+          "far": 0.05732484076433121,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.7028170751142687,
+          "inkMissed": 0.21875,
+          "far": 1,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [195, 80, 40],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.09564225641495665,
+          "inkMissed": 0.21875,
+          "far": 1,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s150",
+      "width": 97,
+      "height": 50,
+      "ink": true,
+      "background": [237, 106, 228],
+      "inkColour": 8.150645086791757,
+      "seen": [
+        {
+          "backgrounds": [[237, 106, 228]],
+          "ssim": 0.8508052600136737,
+          "inkMissed": 0.20298769771529,
+          "far": 0.3406183368869936,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.7697591647905173,
+          "inkMissed": 0.20298769771529,
+          "far": 0.9498933901918977,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [237, 106, 228],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.13145033116982388,
+          "inkMissed": 0.20298769771529,
+          "far": 0.9818763326226013,
+          "textLooksSame": false,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s241",
+      "width": 291,
+      "height": 24,
+      "ink": false,
+      "background": [84, 118, 110],
+      "inkColour": 8.847069256478706,
+      "seen": [
+        {
+          "backgrounds": [[84, 118, 110]],
+          "ssim": 0.68376009326658,
+          "inkMissed": 0.030679327976625273,
+          "far": 0.10764499121265378,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.6493829193219293,
+          "inkMissed": 0.030679327976625273,
+          "far": 0.0021968365553602814,
+          "textLooksSame": true,
+          "shapeLooksSame": true
+        },
+        {
+          "backgrounds": [
+            [84, 118, 110],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.68376009326658,
+          "inkMissed": 0.030679327976625273,
+          "far": 0.34402460456942,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s270",
+      "width": 104,
+      "height": 68,
+      "ink": false,
+      "background": [189, 25, 230],
+      "inkColour": 5.711270197690128,
+      "seen": [
+        {
+          "backgrounds": [[189, 25, 230]],
+          "ssim": 0.706874265856653,
+          "inkMissed": 0.11634460547504026,
+          "far": 0.6953985742060921,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.638468723470464,
+          "inkMissed": 0.11634460547504026,
+          "far": 0.3833441348023331,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [189, 25, 230],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.5928452077367438,
+          "inkMissed": 0.11634460547504026,
+          "far": 0.6953985742060921,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        }
+      ]
+    },
+    {
+      "id": "s131",
+      "width": 175,
+      "height": 22,
+      "ink": false,
+      "background": [28, 11, 202],
+      "inkColour": 0.41395493230485864,
+      "seen": [
+        {
+          "backgrounds": [[28, 11, 202]],
+          "ssim": 0.9563242320426099,
+          "inkMissed": 0.18471337579617833,
+          "far": 0,
+          "textLooksSame": true,
+          "shapeLooksSame": true
+        },
+        {
+          "backgrounds": null,
+          "ssim": 0.8945487972252167,
+          "inkMissed": 0.18471337579617833,
+          "far": 0.05970149253731343,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        },
+        {
+          "backgrounds": [
+            [28, 11, 202],
+            [255, 255, 255],
+            [0, 0, 0]
+          ],
+          "ssim": 0.8246434493188735,
+          "inkMissed": 0.18471337579617833,
+          "far": 0.0779436152570481,
+          "textLooksSame": true,
+          "shapeLooksSame": false
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import type { MatchAnswer, MatchJob } from '@dazbee/schema'
 
 import {
   type Device,
+  DONE_MS,
   IDLE_MS,
   type MatchMessage,
   matchPool,
@@ -162,7 +163,7 @@ describe('matchPool', () => {
     expect(made.map((worker) => worker.pieces().length)).toEqual(Array(workers).fill(1))
   })
 
-  it('compiles once for every worker, and leaves no worker and nothing compiled 3 s after the last piece', async () => {
+  it('compiles once for every worker, and leaves no worker and nothing compiled 2 s after the last job', async () => {
     const { made, compile, add, startNewest, alive, answers } = pool(LAPTOP)
     add(2)
     await startNewest()
@@ -170,13 +171,30 @@ describe('matchPool', () => {
     expect(compile).toHaveBeenCalledTimes(1)
     for (const worker of made) worker.answerLast()
     expect(answers.size).toBe(2)
-    await vi.advanceTimersByTimeAsync(IDLE_MS - 1)
+    await vi.advanceTimersByTimeAsync(DONE_MS - 1)
     expect(alive()).toHaveLength(2)
     await vi.advanceTimersByTimeAsync(1)
     expect(alive()).toHaveLength(0)
     add(1, 1)
     await startNewest()
     expect(compile).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a worker with nothing to do 15 s while a job is still matched, so the next job reuses it', async () => {
+    const { made, add, startNewest, alive } = pool(LAPTOP)
+    add(2)
+    await startNewest()
+    await startNewest()
+    made[0]?.answerLast()
+    await vi.advanceTimersByTimeAsync(IDLE_MS - 1)
+    expect(alive()).toHaveLength(2)
+    add(1, 1)
+    expect(made[0]?.pieces().map((piece) => piece.jobId)).toEqual([0, 1])
+    made[1]?.answerLast()
+    made[0]?.answerLast()
+    await vi.advanceTimersByTimeAsync(DONE_MS)
+    expect(alive()).toHaveLength(0)
+    expect(made).toHaveLength(2)
   })
 
   it('tells a worker a job once, and to forget it once the job ends', async () => {

@@ -159,6 +159,17 @@ async function openModel(model: Uint8Array, compiled: WebAssembly.Module): Promi
 }
 
 /**
+ * The bytes this worker holds that grow as it matches: its WebAssembly memories, which grow as a
+ * piece needs and never give memory back, and the faces it has read, which it holds until they are
+ * collected.
+ */
+function held(): number {
+  let bytes = facesRead
+  for (const memory of memories) bytes += memory.buffer.byteLength
+  return bytes
+}
+
+/**
  * A job's faces by key, found in its font catalog: a Google face's match copy, or its whole face,
  * from its permanent address, and a brand's upload through the brand; null for a key the catalog has
  * no face for, or a file that doesn't come.
@@ -191,17 +202,6 @@ function faceUrl(face: FontFace, copy: boolean, uploadPath: string): string | nu
 function kitFaces({ job, fonts }: WorkerJob, fingerprinted: ReadonlySet<string>): FontFace[] {
   const families = new Set(Object.values(job.kit.fonts).filter((family) => !fingerprinted.has(family)))
   return fonts.catalog.filter((family) => families.has(family.family)).flatMap((family) => family.faces)
-}
-
-/**
- * The bytes this worker holds that grow as it matches: its WebAssembly memories, which grow as a
- * piece needs and never give memory back, and the faces it has read, which it holds until they are
- * collected.
- */
-function held(): number {
-  let bytes = facesRead
-  for (const memory of memories) bytes += memory.buffer.byteLength
-  return bytes
 }
 
 function messageOf(error: unknown): string {

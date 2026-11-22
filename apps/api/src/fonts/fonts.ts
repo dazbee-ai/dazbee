@@ -23,7 +23,7 @@ import {
 import type { Storage } from '@dazbee/storage'
 
 import { checkUpload, googleFontKey, previewKey, signedLink, signedUpload, uploadedFontKey } from '../storage-keys.ts'
-import { fontPreview, readFontInfo } from './font-file.ts'
+import { fontPreview, fontScripts, readFontInfo } from './font-file.ts'
 
 export class InvalidFont extends Error {}
 
@@ -222,8 +222,10 @@ export async function startFontUpload(
 
 /**
  * Records the font file stored under `sha256` as the brand's, named by its own tables, after
- * checking the bytes hash to it and CanvasKit reads them. A face the brand already has in that
- * family, weight and style is replaced; recording the same bytes again gives back the same face.
+ * checking the bytes hash to it and CanvasKit reads them. Its preview draws the family's name, or,
+ * for a face that lacks those letters, a few of the script its own characters are most in. A face
+ * the brand already has in that family, weight and style is replaced; recording the same bytes
+ * again gives back the same face.
  */
 export async function recordFont(
   db: Db,
@@ -245,7 +247,7 @@ export async function recordFont(
   if (!info) throw await refuse('The upload is not a TrueType or OpenType font')
   let preview: Uint8Array
   try {
-    preview = await fontPreview(bytes, info)
+    preview = await fontPreview(bytes, info, fontScripts(bytes))
   } catch {
     throw await refuse('The font could not be read')
   }

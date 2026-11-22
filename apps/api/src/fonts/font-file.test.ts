@@ -5,7 +5,8 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { readImageHeader } from '@dazbee/schema'
 
 import { fontFile } from '../test-files.ts'
-import { fontPreview, readFontInfo, withoutSvgTable } from './font-file.ts'
+import { fontPreview, fontScripts, readFontInfo, withoutSvgTable } from './font-file.ts'
+import { previewText } from './preview-text.ts'
 
 /** `text` drawn at 48 pixels in a font's bytes on a white strip, as RGBA. */
 async function drawnIn(font: Uint8Array, text: string) {
@@ -144,6 +145,41 @@ describe('readFontInfo', () => {
     expect(readFontInfo(new Uint8Array([...new TextEncoder().encode('ttcf'), ...font.subarray(4)]))).toBeNull()
     // Cut short, so its tables run past the end.
     expect(readFontInfo(font.subarray(0, 2000))).toBeNull()
+  })
+})
+
+describe('fontScripts', () => {
+  it('names the scripts of the font’s own characters, the most letters first', () => {
+    expect(fontScripts(fontFile('NotoNaskhArabic-Regular.ttf'))[0]).toBe('Arab')
+    expect(fontScripts(fontFile('NotoSansDevanagari-Regular.ttf'))[0]).toBe('Deva')
+    expect(fontScripts(fontFile('NotoSans-Regular.ttf')).slice(0, 3)).toEqual(['Latn', 'Cyrl', 'Grek'])
+    expect(fontScripts(emojiTestFont())).toEqual(['Zsym'])
+  })
+
+  it('names none for what is no font, or a font cut short', () => {
+    expect(fontScripts(new TextEncoder().encode('not a font at all, just some text'))).toEqual([])
+    expect(fontScripts(fontFile('NotoSans-Regular.ttf').subarray(0, 2000))).toEqual([])
+  })
+
+  it('gives a face with none of its name’s letters a preview text it has every glyph of', async () => {
+    const ck = await loadCanvasKit()
+    for (const [file, family, script] of [
+      ['NotoNaskhArabic-Regular.ttf', 'Noto Naskh Arabic', /^\p{Script=Arab}+$/u],
+      ['NotoSansDevanagari-Regular.ttf', 'Noto Sans Devanagari', /^\p{Script=Deva}+$/u],
+    ] as const) {
+      const bytes = fontFile(file)
+      const typeface = ck.Typeface.MakeTypefaceFromData(bytes.slice().buffer)
+      if (!typeface) throw new Error(`CanvasKit can't read ${file}`)
+      const font = new ck.Font(typeface, 32)
+      const glyphs = (text: string) => font.getGlyphIDs(text)
+      // Its name draws as .notdef boxes, glyph 0; its own script's letters don't.
+      expect([...glyphs(family.replace(/ /g, ''))], file).toContain(0)
+      const text = previewText(family, fontScripts(bytes), glyphs)
+      expect(text, file).toMatch(script)
+      expect([...glyphs(text)], file).not.toContain(0)
+      font.delete()
+      typeface.delete()
+    }
   })
 })
 

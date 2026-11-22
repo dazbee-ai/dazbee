@@ -1,5 +1,7 @@
 // What a font's preview draws: the family's name, or, for a face that lacks its name's letters, as a
-// font made for another script does, a few characters of that script it has.
+// font made for another script does, a few characters of that script it has; and which scripts a
+// face's own characters are in, for an upload, whose scripts no catalog names.
+import { byCodeUnits } from '@dazbee/schema'
 
 /** How many characters a preview of a family's script shows. */
 const SAMPLE_LENGTH = 8
@@ -21,8 +23,28 @@ const SCRIPT_CHARACTERS: Readonly<Record<string, RegExp>> = {
   Zmth: /\p{Sm}/u,
 }
 
+/**
+ * The ISO 15924 codes of Unicode's scripts that have letters, but Common and Inherited. A code the
+ * running engine's Unicode doesn't know is skipped.
+ */
+const UNICODE_SCRIPTS =
+  'Adlm Aghb Ahom Arab Armi Armn Avst Bali Bamu Bass Batk Beng Berf Bhks Bopo Brah Brai Bugi Buhd Cakm Cans Cari ' +
+  'Cham Cher Chis Chrs Copt Cpmn Cprt Cyrl Deva Diak Dogr Dsrt Dupl Egyp Elba Elym Ethi Gara Geor Glag Gong Gonm ' +
+  'Goth Gran Grek Gujr Gukh Guru Hang Hani Hano Hatr Hebr Hira Hluw Hmng Hmnp Hung Ital Java Kali Kana Kawi Khar ' +
+  'Khmr Khoj Kits Knda Krai Kthi Lana Laoo Latn Lepc Limb Lina Linb Lisu Lyci Lydi Mahj Maka Mand Mani Marc Medf ' +
+  'Mend Merc Mero Mlym Modi Mong Mroo Mtei Mult Mymr Nagm Nand Narb Nbat Newa Nkoo Nshu Ogam Olck Onao Orkh Orya ' +
+  'Osge Osma Ougr Palm Pauc Perm Phag Phli Phlp Phnx Plrd Prti Rjng Rohg Runr Samr Sarb Saur Sgnw Shaw Shrd Sidd ' +
+  'Sidt Sind Sinh Sogd Sogo Sora Soyo Sund Sunu Sylo Syrc Tagb Takr Tale Talu Taml Tang Tavt Tayo Telu Tfng Tglg ' +
+  'Thaa Thai Tibt Tirh Tnsa Todr Tols Toto Tutg Ugar Vaii Vith Wara Wcho Xpeo Xsux Yezi Yiii Zanb'
+/** The codes `scriptsOf` names for a face's characters that are no letters: signs, then mathematics. */
+const SIGN_SCRIPTS = ['Zsym', 'Zmth'] as const
+/** A letter of any script. */
+const LETTER = /\p{L}/u
+
 /** Each script's characters that may stand for it, in code point order, once worked out. */
 const samples = new Map<string, string>()
+/** Each script of `UNICODE_SCRIPTS` the engine knows, with what matches its characters, once made. */
+let scriptPatterns: readonly (readonly [string, RegExp])[] | undefined
 
 /**
  * The text a preview of `family` draws, given the face's glyph IDs for a text (0 where it lacks a
@@ -44,6 +66,38 @@ export function previewText(
     if (drawn.length > 0) return drawn.slice(0, SAMPLE_LENGTH).join('')
   }
   return family
+}
+
+/**
+ * The scripts a face's characters are in, as ISO 15924 codes for `previewText`: those it has letters
+ * of, the most letters first (ties by code), then signs (`Zsym`) and mathematics (`Zmth`) when it
+ * has those.
+ */
+export function scriptsOf(codePoints: Iterable<number>): string[] {
+  const patterns = (scriptPatterns ??= UNICODE_SCRIPTS.split(' ').flatMap((code) => {
+    try {
+      return [[code, new RegExp(`\\p{Script=${code}}`, 'u')] as const]
+    } catch {
+      return []
+    }
+  }))
+  const letters = new Map<string, number>()
+  const signs = new Set<string>()
+  // A script's letters come in runs, so the last letter's script is tried first.
+  let last: readonly [string, RegExp] | undefined
+  for (const point of codePoints) {
+    const char = String.fromCodePoint(point)
+    if (!LETTER.test(char)) {
+      for (const code of SIGN_SCRIPTS) if (SCRIPT_CHARACTERS[code]?.test(char)) signs.add(code)
+      continue
+    }
+    const script = last?.[1].test(char) ? last : patterns.find(([, pattern]) => pattern.test(char))
+    if (!script) continue
+    last = script
+    letters.set(script[0], (letters.get(script[0]) ?? 0) + 1)
+  }
+  const byLetters = [...letters].sort(([a, m], [b, n]) => n - m || byCodeUnits(a, b)).map(([code]) => code)
+  return [...byLetters, ...SIGN_SCRIPTS.filter((code) => signs.has(code))]
 }
 
 /** Whether the face has a glyph for every character of the text. */

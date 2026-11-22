@@ -17,6 +17,7 @@ import {
 
 import { app, brand, call, db, otherBrand, run, SHORT_ID, sibling, storage, workspace } from '../test-api.ts'
 import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
+import { fontPreview } from './font-file.ts'
 import { fontFiles, lastGoogleFontList } from './fonts.ts'
 import { importGoogleFamily } from './google.ts'
 import { googleFontRoutes } from './routes.ts'
@@ -259,6 +260,8 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(new Uint8Array(await (await fetch(link.url)).arrayBuffer())).toEqual(bold)
     const preview = new Uint8Array(await (await fetch(link.previewUrl)).arrayBuffer())
     expect([...preview.subarray(1, 4)]).toEqual([...new TextEncoder().encode('PNG')])
+    // A face that draws its name previews it, as when no scripts are asked for.
+    expect(preview).toEqual(await fontPreview(bold, { family: 'Noto Sans', weight: 700, style: 'normal' }))
 
     const mine = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
     expect(mine.find((f) => f.family === 'Noto Sans')?.faces.map((f) => f.id)).toEqual([face.id])
@@ -267,6 +270,17 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect((await call('a', 'GET', `/brands/${sibling.id}/fonts/faces/${face.id}`)).status).toBe(404)
     expect((await call('b', 'GET', `/brands/${brand.id}/fonts`)).status).toBe(404)
     expect((await call(null, 'GET', `/brands/${brand.id}/fonts`)).status).toBe(401)
+  })
+
+  it('previews an upload with no Latin letters in its own script, not in boxes for its name', async () => {
+    const naskh = fontFile('NotoNaskhArabic-Regular.ttf')
+    const { face } = await upload('a', brand.id, naskh)
+    expect(face.family).toBe('Noto Naskh Arabic')
+    const link = FontLink.parse((await call('a', 'GET', `/brands/${brand.id}/fonts/faces/${face.id}`)).json)
+    const preview = new Uint8Array(await (await fetch(link.previewUrl)).arrayBuffer())
+    const style = { family: 'Noto Naskh Arabic', weight: 400, style: 'normal' } as const
+    expect(preview).toEqual(await fontPreview(naskh, style, ['Arab']))
+    expect(preview).not.toEqual(await fontPreview(naskh, style))
   })
 
   it('lists a variable font with its range of weights, never beside a face of one weight in its style', async () => {

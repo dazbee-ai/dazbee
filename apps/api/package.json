@@ -7,6 +7,7 @@
     "fonts:google": "node src/scripts/import-google-fonts.ts",
     "fonts:match-copies": "node src/scripts/make-match-copies.ts",
     "stickers:upload": "node src/scripts/upload-stickers.ts",
+    "illustrations:upload": "node src/scripts/upload-illustrations.ts",
     "matchers:upload": "node src/scripts/upload-matcher-files.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

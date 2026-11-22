@@ -420,8 +420,8 @@ One of the four ways a pattern is drawn: bold, minimal, playful or premium. It s
 _Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
 
 **Bundled graphic**:
-An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file is a **bundled file**: Dazbee keeps it in its storage (`bundled/<sha256>`), not in the repository, and a brand adds it to its asset library by its SHA-256.
-_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker), clip art
+An icon, a sticker or an illustration, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file and an illustration's file are **bundled files**: Dazbee keeps them in its storage (`bundled/<sha256>`), not in the repository, and a brand adds one to its asset library by its SHA-256.
+_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker or an illustration), clip art
 
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
@@ -430,6 +430,14 @@ _Avoid_: Symbol, glyph, clip art, Daz (the bee)
 **Sticker**:
 A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person, placed in its own colours. A picture sticker (a PNG file) joins the brand's asset library when placed, once however often, and is placed as an image; a drawing sticker (an SVG file) is placed as editable layers and joins nothing.
 _Avoid_: Clip art, emoji (one kind of sticker), illustration alone
+
+**Illustration**:
+A whole scene Dazbee bundles, such as people shopping or a delivery at a door, from one of its illustration sets, each set drawn in one style. It joins the brand's asset library as an SVG file when placed, once however often, and is placed as editable layers in its own colours, or with its set's **illustration accent** swapped for a hex colour or a brand kit colour.
+_Avoid_: Sticker (a single picture or person), clip art, artwork
+
+**Illustration accent**:
+The one colour an illustration set's scenes accent with, such as unDraw's purple, which placing may swap for another colour wherever a scene paints with it; a brand kit colour given as the accent binds the fills that are the accent alone.
+_Avoid_: Accent alone (the brand kit's Accent role, `brand:accent`, which an illustration accent may be set to), highlight colour
 
 **Upload link**:
 A one-time link an agent asks for to send one file from the machine it runs on into a brand's asset library: one brand, one type, one name, ten minutes, and the first file sent spends it. It reads nothing and opens nothing else.

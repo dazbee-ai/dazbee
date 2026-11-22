@@ -1,6 +1,6 @@
-// The third-party notices: each icon and sticker set Dazbee bundles for agents to place, its name linking to its site
-// in a new tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's
-// width. Open to anyone, signed in or not.
+// The third-party notices: each icon, sticker and illustration set Dazbee bundles for agents to place, its name linking
+// to its site in a new tab, its maker credited where its notice names one, with its version, its licence's name and the
+// licence in full, its paragraphs flowing to the page's width. Open to anyone, signed in or not.
 import Link from 'next/link'
 
 import { SET_NOTICES } from '@dazbee/graphics/notices'
@@ -49,6 +49,19 @@ export default async function NoticesPage() {
                 {notice.title}
               </a>
             </h2>
+            {notice.creator && (
+              <p className="mt-1 text-label text-muted">
+                {words.by}{' '}
+                <a
+                  href={notice.creator.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline decoration-line-strong underline-offset-4 hover:decoration-current"
+                >
+                  {notice.creator.name}
+                </a>
+              </p>
+            )}
             <p className="mt-1 text-label text-muted">
               {format(words.about, { version: leftToRight(notice.version), licence: leftToRight(notice.licence) })}
             </p>

@@ -1,6 +1,6 @@
 # @dazbee/graphics
 
-The icons and stickers agents place in designs (`search_graphics` and `place_graphic` in the MCP server), with their licences. Every set is MIT or CC0: an ad that shows an icon or a sticker owes no credit, and the app lists each licence on its third-party notices page (`/notices`).
+The icons, stickers and scene illustrations agents place in designs (`search_graphics` and `place_graphic` in the MCP server), with their licences. Every icon and sticker set is MIT or CC0, and every illustration set's licence lets an ad show its scenes with no credit; the app lists each licence on its third-party notices page (`/notices`), and `THIRD-PARTY-NOTICES.md` quotes the illustration sets' licences with their pages.
 
 ## Icons
 
@@ -33,3 +33,27 @@ pnpm --filter @dazbee/api stickers:upload
 ```
 
 It uses the API's storage settings from the environment; in a deployed API container, which has no pnpm, run `node apps/api/src/scripts/upload-stickers.ts` from the image's root. It reads the pictures from Fluent Emoji's archive at the pinned commit, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store doesn't download the archive. Until it has run, placing a 3D sticker is refused with a sentence that points the agent to the flat style, and every drawing still places.
+
+## Illustrations
+
+| Set                   | Style     | Licence                                         | Source (pinned)                                                                                                        | Count |
+| --------------------- | --------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- |
+| unDraw                | flat      | unDraw's (https://undraw.co/license)            | GitHub `balazser/undraw-svg-collection` at commit `9c02f98`, a copy of unDraw's illustrations up to July 2023          | 1,360 |
+| ManyPixels Chromablue | flat      | ManyPixels' (https://www.manypixels.co/gallery) | The Chromablue scenes the ManyPixels gallery offers as SVG files, read 2026-11-22, each pinned by its link and SHA-256 | 470   |
+| ManyPixels Birdview   | isometric | ManyPixels' (https://www.manypixels.co/gallery) | The Birdview scenes the ManyPixels gallery offers as SVG files, read 2026-11-22, each pinned by its link and SHA-256   | 466   |
+
+Each set is drawn in one style, so a design keeps to one set. An illustration is placed as the layers the SVG reader makes of it, in its own colours, or with its set's accent colour (unDraw's `#6c63ff`, ManyPixels' `#68e1fd`) swapped for a hex colour or a brand kit colour, which the accent's plain fills are bound to. Placing one adds its file to the brand's asset library as an SVG file, recorded with an upload's checks (the SVG reader's thread and limits), once however often it is placed.
+
+The repository doesn't hold the files (41 MB). `src/illustrations.json` lists each one's source, SHA-256, size, drawn size, tags (its own words and its set's) and topics (the ad topics its words put it in, from `src/illustration-topics.ts`, which search matches a little less); `src/illustration-notices.json` quotes each set's licence page. Never edit the manifest by hand: change a pin in `src/sets.ts`, then run
+
+```sh
+pnpm --filter @dazbee/graphics illustrations [folder]
+```
+
+It reads unDraw from its repository's archive at the pinned commit, writing the accent for the CSS variable the copy paints it with, and reads the gallery's list pages one every 2 seconds for each ManyPixels style, fetching each file 250 ms apart; a file the SVG reader can't read whole, or larger than an SVG upload may be, is left out. A folder given keeps what the gallery served and is read again on the next run. Then store the files once per environment, and again after the manifest changes:
+
+```sh
+pnpm --filter @dazbee/api illustrations:upload
+```
+
+It uses the API's storage settings from the environment; in a deployed API container, run `node apps/api/src/scripts/upload-illustrations.ts` from the image's root. It reads the files from their pinned sources, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store reads no source. Until it has run, placing an illustration is refused with a sentence that says its file isn't stored yet.

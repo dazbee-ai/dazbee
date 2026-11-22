@@ -53,6 +53,7 @@ interface SharedRules {
   kind?: { name: AdKind; lead: string }
   fonts: FontPairing[]
   patterns: string
+  illustrations: string
   truth: string
   plans: string
   advice: string
@@ -185,6 +186,9 @@ const TRUTH =
 /** When an agent builds from a pattern, and when it designs from scratch. */
 const PATTERNS_LINE =
   'Patterns (list_patterns, apply_pattern) are a starting point, never the ad: use one only where it fits the brief, then make its draft the brand’s own (apply_pattern suggests how). Where none fits, or the brief asks for something distinctive, design from scratch.'
+/** How an agent uses the bundled illustrations. */
+const ILLUSTRATIONS_LINE =
+  'An illustration (search_graphics kind illustration) shows a scene where no photo fits: keep to one illustration set in a design, give it room as the ad’s picture rather than a corner, and keep its own colours unless an accent in a brand colour suits the ad better.'
 /** Where an agent finds the plans. */
 const PLANS_LINE = `ad_rules with \`plan\` gives a plan’s steps: ${PLANS.map(({ name, title }) => `${name} (${title.toLowerCase()})`).join(', ')}.`
 /** That the ad rules are advice, and how to read keepClear for a size. */
@@ -253,7 +257,14 @@ function sizeAdvice(width: number, height: number, platforms?: readonly string[]
 
 /** The kind's advice and fonts, when to use a pattern, the truth rule, the plans and that the rules are advice. */
 function sharedRules(kind?: AdKind): SharedRules {
-  return { ...kindAdvice(kind), patterns: PATTERNS_LINE, truth: TRUTH, plans: PLANS_LINE, advice: ADVICE }
+  return {
+    ...kindAdvice(kind),
+    patterns: PATTERNS_LINE,
+    illustrations: ILLUSTRATIONS_LINE,
+    truth: TRUTH,
+    plans: PLANS_LINE,
+    advice: ADVICE,
+  }
 }
 
 /** The platforms whose interface covers an offered size where its channel runs it. */

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { findGraphic, searchGraphics } from './search.ts'
+import { ILLUSTRATION_SET_IDS, ILLUSTRATION_SETS } from './sets.ts'
+
+/** The words an ad's scene is most often asked for by. */
+const AD_WORDS = ['delivery', 'payment', 'team', 'shopping', 'food', 'travel', 'fitness', 'celebration', 'app']
 
 describe('searchGraphics', () => {
   it('finds the icon named as the query first in each icon set, the sets taking turns', () => {
@@ -56,6 +60,31 @@ describe('searchGraphics', () => {
     const stickers = searchGraphics('heart', { kind: 'sticker', limit: 50 })
     expect(stickers.length).toBeGreaterThan(0)
     expect(stickers.every(({ kind }) => kind === 'sticker')).toBe(true)
+  })
+  it.each(AD_WORDS)('finds unDraw’s and each other illustration set’s scenes for “%s”, unDraw’s first', (word) => {
+    const found = searchGraphics(word, { kind: 'illustration', limit: 30 })
+    expect(found[0]?.set).toBe('undraw')
+    expect(new Set(found.map(({ set }) => set))).toEqual(new Set(ILLUSTRATION_SET_IDS))
+    expect(found.every(({ kind }) => kind === 'illustration')).toBe(true)
+  })
+
+  it('puts an illustration named by the word first, a plural name too, and finds others by their topics', () => {
+    const first = (query: string) => searchGraphics(query, { set: 'undraw', limit: 1 })[0]?.name
+    expect(first('delivery')).toBe('delivery')
+    expect(first('payment')).toBe('payments')
+    const food = searchGraphics('food', { set: 'undraw', limit: 30 }).map(({ name }) => name)
+    expect(food).toEqual(expect.arrayContaining(['breakfast', 'cooking']))
+  })
+
+  it('matches an illustration’s words whole, so “app” finds no apple', () => {
+    const found = searchGraphics('app', { kind: 'illustration', limit: 50 }).map(({ name }) => name)
+    expect(found.some((name) => name.startsWith('apple'))).toBe(false)
+  })
+
+  it('gives each illustration in its set’s one style', () => {
+    for (const set of ILLUSTRATION_SET_IDS)
+      for (const found of searchGraphics('team', { set, limit: 5 }))
+        expect(found.styles).toEqual([ILLUSTRATION_SETS[set].style])
   })
 })
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { VIEW_ONLY } from '@dazbee/doc'
+import { illustrationOf } from '@dazbee/graphics/illustrations'
 import { stickerPicture } from '@dazbee/graphics/pictures'
 
 import { type TestServer, testServer, textOf } from '../test-client.ts'
@@ -13,6 +14,7 @@ interface Layers {
 /** A layer as a design holds it. */
 interface StoredLayer {
   type?: string
+  name?: string
   parentId?: unknown
   bindings?: Record<string, unknown>
   props?: Record<string, unknown>
@@ -24,6 +26,13 @@ interface Placed {
   box: { x: number; y: number; width: number; height: number }
   bound?: string
   warnings: unknown[]
+}
+
+/** A layer's paints, and what they are bound to. */
+interface Painted {
+  fills?: unknown
+  strokes?: unknown
+  bindings?: Record<string, unknown> | undefined
 }
 
 /** What search_graphics answers. */
@@ -98,7 +107,7 @@ describe('search_graphics', () => {
     const agent = await connected()
     const result = await agent.call('search_graphics', { query: 'zzqqxx' })
     expect(result.isError).toBeFalsy()
-    expect(textOf(result)).toContain('No icon or sticker matches')
+    expect(textOf(result)).toContain('No icon, sticker or illustration matches')
   })
 
   it.each([
@@ -113,10 +122,10 @@ describe('search_graphics', () => {
     expect(graphics.every(({ kind }) => kind === 'sticker')).toBe(true)
   })
 
-  it('finds icons and stickers together when no kind is asked for', async () => {
+  it('finds icons, stickers and illustrations together when no kind is asked for', async () => {
     const agent = await connected()
-    const { graphics } = (await agent.json('search_graphics', { query: 'heart' })) as Found
-    expect(new Set(graphics.map(({ kind }) => kind))).toEqual(new Set(['icon', 'sticker']))
+    const { graphics } = (await agent.json('search_graphics', { query: 'heart', limit: 50 })) as Found
+    expect(new Set(graphics.map(({ kind }) => kind))).toEqual(new Set(['icon', 'sticker', 'illustration']))
   })
 })
 
@@ -340,5 +349,130 @@ describe('place_graphic', () => {
       'The 3d picture of “fluent-emoji/rocket” isn’t in Dazbee’s storage yet, so nothing was placed; place its flat style instead.',
     )
     expect(sync.state().nodes).toEqual(before)
+  })
+})
+
+describe('illustrations', () => {
+  /** The scene's layers by name, each with what it is filled and outlined with and what it is bound to. */
+  function painted(design: Layers, root: string): Record<string, Painted> {
+    return Object.fromEntries(
+      under(design, root)
+        .filter(({ type }) => type === 'graphic')
+        .map(({ name, props, bindings }) => [name ?? '', { fills: props?.fills, strokes: props?.strokes, bindings }]),
+    )
+  }
+
+  /** The scene's paints by layer, without what they are bound to. */
+  function paints(layers: Record<string, Painted>): string {
+    return JSON.stringify(
+      Object.fromEntries(Object.entries(layers).map(([name, { fills, strokes }]) => [name, { fills, strokes }])),
+    )
+  }
+
+  it('finds unDraw’s scenes first for “delivery”, kind illustration, each with an id place_graphic takes', async () => {
+    const { agent } = await opened()
+    const { graphics } = (await agent.json('search_graphics', { query: 'delivery', kind: 'illustration' })) as Found
+    expect(graphics[0]).toMatchObject({ graphic: 'undraw/delivery', kind: 'illustration', set: 'undraw' })
+    expect(graphics.every(({ kind }) => kind === 'illustration')).toBe(true)
+    expect(new Set(graphics.map(({ set }) => set))).toEqual(
+      new Set(['undraw', 'manypixels-chromablue', 'manypixels-birdview']),
+    )
+    const placed = await agent.call('place_graphic', { frame: 'sq', graphic: graphics[1]?.graphic })
+    expect(placed.isError).toBeFalsy()
+  })
+
+  it('keeps a search to the illustration set given', async () => {
+    const agent = await connected()
+    const { graphics } = (await agent.json('search_graphics', { query: 'team', set: 'manypixels-birdview' })) as Found
+    expect(graphics.length).toBeGreaterThan(0)
+    expect(graphics.every(({ set, styles }) => set === 'manypixels-birdview' && styles[0] === 'isometric')).toBe(true)
+  })
+
+  it('places an illustration as layers in its own colours, its file joining the brand’s library, in 80% of the frame', async () => {
+    const { agent, sync } = await opened()
+    const answer = (await agent.json('place_graphic', { frame: 'sq', graphic: 'undraw/delivery' })) as Placed & {
+      asset: { id: string; name: string }
+    }
+    expect(server.api.bundled.asked).toEqual([
+      {
+        brandId: 'brand-summer',
+        sha256: illustrationOf('undraw', 'delivery')?.sha256,
+        name: 'Delivery · unDraw',
+        tags: ['illustration', 'undraw'],
+      },
+    ])
+    expect(answer.asset).toEqual({ id: server.api.bundled.added[0]?.id, name: 'Delivery · unDraw' })
+    expect(server.api.bundled.added[0]).toMatchObject({ contentType: 'image/svg+xml' })
+    expect(layerOf(sync.state(), answer.layer)).toMatchObject({ type: 'group', parentId: 'sq' })
+    const layers = painted(sync.state(), answer.layer)
+    expect(layers.Parcel).toMatchObject({ fills: [{ type: 'solid', color: '#6C63FFFF' }] })
+    expect(layers.Badge).toMatchObject({ fills: [{ type: 'solid', color: '#68E1FDFF' }] })
+    expect(Object.values(layers).every(({ bindings }) => Object.keys(bindings ?? {}).length === 0)).toBe(true)
+    // The scene fits 80% of the 1080 square frame, 864 × 864 in its middle: as wide as that, centred, what it draws
+    // (260 of its 300 high) scaled with it.
+    const { x, y, width, height } = answer.box
+    expect([x, width]).toEqual([108, expect.closeTo(864, 2)])
+    expect(y + height / 2).toBeCloseTo(540, 2)
+    expect(height).toBeCloseTo((260 * 864) / 400, 2)
+  })
+
+  it('swaps the set’s accent for a hex accent wherever the scene paints with it, and changes nothing else', async () => {
+    const { agent, sync } = await opened()
+    const own = (await agent.json('place_graphic', { frame: 'sq', graphic: 'undraw/delivery' })) as Placed
+    const accented = (await agent.json('place_graphic', {
+      frame: 'sq',
+      graphic: 'undraw/delivery',
+      accent: '#E4572E',
+    })) as Placed & { accent: string }
+    expect(accented).toMatchObject({ accent: '#E4572EFF', box: own.box })
+    const after = painted(sync.state(), accented.layer)
+    expect(after.Parcel).toMatchObject({ fills: [{ type: 'solid', color: '#E4572EFF' }] })
+    expect(after.Glow).toMatchObject({ fills: [{ type: 'solid', color: '#E4572EFF', opacity: 0.3 }] })
+    expect(after.Body).toMatchObject({ strokes: [{ paint: { color: '#E4572EFF' } }], fills: [{ color: '#2F2E41FF' }] })
+    expect(Object.values(after).every(({ bindings }) => Object.keys(bindings ?? {}).length === 0)).toBe(true)
+    expect(paints(after).replaceAll('#E4572E', '#6C63FF')).toBe(paints(painted(sync.state(), own.layer)))
+    expect(server.api.bundled.added).toHaveLength(1)
+  })
+
+  it('binds the fills that are the accent alone to a brand kit colour, faded ones too, its strokes and gradients written in it', async () => {
+    const { agent, sync } = await opened()
+    const own = (await agent.json('place_graphic', { frame: 'sq', graphic: 'undraw/delivery' })) as Placed
+    const answer = (await agent.json('place_graphic', {
+      frame: 'sq',
+      graphic: 'undraw/delivery',
+      accent: 'brand:primary',
+    })) as Placed
+    expect(answer.bound).toBe('brand:primary')
+    const layers = painted(sync.state(), answer.layer)
+    expect(layers.Parcel).toMatchObject({
+      fills: [{ type: 'solid', color: PRIMARY }],
+      bindings: { fill: 'brand:primary' },
+    })
+    expect(layers.Glow).toMatchObject({ fills: [{ color: PRIMARY, opacity: 0.3 }] })
+    expect(layers.Body).toMatchObject({ strokes: [{ paint: { color: PRIMARY } }] })
+    const bound = Object.entries(layers).filter(([, { bindings }]) => Object.keys(bindings ?? {}).length > 0)
+    expect(bound.map(([name]) => name).sort()).toEqual(['Glow', 'Parcel'])
+    expect(paints(layers).replaceAll(PRIMARY.slice(0, 7), '#6C63FF')).toBe(paints(painted(sync.state(), own.layer)))
+  })
+
+  it('refuses an illustration Dazbee’s storage doesn’t hold yet, changing nothing', async () => {
+    const { agent, sync } = await opened()
+    server.api.bundled.stored = false
+    const before = sync.state().nodes
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'undraw/delivery' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'The illustration “undraw/delivery” isn’t in Dazbee’s storage yet, so nothing was placed.',
+    )
+    expect(sync.state().nodes).toEqual(before)
+  })
+
+  it('tells an agent that gives a sticker an accent that the sticker keeps its own colours', async () => {
+    const { agent } = await opened()
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'open-doodles/coffee', accent: '#000000' })
+    expect(result.isError).toBeFalsy()
+    expect(result.content.slice(1).map((block) => (block.type === 'text' ? block.text : ''))).toEqual([
+      expect.stringContaining('accent given was left unused'),
+    ])
   })
 })

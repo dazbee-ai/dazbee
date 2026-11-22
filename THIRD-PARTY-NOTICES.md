@@ -1,6 +1,6 @@
 # Third-party notices
 
-Code in Dazbee that is ported from other projects, libraries whose licence asks for a notice, and model weights it starts from, with the notice each project's licence asks to keep.
+Code in Dazbee that is ported from other projects, libraries whose licence asks for a notice, model weights it starts from, and the illustration sets agents place, with the notice each project's licence asks to keep, or the licence each set's page gives.
 
 ## FigCraft
 
@@ -126,4 +126,50 @@ BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
 ON AN "AS IS" BASIS, AND THE COPYRIGHT HOLDER HAS NO OBLIGATION TO
 PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+```
+
+## Illustrations
+
+The scene illustrations agents place with `place_graphic` (`packages/graphics`, listed in `packages/graphics/src/illustrations.json`; the files sit in Dazbee's storage, not in this repository). The app's third-party notices page (`/notices`) lists each set with its licence in full, from `packages/graphics/src/illustration-notices.json`.
+
+### unDraw
+
+unDraw (https://undraw.co), by Katerina Limpitsouni, taken from the GitHub repository balazser/undraw-svg-collection (https://github.com/balazser/undraw-svg-collection) at commit `9c02f9893198f7bce6e514be2de2b6c544775ab1`, which copies the illustrations from unDraw and marks its repository MIT. unDraw's licence, read at https://undraw.co/license on 2026-11-22:
+
+```text
+Copyright 2026 Katerina Limpitsouni
+
+All images, assets and vectors published on unDraw can be used for free. You can use them for noncommercial and commercial purposes. You do not need to ask permission from or provide credit to the creator or unDraw.
+
+More precisely, unDraw grants you an nonexclusive, worldwide copyright license to download, copy, modify, distribute, perform, and use the assets provided from unDraw for free, including for commercial purposes, without permission from or attributing the creator or unDraw. This license does not include the right to compile assets, vectors or images from unDraw to replicate a similar or competing service, in any form or distribute the assets in packs or otherwise. This extends to automated and non-automated ways to link, embed, scrape, search or download the assets included on the website without our consent.
+
+Additionally, this license explicitly prohibits the use of unDraw assets, vectors, and images for training, fine-tuning, or developing artificial intelligence, machine learning models, or similar technologies. This includes but is not limited to:
+
+Using the assets as training data for generative AI models
+
+Incorporating the assets into machine learning datasets
+
+Fine-tuning a machine learning model
+
+Using the assets to train, validate, or test AI systems
+
+Any automated processing of the assets for AI/ML model development
+
+Any such use requires separate explicit written permission from unDraw.
+
+Regarding brand logos that are included:
+
+Are registered trademarks of their respected owners. Are included on a promotional basis and do not represent an association with unDraw or its users. Do not indicate any kind of endorsement of the trademark holder towards unDraw, nor vice versa. Are provided with the sole purpose to represent the actual brand/service/company that has registered the trademark and must not be used otherwise.
+```
+
+### ManyPixels Chromablue and ManyPixels Birdview
+
+The Chromablue and Birdview styles of the ManyPixels gallery (https://www.manypixels.co/gallery), by MANYPIXELS PTE LTD, taken from the SVG files the gallery offers, read on 2026-11-22. The gallery's licence, read at https://www.manypixels.co/gallery on 2026-11-22:
+
+```text
+Copyright 2020 MANYPIXELS PTE LTD
+
+All images, assets and vectors published on ManyPixels can be used for free. You can use them for noncommercial and commercial purposes. You do not need to ask permission from or provide credit to the creator or ManyPixels.
+
+More precisely, ManyPixels grants you an nonexclusive, worldwide copyright license to download, copy, modify, distribute, perform, and use the assets provided from ManyPixels for free, including for commercial purposes, without permission from or attributing the creator or ManyPixels. This license does not include the right to compile assets, vectors or images from ManyPixels to replicate a similar or competing service, in any form or distribute the assets in packs or otherwise. This extends to automated and non-automated ways to link, embed.
 ```

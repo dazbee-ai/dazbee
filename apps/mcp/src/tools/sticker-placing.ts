@@ -5,10 +5,9 @@ import { placedImage } from '@dazbee/editor/placed-asset'
 import { type FoundGraphic, STICKER_SETS, stickerFile } from '@dazbee/graphics'
 import type { AssetSummary, Rect } from '@dazbee/schema'
 
-import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
-import { type ToolContext, ToolRefusal } from './define-tool.ts'
-import { type FrameTo, type Placing, svgSteps } from './place-on-frame.ts'
+import type { ToolContext } from './define-tool.ts'
+import { bundledAsset, type FrameTo, type Placing, svgSteps } from './place-on-frame.ts'
 
 /** A sticker as a search finds it. */
 type FoundSticker = Extract<FoundGraphic, { kind: 'sticker' }>
@@ -20,7 +19,7 @@ type FoundSticker = Extract<FoundGraphic, { kind: 'sticker' }>
  * back the asset it has.
  */
 export async function stickerPlacing(
-  { api }: ToolContext,
+  context: ToolContext,
   open: OpenDesign,
   into: FrameTo,
   { sticker, style, name }: { sticker: FoundSticker; style: string; name: string },
@@ -30,16 +29,9 @@ export async function stickerPlacing(
   if (file.format === 'drawing') return svgSteps(into, name, file.svg, where)
   const { title, styles } = STICKER_SETS[sticker.set]
   const input = { sha256: file.sha256, name: `${name} · ${title}`, tags: ['sticker', title.toLowerCase()] }
-  let asset: AssetSummary
-  try {
-    asset = await api.addBundledAsset(open.brandId, input)
-  } catch (error) {
-    if (!(error instanceof ApiRefusal && error.status === 404)) throw error
-    const drawn = styles.find(({ format }) => format === 'drawing')
-    throw new ToolRefusal(
-      `The ${style} picture of “${sticker.id}” isn’t in Dazbee’s storage yet, so nothing was placed${drawn ? `; place its ${drawn.name} style instead` : ''}`,
-    )
-  }
+  const drawn = styles.find(({ format }) => format === 'drawing')
+  const notStored = `The ${style} picture of “${sticker.id}” isn’t in Dazbee’s storage yet, so nothing was placed${drawn ? `; place its ${drawn.name} style instead` : ''}`
+  const asset = await bundledAsset(context, open, input, notStored)
   const layer = placedImage(asset, into.frame, fitted(where, asset))
   return {
     steps: [{ command: 'node.create', input: { parentId: into.id, layer } }],

@@ -4,12 +4,12 @@
 // ranked again, and two finalists verified, a kit font first when it fits nearly as well. Hybrid, the
 // default, then fits the face Light picked finer and finishes it again, and gives that answer when it
 // looks the same, else Light's when that does, else the closer of the two. A piece read shrunk is
-// matched shrunk, then each answer is scaled back and judged at full size. A piece no shortlisted face
-// draws, fits or loads is set in the shipped Noto of its script, approximate.
+// matched shrunk, then each answer is scaled back and judged at full size. A piece no catalog face
+// draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
-import type { MatchAnswer, MatchJob, Piece, Rgb } from '@dazbee/schema'
+import type { MatchAnswer, MatchJob, MatchSetting, Piece, Rgb } from '@dazbee/schema'
 
 import { pictureAnswer } from '../shape/answer.ts'
 import { piecePixels } from '../shape/parts/piece-pixels.ts'
@@ -62,28 +62,40 @@ export interface TextMatch {
   face?: FontKey
 }
 
-/** What fitting a piece's faces reads: the job, the piece read at both sizes, and what it is judged against. */
+/** What fitting a piece's faces reads: the setting, the piece read whole, and what it is judged against at the work size. */
 interface Fitting {
   ck: CanvasKit
-  job: MatchJob
+  setting: MatchSetting
   words: string
   whole: PieceReading
-  work: PieceReading
-  scale: number
   target: VerifyTarget
   fonts: FontSource
   step: (step: TextStep) => void
 }
+
+/** Which faces `matchFaces` tries, what it knows of them, and whether a face no fit can size is set plainly. */
+interface FacesTried {
+  candidates: readonly Candidate[]
+  /** The faces' bytes the shortlist already loaded, by key. */
+  loaded: ReadonlyMap<string, Uint8Array | null>
+  /** Each face's similarity to the piece's fingerprint, by key. */
+  similarities: ReadonlyMap<string, number>
+  /** Sets the first face at the piece's line height when no face can be fitted. */
+  plainWhenUnfitted: boolean
+}
+
+/** What `matchFaces` found: the answer, or that none of the faces loaded or none could be fitted. */
+type FacesMatched = Verified | 'unloaded' | 'unfitted'
 
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
 
 /**
  * A job's text piece as one text layer in the piece's pixels, approximate when it doesn't look the
- * same, or when no catalog face draws its characters and it is set in Noto. Hybrid gives its finer
- * fit when that looks the same, else Light's answer when that does, so it keeps every piece Light
- * makes look the same. The piece stays a picture, `failed`, only when it has no ink to read or none
- * of its faces loads, Noto's included.
+ * same, or when it is set in Noto as no catalog face draws its characters or none shortlisted fits.
+ * Hybrid gives its finer fit when that looks the same, else Light's answer when that does, so it
+ * keeps every piece Light makes look the same. The piece stays a picture, `failed`, only when it has
+ * no ink to read or the font source gives none of the faces it tries.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
   return (await matchTextWithFace(job, piece, deps)).answer
@@ -125,53 +137,51 @@ export async function matchTextWithFace(
   })
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [whole.background]
   const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
-  const fitting: Fitting = { ck, job, words, whole, work, scale, target, fonts, step }
-  const listedAnswer = await matchFaces(fitting, listed.candidates, listed.loaded, listed.similarities)
-  const notoAnswer = listedAnswer
-    ? undefined
-    : await matchFaces(fitting, notoCandidates(words), new Map(), new Map(), true)
-  const answer = listedAnswer ?? notoAnswer
-  if (!answer) return { answer: pictureAnswer('failed') }
+  const fitting: Fitting = { ck, setting: job.setting, words, whole, target, fonts, step }
+  const listedMatch: FacesMatched =
+    listed.candidates.length > 0 ? await matchFaces(fitting, { ...listed, plainWhenUnfitted: false }) : 'unfitted'
+  const inNoto = listedMatch === 'unfitted'
+  const matched = inNoto
+    ? await matchFaces(fitting, {
+        candidates: notoCandidates(words),
+        loaded: new Map(),
+        similarities: new Map(),
+        plainWhenUnfitted: true,
+      })
+    : listedMatch
+  if (typeof matched === 'string') return { answer: pictureAnswer('failed') }
+  const { look, place, scores, bindings, styleLook } = matched
   return {
-    answer: textAnswer(
-      words,
-      answer.look,
-      answer.place,
-      answer.scores,
-      notoAnswer !== undefined || !answer.same,
-      answer.bindings,
-      answer.styleLook,
-    ),
-    face: { family: answer.face.family, weight: answer.face.weight, style: answer.face.style },
+    answer: textAnswer(words, look, place, scores, {
+      approximate: inNoto || !matched.same,
+      bindings,
+      ...(styleLook ? { styleLook } : {}),
+    }),
+    face: { family: matched.face.family, weight: matched.face.weight, style: matched.face.style },
   }
 }
 
 /**
- * The answer in one of `candidates`, judged at full size: Light's verified pick, and in Hybrid its
- * finer fit when that looks the same, else Light's when that does, else the closer of the two;
- * undefined when none of their faces loads or fits. With `plain`, the first face is set at the
- * piece's line height when no face can be fitted.
+ * The answer in one of the faces tried, judged at full size: Light's verified pick, and in Hybrid its
+ * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
+ * rule's SSIM less the ink missed, as Light's finalists are compared.
  */
-async function matchFaces(
-  fitting: Fitting,
-  candidates: readonly Candidate[],
-  loaded: ReadonlyMap<string, Uint8Array | null>,
-  similarities: ReadonlyMap<string, number>,
-  plain = false,
-): Promise<Verified | undefined> {
-  const { ck, job, words, work, target, scale } = fitting
-  if (candidates.length === 0) return undefined
-  const faces = await facesOf(fitting.fonts, candidates, loaded, words)
+async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
+  const { ck, words, target } = fitting
+  const { candidates, similarities } = tried
+  const { reading: work, scale } = target
+  const faces = await facesOf(fitting.fonts, candidates, tried.loaded, words)
   const drawn = candidates.filter((face) => faces.has(face.key))
-  if (drawn.length === 0) return undefined
+  if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
   const drawer = textDrawer(ck, drawnFaces(drawn, faces))
   let light: Verified | undefined
   let finer: Verified | undefined
   try {
     const fits = drawn.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
-    const plainFirst = plain && fits.length === 0 && drawn[0] ? plainFit(drawer, work, words, drawn[0]) : null
-    if (plainFirst) fits.push(plainFirst)
+    const unfitted = tried.plainWhenUnfitted && fits.length === 0 && drawn[0]
+    const plain = unfitted ? plainFit(drawer, work, words, unfitted) : null
+    if (plain) fits.push(plain)
     rankFits(fits, similarities)
     for (let i = 0; i < Math.min(CORRECTED, fits.length); i++) fits[i] = correct(drawer, work, words, fits[i] as Fitted)
     const brandLead = fits.findIndex((fit) => fit.face.brandToken !== undefined)
@@ -182,7 +192,7 @@ async function matchFaces(
       const finalists = [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)]
       light = verify(drawer, target, finalists, similarities)
     }
-    if (light && job.setting === 'hybrid') {
+    if (light && fitting.setting === 'hybrid') {
       fitting.step('finerFit')
       const finerFitted = finerFit(drawer, work, words, light.fit)
       if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
@@ -190,7 +200,7 @@ async function matchFaces(
   } finally {
     drawer.delete()
   }
-  if (!light) return undefined
+  if (!light) return 'unfitted'
   const atFullSize = (verified: Verified) =>
     scale === 1 ? verified : atWholeSize(ck, verified, scale, faces, { ...target, reading: fitting.whole })
   const lightAnswer = atFullSize(light)

@@ -6,6 +6,7 @@ import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
+import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import {
@@ -28,8 +29,6 @@ const shipped = shippedFaces()
 
 /** The faces of Light's test, cut to its characters, and the shipped faces; none for any other key. */
 const FIXTURE_FONTS: FontSource = { face: async (key) => fonts.get(key) ?? shipped.get(key) ?? null }
-/** Only the shipped faces, so no shortlisted face of the catalog loads. */
-const SHIPPED_ONLY: FontSource = { face: async (key) => shipped.get(key) ?? null }
 /** A character no face of the catalog draws. */
 const UNDRAWN = '𓂀'
 
@@ -67,10 +66,10 @@ async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting =
   return first
 }
 
-/** The closeness the rule's scores give an answer's layers: SSIM less the ink missed. */
+/** The closeness the rule's scores give an answer's layers. */
 function closenessOf(answer: MatchAnswer): number {
   if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
-  return answer.scores.ssim - answer.scores.inkMissed
+  return closeness(answer.scores)
 }
 
 /** A piece of Light's test matched once in Light and once in Hybrid. */
@@ -161,18 +160,12 @@ describe('matchText', () => {
     expect(text).toBe(words)
   })
 
-  it('sets a piece in Noto, approximate, when none of its shortlisted faces loads', async () => {
-    const piece = pieceOf('latin-plain')
-    const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
-    const { answer, face } = await matchTextWithFace(job, jobPiece, { ck, files, model, fonts: SHIPPED_ONLY })
-    expect(answer).toMatchObject({ kind: 'layers', approximate: true })
-    expect(face?.family).toBe('Noto Sans')
-  })
-
-  it('keeps a piece a picture, as it failed, when the font source gives none of its faces, Noto’s included', async () => {
-    const piece = pieceOf('latin-plain')
-    const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
-    const answer = await matchText(job, jobPiece, { ck, files, model, fonts: { face: async () => null } })
+  it.each([
+    ['shortlisted faces', `${pieceOf('latin-plain').words}`],
+    ['Noto faces', `${pieceOf('latin-plain').words} ${UNDRAWN}`],
+  ])('keeps a piece a picture, as it failed, when the font source gives none of its %s', async (_, words) => {
+    const { job, piece } = textJob(ck, pieceOf('latin-plain').pixels, words)
+    const answer = await matchText(job, piece, { ck, files, model, fonts: { face: async () => null } })
     expect(answer).toEqual({ kind: 'picture', why: 'failed' })
   })
 

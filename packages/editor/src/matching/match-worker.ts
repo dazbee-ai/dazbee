@@ -4,10 +4,9 @@
 // `matchText` on one piece at a time, drawing on the CPU surface (ADR-0005), with each piece's
 // shortlisted faces fetched at once: a Google face's match copy, or its whole face for characters ads
 // rarely use, a brand's upload through the brand, and a shipped Noto face from the app's files.
-// Started as a shape worker, it starts CanvasKit
-// alone, loads no model, file or face, and runs `matchShapes` on one piece at a time. It runs in the
-// editor's worker (`editor-worker`), loaded with the first match message. Each answer tells what the
-// worker holds, so the pool can retire it.
+// Started as a shape worker, it starts CanvasKit alone, loads no model, file or face, and runs
+// `matchShapes` on one piece at a time. It runs in the editor's worker (`editor-worker`), loaded with
+// the first match message. Each answer tells what the worker holds, so the pool can retire it.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { FONT_FACES } from '@dazbee/fonts'
 import {
@@ -209,7 +208,7 @@ function fontSource({ catalog, uploadPath }: MatchFonts): FontSource {
     async face(key, copy) {
       const parsed = parseFontKey(key)
       const shipped = FONT_FACES.find((face) => fontKey(face) === key)
-      const found = parsed && !shipped && faceOfKey(parsed, families.get(parsed.family) ?? [])
+      const found = parsed && faceOfKey(parsed, families.get(parsed.family) ?? [])
       const url = shipped ? shippedFontUrl(shipped.file) : found && faceUrl(found.face, copy, uploadPath)
       if (!url) return null
       const response = await fetch(url)

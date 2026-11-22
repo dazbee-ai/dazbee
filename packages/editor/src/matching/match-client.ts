@@ -1,9 +1,8 @@
 // The editor's one way to the matchers. It checks whether this browser can run them: one that lacks
 // WebAssembly or module workers, or says it has under 2 GB of memory, keeps every piece a picture
 // with `unsupported`, and nothing is started or sent anywhere; it reads the browser with the first
-// job. Otherwise it hands a job's text pieces to the pool of workers, made with the first job, tells
-// each piece's step as it begins, and cancels a job when its signal aborts.
-import type { TextStep } from '@dazbee/matchers'
+// job. Otherwise it hands a job's text and shape pieces to the pool of workers, made with the first
+// job, tells each piece's step as it begins, and cancels a job when its signal aborts.
 import type { MatchAnswer, MatchJob } from '@dazbee/schema'
 
 import {
@@ -12,9 +11,10 @@ import {
   type MatchFonts,
   type MatchPool,
   matchPool,
+  type MatchStep,
   type MatchWorker,
 } from './match-pool.ts'
-import { compileMatcherModules } from './matcher-files.ts'
+import { compileMatcherModule } from './matcher-files.ts'
 
 /** What the client reads of the browser: whether it has WebAssembly and module workers, and the device. */
 export interface Browser extends Device {
@@ -25,17 +25,16 @@ export interface Browser extends Device {
 /** What a job is matched with: its fonts, who hears each piece's step, and a signal that cancels it. */
 export interface MatchOptions {
   fonts: MatchFonts
-  step?: (index: number, step: TextStep) => void
+  step?: (index: number, step: MatchStep) => void
   signal?: AbortSignal
 }
 
 /**
  * The match client: `match` answers each piece of a job, in the job's order: every piece
- * `unsupported` where the browser can't run the matchers, else each text piece, and null for a piece
- * of a kind it doesn't match.
+ * `unsupported` where the browser can't run the matchers, else each matched by its kind's matcher.
  */
 export interface MatchClient {
-  match(job: MatchJob, options: MatchOptions): Promise<(MatchAnswer | null)[]>
+  match(job: MatchJob, options: MatchOptions): Promise<MatchAnswer[]>
   destroy(): void
 }
 
@@ -49,7 +48,7 @@ export function matchClient({
       start: () =>
         new Worker(new URL('../editor-worker.ts', import.meta.url), { type: 'module' }) as unknown as MatchWorker,
       device,
-      compile: () => compileMatcherModules(),
+      compile: (module) => compileMatcherModule(module),
       page: documentShown(),
     }),
 }: {
@@ -64,24 +63,24 @@ export function matchClient({
   /** The next job's id. */
   let nextJob = 0
 
-  function match(job: MatchJob, { fonts, step, signal }: MatchOptions): Promise<(MatchAnswer | null)[]> {
+  function match(job: MatchJob, { fonts, step, signal }: MatchOptions): Promise<MatchAnswer[]> {
     read ??= browser()
     if (!canMatch(read) || pool?.unsupported)
       return Promise.resolve(job.pieces.map(() => ({ kind: 'picture', why: 'unsupported' })))
     if (signal?.aborted) return Promise.reject(signal.reason)
-    const answers: (MatchAnswer | null)[] = job.pieces.map(() => null)
-    const text = job.pieces.flatMap((piece, index) => (piece.kind === 'text' ? [index] : []))
-    if (text.length === 0) return Promise.resolve(answers)
+    const answers: MatchAnswer[] = []
+    if (job.pieces.length === 0) return Promise.resolve(answers)
+    const indexes = job.pieces.map((_, index) => index)
     const id = nextJob++
     const running = (pool ??= makePool(read))
     return new Promise((resolve, reject) => {
-      let left = text.length
+      let left = indexes.length
       const cancel = () => {
         running.cancel(id)
         reject(signal?.reason)
       }
       signal?.addEventListener('abort', cancel, { once: true })
-      running.add({ id, job, fonts }, text, {
+      running.add({ id, job, fonts }, indexes, {
         step: (index, told) => step?.(index, told),
         answer(index, answer) {
           answers[index] = answer

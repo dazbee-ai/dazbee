@@ -1,19 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { TextStep } from '@dazbee/matchers'
+import type { ShapeStep, TextStep } from '@dazbee/matchers'
 import type { MatchAnswer, MatchJob } from '@dazbee/schema'
 
 import { type Browser, matchClient } from './match-client.ts'
-import { type Device, type MatchMessage, matchPool, type MatchReply, type MatchWorker } from './match-pool.ts'
+import {
+  type Device,
+  type MatchMessage,
+  matchPool,
+  type MatchReply,
+  type MatchStep,
+  type MatchWorker,
+} from './match-pool.ts'
 
-const STEPS: TextStep[] = ['reading', 'shortlist', 'fitting', 'finerFit']
+const TEXT_TOLD: TextStep[] = ['reading', 'shortlist', 'fitting', 'finerFit']
+const SHAPE_TOLD: ShapeStep[] = ['colourSplit', 'firstPass', 'judging', 'fullPass', 'judging']
 const score = (index: number) => ({ ssim: index / 10, inkMissed: 0, far: 0 })
 /** The answer the stand-in gives the piece at `index`. */
 const answerOf = (index: number): MatchAnswer => ({ kind: 'picture', why: 'looksDifferent', scores: score(index) })
 
-/** A stand-in worker that starts at once and answers each piece through its steps, as a matcher worker does. */
+/**
+ * A stand-in worker that starts at once and answers each piece through the steps of the matcher it
+ * was started as, as a matcher worker does.
+ */
 class FakeWorker implements MatchWorker {
   posted: MatchMessage[] = []
+  matcher: 'text' | 'shape' | undefined
   terminated = false
   onmessage: Worker['onmessage'] = null
   onerror: Worker['onerror'] = null
@@ -23,9 +35,13 @@ class FakeWorker implements MatchWorker {
   }
   postMessage(message: MatchMessage) {
     this.posted.push(message)
-    if (message.kind === 'matchStart') this.reply({ kind: 'matchReady' })
+    if (message.kind === 'matchStart') {
+      this.matcher = message.matcher
+      this.reply({ kind: 'matchReady' })
+    }
     if (message.kind !== 'matchPiece' || !this.answering) return
-    for (const step of STEPS) this.reply({ kind: 'matchStep', id: message.id, step })
+    for (const step of this.matcher === 'shape' ? SHAPE_TOLD : TEXT_TOLD)
+      this.reply({ kind: 'matchStep', id: message.id, step })
     this.reply({ kind: 'matchAnswer', id: message.id, answer: answerOf(message.index), memory: 0 })
   }
   terminate() {
@@ -39,6 +55,17 @@ class FakeWorker implements MatchWorker {
 const LAPTOP: Browser = { webAssembly: true, moduleWorkers: true, cores: 4, memoryGb: 8 }
 const fonts = { catalog: [], uploadPath: '/fonts/' }
 const rect = { x: 0, y: 0, width: 1, height: 1 }
+/** A job of three shape pieces. */
+const SHAPES = {
+  picture: '',
+  pieces: [
+    { kind: 'shape', rect },
+    { kind: 'shape', rect },
+    { kind: 'shape', rect },
+  ],
+  kit: { colors: {}, fonts: {}, textStyles: [] },
+  setting: 'hybrid',
+} as MatchJob
 /** A job of two text pieces around a shape piece. */
 const JOB = {
   picture: '',
@@ -62,7 +89,7 @@ function client(browser: Browser, answering = true) {
         return worker
       },
       device,
-      compile: async () => ({ canvasKit: {} as WebAssembly.Module, onnxRuntime: {} as WebAssembly.Module }),
+      compile: async () => ({}) as WebAssembly.Module,
       page: { hidden: () => false, onChange: () => () => {} },
     }),
   )
@@ -78,19 +105,32 @@ afterEach(() => {
 })
 
 describe('matchClient', () => {
-  it('answers a job’s text pieces in order, telling each piece’s steps, and leaves its shape piece', async () => {
-    const { matcher } = client(LAPTOP)
-    const told: [number, TextStep][] = []
-    const answers = matcher.match(JOB, { fonts, step: (index, step) => told.push([index, step]) })
+  it('answers a job’s text and shape pieces in order, each on a worker of its kind, telling each piece’s steps', async () => {
+    const { matcher, made } = client(LAPTOP)
+    const told = new Map<number, MatchStep[]>()
+    const answers = matcher.match(JOB, {
+      fonts,
+      step: (index, step) => told.set(index, [...(told.get(index) ?? []), step]),
+    })
     await vi.advanceTimersByTimeAsync(0)
-    expect(await answers).toEqual([answerOf(0), null, answerOf(2)])
-    expect(told).toEqual([...STEPS.map((step) => [0, step]), ...STEPS.map((step) => [2, step])])
+    expect(await answers).toEqual([answerOf(0), answerOf(1), answerOf(2)])
+    expect(told).toEqual(
+      new Map<number, MatchStep[]>([
+        [0, TEXT_TOLD],
+        [1, SHAPE_TOLD],
+        [2, TEXT_TOLD],
+      ]),
+    )
+    expect(made.map((worker) => worker.matcher).sort()).toEqual(['shape', 'text'])
   })
 
-  it('ends a job when its signal aborts: its workers end and it is answered with the reason', async () => {
+  it.each([
+    ['text and shape', JOB],
+    ['shape', SHAPES],
+  ])('ends a %s job when its signal aborts: its workers end and it is answered with the reason', async (_, job) => {
     const { matcher, made } = client(LAPTOP, false)
     const cancel = new AbortController()
-    const answers = matcher.match(JOB, { fonts, signal: cancel.signal })
+    const answers = matcher.match(job, { fonts, signal: cancel.signal })
     await vi.advanceTimersByTimeAsync(0)
     expect(made.length).toBeGreaterThan(0)
     cancel.abort(new Error('cancelled'))
@@ -106,6 +146,7 @@ describe('matchClient', () => {
     const { matcher, makePool, made } = client(browser)
     const unsupported = { kind: 'picture', why: 'unsupported' }
     expect(await matcher.match(JOB, { fonts })).toEqual([unsupported, unsupported, unsupported])
+    expect(await matcher.match(SHAPES, { fonts })).toEqual([unsupported, unsupported, unsupported])
     expect(makePool).not.toHaveBeenCalled()
     expect(made).toHaveLength(0)
   })
@@ -114,6 +155,6 @@ describe('matchClient', () => {
     const { matcher } = client({ webAssembly: true, moduleWorkers: true, cores: 2 })
     const answers = matcher.match(JOB, { fonts })
     await vi.advanceTimersByTimeAsync(0)
-    expect(await answers).toEqual([answerOf(0), null, answerOf(2)])
+    expect(await answers).toEqual([answerOf(0), answerOf(1), answerOf(2)])
   })
 })

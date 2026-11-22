@@ -6,7 +6,7 @@ import { type MatchAnswer, MatchJob, type Paint } from '@dazbee/schema'
 
 import { drawGraphics } from './draw-layers.ts'
 import { firstPassOf } from './first-pass.ts'
-import { matchShapes, matchShapesOf } from './match-shapes.ts'
+import { matchShapes, matchShapesOf, type ShapeStep } from './match-shapes.ts'
 import { PHOTO_GUARD, photoScore } from './photo-guard.ts'
 import { blob, graphic, pngBase64, prototypeAnswer, prototypePieces } from './test-pieces.ts'
 
@@ -69,6 +69,42 @@ describe('matchShapes', () => {
     const answer = matchShapes(ck, job, piece)
     expect(matchShapes(ck, job, piece)).toEqual(answer)
     expect(kindsOf(answer)).toEqual(['star'])
+  })
+})
+
+describe('matchShapesOf’s steps', () => {
+  /** The steps told while the piece is matched, and the answer, which is the one given untold. */
+  const toldFor = (piece: Pixels): ShapeStep[] => {
+    const told: ShapeStep[] = []
+    const answer = matchShapesOf(ck, piece, {}, (step) => told.push(step))
+    expect(answer).toEqual(matchShapesOf(ck, piece, {}))
+    return told
+  }
+
+  it('tells the colour split, the first pass and its judging for a piece the first pass makes', () => {
+    const piece = drawGraphics(
+      ck,
+      [graphic({ kind: 'rect', cornerRadius: 0 }, { x: 10, y: 10, width: 100, height: 60 }, { fill: NAVY })],
+      120,
+      80,
+    )
+    expect(toldFor(piece)).toEqual(['colourSplit', 'firstPass', 'judging'])
+  })
+
+  it('tells the full pass and its judging too when the first pass’s answer isn’t kept', () => {
+    const piece = drawGraphics(
+      ck,
+      [
+        graphic(
+          { kind: 'polygon', sides: 6, cornerRadius: 0 },
+          { x: 20, y: 20, width: 120, height: 120 },
+          { fill: NAVY },
+        ),
+      ],
+      160,
+      160,
+    )
+    expect(toldFor(piece)).toEqual(['colourSplit', 'firstPass', 'judging', 'fullPass', 'judging'])
   })
 })
 

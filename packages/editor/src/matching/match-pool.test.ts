@@ -1,25 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { MatchAnswer, MatchJob } from '@dazbee/schema'
+import type { MatchAnswer, MatchJob, PieceKind } from '@dazbee/schema'
 
 import {
   type Device,
   DONE_MS,
   IDLE_MS,
+  type MatcherModule,
   type MatchMessage,
   matchPool,
   type MatchReply,
   type MatchWorker,
-  PIECE_REST,
   poolLimit,
-  TEXT_WORKER_PEAK,
-  WORKER_REST,
+  WORKER_MEMORY,
 } from './match-pool.ts'
 
 /** The answer the stand-in workers give. */
 const TEXT: MatchAnswer = { kind: 'picture', why: 'looksDifferent' }
-/** The most a worker may say it holds after its `pieces`-th piece and stay within its share. */
-const share = (pieces: number) => TEXT_WORKER_PEAK - WORKER_REST - pieces * PIECE_REST
+/** The most a text worker may say it holds after its `pieces`-th piece and stay within its share. */
+const share = (pieces: number) => WORKER_MEMORY.text.peak - WORKER_MEMORY.text.rest - pieces * WORKER_MEMORY.text.piece
 /** What a fresh worker says it holds: CanvasKit's and ONNX Runtime's memories. */
 const FRESH = 186 * 2 ** 20
 
@@ -41,6 +40,10 @@ class FakeWorker implements MatchWorker {
   crash() {
     this.onerror?.call(this as unknown as Worker, { message: 'out of memory', preventDefault() {} } as ErrorEvent)
   }
+  /** The kind of matcher it was started as, once it was. */
+  matcher() {
+    return this.posted.flatMap((message) => (message.kind === 'matchStart' ? [message.matcher] : []))[0]
+  }
   /** The pieces posted to it, by task id. */
   pieces() {
     return this.posted.flatMap((message) => (message.kind === 'matchPiece' ? [message] : []))
@@ -55,14 +58,14 @@ class FakeWorker implements MatchWorker {
 
 const LAPTOP: Device = { cores: 4, memoryGb: 8 }
 const PHONE: Device = { cores: 4, memoryGb: 2 }
-const job = (pieces: number) =>
+/** A device of many cores whose budget is the most, 1.5 GB. */
+const WORKSTATION: Device = { cores: 16, memoryGb: 16 }
+const BUDGET = 1.5 * 2 ** 30
+const rect = { x: 0, y: 0, width: 1, height: 1 }
+const job = (pieces: number, kind: PieceKind = 'text') =>
   ({
     picture: '',
-    pieces: Array.from({ length: pieces }, () => ({
-      kind: 'text',
-      rect: { x: 0, y: 0, width: 1, height: 1 },
-      words: 'A',
-    })),
+    pieces: Array.from({ length: pieces }, () => (kind === 'text' ? { kind, rect, words: 'A' } : { kind, rect })),
     kit: { colors: {}, fonts: {}, textStyles: [] },
     setting: 'hybrid',
   }) as MatchJob
@@ -75,7 +78,7 @@ function pool(device: Device) {
   const answers = new Map<number, MatchAnswer>()
   let hidden = false
   let shownChanged = () => {}
-  const compile = vi.fn(async () => ({ canvasKit: {} as WebAssembly.Module, onnxRuntime: {} as WebAssembly.Module }))
+  const compile = vi.fn((module: MatcherModule) => Promise.resolve({ module } as unknown as WebAssembly.Module))
   const matcher = matchPool({
     start: () => {
       const worker = new FakeWorker()
@@ -92,13 +95,16 @@ function pool(device: Device) {
       },
     },
   })
-  const add = (pieces: number, id = 0) =>
-    matcher.add({ id, job: job(pieces), fonts }, range(pieces), {
+  /** Adds a job of `pieces` pieces of a kind; its answers are kept under `answers`, or a map of its own. */
+  const add = (pieces: number, id = 0, kind: PieceKind = 'text', kept = answers) =>
+    matcher.add({ id, job: job(pieces, kind), fonts }, range(pieces), {
       step: () => {},
-      answer: (index, answer) => answers.set(index, answer),
+      answer: (index, answer) => kept.set(index, answer),
     })
   /** The workers not ended. */
   const alive = () => made.filter((worker) => !worker.terminated)
+  /** The modules compiled, in order. */
+  const compiled = () => compile.mock.calls.map(([module]) => module)
   /** Lets the compile resolve, then the newest worker answer that it started. */
   const startNewest = async () => {
     await vi.advanceTimersByTimeAsync(0)
@@ -108,7 +114,7 @@ function pool(device: Device) {
     hidden = value
     shownChanged()
   }
-  return { matcher, made, answers, compile, add, alive, startNewest, setHidden }
+  return { matcher, made, answers, compile, compiled, add, alive, startNewest, setHidden }
 }
 
 beforeEach(() => {
@@ -121,14 +127,20 @@ afterEach(() => {
 
 describe('poolLimit', () => {
   it('leaves a core to the page and keeps within a quarter of the memory, at most 1.5 GB', () => {
-    expect(poolLimit(LAPTOP)).toBe(3)
-    expect(poolLimit({ cores: 16, memoryGb: 8 })).toBe(3)
-    expect(poolLimit(PHONE)).toBe(1)
+    expect(poolLimit(LAPTOP, 'text')).toBe(3)
+    expect(poolLimit({ cores: 16, memoryGb: 8 }, 'text')).toBe(3)
+    expect(poolLimit(PHONE, 'text')).toBe(1)
   })
 
   it('takes 256 MB, so one worker, when the browser doesn’t say its memory, and one worker on one core', () => {
-    expect(poolLimit({ cores: 8 })).toBe(1)
-    expect(poolLimit({ cores: 1, memoryGb: 8 })).toBe(1)
+    expect(poolLimit({ cores: 8 }, 'text')).toBe(1)
+    expect(poolLimit({ cores: 1, memoryGb: 8 }, 'text')).toBe(1)
+  })
+
+  it('holds more shape workers than text workers, a shape worker’s peak being smaller', () => {
+    expect(WORKER_MEMORY.shape.peak).toBeLessThan(WORKER_MEMORY.text.peak)
+    expect(poolLimit(WORKSTATION, 'shape')).toBe(Math.floor(BUDGET / WORKER_MEMORY.shape.peak))
+    expect(poolLimit(WORKSTATION, 'shape')).toBeGreaterThan(poolLimit(WORKSTATION, 'text'))
   })
 })
 
@@ -164,11 +176,11 @@ describe('matchPool', () => {
   })
 
   it('compiles once for every worker, and leaves no worker and nothing compiled 2 s after the last job', async () => {
-    const { made, compile, add, startNewest, alive, answers } = pool(LAPTOP)
+    const { made, compiled, add, startNewest, alive, answers } = pool(LAPTOP)
     add(2)
     await startNewest()
     await startNewest()
-    expect(compile).toHaveBeenCalledTimes(1)
+    expect(compiled()).toEqual(['canvasKit', 'onnxRuntime'])
     for (const worker of made) worker.answerLast()
     expect(answers.size).toBe(2)
     await vi.advanceTimersByTimeAsync(DONE_MS - 1)
@@ -177,7 +189,7 @@ describe('matchPool', () => {
     expect(alive()).toHaveLength(0)
     add(1, 1)
     await startNewest()
-    expect(compile).toHaveBeenCalledTimes(2)
+    expect(compiled()).toEqual(['canvasKit', 'onnxRuntime', 'canvasKit', 'onnxRuntime'])
   })
 
   it('keeps a worker with nothing to do 15 s while a job is still matched, so the next job reuses it', async () => {
@@ -234,7 +246,7 @@ describe('matchPool', () => {
     expect(made[0]?.terminated).toBe(true)
     await startNewest()
     expect(made[1]?.pieces().map((piece) => piece.index)).toEqual([2])
-    expect(compile).toHaveBeenCalledTimes(1)
+    expect(compile).toHaveBeenCalledTimes(2)
   })
 
   it('never runs more workers than the budget holds while it retires them over a long run', async () => {
@@ -252,8 +264,8 @@ describe('matchPool', () => {
       }
     }
     expect(answers.size).toBe(30)
-    expect(most).toBe(poolLimit(LAPTOP))
-    expect(made.length).toBeGreaterThan(poolLimit(LAPTOP))
+    expect(most).toBe(poolLimit(LAPTOP, 'text'))
+    expect(made.length).toBeGreaterThan(poolLimit(LAPTOP, 'text'))
   })
 
   it('lets the compiled modules go with a worker retired when nothing waits', async () => {
@@ -264,7 +276,178 @@ describe('matchPool', () => {
     expect(alive()).toHaveLength(0)
     add(1, 1)
     await startNewest()
-    expect(compile).toHaveBeenCalledTimes(2)
+    expect(compile).toHaveBeenCalledTimes(4)
+  })
+
+  it('spreads a picture’s many shape pieces over more shape workers than text workers would be, each posted CanvasKit alone', async () => {
+    const { made, add, startNewest, compiled } = pool(WORKSTATION)
+    add(20, 0, 'shape')
+    const most = poolLimit(WORKSTATION, 'shape')
+    for (let started = 1; started <= most; started++) {
+      await vi.advanceTimersByTimeAsync(0)
+      // The next starts only once this one has.
+      expect(made).toHaveLength(started)
+      await startNewest()
+    }
+    await vi.advanceTimersByTimeAsync(0)
+    expect(made).toHaveLength(most)
+    expect(most).toBeGreaterThan(poolLimit(WORKSTATION, 'text'))
+    expect(made.map((worker) => worker.matcher())).toEqual(Array(most).fill('shape'))
+    expect(made.map((worker) => worker.pieces().length)).toEqual(Array(most).fill(1))
+    expect(made[0]?.posted[0]).toEqual({ kind: 'matchStart', matcher: 'shape', canvasKit: { module: 'canvasKit' } })
+    expect(compiled()).toEqual(['canvasKit'])
+  })
+
+  it('runs a text job and a shape job at once within one budget, each piece on a worker of its kind, and keeps nothing once both end', async () => {
+    const { add, alive, made, compiled, startNewest } = pool(WORKSTATION)
+    const text = new Map<number, MatchAnswer>()
+    const shapes = new Map<number, MatchAnswer>()
+    add(1, 0, 'text', text)
+    add(12, 1, 'shape', shapes)
+    const answered = new Set<number>()
+    let most = { text: 0, shape: 0 }
+    for (let round = 0; round < 100 && text.size + shapes.size < 13; round++) {
+      await vi.advanceTimersByTimeAsync(0)
+      const held = alive().reduce((sum, worker) => sum + WORKER_MEMORY[worker.matcher() ?? 'text'].peak, 0)
+      expect(held).toBeLessThanOrEqual(BUDGET)
+      const count = (kind: PieceKind) => alive().filter((worker) => worker.matcher() === kind).length
+      most = { text: Math.max(most.text, count('text')), shape: Math.max(most.shape, count('shape')) }
+      for (const worker of alive()) {
+        const piece = worker.pieces().at(-1)
+        if (worker.posted.length === 1) worker.reply({ kind: 'matchReady' })
+        else if (piece && !answered.has(piece.id)) {
+          expect(worker.matcher()).toBe(piece.jobId === 0 ? 'text' : 'shape')
+          answered.add(piece.id)
+          worker.answerLast()
+        }
+      }
+    }
+    expect([text.size, shapes.size]).toEqual([1, 12])
+    // The text piece was matched beside as many shape workers as the rest of the budget holds.
+    expect(most.text).toBe(1)
+    expect(most.shape).toBe(Math.floor((BUDGET - WORKER_MEMORY.text.peak) / WORKER_MEMORY.shape.peak))
+    expect(most.shape).toBeGreaterThan(1)
+    await vi.advanceTimersByTimeAsync(DONE_MS)
+    expect(alive()).toHaveLength(0)
+    const before = compiled().length
+    add(1, 2, 'shape')
+    await startNewest()
+    expect(compiled().slice(before)).toEqual(['canvasKit'])
+    expect(made.at(-1)?.matcher()).toBe('shape')
+  })
+
+  it('lets go of ONNX Runtime’s module with the last text worker while a shape worker keeps CanvasKit’s', async () => {
+    const { made, add, startNewest, compiled } = pool(LAPTOP)
+    add(1, 0, 'text')
+    await startNewest()
+    add(1, 1, 'shape')
+    await startNewest()
+    expect(made.map((worker) => worker.matcher())).toEqual(['text', 'shape'])
+    made[0]?.answerLast()
+    await vi.advanceTimersByTimeAsync(IDLE_MS)
+    expect(made[0]?.terminated).toBe(true)
+    add(1, 2, 'text')
+    await startNewest()
+    expect(compiled()).toEqual(['canvasKit', 'onnxRuntime', 'onnxRuntime'])
+  })
+
+  it('ends an idle worker of another kind when the budget has no room for the kind a piece waits for', async () => {
+    const { made, add, startNewest, alive } = pool(PHONE)
+    add(1, 0, 'text')
+    await startNewest()
+    made[0]?.answerLast()
+    add(1, 1, 'shape')
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(alive().map((worker) => worker.matcher())).toEqual(['shape'])
+    expect(made[1]?.pieces().map((piece) => piece.jobId)).toEqual([1])
+  })
+
+  it('makes room for a text job added while a shape job holds the budget, as the next shape worker comes free', async () => {
+    const { made, add, startNewest, alive } = pool(WORKSTATION)
+    add(12, 0, 'shape')
+    const shapeWorkers = poolLimit(WORKSTATION, 'shape')
+    for (let i = 0; i < shapeWorkers; i++) await startNewest()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(made).toHaveLength(shapeWorkers)
+    add(1, 1, 'text')
+    made[0]?.answerLast()
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(made.at(-1)?.matcher()).toBe('text')
+    expect(
+      made
+        .at(-1)
+        ?.pieces()
+        .map((piece) => piece.jobId),
+    ).toEqual([1])
+    // The other shape workers go on matching shapes as they come free.
+    made[1]?.answerLast()
+    expect(made[1]?.pieces().map((piece) => piece.jobId)).toEqual([0, 0])
+    expect(alive()).toHaveLength(shapeWorkers)
+  })
+
+  it('ends as many idle workers of another kind as the starved kind needs room for', async () => {
+    const { made, add, startNewest, alive } = pool(WORKSTATION)
+    const shapeWorkers = poolLimit(WORKSTATION, 'shape')
+    add(shapeWorkers, 0, 'shape')
+    for (let i = 0; i < shapeWorkers; i++) await startNewest()
+    for (const worker of made) worker.answerLast()
+    add(1, 1, 'text')
+    await startNewest()
+    expect(made.at(-1)?.matcher()).toBe('text')
+    expect(
+      made
+        .at(-1)
+        ?.pieces()
+        .map((piece) => piece.jobId),
+    ).toEqual([1])
+    const held = alive().reduce((sum, worker) => sum + WORKER_MEMORY[worker.matcher() ?? 'text'].peak, 0)
+    expect(held).toBeLessThanOrEqual(BUDGET)
+    expect(alive().length).toBeLessThan(shapeWorkers + 1)
+  })
+
+  it('keeps CanvasKit’s module when an idle worker of another kind is ended to make room', async () => {
+    const { made, add, startNewest, compiled } = pool(PHONE)
+    add(1, 0, 'text')
+    await startNewest()
+    made[0]?.answerLast()
+    add(1, 1, 'shape')
+    await startNewest()
+    expect(compiled()).toEqual(['canvasKit', 'onnxRuntime'])
+  })
+
+  it('answers only the shape pieces left `failed` when a single shape worker fails twice, and matches the text job’s', async () => {
+    const { made, add, startNewest, answers } = pool({ cores: 8 })
+    const text = new Map<number, MatchAnswer>()
+    add(2, 0, 'shape')
+    await startNewest()
+    made[0]?.crash()
+    add(1, 1, 'text', text)
+    await startNewest()
+    expect(made[1]?.matcher()).toBe('shape')
+    made[1]?.crash()
+    expect(answers).toEqual(
+      new Map([
+        [0, { kind: 'picture', why: 'failed' }],
+        [1, { kind: 'picture', why: 'failed' }],
+      ]),
+    )
+    await startNewest()
+    expect(made[2]?.matcher()).toBe('text')
+    made[2]?.answerLast()
+    expect(text).toEqual(new Map([[0, TEXT]]))
+  })
+
+  it('ends a worker still starting once the job it was started for is cancelled, though pieces of another kind wait', async () => {
+    const { made, add, startNewest, matcher } = pool(WORKSTATION)
+    add(1, 1, 'shape')
+    add(3, 0, 'text')
+    expect(made).toHaveLength(1)
+    matcher.cancel(1)
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(made[1]?.matcher()).toBe('text')
   })
 
   it('puts a crashed worker’s piece back on the queue, and the pool drops by one', async () => {

@@ -1,16 +1,17 @@
-// A matcher worker's jobs: it starts CanvasKit and ONNX Runtime Web from the modules the pool
-// compiled and posted, ONNX Runtime on WebAssembly only, on one thread (ADR-0020), and opens the
-// text matcher's model and files, kept in Cache Storage. It then runs `matchText` on one piece at a
-// time, drawing on the CPU surface (ADR-0005), with each piece's shortlisted faces fetched at once:
-// a Google face's match copy, or its whole face for characters ads rarely use, and a brand's
-// upload through the brand. It runs in the editor's worker (`editor-worker`), loaded with the
-// first match message. Each answer tells what the worker holds, so the pool can retire it.
-import * as ort from 'onnxruntime-web/wasm'
-
+// A matcher worker's jobs. Started as a text worker, it starts CanvasKit and ONNX Runtime Web from
+// the modules the pool compiled and posted, ONNX Runtime on WebAssembly only, on one thread
+// (ADR-0020), and opens the text matcher's model and files, kept in Cache Storage. It then runs
+// `matchText` on one piece at a time, drawing on the CPU surface (ADR-0005), with each piece's
+// shortlisted faces fetched at once: a Google face's match copy, or its whole face for characters ads
+// rarely use, and a brand's upload through the brand. Started as a shape worker, it starts CanvasKit
+// alone, loads no model, file or face, and runs `matchShapes` on one piece at a time. It runs in the
+// editor's worker (`editor-worker`), loaded with the first match message. Each answer tells what the
+// worker holds, so the pool can retire it.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import {
   faceOfKey,
   type FontSource,
+  matchShapes,
   matchText,
   MODEL_INPUT,
   MODEL_OUTPUT,
@@ -24,25 +25,31 @@ import {
   WINDOW_HEIGHT,
   WINDOW_WIDTH,
 } from '@dazbee/matchers'
-import { type FontFace, googleFacePaths, type MatchAnswer } from '@dazbee/schema'
+import { type FontFace, googleFacePaths, type MatchAnswer, type Piece } from '@dazbee/schema'
 
 import { canvasKitFrom, instantiatingCompiled } from '../vendor.ts'
-import type { CompiledModules, MatchFonts, MatchMessage, MatchReply, WorkerJob } from './match-pool.ts'
+import type { CompiledModules, MatchFonts, MatchMessage, MatchReply, MatchStep, WorkerJob } from './match-pool.ts'
 import { fileBytes, textMatcherFile } from './matcher-files.ts'
 
-/** What a started worker holds: CanvasKit, the matcher's files and its model. */
-interface Started {
-  ck: CanvasKit
-  files: TextFiles
-  model: ModelRuntime
-  /** The families the files hold fingerprints of. */
-  fingerprinted: ReadonlySet<string>
-}
+/** What a started worker holds: a text worker CanvasKit, the matcher's files and its model; a shape worker CanvasKit. */
+type Started =
+  | {
+      matcher: 'text'
+      ck: CanvasKit
+      files: TextFiles
+      model: ModelRuntime
+      /** The families the files hold fingerprints of. */
+      fingerprinted: ReadonlySet<string>
+    }
+  | { matcher: 'shape'; ck: CanvasKit }
+
+/** The posted message that starts a worker. */
+type StartMessage = Extract<MatchMessage, { kind: 'matchStart' }>
 
 let started: Promise<Started> | undefined
 /** The jobs this worker was sent and not yet told to forget, by id. */
 const jobs = new Map<number, WorkerJob>()
-/** CanvasKit's and ONNX Runtime's WebAssembly memories, once they are instantiated. */
+/** CanvasKit's WebAssembly memory, and ONNX Runtime's in a text worker, once they are instantiated. */
 const memories = new Set<WebAssembly.Memory>()
 /** The bytes of the faces this worker has read. */
 let facesRead = 0
@@ -65,21 +72,14 @@ export async function matchMessage(message: MatchMessage, answer: (reply: MatchR
   if (message.job) jobs.set(message.jobId, message.job)
   const sent = jobs.get(message.jobId)
   const piece = sent?.job.pieces[message.index]
-  if (!started || !sent || piece?.kind !== 'text') {
-    answer({ kind: 'matchAnswer', id: message.id, answer: { kind: 'picture', why: 'failed' }, memory: held() })
-    return
-  }
   const { id } = message
   try {
-    const { ck, files, model, fingerprinted } = await started
-    const matched: MatchAnswer = await matchText(sent.job, piece as TextPieceOfJob, {
-      ck,
-      files,
-      model,
-      fonts: fontSource(sent.fonts),
-      kitFaces: kitFaces(sent, fingerprinted),
-      step: (step) => answer({ kind: 'matchStep', id, step }),
-    })
+    const worker = await started
+    if (!worker || !sent || piece?.kind !== worker.matcher) {
+      answer({ kind: 'matchAnswer', id, answer: { kind: 'picture', why: 'failed' }, memory: held() })
+      return
+    }
+    const matched = await matchPiece(worker, sent, piece, (step) => answer({ kind: 'matchStep', id, step }))
     answer({ kind: 'matchAnswer', id, answer: matched, memory: held() })
   } catch (error) {
     // CanvasKit or ONNX Runtime out of memory, or aborted: its WebAssembly can't be trusted again.
@@ -89,11 +89,34 @@ export async function matchMessage(message: MatchMessage, answer: (reply: MatchR
   }
 }
 
+/** The piece matched by the worker's matcher, telling each step as it starts. */
+async function matchPiece(
+  worker: Started,
+  sent: WorkerJob,
+  piece: Piece,
+  step: (step: MatchStep) => void,
+): Promise<MatchAnswer> {
+  if (worker.matcher === 'shape') return matchShapes(worker.ck, sent.job, piece, step)
+  const { ck, files, model, fingerprinted } = worker
+  return matchText(sent.job, piece as TextPieceOfJob, {
+    ck,
+    files,
+    model,
+    fonts: fontSource(sent.fonts),
+    kitFaces: kitFaces(sent, fingerprinted),
+    step,
+  })
+}
+
 /**
- * CanvasKit and ONNX Runtime from the posted modules, one after the other since each is instantiated
- * from its module while it loads, and the matcher's files and model, read from Cache Storage.
+ * A shape worker: CanvasKit from its posted module. A text worker: CanvasKit and ONNX Runtime from the
+ * posted modules, one after the other since each is instantiated from its module while it loads, and
+ * the matcher's files and model, read from Cache Storage.
  */
-async function start(modules: CompiledModules): Promise<Started> {
+async function start(message: StartMessage): Promise<Started> {
+  if (message.matcher === 'shape')
+    return { matcher: 'shape', ck: await keepingMemories(() => canvasKitFrom(message.canvasKit)) }
+  const modules: CompiledModules = message
   const files = Promise.all(
     TEXT_FILES.map(async (name) => [name, await fileBytes(textMatcherFile(name))] as const),
   ).then((read) => readTextFiles(Object.fromEntries(read) as TextFileBytes))
@@ -105,7 +128,7 @@ async function start(modules: CompiledModules): Promise<Started> {
     return Promise.all([loaded, opened])
   })
   const [[ck, model], read] = await Promise.all([instantiated, files])
-  return { ck, files: read, model, fingerprinted: new Set(read.faces.map((face) => face.family)) }
+  return { matcher: 'text', ck, files: read, model, fingerprinted: new Set(read.faces.map((face) => face.family)) }
 }
 
 /**
@@ -132,10 +155,12 @@ async function keepingMemories<T>(load: () => Promise<T>): Promise<T> {
 
 /**
  * The model opened in ONNX Runtime Web, on WebAssembly only and one thread, with onnxruntime-node's
- * settings, so it gives Node's numbers. ONNX Runtime fetches no WebAssembly when given its binary, so
- * it is given an empty one, and the posted module is instantiated in its place.
+ * settings, so it gives Node's numbers. ONNX Runtime's code is loaded only here, so a shape worker
+ * never loads it. ONNX Runtime fetches no WebAssembly when given its binary, so it is given an empty
+ * one, and the posted module is instantiated in its place.
  */
 async function openModel(model: Uint8Array, compiled: WebAssembly.Module): Promise<ModelRuntime> {
+  const ort = await import('onnxruntime-web/wasm')
   ort.env.wasm.numThreads = 1
   ort.env.wasm.proxy = false
   ort.env.wasm.wasmBinary = new Uint8Array(0)

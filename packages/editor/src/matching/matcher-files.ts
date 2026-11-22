@@ -1,12 +1,13 @@
 // The files the text matcher loads in the browser, kept in Cache Storage so a second open fetches
 // none of them: the matchers' files at their permanent addresses (`/matchers/<sha256>.bin`), each
 // kept only once its bytes hash to its name, and ONNX Runtime Web's WebAssembly, kept by version.
-// CanvasKit's WebAssembly, which the editor loads anyway, is compiled from `/vendor/` as it is.
+// CanvasKit's WebAssembly, which the editor loads anyway and the shape matcher needs alone, is
+// compiled from `/vendor/` as it is.
 import { WASM_FILE } from '@dazbee/canvaskit/wasm'
 import release from '@dazbee/matchers/release' with { type: 'json' }
 import { matcherFilePath } from '@dazbee/schema'
 
-import type { CompiledModules } from './match-pool.ts'
+import type { MatcherModule } from './match-pool.ts'
 
 /** A file the matcher keeps: its address, and the SHA-256 its bytes must hash to, when it has one. */
 export interface MatcherFile {
@@ -57,16 +58,18 @@ export async function forgetOldFiles(deps: FileDeps = browserFiles()): Promise<v
 }
 
 /**
- * CanvasKit's and ONNX Runtime's WebAssembly compiled on the page, once for every matcher worker:
- * a compiled module posted to a worker shares its machine code there instead of compiling again.
+ * CanvasKit's or ONNX Runtime's WebAssembly compiled on the page, once for every matcher worker that
+ * needs it: a compiled module posted to a worker shares its machine code there instead of compiling
+ * again. Once ONNX Runtime's is compiled, the kept files of older releases are deleted.
  */
-export async function compileMatcherModules(deps: FileDeps = browserFiles()): Promise<CompiledModules> {
-  const [canvasKit, onnxRuntime] = await Promise.all([
-    deps.fetch(`/vendor/${WASM_FILE}`).then(compileResponse),
-    keptFile(ONNX_RUNTIME_WASM, deps).then(compileResponse),
-  ])
+export async function compileMatcherModule(
+  name: MatcherModule,
+  deps: FileDeps = browserFiles(),
+): Promise<WebAssembly.Module> {
+  if (name === 'canvasKit') return compileResponse(await deps.fetch(`/vendor/${WASM_FILE}`))
+  const onnxRuntime = await compileResponse(await keptFile(ONNX_RUNTIME_WASM, deps))
   void forgetOldFiles(deps).catch(() => undefined)
-  return { canvasKit, onnxRuntime }
+  return onnxRuntime
 }
 
 /** This browser's Cache Storage, where it has one, and its fetch. */

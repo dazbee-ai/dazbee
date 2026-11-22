@@ -73,6 +73,8 @@ x-api: &api
     ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
     ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    # Pixabay's key, which turns agents' stock photo search on; empty leaves it off.
+    PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
     # Agents' sign-ins one address may start in an hour, and client registrations in all in an hour.
     AGENT_SIGN_INS_PER_HOUR: ${AGENT_SIGN_INS_PER_HOUR:-60}
     AGENT_REGISTRATIONS_PER_HOUR: ${AGENT_REGISTRATIONS_PER_HOUR:-500}

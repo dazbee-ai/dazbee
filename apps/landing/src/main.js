@@ -12,12 +12,9 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import { initValley } from './scenes/valley.js'
-import { orbit } from './scenes/orbit.js'
-import { whyScene } from './scenes/why.js'
+import { city } from './scenes/city.js'
 import { tryOut } from './scenes/try.js'
-import { town } from './scenes/town.js'
 import { howScene } from './scenes/how.js'
-import { reviewScene } from './scenes/review.js'
 import { initNav } from './ui/nav.js'
 import { initForm } from './ui/form.js'
 
@@ -40,11 +37,8 @@ const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 document.documentElement.classList.toggle('is-reduced', still)
 
 // the scenes, in page order; each one takes care of itself, and under reduced motion shows its end state
-whyScene($('[data-why]'), { still })
-orbit($('[data-orbit]'), { still })
-howScene($('[data-how]'), { still }) // made before the town: pinned sections must be made top to bottom
-town($('[data-town]'), { still })
-reviewScene($('[data-review]'), { still })
+city($('[data-city]'), { still }) // made before how: pinned sections must be made top to bottom
+howScene($('[data-how]'), { still })
 ScrollTrigger.sort()
 tryOut($('[data-try]'), { still })
 

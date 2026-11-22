@@ -167,10 +167,10 @@ export const en = {
       line: 'Try again. If it keeps happening, reload the page.',
       action: 'Try again',
     },
-    /** The third-party notices: the icon sets Dazbee bundles, each with its licence in full. */
+    /** The third-party notices: the icon and sticker sets Dazbee bundles, each with its licence in full. */
     notices: {
       title: 'Third-party notices',
-      line: 'Dazbee bundles these icon sets for you and your agents to place in designs. Each is used under the licence below.',
+      line: 'Dazbee bundles these icon and sticker sets for you and your agents to place in designs. Each is used under the licence below.',
       about: 'Version {version} · {licence} licence',
       action: 'Back to home',
     },

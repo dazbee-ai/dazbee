@@ -4,17 +4,28 @@
 import { z } from 'zod'
 
 import {
+  type AddAssetFromUrl,
+  type AddBundledAsset,
   AgentMe,
   ApiError,
   AssetLink,
   AssetSummary,
+  type BrandFromWebsite,
+  BrandFromWebsiteAnswer,
   BrandKit,
   BrandSummary,
   DesignSummary,
   FontFamily,
   FontLink,
+  FROM_URL_TIMEOUT_MS,
   MAX_UPLOAD_BYTES,
+  type StartUploadLink,
+  type StockPhotoId,
+  StockResults,
+  type StockSearch,
   SyncToken,
+  UploadLink,
+  WEBSITE_READ_TIMEOUT_MS,
 } from '@dazbee/schema'
 
 /** Where the API is, and the fetch that reaches it. */
@@ -30,9 +41,21 @@ export interface AgentApi {
   designs(brandId: string): Promise<DesignSummary[]>
   assets(brandId: string, query?: string): Promise<AssetSummary[]>
   createDesign(brandId: string, name: string): Promise<DesignSummary>
+  /** The asset of the picture at an https link, which the API fetches and adds to the brand's library. */
+  addAssetFromUrl(brandId: string, input: AddAssetFromUrl): Promise<AssetSummary>
+  /** A one-time link the agent sends one file to, which the API records into the brand's library. */
+  uploadLink(brandId: string, input: StartUploadLink): Promise<UploadLink>
+  /** The stock photos a search finds, naming the library they come from. */
+  searchStock(search: StockSearch): Promise<StockResults>
+  /** The asset of the stock photo of `id`, which the API downloads and saves into the brand's library. */
+  addStock(brandId: string, id: StockPhotoId): Promise<AssetSummary>
+  /** The asset of a file Dazbee bundles and keeps in its storage (a picture sticker), which the API adds to the brand's library. */
+  addBundledAsset(brandId: string, input: AddBundledAsset): Promise<AssetSummary>
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
+  /** The brand's kit filled from its website, which the API reads, and what the site gave. */
+  brandFromWebsite(brandId: string, input: BrandFromWebsite): Promise<BrandFromWebsiteAnswer>
   /** The brand's font catalog: its families and their faces. */
   fonts(brandId: string): Promise<FontFamily[]>
   /** A face's font file. */
@@ -67,6 +90,16 @@ export class TokenRefused extends Error {
 
 /** How long a call to the API may take before it counts as failed. */
 const API_TIMEOUT_MS = 30_000
+/**
+ * How long adding a picture from a link may take: the API's time to fetch it, then 30 seconds for its checks and
+ * decode, within the endpoint's `CALL_TIMEOUT_MS`.
+ */
+const FROM_URL_CALL_MS = FROM_URL_TIMEOUT_MS + 30_000
+/**
+ * How long filling a kit from a website may take: the API's time to read the site, then 20 seconds to record its
+ * logo and save the kit, within the endpoint's `CALL_TIMEOUT_MS`.
+ */
+const WEBSITE_CALL_MS = WEBSITE_READ_TIMEOUT_MS + 20_000
 
 /**
  * The access `token` belongs to, or null when the API refuses it (a token that is not a live agent access
@@ -88,9 +121,15 @@ export async function agentOf(settings: ApiSettings, token: string): Promise<Age
 export function agentApi(settings: ApiSettings, token: string, workspaceId: string, onRefused: () => void): AgentApi {
   const brands = `/workspaces/${encodeURIComponent(workspaceId)}/brands`
   const brandPath = (brandId: string) => `${brands}/${encodeURIComponent(brandId)}`
-  const ask = async <T>(method: string, path: string, shape: z.ZodType<T>, body?: unknown): Promise<T> => {
+  const ask = async <T>(
+    method: string,
+    path: string,
+    shape: z.ZodType<T>,
+    body?: unknown,
+    timeoutMs = API_TIMEOUT_MS,
+  ): Promise<T> => {
     try {
-      return await call(settings, token, method, path, shape, body)
+      return await call(settings, token, method, path, shape, body, timeoutMs)
     } catch (error) {
       if (error instanceof TokenRefused) onRefused()
       throw error
@@ -108,9 +147,19 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
     assets: (brandId, query = '') =>
       ask('GET', `${brandPath(brandId)}/assets?${new URLSearchParams({ q: query })}`, AssetSummary.array()),
     createDesign: (brandId, name) => ask('POST', `${brandPath(brandId)}/designs`, DesignSummary, { name }),
+    addAssetFromUrl: (brandId, input) =>
+      ask('POST', `${brandPath(brandId)}/assets/from-url`, AssetSummary, input, FROM_URL_CALL_MS),
+    uploadLink: (brandId, input) => ask('POST', `${brandPath(brandId)}/assets/upload-links`, UploadLink, input),
+    searchStock: (search) =>
+      ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/stock/photos?${stockQuery(search)}`, StockResults),
+    addStock: (brandId, id) =>
+      ask('POST', `${brandPath(brandId)}/assets/from-stock`, AssetSummary, { id }, FROM_URL_CALL_MS),
+    addBundledAsset: (brandId, input) => ask('POST', `${brandPath(brandId)}/assets/from-bundle`, AssetSummary, input),
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),
+    brandFromWebsite: (brandId, input) =>
+      ask('POST', `${brandPath(brandId)}/kit/from-website`, BrandFromWebsiteAnswer, input, WEBSITE_CALL_MS),
     fonts: (brandId) => ask('GET', `${brandPath(brandId)}/fonts`, FontFamily.array()),
     fontBytes: async (brandId, faceId) => {
       const link = await ask('GET', `${brandPath(brandId)}/fonts/faces/${encodeURIComponent(faceId)}`, FontLink)
@@ -121,7 +170,10 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
   }
 }
 
-/** One call to the API, its answer read with `shape`; it throws `TokenRefused` on a 401 and `ApiRefusal` on any other error. */
+/**
+ * One call to the API, its answer read with `shape`, failing past `timeoutMs`; it throws `TokenRefused` on a 401
+ * and `ApiRefusal` on any other error.
+ */
 async function call<T>(
   settings: ApiSettings,
   token: string,
@@ -129,6 +181,7 @@ async function call<T>(
   path: string,
   shape: z.ZodType<T>,
   body?: unknown,
+  timeoutMs = API_TIMEOUT_MS,
 ): Promise<T> {
   const request = new Request(`${settings.url}${path}`, {
     method,
@@ -137,7 +190,7 @@ async function call<T>(
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   let response: Response
   try {
@@ -185,4 +238,9 @@ async function linkedBytes(settings: ApiSettings, url: string): Promise<Uint8Arr
     at += chunk.byteLength
   }
   return bytes
+}
+
+/** A stock search as the API's query: its words, and its orientation and colour when given. */
+function stockQuery({ q, orientation, colour }: StockSearch): URLSearchParams {
+  return new URLSearchParams({ q, ...(orientation ? { orientation } : {}), ...(colour ? { colour } : {}) })
 }

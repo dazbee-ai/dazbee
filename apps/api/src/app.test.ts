@@ -65,6 +65,12 @@ const OUTSIDE_A_WORKSPACE = [
   '/me/*',
   '/me/deletion',
   '/access-requests',
+  '/uploads/:token',
+  '/fonts/google/faces/:name',
+  '/fonts/google/lists/:name',
+  '/fonts/google/*',
+  '/matchers/:name',
+  '/matchers/*',
 ]
 
 const WRITER_REFUSAL = 'Only an Owner, Admin or Editor can do this'
@@ -78,6 +84,8 @@ const OWNER_REFUSAL = 'Only the Owner can hand over Owner'
 const MIDDLEWARE_PATHS = [
   '/*',
   '/admin/*',
+  '/fonts/google/*',
+  '/matchers/*',
   '/me',
   '/me/*',
   '/agent/*',
@@ -142,7 +150,7 @@ describe('health', () => {
 })
 
 describe('roles', () => {
-  it('has no handler for every method, only the agents’ gate and the session and brand checks, so the sweeps reach every handler', () => {
+  it('has no handler for every method, only the agents’ gate, the session and brand checks and what the Google addresses keep, so the sweeps reach every handler', () => {
     expect(app.routes.filter((r) => r.method === 'ALL').map((r) => r.path)).toEqual(MIDDLEWARE_PATHS)
   })
 
@@ -180,7 +188,7 @@ describe('roles', () => {
 })
 
 describe('workspaces', () => {
-  it('has no route outside a workspace but the health check, /me, sign-in, the development accept, the request to join and /admin, whatever route is added later', () => {
+  it('has no route outside a workspace but the health check, /me, sign-in, the development accept, the request to join, upload links, the Google font files and /admin, whatever route is added later', () => {
     const outside = app.routes
       .map((r) => r.path)
       .filter((path) => !inAWorkspace(path) && !OUTSIDE_A_WORKSPACE.includes(path) && !path.startsWith('/admin/'))

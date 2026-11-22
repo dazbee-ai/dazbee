@@ -28,16 +28,28 @@ const config: NextConfig = {
       ],
     },
     { source: '/agents/connect', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    // The fonts we ship are pinned, as the offline worker takes them, so browsers and Cloudflare keep them for good.
+    {
+      source: '/vendor/fonts/:file',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
   ],
-  // With MCP_DEV_URL set, the MCP server's paths go to it, so one base URL serves both, as Caddy does in production.
+  // The Google faces' files and the matchers' files go to the API, and with MCP_DEV_URL set, the MCP server's paths go
+  // to it and an agent's upload links to the API, so one base URL serves them all, as Caddy does in production.
   rewrites: async () => {
+    const api = (process.env.API_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
+    const fonts = { source: '/fonts/google/:path*', destination: `${api}/fonts/google/:path*` }
+    const matchers = { source: '/matchers/:path*', destination: `${api}/matchers/:path*` }
     const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')
-    if (!mcp) return []
+    if (!mcp) return { beforeFiles: [fonts, matchers], afterFiles: [], fallback: [] }
     return {
       beforeFiles: [
+        fonts,
+        matchers,
         { source: '/mcp', destination: `${mcp}/mcp` },
         { source: '/oauth/:path*', destination: `${mcp}/oauth/:path*` },
         { source: '/.well-known/:doc(oauth-[^/]+)/:path*', destination: `${mcp}/.well-known/:doc/:path*` },
+        { source: '/uploads/:token', destination: `${api}/uploads/:token` },
       ],
       afterFiles: [],
       fallback: [],

@@ -1,9 +1,9 @@
-// The third-party notices: each icon set Dazbee bundles for agents to place, its name linking to its site in a new
-// tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's width.
-// Open to anyone, signed in or not.
+// The third-party notices: each icon and sticker set Dazbee bundles for agents to place, its name linking to its site
+// in a new tab, with its version, its licence's name and the licence in full, its paragraphs flowing to the page's
+// width. Open to anyone, signed in or not.
 import Link from 'next/link'
 
-import { ICON_SET_NOTICES } from '@dazbee/graphics/notices'
+import { SET_NOTICES } from '@dazbee/graphics/notices'
 
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
@@ -13,6 +13,11 @@ import { getMessages } from '@/lib/i18n/server.ts'
 
 export async function generateMetadata() {
   return { title: (await getMessages()).pages.notices.title }
+}
+
+/** A version or a licence's name kept left to right in any language's line, so 2026-11-22 never reads 22-11-2026. */
+function leftToRight(text: string): string {
+  return `\u2066${text}\u2069`
 }
 
 export default async function NoticesPage() {
@@ -27,7 +32,7 @@ export default async function NoticesPage() {
           <h1 className="font-display text-title font-bold tracking-tight md:leading-tight">{words.title}</h1>
           <p className="text-card text-muted">{words.line}</p>
         </header>
-        {ICON_SET_NOTICES.map((notice, i) => (
+        {SET_NOTICES.map((notice, i) => (
           <section
             key={notice.title}
             aria-labelledby={`notice-${i}`}
@@ -45,7 +50,7 @@ export default async function NoticesPage() {
               </a>
             </h2>
             <p className="mt-1 text-label text-muted">
-              {format(words.about, { version: notice.version, licence: notice.licence })}
+              {format(words.about, { version: leftToRight(notice.version), licence: leftToRight(notice.licence) })}
             </p>
             <div
               dir="ltr"

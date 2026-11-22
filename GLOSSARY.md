@@ -73,7 +73,7 @@ A named value a layer's property can follow. For now, the brand kit's tokens (`b
 _Avoid_: Field, slot, column, placeholder
 
 **Asset library**:
-A brand's uploaded images and SVG files, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
+A brand's images and SVG files, uploaded by a person or added by an agent from a link, through an upload link or as a stock photo, each with a name and tags it is found by. Placing an image on a design makes a graphic whose fill is that image; placing an SVG file makes a group of the layers it draws (paths, text, masks, and rects filled with the pictures it shows, which join the library first, each named by the layer that shows it, then the file: "Photo · Card"), its shadows and blurs becoming effects, and an SVG file is never a fill. The original is stored once per workspace, but each brand's asset, name and tags are its own.
 _Avoid_: Media library, uploads, gallery
 
 **Armed image**:
@@ -123,7 +123,7 @@ A line across one frame, vertical or horizontal, that a person drags from a rule
 _Avoid_: Ruler guide, guideline, snap line (the line drawn while a layer snaps)
 
 **Safe zone**:
-The bands of a 9:16 frame that a platform's own interface covers (its profile, caption, buttons and call to action), as Meta, YouTube and TikTok publish them. From the View menu a person shows one platform's over each 9:16 frame, or all of them together (their union, each edge as deep as the deepest platform's); no export draws them.
+The parts of a frame that a platform's own interface covers (its profile, caption, buttons and call to action), as the platform publishes them for one aspect ratio: Meta, YouTube and TikTok for 9:16, YouTube also for 1:1 and 16:9. From the View menu a person shows one platform's over each 9:16 frame, or all of them together (their union, each edge as deep as the deepest platform's); no export draws them. The ad rules give every ratio's to agents.
 _Avoid_: Safe area, title safe, UI overlay
 
 **Size**:
@@ -283,8 +283,12 @@ A text layer setting that picks the largest font size, between a least and a mos
 _Avoid_: Auto size, fit text
 
 **Font catalog**:
-The families a brand can set text in: the fonts we ship (the fallbacks among them), every Google Fonts family under the OFL, Apache 2.0 or UFL, copied into our storage from google/fonts (the script fonts among them), and the brand's own uploads. A brand's upload of a family name is the one it sees. Every font file is loaded from our storage, never from Google, the system or the browser.
+The families a brand can set text in: the fonts we ship (the fallbacks among them), every Google Fonts family under the OFL, Apache 2.0 or UFL, copied into our storage from google/fonts (the script fonts among them), and the brand's own uploads. A brand's upload of a family name is the one it sees. Its Google part is the Google list. Every font file is loaded from our storage, never from Google, the system or the browser.
 _Avoid_: Font library (that is the asset library's word), web fonts
+
+**Google list**:
+The Google part of every brand's font catalog: each Google Fonts family in our storage with its faces, category, popularity and scripts, one file the same for every brand, at an address named by the hash of its bytes, which browsers and Cloudflare keep for good. A brand's uploads come beside it, and its upload of a family name takes that family's place.
+_Avoid_: Google catalog, font index
 
 **Font face**:
 One font file in the catalog: a family in one weight and style, or a **variable font**'s range of weights in one style. A design loads only the faces its texts are drawn in, never every face of a family.
@@ -415,13 +419,21 @@ _Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), 
 One of the four ways a pattern is drawn: bold, minimal, playful or premium. It sets the decoration, the type (the Google Fonts pairing used where the brand kit sets no Heading or Body font, the weights, case and spacing) and the room, and the colours used where the kit sets none; never the structure, so a pattern holds the same parts in every style.
 _Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
 
+**Bundled graphic**:
+An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file is a **bundled file**: Dazbee keeps it in its storage (`bundled/<sha256>`), not in the repository, and a brand adds it to its asset library by its SHA-256.
+_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker), clip art
+
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
 _Avoid_: Symbol, glyph, clip art, Daz (the bee)
 
 **Sticker**:
-A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person. A picture sticker joins the brand's asset library when placed, as any image does.
+A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person, placed in its own colours. A picture sticker (a PNG file) joins the brand's asset library when placed, once however often, and is placed as an image; a drawing sticker (an SVG file) is placed as editable layers and joins nothing.
 _Avoid_: Clip art, emoji (one kind of sticker), illustration alone
+
+**Upload link**:
+A one-time link an agent asks for to send one file from the machine it runs on into a brand's asset library: one brand, one type, one name, ten minutes, and the first file sent spends it. It reads nothing and opens nothing else.
+_Avoid_: Upload URL, signed URL (those reach storage), share link
 
 **Stock photo**:
 A free photo found through a stock library's search and saved into the brand's asset library, tagged with where it came from and who took it.
@@ -607,5 +619,37 @@ One flat AI-generated ad in a round. Starred, used, or refined into draft versio
 _Avoid_: Generation, option, candidate
 
 **Layering**:
-The job that turns a chosen draft into real layers: plan, separate, read, live text, vectorise, backdrop, place.
+The job that turns a chosen draft into real layers: plan, separate, read, live text (the text matcher), vectorise (the shape matcher), backdrop, place.
 _Avoid_: Decompose, editable-ize, convert
+
+**Piece**:
+One part of a picture that a matcher rebuilds as layers: its pixels, its place on the picture, whether it is text or shapes, and for text the words it says. A whole picture can be one piece.
+_Avoid_: Block (that is the renderer's laid-out paragraph), region, cut-out (a layering kind for a cut-out photo)
+
+**Matcher**:
+What rebuilds a piece as editable layers by drawing candidates with Dazbee's renderer and keeping the one that looks the same. The **text matcher** finds a text piece's font, size, colour and fit and makes it a text; the **shape matcher** makes a piece of shapes into graphics. A piece no candidate rebuilds well stays a picture, with why.
+_Avoid_: Detector, recogniser, converter, vectoriser (for the matcher as a whole)
+
+**Looks the same**:
+The rule a matcher's answer must pass to replace its piece, fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars.
+_Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
+
+**Light**:
+The text matcher's quicker setting: a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept.
+_Avoid_: Fast mode, lite
+
+**Hybrid**:
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height and place fitted finer on that one font.
+_Avoid_: Full, accurate mode, medium
+
+**Font fingerprint**:
+The numbers the text matcher's model reads from text drawn in one family at one weight and style, which lets it put fonts that look like a piece first.
+_Avoid_: Embedding, signature, font hash
+
+**Match copy**:
+A copy of a Google font face cut down to the characters ads use, which only the text matcher loads, so a person downloads less while it works. Text with other characters loads the whole face.
+_Avoid_: Subset, cut-down file, display copy (that is an image's)
+
+**Make editable**:
+Rebuilding a picture on a frame as layers with a matcher, as text or as shapes, in one undo step: where the rebuild looks the same, its layers take the picture's place; otherwise the picture stays and the person is told why.
+_Avoid_: Convert, vectorise (the layering step), trace

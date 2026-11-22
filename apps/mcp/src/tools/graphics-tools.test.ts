@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { VIEW_ONLY } from '@dazbee/doc'
+import { stickerPicture } from '@dazbee/graphics/pictures'
 
 import { type TestServer, testServer, textOf } from '../test-client.ts'
 
@@ -27,7 +28,7 @@ interface Placed {
 
 /** What search_graphics answers. */
 interface Found {
-  icons: { graphic: string; set: string; name: string; styles: string[]; tags: string[] }[]
+  graphics: { graphic: string; kind: string; set: string; name: string; styles: string[]; tags: string[] }[]
 }
 
 let server: TestServer
@@ -66,16 +67,17 @@ function under(design: Layers, id: string): StoredLayer[] {
 }
 
 describe('search_graphics', () => {
-  it.each(['cart', 'star', 'arrow'])('finds icons from both sets for “%s”', async (query) => {
+  it.each(['cart', 'star', 'arrow'])('finds icons from both icon sets for “%s”, kind icon', async (query) => {
     const agent = await connected()
-    const { icons } = (await agent.json('search_graphics', { query })) as Found
+    const { graphics: icons } = (await agent.json('search_graphics', { query, kind: 'icon' })) as Found
     expect(new Set(icons.map(({ set }) => set))).toEqual(new Set(['tabler', 'phosphor']))
+    expect(icons.every(({ kind }) => kind === 'icon')).toBe(true)
     for (const icon of icons) expect(`${icon.name} ${icon.tags.join(' ')}`).toContain(query)
   })
 
   it('puts the icon named as the query first in each set', async () => {
     const agent = await connected()
-    const { icons } = (await agent.json('search_graphics', { query: 'shopping cart' })) as Found
+    const { graphics: icons } = (await agent.json('search_graphics', { query: 'shopping cart' })) as Found
     expect(icons.slice(0, 2).map(({ graphic }) => graphic)).toEqual(['tabler/shopping-cart', 'phosphor/shopping-cart'])
     expect(icons[0]?.styles).toEqual(['outline', 'filled'])
     expect(icons[1]?.styles).toEqual(['regular', 'thin', 'light', 'bold', 'fill', 'duotone'])
@@ -83,7 +85,11 @@ describe('search_graphics', () => {
 
   it('narrows to one set and gives at most the limit', async () => {
     const agent = await connected()
-    const { icons } = (await agent.json('search_graphics', { query: 'arrow', set: 'phosphor', limit: 5 })) as Found
+    const { graphics: icons } = (await agent.json('search_graphics', {
+      query: 'arrow',
+      set: 'phosphor',
+      limit: 5,
+    })) as Found
     expect(icons).toHaveLength(5)
     expect(icons.every(({ set }) => set === 'phosphor')).toBe(true)
   })
@@ -92,7 +98,25 @@ describe('search_graphics', () => {
     const agent = await connected()
     const result = await agent.call('search_graphics', { query: 'zzqqxx' })
     expect(result.isError).toBeFalsy()
-    expect(textOf(result)).toContain('No icon matches')
+    expect(textOf(result)).toContain('No icon or sticker matches')
+  })
+
+  it.each([
+    ['rocket', 'fluent-emoji', ['3d', 'flat']],
+    ['standing peep', 'open-peeps', ['drawing']],
+    ['humaaan', 'humaaans', ['drawing']],
+    ['coffee doodle', 'open-doodles', ['drawing']],
+  ])('finds “%s” in %s, kind sticker', async (query, set, styles) => {
+    const agent = await connected()
+    const { graphics } = (await agent.json('search_graphics', { query, kind: 'sticker' })) as Found
+    expect(graphics[0]).toMatchObject({ kind: 'sticker', set, styles })
+    expect(graphics.every(({ kind }) => kind === 'sticker')).toBe(true)
+  })
+
+  it('finds icons and stickers together when no kind is asked for', async () => {
+    const agent = await connected()
+    const { graphics } = (await agent.json('search_graphics', { query: 'heart' })) as Found
+    expect(new Set(graphics.map(({ kind }) => kind))).toEqual(new Set(['icon', 'sticker']))
   })
 })
 
@@ -212,5 +236,109 @@ describe('place_graphic', () => {
     const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'tabler/star', colour: '#000000' })
     expect(result.isError).toBe(true)
     expect(textOf(result)).toBe(`${VIEW_ONLY.charAt(0).toUpperCase()}${VIEW_ONLY.slice(1)}.`)
+  })
+
+  it('refuses an icon with no colour, changing nothing', async () => {
+    const { agent, sync } = await opened()
+    const before = sync.state().nodes
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'tabler/star' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('give colour')
+    expect(sync.state().nodes).toEqual(before)
+  })
+
+  it.each(['fluent-emoji/rocket:flat', 'open-peeps/peep-standing-1', 'humaaans/hero-1', 'open-doodles/coffee'])(
+    'places the drawing sticker %s as a group of layers in its own colours, adding nothing to the asset library',
+    async (id) => {
+      const { agent, sync } = await opened()
+      const [graphic, style] = id.split(':')
+      const box = { x: 100, y: 100, width: 400, height: 400 }
+      const answer = (await agent.json('place_graphic', {
+        frame: 'sq',
+        graphic,
+        ...(style ? { style } : {}),
+        box,
+      })) as Placed
+      expect(layerOf(sync.state(), answer.layer)).toMatchObject({ type: 'group', parentId: 'sq' })
+      const graphics = under(sync.state(), answer.layer).filter(({ type }) => type === 'graphic')
+      expect(graphics.length).toBeGreaterThan(0)
+      expect(graphics.every(({ bindings }) => Object.keys(bindings ?? {}).length === 0)).toBe(true)
+      // The file fitted inside the box, its shape kept: what it draws lies inside the box, and fills most of it.
+      const { x, y, width, height } = answer.box
+      expect(Math.min(x, y)).toBeGreaterThanOrEqual(99.5)
+      expect(Math.max(x + width, y + height)).toBeLessThanOrEqual(500.5)
+      expect(Math.max(width, height)).toBeGreaterThan(300)
+      expect(server.api.bundled.asked).toEqual([])
+    },
+  )
+
+  it('places a picture sticker as an image of the asset it adds to the brand’s library, once however often it is placed', async () => {
+    const { agent, sync } = await opened()
+    const box = { x: 100, y: 200, width: 300, height: 150 }
+    const first = (await agent.json('place_graphic', {
+      frame: 'sq',
+      graphic: 'fluent-emoji/rocket',
+      box,
+    })) as Placed & {
+      asset: { id: string; name: string }
+    }
+    const again = (await agent.json('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket' })) as typeof first
+    expect(first.asset).toEqual(again.asset)
+    expect(first.asset.name).toBe('Rocket · Fluent Emoji')
+    const rocket = stickerPicture('fluent-emoji', 'rocket', '3d')
+    expect(server.api.bundled.asked).toEqual([
+      {
+        brandId: 'brand-summer',
+        sha256: rocket?.sha256,
+        name: 'Rocket · Fluent Emoji',
+        tags: ['sticker', 'fluent emoji'],
+      },
+      {
+        brandId: 'brand-summer',
+        sha256: rocket?.sha256,
+        name: 'Rocket · Fluent Emoji',
+        tags: ['sticker', 'fluent emoji'],
+      },
+    ])
+    expect(server.api.bundled.added).toEqual([
+      expect.objectContaining({ id: first.asset.id, contentType: 'image/png', width: 256, height: 256 }),
+    ])
+    for (const placed of [first, again])
+      expect(layerOf(sync.state(), placed.layer)).toMatchObject({
+        type: 'graphic',
+        parentId: 'sq',
+        props: { fills: [{ type: 'image', assetId: first.asset.id }] },
+      })
+    // The 256 square fits the 300 × 150 box as 150 square, centred; with no box, a 432 square in the frame's middle.
+    expect(first.box).toEqual({ x: 175, y: 200, width: 150, height: 150 })
+    expect(again.box).toEqual({ x: 324, y: 324, width: 432, height: 432 })
+  })
+
+  it('tells an agent that gives a sticker a colour that the sticker keeps its own', async () => {
+    const { agent } = await opened()
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'open-doodles/coffee', colour: '#000000' })
+    expect(result.isError).toBeFalsy()
+    expect(result.content.slice(1).map((block) => (block.type === 'text' ? block.text : ''))).toEqual([
+      expect.stringContaining('keeps the colours'),
+    ])
+  })
+
+  it('refuses a view access a picture sticker before it joins the asset library', async () => {
+    const { agent } = await opened({ writes: false })
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket' })
+    expect(result.isError).toBe(true)
+    expect(server.api.bundled.asked).toEqual([])
+  })
+
+  it('refuses a picture sticker Dazbee’s storage doesn’t hold yet, pointing to its drawing, changing nothing', async () => {
+    const { agent, sync } = await opened()
+    server.api.bundled.stored = false
+    const before = sync.state().nodes
+    const result = await agent.call('place_graphic', { frame: 'sq', graphic: 'fluent-emoji/rocket', style: '3d' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'The 3d picture of “fluent-emoji/rocket” isn’t in Dazbee’s storage yet, so nothing was placed; place its flat style instead.',
+    )
+    expect(sync.state().nodes).toEqual(before)
   })
 })

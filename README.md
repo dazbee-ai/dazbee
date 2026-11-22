@@ -13,25 +13,27 @@ pnpm typecheck
 pnpm test        # Vitest
 ```
 
-The MCP server runs on the host beside the web app and reaches the API and the sync server at their local ports (`API_URL`, `SYNC_URL` and `PUBLIC_URL` change them). Start the web app with `MCP_DEV_URL=http://localhost:3100` and it passes `/mcp`, `/oauth/*` and `/.well-known/oauth-*` on to the MCP server, so an agent connects to `http://localhost:3000/mcp`, one address for both, as Caddy serves them in production. Settings shows that address: the web app's `PUBLIC_URL` and `/mcp`, or with none set, `/mcp` on the host it was reached at.
+The MCP server runs on the host beside the web app and reaches the API and the sync server at their local ports (`API_URL`, `SYNC_URL` and `PUBLIC_URL` change them). Start the web app with `MCP_DEV_URL=http://localhost:3100` and it passes `/mcp`, `/oauth/*` and `/.well-known/oauth-*` on to the MCP server, and an agent's upload links, `/uploads/*`, to the API, so an agent connects to `http://localhost:3000/mcp`, one address for all, as Caddy serves them in production. Settings shows that address: the web app's `PUBLIC_URL` and `/mcp`, or with none set, `/mcp` on the host it was reached at.
 
 The capacity limits are settings read from the environment when a server starts, each a whole number; unset or empty takes the default below, and a value out of range stops the server from starting. In production they are set in the server's `.env` (`deploy/env.example`, `deploy/compose.yml`).
 
-| Setting | Default | What it limits |
-|---|---|---|
-| `MCP_AGENT_TABS` | 30 | agent tabs open at once in the MCP server |
-| `MCP_AGENT_TABS_PER_ACCESS` | 1 | agent tabs one agent access may have open; an MCP session opening one more takes over the access's oldest |
-| `MCP_SESSIONS` | 200 | MCP sessions in all |
-| `MCP_SESSIONS_PER_ACCESS` | 4 | MCP sessions one access may hold; a new one ends the oldest |
-| `MCP_SESSION_IDLE_MINUTES` | 30 | how long an unused session lives |
-| `MCP_CALLS_BURST`, `MCP_CALLS_PER_SECOND` | 60, 2 | each access's calls: so many at once, then so many each second |
-| `MCP_RENDERS_BURST`, `MCP_RENDER_EVERY_SECONDS` | 10, 6 | each access's renders: so many at once, then one every so many seconds |
-| `MCP_RENDERS_WAITING` | 8 | renders that may wait in the MCP server |
-| `MCP_DESIGNS_PER_HOUR` | 30 | new designs one access may make in an hour |
-| `SYNC_LOADED_MB` | 200 | design bytes the sync server holds loaded at once, in MB |
-| `SYNC_IDLE_DESIGNS`, `SYNC_IDLE_SECONDS` | 50, 60 | designs the sync server keeps loaded with no tab, and for how many seconds |
-| `AGENT_SIGN_INS_PER_HOUR` | 60 | agents' sign-ins the API takes from one address in an hour |
-| `AGENT_REGISTRATIONS_PER_HOUR` | 500 | agent client registrations the API takes in all in an hour |
+| Setting                                         | Default | What it limits                                                                                            |
+| ----------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `MCP_AGENT_TABS`                                | 30      | agent tabs open at once in the MCP server                                                                 |
+| `MCP_AGENT_TABS_PER_ACCESS`                     | 1       | agent tabs one agent access may have open; an MCP session opening one more takes over the access's oldest |
+| `MCP_SESSIONS`                                  | 200     | MCP sessions in all                                                                                       |
+| `MCP_SESSIONS_PER_ACCESS`                       | 4       | MCP sessions one access may hold; a new one ends the oldest                                               |
+| `MCP_SESSION_IDLE_MINUTES`                      | 30      | how long an unused session lives                                                                          |
+| `MCP_CALLS_BURST`, `MCP_CALLS_PER_SECOND`       | 60, 2   | each access's calls: so many at once, then so many each second                                            |
+| `MCP_RENDERS_BURST`, `MCP_RENDER_EVERY_SECONDS` | 10, 6   | each access's renders: so many at once, then one every so many seconds                                    |
+| `MCP_RENDERS_WAITING`                           | 8       | renders that may wait in the MCP server                                                                   |
+| `MCP_DESIGNS_PER_HOUR`                          | 30      | new designs one access may make in an hour                                                                |
+| `SYNC_LOADED_MB`                                | 200     | design bytes the sync server holds loaded at once, in MB                                                  |
+| `SYNC_IDLE_DESIGNS`, `SYNC_IDLE_SECONDS`        | 50, 60  | designs the sync server keeps loaded with no tab, and for how many seconds                                |
+| `AGENT_SIGN_INS_PER_HOUR`                       | 60      | agents' sign-ins the API takes from one address in an hour                                                |
+| `AGENT_REGISTRATIONS_PER_HOUR`                  | 500     | agent client registrations the API takes in all in an hour                                                |
+
+`PIXABAY_API_KEY`, the API's setting, is Pixabay's key: set, agents search Pixabay's free stock photos and save them into a brand's images (`search_stock`, `add_stock`); unset or empty, both say stock search is off. The API keeps each Pixabay answer 24 hours and sends Pixabay at most 100 requests a minute, as Pixabay's terms ask.
 
 ## Layout
 
@@ -49,6 +51,7 @@ packages/editor/      the client-only editor: canvas, tools, gestures, sync and 
 packages/export/      PNG, JPG, PDF and SVG exports, and their zips (ADR-0005); a frame drawn for an agent, and the warnings it is told
 packages/svg/         turns an SVG file into layers
 packages/figma/       turns a Figma file's JSON into pages, frames and layers, with a report of what it left out or drew another way
+packages/matchers/    the matchers' code (ADR-0020): so far the looks-the-same rule that judges a rebuild of a piece of a picture
 packages/graphics/    the icon sets agents place (Tabler and Phosphor) with their licences, their search index and the SVG each icon is placed as
 packages/patterns/    the patterns agents build ads from (apply_pattern): each a pure function of the pattern, its style, the brand kit, the content and a size, giving a frame's layers
 packages/fonts/       the font files we ship, the Google font catalog list and their Node loader

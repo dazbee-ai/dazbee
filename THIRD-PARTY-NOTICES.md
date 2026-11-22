@@ -1,6 +1,6 @@
 # Third-party notices
 
-Code in Dazbee that is ported from other projects, with the notice each project's licence asks to keep.
+Code in Dazbee that is ported from other projects, and model weights it starts from, with the notice each project's licence asks to keep.
 
 ## FigCraft
 
@@ -46,3 +46,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## timm's `convnext_atto.d2_in1k` weights
+
+The text matcher's model, `text-model.onnx` in the release `packages/matchers/src/release.json` names, served at `/matchers/<sha256>.bin`, is a ConvNeXt-Atto that started from timm's `convnext_atto.d2_in1k` weights (https://huggingface.co/timm/convnext_atto.d2_in1k) and was then trained further on drawn font samples, so its weights are changed from the original. timm's code (https://github.com/huggingface/pytorch-image-models) is under the Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
+The model card, read again on 2026-11-22, says in its header `license: apache-2.0` and `datasets: imagenet-1k`, and in its text: "A ConvNeXt image classification model. Trained in `timm` on ImageNet-1k by Ross Wightman." It names the paper "A ConvNet for the 2020s" (Liu, Mao, Wu, Feichtenhofer, Darrell and Xie, CVPR 2022) and asks timm to be cited as Ross Wightman, "PyTorch Image Models", 2019, doi:10.5281/zenodo.4414861.
+
+The weights were trained on ImageNet-1k, whose terms of access let a researcher "use the Database only for non-commercial research and educational purposes". Whether those terms reach weights trained on it is not settled; the owner accepted that grey area for the model's accuracy on 2026-11-22 (ADR-0020). A model trained without ImageNet weights replaces it if that changes.

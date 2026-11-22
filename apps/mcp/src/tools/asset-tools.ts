@@ -3,22 +3,24 @@
 // it, as one agent batch with its warnings.
 import { z } from 'zod'
 
-import { placedRoots } from '@dazbee/doc'
-import { logoBinding, placedImage, SvgError, svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
-import { loadCanvasKit } from '@dazbee/renderer/node'
+import { logoBinding, placedImage } from '@dazbee/editor/placed-asset'
 import { type AssetSummary, isVectorAsset, RecordId, type Rect } from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import type { OpenDesign } from '../open-design.ts'
 import { Note, writing } from './command-tools.ts'
-import { defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
+import { defineTool, type Tool, type ToolContext, ToolRefusal, withNote } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
-import { centreOf, frameIn, type FrameTo, placeAndAnswer, placeBox, type Placing, whole } from './place-on-frame.ts'
-
-/** The batch that places an asset, with what an SVG file had that no layer shows. */
-interface AssetPlacing extends Placing {
-  leftOut: readonly string[]
-}
+import {
+  type AssetPlacing,
+  centreOf,
+  frameIn,
+  type FrameTo,
+  placeAndAnswer,
+  placeBox,
+  svgSteps,
+  whole,
+} from './place-on-frame.ts'
 
 /** The name a logo placed takes, as the editor names it in English. */
 const LOGO_NAME = 'Logo'
@@ -48,7 +50,7 @@ export const ASSET_TOOLS: Tool[] = [
         const into = { id: frame, frame: frameIn(open, frame) }
         const stored = await assetOf(context, open, asset)
         const placing = isVectorAsset(stored.summary)
-          ? await svgSteps(into, stored.summary.name, await stored.bytes(), box)
+          ? await svgSteps(into, stored.summary.name, textOf(await stored.bytes()), box)
           : await imageSteps(context, open, into, stored.summary, box)
         const value = await placeAndAnswer(context, open, placing, note)
         return placing.leftOut.includes('image') ? withNote(value, PICTURES_LEFT_OUT) : value
@@ -67,33 +69,9 @@ async function assetOf({ api }: ToolContext, open: OpenDesign, assetId: string) 
   }
 }
 
-/**
- * The SVG file's step: the layers the editor makes of it, its pictures left out, fitted inside `box` and centred in
- * it, or in the middle of the frame, scaled down as the editor scales it.
- */
-async function svgSteps(
-  { id: frameId, frame }: FrameTo,
-  name: string,
-  bytes: Uint8Array,
-  box: Rect | undefined,
-): Promise<AssetPlacing> {
-  // Read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced.
-  const text = new TextDecoder().decode(bytes)
-  let read
-  try {
-    read = await svgLayers(await loadCanvasKit(), text, { name: name || 'SVG', frame, ...(box ? { box } : {}) })
-  } catch (error) {
-    if (!(error instanceof SvgError)) throw error
-    throw new ToolRefusal(`The SVG file “${name}” can’t be read as layers (${error.problem}), so nothing was placed`)
-  }
-  const input = svgPlaceInput(read, frameId, centreOf(box ?? whole(frame)))
-  if (!input) throw new ToolRefusal(`The SVG file “${name}” draws nothing, so nothing was placed`)
-  return {
-    steps: [{ command: 'design.place', input }],
-    layerOf: (result) => placedRoots(result as Parameters<typeof placedRoots>[0])[0] ?? '',
-    told: read.leftOut.length > 0 ? { leftOut: read.leftOut } : {},
-    leftOut: read.leftOut,
-  }
+/** An SVG file's text, read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced. */
+function textOf(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes)
 }
 
 /**
@@ -121,9 +99,4 @@ async function imageSteps(
     told: binding ? { bound: binding.ref } : {},
     leftOut: [],
   }
-}
-
-/** `value`, told with `note` after the notes it has. */
-function withNote(value: unknown, note: string): WithNotes {
-  return value instanceof WithNotes ? new WithNotes(value.value, [...value.notes, note]) : new WithNotes(value, [note])
 }

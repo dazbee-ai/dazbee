@@ -44,13 +44,16 @@ import { promptMessage, PROMPTS } from './prompts.ts'
 import { renderQueue, type RenderThread } from './render-queue.ts'
 import { readResource, RESOURCE_TEMPLATES, RESOURCES } from './resources.ts'
 import { afterTimeout, type StoreWait } from './store-wait.ts'
+import { ADVICE_TOOLS } from './tools/advice-tools.ts'
 import { ASSET_TOOLS } from './tools/asset-tools.ts'
+import { BRAND_TOOLS } from './tools/brand-tools.ts'
 import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
 import { GRAPHICS_TOOLS } from './tools/graphics-tools.ts'
 import { PATTERN_TOOLS } from './tools/pattern-tools.ts'
 import { RENDER_TOOLS } from './tools/render-tool.ts'
+import { STOCK_TOOLS } from './tools/stock-tools.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
 
 /** What the endpoint needs: the API, the sync server, the public base URL the server is reached at, and the app's version. */
@@ -112,6 +115,9 @@ interface Call {
 /** The tools every session offers, in `tools/list` order. */
 export const TOOLS: Tool[] = [
   ...WORKSPACE_TOOLS,
+  ...STOCK_TOOLS,
+  ...BRAND_TOOLS,
+  ...ADVICE_TOOLS,
   ...DESIGN_TOOLS,
   ...RENDER_TOOLS,
   ...COMMAND_TOOLS,
@@ -191,6 +197,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
       context: {
         agent,
         api: agentApi(api, token, agent.workspaceId, refuse),
+        baseUrl,
         design: opened.design,
         answerBy: now() + callTimeoutMs - ANSWER_MARGIN_MS,
         takeDesign: () => designs.take(agent.id),

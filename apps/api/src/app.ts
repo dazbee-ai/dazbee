@@ -2,7 +2,10 @@
 // only: a workspace the person is not a member of, a brand or design of another workspace, and a brand outside
 // a limited member's, are answered as if they didn't exist (ADR-0016). Outside a workspace there are only
 // /health, sign-in's /auth/* (with the development invites' accept route), the person's own /me and
-// /me/*, early access's /admin/*, for admins only, and its public request to join, /access-requests. A person
+// /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, the file
+// sent to an agent's upload link, PUT /uploads/:token, whose token is its only key, and the Google faces' files
+// and previews, GET /fonts/google/faces/:name, and their list, GET /fonts/google/lists/:name, and the matchers'
+// files, GET /matchers/:name, which anyone may read. A person
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a
@@ -23,14 +26,19 @@ import { agentConsentRoutes } from './agents/consent-routes.ts'
 import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from './agents/oauth-routes.ts'
 import { agentAccessRoutes } from './agents/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
-import { assetRoutes } from './assets/routes.ts'
+import { AddingFromUrlBusy, FROM_URL_PER_HOUR } from './assets/from-url.ts'
+import { assetRoutes, uploadRoutes } from './assets/routes.ts'
 import { SvgBusy } from './assets/svg-assets.ts'
+import { UploadLinkRefused } from './assets/upload-links.ts'
 import { InvalidKit } from './brand-kits/brand-kits.ts'
+import { ReadingWebsitesBusy, WEBSITES_PER_HOUR } from './brand-kits/from-website.ts'
 import { brandKitRoutes } from './brand-kits/routes.ts'
+import { FetchRefused, type SafeFetchSettings } from './fetch/safe-fetch.ts'
 import { InvalidFont } from './fonts/fonts.ts'
-import { fontRoutes } from './fonts/routes.ts'
+import { fontRoutes, googleFontRoutes } from './fonts/routes.ts'
 import { brandScope, type Env, error, membershipScope, requireSession } from './http.ts'
 import { logError } from './log.ts'
+import { matcherFileRoutes } from './matchers/routes.ts'
 import { meRoutes } from './me/routes.ts'
 import { InvalidLimit } from './members/brand-limits.ts'
 import { InvalidInvite, InviteConflict } from './members/invites.ts'
@@ -42,6 +50,8 @@ import { sessionRefusal } from './sign-in/early-access.ts'
 import { signInRoutes } from './sign-in/routes.ts'
 import { bearerToken, type SessionOf } from './sign-in/session.ts'
 import type { SignInSettings } from './sign-in/sign-in.ts'
+import { type StockLibrary, StockRefused } from './stock/pixabay.ts'
+import { stockRoutes } from './stock/routes.ts'
 import { templateRoutes } from './templates/routes.ts'
 import { versionRoutes } from './versions/routes.ts'
 import { InvalidContent } from './workspace/designs.ts'
@@ -59,6 +69,10 @@ export function createApp({
   requests = requestLimit(),
   turnstile = null,
   agentLimits = oauthLimitSettings({}),
+  outsideFetch = {},
+  fromUrlPerHour = FROM_URL_PER_HOUR,
+  stock = null,
+  websitesPerHour = WEBSITES_PER_HOUR,
 }: {
   db: Db
   storage: Storage
@@ -77,6 +91,14 @@ export function createApp({
   turnstile?: TurnstileCheck | null
   /** The limits on agents' sign-ins and registrations, as the environment sets them; their defaults unless given. */
   agentLimits?: OAuthLimitSettings
+  /** How the safe fetch reaches outside sites: the system's DNS and `node:https` unless given. */
+  outsideFetch?: SafeFetchSettings
+  /** The pictures from links a member may add in an hour, `FROM_URL_PER_HOUR` unless given. */
+  fromUrlPerHour?: number
+  /** The stock library photos are searched in and saved from; none turns stock search off. */
+  stock?: StockLibrary | null
+  /** The websites a member may read into kits in an hour, `WEBSITES_PER_HOUR` unless given. */
+  websitesPerHour?: number
 }) {
   const app = new Hono<Env>()
 
@@ -89,15 +111,19 @@ export function createApp({
   app.route('/', devInviteRoutes({ db, dev: invites.dev && { ...invites.dev, dazbee: !invites.workos } }))
   app.route('/', adminRoutes({ db, sessionOf, admins, invites: providers }))
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
+  app.route('/', uploadRoutes({ db, storage, admins }))
+  app.route('/', googleFontRoutes({ db, storage }))
+  app.route('/', matcherFileRoutes({ storage }))
 
   const signedIn = requireSession(sessionOf, sessionRefusal(db, admins))
   const records = new Hono<Env>()
     .route('/', brandRoutes({ db, storage, syncSecret }))
     .route('/', versionRoutes({ db, storage }))
-    .route('/', assetRoutes({ db, storage }))
+    .route('/', assetRoutes({ db, storage, outsideFetch, fromUrlPerHour }))
     .route('/', templateRoutes({ db, storage }))
-    .route('/', brandKitRoutes({ db }))
+    .route('/', brandKitRoutes({ db, storage, outsideFetch, websitesPerHour }))
     .route('/', fontRoutes({ db, storage }))
+    .route('/', stockRoutes({ db, storage, outsideFetch, stock, perHour: fromUrlPerHour }))
 
   app.use('/me', signedIn)
   app.use('/me/*', signedIn)
@@ -121,11 +147,14 @@ export function createApp({
   // A refusal a route lets through answers 400 with its message; any other error is ours.
   app.onError((e, c) => {
     if (e instanceof MemberRefusal) return c.json(error(e.message), e.status)
+    if (e instanceof StockRefused || e instanceof UploadLinkRefused) return c.json(error(e.message), e.status)
     if (e instanceof InviteConflict) return c.json(error(e.message), 409)
     if (e instanceof SvgBusy) return c.json(error(e.message), 503)
+    if (e instanceof AddingFromUrlBusy || e instanceof ReadingWebsitesBusy) return c.json(error(e.message), 503)
     if (e instanceof InvalidContent) return c.json(error(`The design is not valid: ${e.message}`), 400)
     if (
       e instanceof InvalidUpload ||
+      e instanceof FetchRefused ||
       e instanceof InvalidKit ||
       e instanceof InvalidFont ||
       e instanceof InvalidInvite ||

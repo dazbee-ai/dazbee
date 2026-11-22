@@ -1,19 +1,28 @@
-// Finding bundled icons by words: each word of the query is matched against an icon's name, then its tags and
-// categories, and the icons that match every word are ranked, the sets taking turns so each set's best show.
+// Finding bundled icons and stickers by words: each word of the query is matched against a graphic's name, then its
+// tags and categories, and the graphics that match every word are ranked, the sets taking turns so each set's best show.
 import { readBundled } from './bundled.ts'
-import { ICON_SET_IDS, ICON_SETS, type IconSetId } from './sets.ts'
+import {
+  GRAPHIC_SET_IDS,
+  type GraphicKind,
+  type GraphicSetId,
+  type IconSetId,
+  isIconSet,
+  type StickerSetId,
+} from './sets.ts'
 
-/** One icon as the search index holds it: its name, the styles it is drawn in, and its tags with its categories. */
-export type IndexedIcon = [name: string, styles: string[], tags: string[]]
+/** One graphic as a search index holds it: its name, the styles it is drawn in, and its tags with its categories. */
+export type IndexedGraphic = [name: string, styles: string[], tags: string[]]
 
-/** The search index: each set's icons. */
-export type IconIndex = Record<IconSetId, IndexedIcon[]>
+/** The icons' search index (`sets/index.json`): each icon set's icons. */
+export type IconIndex = Record<IconSetId, IndexedGraphic[]>
 
-/** An icon as a search finds it. */
-export interface FoundIcon {
-  /** Its id, the set and the name: `tabler/shopping-cart`. */
+/** The stickers' search index (`sets/stickers.json`): each sticker set's stickers. */
+export type StickerIndex = Record<StickerSetId, IndexedGraphic[]>
+
+/** An icon or a sticker as a search finds it: its kind with its set, and what every graphic has. */
+export type FoundGraphic = ({ kind: 'icon'; set: IconSetId } | { kind: 'sticker'; set: StickerSetId }) & {
+  /** Its id, the set and the name: `tabler/shopping-cart`, `fluent-emoji/rocket`. */
   id: string
-  set: IconSetId
   name: string
   /** The styles it is drawn in, the one placed when none is asked for first. */
   styles: string[]
@@ -21,51 +30,57 @@ export interface FoundIcon {
 }
 
 /** What a search may be narrowed to. */
-export interface IconSearch {
-  set?: IconSetId
-  /** How many icons it gives at most. */
+export interface GraphicSearch {
+  kind?: GraphicKind
+  set?: GraphicSetId
+  /** How many graphics it gives at most. */
   limit: number
 }
 
-/** What a match on each part of an icon scores, per word of the query. */
+/** What a match on each part of a graphic scores, per word of the query. */
 const SCORE = { name: 10, namePrefix: 6, tag: 4, tagPrefix: 2, wholeName: 20 } as const
 /** The shortest word that matches the start of a longer one. */
 const MIN_PREFIX = 2
 /** What parts words: anything but a letter or a digit. */
 const WORD_BREAK = /[^\p{L}\p{N}]+/u
 
-/** The index, read once on the first search. */
-let loaded: IconIndex | undefined
+/** The indexes, each read once on the first search that needs it. */
+let icons: IconIndex | undefined
+let stickers: StickerIndex | undefined
 
-/** The icons that match every word of `query`, best first, the sets taking turns unless one is asked for. */
-export function searchIcons(query: string, { set, limit }: IconSearch): FoundIcon[] {
+/**
+ * The graphics that match every word of `query`, best first, the sets taking turns: every set's, or only those of
+ * the kind or the set asked for.
+ */
+export function searchGraphics(query: string, { kind, set, limit }: GraphicSearch): FoundGraphic[] {
   const words = wordsOf(query)
   if (words.length === 0) return []
-  const index = iconIndex()
-  const ranked = (set ? [set] : ICON_SET_IDS).map((id) =>
-    index[id]
-      .flatMap((icon) => {
-        const score = scoreOf(icon, words)
-        return score > 0 ? [{ icon, score }] : []
+  const sets = GRAPHIC_SET_IDS.filter((id) => (set ? id === set : !kind || kindOf(id) === kind))
+  const ranked = sets.map((id) =>
+    graphicsOf(id)
+      .flatMap((graphic) => {
+        const score = scoreOf(graphic, words)
+        return score > 0 ? [{ graphic, score }] : []
       })
-      .sort((a, b) => b.score - a.score || simpler(a.icon[0], b.icon[0]))
-      .map(({ icon }) => found(id, icon)),
+      .sort((a, b) => b.score - a.score || simpler(a.graphic[0], b.graphic[0]))
+      .map(({ graphic }) => found(id, graphic)),
   )
-  const merged: FoundIcon[] = []
+  const merged: FoundGraphic[] = []
   for (let rank = 0; merged.length < limit && ranked.some((list) => rank < list.length); rank++)
     for (const list of ranked) {
-      const icon = list[rank]
-      if (icon && merged.length < limit) merged.push(icon)
+      const graphic = list[rank]
+      if (graphic && merged.length < limit) merged.push(graphic)
     }
   return merged
 }
 
-/** The icon with the id `id` (`tabler/shopping-cart`); undefined when no set has it. */
-export function findIcon(id: string): FoundIcon | undefined {
+/** The icon or sticker with the id `id` (`tabler/shopping-cart`); undefined when no set has it. */
+export function findGraphic(id: string): FoundGraphic | undefined {
   const [set, name, ...rest] = id.split('/')
-  if (rest.length > 0 || !set || !name || !Object.hasOwn(ICON_SETS, set)) return undefined
-  const icon = iconIndex()[set as IconSetId].find(([each]) => each === name)
-  return icon && found(set as IconSetId, icon)
+  const known = GRAPHIC_SET_IDS.find((each) => each === set)
+  if (rest.length > 0 || !known || !name) return undefined
+  const graphic = graphicsOf(known).find(([each]) => each === name)
+  return graphic && found(known, graphic)
 }
 
 /** A query's words: lowercase letters and digits. */
@@ -73,14 +88,18 @@ function wordsOf(query: string): string[] {
   return query.toLowerCase().split(WORD_BREAK).filter(Boolean)
 }
 
-/** The index, read from `sets/index.json` the first time. */
-function iconIndex(): IconIndex {
-  loaded ??= readBundled('index.json') as IconIndex
-  return loaded
+/** A set's graphics, from its kind's index, read from `sets/` the first time. */
+function graphicsOf(set: GraphicSetId): IndexedGraphic[] {
+  if (isIconSet(set)) {
+    icons ??= readBundled('index.json') as IconIndex
+    return icons[set]
+  }
+  stickers ??= readBundled('stickers.json') as StickerIndex
+  return stickers[set]
 }
 
-/** How well an icon matches every word, each word scored by its best match, or a plural by its singular; 0 when a word matches nothing. */
-function scoreOf([name, , tags]: IndexedIcon, words: string[]): number {
+/** How well a graphic matches every word, each word scored by its best match, or a plural by its singular; 0 when a word matches nothing. */
+function scoreOf([name, , tags]: IndexedGraphic, words: string[]): number {
   const nameWords = name.split('-')
   const tagWords = tags.flatMap((tag) => [tag, ...tag.split(WORD_BREAK)])
   let total = name === words.join('-') ? SCORE.wholeName : 0
@@ -92,7 +111,7 @@ function scoreOf([name, , tags]: IndexedIcon, words: string[]): number {
   return total
 }
 
-/** A word's best match among an icon's name words and tag words. */
+/** A word's best match among a graphic's name words and tag words. */
 function wordScore(word: string, nameWords: string[], tagWords: string[]): number {
   if (nameWords.includes(word)) return SCORE.name
   const prefix = (each: string) => word.length >= MIN_PREFIX && each.startsWith(word)
@@ -113,7 +132,13 @@ function simpler(a: string, b: string): number {
   return a.split('-').length - b.split('-').length || a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)
 }
 
-/** An indexed icon as a search gives it. */
-function found(set: IconSetId, [name, styles, tags]: IndexedIcon): FoundIcon {
-  return { id: `${set}/${name}`, set, name, styles, tags }
+/** An indexed graphic as a search gives it. */
+function found(set: GraphicSetId, [name, styles, tags]: IndexedGraphic): FoundGraphic {
+  const what = { id: `${set}/${name}`, name, styles, tags }
+  return isIconSet(set) ? { kind: 'icon', set, ...what } : { kind: 'sticker', set, ...what }
+}
+
+/** What kind of graphic a set holds. */
+function kindOf(set: GraphicSetId): GraphicKind {
+  return isIconSet(set) ? 'icon' : 'sticker'
 }

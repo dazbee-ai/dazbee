@@ -35,8 +35,8 @@
   </head>
   <body>
     <!--
-  Moments:the hero valley (smooth sky, land in blocks, a lens; WebGL), the orbit of routes, the look-alikes that turn
-  into routes, the try-out, the pinned voxel town of sizes, the pinned how chapters, the sign-off, the sign in the meadow.
+  Moments: the hero valley (smooth sky, land in blocks, a lens; WebGL), the pinned city that the brief turns from one
+  plain ad into six routes, the try-out, the pinned how chapters, the valley behind the closing call.
 -->
     <header class="nav" data-nav>
       <div class="wrap nav__bar">
@@ -45,7 +45,7 @@
           <span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>dazbee
         </a>
         <nav class="nav__links" aria-label="Main">
-          <a href="#product">Product</a>
+          <a href="#city">Product</a>
           <a href="#how">How it works</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
@@ -61,7 +61,7 @@
         </button>
       </div>
       <div class="sheet" id="sheet" hidden>
-        <a href="#product">Product</a>
+        <a href="#city">Product</a>
 
         <a href="#how">How it works</a>
         <a href="#about">About</a>
@@ -115,9 +115,7 @@
         </div>
         <div class="wrap" data-arrive>
           <div class="clip__frame" data-clip>
-            <div class="clip__bar" aria-hidden="true">
-              <i></i><i></i><i></i><span>Sorrel &amp; Oat · spring launch</span>
-            </div>
+            <div class="clip__bar" aria-hidden="true"><i></i><i></i><i></i><span>Brimble · Dry-ish January</span></div>
             <!-- swap this placeholder for <video src="/media/dazbee-clip.mp4" autoplay muted loop playsinline poster="/media/dazbee-clip.jpg"></video> -->
             <div class="clip__slot">
               <span class="clip__play" aria-hidden="true"></span>
@@ -130,43 +128,65 @@
         </div>
       </section>
 
-      <!-- 3. WHY: six tweaks of one ad reach one kind of buyer; six routes reach six -->
-      <section class="why" id="why" aria-labelledby="why-h" data-why>
-        <div class="wrap">
-          <div class="head head--split" data-arrive>
-            <h2 id="why-h">Meta wants more concepts. <em>Your team doesn't have more hours.</em></h2>
+      <!-- the city: one pinned iso city for the problem, the routes and the sizes (src/scenes/city.js) -->
+      <section class="city" id="city" aria-labelledby="city-h" data-city>
+        <div class="city__pin">
+          <div class="city__stage">
+            <div class="town__camera" data-camera><div class="town__world" data-world></div></div>
+          </div>
+          <div class="city__clouds" aria-hidden="true">
+            <img class="city__cloud" src="/sprites/city/sky/k-cloud-a.webp" alt="" /><img
+              class="city__cloud"
+              src="/sprites/city/sky/k-cloud-b.webp"
+              alt=""
+            /><img class="city__cloud" src="/sprites/city/sky/k-cloud-c.webp" alt="" /><img
+              class="city__cloud"
+              src="/sprites/city/sky/k-cloud-a.webp"
+              alt=""
+            />
+          </div>
+          <div class="city__veil city__veil--full" aria-hidden="true"></div>
+          <div class="city__veil city__veil--side" aria-hidden="true"></div>
+          <div class="city__lead" data-lead>
+            <h2 id="city-h">
+              <span class="ln" data-ln>Meta wants more concepts.</span
+              ><span class="ln ln--em" data-ln>Your team doesn't</span
+              ><span class="ln ln--em" data-ln>have more hours.</span>
+            </h2>
             <p>
-              Meta's own guidance asks advertisers for creative diversification. New colours on one layout still say one
-              thing to one kind of buyer. Different routes speak to different buyers, and they take time your team
-              doesn't have.
+              So one plain ad goes everywhere. It only speaks to the few people it was made for, in colour here.
+              Everyone else scrolls past.
             </p>
           </div>
-          <div class="vs" data-vs>
-            <div class="vs__stage" data-vs-stage>
-              <div class="vs__layer vs__layer--a" data-vs-a aria-hidden="true"></div>
-              <div class="vs__layer vs__layer--b" data-vs-b></div>
-              <div class="vs__fx" data-vs-fx aria-hidden="true"></div>
-              <div
-                class="vs__handle"
-                data-vs-handle
-                role="slider"
-                tabindex="0"
-                aria-label="Slide from six tweaks of one ad to six distinct routes"
-                aria-valuemin="0"
-                aria-valuemax="6"
-                aria-valuenow="3"
-              >
-                <span class="vs__line" aria-hidden="true"></span><span class="vs__badge" aria-hidden="true">VS</span>
-              </div>
-            </div>
-            <div class="vs__foot">
-              <p class="vs__sum" aria-live="polite">
-                <b data-vs-ads>6</b> ads <span>=</span> <b data-vs-ideas>1</b> <span data-vs-ideas-w>idea</span>
-                <span class="vs__for">for</span> <b data-vs-aud>1</b> <span data-vs-aud-w>audience</span>
+          <div class="city__copy">
+            <div class="city__beat" data-beat="drop" aria-hidden="true">
+              <h2>Now put the brief <em>through Dazbee.</em></h2>
+              <p>
+                The same brief your team agreed. Dazbee turns it into distinct concepts, each made for a different
+                buyer. Press run and watch the city.
               </p>
-              <p class="vs__hint" aria-hidden="true">Drag to upgrade</p>
+            </div>
+            <div class="city__beat city__beat--ads" data-beat="2" aria-hidden="true">
+              <h2>One brief. <em>Six ads, six kinds of buyer.</em></h2>
+              <p>Every person in colour now sees an ad made for them. Point at anyone to meet them.</p>
+              <ol class="city__ads" data-pills></ol>
+            </div>
+            <div class="city__beat" data-beat="3" aria-hidden="true">
+              <h2>Every route, <em>any size.</em></h2>
+              <p>Feed, Stories, a roadside board or a whole wall. Change a route once and every size follows.</p>
+              <p class="city__size" data-size-now aria-live="polite"></p>
+            </div>
+            <div class="city__beat" data-beat="4" aria-hidden="true">
+              <h2>More of the city, <em>each with an ad made for them.</em></h2>
+              <p>Six routes from one brief, in every size you need, ready for your team to edit.</p>
             </div>
           </div>
+          <button type="button" class="city__drop" data-drop>
+            <span class="city__drop-mark"><i></i><i></i><i></i></span
+            ><span><b>Brimble brief</b><small data-drop-note>Ready for Dazbee</small></span
+            ><span class="city__run" data-run>Run the brief</span>
+          </button>
+          <i class="city__ripple" data-ripple aria-hidden="true"></i>
         </div>
       </section>
 
@@ -313,37 +333,7 @@
           </div>
         </div>
       </section>
-      <!-- 5. PRODUCT: one brief in the middle, its routes circling it, each with the people it speaks to -->
-      <section class="orbit-sec" id="product" aria-labelledby="product-h" data-orbit-sec>
-        <div class="wrap orbit-sec__head" data-arrive>
-          <h2 id="product-h">One brief. <em>A route for every kind of buyer.</em></h2>
-          <p>
-            Dazbee reads the brief your team agreed and builds routes around it. Each route gives a different reason to
-            buy, so one brief speaks to more of the people your client wants.
-          </p>
-        </div>
-        <div class="orbit" data-orbit>
-          <canvas class="orbit__stands" data-stands aria-hidden="true"></canvas>
-          <div class="orbit__screen" aria-hidden="true">
-            <span class="px">On stage</span><b data-screen-name>Proof</b><span data-screen-who>for sensitive skin</span>
-          </div>
-          <svg class="orbit__path" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
-            <ellipse cx="500" cy="150" rx="496" ry="146" />
-          </svg>
-          <div class="orbit__ring" data-ring></div>
-          <div class="orbit__core" aria-hidden="true">
-            <p class="core__label px">Brief</p>
-            <p class="core__title">Oat cleanser, spring launch</p>
-            <p class="core__line">Clean skin that still feels soft</p>
-            <p class="core__meta mono">Sorrel &amp; Oat · from 18 March</p>
-          </div>
-          <canvas class="orbit__beams" data-beams aria-hidden="true"></canvas>
-        </div>
-        <p class="wrap orbit__about" aria-live="polite">
-          The <b data-picked-name>Proof</b> route is for <b data-picked-who>sensitive skin, 25 to 40</b>.
-          <span data-picked-why></span>
-        </p>
-      </section>
+
       <!-- 6. HOW: pinned with its title. Four steps beside one stage that changes with each step -->
       <section class="how" id="how" aria-labelledby="how-h" data-how>
         <div class="how__pin">
@@ -386,99 +376,29 @@
             <div class="stage" data-stage aria-hidden="true">
               <div class="stage__brief" data-st-brief>
                 <p class="core__label px">Brief</p>
-                <p class="stage__title">Oat cleanser, spring launch</p>
+                <p class="stage__title">Brimble, Dry-ish January</p>
                 <div class="stage__field">
                   <span>Proposition</span>
-                  <p data-type-line="Clean skin that still feels soft"></p>
+                  <p data-type-line="All the fizz, 3 g of sugar"></p>
                 </div>
                 <div class="stage__field">
                   <span>Audience</span>
-                  <p data-type-line="25 to 40, sensitive skin"></p>
+                  <p data-type-line="30 to 45, cutting back on sugar"></p>
                 </div>
                 <div class="stage__kit">
-                  <i style="--c: #f3e7d3"></i><i style="--c: #6f8f5a"></i><i style="--c: #c4693f"></i
-                  ><i style="--c: #2b2a26"></i><span>Brand kit</span>
+                  <i style="--c: #fff6ea"></i><i style="--c: #ff6b57"></i><i style="--c: #f6c93b"></i
+                  ><i style="--c: #9fdcc4"></i><span>Brand kit</span>
                 </div>
               </div>
               <div class="stage__routes" data-st-routes></div>
               <div class="stage__sizes" data-st-sizes></div>
               <div class="stage__review" data-st-review>
                 <div class="stage__link">
-                  <span class="app__logo">d</span>Sorrel &amp; Oat · routine<span class="stage__copy">In review</span>
+                  <span class="app__logo">d</span>Brimble · comparison<span class="stage__copy">In review</span>
                 </div>
               </div>
               <div class="stage__bar"><i></i><i></i><i></i><i></i></div>
             </div>
-          </div>
-        </div>
-      </section>
-      <!-- 7. SIZES: the voxel town. Starts close on one banner, visits each size, then pulls back over the whole town -->
-      <section class="town" id="sizes" aria-labelledby="sizes-h" data-town>
-        <div class="town__pin">
-          <div class="town__stage" aria-hidden="true">
-            <div class="town__camera" data-camera><div class="town__world" data-world></div></div>
-          </div>
-          <div class="wrap town__over">
-            <div class="town__card">
-              <h2 id="sizes-h">Every route, <em>in every size.</em></h2>
-              <p>One route, refitted for each placement. Change it once and every size follows.</p>
-              <ol class="town__list">
-                <li data-size="0"><span class="mono">1080 × 1080</span>Feed, square</li>
-                <li data-size="1"><span class="mono">1080 × 1350</span>Feed, portrait</li>
-                <li data-size="2"><span class="mono">1080 × 1920</span>Stories and Reels</li>
-                <li data-size="3"><span class="mono">1200 × 628</span>Landscape</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      </section>
-      <!-- 8. SIGN-OFF: the client's phone; comments arrive, a change is checked against the brief, the route is approved -->
-      <section class="review" id="review" aria-labelledby="review-h" data-review>
-        <div class="wrap review__head" data-arrive>
-          <h2 id="review-h">Client sign&#8209;off, <em>on the work itself.</em></h2>
-          <p>Your client sees every route next to the brief, comments on the banner itself and approves in a tap.</p>
-        </div>
-        <div class="review__stage">
-          <div class="review__sky" aria-hidden="true"></div>
-          <svg class="review__lines" viewBox="0 0 1200 640" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M300 170 C 420 170, 440 250, 540 262" />
-            <path d="M290 470 C 410 470, 430 410, 540 404" />
-            <path d="M900 300 C 800 300, 780 330, 668 336" />
-          </svg>
-          <ul class="notes">
-            <li class="note note--a">
-              <span class="avatar" style="--c: #c4693f" aria-hidden="true">BL</span>
-              <div><b>Comments pinned to the exact spot</b><span>On the banner, not in an email thread.</span></div>
-            </li>
-            <li class="note note--b">
-              <span class="note__ico note__ico--flag" aria-hidden="true"></span>
-              <div><b>Brief-changing requests are flagged</b><span>Your team decides before anything moves.</span></div>
-            </li>
-            <li class="note note--c">
-              <span class="note__ico note__ico--ok" aria-hidden="true"></span>
-              <div><b>Only approved banners download</b><span>Every size, named and ready to upload.</span></div>
-            </li>
-          </ul>
-          <div class="phone" aria-hidden="true">
-            <div class="phone__screen">
-              <p class="phone__head"><span class="app__logo">d</span>Review<span class="mono">6 routes</span></p>
-              <div class="phone__ad">
-                <div class="ad ad--routine s-45">
-                  <span class="ad__brand">Sorrel &amp; Oat</span><b>Two steps.<br />Morning and night.</b
-                  ><span class="ad__pack"></span><span class="ad__cta">Shop the cleanser</span>
-                </div>
-                <span class="pin" style="--x: 80%; --y: 36%" data-rv-pin>2</span>
-                <span class="stamp px" data-rv-stamp>Approved</span>
-              </div>
-              <div class="phone__note" data-rv-note>
-                <b>Brand lead</b>Can we try “evening” instead of “night”?<span class="flag">Fits the brief</span>
-              </div>
-              <div class="phone__actions">
-                <span>Request change</span><span class="is-primary" data-rv-approve>Approve route</span>
-              </div>
-              <span class="tap" data-rv-tap></span>
-            </div>
-            <div class="toast" data-toast><span class="toast__px" aria-hidden="true"></span>Routine approved</div>
           </div>
         </div>
       </section>
@@ -666,8 +586,8 @@
           ><span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>dazbee</a
         >
         <nav aria-label="Footer">
-          <a href="#product">Product</a><a href="#how">How it works</a><a href="#try">Try it</a
-          ><a href="#about">About</a><a href="#faq">Questions</a>
+          <a href="#city">Product</a><a href="#how">How it works</a><a href="#try">Try it</a><a href="#about">About</a
+          ><a href="#faq">Questions</a>
         </nav>
         <span class="legal"><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · © 2026 Dazbee</span>
       </div>

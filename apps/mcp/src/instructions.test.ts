@@ -93,13 +93,69 @@ describe('INSTRUCTIONS', () => {
     expect(INSTRUCTIONS).toContain('Opening a design in another session of this agent, such as a new chat, closes')
   })
 
+  it('tells of add_image, which brings a picture in from a link before it is placed', () => {
+    expect(INSTRUCTIONS).toContain('add_image adds the picture at an https link to a brand’s images')
+  })
+
+  it('tells of search_stock and add_stock, for a free photo when the brand has none', () => {
+    expect(INSTRUCTIONS).toContain('search_stock finds free Pixabay photos and add_stock saves one')
+  })
+
   it('says commands run only through run_command and batch, never as tools of their own', () => {
     expect(INSTRUCTIONS).toContain('Commands run only through run_command and batch')
+    expect(INSTRUCTIONS).toContain('node.update and text.replace, for two, are run_command')
+  })
+
+  it('says node.style sets a whole copied style, and one prop changes with node.update', () => {
+    expect(INSTRUCTIONS).toContain(
+      'node.style sets a whole style copied from a layer; change one prop with node.update',
+    )
+  })
+
+  it('says to wait for open_design’s answer before any other call on the design', () => {
+    expect(INSTRUCTIONS).toContain('wait for its answer before any other call on the design')
+  })
+
+  it('points to ad_rules before designing, for advice and the plans, and to list_fonts', () => {
+    expect(INSTRUCTIONS).toContain('Before you design a size, read ad_rules for it')
+    expect(INSTRUCTIONS).toContain('the plans make_ad, add_sizes and review_frames')
+    expect(INSTRUCTIONS).toContain('list_fonts')
+  })
+
+  it('tells of brand_from_website, which fills a brand kit from its website', () => {
+    expect(INSTRUCTIONS).toContain('brand_from_website fills a brand kit’s logo, colours and fonts from its website')
+  })
+
+  it('fits the 4,096 characters Claude Code takes of a server’s instructions', () => {
+    expect(INSTRUCTIONS.length).toBeLessThan(4096)
   })
 
   it('tells of the Before agent version, kept before each run of the agent’s changes', () => {
     expect(INSTRUCTIONS).toContain(
       'Before your first change to a design, and before your first change after a person’s edit',
     )
+  })
+
+  it('tells of upload_image, which gives a link to send a file from the agent’s machine to', () => {
+    expect(INSTRUCTIONS).toContain('upload_image gives a link to send a file from this machine to')
+  })
+
+  it('says never to invent facts, and to render and check a frame before saying it is done', () => {
+    expect(INSTRUCTIONS).toContain('Never invent a price, date or claim')
+    expect(INSTRUCTIONS).toContain('look at it with render_frame and fix what check_frame warns about')
+  })
+
+  it('names add_image, upload_image, list_fonts, ad_rules, place_asset, search_graphics and place_graphic, and stays under 4,096 characters', () => {
+    for (const tool of [
+      'add_image',
+      'upload_image',
+      'list_fonts',
+      'ad_rules',
+      'place_asset',
+      'search_graphics',
+      'place_graphic',
+    ])
+      expect(INSTRUCTIONS).toContain(tool)
+    expect(INSTRUCTIONS.length).toBeLessThan(4_096)
   })
 })

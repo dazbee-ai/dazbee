@@ -11,12 +11,14 @@ import { adminEmails } from './admin/admins.ts'
 import { turnstileCheck } from './admin/turnstile.ts'
 import { oauthLimitSettings } from './agents/oauth-routes.ts'
 import { createApp } from './app.ts'
+import { startSvgThread } from './assets/svg-assets.ts'
 import { finishSoon } from './me/pending-deletions.ts'
 import { workosInvites } from './members/invites-provider.ts'
 import { devInvites } from './sign-in/dev-invites.ts'
 import { allowList } from './sign-in/early-access.ts'
 import { seedDevelopment, sessionOfRequest } from './sign-in/session.ts'
 import { workosProvider, workosSettings } from './sign-in/sign-in.ts'
+import { pixabayFromEnv } from './stock/pixabay.ts'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is not set')
@@ -57,7 +59,21 @@ const invites = {
 const build = process.env.BUILD_ID || 'dev'
 // Requests to join pass Cloudflare Turnstile's check when TURNSTILE_SECRET_KEY is set.
 const turnstile = turnstileCheck()
-const app = createApp({ db, storage, sessionOf, syncSecret, build, signIn, invites, admins, turnstile, agentLimits })
+// Agents' stock photo search is on when PIXABAY_API_KEY is set.
+const stock = pixabayFromEnv(process.env)
+const app = createApp({
+  db,
+  storage,
+  sessionOf,
+  syncSecret,
+  build,
+  signIn,
+  invites,
+  admins,
+  turnstile,
+  agentLimits,
+  stock,
+})
 // What deleted accounts left outside the database and couldn't delete then is tried again, beside serving.
 finishSoon(db, { storage, signIn: signIn?.provider ?? null, invites: invites.workos })
 const ways =
@@ -68,6 +84,8 @@ const ways =
     .filter(Boolean)
     .join(' and ') || 'no way to sign in'
 const server = serve({ fetch: app.fetch, port }, () => console.log(`api on http://localhost:${port} with ${ways}`))
+// The SVG thread loads CanvasKit beside serving, so the first SVG file seldom waits for it and /health never does.
+void startSvgThread()
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => server.close(() => void close()))

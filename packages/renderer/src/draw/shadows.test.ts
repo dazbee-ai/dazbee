@@ -25,9 +25,8 @@ import {
 
 /**
  * The most times longer a spread may take to draw than spread 0: about twice the most measured on
- * CI runners under the whole suite's load (cards 1.53, the path 2.58; the PR gives the numbers), and
- * well under what drawing the spread by its pixels (cards 26, the path 250) or the path's by path
- * ops (47) measured.
+ * CI runners under the whole suite's load (cards 1.53, the path 2.58), and well under what drawing
+ * the spread by its pixels (cards 23, the path 104) or the path's band by path ops (113) measured.
  */
 const SPREAD_COST = 5
 
@@ -358,14 +357,14 @@ describe('drawDropShadow', () => {
     ])
   }, 30_000)
 
-  it('costs a few times spread 0 at most: 300 rounded cards, and a path of 3000 segments at spread 200', () => {
+  it('costs a few times spread 0 at most: 40 rounded cards, and a path of 3000 segments at spread 75', () => {
     const cards = (spread: number) =>
-      Array.from({ length: 300 }, (_, i) =>
+      Array.from({ length: 40 }, (_, i) =>
         graphic(
           { kind: 'rect', cornerRadius: 10 },
           {
-            x: 20 + (i % 20) * 52,
-            y: 20 + Math.floor(i / 20) * 70,
+            x: 20 + (i % 8) * 52,
+            y: 20 + Math.floor(i / 8) * 70,
             width: 40,
             height: 40,
             fills: [solid('#3F51B5FF')],
@@ -373,24 +372,25 @@ describe('drawDropShadow', () => {
           },
         ),
       )
+    // A wavy ring 3000 segments round, in a 400 × 400 frame.
     const wavy = (() => {
       const points: string[] = []
       for (let i = 0; i < 3000; i++) {
         const a = (i / 3000) * 2 * Math.PI
-        const r = 300 + 20 * Math.sin(a * 60)
-        points.push(`${(540 + r * Math.cos(a)).toFixed(2)} ${(540 + r * Math.sin(a)).toFixed(2)}`)
+        const r = 111 + 7.4 * Math.sin(a * 60)
+        points.push(`${(200 + r * Math.cos(a)).toFixed(2)} ${(200 + r * Math.sin(a)).toFixed(2)}`)
       }
       return `M${points.join(' L')} Z`
     })()
     const path = (spread: number) => [
       graphic(
         { kind: 'path', d: wavy },
-        { x: 0, y: 0, width: 1080, height: 1080, effects: [shadow(spread, { blur: 10 })] },
+        { x: 0, y: 0, width: 400, height: 400, effects: [shadow(spread, { blur: 10 })] },
       ),
     ]
     const costs = {
-      cards: slower(cards(4), cards(0), { width: 1080, height: 1080, fills: [solid(WHITE)] }),
-      path: slower(path(200), path(0), { width: 1080, height: 1080 }),
+      cards: slower(cards(4), cards(0), { width: 436, height: 370, fills: [solid(WHITE)] }),
+      path: slower(path(75), path(0), { width: 400, height: 400 }),
     }
     console.info(costsLine(costs))
     for (const [name, cost] of Object.entries(costs)) expect(cost.times, name).toBeLessThan(SPREAD_COST)

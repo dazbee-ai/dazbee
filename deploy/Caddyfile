@@ -1,6 +1,9 @@
 # Caddy in front of the production stack: app.dazbee.com and pilot.dazbee.com (the early-access admin page)
 # to the web app, app.dazbee.com's /mcp, /oauth/* and /.well-known/oauth-* to the MCP server (ADR-0019),
-# sync.dazbee.com to the sync server, and http://caddy:8080, which only the containers reach, to the API.
+# a PUT to app.dazbee.com's /uploads/*, an agent's upload link (ADR-0010), and a GET or HEAD of its
+# /fonts/google/*, the Google faces' files and previews and their list, and of its /matchers/*, the matchers' files,
+# to the API, sync.dazbee.com to the
+# sync server, and http://caddy:8080, which only the containers reach, to the API.
 # Ports 80 and 443 take connections from Cloudflare's addresses only (deploy/setup.sh), so the
 # CF-Connecting-IP the MCP server counts sign-ins by comes from Cloudflare. Both public sites use
 # Cloudflare's origin certificate, from the certs/ folder beside compose's .env, as origin.pem and
@@ -41,6 +44,41 @@ app.dazbee.com {
 		reverse_proxy mcp:3100 {
 			lb_try_duration 10s
 		}
+	}
+	# A file sent to an upload link, streamed to the API, which refuses one over the upload limit, MAX_UPLOAD_BYTES
+	# (30 MiB), with its own sentence. Caddy cuts a body off 1 MiB past that, so the API sees a file over the limit
+	# and says so, and answers what it cuts off with the same sentence. It is never sent again, as its body is gone
+	# once sent; a link the API never saw is still unused, so the agent sends the file again.
+	@upload {
+		method PUT
+		path /uploads/*
+	}
+	handle @upload {
+		request_body {
+			max_size 31MiB
+		}
+		reverse_proxy router:8787 {
+			transport http {
+				keepalive off
+			}
+		}
+	}
+	# The Google faces' files and previews and their list, and the matchers' files, which anyone may read. Each answer
+	# is kept for good, and Cloudflare caches .ttf, .png, .js and .bin at its edge by their extension, so a repeat never
+	# reaches the server; the API counts each address's asks and refuses one with a query string, which would ask past
+	# Cloudflare's copy.
+	@permanentFiles {
+		method GET HEAD
+		path /fonts/google/* /matchers/*
+	}
+	handle @permanentFiles {
+		reverse_proxy router:8787 {
+			import router
+		}
+	}
+	handle_errors 413 {
+		header Content-Type application/json
+		respond `{"error":"The file is over 30 MB, the most a picture may have; send a smaller one with a new link from upload_image"}` 413
 	}
 	handle {
 		reverse_proxy router:3000 {

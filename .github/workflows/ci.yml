@@ -35,6 +35,12 @@ jobs:
       # Postgres, the API and the sync server, from this checkout: the API's seam tests (#33) and the
       # sync server's run against them, and the API runs the migrations on start.
       - run: docker compose up -d --wait
+      # The matchers' files from their release, checked by SHA-256, kept between runs until release.json changes.
+      - uses: actions/cache@v6
+        with:
+          path: packages/matchers/.files
+          key: matcher-files-${{ hashFiles('packages/matchers/src/release.json') }}
+      - run: pnpm --filter @dazbee/matchers files
       - run: pnpm test
       # An upload of reports gets three minutes.
       - if: failure()
@@ -141,6 +147,28 @@ jobs:
           https -f https://app.dazbee.com/.well-known/oauth-protected-resource/mcp | grep -q '"resource":"https://app.dazbee.com/mcp"'
           [ "$(https -o /dev/null -w '%{http_code}' -X POST https://app.dazbee.com/mcp)" = 401 ]
           echo "the MCP server answers /mcp and its OAuth metadata through Caddy"
+          upload=https://app.dazbee.com/uploads/$(printf 'x%.0s' {1..43})
+          https -X PUT --data-binary x "$upload" | grep -q 'not an upload link Dazbee gave'
+          head -c $((31 * 1024 * 1024 + 1)) /dev/zero > "$RUNNER_TEMP/too-big"
+          https -T "$RUNNER_TEMP/too-big" -w ' %{http_code}' "$upload" | grep -q 'The file is over 30 MB.* 413$'
+          [ "$(https -o /dev/null -w '%{http_code}' "$upload")" = 404 ]
+          echo "a PUT to /uploads/* reaches the API through Caddy, which cuts off a body past 31 MiB with a sentence; a GET does not"
+          https -sD - https://app.dazbee.com/fonts/google/faces/nosuchface00.ttf | tr -d '\r' > "$RUNNER_TEMP/font"
+          grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/font"
+          grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/font"
+          grep -q '"error":"No such font"' "$RUNNER_TEMP/font"
+          https -sD - https://app.dazbee.com/fonts/google/lists/00000000000000000000000000000000.js | tr -d '\r' > "$RUNNER_TEMP/list"
+          grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/list"
+          grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/list"
+          grep -q '"error":"No such list"' "$RUNNER_TEMP/list"
+          echo "a GET of /fonts/google/* reaches the API through Caddy, and a list of another version is kept nowhere"
+          https -sD - "https://app.dazbee.com/matchers/$(printf '0%.0s' {1..64}).bin" | tr -d '\r' > "$RUNNER_TEMP/matcher"
+          grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/matcher"
+          grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/matcher"
+          grep -q '"error":"No such file"' "$RUNNER_TEMP/matcher"
+          echo "a GET of /matchers/* reaches the API through Caddy, and an unlisted file is kept nowhere"
+          https -fsD - -o /dev/null https://app.dazbee.com/vendor/fonts/NotoSans-Regular.ttf | grep -qi '^cache-control: public, max-age=31536000, immutable'
+          echo "the vendored files are kept for good"
           health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)
           grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
           echo "mcp/health names build $GITHUB_SHA"

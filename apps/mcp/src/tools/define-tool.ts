@@ -23,12 +23,14 @@ export interface AccessRenders {
 }
 
 /**
- * What a tool call runs with: the API as the calling agent sees it, the agent's access, its session's design, the
- * renders it may ask for, when it is to be answered by, and the new designs it may make.
+ * What a tool call runs with: the API as the calling agent sees it, the agent's access, the public base URL, its
+ * session's design, the renders it may ask for, when it is to be answered by, and the new designs it may make.
  */
 export interface ToolContext {
   api: AgentApi
   agent: AgentMe
+  /** The public base URL the agent reaches Dazbee at, without a trailing slash, which upload links are under. */
+  baseUrl: string
   design: SessionDesign
   renders: AccessRenders
   /** When the call is to be answered by, on the endpoint's clock: a step's wait for the store ends before it. */
@@ -55,6 +57,8 @@ export interface ToolDefinition<S extends z.ZodObject> {
   description: string
   /** Whether the tool only reads: it changes nothing in the workspace or a design. */
   readOnly: boolean
+  /** Whether the tool reaches outside Dazbee, such as a site a link names; it doesn't unless given. */
+  openWorld?: boolean
   input: S
   /**
    * What the tool answers: text as it is, anything else as JSON, and `WithNotes`'s notes after it. It throws
@@ -88,7 +92,7 @@ export class WithNotes {
 
 /** A tool keeping the rules above, from its definition. */
 export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>): Tool {
-  const { name, title, description, readOnly, input } = definition
+  const { name, title, description, readOnly, openWorld = false, input } = definition
   if (description.length <= 40) throw new Error(`${name}: a tool’s description is more than 40 characters`)
   const inputSchema = withoutDialect(z.toJSONSchema(input.strict(), { io: 'input' }))
   const listing = {
@@ -96,7 +100,7 @@ export function defineTool<S extends z.ZodObject>(definition: ToolDefinition<S>)
     title,
     description,
     inputSchema: inputSchema as ToolListing['inputSchema'],
-    annotations: { title, readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false },
+    annotations: { title, readOnlyHint: readOnly, destructiveHint: false, openWorldHint: openWorld },
   } satisfies ToolListing
 
   return { name, listing, call }
@@ -135,6 +139,11 @@ export function answerBytes(text: string): number {
 export function tooBigToAnswer(bytes: number): string | undefined {
   if (bytes <= MAX_ANSWER_BYTES - ANSWER_ENVELOPE_BYTES) return undefined
   return `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be`
+}
+
+/** `value`, told with `note` after the notes it has. */
+export function withNote(value: unknown, note: string): WithNotes {
+  return value instanceof WithNotes ? new WithNotes(value.value, [...value.notes, note]) : new WithNotes(value, [note])
 }
 
 /** A tool error: the sentence, ending with a full stop. */

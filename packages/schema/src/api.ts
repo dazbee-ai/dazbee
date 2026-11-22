@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { BRAND_KIT_LIMITS, BRAND_ROLE_TOKENS, brandRoleOf, LOGO_ROLE } from './brand-roles.ts'
 import { BrandTextStyle, brandTextStyleLook } from './brand-text-styles.ts'
-import { Color } from './primitives.ts'
+import { byCodeUnits, Color } from './primitives.ts'
 import { Member } from './sync.ts'
 import { brandRef, BrandToken, type Variables } from './variables.ts'
 
@@ -215,19 +215,74 @@ export const AssetTag = z.string().trim().toLowerCase().min(1).max(40)
 export type AssetTag = z.infer<typeof AssetTag>
 /** Most tags one asset has. */
 export const MAX_ASSET_TAGS = 20
+/** An asset's tags as an ask gives them: at most `MAX_ASSET_TAGS`, kept once each, in the order given. */
+const AssetTags = z
+  .array(AssetTag)
+  .max(MAX_ASSET_TAGS)
+  .transform((tags) => [...new Set(tags)])
 
 /** Renames an asset or sets its tags (#52); tags are kept once each, in the order given. */
 export const UpdateAsset = z
   .object({
     name: AssetName.optional(),
-    tags: z
-      .array(AssetTag)
-      .max(MAX_ASSET_TAGS)
-      .transform((tags) => [...new Set(tags)])
-      .optional(),
+    tags: AssetTags.optional(),
   })
   .refine((u) => u.name !== undefined || u.tags !== undefined, 'send a name, tags or both')
 export type UpdateAsset = z.infer<typeof UpdateAsset>
+
+/** The longest link a picture is added from. */
+export const MAX_URL_LENGTH = 2048
+/** How long the API takes at most to fetch a picture from a link, redirects and all. */
+export const FROM_URL_TIMEOUT_MS = 20_000
+
+/**
+ * Adds the picture at an https link to a brand's asset library, under `name` when it is new; `tags` join the
+ * asset's own, kept once each.
+ */
+export const AddAssetFromUrl = z.object({
+  url: z.string().trim().min(1).max(MAX_URL_LENGTH),
+  name: AssetName.optional(),
+  tags: AssetTags.optional(),
+})
+export type AddAssetFromUrl = z.infer<typeof AddAssetFromUrl>
+
+/**
+ * Adds a file Dazbee bundles and keeps in its storage, such as a picture sticker, to a brand's asset library by its
+ * SHA-256, under `name` when it is new; `tags` join the asset's own, kept once each.
+ */
+export const AddBundledAsset = z.object({
+  sha256: Sha256,
+  name: AssetName,
+  tags: AssetTags.optional(),
+})
+export type AddBundledAsset = z.infer<typeof AddBundledAsset>
+
+/** How long an upload link works after it is made. */
+export const UPLOAD_LINK_MS = 10 * 60 * 1000
+/** Where upload links are, on the public address agents reach Dazbee at: the path, then the link's token. */
+export const UPLOAD_LINK_PATH = '/uploads/'
+
+/**
+ * Asks for a one-time link that adds one file of `contentType` to a brand's asset library, under `name`, or the
+ * brand's asset of the same bytes; `tags` join the asset's own.
+ */
+export const StartUploadLink = z.object({
+  contentType: ImageType,
+  name: AssetName,
+  tags: AddAssetFromUrl.shape.tags,
+})
+export type StartUploadLink = z.infer<typeof StartUploadLink>
+
+/**
+ * An upload link: its path on the public address (`UPLOAD_LINK_PATH` and its token), when it stops working, and the
+ * most bytes the file may have. PUT the file's bytes to it, once.
+ */
+export const UploadLink = z.object({
+  path: z.string().startsWith(UPLOAD_LINK_PATH),
+  expiresAt: z.iso.datetime(),
+  maxBytes: z.number().int().positive(),
+})
+export type UploadLink = z.infer<typeof UploadLink>
 
 /** A short-lived URL to read something from storage. */
 export const SignedLink = z.object({ url: z.url(), expiresAt: z.iso.datetime() })
@@ -290,6 +345,9 @@ export const FontFamily = z.object({
 })
 export type FontFamily = z.infer<typeof FontFamily>
 
+/** The most families one ask for some of a brand's catalog may name, as a design opening asks for its texts'. */
+export const MOST_FONT_FAMILIES_ASKED = 100
+
 /** Font files we accept: TrueType and OpenType outlines, which CanvasKit reads itself (#50). */
 export const FontType = z.enum(['font/ttf', 'font/otf'])
 export type FontType = z.infer<typeof FontType>
@@ -317,6 +375,35 @@ export type FontUploadTicket = z.infer<typeof FontUploadTicket>
 
 export const RecordFont = z.object({ sha256: Sha256 })
 export type RecordFont = z.infer<typeof RecordFont>
+
+/**
+ * Where the app serves Google faces' files and previews to anyone, by face id: a face's file never changes (a new
+ * file is a new face), so its address never does either, and browsers and Cloudflare keep it for good.
+ */
+export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
+
+/**
+ * Where the app serves the Google list, the Google part of the font catalog, to anyone, by the hash of its bytes: the
+ * list at one address never changes, so browsers and Cloudflare keep it for good. It is JSON, at a `.js` name because
+ * Cloudflare keeps files at its edge by their extension, and `.json` is not one it keeps.
+ */
+export const GOOGLE_FONT_LIST_PATH = '/fonts/google/lists/'
+
+/**
+ * Where the app serves the matchers' files to anyone, by their SHA-256, as `<sha256>.bin`: a file at one address never
+ * changes, so browsers and Cloudflare keep it for good; `.bin` is an extension Cloudflare keeps at its edge.
+ */
+export const MATCHER_FILE_PATH = '/matchers/'
+
+/**
+ * A brand's font catalog in its two parts: the address of the Google list, the same for every brand
+ * (`googleFontListPath`), and the brand's own uploads. `brandCatalog` joins them.
+ */
+export const FontCatalogParts = z.object({
+  google: z.string().startsWith(GOOGLE_FONT_LIST_PATH),
+  uploads: FontFamily.array(),
+})
+export type FontCatalogParts = z.infer<typeof FontCatalogParts>
 
 /** A face and short-lived URLs to read its file and its preview, the family's name drawn in it as a PNG. */
 export const FontLink = z.object({
@@ -496,6 +583,9 @@ export type AgentMe = z.infer<typeof AgentMe>
 /** Whether an asset is an SVG file, placed as layers rather than as an image fill. */
 export const isVectorAsset = (asset: { contentType: ImageType }) => asset.contentType === 'image/svg+xml'
 
+/** The most bytes a file of `type` may have: an SVG file `MAX_SVG_BYTES`, a picture `MAX_UPLOAD_BYTES`. */
+export const maxBytesOf = (type: ImageType): number => (type === 'image/svg+xml' ? MAX_SVG_BYTES : MAX_UPLOAD_BYTES)
+
 /**
  * The values a kit gives its tokens, for drawing designs bound to them: each colour, font and text
  * style's look, its font resolved through the kit. With the kit's logo asset,
@@ -536,6 +626,32 @@ export function faceWeights(face: { weight: number; weights?: { min: number; max
   const weights = new Set([range.min, face.weight, range.max])
   for (let w = Math.ceil(range.min / 100) * 100; w <= range.max; w += 100) weights.add(w)
   return [...weights].sort((a, b) => a - b)
+}
+
+/**
+ * A Google face's file and preview at their permanent addresses (`GOOGLE_FONT_PATH`); null for a brand's upload,
+ * which loads through its brand, and a font we ship.
+ */
+export function googleFacePaths(face: { id: string; source: FontSource }): { file: string; preview: string } | null {
+  if (face.source !== 'google') return null
+  return { file: `${GOOGLE_FONT_PATH}${face.id}.ttf`, preview: `${GOOGLE_FONT_PATH}${face.id}.png` }
+}
+
+/** The address of the Google list whose bytes hash to `hash`, kept for good (`GOOGLE_FONT_LIST_PATH`). */
+export const googleFontListPath = (hash: string) => `${GOOGLE_FONT_LIST_PATH}${hash}.js`
+
+/** The address of the matchers' file whose bytes hash to `sha256`, kept for good (`MATCHER_FILE_PATH`). */
+export const matcherFilePath = (sha256: string) => `${MATCHER_FILE_PATH}${sha256}.bin`
+
+/**
+ * The families a brand can use, by name in code-unit order: the Google list's and the brand's uploads, where a brand's
+ * upload of a family Google also has is the one the brand sees.
+ */
+export function brandCatalog(google: readonly FontFamily[], uploads: readonly FontFamily[]): FontFamily[] {
+  const uploaded = new Set(uploads.map((family) => family.family))
+  return [...google.filter((family) => !uploaded.has(family.family)), ...uploads].sort((a, b) =>
+    byCodeUnits(a.family, b.family),
+  )
 }
 
 /**

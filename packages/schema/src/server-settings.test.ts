@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { serverSettings } from './server-settings.ts'
+import { serverSettings, serverText } from './server-settings.ts'
 
 const SETTINGS = {
   tabs: { name: 'TEST_TABS', value: 30, least: 1, most: 1000 },
@@ -24,5 +24,17 @@ describe('serverSettings', () => {
         `TEST_TABS must be a whole number from 1 to 1000, not “${value}”`,
       )
     expect(() => serverSettings({ TEST_WAITING: '101' }, SETTINGS)).toThrow(/TEST_WAITING/)
+  })
+})
+
+describe('serverText', () => {
+  it('reads a text setting from its variable, without spaces at either end', () => {
+    expect(serverText({ TEST_KEY: ' abc-123 ' }, 'TEST_KEY')).toBe('abc-123')
+  })
+
+  it('is null when the variable is unset or empty', () => {
+    expect(serverText({}, 'TEST_KEY')).toBeNull()
+    expect(serverText({ TEST_KEY: '' }, 'TEST_KEY')).toBeNull()
+    expect(serverText({ TEST_KEY: '   ' }, 'TEST_KEY')).toBeNull()
   })
 })

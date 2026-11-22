@@ -1,14 +1,34 @@
-// The tools that need no open design: the access's brands, a brand's designs and images, and a new design.
+// The tools that need no open design: the access's brands, a brand's designs and images, a new design, a picture
+// added from a link, and the one-time link a file on the agent's machine is uploaded to.
 import { z } from 'zod'
 
-import { RecordId } from '@dazbee/schema'
+import {
+  AddAssetFromUrl,
+  type AssetSummary,
+  MAX_ASSET_TAGS,
+  MAX_SVG_BYTES,
+  MAX_UPLOAD_BYTES,
+  RecordId,
+  StartUploadLink,
+  UPLOAD_LINK_MS,
+} from '@dazbee/schema'
 
 import { ApiRefusal } from '../api.ts'
 import { inSeconds } from '../limits.ts'
-import { defineTool, type Tool, ToolRefusal } from './define-tool.ts'
+import { defineTool, type Tool, ToolRefusal, WithNotes } from './define-tool.ts'
 
 /** A brand's id, as `list_brands` gives it. */
-const BrandId = RecordId.describe('The brand’s id, as list_brands gives it')
+export const BrandId = RecordId.describe('The brand’s id, as list_brands gives it')
+
+/** What a new design's answer tells the agent to do next. */
+const AFTER_CREATE =
+  'Next: open_design it, and read ad_rules for each size you will make (with the kind of ad) before you design.'
+
+/** How long an upload link works, in minutes. */
+const LINK_MINUTES = UPLOAD_LINK_MS / 60_000
+
+/** What an upload link's answer tells the agent about sending the file. */
+const AFTER_UPLOAD_LINK = `Send the file once, within ${LINK_MINUTES} minutes: its answer is the image as JSON (id, name, type, size), checked as a person’s upload is, or {"error": a sentence}. A used or expired link, a file too big or of another type is refused: ask upload_image for a new link; when Dazbee is busy, send the file to the same link again. Then place it with place_asset; list_assets finds it by its name.`
 
 export const WORKSPACE_TOOLS: Tool[] = [
   defineTool({
@@ -40,21 +60,13 @@ export const WORKSPACE_TOOLS: Tool[] = [
       brand: BrandId,
       query: z.string().max(200).optional().describe('A part of a name or tag to look for, at most 200 characters'),
     }),
-    run: async ({ brand, query }, { api }) =>
-      (await api.assets(brand, query)).map(({ id, name, tags, contentType, width, height }) => ({
-        id,
-        name,
-        tags,
-        type: contentType,
-        width,
-        height,
-      })),
+    run: async ({ brand, query }, { api }) => (await api.assets(brand, query)).map(listedImage),
   }),
   defineTool({
     name: 'create_design',
     title: 'Create a design',
     description:
-      'Makes a new design in a brand, holding one page with an empty 1080×1080 frame, and answers its id and name. Needs an access that edits.',
+      'Makes a new design in a brand, holding one page with an empty 1080×1080 frame, and answers its id and name, and what to do next. Needs an access that edits.',
     readOnly: false,
     input: z.object({
       brand: BrandId,
@@ -68,15 +80,91 @@ export const WORKSPACE_TOOLS: Tool[] = [
         )
       try {
         const design = await api.createDesign(brand, name)
-        return { id: design.id, name: design.name }
+        return new WithNotes({ id: design.id, name: design.name }, [AFTER_CREATE])
       } catch (error) {
         counted()
-        if (error instanceof ApiRefusal && error.status === 403)
-          throw new ToolRefusal(
-            'This agent may only view designs, so it can’t make one; the person who connected it can connect it again to edit',
-          )
-        throw error
+        throw viewOnly(error, 'make one')
+      }
+    },
+  }),
+  defineTool({
+    name: 'add_image',
+    title: 'Add an image from a link',
+    description: `Adds the picture at an https link (PNG, JPEG, WebP or SVG, at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB) to a brand’s images, as a person’s upload is, and answers it as list_assets does, with the id to place it by. The same picture twice gives the same image, keeping its name, with the tags given added. A link Dazbee can’t use (a private address, a site that refuses, a web page rather than a picture, too big) comes back as a sentence: ask the person for another link. Needs an access that edits.`,
+    readOnly: false,
+    openWorld: true,
+    input: z.object({
+      brand: BrandId,
+      link: AddAssetFromUrl.shape.url.describe(
+        'The picture’s own https link, such as https://example.com/shoe.jpg, not the page that shows it',
+      ),
+      name: AddAssetFromUrl.shape.name.describe(
+        'The image’s name among the brand’s images; left out, the link’s file name',
+      ),
+      tags: AddAssetFromUrl.shape.tags.describe(
+        `Words the image is found by, such as "product": at most ${MAX_ASSET_TAGS}`,
+      ),
+    }),
+    run: async ({ brand, link, name, tags }, { api }) => {
+      try {
+        const asset = await api.addAssetFromUrl(brand, {
+          url: link,
+          ...(name === undefined ? {} : { name }),
+          ...(tags === undefined ? {} : { tags }),
+        })
+        return listedImage(asset)
+      } catch (error) {
+        throw viewOnly(error, 'add an image')
+      }
+    },
+  }),
+  defineTool({
+    name: 'upload_image',
+    title: 'Upload an image from this machine',
+    description: `Answers a one-time link that adds one file from the person’s machine to a brand’s images, as a person’s upload is: a PNG, JPEG or WebP of at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB and 25 megapixels, or an SVG of at most ${MAX_SVG_BYTES / 1_000_000} MB, of the type given. Send the file to the link within ${LINK_MINUTES} minutes with the command the answer gives (curl -T); its answer is the image, with the id to place it by. Only for an agent that runs commands on the machine holding the file; otherwise use add_image with a link. Needs an access that edits.`,
+    readOnly: false,
+    input: z.object({
+      brand: BrandId,
+      name: StartUploadLink.shape.name.describe('The image’s name among the brand’s images, 1 to 120 characters'),
+      type: StartUploadLink.shape.contentType.describe(
+        'The file’s type: image/png, image/jpeg, image/webp or image/svg+xml; a file of another type is refused',
+      ),
+      tags: StartUploadLink.shape.tags.describe(
+        `Words the image is found by, such as "product": at most ${MAX_ASSET_TAGS}`,
+      ),
+    }),
+    run: async ({ brand, name, type, tags }, { api, baseUrl }) => {
+      try {
+        const upload = await api.uploadLink(brand, { contentType: type, name, ...(tags === undefined ? {} : { tags }) })
+        const link = `${baseUrl}${upload.path}`
+        return new WithNotes(
+          {
+            link,
+            expires: upload.expiresAt,
+            maxBytes: upload.maxBytes,
+            send: `curl -sS -T '<path of the file>' '${link}'`,
+          },
+          [AFTER_UPLOAD_LINK],
+        )
+      } catch (error) {
+        throw viewOnly(error, 'upload an image')
       }
     },
   }),
 ]
+
+/** An image as list_assets and add_image answer it. */
+export function listedImage({ id, name, tags, contentType, width, height }: AssetSummary) {
+  return { id, name, tags, type: contentType, width, height }
+}
+
+/**
+ * `error` as the tool's refusal: the API's 403 to an agent that may only view, saying it can't `action`; any other
+ * error as it is.
+ */
+export function viewOnly(error: unknown, action: string): unknown {
+  if (!(error instanceof ApiRefusal) || error.status !== 403) return error
+  return new ToolRefusal(
+    `This agent may only view designs, so it can’t ${action}: its access only views, or the member who connected it is a Reviewer. The person who connected it can connect it again to edit, if their role edits`,
+  )
+}

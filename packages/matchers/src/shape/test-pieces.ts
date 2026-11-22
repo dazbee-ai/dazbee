@@ -74,3 +74,21 @@ export function graphic(
     },
   }
 }
+
+export const pngBase64 = (ck: CanvasKit, pixels: Pixels): string => {
+  const image = ck.MakeImage(
+    {
+      width: pixels.width,
+      height: pixels.height,
+      colorType: ck.ColorType.RGBA_8888,
+      alphaType: ck.AlphaType.Unpremul,
+      colorSpace: ck.ColorSpace.SRGB,
+    },
+    pixels.pixels,
+    pixels.width * 4,
+  )
+  const bytes = image?.encodeToBytes()
+  image?.delete()
+  if (!bytes) throw new Error('could not encode the picture')
+  return Buffer.from(bytes).toString('base64')
+}

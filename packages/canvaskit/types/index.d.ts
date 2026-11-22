@@ -55,7 +55,8 @@ export interface CanvasKit extends BaseCanvasKit {
   DrawTextAsPaths(canvas: Canvas, picture: SkPicture, keepColourGlyphs: boolean): void
   /**
    * The outlines of every glyph a picture draws, placed as drawn (each glyph's position or RSXform,
-   * and the canvas's matrix), as one path; nothing else the picture draws. Empty when it draws no text.
+   * and the canvas's matrix), as one path; nothing else the picture draws, and no clip. Empty when it
+   * draws no text.
    */
   GlyphOutlines(picture: SkPicture): Path
   readonly SVG_CONVERT_TEXT_TO_PATHS: number

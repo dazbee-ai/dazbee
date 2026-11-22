@@ -803,7 +803,7 @@ export interface GlyphRun {
     typeface: Typeface;
     size: number;
     scaleX: number;
-    fakeBold: boolean;      // the font is emboldened: a weight past the family's heaviest (build/build.sh)
+    fakeBold: boolean;      // the font is emboldened: a weight of 600 or more, 200 past the face's (build/build.sh)
     fakeItalic: boolean;    // the font is slanted: an italic the family has no face for (build/build.sh)
 
     glyphs: Uint16Array;

@@ -10,7 +10,8 @@
  *   emoji) is passed on to the canvas as text, in its place, when keepColourGlyphs is set, and
  *   dropped otherwise.
  * - GlyphOutlines(picture) gives the outlines of every glyph a picture draws, placed as drawn (every
- *   positioning and the canvas's matrix), as one Path; everything else the picture draws is ignored.
+ *   positioning and the canvas's matrix), as one Path; everything else the picture draws, and its
+ *   clips, are ignored, so a glyph clipped away is still given.
  */
 
 #include "include/core/SkCanvas.h"
@@ -243,7 +244,9 @@ void drawTextAsPaths(SkCanvas* target, sk_sp<SkPicture> picture, bool keepColour
 // plays the pictures and drawables drawn on it, so their glyphs are kept too.
 class GlyphOutlinesCanvas final : public SkNoDrawCanvas {
 public:
-    GlyphOutlinesCanvas() : SkNoDrawCanvas(kReach, kReach) {}
+    // Reaching both ways, so a picture with a bounding box hierarchy plays back text left of or
+    // above the origin too.
+    GlyphOutlinesCanvas() : SkNoDrawCanvas(SkIRect::MakeLTRB(-kReach, -kReach, kReach, kReach)) {}
 
     SkPath detach() { return fOutlines.detach(); }
 

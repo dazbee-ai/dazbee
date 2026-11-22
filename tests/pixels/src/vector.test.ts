@@ -365,11 +365,11 @@ describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', 
 
   it('draws glyphs turned by 30° and 90° into a PDF and an SVG as paths, as the CPU draws them', async () => {
     const font = fontOf(boldLetters, 110)
-    const blob = turnedBlob(font, 'Turn', [30, 90], 8, 80, 52)
+    const blob = turnedBlob(font, 'Turn', [30, 90], 2, 76, 52)
     const paint = new ck.Paint()
     paint.setAntiAlias(true)
     paint.setColor(ck.BLACK)
-    const picture = record((canvas) => canvas.drawTextBlob(blob, 0, 0, paint))
+    const picture = record((canvas) => canvas.drawTextBlob(blob, 6, 4, paint))
     const { pdf, svg } = asShapes(picture, false)
     const cpu = cpuPixels(picture)
     for (const object of [picture, blob, paint, font]) object.delete()
@@ -397,11 +397,12 @@ describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', 
     paint.setColor(ck.BLACK)
     const picture = record((canvas) => {
       canvas.drawTextBlob(turnedLetters, 0, 0, paint)
-      canvas.drawTextBlob(turnedEmoji, 0, 0, paint)
+      canvas.drawTextBlob(turnedEmoji, 10, 10, paint)
       canvas.drawTextBlob(straightEmoji, 20, 130, paint)
     })
     const kept = asShapes(picture, true)
     const dropped = asShapes(picture, false)
+    const cpu = cpuPixels(picture)
     for (const object of [picture, turnedLetters, turnedEmoji, straightEmoji, paint, font, emojiFont]) object.delete()
 
     const count = (text: string, part: string) => text.split(part).length - 1
@@ -412,6 +413,52 @@ describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', 
     expect(count(kept.svg, '<text')).toBe(2)
     expect(await pdfText(pdfium, dropped.pdf)).toBe('')
     expect(dropped.svg).not.toContain('<text')
+
+    // Each emoji in its place: the box of the clearly coloured pixels, the turned one above y = 88
+    // and the straight one below, is where the CPU draws it, within 2 px.
+    const colouredBox = ({ pixels }: Pixels, top: number, bottom: number) => {
+      const xs: number[] = []
+      const ys: number[] = []
+      for (let y = top; y < bottom; y++) {
+        for (let x = 0; x < WIDTH; x++) {
+          const i = (y * WIDTH + x) * 4
+          const rgb = [pixels[i] ?? 0, pixels[i + 1] ?? 0, pixels[i + 2] ?? 0]
+          if (Math.max(...rgb) - Math.min(...rgb) < 80) continue
+          xs.push(x)
+          ys.push(y)
+        }
+      }
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+    }
+    const pdf = await rasterisePdf(pdfium, kept.pdf)
+    for (const [top, bottom] of [
+      [0, 88],
+      [88, HEIGHT],
+    ] as const) {
+      const expected = colouredBox(cpu, top, bottom)
+      expect(expected[2] ?? -Infinity, 'the CPU draws the emoji').toBeGreaterThan(expected[0] ?? Infinity)
+      colouredBox(pdf, top, bottom).forEach((edge, i) =>
+        expect(Math.abs(edge - (expected[i] ?? 0)), `rows ${top} to ${bottom}, edge ${i}`).toBeLessThanOrEqual(2),
+      )
+    }
+  })
+
+  it('gives the glyphs of a picture with a bounding box hierarchy left of and above the origin', () => {
+    const font = fontOf(letters, 40)
+    const blob = turnedBlob(font, 'Hi', [30], -200, -100)
+    const paint = new ck.Paint()
+    const recorder = new ck.PictureRecorder()
+    recorder.beginRecording(ck.LTRBRect(-400, -400, 400, 400), true).drawTextBlob(blob, 0, 0, paint)
+    const picture = recorder.finishRecordingAsPicture()
+    recorder.delete()
+    const outlines = ck.GlyphOutlines(picture)
+    const [left = 0, top = 0, right = 0, bottom = 0] = [...outlines.computeTightBounds()]
+    for (const object of [outlines, picture, blob, paint, font]) object.delete()
+
+    expect(right).toBeGreaterThan(left)
+    expect(right).toBeLessThan(0)
+    expect(bottom).toBeLessThan(0)
+    expect(top).toBeGreaterThan(-200)
   })
 
   it('gives the outlines of the glyphs a picture draws, placed as drawn, and nothing else', () => {
@@ -426,7 +473,7 @@ describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', 
       canvas.translate(7, 11)
       canvas.scale(1.5, 1.5)
       canvas.drawTextBlob(straight, 10, 60, paint)
-      canvas.drawTextBlob(turned, 0, 0, paint)
+      canvas.drawTextBlob(turned, 5, 8, paint)
       canvas.restore()
       canvas.drawRect(ck.XYWHRect(300, 300, 40, 40), paint)
     })
@@ -449,8 +496,8 @@ describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', 
     const turnedBounds = font.getGlyphBounds(turnedGlyphs)
     turnedGlyphs.forEach((_, i) => {
       const [l, t, r, b] = edges(turnedBounds, i)
-      const tx = 140 + 40 * i
-      corners.push(place(tx - b, 40 + l), place(tx - t, 40 + r))
+      const tx = 145 + 40 * i
+      corners.push(place(tx - b, 48 + l), place(tx - t, 48 + r))
     })
     const expected = [
       Math.min(...corners.map(([x]) => x)),

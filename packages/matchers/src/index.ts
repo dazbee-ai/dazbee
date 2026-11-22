@@ -1,7 +1,7 @@
 export { type Judged, LOOKS_SAME, looksSame, type JudgeOptions } from './looks-same/rule.ts'
 export { firstPass } from './shape/first-pass.ts'
 export { fullPass } from './shape/full-pass.ts'
-export { matchShapes } from './shape/match-shapes.ts'
+export { matchShapes, SHAPE_STEPS, type ShapeStep } from './shape/match-shapes.ts'
 export { pieceFingerprint } from './text/fingerprint.ts'
 export { faceOfKey, type FontKey, parseFontKey } from './text/font-key.ts'
 export { type FontSource, loadFaces } from './text/font-source.ts'

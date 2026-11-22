@@ -15,6 +15,7 @@ import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { fitShape, type Fitted, type ShapeKind, shapeLayer } from './fit/fit-shapes.ts'
 import { type FitWindow, windowOf } from './fit/fit-window.ts'
 import { layerName } from './layer-names.ts'
+import type { ShapeStep } from './match-shapes.ts'
 import { hexColour } from './parts/colour.ts'
 import { splitColours, type SplitOptions } from './parts/colour-split.ts'
 import { type FloatPicture, shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
@@ -75,13 +76,23 @@ export function firstPass(ck: CanvasKit, job: MatchJob, piece: Piece): MatchAnsw
   return firstPassOf(ck, piecePixels(ck, job.picture, piece.rect), job.kit.colors)
 }
 
-/** Rebuilds a piece's pixels as graphics that look the same, or says why they stay a picture. */
-export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colors']): MatchAnswer {
+/**
+ * Rebuilds a piece's pixels as graphics that look the same, or says why they stay a picture, telling
+ * `step` as the colour split, the fitting and the judging start.
+ */
+export function firstPassOf(
+  ck: CanvasKit,
+  piece: Pixels,
+  colors: MatchKit['colors'],
+  step?: (step: ShapeStep) => void,
+): MatchAnswer {
+  step?.('colourSplit')
   const { full, scale, fitted, cut, covered } = preparePiece(piece)
   const { width, height } = fitted
   if (covered < 4) return pictureAnswer('looksDifferent')
   const split = splitColours(fitted, splitOptions(cut, covered))
   if (split.tooMany) return pictureAnswer('tooManyParts')
+  step?.('firstPass')
   const parts = split.parts.filter((part) => sum(part.mask) >= Math.max(2, covered * 0.0005))
   // More parts than graphics allowed, with room for dropping some, is a picture before any fitting.
   if (parts.length > FIRST_PASS.maxParts || parts.length > FIRST_PASS.maxLayers * 1.5) {
@@ -95,6 +106,7 @@ export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colo
   const kept = withoutUnseen(ck, fitted, graphics, full.width, full.height, scale)
   const { layers, variables } = snapToBrand(ck, piece, kept, colors)
   if (layers.length > FIRST_PASS.maxLayers) return pictureAnswer('tooManyParts')
+  step?.('judging')
   const judged = looksSame('shape', piece, drawGraphics(ck, layers, full.width, full.height, 1, variables))
   return judged.same ? layersAnswer(layers, judged.scores) : pictureAnswer('looksDifferent', judged.scores)
 }

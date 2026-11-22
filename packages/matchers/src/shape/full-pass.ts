@@ -23,6 +23,7 @@ import { isShadowLike, withShadow } from './fit/shadow.ts'
 import { pathLayer, tracePath } from './fit/trace.ts'
 import { tracedAtFullSize } from './full-size-trace.ts'
 import { pathName } from './layer-names.ts'
+import type { ShapeStep } from './match-shapes.ts'
 import { type FloatPicture, toFloatPicture } from './parts/float-picture.ts'
 import { joinGradientBands, MOST_PARTS_FOR_BANDS } from './parts/gradient-bands.ts'
 import { type MarkedPart, markedParts } from './parts/marks.ts'
@@ -59,8 +60,17 @@ export function fullPass(ck: CanvasKit, job: MatchJob, piece: Piece): MatchAnswe
   return fullPassOf(ck, piecePixels(ck, job.picture, piece.rect), job.kit.colors)
 }
 
-/** Rebuilds a piece's pixels with every kind of shape, paint and shadow, or says why they stay a picture. */
-export function fullPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colors']): MatchAnswer {
+/**
+ * Rebuilds a piece's pixels with every kind of shape, paint and shadow, or says why they stay a
+ * picture, telling `step` as the pass and its judging start.
+ */
+export function fullPassOf(
+  ck: CanvasKit,
+  piece: Pixels,
+  colors: MatchKit['colors'],
+  step?: (step: ShapeStep) => void,
+): MatchAnswer {
+  step?.('fullPass')
   const prepared = preparePiece(piece)
   const { full, scale, fitted, cut, covered } = prepared
   const { width, height } = fitted
@@ -90,6 +100,7 @@ export function fullPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['color
   }
   const snapped = snapToBrand(ck, piece, layers, colors)
   if (snapped.layers.length > FULL_PASS.maxLayers) return pictureAnswer('tooManyParts')
+  step?.('judging')
   const judge = (drawn: readonly ShapeLayer[]) =>
     looksSame('shape', piece, drawGraphics(ck, drawn, full.width, full.height, 1, snapped.variables))
   const judged = judge(snapped.layers)

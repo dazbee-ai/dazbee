@@ -48,24 +48,24 @@ function timeOfRead(html: string): number {
 /**
  * How many times longer reading a page of `length` characters made by `page` takes than reading one a tenth
  * as long, in processor time. Each sample reads the short page, then the long page, each as often as it reads
- * in `HALF_SAMPLE_MS`, so both halves take about as long and are slowed alike; the fastest of up to 3 samples
- * of each half counts.
+ * in `HALF_SAMPLE_MS`, so both halves take about as long and are slowed alike; each half's time over up to 3
+ * samples counts, since Windows charges processor time by the 15.6 ms tick a thread runs in.
  */
 function growth(page: (length: number) => string, length: number): number {
   const short = page(length / 10)
   const long = page(length)
   const shortRuns = readsInHalfSample(short)
   const longRuns = readsInHalfSample(long)
-  let shortTook = Number.POSITIVE_INFINITY
-  let longTook = Number.POSITIVE_INFINITY
+  let shortTook = 0
+  let longTook = 0
   const sampling = cpuMs()
   for (let sample = 0; sample < 3 && cpuMs() - sampling < SAMPLING_MS; sample++) {
     const before = cpuMs()
     for (let run = 0; run < shortRuns; run++) read(short)
     const between = cpuMs()
     for (let run = 0; run < longRuns; run++) read(long)
-    shortTook = Math.min(shortTook, between - before)
-    longTook = Math.min(longTook, cpuMs() - between)
+    shortTook += between - before
+    longTook += cpuMs() - between
   }
   return longTook / longRuns / (shortTook / shortRuns)
 }

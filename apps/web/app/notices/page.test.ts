@@ -42,7 +42,7 @@ describe('NoticesPage', () => {
   it('lists each bundled set with its version, its licence’s name and the licence in full', async () => {
     const [tabler, phosphor, ...rest] = await noticesRead()
     const stickers = rest.slice(0, 4)
-    const illustrations = rest.slice(4)
+    const illustrations = rest.slice(4, 7)
     expect(tabler).toMatch(
       /^Tabler Icons Version 3\.52\.0 · MIT licence MIT License Copyright \(c\) 2020-2026 Paweł Kuna /,
     )
@@ -82,6 +82,30 @@ describe('NoticesPage', () => {
     for (const notice of [tabler, phosphor, ...stickers]) expect(notice).not.toContain(' By ')
   })
 
+  it('credits each artwork set’s creator by name, with its licence’s name and the licence in full', async () => {
+    const artwork = (await noticesRead()).slice(9)
+    expect(artwork.map((notice) => notice.split(' Version ')[0])).toEqual([
+      'Streamline Kameleon By Streamline',
+      'Streamline Plump By Streamline',
+      'Streamline Freehand By Streamline',
+      'Streamline Stickies By Streamline',
+      '3dicons By Vijay Verma',
+      'Coolshapes By Coolshapes',
+      'dddoodle By fffuel',
+      'Kenney Particle Pack By Kenney',
+      'Kenney Smoke Particles By Kenney',
+      'Pattern Monster By Pattern Monster',
+    ])
+    const streamline = artwork.slice(0, 4)
+    for (const notice of [...streamline, artwork[6] ?? '']) {
+      expect(notice).toMatch(/ · CC BY 4\.0 licence /)
+      expect(notice).toContain('Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)')
+      expect(notice).toContain('Creative Commons Attribution 4.0 International Public License')
+    }
+    for (const notice of artwork.slice(7, 9)) expect(notice).toContain('CC0 1.0 Universal')
+    for (const notice of [artwork[5], artwork[9]]) expect(notice).toContain('Permission is hereby granted')
+  })
+
   it('links each set’s name to its site, in a new tab', async () => {
     const markup = renderToStaticMarkup(await NoticesPage())
     expect(markup).toMatch(/<a href="https:\/\/tabler\.io\/icons" target="_blank" rel="noreferrer"/)
@@ -97,6 +121,10 @@ describe('NoticesPage', () => {
     expect(markup).toMatch(
       /<a href="https:\/\/www\.manypixels\.co" target="_blank" rel="noreferrer"[^>]*>ManyPixels<\/a>/,
     )
+    expect(markup).toMatch(
+      /<a href="https:\/\/www\.streamlinehq\.com" target="_blank" rel="noreferrer"[^>]*>Streamline<\/a>/,
+    )
+    expect(markup).toMatch(/<a href="https:\/\/www\.fffuel\.co" target="_blank" rel="noreferrer"[^>]*>fffuel<\/a>/)
   })
 
   it('speaks Arabic around the licences, which stay in English', async () => {

@@ -1,6 +1,6 @@
-// The third-party notices: each icon, sticker and illustration set Dazbee bundles for agents to place, its name linking
-// to its site in a new tab, its maker credited where its notice names one, with its version, its licence's name and the
-// licence in full, its paragraphs flowing to the page's width. Open to anyone, signed in or not.
+// The third-party notices: each icon, sticker, illustration and artwork set Dazbee bundles for agents to place, its
+// name linking to its site in a new tab, its maker credited where its notice names one, with its version, its licence's
+// name and the licence in full, its paragraphs flowing to the page's width. Open to anyone, signed in or not.
 import Link from 'next/link'
 
 import { SET_NOTICES } from '@dazbee/graphics/notices'

@@ -8,12 +8,15 @@
     "./pictures": "./src/pictures.ts",
     "./archive": "./src/fluent-archive.ts",
     "./illustrations": "./src/illustrations.ts",
-    "./illustration-sources": "./src/illustration-sources.ts"
+    "./illustration-sources": "./src/illustration-sources.ts",
+    "./artwork": "./src/artwork.ts",
+    "./artwork-sources": "./src/artwork-sources.ts"
   },
   "scripts": {
     "icons": "node src/write-icons.ts",
     "stickers": "node src/write-stickers.ts",
     "illustrations": "node src/write-illustrations.ts",
+    "artwork": "node src/write-artwork.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

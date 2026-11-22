@@ -26,7 +26,7 @@ class FakeWorker implements MatchWorker {
     if (message.kind === 'matchStart') this.reply({ kind: 'matchReady' })
     if (message.kind !== 'matchPiece' || !this.answering) return
     for (const step of STEPS) this.reply({ kind: 'matchStep', id: message.id, step })
-    this.reply({ kind: 'matchAnswer', id: message.id, answer: answerOf(message.index), heap: 0 })
+    this.reply({ kind: 'matchAnswer', id: message.id, answer: answerOf(message.index), memory: 0 })
   }
   terminate() {
     this.terminated = true

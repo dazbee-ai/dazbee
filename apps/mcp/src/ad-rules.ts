@@ -54,6 +54,7 @@ interface SharedRules {
   fonts: FontPairing[]
   patterns: string
   illustrations: string
+  artwork: string
   truth: string
   plans: string
   advice: string
@@ -189,6 +190,9 @@ const PATTERNS_LINE =
 /** How an agent uses the bundled illustrations. */
 const ILLUSTRATIONS_LINE =
   'An illustration (search_graphics kind illustration) shows a scene where no photo fits: keep to one illustration set in a design, give it room as the ad’s picture rather than a corner, and keep its own colours unless an accent in a brand colour suits the ad better.'
+/** How an agent uses the bundled objects, 3D objects, shapes, accents, effects and backgrounds. */
+const ARTWORK_LINE =
+  'Objects, 3D objects, shapes, hand-drawn accents, effects and backgrounds (search_graphics kinds object, 3d, shape, accent, effect and background) dress an ad: keep to one set and style in a design; an accent (an arrow, an underline, a circle) marks the words that matter; a shape or a background sits behind the words in colours that keep them readable, a brand colour where it suits; an effect goes over a photo, never over the words.'
 /** Where an agent finds the plans. */
 const PLANS_LINE = `ad_rules with \`plan\` gives a plan’s steps: ${PLANS.map(({ name, title }) => `${name} (${title.toLowerCase()})`).join(', ')}.`
 /** That the ad rules are advice, and how to read keepClear for a size. */
@@ -261,6 +265,7 @@ function sharedRules(kind?: AdKind): SharedRules {
     ...kindAdvice(kind),
     patterns: PATTERNS_LINE,
     illustrations: ILLUSTRATIONS_LINE,
+    artwork: ARTWORK_LINE,
     truth: TRUTH,
     plans: PLANS_LINE,
     advice: ADVICE,

@@ -22,7 +22,7 @@ FROM base AS sources
 COPY --from=install /repo ./
 COPY packages packages
 # The bundled icons' and stickers' drawings (packages/graphics/sets) are the MCP server's alone; the API's
-# stickers:upload and illustrations:upload scripts read only the lists in packages/graphics/src.
+# stickers:upload, illustrations:upload and artwork:upload scripts read only the lists in packages/graphics/src.
 RUN rm -r packages/graphics/sets
 COPY apps/api apps/api
 

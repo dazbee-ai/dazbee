@@ -23,7 +23,7 @@ import {
   UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
 
-import { TEST_SCENE_SVG, type TestBundled, testBundled } from './test-bundled-api.ts'
+import { bundledBytes, type TestBundled, testBundled } from './test-bundled-api.ts'
 import { type TestStock, testStock } from './test-stock-api.ts'
 
 /** An agent access as the tests give it. */
@@ -556,7 +556,8 @@ function visible(agent: AgentMe): BrandSummary[] {
 /**
  * The fake storage behind the signed links: a font face's file is a shipped font's (the bold face's Noto Sans
  * Bold, every other's the first shipped), the bottle's and the mark's are `TEST_BOTTLE_PNG`, and the SVG files are
- * `TEST_LOGO_SVG` and `TEST_CARD_SVG`, and a bundled file's is `TEST_SCENE_SVG`, as only an illustration's is ever read.
+ * `TEST_LOGO_SVG` and `TEST_CARD_SVG`, and a bundled file's is the one `bundledBytes` gives for it, as only a
+ * bundled SVG file is ever read.
  * A request carrying a token is refused, as the agent's token must never reach storage.
  */
 async function stored(request: Request): Promise<Response> {
@@ -566,7 +567,7 @@ async function stored(request: Request): Promise<Response> {
     return new Response(new Uint8Array(TEST_BOTTLE_PNG))
   if (path === '/assets/asset-logo') return new Response(TEST_LOGO_SVG)
   if (path === '/assets/asset-card') return new Response(TEST_CARD_SVG)
-  if (path.startsWith('/assets/asset-bundled-')) return new Response(TEST_SCENE_SVG)
+  if (path.startsWith('/assets/asset-bundled-')) return new Response(bundledBytes(path.slice('/assets/'.length)))
   const [first] = loadFontFiles()
   const bold = loadFontFiles().find((font) => font.file === 'NotoSans-Bold.ttf')
   const shipped = path === '/fonts/face-brand-serif-bold' ? bold : first

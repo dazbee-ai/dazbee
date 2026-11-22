@@ -1,7 +1,7 @@
 // What the tools that place on a frame of the open design share: the box they place in, the frame they place on,
-// the parts of a frame they place at, the colour they place in, a bundled file added to the brand's library, an SVG
-// file's text and the step that places its layers, and running the placing batch and answering with the layer it
-// placed.
+// the parts of a frame they place at, the colour they place in, a bundled file added to the brand's library, the box
+// a picture fits in, an SVG file's text and the step that places its layers, and running the placing batch and
+// answering with the layer it placed.
 import { z } from 'zod'
 
 import { type AgentStep, placedRoots } from '@dazbee/doc'
@@ -105,6 +105,13 @@ export function frameIn(open: OpenDesign, frameId: string): Frame {
   const frame = Object.hasOwn(frames, frameId) ? frames[frameId] : undefined
   if (!frame) throw new ToolRefusal(`The open design has no frame “${frameId}”; read_design lists its frames`)
   return frame
+}
+
+/** The largest box of the asset's shape that fits inside `where`, centred in it. */
+export function fitted(where: Rect, { width, height }: Pick<AssetSummary, 'width' | 'height'>): Rect {
+  const scale = Math.min(where.width / width, where.height / height)
+  const size = { width: width * scale, height: height * scale }
+  return { x: where.x + (where.width - size.width) / 2, y: where.y + (where.height - size.height) / 2, ...size }
 }
 
 /** The frame's whole area, in its own pixels. */

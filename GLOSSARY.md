@@ -57,7 +57,7 @@ One of the places every brand kit has: the colours Primary, Secondary, Accent, B
 _Avoid_: Role (a layer's meaning in the ad), slot, theme colour
 
 **Brand text style**:
-A named text look in a brand kit, such as Headline, Subhead or Body: a font, a weight and slant, a line height, a letter spacing and a case, and no size, so one style fits every ad size and each text keeps its own size. Its font is a kit font it follows, such as the Heading role, or a family of its own. A kit holds up to twelve, each with a token of its own (`headline`) that is never a brand role's. A text bound to one follows it: changing the style in the kit restyles every text that follows it, each keeping its own size. Editing one of the style's settings on the text by hand ends that; a size or a range's own style doesn't. Binding a style ends the text's own font binding, and binding a font ends its style's.
+A named text look in a brand kit, such as Headline, Subhead or Body: a font, a weight and slant, a line height, a letter spacing and a case, with a curve, a bounce and an extrusion where it sets them, and no size or paint, so one style fits every ad size and each text keeps its own size. Its font is a kit font it follows, such as the Heading role, or a family of its own. A kit holds up to twelve, each with a token of its own (`headline`) that is never a brand role's. A text bound to one follows it: changing the style in the kit restyles every text that follows it, each keeping its own size. Editing one of the style's settings on the text by hand ends that; a size or a range's own style doesn't. Binding a style ends the text's own font binding, and binding a font ends its style's.
 _Avoid_: Typography preset, type style, paragraph style
 
 **Binding**:
@@ -65,7 +65,7 @@ A layer property that follows a variable, such as a fill bound to `brand:primary
 _Avoid_: Link (see Link id), sync, style reference
 
 **Bindable property**:
-A property a layer can bind: the colour of its fill, its text's colour, its font family, the picture of its image fill, or its text style (a text's look: its family, weight, slant, line height, letter spacing and case). Each takes one kind of value, such as a colour or a look, and only the layer types that have it can bind it.
+A property a layer can bind: the colour of its fill, its text's colour, its font family, the picture of its image fill, or its text style (a text's look: its family, weight, slant, line height, letter spacing and case, and its curve, bounce and extrusion where the style sets them). Each takes one kind of value, such as a colour or a look, and only the layer types that have it can bind it.
 _Avoid_: Binding target, slot, field
 
 **Variable**:
@@ -173,7 +173,7 @@ The row of switcher tabs at the top of the edit panel (not browser tabs, see Tab
 _Avoid_: tab bar, segmented control, tab (alone)
 
 **Kind's tab**:
-The switcher's first switcher tab, named for what is selected and holding what only that kind has: Text for texts (font, paragraph and spacing, the font chosen from the font chooser in the panel's place), Image for photos (replace, crop, fit, filters and adjust, and the layout of a box holding the photo), Shape for shapes with settings of their own (a polygon's sides, a star's points and inner radius, a line's ends, or how a combined shape or several shapes combine), Layout for a box (its Row, Column, Grid or Free, their spacing and its corners). Several layers of one kind have that kind's tab, but several boxes have no Layout; a rectangle, an ellipse, a drawn path, a group, or layers of mixed kinds have none, but mixed layers holding a text have a Text tab with only its font.
+The switcher's first switcher tab, named for what is selected and holding what only that kind has: Text for texts (font, paragraph, spacing, and curve and bounce, the font chosen from the font chooser in the panel's place), Image for photos (replace, crop, fit, filters and adjust, and the layout of a box holding the photo), Shape for shapes with settings of their own (a polygon's sides, a star's points and inner radius, a line's ends, or how a combined shape or several shapes combine), Layout for a box (its Row, Column, Grid or Free, their spacing and its corners). Several layers of one kind have that kind's tab, but several boxes have no Layout; a rectangle, an ellipse, a drawn path, a group, or layers of mixed kinds have none, but mixed layers holding a text have a Text tab with only its font.
 
 **Style**:
 The edit panel's switcher tab for how the selection looks: its colour (a text's, a shape's or a box's fill), outline, corners (a photo's or a rectangle's; a box's are in Layout), transparency and effects, with a mask's settings first.
@@ -251,7 +251,7 @@ How a layer follows its parent's edges when the parent, a frame or a box (in a l
 _Avoid_: Pins, anchors (an anchor is a path's point), responsive
 
 **Run**:
-A range of a text layer's characters that changes some of its base style, such as bold, a colour, an outline, underline or case. Typed text takes the run of the character before it.
+A range of a text layer's characters that changes some of its base style, such as bold, a colour, an outline, underline, case, a raise or a letter turn. Typed text takes the run of the character before it.
 _Avoid_: Span, range style
 
 **Paragraph**:
@@ -263,16 +263,49 @@ The room added after each character of a text, in pixels or as a percentage of t
 _Avoid_: Tracking, kerning (the font's own spacing between two letters)
 
 **Font feature**:
-An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures, small caps, superscript or subscript; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals. A superscript or subscript the font has no glyph for, for any letter or digit of a run, is made up for the whole run: the font's standard letters, at its superscript or subscript size and raised or lowered by its offset; a paragraph of nothing else keeps the full size's line height. Superscript and subscript turn each other off.
+An OpenType feature of a font turned on or off for a text or a run, such as ligatures, tabular figures, small caps, superscript or subscript; the Text tab's Font features section lists those the texts' fonts have. Small caps a font lacks are drawn as smaller capitals. A superscript or subscript the font has no glyph for, for any letter or digit of a run, is made up for the whole run: the font's standard letters, at its superscript or subscript size and raised or lowered by its offset; a paragraph of nothing else keeps the full size's line height. Superscript and subscript turn each other off; a raise moves their characters further.
 _Avoid_: OpenType setting, typography option
 
 **Text gradient**:
-A linear, radial or angular gradient a text or a run is painted with in place of its colour, its underline and strikethrough too, placed in the text layer's box, so a run's is the part of the box's gradient its characters cover. Picked from + in the text's Colour panel; a colour picked over it takes it off, and a hidden one shows the colour again.
+A linear, radial or angular gradient a text or a run is painted with in place of its colour, its underline and strikethrough too, placed in the text layer's box, so a run's is the part of the box's gradient its characters cover. Picked from + in the text's Colour panel; a colour or a text image fill picked over it takes it off, and a hidden one shows the colour again.
 _Avoid_: Text fill, gradient fill (a fill is a layer's paint)
+
+**Text image fill**:
+An image from the asset library that a text or a run is painted with in place of its colour, its underline and strikethrough too, placed in the text layer's box to fill it, fit inside it or tile it, as a gradient is placed; a pattern is an image tiled. A text's colour, gradient and image fill are one paint: picking one takes the other off.
+_Avoid_: Image text, texture, clipping mask (a mask is a layer)
 
 **Text outline**:
 A line along the letters of a text or a run, set in Effects: over the letters, centred on their edges, or under them, where it is drawn before the letters, reaches its whole width past their edges and leaves their shape as the font draws it.
 _Avoid_: Text stroke, stroke (a stroke is a layer's outline)
+
+**Text effect**:
+A look that moves or paints a text's letters past what its font and colour do: a curve, a bounce, a raise, a text image fill or an extrusion. Each is set in the edit panel, drawn alike on the screen and in every export, and found by the text matcher in a picture.
+_Avoid_: WordArt, effect alone (a shadow, glow or blur on a layer)
+
+**Curve**:
+A text's lines bent along an arc up, an arc down, a circle or a wave, by one amount; each line follows its own curve, parallel to the others. Its letters are moved and turned onto the curve, never bent. A curved text's lines break only at its line breaks, and its box fits the curved text.
+_Avoid_: Warp, arc text, text on a path (a free path is not offered)
+
+**Bounce**:
+A text's letters raised, lowered and turned in one pattern across the text, wavy or random, by one amount. A letter's own raise and letter turn add to it, which is how lettering set by hand is copied.
+_Avoid_: Jitter, wobble, wave (a wave is a curve)
+
+**Placement**:
+Where each letter of a curved or bounced text, or one with a letter turn, is drawn: its glyph moved and turned from where the straight layout put it, never bent. Drawing, the text's box, the caret, the selection and what a click hits all read it. See ADR-0021.
+_Avoid_: Warp, layout (the straight lines it starts from), glyph positions
+
+**Letter turn**:
+How far each letter of a text or a run is turned on its own, about the middle of its place on the line, in degrees.
+_Avoid_: Rotation (a layer's turn), tilt, italic
+
+**Raise**:
+How far a text's or a run's characters sit above their line's baseline, or below it when negative, as a share of the font size they are set at; the line keeps its height. On a curve the characters move off the curve. A superscript or subscript is the font's own; a raise is any amount, and adds to theirs.
+_Avoid_: Baseline shift, offset, superscript (a font feature)
+
+**Extrusion**:
+A text's 3D sides: its letters carried back along one angle to a depth, a share of its font size, and drawn behind them in a darker shade of their own paint or in a chosen colour. No light, bevel or perspective.
+Shown as: 3D
+_Avoid_: Shadow (a shadow is blurred and offset), depth effect, 3D text (in code and docs)
 
 **Wrap style**:
 Where a text's lines break when a paragraph wraps onto more than one line. Auto fits as many words on each line as fit; Balance breaks each paragraph at the narrowest width that adds no line, so a headline's lines come out near even; Pretty keeps the lines full but leaves no one word alone on a paragraph's last line. Set in the Text tab, below the case. Justified text, and a paragraph that the most lines cut off, break as Auto does.
@@ -420,8 +453,8 @@ One of the four ways a pattern is drawn: bold, minimal, playful or premium. It s
 _Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
 
 **Bundled graphic**:
-An icon, a sticker or an illustration, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file and an illustration's file are **bundled files**: Dazbee keeps them in its storage (`bundled/<sha256>`), not in the repository, and a brand adds one to its asset library by its SHA-256.
-_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker or an illustration), clip art
+An icon, a sticker, an illustration or an artwork graphic, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file, an illustration's file and an artwork graphic's file are **bundled files**: Dazbee keeps them in its storage (`bundled/<sha256>`), not in the repository, and a brand adds one to its asset library by its SHA-256.
+_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker, an illustration or an artwork graphic), clip art
 
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
@@ -438,6 +471,10 @@ _Avoid_: Sticker (a single picture or person), clip art, artwork
 **Illustration accent**:
 The one colour an illustration set's scenes accent with, such as unDraw's purple, which placing may swap for another colour wherever a scene paints with it; a brand kit colour given as the accent binds the fills that are the accent alone.
 _Avoid_: Accent alone (the brand kit's Accent role, `brand:accent`, which an illustration accent may be set to), highlight colour
+
+**Artwork graphic**:
+A graphic of one of Dazbee's artwork sets, each set holding one kind: an object (a colour drawing of a thing), a 3D object (a rendered picture), a shape, a hand-drawn accent (an arrow, an underline, a circle), an effect (a light, spark or smoke picture laid over a photo) or a background (a pattern repeated over the frame). It joins the brand's asset library when placed, once however often; a picture is placed as an image, an effect drawn light in the screen blend, and an SVG file as editable layers in its own colours or, for a set drawn in a few colours, in a colour given (a brand kit colour binds them).
+_Avoid_: Asset alone, clip art, decoration
 
 **Upload link**:
 A one-time link an agent asks for to send one file from the machine it runs on into a brand's asset library: one brand, one type, one name, ten minutes, and the first file sent spends it. It reads nothing and opens nothing else.

@@ -2,8 +2,8 @@ import type { CanvasKit, FontCollection, Image, TypefaceFontProvider } from '@da
 import type { Variables } from '@dazbee/schema'
 
 import type { LayerPictures } from './pictures.ts'
+import type { ParagraphCache } from './text/cache.ts'
 import { type FamilyFeatures, familyFeatures, type FamilySuperSubs, familySuperSubs } from './text/font-features.ts'
-import type { ParagraphCache } from './text/layout.ts'
 
 /** An image's width and height in its own pixels. */
 export interface ImageSize {

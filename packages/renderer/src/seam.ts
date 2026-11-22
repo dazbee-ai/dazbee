@@ -5,7 +5,7 @@ import { drawScene } from './draw/draw.ts'
 import { drawVectorFrame, type VectorTarget } from './draw/vector.ts'
 import { type ResourceBytes, type ResourceCache, resourceCache, type Resources } from './resources.ts'
 import { render, type Scene } from './scene.ts'
-import { textMeasure } from './text/layout.ts'
+import { textMeasure } from './text/cache.ts'
 
 /** What a PDF says about itself. */
 export interface VectorOptions {

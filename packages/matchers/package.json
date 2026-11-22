@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dazbee/canvaskit": "workspace:*",
     "@dazbee/fonts": "workspace:*",
     "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*"

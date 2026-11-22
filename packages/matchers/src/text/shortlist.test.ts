@@ -10,7 +10,7 @@ import { readPiece } from './read-piece.ts'
 import { shortlist, type ShortlistInput } from './shortlist.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import { type ShortlistPiece, shortlistPieces } from './test-text-pieces.ts'
-import { coversByIndex } from './text-files.ts'
+import { coversByIndex, FINGERPRINT_NUMBERS } from './text-files.ts'
 
 const ck = await loadCanvasKit()
 const { files, model } = await textMatcherFiles()
@@ -65,6 +65,23 @@ function piece(id: string): ShortlistPiece {
   const found = pieces.find((p) => p.id === id)
   if (!found) throw new Error(`no piece ${id}`)
   return found
+}
+
+/** The fingerprint the files hold for `key`, as a piece drawn in its face would give. */
+function fingerprintOfKey(key: string): Float32Array {
+  const row = files.rows.get(key)
+  if (row === undefined) throw new Error(`no fingerprint for ${key}`)
+  return files.fingerprints.slice(row * FINGERPRINT_NUMBERS, (row + 1) * FINGERPRINT_NUMBERS)
+}
+
+/** The family a key names. */
+function parseFamily(key: string): string {
+  return key.split('|')[0] ?? ''
+}
+
+/** The shortlist of words with a given fingerprint, no kit and no face loaded. */
+function shortlistFor(fingerprint: Float32Array, words: string) {
+  return shortlist({ ck, files, fingerprint, words, kitFonts: {}, kitFaces: [], fonts: NO_FONTS })
 }
 
 afterAll(() => model.release())
@@ -160,5 +177,23 @@ describe('shortlist', () => {
     // A face that doesn't draw the piece's script never joins.
     const arabic = await shortlistOf(piece('arabic-1'), { kitFonts: { body: 'Brand Grotesk' }, kitFaces, fonts })
     expect(arabic.brand).toEqual([])
+  })
+
+  it('never shortlists a face that draws a pattern rather than letters, even for its own fingerprint', async () => {
+    for (const key of ['Wavefont|600|normal', 'Linefont|600|normal', 'Libre Barcode 128|400|normal']) {
+      const { nearest } = await shortlistFor(fingerprintOfKey(key), 'mornings,\nat home')
+      expect(nearest).toHaveLength(5)
+      expect(nearest.map((face) => face.family)).not.toContain(parseFamily(key))
+      for (const face of nearest) expect(files.leftOut.has(files.rows.get(face.key) ?? -1)).toBe(false)
+    }
+  })
+
+  it('shortlists a face that draws only capitals for words in capitals, and never for words with a lowercase letter', async () => {
+    const sixCaps = fingerprintOfKey('Six Caps|400|normal')
+    const capitals = await shortlistFor(sixCaps, 'TRAIN LIKE YOU MEAN IT')
+    const mixed = await shortlistFor(sixCaps, 'Train like you mean it')
+    expect(capitals.nearest[0]?.key).toBe('Six Caps|400|normal')
+    expect(mixed.nearest).toHaveLength(5)
+    for (const face of mixed.nearest) expect(files.capitals.has(files.rows.get(face.key) ?? -1)).toBe(false)
   })
 })

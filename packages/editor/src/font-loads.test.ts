@@ -4,8 +4,8 @@ import type { FontUse } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
 
-import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS } from './font-loads.ts'
-import { testCatalog } from './test-catalog.ts'
+import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS, openedFonts } from './font-loads.ts'
+import { testCatalog, type TestFace } from './test-catalog.ts'
 
 /** Four faces of Brand Sans, each its own bytes: 400, 700 and 900 upright and 400 italic. */
 function brandSans() {
@@ -25,11 +25,20 @@ function brandSans() {
 const upright = (...weights: number[]): FontUse[] =>
   weights.map((weight) => ({ family: 'Brand Sans', weight, style: 'normal' }))
 
-/** The editor's font loads over `sources`, with nothing loaded to start, online unless `online` says otherwise. */
-function loadsOf(sources: FontSources, online = () => true) {
+/** The fonts we ship, as the editor registers them. */
+const SHIPPED = loadFontFiles().map(({ family, bytes }) => ({ family, bytes }))
+
+/** The file of a font we ship, by its file name. */
+const shippedFile = (file: string) => loadFontFiles().find((f) => f.file === file)?.bytes ?? new Uint8Array()
+
+/**
+ * The editor's font loads over `sources`, with nothing loaded to start, online unless `online` says otherwise,
+ * registering `shipped` before the catalog's files.
+ */
+function loadsOf(sources: FontSources, online = () => true, shipped: typeof SHIPPED = []) {
   const done = new AbortController()
   const loads = editorFontLoads({
-    shipped: [],
+    shipped,
     opened: NO_FONTS,
     sources,
     connected: online,
@@ -135,5 +144,103 @@ describe('editorFontLoads', () => {
     await loads.loaded()
     expect(catalog.fetched).toEqual(['Vary Sans 400 normal'])
     end()
+  })
+
+  it("draws a brand's upload of a shipped family's name in place of the shipped file, on the screen and in an export", async () => {
+    // A file of other letters under the name of a font we ship.
+    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
+    const catalog = testCatalog([{ family: 'Noto Naskh Arabic', bytes: upload }])
+    const { loads, end } = loadsOf(catalog.sources, () => true, SHIPPED)
+    const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 400, style: 'normal' }]
+    await loads.loadUses(naskh)
+    expect(catalog.fetched).toEqual(['Noto Naskh Arabic 400 normal'])
+    const naskhFiles = (fonts: { family: string; bytes: Uint8Array }[]) =>
+      fonts.filter((font) => font.family === 'Noto Naskh Arabic').map((font) => font.bytes)
+    expect(naskhFiles(loads.fonts())).toEqual([upload])
+    expect(naskhFiles(loads.fontsFor(naskh))).toEqual([upload])
+    // The other shipped families still draw, and an export of a design without the family draws the shipped file.
+    expect(loads.fonts().filter((font) => font.family === 'Noto Sans')).toHaveLength(3)
+    expect(naskhFiles(loads.fontsFor([]))).toEqual([
+      shippedFile('NotoNaskhArabic-Regular.ttf'),
+      shippedFile('NotoNaskhArabic-Bold.ttf'),
+    ])
+    expect(loads.facesOf('Noto Naskh Arabic').map((face) => `${face.weight} ${face.style}`)).toEqual(['400 normal'])
+    expect(loads.lacking()).toEqual([])
+    end()
+  })
+
+  it('draws the shipped file of a family the brand has no upload of, which it never lacks', async () => {
+    const catalog = testCatalog([])
+    const { loads, end } = loadsOf(catalog.sources, () => true, SHIPPED)
+    const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 700, style: 'normal' }]
+    await loads.loadUses(naskh)
+    expect(catalog.fetched).toEqual([])
+    expect(loads.fonts()).toEqual(SHIPPED)
+    expect(loads.fontsFor(naskh)).toEqual(SHIPPED)
+    expect(loads.facesOf('Noto Naskh Arabic').map((face) => `${face.weight} ${face.style}`)).toEqual([
+      '400 normal',
+      '700 normal',
+    ])
+    expect(loads.lacking()).toEqual([])
+    end()
+  })
+
+  it("counts a shipped family drawable only once the catalog said whose files draw it and the brand's are here", async () => {
+    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
+    const catalog = testCatalog([{ family: 'Noto Sans', bytes: upload }])
+    let online = false
+    const { loads, end } = loadsOf(
+      {
+        ...catalog.sources,
+        fontFile: (face) => (online ? catalog.sources.fontFile(face) : Promise.reject(new Error('offline'))),
+      },
+      () => online,
+      SHIPPED,
+    )
+    const sans: FontUse[] = [{ family: 'Noto Sans', weight: 400, style: 'normal' }]
+    expect(loads.drawable('Noto Sans')).toBe(false)
+    // The catalog lists the upload, but its file didn't come: our file isn't the one that draws it.
+    await loads.loadUses(sans)
+    expect(loads.drawable('Noto Sans')).toBe(false)
+    online = true
+    await loads.loadUses(sans)
+    expect(loads.drawable('Noto Sans')).toBe(true)
+    end()
+
+    const none = loadsOf(testCatalog([]).sources, () => true, SHIPPED)
+    await none.loads.loadUses(sans)
+    expect(none.loads.drawable('Noto Sans')).toBe(true)
+    none.end()
+    expect(loadsOf({}, () => true, SHIPPED).loads.drawable('Noto Sans')).toBe(true)
+  })
+
+  it("draws a shipped family in the brand's file once it says it uploaded one, the family asked for again", async () => {
+    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
+    const faces: TestFace[] = []
+    const sources: FontSources = {
+      fontFaces: (families) => testCatalog(faces).sources.fontFaces(families),
+      fontFile: (face) => testCatalog(faces).sources.fontFile(face),
+    }
+    const { loads, end } = loadsOf(sources, () => true, SHIPPED)
+    const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 400, style: 'normal' }]
+    await loads.loadUses(naskh)
+    expect(loads.fonts()).toEqual(SHIPPED)
+    faces.push({ family: 'Noto Naskh Arabic', bytes: upload })
+    loads.askAgain(['Noto Naskh Arabic', 'Never Asked'])
+    await loads.loaded()
+    const naskhFiles = loads.fonts().filter((font) => font.family === 'Noto Naskh Arabic')
+    expect(naskhFiles.map((font) => font.bytes)).toEqual([upload])
+    end()
+  })
+})
+
+describe('openedFonts', () => {
+  it("opens a design in only the fonts we ship in ours when the catalog doesn't answer, and fails one in others", async () => {
+    const down: FontSources = {
+      fontFaces: () => Promise.reject(new Error('the font store is down')),
+      fontFile: () => Promise.resolve(new Uint8Array()),
+    }
+    expect(await openedFonts([{ family: 'Noto Sans', weight: 400, style: 'normal' }], down)).toBe(NO_FONTS)
+    await expect(openedFonts([{ family: 'Brand Sans', weight: 400, style: 'normal' }], down)).rejects.toThrow('down')
   })
 })

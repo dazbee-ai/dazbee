@@ -2,12 +2,14 @@
 // (`docker compose up -d --wait`).
 import { describe, expect, it } from 'vitest'
 
+import { brands, newId } from '@dazbee/db'
 import { parseDesign } from '@dazbee/schema'
 
+import { replaceFace } from '../fonts/fonts.ts'
 import { uploadedFontKey } from '../storage-keys.ts'
 import { brand, call, db, run, sibling, storage, uploadImage, workspace } from '../test-api.ts'
-import { png, sha256 } from '../test-files.ts'
-import { brandResourcesFor } from './render.ts'
+import { fontFile, png, sha256 } from '../test-files.ts'
+import { brandResourcesFor, renderCover } from './render.ts'
 import { uploadHugeFamily } from './test-huge-family.ts'
 
 /** A design whose one graphic draws `assetId`, its picture bound to the brand's logo. */
@@ -34,6 +36,48 @@ function logoDesign(assetId: string) {
   })
   if (!parsed.success) throw new Error(parsed.errors.join('\n'))
   return parsed.design
+}
+
+/** A design whose one frame holds a line of words in `family`. */
+function wordsIn(family: string) {
+  const parsed = parseDesign({
+    meta: { designId: 'd', name: 'Words' },
+    pages: { p1: { name: 'Page 1', order: 'a0' } },
+    frames: { sq: { pageId: 'p1', name: 'Square', width: 300, height: 80, x: 0, y: 0, order: 'a0' } },
+    nodes: {
+      t: {
+        type: 'text',
+        parentId: 'sq',
+        link: 't',
+        index: 'a0',
+        name: 'Words',
+        props: {
+          ...{ x: 10, y: 10, width: 280, height: 60, text: 'Big sale' },
+          style: { fontFamily: family, fontSize: 40, color: '#000000FF' },
+        },
+      },
+    },
+  })
+  if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+  return parsed.design
+}
+
+/** Makes a brand of workspace A with no uploads, which no other test uses. */
+async function addBrand() {
+  const added = { id: `brand-fonts-${newId()}`, workspaceId: workspace.id, name: 'Brand Fonts' }
+  await db.insert(brands).values(added)
+  return added
+}
+
+/** Stores `bytes` as the brand's upload of `family`, upright 400, whatever name the file gives itself. */
+async function uploadAs(brandId: string, family: string, bytes: Uint8Array) {
+  const hash = sha256(bytes)
+  await storage.put(uploadedFontKey(workspace.id, hash), bytes, 'font/ttf')
+  await replaceFace(db, {
+    ...{ id: newId(), workspaceId: workspace.id, brandId, source: 'upload', family },
+    ...{ weight: 400, weightMin: null, weightMax: null, style: 'normal', category: null },
+    ...{ sha256: hash, byteSize: bytes.length },
+  })
 }
 
 const EMPTY_KIT = { colors: [], fonts: [], voice: '' }
@@ -87,5 +131,20 @@ describe('brandResourcesFor', { timeout: 30_000 }, () => {
     const resources = await brandResourcesFor(db, storage, workspace.id, brand.id, parsed.design)
     const read = resources.fonts.map((font) => uploadedFontKey(workspace.id, sha256(font.bytes)))
     expect(read).toEqual([keys.get('400 normal'), keys.get('700 normal')])
+  })
+})
+
+describe('renderCover', { timeout: 30_000 }, () => {
+  it("draws a brand's upload of a shipped family's name in place of the shipped file, and ours for a brand without one", async () => {
+    const [own, other] = await Promise.all([addBrand(), addBrand()])
+    // A file of other letters under the name of a font we ship, and the same file under a name of its own.
+    const upload = fontFile('NotoSans-Bold.ttf')
+    await uploadAs(own.id, 'Noto Naskh Arabic', upload)
+    await uploadAs(other.id, `Own Sans ${run}`, upload)
+    const drawn = async (brandId: string, family: string) =>
+      Buffer.from((await renderCover(db, storage, workspace.id, brandId, wordsIn(family))).pixels)
+    const uploaded = await drawn(own.id, 'Noto Naskh Arabic')
+    expect(uploaded.equals(await drawn(other.id, `Own Sans ${run}`))).toBe(true)
+    expect(uploaded.equals(await drawn(other.id, 'Noto Naskh Arabic'))).toBe(false)
   })
 })

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { parentPort } from 'node:worker_threads'
 
 import { type AgentRender, agentRender, AgentRenderTooBig } from '@dazbee/export'
-import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+import { FALLBACK_FAMILIES, withBrandFonts } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -48,7 +48,10 @@ async function answer(job: RenderJob): Promise<RenderAnswer> {
     const drawingFrom = performance.now()
     const sent = new Map<string, Uint8Array>()
     const bytes: ResourceBytes = {
-      fonts: [...loadFontFiles(), ...job.fonts.map(({ family, bytes }) => ({ family, bytes: same(bytes, sent) }))],
+      fonts: withBrandFonts(
+        loadFontFiles(),
+        job.fonts.map(({ family, bytes }) => ({ family, bytes: same(bytes, sent) })),
+      ),
       fallbackFamilies: [...FALLBACK_FAMILIES],
       images: Object.fromEntries(Object.entries(job.images).map(([id, image]) => [id, same(image, sent)])),
       ...(job.variables ? { variables: job.variables } : {}),

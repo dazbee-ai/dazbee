@@ -18,7 +18,6 @@ import {
 } from '@dazbee/schema'
 
 import type { EditorView } from './canvas/view.ts'
-import { SHIPPED_FAMILIES } from './font-loads.ts'
 import type { EditorResources } from './resources.ts'
 import { runQuietly } from './run-quietly.ts'
 import { type EditorSelection, idsOf } from './selection.ts'
@@ -26,7 +25,7 @@ import type { EditorTyping } from './text/typing.ts'
 
 export interface BrandKitDeps {
   session: Session
-  resources: Pick<EditorResources, 'bytes' | 'loadUses' | 'setVariables'>
+  resources: Pick<EditorResources, 'bytes' | 'drawable' | 'loadUses' | 'setVariables'>
   view: Pick<EditorView, 'redraw'>
   selection: Pick<EditorSelection, 'current'>
   typing: Pick<EditorTyping, 'fitText'>
@@ -120,7 +119,6 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
     )
     if (signal.aborted) return
     // Fitted in the fallback fonts, a box would be wrong: only a family whose files came is written.
-    const here = new Set([...SHIPPED_FAMILIES, ...resources.bytes().fonts.map((f) => f.family)])
     session.untracked(() => {
       for (const { id, property, ref, value } of stale) {
         const node = session.design().nodes[id]
@@ -129,7 +127,7 @@ export function editorBrandKit({ session, resources, view, selection, typing, si
         const { read, kind } = BINDABLE_PROPERTIES[property]
         const family = familyOf(value)
         const shown = VALUE_KINDS[kind].same(read(node.props), value) && !styleAndFont(node.bindings)
-        if (shown || (family !== undefined && !here.has(family))) continue
+        if (shown || (family !== undefined && !resources.drawable(family))) continue
         if (!runQuietly(() => session.run('node.bind', { ids: [id], property, ref, value }))) continue
         typing.fitText(id)
       }

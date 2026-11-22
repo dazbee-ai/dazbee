@@ -873,6 +873,7 @@ export function buildCore({
     loadedFamilies: () => resources.families(),
     fontCheck: fontCheck.check,
     setFont: layerEdits.setFont,
+    fontsUploaded: (families: readonly string[]) => resources.askAgain(families),
     variables: () => resources.bytes().variables ?? NO_VARIABLES,
     setVariables: (variables: Variables) => brandKit.setVariables(variables),
     bindSelection: (kind: ValueKind, ref: VariableRef | null) => brandKit.bindSelection(kind, ref),

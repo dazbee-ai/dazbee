@@ -63,9 +63,15 @@ export interface EditorResources {
   /**
    * Asks the catalog for the faces of the families not asked for yet. Returns each family's load,
    * settled when its faces, and the files its texts asked for meanwhile, are here or failed to come;
-   * undefined for a family that never loads (shipped, or no way to load it).
+   * undefined for a family that never loads (no way to load it). A shipped family is asked for too: the brand may have
+   * an upload of its name.
    */
   loadFamilies(families: readonly string[]): (Promise<void> | undefined)[]
+  /**
+   * Asks the catalog again for the faces of those of these families it was asked for, as after the brand uploaded
+   * faces of them: a shipped family then draws in the upload. Each draws as it did until the answer comes.
+   */
+  askAgain(families: readonly string[]): void
   /** Asks for the files of the faces drawing these uses (`facesToLoad`); settles when they are here or failed to come. */
   loadUses(uses: readonly FontUse[]): Promise<void>
   /**
@@ -79,6 +85,11 @@ export interface EditorResources {
   facesOf(family: string): FontFace[]
   /** The families whose files the editor has, shipped ones included (#50). */
   families(): string[]
+  /**
+   * Whether the family's own files draw it: ours for a shipped family the catalog said the brand has no upload of, the
+   * catalog's files here for any other. A text fitted before then would be fitted in other letters.
+   */
+  drawable(family: string): boolean
   /**
    * The families the catalog was asked for and answered with no file, which the editor still lacks:
    * their text draws in the fallback fonts. A family still loading, or whose load failed, is not one.
@@ -114,9 +125,14 @@ export function editorResources({
   after,
   copyMaker,
 }: ResourcesDeps): EditorResources {
+  /**
+   * The files the design opened with from the catalog, the same arrays `first.fonts` holds after the shipped ones: a
+   * brand's upload of a shipped family's name is among them, not among the shipped fonts.
+   */
+  const openedFiles = new Set(firstFonts.files.map((file) => file.bytes))
   /** The catalog's faces and the files of those the design's texts are drawn in. */
   const fonts = editorFontLoads({
-    shipped: first.fonts.filter((font) => SHIPPED_FAMILIES.has(font.family)),
+    shipped: first.fonts.filter((font) => SHIPPED_FAMILIES.has(font.family) && !openedFiles.has(font.bytes)),
     opened: firstFonts,
     sources,
     connected,
@@ -304,11 +320,13 @@ export function editorResources({
     load,
     show,
     loadFamilies: fonts.loadFamilies,
+    askAgain: fonts.askAgain,
     loadUses: fonts.loadUses,
     bytesFor,
     loaded,
     facesOf: fonts.facesOf,
     families: fonts.families,
+    drawable: fonts.drawable,
     lacking: fonts.lacking,
     alpha,
     setVariables,

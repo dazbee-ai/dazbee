@@ -76,7 +76,10 @@ async function wholeGoogleList(path: string): Promise<FontFamily[] | null> {
   return null
 }
 
-/** The families with the fonts we ship after them; a brand's upload of a shipped family's name is the one it sees. */
+/**
+ * The families with the fonts we ship after them; a brand's upload of a shipped family's name is the one it sees, as
+ * it is the one that draws (`withBrandFonts` in `@dazbee/fonts`).
+ */
 function withShipped(families: FontFamily[]): FontFamily[] {
   return [...families, ...SHIPPED.filter((s) => !families.some((f) => f.family === s.family))]
 }

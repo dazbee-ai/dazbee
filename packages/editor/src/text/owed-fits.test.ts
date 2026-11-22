@@ -9,6 +9,7 @@ import type { Design, Layer, TextProps } from '@dazbee/schema'
 
 import type { ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
+import { shippedOnly } from '../test-catalog.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { owedFits } from './owed-fits.ts'
 
@@ -17,11 +18,12 @@ afterEach(() => editor?.end())
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-/** An editor over the words design, its words growing with them, whose font loads a test lets through. */
+/** An editor over the words design, its words growing with them, whose font loads a test lets through, but the shipped fonts'. */
 async function slowEmoji() {
   const asked: string[][] = []
   const waiting: (() => void)[] = []
   const fontFaces = (families: string[]) => {
+    if (shippedOnly(families)) return Promise.resolve([])
     asked.push(families)
     return new Promise<ListedFace[]>((resolve) => {
       waiting.push(() =>

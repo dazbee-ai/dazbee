@@ -709,6 +709,11 @@ export interface EditorBase {
    * first, so text that grows the size of its words is measured in it and fits its box in the same step.
    */
   setFont(fontFamily: string, fontWeight?: number): Promise<void>
+  /**
+   * Tells the editor the brand uploaded faces of these families: their faces are asked for again, so an upload of a
+   * family it draws already, such as one we ship, draws in place of the file it drew in.
+   */
+  fontsUploaded(families: readonly string[]): void
   /** The brand kit's values bound properties take now (#53). */
   variables: () => Variables
   /**

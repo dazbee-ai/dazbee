@@ -126,6 +126,8 @@ export function FontChooser({
         onClose={onDone}
         onUploaded={async (face) => {
           await refresh()
+          // An upload of a family the design draws already, such as one we ship, draws in its place.
+          editor.fontsUploaded([face.family])
           editor.setFont(face.family, face.weight)
         }}
       />

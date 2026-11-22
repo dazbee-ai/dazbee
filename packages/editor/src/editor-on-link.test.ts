@@ -12,6 +12,7 @@ import type { FontSources, ListedFace } from './font-loads.ts'
 import { openTab } from './open-tab.ts'
 import type { ResourceSources } from './resources.ts'
 import { WORDS } from './test-actions.ts'
+import { shippedOnly } from './test-catalog.ts'
 import { type TestEditor, testEditor } from './test-editor.ts'
 import { type MemorySync, memorySync } from './test-link.ts'
 import { TokenRefused } from './token-source.ts'
@@ -28,13 +29,16 @@ afterEach(async () => {
   for (const close of closing.splice(0)) await close()
 })
 
-/** A font the tests make wait: each load waits for `bring`, which gives it a wide face. */
+/** A font the tests make wait: each load but the shipped fonts' waits for `bring`, which gives it a wide face. */
 function slowFonts() {
   const wide = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
   const loads: { families: string[]; resolve: (faces: ListedFace[]) => void }[] = []
   return {
     sources: {
-      fontFaces: (families: string[]) => new Promise<ListedFace[]>((resolve) => loads.push({ families, resolve })),
+      fontFaces: (families: string[]) =>
+        shippedOnly(families)
+          ? Promise.resolve([])
+          : new Promise<ListedFace[]>((resolve) => loads.push({ families, resolve })),
       fontFile: () => Promise.resolve(wide),
     } satisfies FontSources,
     /** Settles every load asked for so far. */

@@ -3,7 +3,7 @@
 // catalog families its texts are drawn in, the originals of its images (the kit's logo where a
 // picture follows it), and its brand kit's values. Pictures are drawn one at a time (`inDrawingTurn`).
 import type { Db } from '@dazbee/db'
-import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+import { FALLBACK_FAMILIES, withBrandFonts } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { renderDesign, type Rendered, type ResourceBytes } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -61,7 +61,7 @@ export async function renderCover(
   )
 }
 
-/** What drawing the design for this brand needs, the shipped fonts included. */
+/** What drawing the design for this brand needs, the shipped fonts included but those the brand's own files take the place of. */
 async function resourcesFor(
   db: Db,
   storage: Storage,
@@ -70,5 +70,5 @@ async function resourcesFor(
   design: Design,
 ): Promise<ResourceBytes> {
   const resources = await brandResourcesFor(db, storage, workspaceId, brandId, design)
-  return { ...resources, fonts: [...loadFontFiles(), ...resources.fonts] }
+  return { ...resources, fonts: withBrandFonts(loadFontFiles(), resources.fonts) }
 }

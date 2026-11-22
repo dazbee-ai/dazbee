@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env*
+!.env.example
+art/
+moodboard/
+raw/
+.DS_Store

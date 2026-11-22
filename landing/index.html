@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en" data-type="software" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dazbee: distinct ad concepts for paid social agencies</title>
+<meta name="description" content="Dazbee turns an agreed brief into distinct concept routes, built as editable banners in every Meta size and signed off by the client on the work itself.">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dazbee: distinct ad concepts for paid social agencies">
+<meta property="og:description" content="Different routes from one brief, in every Meta size, with client sign-off on the work itself.">
+<meta property="og:image" content="/share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#f7f5ef">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- <link rel="canonical" href="https://[domain]/"> once the domain is chosen -->
+<link rel="preload" as="image" href="/images/valley-pixel-1600.webp" imagesrcset="/images/valley-pixel-800.webp 800w, /images/valley-pixel-1600.webp 1600w" imagesizes="100vw">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<!--
+  v2.1 (2026-11-19). v1 is kept in landing/versions/v1; the references are in landing/moodboard.
+  Moments: the hero valley (smooth sky, land in blocks, a lens; WebGL), the orbit of routes, the look-alikes that turn
+  into routes, the try-out, the pinned voxel town of sizes, the pinned how chapters, the sign-off, the sign in the meadow.
+-->
+<header class="nav" data-nav>
+  <div class="wrap nav__bar">
+    <a class="skip" href="#top">Skip to content</a>
+    <a class="logo" href="#top" aria-label="Dazbee, back to top">
+      <span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>dazbee
+    </a>
+    <nav class="nav__links" aria-label="Main">
+      <a href="#city">Product</a>
+      <a href="#how">How it works</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a class="btn btn--ink nav__cta" href="#pilot">Join the pilot<svg class="arrow arrow--up" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 9 9 3M4 3h5v5"/></svg></a>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="sheet" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 6h14M2 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="sheet" id="sheet" hidden>
+    <a href="#city">Product</a>
+    
+    <a href="#how">How it works</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <a class="btn btn--lime" href="#pilot">Join the pilot</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- 1. HERO: the valley. Smooth light sky, land in blocks that dissolve into the page; a lens under the pointer -->
+  <section class="hero" aria-labelledby="hero-h" data-hero>
+    <div class="valley" data-valley>
+      <img class="valley__still" src="/images/valley-pixel-1600.webp" srcset="/images/valley-pixel-800.webp 800w, /images/valley-pixel-1600.webp 1600w" sizes="100vw" alt="" width="1600" height="895" fetchpriority="high">
+      <img class="valley__img" src="/images/valley-2000.webp" alt="" width="2000" height="1119" aria-hidden="true" loading="lazy">
+      <canvas class="valley__gl" aria-hidden="true"></canvas>
+    </div>
+    <div class="wrap hero__inner">
+      <h1 id="hero-h" data-split>Distinct ad concepts for <em>paid social agencies.</em></h1>
+      <p class="lead" data-rise>Turn your agreed brief into distinct, editable routes in every Meta size.</p>
+      <div class="btn-row" data-rise>
+        <a class="btn btn--ink" href="#pilot">Join the pilot<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></a>
+        <a class="btn btn--glass" href="#try">Try it with a brief</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. SEE IT: the real product, a short screen recording (slot until the clip is recorded) -->
+  <section class="clip" id="see" aria-labelledby="clip-h">
+    <div class="wrap clip__head" data-arrive>
+      <h2 id="clip-h">One brief in. <em>Every route, every size out.</em></h2>
+    </div>
+    <div class="wrap" data-arrive>
+      <div class="clip__frame" data-clip>
+        <div class="clip__bar" aria-hidden="true"><i></i><i></i><i></i><span>Brimble · Dry-ish January</span></div>
+        <!-- swap this placeholder for <video src="/media/dazbee-clip.mp4" autoplay muted loop playsinline poster="/media/dazbee-clip.jpg"></video> -->
+        <div class="clip__slot">
+          <span class="clip__play" aria-hidden="true"></span>
+          <p class="px">Product clip goes here</p>
+          <p>30 to 45 seconds of the real app: the brief going in, routes coming out, every size, client sign-off.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the city (v3.6): one pinned iso city for the problem, the routes and the sizes (src/scenes/city.js) -->
+  <section class="city" id="city" aria-labelledby="city-h" data-city>
+    <div class="city__pin">
+      <div class="city__stage">
+        <div class="town__camera" data-camera><div class="town__world" data-world></div></div>
+      </div>
+      <div class="city__clouds" aria-hidden="true"><img class="city__cloud" src="/sprites/city/sky/k-cloud-a.webp" alt=""><img class="city__cloud" src="/sprites/city/sky/k-cloud-b.webp" alt=""><img class="city__cloud" src="/sprites/city/sky/k-cloud-c.webp" alt=""><img class="city__cloud" src="/sprites/city/sky/k-cloud-a.webp" alt=""></div>
+      <div class="city__veil city__veil--full" aria-hidden="true"></div>
+      <div class="city__veil city__veil--side" aria-hidden="true"></div>
+      <div class="city__lead" data-lead>
+        <h2 id="city-h"><span class="ln" data-ln>Meta wants more concepts.</span><span class="ln ln--em" data-ln>Your team doesn't</span><span class="ln ln--em" data-ln>have more hours.</span></h2>
+        <p>So one plain ad goes everywhere. It only speaks to the few people it was made for, in colour here. Everyone else scrolls past.</p>
+      </div>
+      <div class="city__copy">
+        <div class="city__beat" data-beat="drop" aria-hidden="true">
+          <h2>Now put the brief <em>through Dazbee.</em></h2>
+          <p>The same brief your team agreed. Dazbee turns it into distinct concepts, each made for a different buyer. Press run and watch the city.</p>
+        </div>
+        <div class="city__beat city__beat--ads" data-beat="2" aria-hidden="true">
+          <h2>One brief. <em>Six ads, six kinds of buyer.</em></h2>
+          <p>Every person in colour now sees an ad made for them. Point at anyone to meet them.</p>
+          <ol class="city__ads" data-pills></ol>
+        </div>
+        <div class="city__beat" data-beat="3" aria-hidden="true">
+          <h2>Every route, <em>any size.</em></h2>
+          <p>Feed, Stories, a roadside board or a whole wall. Change a route once and every size follows.</p>
+          <p class="city__size" data-size-now aria-live="polite"></p>
+        </div>
+        <div class="city__beat" data-beat="4" aria-hidden="true">
+          <h2>More of the city, <em>each with an ad made for them.</em></h2>
+          <p>Six routes from one brief, in every size you need, ready for your team to edit.</p>
+        </div>
+      </div>
+      <button type="button" class="city__drop" data-drop><span class="city__drop-mark"><i></i><i></i><i></i></span><span><b>Brimble brief</b><small data-drop-note>Ready for Dazbee</small></span><span class="city__run" data-run>Run the brief</span></button>
+      <i class="city__ripple" data-ripple aria-hidden="true"></i>
+    </div>
+  </section>
+
+
+
+
+  <!-- 4. TRY: the visitor's own brief, four ready-made routes, then the pilot -->
+  <section class="try" id="try" aria-labelledby="try-h" data-try>
+    <div class="wrap">
+      <div class="try__head" data-arrive>
+        <h2 id="try-h">Bring a brief. <em>See four routes.</em></h2>
+        <p>Four different routes from your own brief, each in every Meta size.</p>
+      </div>
+
+      <div class="studio" data-studio>
+        <div class="studio__bar">
+          <span class="studio__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="studio__crumb"><span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>New brief</span>
+          <ol class="stepper" aria-label="Steps">
+            <li class="is-on" data-dot="brief">Brief</li><li data-dot="email">Email</li><li data-dot="ideas">Angles</li><li data-dot="make">Concepts</li>
+          </ol>
+        </div>
+
+        <div class="studio__body">
+          <!-- step 1: the brief or a prompt -->
+          <form class="step-pane is-on" data-pane-try="brief" novalidate>
+            <div class="seg" role="radiogroup" aria-label="How do you want to start?">
+              <label class="seg__opt"><input type="radio" name="mode" value="brief" checked><span>I have a brief</span></label>
+              <label class="seg__opt"><input type="radio" name="mode" value="prompt"><span>I'll write a prompt</span></label>
+            </div>
+            <div class="try__fields" data-mode="brief">
+              <label class="f"><span>Paste the brief</span><textarea name="brief" rows="5" placeholder="Brand, product, proposition, audience, must-haves. Your own format is fine."></textarea></label>
+            </div>
+            <div class="try__fields" data-mode="prompt" hidden>
+              <label class="f"><span>What are you selling?</span><input name="what" placeholder="A gentle oat cleanser for sensitive skin"></label>
+              <label class="f"><span>Who is it for?</span><input name="who" placeholder="Women 25 to 40 who have tried three cleansers this year"></label>
+            </div>
+            <div class="try__row">
+              <label class="f f--brand"><span>Brand name <em class="muted">(optional)</em></span><input name="brand" placeholder="Your client's brand" autocomplete="off"></label>
+              <fieldset class="cats"><legend>Closest category</legend><div class="cats__list" data-cats></div></fieldset>
+            </div>
+            <p class="f__err" data-err-brief hidden>Add a few words about the product first, or use a sample.</p>
+            <div class="try__foot">
+              <button class="btn btn--quiet" type="button" data-sample>Use a sample brief</button>
+              <button class="btn btn--ink" type="submit">Continue<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></button>
+            </div>
+          </form>
+
+          <!-- step 2: email -->
+          <form class="step-pane" data-pane-try="email" novalidate hidden>
+            <h3 class="pane-title">Where should we send them?</h3>
+            <p class="muted">We'll send the concepts and a note when pilot places open. Nothing else.</p>
+            <label class="f"><span>Work email</span><input name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@company.com" required></label>
+            <p class="f__err" data-err-email hidden>Write an email address with an @, like name@agency.com.</p>
+            <div class="try__foot">
+              <button class="btn btn--quiet" type="button" data-back>Back</button>
+              <button class="btn btn--ink" type="submit">Show me the angles<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></button>
+            </div>
+          </form>
+
+          <!-- step 3: four angles -->
+          <div class="step-pane" data-pane-try="ideas" hidden>
+            <div class="pane-head">
+              <h3 class="pane-title">Four angles on <span data-brand-name>your brief</span></h3>
+              <button class="btn btn--lime" type="button" data-gen-all>Generate all four<span class="spark" aria-hidden="true"></span></button>
+            </div>
+            <ol class="ideas" data-ideas></ol>
+          </div>
+
+          <!-- step 4: making, then the concepts -->
+          <div class="step-pane" data-pane-try="make" hidden>
+            <div class="pane-head">
+              <div><h3 class="pane-title" data-make-title>Making your concepts</h3>
+              <p class="make__status mono" role="status" data-make-status></p></div>
+              <div class="szpick" role="group" aria-label="Size" data-szpick>
+                <button type="button" data-size-btn="k-11" aria-pressed="false">1:1</button><button type="button" class="is-on" data-size-btn="k-45" aria-pressed="true">4:5</button><button type="button" data-size-btn="k-916" aria-pressed="false">9:16</button><button type="button" data-size-btn="k-191" aria-pressed="false">1.91:1</button>
+              </div>
+            </div>
+            <div class="concepts" data-concepts></div>
+            <div class="make__foot" data-make-foot hidden>
+              <p class="muted t-small">Preview picked from ready-made examples. In the pilot, every route is built from your brief, in layers your team can edit.</p>
+              <div class="try__foot">
+                <button class="btn btn--quiet" type="button" data-restart>Start over</button>
+                <a class="btn btn--lime" href="#pilot" data-editable>Make it editable<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. HOW: pinned with its title. Four steps beside one stage that changes with each step -->
+  <section class="how" id="how" aria-labelledby="how-h" data-how>
+    <div class="how__pin">
+      <div class="wrap how__head">
+        <h2 id="how-h">From agreed brief <em>to approved banners.</em></h2>
+      </div>
+      <div class="wrap how__grid">
+        <ol class="steps">
+          <li class="step is-on" data-step="0"><span class="step__n px">01</span><div><h3>Add the brief your team wrote</h3><p>Paste it in your own format. The client's logo, fonts and colours are saved once and reused.</p></div></li>
+          <li class="step" data-step="1"><span class="step__n px">02</span><div><h3>Get distinct routes</h3><p>As many as the brief needs. Each takes a different angle, built from layers your team can edit.</p></div></li>
+          <li class="step" data-step="2"><span class="step__n px">03</span><div><h3>Every Meta size at once</h3><p>Square, portrait, story and landscape, with the text refitted. Change one and the rest follow.</p></div></li>
+          <li class="step" data-step="3"><span class="step__n px">04</span><div><h3>Get client sign-off</h3><p>Your client comments on the banner itself and approves. Only approved banners go into the download.</p></div></li>
+        </ol>
+        <div class="stage" data-stage aria-hidden="true">
+          <div class="stage__brief" data-st-brief>
+            <p class="core__label px">Brief</p>
+            <p class="stage__title">Brimble, Dry-ish January</p>
+            <div class="stage__field"><span>Proposition</span><p data-type-line="All the fizz, 3 g of sugar"></p></div>
+            <div class="stage__field"><span>Audience</span><p data-type-line="30 to 45, cutting back on sugar"></p></div>
+            <div class="stage__kit"><i style="--c:#fff6ea"></i><i style="--c:#ff6b57"></i><i style="--c:#f6c93b"></i><i style="--c:#9fdcc4"></i><span>Brand kit</span></div>
+          </div>
+          <div class="stage__routes" data-st-routes></div>
+          <div class="stage__sizes" data-st-sizes></div>
+          <div class="stage__review" data-st-review>
+            <div class="stage__link"><span class="app__logo">d</span>Brimble · comparison<span class="stage__copy">In review</span></div>
+          </div>
+          <div class="stage__bar"><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- 9. ABOUT: a founder note -->
+  <section class="about" id="about" aria-labelledby="about-h">
+    <div class="wrap about__grid">
+      <div class="about__card about__card--text" data-arrive>
+        <h2 id="about-h">Built with agencies, <em>one pilot at a time.</em></h2>
+        <p>Dazbee is a small product team. We start from your brief, not ours, and we build what pilot agencies ask for first.</p>
+        <ul class="about__facts">
+          <li><b>Your brief leads</b><span>Your planners keep the idea. Dazbee builds from it.</span></li>
+          <li><b>Made for Meta</b><span>Every route in the four placements you buy.</span></li>
+          <li><b>Free while we learn</b><span>Five agencies, live briefs, honest feedback.</span></li>
+        </ul>
+      </div>
+      <figure class="about__card about__founder" data-arrive>
+        <div class="about__photo" aria-hidden="true"><span class="px">Your photo</span></div>
+        <blockquote class="about__note">
+          <p class="about__slot">Founder note goes here: who you are, why you're building Dazbee, and the paid social teams you've built it alongside. Three lines, first person.</p>
+          <figcaption><b>Your name</b> · Founder</figcaption>
+        </blockquote>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 10. PILOT -->
+  <section class="section pilot" id="pilot" aria-labelledby="pilot-h">
+    <div class="wrap split">
+      <div class="split__copy" data-arrive>
+        <h2 id="pilot-h">Free pilot <em>for five agencies.</em></h2>
+        <p>Bring next week's brief. We set up your client's brand with you, run the brief through Dazbee together, and build what your team needs next.</p>
+        <div class="slots" role="img" aria-label="5 pilot places, all open">
+          <span class="px">1</span><span class="px">2</span><span class="px">3</span><span class="px">4</span><span class="px">5</span>
+        </div>
+        <p class="t-small muted">We reply within two working days.</p>
+      </div>
+      <form class="form split__visual" action="mailto:hello@dazbee.example" method="post" enctype="text/plain" novalidate data-form>
+        <p class="form__from">Your brief and the routes you made come along with this.</p>
+        <div class="field-row">
+          <div class="f"><label for="f-name">Your name</label><input id="f-name" name="name" autocomplete="name" required aria-describedby="f-name-e"><p class="f__err" id="f-name-e" hidden>Write your name.</p></div>
+          <div class="f"><label for="f-agency">Agency or brand</label><input id="f-agency" name="agency" autocomplete="organization" required aria-describedby="f-agency-e"><p class="f__err" id="f-agency-e" hidden>Write your agency's or brand's name.</p></div>
+        </div>
+        <div class="f"><label for="f-email">Work email</label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="f-email-e"><p class="f__err" id="f-email-e" hidden>Write an email address with an @, like name@agency.com.</p></div>
+        <div class="f"><label for="f-count">New concepts a typical client needs each month</label><input id="f-count" name="concepts" inputmode="numeric" autocomplete="off" aria-describedby="f-count-e"><p class="f__err" id="f-count-e" hidden>Write a number, like 12.</p></div>
+        <button class="btn btn--ink btn--block" type="submit">Join the pilot<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></button>
+        <p class="form__status" role="status" data-status></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- 11. FAQ: answers open -->
+  <section class="section faq-sec" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="head"><h2 id="faq-h">Questions <em>teams ask.</em></h2></div>
+      <div class="faq" data-arrive>
+        <div class="faq__item"><h3>Does Dazbee write the strategy?</h3><p>No. Your planners' brief and idea lead. Dazbee builds routes from them and keeps each one on brief.</p></div>
+        <div class="faq__item"><h3>What counts as a distinct route?</h3><p>A different angle on the proposition, such as proof, routine or ingredient. Not the same layout in new colours.</p></div>
+        <div class="faq__item"><h3>How many routes can we make?</h3><p>As many as the brief calls for. Each one is a different angle, not a recolour of the last.</p></div>
+        <div class="faq__item"><h3>Which sizes come out?</h3><p>Square 1:1, portrait 4:5, story 9:16 and landscape 1.91:1, the four Meta placements.</p></div>
+        <div class="faq__item"><h3>Can we change everything?</h3><p>Yes. Every banner is built from layers: headline, images, logo, colours and button.</p></div>
+        <div class="faq__item"><h3>What does the pilot cost?</h3><p>Nothing. We want five agencies using it on live briefs and telling us what to fix.</p></div>
+        <div class="faq__item"><h3>We're a brand, not an agency. Can we try it?</h3><p>Yes. The try-out works for anyone with a brief, and the pilot has room for in-house teams that run their own Meta ads.</p></div>
+        <div class="faq__item"><h3>Does it publish to Meta?</h3><p>Not yet. You download the approved banners and upload them the way you do today.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- CLOSE: back in the valley, the same sky as the top of the page, with the offer in it -->
+<footer class="closing" id="contact" aria-labelledby="close-h">
+  <div class="closing__scene">
+    <img class="closing__bg" src="/images/valley-2000.webp" srcset="/images/valley-1200.webp 1200w, /images/valley-2000.webp 2000w" sizes="100vw" alt="" loading="lazy" width="2000" height="1119">
+    <div class="wrap closing__inner" data-arrive>
+      <h2 id="close-h">Bring us next week's brief.</h2>
+      <p>Free for the first five agencies. We set up your client's brand with you and run the brief together.</p>
+      <div class="btn-row"><a class="btn btn--ink" href="#pilot">Join the pilot<svg class="arrow" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h8M5 2.5 8.5 6 5 9.5"/></svg></a><a class="btn btn--glass" href="mailto:hello@dazbee.example">hello@dazbee.example</a></div>
+    </div>
+  </div>
+  <div class="wrap closing__links">
+    <a class="logo" href="#top"><span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>dazbee</a>
+    <nav aria-label="Footer"><a href="#city">Product</a><a href="#how">How it works</a><a href="#try">Try it</a><a href="#about">About</a><a href="#faq">Questions</a></nav>
+    <span class="legal">© 2026 Dazbee</span>
+  </div>
+</footer>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

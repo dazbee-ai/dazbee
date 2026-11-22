@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agents' ads, blind picks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* VOICE work: a judging sheet for one reviewer, calm and exact
+   IDEA a competition jury's score sheet: each entry's two prints side by side, a box to tick, sealed answers at the back
+   PICTURE the pair of ads itself, large, labelled A and B, with the brief above it
+   COLOUR white ground, ink #10131a, prussian #0b4f8a for choices, carmine #c1121f for the picked mark; night #0f1217
+   TYPE Literata 600 for titles, Inter for text
+   LAYOUT laptop: brief left, two prints filling the row; phone: brief, A, B, the three choices */
+      :root {
+        color-scheme: light dark;
+        --bg: light-dark(#ffffff, #0f1217);
+        --ink: light-dark(#10131a, #e9ebef);
+        --muted: light-dark(#596070, #9aa3b2);
+        --rule: light-dark(#e2e5ea, #262c36);
+        --panel: light-dark(#f4f6f9, #171c24);
+        --blue: light-dark(#0b4f8a, #6aa8e0);
+        --red: light-dark(#c1121f, #ff6b72);
+        --on: light-dark(#ffffff, #0f1217);
+      }
+      :root[data-theme='light'] {
+        color-scheme: light;
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.55 Inter,
+          system-ui,
+          sans-serif;
+        overflow-x: clip;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: Literata, Georgia, serif;
+        font-weight: 600;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(32px, 4.4vw, 48px);
+      }
+      h2 {
+        font-size: clamp(24px, 2.6vw, 32px);
+      }
+      h3 {
+        font-size: 20px;
+      }
+      .band {
+        padding: clamp(28px, 4vw, 56px) max(5vw, 16px);
+      }
+      .wrap {
+        max-width: 1240px;
+        margin: 0 auto;
+      }
+      .lede {
+        max-width: 68ch;
+        color: var(--muted);
+        margin: 12px 0 0;
+      }
+      .top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 32px;
+        align-items: end;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--rule);
+      }
+      .tally {
+        display: flex;
+        gap: 24px;
+        font-variant-numeric: tabular-nums;
+      }
+      .tally b {
+        display: block;
+        font:
+          600 32px/1 Literata,
+          serif;
+      }
+      .tally span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .entry {
+        display: grid;
+        grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+        gap: 24px 40px;
+        padding-block: 36px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .entry .brief {
+        font-size: 15px;
+        color: var(--muted);
+        margin: 10px 0 0;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+      }
+      .side {
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 14px;
+        border: 2px solid transparent;
+      }
+      .side.picked {
+        border-color: var(--red);
+      }
+      .side h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 10px;
+      }
+      .side h3 small {
+        font:
+          500 13px Inter,
+          sans-serif;
+        color: var(--red);
+      }
+      .frames {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .frames img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        max-height: 520px;
+        border-radius: 4px;
+        box-shadow: 0 0 0 1px var(--rule);
+      }
+      .frames.many img {
+        max-height: 260px;
+      }
+      .choices {
+        grid-column: 2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      button {
+        font:
+          500 16px Inter,
+          sans-serif;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 8px;
+        border: 1.5px solid var(--blue);
+        background: transparent;
+        color: var(--blue);
+        cursor: pointer;
+      }
+      button:hover {
+        background: color-mix(in srgb, var(--blue) 10%, transparent);
+      }
+      button:focus-visible {
+        outline: 3px solid var(--red);
+        outline-offset: 2px;
+      }
+      button[aria-pressed='true'] {
+        background: var(--blue);
+        color: var(--on);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .status {
+        color: var(--muted);
+        font-size: 14px;
+        align-self: center;
+      }
+      .reveal {
+        background: var(--panel);
+      }
+      .locked {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        align-items: center;
+        margin-top: 16px;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 15px;
+        margin-top: 16px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      th {
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      td.num {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .met {
+        color: var(--blue);
+        font-weight: 600;
+      }
+      .missed {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 18px;
+        margin-top: 20px;
+      }
+      .grid figure {
+        margin: 0;
+      }
+      .grid img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 4px;
+        box-shadow: 0 0 0 1px var(--rule);
+      }
+      .grid figcaption {
+        font-size: 14px;
+        margin-top: 6px;
+      }
+      .grid figcaption span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .answers li {
+        margin: 4px 0;
+      }
+      .hidden {
+        display: none;
+      }
+      @media (max-width: 820px) {
+        .entry {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .choices {
+          grid-column: 1;
+        }
+      }
+      @media (max-width: 600px) {
+        .pair {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        table {
+          font-size: 13px;
+        }
+        th,
+        td {
+          padding: 6px 4px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="band">
+      <div class="wrap top">
+        <div>
+          <h1>Agents' ads: which is better?</h1>
+          <p class="lede">
+            The same 10 marketer briefs, each run twice by headless Claude through Dazbee's MCP server, in a test brand.
+            The products, prices, people and events are made up for this test: these are not real ads. For each brief,
+            pick the better design, or "Same". Which of A and B is which stays hidden until all 10 are picked.
+          </p>
+        </div>
+        <div class="tally" aria-live="polite">
+          <div><b id="done">0</b><span>of 10 picked</span></div>
+        </div>
+      </div>
+    </header>
+    <main class="band" style="padding-top: 0"><div class="wrap" id="entries"></div></main>
+    <section class="band reveal" id="reveal-band">
+      <div class="wrap">
+        <h2>The answers</h2>
+        <div class="locked" id="locked">
+          <span class="status" id="lock-text"
+            >Pick all 10 to see which was which, the 10 after designs side by side and the spec's goals.</span
+          >
+          <button type="button" id="peek">Show the answers now</button>
+          <button type="button" id="peek-yes" class="hidden">Yes, show them</button>
+        </div>
+        <div id="answers" class="hidden">
+          <p class="lede" id="verdict"></p>
+          <ul class="answers" id="answer-list"></ul>
+          <h2 style="margin-top: 40px">The 10 after designs side by side</h2>
+          <p class="lede">
+            For judging sameness by eye: each brief's after design, with the pattern and style it started from.
+          </p>
+          <div class="grid" id="after-grid"></div>
+          <h2 style="margin-top: 40px">The spec's goals, before and after</h2>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Goal</th>
+                  <th>Target</th>
+                  <th class="num">Before</th>
+                  <th class="num">After</th>
+                </tr>
+              </thead>
+              <tbody id="goals"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    <script>
+      {
+        const DATA = /*DATA*/null
+        const briefs = DATA.briefs
+        const picks = {}
+        let db = null,
+          peeked = false
+        const esc = (s) =>
+          String(s ?? '').replace(
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+          )
+        const sideOf = (b, letter) => (letter === 'A' ? b.a : b.a === 'before' ? 'after' : 'before')
+        const framesHtml = (design, title) => {
+          const many = design.frames.length > 2
+          return (
+            `<div class="frames${many ? ' many' : ''}">` +
+            design.frames
+              .map((f) =>
+                f.src
+                  ? `<img src="${esc(f.src)}" width="${f.w}" height="${f.h}" alt="${esc(title)}, ${f.w}×${f.h}" loading="lazy">`
+                  : `<span class="status">${f.w}×${f.h} not rendered</span>`,
+              )
+              .join('') +
+            '</div>'
+          )
+        }
+        document.getElementById('entries').innerHTML = briefs
+          .map(
+            (b) => `
+  <article class="entry" id="brief-${b.n}">
+    <div><h2>${b.n}. ${esc(b.title)}</h2><p class="brief">${esc(b.brief)}</p></div>
+    <div class="pair">${['A', 'B'].map((l) => `<div class="side" data-side="${l}"><h3>${l}<small></small></h3>${framesHtml(b[sideOf(b, l)], b.title + ' ' + l)}</div>`).join('')}</div>
+    <div class="choices" role="group" aria-label="Brief ${b.n}">
+      <button type="button" id="pick-${b.n}-A" data-n="${b.n}" data-pick="A" aria-pressed="false">A is better</button>
+      <button type="button" id="pick-${b.n}-same" data-n="${b.n}" data-pick="same" aria-pressed="false">Same</button>
+      <button type="button" id="pick-${b.n}-B" data-n="${b.n}" data-pick="B" aria-pressed="false">B is better</button>
+      <span class="status" id="status-${b.n}"></span>
+    </div>
+  </article>`,
+          )
+          .join('')
+
+        const show = () => {
+          for (const b of briefs) {
+            const p = picks[b.n]?.pick
+            for (const k of ['A', 'same', 'B'])
+              document.getElementById(`pick-${b.n}-${k}`).setAttribute('aria-pressed', String(p === k))
+            for (const el of document.querySelectorAll(`#brief-${b.n} .side`)) {
+              el.classList.toggle('picked', p === el.dataset.side)
+              el.querySelector('small').textContent = p === el.dataset.side ? 'picked' : ''
+            }
+          }
+          const done = briefs.filter((b) => picks[b.n]).length
+          document.getElementById('done').textContent = done
+          const open = done === briefs.length || peeked
+          document.getElementById('answers').classList.toggle('hidden', !open)
+          document.getElementById('locked').classList.toggle('hidden', open)
+          if (open) answers()
+        }
+
+        const winner = (b, pick) => (pick === 'same' ? 'same' : sideOf(b, pick))
+        const choose = async (n, pick) => {
+          const b = briefs.find((x) => x.n === n)
+          const row = { brief: n, pick, winner: winner(b, pick), a: b.a, at: new Date().toISOString() }
+          picks[n] = row
+          show()
+          const status = document.getElementById(`status-${n}`)
+          if (!db) {
+            status.textContent = 'Not saved: the page cannot reach its database here.'
+            return
+          }
+          status.textContent = 'Saving…'
+          try {
+            await db.doc(`picks/b${n}`).set(row)
+            status.textContent = 'Saved'
+          } catch (e) {
+            status.textContent = 'Not saved: ' + (e?.message || 'the database refused it')
+          }
+        }
+        document.getElementById('entries').addEventListener('click', (e) => {
+          const t = e.target.closest('button[data-pick]')
+          if (t) choose(Number(t.dataset.n), t.dataset.pick)
+        })
+        document
+          .getElementById('peek')
+          .addEventListener('click', () => document.getElementById('peek-yes').classList.remove('hidden'))
+        document.getElementById('peek-yes').addEventListener('click', () => {
+          peeked = true
+          show()
+        })
+
+        const fmt = (x, of) => (x === null || x === undefined ? '—' : of ? `${x} of ${of}` : String(x))
+        const answers = () => {
+          const picked = briefs.filter((b) => picks[b.n])
+          const after = picked.filter((b) => picks[b.n].winner === 'after').length
+          const before = picked.filter((b) => picks[b.n].winner === 'before').length
+          const same = picked.length - after - before
+          document.getElementById('verdict').textContent = picked.length
+            ? `You preferred the after design in ${after} of ${picked.length} picked briefs, the before design in ${before}, and called ${same} the same. The spec's goal is the after design in at least 8 of 10.`
+            : 'No picks yet.'
+          document.getElementById('answer-list').innerHTML = briefs
+            .map((b) => {
+              const p = picks[b.n]
+              return `<li><b>${b.n}. ${esc(b.title)}</b>: A was ${b.a}, B was ${sideOf(b, 'B')}${p ? `; you picked ${p.pick === 'same' ? '"Same"' : p.pick + ' (' + p.winner + ')'}` : '; not picked'}</li>`
+            })
+            .join('')
+          document.getElementById('after-grid').innerHTML = briefs
+            .map((b) => {
+              const f = b.after.frames.find((x) => x.src) || {}
+              const pat = b.after.pattern.at(-1)
+              return `<figure>${f.src ? `<img src="${esc(f.src)}" width="${f.w}" height="${f.h}" alt="${esc(b.title)} after" loading="lazy">` : ''}<figcaption>${b.n}. ${esc(b.title)}<span>${pat ? esc(pat.pattern + ', ' + pat.style) : 'no pattern'}${b.after.frames.length > 1 ? ` · ${b.after.frames.length} sizes` : ''}</span></figcaption></figure>`
+            })
+            .join('')
+          const g = DATA.goals,
+            v = DATA.variety,
+            runs = g.after.runs
+          const rows = [
+            [
+              'Agent-made ads look professional (owner prefers the after design, blind)',
+              '8 of 10',
+              '—',
+              fmt(after, picked.length) + (picked.length < 10 ? ' picked so far' : ''),
+              after >= 8,
+            ],
+            [
+              'Agents bring real pictures (a photo, icon or sticker besides the logo)',
+              '8 of 10',
+              fmt(g.before.pictures, g.before.runs),
+              fmt(g.after.pictures, runs),
+              g.after.pictures >= 8,
+            ],
+            [
+              'Agents use type with character (a family other than Noto Sans)',
+              '8 of 10',
+              fmt(g.before.type, g.before.runs),
+              fmt(g.after.type, runs),
+              g.after.type >= 8,
+            ],
+            [
+              'Runs told a catalog font has no file',
+              'none',
+              fmt(g.before.noFontFile),
+              fmt(g.after.noFontFile),
+              g.after.noFontFile === 0,
+            ],
+            [
+              'Agents leave no defects (check_frame clean on every frame)',
+              '9 of 10',
+              fmt(g.before.clean, g.before.runs),
+              fmt(g.after.clean, runs),
+              g.after.clean >= 9,
+            ],
+            [
+              "Agents change a pattern's draft after applying it",
+              '8 of the runs using one',
+              'no patterns',
+              v.using ? fmt(v.changed, v.using) : 'no run used a pattern',
+              v.using ? v.changed >= Math.min(8, v.using) : null,
+            ],
+            [
+              'No two briefs end with the same pattern and style unchanged',
+              'none',
+              'no patterns',
+              Object.keys(v.alike).length
+                ? Object.entries(v.alike)
+                    .map(([k, ns]) => `${k}: briefs ${ns.join(', ')}`)
+                    .join('; ')
+                : v.using
+                  ? 'none'
+                  : 'none (no patterns used)',
+              v.using ? !Object.keys(v.alike).length : null,
+            ],
+            ...(DATA.goals.static || []).map((s) => [s.goal, s.target, s.before, s.after, s.met]),
+          ]
+          document.getElementById('goals').innerHTML = rows
+            .map(
+              ([goal, target, b, a, met]) =>
+                `<tr><td>${esc(goal)}</td><td>${esc(target)}</td><td class="num">${esc(b)}</td><td class="num ${met === null || met === undefined ? '' : met ? 'met' : 'missed'}">${esc(a)}</td></tr>`,
+            )
+            .join('')
+        }
+        show()
+
+        const timer = setTimeout(() => {
+          if (!db) for (const b of briefs) document.getElementById(`status-${b.n}`).textContent ||= ''
+        }, 10000)
+        window.claude
+          ?.use?.('db')
+          .then((found) => {
+            clearTimeout(timer)
+            if (!found) return
+            db = found
+            db.collection('picks').onSnapshot(
+              (snap) => {
+                for (const d of snap.docs ?? []) {
+                  const row = typeof d.data === 'function' ? d.data() : d.data
+                  if (row && row.brief) picks[row.brief] = row
+                }
+                show()
+              },
+              () => {},
+            )
+          })
+          .catch(() => {})
+      }
+    </script>
+  </body>
+</html>

@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { openSession, plainStore, type Session } from '@dazbee/doc'
 import { type AgentBatchWarned, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import {
-  buildPattern,
+  buildPatterns,
   type PatternContent,
   patternSteps,
   type PatternStyle,
@@ -222,10 +222,8 @@ export async function builtPattern(
   const cache = resourceCache(ck)
   try {
     const measure = textMeasure(ck, cache.resources(bytes))
-    const layers = sizes.map((size) => ({
-      frame: size,
-      layers: buildPattern(pattern, { style, kit, content, ...size, measure }),
-    }))
+    const set = buildPatterns(pattern, { style, kit, content, measure }, sizes)
+    const layers = sizes.map((size, i) => ({ frame: size, layers: set[i] ?? { nodes: {}, roots: [] } }))
     let next = 0
     const steps = patternSteps('p1', layers, () => `id${(next++).toString(36)}`)
     const session = openSession(plainStore(emptyDesign()))

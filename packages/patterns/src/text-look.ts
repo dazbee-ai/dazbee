@@ -14,14 +14,22 @@ export function inkFor({ palette, frame }: Setting, surface: string, size: numbe
   return inkOn(surface, offered ?? [palette.text, palette.background], large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST)
 }
 
+/**
+ * The tracking added to capitals set in a brand's own font, as a percentage of the size: its face isn't known, and a
+ * serif or wide face set in capitals with none looks cramped.
+ */
+const BRAND_CAPS_TRACKING = 4
+
 /** A text's style in a look at `size`, its colour black until it is given one. */
 export function lookStyle({ palette }: Setting, look: TextLook, size: number) {
+  const brand = palette.brandFont[look.font]
+  const caps = brand && look.textCase === 'upper' && look.tracking < BRAND_CAPS_TRACKING
   return {
     fontFamily: palette[look.font].value,
-    fontWeight: palette.brandFont[look.font] ? look.brandWeight : look.weight,
+    fontWeight: brand ? look.brandWeight : look.weight,
     fontSize: size,
     color: '#000000FF',
-    letterSpacing: { unit: 'percent' as const, value: look.tracking },
+    letterSpacing: { unit: 'percent' as const, value: look.tracking + (caps ? BRAND_CAPS_TRACKING : 0) },
     lineHeight: look.lineHeight,
     ...(look.textCase === 'none' ? {} : { textCase: look.textCase }),
   }

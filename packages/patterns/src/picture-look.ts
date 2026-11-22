@@ -21,6 +21,13 @@ export interface PictureLook {
   backdrop?: string
   /** The colours of what it shows, most first. */
   inks: PictureInk[]
+  /** The mean colour round its edge, as #RRGGBBFF, where its edge is opaque; what a panel beside it meets. */
+  edge?: string
+  /**
+   * A cut-out's every drawn pixel, its soft shadow among them, in its pixels: a cut-out is cropped by it, so nothing
+   * of it is cut off.
+   */
+  extent?: Rect
 }
 
 /** The longest side the pixels are read at. */
@@ -69,7 +76,10 @@ export function pictureLook(rgba: Uint8Array, width: number, height: number): Pi
         ys.push(r)
         if (cutOut || backdrop) inks.push(rgb(at(c, r)))
       }
-  if (xs.length === 0) return { subject: { x: 0, y: 0, width, height }, inks: [] }
+  const edgeColour = cutOut ? undefined : hex(meanOf(sumOf(edge.map(rgb))))
+  const extent = cutOut ? drawnBox(rgba, width, height, step, cols, rows, at) : undefined
+  const more = { ...(edgeColour ? { edge: edgeColour } : {}), ...(extent ? { extent } : {}) }
+  if (xs.length === 0) return { subject: { x: 0, y: 0, width, height }, inks: [], ...more }
   // Edges stray over a varied backdrop, so a few are left out; a cut-out's or a plain backdrop's ink is all kept, with
   // a read pixel's width round it.
   const stray = cutOut || backdrop ? 0 : STRAY
@@ -87,7 +97,43 @@ export function pictureLook(rgba: Uint8Array, width: number, height: number): Pi
   // On a backdrop that varies, what the edges hold is the subject's ink.
   if (!cutOut && !backdrop)
     for (let r = top; r <= bottom; r++) for (let c = left; c <= right; c++) inks.push(rgb(at(c, r)))
-  return { subject, ...(backdrop ? { backdrop: hex(backdrop) } : {}), inks: inkColours(inks) }
+  return { subject, ...(backdrop ? { backdrop: hex(backdrop) } : {}), inks: inkColours(inks), ...more }
+}
+
+/** The box of a cut-out's pixels with any alpha at all, a read pixel's width round it, in its pixels. */
+function drawnBox(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  step: number,
+  cols: number,
+  rows: number,
+  at: (c: number, r: number) => number,
+): Rect | undefined {
+  let [left, top, right, bottom] = [cols, rows, -1, -1]
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if ((rgba[at(c, r) + 3] ?? 0) > 0) {
+        left = Math.min(left, c)
+        right = Math.max(right, c)
+        top = Math.min(top, r)
+        bottom = Math.max(bottom, r)
+      }
+  if (right < 0) return undefined
+  const x = Math.max(0, (left - 1) * step)
+  const y = Math.max(0, (top - 1) * step)
+  return { x, y, width: Math.min(width, (right + 2) * step) - x, height: Math.min(height, (bottom + 2) * step) - y }
+}
+
+/** The sum of colours, and how many, as a group of them is kept. */
+function sumOf(colours: readonly [number, number, number][]): { sum: [number, number, number]; count: number } {
+  const sum: [number, number, number] = [0, 0, 0]
+  for (const c of colours) {
+    sum[0] += c[0]
+    sum[1] += c[1]
+    sum[2] += c[2]
+  }
+  return { sum, count: Math.max(1, colours.length) }
 }
 
 /** The least share of a picture's ink a colour of it takes to count. */

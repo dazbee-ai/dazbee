@@ -83,8 +83,9 @@ export function wholeSpan(
 }
 
 /**
- * A cut-out fitted inside `room` by its subject, with `pad` of the subject's size round it, its shape kept, lined up
- * by `align`: the clear round a cut-out is left out of the room it takes.
+ * A cut-out fitted inside `room` by its subject, with `pad` of the subject's size round it and every drawn pixel of
+ * it, its soft shadow among them, so nothing of it is cut off; its shape kept, lined up by `align`: the clear round
+ * a cut-out is left out of the room it takes.
  */
 export function fitCrop(
   picture: Picture,
@@ -95,12 +96,15 @@ export function fitCrop(
   const subject = subjectOf(picture)
   const padX = subject.width * pad
   const padY = subject.height * pad
-  const crop = {
-    x: subject.x - padX,
-    y: subject.y - padY,
-    width: subject.width + 2 * padX,
-    height: subject.height + 2 * padY,
-  }
+  const drawn = picture.look?.extent
+  const left = Math.max(0, Math.min(subject.x - padX, drawn?.x ?? Number.POSITIVE_INFINITY))
+  const top = Math.max(0, Math.min(subject.y - padY, drawn?.y ?? Number.POSITIVE_INFINITY))
+  const right = Math.min(picture.width, Math.max(subject.x + subject.width + padX, drawn ? drawn.x + drawn.width : 0))
+  const bottom = Math.min(
+    picture.height,
+    Math.max(subject.y + subject.height + padY, drawn ? drawn.y + drawn.height : 0),
+  )
+  const crop = { x: left, y: top, width: right - left, height: bottom - top }
   const scale = Math.min(room.width / crop.width, room.height / crop.height)
   const width = crop.width * scale
   const height = crop.height * scale

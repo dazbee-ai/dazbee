@@ -3,7 +3,7 @@
 import { shownScale } from '@dazbee/schema'
 
 import { SHORT_FRAME } from './frame-shape.ts'
-import { contrast, LARGE_TEXT_CONTRAST, type Swatch, TEXT_CONTRAST } from './palette.ts'
+import { apart, contrast, inkOn, LARGE_TEXT_CONTRAST, TEXT_CONTRAST } from './palette.ts'
 import { LARGE_TEXT_PX } from './text-look.ts'
 import type { Setting, WordPart } from './words.ts'
 
@@ -16,18 +16,22 @@ const KEPT_END = 14
 
 /**
  * A headline with the words that belong together joined by no-break spaces, alike at every size: the words set
- * apart, a word of two letters or fewer and the word after it, and its last two words where they are short, so no
- * line ends on a small word and no word is left alone on the last line.
+ * apart, a word of two letters or fewer and the word after it, its last two words where they are short, so no line
+ * ends on a small word and no word is left alone on the last line, and a headline of two words, such as a product's
+ * name, which never splits. Where `ends` is false, in a narrow measure whose lines hold a word or two, the words set
+ * apart and the last two words may break.
  */
-export function kept(text: string, highlight?: string): string {
+export function kept(text: string, highlight?: string, ends = true): string {
   const words = text.split(' ')
   // A join at `i` keeps word `i` and the word after it together.
   const joins = new Set<number>()
   for (let i = 0; i + 1 < words.length; i++) if ((words[i] ?? '').replace(/\W/gu, '').length <= 2) joins.add(i)
   const last = words.length - 2
-  if (words.length >= 4 && (words[last] ?? '').length + (words[last + 1] ?? '').length < KEPT_END) joins.add(last)
+  if (words.length === 2) joins.add(0)
+  if (ends && words.length >= 4 && (words[last] ?? '').length + (words[last + 1] ?? '').length < KEPT_END)
+    joins.add(last)
   const at = highlight ? text.toLowerCase().indexOf(highlight.toLowerCase()) : -1
-  if (highlight && at >= 0 && highlight.split(' ').length <= 3) {
+  if (ends && highlight && at >= 0 && highlight.split(' ').length <= 3) {
     let start = 0
     for (let i = 0; i + 1 < words.length; i++) {
       start += (words[i] ?? '').length + 1
@@ -53,17 +57,22 @@ export function unitRuns({ frame }: Setting, text: string, size: number) {
   ]
 }
 
+/** How far apart a highlight's colour is from the headline's own ink: by contrast, or by CIEDE2000. */
+const HIGHLIGHT_APART = { ratio: 1.5, difference: 20 }
+
 /** The line height, as a multiple of the size, an underlined headline is set at least, so its rule clears the next line's caps. */
 export const UNDERLINED_LEADING = 1.24
 
 /**
- * The runs that set the highlighted words apart: in the italic of a style that slants them where its own font has
- * one; else in the first of the kit's colours, but the text's own, that reads on the surface as the text does at
- * `size` (large text at 3:1, else 4.5:1); else in the way the style's own font has (italic or a heavier weight), and
- * underlined in a brand's font, whose faces aren't known, but in a short frame, which has no room for an underline's
- * leading. A slant is never made up for a font without an italic.
+ * The runs that set the highlighted words apart, decided once for every size of a set, so a campaign's key words
+ * are set apart alike: in the italic of a style that slants them where its own font has one; else in the first of
+ * the kit's colours plainly apart from the text's own ink that reads on the surface as the set's smallest headline
+ * does (`setting.highlightContrast`: 3:1 where every size sets it as large text, else 4.5:1); else in the way the
+ * style's own font has (italic or a heavier weight), and underlined in a brand's font, whose faces aren't known. A
+ * short frame, which has no room for an underline's leading, sets an underlined highlight plain, never in another
+ * way. A slant is never made up for a font without an italic.
  */
-export function highlightRuns(setting: Setting, surface: string, part: WordPart, ink: Swatch, size: number) {
+export function highlightRuns(setting: Setting, surface: string, part: WordPart, size: number) {
   const spaced = part.text.replaceAll(KEEP, ' ').toLowerCase()
   const at = part.highlight ? spaced.indexOf(part.highlight.toLowerCase()) : -1
   if (!part.highlight || at < 0) return []
@@ -73,9 +82,13 @@ export function highlightRuns(setting: Setting, surface: string, part: WordPart,
   const italic = { ...range, style: { fontStyle: 'italic' as const } }
   if (style.highlight === 'italic' && emphasis.by === 'italic') return [italic]
   const large = size / shownScale(frame.width, frame.height) >= LARGE_TEXT_PX
-  const needed = large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST
+  const needed = setting.highlightContrast ?? (large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST)
+  // The headline's ink as small text takes it, so the colour chosen is alike at every size.
+  const ink = inkOn(surface, [palette.text, palette.background])
   const colour = [palette.accent, palette.primary, palette.secondary, palette.text, palette.background].find(
-    (swatch) => swatch.value !== ink.value && contrast(swatch.value, surface) >= needed,
+    (swatch) =>
+      apart(swatch.value, ink.value, HIGHLIGHT_APART.ratio, HIGHLIGHT_APART.difference) &&
+      contrast(swatch.value, surface) >= needed,
   )
   if (colour) return [{ ...range, style: { color: colour.value } }]
   if (emphasis.by === 'italic') return [italic]

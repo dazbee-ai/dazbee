@@ -6,18 +6,7 @@
 // room, the quote fills its middle and the button sits at its foot.
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import {
-  type Build,
-  ground,
-  inRow,
-  isShort,
-  isTall,
-  logoAtStart,
-  logoOnTop,
-  pinsButton,
-  roles,
-  rowLeast,
-} from '../build.ts'
+import { type Build, ground, inRow, isShort, logoAtStart, logoOnTop, pinsButton, roles, rowLeast } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { insetFrame } from '../decorations.ts'
 import { contrast, inkOn, LARGE_TEXT_CONTRAST, ornamentColour, type Swatch } from '../palette.ts'
@@ -36,6 +25,8 @@ export const QUOTE: Pattern = {
   takes: ['photo', 'button', 'logo'],
 }
 
+/** How large a quote may be, as a share of the style's largest headline: it fills its room as the hero of the frame. */
+const QUOTE_MOST = 1.1
 /** The opening quotation mark. */
 const OPENING_MARK = '“'
 /** The shorter side under which a display square leaves out the person's photo and the stars. */
@@ -132,7 +123,6 @@ export function quote(b: Build) {
     }
     room = { ...room, y: room.y + below, height: room.height - below }
   }
-  const tall = isTall(b)
   // A banner has no room for the large mark: a small one hangs before the quote's first line, so it always reads as
   // a quote.
   if (banner) room = { ...room, x: room.x + markRoom, width: room.width - markRoom }
@@ -146,9 +136,9 @@ export function quote(b: Build) {
     justify: 'center',
     // A banner's quote starts at its mark.
     ...(banner ? { align: 'start' as const } : {}),
-    most: Math.round(short * b.style.headlineMax * (tall ? 1.1 : display ? 1 : 0.85)),
+    most: Math.round(short * b.style.headlineMax * QUOTE_MOST),
     ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    ...(pinsButton(b) ? { pin: true } : {}),
+    ...(pinsButton(b) ? { pin: true, together: true } : {}),
   }
   if (banner) {
     const set = inRow(b) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)

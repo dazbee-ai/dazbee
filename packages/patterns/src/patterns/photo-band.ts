@@ -2,8 +2,10 @@
 // photo. The band runs along the bottom of a square or tall frame, under the photo, and beside it in a wide frame, a
 // banner or a strip. Its edge over the photo is the style's, and keeps off the photo's subject: slanted over an
 // accent stripe (bold), straight with an accent rule over the words (minimal), waved with a group of dots beside it
-// (playful), or fading into the photo's backdrop (premium). The photo always shows its whole subject, or is left
-// out. The logo sits in a corner of the photo clear of its subject, else over the words.
+// (playful), or fading into the photo's edge where the two are near in hue, else straight under a fine accent line
+// (premium). The photo always shows its whole subject, kept off the frame's edges where it can be, or is left out.
+// The logo sits in a corner of the photo clear of its subject, else over the words. A wide, low band sets its button
+// beside its words.
 import type { Rect } from '@dazbee/schema'
 
 import {
@@ -16,18 +18,23 @@ import {
   logoOnPhoto,
   logoOnTop,
   logoRowHeight,
+  offFrameEdges,
   photo,
   photoLogo,
   pinsButton,
   roles,
+  rowed,
   stripHolds,
   tallChoice,
+  tallSeams,
   usualWords,
 } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { coverCrop, type Cropped, wholeSpan } from '../crop.ts'
 import { dotGroup, ruleOver } from '../decorations.ts'
-import { panel, type Side, STYLE_EDGES } from '../edges.ts'
+import { type Edge, panel, type Side, STYLE_EDGES } from '../edges.ts'
+import { lchOf, ornamentColour, type Swatch } from '../palette.ts'
+import { rect, solid } from '../tree.ts'
 import type { Pattern } from '../types.ts'
 import { keepsEvery, leadSizeIn, rowWords, type SetWords, stackWords, type Words } from '../words.ts'
 
@@ -73,7 +80,8 @@ export function photoBand(b: Build) {
         : { ...at.band, width: at.band.width + stripe }
     panel(b, 'stripe', 'Stripe', under, at.side, 'slant', at.depth, palette.accent)
   }
-  panel(b, 'band', 'Band', at.band, at.side, at.depth > 0 ? STYLE_EDGES[styleName] : 'straight', at.depth, colour)
+  panel(b, 'band', 'Band', at.band, at.side, at.depth > 0 ? bandEdge(b) : 'straight', at.depth, colour)
+  if (styleName === 'premium' && shot && bandEdge(b) === 'straight') seamLine(b, at, colour)
   let room = at.words
   if (isShort(b)) room = logoAtStart(b, room, colour)
   // The logo goes in a corner of the photo clear of its subject where logoOnPhoto says, else over the words (on a
@@ -85,9 +93,9 @@ export function photoBand(b: Build) {
     // Under the photo, the words sit a little over the middle of their room: in a 9:16 frame over the button at the
     // safe room's foot.
     ...(at.side === 'top' ? { justify: 'optical' as const } : {}),
-    ...(pinsButton(b) ? { pin: true } : {}),
+    ...(pinsButton(b) ? { pin: true, together: true } : {}),
   }
-  const set = inRow(b) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
+  const set = rowed(b, room) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
   decorate(b, at, set, [set.box, ...(shot ? [shot.subject] : [])])
 }
 
@@ -114,8 +122,15 @@ const WORDS_LEAST = { height: 7, low: 4, width: 9 }
  * frame, as tallChoice picks. Where none shows the subject whole, the photo is left out.
  */
 function arrange(b: Build): Arrangement {
+  // The subject kept in from the frame's edges where some share shows it whole so, else up to them.
+  const kept = arrangeKept(b, true)
+  return kept.photo.width > 0 || !b.content.photo ? kept : arrangeKept(b, false)
+}
+
+/** The arrangement, its photo's subject kept in from the frame's edges where `edges`. */
+function arrangeKept(b: Build, edges: boolean): Arrangement {
   const { frame } = b
-  const tried = sharesOf(b).map(({ share, down }) => arrangedAt(b, share, down))
+  const tried = sharesOf(b).map(({ share, down }) => arrangedAt(b, share, down, edges))
   const fits = (least: number) =>
     tried.filter(
       ({ words }) => words.height >= frame.readable * least && words.width >= frame.readable * WORDS_LEAST.width,
@@ -142,10 +157,7 @@ function arrange(b: Build): Arrangement {
     )
     if (kept.length === 0) continue
     if ((frame.shape === 'tall' || frame.shape === 'tower') && kept[0]?.at.side === 'top')
-      return (
-        tallChoice(b, kept, ({ at }) => ({ photo: at.photo.height, words: at.words, logoOnPhoto: at.logoOnPhoto }))
-          ?.at ?? withoutPhoto(b)
-      )
+      return tallChoice(b, kept, ({ at }) => ({ photo: at.photo.height, words: wordsIn(b, at) }))?.at ?? withoutPhoto(b)
     // Those that keep every part of the words where any does; of them, of those that show the subject a fair share as
     // large as the largest does, the one that sets the lead largest, the subject larger where two set it alike.
     const every = kept.filter(({ at }) => keepsEvery(b, wordsIn(b, at)))
@@ -160,6 +172,38 @@ function arrange(b: Build): Arrangement {
     if (chosen) return chosen.at
   }
   return withoutPhoto(b)
+}
+
+/** How far apart in hue a photo's edge and the band may be for one to fade into the other, and the chroma of a near grey. */
+const FADE_HUE = 40
+const NEAR_GREY = 10
+
+/**
+ * The band's edge over the photo: the style's, but a premium fade only where the photo's edge and the band are near
+ * in hue or one of them is near grey, so the two never mix into a muddy band; else a straight seam.
+ */
+function bandEdge(b: Build): Edge {
+  const edge = STYLE_EDGES[b.styleName]
+  if (edge !== 'fade') return edge
+  const photoEdge = b.content.photo?.look?.edge ?? b.content.photo?.look?.backdrop
+  if (!photoEdge) return 'straight'
+  const one = lchOf(photoEdge)
+  const other = lchOf(groundColour(b).value)
+  const apart = Math.abs(one.hue - other.hue)
+  const hue = Math.min(apart, 360 - apart)
+  return hue <= FADE_HUE || one.chroma < NEAR_GREY || other.chroma < NEAR_GREY ? 'fade' : 'straight'
+}
+
+/** A fine line of the accent along a straight premium seam, where it reads on the band, else of the band's ink, faint. */
+function seamLine(b: Build, { band, side }: Arrangement, ground: Swatch) {
+  const { frame, palette } = b
+  const { colour, opacity } = ornamentColour(palette, ground.value)
+  const thick = Math.max(1, Math.round(Math.min(frame.width, frame.height) * 0.004))
+  const line =
+    side === 'top'
+      ? { x: 0, y: band.y, width: frame.width, height: thick }
+      : { x: band.x + band.width - thick, y: 0, width: thick, height: frame.height }
+  b.tree.add('seam', { ...rect('Seam', line, solid(colour, opacity === 1 ? undefined : opacity)), role: 'decoration' })
 }
 
 /** The words as they are set in an arrangement: in its words' room, under the logo where it goes over them. */
@@ -196,7 +240,7 @@ function sharesOf(b: Build): { share: number; down: boolean }[] {
   const of = (height: number) =>
     frame.shape === 'tall' ? (height - frame.safe.y) / frame.safe.height : height / frame.height
   const wholeShares = span ? [of(span.most * 0.97), of(span.most * 0.85)].filter((share) => share > 0.15) : []
-  const down = [...new Set([...DOWN_SHARES[frame.shape], ...wholeShares])]
+  const down = [...new Set([...DOWN_SHARES[frame.shape], ...wholeShares, ...tallSeams(b).map(of)])]
     .filter((share) => share < 0.8)
     .sort((x, y) => x - y)
     .map((share) => ({ share, down: true }))
@@ -209,21 +253,26 @@ function sharesOf(b: Build): { share: number; down: boolean }[] {
 
 /**
  * The photo, band and words with the photo taking `share` of the frame: across it, or `down` it (of a tall frame's
- * safe room).
+ * safe room), its subject kept in from the frame's edges where `edges`.
  */
-function arrangedAt(b: Build, share: number, down: boolean): Arrangement {
-  const { frame, styleName } = b
+function arrangedAt(b: Build, share: number, down: boolean, edges: boolean): Arrangement {
+  const { frame } = b
   const { width, height, shape, margin, safe } = frame
   const short = Math.min(width, height)
-  const edge = STYLE_EDGES[styleName]
+  const edge = bandEdge(b)
   // A fade is a few hundredths of the frame wide, so it dims none of the subject.
   const depth = edge === 'straight' ? 0 : Math.round(short * (edge === 'fade' ? 0.06 : 0.07))
   const lead = Math.round(margin * (edge === 'straight' ? 0.9 : 0.5))
+  const offEdges = (box: Rect) => (edges ? offFrameEdges(b, box) : box)
   if (!down) {
     // The band down the left, the photo on the right, at least 1.6 times as wide as the frame is tall; a strip too
     // narrow for the photo beside its logo, words and button leaves the photo out.
     let photoWidth = Math.round(
-      shape === 'wide' || shape === 'square' ? width * share : shape === 'banner' ? Math.max(height * 1.6, width * 0.36) : height * 1.6,
+      shape === 'wide' || shape === 'square'
+        ? width * share
+        : shape === 'banner'
+          ? Math.max(height * 1.6, width * 0.36)
+          : height * 1.6,
     )
     // A banner's photo is as wide as its subject shows whole in, or left out; a short frame leaves it out where it
     // can't hold it beside its logo, words and button.
@@ -232,7 +281,7 @@ function arrangedAt(b: Build, share: number, down: boolean): Arrangement {
     const clear = width - photoWidth
     return {
       photo: { x: clear, y: 0, width: photoWidth, height },
-      keep: { x: clear + depth, y: 0, width: photoWidth - depth, height },
+      keep: offEdges({ x: clear + depth, y: 0, width: photoWidth - depth, height }),
       band: { x: 0, y: 0, width: clear + depth, height },
       side: 'right',
       depth,
@@ -245,7 +294,7 @@ function arrangedAt(b: Build, share: number, down: boolean): Arrangement {
   const bottom = safe.y + safe.height
   return {
     photo: { x: 0, y: 0, width, height: clear },
-    keep: { x: 0, y: 0, width, height: clear - depth },
+    keep: offEdges({ x: 0, y: 0, width, height: clear - depth }),
     band: { x: 0, y: clear - depth, width, height: height - clear + depth },
     side: 'top',
     depth,

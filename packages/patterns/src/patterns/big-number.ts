@@ -3,15 +3,27 @@
 // shadow on brand colour (bold), in the primary on the background (minimal), among soft discs at the corners
 // (playful), or in the accent on a deep ground (premium). The number fills its measure, as the hero of the frame. In a
 // 9:16 frame the logo heads the safe room, the number and its words fill its middle and the button sits at its foot.
-// A short frame keeps its logo, number and button, and its headline where it fits beside them.
+// A wide frame's logo heads its words' column. A short frame keeps its logo, number and button, its headline where it
+// fits beside them, else the fewest words that say what the number is.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, inRow, isShort, logoAtStart, logoOnTop, pinsButton, roles, rowLeast } from '../build.ts'
+import {
+  type Build,
+  ground,
+  inRow,
+  isShort,
+  logoAtStart,
+  logoOnTop,
+  logoRowHeight,
+  pinsButton,
+  roles,
+  rowLeast,
+} from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { dots } from '../decorations.ts'
 import { contrast, deepColour, INK, inkOn, LARGE_TEXT_CONTRAST, type Swatch } from '../palette.ts'
 import type { Pattern } from '../types.ts'
-import { keepsEvery, rowWords, stackWords, type WordPart, type Words } from '../words.ts'
+import { keepsEvery, rowFits, rowWords, stackWords, type WordPart, type Words } from '../words.ts'
 
 export const BIG_NUMBER: Pattern = {
   id: 'big-number',
@@ -44,27 +56,39 @@ export function bigNumber(b: Build) {
   const button = content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}
   const side = shape === 'strip' || shape === 'banner' || shape === 'wide'
   const banner = shape === 'strip' || shape === 'banner'
-  // A banner's logo leaves room for the number at its least beside the words and button; a short frame keeps it.
+  // A banner's logo leaves room for the number at its least beside the words and button; a short frame keeps it. A
+  // wide frame's logo goes over its words' column, on their start edge.
   const numberLeast = Math.round(frame.readable * NUMBER_LEAST_WIDTH)
-  const room: Rect = banner ? logoAtStart(b, safe, colour, rowLeast(b) + numberLeast) : logoOnTop(b, safe, colour)
+  const room: Rect = banner
+    ? logoAtStart(b, safe, colour, rowLeast(b) + numberLeast)
+    : shape === 'wide'
+      ? safe
+      : logoOnTop(b, safe, colour)
   if (side) {
     // The number on the left, the words on the right.
     const gap = Math.round(margin * (shape === 'wide' ? 1.5 : 1))
-    // The number's share of the room: the largest that leaves the words beside it every part.
-    const shares = shape === 'strip' ? [0.3] : shape === 'banner' ? [0.36, 0.3] : [0.46, 0.4, 0.34]
-    const keeps = (each: number) => {
+    // The number's share of the room: the largest that leaves the words beside it every part, so the number grows
+    // to its height's cap before the words take what is left.
+    const shares = shape === 'strip' ? [0.3] : shape === 'banner' ? [0.36, 0.3] : [0.56, 0.51, 0.46, 0.4, 0.34]
+    const column = (each: number): Rect => {
       const width = Math.round(room.width * each) + gap
-      return keepsEvery(b, {
+      const words = { ...room, x: room.x + width, width: room.width - width }
+      if (shape !== 'wide') return words
+      const row = logoRowHeight(b, words)
+      return { ...words, y: words.y + row, height: words.height - row }
+    }
+    const keeps = (each: number) =>
+      keepsEvery(b, {
         parts: [...kicker, ...rest],
-        room: { ...room, x: room.x + width, width: room.width - width },
+        room: column(each),
         surface: colour.value,
         align: 'start',
         ...button,
       })
-    }
-    const share = shares.find(keeps) ?? shares[0] ?? 0.46
+    const share = shares.find(keeps) ?? shares.at(-1) ?? 0.34
     const left = { ...room, width: Math.round(room.width * share) }
-    const right = { ...room, x: left.x + left.width + gap, width: room.width - left.width - gap }
+    let right = { ...room, x: left.x + left.width + gap, width: room.width - left.width - gap }
+    if (shape === 'wide') right = logoOnTop(b, right, colour, 'start')
     const set = stackWords(b.tree, b, {
       key: 'number-words',
       parts: [number],
@@ -74,16 +98,24 @@ export function bigNumber(b: Build) {
       align: 'start',
     })
     // The words start a gap after the number as it is set; a short frame too narrow for its headline beside the
-    // number and button keeps the number, the logo and the button.
+    // number and button keeps the number, the logo and the button, and the shortest words that say what the number
+    // is where they fit: the kicker, else the headline's first words.
     const start = left.x + set.leadWidth + gap
+    const wordsRoom = { ...right, x: start, width: right.x + right.width - start }
     const narrow = isShort(b) && right.x + right.width - start < rowLeast(b)
-    const words: Words = {
-      parts: narrow ? [] : [...kicker, ...rest],
-      room: { ...right, x: start, width: right.x + right.width - start },
+    const of = (parts: WordPart[]): Words => ({
+      parts,
+      room: wordsRoom,
       surface: colour.value,
       align: 'start',
       ...button,
-    }
+    })
+    const context: WordPart[][] = [
+      ...(content.kicker ? [[{ kind: 'headline' as const, text: content.kicker }]] : []),
+      [{ kind: 'headline', text: content.headline.split(' ').slice(0, 2).join(' ') }],
+    ]
+    const tag = narrow ? (context.find((parts) => inRow(b) && rowFits(b, of(parts))) ?? []) : undefined
+    const words = of(tag ?? [...kicker, ...rest])
     if (inRow(b)) rowWords(b.tree, b, words)
     else stackWords(b.tree, b, words)
     return
@@ -93,7 +125,7 @@ export function bigNumber(b: Build) {
     room,
     surface: colour.value,
     ...button,
-    ...(pinsButton(b) ? { pin: true } : {}),
+    ...(pinsButton(b) ? { pin: true, together: true } : {}),
   })
 }
 

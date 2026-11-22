@@ -125,9 +125,10 @@ export function glow(b: Build, key: string, box: Rect, colour: string, strength 
 
 /**
  * A badge's shape filling the box, in the style's way: a burst of points (bold), a square (minimal), a scalloped
- * seal (playful) or a ring of fine points (premium).
+ * seal (playful) or a ring of fine points (premium); edged in `keyline` where it is given, so it keeps its outline
+ * on what it is on.
  */
-export function badgeShape(b: Build, box: Rect, colour: Swatch) {
+export function badgeShape(b: Build, box: Rect, colour: Swatch, keyline?: Swatch) {
   const fill = solid(colour)
   const part = {
     bold: star('Badge', box, { points: 16, inner: 0.82 }, fill, { rotation: 8 }),
@@ -142,5 +143,6 @@ export function badgeShape(b: Build, box: Rect, colour: Swatch) {
       ],
     }),
   }[b.styleName]
-  b.tree.add('badge-shape', { ...part, role: 'badge' })
+  const edge = keyline ? { strokes: [stroke(keyline.value, Math.max(2, round(box.width * 0.02)))] } : {}
+  b.tree.add('badge-shape', { ...part, props: { ...part.props, ...edge }, role: 'badge' })
 }

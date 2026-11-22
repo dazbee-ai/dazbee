@@ -2,7 +2,7 @@
 // A pattern's words: its texts and button set in the style's type, as large as fits the room they are given, each
 // text in an ink that reads on what is behind it. In a column (`stackWords`) they stack in auto layout boxes, so a
 // longer headline pushes the rest down; in a row (`rowWords`), for a strip, they sit beside the button.
-import { type Effect, type Rect, TextProps } from '@dazbee/schema'
+import { type Effect, isNineBySixteen, type Rect, TextProps } from '@dazbee/schema'
 
 import { BUTTON_SIDE, BUTTON_SIDE_TIGHT, type ButtonFill, buttonPart, buttonSize } from './button.ts'
 import { type FrameRoom, SHORT_FRAME } from './frame-shape.ts'
@@ -34,6 +34,11 @@ export interface Setting {
   palette: Palette
   frame: FrameRoom
   measure: Measure
+  /**
+   * The contrast a highlight's colour keeps with the ground, decided once for every size of a set: 3:1 where every
+   * size sets its headline as large text, else 4.5:1. Each frame's own when left out.
+   */
+  highlightContrast?: number
 }
 
 /** Words to set in a room. */
@@ -56,6 +61,13 @@ export interface Words {
   most?: number
   /** Whether the button sits at the room's foot, apart from the texts, which sit by `justify` in the room above it. */
   pin?: boolean
+  /**
+   * Whether a pinned button keeps its texts with it: they sit over it, no more than twice the room between the parts
+   * apart, and any height to spare goes over them.
+   */
+  together?: boolean
+  /** The most lines the lead text takes, where fewer than its kind's. */
+  leadLines?: number
   /** The lead size, set elsewhere, that a button with no texts beside it stays under by the style's step. */
   leadElsewhere?: number
   /** The size of a button label set beside the words, which their lead stays over by the style's step. */
@@ -91,7 +103,8 @@ interface SetText {
 interface Fit {
   size: number
   heights: Map<WordPart, number>
-  button?: { size: number; least: number; side: number; width: number; height: number }
+  /** The button: its label's size, least height, room at its ends and box; `exact` its height where it is set so. */
+  button?: { size: number; least: number; side: number; width: number; height: number; exact?: number }
   total: number
   fits: boolean
   /** Whether the room between the parts was closed down. */
@@ -132,8 +145,31 @@ const NUMBER_HEIGHT_MOST = 0.45
 /** The least shorter side of a frame whose lead keeps the style's scale over its subline. */
 const SCALED_FRAME = 600
 /** A button's least height, as a share of the frame's shorter side: on a display banner, and on a social frame. */
-const BUTTON_LEAST_DISPLAY = 0.15
+const BUTTON_LEAST_DISPLAY = 0.18
 const BUTTON_LEAST_SOCIAL = 0.055
+/**
+ * On a frame SCALED_FRAME or more on its shorter side, how many times its label's size the lead is at least: in a
+ * loud style, and in a quiet one (a style whose scale is 2.5 or more); a tracked label in capitals counts CAPS_WEIGHT
+ * times its size, and its button is BUTTON_DOWN times its label tall, never grown to fill its room.
+ */
+const LABEL_UNDER_LEAD = { loud: 2.2, quiet: 2.6 }
+const CAPS_WEIGHT = 1.15
+const BUTTON_DOWN = 2.4
+/** On a display size, the least share of the lead's size its button label takes, so the button is seen. */
+const DISPLAY_LABEL_SHARE = 0.45
+/** The most of the lead's block a button covers in a style that slants its highlight, the quietest. */
+const BUTTON_AREA_QUIET = 0.6
+/** The most a kicker's size is of the lead's, so it labels the headline and never competes with it. */
+const KICKER_UNDER_LEAD = 0.4
+/** The largest a display banner's lead is, as a share of its height; and a display tower's, of its width. */
+const BANNER_LEAD_MOST = 0.24
+const TOWER_LEAD_MOST = 0.3
+/** The most lines a display tower's headline takes, where its height lets it break more. */
+const TOWER_LINES = 5
+/** The share of its size in two lines a strip's lead keeps in one line, and is set in one. */
+const ONE_LINE_SHARE = 0.85
+/** A capital's height, as a share of a font's size. */
+export const CAP_HEIGHT = 0.72
 /** The largest a strip's lead is, as a share of its height. */
 const STRIP_LEAD_MOST = 0.38
 /** Each kind's layer name. */
@@ -154,6 +190,8 @@ const TRACKING_LEAST = 8
 const TRACKING_STEP = 2
 /** The share of the style's room between parts left where it is closed down to keep every part. */
 const TIGHT_GAP = 0.6
+/** How many times as large the lead is set with the room between the parts closed down, for it to be closed. */
+const TIGHT_BOUGHT = 1.2
 /** Where words sit down their room when lined up by eye: their free height's share over them. */
 const OPTICAL = 0.44
 /** The lead text's least size, as a multiple of the readable size. */
@@ -167,18 +205,30 @@ export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, pa
   const { size, heights, button, parts } = fit
   const { room } = words
   const key = words.key ?? 'words'
-  const gap = round(gapBase(parts, size) * gapOf(style, fit.tight))
   const inner = round(gapBase(parts, size) * TITLE_GAP)
+  // A tower spreads its words down its height: the height they leave free is shared evenly over them and between
+  // their parts, so no empty band runs across it.
+  const base = gapBase(parts, size) * gapOf(style, fit.tight)
+  const titled = parts.findIndex((part) => part.kind === 'headline' || part.kind === 'number')
+  const between = parts.length - 1 - Math.max(0, titled) + (fit.button ? 1 : 0)
+  const spread = isTower(frame) && between > 0 ? Math.max(0, room.height - fit.total) / (between + 1) : 0
+  const gap = round(base + spread)
+  fit.total = Math.ceil(fit.total + spread * between)
   // A pinned button sits at the room's foot, and the texts by `justify` in the room above it.
   const pinned = Boolean(words.pin && button && words.button && parts.length > 0)
   const below = pinned && button ? button.height + gap : 0
   const textsHeight = fit.total - below
   const free = room.height - fit.total
-  const top = room.y + { start: 0, center: free / 2, optical: free * OPTICAL, end: free }[words.justify ?? 'center']
+  // Texts kept with their pinned button sit over it, no more than twice the room between the parts apart.
+  const top =
+    spread > 0
+      ? room.y + free
+      : pinned && words.together
+        ? room.y + free - Math.min(free, gap)
+        : room.y + { start: 0, center: free / 2, optical: free * OPTICAL, end: free }[words.justify ?? 'center']
   const box = { x: room.x, y: round(top), width: room.width, height: pinned ? textsHeight : fit.total }
   const outer = tree.add(key, column('Words', box, gap, align, false), parent)
   // The kicker and the headline sit closer than the rest, in a column of their own.
-  const titled = parts.findIndex((part) => part.kind === 'headline' || part.kind === 'number')
   let holder = outer
   if (titled > 0) {
     const title = parts.slice(0, titled + 1)
@@ -197,7 +247,8 @@ export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, pa
     const x = align === 'center' ? room.x + (room.width - button.width) / 2 : room.x
     const at = pinned ? room.y + room.height - button.height : y
     const holder = pinned ? parent : outer
-    buttonPart(tree, setting, words, button.size, holder, { x: round(x), y: round(at) }, button.least, button.side)
+    const place = { x: round(x), y: round(at) }
+    buttonPart(tree, setting, words, button.size, holder, place, button.least, button.side, button.exact)
   }
   const whole = pinned ? { ...box, height: round(room.y + room.height - box.y) } : box
   const texts = { ...box, height: round(textsHeight - (pinned || !button ? 0 : button.height + gap)) }
@@ -240,7 +291,7 @@ export function rowWords(tree: TreeBuilder, setting: Setting, words: Words, pare
   }
   if (button && words.button) {
     const at = { x: room.x + width + gap, y: round(room.y + (room.height - button.height) / 2) }
-    buttonPart(tree, setting, words, label, row, at, least, side)
+    buttonPart(tree, setting, words, label, row, at, least, side, exactHeight(frame, label))
   }
   return {
     size: fit.size,
@@ -249,6 +300,17 @@ export function rowWords(tree: TreeBuilder, setting: Setting, words: Words, pare
     texts: box,
     leadWidth: leadWidthOf(setting, texts, fit.parts, fit.size, 'start'),
   }
+}
+
+/** How many times its height a room is wide at least for a larger frame to set its words in a row beside its button. */
+const ROW_ROOM = 3.5
+
+/**
+ * Whether a room is wide and low, in a frame taller than a short one: its words are set in a row beside its button,
+ * so the button never takes a tier of its height.
+ */
+export function wideRow({ frame }: Setting, room: Rect): boolean {
+  return frame.height > SHORT_FRAME && room.width >= room.height * ROW_ROOM
 }
 
 /** Whether a strip's words fit beside its button, in one of the ways rowWords tries. */
@@ -278,6 +340,9 @@ export function leadWidth(setting: Setting, part: WordPart, size: number, lines:
   return Math.ceil(Math.max(...runs, (whole / lines) * 1.1))
 }
 
+/** The least room at each end of a strip's button label, as a share of its size. */
+const BUTTON_SIDE_SLIM = 0.6
+
 /** The room between a strip's texts and its button. */
 function rowGap({ frame }: Setting, { room }: Words): number {
   return round(Math.max(frame.margin, room.height * 0.25))
@@ -293,12 +358,23 @@ function rowTries(setting: Setting, words: Words) {
   const { room } = words
   const least = buttonLeast(frame)
   const gap = rowGap(setting, words)
-  return [
-    { label: stripLabel(frame), side: BUTTON_SIDE, floor: false },
-    { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: false },
-    { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: true },
-  ].map(({ label, side, floor }) => {
-    const button = words.button ? buttonSize(setting, words.button, label, least, side) : undefined
+  // A wide, low room in a larger frame labels its button at the readable size, under a lead that leads it.
+  const tries =
+    frame.height > SHORT_FRAME
+      ? [
+          { label: frame.readable, side: BUTTON_SIDE, floor: false },
+          { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: false },
+        ]
+      : [
+          { label: stripLabel(frame), side: BUTTON_SIDE, floor: false },
+          { label: frame.readable, side: BUTTON_SIDE_TIGHT, floor: false },
+          // A slimmer button before the lead is let down to the readable size, so the button never outweighs it.
+          { label: frame.readable, side: BUTTON_SIDE_SLIM, floor: false },
+          { label: frame.readable, side: BUTTON_SIDE_SLIM, floor: true },
+        ]
+  return tries.map(({ label, side, floor }) => {
+    const height = exactHeight(frame, label)
+    const button = words.button ? buttonSize(setting, words.button, label, least, side, height) : undefined
     const width = room.width - (button ? button.width + gap : 0)
     const texts: Words = {
       ...words,
@@ -336,12 +412,14 @@ function fewestLeftOut(setting: Setting, words: Words): Fit & { parts: WordPart[
       !(part.kind === 'subline' && height < SUBLINE_LEAST_HEIGHT) &&
       !(part.kind === 'kicker' && height <= KICKER_LEAST_HEIGHT),
   )
-  // Before a part is left out, the room between the parts is closed down to the least the style takes.
+  // Before a part is left out, and where it sets the lead TIGHT_BOUGHT times as large, the room between the parts is
+  // closed down to the least the style takes.
   const tightest = (): Fit => {
     const loose = largestFit(setting, { ...words, parts })
-    if (loose.fits || words.tight) return loose
+    if (words.tight) return loose
     const tight = largestFit(setting, { ...words, parts, tight: true })
-    return tight.fits ? tight : loose
+    if (!loose.fits) return tight.fits ? tight : loose
+    return tight.fits && tight.size >= loose.size * TIGHT_BOUGHT ? tight : loose
   }
   let fit = tightest()
   for (const kind of LEFT_OUT_FIRST) {
@@ -356,22 +434,57 @@ function fewestLeftOut(setting: Setting, words: Words): Fit & { parts: WordPart[
     const floored = largestFit(setting, { ...words, parts, floor: true })
     if (floored.fits) fit = floored
   }
+  // A 9:16 frame, which must hit hardest, whose lead can't keep the style's scale over its subline leaves the
+  // subline out, so the lead is read first.
+  const subline = parts.find((part) => part.kind === 'subline')
+  const numbered = parts.some((part) => part.kind === 'number')
+  if (fit.fits && subline && !numbered && isNineBySixteen(setting.frame.width, height)) {
+    const under = sizeOf(subline, parts, fit.size, setting.frame)
+    if (fit.size < under * setting.style.scale - 1) {
+      parts = parts.filter((part) => part !== subline)
+      fit = tightest()
+    }
+  }
+  // A short frame sets its lead in one line where that keeps it near as large as in two.
+  if (fit.fits && height <= SHORT_FRAME && words.leadLines === undefined) {
+    const floor = fit.size <= setting.frame.readable ? { floor: true } : {}
+    const one = largestFit(setting, { ...words, parts, leadLines: 1, ...floor })
+    if (one.fits && one.size >= fit.size * ONE_LINE_SHARE) fit = one
+  }
   return { ...fit, parts }
 }
 
 /** Whether the words fit their room, with the parts that may be left out left out. */
 export function fitsRoom(setting: Setting, words: Words): boolean {
-  return fewestLeftOut(setting, words).fits
+  return fitOf(setting, words).fits
 }
 
 /** The size the words' lead is set at in their room, with the parts that may be left out left out. */
 export function leadSizeIn(setting: Setting, words: Words): number {
-  return fewestLeftOut(setting, words).size
+  return fitOf(setting, words).size
 }
 
 /** Whether the words fit their room with none of their parts left out. */
 export function keepsEvery(setting: Setting, words: Words): boolean {
-  return fewestLeftOut(setting, words).parts.length === words.parts.length
+  return fitOf(setting, words).parts.length === words.parts.length
+}
+
+/** How the words fit their room: in a row beside their button in a wide, low room (see wideRow), else stacked. */
+function fitOf(setting: Setting, words: Words): Fit & { parts: WordPart[] } {
+  if (!words.button || !wideRow(setting, words.room)) return fewestLeftOut(setting, words)
+  const tried = rowTries(setting, words)
+  const chosen = tried.find(({ fit }) => fit.fits) ?? tried.at(-1)
+  return chosen ? chosen.fit : fewestLeftOut(setting, words)
+}
+
+/**
+ * How the words fit their room: the lead's size, whether every part is kept, and whether the lead keeps the style's
+ * scale over its subline and kicker, so it is read first.
+ */
+export function leadFit(setting: Setting, words: Words): { size: number; every: boolean; scaled: boolean } {
+  const fit = fitOf(setting, words)
+  const scaled = fit.fits && fit.size >= leadLeast(setting, { ...words, parts: fit.parts }, true)
+  return { size: fit.size, every: fit.parts.length === words.parts.length, scaled }
 }
 
 /** The largest lead size, a pixel at a time, at which the words fit their room; their smallest when none does. */
@@ -413,8 +526,13 @@ function leadLeast({ frame, style }: Setting, words: Words, scaled: boolean): nu
     scaled && Math.min(frame.width, frame.height) >= SCALED_FRAME && words.parts.some((part) => part.kind === 'subline')
       ? frame.readable * style.scale
       : 0
+  // The lead over its kicker by KICKER_UNDER_LEAD, so the kicker labels it, wherever that fits.
+  const kicker =
+    scaled && !number && frame.height > SHORT_FRAME && words.parts.some((part) => part.kind === 'kicker')
+      ? frame.readable / KICKER_UNDER_LEAD
+      : 0
   const over = number && frame.height > SHORT_FRAME ? NUMBER_OVER_HEADLINE : 1
-  return Math.ceil(Math.max(frame.readable * step, beside, subline) * over)
+  return Math.ceil(Math.max(frame.readable * step, beside, subline, kicker) * over)
 }
 
 /**
@@ -427,7 +545,15 @@ function leadMost(setting: Setting, words: Words): number {
   if (frame.shape === 'strip') return Math.floor(frame.height * STRIP_LEAD_MOST)
   const short = Math.min(frame.width, frame.height)
   const number = words.parts.find((part) => part.kind === 'number')
-  if (!number) return Math.floor(style.headlineMax * short)
+  // A display banner's lead fills its height, and a display tower's its width, where the style's share of the
+  // shorter side would leave them small.
+  const own =
+    frame.shape === 'banner' && frame.height > SHORT_FRAME
+      ? frame.height * BANNER_LEAD_MOST
+      : isTower(frame)
+        ? short * TOWER_LEAD_MOST
+        : 0
+  if (!number) return Math.floor(Math.max(style.headlineMax * short, own))
   const at = 100
   const props = TextProps.parse(textOf(setting, words, number, at, 'start', words.room.width).props)
   const wide = setting.measure(props, null).width
@@ -464,12 +590,17 @@ function measured(setting: Setting, words: Words, size: number): Fit {
     )
     const lineHeight = props.style.fontSize * (props.style.lineHeight ?? 1.2)
     const lines = Math.round(height / lineHeight)
+    const lead = part.kind === 'headline' || part.kind === 'number'
+    const own = linesOf(part.kind, frame)
+    const most = lead && words.leadLines !== undefined ? Math.min(words.leadLines, own) : own
     // SkParagraph lays text out at its width cut to a whole pixel.
-    if (Math.ceil(word) > Math.floor(room.width) || lines > linesOf(part.kind, frame)) fits = false
-    if (part.kind === 'headline' || part.kind === 'number') {
+    if (Math.ceil(word) > Math.floor(room.width) || lines > most) fits = false
+    if (lead) {
       const natural = measure(props, null).width
-      block = Math.max(block, Math.min(room.width, natural / Math.max(1, lines)))
-      blockArea += Math.min(room.width, natural / Math.max(1, lines)) * height
+      const line = Math.min(room.width, natural / Math.max(1, lines))
+      block = Math.max(block, line)
+      // The lead's inked box: its lines, the last to its capitals' foot.
+      blockArea += line * (Math.max(0, lines - 1) * lineHeight + props.style.fontSize * CAP_HEIGHT)
     }
     heights.set(part, height)
     total += height
@@ -481,7 +612,8 @@ function measured(setting: Setting, words: Words, size: number): Fit {
   let button: Fit['button']
   if (words.button) {
     const lead = parts.length > 0 ? size : (words.leadElsewhere ?? size)
-    const most = parts.length > 0 ? blockArea * BUTTON_AREA_MOST : Number.POSITIVE_INFINITY
+    const share = style.highlight === 'italic' ? BUTTON_AREA_QUIET : BUTTON_AREA_MOST
+    const most = parts.length > 0 ? blockArea * share : Number.POSITIVE_INFINITY
     button = buttonFor(setting, words.button, lead, Math.min(room.width, block || room.width), most)
     if (button.width > room.width) fits = false
     total += button.height + (parts.length > 0 ? base * gap : 0)
@@ -499,7 +631,9 @@ function measured(setting: Setting, words: Words, size: number): Fit {
 /**
  * The button for a lead at `size`: its label a share of the lead's size, under the lead by the style's step, never
  * under the readable size, set smaller while the button is wider than `widest` or covers more than `most` square
- * pixels; at least as tall as the frame asks of a button.
+ * pixels; at least as tall as the frame asks of a button. On a frame SCALED_FRAME or more on its shorter side the
+ * label stays under the lead by LABEL_UNDER_LEAD and its button is BUTTON_DOWN times it tall; on a display size the
+ * label keeps DISPLAY_LABEL_SHARE of the lead, as `most` is met only above it.
  */
 function buttonFor(
   setting: Setting,
@@ -511,19 +645,34 @@ function buttonFor(
   const { frame, style } = setting
   const short = Math.min(frame.width, frame.height)
   const least = buttonLeast(frame)
-  const share = Math.round(Math.min(size * BUTTON_SHARE, short * BUTTON_MOST))
+  const display = isDisplay(frame) && frame.height > SHORT_FRAME
+  const social = short >= SCALED_FRAME
+  const caps = style.button.textCase === 'upper' && style.button.tracking > 0 ? CAPS_WEIGHT : 1
+  const under = (style.scale >= 2.5 ? LABEL_UNDER_LEAD.quiet : LABEL_UNDER_LEAD.loud) * caps
+  const share = Math.round(Math.min(size * (display ? DISPLAY_LABEL_SHARE : BUTTON_SHARE), short * BUTTON_MOST))
   let label = Math.max(frame.readable, Math.min(share, Math.floor(size / overButton(style, frame))))
-  let sized = buttonSize(setting, text, label, least)
+  if (social) label = Math.max(frame.readable, Math.min(label, Math.floor(size / under)))
+  // The least a label is set at: the readable size, and on a display size its share of the lead.
+  const floor = display ? Math.max(frame.readable, Math.ceil(size * DISPLAY_LABEL_SHARE)) : frame.readable
+  const exact = (at: number) => exactHeight(frame, at)
+  const sizeAt = (at: number, side = BUTTON_SIDE) => buttonSize(setting, text, at, least, side, exact(at))
+  let sized = sizeAt(label)
   if (sized.width > widest && label > frame.readable) {
     label = Math.max(frame.readable, Math.floor((label * widest) / sized.width))
-    sized = buttonSize(setting, text, label, least)
-    while (sized.width > widest && label > frame.readable) sized = buttonSize(setting, text, --label, least)
+    sized = sizeAt(label)
+    while (sized.width > widest && label > frame.readable) sized = sizeAt(--label)
   }
-  while (sized.width * sized.height > most && label > frame.readable) sized = buttonSize(setting, text, --label, least)
+  while (sized.width * sized.height > most && label > floor) sized = sizeAt(--label)
   // Where the label at the readable size is still too wide or too large, the room at its ends is cut.
   const side = sized.width > widest || sized.width * sized.height > most ? BUTTON_SIDE_TIGHT : BUTTON_SIDE
-  if (side !== BUTTON_SIDE) sized = buttonSize(setting, text, label, least, side)
-  return { size: label, least, side, width: sized.width, height: sized.height }
+  if (side !== BUTTON_SIDE) sized = sizeAt(label, side)
+  const height = exact(label)
+  return { size: label, least, side, width: sized.width, height: sized.height, ...(height ? { exact: height } : {}) }
+}
+
+/** A button's height on a frame SCALED_FRAME or more on its shorter side: BUTTON_DOWN times its label; else none set. */
+function exactHeight(frame: FrameRoom, label: number): number | undefined {
+  return Math.min(frame.width, frame.height) >= SCALED_FRAME ? Math.round(label * BUTTON_DOWN) : undefined
 }
 
 /** A button's least height in the frame: a share of its shorter side, larger on a display banner. */
@@ -551,10 +700,15 @@ function isDisplay(frame: FrameRoom): boolean {
   return frame.width < 1000 && frame.height < 1000
 }
 
-/** The most lines a kind of text takes in a frame: any takes two at most in a short frame. */
+/** The most lines a kind of text takes in a frame: any takes two at most in a short frame; a tower's headline more. */
 function linesOf(kind: TextKind, frame: FrameRoom): number {
-  const lines = KINDS[kind].lines
+  const lines = kind === 'headline' && isTower(frame) ? TOWER_LINES : KINDS[kind].lines
   return frame.height <= SHORT_FRAME ? Math.min(lines, SHORT_FRAME_LINES) : lines
+}
+
+/** Whether a frame is a display tower: a display size twice as tall as it is wide or more. */
+export function isTower(frame: FrameRoom): boolean {
+  return isDisplay(frame) && frame.height >= frame.width * 2
 }
 
 /** The size the room between the words is a share of: the headline's, also where a number leads. */
@@ -584,7 +738,7 @@ function column(name: string, box: Rect, gap: number, align: 'start' | 'center',
 }
 
 /**
- * A text's props, as the column sets it: its look, size, ink and font, filling the column's width. A tracked kicker or
+ * A text's props, as the column sets it: its look, size, ink and font, filling the column's width. A kicker or
  * attribution set with a lead at `leadSize` is held to the lead's widest line (see `heldToLead`).
  */
 function textOf(
@@ -601,9 +755,9 @@ function textOf(
   const font = palette[look.font]
   const ink = part.ink ?? inkFor(setting, words.surface, size)
   const lead = part.kind === 'headline' || part.kind === 'number'
-  const text = part.kind === 'headline' ? kept(part.text, part.highlight) : part.text
+  const text = part.kind === 'headline' ? kept(part.text, part.highlight, !isTower(setting.frame)) : part.text
   const runs = [
-    ...(part.highlight ? highlightRuns(setting, words.surface, { ...part, text }, ink, size) : []),
+    ...(part.highlight ? highlightRuns(setting, words.surface, { ...part, text }, size) : []),
     ...(part.kind === 'number' ? unitRuns(setting, text, size) : []),
   ]
   const base = lookStyle(setting, look, size)
@@ -629,9 +783,9 @@ function textOf(
 }
 
 /**
- * A tracked kicker or attribution held to the width of its lead's widest line, so a supporting line never outweighs
- * the lead: its tracking eased first, down to TRACKING_LEAST, then set in two lines broken only at a comma, no wider
- * than the lead's line.
+ * A kicker or attribution held to the width of its lead's widest line, in every alignment, so a supporting line never
+ * outweighs the lead: its tracking eased first, down to TRACKING_LEAST, then set in two lines broken only at a comma,
+ * no wider than the lead's line.
  */
 function heldToLead<T extends { text: string; width: number; style: { letterSpacing: { value: number } } }>(
   setting: Setting,
@@ -641,8 +795,7 @@ function heldToLead<T extends { text: string; width: number; style: { letterSpac
   leadSize: number,
   align: 'start' | 'center',
 ): T {
-  if ((part.kind !== 'kicker' && part.kind !== 'attribution') || props.style.letterSpacing.value <= TRACKING_LEAST)
-    return props
+  if (part.kind !== 'kicker' && part.kind !== 'attribution') return props
   const { measure } = setting
   // The widest line of the leads: the headline's, and a number's over it.
   const leads = words.parts.filter((each) => each.kind === 'headline' || each.kind === 'number')
@@ -661,10 +814,12 @@ function heldToLead<T extends { text: string; width: number; style: { letterSpac
     style: { ...props.style, letterSpacing: { ...props.style.letterSpacing, value: tracking } },
   })
   const wide = (each: T) => measure(TextProps.parse(each), null).width
-  for (let tracking = props.style.letterSpacing.value; tracking >= TRACKING_LEAST; tracking -= TRACKING_STEP)
+  const own = props.style.letterSpacing.value
+  const least = Math.min(own, TRACKING_LEAST)
+  for (let tracking = own; tracking >= least; tracking -= TRACKING_STEP)
     if (wide(at(tracking)) <= line) return at(tracking)
   // Still too wide: where it has a comma, two lines no wider than the lead's, broken only at the comma.
-  const eased = at(TRACKING_LEAST)
+  const eased = at(least)
   if (!props.text.includes(',')) return eased
   const groups = props.text.split(',').map((group) => group.trim().replaceAll(' ', KEEP))
   const widest = Math.max(...groups.map((text) => wide({ ...eased, text })))

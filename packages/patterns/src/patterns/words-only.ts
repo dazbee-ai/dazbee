@@ -52,7 +52,7 @@ export function wordsOnly(b: Build) {
     ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
     // Minimal sets its headline at the top and its button at the foot of a square, on one edge; a 9:16 frame pins its
     // button to its safe room's foot.
-    ...(pinsButton(b) || (styleName === 'minimal' && !tall) ? { pin: true } : {}),
+    ...(pinsButton(b) ? { pin: true, together: true } : styleName === 'minimal' && !tall ? { pin: true } : {}),
     justify: styleName === 'minimal' && !tall ? 'start' : 'optical',
     ...(tall ? { most: Math.round(b.style.headlineMax * short * TALL_GROWS) } : {}),
   }

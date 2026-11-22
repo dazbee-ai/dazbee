@@ -159,7 +159,11 @@ describe('apply_pattern', () => {
       content: { headline: 'Run further', photo: 'asset-bottle', logo: false },
     })) as Applied
     const photo = stored(sync).nodes[answer.frames[0]?.layers.photo ?? '']
-    const [fill] = photo?.type === 'graphic' ? photo.props.fills : []
+    const fills = (photo?.type === 'graphic' ? photo.props.fills : []) as {
+      type: string
+      crop?: { x: number; y: number; width: number; height: number }
+    }[]
+    const [fill] = fills
     if (fill?.type !== 'image' || !fill.crop) throw new Error('no cropped photo')
     // Cropped to the subject in the asset's middle, not to a corner of it.
     expect(fill.crop.x + fill.crop.width / 2).toBeGreaterThan(400)

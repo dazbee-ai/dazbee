@@ -139,7 +139,7 @@ describe('a pattern’s frames', () => {
       ],
     }
     const content = { headline: 'Free delivery on every single order', highlight: 'Free delivery' }
-    const { session, bytes } = await builtPattern('words-only', 'bold', [{ width: 300, height: 600 }], {
+    const { session, bytes } = await builtPattern('words-only', 'bold', [{ width: 336, height: 280 }], {
       kit: grey,
       content,
     })

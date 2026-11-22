@@ -1,9 +1,10 @@
 // Product with a badge: the product, best a cut-out, the largest thing in the frame, fitted by its subject in a light
 // of its own centred on it, a badge on its top corner holding a few words (an offer, “New”), never over its middle,
 // and the words beside or above it with the button. The style draws the badge and the light: a burst on brand colour
-// (bold), a square on a pale disc (minimal), a seal on a big accent disc with dots (playful), or a ringed seal under a
-// gold ring on a deep ground (premium). The offer is set in the heaviest face the style has, at the headline's size at
-// least; a short frame sets it in a chip before its words.
+// (bold), a square on a pale disc (minimal), a seal on a big disc with dots (playful), or a ringed seal under a ring
+// on a deep ground (premium); the light and the badge in colours plainly apart from the product's own, so it keeps its
+// silhouette. The offer is set in the heaviest face the style has, at the headline's size at least, the badge never
+// covering more than a share of the product; a short frame sets it in a chip before its words.
 import { type Rect, TextProps } from '@dazbee/schema'
 
 import {
@@ -19,14 +20,14 @@ import {
   stripHolds,
   usualWords,
 } from '../build.ts'
-import { type ButtonFill, ctaFill } from '../button.ts'
-import { type Cropped, fitCrop } from '../crop.ts'
+import { buttonColours, type ButtonFill, ctaFill } from '../button.ts'
+import { type Cropped, fitCrop, meets, subjectOf } from '../crop.ts'
 import { badgeShape, dots, glow } from '../decorations.ts'
-import type { Swatch } from '../palette.ts'
+import { apart, inkOn, mixed, type Swatch } from '../palette.ts'
 import { inkFor } from '../text-look.ts'
 import { ellipse, picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
-import { leadBeside, rowFits, rowWords, stackWords, type Words } from '../words.ts'
+import { isTower, leadBeside, rowFits, rowWords, stackWords, type Words } from '../words.ts'
 
 export const PRODUCT_BADGE: Pattern = {
   id: 'product-badge',
@@ -49,8 +50,8 @@ const BADGE_LEAST = { social: 0.16, banner: 0.45 }
 const BRAND_BADGE_WEIGHT = 700
 /** A chip's height, as a multiple of its words' size. */
 const CHIP_DOWN = 1.45
-/** The share of the room under the logo the words take in a square frame and a tall one. */
-const WORDS_SHARE = { square: 0.3, tall: 0.32 }
+/** The share of the room under the logo the words take in a square frame and a tall one, and the most in a tower. */
+const WORDS_SHARE = { square: 0.3, tall: 0.32, most: 0.55 }
 
 /** Builds the product with a badge in the frame. */
 export function productBadge(b: Build) {
@@ -64,10 +65,61 @@ export function productBadge(b: Build) {
     (frame.shape === 'square' && Math.min(frame.width, frame.height) < 400)
   const placed = besides ? sideBySide(b, colour, fill) : stacked(b, colour, fill)
   if (!placed.product) return
-  light(b, placed.product.box, placed.limit)
+  const disc = light(b, placed.product.box, placed.limit, colour)
   if (b.content.photo)
     b.tree.add('product', picture('Product', placed.product.box, b.content.photo, { crop: placed.product.crop }))
-  badge(b, placed.product.box, placed.limit, colour, placed.size)
+  badge(b, placed.product.box, placed.limit, colour, placed.size, disc)
+}
+
+/** How plainly a backing shape's colour is apart from the product's main inks: by contrast, or by CIEDE2000. */
+const LIGHT_APART = { ratio: 1.6, difference: 25 }
+/** How plainly a badge's colour is apart from the disc behind it and the product it is on. */
+const BADGE_APART = { ratio: 2, difference: 25 }
+/** The least share of a product's ink a colour of it takes to be one of its main inks. */
+const MAIN_INK = 0.25
+/** The share of the ground's ink a backing shape is tinted with where no colour of the kit is apart from the product. */
+const LIGHT_TINT = 0.12
+/** The most of the product's drawn box a badge covers, by area, so the offer never outgrows the product. */
+const BADGE_AREA_MOST = 0.4
+
+/** The product's main inks, where its pixels were read. */
+function mainInks(b: Build): string[] {
+  return (b.content.photo?.look?.inks ?? []).filter((ink) => ink.share >= MAIN_INK).map((ink) => ink.colour)
+}
+
+/**
+ * The colour of a backing shape behind the product drawn at `opacity` on `ground`: the first of `offered`, but the
+ * ground's own, that as drawn is plainly apart from every main ink of the product, so its silhouette holds; else a
+ * faint tint of the ground's ink.
+ */
+function lightColour(b: Build, offered: readonly Swatch[], ground: Swatch, opacity = 1): Swatch {
+  const inks = mainInks(b)
+  const drawn = (swatch: Swatch) => (opacity < 1 ? mixed(ground.value, swatch.value, opacity) : swatch.value)
+  const found = offered.find(
+    (swatch) =>
+      swatch.value !== ground.value &&
+      inks.every((ink) => apart(drawn(swatch), ink, LIGHT_APART.ratio, LIGHT_APART.difference)),
+  )
+  if (found) return found
+  const ink = inkOn(ground.value, [b.palette.text, b.palette.background]).value
+  return { value: mixed(ground.value, ink, Math.min(1, LIGHT_TINT / opacity)) }
+}
+
+/**
+ * The badge's colour on `ground`: the first of the colours a button takes there that is plainly apart from the disc
+ * behind it and from the product's main inks, so the badge keeps its outline; else the button's colour, edged in the
+ * ground's colour.
+ */
+function badgeFill(b: Build, ground: Swatch, disc?: string): { fill: Swatch; keyline?: Swatch } {
+  const { palette } = b
+  const inks = mainInks(b)
+  const clear = (swatch: Swatch) =>
+    (!disc || apart(swatch.value, disc, BADGE_APART.ratio, BADGE_APART.difference)) &&
+    inks.every((ink) => apart(swatch.value, ink, BADGE_APART.ratio, BADGE_APART.difference))
+  const first = ctaFill(palette, ground, 'accent').fill
+  if (clear(first)) return { fill: first }
+  const found = buttonColours(palette, ground, 'accent').find(clear)
+  return found ? { fill: found } : { fill: first, keyline: ground }
 }
 
 /** Where the product went, the box its badge keeps inside, and the headline's size, which its words are at least. */
@@ -84,7 +136,13 @@ interface Placed {
 function stacked(b: Build, colour: Swatch, fill: ButtonFill): Placed {
   const { frame, content } = b
   const room = logoOnTop(b, frame.safe, colour)
-  const share = frame.shape === 'square' ? WORDS_SHARE.square : WORDS_SHARE.tall
+  let share = frame.shape === 'square' ? WORDS_SHARE.square : WORDS_SHARE.tall
+  // A tower's product is as wide as its room and no taller: the height it doesn't take goes to the words.
+  if (isTower(frame) && content.photo) {
+    const subject = subjectOf(content.photo)
+    const product = (room.width * subject.height) / subject.width + frame.readable * 4.5
+    share = Math.min(WORDS_SHARE.most, Math.max(share, (room.height * 0.8 - product) / room.height))
+  }
   const wordsRoom = { ...room, height: Math.round(room.height * share) }
   const set = stackWords(b.tree, b, {
     parts: usualWords(content),
@@ -212,36 +270,46 @@ function offerChip(
 
 /**
  * The light behind the product, centred on it, no taller than the room the product has, in the style's way: a glow,
- * a pale disc, an accent disc with dots, a ring.
+ * a pale disc, a disc with dots, a ring; each in the first of the style's colours plainly apart from the product's
+ * main inks. The colour of an opaque disc, which the badge must stand apart from.
  */
-function light(b: Build, product: Rect, limit: Rect) {
+function light(b: Build, product: Rect, limit: Rect, ground: Swatch): string | undefined {
   const { styleName, palette } = b
   const side = Math.min(Math.max(product.width, product.height) * 0.92, limit.height * 1.05)
   const cx = product.x + product.width / 2
   const cy = product.y + product.height / 2
   const disc = { x: round(cx - side / 2), y: round(cy - side / 2), width: round(side), height: round(side) }
-  if (styleName === 'bold')
-    glow(
-      b,
-      'light',
-      { x: cx - side * 0.6, y: cy - side * 0.35, width: side * 1.2, height: side * 0.7 },
-      palette.background.value,
-      0.5,
-    )
-  if (styleName === 'minimal') b.tree.add('light', ellipse('Disc', disc, solid(palette.primary, 0.08)))
+  const order = [palette.accent, palette.primary, palette.secondary]
+  if (styleName === 'bold') {
+    const colour = lightColour(b, [palette.background, ...order], ground, 0.5)
+    const box = { x: cx - side * 0.6, y: cy - side * 0.35, width: side * 1.2, height: side * 0.7 }
+    glow(b, 'light', box, colour.value, 0.5)
+  }
+  if (styleName === 'minimal') {
+    const colour = lightColour(b, [palette.primary, palette.accent, palette.secondary], ground, 0.08)
+    b.tree.add('light', ellipse('Disc', disc, solid(colour, 0.08)))
+  }
   if (styleName === 'playful') {
-    b.tree.add('light', ellipse('Disc', disc, solid(palette.accent)))
+    const colour = lightColour(b, order, ground)
+    b.tree.add('light', ellipse('Disc', disc, solid(colour)))
+    // Two dots off the disc's edge, drawn only where both keep a dot's width clear of the product.
     const r = side * 0.05
-    dots(b, 'dot', [
+    const list = [
       { x: disc.x + side * 0.1, y: disc.y + side * 0.22, r, colour: palette.primary },
       { x: disc.x + side * 0.92, y: disc.y + side * 0.8, r: r * 0.6, colour: palette.secondary },
-    ])
+    ]
+    const near = (dot: (typeof list)[number]) =>
+      meets({ x: dot.x - dot.r, y: dot.y - dot.r, width: 2 * dot.r, height: 2 * dot.r }, product, 2 * dot.r)
+    if (!list.some(near)) dots(b, 'dot', list)
+    return colour.value
   }
   if (styleName === 'premium') {
-    glow(b, 'light', disc, palette.accent.value, 0.3)
+    const colour = lightColour(b, order, ground)
+    glow(b, 'light', disc, colour.value, 0.3)
     const weight = Math.max(1, round(side * 0.005))
-    b.tree.add('ring', ellipse('Ring', disc, { fills: [] }, { strokes: [stroke(palette.accent.value, weight)] }))
+    b.tree.add('ring', ellipse('Ring', disc, { fills: [] }, { strokes: [stroke(colour.value, weight)] }))
   }
+  return undefined
 }
 
 /**
@@ -249,11 +317,11 @@ function light(b: Build, product: Rect, limit: Rect) {
  * of its middle third, stepping off the product where it must; as large as a sixth of the frame's shorter side at
  * least, and its words at the headline's `size` at least, in the heaviest face the style's fonts have.
  */
-function badge(b: Build, product: Rect, limit: Rect, ground: Swatch, size: number) {
+function badge(b: Build, product: Rect, limit: Rect, ground: Swatch, size: number, disc?: string) {
   const { palette, frame, content } = b
   const words = content.badge
   if (!words) return
-  const colour = ctaFill(palette, ground, 'accent').fill
+  const { fill: colour, keyline } = badgeFill(b, ground, disc)
   const ink = inkFor(b, colour.value, frame.readable, [palette.text, palette.background])
   const { font, weight } = badgeFace(b)
   const longest = words.split(/\s+/).reduce((x, y) => (y.length > x.length ? y : x), '')
@@ -284,7 +352,14 @@ function badge(b: Build, product: Rect, limit: Rect, ground: Swatch, size: numbe
     return { ...at(into), clear: !tooMuch(at(into)) }
   }
   const floor = Math.round(Math.max(frame.readable * 4, (wordWidth(frame.readable) + 2) / INSIDE))
-  let d = Math.round(Math.max(least, (wordWidth(headline) + 2) / INSIDE, Math.min(short * 0.22, least * 1.3)))
+  // Never more than BADGE_AREA_MOST of the product's box, so the offer doesn't outgrow the product.
+  const most = Math.max(floor, Math.sqrt(product.width * product.height * BADGE_AREA_MOST))
+  let d = Math.floor(
+    Math.min(
+      most,
+      Math.round(Math.max(least, (wordWidth(headline) + 2) / INSIDE, Math.min(short * 0.22, least * 1.3))),
+    ),
+  )
   let spot = place(d)
   while (!spot.clear && d > floor) {
     d = Math.max(floor, Math.round(d * 0.92))
@@ -292,7 +367,7 @@ function badge(b: Build, product: Rect, limit: Rect, ground: Swatch, size: numbe
   }
   const { cx, cy } = spot
   const inner = Math.floor(d * INSIDE)
-  badgeShape(b, { x: round(cx - d / 2), y: round(cy - d / 2), width: d, height: d }, colour)
+  badgeShape(b, { x: round(cx - d / 2), y: round(cy - d / 2), width: d, height: d }, colour, keyline)
   let set = Math.max(headline, Math.floor(d * 0.36))
   const fits = (px: number) =>
     wordWidth(px) <= inner && b.measure(badgeProps(b, words, px, inner, ink, font, weight), inner).height <= inner

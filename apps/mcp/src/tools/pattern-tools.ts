@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 
 import {
-  buildPattern,
+  buildPatterns,
   builtFrames,
   findPattern,
   missingContent,
@@ -278,8 +278,8 @@ async function lookOf(
 }
 
 /**
- * Each size's layers, measured with the fonts they are set in: built once to learn which faces their texts use, those
- * faces loaded into the tab, then built again measured with them.
+ * Each size's layers, built together as one set and measured with the fonts they are set in: built once to learn
+ * which faces their texts use, those faces loaded into the tab, then built again measured with them.
  */
 async function built(
   open: OpenDesign,
@@ -293,7 +293,8 @@ async function built(
   const ck = await loadCanvasKit()
   const build = () => {
     const measure = textMeasure(ck, tab.cache.resources(tab.bytes()))
-    return frames.map((frame) => ({ frame, layers: buildPattern(pattern, { style, kit, content, ...frame, measure }) }))
+    const layers = buildPatterns(pattern, { style, kit, content, measure }, frames)
+    return frames.map((frame, i) => ({ frame, layers: layers[i] ?? { nodes: {}, roots: [] } }))
   }
   const variables = tab.bytes().variables
   await tab.fontsFor(build().flatMap(({ layers }) => usesOf(layers, variables)))

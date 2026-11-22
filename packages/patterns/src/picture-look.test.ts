@@ -30,6 +30,23 @@ describe('pictureLook', () => {
     expect(look.inks[0]).toEqual({ colour: '#1428C8FF', share: 1 })
   })
 
+  it('reads a cut-out’s soft shadow into what is drawn of it, past its opaque subject', () => {
+    const body = { x: 100, y: 40, width: 200, height: 80 }
+    const shadow = { x: 90, y: 120, width: 220, height: 30 }
+    const look = pictureLook(
+      pixels(400, 200, (x, y) =>
+        inside(x, y, body) ? [20, 40, 200, 255] : inside(x, y, shadow) ? [0, 0, 0, 40] : [0, 0, 0, 0],
+      ),
+      400,
+      200,
+    )
+    expect(look.subject.y + look.subject.height).toBeLessThan(140)
+    const extent = look.extent ?? { x: 0, y: 0, width: 0, height: 0 }
+    expect(extent.x).toBeLessThanOrEqual(90)
+    expect(extent.y + extent.height).toBeGreaterThanOrEqual(150)
+    expect(look.edge).toBeUndefined()
+  })
+
   it('reads a logo on a white box: the box’s colour as its backdrop, and its ink inside it', () => {
     const ink = { x: 40, y: 30, width: 120, height: 40 }
     const look = pictureLook(
@@ -38,6 +55,7 @@ describe('pictureLook', () => {
       100,
     )
     expect(look.backdrop).toBe('#FFFFFFFF')
+    expect(look.edge).toBe('#FFFFFFFF')
     expect(look.subject.x).toBeLessThanOrEqual(40)
     expect(look.subject.width).toBeLessThanOrEqual(124)
     expect(oneInk(look)).toBe(true)

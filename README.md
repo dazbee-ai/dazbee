@@ -2,7 +2,7 @@
 
 ## Develop
 
-Needs Node 22.18 or later (CI, docker compose and the production images run Node 26) and pnpm 12 (`npm install -g pnpm@12`).
+Needs Node 26 or later (CI, docker compose and the production images run Node 26; Node 24's JavaScript engine can give the shape matcher a wrong answer under load) and pnpm 12 (`npm install -g pnpm@12`).
 
 ```sh
 pnpm install

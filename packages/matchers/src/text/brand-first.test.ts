@@ -2,14 +2,25 @@ import { describe, expect, it } from 'vitest'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { MatchAnswer, MatchKit, UnplacedLayer } from '@dazbee/schema'
+import type { MatchAnswer, MatchKit } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
 import { hexRgb } from '../shape/parts/colour.ts'
+import { pickFit } from './brand-first.ts'
 import type { FontSource } from './font-source.ts'
+import type { Fitted } from './light/fit.ts'
 import { matchText, type TextMatcherDeps } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
-import { drawText, lightDrawings, lightFonts, type LightPiece, lightPieces, textJob } from './test-text-pieces.ts'
+import {
+  drawText,
+  lightDrawings,
+  lightFonts,
+  type LightPiece,
+  lightPieces,
+  NO_KIT,
+  textJob,
+  textLayerOf,
+} from './test-text-pieces.ts'
 
 const ck = await loadCanvasKit()
 const { files, model } = await textMatcherFiles()
@@ -33,7 +44,6 @@ const DEPS: TextMatcherDeps = {
   fonts: FIXTURE_FONTS,
   kitFaces: [{ family: UPLOAD.family, weight: UPLOAD.weight, style: 'normal' }],
 }
-const NO_KIT: MatchKit = { colors: {}, fonts: {}, textStyles: [] }
 /** The colour the tilted piece of Light's test is drawn in, and one ΔE00 12 from it. */
 const TILTED_COLOUR = '#C2185BFF'
 const NEAR_MISS = '#C2188FFF'
@@ -46,6 +56,29 @@ async function matchTwice(piece: Pick<LightPiece, 'pixels' | 'words'>, kit: Part
   return first
 }
 
+/** A fit of a face, a kit font's when a token is given, with a letter shape and a rank. */
+function fitOf(family: string, shape: number, rank: number, brandToken?: string): Fitted {
+  const look = {
+    family,
+    weight: 400,
+    style: 'normal',
+    size: 40,
+    spacing: 0,
+    align: 'start',
+    color: '#000000FF',
+  } as const
+  return {
+    face: { key: `${family}|400|normal`, family, weight: 400, style: 'normal', ...(brandToken ? { brandToken } : {}) },
+    look,
+    place: { x: 0, y: 0, width: 100, height: 40, rotation: 0 },
+    rank,
+    overlap: shape,
+    shape,
+    lines: [],
+    lineGaps: [],
+  }
+}
+
 /** The piece of Light's test with this id. */
 function pieceOf(id: string): LightPiece {
   const piece = pieces.find((p) => p.id === id)
@@ -53,15 +86,17 @@ function pieceOf(id: string): LightPiece {
   return piece
 }
 
-/** The one text layer of an answer that looks the same. */
-function textLayerOf(answer: MatchAnswer): Extract<UnplacedLayer, { type: 'text' }> {
-  expect(answer.kind).toBe('layers')
-  const layer = answer.kind === 'layers' ? answer.layers[0] : undefined
-  if (layer?.type !== 'text') throw new Error('the answer is no text layer')
-  return layer
-}
-
 describe('pickFit', () => {
+  it('picks a kit font whose letter shape trails the best by 0.03 or less, else the best', () => {
+    const best = fitOf('Roboto', 0.9, 1.3)
+    const near = fitOf('Lato', 0.875, 1.2, 'heading')
+    const far = fitOf('Lato', 0.865, 1.2, 'heading')
+    expect(pickFit([best, near])).toBe(near)
+    expect(pickFit([best, far])).toBe(best)
+    expect(pickFit([best, fitOf('Lato', 0.89, 1.25)])).toBe(best)
+    expect(pickFit([])).toBeUndefined()
+  })
+
   it('gives text drawn in the kit’s Heading font back in it, bound to brand:heading', async () => {
     const layer = textLayerOf(await matchTwice(pieceOf('latin-plain'), { fonts: { heading: 'Montserrat' } }))
     expect(layer.props.style).toMatchObject({ fontFamily: 'Montserrat', fontWeight: 800 })
@@ -76,6 +111,12 @@ describe('pickFit', () => {
     const layer = textLayerOf(answer)
     expect(layer.props.style).toMatchObject({ fontFamily: UPLOAD.family, fontWeight: UPLOAD.weight })
     expect(layer.bindings).toEqual({ fontFamily: 'brand:heading' })
+  })
+
+  it('passes over a kit font whose letters trail the best by more than 0.03', async () => {
+    const layer = textLayerOf(await matchTwice(pieceOf('latin-plain'), { fonts: { heading: 'Montserrat Alternates' } }))
+    expect(layer.props.style.fontFamily).toBe('Montserrat')
+    expect(layer.bindings).toBeUndefined()
   })
 
   it('binds nothing with no kit', async () => {

@@ -4,7 +4,7 @@
 // It is bounded by its rounds and reads no clock, so a slow device gets a fast one's answer.
 
 import type { TextDrawer, TextLook } from './draw-text.ts'
-import { BASE_LINE_HEIGHT, type Fitted, placeByInk } from './light/fit.ts'
+import { BASE_LINE_HEIGHT, type Fitted, type Nudge, placeByInk } from './light/fit.ts'
 import type { PieceReading } from './read-piece.ts'
 
 /** A setting the finer fit moves. */
@@ -34,7 +34,7 @@ const BETTER_BY = 1e-4
  */
 export function finerFit(drawer: TextDrawer, reading: PieceReading, words: string, start: Fitted): Fitted {
   let best = start
-  let nudge = { dx: 0, dy: 0 }
+  let nudge: Nudge = { dx: 0, dy: 0 }
   const steps: Record<Setting, number> = { ...FIRST_STEPS }
   const settings = Object.keys(FIRST_STEPS) as Setting[]
   const lined = words.includes('\n')
@@ -44,7 +44,7 @@ export function finerFit(drawer: TextDrawer, reading: PieceReading, words: strin
       if (setting === 'outline' && !best.look.outline) continue
       for (const sign of [1, -1]) {
         const look = moved(best.look, setting, sign * steps[setting])
-        const place = {
+        const place: Nudge = {
           dx: nudge.dx + (setting === 'dx' ? sign * steps.dx : 0),
           dy: nudge.dy + (setting === 'dy' ? sign * steps.dy : 0),
         }

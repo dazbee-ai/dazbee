@@ -25,6 +25,8 @@ export interface Verified extends Judged {
   bindings: Bindings
   /** The look of the kit text style the text is bound to, which its layer takes. */
   styleLook?: StyleLook
+  /** The look in the piece's own colours, when it took kit colours. */
+  ownLook?: TextLook
 }
 
 /** What a finalist is drawn over and judged against, and the brand kit it is finished with. */
@@ -87,9 +89,9 @@ export function finish(drawer: TextDrawer, target: VerifyTarget, fit: Fitted): V
   const coloured = kitColoured(own, reading, kit.colors)
   if (coloured) {
     const judged = judgeText(drawer, target, coloured.look, place)
-    if (judged.same) return verified(coloured.look, judged, coloured.textColor)
+    if (judged.same) return { ...verified(coloured.look, judged, coloured.textColor), ownLook: own }
     const plain = judgeText(drawer, target, own, place)
-    return plain.same ? verified(own, plain) : verified(coloured.look, judged, coloured.textColor)
+    return plain.same ? verified(own, plain) : { ...verified(coloured.look, judged, coloured.textColor), ownLook: own }
   }
   return verified(own, judgeText(drawer, target, own, place))
 }
@@ -107,6 +109,11 @@ export function judgeText(drawer: TextDrawer, target: VerifyTarget, look: TextLo
   })
 }
 
+/** The closeness of a rebuild: the rule's SSIM less the share of ink it missed. */
+function closeness(scores: Judged['scores']): number {
+  return scores.ssim - scores.inkMissed
+}
+
 /** A fit's look in the piece's fill colour and outline. */
 function inPieceColours(look: TextLook, reading: PieceReading): TextLook {
   return {
@@ -118,11 +125,6 @@ function inPieceColours(look: TextLook, reading: PieceReading): TextLook {
         }
       : {}),
   }
-}
-
-/** The closeness of a rebuild: the rule's SSIM less the share of ink it missed. */
-function closeness(scores: Judged['scores']): number {
-  return scores.ssim - scores.inkMissed
 }
 
 /** A place in the level piece turned back by the piece's tilt about the piece's centre. */

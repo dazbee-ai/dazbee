@@ -24,7 +24,7 @@ import { MatchSetting } from '@dazbee/schema'
 
 import { fontKey } from '../src/text/font-key.ts'
 import type { FontSource } from '../src/text/font-source.ts'
-import { type TextMatch, textMatch, type TextMatcherDeps } from '../src/text/match-text.ts'
+import { matchTextWithFace, type TextMatch, type TextMatcherDeps } from '../src/text/match-text.ts'
 import { openNodeModel } from '../src/text/model-runtime-node.ts'
 import { readTextFiles, TEXT_FILES, type TextFileBytes } from '../src/text/text-files.ts'
 import { fetchFiles, FILES_DIR } from './fetch-files.ts'
@@ -128,7 +128,7 @@ async function measure(list: readonly MeasuredPiece[], print: boolean): Promise<
   const measured: Record<string, Measured> = {}
   for (const { id, job, piece, truth } of list) {
     const started = performance.now()
-    const { answer, face } = await textMatch(job, piece, deps)
+    const { answer, face } = await matchTextWithFace(job, piece, deps)
     const ms = performance.now() - started
     const key = face ? fontKey(face) : undefined
     measured[id] = {

@@ -27,6 +27,12 @@ export interface Fitted {
   lineGaps: number[]
 }
 
+/** How far a placed draw is moved past where its ink centre meets the piece's, in pixels. */
+export interface Nudge {
+  dx: number
+  dy: number
+}
+
 /** Letter spacing is kept within these, in %. */
 export const SPACING_RANGE = { min: -25, max: 120 }
 /** Line height is kept within these, a multiple of the size. */
@@ -118,7 +124,7 @@ export function placeByInk(
   words: string,
   face: Candidate,
   look: TextLook,
-  nudge: { dx: number; dy: number } = { dx: 0, dy: 0 },
+  nudge: Nudge = { dx: 0, dy: 0 },
   keptShape?: number,
 ): Omit<Fitted, 'lineGaps'> | null {
   const { box, level } = reading

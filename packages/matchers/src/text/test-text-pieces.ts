@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type Pixels, renderPixels } from '@dazbee/renderer'
-import { MatchJob, type MatchKit, type MatchSetting } from '@dazbee/schema'
+import { type MatchAnswer, MatchJob, type MatchKit, type MatchSetting, type UnplacedLayer } from '@dazbee/schema'
 
 import { decodePng } from '../shape/test-pieces.ts'
 import { parseFontKey } from './font-key.ts'
@@ -71,6 +71,8 @@ export const SHORTLIST_FIXTURES = join(import.meta.dirname, '..', '..', 'fixture
 export const LIGHT_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-light')
 /** The words of the noise piece of Light's test. */
 export const NOISE_WORDS = 'Sale'
+/** A brand kit with nothing in it. */
+export const NO_KIT: MatchKit = { colors: {}, fonts: {}, textStyles: [] }
 
 /** The frame the text is drawn in before it is cut round its ink. */
 const FRAME = { width: 1400, height: 900 }
@@ -177,7 +179,7 @@ export function textJob(
   ck: CanvasKit,
   pixels: Pixels,
   words: string,
-  { kit = { colors: {}, fonts: {}, textStyles: [] }, setting }: { kit?: MatchKit; setting?: MatchSetting } = {},
+  { kit = NO_KIT, setting }: { kit?: MatchKit; setting?: MatchSetting } = {},
 ): { job: MatchJob; piece: TextPieceOfJob } {
   const image = ck.MakeImage(
     {
@@ -205,6 +207,14 @@ export function textJob(
     ...(setting ? { setting } : {}),
   })
   return { job, piece }
+}
+
+/** The one text layer of an answer; throws for a picture's answer or another layer. */
+export function textLayerOf(answer: MatchAnswer): Extract<UnplacedLayer, { type: 'text' }> {
+  if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
+  const [layer] = answer.layers
+  if (layer?.type !== 'text') throw new Error('the answer is no text layer')
+  return layer
 }
 
 /** A piece of grey noise the same every time, 240 × 80. */

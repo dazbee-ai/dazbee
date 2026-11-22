@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest'
 
 import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { MatchAnswer, MatchSetting, UnplacedLayer } from '@dazbee/schema'
+import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
+import { LOOKS_SAME } from '../looks-same/rule.ts'
 import type { FontSource } from './font-source.ts'
-import { matchText } from './match-text.ts'
+import { matchText, matchTextWithFace } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
-import { lightFonts, type LightPiece, lightPieces, NOISE_WORDS, noisePiece, textJob } from './test-text-pieces.ts'
+import {
+  lightFonts,
+  type LightPiece,
+  lightPieces,
+  NOISE_WORDS,
+  noisePiece,
+  textJob,
+  textLayerOf,
+} from './test-text-pieces.ts'
 
 const ck = await loadCanvasKit()
 const { files, model } = await textMatcherFiles()
@@ -37,6 +46,9 @@ const ROUND_TRIPS = [
   'devanagari-loose',
 ]
 
+/** The round trip Hybrid keeps a picture, though Light makes it text. */
+const HYBRID_PICTURE = 'arabic-outlined'
+
 /** A piece matched twice in a setting, Light unless named, which must give the same answer. */
 async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting = 'light'): Promise<MatchAnswer> {
   const { job, piece } = textJob(ck, pixels, words, { setting })
@@ -51,14 +63,6 @@ function pieceOf(id: string): LightPiece {
   const piece = pieces.find((p) => p.id === id)
   if (!piece) throw new Error(`Light's test has no piece ${id}`)
   return piece
-}
-
-/** The one text layer of an answer that looks the same. */
-function textLayerOf(answer: MatchAnswer): Extract<UnplacedLayer, { type: 'text' }> {
-  expect(answer.kind).toBe('layers')
-  const layer = answer.kind === 'layers' ? answer.layers[0] : undefined
-  if (layer?.type !== 'text') throw new Error('the answer is no text layer')
-  return layer
 }
 
 describe('matchText', () => {
@@ -78,13 +82,17 @@ describe('matchText', () => {
     const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
     expect(job.setting).toBe('hybrid')
     const deps = { ck, files, model, fonts: FIXTURE_FONTS }
-    const hybrid = await matchText(job, jobPiece, deps)
-    expect(await matchText(job, jobPiece, deps)).toEqual(hybrid)
-    const light = textLayerOf(await matchText({ ...job, setting: 'light' }, jobPiece, deps)).props.style
-    const { style } = textLayerOf(hybrid).props
-    expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(
-      `${light.fontFamily}|${light.fontWeight}|${light.fontStyle}`,
-    )
+    const hybrid = await matchTextWithFace(job, jobPiece, deps)
+    expect(await matchTextWithFace(job, jobPiece, deps)).toEqual(hybrid)
+    const light = await matchTextWithFace({ ...job, setting: 'light' }, jobPiece, deps)
+    expect(hybrid.face).toEqual(light.face)
+    if (id === HYBRID_PICTURE) {
+      // The finer fit finds the 3 px outline drawn, and the colour guard then fails.
+      expect(hybrid.answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
+      expect(hybrid.answer.scores?.inkColour).toBeGreaterThan(LOOKS_SAME.text.inkColour)
+      return
+    }
+    const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
   })
 
@@ -104,5 +112,15 @@ describe('matchText', () => {
     const piece = pieceOf('latin-plain')
     const answer = await matchTwice(piece.pixels, `${piece.words} 𓂀`)
     expect(answer).toEqual({ kind: 'picture', why: 'noFont' })
+  })
+})
+
+describe('matchTextWithFace', () => {
+  it('gives the face it picked with its answer, also when the piece stays a picture', async () => {
+    const { job, piece } = textJob(ck, noisePiece(), NOISE_WORDS)
+    const { answer, face } = await matchTextWithFace(job, piece, { ck, files, model, fonts: FIXTURE_FONTS })
+    expect(answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
+    expect(face).toEqual({ family: expect.any(String), weight: expect.any(Number), style: expect.any(String) })
+    expect(answer).toEqual(await matchText(job, piece, { ck, files, model, fonts: FIXTURE_FONTS }))
   })
 })

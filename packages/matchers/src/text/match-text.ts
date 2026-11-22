@@ -58,11 +58,15 @@ const CORRECTED = 2
  * do, `looksDifferent` otherwise.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
-  return (await textMatch(job, piece, deps)).answer
+  return (await matchTextWithFace(job, piece, deps)).answer
 }
 
 /** `matchText`'s answer, with the face it picked. */
-export async function textMatch(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<TextMatch> {
+export async function matchTextWithFace(
+  job: MatchJob,
+  piece: TextPieceOfJob,
+  deps: TextMatcherDeps,
+): Promise<TextMatch> {
   const { ck, files, fonts } = deps
   const { words } = piece
   const pixels = piecePixels(ck, job.picture, piece.rect)
@@ -146,7 +150,8 @@ function drawnFaces(candidates: readonly Candidate[], faces: ReadonlyMap<string,
 
 /**
  * The answer found on the shrunk piece scaled back to the whole piece, drawn in its face alone and
- * judged at full size.
+ * judged at full size; in the piece's own colours, unbound, when its kit colours look different there
+ * and those look the same.
  */
 function atWholeSize(
   ck: CanvasKit,
@@ -155,12 +160,7 @@ function atWholeSize(
   faces: ReadonlyMap<string, Uint8Array>,
   target: VerifyTarget,
 ): Verified {
-  const { look, place } = won
-  const whole: TextLook = {
-    ...look,
-    size: look.size / scale,
-    ...(look.outline ? { outline: { ...look.outline, width: Math.round((look.outline.width / scale) * 2) / 2 } } : {}),
-  }
+  const { place } = won
   const placed: Placed = {
     ...place,
     x: place.x / scale,
@@ -170,8 +170,25 @@ function atWholeSize(
   }
   const drawer = textDrawer(ck, drawnFaces([won.face], faces))
   try {
-    return { ...won, look: whole, place: placed, ...judgeText(drawer, target, whole, placed) }
+    const whole = wholeLook(won.look, scale)
+    const judged: Verified = { ...won, look: whole, place: placed, ...judgeText(drawer, target, whole, placed) }
+    if (judged.same || !won.ownLook) return judged
+    const own = wholeLook(won.ownLook, scale)
+    const plain = judgeText(drawer, target, own, placed)
+    if (!plain.same) return judged
+    const bindings = { ...won.bindings }
+    delete bindings.textColor
+    return { ...judged, look: own, bindings, ...plain }
   } finally {
     drawer.delete()
+  }
+}
+
+/** A look found on the shrunk piece at the whole piece's size, its outline to the half pixel. */
+function wholeLook(look: TextLook, scale: number): TextLook {
+  return {
+    ...look,
+    size: look.size / scale,
+    ...(look.outline ? { outline: { ...look.outline, width: Math.round((look.outline.width / scale) * 2) / 2 } } : {}),
   }
 }

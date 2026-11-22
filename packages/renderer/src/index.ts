@@ -41,12 +41,6 @@ export {
   type UnderLine,
   visualStep,
 } from './text/caret.ts'
-export {
-  layoutText,
-  paragraphCache,
-  textMeasure,
-  type ParagraphCache,
-  type TextBlock,
-  type TextLayout,
-} from './text/layout.ts'
+export { paragraphCache, type ParagraphCache, textMeasure } from './text/cache.ts'
+export { layoutText, type TextBlock, type TextLayout } from './text/layout.ts'
 export { missingGraphemes } from './text/missing.ts'

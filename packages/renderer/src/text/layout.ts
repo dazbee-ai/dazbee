@@ -1,17 +1,9 @@
-import type {
-  CanvasKit,
-  FontCollection,
-  Paragraph,
-  ParagraphBuilder,
-  StrutStyle,
-  TextStyle as CkTextStyle,
-} from '@dazbee/canvaskit'
+import type { CanvasKit, Paragraph, ParagraphBuilder, StrutStyle, TextStyle as CkTextStyle } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
 import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import { color } from '../color.ts'
-import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
@@ -65,11 +57,10 @@ export interface TextLayout {
   delete(): void
 }
 
-export type ParagraphCache = ReturnType<typeof paragraphCache>
+/** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
+export type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familySuperSubs'>
 
 type Style = TextProps['style']
-/** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
-type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familySuperSubs'>
 
 const ELLIPSIS = '\u2026'
 /** The pass that draws a text's characters. */
@@ -105,54 +96,6 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
     }
   }
   return place(props, best ?? build(ck, props, resources, fit.min / base))
-}
-
-/**
- * Laid-out text kept by what shapes it, for a screen that redraws often: a redraw lays out only
- * the text that changed. The cache owns its layouts; `delete` frees them all.
- */
-export function paragraphCache(limit = 4000) {
-  // The layouts by what shapes them, least recently used first.
-  const entries = lru<string, TextLayout>(limit, (laid) => laid.delete())
-  // The fonts the kept layouts were shaped with.
-  let fonts: FontCollection | null = null
-
-  function layout(ck: CanvasKit, props: TextProps, resources: TextResources) {
-    // The fonts' features are read from the same files, so they change only with the fonts.
-    if (resources.fonts !== fonts) {
-      entries.clear()
-      fonts = resources.fonts
-    }
-    return entries.get(layoutKey(props, resources.fallbackFamilies), () => layoutText(ck, props, resources))
-  }
-
-  return { layout, delete: entries.clear }
-}
-
-/** A text layer laid out, from the paragraph cache when there is one; `done` frees what the cache doesn't own. */
-export function laidOut(ck: CanvasKit, props: TextProps, resources: Resources) {
-  if (resources.paragraphs) return { ...resources.paragraphs.layout(ck, props, resources), done: () => {} }
-  const laid = layoutText(ck, props, resources)
-  return { ...laid, done: () => laid.delete() }
-}
-
-/**
- * Measures text for auto layout (#46), the way `layoutText` lays it out to draw: natural width
- * (rounded up, as a text box that grows draws) or the height at a given width.
- */
-export function textMeasure(ck: CanvasKit, resources: TextResources) {
-  return (props: TextProps, width: number | null) => {
-    const laid = layoutText(
-      ck,
-      width === null ? { ...props, boxMode: 'autoWidth' } : { ...props, boxMode: 'autoHeight', width },
-      resources,
-    )
-    try {
-      return { width: width ?? laid.width, height: laid.height }
-    } finally {
-      laid.delete()
-    }
-  }
 }
 
 /** Vertical alignment in a fixed box. */
@@ -407,7 +350,7 @@ function fits(props: TextProps, laid: TextLayout): boolean {
 }
 
 /** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
-function layoutKey(props: TextProps, fallbackFamilies: string[]) {
+export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
   return JSON.stringify([
     props.text,
     props.runs,

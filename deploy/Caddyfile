@@ -1,6 +1,7 @@
 # Caddy in front of the production stack: app.dazbee.com and pilot.dazbee.com (the early-access admin page)
 # to the web app, app.dazbee.com's /mcp, /oauth/* and /.well-known/oauth-* to the MCP server (ADR-0019),
-# a PUT to app.dazbee.com's /uploads/*, an agent's upload link (ADR-0010), to the API, sync.dazbee.com to the
+# a PUT to app.dazbee.com's /uploads/*, an agent's upload link (ADR-0010), and a GET of its /fonts/google/*, the
+# Google faces' files and previews, to the API, sync.dazbee.com to the
 # sync server, and http://caddy:8080, which only the containers reach, to the API.
 # Ports 80 and 443 take connections from Cloudflare's addresses only (deploy/setup.sh), so the
 # CF-Connecting-IP the MCP server counts sign-ins by comes from Cloudflare. Both public sites use
@@ -59,6 +60,18 @@ app.dazbee.com {
 			transport http {
 				keepalive off
 			}
+		}
+	}
+	# The Google faces' files and previews, which anyone may read. Each answer is kept for good, and Cloudflare caches
+	# .ttf and .png at its edge by their extension, so a repeat never reaches the server; the API counts each
+	# address's asks and refuses one with a query string, which would ask past Cloudflare's copy.
+	@googleFonts {
+		method GET
+		path /fonts/google/*
+	}
+	handle @googleFonts {
+		reverse_proxy router:8787 {
+			import router
 		}
 	}
 	handle_errors 413 {

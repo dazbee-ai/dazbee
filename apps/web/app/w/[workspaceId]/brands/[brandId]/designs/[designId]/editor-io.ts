@@ -1,8 +1,8 @@
-// What the editor loads through the app's own routes: an asset's bytes, the brand's font files and
-// its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
+// What the editor loads through the app's own routes: an asset's bytes, the brand's font files (a Google
+// face's from its permanent address) and its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
 // to keep the page.
 import type { FontSources } from '@dazbee/editor'
-import { BrandKit, FontFamily, type Variables } from '@dazbee/schema'
+import { BrandKit, FontFamily, googleFontPaths, type Variables } from '@dazbee/schema'
 
 import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
@@ -21,14 +21,22 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 
 /**
  * The faces of the families the editor asks for, from the brand's catalog, fetched once and
- * again when a family isn't in it yet, as after an upload; and the file of each face it asks for.
+ * again when a family isn't in it yet, as after an upload; and the file of each face it asks for:
+ * a Google face's from its permanent address, which the browser keeps, and an upload's through the brand.
  */
 export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {
   let catalog: Promise<FontFamily[]> | null = null
+  /** The permanent address of each Google face's file the catalog listed, by face id. */
+  const permanent = new Map<string, string>()
   const fetchCatalog = async () => {
     const response = await fetch(brandPath(workspaceId, brandId, 'fonts'))
     if (!response.ok) throw new Error(`fonts: ${response.status}`)
-    return FontFamily.array().parse(await response.json())
+    const families = FontFamily.array().parse(await response.json())
+    for (const face of families.flatMap((family) => family.faces)) {
+      const paths = googleFontPaths(face)
+      if (paths) permanent.set(face.id, paths.file)
+    }
+    return families
   }
   return {
     fontFaces: async (families) => {
@@ -40,7 +48,7 @@ export function fontLoader(workspaceId: string, brandId: string): Required<FontS
       return known.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
     },
     fontFile: async (face) => {
-      const response = await fetch(brandPath(workspaceId, brandId, 'fonts', face.id))
+      const response = await fetch(permanent.get(face.id) ?? brandPath(workspaceId, brandId, 'fonts', face.id))
       if (!response.ok) throw new Error(`font ${face.family} ${face.weight}: ${response.status}`)
       return new Uint8Array(await response.arrayBuffer())
     },

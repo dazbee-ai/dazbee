@@ -2,8 +2,9 @@
 // only: a workspace the person is not a member of, a brand or design of another workspace, and a brand outside
 // a limited member's, are answered as if they didn't exist (ADR-0016). Outside a workspace there are only
 // /health, sign-in's /auth/* (with the development invites' accept route), the person's own /me and
-// /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, and the file
-// sent to an agent's upload link, PUT /uploads/:token, whose token is its only key. A person
+// /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, the file
+// sent to an agent's upload link, PUT /uploads/:token, whose token is its only key, and the Google faces' files
+// and previews, GET /fonts/google/:name, which anyone may read. A person
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a
@@ -33,7 +34,7 @@ import { ReadingWebsitesBusy, WEBSITES_PER_HOUR } from './brand-kits/from-websit
 import { brandKitRoutes } from './brand-kits/routes.ts'
 import { FetchRefused, type SafeFetchSettings } from './fetch/safe-fetch.ts'
 import { InvalidFont } from './fonts/fonts.ts'
-import { fontRoutes } from './fonts/routes.ts'
+import { fontRoutes, googleFontRoutes } from './fonts/routes.ts'
 import { brandScope, type Env, error, membershipScope, requireSession } from './http.ts'
 import { logError } from './log.ts'
 import { meRoutes } from './me/routes.ts'
@@ -109,6 +110,7 @@ export function createApp({
   app.route('/', adminRoutes({ db, sessionOf, admins, invites: providers }))
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
   app.route('/', uploadRoutes({ db, storage, admins }))
+  app.route('/', googleFontRoutes({ db, storage }))
 
   const signedIn = requireSession(sessionOf, sessionRefusal(db, admins))
   const records = new Hono<Env>()

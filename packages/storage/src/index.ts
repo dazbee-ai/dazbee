@@ -81,6 +81,16 @@ export function openStorage(settings: StorageSettings) {
     return response.status === 404 ? null : new Uint8Array(await response.arrayBuffer())
   }
 
+  /** The object's bytes as they arrive and how many there are, or null when there is none. */
+  async function stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; byteSize: number } | null> {
+    const response = await send(objectUrl(key))
+    if (response.status === 404 || !response.body) {
+      await response.body?.cancel()
+      return null
+    }
+    return { body: response.body, byteSize: Number(response.headers.get('content-length')) }
+  }
+
   async function remove(key: string) {
     await send(objectUrl(key), { method: 'DELETE' })
   }
@@ -132,6 +142,7 @@ export function openStorage(settings: StorageSettings) {
     ensureBucket,
     put,
     get,
+    stream,
     delete: remove,
     exists,
     list,

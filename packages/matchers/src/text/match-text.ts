@@ -6,6 +6,8 @@
 // looks the same, else Light's when that does, else the closer of the two. A piece read shrunk is
 // matched shrunk, then each answer is scaled back and judged at full size. A piece no catalog face
 // draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
+// A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
+// looks the same is given, else the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -27,7 +29,7 @@ import { rankFits } from './light/rank.ts'
 import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
 import { notoCandidates, plainFit } from './noto.ts'
-import { type PieceReading, readPiece } from './read-piece.ts'
+import { type PieceReading, type ReadPiece, readPiece } from './read-piece.ts'
 import { type Candidate, shortlist } from './shortlist.ts'
 import type { TextFiles } from './text-files.ts'
 
@@ -87,6 +89,12 @@ interface FacesTried {
 /** What `matchFaces` found: the answer, or that none of the faces loaded or none could be fitted. */
 type FacesMatched = Verified | 'unloaded' | 'unfitted'
 
+/** The answer found for one reading of a piece, and whether it is set in Noto. */
+interface ReadingMatched {
+  matched: Verified
+  inNoto: boolean
+}
+
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
 
@@ -107,7 +115,7 @@ export async function matchTextWithFace(
   piece: TextPieceOfJob,
   deps: TextMatcherDeps,
 ): Promise<TextMatch> {
-  const { ck, files, fonts } = deps
+  const { ck } = deps
   const { words } = piece
   const told = new Set<TextStep>()
   const step = (next: TextStep) => {
@@ -116,14 +124,48 @@ export async function matchTextWithFace(
     deps.step?.(next)
   }
   step('reading')
-  const pixels = piecePixels(ck, job.picture, piece.rect)
-  const { whole, work, scale } = readPiece({
-    pixels,
+  const textPiece = {
+    pixels: piecePixels(ck, job.picture, piece.rect),
     words,
     ...(piece.angle !== undefined ? { angle: piece.angle } : {}),
-  })
+  }
+  const read = readPiece(textPiece)
   // No pixel of the piece holds any ink: there is nothing to read.
-  if (!inkBox(whole.ink, 0)) return { answer: pictureAnswer('failed') }
+  if (!inkBox(read.whole.ink, 0)) return { answer: pictureAnswer('failed') }
+  const asRead = await matchReading(job, words, read, deps, step)
+  // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
+  // counter, or letters in a drawn frame, can read as hollow.
+  const asDrawn =
+    read.whole.fill === null
+      ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
+      : 'failed'
+  const best = closerMatch(asDrawn, asRead)
+  if (best === 'failed') return { answer: pictureAnswer('failed') }
+  const { matched, inNoto } = best
+  const { look, place, scores, bindings, styleLook } = matched
+  return {
+    answer: textAnswer(words, look, place, scores, {
+      approximate: inNoto || !matched.same,
+      bindings,
+      ...(styleLook ? { styleLook } : {}),
+    }),
+    face: { family: matched.face.family, weight: matched.face.weight, style: matched.face.style },
+  }
+}
+
+/**
+ * The answer for one reading of a piece: in a face its fingerprint shortlists, or in the Noto of its
+ * script when none of those draws it or can be fitted; `failed` when the font source gives none of
+ * the faces tried.
+ */
+async function matchReading(
+  job: MatchJob,
+  words: string,
+  { whole, work, scale }: ReadPiece,
+  deps: TextMatcherDeps,
+  step: (step: TextStep) => void,
+): Promise<ReadingMatched | 'failed'> {
+  const { ck, files, fonts } = deps
   step('shortlist')
   const fingerprint = await pieceFingerprint(deps.model, files, work.level, work.lines)
   const listed = await shortlist({
@@ -149,16 +191,18 @@ export async function matchTextWithFace(
         plainWhenUnfitted: true,
       })
     : listedMatch
-  if (typeof matched === 'string') return { answer: pictureAnswer('failed') }
-  const { look, place, scores, bindings, styleLook } = matched
-  return {
-    answer: textAnswer(words, look, place, scores, {
-      approximate: inNoto || !matched.same,
-      bindings,
-      ...(styleLook ? { styleLook } : {}),
-    }),
-    face: { family: matched.face.family, weight: matched.face.weight, style: matched.face.style },
-  }
+  return typeof matched === 'string' ? 'failed' : { matched, inNoto }
+}
+
+/**
+ * Of two readings' answers, the one that looks the same and isn't set in Noto when only one does,
+ * else the closer by the rule's SSIM less the ink missed, the first on a tie.
+ */
+function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 'failed'): ReadingMatched | 'failed' {
+  if (first === 'failed' || second === 'failed') return first === 'failed' ? second : first
+  const looksSame = ({ matched, inNoto }: ReadingMatched) => matched.same && !inNoto
+  if (looksSame(first) !== looksSame(second)) return looksSame(first) ? first : second
+  return closeness(second.matched.scores) > closeness(first.matched.scores) ? second : first
 }
 
 /**

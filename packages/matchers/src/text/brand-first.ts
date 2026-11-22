@@ -67,7 +67,7 @@ export function kitColoured(
   reading: PieceReading,
   colors: MatchKit['colors'],
 ): KitColoured | undefined {
-  const text = reading.hollow ? undefined : nearestKitColour(reading.fill, colors)
+  const text = reading.fill && nearestKitColour(reading.fill, colors)
   const outline = look.outline && reading.outline ? nearestKitColour(reading.outline.colour, colors) : undefined
   if (!text && !outline) return undefined
   return {

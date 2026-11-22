@@ -182,18 +182,18 @@ export function hollowOf(ink: Ink): Hollow | null {
   const n = width * height
   const wall = new Uint8Array(n)
   for (let i = 0; i < n; i++) wall[i] = (data[i] ?? 0) > WALL_FROM ? 1 : 0
-  const walls = wallsCrossed(width, height, wall)
-  let lines = 0
+  const crossed = wallsCrossed(width, height, wall)
+  let inked = 0
   let insides = 0
   for (let i = 0; i < n; i++)
-    if (wall[i]) lines++
-    else if ((walls[i] ?? 0) % 2 === 1) insides++
-  if (lines === 0 || insides < HOLLOW_INSIDE * lines) return null
+    if (wall[i]) inked++
+    else if ((crossed[i] ?? 0) % 2 === 1) insides++
+  if (inked === 0 || insides < HOLLOW_INSIDE * inked) return null
   const line = lineWidth(ink)
-  const parting = partingShares(width, height, wall, walls, 2 * line + 1)
+  const parting = partingShares(width, height, wall, crossed, 2 * line + 1)
   if (parting.letters < HOLLOW_PARTING || parting.counters < HOLLOW_PARTING) return null
   const filled = new Float32Array(n)
-  for (let i = 0; i < n; i++) filled[i] = !wall[i] && (walls[i] ?? 0) % 2 === 1 ? 1 : (data[i] ?? 0)
+  for (let i = 0; i < n; i++) filled[i] = !wall[i] && (crossed[i] ?? 0) % 2 === 1 ? 1 : (data[i] ?? 0)
   return { filled: { width, height, data: filled }, width: line }
 }
 
@@ -252,7 +252,7 @@ function resample(ink: Ink, box: Box, width: number, height: number, taps: numbe
  * count of walls at a time, stepping to the four neighbours.
  */
 function wallsCrossed(width: number, height: number, wall: Uint8Array): Int32Array {
-  const walls = new Int32Array(width * height).fill(-1)
+  const crossed = new Int32Array(width * height).fill(-1)
   let current: number[] = []
   let next: number[] = []
   const enter = (i: number) => (wall[i] ? next : current).push(i)
@@ -267,11 +267,11 @@ function wallsCrossed(width: number, height: number, wall: Uint8Array): Int32Arr
   for (let count = 0; current.length > 0 || next.length > 0; count++) {
     for (let q = 0; q < current.length; q++) {
       const i = current[q] ?? 0
-      if ((walls[i] ?? 0) >= 0) continue
-      walls[i] = count
+      if ((crossed[i] ?? 0) >= 0) continue
+      crossed[i] = count
       const x = i % width
       const step = (j: number) => {
-        if ((walls[j] ?? 0) < 0) (wall[j] && !wall[i] ? next : current).push(j)
+        if ((crossed[j] ?? 0) < 0) (wall[j] && !wall[i] ? next : current).push(j)
       }
       if (x > 0) step(i - 1)
       if (x < width - 1) step(i + 1)
@@ -281,7 +281,7 @@ function wallsCrossed(width: number, height: number, wall: Uint8Array): Int32Arr
     current = next
     next = []
   }
-  return walls
+  return crossed
 }
 
 /**
@@ -313,20 +313,20 @@ function partingShares(
   width: number,
   height: number,
   wall: Uint8Array,
-  walls: Int32Array,
+  crossed: Int32Array,
   reach: number,
 ): { letters: number; counters: number } {
-  const odd = stepsTo(width, height, (i) => !wall[i] && (walls[i] ?? 0) % 2 === 1, false)
-  const even = stepsTo(width, height, (i) => !wall[i] && (walls[i] ?? 0) % 2 === 0, true)
+  const odd = stepsTo(width, height, (i) => !wall[i] && (crossed[i] ?? 0) % 2 === 1, false)
+  const even = stepsTo(width, height, (i) => !wall[i] && (crossed[i] ?? 0) % 2 === 0, true)
   const total = [0, 0]
   const parting = [0, 0]
   for (let i = 0; i < wall.length; i++) {
     if (!wall[i]) continue
-    const round = (walls[i] ?? 0) >= 2 ? 1 : 0
-    total[round] = (total[round] ?? 0) + 1
-    if ((odd[i] ?? Infinity) <= reach && (even[i] ?? Infinity) <= reach) parting[round] = (parting[round] ?? 0) + 1
+    const kind = (crossed[i] ?? 0) >= 2 ? 1 : 0
+    total[kind] = (total[kind] ?? 0) + 1
+    if ((odd[i] ?? Infinity) <= reach && (even[i] ?? Infinity) <= reach) parting[kind] = (parting[kind] ?? 0) + 1
   }
-  const share = (round: number) => ((total[round] ?? 0) > 0 ? (parting[round] ?? 0) / (total[round] ?? 1) : 1)
+  const share = (kind: number) => ((total[kind] ?? 0) > 0 ? (parting[kind] ?? 0) / (total[kind] ?? 1) : 1)
   return { letters: share(0), counters: share(1) }
 }
 

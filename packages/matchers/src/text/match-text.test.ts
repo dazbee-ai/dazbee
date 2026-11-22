@@ -8,9 +8,11 @@ import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
+import { readPiece } from './read-piece.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import {
   blankPiece,
+  drawText,
   lightFonts,
   type LightPiece,
   lightPieces,
@@ -138,6 +140,27 @@ describe('matchText', () => {
       expect(Math.abs((style.outline?.width ?? 0) - (piece.outline?.width ?? 0))).toBeLessThanOrEqual(OUTLINE_WITHIN)
     },
   )
+
+  it('gives thin letters that read as hollow back filled when, as drawn, they look the same', async () => {
+    const words = 'BOB'
+    const pixels = drawText(ck, {
+      words,
+      family: 'Noto Sans',
+      weight: 400,
+      size: 48,
+      colour: '#222222',
+      background: '#FFFFFF',
+    })
+    // Every stroke of a thin B or O edges a counter, so the letters read as hollow.
+    expect(readPiece({ pixels, words }).whole.fill).toBeNull()
+    const noto = shipped.get('Noto Sans|400|normal') ?? null
+    const { job, piece } = textJob(ck, pixels, words)
+    const answer = await matchText(job, piece, { ck, files, model, fonts: { face: async () => noto } })
+    expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+    const { style } = textLayerOf(answer).props
+    expect(style.color).toBe('#222222FF')
+    expect(style.outline).toBeUndefined()
+  })
 
   it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {
     const { light, hybrid } = await lightAndHybrid(LIGHT_KEPT)

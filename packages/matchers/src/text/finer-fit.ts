@@ -43,7 +43,7 @@ export function finerFit(drawer: TextDrawer, reading: PieceReading, words: strin
     for (const setting of settings) {
       if (setting === 'lineHeight' && !lined) continue
       // Hollow letters' line keeps the width read: a wider one would only fill the letters out.
-      if (setting === 'outline' && (!best.look.outline || reading.hollow)) continue
+      if (setting === 'outline' && (!best.look.outline || reading.fill === null)) continue
       for (const sign of [1, -1]) {
         const look = moved(best.look, setting, sign * steps[setting])
         const place: Nudge = {

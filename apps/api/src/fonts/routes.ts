@@ -20,6 +20,7 @@ import {
   fontLink,
   googleFaceFile,
   googleFontList,
+  lastGoogleFontList,
   listFonts,
   recordFont,
   startFontUpload,
@@ -27,6 +28,11 @@ import {
 
 /** The Google files and previews one address may ask the API for in a minute; Cloudflare answers repeats itself. */
 export const GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE = 600
+/**
+ * How long an ask for a Google list other than the last one built waits before it asks the database again whether the
+ * Google faces changed; asks in between are answered 404 from memory.
+ */
+export const GOOGLE_LIST_CHECK_MS = 10_000
 
 /** A Google face's name at its address: its id, then its extension. */
 const GOOGLE_FACE_FILE_NAME = /^([\w-]{1,64})\.([a-z]+)$/
@@ -102,16 +108,34 @@ export function googleFontRoutes({
   db,
   storage,
   perAddressPerMinute = GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE,
+  listCheckMs = GOOGLE_LIST_CHECK_MS,
 }: {
   db: Db
   storage: Storage
   perAddressPerMinute?: number
+  listCheckMs?: number
 }): Hono<Env> {
   const app = new Hono<Env>()
   // Counted by the address Cloudflare names, the only way in.
   const perAddress = requestLimit({ perWindow: perAddressPerMinute, windowMs: 60_000 })
+  // Only a file or list that came whole is kept: no other answer, an error of the app's included.
+  app.use('/fonts/google/*', async (c, next) => {
+    await next()
+    if (c.res.status !== 200) c.res.headers.set('cache-control', 'no-store')
+  })
   /** Whether the address asking may ask for one more file or list this minute. */
   const mayAsk = (c: Context<Env>) => perAddress.take(networkOf(c.req.header('cf-connecting-ip')?.trim() ?? ''))
+  /** When an ask for another Google list last asked the database. */
+  let listCheckedAt = Number.NEGATIVE_INFINITY
+  /** The Google list of this hash, from memory, or the database at most once in `listCheckMs`; none for another. */
+  const listOf = async (hash: string) => {
+    const last = await lastGoogleFontList()
+    if (last?.hash === hash) return last
+    if (Date.now() - listCheckedAt < listCheckMs) return undefined
+    listCheckedAt = Date.now()
+    const now = await googleFontList(db)
+    return now.hash === hash ? now : undefined
+  }
   const tooMany = (c: Context<Env>) =>
     c.json(error('This address has asked for too many font files; try again in a minute'), 429, KEEP_NOTHING)
   app.get(`${GOOGLE_FONT_PATH}:name`, async (c) => {
@@ -140,9 +164,9 @@ export function googleFontRoutes({
     if (!name?.[1] || url.search !== '' || url.pathname !== `${GOOGLE_FONT_LIST_PATH}${name[0]}`)
       return c.json(error('No such list'), 404, KEEP_NOTHING)
     if (!mayAsk(c)) return tooMany(c)
-    const list = await googleFontList(db)
+    const list = await listOf(name[1])
     // Another list's: an old one, or the one of a server that is being swapped out; the browser asks the brand again.
-    if (list.hash !== name[1]) return c.json(error('No such list'), 404, KEEP_NOTHING)
+    if (!list) return c.json(error('No such list'), 404, KEEP_NOTHING)
     const headers = {
       'content-type': 'application/json',
       'content-length': String(list.bytes.length),

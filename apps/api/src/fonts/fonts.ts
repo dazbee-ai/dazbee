@@ -54,8 +54,8 @@ const visibleTo = (workspaceId: string, brandId: string) =>
 /** The Google Fonts families by name, once looked up. */
 let googleByName: ReadonlyMap<string, GoogleFamily> | undefined
 
-/** The Google list last built, with the fingerprint of the Google faces it was built from. */
-let builtList: { fingerprint: string; list: GoogleFontList } | undefined
+/** The Google list last built or being built, with the fingerprint of the Google faces it is built from. */
+let builtList: { fingerprint: string; list: Promise<GoogleFontList> } | undefined
 
 /**
  * The catalog a brand picks from, families by name; a Google family with its place in Google
@@ -101,15 +101,30 @@ export async function googleFontList(db: Db): Promise<GoogleFontList> {
     .where(eq(fontFaces.source, 'google'))
   const fingerprint = stored?.fingerprint ?? ''
   if (builtList?.fingerprint === fingerprint) return builtList.list
-  // By id, so the same faces always come in the same order.
+  // Asks at the same moment wait for the one build.
+  const list = buildGoogleFontList(db)
+  builtList = { fingerprint, list }
+  list.catch(() => {
+    if (builtList?.list === list) builtList = undefined
+  })
+  return list
+}
+
+/** The Google list last built, without asking the database; none before the first is built. */
+export async function lastGoogleFontList(): Promise<GoogleFontList | undefined> {
+  return builtList?.list.catch(() => undefined)
+}
+
+/**
+ * The Google list of the faces stored now, by id, so the same faces always come in the same order. A face added
+ * between the fingerprint and this read is in the list already; the next fingerprint builds it again.
+ */
+async function buildGoogleFontList(db: Db): Promise<GoogleFontList> {
   const rows = (await db.select().from(fontFaces).where(eq(fontFaces.source, 'google'))).sort((a, b) =>
     byCodeUnits(a.id, b.id),
   )
   const bytes = new TextEncoder().encode(JSON.stringify(toFamilies(rows)))
-  const list = { hash: createHash('sha256').update(bytes).digest('hex').slice(0, 32), bytes }
-  // A face added between the fingerprint and the read is in the list already; the next fingerprint builds it again.
-  builtList = { fingerprint, list }
-  return list
+  return { hash: createHash('sha256').update(bytes).digest('hex').slice(0, 32), bytes }
 }
 
 /** A face the brand can use and short-lived URLs to its file and preview, or null. */

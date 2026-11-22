@@ -58,11 +58,29 @@ async function familiesAt(path: string): Promise<FontFamily[] | null> {
   return FontFamily.array().safeParse(await response.json().catch(() => null)).data ?? null
 }
 
+/**
+ * The Google list at its address, whose name is the hash of its bytes: the browser's copy, or the server's when the
+ * browser's isn't those bytes, as a copy kept cut off would be; null when neither is.
+ */
+async function wholeGoogleList(path: string): Promise<FontFamily[] | null> {
+  const hash = /([0-9a-f]+)\.js$/.exec(path)?.[1]
+  for (const cache of ['default', 'reload'] as const) {
+    const response = await fetch(path, { cache }).catch(() => null)
+    if (!response?.ok) return null
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
+    const read = [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    if (!hash || !read.startsWith(hash)) continue
+    return FontFamily.array().safeParse(JSON.parse(new TextDecoder().decode(bytes))).data ?? null
+  }
+  return null
+}
+
 /** The Google list at its address, read once for the page and kept by the browser for good. */
 function googleList(path: string): Promise<FontFamily[] | null> {
   let list = googleLists.get(path)
   if (!list) {
-    list = familiesAt(path)
+    list = wholeGoogleList(path)
     googleLists.set(path, list)
     void list.then((families) => {
       if (!families) googleLists.delete(path)

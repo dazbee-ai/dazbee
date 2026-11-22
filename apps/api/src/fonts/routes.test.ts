@@ -5,11 +5,19 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { fontFaces, newId } from '@dazbee/db'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
-import { brandCatalog, FontCatalogParts, FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
+import {
+  brandCatalog,
+  FontCatalogParts,
+  FontFace,
+  FontFamily,
+  FontLink,
+  FontUploadTicket,
+  googleFontListPath,
+} from '@dazbee/schema'
 
 import { app, brand, call, db, otherBrand, run, SHORT_ID, sibling, storage, workspace } from '../test-api.ts'
 import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
-import { fontFiles } from './fonts.ts'
+import { fontFiles, lastGoogleFontList } from './fonts.ts'
 import { importGoogleFamily } from './google.ts'
 import { googleFontRoutes } from './routes.ts'
 
@@ -52,6 +60,15 @@ describe('fonts', { timeout: 30_000 }, () => {
     const answer = await call(as, 'GET', `/brands/${brandId}/fonts/catalog`)
     expect(answer.status).toBe(200)
     return FontCatalogParts.parse(answer.json)
+  }
+
+  /** What `read` gives while the Google faces stay the same, which other files' tests change at the same time. */
+  async function whileGoogleFacesStay<T>(read: () => Promise<T>): Promise<T> {
+    for (let tries = 1; ; tries += 1) {
+      const before = (await catalogOf('a', brand.id)).google
+      const result = await read()
+      if ((await catalogOf('a', brand.id)).google === before || tries === 5) return result
+    }
   }
 
   /** The id of the stand-in Google family's face of this weight, once copied. */
@@ -352,14 +369,18 @@ describe('fonts', { timeout: 30_000 }, () => {
   it('serves the Google list to anyone at an address kept for good, which every brand’s catalog names beside its own uploads', async () => {
     await upload('a', brand.id, bold)
     await upload('b', otherBrand.id, regular)
-    const mine = await catalogOf('a', brand.id)
-    const theirs = await catalogOf('b', otherBrand.id)
+    const { mine, theirs, answer, whole } = await whileGoogleFacesStay(async () => {
+      const mine = await catalogOf('a', brand.id)
+      const theirs = await catalogOf('b', otherBrand.id)
+      const answer = await app.request(mine.google)
+      const whole = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
+      return { mine, theirs, answer, whole }
+    })
     expect(theirs.google).toBe(mine.google)
     expect(mine.uploads.map((f) => f.family)).toContain('Noto Sans')
     expect(mine.uploads.every((f) => f.source === 'upload')).toBe(true)
     expect(theirs.uploads.find((f) => f.family === 'Noto Sans')?.faces.map((f) => f.byteSize)).toEqual([regular.length])
 
-    const answer = await app.request(mine.google)
     expect(answer.status).toBe(200)
     const bytes = new Uint8Array(await answer.arrayBuffer())
     expect(Object.fromEntries(answer.headers)).toMatchObject({
@@ -377,7 +398,6 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(list.flatMap((f) => f.faces).filter((face) => uploaded.has(face.id))).toEqual([])
 
     // Joined, the two parts are the whole catalog the brand is listed.
-    const whole = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
     expect(brandCatalog(list, mine.uploads)).toEqual(whole)
     expect((await call('b', 'GET', `/brands/${brand.id}/fonts/catalog`)).status).toBe(404)
     expect((await call(null, 'GET', `/brands/${brand.id}/fonts/catalog`)).status).toBe(401)
@@ -398,7 +418,10 @@ describe('fonts', { timeout: 30_000 }, () => {
     try {
       const after = (await catalogOf('a', brand.id)).google
       expect(after).not.toBe(before)
-      const list = FontFamily.array().parse(await (await app.request(after)).json())
+      const bytes = new Uint8Array(await (await app.request(after)).arrayBuffer())
+      // Named by the hash of its bytes, so the same faces give the same address on every server.
+      expect(after).toBe(`/fonts/google/lists/${sha256(bytes).slice(0, 32)}.js`)
+      const list = FontFamily.array().parse(JSON.parse(new TextDecoder().decode(bytes)))
       expect(list.find((f) => f.family === google.family)?.faces.map((f) => f.id)).toContain(row.id)
       const hash = /([\w-]+)\.js$/.exec(after)?.[1] ?? ''
       for (const path of [
@@ -418,8 +441,40 @@ describe('fonts', { timeout: 30_000 }, () => {
     } finally {
       await db.delete(fontFaces).where(eq(fontFaces.id, row.id))
     }
-    // The same faces again: the same list, at the same address.
-    expect((await catalogOf('a', brand.id)).google).toBe(before)
+  })
+
+  it('answers the last list built from memory, and asks the database about another at most once a while', async () => {
+    await catalogOf('a', brand.id)
+    const last = await lastGoogleFontList()
+    if (!last) throw new Error('no Google list was built')
+    let asked = 0
+    const counted = new Proxy(db, {
+      get: (target, key, receiver) => {
+        if (key === 'select') asked += 1
+        return Reflect.get(target, key, receiver) as unknown
+      },
+    })
+    const routes = googleFontRoutes({ db: counted, storage })
+    expect((await routes.request(googleFontListPath(last.hash))).status).toBe(200)
+    expect(asked).toBe(0)
+    for (const digit of '12345') {
+      const refused = await routes.request(`/fonts/google/lists/${digit.repeat(32)}.js`)
+      expect(refused.status).toBe(404)
+      expect(refused.headers.get('cache-control')).toBe('no-store')
+    }
+    // One fingerprint, and one build when the faces changed meanwhile.
+    expect(asked).toBeLessThanOrEqual(2)
+  })
+
+  it('keeps none of an answer that failed', async () => {
+    const down = {
+      select: () => {
+        throw new Error('the database is down')
+      },
+    } as unknown as typeof db
+    const failed = await googleFontRoutes({ db: down, storage }).request(`/fonts/google/lists/${'7'.repeat(32)}.js`)
+    expect(failed.status).toBe(500)
+    expect(failed.headers.get('cache-control')).toBe('no-store')
   })
 
   it('lists only the families asked for, as the brand sees them', async () => {

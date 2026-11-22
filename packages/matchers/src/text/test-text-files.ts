@@ -1,5 +1,6 @@
 // The text matcher's real files for its tests: fetched from the release into `.files/` when missing
 // (offline, that fails with a sentence naming the file), read, and the model opened in onnxruntime-node.
+
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 

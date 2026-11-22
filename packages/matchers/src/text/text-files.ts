@@ -5,6 +5,7 @@
 import { MATCH_CHARACTERS } from '@dazbee/fonts'
 
 import { type FontKey, parseFontKey } from './font-key.ts'
+import { MODEL_NUMBERS } from './model-runtime.ts'
 import { type Script, SCRIPT_LETTERS, SCRIPTS } from './scripts.ts'
 
 /** The name in the release of a file the text matcher reads, besides the model. */
@@ -45,8 +46,6 @@ export const TEXT_FILES: readonly TextFileName[] = [
   'text-novelty.json',
 ]
 
-/** How many numbers the model gives a window. */
-export const MODEL_NUMBERS = 512
 /** How many numbers a font fingerprint holds. */
 export const FINGERPRINT_NUMBERS = 128
 

@@ -19,6 +19,11 @@ export function parseFontKey(key: string): FontKey | null {
   return { family: parts[1], weight: Number(parts[2]), style: parts[3] as FontStyle }
 }
 
+/** The key of a family at a weight in a style, `family|weight|style`. */
+export function fontKey({ family, weight, style }: FontKey): string {
+  return `${family}|${weight}|${style}`
+}
+
 /**
  * The face of `faces`, a family's faces in the catalog, that draws `key`, and the weight to set it at; null when
  * the family has no face of that style whose weight is the key's or whose range covers it. A face of exactly the

@@ -58,70 +58,17 @@ const LINE_ROW_SHARE = 0.02
 /** An edge ring is an outline when its colour is more than this ΔE00 from the fill's. */
 const OUTLINE_DELTA_E = 12
 
+/** How many lines words have. */
+const lineCount = (words: string) => words.split('\n').length
+
 /** A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to it. */
 export function readPiece(piece: TextPiece): ReadPiece {
   const whole = readAt(piece)
-  const lineCount = piece.words.split('\n').length
   // The height of the ink as it is, tilt and all, is enough to decide.
   const box = inkBox(inkOf(piece.pixels))
-  const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount) : 1
+  const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1
   if (!(scale < SHRINK_BELOW)) return { whole, work: whole, scale: 1 }
   return { whole, work: readAt({ ...piece, pixels: shrinkPixels(piece.pixels, scale) }), scale }
-}
-
-/**
- * The tilt that makes the lines sharpest: the angle whose row sums differ most from row to row
- * (Postl's method, as Leptonica measures skew), searched by degrees within ±15°, then by quarters.
- */
-export function estimateAngle(ink: Ink): number {
-  let best = 0
-  let bestSharpness = sharpness(ink, 0)
-  for (let d = -MAX_TILT; d <= MAX_TILT; d += 1) {
-    const s = sharpness(ink, d)
-    if (s > bestSharpness * 1.02) {
-      bestSharpness = s
-      best = d
-    }
-  }
-  for (let d = best - 1; d <= best + 1; d += 0.25) {
-    const s = sharpness(ink, d)
-    if (s > bestSharpness) {
-      bestSharpness = s
-      best = d
-    }
-  }
-  return best
-}
-
-/**
- * The `count` lines of level ink within `box`: bands of rows with ink, split at the emptiest rows.
- * With too many bands the smallest (a dot, an accent) joins its nearer neighbour; with too few the
- * tallest is cut at its thinnest row near an even split.
- */
-export function findLines(level: Ink, box: Box, count: number): Box[] {
-  const rows = new Float64Array(box.h)
-  for (let y = 0; y < box.h; y++)
-    for (let x = box.x; x < box.x + box.w; x++)
-      rows[y] = (rows[y] ?? 0) + (level.data[(box.y + y) * level.width + x] ?? 0)
-  const peak = Math.max(...rows)
-  let bands: [number, number][] = []
-  let start = -1
-  for (let y = 0; y <= box.h; y++) {
-    const on = y < box.h && (rows[y] ?? 0) > peak * LINE_ROW_SHARE
-    if (on && start < 0) start = y
-    if (!on && start >= 0) {
-      bands.push([start, y])
-      start = -1
-    }
-  }
-  // No row with ink, as in faint text: one band over the whole box.
-  if (bands.length === 0) bands.push([0, box.h])
-  while (bands.length > count) bands = joinSmallest(bands)
-  while (bands.length < count) bands = cutTallest(bands, rows, count)
-  return bands.map(([a, b]) => {
-    const band = { x: box.x, y: box.y + a, w: box.w, h: b - a }
-    return inkBox(level, 0.5, band) ?? band
-  })
 }
 
 /** The piece's reading at the size its pixels are. */
@@ -131,7 +78,7 @@ function readAt(piece: TextPiece): PieceReading {
   const angle = piece.angle ?? estimateAngle(ink)
   const level = rotateInk(ink, -angle)
   const box = inkBox(level) ?? { x: 0, y: 0, w: level.width, h: level.height }
-  const lines = findLines(level, box, piece.words.split('\n').length)
+  const lines = findLines(level, box, lineCount(piece.words))
   const { fill, outline } = colours(piece.pixels, ink)
   return { ink, level, angle, box, lines, fill, outline, background, align: alignOf(lines) }
 }
@@ -161,6 +108,118 @@ function shrinkPixels({ width, height, pixels }: Pixels, scale: number): Pixels 
     out[o * 4 + 3] = Math.round((255 * alpha) / Math.max(1, counts[o] ?? 0))
   }
   return { width: w, height: h, pixels: out }
+}
+
+/**
+ * The tilt that makes the lines sharpest: the angle whose row sums differ most from row to row
+ * (Postl's method, as Leptonica measures skew), searched by degrees within ±15°, then by quarters.
+ */
+function estimateAngle(ink: Ink): number {
+  let best = 0
+  let bestSharpness = sharpness(ink, 0)
+  for (let d = -MAX_TILT; d <= MAX_TILT; d += 1) {
+    const s = sharpness(ink, d)
+    if (s > bestSharpness * 1.02) {
+      bestSharpness = s
+      best = d
+    }
+  }
+  for (let d = best - 1; d <= best + 1; d += 0.25) {
+    const s = sharpness(ink, d)
+    if (s > bestSharpness) {
+      bestSharpness = s
+      best = d
+    }
+  }
+  return best
+}
+
+/**
+ * The `count` lines of level ink within `box`: bands of rows with ink, split at the emptiest rows.
+ * With too many bands the smallest (a dot, an accent) joins its nearer neighbour; with too few the
+ * tallest is cut at its thinnest row near an even split.
+ */
+function findLines(level: Ink, box: Box, count: number): Box[] {
+  const rows = new Float64Array(box.h)
+  for (let y = 0; y < box.h; y++)
+    for (let x = box.x; x < box.x + box.w; x++)
+      rows[y] = (rows[y] ?? 0) + (level.data[(box.y + y) * level.width + x] ?? 0)
+  const peak = Math.max(...rows)
+  let bands: [number, number][] = []
+  let start = -1
+  for (let y = 0; y <= box.h; y++) {
+    const on = y < box.h && (rows[y] ?? 0) > peak * LINE_ROW_SHARE
+    if (on && start < 0) start = y
+    if (!on && start >= 0) {
+      bands.push([start, y])
+      start = -1
+    }
+  }
+  // No row with ink, as in faint text: one band over the whole box.
+  if (bands.length === 0) bands.push([0, box.h])
+  while (bands.length > count) bands = joinSmallest(bands)
+  while (bands.length < count) bands = cutTallest(bands, rows, count)
+  return bands.map(([a, b]) => {
+    const band = { x: box.x, y: box.y + a, w: box.w, h: b - a }
+    return inkBox(level, 0.5, band) ?? band
+  })
+}
+
+/**
+ * The fill colour and any outline. The fill is the median of the inner ink, 2 px or more from its
+ * edges; an outline is a ring at the edges whose colour is more than ΔE00 12 from the fill's, as
+ * wide as the ring's area over the edges' length.
+ */
+function colours(picture: Pixels, ink: Ink): Pick<PieceReading, 'fill' | 'outline'> {
+  const { pixels } = picture
+  const { solid, depth } = depths(ink)
+  let maxDepth = 0
+  for (const d of depth) if (d > maxDepth) maxDepth = d
+  const pick = (keep: (d: number) => boolean) => {
+    const r: number[] = []
+    const g: number[] = []
+    const b: number[] = []
+    for (let i = 0; i < depth.length; i++)
+      if (solid[i] && keep(depth[i] ?? 0)) {
+        r.push(pixels[i * 4] ?? 0)
+        g.push(pixels[i * 4 + 1] ?? 0)
+        b.push(pixels[i * 4 + 2] ?? 0)
+      }
+    return r.length > 0 ? { colour: [median(r), median(g), median(b)] as Rgb, count: r.length } : null
+  }
+  const coreFrom = Math.max(2, Math.min(4, Math.floor(maxDepth / 2)))
+  const core = pick((d) => d >= coreFrom) ?? pick(() => true) ?? faintest(picture, ink)
+  const edge = pick((d) => d <= 1.5)
+  if (!edge || maxDepth < 4 || core.count < 30) return { fill: core.colour, outline: null }
+  const coreLab = srgbToLab(...core.colour)
+  const edgeLab = srgbToLab(...edge.colour)
+  if (ciede2000(coreLab, edgeLab) < OUTLINE_DELTA_E) return { fill: core.colour, outline: null }
+  // The ring: solid pixels nearer the outline's colour than the fill's.
+  let ring = 0
+  let perimeter = 0
+  for (let i = 0; i < depth.length; i++) {
+    if (!solid[i]) continue
+    if (depth[i] === 1) perimeter++
+    const here = srgbToLab(pixels[i * 4] ?? 0, pixels[i * 4 + 1] ?? 0, pixels[i * 4 + 2] ?? 0)
+    if (ciede2000(here, edgeLab) < ciede2000(here, coreLab)) ring++
+  }
+  const thickness = perimeter > 0 ? ring / perimeter : 0
+  if (thickness < 0.8) return { fill: core.colour, outline: null }
+  return { fill: core.colour, outline: { width: Math.round(thickness * 2) / 2, colour: edge.colour } }
+}
+
+/** How the lines sit: left edges, centres or right edges lined up, whichever spread least. One line: start. */
+function alignOf(lines: readonly Box[]): PieceReading['align'] {
+  if (lines.length < 2) return 'start'
+  const spread = (edge: (b: Box) => number) => {
+    const values = lines.map(edge)
+    return Math.max(...values) - Math.min(...values)
+  }
+  const left = spread((b) => b.x)
+  const centre = spread((b) => b.x + b.w / 2)
+  const right = spread((b) => b.x + b.w)
+  if (centre <= left && centre <= right) return 'center'
+  return left <= right ? 'start' : 'end'
 }
 
 /** How sharp the lines are when the ink is read at `degrees`: the squared steps between its row sums. */
@@ -211,63 +270,6 @@ function cutTallest(bands: [number, number][], rows: Float64Array, count: number
     }
   }
   return [...bands.slice(0, k), [a, cut], [cut, b], ...bands.slice(k + 1)]
-}
-
-/** How the lines sit: left edges, centres or right edges lined up, whichever spread least. One line: start. */
-function alignOf(lines: readonly Box[]): PieceReading['align'] {
-  if (lines.length < 2) return 'start'
-  const spread = (edge: (b: Box) => number) => {
-    const values = lines.map(edge)
-    return Math.max(...values) - Math.min(...values)
-  }
-  const left = spread((b) => b.x)
-  const centre = spread((b) => b.x + b.w / 2)
-  const right = spread((b) => b.x + b.w)
-  if (centre <= left && centre <= right) return 'center'
-  return left <= right ? 'start' : 'end'
-}
-
-/**
- * The fill colour and any outline. The fill is the median of the inner ink, 2 px or more from its
- * edges; an outline is a ring at the edges whose colour is more than ΔE00 12 from the fill's, as
- * wide as the ring's area over the edges' length.
- */
-function colours(picture: Pixels, ink: Ink): Pick<PieceReading, 'fill' | 'outline'> {
-  const { pixels } = picture
-  const { solid, depth } = depths(ink)
-  let maxDepth = 0
-  for (const d of depth) if (d > maxDepth) maxDepth = d
-  const pick = (keep: (d: number) => boolean) => {
-    const r: number[] = []
-    const g: number[] = []
-    const b: number[] = []
-    for (let i = 0; i < depth.length; i++)
-      if (solid[i] && keep(depth[i] ?? 0)) {
-        r.push(pixels[i * 4] ?? 0)
-        g.push(pixels[i * 4 + 1] ?? 0)
-        b.push(pixels[i * 4 + 2] ?? 0)
-      }
-    return r.length > 0 ? { colour: [median(r), median(g), median(b)] as Rgb, count: r.length } : null
-  }
-  const coreFrom = Math.max(2, Math.min(4, Math.floor(maxDepth / 2)))
-  const core = pick((d) => d >= coreFrom) ?? pick(() => true) ?? faintest(picture, ink)
-  const edge = pick((d) => d <= 1.5)
-  if (!edge || maxDepth < 4 || core.count < 30) return { fill: core.colour, outline: null }
-  const coreLab = srgbToLab(...core.colour)
-  const edgeLab = srgbToLab(...edge.colour)
-  if (ciede2000(coreLab, edgeLab) < OUTLINE_DELTA_E) return { fill: core.colour, outline: null }
-  // The ring: solid pixels nearer the outline's colour than the fill's.
-  let ring = 0
-  let perimeter = 0
-  for (let i = 0; i < depth.length; i++) {
-    if (!solid[i]) continue
-    if (depth[i] === 1) perimeter++
-    const here = srgbToLab(pixels[i * 4] ?? 0, pixels[i * 4 + 1] ?? 0, pixels[i * 4 + 2] ?? 0)
-    if (ciede2000(here, edgeLab) < ciede2000(here, coreLab)) ring++
-  }
-  const thickness = perimeter > 0 ? ring / perimeter : 0
-  if (thickness < 0.8) return { fill: core.colour, outline: null }
-  return { fill: core.colour, outline: { width: Math.round(thickness * 2) / 2, colour: edge.colour } }
 }
 
 /** Which pixels are solid ink (over 0.6), and each solid pixel's city-block steps to the nearest pixel that isn't. */

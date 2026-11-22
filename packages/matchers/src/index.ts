@@ -3,7 +3,14 @@ export { firstPass } from './shape/first-pass.ts'
 export { fullPass } from './shape/full-pass.ts'
 export { pieceFingerprint } from './text/fingerprint.ts'
 export { type FontSource, loadFaces } from './text/font-source.ts'
-export { type ModelRuntime, MODEL_INPUT, MODEL_OUTPUT, WINDOW_HEIGHT, WINDOW_WIDTH } from './text/model-runtime.ts'
+export {
+  MODEL_INPUT,
+  MODEL_NUMBERS,
+  MODEL_OUTPUT,
+  type ModelRuntime,
+  WINDOW_HEIGHT,
+  WINDOW_WIDTH,
+} from './text/model-runtime.ts'
 export { type PieceReading, readPiece, type ReadPiece, type TextPiece, WORK_LINE_HEIGHT } from './text/read-piece.ts'
 export { type Candidate, shortlist, type Shortlist, type ShortlistInput } from './text/shortlist.ts'
 export { readTextFiles, TEXT_FILES, type TextFileBytes, type TextFiles } from './text/text-files.ts'

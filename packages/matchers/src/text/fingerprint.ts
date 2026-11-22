@@ -2,12 +2,12 @@
 // into windows, the windows run through the model in batches, their numbers averaged and projected
 // to the fingerprint's 128, unit length, as the fingerprints of the faces were made.
 
-import { type Box, type Ink, inkBox, lineStrip } from './ink.ts'
-import { type ModelRuntime, WINDOW_HEIGHT, WINDOW_WIDTH } from './model-runtime.ts'
-import { FINGERPRINT_NUMBERS, MODEL_NUMBERS, type TextFiles } from './text-files.ts'
+import { type Box, type Ink, inkBox, lineStrip, type Strip } from './ink.ts'
+import { MODEL_NUMBERS, type ModelRuntime, WINDOW_HEIGHT, WINDOW_WIDTH } from './model-runtime.ts'
+import { FINGERPRINT_NUMBERS, type TextFiles } from './text-files.ts'
 
 /** How many windows the model is given at a time. */
-export const WINDOW_BATCH = 8
+const WINDOW_BATCH = 8
 
 /** The faces' samples were cut at this ink level, so each line's box is found again at it. */
 const STRIP_INK = 0.3
@@ -33,7 +33,7 @@ export async function pieceFingerprint(
     const output = await runtime.run(input, batch.length)
     for (let k = 0; k < batch.length; k++) numbers.push(output.subarray(k * MODEL_NUMBERS, (k + 1) * MODEL_NUMBERS))
   }
-  return project(files, meanUnit(numbers))
+  return project(files, unitSum(numbers))
 }
 
 /** The box a line's strip is cut from: its ink at `STRIP_INK` within a few pixels round it, else the line's box. */
@@ -50,7 +50,7 @@ function stripBox(level: Ink, line: Box): Box {
 }
 
 /** The windows a strip is read in: one, padded, when it is no wider than a window, else windows overlapping by half and one at its end. */
-function windowsOf(strip: { width: number; data: Uint8Array }): Uint8Array[] {
+function windowsOf(strip: Strip): Uint8Array[] {
   const cut = (start: number) => {
     const out = new Uint8Array(WINDOW_HEIGHT * WINDOW_WIDTH)
     for (let y = 0; y < WINDOW_HEIGHT; y++)
@@ -67,8 +67,8 @@ function windowsOf(strip: { width: number; data: Uint8Array }): Uint8Array[] {
   return starts.map(cut)
 }
 
-/** The sum of the vectors made unit length, in 32-bit floats. */
-function meanUnit(vectors: readonly Float32Array[]): Float32Array {
+/** The vectors added up in 32-bit floats and the sum made unit length: their mean's direction. */
+function unitSum(vectors: readonly Float32Array[]): Float32Array {
   const size = vectors[0]?.length ?? 0
   const out = new Float32Array(size)
   for (const v of vectors) for (let i = 0; i < size; i++) out[i] = (out[i] ?? 0) + (v[i] ?? 0)
@@ -87,5 +87,5 @@ function project(files: TextFiles, numbers: Float32Array): Float32Array {
     for (let j = 0; j < FINGERPRINT_NUMBERS; j++)
       out[j] = (out[j] ?? 0) + centred * (files.directions[i * FINGERPRINT_NUMBERS + j] ?? 0)
   }
-  return meanUnit([out])
+  return unitSum([out])
 }

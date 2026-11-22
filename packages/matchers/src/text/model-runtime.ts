@@ -15,6 +15,8 @@ export interface ModelRuntime {
 export const WINDOW_HEIGHT = 64
 /** A window's width in pixels: a strip is read in windows this wide, overlapping by half. */
 export const WINDOW_WIDTH = 256
+/** How many numbers the model gives a window. */
+export const MODEL_NUMBERS = 512
 /** The model's input, windows shaped count × 1 × `WINDOW_HEIGHT` × `WINDOW_WIDTH`. */
 export const MODEL_INPUT = 'ink'
 /** The model's output, `MODEL_NUMBERS` a window. */

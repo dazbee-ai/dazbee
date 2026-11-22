@@ -2,20 +2,19 @@
 // among those that draw its script and every character of its words, and the brand kit's fonts, each
 // family in its 2 faces nearest the fingerprint, or, for a family with no fingerprint (a brand's
 // upload), in its regular face nearest the leader's weight and that face's other style.
+
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace, FontStyle } from '@dazbee/fonts'
 
-import { type FontSource, loadFaces } from './font-source.ts'
+import { type FontKey, fontKey } from './font-key.ts'
+import { type FontSource, type LoadedFaces, loadFaces } from './font-source.ts'
 import { type Script, SCRIPT_LETTERS, scriptOf } from './scripts.ts'
 import { coversByIndex, similarity, type TextFiles } from './text-files.ts'
 
 /** A face the text matcher tries: its key and what the key names, and the brand kit's token when it is a kit font. */
-export interface Candidate {
+export interface Candidate extends FontKey {
   /** `family|weight|style`, which a font source gives the face's bytes by. */
   key: string
-  family: string
-  weight: number
-  style: FontStyle
   brandToken?: string
 }
 
@@ -48,12 +47,15 @@ export interface Shortlist {
   loaded: ReadonlyMap<string, Uint8Array | null>
 }
 
+/** Which of `rows` have faces that draw the words, in their order. */
+type Covers = (rows: readonly number[]) => Promise<boolean[]>
+
 /** How many faces nearest the fingerprint Light tries. */
-export const SHORTLIST = 5
+const SHORTLIST = 5
 /** How many faces nearest the fingerprint are checked for the words' characters, for `SHORTLIST` to remain. */
-export const NEAREST_CHECKED = SHORTLIST * 3
+const NEAREST_CHECKED = SHORTLIST * 3
 /** How many faces of a kit family with fingerprints are tried. */
-export const BRAND_FACES = 2
+const BRAND_FACES = 2
 
 /**
  * The families of the font catalog whose faces are colour fonts (a COLR, CBDT, sbix or SVG table in
@@ -91,7 +93,7 @@ const REGULAR_WEIGHT = 400
 export async function shortlist(input: ShortlistInput): Promise<Shortlist> {
   const { files, fingerprint, words } = input
   const script = scriptOf(words)
-  const loaded = new Map<string, Uint8Array | null>()
+  const loaded: LoadedFaces = new Map()
   const covers = coverage(input, loaded)
   const allowed = files.keys.flatMap((_, row) =>
     !COLOUR_FAMILIES.has(files.faces[row]?.family ?? '') && !files.novelty.has(row) && files.scripts[row]?.has(script)
@@ -115,21 +117,13 @@ export async function shortlist(input: ShortlistInput): Promise<Shortlist> {
   return { nearest, brand, candidates, similarities, loaded }
 }
 
-/** The rows of `allowed` by their similarity to the fingerprint, nearest first, a tie in the rows' order. */
-function nearestRows(files: TextFiles, fingerprint: Float32Array, allowed: readonly number[]): number[] {
-  return allowed
-    .map((row) => ({ row, similarity: similarity(files, row, fingerprint) }))
-    .sort((a, b) => b.similarity - a.similarity)
-    .map(({ row }) => row)
-}
-
 /**
  * Tells which rows' faces draw every character of the words: by the coverage index, and for words
  * with characters it doesn't hold, by loading the faces, all asked for at once, into `loaded`.
  */
-function coverage(input: ShortlistInput, loaded: Map<string, Uint8Array | null>) {
+function coverage(input: ShortlistInput, loaded: LoadedFaces): Covers {
   const { files, words } = input
-  return async (rows: readonly number[]): Promise<boolean[]> => {
+  return async (rows) => {
     const known = rows.map((row) => coversByIndex(files, row, words))
     const unknown = rows.filter((_, i) => known[i] === null).map((row) => files.keys[row] ?? '')
     await loadInto(input, unknown, loaded)
@@ -138,11 +132,7 @@ function coverage(input: ShortlistInput, loaded: Map<string, Uint8Array | null>)
 }
 
 /** The first `count` of `rows`, in order, whose faces draw the words, checking as few as that takes. */
-async function firstCovering(
-  rows: readonly number[],
-  count: number,
-  covers: (rows: readonly number[]) => Promise<boolean[]>,
-): Promise<number[]> {
+async function firstCovering(rows: readonly number[], count: number, covers: Covers): Promise<number[]> {
   const kept: number[] = []
   let next = 0
   while (kept.length < count && next < rows.length) {
@@ -156,6 +146,21 @@ async function firstCovering(
   return kept
 }
 
+/** The rows of `allowed` by their similarity to the fingerprint, nearest first, a tie in the rows' order. */
+function nearestRows(files: TextFiles, fingerprint: Float32Array, allowed: readonly number[]): number[] {
+  return allowed
+    .map((row) => ({ row, similarity: similarity(files, row, fingerprint) }))
+    .sort((a, b) => b.similarity - a.similarity)
+    .map(({ row }) => row)
+}
+
+/** The candidate a row of the files names. */
+function candidateOf(files: TextFiles, row: number): Candidate {
+  const face = files.faces[row]
+  if (!face) throw new Error(`the text matcher's files have no row ${row}`)
+  return { key: files.keys[row] ?? '', ...face }
+}
+
 /**
  * The kit's faces: each family with fingerprints in its `BRAND_FACES` faces nearest the fingerprint
  * that draw the script and the words, and each without in its regular face nearest the leader's
@@ -165,8 +170,8 @@ async function brandFaces(
   input: ShortlistInput,
   script: Script,
   leader: Candidate | undefined,
-  covers: (rows: readonly number[]) => Promise<boolean[]>,
-  loaded: Map<string, Uint8Array | null>,
+  covers: Covers,
+  loaded: LoadedFaces,
 ): Promise<Candidate[]> {
   const { files, fingerprint } = input
   const faces: Candidate[] = []
@@ -201,7 +206,7 @@ async function facesWithoutFingerprint(
   family: string,
   script: Script,
   weight: number,
-  loaded: Map<string, Uint8Array | null>,
+  loaded: LoadedFaces,
 ): Promise<Candidate[]> {
   const ofFamily = input.kitFaces.filter((face) => face.family === family)
   const regular = ofFamily.filter((face) => face.style === 'normal')
@@ -209,12 +214,10 @@ async function facesWithoutFingerprint(
   if (!first) return []
   const otherStyle: FontStyle = first.style === 'normal' ? 'italic' : 'normal'
   const other = ofFamily.find((face) => face.style === otherStyle && drawsWeight(face, first.weight))
-  const tried = [first, ...(other ? [{ family, weight: first.weight, style: otherStyle }] : [])].map((face) => ({
-    key: `${family}|${face.weight}|${face.style}`,
-    family,
-    weight: face.weight,
-    style: face.style,
-  }))
+  const tried = [
+    { family, weight: first.weight, style: first.style },
+    ...(other ? [{ family, weight: first.weight, style: otherStyle }] : []),
+  ].map((face) => ({ key: fontKey(face), ...face }))
   await loadInto(
     input,
     tried.map((face) => face.key),
@@ -244,15 +247,8 @@ function drawsWeight(face: CatalogFace, weight: number): boolean {
   return face.weights ? face.weights.min <= weight && weight <= face.weights.max : face.weight === weight
 }
 
-/** The candidate a row of the files names. */
-function candidateOf(files: TextFiles, row: number): Candidate {
-  const face = files.faces[row]
-  if (!face) throw new Error(`the text matcher's files have no row ${row}`)
-  return { key: files.keys[row] ?? '', ...face }
-}
-
 /** Loads the faces of `keys` not loaded yet into `loaded`, all asked for at once. */
-async function loadInto(input: ShortlistInput, keys: readonly string[], loaded: Map<string, Uint8Array | null>) {
+async function loadInto(input: ShortlistInput, keys: readonly string[], loaded: LoadedFaces) {
   const missing = keys.filter((key) => !loaded.has(key))
   if (missing.length === 0) return
   for (const [key, bytes] of await loadFaces(input.fonts, missing, input.words)) loaded.set(key, bytes)

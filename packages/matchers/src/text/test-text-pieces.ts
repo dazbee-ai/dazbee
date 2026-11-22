@@ -1,5 +1,6 @@
 // Text pieces for the text matcher's tests: text drawn by Dazbee's renderer in a shipped face and cut
 // round its ink, and the shortlist's pieces, drawn the same way in Google faces and kept as PNGs.
+
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -14,6 +15,7 @@ export interface DrawnText {
   words: string
   family: string
   weight: number
+  style?: 'normal' | 'italic'
   size: number
   colour: `#${string}`
   /** The colour it is drawn on; null draws it as a cut-out. */
@@ -24,7 +26,7 @@ export interface DrawnText {
   align?: 'start' | 'center' | 'end'
 }
 
-/** A piece of the shortlist's test: the face it is drawn in and its words. */
+/** A piece of the shortlist's test: the face it is drawn in, its words and its pixels. */
 export interface ShortlistPiece {
   id: string
   key: string
@@ -32,14 +34,34 @@ export interface ShortlistPiece {
   pixels: Pixels
 }
 
+/**
+ * How a piece of the shortlist's test is drawn, as `pieces.json` holds it: its face's key and file
+ * in google/fonts, and the rest of the text but the family, weight and style, which the key gives.
+ */
+export interface ShortlistDrawing extends Omit<DrawnText, 'family' | 'weight' | 'style'> {
+  id: string
+  key: string
+  /** The face's file, in a checkout of google/fonts at `GOOGLE_FONTS`'s commit. */
+  file: string
+}
+
+/** The shortlist test's pieces: `pieces.json` and a PNG a piece. */
+export const SHORTLIST_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-shortlist')
+
 /** The frame the text is drawn in before it is cut round its ink. */
 const FRAME = { width: 1400, height: 900 }
 /** The pixels left round the ink when a drawn text is cut out. */
 const MARGIN = 10
-const SHORTLIST_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-shortlist')
 
-/** The text drawn in a shipped face, in the middle of a big frame, and cut round its ink with a margin. */
-export function drawText(ck: CanvasKit, text: DrawnText): Pixels {
+/**
+ * The text drawn in the middle of a big frame, in a shipped face or one of `fonts`, and cut round
+ * its ink with a margin.
+ */
+export function drawText(
+  ck: CanvasKit,
+  text: DrawnText,
+  fonts: { family: string; bytes: Uint8Array }[] = loadFontFiles().map(({ family, bytes }) => ({ family, bytes })),
+): Pixels {
   const design = {
     meta: { designId: 'text-piece', name: 'Text piece' },
     pages: { p: { name: 'Page', order: 'a0' } },
@@ -74,6 +96,7 @@ export function drawText(ck: CanvasKit, text: DrawnText): Pixels {
           style: {
             fontFamily: text.family,
             fontWeight: text.weight,
+            fontStyle: text.style ?? 'normal',
             fontSize: text.size,
             color: `${text.colour}FF`,
             ...(text.outline ? { outline: { ...text.outline, color: `${text.outline.color}FF` } } : {}),
@@ -82,17 +105,18 @@ export function drawText(ck: CanvasKit, text: DrawnText): Pixels {
       },
     },
   }
-  const fonts = loadFontFiles().map(({ family, bytes }) => ({ family, bytes }))
   return cutRoundInk(renderPixels(ck, design, 'f', { fonts, fallbackFamilies: [], images: {} }))
 }
 
 /** The shortlist's 12 pieces, each drawn by Dazbee's renderer in the Google face its key names. */
 export function shortlistPieces(ck: CanvasKit): ShortlistPiece[] {
   const { pieces } = JSON.parse(readFileSync(join(SHORTLIST_FIXTURES, 'pieces.json'), 'utf8')) as {
-    pieces: Omit<ShortlistPiece, 'pixels'>[]
+    pieces: ShortlistDrawing[]
   }
   return pieces.map((piece) => ({
-    ...piece,
+    id: piece.id,
+    key: piece.key,
+    words: piece.words,
     pixels: decodePng(ck, readFileSync(join(SHORTLIST_FIXTURES, `${piece.id}.png`))),
   }))
 }

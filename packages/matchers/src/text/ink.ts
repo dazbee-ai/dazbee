@@ -20,6 +20,12 @@ export interface Box {
   h: number
 }
 
+/** A line's ink sampled for the model, rounded to 0 to 255, row by row. */
+export interface Strip {
+  width: number
+  data: Uint8Array
+}
+
 /** A pixel with alpha under this is see-through, for telling a cut-out from a flat crop. */
 const OPAQUE_FROM = 250
 /** A picture is a cut-out when more than this share of its pixels is see-through. */
@@ -50,13 +56,6 @@ export function inkOf(picture: Pixels, background?: Rgb): Ink {
   const full = off.length > 0 ? Math.max(off[Math.floor(off.length * 0.9)] ?? 0, 24) : 255
   for (let i = 0; i < n; i++) data[i] = Math.min(1, Math.max(0, ((distance[i] ?? 0) - 6) / (full - 6)))
   return { width, height, data }
-}
-
-/** Whether a picture is a cut-out: more than 5% of its pixels less than opaque. */
-export function isCutOut({ width, height, pixels }: Pixels): boolean {
-  let clear = 0
-  for (let i = 0; i < width * height; i++) if ((pixels[i * 4 + 3] ?? 0) < OPAQUE_FROM) clear++
-  return clear > width * height * CUT_OUT_SHARE
 }
 
 /** The median colour of a picture's outermost pixels, each edge pixel counted once per edge it lies on. */
@@ -133,7 +132,7 @@ export function rotateInk(ink: Ink, degrees: number): Ink {
  * One line's ink as the model reads it: its box scaled to `height` high, keeping its shape, with a
  * 32nd of the height of room above and below, as wide as that makes it, rounded to 0 to 255.
  */
-export function lineStrip(ink: Ink, box: Box, height: number): { width: number; data: Uint8Array } {
+export function lineStrip(ink: Ink, box: Box, height: number): Strip {
   const room = height / 32
   const scale = (height - 2 * room) / box.h
   const width = Math.max(1, Math.round(box.w * scale))
@@ -146,8 +145,15 @@ export function lineStrip(ink: Ink, box: Box, height: number): { width: number; 
   return { width, data }
 }
 
+/** Whether a picture is a cut-out: more than 5% of its pixels less than opaque. */
+function isCutOut({ width, height, pixels }: Pixels): boolean {
+  let clear = 0
+  for (let i = 0; i < width * height; i++) if ((pixels[i * 4 + 3] ?? 0) < OPAQUE_FROM) clear++
+  return clear > width * height * CUT_OUT_SHARE
+}
+
 /** Ink at a point between pixels, from its four nearest; 0 past the edges. */
-export function bilinear(ink: Ink, fx: number, fy: number): number {
+function bilinear(ink: Ink, fx: number, fy: number): number {
   const x0 = Math.floor(fx)
   const y0 = Math.floor(fy)
   const ax = fx - x0

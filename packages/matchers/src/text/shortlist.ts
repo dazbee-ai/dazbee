@@ -74,7 +74,9 @@ export async function shortlist(input: ShortlistInput): Promise<Shortlist> {
   const covers = coverage(input, loaded)
   const lowercase = LOWERCASE.test(words)
   const allowed = files.keys.flatMap((_, row) =>
-    !files.leftOut.has(row) && !(lowercase && files.capitals.has(row)) && files.scripts[row]?.has(script) ? [row] : [],
+    !files.neverListed.has(row) && !(lowercase && files.capitals.has(row)) && files.scripts[row]?.has(script)
+      ? [row]
+      : [],
   )
   const near = await firstCovering(
     nearestRows(files, fingerprint, allowed).slice(0, NEAREST_CHECKED),

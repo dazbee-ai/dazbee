@@ -1,9 +1,12 @@
-// How a face draws letters, measured from its own glyphs for the files `pack-text-files.ts` packs. Each letter is
-// drawn alone by Dazbee's renderer, and its ink is cut to its own bounds and shrunk to a small square, so letters
-// compare by shape whatever their size. A face draws a pattern rather than letters (bars, lines, blocks, stripes)
-// when too few of its capitals, or its script's letters, are distinct shapes. A face draws only capitals when its
-// lowercase letters have no ascenders or descenders and each looks most like its own capital.
+// What kind of face a font file is, measured from the face itself for the files `pack-text-files.ts` packs: whether
+// it draws its glyphs in colours of its own, whether it draws distinct letters, and whether it draws only capitals.
+// For the letters, each is drawn alone by Dazbee's renderer, and its ink is cut to its own bounds and shrunk to a
+// small square, so letters compare by shape whatever their size. A face draws no distinct letters (bars, lines,
+// blocks, stripes) when too few of its capitals, or its script's letters, are distinct shapes. A face draws only
+// capitals when its lowercase letters have no ascenders or descenders and each looks most like its own capital.
 import type { CanvasKit } from '@dazbee/canvaskit'
+import { tableDirectory } from '@dazbee/fonts/font-tables'
+import type { Pixels } from '@dazbee/renderer'
 
 import { type TextDrawer, textDrawer, textLayerProps, type TextLook } from '../src/text/draw-text.ts'
 import type { FontKey } from '../src/text/font-key.ts'
@@ -31,23 +34,25 @@ interface Letter {
 }
 
 /** The letters a face's shapes are told apart on, by the script it draws: Latin capitals, or the script's letters. */
-export const MEASURED_LETTERS: Readonly<Record<Script, string>> = {
+const MEASURED_LETTERS: Readonly<Record<Script, string>> = {
   latin: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
   arabic: 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي',
   devanagari: 'अआइईउऊएऐओऔकखगघचछजझटठडढणतथदधनपफबभमयरलवशषसह',
 }
 
 /** Two letters whose shapes are less than this far apart (`distance`) are the same shape. */
-export const DISTINCT_DISTANCE = 0.2
+const DISTINCT_DISTANCE = 0.2
 /** A face draws letters when at least this share of its measured letters are distinct letters. */
-export const DISTINCT_SHARE = 0.35
+const DISTINCT_SHARE = 0.35
 /** A lowercase letter reaches past the others when its top or bottom is this share of the capitals' height past theirs. */
-export const REACH = 0.08
+const REACH = 0.08
 /** A face draws only capitals when at most this share of its lowercase letters reach past the others… */
-export const REACHING_SHARE = 0.2
+const REACHING_SHARE = 0.2
 /** …and at least this share look most like their own capital. */
-export const CAPITAL_SHARE = 0.4
+const CAPITAL_SHARE = 0.4
 
+/** The tables that draw a face's glyphs in colours of its own. */
+const COLOUR_TABLES: ReadonlySet<string> = new Set(['COLR', 'CBDT', 'sbix', 'SVG '])
 /** The size each letter is drawn at, in pixels. */
 const SIZE = 64
 /** The side of the square a letter's ink is shrunk to. */
@@ -85,9 +90,15 @@ export function letterShapes(
   }
 }
 
-/** Whether a face's measured letters are distinct shapes, so it draws letters rather than a pattern. */
+/** Whether a face's measured letters are distinct shapes, so it draws letters rather than bars, lines or blocks. */
 export function drawsLetters(shapes: LetterShapes): boolean {
   return shapes.measured === 0 || shapes.distinct >= DISTINCT_SHARE * shapes.measured
+}
+
+/** Whether a font file has a table that draws its glyphs in colours of its own: COLR, CBDT, sbix or SVG. */
+export function isColourFace(bytes: Uint8Array): boolean {
+  const tables = tableDirectory(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)) ?? []
+  return tables.some((table) => COLOUR_TABLES.has(table.tag))
 }
 
 /** Whether a face draws its lowercase letters as capitals: as its capitals, or as smaller capitals. */
@@ -116,7 +127,7 @@ function drawLetter(drawer: TextDrawer, face: FontKey, letter: string): Letter |
     Math.ceil(natural.height) + SIZE,
     textLayerProps(letter, look, { x: SIZE / 2, y: SIZE / 2, ...natural, rotation: 0 }),
   )
-  return inkLetter(drawn.pixels, drawn.width, drawn.height)
+  return inkLetter(drawn)
 }
 
 /** Whether most of a square's rows are one row of at least `STRIPES` runs of ink: bars side by side. */
@@ -169,8 +180,8 @@ function cases(
   return { cased: pairs.length, capitalShaped, reaching }
 }
 
-/** RGBA `pixels`' ink: its top and bottom row, and its alpha within its bounds averaged into a square; null for none. */
-function inkLetter(pixels: Uint8Array, width: number, height: number): Letter | null {
+/** A frame's ink: its top and bottom row, and its alpha within its bounds averaged into a square; null for none. */
+function inkLetter({ pixels, width, height }: Pixels): Letter | null {
   let left = width
   let right = -1
   let top = height

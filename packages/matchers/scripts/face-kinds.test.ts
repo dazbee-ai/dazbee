@@ -8,10 +8,10 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { parseFontKey } from '../src/text/font-key.ts'
 import type { Script } from '../src/text/scripts.ts'
-import { drawsLetters, drawsOnlyCapitals, letterShapes } from './letter-shapes.ts'
+import { drawsLetters, drawsOnlyCapitals, isColourFace, letterShapes } from './face-kinds.ts'
 
 const ck = await loadCanvasKit()
-const FIXTURES = join(import.meta.dirname, '..', 'fixtures', 'letter-shapes')
+const FIXTURES = join(import.meta.dirname, '..', 'fixtures', 'face-kinds')
 
 /** A whole face's bytes: a fixture's, or a shipped face's. */
 const FACES: Record<string, () => Uint8Array> = {
@@ -53,36 +53,72 @@ function shipped(file: string): Uint8Array {
   return found.bytes
 }
 
-describe('letterShapes', () => {
-  it.each(['Wavefont|600|normal', 'Linefont|600|normal', 'Libre Barcode 128|400|normal'])(
-    'finds that %s draws a pattern rather than letters',
-    (key) => {
-      expect(drawsLetters(shapesOf(key))).toBe(false)
-    },
-  )
+/** A font file's header and table directory naming `tags`, each table empty, at the directory's end. */
+function withTables(...tags: string[]): Uint8Array {
+  const bytes = new Uint8Array(12 + tags.length * 16)
+  const view = new DataView(bytes.buffer)
+  view.setUint16(4, tags.length)
+  tags.forEach((tag, i) => {
+    bytes.set(new TextEncoder().encode(tag), 12 + i * 16)
+    view.setUint32(12 + i * 16 + 8, bytes.length)
+  })
+  return bytes
+}
 
-  it.each(['Noto Sans|400|normal', 'Noto Sans|800|normal'])('finds that %s draws letters in both cases', (key) => {
-    const shapes = shapesOf(key)
-    expect(drawsLetters(shapes)).toBe(true)
-    expect(drawsOnlyCapitals(shapes)).toBe(false)
+describe('letterShapes', () => {
+  it('gives the same measure twice', () => {
+    expect(shapesOf('Noto Sans|400|normal')).toEqual(shapesOf('Noto Sans|400|normal'))
   })
 
   it.each([
     ['Noto Naskh Arabic|400|normal', 'arabic'],
     ['Noto Sans Devanagari|400|normal', 'devanagari'],
+  ] as const)('measures %s on the letters of its script', (key, script) => {
+    expect(shapesOf(key, script).measured).toBeGreaterThan(20)
+  })
+})
+
+describe('drawsLetters', () => {
+  it.each(['Wavefont|600|normal', 'Linefont|600|normal', 'Libre Barcode 128|400|normal'])(
+    'finds that %s draws no distinct letters',
+    (key) => {
+      expect(drawsLetters(shapesOf(key))).toBe(false)
+    },
+  )
+
+  it.each(['Noto Sans|400|normal', 'Noto Sans|800|normal', 'Six Caps|400|normal'])(
+    'finds that %s draws letters',
+    (key) => {
+      expect(drawsLetters(shapesOf(key))).toBe(true)
+    },
+  )
+
+  it.each([
+    ['Noto Naskh Arabic|400|normal', 'arabic'],
+    ['Noto Sans Devanagari|400|normal', 'devanagari'],
   ] as const)('finds that %s draws the letters of its script', (key, script) => {
-    const shapes = shapesOf(key, script)
-    expect(shapes.measured).toBeGreaterThan(20)
-    expect(drawsLetters(shapes)).toBe(true)
+    expect(drawsLetters(shapesOf(key, script))).toBe(true)
+  })
+})
+
+describe('drawsOnlyCapitals', () => {
+  it('finds that Six Caps draws its lowercase letters as capitals', () => {
+    expect(drawsOnlyCapitals(shapesOf('Six Caps|400|normal'))).toBe(true)
   })
 
-  it('finds that Six Caps draws letters, and its lowercase letters as capitals', () => {
-    const shapes = shapesOf('Six Caps|400|normal')
-    expect(drawsLetters(shapes)).toBe(true)
-    expect(drawsOnlyCapitals(shapes)).toBe(true)
+  it.each(['Noto Sans|400|normal', 'Noto Sans|800|normal'])('finds that %s draws both cases', (key) => {
+    expect(drawsOnlyCapitals(shapesOf(key))).toBe(false)
+  })
+})
+
+describe('isColourFace', () => {
+  it('finds a colour table in the table directory', () => {
+    expect(isColourFace(withTables('glyf', 'COLR'))).toBe(true)
+    expect(isColourFace(withTables('sbix'))).toBe(true)
+    expect(isColourFace(withTables('glyf', 'CFF '))).toBe(false)
   })
 
-  it('gives the same measure twice', () => {
-    expect(shapesOf('Noto Sans|400|normal')).toEqual(shapesOf('Noto Sans|400|normal'))
+  it('finds no colour table in a face that draws in one colour', () => {
+    expect(isColourFace(FACES['Noto Sans|400|normal']?.() ?? new Uint8Array())).toBe(false)
   })
 })

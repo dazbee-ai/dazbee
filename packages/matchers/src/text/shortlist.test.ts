@@ -5,6 +5,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { pieceFingerprint } from './fingerprint.ts'
+import { parseFontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { readPiece } from './read-piece.ts'
 import { shortlist, type ShortlistInput } from './shortlist.ts'
@@ -72,11 +73,6 @@ function fingerprintOfKey(key: string): Float32Array {
   const row = files.rows.get(key)
   if (row === undefined) throw new Error(`no fingerprint for ${key}`)
   return files.fingerprints.slice(row * FINGERPRINT_NUMBERS, (row + 1) * FINGERPRINT_NUMBERS)
-}
-
-/** The family a key names. */
-function parseFamily(key: string): string {
-  return key.split('|')[0] ?? ''
 }
 
 /** The shortlist of words with a given fingerprint, no kit and no face loaded. */
@@ -179,12 +175,12 @@ describe('shortlist', () => {
     expect(arabic.brand).toEqual([])
   })
 
-  it('never shortlists a face that draws a pattern rather than letters, even for its own fingerprint', async () => {
+  it('never shortlists a face that draws no distinct letters, even for its own fingerprint', async () => {
     for (const key of ['Wavefont|600|normal', 'Linefont|600|normal', 'Libre Barcode 128|400|normal']) {
       const { nearest } = await shortlistFor(fingerprintOfKey(key), 'mornings,\nat home')
       expect(nearest).toHaveLength(5)
-      expect(nearest.map((face) => face.family)).not.toContain(parseFamily(key))
-      for (const face of nearest) expect(files.leftOut.has(files.rows.get(face.key) ?? -1)).toBe(false)
+      expect(nearest.map((face) => face.family)).not.toContain(parseFontKey(key)?.family)
+      for (const face of nearest) expect(files.neverListed.has(files.rows.get(face.key) ?? -1)).toBe(false)
     }
   })
 

@@ -3,8 +3,8 @@
 // It reads the ConvNeXt-Atto model (epoch 14) and its 128-number projection, the gallery of font fingerprints (8
 // clean and 8 realistic samples a face) and the novelty list; keeps only the keys that name a face of
 // `GOOGLE_FONTS` (`faceOfKey`); builds the coverage index from each kept key's file in the google/fonts checkout
-// beside them, at the list's commit, and measures from each face which the shortlist leaves out
-// (`letter-shapes.ts`, and its colour tables); writes the files and prints the manifest and the faces left out.
+// beside them, at the list's commit, and measures from each face the kinds the shortlist passes over
+// (`face-kinds.ts`); writes the files and prints the manifest and those faces by kind.
 // Run it again when the model is retrained. The files it writes, all little-endian:
 // - `text-model.onnx`: the model; a 1×64×256 window of ink (0 to 1) in, `fingerprint` (512 numbers) out.
 // - `text-projection.f32`: the 512-number mean, then the 512×128 directions, row by row: a fingerprint less the mean,
@@ -13,9 +13,9 @@
 // - `text-keys.json`: the keys (`family|weight|style`), one a fingerprint.
 // - `text-coverage.bin`: for each key in order, a bit for each of `MATCH_CHARACTERS` in order (bit i of byte i ÷ 8,
 //   from the lowest), set when the key's file draws it itself; 232 bytes a key.
-// - `text-left-out.json`: the kept keys the shortlist leaves out, by why (`LeftOutKeys`): the novelty list's; the
-//   faces whose letters are not distinct shapes; the colour faces; and, shortlisted only for words with no lowercase
-//   letter, the faces that draw their lowercase letters as capitals.
+// - `text-face-kinds.json`: the kept keys the shortlist passes over, by kind (`FaceKinds`): the novelty list's; the
+//   faces that draw no distinct letters; the colour faces; and, passed over only for words with a lowercase letter,
+//   the faces that draw their lowercase letters as capitals.
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -26,8 +26,8 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { faceOfKey, parseFontKey } from '../src/text/font-key.ts'
 import { SCRIPT_LETTERS, SCRIPTS } from '../src/text/scripts.ts'
-import type { LeftOutKeys } from '../src/text/text-files.ts'
-import { drawsLetters, drawsOnlyCapitals, letterShapes } from './letter-shapes.ts'
+import { type FaceKinds, hasBit } from '../src/text/text-files.ts'
+import { drawsLetters, drawsOnlyCapitals, isColourFace, letterShapes } from './face-kinds.ts'
 
 const [data, out] = process.argv.slice(2)
 if (!data || !out) {
@@ -37,10 +37,6 @@ if (!data || !out) {
 const model = join(data, 'models', 'r3l-convnext_atto')
 const checkout = join(data, 'google-fonts')
 const COVERAGE_BYTES = Math.ceil(MATCH_CHARACTERS.length / 8)
-/** Each character's bit in a file's coverage bits. */
-const BIT_OF: ReadonlyMap<number, number> = new Map(MATCH_CHARACTERS.map((code, i) => [code, i]))
-/** The tables that draw a face's glyphs in colours of its own. */
-const COLOUR_TABLES: ReadonlySet<string> = new Set(['COLR', 'CBDT', 'sbix', 'SVG '])
 
 const keys = JSON.parse(readFileSync(join(model, 'fingerprint-faces-pca128.json'), 'utf8')) as string[]
 const gallery = floats(readFileSync(join(model, 'fingerprints-pca128.f32')))
@@ -63,7 +59,7 @@ const everyCharacter = String.fromCodePoint(...MATCH_CHARACTERS)
 const coverageOf = new Map<string, Uint8Array>()
 const fingerprints = new Float32Array(kept.length * numbers)
 const coverage = new Uint8Array(kept.length * COVERAGE_BYTES)
-const leftOut: LeftOutKeys = { novelty: [], patterns: [], colour: [], capitals: [] }
+const kinds: FaceKinds = { novelty: [], noLetters: [], colour: [], capitals: [] }
 kept.forEach(({ key, face, row, file, blob }, at) => {
   fingerprints.set(gallery.subarray(row * numbers, (row + 1) * numbers), at * numbers)
   let bits = coverageOf.get(file)
@@ -73,14 +69,14 @@ kept.forEach(({ key, face, row, file, blob }, at) => {
   }
   coverage.set(bits, at * COVERAGE_BYTES)
   const bytes = new Uint8Array(readFileSync(file))
-  if (novelty.has(key)) leftOut.novelty.push(key)
-  if (isColourFace(bytes)) leftOut.colour.push(key)
-  const draws = (character: string) => drawsByBits(bits, character)
+  if (novelty.has(key)) kinds.novelty.push(key)
+  if (isColourFace(bytes)) kinds.colour.push(key)
+  const draws = (character: string) => hasBit(bits, 0, character)
   const script = SCRIPTS.find((s) => [...SCRIPT_LETTERS[s]].every(draws))
   if (!script) return
   const shapes = letterShapes(ck, bytes, face, script, draws)
-  if (!drawsLetters(shapes)) leftOut.patterns.push(key)
-  if (drawsOnlyCapitals(shapes)) leftOut.capitals.push(key)
+  if (!drawsLetters(shapes)) kinds.noLetters.push(key)
+  if (drawsOnlyCapitals(shapes)) kinds.capitals.push(key)
 })
 
 mkdirSync(out, { recursive: true })
@@ -90,7 +86,7 @@ const files: Record<string, Uint8Array> = {
   'text-fingerprints.f32': new Uint8Array(fingerprints.buffer),
   'text-keys.json': json(kept.map(({ key }) => key)),
   'text-coverage.bin': coverage,
-  'text-left-out.json': json(leftOut),
+  'text-face-kinds.json': json(kinds),
 }
 const manifest: Record<string, { sha256: string; size: number }> = {}
 for (const [name, bytes] of Object.entries(files)) {
@@ -107,7 +103,7 @@ const hash = sha256(
 console.error(
   `${kept.length} of ${keys.length} keys name a face of GOOGLE_FONTS; ${coverageOf.size} files read for coverage`,
 )
-for (const [why, keysLeftOut] of Object.entries(leftOut)) console.error(`${why}: ${keysLeftOut.join(', ')}`)
+for (const [kind, ofKind] of Object.entries(kinds)) console.error(`${kind}: ${ofKind.join(', ')}`)
 console.log(JSON.stringify({ repo: 'dazbee-ai/dazbee', tag: `matchers-${hash}`, files: manifest }, null, 2))
 
 /** A file's bytes as 32-bit floats, copied so they start on a float's boundary. */
@@ -135,23 +131,6 @@ function drawnCharacters(file: string, blob: string): Uint8Array {
     if (glyph !== 0) bits[i >> 3] = (bits[i >> 3] ?? 0) | (1 << (i & 7))
   })
   return bits
-}
-
-/** Whether a file's coverage bits say it draws `character`; false for a character they don't hold. */
-function drawsByBits(bits: Uint8Array, character: string): boolean {
-  const bit = BIT_OF.get(character.codePointAt(0) ?? -1)
-  return bit !== undefined && ((bits[bit >> 3] ?? 0) & (1 << (bit & 7))) !== 0
-}
-
-/** Whether a font file has a table that draws its glyphs in colours of its own. */
-function isColourFace(bytes: Uint8Array): boolean {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  const tables = view.getUint16(4)
-  for (let i = 0; i < tables; i++) {
-    const at = 12 + i * 16
-    if (COLOUR_TABLES.has(String.fromCharCode(...bytes.subarray(at, at + 4)))) return true
-  }
-  return false
 }
 
 function json(value: unknown): Uint8Array {

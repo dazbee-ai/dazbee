@@ -1,6 +1,6 @@
 // The text matcher's files from the release `release.json` names, read from their bytes: the font
 // fingerprints and their keys, the projection that turns the model's numbers into a fingerprint, the
-// coverage index and the faces the shortlist leaves out. The model itself is opened by a model runtime.
+// coverage index and the kinds of face the shortlist passes over. The model itself is opened by a model runtime.
 
 import { MATCH_CHARACTERS } from '@dazbee/fonts'
 
@@ -10,20 +10,20 @@ import { type Script, SCRIPT_LETTERS, SCRIPTS } from './scripts.ts'
 
 /** The name in the release of a file the text matcher reads, besides the model. */
 export type TextFileName =
-  'text-projection.f32' | 'text-fingerprints.f32' | 'text-keys.json' | 'text-coverage.bin' | 'text-left-out.json'
+  'text-projection.f32' | 'text-fingerprints.f32' | 'text-keys.json' | 'text-coverage.bin' | 'text-face-kinds.json'
 
 /** The files' bytes by their names in the release. */
 export type TextFileBytes = Readonly<Record<TextFileName, Uint8Array>>
 
 /**
- * `text-left-out.json`: the keys the shortlist leaves out, by why. `pack-text-files.ts` measures all but the novelty
- * keys from each face itself.
+ * `text-face-kinds.json`: the keys of faces the shortlist passes over, by kind. `pack-text-files.ts` measures all but
+ * the novelty keys from each face itself.
  */
-export interface LeftOutKeys {
-  /** The prototype's novelty list: faces that draw a pattern or a decoration rather than plain letters. */
+export interface FaceKinds {
+  /** Novelty faces, as the novelty list the pack script reads names them: decorations rather than plain letters. */
   novelty: string[]
-  /** Faces whose letters are not distinct shapes (bars, lines, blocks, stripes). */
-  patterns: string[]
+  /** Faces that draw no distinct letters: bars, lines, blocks or stripes. */
+  noLetters: string[]
   /** Colour faces: a COLR, CBDT, sbix or SVG table, drawing their letters in colours of their own. */
   colour: string[]
   /** Faces that draw their lowercase letters as their capitals' shapes, or as smaller capitals. */
@@ -44,8 +44,8 @@ export interface TextFiles {
   mean: Float32Array
   /** The projection's directions, `MODEL_NUMBERS` × `FINGERPRINT_NUMBERS`, row by row. */
   directions: Float32Array
-  /** Rows whose faces are never shortlisted: they draw a pattern rather than letters, or letters in colours of their own. */
-  leftOut: ReadonlySet<number>
+  /** Rows whose faces are never shortlisted: novelty faces, faces that draw no distinct letters, and colour faces. */
+  neverListed: ReadonlySet<number>
   /** Rows whose faces draw their lowercase letters as capitals, shortlisted only for words with no lowercase letter. */
   capitals: ReadonlySet<number>
   /** For each row, the scripts whose letters its face draws every one of. */
@@ -60,7 +60,7 @@ export const TEXT_FILES: readonly TextFileName[] = [
   'text-fingerprints.f32',
   'text-keys.json',
   'text-coverage.bin',
-  'text-left-out.json',
+  'text-face-kinds.json',
 ]
 
 /** How many numbers a font fingerprint holds. */
@@ -88,7 +88,7 @@ export function readTextFiles(bytes: TextFileBytes): TextFiles {
   if (projection.length !== MODEL_NUMBERS * (1 + FINGERPRINT_NUMBERS))
     throw new Error('text-projection.f32 is not a mean and its directions')
   if (coverage.length !== keys.length * COVERAGE_BYTES) throw new Error('text-coverage.bin does not cover each key')
-  const leftOut = JSON.parse(new TextDecoder().decode(bytes['text-left-out.json'])) as LeftOutKeys
+  const kinds = JSON.parse(new TextDecoder().decode(bytes['text-face-kinds.json'])) as FaceKinds
   const rowsOf = (list: readonly string[]) => new Set(list.flatMap((key) => rows.get(key) ?? []))
   const scripts = keys.map(
     (_, row) =>
@@ -101,8 +101,8 @@ export function readTextFiles(bytes: TextFileBytes): TextFiles {
     fingerprints,
     mean: projection.subarray(0, MODEL_NUMBERS),
     directions: projection.subarray(MODEL_NUMBERS),
-    leftOut: rowsOf([...leftOut.novelty, ...leftOut.patterns, ...leftOut.colour]),
-    capitals: rowsOf(leftOut.capitals),
+    neverListed: rowsOf([...kinds.novelty, ...kinds.noLetters, ...kinds.colour]),
+    capitals: rowsOf(kinds.capitals),
     scripts,
     coverage,
   }
@@ -135,7 +135,7 @@ function floats(bytes: Uint8Array): Float32Array {
 }
 
 /** Whether the coverage index says the face of `row` draws `character`. */
-function hasBit(coverage: Uint8Array, row: number, character: string): boolean {
+export function hasBit(coverage: Uint8Array, row: number, character: string): boolean {
   const bit = BIT_OF.get(character.codePointAt(0) ?? -1)
   if (bit === undefined) return false
   return ((coverage[row * COVERAGE_BYTES + (bit >> 3)] ?? 0) & (1 << (bit & 7))) !== 0

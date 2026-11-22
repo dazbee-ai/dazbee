@@ -1,6 +1,6 @@
 {
   "repo": "dazbee-ai/dazbee",
-  "tag": "matchers-bb0d052e2c9243c8",
+  "tag": "matchers-3aafb363fc3a2418",
   "files": {
     "text-model.onnx": {
       "sha256": "ecb59a9e52fb17d63dabcd0b5e979ce884d12e870552a312ec2de20edb777f79",
@@ -22,9 +22,9 @@
       "sha256": "7cdb3e489cb48e3acbb3bfee2221b352832077296d807ac3234b609be679f1a3",
       "size": 1820504
     },
-    "text-left-out.json": {
-      "sha256": "0fff12c9b1878c9670cb861d429c7dcaa4cde365dcc880089013678bfe6bc0b1",
-      "size": 10636
+    "text-face-kinds.json": {
+      "sha256": "63ed272b9ee4e4f06a9c3badcab8481feb76b594ba39bbcc93435f458b61c4f4",
+      "size": 10637
     }
   }
 }

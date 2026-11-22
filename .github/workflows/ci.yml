@@ -151,7 +151,11 @@ jobs:
           grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/font"
           grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/font"
           grep -q '"error":"No such font"' "$RUNNER_TEMP/font"
-          echo "a GET of /fonts/google/* reaches the API through Caddy"
+          https -sD - https://app.dazbee.com/fonts/google/lists/00000000000000000000000000000000.js | tr -d '\r' > "$RUNNER_TEMP/list"
+          grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/list"
+          grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/list"
+          grep -q '"error":"No such list"' "$RUNNER_TEMP/list"
+          echo "a GET of /fonts/google/* reaches the API through Caddy, and a list of another version is kept nowhere"
           https -fsD - -o /dev/null https://app.dazbee.com/vendor/fonts/NotoSans-Regular.ttf | grep -qi '^cache-control: public, max-age=31536000, immutable'
           echo "the vendored files are kept for good"
           health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)

@@ -2,7 +2,7 @@
 // face's from its permanent address) and its brand kit's values, and the pictures of an SVG file it uploads; and asking the offline worker
 // to keep the page.
 import type { FontSources } from '@dazbee/editor'
-import { BrandKit, FontFamily, googleFacePaths, type Variables } from '@dazbee/schema'
+import { BrandKit, FontFamily, googleFacePaths, MOST_FONT_FAMILIES_ASKED, type Variables } from '@dazbee/schema'
 
 import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
@@ -20,32 +20,33 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 }
 
 /**
- * The faces of the families the editor asks for, from the brand's catalog, fetched once and
- * again when a family isn't in it yet, as after an upload; and the file of each face it asks for:
- * a Google face's from its permanent address, which the browser keeps, and an upload's through the brand.
+ * The faces of the families the editor asks for, as the brand sees them, asked of the brand each time: only what the
+ * design's texts use, and a family uploaded since is there; and the file of each face it asks for: a Google face's
+ * from its permanent address, which the browser keeps, and an upload's through the brand.
  */
 export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {
-  let catalog: Promise<FontFamily[]> | null = null
-  /** The permanent address of each Google face's file the catalog listed, by face id. */
+  /** The permanent address of each Google face's file the brand listed, by face id. */
   const googleFiles = new Map<string, string>()
-  const fetchCatalog = async () => {
-    const response = await fetch(brandPath(workspaceId, brandId, 'fonts'))
+  const askFor = async (families: string[]) => {
+    const query = new URLSearchParams(families.map((family) => ['family', family]))
+    const response = await fetch(`${brandPath(workspaceId, brandId, 'fonts')}?${query}`)
     if (!response.ok) throw new Error(`fonts: ${response.status}`)
-    const families = FontFamily.array().parse(await response.json())
-    for (const face of families.flatMap((family) => family.faces)) {
-      const paths = googleFacePaths(face)
-      if (paths) googleFiles.set(face.id, paths.file)
-    }
-    return families
+    return FontFamily.array().parse(await response.json())
   }
   return {
     fontFaces: async (families) => {
-      let known = await (catalog ??= fetchCatalog()).catch((error: unknown) => {
-        catalog = null
-        throw error
-      })
-      if (families.some((family) => !known.some((f) => f.family === family))) known = await (catalog = fetchCatalog())
-      return known.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
+      const asks: string[][] = []
+      for (let i = 0; i < families.length; i += MOST_FONT_FAMILIES_ASKED)
+        asks.push(families.slice(i, i + MOST_FONT_FAMILIES_ASKED))
+      const faces = (await Promise.all(asks.map(askFor)))
+        .flat()
+        .filter((f) => families.includes(f.family))
+        .flatMap((f) => f.faces)
+      for (const face of faces) {
+        const paths = googleFacePaths(face)
+        if (paths) googleFiles.set(face.id, paths.file)
+      }
+      return faces
     },
     fontFile: async (face) => {
       const response = await fetch(googleFiles.get(face.id) ?? brandPath(workspaceId, brandId, 'fonts', face.id))

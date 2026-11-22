@@ -67,6 +67,7 @@ const OUTSIDE_A_WORKSPACE = [
   '/access-requests',
   '/uploads/:token',
   '/fonts/google/faces/:name',
+  '/fonts/google/lists/:name',
   '/fonts/google/*',
 ]
 

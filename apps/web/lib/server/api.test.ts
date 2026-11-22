@@ -13,6 +13,7 @@ import {
   getRole,
   getWorkspace,
   listDesigns,
+  listFonts,
   signInLink,
 } from './api.ts'
 
@@ -53,7 +54,7 @@ beforeEach(() => {
           ? ME
           : path === '/auth/sign-in-url'
             ? { url: 'https://auth.example.com/authorize' }
-            : path.endsWith('/designs')
+            : path.endsWith('/designs') || path.endsWith('/fonts')
               ? []
               : { id: 'workspace-1', name: 'Harbour' }
       return new Response(JSON.stringify(body), { status: 200 })
@@ -145,6 +146,18 @@ describe('listDesigns', () => {
     await listDesigns('WORKSPACE-1', 'brand-1')
 
     expect(asked).toEqual(['/workspaces/workspace-1/brands/brand-1/designs'])
+  })
+})
+
+describe('listFonts', () => {
+  it('asks for the brand’s whole catalog, or only the families named', async () => {
+    await listFonts('workspace-1', 'brand-1')
+    await listFonts('workspace-1', 'brand-1', ['DM Sans', 'Playfair Display'])
+
+    expect(askedWithQuery).toEqual([
+      '/workspaces/workspace-1/brands/brand-1/fonts',
+      '/workspaces/workspace-1/brands/brand-1/fonts?family=DM+Sans&family=Playfair+Display',
+    ])
   })
 })
 

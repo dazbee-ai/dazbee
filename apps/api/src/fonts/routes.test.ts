@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { fontFaces, newId } from '@dazbee/db'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
-import { FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
+import { brandCatalog, FontCatalog, FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
 
 import { app, brand, call, db, otherBrand, run, SHORT_ID, sibling, storage, workspace } from '../test-api.ts'
 import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
@@ -45,6 +45,13 @@ describe('fonts', { timeout: 30_000 }, () => {
     const recorded = await call(as, 'POST', `/brands/${brandId}/fonts`, { sha256: sha256(bytes) })
     expect(recorded.status).toBe(201)
     return { face: FontFace.parse(recorded.json), uploaded: true }
+  }
+
+  /** The brand's catalog in its two parts, as `as` asks for it. */
+  async function catalogOf(as: string, brandId: string) {
+    const answer = await call(as, 'GET', `/brands/${brandId}/fonts/catalog`)
+    expect(answer.status).toBe(200)
+    return FontCatalog.parse(answer.json)
   }
 
   /** The id of the stand-in Google family's face of this weight, once copied. */
@@ -151,6 +158,11 @@ describe('fonts', { timeout: 30_000 }, () => {
     expect(refused.status).toBe(429)
     expect(refused.headers.get('cache-control')).toBe('no-store')
     expect((await ask('203.0.113.8')).status).toBe(200)
+    // The Google list counts with the files.
+    const list = (await catalogOf('a', brand.id)).google
+    const listed = await routes.request(list, { headers: { 'cf-connecting-ip': '203.0.113.7' } })
+    expect(listed.status).toBe(429)
+    expect(listed.headers.get('cache-control')).toBe('no-store')
     // An IPv6 network of one customer, its /64, counts as one address.
     expect((await ask('2001:db8:1:2::1')).status).toBe(200)
     expect((await ask('2001:db8:1:2:ffff::9')).status).toBe(429)
@@ -335,5 +347,98 @@ describe('fonts', { timeout: 30_000 }, () => {
         })
       ).status,
     ).toBe(400)
+  })
+
+  it('serves the Google list to anyone at an address kept for good, which every brand’s catalog names beside its own uploads', async () => {
+    await upload('a', brand.id, bold)
+    await upload('b', otherBrand.id, regular)
+    const mine = await catalogOf('a', brand.id)
+    const theirs = await catalogOf('b', otherBrand.id)
+    expect(theirs.google).toBe(mine.google)
+    expect(mine.uploads.map((f) => f.family)).toContain('Noto Sans')
+    expect(mine.uploads.every((f) => f.source === 'upload')).toBe(true)
+    expect(theirs.uploads.find((f) => f.family === 'Noto Sans')?.faces.map((f) => f.byteSize)).toEqual([regular.length])
+
+    const answer = await app.request(mine.google)
+    expect(answer.status).toBe(200)
+    const bytes = new Uint8Array(await answer.arrayBuffer())
+    expect(Object.fromEntries(answer.headers)).toMatchObject({
+      'content-type': 'application/json',
+      'content-length': String(bytes.length),
+      'cache-control': 'public, max-age=31536000, immutable',
+      'cross-origin-resource-policy': 'same-origin',
+      'x-content-type-options': 'nosniff',
+    })
+    const list = FontFamily.array().parse(JSON.parse(new TextDecoder().decode(bytes)))
+    expect(list.find((f) => f.family === google.family)?.faces).toHaveLength(2)
+    // No brand's upload is in it, and no face of one.
+    expect(list.filter((f) => f.source !== 'google' || f.faces.some((face) => face.source !== 'google'))).toEqual([])
+    const uploaded = new Set([...mine.uploads, ...theirs.uploads].flatMap((f) => f.faces.map((face) => face.id)))
+    expect(list.flatMap((f) => f.faces).filter((face) => uploaded.has(face.id))).toEqual([])
+
+    // Joined, the two parts are the whole catalog the brand is listed.
+    const whole = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
+    expect(brandCatalog(list, mine.uploads)).toEqual(whole)
+    expect((await call('b', 'GET', `/brands/${brand.id}/fonts/catalog`)).status).toBe(404)
+    expect((await call(null, 'GET', `/brands/${brand.id}/fonts/catalog`)).status).toBe(401)
+  })
+
+  it('names a new address once a Google face is added, and keeps none of the answers at any other', async () => {
+    const before = (await catalogOf('a', brand.id)).google
+    const row = {
+      id: newId(),
+      source: 'google',
+      family: google.family,
+      weight: 2,
+      style: 'italic',
+      sha256: 'e'.repeat(64),
+      byteSize: 1,
+    } as const
+    await db.insert(fontFaces).values(row)
+    try {
+      const after = (await catalogOf('a', brand.id)).google
+      expect(after).not.toBe(before)
+      const list = FontFamily.array().parse(await (await app.request(after)).json())
+      expect(list.find((f) => f.family === google.family)?.faces.map((f) => f.id)).toContain(row.id)
+      const version = /([\w-]+)\.js$/.exec(after)?.[1] ?? ''
+      for (const path of [
+        before,
+        `/fonts/google/lists/${version}.json`,
+        `/fonts/google/lists/${version}`,
+        `/fonts/google/lists/${version}.js?v=2`,
+        `/fonts/google/lists/${version.toUpperCase()}.js`,
+        `/fonts/google/lists/%${version.charCodeAt(0).toString(16)}${version.slice(1)}.js`,
+        `/fonts/google/lists/${'0'.repeat(version.length)}.js`,
+        `/fonts/google/faces/${version}.js`,
+      ]) {
+        const refused = await app.request(path)
+        expect({ path, status: refused.status }).toEqual({ path, status: 404 })
+        expect(refused.headers.get('cache-control')).toBe('no-store')
+      }
+    } finally {
+      await db.delete(fontFaces).where(eq(fontFaces.id, row.id))
+    }
+    // The same faces again: the same list, at the same address.
+    expect((await catalogOf('a', brand.id)).google).toBe(before)
+  })
+
+  it('lists only the families asked for, as the brand sees them', async () => {
+    await upload('a', brand.id, bold)
+    const ask = async (brandId: string, ...families: string[]) => {
+      const query = new URLSearchParams(families.map((family): [string, string] => ['family', family]))
+      const answer = await call('a', 'GET', `/brands/${brandId}/fonts?${query}`)
+      expect(answer.status).toBe(200)
+      return FontFamily.array().parse(answer.json)
+    }
+    const whole = FontFamily.array().parse((await call('a', 'GET', `/brands/${brand.id}/fonts`)).json)
+    const asked = await ask(brand.id, google.family, 'Noto Sans', 'Not A Font')
+    expect(asked).toEqual(whole.filter((f) => f.family === 'Noto Sans' || f.family === google.family))
+    expect(asked.find((f) => f.family === 'Noto Sans')?.source).toBe('upload')
+    // Another brand of the workspace has no upload of Noto Sans.
+    expect((await ask(sibling.id, google.family, 'Noto Sans')).map((f) => f.family)).toEqual([google.family])
+    const tooMany = new URLSearchParams(
+      Array.from({ length: 101 }, (_, i): [string, string] => ['family', `Family ${i}`]),
+    )
+    expect((await call('a', 'GET', `/brands/${brand.id}/fonts?${tooMany}`)).status).toBe(400)
   })
 })

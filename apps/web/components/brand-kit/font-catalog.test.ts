@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, faceFor, scriptsOf, weightsOf } from './font-catalog.ts'
+import { categoryOf, faceFor, loadCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -96,5 +96,85 @@ describe('weightsOf', () => {
   it('takes the upright faces where there are some, a variable italic’s range where there are none', () => {
     expect(weightsOf(of(face(400, 'normal'), face(400, 'italic', { min: 300, max: 700 })))).toEqual([400])
     expect(weightsOf(of(face(400, 'italic', { min: 300, max: 700 })))).toEqual([300, 400, 500, 600, 700])
+  })
+})
+
+describe('loadCatalog', () => {
+  /** A family whose one face has an id as the API gives them. */
+  const listed = (name: string, source: FontFamily['source'], id: string): FontFamily => ({
+    ...family(name, source),
+    faces: [{ id, family: name, weight: 400, style: 'normal', source, byteSize: 1 }],
+  })
+  const lora = { ...listed('Lora', 'google', 'lora00000400'), category: 'serif' }
+  const raleway = listed('Raleway', 'google', 'rale00000400')
+  const myLora = listed('Lora', 'upload', 'mylora000400')
+  const house = listed('House Sans', 'upload', 'house0000400')
+
+  /** Answers each address from `answers`, a Response or a thrown error, noting each address asked. */
+  function fakeFetch(answers: Record<string, () => Response>) {
+    const asked: string[] = []
+    vi.stubGlobal('fetch', (url: string) => {
+      asked.push(url)
+      const answer = answers[url]
+      return answer ? Promise.resolve(answer()) : Promise.reject(new TypeError('Failed to fetch'))
+    })
+    return asked
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('joins the Google list the browser keeps and the brand’s uploads, asking for the list once', async () => {
+    const list = '/fonts/google/lists/00000000000000000000000000000001.js'
+    const asked = fakeFetch({
+      '/w/w1/brands/b1/fonts/catalog': () => Response.json({ google: list, uploads: [myLora, house] }),
+      [list]: () => Response.json([lora, raleway]),
+    })
+    const catalog = await loadCatalog('w1', 'b1')
+    expect(catalog?.map((f) => [f.family, f.source])).toEqual([
+      ['House Sans', 'upload'],
+      ['Lora', 'upload'],
+      ['Raleway', 'google'],
+    ])
+    await loadCatalog('w1', 'b1')
+    expect(asked).toEqual(['/w/w1/brands/b1/fonts/catalog', list, '/w/w1/brands/b1/fonts/catalog'])
+  })
+
+  it('reads the whole catalog from the brand when the list doesn’t come, and asks for the list again next time', async () => {
+    const list = '/fonts/google/lists/00000000000000000000000000000002.js'
+    const asked = fakeFetch({
+      '/w/w1/brands/b1/fonts/catalog': () => Response.json({ google: list, uploads: [house] }),
+      [list]: () => Response.json({ error: 'No such list' }, { status: 404 }),
+      '/w/w1/brands/b1/fonts': () => Response.json([house, lora]),
+    })
+    expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
+    await loadCatalog('w1', 'b1')
+    expect(asked.filter((url) => url === list)).toHaveLength(2)
+  })
+
+  it('reads the whole catalog from the brand when the list comes empty or cut off', async () => {
+    const list = '/fonts/google/lists/00000000000000000000000000000003.js'
+    for (const body of ['', '[{"family":"Lo']) {
+      fakeFetch({
+        '/w/w1/brands/b1/fonts/catalog': () => Response.json({ google: list, uploads: [house] }),
+        [list]: () => new Response(body, { headers: { 'content-type': 'application/json' } }),
+        '/w/w1/brands/b1/fonts': () => Response.json([house, lora]),
+      })
+      expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
+    }
+  })
+
+  it('reads the whole catalog from a server that doesn’t answer the catalog in two parts', async () => {
+    fakeFetch({
+      '/w/w1/brands/b1/fonts/catalog': () => new Response('No such font', { status: 404 }),
+      '/w/w1/brands/b1/fonts': () => Response.json([house, lora]),
+    })
+    expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
+  })
+
+  it('gives nothing offline, so the chooser keeps what it had', async () => {
+    fakeFetch({})
+    expect(await loadCatalog('w1', 'b1')).toBeNull()
   })
 })

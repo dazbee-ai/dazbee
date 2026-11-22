@@ -1,14 +1,29 @@
-// The routes of the fonts a brand can use: the catalog, uploading a font, and a face's file and preview; and the
-// Google faces' files and previews, which anyone may read at their permanent addresses.
+// The routes of the fonts a brand can use: the catalog, all of it, the families asked for, or in its two parts,
+// uploading a font, and a face's file and preview; and the Google list and the Google faces' files and previews,
+// which anyone may read at their permanent addresses.
 import { Hono } from 'hono'
 
 import type { Db } from '@dazbee/db'
-import { GOOGLE_FONT_PATH, RecordFont, StartFontUpload } from '@dazbee/schema'
+import {
+  GOOGLE_FONT_LIST_PATH,
+  GOOGLE_FONT_PATH,
+  MOST_FONT_FAMILIES_ASKED,
+  RecordFont,
+  StartFontUpload,
+} from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
 import { requestLimit } from '../admin/waiting-list.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
-import { fontLink, googleFaceFile, listFonts, recordFont, startFontUpload } from './fonts.ts'
+import {
+  fontCatalog,
+  fontLink,
+  googleFaceFile,
+  googleFontList,
+  listFonts,
+  recordFont,
+  startFontUpload,
+} from './fonts.ts'
 
 /** The Google files and previews one address may ask the API for in a minute; Cloudflare answers repeats itself. */
 export const GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE = 600
@@ -20,16 +35,28 @@ const GOOGLE_FACE_FILES: ReadonlyMap<string, { kind: 'file' | 'preview'; content
   ['ttf', { kind: 'file', contentType: 'font/ttf' }],
   ['png', { kind: 'preview', contentType: 'image/png' }],
 ])
+/** The Google list's name at its address: its version, then `.js` (`GOOGLE_FONT_LIST_PATH`). */
+const GOOGLE_LIST_NAME = /^([0-9a-f]{32})\.js$/
 /** What every answer at a Google address that is not the file says: keep it nowhere, so a face added later shows. */
 const KEEP_NOTHING = { 'cache-control': 'no-store' }
 
 export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<Env> {
   const app = new Hono<Env>()
 
-  // Fonts (#50): Google Fonts copied into our storage and the brand's uploads, read back from there.
+  // Fonts (#50): Google Fonts copied into our storage and the brand's uploads, read back from there; with `family`
+  // asked for, only those families, as a design opening asks for the families its texts use.
   app.get('/brands/:brandId/fonts', async (c) => {
     const { workspaceId } = c.var.membership
-    return c.json(await listFonts(db, workspaceId, c.var.brand.id))
+    const names = c.req.queries('family')
+    if (names && names.length > MOST_FONT_FAMILIES_ASKED)
+      return c.json(error(`Ask for at most ${MOST_FONT_FAMILIES_ASKED} families at once`), 400)
+    return c.json(await listFonts(db, workspaceId, c.var.brand.id, names))
+  })
+
+  // The catalog in its two parts: the Google list's address, read from the browser's cache, and the brand's uploads.
+  app.get('/brands/:brandId/fonts/catalog', async (c) => {
+    const { workspaceId } = c.var.membership
+    return c.json(await fontCatalog(db, workspaceId, c.var.brand.id))
   })
 
   app.post('/brands/:brandId/fonts/uploads', requireWriter, async (c) => {
@@ -56,10 +83,11 @@ export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<
 }
 
 /**
- * The Google faces' files and previews at `GOOGLE_FONT_PATH`, for anyone, with no session: open-licence files that
- * are the same for everyone, kept by browsers and Cloudflare for good. Only faces of the Google catalog are read,
- * never a brand's upload. Only the one spelling of each address is served, with no query string and no escapes,
- * so none can ask past Cloudflare's copy.
+ * The Google faces' files and previews at `GOOGLE_FONT_PATH`, and the Google list at `GOOGLE_FONT_LIST_PATH`, for
+ * anyone, with no session: open-licence files and their list, the same for everyone, kept by browsers and Cloudflare
+ * for good. Only faces of the Google catalog are read, never a brand's upload. Only the one spelling of each address
+ * is served, with no query string and no escapes, so none can ask past Cloudflare's copy, and the list only at the
+ * version its bytes hash to, so an address never holds two lists.
  */
 export function googleFontRoutes({
   db,
@@ -96,6 +124,26 @@ export function googleFontRoutes({
       return c.body(null, 200, headers)
     }
     return c.body(stored.body, 200, headers)
+  })
+  app.get(`${GOOGLE_FONT_LIST_PATH}:name`, async (c) => {
+    const url = new URL(c.req.url)
+    const name = GOOGLE_LIST_NAME.exec(c.req.param('name'))
+    if (!name?.[1] || url.search !== '' || url.pathname !== `${GOOGLE_FONT_LIST_PATH}${name[0]}`)
+      return c.json(error('No such list'), 404, KEEP_NOTHING)
+    if (!perAddress.take(networkOf(c.req.header('cf-connecting-ip')?.trim() ?? '')))
+      return c.json(error('This address has asked for too many font files; try again in a minute'), 429, KEEP_NOTHING)
+    const list = await googleFontList(db)
+    // Another version: an old one, or the one of a server that is being swapped out; the browser asks the brand again.
+    if (list.version !== name[1]) return c.json(error('No such list'), 404, KEEP_NOTHING)
+    const headers = {
+      'content-type': 'application/json',
+      'content-length': String(list.bytes.length),
+      'cache-control': 'public, max-age=31536000, immutable',
+      'cross-origin-resource-policy': 'same-origin',
+      'x-content-type-options': 'nosniff',
+    }
+    if (c.req.method === 'HEAD') return c.body(null, 200, headers)
+    return c.body(list.bytes.slice(), 200, headers)
   })
   // Anything else Caddy sends here under /fonts/google/.
   app.get('/fonts/google/*', (c) => c.json(error('No such font'), 404, KEEP_NOTHING))

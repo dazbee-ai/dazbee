@@ -41,6 +41,7 @@ import type { OpenDesign } from '../open-design.ts'
 import { agentBatchOn, answered, Note, refusalOf, writing } from './command-tools.ts'
 import { defineTool, type Tool, type ToolContext, ToolRefusal } from './define-tool.ts'
 import { FrameId } from './design-tools.ts'
+import { patternSuggestions, STARTING_POINT } from './pattern-suggestions.ts'
 import { frameIn } from './place-on-frame.ts'
 
 /** The content filled in from the brand's assets, and what of the content given is left out of the ad. */
@@ -75,8 +76,10 @@ const Content = z
     kicker: Words('A short line over the headline, such as “New season”').optional(),
     button: Words('The button’s label, such as “Shop now”').optional(),
     highlight: Words('Words of the headline to set apart, as they are written in it').optional(),
-    badge: Words('A badge’s few words, such as “−30%” or “New” (product-badge)').optional(),
-    number: Words('The number, such as “50%” or “3×” (big-number)').optional(),
+    badge: Words('An offer’s few words, such as “−30%” or “New” (product-badge, coupon)').optional(),
+    number: Words(
+      'A figure such as “50%” or “3×” (big-number), a price (price-tag) or a date such as “28 Nov” (event-date, ticket)',
+    ).optional(),
     attribution: Words('Who said the quote, such as “Priya Nair, runner” (quote)').optional(),
     photo: RecordId.describe(
       'A photo of the brand’s, its id as list_assets gives it: an image, not an SVG file',
@@ -113,7 +116,7 @@ export const PATTERN_TOOLS: Tool[] = [
   defineTool({
     name: 'apply_pattern',
     title: 'Build an ad from a pattern',
-    description: `Builds a pattern (list_patterns) in a style at each size given, one frame a size, each arranged for its shape, as one undo step, and answers once Dazbee has stored it: each frame's id, name, size and the ids of the layers it made by the part each is, what of the content was left out, and the warnings. The first size goes in \`frame\` when it names an empty frame, at that frame's size; the rest go in new frames on its page, or the first page. Each part's copies in the sizes are linked copies; colours, fonts and the kit's logo are bound to the brand roles, the style's own where a role is not set. It is a starting point: change anything after, then look at each frame with render_frame and fix what check_frame warns of. Up to ${MOST_SIZES} sizes.`,
+    description: `Builds a pattern (list_patterns) in a style at each size given, one frame a size, each arranged for its shape, as one undo step, and answers once Dazbee has stored it: each frame's id, name, size and the ids of the layers it made by the part each is, what of the content was left out, and the warnings. The first size goes in \`frame\` when it names an empty frame, at that frame's size; the rest go in new frames on its page, or the first page. Each part's copies in the sizes are linked copies; colours, fonts and the kit's logo are bound to the brand roles, the style's own where a role is not set. What it builds is a first draft, never the finished ad: its answer suggests ways to make it the brand's own; change those or anything else, then look at each frame with render_frame and fix what check_frame warns of. Use a pattern only where one fits the brief; for a brief that asks for something distinctive, design from scratch. Up to ${MOST_SIZES} sizes.`,
     readOnly: false,
     input: z.object({
       pattern: z.string().trim().min(1).max(60).describe('The pattern’s id, as list_patterns gives it'),
@@ -131,12 +134,17 @@ export const PATTERN_TOOLS: Tool[] = [
       writing(context, [], async (open) => {
         const found = findPattern(pattern)
         if (!found) throw new ToolRefusal(`There is no pattern “${pattern}”; list_patterns lists them`)
-        const missing = missingContent(found, content)
+        // The logo is the kit's where none is named, so a pattern that needs one is refused only once that is known.
+        const missing = missingContent(found, content).filter((part) => part !== 'logo')
         if (missing.length > 0)
           throw new ToolRefusal(`The ${found.id} pattern needs ${missing.join(', ')} in the content; nothing was built`)
         const { pageId, frames } = framesFor(open, frame, sizes)
         const kit = await context.api.brandKit(open.brandId)
         const filled = await contentOf(context, open, content, kit.logoAssetId)
+        if (missingContent(found, filled.content).includes('logo'))
+          throw new ToolRefusal(
+            `The ${found.id} pattern needs a logo: name an image of the brand’s in content.logo, or set the brand kit’s logo; nothing was built`,
+          )
         const layers = await built(open, found.id, style, frames, filled.content, kit)
         const done = await agentBatchOn(open, patternSteps(pageId, layers, freshId), context.answerBy, note)
         const { kept, steps: outcomes, warnings, warningsError } = done.value
@@ -155,6 +163,8 @@ export const PATTERN_TOOLS: Tool[] = [
             layers: ids,
           })),
           ...(leftOut.length > 0 ? { leftOut } : {}),
+          startingPoint: STARTING_POINT,
+          suggestions: patternSuggestions(found, style, kit, filled.content),
           warnings,
           ...(warningsError === undefined ? {} : { warningsError }),
         })

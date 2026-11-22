@@ -16,6 +16,7 @@ import {
   logoOnTop,
   logoRoom,
   roles,
+  rowed,
   rowLabel,
   stripHolds,
   usualWords,
@@ -23,7 +24,8 @@ import {
 import { buttonColours, type ButtonFill, ctaFill } from '../button.ts'
 import { type Cropped, fitCrop, meets, subjectOf } from '../crop.ts'
 import { badgeShape, dots, glow } from '../decorations.ts'
-import { apart, inkOn, mixed, type Swatch } from '../palette.ts'
+import { apart, type Swatch } from '../palette.ts'
+import { lightColour, mainInks } from '../product-stage.ts'
 import { inkFor } from '../text-look.ts'
 import { ellipse, picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
@@ -71,39 +73,10 @@ export function productBadge(b: Build) {
   badge(b, placed.product.box, placed.limit, colour, placed.size, disc)
 }
 
-/** How plainly a backing shape's colour is apart from the product's main inks: by contrast, or by CIEDE2000. */
-const LIGHT_APART = { ratio: 1.6, difference: 25 }
 /** How plainly a badge's colour is apart from the disc behind it and the product it is on. */
 const BADGE_APART = { ratio: 2, difference: 25 }
-/** The least share of a product's ink a colour of it takes to be one of its main inks. */
-const MAIN_INK = 0.25
-/** The share of the ground's ink a backing shape is tinted with where no colour of the kit is apart from the product. */
-const LIGHT_TINT = 0.12
 /** The most of the product's drawn box a badge covers, by area, so the offer never outgrows the product. */
 const BADGE_AREA_MOST = 0.4
-
-/** The product's main inks, where its pixels were read. */
-function mainInks(b: Build): string[] {
-  return (b.content.photo?.look?.inks ?? []).filter((ink) => ink.share >= MAIN_INK).map((ink) => ink.colour)
-}
-
-/**
- * The colour of a backing shape behind the product drawn at `opacity` on `ground`: the first of `offered`, but the
- * ground's own, that as drawn is plainly apart from every main ink of the product, so its silhouette holds; else a
- * faint tint of the ground's ink.
- */
-function lightColour(b: Build, offered: readonly Swatch[], ground: Swatch, opacity = 1): Swatch {
-  const inks = mainInks(b)
-  const drawn = (swatch: Swatch) => (opacity < 1 ? mixed(ground.value, swatch.value, opacity) : swatch.value)
-  const found = offered.find(
-    (swatch) =>
-      swatch.value !== ground.value &&
-      inks.every((ink) => apart(drawn(swatch), ink, LIGHT_APART.ratio, LIGHT_APART.difference)),
-  )
-  if (found) return found
-  const ink = inkOn(ground.value, [b.palette.text, b.palette.background]).value
-  return { value: mixed(ground.value, ink, Math.min(1, LIGHT_TINT / opacity)) }
-}
 
 /**
  * The badge's colour on `ground`: the first of the colours a button takes there that is plainly apart from the disc
@@ -214,7 +187,7 @@ function sideBySide(b: Build, colour: Swatch, fill: ButtonFill): Placed {
     surface: colour.value,
     ...(content.button ? { button: content.button, buttonFill: fill } : {}),
   }
-  const placed = inRow(b) ? rowWords(b.tree, b, set) : stackWords(b.tree, b, set)
+  const placed = rowed(b, set) ? rowWords(b.tree, b, set) : stackWords(b.tree, b, set)
   if (!content.photo || productWidth === 0 || chip) {
     if (!content.photo || productWidth === 0) return { limit: productRoom, size: placed.size }
     // In a short frame the offer is the chip: the product shows whole, with no badge over it.

@@ -45,10 +45,14 @@ interface SizeAdvice {
   say: string
 }
 
-/** What every answer of the ad rules carries besides its sizes: the kind's advice, fonts, the truth rule, the plans and that it is advice. */
+/**
+ * What every answer of the ad rules carries besides its sizes: the kind's advice, fonts, when to use a pattern, the
+ * truth rule, the plans and that it is advice.
+ */
 interface SharedRules {
   kind?: { name: AdKind; lead: string }
   fonts: FontPairing[]
+  patterns: string
   truth: string
   plans: string
   advice: string
@@ -178,6 +182,9 @@ const CHANNEL_FACTS: Record<SizeChannel, PlatformFact[]> = {
 /** The rule against making facts up. */
 const TRUTH =
   'Never invent facts: a price, discount, date, place, number, name, claim, review or quote goes in the ad only as the person gave it or the brand’s own pages show it. Where a plan or a layout wants one you weren’t given, leave it out or ask.'
+/** When an agent builds from a pattern, and when it designs from scratch. */
+const PATTERNS_LINE =
+  'Patterns (list_patterns, apply_pattern) are a starting point, never the ad: use one only where it fits the brief, then make its draft the brand’s own (apply_pattern suggests how). Where none fits, or the brief asks for something distinctive, design from scratch.'
 /** Where an agent finds the plans. */
 const PLANS_LINE = `ad_rules with \`plan\` gives a plan’s steps: ${PLANS.map(({ name, title }) => `${name} (${title.toLowerCase()})`).join(', ')}.`
 /** That the ad rules are advice, and how to read keepClear for a size. */
@@ -244,9 +251,9 @@ function sizeAdvice(width: number, height: number, platforms?: readonly string[]
   }
 }
 
-/** The kind's advice and fonts, the truth rule, the plans and that the rules are advice. */
+/** The kind's advice and fonts, when to use a pattern, the truth rule, the plans and that the rules are advice. */
 function sharedRules(kind?: AdKind): SharedRules {
-  return { ...kindAdvice(kind), truth: TRUTH, plans: PLANS_LINE, advice: ADVICE }
+  return { ...kindAdvice(kind), patterns: PATTERNS_LINE, truth: TRUTH, plans: PLANS_LINE, advice: ADVICE }
 }
 
 /** The platforms whose interface covers an offered size where its channel runs it. */

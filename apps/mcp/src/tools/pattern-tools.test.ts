@@ -26,6 +26,8 @@ interface Stored {
 interface Applied {
   frames: { id: string; name: string; width: number; height: number; layers: Record<string, string> }[]
   leftOut?: string[]
+  startingPoint: string
+  suggestions: string[]
   warnings: unknown[]
 }
 
@@ -184,6 +186,30 @@ describe('apply_pattern', () => {
     expect(answer.leftOut).toEqual(['attribution: the pattern doesn’t use it', 'highlight: the pattern doesn’t use it'])
   })
 
+  it('answers with a first draft to adapt and two or three ways to make it the brand’s own, from what the pattern and kit hold', async () => {
+    const { agent } = await opened()
+    const photoless = (await agent.json('apply_pattern', {
+      pattern: 'words-only',
+      style: 'bold',
+      sizes: [{ width: 1080, height: 1080 }],
+      content: { ...WORDS, highlight: undefined },
+    })) as Applied
+    expect(photoless.startingPoint).toMatch(/first draft/)
+    expect(photoless.suggestions.length).toBeGreaterThanOrEqual(2)
+    expect(photoless.suggestions.length).toBeLessThanOrEqual(3)
+    // No photo, so no crop to change; no highlight given, so setting words apart is suggested.
+    expect(photoless.suggestions.join(' ')).not.toMatch(/crop/)
+    expect(photoless.suggestions.join(' ')).toMatch(/search_graphics/)
+    expect(photoless.suggestions.join(' ')).toMatch(/highlight/)
+    const photo = (await agent.json('apply_pattern', {
+      pattern: 'full-photo',
+      style: 'minimal',
+      sizes: [{ width: 1080, height: 1080 }],
+      content: { ...WORDS, photo: 'asset-bottle' },
+    })) as Applied
+    expect(photo.suggestions.join(' ')).toMatch(/crop/)
+  })
+
   it('refuses a pattern there isn’t, content a pattern needs, a frame that isn’t empty and an SVG photo, changing nothing', async () => {
     const { agent, sync } = await opened()
     const before = stored(sync)
@@ -194,6 +220,7 @@ describe('apply_pattern', () => {
       [{ pattern: 'words-only', style: 'bold', frame: 'sq', content: WORDS }, 'isn’t empty'],
       [{ pattern: 'split', style: 'bold', sizes: size, content: { ...WORDS, photo: 'asset-card' } }, 'SVG file'],
       [{ pattern: 'words-only', style: 'bold', content: WORDS }, 'Give the sizes'],
+      [{ pattern: 'app-icon', style: 'bold', sizes: size, content: { ...WORDS, logo: false } }, 'needs a logo'],
     ] as const
     for (const [args, says] of refusals) {
       const result = await agent.call('apply_pattern', { ...args })

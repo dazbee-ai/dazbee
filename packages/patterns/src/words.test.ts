@@ -85,18 +85,29 @@ describe('a pattern’s words', () => {
         const { nodes } = buildPattern(id, { style, kit: KIT, content: CONTENT, width, height, measure })
         const lead = nodes.number ?? nodes.headline
         if (lead?.type !== 'text') continue
-        // The style's room between the parts: a share of the headline's size, a quarter of a number's.
-        const base = lead.props.style.fontSize * (nodes.number ? 0.25 : 1)
-        const most = Math.ceil(base * STYLES[style].gap) + 1
+        const headline = nodes.headline
+        const headlineSize = headline?.type === 'text' ? headline.props.style.fontSize : lead.props.style.fontSize
         const parts = ['kicker', 'number', 'headline', 'subline', 'attribution', 'button']
           .flatMap((key) => (nodes[key] ? [{ key, ...nodes[key].props }] : []))
           .sort((a, b) => a.y - b.y)
         // A picture between two parts, such as a product over its button, parts them as it should.
         const pictures = Object.values(nodes).filter((node) => node.name === 'Photo' || node.name === 'Product')
+        // Words in boxes of their own, such as a ticket's stub and its main part, are apart as they should be.
+        const box = (key: string) => {
+          let at = key
+          while (nodes[at] && nodes[nodes[at]?.parentId ?? '']) at = nodes[at]?.parentId ?? ''
+          return at
+        }
         for (const [i, part] of parts.entries()) {
           const next = parts[i + 1]
           if (!next) break
           const foot = part.y + part.height
+          if (box(part.key) !== box(next.key)) continue
+          // The style's room between the parts: a share of the headline's size, a quarter of a number's over them.
+          const number = nodes.number
+          const numbered = number?.type === 'text' && box('number') === box(part.key)
+          const base = numbered ? number.props.style.fontSize * 0.25 : headlineSize
+          const most = Math.ceil(base * STYLES[style].gap) + 1
           if (pictures.some(({ props }) => props.y >= foot - 1 && props.y + props.height <= next.y + 1)) continue
           const at = `${width}×${height} ${part.key} to ${next.key}`
           expect({ at, together: next.y - foot <= most }).toEqual({ at, together: true })

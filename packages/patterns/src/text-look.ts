@@ -1,5 +1,5 @@
 // How a text is set in a pattern: a look's type at a size, and the ink that reads on what is behind it.
-import { shownScale } from '@dazbee/schema'
+import { shownScale, TextProps } from '@dazbee/schema'
 
 import { inkOn, LARGE_TEXT_CONTRAST, type Swatch, TEXT_CONTRAST } from './palette.ts'
 import type { TextLook } from './styles.ts'
@@ -7,6 +7,17 @@ import type { Setting } from './words.ts'
 
 /** WCAG 2's large text, 18 point, in CSS pixels. */
 export const LARGE_TEXT_PX = 24
+
+/**
+ * A sample of letters, and how wide the styles' own fonts that take negative tracking set it, as a multiple of the
+ * size: a brand's font set narrower is already tight, and takes less of a style's negative tracking, none at
+ * TIGHT_NONE times the size or narrower, so its letters never crowd.
+ */
+const SAMPLE = 'Hamburgefontsiv'
+const TIGHT_FULL = 7.7
+const TIGHT_NONE = 7.3
+/** How wide each font a measure sets sets the sample, as a multiple of the size, by family and weight. */
+const SAMPLE_WIDTHS = new WeakMap<Setting['measure'], Map<string, number>>()
 
 /** The ink a text takes on `surface`: the first of `offered`, else the kit's text and background colours, that reads at its size. */
 export function inkFor({ palette, frame }: Setting, surface: string, size: number, offered?: Swatch[]): Swatch {
@@ -21,16 +32,43 @@ export function inkFor({ palette, frame }: Setting, surface: string, size: numbe
 const BRAND_CAPS_TRACKING = 4
 
 /** A text's style in a look at `size`, its colour black until it is given one. */
-export function lookStyle({ palette }: Setting, look: TextLook, size: number) {
+export function lookStyle(setting: Setting, look: TextLook, size: number) {
+  const { palette } = setting
   const brand = palette.brandFont[look.font]
   const caps = brand && look.textCase === 'upper' && look.tracking < BRAND_CAPS_TRACKING
+  const family = palette[look.font].value
+  const weight = brand ? look.brandWeight : look.weight
+  const tracking = brand && look.tracking < 0 ? look.tracking * untightened(setting, family, weight) : look.tracking
   return {
-    fontFamily: palette[look.font].value,
-    fontWeight: brand ? look.brandWeight : look.weight,
+    fontFamily: family,
+    fontWeight: weight,
     fontSize: size,
     color: '#000000FF',
-    letterSpacing: { unit: 'percent' as const, value: look.tracking + (caps ? BRAND_CAPS_TRACKING : 0) },
+    letterSpacing: { unit: 'percent' as const, value: tracking + (caps ? BRAND_CAPS_TRACKING : 0) },
     lineHeight: look.lineHeight,
     ...(look.textCase === 'none' ? {} : { textCase: look.textCase }),
   }
+}
+
+/**
+ * The share of a style's negative tracking a brand's font takes: all of it where the font sets the sample as wide as
+ * the styles' own fonts do, none where it is already tight (TIGHT_NONE times the size or narrower), and in between a
+ * share.
+ */
+function untightened({ measure }: Setting, family: string, weight: number): number {
+  let widths = SAMPLE_WIDTHS.get(measure)
+  if (!widths) {
+    widths = new Map()
+    SAMPLE_WIDTHS.set(measure, widths)
+  }
+  const key = `${family}|${weight}`
+  let width = widths.get(key)
+  if (width === undefined) {
+    const size = 100
+    const style = { fontFamily: family, fontWeight: weight, fontSize: size, color: '#000000FF' }
+    const props = TextProps.parse({ x: 0, y: 0, width: 1, height: 1, text: SAMPLE, style, boxMode: 'autoWidth' })
+    width = measure(props, null).width / size
+    widths.set(key, width)
+  }
+  return Math.min(1, Math.max(0, (width - TIGHT_NONE) / (TIGHT_FULL - TIGHT_NONE)))
 }

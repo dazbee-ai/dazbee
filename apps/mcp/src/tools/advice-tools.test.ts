@@ -53,6 +53,7 @@ interface SizeRules {
   facts: { says: string; sources: Source[] }[]
   fonts: { heading: PairedFont; body: PairedFont; suits: string }[]
   kind?: { name: string; lead: string }
+  patterns: string
   truth: string
   plans: string
   advice: string
@@ -230,6 +231,15 @@ describe('ad_rules', () => {
     expect(rules.advice).toMatch(/never a limit/)
     expect(rules.truth).toMatch(/never invent/i)
     expect(rules.plans).toMatch(/make_ad/)
+  })
+
+  it('says to use a pattern only where it fits the brief, and to design from scratch for a distinctive one', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.patterns).toMatch(/only where it fits the brief/)
+    expect(rules.patterns).toMatch(/design from scratch/)
+    const plan = (await agent.json('ad_rules', { plan: 'make_ad' })) as { plan: string }
+    expect(plan.plan).toMatch(/Where a pattern fits the brief.*design it from scratch/s)
   })
 
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {

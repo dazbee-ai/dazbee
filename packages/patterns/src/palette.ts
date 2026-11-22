@@ -93,6 +93,14 @@ export function ornamentColour(palette: Palette, ground: string): { colour: Swat
   return { colour: inkOn(ground, [palette.text, palette.background]), opacity: 0.35 }
 }
 
+/**
+ * Whether small text reads on `colour` with a margin to spare: one of the kit's text and background colours, white or
+ * near black holds `ratio` of contrast on it.
+ */
+export function holdsText(palette: Palette, colour: string, ratio: number): boolean {
+  return [palette.text, palette.background, WHITE, INK].some((ink) => contrast(ink.value, colour) >= ratio)
+}
+
 /** The contrast ratio of two colours, from 1 to 21. */
 export function contrast(a: string, b: string): number {
   const x = luminance(a)

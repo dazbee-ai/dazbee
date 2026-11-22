@@ -2,15 +2,28 @@
 // giving the frame's layers.
 import { type LayerTree, shownScale, TextProps } from '@dazbee/schema'
 
-import { backdrop, type Build, footTint, type LogoCap } from './build.ts'
+import { backdrop, type Build, type LogoCap } from './build.ts'
 import { frameRoom, SHORT_FRAME } from './frame-shape.ts'
 import { LARGE_TEXT_CONTRAST, paletteOf, TEXT_CONTRAST } from './palette.ts'
+import { APP_ICON, appIcon } from './patterns/app-icon.ts'
+import { APP_PHONE, appPhone } from './patterns/app-phone.ts'
+import { ARCH, arch } from './patterns/arch.ts'
 import { BIG_NUMBER, bigNumber } from './patterns/big-number.ts'
+import { COUPON, coupon } from './patterns/coupon.ts'
+import { EVENT_DATE, eventDate } from './patterns/event-date.ts'
+import { FULL_PHOTO, fullPhoto } from './patterns/full-photo.ts'
 import { PHOTO_BAND, photoBand } from './patterns/photo-band.ts'
+import { PHOTO_CARD, photoCard } from './patterns/photo-card.ts'
+import { PODIUM, podium } from './patterns/podium.ts'
+import { POSTER, poster } from './patterns/poster.ts'
+import { PRICE_TAG, priceTag } from './patterns/price-tag.ts'
 import { PRODUCT_BADGE, productBadge } from './patterns/product-badge.ts'
 import { QUOTE, quote } from './patterns/quote.ts'
 import { SPLIT, split } from './patterns/split.ts'
+import { SPOTLIGHT, spotlight } from './patterns/spotlight.ts'
+import { TICKET, ticket } from './patterns/ticket.ts'
 import { WORDS_ONLY, wordsOnly } from './patterns/words-only.ts'
+import { storyFoot } from './story-foot.ts'
 import { STYLES } from './styles.ts'
 import { LARGE_TEXT_PX } from './text-look.ts'
 import { treeBuilder } from './tree.ts'
@@ -31,6 +44,18 @@ const BUILT: readonly Built[] = [
   { pattern: BIG_NUMBER, build: bigNumber },
   { pattern: QUOTE, build: quote },
   { pattern: WORDS_ONLY, build: wordsOnly },
+  { pattern: FULL_PHOTO, build: fullPhoto },
+  { pattern: PHOTO_CARD, build: photoCard },
+  { pattern: POSTER, build: poster },
+  { pattern: ARCH, build: arch },
+  { pattern: PODIUM, build: podium },
+  { pattern: SPOTLIGHT, build: spotlight },
+  { pattern: PRICE_TAG, build: priceTag },
+  { pattern: COUPON, build: coupon },
+  { pattern: EVENT_DATE, build: eventDate },
+  { pattern: TICKET, build: ticket },
+  { pattern: APP_PHONE, build: appPhone },
+  { pattern: APP_ICON, build: appIcon },
 ]
 
 /** Every pattern, as an agent is told of them. */
@@ -88,7 +113,8 @@ export function buildPattern(id: string, input: PatternInput): PatternLayers {
 /**
  * A pattern's layers for each of a set of sizes built together, as one campaign: the headline's highlight is set
  * apart alike at every size, in a colour that reads where the set's smallest headline is set, and each frame's logo
- * is brought under its lead, so it signs the ad and never outranks its message. Throws as buildPattern does.
+ * is brought under its lead, so it signs the ad and never outranks its message, but where the pattern needs the logo
+ * as its picture. Throws as buildPattern does.
  */
 export function buildPatterns(
   id: string,
@@ -105,10 +131,12 @@ export function buildPatterns(
   const first = sizes.map((size) => once(size, {}))
   const large = first.every((layers, i) => headlineLarge(layers, sizes[i] ?? { width: 0, height: 0 }))
   const highlightContrast = large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST
+  // A pattern that needs the logo makes it its picture, as an app's icon; any other's logo signs the ad.
+  const signs = !built.pattern.needs.includes('logo')
   return sizes.map((size) => {
     let cap: LogoCap | undefined
     let layers = once(size, { highlightContrast })
-    for (let pass = 0; pass < LOGO_PASSES; pass++) {
+    for (let pass = 0; signs && pass < LOGO_PASSES; pass++) {
       const next = logoCapOf(layers, size, input.measure, cap)
       if (!next) break
       cap = next
@@ -142,7 +170,7 @@ function buildOnce(
   }
   backdrop(b, palette.background)
   built.build(b)
-  footTint(b)
+  storyFoot(b)
   return tree.tree()
 }
 

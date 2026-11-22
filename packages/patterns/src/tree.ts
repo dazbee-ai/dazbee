@@ -32,6 +32,8 @@ export interface Fill {
 /** What a frame's layers are built with: parts added on top, each inside the part named, or the frame. */
 export interface TreeBuilder {
   add(key: string, part: Part, parent?: string): string
+  /** Adds a part at the frame's top level just over the top-level part `over`, under every part added after it. */
+  addOver(key: string, part: Part, over: string): string
   /** Moves a part added before, and what it holds, down by `dy`. */
   moveDown(key: string, dy: number): void
   tree(): LayerTree
@@ -53,6 +55,17 @@ export function treeBuilder(): TreeBuilder {
     if (parent === undefined) roots.push(key)
     return key
   }
+  function addOver(key: string, part: Part, over: string): string {
+    const below = nodes[over]
+    const at = roots.indexOf(over)
+    if (!below || at < 0) throw new Error(`no top-level part "${over}" to put "${key}" over`)
+    if (Object.hasOwn(nodes, key)) throw new Error(`the pattern has two parts "${key}"`)
+    // The top-level parts are drawn in the order they are listed; its index is past the part's own, before the next.
+    const index = `${below.index}V${(count++).toString().padStart(4, '0')}`
+    nodes[key] = Layer.parse({ ...part, parentId: PLACEHOLDER_PARENT, link: key, index })
+    roots.splice(at + 1, 0, key)
+    return key
+  }
   function moveDown(key: string, dy: number) {
     for (const [id, node] of Object.entries(nodes))
       if (id === key || insideOf(id, key)) node.props.y = round(node.props.y + dy)
@@ -62,7 +75,7 @@ export function treeBuilder(): TreeBuilder {
       if (up === key) return true
     return false
   }
-  return { add, moveDown, tree: () => ({ nodes, roots }) }
+  return { add, addOver, moveDown, tree: () => ({ nodes, roots }) }
 }
 
 /** A solid fill of a colour, bound to its brand role when it has one. */

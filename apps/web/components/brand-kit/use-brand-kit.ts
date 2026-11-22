@@ -131,10 +131,7 @@ export function useBrandKit(workspaceId: string, brandId: string, first?: Stored
  */
 export async function loadFirstKit(workspaceId: string, brandId: string): Promise<void> {
   if (kits.has(brandId) || troubles.has(brandId)) return
-  await firstLoads(brandId, async () => {
-    await loadKit(workspaceId, brandId)
-    return undefined
-  })
+  await firstLoads(brandId, () => loadKit(workspaceId, brandId).then(() => undefined))
 }
 
 /** What keeps the brand's kit from being saved as it shows, or null. */

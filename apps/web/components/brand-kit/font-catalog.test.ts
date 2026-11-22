@@ -9,9 +9,9 @@ import {
   faceFor,
   loadCatalog,
   loadedCatalog,
-  openingCatalog,
   pageCatalog,
   scriptsOf,
+  sharedCatalogRead,
   weightsOf,
 } from './font-catalog.ts'
 
@@ -20,6 +20,41 @@ const family = (name: string, source: FontFamily['source']): FontFamily => ({
   source,
   category: null,
   faces: [{ id: `${name}-400`, family: name, weight: 400, style: 'normal', source, byteSize: 1 }],
+})
+
+/** A family whose one face has an id as the API gives them. */
+const listed = (name: string, source: FontFamily['source'], id: string): FontFamily => ({
+  ...family(name, source),
+  faces: [{ id, family: name, weight: 400, style: 'normal', source, byteSize: 1 }],
+})
+const lora = { ...listed('Lora', 'google', 'lora00000400'), category: 'serif' }
+const raleway = listed('Raleway', 'google', 'rale00000400')
+const myLora = listed('Lora', 'upload', 'mylora000400')
+const house = listed('House Sans', 'upload', 'house0000400')
+
+/** A Google list's bytes and its address, named by their hash as the API names it. */
+function googleList(families: FontFamily[]) {
+  const body = JSON.stringify(families)
+  const hash = createHash('sha256').update(body).digest('hex').slice(0, 32)
+  return { body, path: `/fonts/google/lists/${hash}.js` }
+}
+
+/**
+ * Answers each address from `answers`, given the fetch's options, or fails as offline, noting each address asked
+ * and whether it asked past the browser's copy.
+ */
+function fakeFetch(answers: Record<string, (init?: RequestInit) => Response>) {
+  const asked: string[] = []
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+    asked.push(init?.cache === 'reload' ? `${url} (reload)` : url)
+    const answer = answers[url]
+    return answer ? Promise.resolve(answer(init)) : Promise.reject(new TypeError('Failed to fetch'))
+  })
+  return asked
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('categoryOf', () => {
@@ -110,42 +145,24 @@ describe('weightsOf', () => {
   })
 })
 
-describe('loadCatalog', () => {
-  /** A family whose one face has an id as the API gives them. */
-  const listed = (name: string, source: FontFamily['source'], id: string): FontFamily => ({
-    ...family(name, source),
-    faces: [{ id, family: name, weight: 400, style: 'normal', source, byteSize: 1 }],
-  })
-  const lora = { ...listed('Lora', 'google', 'lora00000400'), category: 'serif' }
-  const raleway = listed('Raleway', 'google', 'rale00000400')
-  const myLora = listed('Lora', 'upload', 'mylora000400')
-  const house = listed('House Sans', 'upload', 'house0000400')
-
-  /** A Google list's bytes and its address, named by their hash as the API names it. */
-  function googleList(families: FontFamily[]) {
-    const body = JSON.stringify(families)
-    const hash = createHash('sha256').update(body).digest('hex').slice(0, 32)
-    return { body, path: `/fonts/google/lists/${hash}.js` }
-  }
-
-  /**
-   * Answers each address from `answers`, given the fetch's options, or fails as offline, noting each address asked
-   * and whether it asked past the browser's copy.
-   */
-  function fakeFetch(answers: Record<string, (init?: RequestInit) => Response>) {
-    const asked: string[] = []
-    vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
-      asked.push(init?.cache === 'reload' ? `${url} (reload)` : url)
-      const answer = answers[url]
-      return answer ? Promise.resolve(answer(init)) : Promise.reject(new TypeError('Failed to fetch'))
+describe('sharedCatalogRead', () => {
+  it('reads the catalog once for two mounts while the read is out, as strict mode mounts, and again for a mount after', async () => {
+    // A list no other test reads, which this page keeps once read.
+    const list = googleList([raleway, house])
+    const asked = fakeFetch({
+      '/w/w4/brands/b4/fonts/catalog': () => Response.json({ google: list.path, uploads: [house] }),
+      [list.path]: () => new Response(list.body),
     })
-    return asked
-  }
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
+    const [first, second] = await Promise.all([sharedCatalogRead('w4', 'b4'), sharedCatalogRead('w4', 'b4')])
+    expect(first?.map((f) => f.family)).toEqual(['House Sans', 'Raleway'])
+    expect(second).toBe(first)
+    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path])
+    await sharedCatalogRead('w4', 'b4')
+    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path, '/w/w4/brands/b4/fonts/catalog'])
   })
+})
 
+describe('loadCatalog', () => {
   it('joins the Google list the browser keeps and the brand’s uploads, asking for the list once', async () => {
     const list = googleList([lora, raleway])
     const asked = fakeFetch({
@@ -208,20 +225,6 @@ describe('loadCatalog', () => {
       '/w/w1/brands/b1/fonts': () => Response.json([house, lora]),
     })
     expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
-  })
-
-  it('reads the catalog once for a chooser opened twice as strict mode opens it, and again for one opened after', async () => {
-    const list = googleList([raleway])
-    const asked = fakeFetch({
-      '/w/w4/brands/b4/fonts/catalog': () => Response.json({ google: list.path, uploads: [house] }),
-      [list.path]: () => new Response(list.body),
-    })
-    const [first, second] = await Promise.all([openingCatalog('w4', 'b4'), openingCatalog('w4', 'b4')])
-    expect(first?.map((f) => f.family)).toEqual(['House Sans', 'Raleway'])
-    expect(second).toBe(first)
-    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path])
-    await openingCatalog('w4', 'b4')
-    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path, '/w/w4/brands/b4/fonts/catalog'])
   })
 
   it('gives nothing offline, so the chooser keeps what it had, and keeps the catalog it read last', async () => {

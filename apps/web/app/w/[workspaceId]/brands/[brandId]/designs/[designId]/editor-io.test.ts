@@ -45,6 +45,40 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+describe('startStageEditor', () => {
+  it('starts one editor for a stage mounted twice as strict mode mounts it, asking for each address once', async () => {
+    const asked = fakeFetch()
+    /** A stage's mount: an editor that loads the design's fonts, as `startEditor` does on opening. */
+    const mount = (signal: AbortSignal) =>
+      startStageEditor('w1', 'b1', signal, async () => {
+        const { fontFaces, fontFile } = fontLoader('w1', 'b1')
+        const faces = await fontFaces(['Lora', 'House Sans'])
+        await Promise.all(faces.map(fontFile))
+        return faces.map((face) => face.id)
+      })
+    const first = new AbortController()
+    const firstMount = mount(first.signal)
+    first.abort()
+    const secondMount = mount(new AbortController().signal)
+    expect(await firstMount).toBeNull()
+    expect(await secondMount).toEqual(['lora00000400', 'house0000400'])
+    expect(asked).toEqual([
+      '/w/w1/brands/b1/kit/data',
+      '/w/w1/brands/b1/fonts?family=Lora&family=House+Sans',
+      '/fonts/google/faces/lora00000400.ttf',
+      '/w/w1/brands/b1/fonts/house0000400',
+    ])
+  })
+
+  it('asks for the brand kit again for a stage mounted after the first ask settled', async () => {
+    const asked = fakeFetch()
+    const signal = new AbortController().signal
+    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
+    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
+    expect(asked).toEqual(['/w/w1/brands/b1/kit/data', '/w/w1/brands/b1/kit/data'])
+  })
+})
+
 describe('fontLoader', () => {
   it('loads a Google face’s file from its permanent address, with no call through the brand', async () => {
     const asked = fakeFetch()
@@ -97,39 +131,5 @@ describe('fontLoader', () => {
     await expect(fontFaces(['Lora'])).rejects.toThrow('Failed to fetch')
     vi.spyOn(fontCatalog, 'loadedCatalog').mockReturnValue(CATALOG)
     expect((await fontFaces(['Lora', 'Gone Sans'])).map((face) => face.id)).toEqual(['lora00000400'])
-  })
-})
-
-describe('startStageEditor', () => {
-  it('starts one editor for a stage mounted twice as strict mode mounts it, asking for each address once', async () => {
-    const asked = fakeFetch()
-    /** A stage's mount: an editor that loads the design's fonts, as `startEditor` does on opening. */
-    const mount = (signal: AbortSignal) =>
-      startStageEditor('w1', 'b1', signal, async () => {
-        const { fontFaces, fontFile } = fontLoader('w1', 'b1')
-        const faces = await fontFaces(['Lora', 'House Sans'])
-        await Promise.all(faces.map(fontFile))
-        return faces.map((face) => face.id)
-      })
-    const first = new AbortController()
-    const firstMount = mount(first.signal)
-    first.abort()
-    const secondMount = mount(new AbortController().signal)
-    expect(await firstMount).toBeNull()
-    expect(await secondMount).toEqual(['lora00000400', 'house0000400'])
-    expect(asked).toEqual([
-      '/w/w1/brands/b1/kit/data',
-      '/w/w1/brands/b1/fonts?family=Lora&family=House+Sans',
-      '/fonts/google/faces/lora00000400.ttf',
-      '/w/w1/brands/b1/fonts/house0000400',
-    ])
-  })
-
-  it('asks for the brand kit again for a stage mounted after the first ask settled', async () => {
-    const asked = fakeFetch()
-    const signal = new AbortController().signal
-    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
-    await startStageEditor('w1', 'b1', signal, () => Promise.resolve(null))
-    expect(asked).toEqual(['/w/w1/brands/b1/kit/data', '/w/w1/brands/b1/kit/data'])
   })
 })

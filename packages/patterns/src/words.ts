@@ -465,14 +465,7 @@ export function keepsEvery(setting: Setting, words: Words): boolean {
 
 /** How the words fit their room: in a row beside their button where rowWins says, else stacked. */
 function fitOf(setting: Setting, words: Words): Fit & { parts: WordPart[] } {
-  const row = rowWins(setting, words) ? chosenRow(setting, words) : undefined
-  return row ? row.fit : fewestLeftOut(setting, words)
-}
-
-/** The way rowWords sets the words: the first of rowTries that fits, else the last tried. */
-function chosenRow(setting: Setting, words: Words) {
-  const tried = rowTries(setting, words)
-  return tried.find(({ fit }) => fit.fits) ?? tried.at(-1)
+  return rowOrStack(setting, words).fit
 }
 
 /**
@@ -481,12 +474,18 @@ function chosenRow(setting: Setting, words: Words) {
  * the button beside the words never squeezes the lead into a narrow column.
  */
 export function rowWins(setting: Setting, words: Words): boolean {
-  if (!words.button || !wideRow(setting, words.room)) return false
-  const row = chosenRow(setting, words)
-  if (!row?.fit.fits) return false
+  return rowOrStack(setting, words).row
+}
+
+/** The fit rowWins chooses for the words, and whether it is the row's: each way measured once. */
+function rowOrStack(setting: Setting, words: Words): { row: boolean; fit: Fit & { parts: WordPart[] } } {
+  if (!words.button || !wideRow(setting, words.room)) return { row: false, fit: fewestLeftOut(setting, words) }
+  const tried = rowTries(setting, words)
+  const row = (tried.find(({ fit }) => fit.fits) ?? tried.at(-1))?.fit
   const stacked = fewestLeftOut(setting, words)
-  if (!stacked.fits) return true
-  return row.fit.parts.length >= stacked.parts.length && row.fit.size >= stacked.size
+  if (!row?.fits) return { row: false, fit: stacked }
+  const wins = !stacked.fits || (row.parts.length >= stacked.parts.length && row.size >= stacked.size)
+  return wins ? { row: true, fit: row } : { row: false, fit: stacked }
 }
 
 /**

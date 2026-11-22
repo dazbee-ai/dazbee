@@ -184,7 +184,8 @@ describe('a pattern’s logo', () => {
     expect(plated).toBeGreaterThan(0)
   })
 
-  it('sets a logo’s label in a colour both its inks read on at 3:1, with no brand kit', () => {
+  // It builds every pattern in every style at many sizes: longer than one test's usual time on a busy CI runner.
+  it('sets a logo’s label in a colour both its inks read on at 3:1, with no brand kit', { timeout: 120_000 }, () => {
     for (const id of PATTERNS.map((pattern) => pattern.id))
       for (const style of PATTERN_STYLES)
         for (const { width, height } of CHANNEL_SIZES) {

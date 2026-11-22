@@ -121,39 +121,44 @@ describe('buildPattern', () => {
     },
   )
 
-  it('crops the photo to its subject at every channel size: the subject shows whole, and the logo is clear of it', () => {
-    const photo = { ...picture, look: { subject: { x: 300, y: 450, width: 1000, height: 400 }, inks: [] } }
-    for (const { width, height } of CHANNEL_SIZES)
-      for (const id of ['photo-band', 'split'])
-        for (const style of PATTERN_STYLES) {
-          const { nodes } = buildPattern(id, {
-            style,
-            kit: KIT,
-            content: { ...CONTENT, photo },
-            width,
-            height,
-            measure,
-          })
-          const layer = nodes.photo
-          const fill = layer?.type === 'graphic' ? layer.props.fills[0] : undefined
-          // A frame that can't show the subject whole leaves the photo out; the square, story and wide ones show it.
-          if (!layer && height <= 100) continue
-          if (!layer || fill?.type !== 'image' || !fill.crop)
-            throw new Error(`${id} ${style} ${width}x${height} has no cropped photo`)
-          const { crop } = fill
-          const scale = layer.props.width / crop.width
-          const subject = {
-            x: layer.props.x + (photo.look.subject.x - crop.x) * scale,
-            y: layer.props.y + (photo.look.subject.y - crop.y) * scale,
-            width: photo.look.subject.width * scale,
-            height: photo.look.subject.height * scale,
+  // It builds every pattern in every style at many sizes: longer than one test's usual time on a busy CI runner.
+  it(
+    'crops the photo to its subject at every channel size: the subject shows whole, and the logo is clear of it',
+    { timeout: 120_000 },
+    () => {
+      const photo = { ...picture, look: { subject: { x: 300, y: 450, width: 1000, height: 400 }, inks: [] } }
+      for (const { width, height } of CHANNEL_SIZES)
+        for (const id of ['photo-band', 'split'])
+          for (const style of PATTERN_STYLES) {
+            const { nodes } = buildPattern(id, {
+              style,
+              kit: KIT,
+              content: { ...CONTENT, photo },
+              width,
+              height,
+              measure,
+            })
+            const layer = nodes.photo
+            const fill = layer?.type === 'graphic' ? layer.props.fills[0] : undefined
+            // A frame that can't show the subject whole leaves the photo out; the square, story and wide ones show it.
+            if (!layer && height <= 100) continue
+            if (!layer || fill?.type !== 'image' || !fill.crop)
+              throw new Error(`${id} ${style} ${width}x${height} has no cropped photo`)
+            const { crop } = fill
+            const scale = layer.props.width / crop.width
+            const subject = {
+              x: layer.props.x + (photo.look.subject.x - crop.x) * scale,
+              y: layer.props.y + (photo.look.subject.y - crop.y) * scale,
+              width: photo.look.subject.width * scale,
+              height: photo.look.subject.height * scale,
+            }
+            const at = `${id} ${style} ${width}×${height}`
+            expect({ at, inside: within(subject, layer.props) }).toEqual({ at, inside: true })
+            const mark = nodes.logo?.props
+            if (mark) expect({ at, clear: !meets(mark, subject) }).toEqual({ at, clear: true })
           }
-          const at = `${id} ${style} ${width}×${height}`
-          expect({ at, inside: within(subject, layer.props) }).toEqual({ at, inside: true })
-          const mark = nodes.logo?.props
-          if (mark) expect({ at, clear: !meets(mark, subject) }).toEqual({ at, clear: true })
-        }
-  })
+    },
+  )
 
   it.each(EVERY)(
     'keeps the logo in %s in the %s style at every channel size, the smallest banners too',
@@ -210,25 +215,30 @@ describe('buildPattern', () => {
     }
   })
 
-  it('keeps the subline at the main social sizes in every style wherever the bold style keeps it', () => {
-    // A photo whose subject was read from its pixels, as apply_pattern gives it.
-    const READ = {
-      ...CONTENT,
-      photo: { ...picture, look: { subject: { x: 300, y: 450, width: 1000, height: 400 }, inks: [] } },
-    }
-    for (const [width, height] of [
-      [1080, 1080],
-      [1080, 1350],
-      [1280, 720],
-    ] as const)
-      for (const pattern of PATTERNS) {
-        const has = (style: (typeof PATTERN_STYLES)[number]) =>
-          Boolean(buildPattern(pattern.id, { style, kit: KIT, content: READ, width, height, measure }).nodes.subline)
-        if (!has('bold')) continue
-        for (const style of PATTERN_STYLES)
-          expect([pattern.id, style, width, has(style)]).toEqual([pattern.id, style, width, true])
+  // It builds every pattern in every style at many sizes: longer than one test's usual time on a busy CI runner.
+  it(
+    'keeps the subline at the main social sizes in every style wherever the bold style keeps it',
+    { timeout: 120_000 },
+    () => {
+      // A photo whose subject was read from its pixels, as apply_pattern gives it.
+      const READ = {
+        ...CONTENT,
+        photo: { ...picture, look: { subject: { x: 300, y: 450, width: 1000, height: 400 }, inks: [] } },
       }
-  })
+      for (const [width, height] of [
+        [1080, 1080],
+        [1080, 1350],
+        [1280, 720],
+      ] as const)
+        for (const pattern of PATTERNS) {
+          const has = (style: (typeof PATTERN_STYLES)[number]) =>
+            Boolean(buildPattern(pattern.id, { style, kit: KIT, content: READ, width, height, measure }).nodes.subline)
+          if (!has('bold')) continue
+          for (const style of PATTERN_STYLES)
+            expect([pattern.id, style, width, has(style)]).toEqual([pattern.id, style, width, true])
+        }
+    },
+  )
 
   it.each(PATTERN_STYLES)(
     'tells what a short big number is of in the %s style with a whole unit of the words, never cut mid-phrase',
@@ -264,7 +274,8 @@ describe('buildPattern', () => {
     expect(() => buildPattern('big-number', { ...input, content: { headline: 'Sale' } })).toThrow('needs number')
   })
 
-  it('builds at every channel size the app offers', () => {
+  // It builds every pattern in every style at many sizes: longer than one test's usual time on a busy CI runner.
+  it('builds at every channel size the app offers', { timeout: 120_000 }, () => {
     for (const { width, height } of SIZE_PRESETS)
       expect(() =>
         buildPattern('split', { style: 'premium', kit: KIT, content: CONTENT, width, height, measure }),

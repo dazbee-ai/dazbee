@@ -1,6 +1,6 @@
 # Third-party notices
 
-Code in Dazbee that is ported from other projects, libraries whose licence asks for a notice, model weights it starts from, and the illustration sets agents place, with the notice each project's licence asks to keep, or the licence each set's page gives.
+Code in Dazbee that is ported from other projects, libraries whose licence asks for a notice, model weights it starts from, and the illustration and artwork sets agents place, with the notice each project's licence asks to keep, or the licence each set's page gives.
 
 ## FigCraft
 
@@ -172,4 +172,137 @@ Copyright 2020 MANYPIXELS PTE LTD
 All images, assets and vectors published on ManyPixels can be used for free. You can use them for noncommercial and commercial purposes. You do not need to ask permission from or provide credit to the creator or ManyPixels.
 
 More precisely, ManyPixels grants you an nonexclusive, worldwide copyright license to download, copy, modify, distribute, perform, and use the assets provided from ManyPixels for free, including for commercial purposes, without permission from or attributing the creator or ManyPixels. This license does not include the right to compile assets, vectors or images from ManyPixels to replicate a similar or competing service, in any form or distribute the assets in packs or otherwise. This extends to automated and non-automated ways to link, embed.
+```
+
+## Artwork
+
+The objects, 3D objects, shapes, hand-drawn accents, effects and backgrounds agents place with `place_graphic` (`packages/graphics`, listed in `packages/graphics/src/artwork.json`; the files sit in Dazbee's storage, not in this repository). The app's third-party notices page (`/notices`) lists each set with its creator, linking to their site, and its licence in full, from `packages/graphics/src/artwork-notices.json`, which also quotes the Creative Commons legal code of each CC set. For the CC BY sets (Streamline, dddoodle) this is the credit their licence asks for.
+
+### Streamline Kameleon
+
+Streamline Kameleon (https://www.streamlinehq.com/icons/kameleon), by Streamline (https://www.streamlinehq.com). Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dazbee takes the files from the GitHub repository webalys-hq/streamline-vectors at commit 52d750c.
+
+Then the Creative Commons Attribution 4.0 International legal code (https://creativecommons.org/licenses/by/4.0/legalcode), quoted in full on `/notices`.
+
+### Streamline Plump
+
+Streamline Plump (https://www.streamlinehq.com/icons/plump), by Streamline (https://www.streamlinehq.com). Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dazbee takes the files from the GitHub repository webalys-hq/streamline-vectors at commit 52d750c.
+
+Then the Creative Commons Attribution 4.0 International legal code (https://creativecommons.org/licenses/by/4.0/legalcode), quoted in full on `/notices`.
+
+### Streamline Freehand
+
+Streamline Freehand (https://www.streamlinehq.com/icons/freehand-sets), by Streamline (https://www.streamlinehq.com). Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dazbee takes the files from the GitHub repository webalys-hq/streamline-vectors at commit 52d750c.
+
+Then the Creative Commons Attribution 4.0 International legal code (https://creativecommons.org/licenses/by/4.0/legalcode), quoted in full on `/notices`.
+
+### Streamline Stickies
+
+Streamline Stickies (https://www.streamlinehq.com/icons/stickies), by Streamline (https://www.streamlinehq.com). Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dazbee takes the files from the GitHub repository webalys-hq/streamline-vectors at commit 52d750c.
+
+Then the Creative Commons Attribution 4.0 International legal code (https://creativecommons.org/licenses/by/4.0/legalcode), quoted in full on `/notices`.
+
+### 3dicons
+
+3dicons (https://3dicons.co), by Vijay Verma (https://3dicons.co). Used under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Dazbee takes the files from https://pub-821312cfd07a4061bf7b99c1f23ed29b.r2.dev/v1/, as the GitHub repository realvjy/3dicons at commit 8884d59 lists them.
+
+Its repository's licence file is the Creative Commons CC0 1.0 Universal legal code (https://creativecommons.org/publicdomain/zero/1.0/legalcode), quoted in full on `/notices`.
+
+### Coolshapes
+
+Coolshapes (https://coolshap.es), by Coolshapes (https://coolshap.es). Used under MIT (https://github.com/realvjy/coolshapes/blob/main/LICENSE.md). Dazbee takes the files from the GitHub repository realvjy/coolshapes at commit de6c8f9.
+
+```text
+MIT License
+
+Copyright (c) 2024 Coolshapes | coolshap.es
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### dddoodle
+
+dddoodle (https://www.fffuel.co/dddoodle/), by fffuel (https://www.fffuel.co). Used under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Dazbee takes the files from the pack https://www.fffuel.co/files/dddoodle-pack.zip as read on 2026-11-22.
+
+```text
+Thanks for downloading dddoodle!
+
+This pack is licensed under the terms of the Creative Commons Attribution license: https://creativecommons.org/licenses/by/4.0/
+
+Have fun and feel free to share what you create with me here: https://fffuel.co/contact/
+
+Cheers! ✨
+Seb
+```
+
+Then the Creative Commons Attribution 4.0 International legal code (https://creativecommons.org/licenses/by/4.0/legalcode), quoted in full on `/notices`.
+
+### Kenney Particle Pack
+
+Kenney Particle Pack (https://kenney.nl/assets/particle-pack), by Kenney (https://kenney.nl). Used under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Dazbee takes the files from the GitHub repository Calinou/kenney-particle-pack at commit ab70866.
+
+```text
+Particle Pack (1.1)
+
+	by Kenney Vleugels (Kenney.nl)
+
+	Additional credit for creating filter templates:
+	Indigo Ray, Craig Nisbet, Zoltan Erdokovy, Heliagon, ThreeDee, Killst4r and Tim2501
+
+			------------------------------
+
+	License (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	You may use these assets in personal and commercial projects.
+	Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+
+	Follow on Twitter for updates: @KenneyNL (www.twitter.com/kenneynl)
+```
+
+Then the Creative Commons CC0 1.0 Universal legal code (https://creativecommons.org/publicdomain/zero/1.0/legalcode), quoted in full on `/notices`.
+
+### Kenney Smoke Particles
+
+Kenney Smoke Particles (https://kenney.nl/assets/smoke-particles), by Kenney (https://kenney.nl). Used under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). Dazbee takes the files from https://raw.githubusercontent.com/Poipoise/Deadly-Faith/ea19f5b3ce8c4c01027b2fb9389f82cf293779c1/kenney_smoke-particles/PNG/, as the GitHub repository Poipoise/Deadly-Faith at commit ea19f5b lists them.
+
+Kenney’s page for the pack, https://kenney.nl/assets/smoke-particles, read on 2026-11-22, gives its licence as “Creative Commons CC0”. The copy Dazbee takes the files from ships no licence file.
+
+Then the Creative Commons CC0 1.0 Universal legal code (https://creativecommons.org/publicdomain/zero/1.0/legalcode), quoted in full on `/notices`.
+
+### Pattern Monster
+
+Pattern Monster (https://pattern.monster), by Pattern Monster (https://pattern.monster). Used under MIT (https://github.com/catchspider2002/svelte-svg-patterns/blob/master/LICENSE.md). Dazbee takes the files from the GitHub repository catchspider2002/svelte-svg-patterns at commit 803e30b.
+
+```text
+MIT License
+
+Copyright (c) 2020 - 2023 pattern.monster
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```

@@ -1,5 +1,7 @@
-// Finding bundled icons, stickers and illustrations by words: each word of the query is matched against a graphic's name, then its
+// Finding bundled icons, stickers, illustrations and artwork by words: each word of the query is matched against a graphic's name, then its
 // tags and categories, and the graphics that match every word are ranked, the sets taking turns so each set's best show.
+import { artworks } from './artwork.ts'
+import { ARTWORK_SETS, type ArtworkKind, type ArtworkSetId, isArtworkSet } from './artwork-sets.ts'
 import { readBundled } from './bundled.ts'
 import { illustrations } from './illustrations.ts'
 import {
@@ -11,6 +13,7 @@ import {
   type IllustrationSetId,
   isIconSet,
   isIllustrationSet,
+  kindOfSet,
   type StickerSetId,
 } from './sets.ts'
 
@@ -26,13 +29,14 @@ export type IconIndex = Record<IconSetId, IndexedGraphic[]>
 /** The stickers' search index (`sets/stickers.json`): each sticker set's stickers. */
 export type StickerIndex = Record<StickerSetId, IndexedGraphic[]>
 
-/** An icon, a sticker or an illustration as a search finds it: its kind with its set, and what every graphic has. */
+/** A graphic as a search finds it: its kind with its set, and what every graphic has. */
 export type FoundGraphic = (
   | { kind: 'icon'; set: IconSetId }
   | { kind: 'sticker'; set: StickerSetId }
   | { kind: 'illustration'; set: IllustrationSetId }
+  | { kind: ArtworkKind; set: ArtworkSetId }
 ) & {
-  /** Its id, the set and the name: `tabler/shopping-cart`, `fluent-emoji/rocket`, `undraw/delivery`. */
+  /** Its id, the set and the name: `tabler/shopping-cart`, `fluent-emoji/rocket`, `undraw/delivery`, `coolshapes/star-1`. */
   id: string
   name: string
   /** The styles it is drawn in, the one placed when none is asked for first. */
@@ -59,6 +63,7 @@ export const WORD_BREAK = /[^\p{L}\p{N}]+/u
 let icons: IconIndex | undefined
 let stickers: StickerIndex | undefined
 let illustrationIndex: Partial<Record<IllustrationSetId, IndexedGraphic[]>> | undefined
+let artworkIndex: Partial<Record<ArtworkSetId, IndexedGraphic[]>> | undefined
 
 /**
  * The graphics that match every word of `query`, best first, the sets taking turns: every set's, or only those of
@@ -67,11 +72,11 @@ let illustrationIndex: Partial<Record<IllustrationSetId, IndexedGraphic[]>> | un
 export function searchGraphics(query: string, { kind, set, limit }: GraphicSearch): FoundGraphic[] {
   const words = wordsOf(query)
   if (words.length === 0) return []
-  const sets = GRAPHIC_SET_IDS.filter((id) => (set ? id === set : !kind || kindOf(id) === kind))
+  const sets = GRAPHIC_SET_IDS.filter((id) => (set ? id === set : !kind || kindOfSet(id) === kind))
   const ranked = sets.map((id) =>
     graphicsOf(id)
       .flatMap((graphic) => {
-        const score = scoreOf(graphic, words, kindOf(id) !== 'illustration')
+        const score = scoreOf(graphic, words, isIconSet(id) || kindOfSet(id) === 'sticker')
         return score > 0 ? [{ graphic, score }] : []
       })
       .sort((a, b) => b.score - a.score || simpler(a.graphic[0], b.graphic[0]))
@@ -100,8 +105,15 @@ function wordsOf(query: string): string[] {
   return query.toLowerCase().split(WORD_BREAK).filter(Boolean)
 }
 
-/** A set's graphics, from its kind's index, read from `sets/` or the illustrations' manifest the first time. */
+/** A set's graphics, from its kind's index, read from `sets/` or its manifest the first time. */
 function graphicsOf(set: GraphicSetId): IndexedGraphic[] {
+  if (isArtworkSet(set)) {
+    artworkIndex ??= {}
+    artworkIndex[set] ??= artworks()
+      .filter((artwork) => artwork.set === set)
+      .map(({ name, tags, files }) => [name, ARTWORK_SETS[set].styles.filter((style) => style in files), tags])
+    return artworkIndex[set]
+  }
   if (isIconSet(set)) {
     icons ??= readBundled('index.json') as IconIndex
     return icons[set]
@@ -120,7 +132,7 @@ function graphicsOf(set: GraphicSetId): IndexedGraphic[] {
 /**
  * How well a graphic matches every word, each word scored by its best match, a plural by its singular either way; 0 when a
  * word matches nothing. With `prefixes`, a word also matches the start of a longer name or tag word; an illustration's
- * words match only whole, so “app” doesn't find an apple.
+ * and an artwork graphic's words match only whole, so “app” doesn't find an apple.
  */
 function scoreOf([name, , tags, topics = []]: IndexedGraphic, words: string[], prefixes: boolean): number {
   const parts = {
@@ -157,7 +169,7 @@ function wordScore(
 }
 
 /** A plural word's singular, as English mostly makes it; the word itself otherwise. */
-function singular(word: string): string {
+export function singular(word: string): string {
   if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
   if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
   return word
@@ -173,11 +185,6 @@ function found(set: GraphicSetId, [name, styles, tags, topics = []]: IndexedGrap
   const what = { id: `${set}/${name}`, name, styles, tags: [...new Set([...tags, ...topics])] }
   if (isIconSet(set)) return { kind: 'icon', set, ...what }
   if (isIllustrationSet(set)) return { kind: 'illustration', set, ...what }
+  if (isArtworkSet(set)) return { kind: ARTWORK_SETS[set].kind, set, ...what }
   return { kind: 'sticker', set, ...what }
-}
-
-/** What kind of graphic a set holds. */
-function kindOf(set: GraphicSetId): GraphicKind {
-  if (isIconSet(set)) return 'icon'
-  return isIllustrationSet(set) ? 'illustration' : 'sticker'
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { ARTWORK_SETS, type ArtworkKind } from './artwork-sets.ts'
 import { findGraphic, searchGraphics } from './search.ts'
 import { ILLUSTRATION_SET_IDS, ILLUSTRATION_SETS } from './sets.ts'
 
@@ -48,10 +49,10 @@ describe('searchGraphics', () => {
   })
 
   it('gives every set’s graphics, icons and stickers taking turns, when no kind is asked for', () => {
-    const found = searchGraphics('person', { limit: 12 })
-    expect(new Set(found.map(({ kind }) => kind))).toEqual(new Set(['icon', 'sticker']))
-    expect(new Set(found.map(({ set }) => set))).toEqual(
-      new Set(['tabler', 'phosphor', 'fluent-emoji', 'open-peeps', 'humaaans', 'open-doodles']),
+    const found = searchGraphics('person', { limit: 30 })
+    expect([...new Set(found.map(({ kind }) => kind))]).toEqual(expect.arrayContaining(['icon', 'sticker']))
+    expect([...new Set(found.map(({ set }) => set))]).toEqual(
+      expect.arrayContaining(['tabler', 'phosphor', 'fluent-emoji', 'open-peeps', 'humaaans', 'open-doodles']),
     )
   })
 
@@ -85,6 +86,39 @@ describe('searchGraphics', () => {
     for (const set of ILLUSTRATION_SET_IDS)
       for (const found of searchGraphics('team', { set, limit: 5 }))
         expect(found.styles).toEqual([ILLUSTRATION_SETS[set].style])
+  })
+})
+
+describe('searchGraphics, artwork', () => {
+  it.each<[string, ArtworkKind, string]>([
+    ['gift', 'object', 'gift'],
+    ['coffee', 'object', 'coffee'],
+    ['laptop', 'object', 'laptop'],
+    ['rocket', '3d', 'rocket'],
+    ['burst', 'shape', 'burst'],
+    ['arrow', 'accent', 'arrow'],
+    ['underline', 'accent', 'underline'],
+    ['sparkle', 'effect', 'sparkle'],
+    ['smoke', 'effect', 'smoke'],
+    ['dots', 'background', 'dot'],
+    ['waves', 'background', 'wave'],
+  ])('finds “%s” among the %s graphics, every one found by the word', (query, kind, word) => {
+    const found = searchGraphics(query, { kind, limit: 20 })
+    expect(found.length).toBeGreaterThan(0)
+    for (const graphic of found) {
+      expect(graphic.kind).toBe(kind)
+      expect([graphic.name, ...graphic.tags].join(' ')).toMatch(new RegExp(`(^|[^a-z])${word}`))
+    }
+  })
+
+  it('finds objects in the Streamline sets that draw the thing, the sets taking turns', () => {
+    const found = searchGraphics('laptop', { kind: 'object', limit: 4 }).map(({ set }) => set)
+    expect(found.slice(0, 3)).toEqual(['streamline-kameleon', 'streamline-plump', 'streamline-freehand'])
+  })
+
+  it('gives each graphic in its set’s styles, 3dicons’ colour styles and angles', () => {
+    expect(searchGraphics('rocket', { kind: '3d', limit: 1 })[0]?.styles).toEqual(ARTWORK_SETS['3dicons'].styles)
+    expect(searchGraphics('waves', { kind: 'background', limit: 1 })[0]?.styles).toEqual(['pattern'])
   })
 })
 

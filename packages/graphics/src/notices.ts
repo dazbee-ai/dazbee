@@ -1,7 +1,10 @@
-// The notices the app lists for the icon, sticker and illustration sets it bundles: each set's name, where it comes
-// from, its version and its licence in full, as `write-icons.ts` and `write-stickers.ts` copied them from the set's
-// source, and as `illustration-notices.json` quotes each illustration set's licence page. Reads no file, so the web
-// app can import it.
+// The notices the app lists for the icon, sticker, illustration and artwork sets it bundles: each set's name, where it
+// comes from, its version and its licence in full, as `write-icons.ts` and `write-stickers.ts` copied them from the
+// set's source, as `illustration-notices.json` quotes each illustration set's licence page, and as `write-artwork.ts`
+// copied each artwork set's licence, with the Creative Commons legal code for a CC set. Reads no file, so the web app
+// can import it.
+import artworkNotices from './artwork-notices.json' with { type: 'json' }
+import { ARTWORK_SET_IDS, ARTWORK_SETS, artworkPinOf } from './artwork-sets.ts'
 import illustrationNotices from './illustration-notices.json' with { type: 'json' }
 import notices from './notices.json' with { type: 'json' }
 import {
@@ -31,13 +34,19 @@ export interface SetNotice {
   paragraphs: readonly string[]
 }
 
-/** Every bundled set's notice: the icon sets, the sticker sets, then the illustration sets, each in their order. */
+/** Every bundled set's notice: the icon, sticker, illustration and artwork sets, each in their order. */
 export const SET_NOTICES: readonly SetNotice[] = [
   ...ICON_SET_IDS.map((id) => noticeOf(ICON_SETS[id], notices[id])),
   ...STICKER_SET_IDS.map((id) => noticeOf(STICKER_SETS[id], stickerNotices[id])),
   ...ILLUSTRATION_SET_IDS.map((id) => {
     const set = ILLUSTRATION_SETS[id]
     const notice = { version: pinOf(set), licence: set.licence.name, text: illustrationNotices[id] }
+    return { ...noticeOf(set, notice), creator: set.creator }
+  }),
+  ...ARTWORK_SET_IDS.map((id) => {
+    const set = ARTWORK_SETS[id]
+    const text = (artworkNotices as Partial<Record<string, string>>)[id] ?? ''
+    const notice = { version: artworkPinOf(set), licence: set.licence.name, text }
     return { ...noticeOf(set, notice), creator: set.creator }
   }),
 ]
@@ -50,14 +59,14 @@ function noticeOf(
   return { title, homepage, ...notice, paragraphs: paragraphsOf(notice.text) }
 }
 
-/** A text's paragraphs, parted by blank lines, each one's lines joined by a space. */
+/** A text's paragraphs, parted by blank lines, each one's lines joined by a space and its runs of spaces made one. */
 function paragraphsOf(text: string): string[] {
   return text
     .split(/\n\s*\n/)
     .map((paragraph) =>
       paragraph
         .split('\n')
-        .map((line) => line.trim())
+        .map((line) => line.trim().replaceAll(/\s+/g, ' '))
         .filter(Boolean)
         .join(' '),
     )

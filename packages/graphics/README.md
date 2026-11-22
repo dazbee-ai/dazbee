@@ -1,6 +1,6 @@
 # @dazbee/graphics
 
-The icons, stickers and scene illustrations agents place in designs (`search_graphics` and `place_graphic` in the MCP server), with their licences. Every icon and sticker set is MIT or CC0, and every illustration set's licence lets an ad show its scenes with no credit; the app lists each licence on its third-party notices page (`/notices`), and `THIRD-PARTY-NOTICES.md` quotes the illustration sets' licences with their pages.
+The icons, stickers, scene illustrations and artwork (objects, 3D objects, shapes, hand-drawn accents, effects and backgrounds) agents place in designs (`search_graphics` and `place_graphic` in the MCP server), with their licences. Every icon and sticker set is MIT or CC0, every illustration set's licence lets an ad show its scenes with no credit, and the artwork sets are MIT, CC0 or CC BY 4.0, whose credit the notices page gives; the app lists each licence on its third-party notices page (`/notices`), and `THIRD-PARTY-NOTICES.md` quotes the illustration and artwork sets' licences with their pages.
 
 ## Icons
 
@@ -57,3 +57,34 @@ pnpm --filter @dazbee/api illustrations:upload
 ```
 
 It uses the API's storage settings from the environment; in a deployed API container, run `node apps/api/src/scripts/upload-illustrations.ts` from the image's root. It reads the files from their pinned sources, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store reads no source. Until it has run, placing an illustration is refused with a sentence that says its file isn't stored yet.
+
+## Artwork
+
+| Set                    | Kind       | Format | Licence   | Source (pinned)                                                                                                      |
+| ---------------------- | ---------- | ------ | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| Streamline Kameleon    | object     | SVG    | CC BY 4.0 | GitHub `webalys-hq/streamline-vectors` at `52d750c`, `kameleon/colors`                                               |
+| Streamline Plump       | object     | SVG    | CC BY 4.0 | the same, `plump/flat` (its colour set: two blues)                                                                   |
+| Streamline Freehand    | object     | SVG    | CC BY 4.0 | the same, `freehand/duotone` (its free colour set: black and a blue)                                                 |
+| Streamline Stickies    | object     | SVG    | CC BY 4.0 | the same, `stickies/colors`                                                                                          |
+| 3dicons                | 3d         | PNG    | CC0       | each icon of GitHub `realvjy/3dicons` at `8884d59`, in 4 colour styles from 3 angles, from the site's 400 px renders |
+| Coolshapes             | shape      | SVG    | MIT       | GitHub `realvjy/coolshapes` at `de6c8f9`, `public/shapes/svg` (each shape in one colour, white)                      |
+| dddoodle               | accent     | SVG    | CC BY 4.0 | fffuel's `dddoodle-pack.zip`, read 2026-11-22, pinned by its SHA-256                                                 |
+| Kenney Particle Pack   | effect     | PNG    | CC0       | GitHub `Calinou/kenney-particle-pack` at `ab70866`, a copy of Kenney's pack                                          |
+| Kenney Smoke Particles | effect     | PNG    | CC0       | the copy of Kenney's pack in GitHub `Poipoise/Deadly-Faith` at `ea19f5b`, each file by its link                      |
+| Pattern Monster        | background | SVG    | MIT       | GitHub `catchspider2002/svelte-svg-patterns` at `803e30b`, each pattern's tile as the site's download writes it      |
+
+Each set is drawn in one style, except 3dicons, whose styles are its colour styles and angles (`clay-iso`), so a design keeps to one set and style. Placing a graphic adds its file to the brand's asset library, recorded with an upload's checks, once however often it is placed. A picture is placed as an image, an effect drawn light (most of its drawn pixels light, measured when the manifest is written) in the screen blend, so its dark drops out over a photo. An SVG file is placed as the layers the SVG reader makes of it, in its own colours; a set drawn in a few colours (`paints` in `src/artwork-sets.ts`: Coolshapes, dddoodle, Streamline Plump and Freehand) takes a colour given, its first paint written as it, a brand kit colour bound, and its other paints as the same lighter or darker mix of it. A background is its pattern's tile repeated over the box, at the site's default scale for a 1080 px side, its paths in a colour given and its backdrop in another or none.
+
+The repository doesn't hold the files. `src/artwork.json` lists each graphic's tags (its own words, its folder's, the words `src/artwork-words.ts` adds, such as "sparkle" for a spark, and its set's) and each style's source, SHA-256, size and drawn size; `src/artwork-notices.json` holds each set's notice: who made it, where Dazbee takes it from, its makers' licence file, and for a CC set the Creative Commons legal code. Never edit them by hand: change a pin in `src/artwork-sets.ts`, then run
+
+```sh
+pnpm --filter @dazbee/graphics artwork [folder]
+```
+
+It reads each repository's archive once, lists 3dicons from its repository's meta files and Kenney Smoke Particles from its repository's tree, and fetches each linked file 250 ms apart; a folder given keeps what links served and is read again on the next run. Then store the files once per environment, and again after the manifest changes:
+
+```sh
+pnpm --filter @dazbee/api artwork:upload
+```
+
+It uses the API's storage settings from the environment; in a deployed API container, run `node apps/api/src/scripts/upload-artwork.ts` from the image's root. It reads the files from their pinned sources, refuses one whose SHA-256 isn't the listed one, and stores only those storage doesn't hold yet; a run with nothing to store reads no source. Until it has run, placing an artwork graphic is refused with a sentence that says its file isn't stored yet.

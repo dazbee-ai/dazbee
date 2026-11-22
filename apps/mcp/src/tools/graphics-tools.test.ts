@@ -122,10 +122,12 @@ describe('search_graphics', () => {
     expect(graphics.every(({ kind }) => kind === 'sticker')).toBe(true)
   })
 
-  it('finds icons, stickers and illustrations together when no kind is asked for', async () => {
+  it('finds every kind together when no kind is asked for', async () => {
     const agent = await connected()
     const { graphics } = (await agent.json('search_graphics', { query: 'heart', limit: 50 })) as Found
-    expect(new Set(graphics.map(({ kind }) => kind))).toEqual(new Set(['icon', 'sticker', 'illustration']))
+    expect([...new Set(graphics.map(({ kind }) => kind))]).toEqual(
+      expect.arrayContaining(['icon', 'sticker', 'illustration', 'object']),
+    )
   })
 })
 

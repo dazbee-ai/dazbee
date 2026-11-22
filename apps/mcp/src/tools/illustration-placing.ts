@@ -42,7 +42,14 @@ export async function illustrationPlacing(
   const placing = !swapping
     ? await svgSteps(into, name, text, where)
     : accent.ref
-      ? await boundPlacing(into, name, text, from, { value: accent.value, ref: accent.ref }, where)
+      ? await boundPlacing(
+          into,
+          name,
+          text,
+          ([marker = '']) => swapAccent(text, from, marker),
+          [{ ...accent, ref: accent.ref }],
+          where,
+        )
       : await svgSteps(into, name, swapAccent(text, from, accent.value.slice(0, 7)), where)
   const told = {
     asset: { id: asset.id, name: asset.name },

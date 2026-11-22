@@ -21,6 +21,18 @@ Medium against the whole library, on the test parts, each scored once at the end
 - **Time and memory**, one core of the laptop, the same 12 test ads as round 2's timing (56 blocks), three runs, median (spread): per block 1.33 s (1.27–1.44) → 1.35 s (1.10–1.42), p95 9.8 s → 9.8 s; per ad 9.7 s → 10.2 s, p95 162 s → **17 s** (the capped working scale); peak RSS 850 MB → 1,113 MB. The old worker on one core finished 1 of 11 ads within its 150 s limit; on four cores it took 92 s an ad and 5.1 GB.
 - **Model:** 14.9 MB float (3.7M parameters), 3.3 ms a window on one thread of envy (6.7 ms on the laptop); fingerprints 16.7 MB at 512 numbers, or 4.2 MB at 128 with the same accuracy.
 
+### Ink limit raised to 0.25 (owner, 2026-11-22)
+
+Decision (owner, 2026-11-22): the text rule's ink-missed limit is 0.25, not the fitted 0.12. The owner judged a round-3 rebuild with 0.131 ink missed (fresh_perfume_noir block 1, Sedan) as the same, after an earlier judged pair at 0.19 was also "same"; the one "different" pair near the old limit was a grid-pattern font, which round 3 no longer picks. Rescored from the stored round-3 results (SSIM ≥ 0.46, ink missed ≤ 0.25, ink colour ΔE00 ≤ 10):
+
+| Test part | Ink ≤ 0.12 | Ink ≤ 0.20 | **Ink ≤ 0.25** |
+|---|---|---|---|
+| test-ad, all 48 ads (221) | 92.8% | 96.4% | **96.8%** |
+| test-ad, 16 held-out ads (69) | 95.7% | 98.6% | **98.6%** |
+| Own realistic (300) | 92.0% | 93.7% | **94.0%** |
+| LICA (668) | 81.9% | 83.8% | **85.3%** |
+| Synthetic (240) | 90.8% | 92.1% | **92.5%** |
+
 ## Round 3 recommendation
 
 1. **Use ConvNeXt-Atto from ImageNet, trained on the realistic samples, in Medium with the round 3 steps.** It is the most accurate on every set: family +10 points on the synthetic and our own test parts and +9 on LICA, exact face +6 to +11, and "looks the same" up on every set, test-ad's held-out ads included (92.8% → 95.7%). The owner accepted ImageNet weights on 2026-11-22.

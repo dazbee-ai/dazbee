@@ -23,7 +23,7 @@ export const RULE = {
   /** A pixel is "far" when its ΔE00 is over this. */
   farDeltaE: 10,
   /** Text looks the same when SSIM ≥ ssim and no more than inkMissed of the block's ink is left uncovered. */
-  text: { ssim: 0.46, inkMissed: 0.12 },
+  text: { ssim: 0.46, inkMissed: 0.25 },
   /** A shape block looks the same when no more than far of its foreground is far. */
   shape: { far: 0.015 },
 }

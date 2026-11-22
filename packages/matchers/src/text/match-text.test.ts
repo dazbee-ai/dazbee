@@ -4,7 +4,6 @@ import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
-import { LOOKS_SAME } from '../looks-same/rule.ts'
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { matchText, matchTextWithFace } from './match-text.ts'
@@ -47,8 +46,10 @@ const ROUND_TRIPS = [
   'devanagari-loose',
 ]
 
-/** The round trip Hybrid keeps a picture, though Light makes it text. */
-const HYBRID_PICTURE = 'arabic-outlined'
+/** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
+const LIGHT_FALLBACK = 'arabic-outlined'
+/** A round trip whose finer fit moves and still looks the same in Hybrid. */
+const TUNED = 'latin-plain'
 
 /** A piece matched twice in a setting, Light unless named, which must give the same answer. */
 async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting = 'light'): Promise<MatchAnswer> {
@@ -87,14 +88,23 @@ describe('matchText', () => {
     expect(await matchTextWithFace(job, jobPiece, deps)).toEqual(hybrid)
     // Light gives each round trip back in its drawn face (above).
     expect(hybrid.face && fontKey(hybrid.face)).toBe(piece.key)
-    if (id === HYBRID_PICTURE) {
-      // The finer fit finds the 3 px outline drawn, and the colour guard then fails.
-      expect(hybrid.answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
-      expect(hybrid.answer.scores?.inkColour).toBeGreaterThan(LOOKS_SAME.text.inkColour)
-      return
-    }
     const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
+  })
+
+  it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {
+    const piece = pieceOf(LIGHT_FALLBACK)
+    // The finer fit finds the 3 px outline drawn, and the colour guard then fails.
+    const light = await matchTwice(piece.pixels, piece.words)
+    expect(light.kind).toBe('layers')
+    expect(await matchTwice(piece.pixels, piece.words, 'hybrid')).toEqual(light)
+  })
+
+  it('keeps the finer fit in Hybrid when it looks the same', async () => {
+    const piece = pieceOf(TUNED)
+    const hybrid = await matchTwice(piece.pixels, piece.words, 'hybrid')
+    expect(hybrid.kind).toBe('layers')
+    expect(hybrid).not.toEqual(await matchTwice(piece.pixels, piece.words))
   })
 
   it('keeps a piece of noise a picture, as it looks different', async () => {

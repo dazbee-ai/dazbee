@@ -4,6 +4,9 @@
   python -I run.py measure <n> [--set before]   renders and counts an earlier run again
   python -I run.py page [--set before]      writes out/<set>/index.html with every run kept
   python -I run.py table [--set before]     prints the counts as a Markdown table
+  python -I run.py variety [--set after]    prints each run's pattern use and what was changed after it
+  python -I run.py goals                    prints the spec's measured goals, before against after
+  python -I run.py compare                  writes out/compare.json, both sets' counts and frames, for the page
 
 A run keeps, in out/<set>/<n>/: stream.jsonl (the run's stream-json), look-NN-<tool>.png (every
 picture the run's agent looked at), measure.jsonl (the stream of the short call that renders and
@@ -38,13 +41,23 @@ RUN_SECONDS = 40 * 60
 MEASURE_SECONDS = 15 * 60
 RENDER_SIZES = (16, 8192)
 PICTURE_TOOLS = {"add_image", "upload_image", "place_asset", "add_stock", "place_graphic", "brand_from_website"}
+PLACING_TOOLS = {"place_asset", "place_graphic"}
+ASSET_SOURCES = {"add_image": "link", "upload_image": "upload", "add_stock": "stock",
+                 "brand_from_website": "website", "place_graphic": "bundled graphics"}
+NO_FONT_FILE = "which has no font file"
+ADDING = {"node.create", "node.duplicate", "node.copyToFrames", "node.group", "node.enclose", "node.boolean", "node.mask"}
+MOVING = {"node.move", "node.box", "node.reorder", "node.reshape", "node.flip", "node.hug", "node.autoLayout",
+          "frame.resize"}
+RESTYLING = {"node.style", "node.bind"}
+RETEXTING = {"text.replace", "text.edit", "text.fit"}
+BOX_KEYS = {"x", "y", "width", "height", "rotation"}
 
 sys.stdout.reconfigure(encoding="utf-8")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["run", "measure", "page", "table"])
+    parser.add_argument("action", choices=["run", "measure", "page", "table", "variety", "goals", "compare"])
     parser.add_argument("n", nargs="?", type=int)
     parser.add_argument("--set", default="before", choices=["before", "after"])
     args = parser.parse_args()
@@ -61,6 +74,13 @@ def main():
     elif args.action == "page":
         write_page(out, args.set)
         print(out / "index.html")
+    elif args.action == "variety":
+        print(variety_table(out))
+    elif args.action == "goals":
+        print(goals_table(HERE / "out"))
+    elif args.action == "compare":
+        write_compare(HERE / "out")
+        print(HERE / "out" / "compare.json")
     else:
         print(table(out))
 
@@ -231,7 +251,7 @@ Then call list_assets for the brand, and close_design. Change nothing. Answer on
                 for frame in page.get("frames", []):
                     frames[frame["id"]] = {"id": frame["id"], "name": frame.get("name"), "width": frame.get("width"),
                                            "height": frame.get("height"), "picture": None, "fonts": [], "pictures": [],
-                                           "warnings": None}
+                                           "layers": {}, "warnings": None}
         elif call["tool"] == "list_assets" and isinstance(answer, list):
             assets = {a["id"]: a for a in answer}
     for call in measured:
@@ -251,12 +271,23 @@ Then call list_assets for the brand, and close_design. Change nothing. Answer on
                     frame["pictures"].append({"layer": frame_id, "asset": fill.get("assetId")})
         elif call["tool"] == "check_frame" and isinstance(answer, list):
             frame["warnings"] = answer
+    sources = asset_sources(calls)
+    placed = placements(calls)
     for frame in frames.values():
         frame["fonts"] = sorted(set(frame["fonts"]))
         for picture in frame["pictures"]:
             asset = assets.get(picture["asset"], {})
             picture["name"] = asset.get("name")
-            picture["from"] = "stock" if "stock" in (asset.get("tags") or []) else "brand's asset library"
+            picture["from"] = sources.get(picture["asset"]) or (
+                "stock" if "stock" in (asset.get("tags") or []) else "brand's asset library")
+            picture["logo"] = is_logo(picture["name"], frame["layers"].get(picture["layer"]))
+        drawn = {p["layer"] for p in frame["pictures"]}
+        for place in placed:
+            if place["layer"] in frame["layers"] and place["layer"] not in drawn:
+                name = place["name"] or frame["layers"][place["layer"]]
+                frame["pictures"].append({"layer": place["layer"], "asset": place["asset"], "name": name,
+                                          "from": place["from"], "logo": is_logo(name, frame["layers"][place["layer"]])})
+    shown = {layer for f in frames.values() for layer in f["layers"]}
 
     run = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
     summary = {
@@ -266,6 +297,9 @@ Then call list_assets for the brand, and close_design. Change nothing. Answer on
         "looked": looked,
         "refused": refusals(calls),
         "pictureCalls": [{"tool": c["tool"], "input": c["input"]} for c in calls if c["tool"] in PICTURE_TOOLS],
+        "placedNotShown": [p for p in placed if p["layer"] not in shown],
+        "noFontFile": sum(1 for c in calls for t in c["texts"] if NO_FONT_FILE in t),
+        "pattern": pattern_use(calls),
         "toolCalls": len(calls),
         "run": {**run, "turns": (final or {}).get("num_turns"), "costUsd": (final or {}).get("total_cost_usd"),
                 "subtype": (final or {}).get("subtype"), "answer": (final or {}).get("result")},
@@ -278,6 +312,8 @@ Then call list_assets for the brand, and close_design. Change nothing. Answer on
 def walk(layer, frame, visible):
     """Adds the fonts and image fills of `layer` and the layers it holds, where they show, to `frame`."""
     shows = visible and layer.get("visible", True) is not False
+    if shows and layer.get("id") and layer.get("type") != "frame":
+        frame["layers"][layer["id"]] = layer.get("name") or ""
     if shows and layer.get("type") != "frame":
         if layer.get("type") == "text" and layer.get("fontFamily"):
             frame["fonts"].append(f"{layer['fontFamily']} {layer.get('fontWeight', '')}".strip())
@@ -292,12 +328,135 @@ def walk(layer, frame, visible):
         walk(child, frame, shows)
 
 
+def asset_ids(answer):
+    """The asset ids an answer names: each asset it is or holds (an object with an id, a name and a type), and each
+    `asset` it holds."""
+    found = []
+    if isinstance(answer, list):
+        for item in answer:
+            found += asset_ids(item)
+    elif isinstance(answer, dict):
+        if isinstance(answer.get("id"), str) and "name" in answer and ("type" in answer or "contentType" in answer):
+            found.append(answer["id"])
+        for key, value in answer.items():
+            if key != "warnings":
+                found += asset_ids(value)
+    return found
+
+
+def asset_sources(calls):
+    """Where each asset a run added came from, by asset id: a link, an upload, stock, a website or the bundled graphics."""
+    sources = {}
+    for call in calls:
+        source = ASSET_SOURCES.get(call["tool"])
+        answer = parsed(call)
+        if source and not call["error"] and answer is not None:
+            for asset in asset_ids(answer):
+                sources.setdefault(asset, source)
+    return sources
+
+
+def graphic_source(graphic):
+    """The kind of picture a bundled graphic id is, by its set."""
+    kits = {"tabler": "icon", "phosphor": "icon", "fluent-emoji": "sticker", "open-peeps": "sticker",
+            "humaaans": "sticker", "undraw": "illustration", "manypixels": "illustration"}
+    return f"bundled {kits.get(str(graphic).split('/')[0], 'artwork')}"
+
+
+def placements(calls):
+    """Each layer a run placed with place_graphic or place_asset and Dazbee kept: its id, name, asset and source."""
+    placed = []
+    for call in calls:
+        answer = parsed(call)
+        if call["tool"] not in PLACING_TOOLS or call["error"] or not isinstance(answer, dict) or not answer.get("layer"):
+            continue
+        asset = (answer.get("asset") or {}).get("id") if isinstance(answer.get("asset"), dict) else call["input"].get("asset")
+        if call["tool"] == "place_graphic":
+            source, name = graphic_source(call["input"].get("graphic")), call["input"].get("graphic")
+        else:
+            source, name = "brand's asset library", call["input"].get("name") or call["input"].get("asset")
+        placed.append({"tool": call["tool"], "layer": answer["layer"], "asset": asset, "name": name, "from": source})
+    return placed
+
+
+def is_logo(*names):
+    return any("logo" in (name or "").lower() for name in names)
+
+
+def steps_of(call):
+    """The design commands a successful write call ran, each (command, input); a placing counts as node.create."""
+    if call["error"]:
+        return []
+    answer = parsed(call)
+    if call["tool"] == "batch":
+        if isinstance(answer, dict) and answer.get("kept") is False:
+            return []
+        return [(step.get("command"), step.get("input") or {}) for step in call["input"].get("steps", [])]
+    if call["tool"] == "run_command":
+        return [(call["input"].get("command"), call["input"].get("input") or {})]
+    if call["tool"] in PLACING_TOOLS:
+        return [("node.create", {})]
+    if call["tool"] == "undo":
+        return [("undo", {})]
+    return []
+
+
+def change_kind(command, step_input):
+    """What a design command did to a draft: added, removed, moved, restyled, retexted, or None for frame and page work."""
+    if command in ADDING:
+        return "added"
+    if command == "node.delete":
+        return "removed"
+    if command in MOVING:
+        return "moved"
+    if command in RESTYLING:
+        return "restyled"
+    if command in RETEXTING:
+        return "retexted"
+    if command == "undo":
+        return "undone"
+    if command in ("node.update", "frame.update"):
+        patch = step_input.get("patch") or step_input.get("props") or step_input
+        keys = set(patch) if isinstance(patch, dict) else set()
+        if keys and keys <= BOX_KEYS | {"ids", "frameId", "id"}:
+            return "moved"
+        return "restyled"
+    if command == "node.rename":
+        return None
+    return None
+
+
+def pattern_use(calls):
+    """Each apply_pattern Dazbee built: its pattern, style and sizes, and the changes the run made after it, by kind."""
+    used = []
+    for i, call in enumerate(calls):
+        if call["tool"] != "apply_pattern" or call["error"]:
+            continue
+        answer = parsed(call)
+        if not isinstance(answer, dict) or "frames" not in answer:
+            continue
+        changes = {}
+        for later in calls[i + 1:]:
+            if later["tool"] == "apply_pattern" and not later["error"]:
+                break
+            for command, step_input in steps_of(later):
+                kind = change_kind(command, step_input)
+                if kind:
+                    changes[kind] = changes.get(kind, 0) + 1
+        used.append({"pattern": call["input"].get("pattern"), "style": call["input"].get("style"),
+                     "sizes": len(answer.get("frames", [])), "layers": sum(len(f.get("layers") or []) if isinstance(
+                         f.get("layers"), list) else len(f.get("layers") or {}) for f in answer.get("frames", [])),
+                     "changes": changes})
+    return used
+
+
 def counts_of(summary):
     frames = summary["frames"]
     families = sorted({font.rsplit(" ", 1)[0] if font.rsplit(" ", 1)[-1].isdigit() else font
                        for f in frames for font in f["fonts"]})
     fonts = sorted({font for f in frames for font in f["fonts"]})
     pictures = [p for f in frames for p in f["pictures"]]
+    besides = [p for p in pictures if not p.get("logo", is_logo(p.get("name")))]
     unchecked = [f["id"] for f in frames if f["warnings"] is None]
     return {
         "frames": len(frames),
@@ -306,6 +465,11 @@ def counts_of(summary):
         "fonts": fonts,
         "pictures": len(pictures),
         "pictureNames": sorted({f"{p['name'] or p['asset']} ({p['from']})" for p in pictures}),
+        "besidesLogo": len(besides),
+        "besidesLogoNames": sorted({f"{p['name'] or p['asset']} ({p['from']})" for p in besides}),
+        "noFontFile": summary.get("noFontFile", 0),
+        "otherThanNoto": any(fam != "Noto Sans" for fam in families),
+        "clean": not unchecked and all(not f["warnings"] for f in frames),
         "warningsLeft": sum(len(f["warnings"] or []) for f in frames),
         "framesNotChecked": unchecked,
         "refused": len(summary["refused"]),
@@ -330,6 +494,81 @@ def table(out):
         rows.append(f"| {s['n']} | {s['title']} | {c['frames']} | {', '.join(c['fonts']) or 'none'} | {pictures} | "
                     f"{c['warningsLeft']} | {c['refused']} | {c['minutes']} |")
     return "\n".join(rows)
+
+
+def variety_table(out):
+    rows = ["| # | Brief | Pattern (style) | Sizes built | Layers built | Changed after it |",
+            "|---|---|---|---|---|---|"]
+    for s in summaries(out):
+        uses = s.get("pattern") or []
+        if not uses:
+            rows.append(f"| {s['n']} | {s['title']} | none: designed from scratch | | | |")
+        for use in uses:
+            changes = ", ".join(f"{count} {kind}" for kind, count in sorted(use["changes"].items())) or "nothing"
+            rows.append(f"| {s['n']} | {s['title']} | {use['pattern']} ({use['style']}) | {use['sizes']} | {use['layers']} | "
+                        f"{changes} |")
+    return "\n".join(rows)
+
+
+def variety(after):
+    """The variety goal's counts over the after runs: runs using a pattern, those changed after it, and the briefs
+    whose last pattern and style another brief shares with neither changed."""
+    using = [s for s in after if s.get("pattern")]
+    changed = [s for s in using if any(kind != "undone" for kind in s["pattern"][-1]["changes"])]
+    unchanged = {}
+    for s in using:
+        last = s["pattern"][-1]
+        if not any(kind != "undone" for kind in last["changes"]):
+            unchanged.setdefault((last["pattern"], last["style"]), []).append(s["n"])
+    alike = {f"{p} ({st})": ns for (p, st), ns in unchanged.items() if len(ns) > 1}
+    return {"using": len(using), "changed": len(changed), "alike": alike,
+            "patterns": {s["n"]: f"{s['pattern'][-1]['pattern']} ({s['pattern'][-1]['style']})" for s in using}}
+
+
+def goal_counts(found):
+    counts = [counts_of(s) for s in found]
+    return {
+        "runs": len(found),
+        "pictures": sum(1 for c in counts if c["besidesLogo"] > 0),
+        "type": sum(1 for c in counts if c["otherThanNoto"]),
+        "noFontFile": sum(1 for c in counts if c["noFontFile"]),
+        "clean": sum(1 for c in counts if c["clean"]),
+        "refused": sum(c["refused"] for c in counts),
+        "minutes": round(sum(c["minutes"] for c in counts), 1),
+    }
+
+
+def goals_table(root):
+    before, after = summaries(root / "before"), summaries(root / "after")
+    b, a = goal_counts(before), goal_counts(after)
+    v = variety(after)
+    alike = "none" if not v["alike"] else "; ".join(f"{k}: briefs {', '.join(map(str, ns))}" for k, ns in v["alike"].items())
+    rows = ["| Goal | Target | Before | After |", "|---|---|---|---|",
+            f"| Agents bring real pictures (photo, icon or sticker besides the logo) | 8 of 10 | {b['pictures']} of {b['runs']} | {a['pictures']} of {a['runs']} |",
+            f"| Type with character (a family other than Noto Sans) | 8 of 10 | {b['type']} of {b['runs']} | {a['type']} of {a['runs']} |",
+            f"| Runs told a catalog font has no file | 0 | {b['noFontFile']} | {a['noFontFile']} |",
+            f"| No defects (`check_frame` clean on every frame) | 9 of 10 | {b['clean']} of {b['runs']} | {a['clean']} of {a['runs']} |",
+            f"| Agent ads don't all look alike: runs changing the pattern's draft | 8 of the runs using one | no patterns | {v['changed']} of {v['using']} |",
+            f"| Agent ads don't all look alike: briefs ending with the same pattern and style unchanged | none | no patterns | {alike} |",
+            f"| Refused calls (all runs) | | {b['refused']} | {a['refused']} |",
+            f"| Minutes (all runs) | | {b['minutes']} | {a['minutes']} |"]
+    return "\n".join(rows)
+
+
+def write_compare(root):
+    """Both sets' counts, frames and briefs, for the comparison page."""
+    sets = {}
+    for name in ("before", "after"):
+        sets[name] = {}
+        for s in summaries(root / name):
+            sets[name][s["n"]] = {"title": s["title"], "brief": s["brief"], "counts": counts_of(s),
+                                  "pattern": s.get("pattern") or [],
+                                  "frames": [{k: f[k] for k in ("id", "name", "width", "height", "picture", "warnings")}
+                                             for f in s["frames"]]}
+    data = {"sets": sets, "goals": {"before": goal_counts(summaries(root / "before")),
+                                    "after": goal_counts(summaries(root / "after"))},
+            "variety": variety(summaries(root / "after"))}
+    (root / "compare.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 PAGE_STYLE = """

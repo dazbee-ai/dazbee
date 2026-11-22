@@ -53,16 +53,18 @@ let subsetter: Subsetter | undefined
  * fails part way, which says nothing about the font, so the copy can be made again. Besides the characters ads use, the
  * copy maps every other character of the font whose glyph it keeps anyway, such as a ligature's presentation form:
  * FreeType's autohinter sorts glyphs into scripts by the characters that map to them, so a glyph that lost one would
- * draw a little apart from the whole font's.
+ * draw a little apart from the whole font's. Given other `characters`, the copy is cut to those instead, as a test's
+ * fonts are.
  */
-export function matchCopy(font: Uint8Array): Uint8Array | null {
+export function matchCopy(font: Uint8Array, characters: readonly number[] = MATCH_CHARACTERS): Uint8Array | null {
   if (!tablesOf(font)) return null
-  const numbered = cut(font, MATCH_CHARACTERS, RETAIN_GLYPH_IDS)
+  const asked = characters === MATCH_CHARACTERS ? ASKED : new Set(characters)
+  const numbered = cut(font, characters, RETAIN_GLYPH_IDS)
   if (!numbered) return null
-  const copy = cut(font, [...MATCH_CHARACTERS, ...charactersOfKeptGlyphs(font, numbered)], 0)
+  const copy = cut(font, [...characters, ...charactersOfKeptGlyphs(font, numbered, asked)], 0)
   if (!copy) return null
   const kept = glyphsOf(copy)
-  for (const character of glyphsOf(font).keys()) if (ASKED.has(character) && !kept.has(character)) return null
+  for (const character of glyphsOf(font).keys()) if (asked.has(character) && !kept.has(character)) return null
   return copy
 }
 
@@ -123,16 +125,15 @@ function cutWith(hb: Subsetter, font: Uint8Array, characters: readonly number[],
 }
 
 /**
- * The characters of the whole font beyond the ones ads use whose glyph has an outline that the copy `numbered` (cut
- * with each glyph keeping its number) kept. None for a font whose outlines are not TrueType's, or whose tables can't
- * be read.
+ * The characters of the whole font beyond those `asked` whose glyph has an outline that the copy `numbered` (cut with
+ * each glyph keeping its number) kept. None for a font whose outlines are not TrueType's, or whose tables can't be read.
  */
-function charactersOfKeptGlyphs(font: Uint8Array, numbered: Uint8Array): number[] {
+function charactersOfKeptGlyphs(font: Uint8Array, numbered: Uint8Array, asked: ReadonlySet<number>): number[] {
   const drawnWhole = hasOutline(font)
   const kept = hasOutline(numbered)
   const found: number[] = []
   for (const [character, glyph] of glyphsOf(font))
-    if (!ASKED.has(character) && drawnWhole(glyph) && kept(glyph)) found.push(character)
+    if (!asked.has(character) && drawnWhole(glyph) && kept(glyph)) found.push(character)
   return found
 }
 

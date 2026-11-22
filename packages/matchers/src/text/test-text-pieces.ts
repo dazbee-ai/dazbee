@@ -1,5 +1,6 @@
 // Text pieces for the text matcher's tests: text drawn by Dazbee's renderer in a shipped face and cut
-// round its ink, and the shortlist's pieces, drawn the same way in Google faces and kept as PNGs.
+// round its ink; the shortlist's pieces, drawn the same way in Google faces and kept as PNGs; and
+// Light's pieces, drawn when the test runs in Google faces cut to the test's characters.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -9,6 +10,7 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { type Pixels, renderPixels } from '@dazbee/renderer'
 
 import { decodePng } from '../shape/test-pieces.ts'
+import { parseFontKey } from './font-key.ts'
 
 /** A text to draw and how. */
 export interface DrawnText {
@@ -24,6 +26,8 @@ export interface DrawnText {
   /** Degrees clockwise. */
   rotation?: number
   align?: 'start' | 'center' | 'end'
+  /** Letter spacing in % of the size. */
+  spacing?: number
 }
 
 /** A piece of the shortlist's test: the face it is drawn in, its words and its pixels. */
@@ -45,8 +49,26 @@ export interface ShortlistDrawing extends Omit<DrawnText, 'family' | 'weight' | 
   file: string
 }
 
+/** A piece of Light's test, as `pieces.json` holds it: the key of the face it is drawn in and how. */
+export interface LightDrawing extends Omit<DrawnText, 'family' | 'weight' | 'style'> {
+  id: string
+  key: string
+}
+
+/** A piece of Light's test drawn: its drawing and its pixels. */
+export interface LightPiece extends LightDrawing {
+  pixels: Pixels
+}
+
 /** The shortlist test's pieces: `pieces.json` and a PNG a piece. */
 export const SHORTLIST_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-shortlist')
+/**
+ * Light's test: `pieces.json`, and in `fonts/` every face its pieces are drawn in or shortlist, cut to
+ * the test's characters, which `fonts.json` names by key.
+ */
+export const LIGHT_FIXTURES = join(import.meta.dirname, '..', '..', 'fixtures', 'text-light')
+/** The words of the noise piece of Light's test. */
+export const NOISE_WORDS = 'Sale'
 
 /** The frame the text is drawn in before it is cut round its ink. */
 const FRAME = { width: 1400, height: 900 }
@@ -99,6 +121,7 @@ export function drawText(
             fontStyle: text.style ?? 'normal',
             fontSize: text.size,
             color: `${text.colour}FF`,
+            ...(text.spacing ? { letterSpacing: { unit: 'percent', value: text.spacing } } : {}),
             ...(text.outline ? { outline: { ...text.outline, color: `${text.outline.color}FF` } } : {}),
           },
         },
@@ -119,6 +142,47 @@ export function shortlistPieces(ck: CanvasKit): ShortlistPiece[] {
     words: piece.words,
     pixels: decodePng(ck, readFileSync(join(SHORTLIST_FIXTURES, `${piece.id}.png`))),
   }))
+}
+
+/** Light's pieces as `pieces.json` describes them. */
+export function lightDrawings(): LightDrawing[] {
+  return (JSON.parse(readFileSync(join(LIGHT_FIXTURES, 'pieces.json'), 'utf8')) as { pieces: LightDrawing[] }).pieces
+}
+
+/** The faces of Light's test cut to its characters, by key. */
+export function lightFonts(): Map<string, Uint8Array> {
+  const files = JSON.parse(readFileSync(join(LIGHT_FIXTURES, 'fonts.json'), 'utf8')) as Record<string, string>
+  return new Map(
+    Object.entries(files).map(([key, file]) => [
+      key,
+      new Uint8Array(readFileSync(join(LIGHT_FIXTURES, 'fonts', file))),
+    ]),
+  )
+}
+
+/** Light's pieces, each drawn by Dazbee's renderer in its face from `fonts`, faces by key. */
+export function lightPieces(ck: CanvasKit, fonts: ReadonlyMap<string, Uint8Array>): LightPiece[] {
+  return lightDrawings().map((drawing) => {
+    const face = parseFontKey(drawing.key)
+    const bytes = fonts.get(drawing.key)
+    if (!face || !bytes) throw new Error(`Light's test has no face ${drawing.key}`)
+    return { ...drawing, pixels: drawText(ck, { ...drawing, ...face }, [{ family: face.family, bytes }]) }
+  })
+}
+
+/** A piece of grey noise the same every time, 240 × 80. */
+export function noisePiece(): Pixels {
+  const width = 240
+  const height = 80
+  const pixels = new Uint8Array(width * height * 4)
+  // A linear congruential generator, so the noise is the same in every runtime.
+  let seed = 7
+  for (let i = 0; i < width * height; i++) {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0
+    pixels.fill(seed >>> 24, i * 4, i * 4 + 3)
+    pixels[i * 4 + 3] = 255
+  }
+  return { width, height, pixels }
 }
 
 /** The pixels within `MARGIN` of every pixel unlike the top left one. */

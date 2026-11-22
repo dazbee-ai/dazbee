@@ -19,6 +19,8 @@ export interface TextPiece {
 
 /** What a piece's pixels say about its text. */
 export interface PieceReading {
+  /** The pixels read. */
+  pixels: Pixels
   ink: Ink
   /** The ink turned level: the tilt undone. */
   level: Ink
@@ -71,6 +73,37 @@ export function readPiece(piece: TextPiece): ReadPiece {
   return { whole, work: readAt({ ...piece, pixels: shrinkPixels(piece.pixels, scale) }), scale }
 }
 
+/**
+ * The `count` lines of level ink within `box`: bands of rows with ink, split at the emptiest rows.
+ * With too many bands the smallest (a dot, an accent) joins its nearer neighbour; with too few the
+ * tallest is cut at its thinnest row near an even split.
+ */
+export function findLines(level: Ink, box: Box, count: number): Box[] {
+  const rows = new Float64Array(box.h)
+  for (let y = 0; y < box.h; y++)
+    for (let x = box.x; x < box.x + box.w; x++)
+      rows[y] = (rows[y] ?? 0) + (level.data[(box.y + y) * level.width + x] ?? 0)
+  const peak = Math.max(...rows)
+  let bands: [number, number][] = []
+  let start = -1
+  for (let y = 0; y <= box.h; y++) {
+    const on = y < box.h && (rows[y] ?? 0) > peak * LINE_ROW_SHARE
+    if (on && start < 0) start = y
+    if (!on && start >= 0) {
+      bands.push([start, y])
+      start = -1
+    }
+  }
+  // No row with ink, as in faint text: one band over the whole box.
+  if (bands.length === 0) bands.push([0, box.h])
+  while (bands.length > count) bands = joinSmallest(bands)
+  while (bands.length < count) bands = cutTallest(bands, rows, count)
+  return bands.map(([a, b]) => {
+    const band = { x: box.x, y: box.y + a, w: box.w, h: b - a }
+    return inkBox(level, 0.5, band) ?? band
+  })
+}
+
 /** The piece's reading at the size its pixels are. */
 function readAt(piece: TextPiece): PieceReading {
   const background = borderColour(piece.pixels)
@@ -80,7 +113,7 @@ function readAt(piece: TextPiece): PieceReading {
   const box = inkBox(level) ?? { x: 0, y: 0, w: level.width, h: level.height }
   const lines = findLines(level, box, lineCount(piece.words))
   const { fill, outline } = colours(piece.pixels, ink)
-  return { ink, level, angle, box, lines, fill, outline, background, align: alignOf(lines) }
+  return { pixels: piece.pixels, ink, level, angle, box, lines, fill, outline, background, align: alignOf(lines) }
 }
 
 /** Pixels shrunk by `scale`, each the mean of those it covers, colour weighted by alpha. */
@@ -110,6 +143,38 @@ function shrinkPixels({ width, height, pixels }: Pixels, scale: number): Pixels 
   return { width: w, height: h, pixels: out }
 }
 
+/** The bands with the smallest joined to the neighbour with the smaller gap, the earlier on a tie. */
+function joinSmallest(bands: [number, number][]): [number, number][] {
+  const size = (i: number) => (bands[i]?.[1] ?? 0) - (bands[i]?.[0] ?? 0)
+  let k = 0
+  for (let i = 1; i < bands.length; i++) if (size(i) < size(k)) k = i
+  const at = (i: number): [number, number] => bands[i] ?? [0, 0]
+  const prevGap = k > 0 ? at(k)[0] - at(k - 1)[1] : Infinity
+  const nextGap = k < bands.length - 1 ? at(k + 1)[0] - at(k)[1] : Infinity
+  const j = prevGap <= nextGap ? k - 1 : k + 1
+  const merged: [number, number] = [Math.min(at(j)[0], at(k)[0]), Math.max(at(j)[1], at(k)[1])]
+  return [...bands.filter((_, i) => i !== j && i !== k), merged].sort((p, q) => p[0] - q[0])
+}
+
+/** The bands with the tallest cut at its thinnest row, weighted towards an even split of what is left. */
+function cutTallest(bands: [number, number][], rows: Float64Array, count: number): [number, number][] {
+  const size = (i: number) => (bands[i]?.[1] ?? 0) - (bands[i]?.[0] ?? 0)
+  let k = 0
+  for (let i = 1; i < bands.length; i++) if (size(i) > size(k)) k = i
+  const [a, b] = bands[k] ?? [0, 0]
+  const target = a + (b - a) / (count - bands.length + 1)
+  let cut = Math.round(target)
+  let low = Infinity
+  for (let y = Math.round(a + (b - a) * 0.15); y < b - (b - a) * 0.15; y++) {
+    const cost = (rows[y] ?? 0) * (1 + Math.abs(y - target) / (b - a))
+    if (cost < low) {
+      low = cost
+      cut = y
+    }
+  }
+  return [...bands.slice(0, k), [a, cut], [cut, b], ...bands.slice(k + 1)]
+}
+
 /**
  * The tilt that makes the lines sharpest: the angle whose row sums differ most from row to row
  * (Postl's method, as Leptonica measures skew), searched by degrees within ±15°, then by quarters.
@@ -132,37 +197,6 @@ function estimateAngle(ink: Ink): number {
     }
   }
   return best
-}
-
-/**
- * The `count` lines of level ink within `box`: bands of rows with ink, split at the emptiest rows.
- * With too many bands the smallest (a dot, an accent) joins its nearer neighbour; with too few the
- * tallest is cut at its thinnest row near an even split.
- */
-function findLines(level: Ink, box: Box, count: number): Box[] {
-  const rows = new Float64Array(box.h)
-  for (let y = 0; y < box.h; y++)
-    for (let x = box.x; x < box.x + box.w; x++)
-      rows[y] = (rows[y] ?? 0) + (level.data[(box.y + y) * level.width + x] ?? 0)
-  const peak = Math.max(...rows)
-  let bands: [number, number][] = []
-  let start = -1
-  for (let y = 0; y <= box.h; y++) {
-    const on = y < box.h && (rows[y] ?? 0) > peak * LINE_ROW_SHARE
-    if (on && start < 0) start = y
-    if (!on && start >= 0) {
-      bands.push([start, y])
-      start = -1
-    }
-  }
-  // No row with ink, as in faint text: one band over the whole box.
-  if (bands.length === 0) bands.push([0, box.h])
-  while (bands.length > count) bands = joinSmallest(bands)
-  while (bands.length < count) bands = cutTallest(bands, rows, count)
-  return bands.map(([a, b]) => {
-    const band = { x: box.x, y: box.y + a, w: box.w, h: b - a }
-    return inkBox(level, 0.5, band) ?? band
-  })
 }
 
 /**
@@ -238,38 +272,6 @@ function sharpness(ink: Ink, degrees: number): number {
   let s = 0
   for (let i = 1; i < rows.length; i++) s += ((rows[i] ?? 0) - (rows[i - 1] ?? 0)) ** 2
   return s
-}
-
-/** The bands with the smallest joined to the neighbour with the smaller gap, the earlier on a tie. */
-function joinSmallest(bands: [number, number][]): [number, number][] {
-  const size = (i: number) => (bands[i]?.[1] ?? 0) - (bands[i]?.[0] ?? 0)
-  let k = 0
-  for (let i = 1; i < bands.length; i++) if (size(i) < size(k)) k = i
-  const at = (i: number): [number, number] => bands[i] ?? [0, 0]
-  const prevGap = k > 0 ? at(k)[0] - at(k - 1)[1] : Infinity
-  const nextGap = k < bands.length - 1 ? at(k + 1)[0] - at(k)[1] : Infinity
-  const j = prevGap <= nextGap ? k - 1 : k + 1
-  const merged: [number, number] = [Math.min(at(j)[0], at(k)[0]), Math.max(at(j)[1], at(k)[1])]
-  return [...bands.filter((_, i) => i !== j && i !== k), merged].sort((p, q) => p[0] - q[0])
-}
-
-/** The bands with the tallest cut at its thinnest row, weighted towards an even split of what is left. */
-function cutTallest(bands: [number, number][], rows: Float64Array, count: number): [number, number][] {
-  const size = (i: number) => (bands[i]?.[1] ?? 0) - (bands[i]?.[0] ?? 0)
-  let k = 0
-  for (let i = 1; i < bands.length; i++) if (size(i) > size(k)) k = i
-  const [a, b] = bands[k] ?? [0, 0]
-  const target = a + (b - a) / (count - bands.length + 1)
-  let cut = Math.round(target)
-  let low = Infinity
-  for (let y = Math.round(a + (b - a) * 0.15); y < b - (b - a) * 0.15; y++) {
-    const cost = (rows[y] ?? 0) * (1 + Math.abs(y - target) / (b - a))
-    if (cost < low) {
-      low = cost
-      cut = y
-    }
-  }
-  return [...bands.slice(0, k), [a, cut], [cut, b], ...bands.slice(k + 1)]
 }
 
 /** Which pixels are solid ink (over 0.6), and each solid pixel's city-block steps to the nearest pixel that isn't. */

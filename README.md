@@ -51,7 +51,7 @@ packages/editor/      the client-only editor: canvas, tools, gestures, sync and 
 packages/export/      PNG, JPG, PDF and SVG exports, and their zips (ADR-0005); a frame drawn for an agent, and the warnings it is told
 packages/svg/         turns an SVG file into layers
 packages/figma/       turns a Figma file's JSON into pages, frames and layers, with a report of what it left out or drew another way
-packages/matchers/    the matchers' code (ADR-0020): so far the looks-the-same rule that judges a rebuild of a piece of a picture
+packages/matchers/    the matchers' code (ADR-0020): the looks-the-same rule that judges a rebuild of a piece of a picture, the shape matcher, and the text matcher's reading, shortlist and Light
 packages/graphics/    the icon sets agents place (Tabler and Phosphor) with their licences, their search index and the SVG each icon is placed as
 packages/patterns/    the patterns agents build ads from (apply_pattern): each a pure function of the pattern, its style, the brand kit, the content and a size, giving a frame's layers
 packages/fonts/       the font files we ship, the Google font catalog list and their Node loader

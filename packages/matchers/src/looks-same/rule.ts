@@ -64,6 +64,21 @@ export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, optio
   return { same, scores: { ...measured, inkColour } }
 }
 
+/** ΔE00 between pixel i of two RGB pictures, each colour rounded to 8 bits; remembered by colour pair. */
+export function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: Map<number, number>): number {
+  const ka = packed(a, i)
+  const kb = packed(b, i)
+  if (ka === kb) return 0
+  const key = ka * 16_777_216 + kb
+  let d = memo.get(key)
+  if (d === undefined) {
+    if (memo.size > MEMO_LIMIT) memo.clear()
+    d = ciede2000(srgbToLab(ka >> 16, (ka >> 8) & 255, ka & 255), srgbToLab(kb >> 16, (kb >> 8) & 255, kb & 255))
+    memo.set(key, d)
+  }
+  return d
+}
+
 /** SSIM, ink missed and the far share, the worse over the backgrounds. */
 function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): Required<Omit<LooksSameScores, 'inkColour'>> {
   if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
@@ -298,21 +313,6 @@ function meanSsim(x: Float32Array, y: Float32Array, width: number, height: numbe
 /** One channel blurred by the SSIM window's 11 taps, its edges clamped. */
 function ssimBlur(src: Float32Array, width: number, height: number, taps: Float64Array): Float32Array {
   return blurAlong(blurAlong(src, width, height, 1, taps, 'x'), width, height, 1, taps, 'y')
-}
-
-/** ΔE00 between pixel i of two RGB pictures, each colour rounded to 8 bits; remembered by colour pair. */
-function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: Map<number, number>): number {
-  const ka = packed(a, i)
-  const kb = packed(b, i)
-  if (ka === kb) return 0
-  const key = ka * 16_777_216 + kb
-  let d = memo.get(key)
-  if (d === undefined) {
-    if (memo.size > MEMO_LIMIT) memo.clear()
-    d = ciede2000(srgbToLab(ka >> 16, (ka >> 8) & 255, ka & 255), srgbToLab(kb >> 16, (kb >> 8) & 255, kb & 255))
-    memo.set(key, d)
-  }
-  return d
 }
 
 /** Pixel i of an RGB picture rounded to 8 bits a channel, as one number. */

@@ -1,5 +1,5 @@
 // Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and pieces of the
-// shape prototype's synthetic set 2 with the prototype's first-pass or full-pass answers for them.
+// shape prototype's synthetic set 2 with the prototype's first-pass, ladder or full-pass answers for them.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -16,20 +16,24 @@ export interface PrototypeAnswer {
   why: string
   fitted: { ssim: number; far: number; inkMissed: number } | null
   layers: unknown[]
+  /** The photo guard's score of the graphics, for shapes. */
+  photoScore?: number
 }
 
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's answer. */
+/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's first-pass and ladder answers. */
 export interface PrototypePiece {
   id: string
   family: string
   degradation: string
   kit: Record<string, `#${string}`>
   firstPass: PrototypeAnswer
+  /** The shape baseline's answer: the prototype's ladder with the photo guard. */
+  ladder: PrototypeAnswer
   pixels: Pixels
 }
 
 /** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's full-pass answer. */
-export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass'> {
+export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass' | 'ladder'> {
   fullPass: PrototypeAnswer
 }
 

@@ -2,7 +2,9 @@
 // into `google-fonts.json` from Google's own metadata (`google-metadata.ts`). The files are copied
 // into our storage by `pnpm --filter @dazbee/api fonts:google`, and from then on loaded from there
 // like any other font file: never from Google, the system or the browser at render time.
+import type { CatalogFace } from './face-match.ts'
 import list from './google-fonts.json' with { type: 'json' }
+import { variesInWeight } from './google-metadata.ts'
 
 /** A family's kind of letter, as Google Fonts sorts it. */
 export type FontCategory = 'sans-serif' | 'serif' | 'display' | 'handwriting' | 'monospace'
@@ -51,4 +53,15 @@ export const GOOGLE_FONTS: readonly GoogleFamily[] = list.families as GoogleFami
 /** Where google/fonts serves a family's file, at the commit the list was written from. */
 export function googleFileUrl(family: Pick<GoogleFamily, 'path'>, face: Pick<GoogleFile, 'file'>): string {
   return `https://raw.githubusercontent.com/google/fonts/${GOOGLE_FONTS_COMMIT}/${family.path}/${encodeURIComponent(face.file)}`
+}
+
+/** A family's files as faces of the font catalog, each with its family's range of weights when it varies in weight. */
+export function googleFaces(family: GoogleFamily): (GoogleFile & CatalogFace)[] {
+  const wght = family.axes.find((axis) => axis.tag === 'wght')
+  return family.faces.map((face) => ({
+    ...face,
+    family: family.family,
+    source: 'google',
+    ...(wght && variesInWeight(face.file) ? { weights: { min: wght.min, max: wght.max } } : {}),
+  }))
 }

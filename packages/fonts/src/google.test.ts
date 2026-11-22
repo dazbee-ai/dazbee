@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { GOOGLE_FONTS, googleFileUrl } from './google.ts'
+import { GOOGLE_FONTS, googleFaces, googleFileUrl } from './google.ts'
 import { FONT_FACES } from './index.ts'
 import { SCRIPT_FONTS } from './scripts.ts'
 import { SHIPPED_RANKS } from './shipped-ranks.ts'
@@ -120,5 +120,18 @@ describe('googleFileUrl', () => {
     expect(googleFileUrl({ path: 'ofl/inter' }, { file: 'Inter[opsz,wght].ttf' })).toMatch(
       /^https:\/\/raw\.githubusercontent\.com\/google\/fonts\/[0-9a-f]{40}\/ofl\/inter\/Inter%5Bopsz%2Cwght%5D\.ttf$/,
     )
+  })
+})
+
+describe('googleFaces', () => {
+  it('gives a file variable in its weight its family’s range, and a static file none', () => {
+    const roboto = GOOGLE_FONTS.find((f) => f.family === 'Roboto')
+    const abeezee = GOOGLE_FONTS.find((f) => f.family === 'ABeeZee')
+    if (!roboto || !abeezee) throw new Error('Roboto or ABeeZee left the list')
+    expect(googleFaces(roboto).map(({ style, weight, weights }) => ({ style, weight, weights }))).toEqual([
+      { style: 'normal', weight: 400, weights: { min: 100, max: 900 } },
+      { style: 'italic', weight: 400, weights: { min: 100, max: 900 } },
+    ])
+    expect(googleFaces(abeezee).every((face) => face.weights === undefined)).toBe(true)
   })
 })

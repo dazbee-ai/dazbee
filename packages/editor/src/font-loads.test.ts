@@ -3,11 +3,9 @@ import { describe, expect, it } from 'vitest'
 import type { FontUse } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
-import type { DesignInput } from '@dazbee/schema'
 
 import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS } from './font-loads.ts'
 import { testCatalog } from './test-catalog.ts'
-import { testEditor } from './test-editor.ts'
 
 /** Four faces of Brand Sans, each its own bytes: 400, 700 and 900 upright and 400 italic. */
 function brandSans() {
@@ -21,28 +19,6 @@ function brandSans() {
     { family: 'Brand Sans', weight: 400, style: 'italic' as const, bytes: new Uint8Array(regular ?? []) },
   ]
   return { faces, catalog: testCatalog(faces) }
-}
-
-/** A design whose one frame holds a line of words in `family`. */
-function wordsIn(family: string): DesignInput {
-  return {
-    meta: { designId: 'd', name: 'Words' },
-    pages: { p1: { name: 'Page 1', order: 'a0' } },
-    frames: { f: { pageId: 'p1', name: 'Square', width: 300, height: 80, x: 0, y: 0, order: 'a0' } },
-    nodes: {
-      t: {
-        type: 'text',
-        parentId: 'f',
-        link: 't',
-        index: 'a0',
-        name: 'Words',
-        props: {
-          ...{ x: 10, y: 10, width: 280, height: 60, text: 'Big sale' },
-          style: { fontFamily: family, fontSize: 40, color: '#000000FF' },
-        },
-      },
-    },
-  }
 }
 
 /** Brand Sans upright in each weight. */
@@ -207,23 +183,5 @@ describe('editorFontLoads', () => {
     ])
     expect(loads.lacking()).toEqual([])
     end()
-  })
-})
-
-describe('a design in a shipped family', () => {
-  it("draws the brand's upload of that family's name, and the shipped file for a brand without one", async () => {
-    // A file of other letters under the name of a font we ship, and the same file under a name of its own.
-    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
-    const pixels = async (family: string, faces: Parameters<typeof testCatalog>[0]) => {
-      const editor = await testEditor(wordsIn(family), { sources: testCatalog(faces).sources })
-      const drawn = editor.core.exportPixels('f')
-      editor.end()
-      return Buffer.from(drawn)
-    }
-    const uploaded = await pixels('Noto Naskh Arabic', [{ family: 'Noto Naskh Arabic', bytes: upload }])
-    const ownName = await pixels('Own Sans', [{ family: 'Own Sans', bytes: upload }])
-    const shipped = await pixels('Noto Naskh Arabic', [])
-    expect(uploaded.equals(ownName)).toBe(true)
-    expect(shipped.equals(uploaded)).toBe(false)
   })
 })

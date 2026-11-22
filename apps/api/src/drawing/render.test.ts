@@ -132,7 +132,9 @@ describe('brandResourcesFor', { timeout: 30_000 }, () => {
     const read = resources.fonts.map((font) => uploadedFontKey(workspace.id, sha256(font.bytes)))
     expect(read).toEqual([keys.get('400 normal'), keys.get('700 normal')])
   })
+})
 
+describe('renderCover', { timeout: 30_000 }, () => {
   it("draws a brand's upload of a shipped family's name in place of the shipped file, and ours for a brand without one", async () => {
     const [own, other] = await Promise.all([addBrand(), addBrand()])
     // A file of other letters under the name of a font we ship, and the same file under a name of its own.

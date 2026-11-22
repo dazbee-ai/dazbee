@@ -119,18 +119,14 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
   }
   /** A family's faces as the catalog lists them; a shipped family the brand has no upload of, ours. */
   function facesOf(family: string): FontFace[] {
-    const listed = catalog.get(family) ?? []
-    if (listed.length === 0 && SHIPPED_FAMILIES.has(family))
-      return FONT_FACES.filter((face) => face.family === family).map(faceOf)
-    return listed.map(faceOf)
+    if (drawsShipped(family)) return FONT_FACES.filter((face) => face.family === family).map(faceOf)
+    return (catalog.get(family) ?? []).map(faceOf)
   }
   function families() {
     return [...new Set(list.map((font) => font.family))]
   }
   function lacking() {
-    return [...catalog].flatMap(([family, faces]) =>
-      faces.length === 0 && !SHIPPED_FAMILIES.has(family) ? [family] : [],
-    )
+    return [...catalog].flatMap(([family, faces]) => (faces.length === 0 && !drawsShipped(family) ? [family] : []))
   }
   function loaded() {
     return all
@@ -259,6 +255,10 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
       shipped,
       [...asked].flatMap((family) => here(catalog.get(family) ?? [])),
     )
+  }
+  /** Whether the family is one we ship and the catalog lists no upload of its name: our files draw it. */
+  function drawsShipped(family: string) {
+    return SHIPPED_FAMILIES.has(family) && (catalog.get(family)?.length ?? 0) === 0
   }
   /** The files here of these faces, in their order. */
   function here(faces: readonly ListedFace[]): ResourceBytes['fonts'] {

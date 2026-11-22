@@ -115,7 +115,10 @@ export function editorResources({
   after,
   copyMaker,
 }: ResourcesDeps): EditorResources {
-  /** The files the design opened with from the catalog, which a brand's upload of a shipped family's name is among. */
+  /**
+   * The files the design opened with from the catalog, the same arrays `first.fonts` holds after the shipped ones: a
+   * brand's upload of a shipped family's name is among them, not among the shipped fonts.
+   */
   const openedFiles = new Set(firstFonts.files.map((file) => file.bytes))
   /** The catalog's faces and the files of those the design's texts are drawn in. */
   const fonts = editorFontLoads({

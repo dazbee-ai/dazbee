@@ -12,14 +12,6 @@ export interface TestFace {
 }
 
 /**
- * Whether every family asked for is one we ship: a catalog of a brand with no upload of their names answers none, which a
- * test that holds its catalog's answers gives at once.
- */
-export function shippedOnly(families: readonly string[]): boolean {
-  return families.every((family) => SHIPPED_FAMILIES.has(family))
-}
-
-/**
  * The catalog of `faces`, answering at once: `asked` holds each `fontFaces` call's families, and
  * `fetched` each file given, as `<family> <weight> <style>`.
  */
@@ -46,4 +38,12 @@ export function testCatalog(faces: readonly TestFace[]) {
     },
   }
   return { asked, fetched, sources }
+}
+
+/**
+ * Whether every family asked for is one we ship: a catalog of a brand with no upload of their names answers none, which a
+ * test that holds its catalog's answers gives at once.
+ */
+export function shippedOnly(families: readonly string[]): boolean {
+  return families.every((family) => SHIPPED_FAMILIES.has(family))
 }

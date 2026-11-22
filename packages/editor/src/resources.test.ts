@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type Design, parseDesign } from '@dazbee/schema'
+import { type Design, type DesignInput, parseDesign } from '@dazbee/schema'
 
 import { opacityAt } from './canvas/alpha-map.ts'
 import { type CopyMaker, madeCopy } from './display-copies.ts'
 import { NO_FONTS } from './font-loads.ts'
 import { editorResources } from './resources.ts'
 import { testCatalog } from './test-catalog.ts'
+import { testEditor } from './test-editor.ts'
 
 const ck = await loadCanvasKit()
 
@@ -81,6 +82,28 @@ function twoPages(): Design {
   })
   if (!parsed.success) throw new Error(parsed.errors.join('\n'))
   return parsed.design
+}
+
+/** A design whose one frame holds a line of words in `family`. */
+function wordsIn(family: string): DesignInput {
+  return {
+    meta: { designId: 'd', name: 'Words' },
+    pages: { p1: { name: 'Page 1', order: 'a0' } },
+    frames: { f: { pageId: 'p1', name: 'Square', width: 300, height: 80, x: 0, y: 0, order: 'a0' } },
+    nodes: {
+      t: {
+        type: 'text',
+        parentId: 'f',
+        link: 't',
+        index: 'a0',
+        name: 'Words',
+        props: {
+          ...{ x: 10, y: 10, width: 280, height: 60, text: 'Big sale' },
+          style: { fontFamily: family, fontSize: 40, color: '#000000FF' },
+        },
+      },
+    },
+  }
 }
 
 /** Editor resources opened with these images' bytes, counting what is fetched and said. */
@@ -260,5 +283,21 @@ describe('editorResources', () => {
     expect(new Set(seen).size).toBe(4)
     resources.destroy()
     done.abort()
+  })
+
+  it("draws a text in a shipped family in the brand's upload of that family's name, and in our file for a brand without one", async () => {
+    // A file of other letters under the name of a font we ship, and the same file under a name of its own.
+    const upload = new Uint8Array(loadFontFiles().find((f) => f.file === 'NotoSans-Bold.ttf')?.bytes ?? [])
+    const pixels = async (family: string, faces: Parameters<typeof testCatalog>[0]) => {
+      const editor = await testEditor(wordsIn(family), { sources: testCatalog(faces).sources })
+      const drawn = editor.core.exportPixels('f')
+      editor.end()
+      return Buffer.from(drawn)
+    }
+    const uploaded = await pixels('Noto Naskh Arabic', [{ family: 'Noto Naskh Arabic', bytes: upload }])
+    const ownName = await pixels('Own Sans', [{ family: 'Own Sans', bytes: upload }])
+    const shipped = await pixels('Noto Naskh Arabic', [])
+    expect(uploaded.equals(ownName)).toBe(true)
+    expect(shipped.equals(uploaded)).toBe(false)
   })
 })

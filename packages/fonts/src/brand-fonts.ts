@@ -5,7 +5,7 @@
  * files. A brand's upload of a shipped family's name draws in place of the shipped file, and a family it has no files
  * of draws in ours.
  */
-export function withBrandFonts<F extends { family: string }>(shipped: readonly F[], brand: readonly F[]): F[] {
-  const own = new Set(brand.map((font) => font.family))
-  return [...shipped.filter((font) => !own.has(font.family)), ...brand]
+export function withBrandFonts<F extends { family: string }>(shipped: readonly F[], brandFonts: readonly F[]): F[] {
+  const brandFamilies = new Set(brandFonts.map((font) => font.family))
+  return [...shipped.filter((font) => !brandFamilies.has(font.family)), ...brandFonts]
 }

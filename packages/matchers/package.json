@@ -6,7 +6,9 @@
     ".": "./src/index.ts",
     "./release": "./src/release.json",
     "./release-files": "./src/release-files.ts",
-    "./model-runtime-node": "./src/text/model-runtime-node.ts"
+    "./model-runtime-node": "./src/text/model-runtime-node.ts",
+    "./test-text-files": "./src/text/test-text-files.ts",
+    "./test-text-pieces": "./src/text/test-text-pieces.ts"
   },
   "scripts": {
     "files": "node scripts/fetch-files.ts",

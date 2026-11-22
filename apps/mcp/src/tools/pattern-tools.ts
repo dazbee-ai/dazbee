@@ -19,6 +19,8 @@ import {
   patternSteps,
   type PatternStyle,
   type Picture,
+  type PictureLook,
+  pictureLook,
   unusedContent,
 } from '@dazbee/patterns'
 import { textMeasure } from '@dazbee/renderer'
@@ -209,7 +211,10 @@ async function contentOf(
         throw new ToolRefusal(`The brand has no image “${assetId}” for the ${what}; list_assets lists them`)
       throw error
     }
-    if (!isVectorAsset(summary)) return { assetId, width: summary.width, height: summary.height }
+    if (!isVectorAsset(summary)) {
+      const look = await lookOf(open, assetId)
+      return { assetId, width: summary.width, height: summary.height, ...(look ? { look } : {}) }
+    }
     if (what === 'logo' && logo === undefined) {
       leftOut.push(
         `logo: the brand kit’s logo is an SVG file, which a pattern doesn’t place; place it with place_asset`,
@@ -231,6 +236,33 @@ async function contentOf(
     ...(placedLogo ? { logo: placedLogo } : {}),
   }
   return { content, leftOut }
+}
+
+/**
+ * What a picture shows, read from its pixels, so a photo is cropped to its subject and a logo set where its ink
+ * reads; none where its bytes can't be read or decoded, and the pattern places it as it would an unread picture.
+ */
+async function lookOf(open: OpenDesign, assetId: string): Promise<PictureLook | undefined> {
+  const bytes = await open.imageBytes(assetId).catch(() => undefined)
+  if (!bytes) return undefined
+  const ck = await loadCanvasKit()
+  const image = ck.MakeImageFromEncoded(bytes)
+  if (!image) return undefined
+  try {
+    const width = image.width()
+    const height = image.height()
+    const info = {
+      width,
+      height,
+      colorType: ck.ColorType.RGBA_8888,
+      alphaType: ck.AlphaType.Unpremul,
+      colorSpace: ck.ColorSpace.SRGB,
+    }
+    const rgba = image.readPixels(0, 0, info)
+    return rgba instanceof Uint8Array ? pictureLook(rgba, width, height) : undefined
+  } finally {
+    image.delete()
+  }
 }
 
 /**

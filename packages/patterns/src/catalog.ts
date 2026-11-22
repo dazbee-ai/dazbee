@@ -77,6 +77,7 @@ export function buildPattern(id: string, input: PatternInput): PatternLayers {
     tree,
     style,
     styleName: input.style,
+    pattern: id,
     palette,
     frame: frameRoom(input.width, input.height, style.margin),
     measure: input.measure,

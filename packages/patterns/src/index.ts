@@ -1,4 +1,5 @@
 export { buildPattern, findPattern, missingContent, PATTERNS, unusedContent } from './catalog.ts'
+export { pictureLook, type PictureLook } from './picture-look.ts'
 export { PATTERN_STYLES } from './styles.ts'
 export type {
   ContentPart,

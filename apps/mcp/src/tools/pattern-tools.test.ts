@@ -112,7 +112,9 @@ describe('apply_pattern', () => {
     // Each part's copies share one link id, so a change to the headline goes to every size with Copy to other frames.
     for (const part of ['headline', 'subline', 'kicker', 'button-label', 'background', 'logo'])
       expect(layer(square?.[part]).link).toBe(layer(story?.[part]).link)
-    expect(layer(square?.headline).props.text).toBe(WORDS.headline)
+    // The headline's words that belong together are joined by no-break spaces, alike at every size.
+    expect(layer(square?.headline).props.text).toBe(layer(story?.headline).props.text)
+    expect(String(layer(square?.headline).props.text).replaceAll(' ', ' ')).toBe(WORDS.headline)
     expect(layer(square?.headline).bindings).toMatchObject({ fontFamily: 'brand:heading' })
     expect(layer(square?.subline).bindings).toMatchObject({ fontFamily: 'brand:body' })
     expect(layer(square?.ground).bindings).toEqual({ fill: 'brand:primary' })

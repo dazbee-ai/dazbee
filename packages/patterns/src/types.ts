@@ -1,14 +1,20 @@
 // What the patterns share: a pattern's style and content, what a pattern is built from, and what it gives.
 import type { BrandKit, LayerTree, TextProps } from '@dazbee/schema'
 
+import type { PictureLook } from './picture-look.ts'
+
 /** A pattern's style: it changes the decoration, the type and the spacing, never the structure. */
 export type PatternStyle = 'bold' | 'minimal' | 'playful' | 'premium'
 
-/** A picture a pattern places: an image asset of the brand, with its size in pixels. */
+/**
+ * A picture a pattern places: an image asset of the brand, with its size in pixels, and what it shows where its
+ * pixels were read: a photo is cropped to its subject, and a logo set where its ink reads.
+ */
 export interface Picture {
   assetId: string
   width: number
   height: number
+  look?: PictureLook
 }
 
 /** The words and pictures a pattern is filled with. */

@@ -1,13 +1,14 @@
-// Big number: one number, an offer or a fact, set as large as the frame takes, with the words under it and the
-// button; beside the words in a wide frame, banner or strip. The style sets the number: with a hard shadow on brand
-// colour (bold), in the primary on the background (minimal), among soft discs at the corners (playful), or in the
-// accent inside a fine frame line on a dark ground (premium).
+// Big number: one number, an offer or a fact, the largest thing in the frame, its unit set smaller, with the words
+// under it and the button; beside the words in a wide frame, banner or strip. The style sets the number: with a hard
+// shadow in the kit's deepest colour on brand colour (bold), in the primary on the background (minimal), among soft
+// discs at the corners (playful), or in the accent on a deep ground (premium). In a tall frame the logo heads the
+// safe room, the number and its words fill its middle and the button sits at its foot.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, logo, logoRoom } from '../build.ts'
-import { dots, insetFrame } from '../decorations.ts'
-import { contrast, inkOn, LARGE_TEXT_CONTRAST, type Swatch } from '../palette.ts'
-import { rect, solid } from '../tree.ts'
+import { type Build, ground, inRow, isTall, logoAtStart, logoOnTop, roles, rowLeast } from '../build.ts'
+import { ctaFill } from '../button.ts'
+import { dots } from '../decorations.ts'
+import { deepColour, inkOn, LARGE_TEXT_CONTRAST, type Swatch } from '../palette.ts'
 import type { Pattern } from '../types.ts'
 import { rowWords, stackWords, type WordPart, type Words } from '../words.ts'
 
@@ -21,65 +22,61 @@ export const BIG_NUMBER: Pattern = {
   takes: ['kicker', 'subline', 'button', 'logo'],
 }
 
+/** The least width a number takes, as a multiple of the readable size. */
+const NUMBER_LEAST_WIDTH = 6
+
 /** Builds the big number in the frame. */
 export function bigNumber(b: Build) {
-  const { frame, styleName, palette, content } = b
-  const { width, height, shape, margin, safe } = frame
-  const ground = groundColour(b)
-  if (ground !== palette.background)
-    b.tree.add('ground', { ...rect('Ground', { x: 0, y: 0, width, height }, solid(ground)), role: 'background' })
+  const { frame, palette, content } = b
+  const { shape, margin, safe } = frame
+  const colour = ground(b)
   decorateUnder(b)
-  const number: WordPart = { kind: 'number', text: content.number ?? '', ink: numberInk(b, ground), ...numberLook(b) }
+  const number: WordPart = { kind: 'number', text: content.number ?? '', ink: numberInk(b, colour), ...numberLook(b) }
   const rest: WordPart[] = [
     { kind: 'headline', text: content.headline },
     ...(content.subline ? [{ kind: 'subline' as const, text: content.subline }] : []),
   ]
   const kicker: WordPart[] = content.kicker ? [{ kind: 'kicker', text: content.kicker }] : []
-  const buttonFill = contrast(palette.accent.value, ground.value) >= 1.6 ? palette.accent : palette.background
-  const button = content.button ? { button: content.button, buttonFill } : {}
-  let room: Rect = safe
-  if (shape !== 'strip' && shape !== 'banner') {
-    const top = logoRoom(b, { x: safe.x, y: safe.y }, safe.width)
-    if (b.style.align === 'center') top.x = Math.round(safe.x + (safe.width - top.width) / 2)
-    if (logo(b, top, b.style.align === 'center' ? 'center' : 'start', ground)) {
-      const below = top.height + margin
-      room = { ...safe, y: safe.y + below, height: safe.height - below }
-    }
-  }
-  if (shape === 'strip' || shape === 'banner' || shape === 'wide') {
+  const button = content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}
+  const side = shape === 'strip' || shape === 'banner' || shape === 'wide'
+  const banner = shape === 'strip' || shape === 'banner'
+  // A banner's logo leaves room for the number at its least beside the words and button.
+  const numberLeast = Math.round(frame.readable * NUMBER_LEAST_WIDTH)
+  const room: Rect = banner ? logoAtStart(b, safe, colour, rowLeast(b) + numberLeast) : logoOnTop(b, safe, colour)
+  if (side) {
     // The number on the left, the words on the right.
-    const share = shape === 'strip' ? 0.26 : shape === 'banner' ? 0.34 : 0.46
+    const share = shape === 'strip' ? 0.3 : shape === 'banner' ? 0.36 : 0.46
     const left = { ...room, width: Math.round(room.width * share) }
     const gap = Math.round(margin * (shape === 'wide' ? 1.5 : 1))
     const right = { ...room, x: left.x + left.width + gap, width: room.width - left.width - gap }
-    stackWords(b.tree, b, {
+    const set = stackWords(b.tree, b, {
       key: 'number-words',
       parts: [number],
       room: left,
-      surface: ground.value,
+      surface: colour.value,
       most: left.height,
       align: 'start',
     })
+    // The words start a gap after the number as it is set.
+    const start = left.x + set.leadWidth + gap
     const words: Words = {
       parts: [...kicker, ...rest],
-      room: right,
-      surface: ground.value,
+      room: { ...right, x: start, width: right.x + right.width - start },
+      surface: colour.value,
       align: 'start',
       ...button,
     }
-    if (shape === 'strip') rowWords(b.tree, b, words)
+    if (inRow(b)) rowWords(b.tree, b, words)
     else stackWords(b.tree, b, words)
-  } else {
-    stackWords(b.tree, b, { parts: [...kicker, number, ...rest], room, surface: ground.value, ...button })
+    return
   }
-  if (styleName === 'premium' && shape !== 'strip') insetFrame(b, palette.accent, Math.round(margin * 0.4), 0.8)
-}
-
-/** The ground: the primary (bold, playful), a dark (premium), else the kit's background. */
-function groundColour({ styleName, palette }: Build): Swatch {
-  if (styleName === 'premium') return palette.secondary
-  if (styleName === 'minimal') return palette.background
-  return palette.primary
+  stackWords(b.tree, b, {
+    parts: [...kicker, number, ...rest],
+    room,
+    surface: colour.value,
+    ...button,
+    ...(isTall(b) ? { pin: true } : {}),
+  })
 }
 
 /**
@@ -91,17 +88,18 @@ function numberInk({ palette, styleName }: Build, ground: Swatch): Swatch {
   return inkOn(ground.value, [first, palette.background, palette.text], LARGE_TEXT_CONTRAST)
 }
 
-/** The number's look beyond its type: a hard shadow in a bold style. */
+/** The number's look beyond its type: a hard shadow in the kit's deepest colour in a bold style. */
 function numberLook({ styleName, palette, frame }: Build): Pick<WordPart, 'effects'> {
   if (styleName !== 'bold') return {}
   const offset = Math.max(2, Math.round(Math.min(frame.width, frame.height) * 0.012))
-  return { effects: [{ type: 'dropShadow', x: offset, y: offset, blur: 0, spread: 0, color: palette.secondary.value }] }
+  const shadow = deepColour(palette).value
+  return { effects: [{ type: 'dropShadow', x: offset, y: offset, blur: 0, spread: 0, color: shadow }] }
 }
 
 /** The style's decoration under everything: soft discs at the corners in a playful style. */
 function decorateUnder(b: Build) {
   const { frame, styleName, palette } = b
-  if (styleName !== 'playful' || frame.shape === 'strip') return
+  if (styleName !== 'playful' || inRow(b)) return
   const short = Math.min(frame.width, frame.height)
   dots(b, 'disc', [
     { x: frame.width, y: 0, r: short * 0.32, colour: palette.accent, opacity: 0.9 },

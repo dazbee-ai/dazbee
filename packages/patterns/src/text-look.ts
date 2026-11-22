@@ -6,7 +6,7 @@ import type { TextLook } from './styles.ts'
 import type { Setting } from './words.ts'
 
 /** WCAG 2's large text, 18 point, in CSS pixels. */
-const LARGE_TEXT_PX = 24
+export const LARGE_TEXT_PX = 24
 
 /** The ink a text takes on `surface`: the first of `offered`, else the kit's text and background colours, that reads at its size. */
 export function inkFor({ palette, frame }: Setting, surface: string, size: number, offered?: Swatch[]): Swatch {

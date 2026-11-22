@@ -2,6 +2,7 @@
 // filled with the schema's defaults; and the shapes, pictures and paints the patterns build them from.
 import {
   type Bindings,
+  type ImageCrop,
   Layer,
   type LayerTree,
   type Paint,
@@ -144,17 +145,25 @@ export function stroke(color: string, width: number): Stroke {
 }
 
 /**
- * A picture covering the box (`fill`) or whole inside it (`fit`), cropped to the box's shape by its corners; the
- * kit's logo is bound to the Logo brand role.
+ * A picture covering the box (`fill`), whole inside it (`fit`), or the part of it `crop` names stretched over the box,
+ * cut to the box's shape by its corners; the kit's logo is bound to the Logo brand role.
  */
 export function picture(
   name: string,
   box: Rect,
   { assetId }: Picture,
-  { fit = 'fill', logo = false, radius = 0 }: { fit?: 'fill' | 'fit'; logo?: boolean; radius?: number } = {},
+  {
+    fit = 'fill',
+    logo = false,
+    radius = 0,
+    crop,
+  }: { fit?: 'fill' | 'fit'; logo?: boolean; radius?: number; crop?: ImageCrop } = {},
 ): Part {
+  const paint = crop
+    ? { type: 'image' as const, assetId, fit: 'crop' as const, crop: roundedCrop(crop), opacity: 1 }
+    : { type: 'image' as const, assetId, fit, opacity: 1 }
   const fill: Fill = {
-    fills: [{ type: 'image', assetId, fit, opacity: 1 }],
+    fills: [paint],
     ...(logo ? { bindings: { image: 'brand:logo' } } : {}),
   }
   return { ...rect(name, box, fill, { radius }), role: logo ? 'logo' : 'product' }
@@ -188,6 +197,11 @@ export function round(value: number): number {
 function graphic(name: string, box: Rect, shape: object, { fills, bindings }: Fill, more: object): Part {
   const props = { ...rounded(box), shape, fills, ...more }
   return { type: 'graphic', name, role: 'decoration', props, ...(bindings ? { bindings } : {}) }
+}
+
+/** A crop with its place and size rounded. */
+function roundedCrop(crop: ImageCrop): ImageCrop {
+  return { x: round(crop.x), y: round(crop.y), width: round(crop.width), height: round(crop.height) }
 }
 
 /** A box with its place and size rounded. */

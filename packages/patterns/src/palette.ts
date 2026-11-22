@@ -66,6 +66,33 @@ export function inkOn(surface: string, offered: readonly Swatch[], ratio = TEXT_
   return all.reduce((best, ink) => (contrast(ink.value, surface) > contrast(best.value, surface) ? ink : best))
 }
 
+/** The contrast a deep ground holds its ink at. */
+const DEEP_CONTRAST = 7
+/** The contrast an ornament reads at; under it, it is drawn in the ground's ink, faint. */
+const ORNAMENT_CONTRAST = 3
+
+/**
+ * The kit's deep colour, a ground light ink reads on at 7:1: the first of the secondary, primary and text colours
+ * that holds white or the background colour at it, bound to its role; else the secondary darkened until it does.
+ */
+export function deepColour(palette: Palette): Swatch {
+  const holds = (colour: string) =>
+    Math.max(contrast(colour, WHITE.value), contrast(colour, palette.background.value)) >= DEEP_CONTRAST
+  const found = [palette.secondary, palette.primary, palette.text].find((swatch) => holds(swatch.value))
+  if (found) return found
+  for (let share = 0.1; share < 1; share += 0.1) {
+    const value = mixed(palette.secondary.value, INK.value, share)
+    if (holds(value)) return { value }
+  }
+  return INK
+}
+
+/** The colour a fine ornament takes on `ground`: the accent where it reads, else the ground's ink, faint. */
+export function ornamentColour(palette: Palette, ground: string): { colour: Swatch; opacity: number } {
+  if (contrast(palette.accent.value, ground) >= ORNAMENT_CONTRAST) return { colour: palette.accent, opacity: 1 }
+  return { colour: inkOn(ground, [palette.text, palette.background]), opacity: 0.35 }
+}
+
 /** The contrast ratio of two colours, from 1 to 21. */
 export function contrast(a: string, b: string): number {
   const x = luminance(a)

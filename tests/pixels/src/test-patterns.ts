@@ -7,7 +7,14 @@ import { join } from 'node:path'
 
 import { openSession, plainStore, type Session } from '@dazbee/doc'
 import { type AgentBatchWarned, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
-import { buildPattern, type PatternContent, patternSteps, type PatternStyle, type Picture } from '@dazbee/patterns'
+import {
+  buildPattern,
+  type PatternContent,
+  patternSteps,
+  type PatternStyle,
+  type Picture,
+  pictureLook,
+} from '@dazbee/patterns'
 import { type ResourceBytes, resourceCache, textMeasure } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type BrandKit, brandVariables, type DesignInput, SIZE_PRESETS } from '@dazbee/schema'
@@ -41,13 +48,37 @@ export const STRIDE_KIT: BrandKit = {
   textStyles: [],
 }
 
-/** The stand-in pictures, as the assets library would give their sizes. */
-export const PICTURES = {
-  logo: { assetId: 'logo', width: 600, height: 160 },
-  sneaker: { assetId: 'sneaker', width: 1920, height: 1200 },
-  cutout: { assetId: 'sneaker-cutout', width: 1200, height: 800 },
-  portrait: { assetId: 'portrait', width: 800, height: 800 },
-} as const satisfies Record<string, Picture>
+/** A stand-in picture, as apply_pattern gives it: its size, and what it shows read from its pixels. */
+export function pictureOf(assetId: string, bytes: Uint8Array): Picture {
+  const image = ck.MakeImageFromEncoded(bytes)
+  if (!image) throw new Error(`no picture in "${assetId}"`)
+  try {
+    const width = image.width()
+    const height = image.height()
+    const info = {
+      width,
+      height,
+      colorType: ck.ColorType.RGBA_8888,
+      alphaType: ck.AlphaType.Unpremul,
+      colorSpace: ck.ColorSpace.SRGB,
+    }
+    const rgba = image.readPixels(0, 0, info)
+    if (!(rgba instanceof Uint8Array)) throw new Error(`no pixels in "${assetId}"`)
+    return { assetId, width, height, look: pictureLook(rgba, width, height) }
+  } finally {
+    image.delete()
+  }
+}
+
+const fixtureImages = fixtureResources().images
+
+/** The stand-in pictures, as apply_pattern gives them. */
+export const PICTURES = Object.fromEntries(
+  (['logo', 'sneaker', 'sneaker-cutout', 'portrait'] as const).map((id) => [
+    id,
+    pictureOf(id, fixtureImages[id] ?? new Uint8Array()),
+  ]),
+) as Record<'logo' | 'sneaker' | 'sneaker-cutout' | 'portrait', Picture>
 
 /** Each pattern's stand-in words and pictures, as a marketer would give them. */
 export const CONTENT: Record<string, PatternContent> = {
@@ -74,7 +105,7 @@ export const CONTENT: Record<string, PatternContent> = {
     subline: 'Lighter than ever, now in four colours.',
     badge: '−30%',
     button: 'Shop now',
-    photo: PICTURES.cutout,
+    photo: PICTURES['sneaker-cutout'],
     logo: PICTURES.logo,
   },
   'big-number': {

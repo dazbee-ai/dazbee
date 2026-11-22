@@ -1,10 +1,11 @@
-// The decoration the patterns share, each drawn clear of the words: a fine frame inside the frame's edge, dots, a
-// bar of colour, a soft light behind a product, a badge and quotation marks.
+// The decoration the patterns share, each drawn clear of the words and of a photo's subject: a fine frame inside the
+// frame's edge, dots, a bar of colour, a soft light behind a product and a badge.
 import type { Rect } from '@dazbee/schema'
 
 import type { Build } from './build.ts'
-import { type Swatch, withAlpha } from './palette.ts'
-import { ellipse, path, radial, rect, round, solid, star, stroke } from './tree.ts'
+import { meets } from './crop.ts'
+import { inkOn, type Swatch, withAlpha } from './palette.ts'
+import { ellipse, radial, rect, round, solid, star, stroke } from './tree.ts'
 
 /** A dot: its centre, its radius, and its colour. */
 export interface Dot {
@@ -15,9 +16,10 @@ export interface Dot {
   opacity?: number
 }
 
-/** A fine line round the frame, `inset` in from its edge, in a colour. */
-export function insetFrame(b: Build, colour: Swatch, inset: number, opacity = 1) {
+/** A fine line round the whole frame, 4% of its shorter side in from its edge, in a colour. */
+export function insetFrame(b: Build, colour: Swatch, opacity = 1) {
   const { width, height } = b.frame
+  const inset = Math.round(Math.min(width, height) * 0.04)
   const weight = Math.max(1, round(Math.min(width, height) * 0.0025))
   const box = { x: inset, y: inset, width: width - 2 * inset, height: height - 2 * inset }
   b.tree.add(
@@ -26,13 +28,16 @@ export function insetFrame(b: Build, colour: Swatch, inset: number, opacity = 1)
   )
 }
 
-/** Dots, each a circle in its colour, bound to its brand role. */
-export function dots(b: Build, key: string, list: readonly Dot[], parent?: string) {
-  for (const [i, { x, y, r, colour, opacity }] of list.entries())
+/** Dots, each a circle in its colour, bound to its brand role; one that would meet a box of `clear` is left out. */
+export function dots(b: Build, key: string, list: readonly Dot[], clear: readonly Rect[] = []) {
+  const room = Math.min(b.frame.width, b.frame.height) * 0.02
+  const kept = list.filter(({ x, y, r }) =>
+    clear.every((box) => !meets({ x: x - r, y: y - r, width: 2 * r, height: 2 * r }, box, room)),
+  )
+  for (const [i, { x, y, r, colour, opacity }] of kept.entries())
     b.tree.add(
       `${key}-${i + 1}`,
       ellipse(`Dot ${i + 1}`, { x: x - r, y: y - r, width: 2 * r, height: 2 * r }, solid(colour, opacity)),
-      parent,
     )
 }
 
@@ -57,23 +62,13 @@ export function badgeShape(b: Build, box: Rect, colour: Swatch) {
     minimal: rect('Badge', box, fill),
     playful: star('Badge', box, { points: 12, inner: 0.86, radius: round(box.width * 0.05) }, fill, { rotation: -10 }),
     premium: ellipse('Badge', box, fill, {
-      strokes: [stroke(withAlpha('#FFFFFF', 0.7), Math.max(1, round(box.width * 0.012)))],
+      strokes: [
+        stroke(
+          withAlpha(inkOn(colour.value, [b.palette.background, b.palette.text]).value, 0.7),
+          Math.max(1, round(box.width * 0.012)),
+        ),
+      ],
     }),
   }[b.styleName]
   b.tree.add('badge-shape', { ...part, role: 'badge' })
-}
-
-/**
- * Quotation marks, two drawn commas, filling `box` in a colour: the opening marks a quote starts with, drawn as
- * shapes so they never count as text.
- */
-export function quoteMarks(b: Build, box: Rect, colour: Swatch, opacity = 1) {
-  // Two marks, each a disc with a tail, drawn on a 98 × 80 grid.
-  const mark = (dx: number) =>
-    `M ${dx + 20} 80 C ${dx + 8} 80 ${dx} 71 ${dx} 58 C ${dx} 44 ${dx + 10} 36 ${dx + 22} 36 C ${dx + 24} 36 ${dx + 25} 36 ${dx + 26} 37 C ${dx + 24} 24 ${dx + 15} 14 ${dx + 2} 9 L ${dx + 6} 0 C ${dx + 29} 7 ${dx + 44} 26 ${dx + 44} 52 C ${dx + 44} 69 ${dx + 34} 80 ${dx + 20} 80 Z`
-  const marks = path('Quotation marks', box, `${mark(0)} ${mark(54)}`, solid(colour, opacity), {
-    width: 98,
-    height: 80,
-  })
-  b.tree.add('quote-marks', marks)
 }

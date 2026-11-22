@@ -5,6 +5,7 @@ import {
   EMPTY_BRAND_KIT,
   type Layer,
   readableTextSize,
+  type Rect,
   SIZE_PRESETS,
   type TextProps,
 } from '@dazbee/schema'
@@ -62,6 +63,21 @@ const SIZES = [
   [728, 90],
   [160, 600],
 ] as const
+
+/** Whether `inner` lies inside `outer`, to a pixel. */
+const within = (inner: Rect, outer: Rect) =>
+  inner.x >= outer.x - 1 &&
+  inner.y >= outer.y - 1 &&
+  inner.x + inner.width <= outer.x + outer.width + 1 &&
+  inner.y + inner.height <= outer.y + outer.height + 1
+
+/** The area two boxes share. */
+const overlap = (a: Rect, b: Rect) =>
+  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) *
+  Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y))
+
+/** Whether two boxes share any area. */
+const meets = (a: Rect, b: Rect) => overlap(a, b) > 0
 
 /** The text layers of a tree. */
 const texts = (nodes: Record<string, Layer>) =>
@@ -147,6 +163,115 @@ describe('buildPattern', () => {
       expect(kept).not.toContain(pattern.id)
       expect(kept).not.toContain(pattern.name)
     }
+  })
+
+  it.each(PATTERNS.flatMap((pattern) => PATTERN_STYLES.map((style) => [pattern.id, style] as const)))(
+    'sets %s in the %s style with its lead over its button and a number over its headline, at every shape',
+    (id, style) => {
+      // A headline is at least 1.5 times its button label's size, 1.3 times in a style that slants its highlight.
+      const over = style === 'premium' ? 1.3 : 1.5
+      for (const [width, height] of SIZES) {
+        const { nodes } = buildPattern(id, { style, kit: KIT, content: CONTENT, width, height, measure })
+        const size = (key: string) => {
+          const node = nodes[key]
+          return node?.type === 'text' ? node.props.style.fontSize : 0
+        }
+        const label = size('button-label')
+        const lead = Math.max(size('headline'), size('number'))
+        if (label > 0) expect({ width, height, ok: lead >= label * over - 1 }).toEqual({ width, height, ok: true })
+        if (nodes.number)
+          expect({ width, height, ok: size('number') >= size('headline') * 2 }).toEqual({ width, height, ok: true })
+      }
+    },
+  )
+
+  it('crops the photo to its subject: the subject shows whole, and the logo is clear of it', () => {
+    const photo = { ...picture, look: { subject: { x: 300, y: 450, width: 1000, height: 400 }, inks: [] } }
+    for (const [width, height] of [
+      [1080, 1080],
+      [1080, 1920],
+      [1280, 720],
+    ] as const)
+      for (const id of ['photo-band', 'split'])
+        for (const style of PATTERN_STYLES) {
+          const { nodes } = buildPattern(id, {
+            style,
+            kit: KIT,
+            content: { ...CONTENT, photo },
+            width,
+            height,
+            measure,
+          })
+          const layer = nodes.photo
+          const fill = layer?.type === 'graphic' ? layer.props.fills[0] : undefined
+          if (!layer || fill?.type !== 'image' || !fill.crop) throw new Error(`${id} has no cropped photo`)
+          const { crop } = fill
+          const scale = layer.props.width / crop.width
+          const subject = {
+            x: layer.props.x + (photo.look.subject.x - crop.x) * scale,
+            y: layer.props.y + (photo.look.subject.y - crop.y) * scale,
+            width: photo.look.subject.width * scale,
+            height: photo.look.subject.height * scale,
+          }
+          const at = `${id} ${style} ${width}×${height}`
+          expect({ at, inside: within(subject, layer.props) }).toEqual({ at, inside: true })
+          const mark = nodes.logo?.props
+          if (mark) expect({ at, clear: !meets(mark, subject) }).toEqual({ at, clear: true })
+        }
+  })
+
+  it('puts the product badge on the product’s corner, over no more than a share of it and none of its middle', () => {
+    for (const [width, height] of SIZES)
+      for (const style of PATTERN_STYLES) {
+        const { nodes } = buildPattern('product-badge', { style, kit: KIT, content: CONTENT, width, height, measure })
+        const product = nodes.product?.props
+        const badge = nodes['badge-shape']?.props
+        if (!product || !badge) continue
+        const shared = overlap(product, badge)
+        const middle = { ...product, x: product.x + product.width / 3, width: product.width / 3 }
+        const at = `${style} ${width}×${height}`
+        expect({ at, share: shared <= product.width * product.height * 0.2 }).toEqual({ at, share: true })
+        expect({ at, middle: overlap(middle, badge) }).toEqual({ at, middle: 0 })
+      }
+  })
+
+  it('sets the headline’s highlight apart without a slant its font hasn’t got', () => {
+    // A kit whose colours don't read on the ground, with the style's own Anton, which has no italic.
+    const kit = { ...EMPTY_BRAND_KIT, colors: [{ token: 'accent', name: 'Accent', value: '#FFFFFFFF' }] }
+    const { nodes } = buildPattern('words-only', {
+      style: 'bold',
+      kit: kit as BrandKit,
+      content: { headline: 'Free delivery on every order', highlight: 'Free delivery' },
+      width: 1080,
+      height: 1080,
+      measure,
+    })
+    const headline = nodes.headline
+    if (headline?.type !== 'text') throw new Error('no headline')
+    expect(headline.props.runs.map((run) => run.style.fontStyle)).not.toContain('italic')
+    expect(headline.props.runs).toHaveLength(1)
+    // The words set apart stay on one line: the space between them doesn't break.
+    expect(headline.props.text).toBe('Free delivery on every order')
+  })
+
+  it('draws a logo of one colour in the ground’s ink, and one with its own box on a label of the box’s colour', () => {
+    const ink = { subject: { x: 0, y: 0, width: 600, height: 160 }, inks: [{ colour: '#111111FF', share: 1 }] }
+    const boxed = { ...ink, backdrop: '#FFFFFFFF', inks: [{ colour: '#FF0000FF', share: 1 }] }
+    const at = (look: typeof ink) =>
+      buildPattern('words-only', {
+        style: 'premium',
+        kit: KIT,
+        content: { ...CONTENT, logo: { ...logo, look } },
+        width: 1080,
+        height: 1080,
+        measure,
+      }).nodes
+    const mono = at(ink)
+    expect(mono.logo).toMatchObject({ type: 'box', role: 'logo' })
+    expect(mono['logo-shape']?.props).toMatchObject({ mask: 'alpha' })
+    expect(mono['logo-label']).toBeUndefined()
+    const label = at(boxed)['logo-label']
+    expect(label?.props).toMatchObject({ fills: [{ type: 'solid', color: '#FFFFFFFF' }] })
   })
 
   it('refuses a pattern there isn’t and content a pattern needs', () => {

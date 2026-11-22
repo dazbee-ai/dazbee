@@ -2,18 +2,31 @@
 // of its own centred on it, a badge on its top corner holding a few words (an offer, “New”), never over its middle,
 // and the words beside or above it with the button. The style draws the badge and the light: a burst on brand colour
 // (bold), a square on a pale disc (minimal), a seal on a big accent disc with dots (playful), or a ringed seal under a
-// gold ring on a deep ground (premium).
+// gold ring on a deep ground (premium). The offer is set in the heaviest face the style has, at the headline's size at
+// least; a short frame sets it in a chip before its words.
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import { type Build, ground, inRow, logoAtStart, logoOnTop, logoRoom, roles, usualWords } from '../build.ts'
+import {
+  type Build,
+  ground,
+  inRow,
+  isShort,
+  logoAtStart,
+  logoOnTop,
+  logoRoom,
+  roles,
+  rowLabel,
+  stripHolds,
+  usualWords,
+} from '../build.ts'
 import { type ButtonFill, ctaFill } from '../button.ts'
 import { type Cropped, fitCrop } from '../crop.ts'
 import { badgeShape, dots, glow } from '../decorations.ts'
 import type { Swatch } from '../palette.ts'
 import { inkFor } from '../text-look.ts'
-import { ellipse, picture, round, solid, stroke } from '../tree.ts'
+import { ellipse, picture, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
-import { rowWords, stackWords, type Words } from '../words.ts'
+import { leadBeside, rowFits, rowWords, stackWords, type Words } from '../words.ts'
 
 export const PRODUCT_BADGE: Pattern = {
   id: 'product-badge',
@@ -30,8 +43,14 @@ const INSIDE = 0.62
 /** The most of the product's box a badge covers, and how far into the box its middle sits first, as a share of its width. */
 const BADGE_COVERS = 0.15
 const BADGE_IN = 0.2
+/** A badge's least size: a share of a social frame's shorter side, and of a banner's height. */
+const BADGE_LEAST = { social: 0.16, banner: 0.45 }
+/** The weight a badge is set at in a brand's font, whose faces aren't known. */
+const BRAND_BADGE_WEIGHT = 700
+/** A chip's height, as a multiple of its words' size. */
+const CHIP_DOWN = 1.45
 /** The share of the room under the logo the words take in a square frame and a tall one. */
-const WORDS_SHARE = { square: 0.3, tall: 0.26 }
+const WORDS_SHARE = { square: 0.3, tall: 0.32 }
 
 /** Builds the product with a badge in the frame. */
 export function productBadge(b: Build) {
@@ -44,24 +63,25 @@ export function productBadge(b: Build) {
     frame.shape === 'strip' ||
     (frame.shape === 'square' && Math.min(frame.width, frame.height) < 400)
   const placed = besides ? sideBySide(b, colour, fill) : stacked(b, colour, fill)
-  if (!placed) return
+  if (!placed.product) return
   light(b, placed.product.box, placed.limit)
   if (b.content.photo)
     b.tree.add('product', picture('Product', placed.product.box, b.content.photo, { crop: placed.product.crop }))
-  badge(b, placed.product.box, placed.limit, colour)
+  badge(b, placed.product.box, placed.limit, colour, placed.size)
 }
 
-/** Where the product went, and the box its badge keeps inside. */
+/** Where the product went, the box its badge keeps inside, and the headline's size, which its words are at least. */
 interface Placed {
-  product: Cropped
+  product?: Cropped
   limit: Rect
+  size: number
 }
 
 /**
  * Tall and square: the logo and words on top, the product filling the room under them, the button at the foot of
  * the safe room, the three spread down it.
  */
-function stacked(b: Build, colour: Swatch, fill: ButtonFill): Placed | undefined {
+function stacked(b: Build, colour: Swatch, fill: ButtonFill): Placed {
   const { frame, content } = b
   const room = logoOnTop(b, frame.safe, colour)
   const share = frame.shape === 'square' ? WORDS_SHARE.square : WORDS_SHARE.tall
@@ -89,43 +109,105 @@ function stacked(b: Build, colour: Swatch, fill: ButtonFill): Placed | undefined
     })
     foot = button.box.y
   }
-  if (!content.photo) return undefined
+  if (!content.photo) return { limit: room, size: set.size }
   const top = set.box.y + set.box.height + gap
   const productRoom = { x: frame.margin, y: top, width: frame.width - 2 * frame.margin, height: foot - gap - top }
   // The product fills the room between the words and the button, in its middle, below a strip the badge can step
   // up into.
   const step = Math.round(Math.min(productRoom.height * 0.25, frame.readable * 4.5))
   const fitted = fitCrop(content.photo, { ...productRoom, y: productRoom.y + step, height: productRoom.height - step })
-  return { product: fitted, limit: productRoom }
+  return { product: fitted, limit: productRoom, size: set.size }
 }
 
-/** Wide, banner and strip: the product at the leading edge, the logo and words beside it, the button after them. */
-function sideBySide(b: Build, colour: Swatch, fill: ButtonFill): Placed | undefined {
+/**
+ * Wide, banner and strip: the product at the leading edge, fitted whole by its subject inside the frame's margin, the
+ * logo and words beside it, the button after them. A short frame sets its offer as a chip before its words, and keeps
+ * the product only where it holds it beside the logo, chip, words and button.
+ */
+function sideBySide(b: Build, colour: Swatch, fill: ButtonFill): Placed {
   const { frame, content } = b
   const { width, height, shape, margin, safe } = frame
-  const productWidth = Math.round(
+  const short = isShort(b)
+  const chip = short && content.badge ? chipSize(b, content.badge) : undefined
+  let productWidth = Math.round(
     shape === 'strip' ? height * 1.9 : shape === 'banner' ? Math.max(height * 1.6, width * 0.34) : width * 0.48,
   )
-  const productRoom = { x: margin * 0.5, y: margin * 0.5, width: productWidth - margin, height: height - margin }
-  let words: Rect = {
-    x: productWidth + margin * 0.5,
-    y: safe.y,
-    width: width - productWidth - margin * 1.5,
-    height: safe.height,
-  }
+  if (!content.photo || (short && !stripHolds(b, productWidth + (chip ? chip.width + margin : 0)))) productWidth = 0
+  const productRoom = { x: margin, y: margin * 0.5, width: productWidth - margin * 1.5, height: height - margin }
+  const x = productWidth > 0 ? productWidth + margin * 0.5 : safe.x
+  let words: Rect = { x, y: safe.y, width: width - x - margin, height: safe.height }
   const logoHeight = logoRoom(b, { x: words.x, y: words.y }, words.width, colour).height
-  words =
-    shape !== 'strip' && words.height >= logoHeight * 3.2 ? logoOnTop(b, words, colour) : logoAtStart(b, words, colour)
+  words = !short && words.height >= logoHeight * 3.2 ? logoOnTop(b, words, colour) : logoAtStart(b, words, colour)
+  if (chip && content.badge) {
+    offerChip(b, { x: words.x, y: Math.round(safe.y + (safe.height - chip.height) / 2) }, chip, content.badge, colour)
+    words = { ...words, x: words.x + chip.width + margin, width: words.width - chip.width - margin }
+  }
+  const wordsOf = (parts: Words['parts']): Words => ({
+    parts,
+    room: words,
+    surface: colour.value,
+    ...(content.button ? { button: content.button, buttonFill: fill } : {}),
+  })
+  // A short frame whose offer leads in its chip leaves its headline out where it can't fit beside the chip.
+  const fitted = inRow(b) ? rowFits(b, wordsOf(usualWords(content))) : true
   const set: Words = {
-    parts: usualWords(content),
+    parts: chip && !fitted ? [] : usualWords(content),
     room: words,
     surface: colour.value,
     ...(content.button ? { button: content.button, buttonFill: fill } : {}),
   }
-  if (inRow(b)) rowWords(b.tree, b, set)
-  else stackWords(b.tree, b, set)
-  if (!content.photo) return undefined
-  return { product: fitCrop(content.photo, productRoom), limit: productRoom }
+  const placed = inRow(b) ? rowWords(b.tree, b, set) : stackWords(b.tree, b, set)
+  if (!content.photo || productWidth === 0 || chip) {
+    if (!content.photo || productWidth === 0) return { limit: productRoom, size: placed.size }
+    // In a short frame the offer is the chip: the product shows whole, with no badge over it.
+    const product = fitCrop(content.photo, productRoom)
+    b.tree.add('product', picture('Product', product.box, content.photo, { crop: product.crop }))
+    return { limit: productRoom, size: placed.size }
+  }
+  return { product: fitCrop(content.photo, productRoom), limit: productRoom, size: placed.size }
+}
+
+/** The chip a short frame sets its offer in: its words at the size a strip's lead takes at most, and room round them. */
+function chipSize(b: Build, words: string) {
+  const { frame } = b
+  const size = Math.max(
+    frame.readable,
+    Math.round(Math.min(frame.safe.height / CHIP_DOWN, leadBeside(b, rowLabel(b)) * 1.15)),
+  )
+  const { font, weight } = badgeFace(b)
+  const props = badgeProps(b, words, size, 1000, b.palette.text, font, weight)
+  const across = Math.ceil(b.measure({ ...props, boxMode: 'autoWidth' }, null).width)
+  return {
+    size,
+    width: across + Math.round(size * 0.9),
+    height: Math.round(Math.min(frame.safe.height, size * CHIP_DOWN)),
+  }
+}
+
+/** The offer's chip at `at`: a box in the badge's colour, rounded as the style's button, its words in the badge's face. */
+function offerChip(
+  b: Build,
+  at: { x: number; y: number },
+  chip: { size: number; width: number; height: number },
+  words: string,
+  ground: Swatch,
+) {
+  const { palette } = b
+  const colour = ctaFill(palette, ground, 'accent').fill
+  const ink = inkFor(b, colour.value, chip.size, [palette.text, palette.background])
+  const box = { ...at, width: chip.width, height: chip.height }
+  b.tree.add('badge-shape', {
+    ...rect('Badge', box, solid(colour), { radius: Math.round(chip.height * b.style.buttonRound) }),
+    role: 'badge',
+  })
+  const { font, weight } = badgeFace(b)
+  b.tree.add('badge', {
+    type: 'text',
+    name: 'Badge words',
+    role: 'badge',
+    props: { ...badgeProps(b, words, chip.size, chip.width, ink, font, weight), ...box, height: chip.height },
+    bindings: { ...(font.ref ? { fontFamily: font.ref } : {}), ...(ink.ref ? { textColor: ink.ref } : {}) },
+  })
 }
 
 /**
@@ -164,59 +246,90 @@ function light(b: Build, product: Rect, limit: Rect) {
 
 /**
  * The badge on the product's top corner, inside `limit`, covering no more than a share of the product's box and none
- * of its middle third; its words as large as fit inside it, never under the readable size.
+ * of its middle third, stepping off the product where it must; as large as a sixth of the frame's shorter side at
+ * least, and its words at the headline's `size` at least, in the heaviest face the style's fonts have.
  */
-function badge(b: Build, product: Rect, limit: Rect, ground: Swatch) {
+function badge(b: Build, product: Rect, limit: Rect, ground: Swatch, size: number) {
   const { palette, frame, content } = b
   const words = content.badge
   if (!words) return
   const colour = ctaFill(palette, ground, 'accent').fill
   const ink = inkFor(b, colour.value, frame.readable, [palette.text, palette.background])
+  const { font, weight } = badgeFace(b)
   const longest = words.split(/\s+/).reduce((x, y) => (y.length > x.length ? y : x), '')
-  const wordWidth = (size: number) => Math.ceil(b.measure(badgeProps(b, longest, size, 1000, ink), null).width)
+  const wordWidth = (at: number) =>
+    Math.ceil(b.measure(badgeProps(b, longest, at, 1000, ink, font, weight), null).width)
   const short = Math.min(frame.width, frame.height)
-  // The badge's corner part over the box is about 0.4 of its square; it stays out of the box's middle third.
-  const most = Math.min(Math.sqrt((BADGE_COVERS * product.width * product.height) / 0.4), product.width * 0.45)
-  const d = Math.round(
-    Math.max(Math.min(short * 0.22, most), frame.readable * 4, (wordWidth(frame.readable) + 2) / INSIDE),
-  )
-  const inner = Math.floor(d * INSIDE)
+  const banner = frame.shape === 'banner' || frame.shape === 'strip'
+  const least = Math.max(banner ? frame.height * BADGE_LEAST.banner : short * BADGE_LEAST.social, frame.readable * 4)
+  const headline = Math.max(frame.readable, size)
   const right = Math.min(frame.width - frame.margin * 0.5, limit.x + limit.width)
   const top = Math.max(frame.margin * 0.5, limit.y)
-  // From the corner, the badge steps out of the product's box while it covers more than its share of it.
-  const at = (into: number) => ({
-    cx: Math.min(product.x + product.width - d * into, right - d / 2),
-    cy: Math.max(product.y + d * into, top + d / 2),
-  })
-  const covers = ({ cx, cy }: { cx: number; cy: number }) =>
-    Math.max(0, Math.min(cx + d / 2, product.x + product.width) - Math.max(cx - d / 2, product.x)) *
-    Math.max(0, Math.min(cy + d / 2, product.y + product.height) - Math.max(cy - d / 2, product.y))
-  // Nor may it reach the middle third of the product's width where it is over the product.
-  const middle = product.x + (product.width * 2) / 3
-  const inMiddle = (place: { cx: number; cy: number }) => place.cx - d / 2 < middle && covers(place) > 0
-  const tooMuch = (place: { cx: number; cy: number }) =>
-    covers(place) > BADGE_COVERS * product.width * product.height || inMiddle(place)
-  let into = BADGE_IN
-  while (into > -0.5 && tooMuch(at(into))) into -= 0.05
-  const { cx, cy } = at(into)
+  // From the corner, a badge `d` wide steps out of the product's box while it covers more than its share of it, or
+  // any of the middle third of its width; where none of its steps keeps off them, a smaller badge is tried, down to
+  // the least its words take at the readable size.
+  const place = (d: number) => {
+    const at = (into: number) => ({
+      cx: Math.min(product.x + product.width - d * into, right - d / 2),
+      cy: Math.max(product.y + d * into, top + d / 2),
+    })
+    const covers = ({ cx, cy }: { cx: number; cy: number }) =>
+      Math.max(0, Math.min(cx + d / 2, product.x + product.width) - Math.max(cx - d / 2, product.x)) *
+      Math.max(0, Math.min(cy + d / 2, product.y + product.height) - Math.max(cy - d / 2, product.y))
+    const middle = product.x + (product.width * 2) / 3
+    const tooMuch = (spot: { cx: number; cy: number }) =>
+      covers(spot) > BADGE_COVERS * product.width * product.height || (spot.cx - d / 2 < middle && covers(spot) > 0)
+    let into = BADGE_IN
+    while (into > -0.5 && tooMuch(at(into))) into -= 0.05
+    return { ...at(into), clear: !tooMuch(at(into)) }
+  }
+  const floor = Math.round(Math.max(frame.readable * 4, (wordWidth(frame.readable) + 2) / INSIDE))
+  let d = Math.round(Math.max(least, (wordWidth(headline) + 2) / INSIDE, Math.min(short * 0.22, least * 1.3)))
+  let spot = place(d)
+  while (!spot.clear && d > floor) {
+    d = Math.max(floor, Math.round(d * 0.92))
+    spot = place(d)
+  }
+  const { cx, cy } = spot
+  const inner = Math.floor(d * INSIDE)
   badgeShape(b, { x: round(cx - d / 2), y: round(cy - d / 2), width: d, height: d }, colour)
-  let size = Math.floor(d * 0.34)
-  const fits = (at: number) =>
-    wordWidth(at) <= inner && b.measure(badgeProps(b, words, at, inner, ink), inner).height <= inner
-  while (size > frame.readable && !fits(size)) size--
-  const font = palette.heading
+  let set = Math.max(headline, Math.floor(d * 0.36))
+  const fits = (px: number) =>
+    wordWidth(px) <= inner && b.measure(badgeProps(b, words, px, inner, ink, font, weight), inner).height <= inner
+  while (set > frame.readable && !fits(set)) set--
   b.tree.add('badge', {
     type: 'text',
     name: 'Badge words',
     role: 'badge',
-    props: { ...badgeProps(b, words, size, inner, ink), x: round(cx - inner / 2), y: round(cy - inner / 2) },
+    props: {
+      ...badgeProps(b, words, set, inner, ink, font, weight),
+      x: round(cx - inner / 2),
+      y: round(cy - inner / 2),
+    },
     bindings: { ...(font.ref ? { fontFamily: font.ref } : {}), ...(ink.ref ? { textColor: ink.ref } : {}) },
   })
 }
 
-/** The badge's words in the headline's type at `size`, centred in a square box `inner` wide. */
-function badgeProps({ palette, style }: Build, text: string, size: number, inner: number, ink: Swatch) {
-  const look = style.headline
+/**
+ * The face a badge's words are set in: the style's heading font where it is heavy, else its body font at a bold
+ * weight, so an offer is never set thin.
+ */
+function badgeFace({ palette, style }: Build): { font: Swatch; weight: number } {
+  const face = style.badge
+  const font = palette[face.font]
+  return { font, weight: palette.brandFont[face.font] ? BRAND_BADGE_WEIGHT : face.weight }
+}
+
+/** The badge's words in its face at `size`, in the headline's case, centred in a square box `inner` wide. */
+function badgeProps(
+  { style }: Build,
+  text: string,
+  size: number,
+  inner: number,
+  ink: Swatch,
+  font: Swatch,
+  weight: number,
+) {
   return TextProps.parse({
     x: 0,
     y: 0,
@@ -224,12 +337,12 @@ function badgeProps({ palette, style }: Build, text: string, size: number, inner
     height: inner,
     text,
     style: {
-      fontFamily: palette.heading.value,
-      fontWeight: palette.brandFont.heading ? look.brandWeight : look.weight,
+      fontFamily: font.value,
+      fontWeight: weight,
       fontSize: size,
       color: ink.value,
       lineHeight: 1,
-      ...(look.textCase === 'upper' ? { textCase: 'upper' } : {}),
+      ...(style.headline.textCase === 'upper' ? { textCase: 'upper' } : {}),
     },
     align: 'center',
     verticalAlign: 'middle',

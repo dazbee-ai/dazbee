@@ -149,6 +149,23 @@ describe('apply_pattern', () => {
     expect(answer.frames[0]?.layers).not.toHaveProperty('logo')
   })
 
+  it('reads a photo’s subject in the asset’s own pixels, however large its stored file', async () => {
+    // The bottle's stored file is 4 × 4, its asset 1600 × 2400: the subject read from the file is scaled to the asset.
+    const { agent, sync } = await opened()
+    const answer = (await agent.json('apply_pattern', {
+      pattern: 'photo-band',
+      style: 'minimal',
+      sizes: [{ width: 300, height: 250 }],
+      content: { headline: 'Run further', photo: 'asset-bottle', logo: false },
+    })) as Applied
+    const photo = stored(sync).nodes[answer.frames[0]?.layers.photo ?? '']
+    const [fill] = photo?.type === 'graphic' ? photo.props.fills : []
+    if (fill?.type !== 'image' || !fill.crop) throw new Error('no cropped photo')
+    // Cropped to the subject in the asset's middle, not to a corner of it.
+    expect(fill.crop.x + fill.crop.width / 2).toBeGreaterThan(400)
+    expect(fill.crop.y + fill.crop.height / 2).toBeGreaterThan(600)
+  })
+
   it('binds a logo it is given to brand:logo only when it is the kit’s, and says what of the content it left out', async () => {
     const { agent, sync } = await opened()
     const answer = (await agent.json('apply_pattern', {

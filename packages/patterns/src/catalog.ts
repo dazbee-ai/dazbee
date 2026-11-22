@@ -1,6 +1,6 @@
 // The patterns, and building one: a pure function of the pattern, its style, the brand kit, the content and a size,
 // giving the frame's layers.
-import { backdrop, type Build } from './build.ts'
+import { backdrop, type Build, footTint } from './build.ts'
 import { frameRoom } from './frame-shape.ts'
 import { paletteOf } from './palette.ts'
 import { BIG_NUMBER, bigNumber } from './patterns/big-number.ts'
@@ -86,5 +86,6 @@ export function buildPattern(id: string, input: PatternInput): PatternLayers {
   }
   backdrop(b, palette.background)
   built.build(b)
+  footTint(b)
   return tree.tree()
 }

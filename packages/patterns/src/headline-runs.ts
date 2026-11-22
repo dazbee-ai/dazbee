@@ -2,7 +2,8 @@
 // breaks between them, the words set apart in a colour or a face the font has, and a number's unit set smaller.
 import { shownScale } from '@dazbee/schema'
 
-import { contrast, type Swatch, TEXT_CONTRAST } from './palette.ts'
+import { SHORT_FRAME } from './frame-shape.ts'
+import { contrast, LARGE_TEXT_CONTRAST, type Swatch, TEXT_CONTRAST } from './palette.ts'
 import { LARGE_TEXT_PX } from './text-look.ts'
 import type { Setting, WordPart } from './words.ts'
 
@@ -52,26 +53,39 @@ export function unitRuns({ frame }: Setting, text: string, size: number) {
   ]
 }
 
+/** The line height, as a multiple of the size, an underlined headline is set at least, so its rule clears the next line's caps. */
+export const UNDERLINED_LEADING = 1.24
+
 /**
- * The runs that set the highlighted words apart, alike at every size: in the italic of a style that slants them
- * where its own font has one; else in the first of the kit's colours, but the text's own, that reads on the surface
- * as small text does; else in the way the style's own font has (italic or a heavier weight), and underlined in a
- * brand's font, whose faces aren't known. A slant is never made up for a font without an italic.
+ * The runs that set the highlighted words apart: in the italic of a style that slants them where its own font has
+ * one; else in the first of the kit's colours, but the text's own, that reads on the surface as the text does at
+ * `size` (large text at 3:1, else 4.5:1); else in the way the style's own font has (italic or a heavier weight), and
+ * underlined in a brand's font, whose faces aren't known, but in a short frame, which has no room for an underline's
+ * leading. A slant is never made up for a font without an italic.
  */
-export function highlightRuns(setting: Setting, surface: string, part: WordPart, ink: Swatch) {
+export function highlightRuns(setting: Setting, surface: string, part: WordPart, ink: Swatch, size: number) {
   const spaced = part.text.replaceAll(KEEP, ' ').toLowerCase()
   const at = part.highlight ? spaced.indexOf(part.highlight.toLowerCase()) : -1
   if (!part.highlight || at < 0) return []
   const range = { start: at, end: at + part.highlight.length }
-  const { palette, style } = setting
+  const { palette, style, frame } = setting
   const emphasis = palette.brandFont.heading ? { by: 'underline' as const } : style.emphasis
   const italic = { ...range, style: { fontStyle: 'italic' as const } }
   if (style.highlight === 'italic' && emphasis.by === 'italic') return [italic]
+  const large = size / shownScale(frame.width, frame.height) >= LARGE_TEXT_PX
+  const needed = large ? LARGE_TEXT_CONTRAST : TEXT_CONTRAST
   const colour = [palette.accent, palette.primary, palette.secondary, palette.text, palette.background].find(
-    (swatch) => swatch.value !== ink.value && contrast(swatch.value, surface) >= TEXT_CONTRAST,
+    (swatch) => swatch.value !== ink.value && contrast(swatch.value, surface) >= needed,
   )
   if (colour) return [{ ...range, style: { color: colour.value } }]
   if (emphasis.by === 'italic') return [italic]
   if (emphasis.by === 'weight') return [{ ...range, style: { fontWeight: emphasis.weight ?? 800 } }]
+  // A short frame has no room for the leading an underline needs: its words are set plain.
+  if (frame.height <= SHORT_FRAME) return []
   return [{ ...range, style: { underline: true } }]
+}
+
+/** Whether a text's runs underline some of it. */
+export function underlined(runs: readonly { style: object }[]): boolean {
+  return runs.some((run) => 'underline' in run.style && run.style.underline === true)
 }

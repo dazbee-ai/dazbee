@@ -1,10 +1,10 @@
 // Words only: the headline is the picture, its key words set apart, with the kicker, subline, button and logo, and
 // the style's decoration round them: slanted bars of accent from the corners (bold), nothing but air (minimal), soft
-// discs at the corners (playful), or a fine frame line and a small diamond on a deep ground (premium). In a tall
+// discs at the corners (playful), or a fine frame line and a small diamond on a deep ground (premium). In a 9:16
 // frame the logo heads the safe room, the headline grows into its middle and the button sits at its foot.
 import type { Rect } from '@dazbee/schema'
 
-import { type Build, ground, inRow, isTall, logoAtStart, logoOnTop, roles, usualWords } from '../build.ts'
+import { type Build, ground, inRow, isTall, logoAtStart, logoOnTop, pinsButton, roles, usualWords } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { bar, dots, insetFrame } from '../decorations.ts'
 import { INK, inkOn, mixed, ornamentColour, withAlpha } from '../palette.ts'
@@ -50,9 +50,10 @@ export function wordsOnly(b: Build) {
     room,
     surface: colour.value,
     ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    // Minimal sets its headline at the top and its button at the foot, on one edge; a tall frame spreads its words.
-    ...(tall || styleName === 'minimal' ? { pin: true } : {}),
-    justify: styleName === 'minimal' && !tall ? 'start' : 'center',
+    // Minimal sets its headline at the top and its button at the foot of a square, on one edge; a 9:16 frame pins its
+    // button to its safe room's foot.
+    ...(pinsButton(b) || (styleName === 'minimal' && !tall) ? { pin: true } : {}),
+    justify: styleName === 'minimal' && !tall ? 'start' : 'optical',
     ...(tall ? { most: Math.round(b.style.headlineMax * short * TALL_GROWS) } : {}),
   }
   const set = row ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
@@ -95,6 +96,5 @@ function decorateUnder(b: Build) {
     dots(b, 'disc', [
       { x: frame.width * 0.98, y: frame.height * 0.02, r: short * 0.24, colour: palette.accent },
       { x: frame.width * 0.04, y: frame.height * 0.98, r: short * 0.2, colour: palette.background, opacity: 0.22 },
-      { x: frame.width * 0.86, y: frame.height * 0.9, r: short * 0.05, colour: palette.background },
     ])
 }

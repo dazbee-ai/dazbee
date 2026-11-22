@@ -42,6 +42,10 @@ export interface Style {
   headlineMax: number
   /** The room between the texts, as a share of the headline's size. */
   gap: number
+  /** How many times the readable size the lead is at least over a subline, in a large frame: the style's contrast of scale. */
+  scale: number
+  /** The face a badge's offer is set in: the heading font where it is heavy, else the body font, bold. */
+  badge: { font: 'heading' | 'body'; weight: number }
   /** How the words line up. */
   align: 'start' | 'center'
   /** A button's corners, as a share of its height: 0 square, 0.5 a pill. */
@@ -71,7 +75,9 @@ export const STYLES: Readonly<Record<PatternStyle, Style>> = {
     button: look('body', 700, 700, 'upper', 6, 1.15),
     margin: 0.065,
     headlineMax: 0.2,
+    badge: { font: 'heading', weight: 400 },
     gap: 0.22,
+    scale: 2,
     align: 'start',
     buttonRound: 0.12,
     round: 0,
@@ -90,7 +96,9 @@ export const STYLES: Readonly<Record<PatternStyle, Style>> = {
     button: look('body', 500, 500, 'none', 1, 1.2),
     margin: 0.09,
     headlineMax: 0.14,
+    badge: { font: 'body', weight: 800 },
     gap: 0.35,
+    scale: 2.5,
     align: 'start',
     buttonRound: 0,
     round: 0,
@@ -108,7 +116,9 @@ export const STYLES: Readonly<Record<PatternStyle, Style>> = {
     button: look('body', 600, 700, 'none', 1, 1.15),
     margin: 0.075,
     headlineMax: 0.15,
+    badge: { font: 'heading', weight: 700 },
     gap: 0.28,
+    scale: 2,
     align: 'center',
     buttonRound: 0.5,
     round: 0.06,
@@ -127,7 +137,9 @@ export const STYLES: Readonly<Record<PatternStyle, Style>> = {
     button: look('body', 500, 500, 'upper', 12, 1.2),
     margin: 0.1,
     headlineMax: 0.12,
+    badge: { font: 'body', weight: 700 },
     gap: 0.4,
+    scale: 2.5,
     align: 'center',
     buttonRound: 0,
     round: 0,

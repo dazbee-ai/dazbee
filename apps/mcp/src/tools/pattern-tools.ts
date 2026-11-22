@@ -212,7 +212,7 @@ async function contentOf(
       throw error
     }
     if (!isVectorAsset(summary)) {
-      const look = await lookOf(open, assetId)
+      const look = await lookOf(open, assetId, summary)
       return { assetId, width: summary.width, height: summary.height, ...(look ? { look } : {}) }
     }
     if (what === 'logo' && logo === undefined) {
@@ -240,9 +240,14 @@ async function contentOf(
 
 /**
  * What a picture shows, read from its pixels, so a photo is cropped to its subject and a logo set where its ink
- * reads; none where its bytes can't be read or decoded, and the pattern places it as it would an unread picture.
+ * reads, its subject's box in the pixels of the picture's `size` as the brand's assets give it; none where its bytes
+ * can't be read or decoded, and the pattern places it as it would an unread picture.
  */
-async function lookOf(open: OpenDesign, assetId: string): Promise<PictureLook | undefined> {
+async function lookOf(
+  open: OpenDesign,
+  assetId: string,
+  size: { width: number; height: number },
+): Promise<PictureLook | undefined> {
   const bytes = await open.imageBytes(assetId).catch(() => undefined)
   if (!bytes) return undefined
   const ck = await loadCanvasKit()
@@ -259,7 +264,14 @@ async function lookOf(open: OpenDesign, assetId: string): Promise<PictureLook | 
       colorSpace: ck.ColorSpace.SRGB,
     }
     const rgba = image.readPixels(0, 0, info)
-    return rgba instanceof Uint8Array ? pictureLook(rgba, width, height) : undefined
+    if (!(rgba instanceof Uint8Array)) return undefined
+    const look = pictureLook(rgba, width, height)
+    const [sx, sy] = [size.width / width, size.height / height]
+    const { subject } = look
+    return {
+      ...look,
+      subject: { x: subject.x * sx, y: subject.y * sy, width: subject.width * sx, height: subject.height * sy },
+    }
   } finally {
     image.delete()
   }

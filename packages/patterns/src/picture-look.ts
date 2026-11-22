@@ -90,12 +90,31 @@ export function pictureLook(rgba: Uint8Array, width: number, height: number): Pi
   return { subject, ...(backdrop ? { backdrop: hex(backdrop) } : {}), inks: inkColours(inks) }
 }
 
-/** Whether a picture's ink reads on `surface`: most of it at 3:1, and none of it worth telling lost on it. */
+/** The least share of a picture's ink a colour of it takes to count. */
+const INK_WORTH = 0.1
+/** The contrast a logo's clearest large part keeps with what it is on, and the least every part of it keeps. */
+const INK_CLEAR = 3
+const INK_SEEN = 2
+
+/**
+ * Whether a picture's ink reads on `surface`: every colour of it worth telling (a tenth of its ink or more) stays
+ * seen there at 2:1, and one of them that takes a quarter of its ink or more, such as a wordmark, stands out at
+ * 3:1. A mark is no text, so it isn't held to text's contrast, and a ground a shade lighter or darker gives the same
+ * answer.
+ */
 export function inkReads(look: PictureLook, surface: string): boolean {
-  if (look.inks.length === 0) return true
-  const share = (test: (ratio: number) => boolean) =>
-    look.inks.filter((ink) => test(contrast(ink.colour, surface))).reduce((sum, ink) => sum + ink.share, 0)
-  return share((ratio) => ratio >= 3) >= 0.6 && share((ratio) => ratio < 1.6) <= 0.1
+  const worth = look.inks.filter((ink) => ink.share >= INK_WORTH)
+  if (worth.length === 0) return true
+  const ratio = (ink: PictureInk) => contrast(ink.colour, surface)
+  return (
+    worth.every((ink) => ratio(ink) >= INK_SEEN) && worth.some((ink) => ink.share >= 0.25 && ratio(ink) >= INK_CLEAR)
+  )
+}
+
+/** The least contrast any colour of a picture's ink worth telling keeps with `surface`; 21 for none. */
+export function leastInkContrast(look: PictureLook, surface: string): number {
+  const worth = look.inks.filter((ink) => ink.share >= INK_WORTH)
+  return Math.min(21, ...worth.map((ink) => contrast(ink.colour, surface)))
 }
 
 /** Whether a picture's ink is one colour, so it can be drawn in another. */

@@ -61,7 +61,7 @@ describe('pictureLook', () => {
 })
 
 describe('inkReads', () => {
-  it('reads where most of the ink stands out and none worth telling is lost', () => {
+  it('reads where a large part of the ink stands out and every part worth telling is seen', () => {
     const twoInks = {
       subject: { x: 0, y: 0, width: 10, height: 10 },
       inks: [
@@ -70,6 +70,8 @@ describe('inkReads', () => {
       ],
     }
     expect(inkReads(twoInks, '#FFFFFFFF')).toBe(true)
+    // A cream a shade off white reads alike: the orange mark is seen at 2:1, and the navy word stands out.
+    expect(inkReads(twoInks, '#FAF8F4FF')).toBe(true)
     // On its own orange, the orange mark is lost; on its own navy, the navy word is.
     expect(inkReads(twoInks, '#FF5A36FF')).toBe(false)
     expect(inkReads(twoInks, '#14213DFF')).toBe(false)

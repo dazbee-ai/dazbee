@@ -25,6 +25,9 @@ export interface FrameRoom {
   readable: number
 }
 
+/** The height of a short frame, a strip or mobile banner, or less: its texts take two lines at most. */
+export const SHORT_FRAME = 100
+
 /** Each edge of every platform's safe zone together, as deep as the deepest. */
 const SAFE_UNION = {
   top: Math.max(...SAFE_ZONES.map((zone) => zone.top)),

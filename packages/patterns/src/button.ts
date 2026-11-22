@@ -2,7 +2,7 @@
 // the style's.
 import { TextProps } from '@dazbee/schema'
 
-import { contrast, inkOn, type Palette, type Swatch } from './palette.ts'
+import { contrast, INK, inkOn, type Palette, type Swatch, TEXT_CONTRAST, WHITE } from './palette.ts'
 import { inkFor, lookStyle } from './text-look.ts'
 import { round, solid, stroke, type TreeBuilder } from './tree.ts'
 import type { Setting, Words } from './words.ts'
@@ -22,13 +22,17 @@ const BUTTON_CONTRAST = 3
 
 /**
  * The button's colour on `ground`: the first of the style's button role, then the accent, primary, secondary and
- * text colours, that stands out from the ground at 3:1, never the ground's own; else the one that stands out most,
- * edged in the ground's ink.
+ * text colours, that stands out from the ground at 3:1 and holds a label at 4.5:1, never the ground's own; else the
+ * one that stands out most, edged in the ground's ink.
  */
 export function ctaFill(palette: Palette, ground: Swatch, first: 'accent' | 'primary'): ButtonFill {
-  const offered = [palette[first], palette.accent, palette.primary, palette.secondary, palette.text].filter(
+  // A colour no ink reads on as small text can't hold a label.
+  const holds = (swatch: Swatch) =>
+    [palette.background, palette.text, WHITE, INK].some((ink) => contrast(ink.value, swatch.value) >= TEXT_CONTRAST)
+  const all = [palette[first], palette.accent, palette.primary, palette.secondary, palette.text].filter(
     (swatch) => swatch.value !== ground.value && (!swatch.ref || swatch.ref !== ground.ref),
   )
+  const offered = all.some(holds) ? all.filter(holds) : all
   const found = offered.find((swatch) => contrast(swatch.value, ground.value) >= BUTTON_CONTRAST)
   if (found) return { fill: found }
   const best = offered.reduce((a, b) => (contrast(b.value, ground.value) > contrast(a.value, ground.value) ? b : a))

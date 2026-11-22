@@ -64,6 +64,25 @@ export function coverCrop(picture: Picture, box: Rect, keep: Rect = box): Croppe
 }
 
 /**
+ * The span of a box's other side over which a photo covering it shows its whole subject with room round it, the box's
+ * `fixed` side being `size`: none where no box of that side shows it whole.
+ */
+export function wholeSpan(
+  picture: Picture,
+  fixed: 'width' | 'height',
+  size: number,
+): { least: number; most: number } | undefined {
+  const subject = subjectOf(picture)
+  const k = 1 - 2 * SUBJECT_ROOM
+  const [along, across] = fixed === 'width' ? (['width', 'height'] as const) : (['height', 'width'] as const)
+  // Covering a box `size` along and `other` across, the subject fits across it at a scale the cover reaches.
+  if (k * picture[along] < subject[along] || k * picture[across] < subject[across]) return undefined
+  const least = (subject[across] * size) / (k * picture[along])
+  const most = (k * picture[across] * size) / subject[along]
+  return least <= most ? { least, most } : undefined
+}
+
+/**
  * A cut-out fitted inside `room` by its subject, with `pad` of the subject's size round it, its shape kept, lined up
  * by `align`: the clear round a cut-out is left out of the room it takes.
  */

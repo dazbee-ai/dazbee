@@ -1,15 +1,16 @@
 // What a pattern builds a frame with: the tree it adds to, how its words are set, its content, and the parts every
 // pattern places alike: the background, the ground the words sit on, the photo and the logo.
-import type { Rect } from '@dazbee/schema'
+import { isNineBySixteen, type Rect } from '@dazbee/schema'
 
-import { buttonSize } from './button.ts'
+import { BUTTON_SIDE_TIGHT, buttonSize } from './button.ts'
 import { coverCrop, type Cropped, meets, subjectOf } from './crop.ts'
-import { contrast, deepColour, inkOn, type Swatch } from './palette.ts'
-import { inkReads, oneInk } from './picture-look.ts'
+import { SHORT_FRAME } from './frame-shape.ts'
+import { contrast, deepColour, INK, inkOn, type Swatch, WHITE } from './palette.ts'
+import { inkReads, leastInkContrast, oneInk } from './picture-look.ts'
 import { rolesFor, type StyleRoles } from './styles.ts'
 import { picture, rect, round, solid, type TreeBuilder } from './tree.ts'
 import type { PatternContent, PatternStyle } from './types.ts'
-import type { Setting, WordPart } from './words.ts'
+import { leadBeside, leadWidth, type Setting, SHORT_FRAME_LINES, stripLabel, type WordPart } from './words.ts'
 
 /** A frame being built: its tree, how its words are set, its style's name, the content and the kit's logo. */
 export interface Build extends Setting {
@@ -20,6 +21,8 @@ export interface Build extends Setting {
   content: PatternContent
   /** The brand kit's logo, an asset's id; none while the kit has no logo. */
   kitLogo: string | null
+  /** Whether a fine frame line runs inside the frame's edge, so the logo's label sits inside it, never hanging. */
+  framed?: boolean
 }
 
 /** How a logo is drawn on a colour: as it is, in one ink of the colour's, or on a label of a colour it reads on. */
@@ -29,6 +32,10 @@ type LogoWay = { way: 'as-is' } | { way: 'ink'; ink: Swatch } | { way: 'label'; 
 const SAME_COLOUR = 1.4
 /** The logo's area, as a wordmark 3.5 times as wide as it is tall at the base height takes it. */
 const LOGO_RATIO = 3.5
+/** The opacity of the primary colour a 9:16 frame's foot is tinted with. */
+const FOOT_TINT = 0.06
+/** The contrast every colour of a logo's ink worth telling keeps with the label it is on. */
+const LABEL_READS = 3
 /** A label's room round the logo, as a share of the logo's height. */
 const LABEL_PAD = 0.35
 /** How many times as wide as it is tall a room is for its logo to go beside its words, not over them. */
@@ -44,6 +51,19 @@ const ROW_TEXT_LEAST = 9
 export function backdrop(b: Build, colour: Swatch): void {
   const { width, height } = b.frame
   b.tree.add('background', { ...rect('Background', { x: 0, y: 0, width, height }, solid(colour)), role: 'background' })
+}
+
+/**
+ * In a 9:16 frame of a style that sets its words on the plain background, a faint tint of the primary colour from the
+ * safe room's foot to the frame's foot, where the platforms' interface goes: the ground carries on there, and the
+ * frame doesn't end in a blank field. Nothing else is set there.
+ */
+export function footTint(b: Build): void {
+  const { frame, palette } = b
+  if (!pinsButton(b) || roles(b).ground !== 'background') return
+  const y = Math.round(frame.safe.y + frame.safe.height + frame.margin)
+  const box = { x: 0, y, width: frame.width, height: frame.height - y }
+  b.tree.add('foot', { ...rect('Foot', box, solid(palette.primary, FOOT_TINT)), role: 'background' })
 }
 
 /** The style's roles in this pattern. */
@@ -132,7 +152,7 @@ export function logo(
     if (hang === 'start') {
       taken = { x: from, y: 0, width: x + outer.width - from, height: b.frame.height }
       radius = [0, r, r, 0]
-    } else if (y <= b.frame.margin * 1.5) {
+    } else if (y <= b.frame.margin * 1.5 && !b.framed) {
       taken = { x, y: 0, width: outer.width, height: y + outer.height }
       radius = [0, 0, r, r]
     }
@@ -166,6 +186,48 @@ export function inRow({ frame }: Build): boolean {
 }
 
 /**
+ * Whether the frame pins its button to its safe room's foot, apart from its words: a 9:16 social frame, whose
+ * platforms' interface sets where that foot is. Any other frame keeps its button with its words.
+ */
+export function pinsButton({ frame }: Build): boolean {
+  return isNineBySixteen(frame.width, frame.height)
+}
+
+/** The least share of a tall frame's height a photo takes where it can, so it leads the frame. */
+export const HERO_LEAST = 1 / 3
+
+/**
+ * Of a tall frame's arrangements, each with its photo's height and the room left for its words, the one that leaves
+ * the words the most room, the logo's row over them counted, among those whose photo takes HERO_LEAST of the frame;
+ * the one with the tallest photo where none does.
+ */
+export function tallChoice<T>(
+  b: Build,
+  list: readonly T[],
+  of: (each: T) => { photo: number; words: Rect; logoOnPhoto: boolean },
+): T | undefined {
+  const heroes = list.filter((each) => of(each).photo >= b.frame.height * HERO_LEAST)
+  if (heroes.length === 0)
+    return list.reduce<T | undefined>((a, c) => (!a || of(c).photo > of(a).photo ? c : a), undefined)
+  const room = (each: T) => {
+    const { words, logoOnPhoto } = of(each)
+    return words.height - (logoOnPhoto ? 0 : logoRowHeight(b, words))
+  }
+  return heroes.reduce((a, c) => (room(c) > room(a) ? c : a))
+}
+
+/** The height the logo takes over words in `room`, with the room under it; none without a logo. */
+export function logoRowHeight(b: Build, room: Rect): number {
+  if (!b.content.logo) return 0
+  return logoRoom(b, { x: room.x, y: room.y }, room.width, groundColour(b)).height + b.frame.margin * 0.8
+}
+
+/** The least width the button takes: its label at the readable size with the least room at its ends; none without one. */
+export function buttonLeastWidth(b: Build): number {
+  return b.content.button ? buttonSize(b, b.content.button, b.frame.readable, 0, BUTTON_SIDE_TIGHT).width : 0
+}
+
+/**
  * The logo at the top of `room`, lined up as the style lines its words, on `surface`; the room left under it, the
  * margin between. A wide room, or one too low to hold the words under it, takes it at its start, beside them. The
  * room is all left without a logo, or where it is too narrow for the logo beside the words.
@@ -193,14 +255,15 @@ export function logoOnTop(b: Build, room: Rect, surface: Swatch): Rect {
 }
 
 /**
- * The logo at the start of a strip's `room`, on `surface`, its label from the room's edge a margin before it; the
- * room left after it, the margin between. A strip too narrow to hold the logo and leave `leave` (as rowLeast gives
- * it) for the words and button after it is left without one.
+ * The logo at the start of a short frame's `room`, on `surface`, its label from the room's edge a margin before it;
+ * the room left after it, the margin between. A short frame always keeps its logo, as its lead and button: a pattern
+ * leaves its picture out first (see `stripHolds`). A taller banner too narrow to hold the logo and leave `leave` for
+ * the words and button after it is left without one.
  */
 export function logoAtStart(b: Build, room: Rect, surface: Swatch, leave = rowLeast(b)): Rect {
   if (!b.content.logo) return room
   const box = logoRoom(b, { x: room.x, y: room.y }, room.width * 0.3, surface)
-  if (room.width - box.width - b.frame.margin < leave) return room
+  if (!isShort(b) && room.width - box.width - b.frame.margin < leave) return room
   box.y = Math.round(room.y + (room.height - box.height) / 2)
   const from = Math.max(0, room.x - b.frame.margin)
   const placed = logo(b, box, 'start', surface, { hang: 'start', from })
@@ -209,29 +272,50 @@ export function logoAtStart(b: Build, room: Rect, surface: Swatch, leave = rowLe
   return { ...room, x: right, width: room.x + room.width - right }
 }
 
+/** Whether the frame is short, 100 px tall or less: a strip or a mobile banner, which keeps its logo, lead and button. */
+export function isShort({ frame }: Build): boolean {
+  return frame.height <= SHORT_FRAME
+}
+
 /**
- * The least width a strip's words and button take: the headline at the readable size, some ten words' letters of
- * it a line, and the button with its label at the readable size and the margin before it.
+ * The least width a short frame's words and button take: the headline in two lines at the least size it is set at
+ * beside the button, and the button with its label at the size it takes there and the margin before it.
  */
 export function rowLeast(b: Build): number {
   const { frame, content } = b
-  const button = content.button ? buttonSize(b, content.button, frame.readable).width + frame.margin : 0
-  return Math.round(frame.readable * ROW_TEXT_LEAST + button)
+  const label = rowLabel(b)
+  const button = content.button ? buttonSize(b, content.button, label, 0, BUTTON_SIDE_TIGHT).width + frame.margin : 0
+  const lead = leadWidth(b, { kind: 'headline', text: content.headline }, leadBeside(b, label), SHORT_FRAME_LINES)
+  return Math.round(Math.max(frame.readable * ROW_TEXT_LEAST, lead) + button)
 }
 
-/** The least width a strip takes for its logo on the words' ground, its words and its button, with its margins. */
+/** The size of a short frame's button label: the size rowWords sets beside the words, the readable size under them. */
+export function rowLabel(b: Build): number {
+  return inRow(b) ? stripLabel(b.frame) : b.frame.readable
+}
+
+/**
+ * The least width a short frame takes for its logo on the words' ground, its words and its button, with its
+ * margins.
+ */
 export function stripLeast(b: Build): number {
   const { frame } = b
   const logoWidth = b.content.logo ? logoRoom(b, { x: 0, y: 0 }, frame.width, groundColour(b)).width + frame.margin : 0
   return rowLeast(b) + logoWidth + 2 * frame.margin
 }
 
+/** Whether a short frame holds a picture `width` wide beside its logo, words and button; else it is left out. */
+export function stripHolds(b: Build, width: number): boolean {
+  return b.frame.width - width >= stripLeast(b)
+}
+
 /**
- * The logo on the photo, in the first of its top corners, then its bottom ones, clear of the subject and inside the
- * safe room; whether it found one.
+ * The logo on the photo as it is drawn, in the first of its top corners, then its bottom ones, inset from the photo's
+ * edges by the frame's margin, clear of the subject and inside the safe room; whether it found one.
  */
-export function photoLogo(b: Build, { photo: box }: { photo: Rect }, shot: Cropped | undefined): boolean {
+export function photoLogo(b: Build, shot: Cropped | undefined): boolean {
   if (!b.content.logo || !shot) return false
+  const { box } = shot
   const { frame } = b
   const inset = frame.margin
   const safe = frame.safe
@@ -278,8 +362,9 @@ export function keepUnderLogo(b: Build, keep: Rect, onPhoto: boolean): Rect {
   if (!onPhoto || !b.content.photo) return keep
   const { frame } = b
   const room = logoRoom(b, { x: 0, y: 0 }, keep.width, photoSurface(b))
-  const left = Math.max(keep.x, frame.safe.x) + room.width + frame.margin * 0.5
-  const top = Math.max(keep.y, frame.safe.y) + room.height + frame.margin * 0.5
+  // The logo sits a margin in from the photo's edges, and inside the safe room, as photoLogo places it.
+  const left = Math.max(keep.x + frame.margin, frame.safe.x) + room.width + frame.margin * 0.5
+  const top = Math.max(keep.y + frame.margin, frame.safe.y) + room.height + frame.margin * 0.5
   const beside = { ...keep, x: left, width: keep.x + keep.width - left }
   const under = { ...keep, y: top, height: keep.y + keep.height - top }
   const subject = subjectOf(b.content.photo)
@@ -320,9 +405,11 @@ function inkRatio({ content }: Build): number {
 }
 
 /**
- * How the logo is drawn on `surface`. Read from its pixels: as it is where its ink reads and it has no box of its own
- * in another colour; in the surface's ink where it is of one colour; else on a label of its own box's colour, or of
- * the kit's background. Unread, it is drawn as it is on the kit's background, else on a label of it.
+ * How the logo is drawn on `surface`. Read from its pixels: with a box of its own, as it is on a surface of the box's
+ * colour, else on a label of that colour, so the box reads as a plate round it; as it is where its ink reads; in the
+ * surface's ink where it is of one colour; else on a label of the first of the kit's background, white, the
+ * secondary, the text colour and near black that every colour of its ink worth telling reads on at 3:1, or the one
+ * it reads best on. Unread, it is drawn as it is on the kit's background, else on a label of it.
  */
 function logoWay({ content, palette }: Build, surface: Swatch): LogoWay {
   const look = content.logo?.look
@@ -337,6 +424,12 @@ function logoWay({ content, palette }: Build, surface: Swatch): LogoWay {
       : { way: 'label', label: { value: look.backdrop } }
   if (inkReads(look, surface.value)) return { way: 'as-is' }
   if (oneInk(look)) return { way: 'ink', ink: inkOn(surface.value, [palette.text, palette.background], 3) }
-  if (inkReads(look, palette.background.value)) return { way: 'label', label: palette.background }
-  return { way: 'label', label: inkOn(look.inks[0]?.colour ?? '#000000FF', [palette.background, palette.text], 3) }
+  const labels = [palette.background, WHITE, palette.secondary, palette.text, INK].filter(
+    (swatch) => contrast(swatch.value, surface.value) > SAME_COLOUR,
+  )
+  const best = (labels.length > 0 ? labels : [WHITE, INK]).reduce((a, c) =>
+    leastInkContrast(look, c.value) > leastInkContrast(look, a.value) ? c : a,
+  )
+  const label = labels.find((swatch) => leastInkContrast(look, swatch.value) >= LABEL_READS) ?? best
+  return { way: 'label', label }
 }

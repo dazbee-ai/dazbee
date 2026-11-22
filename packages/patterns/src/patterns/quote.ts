@@ -1,18 +1,30 @@
 // Quote: what a customer said, large, under an opening quotation mark set in the quote's own face, with who said it
 // and their photo in a circle. The style sets the mark and the stars: a big mark and five stars on brand colour
 // (bold), a fine mark on the background (minimal), a mark with stars on the background (playful), or a mark in the
-// accent inside a fine frame line on a deep ground (premium). In a tall frame the logo heads the safe room, the quote
-// fills its middle and the button sits at its foot.
+// accent inside a fine frame line on a deep ground (premium). A banner, with no room for the large mark, hangs a
+// small one before the quote's first line, so a quote always reads as one. In a 9:16 frame the logo heads the safe
+// room, the quote fills its middle and the button sits at its foot.
 import { type Rect, TextProps } from '@dazbee/schema'
 
-import { type Build, ground, inRow, isTall, logoAtStart, logoOnTop, roles, rowLeast } from '../build.ts'
+import {
+  type Build,
+  ground,
+  inRow,
+  isShort,
+  isTall,
+  logoAtStart,
+  logoOnTop,
+  pinsButton,
+  roles,
+  rowLeast,
+} from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { insetFrame } from '../decorations.ts'
 import { contrast, inkOn, LARGE_TEXT_CONTRAST, ornamentColour, type Swatch } from '../palette.ts'
-import { lookStyle } from '../text-look.ts'
+import { inkFor, lookStyle } from '../text-look.ts'
 import { ellipse, picture, round, solid, star } from '../tree.ts'
 import type { Pattern } from '../types.ts'
-import { rowWords, stackWords, type Words } from '../words.ts'
+import { rowWords, type SetWords, stackWords, type Words } from '../words.ts'
 
 export const QUOTE: Pattern = {
   id: 'quote',
@@ -26,6 +38,11 @@ export const QUOTE: Pattern = {
 
 /** The opening quotation mark. */
 const OPENING_MARK = '“'
+/** The shorter side under which a display square leaves out the person's photo and the stars. */
+const SMALL_SQUARE = 400
+/** The largest a banner's quote is set, as a share of the frame's height, and the gap after its hung mark, of its size. */
+const HUNG_MARK_MOST = 0.38
+const HUNG_GAP = 0.12
 /** The share of its size a quotation mark's ink takes down from the top of its line, and where that ink starts. */
 const MARK_INK_FOOT = 0.42
 const MARK_INK_TOP = 0.08
@@ -39,14 +56,20 @@ export function quote(b: Build) {
   const markColour = markInk(b, colour)
   const centred = b.style.align === 'center'
   const banner = shape === 'strip' || shape === 'banner'
+  const display = width < 1000 && height < 1000
   if (styleName === 'premium' && !banner) insetFrame(b, ornamentColour(palette, colour.value).colour, 0.8)
-  // A banner's logo leaves room for the person's photo beside the words and button.
+  // A banner's logo leaves room for the person's photo beside the words and button; a short frame keeps its logo,
+  // and leaves the photo out where it can't hold it beside the mark, words and button.
   const photoLeast = content.photo ? safe.height + margin : 0
+  const markRoom = banner ? hungMarkWidth(b) : 0
   let room: Rect = banner ? logoAtStart(b, safe, colour, rowLeast(b) + photoLeast) : logoOnTop(b, safe, colour)
+  // A small display square has no height for the photo over the quote; it keeps the quote large and who said it.
+  const smallSquare = display && shape === 'square' && short < SMALL_SQUARE
+  const keepsPhoto = !smallSquare && (!isShort(b) || room.width - photoLeast - markRoom >= rowLeast(b))
   // The person's photo: on the left in a wide frame, banner or strip, else over the mark.
   const side = shape === 'wide' || banner
   const above: string[] = []
-  if (content.photo) {
+  if (content.photo && keepsPhoto) {
     const d = Math.round(
       side
         ? Math.min(room.height * (shape === 'wide' ? 0.6 : 1), room.width * 0.3)
@@ -88,7 +111,7 @@ export function quote(b: Build) {
     })
     above.push('quote-mark')
     let below = reserve + Math.round(margin * 0.4)
-    if (styleName === 'bold' || styleName === 'playful') {
+    if ((styleName === 'bold' || styleName === 'playful') && !smallSquare) {
       const starSize = Math.round(reserve * 0.5)
       const row = starSize * 5 + Math.round(starSize * 0.2) * 4
       const x0 = centred ? room.x + (room.width - row) / 2 : room.x + markWidth + starSize * 0.8
@@ -110,6 +133,9 @@ export function quote(b: Build) {
     room = { ...room, y: room.y + below, height: room.height - below }
   }
   const tall = isTall(b)
+  // A banner has no room for the large mark: a small one hangs before the quote's first line, so it always reads as
+  // a quote.
+  if (banner) room = { ...room, x: room.x + markRoom, width: room.width - markRoom }
   const words: Words = {
     parts: [
       { kind: 'headline', text: content.headline },
@@ -118,17 +144,37 @@ export function quote(b: Build) {
     room,
     surface: colour.value,
     justify: 'center',
-    most: Math.round(short * b.style.headlineMax * (tall ? 1.1 : 0.85)),
+    // A banner's quote starts at its mark.
+    ...(banner ? { align: 'start' as const } : {}),
+    most: Math.round(short * b.style.headlineMax * (tall ? 1.1 : display ? 1 : 0.85)),
     ...(content.button ? { button: content.button, buttonFill: ctaFill(palette, colour, roles(b).cta) } : {}),
-    ...(tall ? { pin: true } : {}),
+    ...(pinsButton(b) ? { pin: true } : {}),
   }
-  if (inRow(b)) rowWords(b.tree, b, words)
-  else {
+  if (banner) {
+    const set = inRow(b) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
+    hungMark(b, set, markColour, colour)
+  } else {
     const set = stackWords(b.tree, b, words)
     // Over the words, the photo, mark and stars come down with them, so the whole sits in the middle.
     const dy = set.box.y - room.y
     if (!side && dy > 0) for (const key of above) b.tree.moveDown(key, dy)
   }
+}
+
+/** The room a small mark hung before a banner's quote takes: its width at the largest the quote is set, and a gap. */
+function hungMarkWidth(b: Build): number {
+  const size = Math.round(b.frame.height * HUNG_MARK_MOST)
+  const mark = markText(b, size, b.palette.text)
+  return Math.ceil(b.measure(TextProps.parse(mark.props), null).width + size * HUNG_GAP)
+}
+
+/** The small mark, at the quote's size, its right edge a gap before the quote's first line. */
+function hungMark(b: Build, set: SetWords, colour: Swatch, ground: Swatch) {
+  const ink = inkFor(b, ground.value, set.size, [colour, b.palette.text, b.palette.background])
+  const mark = markText(b, set.size, ink)
+  const width = Math.ceil(b.measure(TextProps.parse(mark.props), null).width)
+  const x = set.texts.x - width - Math.round(set.size * HUNG_GAP)
+  b.tree.add('quote-mark', { ...mark, props: { ...mark.props, x: round(x), y: round(set.texts.y), width } })
 }
 
 /** The mark's colour: the first of the kit's colours, but the ground's, that reads on the ground as large text does. */

@@ -48,6 +48,48 @@ export const STRIDE_KIT: BrandKit = {
   textStyles: [],
 }
 
+/**
+ * Two more stand-in brands, so the patterns are judged on more than one logo and palette: a light-primary brand
+ * whose logo is a white wordmark of one colour, and a brand whose logo is a square mark on its own solid box, with a
+ * serif heading font of its own.
+ */
+export const OTHER_BRANDS: readonly { name: string; kit: BrandKit; logo: 'logo-white' | 'logo-boxed' }[] = [
+  {
+    name: 'light',
+    logo: 'logo-white',
+    kit: {
+      colors: [
+        { token: 'primary', name: 'Primary', value: '#FFD23FFF' },
+        { token: 'secondary', name: 'Secondary', value: '#2E2A24FF' },
+        { token: 'accent', name: 'Accent', value: '#3D5AFEFF' },
+        { token: 'background', name: 'Background', value: '#FFFDF5FF' },
+        { token: 'text', name: 'Text', value: '#1A1A1AFF' },
+      ],
+      fonts: [],
+      logoAssetId: 'logo-white',
+      voice: '',
+      textStyles: [],
+    },
+  },
+  {
+    name: 'boxed',
+    logo: 'logo-boxed',
+    kit: {
+      colors: [
+        { token: 'primary', name: 'Primary', value: '#1F4D3AFF' },
+        { token: 'secondary', name: 'Secondary', value: '#E8E2D0FF' },
+        { token: 'accent', name: 'Accent', value: '#C8553DFF' },
+        { token: 'background', name: 'Background', value: '#F7F4ECFF' },
+        { token: 'text', name: 'Text', value: '#1B1B1BFF' },
+      ],
+      fonts: [{ token: 'heading', name: 'Heading', family: 'DM Serif Display' }],
+      logoAssetId: 'logo-boxed',
+      voice: '',
+      textStyles: [],
+    },
+  },
+]
+
 /** A stand-in picture, as apply_pattern gives it: its size, and what it shows read from its pixels. */
 export function pictureOf(assetId: string, bytes: Uint8Array): Picture {
   const image = ck.MakeImageFromEncoded(bytes)
@@ -74,11 +116,11 @@ const fixtureImages = fixtureResources().images
 
 /** The stand-in pictures, as apply_pattern gives them. */
 export const PICTURES = Object.fromEntries(
-  (['logo', 'sneaker', 'sneaker-cutout', 'portrait'] as const).map((id) => [
+  (['logo', 'logo-white', 'logo-boxed', 'sneaker', 'sneaker-cutout', 'portrait'] as const).map((id) => [
     id,
     pictureOf(id, fixtureImages[id] ?? new Uint8Array()),
   ]),
-) as Record<'logo' | 'sneaker' | 'sneaker-cutout' | 'portrait', Picture>
+) as Record<'logo' | 'logo-white' | 'logo-boxed' | 'sneaker' | 'sneaker-cutout' | 'portrait', Picture>
 
 /** Each pattern's stand-in words and pictures, as a marketer would give them. */
 export const CONTENT: Record<string, PatternContent> = {

@@ -1,16 +1,18 @@
 // Shape fitting: the Dazbee shape that best covers a part's coverage. Each kind starts in closed
 // form (moments for the centre and angle, the coverage's reach for the size, the area for a
-// rectangle's radius), then the three best kinds are refined by drawing: each step draws the shape
-// with Dazbee's renderer and keeps it when its soft IoU with the coverage rises.
+// rectangle's radius, the rotational symmetry for a polygon's sides or a star's points), then the
+// three best kinds are refined by drawing: each step draws the shape with Dazbee's renderer and keeps
+// it when its soft IoU with the coverage rises. A polygon's or star's neighbouring counts are tried too.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
-import type { Paint } from '@dazbee/schema'
+import type { Paint, Shape } from '@dazbee/schema'
 
 import { coverage, type ShapeLayer } from './draw-layers.ts'
 import type { FitWindow } from './fit-window.ts'
+import { MOST_SIDES, neighbourCounts, symmetryOf } from './symmetry.ts'
 
-/** The kinds of shape the first pass fits. */
-export type ShapeKind = 'rect' | 'ellipse' | 'line'
+/** The kinds of shape fitted: the first pass fits the first three, the full pass all five. */
+export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polygon' | 'star'
 
 /** A shape's settings, in piece pixels and degrees. */
 export interface ShapeFit {
@@ -20,8 +22,12 @@ export interface ShapeFit {
   width: number
   height: number
   rotation: number
-  /** A rectangle's corner radius; for a line, 1 for round ends. */
+  /** A rectangle's, polygon's or star's corner radius; for a line, 1 for round ends. */
   radius: number
+  /** A polygon's sides or a star's points; 0 for the other kinds. */
+  count: number
+  /** A star's inner corners' reach, as a share of its outer; 0.5 for the other kinds. */
+  innerRadius: number
   /** The stroke's width; for a ring, the shape is the outer edge and the stroke sits inside it. */
   stroke: number
   /** Drawn by its stroke alone, with no fill. */
@@ -36,8 +42,12 @@ export interface Fitted {
 
 /** Coverage at or past which a pixel counts towards a shape's reach. */
 const REACH_FROM = 0.3
+/** A star's inner radius moves this much, times the step's scale, at each refining step. */
+const INNER_STEP = 0.04
 /** A kind within this IoU of the best that is simpler wins. */
 const SIMPLER_BY = 0.004
+/** How plain each kind is to edit, the plainest 0. */
+const KIND_COMPLEXITY: Record<ShapeKind, number> = { rect: 0, ellipse: 0, line: 0, polygon: 1, star: 2 }
 const WHITE: Paint = { type: 'solid', color: '#FFFFFFFF' }
 
 /**
@@ -69,9 +79,9 @@ export function fitShape(
     leaders.push(s)
     if (leaders.length >= 3) break
   }
-  const refined = leaders.map((s, i) =>
-    refine(ck, s.fit, s.iou, target, i === 0 ? options.draws : Math.floor(options.draws / 4)),
-  )
+  const refined = leaders
+    .map((s, i) => refine(ck, s.fit, s.iou, target, i === 0 ? options.draws : Math.floor(options.draws / 4)))
+    .map((fitted) => withBestCount(ck, fitted, target, options.draws))
   refined.sort((a, b) => b.iou - a.iou)
   const bestIoU = refined[0]?.iou ?? 0
   const simplest = refined
@@ -106,7 +116,7 @@ export function shapeLayer(fit: ShapeFit, paint: Paint, name = 'Shape'): ShapeLa
     name,
     props: {
       ...box,
-      shape: fit.kind === 'rect' ? { kind: 'rect', cornerRadius: Math.max(0, fit.radius) } : { kind: 'ellipse' },
+      shape: shapeOf(fit),
       fills: fit.strokeOnly ? [] : [paint],
       strokes: fit.strokeOnly ? [{ paint, width: Math.max(0.1, fit.stroke), align: 'inside' }] : [],
     },
@@ -141,6 +151,36 @@ function iouOf(ck: CanvasKit, fit: ShapeFit, window: FitWindow): number {
   )
 }
 
+/**
+ * A polygon or star at its best count: each neighbouring count at six turns is drawn, and the best,
+ * when better than the fit, is refined again with half the draws.
+ */
+function withBestCount(ck: CanvasKit, fitted: Fitted, window: FitWindow, draws: number): Fitted {
+  if (fitted.fit.kind !== 'polygon' && fitted.fit.kind !== 'star') return fitted
+  let best = fitted
+  for (const { count, rotation } of neighbourCounts(fitted.fit.kind, fitted.fit.count, fitted.fit.rotation)) {
+    const fit = { ...fitted.fit, count, rotation }
+    const iou = iouOf(ck, fit, window)
+    if (iou > best.iou) best = { fit, iou }
+  }
+  return best === fitted ? fitted : refine(ck, best.fit, best.iou, window, Math.floor(draws / 2))
+}
+
+/** A fit's shape in the schema's words. */
+function shapeOf(fit: ShapeFit): Shape {
+  const cornerRadius = Math.max(0, fit.radius)
+  switch (fit.kind) {
+    case 'rect':
+      return { kind: 'rect', cornerRadius }
+    case 'polygon':
+      return { kind: 'polygon', sides: fit.count, cornerRadius }
+    case 'star':
+      return { kind: 'star', points: fit.count, innerRadius: Math.max(0, Math.min(1, fit.innerRadius)), cornerRadius }
+    default:
+      return { kind: 'ellipse' }
+  }
+}
+
 /** The window's own box as a rectangle, stroked only when given a stroke. */
 function windowBox(window: FitWindow, stroke?: number): ShapeFit {
   return {
@@ -151,20 +191,23 @@ function windowBox(window: FitWindow, stroke?: number): ShapeFit {
     height: window.pieceHeight,
     rotation: 0,
     radius: 0,
+    count: 0,
+    innerRadius: 0.5,
     stroke: stroke ?? 0,
     strokeOnly: stroke !== undefined,
   }
 }
 
-/** How plain a shape is to edit: a rounded rectangle is a hair less plain than a square one. */
+/** How plain a shape is to edit: by its kind, and a rounded one a hair less plain than a square one. */
 function complexity(fit: ShapeFit): number {
-  return fit.radius > 0 ? 0.1 : 0
+  return KIND_COMPLEXITY[fit.kind] + (fit.radius > 0 ? 0.1 : 0)
 }
 
 /**
  * Where each kind starts: the centre from the mask's moments, at 0° and, when the mask is clearly
  * turned, at its own angle; the size from its reach along those axes; a rectangle at the radius its
- * area gives, as a pill and square; a line when it is long and thin.
+ * area gives, as a pill and square; a line when it is long and thin; a polygon and a star level, at
+ * the count and turn their rotational symmetry gives.
  */
 function startsOf(window: FitWindow, kinds: readonly ShapeKind[]): ShapeFit[] {
   const { width, height, mask, scale } = window
@@ -215,6 +258,8 @@ function startsOf(window: FitWindow, kinds: readonly ShapeKind[]): ShapeFit[] {
       height: h,
       rotation,
       radius: 0,
+      count: 0,
+      innerRadius: 0.5,
       stroke: 0,
       strokeOnly: false,
     }
@@ -236,6 +281,14 @@ function startsOf(window: FitWindow, kinds: readonly ShapeKind[]): ShapeFit[] {
         rotation: along ? rotation : rotation + 90,
       }
       starts.push({ ...line, radius: 0 }, { ...line, radius: 1 })
+    }
+    if (rotation === 0 && (kinds.includes('polygon') || kinds.includes('star'))) {
+      const symmetry = symmetryOf(mask, width, height, reach.cx, reach.cy, reach.width / 2, reach.height / 2)
+      if (symmetry) {
+        const turned = { ...base, count: symmetry.count, rotation: symmetry.rotation }
+        if (kinds.includes('polygon') && symmetry.count <= MOST_SIDES) starts.push({ ...turned, kind: 'polygon' })
+        if (kinds.includes('star')) starts.push({ ...turned, kind: 'star', innerRadius: symmetry.innerRadius })
+      }
     }
   }
   return starts
@@ -277,18 +330,21 @@ function refine(ck: CanvasKit, start: ShapeFit, startIoU: number, window: FitWin
   let iou = startIoU
   let draws = 0
   if (budget <= 0) return { fit, iou }
-  const keys: (keyof ShapeFit & ('cx' | 'cy' | 'width' | 'height' | 'rotation' | 'radius' | 'stroke'))[] = [
+  const symmetric = fit.kind === 'polygon' || fit.kind === 'star'
+  const keys: (keyof ShapeFit &
+    ('cx' | 'cy' | 'width' | 'height' | 'rotation' | 'radius' | 'innerRadius' | 'stroke'))[] = [
     'cx',
     'cy',
     'width',
     'height',
   ]
-  if (fit.rotation !== 0) keys.push('rotation')
-  if (fit.kind === 'rect') keys.push('radius')
+  if (fit.rotation !== 0 || symmetric) keys.push('rotation')
+  if (fit.kind === 'rect' || symmetric) keys.push('radius')
+  if (fit.kind === 'star') keys.push('innerRadius')
   if (fit.strokeOnly) keys.push('stroke')
   const unit = 1 / window.scale
   const stepOf = (key: (typeof keys)[number], scale: number) =>
-    key === 'rotation' ? 2 * scale : Math.max(0.15, unit) * 2 * scale
+    key === 'rotation' ? 2 * scale : key === 'innerRadius' ? INNER_STEP * scale : Math.max(0.15, unit) * 2 * scale
   let scale = 2
   while (draws < budget && scale > 0.06) {
     let improved = false
@@ -297,6 +353,7 @@ function refine(ck: CanvasKit, start: ShapeFit, startIoU: number, window: FitWin
         if (draws >= budget) break
         const next = { ...fit, [key]: fit[key] + direction * stepOf(key, scale) }
         if (next.width <= 0.5 || next.height <= 0.1 || next.radius < 0 || next.stroke < 0) continue
+        if (next.innerRadius <= 0.02 || next.innerRadius >= 1) continue
         if (next.kind === 'rect' && next.radius > Math.min(next.width, next.height) / 2) {
           // A pill keeps its round ends as it narrows: the radius follows the size.
           if (key === 'radius') continue

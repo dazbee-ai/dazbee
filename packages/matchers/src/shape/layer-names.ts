@@ -47,6 +47,10 @@ const COLOUR_WORDS: readonly (readonly [string, `#${string}`])[] = [
 ]
 /** A shape is round, a circle rather than an oval, when its sides are within this ratio. */
 const ROUND = 1.06
+/** A star with this many points or more is a starburst. */
+const BURST_POINTS = 10
+/** The polygons with a word of their own, by sides. */
+const POLYGON_WORDS: Record<number, string> = { 3: 'triangle', 4: 'diamond', 5: 'pentagon', 6: 'hexagon', 8: 'octagon' }
 
 const COLOUR_LABS = COLOUR_WORDS.map(([word, hex]) => ({
   word,
@@ -56,6 +60,11 @@ const COLOUR_LABS = COLOUR_WORDS.map(([word, hex]) => ({
 /** A graphic's name: its colour's word, then its shape's, or "background" for one that fills the piece. */
 export function layerName(rgb: readonly [number, number, number], fit: ShapeFit, background: boolean): string {
   return `${colourWord(rgb)} ${background ? 'background' : shapeWord(fit)}`
+}
+
+/** A traced path's name: its colour's word, then "shape". */
+export function pathName(rgb: readonly [number, number, number]): string {
+  return `${colourWord(rgb)} shape`
 }
 
 /** The word of the colour nearest by ΔE00. */
@@ -73,7 +82,10 @@ function colourWord(rgb: readonly [number, number, number]): string {
   return best
 }
 
-/** The shape's word: line, circle, oval, pill, banner, rounded rectangle or rectangle, "outline" after it for a ring. */
+/**
+ * The shape's word: line, circle, oval, star, starburst, a polygon's, pill, banner, rounded rectangle
+ * or rectangle, "outline" after it for a ring.
+ */
 function shapeWord(fit: ShapeFit): string {
   const ratio = Math.max(fit.width, fit.height) / Math.max(0.01, Math.min(fit.width, fit.height))
   const word =
@@ -83,14 +95,20 @@ function shapeWord(fit: ShapeFit): string {
         ? ratio < ROUND
           ? 'circle'
           : 'oval'
-        : fit.radius >= Math.min(fit.width, fit.height) / 2 - 0.5
-          ? ratio < ROUND
-            ? 'circle'
-            : 'pill'
-          : ratio > 2.2 && fit.radius < 1
-            ? 'banner'
-            : fit.radius > 0.5
-              ? 'rounded rectangle'
-              : 'rectangle'
+        : fit.kind === 'star'
+          ? fit.count >= BURST_POINTS
+            ? 'starburst'
+            : 'star'
+          : fit.kind === 'polygon'
+            ? (POLYGON_WORDS[fit.count] ?? 'polygon')
+            : fit.radius >= Math.min(fit.width, fit.height) / 2 - 0.5
+              ? ratio < ROUND
+                ? 'circle'
+                : 'pill'
+              : ratio > 2.2 && fit.radius < 1
+                ? 'banner'
+                : fit.radius > 0.5
+                  ? 'rounded rectangle'
+                  : 'rectangle'
   return fit.strokeOnly ? `${word} outline` : word
 }

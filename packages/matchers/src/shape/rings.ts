@@ -11,8 +11,11 @@ const HOLE_SHARE = 0.3
 /** A part rings other colours when it covers less than this share of its outer outline. */
 const THIN_RING = 0.45
 
-/** Whether a part is a ring, drawn as its outer shape with a stroke inside. */
-export function isRing(part: StackedPart, labels: Int32Array): boolean {
+/**
+ * Whether a part is a ring, drawn as its outer shape with a stroke inside. Without the colour
+ * clusters' `labels`, what it rings is never taken for its own colour.
+ */
+export function isRing(part: StackedPart, labels?: Int32Array): boolean {
   if (part.holeShare > HOLE_SHARE) return true
   return sum(part.mask) < THIN_RING * sum(part.outer) && !ringsOwnColour(part, labels)
 }
@@ -30,7 +33,8 @@ export function ringWidth(part: StackedPart, width: number, height: number): num
 }
 
 /** Whether most of what a part rings, inside its outer outline and outside itself, is its own colour. */
-function ringsOwnColour(part: StackedPart, labels: Int32Array): boolean {
+function ringsOwnColour(part: StackedPart, labels?: Int32Array): boolean {
+  if (!labels) return false
   let own = 0
   let all = 0
   for (let i = 0; i < part.mask.length; i++) {

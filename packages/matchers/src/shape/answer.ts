@@ -49,7 +49,7 @@ export function withoutUnseen(
 }
 
 /** The mean absolute difference of two pictures' premultiplied colour and alpha, 0 to 255. */
-function meanDifference(a: FloatPicture, b: FloatPicture): number {
+export function meanDifference(a: FloatPicture, b: FloatPicture): number {
   let total = 0
   const n = Math.min(a.width * a.height, b.width * b.height)
   for (let i = 0; i < n; i++) {

@@ -4,7 +4,7 @@
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import type { Paint, Shape, VariableRef } from '@dazbee/schema'
+import type { DropShadow, Paint, Shape, VariableRef } from '@dazbee/schema'
 
 /** A stroke as the shape matcher sets it; the rest of a stroke takes the schema's defaults. */
 export interface ShapeStroke {
@@ -29,7 +29,10 @@ export interface ShapeLayer {
     shape: Shape
     fills: Paint[]
     strokes: ShapeStroke[]
+    effects?: DropShadow[]
   }
+  /** A traced path's fitted shape, which takes its place when the piece still looks the same with it; never drawn or answered. */
+  editable?: ShapeLayer
 }
 
 /** Fractional indexes in order: a00, a01, … a0z, a10, … */

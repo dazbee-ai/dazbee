@@ -32,7 +32,7 @@ const flatAnswer = (piece: Pixels): MatchAnswer => {
     { x: 0, y: 0, width: piece.width, height: piece.height },
     { fill },
   )
-  return { kind: 'layers', layers: [UnplacedLayer.parse(layer)], scores: SCORES }
+  return { kind: 'layers', layers: [UnplacedLayer.parse(layer)], scores: SCORES, approximate: false }
 }
 
 describe('guardedAnswer', () => {
@@ -48,7 +48,12 @@ describe('guardedAnswer', () => {
       graphic({ kind: 'rect', cornerRadius: 12 }, { x: 10, y: 10, width: 140, height: 80 }, { fill: NAVY }),
     ]
     const piece = drawGraphics(ck, layers, 160, 100)
-    const answer: MatchAnswer = { kind: 'layers', layers: layers.map((l) => UnplacedLayer.parse(l)), scores: SCORES }
+    const answer: MatchAnswer = {
+      kind: 'layers',
+      layers: layers.map((l) => UnplacedLayer.parse(l)),
+      scores: SCORES,
+      approximate: false,
+    }
     expect(guardedAnswer(ck, piece, answer)).toBe(answer)
   })
 

@@ -61,12 +61,17 @@ export async function instantiatingCompiled<T>(module: WebAssembly.Module, load:
 /** The fonts we ship, from the app's `/vendor/fonts/`. */
 export function shippedFonts() {
   fonts ??= Promise.all(
-    FONT_FACES.map(async (f) => ({ family: f.family, bytes: await fetchBytes(`/vendor/fonts/${f.file}`) })),
+    FONT_FACES.map(async (f) => ({ family: f.family, bytes: await fetchBytes(shippedFontUrl(f.file)) })),
   ).catch((error: unknown) => {
     fonts = undefined
     throw error
   })
   return fonts
+}
+
+/** Where a font we ship is read: the app's `/vendor/fonts/`. */
+export function shippedFontUrl(file: string): string {
+  return `/vendor/fonts/${file}`
 }
 
 async function fetchBytes(url: string) {

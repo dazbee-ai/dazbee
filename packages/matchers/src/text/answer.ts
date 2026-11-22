@@ -1,5 +1,6 @@
-// The text matcher's answer for a piece that looks the same: one text layer in Dazbee's units, in the
-// piece's pixels, bound to the brand kit where it took the kit's font, colour or text style.
+// The text matcher's answer for a piece: one text layer in Dazbee's units, in the piece's pixels,
+// bound to the brand kit where it took the kit's font, colour or text style, and approximate when it
+// doesn't look the same.
 
 import {
   BINDABLE_PROPERTIES,
@@ -15,18 +16,26 @@ import { type Placed, textLayerProps, type TextLook } from './draw-text.ts'
 /** The most characters of the words a text layer's name takes. */
 const NAME_LENGTH = 40
 
+/** Whether a text answer is approximate, and its bindings to the brand kit. */
+export interface TextAnswerOptions {
+  /** The text doesn't look the same, or is set in Noto. */
+  approximate: boolean
+  bindings?: Bindings
+  /** The look of the kit text style the text is bound to, which its layer takes. */
+  styleLook?: StyleLook
+}
+
 /**
- * The answer for words that look the same set in `look` at `place`: one text layer named after its
- * first line, with its bindings and the rule's numbers. A layer bound to a kit text style holds the
- * style's look as its binding writes it.
+ * The answer for words set in `look` at `place`: one text layer named after its first line, with its
+ * bindings, the rule's numbers and whether it is approximate. A layer bound to a kit text style holds
+ * the style's look as its binding writes it.
  */
 export function textAnswer(
   words: string,
   look: TextLook,
   place: Placed,
   scores: LooksSameScores,
-  bindings: Bindings = {},
-  styleLook?: StyleLook,
+  { approximate, bindings = {}, styleLook }: TextAnswerOptions,
 ): MatchAnswer {
   const props: Readonly<Record<string, unknown>> = { ...textLayerProps(words, look, place) }
   const layer = UnplacedLayer.parse({
@@ -35,5 +44,5 @@ export function textAnswer(
     props: styleLook ? BINDABLE_PROPERTIES.textStyle.write(props, styleLook) : props,
     ...(Object.keys(bindings).length > 0 ? { bindings } : {}),
   })
-  return { kind: 'layers', layers: [layer], scores }
+  return { kind: 'layers', layers: [layer], scores, approximate }
 }

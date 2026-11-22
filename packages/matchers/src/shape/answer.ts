@@ -12,7 +12,7 @@ const UNSEEN_BY = 0.25
 
 /** The answer for graphics that look the same: the graphics as unplaced layers, with the rule's numbers. */
 export function layersAnswer(layers: readonly ShapeLayer[], scores: LooksSameScores): MatchAnswer {
-  return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores }
+  return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores, approximate: false }
 }
 
 /** The answer for a piece that stays a picture, with the rule's numbers when its graphics were judged. */

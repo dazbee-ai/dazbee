@@ -16,7 +16,7 @@ import {
 } from './match-pool.ts'
 
 /** The answer the stand-in workers give. */
-const TEXT: MatchAnswer = { kind: 'picture', why: 'looksDifferent' }
+const TEXT: MatchAnswer = { kind: 'picture', why: 'failed' }
 /** The most a text worker may say it holds after its `pieces`-th piece and stay within its share. */
 const share = (pieces: number) => WORKER_MEMORY.text.peak - WORKER_MEMORY.text.rest - pieces * WORKER_MEMORY.text.piece
 /** What a fresh worker says it holds: CanvasKit's and ONNX Runtime's memories. */

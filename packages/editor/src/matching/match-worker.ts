@@ -3,13 +3,15 @@
 // (ADR-0020), and opens the text matcher's model and files, kept in Cache Storage. It then runs
 // `matchText` on one piece at a time, drawing on the CPU surface (ADR-0005), with each piece's
 // shortlisted faces fetched at once: a Google face's match copy, or its whole face for characters ads
-// rarely use, and a brand's upload through the brand. Started as a shape worker, it starts CanvasKit
-// alone, loads no model, file or face, and runs `matchShapes` on one piece at a time. It runs in the
-// editor's worker (`editor-worker`), loaded with the first match message. Each answer tells what the
-// worker holds, so the pool can retire it.
+// rarely use, a brand's upload through the brand, and a shipped Noto face from the app's files.
+// Started as a shape worker, it starts CanvasKit alone, loads no model, file or face, and runs
+// `matchShapes` on one piece at a time. It runs in the editor's worker (`editor-worker`), loaded with
+// the first match message. Each answer tells what the worker holds, so the pool can retire it.
 import type { CanvasKit } from '@dazbee/canvaskit'
+import { FONT_FACES } from '@dazbee/fonts'
 import {
   faceOfKey,
+  fontKey,
   type FontSource,
   matchShapes,
   matchText,
@@ -27,7 +29,7 @@ import {
 } from '@dazbee/matchers'
 import { type FontFace, googleFacePaths, type MatchAnswer, type Piece } from '@dazbee/schema'
 
-import { canvasKitFrom, instantiatingCompiled } from '../vendor.ts'
+import { canvasKitFrom, instantiatingCompiled, shippedFontUrl } from '../vendor.ts'
 import type { CompiledModules, MatchFonts, MatchMessage, MatchReply, MatchStep, WorkerJob } from './match-pool.ts'
 import { fileBytes, textMatcherFile } from './matcher-files.ts'
 
@@ -195,17 +197,19 @@ function held(): number {
 }
 
 /**
- * A job's faces by key, found in its font catalog: a Google face's match copy, or its whole face,
- * from its permanent address, and a brand's upload through the brand; null for a key the catalog has
- * no face for, or a file that doesn't come.
+ * A job's faces by key: a shipped face from the app's files, and those found in its font catalog, a
+ * Google face's match copy, or its whole face, from its permanent address, and a brand's upload
+ * through the brand; null for a key no shipped face or face of the catalog draws, or a file that
+ * doesn't come.
  */
 function fontSource({ catalog, uploadPath }: MatchFonts): FontSource {
   const families = new Map(catalog.map((family) => [family.family, family.faces]))
   return {
     async face(key, copy) {
       const parsed = parseFontKey(key)
+      const shipped = FONT_FACES.find((face) => fontKey(face) === key)
       const found = parsed && faceOfKey(parsed, families.get(parsed.family) ?? [])
-      const url = found && faceUrl(found.face, copy, uploadPath)
+      const url = shipped ? shippedFontUrl(shipped.file) : found && faceUrl(found.face, copy, uploadPath)
       if (!url) return null
       const response = await fetch(url)
       if (!response.ok) return null

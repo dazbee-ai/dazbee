@@ -64,7 +64,7 @@ export const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnsw
   const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
   if (decision === 'shapes') {
     if (!scores) throw new Error('shapes without the rule’s numbers')
-    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores }
+    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores, approximate: false }
   }
   return {
     kind: 'picture',

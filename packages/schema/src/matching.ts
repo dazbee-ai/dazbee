@@ -104,28 +104,28 @@ export const LooksSameScores = z.object({
 export type LooksSameScores = z.infer<typeof LooksSameScores>
 
 /**
- * Why a piece stays a picture: its rebuild doesn't look the same, it would take too many layers, it
- * is a photo or a painted scene (its shapes leave its shading and texture unexplained, or are many free
- * paths), no font draws its characters, it is too big, the matcher failed, or this browser can't run
- * the matchers.
+ * Why a piece stays a picture: its shapes' rebuild doesn't look the same, it would take too many
+ * layers, it is a photo or a painted scene (its shapes leave its shading and texture unexplained, or
+ * are many free paths), it is too big, the matcher failed (for text, also when the piece has no ink to
+ * read), or this browser can't run the matchers. A text piece the matcher reads always becomes text.
  */
-export const PictureWhy = z.enum([
-  'looksDifferent',
-  'tooManyParts',
-  'photo',
-  'noFont',
-  'tooBig',
-  'failed',
-  'unsupported',
-])
+export const PictureWhy = z.enum(['looksDifferent', 'tooManyParts', 'photo', 'tooBig', 'failed', 'unsupported'])
 export type PictureWhy = z.infer<typeof PictureWhy>
 
 /**
- * A matcher's answer for one piece: the layers that rebuild it, or why it stays a picture. Scores are
- * left out of a picture's answer when nothing was drawn to judge.
+ * A matcher's answer for one piece: the layers that rebuild it, or why it stays a picture. Layers are
+ * `approximate` when they don't look the same: a text piece always becomes text, approximate when no
+ * face rebuilds it so it looks the same or no face draws its characters (it is then set in Noto);
+ * shapes that don't look the same stay a picture, so shapes are never approximate. Scores are left out
+ * of a picture's answer when nothing was drawn to judge.
  */
 export const MatchAnswer = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('layers'), layers: UnplacedLayer.array().min(1), scores: LooksSameScores }),
+  z.object({
+    kind: z.literal('layers'),
+    layers: UnplacedLayer.array().min(1),
+    scores: LooksSameScores,
+    approximate: z.boolean(),
+  }),
   z.object({ kind: z.literal('picture'), why: PictureWhy, scores: LooksSameScores.optional() }),
 ])
 export type MatchAnswer = z.infer<typeof MatchAnswer>

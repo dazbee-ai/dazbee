@@ -672,19 +672,19 @@ One part of a picture that a matcher rebuilds as layers: its pixels, its place o
 _Avoid_: Block (that is the renderer's laid-out paragraph), region, cut-out (a layering kind for a cut-out photo)
 
 **Matcher**:
-What rebuilds a piece as editable layers by drawing candidates with Dazbee's renderer and keeping the one that looks the same. The **text matcher** finds a text piece's font, size, colour and fit and makes it a text; the **shape matcher** makes a piece of shapes into graphics. A piece no candidate rebuilds well stays a picture, with why.
+What rebuilds a piece as editable layers by drawing candidates with Dazbee's renderer and keeping the one that looks the same. The **text matcher** finds a text piece's font, size, colour and fit and always makes it a text: when no candidate looks the same it gives the closest, and when no font draws its characters it sets it in the Noto Dazbee ships for its script; such a text is **approximate**. The **shape matcher** makes a piece of shapes into graphics; a shape piece no candidate rebuilds well stays a picture, with why.
 _Avoid_: Detector, recogniser, converter, vectoriser (for the matcher as a whole)
 
 **Looks the same**:
-The rule a matcher's answer must pass to replace its piece, fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars.
+The rule fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars. Shapes must pass it to replace their piece; a text that fails it is still given, approximate.
 _Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
 
 **Light**:
-The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well.
+The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well; else the closest, approximate.
 _Avoid_: Fast mode, lite
 
 **Hybrid**:
-The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font, kept when it looks the same, else Light's answer.
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font, kept when it looks the same, else Light's answer when that does, else the closer of the two, approximate.
 _Avoid_: Full, accurate mode, medium
 
 **Font fingerprint**:

@@ -32,6 +32,24 @@ const SHIPPED = loadFontFiles().map(({ family, bytes }) => ({ family, bytes }))
 const shippedFile = (file: string) => loadFontFiles().find((f) => f.file === file)?.bytes ?? new Uint8Array()
 
 /**
+ * Expects `files` to be `expected`, file for file, each the very bytes given: by identity, which tells
+ * apart two files of the same bytes and doesn't compare megabytes of font files byte by byte.
+ */
+function expectFiles(files: readonly Uint8Array[], expected: readonly (Uint8Array | undefined)[]) {
+  expect(files).toHaveLength(expected.length)
+  files.forEach((file, i) => expect(file === expected[i], `file ${i} is the one expected`).toBe(true))
+}
+
+/** Expects `fonts` to be the fonts we ship, family for family, each its very file. */
+function expectShipped(fonts: readonly { family: string; bytes: Uint8Array }[]) {
+  expect(fonts.map((font) => font.family)).toEqual(SHIPPED.map((font) => font.family))
+  expectFiles(
+    fonts.map((font) => font.bytes),
+    SHIPPED.map((font) => font.bytes),
+  )
+}
+
+/**
  * The editor's font loads over `sources`, with nothing loaded to start, online unless `online` says otherwise,
  * registering `shipped` before the catalog's files.
  */
@@ -69,7 +87,10 @@ describe('editorFontLoads', () => {
     // 800 draws in the 900, CSS's nearest heavier weight.
     expect(catalog.asked).toHaveLength(1)
     expect(catalog.fetched).toEqual(['Brand Sans 400 normal', 'Brand Sans 900 normal'])
-    expect(loads.fonts().map((font) => font.bytes)).toEqual([faces[0]?.bytes, faces[2]?.bytes])
+    expectFiles(
+      loads.fonts().map((font) => font.bytes),
+      [faces[0]?.bytes, faces[2]?.bytes],
+    )
     end()
   })
 
@@ -80,8 +101,14 @@ describe('editorFontLoads', () => {
     await loads.loadUses(upright(400))
     // Italic text at 700 draws in the upright 700, which CanvasKit scores above the italic 400.
     expect(catalog.fetched).toEqual(['Brand Sans 700 normal', 'Brand Sans 400 normal'])
-    expect(loads.fonts().map((font) => font.bytes)).toEqual([faces[0]?.bytes, faces[1]?.bytes])
-    expect(loads.fontsFor(upright(400)).map((font) => font.bytes)).toEqual([faces[0]?.bytes])
+    expectFiles(
+      loads.fonts().map((font) => font.bytes),
+      [faces[0]?.bytes, faces[1]?.bytes],
+    )
+    expectFiles(
+      loads.fontsFor(upright(400)).map((font) => font.bytes),
+      [faces[0]?.bytes],
+    )
     end()
   })
 
@@ -156,11 +183,11 @@ describe('editorFontLoads', () => {
     expect(catalog.fetched).toEqual(['Noto Naskh Arabic 400 normal'])
     const naskhFiles = (fonts: { family: string; bytes: Uint8Array }[]) =>
       fonts.filter((font) => font.family === 'Noto Naskh Arabic').map((font) => font.bytes)
-    expect(naskhFiles(loads.fonts())).toEqual([upload])
-    expect(naskhFiles(loads.fontsFor(naskh))).toEqual([upload])
+    expectFiles(naskhFiles(loads.fonts()), [upload])
+    expectFiles(naskhFiles(loads.fontsFor(naskh)), [upload])
     // The other shipped families still draw, and an export of a design without the family draws the shipped file.
     expect(loads.fonts().filter((font) => font.family === 'Noto Sans')).toHaveLength(3)
-    expect(naskhFiles(loads.fontsFor([]))).toEqual([
+    expectFiles(naskhFiles(loads.fontsFor([])), [
       shippedFile('NotoNaskhArabic-Regular.ttf'),
       shippedFile('NotoNaskhArabic-Bold.ttf'),
     ])
@@ -175,8 +202,8 @@ describe('editorFontLoads', () => {
     const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 700, style: 'normal' }]
     await loads.loadUses(naskh)
     expect(catalog.fetched).toEqual([])
-    expect(loads.fonts()).toEqual(SHIPPED)
-    expect(loads.fontsFor(naskh)).toEqual(SHIPPED)
+    expectShipped(loads.fonts())
+    expectShipped(loads.fontsFor(naskh))
     expect(loads.facesOf('Noto Naskh Arabic').map((face) => `${face.weight} ${face.style}`)).toEqual([
       '400 normal',
       '700 normal',
@@ -224,12 +251,15 @@ describe('editorFontLoads', () => {
     const { loads, end } = loadsOf(sources, () => true, SHIPPED)
     const naskh: FontUse[] = [{ family: 'Noto Naskh Arabic', weight: 400, style: 'normal' }]
     await loads.loadUses(naskh)
-    expect(loads.fonts()).toEqual(SHIPPED)
+    expectShipped(loads.fonts())
     faces.push({ family: 'Noto Naskh Arabic', bytes: upload })
     loads.askAgain(['Noto Naskh Arabic', 'Never Asked'])
     await loads.loaded()
     const naskhFiles = loads.fonts().filter((font) => font.family === 'Noto Naskh Arabic')
-    expect(naskhFiles.map((font) => font.bytes)).toEqual([upload])
+    expectFiles(
+      naskhFiles.map((font) => font.bytes),
+      [upload],
+    )
     end()
   })
 })

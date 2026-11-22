@@ -7,7 +7,7 @@ import { join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { renderDesign, renderVector } from '@dazbee/renderer'
+import { renderDesign, renderVector, type ResourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { framesOf, inOrder, parseDesign } from '@dazbee/schema'
 
@@ -32,6 +32,78 @@ const baselines = readVectorBaselines()
 /** The share of pixels, in percent, that differ between two images. */
 const share = (a: Pixels, b: Pixels) => (100 * comparePixels(a, b).differing) / (a.width * a.height)
 
+/** Red at the box's left edge to blue at its right. */
+const SWEEP = {
+  type: 'linear',
+  from: { x: 0, y: 0.5 },
+  to: { x: 1, y: 0.5 },
+  stops: [
+    { offset: 0, color: '#FF0000FF' },
+    { offset: 1, color: '#0000FFFF' },
+  ],
+}
+
+/**
+ * The middle row of each band of rows where the lines drawn over a text differ from it along most of
+ * its width, `lined` against `bare`: where its underline and strikethrough are.
+ */
+function lineRows(bare: Pixels, lined: Pixels): number[] {
+  const rows: number[] = []
+  for (let y = 0; y < bare.height; y++) {
+    let differing = 0
+    for (let x = 0; x < bare.width; x++) {
+      const i = (y * bare.width + x) * 4
+      if ([0, 1, 2].some((c) => bare.pixels[i + c] !== lined.pixels[i + c])) differing++
+    }
+    if (differing > 250) rows.push(y)
+  }
+  const bands: number[][] = []
+  for (const y of rows) {
+    const band = bands.at(-1)
+    if (band && band.at(-1) === y - 1) band.push(y)
+    else bands.push([y])
+  }
+  return bands.map((band) => ((band[0] ?? 0) + (band.at(-1) ?? 0)) / 2)
+}
+
+/** A 640 by 160 frame on white holding one text in the style given. */
+function oneText(text: string, style: Record<string, unknown>) {
+  return {
+    meta: { designId: 'one-text', name: 'One text' },
+    pages: { p1: { name: 'Page 1', order: 'a0' } },
+    frames: {
+      f: {
+        pageId: 'p1',
+        name: 'Frame',
+        width: 640,
+        height: 160,
+        x: 0,
+        y: 0,
+        fills: [{ type: 'solid', color: '#FFFFFFFF' }],
+        order: 'a0',
+      },
+    },
+    nodes: {
+      t: {
+        type: 'text',
+        parentId: 'f',
+        link: 't',
+        index: 'a0',
+        name: 'Words',
+        props: {
+          x: 20,
+          y: 20,
+          width: 600,
+          height: 120,
+          boxMode: 'fixed',
+          text,
+          style: { color: '#15121AFF', ...style },
+        },
+      },
+    },
+  }
+}
+
 const frames = loadFixtures()
   .filter(({ name }) => ['text-paint', 'text-styles'].includes(name))
   .flatMap(({ name, json }) => {
@@ -45,7 +117,7 @@ const frames = loadFixtures()
 
 describe('placed text', () => {
   it.each(frames)(
-    '$name $frameId draws within 1 % of the pixels of its reference, the same each time',
+    '$name $frameId draws within 0.5 % of the pixels of its reference, the same each time',
     ({ name, json, frameId }) => {
       const cache = placing(ck)
       const placed = renderDesign(ck, json, frameId, bytes, cache)
@@ -53,7 +125,7 @@ describe('placed text', () => {
       cache.delete()
       const reference = decodePng(ck, new Uint8Array(readFileSync(join(REFERENCE_DIR, name, `${frameId}.png`))))
       expect(comparePixels(placed, again).differing).toBe(0)
-      expect(share(reference, placed)).toBeLessThan(1)
+      expect(share(reference, placed)).toBeLessThan(0.5)
     },
   )
 
@@ -63,46 +135,13 @@ describe('placed text', () => {
       bytes: new Uint8Array(readFileSync(join(ASSETS_DIR, 'fonts', 'Anton-Regular.ttf'))),
     }
     const withAnton = { ...bytes, fonts: [...bytes.fonts, anton] }
-    const design = (style: Record<string, unknown>) => ({
-      meta: { designId: 'anton', name: 'Anton' },
-      pages: { p1: { name: 'Page 1', order: 'a0' } },
-      frames: {
-        f: {
-          pageId: 'p1',
-          name: 'Frame',
-          width: 640,
-          height: 160,
-          x: 0,
-          y: 0,
-          fills: [{ type: 'solid', color: '#FFFFFFFF' }],
-          order: 'a0',
-        },
-      },
-      nodes: {
-        t: {
-          type: 'text',
-          parentId: 'f',
-          link: 't',
-          index: 'a0',
-          name: 'Words',
-          props: {
-            x: 20,
-            y: 20,
-            width: 600,
-            height: 120,
-            boxMode: 'fixed',
-            text: 'Faux style',
-            style: { fontFamily: 'Anton', fontSize: 96, color: '#15121AFF', ...style },
-          },
-        },
-      },
-    })
-    const faux = design({ fontWeight: 900, fontStyle: 'italic' })
+    const style = { fontFamily: 'Anton', fontSize: 96 }
+    const faux = oneText('Faux style', { ...style, fontWeight: 900, fontStyle: 'italic' })
     const cache = placing(ck)
     const placed = renderDesign(ck, faux, 'f', withAnton, cache)
     cache.delete()
     const paragraph = renderDesign(ck, faux, 'f', withAnton)
-    const upright = renderDesign(ck, design({}), 'f', withAnton)
+    const upright = renderDesign(ck, oneText('Faux style', style), 'f', withAnton)
     const lowered = placing(ck, (line, along, _advance, offset) => [1, 0, along, line.baseline + offset + 4])
     const moved = renderDesign(ck, faux, 'f', withAnton, lowered)
     lowered.delete()
@@ -111,9 +150,28 @@ describe('placed text', () => {
     expect(share(paragraph, upright)).toBeGreaterThan(5)
     expect(share(paragraph, placed)).toBeLessThan(1)
   })
+
+  it.each([
+    ['in its colour', { color: '#C0182BFF' }],
+    ['in its gradient', { gradient: SWEEP }],
+  ])('underlines and strikes through a letter at a time %s, where its paragraph draws its lines', (_, paint) => {
+    const lined = { fontFamily: 'Noto Sans', fontSize: 64, underline: true, strikethrough: true, ...paint }
+    const unlined = { ...lined, underline: false, strikethrough: false }
+    const draw = (style: Record<string, unknown>, cache?: ResourceCache) =>
+      renderDesign(ck, oneText('Lines under', style), 'f', bytes, cache)
+    const cache = placing(ck)
+    const placed = lineRows(draw(unlined, cache), draw(lined, cache))
+    cache.delete()
+    const paragraph = lineRows(draw(unlined), draw(lined))
+    // SkParagraph puts its lines off its unrounded baseline, its glyphs on the rounded one; placed
+    // lines go with the glyphs, so within a pixel.
+    expect(placed).toHaveLength(2)
+    expect(paragraph).toHaveLength(2)
+    placed.forEach((row, i) => expect(Math.abs(row - (paragraph[i] ?? 0))).toBeLessThanOrEqual(1))
+  })
 })
 
-describe('placed letters in PDF and SVG (#226)', () => {
+describe('placed letters in a PDF and an SVG', () => {
   it.each(frames)(
     '$name $frameId: placed letters reach the PDF and SVG as shapes, drawn as the CPU draws them',
     async ({ name, json, frameId }) => {
@@ -122,8 +180,9 @@ describe('placed letters in PDF and SVG (#226)', () => {
       const pdf = renderVector(ck, json, frameId, bytes, 'pdf', placed)
       const svg = renderVector(ck, json, frameId, bytes, 'svg', placed)
       placed.delete()
-      // Only the list markers, drawn as they are laid out, stay text.
-      expect((await pdfText(pdfium, pdf)).replaceAll(/[\s•\d.]/gu, '')).toBe('')
+      // Only the list markers, drawn as they are laid out, stay text: bullets, and numbers and their full stops.
+      const text = (await pdfText(pdfium, pdf)).replaceAll(/\s/gu, '')
+      expect(text.replaceAll(/[•.]|(?<!\d)[1-9](?!\d)/gu, '')).toBe('')
       expect(new TextDecoder().decode(svg)).not.toContain('<text')
       const baseline = baselines[`${name} ${frameId}`]
       if (!baseline) throw new Error(`no vector baseline for ${name} ${frameId}`)

@@ -19,11 +19,11 @@ export type TextPass = { kind: 'fill' } | { kind: 'outline'; under: boolean } | 
 
 type Style = Pick<TextProps['style'], 'color' | 'gradient' | 'outline' | 'underline' | 'strikethrough'>
 
-/** What a gradient is drawn with: it reads no image. */
-const NO_IMAGES: ReadonlyMap<string, Image> = new Map()
-
 /** A gradient's key: equal for gradients that paint alike. */
 export const gradientKey = (gradient: GradientPaint) => JSON.stringify(gradient)
+
+/** What a gradient is drawn with: it reads no image. */
+const NO_IMAGES: ReadonlyMap<string, Image> = new Map()
 
 /** The gradients whose characters have an underline or strikethrough, which a lines pass each paints, by key. */
 export function linedGradients(styles: readonly Style[]): Map<string, GradientPaint> {

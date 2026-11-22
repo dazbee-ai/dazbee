@@ -6,7 +6,7 @@ import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
 import { laidOut } from '../text/cache.ts'
 import type { TextBlock } from '../text/layout.ts'
-import type { PlacedRun, Placement } from '../text/placed.ts'
+import { placedPoint, type PlacedRun, type Placement } from '../text/placed.ts'
 import { drawsLines, gradientKey, linesColour, passPaint, type TextPass } from '../text/text-paint.ts'
 import { flipMatrix } from './flip.ts'
 import { paintFor } from './paint.ts'
@@ -43,67 +43,6 @@ export function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resour
   done()
 }
 
-/** Draws a pass that paints no characters of its own: as shapes into a PDF or SVG, so the file holds the text once. */
-function drawPass(ck: CanvasKit, canvas: Canvas, pass: Paragraph, x: number, y: number, resources: Resources) {
-  if (resources.vector) drawAsShapes(ck, canvas, (into) => into.drawParagraph(pass, x, y))
-  else canvas.drawParagraph(pass, x, y)
-}
-
-/** Draws the underline and strikethrough of a gradient's runs, filled with the gradient across the layer's box. */
-function drawFilledLines(
-  ck: CanvasKit,
-  canvas: Canvas,
-  lines: TextBlock['gradientLines'][number],
-  x: number,
-  y: number,
-  box: Rect,
-  resources: Resources,
-) {
-  const { paragraph } = lines
-  // Lines can sit past a tight line's box, and a long word past the paragraph's width either way,
-  // so the layer reaches a paragraph's height and its longest line past it on each side.
-  const width = Math.max(paragraph.getMaxWidth(), paragraph.getLongestLine())
-  const reach = paragraph.getHeight()
-  const bounds = { x: x - reach - width, y: y - reach, width: 3 * width + 2 * reach, height: 3 * reach }
-  fillWithGradient(ck, canvas, lines.gradient, box, bounds, resources, () =>
-    drawPass(ck, canvas, paragraph, x, y, resources),
-  )
-}
-
-/** Draws what `draw` draws, opaque, in an offscreen layer of `bounds`, filled with the gradient across the layer's box. */
-function fillWithGradient(
-  ck: CanvasKit,
-  canvas: Canvas,
-  gradient: GradientPaint,
-  box: Rect,
-  bounds: Rect,
-  resources: Resources,
-  draw: () => void,
-) {
-  const paint = paintFor(ck, gradient, box, resources)
-  if (!paint) return
-  const rect = ck.XYWHRect(bounds.x, bounds.y, bounds.width, bounds.height)
-  canvas.saveLayer(undefined, rect)
-  draw()
-  paint.setBlendMode(ck.BlendMode.SrcIn)
-  canvas.drawRect(rect, paint)
-  paint.delete()
-  canvas.restore()
-}
-
-/**
- * Draws text as the glyphs' outlines, so a PDF holds the text once, as the fill pass's text; a glyph
- * with no outline (a colour emoji) is kept as text with `keepColourGlyphs`, else left out.
- */
-function drawAsShapes(ck: CanvasKit, canvas: Canvas, draw: (into: Canvas) => void, keepColourGlyphs = false) {
-  const recorder = new ck.PictureRecorder()
-  draw(recorder.beginRecording(EVERYWHERE))
-  const picture = recorder.finishRecordingAsPicture()
-  recorder.delete()
-  ck.DrawTextAsPaths(canvas, picture, keepColourGlyphs)
-  picture.delete()
-}
-
 /**
  * Draws a placed text in its paragraphs' passes and order, each run as a text blob of its glyphs
  * moved and turned, in its piece's paint for the pass, and each list marker as it is laid out. Into
@@ -136,6 +75,33 @@ function drawPlaced(
   }
 }
 
+/** Draws a pass that paints no characters of its own: as shapes into a PDF or SVG, so the file holds the text once. */
+function drawPass(ck: CanvasKit, canvas: Canvas, pass: Paragraph, x: number, y: number, resources: Resources) {
+  if (resources.vector) drawAsShapes(ck, canvas, (into) => into.drawParagraph(pass, x, y))
+  else canvas.drawParagraph(pass, x, y)
+}
+
+/** Draws the underline and strikethrough of a gradient's runs, filled with the gradient across the layer's box. */
+function drawFilledLines(
+  ck: CanvasKit,
+  canvas: Canvas,
+  lines: TextBlock['gradientLines'][number],
+  x: number,
+  y: number,
+  box: Rect,
+  resources: Resources,
+) {
+  const { paragraph } = lines
+  // Lines can sit past a tight line's box, and a long word past the paragraph's width either way,
+  // so the layer reaches a paragraph's height and its longest line past it on each side.
+  const width = Math.max(paragraph.getMaxWidth(), paragraph.getLongestLine())
+  const reach = paragraph.getHeight()
+  const bounds = { x: x - reach - width, y: y - reach, width: 3 * width + 2 * reach, height: 3 * reach }
+  fillWithGradient(ck, canvas, lines.gradient, box, bounds, resources, () =>
+    drawPass(ck, canvas, paragraph, x, y, resources),
+  )
+}
+
 /** Draws one pass of placed runs: their glyphs in the pass's paint, and the lines the pass draws for them. */
 function drawPlacedPass(
   ck: CanvasKit,
@@ -157,6 +123,59 @@ function drawPlacedPass(
   }
   if (resources.vector) drawAsShapes(ck, canvas, (into) => draw(into, true), pass.kind === 'fill')
   else draw(canvas, false)
+}
+
+/** Draws what `draw` draws, opaque, in an offscreen layer of `bounds`, filled with the gradient across the layer's box. */
+function fillWithGradient(
+  ck: CanvasKit,
+  canvas: Canvas,
+  gradient: GradientPaint,
+  box: Rect,
+  bounds: Rect,
+  resources: Resources,
+  draw: () => void,
+) {
+  const paint = paintFor(ck, gradient, box, resources)
+  if (!paint) return
+  const rect = ck.XYWHRect(bounds.x, bounds.y, bounds.width, bounds.height)
+  canvas.saveLayer(undefined, rect)
+  draw()
+  paint.setBlendMode(ck.BlendMode.SrcIn)
+  canvas.drawRect(rect, paint)
+  paint.delete()
+  canvas.restore()
+}
+
+/**
+ * The part of the layer's box a block's placed lines can reach: its glyphs' turned boxes, and their
+ * height more on each side, as lines can sit past a tight line's box.
+ */
+function linesBounds(runs: readonly PlacedRun[]): Rect {
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
+  for (const { boxes } of runs) {
+    for (let i = 0; i < boxes.length; i += 2) {
+      left = Math.min(left, boxes[i] ?? 0)
+      right = Math.max(right, boxes[i] ?? 0)
+      top = Math.min(top, boxes[i + 1] ?? 0)
+      bottom = Math.max(bottom, boxes[i + 1] ?? 0)
+    }
+  }
+  if (left > right) return { x: 0, y: 0, width: 0, height: 0 }
+  const reach = bottom - top
+  return { x: left - reach, y: top - reach, width: right - left + 2 * reach, height: 3 * reach }
+}
+
+/**
+ * Draws text as the glyphs' outlines, so a PDF holds the text once, as the fill pass's text; a glyph
+ * with no outline (a colour emoji) is kept as text with `keepColourGlyphs`, else left out.
+ */
+function drawAsShapes(ck: CanvasKit, canvas: Canvas, draw: (into: Canvas) => void, keepColourGlyphs = false) {
+  const recorder = new ck.PictureRecorder()
+  draw(recorder.beginRecording(EVERYWHERE))
+  const picture = recorder.finishRecordingAsPicture()
+  recorder.delete()
+  ck.DrawTextAsPaths(canvas, picture, keepColourGlyphs)
+  picture.delete()
 }
 
 /** Draws a run's glyphs where they are placed, as one text blob, or a blob for each glyph. */
@@ -187,21 +206,20 @@ function drawLetterLines(ck: CanvasKit, canvas: Canvas, run: PlacedRun, colour: 
     lines.push({ at: positive(metrics.underlinePosition) ?? underThickness, thickness: underThickness })
   if (style.strikethrough) {
     const thickness = positive(metrics.strikeoutThickness) ?? underThickness
+    // Without the font's place, about half an x-height up, as SkParagraph puts it.
     lines.push({ at: metrics.strikeoutPosition ?? -size / 4, thickness })
   }
   const builder = new ck.PathBuilder()
   for (let i = 0; i < run.glyphs.length; i++) {
     const advance = run.advances[i] ?? 0
     if (advance <= 0) continue
-    const [scos = 1, ssin = 0, tx = 0, ty = 0] = run.xforms.subarray(4 * i, 4 * i + 4)
-    const placed = (x: number, y: number) => [scos * x - ssin * y + tx, ssin * x + scos * y + ty]
+    const xform = run.xforms.subarray(4 * i, 4 * i + 4)
     for (const { at, thickness } of lines) {
-      const top = at - thickness / 2
-      const bottom = at + thickness / 2
-      builder.addPolygon(
-        [...placed(0, top), ...placed(advance, top), ...placed(advance, bottom), ...placed(0, bottom)],
-        true,
-      )
+      const [top, bottom] = [at - thickness / 2, at + thickness / 2]
+      const corners = [0, top, advance, top, advance, bottom, 0, bottom]
+      const points: number[] = []
+      for (let c = 0; c < 8; c += 2) points.push(...placedPoint(xform, corners[c] ?? 0, corners[c + 1] ?? 0))
+      builder.addPolygon(points, true)
     }
   }
   const path = builder.detachAndDelete()
@@ -211,23 +229,4 @@ function drawLetterLines(ck: CanvasKit, canvas: Canvas, run: PlacedRun, colour: 
   canvas.drawPath(path, paint)
   paint.delete()
   path.delete()
-}
-
-/**
- * The part of the layer's box a block's placed lines can reach: its glyphs' turned boxes, and their
- * height more on each side, as lines can sit past a tight line's box.
- */
-function linesBounds(runs: readonly PlacedRun[]): Rect {
-  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
-  for (const { boxes } of runs) {
-    for (let i = 0; i < boxes.length; i += 2) {
-      left = Math.min(left, boxes[i] ?? 0)
-      right = Math.max(right, boxes[i] ?? 0)
-      top = Math.min(top, boxes[i + 1] ?? 0)
-      bottom = Math.max(bottom, boxes[i + 1] ?? 0)
-    }
-  }
-  if (left > right) return { x: 0, y: 0, width: 0, height: 0 }
-  const reach = bottom - top
-  return { x: left - reach, y: top - reach, width: right - left + 2 * reach, height: 3 * reach }
 }

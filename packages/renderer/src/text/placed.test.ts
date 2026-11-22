@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest'
 import type { Typeface } from '@dazbee/canvaskit'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { framesOf, inOrder, parseDesign, shownGradient, type TextProps, withRunStyle } from '@dazbee/schema'
+import { framesOf, inOrder, parseDesign, shownGradient, TextProps, withRunStyle } from '@dazbee/schema'
 
 import { loadCanvasKit } from '../node.ts'
 import { resourceCache } from '../resources.ts'
 import { render, type SceneLayer } from '../scene.ts'
 import { textMeasure } from './cache.ts'
 import { layoutText } from './layout.ts'
-import { inPlace, placeLetters } from './placed.ts'
+import { inPlace, placedPoint, placeLetters } from './placed.ts'
 import { passPaint, type TextPass } from './text-paint.ts'
 
 const ck = await loadCanvasKit()
@@ -69,6 +69,37 @@ const paintOf = (style: TextProps['style'], pass: TextPass) => {
   return drawn
 }
 
+/** Each glyph's arguments to the place function, for a text of `text` at 40 px in a box `width` wide. */
+const placedArgs = (text: string, runs: object[] = [], width = 2000) => {
+  const props = TextProps.parse({
+    x: 0,
+    y: 0,
+    width,
+    height: 400,
+    text,
+    runs,
+    style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' },
+  })
+  const laid = layoutText(ck, props, resources)
+  const args: { line: number; baseline: number; along: number; advance: number; offset: number }[] = []
+  const placement = placeLetters(ck, laid, (line, along, advance, offset) => {
+    args.push({ line: line.index, baseline: line.baseline, along, advance, offset })
+    return inPlace(line, along, advance, offset)
+  })
+  const glyphs = placement.runs.flatMap((r) => [...r.glyphs])
+  const advances = placement.runs.flatMap((r) => [...r.advances])
+  placement.delete()
+  laid.delete()
+  return { args, glyphs, advances }
+}
+
+describe('inPlace', () => {
+  it('puts a glyph at its distance along its line, its offset off the baseline', () => {
+    const line = { block: 0, index: 0, baseline: 50, left: 0, width: 100, ascent: 40, descent: 10 }
+    expect(inPlace(line, 12, 20, -3)).toEqual([1, 0, 12, 47])
+  })
+})
+
 describe('placeLetters', () => {
   it('reads texts of the fixtures in each script', () => {
     expect(texts.length).toBeGreaterThan(60)
@@ -84,15 +115,17 @@ describe('placeLetters', () => {
       const expected: { block: number; glyph: number; x: number; y: number; typeface: Typeface; offset: number }[] = []
       for (const [block, b] of laid.blocks.entries()) {
         const units = unitsOf(b.text)
-        const seen = new Set<string>()
+        const seen: { glyph: number; cluster: number; x: number; y: number }[] = []
         for (const line of b.paragraph.getShapedLines())
           for (const run of line.runs)
             run.glyphs.forEach((glyph, i) => {
               const x = b.x + (run.positions[2 * i] ?? 0)
               const y = laid.dy + b.y + (run.positions[2 * i + 1] ?? 0)
-              // A glyph drawn twice in one place, clipped, where a style starts inside it, is placed once.
-              if (seen.has(`${glyph} ${x} ${y}`)) return
-              seen.add(`${glyph} ${x} ${y}`)
+              const cluster = run.offsets[i] ?? 0
+              // A glyph drawn again, clipped, where a style starts inside its cluster, is placed once.
+              const near = (s: (typeof seen)[number]) => Math.abs(s.x - x) < 0.5 && Math.abs(s.y - y) < 0.5
+              if (seen.some((s) => s.glyph === glyph && s.cluster === cluster && near(s))) return
+              seen.push({ glyph, cluster, x, y })
               const unit = units[run.offsets[i] ?? 0] ?? b.text.length
               const offset = b.start + Math.min(unit, b.text.length - 1)
               expected.push({ block, glyph, x, y, typeface: run.typeface, offset })
@@ -155,5 +188,40 @@ describe('placeLetters', () => {
     quarter.delete()
     straight.delete()
     laid.delete()
+  })
+
+  it('reads each glyph’s offset off its line’s baseline: none on the line, raised for a made-up superscript', () => {
+    const plain = placedArgs('E x2')
+    const raised = placedArgs('E x2', [{ start: 2, end: 4, style: { features: { sups: true } } }])
+    expect(plain.args.map((a) => a.offset)).toEqual([0, 0, 0, 0])
+    expect(raised.args[0]?.offset).toBe(0)
+    for (const a of raised.args.slice(2)) expect(a.offset).toBeCloseTo(-14, 0)
+    expect(raised.args.map((a) => a.baseline)).toEqual(plain.args.map((a) => a.baseline))
+  })
+
+  it('gives the glyphs of a wrapped line their own line, its baseline a line further down', () => {
+    const { args } = placedArgs('aaaa bbbb', [], 120)
+    const lines = args.map((a) => a.line)
+    expect(lines.slice(0, 4)).toEqual([0, 0, 0, 0])
+    expect(lines.slice(-4)).toEqual([1, 1, 1, 1])
+    const [first, last] = [args[0], args.at(-1)]
+    expect((last?.baseline ?? 0) - (first?.baseline ?? 0)).toBeGreaterThan(40)
+    expect(args.every((a) => a.offset === 0)).toBe(true)
+    // The second line starts back at the left.
+    expect(last?.along).toBeLessThan(120)
+  })
+
+  it('places a glyph whose cluster a piece starts inside once, with its whole advance', () => {
+    const whole = placedArgs('office')
+    const split = placedArgs('office', [{ start: 2, end: 3, style: { color: '#FF0000FF' } }])
+    expect(split.glyphs).toEqual(whole.glyphs)
+    split.advances.forEach((advance, i) => expect(advance).toBeCloseTo(whole.advances[i] ?? 0, 2))
+  })
+})
+
+describe('placedPoint', () => {
+  it('turns a point of a glyph by its RSXform and moves it to the glyph’s place', () => {
+    expect(placedPoint([1, 0, 10, 20], 3, -4)).toEqual([13, 16])
+    expect(placedPoint([0, 1, 10, 20], 3, -4)).toEqual([14, 23])
   })
 })

@@ -103,6 +103,27 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
   return place(props, best ?? build(ck, props, resources, fit.min / base))
 }
 
+/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
+export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
+  return JSON.stringify([
+    props.text,
+    props.runs,
+    props.style,
+    props.width,
+    props.height,
+    props.boxMode,
+    props.wrapStyle,
+    props.align,
+    props.verticalAlign,
+    props.direction,
+    props.list,
+    props.paragraphSpacing,
+    props.maxLines,
+    props.shrinkToFit,
+    fallbackFamilies,
+  ])
+}
+
 /** Vertical alignment in a fixed box. */
 function place(props: TextProps, laid: TextLayout): TextLayout {
   const free = props.boxMode === 'fixed' ? props.height - laid.height : 0
@@ -356,25 +377,4 @@ function fits(props: TextProps, laid: TextLayout): boolean {
   if (laid.blocks.length < total || laid.blocks.some((b) => b.paragraph.didExceedMaxLines())) return false
   for (const b of laid.blocks) if (b.paragraph.getMinIntrinsicWidth() > b.paragraph.getMaxWidth() + 0.01) return false
   return props.boxMode !== 'fixed' || laid.height <= props.height + 0.01
-}
-
-/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
-export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
-  return JSON.stringify([
-    props.text,
-    props.runs,
-    props.style,
-    props.width,
-    props.height,
-    props.boxMode,
-    props.wrapStyle,
-    props.align,
-    props.verticalAlign,
-    props.direction,
-    props.list,
-    props.paragraphSpacing,
-    props.maxLines,
-    props.shrinkToFit,
-    fallbackFamilies,
-  ])
 }

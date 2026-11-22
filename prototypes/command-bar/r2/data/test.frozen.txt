@@ -1,0 +1,523 @@
+# Round 2 frozen test set, written by hand by Claude on 2026-11-22 before any training data
+# was generated. Never trained on. One request per line: OUTCOME | request.
+# Outcome codes (r2/outcomes.py turns them into calls):
+#   w:<weight> case:<upper|lower|title|normal> it+ it- ul+ ul- st+ st- ta:<left|center|right|justify>
+#   ls+ ls- lh+ lh- big big:N small small:N fs:N rot:N flipH flipV rc rc:N brand:<role> col:<name>
+#   hex:#RRGGBB op:N tr:N font:<heading|body> al:<edge> dist:<h|v> order:<forward|backward|front|back>
+#   mv:<dir> mv:<dir>:N dup del group ungroup lock unlock hide show
+#   no call: -big -unrel -unsup -vague -neg -multi
+# A "@ style" line sets the style tag of the lines after it.
+
+@ casual
+w:bold | can you make the headline bold
+w:bold | bold the price please
+w:bold | i want the offer text in bold
+w:bold | make the button label bold
+w:regular | make the subtitle regular again, not bold
+w:regular | take the bold off the price
+w:regular | the caption shouldn't be bold, set it back to normal weight
+w:light | switch the tagline to a light weight
+w:light | make the body copy lighter, like a light font weight
+w:thin | use the thinnest weight for the date
+w:medium | set the label to medium weight
+w:semibold | semibold for the subheading pls
+w:black | make the headline extra heavy, the black weight
+case:upper | put the headline in all caps
+case:upper | make the cta uppercase
+case:upper | capitalise the whole tagline, every letter
+case:lower | make the hashtag all lowercase
+case:lower | turn the label into lower case
+case:title | can you title case the heading
+case:title | capitalise the first letter of each word in the title
+case:normal | remove the all caps from the subtitle
+case:normal | set the case back to how i typed it
+it+ | italicise the quote
+it+ | make the testimonial italic
+it- | remove the italic from the tagline
+it- | the price shouldn't be slanted, take off the italics
+ul+ | underline the link text
+ul+ | add an underline under the cta
+ul- | get rid of the underline on the email address
+st+ | strike through the old price
+st+ | cross out the original price
+st- | remove the line through the price
+ta:left | align the paragraph text to the left
+ta:center | centre the text inside the text box
+ta:right | right align the copy in the footer text
+ta:justify | justify the body text
+ls+ | add some letter spacing to the heading
+ls+ | spread the letters of the logo text out a bit
+ls- | tighten the letter spacing on the headline
+lh+ | more space between the lines of the paragraph
+lh- | reduce the line spacing in the body copy
+big | make the logo bigger
+big | increase the size of the product image
+big | make the headline a bit larger
+big:25 | make the logo 25% bigger
+big:50 | scale the image up by 50 percent
+small | make the badge smaller
+small | shrink the photo a little
+small:10 | make the title 10% smaller
+small:30 | scale down the icon by 30%
+fs:48 | set the headline font size to 48
+fs:24 | change the font size of the subtitle to 24
+fs:72 | make the price 72pt
+fs:16 | body text should be 16 px
+rot:45 | rotate the arrow 45 degrees
+rot:90 | turn the image 90 degrees clockwise
+rot:-30 | rotate the badge 30 degrees anticlockwise
+rot:-15 | tilt the sticker 15 degrees to the left
+rot:180 | rotate it 180 degrees
+flipH | flip the image horizontally
+flipH | mirror the photo so the model faces the other way
+flipV | flip the arrow upside down
+flipV | flip the shape vertically
+rc | round the corners of the button
+rc | give the card rounded corners
+rc:8 | set the corner radius to 8
+rc:24 | round the box corners to 24px
+rc:0 | make the corners of the image square
+rc:0 | i want sharp corners on the button, no rounding
+brand:primary | make the button our primary brand colour
+brand:primary | use the main brand colour on the banner shape
+brand:secondary | apply the secondary colour from the brand kit
+brand:accent | give the badge the brand accent colour
+brand:background | use the brand background colour on the rectangle
+brand:text | set the heading in the brand's text colour
+col:red | make the sale badge red
+col:blue | change the button to blue
+col:green | make the tick icon green
+col:yellow | turn the star yellow
+col:black | make the headline black
+col:white | change the text to white
+col:orange | i want the banner shape orange
+col:purple | colour the circle purple
+col:pink | make the heart pink
+col:grey | make the small print grey
+col:navy | change the background box to navy
+col:teal | make the wave shape teal
+col:brown | colour the box brown
+col:gold | make the border shape gold
+hex:#FF5733 | make the button #FF5733
+hex:#1E90FF | change the fill to #1e90ff
+hex:#00A86B | use #00A86B for the icon
+op:50 | set the opacity of the overlay to 50%
+op:80 | make the logo 80% opacity
+op:30 | opacity 30 on the background image
+tr:20 | make the shape 20% transparent
+tr:60 | give the photo 60% transparency
+font:heading | use the brand heading font for the title
+font:body | set the paragraph in our body font
+al:left | align these layers to the left
+al:right | line up the icons on the right
+al:top | align the buttons along the top
+al:bottom | align everything selected to the bottom
+al:center | centre the logo horizontally
+al:middle | centre these vertically
+dist:h | distribute the icons horizontally
+dist:v | space the list items evenly from top to bottom
+order:front | bring the logo to the front
+order:back | send the background shape to the back
+order:forward | bring the badge forward one layer
+order:backward | send the photo back one step
+mv:up | nudge the headline up a little
+mv:left | move the logo slightly to the left
+mv:right:20 | move the button 20px to the right
+mv:down:50 | shift the image down 50 pixels
+dup | duplicate the button
+dup | make a copy of this card
+del | delete the old logo
+del | remove this shape
+group | group these shapes together
+ungroup | ungroup the selected group
+lock | lock the background image
+unlock | unlock the logo so i can move it
+hide | hide the watermark
+show | show the hidden layer again
+
+@ short
+w:bold | bold
+w:bold | bold pls
+w:regular | unbold
+w:light | lighter weight
+case:upper | caps
+case:upper | ALL CAPS
+case:lower | lowercase
+case:title | title case
+it+ | italic
+it- | no italics
+ul+ | underline
+ul- | no underline
+st+ | strikethrough
+ta:center | centre text
+ta:left | text left
+ls+ | more tracking
+lh- | tighter leading
+big | bigger
+big | larger pls
+small | smaller
+small | tinier
+big:20 | +20%
+fs:36 | 36px
+fs:12 | font 12
+rot:90 | rotate 90
+rot:-90 | rotate -90
+flipH | mirror
+flipV | flip vertical
+rc | rounded corners
+rc:0 | square corners
+rc:12 | radius 12
+col:red | red
+col:black | black pls
+col:blue | blue text
+hex:#222222 | #222222
+op:40 | 40% opacity
+tr:50 | 50% transparent
+brand:accent | accent colour
+brand:primary | primary color
+font:heading | heading font
+font:body | body font
+al:left | align left
+al:top | align top
+al:middle | middle align
+dist:h | distribute horizontally
+dist:v | distribute vertically
+order:front | to front
+order:back | to back
+order:forward | forward one
+mv:up | nudge up
+mv:down | down a bit
+mv:left:5 | 5px left
+dup | dupe
+dup | copy
+del | delete
+del | bin it
+group | group
+ungroup | ungroup
+lock | lock
+unlock | unlock
+hide | hide
+show | unhide
+
+@ misspelt
+w:bold | mak the titel bold
+w:bold | bolld the headline
+w:regular | unbolt the price
+w:semibold | semi bould the subheadng
+case:upper | make it all capps
+case:upper | uppercse the cta
+case:lower | lowercas the hashtag
+case:title | titel case the heading plz
+it+ | itallic the quote
+it+ | make it italik
+it- | remov the itallics
+ul+ | undrline the link
+ul- | remvoe underline
+st+ | strke through the old price
+ta:center | centr align the text
+ta:justify | justfy the paragrph
+ta:right | rite align the text
+ls+ | incrase leter spacing
+ls- | les letter spaceing
+lh+ | more line spacng
+lh- | reduse line hieght
+big | make the logo biger
+big | enlrage the image
+big:40 | make it 40% bigr
+small | make it smallr
+small | shrnk the logo
+small:20 | redce size by 20%
+fs:32 | set font sise to 32
+fs:60 | fontsize 60
+rot:45 | rotat it 45 degres
+rot:-45 | rotate 45 degre anticlokwise
+flipH | flip horizontaly
+flipV | flip verticaly
+rc | rond the corners
+rc:16 | corner radious 16
+rc:0 | make the corneres sharp
+brand:primary | use brnad primary colour
+brand:secondary | secondry brand color on the button
+col:red | mak it red
+col:green | chnage it to green
+col:purple | make the circle purpel
+col:grey | make it gery
+col:yellow | yelow plz
+hex:#FFCC00 | colur it #ffcc00
+op:70 | opacty 70%
+op:25 | set opasity to 25
+tr:40 | make it 40% transparant
+font:heading | use the heding font
+font:body | swich to body font
+al:left | algn left
+al:center | allign center
+al:bottom | algin them to the botom
+dist:h | distribte horizontally
+dist:v | distrubute verticaly
+order:front | bring to frnt
+order:back | snd to back
+order:forward | bring foward
+order:backward | send backwrd
+mv:right | nuge it right
+mv:up:10 | move up 10 pxl
+mv:down | move it donw a bit
+dup | duplicat this
+dup | dupliacte the card
+del | delte this
+del | delet the logo
+group | grup these
+ungroup | ungrup
+lock | lok it
+unlock | unlok the image
+hide | hid the layer
+show | unhied it
+
+@ hinglish
+w:bold | isko bold kar do
+w:bold | headline ko bold karo
+w:bold | title thoda bold kar do na
+w:regular | price se bold hata do
+w:light | font ko light kar do
+case:upper | sab capital letters mein kar do
+case:upper | cta ko caps mein karo
+case:lower | text ko small letters mein kar do
+it+ | isko italic kar do
+it- | italic hata do
+ul+ | link ke neeche underline daal do
+ul- | underline hata do
+st+ | purane price pe line maar do
+ta:center | text ko center mein karo
+ta:left | text left align kar do
+ls+ | letters ke beech thoda gap badha do
+lh+ | lines ke beech space badhao
+lh- | lines ke beech gap kam karo
+big | logo ko bada karo
+big | isko thoda bada kar do
+big | image ko aur bada karo yaar
+big:50 | isko 50% bada karo
+small | logo thoda chhota kar do
+small | image ko chhota karo
+small:20 | 20 percent chhota kar do
+fs:40 | font size 40 kar do
+fs:20 | heading ka size 20 kar do
+rot:45 | isse 45 degree ghumao
+rot:90 | 90 degree rotate kar do
+rot:-30 | 30 degree ulta ghuma do
+flipH | image ko ulta kar do left right
+flipV | isko upar neeche se flip karo
+rc | corners round kar do
+rc:0 | corners ko sharp kar do
+brand:primary | button pe brand ka primary color lagao
+brand:accent | accent color laga do
+col:red | isko laal kar do
+col:red | red kar do
+col:yellow | star ko peela karo
+col:black | text kala kar do
+col:white | text ko white kar do
+col:green | button hara kar do
+col:blue | ise blue kar do bhai
+hex:#FF0000 | color #FF0000 kar do
+op:50 | opacity 50 kar do
+tr:30 | isko 30% transparent karo
+font:heading | heading wala font lagao
+font:body | body font laga do
+al:left | sabko left mein align karo
+al:top | sab upar se align kar do
+al:center | logo ko beech mein karo horizontally
+dist:h | inko barabar gap mein phaila do horizontally
+order:front | logo ko sabse aage le aao
+order:back | isko sabse peeche bhej do
+order:forward | ek layer aage karo
+mv:up | thoda upar karo
+mv:left | thoda left khisko do
+mv:right:20 | 20 pixel right mein karo
+dup | iski copy bana do
+dup | ek aur bana do iska duplicate
+del | ye hata do
+del | isko delete kar do
+group | inko group kar do
+ungroup | group tod do
+lock | isko lock kar do
+unlock | lock khol do
+hide | isko chhupa do
+show | wapas dikhao isko
+
+@ marketer
+w:bold | cta needs more punch, bold it
+w:bold | make the offer line bold so it reads first
+w:black | go full black weight on the hero headline
+w:light | the disclaimer is shouting, make it light weight
+case:upper | headline in caps, it's a sale banner
+case:title | title case the product name like a proper heading
+ta:center | center align the copy in the hero text block
+ls+ | open up the tracking on the eyebrow text
+ls- | tighten up the kerning on the tagline
+lh+ | give the body copy more breathing room between lines
+lh- | the bullet text lines are too far apart, bring them closer
+big | the logo is getting lost, scale it up
+big | hero image should dominate, make it bigger
+big:15 | bump the price up 15%
+small | the brand mark is too loud, make it smaller
+small:25 | knock the packshot down 25%
+fs:64 | hero headline at 64px
+fs:14 | legal copy to 14pt
+fs:96 | make the discount number 96 px
+rot:-10 | tilt the sale sticker 10 degrees left for some energy
+rot:15 | angle the badge 15 degrees clockwise
+flipH | flip the packshot so it faces into the copy
+rc | soften the button corners
+rc:4 | 4px radius on the cta, keep it subtle
+brand:primary | swap the cta fill to our primary brand colour
+brand:accent | make the price tag our accent colour
+brand:secondary | the strip should be in secondary from the kit
+brand:background | use the kit's background colour behind the copy
+brand:text | the headline should use the brand text colour
+col:red | make the sale tag red so it pops
+col:black | go black on the headline for contrast
+col:white | knock out the cta text to white
+hex:#0A2540 | headline colour #0A2540 per the style guide
+hex:#F5F5F5 | panel fill #f5f5f5
+op:60 | knock the logo back to 60% opacity
+op:15 | watermark at 15% opacity
+tr:70 | make the overlay 70% see-through
+font:heading | headline should be in the brand heading typeface
+font:body | swap the paragraph to the kit's body typeface
+al:left | left align all the selected elements to the same edge
+al:center | center the packshot on the artboard horizontally
+al:middle | vertically centre the cta and the price
+dist:h | equal gaps between the three product tiles across
+dist:v | even out the spacing between the bullet rows vertically
+order:front | push the price tag to the front so it's not hidden
+order:back | the texture should sit behind everything
+order:backward | drop the shape one layer back
+mv:down:24 | drop the cta 24px
+mv:left:12 | nudge the logo 12px left
+mv:up | nudge the headline up a touch
+dup | dupe the tile so we have one more
+del | kill the old badge
+del | lose the placeholder image
+group | group the price and the badge so they move together
+ungroup | break the lockup apart
+lock | lock the legal copy so nobody nudges it
+lock | lock the background so i don't drag it by mistake
+unlock | unlock the hero image, i need to move it
+hide | hide the draft stamp for now
+show | bring back the hidden disclaimer
+st+ | strike the was-price
+ul+ | underline the shop now link
+it+ | italicise the testimonial quote
+case:lower | all lowercase on the hashtag, it's on brand
+
+@ indirect
+big | the logo is way too small
+big | i can barely see the price
+big | can the image be larger?
+small | the headline is too big
+small | this icon is huge
+w:bold | the title looks too thin, can it be bold?
+w:regular | why is the price bold? make it normal weight
+case:upper | i want the headline shouting in capitals
+it- | the subtitle shouldn't be in italics
+ul- | i don't want the link underlined anymore
+st- | the price shouldn't be crossed out
+ls- | the letters are too spread out
+lh+ | the lines are too cramped
+lh- | there's too much gap between the lines
+col:white | can the text be white?
+col:red | would it look better red? try red
+op:50 | the overlay should be half see-through, 50% opacity
+tr:50 | make it half transparent
+order:front | the logo is hidden behind the photo, bring it on top
+order:back | the shape is covering the text, put it behind everything
+al:left | these aren't lined up, align them on the left
+dist:h | the gaps between the icons are uneven, spread them out evenly across
+mv:right | it's too close to the left edge, move it right a bit
+mv:down | it's sitting too high, nudge it down
+dup | i need another one of these
+del | i don't need this layer
+del | this shape shouldn't be here, get rid of it
+lock | i keep moving the background by accident, lock it
+unlock | i can't move this, unlock it
+hide | i don't want to see the watermark right now
+show | where did the logo go? show it again
+group | these should move together, group them
+ungroup | i want to move these separately, ungroup
+rc | the corners are too sharp, round them
+rc:0 | the corners shouldn't be rounded
+flipH | the arrow points the wrong way, mirror it
+rot:90 | the photo is sideways, rotate it 90 degrees
+big:100 | double the size of the logo
+small:50 | make the image half the size
+fs:18 | the body text should be 18
+brand:primary | shouldn't the button be our primary colour? change it
+font:heading | this isn't the heading font, switch to it
+case:normal | why is everything in caps? set the case back to normal
+it+ | can the quote be in italics?
+ta:right | the text should sit on the right side of its box, right align it
+
+@ nocall
+-big | make me an ad for our diwali sale
+-big | create an instagram story for the new sneakers
+-big | write a catchy headline for this
+-big | generate 3 more versions of this banner
+-big | design a facebook carousel for my bakery
+-big | resize this ad for all social sizes
+-big | ek naya poster bana do summer sale ke liye
+-big | come up with a tagline for the coffee brand
+-big | make this look like an apple ad
+-big | suggest colours that go with our logo
+-unrel | what's the time
+-unrel | hi
+-unrel | thank you
+-unrel | who made you
+-unrel | kya haal hai
+-unrel | tell me something funny
+-unrel | how many followers do we have
+-unrel | asdfgh
+-unrel | send this to the client on whatsapp
+-unrel | what's the weather tomorrow
+-unsup | add a drop shadow to the button
+-unsup | remove the background from the photo
+-unsup | crop the image to a square
+-unsup | undo
+-unsup | export this as a png
+-unsup | change the headline text to "flat 50% off"
+-unsup | add a stroke around the logo
+-unsup | blur the background image
+-unsup | change the font to montserrat
+-unsup | add a gradient to the shape
+-unsup | insert a qr code
+-unsup | add a new text layer
+-unsup | background hata do photo ka
+-unsup | zoom in a bit
+-unsup | make the image black and white
+-vague | make it pop
+-vague | make it look better
+-vague | change the colour
+-vague | resize it
+-vague | rotate it
+-vague | move it
+-vague | change the font size
+-vague | make it more premium
+-vague | thoda accha bana do
+-vague | fix the alignment
+-vague | change the opacity
+-vague | make it more transparent
+-vague | use a brand colour
+-vague | align it
+-vague | hmm not quite
+-neg | don't make it bold
+-neg | leave the logo as it is
+-neg | no wait, cancel
+-neg | don't delete it
+-neg | mat karo
+-neg | keep the headline the same size
+-neg | actually never mind
+-multi | make the headline bold and red
+-multi | duplicate the button and move it right
+-multi | make it bigger and centre it
+-multi | bold aur italic dono kar do
+-multi | group these and lock them
+-multi | make the logo smaller and send it to the back
+-multi | underline the link and make it blue
+-multi | rotate it 45 degrees and flip it

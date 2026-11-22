@@ -76,6 +76,11 @@ async function wholeGoogleList(path: string): Promise<FontFamily[] | null> {
   return null
 }
 
+/** The families with the fonts we ship after them; a brand's upload of a shipped family's name is the one it sees. */
+function withShipped(families: FontFamily[]): FontFamily[] {
+  return [...families, ...SHIPPED.filter((s) => !families.some((f) => f.family === s.family))]
+}
+
 /** The Google list at its address, read once for the page and kept by the browser for good. */
 function googleList(path: string): Promise<FontFamily[] | null> {
   let list = googleLists.get(path)
@@ -91,13 +96,12 @@ function googleList(path: string): Promise<FontFamily[] | null> {
 
 /** The brand's catalog, with the shipped fonts last; `refresh` fetches it again after an upload. */
 export function useFontCatalog(workspaceId: string, brandId: string) {
-  const [catalog, setCatalog] = useState<FontFamily[]>(SHIPPED)
+  const [catalog, setCatalog] = useState(() => pageCatalog(workspaceId, brandId))
   const refresh = useCallback(async () => {
     // Offline, the list keeps what it had; it is fetched again each time it opens.
     const families = await loadCatalog(workspaceId, brandId)
     if (!families) return
-    // A brand's upload of a shipped family's name is the one it sees.
-    setCatalog([...families, ...SHIPPED.filter((s) => !families.some((f) => f.family === s.family))])
+    setCatalog(withShipped(families))
   }, [workspaceId, brandId])
   useEffect(() => {
     void refresh()
@@ -121,9 +125,18 @@ export async function loadCatalog(workspaceId: string, brandId: string): Promise
   return families
 }
 
+/**
+ * The catalog a chooser starts with: the brand's as last read on this page, so one opened again offline still lists
+ * it, or only the fonts we ship before the first read; the shipped fonts last.
+ */
+export function pageCatalog(workspaceId: string, brandId: string): FontFamily[] {
+  return withShipped(loadedCatalog(workspaceId, brandId) ?? [])
+}
+
 /** The brand's catalog as last read on this page, for what can't be asked of the brand offline; none before. */
-export const loadedCatalog = (workspaceId: string, brandId: string): FontFamily[] | undefined =>
-  loadedCatalogs.get(`${workspaceId}/${brandId}`)
+export function loadedCatalog(workspaceId: string, brandId: string): FontFamily[] | undefined {
+  return loadedCatalogs.get(`${workspaceId}/${brandId}`)
+}
 
 /** A family's category: Google's, or the one we give a font we ship; an upload has none. */
 export function categoryOf(family: FontFamily): FontCategory | null {

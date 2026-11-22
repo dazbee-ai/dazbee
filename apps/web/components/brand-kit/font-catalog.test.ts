@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, faceFor, loadCatalog, loadedCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
+import { categoryOf, faceFor, loadCatalog, loadedCatalog, pageCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -212,5 +212,28 @@ describe('loadCatalog', () => {
     fakeFetch({})
     expect(await loadCatalog('w2', 'b2')).toBeNull()
     expect(loadedCatalog('w2', 'b2')?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
+  })
+
+  it('starts a chooser opened again with the catalog the page read last, the shipped fonts after it', async () => {
+    const shipped = ['Noto Naskh Arabic', 'Noto Sans', 'Noto Sans Devanagari']
+    expect(
+      pageCatalog('w3', 'b3')
+        .map((f) => f.family)
+        .sort(),
+    ).toEqual(shipped)
+    const list = googleList([lora, raleway, listed('Noto Sans', 'google', 'notosans0400')])
+    fakeFetch({
+      '/w/w3/brands/b3/fonts/catalog': () => Response.json({ google: list.path, uploads: [house] }),
+      [list.path]: () => new Response(list.body),
+    })
+    await loadCatalog('w3', 'b3')
+    expect(pageCatalog('w3', 'b3').map((f) => [f.family, f.source])).toEqual([
+      ['House Sans', 'upload'],
+      ['Lora', 'google'],
+      ['Noto Sans', 'google'],
+      ['Raleway', 'google'],
+      ['Noto Sans Devanagari', 'builtin'],
+      ['Noto Naskh Arabic', 'builtin'],
+    ])
   })
 })

@@ -95,7 +95,7 @@ export async function matchTextWithFace(
   const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
   const drawer = textDrawer(ck, drawnFaces(candidates, faces))
   let light: Verified | undefined
-  let tuned: Verified | undefined
+  let finer: Verified | undefined
   try {
     const fits = candidates.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     rankFits(fits, listed.similarities)
@@ -109,8 +109,8 @@ export async function matchTextWithFace(
       light = verify(drawer, target, finalists, listed.similarities)
     }
     if (light && job.setting === 'hybrid') {
-      const finer = finerFit(drawer, work, words, light.fit)
-      if (finer !== light.fit) tuned = finish(drawer, target, finer)
+      const finerFitted = finerFit(drawer, work, words, light.fit)
+      if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }
   } finally {
     drawer.delete()
@@ -118,8 +118,8 @@ export async function matchTextWithFace(
   if (!light) return { answer: pictureAnswer('looksDifferent') }
   const atFullSize = (verified: Verified) =>
     scale === 1 ? verified : atWholeSize(ck, verified, scale, faces, { ...target, reading: whole })
-  const tunedAtFullSize = tuned && atFullSize(tuned)
-  const answer = tunedAtFullSize?.same ? tunedAtFullSize : atFullSize(light)
+  const finerAtFullSize = finer && atFullSize(finer)
+  const answer = finerAtFullSize?.same ? finerAtFullSize : atFullSize(light)
   const face = { family: answer.face.family, weight: answer.face.weight, style: answer.face.style }
   return {
     answer: answer.same

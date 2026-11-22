@@ -12,7 +12,7 @@ import { facesToLoad, type FontUse, type GoogleFamily } from '@dazbee/fonts'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import {
   byCodeUnits,
-  type FontCatalog,
+  type FontCatalogParts,
   type FontFace,
   type FontFamily,
   type FontLink,
@@ -26,6 +26,12 @@ import { checkUpload, googleFontKey, previewKey, signedLink, signedUpload, uploa
 import { fontPreview, readFontInfo } from './font-file.ts'
 
 export class InvalidFont extends Error {}
+
+/** The Google list: its bytes, JSON, and the hash of those bytes, which names its address. */
+export interface GoogleFontList {
+  hash: string
+  bytes: Uint8Array
+}
 
 type Row = typeof fontFaces.$inferSelect
 
@@ -47,12 +53,6 @@ const visibleTo = (workspaceId: string, brandId: string) =>
 
 /** The Google Fonts families by name, once looked up. */
 let googleByName: ReadonlyMap<string, GoogleFamily> | undefined
-
-/** The Google list: its bytes, JSON, and its version, the hash of those bytes, which names its address. */
-export interface GoogleFontList {
-  version: string
-  bytes: Uint8Array
-}
 
 /** The Google list last built, with the fingerprint of the Google faces it was built from. */
 let builtList: { fingerprint: string; list: GoogleFontList } | undefined
@@ -76,7 +76,7 @@ export async function listFonts(
 }
 
 /** The brand's catalog in two parts: the address of the Google list, the same for every brand, and its uploads. */
-export async function fontCatalog(db: Db, workspaceId: string, brandId: string): Promise<FontCatalog> {
+export async function fontCatalogParts(db: Db, workspaceId: string, brandId: string): Promise<FontCatalogParts> {
   const [list, uploads] = await Promise.all([
     googleFontList(db),
     db
@@ -84,13 +84,13 @@ export async function fontCatalog(db: Db, workspaceId: string, brandId: string):
       .from(fontFaces)
       .where(and(eq(fontFaces.workspaceId, workspaceId), eq(fontFaces.brandId, brandId))),
   ])
-  return { google: googleFontListPath(list.version), uploads: toFamilies(uploads) }
+  return { google: googleFontListPath(list.hash), uploads: toFamilies(uploads) }
 }
 
 /**
  * The Google families, every face of each, as every brand sees them where it has no upload of the family: built
  * again only once the Google faces are others, which a fingerprint of their ids tells, since a face is never changed,
- * only added or removed. The same faces always give the same bytes, so every server names the same version.
+ * only added or removed. The same faces always give the same bytes, so every server names the same hash.
  */
 export async function googleFontList(db: Db): Promise<GoogleFontList> {
   const [stored] = await db
@@ -99,16 +99,15 @@ export async function googleFontList(db: Db): Promise<GoogleFontList> {
     })
     .from(fontFaces)
     .where(eq(fontFaces.source, 'google'))
-  if (builtList && builtList.fingerprint === stored?.fingerprint) return builtList.list
-  // By id, so the same faces always come in the same order; the fingerprint is of the faces read here.
+  const fingerprint = stored?.fingerprint ?? ''
+  if (builtList?.fingerprint === fingerprint) return builtList.list
+  // By id, so the same faces always come in the same order.
   const rows = (await db.select().from(fontFaces).where(eq(fontFaces.source, 'google'))).sort((a, b) =>
     byCodeUnits(a.id, b.id),
   )
   const bytes = new TextEncoder().encode(JSON.stringify(toFamilies(rows)))
-  const list = { version: createHash('sha256').update(bytes).digest('hex').slice(0, 32), bytes }
-  const fingerprint = createHash('md5')
-    .update(rows.map((row) => row.id).join(','))
-    .digest('hex')
+  const list = { hash: createHash('sha256').update(bytes).digest('hex').slice(0, 32), bytes }
+  // A face added between the fingerprint and the read is in the list already; the next fingerprint builds it again.
   builtList = { fingerprint, list }
   return list
 }

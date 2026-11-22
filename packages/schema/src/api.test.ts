@@ -197,7 +197,7 @@ describe('googleFacePaths', () => {
 })
 
 describe('googleFontListPath', () => {
-  it('names the Google list by its version, at an address kept for good', () => {
+  it('names the Google list by the hash of its bytes, at an address kept for good', () => {
     expect(googleFontListPath('0123456789abcdef01234567')).toBe('/fonts/google/lists/0123456789abcdef01234567.js')
   })
 })

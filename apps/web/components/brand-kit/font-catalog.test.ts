@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, faceFor, loadCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
+import { categoryOf, faceFor, loadCatalog, loadedCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -173,8 +173,16 @@ describe('loadCatalog', () => {
     expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
   })
 
-  it('gives nothing offline, so the chooser keeps what it had', async () => {
+  it('gives nothing offline, so the chooser keeps what it had, and keeps the catalog it read last', async () => {
+    const list = '/fonts/google/lists/00000000000000000000000000000004.js'
+    fakeFetch({
+      '/w/w2/brands/b2/fonts/catalog': () => Response.json({ google: list, uploads: [house] }),
+      [list]: () => Response.json([lora]),
+    })
+    expect(loadedCatalog('w2', 'b2')).toBeUndefined()
+    await loadCatalog('w2', 'b2')
     fakeFetch({})
-    expect(await loadCatalog('w1', 'b1')).toBeNull()
+    expect(await loadCatalog('w2', 'b2')).toBeNull()
+    expect(loadedCatalog('w2', 'b2')?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
   })
 })

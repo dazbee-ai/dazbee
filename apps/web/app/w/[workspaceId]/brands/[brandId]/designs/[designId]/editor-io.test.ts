@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
+import * as fontCatalog from '@/components/brand-kit/font-catalog.ts'
+
 import { fontLoader } from './editor-io.ts'
 
 const CATALOG: FontFamily[] = [
@@ -39,6 +41,7 @@ function fakeFetch(catalog = CATALOG) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('fontLoader', () => {
@@ -85,5 +88,13 @@ describe('fontLoader', () => {
     expect(asked.map((url) => new URL(url, 'https://app.example').searchParams.getAll('family').length)).toEqual([
       100, 20,
     ])
+  })
+
+  it('answers from the catalog the page read last when the brand can’t be asked, as offline', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    const { fontFaces } = fontLoader('w1', 'b1')
+    await expect(fontFaces(['Lora'])).rejects.toThrow('Failed to fetch')
+    vi.spyOn(fontCatalog, 'loadedCatalog').mockReturnValue(CATALOG)
+    expect((await fontFaces(['Lora', 'Gone Sans'])).map((face) => face.id)).toEqual(['lora00000400'])
   })
 })

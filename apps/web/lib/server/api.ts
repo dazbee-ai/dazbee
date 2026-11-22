@@ -16,7 +16,7 @@ import {
   DesignCover,
   DesignSummary,
   DesignThumbnail,
-  FontCatalog,
+  FontCatalogParts,
   FontFace,
   FontFamily,
   FontLink,
@@ -372,7 +372,7 @@ export async function deleteAsset(workspaceId: string, brandId: string, assetId:
 }
 
 /**
- * The fonts a brand picks from (#50): Google Fonts copied into our storage and the brand's uploads; only the families
+ * The fonts a brand picks from: Google Fonts copied into our storage and the brand's uploads; only the families
  * named, when some are.
  */
 export function listFonts(workspaceId: string, brandId: string, families?: readonly string[]) {
@@ -381,8 +381,8 @@ export function listFonts(workspaceId: string, brandId: string, families?: reado
 }
 
 /** The brand's font catalog in its two parts: the Google list's address and the brand's uploads. */
-export const fontCatalog = (workspaceId: string, brandId: string) =>
-  call(FontCatalog, `${brandRoot(workspaceId, brandId)}/fonts/catalog`)
+export const fontCatalogParts = (workspaceId: string, brandId: string) =>
+  call(FontCatalogParts, `${brandRoot(workspaceId, brandId)}/fonts/catalog`)
 
 /** Uploads a font file for the brand: asks, PUTs the bytes to storage when asked to, records it. */
 export async function uploadFont(

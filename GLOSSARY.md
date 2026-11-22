@@ -283,8 +283,12 @@ A text layer setting that picks the largest font size, between a least and a mos
 _Avoid_: Auto size, fit text
 
 **Font catalog**:
-The families a brand can set text in: the fonts we ship (the fallbacks among them), every Google Fonts family under the OFL, Apache 2.0 or UFL, copied into our storage from google/fonts (the script fonts among them), and the brand's own uploads. A brand's upload of a family name is the one it sees. Its Google part is the **Google list**, one for every brand, which the browser and Cloudflare keep until the Google families change. Every font file is loaded from our storage, never from Google, the system or the browser.
+The families a brand can set text in: the fonts we ship (the fallbacks among them), every Google Fonts family under the OFL, Apache 2.0 or UFL, copied into our storage from google/fonts (the script fonts among them), and the brand's own uploads. A brand's upload of a family name is the one it sees. Its Google part is the Google list. Every font file is loaded from our storage, never from Google, the system or the browser.
 _Avoid_: Font library (that is the asset library's word), web fonts
+
+**Google list**:
+The Google part of every brand's font catalog: each Google Fonts family in our storage with its faces, category, popularity and scripts, one file the same for every brand, at an address named by the hash of its bytes, which browsers and Cloudflare keep for good. A brand's uploads come beside it, and its upload of a family name takes that family's place.
+_Avoid_: Google catalog, font index
 
 **Font face**:
 One font file in the catalog: a family in one weight and style, or a **variable font**'s range of weights in one style. A design loads only the faces its texts are drawn in, never every face of a family.

@@ -1,5 +1,5 @@
 // The brand's font catalog, or with `family` asked for only those families, as a design opening asks for its
-// texts' families, and font uploads (#50). An upload passes through here to the API and storage, so the browser
+// texts' families, and font uploads. An upload passes through here to the API and storage, so the browser
 // needs no storage address or credentials.
 import { type FontType, MAX_FONT_BYTES } from '@dazbee/schema'
 

@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { fontFaces, newId } from '@dazbee/db'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
-import { brandCatalog, FontCatalog, FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
+import { brandCatalog, FontCatalogParts, FontFace, FontFamily, FontLink, FontUploadTicket } from '@dazbee/schema'
 
 import { app, brand, call, db, otherBrand, run, SHORT_ID, sibling, storage, workspace } from '../test-api.ts'
 import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
@@ -51,7 +51,7 @@ describe('fonts', { timeout: 30_000 }, () => {
   async function catalogOf(as: string, brandId: string) {
     const answer = await call(as, 'GET', `/brands/${brandId}/fonts/catalog`)
     expect(answer.status).toBe(200)
-    return FontCatalog.parse(answer.json)
+    return FontCatalogParts.parse(answer.json)
   }
 
   /** The id of the stand-in Google family's face of this weight, once copied. */
@@ -400,16 +400,16 @@ describe('fonts', { timeout: 30_000 }, () => {
       expect(after).not.toBe(before)
       const list = FontFamily.array().parse(await (await app.request(after)).json())
       expect(list.find((f) => f.family === google.family)?.faces.map((f) => f.id)).toContain(row.id)
-      const version = /([\w-]+)\.js$/.exec(after)?.[1] ?? ''
+      const hash = /([\w-]+)\.js$/.exec(after)?.[1] ?? ''
       for (const path of [
         before,
-        `/fonts/google/lists/${version}.json`,
-        `/fonts/google/lists/${version}`,
-        `/fonts/google/lists/${version}.js?v=2`,
-        `/fonts/google/lists/${version.toUpperCase()}.js`,
-        `/fonts/google/lists/%${version.charCodeAt(0).toString(16)}${version.slice(1)}.js`,
-        `/fonts/google/lists/${'0'.repeat(version.length)}.js`,
-        `/fonts/google/faces/${version}.js`,
+        `/fonts/google/lists/${hash}.json`,
+        `/fonts/google/lists/${hash}`,
+        `/fonts/google/lists/${hash}.js?v=2`,
+        `/fonts/google/lists/${hash.toUpperCase()}.js`,
+        `/fonts/google/lists/%${hash.charCodeAt(0).toString(16)}${hash.slice(1)}.js`,
+        `/fonts/google/lists/${'0'.repeat(hash.length)}.js`,
+        `/fonts/google/faces/${hash}.js`,
       ]) {
         const refused = await app.request(path)
         expect({ path, status: refused.status }).toEqual({ path, status: 404 })

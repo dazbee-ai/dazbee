@@ -383,7 +383,7 @@ export type RecordFont = z.infer<typeof RecordFont>
 export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
 
 /**
- * Where the app serves the Google part of the font catalog to anyone, by its version, the hash of its bytes: the
+ * Where the app serves the Google list, the Google part of the font catalog, to anyone, by the hash of its bytes: the
  * list at one address never changes, so browsers and Cloudflare keep it for good. It is JSON, at a `.js` name because
  * Cloudflare keeps files at its edge by their extension, and `.json` is not one it keeps.
  */
@@ -393,11 +393,11 @@ export const GOOGLE_FONT_LIST_PATH = '/fonts/google/lists/'
  * A brand's font catalog in its two parts: the address of the Google list, the same for every brand
  * (`googleFontListPath`), and the brand's own uploads. `brandCatalog` joins them.
  */
-export const FontCatalog = z.object({
+export const FontCatalogParts = z.object({
   google: z.string().startsWith(GOOGLE_FONT_LIST_PATH),
   uploads: FontFamily.array(),
 })
-export type FontCatalog = z.infer<typeof FontCatalog>
+export type FontCatalogParts = z.infer<typeof FontCatalogParts>
 
 /** A face and short-lived URLs to read its file and its preview, the family's name drawn in it as a PNG. */
 export const FontLink = z.object({
@@ -631,8 +631,8 @@ export function googleFacePaths(face: { id: string; source: FontSource }): { fil
   return { file: `${GOOGLE_FONT_PATH}${face.id}.ttf`, preview: `${GOOGLE_FONT_PATH}${face.id}.png` }
 }
 
-/** The address of the Google list of this version, kept for good (`GOOGLE_FONT_LIST_PATH`). */
-export const googleFontListPath = (version: string) => `${GOOGLE_FONT_LIST_PATH}${version}.js`
+/** The address of the Google list whose bytes hash to `hash`, kept for good (`GOOGLE_FONT_LIST_PATH`). */
+export const googleFontListPath = (hash: string) => `${GOOGLE_FONT_LIST_PATH}${hash}.js`
 
 /**
  * The families a brand can use, by name in code-unit order: the Google list's and the brand's uploads, where a brand's

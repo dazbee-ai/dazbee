@@ -4,6 +4,7 @@
 import type { FontSources } from '@dazbee/editor'
 import { BrandKit, FontFamily, googleFacePaths, MOST_FONT_FAMILIES_ASKED, type Variables } from '@dazbee/schema'
 
+import { loadedCatalog } from '@/components/brand-kit/font-catalog.ts'
 import { kitVariables } from '@/components/brand-kit/kit-logo.ts'
 import { OPENING_POSES } from '@/components/editor/design-opening.ts'
 import { mascotSrc } from '@/components/ui/mascot.tsx'
@@ -21,7 +22,7 @@ export async function assetBytes(workspaceId: string, brandId: string, assetId: 
 
 /**
  * The faces of the families the editor asks for, as the brand sees them, asked of the brand each time: only what the
- * design's texts use, and a family uploaded since is there; and the file of each face it asks for: a Google face's
+ * design's texts use, and a family uploaded since is there; offline, from the catalog the page read last; and the file of each face it asks for: a Google face's
  * from its permanent address, which the browser keeps, and an upload's through the brand.
  */
 export function fontLoader(workspaceId: string, brandId: string): Required<FontSources> {
@@ -38,10 +39,16 @@ export function fontLoader(workspaceId: string, brandId: string): Required<FontS
       const asks: string[][] = []
       for (let i = 0; i < families.length; i += MOST_FONT_FAMILIES_ASKED)
         asks.push(families.slice(i, i + MOST_FONT_FAMILIES_ASKED))
-      const faces = (await Promise.all(asks.map(askFor)))
-        .flat()
-        .filter((f) => families.includes(f.family))
-        .flatMap((f) => f.faces)
+      const listed = await Promise.all(asks.map(askFor)).then(
+        (answers) => answers.flat(),
+        (error: unknown) => {
+          // Offline, the catalog the font chooser read on this page answers, as the whole catalog once did.
+          const known = loadedCatalog(workspaceId, brandId)
+          if (!known) throw error
+          return known
+        },
+      )
+      const faces = listed.filter((f) => families.includes(f.family)).flatMap((f) => f.faces)
       for (const face of faces) {
         const paths = googleFacePaths(face)
         if (paths) googleFiles.set(face.id, paths.file)

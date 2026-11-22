@@ -647,7 +647,7 @@ The text matcher's quicker setting: the brand kit's fonts and a short list of fo
 _Avoid_: Fast mode, lite
 
 **Hybrid**:
-The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font.
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height, place and outline fitted finer on that one font, kept when it looks the same, else Light's answer.
 _Avoid_: Full, accurate mode, medium
 
 **Font fingerprint**:

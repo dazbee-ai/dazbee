@@ -4,7 +4,6 @@ import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
-import { LOOKS_SAME } from '../looks-same/rule.ts'
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { matchText, matchTextWithFace } from './match-text.ts'
@@ -47,8 +46,10 @@ const ROUND_TRIPS = [
   'devanagari-loose',
 ]
 
-/** The round trip Hybrid keeps a picture, though Light makes it text. */
-const HYBRID_PICTURE = 'arabic-outlined'
+/** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
+const LIGHT_KEPT = 'arabic-outlined'
+/** A round trip whose finer fit moves and still looks the same in Hybrid. */
+const FINER_KEPT = 'latin-plain'
 
 /** A piece matched twice in a setting, Light unless named, which must give the same answer. */
 async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting = 'light'): Promise<MatchAnswer> {
@@ -57,6 +58,17 @@ async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting =
   const first = await matchText(job, piece, deps)
   expect(await matchText(job, piece, deps)).toEqual(first)
   return first
+}
+
+/** A piece of Light's test matched once in Light and once in Hybrid. */
+async function lightAndHybrid(id: string): Promise<{ light: MatchAnswer; hybrid: MatchAnswer }> {
+  const piece = pieceOf(id)
+  const deps = { ck, files, model, fonts: FIXTURE_FONTS }
+  const answerIn = async (setting: MatchSetting) => {
+    const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words, { setting })
+    return matchText(job, jobPiece, deps)
+  }
+  return { light: await answerIn('light'), hybrid: await answerIn('hybrid') }
 }
 
 /** The piece of Light's test with this id. */
@@ -87,14 +99,20 @@ describe('matchText', () => {
     expect(await matchTextWithFace(job, jobPiece, deps)).toEqual(hybrid)
     // Light gives each round trip back in its drawn face (above).
     expect(hybrid.face && fontKey(hybrid.face)).toBe(piece.key)
-    if (id === HYBRID_PICTURE) {
-      // The finer fit finds the 3 px outline drawn, and the colour guard then fails.
-      expect(hybrid.answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
-      expect(hybrid.answer.scores?.inkColour).toBeGreaterThan(LOOKS_SAME.text.inkColour)
-      return
-    }
     const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
+  })
+
+  it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {
+    const { light, hybrid } = await lightAndHybrid(LIGHT_KEPT)
+    expect(light.kind).toBe('layers')
+    expect(hybrid).toEqual(light)
+  })
+
+  it('keeps the finer fit in Hybrid when it looks the same', async () => {
+    const { light, hybrid } = await lightAndHybrid(FINER_KEPT)
+    expect(hybrid.kind).toBe('layers')
+    expect(hybrid).not.toEqual(light)
   })
 
   it('keeps a piece of noise a picture, as it looks different', async () => {

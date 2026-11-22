@@ -7,10 +7,10 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import type { DropShadow } from '@dazbee/schema'
 
 import { meanDifference } from './answer.ts'
-import { hexColour, type SrgbFloat } from './colour.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { type FloatPicture, toFloatPicture } from './float-picture.ts'
-import { type StackedPart, sum } from './stacking.ts'
+import { hexColour, type SrgbFloat } from './parts/colour.ts'
+import { type FloatPicture, toFloatPicture } from './parts/float-picture.ts'
+import { type StackedPart, sum } from './parts/stacking.ts'
 
 /** A shadow's settings while it is searched: offset and blur in piece pixels, alpha 0 to 1. */
 interface ShadowTry {

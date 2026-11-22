@@ -5,8 +5,8 @@ import type { Color, MatchKit } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
 import { type Snapped, snapToBrand } from './brand-snap.ts'
-import { hexRgb } from './colour.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
+import { hexRgb } from './parts/colour.ts'
 import { graphic } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()

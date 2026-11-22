@@ -279,16 +279,39 @@ describe('fullPassOf', () => {
     expect(answer).toEqual(prototypeAnswer(piece.fullPass))
   })
 
-  it('is checked against the prototype on every kind the full pass adds and every reason a piece stays a picture', () => {
+  it('keeps a painted scene of five free shapes a picture, as a photo', () => {
+    const blob = (cx: number, cy: number, r: number, seed: number, color: `#${string}`) => {
+      const corners = Array.from({ length: 14 }, (_, i) => {
+        const a = (i / 14) * 2 * Math.PI
+        const reach = 0.7 + 0.3 * Math.abs(Math.sin(seed * (i + 1) * 1.7))
+        return `${(50 + 50 * reach * Math.cos(a)).toFixed(2)} ${(50 + 50 * reach * Math.sin(a)).toFixed(2)}`
+      })
+      return graphic(
+        path(`M${corners.join(' L')} Z`),
+        { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r },
+        { fill: { type: 'solid', color } },
+      )
+    }
+    const answer = rebuilt([
+      blob(50, 50, 45, 1, '#2E9E4FFF'),
+      blob(110, 50, 45, 2, '#F47B20FF'),
+      blob(50, 110, 45, 3, '#2563EBFF'),
+      blob(110, 110, 45, 4, '#D61F8CFF'),
+      blob(80, 80, 30, 5, '#FBD72BFF'),
+    ])
+    expect(answer).toMatchObject({ kind: 'picture', why: 'photo' })
+  })
+
+  it('is checked against the prototype on every kind the full pass adds and every reason but a scene a piece stays a picture', () => {
     const kinds = new Set(
       PROTOTYPE.flatMap((piece) => JSON.stringify(piece.fullPass.layers).match(/"kind":"\w+"/g) ?? []),
     )
     expect([...kinds].sort()).toEqual(expect.arrayContaining(['"kind":"path"', '"kind":"polygon"', '"kind":"star"']))
     const all = JSON.stringify(PROTOTYPE.map((piece) => piece.fullPass))
-    for (const word of ['"linear"', '"radial"', '"dropShadow"', '"brand:']) expect(all).toContain(word)
+    for (const word of ['"linear"', '"radial"', '"dropShadow"', '"brand:', '"dashes"']) expect(all).toContain(word)
     const whys = new Set(
       PROTOTYPE.map((piece) => prototypeAnswer(piece.fullPass)).map((a) => (a.kind === 'picture' ? a.why : 'layers')),
     )
-    expect(whys).toEqual(new Set(['layers', 'looksDifferent', 'tooManyParts', 'photo']))
+    expect(whys).toEqual(new Set(['layers', 'looksDifferent', 'tooManyParts']))
   })
 })

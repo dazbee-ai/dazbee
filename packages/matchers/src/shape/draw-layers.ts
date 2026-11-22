@@ -12,6 +12,9 @@ export interface ShapeStroke {
   width: number
   align: 'inside' | 'center'
   cap?: 'butt' | 'round'
+  /** A dashed stroke's dash and gap lengths, and how far into them it starts. */
+  dashes?: [number, number]
+  dashOffset?: number
 }
 
 /** A graphic the shape matcher answers with, in the piece's pixels, before the schema's defaults. */

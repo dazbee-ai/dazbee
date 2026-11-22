@@ -7,7 +7,7 @@
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Paint, Shape } from '@dazbee/schema'
 
-import { coverage, type ShapeLayer } from './draw-layers.ts'
+import { coverage, type ShapeLayer, type ShapeStroke } from './draw-layers.ts'
 import type { FitWindow } from './fit-window.ts'
 import { MOST_SIDES, neighbourCounts, symmetryOf } from './symmetry.ts'
 
@@ -32,7 +32,14 @@ export interface ShapeFit {
   stroke: number
   /** Drawn by its stroke alone, with no fill. */
   strokeOnly: boolean
+  /** A dashed stroke's dash and gap lengths and where its pattern starts; no dash is a solid stroke. */
+  dash?: number
+  gap?: number
+  dashOffset?: number
 }
+
+/** The settings a refining step moves: every number but the count. */
+type SteppedKey = Exclude<keyof ShapeFit, 'kind' | 'count' | 'strokeOnly'>
 
 /** The best fit, and its soft IoU with the coverage. */
 export interface Fitted {
@@ -44,6 +51,8 @@ export interface Fitted {
 const REACH_FROM = 0.3
 /** A star's inner radius moves this much, times the step's scale, at each refining step. */
 const INNER_STEP = 0.04
+/** A dash or gap refined to this length or under is gone. */
+const SHORTEST_DASH = 0.2
 /** A kind within this IoU of the best that is simpler wins. */
 const SIMPLER_BY = 0.004
 /** How plain each kind is to edit, the plainest 0. */
@@ -118,7 +127,7 @@ export function shapeLayer(fit: ShapeFit, paint: Paint, name = 'Shape'): ShapeLa
       ...box,
       shape: shapeOf(fit),
       fills: fit.strokeOnly ? [] : [paint],
-      strokes: fit.strokeOnly ? [{ paint, width: Math.max(0.1, fit.stroke), align: 'inside' }] : [],
+      strokes: fit.strokeOnly ? [{ paint, width: Math.max(0.1, fit.stroke), align: 'inside', ...dashesOf(fit) }] : [],
     },
   }
 }
@@ -138,7 +147,7 @@ export function softIoU(a: Float32Array, b: Float32Array, free?: Float32Array): 
 }
 
 /** The soft IoU of a shape drawn by Dazbee's renderer with a window's mask. */
-function iouOf(ck: CanvasKit, fit: ShapeFit, window: FitWindow): number {
+export function iouOf(ck: CanvasKit, fit: ShapeFit, window: FitWindow): number {
   const layer = shapeLayer(fit, WHITE)
   const moved: ShapeLayer = {
     ...layer,
@@ -166,8 +175,14 @@ function withBestCount(ck: CanvasKit, fitted: Fitted, window: FitWindow, draws: 
   return best === fitted ? fitted : refine(ck, best.fit, best.iou, window, Math.floor(draws / 2))
 }
 
+/** A dashed stroke's dashes and start, or nothing for a solid stroke. */
+function dashesOf(fit: ShapeFit): Pick<ShapeStroke, 'dashes' | 'dashOffset'> {
+  if (!fit.dash || fit.dash <= 0) return {}
+  return { dashes: [Math.max(0.1, fit.dash), Math.max(0, fit.gap ?? 0)], dashOffset: fit.dashOffset ?? 0 }
+}
+
 /** A fit's shape in the schema's words. */
-function shapeOf(fit: ShapeFit): Shape {
+export function shapeOf(fit: ShapeFit): Shape {
   const cornerRadius = Math.max(0, fit.radius)
   switch (fit.kind) {
     case 'rect':
@@ -325,35 +340,35 @@ function reachOf(window: FitWindow, cx: number, cy: number, rotation: number) {
 }
 
 /** A coordinate search with shrinking steps, one drawing a step, kept while the IoU rises. */
-function refine(ck: CanvasKit, start: ShapeFit, startIoU: number, window: FitWindow, budget: number): Fitted {
+export function refine(ck: CanvasKit, start: ShapeFit, startIoU: number, window: FitWindow, budget: number): Fitted {
   let fit = { ...start }
   let iou = startIoU
   let draws = 0
   if (budget <= 0) return { fit, iou }
   const symmetric = fit.kind === 'polygon' || fit.kind === 'star'
-  const keys: (keyof ShapeFit &
-    ('cx' | 'cy' | 'width' | 'height' | 'rotation' | 'radius' | 'innerRadius' | 'stroke'))[] = [
-    'cx',
-    'cy',
-    'width',
-    'height',
-  ]
+  const keys: SteppedKey[] = ['cx', 'cy', 'width', 'height']
   if (fit.rotation !== 0 || symmetric) keys.push('rotation')
   if (fit.kind === 'rect' || symmetric) keys.push('radius')
   if (fit.kind === 'star') keys.push('innerRadius')
   if (fit.strokeOnly) keys.push('stroke')
+  if (fit.dash && fit.dash > 0) keys.push('dash', 'gap', 'dashOffset')
   const unit = 1 / window.scale
   const stepOf = (key: (typeof keys)[number], scale: number) =>
-    key === 'rotation' ? 2 * scale : key === 'innerRadius' ? INNER_STEP * scale : Math.max(0.15, unit) * 2 * scale
+    key === 'rotation' || key === 'dashOffset'
+      ? 2 * scale
+      : key === 'innerRadius'
+        ? INNER_STEP * scale
+        : Math.max(0.15, unit) * 2 * scale
   let scale = 2
   while (draws < budget && scale > 0.06) {
     let improved = false
     for (const key of keys) {
       for (const direction of [1, -1]) {
         if (draws >= budget) break
-        const next = { ...fit, [key]: fit[key] + direction * stepOf(key, scale) }
+        const next = { ...fit, [key]: (fit[key] ?? 0) + direction * stepOf(key, scale) }
         if (next.width <= 0.5 || next.height <= 0.1 || next.radius < 0 || next.stroke < 0) continue
         if (next.innerRadius <= 0.02 || next.innerRadius >= 1) continue
+        if ((next.dash ?? 1) <= SHORTEST_DASH || (next.gap ?? 1) <= SHORTEST_DASH) continue
         if (next.kind === 'rect' && next.radius > Math.min(next.width, next.height) / 2) {
           // A pill keeps its round ends as it narrows: the radius follows the size.
           if (key === 'radius') continue

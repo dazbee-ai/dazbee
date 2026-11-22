@@ -1,6 +1,6 @@
 // The shape matcher's colours: CIE L*a*b* back to sRGB, and the #RRGGBBAA strings a design stores.
 
-import type { Lab } from '../looks-same/colour.ts'
+import type { Lab } from '../../looks-same/colour.ts'
 
 /** An sRGB colour, 0 to 255 a channel, not rounded. */
 export type SrgbFloat = [number, number, number]

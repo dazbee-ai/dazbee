@@ -44,7 +44,7 @@ describe('fontLoader', () => {
     const [face] = await fontFaces(['Lora'])
     if (!face) throw new Error('Lora is not in the catalog')
     expect(await fontFile(face)).toEqual(new Uint8Array([1, 2, 3]))
-    expect(asked).toEqual(['/w/w1/brands/b1/fonts', '/fonts/google/lora00000400.ttf'])
+    expect(asked).toEqual(['/w/w1/brands/b1/fonts', '/fonts/google/faces/lora00000400.ttf'])
   })
 
   it('loads a brand’s upload through the brand’s route', async () => {

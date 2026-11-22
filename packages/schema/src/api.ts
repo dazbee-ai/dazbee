@@ -377,7 +377,7 @@ export type RecordFont = z.infer<typeof RecordFont>
  * Where the app serves Google faces' files and previews to anyone, by face id: a face's file never changes (a new
  * file is a new face), so its address never does either, and browsers and Cloudflare keep it for good.
  */
-export const GOOGLE_FONT_PATH = '/fonts/google/'
+export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
 
 /** A face and short-lived URLs to read its file and its preview, the family's name drawn in it as a PNG. */
 export const FontLink = z.object({

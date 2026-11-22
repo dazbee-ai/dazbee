@@ -53,7 +53,7 @@ describe('config', () => {
       vi.stubEnv('MCP_DEV_URL', '')
       vi.stubEnv('API_URL', 'http://localhost:8787/')
       expect(await config.rewrites?.()).toEqual({
-        beforeFiles: [{ source: '/fonts/google/:name', destination: 'http://localhost:8787/fonts/google/:name' }],
+        beforeFiles: [{ source: '/fonts/google/:path*', destination: 'http://localhost:8787/fonts/google/:path*' }],
         afterFiles: [],
         fallback: [],
       })

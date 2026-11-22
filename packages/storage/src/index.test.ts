@@ -1,7 +1,7 @@
 // Against RustFS from Docker Compose (`docker compose up -d --wait storage`).
 import { randomUUID } from 'node:crypto'
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { openStorage, storageSettings } from './index.ts'
 
@@ -19,6 +19,10 @@ const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3])
 
 beforeAll(() => storage.ensureBucket())
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('openStorage', () => {
   it('puts and gets bytes, and knows what it has', async () => {
     const key = `test/${randomUUID()}`
@@ -35,6 +39,19 @@ describe('openStorage', () => {
     await storage.put(key, bytes, 'image/png')
     const stored = await storage.stream(key)
     expect(stored?.byteSize).toBe(bytes.length)
+    expect(new Uint8Array(await new Response(stored?.body).arrayBuffer())).toEqual(bytes)
+  })
+
+  it('asks for an object as it is stored, and gives no size when storage names none', async () => {
+    const asked: Headers[] = []
+    // Storage that compresses what it sends, as R2 does a font for a client that takes gzip: no content-length.
+    vi.stubGlobal('fetch', (request: Request) => {
+      asked.push(new Headers(request.headers))
+      return Promise.resolve(new Response(new Blob([bytes]).stream(), { status: 200 }))
+    })
+    const stored = await storage.stream('test/compressed')
+    expect(asked[0]?.get('accept-encoding')).toBe('identity')
+    expect(stored?.byteSize).toBeNull()
     expect(new Uint8Array(await new Response(stored?.body).arrayBuffer())).toEqual(bytes)
   })
 

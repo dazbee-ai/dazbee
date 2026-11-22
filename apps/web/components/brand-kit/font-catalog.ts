@@ -11,6 +11,7 @@ import { brandCatalog, faceWeights, FontCatalogParts, type FontFace, FontFamily 
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import type { Messages } from '@/lib/i18n/index.ts'
+import { sharedAsks } from '@/lib/shared-asks.ts'
 
 /** A family's kind of letter: Google's categories, which the chooser's chips filter by. */
 export type FontCategory = GoogleFamily['category']
@@ -50,6 +51,9 @@ const googleLists = new Map<string, Promise<FontFamily[] | null>>()
 
 /** The catalog last read on this page for each brand, by `<workspace>/<brand>`. */
 const loadedCatalogs = new Map<string, FontFamily[]>()
+
+/** Each brand's catalog read for a chooser opening, by `<workspace>/<brand>`, shared by one opened meanwhile. */
+const openingReads = sharedAsks<FontFamily[] | null>()
 
 /** The families at an address, or null when they don't come whole. */
 async function familiesAt(path: string): Promise<FontFamily[] | null> {
@@ -97,19 +101,32 @@ function googleList(path: string): Promise<FontFamily[] | null> {
   return list
 }
 
-/** The brand's catalog, with the shipped fonts last; `refresh` fetches it again after an upload. */
+/**
+ * The brand's catalog, with the shipped fonts last, read as the chooser opens (`openingCatalog`), and whether that read
+ * is over (`fetched`); `refresh` fetches it again after an upload.
+ */
 export function useFontCatalog(workspaceId: string, brandId: string) {
   const [catalog, setCatalog] = useState(() => pageCatalog(workspaceId, brandId))
-  const refresh = useCallback(async () => {
-    // Offline, the list keeps what it had; it is fetched again each time it opens.
-    const families = await loadCatalog(workspaceId, brandId)
-    if (!families) return
-    setCatalog(withShipped(families))
-  }, [workspaceId, brandId])
+  const [fetched, setFetched] = useState(false)
+  // Offline, the list keeps what it had; it is fetched again each time it opens.
+  const show = useCallback((families: FontFamily[] | null) => {
+    if (families) setCatalog(withShipped(families))
+  }, [])
+  const refresh = useCallback(async () => show(await loadCatalog(workspaceId, brandId)), [workspaceId, brandId, show])
   useEffect(() => {
-    void refresh()
-  }, [refresh])
-  return { catalog, refresh }
+    void openingCatalog(workspaceId, brandId)
+      .then(show)
+      .finally(() => setFetched(true))
+  }, [workspaceId, brandId, show])
+  return { catalog, fetched, refresh }
+}
+
+/**
+ * The brand's catalog for a chooser opening (`loadCatalog`), sharing the read under way for one opened before it:
+ * React's strict mode opens each chooser twice in development, and the catalog is fetched once for both.
+ */
+export function openingCatalog(workspaceId: string, brandId: string): Promise<FontFamily[] | null> {
+  return openingReads(`${workspaceId}/${brandId}`, () => loadCatalog(workspaceId, brandId))
 }
 
 /**

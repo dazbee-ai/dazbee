@@ -5,7 +5,7 @@
 // narrow the families, listed as the brand's, the ones used last, then all, most used first, with
 // the chosen family's weights under it; only the rows in view are drawn, each with its preview. A
 // brand can upload a TrueType or OpenType file from the same list.
-import { type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
 import { type Design, FontFace, FontFamily } from '@dazbee/schema'
@@ -71,7 +71,7 @@ function useRecentFonts(brandId: string) {
 /**
  * The font of the selected text, in the edit panel's place: a search, the category chips, then the
  * families in their groups to pick from, the chosen family's weights under it, and an upload. The
- * catalog is fetched again each time it opens, so a brand's new upload shows. A pick or an upload
+ * catalog is fetched again each time it opens (`useFontCatalog`), so a brand's new upload shows. A pick or an upload
  * sets the font and leaves the chooser open, to try another or set the weight.
  */
 export function FontChooser({
@@ -79,6 +79,7 @@ export function FontChooser({
   workspaceId,
   brandId,
   catalog,
+  fetched,
   refresh,
   onDone,
 }: {
@@ -86,17 +87,14 @@ export function FontChooser({
   workspaceId: string
   brandId: string
   catalog: FontFamily[]
+  /** Whether the catalog has been fetched since the chooser opened, so it can open on the text's family. */
+  fetched: boolean
   refresh: () => Promise<void>
   onDone: () => void
 }) {
   const { design } = useEditorDesign(editor)
   const selected = useSelection(editor)
   const recent = useRecentFonts(brandId)
-  // Whether the catalog has been fetched since the chooser opened, so it can open on the text's family.
-  const [fetched, setFetched] = useState(false)
-  useEffect(() => {
-    void refresh().finally(() => setFetched(true))
-  }, [refresh])
   // With a range of the text being edited selected, its font is the range's.
   const range = editor.textSelectionStyles()
   const current = range

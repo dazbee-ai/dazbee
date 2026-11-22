@@ -4,7 +4,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
-import { categoryOf, faceFor, loadCatalog, loadedCatalog, pageCatalog, scriptsOf, weightsOf } from './font-catalog.ts'
+import {
+  categoryOf,
+  faceFor,
+  loadCatalog,
+  loadedCatalog,
+  openingCatalog,
+  pageCatalog,
+  scriptsOf,
+  weightsOf,
+} from './font-catalog.ts'
 
 const family = (name: string, source: FontFamily['source']): FontFamily => ({
   family: name,
@@ -199,6 +208,20 @@ describe('loadCatalog', () => {
       '/w/w1/brands/b1/fonts': () => Response.json([house, lora]),
     })
     expect((await loadCatalog('w1', 'b1'))?.map((f) => f.family)).toEqual(['House Sans', 'Lora'])
+  })
+
+  it('reads the catalog once for a chooser opened twice as strict mode opens it, and again for one opened after', async () => {
+    const list = googleList([raleway])
+    const asked = fakeFetch({
+      '/w/w4/brands/b4/fonts/catalog': () => Response.json({ google: list.path, uploads: [house] }),
+      [list.path]: () => new Response(list.body),
+    })
+    const [first, second] = await Promise.all([openingCatalog('w4', 'b4'), openingCatalog('w4', 'b4')])
+    expect(first?.map((f) => f.family)).toEqual(['House Sans', 'Raleway'])
+    expect(second).toBe(first)
+    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path])
+    await openingCatalog('w4', 'b4')
+    expect(asked).toEqual(['/w/w4/brands/b4/fonts/catalog', list.path, '/w/w4/brands/b4/fonts/catalog'])
   })
 
   it('gives nothing offline, so the chooser keeps what it had, and keeps the catalog it read last', async () => {

@@ -4,7 +4,7 @@
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceCache, resourceCache } from '@dazbee/renderer'
-import type { DropShadow, Paint, Shape, VariableRef } from '@dazbee/schema'
+import type { DropShadow, Paint, Shape, UnplacedLayer, VariableRef } from '@dazbee/schema'
 
 /** A stroke as the shape matcher sets it; the rest of a stroke takes the schema's defaults. */
 export interface ShapeStroke {
@@ -38,6 +38,9 @@ export interface ShapeLayer {
   editable?: ShapeLayer
 }
 
+/** A layer drawn as a piece's graphics: the shape matcher's own, or one of its answered layers. */
+export type DrawnLayer = ShapeLayer | UnplacedLayer
+
 /** Fractional indexes in order: a00, a01, … a0z, a10, … */
 const INDEX_DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
@@ -50,7 +53,7 @@ const caches = new WeakMap<CanvasKit, ResourceCache>()
  */
 export function drawGraphics(
   ck: CanvasKit,
-  layers: readonly ShapeLayer[],
+  layers: readonly DrawnLayer[],
   width: number,
   height: number,
   scale = 1,
@@ -89,7 +92,7 @@ export function coverage(
 }
 
 /** The graphics as a design: one page, one frame of `width` × `height` with no fill, the graphics back to front. */
-function designOf(layers: readonly ShapeLayer[], width: number, height: number) {
+function designOf(layers: readonly DrawnLayer[], width: number, height: number) {
   const nodes: Record<string, unknown> = {}
   layers.forEach((layer, i) => {
     const id = `n${i}`

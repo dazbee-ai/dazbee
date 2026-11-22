@@ -18,8 +18,8 @@ import {
   type ShapeKind,
   shapeLayer,
   shapeOf,
-} from './fit-shapes.ts'
-import { windowOf } from './fit-window.ts'
+} from './fit/fit-shapes.ts'
+import { windowOf } from './fit/fit-window.ts'
 import { dashedName } from './layer-names.ts'
 import { contours } from './parts/contours.ts'
 import type { FloatPicture } from './parts/float-picture.ts'

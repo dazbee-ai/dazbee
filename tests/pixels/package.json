@@ -19,6 +19,7 @@
     "@dazbee/editor": "workspace:*",
     "@dazbee/export": "workspace:*",
     "@dazbee/fonts": "workspace:*",
+    "@dazbee/matchers": "workspace:*",
     "@dazbee/patterns": "workspace:*",
     "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*",

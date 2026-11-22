@@ -1,7 +1,7 @@
 // Fitting windows: the part of a whole-piece coverage mask round one part's box, in fitting pixels,
 // with where it lies in the piece, which shapes are fitted and judged against.
 
-import type { PixelBox } from './parts/colour-split.ts'
+import type { PixelBox } from '../parts/colour-split.ts'
 
 /** A coverage mask at the fitting scale, `scale` fitting pixels to a piece pixel, around one part. */
 export interface FitWindow {

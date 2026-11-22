@@ -1,12 +1,12 @@
 // Pieces the shape matcher's tests rebuild: graphics drawn by Dazbee's renderer, and pieces of the
-// shape prototype's synthetic set 2 with the prototype's first-pass or full-pass answers for them.
+// shape prototype's synthetic set 2 with the prototype's first-pass, ladder or full-pass answers for them.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import type { Paint, Shape } from '@dazbee/schema'
+import { type MatchAnswer, type Paint, type Shape, UnplacedLayer } from '@dazbee/schema'
 
 import type { ShapeLayer, ShapeStroke } from './draw-layers.ts'
 
@@ -16,20 +16,24 @@ export interface PrototypeAnswer {
   why: string
   fitted: { ssim: number; far: number; inkMissed: number } | null
   layers: unknown[]
+  /** The photo guard's score of the graphics, for shapes. */
+  photoScore?: number
 }
 
-/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's answer. */
+/** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's first-pass and ladder answers. */
 export interface PrototypePiece {
   id: string
   family: string
   degradation: string
   kit: Record<string, `#${string}`>
   firstPass: PrototypeAnswer
+  /** The shape baseline's answer: the prototype's ladder with the photo guard. */
+  ladder: PrototypeAnswer
   pixels: Pixels
 }
 
 /** A piece of synthetic set 2, the brand kit it was matched with, and the prototype's full-pass answer. */
-export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass'> {
+export interface PrototypeFullPiece extends Omit<PrototypePiece, 'firstPass' | 'ladder'> {
   fullPass: PrototypeAnswer
 }
 
@@ -53,6 +57,20 @@ export function prototypeFullPieces(ck: CanvasKit): PrototypeFullPiece[] {
     ...piece,
     pixels: decodePng(ck, readFileSync(join(FULL_FIXTURES, `${piece.id}.png`))),
   }))
+}
+
+/** The prototype's answer in the matcher's words. */
+export const prototypeAnswer = ({ decision, why, fitted, layers }: PrototypeAnswer): MatchAnswer => {
+  const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
+  if (decision === 'shapes') {
+    if (!scores) throw new Error('shapes without the rule’s numbers')
+    return { kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores }
+  }
+  return {
+    kind: 'picture',
+    why: why.startsWith('looks different') ? 'looksDifferent' : why.startsWith('a photo') ? 'photo' : 'tooManyParts',
+    ...(scores ? { scores } : {}),
+  }
 }
 
 /** A PNG's pixels, 8-bit RGBA with straight alpha. */
@@ -90,6 +108,20 @@ export function graphic(
       strokes: paint.stroke ? [paint.stroke] : [],
     },
   }
+}
+
+/** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */
+export const blob = (cx: number, cy: number, r: number, seed: number, color: `#${string}`): ShapeLayer => {
+  const corners = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * 2 * Math.PI
+    const reach = 0.7 + 0.3 * Math.abs(Math.sin(seed * (i + 1) * 1.7))
+    return `${(50 + 50 * reach * Math.cos(a)).toFixed(2)} ${(50 + 50 * reach * Math.sin(a)).toFixed(2)}`
+  })
+  return graphic(
+    { kind: 'path', d: `M${corners.join(' L')} Z`, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } },
+    { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r },
+    { fill: { type: 'solid', color } },
+  )
 }
 
 /** Pixels as a PNG in base64, as a job's picture. */

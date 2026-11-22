@@ -1014,6 +1014,9 @@ importers:
       '@dazbee/fonts':
         specifier: workspace:*
         version: link:../../packages/fonts
+      '@dazbee/matchers':
+        specifier: workspace:*
+        version: link:../../packages/matchers
       '@dazbee/patterns':
         specifier: workspace:*
         version: link:../../packages/patterns

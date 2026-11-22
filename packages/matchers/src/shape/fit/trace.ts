@@ -5,9 +5,9 @@
 
 import type { Paint } from '@dazbee/schema'
 
-import type { ShapeLayer } from './draw-layers.ts'
+import type { ShapeLayer } from '../draw-layers.ts'
+import { contours, type Point } from '../parts/contours.ts'
 import type { FitWindow } from './fit-window.ts'
-import { contours, type Point } from './parts/contours.ts'
 
 /** A traced path: its data in its own box, and the box in the window's piece pixels. */
 export interface Traced {

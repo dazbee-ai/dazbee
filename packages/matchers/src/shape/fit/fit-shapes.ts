@@ -7,7 +7,7 @@
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Paint, Shape } from '@dazbee/schema'
 
-import { coverage, type ShapeLayer, type ShapeStroke } from './draw-layers.ts'
+import { coverage, type ShapeLayer, type ShapeStroke } from '../draw-layers.ts'
 import type { FitWindow } from './fit-window.ts'
 import { MOST_SIDES, neighbourCounts, symmetryOf } from './symmetry.ts'
 

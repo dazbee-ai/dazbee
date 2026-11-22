@@ -116,7 +116,8 @@ export type LooksSameScores = z.infer<typeof LooksSameScores>
 
 /**
  * Why a piece stays a picture: its rebuild doesn't look the same, it would take too many layers, it
- * is a photo, no font draws its characters, it is too big, or the matcher failed.
+ * is a photo or a painted scene (its shapes leave its shading and texture unexplained, or are many free
+ * paths), no font draws its characters, it is too big, or the matcher failed.
  */
 export const PictureWhy = z.enum(['looksDifferent', 'tooManyParts', 'photo', 'noFont', 'tooBig', 'failed'])
 export type PictureWhy = z.infer<typeof PictureWhy>

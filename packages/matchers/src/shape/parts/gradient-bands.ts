@@ -3,7 +3,7 @@
 // pass fits one gradient across them.
 
 import { ciede2000 } from '../../looks-same/colour.ts'
-import { fitGradient, GRADIENT_SPREAD, innerPixels } from '../gradient.ts'
+import { fitGradient, GRADIENT_SPREAD, innerPixels } from '../fit/gradient.ts'
 import type { FloatPicture } from './float-picture.ts'
 import type { MarkedPart } from './marks.ts'
 import { sum } from './stacking.ts'

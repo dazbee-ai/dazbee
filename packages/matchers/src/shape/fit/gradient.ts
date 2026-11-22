@@ -7,11 +7,11 @@
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { LinearPaint, RadialPaint } from '@dazbee/schema'
 
-import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
-import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { hexColour, type SrgbFloat } from './parts/colour.ts'
-import { type FloatPicture, toFloatPicture } from './parts/float-picture.ts'
-import type { StackedPart } from './parts/stacking.ts'
+import { ciede2000, srgbToLab } from '../../looks-same/colour.ts'
+import { drawGraphics, type ShapeLayer } from '../draw-layers.ts'
+import { hexColour, type SrgbFloat } from '../parts/colour.ts'
+import { type FloatPicture, toFloatPicture } from '../parts/float-picture.ts'
+import type { StackedPart } from '../parts/stacking.ts'
 
 /** A gradient fitted to pixels, in piece pixels: radial ones centred on `from`, reaching to `to`. */
 export interface GradientFit {

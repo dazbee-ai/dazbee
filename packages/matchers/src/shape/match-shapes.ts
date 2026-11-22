@@ -3,7 +3,7 @@
 // in fewer graphics wins, the first pass's on a tie. Each pass's answer goes through the photo guard
 // first, so a photo picked as shapes stays a picture. When neither pass makes graphics, the first
 // pass's reason is given, unless either pass found a photo: the guard, or the full pass's scene check.
-// Who is told is told each step as it starts.
+// Each step is told as it starts.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'

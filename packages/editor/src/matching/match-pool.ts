@@ -3,15 +3,16 @@
 // holds nothing until the first piece comes: then it starts workers one at a time, each of the kind
 // of a piece waiting, once the one before has started and pieces still wait, up to the most the
 // device's cores allow, always leaving a core to the page, and within one memory budget at each
-// worker's peak. Each piece goes to the next free worker of its kind; an idle worker of another kind
-// is ended when the budget has no room for a worker a waiting piece needs. CanvasKit's and ONNX
+// worker's peak. Each piece goes to the next free worker of its kind; when pieces of a kind wait with
+// no worker of their kind and no room for one, idle workers of the other kind are ended until there
+// is, rather than given more pieces, as long as their own kind keeps a worker for its pieces. CanvasKit's and ONNX
 // Runtime's WebAssembly are compiled once on the page, each only when a worker needs it, and posted to
 // each worker that does. A worker is ended 15 s after it has nothing to do, 2 s once no job is left,
 // and at once when the tab is hidden or the page is left; a compiled module goes with the last worker
 // needing it. A worker past its share of the memory budget after a piece is retired, and a fresh one
 // from the same compiled modules takes the next piece, so a long run stays within the budget. A worker
 // that crashes is ended, its piece goes back on the queue and the pool shrinks by one; when a single
-// worker fails twice, the pieces left stay pictures.
+// worker fails twice, the pieces of its kind left stay pictures.
 import type { ShapeStep, TextStep } from '@dazbee/matchers'
 import type { FontFamily, MatchAnswer, MatchJob, PictureWhy, PieceKind } from '@dazbee/schema'
 
@@ -144,8 +145,8 @@ export const WORKER_MEMORY: Record<PieceKind, { peak: number; rest: number; piec
    * A fresh shape worker matching one piece grew Chrome's renderer process by 200 MB, 128 MB of it
    * CanvasKit's memory. Over the 72 held-out shape pieces, six workers at once grew it by 1,914 MB
    * (319 MB a worker), and the four this peak allows by 1,407 MB; one worker matching them twice over
-   * held between 400 and 620 MB, without growing from piece to piece: a shape worker's memory is the
-   * pictures of the piece in hand.
+   * grew it by 220 to 390 MB, the page's copy of the pieces included, without growing from piece to
+   * piece: a shape worker's memory is the pictures of the piece in hand.
    */
   shape: { peak: 352 * MB, rest: 72 * MB, piece: 1 * MB },
 }
@@ -160,7 +161,7 @@ const MEMORY_SHARE = 1 / 4
 const MOST_MEMORY = 1.5 * GB
 /** The pool's memory where the browser doesn't say the device's. */
 const UNKNOWN_MEMORY = 256 * MB
-/** How many times a pool down to one worker sees it fail before the pieces left stay pictures. */
+/** How many times a pool down to one worker of a kind sees it fail before the pieces of that kind left stay pictures. */
 const FAILS_AT_ONE = 2
 /** How many workers may fail to start, one after another, before this browser counts as unable. */
 const START_FAILS = 2
@@ -180,10 +181,11 @@ export function matchPool({
 }): MatchPool {
   /** The pool's memory budget. */
   const budget = memoryBudget(device)
-  /** How many workers crashes took off the most of each kind. */
+  /** How many workers crashes took off the pool, and the memory of their peaks taken off the budget. */
   let dropped = 0
-  /** The failures in a row of a pool down to one worker. */
-  let failsAtOne = 0
+  let lost = 0
+  /** The failures in a row of each kind's worker, once the pool is down to one of that kind. */
+  const failsAtOne: Record<PieceKind, number> = { text: 0, shape: 0 }
   /** The workers in a row that failed to start. */
   let startFails = 0
   /** Whether workers failed to start twice, so this browser can't run the matchers. */
@@ -201,8 +203,10 @@ export function matchPool({
   /** Stops hearing whether the page is hidden. */
   const stopListening = page.onChange(shownChanged)
 
-  /** The most workers of a kind now: the device's, less one for each that crashed, at least 1. */
-  const limit = (kind: PieceKind) => Math.max(1, poolLimit(device, kind) - dropped)
+  /** The most workers the device's cores take now: its cores but one, less one for each crash, at least 1. */
+  const coreLimit = () => Math.max(1, device.cores - 1 - dropped)
+  /** The most workers of a kind alone now, by the cores and the budget left after crashes; at least 1. */
+  const most = (kind: PieceKind) => poolLimit(device, kind, { workers: dropped, memory: lost })
 
   /** Whether the task's job is still in the pool. */
   const waitedFor = (task: Task | undefined): task is Task => !!task && jobs.get(task.job.job.id) === task.job
@@ -215,8 +219,7 @@ export function matchPool({
     if (indexes.length === 0) return
     const pooled: PooledJob = { job, listener, unanswered: new Set(indexes) }
     jobs.set(job.id, pooled)
-    for (const index of indexes)
-      queue.push({ id: nextTask++, job: pooled, index, kind: job.job.pieces[index]?.kind ?? 'text' })
+    for (const index of indexes) queue.push({ id: nextTask++, job: pooled, index, kind: kindOf(job, index) })
     fill()
   }
 
@@ -224,55 +227,76 @@ export function matchPool({
     const pooled = jobs.get(jobId)
     if (!pooled) return
     for (let i = queue.length - 1; i >= 0; i--) if (queue[i]?.job === pooled) queue.splice(i, 1)
-    // A worker still starting with nothing left to match is not needed either.
+    // A worker still starting with nothing of its kind left to match is not needed either.
     for (const slot of [...slots])
-      if (slot.task?.job === pooled || (slot.state === 'starting' && queue.length === 0)) end(slot)
+      if (slot.task?.job === pooled || (slot.state === 'starting' && !queue.some((task) => task.kind === slot.kind)))
+        end(slot)
     ended(pooled)
     fill()
   }
 
   /**
-   * Gives waiting pieces to idle workers of their kind, starts one more while pieces wait, and times
-   * the idle ones out.
+   * Gives waiting pieces to idle workers of their kind, or ends idle workers it can spare to make room
+   * for a starved kind; starts one more while pieces wait, a kind with no worker first; times the idle
+   * ones out; and lets go of the compiled modules no worker left is posted.
    */
   function fill() {
-    if (page.hidden()) return
-    for (const slot of slots) {
-      if (slot.state !== 'idle') continue
-      const at = queue.findIndex((task) => task.kind === slot.kind)
-      const task = queue[at]
-      if (!task) continue
-      queue.splice(at, 1)
-      give(slot, task)
+    if (!page.hidden()) {
+      for (const slot of [...slots]) {
+        if (slot.state !== 'idle') continue
+        const starved = starvedKind()
+        // Ended to make room for the starved kind's worker, keeping CanvasKit's module for it.
+        if (starved && slot.kind !== starved && spare(slot)) end(slot, true)
+        else give(slot, takeTask(slot.kind))
+      }
+      const next =
+        queue.find((task) => hasRoom(task.kind) && !slots.some((slot) => slot.kind === task.kind)) ??
+        queue.find((task) => hasRoom(task.kind))
+      if (next && !slots.some((slot) => slot.state === 'starting')) startWorker(next.kind)
+      const kept = jobs.size > 0 ? IDLE_MS : DONE_MS
+      for (const slot of slots)
+        if (slot.state === 'idle' && !slot.idle)
+          slot.idle = setTimeout(() => {
+            end(slot)
+            fill()
+          }, kept)
     }
-    if (!slots.some((slot) => slot.state === 'starting')) startNeeded()
-    const kept = jobs.size > 0 ? IDLE_MS : DONE_MS
-    for (const slot of slots) if (slot.state === 'idle' && !slot.idle) slot.idle = setTimeout(() => end(slot), kept)
+    releaseModules()
+  }
+
+  /** Whether a worker may end for another kind: its kind has no piece waiting, or keeps another worker. */
+  function spare(slot: Slot): boolean {
+    const waiting = queue.some((task) => task.kind === slot.kind)
+    return !waiting || slots.some((other) => other !== slot && other.kind === slot.kind)
+  }
+
+  /** The first waiting piece of a kind, taken off the queue. */
+  function takeTask(kind: PieceKind): Task | undefined {
+    const at = queue.findIndex((task) => task.kind === kind)
+    return at < 0 ? undefined : queue.splice(at, 1)[0]
   }
 
   /**
-   * Starts a worker of the kind of the first piece waiting that one has room for. When none has, an
-   * idle worker of another kind is ended to make room for the first piece's kind.
+   * The kind of the first piece waiting whose kind has no worker and no room to start one, so that
+   * each kind waiting gets a worker while the other kind's job goes on.
    */
-  function startNeeded() {
-    const waiting = [...new Set(queue.map((task) => task.kind))]
-    const kind = waiting.find(hasRoom)
-    if (kind) return startWorker(kind)
-    const first = waiting[0]
-    const idle = first && slots.find((slot) => slot.state === 'idle' && slot.kind !== first)
-    if (!first || !idle) return
-    end(idle)
-    if (hasRoom(first)) startWorker(first)
+  function starvedKind(): PieceKind | undefined {
+    const starved = (kind: PieceKind) => !slots.some((slot) => slot.kind === kind) && !hasRoom(kind)
+    return queue.find((task) => starved(task.kind))?.kind
   }
 
-  /** Whether a worker of a kind may start: the first one always, else within its most and the memory budget. */
+  /**
+   * Whether a worker of a kind may start: the first one always, else within the cores and the memory
+   * budget left after crashes, counting each worker at its kind's peak.
+   */
   function hasRoom(kind: PieceKind): boolean {
     if (slots.length === 0) return true
     const held = slots.reduce((sum, slot) => sum + WORKER_MEMORY[slot.kind].peak, 0)
-    return slots.length < limit(kind) && held + WORKER_MEMORY[kind].peak <= budget
+    return slots.length < coreLimit() && held + WORKER_MEMORY[kind].peak <= budget - lost
   }
 
-  function give(slot: Slot, task: Task) {
+  function give(slot: Slot, task: Task | undefined) {
+    if (!task) return
     clearTimeout(slot.idle)
     slot.idle = undefined
     slot.state = 'busy'
@@ -343,22 +367,20 @@ export function matchPool({
     if (reply.kind === 'matchStep') return task.job.listener.step(task.index, reply.step)
     slot.task = undefined
     slot.state = 'idle'
-    failsAtOne = 0
+    failsAtOne[slot.kind] = 0
     slot.pieces++
     // Past its share, the worker is retired, and the compiled modules kept for the replacement `fill` starts.
     const { peak, rest, piece } = WORKER_MEMORY[slot.kind]
     if (reply.memory + rest + slot.pieces * piece > peak) end(slot, true)
-    answered(task, reply.answer)
+    if (waitedFor(task)) answerPiece(task.job, task.index, reply.answer)
     fill()
-    releaseModules()
   }
 
-  function answered(task: Task, answer: MatchAnswer) {
-    if (!waitedFor(task)) return
-    const pooled = task.job
-    pooled.unanswered.delete(task.index)
+  /** Answers a job's piece; a job with every piece answered ends. */
+  function answerPiece(pooled: PooledJob, index: number, answer: MatchAnswer) {
+    pooled.unanswered.delete(index)
     if (pooled.unanswered.size === 0) ended(pooled)
-    pooled.listener.answer(task.index, answer)
+    pooled.listener.answer(index, answer)
   }
 
   /**
@@ -379,7 +401,8 @@ export function matchPool({
 
   /**
    * A worker that failed: one starting counts toward this browser being unable; one matching (it
-   * crashed or ran out of memory) is ended, its piece queued again, and the pool one smaller.
+   * crashed or ran out of memory) is ended, its piece queued again, and the pool one smaller, by a
+   * core and by its peak of the budget.
    */
   function broke(slot: Slot) {
     const { state, task } = slot
@@ -390,14 +413,26 @@ export function matchPool({
       return failAll('unsupported')
     }
     if (waitedFor(task)) queue.unshift(task)
-    if (limit(slot.kind) > 1) dropped++
-    else if (++failsAtOne >= FAILS_AT_ONE) return failAll('failed')
+    if (most(slot.kind) > 1) {
+      dropped++
+      lost += WORKER_MEMORY[slot.kind].peak
+    } else if (++failsAtOne[slot.kind] >= FAILS_AT_ONE) failKind(slot.kind)
     fill()
+  }
+
+  /** Ends the workers of a kind and answers each piece of that kind left a picture, `failed`; the other kind's go on. */
+  function failKind(kind: PieceKind) {
+    failsAtOne[kind] = 0
+    for (const slot of [...slots]) if (slot.kind === kind) end(slot)
+    for (let i = queue.length - 1; i >= 0; i--) if (queue[i]?.kind === kind) queue.splice(i, 1)
+    for (const pooled of [...jobs.values()])
+      for (const index of [...pooled.unanswered].sort((a, b) => a - b))
+        if (kindOf(pooled.job, index) === kind) answerPiece(pooled, index, { kind: 'picture', why: 'failed' })
   }
 
   /** Ends every worker and answers every piece left a picture, for `why`. */
   function failAll(why: PictureWhy) {
-    failsAtOne = 0
+    failsAtOne.text = failsAtOne.shape = 0
     for (const slot of [...slots]) end(slot)
     queue.length = 0
     for (const pooled of [...jobs.values()]) {
@@ -449,22 +484,13 @@ export function matchPool({
   }
 }
 
-/** Whether a worker of a kind is posted the module: every worker CanvasKit, a text worker ONNX Runtime too. */
-function postedTo(kind: PieceKind, name: MatcherModule): boolean {
-  return name === 'canvasKit' || kind === 'text'
-}
-
 /**
  * The most workers of a kind the device takes: its cores but one, and as many as its memory budget
- * holds at that kind's peak each; at least 1.
+ * holds at that kind's peak each, less the workers crashes took and the memory of their peaks; at least 1.
  */
-export function poolLimit(device: Device, kind: PieceKind): number {
-  return Math.max(1, Math.min(device.cores - 1, Math.floor(memoryBudget(device) / WORKER_MEMORY[kind].peak)))
-}
-
-/** The pool's memory budget: a quarter of the device's memory, at most 1.5 GB; 256 MB when the browser doesn't say. */
-function memoryBudget({ memoryGb }: Device): number {
-  return memoryGb === undefined ? UNKNOWN_MEMORY : Math.min(memoryGb * GB * MEMORY_SHARE, MOST_MEMORY)
+export function poolLimit(device: Device, kind: PieceKind, crashed = { workers: 0, memory: 0 }): number {
+  const cores = device.cores - 1 - crashed.workers
+  return Math.max(1, Math.min(cores, Math.floor((memoryBudget(device) - crashed.memory) / WORKER_MEMORY[kind].peak)))
 }
 
 /** The page's visibility from the document: hidden, or left (until it is shown again from the back-forward cache). */
@@ -491,4 +517,19 @@ export function documentShown(): PageShown {
       }
     },
   }
+}
+
+/** Whether a worker of a kind is posted the module: every worker CanvasKit, a text worker ONNX Runtime too. */
+function postedTo(kind: PieceKind, name: MatcherModule): boolean {
+  return name === 'canvasKit' || kind === 'text'
+}
+
+/** The pool's memory budget: a quarter of the device's memory, at most 1.5 GB; 256 MB when the browser doesn't say. */
+function memoryBudget({ memoryGb }: Device): number {
+  return memoryGb === undefined ? UNKNOWN_MEMORY : Math.min(memoryGb * GB * MEMORY_SHARE, MOST_MEMORY)
+}
+
+/** The kind of a job's piece. */
+function kindOf({ job }: WorkerJob, index: number): PieceKind {
+  return job.pieces[index]?.kind ?? 'text'
 }

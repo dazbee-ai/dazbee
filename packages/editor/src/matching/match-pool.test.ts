@@ -302,11 +302,11 @@ describe('matchPool', () => {
     const { add, alive, made, compiled, startNewest } = pool(WORKSTATION)
     const text = new Map<number, MatchAnswer>()
     const shapes = new Map<number, MatchAnswer>()
-    add(2, 0, 'text', text)
+    add(1, 0, 'text', text)
     add(12, 1, 'shape', shapes)
     const answered = new Set<number>()
     let most = { text: 0, shape: 0 }
-    for (let round = 0; round < 100 && text.size + shapes.size < 14; round++) {
+    for (let round = 0; round < 100 && text.size + shapes.size < 13; round++) {
       await vi.advanceTimersByTimeAsync(0)
       const held = alive().reduce((sum, worker) => sum + WORKER_MEMORY[worker.matcher() ?? 'text'].peak, 0)
       expect(held).toBeLessThanOrEqual(BUDGET)
@@ -322,9 +322,10 @@ describe('matchPool', () => {
         }
       }
     }
-    expect([text.size, shapes.size]).toEqual([2, 12])
-    // Both text pieces were matched at once, beside more than one shape worker.
-    expect(most.text).toBe(2)
+    expect([text.size, shapes.size]).toEqual([1, 12])
+    // The text piece was matched beside as many shape workers as the rest of the budget holds.
+    expect(most.text).toBe(1)
+    expect(most.shape).toBe(Math.floor((BUDGET - WORKER_MEMORY.text.peak) / WORKER_MEMORY.shape.peak))
     expect(most.shape).toBeGreaterThan(1)
     await vi.advanceTimersByTimeAsync(DONE_MS)
     expect(alive()).toHaveLength(0)
@@ -360,6 +361,93 @@ describe('matchPool', () => {
     await startNewest()
     expect(alive().map((worker) => worker.matcher())).toEqual(['shape'])
     expect(made[1]?.pieces().map((piece) => piece.jobId)).toEqual([1])
+  })
+
+  it('makes room for a text job added while a shape job holds the budget, as the next shape worker comes free', async () => {
+    const { made, add, startNewest, alive } = pool(WORKSTATION)
+    add(12, 0, 'shape')
+    const shapeWorkers = poolLimit(WORKSTATION, 'shape')
+    for (let i = 0; i < shapeWorkers; i++) await startNewest()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(made).toHaveLength(shapeWorkers)
+    add(1, 1, 'text')
+    made[0]?.answerLast()
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(made.at(-1)?.matcher()).toBe('text')
+    expect(
+      made
+        .at(-1)
+        ?.pieces()
+        .map((piece) => piece.jobId),
+    ).toEqual([1])
+    // The other shape workers go on matching shapes as they come free.
+    made[1]?.answerLast()
+    expect(made[1]?.pieces().map((piece) => piece.jobId)).toEqual([0, 0])
+    expect(alive()).toHaveLength(shapeWorkers)
+  })
+
+  it('ends as many idle workers of another kind as the starved kind needs room for', async () => {
+    const { made, add, startNewest, alive } = pool(WORKSTATION)
+    const shapeWorkers = poolLimit(WORKSTATION, 'shape')
+    add(shapeWorkers, 0, 'shape')
+    for (let i = 0; i < shapeWorkers; i++) await startNewest()
+    for (const worker of made) worker.answerLast()
+    add(1, 1, 'text')
+    await startNewest()
+    expect(made.at(-1)?.matcher()).toBe('text')
+    expect(
+      made
+        .at(-1)
+        ?.pieces()
+        .map((piece) => piece.jobId),
+    ).toEqual([1])
+    const held = alive().reduce((sum, worker) => sum + WORKER_MEMORY[worker.matcher() ?? 'text'].peak, 0)
+    expect(held).toBeLessThanOrEqual(BUDGET)
+    expect(alive().length).toBeLessThan(shapeWorkers + 1)
+  })
+
+  it('keeps CanvasKit’s module when an idle worker of another kind is ended to make room', async () => {
+    const { made, add, startNewest, compiled } = pool(PHONE)
+    add(1, 0, 'text')
+    await startNewest()
+    made[0]?.answerLast()
+    add(1, 1, 'shape')
+    await startNewest()
+    expect(compiled()).toEqual(['canvasKit', 'onnxRuntime'])
+  })
+
+  it('answers only the shape pieces left `failed` when a single shape worker fails twice, and matches the text job’s', async () => {
+    const { made, add, startNewest, answers } = pool({ cores: 8 })
+    const text = new Map<number, MatchAnswer>()
+    add(2, 0, 'shape')
+    await startNewest()
+    made[0]?.crash()
+    add(1, 1, 'text', text)
+    await startNewest()
+    expect(made[1]?.matcher()).toBe('shape')
+    made[1]?.crash()
+    expect(answers).toEqual(
+      new Map([
+        [0, { kind: 'picture', why: 'failed' }],
+        [1, { kind: 'picture', why: 'failed' }],
+      ]),
+    )
+    await startNewest()
+    expect(made[2]?.matcher()).toBe('text')
+    made[2]?.answerLast()
+    expect(text).toEqual(new Map([[0, TEXT]]))
+  })
+
+  it('ends a worker still starting once the job it was started for is cancelled, though pieces of another kind wait', async () => {
+    const { made, add, startNewest, matcher } = pool(WORKSTATION)
+    add(1, 1, 'shape')
+    add(3, 0, 'text')
+    expect(made).toHaveLength(1)
+    matcher.cancel(1)
+    expect(made[0]?.terminated).toBe(true)
+    await startNewest()
+    expect(made[1]?.matcher()).toBe('text')
   })
 
   it('puts a crashed worker’s piece back on the queue, and the pool drops by one', async () => {

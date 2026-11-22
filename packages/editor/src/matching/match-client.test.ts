@@ -13,8 +13,8 @@ import {
   type MatchWorker,
 } from './match-pool.ts'
 
-const TEXT_STEPS: TextStep[] = ['reading', 'shortlist', 'fitting', 'finerFit']
-const SHAPE_STEPS: ShapeStep[] = ['colourSplit', 'firstPass', 'judging', 'fullPass', 'judging']
+const TEXT_TOLD: TextStep[] = ['reading', 'shortlist', 'fitting', 'finerFit']
+const SHAPE_TOLD: ShapeStep[] = ['colourSplit', 'firstPass', 'judging', 'fullPass', 'judging']
 const score = (index: number) => ({ ssim: index / 10, inkMissed: 0, far: 0 })
 /** The answer the stand-in gives the piece at `index`. */
 const answerOf = (index: number): MatchAnswer => ({ kind: 'picture', why: 'looksDifferent', scores: score(index) })
@@ -40,7 +40,7 @@ class FakeWorker implements MatchWorker {
       this.reply({ kind: 'matchReady' })
     }
     if (message.kind !== 'matchPiece' || !this.answering) return
-    for (const step of this.matcher === 'shape' ? SHAPE_STEPS : TEXT_STEPS)
+    for (const step of this.matcher === 'shape' ? SHAPE_TOLD : TEXT_TOLD)
       this.reply({ kind: 'matchStep', id: message.id, step })
     this.reply({ kind: 'matchAnswer', id: message.id, answer: answerOf(message.index), memory: 0 })
   }
@@ -116,9 +116,9 @@ describe('matchClient', () => {
     expect(await answers).toEqual([answerOf(0), answerOf(1), answerOf(2)])
     expect(told).toEqual(
       new Map<number, MatchStep[]>([
-        [0, TEXT_STEPS],
-        [1, SHAPE_STEPS],
-        [2, TEXT_STEPS],
+        [0, TEXT_TOLD],
+        [1, SHAPE_TOLD],
+        [2, TEXT_TOLD],
       ]),
     )
     expect(made.map((worker) => worker.matcher).sort()).toEqual(['shape', 'text'])

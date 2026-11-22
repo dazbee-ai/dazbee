@@ -69,8 +69,8 @@ export function matchClient({
       return Promise.resolve(job.pieces.map(() => ({ kind: 'picture', why: 'unsupported' })))
     if (signal?.aborted) return Promise.reject(signal.reason)
     const answers: MatchAnswer[] = []
+    if (job.pieces.length === 0) return Promise.resolve(answers)
     const indexes = job.pieces.map((_, index) => index)
-    if (indexes.length === 0) return Promise.resolve(answers)
     const id = nextJob++
     const running = (pool ??= makePool(read))
     return new Promise((resolve, reject) => {

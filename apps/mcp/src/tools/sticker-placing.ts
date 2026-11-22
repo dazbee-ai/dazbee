@@ -3,11 +3,11 @@
 // for the same bytes; this server never holds the picture's file.
 import { placedImage } from '@dazbee/editor/placed-asset'
 import { type FoundGraphic, STICKER_SETS, stickerFile } from '@dazbee/graphics'
-import type { AssetSummary, Rect } from '@dazbee/schema'
+import type { Rect } from '@dazbee/schema'
 
 import type { OpenDesign } from '../open-design.ts'
 import type { ToolContext } from './define-tool.ts'
-import { bundledAsset, type FrameTo, type Placing, svgSteps } from './place-on-frame.ts'
+import { bundledAsset, fitted, type FrameTo, type Placing, svgSteps } from './place-on-frame.ts'
 
 /** A sticker as a search finds it. */
 type FoundSticker = Extract<FoundGraphic, { kind: 'sticker' }>
@@ -38,11 +38,4 @@ export async function stickerPlacing(
     layerOf: String,
     told: { asset: { id: asset.id, name: asset.name } },
   }
-}
-
-/** The largest box of the asset's shape that fits inside `where`, centred in it. */
-export function fitted(where: Rect, { width, height }: Pick<AssetSummary, 'width' | 'height'>): Rect {
-  const scale = Math.min(where.width / width, where.height / height)
-  const size = { width: width * scale, height: height * scale }
-  return { x: where.x + (where.width - size.width) / 2, y: where.y + (where.height - size.height) / 2, ...size }
 }

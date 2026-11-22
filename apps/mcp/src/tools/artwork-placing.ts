@@ -11,8 +11,15 @@ import { type AssetSummary, MAX_SVG_BYTES, type Rect } from '@dazbee/schema'
 import type { OpenDesign } from '../open-design.ts'
 import { boundPlacing } from './bound-colour.ts'
 import { type ToolContext, ToolRefusal } from './define-tool.ts'
-import { bundledAsset, type ColourFill, type FrameTo, type Placing, svgSteps, svgTextOf } from './place-on-frame.ts'
-import { fitted } from './sticker-placing.ts'
+import {
+  bundledAsset,
+  type ColourFill,
+  fitted,
+  type FrameTo,
+  type Placing,
+  svgSteps,
+  svgTextOf,
+} from './place-on-frame.ts'
 
 /** An artwork graphic as a search finds it. */
 export type FoundArtwork = Exclude<FoundGraphic, { kind: 'icon' | 'sticker' | 'illustration' }>

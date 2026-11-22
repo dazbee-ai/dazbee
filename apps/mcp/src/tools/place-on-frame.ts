@@ -107,6 +107,13 @@ export function frameIn(open: OpenDesign, frameId: string): Frame {
   return frame
 }
 
+/** The largest box of the asset's shape that fits inside `where`, centred in it. */
+export function fitted(where: Rect, { width, height }: Pick<AssetSummary, 'width' | 'height'>): Rect {
+  const scale = Math.min(where.width / width, where.height / height)
+  const size = { width: width * scale, height: height * scale }
+  return { x: where.x + (where.width - size.width) / 2, y: where.y + (where.height - size.height) / 2, ...size }
+}
+
 /** The frame's whole area, in its own pixels. */
 export function whole({ width, height }: Frame): Rect {
   return { x: 0, y: 0, width, height }

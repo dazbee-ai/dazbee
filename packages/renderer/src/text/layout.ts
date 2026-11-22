@@ -5,6 +5,7 @@ import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, wit
 
 import { color } from '../color.ts'
 import type { Resources } from '../resources.ts'
+import type { Placement } from './placed.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
@@ -54,6 +55,13 @@ export interface TextLayout {
   superSubShift: number
   align: TextProps['align']
   rtl: boolean
+  /** The styled pieces its characters are drawn in, by their offsets in the layer's text. */
+  pieces: StyledPiece[]
+  /**
+   * Where each letter is drawn when its letters are moved and turned (ADR-0021); null when the
+   * paragraphs draw it as they are laid out. Freed with the layout.
+   */
+  placed: Placement | null
   delete(): void
 }
 
@@ -319,7 +327,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     y += block.height + (i < paragraphs.length - 1 ? spacing : 0)
     return block
   })
-  return {
+  const layout: TextLayout = {
     blocks,
     dy: 0,
     width,
@@ -328,6 +336,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(p.superSub?.baselineShift ?? 0))),
     align: props.align,
     rtl,
+    pieces: drawn,
+    placed: null,
     delete() {
       for (const b of blocks) {
         b.paragraph.delete()
@@ -336,8 +346,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         for (const l of b.gradientLines) l.paragraph.delete()
         b.marker?.delete()
       }
+      layout.placed?.delete()
     },
   }
+  return layout
 }
 
 /** Whether text fits its box: no word broken across lines, nothing cut off, and in a fixed box no line below it. */

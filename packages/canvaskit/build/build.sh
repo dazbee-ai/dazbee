@@ -32,6 +32,12 @@ sed -i -e "s#^      s\['wordSpacing'\] = s\['wordSpacing'\] || 0;\$#&\n      s['
   modules/canvaskit/paragraph.js
 test "$(grep -c 'baselineShift' modules/canvaskit/paragraph_bindings.cpp)" -eq 3
 grep -q "^      s\['baselineShift'\] = s\['baselineShift'\] || 0;\$" modules/canvaskit/paragraph.js
+# Each run getShapedLines gives says whether SkParagraph emboldened or slanted its font, as it does
+# for a weight past the family's heaviest or an italic the family lacks (fakeBold, fakeItalic), so a
+# run drawn on its own can be drawn with the same font; npm's bindings leave them out.
+sed -i 's|^        jrun.set("size",        info->font.getSize());$|&\n        jrun.set("fakeBold",    info->font.isEmbolden());\n        jrun.set("fakeItalic",  info->font.getSkewX() != 0);|' \
+  modules/canvaskit/paragraph_bindings.cpp
+test "$(grep -c '^        jrun.set("fake\(Bold\|Italic\)", ' modules/canvaskit/paragraph_bindings.cpp)" -eq 2
 # The shift moves a run's glyphs, underline and strikethrough, never its line's height: SkParagraph
 # adds it to the run's ascent and descent twice (calculateMetrics and the accessors), which would
 # make a line with a raised or lowered run taller.

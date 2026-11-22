@@ -3,7 +3,10 @@ import { join } from 'node:path'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
+import type { Canvas, Font, Path, PDFDocument, SkPicture, TextBlob } from '@dazbee/canvaskit'
 import { exportDesign } from '@dazbee/export'
+import { loadFontFiles } from '@dazbee/fonts/node'
+import { emojiTestFont } from '@dazbee/fonts/test-fonts'
 import {
   layoutText,
   render,
@@ -18,7 +21,7 @@ import { framesOf, inOrder, parseDesign } from '@dazbee/schema'
 
 import { loadFixtures } from './fixtures.ts'
 import { pdfGlyphs } from './pdf-glyphs.ts'
-import { encodePng, fixtureResources, OUTPUT_DIR } from './pixels.ts'
+import { encodePng, fixtureResources, OUTPUT_DIR, type Pixels } from './pixels.ts'
 import {
   overWhite,
   pdfText,
@@ -251,5 +254,222 @@ describe('PDF and SVG exports (#56)', () => {
       expect(file.type).toBe(mime)
       expect(file.name.endsWith(`.${type}`)).toBe(true)
     }
+  })
+})
+
+describe('turned glyphs in PDF and SVG, and the glyphs a picture draws (#225)', () => {
+  const WIDTH = 240
+  const HEIGHT = 160
+  const typeface = (bytes: Uint8Array) => {
+    const face = ck.Typeface.MakeTypefaceFromData(bytes.slice().buffer)
+    if (!face) throw new Error('CanvasKit could not read the font')
+    return face
+  }
+  const notoSans = (weight: number) => {
+    const face = loadFontFiles().find((f) => f.family === 'Noto Sans' && f.weight === weight)
+    if (!face) throw new Error(`Noto Sans ${weight} is missing`)
+    return typeface(face.bytes)
+  }
+  const letters = notoSans(400)
+  const boldLetters = notoSans(800)
+  const emoji = typeface(emojiTestFont())
+  afterAll(() => {
+    letters.delete()
+    boldLetters.delete()
+    emoji.delete()
+  })
+
+  /** A font of the face and size, unhinted. */
+  const fontOf = (face: typeof letters, size: number) => {
+    const font = new ck.Font(face, size)
+    font.setHinting(ck.FontHinting.None)
+    font.setSubpixel(true)
+    return font
+  }
+
+  /** The text's glyphs, each turned by its angle in degrees about its origin and put at `x` plus `step` px a glyph, on `y`. */
+  function turnedBlob(font: Font, text: string, angles: readonly number[], x: number, y: number, step = 40): TextBlob {
+    const glyphs = font.getGlyphIDs(text)
+    const xforms = [...glyphs].flatMap((_, i) => {
+      const r = ((angles[i % angles.length] ?? 0) * Math.PI) / 180
+      return [Math.cos(r), Math.sin(r), x + step * i, y]
+    })
+    return ck.TextBlob.MakeFromRSXformGlyphs(glyphs, xforms, font)
+  }
+
+  /** What `draw` draws, recorded. */
+  function record(draw: (canvas: Canvas) => void): SkPicture {
+    const recorder = new ck.PictureRecorder()
+    draw(recorder.beginRecording(ck.XYWHRect(0, 0, WIDTH, HEIGHT)))
+    const picture = recorder.finishRecordingAsPicture()
+    recorder.delete()
+    return picture
+  }
+
+  /** The picture drawn on the CPU surface over white. */
+  function cpuPixels(picture: SkPicture): Pixels {
+    const surface = ck.MakeSurface(WIDTH, HEIGHT)
+    if (!surface) throw new Error('no surface')
+    try {
+      surface.getCanvas().clear(ck.WHITE)
+      surface.getCanvas().drawPicture(picture)
+      const image = surface.makeImageSnapshot()
+      const pixels = image.readPixels(0, 0, {
+        width: WIDTH,
+        height: HEIGHT,
+        colorType: ck.ColorType.RGBA_8888,
+        alphaType: ck.AlphaType.Unpremul,
+        colorSpace: ck.ColorSpace.SRGB,
+      })
+      image.delete()
+      if (!(pixels instanceof Uint8Array)) throw new Error('no pixels')
+      return { width: WIDTH, height: HEIGHT, pixels }
+    } finally {
+      surface.dispose()
+    }
+  }
+
+  /** The picture played through DrawTextAsPaths into a one-page PDF and into an SVG that keeps text as text. */
+  function asShapes(picture: SkPicture, keepColourGlyphs: boolean): { pdf: Uint8Array; svg: string } {
+    const doc: PDFDocument = new ck.PDFDocument({
+      title: '',
+      author: '',
+      creator: '',
+      producer: '',
+      lang: '',
+      rasterDPI: 72,
+      encodingQuality: 101,
+    })
+    const page = doc.beginPage(WIDTH, HEIGHT)
+    if (!page) throw new Error('no PDF page')
+    ck.DrawTextAsPaths(page, picture, keepColourGlyphs)
+    doc.endPage()
+    const pdf = doc.close()
+    doc.delete()
+    // Without SVG_CONVERT_TEXT_TO_PATHS, so text that reaches the SVG shows as a <text> element.
+    const svgDoc = new ck.SVGDocument(WIDTH, HEIGHT, ck.SVG_NO_PRETTY_XML)
+    const into = svgDoc.canvas()
+    if (!into) throw new Error('no SVG canvas')
+    ck.DrawTextAsPaths(into, picture, keepColourGlyphs)
+    const svg = svgDoc.close()
+    svgDoc.delete()
+    if (!pdf || !svg) throw new Error('CanvasKit could not finish the files')
+    return { pdf, svg: new TextDecoder().decode(svg) }
+  }
+
+  /** The largest share of differing pixels any recorded vector fixture allows, for each type. */
+  const allowed = {
+    pdf: Math.max(...Object.values(baselines).map((b) => b.pdf.limit)),
+    svg: Math.max(...Object.values(baselines).map((b) => b.svg.limit)),
+  }
+
+  it('draws glyphs turned by 30° and 90° into a PDF and an SVG as paths, as the CPU draws them', async () => {
+    const font = fontOf(boldLetters, 110)
+    const blob = turnedBlob(font, 'Turn', [30, 90], 8, 80, 52)
+    const paint = new ck.Paint()
+    paint.setAntiAlias(true)
+    paint.setColor(ck.BLACK)
+    const picture = record((canvas) => canvas.drawTextBlob(blob, 0, 0, paint))
+    const { pdf, svg } = asShapes(picture, false)
+    const cpu = cpuPixels(picture)
+    for (const object of [picture, blob, paint, font]) object.delete()
+
+    expect(await pdfText(pdfium, pdf)).toBe('')
+    expect(svg).not.toContain('<text')
+    expect(svg).toContain('<path')
+    const drawn = { pdf: await rasterisePdf(pdfium, pdf), svg: rasteriseSvg(new TextEncoder().encode(svg)) }
+    // The share allowed is less than a letter covers, so a glyph dropped changes the dark pixels'
+    // count and one put in the wrong place differs by more than the share.
+    const dark = ({ pixels }: Pixels) => pixels.filter((v, i) => i % 4 === 0 && v < 128).length
+    for (const type of ['pdf', 'svg'] as const) {
+      expect(vectorDifference(cpu, drawn[type]), type).toBeLessThanOrEqual(allowed[type])
+      expect(Math.abs(dark(drawn[type]) / dark(cpu) - 1), type).toBeLessThan(0.05)
+    }
+  })
+
+  it('passes colour emoji on as text, once each, only with keepColourGlyphs', async () => {
+    const font = fontOf(letters, 40)
+    const emojiFont = fontOf(emoji, 40)
+    const turnedLetters = turnedBlob(font, 'Hi', [30], 20, 60)
+    const turnedEmoji = turnedBlob(emojiFont, '\u{1F600}', [30], 120, 60)
+    const straightEmoji = ck.TextBlob.MakeFromText('\u{1F389}', emojiFont)
+    const paint = new ck.Paint()
+    paint.setColor(ck.BLACK)
+    const picture = record((canvas) => {
+      canvas.drawTextBlob(turnedLetters, 0, 0, paint)
+      canvas.drawTextBlob(turnedEmoji, 0, 0, paint)
+      canvas.drawTextBlob(straightEmoji, 20, 130, paint)
+    })
+    const kept = asShapes(picture, true)
+    const dropped = asShapes(picture, false)
+    for (const object of [picture, turnedLetters, turnedEmoji, straightEmoji, paint, font, emojiFont]) object.delete()
+
+    const count = (text: string, part: string) => text.split(part).length - 1
+    const keptText = await pdfText(pdfium, kept.pdf)
+    expect(count(keptText, '\u{1F600}')).toBe(1)
+    expect(count(keptText, '\u{1F389}')).toBe(1)
+    expect(keptText).not.toContain('H')
+    expect(count(kept.svg, '<text')).toBe(2)
+    expect(await pdfText(pdfium, dropped.pdf)).toBe('')
+    expect(dropped.svg).not.toContain('<text')
+  })
+
+  it('gives the outlines of the glyphs a picture draws, placed as drawn, and nothing else', () => {
+    const font = fontOf(letters, 48)
+    const straightGlyphs = font.getGlyphIDs('Ab')
+    const straight = ck.TextBlob.MakeFromGlyphs(straightGlyphs, font)
+    const turnedGlyphs = font.getGlyphIDs('Hy')
+    const turned = turnedBlob(font, 'Hy', [90], 140, 40)
+    const paint = new ck.Paint()
+    const picture = record((canvas) => {
+      canvas.save()
+      canvas.translate(7, 11)
+      canvas.scale(1.5, 1.5)
+      canvas.drawTextBlob(straight, 10, 60, paint)
+      canvas.drawTextBlob(turned, 0, 0, paint)
+      canvas.restore()
+      canvas.drawRect(ck.XYWHRect(300, 300, 40, 40), paint)
+    })
+    const outlines: Path = ck.GlyphOutlines(picture)
+
+    // Each glyph's own bounds, placed as drawn: the straight run along its advances, the turned run
+    // turned a quarter, which maps (x, y) to (tx - y, ty + x), then the canvas's matrix.
+    const place = (x: number, y: number) => [7 + 1.5 * x, 11 + 1.5 * y] as const
+    const corners: (readonly [number, number])[] = []
+    const edges = (bounds: Float32Array, i: number) =>
+      [...bounds.slice(4 * i, 4 * i + 4)] as [number, number, number, number]
+    const straightBounds = font.getGlyphBounds(straightGlyphs)
+    const advances = font.getGlyphWidths(straightGlyphs)
+    let pen = 10
+    straightGlyphs.forEach((_, i) => {
+      const [l, t, r, b] = edges(straightBounds, i)
+      corners.push(place(pen + l, 60 + t), place(pen + r, 60 + b))
+      pen += advances[i] ?? 0
+    })
+    const turnedBounds = font.getGlyphBounds(turnedGlyphs)
+    turnedGlyphs.forEach((_, i) => {
+      const [l, t, r, b] = edges(turnedBounds, i)
+      const tx = 140 + 40 * i
+      corners.push(place(tx - b, 40 + l), place(tx - t, 40 + r))
+    })
+    const expected = [
+      Math.min(...corners.map(([x]) => x)),
+      Math.min(...corners.map(([, y]) => y)),
+      Math.max(...corners.map(([x]) => x)),
+      Math.max(...corners.map(([, y]) => y)),
+    ]
+    const bounds = [...outlines.computeTightBounds()]
+    const inRect = outlines.contains(320, 320)
+    for (const object of [outlines, picture, straight, turned, paint, font]) object.delete()
+
+    // A glyph's bounds are whole pixels round its outline, so the outlines lie inside the box
+    // expected and less than a pixel, 1.5 once scaled, from each of its edges.
+    const inward = [1, 1, -1, -1]
+    bounds.forEach((edge, i) => {
+      const gap = (edge - (expected[i] ?? Number.NaN)) * (inward[i] ?? 0)
+      expect(gap, `edge ${i}`).toBeGreaterThanOrEqual(0)
+      expect(gap, `edge ${i}`).toBeLessThan(1.5)
+    })
+    expect(inRect).toBe(false)
   })
 })

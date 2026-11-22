@@ -800,10 +800,11 @@ export interface Range {
  * to describe the location "after" the last glyph in the glyphs array.
  */
 export interface GlyphRun {
-    typeface: Typeface;     // currently set to null (temporary)
+    typeface: Typeface;
     size: number;
-    fakeBold: boolean;
-    fakeItalic: boolean;
+    scaleX: number;
+    fakeBold: boolean;      // the font is emboldened: a weight past the family's heaviest (build/build.sh)
+    fakeItalic: boolean;    // the font is slanted: an italic the family has no face for (build/build.sh)
 
     glyphs: Uint16Array;
     positions: Float32Array;    // alternating x0, y0, x1, y1, ...

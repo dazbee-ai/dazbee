@@ -297,6 +297,6 @@ function drawAsShapes(ck: CanvasKit, canvas: Canvas, draw: (into: Canvas) => voi
   draw(recorder.beginRecording(EVERYWHERE))
   const picture = recorder.finishRecordingAsPicture()
   recorder.delete()
-  ck.DrawTextAsPaths(canvas, picture)
+  ck.DrawTextAsPaths(canvas, picture, false)
   picture.delete()
 }

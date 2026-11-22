@@ -84,6 +84,6 @@ export function googleFontRoutes({
       'x-content-type-options': 'nosniff',
     })
   })
-  app.all(`${GOOGLE_FONT_PATH}*`, (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
+  app.get(`${GOOGLE_FONT_PATH}*`, (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
   return app
 }

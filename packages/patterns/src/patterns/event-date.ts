@@ -6,9 +6,8 @@
 import { type Rect, TextProps } from '@dazbee/schema'
 
 import { type Build, ground, isShort, wordsOn } from '../build.ts'
-import { ctaFill } from '../button.ts'
 import { card } from '../card.ts'
-import { apart, deepColour, mixed, ornamentColour, type Swatch, withAlpha } from '../palette.ts'
+import { apart, deepColour, holdsText, mixed, ornamentColour, type Swatch, withAlpha } from '../palette.ts'
 import { inkFor, lookStyle } from '../text-look.ts'
 import { ellipse, rect, round, solid, stroke } from '../tree.ts'
 import type { Pattern } from '../types.ts'
@@ -32,6 +31,8 @@ const STRIP_LEAST = 1.7
 const PAGE_PAD = 0.12
 /** How plainly the page stands apart from the ground. */
 const PAGE_APART = { ratio: 1.3, difference: 18 }
+/** The contrast some ink keeps on the strip, which holds the month in small words: past the 4.5 small text needs. */
+const MONTH_HOLD = 7
 /** A day of the month, with or without its ending. */
 const DAY = /^\d{1,2}(st|nd|rd|th)?$/iu
 
@@ -145,7 +146,7 @@ function pageColour(b: Build, colour: Swatch): Swatch {
 /**
  * The strip's colour: the first of the style's colour (the accent in a loud style, the primary in a minimal one, the
  * deep colour in a premium one), then the kit's others, plainly apart from the page and from the ground round it, so
- * the strip shows as the page's own.
+ * the strip shows as the page's own, and holding small text with a margin to spare; else the deep colour.
  */
 function stripOf(b: Build, page: Swatch, ground: Swatch): Swatch {
   const { palette, styleName } = b
@@ -157,7 +158,9 @@ function stripOf(b: Build, page: Swatch, ground: Swatch): Swatch {
       (other) =>
         swatch.value !== other.value && apart(swatch.value, other.value, PAGE_APART.ratio, PAGE_APART.difference),
     )
-  return offered.find(shows) ?? ctaFill(palette, page, 'accent').fill
+  // The strip holds the month in small words, so it holds text with a margin to spare.
+  const holds = (swatch: Swatch) => holdsText(palette, swatch.value, MONTH_HOLD)
+  return offered.find((swatch) => shows(swatch) && holds(swatch)) ?? deepColour(palette)
 }
 
 /** A text of the date centred in `box` at `size`, in an ink that reads on `surface`, bound to its font and ink. */

@@ -16,7 +16,7 @@ import {
   usualWords,
   wordsOn,
 } from './build.ts'
-import { apart, deepColour, mixed, ornamentColour, type Swatch, withAlpha } from './palette.ts'
+import { apart, deepColour, holdsText, mixed, ornamentColour, type Swatch, withAlpha } from './palette.ts'
 import { lookStyle } from './text-look.ts'
 import { ellipse, line, rect, round, solid, stroke, treeBuilder } from './tree.ts'
 import { fitsRoom, rowFits, rowWords, stackWords, type WordPart, type Words } from './words.ts'
@@ -55,6 +55,8 @@ const STUB_LEAD_DOWN = 0.8
 const MAIN_UNDER_STUB = 0.5
 /** The share of the primary a minimal card is tinted with. */
 const MINIMAL_TINT = 0.07
+/** The contrast some ink keeps on a stub, which may hold small words: past the 4.5 small text needs, so it reads as drawn. */
+const SMALL_WORDS_HOLD = 7
 /** How plainly the card stands apart from the ground. */
 const CARD_APART = { ratio: 1.3, difference: 18 }
 
@@ -220,7 +222,8 @@ function numberWidth(b: Build, part: WordPart): number {
 
 /**
  * The stub's colour in a loud style: the first of the accent, secondary and deep colour plainly apart from the card
- * and from what the card is on, so the stub shows as a part of the card; else, and in a quiet style, the card's own.
+ * and from what the card is on, so the stub shows as a part of the card, that holds small text with a margin to
+ * spare; else, and in a quiet style, the card's own.
  */
 function stubColour(b: Build, fill: Swatch, colour: Swatch): Swatch {
   const { palette } = b
@@ -230,7 +233,11 @@ function stubColour(b: Build, fill: Swatch, colour: Swatch): Swatch {
       (other) =>
         swatch.value !== other.value && apart(swatch.value, other.value, CARD_APART.ratio, CARD_APART.difference),
     )
-  return [palette.accent, palette.secondary, deepColour(palette)].find(shows) ?? fill
+  // The chip may hold small words, such as a date's month, so it holds text with a margin to spare.
+  const holds = (swatch: Swatch) => holdsText(palette, swatch.value, SMALL_WORDS_HOLD)
+  return (
+    [palette.accent, palette.secondary, deepColour(palette)].find((swatch) => shows(swatch) && holds(swatch)) ?? fill
+  )
 }
 
 /** The tear between the stub and the main part, and a notch bitten from each of the card's edges at it. */

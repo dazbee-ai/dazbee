@@ -4,7 +4,7 @@ import type { FontUse } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
 
-import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS } from './font-loads.ts'
+import { editorFontLoads, type FontSources, type ListedFace, NO_FONTS, openedFonts } from './font-loads.ts'
 import { testCatalog } from './test-catalog.ts'
 
 /** Four faces of Brand Sans, each its own bytes: 400, 700 and 900 upright and 400 italic. */
@@ -183,5 +183,45 @@ describe('editorFontLoads', () => {
     ])
     expect(loads.lacking()).toEqual([])
     end()
+  })
+
+  it("counts a shipped family drawable only once the catalog said whose files draw it and the brand's are here", async () => {
+    const upload = new Uint8Array(shippedFile('NotoSans-Bold.ttf'))
+    const catalog = testCatalog([{ family: 'Noto Sans', bytes: upload }])
+    let online = false
+    const { loads, end } = loadsOf(
+      {
+        ...catalog.sources,
+        fontFile: (face) => (online ? catalog.sources.fontFile(face) : Promise.reject(new Error('offline'))),
+      },
+      () => online,
+      SHIPPED,
+    )
+    const sans: FontUse[] = [{ family: 'Noto Sans', weight: 400, style: 'normal' }]
+    expect(loads.drawable('Noto Sans')).toBe(false)
+    // The catalog lists the upload, but its file didn't come: our file isn't the one that draws it.
+    await loads.loadUses(sans)
+    expect(loads.drawable('Noto Sans')).toBe(false)
+    online = true
+    await loads.loadUses(sans)
+    expect(loads.drawable('Noto Sans')).toBe(true)
+    end()
+
+    const none = loadsOf(testCatalog([]).sources, () => true, SHIPPED)
+    await none.loads.loadUses(sans)
+    expect(none.loads.drawable('Noto Sans')).toBe(true)
+    none.end()
+    expect(loadsOf({}, () => true, SHIPPED).loads.drawable('Noto Sans')).toBe(true)
+  })
+})
+
+describe('openedFonts', () => {
+  it("opens a design in only the fonts we ship in ours when the catalog doesn't answer, and fails one in others", async () => {
+    const down: FontSources = {
+      fontFaces: () => Promise.reject(new Error('the font store is down')),
+      fontFile: () => Promise.resolve(new Uint8Array()),
+    }
+    expect(await openedFonts([{ family: 'Noto Sans', weight: 400, style: 'normal' }], down)).toBe(NO_FONTS)
+    await expect(openedFonts([{ family: 'Brand Sans', weight: 400, style: 'normal' }], down)).rejects.toThrow('down')
   })
 })

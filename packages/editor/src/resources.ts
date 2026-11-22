@@ -81,6 +81,11 @@ export interface EditorResources {
   /** The families whose files the editor has, shipped ones included (#50). */
   families(): string[]
   /**
+   * Whether the family's own files draw it: ours for a shipped family the catalog said the brand has no upload of, the
+   * catalog's files here for any other. A text fitted before then would be fitted in other letters.
+   */
+  drawable(family: string): boolean
+  /**
    * The families the catalog was asked for and answered with no file, which the editor still lacks:
    * their text draws in the fallback fonts. A family still loading, or whose load failed, is not one.
    */
@@ -315,6 +320,7 @@ export function editorResources({
     loaded,
     facesOf: fonts.facesOf,
     families: fonts.families,
+    drawable: fonts.drawable,
     lacking: fonts.lacking,
     alpha,
     setVariables,

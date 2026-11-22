@@ -166,6 +166,7 @@ function harness(failing: string[] = [], design = DESIGN) {
           }),
         )
       },
+      drawable: (family) => SHIPPED_FAMILIES.has(family) || bytes.fonts.some((font) => font.family === family),
     },
     view: { redraw: () => log.push('redraw') },
     selection,

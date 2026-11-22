@@ -125,6 +125,14 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
   function families() {
     return [...new Set(list.map((font) => font.family))]
   }
+  /**
+   * Whether the family's own files draw it: ours for a shipped family once the catalog said the brand has no upload of
+   * its name (at once without a catalog), and the catalog's files here for any other.
+   */
+  function drawable(family: string) {
+    if (!drawsShipped(family)) return here(catalog.get(family) ?? []).length > 0
+    return catalog.has(family) || !sources.fontFaces
+  }
   function lacking() {
     return [...catalog].flatMap(([family, faces]) => (faces.length === 0 && !drawsShipped(family) ? [family] : []))
   }
@@ -283,6 +291,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     pending,
     facesOf,
     families,
+    drawable,
     lacking,
     loaded,
     ask,
@@ -301,7 +310,12 @@ export async function openedFonts(uses: readonly FontUse[], sources: FontSources
   const families = [...new Set(uses.map((use) => use.family))]
   const { fontFaces, fontFile } = sources
   if (families.length === 0 || !fontFaces || !fontFile) return NO_FONTS
-  const faces = await fontFaces(families)
+  const faces = await fontFaces(families).catch((error: unknown) => {
+    // A design in only the fonts we ship opens in ours when the catalog doesn't answer; the screen asks again.
+    if (families.every((family) => SHIPPED_FAMILIES.has(family))) return null
+    throw error
+  })
+  if (!faces) return NO_FONTS
   const picked = families.flatMap((family) =>
     facesToLoad(
       faces.filter((face) => face.family === family),

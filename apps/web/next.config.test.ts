@@ -49,11 +49,14 @@ describe('config', () => {
       expect(before).toContainEqual({ source: '/uploads/:token', destination: 'http://localhost:8787/uploads/:token' })
     })
 
-    it('passes only the Google faces’ files on to the API without MCP_DEV_URL', async () => {
+    it('passes only the Google faces’ files and the matchers’ files on to the API without MCP_DEV_URL', async () => {
       vi.stubEnv('MCP_DEV_URL', '')
       vi.stubEnv('API_URL', 'http://localhost:8787/')
       expect(await config.rewrites?.()).toEqual({
-        beforeFiles: [{ source: '/fonts/google/:path*', destination: 'http://localhost:8787/fonts/google/:path*' }],
+        beforeFiles: [
+          { source: '/fonts/google/:path*', destination: 'http://localhost:8787/fonts/google/:path*' },
+          { source: '/matchers/:path*', destination: 'http://localhost:8787/matchers/:path*' },
+        ],
         afterFiles: [],
         fallback: [],
       })

@@ -117,3 +117,8 @@ export async function svgSteps(
     leftOut: read.leftOut,
   }
 }
+
+/** An SVG file's text, read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced. */
+export function textOf(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes)
+}

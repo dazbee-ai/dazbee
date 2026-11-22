@@ -19,6 +19,7 @@ import {
   placeAndAnswer,
   placeBox,
   svgSteps,
+  textOf,
   whole,
 } from './place-on-frame.ts'
 
@@ -67,11 +68,6 @@ async function assetOf({ api }: ToolContext, open: OpenDesign, assetId: string) 
       throw new ToolRefusal(`The brand has no image or SVG file “${assetId}”; list_assets lists them`)
     throw error
   }
-}
-
-/** An SVG file's text, read as the editor reads the file the web app fetched: UTF-8, its bad bytes replaced. */
-function textOf(bytes: Uint8Array): string {
-  return new TextDecoder().decode(bytes)
 }
 
 /**

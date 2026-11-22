@@ -270,7 +270,12 @@ describe('firstPassOf', () => {
     const { decision, why, fitted, layers } = piece.firstPass
     const scores = fitted ? { ssim: fitted.ssim, inkMissed: fitted.inkMissed, far: fitted.far } : undefined
     if (decision === 'shapes') {
-      expect(answer).toEqual({ kind: 'layers', layers: layers.map((layer) => UnplacedLayer.parse(layer)), scores })
+      expect(answer).toEqual({
+        kind: 'layers',
+        layers: layers.map((layer) => UnplacedLayer.parse(layer)),
+        scores,
+        approximate: false,
+      })
     } else {
       expect(answer).toEqual({
         kind: 'picture',

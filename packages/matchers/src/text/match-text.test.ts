@@ -9,11 +9,13 @@ import type { FontSource } from './font-source.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import {
+  blankPiece,
   lightFonts,
   type LightPiece,
   lightPieces,
   NOISE_WORDS,
   noisePiece,
+  shippedFaces,
   textJob,
   textLayerOf,
 } from './test-text-pieces.ts'
@@ -22,9 +24,14 @@ const ck = await loadCanvasKit()
 const { files, model } = await textMatcherFiles()
 const fonts = lightFonts()
 const pieces = lightPieces(ck, fonts)
+const shipped = shippedFaces()
 
-/** The faces of Light's test, cut to its characters; none for any other key. */
-const FIXTURE_FONTS: FontSource = { face: async (key) => fonts.get(key) ?? null }
+/** The faces of Light's test, cut to its characters, and the shipped faces; none for any other key. */
+const FIXTURE_FONTS: FontSource = { face: async (key) => fonts.get(key) ?? shipped.get(key) ?? null }
+/** Only the shipped faces, so no shortlisted face of the catalog loads. */
+const SHIPPED_ONLY: FontSource = { face: async (key) => shipped.get(key) ?? null }
+/** A character no face of the catalog draws. */
+const UNDRAWN = '𓂀'
 
 /** A size found within this share of the size drawn comes back right. */
 const SIZE_WITHIN = 0.03
@@ -60,6 +67,12 @@ async function matchTwice(pixels: Pixels, words: string, setting: MatchSetting =
   return first
 }
 
+/** The closeness the rule's scores give an answer's layers: SSIM less the ink missed. */
+function closenessOf(answer: MatchAnswer): number {
+  if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}`)
+  return answer.scores.ssim - answer.scores.inkMissed
+}
+
 /** A piece of Light's test matched once in Light and once in Hybrid. */
 async function lightAndHybrid(id: string): Promise<{ light: MatchAnswer; hybrid: MatchAnswer }> {
   const piece = pieceOf(id)
@@ -81,7 +94,9 @@ function pieceOf(id: string): LightPiece {
 describe('matchText', () => {
   it.each(ROUND_TRIPS)('gives %s back in its face and size as one text layer that looks the same', async (id) => {
     const piece = pieceOf(id)
-    const { style, text, rotation } = textLayerOf(await matchTwice(piece.pixels, piece.words)).props
+    const answer = await matchTwice(piece.pixels, piece.words)
+    expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+    const { style, text, rotation } = textLayerOf(answer).props
     expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(piece.key)
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
     expect(text).toBe(piece.words)
@@ -99,6 +114,7 @@ describe('matchText', () => {
     expect(await matchTextWithFace(job, jobPiece, deps)).toEqual(hybrid)
     // Light gives each round trip back in its drawn face (above).
     expect(hybrid.face && fontKey(hybrid.face)).toBe(piece.key)
+    expect(hybrid.answer).toMatchObject({ kind: 'layers', approximate: false })
     const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
   })
@@ -115,22 +131,53 @@ describe('matchText', () => {
     expect(hybrid).not.toEqual(light)
   })
 
-  it('keeps a piece of noise a picture, as it looks different', async () => {
+  it('gives a piece of noise as approximate text in the closest shortlisted face', async () => {
     const answer = await matchTwice(noisePiece(), NOISE_WORDS)
-    expect(answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
+    expect(answer).toMatchObject({ kind: 'layers', approximate: true })
+    const { style, text } = textLayerOf(answer).props
+    expect(text).toBe(NOISE_WORDS)
+    expect(fonts.has(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`)).toBe(true)
   })
 
-  it('keeps a piece a picture, as it failed, when the font source gives none of its faces', async () => {
+  it('gives the closer of Light’s and the finer fit’s answers in Hybrid when neither looks the same', async () => {
+    const { job, piece } = textJob(ck, noisePiece(), NOISE_WORDS, { setting: 'light' })
+    const deps = { ck, files, model, fonts: FIXTURE_FONTS }
+    const light = await matchText(job, piece, deps)
+    const hybrid = await matchText({ ...job, setting: 'hybrid' }, piece, deps)
+    expect(hybrid).toMatchObject({ kind: 'layers', approximate: true })
+    expect(closenessOf(hybrid)).toBeGreaterThanOrEqual(closenessOf(light))
+  })
+
+  it.each([
+    ['latin-plain', 'Noto Sans'],
+    ['arabic-plain', 'Noto Naskh Arabic'],
+  ])('sets %s in %s, approximate, when no face of the catalog draws one of its characters', async (id, family) => {
+    const piece = pieceOf(id)
+    const words = `${piece.words} ${UNDRAWN}`
+    const answer = await matchTwice(piece.pixels, words, 'hybrid')
+    expect(answer).toMatchObject({ kind: 'layers', approximate: true })
+    const { style, text } = textLayerOf(answer).props
+    expect(style.fontFamily).toBe(family)
+    expect(text).toBe(words)
+  })
+
+  it('sets a piece in Noto, approximate, when none of its shortlisted faces loads', async () => {
+    const piece = pieceOf('latin-plain')
+    const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
+    const { answer, face } = await matchTextWithFace(job, jobPiece, { ck, files, model, fonts: SHIPPED_ONLY })
+    expect(answer).toMatchObject({ kind: 'layers', approximate: true })
+    expect(face?.family).toBe('Noto Sans')
+  })
+
+  it('keeps a piece a picture, as it failed, when the font source gives none of its faces, Noto’s included', async () => {
     const piece = pieceOf('latin-plain')
     const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words)
     const answer = await matchText(job, jobPiece, { ck, files, model, fonts: { face: async () => null } })
     expect(answer).toEqual({ kind: 'picture', why: 'failed' })
   })
 
-  it('keeps a piece a picture when no font draws one of its characters', async () => {
-    const piece = pieceOf('latin-plain')
-    const answer = await matchTwice(piece.pixels, `${piece.words} 𓂀`)
-    expect(answer).toEqual({ kind: 'picture', why: 'noFont' })
+  it('keeps a piece with no ink a picture, as it failed', async () => {
+    expect(await matchTwice(blankPiece(), NOISE_WORDS, 'hybrid')).toEqual({ kind: 'picture', why: 'failed' })
   })
 
   it.each([
@@ -148,11 +195,12 @@ describe('matchText', () => {
 })
 
 describe('matchTextWithFace', () => {
-  it('gives the face it picked with its answer, also when the piece stays a picture', async () => {
+  it('gives the face it set the text in with its answer, also when the text is approximate', async () => {
     const { job, piece } = textJob(ck, noisePiece(), NOISE_WORDS)
     const { answer, face } = await matchTextWithFace(job, piece, { ck, files, model, fonts: FIXTURE_FONTS })
-    expect(answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
-    expect(face).toEqual({ family: expect.any(String), weight: expect.any(Number), style: expect.any(String) })
+    const { style } = textLayerOf(answer).props
+    expect(answer).toMatchObject({ kind: 'layers', approximate: true })
+    expect(face).toEqual({ family: style.fontFamily, weight: style.fontWeight, style: style.fontStyle })
     expect(answer).toEqual(await matchText(job, piece, { ck, files, model, fonts: FIXTURE_FONTS }))
   })
 })

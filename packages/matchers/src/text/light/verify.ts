@@ -110,7 +110,7 @@ export function judgeText(drawer: TextDrawer, target: VerifyTarget, look: TextLo
 }
 
 /** The closeness of a rebuild: the rule's SSIM less the share of ink it missed. */
-function closeness(scores: Judged['scores']): number {
+export function closeness(scores: Judged['scores']): number {
   return scores.ssim - scores.inkMissed
 }
 

@@ -1,6 +1,7 @@
 // Text pieces for the text matcher's tests: text drawn by Dazbee's renderer in a shipped face and cut
 // round its ink; the shortlist's pieces, drawn the same way in Google faces and kept as PNGs; Light's
-// pieces, drawn when the test runs in Google faces cut to the test's characters; and a job of a piece.
+// pieces, drawn when the test runs in Google faces cut to the test's characters; a blank piece and a
+// piece of noise; the shipped faces by key; and a job of a piece.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,7 +12,7 @@ import { type Pixels, renderPixels } from '@dazbee/renderer'
 import { type MatchAnswer, MatchJob, type MatchKit, type MatchSetting, type UnplacedLayer } from '@dazbee/schema'
 
 import { decodePng } from '../shape/test-pieces.ts'
-import { parseFontKey } from './font-key.ts'
+import { fontKey, parseFontKey } from './font-key.ts'
 import type { TextPieceOfJob } from './match-text.ts'
 
 /** A text to draw and how. */
@@ -164,6 +165,11 @@ export function lightFonts(): Map<string, Uint8Array> {
   )
 }
 
+/** The shipped faces by key, as a font source gives them. */
+export function shippedFaces(): Map<string, Uint8Array> {
+  return new Map(loadFontFiles().map((face) => [fontKey(face), face.bytes]))
+}
+
 /** Light's pieces, each drawn by Dazbee's renderer in its face from `fonts`, faces by key. */
 export function lightPieces(ck: CanvasKit, fonts: ReadonlyMap<string, Uint8Array>): LightPiece[] {
   return lightDrawings().map((drawing) => {
@@ -230,6 +236,13 @@ export function noisePiece(): Pixels {
     pixels[i * 4 + 3] = 255
   }
   return { width, height, pixels }
+}
+
+/** A piece of one flat white, 240 × 80, with no ink. */
+export function blankPiece(): Pixels {
+  const width = 240
+  const height = 80
+  return { width, height, pixels: new Uint8Array(width * height * 4).fill(255) }
 }
 
 /** The pixels within `MARGIN` of every pixel unlike the top left one. */

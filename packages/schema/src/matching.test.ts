@@ -105,20 +105,33 @@ describe('MatchJob', () => {
 
 describe('MatchAnswer', () => {
   it('gives layers that parse as unplaced layers, with the rule’s scores', () => {
-    const answer = MatchAnswer.parse({ kind: 'layers', layers: [TEXT_LAYER], scores: SCORES })
+    const answer = MatchAnswer.parse({ kind: 'layers', layers: [TEXT_LAYER], scores: SCORES, approximate: false })
     expect(answer.kind === 'layers' && answer.layers[0]?.props).toMatchObject({ rotation: 0, visible: true })
     expect(
-      issues(MatchAnswer, { kind: 'layers', layers: [{ ...TEXT_LAYER, type: 'picture' }], scores: SCORES }),
+      issues(MatchAnswer, {
+        kind: 'layers',
+        layers: [{ ...TEXT_LAYER, type: 'picture' }],
+        scores: SCORES,
+        approximate: false,
+      }),
     ).toEqual(['layers.0.type'])
-    expect(issues(MatchAnswer, { kind: 'layers', layers: [], scores: SCORES })).toEqual(['layers'])
+    expect(issues(MatchAnswer, { kind: 'layers', layers: [], scores: SCORES, approximate: false })).toEqual(['layers'])
+  })
+
+  it('says whether the layers are approximate, as they don’t look the same', () => {
+    expect(
+      MatchAnswer.parse({ kind: 'layers', layers: [TEXT_LAYER], scores: SCORES, approximate: true }),
+    ).toMatchObject({ approximate: true })
+    expect(issues(MatchAnswer, { kind: 'layers', layers: [TEXT_LAYER], scores: SCORES })).toEqual(['approximate'])
   })
 
   it('says why a piece stays a picture, and refuses an unknown why', () => {
     expect(MatchAnswer.parse({ kind: 'picture', why: 'looksDifferent', scores: SCORES })).toMatchObject({
       why: 'looksDifferent',
     })
-    expect(issues(MatchAnswer, { kind: 'picture', why: 'noFont' })).toEqual([])
+    expect(issues(MatchAnswer, { kind: 'picture', why: 'failed' })).toEqual([])
     expect(issues(MatchAnswer, { kind: 'picture', why: 'tooUgly' })).toEqual(['why'])
+    expect(issues(MatchAnswer, { kind: 'picture', why: 'noFont' })).toEqual(['why'])
   })
 
   it('says a piece stays a picture because this browser can’t run the matchers', () => {

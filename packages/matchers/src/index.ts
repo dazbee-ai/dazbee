@@ -3,7 +3,7 @@ export { firstPass } from './shape/first-pass.ts'
 export { fullPass } from './shape/full-pass.ts'
 export { matchShapes, type ShapeStep } from './shape/match-shapes.ts'
 export { pieceFingerprint } from './text/fingerprint.ts'
-export { faceOfKey, type FontKey, parseFontKey } from './text/font-key.ts'
+export { faceOfKey, type FontKey, fontKey, parseFontKey } from './text/font-key.ts'
 export { type FontSource, loadFaces } from './text/font-source.ts'
 export { matchText, type TextMatcherDeps, type TextPieceOfJob, type TextStep } from './text/match-text.ts'
 export {

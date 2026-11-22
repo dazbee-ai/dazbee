@@ -115,6 +115,19 @@ describe('findViolations', () => {
     ])
   })
 
+  it('flags packages that depend on each other, directly or through another', () => {
+    const violations = findViolations([
+      workspacePackage('@dazbee/schema', 'packages/schema', ['@dazbee/fonts']),
+      workspacePackage('@dazbee/fonts', 'packages/fonts', ['@dazbee/matchers']),
+      workspacePackage('@dazbee/matchers', 'packages/matchers', ['@dazbee/schema']),
+    ])
+    expect(violations).toEqual([
+      '@dazbee/schema depends on @dazbee/fonts, which depends on @dazbee/schema in turn',
+      '@dazbee/fonts depends on @dazbee/matchers, which depends on @dazbee/fonts in turn',
+      '@dazbee/matchers depends on @dazbee/schema, which depends on @dazbee/matchers in turn',
+    ])
+  })
+
   it('allows core packages to depend downward and apps and tests to depend on anything below them', () => {
     const violations = findViolations([
       workspacePackage('@dazbee/schema', 'packages/schema'),

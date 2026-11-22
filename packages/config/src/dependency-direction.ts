@@ -54,6 +54,9 @@ export function findViolations(workspaces: WorkspacePackage[]): string[] {
       if (from !== -1 && to > from) {
         violations.push(`${w.name} depends on ${target.name}, which comes later in ${CHAIN_TEXT}`)
       }
+      if (reaches(byName, target.name, w.name)) {
+        violations.push(`${w.name} depends on ${target.name}, which depends on ${w.name} in turn`)
+      }
     }
   }
   return violations
@@ -95,4 +98,17 @@ function readWorkspaces(root: string): { workspaces: WorkspacePackage[]; problem
     problems.push('pnpm-workspace.yaml: no workspace packages found')
   }
   return { workspaces, problems }
+}
+
+/** Whether a workspace package depends on another, directly or through those it depends on. */
+function reaches(byName: Map<string, WorkspacePackage>, from: string, to: string): boolean {
+  const seen = new Set<string>()
+  const waiting = [from]
+  for (let name = waiting.pop(); name !== undefined; name = waiting.pop()) {
+    if (name === to) return true
+    if (seen.has(name)) continue
+    seen.add(name)
+    waiting.push(...(byName.get(name)?.deps ?? []))
+  }
+  return false
 }

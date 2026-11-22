@@ -4,7 +4,7 @@
 // keeps CanvasKit, the fonts we ship and its resource cache for its whole life.
 import { parentPort } from 'node:worker_threads'
 
-import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+import { FALLBACK_FAMILIES, withBrandFonts } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { drawDesign, type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -62,7 +62,7 @@ async function draw(job: DrawJob): Promise<Uint8Array> {
     surface.getCanvas().scale(job.size.width / job.frame.width, job.size.height / job.frame.height)
     const resources = {
       ...job.resources,
-      fonts: [...shipped, ...job.resources.fonts],
+      fonts: withBrandFonts(shipped, job.resources.fonts),
       fallbackFamilies: [...FALLBACK_FAMILIES],
     }
     drawDesign(ck, surface, job.design, job.frameId, resources, cache)

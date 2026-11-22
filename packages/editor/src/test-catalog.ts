@@ -1,6 +1,6 @@
 // A font catalog for tests, as the web app and the MCP server give one: each family's faces listed by
 // `fontFaces` and their files given by `fontFile`, noting what was asked of each.
-import type { FontSources, ListedFace } from './font-loads.ts'
+import { type FontSources, type ListedFace, SHIPPED_FAMILIES } from './font-loads.ts'
 
 /** A face of the test catalog: upright 400 unless it says otherwise. */
 export interface TestFace {
@@ -9,6 +9,14 @@ export interface TestFace {
   weights?: { min: number; max: number }
   style?: 'normal' | 'italic'
   bytes: Uint8Array
+}
+
+/**
+ * Whether every family asked for is one we ship: a catalog of a brand with no upload of their names answers none, which a
+ * test that holds its catalog's answers gives at once.
+ */
+export function shippedOnly(families: readonly string[]): boolean {
+  return families.every((family) => SHIPPED_FAMILIES.has(family))
 }
 
 /**

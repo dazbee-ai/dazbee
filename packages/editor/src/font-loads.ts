@@ -1,7 +1,8 @@
 // The editor's fonts from the catalog: each family's faces as the catalog lists them, asked for
 // once, and the files of only the faces its texts are drawn in (`facesToLoad`), fetched as texts ask
-// for new weights and styles. A face's file is fetched once; the fonts we ship are always here.
-import { type CatalogFace, facesToLoad, FONT_FACES, type FontStyle, type FontUse } from '@dazbee/fonts'
+// for new weights and styles. A face's file is fetched once; the fonts we ship are always here, and
+// draw a family unless the brand has its own files of it (`withBrandFonts`).
+import { type CatalogFace, facesToLoad, FONT_FACES, type FontStyle, type FontUse, withBrandFonts } from '@dazbee/fonts'
 import type { ResourceBytes } from '@dazbee/renderer'
 
 /**
@@ -52,7 +53,10 @@ export interface FontLoadsDeps {
   arrived: () => void
 }
 
-/** The families we ship are always loaded; the rest come from the catalog. */
+/**
+ * The families we ship, always loaded. The catalog is asked for them too: a brand's upload of one's name draws in
+ * place of our file, and one the brand has none of draws in ours and is never lacking.
+ */
 export const SHIPPED_FAMILIES = new Set(FONT_FACES.map((f) => f.family))
 
 /** No fonts from the catalog: what a design that names none of its families opens with. */
@@ -96,11 +100,11 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
   function fonts() {
     return list
   }
-  /** The fonts that draw `uses`: the shipped ones and the files here of the faces `facesToLoad` picks. */
+  /** The fonts that draw `uses`: the shipped ones and the files here of the faces `facesToLoad` picks (`withBrandFonts`). */
   function fontsFor(uses: readonly FontUse[]): ResourceBytes['fonts'] {
-    return [
-      ...shipped,
-      ...[...asked].flatMap((family) =>
+    return withBrandFonts(
+      shipped,
+      [...asked].flatMap((family) =>
         here(
           facesToLoad(
             catalog.get(family) ?? [],
@@ -108,20 +112,25 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
           ),
         ),
       ),
-    ]
+    )
   }
   function pending(family: string) {
     return (busy.get(family) ?? 0) > 0
   }
+  /** A family's faces as the catalog lists them; a shipped family the brand has no upload of, ours. */
   function facesOf(family: string): FontFace[] {
-    if (SHIPPED_FAMILIES.has(family)) return FONT_FACES.filter((face) => face.family === family).map(faceOf)
-    return (catalog.get(family) ?? []).map(faceOf)
+    const listed = catalog.get(family) ?? []
+    if (listed.length === 0 && SHIPPED_FAMILIES.has(family))
+      return FONT_FACES.filter((face) => face.family === family).map(faceOf)
+    return listed.map(faceOf)
   }
   function families() {
     return [...new Set(list.map((font) => font.family))]
   }
   function lacking() {
-    return [...catalog].flatMap(([family, faces]) => (faces.length === 0 ? [family] : []))
+    return [...catalog].flatMap(([family, faces]) =>
+      faces.length === 0 && !SHIPPED_FAMILIES.has(family) ? [family] : [],
+    )
   }
   function loaded() {
     return all
@@ -137,7 +146,6 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     const grown = new Set(unfetched)
     unfetched.clear()
     for (const use of uses) {
-      if (SHIPPED_FAMILIES.has(use.family)) continue
       const known = wanted.get(use.family) ?? new Map<string, FontUse>()
       const key = `${use.weight} ${use.style}`
       if (!known.has(key)) grown.add(use.family)
@@ -152,7 +160,7 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
   }
   /** Asks for the faces of these families; each family's load settles once its files too are here. */
   function loadFamilies(names: readonly string[]) {
-    askCatalog(names.filter((family) => !SHIPPED_FAMILIES.has(family) && !asked.has(family)))
+    askCatalog(names.filter((family) => !asked.has(family)))
     return names.map((family) => latest.get(family))
   }
   /** Asks for these uses; settles when their families' faces and files are here or failed to come. */
@@ -245,9 +253,12 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
     all = Promise.all([all, done]).then(() => undefined)
     return done
   }
-  /** The shipped fonts, then each family's files here, in the catalog's order. */
+  /** The shipped fonts, then each family's files here, in the catalog's order (`withBrandFonts`). */
   function fontList(): ResourceBytes['fonts'] {
-    return [...shipped, ...[...asked].flatMap((family) => here(catalog.get(family) ?? []))]
+    return withBrandFonts(
+      shipped,
+      [...asked].flatMap((family) => here(catalog.get(family) ?? [])),
+    )
   }
   /** The files here of these faces, in their order. */
   function here(faces: readonly ListedFace[]): ResourceBytes['fonts'] {
@@ -283,19 +294,18 @@ export function editorFontLoads({ shipped, opened, sources, connected, status, s
 }
 
 /**
- * The fonts drawing `uses` as a design opens: the faces the catalog lists for their families and the
- * files of those `facesToLoad` picks. None without the sources.
+ * The fonts drawing `uses` as a design opens: the faces the catalog lists for their families, shipped ones
+ * included, and the files of those `facesToLoad` picks. None without the sources.
  */
 export async function openedFonts(uses: readonly FontUse[], sources: FontSources): Promise<OpenedFonts> {
-  const wanted = uses.filter((use) => !SHIPPED_FAMILIES.has(use.family))
-  const families = [...new Set(wanted.map((use) => use.family))]
+  const families = [...new Set(uses.map((use) => use.family))]
   const { fontFaces, fontFile } = sources
   if (families.length === 0 || !fontFaces || !fontFile) return NO_FONTS
   const faces = await fontFaces(families)
   const picked = families.flatMap((family) =>
     facesToLoad(
       faces.filter((face) => face.family === family),
-      wanted.filter((use) => use.family === family),
+      uses.filter((use) => use.family === family),
     ),
   )
   const files = await Promise.all(picked.map(async (face) => ({ ...face, bytes: await fontFile(face) })))

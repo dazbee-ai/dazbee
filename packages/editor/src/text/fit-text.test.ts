@@ -11,18 +11,23 @@ import { type DesignRecords, type Layer, PROTOCOL, type ServerMessage, type Text
 
 import type { FontSources, ListedFace } from '../font-loads.ts'
 import { WORDS } from '../test-actions.ts'
+import { shippedOnly } from '../test-catalog.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { editorFitText } from './fit-text.ts'
 
 /** A font file of a family we don't ship, which looks unlike the fallbacks. */
 const WIDE = loadFontFiles().find((f) => f.file === 'NotoSans-ExtraBold.ttf')?.bytes ?? new Uint8Array()
 
-/** A font catalog whose answers a test settles, one at a time, in order; a face's file comes at once. */
+/**
+ * A font catalog whose answers a test settles, one at a time, in order, but none at once for the fonts we ship; a face's
+ * file comes at once.
+ */
 function slowFonts(bytes = WIDE) {
   const asked: string[][] = []
   const loads: { families: string[]; resolve: (faces: ListedFace[]) => void; reject: (error: Error) => void }[] = []
   const sources: FontSources = {
     fontFaces: (families: string[]) => {
+      if (shippedOnly(families)) return Promise.resolve([])
       asked.push(families)
       return new Promise<ListedFace[]>((resolve, reject) => loads.push({ families, resolve, reject }))
     },

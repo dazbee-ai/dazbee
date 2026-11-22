@@ -63,7 +63,8 @@ export interface EditorResources {
   /**
    * Asks the catalog for the faces of the families not asked for yet. Returns each family's load,
    * settled when its faces, and the files its texts asked for meanwhile, are here or failed to come;
-   * undefined for a family that never loads (shipped, or no way to load it).
+   * undefined for a family that never loads (no way to load it). A shipped family is asked for too: the brand may have
+   * an upload of its name.
    */
   loadFamilies(families: readonly string[]): (Promise<void> | undefined)[]
   /** Asks for the files of the faces drawing these uses (`facesToLoad`); settles when they are here or failed to come. */
@@ -114,9 +115,11 @@ export function editorResources({
   after,
   copyMaker,
 }: ResourcesDeps): EditorResources {
+  /** The files the design opened with from the catalog, which a brand's upload of a shipped family's name is among. */
+  const openedFiles = new Set(firstFonts.files.map((file) => file.bytes))
   /** The catalog's faces and the files of those the design's texts are drawn in. */
   const fonts = editorFontLoads({
-    shipped: first.fonts.filter((font) => SHIPPED_FAMILIES.has(font.family)),
+    shipped: first.fonts.filter((font) => SHIPPED_FAMILIES.has(font.family) && !openedFiles.has(font.bytes)),
     opened: firstFonts,
     sources,
     connected,

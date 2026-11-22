@@ -12,7 +12,7 @@ import type { Frame } from '../canvas/frames.ts'
 import { frameScenes } from '../canvas/scenes.ts'
 import { keyInput } from '../gestures/test-inputs.ts'
 import type { EditorResources, ResourceSources } from '../resources.ts'
-import { testCatalog } from '../test-catalog.ts'
+import { shippedOnly, testCatalog } from '../test-catalog.ts'
 import { testEditor } from '../test-editor.ts'
 import type { RunStyle } from './text-edit.ts'
 import { editorTyping, type TypingDeps } from './typing.ts'
@@ -494,6 +494,7 @@ describe('editorTyping over text laid out with a font', () => {
       const catalog = testCatalog([{ family: LATE_FAMILY, bytes: lateBytes() }])
       const asked: string[][] = []
       const fontFaces = async (families: string[]) => {
+        if (shippedOnly(families)) return []
         asked.push(families)
         await held
         return catalog.sources.fontFaces(families)

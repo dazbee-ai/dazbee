@@ -5,7 +5,7 @@ import { type GraphicProps, type MatchAnswer, MatchJob, type Paint, type Shape }
 
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
 import { fullPass, fullPassOf } from './full-pass.ts'
-import { graphic, pngBase64, prototypeAnswer, prototypeFullPieces } from './test-pieces.ts'
+import { blob, graphic, pngBase64, prototypeAnswer, prototypeFullPieces } from './test-pieces.ts'
 
 const ck = await loadCanvasKit()
 const NAVY: Paint = { type: 'solid', color: '#1E3A8AFF' }
@@ -266,18 +266,6 @@ describe('fullPassOf', () => {
   })
 
   it('keeps a painted scene of five free shapes a picture, as a photo', () => {
-    const blob = (cx: number, cy: number, r: number, seed: number, color: `#${string}`) => {
-      const corners = Array.from({ length: 14 }, (_, i) => {
-        const a = (i / 14) * 2 * Math.PI
-        const reach = 0.7 + 0.3 * Math.abs(Math.sin(seed * (i + 1) * 1.7))
-        return `${(50 + 50 * reach * Math.cos(a)).toFixed(2)} ${(50 + 50 * reach * Math.sin(a)).toFixed(2)}`
-      })
-      return graphic(
-        path(`M${corners.join(' L')} Z`),
-        { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r },
-        { fill: { type: 'solid', color } },
-      )
-    }
     const answer = rebuilt([
       blob(50, 50, 45, 1, '#2E9E4FFF'),
       blob(110, 50, 45, 2, '#F47B20FF'),

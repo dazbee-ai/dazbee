@@ -110,6 +110,20 @@ export function graphic(
   }
 }
 
+/** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */
+export const blob = (cx: number, cy: number, r: number, seed: number, color: `#${string}`): ShapeLayer => {
+  const corners = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * 2 * Math.PI
+    const reach = 0.7 + 0.3 * Math.abs(Math.sin(seed * (i + 1) * 1.7))
+    return `${(50 + 50 * reach * Math.cos(a)).toFixed(2)} ${(50 + 50 * reach * Math.sin(a)).toFixed(2)}`
+  })
+  return graphic(
+    { kind: 'path', d: `M${corners.join(' L')} Z`, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } },
+    { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r },
+    { fill: { type: 'solid', color } },
+  )
+}
+
 /** Pixels as a PNG in base64, as a job's picture. */
 export function pngBase64(ck: CanvasKit, pixels: Pixels): string {
   const image = ck.MakeImage(

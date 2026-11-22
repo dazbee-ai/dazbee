@@ -112,7 +112,7 @@ export function split(b: Build) {
     justify: halves.side === 'top' ? 'optical' : 'center',
     ...(pinsButton(b) ? { pin: true, together: true } : {}),
   }
-  const set = row || rowed(b, room) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
+  const set = row || rowed(b, words) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
   if (row) return
   if (styleName === 'playful' && shot) {
     const r = short * 0.035

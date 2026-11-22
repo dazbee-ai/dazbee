@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { EMPTY_BRAND_KIT, readableTextSize } from '@dazbee/schema'
 
+import { usualWords } from './build.ts'
 import { buildPattern } from './catalog.ts'
-import { PATTERN_STYLES } from './styles.ts'
-import { CHANNEL_SIZES, CONTENT, EVERY, KIT, measure } from './test-input.ts'
+import { frameRoom } from './frame-shape.ts'
+import { paletteOf } from './palette.ts'
+import { PATTERN_STYLES, STYLES } from './styles.ts'
+import { CONTENT, EVERY, KIT, measure, picture } from './test-input.ts'
+import { treeBuilder } from './tree.ts'
+import { stackWords } from './words.ts'
 
 describe('a pattern’s words', () => {
   it('holds an attribution to the quote’s widest line in every style and alignment', () => {
@@ -71,36 +76,65 @@ describe('a pattern’s words', () => {
   )
 
   it.each(EVERY)(
-    'fills %s in the %s style down every display frame, with no empty band across it over a quarter of its height',
+    'keeps the words of %s in the %s style together down a display tower, its spare height round them',
     (id, style) => {
-      const display = CHANNEL_SIZES.filter(({ width, height }) => width < 1000 && height < 1000 && height > 100)
-      for (const { width, height } of display) {
+      for (const [width, height] of [
+        [160, 600],
+        [300, 600],
+      ] as const) {
         const { nodes } = buildPattern(id, { style, kit: KIT, content: CONTENT, width, height, measure })
-        // What is drawn in the frame, but the grounds, panels and lines its content sits on.
-        const grounds = new Set([
-          'Background',
-          'Ground',
-          'Band',
-          'Panel',
-          'Stripe',
-          'Sheen',
-          'Frame line',
-          'Foot',
-          'Seam',
-        ])
-        const boxes = Object.values(nodes)
-          .filter((node) => node.type !== 'box' && !grounds.has(node.name))
-          .map((node) => node.props)
-        const margin = Math.round(Math.min(width, height) * 0.14)
-        let longest = 0
-        let run = 0
-        for (let y = margin; y < height - margin; y++) {
-          const filled = boxes.some((box) => box.y <= y && y < box.y + box.height)
-          run = filled ? 0 : run + 1
-          longest = Math.max(longest, run)
+        const lead = nodes.number ?? nodes.headline
+        if (lead?.type !== 'text') continue
+        // The style's room between the parts: a share of the headline's size, a quarter of a number's.
+        const base = lead.props.style.fontSize * (nodes.number ? 0.25 : 1)
+        const most = Math.ceil(base * STYLES[style].gap) + 1
+        const parts = ['kicker', 'number', 'headline', 'subline', 'attribution', 'button']
+          .flatMap((key) => (nodes[key] ? [{ key, ...nodes[key].props }] : []))
+          .sort((a, b) => a.y - b.y)
+        // A picture between two parts, such as a product over its button, parts them as it should.
+        const pictures = Object.values(nodes).filter((node) => node.name === 'Photo' || node.name === 'Product')
+        for (const [i, part] of parts.entries()) {
+          const next = parts[i + 1]
+          if (!next) break
+          const foot = part.y + part.height
+          if (pictures.some(({ props }) => props.y >= foot - 1 && props.y + props.height <= next.y + 1)) continue
+          const at = `${width}×${height} ${part.key} to ${next.key}`
+          expect({ at, together: next.y - foot <= most }).toEqual({ at, together: true })
         }
-        const at = `${width}×${height}`
-        expect({ at, longest, band: longest <= height * 0.25 }).toEqual({ at, longest, band: true })
+      }
+    },
+  )
+
+  it.each(PATTERN_STYLES)(
+    'sets a wide frame’s button beside its words in the %s style only where the lead keeps the size it takes stacked',
+    (style) => {
+      // A wide photo, which goes on top of a wide frame's words, so they take a wide, low room under it.
+      const photo = { ...picture, look: { subject: { x: 200, y: 300, width: 1200, height: 350 }, inks: [] } }
+      const content = { ...CONTENT, photo }
+      for (const id of ['photo-band', 'split']) {
+        const { nodes } = buildPattern(id, { style, kit: KIT, content, width: 1280, height: 720, measure })
+        const headline = nodes.headline
+        const button = nodes.button
+        const words = nodes.words
+        if (headline?.type !== 'text' || !button || !words) continue
+        const beside = button.props.x >= headline.props.x + headline.props.width
+        if (!beside) continue
+        // The same words stacked over the button in the room the row took.
+        const look = STYLES[style]
+        const setting = {
+          style: look,
+          palette: paletteOf(KIT, look),
+          frame: frameRoom(1280, 720, look.margin),
+          measure,
+        }
+        const stacked = stackWords(treeBuilder(), setting, {
+          parts: usualWords(CONTENT),
+          button: CONTENT.button ?? '',
+          room: words.props,
+          surface: '#FFFFFFFF',
+        })
+        const at = `${id} ${style}`
+        expect({ at, keeps: headline.props.style.fontSize >= stacked.size }).toEqual({ at, keeps: true })
       }
     },
   )

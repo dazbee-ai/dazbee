@@ -4,21 +4,20 @@ import { isNineBySixteen, type Rect } from '@dazbee/schema'
 
 import { BUTTON_SIDE_TIGHT, buttonSize } from './button.ts'
 import { coverCrop, type Cropped, meets, subjectOf } from './crop.ts'
-import { SHORT_FRAME } from './frame-shape.ts'
+import { type FrameRoom, SHORT_FRAME } from './frame-shape.ts'
 import { contrast, deepColour, INK, inkOn, lchOf, mixed, type Swatch, WHITE, withAlpha } from './palette.ts'
 import { inkReads, leastInkContrast, oneInk } from './picture-look.ts'
 import { rolesFor, type StyleRoles } from './styles.ts'
 import { linear, picture, rect, round, solid, stroke, type TreeBuilder } from './tree.ts'
 import type { PatternContent, PatternStyle } from './types.ts'
 import {
-  isTower,
   leadBeside,
   leadFit,
   leadWidth,
+  rowWins,
   type Setting,
   SHORT_FRAME_LINES,
   stripLabel,
-  wideRow,
   type WordPart,
   type Words,
 } from './words.ts'
@@ -62,6 +61,15 @@ const FOOT_CHROMA = 8
 /** A square mark's least and most size on a display frame, as a share of its shorter side. */
 const MARK_LEAST = 0.09
 const MARK_MOST_DISPLAY = 0.14
+/** How many times as wide as it is tall a logo is at most to be a square mark, not a wordmark. */
+const MARK_RATIO = 1.5
+/**
+ * The least a logo is drawn at, as a multiple of the readable size, which every cap on it stays over: a wordmark's
+ * ink LOGO_LEAST times it tall, so its lettering reads as text does; a square mark MARK_READABLE times it, so the
+ * mark inside it is as large as readable text, and MARK_LEAST of the frame's shorter side.
+ */
+const LOGO_LEAST = 1.6
+const MARK_READABLE = 2
 /** The contrast between a logo's own box and what it is on under which the box gets a keyline, so it reads as meant. */
 const BOX_SEEN = 1.5
 /** The height under which a banner's logo label runs the frame's whole height at its start. */
@@ -145,29 +153,42 @@ export function logoRoom(b: Build, at: { x: number; y: number }, width: number, 
   const strip = frame.shape === 'strip' || frame.shape === 'banner'
   const display = frame.width < 1000 && frame.height < 1000
   const base = strip
-    ? Math.max(frame.readable * 1.6, (frame.height - 2 * frame.margin) * 0.45)
-    : Math.max(frame.readable * 1.6, short * 0.065)
+    ? Math.max(frame.readable * LOGO_LEAST, (frame.height - 2 * frame.margin) * 0.45)
+    : Math.max(frame.readable * LOGO_LEAST, short * 0.065)
   let height = base * Math.min(1.8, Math.max(0.7, Math.sqrt(LOGO_RATIO / ratio)))
-  if (ratio <= 1.5 && !strip) height = Math.max(height, short * MARK_LEAST)
-  if (ratio <= 1.5 && display) height = Math.min(height, short * MARK_MOST_DISPLAY)
+  if (ratio <= MARK_RATIO && !strip) height = Math.max(height, short * MARK_LEAST)
+  if (ratio <= MARK_RATIO && display) height = Math.min(height, short * MARK_MOST_DISPLAY)
   const label = logoWay(b, surface).way === 'label'
   // The label's room round the ink, as a share of the ink's height: on each side, and both together.
   const share = label ? LABEL_PAD : 0
   const widest = Math.min(width, frame.width * (strip ? 0.15 : 0.2) + 2 * height * share)
   if (height * (ratio + 2 * share) > widest) height = widest / (ratio + 2 * share)
-  if (strip) height = Math.min(height, (frame.height - 2 * frame.margin) / (1 + 2 * share))
   const cap = b.logoCap
   if (cap) {
-    // The lead's cap over the style's size, never under the readable size, so the logo still reads.
+    // The lead's cap over the style's size, so the logo signs the ad and never outranks its message.
     const most = Math.min(
       cap.ink,
       cap.height / (1 + 2 * share),
       Math.sqrt(cap.area / ((ratio + 2 * share) * (1 + 2 * share))),
     )
-    height = Math.min(height, Math.max(frame.readable, most))
+    height = Math.min(height, most)
   }
+  // The least it reads at wins over every cap, but never draws it wider than its room nor taller than a banner's.
+  height = Math.max(height, logoLeast(frame, ratio))
+  if (height * (ratio + 2 * share) > width) height = width / (ratio + 2 * share)
+  if (strip) height = Math.min(height, (frame.height - 2 * frame.margin) / (1 + 2 * share))
   const pad = 2 * Math.round(height * share)
   return { x: at.x, y: at.y, width: Math.round(height * ratio + pad), height: Math.round(height + pad) }
+}
+
+/**
+ * The least height a logo `ratio` times as wide as it is tall is drawn at in `frame` (its box's where it is drawn
+ * whole on a box of its own, else its ink's): a wordmark LOGO_LEAST times the readable size; a square mark
+ * MARK_READABLE times it, and MARK_LEAST of the frame's shorter side.
+ */
+export function logoLeast(frame: Pick<FrameRoom, 'width' | 'height' | 'readable'>, ratio: number): number {
+  if (ratio > MARK_RATIO) return frame.readable * LOGO_LEAST
+  return Math.max(frame.readable * MARK_READABLE, Math.min(frame.width, frame.height) * MARK_LEAST)
 }
 
 /**
@@ -198,14 +219,15 @@ export function logo(
   const box = { x: round(x + pad), y: round(y + pad), width: round(width), height: round(height) }
   let taken = { x, y, ...outer }
   if (way.way === 'label') {
-    // Near the frame's top edge, or in a strip at its start, the label runs from the edge, its free corners rounded.
+    // Near the frame's top edge, or in a strip at its start, the label runs from the edge, its free corners rounded;
+    // a plate round a logo's own box stays round it, never hung from an edge.
     const r = Math.round(Math.min(outer.width, outer.height) * b.style.buttonRound * 0.5)
     let radius: [number, number, number, number] = [r, r, r, r]
     // A banner as tall as SLAB_MOST or more keeps its label round the logo, never a slab down its height.
-    if (hang === 'start' && b.frame.height < SLAB_MOST) {
+    if (!boxed && hang === 'start' && b.frame.height < SLAB_MOST) {
       taken = { x: from, y: 0, width: x + outer.width - from, height: b.frame.height }
       radius = [0, r, r, 0]
-    } else if (hang === 'top' && y <= b.frame.margin * 1.5 && !b.framed) {
+    } else if (!boxed && hang === 'top' && y <= b.frame.margin * 1.5 && !b.framed) {
       taken = { x, y: 0, width: outer.width, height: y + outer.height }
       radius = [0, 0, r, r]
     }
@@ -247,20 +269,20 @@ export function inRow({ frame }: Build): boolean {
 }
 
 /**
- * Whether words in `room` go in a row beside their button: in a strip, and in a wide, low room of a larger frame
- * (see wideRow), where a button under the words would take a tier of its height.
+ * Whether the words go in a row beside their button: in a strip, and in a wide, low room of a larger frame where the
+ * row sets the lead at least as large as a stack would (see rowWins).
  */
-export function rowed(b: Build, room: Rect): boolean {
-  return inRow(b) || (Boolean(b.content.button) && wideRow(b, room))
+export function rowed(b: Build, words: Words): boolean {
+  return inRow(b) || rowWins(b, words)
 }
 
 /**
  * Whether the frame pins its button to its safe room's foot, its words over it: a 9:16 social frame, whose platforms'
- * interface sets where that foot is, and a display tower, whose button anchors its height. Any other frame keeps its
- * button under its words.
+ * interface sets where that foot is. Any other frame keeps its button under its words, the room between the parts
+ * apart, so a tower's spare height goes round its message, never through it.
  */
 export function pinsButton({ frame }: Build): boolean {
-  return isNineBySixteen(frame.width, frame.height) || isTower(frame)
+  return isNineBySixteen(frame.width, frame.height)
 }
 
 /** The least share of a tall frame's height a photo takes where it can, so it leads the frame. */
@@ -517,11 +539,11 @@ function inkRatio({ content }: Build): number {
 }
 
 /**
- * How the logo is drawn on `surface`. Read from its pixels: with a box of its own, as it is, the box its own plate;
- * as it is where its ink reads; in the
- * surface's ink where it is of one colour; else on a label of the first of the kit's background, white, the
- * secondary, the text colour and near black that every colour of its ink worth telling reads on at 3:1, or the one
- * it reads best on. Unread, it is drawn as it is on the kit's background, else on a label of it.
+ * How the logo is drawn on `surface`. Read from its pixels: with a box of its own, as it is, the box its own plate,
+ * where the box is SAME_BOX or more apart from the surface, else on a plate of a brand colour (see boxPlate); as it is
+ * where its ink reads; in the surface's ink where it is of one colour; else on a label of the first of the kit's
+ * background, white, the secondary, the text colour and near black that every colour of its ink worth telling reads
+ * on at 3:1, or the one it reads best on. Unread, it is drawn as it is on the kit's background, else on a label of it.
  */
 function logoWay({ content, palette }: Build, surface: Swatch): LogoWay {
   const look = content.logo?.look
@@ -530,7 +552,10 @@ function logoWay({ content, palette }: Build, surface: Swatch): LogoWay {
       ? { way: 'as-is' }
       : { way: 'label', label: palette.background }
   if (!look) return onBackground
-  if (look.backdrop) return { way: 'as-is' }
+  if (look.backdrop)
+    return contrast(look.backdrop, surface.value) >= SAME_BOX
+      ? { way: 'as-is' }
+      : { way: 'label', label: boxPlate(palette, look.backdrop, surface) }
   if (inkReads(look, surface.value)) return { way: 'as-is' }
   if (oneInk(look)) return { way: 'ink', ink: inkOn(surface.value, [palette.text, palette.background], 3) }
   const labels = [palette.background, WHITE, palette.secondary, palette.text, INK].filter(
@@ -541,4 +566,17 @@ function logoWay({ content, palette }: Build, surface: Swatch): LogoWay {
   )
   const label = labels.find((swatch) => leastInkContrast(look, swatch.value) >= LABEL_READS) ?? best
   return { way: 'label', label }
+}
+
+/**
+ * The plate a logo's box that melts into `surface` is set on: the first of the kit's background, secondary, text,
+ * accent and primary colours that shows on the surface and that the box reads on at LABEL_READS, else the one the box
+ * reads best on, so the box keeps its shape in the brand's own colours.
+ */
+function boxPlate(palette: Build['palette'], box: string, surface: Swatch): Swatch {
+  const offered = [palette.background, palette.secondary, palette.text, palette.accent, palette.primary]
+  const shown = offered.filter((swatch) => contrast(swatch.value, surface.value) > SAME_COLOUR)
+  const pool = shown.length > 0 ? shown : offered
+  const best = pool.reduce((a, c) => (contrast(c.value, box) > contrast(a.value, box) ? c : a))
+  return pool.find((swatch) => contrast(swatch.value, box) >= LABEL_READS) ?? best
 }

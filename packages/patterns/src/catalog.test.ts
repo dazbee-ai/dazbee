@@ -230,6 +230,34 @@ describe('buildPattern', () => {
       }
   })
 
+  it.each(PATTERN_STYLES)(
+    'tells what a short big number is of in the %s style with a whole unit of the words, never cut mid-phrase',
+    (style) => {
+      const plain = 'Off every pair this weekend'
+      const clause = 'Off every pair, in store and online this weekend'
+      const cases = [
+        { kicker: 'Weekend sale', headline: plain, units: ['Weekend sale', plain] },
+        { headline: clause, units: ['Off every pair', clause] },
+        { headline: plain, units: [plain] },
+      ]
+      for (const { kicker, headline, units } of cases)
+        for (const [width, height] of [
+          [320, 50],
+          [320, 100],
+          [728, 90],
+        ] as const) {
+          const content = { ...CONTENT, number: '50%', headline, kicker: kicker ?? '' }
+          const { nodes } = buildPattern('big-number', { style, kit: KIT, content, width, height, measure })
+          const words = nodes.headline
+          const text = words?.type === 'text' ? words.props.text.replaceAll(' ', ' ') : 'none'
+          const size = words?.type === 'text' ? words.props.style.fontSize : 0
+          const at = `${width}×${height} ${headline}`
+          expect({ at, text, whole: units.includes(text) }).toEqual({ at, text, whole: true })
+          expect(size).toBeGreaterThanOrEqual(Math.ceil(readableTextSize(width, height)))
+        }
+    },
+  )
+
   it('refuses a pattern there isn’t and content a pattern needs', () => {
     const input = { style: 'bold' as const, kit: KIT, width: 1080, height: 1080, measure }
     expect(() => buildPattern('nope', { ...input, content: CONTENT })).toThrow('no pattern "nope"')

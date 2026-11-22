@@ -4,8 +4,9 @@
 // (playful), or in the accent on a deep ground (premium). The number fills its measure, as the hero of the frame. In a
 // 9:16 frame the logo heads the safe room, the number and its words fill its middle and the button sits at its foot.
 // A wide frame's logo heads its words' column. A short frame keeps its logo, number and button, its headline where it
-// fits beside them, else the fewest words that say what the number is.
-import type { Rect } from '@dazbee/schema'
+// fits beside them, else a whole unit that says what the number is: the kicker, a clause of the headline, or the
+// headline at the readable size.
+import { type Rect, shownScale } from '@dazbee/schema'
 
 import {
   type Build,
@@ -21,9 +22,11 @@ import {
 } from '../build.ts'
 import { ctaFill } from '../button.ts'
 import { dots } from '../decorations.ts'
-import { contrast, deepColour, INK, inkOn, LARGE_TEXT_CONTRAST, type Swatch } from '../palette.ts'
+import { contrast, deepColour, INK, inkOn, LARGE_TEXT_CONTRAST, type Swatch, TEXT_CONTRAST } from '../palette.ts'
+import { LARGE_TEXT_PX, lookStyle } from '../text-look.ts'
+import { treeBuilder } from '../tree.ts'
 import type { Pattern } from '../types.ts'
-import { keepsEvery, rowFits, rowWords, stackWords, type WordPart, type Words } from '../words.ts'
+import { fitsRoom, keepsEvery, rowFits, rowWords, stackWords, type WordPart, type Words } from '../words.ts'
 
 export const BIG_NUMBER: Pattern = {
   id: 'big-number',
@@ -39,6 +42,12 @@ export const BIG_NUMBER: Pattern = {
 const SHADOW_CONTRAST = 7
 /** The least width a number takes, as a multiple of the readable size. */
 const NUMBER_LEAST_WIDTH = 6
+/** The shares of its column a short frame's number is tried at, so its words say what it is beside it. */
+const NUMBER_NARROWER = [1, 0.8, 0.64]
+/** WCAG 2's large text in a bold face, 14 point, in CSS pixels. */
+const LARGE_BOLD_PX = (14 * 4) / 3
+/** The marks that end a clause of a headline. */
+const CLAUSE_END = /[,;:.!?–—]/
 
 /** Builds the big number in the frame. */
 export function bigNumber(b: Build) {
@@ -46,8 +55,13 @@ export function bigNumber(b: Build) {
   const { shape, margin, safe } = frame
   const colour = ground(b)
   decorateUnder(b)
-  const ink = numberInk(b, colour)
-  const number: WordPart = { kind: 'number', text: content.number ?? '', ink, ...numberLook(b, ink) }
+  // The number in an ink that reads at `needed`: as large text does, else, where a short frame sets it smaller, as
+  // text does.
+  const numberPart = (needed: number): WordPart => {
+    const ink = numberInk(b, colour, needed)
+    return { kind: 'number', text: content.number ?? '', ink, ...numberLook(b, ink) }
+  }
+  let number = numberPart(LARGE_TEXT_CONTRAST)
   const rest: WordPart[] = [
     { kind: 'headline', text: content.headline },
     ...(content.subline ? [{ kind: 'subline' as const, text: content.subline }] : []),
@@ -86,36 +100,59 @@ export function bigNumber(b: Build) {
         ...button,
       })
     const share = shares.find(keeps) ?? shares.at(-1) ?? 0.34
-    const left = { ...room, width: Math.round(room.width * share) }
-    let right = { ...room, x: left.x + left.width + gap, width: room.width - left.width - gap }
-    if (shape === 'wide') right = logoOnTop(b, right, colour, 'start')
-    const set = stackWords(b.tree, b, {
+    const numberIn = (width: number): Words => ({
       key: 'number-words',
       parts: [number],
-      room: left,
+      room: { ...room, width },
       surface: colour.value,
-      most: left.height,
+      most: room.height,
       align: 'start',
     })
-    // The words start a gap after the number as it is set; a short frame too narrow for its headline beside the
-    // number and button keeps the number, the logo and the button, and the shortest words that say what the number
-    // is where they fit: the kicker, else the headline's first words.
-    const start = left.x + set.leadWidth + gap
-    const wordsRoom = { ...right, x: start, width: right.x + right.width - start }
-    const narrow = isShort(b) && right.x + right.width - start < rowLeast(b)
-    const of = (parts: WordPart[]): Words => ({
+    let left = { ...room, width: Math.round(room.width * share) }
+    let right = { ...room, x: left.x + left.width + gap, width: room.width - left.width - gap }
+    if (shape === 'wide') right = logoOnTop(b, right, colour, 'start')
+    // The words start a gap after the number as it is set.
+    const after = (leadWidth: number): Rect => {
+      const start = left.x + leadWidth + gap
+      return { ...right, x: start, width: right.x + right.width - start }
+    }
+    const of = (parts: WordPart[], wordsRoom: Rect): Words => ({
       parts,
       room: wordsRoom,
       surface: colour.value,
       align: 'start',
       ...button,
     })
-    const context: WordPart[][] = [
-      ...(content.kicker ? [[{ kind: 'headline' as const, text: content.kicker }]] : []),
-      [{ kind: 'headline', text: content.headline.split(' ').slice(0, 2).join(' ') }],
-    ]
-    const tag = narrow ? (context.find((parts) => inRow(b) && rowFits(b, of(parts))) ?? []) : undefined
-    const words = of(tag ?? [...kicker, ...rest])
+    // A short frame too narrow for its headline beside the number and button keeps the number, the logo and the
+    // button, and the first whole unit that says what the number is and fits: the kicker, a clause the headline's
+    // punctuation ends, then the whole headline, which a short frame sets down to the readable size; where none fits,
+    // the number is set in a narrower column, in an ink that reads at the size it is set there. Words are never cut
+    // mid-phrase.
+    const whole = stackWords(treeBuilder(), b, numberIn(left.width))
+    const narrow = isShort(b) && after(whole.leadWidth).width < rowLeast(b)
+    let tag: WordPart[] | undefined
+    if (narrow) {
+      const context: WordPart[][] = [content.kicker ?? '', ...clauses(content.headline), content.headline]
+        .filter((text) => text !== '')
+        .map((text) => [{ kind: 'headline', text }])
+      const fits = (parts: WordPart[], wordsRoom: Rect) =>
+        inRow(b) ? rowFits(b, of(parts, wordsRoom)) : fitsRoom(b, of(parts, wordsRoom))
+      for (const narrower of NUMBER_NARROWER) {
+        const width = Math.round(room.width * share * narrower)
+        const tried = stackWords(treeBuilder(), b, numberIn(width))
+        const wordsRoom = after(tried.leadWidth)
+        tag = context.find((parts) => fits(parts, wordsRoom))
+        if (tag) {
+          left = { ...left, width }
+          if (!isLarge(b, tried.size)) number = numberPart(TEXT_CONTRAST)
+          break
+        }
+      }
+      tag ??= []
+    }
+    const set = stackWords(b.tree, b, numberIn(left.width))
+    const wordsRoom = after(set.leadWidth)
+    const words = of(tag ?? [...kicker, ...rest], wordsRoom)
     if (inRow(b)) rowWords(b.tree, b, words)
     else stackWords(b.tree, b, words)
     return
@@ -130,12 +167,36 @@ export function bigNumber(b: Build) {
 }
 
 /**
- * The number's ink, the first that reads on the ground as large text does: the primary (minimal) or the accent, then
- * the background and the text colour.
+ * The headline's leading clauses, shortest first, each as far as a mark that ends a clause, without the mark: whole
+ * phrases that read as complete. None for a headline of one clause.
  */
-function numberInk({ palette, styleName }: Build, ground: Swatch): Swatch {
+function clauses(headline: string): string[] {
+  const found: string[] = []
+  for (let at = 0; at < headline.length; at++) {
+    const char = headline[at] ?? ''
+    if (!CLAUSE_END.test(char)) continue
+    // A mark inside a word, such as a decimal point, doesn't end a clause.
+    const next = headline[at + 1]
+    if (next !== undefined && next !== ' ') continue
+    const clause = headline.slice(0, at).trim()
+    if (clause !== '' && at < headline.trim().length - 1) found.push(clause)
+  }
+  return found
+}
+
+/**
+ * The number's ink, the first that reads on the ground at `needed`: the primary (minimal) or the accent, then the
+ * background and the text colour.
+ */
+function numberInk({ palette, styleName }: Build, ground: Swatch, needed: number): Swatch {
   const first = styleName === 'minimal' ? palette.primary : palette.accent
-  return inkOn(ground.value, [first, palette.background, palette.text], LARGE_TEXT_CONTRAST)
+  return inkOn(ground.value, [first, palette.background, palette.text], needed)
+}
+
+/** Whether a number set at `size` is large text as shown: LARGE_TEXT_PX, or LARGE_BOLD_PX in a bold face. */
+function isLarge(b: Build, size: number): boolean {
+  const shown = size / shownScale(b.frame.width, b.frame.height)
+  return shown >= LARGE_TEXT_PX || (shown >= LARGE_BOLD_PX && lookStyle(b, b.style.headline, size).fontWeight >= 700)
 }
 
 /**

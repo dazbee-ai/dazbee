@@ -2,11 +2,24 @@ import { describe, expect, it } from 'vitest'
 
 import { EMPTY_BRAND_KIT, readableTextSize } from '@dazbee/schema'
 
+import { logoLeast } from './build.ts'
 import { buildPattern, PATTERNS } from './catalog.ts'
 import { contrast } from './palette.ts'
 import { PATTERN_STYLES } from './styles.ts'
 import { BOXED, CHANNEL_SIZES, CONTENT, EVERY, KIT, logo, measure, TWO_INKS, WHITE_MARK } from './test-input.ts'
 import { CAP_HEIGHT } from './words.ts'
+
+/** A brand whose primary colour is its logo's own box, as BOXED draws it, with the rest of a full kit. */
+const BOX_GREEN = {
+  ...KIT,
+  colors: [
+    { token: 'primary' as const, name: 'Primary', value: '#1F4D3AFF' },
+    { token: 'secondary' as const, name: 'Secondary', value: '#E8E2D0FF' },
+    { token: 'accent' as const, name: 'Accent', value: '#C8553DFF' },
+    { token: 'background' as const, name: 'Background', value: '#F7F4ECFF' },
+    { token: 'text' as const, name: 'Text', value: '#1B1B1BFF' },
+  ],
+}
 
 describe('a pattern’s logo', () => {
   it('draws a logo of one colour in the ground’s ink', () => {
@@ -25,7 +38,7 @@ describe('a pattern’s logo', () => {
   })
 
   it.each(EVERY)(
-    'draws a logo on a box of its own whole in %s in the %s style: the box’s shape and corners kept, no label round it',
+    'draws a logo on a box of its own whole in %s in the %s style: the box’s shape and corners kept, no label round a box that shows',
     (id, style) => {
       for (const { width, height } of CHANNEL_SIZES) {
         const { nodes } = buildPattern(id, {
@@ -78,13 +91,98 @@ describe('a pattern’s logo', () => {
           const block = line * ((lines - 1) * lineHeight + size * CAP_HEIGHT)
           const round = nodes['logo-label'] ? drawn.height * 0.7 : 0
           const area = (drawn.width + round) * (drawn.height + round)
-          // A logo already at the readable size, the least it is drawn at, is under the lead as far as it goes.
-          const least = drawn.height <= readableTextSize(width, height) + 1
+          // A logo at the least it reads at is under the lead as far as it goes.
+          const frame = { width, height, readable: Math.ceil(readableTextSize(width, height)) }
+          const least = drawn.height <= logoLeast(frame, drawn.width / drawn.height) + 1
           const at = `${width}×${height}`
           expect({ at, under: least || area <= block * 0.5 * 1.05 }).toEqual({ at, under: true })
         }
     },
   )
+
+  it.each(EVERY)(
+    'never draws the logo of %s in the %s style smaller than it reads, whatever the lead, on display and short frames',
+    (id, style) => {
+      const sizes = [
+        [320, 50],
+        [728, 90],
+        [320, 100],
+        [300, 250],
+        [336, 280],
+        [970, 250],
+        [160, 600],
+        [300, 600],
+      ] as const
+      for (const mark of [BOXED, { ...logo, look: TWO_INKS }])
+        for (const [width, height] of sizes) {
+          const { nodes } = buildPattern(id, {
+            style,
+            kit: KIT,
+            content: { ...CONTENT, logo: mark },
+            width,
+            height,
+            measure,
+          })
+          const drawn = nodes.logo?.props
+          if (!drawn) continue
+          const readable = Math.ceil(readableTextSize(width, height))
+          // A wordmark's ink 1.6 times the readable size tall; a square mark twice it, and 9% of the frame's shorter
+          // side.
+          const square = mark === BOXED
+          const least = square ? Math.max(readable * 2, Math.min(width, height) * 0.09) : readable * 1.6
+          const at = `${square ? 'mark' : 'wordmark'} ${width}×${height}`
+          expect({ at, height: drawn.height, reads: drawn.height >= least - 1 }).toEqual({
+            at,
+            height: drawn.height,
+            reads: true,
+          })
+        }
+    },
+  )
+
+  it('sets a logo’s own box that melts into the ground on a plate of a brand colour it reads on', () => {
+    const colours = BOX_GREEN.colors.map((colour) => colour.value)
+    let plated = 0
+    for (const id of ['big-number', 'words-only', 'quote'])
+      for (const style of PATTERN_STYLES)
+        for (const [width, height] of [
+          [728, 90],
+          [320, 50],
+          [320, 100],
+          [300, 250],
+          [160, 600],
+          [1080, 1080],
+        ] as const) {
+          const { nodes } = buildPattern(id, {
+            style,
+            kit: BOX_GREEN,
+            content: { ...CONTENT, logo: BOXED },
+            width,
+            height,
+            measure,
+          })
+          const groundPaint = (nodes.ground ?? nodes.background)?.props
+          const fill = groundPaint && 'fills' in groundPaint ? groundPaint.fills[0] : undefined
+          const ground = fill?.type === 'solid' ? fill.color : '#FFFFFFFF'
+          if (contrast(ground, BOXED.look.backdrop) >= 1.1) continue
+          plated++
+          const label = nodes['logo-label']
+          const paint = label?.type === 'graphic' ? label.props.fills[0] : undefined
+          const plate = paint?.type === 'solid' ? paint.color : 'none'
+          const at = `${id} ${style} ${width}×${height}`
+          expect({
+            at,
+            brand: colours.includes(plate),
+            shows: contrast(plate, ground) > 1.4,
+            reads: contrast(plate, BOXED.look.backdrop) >= 3,
+          }).toEqual({ at, brand: true, shows: true, reads: true })
+          // The box is drawn whole on its plate, its corners kept.
+          const mark = nodes.logo
+          const whole = mark?.type === 'graphic' && mark.props.fills[0]?.type === 'image' && !mark.props.fills[0].crop
+          expect({ at, whole }).toEqual({ at, whole: true })
+        }
+    expect(plated).toBeGreaterThan(0)
+  })
 
   it('sets a logo’s label in a colour both its inks read on at 3:1, with no brand kit', () => {
     for (const id of PATTERNS.map((pattern) => pattern.id))

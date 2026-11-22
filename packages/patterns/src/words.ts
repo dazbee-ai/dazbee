@@ -206,14 +206,10 @@ export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, pa
   const { room } = words
   const key = words.key ?? 'words'
   const inner = round(gapBase(parts, size) * TITLE_GAP)
-  // A tower spreads its words down its height: the height they leave free is shared evenly over them and between
-  // their parts, so no empty band runs across it.
-  const base = gapBase(parts, size) * gapOf(style, fit.tight)
+  // The parts of one message keep the style's room between them in every frame; a frame's spare height goes round
+  // them, never between them.
+  const gap = round(gapBase(parts, size) * gapOf(style, fit.tight))
   const titled = parts.findIndex((part) => part.kind === 'headline' || part.kind === 'number')
-  const between = parts.length - 1 - Math.max(0, titled) + (fit.button ? 1 : 0)
-  const spread = isTower(frame) && between > 0 ? Math.max(0, room.height - fit.total) / (between + 1) : 0
-  const gap = round(base + spread)
-  fit.total = Math.ceil(fit.total + spread * between)
   // A pinned button sits at the room's foot, and the texts by `justify` in the room above it.
   const pinned = Boolean(words.pin && button && words.button && parts.length > 0)
   const below = pinned && button ? button.height + gap : 0
@@ -221,11 +217,9 @@ export function stackWords(tree: TreeBuilder, setting: Setting, words: Words, pa
   const free = room.height - fit.total
   // Texts kept with their pinned button sit over it, no more than twice the room between the parts apart.
   const top =
-    spread > 0
-      ? room.y + free
-      : pinned && words.together
-        ? room.y + free - Math.min(free, gap)
-        : room.y + { start: 0, center: free / 2, optical: free * OPTICAL, end: free }[words.justify ?? 'center']
+    pinned && words.together
+      ? room.y + free - Math.min(free, gap)
+      : room.y + { start: 0, center: free / 2, optical: free * OPTICAL, end: free }[words.justify ?? 'center']
   const box = { x: room.x, y: round(top), width: room.width, height: pinned ? textsHeight : fit.total }
   const outer = tree.add(key, column('Words', box, gap, align, false), parent)
   // The kicker and the headline sit closer than the rest, in a column of their own.
@@ -469,12 +463,30 @@ export function keepsEvery(setting: Setting, words: Words): boolean {
   return fitOf(setting, words).parts.length === words.parts.length
 }
 
-/** How the words fit their room: in a row beside their button in a wide, low room (see wideRow), else stacked. */
+/** How the words fit their room: in a row beside their button where rowWins says, else stacked. */
 function fitOf(setting: Setting, words: Words): Fit & { parts: WordPart[] } {
-  if (!words.button || !wideRow(setting, words.room)) return fewestLeftOut(setting, words)
+  const row = rowWins(setting, words) ? chosenRow(setting, words) : undefined
+  return row ? row.fit : fewestLeftOut(setting, words)
+}
+
+/** The way rowWords sets the words: the first of rowTries that fits, else the last tried. */
+function chosenRow(setting: Setting, words: Words) {
   const tried = rowTries(setting, words)
-  const chosen = tried.find(({ fit }) => fit.fits) ?? tried.at(-1)
-  return chosen ? chosen.fit : fewestLeftOut(setting, words)
+  return tried.find(({ fit }) => fit.fits) ?? tried.at(-1)
+}
+
+/**
+ * Whether words with a button in a larger frame's wide, low room (see wideRow) are set in a row beside it, not
+ * stacked over it: only where the row fits, keeps as many parts as the stack and sets the lead at least as large, so
+ * the button beside the words never squeezes the lead into a narrow column.
+ */
+export function rowWins(setting: Setting, words: Words): boolean {
+  if (!words.button || !wideRow(setting, words.room)) return false
+  const row = chosenRow(setting, words)
+  if (!row?.fit.fits) return false
+  const stacked = fewestLeftOut(setting, words)
+  if (!stacked.fits) return true
+  return row.fit.parts.length >= stacked.parts.length && row.fit.size >= stacked.size
 }
 
 /**

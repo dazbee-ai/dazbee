@@ -95,7 +95,7 @@ export function photoBand(b: Build) {
     ...(at.side === 'top' ? { justify: 'optical' as const } : {}),
     ...(pinsButton(b) ? { pin: true, together: true } : {}),
   }
-  const set = rowed(b, room) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
+  const set = rowed(b, words) ? rowWords(b.tree, b, words) : stackWords(b.tree, b, words)
   decorate(b, at, set, [set.box, ...(shot ? [shot.subject] : [])])
 }
 

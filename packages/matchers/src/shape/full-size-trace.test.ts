@@ -53,7 +53,7 @@ const aiPill = (width: number, height: number, off: number): ShapeLayer => {
   }
 }
 
-describe('full-size tracing', () => {
+describe('tracedAtFullSize', () => {
   it.each([
     ['split again at its full size', 300, 80],
     ['small enough to be fitted at its own size', 180, 56],

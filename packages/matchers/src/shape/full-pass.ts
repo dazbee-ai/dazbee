@@ -16,17 +16,16 @@ import { layersAnswer, pictureAnswer, withoutUnseen } from './answer.ts'
 import { snapToBrand } from './brand-snap.ts'
 import { dashedStroke } from './dashes.ts'
 import { coverage, drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { FIRST_PASS, flatPaint, partShape, preparePiece } from './first-pass.ts'
+import { FIRST_PASS, flatPaint, partShape, preparePiece, splitOptions } from './first-pass.ts'
 import { type ShapeKind, softIoU } from './fit-shapes.ts'
 import { tracedAtFullSize } from './full-size-trace.ts'
 import { GRADIENT_SPREAD, withGradient } from './gradient.ts'
 import { pathName } from './layer-names.ts'
-import { splitColours } from './parts/colour-split.ts'
 import { type FloatPicture, toFloatPicture } from './parts/float-picture.ts'
 import { joinGradientBands, MOST_PARTS_FOR_BANDS } from './parts/gradient-bands.ts'
-import { groupMarks, type MarkedPart } from './parts/marks.ts'
+import { type MarkedPart, markedParts } from './parts/marks.ts'
 import { piecePixels } from './parts/piece-pixels.ts'
-import { backToFront, coveredAbove, sum, withHoles } from './parts/stacking.ts'
+import { backToFront, coveredAbove } from './parts/stacking.ts'
 import { isShadowLike, withShadow } from './shadow.ts'
 import { pathLayer, tracePath } from './trace.ts'
 
@@ -66,18 +65,10 @@ export function fullPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['color
   const { full, scale, fitted, cut, covered } = prepared
   const { width, height } = fitted
   if (covered < 4) return pictureAnswer('looksDifferent')
-  const split = splitColours(fitted, {
-    mergeDeltaE: FIRST_PASS.mergeDeltaE,
-    k: FIRST_PASS.colours,
-    minArea: Math.max(4, FIRST_PASS.speckShare * covered),
-    cut,
-    maxParts: FIRST_PASS.maxParts * 2,
-  })
+  const marked = markedParts(fitted, splitOptions(cut, covered), covered)
+  const { split } = marked
   if (split.tooMany) return pictureAnswer('tooManyParts')
-  let parts = groupMarks(
-    split.parts.map((part) => withHoles(part, fitted)),
-    covered,
-  ).filter((part) => sum(part.mask) >= Math.max(2, covered * 0.0005))
+  let parts = marked.parts
   if (parts.length > FIRST_PASS.maxParts) return pictureAnswer('tooManyParts')
   if (parts.length <= MOST_PARTS_FOR_BANDS) parts = joinGradientBands(fitted, parts, scale)
   // More parts than graphics allowed, with room for dropping some, is a picture before any fitting.

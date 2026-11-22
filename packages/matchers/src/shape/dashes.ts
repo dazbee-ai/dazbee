@@ -86,11 +86,11 @@ export function dashedStroke(
       const b = loop[(i + 1) % loop.length] ?? [0, 0]
       edge += Math.hypot(a[0] - b[0], a[1] - b[1])
     }
-  const n = part.marks
-  const area = sum(part.mask) / n / (scale * scale)
-  const half = edge / n / 2 / scale
+  const { marks } = part
+  const area = sum(part.mask) / marks / (scale * scale)
+  const half = edge / marks / 2 / scale
   const stroke = Math.max(THINNEST, (half - Math.sqrt(Math.max(0, half * half - 4 * area))) / 2)
-  const period = perimeterOf(outline.fit) / n
+  const period = perimeterOf(outline.fit) / marks
   const dash = Math.min(period * LONGEST_DASH, area / stroke)
   let best: Fitted = {
     fit: {

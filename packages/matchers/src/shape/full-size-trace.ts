@@ -11,15 +11,14 @@ import type { LooksSameScores, MatchKit } from '@dazbee/schema'
 import { looksSame } from '../looks-same/rule.ts'
 import { snapToBrand } from './brand-snap.ts'
 import { drawGraphics, type ShapeLayer } from './draw-layers.ts'
-import { FIRST_PASS, flatPaint, type PreparedPiece } from './first-pass.ts'
+import { flatPaint, type PreparedPiece, splitOptions } from './first-pass.ts'
 import { windowOf } from './fit-window.ts'
 import { GRADIENT_SPREAD, withGradient } from './gradient.ts'
 import { pathName } from './layer-names.ts'
-import { splitColours } from './parts/colour-split.ts'
 import type { FloatPicture } from './parts/float-picture.ts'
 import { joinGradientBands, MOST_PARTS_FOR_BANDS } from './parts/gradient-bands.ts'
-import { groupMarks, type MarkedPart } from './parts/marks.ts'
-import { backToFront, sum, withHoles } from './parts/stacking.ts'
+import { type MarkedPart, markedParts } from './parts/marks.ts'
+import { backToFront } from './parts/stacking.ts'
 import { withShadow } from './shadow.ts'
 import { pathLayer, tracePath } from './trace.ts'
 
@@ -75,18 +74,9 @@ export function tracedAtFullSize(
 function fullSizeParts(full: FloatPicture): MarkedPart[] | null {
   let covered = 0
   for (let i = 0; i < full.width * full.height; i++) if ((full.data[i * 4 + 3] ?? 0) >= 0.5) covered++
-  const split = splitColours(full, {
-    mergeDeltaE: FIRST_PASS.mergeDeltaE,
-    k: FIRST_PASS.colours,
-    minArea: Math.max(4, FIRST_PASS.speckShare * covered),
-    cut: 0.5,
-    maxParts: FIRST_PASS.maxParts * 2,
-  })
-  if (split.tooMany || split.parts.length === 0) return null
-  let parts = groupMarks(
-    split.parts.map((part) => withHoles(part, full)),
-    covered,
-  ).filter((part) => sum(part.mask) >= Math.max(2, covered * 0.0005))
+  const marked = markedParts(full, splitOptions(0.5, covered), covered)
+  if (marked.split.tooMany || marked.split.parts.length === 0) return null
+  let parts = marked.parts
   if (parts.length <= MOST_PARTS_FOR_BANDS) parts = joinGradientBands(full, parts, 1)
   return backToFront(parts)
 }

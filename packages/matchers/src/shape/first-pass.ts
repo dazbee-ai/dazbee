@@ -16,7 +16,7 @@ import { fitShape, type Fitted, type ShapeKind, shapeLayer } from './fit-shapes.
 import { type FitWindow, windowOf } from './fit-window.ts'
 import { layerName } from './layer-names.ts'
 import { hexColour } from './parts/colour.ts'
-import { splitColours } from './parts/colour-split.ts'
+import { splitColours, type SplitOptions } from './parts/colour-split.ts'
 import { type FloatPicture, shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
 import { piecePixels } from './parts/piece-pixels.ts'
 import { isRing, ringWidth } from './parts/rings.ts'
@@ -80,13 +80,7 @@ export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colo
   const { full, scale, fitted, cut, covered } = preparePiece(piece)
   const { width, height } = fitted
   if (covered < 4) return pictureAnswer('looksDifferent')
-  const split = splitColours(fitted, {
-    mergeDeltaE: FIRST_PASS.mergeDeltaE,
-    k: FIRST_PASS.colours,
-    minArea: Math.max(4, FIRST_PASS.speckShare * covered),
-    cut,
-    maxParts: FIRST_PASS.maxParts * 2,
-  })
+  const split = splitColours(fitted, splitOptions(cut, covered))
   if (split.tooMany) return pictureAnswer('tooManyParts')
   const parts = split.parts.filter((part) => sum(part.mask) >= Math.max(2, covered * 0.0005))
   // More parts than graphics allowed, with room for dropping some, is a picture before any fitting.
@@ -103,6 +97,17 @@ export function firstPassOf(ck: CanvasKit, piece: Pixels, colors: MatchKit['colo
   if (layers.length > FIRST_PASS.maxLayers) return pictureAnswer('tooManyParts')
   const judged = looksSame('shape', piece, drawGraphics(ck, layers, full.width, full.height, 1, variables))
   return judged.same ? layersAnswer(layers, judged.scores) : pictureAnswer('looksDifferent', judged.scores)
+}
+
+/** How finely a piece is split by colour, from the alpha a pixel is covered at and how many are covered. */
+export function splitOptions(cut: number, covered: number): SplitOptions {
+  return {
+    mergeDeltaE: FIRST_PASS.mergeDeltaE,
+    k: FIRST_PASS.colours,
+    minArea: Math.max(4, FIRST_PASS.speckShare * covered),
+    cut,
+    maxParts: FIRST_PASS.maxParts * 2,
+  }
 }
 
 /** A piece's pixels as floats, shrunk to at most 256 px on the long side, with its covered pixels counted. */

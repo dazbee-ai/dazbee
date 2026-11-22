@@ -2,7 +2,9 @@
 // which the full pass draws as one traced path rather than a graphic each.
 
 import { ciede2000 } from '../../looks-same/colour.ts'
-import type { StackedPart } from './stacking.ts'
+import { type ColourSplit, splitColours, type SplitOptions } from './colour-split.ts'
+import type { FloatPicture } from './float-picture.ts'
+import { type StackedPart, sum, withHoles } from './stacking.ts'
 
 /** A stacked part, with how many marks it was made of when it is a group of them. */
 export interface MarkedPart extends StackedPart {
@@ -15,6 +17,27 @@ const SAME_COLOUR = 12
 const MARK_SHARE = 0.05
 /** The fewest small parts of one colour that are marks. */
 const FEWEST_MARKS = 4
+
+/** A part covering under this share of the covered pixels, or 2 pixels, is a speck and left out. */
+const SPECK_SHARE = 0.0005
+
+/**
+ * A picture split by colour into parts with their holes worked out, each colour's marks joined,
+ * and specks left out; with the split, whose labels and whether it found too many parts the caller reads.
+ */
+export function markedParts(
+  picture: FloatPicture,
+  options: SplitOptions,
+  covered: number,
+): { split: ColourSplit; parts: MarkedPart[] } {
+  const split = splitColours(picture, options)
+  if (split.tooMany) return { split, parts: [] }
+  const parts = groupMarks(
+    split.parts.map((part) => withHoles(part, picture)),
+    covered,
+  ).filter((part) => sum(part.mask) >= Math.max(2, covered * SPECK_SHARE))
+  return { split, parts }
+}
 
 /** The parts with each colour's four or more small parts joined into one; the largest parts come first. */
 export function groupMarks(parts: readonly StackedPart[], covered: number): MarkedPart[] {

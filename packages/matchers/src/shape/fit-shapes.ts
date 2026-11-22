@@ -38,6 +38,9 @@ export interface ShapeFit {
   dashOffset?: number
 }
 
+/** The settings a refining step moves: every number but the count. */
+type SteppedKey = Exclude<keyof ShapeFit, 'kind' | 'count' | 'strokeOnly'>
+
 /** The best fit, and its soft IoU with the coverage. */
 export interface Fitted {
   fit: ShapeFit
@@ -343,20 +346,7 @@ export function refine(ck: CanvasKit, start: ShapeFit, startIoU: number, window:
   let draws = 0
   if (budget <= 0) return { fit, iou }
   const symmetric = fit.kind === 'polygon' || fit.kind === 'star'
-  const keys: (keyof ShapeFit &
-    (
-      | 'cx'
-      | 'cy'
-      | 'width'
-      | 'height'
-      | 'rotation'
-      | 'radius'
-      | 'innerRadius'
-      | 'stroke'
-      | 'dash'
-      | 'gap'
-      | 'dashOffset'
-    ))[] = ['cx', 'cy', 'width', 'height']
+  const keys: SteppedKey[] = ['cx', 'cy', 'width', 'height']
   if (fit.rotation !== 0 || symmetric) keys.push('rotation')
   if (fit.kind === 'rect' || symmetric) keys.push('radius')
   if (fit.kind === 'star') keys.push('innerRadius')

@@ -39,7 +39,7 @@ const onlyGraphic = (answer: MatchAnswer): GraphicProps => {
   return layer.props
 }
 
-describe('dashed strokes', () => {
+describe('dashedStroke', () => {
   it.each([
     ['rectangle', { kind: 'rect', cornerRadius: 0 }, { width: 200, height: 110 }, { width: 4, dashes: [12, 6] }],
     ['ellipse', { kind: 'ellipse' }, { width: 200, height: 120 }, { width: 4, dashes: [10, 6] }],

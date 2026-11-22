@@ -62,6 +62,11 @@ export function layerName(rgb: readonly [number, number, number], fit: ShapeFit,
   return `${colourWord(rgb)} ${background ? 'background' : shapeWord(fit)}`
 }
 
+/** A dashed stroke's name: its colour's word, "dashed", its shape's word and "outline". */
+export function dashedName(rgb: readonly [number, number, number], fit: ShapeFit): string {
+  return `${colourWord(rgb)} dashed ${shapeWord({ ...fit, strokeOnly: false })} outline`
+}
+
 /** A traced path's name: its colour's word, then "shape". */
 export function pathName(rgb: readonly [number, number, number]): string {
   return `${colourWord(rgb)} shape`

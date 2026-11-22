@@ -99,6 +99,7 @@ describe('looksSame', () => {
     const overNone = looksSame('shape', piece, filled)
     expect(overNone.same).toBe(false)
     expect(overNone).toEqual(looksSame('shape', piece, filled, { backgrounds: [LOOKS_SAME.seeThrough] }))
+    expect(looksSame('shape', piece, filled, { backgrounds: [] })).toEqual(overNone)
     expect(LOOKS_SAME.seeThrough).toEqual([180, 180, 180])
 
     const textOverBoth = looksSame('text', piece, filled, { backgrounds: [WHITE, BLACK] }).scores.ssim

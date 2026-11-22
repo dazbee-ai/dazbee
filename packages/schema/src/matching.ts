@@ -62,10 +62,16 @@ export type MatchSetting = z.infer<typeof MatchSetting>
 export const MatchKit = z.object({
   colors: z
     .record(BrandToken, Color)
-    .refine((colors) => Object.keys(colors).length <= BRAND_KIT_LIMITS.color, 'a kit holds at most 24 colours'),
+    .refine(
+      (colors) => Object.keys(colors).length <= BRAND_KIT_LIMITS.color,
+      `a kit holds at most ${BRAND_KIT_LIMITS.color} colours`,
+    ),
   fonts: z
     .record(BrandToken, z.string().trim().min(1).max(100))
-    .refine((fonts) => Object.keys(fonts).length <= BRAND_KIT_LIMITS.font, 'a kit holds at most 8 fonts'),
+    .refine(
+      (fonts) => Object.keys(fonts).length <= BRAND_KIT_LIMITS.font,
+      `a kit holds at most ${BRAND_KIT_LIMITS.font} fonts`,
+    ),
   textStyles: BrandTextStyle.array().max(BRAND_KIT_LIMITS.textStyle),
 })
 export type MatchKit = z.infer<typeof MatchKit>
@@ -133,7 +139,7 @@ function wellFormed(payload: { issues: readonly unknown[] }) {
 /** Refuses a picture that isn't a PNG small enough, and a piece whose rect leaves the picture. */
 function pictureHoldsPieces(job: { picture: string; pieces: Piece[] }, ctx: z.RefinementCtx) {
   if (base64Bytes(job.picture) > MAX_MATCH_PICTURE_BYTES) {
-    ctx.addIssue({ code: 'custom', path: ['picture'], message: 'the picture is over 8 MB' })
+    ctx.addIssue({ code: 'custom', path: ['picture'], message: `the picture is over ${MAX_MATCH_PICTURE_BYTES} bytes` })
     return
   }
   const header = readImageHeader(base64Head(job.picture))
@@ -142,7 +148,11 @@ function pictureHoldsPieces(job: { picture: string; pieces: Piece[] }, ctx: z.Re
     return
   }
   if (Math.max(header.width, header.height) > MAX_MATCH_PICTURE_SIDE) {
-    ctx.addIssue({ code: 'custom', path: ['picture'], message: 'the picture is over 2048 px on its long side' })
+    ctx.addIssue({
+      code: 'custom',
+      path: ['picture'],
+      message: `the picture is over ${MAX_MATCH_PICTURE_SIDE} px on its long side`,
+    })
     return
   }
   job.pieces.forEach(({ rect }, i) => {

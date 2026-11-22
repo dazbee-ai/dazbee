@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 
-import { MatchAnswer, MatchJob, MAX_MATCH_PICTURE_BYTES, ServerMatchJob } from './matching.ts'
+import { MatchAnswer, MatchJob, MatchKit, MAX_MATCH_PICTURE_BYTES, Piece, ServerMatchJob } from './matching.ts'
 
 /** A PNG's signature and header for a picture of this size, padded with zeros to `bytes`. */
 const pngOf = (width: number, height: number, bytes = 64) => {
@@ -25,7 +26,7 @@ const SHAPE_PIECE = { kind: 'shape', rect: { x: 0, y: 100, width: 400, height: 1
 const SHAPES_JOB = { picture: pngOf(400, 200), pieces: [SHAPE_PIECE], kit: KIT }
 const JOB = { ...SHAPES_JOB, backgrounds: [[255, 255, 255]], pieces: [TEXT_PIECE, SHAPE_PIECE] }
 
-const issues = (schema: typeof MatchJob | typeof ServerMatchJob | typeof MatchAnswer, value: unknown) =>
+const issues = (schema: z.ZodType, value: unknown) =>
   schema.safeParse(value).error?.issues.map((issue) => issue.path.join('.')) ?? []
 
 const SCORES = { ssim: 0.93, inkMissed: 0.02, far: 0.4, inkColour: 3.1 }
@@ -43,20 +44,31 @@ const TEXT_LAYER = {
   },
 }
 
+describe('Piece', () => {
+  it('keeps a text piece’s words as given, and refuses a text piece without words', () => {
+    const words = '  Two\nlines  '
+    expect(Piece.parse({ ...TEXT_PIECE, words })).toMatchObject({ words })
+    const noWords = { kind: 'text', rect: TEXT_PIECE.rect }
+    expect(issues(Piece, noWords)).toEqual(['words'])
+    expect(issues(Piece, { ...noWords, words: ' \n ' })).toEqual(['words'])
+    expect(issues(Piece, SHAPE_PIECE)).toEqual([])
+  })
+})
+
+describe('MatchKit', () => {
+  it('refuses more colours than a kit holds', () => {
+    const colors = Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`colour-${i}`, '#000000FF']))
+    expect(issues(MatchKit, KIT)).toEqual([])
+    expect(issues(MatchKit, { ...KIT, colors })).toEqual(['colors'])
+  })
+})
+
 describe('MatchJob', () => {
   it('takes a picture, its pieces and the kit, Hybrid when no setting is given', () => {
     const job = MatchJob.parse(JOB)
     expect(job.setting).toBe('hybrid')
     expect(job.pieces[0]).toEqual(TEXT_PIECE)
     expect(MatchJob.parse({ ...JOB, setting: 'light' }).setting).toBe('light')
-  })
-
-  it('keeps a text piece’s words as given, and refuses a text piece without words', () => {
-    const words = '  Two\nlines  '
-    expect(MatchJob.parse({ ...JOB, pieces: [{ ...TEXT_PIECE, words }] }).pieces[0]).toMatchObject({ words })
-    const noWords = { kind: 'text', rect: TEXT_PIECE.rect }
-    expect(issues(MatchJob, { ...JOB, pieces: [noWords] })).toEqual(['pieces.0.words'])
-    expect(issues(MatchJob, { ...JOB, pieces: [{ ...noWords, words: ' \n ' }] })).toEqual(['pieces.0.words'])
   })
 
   it('refuses a rect that leaves the picture', () => {
@@ -88,11 +100,6 @@ describe('MatchJob', () => {
     expect(issues(MatchJob, { ...JOB, backgrounds: [white, white, white, white] })).toEqual([])
     expect(issues(MatchJob, { ...JOB, backgrounds: [white, white, white, white, white] })).toEqual(['backgrounds'])
     expect(issues(MatchJob, { ...JOB, backgrounds: [[256, 0, 0]] })).toEqual(['backgrounds.0.0'])
-  })
-
-  it('refuses a kit with more colours than a kit holds', () => {
-    const colors = Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`colour-${i}`, '#000000FF']))
-    expect(issues(MatchJob, { ...JOB, kit: { ...KIT, colors } })).toEqual(['kit.colors'])
   })
 })
 

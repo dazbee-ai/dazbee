@@ -11,11 +11,11 @@ import type { LooksSameScores, PieceKind, Rgb } from '@dazbee/schema'
 import { ciede2000, srgbToLab } from './colour.ts'
 import { inkColourDistance } from './colour-guard.ts'
 
-/** What a piece is seen on, and its ink when its alpha can't tell it. */
-export interface Seen {
+/** What a rebuild is judged with besides the two pictures: what the piece is seen on, and its ink when its alpha can't tell it. */
+export interface JudgeOptions {
   /**
-   * The colours the piece is seen on; the worse value of each number over them counts. Left out,
-   * the piece is seen over `LOOKS_SAME.seeThrough`.
+   * The colours the piece is seen on; the worse value of each number over them counts. Left out or
+   * empty, the piece is seen over `LOOKS_SAME.seeThrough`.
    */
   backgrounds?: readonly Rgb[]
   /** The piece's ink, 0 to 1 a pixel, when its alpha covers everything, as a flat crop's does. */
@@ -53,10 +53,10 @@ const MEMO_LIMIT = 1_000_000
  * Judges a rebuild of a piece of the given kind. Both pictures are the same size, 8-bit RGBA with
  * straight alpha. Text is judged by SSIM, ink missed and the colour guard; shapes by the far share.
  */
-export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, seen: Seen = {}): Judged {
-  const measured = measure(piece, rebuild, seen)
+export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, options: JudgeOptions = {}): Judged {
+  const measured = measure(piece, rebuild, options)
   if (kind === 'shape') return { same: measured.far <= LOOKS_SAME.shape.far, scores: measured }
-  const inkColour = inkColourDistance(piece, rebuild, seen.pieceInk)
+  const inkColour = inkColourDistance(piece, rebuild, options.pieceInk)
   const same =
     measured.ssim >= LOOKS_SAME.text.ssim &&
     measured.inkMissed <= LOOKS_SAME.text.inkMissed &&
@@ -65,7 +65,7 @@ export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, seen:
 }
 
 /** SSIM, ink missed and the far share, the worse over the backgrounds. */
-function measure(piece: Pixels, rebuild: Pixels, seen: Seen): Required<Omit<LooksSameScores, 'inkColour'>> {
+function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): Required<Omit<LooksSameScores, 'inkColour'>> {
   if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
     throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
   }
@@ -75,7 +75,7 @@ function measure(piece: Pixels, rebuild: Pixels, seen: Seen): Required<Omit<Look
   const n = width * height
   const a = shrink(piece, width, height)
   const b = shrink(rebuild, width, height)
-  const ink = seen.pieceInk ? shrinkMask(seen.pieceInk, piece.width, piece.height, width, height) : null
+  const ink = options.pieceInk ? shrinkMask(options.pieceInk, piece.width, piece.height, width, height) : null
 
   const pieceFg = new Uint8Array(n)
   const rebuildFg = new Uint8Array(n)
@@ -89,7 +89,8 @@ function measure(piece: Pixels, rebuild: Pixels, seen: Seen): Required<Omit<Look
 
   let ssim = Infinity
   let far = -Infinity
-  for (const background of seen.backgrounds ?? [LOOKS_SAME.seeThrough]) {
+  const backgrounds = options.backgrounds?.length ? options.backgrounds : [LOOKS_SAME.seeThrough]
+  for (const background of backgrounds) {
     const seenA = blurRgb(over(a, background), width, height, LOOKS_SAME.blur)
     const seenB = blurRgb(over(b, background), width, height, LOOKS_SAME.blur)
     ssim = Math.min(ssim, meanSsim(luma(seenA, n), luma(seenB, n), width, height))
@@ -230,6 +231,14 @@ function blurRgb(rgb: Float32Array, width: number, height: number, sigma: number
   return pass(pass(rgb, 1, 0), 0, 1)
 }
 
+/** The taps of a Gaussian of σ from -radius to radius, summing to 1. */
+function normalisedGaussian(radius: number, sigma: number): number[] {
+  const taps = Array.from({ length: 2 * radius + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)))
+  let sum = 0
+  for (const tap of taps) sum += tap
+  return taps.map((tap) => tap / sum)
+}
+
 /** Rec. 709 luminance of gamma-encoded RGB. */
 function luma(rgb: Float32Array, n: number): Float32Array {
   const out = new Float32Array(n)
@@ -304,12 +313,4 @@ function pixelDeltaE(a: Float32Array, b: Float32Array, i: number, memo: Map<numb
 /** Pixel i of an RGB picture rounded to 8 bits a channel, as one number. */
 function packed(rgb: Float32Array, i: number): number {
   return (Math.round(rgb[i * 3] ?? 0) << 16) | (Math.round(rgb[i * 3 + 1] ?? 0) << 8) | Math.round(rgb[i * 3 + 2] ?? 0)
-}
-
-/** The taps of a Gaussian of σ from -radius to radius, summing to 1. */
-function normalisedGaussian(radius: number, sigma: number): number[] {
-  const taps = Array.from({ length: 2 * radius + 1 }, (_, i) => Math.exp(-((i - radius) ** 2) / (2 * sigma * sigma)))
-  let sum = 0
-  for (const tap of taps) sum += tap
-  return taps.map((tap) => tap / sum)
 }

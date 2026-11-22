@@ -105,6 +105,8 @@ function drawnCharacters(file: string, blob: string): Uint8Array {
   if (!typeface) throw new Error(`CanvasKit can't read ${file}`)
   const font = new ck.Font(typeface, 20)
   const glyphs = font.getGlyphIDs(everyCharacter)
+  if (glyphs.length !== MATCH_CHARACTERS.length)
+    throw new Error(`CanvasKit read ${glyphs.length} characters, not ${MATCH_CHARACTERS.length}`)
   font.delete()
   typeface.delete()
   const bits = new Uint8Array(COVERAGE_BYTES)

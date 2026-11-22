@@ -13,9 +13,16 @@ import {
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
-import { requestLimit } from '../admin/waiting-list.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
-import { FILES_PER_ADDRESS_PER_MINUTE, KEEP_FOR_GOOD, KEEP_NOTHING, networkOf } from '../permanent-files.ts'
+import {
+  FILES_PER_ADDRESS_PER_MINUTE,
+  isOneSpelling,
+  KEEP_FOR_GOOD,
+  KEEP_NOTHING,
+  keepOnlyFiles,
+  perAddressLimit,
+  storedFileAnswer,
+} from '../permanent-files.ts'
 import {
   fontCatalogParts,
   fontLink,
@@ -104,15 +111,9 @@ export function googleFontRoutes({
   listCheckMs?: number
 }): Hono<Env> {
   const app = new Hono<Env>()
-  // Counted by the address Cloudflare names, the only way in.
-  const perAddress = requestLimit({ perWindow: perAddressPerMinute, windowMs: 60_000 })
-  // Only a file or list that came whole is kept: no other answer, an error of the app's included.
-  app.use('/fonts/google/*', async (c, next) => {
-    await next()
-    if (c.res.status !== 200) c.res.headers.set('cache-control', 'no-store')
-  })
-  /** Whether the address asking may ask for one more file or list this minute. */
-  const mayAsk = (c: Context<Env>) => perAddress.take(networkOf(c.req.header('cf-connecting-ip')?.trim() ?? ''))
+  const mayAsk = perAddressLimit(perAddressPerMinute)
+  // Only a file or list that came whole is kept.
+  app.use('/fonts/google/*', keepOnlyFiles)
   /** When an ask for another Google list last asked the database. */
   let listCheckedAt = Number.NEGATIVE_INFINITY
   /** The Google list of this hash, from memory, or the database at most once in `listCheckMs`; none for another. */
@@ -127,29 +128,21 @@ export function googleFontRoutes({
   const tooMany = (c: Context<Env>) =>
     c.json(error('This address has asked for too many font files; try again in a minute'), 429, KEEP_NOTHING)
   app.get(`${GOOGLE_FONT_PATH}:name`, async (c) => {
-    const url = new URL(c.req.url)
     const name = GOOGLE_FACE_FILE_NAME.exec(c.req.param('name'))
     const served = name?.[2] ? GOOGLE_FACE_FILES.get(name[2]) : undefined
-    if (!name?.[1] || !served || url.search !== '' || url.pathname !== `${GOOGLE_FONT_PATH}${name[0]}`)
+    if (!name?.[1] || !served || !isOneSpelling(c, `${GOOGLE_FONT_PATH}${name[0]}`))
       return c.json(error('No such font'), 404, KEEP_NOTHING)
     if (!mayAsk(c)) return tooMany(c)
     const stored = await googleFaceFile(db, storage, name[1], served.kind)
     if (!stored) return c.json(error('No such font'), 404, KEEP_NOTHING)
-    const headers = {
+    return storedFileAnswer(c, stored, {
       'content-type': served.contentType,
       ...(stored.byteSize === null ? {} : { 'content-length': String(stored.byteSize) }),
-      ...KEEP_FOR_GOOD,
-    }
-    if (c.req.method === 'HEAD') {
-      await stored.body.cancel()
-      return c.body(null, 200, headers)
-    }
-    return c.body(stored.body, 200, headers)
+    })
   })
   app.get(`${GOOGLE_FONT_LIST_PATH}:name`, async (c) => {
-    const url = new URL(c.req.url)
     const name = GOOGLE_LIST_NAME.exec(c.req.param('name'))
-    if (!name?.[1] || url.search !== '' || url.pathname !== `${GOOGLE_FONT_LIST_PATH}${name[0]}`)
+    if (!name?.[1] || !isOneSpelling(c, `${GOOGLE_FONT_LIST_PATH}${name[0]}`))
       return c.json(error('No such list'), 404, KEEP_NOTHING)
     if (!mayAsk(c)) return tooMany(c)
     const list = await listOf(name[1])

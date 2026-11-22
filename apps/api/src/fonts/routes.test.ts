@@ -80,7 +80,7 @@ describe('fonts', { timeout: 30_000 }, () => {
 
   it('serves a Google face’s file and preview to anyone, at addresses kept for good', async () => {
     const id = await googleFaceId(400)
-    const file = await app.request(`/fonts/google/${id}.ttf`)
+    const file = await app.request(`/fonts/google/faces/${id}.ttf`)
     expect(file.status).toBe(200)
     expect(Object.fromEntries(file.headers)).toMatchObject({
       'content-type': 'font/ttf',
@@ -91,10 +91,29 @@ describe('fonts', { timeout: 30_000 }, () => {
     })
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(regular)
 
-    const preview = await app.request(`/fonts/google/${id}.png`)
+    const preview = await app.request(`/fonts/google/faces/${id}.png`)
     expect(preview.status).toBe(200)
     expect(preview.headers.get('content-type')).toBe('image/png')
     expect(preview.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect([...new Uint8Array(await preview.arrayBuffer()).subarray(1, 4)]).toEqual([
+      ...new TextEncoder().encode('PNG'),
+    ])
+  })
+
+  it('serves a face’s whole file when storage names no size, as when it compresses what it sends', async () => {
+    const id = await googleFaceId(400)
+    const unsized = {
+      ...storage,
+      stream: async (key: string) => {
+        const stored = await storage.stream(key)
+        return stored && { ...stored, byteSize: null }
+      },
+    }
+    const file = await googleFontRoutes({ db, storage: unsized }).request(`/fonts/google/faces/${id}.ttf`)
+    expect(file.headers.get('content-length')).toBe(String(regular.length))
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(regular)
+    const preview = await googleFontRoutes({ db, storage: unsized }).request(`/fonts/google/faces/${id}.png`)
+    expect(preview.headers.get('content-length')).toBeNull()
     expect([...new Uint8Array(await preview.arrayBuffer()).subarray(1, 4)]).toEqual([
       ...new TextEncoder().encode('PNG'),
     ])
@@ -105,15 +124,16 @@ describe('fonts', { timeout: 30_000 }, () => {
     const { face } = await upload('b', otherBrand.id, regular)
     const google400 = await googleFaceId(400)
     for (const path of [
-      `/fonts/google/${face.id}.ttf`,
-      `/fonts/google/${face.id}.png`,
-      '/fonts/google/nosuchface00.ttf',
-      `/fonts/google/${google400}.otf`,
-      `/fonts/google/${google400}.constructor`,
-      `/fonts/google/${google400}`,
-      `/fonts/google/${google400}.ttf?v=2`,
+      `/fonts/google/faces/${face.id}.ttf`,
+      `/fonts/google/faces/${face.id}.png`,
+      '/fonts/google/faces/nosuchface00.ttf',
+      `/fonts/google/faces/${google400}.otf`,
+      `/fonts/google/faces/${google400}.constructor`,
+      `/fonts/google/faces/${google400}`,
+      `/fonts/google/faces/${google400}.ttf?v=2`,
+      `/fonts/google/${google400}.ttf`,
       `/fonts/google/sources/${google400}.ttf`,
-      `/fonts/google/%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}.ttf`,
+      `/fonts/google/faces/%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}.ttf`,
     ]) {
       const refused = await app.request(path)
       expect({ path, status: refused.status }).toEqual({ path, status: 404 })
@@ -125,7 +145,7 @@ describe('fonts', { timeout: 30_000 }, () => {
     const id = await googleFaceId(400)
     const routes = googleFontRoutes({ db, storage, perAddressPerMinute: 1 })
     const ask = (address: string) =>
-      routes.request(`/fonts/google/${id}.ttf`, { headers: { 'cf-connecting-ip': address } })
+      routes.request(`/fonts/google/faces/${id}.ttf`, { headers: { 'cf-connecting-ip': address } })
     expect((await ask('203.0.113.7')).status).toBe(200)
     const refused = await ask('203.0.113.7')
     expect(refused.status).toBe(429)
@@ -160,7 +180,7 @@ describe('fonts', { timeout: 30_000 }, () => {
         return { ...stored, body }
       },
     }
-    const head = await googleFontRoutes({ db, storage: watched }).request(`/fonts/google/${id}.ttf`, {
+    const head = await googleFontRoutes({ db, storage: watched }).request(`/fonts/google/faces/${id}.ttf`, {
       method: 'HEAD',
     })
     expect(head.status).toBe(200)

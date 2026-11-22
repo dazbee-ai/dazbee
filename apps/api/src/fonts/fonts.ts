@@ -79,8 +79,9 @@ export async function fontLink(
 }
 
 /**
- * The file or preview of a Google face, streamed from our storage, or null for a face that isn't one of the
- * Google catalog's: a brand's upload is never read here.
+ * The file or preview of a Google face, streamed from our storage, with its size (the file's as recorded, the
+ * preview's when storage names it), or null for a face that isn't one of the Google catalog's: a brand's upload is
+ * never read here.
  */
 export async function googleFaceFile(
   db: Db,
@@ -89,12 +90,14 @@ export async function googleFaceFile(
   kind: 'file' | 'preview',
 ): ReturnType<Storage['stream']> {
   const [row] = await db
-    .select({ sha256: fontFaces.sha256 })
+    .select({ sha256: fontFaces.sha256, byteSize: fontFaces.byteSize })
     .from(fontFaces)
     .where(and(eq(fontFaces.id, faceId), eq(fontFaces.source, 'google')))
   if (!row) return null
   const key = googleFontKey(row.sha256)
-  return storage.stream(kind === 'file' ? key : previewKey(key))
+  if (kind === 'preview') return storage.stream(previewKey(key))
+  const stored = await storage.stream(key)
+  return stored && { ...stored, byteSize: row.byteSize }
 }
 
 /**

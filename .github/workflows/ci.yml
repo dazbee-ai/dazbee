@@ -147,7 +147,7 @@ jobs:
           https -T "$RUNNER_TEMP/too-big" -w ' %{http_code}' "$upload" | grep -q 'The file is over 30 MB.* 413$'
           [ "$(https -o /dev/null -w '%{http_code}' "$upload")" = 404 ]
           echo "a PUT to /uploads/* reaches the API through Caddy, which cuts off a body past 31 MiB with a sentence; a GET does not"
-          https -sD - https://app.dazbee.com/fonts/google/nosuchface00.ttf | tr -d '\r' > "$RUNNER_TEMP/font"
+          https -sD - https://app.dazbee.com/fonts/google/faces/nosuchface00.ttf | tr -d '\r' > "$RUNNER_TEMP/font"
           grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/font"
           grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/font"
           grep -q '"error":"No such font"' "$RUNNER_TEMP/font"

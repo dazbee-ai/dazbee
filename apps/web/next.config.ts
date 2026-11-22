@@ -38,7 +38,7 @@ const config: NextConfig = {
   // upload links to the API, so one base URL serves them all, as Caddy does in production.
   rewrites: async () => {
     const api = (process.env.API_URL ?? 'http://localhost:8787').replace(/\/+$/, '')
-    const fonts = { source: '/fonts/google/:name', destination: `${api}/fonts/google/:name` }
+    const fonts = { source: '/fonts/google/:path*', destination: `${api}/fonts/google/:path*` }
     const mcp = process.env.MCP_DEV_URL?.replace(/\/+$/, '')
     if (!mcp) return { beforeFiles: [fonts], afterFiles: [], fallback: [] }
     return {

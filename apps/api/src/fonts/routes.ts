@@ -85,7 +85,7 @@ export function googleFontRoutes({
     if (!stored) return c.json(error('No such font'), 404, KEEP_NOTHING)
     const headers = {
       'content-type': served.contentType,
-      'content-length': String(stored.byteSize),
+      ...(stored.byteSize === null ? {} : { 'content-length': String(stored.byteSize) }),
       'cache-control': 'public, max-age=31536000, immutable',
       // Only the app's own pages load them: another site can't put them in its pages.
       'cross-origin-resource-policy': 'same-origin',
@@ -97,7 +97,8 @@ export function googleFontRoutes({
     }
     return c.body(stored.body, 200, headers)
   })
-  app.get(`${GOOGLE_FONT_PATH}*`, (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
+  // Anything else Caddy sends here under /fonts/google/.
+  app.get('/fonts/google/*', (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
   return app
 }
 

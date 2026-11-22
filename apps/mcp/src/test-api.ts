@@ -1,6 +1,7 @@
 // A stand-in for the API's agents' routes, for tests: one workspace with two brands, their designs and
-// assets, pictures added from links, upload links, stock photos (`test-stock-api.ts`), the brand kit and font catalog every brand has, websites read into kits, sync tokens, the storage the signed links point at, and agent
-// accesses whose tokens the tests hand out and refuse.
+// assets, pictures added from links, upload links, stock photos (`test-stock-api.ts`), bundled files
+// (`test-bundled-api.ts`), the brand kit and font catalog every brand has, websites read into kits, sync tokens, the
+// storage the signed links point at, and agent accesses whose tokens the tests hand out and refuse.
 import { Hono } from 'hono'
 
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -22,6 +23,7 @@ import {
   UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
 
+import { type TestBundled, testBundled } from './test-bundled-api.ts'
 import { type TestStock, testStock } from './test-stock-api.ts'
 
 /** An agent access as the tests give it. */
@@ -67,6 +69,8 @@ export interface TestApi {
   uploadLinks(): ({ brandId: string } & StartUploadLink)[]
   /** The stock photo routes: whether stock search is off, and the searches and saves sent. */
   stock: TestStock
+  /** The bundled files' route: whether they are stored, and what it was sent and made. */
+  bundled: TestBundled
   /** The websites read into kits, each its brand and the body sent, in order. */
   fromWebsite(): ({ brandId: string } & BrandFromWebsite)[]
 }
@@ -376,6 +380,8 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
   app.get('/workspaces/:workspaceId/brands', (c) => c.json(visible(c.var.agent)))
   const stock = testStock(now)
   app.route('/', stock.app)
+  const bundled = testBundled(now)
+  app.route('/', bundled.app)
 
   app.get('/workspaces/:workspaceId/brands/:brandId/designs', (c) =>
     c.json(designs.filter((design) => design.brandId === c.req.param('brandId'))),
@@ -501,6 +507,7 @@ export function testApi({ now = Date.now }: TestApiOptions = {}): TestApi {
     addedFromUrl: () => addedFromUrl,
     uploadLinks: () => uploadLinks,
     stock,
+    bundled,
     fromWebsite: () => fromWebsite,
     addAccess,
     refuse: (token) => void tokens.delete(token),

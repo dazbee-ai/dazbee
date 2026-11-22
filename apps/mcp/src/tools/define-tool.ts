@@ -141,6 +141,11 @@ export function tooBigToAnswer(bytes: number): string | undefined {
   return `The answer is ${inMiB(bytes)}, more than the ${inMiB(MAX_ANSWER_BYTES)} an answer may be`
 }
 
+/** `value`, told with `note` after the notes it has. */
+export function withNote(value: unknown, note: string): WithNotes {
+  return value instanceof WithNotes ? new WithNotes(value.value, [...value.notes, note]) : new WithNotes(value, [note])
+}
+
 /** A tool error: the sentence, ending with a full stop. */
 function refused(sentence: string): CallToolResult {
   return { content: [{ type: 'text', text: /[.?!]$/.test(sentence) ? sentence : `${sentence}.` }], isError: true }

@@ -411,12 +411,16 @@ _Avoid_: Guide (a ruler line), guidelines, spec, constraints (a layer's pinning)
 A proven structure for an ad, such as a full photo with a band of words or a product centred with a badge, that builds a frame's layers at any size from a brand's words, pictures, logo and colours. It is a starting point the agent or a person then changes freely; nothing remembers which pattern built a frame.
 _Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), preset, theme
 
+**Bundled graphic**:
+An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file is a **bundled file**: Dazbee keeps it in its storage (`bundled/<sha256>`), not in the repository, and a brand adds it to its asset library by its SHA-256.
+_Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker), clip art
+
 **Icon**:
 A small drawing from one of the icon sets Dazbee bundles, placed on a frame as editable layers in a colour or a brand role. It doesn't join the asset library.
 _Avoid_: Symbol, glyph, clip art, Daz (the bee)
 
 **Sticker**:
-A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person. A picture sticker joins the brand's asset library when placed, as any image does.
+A decorative picture or illustration Dazbee bundles, such as an emoji or a drawn person, placed in its own colours. A picture sticker (a PNG file) joins the brand's asset library when placed, once however often, and is placed as an image; a drawing sticker (an SVG file) is placed as editable layers and joins nothing.
 _Avoid_: Clip art, emoji (one kind of sticker), illustration alone
 
 **Upload link**:

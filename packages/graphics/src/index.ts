@@ -1,3 +1,4 @@
-export { type IconLook, iconSvg } from './icon-svg.ts'
-export { findIcon, type FoundIcon, searchIcons } from './search.ts'
-export { ICON_SET_IDS, ICON_SETS, type IconSet, type IconSetId } from './sets.ts'
+export { iconSvg } from './icon-svg.ts'
+export { findGraphic, type FoundGraphic, searchGraphics } from './search.ts'
+export { GRAPHIC_SET_IDS, STICKER_SETS } from './sets.ts'
+export { stickerFile } from './sticker-file.ts'

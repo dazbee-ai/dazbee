@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "fonts:google": "node src/scripts/import-google-fonts.ts",
+    "stickers:upload": "node src/scripts/upload-stickers.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
@@ -13,6 +14,7 @@
     "@dazbee/db": "workspace:*",
     "@dazbee/doc": "workspace:*",
     "@dazbee/fonts": "workspace:*",
+    "@dazbee/graphics": "workspace:*",
     "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*",
     "@dazbee/session-token": "workspace:*",

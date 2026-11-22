@@ -187,6 +187,9 @@ importers:
       '@dazbee/fonts':
         specifier: workspace:*
         version: link:../../packages/fonts
+      '@dazbee/graphics':
+        specifier: workspace:*
+        version: link:../../packages/graphics
       '@dazbee/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -721,6 +724,9 @@ importers:
       '@dazbee/renderer':
         specifier: workspace:*
         version: link:../renderer
+      '@dazbee/schema':
+        specifier: workspace:*
+        version: link:../schema
       '@phosphor-icons/core':
         specifier: 2.1.1
         version: 2.1.1

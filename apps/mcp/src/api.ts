@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import {
   type AddAssetFromUrl,
+  type AddBundledAsset,
   AgentMe,
   ApiError,
   AssetLink,
@@ -48,6 +49,8 @@ export interface AgentApi {
   searchStock(search: StockSearch): Promise<StockResults>
   /** The asset of the stock photo of `id`, which the API downloads and saves into the brand's library. */
   addStock(brandId: string, id: StockPhotoId): Promise<AssetSummary>
+  /** The asset of a file Dazbee bundles and keeps in its storage (a picture sticker), which the API adds to the brand's library. */
+  addBundledAsset(brandId: string, input: AddBundledAsset): Promise<AssetSummary>
   /** A sync token for the design's agent tab, which the design shows as `agent`. */
   syncToken(brandId: string, designId: string, agent: string): Promise<SyncToken>
   brandKit(brandId: string): Promise<BrandKit>
@@ -151,6 +154,7 @@ export function agentApi(settings: ApiSettings, token: string, workspaceId: stri
       ask('GET', `/workspaces/${encodeURIComponent(workspaceId)}/stock/photos?${stockQuery(search)}`, StockResults),
     addStock: (brandId, id) =>
       ask('POST', `${brandPath(brandId)}/assets/from-stock`, AssetSummary, { id }, FROM_URL_CALL_MS),
+    addBundledAsset: (brandId, input) => ask('POST', `${brandPath(brandId)}/assets/from-bundle`, AssetSummary, input),
     syncToken: (brandId, designId, agent) =>
       ask('POST', `${brandPath(brandId)}/designs/${encodeURIComponent(designId)}/sync-token`, SyncToken, { agent }),
     brandKit: (brandId) => ask('GET', `${brandPath(brandId)}/kit`, BrandKit),

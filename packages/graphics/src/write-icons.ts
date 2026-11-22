@@ -5,8 +5,9 @@ import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { IconPath, PathHow } from './icon-svg.ts'
-import type { IconSetNotice } from './notices.ts'
-import type { IconIndex, IndexedIcon } from './search.ts'
+import type { SetNotice } from './notices.ts'
+import type { IconIndex, IndexedGraphic } from './search.ts'
+import { linePerEntry, tagsOf } from './set-files.ts'
 import { ICON_SETS, type IconSetId } from './sets.ts'
 
 /** A drawing's elements, as the source gives them: each path's data and the attributes that change how it is drawn. */
@@ -25,7 +26,7 @@ const PACKAGE = join(import.meta.dirname, '..')
 
 const sources: Record<IconSetId, SourceSet> = { tabler: await tabler(), phosphor: await phosphor() }
 const index: IconIndex = { tabler: [], phosphor: [] }
-const notices: Partial<Record<IconSetId, Pick<IconSetNotice, 'version' | 'licence' | 'text'>>> = {}
+const notices: Partial<Record<IconSetId, Pick<SetNotice, 'version' | 'licence' | 'text'>>> = {}
 
 for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][]) {
   const { styles, lines } = ICON_SETS[set]
@@ -40,7 +41,7 @@ for (const [set, source] of Object.entries(sources) as [IconSetId, SourceSet][])
     await writeFile(join(out, `${style}.json`), linePerEntry(entries))
   }
   await copyFile(join(source.dir, 'LICENSE'), join(out, 'LICENSE'))
-  index[set] = [...source.tags].map(([name, tags]): IndexedIcon => {
+  index[set] = [...source.tags].map(([name, tags]): IndexedGraphic => {
     const has = styles.filter((style) => source.drawings[style]?.has(name))
     return [name, has, tags]
   })
@@ -119,11 +120,6 @@ function compact({ d, fill, stroke, opacity }: SourcePath, lines: boolean): Icon
   return Object.keys(how).length === 0 ? d : [d, how]
 }
 
-/** JSON of an object written one entry a line, so a new version's changes read line by line. */
-function linePerEntry(entries: [string, unknown][]) {
-  return `{\n${entries.map(([key, value]) => `${JSON.stringify(key)}:${JSON.stringify(value)}`).join(',\n')}\n}\n`
-}
-
 /** The installed package's folder, where pnpm links it into this package's node_modules. */
 function packageDir(name: string) {
   return join(PACKAGE, 'node_modules', name)
@@ -142,12 +138,6 @@ async function manifest(dir: string) {
     license: string
   }
   return { dir, version, licence: license }
-}
-
-/** Lowercase tags, each once, without Phosphor's markers such as `*new*`. */
-function tagsOf(tags: unknown[]): string[] {
-  const words = tags.map((tag) => String(tag).trim().toLowerCase()).filter((tag) => tag && !tag.startsWith('*'))
-  return [...new Set(words)]
 }
 
 /** An SVG file's paths, refused when it holds anything else. */

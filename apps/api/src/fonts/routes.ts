@@ -15,6 +15,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { requestLimit } from '../admin/waiting-list.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
+import { GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE, KEEP_FOR_GOOD, KEEP_NOTHING, networkOf } from '../permanent-files.ts'
 import {
   fontCatalogParts,
   fontLink,
@@ -26,8 +27,6 @@ import {
   startFontUpload,
 } from './fonts.ts'
 
-/** The Google files and previews one address may ask the API for in a minute; Cloudflare answers repeats itself. */
-export const GOOGLE_FONT_FILES_PER_ADDRESS_PER_MINUTE = 600
 /**
  * How long an ask for a Google list other than the last one built waits before it asks the database again whether the
  * Google faces changed; asks in between are answered 404 from memory.
@@ -43,17 +42,6 @@ const GOOGLE_FACE_FILES: ReadonlyMap<string, { kind: 'file' | 'preview'; content
 ])
 /** The Google list's name at its address: the hash of its bytes, then `.js` (`GOOGLE_FONT_LIST_PATH`). */
 const GOOGLE_LIST_NAME = /^([0-9a-f]{32})\.js$/
-/**
- * What every answer at a Google address that is a file or the list says: keep it for good, and only the app's own
- * pages load it, so another site can't put it in its pages.
- */
-const KEEP_FOR_GOOD = {
-  'cache-control': 'public, max-age=31536000, immutable',
-  'cross-origin-resource-policy': 'same-origin',
-  'x-content-type-options': 'nosniff',
-}
-/** What every answer at a Google address that is not the file says: keep it nowhere, so a face added later shows. */
-const KEEP_NOTHING = { 'cache-control': 'no-store' }
 
 export function fontRoutes({ db, storage }: { db: Db; storage: Storage }): Hono<Env> {
   const app = new Hono<Env>()
@@ -178,18 +166,4 @@ export function googleFontRoutes({
   // Anything else Caddy sends here under /fonts/google/.
   app.get('/fonts/google/*', (c) => c.json(error('No such font'), 404, KEEP_NOTHING))
   return app
-}
-
-/** The address a limit counts: an IPv4 address as it is, an IPv6 address by its /64, one customer's network. */
-function networkOf(address: string): string {
-  if (!address.includes(':')) return address
-  const [head = '', tail] = address.split('::')
-  const left = head ? head.split(':') : []
-  const right = tail ? tail.split(':') : []
-  const groups =
-    tail === undefined ? left : [...left, ...Array<string>(8 - left.length - right.length).fill('0'), ...right]
-  return `${groups
-    .slice(0, 4)
-    .map((group) => Number.parseInt(group, 16).toString(16))
-    .join(':')}::/64`
 }

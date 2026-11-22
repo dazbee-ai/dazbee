@@ -2,6 +2,8 @@
 // every response with them, so the two can't drift apart.
 import { z } from 'zod'
 
+import { MATCH_COPY_VERSION } from '@dazbee/fonts'
+
 import { BRAND_KIT_LIMITS, BRAND_ROLE_TOKENS, brandRoleOf, LOGO_ROLE } from './brand-roles.ts'
 import { BrandTextStyle, brandTextStyleLook } from './brand-text-styles.ts'
 import { byCodeUnits, Color } from './primitives.ts'
@@ -384,10 +386,10 @@ export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
 
 /**
  * Where the app serves Google faces' match copies to anyone, by face id, as `<face id>.ttf`: a face cut to the characters
- * ads use, which the text matcher loads in place of the whole face. A face's copy never changes, so browsers and
- * Cloudflare keep it for good.
+ * ads use, which the text matcher loads in place of the whole face. The path names how the copies are made
+ * (`MATCH_COPY_VERSION`), so a face's copy at one address never changes, and browsers and Cloudflare keep it for good.
  */
-export const GOOGLE_MATCH_PATH = '/fonts/google/match/'
+export const GOOGLE_MATCH_PATH = `/fonts/google/match/v${MATCH_COPY_VERSION}/`
 
 /**
  * Where the app serves the Google list, the Google part of the font catalog, to anyone, by the hash of its bytes: the

@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { fontFaces, newId } from '@dazbee/db'
+import { MATCH_COPY_VERSION } from '@dazbee/fonts'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import { matchCopy } from '@dazbee/fonts/match-copy'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
@@ -13,6 +14,8 @@ import {
   FontFamily,
   FontLink,
   FontUploadTicket,
+  GOOGLE_MATCH_PATH,
+  googleFacePaths,
   googleFontListPath,
 } from '@dazbee/schema'
 
@@ -147,25 +150,22 @@ describe('fonts', { timeout: 30_000 }, () => {
     ])
   })
 
-  it('serves a Google face’s match copy to anyone with the faces’ headers, its length named when storage names none', async () => {
+  it('serves a Google face’s match copy to anyone with the faces’ headers, and none storage names no length of', async () => {
     const id = await googleFaceId(400)
     const copy = matchCopy(regular) ?? new Uint8Array()
-    for (const routes of [googleFontRoutes({ db, storage }), googleFontRoutes({ db, storage: unsized })]) {
-      const file = await routes.request(`/fonts/google/match/${id}.ttf`)
-      expect(file.status).toBe(200)
-      expect(Object.fromEntries(file.headers)).toMatchObject({
-        'content-type': 'font/ttf',
-        'content-length': String(copy.length),
-        'cache-control': 'public, max-age=31536000, immutable',
-        'cross-origin-resource-policy': 'same-origin',
-        'x-content-type-options': 'nosniff',
-      })
-      expect(new Uint8Array(await file.arrayBuffer())).toEqual(copy)
-      const head = await routes.request(`/fonts/google/match/${id}.ttf`, { method: 'HEAD' })
-      expect(head.status).toBe(200)
-      expect(head.headers.get('content-length')).toBe(String(copy.length))
-      expect(await head.text()).toBe('')
-    }
+    const path = googleFacePaths({ id, source: 'google' })?.match ?? ''
+    const file = await app.request(path)
+    expect(file.status).toBe(200)
+    expect(Object.fromEntries(file.headers)).toMatchObject({
+      'content-type': 'font/ttf',
+      'content-length': String(copy.length),
+      'cache-control': 'public, max-age=31536000, immutable',
+      'cross-origin-resource-policy': 'same-origin',
+      'x-content-type-options': 'nosniff',
+    })
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(copy)
+    const unsizedAnswer = await googleFontRoutes({ db, storage: unsized }).request(path)
+    expect([unsizedAnswer.status, unsizedAnswer.headers.get('cache-control')]).toEqual([500, 'no-store'])
   })
 
   it('serves no brand’s upload, no face it lacks and no other name at the Google addresses, and keeps none of those answers', async () => {
@@ -185,15 +185,17 @@ describe('fonts', { timeout: 30_000 }, () => {
       `/fonts/google/${google400}.ttf`,
       `/fonts/google/sources/${google400}.ttf`,
       `/fonts/google/faces/${escaped}.ttf`,
-      `/fonts/google/match/${face.id}.ttf`,
-      '/fonts/google/match/nosuchface00.ttf',
-      `/fonts/google/match/${google400}.png`,
-      `/fonts/google/match/${google400}`,
-      `/fonts/google/match/${google400}.ttf/`,
-      `/fonts/google/match/${google400}.ttf?`,
-      `/fonts/google/match//${google400}.ttf`,
-      `/fonts/google/match/${escaped}.ttf`,
-      '/fonts/google/match/',
+      `${GOOGLE_MATCH_PATH}${face.id}.ttf`,
+      `${GOOGLE_MATCH_PATH}nosuchface00.ttf`,
+      `${GOOGLE_MATCH_PATH}${google400}.png`,
+      `${GOOGLE_MATCH_PATH}${google400}`,
+      `${GOOGLE_MATCH_PATH}${google400}.ttf/`,
+      `${GOOGLE_MATCH_PATH}${google400}.ttf?`,
+      `${GOOGLE_MATCH_PATH}/${google400}.ttf`,
+      `${GOOGLE_MATCH_PATH}${escaped}.ttf`,
+      GOOGLE_MATCH_PATH,
+      `/fonts/google/match/${google400}.ttf`,
+      `/fonts/google/match/v${MATCH_COPY_VERSION + 1}/${google400}.ttf`,
     ]) {
       const refused = await app.request(path)
       expect({ path, status: refused.status }).toEqual({ path, status: 404 })
@@ -204,7 +206,7 @@ describe('fonts', { timeout: 30_000 }, () => {
       ...storage,
       stream: async (key: string) => (key.includes('/match/') ? null : storage.stream(key)),
     }
-    const notYet = await googleFontRoutes({ db, storage: uncopied }).request(`/fonts/google/match/${google400}.ttf`)
+    const notYet = await googleFontRoutes({ db, storage: uncopied }).request(`${GOOGLE_MATCH_PATH}${google400}.ttf`)
     expect(notYet.status).toBe(404)
     expect(notYet.headers.get('cache-control')).toBe('no-store')
   })

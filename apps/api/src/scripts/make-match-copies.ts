@@ -1,8 +1,8 @@
-// Makes the match copy of every Google face in storage that has none, under `fonts/google/match/<sha256>`, so the API
-// can answer it at the face's permanent match address. Run it once per environment, after the match copies PR is
-// deployed: `fonts:google` makes the copy of each face it copies from then on. A run stopped part way picks up where it
-// stopped when run again, and copies made before are left as they are. Settings come from the environment, as the
-// API's do.
+// Makes the match copy of every Google face in storage that has none, under `fonts/google/match/v<version>/<sha256>`,
+// so the API can answer it at the face's permanent match address. Run it once per environment for the faces copied
+// before `fonts:google` made match copies, and again after `MATCH_COPY_VERSION` is raised; `fonts:google` makes the
+// copy of each face it copies. A run stopped part way picks up where it stopped when run again, and copies made before
+// are left as they are. Settings come from the environment, as the API's do.
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
@@ -29,8 +29,8 @@ try {
       if (!made) total.missing.push(sha256)
       else {
         total.made++
-        total.faceBytes += made.face
-        total.copyBytes += made.copy
+        total.faceBytes += made.faceBytes
+        total.copyBytes += made.copyBytes
         if (made.whole) total.whole++
       }
     } catch (reason) {
@@ -42,6 +42,8 @@ try {
     return makeNext()
   }
   await Promise.all(Array.from({ length: AT_ONCE }, makeNext))
+  const left = (await facesWithoutMatchCopy(db, storage)).length
+  console.log(`${left} Google face files have no match copy now.`)
 } finally {
   await close()
 }

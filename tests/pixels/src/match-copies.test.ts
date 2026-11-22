@@ -1,4 +1,4 @@
-// Match copies (the matchers spec's match copies ticket): a font cut to the characters ads use draws a text of those
+// Match copies: a font cut to the characters ads use draws a text of those
 // characters with the same pixels as the whole font on the CPU surface, so the text matcher may load the copy.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,6 +21,11 @@ const SAMPLES = [
     file: 'NotoSans-Regular.ttf',
     family: 'Noto Sans',
     text: 'Summer Sale — 50% off, €9.99! Ça coûte peu «Ünïcödé» ΑΩ Привет ₹1,299 ™',
+  },
+  {
+    file: 'NotoSansDevanagari-Regular.ttf',
+    family: 'Noto Sans Devanagari',
+    text: 'श्री दिवाली सेल क्षमता से ज़्यादा बचत ज्ञ त्र र्‍य हिंदी चाँद दुःख १२३४',
   },
   {
     file: 'NotoNaskhArabic-Regular.ttf',

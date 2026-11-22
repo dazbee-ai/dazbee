@@ -181,19 +181,24 @@ describe('facesWithoutMatchCopy', { timeout: 30_000 }, () => {
     expect(await facesWithoutMatchCopy(db, storage)).not.toContain(sha256(bytes))
     await storage.delete(googleMatchKey(sha256(bytes)))
     expect((await facesWithoutMatchCopy(db, storage)).filter((sha) => sha === sha256(bytes))).toHaveLength(1)
-
-    const copy = matchCopy(bytes)
-    expect(await makeMatchCopy(storage, sha256(bytes))).toEqual({
-      face: bytes.length,
-      copy: copy?.length,
-      whole: false,
-    })
-    expect(await storage.get(googleMatchKey(sha256(bytes)))).toEqual(copy)
+    await makeMatchCopy(storage, sha256(bytes))
     expect(await facesWithoutMatchCopy(db, storage)).not.toContain(sha256(bytes))
   })
 })
 
 describe('makeMatchCopy', () => {
+  it('stores the match copy of a stored Google face’s file, and gives its size and the face’s', async () => {
+    const bytes = new Uint8Array([...fontFile('NotoSans-Bold.ttf'), ...new TextEncoder().encode(`made ${run}`)])
+    await storage.put(googleFontKey(sha256(bytes)), bytes, 'font/ttf')
+    const copy = matchCopy(bytes)
+    expect(await makeMatchCopy(storage, sha256(bytes))).toEqual({
+      faceBytes: bytes.length,
+      copyBytes: copy?.length,
+      whole: false,
+    })
+    expect(await storage.get(googleMatchKey(sha256(bytes)))).toEqual(copy)
+  })
+
   it('makes none of a file storage doesn’t hold', async () => {
     const missing = sha256(new TextEncoder().encode(`never stored ${run}`))
     expect(await makeMatchCopy(storage, missing)).toBeNull()

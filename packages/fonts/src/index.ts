@@ -2,7 +2,7 @@ export type { FontCategory, GoogleFamily, GoogleFile, GoogleLicence } from './go
 export type { CatalogFace, FontStyle, FontUse } from './face-match.ts'
 export { facesToLoad, WHOLE_FAMILIES } from './face-match.ts'
 export { variesInWeight } from './google-metadata.ts'
-export { coversAll, MATCH_CHARACTER_RANGES, MATCH_CHARACTERS } from './match-characters.ts'
+export { coversAll, MATCH_CHARACTER_RANGES, MATCH_CHARACTERS, MATCH_COPY_VERSION } from './match-characters.ts'
 export * from './scripts.ts'
 
 import type { FontCategory } from './google.ts'

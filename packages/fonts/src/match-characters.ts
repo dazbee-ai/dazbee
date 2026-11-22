@@ -21,6 +21,13 @@ export const MATCH_CHARACTERS: readonly number[] = MATCH_CHARACTER_RANGES.flatMa
   Array.from({ length: last - first + 1 }, (_, i) => first + i),
 )
 
+/**
+ * How match copies are made, as a version: their characters, harfbuzzjs's version and how `@dazbee/fonts/match-copy`
+ * cuts. The copies are kept for good at addresses and storage keys that name it, so a change to any of those raises it
+ * and `fonts:match-copies` makes every copy again under the new version.
+ */
+export const MATCH_COPY_VERSION = 1
+
 const MATCH_CHARACTER_SET: ReadonlySet<number> = new Set(MATCH_CHARACTERS)
 
 /** Whether every character of `text` but its white space is one of the characters ads use. */

@@ -188,7 +188,7 @@ describe('googleFacePaths', () => {
     expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'google' })).toEqual({
       file: '/fonts/google/faces/k3v9x2m1q8z0.ttf',
       preview: '/fonts/google/faces/k3v9x2m1q8z0.png',
-      match: '/fonts/google/match/k3v9x2m1q8z0.ttf',
+      match: '/fonts/google/match/v1/k3v9x2m1q8z0.ttf',
     })
   })
 

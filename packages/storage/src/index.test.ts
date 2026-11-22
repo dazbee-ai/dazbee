@@ -55,6 +55,18 @@ describe('openStorage', () => {
     expect(new Uint8Array(await new Response(stored?.body).arrayBuffer())).toEqual(bytes)
   })
 
+  it('gives no size for an answer compressed anyway, whose length is the compressed bytes’', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(new Blob([bytes]).stream(), {
+          status: 200,
+          headers: { 'content-encoding': 'gzip', 'content-length': '3' },
+        }),
+      ),
+    )
+    expect((await storage.stream('test/compressed'))?.byteSize).toBeNull()
+  })
+
   it('takes an upload through a signed URL, and serves it through another', async () => {
     const key = `test/${randomUUID()}`
     const put = await fetch(await storage.signedPut(key, 'image/png', bytes.length, 60), {

@@ -15,6 +15,7 @@ import {
 import type { Storage } from '@dazbee/storage'
 
 import { body, type Env, error, requireWriter } from '../http.ts'
+import { logError } from '../log.ts'
 import {
   FILES_PER_ADDRESS_PER_MINUTE,
   isOneSpelling,
@@ -50,6 +51,8 @@ const GOOGLE_FACE_FILES: ReadonlyMap<string, { kind: 'file' | 'preview'; content
 ])
 /** A Google face's match copy's name at its address: the face's id, then `.ttf`. */
 const GOOGLE_MATCH_NAME = /^([\w-]{1,64})\.ttf$/
+/** The fewest bytes a font file has: the head of its table directory. */
+const SMALLEST_FONT = 12
 /** The Google list's name at its address: the hash of its bytes, then `.js` (`GOOGLE_FONT_LIST_PATH`). */
 const GOOGLE_LIST_NAME = /^([0-9a-f]{32})\.js$/
 
@@ -151,10 +154,16 @@ export function googleFontRoutes({
     // A face whose copy isn't made yet, before `fonts:match-copies` runs: kept nowhere, so it is served once made.
     const stored = await googleFaceFile(db, storage, name[1], 'match')
     if (!stored) return c.json(error('No such font'), 404, KEEP_NOTHING)
-    return storedFileAnswer(c, stored, {
-      'content-type': 'font/ttf',
-      ...(stored.byteSize === null ? {} : { 'content-length': String(stored.byteSize) }),
-    })
+    // Kept for good only with the length storage names, and only one no shorter than a font's table directory's head.
+    if (stored.byteSize === null || stored.byteSize < SMALLEST_FONT) {
+      await stored.body.cancel()
+      logError('match-copy-size', new Error('A stored match copy has no length a font can have'), {
+        faceId: name[1],
+        stored: stored.byteSize,
+      })
+      return c.json(error('Something went wrong on our side'), 500, KEEP_NOTHING)
+    }
+    return storedFileAnswer(c, stored, { 'content-type': 'font/ttf', 'content-length': String(stored.byteSize) })
   })
   app.get(`${GOOGLE_FONT_LIST_PATH}:name`, async (c) => {
     const name = GOOGLE_LIST_NAME.exec(c.req.param('name'))

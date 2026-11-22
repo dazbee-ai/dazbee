@@ -83,7 +83,7 @@ export function openStorage(settings: StorageSettings) {
 
   /**
    * The object's bytes as they arrive, asked for as stored rather than compressed, and how many there are when
-   * storage names it; null when there is none.
+   * storage names it for the bytes as stored, not for a compressed answer it sent anyway; null when there is none.
    */
   async function stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; byteSize: number | null } | null> {
     const response = await send(objectUrl(key), { headers: { 'accept-encoding': 'identity' } })
@@ -92,7 +92,9 @@ export function openStorage(settings: StorageSettings) {
       return null
     }
     const length = response.headers.get('content-length')
-    return { body: response.body, byteSize: length === null ? null : Number(length) }
+    const encoding = response.headers.get('content-encoding')
+    const asStored = encoding === null || encoding.trim().toLowerCase() === 'identity'
+    return { body: response.body, byteSize: length === null || !asStored ? null : Number(length) }
   }
 
   async function remove(key: string) {

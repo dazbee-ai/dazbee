@@ -152,7 +152,7 @@ export async function fontLink(
 
 /**
  * The file, preview or match copy of a Google face, streamed from our storage, with its size (the file's as recorded,
- * the preview's when storage names it, the match copy's always), or null for a face that isn't one of the Google
+ * the preview's and the match copy's when storage names it), or null for a face that isn't one of the Google
  * catalog's, as a brand's upload is never read here, and for a match copy not made yet.
  */
 export async function googleFaceFile(
@@ -168,7 +168,7 @@ export async function googleFaceFile(
   if (!row) return null
   const key = googleFontKey(row.sha256)
   if (kind === 'preview') return storage.stream(previewKey(key))
-  if (kind === 'match') return sized(await storage.stream(googleMatchKey(row.sha256)))
+  if (kind === 'match') return storage.stream(googleMatchKey(row.sha256))
   const stored = await storage.stream(key)
   return stored && { ...stored, byteSize: row.byteSize }
 }
@@ -349,14 +349,4 @@ async function visibleFace(db: Db, workspaceId: string, brandId: string, faceId:
     .from(fontFaces)
     .where(and(eq(fontFaces.id, faceId), visibleTo(workspaceId, brandId)))
   return row ?? null
-}
-
-/**
- * A stored file with its size: as storage names it, or counted by reading it whole when storage names none, as when it
- * compresses what it sends, so an answer kept for good always says how long it is.
- */
-async function sized(stored: Awaited<ReturnType<Storage['stream']>>): ReturnType<Storage['stream']> {
-  if (!stored || stored.byteSize !== null) return stored
-  const bytes = new Uint8Array(await new Response(stored.body).arrayBuffer())
-  return { body: new Blob([bytes]).stream(), byteSize: bytes.length }
 }

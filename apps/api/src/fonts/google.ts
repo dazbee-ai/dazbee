@@ -31,10 +31,13 @@ export interface FamilyCopy {
   failed: string | null
 }
 
-/** What making one face's match copy stored: its size and the face's, and whether HarfBuzz couldn't cut the face, so the copy is the whole file. */
+/**
+ * What making one face's match copy stored: the bytes of the face and of its copy, and whether HarfBuzz couldn't cut
+ * the face, so the copy is the whole file.
+ */
 export interface MatchCopyMade {
-  face: number
-  copy: number
+  faceBytes: number
+  copyBytes: number
   whole: boolean
 }
 
@@ -52,22 +55,6 @@ export async function copiedSources(storage: Storage): Promise<Map<string, strin
     if (blob && sha256) copied.set(blob, sha256)
   }
   return copied
-}
-
-/** The SHA-256 of each Google face's file that has no match copy in storage yet, each once. */
-export async function facesWithoutMatchCopy(db: Db, storage: Storage): Promise<string[]> {
-  const faces = await db
-    .selectDistinct({ sha256: fontFaces.sha256 })
-    .from(fontFaces)
-    .where(eq(fontFaces.source, 'google'))
-  const made = new Set((await storage.list(GOOGLE_MATCH_COPIES)).map((key) => key.slice(GOOGLE_MATCH_COPIES.length)))
-  return faces.map((face) => face.sha256).filter((sha256) => !made.has(sha256))
-}
-
-/** Makes the match copy of the Google face's file stored under `sha256` and stores it; null when storage lacks the file. */
-export async function makeMatchCopy(storage: Storage, sha256: string): Promise<MatchCopyMade | null> {
-  const bytes = await storage.get(googleFontKey(sha256))
-  return bytes && storeMatchCopy(storage, sha256, bytes)
 }
 
 /**
@@ -108,6 +95,22 @@ export async function importGoogleFamily(
     }
   }
   return done
+}
+
+/** The SHA-256 of each Google face's file that has no match copy in storage yet, each once. */
+export async function facesWithoutMatchCopy(db: Db, storage: Storage): Promise<string[]> {
+  const faces = await db
+    .selectDistinct({ sha256: fontFaces.sha256 })
+    .from(fontFaces)
+    .where(eq(fontFaces.source, 'google'))
+  const made = new Set((await storage.list(GOOGLE_MATCH_COPIES)).map((key) => key.slice(GOOGLE_MATCH_COPIES.length)))
+  return faces.map((face) => face.sha256).filter((sha256) => !made.has(sha256))
+}
+
+/** Makes the match copy of the Google face's file stored under `sha256` and stores it; null when storage lacks the file. */
+export async function makeMatchCopy(storage: Storage, sha256: string): Promise<MatchCopyMade | null> {
+  const bytes = await storage.get(googleFontKey(sha256))
+  return bytes && storeMatchCopy(storage, sha256, bytes)
 }
 
 /** Copies one file of the family and records its face; gives back how many bytes it stored. */
@@ -155,12 +158,13 @@ async function copyFile(
 
 /**
  * Stores the match copy of a Google face's file `bytes`, stored under `sha256`: HarfBuzz's cut, or the whole file when
- * HarfBuzz can't cut it, so every face has a copy that draws as it does.
+ * HarfBuzz can't cut the font, so every face has a copy that draws as it does. Throws, storing nothing, when HarfBuzz
+ * fails for want of memory, so the copy is made again on the next run.
  */
 async function storeMatchCopy(storage: Storage, sha256: string, bytes: Uint8Array): Promise<MatchCopyMade> {
   const copy = matchCopy(bytes) ?? bytes
   await storage.put(googleMatchKey(sha256), copy, 'font/ttf')
-  return { face: bytes.length, copy: copy.length, whole: copy === bytes }
+  return { faceBytes: bytes.length, copyBytes: copy.length, whole: copy === bytes }
 }
 
 /**

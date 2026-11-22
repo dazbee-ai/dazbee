@@ -3,8 +3,9 @@
 // It reads the ConvNeXt-Atto model (epoch 14) and its 128-number projection, the gallery of font fingerprints (8
 // clean and 8 realistic samples a face) and the novelty list; keeps only the keys that name a face of
 // `GOOGLE_FONTS` (`faceOfKey`); builds the coverage index from each kept key's file in the google/fonts checkout
-// beside them, at the list's commit; writes the files and prints the manifest. Run it again when the model is
-// retrained. The files it writes, all little-endian:
+// beside them, at the list's commit, and measures from each face what kind of face it is
+// (`face-kinds.ts`); writes the files and prints the manifest and those faces by kind.
+// Run it again when the model is retrained. The files it writes, all little-endian:
 // - `text-model.onnx`: the model; a 1×64×256 window of ink (0 to 1) in, `fingerprint` (512 numbers) out.
 // - `text-projection.f32`: the 512-number mean, then the 512×128 directions, row by row: a fingerprint less the mean,
 //   times the directions, made unit length again, is the 128 numbers the gallery holds.
@@ -12,7 +13,9 @@
 // - `text-keys.json`: the keys (`family|weight|style`), one a fingerprint.
 // - `text-coverage.bin`: for each key in order, a bit for each of `MATCH_CHARACTERS` in order (bit i of byte i ÷ 8,
 //   from the lowest), set when the key's file draws it itself; 232 bytes a key.
-// - `text-novelty.json`: the kept keys whose faces draw a pattern rather than letters, never shortlisted.
+// - `text-face-kinds.json`: kept keys by kind (`FaceKinds`): the novelty list's, the faces that draw no distinct
+//   letters and the colour faces, which the shortlist passes over; and the faces that draw their lowercase letters as
+//   capitals, which it lists for any words.
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -22,6 +25,9 @@ import { GOOGLE_FONTS, GOOGLE_FONTS_COMMIT, googleFaces } from '@dazbee/fonts/go
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { faceOfKey, parseFontKey } from '../src/text/font-key.ts'
+import { SCRIPT_LETTERS, SCRIPTS } from '../src/text/scripts.ts'
+import { type FaceKinds, hasBit } from '../src/text/text-files.ts'
+import { drawsLetters, drawsOnlyCapitals, isColourFace, letterShapes } from './face-kinds.ts'
 
 const [data, out] = process.argv.slice(2)
 if (!data || !out) {
@@ -43,7 +49,7 @@ const kept = keys.flatMap((key, row) => {
   const family = parsed && families.get(parsed.family)
   const named = parsed && family && faceOfKey(parsed, googleFaces(family))
   return named && family
-    ? [{ key, row, file: join(checkout, family.path, named.face.file), blob: named.face.blob }]
+    ? [{ key, face: parsed, row, file: join(checkout, family.path, named.face.file), blob: named.face.blob }]
     : []
 })
 
@@ -53,7 +59,8 @@ const everyCharacter = String.fromCodePoint(...MATCH_CHARACTERS)
 const coverageOf = new Map<string, Uint8Array>()
 const fingerprints = new Float32Array(kept.length * numbers)
 const coverage = new Uint8Array(kept.length * COVERAGE_BYTES)
-kept.forEach(({ row, file, blob }, at) => {
+const kinds: FaceKinds = { novelty: [], noLetters: [], colour: [], capitals: [] }
+kept.forEach(({ key, face, row, file, blob }, at) => {
   fingerprints.set(gallery.subarray(row * numbers, (row + 1) * numbers), at * numbers)
   let bits = coverageOf.get(file)
   if (!bits) {
@@ -61,6 +68,15 @@ kept.forEach(({ row, file, blob }, at) => {
     coverageOf.set(file, bits)
   }
   coverage.set(bits, at * COVERAGE_BYTES)
+  const bytes = new Uint8Array(readFileSync(file))
+  if (novelty.has(key)) kinds.novelty.push(key)
+  if (isColourFace(bytes)) kinds.colour.push(key)
+  const draws = (character: string) => hasBit(bits, 0, character)
+  const script = SCRIPTS.find((s) => [...SCRIPT_LETTERS[s]].every(draws))
+  if (!script) return
+  const shapes = letterShapes(ck, bytes, face, script, draws)
+  if (!drawsLetters(shapes)) kinds.noLetters.push(key)
+  if (drawsOnlyCapitals(shapes)) kinds.capitals.push(key)
 })
 
 mkdirSync(out, { recursive: true })
@@ -70,7 +86,7 @@ const files: Record<string, Uint8Array> = {
   'text-fingerprints.f32': new Uint8Array(fingerprints.buffer),
   'text-keys.json': json(kept.map(({ key }) => key)),
   'text-coverage.bin': coverage,
-  'text-novelty.json': json(kept.map(({ key }) => key).filter((key) => novelty.has(key))),
+  'text-face-kinds.json': json(kinds),
 }
 const manifest: Record<string, { sha256: string; size: number }> = {}
 for (const [name, bytes] of Object.entries(files)) {
@@ -87,6 +103,7 @@ const hash = sha256(
 console.error(
   `${kept.length} of ${keys.length} keys name a face of GOOGLE_FONTS; ${coverageOf.size} files read for coverage`,
 )
+for (const [kind, ofKind] of Object.entries(kinds)) console.error(`${kind}: ${ofKind.join(', ')}`)
 console.log(JSON.stringify({ repo: 'dazbee-ai/dazbee', tag: `matchers-${hash}`, files: manifest }, null, 2))
 
 /** A file's bytes as 32-bit floats, copied so they start on a float's boundary. */

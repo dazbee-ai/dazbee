@@ -1,5 +1,6 @@
 // The fonts the text matcher tries for a piece: Light's 5 faces nearest the piece's font fingerprint
-// among those that draw its script and every character of its words, and the brand kit's fonts, each
+// among those that draw its script and every character of its words, passing over the novelty faces,
+// colour faces and faces that draw no distinct letters the files name; and the brand kit's fonts, each
 // family in its 2 faces nearest the fingerprint, or, for a family with no fingerprint (a brand's
 // upload), in its regular face nearest the leader's weight and that face's other style.
 
@@ -57,33 +58,6 @@ const NEAREST_CHECKED = SHORTLIST * 3
 /** How many faces of a kit family with fingerprints are tried. */
 const BRAND_FACES = 2
 
-/**
- * The families of the font catalog whose faces are colour fonts (a COLR, CBDT, sbix or SVG table in
- * the files of google/fonts at `GOOGLE_FONTS`'s commit) and have fingerprints: their letters are
- * drawn in colours of their own, so they are never candidates.
- */
-const COLOUR_FAMILIES: ReadonlySet<string> = new Set([
-  'Aref Ruqaa Ink',
-  'Bitcount Grid Double Ink',
-  'Bitcount Grid Single Ink',
-  'Bitcount Ink',
-  'Bitcount Prop Double Ink',
-  'Bitcount Prop Single Ink',
-  'Bitcount Single Ink',
-  'Blaka Ink',
-  'Bungee Spice',
-  'Bungee Tint',
-  'Cairo Play',
-  'Coral Pixels',
-  'Foldit',
-  'Honk',
-  'Kalnia Glaze',
-  'Nabla',
-  'Noto Znamenny Musical Notation',
-  'Reem Kufi Fun',
-  'Reem Kufi Ink',
-  'Sixtyfour Convergence',
-])
 /** The size CanvasKit reads a face's characters at; any size gives the same glyphs. */
 const PROBE_SIZE = 20
 /** A kit family with no fingerprint is tried near this weight when no face leads the shortlist. */
@@ -96,9 +70,7 @@ export async function shortlist(input: ShortlistInput): Promise<Shortlist> {
   const loaded: LoadedFaces = new Map()
   const covers = coverage(input, loaded)
   const allowed = files.keys.flatMap((_, row) =>
-    !COLOUR_FAMILIES.has(files.faces[row]?.family ?? '') && !files.novelty.has(row) && files.scripts[row]?.has(script)
-      ? [row]
-      : [],
+    !files.neverListed.has(row) && files.scripts[row]?.has(script) ? [row] : [],
   )
   const near = await firstCovering(
     nearestRows(files, fingerprint, allowed).slice(0, NEAREST_CHECKED),

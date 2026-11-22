@@ -5,12 +5,13 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 
 import { pieceFingerprint } from './fingerprint.ts'
+import { parseFontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { readPiece } from './read-piece.ts'
 import { shortlist, type ShortlistInput } from './shortlist.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import { type ShortlistPiece, shortlistPieces } from './test-text-pieces.ts'
-import { coversByIndex } from './text-files.ts'
+import { coversByIndex, FINGERPRINT_NUMBERS } from './text-files.ts'
 
 const ck = await loadCanvasKit()
 const { files, model } = await textMatcherFiles()
@@ -65,6 +66,18 @@ function piece(id: string): ShortlistPiece {
   const found = pieces.find((p) => p.id === id)
   if (!found) throw new Error(`no piece ${id}`)
   return found
+}
+
+/** The fingerprint the files hold for `key`, as a piece drawn in its face would give. */
+function fingerprintOfKey(key: string): Float32Array {
+  const row = files.rows.get(key)
+  if (row === undefined) throw new Error(`no fingerprint for ${key}`)
+  return files.fingerprints.slice(row * FINGERPRINT_NUMBERS, (row + 1) * FINGERPRINT_NUMBERS)
+}
+
+/** The shortlist of words with a given fingerprint, no kit and no face loaded. */
+function shortlistFor(fingerprint: Float32Array, words: string) {
+  return shortlist({ ck, files, fingerprint, words, kitFonts: {}, kitFaces: [], fonts: NO_FONTS })
 }
 
 afterAll(() => model.release())
@@ -160,5 +173,20 @@ describe('shortlist', () => {
     // A face that doesn't draw the piece's script never joins.
     const arabic = await shortlistOf(piece('arabic-1'), { kitFonts: { body: 'Brand Grotesk' }, kitFaces, fonts })
     expect(arabic.brand).toEqual([])
+  })
+
+  it('never shortlists a face that draws no distinct letters, even for its own fingerprint', async () => {
+    for (const key of ['Wavefont|600|normal', 'Linefont|600|normal', 'Libre Barcode 128|400|normal']) {
+      const { nearest } = await shortlistFor(fingerprintOfKey(key), 'mornings,\nat home')
+      expect(nearest).toHaveLength(5)
+      expect(nearest.map((face) => face.family)).not.toContain(parseFontKey(key)?.family)
+      for (const face of nearest) expect(files.neverListed.has(files.rows.get(face.key) ?? -1)).toBe(false)
+    }
+  })
+
+  it('shortlists a face that draws only capitals for words in either case', async () => {
+    const sixCaps = fingerprintOfKey('Six Caps|400|normal')
+    for (const words of ['TRAIN LIKE YOU MEAN IT', 'Train like you mean it'])
+      expect((await shortlistFor(sixCaps, words)).nearest[0]?.key).toBe('Six Caps|400|normal')
   })
 })

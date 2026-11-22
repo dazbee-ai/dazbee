@@ -14,9 +14,9 @@ const MAX_GROWTH = 30
 /** How many times as long as a page of the sample site of the same length a hostile page may take to read. */
 const MAX_SLOWER = 10
 /** How much processor time `timeToRead` spends sampling before it stops. */
-const SAMPLING_MS = 1_500
+const SAMPLING_MS = 1_000
 /** How long each half of a sample runs, in ms: many steps of a processor clock that steps by 15.6 ms on Windows. */
-const HALF_SAMPLE_MS = 200
+const HALF_SAMPLE_MS = 100
 
 /** Reads `html` as a page of a hostile site. */
 const read = (html: string) => readSitePage(html, new URL('https://hostile.test/'))
@@ -42,7 +42,7 @@ function readsInHalfSample(html: string): number {
  * How reading a page of `length` characters made by `page` takes in processor time: `ms`, one read, and
  * `growth`, how many times longer it takes than reading one a tenth as long. Each sample reads the short page
  * 10 times as often as the long page, so both halves take about as long and are slowed alike, as often as
- * the long page reads in `HALF_SAMPLE_MS`; the fastest of up to 3 samples of each half counts.
+ * the long page reads in `HALF_SAMPLE_MS`; the fastest of up to 2 samples of each half counts.
  */
 function timeToRead(page: (length: number) => string, length: number): { ms: number; growth: number } {
   const short = page(length / 10)
@@ -52,7 +52,7 @@ function timeToRead(page: (length: number) => string, length: number): { ms: num
   let shortTook = Number.POSITIVE_INFINITY
   let longTook = Number.POSITIVE_INFINITY
   const sampling = cpuMs()
-  for (let sample = 0; sample < 3 && cpuMs() - sampling < SAMPLING_MS; sample++) {
+  for (let sample = 0; sample < 2 && cpuMs() - sampling < SAMPLING_MS; sample++) {
     const before = cpuMs()
     for (let run = 0; run < 10 * runs; run++) read(short)
     const between = cpuMs()

@@ -6,9 +6,9 @@ import type { Rgb } from '@dazbee/schema'
 
 import { type Judged, looksSame } from '../../looks-same/rule.ts'
 import { hexColour } from '../../shape/parts/colour.ts'
+import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../draw-text.ts'
 import { isCutOut } from '../ink.ts'
 import type { PieceReading } from '../read-piece.ts'
-import { type Placed, type TextDrawer, textLayerProps, type TextLook } from './draw-text.ts'
 import type { Fitted } from './fit.ts'
 
 /** A finalist drawn in the piece's colours and tilt, and judged. */

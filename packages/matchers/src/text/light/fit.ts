@@ -3,10 +3,10 @@
 // as wide, line-spaced so they are as far apart, then drawn over the level piece and moved so the ink
 // centres meet, and scored there.
 
+import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../draw-text.ts'
 import { type Box, type Ink, inkBox } from '../ink.ts'
 import { findLines, type PieceReading } from '../read-piece.ts'
 import type { Candidate } from '../shortlist.ts'
-import { type Placed, type TextDrawer, textLayerProps, type TextLook } from './draw-text.ts'
 import { letterShape, overlap } from './rank.ts'
 
 /** A candidate face fitted to a piece and placed over its level ink. */
@@ -66,7 +66,7 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
   const ratios = reading.lines
     .map((line, i) => line.h / Math.max(1, baseLines[i]?.h ?? 0))
     .filter((ratio) => Number.isFinite(ratio) && ratio > 0)
-  const size = BASE_SIZE * middle(ratios)
+  const size = BASE_SIZE * averagedMedian(ratios)
   if (!sizeFits(reading, count, size)) return null
   // A line is measured alone, in the font's own line height.
   const single: TextLook = { ...base }
@@ -158,8 +158,8 @@ export function sizeFits(reading: PieceReading, lineCount: number, size: number)
   return size >= perLine / SIZE_RANGE && size <= perLine * SIZE_RANGE
 }
 
-/** The middle of the values, the mean of the two middle ones for an even count; 1 for none. */
-export function middle(values: readonly number[]): number {
+/** The median of the values, the mean of the two middle ones for an even count; 1 for none. */
+export function averagedMedian(values: readonly number[]): number {
   if (values.length === 0) return 1
   const sorted = [...values].sort((a, b) => a - b)
   const mid = Math.floor(sorted.length / 2)

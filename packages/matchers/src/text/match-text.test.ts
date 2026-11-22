@@ -19,6 +19,8 @@ const FIXTURE_FONTS: FontSource = { face: async (key) => fonts.get(key) ?? null 
 
 /** A size found within this share of the size drawn comes back right. */
 const SIZE_WITHIN = 0.03
+/** Letter spacing found within this many points of the spacing drawn comes back right. */
+const SPACING_WITHIN = 3
 
 /** A Light job of one text piece, the whole picture, saying `words`. */
 function jobOf(pixels: Pixels, words: string): { job: MatchJob; piece: TextPieceOfJob } {
@@ -75,8 +77,10 @@ describe('matchText', () => {
     'latin-loose',
     'arabic-plain',
     'arabic-outlined',
+    'arabic-tilted',
     'devanagari-plain',
     'devanagari-tilted',
+    'devanagari-loose',
   ])('gives %s back in its face and size as one text layer that looks the same', async (id) => {
     const piece = pieceOf(id)
     const answer = await matchTwice(piece.pixels, piece.words)
@@ -89,11 +93,19 @@ describe('matchText', () => {
     expect(text).toBe(piece.words)
     expect(Math.abs(rotation - (piece.rotation ?? 0))).toBeLessThan(1)
     expect(Boolean(style.outline)).toBe(Boolean(piece.outline))
+    expect(Math.abs(style.letterSpacing.value - (piece.spacing ?? 0))).toBeLessThan(SPACING_WITHIN)
   })
 
   it('keeps a piece of noise a picture, as it looks different', async () => {
     const answer = await matchTwice(noisePiece(), NOISE_WORDS)
     expect(answer).toMatchObject({ kind: 'picture', why: 'looksDifferent' })
+  })
+
+  it('keeps a piece a picture, as it failed, when the font source gives none of its faces', async () => {
+    const piece = pieceOf('latin-plain')
+    const { job, piece: jobPiece } = jobOf(piece.pixels, piece.words)
+    const answer = await matchText(job, jobPiece, { ck, files, model, fonts: { face: async () => null } })
+    expect(answer).toEqual({ kind: 'picture', why: 'failed' })
   })
 
   it('keeps a piece a picture when no font draws one of its characters', async () => {

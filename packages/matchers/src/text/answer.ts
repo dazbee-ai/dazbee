@@ -3,7 +3,7 @@
 
 import { type LooksSameScores, type MatchAnswer, UnplacedLayer } from '@dazbee/schema'
 
-import { type Placed, textLayerProps, type TextLook } from './light/draw-text.ts'
+import { type Placed, textLayerProps, type TextLook } from './draw-text.ts'
 
 /** The most characters of the words a text layer's name takes. */
 const NAME_LENGTH = 40

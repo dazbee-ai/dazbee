@@ -69,6 +69,15 @@
       }
     },
     {
+      "id": "arabic-tilted",
+      "key": "Cairo|700|normal",
+      "words": "تخفيضات الصيف",
+      "size": 60,
+      "colour": "#B71C1C",
+      "background": null,
+      "rotation": 4
+    },
+    {
       "id": "devanagari-plain",
       "key": "Hind|500|normal",
       "words": "दिवाली सेल",
@@ -84,6 +93,15 @@
       "colour": "#4A148C",
       "background": null,
       "rotation": 5
+    },
+    {
+      "id": "devanagari-loose",
+      "key": "Hind|500|normal",
+      "words": "दिवाली सेल",
+      "size": 56,
+      "colour": "#263238",
+      "background": "#FFFFFF",
+      "spacing": 20
     }
   ]
 }

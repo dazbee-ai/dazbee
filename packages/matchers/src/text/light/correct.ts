@@ -2,14 +2,23 @@
 // taller the piece's lines are than the drawn ones, letter spacing by the width still missing, line
 // height by the pitch still missing. It is kept when the drawn ink overlaps the piece's better.
 
+import type { TextDrawer } from '../draw-text.ts'
 import type { PieceReading } from '../read-piece.ts'
-import type { TextDrawer } from './draw-text.ts'
-import { centre, clamp, type Fitted, LINE_HEIGHT_RANGE, middle, placeByInk, sizeFits, SPACING_RANGE } from './fit.ts'
+import {
+  averagedMedian,
+  centre,
+  clamp,
+  type Fitted,
+  LINE_HEIGHT_RANGE,
+  placeByInk,
+  sizeFits,
+  SPACING_RANGE,
+} from './fit.ts'
 
 /** The fit corrected once from its placed draw, or the fit itself when the correction overlaps no better. */
 export function correct(drawer: TextDrawer, reading: PieceReading, words: string, fit: Fitted): Fitted {
   const count = words.split('\n').length
-  const ratio = middle(reading.lines.map((line, i) => line.h / Math.max(1, fit.lines[i]?.h ?? 0)))
+  const ratio = averagedMedian(reading.lines.map((line, i) => line.h / Math.max(1, fit.lines[i]?.h ?? 0)))
   const size = fit.look.size * ratio
   let room = 0
   let gaps = 0

@@ -1,6 +1,7 @@
 {
   "Alexandria|700|normal": "Alexandriawght.ttf",
   "Alexandria|800|normal": "Alexandriawght.ttf",
+  "Almarai|700|normal": "Almarai-Bold.ttf",
   "Anek Devanagari|500|normal": "AnekDevanagariwdthwght.ttf",
   "Baloo 2|500|normal": "Baloo2wght.ttf",
   "Big Shoulders Stencil|100|normal": "BigShouldersStencilopszwght.ttf",
@@ -12,6 +13,7 @@
   "Cairo|500|normal": "Cairoslntwght.ttf",
   "Cairo|600|normal": "Cairoslntwght.ttf",
   "Cairo|700|normal": "Cairoslntwght.ttf",
+  "Cairo|800|normal": "Cairoslntwght.ttf",
   "Cairo|900|normal": "Cairoslntwght.ttf",
   "Changa|400|normal": "Changawght.ttf",
   "Clarity City|800|normal": "ClarityCitywght.ttf",
@@ -21,12 +23,13 @@
   "Hind|500|normal": "Hind-Medium.ttf",
   "Hind|600|normal": "Hind-SemiBold.ttf",
   "Hind|700|normal": "Hind-Bold.ttf",
-  "IBM Plex Sans Devanagari|700|normal": "IBMPlexSansDevanagari-Bold.ttf",
   "Linefont|600|normal": "Linefontwdthwght.ttf",
   "Livvic|900|normal": "Livvic-Black.ttf",
+  "Markazi Text|500|normal": "MarkaziTextwght.ttf",
   "Montserrat Alternates|800|normal": "MontserratAlternates-ExtraBold.ttf",
   "Montserrat|800|italic": "Montserrat-Italicwght.ttf",
   "Montserrat|800|normal": "Montserratwght.ttf",
   "Montserrat|900|normal": "Montserratwght.ttf",
+  "Noto Kufi Arabic|600|normal": "NotoKufiArabicwght.ttf",
   "Xmind|800|normal": "Xmindwght.ttf"
 }

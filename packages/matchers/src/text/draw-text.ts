@@ -37,16 +37,6 @@ export interface DrawnFace {
   bytes: Uint8Array
 }
 
-/** Measures and draws text in a set of faces. */
-export interface TextDrawer {
-  /** The width and height Dazbee gives the words in this look as a text that grows to fit them. */
-  measure(words: string, look: TextLook): { width: number; height: number }
-  /** A `width` × `height` frame with nothing behind the text layer of these props. */
-  draw(width: number, height: number, props: TextLayerProps): Pixels
-  /** Frees the registered faces. */
-  delete(): void
-}
-
 /** A text layer's props as the text matcher sets them, before the schema's defaults. */
 export type TextLayerProps = Placed & {
   text: string
@@ -62,6 +52,16 @@ export type TextLayerProps = Placed & {
     lineHeight?: number
     outline?: { width: number; color: Color }
   }
+}
+
+/** Measures and draws text in a set of faces. */
+export interface TextDrawer {
+  /** The width and height Dazbee gives the words in this look as a text that grows to fit them. */
+  measure(words: string, look: TextLook): { width: number; height: number }
+  /** A `width` × `height` frame with nothing behind the text layer of these props. */
+  draw(width: number, height: number, props: TextLayerProps): Pixels
+  /** Frees the registered faces. */
+  delete(): void
 }
 
 /** Letter spacing is stored to this many decimals. */

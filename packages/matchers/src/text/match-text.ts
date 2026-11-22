@@ -9,10 +9,10 @@ import type { MatchAnswer, MatchJob, Piece, Rgb } from '@dazbee/schema'
 import { pictureAnswer } from '../shape/answer.ts'
 import { piecePixels } from '../shape/parts/piece-pixels.ts'
 import { textAnswer } from './answer.ts'
+import { type Placed, textDrawer, type TextLook } from './draw-text.ts'
 import { pieceFingerprint } from './fingerprint.ts'
 import { type FontSource, loadFaces } from './font-source.ts'
 import { correct } from './light/correct.ts'
-import { type Placed, textDrawer, type TextLook } from './light/draw-text.ts'
 import { fitFace, type Fitted } from './light/fit.ts'
 import { rankFits } from './light/rank.ts'
 import { FINALISTS, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
@@ -37,7 +37,8 @@ const CORRECTED = 2
 
 /**
  * A job's text piece as one text layer in the piece's pixels when it looks the same; else a picture,
- * `noFont` when no face draws its words, `looksDifferent` otherwise.
+ * `noFont` when no face draws its words, `failed` when the font source gives none of the faces that
+ * do, `looksDifferent` otherwise.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
   const { ck, files, fonts } = deps
@@ -50,9 +51,10 @@ export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: Text
   })
   const fingerprint = await pieceFingerprint(deps.model, files, work.level, work.lines)
   const listed = await shortlist({ ck, files, fingerprint, words, kitFonts: {}, kitFaces: [], fonts })
+  if (listed.candidates.length === 0) return pictureAnswer('noFont')
   const faces = await facesOf(fonts, listed.candidates, listed.loaded, words)
   const candidates = listed.candidates.filter((face) => faces.has(face.key))
-  if (candidates.length === 0) return pictureAnswer('noFont')
+  if (candidates.length === 0) return pictureAnswer('failed')
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [whole.background]
   const drawer = textDrawer(ck, drawnFaces(candidates, faces))
   let won: Verified | undefined

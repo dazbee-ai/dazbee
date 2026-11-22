@@ -10,19 +10,20 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { GOOGLE_FONTS, googleFaces } from '@dazbee/fonts/google'
 import { matchCopy } from '@dazbee/fonts/match-copy'
 import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type MatchAnswer, MatchJob, type Rgb } from '@dazbee/schema'
 
-import { faceOfKey, parseFontKey } from '../src/text/font-key.ts'
+import { decodePng } from '../src/shape/test-pieces.ts'
+import { fontKey } from '../src/text/font-key.ts'
 import type { FontSource } from '../src/text/font-source.ts'
 import { borderColour, median } from '../src/text/ink.ts'
 import { matchText, type TextPieceOfJob } from '../src/text/match-text.ts'
 import { openNodeModel } from '../src/text/model-runtime-node.ts'
 import { readTextFiles, TEXT_FILES, type TextFileBytes } from '../src/text/text-files.ts'
 import { fetchFiles, FILES_DIR } from './fetch-files.ts'
+import { googleFaceFile } from './google-face-file.ts'
 
 /** A text piece of a test ad: the job that matches it and where it comes from. */
 interface AdPiece {
@@ -73,7 +74,9 @@ for (const { id, job, piece } of pieces) {
   const ms = performance.now() - started
   const layer = answer.kind === 'layers' ? answer.layers[0] : undefined
   const style = layer?.type === 'text' ? layer.props.style : undefined
-  const face = style ? `${style.fontFamily}|${style.fontWeight}|${style.fontStyle}` : undefined
+  const face = style
+    ? fontKey({ family: style.fontFamily, weight: style.fontWeight, style: style.fontStyle })
+    : undefined
   answers[id] = { ...answer, ...(face ? { face } : {}), ms }
   const ad = id.split('#')[0] ?? id
   msByAd.set(ad, (msByAd.get(ad) ?? 0) + ms)
@@ -102,14 +105,14 @@ function adPieces(ck: CanvasKit, dir: string): AdPiece[] {
     const folder = join(dir, name)
     const meta = JSON.parse(readFileSync(join(folder, 'blocks.json'), 'utf8')) as AdBlocks
     const readings = JSON.parse(readFileSync(join(folder, 'readings.json'), 'utf8')) as Record<string, { text: string }>
-    const ad = decode(ck, new Uint8Array(readFileSync(join(folder, 'ad.png'))))
+    const ad = decodePng(ck, new Uint8Array(readFileSync(join(folder, 'ad.png'))))
     const scale = meta.source_size[0] / meta.bucket[0]
     return meta.blocks.flatMap((block, index) => {
       const words = readings[block.element]?.text
       if (block.kind !== 'text' || !words) return []
       const id = `ad${String(n + 1).padStart(2, '0')}#${index}`
       const png = new Uint8Array(readFileSync(join(folder, block.file)))
-      const pixels = decode(ck, png)
+      const pixels = decodePng(ck, png)
       const piece: TextPieceOfJob = {
         kind: 'text',
         rect: { x: 0, y: 0, width: pixels.width, height: pixels.height },
@@ -133,11 +136,8 @@ function googleFontSource(dir: string): FontSource {
   const copies = new Map<string, Uint8Array>()
   return {
     face: async (key, copy) => {
-      const parsed = parseFontKey(key)
-      const family = parsed && GOOGLE_FONTS.find((f) => f.family === parsed.family)
-      const found = parsed && family ? faceOfKey(parsed, googleFaces(family)) : null
-      if (!family || !found) return null
-      const path = join(dir, family.path, found.face.file)
+      const path = googleFaceFile(dir, key)?.path
+      if (!path) return null
       if (!copy) return new Uint8Array(readFileSync(path))
       let bytes = copies.get(path)
       if (!bytes) {
@@ -147,27 +147,6 @@ function googleFontSource(dir: string): FontSource {
       }
       return bytes
     },
-  }
-}
-
-/** A PNG's pixels, 8-bit RGBA with straight alpha, decoded by CanvasKit. */
-function decode(ck: CanvasKit, png: Uint8Array): Pixels {
-  const image = ck.MakeImageFromEncoded(png)
-  if (!image) throw new Error('not a PNG CanvasKit reads')
-  try {
-    const width = image.width()
-    const height = image.height()
-    const pixels = image.readPixels(0, 0, {
-      width,
-      height,
-      colorType: ck.ColorType.RGBA_8888,
-      alphaType: ck.AlphaType.Unpremul,
-      colorSpace: ck.ColorSpace.SRGB,
-    })
-    if (!(pixels instanceof Uint8Array)) throw new Error('could not read the PNG’s pixels')
-    return { width, height, pixels }
-  } finally {
-    image.delete()
   }
 }
 

@@ -147,6 +147,13 @@ jobs:
           https -T "$RUNNER_TEMP/too-big" -w ' %{http_code}' "$upload" | grep -q 'The file is over 30 MB.* 413$'
           [ "$(https -o /dev/null -w '%{http_code}' "$upload")" = 404 ]
           echo "a PUT to /uploads/* reaches the API through Caddy, which cuts off a body past 31 MiB with a sentence; a GET does not"
+          https -sD - https://app.dazbee.com/fonts/google/faces/nosuchface00.ttf | tr -d '\r' > "$RUNNER_TEMP/font"
+          grep -q '^HTTP/[0-9.]* 404' "$RUNNER_TEMP/font"
+          grep -qi '^cache-control: no-store$' "$RUNNER_TEMP/font"
+          grep -q '"error":"No such font"' "$RUNNER_TEMP/font"
+          echo "a GET of /fonts/google/* reaches the API through Caddy"
+          https -fsD - -o /dev/null https://app.dazbee.com/vendor/fonts/NotoSans-Regular.ttf | grep -qi '^cache-control: public, max-age=31536000, immutable'
+          echo "the vendored files are kept for good"
           health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)
           grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
           echo "mcp/health names build $GITHUB_SHA"

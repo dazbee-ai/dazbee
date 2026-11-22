@@ -1,6 +1,6 @@
 # Dazbee runs on one server behind Cloudflare
 
-ADR-0019 adds a third service facing the internet, the MCP server agents connect to, under `app.dazbee.com`'s `/mcp`, `/oauth/*` and `/.well-known/oauth-*`; the hostnames stay two. ADR-0010's upload links add one path of the API: a PUT to `app.dazbee.com/uploads/*`, whose token is its only key; the API's other routes stay private. The rest stands.
+ADR-0019 adds a third service facing the internet, the MCP server agents connect to, under `app.dazbee.com`'s `/mcp`, `/oauth/*` and `/.well-known/oauth-*`; the hostnames stay two. ADR-0010's upload links add one path of the API: a PUT to `app.dazbee.com/uploads/*`, whose token is its only key. The Google faces' files and previews add another: a GET of `app.dazbee.com/fonts/google/faces/<face id>.ttf` or `.png`, open to anyone, which reads only faces of the Google catalog, never a brand's upload, and answers each for good, so Cloudflare keeps it at its edge. The API's other routes stay private. The rest stands.
 
 Until now nothing was deployed: the web app, API, sync server and database ran only on a developer's machine and in CI, and a change to the tables reset the database. Dazbee now runs in production on one rented server (Ubuntu, Docker), and real people's work is kept.
 

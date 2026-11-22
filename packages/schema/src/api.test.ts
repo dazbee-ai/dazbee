@@ -5,6 +5,7 @@ import {
   brandVariables,
   EMPTY_BRAND_KIT,
   faceWeights,
+  googleFacePaths,
   MEMBER_ROLES,
   roleManages,
   roleWrites,
@@ -175,5 +176,19 @@ describe('faceWeights', () => {
     expect(faceWeights({ weight: 350, weights: { min: 250, max: 750 } })).toEqual([
       250, 300, 350, 400, 500, 600, 700, 750,
     ])
+  })
+})
+
+describe('googleFacePaths', () => {
+  it('gives a Google face its file and preview at addresses named by its id', () => {
+    expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'google' })).toEqual({
+      file: '/fonts/google/faces/k3v9x2m1q8z0.ttf',
+      preview: '/fonts/google/faces/k3v9x2m1q8z0.png',
+    })
+  })
+
+  it('gives a brand’s upload and a font we ship none', () => {
+    expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'upload' })).toBeNull()
+    expect(googleFacePaths({ id: 'builtin-NotoSans-Regular', source: 'builtin' })).toBeNull()
   })
 })

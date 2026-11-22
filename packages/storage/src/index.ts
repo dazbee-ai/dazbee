@@ -81,6 +81,20 @@ export function openStorage(settings: StorageSettings) {
     return response.status === 404 ? null : new Uint8Array(await response.arrayBuffer())
   }
 
+  /**
+   * The object's bytes as they arrive, asked for as stored rather than compressed, and how many there are when
+   * storage names it; null when there is none.
+   */
+  async function stream(key: string): Promise<{ body: ReadableStream<Uint8Array>; byteSize: number | null } | null> {
+    const response = await send(objectUrl(key), { headers: { 'accept-encoding': 'identity' } })
+    if (response.status === 404 || !response.body) {
+      await response.body?.cancel()
+      return null
+    }
+    const length = response.headers.get('content-length')
+    return { body: response.body, byteSize: length === null ? null : Number(length) }
+  }
+
   async function remove(key: string) {
     await send(objectUrl(key), { method: 'DELETE' })
   }
@@ -132,6 +146,7 @@ export function openStorage(settings: StorageSettings) {
     ensureBucket,
     put,
     get,
+    stream,
     delete: remove,
     exists,
     list,

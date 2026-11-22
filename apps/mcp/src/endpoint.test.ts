@@ -119,6 +119,8 @@ describe('mcpEndpoint', () => {
       'place_asset',
       'search_graphics',
       'place_graphic',
+      'list_patterns',
+      'apply_pattern',
     ])
     expect(tools.map(({ name }) => name)).toEqual(TOOLS.map(({ name }) => name))
     for (const tool of tools) {
@@ -147,6 +149,8 @@ describe('mcpEndpoint', () => {
       redo: false,
       search_graphics: true,
       place_graphic: false,
+      list_patterns: true,
+      apply_pattern: false,
     })
   })
 

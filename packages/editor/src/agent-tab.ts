@@ -5,7 +5,7 @@
 // worked and the note it gave, for a while. It reads no browser global.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { readDesign, sameValue, type Session, type StepName } from '@dazbee/doc'
-import { FALLBACK_FAMILIES } from '@dazbee/fonts'
+import { FALLBACK_FAMILIES, type FontUse } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import { type Design, fontUses, type Layer, type Member, type Variables } from '@dazbee/schema'
@@ -68,6 +68,11 @@ export interface AgentTab {
    * warnings read. No image is loaded for them.
    */
   fontsLoaded(): Promise<void>
+  /**
+   * Settles once the files of the faces that draw `uses` are here, or failed to come: for text a step is about to
+   * set in families the design doesn't use yet, measured before the step runs.
+   */
+  fontsFor(uses: readonly FontUse[]): Promise<void>
   /**
    * Shows the people in the design where the agent worked: `work`'s layers outlined, else its frame
    * picked, the pointer just past them; work the design no longer holds leaves it where it was.
@@ -210,6 +215,7 @@ function agentTabOn(
   async function fontsLoaded() {
     await modules.resources.loadUses(fontUses(session.design(), bytes().variables))
   }
+  const fontsFor = (uses: readonly FontUse[]) => modules.resources.loadUses(uses)
   const takeNotices = () => notices.splice(0)
   function show(work: AgentWork, given?: string | null) {
     shown = agentPresence(session.design(), work, core.boxOf) ?? shown
@@ -283,6 +289,7 @@ function agentTabOn(
     bytesFor,
     cache,
     fontsLoaded,
+    fontsFor,
     show,
     takeNotices,
     unsent,

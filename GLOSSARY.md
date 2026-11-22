@@ -415,6 +415,10 @@ _Avoid_: Guide (a ruler line), guidelines, spec, constraints (a layer's pinning)
 A proven structure for an ad, such as a full photo with a band of words or a product centred with a badge, that builds a frame's layers at any size from a brand's words, pictures, logo and colours. It is a starting point the agent or a person then changes freely; nothing remembers which pattern built a frame.
 _Avoid_: Template (a saved design), layout (a box's Free, Row, Column or Grid), preset, theme
 
+**Pattern style**:
+One of the four ways a pattern is drawn: bold, minimal, playful or premium. It sets the decoration, the type (the Google Fonts pairing used where the brand kit sets no Heading or Body font, the weights, case and spacing) and the room, and the colours used where the kit sets none; never the structure, so a pattern holds the same parts in every style.
+_Avoid_: Theme, look (a text style's), style alone (a layer's look, as copy style takes it)
+
 **Bundled graphic**:
 An icon or a sticker, which an agent finds with `search_graphics` and places with `place_graphic`; the package `@dazbee/graphics` holds them. In code about bundled graphics, "graphic" alone means one of these, never a graphic layer. A picture sticker's file is a **bundled file**: Dazbee keeps it in its storage (`bundled/<sha256>`), not in the repository, and a brand adds it to its asset library by its SHA-256.
 _Avoid_: Asset (a bundled graphic joins the asset library only as a picture sticker), clip art

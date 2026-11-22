@@ -51,6 +51,7 @@ import { COMMAND_TOOLS } from './tools/command-tools.ts'
 import type { Tool, ToolContext } from './tools/define-tool.ts'
 import { DESIGN_TOOLS } from './tools/design-tools.ts'
 import { GRAPHICS_TOOLS } from './tools/graphics-tools.ts'
+import { PATTERN_TOOLS } from './tools/pattern-tools.ts'
 import { RENDER_TOOLS } from './tools/render-tool.ts'
 import { STOCK_TOOLS } from './tools/stock-tools.ts'
 import { WORKSPACE_TOOLS } from './tools/workspace-tools.ts'
@@ -122,6 +123,7 @@ export const TOOLS: Tool[] = [
   ...COMMAND_TOOLS,
   ...ASSET_TOOLS,
   ...GRAPHICS_TOOLS,
+  ...PATTERN_TOOLS,
 ]
 
 /** How often sessions past their idle time are looked for, besides at each request. */

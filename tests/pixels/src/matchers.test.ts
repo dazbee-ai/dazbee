@@ -1,12 +1,12 @@
 // The matchers on pictures drawn by Dazbee's renderer: one picture holding a piece of every shape kind,
 // each matched as a shape piece of its job by the shape matcher's ladder, comes back as graphics of
-// that kind with its paint.
+// that kind with its paint, bound to the brand kit where its colour is the kit's; a painted scene stays a picture.
 import { describe, expect, it } from 'vitest'
 
 import { matchShapes } from '@dazbee/matchers'
 import { renderPixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type GraphicProps, type MatchAnswer, MatchJob, type Paint } from '@dazbee/schema'
+import { type MatchAnswer, MatchJob, type Paint, type PictureWhy, type UnplacedLayer } from '@dazbee/schema'
 
 import { encodePng } from './pixels.ts'
 
@@ -22,12 +22,16 @@ const HEART =
 /** A graphic's props in its piece's cell, before the schema's defaults. */
 type DrawnProps = { x: number; y: number } & Record<string, unknown>
 
-/** A piece: what it is, its graphics' props in its cell, and what it should come back as. */
+/** A graphic of an answer. */
+type Graphic = Extract<UnplacedLayer, { type: 'graphic' }>
+
+/** A piece: what it is, its graphics' props in its cell, and what it should come back as: graphics of these kinds, or a picture and why. */
 interface ShapePiece {
   name: string
   graphics: DrawnProps[]
   kinds: string[]
-  check?: (graphics: GraphicProps[]) => void
+  why?: PictureWhy
+  check?: (graphics: Graphic[]) => void
 }
 
 const PIECES: ShapePiece[] = [
@@ -35,12 +39,13 @@ const PIECES: ShapePiece[] = [
     name: 'a rectangle',
     graphics: [{ x: 20, y: 40, width: 140, height: 100, shape: { kind: 'rect', cornerRadius: 0 }, fills: [NAVY] }],
     kinds: ['rect'],
+    check: ([rect]) => expect(rect?.bindings).toEqual({ fill: 'brand:primary' }),
   },
   {
     name: 'a rounded rectangle',
     graphics: [{ x: 20, y: 40, width: 140, height: 100, shape: { kind: 'rect', cornerRadius: 18 }, fills: [CORAL] }],
     kinds: ['rect'],
-    check: ([rect]) => expect(rect?.shape).toMatchObject({ cornerRadius: expect.closeTo(18, 0) }),
+    check: ([rect]) => expect(rect?.props.shape).toMatchObject({ cornerRadius: expect.closeTo(18, 0) }),
   },
   {
     name: 'an ellipse',
@@ -76,8 +81,8 @@ const PIECES: ShapePiece[] = [
     ],
     kinds: ['ellipse'],
     check: ([ring]) => {
-      expect(ring?.fills).toEqual([])
-      expect(ring?.strokes[0]).toMatchObject({ align: 'inside', width: expect.closeTo(12, -0.5) })
+      expect(ring?.props.fills).toEqual([])
+      expect(ring?.props.strokes[0]).toMatchObject({ align: 'inside', width: expect.closeTo(12, -0.5) })
     },
   },
   {
@@ -86,7 +91,7 @@ const PIECES: ShapePiece[] = [
       { x: 30, y: 30, width: 120, height: 120, shape: { kind: 'polygon', sides: 6, cornerRadius: 0 }, fills: [NAVY] },
     ],
     kinds: ['polygon'],
-    check: ([hexagon]) => expect(hexagon?.shape).toMatchObject({ sides: 6 }),
+    check: ([hexagon]) => expect(hexagon?.props.shape).toMatchObject({ sides: 6 }),
   },
   {
     name: 'a starburst',
@@ -101,7 +106,7 @@ const PIECES: ShapePiece[] = [
       },
     ],
     kinds: ['star'],
-    check: ([star]) => expect(star?.shape).toMatchObject({ points: 16 }),
+    check: ([star]) => expect(star?.props.shape).toMatchObject({ points: 16 }),
   },
   {
     name: 'a heart',
@@ -140,7 +145,7 @@ const PIECES: ShapePiece[] = [
       },
     ],
     kinds: ['rect'],
-    check: ([rect]) => expect(rect?.fills[0]).toMatchObject({ type: 'linear' }),
+    check: ([rect]) => expect(rect?.props.fills[0]).toMatchObject({ type: 'linear' }),
   },
   {
     name: 'a dashed outline',
@@ -156,9 +161,46 @@ const PIECES: ShapePiece[] = [
     ],
     kinds: ['rect'],
     check: ([rect]) => {
-      expect(rect?.fills).toEqual([])
-      expect(rect?.strokes[0]?.dashes).toHaveLength(2)
+      expect(rect?.props.fills).toEqual([])
+      expect(rect?.props.strokes[0]?.dashes).toHaveLength(2)
     },
+  },
+  {
+    name: 'a radial gradient',
+    graphics: [
+      {
+        x: 30,
+        y: 30,
+        width: 120,
+        height: 120,
+        shape: { kind: 'ellipse' },
+        fills: [
+          {
+            type: 'radial',
+            center: { x: 0.5, y: 0.5 },
+            radius: 0.5,
+            stops: [
+              { offset: 0, color: '#BFDBFEFF' },
+              { offset: 1, color: '#2563EBFF' },
+            ],
+          },
+        ],
+      },
+    ],
+    kinds: ['ellipse'],
+    check: ([disc]) => expect(disc?.props.fills[0]).toMatchObject({ type: 'radial' }),
+  },
+  {
+    name: 'a painted scene of five free shapes',
+    graphics: [
+      freeShape(75, 75, 68, 1, '#2E9E4FFF'),
+      freeShape(165, 75, 68, 2, '#F47B20FF'),
+      freeShape(75, 165, 68, 3, '#2563EBFF'),
+      freeShape(165, 165, 68, 4, '#D61F8CFF'),
+      freeShape(120, 120, 45, 5, '#FBD72BFF'),
+    ],
+    kinds: [],
+    why: 'photo',
   },
   {
     name: 'a circle over a rectangle',
@@ -221,26 +263,44 @@ const PICTURE = renderPixels(
 const JOB = MatchJob.parse({
   picture: Buffer.from(encodePng(ck, PICTURE)).toString('base64'),
   pieces: PIECES.map((_, i) => ({ kind: 'shape', rect: { ...cellOf(i), width: CELL, height: CELL } })),
-  kit: { colors: {}, fonts: {}, textStyles: [] },
+  kit: { colors: { primary: '#1E3A8AFF' }, fonts: {}, textStyles: [] },
 })
 
 describe('matchShapes', () => {
-  it.each(PIECES.map((piece, i) => ({ ...piece, i })))(
-    'rebuilds $name as graphics of its kind',
-    ({ i, kinds, check }) => {
-      const piece = JOB.pieces[i]
-      if (!piece) throw new Error('no piece')
-      const answer = matchShapes(ck, JOB, piece)
-      expect(matchShapes(ck, JOB, piece)).toEqual(answer)
-      const graphics = graphicsOf(answer)
-      expect(graphics.map((graphic) => graphic.shape.kind)).toEqual(kinds)
-      check?.(graphics)
-    },
-  )
+  it.each(PIECES.map((piece, i) => ({ ...piece, i })))('answers $name as expected', ({ i, kinds, why, check }) => {
+    const piece = JOB.pieces[i]
+    if (!piece) throw new Error('no piece')
+    const answer = matchShapes(ck, JOB, piece)
+    expect(matchShapes(ck, JOB, piece)).toEqual(answer)
+    if (why) {
+      expect(answer).toMatchObject({ kind: 'picture', why })
+      return
+    }
+    const graphics = graphicsOf(answer)
+    expect(graphics.map((graphic) => graphic.props.shape.kind)).toEqual(kinds)
+    check?.(graphics)
+  })
 })
 
-/** An answer's graphics' props, back to front; fails a picture's answer. */
-function graphicsOf(answer: MatchAnswer): GraphicProps[] {
+/** An answer's graphics, back to front; fails a picture's answer. */
+function graphicsOf(answer: MatchAnswer): Graphic[] {
   if (answer.kind !== 'layers') throw new Error(`a picture: ${answer.why}, far ${answer.scores?.far}`)
-  return answer.layers.flatMap((layer) => (layer.type === 'graphic' ? [layer.props] : []))
+  return answer.layers.flatMap((layer) => (layer.type === 'graphic' ? [layer] : []))
+}
+
+/** A free shape of 14 corners at varied reach, in a box round its centre: one shape of a painted scene. */
+function freeShape(cx: number, cy: number, r: number, seed: number, color: `#${string}`): DrawnProps {
+  const corners = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * 2 * Math.PI
+    const reach = 0.7 + 0.3 * Math.abs(Math.sin(seed * (i + 1) * 1.7))
+    return `${(50 + 50 * reach * Math.cos(a)).toFixed(2)} ${(50 + 50 * reach * Math.sin(a)).toFixed(2)}`
+  })
+  return {
+    x: cx - r,
+    y: cy - r,
+    width: 2 * r,
+    height: 2 * r,
+    shape: { kind: 'path', d: `M${corners.join(' L')} Z`, fillRule: 'nonzero', drawnIn: { width: 100, height: 100 } },
+    fills: [{ type: 'solid', color }],
+  }
 }

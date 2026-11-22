@@ -3,16 +3,16 @@
 //   node scripts/measure-shapes.ts measure <baseline.json> [--table]
 //   node scripts/measure-shapes.ts repeat <baseline.json> <runs> [--coupon-only]
 // `TEST_ADS_DIR` names the test ads' folder (a folder per ad with blocks.json and its block crops) and `SYNTH_DIR`
-// synthetic set 2's (index.json and <id>.png); both stay outside the repo, and so does the baseline, the shape
-// prototype's ladder run with the fitted rule (#179), which names the dashed coupon's piece.
+// synthetic set 2's (index.json and <id>.png); both stay outside the repo, and so does the baseline: the shape
+// prototype's ladder run with the fitted rule, one answer a piece, which names the dashed coupon's piece.
 // - measure: the 47 held-out shape pieces and the 25 held-out photo and cutout pieces sent as shapes (every third ad
 //   in name order, from the third), synthetic set 2 (312) and the dashed coupon. Prints each answer that differs
 //   from the baseline's, the goals' counts, and with --table every piece's answer. Test-ad pieces are named
 //   `adNN/BB`, block BB of the NNth ad in name order, so the output names no test ad.
 // - repeat: the held-out pieces and the coupon (or the coupon alone) answered in `runs` fresh processes, one after
 //   another, while a process on every core spins; prints whether every run gave the same answers.
-// It runs only on the repo's Node (`.nvmrc`), which the apps' images run: Node 24's V8 (13.6), compiling on another
-// thread while the matcher runs, can give a new part the alpha and spread of the part made after it.
+// - answers: the held-out pieces and the coupon (or the coupon alone), each whole answer on a line; repeat runs it.
+// Run it on the repo's Node (`.nvmrc`), the one the apps' images run; it refuses an older one.
 import { spawn, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
@@ -21,19 +21,15 @@ import { isDeepStrictEqual } from 'node:util'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type MatchAnswer, type MatchKit, UnplacedLayer } from '@dazbee/schema'
+import type { MatchAnswer, MatchKit } from '@dazbee/schema'
 
 import { matchShapesOf } from '../src/shape/match-shapes.ts'
 import { photoScore } from '../src/shape/photo-guard.ts'
-import { decodePng } from '../src/shape/test-pieces.ts'
+import { decodePng, type PrototypeAnswer, prototypeAnswer } from '../src/shape/test-pieces.ts'
 
-/** The baseline's answer for a piece, as the prototype wrote it. */
-interface BaselineAnswer {
-  decision: 'shapes' | 'picture'
-  why: string
-  fitted: { ssim: number; inkMissed: number; far: number } | null
+/** The baseline's answer for a piece, as the prototype wrote it, with the photo guard's score of its graphics. */
+interface BaselineAnswer extends PrototypeAnswer {
   photoP: number | null
-  layers: unknown[]
 }
 
 /** A piece measured: where its pixels are, what it is, the kit it is matched with and the baseline's answer. */
@@ -66,7 +62,7 @@ const testAds = process.env.TEST_ADS_DIR
 const synthDir = process.env.SYNTH_DIR
 if (!baselinePath || !testAds || !synthDir || !['measure', 'repeat', 'answers'].includes(mode ?? '')) {
   console.error(
-    'Usage: TEST_ADS_DIR=… SYNTH_DIR=… node scripts/measure-shapes.ts measure|repeat <baseline.json> [runs]',
+    'Usage: TEST_ADS_DIR=… SYNTH_DIR=… node scripts/measure-shapes.ts measure|repeat|answers <baseline.json> [runs] [--table] [--coupon-only]',
   )
   process.exit(1)
 }
@@ -239,34 +235,18 @@ function measuredPieces(ads: string, synth: string, baseline: { pieces: Baseline
 function differences(ck: CanvasKit, piece: MeasuredPiece, answer: MatchAnswer): string[] {
   const want = piece.baseline
   const problems: string[] = []
-  const wantKind = want.decision === 'shapes' ? 'layers' : 'picture'
-  if (answer.kind !== wantKind) return [`${summary(answer)}, baseline ${want.decision} (${want.why})`]
-  if (answer.kind === 'picture' && answer.why !== whyOf(want.why))
-    problems.push(`why ${answer.why}, baseline ${want.why}`)
-  const wantScores = want.fitted
-    ? { ssim: want.fitted.ssim, inkMissed: want.fitted.inkMissed, far: want.fitted.far }
-    : undefined
-  if (!isDeepStrictEqual(answer.scores, wantScores))
-    problems.push(`scores ${JSON.stringify(answer.scores)}, baseline ${JSON.stringify(wantScores)}`)
-  if (answer.kind === 'layers') {
-    if (
-      !isDeepStrictEqual(
-        answer.layers,
-        want.layers.map((layer) => UnplacedLayer.parse(layer)),
-      )
+  const wanted = prototypeAnswer(want)
+  if (answer.kind !== wanted.kind) return [`${summary(answer)}, baseline ${want.decision} (${want.why})`]
+  if (!isDeepStrictEqual(answer, wanted))
+    problems.push(
+      `${summary(answer)} ${JSON.stringify(answer.scores)}, baseline ${summary(wanted)} ${JSON.stringify(wanted.scores)}`,
     )
-      problems.push('layers differ')
+  if (answer.kind === 'layers') {
     const score = photoScore(ck, read(ck, piece.path), answer.layers)
     if (want.photoP === null || Math.abs(score - want.photoP) > 1e-9)
       problems.push(`photo score ${score}, baseline ${want.photoP}`)
   }
   return problems
-}
-
-/** The prototype's sentence of why a piece stayed a picture, as the matcher's reason. */
-function whyOf(why: string): string {
-  if (why.startsWith('looks different')) return 'looksDifferent'
-  return why.startsWith('a photo') ? 'photo' : 'tooManyParts'
 }
 
 /** An answer in a few words: shapes and how many, or picture and why. */

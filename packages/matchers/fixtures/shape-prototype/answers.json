@@ -1485,6 +1485,95 @@
         ],
         "photoScore": 0.14359925342464538
       }
+    },
+    {
+      "id": "s158",
+      "family": "shadowed",
+      "degradation": "clean",
+      "kit": {
+        "primary": "#6C8150FF",
+        "secondary": "#DBA9C3FF",
+        "accent": "#00D7F1FF",
+        "background": "#00918BFF",
+        "text": "#578DC0FF"
+      },
+      "firstPass": {
+        "decision": "picture",
+        "why": "looks different: SSIM 0.907, ΔE 1.66",
+        "fitted": {
+          "ssim": 0.926282574795437,
+          "far": 0.016377116299656966,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Olive rounded rectangle",
+            "props": {
+              "x": 21,
+              "y": 21,
+              "width": 165,
+              "height": 55,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 6.422297138986035
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#61643CFF"
+                }
+              ],
+              "strokes": []
+            }
+          }
+        ]
+      },
+      "ladder": {
+        "decision": "shapes",
+        "why": "",
+        "fitted": {
+          "ssim": 0.9999346476584603,
+          "far": 0,
+          "inkMissed": 0
+        },
+        "layers": [
+          {
+            "type": "graphic",
+            "name": "Olive rounded rectangle",
+            "props": {
+              "x": 21,
+              "y": 21,
+              "width": 165,
+              "height": 55,
+              "rotation": 0,
+              "shape": {
+                "kind": "rect",
+                "cornerRadius": 6.672297138986035
+              },
+              "fills": [
+                {
+                  "type": "solid",
+                  "color": "#61643CFF"
+                }
+              ],
+              "strokes": [],
+              "effects": [
+                {
+                  "type": "dropShadow",
+                  "x": 2.89,
+                  "y": 8.73,
+                  "blur": 7.4,
+                  "spread": 0,
+                  "color": "#0000005E"
+                }
+              ]
+            }
+          }
+        ],
+        "photoScore": 0.030144273719449877
+      }
     }
   ]
 }

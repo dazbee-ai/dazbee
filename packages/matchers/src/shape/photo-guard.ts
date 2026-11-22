@@ -14,7 +14,7 @@ import { drawGraphics, type DrawnLayer } from './draw-layers.ts'
 import { type FloatPicture, shrinkFloats, toFloatPicture } from './parts/float-picture.ts'
 
 /** The six measures, in the model's order. */
-export interface PhotoMeasures {
+interface PhotoMeasures {
   /** Mean luminance the rebuild misses after a wide blur (σ about 1.7). */
   lostShading: number
   /** Mean edge strength the piece has beyond the rebuild's. */
@@ -49,6 +49,7 @@ export const PHOTO_GUARD = {
   bar: 0.8392354750580299,
 } as const
 
+/** The measures' names in the order of the model's means, spreads and weights. */
 const MEASURES = [
   'lostShading',
   'lostDetail',
@@ -63,9 +64,19 @@ const GREY = 128
 const COUNTED_FROM = 0.5
 /** An edge is strong when the luminance changes by more than this across its three pixels. */
 const STRONG_EDGE = 4
+/** The bins of the strong edges' directions, over half a turn. */
 const DIRECTION_BINS = 16
-/** The Gaussian of σ 1 the pictures are blurred by, 7 taps. */
+/** The Gaussian of σ 1 the pictures are blurred by: the seven taps the model's weights were fitted with. */
 const BLUR_TAPS = [0.0044, 0.054, 0.242, 0.399, 0.242, 0.054, 0.0044]
+/** The measures of a piece with no pixel to count. */
+const NO_MEASURES: PhotoMeasures = {
+  lostShading: 0,
+  lostDetail: 0,
+  directionEntropy: 0,
+  colours: 0,
+  residualDeltaE: 0,
+  strongEdgeShare: 0,
+}
 
 /** The answer, or a picture with why `photo` when its graphics leave the piece's shading, texture and colours unexplained. */
 export function guardedAnswer(ck: CanvasKit, piece: Pixels, answer: MatchAnswer): MatchAnswer {
@@ -73,7 +84,7 @@ export function guardedAnswer(ck: CanvasKit, piece: Pixels, answer: MatchAnswer)
   return photoScore(ck, piece, answer.layers) >= PHOTO_GUARD.bar ? pictureAnswer('photo', answer.scores) : answer
 }
 
-/** How much a photo the piece is, 0 to 1, by what its graphics, drawn at most 384 px on the long side, leave unexplained. */
+/** How much a photo the piece is, 0 to 1, by what its graphics, drawn at most `PHOTO_GUARD.side` on the long side, leave unexplained. */
 export function photoScore(ck: CanvasKit, piece: Pixels, layers: readonly DrawnLayer[]): number {
   const scale = Math.min(1, PHOTO_GUARD.side / Math.max(piece.width, piece.height))
   const rebuild = drawGraphics(ck, layers, piece.width, piece.height, scale)
@@ -96,7 +107,7 @@ function photoMeasures(piece: FloatPicture, rebuild: FloatPicture, scale: number
   const height = Math.max(2, Math.ceil(piece.height * scale - 1e-9))
   const target = scale < 1 ? shrinkFloats(piece, width, height) : piece
   // A side under 3 pixels has no inner pixel, so nothing is counted and the rebuild isn't read.
-  if (width < 3 || height < 3) return measuresOf({ count: 0 })
+  if (width < 3 || height < 3) return NO_MEASURES
   const made = shrinkFloats(rebuild, width, height)
   const seenTarget = blur(overGrey(target), width, height)
   const seenMade = blur(overGrey(made), width, height)
@@ -139,28 +150,14 @@ function photoMeasures(piece: FloatPicture, rebuild: FloatPicture, scale: number
     }
   let entropy = 0
   for (const b of bins) if (b > 0) entropy -= (b / sums.strong) * Math.log2(b / sums.strong)
-  return measuresOf({ ...sums, entropy, colours: colours.size })
-}
-
-/** The measures from their sums over the counted pixels; nothing counted gives zeros. */
-function measuresOf(sums: {
-  count: number
-  shading?: number
-  detail?: number
-  residual?: number
-  strong?: number
-  strongPixels?: number
-  entropy?: number
-  colours?: number
-}): PhotoMeasures {
   const count = sums.count || 1
   return {
-    lostShading: (sums.shading ?? 0) / count,
-    lostDetail: (sums.detail ?? 0) / count,
-    directionEntropy: (sums.strong ?? 0) > 0 ? (sums.entropy ?? 0) : 0,
-    colours: Math.log(1 + (sums.colours ?? 0)),
-    residualDeltaE: (sums.residual ?? 0) / count,
-    strongEdgeShare: (sums.strongPixels ?? 0) / count,
+    lostShading: sums.shading / count,
+    lostDetail: sums.detail / count,
+    directionEntropy: sums.strong > 0 ? entropy : 0,
+    colours: Math.log(1 + colours.size),
+    residualDeltaE: sums.residual / count,
+    strongEdgeShare: sums.strongPixels / count,
   }
 }
 

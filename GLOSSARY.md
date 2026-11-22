@@ -611,5 +611,37 @@ One flat AI-generated ad in a round. Starred, used, or refined into draft versio
 _Avoid_: Generation, option, candidate
 
 **Layering**:
-The job that turns a chosen draft into real layers: plan, separate, read, live text, vectorise, backdrop, place.
+The job that turns a chosen draft into real layers: plan, separate, read, live text (the text matcher), vectorise (the shape matcher), backdrop, place.
 _Avoid_: Decompose, editable-ize, convert
+
+**Piece**:
+One part of a picture that a matcher rebuilds as layers: its pixels, its place on the picture, whether it is text or shapes, and for text the words it says. A whole picture can be one piece.
+_Avoid_: Block (that is the renderer's laid-out paragraph), region, cut-out (a layering kind for a cut-out photo)
+
+**Matcher**:
+What rebuilds a piece as editable layers by drawing candidates with Dazbee's renderer and keeping the one that looks the same. The **text matcher** finds a text piece's font, size, colour and fit and makes it a text; the **shape matcher** makes a piece of shapes into graphics. A piece no candidate rebuilds well stays a picture, with why.
+_Avoid_: Detector, recogniser, converter, vectoriser (for the matcher as a whole)
+
+**Looks the same**:
+The rule a matcher's answer must pass to replace its piece, fitted to the owner's blind votes on pairs of a piece and its rebuild; text and shapes each have their own bars.
+_Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
+
+**Light**:
+The text matcher's quicker setting: a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept.
+_Avoid_: Fast mode, lite
+
+**Hybrid**:
+The text matcher's setting that every person gets: Light's font, then its size, spacing, line height and place fitted finer on that one font.
+_Avoid_: Full, accurate mode, medium
+
+**Font fingerprint**:
+The numbers the text matcher's model reads from text drawn in one font face, which lets it put fonts that look like a piece first.
+_Avoid_: Embedding, signature, font hash
+
+**Match copy**:
+A copy of a Google font face cut down to the characters ads use, which only the text matcher loads, so a person downloads less while it works. Text with other characters loads the whole face.
+_Avoid_: Subset, cut-down file, display copy (that is an image's)
+
+**Make editable**:
+Rebuilding a picture on a frame as layers with a matcher, as text or as shapes, in one undo step: where the rebuild looks the same, its layers take the picture's place; otherwise the picture stays and the person is told why.
+_Avoid_: Convert, vectorise (the layering step), trace

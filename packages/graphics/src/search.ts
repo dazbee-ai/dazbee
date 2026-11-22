@@ -100,6 +100,13 @@ export function findGraphic(id: string): FoundGraphic | undefined {
   return graphic && found(known, graphic)
 }
 
+/** A plural word's singular, as English mostly makes it; the word itself otherwise. */
+export function singular(word: string): string {
+  if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
+  if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
+  return word
+}
+
 /** A query's words: lowercase letters and digits. */
 function wordsOf(query: string): string[] {
   return query.toLowerCase().split(WORD_BREAK).filter(Boolean)
@@ -166,13 +173,6 @@ function wordScore(
   if (tags.includes(word)) return SCORE.tag
   if (topics.includes(word)) return SCORE.topic
   return tags.some(prefix) ? SCORE.tagPrefix : 0
-}
-
-/** A plural word's singular, as English mostly makes it; the word itself otherwise. */
-export function singular(word: string): string {
-  if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
-  if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
-  return word
 }
 
 /** Orders names of equal score: fewer words first, then shorter, then alphabetically. */

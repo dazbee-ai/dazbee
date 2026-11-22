@@ -1,6 +1,6 @@
 export { paintsWith, swapAccent } from './accent.ts'
 export { artworkOf } from './artwork.ts'
-export { ARTWORK_SETS } from './artwork-sets.ts'
+export { ARTWORK_KINDS, ARTWORK_SETS, type ArtworkKind } from './artwork-sets.ts'
 export { iconSvg } from './icon-svg.ts'
 export { illustrationOf } from './illustrations.ts'
 export { tiledPattern } from './pattern-tile.ts'

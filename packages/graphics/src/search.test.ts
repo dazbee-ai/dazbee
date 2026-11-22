@@ -87,9 +87,7 @@ describe('searchGraphics', () => {
       for (const found of searchGraphics('team', { set, limit: 5 }))
         expect(found.styles).toEqual([ILLUSTRATION_SETS[set].style])
   })
-})
 
-describe('searchGraphics, artwork', () => {
   it.each<[string, ArtworkKind, string]>([
     ['gift', 'object', 'gift'],
     ['coffee', 'object', 'coffee'],

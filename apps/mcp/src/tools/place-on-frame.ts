@@ -1,7 +1,7 @@
 // What the tools that place on a frame of the open design share: the box they place in, the frame they place on,
-// the parts of a frame they place at, the colour they place in, a bundled file added to the brand's library, an SVG
-// file's text and the step that places its layers, and running the placing batch and answering with the layer it
-// placed.
+// the parts of a frame they place at, the colour they place in, a bundled file added to the brand's library, the box
+// a picture fits in, an SVG file's text and the step that places its layers, and running the placing batch and
+// answering with the layer it placed.
 import { z } from 'zod'
 
 import { type AgentStep, placedRoots } from '@dazbee/doc'

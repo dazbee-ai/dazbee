@@ -4,7 +4,15 @@
 // screen blend so its dark drops out; an SVG file is read back and placed as the layers the SVG reader makes of it, in
 // its own colours or, for a few-colour set, in a colour given, and a pattern repeated across the box.
 import { placedImage } from '@dazbee/editor/placed-asset'
-import { ARTWORK_SETS, artworkOf, type FoundGraphic, paintsWithAny, recolour, tiledPattern } from '@dazbee/graphics'
+import {
+  ARTWORK_SETS,
+  type ArtworkKind,
+  artworkOf,
+  type FoundGraphic,
+  paintsWithAny,
+  recolour,
+  tiledPattern,
+} from '@dazbee/graphics'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { type AssetSummary, MAX_SVG_BYTES, type Rect } from '@dazbee/schema'
 
@@ -22,7 +30,7 @@ import {
 } from './place-on-frame.ts'
 
 /** An artwork graphic as a search finds it. */
-export type FoundArtwork = Exclude<FoundGraphic, { kind: 'icon' | 'sticker' | 'illustration' }>
+export type FoundArtwork = Extract<FoundGraphic, { kind: ArtworkKind }>
 
 /** The colours an artwork graphic is placed in: its paint colour, and a background's backdrop (null for none). */
 export interface ArtworkColours {

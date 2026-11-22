@@ -51,8 +51,11 @@ const LEGAL_CODES = {
 } as const
 /** The files beside a set's folder its notice quotes: its makers' licence or readme. */
 const LICENCE_FILE = /^(LICEN[CS]E(\.md|\.txt)?|README\.md)$/i
-/** How light an effect's drawn pixels are on average, from 0 to 1, from which it is placed in the screen blend. */
-const LIGHT = 0.5
+/**
+ * How light an effect's drawn pixels are on average, from 0 to 1, below which it is drawn dark (black smoke, a scorch,
+ * dirt) and keeps the normal blend; every other effect is light on dark, placed in the screen blend.
+ */
+const DARK = 0.25
 /** The longest word a graphic's tags keep. */
 const MAX_TAG_LENGTH = 30
 
@@ -198,7 +201,7 @@ async function linkedPictures(set: ArtworkSetId, files: string, style: string): 
 
 /**
  * The file as the manifest lists it; undefined, told why, when an upload couldn't take it, or the SVG reader can't
- * read an SVG file whole but for its filters (a texture or rough edge), which placing leaves out.
+ * read an SVG file whole but for a set's filters that only roughen its edges, which placing leaves out.
  */
 function checked(set: ArtworkSetId, source: string, bytes: Uint8Array): ArtworkFile | undefined {
   const { format, kind } = ARTWORK_SETS[set]
@@ -208,7 +211,7 @@ function checked(set: ArtworkSetId, source: string, bytes: Uint8Array): ArtworkF
     if (header?.contentType !== 'image/png' || bytes.length > MAX_UPLOAD_BYTES)
       return leftOut(source, 'it is not a PNG picture an upload may be')
     const size = { width: header.width, height: header.height }
-    const light = kind === 'effect' && lightness(ck, bytes) >= LIGHT
+    const light = kind === 'effect' && lightness(ck, bytes) >= DARK
     return { source, sha256, byteSize: bytes.length, ...size, ...(light ? { blend: 'screen' as const } : {}) }
   }
   if (bytes.length > MAX_SVG_BYTES) return leftOut(source, 'it is larger than an SVG upload may be')
@@ -220,7 +223,7 @@ function checked(set: ArtworkSetId, source: string, bytes: Uint8Array): ArtworkF
   } catch (error) {
     return leftOut(source, error instanceof Error ? error.message : String(error))
   }
-  const lost = read.skipped.filter((part) => part !== 'filter')
+  const lost = read.skipped.filter((part) => !(part === 'filter' && ARTWORK_SETS[set].roughEdges))
   if (lost.length > 0) return leftOut(source, `the reader leaves out its ${lost.join(', ')}`)
   const size = { width: Math.round(read.width * 100) / 100, height: Math.round(read.height * 100) / 100 }
   if (kind === 'background') {

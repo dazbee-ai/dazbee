@@ -8,7 +8,16 @@ import { z } from 'zod'
 
 import { placedRoots } from '@dazbee/doc'
 import { svgLayers, svgPlaceInput } from '@dazbee/editor/placed-asset'
-import { findGraphic, type FoundGraphic, GRAPHIC_SET_IDS, iconSvg, searchGraphics } from '@dazbee/graphics'
+import {
+  ARTWORK_KINDS,
+  ARTWORK_SETS,
+  type ArtworkKind,
+  findGraphic,
+  type FoundGraphic,
+  GRAPHIC_SET_IDS,
+  iconSvg,
+  searchGraphics,
+} from '@dazbee/graphics'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { Frame, Rect } from '@dazbee/schema'
 
@@ -38,16 +47,26 @@ const TAGS_TOLD = 8
 const SHARE = { icon: 0.25, sticker: 0.4 } as const
 /** The share of the frame's width and height an illustration placed with no box fits in, in the middle. */
 const ILLUSTRATION_SHARE = 0.8
-/** The kinds of graphic the artwork sets hold, placed with `artworkPlacing`. */
-const ARTWORK_KINDS = ['object', '3d', 'shape', 'accent', 'effect', 'background'] as const
 /**
  * The share of the frame's shorter side taken by the square an artwork graphic placed with no box fits in, in the
  * middle; an effect and a background are placed over the whole frame.
  */
-const ARTWORK_SHARE = { object: 0.4, '3d': 0.4, shape: 0.4, accent: 0.4, effect: 'frame', background: 'frame' } as const
+const ARTWORK_SHARE: Readonly<Record<ArtworkKind, number | 'frame'>> = {
+  object: 0.4,
+  '3d': 0.4,
+  shape: 0.4,
+  accent: 0.4,
+  effect: 'frame',
+  background: 'frame',
+}
 /** What an agent is told when it gives an artwork graphic a colour it can't take. */
-const ARTWORK_COLOUR_UNUSED =
-  'This graphic keeps the colours it is drawn in (only Coolshapes, dddoodle, Pattern Monster, Streamline Plump and Streamline Freehand take a colour, and only a background takes a backdrop), so the colour given was left unused.'
+const ARTWORK_COLOUR_UNUSED = `This graphic keeps the colours it is drawn in (only a background and the graphics of ${Object.values(
+  ARTWORK_SETS,
+)
+  .flatMap(({ title, paints }) => (paints ? [title] : []))
+  .join(
+    ', ',
+  )} that paint with their set’s colours take a colour, and only a background takes a backdrop), so the colour given was left unused.`
 /** What an agent is told when it gives a sticker or an illustration a colour. */
 const COLOUR_UNUSED = {
   sticker: 'A sticker keeps the colours it is drawn in, so the colour given was left unused.',
@@ -100,7 +119,7 @@ export const GRAPHICS_TOOLS: Tool[] = [
     name: 'search_graphics',
     title: 'Search graphics',
     description:
-      'Searches the icons, stickers, illustrations and artwork Dazbee bundles, free to use in ads, each set’s licence listed on Dazbee’s notices page. Icons, drawn in one colour you choose: Tabler (outline and filled) and Phosphor (regular, thin, light, bold, fill and duotone). Stickers, placed in their own colours: Fluent Emoji (3d, a picture, and flat), Open Peeps and Open Doodles (hand-drawn people) and Humaaans (flat people). Illustrations, whole scenes of people and things (shopping, delivery, payments, food, travel, fitness, health, learning, work and teams, apps, celebrations), placed in their own colours or with their accent colour swapped: unDraw (flat, the largest), ManyPixels Chromablue (flat) and ManyPixels Birdview (isometric). Objects, colour drawings of things: Streamline Kameleon (flat, on a circle), Plump (rounded, two blues), Freehand (hand-drawn) and Stickies (playful, outlined). 3D objects, rendered pictures: 3dicons, each in four colour styles (color, gradient, clay, premium) from three angles (dynamic, front, iso). Shapes: Coolshapes (stars, flowers, wheels, blobs; white until given a colour). Hand-drawn accents: dddoodle (arrows, underlines, circles, boxes, scribbles). Effects, light and smoke pictures to lay over a photo: Kenney Particle Pack and Kenney Smoke Particles. Backgrounds, seamless patterns repeated over the frame: Pattern Monster. Give English words for the thing, such as “cart”, “rocket”, “person reading”, “arrow” or “waves”, and a kind to keep to one kind; it answers the best matches of each set in turn, each with its id for place_graphic, its kind, set, name, styles (the first is placed when none is asked for) and tags. Keep to one set and style in a design so its graphics look alike, and to one illustration set above all: set keeps a search to one set.',
+      'Searches the icons, stickers, illustrations and artwork Dazbee bundles, free to use in ads, each set’s licence listed on Dazbee’s notices page. Icons, drawn in one colour you choose: Tabler (outline and filled) and Phosphor (regular, thin, light, bold, fill and duotone). Stickers, placed in their own colours: Fluent Emoji (3d, a picture, and flat), Open Peeps and Open Doodles (hand-drawn people) and Humaaans (flat people). Illustrations, whole scenes of people and things (shopping, delivery, payments, food, travel, fitness, health, learning, work and teams, apps, celebrations), placed in their own colours or with their accent colour swapped: unDraw (flat, the largest), ManyPixels Chromablue (flat) and ManyPixels Birdview (isometric). Objects, colour drawings of things: Streamline Kameleon (flat, on a circle), Plump (rounded, two blues), Freehand (hand-drawn) and Stickies (playful, outlined). 3D objects, rendered pictures: 3dicons, each in four colour styles (color, gradient, clay, premium) from three angles (dynamic, front, iso). Shapes: Coolshapes (flowers, wheels, moons, polygons, blobs; white until given a colour). Hand-drawn accents: dddoodle (arrows, underlines, circles, boxes, scribbles). Effects, light and smoke pictures to lay over a photo: Kenney Particle Pack and Kenney Smoke Particles. Backgrounds, seamless patterns repeated over the frame: Pattern Monster. Give English words for the thing, such as “cart”, “rocket”, “person reading”, “arrow” or “waves”, and a kind to keep to one kind; it answers the best matches of each set in turn, each with its id for place_graphic, its kind, set, name, styles (the first is placed when none is asked for) and tags. Keep to one set and style in a design so its graphics look alike, and to one illustration set above all: set keeps a search to one set.',
     readOnly: true,
     input: z.object({
       query: z.string().trim().min(1).max(100).describe('Words for what the graphic shows, in English'),
@@ -134,7 +153,7 @@ export const GRAPHICS_TOOLS: Tool[] = [
     name: 'place_graphic',
     title: 'Place a graphic',
     description:
-      'Places an icon, a sticker or an illustration search_graphics found on a frame of the open design as one undo step, and answers once Dazbee has stored it: the new layer’s id and box, and the warnings for what it placed. An icon becomes a group of editable shapes, each filled with the colour given; a brand kit colour (brand:primary) binds them, so they follow the kit; lines of an outline style become filled shapes; it doesn’t join the brand’s asset library. A sticker keeps its own colours: a drawing becomes a group of editable layers, and a picture (Fluent Emoji’s 3d style) joins the brand’s asset library, once however often it is placed, and becomes an image, the answer naming its asset. An illustration becomes a group of editable layers in its own colours, or with its set’s accent colour swapped for the accent given, and joins the brand’s asset library as an SVG file, the answer naming its asset. Keep to one illustration set in a design. An object, a shape or an accent becomes editable layers in its own colours, or, for Coolshapes, dddoodle and Streamline Plump and Freehand, in the colour given; a 3D object or an effect becomes an image, an effect drawn light in the screen blend so its dark drops out over a photo, and by default over the whole frame; a background is its pattern repeated over the whole frame (or the box), its lines in the colour given and its backdrop in the backdrop given. Each joins the brand’s asset library, the answer naming its asset.',
+      'Places a graphic search_graphics found on a frame of the open design as one undo step, and answers once Dazbee has stored it: the new layer’s id and box, and the warnings for what it placed. An icon becomes a group of editable shapes, each filled with the colour given; a brand kit colour (brand:primary) binds them, so they follow the kit; lines of an outline style become filled shapes; it doesn’t join the brand’s asset library. A sticker keeps its own colours: a drawing becomes a group of editable layers, and a picture (Fluent Emoji’s 3d style) joins the brand’s asset library, once however often it is placed, and becomes an image, the answer naming its asset. An illustration becomes a group of editable layers in its own colours, or with its set’s accent colour swapped for the accent given, and joins the brand’s asset library as an SVG file, the answer naming its asset. Keep to one illustration set in a design. An object, a shape or an accent becomes editable layers in its own colours, or, for Coolshapes, dddoodle and Streamline Plump and Freehand, in the colour given; a 3D object or an effect becomes an image, an effect drawn light in the screen blend so its dark drops out over a photo, and by default over the whole frame; a background is its pattern repeated over the whole frame (or the box), its lines in the colour given and its backdrop in the backdrop given. Each joins the brand’s asset library, the answer naming its asset.',
     readOnly: false,
     input: z.object({
       frame: FrameId,

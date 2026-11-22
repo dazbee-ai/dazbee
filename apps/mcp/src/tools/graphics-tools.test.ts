@@ -122,6 +122,22 @@ describe('search_graphics', () => {
     expect(graphics.every(({ kind }) => kind === 'sticker')).toBe(true)
   })
 
+  it.each([
+    ['gift', 'object'],
+    ['rocket', '3d'],
+    ['burst', 'shape'],
+    ['underline', 'accent'],
+    ['smoke', 'effect'],
+    ['waves', 'background'],
+  ])('finds “%s” among the %s graphics', async (query, kind) => {
+    const agent = await connected()
+    const { graphics } = (await agent.json('search_graphics', { query, kind })) as {
+      graphics: { graphic: string; kind: string }[]
+    }
+    expect(graphics.length).toBeGreaterThan(0)
+    expect(graphics.every((graphic) => graphic.kind === kind)).toBe(true)
+  })
+
   it('finds every kind together when no kind is asked for', async () => {
     const agent = await connected()
     const { graphics } = (await agent.json('search_graphics', { query: 'heart', limit: 50 })) as Found

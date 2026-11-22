@@ -24,6 +24,9 @@ export interface PatternColours {
   paths?: string
 }
 
+/** A box's left, top, right and bottom. */
+type Bounds = [left: number, top: number, right: number, bottom: number]
+
 /** A tile read back: its size, its backdrop's colour and each path's data, colour and stroke. */
 interface Tile {
   width: number
@@ -46,6 +49,11 @@ const COLOUR = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|(rgba?|hsla?)\([\d.,%\s]+\))$/
 const SCALE_AT_1080 = 2
 /** The most points the outlines of all a box's repeats may have, so the layers stay light to draw and store. */
 const MAX_POINTS = 30_000
+/** How much larger each try draws the tile when its repeats pass MAX_POINTS, and how many tries there are. */
+const SCALE_STEP = 1.25
+const MAX_SCALE_STEPS = 80
+/** What a colour given is written as. */
+const HEX = /^#[0-9a-fA-F]{6}$/
 
 /** The patterns the site's index file lists. */
 export function patternsOf(index: string): PatternEntry[] {
@@ -73,7 +81,8 @@ export function patternTile({ mode, width, height, path }: PatternEntry): string
 
 /**
  * The tile repeated across a box `width` × `height` as an SVG file of that size: the backdrop, then one filled shape
- * per path of the tile, its every repeat joined and cut to the box, strokes outlined, each in its colour or the one
+ * per path of the tile, cut to the tile's cell as a pattern is, its every repeat joined and cut to the box, strokes
+ * outlined, each in its colour or the one
  * given. A tile is drawn at the site's default scale for the box's shorter side, larger when that would make too
  * many repeats. Throws when the file isn't a tile `patternTile` wrote.
  */
@@ -84,10 +93,12 @@ export function tiledPattern(
   colours: PatternColours = {},
 ): string {
   const tile = readTile(tileSvg)
-  const shapes = tile.paths.map(({ d, stroke }) => outline(ck, d, stroke))
+  const shapes = tile.paths.map(({ d, stroke }) => inCell(ck, outline(ck, d, stroke), tile))
   try {
+    for (const colour of [colours.paths, colours.backdrop])
+      if (colour && !HEX.test(colour)) throw new Error(`a colour is #rrggbb, not ${colour}`)
     const points = shapes.reduce((sum, shape) => sum + (shape?.countPoints() ?? 0), 0)
-    const scale = scaleOf(tile, { width, height }, points)
+    const scale = scaleOf(tile, { width, height }, boundsOf(shapes), points)
     const body = shapes.flatMap((shape, i) => {
       if (!shape) return []
       const repeated = repeat(ck, shape, tile, scale, { width, height })
@@ -145,12 +156,50 @@ function outline(ck: CanvasKit, d: string, stroke: Tile['paths'][number]['stroke
   return outlined
 }
 
-/** How much the tile is scaled: the site's default for the box's shorter side, or more, to keep within the limits. */
-function scaleOf(tile: Tile, box: { width: number; height: number }, points: number): number {
-  const scale = (SCALE_AT_1080 * Math.min(box.width, box.height)) / 1080
-  const tiles = (box.width / (tile.width * scale) + 2) * (box.height / (tile.height * scale) + 2)
-  const over = Math.max((tiles * Math.max(points, 1)) / MAX_POINTS, 1)
-  return scale * Math.sqrt(over)
+/**
+ * The shape cut to its tile's cell, as a pattern shows what a tile draws only inside the cell; the shape is freed.
+ */
+function inCell(ck: CanvasKit, shape: Path | null, { width, height }: Tile): Path | null {
+  const cell = ck.Path.MakeFromSVGString(`M0 0H${width}V${height}H0Z`)
+  const cut = shape && cell && ck.Path.MakeFromOp(shape, cell, ck.PathOp.Intersect)
+  shape?.delete()
+  cell?.delete()
+  return cut ?? null
+}
+
+/** The box round all the shapes; a point at the origin when there are none. */
+function boundsOf(shapes: (Path | null)[]): Bounds {
+  const all = shapes.flatMap((shape) => (shape ? [shape.getBounds()] : []))
+  if (all.length === 0) return [0, 0, 0, 0]
+  return [
+    Math.min(...all.map(([left = 0]) => left)),
+    Math.min(...all.map(([, top = 0]) => top)),
+    Math.max(...all.map(([, , right = 0]) => right)),
+    Math.max(...all.map(([, , , bottom = 0]) => bottom)),
+  ]
+}
+
+/**
+ * How much the tile is scaled: the site's default for the box's shorter side, or more, until its repeats (the shapes
+ * reaching `bounds` from a tile's corner) times their `points` keep within MAX_POINTS, or the tile spans the box.
+ */
+function scaleOf(tile: Tile, box: { width: number; height: number }, bounds: Bounds, points: number): number {
+  let scale = (SCALE_AT_1080 * Math.min(box.width, box.height)) / 1080
+  for (let step = 0; step < MAX_SCALE_STEPS; step++, scale *= SCALE_STEP)
+    if (repeatsOf(tile, box, bounds, scale) * Math.max(points, 1) <= MAX_POINTS) return scale
+  return scale
+}
+
+/** How many copies `repeat` places over the box at `scale`: as many rows as columns it loops through. */
+function repeatsOf(
+  tile: Tile,
+  box: { width: number; height: number },
+  [left, top, right, bottom]: Bounds,
+  scale: number,
+) {
+  const span = (side: number, step: number, from: number, to: number) =>
+    Math.max(0, Math.ceil((side - from * scale) / step) - Math.floor((-to * scale) / step))
+  return span(box.width, tile.width * scale, left, right) * span(box.height, tile.height * scale, top, bottom)
 }
 
 /**

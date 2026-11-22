@@ -4,7 +4,7 @@
 // `sticker-sources.json` (`write-stickers.ts`); an illustration set from a GitHub repository at a commit, or from the
 // files its makers' gallery offers, each pinned by its SHA-256 in `illustrations.json` (`write-illustrations.ts`). The
 // artwork sets (objects, 3D objects, shapes, accents, effects and backgrounds) are in `artwork-sets.ts`.
-import { ARTWORK_SET_IDS, ARTWORK_SETS, type ArtworkKind, type ArtworkSetId } from './artwork-sets.ts'
+import { ARTWORK_SET_IDS, ARTWORK_SETS, type ArtworkKind, type ArtworkSetId, isArtworkSet } from './artwork-sets.ts'
 
 /** An icon set's id, the first part of each of its icons' ids (`tabler/shopping-cart`). */
 export type IconSetId = 'tabler' | 'phosphor'
@@ -221,7 +221,7 @@ export function isIconSet(set: GraphicSetId): set is IconSetId {
 export function kindOfSet(set: GraphicSetId): GraphicKind {
   if (isIconSet(set)) return 'icon'
   if (isIllustrationSet(set)) return 'illustration'
-  return Object.hasOwn(ARTWORK_SETS, set) ? ARTWORK_SETS[set as ArtworkSetId].kind : 'sticker'
+  return isArtworkSet(set) ? ARTWORK_SETS[set].kind : 'sticker'
 }
 
 /** Whether a set is an illustration set. */

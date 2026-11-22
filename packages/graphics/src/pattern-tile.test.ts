@@ -86,6 +86,23 @@ describe('tiledPattern', () => {
     expect(points).toBeLessThanOrEqual(200_000)
   })
 
+  it('keeps a very thin box’s repeats within the limits, drawing the tile larger', () => {
+    const tile = patternTile(LINES)
+    for (const box of [
+      { width: 0.001, height: 100_000 },
+      { width: 100_000, height: 0.001 },
+    ]) {
+      const svg = tiledPattern(ck, tile, box)
+      expect(svg.length).toBeLessThan(1_000_000)
+    }
+  })
+
+  it('refuses a colour given that isn’t #rrggbb', () => {
+    expect(() => tiledPattern(ck, patternTile(LINES), { width: 10, height: 10 }, { paths: 'red"/><x a="' })).toThrow(
+      /#rrggbb/,
+    )
+  })
+
   it('refuses a file that isn’t a pattern’s tile, or a tile that paints with what isn’t a colour', () => {
     expect(() => tiledPattern(ck, '<svg xmlns="http://www.w3.org/2000/svg"/>', { width: 10, height: 10 })).toThrow()
     const injected = patternTile(DOTS).replace("fill='hsla(0,0%,100%,1)'", 'fill=\'red"/><script>x</script><x a="\'')

@@ -2,15 +2,15 @@
 // and each other paint colour as the same mix of it with white or black as that colour is of the first, wherever the
 // file paints with them (fill, stroke, stop and colour attributes and style declarations), and nowhere else.
 
+/** Red, green and blue, each 0 to 255. */
+type Rgb = [number, number, number]
+
 /** What a colour given is written as: # and six hex digits. */
 const HEX = /^#[0-9a-fA-F]{6}$/
 /** The colour words an artwork file may paint with, as #rrggbb; `currentColor` is black, as SVG's default colour. */
 const NAMED: Readonly<Record<string, string>> = { black: '#000000', white: '#ffffff', currentcolor: '#000000' }
 /** The properties a paint colour is written in. */
 const PAINTS = 'fill|stroke|stop-color|color|flood-color'
-
-/** Red, green and blue, each 0 to 255. */
-type Rgb = [number, number, number]
 
 /**
  * The file's text with each of `paints` (as the file writes them, any case) written as `to` (#rrggbb) or its mix:
@@ -24,16 +24,21 @@ export function recolour(text: string, paints: readonly string[], to: string, fi
   const base = rgbOf(first)
   const written = new Map(paints.map((paint) => [paint.toLowerCase(), hexOf(likeMix(base, rgbOf(paint), rgbOf(to)))]))
   for (const paint of paints) if (hexOf(rgbOf(paint)) === hexOf(base)) written.set(paint.toLowerCase(), firstAs)
-  const tokens = paints.map((paint) => paint.replace(/[#()]/g, (c) => `\\${c}`)).join('|')
-  const at = new RegExp(`((?:${PAINTS})\\s*(?:=\\s*["']|:\\s*))(${tokens})(?=["';\\s)}]|$)`, 'gi')
-  return text.replace(at, (_, before: string, paint: string) => `${before}${written.get(paint.toLowerCase()) ?? to}`)
+  return text.replace(
+    paintPattern(paints),
+    (_, before: string, paint: string) => `${before}${written.get(paint.toLowerCase()) ?? to}`,
+  )
 }
 
 /** Whether the file paints with any of `paints`, as `recolour` finds them. */
 export function paintsWithAny(text: string, paints: readonly string[]): boolean {
-  if (paints.length === 0) return false
-  const marker = '#010203'
-  return recolour(text, paints, marker) !== text
+  return paints.length > 0 && paintPattern(paints).test(text)
+}
+
+/** Where the file paints with any of `paints`: the property and what comes before the colour, then the colour. */
+function paintPattern(paints: readonly string[]): RegExp {
+  const tokens = paints.map((paint) => paint.replace(/[#()]/g, (c) => `\\${c}`)).join('|')
+  return new RegExp(`((?:${PAINTS})\\s*(?:=\\s*["']|:\\s*))(${tokens})(?=["';\\s)}]|$)`, 'gi')
 }
 
 /** A colour (#rgb, #rrggbb, black, white or currentColor) as red, green and blue. */

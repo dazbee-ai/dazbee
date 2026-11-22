@@ -1,4 +1,4 @@
-// place_graphic and search_graphics for the artwork sets, driven through the MCP endpoint with the stand-in API: every
+// place_graphic for the artwork sets, driven through the MCP endpoint with the stand-in API: every
 // artwork SVG file is `TEST_ART_SVG` and every pattern `TEST_TILE_SVG` there, whatever the graphic.
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -92,26 +92,7 @@ function boundNames(layers: Record<string, Painted>): string[] {
     .map(([name]) => name)
 }
 
-describe('search_graphics', () => {
-  it.each([
-    ['gift', 'object'],
-    ['rocket', '3d'],
-    ['burst', 'shape'],
-    ['underline', 'accent'],
-    ['smoke', 'effect'],
-    ['waves', 'background'],
-  ])('finds “%s” among the %s graphics, each with an id place_graphic takes', async (query, kind) => {
-    const { agent } = await opened()
-    const { graphics } = (await agent.json('search_graphics', { query, kind })) as {
-      graphics: { graphic: string; kind: string }[]
-    }
-    expect(graphics.length).toBeGreaterThan(0)
-    expect(graphics.every((graphic) => graphic.kind === kind)).toBe(true)
-    expect((await agent.call('place_graphic', { frame: 'sq', graphic: graphics[0]?.graphic })).isError).toBeFalsy()
-  })
-})
-
-describe('place_graphic', () => {
+describe('artworkPlacing', () => {
   it('places an object as layers in its own colours, its file joining the brand’s library, in 40% of the frame', async () => {
     const { agent, sync } = await opened()
     const graphic = firstOf('streamline-plump')

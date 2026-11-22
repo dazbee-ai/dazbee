@@ -95,12 +95,22 @@ export async function readArtworkFiles<F extends Pick<ArtworkStyleFile, 'set' | 
       }
     else
       for (const file of ofSet) {
-        if (!file.source.startsWith(source.files)) throw new Error(`${file.source} is not a link to ${set}'s files`)
+        if (!linksInto(file.source, source.files)) throw new Error(`${file.source} is not a link to ${set}'s files`)
         await tell(file, await readers.link(file.source))
       }
   }
   const missing = wanted.filter((file) => !told.has(file))
   if (missing.length > 0) throw new Error(`the sources lack ${missing.map(({ source }) => source).join(', ')}`)
+}
+
+/** Whether the link is one to a file under `files`, as it is written: no `..` or other step a fetch would resolve. */
+function linksInto(link: string, files: string): boolean {
+  try {
+    const url = new URL(link)
+    return url.href === link && url.protocol === 'https:' && link.startsWith(files)
+  } catch {
+    return false
+  }
 }
 
 /** Each pattern's tile of the pattern index file at `path`, its path `path#slug`. */

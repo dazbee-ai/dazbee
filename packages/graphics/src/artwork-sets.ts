@@ -55,9 +55,27 @@ export interface ArtworkSet {
    * it is of the first. A set without them keeps its own colours.
    */
   paints?: readonly string[]
+  /**
+   * Whether the set's filters only roughen a drawing's edges, so a file is placed without them; a file of another set
+   * whose filters the SVG reader can't read is left out.
+   */
+  roughEdges?: boolean
   /** The words every graphic of the set is found by, beside its own. */
   tags: readonly string[]
 }
+
+/** The kinds an artwork set may hold, each once. */
+export const ARTWORK_KINDS = Object.keys({
+  object: true,
+  '3d': true,
+  shape: true,
+  accent: true,
+  effect: true,
+  background: true,
+} satisfies Record<ArtworkKind, true>) as ArtworkKind[]
+/** 3dicons' colour styles and camera angles; each picture is one of each (`color-dynamic`). */
+export const THREE_D_COLOURS = ['color', 'gradient', 'clay', 'premium'] as const
+export const THREE_D_ANGLES = ['dynamic', 'front', 'iso'] as const
 
 /** Streamline's repository of free sets, at the commit every Streamline set is pinned to. */
 const STREAMLINE = { repository: 'webalys-hq/streamline-vectors', commit: '52d750c9ce051e51cb181b7a78932120c48541d0' }
@@ -65,10 +83,6 @@ const STREAMLINE_CREATOR = { name: 'Streamline', url: 'https://www.streamlinehq.
 const CC_BY = { name: 'CC BY 4.0', spdx: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } as const
 const CC0 = { name: 'CC0 1.0', spdx: 'CC0-1.0', url: 'https://creativecommons.org/publicdomain/zero/1.0/' } as const
 const KENNEY = { name: 'Kenney', url: 'https://kenney.nl' }
-
-/** 3dicons' colour styles and camera angles; each picture is one of each (`color-dynamic`). */
-export const THREE_D_COLOURS = ['color', 'gradient', 'clay', 'premium'] as const
-export const THREE_D_ANGLES = ['dynamic', 'front', 'iso'] as const
 
 export const ARTWORK_SETS: Readonly<Record<ArtworkSetId, ArtworkSet>> = {
   'streamline-kameleon': {
@@ -162,6 +176,7 @@ export const ARTWORK_SETS: Readonly<Record<ArtworkSetId, ArtworkSet>> = {
     },
     licence: CC_BY,
     paints: ['#000', 'black', 'currentColor', '#000000'],
+    roughEdges: true,
     tags: ['accent', 'doodle', 'hand-drawn', 'scribble', 'sketch'],
   },
   'kenney-particles': {

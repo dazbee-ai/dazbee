@@ -106,10 +106,16 @@ describe('readArtworkFiles', () => {
       fetched.push(url)
       return new Uint8Array()
     }
-    const elsewhere = [{ set: 'kenney-smoke' as const, source: 'https://elsewhere.example/a.png', sha256: '0' }]
-    await expect(readArtworkFiles(elsewhere, async () => {}, { archive: archive({}), link })).rejects.toThrow(
-      /not a link to kenney-smoke/,
-    )
+    const files =
+      'https://raw.githubusercontent.com/Poipoise/Deadly-Faith/ea19f5b3ce8c4c01027b2fb9389f82cf293779c1/kenney_smoke-particles/PNG/'
+    const elsewhere = [
+      { set: 'kenney-smoke' as const, source: 'https://elsewhere.example/a.png', sha256: '0' },
+      { set: 'kenney-smoke' as const, source: `${files}../../../other/a.png`, sha256: '0' },
+    ]
+    for (const file of elsewhere)
+      await expect(readArtworkFiles([file], async () => {}, { archive: archive({}), link })).rejects.toThrow(
+        /not a link to kenney-smoke/,
+      )
     expect(fetched).toEqual([])
   })
 })

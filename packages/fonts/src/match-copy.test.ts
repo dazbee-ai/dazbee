@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { MATCH_COPY_VERSION } from './match-characters.ts'
 import { matchCopy } from './match-copy.ts'
 import { FONT_FILES_DIR } from './node.ts'
 import { variableTestFont } from './test-fonts.ts'
@@ -31,5 +32,17 @@ describe('matchCopy', () => {
   it('makes none of bytes that are not a font', () => {
     expect(matchCopy(new TextEncoder().encode('not a font at all'))).toBeNull()
     expect(matchCopy(new Uint8Array())).toBeNull()
+  })
+})
+
+describe('MATCH_COPY_VERSION', () => {
+  it('names the harfbuzzjs the copies are made with, so a new one raises the version', () => {
+    const pinned = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as {
+      dependencies: Record<string, string>
+    }
+    expect({ version: MATCH_COPY_VERSION, harfbuzzjs: pinned.dependencies.harfbuzzjs }).toEqual({
+      version: 1,
+      harfbuzzjs: '1.6.4',
+    })
   })
 })

@@ -24,7 +24,8 @@ export const MATCH_CHARACTERS: readonly number[] = MATCH_CHARACTER_RANGES.flatMa
 /**
  * How match copies are made, as a version: their characters, harfbuzzjs's version and how `@dazbee/fonts/match-copy`
  * cuts. The copies are kept for good at addresses and storage keys that name it, so a change to any of those raises it
- * and `fonts:match-copies` makes every copy again under the new version.
+ * and `fonts:match-copies` makes every copy again under the new version. The earlier version's copies stay in storage,
+ * under their own folder, until they are deleted by hand. A test pins harfbuzzjs's version to this one.
  */
 export const MATCH_COPY_VERSION = 1
 

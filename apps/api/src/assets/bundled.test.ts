@@ -4,11 +4,23 @@ import { describe, expect, it } from 'vitest'
 import { bundledKey, originalKey } from '../storage-keys.ts'
 import { brand, db, run, sibling, storage, workspace } from '../test-api.ts'
 import { png, sha256 } from '../test-files.ts'
+import { findAsset, InvalidUpload } from './assets.ts'
 import { addBundledAsset, NotBundled, type ReadBundled, storeBundled } from './bundled.ts'
 
 /** A bundled file of this run, as a manifest lists it, with its bytes. */
 function file(mark: string) {
   const bytes = png(5, 4, `bundled-${run}-${mark}`)
+  return { sha256: sha256(bytes), bytes }
+}
+
+/** The most layers the SVG reader makes of a file before refusing it (MAX_LAYERS in @dazbee/svg's limits). */
+const SVG_READER_LAYERS = 5_000
+
+/** A bundled SVG file of this run drawing `rects` rectangles, as a manifest lists it, with its bytes. */
+function svgFile(mark: string, rects = 1) {
+  const shapes = Array.from({ length: rects }, (_, i) => `<rect x="${i % 100}" width="1" height="1" fill="#6c63ff"/>`)
+  const text = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><desc>${run}-${mark}</desc>${shapes.join('')}</svg>`
+  const bytes = new TextEncoder().encode(text)
   return { sha256: sha256(bytes), bytes }
 }
 
@@ -39,6 +51,25 @@ describe('addBundledAsset', { timeout: 30_000 }, () => {
     expect(again).toMatchObject({ id: asset.id, name: input.name, tags: ['sticker', 'emoji', 'fluent'] })
     const other = await addBundledAsset(db, storage, workspace.id, sibling.id, input)
     expect(other.id).not.toBe(asset.id)
+  })
+
+  it('adds a bundled SVG file as an SVG asset, read by the SVG reader as an upload is', async () => {
+    const { sha256: sha, bytes } = svgFile('scene')
+    await storage.put(bundledKey(sha), bytes, 'image/svg+xml')
+    const input = { sha256: sha, name: 'Delivery · unDraw', tags: ['illustration', 'undraw'] }
+    const asset = await addBundledAsset(db, storage, workspace.id, brand.id, input)
+    expect(asset).toMatchObject({ sha256: sha, contentType: 'image/svg+xml', width: 400, height: 300 })
+    expect(asset).toMatchObject({ name: input.name, tags: input.tags, byteSize: bytes.length })
+  })
+
+  it('refuses a bundled SVG file past the SVG reader’s limits, recording nothing and keeping no copy', async () => {
+    const { sha256: sha, bytes } = svgFile('hostile', SVG_READER_LAYERS + 1)
+    await storage.put(bundledKey(sha), bytes, 'image/svg+xml')
+    await expect(
+      addBundledAsset(db, storage, workspace.id, brand.id, { sha256: sha, name: 'Hostile' }),
+    ).rejects.toThrow(InvalidUpload)
+    expect(await findAsset(db, workspace.id, brand.id, { sha256: sha })).toBeNull()
+    expect(await storage.exists(originalKey(workspace.id, sha))).toBe(false)
   })
 
   it('refuses a SHA-256 storage keeps no bundled file of, even one the workspace holds as an upload', async () => {

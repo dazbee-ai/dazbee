@@ -4,17 +4,26 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { SET_NOTICES } from './notices.ts'
-import { ICON_SET_IDS, ICON_SETS, STICKER_SET_IDS, STICKER_SETS, stickerPin } from './sets.ts'
+import {
+  ICON_SET_IDS,
+  ICON_SETS,
+  ILLUSTRATION_SET_IDS,
+  ILLUSTRATION_SETS,
+  pinOf,
+  STICKER_SET_IDS,
+  STICKER_SETS,
+} from './sets.ts'
 
 const PACKAGE = join(import.meta.dirname, '..')
 /** A file of this package as text, its line ends as LF whatever the checkout wrote. */
 const read = (...path: string[]) => readFileSync(join(PACKAGE, ...path), 'utf8').replaceAll(/\r\n/g, '\n')
-/** The icon sets' notices, then the sticker sets'. */
+/** The icon sets' notices, then the sticker sets', then the illustration sets'. */
 const icons = SET_NOTICES.slice(0, ICON_SET_IDS.length)
-const stickers = SET_NOTICES.slice(ICON_SET_IDS.length)
+const stickers = SET_NOTICES.slice(ICON_SET_IDS.length, ICON_SET_IDS.length + STICKER_SET_IDS.length)
+const illustrations = SET_NOTICES.slice(ICON_SET_IDS.length + STICKER_SET_IDS.length)
 
 describe('SET_NOTICES', () => {
-  it('lists the icon sets, then the sticker sets', () => {
+  it('lists the icon sets, then the sticker sets, then the illustration sets', () => {
     expect(SET_NOTICES.map(({ title }) => title)).toEqual([
       'Tabler Icons',
       'Phosphor Icons',
@@ -22,6 +31,9 @@ describe('SET_NOTICES', () => {
       'Open Peeps',
       'Humaaans',
       'Open Doodles',
+      'unDraw',
+      'ManyPixels Chromablue',
+      'ManyPixels Birdview',
     ])
   })
 
@@ -42,7 +54,7 @@ describe('SET_NOTICES', () => {
     for (const [i, id] of STICKER_SET_IDS.entries()) {
       const set = STICKER_SETS[id]
       const notice = stickers[i]
-      expect(notice).toMatchObject({ version: stickerPin(set), licence: set.licence, homepage: set.homepage })
+      expect(notice).toMatchObject({ version: pinOf(set), licence: set.licence, homepage: set.homepage })
       expect(notice?.text).toBe(read('sets', id, 'LICENSE'))
     }
     expect(stickers[0]?.paragraphs.slice(0, 2)).toEqual(['MIT License', 'Copyright (c) Microsoft Corporation.'])
@@ -59,9 +71,19 @@ describe('SET_NOTICES', () => {
     }
   })
 
+  it('names each illustration set at its pin, its licence quoted from the page its notice links to', () => {
+    for (const [i, id] of ILLUSTRATION_SET_IDS.entries()) {
+      const set = ILLUSTRATION_SETS[id]
+      const notice = illustrations[i]
+      expect(notice).toMatchObject({ version: pinOf(set), licence: set.licence.name, homepage: set.homepage })
+      expect(notice?.paragraphs[0]).toContain(`read at ${set.licence.url} on `)
+      expect(notice?.paragraphs.join(' ')).toContain('can be used for free')
+    }
+  })
+
   it('gives each licence as paragraphs, each one line, with every word of the text in order', () => {
     for (const { text, paragraphs } of SET_NOTICES) {
-      expect(paragraphs.length).toBeGreaterThanOrEqual(5)
+      expect(paragraphs.length).toBeGreaterThanOrEqual(4)
       for (const paragraph of paragraphs) expect(paragraph).not.toMatch(/\n/)
       expect(paragraphs.join(' ').split(' ')).toEqual(text.split(/\s+/).filter(Boolean))
     }

@@ -6,11 +6,14 @@
     ".": "./src/index.ts",
     "./notices": "./src/notices.ts",
     "./pictures": "./src/pictures.ts",
-    "./archive": "./src/fluent-archive.ts"
+    "./archive": "./src/fluent-archive.ts",
+    "./illustrations": "./src/illustrations.ts",
+    "./illustration-sources": "./src/illustration-sources.ts"
   },
   "scripts": {
     "icons": "node src/write-icons.ts",
     "stickers": "node src/write-stickers.ts",
+    "illustrations": "node src/write-illustrations.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

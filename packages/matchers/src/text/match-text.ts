@@ -2,8 +2,9 @@
 // picture with why. Light's steps: the piece is read, its font fingerprint shortlists faces, the brand
 // kit's first, each face is fitted and ranked, the best two corrected once (and the best kit font) and
 // ranked again, and two finalists verified, a kit font first when it fits nearly as well. Hybrid, the
-// default, then fits the face Light picked finer and finishes it again. A piece read shrunk is matched
-// shrunk, then its answer is scaled back and judged once at full size.
+// default, then fits the face Light picked finer and finishes it again, and gives that answer when it
+// looks the same, else Light's. A piece read shrunk is matched shrunk, then each answer is scaled back
+// and judged at full size.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -63,7 +64,8 @@ const CORRECTED = 2
 /**
  * A job's text piece as one text layer in the piece's pixels when it looks the same; else a picture,
  * `noFont` when no face draws its words, `failed` when the font source gives none of the faces that
- * do, `looksDifferent` otherwise.
+ * do, `looksDifferent` otherwise. Hybrid gives its finer fit when that looks the same, else Light's
+ * answer, so it keeps every piece Light keeps.
  */
 export async function matchText(job: MatchJob, piece: TextPieceOfJob, deps: TextMatcherDeps): Promise<MatchAnswer> {
   return (await matchTextWithFace(job, piece, deps)).answer
@@ -103,7 +105,8 @@ export async function matchTextWithFace(
   const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
   deps.step?.('fitting')
   const drawer = textDrawer(ck, drawnFaces(candidates, faces))
-  let won: Verified | undefined
+  let light: Verified | undefined
+  let finer: Verified | undefined
   try {
     const fits = candidates.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     rankFits(fits, listed.similarities)
@@ -114,18 +117,21 @@ export async function matchTextWithFace(
     const first = pickFit(fits)
     if (first) {
       const finalists = [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)]
-      won = verify(drawer, target, finalists, listed.similarities)
+      light = verify(drawer, target, finalists, listed.similarities)
     }
-    if (won && job.setting === 'hybrid') {
+    if (light && job.setting === 'hybrid') {
       deps.step?.('finerFit')
-      const finer = finerFit(drawer, work, words, won.fit)
-      if (finer !== won.fit) won = finish(drawer, target, finer)
+      const finerFitted = finerFit(drawer, work, words, light.fit)
+      if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }
   } finally {
     drawer.delete()
   }
-  if (!won) return { answer: pictureAnswer('looksDifferent') }
-  const answer = scale === 1 ? won : atWholeSize(ck, won, scale, faces, { ...target, reading: whole })
+  if (!light) return { answer: pictureAnswer('looksDifferent') }
+  const atFullSize = (verified: Verified) =>
+    scale === 1 ? verified : atWholeSize(ck, verified, scale, faces, { ...target, reading: whole })
+  const finerAtFullSize = finer && atFullSize(finer)
+  const answer = finerAtFullSize?.same ? finerAtFullSize : atFullSize(light)
   const face = { family: answer.face.family, weight: answer.face.weight, style: answer.face.style }
   return {
     answer: answer.same

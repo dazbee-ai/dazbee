@@ -16,7 +16,7 @@ import type { SetNotice } from './notices.ts'
 import type { PictureFile } from './pictures.ts'
 import type { IndexedGraphic } from './search.ts'
 import { linePerEntry, tagsOf } from './set-files.ts'
-import { STICKER_SET_IDS, STICKER_SETS, stickerPin, type StickerSetId } from './sets.ts'
+import { pinOf, STICKER_SET_IDS, STICKER_SETS, type StickerSetId } from './sets.ts'
 import sources from './sticker-sources.json' with { type: 'json' }
 
 /** One file of a CC0 set, as `sticker-sources.json` pins it. */
@@ -92,7 +92,7 @@ async function fluent() {
   await writeFile(join(PACKAGE, 'src', 'sticker-pictures.json'), linePerEntry(pictures))
   await writeLicence('fluent-emoji', licence)
   index['fluent-emoji'] = indexed
-  console.log(`fluent-emoji ${stickerPin(set)}: ${indexed.length} emoji, ${pictures.length} pictures listed`)
+  console.log(`fluent-emoji ${pinOf(set)}: ${indexed.length} emoji, ${pictures.length} pictures listed`)
 }
 
 /** A 3D picture as the manifest lists it; throws when it isn't a PNG. */
@@ -116,7 +116,7 @@ async function fromSite(set: StickerSetId, files: SourceFile[], legalCode: strin
   await writeFile(join(out, 'drawing.json'), linePerEntry(drawings))
   await writeLicence(set, `${dedication}\n\n${legalCode}`)
   index[set] = files.map(({ name, tags: own = [] }) => [name, ['drawing'], tagsOf([...own, ...tags])])
-  console.log(`${set} ${stickerPin(STICKER_SETS[set])}: ${files.length} drawings`)
+  console.log(`${set} ${pinOf(STICKER_SETS[set])}: ${files.length} drawings`)
 }
 
 /** The set's folder under `sets/`, emptied, so a file the source no longer has goes. */
@@ -131,7 +131,7 @@ async function emptied(set: StickerSetId): Promise<string> {
 async function writeLicence(set: StickerSetId, text: string) {
   const lf = text.replaceAll(/\r\n/g, '\n')
   await writeFile(join(PACKAGE, 'sets', set, 'LICENSE'), lf)
-  notices[set] = { version: stickerPin(STICKER_SETS[set]), licence: STICKER_SETS[set].licence, text: lf }
+  notices[set] = { version: pinOf(STICKER_SETS[set]), licence: STICKER_SETS[set].licence, text: lf }
 }
 
 /** The bytes at a pinned link; throws when they aren't the bytes pinned. */

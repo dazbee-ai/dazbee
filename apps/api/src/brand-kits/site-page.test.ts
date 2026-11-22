@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { readSitePage } from './site-page.ts'
 
@@ -9,14 +9,84 @@ import { readSitePage } from './site-page.ts'
 const HARBOUR = readFileSync(join(import.meta.dirname, 'test-websites', 'harbour.html'), 'utf8')
 /** The size of a hostile page: the most Dazbee reads. */
 const PAGE = 2 * 1024 * 1024
-/** How long a read in step with its length may take at most: a read that grows with its square takes minutes. */
-const IN_STEP_MS = 2_000
+/** The most `growth` may give: about 10 for a read in step with its length, about 100 for one that grows with its square. */
+const MAX_GROWTH = 30
+/** How many times as long as a page of the sample site of the same length a hostile page may take to read. */
+const MAX_SLOWER = 10
+/** How much processor time `growth` spends sampling before it stops: a read that grows with its square fails after one sample. */
+const SAMPLING_MS = 1_500
+/** How long each half of a sample runs, in ms: many steps of a processor clock that steps by 15.6 ms on Windows. */
+const HALF_SAMPLE_MS = 200
 
-/** How long reading `html` takes, in milliseconds. */
-function timeToRead(html: string): number {
-  const started = performance.now()
-  readSitePage(html, new URL('https://hostile.test/'))
-  return performance.now() - started
+/** Reads `html` as a page of a hostile site. */
+const read = (html: string) => readSitePage(html, new URL('https://hostile.test/'))
+
+/** The processor time this process has used so far, in ms: a busy machine that keeps it waiting adds nothing. */
+function cpuMs(): number {
+  const { user, system } = process.cpuUsage()
+  return (user + system) / 1000
+}
+
+/** How many times `html` reads in `HALF_SAMPLE_MS` of processor time, at least once. */
+function readsInHalfSample(html: string): number {
+  let runs = 0
+  const started = cpuMs()
+  do {
+    read(html)
+    runs++
+  } while (cpuMs() - started < HALF_SAMPLE_MS)
+  return runs
+}
+
+/** How long one read of `html` takes, in processor time, from as many reads as fit in `HALF_SAMPLE_MS`. */
+function timeOfRead(html: string): number {
+  const started = cpuMs()
+  const runs = readsInHalfSample(html)
+  return (cpuMs() - started) / runs
+}
+
+/**
+ * How many times longer reading a page of `length` characters made by `page` takes than reading one a tenth
+ * as long, in processor time. Each sample reads the short page, then the long page, each as often as it reads
+ * in `HALF_SAMPLE_MS`, so both halves take about as long and are slowed alike; each half's time over up to 3
+ * samples counts, since Windows charges processor time by the 15.6 ms tick a thread runs in.
+ */
+function growth(page: (length: number) => string, length: number): number {
+  const short = page(length / 10)
+  const long = page(length)
+  const shortRuns = readsInHalfSample(short)
+  const longRuns = readsInHalfSample(long)
+  let shortTook = 0
+  let longTook = 0
+  const sampling = cpuMs()
+  for (let sample = 0; sample < 3 && cpuMs() - sampling < SAMPLING_MS; sample++) {
+    const before = cpuMs()
+    for (let run = 0; run < shortRuns; run++) read(short)
+    const between = cpuMs()
+    for (let run = 0; run < longRuns; run++) read(long)
+    shortTook += between - before
+    longTook += cpuMs() - between
+  }
+  return longTook / longRuns / (shortTook / shortRuns)
+}
+
+/** How long a page of the sample site repeated to `PAGE` characters takes to read, in processor time. */
+let sitePageMs = 0
+
+beforeAll(() => {
+  const page = HARBOUR.repeat(Math.ceil(PAGE / HARBOUR.length)).slice(0, PAGE)
+  read(page)
+  sitePageMs = timeOfRead(page)
+})
+
+/**
+ * Checks that a hostile page made by `page` reads in step with its length, from pages a hundredth of `PAGE`
+ * to pages a tenth of it, where a read that grows with its square fails in seconds rather than minutes, and
+ * that a page of `PAGE` characters takes at most `MAX_SLOWER` times as long as the sample site's.
+ */
+function expectInStep(page: (length: number) => string) {
+  expect(growth(page, PAGE / 10)).toBeLessThan(MAX_GROWTH)
+  expect(timeOfRead(page(PAGE))).toBeLessThan(MAX_SLOWER * sitePageMs)
 }
 
 describe('readSitePage', () => {
@@ -54,21 +124,21 @@ describe('readSitePage', () => {
 
   it('keeps at most 20 Google Fonts families, however many a page links', () => {
     const link = `<link rel="stylesheet" href="https://fonts.googleapis.com/css?${'family=A|B|C&'.repeat(150)}">`
-    const html = link.repeat(Math.floor(PAGE / link.length))
-    expect(timeToRead(html)).toBeLessThan(IN_STEP_MS)
-    expect(readSitePage(html, new URL('https://hostile.test/')).googleFonts).toHaveLength(20)
+    const page = (length: number) => link.repeat(Math.floor(length / link.length))
+    expectInStep(page)
+    expect(read(page(PAGE)).googleFonts).toHaveLength(20)
   })
 
-  it.each([
-    ['a lone “<” everywhere', '<'.repeat(PAGE)],
-    ['a tag that never ends', `<a ${'b '.repeat(PAGE / 2)}`],
-    ['a quote that never ends', `<a href="${'x'.repeat(PAGE)}`],
-    ['drawings nested without end', '<header><a class="logo" href="/"><svg>'.padEnd(PAGE, '<svg>')],
-    ['a script that never closes, full of “</”', `<script>${'</'.repeat(PAGE / 2)}`],
-    ['a class list of a million names', `<div class="${'c '.repeat(PAGE / 2)}">`],
-    ['many different classes', Array.from({ length: 100_000 }, (_, i) => `<i class="c${i}">`).join('')],
-    ['comments that never end', `<!--${'-'.repeat(PAGE)}`],
-  ])('reads a page of %s in step with its length', (_name, html) => {
-    expect(timeToRead(html)).toBeLessThan(IN_STEP_MS)
+  it.each<[string, (length: number) => string]>([
+    ['a lone “<” everywhere', (length) => '<'.repeat(length)],
+    ['a tag that never ends', (length) => `<a ${'b '.repeat(length / 2)}`],
+    ['a quote that never ends', (length) => `<a href="${'x'.repeat(length)}`],
+    ['drawings nested without end', (length) => '<header><a class="logo" href="/"><svg>'.padEnd(length, '<svg>')],
+    ['a script that never closes, full of “</”', (length) => `<script>${'</'.repeat(length / 2)}`],
+    ['a class list of a million names', (length) => `<div class="${'c '.repeat(length / 2)}">`],
+    ['many different classes', (length) => Array.from({ length: length / 20 }, (_, i) => `<i class="c${i}">`).join('')],
+    ['comments that never end', (length) => `<!--${'-'.repeat(length)}`],
+  ])('reads a page of %s in step with its length', (_name, page) => {
+    expectInStep(page)
   })
 })

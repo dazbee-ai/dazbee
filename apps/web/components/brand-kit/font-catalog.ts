@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { FONT_CATEGORIES, FONT_FACES, type GoogleFamily } from '@dazbee/fonts'
 import { SHIPPED_RANKS } from '@dazbee/fonts/shipped-ranks'
-import { faceWeights, type FontFace, FontFamily } from '@dazbee/schema'
+import { brandCatalog, faceWeights, FontCatalogParts, type FontFace, FontFamily } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import type { Messages } from '@/lib/i18n/index.ts'
@@ -45,21 +45,97 @@ const SHIPPED: FontFamily[] = [...new Set(FONT_FACES.map((f) => f.family))].map(
   })),
 }))
 
+/** The Google list of each address asked for on this page, read once; an address dropped when it didn't come. */
+const googleLists = new Map<string, Promise<FontFamily[] | null>>()
+
+/** The catalog last read on this page for each brand, by `<workspace>/<brand>`. */
+const loadedCatalogs = new Map<string, FontFamily[]>()
+
+/** The families at an address, or null when they don't come whole. */
+async function familiesAt(path: string): Promise<FontFamily[] | null> {
+  const response = await fetch(path).catch(() => null)
+  if (!response?.ok) return null
+  return FontFamily.array().safeParse(await response.json().catch(() => null)).data ?? null
+}
+
+/**
+ * The Google list at its address, whose name is the hash of its bytes: the browser's copy, or the server's when the
+ * browser's isn't those bytes, as a copy kept cut off would be; null when neither is.
+ */
+async function wholeGoogleList(path: string): Promise<FontFamily[] | null> {
+  const hash = /([0-9a-f]+)\.js$/.exec(path)?.[1]
+  for (const cache of ['default', 'reload'] as const) {
+    const response = await fetch(path, { cache }).catch(() => null)
+    if (!response?.ok) return null
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
+    const read = [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    if (!hash || !read.startsWith(hash)) continue
+    return FontFamily.array().safeParse(JSON.parse(new TextDecoder().decode(bytes))).data ?? null
+  }
+  return null
+}
+
+/** The families with the fonts we ship after them; a brand's upload of a shipped family's name is the one it sees. */
+function withShipped(families: FontFamily[]): FontFamily[] {
+  return [...families, ...SHIPPED.filter((s) => !families.some((f) => f.family === s.family))]
+}
+
+/** The Google list at its address, read once for the page and kept by the browser for good. */
+function googleList(path: string): Promise<FontFamily[] | null> {
+  let list = googleLists.get(path)
+  if (!list) {
+    list = wholeGoogleList(path)
+    googleLists.set(path, list)
+    void list.then((families) => {
+      if (!families) googleLists.delete(path)
+    })
+  }
+  return list
+}
+
 /** The brand's catalog, with the shipped fonts last; `refresh` fetches it again after an upload. */
 export function useFontCatalog(workspaceId: string, brandId: string) {
-  const [catalog, setCatalog] = useState<FontFamily[]>(SHIPPED)
+  const [catalog, setCatalog] = useState(() => pageCatalog(workspaceId, brandId))
   const refresh = useCallback(async () => {
     // Offline, the list keeps what it had; it is fetched again each time it opens.
-    const response = await fetch(brandPath(workspaceId, brandId, 'fonts')).catch(() => null)
-    if (!response?.ok) return
-    const families = FontFamily.array().parse(await response.json())
-    // A brand's upload of a shipped family's name is the one it sees.
-    setCatalog([...families, ...SHIPPED.filter((s) => !families.some((f) => f.family === s.family))])
+    const families = await loadCatalog(workspaceId, brandId)
+    if (!families) return
+    setCatalog(withShipped(families))
   }, [workspaceId, brandId])
   useEffect(() => {
     void refresh()
   }, [refresh])
   return { catalog, refresh }
+}
+
+/**
+ * The brand's catalog: the brand's uploads, asked for each time, joined with the Google list its catalog names, which
+ * the browser keeps; the whole catalog from the brand when either doesn't come whole, as while the server is being
+ * swapped. Null offline.
+ */
+export async function loadCatalog(workspaceId: string, brandId: string): Promise<FontFamily[] | null> {
+  const response = await fetch(brandPath(workspaceId, brandId, 'fonts', 'catalog')).catch(() => null)
+  if (!response) return null
+  const parts = response.ok ? FontCatalogParts.safeParse(await response.json().catch(() => null)).data : undefined
+  const list = parts && (await googleList(parts.google))
+  const families =
+    parts && list ? brandCatalog(list, parts.uploads) : await familiesAt(brandPath(workspaceId, brandId, 'fonts'))
+  if (families) loadedCatalogs.set(`${workspaceId}/${brandId}`, families)
+  return families
+}
+
+/**
+ * The catalog a chooser starts with: the brand's as last read on this page, so one opened again offline still lists
+ * it, or only the fonts we ship before the first read; the shipped fonts last.
+ */
+export function pageCatalog(workspaceId: string, brandId: string): FontFamily[] {
+  return withShipped(loadedCatalog(workspaceId, brandId) ?? [])
+}
+
+/** The brand's catalog as last read on this page, for what can't be asked of the brand offline; none before. */
+export function loadedCatalog(workspaceId: string, brandId: string): FontFamily[] | undefined {
+  return loadedCatalogs.get(`${workspaceId}/${brandId}`)
 }
 
 /** A family's category: Google's, or the one we give a font we ship; an upload has none. */

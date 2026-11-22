@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  brandCatalog,
   BrandKit,
   brandVariables,
   EMPTY_BRAND_KIT,
   faceWeights,
+  type FontFamily,
   googleFacePaths,
+  googleFontListPath,
   MEMBER_ROLES,
   roleManages,
   roleWrites,
@@ -190,5 +193,40 @@ describe('googleFacePaths', () => {
   it('gives a brand’s upload and a font we ship none', () => {
     expect(googleFacePaths({ id: 'k3v9x2m1q8z0', source: 'upload' })).toBeNull()
     expect(googleFacePaths({ id: 'builtin-NotoSans-Regular', source: 'builtin' })).toBeNull()
+  })
+})
+
+describe('googleFontListPath', () => {
+  it('names the Google list by the hash of its bytes, at an address kept for good', () => {
+    expect(googleFontListPath('0123456789abcdef01234567')).toBe('/fonts/google/lists/0123456789abcdef01234567.js')
+  })
+})
+
+describe('brandCatalog', () => {
+  const family = (name: string, source: 'google' | 'upload', id: string): FontFamily => ({
+    family: name,
+    source,
+    category: source === 'google' ? 'serif' : null,
+    faces: [{ id, family: name, weight: 400, style: 'normal', source, byteSize: 1 }],
+  })
+
+  it('joins the Google list and the brand’s uploads, families by name', () => {
+    const google = [family('Lora', 'google', 'lora'), family('Raleway', 'google', 'raleway')]
+    const uploads = [family('House Sans', 'upload', 'house'), family('Brand Serif', 'upload', 'brand')]
+    expect(brandCatalog(google, uploads).map((f) => f.family)).toEqual(['Brand Serif', 'House Sans', 'Lora', 'Raleway'])
+  })
+
+  it('gives the brand its upload of a family Google also has, in place of Google’s', () => {
+    const google = [family('Lora', 'google', 'lora'), family('Raleway', 'google', 'raleway')]
+    const catalog = brandCatalog(google, [family('Lora', 'upload', 'mine')])
+    expect(catalog.map((f) => [f.family, f.source, f.faces.map((face) => face.id)])).toEqual([
+      ['Lora', 'upload', ['mine']],
+      ['Raleway', 'google', ['raleway']],
+    ])
+  })
+
+  it('sorts by code units, as the API lists them', () => {
+    const google = [family('lora', 'google', 'a'), family('Zilla', 'google', 'b'), family('Égal', 'google', 'c')]
+    expect(brandCatalog(google, []).map((f) => f.family)).toEqual(['Zilla', 'lora', 'Égal'])
   })
 })

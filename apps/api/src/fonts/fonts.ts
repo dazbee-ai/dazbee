@@ -1,6 +1,10 @@
 // The font catalog (#50): Google Fonts copied into our storage, shared by every workspace, and the
 // fonts each brand uploads, its own. A brand's upload of a family Google also has is the one that
 // brand sees. Every file is read back from our storage, by the editor and by Node renders alike.
+// The Google part is one list for every brand, built once for each set of Google faces and named by
+// the hash of its bytes.
+import { createHash } from 'node:crypto'
+
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
 import { type Db, fontFaces, newId } from '@dazbee/db'
@@ -8,10 +12,12 @@ import { facesToLoad, type FontUse, type GoogleFamily } from '@dazbee/fonts'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
 import {
   byCodeUnits,
+  type FontCatalogParts,
   type FontFace,
   type FontFamily,
   type FontLink,
   type FontUploadTicket,
+  googleFontListPath,
   type StartFontUpload,
 } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
@@ -20,6 +26,12 @@ import { checkUpload, googleFontKey, previewKey, signedLink, signedUpload, uploa
 import { fontPreview, fontScripts, readFontInfo } from './font-file.ts'
 
 export class InvalidFont extends Error {}
+
+/** The Google list: its bytes, JSON, and the hash of those bytes, which names its address. */
+export interface GoogleFontList {
+  hash: string
+  bytes: Uint8Array
+}
 
 type Row = typeof fontFaces.$inferSelect
 
@@ -42,25 +54,77 @@ const visibleTo = (workspaceId: string, brandId: string) =>
 /** The Google Fonts families by name, once looked up. */
 let googleByName: ReadonlyMap<string, GoogleFamily> | undefined
 
+/** The Google list last built or being built, with the fingerprint of the Google faces it is built from. */
+let builtList: { fingerprint: string; list: Promise<GoogleFontList> } | undefined
+
 /**
  * The catalog a brand picks from, families by name; a Google family with its place in Google
- * Fonts' popularity order and its scripts, from `GOOGLE_FONTS`.
+ * Fonts' popularity order and its scripts, from `GOOGLE_FONTS`. Only the named families, when some are named.
  */
-export async function listFonts(db: Db, workspaceId: string, brandId: string): Promise<FontFamily[]> {
-  const rows = await db.select().from(fontFaces).where(visibleTo(workspaceId, brandId))
-  return [...families(rows)]
-    .sort(([a], [b]) => byCodeUnits(a, b))
-    .map(([family, faces]) => {
-      const source = faces[0]?.source ?? 'google'
-      const listed = source === 'google' ? googleFamilies().get(family) : undefined
-      return {
-        family,
-        source,
-        category: faces[0]?.category ?? null,
-        ...(listed ? { rank: listed.rank, scripts: listed.scripts } : {}),
-        faces: faces.map(toFace),
-      }
+export async function listFonts(
+  db: Db,
+  workspaceId: string,
+  brandId: string,
+  names?: readonly string[],
+): Promise<FontFamily[]> {
+  if (names?.length === 0) return []
+  const rows = await db
+    .select()
+    .from(fontFaces)
+    .where(and(visibleTo(workspaceId, brandId), names ? inArray(fontFaces.family, [...names]) : undefined))
+  return toFamilies(rows)
+}
+
+/** The brand's catalog in two parts: the address of the Google list, the same for every brand, and its uploads. */
+export async function fontCatalogParts(db: Db, workspaceId: string, brandId: string): Promise<FontCatalogParts> {
+  const [list, uploads] = await Promise.all([
+    googleFontList(db),
+    db
+      .select()
+      .from(fontFaces)
+      .where(and(eq(fontFaces.workspaceId, workspaceId), eq(fontFaces.brandId, brandId))),
+  ])
+  return { google: googleFontListPath(list.hash), uploads: toFamilies(uploads) }
+}
+
+/**
+ * The Google families, every face of each, as every brand sees them where it has no upload of the family: built
+ * again only once the Google faces are others, which a fingerprint of their ids tells, since a face is never changed,
+ * only added or removed. The same faces always give the same bytes, so every server names the same hash.
+ */
+export async function googleFontList(db: Db): Promise<GoogleFontList> {
+  const [stored] = await db
+    .select({
+      fingerprint: sql<string>`md5(coalesce(string_agg(${fontFaces.id}, ',' order by ${fontFaces.id} collate "C"), ''))`,
     })
+    .from(fontFaces)
+    .where(eq(fontFaces.source, 'google'))
+  const fingerprint = stored?.fingerprint ?? ''
+  if (builtList?.fingerprint === fingerprint) return builtList.list
+  // Asks at the same moment wait for the one build.
+  const list = buildGoogleFontList(db)
+  builtList = { fingerprint, list }
+  list.catch(() => {
+    if (builtList?.list === list) builtList = undefined
+  })
+  return list
+}
+
+/** The Google list last built, without asking the database; none before the first is built. */
+export async function lastGoogleFontList(): Promise<GoogleFontList | undefined> {
+  return builtList?.list.catch(() => undefined)
+}
+
+/**
+ * The Google list of the faces stored now, by id, so the same faces always come in the same order. A face added
+ * between the fingerprint and this read is in the list already; the next fingerprint builds it again.
+ */
+async function buildGoogleFontList(db: Db): Promise<GoogleFontList> {
+  const rows = (await db.select().from(fontFaces).where(eq(fontFaces.source, 'google'))).sort((a, b) =>
+    byCodeUnits(a.id, b.id),
+  )
+  const bytes = new TextEncoder().encode(JSON.stringify(toFamilies(rows)))
+  return { hash: createHash('sha256').update(bytes).digest('hex').slice(0, 32), bytes }
 }
 
 /** A face the brand can use and short-lived URLs to its file and preview, or null. */
@@ -245,6 +309,23 @@ function families(rows: Row[]): Map<string, Row[]> {
   }
   for (const faces of out.values()) faces.sort(byFace)
   return out
+}
+
+/** The catalog's families of these rows, by name in code-unit order, each face as `toFace` gives it. */
+function toFamilies(rows: Row[]): FontFamily[] {
+  return [...families(rows)]
+    .sort(([a], [b]) => byCodeUnits(a, b))
+    .map(([family, faces]) => {
+      const source = faces[0]?.source ?? 'google'
+      const listed = source === 'google' ? googleFamilies().get(family) : undefined
+      return {
+        family,
+        source,
+        category: faces[0]?.category ?? null,
+        ...(listed ? { rank: listed.rank, scripts: listed.scripts } : {}),
+        faces: faces.map(toFace),
+      }
+    })
 }
 
 /** `GOOGLE_FONTS` by family name. */

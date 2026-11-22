@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
+import * as fontCatalog from '@/components/brand-kit/font-catalog.ts'
+
 import { fontLoader } from './editor-io.ts'
 
 const CATALOG: FontFamily[] = [
@@ -21,20 +23,25 @@ const CATALOG: FontFamily[] = [
   },
 ]
 
-/** Answers the catalog at the brand's fonts route and three bytes anywhere else, noting each address asked. */
-function fakeFetch() {
+/**
+ * Answers the families asked for at the brand's fonts route, from `catalog`, and three bytes anywhere else, noting
+ * each address asked.
+ */
+function fakeFetch(catalog = CATALOG) {
   const asked: string[] = []
   vi.stubGlobal('fetch', (url: string) => {
     asked.push(url)
-    return Promise.resolve(
-      url.endsWith('/fonts') ? Response.json(CATALOG) : new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
-    )
+    const { pathname, searchParams } = new URL(url, 'https://app.example')
+    if (!pathname.endsWith('/fonts')) return Promise.resolve(new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+    const families = searchParams.getAll('family')
+    return Promise.resolve(Response.json(catalog.filter((f) => families.includes(f.family))))
   })
   return asked
 }
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('fontLoader', () => {
@@ -44,7 +51,7 @@ describe('fontLoader', () => {
     const [face] = await fontFaces(['Lora'])
     if (!face) throw new Error('Lora is not in the catalog')
     expect(await fontFile(face)).toEqual(new Uint8Array([1, 2, 3]))
-    expect(asked).toEqual(['/w/w1/brands/b1/fonts', '/fonts/google/faces/lora00000400.ttf'])
+    expect(asked).toEqual(['/w/w1/brands/b1/fonts?family=Lora', '/fonts/google/faces/lora00000400.ttf'])
   })
 
   it('loads a brand’s upload through the brand’s route', async () => {
@@ -53,6 +60,41 @@ describe('fontLoader', () => {
     const [face] = await fontFaces(['House Sans'])
     if (!face) throw new Error('House Sans is not in the catalog')
     await fontFile(face)
-    expect(asked).toEqual(['/w/w1/brands/b1/fonts', '/w/w1/brands/b1/fonts/house0000400'])
+    expect(asked).toEqual(['/w/w1/brands/b1/fonts?family=House+Sans', '/w/w1/brands/b1/fonts/house0000400'])
+  })
+
+  it('asks the brand for only the families a design uses, and again for a family it uploads later', async () => {
+    const asked = fakeFetch()
+    const { fontFaces } = fontLoader('w1', 'b1')
+    expect((await fontFaces(['Lora', 'Gone Sans'])).map((face) => face.id)).toEqual(['lora00000400'])
+    const uploaded: FontFamily = {
+      family: 'New Upload',
+      source: 'upload',
+      category: null,
+      faces: [
+        { id: 'newup0000400', family: 'New Upload', weight: 400, style: 'normal', source: 'upload', byteSize: 3 },
+      ],
+    }
+    fakeFetch([...CATALOG, uploaded])
+    expect((await fontFaces(['New Upload'])).map((face) => face.id)).toEqual(['newup0000400'])
+    expect(asked).toEqual(['/w/w1/brands/b1/fonts?family=Lora&family=Gone+Sans'])
+  })
+
+  it('asks for a design of many families in a few asks, each under the most the API takes', async () => {
+    const asked = fakeFetch()
+    const { fontFaces } = fontLoader('w1', 'b1')
+    const families = [...Array.from({ length: 119 }, (_, i) => `Family ${i}`), 'Lora']
+    expect((await fontFaces(families)).map((face) => face.id)).toEqual(['lora00000400'])
+    expect(asked.map((url) => new URL(url, 'https://app.example').searchParams.getAll('family').length)).toEqual([
+      100, 20,
+    ])
+  })
+
+  it('answers from the catalog the page read last when the brand can’t be asked, as offline', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    const { fontFaces } = fontLoader('w1', 'b1')
+    await expect(fontFaces(['Lora'])).rejects.toThrow('Failed to fetch')
+    vi.spyOn(fontCatalog, 'loadedCatalog').mockReturnValue(CATALOG)
+    expect((await fontFaces(['Lora', 'Gone Sans'])).map((face) => face.id)).toEqual(['lora00000400'])
   })
 })

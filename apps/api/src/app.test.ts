@@ -67,6 +67,7 @@ const OUTSIDE_A_WORKSPACE = [
   '/access-requests',
   '/uploads/:token',
   '/fonts/google/faces/:name',
+  '/fonts/google/lists/:name',
   '/fonts/google/*',
 ]
 
@@ -81,6 +82,7 @@ const OWNER_REFUSAL = 'Only the Owner can hand over Owner'
 const MIDDLEWARE_PATHS = [
   '/*',
   '/admin/*',
+  '/fonts/google/*',
   '/me',
   '/me/*',
   '/agent/*',
@@ -145,7 +147,7 @@ describe('health', () => {
 })
 
 describe('roles', () => {
-  it('has no handler for every method, only the agents’ gate and the session and brand checks, so the sweeps reach every handler', () => {
+  it('has no handler for every method, only the agents’ gate, the session and brand checks and what the Google addresses keep, so the sweeps reach every handler', () => {
     expect(app.routes.filter((r) => r.method === 'ALL').map((r) => r.path)).toEqual(MIDDLEWARE_PATHS)
   })
 

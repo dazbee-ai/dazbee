@@ -142,3 +142,42 @@ describe('shaping matches hb-shape', () => {
     }
   })
 })
+
+describe('shaped runs say how SkParagraph made up a style (#225)', () => {
+  /** Each run of the text's one line, set in the family at the weight and slant given. */
+  function runs(family: string, weight: number, italic: boolean, text: string) {
+    const builder = ck.ParagraphBuilder.MakeFromFontCollection(
+      new ck.ParagraphStyle({
+        textStyle: new ck.TextStyle({
+          fontFamilies: [family],
+          fontSize: 40,
+          fontStyle: { weight: { value: weight }, slant: italic ? ck.FontSlant.Italic : ck.FontSlant.Upright },
+          color: ck.BLACK,
+        }),
+      }),
+      resources.fonts,
+    )
+    builder.addText(text)
+    const paragraph = builder.build()
+    builder.delete()
+    paragraph.layout(1e9)
+    const found = paragraph.getShapedLines().flatMap((line) => line.runs)
+    paragraph.delete()
+    return found.map(({ fakeBold, fakeItalic, typeface }) => ({ fakeBold, fakeItalic, typeface: typeface !== null }))
+  }
+
+  it('slants a family with no italic face set italic', () => {
+    // Noto Sans ships no italic face.
+    expect(runs('Noto Sans', 400, true, 'Sale')).toEqual([{ fakeBold: false, fakeItalic: true, typeface: true }])
+    expect(runs('Noto Sans', 400, false, 'Sale')).toEqual([{ fakeBold: false, fakeItalic: false, typeface: true }])
+  })
+
+  it('emboldens a weight 200 or more past the heaviest face, as SkParagraph does', () => {
+    // Noto Naskh Arabic's heaviest face is 700, Noto Sans's 800.
+    expect(runs('Noto Naskh Arabic', 900, false, 'سلام')).toEqual([
+      { fakeBold: true, fakeItalic: false, typeface: true },
+    ])
+    expect(runs('Noto Sans', 900, false, 'Sale')).toEqual([{ fakeBold: false, fakeItalic: false, typeface: true }])
+    expect(runs('Noto Sans', 700, false, 'Sale')).toEqual([{ fakeBold: false, fakeItalic: false, typeface: true }])
+  })
+})

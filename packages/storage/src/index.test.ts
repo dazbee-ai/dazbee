@@ -29,6 +29,15 @@ describe('openStorage', () => {
     expect(await storage.get(key)).toEqual(bytes)
   })
 
+  it('streams an object with its size, and gives null for one it lacks', async () => {
+    const key = `test/${randomUUID()}`
+    expect(await storage.stream(key)).toBeNull()
+    await storage.put(key, bytes, 'image/png')
+    const stored = await storage.stream(key)
+    expect(stored?.byteSize).toBe(bytes.length)
+    expect(new Uint8Array(await new Response(stored?.body).arrayBuffer())).toEqual(bytes)
+  })
+
   it('takes an upload through a signed URL, and serves it through another', async () => {
     const key = `test/${randomUUID()}`
     const put = await fetch(await storage.signedPut(key, 'image/png', bytes.length, 60), {

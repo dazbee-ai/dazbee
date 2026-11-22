@@ -79,6 +79,25 @@ export async function fontLink(
 }
 
 /**
+ * The file or preview of a Google face, streamed from our storage, or null for a face that isn't one of the
+ * Google catalog's: a brand's upload is never read here.
+ */
+export async function googleFaceFile(
+  db: Db,
+  storage: Storage,
+  faceId: string,
+  kind: 'file' | 'preview',
+): ReturnType<Storage['stream']> {
+  const [row] = await db
+    .select({ sha256: fontFaces.sha256 })
+    .from(fontFaces)
+    .where(and(eq(fontFaces.id, faceId), eq(fontFaces.source, 'google')))
+  if (!row) return null
+  const key = googleFontKey(row.sha256)
+  return storage.stream(kind === 'file' ? key : previewKey(key))
+}
+
+/**
  * The faces that draw these uses of the families as the brand sees them (`facesToLoad`), with their
  * bytes from our storage: what a render in Node registers, the same files the editor loads.
  * Each family's faces come in the catalog's order. Families the catalog doesn't have are left out,

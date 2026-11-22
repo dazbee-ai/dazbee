@@ -373,6 +373,12 @@ export type FontUploadTicket = z.infer<typeof FontUploadTicket>
 export const RecordFont = z.object({ sha256: Sha256 })
 export type RecordFont = z.infer<typeof RecordFont>
 
+/**
+ * Where the app serves Google faces' files and previews to anyone, by face id: a face's file never changes (a new
+ * file is a new face), so its address never does either, and browsers and Cloudflare keep it for good.
+ */
+export const GOOGLE_FONT_PATH = '/fonts/google/'
+
 /** A face and short-lived URLs to read its file and its preview, the family's name drawn in it as a PNG. */
 export const FontLink = z.object({
   face: FontFace,
@@ -594,6 +600,15 @@ export function faceWeights(face: { weight: number; weights?: { min: number; max
   const weights = new Set([range.min, face.weight, range.max])
   for (let w = Math.ceil(range.min / 100) * 100; w <= range.max; w += 100) weights.add(w)
   return [...weights].sort((a, b) => a - b)
+}
+
+/**
+ * A Google face's file and preview at their permanent addresses (`GOOGLE_FONT_PATH`); null for a brand's upload,
+ * which loads through its brand, and a font we ship.
+ */
+export function googleFacePaths(face: { id: string; source: FontSource }): { file: string; preview: string } | null {
+  if (face.source !== 'google') return null
+  return { file: `${GOOGLE_FONT_PATH}${face.id}.ttf`, preview: `${GOOGLE_FONT_PATH}${face.id}.png` }
 }
 
 /**

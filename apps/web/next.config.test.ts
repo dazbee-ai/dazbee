@@ -1,6 +1,7 @@
 // The headers the web app's Next config sends: no other site may frame any page, so none can lay the Connect an
 // agent page under its own and have Allow pressed, and that page names no referrer, so no address it leaves holds
-// its sign-in request. With MCP_DEV_URL set, the MCP server's paths and an agent's upload links are passed on.
+// its sign-in request, and the fonts we ship are kept for good. The Google faces' files are passed on to the
+// API; with MCP_DEV_URL set, the MCP server's paths and an agent's upload links are too.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import config from './next.config.ts'
@@ -23,6 +24,17 @@ describe('config', () => {
     ])
   })
 
+  it('has browsers and Cloudflare keep the fonts we ship for good, and nothing else under /vendor/', async () => {
+    const rules = (await config.headers?.()) ?? []
+
+    expect(rules.filter((rule) => rule.source.startsWith('/vendor/')).map((rule) => rule.source)).toEqual([
+      '/vendor/fonts/:file',
+    ])
+    expect(rules.find((rule) => rule.source === '/vendor/fonts/:file')?.headers).toEqual([
+      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+    ])
+  })
+
   describe('rewrites', () => {
     afterEach(() => {
       vi.unstubAllEnvs()
@@ -37,9 +49,14 @@ describe('config', () => {
       expect(before).toContainEqual({ source: '/uploads/:token', destination: 'http://localhost:8787/uploads/:token' })
     })
 
-    it('passes nothing on without MCP_DEV_URL', async () => {
+    it('passes only the Google faces’ files on to the API without MCP_DEV_URL', async () => {
       vi.stubEnv('MCP_DEV_URL', '')
-      expect(await config.rewrites?.()).toEqual([])
+      vi.stubEnv('API_URL', 'http://localhost:8787/')
+      expect(await config.rewrites?.()).toEqual({
+        beforeFiles: [{ source: '/fonts/google/:name', destination: 'http://localhost:8787/fonts/google/:name' }],
+        afterFiles: [],
+        fallback: [],
+      })
     })
   })
 })

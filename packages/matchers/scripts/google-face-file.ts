@@ -3,7 +3,7 @@
 
 import { join } from 'node:path'
 
-import { GOOGLE_FONTS, googleFaces,type GoogleFamily } from '@dazbee/fonts/google'
+import { GOOGLE_FONTS, googleFaces, type GoogleFamily } from '@dazbee/fonts/google'
 
 import { faceOfKey, parseFontKey } from '../src/text/font-key.ts'
 

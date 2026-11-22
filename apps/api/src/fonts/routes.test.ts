@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import { fontFaces, newId } from '@dazbee/db'
 import { GOOGLE_FONTS } from '@dazbee/fonts/google'
+import { matchCopy } from '@dazbee/fonts/match-copy'
 import { variableTestFont } from '@dazbee/fonts/test-fonts'
 import {
   brandCatalog,
@@ -72,6 +73,15 @@ describe('fonts', { timeout: 30_000 }, () => {
     }
   }
 
+  /** Our storage, naming no size of what it holds, as when it compresses what it sends. */
+  const unsized = {
+    ...storage,
+    stream: async (key: string) => {
+      const stored = await storage.stream(key)
+      return stored && { ...stored, byteSize: null }
+    },
+  }
+
   /** The id of the stand-in Google family's face of this weight, once copied. */
   async function googleFaceId(weight: number) {
     const [row] = await db
@@ -127,13 +137,6 @@ describe('fonts', { timeout: 30_000 }, () => {
 
   it('serves a face’s whole file when storage names no size, as when it compresses what it sends', async () => {
     const id = await googleFaceId(400)
-    const unsized = {
-      ...storage,
-      stream: async (key: string) => {
-        const stored = await storage.stream(key)
-        return stored && { ...stored, byteSize: null }
-      },
-    }
     const file = await googleFontRoutes({ db, storage: unsized }).request(`/fonts/google/faces/${id}.ttf`)
     expect(file.headers.get('content-length')).toBe(String(regular.length))
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(regular)
@@ -144,10 +147,32 @@ describe('fonts', { timeout: 30_000 }, () => {
     ])
   })
 
+  it('serves a Google face’s match copy to anyone with the faces’ headers, its length named when storage names none', async () => {
+    const id = await googleFaceId(400)
+    const copy = matchCopy(regular) ?? new Uint8Array()
+    for (const routes of [googleFontRoutes({ db, storage }), googleFontRoutes({ db, storage: unsized })]) {
+      const file = await routes.request(`/fonts/google/match/${id}.ttf`)
+      expect(file.status).toBe(200)
+      expect(Object.fromEntries(file.headers)).toMatchObject({
+        'content-type': 'font/ttf',
+        'content-length': String(copy.length),
+        'cache-control': 'public, max-age=31536000, immutable',
+        'cross-origin-resource-policy': 'same-origin',
+        'x-content-type-options': 'nosniff',
+      })
+      expect(new Uint8Array(await file.arrayBuffer())).toEqual(copy)
+      const head = await routes.request(`/fonts/google/match/${id}.ttf`, { method: 'HEAD' })
+      expect(head.status).toBe(200)
+      expect(head.headers.get('content-length')).toBe(String(copy.length))
+      expect(await head.text()).toBe('')
+    }
+  })
+
   it('serves no brand’s upload, no face it lacks and no other name at the Google addresses, and keeps none of those answers', async () => {
     // Another workspace's, so the uploads below stay brand A's only Noto Sans.
     const { face } = await upload('b', otherBrand.id, regular)
     const google400 = await googleFaceId(400)
+    const escaped = `%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}`
     for (const path of [
       `/fonts/google/faces/${face.id}.ttf`,
       `/fonts/google/faces/${face.id}.png`,
@@ -159,12 +184,29 @@ describe('fonts', { timeout: 30_000 }, () => {
       `/fonts/google/faces/${google400}.ttf?`,
       `/fonts/google/${google400}.ttf`,
       `/fonts/google/sources/${google400}.ttf`,
-      `/fonts/google/faces/%${google400.charCodeAt(0).toString(16)}${google400.slice(1)}.ttf`,
+      `/fonts/google/faces/${escaped}.ttf`,
+      `/fonts/google/match/${face.id}.ttf`,
+      '/fonts/google/match/nosuchface00.ttf',
+      `/fonts/google/match/${google400}.png`,
+      `/fonts/google/match/${google400}`,
+      `/fonts/google/match/${google400}.ttf/`,
+      `/fonts/google/match/${google400}.ttf?`,
+      `/fonts/google/match//${google400}.ttf`,
+      `/fonts/google/match/${escaped}.ttf`,
+      '/fonts/google/match/',
     ]) {
       const refused = await app.request(path)
       expect({ path, status: refused.status }).toEqual({ path, status: 404 })
       expect(refused.headers.get('cache-control')).toBe('no-store')
     }
+    // A face whose match copy isn't made yet.
+    const uncopied = {
+      ...storage,
+      stream: async (key: string) => (key.includes('/match/') ? null : storage.stream(key)),
+    }
+    const notYet = await googleFontRoutes({ db, storage: uncopied }).request(`/fonts/google/match/${google400}.ttf`)
+    expect(notYet.status).toBe(404)
+    expect(notYet.headers.get('cache-control')).toBe('no-store')
   })
 
   it('refuses an address that asks for more files than it may in a minute', async () => {

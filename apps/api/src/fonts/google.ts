@@ -6,9 +6,17 @@ import { and, eq } from 'drizzle-orm'
 import { type Db, fontFaces, newId } from '@dazbee/db'
 import { type GoogleFamily, type GoogleFile, variesInWeight } from '@dazbee/fonts'
 import { googleFileUrl } from '@dazbee/fonts/google'
+import { matchCopy } from '@dazbee/fonts/match-copy'
 import type { Storage } from '@dazbee/storage'
 
-import { GOOGLE_SOURCES, googleFontKey, googleSourceKey, previewKey } from '../storage-keys.ts'
+import {
+  GOOGLE_MATCH_COPIES,
+  GOOGLE_SOURCES,
+  googleFontKey,
+  googleMatchKey,
+  googleSourceKey,
+  previewKey,
+} from '../storage-keys.ts'
 import { fontPreview, readFontInfo, withoutSvgTable } from './font-file.ts'
 import { replaceFace } from './fonts.ts'
 
@@ -21,6 +29,13 @@ export interface FamilyCopy {
   bytes: number
   upToDate: number
   failed: string | null
+}
+
+/** What making one face's match copy stored: its size and the face's, and whether HarfBuzz couldn't cut the face, so the copy is the whole file. */
+export interface MatchCopyMade {
+  face: number
+  copy: number
+  whole: boolean
 }
 
 /** How many times a file is fetched before the family is given up on. */
@@ -39,10 +54,26 @@ export async function copiedSources(storage: Storage): Promise<Map<string, strin
   return copied
 }
 
+/** The SHA-256 of each Google face's file that has no match copy in storage yet, each once. */
+export async function facesWithoutMatchCopy(db: Db, storage: Storage): Promise<string[]> {
+  const faces = await db
+    .selectDistinct({ sha256: fontFaces.sha256 })
+    .from(fontFaces)
+    .where(eq(fontFaces.source, 'google'))
+  const made = new Set((await storage.list(GOOGLE_MATCH_COPIES)).map((key) => key.slice(GOOGLE_MATCH_COPIES.length)))
+  return faces.map((face) => face.sha256).filter((sha256) => !made.has(sha256))
+}
+
+/** Makes the match copy of the Google face's file stored under `sha256` and stores it; null when storage lacks the file. */
+export async function makeMatchCopy(storage: Storage, sha256: string): Promise<MatchCopyMade | null> {
+  const bytes = await storage.get(googleFontKey(sha256))
+  return bytes && storeMatchCopy(storage, sha256, bytes)
+}
+
 /**
  * Copies one Google Fonts family into our storage: each file the list names, from google/fonts at
  * the list's commit, checked against its git blob, without the SVG glyphs CanvasKit never draws,
- * with a preview, and recorded as the list names it (a variable file with its weight range). A
+ * with a preview and a match copy, and recorded as the list names it (a variable file with its weight range). A
  * file copied before whose face is still recorded is left as it is, so a run stopped part way
  * picks up where it stopped. A file that can't be fetched or read stops the family, the files
  * before it kept, and says why.
@@ -100,6 +131,7 @@ async function copyFile(
   const preview = await fontPreview(bytes, { family: family.family, weight, style: face.style }, family.scripts)
   await storage.put(key, bytes, 'font/ttf')
   await storage.put(previewKey(key), preview, 'image/png')
+  await storeMatchCopy(storage, sha256, bytes)
   const replaced = await replaceFace(db, {
     id: newId(),
     workspaceId: null,
@@ -122,8 +154,18 @@ async function copyFile(
 }
 
 /**
+ * Stores the match copy of a Google face's file `bytes`, stored under `sha256`: HarfBuzz's cut, or the whole file when
+ * HarfBuzz can't cut it, so every face has a copy that draws as it does.
+ */
+async function storeMatchCopy(storage: Storage, sha256: string, bytes: Uint8Array): Promise<MatchCopyMade> {
+  const copy = matchCopy(bytes) ?? bytes
+  await storage.put(googleMatchKey(sha256), copy, 'font/ttf')
+  return { face: bytes.length, copy: copy.length, whole: copy === bytes }
+}
+
+/**
  * Deletes from storage the files of the Google faces just replaced that no Google face holds any
- * more, with their previews and the notes that they were copied, so a new commit's files take the
+ * more, with their previews, match copies and the notes that they were copied, so a new commit's files take the
  * place of the old ones rather than adding to them.
  */
 async function removeUnused(db: Db, storage: Storage, replaced: string[], copied: Map<string, string>) {
@@ -136,6 +178,7 @@ async function removeUnused(db: Db, storage: Storage, replaced: string[], copied
     if (held) continue
     await storage.delete(googleFontKey(sha256))
     await storage.delete(previewKey(googleFontKey(sha256)))
+    await storage.delete(googleMatchKey(sha256))
     for (const [blob, stored] of copied)
       if (stored === sha256) {
         await storage.delete(googleSourceKey(blob, sha256))

@@ -4,8 +4,8 @@
 // /health, sign-in's /auth/* (with the development invites' accept route), the person's own /me and
 // /me/*, early access's /admin/*, for admins only, its public request to join, /access-requests, the file
 // sent to an agent's upload link, PUT /uploads/:token, whose token is its only key, and the Google faces' files
-// and previews, GET /fonts/google/faces/:name, and their list, GET /fonts/google/lists/:name, and the matchers'
-// files, GET /matchers/:name, which anyone may read. A person
+// and previews, GET /fonts/google/faces/:name, their match copies, GET /fonts/google/match/:name, and their list,
+// GET /fonts/google/lists/:name, and the matchers' files, GET /matchers/:name, which anyone may read. A person
 // whose account is deleted, or whose access an admin removed, is answered 401 on every route that needs a
 // session. Every
 // route below a brand reads its brand from `brandScope`, and an `Invalid*` error answers 400 here, and a

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Code in Dazbee that is ported from other projects, and model weights it starts from, with the notice each project's licence asks to keep.
+Code in Dazbee that is ported from other projects, libraries whose licence asks for a notice, and model weights it starts from, with the notice each project's licence asks to keep.
 
 ## FigCraft
 
@@ -54,3 +54,31 @@ The text matcher's model, `text-model.onnx` in the release `packages/matchers/sr
 The model card, read again on 2026-11-22, says in its header `license: apache-2.0` and `datasets: imagenet-1k`, and in its text: "A ConvNeXt image classification model. Trained in `timm` on ImageNet-1k by Ross Wightman." It names the paper "A ConvNet for the 2020s" (Liu, Mao, Wu, Feichtenhofer, Darrell and Xie, CVPR 2022) and asks timm to be cited as Ross Wightman, "PyTorch Image Models", 2019, doi:10.5281/zenodo.4414861.
 
 The weights were trained on ImageNet-1k, whose terms of access let a researcher "use the Database only for non-commercial research and educational purposes". Whether those terms reach weights trained on it is not settled; the owner accepted that grey area for the model's accuracy on 2026-11-22 (ADR-0020). A model trained without ImageNet weights replaces it if that changes.
+
+## harfbuzzjs
+
+harfbuzzjs 1.6.4 (https://github.com/harfbuzz/harfbuzzjs), used under its MIT licence: `packages/fonts/src/match-copy.ts` cuts each Google face to its match copy with the HarfBuzz subsetter that harfbuzzjs builds as WebAssembly (`harfbuzz-subset.wasm`). HarfBuzz itself (https://github.com/harfbuzz/harfbuzz) is under its own MIT-style licence, the "Old MIT" licence in its `COPYING`.
+
+```text
+MIT License
+
+Copyright (c) 2019-2026 The harfbuzzjs project authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

@@ -383,6 +383,13 @@ export type RecordFont = z.infer<typeof RecordFont>
 export const GOOGLE_FONT_PATH = '/fonts/google/faces/'
 
 /**
+ * Where the app serves Google faces' match copies to anyone, by face id, as `<face id>.ttf`: a face cut to the characters
+ * ads use, which the text matcher loads in place of the whole face. A face's copy never changes, so browsers and
+ * Cloudflare keep it for good.
+ */
+export const GOOGLE_MATCH_PATH = '/fonts/google/match/'
+
+/**
  * Where the app serves the Google list, the Google part of the font catalog, to anyone, by the hash of its bytes: the
  * list at one address never changes, so browsers and Cloudflare keep it for good. It is JSON, at a `.js` name because
  * Cloudflare keeps files at its edge by their extension, and `.json` is not one it keeps.
@@ -629,12 +636,19 @@ export function faceWeights(face: { weight: number; weights?: { min: number; max
 }
 
 /**
- * A Google face's file and preview at their permanent addresses (`GOOGLE_FONT_PATH`); null for a brand's upload,
- * which loads through its brand, and a font we ship.
+ * A Google face's file, preview and match copy at their permanent addresses (`GOOGLE_FONT_PATH`, `GOOGLE_MATCH_PATH`);
+ * null for a brand's upload, which loads through its brand, and a font we ship.
  */
-export function googleFacePaths(face: { id: string; source: FontSource }): { file: string; preview: string } | null {
+export function googleFacePaths(face: {
+  id: string
+  source: FontSource
+}): { file: string; preview: string; match: string } | null {
   if (face.source !== 'google') return null
-  return { file: `${GOOGLE_FONT_PATH}${face.id}.ttf`, preview: `${GOOGLE_FONT_PATH}${face.id}.png` }
+  return {
+    file: `${GOOGLE_FONT_PATH}${face.id}.ttf`,
+    preview: `${GOOGLE_FONT_PATH}${face.id}.png`,
+    match: `${GOOGLE_MATCH_PATH}${face.id}.ttf`,
+  }
 }
 
 /** The address of the Google list whose bytes hash to `hash`, kept for good (`GOOGLE_FONT_LIST_PATH`). */

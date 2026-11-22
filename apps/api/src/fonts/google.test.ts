@@ -3,13 +3,14 @@ import { eq, inArray } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { fontFaces } from '@dazbee/db'
+import { matchCopy } from '@dazbee/fonts/match-copy'
 import { emojiTestFont, variableTestFont } from '@dazbee/fonts/test-fonts'
 
-import { googleFontKey, googleSourceKey, previewKey } from '../storage-keys.ts'
+import { googleFontKey, googleMatchKey, googleSourceKey, previewKey } from '../storage-keys.ts'
 import { db, run, storage } from '../test-api.ts'
 import { fakeGoogleFonts, fontFile, googleFamily, sha256 } from '../test-files.ts'
 import { withoutSvgTable } from './font-file.ts'
-import { copiedSources, importGoogleFamily } from './google.ts'
+import { copiedSources, facesWithoutMatchCopy, importGoogleFamily, makeMatchCopy } from './google.ts'
 
 // Copying a font draws its preview with CanvasKit, which takes seconds on a busy two-core CI runner.
 describe('importGoogleFamily', { timeout: 30_000 }, () => {
@@ -31,7 +32,7 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     await db.delete(fontFaces).where(inArray(fontFaces.family, families))
   })
 
-  it('copies each file with a preview and records its face, then leaves the family as it is without fetching', async () => {
+  it('copies each file with a preview and a match copy and records its face, then leaves the family as it is without fetching', async () => {
     const google = family('Copied Sans', [
       { file: 'CopiedSans-Regular.ttf', bytes: regular, weight: 400 },
       { file: 'CopiedSans-Bold.ttf', bytes: bold, weight: 700 },
@@ -51,6 +52,7 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     )
     expect(await storage.get(googleFontKey(sha256(bold)))).toEqual(bold)
     expect(await storage.exists(previewKey(googleFontKey(sha256(bold))))).toBe(true)
+    expect(await storage.get(googleMatchKey(sha256(bold)))).toEqual(matchCopy(bold))
 
     // A new run reads what was copied from storage, as the import does when it starts.
     fake.asked.length = 0
@@ -112,13 +114,14 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     expect(done).toMatchObject({ copied: 1, failed: null })
   })
 
-  it('deletes the file a new commit’s file takes the place of, with its preview and note', async () => {
+  it('deletes the file a new commit’s file takes the place of, with its preview, match copy and note', async () => {
     // Bytes of this run alone: Noto Sans with this run's id after its tables, which a font reader ignores.
     const old = new Uint8Array([...regular, ...new TextEncoder().encode(`run ${run}`)])
     const before = family('Updated Sans', [{ file: 'UpdatedSans-Regular.ttf', bytes: old, weight: 400 }])
     const copied = new Map<string, string>()
     await importGoogleFamily(db, storage, before, { copied, get: fakeGoogleFonts(before).get })
     expect(await storage.exists(googleFontKey(sha256(old)))).toBe(true)
+    expect(await storage.exists(googleMatchKey(sha256(old)))).toBe(true)
     // The next commit's Regular has other bytes.
     const after = googleFamily(before.family, [{ file: 'UpdatedSans-Regular.ttf', bytes: bold, weight: 400 }])
     expect(await importGoogleFamily(db, storage, after, { copied, get: fakeGoogleFonts(after).get })).toMatchObject({
@@ -127,6 +130,7 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     expect((await faces('Updated Sans')).map((f) => f.sha256)).toEqual([sha256(bold)])
     expect(await storage.exists(googleFontKey(sha256(old)))).toBe(false)
     expect(await storage.exists(previewKey(googleFontKey(sha256(old))))).toBe(false)
+    expect(await storage.exists(googleMatchKey(sha256(old)))).toBe(false)
     expect(await storage.exists(googleSourceKey(before.faces[0]?.blob ?? '', sha256(old)))).toBe(false)
     expect(copied.has(before.faces[0]?.blob ?? '')).toBe(false)
     expect(await storage.exists(googleFontKey(sha256(bold)))).toBe(true)
@@ -160,5 +164,39 @@ describe('importGoogleFamily', { timeout: 30_000 }, () => {
     expect((await faces('Glyph Emoji'))[0]).toMatchObject({ sha256: sha256(kept), byteSize: kept.length })
     expect(await storage.get(googleFontKey(sha256(kept)))).toEqual(kept)
     expect(await storage.exists(googleSourceKey(google.faces[0]?.blob ?? '', sha256(kept)))).toBe(true)
+  })
+})
+
+describe('facesWithoutMatchCopy', { timeout: 30_000 }, () => {
+  // Bytes of this run alone: Noto Sans with this run's id after its tables, which a font reader ignores.
+  const bytes = new Uint8Array([...fontFile('NotoSans-Regular.ttf'), ...new TextEncoder().encode(`matched ${run}`)])
+  const google = googleFamily(`Matched Sans ${run}`, [{ file: 'MatchedSans-Regular.ttf', bytes, weight: 400 }])
+
+  afterAll(async () => {
+    await db.delete(fontFaces).where(eq(fontFaces.family, google.family))
+  })
+
+  it('names each Google face without a match copy once, until its copy is made', async () => {
+    await importGoogleFamily(db, storage, google, { copied: new Map(), get: fakeGoogleFonts(google).get })
+    expect(await facesWithoutMatchCopy(db, storage)).not.toContain(sha256(bytes))
+    await storage.delete(googleMatchKey(sha256(bytes)))
+    expect((await facesWithoutMatchCopy(db, storage)).filter((sha) => sha === sha256(bytes))).toHaveLength(1)
+
+    const copy = matchCopy(bytes)
+    expect(await makeMatchCopy(storage, sha256(bytes))).toEqual({
+      face: bytes.length,
+      copy: copy?.length,
+      whole: false,
+    })
+    expect(await storage.get(googleMatchKey(sha256(bytes)))).toEqual(copy)
+    expect(await facesWithoutMatchCopy(db, storage)).not.toContain(sha256(bytes))
+  })
+})
+
+describe('makeMatchCopy', () => {
+  it('makes none of a file storage doesn’t hold', async () => {
+    const missing = sha256(new TextEncoder().encode(`never stored ${run}`))
+    expect(await makeMatchCopy(storage, missing)).toBeNull()
+    expect(await storage.exists(googleMatchKey(missing))).toBe(false)
   })
 })

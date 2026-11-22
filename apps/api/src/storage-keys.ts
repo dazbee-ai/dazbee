@@ -29,6 +29,9 @@ export const bundledKey = (sha256: string) => `${BUNDLED}${sha256}`
  */
 export const matcherFileKey = (sha256: string) => `matchers/${sha256}`
 export const googleFontKey = (sha256: string) => `fonts/google/${sha256}`
+/** The Google faces' match copies (`@dazbee/fonts/match-copy`), each by the SHA-256 of the face's file it was cut from. */
+export const GOOGLE_MATCH_COPIES = 'fonts/google/match/'
+export const googleMatchKey = (sha256: string) => `${GOOGLE_MATCH_COPIES}${sha256}`
 /** Where the import notes each file of google/fonts it has copied: an empty object named by the file's git blob and the SHA-256 it was stored under. */
 export const GOOGLE_SOURCES = 'fonts/google/sources/'
 export const googleSourceKey = (blob: string, sha256: string) => `${GOOGLE_SOURCES}${blob}/${sha256}`

@@ -172,4 +172,31 @@ Copyright 2020 MANYPIXELS PTE LTD
 All images, assets and vectors published on ManyPixels can be used for free. You can use them for noncommercial and commercial purposes. You do not need to ask permission from or provide credit to the creator or ManyPixels.
 
 More precisely, ManyPixels grants you an nonexclusive, worldwide copyright license to download, copy, modify, distribute, perform, and use the assets provided from ManyPixels for free, including for commercial purposes, without permission from or attributing the creator or ManyPixels. This license does not include the right to compile assets, vectors or images from ManyPixels to replicate a similar or competing service, in any form or distribute the assets in packs or otherwise. This extends to automated and non-automated ways to link, embed.
+
+## ONNX Runtime Web
+
+ONNX Runtime Web 1.31.1 (https://github.com/microsoft/onnxruntime), used under its MIT licence: the text matcher's workers (`packages/editor/src/matching/match-worker.ts`) run its model with the npm package `onnxruntime-web`, its JavaScript bundled into the app and its WebAssembly-only build, `ort-wasm-simd-threaded.wasm`, served from `/vendor/onnxruntime/<version>/`. The third-party code built into that WebAssembly is listed with its licences in ONNX Runtime's `ThirdPartyNotices.txt` (https://github.com/microsoft/onnxruntime/blob/v1.31.1/ThirdPartyNotices.txt).
+
+```text
+MIT License
+
+Copyright (c) Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

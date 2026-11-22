@@ -120,4 +120,8 @@ describe('MatchAnswer', () => {
     expect(issues(MatchAnswer, { kind: 'picture', why: 'noFont' })).toEqual([])
     expect(issues(MatchAnswer, { kind: 'picture', why: 'tooUgly' })).toEqual(['why'])
   })
+
+  it('says a piece stays a picture because this browser can’t run the matchers', () => {
+    expect(MatchAnswer.parse({ kind: 'picture', why: 'unsupported' })).toEqual({ kind: 'picture', why: 'unsupported' })
+  })
 })

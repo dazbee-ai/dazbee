@@ -7,7 +7,7 @@ import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 import { LOOKS_SAME } from '../looks-same/rule.ts'
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
-import { matchText, matchTextWithFace } from './match-text.ts'
+import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import {
   lightFonts,
@@ -113,6 +113,19 @@ describe('matchText', () => {
     const piece = pieceOf('latin-plain')
     const answer = await matchTwice(piece.pixels, `${piece.words} 𓂀`)
     expect(answer).toEqual({ kind: 'picture', why: 'noFont' })
+  })
+
+  it.each([
+    ['hybrid', TEXT_STEPS],
+    ['light', ['reading', 'shortlist', 'fitting']],
+  ] as const)('tells each step of %s as it starts, and answers as untold', async (setting, steps) => {
+    const piece = pieceOf('latin-plain')
+    const { job, piece: jobPiece } = textJob(ck, piece.pixels, piece.words, { setting })
+    const told: TextStep[] = []
+    const deps = { ck, files, model, fonts: FIXTURE_FONTS }
+    const answer = await matchText(job, jobPiece, { ...deps, step: (step) => told.push(step) })
+    expect(told).toEqual(steps)
+    expect(await matchText(job, jobPiece, deps)).toEqual(answer)
   })
 })
 

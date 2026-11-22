@@ -396,6 +396,32 @@ describe('batch', () => {
     expect(await agent.json('batch', { steps: CARD })).toEqual(JSON.parse(JSON.stringify(expected)))
   })
 
+  it('warns of what a batch drew over an image, reading the image for the warnings', async () => {
+    const agent = await connect()
+    await agent.json('open_design', LAUNCH)
+    const photo = {
+      command: 'node.create',
+      input: {
+        parentId: 'sq',
+        layer: {
+          type: 'graphic',
+          name: 'Photo',
+          props: {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 400,
+            shape: { kind: 'rect' },
+            fills: [{ type: 'image', assetId: 'asset-bottle', fit: 'fill', opacity: 1 }],
+          },
+        },
+      },
+    }
+    const answer = (await agent.json('batch', { steps: [photo, ...CARD] })) as { kept: boolean; warningsError?: string }
+    expect(answer.kept).toBe(true)
+    expect(answer.warningsError).toBeUndefined()
+  })
+
   it('warns of a family the catalog lacks, not of one it has, as check_frame does', async () => {
     const agent = await connect()
     expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()

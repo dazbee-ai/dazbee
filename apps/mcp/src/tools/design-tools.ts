@@ -11,6 +11,7 @@ import { brandRef, brandTextStyleLook, type Design, framesOf, Id, inOrder, Recor
 import { inMiB, MAX_TREE_BYTES, MIN_TREE_BYTES } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
 import { answerBytes, defineTool, type Tool, type ToolContext, ToolRefusal, WithNotes } from './define-tool.ts'
+import { frameImages } from './frame-images.ts'
 
 /** A frame's id, as read_design gives it. */
 export const FrameId = Id.describe('The frame’s id, as read_design gives it')
@@ -110,11 +111,23 @@ export const DESIGN_TOOLS: Tool[] = [
     readOnly: true,
     input: z.object({ frame: FrameId }),
     run: ({ frame }, context) =>
-      onDesign(context, async ({ tab }) => {
+      onDesign(context, async (open) => {
+        const { tab } = open
         frameOf(tab.design(), frame)
         tab.show({ layers: [], frame })
         await tab.fontsLoaded()
-        return frameWarnings(await loadCanvasKit(), tab.design(), frame, tab.bytes(), { cache: tab.cache })
+        const design = tab.design()
+        const images = await frameImages(open, design, [frame])
+        const bytes = tab.bytes()
+        return frameWarnings(
+          await loadCanvasKit(),
+          design,
+          frame,
+          { ...bytes, images: { ...bytes.images, ...images } },
+          {
+            cache: tab.cache,
+          },
+        )
       }),
   }),
 ]

@@ -380,6 +380,9 @@ importers:
       '@dazbee/graphics':
         specifier: workspace:*
         version: link:../../packages/graphics
+      '@dazbee/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       '@dazbee/schema':
         specifier: workspace:*
         version: link:../../packages/schema

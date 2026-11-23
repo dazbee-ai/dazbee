@@ -1,7 +1,7 @@
 'use client'
 
 // The Effects panel: a small chip for each effect, then each effect's numbers and colour, and
-// text's outline.
+// text's outline and 3D.
 import { type DropShadow, type Effect, type TextStyle } from '@dazbee/schema'
 
 import { RemoveButton } from '@/components/editor/reorder-list.tsx'
@@ -16,11 +16,13 @@ import { format } from '@/lib/i18n/index.ts'
 
 import { ColorField } from './colour-field.tsx'
 import { type EffectChoice, EffectIcon } from './effect-icons.tsx'
+import { pickExtrusion, sharedExtrusion } from './extrusion.ts'
+import { ExtrusionFields } from './extrusion-fields.tsx'
 import { Choice, SwitchRow } from './fields.tsx'
 import { clamp, NumberField } from './number-field.tsx'
 import { kindOf, type P, type PanelProps, type Props, set, shared, type Style, type Target } from './target.ts'
 
-/** The effect chips, in the order the panel shows them; Outline is text's alone. */
+/** The effect chips, in the order the panel shows them; Outline and 3D are text's alone. */
 type Tile = EffectChoice
 
 /** A text's outline: its width and colour, and whether it is drawn under the letters. */
@@ -42,9 +44,26 @@ const NEW_EFFECT: Record<Effect['type'], Effect> = {
   backgroundBlur: { type: 'backgroundBlur', radius: 16 },
 }
 
-const TILES: Tile[] = ['none', 'dropShadow', 'innerShadow', 'glow', 'outline', 'layerBlur', 'backgroundBlur']
+const TILES: Tile[] = [
+  'none',
+  'dropShadow',
+  'innerShadow',
+  'glow',
+  'outline',
+  'extrusion',
+  'layerBlur',
+  'backgroundBlur',
+]
+
+/** The tiles that aren't an entry in the effects list: None, and text's outline and 3D. */
+const OWN_TILES = ['none', 'outline', 'extrusion'] as const satisfies readonly Tile[]
 
 const OUTLINE_PLACES = ['over', 'under'] as const
+
+/** Whether a tile is None, or text's outline or 3D, rather than an entry in the effects list. */
+function isOwnTile(tile: Tile): tile is (typeof OWN_TILES)[number] {
+  return (OWN_TILES as readonly Tile[]).includes(tile)
+}
 
 /** An outline drawn over the letters or under them; over, it says nothing of it. */
 function placed(outline: TextOutline, place: (typeof OUTLINE_PLACES)[number]): TextOutline {
@@ -56,10 +75,10 @@ function placed(outline: TextOutline, place: (typeof OUTLINE_PLACES)[number]): T
 /**
  * The Effects panel: one grid of chips, each an icon and a short name, its full name its tooltip. A
  * chip adds its effect, or takes every effect of its type off; None takes them all off. Under the tiles, shown only while an effect is on: each effect with
- * its numbers and its own remove button, text's outline with its width, colour and place, over or under the letters, and Add another,
+ * its numbers and its own remove button, text's outline with its width, colour and place, over or under the letters, text's 3D, and Add another,
  * which adds a second effect of a type.
  */
-export function EffectsPanel({ target, brandId }: PanelProps) {
+export function EffectsPanel({ target, brandId, workspaceId }: PanelProps) {
   const t = useMessages()
   const p = t.editor.props
   const b = t.editor.bar
@@ -69,21 +88,31 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
     set(target, (now) => ({ effects: to((now.effects ?? []) as Effect[]) }))
   const kind = kindOf(target)
   const text = kind === 'text'
-  const tiles = TILES.filter((tile) => tile !== 'outline' || text)
+  const tiles = TILES.filter((tile) => (tile !== 'outline' && tile !== 'extrusion') || text)
+  const extrusion = text ? sharedExtrusion(target.props) : null
   const outlined = (pr: Props) =>
     ((pr.style as Style | undefined)?.outline as { width: number } | undefined)?.width ?? 0
   const on = (tile: Tile): boolean => {
     if (tile === 'outline') return target.props.every((pr) => outlined(pr) > 0)
+    if (tile === 'extrusion') return extrusion !== null
     if (tile === 'none')
-      return lists.every((l) => l.length === 0) && (!text || target.props.every((pr) => outlined(pr) === 0))
+      return (
+        lists.every((l) => l.length === 0) &&
+        (!text || target.props.every((pr) => outlined(pr) === 0 && pr.extrusion === undefined))
+      )
     return lists.every((l) => l.some((e) => e.type === tile))
   }
   const press = (tile: Tile) => {
     if (tile === 'none') {
       set(target, (now) => ({
         effects: [],
-        ...(text ? { style: { ...(now.style as Style), outline: undefined } } : {}),
+        ...(text ? { style: { ...(now.style as Style), outline: undefined }, ...pickExtrusion(now, false) } : {}),
       }))
+      return
+    }
+    if (tile === 'extrusion') {
+      const off = on('extrusion')
+      set(target, (now) => pickExtrusion(now, !off))
       return
     }
     if (tile === 'outline') {
@@ -112,14 +141,19 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
       const was = (now.style as Style).outline as TextOutline | undefined
       return was ? { style: { ...(now.style as Style), outline: to(was) } } : null
     })
-  const empty = list !== 'mixed' && list.length === 0 && !(text && outline && outline !== 'mixed' && outline.width > 0)
+  const empty =
+    list !== 'mixed' &&
+    list.length === 0 &&
+    !(text && outline && outline !== 'mixed' && outline.width > 0) &&
+    extrusion === null
   return (
     <>
       <section aria-label={p.effects} className={PANEL_PART} data-testid="effect-tiles">
         <div role="group" aria-label={p.effects} className={cn('grid grid-cols-3 gap-1', TOUCH_GAP)}>
           {tiles.map((tile) => {
-            const name = tile === 'none' || tile === 'outline' ? p.tiles[tile] : p.effect[tile]
-            const short = tile === 'none' || tile === 'outline' ? p.tiles[tile] : p.effectShort[tile]
+            const own = isOwnTile(tile)
+            const name = own ? p.tiles[tile] : p.effect[tile]
+            const short = own ? p.tiles[tile] : p.effectShort[tile]
             return (
               <button
                 key={tile}
@@ -180,6 +214,16 @@ export function EffectsPanel({ target, brandId }: PanelProps) {
                 onSet={(place) => setOutline((was) => placed(was, place))}
               />
             </div>
+          )}
+          {extrusion && (
+            <ExtrusionFields
+              extrusion={extrusion}
+              target={target}
+              brandId={brandId}
+              workspaceId={workspaceId}
+              p={p}
+              onRemove={() => press('extrusion')}
+            />
           )}
           {list === 'mixed' ? (
             <div className="flex items-center justify-between gap-2 text-tiny text-muted">

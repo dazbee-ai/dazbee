@@ -1166,6 +1166,11 @@ export const en = {
       outlineWidth: 'Outline width',
       outlinePlace: 'Where the outline is drawn',
       outlinePlaces: { over: 'Over the letters', under: 'Under the letters' },
+      /** Text's 3D in the Effects panel: its two numbers, and how its sides are coloured. */
+      extrusionDepth: 'Depth',
+      extrusionAngle: 'Angle',
+      extrusionSides: 'Side colour',
+      extrusionSideColours: { shade: 'Sides in a darker shade', colour: 'Sides in a colour' },
       image: 'Image',
       filter: 'Filter',
       filters: {
@@ -1241,7 +1246,7 @@ export const en = {
       currentColour: 'Now {hex}',
       /** The swatch that leads the kit's colours while the text shows an image fill. */
       currentImage: 'Now an image',
-      tiles: { none: 'None', shadow: 'Shadow', glow: 'Glow', outline: 'Outline', blur: 'Blur' },
+      tiles: { none: 'None', shadow: 'Shadow', glow: 'Glow', outline: 'Outline', extrusion: '3D', blur: 'Blur' },
       inAutoLayout: 'In the box',
       axes: { width: 'Width', height: 'Height' },
       sizingAxis: { width: 'Width sizing', height: 'Height sizing' },

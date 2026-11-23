@@ -3,12 +3,14 @@
 // The Text switcher tab's sections. Font: the font, which opens the font chooser in the edit
 // panel's place, then the size and the four text styles; mixed layers show only the font of the
 // texts among them, with no heading as the tab's one part. Paragraph: alignment, direction,
-// vertical place, list and case. Spacing: the room between lines, letters and paragraphs, the box,
-// shrink to fit and the most lines. Font features: the OpenType features its fonts have. While a
-// text is being edited, the size, styles, case, letter spacing and features set the selected run's,
-// as its keys do. A locked text's controls are all turned off, saying why.
+// vertical place, list and case. Curve and bounce: the curve's shape and amount. Spacing: the room
+// between lines, letters and paragraphs, the box, shrink to fit and the most lines. Font features:
+// the OpenType features its fonts have. While a text is being edited, the size, styles, case,
+// letter spacing and features set the selected run's, as its keys do. A locked text's controls are all turned off, saying why.
+import type { ReactNode } from 'react'
+
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
-import type { Control } from '@/components/editor/edit-panel/tabs/tabs.ts'
+import type { Control, LayerSectionId } from '@/components/editor/edit-panel/tabs/tabs.ts'
 import { factsOf, type PanelProps, shared, type Style, type Target } from '@/components/editor/edit-panel/target.ts'
 import { FONT_CHOOSER, setOpen } from '@/components/editor/edit-store.ts'
 import { PANEL_BUTTON, PANEL_PART } from '@/components/editor/styles.ts'
@@ -18,6 +20,7 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
+import { CurveRows } from './curve-bounce.tsx'
 import { FeatureRows } from './features.tsx'
 import { ParagraphRows } from './paragraph.tsx'
 import { SizeStepper } from './size-stepper.tsx'
@@ -28,6 +31,15 @@ import { TextStyles } from './text-styles.tsx'
 export interface SectionProps extends PanelProps {
   controls: Control[]
 }
+
+/** What each section of the Text switcher tab holds for the selection, by the section's id. */
+export const TEXT_SECTIONS = {
+  font: FontSection,
+  paragraph: ParagraphSection,
+  'curve-bounce': CurveBounceSection,
+  spacing: SpacingSection,
+  features: FeaturesSection,
+} satisfies Partial<Record<LayerSectionId, (props: SectionProps) => ReactNode>>
 
 /** The text styles of the selection's texts: the selected run's while one is being edited. */
 const stylesOfTexts = (target: Target) =>
@@ -77,6 +89,19 @@ export function ParagraphSection(props: SectionProps) {
     <PanelPart id="paragraph-section" title={t.editor.editPanel.sections.paragraph} {...(why && { note: why })}>
       <ViewOnlyFieldset off={why !== null}>
         <ParagraphRows target={props.target} />
+      </ViewOnlyFieldset>
+    </PanelPart>
+  )
+}
+
+/** The Curve and bounce section: the curve's shape and amount. */
+export function CurveBounceSection(props: SectionProps) {
+  const t = useMessages()
+  const why = anyLocked(props) ? t.editor.bar.lockedRow : null
+  return (
+    <PanelPart id="curve-bounce-section" title={t.editor.editPanel.sections.curveBounce} {...(why && { note: why })}>
+      <ViewOnlyFieldset off={why !== null}>
+        <CurveRows target={props.target} />
       </ViewOnlyFieldset>
     </PanelPart>
   )

@@ -276,7 +276,8 @@ export type TextRun = z.infer<typeof TextRun>
 /**
  * A text's lines bent along a curve by `amount`, 0 to 100, each line on its own curve parallel to the
  * others, its letters moved and turned onto it (ADR-0021): an arc up whose middle is highest, an arc
- * down whose middle is lowest, a circle, or a wave. At 0 its letters sit as they would straight.
+ * down whose middle is lowest, a circle, or a wave. At 0 an arc's or a wave's letters sit as they
+ * would straight, and a circle is a ring twice the longest line's length.
  */
 export const TextCurve = z.object({
   shape: z.enum(['arcUp', 'arcDown', 'circle', 'wave']),

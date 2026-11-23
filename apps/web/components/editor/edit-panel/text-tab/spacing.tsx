@@ -2,6 +2,7 @@
 
 // The text's spacing, for the Text switcher tab's Spacing section: the room between its lines,
 // letters and paragraphs, its box, then under Text fit shrinking to fit and the most lines it shows.
+// A curved text's box mode and fit are off, each part with a line saying why.
 import { boxModeSizing } from '@dazbee/doc'
 import { NO_LETTER_SPACING } from '@dazbee/schema'
 
@@ -26,6 +27,9 @@ import { shownSpacing, spacingIn, type SpacingUnit, typedUnit } from '@/lib/edit
 import { LIMITS } from '@/lib/editor/limits.ts'
 import { tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
+
+import { NotForCurved } from './curve-bounce.tsx'
+import { anyCurved } from './curves.ts'
 
 /** A text's box modes, in the order their tiles show. */
 const BOX_MODES = ['autoWidth', 'autoHeight', 'fixed'] as const
@@ -147,24 +151,28 @@ function LetterSpacingField({ target, p }: { target: Target; p: P }) {
  */
 function TextBoxCard({ target, p }: { target: Target; p: P }) {
   const mode = (shared(target.props.map((pr) => pr.boxMode)) ?? 'autoHeight') as BoxMode | 'mixed'
+  const curved = anyCurved(target.props)
   return (
     <PanelPart id="text-box-card" title={p.textBox}>
-      <RadioGroup
-        label={p.boxMode}
-        options={BOX_MODES}
-        value={mode}
-        onPick={(to) => target.editor.setSizing(target.ids, boxModeSizing(to))}
-        className="grid grid-cols-3 gap-[7px]"
-      >
-        {BOX_MODES.map((to) => (
-          <Radio key={to} value={to} data-value={to} className={TILE}>
-            <span className={cn(TILE_FACE_WIDE, 'text-muted group-aria-checked:text-text')}>
-              <BoxArt mode={to} />
-            </span>
-            <span className="w-full truncate text-center">{p.boxModes[to]}</span>
-          </Radio>
-        ))}
-      </RadioGroup>
+      <NotForCurved curved={curved}>
+        <RadioGroup
+          label={p.boxMode}
+          options={BOX_MODES}
+          value={mode}
+          onPick={(to) => target.editor.setSizing(target.ids, boxModeSizing(to))}
+          className="grid grid-cols-3 gap-[7px]"
+        >
+          {BOX_MODES.map((to) => (
+            <Radio key={to} value={to} data-value={to} className={TILE}>
+              <span className={cn(TILE_FACE_WIDE, 'text-muted group-aria-checked:text-text')}>
+                <BoxArt mode={to} />
+              </span>
+              <span className="w-full truncate text-center">{p.boxModes[to]}</span>
+            </Radio>
+          ))}
+        </RadioGroup>
+      </NotForCurved>
+      {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.box}</p>}
     </PanelPart>
   )
 }
@@ -207,76 +215,80 @@ function BoxArt({ mode }: { mode: BoxMode }) {
 function TextFitCard({ target, p }: { target: Target; p: P }) {
   const value = (key: string) => shared(target.props.map((pr) => pr[key])) as unknown
   const shrink = value('shrinkToFit') as Fit | undefined | 'mixed'
+  const curved = anyCurved(target.props)
   return (
     <PanelPart id="text-fit-card" title={p.textFit}>
-      <SwitchRow
-        name={p.shrinkToFit}
-        on={shrink === 'mixed' ? 'mixed' : shrink !== undefined}
-        onSet={(on) =>
-          set(target, (now) => {
-            const size = (now.style as Style).fontSize
-            return { shrinkToFit: on ? { min: tidy(Math.max(1, size / 2)), max: size } : undefined }
-          })
-        }
-      />
-      {shrink !== undefined && shrink !== 'mixed' && (
-        <div className={KNOBS}>
-          {(['min', 'max'] as const).map((end) => (
-            <NumberField
-              key={end}
-              label={p.shrinkShort[end]}
-              name={p.shrinkSize[end]}
-              value={shrink[end]}
-              min={1}
-              max={LIMITS.fontSize}
-              editor={target.editor}
-              onSet={(v) =>
-                set(target, (now) => {
-                  const was = now.shrinkToFit as Fit | undefined
-                  if (!was) return null
-                  const next = { ...was, [end]: v }
-                  return fitPatch(
-                    now,
-                    end === 'min'
-                      ? { min: Math.min(next.min, next.max), max: next.max }
-                      : { min: next.min, max: Math.max(next.min, next.max) },
-                  )
-                })
-              }
-              onEach={(change) =>
-                set(target, (now) => {
-                  const was = now.shrinkToFit as Fit | undefined
-                  if (!was) return null
-                  const v = tidy(Math.max(1, change(was[end])))
-                  return fitPatch(
-                    now,
-                    end === 'min'
-                      ? { min: Math.min(v, was.max), max: was.max }
-                      : { min: was.min, max: Math.max(v, was.min) },
-                  )
-                })
-              }
-            />
-          ))}
-        </div>
-      )}
-      <NumberField
-        label={p.maxLines}
-        name={p.maxLines}
-        value={value('maxLines') as number | 'mixed' | undefined}
-        min={0}
-        placeholder={p.none}
-        editor={target.editor}
-        // 0, or nothing, lifts the limit.
-        onSet={(v) => set(target, () => ({ maxLines: Math.round(v) >= 1 ? Math.round(v) : undefined }))}
-        onClear={() => set(target, () => ({ maxLines: undefined }))}
-        onEach={(change) =>
-          set(target, (now) => {
-            const next = Math.round(change((now.maxLines as number | undefined) ?? 0))
-            return { maxLines: next >= 1 ? next : undefined }
-          })
-        }
-      />
+      <NotForCurved curved={curved}>
+        <SwitchRow
+          name={p.shrinkToFit}
+          on={shrink === 'mixed' ? 'mixed' : shrink !== undefined}
+          onSet={(on) =>
+            set(target, (now) => {
+              const size = (now.style as Style).fontSize
+              return { shrinkToFit: on ? { min: tidy(Math.max(1, size / 2)), max: size } : undefined }
+            })
+          }
+        />
+        {shrink !== undefined && shrink !== 'mixed' && (
+          <div className={KNOBS}>
+            {(['min', 'max'] as const).map((end) => (
+              <NumberField
+                key={end}
+                label={p.shrinkShort[end]}
+                name={p.shrinkSize[end]}
+                value={shrink[end]}
+                min={1}
+                max={LIMITS.fontSize}
+                editor={target.editor}
+                onSet={(v) =>
+                  set(target, (now) => {
+                    const was = now.shrinkToFit as Fit | undefined
+                    if (!was) return null
+                    const next = { ...was, [end]: v }
+                    return fitPatch(
+                      now,
+                      end === 'min'
+                        ? { min: Math.min(next.min, next.max), max: next.max }
+                        : { min: next.min, max: Math.max(next.min, next.max) },
+                    )
+                  })
+                }
+                onEach={(change) =>
+                  set(target, (now) => {
+                    const was = now.shrinkToFit as Fit | undefined
+                    if (!was) return null
+                    const v = tidy(Math.max(1, change(was[end])))
+                    return fitPatch(
+                      now,
+                      end === 'min'
+                        ? { min: Math.min(v, was.max), max: was.max }
+                        : { min: was.min, max: Math.max(v, was.min) },
+                    )
+                  })
+                }
+              />
+            ))}
+          </div>
+        )}
+        <NumberField
+          label={p.maxLines}
+          name={p.maxLines}
+          value={value('maxLines') as number | 'mixed' | undefined}
+          min={0}
+          placeholder={p.none}
+          editor={target.editor}
+          // 0, or nothing, lifts the limit.
+          onSet={(v) => set(target, () => ({ maxLines: Math.round(v) >= 1 ? Math.round(v) : undefined }))}
+          onClear={() => set(target, () => ({ maxLines: undefined }))}
+          onEach={(change) =>
+            set(target, (now) => {
+              const next = Math.round(change((now.maxLines as number | undefined) ?? 0))
+              return { maxLines: next >= 1 ? next : undefined }
+            })
+          }
+        />
+      </NotForCurved>
+      {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.fit}</p>}
     </PanelPart>
   )
 }

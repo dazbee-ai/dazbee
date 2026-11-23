@@ -656,6 +656,7 @@ export const en = {
         font: 'Font',
         paragraph: 'Paragraph',
         features: 'Font features',
+        curveBounce: 'Curve and bounce',
         combineShapes: 'Combine shapes',
         mask: 'Mask',
         colour: 'Colour',
@@ -1141,6 +1142,16 @@ export const en = {
       shrinkToFit: 'Shrink to fit',
       shrinkSize: { min: 'Smallest size', max: 'Largest size' },
       shrinkShort: { min: 'Smallest', max: 'Largest' },
+      /** The Curve and bounce part's row of shapes, each named by its tooltip, and the amount of the one picked. */
+      curve: 'Curve',
+      curveShapes: { none: 'None', arcUp: 'Arc up', arcDown: 'Arc down', circle: 'Circle', wave: 'Wave' },
+      curveAmount: 'Amount',
+      /** The line under each setting a curved text turns off, saying why. */
+      notForCurved: {
+        paragraph: 'List, justify and wrap style don’t apply to curved text.',
+        box: 'The box doesn’t apply to curved text: it fits the letters.',
+        fit: 'Shrink to fit and max lines don’t apply to curved text.',
+      },
       outline: 'Outline',
       outlineWidth: 'Outline width',
       outlinePlace: 'Where the outline is drawn',

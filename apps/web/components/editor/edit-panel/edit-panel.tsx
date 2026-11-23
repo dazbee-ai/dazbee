@@ -46,12 +46,7 @@ import {
   type SectionProps,
   showsSwitcher,
 } from '@/components/editor/edit-panel/tabs/tabs.ts'
-import {
-  FeaturesSection,
-  FontSection,
-  ParagraphSection,
-  SpacingSection,
-} from '@/components/editor/edit-panel/text-tab/text-tab.tsx'
+import { TEXT_SECTIONS } from '@/components/editor/edit-panel/text-tab/text-tab.tsx'
 import {
   asPanelGoes,
   FONT_CHOOSER,
@@ -95,10 +90,7 @@ import { factsOf, kindOf, type PanelProps, type Target, useTarget } from './targ
 
 /** What each section of a switcher tab holds for the selection, by the section's id. */
 const SECTIONS: Record<Section['id'], (props: SectionProps) => ReactNode> = {
-  font: FontSection,
-  paragraph: ParagraphSection,
-  spacing: SpacingSection,
-  features: FeaturesSection,
+  ...TEXT_SECTIONS,
   position: PositionSection,
   order: OrderSection,
   'line-up': LineUpSection,

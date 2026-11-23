@@ -31,7 +31,16 @@ export function fillPath(
     canvas.saveLayer(layer, path.getBounds())
     layer.delete()
   }
+  // Skia's PDF writer draws an image fill it can't write as a pattern, such as one with a colour
+  // matrix, as a picture of the whole clip, up to a million pixels and scaled down past that. Clipped
+  // to the path's bounds, the picture covers only the fill, at one pixel to a unit.
+  const clipped = resources.vector && fill.type === 'image'
+  if (clipped) {
+    canvas.save()
+    canvas.clipRect(path.getBounds(), ck.ClipOp.Intersect, false)
+  }
   canvas.drawPath(path, paint)
+  if (clipped) canvas.restore()
   if (faded) canvas.restore()
   paint.delete()
 }

@@ -1,12 +1,13 @@
 // Fitting a candidate face to a text piece from what the piece's reading measured: drawn alone at
 // 100 px to read its lines, sized so its lines are as tall as the piece's, letter-spaced so they are
-// as wide, line-spaced so they are as far apart, then drawn over the level piece and moved so the ink
-// centres meet, and scored there.
+// as wide but never so tight its letters run into each other, line-spaced so they are as far apart,
+// then drawn over the level piece and moved so the ink centres meet, and scored there.
 
 import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../draw-text.ts'
 import { type Box, type Ink, inkBox } from '../ink.ts'
 import { findLines, type PieceReading } from '../read-piece.ts'
 import type { Candidate } from '../shortlist.ts'
+import { spacedApart } from './letters-apart.ts'
 import { letterShape, overlap } from './rank.ts'
 
 /** A candidate face fitted to a piece and placed over its level ink. */
@@ -25,6 +26,30 @@ export interface Fitted {
   lines: Box[]
   /** How many places letter spacing goes in each line, measured from its layout. */
   lineGaps: number[]
+}
+
+/**
+ * A look drawn over the level piece with a margin round it, its layer's box where the piece's ink box
+ * is, before it is placed by its ink: the same wherever it is then moved to.
+ */
+export interface Drawing {
+  look: TextLook
+  /** The layer's box, its first guess in the level piece and the margin. */
+  natural: { width: number; height: number }
+  guess: { x: number; y: number }
+  pad: number
+  ink: Ink
+  /** The ink box it is placed by. */
+  inked: Box
+}
+
+/** A look drawn over the level piece and placed by its ink, its letter shape not yet measured (`shaped`). */
+export interface Placing {
+  fit: Omit<Fitted, 'lineGaps' | 'rank' | 'shape'>
+  drawing: Drawing
+  /** How far the drawing's ink is moved to lie over the level piece. */
+  dx: number
+  dy: number
 }
 
 /** How far a placed draw is moved past where its ink centre meets the piece's, in pixels. */
@@ -85,11 +110,16 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
   })
   let room = 0
   let gaps = 0
+  // The spaced lines' width in the piece, and drawn unspaced at a size of 1.
+  let pieceWidth = 0
+  let unitWidth = 0
   reading.lines.forEach((line, i) => {
     const places = lineGaps[i] ?? 0
     if (places <= 0) return
     room += line.w - ((baseLines[i]?.w ?? 0) * size) / BASE_SIZE
     gaps += places
+    pieceWidth += line.w
+    unitWidth += (baseLines[i]?.w ?? 0) / BASE_SIZE
   })
   const spacing = gaps > 0 ? clamp(((room / gaps) * 100) / size, SPACING_RANGE.min, SPACING_RANGE.max) : 0
   let lineHeight: number | undefined
@@ -102,15 +132,32 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
     }
     lineHeight = clamp(sum / (count - 1), LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max)
   }
-  const look: TextLook = {
+  const wanted: TextLook = {
     ...base,
     size,
     spacing,
     ...(lineHeight ? { lineHeight } : {}),
     ...(reading.outline ? { outline: { width: reading.outline.width, color: FIT_COLOUR } } : {}),
   }
-  const fitted = placeByInk(drawer, reading, words, face, look)
-  return fitted ? { ...fitted, lineGaps } : null
+  const look = spacedApart(drawer, words, wanted)
+  const placing = placeDrawn(drawer, reading, words, face, look)
+  if (!placing) return null
+  if (look.spacing <= spacing) return { ...shaped(reading, placing), lineGaps }
+  // Spaced as tight as its letters allow, the face is too wide for the piece: it is also fitted as
+  // wide as the piece, smaller, and whichever overlaps the piece better is kept, its letter shape
+  // measured only then.
+  const narrowSize = pieceWidth / (unitWidth + (gaps * look.spacing) / 100)
+  if (!(narrowSize < size) || !sizeFits(reading, count, narrowSize)) return { ...shaped(reading, placing), lineGaps }
+  const narrowed: TextLook = {
+    ...look,
+    size: narrowSize,
+    // The lines keep their pitch.
+    ...(lineHeight
+      ? { lineHeight: clamp((lineHeight * size) / narrowSize, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max) }
+      : {}),
+  }
+  const narrow = placeDrawn(drawer, reading, words, face, spacedApart(drawer, words, narrowed))
+  return { ...shaped(reading, narrow && narrow.fit.overlap > placing.fit.overlap ? narrow : placing), lineGaps }
 }
 
 /**
@@ -127,6 +174,28 @@ export function placeByInk(
   nudge: Nudge = { dx: 0, dy: 0 },
   keptShape?: number,
 ): Omit<Fitted, 'lineGaps'> | null {
+  const placing = placeDrawn(drawer, reading, words, face, look, nudge)
+  return placing && shaped(reading, placing, keptShape)
+}
+
+/**
+ * The look drawn over the level piece and moved so the ink boxes' centres meet, then by `nudge`, with
+ * its overlap there, before its letter shape is measured; null when it draws no ink.
+ */
+export function placeDrawn(
+  drawer: TextDrawer,
+  reading: PieceReading,
+  words: string,
+  face: Candidate,
+  look: TextLook,
+  nudge: Nudge = { dx: 0, dy: 0 },
+): Placing | null {
+  const drawing = drawOver(drawer, reading, words, look)
+  return drawing && placeDrawing(reading, face, drawing, nudge)
+}
+
+/** The look drawn over the level piece where its layer is first guessed; null when it draws no ink. */
+export function drawOver(drawer: TextDrawer, reading: PieceReading, words: string, look: TextLook): Drawing | null {
   const { box, level } = reading
   const natural = drawer.measure(words, look)
   // First guess: the layer's box where the ink box is, then corrected by where the ink lands.
@@ -141,24 +210,40 @@ export function placeByInk(
     textLayerProps(words, look, { x: guess.x + pad, y: guess.y + pad, ...natural, rotation: 0 }),
   )
   const ink = alphaInk(drawn.pixels, width, height)
-  const inked = inkBox(ink)
-  if (!inked) return null
+  // A draw too faint for any pixel to be half inked, as letters a pixel or two tall are, is placed by all its ink.
+  const inked = inkBox(ink) ?? inkBox(ink, 0)
+  return inked && { look, natural, guess, pad, ink, inked }
+}
+
+/** A drawing moved so its ink box's centre meets the piece's, then by `nudge`, with its overlap there. */
+export function placeDrawing(reading: PieceReading, face: Candidate, drawing: Drawing, nudge: Nudge): Placing {
+  const { box, level } = reading
+  const { look, natural, guess, pad, ink, inked } = drawing
   const dx = box.x + box.w / 2 - (inked.x - pad + inked.w / 2) + nudge.dx
   const dy = box.y + box.h / 2 - (inked.y - pad + inked.h / 2) + nudge.dy
-  const shape = keptShape ?? letterShape(level, ink, dx - pad, dy - pad, look.size)
   return {
-    face,
-    look,
-    place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 },
-    rank: shape,
-    overlap: overlap(level, ink, dx - pad, dy - pad),
-    shape,
-    lines: findLines(ink, inked, reading.lines.length).map((line) => ({
-      ...line,
-      x: line.x - pad + dx,
-      y: line.y - pad + dy,
-    })),
+    fit: {
+      face,
+      look,
+      place: { x: guess.x + dx, y: guess.y + dy, ...natural, rotation: 0 },
+      overlap: overlap(level, ink, dx - pad, dy - pad),
+      lines: findLines(ink, inked, reading.lines.length).map((line) => ({
+        ...line,
+        x: line.x - pad + dx,
+        y: line.y - pad + dy,
+      })),
+    },
+    drawing,
+    dx: dx - pad,
+    dy: dy - pad,
   }
+}
+
+/** A placed draw with its letter shape, measured where it is placed, or `keptShape` when given. */
+export function shaped(reading: PieceReading, placing: Placing, keptShape?: number): Omit<Fitted, 'lineGaps'> {
+  const shape =
+    keptShape ?? letterShape(reading.level, placing.drawing.ink, placing.dx, placing.dy, placing.fit.look.size)
+  return { ...placing.fit, rank: shape, shape }
 }
 
 /** Whether a size is within `SIZE_RANGE` times the piece's line height either way. */

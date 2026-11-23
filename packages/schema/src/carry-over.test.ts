@@ -77,6 +77,56 @@ describe('carryOverLayer', () => {
       expect(carryOverLayer(odd)).toBe(odd)
   })
 
+  it('reads a text stored at version 19 unchanged, with no image fill', () => {
+    const at15 = textAt15()
+    const stored = {
+      ...at15,
+      props: {
+        ...at15.props,
+        style: { ...at15.props.style, raise: 20 },
+        runs: [{ start: 0, end: 3, style: { color: '#FF0000FF', raise: -30, turn: 5 } }],
+        curve: { shape: 'arcDown', amount: 20 },
+        straightBox: { width: 7.5, height: 3 },
+      },
+    }
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: structuredClone(stored) })
+    const text = parsed.success && parsed.layer.type === 'text' ? parsed.layer.props : null
+    expect(text?.style).not.toHaveProperty('image')
+    expect(text?.runs[0]?.style).not.toHaveProperty('image')
+  })
+
+  it('reads a text stored at version 18 unchanged, with no raise', () => {
+    const at15 = textAt15()
+    const stored = {
+      ...at15,
+      props: {
+        ...at15.props,
+        style: { ...at15.props.style, turn: 8 },
+        runs: [{ start: 0, end: 3, style: { underline: true, turn: -12 } }],
+        bounce: { style: 'wavy', amount: 40, seed: 0 },
+        curve: { shape: 'arcUp', amount: 30 },
+        straightBox: { width: 7.5, height: 3 },
+      },
+    }
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: structuredClone(stored) })
+    const text = parsed.success && parsed.layer.type === 'text' ? parsed.layer.props : null
+    expect(text?.style).not.toHaveProperty('raise')
+    expect(text?.runs[0]?.style).not.toHaveProperty('raise')
+  })
+
+  it('reads a text stored at version 17 unchanged, with no straight box', () => {
+    const curve = { shape: 'circle', amount: 50 }
+    const stored = { ...textAt15(), props: { ...textAt15().props, boxMode: 'fixed', curve } }
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: structuredClone(stored) })
+    expect(parsed.success && parsed.layer.props).not.toHaveProperty('straightBox')
+  })
+
   it('reads a text stored at version 16 unchanged, with no bounce or letter turn', () => {
     const stored = { ...textAt15(), props: { ...textAt15().props, curve: { shape: 'wave', amount: 30 } } }
     expect(carryOverLayer(stored)).toBe(stored)

@@ -16,6 +16,7 @@ import {
   paintColour,
   showingFillIndex,
   shownGradient,
+  withRunStyle,
 } from '@dazbee/schema'
 
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
@@ -260,7 +261,7 @@ function TextColourPanel({
       const style = now.style as Style
       const next = to(textPaint(style))
       if (next.type === 'image') return null
-      return { style: next.type === 'solid' ? inColour(style, next.color) : { ...style, gradient: next } }
+      return { style: next.type === 'solid' ? inColour(style, next.color) : withRunStyle(style, { gradient: next }) }
     })
   }
   return (

@@ -6,6 +6,12 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceBytes, resourceCache, textMeasure } from '@dazbee/renderer'
 import { type Color, type TextCurve, TextProps } from '@dazbee/schema'
 
+/** A text's outline: its width in pixels and its colour. */
+export interface TextOutline {
+  width: number
+  color: Color
+}
+
 /** What the text matcher sets on a text: its look, before it is placed. */
 export interface TextLook {
   family: string
@@ -19,7 +25,7 @@ export interface TextLook {
   lineHeight?: number
   align: 'start' | 'center' | 'end'
   color: Color
-  outline?: { width: number; color: Color }
+  outline?: TextOutline
   /** Its lines bent along a curve; left out, straight. */
   curve?: TextCurve
 }
@@ -52,26 +58,33 @@ export type TextLayerProps = Placed & {
     color: Color
     letterSpacing: { unit: 'percent'; value: number }
     lineHeight?: number
-    outline?: { width: number; color: Color }
+    outline?: TextOutline
   }
   curve?: TextCurve
+  /** Ranges of the text, in UTF-16 units, drawn in their own colour and outline. */
+  runs?: { start: number; end: number; style: { color: Color; outline: TextOutline } }[]
 }
 
 /** Measures and draws text in a set of faces. */
 export interface TextDrawer {
   /** The width and height Dazbee gives the words in this look as a text that grows to fit them. */
   measure(words: string, look: TextLook): { width: number; height: number }
-  /** A `width` × `height` frame with nothing behind the text layer of these props. */
-  draw(width: number, height: number, props: TextLayerProps): Pixels
+  /** A `width` × `height` frame with nothing behind the text layers of these props, the first lowest. */
+  draw(width: number, height: number, ...layers: TextLayerProps[]): Pixels
   /** Frees the registered faces. */
   delete(): void
+  /** Whether texts fitted with it keep their letters from running into each other (`spacedApart`). */
+  lettersApart: boolean
 }
 
 /** Letter spacing is stored to this many decimals. */
 const SPACING_DECIMALS = 2
 
-/** A drawer over Dazbee's renderer with `faces` registered, and no fallback. */
-export function textDrawer(ck: CanvasKit, faces: readonly DrawnFace[]): TextDrawer {
+/**
+ * A drawer over Dazbee's renderer with `faces` registered, and no fallback; by default texts fitted
+ * with it keep their letters apart.
+ */
+export function textDrawer(ck: CanvasKit, faces: readonly DrawnFace[], { lettersApart = true } = {}): TextDrawer {
   const bytes: ResourceBytes = { fonts: [...faces], fallbackFamilies: [], images: {} }
   // The faces registered once, for every measure and draw, until delete().
   const cache = resourceCache(ck)
@@ -81,11 +94,11 @@ export function textDrawer(ck: CanvasKit, faces: readonly DrawnFace[]): TextDraw
     return textMeasure(ck, cache.resources(bytes))(props, null)
   }
 
-  function draw(width: number, height: number, props: TextLayerProps) {
-    return renderPixels(ck, designOf(width, height, props), 'f', bytes, cache)
+  function draw(width: number, height: number, ...layers: TextLayerProps[]) {
+    return renderPixels(ck, designOf(width, height, layers), 'f', bytes, cache)
   }
 
-  return { measure, draw, delete: cache.delete }
+  return { measure, draw, delete: cache.delete, lettersApart }
 }
 
 /** The text layer's props for the words in a look, placed. */
@@ -109,13 +122,18 @@ export function textLayerProps(words: string, look: TextLook, place: Placed): Te
   }
 }
 
-/** A design of one `width` × `height` frame with no fill, holding the one text layer. */
-function designOf(width: number, height: number, props: TextLayerProps) {
+/** A design of one `width` × `height` frame with no fill, holding the text layers, the first lowest. */
+function designOf(width: number, height: number, layers: readonly TextLayerProps[]) {
   return {
     meta: { designId: 'piece', name: 'piece' },
     pages: { p: { name: 'Page 1', order: 'a0' } },
     frames: { f: { pageId: 'p', name: 'Piece', width, height, x: 0, y: 0, fills: [], order: 'a0' } },
-    nodes: { t: { type: 'text', parentId: 'f', link: 't', index: 'a0', name: 'Text', props } },
+    nodes: Object.fromEntries(
+      layers.map((props, i) => [
+        `t${i}`,
+        { type: 'text', parentId: 'f', link: `t${i}`, index: `a${i}`, name: 'Text', props },
+      ]),
+    ),
   }
 }
 

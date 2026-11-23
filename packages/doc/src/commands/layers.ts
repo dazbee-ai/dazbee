@@ -23,6 +23,7 @@ import {
 } from '@dazbee/schema'
 
 import { childrenOf, descendants } from '../children.ts'
+import { sizeEndsStraightBox } from '../fitted-text.ts'
 import { flows } from '../flow.ts'
 import { sameValue } from '../same-value.ts'
 import { droppedIssue } from '../sync/checks.ts'
@@ -175,7 +176,11 @@ export const nodeUpdate = defineCommand({
       writeDrawn(w, design, ids, drawn ?? {}, (plan) => keepEmptied(plan, design, new Set(leaving), holders ?? {}))
     }
     for (const id of ids) {
-      if ('width' in patch || 'height' in patch) keepDrawnIn(w, design, id)
+      if ('width' in patch || 'height' in patch) {
+        keepDrawnIn(w, design, id)
+        const curved = 'curve' in patch ? !takenOff('curve', patch.curve) : w.prop(id, 'curve') !== undefined
+        if (sizeEndsStraightBox(w.prop(id, 'straightBox'), curved)) w.unsetProp(id, 'straightBox')
+      }
       // A value the layer already has is left as it is, so a change to nothing writes nothing and adds no undo step.
       for (const [path, value] of Object.entries(patch)) {
         if (takenOff(path, value)) {

@@ -14,9 +14,10 @@ export interface PlacedLine {
   block: number
   index: number
   /**
-   * Its baseline where SkParagraph draws its glyphs: where those of its pieces with no baseline shift
-   * sit, whole pixels. Its line metrics' baseline is off by up to a pixel, as SkParagraph rounds the
-   * line's height; a line whose every glyph is raised or lowered takes that, rounded.
+   * Its baseline where SkParagraph draws its glyphs: where those of its pieces neither made up as a
+   * superscript or subscript nor raised sit, whole pixels. Its line metrics' baseline is off by up to
+   * a pixel, as SkParagraph rounds the line's height; a line whose every glyph is raised or lowered
+   * takes that, rounded.
    */
   baseline: number
   /** Its left edge and width. */
@@ -49,6 +50,8 @@ export interface PlacedRun {
   font: Font
   /** The style of its piece, which paints it in each pass. */
   style: TextProps['style']
+  /** The pixels its piece's raise moves its glyphs off their line, down for a positive value; 0 for none. */
+  raiseShift: number
   glyphs: Uint16Array
   /** Four numbers for each glyph: its RSXform. */
   xforms: Float32Array
@@ -126,7 +129,7 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
           const piece = pieceAt(layout.pieces, block.start + unit)
           const line = lines[lineIndex(metrics, unit)]
           if (!piece || !line) continue
-          if (!piece.superSub && !settled.has(line)) {
+          if (!piece.superSub && !piece.raiseShift && !settled.has(line)) {
             line.baseline = y
             settled.add(line)
           }
@@ -261,6 +264,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
     line,
     font: first.font,
     style: first.piece.style,
+    raiseShift: first.piece.raiseShift ?? 0,
     glyphs: Uint16Array.from(glyphs, (g) => g.id),
     xforms,
     advances,

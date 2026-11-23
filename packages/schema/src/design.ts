@@ -49,7 +49,7 @@ export type Frame = z.infer<typeof Frame>
  * The version of this schema, which the API writes into a design's record when it creates one. A
  * sync token carries the design's, and the sync server refuses a tab built with an older version.
  */
-export const SCHEMA_VERSION = 17
+export const SCHEMA_VERSION = 20
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),
@@ -117,9 +117,9 @@ export function hasGuides(frame: Pick<Frame, 'guides'> | undefined): boolean {
 }
 
 /**
- * Every asset an image paint of the design names, on frames and layers' fills and strokes, sorted; only those of the
- * frames named and the layers inside them, when `frameIds` is given. With the brand's variables, a
- * picture bound to the brand's logo is the kit's.
+ * Every asset an image paint of the design names, on frames, layers' fills and strokes, and texts'
+ * styles and runs, sorted; only those of the frames named and the layers inside them, when
+ * `frameIds` is given. With the brand's variables, a picture bound to the brand's logo is the kit's.
  */
 export function imageAssetIds(design: Design, frameIds?: Iterable<string>, variables?: Variables): string[] {
   const within = frameIds && new Set(frameIds)
@@ -137,12 +137,16 @@ export function imageAssetIds(design: Design, frameIds?: Iterable<string>, varia
   const frameOf = frameFinder(design)
   for (const [id, node] of Object.entries(design.nodes)) {
     if (within && !within.has(frameOf(id) ?? '')) continue
-    const { fills, strokes } = bindProps(node.type, node.props, node.bindings, variables) as {
+    const { fills, strokes, style, runs } = bindProps(node.type, node.props, node.bindings, variables) as {
       fills?: unknown
       strokes?: unknown
+      style?: { image?: unknown }
+      runs?: unknown
     }
     add(fills)
     if (Array.isArray(strokes)) add(strokes.map((stroke) => (stroke as { paint?: unknown } | null)?.paint))
+    add([style?.image])
+    if (Array.isArray(runs)) add(runs.map((run) => (run as { style?: { image?: unknown } } | null)?.style?.image))
   }
   return [...ids].sort()
 }

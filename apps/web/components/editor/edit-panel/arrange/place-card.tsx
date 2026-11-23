@@ -17,6 +17,7 @@ import {
   shared,
   type Target,
 } from '@/components/editor/edit-panel/target.ts'
+import { anyCurved } from '@/components/editor/edit-panel/text-tab/curves.ts'
 import { KNOB_SWITCH, KNOBS, PANEL_PART, SWITCH } from '@/components/editor/styles.ts'
 import { GreyedButton } from '@/components/ui/greyed.tsx'
 import { FlipHorizontalIcon, FlipVerticalIcon, type Icon } from '@/components/ui/icons.tsx'
@@ -99,6 +100,8 @@ export function PlaceCard({
   // Where auto layout sizes the layers, a side's least and most show once any of them has one.
   const limited = sized && limitsApply(design, target.ids)
   const limitedSides = sides.filter(({ key }) => limited && hasLimits(target.props, key))
+  // A curved text's box fits its letters, so its limits show their values, off.
+  const limitWhy = why ?? (anyCurved(target.props) ? p.notForCurved.sizing : null)
   const spots = [
     { key: 'x', label: p.x, name: p.xName },
     { key: 'y', label: p.y, name: p.yName },
@@ -140,7 +143,7 @@ export function PlaceCard({
           })}
         {limitedSides.flatMap(({ key }) =>
           (['min', 'max'] as const).map((end) => (
-            <LimitField key={`${key}-${end}`} target={target} p={p} axis={key} end={end} why={why} />
+            <LimitField key={`${key}-${end}`} target={target} p={p} axis={key} end={end} why={limitWhy} />
           )),
         )}
         {spots.map((f) => (

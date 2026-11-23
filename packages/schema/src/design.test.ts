@@ -259,6 +259,39 @@ describe('imageAssetIds', () => {
     expect(imageAssetIds(parsed.design, ['sq'])).toEqual(['edge'])
   })
 
+  it('finds the image a text and its runs are painted with', () => {
+    const image = (assetId: string) => ({ type: 'image', assetId, fit: 'tile', tileScale: 0.5 })
+    const parsed = parseDesign({
+      meta: { designId: 'd', name: 'D' },
+      pages: { p1: { name: 'P', order: 'a0' } },
+      frames: { sq: { pageId: 'p1', name: 'Square', width: 100, height: 100, x: 0, y: 0, order: 'a0' } },
+      nodes: {
+        t: {
+          type: 'text',
+          parentId: 'sq',
+          link: 't',
+          index: 'a0',
+          name: 'T',
+          props: {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 40,
+            text: 'Big sale',
+            style: { fontFamily: 'Inter', fontSize: 20, color: '#000000FF', image: image('marble') },
+            runs: [
+              { start: 0, end: 3, style: { image: image('wood') } },
+              { start: 4, end: 8, style: { color: '#FF0000FF' } },
+            ],
+          },
+        },
+      },
+    })
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    expect(imageAssetIds(parsed.design)).toEqual(['marble', 'wood'])
+    expect(imageAssetIds(parsed.design, ['sq'])).toEqual(['marble', 'wood'])
+  })
+
   it('finds the picture a bound image fill draws, with the brand variables', () => {
     const parsed = parseDesign({
       meta: { designId: 'd', name: 'D' },

@@ -1,6 +1,6 @@
 import type { Canvas, CanvasKit } from '@dazbee/canvaskit'
 import { EMOJI_FAMILY, scriptFamilies } from '@dazbee/fonts'
-import { type Paint, type Rect, shownGradient, type TextProps, withRunStyle } from '@dazbee/schema'
+import { type Paint, type Rect, shownGradient, shownImage, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { Scene, SceneLayer } from '../scene.ts'
@@ -194,9 +194,11 @@ function svgSafe(layer: SceneLayer): boolean {
  * Whether Skia's SVG writer draws a text's gradients as they are: each one SVG holds (`svgPaint`),
  * and no underline or strikethrough that could be painted with one, which is filled through a layer
  * SVG drops. Runs can overlap, so a text with a gradient and a line anywhere counts as having both.
+ * An image fill is filled through such a layer too, so a text with one is drawn as an image.
  */
 function svgTextPaints(props: TextProps): boolean {
   const styles = [props.style, ...props.runs.map((r) => withRunStyle(props.style, r.style))]
+  if (styles.some((style) => shownImage(style))) return false
   const gradients = styles.flatMap((style) => shownGradient(style) ?? [])
   const lined = styles.some((style) => style.underline || style.strikethrough)
   return gradients.every(svgPaint) && (gradients.length === 0 || !lined)

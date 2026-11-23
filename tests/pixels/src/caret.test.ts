@@ -190,6 +190,60 @@ describe('caret and selection on a made-up superscript', () => {
   })
 })
 
+describe('caret and selection on a raised character', () => {
+  /** "$99" with its "$" raised 40 % of 48 px, straight or on an arc. */
+  const priced = (raise: number, curved: boolean) =>
+    layoutText(
+      ck,
+      TextProps.parse({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        boxMode: 'autoWidth',
+        text: '$99',
+        runs: [{ start: 0, end: 1, style: { raise } }],
+        style: { fontFamily: 'Noto Sans', fontSize: 48, color: '#000000FF' },
+        ...(curved && { curve: { shape: 'arcUp', amount: 40 } }),
+      }),
+      resources,
+    )
+
+  it.each([false, true])('sits the caret and the selection on the raised "$", curved: %s', (curved) => {
+    const [flat, raised] = [priced(0, curved), priced(40, curved)]
+    // Up along the "$"'s own turn: 19.2 px off the box and caret where it isn't raised.
+    const boxOf = (laid: TextLayout, start: number) => selectionBoxes(ck, laid, start, start + 1)[0]
+    const [was, now] = [boxOf(flat, 0), boxOf(raised, 0)]
+    if (!was || !now) throw new Error('no box')
+    const turn = ((now.turn ?? 0) * Math.PI) / 180
+    const [upX, upY] = [19.2 * Math.sin(turn), -19.2 * Math.cos(turn)]
+    // On the arc the box's corner moves with what the raised "$" reaches: an unraised "9"'s box shows by how much.
+    const [nineWas, nineNow] = [boxOf(flat, 1), boxOf(raised, 1)]
+    const [dx, dy] = curved ? [(nineNow?.x ?? 0) - (nineWas?.x ?? 0), (nineNow?.y ?? 0) - (nineWas?.y ?? 0)] : [0, 0]
+    expect(now.x - dx).toBeCloseTo(was.x + upX, 1)
+    expect(now.y - dy).toBeCloseTo(was.y + upY, 1)
+    expect(now.height).toBeCloseTo(was.height, 3)
+    for (const [offset, after] of [
+      [0, false],
+      [1, false],
+    ] as const) {
+      const [c0, c1] = [caretPosition(ck, flat, offset, after), caretPosition(ck, raised, offset, after)]
+      expect(c1.x - dx).toBeCloseTo(c0.x + upX, 1)
+      expect(c1.y - dy).toBeCloseTo(c0.y + upY, 1)
+    }
+    // A click on the raised "$", where it is drawn, lands on its near edges.
+    const half = now.height / 2
+    const at = (along: number): [number, number] => [
+      now.x + along * Math.cos(turn) - half * Math.sin(turn),
+      now.y + along * Math.sin(turn) + half * Math.cos(turn),
+    ]
+    expect(caretAt(ck, raised, ...at(now.width * 0.25))).toBe(0)
+    expect(caretAt(ck, raised, ...at(now.width * 0.75))).toBe(1)
+    flat.delete()
+    raised.delete()
+  })
+})
+
 describe(`a range across the Arabic and Latin boundary in ${MIXED.label}`, () => {
   const laid = laidOut(MIXED)
   afterAll(() => laid.delete())

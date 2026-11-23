@@ -47,7 +47,12 @@ const STYLES: { [K in keyof RunStyle]-?: RunStyle[K][] } = {
       ],
     },
   ],
+  image: [
+    { type: 'image', assetId: 'marble', fit: 'fill', opacity: 1 },
+    { type: 'image', assetId: 'dots', fit: 'tile', opacity: 0.5, tileScale: 0.5 },
+  ],
   turn: [-15, 30],
+  raise: [30, -20],
 }
 
 /** One UTF-16 unit of a text and the style it has: the reference the walk checks `applyTextOp` against. */

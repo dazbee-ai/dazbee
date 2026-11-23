@@ -17,6 +17,7 @@ import {
   type LetterSpacing,
   type NonEmpty,
   type Paint,
+  type TextImagePaint,
 } from '@dazbee/schema'
 
 import { useTextSelection } from '@/components/editor/editor-hooks.ts'
@@ -42,6 +43,8 @@ export type Style = Record<string, unknown> & {
   textCase?: string
   features?: Features
   gradient?: GradientPaint
+  image?: TextImagePaint
+  raise?: number
 }
 
 /** What the edit panels act on: the layers and their values. */

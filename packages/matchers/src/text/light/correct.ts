@@ -1,6 +1,7 @@
 // One correction of a fitted candidate from its placed draw, a Newton step: the size by how much
-// taller the piece's lines are than the drawn ones, letter spacing by the width still missing, line
-// height by the pitch still missing. It is kept when the drawn ink overlaps the piece's better.
+// taller the piece's lines are than the drawn ones, letter spacing by the width still missing but never
+// so tight its letters run into each other, line height by the pitch still missing. It is kept when
+// the drawn ink overlaps the piece's better.
 
 import type { TextDrawer } from '../draw-text.ts'
 import type { PieceReading } from '../read-piece.ts'
@@ -10,10 +11,12 @@ import {
   clamp,
   type Fitted,
   LINE_HEIGHT_RANGE,
-  placeByInk,
+  placeDrawn,
+  shaped,
   sizeFits,
   SPACING_RANGE,
 } from './fit.ts'
+import { spacedApart } from './letters-apart.ts'
 
 /** The fit corrected once from its placed draw, or the fit itself when the correction overlaps no better. */
 export function correct(drawer: TextDrawer, reading: PieceReading, words: string, fit: Fitted): Fitted {
@@ -43,7 +46,8 @@ export function correct(drawer: TextDrawer, reading: PieceReading, words: string
     lineHeight = clamp(lineHeight + sum / (count - 1) / size, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max)
   }
   if (!sizeFits(reading, count, size)) return fit
-  const look = { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) }
-  const tried = placeByInk(drawer, reading, words, fit.face, look)
-  return tried && tried.overlap > fit.overlap ? { ...tried, lineGaps: fit.lineGaps } : fit
+  const look = spacedApart(drawer, words, { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) })
+  const tried = placeDrawn(drawer, reading, words, fit.face, look)
+  // Its letter shape is measured only once it is kept.
+  return tried && tried.fit.overlap > fit.overlap ? { ...shaped(reading, tried), lineGaps: fit.lineGaps } : fit
 }

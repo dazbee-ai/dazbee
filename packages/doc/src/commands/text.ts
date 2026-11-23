@@ -2,10 +2,11 @@
 // box to the words.
 import { z } from 'zod'
 
-import { NodeId, RunStyle } from '@dazbee/schema'
+import { NodeId, RunStyle, type TextProps } from '@dazbee/schema'
 
+import { straightBoxOnFit } from '../fitted-text.ts'
 import { replaceOps, splitsPair } from '../text-value.ts'
-import { boxPlan } from './box-plan.ts'
+import { boxPlan, same } from './box-plan.ts'
 import { lockProblem, missingLayer } from './checks.ts'
 import { defineCommand, strict } from './define.ts'
 
@@ -102,19 +103,25 @@ export const textReplace = defineCommand({
 
 /**
  * Sets the box of text that grows to the size it is drawn at (#47), as the caller measured it:
- * its width and height for auto width, its height for auto height. The editor runs it as text is
- * typed, in the same undo step, so the box is always where the words are.
+ * its width and height for auto width, its height for auto height. The box keeps its top left, or
+ * its centre with `keep`. The editor runs it as text is typed, in the same undo step, so the box is
+ * always where the words are. A fixed or auto height text a curve resizes keeps the box it had
+ * straight (`straightBox`) until a fit of it straight takes that back.
  */
 export const textFit = defineCommand({
   name: 'text.fit',
   description:
-    'Sets the width and height of a text layer’s box to the size its words were measured at, both numbers whatever its box mode. It refuses a missing layer and a layer that is not a text.',
+    'Sets the width and height of a text layer’s box to the size its words were measured at, both numbers whatever its box mode, keeping the box’s top left, or its centre with keep "center". It refuses a missing layer and a layer that is not a text.',
   step: 'resize',
   batchable: true,
   input: z.strictObject({
     id: NodeId.describe('The text layer to fit.'),
     width: z.number().min(0).describe('The measured width of its words, in pixels.'),
     height: z.number().min(0).describe('The measured height of its words, in pixels.'),
+    keep: z
+      .enum(['topLeft', 'center'])
+      .optional()
+      .describe('Which point of the box stays where it is as it resizes: its top left (the default) or its centre.'),
   }),
   check: ({ design }, { id }) => {
     const node = design.nodes[id]
@@ -122,9 +129,15 @@ export const textFit = defineCommand({
     if (node.type !== 'text') return `"${id}" is a ${node.type}, not a text layer`
     return undefined
   },
-  apply: ({ w, design }, { id, width, height }) => {
+  apply: ({ w, design }, { id, width, height, keep }) => {
+    const props = design.nodes[id]?.props as TextProps
+    const straight = straightBoxOnFit(props, !same(props.width, width) || !same(props.height, height))
+    if (straight) w.setProp(id, 'straightBox', straight)
+    else if (straight === null) w.unsetProp(id, 'straightBox')
     const plan = boxPlan(design)
-    plan.set(id, { width, height })
+    const moved =
+      keep === 'center' ? { x: props.x + (props.width - width) / 2, y: props.y + (props.height - height) / 2 } : {}
+    plan.set(id, { ...moved, width, height })
     plan.write(w)
   },
 })

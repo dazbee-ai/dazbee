@@ -254,6 +254,22 @@ describe('fitted', () => {
     })
   })
 
+  it('scales a text’s tiled image with it, in its style and its runs, inside TILE_SCALE', () => {
+    const style = { fontFamily: 'Inter', fontSize: 40, color: '#000000FF', image: image('tile', 0.5) }
+    const runs = [
+      { start: 0, end: 2, style: { image: image('tile', 8) } },
+      { start: 2, end: 4, style: { image: image('fit') } },
+    ]
+    expect(at(0.5, { style, runs })).toMatchObject({
+      style: { fontSize: 20, image: image('tile', 0.25) },
+      runs: [{ style: { image: image('tile', 4) } }, { style: { image: image('fit') } }],
+    })
+    expect(at(2, { style, runs })).toMatchObject({
+      style: { image: image('tile', 1) },
+      runs: [{ style: { image: image('tile', 10) } }, { style: { image: image('fit') } }],
+    })
+  })
+
   it('keeps every size readable scaled down by 1/1000: strokes positive, radii, blurs and widths at least 0', () => {
     const tiny = { width: 1.08, height: 1.08 }
     const card = {

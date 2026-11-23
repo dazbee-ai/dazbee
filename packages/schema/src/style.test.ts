@@ -104,9 +104,11 @@ describe('styleOf', () => {
       outline: null,
       features: { tnum: true },
       gradient: null,
+      image: null,
       curve: null,
       bounce: null,
       turn: null,
+      raise: null,
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -169,6 +171,20 @@ describe('restyle', () => {
     expect(LayerStyle.parse(copied).text?.gradient).toBeNull()
   })
 
+  it('carries a text’s image fill, and clears one the style lacks', () => {
+    const image = { type: 'image', assetId: 'marble', fit: 'tile', opacity: 1, tileScale: 0.5 }
+    const filled = styleOf(text({ image }))
+    expect(filled.text).toMatchObject({ image, gradient: null })
+    expect(restyle(text(), filled)?.patch.style).toMatchObject({ image })
+    expect(restyle(text({ image }), styleOf(text()))?.patch.style).not.toHaveProperty('image')
+  })
+
+  it('reads a style copied before texts had image fills as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { image?: unknown }).image
+    expect(LayerStyle.parse(copied).text?.image).toBeNull()
+  })
+
   it('carries a text’s curve, and takes it off a text when the style has none', () => {
     const curve = { shape: 'circle', amount: 70 }
     const curved = styleOf(text({}, { curve }))
@@ -196,6 +212,20 @@ describe('restyle', () => {
     expect(plain).toHaveProperty('bounce', undefined)
     expect(plain?.style).not.toHaveProperty('turn')
     expect(restyle(text({ turn: -12 }, { bounce }), bounced)).toBeNull()
+  })
+
+  it('carries the base style’s raise, and takes it off a text when the style has none', () => {
+    const raised = styleOf(text({ raise: 30 }))
+    expect(raised.text).toMatchObject({ raise: 30 })
+    expect(restyle(text(), raised)?.patch.style).toMatchObject({ raise: 30 })
+    expect(restyle(text({ raise: 30 }), styleOf(text()))?.patch.style).not.toHaveProperty('raise')
+    expect(restyle(text({ raise: 30 }), raised)).toBeNull()
+  })
+
+  it('reads a style copied before characters had raises as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { raise?: unknown }).raise
+    expect(LayerStyle.parse(copied).text).toMatchObject({ raise: null })
   })
 
   it('reads a style copied before texts had bounces and turns as one without', () => {

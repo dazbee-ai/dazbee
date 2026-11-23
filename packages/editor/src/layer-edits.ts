@@ -186,9 +186,10 @@ export function editorLayerEdits({
           for (const [key, value] of Object.entries(patch))
             runQuietly(() => session.run('node.update', { ids: [id], patch: { [key]: value } }))
         }
-        // Text that grows the size of its words fits them again.
+        // Text that grows the size of its words fits them again; a curve changed keeps the box's centre.
         for (const [id, patch] of writes) {
-          if (Object.keys(patch).some((key) => SIZES_TEXT.has(key))) typing.fitText(id)
+          if (Object.keys(patch).some((key) => SIZES_TEXT.has(key)))
+            typing.fitText(id, 'curve' in patch ? 'center' : undefined)
         }
         hug([...writes.keys()])
       }),

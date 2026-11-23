@@ -1,17 +1,18 @@
 import type { CanvasKit, Paragraph, ParagraphBuilder } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from '@dazbee/schema'
+import { autoDirection, type GradientPaint, type TextImagePaint, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
 import { curveLetters, type MoveLetters } from './curve.ts'
 import { inPlace, placeLetters, type Placement } from './placed.ts'
+import { baselineShift, withRaise } from './raise.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { withCase } from './text-case.ts'
-import { linedGradients, pushPainted, type TextPass } from './text-paint.ts'
+import { linedGradients, paintedImages, pushPainted, type TextPass } from './text-paint.ts'
 import type { StyledPiece } from './types.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
@@ -24,6 +25,8 @@ export interface TextBlock {
   outlineUnder: Paragraph | null
   /** For each gradient whose runs are underlined or struck through, the same with only those lines, which it fills, drawn over it. */
   gradientLines: { gradient: GradientPaint; paragraph: Paragraph }[]
+  /** The images its characters are painted with, each drawn over the gradients' lines from the layout's letters. */
+  images: TextImagePaint[]
   /** Its bullet or number, at (markerX, markerY) in the block, on the first line's baseline; null when not in a list. */
   marker: Paragraph | null
   markerX: number
@@ -54,7 +57,7 @@ export interface TextLayout {
   height: number
   /** The base font size shrink to fit chose, over the one set; 1 without it. */
   scale: number
-  /** The most pixels a made-up superscript or subscript moves its glyphs off their line's baseline; 0 without one. */
+  /** The most pixels a piece's glyphs move off their line's baseline, by a made-up superscript or subscript and a raise; 0 without one. */
   superSubShift: number
   align: TextProps['align']
   rtl: boolean
@@ -65,6 +68,11 @@ export interface TextLayout {
    * bounced text's are; null when the paragraphs draw it as they are laid out. Freed with the layout.
    */
   placed: Placement | null
+  /**
+   * Every glyph where it is drawn, which an image fill paints: its placement on a placed text, else
+   * each glyph where its paragraph draws it, placed the first time it is asked for. Freed with the layout.
+   */
+  letters(): Placement
   delete(): void
 }
 
@@ -196,7 +204,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     const end = edges[i + 1] ?? props.text.length
     let style = props.style
     for (const run of props.runs) if (run.start <= start && run.end >= end) style = withRunStyle(style, run.style)
-    return { start, end, style: scaled(style, scale) as Style }
+    return withRaise({ start, end, style: scaled(style, scale) as Style })
   })
   const styleAt = (offset: number) =>
     pieces.find((p) => offset >= p.start && offset < p.end)?.style ?? pieces.at(-1)?.style ?? base
@@ -226,15 +234,12 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
-  const push = (builder: ParagraphBuilder, piece: Pick<StyledPiece, 'style' | 'superSub'>, pass: TextPass) =>
-    pushPainted(
-      ck,
-      builder,
-      textStyle(ck, piece.style, fallbacks, pass, piece.superSub?.baselineShift),
-      piece.style,
-      pass,
-      box,
-    )
+  const push = (
+    builder: ParagraphBuilder,
+    piece: Pick<StyledPiece, 'style' | 'superSub' | 'raiseShift'>,
+    pass: TextPass,
+  ) =>
+    pushPainted(ck, builder, textStyle(ck, piece.style, fallbacks, pass, baselineShift(piece)), piece.style, pass, box)
   /**
    * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.
    * `text` is what it draws in place of the shown text, of the same length.
@@ -285,8 +290,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const markers = ranges.map(({ start, end }) => {
     if (!props.list || start === end) return null
     number++
-    // A marker is never raised or lowered, whichever its paragraph's first character is.
+    // A marker is never raised or lowered, whichever its paragraph's first character is, and is
+    // drawn in its colour where that character is painted with an image, which paints only characters.
     const style = withoutSuperSubs(styleAt(start))
+    delete style.image
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(style), resources.fonts)
     push(builder, { style }, FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.
@@ -371,7 +378,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       laid.layout(wrap.width)
       return laid
     }
-    const lined = linedGradients(pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style))
+    const styles = pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style)
+    const lined = linedGradients(styles)
     const marker = markers[i] ?? null
     const block: TextBlock = {
       paragraph,
@@ -381,6 +389,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         gradient,
         paragraph: passOf({ kind: 'lines', gradient: key }),
       })),
+      images: [...paintedImages(styles).values()],
       marker,
       markerX: rtl ? inner + gutter - (marker?.getMaxIntrinsicWidth() ?? 0) : 0,
       markerY: (paragraph.getLineMetrics()[0]?.baseline ?? 0) - (marker?.getLineMetrics()[0]?.baseline ?? 0),
@@ -394,17 +403,19 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     y += block.height + (i < paragraphs.length - 1 ? spacing : 0)
     return block
   })
+  let letters: Placement | null = null
   const layout: TextLayout = {
     blocks,
     dy: 0,
     width,
     height: y,
     scale,
-    superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(p.superSub?.baselineShift ?? 0))),
+    superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(baselineShift(p)))),
     align: props.align,
     rtl,
     pieces: drawn,
     placed: null,
+    letters: () => layout.placed ?? (letters ??= placeLetters(ck, layout, inPlace)),
     delete() {
       for (const b of blocks) {
         b.paragraph.delete()
@@ -414,6 +425,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         b.marker?.delete()
       }
       layout.placed?.delete()
+      letters?.delete()
     },
   }
   return layout

@@ -10,7 +10,7 @@ export {
   shareParent,
 } from './children.ts'
 export { derivedValues, type FitText } from './derived-values.ts'
-export { fittedText, type MeasureText } from './fitted-text.ts'
+export { fittedText, hasBoxToFit, type KeptPoint, type MeasureText } from './fitted-text.ts'
 export { scaled, type ScaledText, scaleText, smallestSize } from './text-scale.ts'
 export {
   type Axis,
@@ -47,6 +47,8 @@ export {
 export { frameIdOf } from '@dazbee/schema'
 export { COMMANDS, type CommandName } from './commands/index.ts'
 export { type CatalogEntry, commandCatalog } from './commands/catalog.ts'
+export { nearestNames } from './commands/nearest-names.ts'
+export { inWords } from './in-words.ts'
 export {
   type AgentBatchResult,
   type AgentStep,

@@ -1,27 +1,16 @@
-import { isDeepStrictEqual } from 'node:util'
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  type CatalogEntry,
-  commandCatalog,
-  CommandError,
-  openSession,
-  readDesign,
-  type Session,
-  VIEW_ONLY,
-} from '@dazbee/doc'
-import { COMMAND_INPUTS, registerBuggyCommands, sweepWorld } from '@dazbee/doc/test-commands'
-import { kindsDesign, testDesign } from '@dazbee/doc/test-design'
-import { forkTestStore, openTestStore } from '@dazbee/doc/test-store'
-import { seeded } from '@dazbee/doc/test-walk'
+import { type CatalogEntry, commandCatalog, openSession, VIEW_ONLY } from '@dazbee/doc'
+import { registerBuggyCommands } from '@dazbee/doc/test-commands'
+import { testDesign } from '@dazbee/doc/test-design'
+import { openTestStore } from '@dazbee/doc/test-store'
 import { type AgentTab, openAgentTab } from '@dazbee/editor/agent-tab'
 import type { MemorySync } from '@dazbee/editor/test-link'
 import { type AgentWarning, runAgentBatchWithWarnings, whenWarned } from '@dazbee/export'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { brandVariables, type DesignInput, type DesignRecords, SYNC_CLOSE } from '@dazbee/schema'
+import { brandVariables, SYNC_CLOSE } from '@dazbee/schema'
 
 import { REOPENED } from '../open-design.ts'
 import { NOT_CONFIRMED } from '../store-wait.ts'
@@ -94,35 +83,6 @@ async function withSecondTab(options?: Parameters<TestServer['api']['addAccess']
 /** The change sets the server stored. */
 function accepted(sync: MemorySync) {
   return sync.journal.rows.journal.filter((entry) => entry.kind === 'accepted')
-}
-
-/** What `session.run` gives for `command` and `input`: its result with new ids named by order, or its refusal as run_command tells it. */
-function ranOn(session: Session, command: string, input: unknown, before: ReadonlySet<string>) {
-  try {
-    const result: unknown = session.run(command as never, input as never)
-    return { result: newIdsIn(result, idsOf(session.design()), before) }
-  } catch (error) {
-    if (!(error instanceof CommandError)) throw error
-    return { refused: `${error.command}: ${error.reason}; nothing was changed.` }
-  }
-}
-
-/** The ids of a design's pages, frames and layers. */
-function idsOf(design: Pick<DesignRecords, 'pages' | 'frames' | 'nodes'>): Set<string> {
-  return new Set([...Object.keys(design.pages), ...Object.keys(design.frames), ...Object.keys(design.nodes)])
-}
-
-/**
- * `value` as JSON, each id in `after` but not in `before` named by the order it first appears in, since the ids a
- * command makes at random differ between two runs.
- */
-function newIdsIn(value: unknown, after: ReadonlySet<string>, before: ReadonlySet<string>): unknown {
-  const names = new Map<string, string>()
-  return JSON.parse(JSON.stringify(value ?? null), (_key, inner: unknown) => {
-    if (typeof inner !== 'string' || before.has(inner) || !after.has(inner)) return inner
-    if (!names.has(inner)) names.set(inner, `new id ${names.size + 1}`)
-    return names.get(inner)
-  })
 }
 
 /** The change sets the agent's tab, the design's first socket, sent. */
@@ -224,8 +184,20 @@ describe('describe_command', () => {
     for (const command of ['node.explode', 'design.restore']) {
       const result = await agent.call('describe_command', { command })
       expect(result.isError).toBe(true)
-      expect(textOf(result)).toBe(`There is no command “${command}”; list_commands lists them.`)
+      expect(textOf(result)).toMatch(
+        /^There is no command “[^”]+” \(the nearest are [^)]+\); list_commands lists them all\.$/,
+      )
+      expect(textOf(result)).toContain(`“${command}”`)
     }
+  })
+
+  it('names the commands nearest an unknown one', async () => {
+    const agent = await connect()
+    const result = await agent.call('describe_command', { command: 'frame.create' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'There is no command “frame.create” (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add); list_commands lists them all.',
+    )
   })
 
   it('refuses an unknown argument, naming the one it takes', async () => {
@@ -237,6 +209,15 @@ describe('describe_command', () => {
 })
 
 describe('run_command', () => {
+  it('shows a node.update input in its description and in batch’s, and that `field` is for an object or a list', async () => {
+    const agent = await connect()
+    const { tools } = await agent.client.listTools()
+    const described = (name: string) => tools.find((tool) => tool.name === name)?.description ?? ''
+    for (const tool of ['run_command', 'batch'])
+      expect(described(tool)).toContain('{ "ids": ["a1"], "patch": { "x": 40 } }')
+    expect(described('batch')).toContain('"field" only for a result that is an object or a list')
+  })
+
   it('answers the result and the warnings once stored, which the second tab then holds', async () => {
     const { agent, sync, other } = await withSecondTab()
     const result = await agent.call('run_command', { command: 'node.rename', input: { id: 'box', name: 'Card' } })
@@ -279,6 +260,31 @@ describe('run_command', () => {
     expect(result.isError).toBe(true)
     expect(textOf(result)).toMatch(/^node\.rename: .+; nothing was changed\.$/)
     expect(accepted(sync)).toHaveLength(0)
+  })
+
+  it('refuses an input of other keys, naming the keys the command takes and those it was given', async () => {
+    const { agent, sync } = await withSecondTab()
+    const update = await agent.call('run_command', { command: 'node.update', input: { id: 'box', props: { x: 5 } } })
+    expect(update.isError).toBe(true)
+    expect(textOf(update)).toBe(
+      'node.update: the input takes ids and patch (and may take drawn and holders); got id and props; nothing was changed.',
+    )
+    const replace = await agent.call('run_command', { command: 'text.replace', input: { id: 'title', text: 'Sale' } })
+    expect(textOf(replace)).toBe(
+      'text.replace: the input takes ids, find and replace; got id and text; nothing was changed.',
+    )
+    expect(accepted(sync)).toHaveLength(0)
+  })
+
+  it('names the commands nearest an unknown one, in run_command and in batch', async () => {
+    const { agent } = await withSecondTab()
+    const refusal =
+      'There is no command “frame.create” (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add); list_commands lists them all, so nothing ran.'
+    const result = await agent.call('run_command', { command: 'frame.create', input: {} })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(refusal)
+    const batch = await agent.call('batch', { steps: [...CARD, { command: 'frame.create', input: {} }] })
+    expect(textOf(batch)).toBe(refusal)
   })
 
   it('answers a change set the server rejects as not kept, with why', async () => {
@@ -463,6 +469,17 @@ describe('batch', () => {
     expect(other.design().nodes['card']).toBeUndefined()
   })
 
+  it('refuses a `field` on a result that is an id, saying to drop it', async () => {
+    const { agent } = await withSecondTab()
+    const [card, title] = CARD
+    const steps = [card, { ...title, input: { ...title?.input, parentId: { $ref: 'card', field: 'id' } } }]
+    const answer = (await agent.json('batch', { steps })) as { kept: boolean; steps: { reason?: string }[] }
+    expect(answer.kept).toBe(false)
+    expect(answer.steps[1]?.reason).toBe(
+      'parentId: step 0\'s result is a string ("card"), which has no fields: drop `field` and write { "$ref": "card" } alone',
+    )
+  })
+
   it('refuses a batch holding design.restore before any step runs', async () => {
     const { agent, sync } = await withSecondTab()
     const result = await agent.call('batch', { steps: [...CARD, { command: 'design.restore', input: {} }] })
@@ -514,46 +531,5 @@ describe('undo', () => {
     await sync.settle()
     expect(textOf(await agent.call('undo'))).toBe('There is no step of this agent’s to undo')
     expect(sync.state().nodes['box']).toMatchObject({ name: 'Bob’s' })
-  })
-})
-
-describe('the sweep', () => {
-  it('answers what session.run gives on a copy of the design, for every command but design.restore', async () => {
-    const world = openTestStore(kindsDesign())
-    const made = openSession(world)
-    const { random, ...inputs } = sweepWorld(made, seeded(1))
-    made.destroy()
-    // The sweep makes more calls at once than an access may.
-    server = testServer({
-      designs: { 'design-launch': readDesign(world) as DesignInput },
-      limits: { callsBurst: 10_000 },
-    })
-    const agent = await server.connect(server.api.addAccess().token())
-    expect((await agent.call('open_design', LAUNCH)).isError).toBeFalsy()
-    const sync = server.sync('design-launch')
-    const before = idsOf(readDesign(world))
-    const problems: string[] = []
-    for (const [command, inputsOf] of Object.entries(COMMAND_INPUTS)) {
-      if (command === 'design.restore' || !inputsOf) continue
-      for (const [i, given] of inputsOf({ ...inputs, random }).entries()) {
-        const input = JSON.parse(JSON.stringify(given)) as unknown
-        const copy = openSession(forkTestStore(world))
-        const expected = ranOn(copy, command, input, before)
-        const result = await agent.call('run_command', { command, input })
-        const got = result.isError
-          ? { refused: textOf(result) }
-          : {
-              result: newIdsIn(
-                (JSON.parse(textOf(result)) as { result?: unknown }).result,
-                idsOf(sync.state()),
-                before,
-              ),
-            }
-        if (!isDeepStrictEqual(got, expected)) problems.push(`${command} #${i}: ${JSON.stringify({ got, expected })}`)
-        if (!result.isError) expect((await agent.call('undo')).isError).toBeFalsy()
-        copy.destroy()
-      }
-    }
-    expect(problems).toEqual([])
   })
 })

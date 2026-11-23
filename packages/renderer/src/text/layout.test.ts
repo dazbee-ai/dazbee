@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Paragraph } from '@dazbee/canvaskit'
 import { scaleText } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -84,6 +85,39 @@ describe('layoutText', () => {
       return ids
     }
     expect(marker(textOf('12', sups(0, 2)))).toEqual(marker(textOf('12', [])))
+  })
+
+  it('raises a run’s glyphs raise / 100 × its own font size above the line’s baseline, the line’s height unchanged', () => {
+    const plain = glyphs(textOf('$99c', []))
+    const raised = glyphs(
+      textOf('$99c', [
+        { start: 0, end: 1, style: { raise: 30 } },
+        { start: 3, end: 4, style: { raise: -20, fontSize: 20 } },
+      ]),
+    )
+    const shift = (i: number) => (raised.glyphs[i]?.y ?? 0) - (plain.glyphs[i]?.y ?? 0)
+    expect(shift(0)).toBeCloseTo(-12, 3)
+    expect([shift(1), shift(2)]).toEqual([0, 0])
+    expect(shift(3)).toBeCloseTo(4, 3)
+    expect(raised.height).toBe(plain.height)
+  })
+
+  it('adds a raise to a superscript’s shift: a made-up one’s by its full size, and the font’s own glyph raised too', () => {
+    const plain = glyphs(textOf('E x2', []))
+    const madeUp = glyphs(textOf('E x2', [{ start: 2, end: 4, style: { features: { sups: true }, raise: 50 } }]))
+    for (const [i, g] of madeUp.glyphs.slice(2).entries())
+      expect(g.y - (plain.glyphs[i + 2]?.y ?? 0)).toBeCloseTo(-34, 0)
+    expect(madeUp.height).toBe(plain.height)
+    const own = glyphs(textOf('x2', sups(1, 2)))
+    const ownRaised = glyphs(textOf('x2', [{ start: 1, end: 2, style: { features: { sups: true }, raise: 50 } }]))
+    expect(ownRaised.glyphs[1]?.id).toBe(own.glyphs[1]?.id)
+    expect((ownRaised.glyphs[1]?.y ?? 0) - (own.glyphs[1]?.y ?? 0)).toBeCloseTo(-20, 3)
+  })
+
+  it('gives the largest shift of any piece, raises included, as the most its glyphs move off their line', () => {
+    const laid = layoutText(ck, textOf('$9', [{ start: 0, end: 1, style: { raise: -60 } }]), shipped)
+    expect(laid.superSubShift).toBeCloseTo(24, 6)
+    laid.delete()
   })
 
   it('never breaks a word balancing lines whose longest word is a fraction of a pixel wide', () => {
@@ -173,6 +207,51 @@ describe('layoutText', () => {
           else expect(Math.abs(v - 2 * at)).toBeLessThan(near)
         })
       }
+    })
+  })
+
+  describe('image fills', () => {
+    const image = (assetId: string, visible = true) => ({ type: 'image', assetId, fit: 'fill', opacity: 1, visible })
+    /** Each glyph a paragraph draws, by its id and where it sits. */
+    const glyphsOf = (paragraph: Paragraph, dy: number) =>
+      paragraph
+        .getShapedLines()
+        .flatMap((line) =>
+          line.runs.flatMap((run) =>
+            [...run.glyphs].map((g, i) => [g, run.positions[2 * i], (run.positions[2 * i + 1] ?? 0) + dy]),
+          ),
+        )
+
+    it('names the images each paragraph’s characters show, and places its letters where the paragraph draws them, once', () => {
+      const props = textOf('Gold and wood\nplain', [
+        { start: 0, end: 4, style: { image: image('gold') } },
+        { start: 9, end: 13, style: { image: image('wood'), underline: true } },
+        { start: 5, end: 8, style: { image: image('hidden', false) } },
+      ])
+      const laid = layoutText(ck, props, shipped)
+      const [first, second] = laid.blocks
+      expect(first?.images.map((i) => i.assetId)).toEqual(['gold', 'wood'])
+      expect(second?.images).toEqual([])
+      const letters = laid.letters()
+      expect(laid.letters()).toBe(letters)
+      laid.blocks.forEach((block, i) => {
+        const placed = letters.runs
+          .filter((run) => run.block === i)
+          .flatMap((run) =>
+            [...run.glyphs].map((g, n) => [g, (run.xforms[4 * n + 2] ?? 0) - block.x, run.xforms[4 * n + 3]]),
+          )
+        expect(placed).toEqual(glyphsOf(block.paragraph, laid.dy + block.y))
+      })
+      laid.delete()
+    })
+
+    it('names no image for a text without one, and gives a placed text’s placement as its letters', () => {
+      const plain = layoutText(ck, textOf('Plain', []), shipped)
+      expect(plain.blocks[0]?.images).toEqual([])
+      plain.delete()
+      const curved = layoutText(ck, { ...textOf('Curved', []), curve: { shape: 'arcUp', amount: 40 } }, shipped)
+      expect(curved.letters()).toBe(curved.placed)
+      curved.delete()
     })
   })
 })

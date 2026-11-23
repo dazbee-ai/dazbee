@@ -193,7 +193,30 @@ describe('PDF and SVG exports (#56)', () => {
     )
   })
 
-  it.each(cases.filter((c) => c.name === 'text-effects'))(
+  it('keeps straight raised characters in a PDF as text, and draws raised letters on a curve and in a bounce as shapes', async () => {
+    const raise = cases.find((c) => c.name === 'text-effects' && c.frameId === 'raise')
+    if (!raise) throw new Error('fixture missing')
+    const pdf = pdfs.get(raise.label) ?? renderVector(ck, raise.json, raise.frameId, bytes, 'pdf', cache)
+    const text = await pdfText(pdfium, pdf)
+    expect(text).toContain('49')
+    expect(text).not.toContain('TODAY')
+    expect(text).not.toContain('Yummy')
+  })
+
+  it('keeps image-filled straight text in a PDF as text once, draws an image-filled curve as shapes, and an image-filled text into an SVG as an image', async () => {
+    const filled = cases.find((c) => c.name === 'text-effects' && c.frameId === 'image-fill')
+    if (!filled) throw new Error('fixture missing')
+    const pdf = pdfs.get(filled.label) ?? renderVector(ck, filled.json, filled.frameId, bytes, 'pdf', cache)
+    const text = await pdfText(pdfium, pdf)
+    expect(text.match(/SNEAKERS/g)).toHaveLength(1)
+    expect(text).toContain('Get the GOLD deal now')
+    expect(text).not.toContain('SUMMER')
+    const svg = new TextDecoder().decode(renderVector(ck, filled.json, filled.frameId, bytes, 'svg', cache))
+    expect(svg).not.toContain('<text')
+    expect(svg).toContain('<image')
+  })
+
+  it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise' && c.frameId !== 'image-fill'))(
     '$label: draws curved and bounced letters into a PDF and an SVG as shapes, never as text',
     async ({ json, frameId, label }) => {
       const pdf = pdfs.get(label) ?? renderVector(ck, json, frameId, bytes, 'pdf', cache)
@@ -251,6 +274,17 @@ describe('PDF and SVG exports (#56)', () => {
       expect(worst, `largest distance over ${inFile.length} glyphs`).toBeLessThanOrEqual(0.05)
     },
   )
+
+  it('draws a colour-adjusted image fill into a PDF as an image of the fill, not of the page', () => {
+    const fills = cases.find((c) => c.label === 'image-fills sq')
+    if (!fills) throw new Error('fixture missing')
+    // adj0 alone: a 150×150 photo with its exposure raised, on a 1080×1080 frame.
+    const json = { ...fills.design, nodes: { adj0: fills.design.nodes.adj0 } }
+    const pdf = new TextDecoder('latin1').decode(renderVector(ck, json, 'sq', bytes, 'pdf', cache))
+    const sides = [...pdf.matchAll(/\/(?:Width|Height) (\d+)/g)].map((m) => Number(m[1]))
+    expect(sides.length, 'images in the PDF').toBeGreaterThan(0)
+    expect(Math.max(...sides), 'largest image side in the PDF').toBeLessThanOrEqual(150)
+  })
 
   it('names the file and its type for PDF and SVG', () => {
     const [c] = cases

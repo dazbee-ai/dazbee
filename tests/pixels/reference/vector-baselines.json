@@ -289,6 +289,16 @@
       "limit": 0.614
     }
   },
+  "text-effects image-fill": {
+    "pdf": {
+      "percent": 0.463,
+      "limit": 0.628
+    },
+    "svg": {
+      "percent": 0,
+      "limit": 0.05
+    }
+  },
   "text-effects lines": {
     "pdf": {
       "percent": 0.464,
@@ -297,6 +307,16 @@
     "svg": {
       "percent": 0.341,
       "limit": 0.476
+    }
+  },
+  "text-effects raise": {
+    "pdf": {
+      "percent": 0.594,
+      "limit": 0.793
+    },
+    "svg": {
+      "percent": 0.537,
+      "limit": 0.722
     }
   },
   "text-effects scripts": {

@@ -256,7 +256,9 @@ export const TextStyle = z.object({
   outline: textStyleFields.outline.optional(),
   features: textStyleFields.features.optional(),
   gradient: textStyleFields.gradient.optional(),
+  image: textStyleFields.image.optional(),
   turn: textStyleFields.turn.optional(),
+  raise: textStyleFields.raise.optional(),
 })
 export type TextStyle = z.infer<typeof TextStyle>
 
@@ -339,13 +341,25 @@ export const TextProps = z
      */
     curve: TextCurve.optional(),
     /**
+     * While a fixed or auto height text is curved, the size its box had before, as multiples of its
+     * font size, so it scales with the text: the box goes back to it when the curve is taken off (an
+     * auto height box takes its width, its height fitted to its words).
+     */
+    straightBox: z.object({ width: z.number().min(0), height: z.number().min(0) }).optional(),
+    /**
      * Its letters bounced. An auto width box holds the letters as they are drawn, an auto height box
      * grows in height only, and a fixed box stays as set; the box keeps its top-left.
      */
     bounce: TextBounce.optional(),
   })
   .superRefine((t, ctx) => {
+    const oneFill = (style: { gradient?: unknown; image?: unknown }, path: (string | number)[]) => {
+      if (style.gradient !== undefined && style.image !== undefined)
+        ctx.addIssue({ code: 'custom', path, message: 'a style holds a gradient or an image, not both' })
+    }
+    oneFill(t.style, ['style'])
     for (const [i, run] of t.runs.entries()) {
+      oneFill(run.style, ['runs', i, 'style'])
       if (run.end > t.text.length) {
         ctx.addIssue({
           code: 'custom',

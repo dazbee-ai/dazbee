@@ -6,10 +6,12 @@
 // Light's when that does, else the closer. A piece read shrunk is matched shrunk and judged at full
 // size. A piece no catalog face draws, or none shortlisted fits, is set in its script's Noto,
 // approximate. Hollow letters are matched read as drawn too, the one that looks the same given, else
-// the closer. Letters the curve check reads along a curve are also matched straightened along it
-// (`effects/curve-frame.ts`), the face drawn curved (`effects/curve.ts`): first when far off
-// straight, else when the straight answer doesn't look the same; a curve that looks the same is given
-// unless it bends too little to replace a straight answer that does, else the closer.
+// the closer. Letters are never spaced so tight they run into each other, unless only that looks the
+// same, as where the picture's own letters do. Letters the curve check reads along a curve are also
+// matched straightened along it (`effects/curve-frame.ts`), the face drawn curved
+// (`effects/curve.ts`): first when far off straight, else when the straight answer doesn't look the
+// same; a curve that looks the same is given unless it bends too little to replace a straight answer
+// that does, else the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -30,6 +32,7 @@ import { type FontSource, loadFaces } from './font-source.ts'
 import { inkBox } from './ink.ts'
 import { correct } from './light/correct.ts'
 import { fitFace, type Fitted } from './light/fit.ts'
+import { spacedAny } from './light/letters-apart.ts'
 import { rankFits } from './light/rank.ts'
 import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
@@ -244,21 +247,42 @@ function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 
 }
 
 /**
- * The answer in one of the faces tried, judged at full size: Light's verified pick, and in Hybrid its
- * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
- * rule's SSIM less the ink missed, as Light's finalists are compared.
+ * The answer in one of the faces tried, its letters kept from running into each other; when that
+ * doesn't look the same, the answer fitted as tight as the piece asks instead if that looks the same,
+ * so a picture whose own letters run into each other keeps looking the same. When no fit was spaced
+ * wider to keep its letters apart, fitting as tight as the piece asks would fit the same again.
  */
 async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
-  const { ck, words, target } = fitting
-  const { candidates, similarities } = tried
-  const { reading: work } = target
-  const faces = await facesOf(fitting.fonts, candidates, tried.loaded, words)
-  const drawn = candidates.filter((face) => faces.has(face.key))
+  const faces = await facesOf(fitting.fonts, tried.candidates, tried.loaded, fitting.words)
+  const drawn = tried.candidates.filter((face) => faces.has(face.key))
   if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
-  const drawer = textDrawer(ck, drawnFaces(drawn, faces))
+  const apart = fitFaces(fitting, tried, drawn, faces, true)
+  if (apart.answer === 'unfitted' || apart.answer.same || !apart.spacedWider) return apart.answer
+  const touching = fitFaces(fitting, tried, drawn, faces, false).answer
+  return touching !== 'unfitted' && touching.same ? touching : apart.answer
+}
+
+/**
+ * The answer in one of the faces drawn, judged at full size: Light's verified pick, and in Hybrid its
+ * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
+ * rule's SSIM less the ink missed, as Light's finalists are compared. `lettersApart` keeps every fit's
+ * letters from running into each other; `spacedWider` says whether that spaced any fit wider.
+ */
+function fitFaces(
+  fitting: Fitting,
+  tried: FacesTried,
+  drawn: readonly Candidate[],
+  faces: ReadonlyMap<string, Uint8Array>,
+  lettersApart: boolean,
+): { answer: Verified | 'unfitted'; spacedWider: boolean } {
+  const { ck, words, target } = fitting
+  const { similarities } = tried
+  const { reading: work } = target
+  const drawer = textDrawer(ck, drawnFaces(drawn, faces), { lettersApart })
   let light: Verified | undefined
   let finer: Verified | undefined
+  let spacedWider = false
   try {
     const fits = drawn.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     const unfitted = tried.plainWhenUnfitted && fits.length === 0 && drawn[0]
@@ -287,21 +311,18 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
       const finerFitted = finerFit(drawer, work, words, light.fit)
       if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }
+    spacedWider = spacedAny(drawer)
   } finally {
     drawer.delete()
   }
-  if (!light) return 'unfitted'
+  if (!light) return { answer: 'unfitted', spacedWider }
   // A curved answer is judged against the piece as read before it was straightened.
   const judged = fitting.curve ?? { target, whole: fitting.whole }
   const atFullSize = (verified: Verified) =>
     judged.target.scale === 1
       ? verified
       : atWholeSize(ck, verified, judged.target.scale, faces, { ...judged.target, reading: judged.whole })
-  const lightAnswer = atFullSize(light)
-  const finerAnswer = finer && atFullSize(finer)
-  if (!finerAnswer) return lightAnswer
-  if (finerAnswer.same || lightAnswer.same) return finerAnswer.same ? finerAnswer : lightAnswer
-  return closeness(finerAnswer.scores) > closeness(lightAnswer.scores) ? finerAnswer : lightAnswer
+  return { answer: hybridAnswer(atFullSize(light), finer && atFullSize(finer)), spacedWider }
 }
 
 /**
@@ -387,6 +408,13 @@ function atWholeSize(
   } finally {
     drawer.delete()
   }
+}
+
+/** The finer fit's answer when it looks the same, else Light's when that does, else the closer by the rule's SSIM less the ink missed. */
+function hybridAnswer(light: Verified, finer: Verified | undefined): Verified {
+  if (!finer) return light
+  if (finer.same || light.same) return finer.same ? finer : light
+  return closeness(finer.scores) > closeness(light.scores) ? finer : light
 }
 
 /** A look found on the shrunk piece at the whole piece's size, its outline to the half pixel. */

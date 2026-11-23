@@ -3,7 +3,7 @@
 // its fonts are here. The refit is untracked, a change no one undoes, as the brand kit's refit:
 // undo of the edit that owed it takes the text back with the box from before. It waits for an open
 // drag or typing step to end (C40).
-import { CommandFault, type FitText, type Session } from '@dazbee/doc'
+import { CommandFault, type FitText, type KeptPoint, type Session } from '@dazbee/doc'
 
 export interface OwedFitsDeps {
   session: Pick<Session, 'design' | 'untracked'>
@@ -12,24 +12,25 @@ export interface OwedFitsDeps {
 }
 
 export interface OwedFits {
-  /** Owes a text a fit once the fonts it is drawn in are here. */
-  owe(id: string): void
+  /** Owes a text a fit once the fonts it is drawn in are here, keeping its box's centre with `keep`. */
+  owe(id: string, keep?: KeptPoint): void
   /**
    * A load of fonts settled: each owed text whose fonts are all here is fitted with `fitText`
-   * (typing's: the text and the groups around it), untracked.
+   * (typing's: the text and the groups around it), untracked, keeping what it was owed with.
    */
-  settle(fitText: (id: string) => void): void
+  settle(fitText: (id: string, keep?: KeptPoint) => void): void
 }
 
 export function owedFits({ session, fit }: OwedFitsDeps): OwedFits {
-  /** The texts fitted while a font they are drawn in was coming. */
-  const owed = new Set<string>()
+  /** The texts fitted while a font they are drawn in was coming, each with the point its box keeps. */
+  const owed = new Map<string, KeptPoint | undefined>()
 
-  function owe(id: string) {
-    owed.add(id)
+  function owe(id: string, keep?: KeptPoint) {
+    owed.set(id, keep ?? owed.get(id))
   }
-  function settle(fitText: (id: string) => void) {
-    const due = [...owed].filter((id) => {
+  function settle(fitText: (id: string, keep?: KeptPoint) => void) {
+    const keeps = new Map(owed)
+    const due = [...owed.keys()].filter((id) => {
       const layer = session.design().nodes[id]
       const answer = layer ? fit(layer) : undefined
       if (answer === 'wait') return false
@@ -40,7 +41,7 @@ export function owedFits({ session, fit }: OwedFitsDeps): OwedFits {
     if (due.length === 0) return
     try {
       session.untracked(() => {
-        for (const id of due) fitText(id)
+        for (const id of due) fitText(id, keeps.get(id))
       })
     } catch (error) {
       // Its fault listeners were told; the loads' other settle listeners still run.

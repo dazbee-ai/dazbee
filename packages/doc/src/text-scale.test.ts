@@ -78,3 +78,26 @@ describe('scaling text', () => {
     expect(smallestSize({ style, runs: [], shrinkToFit: { min: 8, max: 64 } })).toBe(8)
   })
 })
+
+describe('scaledTiles', () => {
+  it('scales a tiled image’s tile scale with the text, to hundredths inside TILE_SCALE, and leaves other images', () => {
+    const tile = (tileScale?: number) => ({
+      type: 'image' as const,
+      assetId: 'marble',
+      fit: 'tile' as const,
+      opacity: 1,
+      ...(tileScale === undefined ? {} : { tileScale }),
+    })
+    const fill = { ...tile(), fit: 'fill' as const }
+    const runs = [
+      { start: 0, end: 1, style: { image: tile(0.37) } },
+      { start: 1, end: 2, style: { image: fill } },
+      { start: 2, end: 3, style: { image: tile(9) } },
+      { start: 3, end: 4, style: { image: tile() } },
+    ]
+    const out = scaleText({ style: { ...style, image: tile(0.5) }, runs }, 2.5)
+    expect(out.style.image).toEqual(tile(1.25))
+    expect(out.runs.map((run) => run.style.image)).toEqual([tile(0.93), fill, tile(10), tile()])
+    expect(scaleText({ style: { ...style, image: tile(0.02) }, runs: [] }, 0.1).style.image).toEqual(tile(0.01))
+  })
+})

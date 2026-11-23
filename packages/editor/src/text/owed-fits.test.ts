@@ -2,7 +2,7 @@
 // again once that load settles: untracked, after an open gesture, and only while it still grows.
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { CommandFault, fittedText, type FitText } from '@dazbee/doc'
+import { CommandFault, fittedText, type FitText, type KeptPoint } from '@dazbee/doc'
 import { EMOJI_FAMILY } from '@dazbee/fonts'
 import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import type { Design, Layer, TextProps } from '@dazbee/schema'
@@ -143,7 +143,7 @@ describe('owedFits', () => {
       owed,
       fitted,
       answer: (to: ReturnType<FitText>) => (answer = to),
-      fitText: (id: string) => fitted.push(id),
+      fitText: (id: string, keep?: KeptPoint) => fitted.push(keep ? `${id} ${keep}` : id),
     }
   }
 
@@ -156,6 +156,14 @@ describe('owedFits', () => {
     owed.settle(fitText)
     owed.settle(fitText)
     expect(fitted).toEqual(['words'])
+  })
+
+  it('fits a text owed a fit that keeps its centre keeping its centre', () => {
+    const { owed, fitted, answer, fitText } = owing()
+    owed.owe('words', 'center')
+    answer({ width: 10, height: 10 })
+    owed.settle(fitText)
+    expect(fitted).toEqual(['words center'])
   })
 
   it('owes nothing more for a text that keeps its box', () => {

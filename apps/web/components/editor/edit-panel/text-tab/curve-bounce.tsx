@@ -31,6 +31,7 @@ import {
   sharedCurve,
   sharedTurn,
   shufflePatch,
+  TURN_MOST,
   turnAllPatch,
   turnEachPatch,
 } from './curves.ts'
@@ -68,7 +69,7 @@ export function CurveRows({ target }: { target: Target }) {
       />
       {amount !== null && (
         <NumberField
-          label={p.curveAmount}
+          label={p.amount}
           name={p.curveAmount}
           testId="curve-amount"
           value={amount}
@@ -108,7 +109,7 @@ export function BounceRows({ target }: { target: Target }) {
       {amount !== null && (
         <div className="flex items-center gap-1.5">
           <NumberField
-            label={p.curveAmount}
+            label={p.amount}
             name={p.bounceAmount}
             testId="bounce-amount"
             value={amount}
@@ -152,12 +153,12 @@ export function LetterTurnField({ target }: { target: Target }) {
       testId="letter-turn"
       unit="°"
       value={value}
-      min={-180}
-      max={180}
+      min={-TURN_MOST}
+      max={TURN_MOST}
       editor={target.editor}
       onSet={(v) => (range ? setStyle('turn', tidy(v)) : set(target, (now) => turnAllPatch(now, v)))}
       onEach={(change) =>
-        range ? changeStyle('turn', change, -180, 0, 180) : set(target, (now) => turnEachPatch(now, change))
+        range ? changeStyle('turn', change, -TURN_MOST, 0, TURN_MOST) : set(target, (now) => turnEachPatch(now, change))
       }
     />
   )

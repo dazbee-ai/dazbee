@@ -3,11 +3,15 @@
 // turn writes to each text.
 import type { RunStyle, TextBounce, TextCurve, TextRun } from '@dazbee/schema'
 
+import { clamp } from '@/components/editor/edit-panel/number-field.tsx'
 import { type Patch, type Props, shared, type Style } from '@/components/editor/edit-panel/target.ts'
 import { tidy } from '@/lib/editor/size.ts'
 
 /** A curve's shape, or none for a straight text. */
 export type CurveChoice = 'none' | TextCurve['shape']
+
+/** A bounce's style, or none for a text whose letters sit on their line. */
+export type BounceChoice = 'none' | TextBounce['style']
 
 /** The part's choices, in the order they show. */
 export const CURVE_CHOICES = ['none', 'arcUp', 'arcDown', 'circle', 'wave'] as const satisfies readonly CurveChoice[]
@@ -22,14 +26,14 @@ export const CURVE_START = 50
  */
 export const CURVE_MOST: Record<TextCurve['shape'], number> = { arcUp: 100, arcDown: 50, circle: 100, wave: 40 }
 
-/** A bounce's style, or none for a text whose letters sit on their line. */
-export type BounceChoice = 'none' | TextBounce['style']
-
 /** The part's bounce choices, in the order they show. */
 export const BOUNCE_CHOICES = ['none', 'wavy', 'random'] as const satisfies readonly BounceChoice[]
 
 /** The amount and seed a bounce picked on a text with none starts at. */
 export const BOUNCE_START = { amount: 30, seed: 1 } as const
+
+/** How far a letter turns either way, in degrees. */
+export const TURN_MOST = 180
 
 /**
  * The texts' curve as the part shows it: the shape they share, none where every one is straight, or
@@ -113,7 +117,7 @@ export function pickBounce(now: Props, to: BounceChoice): Patch | null {
 export function bounceAmountPatch(now: Props, change: (amount: number) => number): Patch | null {
   const was = bounceOf(now)
   if (!was) return null
-  const amount = Math.min(100, Math.max(0, change(was.amount)))
+  const amount = clamp(change(was.amount), 0, 100)
   return amount === was.amount ? null : { bounce: { ...was, amount } }
 }
 
@@ -132,32 +136,14 @@ export function sharedTurn(props: readonly Props[], range?: readonly Style[]): n
   return shared([...new Set(props.flatMap(turnsOf))])
 }
 
-/**
- * The patch that turns every character of a text by `turn` degrees: its base style's turn, none at
- * 0, and its runs' own turns taken off. Null where nothing changes.
- */
+/** The patch that turns every character of a text by `turn` degrees; null where nothing changes. */
 export function turnAllPatch(now: Props, turn: number): Patch | null {
-  const style = withTurn(now.style as RunStyle, tidy(turn))
-  const runs = runsOf(now).flatMap((run) => {
-    if (run.style.turn === undefined) return [run]
-    const kept = withTurn(run.style, 0)
-    return Object.keys(kept).length > 0 ? [{ ...run, style: kept }] : []
-  })
-  return changed(now, { style, runs })
+  return turnPatch(now, () => turn)
 }
 
-/**
- * The patch that changes each character's turn of a text from its own: its base style's and each
- * run's that sets one, each held between −180 and 180. Null where nothing changes.
- */
+/** The patch that changes each character's turn of a text from its own, held within TURN_MOST either way; null where nothing changes. */
 export function turnEachPatch(now: Props, change: (turn: number) => number): Patch | null {
-  const turned = (turn: number | undefined) => tidy(Math.min(180, Math.max(-180, change(turn ?? 0))))
-  const base = now.style as RunStyle
-  const style = withTurn(base, turned(base.turn))
-  const runs = runsOf(now).map((run) =>
-    run.style.turn === undefined ? run : { ...run, style: { ...run.style, turn: turned(run.style.turn) } },
-  )
-  return changed(now, { style, runs })
+  return turnPatch(now, (was) => clamp(change(was), -TURN_MOST, TURN_MOST))
 }
 
 /** A text's curve, if it has one. */
@@ -195,17 +181,28 @@ function runsOf(props: Props): TextRun[] {
   return (props.runs ?? []) as TextRun[]
 }
 
-/** A style with its turn set, or taken off at 0. */
-function withTurn<T extends RunStyle>(style: T, turn: number): T {
-  const out: RunStyle = { ...style }
-  if (turn === 0) delete out.turn
-  else out.turn = turn
-  return out as T
+/**
+ * The patch that gives each character of a text the turn `to` makes of its own: the base style's,
+ * none at 0, and over each run that sets a turn, that run's characters' turn as a style laid over
+ * them, which is how the editor writes a text's runs. Null where no turn changes.
+ */
+function turnPatch(now: Props, to: (was: number) => number): Patch | null {
+  const was = now.style as RunStyle
+  const turn = tidy(to(was.turn ?? 0))
+  const turning = runsOf(now).filter((run) => run.style.turn !== undefined)
+  const runs = turning.map((run) => ({
+    start: run.start,
+    end: run.end,
+    style: { turn: tidy(to(run.style.turn ?? 0)) },
+  }))
+  const same = turn === (was.turn ?? 0) && runs.every((run, i) => run.style.turn === turning[i]?.style.turn)
+  return same ? null : { style: withTurn(was, turn), ...(runs.length > 0 && { runs }) }
 }
 
-/** The patch `to` where it changes the text's style or runs, else null. */
-function changed(now: Props, to: { style: RunStyle; runs: TextRun[] }): Patch | null {
-  const same =
-    JSON.stringify(to.style) === JSON.stringify(now.style) && JSON.stringify(to.runs) === JSON.stringify(runsOf(now))
-  return same ? null : to
+/** A style with its turn set, or taken off at 0. */
+function withTurn(style: RunStyle, turn: number): RunStyle {
+  const out = { ...style }
+  if (turn === 0) delete out.turn
+  else out.turn = turn
+  return out
 }

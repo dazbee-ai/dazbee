@@ -1145,7 +1145,8 @@ export const en = {
       /** The Curve and bounce part's row of shapes, each named by its tooltip, and the amount of the one picked. */
       curve: 'Curve',
       curveShapes: { none: 'None', arcUp: 'Arc up', arcDown: 'Arc down', circle: 'Circle', wave: 'Wave' },
-      curveAmount: 'Amount',
+      amount: 'Amount',
+      curveAmount: 'Curve amount',
       /** The part's bounce under its visible name, its styles, the amount's full name, the button that gives a random bounce a new pattern, and each letter's own turn. */
       bounce: 'Bounce',
       bounceStyles: { none: 'None', wavy: 'Wavy', random: 'Random' },

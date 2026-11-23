@@ -77,6 +77,19 @@ const TURNED = {
     { start: 2, end: 3, style: { turn: 10, fontWeight: 700 } },
   ],
 }
+/** TURNED as a layer of a frame. */
+const TURNED_DESIGN = frameDesign({
+  name: 'Turned',
+  nodes: {
+    turned: {
+      type: 'text',
+      parentId: 'sq',
+      index: 'a0',
+      name: 'Turned',
+      props: { x: 100, y: 100, width: 200, height: 60, boxMode: 'autoWidth', ...TURNED },
+    },
+  },
+})
 
 /** The selection as the edit panel reads it, each layer with its own values, and the selected run's styles while one is edited. */
 function targetOf(ed: TestEditor, ids: string[]): Target {
@@ -318,16 +331,38 @@ describe('sharedTurn', () => {
 })
 
 describe('turnAllPatch', () => {
-  it('turns every character by the one turn, taking the runs’ own turns off and keeping what else they set', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(TURNED_DESIGN)
+  })
+  afterAll(() => ed.end())
+
+  it('turns the base style and every run that sets its own turn by the one turn', () => {
     expect(turnAllPatch(TURNED, 45)).toEqual({
       style: { ...STYLE, turn: 45 },
-      runs: [{ start: 2, end: 3, style: { fontWeight: 700 } }],
+      runs: [
+        { start: 1, end: 2, style: { turn: 45 } },
+        { start: 2, end: 3, style: { turn: 45 } },
+      ],
     })
   })
 
-  it('takes the turn off at 0, and writes nothing where nothing changes', () => {
-    expect(turnAllPatch({ style: { ...STYLE, turn: 10 }, runs: [] }, 0)).toEqual({ style: STYLE, runs: [] })
+  it('takes the base turn off at 0, and writes nothing where nothing changes', () => {
+    expect(turnAllPatch({ style: { ...STYLE, turn: 10 }, runs: [] }, 0)).toEqual({ style: STYLE })
     expect(turnAllPatch({ style: STYLE, runs: [] }, 0)).toBeNull()
+  })
+
+  it('levels letters turned on their own with the rest of the text in one undo step, keeping what else their runs set', () => {
+    const before = ed.core.drawnPropsOf('turned')
+    expect(set(targetOf(ed, ['turned']), (now) => turnAllPatch(now, 45))).toBe(true)
+    const after = targetOf(ed, ['turned'])
+    expect(sharedTurn(after.props)).toBe(45)
+    expect(
+      (after.props[0].runs as { style: { fontWeight?: number } }[]).some((run) => run.style.fontWeight === 700),
+    ).toBe(true)
+
+    ed.core.session.undo()
+    expect(ed.core.drawnPropsOf('turned')).toEqual(before)
   })
 })
 
@@ -337,10 +372,10 @@ describe('turnEachPatch', () => {
       style: { ...STYLE, turn: 15 },
       runs: [
         { start: 1, end: 2, style: { turn: -15 } },
-        { start: 2, end: 3, style: { turn: 15, fontWeight: 700 } },
+        { start: 2, end: 3, style: { turn: 15 } },
       ],
     })
-    expect(turnEachPatch({ style: STYLE }, (turn) => turn + 200)).toEqual({ style: { ...STYLE, turn: 180 }, runs: [] })
+    expect(turnEachPatch({ style: STYLE }, (turn) => turn + 200)).toEqual({ style: { ...STYLE, turn: 180 } })
   })
 
   it('writes nothing where no turn changes', () => {

@@ -8,6 +8,7 @@ import {
   fittedText,
   type FitText,
   flippedPoint,
+  type KeptPoint,
   previewedDesign,
   replaceRangeOps,
   type Session,
@@ -90,7 +91,7 @@ export interface TypingDeps {
    */
   fit?: FitText
   /** Owes a text fitted while a font it is drawn in was coming a fit once that load settles. */
-  owe?: (id: string, keep?: 'centre') => void
+  owe?: (id: string, keep?: KeptPoint) => void
 }
 
 export interface EditorTyping {
@@ -132,7 +133,7 @@ export interface EditorTyping {
    * Keeps the box of text that grows the size of its words, and the groups around it, fitted, in the
    * step the edit is in; the box keeps its top left, or its centre with `keep`.
    */
-  fitText(id: string, keep?: 'centre'): void
+  fitText(id: string, keep?: KeptPoint): void
   /**
    * A key pressed while typing: types, deletes or moves the caret; other keys are the page's, the
    * style keys too. Returns whether the key was typing's, so the browser does nothing more with it.
@@ -439,7 +440,7 @@ export function editorTyping({
    * in the step the edit is in: it measures the layer once and sets its size, keeping its top left,
    * or its centre with `keep`.
    */
-  function fitText(id: string, keep?: 'centre') {
+  function fitText(id: string, keep?: KeptPoint) {
     const layer = session.design().nodes[id]
     // Text bound to a brand font is drawn, so measured, in the family the kit gives it.
     const measured = () => fittedText(layer, scenes.measure(), resources.bytes().variables)

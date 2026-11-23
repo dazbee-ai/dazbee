@@ -8,15 +8,14 @@ import {
   fittedText,
   type FitText,
   flippedPoint,
-  flippedRect,
   previewedDesign,
   replaceRangeOps,
   type Session,
   type TextAnchor,
   type TextOp,
 } from '@dazbee/doc'
-import { caretAt, caretPosition, selectionBoxes } from '@dazbee/renderer'
-import type { Design, Layer, Point, Rect, TextStyle } from '@dazbee/schema'
+import { caretAt, type CaretLine, caretPosition, selectionBoxes, type TurnedRect } from '@dazbee/renderer'
+import type { Design, Layer, Point, TextStyle } from '@dazbee/schema'
 
 import type { Frame } from '../canvas/frames.ts'
 import { findLayer, type FrameScenes } from '../canvas/scenes.ts'
@@ -40,19 +39,21 @@ import {
   runsBack,
   toldField,
 } from './field-change.ts'
+import { shownBox, shownCaret } from './shown-box.ts'
 import type { RunStyle, TextRange } from './text-edit.ts'
 import { arrowStep, backspaceStep, lineMove, oneGrapheme, rangeEnd, step, stylesIn, wordStep } from './text-edit.ts'
 
 /**
  * The text being edited, as it is shown, in its frame's design pixels: the selected range, one box
- * per run of one direction on one line, or with none the caret.
+ * per run of one direction on one line, or with none the caret; on a curved text, each turned with
+ * the letter it is on.
  */
 export interface ShownText {
   frame: Frame
-  range: Rect[]
-  caret: { x: number; y: number; height: number } | null
+  range: TurnedRect[]
+  caret: CaretLine | null
   /** While composing: the lines under the part being composed, as boxes of no height. */
-  composition?: Rect[]
+  composition?: TurnedRect[]
   /** While composing: the box of the text as the composition draws it. */
   box?: Box
 }
@@ -292,18 +293,16 @@ export function editorTyping({
     const range = textRange()
     if (!text) return null
     const { props } = text.layer
-    const placed = (box: Rect) => flippedRect({ ...box, x: props.x + box.x, y: props.y + text.laid.dy + box.y }, props)
     if (range && range.end > range.start) {
       return {
         frame: text.frame,
-        range: selectionBoxes(ck, text.laid, range.start, range.end).map(placed),
+        range: selectionBoxes(ck, text.laid, range.start, range.end).map((box) => shownBox(box, props, text.laid.dy)),
         caret: null,
       }
     }
     if (offset === null || offset === undefined) return null
     const at = caretPosition(ck, text.laid, offset, editing?.drawnAfter)
-    const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
-    return { frame: text.frame, range: [], caret: { x, y, height } }
+    return { frame: text.frame, range: [], caret: shownCaret(at, props, text.laid.dy) }
   }
 
   /** The text as the composition draws it, laid out in its frame, so it follows a box that lays it out. */

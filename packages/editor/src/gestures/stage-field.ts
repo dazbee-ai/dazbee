@@ -193,20 +193,23 @@ export function editorStageField({
   }
   /** Moves the field to the overlay's caret, or the end of its range, as last drawn, inside the stage. */
   function place() {
-    const caret = overlay.querySelector<HTMLElement>('.caret')?.getBoundingClientRect()
+    const shownCaret = overlay.querySelector<HTMLElement>('.caret')
+    const caret = shownCaret?.getBoundingClientRect()
     const range = [...overlay.querySelectorAll<HTMLElement>('.text-selection')].at(-1)?.getBoundingClientRect()
     const at = caret ?? range
     if (at) {
       // The caret is drawn centred on its place; a range ends at its last box's end.
       const x = caret ? (caret.left + caret.right) / 2 : at.right
+      // A caret turned on a curved text takes a wider, lower box on screen; its own height is its length.
+      const height = shownCaret?.style.transform ? shownCaret.offsetHeight : at.height
       // Kept inside the stage, so focusing and composing never scroll anything to show it.
       const stage = overlay.getBoundingClientRect()
       field.style.left = `${Math.min(Math.max(x, stage.left), stage.right - 1)}px`
-      field.style.top = `${Math.min(Math.max(at.top, stage.top), stage.bottom - at.height)}px`
+      field.style.top = `${Math.min(Math.max(at.top, stage.top), stage.bottom - height)}px`
       // Its font is 80% of the caret's height, scaled down from the size iOS doesn't zoom into when smaller.
-      const size = at.height * 0.8
+      const size = height * 0.8
       const scale = Math.min(1, size / UNZOOMED_FONT)
-      field.style.height = `${at.height / scale}px`
+      field.style.height = `${height / scale}px`
       field.style.fontSize = `${Math.max(size, UNZOOMED_FONT)}px`
       field.style.transform = scale < 1 ? `scale(${scale})` : ''
     }

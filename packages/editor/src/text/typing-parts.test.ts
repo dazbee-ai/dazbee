@@ -60,4 +60,13 @@ describe('textParts', () => {
     ) as unknown as Fake[]
     expect(caret).toEqual({ className: 'caret', box: { x: 40, y: 10, width: 0, height: 24 }, style: { width: '' } })
   })
+
+  it('turns a part of a curved text about its corner, as its box is turned', () => {
+    const box = { x: 10, y: 10, width: 30, height: 24, turn: 20 }
+    const caret = { x: 40, y: 10, height: 24, turn: -15 }
+    const [selected] = textParts({ frame: SQUARE, range: [box], caret: null }, placeBox) as unknown as Fake[]
+    expect(selected?.style).toMatchObject({ transform: 'rotate(20deg)', transformOrigin: '0 0' })
+    const [shown] = textParts({ frame: SQUARE, range: [], caret }, placeBox) as unknown as Fake[]
+    expect(shown?.style).toMatchObject({ transform: 'rotate(-15deg)', transformOrigin: '0 0' })
+  })
 })

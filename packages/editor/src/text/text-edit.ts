@@ -3,7 +3,15 @@
 // writes, Bold picking from the weights a family has. Kept free of the editor so it can be tested on
 // its own. Offsets count UTF-16 units, as the document's text does.
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { caretAt, type CaretPlace, caretPosition, rangeEdge, type TextLayout, visualStep } from '@dazbee/renderer'
+import {
+  caretAt,
+  type CaretPlace,
+  caretPosition,
+  rangeEdge,
+  straightLayout,
+  type TextLayout,
+  visualStep,
+} from '@dazbee/renderer'
 import { type Design, withRunStyle } from '@dazbee/schema'
 
 import type { ShortcutAction } from '../shortcuts.ts'
@@ -154,7 +162,10 @@ export function rangeEnd(
   const forward = right !== (drawn?.laid.rtl ?? false)
   return edge ?? { offset: forward ? range.end : range.start, after: false }
 }
-/** The caret's offset on the line above or below, or at the start or end of its line. */
+/**
+ * The caret's offset on the line above or below, or at the start or end of its line, by the lines as
+ * laid out straight, before a curve or a bounce places the letters.
+ */
 export function lineMove(
   ck: CanvasKit,
   drawn: DrawnText | null,
@@ -164,12 +175,13 @@ export function lineMove(
   to: 'up' | 'down' | 'home' | 'end',
 ): number {
   if (!drawn) return caret
-  const at = caretPosition(ck, drawn.laid, caret, drawnAfter)
-  if (to === 'home' || to === 'end') return caretAt(ck, drawn.laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
+  const laid = straightLayout(drawn.laid)
+  const at = caretPosition(ck, laid, caret, drawnAfter)
+  if (to === 'home' || to === 'end') return caretAt(ck, laid, to === 'home' ? -1e6 : 1e6, at.y + at.height / 2)
   const y = to === 'up' ? at.y - at.height / 2 : at.y + at.height * 1.5
   if (y < 0) return 0
-  if (y > drawn.laid.height) return text.length
-  return caretAt(ck, drawn.laid, at.x, y)
+  if (y > laid.height) return text.length
+  return caretAt(ck, laid, at.x, y)
 }
 
 /** Each character's style in a range: the base, then every run over it, later runs winning (`withRunStyle`). */

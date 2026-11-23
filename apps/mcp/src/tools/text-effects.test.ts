@@ -66,4 +66,25 @@ describe('a curve', () => {
     expect(textOf(await agent.call('undo'))).toBe('Undid “edit”')
     expect(stored()).toEqual(straight)
   })
+
+  it('is taken off with node.update and curve: null, the box as high as the straight text in the same step', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', { command: 'node.create', input: BADGE })
+    const sync = server.sync('design-launch')
+    const stored = () => (sync.state().nodes['badge-text'] as { props?: TextProps } | undefined)?.props
+    const update = (patch: Record<string, unknown>) =>
+      agent.call('run_command', { command: 'node.update', input: { ids: ['badge-text'], patch } })
+    await update({ curve: { shape: 'arcUp', amount: 70 } })
+    const curved = stored() as TextProps
+    const answer = await update({ curve: null })
+    expect(answer.isError).toBeFalsy()
+    const straight = stored() as TextProps
+    expect(straight).not.toHaveProperty('curve')
+    expect(straight).toMatchObject({ x: 120, y: 220, height: (await measured(straight)).height })
+    expect(straight.height).toBeLessThan(curved.height)
+    expect(textOf(await agent.call('undo'))).toBe('Undid “edit”')
+    expect(stored()).toEqual(curved)
+  })
 })

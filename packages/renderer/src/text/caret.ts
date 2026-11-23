@@ -1,8 +1,9 @@
 // Where the caret goes, what a selection covers and what underlines a composition in laid-out text, from
-// the graphemes' boxes.
+// the graphemes' boxes. On placed letters (ADR-0021) each is moved and turned with the glyph it is on.
 import type { CanvasKit, Paragraph } from '@dazbee/canvaskit'
 
 import type { TextBlock, TextLayout } from './layout.ts'
+import { glyphAlong, glyphNear, glyphUnder, turnedPoint, turnOf } from './placed-glyphs.ts'
 
 export interface SelectionBox {
   x: number
@@ -10,6 +11,8 @@ export interface SelectionBox {
   width: number
   height: number
   rtl: boolean
+  /** Degrees it is turned clockwise about its corner (x, y), on placed letters; left out on straight text. */
+  turn?: number
 }
 
 /**
@@ -21,11 +24,20 @@ export interface CaretPlace {
   after: boolean
 }
 
-/** A line drawn under text, from its left end `width` across, at `y`. */
+/** A line drawn under text, from its left end `width` across, at `y`, turned as a selection box is. */
 export interface UnderLine {
   x: number
   y: number
   width: number
+  turn?: number
+}
+
+/** Where the caret is drawn: `height` down from its top (x, y), turned as a selection box is. */
+export interface CaretLine {
+  x: number
+  y: number
+  height: number
+  turn?: number
 }
 
 interface GraphemeBox extends SelectionBox {
@@ -52,9 +64,16 @@ const graphemeBoxes = new WeakMap<Paragraph, GraphemeBox[]>()
  * under the click (or the nearest one), the line in it, then the grapheme on it nearest the click,
  * then that grapheme's near edge by its own direction. Graphemes are Unicode's (Intl.Segmenter),
  * and the hit-test uses their boxes rather than SkParagraph's glyph lookup, which sends a click on
- * a Devanagari reph to the wrong grapheme.
+ * a Devanagari reph to the wrong grapheme. On placed letters: the glyph whose turned box holds the
+ * click, else the nearest, then the grapheme on its line by where the click is along that glyph.
  */
 export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): number {
+  const under = laid.placed && glyphUnder(laid.placed, x, y + laid.dy)
+  const on = under && laid.blocks[under.glyph.block]
+  if (under && on) {
+    const offset = offsetOnLine(boxesOf(ck, on), under.glyph.line, under.x - on.x) ?? 0
+    return on.start + Math.min(offset, on.text.length)
+  }
   const gap = (top: number, height: number) => Math.max(top - y, 0, y - (top + height))
   const block = laid.blocks.reduce<TextBlock | undefined>(
     (best, b) => (!best || gap(b.y, b.height) < gap(best.y, best.height) ? b : best),
@@ -70,41 +89,36 @@ export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): 
     return Math.max(top - by, 0, by - (top + l.height))
   }
   const line = lines.reduce((best, l) => (lineGap(l) < lineGap(best) ? l : best))
-  let best = { offset: line.startIndex, distance: Number.POSITIVE_INFINITY }
-  for (const box of boxesOf(ck, block)) {
-    if (box.line !== line.lineNumber) continue
-    const distance = Math.max(box.x - bx, 0, bx - (box.x + box.width))
-    if (distance < best.distance) {
-      const beforeMiddle = bx < box.x + box.width / 2
-      best = { offset: beforeMiddle !== box.rtl ? box.start : box.end, distance }
-    }
-  }
-  return block.start + Math.min(best.offset, block.text.length)
+  const offset = offsetOnLine(boxesOf(ck, block), line.lineNumber, bx) ?? line.startIndex
+  return block.start + Math.min(offset, block.text.length)
 }
 
 /**
  * Where to draw the caret for an offset, in the layout's own coordinates (before `dy`): the
  * trailing edge of the grapheme before it, or at the start of a paragraph the leading edge of the
  * grapheme after it. At a bidi boundary this is the edge next to the text just typed. With `after`,
- * the leading edge of the grapheme after it, where there is one.
+ * the leading edge of the grapheme after it, where there is one. On placed letters, that line moved
+ * and turned with the glyph of the grapheme it is beside.
  */
-export function caretPosition(
-  ck: CanvasKit,
-  laid: TextLayout,
-  offset: number,
-  after = false,
-): { x: number; y: number; height: number } {
+export function caretPosition(ck: CanvasKit, laid: TextLayout, offset: number, after = false): CaretLine {
   const block = blockOf(laid, offset)
   if (!block) return { x: 0, y: 0, height: 0 }
   const local = Math.min(offset - block.start, block.text.length)
   const at = (x: number, y: number, height: number) => ({ x: block.x + x, y: block.y + y, height })
   const edge = drawnEdge(boxesOf(ck, block), local, after)
+  const turned = edge && onGlyphOf(laid, block, edge.box, edge.x, edge.box.y)
+  if (edge && turned) return { ...turned, height: edge.box.height }
   if (edge) return at(edge.x, edge.box.y, edge.box.height)
   // An empty paragraph: where its first character would go.
   const width = block.paragraph.getMaxWidth()
   const lead = laid.rtl ? width : 0
   const x = { start: lead, justify: lead, center: width / 2, end: width - lead }[laid.align]
-  return at(x, 0, block.height)
+  // On placed letters, it moves and turns with the glyph nearest its baseline's start.
+  const baseline = laid.dy + block.y + (block.paragraph.getLineMetrics()[0]?.baseline ?? block.height)
+  const glyph = laid.placed && glyphNear(laid.placed, block.x + x, baseline)
+  if (!glyph) return at(x, 0, block.height)
+  const [px, py] = turnedPoint(glyph, block.x + x, laid.dy + block.y)
+  return { x: px, y: py - laid.dy, height: block.height, turn: turnOf(glyph) }
 }
 
 /**
@@ -168,12 +182,21 @@ export function rangeEdge(
   return { offset: block.start + (atStart ? edge.start : edge.end), after: atStart }
 }
 
-/** The boxes that highlight a text range, in the layout's own coordinates: one per run of one direction on one line. */
+/**
+ * The boxes that highlight a text range, in the layout's own coordinates: one per run of one
+ * direction on one line; on placed letters, one per grapheme, moved and turned with its glyph.
+ */
 export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, end: number): SelectionBox[] {
   return laid.blocks.flatMap((b) => {
     const from = Math.max(start, b.start) - b.start
     const to = Math.min(end, b.end) - b.start
     if (to <= from) return []
+    if (laid.placed) {
+      return boxesOf(ck, b).flatMap((box) => {
+        const turned = box.width > 0 && box.end > from && box.start < to && onGlyphOf(laid, b, box, box.x, box.y)
+        return turned ? [{ ...turned, width: box.width, height: box.height, rtl: box.rtl }] : []
+      })
+    }
     return rectsOf(ck, b.paragraph, from, to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y }))
   })
 }
@@ -182,6 +205,7 @@ export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, e
  * The lines that underline a text range being composed, in the layout's own coordinates: one under
  * each run of one direction on each line, from the boxes of the graphemes the range touches, 35% of
  * the way from the line's baseline to its bottom. A line separator, which is drawn on no line, has none.
+ * On placed letters, one under each grapheme, moved and turned with its glyph.
  */
 export function compositionLines(ck: CanvasKit, laid: TextLayout, start: number, end: number): UnderLine[] {
   return laid.blocks.flatMap((b) => {
@@ -190,8 +214,18 @@ export function compositionLines(ck: CanvasKit, laid: TextLayout, start: number,
     if (to <= from) return []
     const metrics = b.paragraph.getLineMetrics()
     const lines: (UnderLine & { line: number; rtl: boolean })[] = []
+    const turned: UnderLine[] = []
     for (const box of boxesOf(ck, b)) {
       if (box.end <= from || box.start >= to || box.line < 0) continue
+      const metric = metrics.find((l) => l.lineNumber === box.line)
+      if (!metric) continue
+      const bottom = metric.baseline - metric.ascent + metric.height
+      const y = metric.baseline + (bottom - metric.baseline) * 0.35
+      if (laid.placed) {
+        const on = onGlyphOf(laid, b, box, box.x, y)
+        if (on) turned.push({ ...on, width: box.width })
+        continue
+      }
       const last = lines.at(-1)
       if (last && last.line === box.line && last.rtl === box.rtl) {
         const right = Math.max(last.x + last.width, box.x + box.width)
@@ -199,14 +233,36 @@ export function compositionLines(ck: CanvasKit, laid: TextLayout, start: number,
         last.width = right - last.x
         continue
       }
-      const metric = metrics.find((l) => l.lineNumber === box.line)
-      if (!metric) continue
-      const bottom = metric.baseline - metric.ascent + metric.height
-      const y = metric.baseline + (bottom - metric.baseline) * 0.35
       lines.push({ x: box.x, y, width: box.width, line: box.line, rtl: box.rtl })
     }
-    return lines.map(({ x, y, width }) => ({ x: x + b.x, y: y + b.y, width }))
+    return [...lines.map(({ x, y, width }) => ({ x: x + b.x, y: y + b.y, width })), ...turned]
   })
+}
+
+/**
+ * The layout as laid out straight, before its letters are placed (ADR-0021), which Up and Down move
+ * the caret by; the layout itself when it isn't placed. It shares the layout's blocks, freed with it.
+ */
+export function straightLayout(laid: TextLayout): TextLayout {
+  if (!laid.placed) return laid
+  return { ...laid, placed: null, height: Math.max(0, ...laid.blocks.map((b) => b.y + b.height)) }
+}
+
+/**
+ * The offset in a block nearest a point `x` across one of its lines, in the block: the grapheme
+ * nearest it, then that grapheme's near edge by its own direction; none on a line with no grapheme.
+ */
+function offsetOnLine(boxes: readonly GraphemeBox[], line: number, x: number): number | undefined {
+  let best: { offset: number; distance: number } | undefined
+  for (const box of boxes) {
+    if (box.line !== line) continue
+    const distance = Math.max(box.x - x, 0, x - (box.x + box.width))
+    if (!best || distance < best.distance) {
+      const beforeMiddle = x < box.x + box.width / 2
+      best = { offset: beforeMiddle !== box.rtl ? box.start : box.end, distance }
+    }
+  }
+  return best?.offset
 }
 
 function boxesOf(ck: CanvasKit, block: TextBlock): GraphemeBox[] {
@@ -243,6 +299,18 @@ function drawnEdge(boxes: GraphemeBox[], offset: number, after = false): { x: nu
   const trailing = before && !lineEnd ? { x: before.rtl ? before.x : before.x + before.width, box: before } : undefined
   const leading = next && { x: next.rtl ? next.x + next.width : next.x, box: next }
   return after ? (leading ?? trailing) : (trailing ?? leading)
+}
+
+/**
+ * A point of a block, in the block, moved and turned with the glyph that draws a grapheme's box (the
+ * one under its middle), in the layout's own coordinates; none on straight text, or on a line with no glyph.
+ */
+function onGlyphOf(laid: TextLayout, block: TextBlock, box: GraphemeBox, x: number, y: number) {
+  if (!laid.placed) return undefined
+  const glyph = glyphAlong(laid.placed, laid.blocks.indexOf(block), box.line, block.x + box.x + box.width / 2)
+  if (!glyph) return undefined
+  const [px, py] = turnedPoint(glyph, block.x + x, laid.dy + block.y + y)
+  return { x: px, y: py - laid.dy, turn: turnOf(glyph) }
 }
 
 /**

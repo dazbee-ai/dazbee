@@ -32,11 +32,13 @@ export {
 export { drawnFamilies } from './text/families.ts'
 export {
   caretAt,
+  type CaretLine,
   type CaretPlace,
   caretPosition,
   compositionLines,
   rangeEdge,
   selectionBoxes,
+  straightLayout,
   type SelectionBox,
   type UnderLine,
   visualStep,
@@ -44,6 +46,7 @@ export {
 export { paragraphCache, type ParagraphCache, textMeasure } from './text/cache.ts'
 export { layoutText, type TextBlock, type TextLayout } from './text/layout.ts'
 export { missingGraphemes } from './text/missing.ts'
+export { inTurned, letterBoxes, type TurnedRect } from './text/placed-glyphs.ts'
 export {
   type GlyphXform,
   inPlace,

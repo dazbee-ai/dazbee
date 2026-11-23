@@ -46,6 +46,8 @@ const LOCK_FLAGS_SAY: Record<(typeof LOCK_FLAGS)[number], string> = {
 
 /** A text's props that `node.update` refuses, which `text.edit` changes. */
 const TEXT_EDIT_PROPS = ['text', 'runs']
+/** Props `node.update` takes off when set to null, as a patch sent as JSON can't hold a value left out. */
+const TAKEN_OFF_BY_NULL = ['curve']
 
 /**
  * A layer to add as the catalog shows it: one of each type, with the props that type takes, every
@@ -62,7 +64,10 @@ const CatalogPatch = z.union(
   Object.entries(LAYER_PROPS).map(([type, props]) => {
     const fields = Object.entries(props.shape as Record<string, z.ZodType>)
       .filter(([key]) => !(type === 'text' && TEXT_EDIT_PROPS.includes(key)))
-      .map(([key, field]) => [key, z.optional(field instanceof z.ZodDefault ? field.unwrap() : field)])
+      .map(([key, field]) => {
+        const taken = field instanceof z.ZodDefault ? field.unwrap() : field
+        return [key, z.optional(TAKEN_OFF_BY_NULL.includes(key) ? z.nullable(taken) : taken)]
+      })
     return strict(z.object(Object.fromEntries(fields))).describe(`A ${type}’s properties.`)
   }),
 )
@@ -122,7 +127,7 @@ export const nodeCreate = defineCommand({
 export const nodeUpdate = defineCommand({
   name: 'node.update',
   description:
-    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture, a text’s look bound to a text style: its family, weight, slant, line height, letter spacing or case) ends that binding; a text’s size or a range’s own style keeps it. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
+    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are; a text’s curve set to null is taken off. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture, a text’s look bound to a text style: its family, weight, slant, line height, letter spacing or case) ends that binding; a text’s size or a range’s own style keeps it. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
   step: 'edit',
   batchable: true,
   input: z.strictObject({
@@ -151,7 +156,8 @@ export const nodeUpdate = defineCommand({
         if (locked) return locked
         if (node.type === 'text' && TEXT_EDIT_PROPS.includes(path)) return 'change text with text.edit'
       }
-      const patched = { ...node, props: { ...node.props, ...patch } }
+      const props = Object.entries({ ...node.props, ...patch }).filter(([key, value]) => !takenOff(key, value))
+      const patched = { ...node, props: Object.fromEntries(props) }
       const layer = parseLayer(patched)
       if (!layer.success) return layer.errors.map((e) => `${id}.${e.replace(/^props\./, '')}`).join('; ')
       // A key the parse drops would be stored as sent, which the server refuses.
@@ -171,8 +177,11 @@ export const nodeUpdate = defineCommand({
     for (const id of ids) {
       if ('width' in patch || 'height' in patch) keepDrawnIn(w, design, id)
       // A value the layer already has is left as it is, so a change to nothing writes nothing and adds no undo step.
-      for (const [path, value] of Object.entries(patch))
-        if (!sameValue(w.prop(id, path), value)) w.setProp(id, path, value)
+      for (const [path, value] of Object.entries(patch)) {
+        if (takenOff(path, value)) {
+          if (w.prop(id, path) !== undefined) w.unsetProp(id, path)
+        } else if (!sameValue(w.prop(id, path), value)) w.setProp(id, path, value)
+      }
     }
   },
 })
@@ -357,3 +366,8 @@ export const nodeMask = defineCommand({
     }
   },
 })
+
+/** Whether a patch's value takes its prop off: null, for a prop `node.update` takes off that way. */
+function takenOff(key: string, value: unknown) {
+  return value === null && TAKEN_OFF_BY_NULL.includes(key)
+}

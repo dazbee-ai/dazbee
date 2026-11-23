@@ -196,7 +196,7 @@ const ARTWORK_LINE =
   'Objects, 3D objects, shapes, hand-drawn accents, effects and backgrounds (search_graphics kinds object, 3d, shape, accent, effect and background) dress an ad: keep to one set and style in a design; an accent (an arrow, an underline, a circle) marks the words that matter; a shape or a background sits behind the words in colours that keep them readable, a brand colour where it suits; an effect goes over a photo, never over the words.'
 /** When a text effect suits an ad. */
 const TEXT_EFFECTS_LINE =
-  'Curve a text (node.update with curve: { shape: arcUp, arcDown, circle or wave, amount 0 to 100 }) where its words should follow a shape: a badge or a stamp round a circle, a label over a round product on an arc, a playful offer on a wave. Curve only a few short words, never body copy; its box then fits the curved letters.'
+  'Curve a text (node.update with curve: { shape: arcUp, arcDown, circle or wave, amount 0 to 100 }) where its words should follow a shape: a badge or a stamp round a circle, a label over a round product on an arc, a playful offer on a wave. Curve only a few short words, never body copy; its box then fits the curved letters. Set curve to null to take it off.'
 /** Where an agent finds the plans. */
 const PLANS_LINE = `ad_rules with \`plan\` gives a plan’s steps: ${PLANS.map(({ name, title }) => `${name} (${title.toLowerCase()})`).join(', ')}.`
 /** That the ad rules are advice, and how to read keepClear for a size. */

@@ -37,7 +37,7 @@ export function laidOut(ck: CanvasKit, props: TextProps, resources: Resources) {
 }
 
 /**
- * Measures text for auto layout (#46), the way `layoutText` lays it out to draw: natural width
+ * Measures text for auto layout, the way `layoutText` lays it out to draw: natural width
  * (rounded up, as a text box that grows draws) or the height at a given width. A curved text
  * measures as its curve's box at any width.
  */

@@ -153,14 +153,15 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
   const turned = placed && placedBounds(placed.runs)
   if (turned) box = union(box, { ...turned, x: props.x + turned.x, y: props.y + turned.y })
   for (const b of blocks) {
-    for (const line of placed ? [] : b.paragraph.getLineMetrics()) {
-      box = union(box, {
-        x: props.x + b.x + line.left,
-        y: props.y + dy + b.y + line.baseline - line.ascent,
-        width: line.width,
-        height: line.ascent + line.descent,
-      })
-    }
+    if (!placed)
+      for (const line of b.paragraph.getLineMetrics()) {
+        box = union(box, {
+          x: props.x + b.x + line.left,
+          y: props.y + dy + b.y + line.baseline - line.ascent,
+          width: line.width,
+          height: line.ascent + line.descent,
+        })
+      }
     if (b.marker)
       box = union(box, {
         x: props.x + b.markerX,

@@ -76,10 +76,8 @@ describe('carryOverLayer', () => {
     for (const odd of [null, 3, 'text', { type: 'text' }, { type: 'text', props: { style: 'x', runs: 'y' } }])
       expect(carryOverLayer(odd)).toBe(odd)
   })
-})
 
-describe('a text stored at version 15', () => {
-  it('reads unchanged, with no curve', () => {
+  it('reads a text stored at version 15 unchanged, with no curve', () => {
     const stored = textAt15()
     expect(carryOverLayer(stored)).toBe(stored)
     const parsed = parseLayer(stored)

@@ -77,9 +77,9 @@ const ELLIPSIS = '\u2026'
 const FILL: TextPass = { kind: 'fill' }
 
 /**
- * Shapes and lays out a text layer, a paragraph at a time (#47): lists put each paragraph's lines
- * clear of a gutter for its marker, and paragraph spacing goes between them. A text with one
- * paragraph is laid out as one SkParagraph, as before. A curved text is laid out straight, each
+ * Shapes and lays out a text layer, a paragraph at a time: lists put each paragraph's lines clear
+ * of a gutter for its marker, and paragraph spacing goes between them. A text with one paragraph is
+ * laid out as one SkParagraph. A curved text is laid out straight, each
  * paragraph on one line, then placed on its curve from the box's corner, its size the curve's.
  */
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {

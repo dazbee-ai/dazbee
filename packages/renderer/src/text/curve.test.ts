@@ -156,7 +156,7 @@ describe('curveLetters', () => {
     }
   })
 
-  it('sets a wave y = −A·sin(2π·s / λ), A the amount’s share of the font size and λ six of it, each letter s along it', () => {
+  it('sets a wave y = −A·sin(2π·x / λ), A the amount’s share of the font size and λ six of it, each letter its distance along it', () => {
     const { glyphs, lines } = curved('WAVY OFFER TODAY', { shape: 'wave', amount: 80 })
     const [a, k] = [0.8 * 40, (2 * Math.PI) / (6 * 40)]
     const start = lines[0]?.left ?? 0

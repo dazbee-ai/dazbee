@@ -1,12 +1,13 @@
 // Fitting a candidate face to a text piece from what the piece's reading measured: drawn alone at
 // 100 px to read its lines, sized so its lines are as tall as the piece's, letter-spaced so they are
-// as wide, line-spaced so they are as far apart, then drawn over the level piece and moved so the ink
-// centres meet, and scored there.
+// as wide but never so tight its letters run into each other, line-spaced so they are as far apart,
+// then drawn over the level piece and moved so the ink centres meet, and scored there.
 
 import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../draw-text.ts'
 import { type Box, type Ink, inkBox } from '../ink.ts'
 import { findLines, type PieceReading } from '../read-piece.ts'
 import type { Candidate } from '../shortlist.ts'
+import { spacingApart } from './letters-apart.ts'
 import { letterShape, overlap } from './rank.ts'
 
 /** A candidate face fitted to a piece and placed over its level ink. */
@@ -102,15 +103,41 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
     }
     lineHeight = clamp(sum / (count - 1), LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max)
   }
-  const look: TextLook = {
+  const wanted: TextLook = {
     ...base,
     size,
     spacing,
     ...(lineHeight ? { lineHeight } : {}),
     ...(reading.outline ? { outline: { width: reading.outline.width, color: FIT_COLOUR } } : {}),
   }
+  const look = { ...wanted, spacing: spacingApart(drawer, words, wanted) }
   const fitted = placeByInk(drawer, reading, words, face, look)
-  return fitted ? { ...fitted, lineGaps } : null
+  if (!fitted) return null
+  if (look.spacing <= spacing) return { ...fitted, lineGaps }
+  // Spaced as tight as its letters allow, the face is too wide for the piece: it is also fitted as
+  // wide as the piece, smaller, and whichever overlaps the piece better is kept.
+  let pieceWidth = 0
+  let unitWidth = 0
+  reading.lines.forEach((line, i) => {
+    if ((lineGaps[i] ?? 0) <= 0) return
+    pieceWidth += line.w
+    unitWidth += (baseLines[i]?.w ?? 0) / BASE_SIZE
+  })
+  const narrowSize = pieceWidth / (unitWidth + (gaps * look.spacing) / 100)
+  if (!(narrowSize < size) || !sizeFits(reading, count, narrowSize)) return { ...fitted, lineGaps }
+  const narrowed: TextLook = {
+    ...look,
+    size: narrowSize,
+    // The lines keep their pitch.
+    ...(lineHeight
+      ? { lineHeight: clamp((lineHeight * size) / narrowSize, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max) }
+      : {}),
+  }
+  const narrow = placeByInk(drawer, reading, words, face, {
+    ...narrowed,
+    spacing: spacingApart(drawer, words, narrowed),
+  })
+  return { ...(narrow && narrow.overlap > fitted.overlap ? narrow : fitted), lineGaps }
 }
 
 /**

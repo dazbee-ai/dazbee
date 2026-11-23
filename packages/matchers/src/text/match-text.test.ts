@@ -4,8 +4,10 @@ import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 
+import { textDrawer } from './draw-text.ts'
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
+import { spacingApart } from './light/letters-apart.ts'
 import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
 import { readPiece } from './read-piece.ts'
@@ -38,6 +40,8 @@ const UNDRAWN = '𓂀'
 const SIZE_WITHIN = 0.03
 /** Letter spacing found within this many points of the spacing drawn comes back right. */
 const SPACING_WITHIN = 3
+/** The tightest spacing at which letters stay apart is found within this many points either way. */
+const TIGHTEST_WITHIN = 0.5
 
 /** The pieces of Light's test that are round trips. */
 const ROUND_TRIPS = [
@@ -160,6 +164,29 @@ describe('matchText', () => {
     const { style } = textLayerOf(answer).props
     expect(style.color).toBe('#222222FF')
     expect(style.outline).toBeUndefined()
+  })
+
+  it("keeps letters apart when that looks the same, else spaces them as tight as the picture's own letters that run into each other", async () => {
+    const words = 'MAXIMUM'
+    const face = { family: 'Noto Sans', weight: 800, style: 'normal' as const }
+    const spacing = -15
+    const pixels = drawText(ck, { words, ...face, size: 60, spacing, colour: '#222222', background: '#FFFFFF' })
+    const bytes = shipped.get(fontKey(face)) ?? null
+    const drawer = textDrawer(ck, [{ family: face.family, bytes: bytes ?? new Uint8Array() }])
+    const look = { ...face, size: 60, spacing, align: 'start' as const, color: '#222222FF' as const }
+    const tightest = spacingApart(drawer, words, look)
+    drawer.delete()
+    expect(tightest).toBeGreaterThan(spacing + SPACING_WITHIN)
+    const deps = { ck, files, model, fonts: { face: async () => bytes } }
+    const spacingIn = async (setting: MatchSetting) => {
+      const { job, piece } = textJob(ck, pixels, words, { setting })
+      const answer = await matchText(job, piece, deps)
+      expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+      return textLayerOf(answer).props.style.letterSpacing.value
+    }
+    // Hybrid's finer fit makes the letters apart look the same; Light's fit spaced apart doesn't.
+    expect(await spacingIn('hybrid')).toBeGreaterThanOrEqual(tightest - TIGHTEST_WITHIN)
+    expect(Math.abs((await spacingIn('light')) - spacing)).toBeLessThan(SPACING_WITHIN)
   })
 
   it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {

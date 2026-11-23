@@ -7,7 +7,8 @@
 // matched shrunk, then each answer is scaled back and judged at full size. A piece no catalog face
 // draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
 // A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
-// looks the same is given, else the closer.
+// looks the same is given, else the closer. Letters are never spaced so tight they run into each
+// other, unless only that looks the same, as where the picture's own letters do.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -206,19 +207,38 @@ function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 
 }
 
 /**
- * The answer in one of the faces tried, judged at full size: Light's verified pick, and in Hybrid its
- * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
- * rule's SSIM less the ink missed, as Light's finalists are compared.
+ * The answer in one of the faces tried, its letters kept from running into each other; when that
+ * doesn't look the same, the answer fitted as tight as the piece asks instead if that looks the same,
+ * as it does where the picture's own letters run into each other.
  */
 async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
-  const { ck, words, target } = fitting
-  const { candidates, similarities } = tried
-  const { reading: work, scale } = target
-  const faces = await facesOf(fitting.fonts, candidates, tried.loaded, words)
-  const drawn = candidates.filter((face) => faces.has(face.key))
+  const faces = await facesOf(fitting.fonts, tried.candidates, tried.loaded, fitting.words)
+  const drawn = tried.candidates.filter((face) => faces.has(face.key))
   if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
-  const drawer = textDrawer(ck, drawnFaces(drawn, faces))
+  const apart = fitFaces(fitting, tried, drawn, faces, true)
+  if (apart === 'unfitted' || apart.same) return apart
+  const touching = fitFaces(fitting, tried, drawn, faces, false)
+  return touching !== 'unfitted' && touching.same ? touching : apart
+}
+
+/**
+ * The answer in one of the faces drawn, judged at full size: Light's verified pick, and in Hybrid its
+ * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
+ * rule's SSIM less the ink missed, as Light's finalists are compared. `lettersApart` keeps every fit's
+ * letters from running into each other.
+ */
+function fitFaces(
+  fitting: Fitting,
+  tried: FacesTried,
+  drawn: readonly Candidate[],
+  faces: ReadonlyMap<string, Uint8Array>,
+  lettersApart: boolean,
+): Verified | 'unfitted' {
+  const { ck, words, target } = fitting
+  const { similarities } = tried
+  const { reading: work, scale } = target
+  const drawer = textDrawer(ck, drawnFaces(drawn, faces), { lettersApart })
   let light: Verified | undefined
   let finer: Verified | undefined
   try {

@@ -161,6 +161,18 @@ describe('BINDABLE_PROPERTIES', () => {
     expect(textColor.write(swept, red).style).toEqual({ ...textProps.style, color: red })
   })
 
+  it('reads no text colour while an image fill shows, and writing one takes the image off', () => {
+    const { textColor } = BINDABLE_PROPERTIES
+    const image = { type: 'image', assetId: 'marble', fit: 'fill', opacity: 1 }
+    const filled = { ...textProps, style: { ...textProps.style, image } }
+    expect(textColor.keys).toContain('image')
+    expect(textColor.read(filled)).toBeUndefined()
+    const hidden = { ...textProps, style: { ...textProps.style, image: { ...image, visible: false } } }
+    expect(textColor.read(hidden)).toBe(navy)
+    expect(textColor.write(filled, red).style).toEqual({ ...textProps.style, color: red })
+    expect(textColor.write(filled, navy).style).toEqual(textProps.style)
+  })
+
   it('reads and writes the picture of the topmost image fill that shows, keeping its settings and dropping a crop', () => {
     const { image } = BINDABLE_PROPERTIES
     const adjust = { exposure: 10, contrast: 0, saturation: 0, temperature: 0, tint: 0 }

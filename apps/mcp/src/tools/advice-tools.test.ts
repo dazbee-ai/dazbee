@@ -263,6 +263,13 @@ describe('ad_rules', () => {
     expect(rules.textEffects).toMatch(/Raise.*text\.edit.*raise.*currency sign.*cents.*trademark.*footnote mark/s)
   })
 
+  it('says when an image fill suits an ad: one or two heavy words over a plain background, never thin type or body copy', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.textEffects).toMatch(/Fill a text with an image.*one or two heavy words over a plain background/s)
+    expect(rules.textEffects).toMatch(/photo.*tiled.*never thin type or body copy/s)
+  })
+
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {
     const agent = await agentOf()
     const plain = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules

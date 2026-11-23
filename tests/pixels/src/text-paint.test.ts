@@ -161,6 +161,19 @@ describe('gradient text', () => {
   })
 })
 
+describe('image-filled text', () => {
+  it('draws a list’s markers in the text’s colour, as an image paints only its characters', () => {
+    const tile = { type: 'image', assetId: 'tile', fit: 'tile', tileScale: 0.5 }
+    const pixels = drawn(design({ image: tile }, { list: 'bullet', text: 'III' }))
+    const gutter = Array.from({ length: HEIGHT }, (_, y) => y).flatMap((y) =>
+      inked(pixels, y)
+        .filter((x) => x < 60)
+        .map((x) => at(pixels, x, y)),
+    )
+    expect(gutter.some((pixel) => near(pixel, GREEN))).toBe(true)
+  })
+})
+
 describe('outline under the letters', () => {
   const outline = (width: number, under: boolean) => ({ outline: { width, color: BLUE, ...(under ? { under } : {}) } })
 

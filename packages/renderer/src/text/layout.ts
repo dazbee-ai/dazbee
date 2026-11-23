@@ -1,7 +1,7 @@
 import type { CanvasKit, Paragraph, ParagraphBuilder } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from '@dazbee/schema'
+import { autoDirection, type GradientPaint, type TextImagePaint, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
@@ -12,7 +12,7 @@ import { baselineShift, withRaise } from './raise.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { withCase } from './text-case.ts'
-import { linedGradients, pushPainted, type TextPass } from './text-paint.ts'
+import { linedGradients, paintedImages, pushPainted, type TextPass } from './text-paint.ts'
 import type { StyledPiece } from './types.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
@@ -25,6 +25,8 @@ export interface TextBlock {
   outlineUnder: Paragraph | null
   /** For each gradient whose runs are underlined or struck through, the same with only those lines, which it fills, drawn over it. */
   gradientLines: { gradient: GradientPaint; paragraph: Paragraph }[]
+  /** The images its characters are painted with, each drawn over the gradients' lines from the layout's letters. */
+  images: TextImagePaint[]
   /** Its bullet or number, at (markerX, markerY) in the block, on the first line's baseline; null when not in a list. */
   marker: Paragraph | null
   markerX: number
@@ -66,6 +68,11 @@ export interface TextLayout {
    * bounced text's are; null when the paragraphs draw it as they are laid out. Freed with the layout.
    */
   placed: Placement | null
+  /**
+   * Every glyph where it is drawn, which an image fill paints: its placement on a placed text, else
+   * each glyph where its paragraph draws it, placed the first time it is asked for. Freed with the layout.
+   */
+  letters(): Placement
   delete(): void
 }
 
@@ -283,8 +290,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const markers = ranges.map(({ start, end }) => {
     if (!props.list || start === end) return null
     number++
-    // A marker is never raised or lowered, whichever its paragraph's first character is.
+    // A marker is never raised or lowered, whichever its paragraph's first character is, and is
+    // drawn in its colour where that character is painted with an image, which paints only characters.
     const style = withoutSuperSubs(styleAt(start))
+    delete style.image
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(style), resources.fonts)
     push(builder, { style }, FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.
@@ -369,7 +378,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       laid.layout(wrap.width)
       return laid
     }
-    const lined = linedGradients(pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style))
+    const styles = pieces.filter((p) => p.start < range.end && p.end > range.start).map((p) => p.style)
+    const lined = linedGradients(styles)
     const marker = markers[i] ?? null
     const block: TextBlock = {
       paragraph,
@@ -379,6 +389,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         gradient,
         paragraph: passOf({ kind: 'lines', gradient: key }),
       })),
+      images: [...paintedImages(styles).values()],
       marker,
       markerX: rtl ? inner + gutter - (marker?.getMaxIntrinsicWidth() ?? 0) : 0,
       markerY: (paragraph.getLineMetrics()[0]?.baseline ?? 0) - (marker?.getLineMetrics()[0]?.baseline ?? 0),
@@ -392,6 +403,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     y += block.height + (i < paragraphs.length - 1 ? spacing : 0)
     return block
   })
+  let letters: Placement | null = null
   const layout: TextLayout = {
     blocks,
     dy: 0,
@@ -403,6 +415,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     rtl,
     pieces: drawn,
     placed: null,
+    letters: () => layout.placed ?? (letters ??= placeLetters(ck, layout, inPlace)),
     delete() {
       for (const b of blocks) {
         b.paragraph.delete()
@@ -412,6 +425,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         b.marker?.delete()
       }
       layout.placed?.delete()
+      letters?.delete()
     },
   }
   return layout

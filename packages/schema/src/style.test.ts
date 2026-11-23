@@ -104,6 +104,7 @@ describe('styleOf', () => {
       outline: null,
       features: { tnum: true },
       gradient: null,
+      image: null,
       curve: null,
       bounce: null,
       turn: null,
@@ -168,6 +169,20 @@ describe('restyle', () => {
     const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
     delete (copied.text as { gradient?: unknown }).gradient
     expect(LayerStyle.parse(copied).text?.gradient).toBeNull()
+  })
+
+  it('carries a text’s image fill, and clears one the style lacks', () => {
+    const image = { type: 'image', assetId: 'marble', fit: 'tile', opacity: 1, tileScale: 0.5 }
+    const filled = styleOf(text({ image }))
+    expect(filled.text).toMatchObject({ image, gradient: null })
+    expect(restyle(text(), filled)?.patch.style).toMatchObject({ image })
+    expect(restyle(text({ image }), styleOf(text()))?.patch.style).not.toHaveProperty('image')
+  })
+
+  it('reads a style copied before texts had image fills as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { image?: unknown }).image
+    expect(LayerStyle.parse(copied).text?.image).toBeNull()
   })
 
   it('carries a text’s curve, and takes it off a text when the style has none', () => {

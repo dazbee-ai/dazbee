@@ -84,6 +84,21 @@
         }
       ],
       "order": "a4"
+    },
+    "image-fill": {
+      "pageId": "p1",
+      "name": "Image fill",
+      "width": 1080,
+      "height": 1080,
+      "x": 5700,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a5"
     }
   },
   "nodes": {
@@ -1370,6 +1385,292 @@
             }
           }
         ]
+      }
+    },
+    "photo-fill": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "photo-fill",
+      "index": "a050",
+      "name": "photo-fill",
+      "props": {
+        "width": 767,
+        "height": 204,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 40,
+        "y": 20,
+        "text": "SNEAKERS",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 150,
+          "image": {
+            "type": "image",
+            "assetId": "sneaker",
+            "fit": "fill"
+          }
+        },
+        "runs": []
+      }
+    },
+    "photo-fit": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "photo-fit",
+      "index": "a051",
+      "name": "photo-fit",
+      "props": {
+        "width": 600,
+        "height": 140,
+        "boxMode": "fixed",
+        "align": "start",
+        "x": 40,
+        "y": 220,
+        "text": "FIT INSIDE",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 80,
+          "image": {
+            "type": "image",
+            "assetId": "card-2",
+            "fit": "fit"
+          }
+        },
+        "runs": []
+      }
+    },
+    "pattern": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "pattern",
+      "index": "a052",
+      "name": "pattern",
+      "props": {
+        "width": 323,
+        "height": 163,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 680,
+        "y": 230,
+        "text": "TILES",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 120,
+          "image": {
+            "type": "image",
+            "assetId": "tile",
+            "fit": "tile",
+            "tileScale": 0.5
+          }
+        },
+        "runs": []
+      }
+    },
+    "run-among-colours": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "run-among-colours",
+      "index": "a053",
+      "name": "run-among-colours",
+      "props": {
+        "width": 739,
+        "height": 87,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 40,
+        "y": 400,
+        "text": "Get the GOLD deal now",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 700,
+          "fontSize": 64,
+          "color": "#1F2329FF"
+        },
+        "runs": [
+          {
+            "start": 8,
+            "end": 12,
+            "style": {
+              "fontWeight": 800,
+              "image": {
+                "type": "image",
+                "assetId": "card-3",
+                "fit": "fill"
+              }
+            }
+          },
+          {
+            "start": 13,
+            "end": 17,
+            "style": {
+              "color": "#C62828FF"
+            }
+          }
+        ]
+      }
+    },
+    "underlined": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "underlined",
+      "index": "a054",
+      "name": "underlined",
+      "props": {
+        "width": 498,
+        "height": 98,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 40,
+        "y": 520,
+        "text": "Lined pattern",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 72,
+          "underline": true,
+          "strikethrough": true,
+          "image": {
+            "type": "image",
+            "assetId": "tile",
+            "fit": "tile",
+            "tileScale": 0.25
+          }
+        },
+        "runs": []
+      }
+    },
+    "outlined-under": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "outlined-under",
+      "index": "a055",
+      "name": "outlined-under",
+      "props": {
+        "width": 332,
+        "height": 163,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 600,
+        "y": 500,
+        "text": "BOLD",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 120,
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF",
+            "under": true
+          },
+          "image": {
+            "type": "image",
+            "assetId": "sneaker",
+            "fit": "fill",
+            "opacity": 0.6,
+            "filter": "sepia",
+            "adjust": {
+              "contrast": 30
+            }
+          }
+        },
+        "runs": []
+      }
+    },
+    "curved": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "curved",
+      "index": "a056",
+      "name": "curved",
+      "props": {
+        "width": 584,
+        "height": 210,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 40,
+        "y": 660,
+        "text": "SUMMER DROP",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "color": "#1F2329FF",
+          "fontSize": 72,
+          "image": {
+            "type": "image",
+            "assetId": "card-1",
+            "fit": "fill"
+          }
+        },
+        "runs": [],
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "arabic": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "arabic",
+      "index": "a057",
+      "name": "arabic",
+      "props": {
+        "width": 424,
+        "height": 136,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 620,
+        "y": 690,
+        "text": "عروض الصيف",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontWeight": 700,
+          "fontSize": 80,
+          "color": "#1F2329FF",
+          "image": {
+            "type": "image",
+            "assetId": "sneaker",
+            "fit": "fill"
+          }
+        },
+        "runs": []
+      }
+    },
+    "hindi": {
+      "type": "text",
+      "parentId": "image-fill",
+      "link": "hindi",
+      "index": "a058",
+      "name": "hindi",
+      "props": {
+        "width": 520,
+        "height": 125,
+        "boxMode": "autoWidth",
+        "align": "start",
+        "x": 40,
+        "y": 900,
+        "text": "बड़ी सेल आज",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontWeight": 700,
+          "fontSize": 96,
+          "color": "#1F2329FF",
+          "image": {
+            "type": "image",
+            "assetId": "tile",
+            "fit": "tile",
+            "tileScale": 0.5
+          }
+        },
+        "runs": []
       }
     }
   }

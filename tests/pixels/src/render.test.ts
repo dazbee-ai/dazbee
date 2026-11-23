@@ -80,6 +80,7 @@ describe('Node CPU render', () => {
       'text-effects/scripts',
       'text-effects/bounce',
       'text-effects/raise',
+      'text-effects/image-fill',
       'text-paint/pt',
       'text-paint/ss',
       'text-styles/pt',

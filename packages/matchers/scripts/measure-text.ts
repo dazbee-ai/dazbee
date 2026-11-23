@@ -218,10 +218,19 @@ function printEffects(list: readonly MeasuredPiece[], measured: Readonly<Record<
         `amount off by ${middle(off).toFixed(1)} (median), per piece ${(middle(curves.map((c) => c.answer.ms)) / 1000).toFixed(2)} s`,
     )
   }
+  const effects = list.filter((p) => p.truth?.curve)
+  const twins = list.filter((p) => !p.truth?.curve)
+  const curved = (a: Measured) =>
+    a.kind === 'layers' && a.layers[0]?.type === 'text' && Boolean(a.layers[0].props.curve)
+  console.log(`Curved: ${count(effects, curved)}`)
+  console.log(`Looks the same: ${count(effects, looksSame)}`)
+  if (twins.length === 0) return
+  const median = (pieces: readonly MeasuredPiece[]) => middle(pieces.map((p) => (measured[p.id] as Measured).ms)) / 1000
+  console.log(`Plain twins: curved ${count(twins, curved)}, looks the same ${count(twins, looksSame)}`)
   console.log(
-    `Curved: ${count(list, (a) => a.kind === 'layers' && a.layers[0]?.type === 'text' && Boolean(a.layers[0].props.curve))}`,
+    `Per piece, median: effect ${median(effects).toFixed(2)} s, plain twin ${median(twins).toFixed(2)} s, ` +
+      `${(median(effects) / Math.max(1e-9, median(twins))).toFixed(1)}×`,
   )
-  console.log(`Looks the same: ${count(list, looksSame)}`)
 }
 
 /** The middle value, the higher of the two middle ones for an even count; 0 for none. */

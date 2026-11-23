@@ -65,7 +65,7 @@ const OUTLINE_WITHIN = 1
 const CURVED_FROM = 'latin-tilted'
 /** The curves it is drawn along. */
 const CURVES: readonly TextCurve[] = [
-  { shape: 'arcUp', amount: 60 },
+  { shape: 'arcUp', amount: 50 },
   { shape: 'arcDown', amount: 40 },
   { shape: 'circle', amount: 40 },
   { shape: 'wave', amount: 60 },

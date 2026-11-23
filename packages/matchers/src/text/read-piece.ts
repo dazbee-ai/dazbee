@@ -92,9 +92,12 @@ const firstLineLetters = (words: string) => [...(words.split('\n')[0] ?? '').rep
 
 /**
  * A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to
- * it; with `hollow` false its letters are read as drawn, never as hollow.
+ * it, or by `scale` when given; with `hollow` false its letters are read as drawn, never as hollow.
  */
-export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hollow?: boolean } = {}): ReadPiece {
+export function readPiece(
+  piece: TextPiece,
+  { hollow: findHollow = true, scale: given }: { hollow?: boolean; scale?: number } = {},
+): ReadPiece {
   const background = borderColour(piece.pixels)
   const ink = inkOf(piece.pixels, background)
   const found = findHollow ? hollowOf(ink) : null
@@ -102,7 +105,7 @@ export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hol
   const hollow = found && { ...found, width: Math.max(0.5, Math.round(found.width * 2) / 2) }
   // The height of the ink as it is, tilt and all, is enough to decide.
   const box = inkBox(inkOf(piece.pixels))
-  const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1
+  const scale = given ?? (box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1)
   const shrinks = scale < SHRINK_BELOW
   // The curve check is read at the size the matcher works at only.
   const whole = readAt(piece, ink, background, hollow, !shrinks)
@@ -171,7 +174,7 @@ function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | nu
     outline,
     background,
     align: alignOf(lines),
-    curve: checkCurve ? curveCheck(level, lines[0] ?? box, firstLineLetters(piece.words)) : null,
+    curve: checkCurve ? curveCheck(level, lines, firstLineLetters(piece.words)) : null,
   }
 }
 

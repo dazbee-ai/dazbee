@@ -20,6 +20,7 @@ import { pictureAnswer } from '../shape/answer.ts'
 import { piecePixels } from '../shape/parts/piece-pixels.ts'
 import { textAnswer } from './answer.ts'
 import { pickFit } from './brand-first.ts'
+import { isStrongCurve } from './curve-check.ts'
 import { type Placed, textDrawer, type TextLook } from './draw-text.ts'
 import { curvedAnswers, type CurveFitting, curveFrame } from './effects/curve.ts'
 import { finerFit } from './finer-fit.ts'
@@ -33,7 +34,7 @@ import { rankFits } from './light/rank.ts'
 import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
 import { notoCandidates, plainFit } from './noto.ts'
-import { type PieceReading, type ReadPiece, readPiece } from './read-piece.ts'
+import { type PieceReading, type ReadPiece, readPiece, type TextPiece } from './read-piece.ts'
 import { type Candidate, shortlist } from './shortlist.ts'
 import type { TextFiles } from './text-files.ts'
 
@@ -103,6 +104,10 @@ interface ReadingMatched {
 
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
+/** A curved piece is matched with its letters no taller than this, in pixels: drawn along a curve, they fill a larger box than straight ones. */
+const CURVE_LETTER_HEIGHT = 44
+/** A curved piece is read again smaller only when that shrinks it at least this much more. */
+const SHRINK_FURTHER = 0.9
 
 /**
  * A job's text piece as one text layer in the piece's pixels, approximate when it doesn't look the
@@ -138,20 +143,30 @@ export async function matchTextWithFace(
   const read = readPiece(textPiece)
   // No pixel of the piece holds any ink: there is nothing to read.
   if (!inkBox(read.whole.ink, 0)) return { answer: pictureAnswer('failed') }
-  const asRead = await matchReading(job, words, read, deps, step)
-  // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
-  // counter, or letters in a drawn frame, can read as hollow.
-  const asDrawn =
-    read.whole.fill === null
-      ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
-      : 'failed'
-  const straight = closerMatch(asDrawn, asRead)
-  // Letters the check reads along a curve are matched along it too, unless the straight answer
-  // already looks the same, which a curve then never replaces.
-  const straightSame = straight !== 'failed' && straight.matched.same && !straight.inNoto
-  const curved =
-    read.work.curve?.fired && !straightSame ? await matchCurved(job, words, read, piece.angle, deps, step) : 'failed'
-  const best = closerMatch(straight, curved)
+  const matchStraight = async () => {
+    const asRead = await matchReading(job, words, read, deps, step)
+    // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
+    // counter, or letters in a drawn frame, can read as hollow.
+    const asDrawn =
+      read.whole.fill === null
+        ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
+        : 'failed'
+    return closerMatch(asDrawn, asRead)
+  }
+  const curve = read.work.curve
+  // Letters far off straight are matched along their curve first, and straight only when that
+  // doesn't look the same; letters near straight are matched straight first, and along their curve
+  // only when that doesn't look the same, which a curve then never replaces.
+  const strong = curve !== null && isStrongCurve(curve)
+  const first = strong ? await matchCurved(job, textPiece, read, deps, step) : await matchStraight()
+  const settled = first !== 'failed' && first.matched.same && !first.inNoto
+  const second =
+    settled || (!strong && !curve?.fired)
+      ? 'failed'
+      : strong
+        ? await matchStraight()
+        : await matchCurved(job, textPiece, read, deps, step)
+  const best = strong ? closerMatch(second, first) : closerMatch(first, second)
   if (best === 'failed') return { answer: pictureAnswer('failed') }
   const { matched, inNoto } = best
   const { look, place, scores, bindings, styleLook } = matched
@@ -245,16 +260,17 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
     if (brandLead >= CORRECTED) fits[brandLead] = correct(drawer, work, words, fits[brandLead] as Fitted)
     rankFits(fits, similarities)
     const first = pickFit(fits)
-    if (first) {
-      const finalists = [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)]
-      light = verify(drawer, target, finalists, similarities)
-    }
+    const finalists = first ? [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)] : []
+    if (first) light = verify(drawer, target, finalists, similarities)
     const hybrid = fitting.setting === 'hybrid'
     if (light && hybrid) fitting.step('finerFit')
     const { curve } = fitting
     if (light && curve) {
       const finerOf = (fit: Fitted, reading: PieceReading) => finerFit(drawer, reading, words, fit)
-      const curved = curvedAnswers(drawer, curve, words, light, hybrid ? finerOf : null)
+      // Light's pick drawn curved first, then the other finalists while none looks the same.
+      const picked = light.fit
+      const tried = [picked, ...finalists.filter((fit) => fit !== picked)]
+      const curved = curvedAnswers(drawer, curve, words, tried, hybrid ? finerOf : null)
       light = curved?.light
       finer = curved?.finer
     } else if (light && hybrid) {
@@ -284,17 +300,21 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
  */
 async function matchCurved(
   job: MatchJob,
-  words: string,
+  piece: TextPiece,
   read: ReadPiece,
-  angle: number | undefined,
   deps: TextMatcherDeps,
   step: (step: TextStep) => void,
 ): Promise<ReadingMatched | 'failed'> {
-  const frame = curveFrame(read.work, angle)
+  const { words } = piece
+  // Letters taller than `CURVE_LETTER_HEIGHT` are matched shrunk to it, and judged at full size.
+  const tall = (read.work.curve?.letterHeight ?? 0) / read.scale
+  const scale = tall > 0 ? Math.min(read.scale, CURVE_LETTER_HEIGHT / tall) : read.scale
+  const at = scale < read.scale * SHRINK_FURTHER ? readPiece(piece, { scale }) : read
+  const frame = curveFrame(at.work, piece.angle, read.work.curve?.fired ?? null)
   if (!frame) return 'failed'
   const straight = readPiece({ pixels: frame.pixels, words, angle: 0 })
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [read.whole.background]
-  const target: VerifyTarget = { reading: frame.reading, words, backgrounds, kit: job.kit, scale: read.scale }
+  const target: VerifyTarget = { reading: frame.reading, words, backgrounds, kit: job.kit, scale: at.scale }
   return matchReading(job, words, straight, deps, step, { frame, target, whole: read.whole })
 }
 

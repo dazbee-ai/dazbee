@@ -36,13 +36,14 @@ export interface EffectSetTruth {
   id: string
   /** `dev`: the first half, which settings may be chosen on; `test`: the second, held out. */
   part: 'dev' | 'test'
-  effect: 'curve'
+  /** The effect it is drawn with; `none` for an effect piece's plain twin. */
+  effect: 'curve' | 'none'
   text: string
   family: string
   /** The face's key, `family|weight|style`. */
   face: string
   size: number
-  curve: TextCurve
+  curve?: TextCurve
 }
 
 /** A set with known fonts. */
@@ -155,7 +156,7 @@ export function effectSetPieces(ck: CanvasKit, dir: string): MeasuredPiece[] {
       id: truth.id,
       heldOut: truth.part === 'test',
       ...jobOf(png, decodePng(ck, png), truth.text, undefined, undefined, NO_KIT),
-      truth: { family: truth.family, face: truth.face, curve: truth.curve },
+      truth: { family: truth.family, face: truth.face, ...(truth.curve ? { curve: truth.curve } : {}) },
     }
   })
 }

@@ -1,6 +1,8 @@
 // Draws the effect set, the text pieces with text effects the text matcher is measured on, with
 // Dazbee's renderer, into a folder outside the repo: a PNG a piece and `truth.json`, each piece's
-// words, face, size and effect, the first half for development and the second held out.
+// words, face, size and effect, the first half for development and the second held out. Each piece
+// has a plain twin (`p` for `e`), the same words in the same look drawn straight, which an effect
+// piece's time is set against.
 //   node scripts/draw-effect-pieces.ts <google/fonts checkout> <folder>
 // Curved pieces: 15 of each shape, amounts spread from 10 to 100, one or two lines, each in a catalog
 // face that draws its words (not a face the shortlist passes over or one that draws only capitals),
@@ -118,11 +120,12 @@ for (let i = 0; i < total; i++) {
     color: `${colours.text}FF`,
     curve: { shape, amount },
   }
-  const id = `e${String(i + 1).padStart(2, '0')}`
-  writeFileSync(join(out, `${id}.png`), drawn(look, words, { family: face.family, bytes }, colours.background))
+  const number = String(i + 1).padStart(2, '0')
+  const part = i < total / 2 ? 'dev' : 'test'
+  writeFileSync(join(out, `e${number}.png`), drawn(look, words, { family: face.family, bytes }, colours.background))
   truths.push({
-    id,
-    part: i < total / 2 ? 'dev' : 'test',
+    id: `e${number}`,
+    part,
     effect: 'curve',
     text: words,
     family: face.family,
@@ -130,7 +133,12 @@ for (let i = 0; i < total; i++) {
     size,
     curve: { shape, amount },
   })
-  console.log(`${id}  ${shape} ${amount}  ${key}  ${size} px  ${JSON.stringify(words)}`)
+  // Its plain twin: the same words in the same look, straight, to time the matcher against.
+  const plain: TextLook = { ...look }
+  delete plain.curve
+  writeFileSync(join(out, `p${number}.png`), drawn(plain, words, { family: face.family, bytes }, colours.background))
+  truths.push({ id: `p${number}`, part, effect: 'none', text: words, family: face.family, face: key, size })
+  console.log(`e${number}  ${shape} ${amount}  ${key}  ${size} px  ${JSON.stringify(words)}`)
 }
 writeFileSync(join(out, 'truth.json'), JSON.stringify(truths, null, 1))
 

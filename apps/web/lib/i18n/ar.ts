@@ -1090,6 +1090,7 @@ export const ar: Messages = {
       recentColours: 'المستخدمة مؤخرًا',
       colours: 'الألوان',
       currentColour: 'الآن {hex}',
+      currentImage: 'الآن صورة',
       tiles: { none: 'بلا', shadow: 'ظل', glow: 'توهج', outline: 'حدّ', blur: 'ضبابية' },
       inAutoLayout: 'داخل الصندوق',
       axes: { width: 'العرض', height: 'الارتفاع' },

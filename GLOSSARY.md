@@ -271,7 +271,7 @@ A linear, radial or angular gradient a text or a run is painted with in place of
 _Avoid_: Text fill, gradient fill (a fill is a layer's paint)
 
 **Text image fill**:
-An image from the asset library that a text or a run is painted with in place of its colour, its underline and strikethrough too, placed in the text layer's box to fill it, fit inside it or tile it, as a gradient is placed; a pattern is an image tiled. A text's colour, gradient and image fill are one paint: picking one takes the other off.
+An image from the asset library that a text or a run is painted with in place of its colour, its underline and strikethrough too, placed in the text layer's box to fill it, fit inside it or tile it, as a gradient is placed; a pattern is an image tiled. Letters past an image fitted inside keep their colour. Picked from + in the text's Colour panel, with its fit, filters and adjustments. A text's colour, gradient and image fill are one paint: picking one takes the other off.
 _Avoid_: Image text, texture, clipping mask (a mask is a layer)
 
 **Text outline**:

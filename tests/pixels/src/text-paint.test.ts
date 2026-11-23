@@ -1,7 +1,8 @@
 // Text paint (#108): a gradient paints a text or a run in the text layer's box, its underline with
 // it, and an outline under the letters leaves their shape whole and reaches its width past them, on
 // the CPU surface and in PDF and SVG exports; superscripts and subscripts are drawn in the font's own
-// glyphs or made up smaller and moved off the baseline, alike in each.
+// glyphs or made up smaller and moved off the baseline, alike in each. An image fill paints only
+// the characters, and letters past a picture fitted inside the box keep the text's colour.
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { layerReach, makeResources, render, renderDesign, renderVector } from '@dazbee/renderer'
@@ -171,6 +172,19 @@ describe('image-filled text', () => {
         .map((x) => at(pixels, x, y)),
     )
     expect(gutter.some((pixel) => near(pixel, GREEN))).toBe(true)
+  })
+
+  it('draws the letters past a picture fitted inside the box in the text’s colour, on the CPU surface and in a PDF', async () => {
+    const json = design({ image: { type: 'image', assetId: 'card-2', fit: 'fit' } })
+    const cpu = drawn(json)
+    const pdf = (await rasterisePdf(pdfium, renderVector(ck, json, 'f', bytes, 'pdf'))).pixels
+    for (const pixels of [cpu, pdf]) {
+      const ink = inked(pixels, 80)
+      // The box is 600 wide and the picture fitted 120 high, so it covers its middle and not its ends.
+      expect(near(at(pixels, ink[1] ?? 0, 80), GREEN)).toBe(true)
+      expect(near(at(pixels, ink.at(-2) ?? 0, 80), GREEN)).toBe(true)
+      expect(ink.filter((x) => x > 260 && x < 380).some((x) => !greenish(at(pixels, x, 80)))).toBe(true)
+    }
   })
 })
 

@@ -11,18 +11,15 @@ import {
   changeFill,
   type Design,
   inBrandRoleOrder,
-  inColour,
   type Paint,
   paintColour,
   showingFillIndex,
-  shownGradient,
-  withRunStyle,
 } from '@dazbee/schema'
 
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
 import { ImagePickerButton } from '@/components/editor/image-picker.tsx'
-import { PaintEditor, PaintRow } from '@/components/editor/paint/paint-stack.tsx'
+import { assetThumbnail, PaintEditor, PaintRow } from '@/components/editor/paint/paint-stack.tsx'
 import { RecentSwatches, rememberColour, useShownRecent } from '@/components/editor/paint/recent-swatches.tsx'
 import { Swatch } from '@/components/editor/paint/swatch.tsx'
 import { ListBody } from '@/components/editor/reorder-list.tsx'
@@ -38,24 +35,20 @@ import {
 import { ImageSquareIcon, PlusIcon } from '@/components/ui/icons.tsx'
 import { FOCUS_RING } from '@/components/ui/looks.ts'
 import { cn } from '@/lib/cn.ts'
-import { hexChange, hexOf, holdsColour } from '@/lib/colour.ts'
+import { hexOf, holdsColour } from '@/lib/colour.ts'
 import { designColours } from '@/lib/editor/design-colours.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
 import { EyedropperButton } from './eyedropper.tsx'
 import { PanelPart } from './fields.tsx'
-import { kindOf, type P, type PanelProps, set, shared, type Style, type Target, textStyle } from './target.ts'
+import { kindOf, type P, type PanelProps, set, shared, type Target } from './target.ts'
+import { colourTexts, firstTextPaint, pickTextPaint, shownTextPaint } from './text-paint.ts'
 
 export const NEW_FILL: Paint = { type: 'solid', color: '#D9D9D9FF' }
 
 /** A fill + adds over others: a see-through wash, so what was there still shows through it. */
 export const FILL_ON_TOP: Paint = { type: 'solid', color: '#00000033' }
-
-/** What a text style paints its characters with: its gradient while one shows, else its colour as a solid. */
-function textPaint(style: Style): Paint {
-  return shownGradient(style) ?? { type: 'solid', color: style.color }
-}
 
 /** The Colour panel: text's colour for text, else the colour of the fill that shows. */
 export function ColourPanel({ target, design, workspaceId, brandId }: PanelProps) {
@@ -106,7 +99,8 @@ export function FillsCard({
 /**
  * The colours to pick from, simple first: the brand kit's, which `onBrand` binds to (paint without
  * it), and the colours already in the design, with + first, which opens `picker` under them: any
- * colour or gradient, and for shapes, boxes and a frame's background an image too.
+ * colour, gradient or image. While the layers show one image, its thumbnail `currentImage` leads
+ * the kit's row as the paint they have now.
  */
 export function ColourChoices({
   editor,
@@ -116,6 +110,7 @@ export function ColourChoices({
   p,
   b,
   current,
+  currentImage,
   paint,
   onBrand,
   picker,
@@ -127,6 +122,7 @@ export function ColourChoices({
   p: P
   b: Messages['editor']['bar']
   current: string | 'mixed' | undefined
+  currentImage?: string | undefined
   paint: (hex: string) => void
   onBrand?: (token: string, hex: string) => void
   picker: ReactNode
@@ -145,6 +141,7 @@ export function ColourChoices({
             brandId={brandId}
             p={p}
             current={current}
+            currentImage={currentImage}
             paint={paint}
             onBrand={onBrand}
           />
@@ -156,6 +153,7 @@ export function ColourChoices({
             brandId={brandId}
             p={p}
             current={current}
+            currentImage={currentImage}
             paint={paint}
             onBrand={onBrand}
           />
@@ -221,8 +219,9 @@ export function ColourChoices({
 }
 
 /**
- * The Colour panel of text: the kit's and the design's colours, which take a gradient off, and + with
- * any colour or a linear, radial or angular gradient, for the texts or the selected characters.
+ * The Colour panel of text: the kit's and the design's colours, which take a gradient or an image
+ * fill off, and + with any colour, a linear, radial or angular gradient or an image fill, for the
+ * texts or the selected characters.
  */
 function TextColourPanel({
   target,
@@ -239,31 +238,11 @@ function TextColourPanel({
   p: P
   b: Messages['editor']['bar']
 }) {
-  const { styles, setStyle } = textStyle(target)
-  // The colour the swatches show: the texts' while none is painted with a gradient.
-  const color = shared(styles.map((s) => (shownGradient(s) ? undefined : s.color))) as string | 'mixed' | undefined
-  // A range's colour builds on its first character's, as a layer's on its own.
-  const first = (target.range?.[0]?.color as string | undefined) ?? ''
-  const paint = (hex: string) =>
-    target.range
-      ? setStyle('color', hexChange(hex)(first))
-      : set(target, (now) => ({ style: inColour(now.style as Style, hexChange(hex)((now.style as Style).color)) }))
-  // The picker edits the first text's paint, or the selected range's first character's.
-  const firstStyle = target.range?.[0] ?? (target.props[0].style as Style)
-  const pickPaint = (to: (now: Paint) => Paint) => {
-    if (target.range) {
-      const next = to(textPaint(firstStyle))
-      if (next.type === 'image') return
-      target.editor.styleTextSelection(next.type === 'solid' ? { color: next.color } : { gradient: next })
-      return
-    }
-    set(target, (now) => {
-      const style = now.style as Style
-      const next = to(textPaint(style))
-      if (next.type === 'image') return null
-      return { style: next.type === 'solid' ? inColour(style, next.color) : withRunStyle(style, { gradient: next }) }
-    })
-  }
+  // What the swatches mark: the colour every selected character shows, or the image.
+  const shown = shownTextPaint(target)
+  const color = shown === 'mixed' ? shown : shown.type === 'solid' ? shown.color : undefined
+  const image = shown !== 'mixed' && shown.type === 'image' ? shown : null
+  const paint = (hex: string) => colourTexts(target, hex)
   return (
     <ColourChoices
       editor={target.editor}
@@ -273,18 +252,19 @@ function TextColourPanel({
       p={p}
       b={b}
       current={color}
+      currentImage={image ? assetThumbnail(workspaceId, brandId, image.assetId) : undefined}
       paint={paint}
       onBrand={(token, hex) => (target.range ? paint(hex) : target.editor.bindSelection('color', brandRef(token)))}
       picker={
         <PaintEditor
-          paint={textPaint(firstStyle)}
+          paint={firstTextPaint(target)}
           workspaceId={workspaceId}
           brandId={brandId}
           editor={target.editor}
           p={p}
-          offersImage={false}
+          forText
           colourName={p.textColour}
-          onSet={pickPaint}
+          onSet={(to) => pickTextPaint(target, to)}
         />
       }
     />
@@ -383,6 +363,7 @@ function Swatches({
   brandId,
   p,
   current,
+  currentImage,
   paint,
   onBrand,
 }: {
@@ -390,6 +371,7 @@ function Swatches({
   brandId: string
   p: P
   current: string | 'mixed' | undefined
+  currentImage: string | undefined
   paint: (hex: string) => void
   onBrand?: ((token: string, hex: string) => void) | undefined
 }) {
@@ -397,10 +379,20 @@ function Swatches({
   const roles = useMessages().editor.brandKit.brandRoles
   const now = current && current !== 'mixed' ? hexOf(current).toUpperCase() : null
   const colors = inBrandRoleOrder('color', kit?.colors ?? [])
-  // The colour it has now leads the row when the row does not hold it, as in the mock.
+  // The colour it has now leads the row when the row does not hold it, as in the mock, and so does an image it shows.
   const offered = colors.length > 0 ? colors.map((c) => c.value) : SWATCHES
   return (
     <div role="group" aria-label={colors.length > 0 ? p.brandColours : p.colours} className={cn(SWATCH_ROW, 'gap-1.5')}>
+      {currentImage && (
+        <Swatch
+          color="transparent"
+          picture={currentImage}
+          label={p.currentImage}
+          size={PANEL_SWATCH}
+          on
+          onPick={() => undefined}
+        />
+      )}
       {now && !holdsColour(offered, now) && (
         <Swatch
           color={now}

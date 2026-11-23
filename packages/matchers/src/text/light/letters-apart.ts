@@ -50,6 +50,8 @@ const CLEAR = '#00000000'
 
 /** What each drawer has measured, by face, outline and words. */
 const measured = new WeakMap<TextDrawer, Map<string, Known>>()
+/** The drawers that have spaced some look wider to keep its letters apart. */
+const spaced = new WeakSet<TextDrawer>()
 
 /**
  * The look with its letter spacing raised, when its letters would run into each other there, to the
@@ -58,7 +60,14 @@ const measured = new WeakMap<TextDrawer, Map<string, Known>>()
  */
 export function spacedApart<T extends TextLook>(drawer: TextDrawer, words: string, look: T): T {
   const spacing = tightestFrom(drawer, words, look)
-  return spacing === look.spacing ? look : { ...look, spacing }
+  if (spacing === look.spacing) return look
+  spaced.add(drawer)
+  return { ...look, spacing }
+}
+
+/** Whether `spacedApart` has spaced any look wider with the drawer to keep its letters apart. */
+export function spacedAny(drawer: TextDrawer): boolean {
+  return spaced.has(drawer)
 }
 
 /** The look's letter spacing, or the tightest above it at which its letters stay apart. */
@@ -124,11 +133,21 @@ function setsOverlap(
   }))
   const { pixels } = drawer.draw(width, band * SETS, ...layers)
   const bandBytes = width * band * 4
+  const alphas = new Uint8Array(SETS)
   let sum = 0
-  for (let i = 3; i < bandBytes; i += 4)
+  for (let i = 3; i < bandBytes; i += 4) {
+    let inked = 0
+    for (let set = 0; set < SETS; set++) {
+      const alpha = pixels[i + set * bandBytes] as number
+      alphas[set] = alpha
+      if (alpha > 0) inked++
+    }
+    // A pixel only one set inks adds nothing.
+    if (inked < 2) continue
     for (let first = 0; first < SETS; first++)
       for (let second = first + 1; second < SETS; second++)
-        sum += Math.min(pixels[i + first * bandBytes] ?? 0, pixels[i + second * bandBytes] ?? 0)
+        sum += Math.min(alphas[first] as number, alphas[second] as number)
+  }
   return sum / 255
 }
 

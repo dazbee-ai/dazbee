@@ -8,9 +8,11 @@ import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
+import { readPiece } from './read-piece.ts'
 import { textMatcherFiles } from './test-text-files.ts'
 import {
   blankPiece,
+  drawText,
   lightFonts,
   type LightPiece,
   lightPieces,
@@ -44,6 +46,8 @@ const ROUND_TRIPS = [
   'latin-tilted',
   'latin-tight',
   'latin-loose',
+  'latin-hollow',
+  'latin-hollow-italic',
   'arabic-plain',
   'arabic-outlined',
   'arabic-tilted',
@@ -51,6 +55,11 @@ const ROUND_TRIPS = [
   'devanagari-tilted',
   'devanagari-loose',
 ]
+
+/** The round trips drawn hollow: an outline alone, with no fill. */
+const HOLLOW = ['latin-hollow', 'latin-hollow-italic']
+/** An outline width found within this many pixels of the width drawn comes back right. */
+const OUTLINE_WITHIN = 1
 
 /** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
 const LIGHT_KEPT = 'arabic-outlined'
@@ -116,6 +125,41 @@ describe('matchText', () => {
     expect(hybrid.answer).toMatchObject({ kind: 'layers', approximate: false })
     const { style } = textLayerOf(hybrid.answer).props
     expect(Math.abs(style.fontSize / piece.size - 1)).toBeLessThan(SIZE_WITHIN)
+  })
+
+  it.each(HOLLOW.flatMap((id) => (['light', 'hybrid'] as const).map((setting) => [id, setting] as const)))(
+    'gives %s back hollow in %s: no fill, and an outline in its colour and width',
+    async (id, setting) => {
+      const piece = pieceOf(id)
+      const answer = await matchTwice(piece.pixels, piece.words, setting)
+      expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+      const { style } = textLayerOf(answer).props
+      expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(piece.key)
+      expect(style.color.slice(7)).toBe('00')
+      expect(style.outline?.color).toBe(`${piece.outline?.color}FF`)
+      expect(Math.abs((style.outline?.width ?? 0) - (piece.outline?.width ?? 0))).toBeLessThanOrEqual(OUTLINE_WITHIN)
+    },
+  )
+
+  it('gives thin letters that read as hollow back filled when, as drawn, they look the same', async () => {
+    const words = 'BOB'
+    const pixels = drawText(ck, {
+      words,
+      family: 'Noto Sans',
+      weight: 400,
+      size: 48,
+      colour: '#222222',
+      background: '#FFFFFF',
+    })
+    // Every stroke of a thin B or O edges a counter, so the letters read as hollow.
+    expect(readPiece({ pixels, words }).whole.fill).toBeNull()
+    const noto = shipped.get('Noto Sans|400|normal') ?? null
+    const { job, piece } = textJob(ck, pixels, words)
+    const answer = await matchText(job, piece, { ck, files, model, fonts: { face: async () => noto } })
+    expect(answer).toMatchObject({ kind: 'layers', approximate: false })
+    const { style } = textLayerOf(answer).props
+    expect(style.color).toBe('#222222FF')
+    expect(style.outline).toBeUndefined()
   })
 
   it("gives Light's answer in Hybrid when the finer fit looks different and Light's looks the same", async () => {

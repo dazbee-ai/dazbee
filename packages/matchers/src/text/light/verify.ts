@@ -114,11 +114,15 @@ export function closeness(scores: Judged['scores']): number {
   return scores.ssim - scores.inkMissed
 }
 
-/** A fit's look in the piece's fill colour and outline. */
+/**
+ * A fit's look in the piece's fill colour and outline; hollow letters, which have no fill, in their
+ * outline's colour made see-through.
+ */
 function inPieceColours(look: TextLook, reading: PieceReading): TextLook {
+  const { fill, outline } = reading
   return {
     ...look,
-    color: hexColour(...reading.fill),
+    color: fill ? hexColour(...fill) : hexColour(...(outline?.colour ?? [0, 0, 0]), 0),
     ...(reading.outline
       ? {
           outline: { width: look.outline?.width ?? reading.outline.width, color: hexColour(...reading.outline.colour) },

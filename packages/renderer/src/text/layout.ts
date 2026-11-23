@@ -1,21 +1,15 @@
-import type {
-  CanvasKit,
-  FontCollection,
-  Paragraph,
-  ParagraphBuilder,
-  StrutStyle,
-  TextStyle as CkTextStyle,
-} from '@dazbee/canvaskit'
+import type { CanvasKit, Paragraph, ParagraphBuilder } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, letterSpacingPx, type TextProps, withRunStyle } from '@dazbee/schema'
+import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from '@dazbee/schema'
 
-import { color } from '../color.ts'
-import { lru } from '../lru.ts'
 import type { Resources } from '../resources.ts'
+import { strutStyle, textStyle } from './canvaskit-style.ts'
+import type { Placement } from './placed.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
-import { drawsLines, linedGradients, linesColour, pushPainted, type TextPass } from './text-paint.ts'
+import { withCase } from './text-case.ts'
+import { linedGradients, pushPainted, type TextPass } from './text-paint.ts'
 import type { StyledPiece } from './types.ts'
 import { rewrap, type Rewrapped } from './wrap-style.ts'
 
@@ -62,22 +56,24 @@ export interface TextLayout {
   superSubShift: number
   align: TextProps['align']
   rtl: boolean
+  /** The styled pieces its characters are drawn in, by their offsets in the layer's text. */
+  pieces: StyledPiece[]
+  /**
+   * Where each letter is drawn when its letters are moved and turned (ADR-0021); null when the
+   * paragraphs draw it as they are laid out. Freed with the layout.
+   */
+  placed: Placement | null
   delete(): void
 }
 
-export type ParagraphCache = ReturnType<typeof paragraphCache>
+/** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
+export type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familySuperSubs'>
 
 type Style = TextProps['style']
-/** What laying out text needs of the resources: the fonts, the fallbacks, and the features each family has. */
-type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'familyFeatures' | 'familySuperSubs'>
 
 const ELLIPSIS = '\u2026'
 /** The pass that draws a text's characters. */
 const FILL: TextPass = { kind: 'fill' }
-
-const WORD_CHAR = /[\p{L}\p{N}\p{M}]/u
-const LETTER = /\p{L}/u
-const APOSTROPHE = /['’]/u
 
 /**
  * Shapes and lays out a text layer, a paragraph at a time (#47): lists put each paragraph's lines
@@ -107,52 +103,25 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
   return place(props, best ?? build(ck, props, resources, fit.min / base))
 }
 
-/**
- * Laid-out text kept by what shapes it, for a screen that redraws often: a redraw lays out only
- * the text that changed. The cache owns its layouts; `delete` frees them all.
- */
-export function paragraphCache(limit = 4000) {
-  // The layouts by what shapes them, least recently used first.
-  const entries = lru<string, TextLayout>(limit, (laid) => laid.delete())
-  // The fonts the kept layouts were shaped with.
-  let fonts: FontCollection | null = null
-
-  function layout(ck: CanvasKit, props: TextProps, resources: TextResources) {
-    // The fonts' features are read from the same files, so they change only with the fonts.
-    if (resources.fonts !== fonts) {
-      entries.clear()
-      fonts = resources.fonts
-    }
-    return entries.get(layoutKey(props, resources.fallbackFamilies), () => layoutText(ck, props, resources))
-  }
-
-  return { layout, delete: entries.clear }
-}
-
-/** A text layer laid out, from the paragraph cache when there is one; `done` frees what the cache doesn't own. */
-export function laidOut(ck: CanvasKit, props: TextProps, resources: Resources) {
-  if (resources.paragraphs) return { ...resources.paragraphs.layout(ck, props, resources), done: () => {} }
-  const laid = layoutText(ck, props, resources)
-  return { ...laid, done: () => laid.delete() }
-}
-
-/**
- * Measures text for auto layout (#46), the way `layoutText` lays it out to draw: natural width
- * (rounded up, as a text box that grows draws) or the height at a given width.
- */
-export function textMeasure(ck: CanvasKit, resources: TextResources) {
-  return (props: TextProps, width: number | null) => {
-    const laid = layoutText(
-      ck,
-      width === null ? { ...props, boxMode: 'autoWidth' } : { ...props, boxMode: 'autoHeight', width },
-      resources,
-    )
-    try {
-      return { width: width ?? laid.width, height: laid.height }
-    } finally {
-      laid.delete()
-    }
-  }
+/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
+export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
+  return JSON.stringify([
+    props.text,
+    props.runs,
+    props.style,
+    props.width,
+    props.height,
+    props.boxMode,
+    props.wrapStyle,
+    props.align,
+    props.verticalAlign,
+    props.direction,
+    props.list,
+    props.paragraphSpacing,
+    props.maxLines,
+    props.shrinkToFit,
+    fallbackFamilies,
+  ])
 }
 
 /** Vertical alignment in a fixed box. */
@@ -376,7 +345,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     y += block.height + (i < paragraphs.length - 1 ? spacing : 0)
     return block
   })
-  return {
+  const layout: TextLayout = {
     blocks,
     dy: 0,
     width,
@@ -385,6 +354,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(p.superSub?.baselineShift ?? 0))),
     align: props.align,
     rtl,
+    pieces: drawn,
+    placed: null,
     delete() {
       for (const b of blocks) {
         b.paragraph.delete()
@@ -393,8 +364,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
         for (const l of b.gradientLines) l.paragraph.delete()
         b.marker?.delete()
       }
+      layout.placed?.delete()
     },
   }
+  return layout
 }
 
 /** Whether text fits its box: no word broken across lines, nothing cut off, and in a fixed box no line below it. */
@@ -404,106 +377,4 @@ function fits(props: TextProps, laid: TextLayout): boolean {
   if (laid.blocks.length < total || laid.blocks.some((b) => b.paragraph.didExceedMaxLines())) return false
   for (const b of laid.blocks) if (b.paragraph.getMinIntrinsicWidth() > b.paragraph.getMaxWidth() + 0.01) return false
   return props.boxMode !== 'fixed' || laid.height <= props.height + 0.01
-}
-
-/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
-function layoutKey(props: TextProps, fallbackFamilies: string[]) {
-  return JSON.stringify([
-    props.text,
-    props.runs,
-    props.style,
-    props.width,
-    props.height,
-    props.boxMode,
-    props.wrapStyle,
-    props.align,
-    props.verticalAlign,
-    props.direction,
-    props.list,
-    props.paragraphSpacing,
-    props.maxLines,
-    props.shrinkToFit,
-    fallbackFamilies,
-  ])
-}
-
-/** The text with each piece's case applied, a code point at a time and only where that keeps its length, so offsets still match. */
-function withCase(text: string, styleAt: (offset: number) => Style): string {
-  let out = ''
-  let i = 0
-  let before = ''
-  let prev = ''
-  for (const ch of text) {
-    const mode = styleAt(i).textCase ?? 'none'
-    let next = ch
-    if (mode === 'upper' || (mode === 'title' && startsWord(before, prev, ch))) next = ch.toUpperCase()
-    else if (mode === 'lower') next = ch.toLowerCase()
-    out += next.length === ch.length ? next : ch
-    before = prev
-    prev = ch
-    i += ch.length
-  }
-  return out
-}
-
-/**
- * A style for CanvasKit, with its underline and strikethrough only in the pass that draws them
- * (`drawsLines`), and its baseline moved down by `baselineShift` pixels.
- */
-function textStyle(
-  ck: CanvasKit,
-  style: Style,
-  resources: Pick<Resources, 'fallbackFamilies'>,
-  pass: TextPass,
-  baselineShift = 0,
-): CkTextStyle {
-  const decoration = drawsLines(style, pass)
-    ? (style.underline ? ck.UnderlineDecoration : 0) | (style.strikethrough ? ck.LineThroughDecoration : 0)
-    : 0
-  return new ck.TextStyle({
-    color: color(ck, style.color),
-    fontFamilies: familiesOf(style, resources),
-    fontSize: style.fontSize,
-    fontStyle: {
-      weight: { value: style.fontWeight },
-      slant: style.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
-    },
-    // A variable font draws its default instance unless told the weight; a static one ignores it.
-    fontVariations: [{ axis: 'wght', value: style.fontWeight }],
-    letterSpacing: letterSpacingPx(style.letterSpacing, style.fontSize),
-    baselineShift,
-    ...(style.features
-      ? { fontFeatures: Object.entries(style.features).map(([name, on]) => ({ name, value: on ? 1 : 0 })) }
-      : {}),
-    ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
-    ...(decoration ? { decoration, decorationColor: color(ck, linesColour(style, pass)), decorationThickness: 1 } : {}),
-  })
-}
-
-/** Lines at least as tall as the style's would be, for a paragraph whose own letters are smaller. */
-function strutStyle(ck: CanvasKit, style: Style, resources: Pick<Resources, 'fallbackFamilies'>): StrutStyle {
-  return {
-    strutEnabled: true,
-    fontFamilies: familiesOf(style, resources),
-    fontSize: style.fontSize,
-    fontStyle: {
-      weight: { value: style.fontWeight },
-      slant: style.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
-    },
-    ...(style.lineHeight === undefined ? {} : { heightMultiplier: style.lineHeight, halfLeading: true }),
-  }
-}
-
-/** The families a style's characters are drawn from: its own, then the fallbacks. */
-function familiesOf(style: Style, resources: Pick<Resources, 'fallbackFamilies'>): string[] {
-  return [style.fontFamily, ...resources.fallbackFamilies.filter((f) => f !== style.fontFamily)]
-}
-
-/**
- * Whether `ch`, after `prev` and `before` it, starts a word: it follows no letter, number or mark,
- * and is not a letter after an apostrophe that follows a letter, number or mark.
- */
-function startsWord(before: string, prev: string, ch: string): boolean {
-  if (WORD_CHAR.test(prev)) return false
-  return !(APOSTROPHE.test(prev) && WORD_CHAR.test(before) && LETTER.test(ch))
 }

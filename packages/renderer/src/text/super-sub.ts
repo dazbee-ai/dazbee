@@ -117,6 +117,20 @@ export function withoutSuperSubs(style: Style): Style {
   return { ...style, features }
 }
 
+/** For each UTF-8 offset into `text`, and its end, the UTF-16 offset of the code point it falls in. */
+export function utf16Offsets(text: string): number[] {
+  const at: number[] = []
+  let unit = 0
+  for (const ch of text) {
+    const cp = ch.codePointAt(0) ?? 0
+    const bytes = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4
+    for (let b = 0; b < bytes; b++) at.push(unit)
+    unit += ch.length
+  }
+  at.push(unit)
+  return at
+}
+
 /**
  * The pieces in groups to decide together: side by side, raised or lowered alike, and shaped alike,
  * differing at most in paint. A piece neither raised nor lowered is a group of its own.
@@ -183,20 +197,6 @@ function madeUpAt(text: string, own: ShapedRun[], plain: ShapedRun[], hasFeature
   }
   let last = at.find((value) => value !== undefined) ?? true
   return at.map((value) => (last = value ?? last))
-}
-
-/** For each UTF-8 offset into `text`, and its end, the UTF-16 offset of the code point it falls in. */
-function utf16Offsets(text: string): number[] {
-  const at: number[] = []
-  let unit = 0
-  for (const ch of text) {
-    const cp = ch.codePointAt(0) ?? 0
-    const bytes = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4
-    for (let b = 0; b < bytes; b++) at.push(unit)
-    unit += ch.length
-  }
-  at.push(unit)
-  return at
 }
 
 /** Each cluster of a run: the UTF-16 offset it starts at, and its glyph ids. */

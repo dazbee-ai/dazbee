@@ -6,7 +6,7 @@ import type { Rect, TextProps } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
-import { laidOut } from '../text/layout.ts'
+import { laidOut } from '../text/cache.ts'
 import { booleanPath, shapePath } from './paths.ts'
 import { strokeReach } from './strokes.ts'
 

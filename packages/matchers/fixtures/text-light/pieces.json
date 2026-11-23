@@ -49,6 +49,32 @@
       "spacing": 30
     },
     {
+      "id": "latin-hollow",
+      "key": "Fira Sans|800|normal",
+      "words": "NEW DEALS",
+      "size": 72,
+      "colour": "#FFFFFF",
+      "background": "#1E3A8A",
+      "outline": {
+        "width": 3,
+        "color": "#FFFFFF"
+      },
+      "hollow": true
+    },
+    {
+      "id": "latin-hollow-italic",
+      "key": "Fira Sans|800|italic",
+      "words": "Summer Sale",
+      "size": 72,
+      "colour": "#111111",
+      "background": null,
+      "outline": {
+        "width": 3,
+        "color": "#111111"
+      },
+      "hollow": true
+    },
+    {
       "id": "arabic-plain",
       "key": "Cairo|600|normal",
       "words": "تخفيضات الصيف",

@@ -39,12 +39,12 @@ const RED: Paint = { type: 'solid', color: '#FF0000FF' }
 /** Every adjustment at none. */
 const ADJUST = { exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0 }
 const INK = '#1A1420FF'
-/** FRESH in its own colour and BREW tiled, their runs covering a base style filled with the photo. */
+/** FRESH bold in its own colour and BREW tiled, their runs covering a base style filled with the photo. */
 const WORDS = {
   text: 'FRESH BREW',
   style: { ...STYLE, image: PHOTO },
   runs: [
-    { start: 0, end: 6, style: { color: INK } },
+    { start: 0, end: 6, style: { color: INK, fontWeight: 700 } },
     { start: 6, end: 10, style: { image: TILED } },
   ],
 }
@@ -151,6 +151,8 @@ describe('firstTextPaint', () => {
   it('gives the picker the first paint a text’s characters show', () => {
     const target = { range: undefined, props: [WORDS] } as unknown as Target
     expect(firstTextPaint(target)).toEqual({ type: 'solid', color: INK })
+    const later = { ...WORDS, runs: [WORDS.runs[1]] }
+    expect(firstTextPaint({ range: undefined, props: [later] } as unknown as Target)).toEqual(PHOTO)
   })
 })
 
@@ -173,6 +175,7 @@ describe('colourTexts', () => {
     ed.core.select(['words'])
     expect(colourTexts(targetOf(ed, ['words']), '#FF0000')).toBe(true)
     expect(shownTextPaint(targetOf(ed, ['words']))).toEqual(RED)
+    expect((ed.core.drawnPropsOf('words').runs as { style: Style }[])[0]?.style.fontWeight).toBe(700)
     ed.core.session.undo()
     expect(shownTextPaint(targetOf(ed, ['words']))).toBe('mixed')
   })

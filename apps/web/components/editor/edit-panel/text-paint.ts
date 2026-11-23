@@ -5,7 +5,6 @@
 import {
   type GradientPaint,
   type ImagePaint,
-  inColour,
   type Paint,
   shownGradient,
   shownImage,
@@ -34,7 +33,7 @@ export function shownTextPaint(target: Target): Paint | 'mixed' {
 /** The paint the picker edits: the selected range's first character's, else the first text's first. */
 export function firstTextPaint(target: Target): Paint {
   const [first] = target.range ?? []
-  return first ? textPaint(first) : (paintsOf(target.props[0])[0] ?? textPaint(target.props[0].style as Style))
+  return first ? textPaint(first) : paintsOf(target.props[0])[0]
 }
 
 /**
@@ -57,6 +56,31 @@ export function pickTextPaint(target: Target, to: (now: Paint) => Paint): boolea
 }
 
 /**
+ * The paints a text's characters show, the first character's first: its base style's, unless runs
+ * that set a paint cover every character, and each such run's over it.
+ */
+function paintsOf(props: Props): [Paint, ...Paint[]] {
+  const style = props.style as Style
+  const painting = paintRuns(props).toSorted((a, b) => a.start - b.start)
+  let reached = 0
+  for (const run of painting) if (run.start <= reached) reached = Math.max(reached, run.end)
+  const length = ((props.text ?? '') as string).length
+  const runs = painting.map((run) => textPaint(withRunStyle(style, run.style) as Style))
+  const [first, ...rest] = runs
+  const base = textPaint(style)
+  // A text whose first character no painted run covers shows its base paint first.
+  if (!first || painting[0]?.start !== 0) return [base, ...runs]
+  return length === 0 || reached < length ? [first, base, ...rest] : [first, ...rest]
+}
+
+/** A text's runs that set their own colour, gradient or image fill. */
+function paintRuns(props: Props): TextRun[] {
+  return ((props.runs ?? []) as TextRun[]).filter(
+    (run) => run.style.color !== undefined || run.style.gradient !== undefined || run.style.image !== undefined,
+  )
+}
+
+/**
  * Paints the selected range while one text is edited with what its first character's style takes,
  * else each selected text's base style and each run that sets its own paint with what it takes,
  * laid over the run's characters as the editor writes runs. One undo step.
@@ -73,31 +97,10 @@ function paintTexts(target: Target, paintOf: (style: Style) => PaintSet): boolea
     }))
     const paint = paintOf(style)
     return {
-      style: 'color' in paint ? inColour(style, paint.color) : withRunStyle(style, paint),
+      style: withRunStyle(style, paint),
       ...(runs.length > 0 && { runs }),
     }
   })
-}
-
-/**
- * The paints a text's characters show: its base style's, unless runs that set a paint cover every
- * character, and each such run's over it.
- */
-function paintsOf(props: Props): Paint[] {
-  const style = props.style as Style
-  const painting = paintRuns(props).toSorted((a, b) => a.start - b.start)
-  let reached = 0
-  for (const run of painting) if (run.start <= reached) reached = Math.max(reached, run.end)
-  const length = ((props.text ?? '') as string).length
-  const base = length === 0 || reached < length ? [textPaint(style)] : []
-  return [...base, ...painting.map((run) => textPaint(withRunStyle(style, run.style) as Style))]
-}
-
-/** A text's runs that set their own colour, gradient or image fill. */
-function paintRuns(props: Props): TextRun[] {
-  return ((props.runs ?? []) as TextRun[]).filter(
-    (run) => run.style.color !== undefined || run.style.gradient !== undefined || run.style.image !== undefined,
-  )
 }
 
 /** What a style sets to paint with `next` in place of `now`: a colour switched to from an image fill is the colour kept under it. */

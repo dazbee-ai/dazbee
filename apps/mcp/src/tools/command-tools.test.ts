@@ -276,13 +276,15 @@ describe('run_command', () => {
     expect(accepted(sync)).toHaveLength(0)
   })
 
-  it('names the commands nearest an unknown one', async () => {
+  it('names the commands nearest an unknown one, in run_command and in batch', async () => {
     const { agent } = await withSecondTab()
+    const refusal =
+      'There is no command “frame.create” (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add); list_commands lists them all, so nothing ran.'
     const result = await agent.call('run_command', { command: 'frame.create', input: {} })
     expect(result.isError).toBe(true)
-    expect(textOf(result)).toContain(
-      'no command is called "frame.create" (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add)',
-    )
+    expect(textOf(result)).toBe(refusal)
+    const batch = await agent.call('batch', { steps: [...CARD, { command: 'frame.create', input: {} }] })
+    expect(textOf(batch)).toBe(refusal)
   })
 
   it('answers a change set the server rejects as not kept, with why', async () => {

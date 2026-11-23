@@ -165,25 +165,29 @@ export function catalogTypeOf(type: z.core.$ZodType): z.ZodType | undefined {
  * and those it was given, in place of an issue for each.
  */
 export function inputIssues(input: z.ZodType, given: unknown, error: z.ZodError): InputIssue[] {
-  const issues = error.issues.map(({ path, message }) => ({
+  const found = error.issues.map(({ code, path, message }) => ({
+    code,
     path: path.map((key) => (typeof key === 'number' ? key : String(key))),
     message,
   }))
+  const issues = found.map(({ path, message }) => ({ path, message }))
   const { shape } = input.def as z.ZodType['def'] & Inside
-  const keys =
-    given === undefined ? [] : typeof given === 'object' && !Array.isArray(given) ? Object.keys(given ?? {}) : undefined
+  const keys = keysOf(given)
   if (!shape || !keys) return issues
   const fields = Object.keys(shape)
   const required = fields.filter((key) => !shape[key]?.safeParse(undefined).success)
   const missing = required.filter((key) => !keys.includes(key))
   if (missing.length === 0 && keys.every((key) => fields.includes(key))) return issues
-  const others = issues.filter(({ path }, i) => {
-    const code = error.issues[i]?.code
-    if (path.length === 0) return code !== 'unrecognized_keys' && code !== 'invalid_type'
-    return !(path.length === 1 && missing.includes(String(path[0])))
-  })
+  const others = found.filter(({ code, path }) =>
+    path.length === 0
+      ? code !== 'unrecognized_keys' && code !== 'invalid_type'
+      : !(path.length === 1 && missing.includes(String(path[0]))),
+  )
   const optional = fields.filter((key) => !required.includes(key))
-  return [{ path: [], message: keysSentence(required, optional, keys) }, ...others]
+  return [
+    { path: [], message: keysSentence(required, optional, keys) },
+    ...others.map(({ path, message }) => ({ path, message })),
+  ]
 }
 
 /**
@@ -223,6 +227,12 @@ function strictly(type: z.ZodType, path: string[], loose: string[]): z.ZodType {
   const made = mapInside(type, (inside, where) => strictly(inside, where ? [...path, where] : path, loose))
   if (def.shape) made.catchall = z.never()
   return Object.keys(made).length > 0 ? type.clone({ ...def, ...made }) : type
+}
+
+/** The keys of a command's input as given: none when it was left out, and undefined when it is not an object. */
+function keysOf(given: unknown): string[] | undefined {
+  if (given === undefined || given === null) return []
+  return typeof given === 'object' && !Array.isArray(given) ? Object.keys(given) : undefined
 }
 
 /** The sentence telling the keys an input takes, `required` and `optional`, and the keys it was `given`. */

@@ -10,6 +10,7 @@ import {
   commandCatalog,
   CommandError,
   CommandFault,
+  COMMANDS,
   inWords,
   nearestNames,
   type Session,
@@ -84,12 +85,7 @@ export const COMMAND_TOOLS: Tool[] = [
     }),
     run: async ({ command }) => {
       const entry = describedCommand(command)
-      if (!entry) {
-        const nearest = inWords(nearestNames(command, AGENT_COMMANDS))
-        throw new ToolRefusal(
-          `There is no command “${command}” (the nearest are ${nearest}); list_commands lists them all`,
-        )
-      }
+      if (!entry) throw new ToolRefusal(noCommand(command))
       return entry
     },
   }),
@@ -184,7 +180,7 @@ export function describedCommand(command: string): CatalogEntry | undefined {
 
 /**
  * Runs `work` on the open design once it may be changed: refused before anything runs for a command agents can't
- * run or a tab that may only view the design, and a command's fault told as a tool error. What the agent is to be
+ * run or there is not, or a tab that may only view the design, and a command's fault told as a tool error. What the agent is to be
  * told of the design first (that it was opened again) comes after the answer, or after the refusal's sentence.
  */
 export async function writing(
@@ -196,6 +192,8 @@ export async function writing(
     throw new ToolRefusal(
       `${RESTORE} is a command agents can’t run, so nothing ran; the person can restore a version from the design’s Versions`,
     )
+  const unknown = commands.find((command) => !Object.hasOwn(COMMANDS, command))
+  if (unknown !== undefined) throw new ToolRefusal(`${noCommand(unknown)}, so nothing ran`)
   return design.use({ api, agent }, async (open) => {
     let value: unknown
     try {
@@ -263,6 +261,12 @@ export function answered(open: OpenDesign, done: Written<unknown>, value: unknow
     ...(notices.length > 0 ? [`What happened to the design since the last answer: ${JSON.stringify(notices)}`] : []),
   ]
   return notes.length > 0 ? new WithNotes(value, notes) : value
+}
+
+/** The sentence for a command there is not: the agent's commands nearest it in spelling. */
+function noCommand(command: string): string {
+  const nearest = inWords(nearestNames(command, AGENT_COMMANDS))
+  return `There is no command “${command}” (the nearest are ${nearest}); list_commands lists them all`
 }
 
 /** A command as one line: its name, what it does, and its input's fields, `?` marking those that may be left out. */

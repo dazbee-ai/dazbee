@@ -3,8 +3,6 @@
 // `{ "$ref": name }`, with `field` for a part of it.
 import { CommandError, type InputIssue } from '../commands/define.ts'
 import { type CommandName, COMMANDS } from '../commands/index.ts'
-import { nearestNames } from '../commands/nearest-names.ts'
-import { inWords } from '../in-words.ts'
 import type { Session } from '../session.ts'
 
 /**
@@ -114,11 +112,7 @@ function shapeProblem(step: number, given: unknown, names: ReadonlyMap<string, n
   const taken = as === undefined ? undefined : names.get(as)
   if (taken !== undefined) return badStep(at, ['as'], `"${as as string}" is already step ${taken}'s name`)
   if (!Object.hasOwn(COMMANDS, command))
-    return badStep(
-      at,
-      ['command'],
-      `no command is called "${String(given['command'])}" (the nearest are ${inWords(nearestNames(command, Object.keys(COMMANDS)))})`,
-    )
+    return badStep(at, ['command'], `no command is called "${String(given['command'])}"`)
   return undefined
 }
 

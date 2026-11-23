@@ -1,7 +1,7 @@
 // The names nearest one that was not found, by how many letters set them apart, for a refusal to offer.
 
 /** How many names a refusal offers as the nearest to one there is not. */
-export const NEAREST_NAMES = 5
+const NEAREST_NAMES = 5
 
 /** The `count` names of `names` nearest `name` in spelling, nearest first; names as near keep the order given. */
 export function nearestNames(name: string, names: readonly string[], count = NEAREST_NAMES): string[] {

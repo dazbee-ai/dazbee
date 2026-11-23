@@ -26,6 +26,7 @@ import { type FontSource, loadFaces } from './font-source.ts'
 import { inkBox } from './ink.ts'
 import { correct } from './light/correct.ts'
 import { fitFace, type Fitted } from './light/fit.ts'
+import { spacedAny } from './light/letters-apart.ts'
 import { rankFits } from './light/rank.ts'
 import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
@@ -209,7 +210,8 @@ function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 
 /**
  * The answer in one of the faces tried, its letters kept from running into each other; when that
  * doesn't look the same, the answer fitted as tight as the piece asks instead if that looks the same,
- * so a picture whose own letters run into each other keeps looking the same.
+ * so a picture whose own letters run into each other keeps looking the same. When no fit was spaced
+ * wider to keep its letters apart, fitting as tight as the piece asks would fit the same again.
  */
 async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
   const faces = await facesOf(fitting.fonts, tried.candidates, tried.loaded, fitting.words)
@@ -217,16 +219,16 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
   if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
   const apart = fitFaces(fitting, tried, drawn, faces, true)
-  if (apart === 'unfitted' || apart.same) return apart
-  const touching = fitFaces(fitting, tried, drawn, faces, false)
-  return touching !== 'unfitted' && touching.same ? touching : apart
+  if (apart.answer === 'unfitted' || apart.answer.same || !apart.spacedWider) return apart.answer
+  const touching = fitFaces(fitting, tried, drawn, faces, false).answer
+  return touching !== 'unfitted' && touching.same ? touching : apart.answer
 }
 
 /**
  * The answer in one of the faces drawn, judged at full size: Light's verified pick, and in Hybrid its
  * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
  * rule's SSIM less the ink missed, as Light's finalists are compared. `lettersApart` keeps every fit's
- * letters from running into each other.
+ * letters from running into each other; `spacedWider` says whether that spaced any fit wider.
  */
 function fitFaces(
   fitting: Fitting,
@@ -234,13 +236,14 @@ function fitFaces(
   drawn: readonly Candidate[],
   faces: ReadonlyMap<string, Uint8Array>,
   lettersApart: boolean,
-): Verified | 'unfitted' {
+): { answer: Verified | 'unfitted'; spacedWider: boolean } {
   const { ck, words, target } = fitting
   const { similarities } = tried
   const { reading: work, scale } = target
   const drawer = textDrawer(ck, drawnFaces(drawn, faces), { lettersApart })
   let light: Verified | undefined
   let finer: Verified | undefined
+  let spacedWider = false
   try {
     const fits = drawn.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     const unfitted = tried.plainWhenUnfitted && fits.length === 0 && drawn[0]
@@ -261,17 +264,14 @@ function fitFaces(
       const finerFitted = finerFit(drawer, work, words, light.fit)
       if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }
+    spacedWider = spacedAny(drawer)
   } finally {
     drawer.delete()
   }
-  if (!light) return 'unfitted'
+  if (!light) return { answer: 'unfitted', spacedWider }
   const atFullSize = (verified: Verified) =>
     scale === 1 ? verified : atWholeSize(ck, verified, scale, faces, { ...target, reading: fitting.whole })
-  const lightAnswer = atFullSize(light)
-  const finerAnswer = finer && atFullSize(finer)
-  if (!finerAnswer) return lightAnswer
-  if (finerAnswer.same || lightAnswer.same) return finerAnswer.same ? finerAnswer : lightAnswer
-  return closeness(finerAnswer.scores) > closeness(lightAnswer.scores) ? finerAnswer : lightAnswer
+  return { answer: hybridAnswer(atFullSize(light), finer && atFullSize(finer)), spacedWider }
 }
 
 /** The bytes of each candidate's face, those the shortlist loaded and the rest asked for at once; none for a face no font draws. */
@@ -333,6 +333,13 @@ function atWholeSize(
   } finally {
     drawer.delete()
   }
+}
+
+/** The finer fit's answer when it looks the same, else Light's when that does, else the closer by the rule's SSIM less the ink missed. */
+function hybridAnswer(light: Verified, finer: Verified | undefined): Verified {
+  if (!finer) return light
+  if (finer.same || light.same) return finer.same ? finer : light
+  return closeness(finer.scores) > closeness(light.scores) ? finer : light
 }
 
 /** A look found on the shrunk piece at the whole piece's size, its outline to the half pixel. */

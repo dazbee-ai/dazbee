@@ -5,6 +5,9 @@ import { bindProps, type Layer, type TextProps, type Variables } from '@dazbee/s
 
 type Size = { width: number; height: number }
 
+/** The point of a text's box that stays where it is as the box is fitted: its top left or its centre. */
+export type KeptPoint = 'topLeft' | 'center'
+
 /**
  * Measures a text layer as it would draw: with `width` null, its natural width (each paragraph
  * on one line) and the height that gives; otherwise its height when laid out `width` wide.
@@ -20,7 +23,7 @@ export type MeasureText = (props: TextProps, width: number | null) => Size
  * Undefined for a straight text of a fixed box and for any other layer.
  */
 export function fittedText(layer: Layer | undefined, measure: MeasureText, variables?: Variables): Size | undefined {
-  if (layer?.type !== 'text' || !fitsItsWords(layer.props)) return undefined
+  if (layer?.type !== 'text' || !hasBoxToFit(layer.props)) return undefined
   const props = bindProps(layer.type, layer.props, layer.bindings, variables)
   const auto = props.boxMode === 'autoWidth' || props.curve !== undefined
   const straight = props.curve ? undefined : props.straightBox
@@ -30,7 +33,24 @@ export function fittedText(layer: Layer | undefined, measure: MeasureText, varia
   return { width: auto ? size.width : width, height: size.height }
 }
 
-/** Whether a text's box follows its words or its curve: any but a straight fixed box, or one that has its straight box to take back. */
-export function fitsItsWords(props: TextProps): boolean {
+/** Whether a text's box is fitted: it follows its words or its curve, or has its straight box to take back; not a straight fixed box. */
+export function hasBoxToFit(props: TextProps): boolean {
   return props.boxMode !== 'fixed' || props.curve !== undefined || props.straightBox !== undefined
+}
+
+/**
+ * The straight box a fit that `resizes` a text writes: its box before, in multiples of its font
+ * size, when a curve resizes a fixed or auto height text that holds none; null, taking it off, once
+ * the text is straight; undefined where it stays as it is.
+ */
+export function straightBoxOnFit(props: TextProps, resizes: boolean): Size | null | undefined {
+  if (!props.curve) return props.straightBox ? null : undefined
+  if (props.boxMode === 'autoWidth' || props.straightBox || !resizes) return undefined
+  const em = props.style.fontSize
+  return { width: props.width / em, height: props.height / em }
+}
+
+/** Whether a width or height set on a text holding `straightBox`, `curved` after the change, takes it off: it does on a straight text. */
+export function sizeEndsStraightBox(straightBox: unknown, curved: boolean): boolean {
+  return straightBox !== undefined && !curved
 }

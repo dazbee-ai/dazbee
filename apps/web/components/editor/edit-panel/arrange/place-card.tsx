@@ -17,6 +17,7 @@ import {
   shared,
   type Target,
 } from '@/components/editor/edit-panel/target.ts'
+import { anyCurved } from '@/components/editor/edit-panel/text-tab/curves.ts'
 import { KNOB_SWITCH, KNOBS, PANEL_PART, SWITCH } from '@/components/editor/styles.ts'
 import { GreyedButton } from '@/components/ui/greyed.tsx'
 import { FlipHorizontalIcon, FlipVerticalIcon, type Icon } from '@/components/ui/icons.tsx'
@@ -24,7 +25,7 @@ import { offersChoice } from '@/components/ui/select.tsx'
 import { sizePatch, tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { hasLimits, LIMIT_KEYS, limitChoices, type LimitEnd, limitPatch, limitsApply, offForCurved } from './limits.ts'
+import { hasLimits, LIMIT_KEYS, limitChoices, type LimitEnd, limitPatch, limitsApply } from './limits.ts'
 import { PanelAction } from './panel-action.tsx'
 import { sizingChoices, SizingMenu } from './sizing-menu.tsx'
 
@@ -100,7 +101,7 @@ export function PlaceCard({
   const limited = sized && limitsApply(design, target.ids)
   const limitedSides = sides.filter(({ key }) => limited && hasLimits(target.props, key))
   // A curved text's box fits its letters, so its limits show their values, off.
-  const limitWhy = why ?? (offForCurved(target.props).size > 0 ? p.notForCurved.sizing : null)
+  const limitWhy = why ?? (anyCurved(target.props) ? p.notForCurved.sizing : null)
   const spots = [
     { key: 'x', label: p.x, name: p.xName },
     { key: 'y', label: p.y, name: p.yName },

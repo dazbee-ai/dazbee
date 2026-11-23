@@ -50,6 +50,10 @@ function curved(text: string, curve: TextCurve, more: Record<string, unknown> = 
   const flat = placeLetters(ck, straight, inPlace)
   const { placed, width, height } = curveLetters(ck, straight, curve, props.style.fontSize)
   const glyphs: Glyph[] = []
+  const ids = {
+    curved: placed.runs.flatMap((run) => [...run.glyphs]),
+    straight: flat.runs.flatMap((run) => [...run.glyphs]),
+  }
   placed.runs.forEach((run, r) => {
     const flatRun = flat.runs[r]
     if (!flatRun) throw new Error('the straight placement has other runs')
@@ -72,7 +76,7 @@ function curved(text: string, curve: TextCurve, more: Record<string, unknown> = 
   placed.delete()
   flat.delete()
   straight.delete()
-  return { glyphs, lines, width, height, boxes }
+  return { glyphs, lines, width, height, boxes, ids }
 }
 
 /** The glyphs of the line whose straight baseline is the `n`th from the top. */
@@ -163,7 +167,9 @@ describe('curveLetters', () => {
       ['ROUND BADGE OF TRUST', 30],
       ['  ROUND BADGE', 0],
     ] as const) {
-      const { glyphs, lines } = curved(text, { shape: 'circle', amount })
+      const { glyphs, lines, ids } = curved(text, { shape: 'circle', amount })
+      // The same glyphs as straight, so a joining script's joined forms.
+      expect(ids.curved).toEqual(ids.straight)
       const length = longestOf(lines)
       const circumference = length * (2 - amount / 100)
       const r = circumference / (2 * Math.PI)

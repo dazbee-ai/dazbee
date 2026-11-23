@@ -32,7 +32,8 @@ export const DrawnBoxes = z.record(
 )
 export type DrawnBoxes = z.infer<typeof DrawnBoxes>
 
-const same = (a: unknown, b: unknown) =>
+/** Whether two values are alike as the document keeps them: numbers to their hundredths. */
+export const same = (a: unknown, b: unknown) =>
   typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) < 0.005 : a === b
 
 /**

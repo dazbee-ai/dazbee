@@ -135,10 +135,11 @@ export function readVectorBaselines(): Record<string, VectorBaseline> {
     : {}
 }
 
-/** Records one case's baseline, keeping the others; cases stay sorted so diffs are readable. */
-export function recordVectorBaseline(name: string, measured: { pdf: number; svg: number }) {
-  const entry = (percent: number) => ({ percent: Number(percent.toFixed(3)), limit: vectorLimit(percent) })
-  const all = { ...readVectorBaselines(), [name]: { pdf: entry(measured.pdf), svg: entry(measured.svg) } }
+/** Records one case's baseline for one type, keeping the rest; cases stay sorted so diffs are readable. */
+export function recordVectorBaseline(name: string, type: 'pdf' | 'svg', percent: number) {
+  const entry = { percent: Number(percent.toFixed(3)), limit: vectorLimit(percent) }
+  const before = readVectorBaselines()
+  const all = { ...before, [name]: { ...before[name], [type]: entry } as VectorBaseline }
   const sorted = Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : 1)))
   writeFileSync(VECTOR_BASELINES, `${JSON.stringify(sorted, null, 2)}\n`)
 }

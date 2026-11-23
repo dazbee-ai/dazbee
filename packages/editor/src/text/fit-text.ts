@@ -3,7 +3,7 @@
 // in (`textFontUses`: its own, its runs' and the script fonts its characters need, in each weight and
 // style it sets) is still coming; once that load settles, with files or without, it is measured with
 // what is here, the fallbacks for a font that never came, as typing would measure it then.
-import { fittedText, type FitText,hasBoxToFit } from '@dazbee/doc'
+import { fittedText, type FitText, hasBoxToFit } from '@dazbee/doc'
 import { type Layer, textFontUses } from '@dazbee/schema'
 
 import type { FrameScenes } from '../canvas/scenes.ts'

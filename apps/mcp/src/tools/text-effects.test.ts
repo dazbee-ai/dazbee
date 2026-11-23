@@ -231,3 +231,32 @@ describe('an image fill', () => {
     expect(both.isError).toBe(true)
   })
 })
+
+describe('an extrusion', () => {
+  it('is set with node.update, the box growing in height to hold the sides in the same step, taken off with null', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', { command: 'node.create', input: BADGE })
+    const sync = server.sync('design-launch')
+    const stored = () => (sync.state().nodes['badge-text'] as { props?: TextProps } | undefined)?.props
+    const update = (patch: Record<string, unknown>) =>
+      agent.call('run_command', { command: 'node.update', input: { ids: ['badge-text'], patch } })
+    const straight = stored() as TextProps
+    const extrusion = { depth: 20, angle: 45 }
+    expect((await update({ extrusion })).isError).toBeFalsy()
+    const { height } = await measured({ ...straight, extrusion }, straight.width)
+    // The sides reach 20 % of 40 px along 45°, 5.66 px down, which the auto height box grows by, to whole pixels.
+    expect(height).toBe(Math.ceil(straight.height + 8 * Math.SQRT1_2))
+    expect(stored()).toMatchObject({ x: 120, y: 220, width: straight.width, height, extrusion })
+    const coloured = { depth: 30, angle: 200, color: '#5D4037FF' }
+    expect((await update({ extrusion: coloured })).isError).toBeFalsy()
+    expect(stored()?.extrusion).toEqual(coloured)
+    expect((await update({ extrusion: { depth: 120, angle: 45 } })).isError).toBe(true)
+    expect((await update({ extrusion: null })).isError).toBeFalsy()
+    expect(stored()).not.toHaveProperty('extrusion')
+    expect(stored()?.height).toBe(straight.height)
+    expect(textOf(await agent.call('undo'))).toBe('Undid “edit”')
+    expect(stored()?.extrusion).toEqual(coloured)
+  })
+})

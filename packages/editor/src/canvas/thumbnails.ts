@@ -79,6 +79,7 @@ export function thumbnailCache({ ck, scenes, resources, current, drawn }: Thumbn
       shrinkToFit: undefined,
       curve: undefined,
       bounce: undefined,
+      extrusion: undefined,
       effects: [],
       style: {
         ...style,

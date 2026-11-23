@@ -117,7 +117,8 @@ export function layersAt(layers: SceneLayer[], p: Point, looks: Looks, options: 
 /**
  * Where a text shows: the boxes of its laid-out lines and list markers, in its own coordinates from
  * its box's corner, its vertical alignment applied. A line with no words has no box. A text whose
- * letters are placed shows on each letter's turned box in place of its lines.
+ * letters are placed shows on each letter's turned box in place of its lines. A text with 3D sides
+ * also shows wherever its boxes pass over as they are carried back to the sides' depth.
  */
 export function lineBoxes(laid: TextLayout): TurnedRect[] {
   const boxes: TurnedRect[] = laid.placed ? letterBoxes(laid.placed) : []
@@ -136,7 +137,8 @@ export function lineBoxes(laid: TextLayout): TurnedRect[] {
         boxes.push({ x: b.x + line.left, y: y + line.baseline - line.ascent, width: line.width, height: line.height })
     }
   }
-  return boxes
+  const sweep = laid.sidesReach
+  return sweep ? boxes.map((box) => ({ ...box, sweep })) : boxes
 }
 
 /**
@@ -601,11 +603,12 @@ function shapeUnder(
  * they are drawn, mirrored when it is flipped: not in the empty box below them or after a short
  * line. A text with no words is picked by its box, so it can still be grabbed. A curved or bounced
  * text, or one whose letters turn, is picked on its letters wherever they are drawn, past a box not
- * yet fitted to them too.
+ * yet fitted to them too; a text with 3D sides on its sides too, where they reach past its box.
  */
 function onLines(looks: Looks, layer: TextLayer, q: Point) {
   const { props } = layer
-  if (!props.curve && !movesLetters(props) && !inBox(q, props)) return false
+  if (!props.curve && !movesLetters(props) && !(props.extrusion && props.extrusion.depth > 0) && !inBox(q, props))
+    return false
   const lines = looks.lines(props)
   if (lines.length === 0) return inBox(q, props)
   const own = flippedPoint(q, props)

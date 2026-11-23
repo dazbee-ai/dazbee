@@ -1,5 +1,5 @@
 // A curved or bounced text is hit on its placed letters' turned boxes (ADR-0021), never on the straight
-// line it was laid out on.
+// line it was laid out on; a text with 3D sides on its sides too.
 import { describe, expect, it } from 'vitest'
 
 import type { TurnedRect } from '@dazbee/renderer'
@@ -99,5 +99,41 @@ describe('hitTest on a bounced text', () => {
     expect(above.length).toBeGreaterThan(1)
     for (const p of above) expect(hitTest(under, p, looks)?.id).toBe('bounced')
     expect(hitTest(under, { x: 550, y: 90 }, looks)?.id).toBe('under')
+  })
+})
+
+describe('hitTest on a text with 3D sides', () => {
+  it('picks a fixed box’s text on its sides past the box, and passes past their reach', () => {
+    // A depth of 100 % along 0°: the sides reach 40 px right of the letters, past the box's right edge.
+    const deep = text(
+      'deep',
+      'SALE',
+      { x: 100, y: 100, width: 110, height: 60 },
+      { extrusion: { depth: 100, angle: 0 } },
+    )
+    const under = [rect('under', 0, 0, 600, 400), deep]
+    const [line] = looks.lines(deep.props as TextProps)
+    if (!line) throw new Error('no line')
+    const middle = 100 + line.y + line.height / 2
+    const end = 100 + line.x + line.width
+    expect(end + 20).toBeGreaterThan(210)
+    expect(hitTest(under, { x: end + 20, y: middle }, looks)?.id).toBe('deep')
+    expect(hitTest(under, { x: end + 45, y: middle }, looks)?.id).toBe('under')
+    expect(hitTest(under, { x: end + 20, y: 100 + line.y + line.height + 5 }, looks)?.id).toBe('under')
+  })
+
+  it('picks an auto height text on sides that reach down and left past its box', () => {
+    const shaded = text(
+      'shaded',
+      'SALE',
+      { x: 200, y: 100, width: 300, height: 60 },
+      { boxMode: 'autoHeight', extrusion: { depth: 50, angle: 135 } },
+    )
+    const under = [rect('under', 0, 0, 600, 400), shaded]
+    const [line] = looks.lines(shaded.props as TextProps)
+    if (!line) throw new Error('no line')
+    // The sides reach 14.1 px left and down of the line: a point 10 px left of its start, 8 px below its top.
+    expect(hitTest(under, { x: 200 + line.x - 10, y: 100 + line.y + 8 + 10 }, looks)?.id).toBe('shaded')
+    expect(hitTest(under, { x: 200 + line.x - 10, y: 100 + line.y + 2 }, looks)?.id).toBe('under')
   })
 })

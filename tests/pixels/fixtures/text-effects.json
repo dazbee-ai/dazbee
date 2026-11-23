@@ -99,6 +99,21 @@
         }
       ],
       "order": "a5"
+    },
+    "extrusion": {
+      "pageId": "p1",
+      "name": "Extrusion",
+      "width": 1080,
+      "height": 1080,
+      "x": 6840,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a6"
     }
   },
   "nodes": {
@@ -1671,6 +1686,373 @@
           }
         },
         "runs": []
+      }
+    },
+    "3d-down-right": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-down-right",
+      "index": "a060",
+      "name": "3d-down-right",
+      "props": {
+        "width": 272,
+        "height": 158,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 30,
+        "text": "SALE",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 110,
+          "color": "#E53935FF"
+        },
+        "extrusion": {
+          "depth": 10,
+          "angle": 45
+        }
+      }
+    },
+    "3d-down-left": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-down-left",
+      "index": "a061",
+      "name": "3d-down-left",
+      "props": {
+        "width": 423,
+        "height": 148,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 420,
+        "y": 30,
+        "text": "50% OFF",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 96,
+          "color": "#FFC107FF"
+        },
+        "extrusion": {
+          "depth": 25,
+          "angle": 135
+        }
+      }
+    },
+    "3d-up-left": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-up-left",
+      "index": "a062",
+      "name": "3d-up-left",
+      "props": {
+        "width": 318,
+        "height": 162,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 60,
+        "y": 210,
+        "text": "WOW",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 110,
+          "color": "#1E88E5FF"
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 225
+        }
+      }
+    },
+    "3d-up-right": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-up-right",
+      "index": "a063",
+      "name": "3d-up-right",
+      "props": {
+        "width": 214,
+        "height": 174,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 420,
+        "y": 200,
+        "text": "GO!",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 110,
+          "color": "#43A047FF"
+        },
+        "extrusion": {
+          "depth": 25,
+          "angle": 300
+        }
+      }
+    },
+    "3d-chosen": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-chosen",
+      "index": "a064",
+      "name": "3d-chosen",
+      "props": {
+        "width": 239,
+        "height": 148,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 700,
+        "y": 200,
+        "text": "NEW",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 96,
+          "color": "#FFFFFFFF"
+        },
+        "extrusion": {
+          "depth": 20,
+          "angle": 60,
+          "color": "#1F2329FF"
+        }
+      }
+    },
+    "3d-gradient": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-gradient",
+      "index": "a065",
+      "name": "3d-gradient",
+      "props": {
+        "width": 507,
+        "height": 149,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 380,
+        "text": "HOT DEAL",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 100,
+          "color": "#1F2329FF",
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF7A00FF"
+              },
+              {
+                "offset": 1,
+                "color": "#D81B60FF"
+              }
+            ]
+          }
+        },
+        "extrusion": {
+          "depth": 18,
+          "angle": 45
+        }
+      }
+    },
+    "3d-image": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-image",
+      "index": "a066",
+      "name": "3d-image",
+      "props": {
+        "width": 357,
+        "height": 167,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 370,
+        "text": "SHOES",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 110,
+          "color": "#1F2329FF",
+          "image": {
+            "type": "image",
+            "assetId": "sneaker",
+            "fit": "fill",
+            "opacity": 1
+          }
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 90
+        }
+      }
+    },
+    "3d-curved": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-curved",
+      "index": "a067",
+      "name": "3d-curved",
+      "props": {
+        "width": 552,
+        "height": 193,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 540,
+        "text": "SUMMER FUN",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 72,
+          "color": "#8E24AAFF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 50
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 45
+        }
+      }
+    },
+    "3d-bounced": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-bounced",
+      "index": "a068",
+      "name": "3d-bounced",
+      "props": {
+        "width": 436,
+        "height": 131,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 560,
+        "text": "PARTY TIME",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 72,
+          "color": "#00897BFF"
+        },
+        "bounce": {
+          "style": "wavy",
+          "amount": 40,
+          "seed": 1
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 135
+        }
+      }
+    },
+    "3d-outlined-under": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-outlined-under",
+      "index": "a069",
+      "name": "3d-outlined-under",
+      "props": {
+        "width": 321,
+        "height": 166,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 780,
+        "text": "BOLD",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontWeight": 800,
+          "fontSize": 110,
+          "color": "#FFEB3BFF",
+          "outline": {
+            "width": 6,
+            "color": "#1F2329FF",
+            "under": true
+          }
+        },
+        "extrusion": {
+          "depth": 20,
+          "angle": 45,
+          "color": "#FF7043FF"
+        }
+      }
+    },
+    "3d-hindi": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-hindi",
+      "index": "a06a",
+      "name": "3d-hindi",
+      "props": {
+        "width": 300,
+        "height": 127,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 420,
+        "y": 780,
+        "text": "बड़ी सेल",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontWeight": 700,
+          "fontSize": 90,
+          "color": "#C62828FF"
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 45
+        }
+      }
+    },
+    "3d-arabic": {
+      "type": "text",
+      "parentId": "extrusion",
+      "link": "3d-arabic",
+      "index": "a06b",
+      "name": "3d-arabic",
+      "props": {
+        "width": 433,
+        "height": 145,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 420,
+        "y": 930,
+        "text": "عروض الصيف",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontWeight": 700,
+          "fontSize": 80,
+          "color": "#283593FF"
+        },
+        "extrusion": {
+          "depth": 15,
+          "angle": 135
+        }
       }
     }
   }

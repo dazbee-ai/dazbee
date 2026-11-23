@@ -48,7 +48,7 @@ const LOCK_FLAGS_SAY: Record<(typeof LOCK_FLAGS)[number], string> = {
 /** A text's props that `node.update` refuses, which `text.edit` changes. */
 const TEXT_EDIT_PROPS = ['text', 'runs']
 /** Props `node.update` takes off when set to null, as a patch sent as JSON can't hold a value left out. */
-const TAKEN_OFF_BY_NULL = ['curve', 'bounce']
+const TAKEN_OFF_BY_NULL = ['curve', 'bounce', 'extrusion']
 
 /**
  * A layer to add as the catalog shows it: one of each type, with the props that type takes, every
@@ -128,7 +128,7 @@ export const nodeCreate = defineCommand({
 export const nodeUpdate = defineCommand({
   name: 'node.update',
   description:
-    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are; a text’s curve or bounce set to null is taken off. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture, a text’s look bound to a text style: its family, weight, slant, line height, letter spacing or case) ends that binding; a text’s size or a range’s own style keeps it. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
+    'Sets properties of layers, such as their place, size, turn or look, leaving the rest as they are; a text’s curve, bounce or extrusion set to null is taken off. A change to the value of a property bound to a brand kit token (a fill’s colour, a text’s colour or font, an image fill’s picture, a text’s look bound to a text style: its family, weight, slant, line height, letter spacing or case) ends that binding; a text’s size or a range’s own style keeps it. It refuses a missing layer, a property its type does not have or a value it does not take, a property the layer’s lock keeps, and the text of a text layer, which text.edit changes.',
   step: 'edit',
   batchable: true,
   input: z.strictObject({

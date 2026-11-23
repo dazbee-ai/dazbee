@@ -5,7 +5,15 @@
 import { type TextBounce, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
-import { inPlace, placedBounds, type PlacedLine, type PlacedRun, type PlaceGlyph, type Placement } from './placed.ts'
+import {
+  inPlace,
+  placedBounds,
+  type PlacedLine,
+  type PlacedRun,
+  type PlaceGlyph,
+  type Placement,
+  shiftPlaced,
+} from './placed.ts'
 
 /** How a letter moves off its place: raised along its line's normal, in pixels, and turned clockwise, in degrees. */
 export interface LetterMove {
@@ -75,7 +83,7 @@ export function moveStraightLetters(layout: TextLayout, placed: Placement, props
   const right = across ? Math.max(0, moved.x + moved.width - straight.x - straight.width) : 0
   const top = Math.max(0, straight.y - moved.y)
   const bottom = Math.max(0, moved.y + moved.height - straight.y - straight.height)
-  if (left > 0 || top > 0) shift(layout, placed, left, top)
+  if (left > 0 || top > 0) shiftPlaced(layout, placed, left, top)
   // A box that grows is whole pixels, as a curved text's is.
   if (left + right > 0) layout.width = Math.ceil(layout.width + left + right)
   if (top + bottom > 0) layout.height = Math.ceil(layout.height + top + bottom)
@@ -145,24 +153,6 @@ function unraised(runs: readonly PlacedRun[]): PlacedRun[] {
   return runs.map((run) =>
     run.raiseShift === 0 ? run : { ...run, boxes: run.boxes.map((v, i) => (i % 2 === 1 ? v - run.raiseShift : v)) },
   )
-}
-
-/** Moves a placement's glyphs and the layout's list markers right and down, as a box keeping its top-left does. */
-function shift(layout: TextLayout, placed: Placement, dx: number, dy: number) {
-  for (const { xforms, boxes } of placed.runs) {
-    for (let i = 0; i < xforms.length; i += 4) {
-      xforms[i + 2] = (xforms[i + 2] ?? 0) + dx
-      xforms[i + 3] = (xforms[i + 3] ?? 0) + dy
-    }
-    for (let i = 0; i < boxes.length; i += 2) {
-      boxes[i] = (boxes[i] ?? 0) + dx
-      boxes[i + 1] = (boxes[i + 1] ?? 0) + dy
-    }
-  }
-  for (const block of layout.blocks) {
-    block.markerX += dx
-    block.markerY += dy
-  }
 }
 
 /**

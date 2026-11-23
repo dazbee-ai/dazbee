@@ -1,12 +1,20 @@
-import type { CanvasKit, Paragraph, ParagraphBuilder } from '@dazbee/canvaskit'
+import type { CanvasKit, Paragraph, ParagraphBuilder, Path } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, type TextImagePaint, type TextProps, withRunStyle } from '@dazbee/schema'
+import {
+  autoDirection,
+  type GradientPaint,
+  type Point,
+  type TextImagePaint,
+  type TextProps,
+  withRunStyle,
+} from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
 import { curveLetters, type MoveLetters } from './curve.ts'
+import { extrusionReach, holdSides, textSides } from './extrusion.ts'
 import { inPlace, placeLetters, type Placement } from './placed.ts'
 import { baselineShift, withRaise } from './raise.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
@@ -73,6 +81,10 @@ export interface TextLayout {
    * each glyph where its paragraph draws it, placed the first time it is asked for. Freed with the layout.
    */
   letters(): Placement
+  /** How far its 3D sides reach behind its letters, as drawn; null without an extrusion. */
+  sidesReach: Point | null
+  /** Its 3D sides as one path in the layer's box, made the first time they are asked for; null without them. Freed with the layout. */
+  sides(): Path | null
   delete(): void
 }
 
@@ -82,6 +94,8 @@ export type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'fami
 type Style = TextProps['style']
 
 const ELLIPSIS = '\u2026'
+/** A text of white space only, or of nothing, which has no letters for sides. */
+const NO_LETTERS = /^\s*$/u
 /** The pass that draws a text's characters. */
 const FILL: TextPass = { kind: 'fill' }
 
@@ -91,8 +105,47 @@ const FILL: TextPass = { kind: 'fill' }
  * laid out as one SkParagraph. A curved text is laid out straight, each paragraph on one line, then
  * placed on its curve from the box's corner, its size the curve's. A text whose letters bounce or
  * turn is placed letter by letter and its letters moved (`moveLetters`), on its curve if it has one.
+ * A text with 3D sides takes a box that holds them (`holdSides`); one with no letters has none.
  */
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
+  const laid = layoutLetters(ck, props, resources)
+  const reach = NO_LETTERS.test(props.text) ? null : extrusionReach(props.extrusion, props.style.fontSize * laid.scale)
+  if (reach) {
+    holdSides(laid, props, reach)
+    laid.sidesReach = reach
+  }
+  return laid
+}
+
+/**
+ * What a text layer's layout depends on: everything but where it is placed and how it is painted
+ * over, so of its extrusion only the depth and angle its sides are made with.
+ */
+export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
+  return JSON.stringify([
+    props.text,
+    props.runs,
+    props.style,
+    props.width,
+    props.height,
+    props.boxMode,
+    props.wrapStyle,
+    props.align,
+    props.verticalAlign,
+    props.direction,
+    props.list,
+    props.paragraphSpacing,
+    props.maxLines,
+    props.shrinkToFit,
+    props.curve,
+    props.bounce,
+    props.extrusion && [props.extrusion.depth, props.extrusion.angle],
+    fallbackFamilies,
+  ])
+}
+
+/** A text layer laid out, and its letters placed on its curve and moved where it has those. */
+function layoutLetters(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
   const moved = movesLetters(props)
   if (props.curve) {
     const laid = build(ck, straightened(props), resources, 1)
@@ -115,29 +168,6 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
     laid.delete()
     throw error
   }
-}
-
-/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
-export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
-  return JSON.stringify([
-    props.text,
-    props.runs,
-    props.style,
-    props.width,
-    props.height,
-    props.boxMode,
-    props.wrapStyle,
-    props.align,
-    props.verticalAlign,
-    props.direction,
-    props.list,
-    props.paragraphSpacing,
-    props.maxLines,
-    props.shrinkToFit,
-    props.curve,
-    props.bounce,
-    fallbackFamilies,
-  ])
 }
 
 /** A straight text laid out at the base font size shrink to fit picks, if it has one, and aligned in its box. */
@@ -404,6 +434,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     return block
   })
   let letters: Placement | null = null
+  let sides: Path | null | undefined
   const layout: TextLayout = {
     blocks,
     dy: 0,
@@ -416,6 +447,11 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     pieces: drawn,
     placed: null,
     letters: () => layout.placed ?? (letters ??= placeLetters(ck, layout, inPlace)),
+    sidesReach: null,
+    sides: () => {
+      if (sides === undefined) sides = layout.sidesReach ? textSides(ck, layout, layout.sidesReach) : null
+      return sides
+    },
     delete() {
       for (const b of blocks) {
         b.paragraph.delete()
@@ -426,6 +462,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
       }
       layout.placed?.delete()
       letters?.delete()
+      sides?.delete()
     },
   }
   return layout

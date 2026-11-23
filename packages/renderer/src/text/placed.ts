@@ -197,6 +197,24 @@ export function placedPoint(xform: ArrayLike<number>, x: number, y: number): [nu
   return [scos * x - ssin * y + tx, ssin * x + scos * y + ty]
 }
 
+/** Moves a placement's glyphs and the layout's list markers right and down, as a box keeping its top-left does. */
+export function shiftPlaced(layout: TextLayout, placed: Placement, dx: number, dy: number) {
+  for (const { xforms, boxes } of placed.runs) {
+    for (let i = 0; i < xforms.length; i += 4) {
+      xforms[i + 2] = (xforms[i + 2] ?? 0) + dx
+      xforms[i + 3] = (xforms[i + 3] ?? 0) + dy
+    }
+    for (let i = 0; i < boxes.length; i += 2) {
+      boxes[i] = (boxes[i] ?? 0) + dx
+      boxes[i + 1] = (boxes[i + 1] ?? 0) + dy
+    }
+  }
+  for (const block of layout.blocks) {
+    block.markerX += dx
+    block.markerY += dy
+  }
+}
+
 /** A line's metrics as a placed line, its block at (x, y) in the layer's box. */
 function lineOf(m: LineMetrics, block: number, x: number, y: number): PlacedLine {
   return {

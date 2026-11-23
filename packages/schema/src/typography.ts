@@ -62,6 +62,12 @@ export const textStyleFields = {
    * which moves the text's letters one by one (ADR-0021); 0 or left out is none.
    */
   turn: z.number().min(-180).max(180),
+  /**
+   * How far the characters are raised off their line's baseline, as a percentage of the font size
+   * they are set at, up positive and down negative, over a superscript's or subscript's own move;
+   * 0 or left out is none.
+   */
+  raise: z.number().min(-100).max(100),
 }
 
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */

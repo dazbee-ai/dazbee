@@ -5,8 +5,8 @@
 // texts among them, with no heading as the tab's one part. Paragraph: alignment, direction,
 // vertical place, list and case. Curve and bounce: the curve's shape and amount. Spacing: the room
 // between lines, letters and paragraphs, the box, shrink to fit and the most lines. Font features:
-// the OpenType features its fonts have. While a text is being edited, the size, styles, case,
-// letter spacing and features set the selected run's, as its keys do. A locked text's controls are all turned off, saying why.
+// the OpenType features its fonts have, and the characters' raise. While a text is being edited, the size, styles, case,
+// letter spacing, features and raise set the selected run's, as its keys do. A locked text's controls are all turned off, saying why.
 import type { ReactNode } from 'react'
 
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
@@ -21,7 +21,7 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 import { CurveRows } from './curve-bounce.tsx'
-import { FeatureRows } from './features.tsx'
+import { FeatureRows, RaiseField } from './features.tsx'
 import { ParagraphRows } from './paragraph.tsx'
 import { SizeStepper } from './size-stepper.tsx'
 import { SpacingParts } from './spacing.tsx'
@@ -117,7 +117,7 @@ export function SpacingSection(props: SectionProps) {
   )
 }
 
-/** The Font features section: a switch for each OpenType feature the texts' fonts have. */
+/** The Font features section: a switch for each OpenType feature the texts' fonts have, then the characters' raise. */
 export function FeaturesSection(props: SectionProps) {
   const t = useMessages()
   const why = anyLocked(props) ? t.editor.bar.lockedRow : null
@@ -125,6 +125,7 @@ export function FeaturesSection(props: SectionProps) {
     <PanelPart id="features-section" title={t.editor.editPanel.sections.features} {...(why && { note: why })}>
       <ViewOnlyFieldset off={why !== null}>
         <FeatureRows target={props.target} />
+        <RaiseField target={props.target} />
       </ViewOnlyFieldset>
     </PanelPart>
   )

@@ -1,5 +1,6 @@
 // Where the caret goes, what a selection covers and what underlines a composition in laid-out text, from
-// the graphemes' boxes. On placed letters (ADR-0021) each is moved and turned with the glyph it is on.
+// the graphemes' boxes. A raised grapheme's box is raised with its glyphs. On placed letters (ADR-0021)
+// each is moved and turned with the glyph it is on.
 import type { CanvasKit, Paragraph } from '@dazbee/canvaskit'
 
 import type { TextBlock, TextLayout } from './layout.ts'
@@ -71,7 +72,7 @@ export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): 
   const under = laid.placed && glyphUnder(laid.placed, x, y + laid.dy)
   const on = under && laid.blocks[under.glyph.block]
   if (under && on) {
-    const offset = offsetOnLine(boxesOf(ck, on), under.glyph.line, under.x - on.x) ?? 0
+    const offset = offsetOnLine(boxesOf(ck, laid, on), under.glyph.line, under.x - on.x) ?? 0
     return on.start + Math.min(offset, on.text.length)
   }
   const gap = (top: number, height: number) => Math.max(top - y, 0, y - (top + height))
@@ -89,7 +90,7 @@ export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): 
     return Math.max(top - by, 0, by - (top + l.height))
   }
   const line = lines.reduce((best, l) => (lineGap(l) < lineGap(best) ? l : best))
-  const offset = offsetOnLine(boxesOf(ck, block), line.lineNumber, bx) ?? line.startIndex
+  const offset = offsetOnLine(boxesOf(ck, laid, block), line.lineNumber, bx) ?? line.startIndex
   return block.start + Math.min(offset, block.text.length)
 }
 
@@ -105,7 +106,7 @@ export function caretPosition(ck: CanvasKit, laid: TextLayout, offset: number, a
   if (!block) return { x: 0, y: 0, height: 0 }
   const local = Math.min(offset - block.start, block.text.length)
   const at = (x: number, y: number, height: number) => ({ x: block.x + x, y: block.y + y, height })
-  const edge = drawnEdge(boxesOf(ck, block), local, after)
+  const edge = drawnEdge(boxesOf(ck, laid, block), local, after)
   const turned = edge && onGlyphOf(laid, block, edge.box, edge.x, edge.box.y)
   if (edge && turned) return { ...turned, height: edge.box.height }
   if (edge) return at(edge.x, edge.box.y, edge.box.height)
@@ -138,7 +139,7 @@ export function visualStep(
 ): CaretPlace | null {
   const block = blockOf(laid, offset)
   if (!block || offset < block.start || offset > block.end) return null
-  const boxes = boxesOf(ck, block)
+  const boxes = boxesOf(ck, laid, block)
   const caret = drawnEdge(boxes, offset - block.start, after)
   if (!caret && block.text !== '') return null
   if (caret && !laid.rtl && !boxes.some((b) => b.line === caret.box.line && b.rtl)) return null
@@ -173,7 +174,7 @@ export function rangeEdge(
 ): CaretPlace | null {
   const block = blockOf(laid, start)
   if (!block || start < block.start || end > block.end) return null
-  const inside = boxesOf(ck, block).filter((b) => b.start >= start - block.start && b.end <= end - block.start)
+  const inside = boxesOf(ck, laid, block).filter((b) => b.start >= start - block.start && b.end <= end - block.start)
   const [first] = inside
   if (!first || inside.some((b) => b.line !== first.line)) return null
   const edge = inside.reduce((best, b) => ((right ? b.x + b.width > best.x + best.width : b.x < best.x) ? b : best))
@@ -192,12 +193,14 @@ export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, e
     const to = Math.min(end, b.end) - b.start
     if (to <= from) return []
     if (laid.placed) {
-      return boxesOf(ck, b).flatMap((box) => {
+      return boxesOf(ck, laid, b).flatMap((box) => {
         const turned = box.width > 0 && box.end > from && box.start < to && onGlyphOf(laid, b, box, box.x, box.y)
         return turned ? [{ ...turned, width: box.width, height: box.height, rtl: box.rtl }] : []
       })
     }
-    return rectsOf(ck, b.paragraph, from, to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y }))
+    return raisedSpans(laid, b, from, to).flatMap((span) =>
+      rectsOf(ck, b.paragraph, span.from, span.to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y + span.raised })),
+    )
   })
 }
 
@@ -215,7 +218,7 @@ export function compositionLines(ck: CanvasKit, laid: TextLayout, start: number,
     const metrics = b.paragraph.getLineMetrics()
     const lines: (UnderLine & { line: number; rtl: boolean })[] = []
     const turned: UnderLine[] = []
-    for (const box of boxesOf(ck, b)) {
+    for (const box of boxesOf(ck, laid, b)) {
       if (box.end <= from || box.start >= to || box.line < 0) continue
       const metric = metrics.find((l) => l.lineNumber === box.line)
       if (!metric) continue
@@ -265,20 +268,28 @@ function offsetOnLine(boxes: readonly GraphemeBox[], line: number, x: number): n
   return best?.offset
 }
 
-function boxesOf(ck: CanvasKit, block: TextBlock): GraphemeBox[] {
+/** Every grapheme's box in a block, a raised grapheme's moved with its glyphs. */
+function boxesOf(ck: CanvasKit, laid: TextLayout, block: TextBlock): GraphemeBox[] {
   const { paragraph, text } = block
   let boxes = graphemeBoxes.get(paragraph)
   if (!boxes) {
     // getLineNumberAt answers 0 for every offset in CanvasKit 0.42, so lines come from their metrics.
     const lines = paragraph.getLineMetrics()
+    const raised = laid.pieces.some((p) => p.raised)
     boxes = [...graphemeSegmenter.segment(text)].flatMap((g) => {
       const end = g.index + g.segment.length
       const line = lines.find((l) => g.index >= l.startIndex && g.index < l.endIndex)?.lineNumber ?? -1
-      return rectsOf(ck, paragraph, g.index, end).map((box) => ({ ...box, start: g.index, end, line }))
+      const dy = raised ? (pieceAt(laid, block.start + g.index)?.raised ?? 0) : 0
+      return rectsOf(ck, paragraph, g.index, end).map((box) => ({ ...box, y: box.y + dy, start: g.index, end, line }))
     })
     graphemeBoxes.set(paragraph, boxes)
   }
   return boxes
+}
+
+/** The piece a character of the layer's text is drawn in. */
+function pieceAt(laid: TextLayout, offset: number) {
+  return laid.pieces.find((p) => offset >= p.start && offset < p.end)
 }
 
 /** The block an offset is in: the one whose text or end holds it, else (cut off by maxLines) the last. */
@@ -347,17 +358,36 @@ function lineAfter(
   // A line separator that ends a line early is on no line.
   const linesOf = (boxes: GraphemeBox[]) =>
     [...new Set(boxes.map((b) => b.line).filter((l) => l >= 0))].sort((a, b) => a - b)
-  const boxes = boxesOf(ck, block)
+  const boxes = boxesOf(ck, laid, block)
   const lines = linesOf(boxes)
   const inBlock = forward ? lines.find((l) => l > line) : lines.findLast((l) => l < line)
   if (inBlock !== undefined) return { block, slots: slotsOn(boxes, inBlock, laid.rtl) }
   const other = laid.blocks[laid.blocks.indexOf(block) + (forward ? 1 : -1)]
   if (!other) return null
-  const otherBoxes = boxesOf(ck, other)
+  const otherBoxes = boxesOf(ck, laid, other)
   const otherLines = linesOf(otherBoxes)
   const first = forward ? otherLines[0] : otherLines.at(-1)
   // An empty paragraph has no places: its one place is its start.
   return { block: other, slots: first === undefined ? [] : slotsOn(otherBoxes, first, laid.rtl) }
+}
+
+/**
+ * A range of a block, from `from` to `to` in it, split where the pixels its characters are raised
+ * by change, each part with those pixels; the one range, raised by none, in a text with nothing raised.
+ */
+function raisedSpans(laid: TextLayout, block: TextBlock, from: number, to: number) {
+  if (!laid.pieces.some((p) => p.raised)) return [{ from, to, raised: 0 }]
+  const spans: { from: number; to: number; raised: number }[] = []
+  for (let at = from; at < to;) {
+    const piece = pieceAt(laid, block.start + at)
+    const end = Math.min(to, piece ? Math.max(piece.end - block.start, at + 1) : to)
+    const raised = piece?.raised ?? 0
+    const last = spans.at(-1)
+    if (last && last.raised === raised) last.to = end
+    else spans.push({ from: at, to: end, raised })
+    at = end
+  }
+  return spans
 }
 
 function rectsOf(ck: CanvasKit, paragraph: Paragraph, start: number, end: number): SelectionBox[] {

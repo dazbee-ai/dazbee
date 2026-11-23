@@ -14,9 +14,10 @@ export interface PlacedLine {
   block: number
   index: number
   /**
-   * Its baseline where SkParagraph draws its glyphs: where those of its pieces with no baseline shift
-   * sit, whole pixels. Its line metrics' baseline is off by up to a pixel, as SkParagraph rounds the
-   * line's height; a line whose every glyph is raised or lowered takes that, rounded.
+   * Its baseline where SkParagraph draws its glyphs: where those of its pieces neither made up as a
+   * superscript or subscript nor raised sit, whole pixels. Its line metrics' baseline is off by up to
+   * a pixel, as SkParagraph rounds the line's height; a line whose every glyph is raised or lowered
+   * takes that, rounded.
    */
   baseline: number
   /** Its left edge and width. */
@@ -126,7 +127,7 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
           const piece = pieceAt(layout.pieces, block.start + unit)
           const line = lines[lineIndex(metrics, unit)]
           if (!piece || !line) continue
-          if (!piece.superSub && !settled.has(line)) {
+          if (!piece.superSub && !piece.raised && !settled.has(line)) {
             line.baseline = y
             settled.add(line)
           }

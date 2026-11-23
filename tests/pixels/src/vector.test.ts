@@ -193,7 +193,16 @@ describe('PDF and SVG exports (#56)', () => {
     )
   })
 
-  it.each(cases.filter((c) => c.name === 'text-effects'))(
+  it('keeps straight raised characters in a PDF as text, and draws raised letters on a curve as shapes', async () => {
+    const raise = cases.find((c) => c.name === 'text-effects' && c.frameId === 'raise')
+    if (!raise) throw new Error('fixture missing')
+    const pdf = pdfs.get(raise.label) ?? renderVector(ck, raise.json, raise.frameId, bytes, 'pdf', cache)
+    const text = await pdfText(pdfium, pdf)
+    expect(text).toContain('49')
+    expect(text).not.toContain('TODAY')
+  })
+
+  it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise'))(
     '$label: draws curved and bounced letters into a PDF and an SVG as shapes, never as text',
     async ({ json, frameId, label }) => {
       const pdf = pdfs.get(label) ?? renderVector(ck, json, frameId, bytes, 'pdf', cache)

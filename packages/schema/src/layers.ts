@@ -257,6 +257,7 @@ export const TextStyle = z.object({
   features: textStyleFields.features.optional(),
   gradient: textStyleFields.gradient.optional(),
   turn: textStyleFields.turn.optional(),
+  raise: textStyleFields.raise.optional(),
 })
 export type TextStyle = z.infer<typeof TextStyle>
 

@@ -299,6 +299,16 @@
       "limit": 0.476
     }
   },
+  "text-effects raise": {
+    "pdf": {
+      "percent": 0.595,
+      "limit": 0.793
+    },
+    "svg": {
+      "percent": 0.535,
+      "limit": 0.718
+    }
+  },
   "text-effects scripts": {
     "pdf": {
       "percent": 0.25,

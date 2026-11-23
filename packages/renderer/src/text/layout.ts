@@ -8,6 +8,7 @@ import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
 import { curveLetters, type MoveLetters } from './curve.ts'
 import { inPlace, placeLetters, type Placement } from './placed.ts'
+import { baselineShift, withRaise } from './raise.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { withCase } from './text-case.ts'
@@ -54,7 +55,7 @@ export interface TextLayout {
   height: number
   /** The base font size shrink to fit chose, over the one set; 1 without it. */
   scale: number
-  /** The most pixels a made-up superscript or subscript moves its glyphs off their line's baseline; 0 without one. */
+  /** The most pixels a piece's glyphs move off their line's baseline, by a made-up superscript or subscript and a raise; 0 without one. */
   superSubShift: number
   align: TextProps['align']
   rtl: boolean
@@ -196,7 +197,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     const end = edges[i + 1] ?? props.text.length
     let style = props.style
     for (const run of props.runs) if (run.start <= start && run.end >= end) style = withRunStyle(style, run.style)
-    return { start, end, style: scaled(style, scale) as Style }
+    return withRaise({ start, end, style: scaled(style, scale) as Style })
   })
   const styleAt = (offset: number) =>
     pieces.find((p) => offset >= p.start && offset < p.end)?.style ?? pieces.at(-1)?.style ?? base
@@ -226,15 +227,8 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
-  const push = (builder: ParagraphBuilder, piece: Pick<StyledPiece, 'style' | 'superSub'>, pass: TextPass) =>
-    pushPainted(
-      ck,
-      builder,
-      textStyle(ck, piece.style, fallbacks, pass, piece.superSub?.baselineShift),
-      piece.style,
-      pass,
-      box,
-    )
+  const push = (builder: ParagraphBuilder, piece: Pick<StyledPiece, 'style' | 'superSub' | 'raised'>, pass: TextPass) =>
+    pushPainted(ck, builder, textStyle(ck, piece.style, fallbacks, pass, baselineShift(piece)), piece.style, pass, box)
   /**
    * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.
    * `text` is what it draws in place of the shown text, of the same length.
@@ -400,7 +394,7 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     width,
     height: y,
     scale,
-    superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(p.superSub?.baselineShift ?? 0))),
+    superSubShift: Math.max(0, ...drawn.map((p) => Math.abs(baselineShift(p)))),
     align: props.align,
     rtl,
     pieces: drawn,

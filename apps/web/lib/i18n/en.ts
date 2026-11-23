@@ -1095,6 +1095,7 @@ export const en = {
       lineHeight: 'Line height',
       lineHeightAuto: 'Auto',
       letterSpacing: 'Letter spacing',
+      raise: 'Raise',
       /** Each OpenType feature the Text tab's Font features section turns on or off, by its tag. */
       features: {
         liga: 'Standard ligatures',

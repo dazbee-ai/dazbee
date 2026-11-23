@@ -971,6 +971,7 @@ export const ar: Messages = {
       lineHeight: 'ارتفاع السطر',
       lineHeightAuto: 'تلقائي',
       letterSpacing: 'تباعد الحروف',
+      raise: 'الرفع',
       features: {
         liga: 'الحروف المركّبة القياسية',
         calt: 'البدائل السياقية',

@@ -15,6 +15,9 @@ export interface CurvedText {
   height: number
 }
 
+/** Moves a placement's letters further, given where `place` puts each point of the straight layout. */
+export type MoveLetters = (placed: Placement, place: PlaceGlyph) => void
+
 /** A line of the straight layout as its curve reads it. */
 interface CurveLine {
   /** Its left edge and width in the layer's box. */
@@ -46,19 +49,26 @@ const WAVE_PIECES = 16
 const WAVE_PRECISION = 16
 
 /**
- * Places a straight layout's letters on `curve`, the base font size `fontSize`, moved so the
+ * Places a straight layout's letters on `curve`, the base font size `fontSize`, then moves them
+ * with `move` (a bounce and letter turns), given where the curve puts each point; moved so the
  * placement's bounds start at the box's corner; the box is the bounds rounded up to whole pixels.
  * At amount 0 an arc's or a wave's letters sit where the straight layout puts them, and a circle is
  * its widest ring.
  */
-export function curveLetters(ck: CanvasKit, layout: TextLayout, curve: TextCurve, fontSize: number): CurvedText {
+export function curveLetters(
+  ck: CanvasKit,
+  layout: TextLayout,
+  curve: TextCurve,
+  fontSize: number,
+  move?: MoveLetters,
+): CurvedText {
   const lines = curveLines(layout)
   const longest = [...lines.values()].reduce<CurveLine | null>((a, b) => (a && a.width >= b.width ? a : b), null)
   // An amount too small for an arc's radius to be a number draws straight, as 0 does; a circle's
   // radius never divides by its amount.
   const straight =
     curve.shape !== 'circle' && (curve.amount === 0 || !Number.isFinite((longest?.width ?? 0) / curve.amount))
-  if (straight || !longest || longest.width <= 0) return toCorner(placeLetters(ck, layout, inPlace), layout)
+  if (straight || !longest || longest.width <= 0) return toCorner(placeMoved(ck, layout, inPlace, move), layout)
   const base = longest.below
   for (const line of lines.values()) line.below -= base
   const path = curveOf(ck, curve, longest, fontSize, layout)
@@ -68,7 +78,7 @@ export function curveLetters(ck: CanvasKit, layout: TextLayout, curve: TextCurve
     return [cos, sin, on.x - (cos * advance) / 2 - sin * offset, on.y - (sin * advance) / 2 + cos * offset]
   }
   try {
-    return toCorner(placeLetters(ck, layout, place), layout)
+    return toCorner(placeMoved(ck, layout, place, move), layout)
   } finally {
     path.delete()
   }
@@ -103,6 +113,18 @@ function toCorner(placed: Placement, layout: TextLayout): CurvedText {
     }
   }
   return { placed, width: Math.ceil(bounds.width), height: Math.ceil(bounds.height) }
+}
+
+/** A layout's letters placed with `place`, then moved with `move`; the placement freed if moving them throws. */
+function placeMoved(ck: CanvasKit, layout: TextLayout, place: PlaceGlyph, move: MoveLetters | undefined): Placement {
+  const placed = placeLetters(ck, layout, place)
+  try {
+    move?.(placed, place)
+  } catch (error) {
+    placed.delete()
+    throw error
+  }
+  return placed
 }
 
 /** The path of a curve's shape, its sizes from the longest line and the base font size. */

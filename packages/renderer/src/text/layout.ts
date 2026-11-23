@@ -4,9 +4,10 @@ import { scriptFamilies } from '@dazbee/fonts'
 import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
+import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
-import { curveLetters } from './curve.ts'
-import type { Placement } from './placed.ts'
+import { curveLetters, type MoveLetters } from './curve.ts'
+import { inPlace, placeLetters, type Placement } from './placed.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
 import { withCase } from './text-case.ts'
@@ -60,8 +61,8 @@ export interface TextLayout {
   /** The styled pieces its characters are drawn in, by their offsets in the layer's text. */
   pieces: StyledPiece[]
   /**
-   * Where each letter is drawn when its letters are moved and turned (ADR-0021), as a curved text's
-   * are; null when the paragraphs draw it as they are laid out. Freed with the layout.
+   * Where each letter is drawn when its letters are moved and turned (ADR-0021), as a curved or
+   * bounced text's are; null when the paragraphs draw it as they are laid out. Freed with the layout.
    */
   placed: Placement | null
   delete(): void
@@ -79,40 +80,33 @@ const FILL: TextPass = { kind: 'fill' }
 /**
  * Shapes and lays out a text layer, a paragraph at a time: lists put each paragraph's lines clear
  * of a gutter for its marker, and paragraph spacing goes between them. A text with one paragraph is
- * laid out as one SkParagraph. A curved text is laid out straight, each
- * paragraph on one line, then placed on its curve from the box's corner, its size the curve's.
+ * laid out as one SkParagraph. A curved text is laid out straight, each paragraph on one line, then
+ * placed on its curve from the box's corner, its size the curve's. A text whose letters bounce or
+ * turn is placed letter by letter and its letters moved (`moveLetters`), on its curve if it has one.
  */
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
+  const moved = movesLetters(props)
   if (props.curve) {
     const laid = build(ck, straightened(props), resources, 1)
     try {
-      const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize)
+      const move: MoveLetters | undefined = moved ? (into, place) => moveLetters(into, place, props, 1) : undefined
+      const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize, move)
       return Object.assign(laid, { placed, width, height })
     } catch (error) {
       laid.delete()
       throw error
     }
   }
-  const fit = props.shrinkToFit
-  if (!fit) return place(props, build(ck, props, resources, 1))
-  // The largest quarter point size from min to max that fits; min when none does.
-  const base = props.style.fontSize
-  let lo = Math.ceil(fit.min * 4)
-  let hi = Math.floor(fit.max * 4)
-  let best: TextLayout | null = null
-  while (lo <= hi) {
-    const mid = Math.floor((lo + hi) / 2)
-    const laid = build(ck, props, resources, mid / 4 / base)
-    if (fits(props, laid)) {
-      best?.delete()
-      best = laid
-      lo = mid + 1
-    } else {
-      laid.delete()
-      hi = mid - 1
-    }
+  const laid = fitted(ck, props, resources)
+  if (!moved) return laid
+  try {
+    laid.placed = placeLetters(ck, laid, inPlace)
+    moveStraightLetters(laid, laid.placed, props)
+    return laid
+  } catch (error) {
+    laid.delete()
+    throw error
   }
-  return place(props, best ?? build(ck, props, resources, fit.min / base))
 }
 
 /** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
@@ -133,8 +127,33 @@ export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
     props.maxLines,
     props.shrinkToFit,
     props.curve,
+    props.bounce,
     fallbackFamilies,
   ])
+}
+
+/** A straight text laid out at the base font size shrink to fit picks, if it has one, and aligned in its box. */
+function fitted(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
+  const fit = props.shrinkToFit
+  if (!fit) return place(props, build(ck, props, resources, 1))
+  // The largest quarter point size from min to max that fits; min when none does.
+  const base = props.style.fontSize
+  let lo = Math.ceil(fit.min * 4)
+  let hi = Math.floor(fit.max * 4)
+  let best: TextLayout | null = null
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    const laid = build(ck, props, resources, mid / 4 / base)
+    if (fits(props, laid)) {
+      best?.delete()
+      best = laid
+      lo = mid + 1
+    } else {
+      laid.delete()
+      hi = mid - 1
+    }
+  }
+  return place(props, best ?? build(ck, props, resources, fit.min / base))
 }
 
 /**

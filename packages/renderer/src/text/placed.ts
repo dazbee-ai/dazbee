@@ -54,6 +54,8 @@ export interface PlacedRun {
   xforms: Float32Array
   /** Each glyph's advance. */
   advances: Float32Array
+  /** Where each glyph's characters start in the layer's text, in UTF-16 units. */
+  offsets: Uint32Array
   /** Two numbers for each glyph: its origin where the straight layout draws it, in the layer's box. */
   origins: Float32Array
   /**
@@ -75,6 +77,8 @@ interface ShapedGlyph {
   font: Font
   piece: StyledPiece
   line: PlacedLine
+  /** Where its characters start in the layer's text, in UTF-16 units. */
+  offset: number
   x: number
   y: number
   advance: number
@@ -126,7 +130,7 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
             line.baseline = y
             settled.add(line)
           }
-          const glyph = { id: run.glyphs[g] ?? 0, font, piece, line, x, y, advance }
+          const glyph = { id: run.glyphs[g] ?? 0, font, piece, line, offset: block.start + unit, x, y, advance }
           glyphs.push(glyph)
           kept.set(key, [...(kept.get(key) ?? []), glyph])
         }
@@ -223,6 +227,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
   const { line } = first
   const xforms = new Float32Array(glyphs.length * 4)
   const advances = new Float32Array(glyphs.length)
+  const offsets = Uint32Array.from(glyphs, (g) => g.offset)
   const origins = new Float32Array(glyphs.length * 2)
   const boxes = new Float32Array(glyphs.length * 8)
   glyphs.forEach(({ x, y, advance }, i) => {
@@ -241,6 +246,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
     glyphs: Uint16Array.from(glyphs, (g) => g.id),
     xforms,
     advances,
+    offsets,
     origins,
     boxes,
   }

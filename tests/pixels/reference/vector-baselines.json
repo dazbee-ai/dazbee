@@ -279,6 +279,16 @@
       "limit": 0.05
     }
   },
+  "text-effects bounce": {
+    "pdf": {
+      "percent": 0.712,
+      "limit": 0.94
+    },
+    "svg": {
+      "percent": 0.451,
+      "limit": 0.614
+    }
+  },
   "text-effects lines": {
     "pdf": {
       "percent": 0.464,

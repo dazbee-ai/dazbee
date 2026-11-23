@@ -34,12 +34,12 @@ const BADGE = {
   },
 }
 
-/** What `textMeasure` gives `props` with the shipped fonts. */
-async function measured(props: TextProps) {
+/** What `textMeasure` gives `props` with the shipped fonts, measured with no width or `width` wide. */
+async function measured(props: TextProps, width: number | null = null) {
   const ck = await loadCanvasKit()
   const cache = resourceCache(ck)
   const resources = cache.resources({ fonts: loadFontFiles(), fallbackFamilies: [...FALLBACK_FAMILIES], images: {} })
-  const size = textMeasure(ck, resources)(props, null)
+  const size = textMeasure(ck, resources)(props, width)
   cache.delete()
   return size
 }
@@ -86,5 +86,41 @@ describe('a curve', () => {
     expect(straight.height).toBeLessThan(curved.height)
     expect(textOf(await agent.call('undo'))).toBe('Undid “edit”')
     expect(stored()).toEqual(curved)
+  })
+})
+
+describe('a bounce', () => {
+  it('is set with node.update and a letter turn with text.edit, the box growing in the same step, taken off with null', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', { command: 'node.create', input: BADGE })
+    const sync = server.sync('design-launch')
+    const stored = () => (sync.state().nodes['badge-text'] as { props?: TextProps } | undefined)?.props
+    const straight = stored() as TextProps
+    const bounce = { style: 'random', amount: 60, seed: 4 } as const
+    const set = await agent.call('run_command', {
+      command: 'node.update',
+      input: { ids: ['badge-text'], patch: { bounce } },
+    })
+    expect(set.isError).toBeFalsy()
+    const { height } = await measured({ ...straight, bounce }, straight.width)
+    expect(height).toBeGreaterThan(straight.height)
+    expect(stored()).toMatchObject({ x: 120, y: 220, width: straight.width, bounce })
+    expect(stored()?.height).toBeCloseTo(height, 2)
+    const turned = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 0, length: 1, style: { turn: -20 } } },
+    })
+    expect(turned.isError).toBeFalsy()
+    expect(stored()?.runs).toEqual([{ start: 0, end: 1, style: { turn: -20 } }])
+    const off = await agent.call('run_command', {
+      command: 'node.update',
+      input: { ids: ['badge-text'], patch: { bounce: null } },
+    })
+    expect(off.isError).toBeFalsy()
+    expect(stored()).not.toHaveProperty('bounce')
+    expect(textOf(await agent.call('undo'))).toBe('Undid “edit”')
+    expect(stored()?.bounce).toEqual(bounce)
   })
 })

@@ -250,6 +250,13 @@ describe('ad_rules', () => {
     expect(rules.textEffects).toMatch(/never body copy/)
   })
 
+  it('says when a bounce suits an ad, and that body copy and legal lines never bounce', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.textEffects).toMatch(/Bounce.*playful or youthful.*food and kids’ brands.*short headline/s)
+    expect(rules.textEffects).toMatch(/never body copy or a legal line/)
+  })
+
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {
     const agent = await agentOf()
     const plain = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules

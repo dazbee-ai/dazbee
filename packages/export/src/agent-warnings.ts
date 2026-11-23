@@ -19,6 +19,7 @@ import {
   layerReach,
   layoutText,
   missingGraphemes,
+  placedBounds,
   render,
   type ResourceBytes,
   type ResourceCache,
@@ -86,10 +87,12 @@ interface Before {
 
 /** How far laid-out lines may pass a fixed box before they overflow it, as fitting text allows. */
 const OVERFLOW_SLACK = 0.01
+/** How far placed letters may pass a fixed box before they overflow it: their baselines are whole pixels. */
+const PLACED_SLACK = 1
 /**
  * What in frame `frameId` won't look as designed, layer by layer back to front. In a text: a
  * family `bytes` has no file for, so it draws in a fallback font; characters no font has; lines
- * taller than a fixed box, or a word wider than it; lines past its `maxLines`, cut off; letters
+ * taller than a fixed box, or a word wider than it, or a placed text's letters drawn past it (ADR-0021); lines past its `maxLines`, cut off; letters
  * smaller than the readable size for the frame (`readableTextSize`); and letters whose contrast with
  * what is drawn around them is under WCAG 2's ratio for their size where a tenth of them are lowest
  * (`contrastWarning`). A text or a logo (a layer with the logo's role, or bound to the brand's
@@ -231,7 +234,19 @@ function textWarnings(check: Check, layer: TextLayer, turns: readonly Turn[], re
     const cut = laid.blocks.length < paragraphs || laid.blocks.some((block) => block.paragraph.didExceedMaxLines())
     // The paragraph a line limit cuts ends in an ellipsis, and then gives its whole line as its least width.
     const whole = cut ? laid.blocks.slice(0, -1) : laid.blocks
-    if (props.boxMode === 'fixed' && laid.height > props.height + OVERFLOW_SLACK)
+    const letters = laid.placed && placedBounds(laid.placed.runs)
+    if (props.boxMode === 'fixed' && letters) {
+      const past =
+        letters.x < -PLACED_SLACK ||
+        letters.y < -PLACED_SLACK ||
+        letters.x + letters.width > props.width + PLACED_SLACK ||
+        letters.y + letters.height > props.height + PLACED_SLACK
+      if (past)
+        warn(
+          'overflow',
+          `Text "${name}" overflows its fixed box: its letters as drawn take ${Math.ceil(letters.width)} × ${Math.ceil(letters.height)} px from (${Math.floor(letters.x)}, ${Math.floor(letters.y)}) in a box ${props.width} × ${props.height} px.`,
+        )
+    } else if (props.boxMode === 'fixed' && laid.height > props.height + OVERFLOW_SLACK)
       warn(
         'overflow',
         `Text "${name}" overflows its fixed box: its lines are ${Math.ceil(laid.height)} px tall in a box ${props.height} px tall.`,

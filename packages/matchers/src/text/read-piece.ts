@@ -87,8 +87,6 @@ const SOLID_INK = 0.6
 
 /** How many lines words have. */
 const lineCount = (words: string) => words.split('\n').length
-/** How many letters, characters but white space, the first line of words has. */
-const firstLineLetters = (words: string) => [...(words.split('\n')[0] ?? '').replace(/\s/gu, '')].length
 
 /**
  * A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to
@@ -174,7 +172,7 @@ function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | nu
     outline,
     background,
     align: alignOf(lines),
-    curve: checkCurve ? curveCheck(level, lines, firstLineLetters(piece.words)) : null,
+    curve: checkCurve ? curveCheck(level, lines, piece.words) : null,
   }
 }
 

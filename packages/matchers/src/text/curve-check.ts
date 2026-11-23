@@ -105,6 +105,9 @@ const TURN_STEPS = 64
 /** A circle's letters reach round at least this many degrees. */
 const CIRCLE_REACH = 300
 
+/** The narrowest of a closed circle's gaps at its words' spaces and seam is at least this share of the widest. */
+const SHARED_GAP = 0.5
+
 /** A circle's middle, within this share of its radius, holds at most `CIRCLE_HOLE` of the ink. */
 const CIRCLE_MIDDLE = 0.5
 
@@ -118,20 +121,20 @@ const CIRCLE_RMS = 0.9
  * blob. For one line, the arc and the wave are fitted to the centres of the blobs in its band; for
  * several, to every blob's at once, a line's letters on their own arc about one centre or on one wave
  * moved down a line at a time, against straight lines a line apart. Words whose first line has fewer
- * than `MIN_LETTERS` letters, `letters`, run straight.
+ * than `MIN_LETTERS` letters run straight.
  */
-export function curveCheck(level: Ink, lines: readonly Box[], letters: number): CurveCheck {
+export function curveCheck(level: Ink, lines: readonly Box[], words: string): CurveCheck {
   const blobs = letterBlobs(level)
   const letterHeight = Math.max(1, median(blobs.map((b) => b.height)))
   const straight: CurveCheck = { fired: null, blobs, letterHeight, gain: 0 }
-  if (letters < MIN_LETTERS) return straight
+  if (firstLineLetters(words) < MIN_LETTERS) return straight
   const top = lines[0]
   const centres = blobs.map((b): Point => [b.x, b.y])
   const count = Math.max(1, lines.length)
   const fires = (line: number, curve: number) =>
     line - curve >= Math.max(MIN_GAIN * letterHeight, MIN_GAIN_PIXELS) && curve <= MAX_SHARE * line
   // A circle's letters stand round rings, its lines' far closer than straight lines a line apart.
-  if (isCircle(level, blobs, letterHeight)) {
+  if (isCircle(level, blobs, letterHeight, lineWords(words))) {
     const round = centres.length >= MIN_LETTERS * count ? linesFits(centres, count, letterHeight) : null
     if (round && round.arc !== null && fires(round.line, round.arc))
       return { ...straight, fired: 'circle', gain: (round.line - round.arc) / letterHeight }
@@ -223,11 +226,22 @@ export function letterBlobs(
   return kept
 }
 
+/** How many letters, characters but white space, the first line of words has. */
+function firstLineLetters(words: string): number {
+  return [...(words.split('\n')[0] ?? '').replace(/\s/gu, '')].length
+}
+
+/** The most words a line of words has. */
+function lineWords(words: string): number {
+  return Math.max(...words.split('\n').map((line) => line.split(/\s+/u).filter(Boolean).length))
+}
+
 /**
  * Whether the blobs stand round a circle: their centres within `CIRCLE_RMS` letter heights of one,
- * reaching round `CIRCLE_REACH` degrees, with its middle clear of ink.
+ * reaching round `CIRCLE_REACH` degrees (`words` the most words a line has), with its middle clear
+ * of ink.
  */
-function isCircle(level: Ink, blobs: readonly LetterBlob[], letterHeight: number): boolean {
+function isCircle(level: Ink, blobs: readonly LetterBlob[], letterHeight: number, words: number): boolean {
   if (blobs.length < MIN_CIRCLE_LETTERS) return false
   const fit = trimmedFit(
     blobs.map((b): Point => [b.x, b.y]),
@@ -236,7 +250,7 @@ function isCircle(level: Ink, blobs: readonly LetterBlob[], letterHeight: number
   )
   if (!fit || fit.rms > CIRCLE_RMS * letterHeight) return false
   const { cx, cy, radius } = fit.model
-  if (reach(blobs, cx, cy) < CIRCLE_REACH) return false
+  if (reach(blobs, cx, cy, words) < CIRCLE_REACH) return false
   let inside = 0
   let total = 0
   for (let y = 0; y < level.height; y++)
@@ -248,15 +262,22 @@ function isCircle(level: Ink, blobs: readonly LetterBlob[], letterHeight: number
   return total > 0 && inside / total <= CIRCLE_HOLE
 }
 
-/** How far round a centre the blobs reach, in degrees: the whole turn less its widest gap. */
-function reach(blobs: readonly LetterBlob[], cx: number, cy: number): number {
+/**
+ * How far round a centre the blobs reach, in degrees: the whole turn less its widest gap. A circle
+ * closed at the spaces between a line's `words` words shares its spare room between them and the
+ * seam; when the `words` widest gaps share it (the narrowest of them at least `SHARED_GAP` of the
+ * widest), the room each takes, how far the narrowest stands above the next gap, is left out of the
+ * widest.
+ */
+function reach(blobs: readonly LetterBlob[], cx: number, cy: number, words: number): number {
   const angles = blobs.map((b) => Math.atan2(b.y - cy, b.x - cx)).sort((a, b) => a - b)
-  let gap = 0
-  for (let i = 0; i < angles.length; i++) {
-    const next = i + 1 < angles.length ? (angles[i + 1] ?? 0) : (angles[0] ?? 0) + 2 * Math.PI
-    gap = Math.max(gap, next - (angles[i] ?? 0))
-  }
-  return ((2 * Math.PI - gap) * 180) / Math.PI
+  const gaps = angles
+    .map((angle, i) => (i + 1 < angles.length ? (angles[i + 1] ?? 0) : (angles[0] ?? 0) + 2 * Math.PI) - angle)
+    .sort((a, b) => b - a)
+  const widest = gaps[0] ?? 2 * Math.PI
+  const shared = gaps[words - 1] ?? 0
+  const room = words > 1 && shared >= SHARED_GAP * widest ? shared - (gaps[words] ?? 0) : 0
+  return ((2 * Math.PI - widest + room) * 180) / Math.PI
 }
 
 /**

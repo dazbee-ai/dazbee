@@ -4,8 +4,9 @@ import { z } from 'zod'
 
 import { NodeId, RunStyle, type TextProps } from '@dazbee/schema'
 
+import { straightBoxOnFit } from '../fitted-text.ts'
 import { replaceOps, splitsPair } from '../text-value.ts'
-import { boxPlan } from './box-plan.ts'
+import { boxPlan, same } from './box-plan.ts'
 import { lockProblem, missingLayer } from './checks.ts'
 import { defineCommand, strict } from './define.ts'
 
@@ -110,7 +111,7 @@ export const textReplace = defineCommand({
 export const textFit = defineCommand({
   name: 'text.fit',
   description:
-    'Sets the width and height of a text layer’s box to the size its words were measured at, both numbers whatever its box mode, keeping the box’s top left, or its centre with keep "centre". It refuses a missing layer and a layer that is not a text.',
+    'Sets the width and height of a text layer’s box to the size its words were measured at, both numbers whatever its box mode, keeping the box’s top left, or its centre with keep "center". It refuses a missing layer and a layer that is not a text.',
   step: 'resize',
   batchable: true,
   input: z.strictObject({
@@ -118,7 +119,7 @@ export const textFit = defineCommand({
     width: z.number().min(0).describe('The measured width of its words, in pixels.'),
     height: z.number().min(0).describe('The measured height of its words, in pixels.'),
     keep: z
-      .enum(['topLeft', 'centre'])
+      .enum(['topLeft', 'center'])
       .optional()
       .describe('Which point of the box stays where it is as it resizes: its top left (the default) or its centre.'),
   }),
@@ -130,14 +131,12 @@ export const textFit = defineCommand({
   },
   apply: ({ w, design }, { id, width, height, keep }) => {
     const props = design.nodes[id]?.props as TextProps
-    const resized = Math.abs(props.width - width) >= 0.005 || Math.abs(props.height - height) >= 0.005
-    if (props.curve && props.boxMode !== 'autoWidth' && !props.straightBox && resized) {
-      const em = props.style.fontSize
-      w.setProp(id, 'straightBox', { width: props.width / em, height: props.height / em })
-    } else if (!props.curve && props.straightBox) w.unsetProp(id, 'straightBox')
+    const straight = straightBoxOnFit(props, !same(props.width, width) || !same(props.height, height))
+    if (straight) w.setProp(id, 'straightBox', straight)
+    else if (straight === null) w.unsetProp(id, 'straightBox')
     const plan = boxPlan(design)
     const moved =
-      keep === 'centre' ? { x: props.x + (props.width - width) / 2, y: props.y + (props.height - height) / 2 } : {}
+      keep === 'center' ? { x: props.x + (props.width - width) / 2, y: props.y + (props.height - height) / 2 } : {}
     plan.set(id, { ...moved, width, height })
     plan.write(w)
   },

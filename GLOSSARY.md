@@ -286,6 +286,10 @@ _Avoid_: WordArt, effect alone (a shadow, glow or blur on a layer)
 A text's lines bent along an arc up, an arc down, a circle or a wave, by one amount; each line follows its own curve, parallel to the others. Its letters are moved and turned onto the curve, never bent. A curved text's lines break only at its line breaks, and its box fits the curved text.
 _Avoid_: Warp, arc text, text on a path (a free path is not offered)
 
+**Straight box**:
+The size a fixed or auto height text's box had before it was curved, kept while it is curved, in multiples of its font size so it scales with the text. Taking the curve off gives the box that size back (an auto height box its width); a size set on the straight text replaces it.
+_Avoid_: Original size, saved width
+
 **Bounce**:
 A text's letters raised, lowered and turned in one pattern across the text, wavy or random, by one amount. A letter's own raise and letter turn add to it, which is how lettering set by hand is copied.
 _Avoid_: Jitter, wobble, wave (a wave is a curve)

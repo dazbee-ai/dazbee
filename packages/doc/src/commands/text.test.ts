@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { fittedText, type MeasureText } from '../fitted-text.ts'
+import { fittedText, type KeptPoint, type MeasureText } from '../fitted-text.ts'
 import { readDesign } from '../index.ts'
 import type { PlainStore } from '../plain-store.ts'
 import type { Session } from '../session.ts'
@@ -18,7 +18,7 @@ const curveMeasure: MeasureText = (props, width) =>
 const headline = (store: PlainStore) => readDesign(store).nodes.headline?.props as Record<string, unknown>
 
 /** The headline changed by `patch`, then fitted as the editor fits it, keeping `keep`. */
-function updateAndFit(tab: Session, store: PlainStore, patch: Record<string, unknown>, keep?: 'centre') {
+function updateAndFit(tab: Session, store: PlainStore, patch: Record<string, unknown>, keep?: KeptPoint) {
   tab.run('node.update', { ids: ['headline'], patch })
   const size = fittedText(readDesign(store).nodes.headline, curveMeasure)
   if (size) tab.run('text.fit', { id: 'headline', ...size, ...(keep ? { keep } : {}) })
@@ -62,7 +62,7 @@ describe('text.edit', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     expect(() =>
-      tab.gesture(() => {
+      tab.batch(() => {
         tab.run('text.edit', { id: 'headline', op: { kind: 'delete', at: 0, length: 7 } })
         tab.run('text.edit', { id: 'headline', op: { kind: 'insert', at: 10, text: '!' } })
       }),
@@ -112,7 +112,7 @@ describe('text.fit', () => {
     expect(() => tab.run('text.fit', { id: 'headline', width: -1, height: 1 })).toThrow(/width/)
   })
 
-  it('keeps the box’s centre with keep centre, as a curve changed in the edit panel does, and its top left without', () => {
+  it('keeps the box’s centre with keep center, as a curve changed in the edit panel does, and its top left without', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     tab.run('node.update', { ids: ['headline'], patch: { align: 'center' } })
@@ -123,7 +123,7 @@ describe('text.fit', () => {
       { shape: 'circle', amount: 80 },
       null,
     ]) {
-      updateAndFit(tab, store, { curve }, 'centre')
+      updateAndFit(tab, store, { curve }, 'center')
       const [x, y] = centreOf(store)
       expect(Math.abs(x - cx)).toBeLessThan(1)
       expect(Math.abs(y - cy)).toBeLessThan(1)

@@ -189,7 +189,7 @@ export function editorLayerEdits({
         // Text that grows the size of its words fits them again; a curve changed keeps the box's centre.
         for (const [id, patch] of writes) {
           if (Object.keys(patch).some((key) => SIZES_TEXT.has(key)))
-            typing.fitText(id, 'curve' in patch ? 'centre' : undefined)
+            typing.fitText(id, 'curve' in patch ? 'center' : undefined)
         }
         hug([...writes.keys()])
       }),

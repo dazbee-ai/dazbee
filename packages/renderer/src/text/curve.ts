@@ -109,11 +109,11 @@ function curveLines(ck: CanvasKit, layout: TextLayout, withGaps: boolean): Map<s
  */
 function wordGaps(ck: CanvasKit, block: TextBlock, start: number, end: number): number[] {
   const gaps: number[] = []
-  const text = block.text
+  const isSpace = (i: number) => SPACE.test(block.text[i] ?? '')
   for (let from = start; from < end; from++) {
-    if (!SPACE.test(text[from] ?? '') || from === start || SPACE.test(text[from - 1] ?? '')) continue
+    if (!isSpace(from) || from === start || isSpace(from - 1)) continue
     let to = from
-    while (to < end && SPACE.test(text[to] ?? '')) to++
+    while (to < end && isSpace(to)) to++
     if (to === end) break
     const rects = block.paragraph.getRectsForRange(from, to, ck.RectHeightStyle.Tight, ck.RectWidthStyle.Tight)
     const lefts = rects.map(({ rect }) => rect[0] ?? 0)

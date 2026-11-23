@@ -34,6 +34,14 @@ const HOLLOW: Omit<DrawnText, 'background'> = {
   hollow: true,
 }
 
+/** Text drawn plain, and curved by each test that curves it. */
+const CURVED: Omit<DrawnText, 'background' | 'words'> = {
+  family: 'Noto Sans',
+  weight: 800,
+  size: 56,
+  colour: '#1B1464',
+}
+
 /** The ΔE00 between two colours. */
 const deltaE = (a: Rgb, b: Rgb) => ciede2000(srgbToLab(...a), srgbToLab(...b))
 
@@ -169,5 +177,26 @@ describe('readPiece', () => {
     expect(Math.abs((whole.outline?.width ?? 0) - 12)).toBeLessThanOrEqual(1)
     expect(work.outline?.width).toBeCloseTo((whole.outline?.width ?? 0) * scale, 6)
     expect(inkSum(work.level)).toBeGreaterThan(2 * inkSum(work.ink))
+  })
+
+  it.each([
+    ['an arc up', { shape: 'arcUp', amount: 60 }, ['arc', 'wave']],
+    ['an arc down', { shape: 'arcDown', amount: 50 }, ['arc', 'wave']],
+    ['a circle', { shape: 'circle', amount: 40 }, ['circle']],
+    ['a wave', { shape: 'wave', amount: 60 }, ['arc', 'wave']],
+  ] as const)('reads letters along %s as curved', (_, curve, kinds) => {
+    const words = 'Big Summer Sale'
+    const pixels = drawText(ck, { ...CURVED, words, curve, background: '#FFFFFF' })
+    const { work } = readTwice({ pixels, words })
+    expect(kinds).toContain(work.curve.fired)
+  })
+
+  it.each([
+    ['one line', 'Big Summer Sale'],
+    ['two lines', 'Big Summer Sale\nToday'],
+    ['a short word', 'Big'],
+  ])('reads straight letters of %s as straight', (_, words) => {
+    const pixels = drawText(ck, { ...CURVED, words, align: 'center', background: '#FFFFFF' })
+    expect(readTwice({ pixels, words }).work.curve.fired).toBeNull()
   })
 })

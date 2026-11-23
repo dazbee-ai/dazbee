@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { Pixels } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
+import type { MatchAnswer, MatchSetting, TextCurve } from '@dazbee/schema'
 
-import { fontKey } from './font-key.ts'
+import { fontKey, parseFontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
 import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
@@ -60,6 +60,18 @@ const ROUND_TRIPS = [
 const HOLLOW = ['latin-hollow', 'latin-hollow-italic']
 /** An outline width found within this many pixels of the width drawn comes back right. */
 const OUTLINE_WITHIN = 1
+
+/** The round trip whose words and face are drawn along each curve. */
+const CURVED_FROM = 'latin-tilted'
+/** The curves it is drawn along. */
+const CURVES: readonly TextCurve[] = [
+  { shape: 'arcUp', amount: 60 },
+  { shape: 'arcDown', amount: 40 },
+  { shape: 'circle', amount: 40 },
+  { shape: 'wave', amount: 60 },
+]
+/** A curve's amount found within this many points of the amount drawn comes back right. */
+const AMOUNT_WITHIN = 10
 
 /** The round trip whose finer fit looks different in Hybrid, so Hybrid gives Light's answer. */
 const LIGHT_KEPT = 'arabic-outlined'
@@ -140,6 +152,26 @@ describe('matchText', () => {
       expect(Math.abs((style.outline?.width ?? 0) - (piece.outline?.width ?? 0))).toBeLessThanOrEqual(OUTLINE_WITHIN)
     },
   )
+
+  it.each(CURVES)('gives text along $shape at $amount back curved in its face, its amount within 10', async (curve) => {
+    const drawing = pieceOf(CURVED_FROM)
+    const face = parseFontKey(drawing.key)
+    const bytes = fonts.get(drawing.key)
+    if (!face || !bytes) throw new Error(`no face ${drawing.key}`)
+    const pixels = drawText(ck, { ...drawing, ...face, rotation: 0, curve }, [{ family: face.family, bytes }])
+    const answer = await matchTwice(pixels, drawing.words)
+    const { style, curve: found } = textLayerOf(answer).props
+    expect(`${style.fontFamily}|${style.fontWeight}|${style.fontStyle}`).toBe(drawing.key)
+    expect(found?.shape).toBe(curve.shape)
+    expect(Math.abs((found?.amount ?? 0) - curve.amount)).toBeLessThanOrEqual(AMOUNT_WITHIN)
+  })
+
+  it.each(ROUND_TRIPS)('reads %s as straight, so no curve is tried', (id) => {
+    const piece = pieceOf(id)
+    const { whole, work } = readPiece({ pixels: piece.pixels, words: piece.words })
+    expect(whole.curve.fired).toBeNull()
+    expect(work.curve.fired).toBeNull()
+  })
 
   it('gives thin letters that read as hollow back filled when, as drawn, they look the same', async () => {
     const words = 'BOB'

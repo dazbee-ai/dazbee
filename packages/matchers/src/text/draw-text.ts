@@ -4,7 +4,7 @@
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceBytes, resourceCache, textMeasure } from '@dazbee/renderer'
-import { type Color, TextProps } from '@dazbee/schema'
+import { type Color, type TextCurve, TextProps } from '@dazbee/schema'
 
 /** What the text matcher sets on a text: its look, before it is placed. */
 export interface TextLook {
@@ -20,6 +20,8 @@ export interface TextLook {
   align: 'start' | 'center' | 'end'
   color: Color
   outline?: { width: number; color: Color }
+  /** Its lines bent along a curve; left out, straight. */
+  curve?: TextCurve
 }
 
 /** Where a text layer sits: its box and its rotation in degrees clockwise. */
@@ -52,6 +54,7 @@ export type TextLayerProps = Placed & {
     lineHeight?: number
     outline?: { width: number; color: Color }
   }
+  curve?: TextCurve
 }
 
 /** Measures and draws text in a set of faces. */
@@ -102,6 +105,7 @@ export function textLayerProps(words: string, look: TextLook, place: Placed): Te
       ...(look.lineHeight ? { lineHeight: look.lineHeight } : {}),
       ...(look.outline && look.outline.width > 0 ? { outline: look.outline } : {}),
     },
+    ...(look.curve ? { curve: look.curve } : {}),
   }
 }
 

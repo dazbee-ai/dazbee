@@ -2,14 +2,15 @@
 // its own picture: the 48 test ads in `TEST_ADS_DIR`, each piece seen on the colour behind it in its
 // ad; and the test parts of the sets with known fonts, LICA in `LICA_DIR`, our own realistic set in
 // `OWN_SET_DIR` and the synthetic set in `SYNTH_TEXT_DIR`, each a `truth.json` and a PNG a piece (with
-// `-behind.png`, what is behind it, for those that have one), synthetic pieces with their brand kits.
+// `-behind.png`, what is behind it, for those that have one), synthetic pieces with their brand kits;
+// and the effect set in `EFFECT_SET_DIR` (`draw-effect-pieces.ts`), each piece with its effect.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
-import { MatchJob, MatchKit, type Rgb } from '@dazbee/schema'
+import { MatchJob, MatchKit, type Rgb, type TextCurve } from '@dazbee/schema'
 
 import { decodePng } from '../src/shape/test-pieces.ts'
 import { borderColour, median } from '../src/text/ink.ts'
@@ -23,8 +24,25 @@ export interface MeasuredPiece {
   heldOut: boolean
   job: MatchJob
   piece: TextPieceOfJob
-  /** The family and face it is drawn in, in a set; `face` null when only the family is known. */
-  truth?: { family: string; face: string | null }
+  /**
+   * The family and face it is drawn in, in a set, `face` null when only the family is known; and in
+   * the effect set, the curve it is drawn with.
+   */
+  truth?: { family: string; face: string | null; curve?: TextCurve }
+}
+
+/** A piece of the effect set as its `truth.json` holds it. */
+export interface EffectTruth {
+  id: string
+  /** `dev`: the first half, which settings may be chosen on; `test`: the second, held out. */
+  part: 'dev' | 'test'
+  effect: 'curve'
+  text: string
+  family: string
+  /** The face's key, `family|weight|style`. */
+  face: string
+  size: number
+  curve: TextCurve
 }
 
 /** A set with known fonts. */
@@ -123,6 +141,23 @@ export function setPieces(ck: CanvasKit, set: TestSet, dir: string): MeasuredPie
         truth: { family: truth.family, face: truth.face },
       }
     })
+}
+
+/**
+ * The effect set's pieces, each on its flat colour with its tilt read and no brand kit: held out when
+ * of its second half.
+ */
+export function effectPieces(ck: CanvasKit, dir: string): MeasuredPiece[] {
+  const truths = JSON.parse(readFileSync(join(dir, 'truth.json'), 'utf8')) as EffectTruth[]
+  return truths.map((truth) => {
+    const png = new Uint8Array(readFileSync(join(dir, `${truth.id}.png`)))
+    return {
+      id: truth.id,
+      heldOut: truth.part === 'test',
+      ...jobOf(png, decodePng(ck, png), truth.text, undefined, undefined, NO_KIT),
+      truth: { family: truth.family, face: truth.face, curve: truth.curve },
+    }
+  })
 }
 
 /** A job of one text piece, the whole picture. */

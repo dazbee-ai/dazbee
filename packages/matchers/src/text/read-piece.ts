@@ -1,5 +1,6 @@
 // Reading a text piece: its ink, tilt, lines, alignment, fill colour, outline and background, which
-// the text matcher starts every candidate from and the font fingerprint reads. Hollow letters, drawn
+// the text matcher starts every candidate from and the font fingerprint reads, and whether its letters
+// run along a curve (`curve-check.ts`). Hollow letters, drawn
 // only as a line round each letter, are read as the filled letters that line outlines, with no fill
 // and an outline in the line's colour and width. A piece whose lines are taller than the matcher
 // works at is read again shrunk to that height, hollow when the piece read whole is.
@@ -8,6 +9,7 @@ import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
+import { type CurveCheck, curveCheck } from './curve-check.ts'
 import {
   borderColour,
   type Box,
@@ -53,6 +55,8 @@ export interface PieceReading {
   /** The colour behind the letters: the median of the picture's outermost pixels. */
   background: Rgb
   align: 'start' | 'center' | 'end'
+  /** Whether the letters run along a curve, and the blobs that tell. */
+  curve: CurveCheck
 }
 
 /** A piece read at its own size and at the size the matcher works at, and how much smaller that is. */
@@ -80,6 +84,8 @@ const SOLID_INK = 0.6
 
 /** How many lines words have. */
 const lineCount = (words: string) => words.split('\n').length
+/** How many letters, characters but white space, the first line of words has. */
+const firstLineLetters = (words: string) => [...(words.split('\n')[0] ?? '').replace(/\s/gu, '')].length
 
 /**
  * A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to
@@ -159,6 +165,7 @@ function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | nu
     outline,
     background,
     align: alignOf(lines),
+    curve: curveCheck(level, lines[0] ?? box, firstLineLetters(piece.words)),
   }
 }
 

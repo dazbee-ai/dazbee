@@ -53,6 +53,23 @@ describe('hitTest on a curved text', () => {
     expect(idAt(pointOf(o, 0.5, 0.55))).toBe('curved')
   })
 
+  it('picks it on a letter drawn past a box not yet fitted to its curve, and nowhere else past it', () => {
+    const small = text(
+      'small',
+      'OPEN TODAY',
+      { x: 0, y: 0, width: 60, height: 40 },
+      { curve: { shape: 'arcUp', amount: 100 } },
+    )
+    const under = [rect('under', 0, 0, 600, 400), small]
+    const outside = looks
+      .lines(small.props as TextProps)
+      .map((box) => pointOf(box, 0.5, 0.5))
+      .filter((p) => p.x > 60 || p.y > 40)
+    expect(outside.length).toBeGreaterThan(3)
+    for (const p of outside) expect(hitTest(under, p, looks)?.id).toBe('small')
+    expect(hitTest(under, { x: 500, y: 350 }, looks)?.id).toBe('under')
+  })
+
   it('passes to what lies beneath where its line would be drawn straight, away from every letter', () => {
     const [line] = looks.lines({ ...(curved.props as TextProps), curve: undefined })
     if (!line) throw new Error('no straight line')

@@ -598,15 +598,17 @@ function shapeUnder(
 /**
  * Whether a point in a text's own coordinates is on one of its laid-out lines or list markers, as
  * they are drawn, mirrored when it is flipped: not in the empty box below them or after a short
- * line. A text with no words is picked by its box, so it can still be grabbed.
+ * line. A text with no words is picked by its box, so it can still be grabbed. A curved text is
+ * picked on its letters wherever they are drawn, past a box not yet fitted to them too.
  */
 function onLines(looks: Looks, layer: TextLayer, q: Point) {
   const { props } = layer
-  if (!inBox(q, props)) return false
+  if (!props.curve && !inBox(q, props)) return false
   const lines = looks.lines(props)
+  if (lines.length === 0) return inBox(q, props)
   const own = flippedPoint(q, props)
   const at = { x: own.x - props.x, y: own.y - props.y }
-  return lines.length === 0 || lines.some((line) => inTurned(at, line))
+  return lines.some((line) => inTurned(at, line))
 }
 
 /**

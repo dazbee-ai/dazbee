@@ -1,10 +1,10 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import type { ResourceBytes } from '@dazbee/renderer'
+import { renderPixels, type ResourceBytes, type ResourceCache } from '@dazbee/renderer'
 
 export interface Pixels {
   width: number
@@ -24,6 +24,22 @@ export function fixtureResources(): ResourceBytes {
       .map((f) => [f.replace(/\.(jpg|png)$/, ''), new Uint8Array(readFileSync(join(ASSETS_DIR, f)))]),
   )
   return { fonts: loadFontFiles(), fallbackFamilies: [...FALLBACK_FAMILIES], images }
+}
+
+/**
+ * A fixture's frame drawn at 1x on the CPU surface: its reference image where it has one, which
+ * render.test.ts holds the render to pixel for pixel, else drawn here.
+ */
+export function cpuRender(
+  ck: CanvasKit,
+  { name, json, frameId }: { name: string; json: unknown; frameId: string },
+  bytes: ResourceBytes,
+  cache: ResourceCache,
+): Pixels {
+  const reference = join(REFERENCE_DIR, name, `${frameId}.png`)
+  return existsSync(reference)
+    ? decodePng(ck, new Uint8Array(readFileSync(reference)))
+    : renderPixels(ck, json, frameId, bytes, cache)
 }
 
 /** Decodes a PNG to unpremultiplied RGBA with CanvasKit. */

@@ -43,6 +43,9 @@ interface Item {
   wrapped: boolean
 }
 
+/** How a curved text sizes in a flow: to its curve both ways. */
+const CURVED_SIZING = { width: 'hug', height: 'hug' } as const
+
 /** Layers solved before, by the layer as built and the measure used, so an unchanged box is laid out once. */
 const solved = new WeakMap<SceneLayer, { measure: MeasureText | undefined; layer: SceneLayer }>()
 /** Each laid-out grid's cells, by the box as laid out. */
@@ -127,10 +130,12 @@ function solveBox(outer: LaidOutBox<SceneLayer>, given: Partial<Size>, measure?:
   // Each child's size, held to its limits: widths first, since text that hugs its height needs its
   // width. Fill along the flow shares the room a box that doesn't fit its content leaves, or in a
   // grid takes its cell; fill across takes the room across. A layer turned by other than a half
-  // turn keeps its own size, since its turn leaves no one width or height to fill.
+  // turn keeps its own size, since its turn leaves no one width or height to fill. A curved text
+  // takes the size of its curve, whatever its sizing and limits.
   const items: Item[] = flow.map((layer) => {
-    const s = sizingOf(layer)
-    const limits = limitsOf(layer)
+    const curved = layer.type === 'text' && layer.props.curve !== undefined
+    const s = curved ? CURVED_SIZING : sizingOf(layer)
+    const limits = curved ? {} : limitsOf(layer)
     // Turned by other than a half turn, its turned bounds differ from its own box.
     const turned = layer.props.rotation % 180 !== 0
     const fits = { width: hugW, height: hugH }

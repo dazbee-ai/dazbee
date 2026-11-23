@@ -431,6 +431,12 @@ describe('readableScale', () => {
     const least = (scaled.shrinkToFit?.min ?? 0) / scaled.style.fontSize
     expect(smallestLetters(scaled, least)?.size).toBeGreaterThanOrEqual(11)
   })
+
+  it('reads a curved text at its own sizes, as its curve draws it with no shrink to fit', () => {
+    const shrunk = { shrinkToFit: { min: 10, max: 40 } }
+    expect(readableScale(text(shrunk), 0.5, 11)).toBeGreaterThan(0.5)
+    expect(readableScale(text({ ...shrunk, curve: { shape: 'arcUp', amount: 50 } }), 0.5, 11)).toBe(0.5)
+  })
 })
 
 describe('scaledSizes', () => {

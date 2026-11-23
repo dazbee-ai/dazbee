@@ -273,6 +273,17 @@ export const TextRun = z
   .refine((r) => r.end > r.start, 'a run must cover at least one character')
 export type TextRun = z.infer<typeof TextRun>
 
+/**
+ * A text's lines bent along a curve by `amount`, 0 to 100, each line on its own curve parallel to the
+ * others, its letters moved and turned onto it (ADR-0021): an arc up whose middle is highest, an arc
+ * down whose middle is lowest, a circle, or a wave. At 0 its letters sit as they would straight.
+ */
+export const TextCurve = z.object({
+  shape: z.enum(['arcUp', 'arcDown', 'circle', 'wave']),
+  amount: z.number().min(0).max(100),
+})
+export type TextCurve = z.infer<typeof TextCurve>
+
 export const TextProps = z
   .object({
     ...commonProps,
@@ -307,6 +318,12 @@ export const TextProps = z
       .object({ min: z.number().positive(), max: z.number().positive() })
       .refine((f) => f.min <= f.max, 'the smallest size must not be more than the largest')
       .optional(),
+    /**
+     * Its lines bent along a curve. A curved text's lines break only at its line breaks, and its box
+     * fits the curved letters whatever its box mode; its list, justify, shrink to fit, most lines and
+     * wrap style don't apply while it is curved, and keep their values for when the curve is taken off.
+     */
+    curve: TextCurve.optional(),
   })
   .superRefine((t, ctx) => {
     for (const [i, run] of t.runs.entries()) {

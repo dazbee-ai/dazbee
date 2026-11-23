@@ -16,11 +16,12 @@ interface FitTextDeps {
 
 /**
  * The doc's `FitText` on the editor's measure: `'wait'` while a face a text that grows with its
- * words is drawn in is loading. A fixed box, or another layer, has nothing to fit and waits for nothing.
+ * words, or a curved text, is drawn in is loading. A straight text's fixed box, or another layer,
+ * has nothing to fit and waits for nothing.
  */
 export function editorFitText({ scenes, resources }: FitTextDeps): FitText {
   return (layer: Layer) => {
-    if (layer.type !== 'text' || layer.props.boxMode === 'fixed') return undefined
+    if (layer.type !== 'text' || (layer.props.boxMode === 'fixed' && !layer.props.curve)) return undefined
     const { variables } = resources.bytes()
     const uses = textFontUses(layer, variables)
     void resources.loadUses(uses)

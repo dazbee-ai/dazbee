@@ -53,6 +53,22 @@ describe('fitted text', () => {
     expect(fittedText(shape.layer, testMeasure)).toBeUndefined()
   })
 
+  it('fit a curved text, in every box mode, to the size its curve measures at, keeping its top left', () => {
+    const asked: (number | null)[] = []
+    const measure: MeasureText = (props, width) => {
+      asked.push(width)
+      return props.curve ? { width: 321, height: 123 } : testMeasure(props, width)
+    }
+    const curve = { shape: 'circle', amount: 50 }
+    for (const boxMode of ['autoWidth', 'autoHeight', 'fixed'])
+      expect(fittedText(text({ boxMode, curve }), measure)).toEqual({ width: 321, height: 123 })
+    expect(asked).toEqual([null, null, null])
+    expect(fittedText(text({ boxMode: 'fixed', curve: { shape: 'wave', amount: 0 } }), measure)).toEqual({
+      width: 321,
+      height: 123,
+    })
+  })
+
   it('measure a text bound to a brand font in the family the kit gives it, as it is drawn', () => {
     const families: string[] = []
     const measure: MeasureText = (props, width) => {

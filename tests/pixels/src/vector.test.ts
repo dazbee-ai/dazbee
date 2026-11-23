@@ -195,6 +195,17 @@ describe('PDF and SVG exports (#56)', () => {
     )
   })
 
+  it.each(cases.filter((c) => c.name === 'text-effects'))(
+    '$label: draws curved letters into a PDF and an SVG as shapes, never as text',
+    async ({ json, frameId, label }) => {
+      const pdf = pdfs.get(label) ?? renderVector(ck, json, frameId, bytes, 'pdf', cache)
+      expect((await pdfText(pdfium, pdf)).trim()).toBe('')
+      const svg = new TextDecoder().decode(renderVector(ck, json, frameId, bytes, 'svg', cache))
+      expect(svg).not.toContain('<text')
+      expect(svg).toContain('<path')
+    },
+  )
+
   it('draws small caps in a PDF from the font that has them, as the screen does', async () => {
     const text = (id: string, family: string) => ({
       type: 'text',

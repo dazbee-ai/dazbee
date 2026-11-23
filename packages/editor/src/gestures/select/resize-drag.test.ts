@@ -232,6 +232,19 @@ describe('editorResizeDrag', () => {
       })
     })
 
+    it('scales a curved text from a corner, then fits its box to its curve', () => {
+      const { drag, session, selection, frame, log, pressSelection } = harness()
+      session.run('node.update', { ids: ['words'], patch: { curve: { shape: 'circle', amount: 50 } } })
+      selection.select(['words'], frame.id)
+      const resize = pressSelection({ x: 900, y: 148 })
+      drag.drag(resize, { x: 1100, y: 196 }, false, false, false)
+      expect(session.design().nodes.words?.props).toMatchObject({
+        style: { fontSize: 40 },
+        curve: { shape: 'circle', amount: 50 },
+      })
+      expect(log).toContain('fit words')
+    })
+
     it('keeps the runs of a text a corner scaled on their characters as words go in before them, its copy keeping its own', () => {
       const { drag, session, selection, frame, pressSelection } = harness()
       session.run('text.edit', { id: 'words', op: { kind: 'insert', at: 0, text: 'Hi ' } })

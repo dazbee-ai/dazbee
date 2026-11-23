@@ -146,6 +146,15 @@ describe('editorBoxes', () => {
       expect(boxes.handlesFor()).toEqual([])
     })
 
+    it('gives a curved text only its corners, whatever its box mode', () => {
+      const { session, selection, boxes, square } = harness()
+      for (const boxMode of ['autoWidth', 'fixed']) {
+        session.run('node.update', { ids: ['label'], patch: { boxMode, curve: { shape: 'arcUp', amount: 50 } } })
+        selection.select(['label'], square.id)
+        expect(boxes.handlesFor()).toEqual(['nw', 'ne', 'se', 'sw'])
+      }
+    })
+
     it('gives a text that grows with its words, selected with its copies in other frames, no top or bottom one either', () => {
       const { selection, boxes, square, wide } = harness()
       selection.selectAcross([

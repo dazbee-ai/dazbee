@@ -2,7 +2,7 @@
 // it is drawn in and the styled piece it belongs to, moved and turned by a function the caller
 // passes. Drawing a placement draws each run of it as one text blob of turned glyphs.
 import type { CanvasKit, Font, GlyphRun, LineMetrics } from '@dazbee/canvaskit'
-import type { TextProps } from '@dazbee/schema'
+import type { Rect, TextProps } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
 import { utf16Offsets } from './super-sub.ts'
@@ -146,6 +146,20 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
       for (const font of used) font.delete()
     },
   }
+}
+
+/** The box round placed runs' turned boxes; null when they hold no glyph. */
+export function placedBounds(runs: readonly PlacedRun[]): Rect | null {
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
+  for (const { boxes } of runs) {
+    for (let i = 0; i < boxes.length; i += 2) {
+      left = Math.min(left, boxes[i] ?? 0)
+      right = Math.max(right, boxes[i] ?? 0)
+      top = Math.min(top, boxes[i + 1] ?? 0)
+      bottom = Math.max(bottom, boxes[i + 1] ?? 0)
+    }
+  }
+  return left > right ? null : { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 /** A point of a glyph's own space, from its origin along its advance and down, where its RSXform puts it. */

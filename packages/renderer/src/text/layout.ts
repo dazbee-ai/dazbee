@@ -5,6 +5,7 @@ import { autoDirection, type GradientPaint, type TextProps, withRunStyle } from 
 
 import type { Resources } from '../resources.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
+import { curveLetters } from './curve.ts'
 import type { Placement } from './placed.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
 import { madeUpSuperSubs, paragraphShape, superSubLineStyle, withoutSuperSubs } from './super-sub.ts'
@@ -59,8 +60,8 @@ export interface TextLayout {
   /** The styled pieces its characters are drawn in, by their offsets in the layer's text. */
   pieces: StyledPiece[]
   /**
-   * Where each letter is drawn when its letters are moved and turned (ADR-0021); null when the
-   * paragraphs draw it as they are laid out. Freed with the layout.
+   * Where each letter is drawn when its letters are moved and turned (ADR-0021), as a curved text's
+   * are; null when the paragraphs draw it as they are laid out. Freed with the layout.
    */
   placed: Placement | null
   delete(): void
@@ -76,11 +77,22 @@ const ELLIPSIS = '\u2026'
 const FILL: TextPass = { kind: 'fill' }
 
 /**
- * Shapes and lays out a text layer, a paragraph at a time (#47): lists put each paragraph's lines
- * clear of a gutter for its marker, and paragraph spacing goes between them. A text with one
- * paragraph is laid out as one SkParagraph, as before.
+ * Shapes and lays out a text layer, a paragraph at a time: lists put each paragraph's lines clear
+ * of a gutter for its marker, and paragraph spacing goes between them. A text with one paragraph is
+ * laid out as one SkParagraph. A curved text is laid out straight, each
+ * paragraph on one line, then placed on its curve from the box's corner, its size the curve's.
  */
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
+  if (props.curve) {
+    const laid = build(ck, straightened(props), resources, 1)
+    try {
+      const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize)
+      return Object.assign(laid, { placed, width, height })
+    } catch (error) {
+      laid.delete()
+      throw error
+    }
+  }
   const fit = props.shrinkToFit
   if (!fit) return place(props, build(ck, props, resources, 1))
   // The largest quarter point size from min to max that fits; min when none does.
@@ -120,8 +132,26 @@ export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
     props.paragraphSpacing,
     props.maxLines,
     props.shrinkToFit,
+    props.curve,
     fallbackFamilies,
   ])
+}
+
+/**
+ * A curved text's props as its straight layout reads them: each paragraph on one line, with no
+ * list, justify, shrink to fit, most lines or wrap style.
+ */
+function straightened(props: TextProps): TextProps {
+  const straight: TextProps = {
+    ...props,
+    boxMode: 'autoWidth',
+    wrapStyle: 'auto',
+    align: props.align === 'justify' ? 'start' : props.align,
+  }
+  delete straight.list
+  delete straight.shrinkToFit
+  delete straight.maxLines
+  return straight
 }
 
 /** Vertical alignment in a fixed box. */

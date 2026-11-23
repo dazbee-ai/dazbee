@@ -54,6 +54,7 @@ export const SIZES_TEXT: ReadonlySet<string> = new Set([
   'shrinkToFit',
   'direction',
   'wrapStyle',
+  'curve',
 ])
 
 export function editorLayerEdits({

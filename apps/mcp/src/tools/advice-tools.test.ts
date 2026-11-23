@@ -54,6 +54,7 @@ interface SizeRules {
   fonts: { heading: PairedFont; body: PairedFont; suits: string }[]
   kind?: { name: string; lead: string }
   patterns: string
+  textEffects: string
   truth: string
   plans: string
   advice: string
@@ -240,6 +241,13 @@ describe('ad_rules', () => {
     expect(rules.patterns).toMatch(/design from scratch/)
     const plan = (await agent.json('ad_rules', { plan: 'make_ad' })) as { plan: string }
     expect(plan.plan).toMatch(/Where a pattern fits the brief.*design it from scratch/s)
+  })
+
+  it('says when a curve suits an ad, and that body copy is never curved', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.textEffects).toMatch(/badge.*stamp.*round product.*playful offer/s)
+    expect(rules.textEffects).toMatch(/never body copy/)
   })
 
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {

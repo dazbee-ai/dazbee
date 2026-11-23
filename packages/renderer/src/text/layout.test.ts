@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { scaleText } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { TextProps } from '@dazbee/schema'
@@ -104,5 +105,74 @@ describe('layoutText', () => {
       if (starts.some((start) => start > 0 && props.text[start - 1] !== ' ')) broken.push(size)
     }
     expect(broken).toEqual([])
+  })
+
+  describe('a curved text', () => {
+    /** A two-paragraph text that would wrap, set in a list, justified, shrunk to fit and cut to a line, curved. */
+    const badge = (more: Record<string, unknown> = {}) =>
+      TextProps.parse({
+        x: 0,
+        y: 0,
+        width: 120,
+        height: 40,
+        text: 'Fresh and local produce\nEvery day',
+        boxMode: 'fixed',
+        align: 'justify',
+        wrapStyle: 'balance',
+        list: 'bullet',
+        maxLines: 1,
+        shrinkToFit: { min: 8, max: 40 },
+        style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' },
+        curve: { shape: 'arcUp', amount: 50 },
+        ...more,
+      })
+    /** Each glyph's RSXform, the layout's size, its markers and each paragraph's lines. */
+    const placedOf = (props: TextProps) => {
+      const laid = layoutText(ck, props, shipped)
+      const out = {
+        xforms: (laid.placed?.runs ?? []).flatMap((r) => [...r.xforms]),
+        width: laid.width,
+        height: laid.height,
+        markers: laid.blocks.filter((b) => b.marker).length,
+        lineCounts: laid.blocks.map((b) => b.paragraph.getLineMetrics().length),
+      }
+      laid.delete()
+      return out
+    }
+
+    it('sets each paragraph on one line, with no list, justify, shrink to fit or most lines, placed on its curve', () => {
+      const curved = placedOf(badge())
+      expect(curved.lineCounts).toEqual([1, 1])
+      expect(curved.markers).toBe(0)
+      expect(curved.xforms.length).toBe(4 * 'Fresh and local produceEvery day'.length)
+      // At 40 px, unshrunk: its first line alone is wider than the box it was given.
+      expect(curved.width).toBeGreaterThan(300)
+      const straight = placedOf(badge({ curve: undefined }))
+      expect(straight.xforms).toEqual([])
+    })
+
+    it('reads the same however its box is set: its size is its curve’s', () => {
+      const fixed = placedOf(badge())
+      for (const boxMode of ['autoWidth', 'autoHeight'])
+        for (const width of [60, 900]) expect(placedOf(badge({ boxMode, width }))).toEqual(fixed)
+    })
+
+    it('doubles its box and its curve when its style is scaled by 2, as a corner drag scales it', () => {
+      for (const shape of ['arcUp', 'arcDown', 'circle', 'wave']) {
+        const props = badge({ curve: { shape, amount: 70 }, list: undefined })
+        const once = placedOf(props)
+        const twice = placedOf({ ...props, ...scaleText(props, 2) })
+        expect(Math.abs(twice.width - 2 * once.width)).toBeLessThanOrEqual(2)
+        expect(Math.abs(twice.height - 2 * once.height)).toBeLessThanOrEqual(2)
+        // Every glyph is turned alike and sits twice as far from the box's corner, within 1 % of the
+        // box: SkParagraph rounds each line's height, so a second line's curve is up to a pixel off.
+        const near = 0.01 * Math.max(twice.width, twice.height)
+        twice.xforms.forEach((v, i) => {
+          const at = once.xforms[i] ?? 0
+          if (i % 4 < 2) expect(v).toBeCloseTo(at, 1)
+          else expect(Math.abs(v - 2 * at)).toBeLessThan(near)
+        })
+      }
+    })
   })
 })

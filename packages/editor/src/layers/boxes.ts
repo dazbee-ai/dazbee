@@ -47,6 +47,7 @@ import {
   type Handle,
   HANDLES,
   holdsPoint,
+  isCorner,
   localStep,
   normalAngle,
   round,
@@ -271,7 +272,8 @@ export function editorBoxes({ session, scenes, resources, selection, drawn, fram
   /**
    * The handles the selection has, on the first one's frame where it spans several, a resize there
    * changing every copy alike: none while it is locked in place; one text that grows with its words
-   * has no top or bottom ones, since only a fixed box has a height of its own.
+   * has no top or bottom ones, since only a fixed box has a height of its own; one curved text has
+   * only its corners, which scale it, since its curve gives its box.
    */
   function handlesFor(): readonly Handle[] {
     const current = selection.current()
@@ -280,13 +282,9 @@ export function editorBoxes({ session, scenes, resources, selection, drawn, fram
     // The first frame's layers: its box shows the handles, and each copy is resized as they are.
     const ids = current.filter((layer) => layer.frameId === frame.id).map((layer) => layer.id)
     const [only] = ids
-    if (
-      ids.length === 1 &&
-      only &&
-      drawn().nodes[only]?.type === 'text' &&
-      propIn(only, 'boxMode', drawn()) !== 'fixed'
-    )
-      return HANDLES.filter((h) => h !== 'n' && h !== 's')
+    if (ids.length !== 1 || !only || drawn().nodes[only]?.type !== 'text') return HANDLES
+    if (propIn(only, 'curve', drawn()) !== undefined) return HANDLES.filter(isCorner)
+    if (propIn(only, 'boxMode', drawn()) !== 'fixed') return HANDLES.filter((h) => h !== 'n' && h !== 's')
     return HANDLES
   }
 

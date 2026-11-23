@@ -7,6 +7,7 @@ import type { Rect, TextProps } from '@dazbee/schema'
 import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
 import { laidOut } from '../text/cache.ts'
+import { placedBounds } from '../text/placed.ts'
 import { booleanPath, shapePath } from './paths.ts'
 import { strokeReach } from './strokes.ts'
 
@@ -143,20 +144,24 @@ function union(a: Rect, b: Rect): Rect {
  * Where a text layer's lines sit, from the same paragraph drawing lays out, which can be outside
  * its box: a fixed box overflows, an auto width box grows. Glyphs can reach past their line's
  * ascent, descent and advance (marks, swashes, wide letters), so each side gets half the largest
- * font size more, and as far again as a made-up superscript or subscript moves its glyphs.
+ * font size more, and as far again as a made-up superscript or subscript moves its glyphs. A placed
+ * text's lines are its glyphs' turned boxes.
  */
 function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect {
-  const { blocks, dy, scale, superSubShift, done } = laidOut(ck, props, resources)
+  const { blocks, dy, scale, superSubShift, placed, done } = laidOut(ck, props, resources)
   let box: Rect = props
+  const turned = placed && placedBounds(placed.runs)
+  if (turned) box = union(box, { ...turned, x: props.x + turned.x, y: props.y + turned.y })
   for (const b of blocks) {
-    for (const line of b.paragraph.getLineMetrics()) {
-      box = union(box, {
-        x: props.x + b.x + line.left,
-        y: props.y + dy + b.y + line.baseline - line.ascent,
-        width: line.width,
-        height: line.ascent + line.descent,
-      })
-    }
+    if (!placed)
+      for (const line of b.paragraph.getLineMetrics()) {
+        box = union(box, {
+          x: props.x + b.x + line.left,
+          y: props.y + dy + b.y + line.baseline - line.ascent,
+          width: line.width,
+          height: line.ascent + line.descent,
+        })
+      }
     if (b.marker)
       box = union(box, {
         x: props.x + b.markerX,

@@ -327,9 +327,9 @@ function scaledDashes(dashes: number[], s: number): number[] {
   return dashes.map((n) => length(MIN_DASH * n, 1 / longest))
 }
 
-/** The smallest letters of a text as it draws them at the least its shrink to fit allows. */
+/** The smallest letters of a text as it draws them at the least its shrink to fit allows; a curved text draws none. */
 function drawnSmallest(props: TextProps): number | undefined {
-  const fit = props.shrinkToFit
+  const fit = props.curve ? undefined : props.shrinkToFit
   return smallestLetters(props, fit ? fit.min / props.style.fontSize : 1)?.size
 }
 

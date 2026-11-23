@@ -262,6 +262,17 @@ describe('PDF and SVG exports (#56)', () => {
     },
   )
 
+  it('draws a colour-adjusted image fill into a PDF as an image of the fill, not of the page', () => {
+    const fills = cases.find((c) => c.label === 'image-fills sq')
+    if (!fills) throw new Error('fixture missing')
+    // adj0 alone: a 150×150 photo with its exposure raised, on a 1080×1080 frame.
+    const json = { ...fills.design, nodes: { adj0: fills.design.nodes.adj0 } }
+    const pdf = new TextDecoder('latin1').decode(renderVector(ck, json, 'sq', bytes, 'pdf', cache))
+    const sides = [...pdf.matchAll(/\/(?:Width|Height) (\d+)/g)].map((m) => Number(m[1]))
+    expect(sides.length, 'images in the PDF').toBeGreaterThan(0)
+    expect(Math.max(...sides), 'largest image side in the PDF').toBeLessThanOrEqual(150)
+  })
+
   it('names the file and its type for PDF and SVG', () => {
     const [c] = cases
     if (!c) throw new Error('no cases')

@@ -79,6 +79,8 @@ const piecesSeen = new WeakMap<Pixels, PieceSeen>()
 /**
  * Judges a rebuild of a piece of the given kind. Both pictures are the same size, 8-bit RGBA with
  * straight alpha. Text is judged by SSIM, ink missed and the colour guard; shapes by the far share.
+ * What is read from the piece alone is kept for the piece object and its ink, so a piece judged again
+ * must not have its pixels or ink changed in place.
  */
 export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, options: JudgeOptions = {}): Judged {
   const measured = measure(piece, rebuild, options)

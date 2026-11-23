@@ -1,7 +1,7 @@
 // A text's letters moved one by one (ADR-0021): each letter of a placement raised along its line's
 // normal and turned about the middle of its advance on its baseline, by the text's bounce and its
-// own letter turn. A letter is a grapheme cluster that isn't white space, counted across the whole
-// text from 0 in the text's order.
+// own letter turn. A letter is a grapheme cluster that isn't white space, as the paragraph's own
+// Unicode data breaks it, counted across the whole text from 0 in the text's order.
 import { type TextBounce, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
@@ -21,8 +21,8 @@ interface PlacedLetter {
   start: number
 }
 
-/** A move about a point: turned by the angle whose cosine and sine these are, then the point moved to (`toX`, `toY`). */
-interface Similarity {
+/** A turn about a point by the angle whose cosine and sine these are, and the point moved to (`toX`, `toY`). */
+interface PivotMove {
   cos: number
   sin: number
   x: number
@@ -31,7 +31,6 @@ interface Similarity {
   toY: number
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 /** A grapheme cluster of white space only, which is no letter. */
 const WHITE_SPACE = /^\s+$/u
 /** What a random bounce's seed is multiplied by before a letter's own numbers are added. */
@@ -65,8 +64,9 @@ export function bounceMove(bounce: TextBounce, index: number, fontSize: number):
  * The box keeps its top-left, so letters reaching left or up move the text inside it.
  */
 export function moveStraightLetters(layout: TextLayout, placed: Placement, props: TextProps): void {
+  // Its boxes before they move, read as the moved ones are, so letters that don't move grow nothing.
   const straight = placedBounds(placed.runs)
-  moveLetters(placed, inPlace, props, layout.scale)
+  moveLetters(layout, placed, inPlace, props)
   const moved = placedBounds(placed.runs)
   if (!straight || !moved || props.boxMode === 'fixed') return
   const across = props.boxMode === 'autoWidth'
@@ -75,17 +75,18 @@ export function moveStraightLetters(layout: TextLayout, placed: Placement, props
   const top = Math.max(0, straight.y - moved.y)
   const bottom = Math.max(0, moved.y + moved.height - straight.y - straight.height)
   if (left > 0 || top > 0) shift(layout, placed, left, top)
-  layout.width += left + right
-  layout.height += top + bottom
+  // A box that grows is whole pixels, as a curved text's is.
+  if (left + right > 0) layout.width = Math.ceil(layout.width + left + right)
+  if (top + bottom > 0) layout.height = Math.ceil(layout.height + top + bottom)
 }
 
 /**
- * Moves each letter of a placement by the text's bounce and its letter turn: its glyphs turned
- * about the middle of its advance on its baseline, where `place` puts that point, and raised along
- * the normal there. `scale` is the share of its set sizes the text is drawn at.
+ * Moves each letter of a layout's placement by the text's bounce and its letter turn: its glyphs
+ * turned about the middle of its advance on its baseline, where `place` puts that point, and raised
+ * along the normal there, by its font size as the layout draws it (its set size by the layout's scale).
  */
-export function moveLetters(placed: Placement, place: PlaceGlyph, props: TextProps, scale: number): void {
-  const { index, starts } = lettersOf(props.text)
+export function moveLetters(layout: TextLayout, placed: Placement, place: PlaceGlyph, props: TextProps): void {
+  const { index, starts } = lettersOf(layout, props.text.length)
   const letters = new Map<number, PlacedLetter>()
   for (const { line, offsets, origins, advances } of placed.runs) {
     for (let g = 0; g < offsets.length; g++) {
@@ -99,10 +100,10 @@ export function moveLetters(placed: Placement, place: PlaceGlyph, props: TextPro
       else letters.set(i, { line, from, to, start: starts[at] ?? at })
     }
   }
-  const moves = new Map<number, Similarity>()
+  const moves = new Map<number, PivotMove>()
   for (const [i, letter] of letters) {
     const style = styleAt(props, letter.start)
-    const move = props.bounce ? bounceMove(props.bounce, i, style.fontSize * scale) : { raise: 0, turn: 0 }
+    const move = props.bounce ? bounceMove(props.bounce, i, style.fontSize * layout.scale) : { raise: 0, turn: 0 }
     const turn = move.turn + (style.turn ?? 0)
     if (move.raise === 0 && turn === 0) continue
     const [cos, sin, x, y] = place(letter.line, (letter.from + letter.to) / 2, 0, 0)
@@ -157,17 +158,24 @@ function shift(layout: TextLayout, placed: Placement, dx: number, dy: number) {
 }
 
 /**
- * Each UTF-16 unit of a text's letter, by its number, -1 in white space; and where the grapheme
- * each unit is in starts.
+ * Each UTF-16 unit of a laid-out text of `length` units: its letter's number, -1 in white space or
+ * where no paragraph draws it; and where the grapheme it is in starts. Graphemes are the paragraphs'
+ * own (CanvasKit's Unicode data), so every runtime counts letters alike; a unit a paragraph gives no
+ * grapheme for, past where it is cut, is one of its own.
  */
-function lettersOf(text: string) {
-  const index = new Int32Array(text.length).fill(-1)
-  const starts = new Uint32Array(text.length)
+function lettersOf(layout: TextLayout, length: number) {
+  const index = new Int32Array(length).fill(-1)
+  const starts = new Uint32Array(length)
   let count = 0
-  for (const { segment, index: start } of graphemes.segment(text)) {
-    const end = start + segment.length
-    starts.fill(start, start, end)
-    if (!WHITE_SPACE.test(segment)) index.fill(count++, start, end)
+  for (const block of layout.blocks) {
+    for (let at = 0; at < block.text.length;) {
+      const range = block.paragraph.getGlyphInfoAt(at)?.graphemeClusterTextRange
+      const end = range && range.start <= at && range.end > at ? range.end : at + 1
+      const [from, to] = [block.start + at, Math.min(block.start + end, length)]
+      starts.fill(from, from, to)
+      if (!WHITE_SPACE.test(block.text.slice(at, end))) index.fill(count++, from, to)
+      at = end
+    }
   }
   return { index, starts }
 }
@@ -180,7 +188,7 @@ function styleAt(props: TextProps, offset: number): TextProps['style'] {
 }
 
 /** Moves the point at `at` in `values` by a move about a point. */
-function moveAt(values: Float32Array, at: number, move: Similarity) {
+function moveAt(values: Float32Array, at: number, move: PivotMove) {
   const [dx, dy] = [(values[at] ?? 0) - move.x, (values[at + 1] ?? 0) - move.y]
   values[at] = move.cos * dx - move.sin * dy + move.toX
   values[at + 1] = move.sin * dx + move.cos * dy + move.toY

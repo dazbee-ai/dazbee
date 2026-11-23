@@ -52,16 +52,16 @@ const WORDS = [
   { label: 'Arabic', text: 'تخفيضات الصيف', family: 'Noto Naskh Arabic', rtl: true },
   { label: 'two English lines', text: 'Fresh baked\ndaily bread', family: 'Noto Sans', rtl: false },
 ]
-// Two lines round a circle this tight close the inner one over the outer, and a bounced lower line's
-// raised letters reach into the upper line's, so their letters overlap.
+// Two lines round a circle this tight close the inner one over the outer, so their letters overlap.
+// A bounced lower line's raised letters reach into the upper line's boxes, so a click or a letter's
+// underline there can be the upper line's: those cases check the caret and selection only.
 const CASES = EFFECTS.flatMap((effect) =>
-  WORDS.filter((words) => !((effect.curve?.shape === 'circle' || effect.bounce) && words.text.includes('\n'))).map(
-    (words) => ({
-      ...words,
-      effect,
-      name: `${words.label} ${effect.name}`,
-    }),
-  ),
+  WORDS.filter((words) => !(effect.curve?.shape === 'circle' && words.text.includes('\n'))).map((words) => ({
+    ...words,
+    effect,
+    name: `${words.label} ${effect.name}`,
+    overlapping: effect.bounce !== undefined && words.text.includes('\n'),
+  })),
 )
 
 function laidOut(text: string, family: string, effect: Omit<Effect, 'name'> = {}): TextLayout {
@@ -141,7 +141,7 @@ function inTurned(p: Pt, box: { x: number; y: number; width: number; height: num
   return along >= -slack && along <= box.width + slack && down >= -slack && down <= box.height + slack
 }
 
-describe.each(CASES)('on $name', ({ text, family, effect, rtl }) => {
+describe.each(CASES)('on $name', ({ text, family, effect, rtl, overlapping }) => {
   const laid = laidOut(text, family, effect)
   afterAll(() => laid.delete())
   const letters = lettersOf(laid, text)
@@ -172,7 +172,7 @@ describe.each(CASES)('on $name', ({ text, family, effect, rtl }) => {
     }
   })
 
-  it('puts the caret before or after a letter by the half of its turned box a click is in', () => {
+  it.skipIf(overlapping)('puts the caret before or after a letter by the half of its turned box a click is in', () => {
     for (const letter of letters) {
       for (const down of [0.2, 0.5, 0.8]) {
         const [lx, ly] = pointIn(letter.corners, 0.25, down)
@@ -183,7 +183,7 @@ describe.each(CASES)('on $name', ({ text, family, effect, rtl }) => {
     }
   })
 
-  it('a click where the caret is drawn puts it there', () => {
+  it.skipIf(overlapping)('a click where the caret is drawn puts it there', () => {
     for (const letter of letters) {
       const caret = caretPosition(ck, laid, letter.end)
       const [dx, dy] = turnedDown(caret.turn)
@@ -213,7 +213,7 @@ describe.each(CASES)('on $name', ({ text, family, effect, rtl }) => {
     expect(inTurned(pointIn(letter.corners, 0.5, 0.5), boxes[0] ?? { x: 0, y: 0, width: 0, height: 0 })).toBe(true)
   })
 
-  it('underlines a composition under each letter, turned with it', () => {
+  it.skipIf(overlapping)('underlines a composition under each letter, turned with it', () => {
     const lines = compositionLines(ck, laid, 0, text.length)
     for (const letter of letters) {
       const [tl, tr, , bl] = letter.corners

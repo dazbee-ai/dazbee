@@ -170,6 +170,24 @@ export function placedBounds(runs: readonly PlacedRun[]): Rect | null {
   return left > right ? null : { x: left, y: top, width: right - left, height: bottom - top }
 }
 
+/**
+ * The box round placed runs' glyphs where the straight layout draws them: each its advance by its
+ * line's height at its origin; null when they hold no glyph.
+ */
+export function straightBounds(runs: readonly PlacedRun[]): Rect | null {
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
+  for (const { line, origins, advances } of runs) {
+    for (let i = 0; i < advances.length; i++) {
+      const [x, y] = [origins[2 * i] ?? 0, origins[2 * i + 1] ?? 0]
+      left = Math.min(left, x)
+      right = Math.max(right, x + (advances[i] ?? 0))
+      top = Math.min(top, y - line.ascent)
+      bottom = Math.max(bottom, y + line.descent)
+    }
+  }
+  return left > right ? null : { x: left, y: top, width: right - left, height: bottom - top }
+}
+
 /** A point of a glyph's own space, from its origin along its advance and down, where its RSXform puts it. */
 export function placedPoint(xform: ArrayLike<number>, x: number, y: number): [number, number] {
   const [scos, ssin, tx, ty] = [xform[0] ?? 1, xform[1] ?? 0, xform[2] ?? 0, xform[3] ?? 0]

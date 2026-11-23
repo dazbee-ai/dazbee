@@ -47,6 +47,7 @@ const STYLES: { [K in keyof RunStyle]-?: RunStyle[K][] } = {
       ],
     },
   ],
+  turn: [-15, 30],
 }
 
 /** One UTF-16 unit of a text and the style it has: the reference the walk checks `applyTextOp` against. */

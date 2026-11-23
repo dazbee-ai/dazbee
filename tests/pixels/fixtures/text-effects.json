@@ -671,7 +671,7 @@
       "name": "wavy-low",
       "props": {
         "width": 266,
-        "height": 73.32,
+        "height": 74,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",
@@ -699,7 +699,7 @@
       "name": "wavy-high",
       "props": {
         "width": 353,
-        "height": 102.42,
+        "height": 103,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",
@@ -726,8 +726,8 @@
       "index": "a022",
       "name": "random-low",
       "props": {
-        "width": 314.47,
-        "height": 75.79,
+        "width": 315,
+        "height": 76,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",
@@ -754,8 +754,8 @@
       "index": "a023",
       "name": "random-high",
       "props": {
-        "width": 338.72,
-        "height": 102.19,
+        "width": 339,
+        "height": 103,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",
@@ -814,8 +814,8 @@
       "index": "a025",
       "name": "letter-turns",
       "props": {
-        "width": 334.8,
-        "height": 83.02,
+        "width": 335,
+        "height": 84,
         "boxMode": "autoWidth",
         "runs": [
           {
@@ -867,7 +867,7 @@
       "name": "gradient-bounce",
       "props": {
         "width": 460,
-        "height": 240.02,
+        "height": 241,
         "boxMode": "autoHeight",
         "runs": [
           {
@@ -932,8 +932,8 @@
       "index": "a027",
       "name": "arabic-bounce",
       "props": {
-        "width": 422.77,
-        "height": 107.01,
+        "width": 423,
+        "height": 108,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",
@@ -961,7 +961,7 @@
       "name": "hindi-bounce",
       "props": {
         "width": 340,
-        "height": 95.02,
+        "height": 96,
         "boxMode": "autoWidth",
         "runs": [],
         "align": "start",

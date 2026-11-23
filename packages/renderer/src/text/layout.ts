@@ -89,7 +89,7 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
   if (props.curve) {
     const laid = build(ck, straightened(props), resources, 1)
     try {
-      const move: MoveLetters | undefined = moved ? (into, place) => moveLetters(into, place, props, 1) : undefined
+      const move: MoveLetters | undefined = moved ? (into, place) => moveLetters(laid, into, place, props) : undefined
       const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize, move)
       return Object.assign(laid, { placed, width, height })
     } catch (error) {

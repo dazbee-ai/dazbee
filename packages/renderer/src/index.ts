@@ -57,4 +57,5 @@ export {
   placeLetters,
   type Placement,
   placedBounds,
+  straightBounds,
 } from './text/placed.ts'

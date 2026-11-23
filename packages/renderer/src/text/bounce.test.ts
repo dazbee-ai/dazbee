@@ -89,6 +89,17 @@ function expectXform(actual: number[], wanted: number[]) {
   for (const [k, value] of wanted.entries()) expect(actual[k]).toBeCloseTo(value, 3)
 }
 
+describe('movesLetters', () => {
+  it('moves letters with a bounce or a letter turn other than 0, on the text or a run', () => {
+    expect(movesLetters(textOf('Hi'))).toBe(false)
+    expect(
+      movesLetters(textOf('Hi', { style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF', turn: 0 } })),
+    ).toBe(false)
+    expect(movesLetters(textOf('Hi', { bounce: { style: 'wavy', amount: 0, seed: 1 } }))).toBe(true)
+    expect(movesLetters(textOf('Hi', { runs: [{ start: 1, end: 2, style: { turn: 5 } }] }))).toBe(true)
+  })
+})
+
 describe('bounceMove', () => {
   it('raises wavy letters by sin(i·π/3) of half the font size at full amount, unturned', () => {
     const wavy: TextBounce = { style: 'wavy', amount: 50, seed: 1 }
@@ -111,19 +122,52 @@ describe('bounceMove', () => {
   })
 })
 
-describe('movesLetters', () => {
-  it('moves letters with a bounce or a letter turn other than 0, on the text or a run', () => {
-    expect(movesLetters(textOf('Hi'))).toBe(false)
-    expect(
-      movesLetters(textOf('Hi', { style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF', turn: 0 } })),
-    ).toBe(false)
-    expect(movesLetters(textOf('Hi', { bounce: { style: 'wavy', amount: 0, seed: 1 } }))).toBe(true)
-    expect(movesLetters(textOf('Hi', { runs: [{ start: 1, end: 2, style: { turn: 5 } }] }))).toBe(true)
+describe('moveStraightLetters', () => {
+  const bounce = { style: 'wavy', amount: 100, seed: 1 } as const
+  const box = (more: Record<string, unknown>) => {
+    const laid = layoutText(ck, textOf('Up and down\nwe go', more), resources)
+    const placed = laid.placed ?? placeLetters(ck, laid, inPlace)
+    const size = { width: laid.width, height: laid.height, bounds: placedBounds(placed.runs) }
+    if (placed !== laid.placed) placed.delete()
+    laid.delete()
+    return size
+  }
+
+  it('grows an auto width box to hold the moved letters both ways, from its corner', () => {
+    const straight = box({ boxMode: 'autoWidth' })
+    const bounced = box({ boxMode: 'autoWidth', bounce })
+    expect(bounced.width).toBeGreaterThanOrEqual(straight.width)
+    expect(bounced.height).toBeGreaterThan(straight.height + 10)
+    const { bounds } = bounced
+    if (!bounds) throw new Error('not placed')
+    expect(bounds.x).toBeGreaterThanOrEqual(-0.01)
+    expect(bounds.y).toBeGreaterThanOrEqual(-0.01)
+    // The letters reach past the box's bottom no further than the straight letters reach past the straight box's.
+    const below = (size: typeof straight) => (size.bounds?.y ?? 0) + (size.bounds?.height ?? 0) - size.height
+    expect(below(bounced)).toBeLessThanOrEqual(Math.max(0, below(straight)) + 0.01)
+  })
+
+  it('grows an auto height box in height only, and leaves a fixed box as set', () => {
+    const straight = box({ boxMode: 'autoHeight', width: 300 })
+    const bounced = box({ boxMode: 'autoHeight', width: 300, bounce })
+    expect(bounced.width).toBe(300)
+    expect(bounced.height).toBeGreaterThan(straight.height + 10)
+    expect(bounced.bounds?.y).toBeGreaterThanOrEqual(-0.01)
+    const fixed = box({ bounce })
+    expect(fixed).toMatchObject({ width: 1000, height: box({}).height })
+  })
+
+  it('keeps the straight box at amount 0', () => {
+    for (const boxMode of ['autoWidth', 'autoHeight']) {
+      const straight = box({ boxMode, width: 300 })
+      const still = box({ boxMode, width: 300, bounce: { ...bounce, amount: 0 } })
+      expect([still.width, still.height]).toEqual([straight.width, straight.height])
+    }
   })
 })
 
 describe('moveLetters', () => {
-  it('raises each wavy letter by the decision’s numbers, counting no space', () => {
+  it('raises each wavy letter by sin(i·π/3) of half its font size, counting no space', () => {
     const glyphs = moved(textOf('AB CD EF', { bounce: { style: 'wavy', amount: 60, seed: 1 } }))
     const letters = [0, 1, -1, 2, 3, -1, 4, 5]
     for (const g of glyphs) {
@@ -133,7 +177,7 @@ describe('moveLetters', () => {
     }
   })
 
-  it('raises and turns each random letter about the middle of its advance by the decision’s numbers', () => {
+  it('raises and turns each random letter about the middle of its advance by mulberry32 of the seed and its count', () => {
     const glyphs = moved(textOf('Sale now', { bounce: { style: 'random', amount: 70, seed: 9 } }))
     const letters = [0, 1, 2, 3, -1, 4, 5, 6]
     for (const g of glyphs) {
@@ -214,50 +258,6 @@ describe('moveLetters', () => {
       // How far the letter moved along the curve's normal there, up for a positive value.
       const up = (m.dx - corner.dx) * m.sin - (m.dy - corner.dy) * m.cos
       expect(up).toBeCloseTo(Math.sin((m.offset * Math.PI) / 3) * 20, 2)
-    }
-  })
-})
-
-describe('moveStraightLetters', () => {
-  const bounce = { style: 'wavy', amount: 100, seed: 1 } as const
-  const box = (more: Record<string, unknown>) => {
-    const laid = layoutText(ck, textOf('Up and down\nwe go', more), resources)
-    const placed = laid.placed ?? placeLetters(ck, laid, inPlace)
-    const size = { width: laid.width, height: laid.height, bounds: placedBounds(placed.runs) }
-    if (placed !== laid.placed) placed.delete()
-    laid.delete()
-    return size
-  }
-
-  it('grows an auto width box to hold the moved letters both ways, from its corner', () => {
-    const straight = box({ boxMode: 'autoWidth' })
-    const bounced = box({ boxMode: 'autoWidth', bounce })
-    expect(bounced.width).toBeGreaterThanOrEqual(straight.width)
-    expect(bounced.height).toBeGreaterThan(straight.height + 10)
-    const { bounds } = bounced
-    if (!bounds) throw new Error('not placed')
-    expect(bounds.x).toBeGreaterThanOrEqual(-0.01)
-    expect(bounds.y).toBeGreaterThanOrEqual(-0.01)
-    // The letters reach past the box's bottom no further than the straight letters reach past the straight box's.
-    const below = (size: typeof straight) => (size.bounds?.y ?? 0) + (size.bounds?.height ?? 0) - size.height
-    expect(below(bounced)).toBeLessThanOrEqual(Math.max(0, below(straight)) + 0.01)
-  })
-
-  it('grows an auto height box in height only, and leaves a fixed box as set', () => {
-    const straight = box({ boxMode: 'autoHeight', width: 300 })
-    const bounced = box({ boxMode: 'autoHeight', width: 300, bounce })
-    expect(bounced.width).toBe(300)
-    expect(bounced.height).toBeGreaterThan(straight.height + 10)
-    expect(bounced.bounds?.y).toBeGreaterThanOrEqual(-0.01)
-    const fixed = box({ bounce })
-    expect(fixed).toMatchObject({ width: 1000, height: box({}).height })
-  })
-
-  it('keeps the straight box at amount 0', () => {
-    for (const boxMode of ['autoWidth', 'autoHeight']) {
-      const straight = box({ boxMode, width: 300 })
-      const still = box({ boxMode, width: 300, bounce: { ...bounce, amount: 0 } })
-      expect([still.width, still.height]).toEqual([straight.width, straight.height])
     }
   })
 })

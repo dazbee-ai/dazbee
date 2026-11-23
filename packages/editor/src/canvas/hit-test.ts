@@ -1,6 +1,7 @@
 // The layers that show under a point, front-most first, and the one a click or a hover picks from
 // them: the deepest of the topmost. A shape counts inside its outline, as the renderer draws it, and
-// on its strokes; a text on its laid-out lines, or anywhere in its box while it frosts what lies behind.
+// on its strokes; a text on its laid-out lines, or on its placed letters' turned boxes when they are
+// moved and turned (ADR-0021), or anywhere in its box while it frosts what lies behind.
 // A flipped layer is read where it draws: its paints and lines mirrored, never the layers inside it.
 // Where a layer is drawn under 10% opaque, its own opacity, its groups', its mask's and its paint's
 // there multiplied, it shows nothing, and the click passes to the layer beneath.
@@ -10,10 +11,12 @@ import {
   type ImageBeyond,
   imageBeyond,
   imagePlacement,
+  letterBoxes,
   LUMA,
   radialRadius,
   type SceneLayer,
   type TextLayout,
+  type TurnedRect,
 } from '@dazbee/renderer'
 import type { Color, ImagePaint, Paint, Point, Rect, Stroke, TextProps } from '@dazbee/schema'
 
@@ -28,7 +31,7 @@ export interface Looks {
   /** A decoded image's alpha map, by asset id; none while the image loads, when a photo shows all over its outline. */
   alpha(assetId: string): AlphaMap | undefined
   /** A text's `lineBoxes`, from its layout as drawn. */
-  lines(props: TextProps): readonly Rect[]
+  lines(props: TextProps): readonly TurnedRect[]
 }
 
 export interface HitOptions {
@@ -111,10 +114,11 @@ export function layersAt(layers: SceneLayer[], p: Point, looks: Looks, options: 
 
 /**
  * Where a text shows: the boxes of its laid-out lines and list markers, in its own coordinates from
- * its box's corner, its vertical alignment applied. A line with no words has no box.
+ * its box's corner, its vertical alignment applied. A line with no words has no box. A text whose
+ * letters are placed shows on each letter's turned box in place of its lines.
  */
-export function lineBoxes(laid: TextLayout): Rect[] {
-  const boxes: Rect[] = []
+export function lineBoxes(laid: TextLayout): TurnedRect[] {
+  const boxes: TurnedRect[] = []
   for (const b of laid.blocks) {
     const y = laid.dy + b.y
     const { marker } = b
@@ -125,12 +129,12 @@ export function lineBoxes(laid: TextLayout): Rect[] {
         width: marker.getMaxIntrinsicWidth(),
         height: marker.getHeight(),
       })
-    for (const line of b.paragraph.getLineMetrics()) {
+    for (const line of laid.placed ? [] : b.paragraph.getLineMetrics()) {
       if (line.width > 0)
         boxes.push({ x: b.x + line.left, y: y + line.baseline - line.ascent, width: line.width, height: line.height })
     }
   }
-  return boxes
+  return laid.placed ? [...boxes, ...letterBoxes(laid.placed)] : boxes
 }
 
 /**
@@ -601,7 +605,17 @@ function onLines(looks: Looks, layer: TextLayer, q: Point) {
   const lines = looks.lines(props)
   const own = flippedPoint(q, props)
   const at = { x: own.x - props.x, y: own.y - props.y }
-  return lines.length === 0 || lines.some((line) => inBox(at, line))
+  return lines.length === 0 || lines.some((line) => inTurned(at, line))
+}
+
+/** Whether a point is inside a box turned about its corner. */
+function inTurned(q: Point, box: TurnedRect) {
+  if (!box.turn) return inBox(q, box)
+  const angle = (box.turn * Math.PI) / 180
+  const [dx, dy] = [q.x - box.x, q.y - box.y]
+  const along = Math.cos(angle) * dx + Math.sin(angle) * dy
+  const down = Math.cos(angle) * dy - Math.sin(angle) * dx
+  return along >= 0 && along <= box.width && down >= 0 && down <= box.height
 }
 
 /**

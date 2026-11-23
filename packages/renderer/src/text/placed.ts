@@ -43,6 +43,8 @@ export type PlaceGlyph = (line: PlacedLine, along: number, advance: number, offs
 export interface PlacedRun {
   /** The block of the layout it is in, whose passes draw it. */
   block: number
+  /** The line it is on. */
+  line: PlacedLine
   /** The font SkParagraph drew it in, its made-up bold and italic included. Freed with the placement. */
   font: Font
   /** The style of its piece, which paints it in each pass. */
@@ -52,6 +54,8 @@ export interface PlacedRun {
   xforms: Float32Array
   /** Each glyph's advance. */
   advances: Float32Array
+  /** Two numbers for each glyph: its origin where the straight layout draws it, in the layer's box. */
+  origins: Float32Array
   /**
    * Eight numbers for each glyph: the corners of its turned box, its advance by its line's height,
    * placed as the glyph is drawn, clockwise from the top left.
@@ -219,21 +223,25 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
   const { line } = first
   const xforms = new Float32Array(glyphs.length * 4)
   const advances = new Float32Array(glyphs.length)
+  const origins = new Float32Array(glyphs.length * 2)
   const boxes = new Float32Array(glyphs.length * 8)
   glyphs.forEach(({ x, y, advance }, i) => {
     const xform = place(line, x, advance, y - line.baseline)
     xforms.set(xform, 4 * i)
     advances[i] = advance
+    origins.set([x, y], 2 * i)
     const corners = [0, -line.ascent, advance, -line.ascent, advance, line.descent, 0, line.descent]
     for (let c = 0; c < 8; c += 2) boxes.set(placedPoint(xform, corners[c] ?? 0, corners[c + 1] ?? 0), 8 * i + c)
   })
   return {
     block: line.block,
+    line,
     font: first.font,
     style: first.piece.style,
     glyphs: Uint16Array.from(glyphs, (g) => g.id),
     xforms,
     advances,
+    origins,
     boxes,
   }
 }

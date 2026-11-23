@@ -22,6 +22,7 @@ import {
   sceneMemo,
   type TextLayout,
   textMeasure,
+  type TurnedRect,
 } from '@dazbee/renderer'
 import { cornerRadiiOf, type Design, type Point, type Rect, type Variables } from '@dazbee/schema'
 
@@ -185,7 +186,7 @@ export function frameScenes({
   const byId = new WeakMap<Scene, Map<string, SceneLayer>>()
   let pathsMade = 0
   /** The line boxes of each text layout a hit test has read. */
-  const lines = new WeakMap<TextLayout, Rect[]>()
+  const lines = new WeakMap<TextLayout, TurnedRect[]>()
   const outline = (layer: SceneLayer) => outlines.get(layer, () => outlineOf(ck, layer))
   /** What a hit test reads: outlines, the images' alpha maps and the text as the screen lays it out. */
   const looks: Looks = {

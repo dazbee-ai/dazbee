@@ -7,7 +7,6 @@ import {
   applyTextOp,
   type Box,
   fittedText,
-  flippedRect,
   type MeasureText,
   replaceRangeOps,
   round,
@@ -15,9 +14,10 @@ import {
   type TextOp,
 } from '@dazbee/doc'
 import { caretPosition, compositionLines, type TextLayout } from '@dazbee/renderer'
-import type { Layer, Rect, TextProps, Variables } from '@dazbee/schema'
+import type { Layer, TextProps, Variables } from '@dazbee/schema'
 
 import { paragraphsOf } from '../pasted-text.ts'
+import { shownBox, shownCaret } from './shown-box.ts'
 import type { TextRange } from './text-edit.ts'
 
 /** A composition in a text: the range it replaces, the text it puts there, the part being composed and the cursor in it. */
@@ -85,16 +85,15 @@ export function composedText(
 /**
  * Where the caret (at the input method's cursor), the lines under the part being composed (as boxes
  * of no height) and the text's box are shown, in its frame's design pixels, for a composed text laid
- * out as `props` and `laid`, mirrored as the text is flipped.
+ * out as `props` and `laid`, mirrored as the text is flipped and turned as its letters are.
  */
 export function composedPlaces(ck: CanvasKit, props: TextProps, laid: TextLayout, { part, cursor }: Composed) {
-  const placed = (box: Rect) => flippedRect({ ...box, x: props.x + box.x, y: props.y + laid.dy + box.y }, props)
-  const at = caretPosition(ck, laid, cursor)
-  const { x, y, height } = placed({ x: at.x, y: at.y, width: 0, height: at.height })
   const box: Box = { x: props.x, y: props.y, width: props.width, height: props.height, rotation: props.rotation }
   return {
-    caret: { x, y, height },
-    composition: compositionLines(ck, laid, part.start, part.end).map((line) => placed({ ...line, height: 0 })),
+    caret: shownCaret(caretPosition(ck, laid, cursor), props, laid.dy),
+    composition: compositionLines(ck, laid, part.start, part.end).map((line) =>
+      shownBox({ ...line, height: 0 }, props, laid.dy),
+    ),
     box,
   }
 }

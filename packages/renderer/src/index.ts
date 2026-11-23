@@ -46,7 +46,7 @@ export {
 export { paragraphCache, type ParagraphCache, textMeasure } from './text/cache.ts'
 export { layoutText, type TextBlock, type TextLayout } from './text/layout.ts'
 export { missingGraphemes } from './text/missing.ts'
-export { letterBoxes, type TurnedRect } from './text/placed-glyphs.ts'
+export { inTurned, letterBoxes, type TurnedRect } from './text/placed-glyphs.ts'
 export {
   type GlyphXform,
   inPlace,

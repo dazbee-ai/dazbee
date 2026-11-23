@@ -25,52 +25,42 @@ export interface PlacedGlyph {
   ty: number
 }
 
-/** A placement's glyphs, read once: a drag asks for the caret every frame. */
-const glyphsOf = new WeakMap<Placement, PlacedGlyph[]>()
-
-/** Every glyph of a placement, in the layer's box. */
-export function placedGlyphs(placement: Placement): PlacedGlyph[] {
-  let glyphs = glyphsOf.get(placement)
-  if (!glyphs) {
-    glyphs = placement.runs.flatMap(({ line, advances, origins, xforms }) =>
-      [...advances].map((advance, i) => ({
-        block: line.block,
-        line: line.index,
-        x: origins[2 * i] ?? 0,
-        y: origins[2 * i + 1] ?? 0,
-        advance,
-        ascent: line.ascent,
-        descent: line.descent,
-        cos: xforms[4 * i] ?? 1,
-        sin: xforms[4 * i + 1] ?? 0,
-        tx: xforms[4 * i + 2] ?? 0,
-        ty: xforms[4 * i + 3] ?? 0,
-      })),
-    )
-    glyphsOf.set(placement, glyphs)
-  }
-  return glyphs
-}
+/** A placement's glyphs, and them by their block and line, read once: a drag asks for the caret every frame. */
+const glyphsOf = new WeakMap<Placement, { all: PlacedGlyph[]; byLine: Map<string, PlacedGlyph[]> }>()
 
 /**
  * The glyph a point at `x` across a block's line of the straight layout moves with: the one whose
  * advance holds it, else the nearest; none on a line with no glyph.
  */
-export function glyphAlong(glyphs: readonly PlacedGlyph[], block: number, line: number, x: number) {
-  let best: { glyph: PlacedGlyph; gap: number } | undefined
-  for (const glyph of glyphs) {
-    if (glyph.block !== block || glyph.line !== line) continue
-    const gap = Math.max(glyph.x - x, 0, x - (glyph.x + glyph.advance))
-    // A glyph of no advance, a mark, holds nothing a glyph with one holds.
-    if (!best || gap < best.gap || (gap === best.gap && glyph.advance > best.glyph.advance)) best = { glyph, gap }
-  }
-  return best?.glyph
+export function glyphAlong(placement: Placement, block: number, line: number, x: number) {
+  return nearest(readGlyphs(placement).byLine.get(`${block} ${line}`) ?? [], x, () => 0)
+}
+
+/**
+ * The glyph a point of the straight layout off every glyph's line moves with, as the caret in an
+ * empty paragraph does: the one nearest it across and down from its baseline; none with no glyph.
+ */
+export function glyphNear(placement: Placement, x: number, y: number) {
+  return nearest(readGlyphs(placement).all, x, (glyph) => Math.abs(y - glyph.y))
 }
 
 /** Where a point of the straight layout goes, moved and turned with a glyph. */
 export function turnedPoint(glyph: PlacedGlyph, x: number, y: number): [number, number] {
   const [dx, dy] = [x - glyph.x, y - glyph.y]
   return [glyph.cos * dx - glyph.sin * dy + glyph.tx, glyph.sin * dx + glyph.cos * dy + glyph.ty]
+}
+
+/** A point in a frame turned `turn` degrees clockwise about (x, y): along its turned x axis, and down. */
+export function inFrame(p: { x: number; y: number }, x: number, y: number, turn: number): [number, number] {
+  const angle = (turn * Math.PI) / 180
+  const [dx, dy] = [p.x - x, p.y - y]
+  return [Math.cos(angle) * dx + Math.sin(angle) * dy, Math.cos(angle) * dy - Math.sin(angle) * dx]
+}
+
+/** Whether a point is inside a box turned about its corner, its edges included. */
+export function inTurned(p: { x: number; y: number }, box: TurnedRect): boolean {
+  const [along, down] = inFrame(p, box.x, box.y, box.turn ?? 0)
+  return along >= 0 && along <= box.width && down >= 0 && down <= box.height
 }
 
 /** How far a glyph is turned, in degrees clockwise. */
@@ -83,14 +73,12 @@ export function turnOf(glyph: PlacedGlyph): number {
  * middle of its advance where boxes overlap, else the one whose box is nearest. With it, the point
  * back in the straight layout, kept inside that glyph's box. None in a placement with no glyph.
  */
-export function glyphUnder(glyphs: readonly PlacedGlyph[], x: number, y: number) {
+export function glyphUnder(placement: Placement, x: number, y: number) {
   let best: { glyph: PlacedGlyph; along: number; down: number; score: number } | undefined
-  for (const glyph of glyphs) {
+  for (const glyph of readGlyphs(placement).all) {
     if (glyph.advance <= 0) continue
     // The point in the glyph's own frame: along its advance from its origin, and down.
-    const [dx, dy] = [x - glyph.tx, y - glyph.ty]
-    const along = glyph.cos * dx + glyph.sin * dy
-    const down = glyph.cos * dy - glyph.sin * dx
+    const [along, down] = inFrame({ x, y }, glyph.tx, glyph.ty, turnOf(glyph))
     const outside = Math.hypot(
       Math.max(-along, 0, along - glyph.advance),
       Math.max(-glyph.ascent - down, 0, down - glyph.descent),
@@ -110,10 +98,53 @@ export function glyphUnder(glyphs: readonly PlacedGlyph[], x: number, y: number)
 
 /** Each placed glyph's turned box with an advance: its advance by its line's height, as it is drawn. */
 export function letterBoxes(placement: Placement): TurnedRect[] {
-  return placedGlyphs(placement)
-    .filter((g) => g.advance > 0)
+  return readGlyphs(placement)
+    .all.filter((g) => g.advance > 0)
     .map((g) => {
       const [x, y] = turnedPoint(g, g.x, g.y - g.ascent)
       return { x, y, width: g.advance, height: g.ascent + g.descent, turn: turnOf(g) }
     })
+}
+/** A placement's glyphs, in the layer's box, all and by their block and line. */
+function readGlyphs(placement: Placement) {
+  let read = glyphsOf.get(placement)
+  if (!read) {
+    const all = placement.runs.flatMap(({ line, advances, origins, xforms }) =>
+      [...advances].map((advance, i) => ({
+        block: line.block,
+        line: line.index,
+        x: origins[2 * i] ?? 0,
+        y: origins[2 * i + 1] ?? 0,
+        advance,
+        ascent: line.ascent,
+        descent: line.descent,
+        cos: xforms[4 * i] ?? 1,
+        sin: xforms[4 * i + 1] ?? 0,
+        tx: xforms[4 * i + 2] ?? 0,
+        ty: xforms[4 * i + 3] ?? 0,
+      })),
+    )
+    const byLine = new Map<string, PlacedGlyph[]>()
+    for (const glyph of all) {
+      const key = `${glyph.block} ${glyph.line}`
+      byLine.set(key, [...(byLine.get(key) ?? []), glyph])
+    }
+    read = { all, byLine }
+    glyphsOf.set(placement, read)
+  }
+  return read
+}
+
+/**
+ * Of `glyphs`, the one nearest a point `x` across, `off` farther from some: the one whose advance
+ * holds it first, and of glyphs as near, the one with the widest advance, as a mark of no advance
+ * holds nothing the glyph it sits on doesn't.
+ */
+function nearest(glyphs: readonly PlacedGlyph[], x: number, off: (glyph: PlacedGlyph) => number) {
+  let best: { glyph: PlacedGlyph; gap: number } | undefined
+  for (const glyph of glyphs) {
+    const gap = Math.hypot(Math.max(glyph.x - x, 0, x - (glyph.x + glyph.advance)), off(glyph))
+    if (!best || gap < best.gap || (gap === best.gap && glyph.advance > best.glyph.advance)) best = { glyph, gap }
+  }
+  return best?.glyph
 }

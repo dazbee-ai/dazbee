@@ -220,6 +220,23 @@ describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
   })
 })
 
+describe('an empty paragraph on a curve', () => {
+  it('draws the caret under the line before, turned with its first letter', () => {
+    const laid = laidOut('Fresh\n', 'Noto Sans', { shape: 'arcUp', amount: 60 })
+    const [f] = lettersOf(laid, 'Fresh\n')
+    if (!f) throw new Error('no letters')
+    const caret = caretPosition(ck, laid, 6)
+    const [ex, ey] = downOf(f.corners)
+    const [dx, dy] = turnedDown(caret.turn)
+    expect(dx * ex + dy * ey).toBeCloseTo(1, 4)
+    // Its top sits on the line through the "F"'s left edge, below the "F".
+    const [tl, , , bl] = f.corners
+    expect(offLine([caret.x, caret.y], tl, bl)).toBeLessThan(0.05)
+    expect((caret.x - bl[0]) * ex + (caret.y - bl[1]) * ey).toBeGreaterThan(-1)
+    laid.delete()
+  })
+})
+
 describe('straight text', () => {
   it('answers with no turn, and is its own straight layout', () => {
     const laid = laidOut('Fresh baked daily', 'Noto Sans')

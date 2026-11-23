@@ -156,9 +156,7 @@ export const nodeUpdate = defineCommand({
         if (locked) return locked
         if (node.type === 'text' && TEXT_EDIT_PROPS.includes(path)) return 'change text with text.edit'
       }
-      const props = Object.entries({ ...node.props, ...patch }).filter(
-        ([key, value]) => !(value === null && TAKEN_OFF_BY_NULL.includes(key)),
-      )
+      const props = Object.entries({ ...node.props, ...patch }).filter(([key, value]) => !takenOff(key, value))
       const patched = { ...node, props: Object.fromEntries(props) }
       const layer = parseLayer(patched)
       if (!layer.success) return layer.errors.map((e) => `${id}.${e.replace(/^props\./, '')}`).join('; ')
@@ -180,7 +178,7 @@ export const nodeUpdate = defineCommand({
       if ('width' in patch || 'height' in patch) keepDrawnIn(w, design, id)
       // A value the layer already has is left as it is, so a change to nothing writes nothing and adds no undo step.
       for (const [path, value] of Object.entries(patch)) {
-        if (value === null && TAKEN_OFF_BY_NULL.includes(path)) {
+        if (takenOff(path, value)) {
           if (w.prop(id, path) !== undefined) w.unsetProp(id, path)
         } else if (!sameValue(w.prop(id, path), value)) w.setProp(id, path, value)
       }
@@ -368,3 +366,8 @@ export const nodeMask = defineCommand({
     }
   },
 })
+
+/** Whether a patch's value takes its prop off: null, for a prop `node.update` takes off that way. */
+function takenOff(key: string, value: unknown) {
+  return value === null && TAKEN_OFF_BY_NULL.includes(key)
+}

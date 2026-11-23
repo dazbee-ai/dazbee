@@ -11,6 +11,7 @@ import {
   type ImageBeyond,
   imageBeyond,
   imagePlacement,
+  inTurned,
   letterBoxes,
   LUMA,
   radialRadius,
@@ -30,7 +31,7 @@ export interface Looks {
   band(layer: SceneLayer, reach: number): Path | null
   /** A decoded image's alpha map, by asset id; none while the image loads, when a photo shows all over its outline. */
   alpha(assetId: string): AlphaMap | undefined
-  /** A text's `lineBoxes`, from its layout as drawn. */
+  /** A text's `lineBoxes`, its lines' or its placed letters', from its layout as drawn. */
   lines(props: TextProps): readonly TurnedRect[]
 }
 
@@ -118,7 +119,7 @@ export function layersAt(layers: SceneLayer[], p: Point, looks: Looks, options: 
  * letters are placed shows on each letter's turned box in place of its lines.
  */
 export function lineBoxes(laid: TextLayout): TurnedRect[] {
-  const boxes: TurnedRect[] = []
+  const boxes: TurnedRect[] = laid.placed ? letterBoxes(laid.placed) : []
   for (const b of laid.blocks) {
     const y = laid.dy + b.y
     const { marker } = b
@@ -134,7 +135,7 @@ export function lineBoxes(laid: TextLayout): TurnedRect[] {
         boxes.push({ x: b.x + line.left, y: y + line.baseline - line.ascent, width: line.width, height: line.height })
     }
   }
-  return laid.placed ? [...boxes, ...letterBoxes(laid.placed)] : boxes
+  return boxes
 }
 
 /**
@@ -606,16 +607,6 @@ function onLines(looks: Looks, layer: TextLayer, q: Point) {
   const own = flippedPoint(q, props)
   const at = { x: own.x - props.x, y: own.y - props.y }
   return lines.length === 0 || lines.some((line) => inTurned(at, line))
-}
-
-/** Whether a point is inside a box turned about its corner. */
-function inTurned(q: Point, box: TurnedRect) {
-  if (!box.turn) return inBox(q, box)
-  const angle = (box.turn * Math.PI) / 180
-  const [dx, dy] = [q.x - box.x, q.y - box.y]
-  const along = Math.cos(angle) * dx + Math.sin(angle) * dy
-  const down = Math.cos(angle) * dy - Math.sin(angle) * dx
-  return along >= 0 && along <= box.width && down >= 0 && down <= box.height
 }
 
 /**

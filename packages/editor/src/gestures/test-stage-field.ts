@@ -4,6 +4,7 @@
 import { expect, vi } from 'vitest'
 
 import { replaceRangeOps } from '@dazbee/doc'
+import type { TurnedRect } from '@dazbee/renderer'
 import type { Point } from '@dazbee/schema'
 
 import { WORDS } from '../test-actions.ts'
@@ -150,15 +151,17 @@ export async function typingWith(startAt: string) {
   const stage = new StandIn()
   stage.rect = { left: 0, top: 0, right: 4000, bottom: 4000, width: 4000, height: 4000 }
   const parts = () =>
-    textParts(e.modules.typing.shown(), (el, _frame, box) => {
-      ;(el as unknown as StandIn).rect = {
-        left: box.x,
-        top: box.y,
-        right: box.x + box.width,
-        bottom: box.y + box.height,
-        width: box.width,
-        height: box.height,
-      }
+    textParts(e.modules.typing.shown(), (el, _frame, box: TurnedRect) => {
+      // As a browser gives it: the box round the part as turned, and its own height.
+      const angle = ((box.turn ?? 0) * Math.PI) / 180
+      const xs = [0, box.width * Math.cos(angle), -box.height * Math.sin(angle)]
+      const ys = [0, box.width * Math.sin(angle), box.height * Math.cos(angle)]
+      xs.push((xs[1] ?? 0) + (xs[2] ?? 0))
+      ys.push((ys[1] ?? 0) + (ys[2] ?? 0))
+      const [left, top] = [box.x + Math.min(...xs), box.y + Math.min(...ys)]
+      const [right, bottom] = [box.x + Math.max(...xs), box.y + Math.max(...ys)]
+      Object.assign(el, { offsetHeight: box.height })
+      ;(el as unknown as StandIn).rect = { left, top, right, bottom, width: right - left, height: bottom - top }
     }) as unknown as StandIn[]
   const overlay = Object.assign(stage, {
     after: () => {},

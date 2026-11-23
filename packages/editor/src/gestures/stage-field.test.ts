@@ -95,6 +95,17 @@ describe('editorStageField', () => {
     })
   })
 
+  it('takes the height of a caret turned on a curved text, not of the box round it on screen', async () => {
+    const { e, field, frame } = await typingWith('Hello there|')
+    e.core.session.run('node.update', { ids: ['words'], patch: { curve: { shape: 'arcUp', amount: 100 } } })
+    frame()
+    const caret = e.modules.typing.shown()?.caret
+    if (!caret) throw new Error('no caret shown')
+    expect(Math.abs(caret.turn ?? 0)).toBeGreaterThan(60)
+    expect(caret.height * 0.8).toBeGreaterThan(16)
+    expect(field.style).toMatchObject({ height: `${caret.height}px`, fontSize: `${caret.height * 0.8}px` })
+  })
+
   it('keeps its font at 16 px or more, which iOS doesn’t zoom the page into, scaled down to a small caret’s height', async () => {
     const { e, field, frame } = await typingWith('Hello there|')
     expect(field.style.fontSize).toBe('16px')

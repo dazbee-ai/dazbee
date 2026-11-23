@@ -3,7 +3,7 @@
 import type { CanvasKit, Paragraph } from '@dazbee/canvaskit'
 
 import type { TextBlock, TextLayout } from './layout.ts'
-import { glyphAlong, glyphUnder, placedGlyphs, turnedPoint, turnOf } from './placed-glyphs.ts'
+import { glyphAlong, glyphNear, glyphUnder, turnedPoint, turnOf } from './placed-glyphs.ts'
 
 export interface SelectionBox {
   x: number
@@ -68,7 +68,7 @@ const graphemeBoxes = new WeakMap<Paragraph, GraphemeBox[]>()
  * click, else the nearest, then the grapheme on its line by where the click is along that glyph.
  */
 export function caretAt(ck: CanvasKit, laid: TextLayout, x: number, y: number): number {
-  const under = laid.placed && glyphUnder(placedGlyphs(laid.placed), x, y + laid.dy)
+  const under = laid.placed && glyphUnder(laid.placed, x, y + laid.dy)
   const on = under && laid.blocks[under.glyph.block]
   if (under && on) {
     const offset = offsetOnLine(boxesOf(ck, on), under.glyph.line, under.x - on.x) ?? 0
@@ -113,7 +113,12 @@ export function caretPosition(ck: CanvasKit, laid: TextLayout, offset: number, a
   const width = block.paragraph.getMaxWidth()
   const lead = laid.rtl ? width : 0
   const x = { start: lead, justify: lead, center: width / 2, end: width - lead }[laid.align]
-  return at(x, 0, block.height)
+  // On placed letters, it moves and turns with the glyph nearest its baseline's start.
+  const baseline = laid.dy + block.y + (block.paragraph.getLineMetrics()[0]?.baseline ?? block.height)
+  const glyph = laid.placed && glyphNear(laid.placed, block.x + x, baseline)
+  if (!glyph) return at(x, 0, block.height)
+  const [px, py] = turnedPoint(glyph, block.x + x, laid.dy + block.y)
+  return { x: px, y: py - laid.dy, height: block.height, turn: turnOf(glyph) }
 }
 
 /**
@@ -302,8 +307,7 @@ function drawnEdge(boxes: GraphemeBox[], offset: number, after = false): { x: nu
  */
 function onGlyphOf(laid: TextLayout, block: TextBlock, box: GraphemeBox, x: number, y: number) {
   if (!laid.placed) return undefined
-  const glyphs = placedGlyphs(laid.placed)
-  const glyph = glyphAlong(glyphs, laid.blocks.indexOf(block), box.line, block.x + box.x + box.width / 2)
+  const glyph = glyphAlong(laid.placed, laid.blocks.indexOf(block), box.line, block.x + box.x + box.width / 2)
   if (!glyph) return undefined
   const [px, py] = turnedPoint(glyph, block.x + x, laid.dy + block.y + y)
   return { x: px, y: py - laid.dy, turn: turnOf(glyph) }

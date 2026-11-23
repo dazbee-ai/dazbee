@@ -40,6 +40,17 @@ describe('limits', () => {
     expect(props('free')).toMatchObject({ width: 40, height: 20, boxMode: 'autoWidth' })
   })
 
+  it('gives a curved text the size of its curve in a row, whatever its Fill sizing and limits', () => {
+    const curve = { shape: 'arcUp', amount: 50 }
+    const get = row({
+      a: text('r', 'a0', 'Badge', { curve, sizing: { width: 'fill', height: 'fill' }, minWidth: 300, maxHeight: 5 }),
+      b: tile('a1', 10, 10, fill('width')),
+    })
+    // The stand-in measures "Badge" as 50 by 20, the curve's size it gives every text.
+    expect(get('a')).toEqual(box(0, 0, 50, 20))
+    expect(get('b')).toEqual(box(50, 0, 450, 10))
+  })
+
   it('shares the room along the flow by turns, a layer held at a limit keeping it and the rest sharing what is left', () => {
     const most = row({
       a: tile('a0', 10, 10, { ...fill('width'), maxWidth: 100 }),

@@ -104,6 +104,7 @@ describe('styleOf', () => {
       outline: null,
       features: { tnum: true },
       gradient: null,
+      curve: null,
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -164,6 +165,22 @@ describe('restyle', () => {
     const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
     delete (copied.text as { gradient?: unknown }).gradient
     expect(LayerStyle.parse(copied).text?.gradient).toBeNull()
+  })
+
+  it('carries a text’s curve, and takes it off a text when the style has none', () => {
+    const curve = { shape: 'circle', amount: 70 }
+    const curved = styleOf(text({}, { curve }))
+    expect(curved.text?.curve).toEqual(curve)
+    expect(restyle(text(), curved)?.patch.curve).toEqual(curve)
+    const straight = restyle(text({}, { curve }), styleOf(text()))
+    expect(straight?.patch).toHaveProperty('curve', undefined)
+    expect(restyle(text({}, { curve }), curved)).toBeNull()
+  })
+
+  it('reads a style copied before texts had curves as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { curve?: unknown }).curve
+    expect(LayerStyle.parse(copied).text?.curve).toBeNull()
   })
 
   it('sets only what the layer has: a text’s style leaves a shape’s fills, and a shape’s leaves a text’s font', () => {

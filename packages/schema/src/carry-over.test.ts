@@ -1,7 +1,56 @@
 import { describe, expect, it } from 'vitest'
 
 import { carryOverLayer, carryOverLayers, carryOverTextStyle } from './carry-over.ts'
+import { parseLayer } from './parse-incremental.ts'
 import { minimal, storedText } from './test-design.ts'
+
+/** A text as version 15 stored it, every default written out: a gradient, an outline under its letters, a run, a list and shrink to fit, and no curve. */
+const textAt15 = () => ({
+  type: 'text',
+  parentId: 'sq',
+  link: 't15',
+  index: 'a1',
+  name: 'Badge',
+  props: {
+    x: 10,
+    y: 20,
+    width: 300,
+    height: 120,
+    rotation: 0,
+    visible: true,
+    opacity: 1,
+    blendMode: 'normal',
+    effects: [],
+    text: 'Big\nsale',
+    style: {
+      fontFamily: 'Noto Sans',
+      fontWeight: 700,
+      fontStyle: 'normal',
+      fontSize: 40,
+      color: '#111111FF',
+      letterSpacing: { unit: 'percent', value: 0 },
+      outline: { width: 2, color: '#FFFFFFFF', under: true },
+      gradient: {
+        type: 'linear',
+        from: { x: 0, y: 0.5 },
+        to: { x: 1, y: 0.5 },
+        stops: [
+          { offset: 0, color: '#FF0000FF' },
+          { offset: 1, color: '#0000FFFF' },
+        ],
+      },
+    },
+    runs: [{ start: 0, end: 3, style: { underline: true } }],
+    align: 'center',
+    direction: 'auto',
+    verticalAlign: 'top',
+    boxMode: 'fixed',
+    wrapStyle: 'balance',
+    list: 'bullet',
+    maxLines: 2,
+    shrinkToFit: { min: 20, max: 40 },
+  },
+})
 
 describe('carryOverLayer', () => {
   it('carries letter spacing stored as pixels over to pixels with their unit, in the style and each run', () => {
@@ -26,6 +75,16 @@ describe('carryOverLayer', () => {
     expect(stored.props.style.letterSpacing).toBe(2)
     for (const odd of [null, 3, 'text', { type: 'text' }, { type: 'text', props: { style: 'x', runs: 'y' } }])
       expect(carryOverLayer(odd)).toBe(odd)
+  })
+})
+
+describe('a text stored at version 15', () => {
+  it('reads unchanged, with no curve', () => {
+    const stored = textAt15()
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: textAt15() })
+    expect(parsed.success && parsed.layer.props).not.toHaveProperty('curve')
   })
 })
 

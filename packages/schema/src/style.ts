@@ -4,13 +4,13 @@
 import { z } from 'zod'
 
 import { Effect } from './effects.ts'
-import { type Layer, Radius, Stroke, TextStyle } from './layers.ts'
+import { type Layer, Radius, Stroke, TextCurve, TextStyle } from './layers.ts'
 import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
 import { textStyleFields } from './typography.ts'
 import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
-/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its OpenType features and its gradient. Null is none. */
+/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its OpenType features, its gradient and its curve. Null is none. */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
   fontWeight: textStyleFields.fontWeight,
@@ -24,6 +24,8 @@ const TextLook = z.object({
   features: textStyleFields.features.nullable().default(null),
   /** Left out of a style copied before texts had gradients, which is none. */
   gradient: textStyleFields.gradient.nullable().default(null),
+  /** Left out of a style copied before texts had curves, which is none. */
+  curve: TextCurve.nullable().default(null),
 })
 
 export const LayerStyle = z.object({
@@ -84,6 +86,7 @@ export function styleOf(layer: Layer): LayerStyle {
       outline: s.outline ?? null,
       features: s.features ?? null,
       gradient: s.gradient ?? null,
+      curve: layer.props.curve ?? null,
     }
   }
   for (const property of BindableProperty.options) {
@@ -109,7 +112,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, features, gradient, ...look } = style.text
+    const { lineHeight, paragraphSpacing, outline, features, gradient, curve, ...look } = style.text
     const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
       ...Object.fromEntries(kept),
@@ -120,6 +123,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
       ...(gradient === null ? {} : { gradient }),
     }
     wanted.paragraphSpacing = paragraphSpacing ?? undefined
+    wanted.curve = curve ?? undefined
   }
   const patch = Object.fromEntries(Object.entries(wanted).filter(([key, value]) => !same(value, props[key])))
   const bindings: Bindings = Object.fromEntries(

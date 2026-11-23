@@ -113,6 +113,16 @@ describe('derived values', () => {
     expect(derived(state, layers('title', 'badge'))).toEqual([])
   })
 
+  it('fit a curved text of a fixed box to its curve', () => {
+    const state = stateOf((nodes) => {
+      Object.assign(nodes.title?.props ?? {}, { boxMode: 'fixed', curve: { shape: 'arcUp', amount: 50 } })
+    })
+    const curved: FitText = (layer) =>
+      fittedText(layer, (props, width) => (props.curve ? { width: 240, height: 90 } : testMeasure(props, width)))
+    const next = after(state, layers('title'), derivedValues(curved))
+    expect(boxOf(next, 'title')).toEqual({ x: 100, y: 100, width: 240, height: 90 })
+  })
+
   it('fit the group a layer moved out of, as the change set that moved it touched it', () => {
     const before = stateOf()
     const moved = before.overlay()

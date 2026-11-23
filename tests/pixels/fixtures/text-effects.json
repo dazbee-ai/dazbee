@@ -1,0 +1,652 @@
+{
+  "meta": {
+    "designId": "text-effects",
+    "name": "Text effects"
+  },
+  "pages": {
+    "p1": {
+      "name": "Page 1",
+      "order": "a0"
+    }
+  },
+  "frames": {
+    "shapes": {
+      "pageId": "p1",
+      "name": "Curve shapes",
+      "width": 1080,
+      "height": 1080,
+      "x": 0,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a0"
+    },
+    "lines": {
+      "pageId": "p1",
+      "name": "Lines and paint",
+      "width": 1080,
+      "height": 1080,
+      "x": 1140,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a1"
+    },
+    "scripts": {
+      "pageId": "p1",
+      "name": "Scripts, flips and turns",
+      "width": 1080,
+      "height": 1080,
+      "x": 2280,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a2"
+    }
+  },
+  "nodes": {
+    "arc-up-low": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "arc-up-low",
+      "index": "a000",
+      "name": "arc-up-low",
+      "props": {
+        "x": 40,
+        "y": 40,
+        "width": 335,
+        "height": 90,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "SUMMER SALE",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 44,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 25
+        }
+      }
+    },
+    "arc-up-high": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "arc-up-high",
+      "index": "a001",
+      "name": "arc-up-high",
+      "props": {
+        "x": 580,
+        "y": 40,
+        "width": 360,
+        "height": 164,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "FRESH BAKED DAILY",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 90
+        }
+      }
+    },
+    "arc-down-low": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "arc-down-low",
+      "index": "a002",
+      "name": "arc-down-low",
+      "props": {
+        "x": 40,
+        "y": 330,
+        "width": 331,
+        "height": 89,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "Smile, it’s Friday",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 44,
+          "fontWeight": 400,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcDown",
+          "amount": 25
+        }
+      }
+    },
+    "arc-down-high": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "arc-down-high",
+      "index": "a003",
+      "name": "arc-down-high",
+      "props": {
+        "x": 580,
+        "y": 330,
+        "width": 318,
+        "height": 146,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "BEST PRICE GUARANTEED",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 34,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcDown",
+          "amount": 90
+        }
+      }
+    },
+    "circle-low": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "circle-low",
+      "index": "a004",
+      "name": "circle-low",
+      "props": {
+        "x": 40,
+        "y": 560,
+        "width": 208,
+        "height": 207,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "ROUND BADGE • ",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 32,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "circle",
+          "amount": 30
+        }
+      }
+    },
+    "circle-high": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "circle-high",
+      "index": "a005",
+      "name": "circle-high",
+      "props": {
+        "x": 580,
+        "y": 560,
+        "width": 211,
+        "height": 211,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "• 100% ORGANIC • FARM FRESH ",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 30,
+          "fontWeight": 700,
+          "color": "#2E7D32FF"
+        },
+        "curve": {
+          "shape": "circle",
+          "amount": 100
+        }
+      }
+    },
+    "wave-low": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "wave-low",
+      "index": "a006",
+      "name": "wave-low",
+      "props": {
+        "x": 40,
+        "y": 880,
+        "width": 306,
+        "height": 96,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "Playful offer",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "wave",
+          "amount": 30
+        }
+      }
+    },
+    "wave-high": {
+      "type": "text",
+      "parentId": "shapes",
+      "link": "wave-high",
+      "index": "a007",
+      "name": "wave-high",
+      "props": {
+        "x": 580,
+        "y": 880,
+        "width": 417,
+        "height": 144,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "Wavy weekend deals",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 42,
+          "fontWeight": 700,
+          "color": "#C2185BFF"
+        },
+        "curve": {
+          "shape": "wave",
+          "amount": 100
+        }
+      }
+    },
+    "two-start": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "two-start",
+      "index": "a008",
+      "name": "two-start",
+      "props": {
+        "x": 40,
+        "y": 40,
+        "width": 372,
+        "height": 167,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "LIMITED\nEDITION OFFER",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "two-centre": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "two-centre",
+      "index": "a009",
+      "name": "two-centre",
+      "props": {
+        "x": 580,
+        "y": 40,
+        "width": 328,
+        "height": 172,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "center",
+        "text": "LIMITED\nEDITION OFFER",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "two-end": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "two-end",
+      "index": "a010",
+      "name": "two-end",
+      "props": {
+        "x": 40,
+        "y": 380,
+        "width": 372,
+        "height": 167,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "end",
+        "text": "LIMITED\nEDITION OFFER",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "two-down": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "two-down",
+      "index": "a011",
+      "name": "two-down",
+      "props": {
+        "x": 580,
+        "y": 380,
+        "width": 239,
+        "height": 137,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "center",
+        "text": "THANK YOU\nFOR SHOPPING",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 36,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcDown",
+          "amount": 70
+        }
+      }
+    },
+    "two-wave": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "two-wave",
+      "index": "a012",
+      "name": "two-wave",
+      "props": {
+        "x": 40,
+        "y": 720,
+        "width": 220,
+        "height": 158,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "center",
+        "text": "Ride the\nwave today",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 400,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "wave",
+          "amount": 60
+        }
+      }
+    },
+    "gradient": {
+      "type": "text",
+      "parentId": "lines",
+      "link": "gradient",
+      "index": "a013",
+      "name": "gradient",
+      "props": {
+        "x": 560,
+        "y": 720,
+        "width": 447,
+        "height": 161,
+        "boxMode": "autoWidth",
+        "runs": [
+          {
+            "start": 6,
+            "end": 13,
+            "style": {
+              "outline": {
+                "width": 2,
+                "color": "#1F2329FF"
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "text": "Grand opening",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 56,
+          "fontWeight": 700,
+          "color": "#1F2329FF",
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF2E7EFF"
+              },
+              {
+                "offset": 1,
+                "color": "#3D6BFFFF"
+              }
+            ]
+          },
+          "underline": true,
+          "outline": {
+            "width": 6,
+            "color": "#FFD54FFF",
+            "under": true
+          }
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "arabic-arc": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "arabic-arc",
+      "index": "a014",
+      "name": "arabic-arc",
+      "props": {
+        "x": 40,
+        "y": 40,
+        "width": 402,
+        "height": 154,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "عروض الصيف الكبرى",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 48,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 60
+        }
+      }
+    },
+    "arabic-circle": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "arabic-circle",
+      "index": "a015",
+      "name": "arabic-circle",
+      "props": {
+        "x": 600,
+        "y": 40,
+        "width": 172,
+        "height": 172,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "خصم خاص لفترة محدودة • ",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 30,
+          "fontWeight": 700,
+          "color": "#6A1B9AFF"
+        },
+        "curve": {
+          "shape": "circle",
+          "amount": 90
+        }
+      }
+    },
+    "hindi-arc": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "hindi-arc",
+      "index": "a016",
+      "name": "hindi-arc",
+      "props": {
+        "x": 40,
+        "y": 400,
+        "width": 284,
+        "height": 103,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "बड़ी सेल आज ही",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 44,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcDown",
+          "amount": 50
+        }
+      }
+    },
+    "hindi-wave": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "hindi-wave",
+      "index": "a017",
+      "name": "hindi-wave",
+      "props": {
+        "x": 560,
+        "y": 420,
+        "width": 309,
+        "height": 122,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "त्योहार की खुशियाँ",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 44,
+          "fontWeight": 700,
+          "color": "#E65100FF"
+        },
+        "curve": {
+          "shape": "wave",
+          "amount": 70
+        }
+      }
+    },
+    "flipped": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "flipped",
+      "index": "a018",
+      "name": "flipped",
+      "props": {
+        "x": 40,
+        "y": 720,
+        "width": 323,
+        "height": 126,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "FLIPPED BADGE",
+        "flipX": true,
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 40,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 70
+        }
+      }
+    },
+    "turned": {
+      "type": "text",
+      "parentId": "scripts",
+      "link": "turned",
+      "index": "a019",
+      "name": "turned",
+      "props": {
+        "x": 600,
+        "y": 720,
+        "width": 161,
+        "height": 160,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "text": "TURNED STAMP • ",
+        "rotation": 20,
+        "opacity": 0.85,
+        "effects": [
+          {
+            "type": "dropShadow",
+            "x": 6,
+            "y": 8,
+            "blur": 12,
+            "spread": 0,
+            "color": "#00000066"
+          }
+        ],
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 30,
+          "fontWeight": 700,
+          "color": "#B71C1CFF"
+        },
+        "curve": {
+          "shape": "circle",
+          "amount": 80
+        }
+      }
+    }
+  }
+}

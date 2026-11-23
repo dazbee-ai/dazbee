@@ -6,7 +6,7 @@ import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
 import { laidOut } from '../text/cache.ts'
 import type { TextBlock } from '../text/layout.ts'
-import { placedPoint, type PlacedRun, type Placement } from '../text/placed.ts'
+import { placedBounds, placedPoint, type PlacedRun, type Placement } from '../text/placed.ts'
 import { drawsLines, gradientKey, linesColour, passPaint, type TextPass } from '../text/text-paint.ts'
 import { flipMatrix } from './flip.ts'
 import { paintFor } from './paint.ts'
@@ -151,18 +151,10 @@ function fillWithGradient(
  * height more on each side, as lines can sit past a tight line's box.
  */
 function linesBounds(runs: readonly PlacedRun[]): Rect {
-  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
-  for (const { boxes } of runs) {
-    for (let i = 0; i < boxes.length; i += 2) {
-      left = Math.min(left, boxes[i] ?? 0)
-      right = Math.max(right, boxes[i] ?? 0)
-      top = Math.min(top, boxes[i + 1] ?? 0)
-      bottom = Math.max(bottom, boxes[i + 1] ?? 0)
-    }
-  }
-  if (left > right) return { x: 0, y: 0, width: 0, height: 0 }
-  const reach = bottom - top
-  return { x: left - reach, y: top - reach, width: right - left + 2 * reach, height: 3 * reach }
+  const bounds = placedBounds(runs)
+  if (!bounds) return { x: 0, y: 0, width: 0, height: 0 }
+  const reach = bounds.height
+  return { x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: 3 * reach }
 }
 
 /**

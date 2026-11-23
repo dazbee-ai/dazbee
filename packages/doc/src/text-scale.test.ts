@@ -65,6 +65,13 @@ describe('scaling text', () => {
     })
   })
 
+  it('leaves a curve as it is: its sizes are shares of the font size and the line, so it scales with the text', () => {
+    const curve = { shape: 'arcUp' as const, amount: 50 }
+    const scaledText = scaleText({ style, runs: [], curve } as Parameters<typeof scaleText>[0], 2)
+    expect(scaledText).not.toHaveProperty('curve')
+    expect(scaledText.style.fontSize).toBe(128)
+  })
+
   it("finds the smallest size the text has: its own, a run's or shrink to fit's smallest", () => {
     expect(smallestSize({ style, runs: [] })).toBe(64)
     expect(smallestSize({ style, runs: [{ start: 0, end: 2, style: { fontSize: 20 } }] })).toBe(20)

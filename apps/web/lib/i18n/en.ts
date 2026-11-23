@@ -1169,7 +1169,7 @@ export const en = {
       /** Text's 3D in the Effects panel: its two numbers, and how its sides are coloured. */
       extrusionDepth: 'Depth',
       extrusionAngle: 'Angle',
-      extrusionSides: 'Side colour',
+      extrusionSides: '3D sides',
       extrusionSidesBy: 'How the sides are coloured',
       extrusionSideColours: { shade: 'Sides in a darker shade', colour: 'Sides in a colour' },
       image: 'Image',

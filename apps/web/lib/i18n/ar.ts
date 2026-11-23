@@ -1038,7 +1038,7 @@ export const ar: Messages = {
       outlinePlaces: { over: 'فوق الحروف', under: 'تحت الحروف' },
       extrusionDepth: 'العمق',
       extrusionAngle: 'الزاوية',
-      extrusionSides: 'لون الجوانب',
+      extrusionSides: 'جوانب ثلاثي الأبعاد',
       extrusionSidesBy: 'طريقة تلوين الجوانب',
       extrusionSideColours: { shade: 'جوانب بدرجة أغمق', colour: 'جوانب بلون مختار' },
       image: 'الصورة',

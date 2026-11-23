@@ -22,7 +22,9 @@ import {
   readVectorBaselines,
   recordVectorBaseline,
   startPdfium,
+  VECTOR_TYPES,
   vectorDifference,
+  type VectorType,
 } from './vector.ts'
 
 type Affine = [number, number, number, number, number, number]
@@ -47,14 +49,12 @@ const cases = loadFixtures().flatMap(({ name, json }) => {
 })
 const baselines = readVectorBaselines()
 /** What draws each type of file in the check. */
-const RASTERISERS = { pdf: 'pdfium', svg: 'resvg' } as const
+const RASTERISERS = { pdf: 'pdfium', svg: 'resvg' } as const satisfies Record<VectorType, string>
 const checks = cases.flatMap((c) =>
-  (['pdf', 'svg'] as const).map((type) => ({ ...c, type, by: RASTERISERS[type], file: type.toUpperCase() })),
+  VECTOR_TYPES.map((type) => ({ ...c, type, by: RASTERISERS[type], format: type.toUpperCase() })),
 )
 /** Each case's PDF, made once for the pixel check and read again for the glyph check. */
 const pdfs = new Map<string, Uint8Array>()
-/** The CPU render `cpuOf` made last, with its case's label. */
-let lastCpu: { label: string; pixels: Pixels } | undefined
 /** Lets the test worker answer vitest between long draws, which otherwise time its messages out. */
 const breathe = () => new Promise((resolve) => setImmediate(resolve))
 
@@ -96,6 +96,9 @@ const flip = (
   const ty = box.flipY ? 2 * box.y + box.height : 0
   return [a * sx, b * sx, c * sy, d * sy, a * tx + c * ty + e, b * tx + d * ty + f]
 }
+
+/** The CPU render `cpuOf` made last, with its case's label. */
+let lastCpu: { label: string; pixels: Pixels } | undefined
 
 /** A case's CPU render over white, kept for its other check, which comes next. */
 function cpuOf(c: (typeof cases)[number]): Pixels {
@@ -147,7 +150,7 @@ function rendererGlyphs(
 }
 
 describe('PDF and SVG exports (#56)', () => {
-  it.each(checks)('$label: $by draws the $file as the CPU does, within the baseline', async (check) => {
+  it.each(checks)('$label: $by draws the $format as the CPU does, within the baseline', async (check) => {
     const { name, json, frameId, label, type } = check
     const cpu = cpuOf(check)
     await breathe()

@@ -18,6 +18,10 @@ export interface VectorBaseline {
   svg: { percent: number; limit: number }
 }
 
+/** The vector files a frame is exported as. */
+export const VECTOR_TYPES = ['pdf', 'svg'] as const
+export type VectorType = (typeof VECTOR_TYPES)[number]
+
 /** One frame drawn on the CPU surface and from its PDF and SVG exports, each over white. */
 export interface ThreeWays {
   cpu: Pixels
@@ -135,11 +139,14 @@ export function readVectorBaselines(): Record<string, VectorBaseline> {
     : {}
 }
 
-/** Records one case's baseline for one type, keeping the rest; cases stay sorted so diffs are readable. */
-export function recordVectorBaseline(name: string, type: 'pdf' | 'svg', percent: number) {
+/**
+ * Records one case's baseline for one type, keeping the rest; cases stay sorted so diffs are
+ * readable. A case is recorded whole once each of its types has been.
+ */
+export function recordVectorBaseline(name: string, type: VectorType, percent: number) {
   const entry = { percent: Number(percent.toFixed(3)), limit: vectorLimit(percent) }
-  const before = readVectorBaselines()
-  const all = { ...before, [name]: { ...before[name], [type]: entry } as VectorBaseline }
+  const before: Record<string, Partial<VectorBaseline>> = readVectorBaselines()
+  const all = { ...before, [name]: { ...before[name], [type]: entry } }
   const sorted = Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : 1)))
   writeFileSync(VECTOR_BASELINES, `${JSON.stringify(sorted, null, 2)}\n`)
 }

@@ -25,6 +25,16 @@ const MARGIN = 80
 /** A pixel with less alpha is too clear to pick. */
 const ALPHA_CUT = 6
 
+/** Every frame of every pixel fixture, with the page it is on. */
+const frames = loadFixtures().flatMap(({ name, json }) => {
+  const parsed = parseDesign(json)
+  if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+  const { design } = parsed
+  return inOrder(design.pages).flatMap(([pageId]) =>
+    framesOf(design, pageId).map(([frameId]) => ({ name, json, pageId, frameId, label: `${name} ${frameId}` })),
+  )
+})
+
 /** Seeded points in a frame, the same on every run. */
 function seeded(name: string, width: number, height: number): [number, number][] {
   let state = [...name].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) >>> 0, 7)
@@ -81,16 +91,6 @@ function reach(e: TestEditor, frameId: string, x: number, y: number): Point {
   return e.core.stagePoint(x + 0.5, y + 0.5, frameId)
 }
 
-/** Every frame of every pixel fixture, with the page it is on. */
-const frames = loadFixtures().flatMap(({ name, json }) => {
-  const parsed = parseDesign(json)
-  if (!parsed.success) throw new Error(parsed.errors.join('\n'))
-  const { design } = parsed
-  return inOrder(design.pages).flatMap(([pageId]) =>
-    framesOf(design, pageId).map(([frameId]) => ({ name, json, pageId, frameId, label: `${name} ${frameId}` })),
-  )
-})
-
 describe('picking a colour', () => {
   it.each(frames)('shows and picks the 1x export’s pixels on $label', async ({ name, json, pageId, frameId }) => {
     const parsed = parseDesign(json)
@@ -129,13 +129,13 @@ describe('picking a colour', () => {
           expect(pixels.length, `${frameId} at ${x}, ${y}`).toBe(side * side * 4)
           // Compared whole first; the first cell that differs is then reported on its own.
           const want = windowOf(expected, x - half, y - half, side)
-          const differs = pixels.findIndex((v, i) => v !== want[i]) >> 2
-          if (differs >= 0) {
-            const [column, row] = [differs % side, Math.floor(differs / side)]
-            expect(
-              [...pixels.subarray(differs * 4, differs * 4 + 4)],
-              `${frameId} at ${x}, ${y}, cell ${column}, ${row}`,
-            ).toEqual(cell(expected, x - half + column, y - half + row))
+          const firstDiffering = pixels.findIndex((v, i) => v !== want[i]) >> 2
+          if (firstDiffering >= 0) {
+            const [column, row] = [firstDiffering % side, Math.floor(firstDiffering / side)]
+            const [from, to] = [firstDiffering * 4, firstDiffering * 4 + 4]
+            expect([...pixels.subarray(from, to)], `${frameId} at ${x}, ${y}, cell ${column}, ${row}`).toEqual([
+              ...want.subarray(from, to),
+            ])
           }
           checked += 1
         }

@@ -8,7 +8,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { ImageFit, type ImagePaint, type Paint, withAlpha } from '@dazbee/schema'
+import { ImageFit, type Paint, withAlpha } from '@dazbee/schema'
 
 import { useBesidePanel } from '@/components/editor/beside-panel.ts'
 import { ColorField, OpacityField } from '@/components/editor/edit-panel/colour-field.tsx'
@@ -30,7 +30,7 @@ import { format } from '@/lib/i18n/index.ts'
 
 import { BrandColours } from './brand-colours.tsx'
 import { angleOf, type Gradient, GradientBar, linearAt, type Stop, stopsCss } from './gradient-bar.tsx'
-import { ImageAdjustments, ImageFilters } from './image-adjustments.tsx'
+import { ImageAdjustments } from './image-adjustments.tsx'
 import { RecentSwatches, useShownRecent } from './recent-swatches.tsx'
 import { TileScaleField } from './tile-scale-field.tsx'
 
@@ -238,8 +238,6 @@ export function PaintEditor({
       ),
     }))
   const pct = (n: number) => tidy(n * 100)
-  const setLook = (change: (now: ImagePaint) => Partial<ImagePaint>) =>
-    onSet((now) => (now.type === 'image' ? { ...now, ...change(now) } : now))
   return (
     <div className="flex flex-col gap-3 p-3" data-testid="paint-editor">
       <RadioGroup
@@ -476,15 +474,11 @@ export function PaintEditor({
         </div>
       )}
       {paint.type === 'image' && forText && (
-        <>
-          <ImageFilters
-            picture={assetThumbnail(workspaceId, brandId, paint.assetId)}
-            p={p}
-            paint={paint}
-            onChange={setLook}
-          />
-          <ImageAdjustments editor={editor} p={p} paint={paint} onChange={setLook} />
-        </>
+        <ImageAdjustments
+          picture={assetThumbnail(workspaceId, brandId, paint.assetId)}
+          {...{ editor, p, paint }}
+          onChange={(change) => onSet((now) => (now.type === 'image' ? { ...now, ...change(now) } : now))}
+        />
       )}
     </div>
   )

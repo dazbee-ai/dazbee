@@ -15,10 +15,10 @@ import { tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
 /** What these parts change of an image fill. */
-type Look = Pick<ImagePaint, 'filter' | 'adjust' | 'opacity'>
+type Adjustable = Pick<ImagePaint, 'filter' | 'adjust' | 'opacity'>
 
 /** Writes a change to the image fill, made from each fill's own settings. */
-type ChangeLook = (change: (now: Look) => Partial<Look>) => void
+type ChangeImage = (change: (now: Adjustable) => Partial<Adjustable>) => void
 
 const ADJUSTMENTS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint'] as const
 
@@ -33,8 +33,33 @@ const FILTER_LOOK: Record<ImageFilter, string> = {
   cool: 'saturate(0.9) hue-rotate(18deg) brightness(1.04)',
 }
 
+/**
+ * An image fill's filters, each as the image's thumbnail `picture` with it, then its adjustments
+ * and how much of it shows, each part under its heading.
+ */
+export function ImageAdjustments({
+  picture,
+  editor,
+  p,
+  paint,
+  onChange,
+}: {
+  picture: string
+  editor: Editor
+  p: P
+  paint: Adjustable
+  onChange: ChangeImage
+}) {
+  return (
+    <>
+      <FilterTiles picture={picture} p={p} paint={paint} onChange={onChange} />
+      <AdjustFields editor={editor} p={p} paint={paint} onChange={onChange} />
+    </>
+  )
+}
+
 /** The filters, under their heading, each as the image's thumbnail `picture` with it. */
-export function ImageFilters({
+function FilterTiles({
   picture,
   p,
   paint,
@@ -42,8 +67,8 @@ export function ImageFilters({
 }: {
   picture: string
   p: P
-  paint: Look
-  onChange: ChangeLook
+  paint: Adjustable
+  onChange: ChangeImage
 }) {
   const title = useMessages().editor.bar.filters
   const filter = paint.filter ?? 'none'
@@ -84,7 +109,7 @@ export function ImageFilters({
  * The image's adjustments as slider fields, one to a row, each filling from 0 either way: its light,
  * contrast, saturation, warmth and tint; then how much of the image shows.
  */
-export function ImageAdjustments({
+function AdjustFields({
   editor,
   p,
   paint,
@@ -92,8 +117,8 @@ export function ImageAdjustments({
 }: {
   editor: Editor
   p: P
-  paint: Look
-  onChange: ChangeLook
+  paint: Adjustable
+  onChange: ChangeImage
 }) {
   const setAdjust = (key: keyof ImageAdjust, to: (n: number) => number) =>
     onChange((now) => {

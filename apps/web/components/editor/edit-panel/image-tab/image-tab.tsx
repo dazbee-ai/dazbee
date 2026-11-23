@@ -6,14 +6,14 @@
 // Crop's section says why, once for the tab.
 import type { ReactNode } from 'react'
 
-import { type ImageFill, withImage } from '@dazbee/editor'
+import { withImage } from '@dazbee/editor'
 import { type Design, type Paint } from '@dazbee/schema'
 
 import { FillsCard } from '@/components/editor/edit-panel/colour-panel.tsx'
 import type { SectionProps } from '@/components/editor/edit-panel/tabs/tabs.ts'
 import { factsOf, imageFillOf, set, setImage, type Target } from '@/components/editor/edit-panel/target.ts'
 import { ImagePickerButton } from '@/components/editor/image-picker.tsx'
-import { ImageAdjustments, ImageFilters } from '@/components/editor/paint/image-adjustments.tsx'
+import { ImageAdjustments } from '@/components/editor/paint/image-adjustments.tsx'
 import { assetThumbnail } from '@/components/editor/paint/paint-stack.tsx'
 import { PANEL_ACTION, PANEL_PART } from '@/components/editor/styles.ts'
 import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
@@ -110,16 +110,15 @@ export function EditSection({ target, design, workspaceId, brandId }: SectionPro
   const p = t.editor.props
   const imageFill = imageFillOf(target)
   if (!imageFill) return null
-  const change = (to: (now: ImageFill) => Partial<ImageFill>) => setImage(target, imageFill.index, to)
   return (
     <Locked target={target} design={design}>
-      <ImageFilters
+      <ImageAdjustments
         picture={assetThumbnail(workspaceId, brandId, imageFill.paint.assetId)}
+        editor={target.editor}
         p={p}
         paint={imageFill.paint}
-        onChange={change}
+        onChange={(to) => setImage(target, imageFill.index, to)}
       />
-      <ImageAdjustments editor={target.editor} p={p} paint={imageFill.paint} onChange={change} />
       <FillsCard target={target} workspaceId={workspaceId} brandId={brandId} p={p} b={t.editor.bar} />
     </Locked>
   )

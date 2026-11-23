@@ -113,6 +113,35 @@ describe('sharedTextPaint', () => {
   })
 })
 
+describe('colourTexts', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(DESIGN, { sources: { assetBytes: () => Promise.resolve(PIXEL) } })
+  })
+  afterAll(() => ed.end())
+
+  it('takes a text’s image fill off for the colour picked, in one undo step', () => {
+    ed.core.select(['filled'])
+    expect(colourTexts(targetOf(ed, ['filled']), '#00FF00')).toBe(true)
+    expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, color: '#00FF00FF' })
+    ed.core.session.undo()
+    expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, image: PHOTO })
+  })
+
+  it('takes the image fill off only the run selected while typing', () => {
+    ed.core.select(['plain'])
+    ed.core.perform('goIn')
+    ed.modules.typing.selectText({ start: 1, end: 3 })
+    expect(pickTextPaint(targetOf(ed, ['plain']), () => PHOTO)).toBe(true)
+    expect(colourTexts(targetOf(ed, ['plain']), '#FF0000')).toBe(true)
+    const runs = ed.core.drawnPropsOf('plain').runs as { start: number; end: number; style: Style }[]
+    expect(runs.map((r) => [r.start, r.end, textPaint({ ...STYLE, ...r.style } as Style)])).toEqual([[1, 3, RED]])
+    ed.core.session.undo()
+    ed.core.session.undo()
+    expect(ed.core.drawnPropsOf('plain').runs).toEqual([])
+  })
+})
+
 describe('pickTextPaint', () => {
   let ed: TestEditor
   beforeAll(async () => {
@@ -129,12 +158,8 @@ describe('pickTextPaint', () => {
     for (const id of ['plain', 'other']) expect(styleOf(ed, id)).toEqual(STYLE)
   })
 
-  it('takes a text’s image fill off for a colour picked from the swatches, a gradient or the picker’s colour', () => {
+  it('takes a text’s image fill off for a gradient, and the gradient off for a colour', () => {
     ed.core.select(['filled'])
-    expect(colourTexts(targetOf(ed, ['filled']), '#00FF00')).toBe(true)
-    expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, color: '#00FF00FF' })
-    ed.core.session.undo()
-
     expect(pickTextPaint(targetOf(ed, ['filled']), () => LINEAR)).toBe(true)
     expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, gradient: LINEAR })
     expect(pickTextPaint(targetOf(ed, ['filled']), () => RED)).toBe(true)
@@ -177,7 +202,7 @@ describe('pickTextPaint', () => {
     ed.core.session.undo()
   })
 
-  it('fills only the run selected while typing, and a colour picked over it takes it off', () => {
+  it('fills only the run selected while typing, and a gradient picked over it takes it off', () => {
     ed.core.select(['plain'])
     ed.core.perform('goIn')
     ed.modules.typing.selectText({ start: 1, end: 3 })
@@ -187,11 +212,6 @@ describe('pickTextPaint', () => {
     expect(filled.runs).toEqual([{ start: 1, end: 3, style: { image: PHOTO } }])
     expect(sharedTextPaint(targetOf(ed, ['plain']).range ?? [])).toEqual(PHOTO)
 
-    expect(colourTexts(targetOf(ed, ['plain']), '#FF0000')).toBe(true)
-    const coloured = ed.core.drawnPropsOf('plain').runs as { style: Style }[]
-    expect(coloured.map((r) => textPaint({ ...STYLE, ...r.style } as Style))).toEqual([RED])
-
-    ed.core.session.undo()
     expect(pickTextPaint(targetOf(ed, ['plain']), () => LINEAR)).toBe(true)
     expect(ed.core.drawnPropsOf('plain').runs).toEqual([{ start: 1, end: 3, style: { gradient: LINEAR } }])
 

@@ -1146,6 +1146,13 @@ export const en = {
       curve: 'Curve',
       curveShapes: { none: 'None', arcUp: 'Arc up', arcDown: 'Arc down', circle: 'Circle', wave: 'Wave' },
       curveAmount: 'Amount',
+      /** The part's bounce under its visible name, its styles, the amount's full name, the button that gives a random bounce a new pattern, and each letter's own turn. */
+      bounce: 'Bounce',
+      bounceStyles: { none: 'None', wavy: 'Wavy', random: 'Random' },
+      bounceAmount: 'Bounce amount',
+      shuffle: 'Shuffle',
+      letterTurn: 'Letter turn',
+      letterTurnName: 'Letter turn in degrees',
       /** The line under each setting a curved text turns off, saying why. */
       notForCurved: {
         paragraph: 'List, justify and wrap style don’t apply to curved text.',

@@ -1018,6 +1018,12 @@ export const ar: Messages = {
       curve: 'الانحناء',
       curveShapes: { none: 'بلا', arcUp: 'قوس لأعلى', arcDown: 'قوس لأسفل', circle: 'دائرة', wave: 'موجة' },
       curveAmount: 'المقدار',
+      bounce: 'الارتداد',
+      bounceStyles: { none: 'بلا', wavy: 'متموّج', random: 'عشوائي' },
+      bounceAmount: 'مقدار الارتداد',
+      shuffle: 'خلط',
+      letterTurn: 'دوران الحرف',
+      letterTurnName: 'دوران الحرف بالدرجات',
       notForCurved: {
         paragraph: 'القائمة والضبط وكسر الأسطر لا تنطبق على النص المنحني.',
         box: 'الصندوق لا ينطبق على النص المنحني: إنه يلائم حروفه.',

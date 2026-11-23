@@ -1,15 +1,32 @@
-// The Curve and bounce part's curve: the shape and amount several texts share, and what a pick of a
-// shape or an amount writes, held against the editor so a pick refits the text's box in its one
-// undo step and taking the curve off gives back the settings the text kept.
+// The Curve and bounce part: the curve, bounce and letter turn several texts share, and what a pick
+// of a shape, a bounce, an amount, Shuffle or a letter turn writes, held against the editor so a
+// pick refits the text's box in its one undo step, taking the curve off gives back the settings the
+// text kept, and a turn typed while editing turns only the selected run.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Editor } from '@dazbee/editor'
 import { type TestEditor, testEditor } from '@dazbee/editor/test-editor'
 import { frameDesign } from '@dazbee/editor/test-matrix'
 
-import { set, type Target } from '@/components/editor/edit-panel/target.ts'
+import { set, type Style, type Target, textStyle } from '@/components/editor/edit-panel/target.ts'
 
-import { amountMost, anyCurved, CURVE_MOST, CURVE_START, curveAmountPatch, pickCurve, sharedCurve } from './curves.ts'
+import {
+  amountMost,
+  anyCurved,
+  BOUNCE_START,
+  bounceAmountPatch,
+  CURVE_MOST,
+  CURVE_START,
+  curveAmountPatch,
+  pickBounce,
+  pickCurve,
+  sharedBounce,
+  sharedCurve,
+  sharedTurn,
+  shufflePatch,
+  turnAllPatch,
+  turnEachPatch,
+} from './curves.ts'
 
 const STYLE = { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' }
 /** A fixed box text that wraps, with a list, shrink to fit and most lines, and an auto width one. */
@@ -48,9 +65,20 @@ const DESIGN = frameDesign({
 
 const ARC = { curve: { shape: 'arcUp', amount: 30 } }
 const WAVE = { curve: { shape: 'wave', amount: 30 } }
+const WAVY = { bounce: { style: 'wavy', amount: 30, seed: 1 } }
+const RANDOM = { bounce: { style: 'random', amount: 60, seed: 4 } }
 const plain = {}
+/** A text turned 10°, its second letter −20° in a run of its own and its third 10° in a bold one. */
+const TURNED = {
+  text: 'Hats',
+  style: { ...STYLE, turn: 10 },
+  runs: [
+    { start: 1, end: 2, style: { turn: -20 } },
+    { start: 2, end: 3, style: { turn: 10, fontWeight: 700 } },
+  ],
+}
 
-/** The selection as the edit panel reads it, each layer with its own values. */
+/** The selection as the edit panel reads it, each layer with its own values, and the selected run's styles while one is edited. */
 function targetOf(ed: TestEditor, ids: string[]): Target {
   const design = ed.core.design()
   return {
@@ -59,6 +87,7 @@ function targetOf(ed: TestEditor, ids: string[]): Target {
     props: ids.map((id) => ed.core.drawnPropsOf(id)) as Target['props'],
     types: ids.map((id) => design.nodes[id]?.type ?? ''),
     names: ids.map((id) => design.nodes[id]?.name ?? ''),
+    range: (ed.core.textSelectionStyles() as Style[] | null) ?? undefined,
   }
 }
 
@@ -161,5 +190,160 @@ describe('anyCurved', () => {
   it('is true while any of the texts is curved', () => {
     expect(anyCurved([plain, ARC])).toBe(true)
     expect(anyCurved([plain, plain])).toBe(false)
+  })
+})
+
+describe('sharedBounce', () => {
+  it('reads the style and amount the texts share', () => {
+    expect(sharedBounce([WAVY, WAVY])).toEqual({ choice: 'wavy', amount: 30 })
+    expect(sharedBounce([plain, ARC])).toEqual({ choice: 'none', amount: null })
+  })
+
+  it('reads mixed where the texts differ, and an amount only while every one bounces', () => {
+    expect(sharedBounce([WAVY, RANDOM])).toEqual({ choice: 'mixed', amount: 'mixed' })
+    expect(sharedBounce([RANDOM, { bounce: { style: 'random', amount: 60, seed: 9 } }])).toEqual({
+      choice: 'random',
+      amount: 60,
+    })
+    expect(sharedBounce([WAVY, plain])).toEqual({ choice: 'mixed', amount: null })
+  })
+})
+
+describe('pickBounce', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(DESIGN)
+  })
+  afterAll(() => ed.end())
+
+  it('starts a text with no bounce at BOUNCE_START: amount 30, seed 1', () => {
+    expect(BOUNCE_START).toEqual({ amount: 30, seed: 1 })
+    expect(pickBounce(plain, 'wavy')).toEqual({ bounce: { style: 'wavy', amount: 30, seed: 1 } })
+    expect(pickBounce(ARC, 'random')).toEqual({ bounce: { style: 'random', amount: 30, seed: 1 } })
+  })
+
+  it('keeps the amount and seed for the other style', () => {
+    expect(pickBounce(RANDOM, 'wavy')).toEqual({ bounce: { style: 'wavy', amount: 60, seed: 4 } })
+  })
+
+  it('takes the bounce off for none, and writes nothing where nothing changes', () => {
+    expect(pickBounce(WAVY, 'none')).toEqual({ bounce: undefined })
+    expect(pickBounce(plain, 'none')).toBeNull()
+    expect(pickBounce(WAVY, 'wavy')).toBeNull()
+  })
+
+  it('bounces every selected text and grows an auto width box in one undo step, and none takes it off', () => {
+    const before = { kept: ed.core.drawnPropsOf('kept'), wide: ed.core.drawnPropsOf('wide') }
+    expect(set(targetOf(ed, ['kept', 'wide']), (now) => pickBounce(now, 'wavy'))).toBe(true)
+    const wide = ed.core.drawnPropsOf('wide')
+    expect(wide.bounce).toEqual({ style: 'wavy', amount: 30, seed: 1 })
+    expect(ed.core.drawnPropsOf('kept').bounce).toEqual(wide.bounce)
+    // The raised and lowered letters reach past the straight line's height.
+    expect(Number(wide.height)).toBeGreaterThan(Number(before.wide.height))
+
+    ed.core.session.undo()
+    expect(ed.core.drawnPropsOf('kept')).toEqual(before.kept)
+    expect(ed.core.drawnPropsOf('wide')).toEqual(before.wide)
+
+    ed.core.session.redo()
+    expect(set(targetOf(ed, ['kept', 'wide']), (now) => pickBounce(now, 'none'))).toBe(true)
+    expect(ed.core.drawnPropsOf('wide').bounce).toBeUndefined()
+    expect(Number(ed.core.drawnPropsOf('wide').height)).toBeLessThan(Number(wide.height))
+  })
+})
+
+describe('bounceAmountPatch', () => {
+  it('changes a bounced text’s amount from its own, held between 0 and 100', () => {
+    expect(bounceAmountPatch(WAVY, (a) => a + 5)).toEqual({ bounce: { style: 'wavy', amount: 35, seed: 1 } })
+    expect(bounceAmountPatch(RANDOM, () => 140)).toEqual({ bounce: { style: 'random', amount: 100, seed: 4 } })
+    expect(bounceAmountPatch(WAVY, () => -3)).toEqual({ bounce: { style: 'wavy', amount: 0, seed: 1 } })
+  })
+
+  it('leaves a text with no bounce, and an amount that doesn’t change, alone', () => {
+    expect(bounceAmountPatch(plain, () => 40)).toBeNull()
+    expect(bounceAmountPatch(WAVY, (a) => a)).toBeNull()
+  })
+})
+
+describe('shufflePatch', () => {
+  it('gives a random bounce the next whole number after its seed, keeping its amount', () => {
+    expect(shufflePatch(RANDOM)).toEqual({ bounce: { style: 'random', amount: 60, seed: 5 } })
+  })
+
+  it('leaves a wavy text and one with no bounce alone', () => {
+    expect(shufflePatch(WAVY)).toBeNull()
+    expect(shufflePatch(plain)).toBeNull()
+  })
+})
+
+describe('sharedTurn', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(DESIGN)
+  })
+  afterAll(() => ed.end())
+
+  it('reads the turn every character of the texts shares, 0 where none sets one', () => {
+    expect(sharedTurn([{ style: STYLE }, { text: 'Hi', style: STYLE, runs: [] }])).toBe(0)
+    expect(sharedTurn([{ ...TURNED, runs: TURNED.runs.slice(1) }])).toBe(10)
+  })
+
+  it('reads mixed where characters differ, in a run or in another text', () => {
+    expect(sharedTurn([TURNED])).toBe('mixed')
+    expect(sharedTurn([{ style: { turn: 10 } }, { style: STYLE }])).toBe('mixed')
+  })
+
+  it('reads the runs’ turns alone where they cover every character', () => {
+    const covered = { text: 'Hi', style: { turn: 5 }, runs: [{ start: 0, end: 2, style: { turn: 30 } }] }
+    expect(sharedTurn([covered])).toBe(30)
+  })
+
+  it('reads and turns only the selected run while a text is being edited, in one undo step', () => {
+    ed.core.select(['wide'])
+    ed.core.perform('goIn')
+    ed.modules.typing.selectText({ start: 1, end: 3 })
+    const target = targetOf(ed, ['wide'])
+    expect(sharedTurn(target.props, target.range)).toBe(0)
+    expect(textStyle(target).setStyle('turn', 25)).toBe(true)
+
+    const turned = targetOf(ed, ['wide'])
+    expect(sharedTurn(turned.props, turned.range)).toBe(25)
+    expect(turned.props[0].runs).toEqual([{ start: 1, end: 3, style: { turn: 25 } }])
+    expect((turned.props[0].style as Style).turn).toBeUndefined()
+    expect(sharedTurn(turned.props)).toBe('mixed')
+
+    ed.core.session.undo()
+    expect(ed.core.drawnPropsOf('wide').runs).toEqual([])
+  })
+})
+
+describe('turnAllPatch', () => {
+  it('turns every character by the one turn, taking the runs’ own turns off and keeping what else they set', () => {
+    expect(turnAllPatch(TURNED, 45)).toEqual({
+      style: { ...STYLE, turn: 45 },
+      runs: [{ start: 2, end: 3, style: { fontWeight: 700 } }],
+    })
+  })
+
+  it('takes the turn off at 0, and writes nothing where nothing changes', () => {
+    expect(turnAllPatch({ style: { ...STYLE, turn: 10 }, runs: [] }, 0)).toEqual({ style: STYLE, runs: [] })
+    expect(turnAllPatch({ style: STYLE, runs: [] }, 0)).toBeNull()
+  })
+})
+
+describe('turnEachPatch', () => {
+  it('changes each character’s turn from its own, held between −180 and 180', () => {
+    expect(turnEachPatch(TURNED, (turn) => turn + 5)).toEqual({
+      style: { ...STYLE, turn: 15 },
+      runs: [
+        { start: 1, end: 2, style: { turn: -15 } },
+        { start: 2, end: 3, style: { turn: 15, fontWeight: 700 } },
+      ],
+    })
+    expect(turnEachPatch({ style: STYLE }, (turn) => turn + 200)).toEqual({ style: { ...STYLE, turn: 180 }, runs: [] })
+  })
+
+  it('writes nothing where no turn changes', () => {
+    expect(turnEachPatch(TURNED, (turn) => turn)).toBeNull()
   })
 })

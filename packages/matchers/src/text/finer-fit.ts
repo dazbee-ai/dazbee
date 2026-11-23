@@ -6,7 +6,7 @@
 
 import type { TextDrawer, TextLook } from './draw-text.ts'
 import { BASE_LINE_HEIGHT, type Fitted, type Nudge, placeByInk } from './light/fit.ts'
-import { spacingApart } from './light/letters-apart.ts'
+import { spacedApart } from './light/letters-apart.ts'
 import type { PieceReading } from './read-piece.ts'
 
 /** A setting the finer fit moves. */
@@ -46,9 +46,8 @@ export function finerFit(drawer: TextDrawer, reading: PieceReading, words: strin
       // Hollow letters' line keeps the width read: a wider one would only fill the letters out.
       if (setting === 'outline' && (!best.look.outline || reading.fill === null)) continue
       for (const sign of [1, -1]) {
-        const shifted = moved(best.look, setting, sign * steps[setting])
         // A wider outline can run letters into each other too, so every move is spaced apart.
-        const look = { ...shifted, spacing: spacingApart(drawer, words, shifted) }
+        const look = spacedApart(drawer, words, moved(best.look, setting, sign * steps[setting]))
         const place: Nudge = {
           dx: nudge.dx + (setting === 'dx' ? sign * steps.dx : 0),
           dy: nudge.dy + (setting === 'dy' ? sign * steps.dy : 0),

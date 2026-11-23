@@ -15,7 +15,7 @@ import {
   sizeFits,
   SPACING_RANGE,
 } from './fit.ts'
-import { spacingApart } from './letters-apart.ts'
+import { spacedApart } from './letters-apart.ts'
 
 /** The fit corrected once from its placed draw, or the fit itself when the correction overlaps no better. */
 export function correct(drawer: TextDrawer, reading: PieceReading, words: string, fit: Fitted): Fitted {
@@ -45,8 +45,7 @@ export function correct(drawer: TextDrawer, reading: PieceReading, words: string
     lineHeight = clamp(lineHeight + sum / (count - 1) / size, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max)
   }
   if (!sizeFits(reading, count, size)) return fit
-  const wanted = { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) }
-  const look = { ...wanted, spacing: spacingApart(drawer, words, wanted) }
+  const look = spacedApart(drawer, words, { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) })
   const tried = placeByInk(drawer, reading, words, fit.face, look)
   return tried && tried.overlap > fit.overlap ? { ...tried, lineGaps: fit.lineGaps } : fit
 }

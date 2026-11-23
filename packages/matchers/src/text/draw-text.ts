@@ -6,6 +6,12 @@ import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceBytes, resourceCache, textMeasure } from '@dazbee/renderer'
 import { type Color, TextProps } from '@dazbee/schema'
 
+/** A text's outline: its width in pixels and its colour. */
+export interface TextOutline {
+  width: number
+  color: Color
+}
+
 /** What the text matcher sets on a text: its look, before it is placed. */
 export interface TextLook {
   family: string
@@ -19,7 +25,7 @@ export interface TextLook {
   lineHeight?: number
   align: 'start' | 'center' | 'end'
   color: Color
-  outline?: { width: number; color: Color }
+  outline?: TextOutline
 }
 
 /** Where a text layer sits: its box and its rotation in degrees clockwise. */
@@ -50,10 +56,10 @@ export type TextLayerProps = Placed & {
     color: Color
     letterSpacing: { unit: 'percent'; value: number }
     lineHeight?: number
-    outline?: { width: number; color: Color }
+    outline?: TextOutline
   }
   /** Ranges of the text, in UTF-16 units, drawn in their own colour and outline. */
-  runs?: { start: number; end: number; style: { color: Color; outline: { width: number; color: Color } } }[]
+  runs?: { start: number; end: number; style: { color: Color; outline: TextOutline } }[]
 }
 
 /** Measures and draws text in a set of faces. */
@@ -64,7 +70,7 @@ export interface TextDrawer {
   draw(width: number, height: number, ...layers: TextLayerProps[]): Pixels
   /** Frees the registered faces. */
   delete(): void
-  /** Whether texts fitted with it keep their letters from running into each other (`spacingApart`). */
+  /** Whether texts fitted with it keep their letters from running into each other (`spacedApart`). */
   lettersApart: boolean
 }
 

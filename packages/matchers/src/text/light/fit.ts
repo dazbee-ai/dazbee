@@ -7,7 +7,7 @@ import { type Placed, type TextDrawer, textLayerProps, type TextLook } from '../
 import { type Box, type Ink, inkBox } from '../ink.ts'
 import { findLines, type PieceReading } from '../read-piece.ts'
 import type { Candidate } from '../shortlist.ts'
-import { spacingApart } from './letters-apart.ts'
+import { spacedApart } from './letters-apart.ts'
 import { letterShape, overlap } from './rank.ts'
 
 /** A candidate face fitted to a piece and placed over its level ink. */
@@ -86,11 +86,16 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
   })
   let room = 0
   let gaps = 0
+  // The spaced lines' width in the piece, and drawn unspaced at a size of 1.
+  let pieceWidth = 0
+  let unitWidth = 0
   reading.lines.forEach((line, i) => {
     const places = lineGaps[i] ?? 0
     if (places <= 0) return
     room += line.w - ((baseLines[i]?.w ?? 0) * size) / BASE_SIZE
     gaps += places
+    pieceWidth += line.w
+    unitWidth += (baseLines[i]?.w ?? 0) / BASE_SIZE
   })
   const spacing = gaps > 0 ? clamp(((room / gaps) * 100) / size, SPACING_RANGE.min, SPACING_RANGE.max) : 0
   let lineHeight: number | undefined
@@ -110,19 +115,12 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
     ...(lineHeight ? { lineHeight } : {}),
     ...(reading.outline ? { outline: { width: reading.outline.width, color: FIT_COLOUR } } : {}),
   }
-  const look = { ...wanted, spacing: spacingApart(drawer, words, wanted) }
+  const look = spacedApart(drawer, words, wanted)
   const fitted = placeByInk(drawer, reading, words, face, look)
   if (!fitted) return null
   if (look.spacing <= spacing) return { ...fitted, lineGaps }
   // Spaced as tight as its letters allow, the face is too wide for the piece: it is also fitted as
   // wide as the piece, smaller, and whichever overlaps the piece better is kept.
-  let pieceWidth = 0
-  let unitWidth = 0
-  reading.lines.forEach((line, i) => {
-    if ((lineGaps[i] ?? 0) <= 0) return
-    pieceWidth += line.w
-    unitWidth += (baseLines[i]?.w ?? 0) / BASE_SIZE
-  })
   const narrowSize = pieceWidth / (unitWidth + (gaps * look.spacing) / 100)
   if (!(narrowSize < size) || !sizeFits(reading, count, narrowSize)) return { ...fitted, lineGaps }
   const narrowed: TextLook = {
@@ -133,10 +131,7 @@ export function fitFace(drawer: TextDrawer, reading: PieceReading, words: string
       ? { lineHeight: clamp((lineHeight * size) / narrowSize, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max) }
       : {}),
   }
-  const narrow = placeByInk(drawer, reading, words, face, {
-    ...narrowed,
-    spacing: spacingApart(drawer, words, narrowed),
-  })
+  const narrow = placeByInk(drawer, reading, words, face, spacedApart(drawer, words, narrowed))
   return { ...(narrow && narrow.overlap > fitted.overlap ? narrow : fitted), lineGaps }
 }
 
@@ -168,7 +163,8 @@ export function placeByInk(
     textLayerProps(words, look, { x: guess.x + pad, y: guess.y + pad, ...natural, rotation: 0 }),
   )
   const ink = alphaInk(drawn.pixels, width, height)
-  const inked = inkBox(ink)
+  // A draw too faint for any pixel to be half inked, as letters a pixel or two tall are, is placed by all its ink.
+  const inked = inkBox(ink) ?? inkBox(ink, 0)
   if (!inked) return null
   const dx = box.x + box.w / 2 - (inked.x - pad + inked.w / 2) + nudge.dx
   const dy = box.y + box.h / 2 - (inked.y - pad + inked.h / 2) + nudge.dy

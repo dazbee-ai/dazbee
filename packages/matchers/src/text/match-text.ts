@@ -209,7 +209,7 @@ function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 
 /**
  * The answer in one of the faces tried, its letters kept from running into each other; when that
  * doesn't look the same, the answer fitted as tight as the piece asks instead if that looks the same,
- * as it does where the picture's own letters run into each other.
+ * so a picture whose own letters run into each other keeps looking the same.
  */
 async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
   const faces = await facesOf(fitting.fonts, tried.candidates, tried.loaded, fitting.words)

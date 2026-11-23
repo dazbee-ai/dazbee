@@ -7,7 +7,7 @@ import type { MatchAnswer, MatchSetting } from '@dazbee/schema'
 import { textDrawer } from './draw-text.ts'
 import { fontKey } from './font-key.ts'
 import type { FontSource } from './font-source.ts'
-import { spacingApart } from './light/letters-apart.ts'
+import { spacedApart } from './light/letters-apart.ts'
 import { closeness } from './light/verify.ts'
 import { matchText, matchTextWithFace, TEXT_STEPS, type TextStep } from './match-text.ts'
 import { readPiece } from './read-piece.ts'
@@ -174,7 +174,7 @@ describe('matchText', () => {
     const bytes = shipped.get(fontKey(face)) ?? null
     const drawer = textDrawer(ck, [{ family: face.family, bytes: bytes ?? new Uint8Array() }])
     const look = { ...face, size: 60, spacing, align: 'start' as const, color: '#222222FF' as const }
-    const tightest = spacingApart(drawer, words, look)
+    const tightest = spacedApart(drawer, words, look).spacing
     drawer.delete()
     expect(tightest).toBeGreaterThan(spacing + SPACING_WITHIN)
     const deps = { ck, files, model, fonts: { face: async () => bytes } }

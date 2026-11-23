@@ -1,17 +1,24 @@
 'use client'
 
-import type { ImageFill } from '@dazbee/editor'
-import { type ImageAdjust, ImageFilter } from '@dazbee/schema'
+// An image fill's filters, and its adjustments with how much of it shows: a photo's in the Image
+// tab, and a text image fill's in the paint editor. Each change is one undo step.
+import type { Editor } from '@dazbee/editor'
+import { type ImageAdjust, ImageFilter, type ImagePaint } from '@dazbee/schema'
 
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
 import { clamp, NumberField } from '@/components/editor/edit-panel/number-field.tsx'
-import { type P, setImage, type Target } from '@/components/editor/edit-panel/target.ts'
+import type { P } from '@/components/editor/edit-panel/target.ts'
 import { TOUCH_GAP } from '@/components/ui/looks.ts'
 import { Radio, RadioGroup } from '@/components/ui/radio-group.tsx'
 import { cn } from '@/lib/cn.ts'
 import { tidy } from '@/lib/editor/size.ts'
+import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { assetThumbnail } from './paint-stack.tsx'
+/** What these parts change of an image fill. */
+type Look = Pick<ImagePaint, 'filter' | 'adjust' | 'opacity'>
+
+/** Writes a change to the image fill, made from each fill's own settings. */
+type ChangeLook = (change: (now: Look) => Partial<Look>) => void
 
 const ADJUSTMENTS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint'] as const
 
@@ -26,63 +33,70 @@ const FILTER_LOOK: Record<ImageFilter, string> = {
   cool: 'saturate(0.9) hue-rotate(18deg) brightness(1.04)',
 }
 
-/** The filters, each as the photo with it. */
-export function PhotoLookBody({
-  target,
+/** The filters, under their heading, each as the image's thumbnail `picture` with it. */
+export function ImageFilters({
+  picture,
   p,
-  workspaceId,
-  brandId,
-  index,
   paint,
+  onChange,
 }: {
-  target: Target
+  picture: string
   p: P
-  workspaceId: string
-  brandId: string
-  index: number
-  paint: ImageFill
+  paint: Look
+  onChange: ChangeLook
 }) {
-  const picture = assetThumbnail(workspaceId, brandId, paint.assetId)
+  const title = useMessages().editor.bar.filters
   const filter = paint.filter ?? 'none'
   return (
-    <RadioGroup
-      label={p.filter}
-      options={ImageFilter.options}
-      value={filter}
-      onPick={(name) => setImage(target, index, () => ({ filter: name === 'none' ? undefined : name }))}
-      className="grid grid-cols-4 gap-1.5"
-    >
-      {ImageFilter.options.map((name) => (
-        <Radio
-          key={name}
-          value={name}
-          className="group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-micro text-muted aria-checked:text-text"
-        >
-          <span className="block aspect-square w-full overflow-hidden rounded-[8px] border border-line group-aria-checked:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--accent)]">
-            <img
-              src={picture}
-              alt=""
-              draggable={false}
-              loading="lazy"
-              style={{ filter: FILTER_LOOK[name] }}
-              className="size-full object-cover"
-            />
-          </span>
-          <span className="w-full truncate text-center">{p.filters[name]}</span>
-        </Radio>
-      ))}
-    </RadioGroup>
+    <PanelPart id="look-card" title={title}>
+      <RadioGroup
+        label={p.filter}
+        options={ImageFilter.options}
+        value={filter}
+        onPick={(name) => onChange(() => ({ filter: name === 'none' ? undefined : name }))}
+        className="grid grid-cols-4 gap-1.5"
+      >
+        {ImageFilter.options.map((name) => (
+          <Radio
+            key={name}
+            value={name}
+            className="group flex min-w-0 cursor-pointer flex-col items-center gap-1 text-micro text-muted aria-checked:text-text"
+          >
+            <span className="block aspect-square w-full overflow-hidden rounded-[8px] border border-line group-aria-checked:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--accent)]">
+              <img
+                src={picture}
+                alt=""
+                draggable={false}
+                loading="lazy"
+                style={{ filter: FILTER_LOOK[name] }}
+                className="size-full object-cover"
+              />
+            </span>
+            <span className="w-full truncate text-center">{p.filters[name]}</span>
+          </Radio>
+        ))}
+      </RadioGroup>
+    </PanelPart>
   )
 }
 
 /**
- * The photo's adjustments as slider fields, one to a row, each filling from 0 either way: its light,
+ * The image's adjustments as slider fields, one to a row, each filling from 0 either way: its light,
  * contrast, saturation, warmth and tint; then how much of the image shows.
  */
-export function AdjustCard({ target, p, index, paint }: { target: Target; p: P; index: number; paint: ImageFill }) {
-  const setPaint = (change: (now: ImageFill) => Partial<ImageFill>) => setImage(target, index, change)
+export function ImageAdjustments({
+  editor,
+  p,
+  paint,
+  onChange,
+}: {
+  editor: Editor
+  p: P
+  paint: Look
+  onChange: ChangeLook
+}) {
   const setAdjust = (key: keyof ImageAdjust, to: (n: number) => number) =>
-    setPaint((now) => {
+    onChange((now) => {
       const adjust = { exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, ...now.adjust }
       return { adjust: { ...adjust, [key]: Math.round(clamp(to(adjust[key]), -100, 100)) } }
     })
@@ -97,7 +111,7 @@ export function AdjustCard({ target, p, index, paint }: { target: Target; p: P; 
             value={paint.adjust?.[key] ?? 0}
             min={-100}
             max={100}
-            editor={target.editor}
+            editor={editor}
             onSet={(v) => setAdjust(key, () => v)}
             onEach={(change) => setAdjust(key, change)}
           />
@@ -110,9 +124,9 @@ export function AdjustCard({ target, p, index, paint }: { target: Target; p: P; 
           scale={100}
           min={0}
           max={1}
-          editor={target.editor}
-          onSet={(v) => setPaint(() => ({ opacity: tidy(v) }))}
-          onEach={(change) => setPaint((now) => ({ opacity: tidy(clamp(change(now.opacity), 0, 1)) }))}
+          editor={editor}
+          onSet={(v) => onChange(() => ({ opacity: tidy(v) }))}
+          onEach={(change) => onChange((now) => ({ opacity: tidy(clamp(change(now.opacity), 0, 1)) }))}
         />
       </div>
     </PanelPart>

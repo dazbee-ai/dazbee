@@ -6,15 +6,15 @@
 // Crop's section says why, once for the tab.
 import type { ReactNode } from 'react'
 
-import { withImage } from '@dazbee/editor'
+import { type ImageFill, withImage } from '@dazbee/editor'
 import { type Design, type Paint } from '@dazbee/schema'
 
 import { FillsCard } from '@/components/editor/edit-panel/colour-panel.tsx'
-import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
 import type { SectionProps } from '@/components/editor/edit-panel/tabs/tabs.ts'
-import { factsOf, imageFillOf, set, type Target } from '@/components/editor/edit-panel/target.ts'
+import { factsOf, imageFillOf, set, setImage, type Target } from '@/components/editor/edit-panel/target.ts'
 import { ImagePickerButton } from '@/components/editor/image-picker.tsx'
-import { AdjustCard, PhotoLookBody } from '@/components/editor/paint/image-adjustments.tsx'
+import { ImageAdjustments, ImageFilters } from '@/components/editor/paint/image-adjustments.tsx'
+import { assetThumbnail } from '@/components/editor/paint/paint-stack.tsx'
 import { PANEL_ACTION, PANEL_PART } from '@/components/editor/styles.ts'
 import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
 import { GreyedButton } from '@/components/ui/greyed.tsx'
@@ -110,19 +110,16 @@ export function EditSection({ target, design, workspaceId, brandId }: SectionPro
   const p = t.editor.props
   const imageFill = imageFillOf(target)
   if (!imageFill) return null
+  const change = (to: (now: ImageFill) => Partial<ImageFill>) => setImage(target, imageFill.index, to)
   return (
     <Locked target={target} design={design}>
-      <PanelPart id="look-card" title={t.editor.bar.filters}>
-        <PhotoLookBody
-          target={target}
-          p={p}
-          workspaceId={workspaceId}
-          brandId={brandId}
-          index={imageFill.index}
-          paint={imageFill.paint}
-        />
-      </PanelPart>
-      <AdjustCard target={target} p={p} index={imageFill.index} paint={imageFill.paint} />
+      <ImageFilters
+        picture={assetThumbnail(workspaceId, brandId, imageFill.paint.assetId)}
+        p={p}
+        paint={imageFill.paint}
+        onChange={change}
+      />
+      <ImageAdjustments editor={target.editor} p={p} paint={imageFill.paint} onChange={change} />
       <FillsCard target={target} workspaceId={workspaceId} brandId={brandId} p={p} b={t.editor.bar} />
     </Locked>
   )

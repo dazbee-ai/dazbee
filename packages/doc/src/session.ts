@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import type { Design } from '@dazbee/schema'
 
-import { type CommandContext, CommandError } from './commands/define.ts'
+import { type CommandContext, CommandError, inputIssues } from './commands/define.ts'
 import { type CommandName, COMMANDS } from './commands/index.ts'
 import type { StepName } from './commands/step-names.ts'
 import { designView, type Unread } from './design-view.ts'
@@ -276,13 +276,8 @@ export function openSession(store: DesignStore, { newId = nanoid, readOnly = () 
     const command = COMMANDS[name]
     if (batched && !command.batchable) throw new CommandError(name, { kind: 'refused', reason: NOT_IN_A_BATCH })
     const parsed = command.input.safeParse(input)
-    if (!parsed.success) {
-      const issues = parsed.error.issues.map(({ path, message }) => ({
-        path: path.map((key) => (typeof key === 'number' ? key : String(key))),
-        message,
-      }))
-      throw new CommandError(name, { kind: 'input', issues })
-    }
+    if (!parsed.success)
+      throw new CommandError(name, { kind: 'input', issues: inputIssues(command.input, input, parsed.error) })
     const ctx: CommandContext = { w: store, design: batched?.design ?? view.read(), newId }
     const reason = command.check?.(ctx, parsed.data as never)
     if (reason) throw new CommandError(name, { kind: 'refused', reason })

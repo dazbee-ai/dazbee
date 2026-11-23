@@ -42,8 +42,8 @@ import { format, type Messages } from '@/lib/i18n/index.ts'
 
 import { EyedropperButton } from './eyedropper.tsx'
 import { PanelPart } from './fields.tsx'
-import { kindOf, type P, type PanelProps, set, shared, type Style, type Target, textStyle } from './target.ts'
-import { colourTexts, pickTextPaint, sharedTextPaint, textPaint } from './text-paint.ts'
+import { kindOf, type P, type PanelProps, set, shared, type Target } from './target.ts'
+import { colourTexts, firstTextPaint, pickTextPaint, shownTextPaint } from './text-paint.ts'
 
 export const NEW_FILL: Paint = { type: 'solid', color: '#D9D9D9FF' }
 
@@ -238,14 +238,11 @@ function TextColourPanel({
   p: P
   b: Messages['editor']['bar']
 }) {
-  const { styles } = textStyle(target)
-  // What the swatches mark: the texts' colour while every one shows it, or the image every one shows.
-  const shown = sharedTextPaint(styles)
+  // What the swatches mark: the colour every selected character shows, or the image.
+  const shown = shownTextPaint(target)
   const color = shown === 'mixed' ? shown : shown.type === 'solid' ? shown.color : undefined
   const image = shown !== 'mixed' && shown.type === 'image' ? shown : null
   const paint = (hex: string) => colourTexts(target, hex)
-  // The picker edits the first text's paint, or the selected range's first character's.
-  const firstStyle = target.range?.[0] ?? (target.props[0].style as Style)
   return (
     <ColourChoices
       editor={target.editor}
@@ -260,7 +257,7 @@ function TextColourPanel({
       onBrand={(token, hex) => (target.range ? paint(hex) : target.editor.bindSelection('color', brandRef(token)))}
       picker={
         <PaintEditor
-          paint={textPaint(firstStyle)}
+          paint={firstTextPaint(target)}
           workspaceId={workspaceId}
           brandId={brandId}
           editor={target.editor}

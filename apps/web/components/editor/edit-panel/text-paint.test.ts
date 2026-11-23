@@ -1,6 +1,6 @@
-// A text's paint in its Colour panel: what it shows, what several texts share, and what a pick of an
-// image fill, a gradient or a colour writes, held against the editor, on whole texts and on the run
-// selected while typing, each pick one undo step.
+// A text's paint in its Colour panel: what its characters show, across its runs and several texts,
+// and what a pick of an image fill, a gradient or a colour writes, held against the editor, on whole
+// texts with their painted runs and on the run selected while typing, each pick one undo step.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Editor } from '@dazbee/editor'
@@ -9,7 +9,7 @@ import { frameDesign } from '@dazbee/editor/test-matrix'
 import type { ImagePaint, Paint } from '@dazbee/schema'
 
 import type { Style, Target } from './target.ts'
-import { colourTexts, paintedStyle, pickTextPaint, sharedTextPaint, textPaint } from './text-paint.ts'
+import { colourTexts, firstTextPaint, pickTextPaint, shownTextPaint, textPaint } from './text-paint.ts'
 
 /** A photo one pixel square, as a PNG. */
 const PIXEL = Uint8Array.from(
@@ -38,7 +38,17 @@ const LINEAR: Paint = {
 const RED: Paint = { type: 'solid', color: '#FF0000FF' }
 /** Every adjustment at none. */
 const ADJUST = { exposure: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0 }
-/** Two plain texts, one already filled with the photo. */
+const INK = '#1A1420FF'
+/** FRESH in its own colour and BREW tiled, their runs covering a base style filled with the photo. */
+const WORDS = {
+  text: 'FRESH BREW',
+  style: { ...STYLE, image: PHOTO },
+  runs: [
+    { start: 0, end: 6, style: { color: INK } },
+    { start: 6, end: 10, style: { image: TILED } },
+  ],
+}
+/** Two plain texts, one already filled with the photo, and WORDS. */
 const DESIGN = frameDesign({
   name: 'Paints',
   nodes: {
@@ -70,6 +80,13 @@ const DESIGN = frameDesign({
         boxMode: 'fixed',
         style: { ...STYLE, image: PHOTO },
       },
+    },
+    words: {
+      type: 'text',
+      parentId: 'sq',
+      index: 'a3',
+      name: 'Words',
+      props: { x: 100, y: 700, width: 400, height: 60, boxMode: 'fixed', ...WORDS },
     },
   },
 })
@@ -104,12 +121,36 @@ describe('textPaint', () => {
   })
 })
 
-describe('sharedTextPaint', () => {
-  it('reads the image fill every text shows, and mixed where one shows a colour or another image', () => {
-    const filled = { ...STYLE, image: PHOTO } as Style
-    expect(sharedTextPaint([filled, filled])).toEqual(PHOTO)
-    expect(sharedTextPaint([filled, STYLE as Style])).toBe('mixed')
-    expect(sharedTextPaint([filled, { ...STYLE, image: TILED } as Style])).toBe('mixed')
+describe('shownTextPaint', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(DESIGN, { sources: { assetBytes: () => Promise.resolve(PIXEL) } })
+  })
+  afterAll(() => ed.end())
+
+  it('reads the image fill every selected text shows, and mixed where one shows a colour', () => {
+    expect(shownTextPaint(targetOf(ed, ['filled']))).toEqual(PHOTO)
+    expect(shownTextPaint(targetOf(ed, ['filled', 'plain']))).toBe('mixed')
+  })
+
+  it('reads every character of a text: its runs’ paints, and not a base paint its runs cover', () => {
+    expect(shownTextPaint(targetOf(ed, ['words']))).toBe('mixed')
+    const tiled = { ...WORDS.runs[1], start: 0 }
+    expect(shownTextPaint({ ...targetOf(ed, ['words']), props: [{ ...WORDS, runs: [tiled] }] })).toEqual(TILED)
+  })
+
+  it('reads the selected run’s paint while typing', () => {
+    ed.core.select(['words'])
+    ed.core.perform('goIn')
+    ed.modules.typing.selectText({ start: 7, end: 9 })
+    expect(shownTextPaint(targetOf(ed, ['words']))).toEqual(TILED)
+  })
+})
+
+describe('firstTextPaint', () => {
+  it('gives the picker the first paint a text’s characters show', () => {
+    const target = { range: undefined, props: [WORDS] } as unknown as Target
+    expect(firstTextPaint(target)).toEqual({ type: 'solid', color: INK })
   })
 })
 
@@ -126,6 +167,14 @@ describe('colourTexts', () => {
     expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, color: '#00FF00FF' })
     ed.core.session.undo()
     expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, image: PHOTO })
+  })
+
+  it('colours every character of a text, its painted runs too, taking their image fills off', () => {
+    ed.core.select(['words'])
+    expect(colourTexts(targetOf(ed, ['words']), '#FF0000')).toBe(true)
+    expect(shownTextPaint(targetOf(ed, ['words']))).toEqual(RED)
+    ed.core.session.undo()
+    expect(shownTextPaint(targetOf(ed, ['words']))).toBe('mixed')
   })
 
   it('takes the image fill off only the run selected while typing', () => {
@@ -169,6 +218,17 @@ describe('pickTextPaint', () => {
     expect(styleOf(ed, 'filled')).toEqual({ ...STYLE, image: PHOTO })
   })
 
+  it('fills every character of a text with an image picked, its painted runs too', () => {
+    ed.core.select(['words'])
+    expect(pickTextPaint(targetOf(ed, ['words']), () => LINEAR)).toBe(true)
+    expect(shownTextPaint(targetOf(ed, ['words']))).toEqual(LINEAR)
+    expect(pickTextPaint(targetOf(ed, ['words']), () => PHOTO)).toBe(true)
+    expect(shownTextPaint(targetOf(ed, ['words']))).toEqual(PHOTO)
+    ed.core.session.undo()
+    ed.core.session.undo()
+    expect(ed.core.drawnPropsOf('words').runs).toEqual(WORDS.runs)
+  })
+
   it('brings back the colour kept under an image fill when the picker switches it to Solid', () => {
     ed.core.select(['filled'])
     // The picker's Solid turns an image into its grey; the text takes its own colour instead.
@@ -210,7 +270,7 @@ describe('pickTextPaint', () => {
     const filled = ed.core.drawnPropsOf('plain')
     expect(filled.style).toEqual(STYLE)
     expect(filled.runs).toEqual([{ start: 1, end: 3, style: { image: PHOTO } }])
-    expect(sharedTextPaint(targetOf(ed, ['plain']).range ?? [])).toEqual(PHOTO)
+    expect(shownTextPaint(targetOf(ed, ['plain']))).toEqual(PHOTO)
 
     expect(pickTextPaint(targetOf(ed, ['plain']), () => LINEAR)).toBe(true)
     expect(ed.core.drawnPropsOf('plain').runs).toEqual([{ start: 1, end: 3, style: { gradient: LINEAR } }])
@@ -218,13 +278,5 @@ describe('pickTextPaint', () => {
     ed.core.session.undo()
     ed.core.session.undo()
     expect(ed.core.drawnPropsOf('plain').runs).toEqual([])
-  })
-})
-
-describe('paintedStyle', () => {
-  it('takes the gradient off for an image fill, and the image fill off for a gradient', () => {
-    const graded = { ...STYLE, gradient: LINEAR } as Style
-    expect(paintedStyle(graded, LINEAR, PHOTO)).toEqual({ ...STYLE, image: PHOTO })
-    expect(paintedStyle({ ...STYLE, image: PHOTO } as Style, PHOTO, LINEAR)).toEqual({ ...STYLE, gradient: LINEAR })
   })
 })

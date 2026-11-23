@@ -14,8 +14,9 @@
 // Prints each piece's decision, face and numbers under a neutral id, then how many are text and how
 // many look the same, not approximate (on the held-out and all ads, for the ads), how many have the
 // drawn family and exact face (for a set), and the median time a piece and an ad. For the effect set,
-// per effect: how many answer a text with the effect, with its shape, and look the same, how far the
-// fitted amount is from the drawn one, and the median time a piece.
+// per effect (`none` for the plain twins): how many answer a text with the effect, with its shape, and
+// look the same, how far the fitted amount is from the drawn one, and the median time a piece; then
+// how many plain twins answer a curve, and an effect piece's median time against a plain twin's.
 
 import { spawn } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -195,9 +196,11 @@ function googleFontSource(checkoutDir: string): FontSource {
 }
 
 /**
- * Per curve shape drawn: how many pieces answer a curved text, with the shape drawn, and look the
- * same; the median distance of the fitted amount from the drawn one where the shape is right; and
- * the median time a piece.
+ * Per curve shape drawn, the plain twins as `none`: how many pieces answer a curved text, with the
+ * shape drawn, and look the same; the median distance of the fitted amount from the drawn one where
+ * the shape is right; and the median time a piece. Then how many effect pieces answer curved and look
+ * the same, how many plain twins answer a curve, and the effect pieces' median time against the plain
+ * twins'.
  */
 function printEffects(list: readonly MeasuredPiece[], measured: Readonly<Record<string, Measured>>) {
   const shapes = [...new Set(list.map((p) => p.truth?.curve?.shape ?? 'none'))]

@@ -9,7 +9,7 @@
 // A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
 // looks the same is given, else the closer. A piece whose letters the curve check reads as running
 // along a curve, and whose straight answer doesn't look the same, is matched again straightened along
-// it, the face found drawn curved (`effects/curve.ts`); the curved answer is given when it looks the
+// it (`effects/curve-frame.ts`), the face found drawn curved (`effects/curve.ts`); the curved answer is given when it looks the
 // same, or is the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
@@ -22,7 +22,8 @@ import { textAnswer } from './answer.ts'
 import { pickFit } from './brand-first.ts'
 import { isStrongCurve } from './curve-check.ts'
 import { type Placed, textDrawer, type TextLook } from './draw-text.ts'
-import { curvedAnswers, type CurveFitting, curveFrame } from './effects/curve.ts'
+import { curvedAnswers, type CurveFitting } from './effects/curve.ts'
+import { curveFrame } from './effects/curve-frame.ts'
 import { finerFit } from './finer-fit.ts'
 import { pieceFingerprint } from './fingerprint.ts'
 import { type FontKey } from './font-key.ts'

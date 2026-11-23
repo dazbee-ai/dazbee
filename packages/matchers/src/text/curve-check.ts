@@ -8,23 +8,19 @@
 // round but for a gap, with the middle of the circle clear of ink.
 
 import {
-  bandDistance,
-  type Bands,
   bestSine,
   circleDistance,
-  fitBands,
   fitCircle,
   fitLine,
   lineDistance,
-  lineRings,
   type Point,
   type Sine,
   sineSlope,
   trimmedFit,
   trimmedRms,
-  waveBands,
 } from './curve-fits.ts'
 import { type Box, type Ink, median } from './ink.ts'
+import { bandDistance, type Bands, fitBands, lineRings, waveBands } from './line-fits.ts'
 
 /** The shape of curve a piece reads as. */
 export type CurveKind = 'arc' | 'wave' | 'circle'
@@ -58,6 +54,13 @@ export interface CurveCheck {
   gain: number
 }
 
+/** How closely letters follow straight lines, an arc and a wave, each a root mean square distance, the wave's with its sine. */
+interface LineFits {
+  line: number
+  arc: number | null
+  wave: { rms: number; sine: Sine } | null
+}
+
 /** Ink over this is part of a blob. */
 const BLOB_INK = 0.5
 
@@ -86,6 +89,7 @@ const MIN_GAIN = 0.1
 const MIN_GAIN_PIXELS = 3
 
 const MAX_SHARE = 0.6
+
 /** A curve this many letter heights closer than straight lines is far enough off straight to be tried first. */
 const STRONG_GAIN = 0.3
 
@@ -133,7 +137,7 @@ export function curveCheck(level: Ink, lines: readonly Box[], letters: number): 
       return { ...straight, fired: 'circle', gain: (round.line - round.arc) / letterHeight }
   }
   const points = lines.length > 1 || !top ? centres : centres.filter(([, y]) => y >= top.y && y < top.y + top.h)
-  if (points.length < MIN_LETTERS * Math.max(1, lines.length)) return straight
+  if (points.length < MIN_LETTERS * count) return straight
   const fits = lines.length > 1 ? linesFits(points, lines.length, letterHeight) : lineFits(points, letterHeight)
   if (!fits) return straight
   // A sine that doesn't turn both ways along the letters is an arc's bend, not a wave.
@@ -162,14 +166,16 @@ export function isStrongCurve(check: CurveCheck): boolean {
  */
 export function letterBlobs(
   ink: Ink,
-  down: (x: number, y: number) => number = (_, y) => y,
-  labels?: Int32Array,
-  inkFrom = BLOB_INK,
+  {
+    down = (_, y) => y,
+    labels,
+    inkFrom = BLOB_INK,
+  }: { down?: (x: number, y: number) => number; labels?: Int32Array; inkFrom?: number } = {},
 ): LetterBlob[] {
   const { width, height, data } = ink
   const seen = new Uint8Array(width * height)
   // Each pixel's blob as found, specks included, when the letters' pixels are to be marked.
-  const found_at = labels ? new Int32Array(width * height).fill(-1) : null
+  const foundAt = labels ? new Int32Array(width * height).fill(-1) : null
   const found: LetterBlob[] = []
   const stack: number[] = []
   for (let start = 0; start < data.length; start++) {
@@ -188,7 +194,7 @@ export function letterBlobs(
       const x = i % width
       const y = (i - x) / width
       mass++
-      if (found_at) found_at[i] = found.length
+      if (foundAt) foundAt[i] = found.length
       sx += x
       sy += y
       top = Math.min(top, y)
@@ -210,46 +216,11 @@ export function letterBlobs(
   const masses = found.map((b) => b.mass).sort((a, b) => a - b)
   const least = Math.max(MIN_BLOB, SPECK_SHARE * (masses[Math.floor(masses.length * BIG_SHARE)] ?? 0))
   const kept = found.filter((b) => b.mass >= least)
-  if (labels && found_at) {
+  if (labels && foundAt) {
     const index = new Map(kept.map((b, i) => [found.indexOf(b), i]))
-    for (let i = 0; i < found_at.length; i++) labels[i] = index.get(found_at[i] ?? -1) ?? -1
+    for (let i = 0; i < foundAt.length; i++) labels[i] = index.get(foundAt[i] ?? -1) ?? -1
   }
   return kept
-}
-
-/**
- * How closely the centres of one line's letters follow a straight line, an arc and a sine, each a
- * root mean square distance over the centres a trimmed fit keeps, the sine's with itself; null when
- * no line can be fitted.
- */
-function lineFits(
-  points: readonly Point[],
-  letterHeight: number,
-): { line: number; arc: number | null; wave: { rms: number; sine: Sine } | null } | null {
-  const line = trimmedFit(points, fitLine, lineDistance)
-  if (!line) return null
-  const arc = trimmedFit(points, fitCircle, circleDistance)
-  const sine = bestSine(points, letterHeight)
-  return { line: line.rms, arc: arc?.rms ?? null, wave: sine && { rms: sine.rms, sine: sine.model } }
-}
-
-/**
- * How closely the centres of several lines' letters follow straight lines, arcs about one centre, and
- * one wave moved down a line at a time, each fitted to all of them at once: each a root mean square
- * distance, a descender's left out, the wave's with its top line's sine; null when there are too few.
- */
-function linesFits(
-  points: readonly Point[],
-  count: number,
-  letterHeight: number,
-): { line: number; arc: number | null; wave: { rms: number; sine: Sine } | null } | null {
-  const straight = fitBands(points, count, (x) => [x])
-  if (!straight) return null
-  const off = (bands: Bands, shape: (x: number) => number[]) =>
-    trimmedRms(points.map((p, i) => bandDistance(bands, shape, p, bands.lines[i] ?? 0)))
-  const arc = lineRings(points, count)?.rms ?? null
-  const wave = waveBands(points, count, letterHeight)
-  return { line: off(straight, (x) => [x]), arc, wave: wave && { rms: wave.rms, sine: wave.sine } }
 }
 
 /**
@@ -286,6 +257,34 @@ function reach(blobs: readonly LetterBlob[], cx: number, cy: number): number {
     gap = Math.max(gap, next - (angles[i] ?? 0))
   }
   return ((2 * Math.PI - gap) * 180) / Math.PI
+}
+
+/**
+ * How closely the centres of several lines' letters follow straight lines, arcs about one centre, and
+ * one wave moved down a line at a time, each fitted to all of them at once: each a root mean square
+ * distance, a descender's left out, the wave's with its top line's sine; null when there are too few.
+ */
+function linesFits(points: readonly Point[], count: number, letterHeight: number): LineFits | null {
+  const straight = fitBands(points, count, (x) => [x])
+  if (!straight) return null
+  const off = (bands: Bands, shape: (x: number) => number[]) =>
+    trimmedRms(points.map((p, i) => bandDistance(bands, shape, p, bands.lines[i] ?? 0)))
+  const arc = lineRings(points, count)?.rms ?? null
+  const wave = waveBands(points, count, letterHeight)
+  return { line: off(straight, (x) => [x]), arc, wave: wave && { rms: wave.rms, sine: wave.sine } }
+}
+
+/**
+ * How closely the centres of one line's letters follow a straight line, an arc and a sine, each a
+ * root mean square distance over the centres a trimmed fit keeps, the sine's with itself; null when
+ * no line can be fitted.
+ */
+function lineFits(points: readonly Point[], letterHeight: number): LineFits | null {
+  const line = trimmedFit(points, fitLine, lineDistance)
+  if (!line) return null
+  const arc = trimmedFit(points, fitCircle, circleDistance)
+  const sine = bestSine(points, letterHeight)
+  return { line: line.rms, arc: arc?.rms ?? null, wave: sine && { rms: sine.rms, sine: sine.model } }
 }
 
 /** How many times a sine turns between up and down from the first point across to the last. */

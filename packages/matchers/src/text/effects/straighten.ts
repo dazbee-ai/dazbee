@@ -18,7 +18,7 @@ export interface StraightenedLetter {
 }
 
 /** The curve a piece is straightened along, each line's own as `straightened` reads it. */
-export interface StraightenedCurve {
+interface StraightenedCurve {
   circle?: Circle | undefined
   radii?: readonly number[] | undefined
   sine?: Sine | undefined

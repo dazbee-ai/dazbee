@@ -8,7 +8,6 @@ import { type ReactNode } from 'react'
 
 import { Segments } from '@/components/editor/edit-panel/fields.tsx'
 import { set, shared, type Target, textStyle } from '@/components/editor/edit-panel/target.ts'
-import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
 import {
   ListBulletsIcon,
   ListNumbersIcon,
@@ -21,6 +20,7 @@ import {
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
+import { NotForCurved } from './curve-bounce.tsx'
 import { anyCurved } from './curves.ts'
 import { TextDirectionIcon, VerticalPlaceIcon } from './paragraph-icons.tsx'
 
@@ -90,7 +90,7 @@ export function ParagraphRows({ target }: { target: Target }) {
         />
       </Pair>
       <Pair>
-        <ViewOnlyFieldset off={curved}>
+        <NotForCurved curved={curved}>
           <Segments
             name={p.list}
             testId="text-list"
@@ -100,7 +100,7 @@ export function ParagraphRows({ target }: { target: Target }) {
             marks={LIST_MARKS}
             onSet={(list) => set(target, () => ({ list: list === 'none' ? undefined : list }))}
           />
-        </ViewOnlyFieldset>
+        </NotForCurved>
         <Segments
           name={rows.direction}
           testId="text-direction"
@@ -120,7 +120,7 @@ export function ParagraphRows({ target }: { target: Target }) {
         marks={CASE_MARKS}
         onSet={(v) => setStyle('textCase', v)}
       />
-      <ViewOnlyFieldset off={curved}>
+      <NotForCurved curved={curved}>
         <Segments
           name={p.wrapStyle}
           testId="text-wrap"
@@ -130,7 +130,7 @@ export function ParagraphRows({ target }: { target: Target }) {
           marks={p.wrapStyles}
           onSet={(wrapStyle) => set(target, () => ({ wrapStyle }))}
         />
-      </ViewOnlyFieldset>
+      </NotForCurved>
       {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.paragraph}</p>}
     </div>
   )

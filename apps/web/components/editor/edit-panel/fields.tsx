@@ -158,7 +158,7 @@ export function SwitchRow({
 
 /**
  * A row of choices of which one is on; `marks` shows a short mark in place of a choice's name, and
- * `icons` an icon over it, on a taller choice. The choices in `offChoices` are turned off. It is named by
+ * `icons` an icon over it, on a taller choice. The choices in `offChoices` are turned off and dimmed. It is named by
  * `name`, or by the visible label whose id is `labelledBy`.
  */
 export function Segments<T extends string>({
@@ -213,7 +213,7 @@ export function Segments<T extends string>({
           title={marks ? labels[option] : undefined}
           data-value={option}
           disabled={offChoices?.includes(option)}
-          className={look}
+          className={cn(look, offChoices?.includes(option) && 'opacity-55')}
         >
           {face(option)}
         </Radio>

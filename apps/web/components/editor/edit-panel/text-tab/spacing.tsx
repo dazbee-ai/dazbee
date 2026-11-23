@@ -20,7 +20,6 @@ import {
   textStyle,
 } from '@/components/editor/edit-panel/target.ts'
 import { KNOBS, TILE, TILE_FACE_WIDE } from '@/components/editor/styles.ts'
-import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
 import { TOUCH_GAP } from '@/components/ui/looks.ts'
 import { Radio, RadioGroup } from '@/components/ui/radio-group.tsx'
 import { cn } from '@/lib/cn.ts'
@@ -29,6 +28,7 @@ import { LIMITS } from '@/lib/editor/limits.ts'
 import { tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
+import { NotForCurved } from './curve-bounce.tsx'
 import { anyCurved } from './curves.ts'
 
 /** A text's box modes, in the order their tiles show. */
@@ -154,7 +154,7 @@ function TextBoxCard({ target, p }: { target: Target; p: P }) {
   const curved = anyCurved(target.props)
   return (
     <PanelPart id="text-box-card" title={p.textBox}>
-      <ViewOnlyFieldset off={curved}>
+      <NotForCurved curved={curved}>
         <RadioGroup
           label={p.boxMode}
           options={BOX_MODES}
@@ -171,7 +171,7 @@ function TextBoxCard({ target, p }: { target: Target; p: P }) {
             </Radio>
           ))}
         </RadioGroup>
-      </ViewOnlyFieldset>
+      </NotForCurved>
       {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.box}</p>}
     </PanelPart>
   )
@@ -218,7 +218,7 @@ function TextFitCard({ target, p }: { target: Target; p: P }) {
   const curved = anyCurved(target.props)
   return (
     <PanelPart id="text-fit-card" title={p.textFit}>
-      <ViewOnlyFieldset off={curved}>
+      <NotForCurved curved={curved}>
         <SwitchRow
           name={p.shrinkToFit}
           on={shrink === 'mixed' ? 'mixed' : shrink !== undefined}
@@ -287,7 +287,7 @@ function TextFitCard({ target, p }: { target: Target; p: P }) {
             })
           }
         />
-      </ViewOnlyFieldset>
+      </NotForCurved>
       {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.fit}</p>}
     </PanelPart>
   )

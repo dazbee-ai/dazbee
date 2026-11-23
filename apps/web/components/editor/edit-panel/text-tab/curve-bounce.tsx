@@ -2,12 +2,15 @@
 
 // The Text switcher tab's Curve and bounce part: the curve's shape as a row of pictures, none
 // taking it off, and while every selected text is curved, its amount. Each pick is one undo step,
-// and so is a drag on the amount.
+// and so is a drag on the amount. Also how the other parts show the settings that don't apply to
+// curved text.
 import type { ReactNode } from 'react'
 
 import { Segments } from '@/components/editor/edit-panel/fields.tsx'
 import { NumberField } from '@/components/editor/edit-panel/number-field.tsx'
 import { set, type Target } from '@/components/editor/edit-panel/target.ts'
+import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
+import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
 import { amountMost, CURVE_CHOICES, curveAmountPatch, type CurveChoice, pickCurve, sharedCurve } from './curves.ts'
@@ -56,6 +59,15 @@ export function CurveRows({ target }: { target: Target }) {
           onEach={(change) => set(target, (now) => curveAmountPatch(now, change))}
         />
       )}
+    </div>
+  )
+}
+
+/** Settings that don't apply to curved text, as the Paragraph and Spacing parts show them: turned off and dimmed while `curved`. */
+export function NotForCurved({ curved, children }: { curved: boolean; children: ReactNode }) {
+  return (
+    <div className={cn('min-w-0', curved && 'opacity-55')}>
+      <ViewOnlyFieldset off={curved}>{children}</ViewOnlyFieldset>
     </div>
   )
 }

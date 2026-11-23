@@ -118,7 +118,7 @@ export function layersAt(layers: SceneLayer[], p: Point, looks: Looks, options: 
  * Where a text shows: the boxes of its laid-out lines and list markers, in its own coordinates from
  * its box's corner, its vertical alignment applied. A line with no words has no box. A text whose
  * letters are placed shows on each letter's turned box in place of its lines. A text with 3D sides
- * shows on all its boxes pass over carried back to their depth too.
+ * also shows wherever its boxes pass over as they are carried back to the sides' depth.
  */
 export function lineBoxes(laid: TextLayout): TurnedRect[] {
   const boxes: TurnedRect[] = laid.placed ? letterBoxes(laid.placed) : []
@@ -137,7 +137,7 @@ export function lineBoxes(laid: TextLayout): TurnedRect[] {
         boxes.push({ x: b.x + line.left, y: y + line.baseline - line.ascent, width: line.width, height: line.height })
     }
   }
-  const sweep = laid.extrusion
+  const sweep = laid.sidesReach
   return sweep ? boxes.map((box) => ({ ...box, sweep })) : boxes
 }
 
@@ -607,7 +607,8 @@ function shapeUnder(
  */
 function onLines(looks: Looks, layer: TextLayer, q: Point) {
   const { props } = layer
-  if (!props.curve && !movesLetters(props) && !props.extrusion && !inBox(q, props)) return false
+  if (!props.curve && !movesLetters(props) && !(props.extrusion && props.extrusion.depth > 0) && !inBox(q, props))
+    return false
   const lines = looks.lines(props)
   if (lines.length === 0) return inBox(q, props)
   const own = flippedPoint(q, props)

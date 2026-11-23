@@ -7,17 +7,11 @@
 // where the sweep reaches). Overlapping curves add up, and no curve runs back over another, so the
 // path draws with no seams.
 import type { Canvas, CanvasKit, Path } from '@dazbee/canvaskit'
-import type { TextExtrusion, TextProps } from '@dazbee/schema'
+import type { Point, TextExtrusion, TextProps } from '@dazbee/schema'
 
 import { EVERYWHERE } from '../draw/paths.ts'
 import type { TextLayout } from './layout.ts'
 import { shiftPlaced } from './placed.ts'
-
-/** How far a text's sides reach behind its letters, in pixels across and down. */
-export interface SidesReach {
-  x: number
-  y: number
-}
 
 /** A piece of an outline: a line, or a quad, conic or cubic Bézier, as its points from its start to its end. */
 interface Piece {
@@ -44,7 +38,7 @@ const ACROSS_SLACK = 1e-3
  * a percentage of that size, along its angle, clockwise from the right, to thousandths of a pixel;
  * null without an extrusion or with no depth.
  */
-export function extrusionReach(extrusion: TextExtrusion | undefined, fontSize: number): SidesReach | null {
+export function extrusionReach(extrusion: TextExtrusion | undefined, fontSize: number): Point | null {
   if (!extrusion || extrusion.depth <= 0) return null
   const depth = (extrusion.depth / 100) * fontSize
   const angle = (extrusion.angle * Math.PI) / 180
@@ -79,7 +73,7 @@ export function shadedColour(hex: string): string {
  * so sides reaching left or up move the text inside it by their reach. A box that grows is whole
  * pixels, as a curved text's is.
  */
-export function holdSides(layout: TextLayout, props: TextProps, reach: SidesReach): void {
+export function holdSides(layout: TextLayout, props: TextProps, reach: Point): void {
   if (props.boxMode === 'fixed' && !props.curve) return
   const across = props.boxMode === 'autoWidth' || props.curve !== undefined
   const left = across ? Math.max(0, -reach.x) : 0
@@ -93,25 +87,30 @@ export function holdSides(layout: TextLayout, props: TextProps, reach: SidesReac
  * A laid-out text's sides `reach` behind its letters, in the layer's box: from each run of its
  * letters, each in one font, where they are drawn, and each list marker. The caller deletes it.
  */
-export function textSides(ck: CanvasKit, layout: TextLayout, reach: SidesReach): Path {
+export function textSides(ck: CanvasKit, layout: TextLayout, reach: Point): Path {
   const outlines: Path[] = []
   const paint = new ck.Paint()
-  for (const run of layout.letters().runs) {
-    const blob = ck.TextBlob.MakeFromRSXformGlyphs(run.glyphs, run.xforms, run.font)
-    outlines.push(glyphOutlines(ck, (canvas) => canvas.drawTextBlob(blob, 0, 0, paint)))
-    blob.delete()
-  }
-  for (const block of layout.blocks) {
-    const { marker } = block
-    if (marker)
-      outlines.push(
-        glyphOutlines(ck, (canvas) => canvas.drawParagraph(marker, block.markerX, layout.dy + block.y + block.markerY)),
-      )
-  }
-  paint.delete()
   try {
+    for (const run of layout.letters().runs) {
+      const blob = ck.TextBlob.MakeFromRSXformGlyphs(run.glyphs, run.xforms, run.font)
+      try {
+        outlines.push(glyphOutlines(ck, (canvas) => canvas.drawTextBlob(blob, 0, 0, paint)))
+      } finally {
+        blob.delete()
+      }
+    }
+    for (const block of layout.blocks) {
+      const { marker } = block
+      if (marker)
+        outlines.push(
+          glyphOutlines(ck, (canvas) =>
+            canvas.drawParagraph(marker, block.markerX, layout.dy + block.y + block.markerY),
+          ),
+        )
+    }
     return sweptOutlines(ck, outlines, reach)
   } finally {
+    paint.delete()
     for (const outline of outlines) outline.delete()
   }
 }
@@ -122,7 +121,7 @@ export function textSides(ck: CanvasKit, layout: TextLayout, reach: SidesReach):
  * the other for a counter. Each font's contours are turned, where they run the other way, so its
  * letters wind positive; then each contour is swept (`addSwept`). The caller deletes it.
  */
-export function sweptOutlines(ck: CanvasKit, outlines: readonly Path[], reach: SidesReach): Path {
+export function sweptOutlines(ck: CanvasKit, outlines: readonly Path[], reach: Point): Path {
   const cmds: number[] = []
   for (const outline of outlines) {
     const read = contoursOf(ck, outline.toCmds())
@@ -239,30 +238,35 @@ function reversedPoints(points: readonly number[]): number[] {
  * closed curve: each part the sides leave the letter from, where a point carried along `reach` goes
  * into it (where its place across the sides' way goes down), where it is; every other part carried
  * by `reach`; and a line along `reach` where one turns into the other. A part that goes no way
- * across, within `ACROSS_SLACK`, stays with the part before it.
+ * across, within `ACROSS_SLACK`, stays with the part before it, the contour's first parts with its
+ * last part that goes across.
  */
-function addSwept(ck: CanvasKit, cmds: number[], contour: readonly Piece[], reach: SidesReach) {
+function addSwept(ck: CanvasKit, cmds: number[], contour: readonly Piece[], reach: Point) {
   const across = (x: number, y: number) => -reach.y * x + reach.x * y
   const slack = ACROSS_SLACK * Math.hypot(reach.x, reach.y)
   const still = { x: 0, y: 0 }
-  let at: SidesReach | null = null
-  let start: { x: number; y: number; at: SidesReach } | null = null
-  for (const piece of contour)
-    for (const part of monotone(ck, piece, across)) {
-      const { points } = part
-      const [x, y] = [points[0] ?? 0, points[1] ?? 0]
-      const from = across(x, y)
-      const to = across(points.at(-2) ?? 0, points.at(-1) ?? 0)
-      const by: SidesReach = to < from - slack ? still : to > from + slack ? reach : (at ?? reach)
-      if (!start) {
-        start = { x, y, at: by }
-        cmds.push(ck.MOVE_VERB, x + by.x, y + by.y)
-      } else if (by !== at) cmds.push(ck.LINE_VERB, x + by.x, y + by.y)
-      addPiece(ck, cmds, part, points, by)
-      at = by
-    }
-  if (!start) return
-  if (at !== start.at) cmds.push(ck.LINE_VERB, start.x + start.at.x, start.y + start.at.y)
+  const parts = contour.flatMap((piece) => monotone(ck, piece, across))
+  // Where each part is drawn: where it is, at the depth, or with the part before it (null).
+  const ways = parts.map(({ points }): Point | null => {
+    const from = across(points[0] ?? 0, points[1] ?? 0)
+    const to = across(points.at(-2) ?? 0, points.at(-1) ?? 0)
+    return to < from - slack ? still : to > from + slack ? reach : null
+  })
+  let at: Point = ways.findLast((way) => way !== null) ?? reach
+  const first = at
+  for (const [i, part] of parts.entries()) {
+    const { points } = part
+    const [x, y] = [points[0] ?? 0, points[1] ?? 0]
+    const by = ways[i] ?? at
+    if (i === 0) cmds.push(ck.MOVE_VERB, x + by.x, y + by.y)
+    else if (by !== at) cmds.push(ck.LINE_VERB, x + by.x, y + by.y)
+    addPiece(ck, cmds, part, points, by)
+    at = by
+  }
+  if (parts.length === 0) return
+  const [x0 = 0, y0 = 0] = parts[0]?.points ?? []
+  const start = ways[0] ?? first
+  if (at !== start) cmds.push(ck.LINE_VERB, x0 + start.x, y0 + start.y)
   cmds.push(ck.CLOSE_VERB)
 }
 
@@ -291,7 +295,7 @@ function monotone(ck: CanvasKit, piece: Piece, across: (x: number, y: number) =>
 }
 
 /** Adds a piece drawn through `points` (its start, already reached, left out), moved by `by`, to path commands. */
-function addPiece(ck: CanvasKit, cmds: number[], piece: Piece, points: readonly number[], by: SidesReach) {
+function addPiece(ck: CanvasKit, cmds: number[], piece: Piece, points: readonly number[], by: Point) {
   cmds.push(piece.verb)
   for (let i = 2; i < points.length; i += 2) cmds.push((points[i] ?? 0) + by.x, (points[i + 1] ?? 0) + by.y)
   if (piece.verb === ck.CONIC_VERB) cmds.push(piece.weight)
@@ -350,6 +354,7 @@ function splitAt(points: readonly number[], t: number): [number[], number[]] {
   return [head, tail]
 }
 
+/** The number `t` of the way from `a` to `b`. */
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
 }

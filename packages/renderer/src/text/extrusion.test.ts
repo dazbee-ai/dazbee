@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest'
 import type { Canvas, Path } from '@dazbee/canvaskit'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
-import { TextProps } from '@dazbee/schema'
+import { type Point, TextProps } from '@dazbee/schema'
 
 import { color } from '../color.ts'
 import { EVERYWHERE } from '../draw/paths.ts'
 import { loadCanvasKit } from '../node.ts'
 import { resourceCache } from '../resources.ts'
-import { EXTRUSION_SHADE, extrusionReach, shadedColour, type SidesReach, sweptOutlines } from './extrusion.ts'
+import { EXTRUSION_SHADE, extrusionReach, shadedColour, sweptOutlines } from './extrusion.ts'
 import { layoutText } from './layout.ts'
 
 const ck = await loadCanvasKit()
@@ -59,12 +59,21 @@ function letterOutlines(props: TextProps): Path {
 }
 
 /** `SAMPLES` + 1 copies of a path, each carried a share of `reach` further, from none to all of it, as one path. */
-function sampledSweep(path: Path, reach: SidesReach): Path {
+function sampledSweep(path: Path, reach: Point): Path {
   const builder = new ck.PathBuilder()
   for (let i = 0; i <= SAMPLES; i++)
     builder.addPath(path, ck.Matrix.translated((reach.x * i) / SAMPLES, (reach.y * i) / SAMPLES))
   return builder.detachAndDelete()
 }
+
+/** How a `width` × `height` read of a surface's pixels comes: RGBA bytes, not premultiplied. */
+const rgba = (width: number, height: number) => ({
+  width,
+  height,
+  colorType: ck.ColorType.RGBA_8888,
+  alphaType: ck.AlphaType.Unpremul,
+  colorSpace: ck.ColorSpace.SRGB,
+})
 
 /**
  * Whether a path holds each pixel's middle, 255 or 0, drawn moved by (dx, dy) in a `width` × `height`
@@ -77,21 +86,14 @@ function coverage(path: Path, width: number, height: number, dx = 0, dy = 0): Ui
   const paint = new ck.Paint()
   canvas.translate(dx, dy)
   canvas.drawPath(path, paint)
-  const info = {
-    width,
-    height,
-    colorType: ck.ColorType.RGBA_8888,
-    alphaType: ck.AlphaType.Unpremul,
-    colorSpace: ck.ColorSpace.SRGB,
-  }
-  const pixels = canvas.readPixels(0, 0, info) as Uint8Array
+  const pixels = canvas.readPixels(0, 0, rgba(width, height)) as Uint8Array
   paint.delete()
   surface.dispose()
   return pixels.filter((_, i) => i % 4 === 3)
 }
 
 /** Whether letters carried back by some share of `reach`, in `SAMPLES` × 8 steps, hold a point. */
-function inSweep(letters: Path, reach: SidesReach, x: number, y: number): boolean {
+function inSweep(letters: Path, reach: Point, x: number, y: number): boolean {
   const steps = SAMPLES * 8
   for (let i = 0; i <= steps; i++)
     if (letters.contains(x - (reach.x * i) / steps, y - (reach.y * i) / steps)) return true
@@ -173,14 +175,7 @@ describe('shadedColour', () => {
       const canvas = surface.getCanvas()
       canvas.drawColor(color(ck, hex), ck.BlendMode.Src)
       canvas.drawColor(color(ck, EXTRUSION_SHADE))
-      const info = {
-        width: 1,
-        height: 1,
-        colorType: ck.ColorType.RGBA_8888,
-        alphaType: ck.AlphaType.Unpremul,
-        colorSpace: ck.ColorSpace.SRGB,
-      }
-      const drawn = [...(canvas.readPixels(0, 0, info) as Uint8Array)]
+      const drawn = [...(canvas.readPixels(0, 0, rgba(1, 1)) as Uint8Array)]
       surface.dispose()
       const shaded = shadedColour(hex)
       const expected = [1, 3, 5, 7].map((at) => Number.parseInt(shaded.slice(at, at + 2), 16))
@@ -189,6 +184,99 @@ describe('shadedColour', () => {
       )
     }
     expect(shadedColour('#FF0000FF')).toBe('#A60000FF')
+  })
+})
+
+describe('holdSides', () => {
+  const box = (props: TextProps) => {
+    const laid = layoutText(ck, props, shipped)
+    const out = { width: laid.width, height: laid.height, x: laid.blocks[0]?.x ?? 0, y: laid.blocks[0]?.y ?? 0 }
+    laid.delete()
+    return out
+  }
+
+  it('holds the sides both ways in an auto width box, to whole pixels, the letters moved by sides that go left or up', () => {
+    const plain = box(textOf('SALE'))
+    expect(box(textOf('SALE', { extrusion: { depth: 10, angle: 0 } }))).toEqual({
+      ...plain,
+      width: Math.ceil(plain.width + 12),
+    })
+    expect(box(textOf('SALE', { extrusion: { depth: 20, angle: 225 } }))).toEqual({
+      width: Math.ceil(plain.width + 24 * Math.SQRT1_2),
+      height: Math.ceil(plain.height + 24 * Math.SQRT1_2),
+      x: 16.971,
+      y: 16.971,
+    })
+  })
+
+  it('grows an auto height box in height only, its width and wrapping kept, and leaves a fixed box as set', () => {
+    const autoHeight = { boxMode: 'autoHeight', width: 300 }
+    const plain = box(textOf('Big summer sale', autoHeight))
+    expect(box(textOf('Big summer sale', { ...autoHeight, extrusion: { depth: 15, angle: 135 } }))).toEqual({
+      ...plain,
+      height: Math.ceil(plain.height + 18 * Math.SQRT1_2),
+    })
+    const fixed = { boxMode: 'fixed', width: 300, height: 200 }
+    expect(box(textOf('Sale', { ...fixed, extrusion: { depth: 50, angle: 200 } }))).toEqual(box(textOf('Sale', fixed)))
+  })
+
+  it('holds the sides of a curved text both ways, its placed letters moved by sides that go up', () => {
+    const curve = { shape: 'arcUp', amount: 60 }
+    const plain = layoutText(ck, textOf('SUMMER', { curve }), shipped)
+    const laid = layoutText(ck, textOf('SUMMER', { curve, extrusion: { depth: 10, angle: 270 } }), shipped)
+    expect(laid.width).toBe(plain.width)
+    expect(laid.height).toBe(Math.ceil(plain.height + 12))
+    expect(laid.placed?.runs[0]?.xforms[3]).toBeCloseTo((plain.placed?.runs[0]?.xforms[3] ?? 0) + 12, 3)
+    plain.delete()
+    laid.delete()
+  })
+
+  it('doubles the depth as drawn when a corner drag doubles the font size', () => {
+    const extrusion = { depth: 15, angle: 45 }
+    const once = layoutText(ck, textOf('Sale', { extrusion }, { fontSize: 50 }), shipped)
+    const twice = layoutText(ck, textOf('Sale', { extrusion }, { fontSize: 100 }), shipped)
+    expect(twice.sidesReach?.x).toBeCloseTo(2 * (once.sidesReach?.x ?? 0), 2)
+    expect(twice.sidesReach?.y).toBeCloseTo(2 * (once.sidesReach?.y ?? 0), 2)
+    once.delete()
+    twice.delete()
+  })
+})
+
+describe('textSides', () => {
+  const sides = (props: TextProps) => {
+    const laid = layoutText(ck, props, shipped)
+    const reach = laid.sidesReach
+    const path = laid.sides()?.copy() ?? null
+    laid.delete()
+    return { path, reach }
+  }
+
+  it('sweeps its letters and list markers where they are drawn, by its depth along its angle', () => {
+    const props = textOf('Big\nsale', { list: 'number', extrusion: { depth: 12, angle: 60 } }, { fontWeight: 400 })
+    const { path, reach } = sides(props)
+    if (!path || !reach) throw new Error('no sides')
+    expect(reach).toEqual({ x: 7.2, y: 12.471 })
+    const letters = letterOutlines(props)
+    const sampled = sampledSweep(letters, reach)
+    const { differing, wrong, covered } = compared(path, sampled, 500, 400, (x, y) => inSweep(letters, reach, x, y))
+    for (const drawn of [path, letters, sampled]) drawn.delete()
+
+    expect(covered).toBeGreaterThan(5_000)
+    expect(wrong).toEqual([])
+    expect(differing).toBeLessThan(covered / 500)
+  })
+
+  it('has none without an extrusion, and keeps the ones it made until the layout is freed', () => {
+    const plain = layoutText(ck, textOf('Plain'), shipped)
+    expect(plain.sidesReach).toBeNull()
+    expect(plain.sides()).toBeNull()
+    plain.delete()
+    const laid = layoutText(ck, textOf('Deep', { extrusion: { depth: 20, angle: 45 } }), shipped)
+    const made = laid.sides()
+    expect(made).not.toBeNull()
+    expect(laid.sides()).toBe(made)
+    laid.delete()
+    expect(made?.isDeleted()).toBe(true)
   })
 })
 
@@ -267,97 +355,24 @@ describe('sweptOutlines', () => {
     expect(wrong).toEqual([])
     expect(differing).toBeLessThan(covered / 500)
   })
-})
 
-describe('the sides of a laid-out text', () => {
-  const sides = (props: TextProps) => {
-    const laid = layoutText(ck, props, shipped)
-    const reach = laid.extrusion
-    const path = laid.sides()?.copy() ?? null
-    laid.delete()
-    return { path, reach }
-  }
-
-  it('sweeps its letters and list markers where they are drawn, by its depth along its angle', () => {
-    const props = textOf('Big\nsale', { list: 'number', extrusion: { depth: 12, angle: 60 } }, { fontWeight: 400 })
-    const { path, reach } = sides(props)
-    if (!path || !reach) throw new Error('no sides')
-    expect(reach).toEqual({ x: 7.2, y: 12.471 })
-    const letters = letterOutlines(props)
-    const sampled = sampledSweep(letters, reach)
-    const { differing, wrong, covered } = compared(path, sampled, 500, 400, (x, y) => inSweep(letters, reach, x, y))
-    for (const drawn of [path, letters, sampled]) drawn.delete()
-
-    expect(covered).toBeGreaterThan(5_000)
-    expect(wrong).toEqual([])
-    expect(differing).toBeLessThan(covered / 500)
-  })
-
-  it('has none without an extrusion, and keeps the ones it made until the layout is freed', () => {
-    const plain = layoutText(ck, textOf('Plain'), shipped)
-    expect(plain.extrusion).toBeNull()
-    expect(plain.sides()).toBeNull()
-    plain.delete()
-    const laid = layoutText(ck, textOf('Deep', { extrusion: { depth: 20, angle: 45 } }), shipped)
-    const made = laid.sides()
-    expect(made).not.toBeNull()
-    expect(laid.sides()).toBe(made)
-    laid.delete()
-    expect(made?.isDeleted()).toBe(true)
-  })
-})
-
-describe('the box of a text with 3D sides', () => {
-  const box = (props: TextProps) => {
-    const laid = layoutText(ck, props, shipped)
-    const out = { width: laid.width, height: laid.height, x: laid.blocks[0]?.x ?? 0, y: laid.blocks[0]?.y ?? 0 }
-    laid.delete()
-    return out
-  }
-
-  it('holds the sides both ways in an auto width box, to whole pixels, the letters moved by sides that go left or up', () => {
-    const plain = box(textOf('SALE'))
-    expect(box(textOf('SALE', { extrusion: { depth: 10, angle: 0 } }))).toEqual({
-      ...plain,
-      width: Math.ceil(plain.width + 12),
+  it('never runs out along the way and straight back, even from a contour that starts along it', () => {
+    // A step whose first and last edges run along the way, between edges the sides leave from.
+    const step = new ck.PathBuilder().addPolygon([0, 10, 5, 10, 5, 0, 10, 0, 10, 20, 0, 20], true).detachAndDelete()
+    const sides = sweptOutlines(ck, [step], { x: 10, y: 0 })
+    const cmds = sides.toCmds()
+    const points: [number, number][] = []
+    for (let i = 0; i < cmds.length; i += cmds[i] === ck.CLOSE_VERB ? 1 : 3)
+      if (cmds[i] !== ck.CLOSE_VERB) points.push([cmds[i + 1] ?? 0, cmds[i + 2] ?? 0])
+    const turnsBack = points.some(([x, y], i) => {
+      const [px, py] = points[i - 1] ?? [x, y]
+      const [nx, ny] = points[i + 1] ?? [x, y]
+      return (px - x) * (nx - x) + (py - y) * (ny - y) > 0 && (px - x) * (ny - y) === (py - y) * (nx - x)
     })
-    expect(box(textOf('SALE', { extrusion: { depth: 20, angle: 225 } }))).toEqual({
-      width: Math.ceil(plain.width + 24 * Math.SQRT1_2),
-      height: Math.ceil(plain.height + 24 * Math.SQRT1_2),
-      x: 16.971,
-      y: 16.971,
-    })
-  })
+    step.delete()
+    sides.delete()
 
-  it('grows an auto height box in height only, its width and wrapping kept, and leaves a fixed box as set', () => {
-    const autoHeight = { boxMode: 'autoHeight', width: 300 }
-    const plain = box(textOf('Big summer sale', autoHeight))
-    expect(box(textOf('Big summer sale', { ...autoHeight, extrusion: { depth: 15, angle: 135 } }))).toEqual({
-      ...plain,
-      height: Math.ceil(plain.height + 18 * Math.SQRT1_2),
-    })
-    const fixed = { boxMode: 'fixed', width: 300, height: 200 }
-    expect(box(textOf('Sale', { ...fixed, extrusion: { depth: 50, angle: 200 } }))).toEqual(box(textOf('Sale', fixed)))
-  })
-
-  it('holds the sides of a curved text both ways, its placed letters moved by sides that go up', () => {
-    const curve = { shape: 'arcUp', amount: 60 }
-    const plain = layoutText(ck, textOf('SUMMER', { curve }), shipped)
-    const laid = layoutText(ck, textOf('SUMMER', { curve, extrusion: { depth: 10, angle: 270 } }), shipped)
-    expect(laid.width).toBe(plain.width)
-    expect(laid.height).toBe(Math.ceil(plain.height + 12))
-    expect(laid.placed?.runs[0]?.xforms[3]).toBeCloseTo((plain.placed?.runs[0]?.xforms[3] ?? 0) + 12, 3)
-    plain.delete()
-    laid.delete()
-  })
-
-  it('doubles the depth as drawn when a corner drag doubles the font size', () => {
-    const extrusion = { depth: 15, angle: 45 }
-    const once = layoutText(ck, textOf('Sale', { extrusion }, { fontSize: 50 }), shipped)
-    const twice = layoutText(ck, textOf('Sale', { extrusion }, { fontSize: 100 }), shipped)
-    expect(twice.extrusion?.x).toBeCloseTo(2 * (once.extrusion?.x ?? 0), 2)
-    expect(twice.extrusion?.y).toBeCloseTo(2 * (once.extrusion?.y ?? 0), 2)
-    once.delete()
-    twice.delete()
+    expect(points.length).toBeGreaterThan(4)
+    expect(turnsBack).toBe(false)
   })
 })

@@ -1,13 +1,20 @@
 import type { CanvasKit, Paragraph, ParagraphBuilder, Path } from '@dazbee/canvaskit'
 import { scaled } from '@dazbee/doc'
 import { scriptFamilies } from '@dazbee/fonts'
-import { autoDirection, type GradientPaint, type TextImagePaint, type TextProps, withRunStyle } from '@dazbee/schema'
+import {
+  autoDirection,
+  type GradientPaint,
+  type Point,
+  type TextImagePaint,
+  type TextProps,
+  withRunStyle,
+} from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import { moveLetters, movesLetters, moveStraightLetters } from './bounce.ts'
 import { strutStyle, textStyle } from './canvaskit-style.ts'
 import { curveLetters, type MoveLetters } from './curve.ts'
-import { extrusionReach, holdSides, type SidesReach, textSides } from './extrusion.ts'
+import { extrusionReach, holdSides, textSides } from './extrusion.ts'
 import { inPlace, placeLetters, type Placement } from './placed.ts'
 import { baselineShift, withRaise } from './raise.ts'
 import { madeUpSmallCaps } from './small-caps.ts'
@@ -75,7 +82,7 @@ export interface TextLayout {
    */
   letters(): Placement
   /** How far its 3D sides reach behind its letters, as drawn; null without an extrusion. */
-  extrusion: SidesReach | null
+  sidesReach: Point | null
   /** Its 3D sides as one path in the layer's box, made the first time they are asked for; null without them. Freed with the layout. */
   sides(): Path | null
   delete(): void
@@ -103,12 +110,15 @@ export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResou
   const reach = extrusionReach(props.extrusion, props.style.fontSize * laid.scale)
   if (reach) {
     holdSides(laid, props, reach)
-    laid.extrusion = reach
+    laid.sidesReach = reach
   }
   return laid
 }
 
-/** What a text layer's layout depends on: everything but where it is placed and how it is painted over. */
+/**
+ * What a text layer's layout depends on: everything but where it is placed and how it is painted
+ * over, so of its extrusion only the depth and angle its sides are made with.
+ */
 export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
   return JSON.stringify([
     props.text,
@@ -127,7 +137,7 @@ export function layoutKey(props: TextProps, fallbackFamilies: string[]) {
     props.shrinkToFit,
     props.curve,
     props.bounce,
-    props.extrusion,
+    props.extrusion && [props.extrusion.depth, props.extrusion.angle],
     fallbackFamilies,
   ])
 }
@@ -435,9 +445,9 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
     pieces: drawn,
     placed: null,
     letters: () => layout.placed ?? (letters ??= placeLetters(ck, layout, inPlace)),
-    extrusion: null,
+    sidesReach: null,
     sides: () => {
-      if (sides === undefined) sides = layout.extrusion ? textSides(ck, layout, layout.extrusion) : null
+      if (sides === undefined) sides = layout.sidesReach ? textSides(ck, layout, layout.sidesReach) : null
       return sides
     },
     delete() {

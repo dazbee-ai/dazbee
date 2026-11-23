@@ -148,7 +148,7 @@ function union(a: Rect, b: Rect): Rect {
  * text's lines are its glyphs' turned boxes. Its 3D sides reach as far again behind the lines.
  */
 function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect {
-  const { blocks, dy, scale, superSubShift, placed, extrusion, done } = laidOut(ck, props, resources)
+  const { blocks, dy, scale, superSubShift, placed, sidesReach, done } = laidOut(ck, props, resources)
   // Where the lines and markers sit, which the sides carry back.
   const drawn: Rect[] = []
   const turned = placed && placedBounds(placed.runs)
@@ -174,9 +174,9 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
   done()
   let box = drawn.reduce(union, props)
   const [first, ...rest] = drawn
-  if (first && extrusion) {
+  if (first && sidesReach) {
     const lines = rest.reduce(union, first)
-    box = union(box, { ...lines, x: lines.x + extrusion.x, y: lines.y + extrusion.y })
+    box = union(box, { ...lines, x: lines.x + sidesReach.x, y: lines.y + sidesReach.y })
   }
   // Outlines over the letters reach half their width past the glyphs, those under them all of it.
   const outline =

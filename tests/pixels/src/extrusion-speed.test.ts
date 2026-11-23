@@ -1,5 +1,5 @@
-// The speed check for 3D text: a 40-character headline drawn on the CPU surface, and into a PDF, with
-// its 3D sides takes at most 3× the same headline without them. Each draw lays its words out anew,
+// The speed check for extrusions: a 40-character headline drawn on the CPU surface, and into a
+// PDF, with its 3D sides takes at most 3× the same headline without them. Each draw lays its words out anew,
 // as an export does, and the two are timed in turn by the process's CPU time, a few draws a sample,
 // as Windows counts CPU time in steps of about 16 ms.
 import { describe, expect, it } from 'vitest'
@@ -74,7 +74,7 @@ function timed(draw: (json: object) => void) {
   return { plain: quantile(ms.plain, 0.5), extruded: quantile(ms.extruded, 0.5) }
 }
 
-describe('3D text', () => {
+describe('an extrusion', () => {
   it('has 40 characters in the headline timed', () => {
     expect(headline(0, true).nodes.t.props.text).toHaveLength(40)
   })

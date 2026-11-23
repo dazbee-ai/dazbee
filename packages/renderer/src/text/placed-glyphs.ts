@@ -1,7 +1,7 @@
 // The glyphs of a placement (ADR-0021) as editing reads them: each with where the straight layout
 // draws it and where it is placed, so a point of the straight layout moves and turns with its glyph,
 // and a point on the placed letters finds its glyph and its place in the straight layout.
-import type { Rect } from '@dazbee/schema'
+import type { Point, Rect } from '@dazbee/schema'
 
 import type { Placement } from './placed.ts'
 
@@ -11,7 +11,7 @@ import type { Placement } from './placed.ts'
  */
 export interface TurnedRect extends Rect {
   turn?: number
-  sweep?: { x: number; y: number }
+  sweep?: Point
 }
 
 /** A placed glyph: its block and line, its origin and advance in the straight layout, its line's reach, and its RSXform. */

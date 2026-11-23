@@ -45,7 +45,7 @@ export {
 } from './text/caret.ts'
 export { movesLetters } from './text/bounce.ts'
 export { paragraphCache, type ParagraphCache, textMeasure } from './text/cache.ts'
-export { EXTRUSION_SHADE, extrusionReach, shadedColour, type SidesReach } from './text/extrusion.ts'
+export { shadedColour } from './text/extrusion.ts'
 export { layoutText, type TextBlock, type TextLayout } from './text/layout.ts'
 export { missingGraphemes } from './text/missing.ts'
 export { inTurned, letterBoxes, type TurnedRect } from './text/placed-glyphs.ts'

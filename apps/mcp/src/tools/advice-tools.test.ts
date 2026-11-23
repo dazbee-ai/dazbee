@@ -257,6 +257,12 @@ describe('ad_rules', () => {
     expect(rules.textEffects).toMatch(/never body copy or a legal line/)
   })
 
+  it('says when a raise suits an ad: a currency sign or a price’s cents, a trademark, a footnote mark', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.textEffects).toMatch(/Raise.*text\.edit.*raise.*currency sign.*cents.*trademark.*footnote mark/s)
+  })
+
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {
     const agent = await agentOf()
     const plain = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules

@@ -86,6 +86,7 @@ export function thumbnailCache({ ck, scenes, resources, current, drawn }: Thumbn
         outline: outlined ? { width: 4, color: style.color } : undefined,
         color: outlined ? '#00000000' : style.color,
         turn: undefined,
+        raise: undefined,
       },
     }
     const size = scenes.measure()(sample, null)

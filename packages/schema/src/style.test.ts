@@ -107,6 +107,7 @@ describe('styleOf', () => {
       curve: null,
       bounce: null,
       turn: null,
+      raise: null,
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -196,6 +197,20 @@ describe('restyle', () => {
     expect(plain).toHaveProperty('bounce', undefined)
     expect(plain?.style).not.toHaveProperty('turn')
     expect(restyle(text({ turn: -12 }, { bounce }), bounced)).toBeNull()
+  })
+
+  it('carries the base style’s raise, and takes it off a text when the style has none', () => {
+    const raised = styleOf(text({ raise: 30 }))
+    expect(raised.text).toMatchObject({ raise: 30 })
+    expect(restyle(text(), raised)?.patch.style).toMatchObject({ raise: 30 })
+    expect(restyle(text({ raise: 30 }), styleOf(text()))?.patch.style).not.toHaveProperty('raise')
+    expect(restyle(text({ raise: 30 }), raised)).toBeNull()
+  })
+
+  it('reads a style copied before characters had raises as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { raise?: unknown }).raise
+    expect(LayerStyle.parse(copied).text).toMatchObject({ raise: null })
   })
 
   it('reads a style copied before texts had bounces and turns as one without', () => {

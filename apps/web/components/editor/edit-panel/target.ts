@@ -42,6 +42,7 @@ export type Style = Record<string, unknown> & {
   textCase?: string
   features?: Features
   gradient?: GradientPaint
+  raise?: number
 }
 
 /** What the edit panels act on: the layers and their values. */

@@ -29,6 +29,9 @@ export type Features = z.infer<typeof Features>
 /** Letter spacing of none, as a percentage so it follows the size: what a text without its own has. */
 export const NO_LETTER_SPACING: LetterSpacing = { unit: 'percent', value: 0 }
 
+/** The most characters are raised or lowered, as a percentage of the font size they are set at. */
+export const RAISE_MOST = 100
+
 /** The fields of a text's character style, as the base style and a run's style take them. */
 export const textStyleFields = {
   fontFamily: z.string().min(1),
@@ -62,6 +65,12 @@ export const textStyleFields = {
    * which moves the text's letters one by one (ADR-0021); 0 or left out is none.
    */
   turn: z.number().min(-180).max(180),
+  /**
+   * How far the characters are raised off their line's baseline, as a percentage of the font size
+   * they are set at, up positive and down negative, over a superscript's or subscript's own move;
+   * 0 or left out is none.
+   */
+  raise: z.number().min(-RAISE_MOST).max(RAISE_MOST),
 }
 
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */

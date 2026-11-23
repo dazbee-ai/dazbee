@@ -1,7 +1,7 @@
 // The furthest the panels' number fields go: past these a design only breaks (text that leaves the
 // canvas, a box millions of pixels wide), so a value typed, stepped or dragged stops at them. Every
 // field stops at `any` either way unless it has its own, closer, limits.
-import { TILE_SCALE } from '@dazbee/schema'
+import { RAISE_MOST, TILE_SCALE } from '@dazbee/schema'
 
 export const LIMITS = {
   any: 100_000,
@@ -15,6 +15,8 @@ export const LIMITS = {
   effectSpread: 1_000,
   /** A tiled image's scale, as stored: 1000 % of its own size, as the schema holds it. */
   tileScale: TILE_SCALE.max,
+  /** Either way, in percent of the font size, as the schema holds it. */
+  raise: RAISE_MOST,
 } as const
 
 /**

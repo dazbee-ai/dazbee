@@ -140,9 +140,9 @@ describe('curveLetters', () => {
     }
   })
 
-  it('sets the longest line round a circle of its length × (2 − amount / 100), centred at the top, its letters spread to close it', () => {
+  it('sets the longest line round a circle of its length × (2 − amount / 100), centred at the top, a text with no spaces its letters spread to close it', () => {
     for (const amount of [0, 30, 100]) {
-      const { glyphs, lines } = curved('ROUND BADGE', { shape: 'circle', amount })
+      const { glyphs, lines } = curved('ROUNDBADGE', { shape: 'circle', amount })
       const length = longestOf(lines)
       const r = (length * (2 - amount / 100)) / (2 * Math.PI)
       const middle = (lines[0]?.left ?? 0) + length / 2
@@ -153,6 +153,38 @@ describe('curveLetters', () => {
         expect(y).toBeCloseTo(cy, 2)
         expect(g.angle).toBeCloseTo(((g.straightX - middle) * 2 * Math.PI) / length, 4)
       }
+    }
+  })
+
+  it('closes a circle by widening the spaces between words, its letters as close as straight, so Arabic keeps its joins', () => {
+    for (const [text, amount] of [
+      ['عروض الصيف الكبرى', 0],
+      ['خصم خاص لفترة محدودة', 60],
+      ['ROUND BADGE OF TRUST', 30],
+    ] as const) {
+      const { glyphs, lines } = curved(text, { shape: 'circle', amount })
+      const length = longestOf(lines)
+      const circumference = length * (2 - amount / 100)
+      const r = circumference / (2 * Math.PI)
+      // Round the ring from left to right: each step's length past its straight one.
+      const ring = [...glyphs].sort((a, b) => a.straightX - b.straightX)
+      const extras = ring
+        .slice(1)
+        .map((g, i) => (g.angle - (ring[i] as Glyph).angle) * r - (g.straightX - (ring[i] as Glyph).straightX))
+      const spaces = [...text].filter((c) => c === ' ').length
+      const extra = (circumference - length) / (spaces + 1)
+      const widened = extras.filter((e) => Math.abs(e) > 0.01)
+      expect(widened).toHaveLength(spaces)
+      for (const e of widened) expect(e).toBeCloseTo(extra, 2)
+      // The ring closes: from the last letter back to the first is as much past straight.
+      const [first, last] = [ring[0] as Glyph, ring.at(-1) as Glyph]
+      const back = (2 * Math.PI - (last.angle - first.angle)) * r
+      const left = lines[0]?.left ?? 0
+      expect(back - (left + length - last.straightX) - (first.straightX - left)).toBeCloseTo(extra, 2)
+      // Centred at the top: the letters' middle angle is 0.
+      expect(
+        first.angle - (first.straightX - left) / r + last.angle + (left + length - last.straightX) / r,
+      ).toBeCloseTo(0, 4)
     }
   })
 

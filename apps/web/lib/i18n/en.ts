@@ -1151,6 +1151,7 @@ export const en = {
         paragraph: 'List, justify and wrap style don’t apply to curved text.',
         box: 'The box doesn’t apply to curved text: it fits the letters.',
         fit: 'Shrink to fit and max lines don’t apply to curved text.',
+        sizing: 'Fill and min and max sizes don’t apply to curved text: its box fits the letters.',
       },
       outline: 'Outline',
       outlineWidth: 'Outline width',

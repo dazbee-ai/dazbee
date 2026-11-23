@@ -130,6 +130,34 @@ describe('pickCurve', () => {
   })
 })
 
+describe('a curve picked in the panel', () => {
+  it('keeps each box’s centre as the curve changes, and none gives a fixed box its straight size back', async () => {
+    const ed = await testEditor(DESIGN)
+    try {
+      const centreOf = () => {
+        const { x, y, width, height } = ed.core.drawnPropsOf('kept') as Record<string, number>
+        return [(x ?? 0) + (width ?? 0) / 2, (y ?? 0) + (height ?? 0) / 2]
+      }
+      const [cx = 0, cy = 0] = centreOf()
+      const steps = [
+        (now: Record<string, unknown>) => pickCurve(now, 'arcUp'),
+        (now: Record<string, unknown>) => curveAmountPatch(now, () => 90),
+        (now: Record<string, unknown>) => pickCurve(now, 'circle'),
+        (now: Record<string, unknown>) => pickCurve(now, 'none'),
+      ]
+      for (const step of steps) {
+        expect(set(targetOf(ed, ['kept']), step)).toBe(true)
+        const [x = 0, y = 0] = centreOf()
+        expect(Math.abs(x - cx)).toBeLessThan(1)
+        expect(Math.abs(y - cy)).toBeLessThan(1)
+      }
+      expect(ed.core.drawnPropsOf('kept')).toMatchObject({ width: 240, height: 200 })
+    } finally {
+      ed.end()
+    }
+  })
+})
+
 describe('amountMost', () => {
   it('stops the field at the highest of the texts’ shapes’ most, or an amount set past it', () => {
     expect(amountMost([WAVE])).toBe(CURVE_MOST.wave)

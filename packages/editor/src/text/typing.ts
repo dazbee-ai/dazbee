@@ -128,8 +128,11 @@ export interface EditorTyping {
   styleRange(selected: { id: string; range: TextRange }, style: RunStyle): void
   /** Styles the selected range of the text being edited; false when no range is selected. */
   styleSelectedText(style: RunStyle): boolean
-  /** Keeps the box of text that grows the size of its words, and the groups around it, fitted, in the step the edit is in. */
-  fitText(id: string): void
+  /**
+   * Keeps the box of text that grows the size of its words, and the groups around it, fitted, in the
+   * step the edit is in; the box keeps its top left, or its centre with `keep`.
+   */
+  fitText(id: string, keep?: 'centre'): void
   /**
    * A key pressed while typing: types, deletes or moves the caret; other keys are the page's, the
    * style keys too. Returns whether the key was typing's, so the browser does nothing more with it.
@@ -433,9 +436,10 @@ export function editorTyping({
   }
   /**
    * Keeps the box of text that grows the size of its words (#47), and the groups around it, fitted,
-   * in the step the edit is in: it measures the layer once and sets its size.
+   * in the step the edit is in: it measures the layer once and sets its size, keeping its top left,
+   * or its centre with `keep`.
    */
-  function fitText(id: string) {
+  function fitText(id: string, keep?: 'centre') {
     const layer = session.design().nodes[id]
     // Text bound to a brand font is drawn, so measured, in the family the kit gives it.
     const measured = () => fittedText(layer, scenes.measure(), resources.bytes().variables)
@@ -446,7 +450,7 @@ export function editorTyping({
       size = measured()
     }
     if (!size) return
-    runQuietly(() => session.run('text.fit', { id, ...size }))
+    runQuietly(() => session.run('text.fit', { id, ...size, ...(keep ? { keep } : {}) }))
     hug([id])
   }
   /**

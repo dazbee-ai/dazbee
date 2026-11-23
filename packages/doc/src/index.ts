@@ -10,7 +10,7 @@ export {
   shareParent,
 } from './children.ts'
 export { derivedValues, type FitText } from './derived-values.ts'
-export { fittedText, type MeasureText } from './fitted-text.ts'
+export { fittedText, fitsItsWords, type MeasureText } from './fitted-text.ts'
 export { scaled, type ScaledText, scaleText, smallestSize } from './text-scale.ts'
 export {
   type Axis,

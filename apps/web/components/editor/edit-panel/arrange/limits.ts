@@ -1,10 +1,11 @@
 // A layer's least and most width and height as Arrange sets them: where they apply, a limit added
 // at the size the layer is drawn, one set keeping the least at most the most by moving the other,
-// and both of a side taken out.
-import { type Axis, laidOutBox, placedByFlow } from '@dazbee/doc'
+// and both of a side taken out; with Fill, turned off for curved text.
+import { type Axis, laidOutBox, placedByFlow, type Sizing } from '@dazbee/doc'
 import { type Design, type LayerLimits } from '@dazbee/schema'
 
 import { type Patch, type Props } from '@/components/editor/edit-panel/target.ts'
+import { anyCurved } from '@/components/editor/edit-panel/text-tab/curves.ts'
 import { tidy } from '@/lib/editor/size.ts'
 
 /** Which limit of a side: its least or its most. */
@@ -21,6 +22,9 @@ export const LIMIT_KEYS = {
 
 /** The layer types that keep limits: those with a size of their own. */
 const LIMITED_TYPES: ReadonlySet<string> = new Set(['graphic', 'text', 'box'])
+/** What a curved text's box, which fits its letters, takes none of. */
+const NOT_FOR_CURVED: ReadonlySet<Sizing | LimitChoice> = new Set(['fill', 'add-min', 'add-max', 'remove'])
+const NONE_OFF: ReadonlySet<Sizing | LimitChoice> = new Set()
 
 /**
  * Whether limits apply to every one of the layers: each keeps them, and is a laid-out box or a layer
@@ -69,4 +73,12 @@ export function limitChoices(props: readonly Props[], axis: Axis): LimitChoice[]
     ...(any('max') ? [] : ['add-max' as const]),
     ...(hasLimits(props, axis) ? ['remove' as const] : []),
   ]
+}
+
+/**
+ * The sizing menu's choices turned off while any of the layers is a curved text, whose box fits its
+ * letters: Fill, and adding or taking out a limit, which keeps the values for when the curve is off.
+ */
+export function offForCurved(props: readonly Props[]): ReadonlySet<Sizing | LimitChoice> {
+  return anyCurved(props) ? NOT_FOR_CURVED : NONE_OFF
 }

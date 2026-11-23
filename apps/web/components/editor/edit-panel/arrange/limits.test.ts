@@ -9,7 +9,8 @@ import { frameDesign, type Seeded } from '@dazbee/editor/test-matrix'
 
 import { set, type Target } from '@/components/editor/edit-panel/target.ts'
 
-import { addedLimit, hasLimits, limitChoices, limitPatch, limitsApply, noLimits } from './limits.ts'
+import { addedLimit, hasLimits, limitChoices, limitPatch, limitsApply, noLimits, offForCurved } from './limits.ts'
+import { sizingChoices } from './sizing-menu.tsx'
 
 const shape = (parentId: string, index: string, props: Record<string, unknown> = {}): Seeded =>
   ({
@@ -47,6 +48,47 @@ const DESIGN = frameDesign({
       props: { x: 0, y: 500, width: 10, height: 10 },
     },
     inGroup: shape('group', 'a0', { y: 500 }),
+  },
+})
+/** A column holding a curved text and a straight one, each filling its width and held at least 100 wide. */
+const CURVED = frameDesign({
+  name: 'Curved in a column',
+  nodes: {
+    column: {
+      type: 'box',
+      parentId: 'sq',
+      index: 'a0',
+      name: 'Column',
+      props: {
+        x: 0,
+        y: 0,
+        width: 600,
+        height: 400,
+        layout: { direction: 'column', gap: 0, padding: { top: 0, right: 0, bottom: 0, left: 0 } },
+      },
+    },
+    ...Object.fromEntries(
+      (['curved', 'straight'] as const).map((id, i) => [
+        id,
+        {
+          type: 'text',
+          parentId: 'column',
+          index: `a${i}`,
+          name: id,
+          props: {
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 60,
+            text: 'Round badge',
+            minWidth: 100,
+            sizing: { width: 'fill', height: 'hug' },
+            style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' },
+            ...(id === 'curved' ? { curve: { shape: 'arcUp', amount: 50 } } : {}),
+          },
+        },
+      ]),
+    ),
   },
 })
 /** The layers as Arrange acts on them. */
@@ -130,5 +172,22 @@ describe('limitChoices', () => {
     expect(limitChoices([{ maxWidth: 100 }, {}], 'width')).toEqual(['add-min', 'remove'])
     expect(limitChoices([{ minWidth: 10, maxWidth: 100 }], 'width')).toEqual(['remove'])
     expect(limitChoices([{ minWidth: 10 }], 'height')).toEqual(['add-min', 'add-max'])
+  })
+})
+
+describe('offForCurved', () => {
+  let ed: TestEditor | undefined
+  afterEach(() => ed?.end())
+
+  it('turns off Fill and the limits for a curved text in an auto layout box, which offers them, and nothing for a straight one', async () => {
+    ed = await testEditor(CURVED)
+    const design = ed.core.design()
+    for (const ids of [['curved'], ['curved', 'straight']]) {
+      const target = targetOf(ed, ids)
+      expect(sizingChoices(target, design, 'width')).toContain('fill')
+      expect(limitsApply(design, ids)).toBe(true)
+      expect([...offForCurved(target.props)].sort()).toEqual(['add-max', 'add-min', 'fill', 'remove'])
+    }
+    expect(offForCurved(targetOf(ed, ['straight']).props).size).toBe(0)
   })
 })

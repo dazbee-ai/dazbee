@@ -24,7 +24,7 @@ import { offersChoice } from '@/components/ui/select.tsx'
 import { sizePatch, tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { hasLimits, LIMIT_KEYS, limitChoices, type LimitEnd, limitPatch, limitsApply } from './limits.ts'
+import { hasLimits, LIMIT_KEYS, limitChoices, type LimitEnd, limitPatch, limitsApply, offForCurved } from './limits.ts'
 import { PanelAction } from './panel-action.tsx'
 import { sizingChoices, SizingMenu } from './sizing-menu.tsx'
 
@@ -99,6 +99,8 @@ export function PlaceCard({
   // Where auto layout sizes the layers, a side's least and most show once any of them has one.
   const limited = sized && limitsApply(design, target.ids)
   const limitedSides = sides.filter(({ key }) => limited && hasLimits(target.props, key))
+  // A curved text's box fits its letters, so its limits show their values, off.
+  const limitWhy = why ?? (offForCurved(target.props).size > 0 ? p.notForCurved.sizing : null)
   const spots = [
     { key: 'x', label: p.x, name: p.xName },
     { key: 'y', label: p.y, name: p.yName },
@@ -140,7 +142,7 @@ export function PlaceCard({
           })}
         {limitedSides.flatMap(({ key }) =>
           (['min', 'max'] as const).map((end) => (
-            <LimitField key={`${key}-${end}`} target={target} p={p} axis={key} end={end} why={why} />
+            <LimitField key={`${key}-${end}`} target={target} p={p} axis={key} end={end} why={limitWhy} />
           )),
         )}
         {spots.map((f) => (

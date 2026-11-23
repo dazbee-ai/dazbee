@@ -2,15 +2,14 @@
 // the same. Light's steps: the piece is read, its font fingerprint shortlists faces, the brand kit's
 // first, each face is fitted and ranked, the best two corrected once (and the best kit font) and
 // ranked again, and two finalists verified, a kit font first when it fits nearly as well. Hybrid, the
-// default, then fits the face Light picked finer and finishes it again, and gives that answer when it
-// looks the same, else Light's when that does, else the closer of the two. A piece read shrunk is
-// matched shrunk, then each answer is scaled back and judged at full size. A piece no catalog face
-// draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
-// A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
-// looks the same is given, else the closer. A piece whose letters the curve check reads as running
-// along a curve, and whose straight answer doesn't look the same, is matched again straightened along
-// it (`effects/curve-frame.ts`), the face found drawn curved (`effects/curve.ts`); the curved answer is given when it looks the
-// same, or is the closer.
+// default, then fits the face Light picked finer and gives that answer when it looks the same, else
+// Light's when that does, else the closer. A piece read shrunk is matched shrunk and judged at full
+// size. A piece no catalog face draws, or none shortlisted fits, is set in its script's Noto,
+// approximate. Hollow letters are matched read as drawn too, the one that looks the same given, else
+// the closer. Letters the curve check reads along a curve are also matched straightened along it
+// (`effects/curve-frame.ts`), the face drawn curved (`effects/curve.ts`): first when far off
+// straight, else when the straight answer doesn't look the same; a curve that looks the same is given
+// unless it bends too little to replace a straight answer that does, else the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -105,6 +104,8 @@ interface ReadingMatched {
 
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
+/** A curve bending less than this amount is near enough straight to leave a straight answer to settle the piece. */
+const NEAR_STRAIGHT = 10
 /** A curved piece is matched with its letters no taller than this, in pixels: drawn along a curve, they fill a larger box than straight ones. */
 const CURVE_LETTER_HEIGHT = 44
 /** A curved piece is read again smaller only when that shrinks it at least this much more. */
@@ -155,19 +156,23 @@ export async function matchTextWithFace(
     return closerMatch(asDrawn, asRead)
   }
   const curve = read.work.curve
-  // Letters far off straight are matched along their curve first, and straight only when that
-  // doesn't look the same; letters near straight are matched straight first, and along their curve
-  // only when that doesn't look the same, which a curve then never replaces.
-  const strong = curve !== null && isStrongCurve(curve)
-  const first = strong ? await matchCurved(job, textPiece, read, deps, step) : await matchStraight()
-  const settled = first !== 'failed' && first.matched.same && !first.inNoto
-  const second =
-    settled || (!strong && !curve?.fired)
-      ? 'failed'
-      : strong
-        ? await matchStraight()
-        : await matchCurved(job, textPiece, read, deps, step)
-  const best = strong ? closerMatch(second, first) : closerMatch(first, second)
+  let best: ReadingMatched | 'failed'
+  if (curve !== null && isStrongCurve(curve)) {
+    // A curve that looks the same and bends at least `NEAR_STRAIGHT` settles the piece; else a straight
+    // answer that looks the same is kept.
+    const curved = await matchCurved(job, textPiece, read, deps, step)
+    const bends = curved !== 'failed' && (curved.matched.look.curve?.amount ?? 0) >= NEAR_STRAIGHT
+    if (bends && looksSame(curved)) best = curved
+    else {
+      const straight = await matchStraight()
+      best = straight !== 'failed' && looksSame(straight) ? straight : closerMatch(straight, curved)
+    }
+  } else {
+    // A curve is tried only when the straight answer doesn't look the same.
+    const straight = await matchStraight()
+    const tryCurve = curve?.fired && !(straight !== 'failed' && looksSame(straight))
+    best = closerMatch(straight, tryCurve ? await matchCurved(job, textPiece, read, deps, step) : 'failed')
+  }
   if (best === 'failed') return { answer: pictureAnswer('failed') }
   const { matched, inNoto } = best
   const { look, place, scores, bindings, styleLook } = matched
@@ -223,13 +228,17 @@ async function matchReading(
   return typeof matched === 'string' ? 'failed' : { matched, inNoto }
 }
 
+/** Whether a reading's answer looks the same and isn't set in Noto. */
+function looksSame({ matched, inNoto }: ReadingMatched): boolean {
+  return matched.same && !inNoto
+}
+
 /**
  * Of two readings' answers, the one that looks the same and isn't set in Noto when only one does,
  * else the closer by the rule's SSIM less the ink missed, the first on a tie.
  */
 function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 'failed'): ReadingMatched | 'failed' {
   if (first === 'failed' || second === 'failed') return first === 'failed' ? second : first
-  const looksSame = ({ matched, inNoto }: ReadingMatched) => matched.same && !inNoto
   if (looksSame(first) !== looksSame(second)) return looksSame(first) ? first : second
   return closeness(second.matched.scores) > closeness(first.matched.scores) ? second : first
 }

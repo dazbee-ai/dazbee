@@ -141,12 +141,15 @@ describe('run', () => {
       command: 'node.update',
       kind: 'input',
       issues: [
+        {
+          path: [],
+          message: 'the input takes ids and patch (and may take drawn and holders); got ids, patch and extra',
+        },
         { path: ['ids', 1], message: expect.any(String) },
-        { path: [], message: expect.stringContaining('extra') },
       ],
     })
     const { reason, issues, message } = refusal as CommandError
-    expect(reason).toBe(issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '))
+    expect(reason).toBe(`${issues[0]?.message}; ids.1: ${issues[1]?.message}`)
     expect(message).toBe(`node.update: ${reason}`)
     expect(readDesign(store)).toEqual(before)
   })

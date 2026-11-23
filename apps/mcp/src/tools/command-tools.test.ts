@@ -184,8 +184,20 @@ describe('describe_command', () => {
     for (const command of ['node.explode', 'design.restore']) {
       const result = await agent.call('describe_command', { command })
       expect(result.isError).toBe(true)
-      expect(textOf(result)).toBe(`There is no command “${command}”; list_commands lists them.`)
+      expect(textOf(result)).toMatch(
+        /^There is no command “[^”]+” \(the nearest are [^)]+\); list_commands lists them all\.$/,
+      )
+      expect(textOf(result)).toContain(`“${command}”`)
     }
+  })
+
+  it('names the commands nearest an unknown one', async () => {
+    const agent = await connect()
+    const result = await agent.call('describe_command', { command: 'frame.create' })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toBe(
+      'There is no command “frame.create” (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add); list_commands lists them all.',
+    )
   })
 
   it('refuses an unknown argument, naming the one it takes', async () => {
@@ -197,6 +209,15 @@ describe('describe_command', () => {
 })
 
 describe('run_command', () => {
+  it('shows a node.update input in its description and in batch’s, and that `field` is for an object or a list', async () => {
+    const agent = await connect()
+    const { tools } = await agent.client.listTools()
+    const described = (name: string) => tools.find((tool) => tool.name === name)?.description ?? ''
+    for (const tool of ['run_command', 'batch'])
+      expect(described(tool)).toContain('{ "ids": ["a1"], "patch": { "x": 40 } }')
+    expect(described('batch')).toContain('"field" only for a result that is an object or a list')
+  })
+
   it('answers the result and the warnings once stored, which the second tab then holds', async () => {
     const { agent, sync, other } = await withSecondTab()
     const result = await agent.call('run_command', { command: 'node.rename', input: { id: 'box', name: 'Card' } })
@@ -239,6 +260,29 @@ describe('run_command', () => {
     expect(result.isError).toBe(true)
     expect(textOf(result)).toMatch(/^node\.rename: .+; nothing was changed\.$/)
     expect(accepted(sync)).toHaveLength(0)
+  })
+
+  it('refuses an input of other keys, naming the keys the command takes and those it was given', async () => {
+    const { agent, sync } = await withSecondTab()
+    const update = await agent.call('run_command', { command: 'node.update', input: { id: 'box', props: { x: 5 } } })
+    expect(update.isError).toBe(true)
+    expect(textOf(update)).toBe(
+      'node.update: the input takes ids and patch (and may take drawn and holders); got id and props; nothing was changed.',
+    )
+    const replace = await agent.call('run_command', { command: 'text.replace', input: { id: 'title', text: 'Sale' } })
+    expect(textOf(replace)).toBe(
+      'text.replace: the input takes ids, find and replace; got id and text; nothing was changed.',
+    )
+    expect(accepted(sync)).toHaveLength(0)
+  })
+
+  it('names the commands nearest an unknown one', async () => {
+    const { agent } = await withSecondTab()
+    const result = await agent.call('run_command', { command: 'frame.create', input: {} })
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain(
+      'no command is called "frame.create" (the nearest are frame.update, node.create, frame.resize, frame.delete and frame.add)',
+    )
   })
 
   it('answers a change set the server rejects as not kept, with why', async () => {
@@ -421,6 +465,17 @@ describe('batch', () => {
     await sync.settle()
     expect(accepted(sync)).toHaveLength(0)
     expect(other.design().nodes['card']).toBeUndefined()
+  })
+
+  it('refuses a `field` on a result that is an id, saying to drop it', async () => {
+    const { agent } = await withSecondTab()
+    const [card, title] = CARD
+    const steps = [card, { ...title, input: { ...title?.input, parentId: { $ref: 'card', field: 'id' } } }]
+    const answer = (await agent.json('batch', { steps })) as { kept: boolean; steps: { reason?: string }[] }
+    expect(answer.kept).toBe(false)
+    expect(answer.steps[1]?.reason).toBe(
+      'parentId: step 0\'s result is a string ("card"), which has no fields: drop `field` and write { "$ref": "card" } alone',
+    )
   })
 
   it('refuses a batch holding design.restore before any step runs', async () => {

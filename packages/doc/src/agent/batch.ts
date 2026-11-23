@@ -171,6 +171,10 @@ function follow(ref: Record<string, unknown>, path: InputPath, scope: Scope): un
     throw fail(`step ${step}'s result is ${kindOf(result)}: say which part of it with \`field\``)
   }
   if (typeof field !== 'string') throw fail('`field` must be a string')
+  if (typeof result === 'string')
+    throw fail(
+      `step ${step}'s result is a string (${JSON.stringify(result)}), which has no fields: drop \`field\` and write { "$ref": ${JSON.stringify(name)} } alone`,
+    )
   const found = lookup(result, field)
   if ('missing' in found) throw fail(`step ${step}'s result has no \`${field}\`${found.missing}`)
   return found.value

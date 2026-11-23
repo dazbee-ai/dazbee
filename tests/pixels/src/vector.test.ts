@@ -7,21 +7,13 @@ import type { Canvas, Font, Path, PDFDocument, SkPicture, TextBlob } from '@dazb
 import { exportDesign } from '@dazbee/export'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { emojiTestFont } from '@dazbee/fonts/test-fonts'
-import {
-  layoutText,
-  render,
-  renderDesign,
-  renderVector,
-  resourceCache,
-  type SceneLayer,
-  textMeasure,
-} from '@dazbee/renderer'
+import { layoutText, render, renderVector, resourceCache, type SceneLayer, textMeasure } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { framesOf, inOrder, parseDesign } from '@dazbee/schema'
 
 import { loadFixtures } from './fixtures.ts'
 import { pdfGlyphs } from './pdf-glyphs.ts'
-import { encodePng, fixtureResources, OUTPUT_DIR, type Pixels } from './pixels.ts'
+import { cpuRender, encodePng, fixtureResources, OUTPUT_DIR, type Pixels } from './pixels.ts'
 import {
   overWhite,
   pdfText,
@@ -30,7 +22,9 @@ import {
   readVectorBaselines,
   recordVectorBaseline,
   startPdfium,
+  VECTOR_TYPES,
   vectorDifference,
+  type VectorType,
 } from './vector.ts'
 
 type Affine = [number, number, number, number, number, number]
@@ -54,6 +48,11 @@ const cases = loadFixtures().flatMap(({ name, json }) => {
   )
 })
 const baselines = readVectorBaselines()
+/** What draws each type of file in the check. */
+const RASTERISERS = { pdf: 'pdfium', svg: 'resvg' } as const satisfies Record<VectorType, string>
+const checks = cases.flatMap((c) =>
+  VECTOR_TYPES.map((type) => ({ ...c, type, by: RASTERISERS[type], format: type.toUpperCase() })),
+)
 /** Each case's PDF, made once for the pixel check and read again for the glyph check. */
 const pdfs = new Map<string, Uint8Array>()
 /** Lets the test worker answer vitest between long draws, which otherwise time its messages out. */
@@ -96,6 +95,15 @@ const flip = (
   const tx = box.flipX ? 2 * box.x + box.width : 0
   const ty = box.flipY ? 2 * box.y + box.height : 0
   return [a * sx, b * sx, c * sy, d * sy, a * tx + c * ty + e, b * tx + d * ty + f]
+}
+
+/** The CPU render `cpuOf` made last, with its case's label. */
+let lastCpu: { label: string; pixels: Pixels } | undefined
+
+/** A case's CPU render over white, kept for its other check, which comes next. */
+function cpuOf(c: (typeof cases)[number]): Pixels {
+  if (lastCpu?.label !== c.label) lastCpu = { label: c.label, pixels: overWhite(cpuRender(ck, c, bytes, cache)) }
+  return lastCpu.pixels
 }
 
 /**
@@ -142,46 +150,36 @@ function rendererGlyphs(
 }
 
 describe('PDF and SVG exports (#56)', () => {
-  it.each(cases)(
-    '$label: pdfium and resvg draw them as the CPU does, within the baseline',
-    async ({ name, json, frameId, label }) => {
-      const cpu = overWhite(renderDesign(ck, json, frameId, bytes, cache))
-      await breathe()
-      const pdf = renderVector(ck, json, frameId, bytes, 'pdf', cache)
-      pdfs.set(label, pdf)
-      await breathe()
-      const svg = renderVector(ck, json, frameId, bytes, 'svg', cache)
-      await breathe()
-      const pdfPixels = await rasterisePdf(pdfium, pdf)
-      const svgPixels = rasteriseSvg(svg)
-      await breathe()
-      const measured = { pdf: vectorDifference(cpu, pdfPixels), svg: vectorDifference(cpu, svgPixels) }
-      if (UPDATE) {
-        recordVectorBaseline(label, measured)
-        return
-      }
-      const baseline = baselines[label]
-      if (!baseline)
-        throw new Error(`no vector baseline for ${label}; record one with UPDATE_VECTOR_BASELINES=1 and commit it`)
-      const over = (['pdf', 'svg'] as const).filter((type) => measured[type] > baseline[type].limit)
-      if (over.length > 0) {
-        const out = join(OUTPUT_DIR, 'vector', name)
-        mkdirSync(out, { recursive: true })
-        const base = frameId
-        writeFileSync(join(out, `${base}.pdf`), pdf)
-        writeFileSync(join(out, `${base}.svg`), svg)
-        writeFileSync(join(out, `${base}.cpu.png`), encodePng(ck, cpu))
-        writeFileSync(join(out, `${base}.pdf.png`), encodePng(ck, pdfPixels))
-        writeFileSync(join(out, `${base}.svg.png`), encodePng(ck, svgPixels))
-      }
-      for (const type of ['pdf', 'svg'] as const) {
-        expect(
-          measured[type],
-          `${type}: % of pixels differing (baseline ${baseline[type].percent}%)`,
-        ).toBeLessThanOrEqual(baseline[type].limit)
-      }
-    },
-  )
+  it.each(checks)('$label: $by draws the $format as the CPU does, within the baseline', async (check) => {
+    const { name, json, frameId, label, type } = check
+    const cpu = cpuOf(check)
+    await breathe()
+    const file = renderVector(ck, json, frameId, bytes, type, cache)
+    if (type === 'pdf') pdfs.set(label, file)
+    await breathe()
+    const drawn = type === 'pdf' ? await rasterisePdf(pdfium, file) : rasteriseSvg(file)
+    await breathe()
+    const measured = vectorDifference(cpu, drawn)
+    if (UPDATE) {
+      recordVectorBaseline(label, type, measured)
+      return
+    }
+    const baseline = baselines[label]?.[type]
+    if (!baseline)
+      throw new Error(
+        `no ${type} vector baseline for ${label}; record one with UPDATE_VECTOR_BASELINES=1 and commit it`,
+      )
+    if (measured > baseline.limit) {
+      const out = join(OUTPUT_DIR, 'vector', name)
+      mkdirSync(out, { recursive: true })
+      writeFileSync(join(out, `${frameId}.${type}`), file)
+      writeFileSync(join(out, `${frameId}.cpu.png`), encodePng(ck, cpu))
+      writeFileSync(join(out, `${frameId}.${type}.png`), encodePng(ck, drawn))
+    }
+    expect(measured, `${type}: % of pixels differing (baseline ${baseline.percent}%)`).toBeLessThanOrEqual(
+      baseline.limit,
+    )
+  })
 
   it('keeps PDF text as text, each text once, outlines included', async () => {
     const styles = cases.find((c) => c.name === 'text-styles')

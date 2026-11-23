@@ -85,8 +85,13 @@ const FILL: TextPass = { kind: 'fill' }
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
   if (props.curve) {
     const laid = build(ck, straightened(props), resources, 1)
-    const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize)
-    return Object.assign(laid, { placed, width, height })
+    try {
+      const { placed, width, height } = curveLetters(ck, laid, props.curve, props.style.fontSize)
+      return Object.assign(laid, { placed, width, height })
+    } catch (error) {
+      laid.delete()
+      throw error
+    }
   }
   const fit = props.shrinkToFit
   if (!fit) return place(props, build(ck, props, resources, 1))

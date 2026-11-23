@@ -2,7 +2,7 @@
 // line, then each glyph moved to its distance along its line's curve and turned to the curve's
 // slope at the middle of its advance. Every size is a share of the longest line or the base font
 // size, so the curve scales with the text.
-import type { CanvasKit } from '@dazbee/canvaskit'
+import type { CanvasKit, ContourMeasureIter } from '@dazbee/canvaskit'
 import type { TextCurve } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
@@ -53,7 +53,9 @@ const WAVE_PRECISION = 16
 export function curveLetters(ck: CanvasKit, layout: TextLayout, curve: TextCurve, fontSize: number): CurvedText {
   const lines = curveLines(layout)
   const longest = [...lines.values()].reduce<CurveLine | null>((a, b) => (a && a.width >= b.width ? a : b), null)
-  if (curve.amount === 0 || !longest || longest.width <= 0) return toCorner(placeLetters(ck, layout, inPlace), layout)
+  // An amount too small for an arc's radius to be a number draws straight, as 0 does.
+  const straight = curve.amount === 0 || !Number.isFinite((longest?.width ?? 0) / curve.amount)
+  if (straight || !longest || longest.width <= 0) return toCorner(placeLetters(ck, layout, inPlace), layout)
   const base = longest.below
   for (const line of lines.values()) line.below -= base
   const path = curveOf(ck, curve, longest, fontSize, layout)
@@ -132,8 +134,8 @@ function arcAlong(longest: CurveLine, amount: number, side: number, up: boolean)
   const anchor = middle + (side * longest.width) / 2
   const anchorAngle = (side * sweep) / 2
   return (line, x) => {
-    const r = Math.max(up ? radius - line.below : radius + line.below, line.width / (2 * Math.PI))
-    return onCircle(middle, up ? radius : -radius, r, anchorAngle + (x - anchor) / r, up)
+    const { r, edge } = lineCircle(radius, line, up)
+    return onCircle(middle, edge, r, anchorAngle + (x - anchor) / r, up)
   }
 }
 
@@ -144,15 +146,26 @@ function sideOf(layout: TextLayout): number {
 }
 
 /**
- * The point at `angle` from the top (`up`) or the bottom of a circle of radius `r` whose centre is at
- * (`x`, `y`) in a space where the longest line's arc of radius `|y|` passes through 0 at its middle;
- * reading clockwise round the top, or anticlockwise round the bottom.
+ * A line's circle about the centre of the longest line's, whose radius is `radius`: its radius, a line
+ * further down on a smaller one (`up`) or a larger one, held to the line's own length / 2π; and
+ * where its top (`up`) or bottom is, the longest line's at 0.
  */
-function onCircle(x: number, y: number, r: number, angle: number, up: boolean): OnCurve {
+function lineCircle(radius: number, line: CurveLine, up: boolean): { r: number; edge: number } {
+  const own = up ? radius - line.below : radius + line.below
+  const least = line.width / (2 * Math.PI)
+  if (own >= least) return { r: own, edge: line.below }
+  return { r: least, edge: up ? radius - least : least - radius }
+}
+
+/**
+ * The point at `angle` from the top (`up`) or the bottom of a circle of radius `r` whose top or
+ * bottom is at (`x`, `edge`), reading clockwise round the top, or anticlockwise round the bottom.
+ */
+function onCircle(x: number, edge: number, r: number, angle: number, up: boolean): OnCurve {
   // The height off the circle's top or bottom, kept exact for a large radius and a small angle.
   const drop = 2 * r * Math.sin(angle / 2) ** 2
   const at = { x: x + r * Math.sin(angle) }
-  return up ? { ...at, y: y - r + drop, angle } : { ...at, y: y + r - drop, angle: -angle }
+  return up ? { ...at, y: edge + drop, angle } : { ...at, y: edge - drop, angle: -angle }
 }
 
 /**
@@ -164,9 +177,9 @@ function circleAlong(longest: CurveLine, amount: number): Along {
   const radius = (longest.width * (2 - amount / 100)) / (2 * Math.PI)
   const centre = longest.left + longest.width / 2
   return (line, x) => {
-    if (line === longest) return onCircle(centre, radius, radius, ((x - centre) * 2 * Math.PI) / line.width, true)
-    const r = Math.max(radius - line.below, line.width / (2 * Math.PI))
-    return onCircle(centre, radius, r, (x - line.left - line.width / 2) / r, true)
+    if (line === longest) return onCircle(centre, 0, radius, ((x - centre) * 2 * Math.PI) / line.width, true)
+    const { r, edge } = lineCircle(radius, line, true)
+    return onCircle(centre, edge, r, (x - line.left - line.width / 2) / r, true)
   }
 }
 
@@ -191,7 +204,13 @@ function waveAlong(ck: CanvasKit, longest: CurveLine, amount: number, fontSize: 
     builder.cubicTo(a + step / 3, y(a) + (step / 3) * slope(a), b - step / 3, y(b) - (step / 3) * slope(b), b, y(b))
   }
   const sine = builder.detachAndDelete()
-  const contours = new ck.ContourMeasureIter(sine, false, WAVE_PRECISION)
+  let contours: ContourMeasureIter
+  try {
+    contours = new ck.ContourMeasureIter(sine, false, WAVE_PRECISION)
+  } catch (error) {
+    sine.delete()
+    throw error
+  }
   const wave = contours.next()
   return {
     along: (line, x) => {

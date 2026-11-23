@@ -257,6 +257,16 @@ describe('curveLetters', () => {
     }
   })
 
+  it('keeps the lines of an arc of the least amount apart, as straight text’s, with a box of whole numbers', () => {
+    for (const amount of [1e-12, 1e-320]) {
+      const { glyphs, lines, width, height } = curved('Hello\nworld two', { shape: 'arcUp', amount })
+      expect(Number.isFinite(width) && Number.isFinite(height)).toBe(true)
+      const step = (lines[1]?.baseline ?? 0) - (lines[0]?.baseline ?? 0)
+      const [top, bottom] = [lineOf(glyphs, 0)[0] as Glyph, lineOf(glyphs, 1)[0] as Glyph]
+      expect(bottom.y - top.y).toBeCloseTo(step, 3)
+    }
+  })
+
   it('places a curved text from the box’s corner, its box its turned glyph boxes rounded up', () => {
     const { width, height, boxes } = curved('STAMP OF QUALITY', { shape: 'circle', amount: 60 })
     const xs = boxes.filter((_, i) => i % 2 === 0)

@@ -1,11 +1,12 @@
 // Hybrid's finer fit of the one face Light picked: its size, letter spacing, line height, place across
 // and down, and outline width (not the line of hollow letters), each moved up by a step and then down,
 // the first move whose drawn ink overlaps the piece's better kept; 3 rounds over the 6 settings, every
-// step halved after each round.
+// step halved after each round. A move never spaces the letters so tight they run into each other.
 // It is bounded by its rounds and reads no clock, so a slow device gets a fast one's answer.
 
 import type { TextDrawer, TextLook } from './draw-text.ts'
 import { BASE_LINE_HEIGHT, type Fitted, type Nudge, placeByInk } from './light/fit.ts'
+import { spacedApart } from './light/letters-apart.ts'
 import type { PieceReading } from './read-piece.ts'
 
 /** A setting the finer fit moves. */
@@ -45,7 +46,8 @@ export function finerFit(drawer: TextDrawer, reading: PieceReading, words: strin
       // Hollow letters' line keeps the width read: a wider one would only fill the letters out.
       if (setting === 'outline' && (!best.look.outline || reading.fill === null)) continue
       for (const sign of [1, -1]) {
-        const look = moved(best.look, setting, sign * steps[setting])
+        // A wider outline can run letters into each other too, so every move is spaced apart.
+        const look = spacedApart(drawer, words, moved(best.look, setting, sign * steps[setting]))
         const place: Nudge = {
           dx: nudge.dx + (setting === 'dx' ? sign * steps.dx : 0),
           dy: nudge.dy + (setting === 'dy' ? sign * steps.dy : 0),

@@ -12,7 +12,7 @@
   },
   "scripts": {
     "files": "node scripts/fetch-files.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts/browser-measure",
     "lint": "eslint .",
     "test": "vitest run"
   },
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@dazbee/config": "workspace:*",
     "@types/node": "^22.20.5",
+    "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "onnxruntime-node": "^1.31.1",
     "typescript": "~6.0.3",

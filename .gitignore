@@ -22,3 +22,6 @@ tests/pixels/fixtures/figma/recorded.partial/
 
 # The matchers' files, fetched from their release on demand (pnpm --filter @dazbee/matchers files).
 packages/matchers/.files/
+
+# The browser measurement's build, pieces, Node's answers and results (packages/matchers/scripts/browser-measure).
+packages/matchers/.browser-measure/

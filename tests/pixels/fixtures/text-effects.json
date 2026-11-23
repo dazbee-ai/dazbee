@@ -54,6 +54,21 @@
         }
       ],
       "order": "a2"
+    },
+    "bounce": {
+      "pageId": "p1",
+      "name": "Bounce and letter turns",
+      "width": 1080,
+      "height": 1080,
+      "x": 3420,
+      "y": 0,
+      "fills": [
+        {
+          "type": "solid",
+          "color": "#F4F1EAFF"
+        }
+      ],
+      "order": "a3"
     }
   },
   "nodes": {
@@ -645,6 +660,324 @@
         "curve": {
           "shape": "circle",
           "amount": 80
+        }
+      }
+    },
+    "wavy-low": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "wavy-low",
+      "index": "a020",
+      "name": "wavy-low",
+      "props": {
+        "width": 266,
+        "height": 74,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 50,
+        "text": "Happy hour",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 400,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "wavy",
+          "amount": 20,
+          "seed": 1
+        }
+      }
+    },
+    "wavy-high": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "wavy-high",
+      "index": "a021",
+      "name": "wavy-high",
+      "props": {
+        "width": 353,
+        "height": 103,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 50,
+        "text": "JUMP AROUND",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "wavy",
+          "amount": 90,
+          "seed": 1
+        }
+      }
+    },
+    "random-low": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "random-low",
+      "index": "a022",
+      "name": "random-low",
+      "props": {
+        "width": 315,
+        "height": 76,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 220,
+        "text": "Fresh and fun",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 400,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "random",
+          "amount": 25,
+          "seed": 1
+        }
+      }
+    },
+    "random-high": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "random-high",
+      "index": "a023",
+      "name": "random-high",
+      "props": {
+        "width": 339,
+        "height": 103,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 220,
+        "text": "KIDS EAT FREE",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "random",
+          "amount": 90,
+          "seed": 7
+        }
+      }
+    },
+    "bounced-curve": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "bounced-curve",
+      "index": "a024",
+      "name": "bounced-curve",
+      "props": {
+        "width": 354,
+        "height": 136,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 40,
+        "y": 400,
+        "text": "SUMMER FUN",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 48,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "curve": {
+          "shape": "arcUp",
+          "amount": 50
+        },
+        "bounce": {
+          "style": "random",
+          "amount": 50,
+          "seed": 3
+        }
+      }
+    },
+    "letter-turns": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "letter-turns",
+      "index": "a025",
+      "name": "letter-turns",
+      "props": {
+        "width": 335,
+        "height": 84,
+        "boxMode": "autoWidth",
+        "runs": [
+          {
+            "start": 0,
+            "end": 1,
+            "style": {
+              "turn": -18
+            }
+          },
+          {
+            "start": 2,
+            "end": 3,
+            "style": {
+              "turn": 12
+            }
+          },
+          {
+            "start": 6,
+            "end": 7,
+            "style": {
+              "turn": 25
+            }
+          },
+          {
+            "start": 10,
+            "end": 11,
+            "style": {
+              "turn": -30
+            }
+          }
+        ],
+        "align": "start",
+        "x": 560,
+        "y": 420,
+        "text": "Party time!",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 56,
+          "fontWeight": 700,
+          "color": "#6A1B9AFF"
+        }
+      }
+    },
+    "gradient-bounce": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "gradient-bounce",
+      "index": "a026",
+      "name": "gradient-bounce",
+      "props": {
+        "width": 460,
+        "height": 241,
+        "boxMode": "autoHeight",
+        "runs": [
+          {
+            "start": 4,
+            "end": 10,
+            "style": {
+              "underline": true,
+              "outline": {
+                "width": 2,
+                "color": "#1F2329FF"
+              }
+            }
+          }
+        ],
+        "align": "start",
+        "x": 40,
+        "y": 640,
+        "text": "Big summer savings on every treat",
+        "style": {
+          "fontFamily": "Noto Sans",
+          "fontSize": 52,
+          "fontWeight": 700,
+          "color": "#1F2329FF",
+          "gradient": {
+            "type": "linear",
+            "from": {
+              "x": 0,
+              "y": 0.5
+            },
+            "to": {
+              "x": 1,
+              "y": 0.5
+            },
+            "stops": [
+              {
+                "offset": 0,
+                "color": "#FF7A00FF"
+              },
+              {
+                "offset": 1,
+                "color": "#D81B60FF"
+              }
+            ]
+          },
+          "outline": {
+            "width": 6,
+            "color": "#FFE082FF",
+            "under": true
+          }
+        },
+        "bounce": {
+          "style": "wavy",
+          "amount": 60,
+          "seed": 1
+        }
+      }
+    },
+    "arabic-bounce": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "arabic-bounce",
+      "index": "a027",
+      "name": "arabic-bounce",
+      "props": {
+        "width": 423,
+        "height": 108,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 640,
+        "text": "عروض الصيف الكبرى",
+        "style": {
+          "fontFamily": "Noto Naskh Arabic",
+          "fontSize": 52,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "random",
+          "amount": 60,
+          "seed": 2
+        }
+      }
+    },
+    "hindi-bounce": {
+      "type": "text",
+      "parentId": "bounce",
+      "link": "hindi-bounce",
+      "index": "a028",
+      "name": "hindi-bounce",
+      "props": {
+        "width": 340,
+        "height": 96,
+        "boxMode": "autoWidth",
+        "runs": [],
+        "align": "start",
+        "x": 560,
+        "y": 860,
+        "text": "बड़ी सेल आज ही",
+        "style": {
+          "fontFamily": "Noto Sans Devanagari",
+          "fontSize": 52,
+          "fontWeight": 700,
+          "color": "#1F2329FF"
+        },
+        "bounce": {
+          "style": "wavy",
+          "amount": 60,
+          "seed": 1
         }
       }
     }

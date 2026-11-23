@@ -78,6 +78,7 @@ describe('Node CPU render', () => {
       'text-effects/shapes',
       'text-effects/lines',
       'text-effects/scripts',
+      'text-effects/bounce',
       'text-paint/pt',
       'text-paint/ss',
       'text-styles/pt',

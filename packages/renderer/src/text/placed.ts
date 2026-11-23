@@ -54,6 +54,8 @@ export interface PlacedRun {
   xforms: Float32Array
   /** Each glyph's advance. */
   advances: Float32Array
+  /** Where each glyph's characters start in the layer's text, in UTF-16 units. */
+  offsets: Uint32Array
   /** Two numbers for each glyph: its origin where the straight layout draws it, in the layer's box. */
   origins: Float32Array
   /**
@@ -75,6 +77,8 @@ interface ShapedGlyph {
   font: Font
   piece: StyledPiece
   line: PlacedLine
+  /** Where its characters start in the layer's text, in UTF-16 units. */
+  offset: number
   x: number
   y: number
   advance: number
@@ -126,7 +130,7 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
             line.baseline = y
             settled.add(line)
           }
-          const glyph = { id: run.glyphs[g] ?? 0, font, piece, line, x, y, advance }
+          const glyph = { id: run.glyphs[g] ?? 0, font, piece, line, offset: block.start + unit, x, y, advance }
           glyphs.push(glyph)
           kept.set(key, [...(kept.get(key) ?? []), glyph])
         }
@@ -161,6 +165,24 @@ export function placedBounds(runs: readonly PlacedRun[]): Rect | null {
       right = Math.max(right, boxes[i] ?? 0)
       top = Math.min(top, boxes[i + 1] ?? 0)
       bottom = Math.max(bottom, boxes[i + 1] ?? 0)
+    }
+  }
+  return left > right ? null : { x: left, y: top, width: right - left, height: bottom - top }
+}
+
+/**
+ * The box round placed runs' glyphs where the straight layout draws them: each its advance by its
+ * line's height at its origin; null when they hold no glyph.
+ */
+export function straightBounds(runs: readonly PlacedRun[]): Rect | null {
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity]
+  for (const { line, origins, advances } of runs) {
+    for (let i = 0; i < advances.length; i++) {
+      const [x, y] = [origins[2 * i] ?? 0, origins[2 * i + 1] ?? 0]
+      left = Math.min(left, x)
+      right = Math.max(right, x + (advances[i] ?? 0))
+      top = Math.min(top, y - line.ascent)
+      bottom = Math.max(bottom, y + line.descent)
     }
   }
   return left > right ? null : { x: left, y: top, width: right - left, height: bottom - top }
@@ -223,6 +245,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
   const { line } = first
   const xforms = new Float32Array(glyphs.length * 4)
   const advances = new Float32Array(glyphs.length)
+  const offsets = Uint32Array.from(glyphs, (g) => g.offset)
   const origins = new Float32Array(glyphs.length * 2)
   const boxes = new Float32Array(glyphs.length * 8)
   glyphs.forEach(({ x, y, advance }, i) => {
@@ -241,6 +264,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
     glyphs: Uint16Array.from(glyphs, (g) => g.id),
     xforms,
     advances,
+    offsets,
     origins,
     boxes,
   }

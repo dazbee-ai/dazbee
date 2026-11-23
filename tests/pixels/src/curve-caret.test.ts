@@ -1,5 +1,6 @@
-// The caret, a click and a selection on curved text, which read the placed letters (ADR-0021), in
-// English and Arabic on an arc up, a circle and a wave.
+// The caret, a click and a selection on curved and bounced text, which read the placed letters
+// (ADR-0021), in English and Arabic on an arc up, a circle and a wave, bounced wavy and random, and
+// bounced on an arc.
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
@@ -15,7 +16,7 @@ import {
   type TextLayout,
 } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { type TextCurve, TextProps } from '@dazbee/schema'
+import { type TextBounce, type TextCurve, TextProps } from '@dazbee/schema'
 
 const ck = await loadCanvasKit()
 const resources = makeResources(ck, { fonts: loadFontFiles(), fallbackFamilies: [...FALLBACK_FAMILIES], images: {} })
@@ -31,10 +32,20 @@ interface Letter {
   corners: [Pt, Pt, Pt, Pt]
 }
 
-const CURVES: TextCurve[] = [
-  { shape: 'arcUp', amount: 60 },
-  { shape: 'circle', amount: 50 },
-  { shape: 'wave', amount: 40 },
+/** How a case's letters are placed: on a curve, bounced, or both. */
+interface Effect {
+  name: string
+  curve?: TextCurve
+  bounce?: TextBounce
+}
+
+const EFFECTS: Effect[] = [
+  { name: 'arcUp', curve: { shape: 'arcUp', amount: 60 } },
+  { name: 'circle', curve: { shape: 'circle', amount: 50 } },
+  { name: 'wave', curve: { shape: 'wave', amount: 40 } },
+  { name: 'wavy bounce', bounce: { style: 'wavy', amount: 80, seed: 1 } },
+  { name: 'random bounce', bounce: { style: 'random', amount: 70, seed: 5 } },
+  { name: 'bounced arcUp', curve: { shape: 'arcUp', amount: 40 }, bounce: { style: 'random', amount: 50, seed: 2 } },
 ]
 const WORDS = [
   { label: 'English', text: 'Fresh baked daily', family: 'Noto Sans', rtl: false },
@@ -42,15 +53,18 @@ const WORDS = [
   { label: 'two English lines', text: 'Fresh baked\ndaily bread', family: 'Noto Sans', rtl: false },
 ]
 // Two lines round a circle this tight close the inner one over the outer, so their letters overlap.
-const CASES = CURVES.flatMap((curve) =>
-  WORDS.filter((words) => !(curve.shape === 'circle' && words.text.includes('\n'))).map((words) => ({
+// A bounced lower line's raised letters reach into the upper line's boxes, so a click or a letter's
+// underline there can be the upper line's: those cases check the caret and selection only.
+const CASES = EFFECTS.flatMap((effect) =>
+  WORDS.filter((words) => !(effect.curve?.shape === 'circle' && words.text.includes('\n'))).map((words) => ({
     ...words,
-    curve,
-    name: `${words.label} ${curve.shape}`,
+    effect,
+    name: `${words.label} ${effect.name}`,
+    overlapping: effect.bounce !== undefined && words.text.includes('\n'),
   })),
 )
 
-function laidOut(text: string, family: string, curve?: TextCurve): TextLayout {
+function laidOut(text: string, family: string, effect: Omit<Effect, 'name'> = {}): TextLayout {
   const props = TextProps.parse({
     x: 0,
     y: 0,
@@ -58,7 +72,7 @@ function laidOut(text: string, family: string, curve?: TextCurve): TextLayout {
     height: 0,
     boxMode: 'autoWidth',
     text,
-    curve,
+    ...effect,
     style: { fontFamily: family, fontSize: 48, color: '#000000FF' },
   })
   return layoutText(ck, props, resources)
@@ -127,15 +141,16 @@ function inTurned(p: Pt, box: { x: number; y: number; width: number; height: num
   return along >= -slack && along <= box.width + slack && down >= -slack && down <= box.height + slack
 }
 
-describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
-  const laid = laidOut(text, family, curve)
+describe.each(CASES)('on $name', ({ text, family, effect, rtl, overlapping }) => {
+  const laid = laidOut(text, family, effect)
   afterAll(() => laid.delete())
   const letters = lettersOf(laid, text)
 
-  it('finds letters of one glyph each to check, turned more than a little', () => {
+  it('finds letters of one glyph each to check, turned or raised more than a little', () => {
     expect(letters.length).toBeGreaterThanOrEqual(5)
     const turns = letters.map((l) => Math.abs(Math.atan2(downOf(l.corners)[0], downOf(l.corners)[1])))
-    expect(Math.max(...turns)).toBeGreaterThan(0.2)
+    const tops = letters.map((l) => l.corners[0][1])
+    expect(Math.max(...turns) > 0.2 || Math.max(...tops) - Math.min(...tops) > 10).toBe(true)
   })
 
   it('draws the caret after each letter on its trailing edge, and before it on its leading edge, turned with it', () => {
@@ -157,7 +172,7 @@ describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
     }
   })
 
-  it('puts the caret before or after a letter by the half of its turned box a click is in', () => {
+  it.skipIf(overlapping)('puts the caret before or after a letter by the half of its turned box a click is in', () => {
     for (const letter of letters) {
       for (const down of [0.2, 0.5, 0.8]) {
         const [lx, ly] = pointIn(letter.corners, 0.25, down)
@@ -168,7 +183,7 @@ describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
     }
   })
 
-  it('a click where the caret is drawn puts it there', () => {
+  it.skipIf(overlapping)('a click where the caret is drawn puts it there', () => {
     for (const letter of letters) {
       const caret = caretPosition(ck, laid, letter.end)
       const [dx, dy] = turnedDown(caret.turn)
@@ -198,7 +213,7 @@ describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
     expect(inTurned(pointIn(letter.corners, 0.5, 0.5), boxes[0] ?? { x: 0, y: 0, width: 0, height: 0 })).toBe(true)
   })
 
-  it('underlines a composition under each letter, turned with it', () => {
+  it.skipIf(overlapping)('underlines a composition under each letter, turned with it', () => {
     const lines = compositionLines(ck, laid, 0, text.length)
     for (const letter of letters) {
       const [tl, tr, , bl] = letter.corners
@@ -222,7 +237,7 @@ describe.each(CASES)('on $name', ({ text, family, curve, rtl }) => {
 
 describe('an empty paragraph on a curve', () => {
   it('draws the caret under the line before, turned with its first letter', () => {
-    const laid = laidOut('Fresh\n', 'Noto Sans', { shape: 'arcUp', amount: 60 })
+    const laid = laidOut('Fresh\n', 'Noto Sans', { curve: { shape: 'arcUp', amount: 60 } })
     const [f] = lettersOf(laid, 'Fresh\n')
     if (!f) throw new Error('no letters')
     const caret = caretPosition(ck, laid, 6)

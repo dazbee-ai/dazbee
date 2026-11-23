@@ -72,6 +72,16 @@ describe('frameWarnings', () => {
     expect(kindsOf(storyWith({ title: { height: 10, boxMode: 'autoHeight' } }))).toEqual([])
   })
 
+  it('tells of a bounced text whose letters as drawn pass its fixed box, though its lines fit', () => {
+    expect(kindsOf(storyWith({ title: { text: 'Bounce', height: 40 } }))).toEqual([])
+    const bounce = { style: 'wavy', amount: 100, seed: 1 }
+    const warnings = frameWarnings(ck, storyWith({ title: { text: 'Bounce', height: 40, bounce } }), 'story', bytes)
+    expect(warnings.map((w) => w.kind)).toEqual(['overflow'])
+    expect(warnings[0]?.message).toMatch(
+      /^Text "Title" overflows its fixed box: its letters as drawn take \d+ × \d+ px from \(0, -\d+\) in a box 200 × 40 px\.$/,
+    )
+  })
+
   it('tells of text past its maxLines, a later paragraph cut or a long one', () => {
     const paragraphs = storyWith({
       title: { text: 'One\nTwo\nThree', boxMode: 'autoHeight', height: 200, maxLines: 2 },

@@ -49,7 +49,7 @@ export type Frame = z.infer<typeof Frame>
  * The version of this schema, which the API writes into a design's record when it creates one. A
  * sync token carries the design's, and the sync server refuses a tab built with an older version.
  */
-export const SCHEMA_VERSION = 16
+export const SCHEMA_VERSION = 17
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),

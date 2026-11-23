@@ -256,6 +256,7 @@ export const TextStyle = z.object({
   outline: textStyleFields.outline.optional(),
   features: textStyleFields.features.optional(),
   gradient: textStyleFields.gradient.optional(),
+  turn: textStyleFields.turn.optional(),
 })
 export type TextStyle = z.infer<typeof TextStyle>
 
@@ -284,6 +285,18 @@ export const TextCurve = z.object({
   amount: z.number().min(0).max(100),
 })
 export type TextCurve = z.infer<typeof TextCurve>
+
+/**
+ * A text's letters raised, lowered and turned one by one by `amount`, 0 to 100, counted across the
+ * whole text (ADR-0021): in a wave (`wavy`), or as a seeded random pattern (`random`) that the
+ * same `seed` always gives.
+ */
+export const TextBounce = z.object({
+  style: z.enum(['wavy', 'random']),
+  amount: z.number().min(0).max(100),
+  seed: z.number().int().min(0),
+})
+export type TextBounce = z.infer<typeof TextBounce>
 
 export const TextProps = z
   .object({
@@ -325,6 +338,11 @@ export const TextProps = z
      * wrap style don't apply while it is curved, and keep their values for when the curve is taken off.
      */
     curve: TextCurve.optional(),
+    /**
+     * Its letters bounced. An auto width box holds the letters as they are drawn, an auto height box
+     * grows in height only, and a fixed box stays as set; the box keeps its top-left.
+     */
+    bounce: TextBounce.optional(),
   })
   .superRefine((t, ctx) => {
     for (const [i, run] of t.runs.entries()) {

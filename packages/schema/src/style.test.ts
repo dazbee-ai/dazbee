@@ -105,6 +105,8 @@ describe('styleOf', () => {
       features: { tnum: true },
       gradient: null,
       curve: null,
+      bounce: null,
+      turn: null,
     })
     expect(JSON.stringify(style)).not.toContain('fontSize')
     expect(style.fills).toBeUndefined()
@@ -181,6 +183,26 @@ describe('restyle', () => {
     const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
     delete (copied.text as { curve?: unknown }).curve
     expect(LayerStyle.parse(copied).text?.curve).toBeNull()
+  })
+
+  it('carries a text’s bounce and its letters’ turn, and takes them off a text when the style has none', () => {
+    const bounce = { style: 'random', amount: 40, seed: 7 }
+    const bounced = styleOf(text({ turn: -12 }, { bounce }))
+    expect(bounced.text).toMatchObject({ bounce, turn: -12 })
+    const pasted = restyle(text(), bounced)?.patch
+    expect(pasted?.bounce).toEqual(bounce)
+    expect(pasted?.style).toMatchObject({ turn: -12 })
+    const plain = restyle(text({ turn: -12 }, { bounce }), styleOf(text()))?.patch
+    expect(plain).toHaveProperty('bounce', undefined)
+    expect(plain?.style).not.toHaveProperty('turn')
+    expect(restyle(text({ turn: -12 }, { bounce }), bounced)).toBeNull()
+  })
+
+  it('reads a style copied before texts had bounces and turns as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { bounce?: unknown }).bounce
+    delete (copied.text as { turn?: unknown }).turn
+    expect(LayerStyle.parse(copied).text).toMatchObject({ bounce: null, turn: null })
   })
 
   it('sets only what the layer has: a text’s style leaves a shape’s fills, and a shape’s leaves a text’s font', () => {

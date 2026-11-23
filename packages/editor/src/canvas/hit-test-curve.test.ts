@@ -1,5 +1,5 @@
-// A curved text is hit on its placed letters' turned boxes (ADR-0021), never on the straight line it
-// was laid out on.
+// A curved or bounced text is hit on its placed letters' turned boxes (ADR-0021), never on the straight
+// line it was laid out on.
 import { describe, expect, it } from 'vitest'
 
 import type { TurnedRect } from '@dazbee/renderer'
@@ -80,5 +80,24 @@ describe('hitTest on a curved text', () => {
     const clear = onLine.filter((p) => !nearLetter(p))
     expect(clear.length).toBeGreaterThan(4)
     for (const p of clear) expect(idAt(p)).toBe('under')
+  })
+})
+
+describe('hitTest on a bounced text', () => {
+  it('picks a fixed box’s text on a letter raised above its box, and on no point past it away from the letters', () => {
+    const bounced = text(
+      'bounced',
+      'BOUNCE',
+      { x: 100, y: 100, width: 400, height: 60 },
+      { boxMode: 'fixed', bounce: { style: 'wavy', amount: 100, seed: 1 } },
+    )
+    const under = [rect('under', 0, 0, 600, 400), bounced]
+    const above = looks
+      .lines(bounced.props as TextProps)
+      .map((box) => ({ x: 100 + box.x + box.width / 2, y: 100 + box.y + 2 }))
+      .filter((p) => p.y < 100)
+    expect(above.length).toBeGreaterThan(1)
+    for (const p of above) expect(hitTest(under, p, looks)?.id).toBe('bounced')
+    expect(hitTest(under, { x: 550, y: 90 }, looks)?.id).toBe('under')
   })
 })

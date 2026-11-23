@@ -57,6 +57,11 @@ export const textStyleFields = {
    * so a run's is the part of the box's gradient its characters cover. A hidden one shows the colour.
    */
   gradient: GradientPaint,
+  /**
+   * Each letter's own turn, in degrees clockwise about the middle of its advance on its baseline,
+   * which moves the text's letters one by one (ADR-0021); 0 or left out is none.
+   */
+  turn: z.number().min(-180).max(180),
 }
 
 /** Letter spacing in pixels at `fontSize`, the size the characters are set at. */

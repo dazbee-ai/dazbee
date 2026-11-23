@@ -4,13 +4,16 @@
 import { z } from 'zod'
 
 import { Effect } from './effects.ts'
-import { type Layer, Radius, Stroke, TextCurve, TextStyle } from './layers.ts'
+import { type Layer, Radius, Stroke, TextBounce, TextCurve, TextStyle } from './layers.ts'
 import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
 import { textStyleFields } from './typography.ts'
 import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './variables.ts'
 
-/** A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its OpenType features, its gradient and its curve. Null is none. */
+/**
+ * A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its
+ * OpenType features, its gradient, its curve, its bounce and its letters' turn. Null is none.
+ */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
   fontWeight: textStyleFields.fontWeight,
@@ -26,6 +29,10 @@ const TextLook = z.object({
   gradient: textStyleFields.gradient.nullable().default(null),
   /** Left out of a style copied before texts had curves, which is none. */
   curve: TextCurve.nullable().default(null),
+  /** Left out of a style copied before texts had bounces, which is none. */
+  bounce: TextBounce.nullable().default(null),
+  /** The base style's letter turn; left out of a style copied before letters had turns, which is none. */
+  turn: textStyleFields.turn.nullable().default(null),
 })
 
 export const LayerStyle = z.object({
@@ -59,7 +66,7 @@ type Props = Readonly<Record<string, unknown>>
 type TypedProps = Layer extends infer L ? (L extends Layer ? Pick<L, 'type' | 'props'> : never) : never
 
 /** The keys of a text's base style that its look holds as null when the text has none. */
-const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features', 'gradient'])
+const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features', 'gradient', 'turn'])
 
 /** A layer's style. */
 export function styleOf(layer: Layer): LayerStyle {
@@ -87,6 +94,8 @@ export function styleOf(layer: Layer): LayerStyle {
       features: s.features ?? null,
       gradient: s.gradient ?? null,
       curve: layer.props.curve ?? null,
+      bounce: layer.props.bounce ?? null,
+      turn: s.turn ?? null,
     }
   }
   for (const property of BindableProperty.options) {
@@ -112,7 +121,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, features, gradient, curve, ...look } = style.text
+    const { lineHeight, paragraphSpacing, outline, features, gradient, curve, bounce, turn, ...look } = style.text
     const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
       ...Object.fromEntries(kept),
@@ -121,9 +130,11 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
       ...(outline === null ? {} : { outline }),
       ...(features === null ? {} : { features }),
       ...(gradient === null ? {} : { gradient }),
+      ...(turn === null ? {} : { turn }),
     }
     wanted.paragraphSpacing = paragraphSpacing ?? undefined
     wanted.curve = curve ?? undefined
+    wanted.bounce = bounce ?? undefined
   }
   const patch = Object.fromEntries(Object.entries(wanted).filter(([key, value]) => !same(value, props[key])))
   const bindings: Bindings = Object.fromEntries(

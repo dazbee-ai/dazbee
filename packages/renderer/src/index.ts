@@ -43,6 +43,7 @@ export {
   type UnderLine,
   visualStep,
 } from './text/caret.ts'
+export { movesLetters } from './text/bounce.ts'
 export { paragraphCache, type ParagraphCache, textMeasure } from './text/cache.ts'
 export { layoutText, type TextBlock, type TextLayout } from './text/layout.ts'
 export { missingGraphemes } from './text/missing.ts'
@@ -55,4 +56,6 @@ export {
   type PlacedRun,
   placeLetters,
   type Placement,
+  placedBounds,
+  straightBounds,
 } from './text/placed.ts'

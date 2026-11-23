@@ -1,11 +1,12 @@
-// Typing on a curved text: keys, a click and a composition edit the characters of the placed letters
-// they are on (ADR-0021), the caret and range are shown turned with those letters, Up and Down move
-// by the straight lines, and the box fits the curve as the text grows.
+// Typing on a curved or bounced text: keys, a click and a composition edit the characters of the
+// placed letters they are on (ADR-0021), the caret and range are shown turned with those letters, Up
+// and Down move by the straight lines, the box fits the curve as the text grows, and a typed letter
+// takes the letter turn of the one before it.
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { caretPosition, letterBoxes } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import type { TextCurve, TextProps } from '@dazbee/schema'
+import type { TextBounce, TextCurve, TextProps } from '@dazbee/schema'
 
 import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
@@ -16,13 +17,13 @@ const ARC: TextCurve = { shape: 'arcUp', amount: 80 }
 let editor: TestEditor | undefined
 afterEach(() => editor?.end())
 
-/** An editor typing in the words, which say `text` on `curve`, the caret at their end. */
-async function typingIn(text: string, curve: TextCurve = ARC) {
+/** An editor typing in the words, which say `text` on a curve, or as `more` sets them, the caret at their end. */
+async function typingIn(text: string, more: Partial<TextProps> = { curve: ARC }) {
   const words = WORDS.nodes.words
   if (words?.type !== 'text') throw new Error('no words')
   editor = await testEditor({
     ...WORDS,
-    nodes: { ...WORDS.nodes, words: { ...words, props: { ...words.props, text, curve } } },
+    nodes: { ...WORDS.nodes, words: { ...words, props: { ...words.props, text, ...more } } },
   })
   const opened = editor
   opened.core.select(['words'])
@@ -129,5 +130,30 @@ describe('typing on a curved text', () => {
     expect(props().text).toBe('Fresh')
     e.core.input.fieldChanged(composed('你好'), null)
     expect(props().text).toBe('Fresh你好')
+  })
+})
+
+describe('typing on a bounced text', () => {
+  const bounce: TextBounce = { style: 'random', amount: 60, seed: 3 }
+
+  it('gives a typed letter the letter turn of the one before it, drawn turned and the caret after it', async () => {
+    const {
+      editor: e,
+      press,
+      props,
+    } = await typingIn('Wo', { bounce, runs: [{ start: 1, end: 2, style: { turn: 25 } }] })
+    press('w')
+    expect(props().text).toBe('Wow')
+    expect(props().runs).toEqual([{ start: 1, end: 3, style: { turn: 25 } }])
+    const laid = e.modules.scenes.layout(props())
+    const boxes = letterBoxes(laid.placed ?? { runs: [], delete: () => {} })
+    const at = caretPosition(ck, laid, 3)
+    // The caret after the typed "w" stands on its turned box's trailing edge, turned as it is.
+    const last = boxes.at(-1)
+    if (!last) throw new Error('no letters')
+    expect(at.turn).toBeCloseTo(last.turn ?? 0, 3)
+    const angle = ((last.turn ?? 0) * Math.PI) / 180
+    expect(at.x).toBeCloseTo(last.x + last.width * Math.cos(angle), 0)
+    expect(at.y).toBeCloseTo(last.y + last.width * Math.sin(angle), 0)
   })
 })

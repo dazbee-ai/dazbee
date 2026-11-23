@@ -5,7 +5,15 @@
 import { type TextBounce, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
-import { inPlace, placedBounds, type PlacedLine, type PlacedRun, type PlaceGlyph, type Placement } from './placed.ts'
+import {
+  inPlace,
+  placedBounds,
+  type PlacedLine,
+  type PlacedRun,
+  type PlaceGlyph,
+  type Placement,
+  shiftPlaced,
+} from './placed.ts'
 
 /** How a letter moves off its place: raised along its line's normal, in pixels, and turned clockwise, in degrees. */
 export interface LetterMove {
@@ -129,24 +137,6 @@ export function moveLetters(layout: TextLayout, placed: Placement, place: PlaceG
       moveAt(xforms, 4 * g + 2, move)
       for (let c = 0; c < 8; c += 2) moveAt(boxes, 8 * g + c, move)
     }
-  }
-}
-
-/** Moves a placement's glyphs and the layout's list markers right and down, as a box keeping its top-left does. */
-export function shiftPlaced(layout: TextLayout, placed: Placement, dx: number, dy: number) {
-  for (const { xforms, boxes } of placed.runs) {
-    for (let i = 0; i < xforms.length; i += 4) {
-      xforms[i + 2] = (xforms[i + 2] ?? 0) + dx
-      xforms[i + 3] = (xforms[i + 3] ?? 0) + dy
-    }
-    for (let i = 0; i < boxes.length; i += 2) {
-      boxes[i] = (boxes[i] ?? 0) + dx
-      boxes[i + 1] = (boxes[i + 1] ?? 0) + dy
-    }
-  }
-  for (const block of layout.blocks) {
-    block.markerX += dx
-    block.markerY += dy
   }
 }
 

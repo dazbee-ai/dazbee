@@ -10,8 +10,8 @@ import type { Canvas, CanvasKit, Path } from '@dazbee/canvaskit'
 import type { TextExtrusion, TextProps } from '@dazbee/schema'
 
 import { EVERYWHERE } from '../draw/paths.ts'
-import { shiftPlaced } from './bounce.ts'
 import type { TextLayout } from './layout.ts'
+import { shiftPlaced } from './placed.ts'
 
 /** How far a text's sides reach behind its letters, in pixels across and down. */
 export interface SidesReach {

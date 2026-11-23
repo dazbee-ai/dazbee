@@ -203,7 +203,20 @@ describe('PDF and SVG exports (#56)', () => {
     expect(text).not.toContain('Yummy')
   })
 
-  it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise'))(
+  it('keeps image-filled straight text in a PDF as text once, draws an image-filled curve as shapes, and an image-filled text into an SVG as an image', async () => {
+    const filled = cases.find((c) => c.name === 'text-effects' && c.frameId === 'image-fill')
+    if (!filled) throw new Error('fixture missing')
+    const pdf = pdfs.get(filled.label) ?? renderVector(ck, filled.json, filled.frameId, bytes, 'pdf', cache)
+    const text = await pdfText(pdfium, pdf)
+    expect(text.match(/SNEAKERS/g)).toHaveLength(1)
+    expect(text).toContain('Get the GOLD deal now')
+    expect(text).not.toContain('SUMMER')
+    const svg = new TextDecoder().decode(renderVector(ck, filled.json, filled.frameId, bytes, 'svg', cache))
+    expect(svg).not.toContain('<text')
+    expect(svg).toContain('<image')
+  })
+
+  it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise' && c.frameId !== 'image-fill'))(
     '$label: draws curved and bounced letters into a PDF and an SVG as shapes, never as text',
     async ({ json, frameId, label }) => {
       const pdf = pdfs.get(label) ?? renderVector(ck, json, frameId, bytes, 'pdf', cache)

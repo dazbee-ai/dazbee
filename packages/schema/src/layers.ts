@@ -256,6 +256,7 @@ export const TextStyle = z.object({
   outline: textStyleFields.outline.optional(),
   features: textStyleFields.features.optional(),
   gradient: textStyleFields.gradient.optional(),
+  image: textStyleFields.image.optional(),
   turn: textStyleFields.turn.optional(),
   raise: textStyleFields.raise.optional(),
 })
@@ -352,7 +353,13 @@ export const TextProps = z
     bounce: TextBounce.optional(),
   })
   .superRefine((t, ctx) => {
+    const oneFill = (style: { gradient?: unknown; image?: unknown }, path: (string | number)[]) => {
+      if (style.gradient !== undefined && style.image !== undefined)
+        ctx.addIssue({ code: 'custom', path, message: 'a style holds a gradient or an image, not both' })
+    }
+    oneFill(t.style, ['style'])
     for (const [i, run] of t.runs.entries()) {
+      oneFill(run.style, ['runs', i, 'style'])
       if (run.end > t.text.length) {
         ctx.addIssue({
           code: 'custom',

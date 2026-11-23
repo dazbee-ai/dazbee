@@ -95,6 +95,15 @@ export const ImagePaint = z.object({
 })
 export type ImagePaint = z.infer<typeof ImagePaint>
 
+/**
+ * An image a text or a run is painted with in place of its colour, placed in the text layer's box:
+ * covering it, whole inside it or tiled across it. A text has no crop.
+ */
+export const TextImagePaint = ImagePaint.omit({ crop: true }).extend({
+  fit: ImageFit.exclude(['crop']).default('fill'),
+})
+export type TextImagePaint = z.infer<typeof TextImagePaint>
+
 export const Paint = z.discriminatedUnion('type', [SolidPaint, LinearPaint, RadialPaint, AngularPaint, ImagePaint])
 export type Paint = z.infer<typeof Paint>
 

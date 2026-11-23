@@ -155,3 +155,79 @@ describe('a raise', () => {
     expect(tooFar.isError).toBe(true)
   })
 })
+
+describe('an image fill', () => {
+  it('is set on a text with node.update and on a run with text.edit, in place of its colour and gradient', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', { command: 'node.create', input: BADGE })
+    const sync = server.sync('design-launch')
+    const stored = () => (sync.state().nodes['badge-text'] as { props?: TextProps } | undefined)?.props
+    const style = BADGE.layer.props.style
+    const image = { type: 'image', assetId: 'asset-bottle', fit: 'tile', tileScale: 0.5, opacity: 1 }
+    const filled = await agent.call('run_command', {
+      command: 'node.update',
+      input: { ids: ['badge-text'], patch: { style: { ...style, image } } },
+    })
+    expect(filled.isError).toBeFalsy()
+    expect(stored()?.style).toEqual({ ...style, image })
+    const gradient = {
+      type: 'linear',
+      from: { x: 0, y: 0 },
+      to: { x: 1, y: 0 },
+      stops: [
+        { offset: 0, color: '#FF0000FF' },
+        { offset: 1, color: '#0000FFFF' },
+      ],
+    }
+    const run = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 0, length: 5, style: { gradient } } },
+    })
+    expect(run.isError).toBeFalsy()
+    const photo = { type: 'image', assetId: 'asset-bottle', fit: 'fill', opacity: 1 }
+    const runImage = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 0, length: 2, style: { image: photo } } },
+    })
+    expect(runImage.isError).toBeFalsy()
+    expect(stored()?.runs).toEqual([
+      { start: 0, end: 2, style: { image: photo } },
+      { start: 2, end: 5, style: { gradient } },
+    ])
+  })
+
+  it('refuses a crop fit, and a style with both a gradient and an image', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', { command: 'node.create', input: BADGE })
+    const style = BADGE.layer.props.style
+    const image = { type: 'image', assetId: 'asset-bottle', fit: 'crop', opacity: 1 }
+    const cropped = await agent.call('run_command', {
+      command: 'node.update',
+      input: { ids: ['badge-text'], patch: { style: { ...style, image } } },
+    })
+    expect(cropped.isError).toBe(true)
+    const runCropped = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 0, length: 2, style: { image } } },
+    })
+    expect(runCropped.isError).toBe(true)
+    const gradient = {
+      type: 'radial',
+      center: { x: 0.5, y: 0.5 },
+      radius: 0.5,
+      stops: [
+        { offset: 0, color: '#FF0000FF' },
+        { offset: 1, color: '#0000FFFF' },
+      ],
+    }
+    const both = await agent.call('run_command', {
+      command: 'node.update',
+      input: { ids: ['badge-text'], patch: { style: { ...style, gradient, image: { ...image, fit: 'fill' } } } },
+    })
+    expect(both.isError).toBe(true)
+  })
+})

@@ -1,27 +1,28 @@
 import type { Canvas, CanvasKit, Paint, Paragraph } from '@dazbee/canvaskit'
-import type { GradientPaint, Rect } from '@dazbee/schema'
+import type { GradientPaint, Rect, TextImagePaint } from '@dazbee/schema'
 
 import { color } from '../color.ts'
-import type { Resources } from '../resources.ts'
+import { imageSizeOf, type Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
 import { laidOut } from '../text/cache.ts'
 import type { TextBlock } from '../text/layout.ts'
 import { placedBounds, placedPoint, type PlacedRun, type Placement } from '../text/placed.ts'
-import { drawsLines, gradientKey, linesColour, passPaint, type TextPass } from '../text/text-paint.ts'
+import { drawsLines, gradientKey, imageKey, linesColour, passPaint, type TextPass } from '../text/text-paint.ts'
 import { flipMatrix } from './flip.ts'
-import { paintFor } from './paint.ts'
+import { imagePlacement, paintFor } from './paint.ts'
 import { EVERYWHERE } from './paths.ts'
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
 /**
  * Draws a text's lines, mirrored about its box's centre as it is flipped, from its box's corner, where
- * its gradients are placed: outlines under the letters first, then each block's fill, the lines its
- * gradients fill, its outlines over the letters and its marker. A placed text draws its letters where
- * its placement puts them, in the same passes and order.
+ * its gradients and images are placed: outlines under the letters first, then each block's fill, the
+ * lines its gradients fill, the characters its images paint (from its letters), its outlines over the
+ * letters and its marker. A placed text draws its letters where its placement puts them, in the same
+ * passes and order.
  */
 export function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resources: Resources) {
-  const { blocks, dy, placed, done } = laidOut(ck, layer.props, resources)
+  const { blocks, dy, placed, letters, done } = laidOut(ck, layer.props, resources)
   const { props } = layer
   const flip = flipMatrix(ck, props)
   canvas.save()
@@ -32,9 +33,11 @@ export function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resour
     drawPlaced(ck, canvas, blocks, dy, placed, box, resources)
   } else {
     for (const b of blocks) if (b.outlineUnder) drawPass(ck, canvas, b.outlineUnder, b.x, dy + b.y, resources)
-    for (const b of blocks) {
+    for (const [i, b] of blocks.entries()) {
       canvas.drawParagraph(b.paragraph, b.x, dy + b.y)
       for (const lines of b.gradientLines) drawFilledLines(ck, canvas, lines, b.x, dy + b.y, box, resources)
+      const runs = b.images.length > 0 ? letters().runs.filter((r) => r.block === i) : []
+      for (const image of b.images) drawImageFill(ck, canvas, image, runs, box, resources)
       if (b.outline) drawPass(ck, canvas, b.outline, b.x, dy + b.y, resources)
       if (b.marker) canvas.drawParagraph(b.marker, b.markerX, dy + b.y + b.markerY)
     }
@@ -66,10 +69,11 @@ function drawPlaced(
     drawPlacedPass(ck, canvas, runs, { kind: 'fill' }, box, resources)
     for (const { gradient } of b.gradientLines) {
       const pass: TextPass = { kind: 'lines', gradient: gradientKey(gradient) }
-      fillWithGradient(ck, canvas, gradient, box, linesBounds(runs), resources, () =>
+      fillWith(ck, canvas, gradient, box, linesBounds(runs), resources, () =>
         drawPlacedPass(ck, canvas, runs, pass, box, resources),
       )
     }
+    for (const image of b.images) drawImageFill(ck, canvas, image, runs, box, resources)
     if (b.outline) drawPlacedPass(ck, canvas, runs, { kind: 'outline', under: false }, box, resources)
     if (b.marker) canvas.drawParagraph(b.marker, b.markerX, dy + b.y + b.markerY)
   }
@@ -97,9 +101,53 @@ function drawFilledLines(
   const width = Math.max(paragraph.getMaxWidth(), paragraph.getLongestLine())
   const reach = paragraph.getHeight()
   const bounds = { x: x - reach - width, y: y - reach, width: 3 * width + 2 * reach, height: 3 * reach }
-  fillWithGradient(ck, canvas, lines.gradient, box, bounds, resources, () =>
-    drawPass(ck, canvas, paragraph, x, y, resources),
-  )
+  fillWith(ck, canvas, lines.gradient, box, bounds, resources, () => drawPass(ck, canvas, paragraph, x, y, resources))
+}
+
+/**
+ * Draws the letters an image paints, and their lines, filled with the image across the layer's box.
+ * An opaque image paints them itself, as a colour does, in one pass over the glyphs. A see-through
+ * one, under which letters that overlap would show through each other, fills them drawn opaque in an
+ * offscreen layer (`fillWith`). Into a PDF the image is clipped to the letters, as a shape's image
+ * fill is clipped to its path (`fillPath`).
+ */
+function drawImageFill(
+  ck: CanvasKit,
+  canvas: Canvas,
+  image: TextImagePaint,
+  runs: readonly PlacedRun[],
+  box: Rect,
+  resources: Resources,
+) {
+  const pass: TextPass = { kind: 'image', image: imageKey(image) }
+  const painted = runs.filter((run) => drawsLines(run.style, pass))
+  const bounds = placedInk(painted)
+  if (!bounds) return
+  if (!opaque(ck, image, resources)) {
+    fillWith(ck, canvas, image, box, bounds, resources, () => drawPlacedPass(ck, canvas, painted, pass, box, resources))
+    return
+  }
+  const paint = paintFor(ck, image, box, resources)
+  if (!paint) return
+  const draw = (into: Canvas, glyphEach: boolean) => {
+    for (const run of painted) {
+      drawGlyphs(ck, into, run, paint, glyphEach)
+      drawLetterLines(ck, into, run, paint)
+    }
+  }
+  if (resources.vector) {
+    canvas.save()
+    canvas.clipRect(ck.XYWHRect(bounds.x, bounds.y, bounds.width, bounds.height), ck.ClipOp.Intersect, false)
+    drawAsShapes(ck, canvas, (into) => draw(into, true))
+    canvas.restore()
+  } else draw(canvas, false)
+  paint.delete()
+}
+
+/** Whether an image paints every letter it fills opaque: shown whole, at full opacity, with no see-through pixel. */
+function opaque(ck: CanvasKit, image: TextImagePaint, resources: Resources): boolean {
+  const drawn = resources.images.get(image.assetId)
+  return image.opacity === 1 && drawn?.getImageInfo().alphaType === ck.AlphaType.Opaque
 }
 
 /** Draws one pass of placed runs: their glyphs in the pass's paint, and the lines the pass draws for them. */
@@ -118,32 +166,63 @@ function drawPlacedPass(
         drawGlyphs(ck, into, run, paint, glyphEach)
         paint.delete()
       }
-      if (drawsLines(run.style, pass)) drawLetterLines(ck, into, run, linesColour(run.style, pass))
+      if (drawsLines(run.style, pass)) {
+        const lines = new ck.Paint()
+        lines.setAntiAlias(true)
+        lines.setColor(color(ck, linesColour(run.style, pass)))
+        drawLetterLines(ck, into, run, lines)
+        lines.delete()
+      }
     }
   }
   if (resources.vector) drawAsShapes(ck, canvas, (into) => draw(into, true), pass.kind === 'fill')
   else draw(canvas, false)
 }
 
-/** Draws what `draw` draws, opaque, in an offscreen layer of `bounds`, filled with the gradient across the layer's box. */
-function fillWithGradient(
+/**
+ * Draws what `draw` draws, opaque, in an offscreen layer of `bounds`, filled with the gradient or
+ * image across the layer's box. Into a PDF an image is clipped to `bounds`, a see-through one drawn
+ * whole inside a layer that holds its opacity, as a shape's image fill is (`fillPath`); and one that
+ * fits inside the box is clipped to where it is drawn, as a PDF leaves the letters past it as they
+ * are where the screen clears them.
+ */
+function fillWith(
   ck: CanvasKit,
   canvas: Canvas,
-  gradient: GradientPaint,
+  fill: GradientPaint | TextImagePaint,
   box: Rect,
   bounds: Rect,
   resources: Resources,
   draw: () => void,
 ) {
-  const paint = paintFor(ck, gradient, box, resources)
+  const image = resources.vector && fill.type === 'image'
+  const faded = image && fill.opacity < 1
+  const paint = paintFor(ck, faded ? { ...fill, opacity: 1 } : fill, box, resources)
   if (!paint) return
   const rect = ck.XYWHRect(bounds.x, bounds.y, bounds.width, bounds.height)
+  if (image) {
+    canvas.save()
+    canvas.clipRect(rect, ck.ClipOp.Intersect, false)
+    const drawn = resources.images.get(fill.assetId)
+    if (fill.fit === 'fit' && drawn) {
+      const at = imagePlacement(imageSizeOf(resources, fill.assetId, drawn), fill, box)
+      canvas.clipRect(ck.XYWHRect(at.x, at.y, at.width, at.height), ck.ClipOp.Intersect, true)
+    }
+  }
+  if (faded) {
+    const layer = new ck.Paint()
+    layer.setAlphaf(fill.opacity)
+    canvas.saveLayer(layer, rect)
+    layer.delete()
+  }
   canvas.saveLayer(undefined, rect)
   draw()
   paint.setBlendMode(ck.BlendMode.SrcIn)
   canvas.drawRect(rect, paint)
   paint.delete()
   canvas.restore()
+  if (faded) canvas.restore()
+  if (image) canvas.restore()
 }
 
 /**
@@ -155,6 +234,22 @@ function linesBounds(runs: readonly PlacedRun[]): Rect {
   if (!bounds) return { x: 0, y: 0, width: 0, height: 0 }
   const reach = bounds.height
   return { x: bounds.x - reach, y: bounds.y - reach, width: bounds.width + 2 * reach, height: 3 * reach }
+}
+
+/**
+ * The part of the layer's box placed letters and their lines can reach: their turned boxes, and half
+ * their largest font size more on each side, for a glyph past its advance; null without a glyph.
+ */
+function placedInk(runs: readonly PlacedRun[]): Rect | null {
+  const bounds = placedBounds(runs)
+  if (!bounds) return null
+  const reach = Math.max(...runs.map((run) => run.font.getSize())) / 2
+  return {
+    x: bounds.x - reach,
+    y: bounds.y - reach,
+    width: bounds.width + 2 * reach,
+    height: bounds.height + 2 * reach,
+  }
 }
 
 /**
@@ -186,7 +281,7 @@ function drawGlyphs(ck: CanvasKit, canvas: Canvas, run: PlacedRun, paint: Paint,
  * advance at the font's underline or strikethrough place and thickness, read as SkParagraph reads
  * them, moved and turned with the glyph.
  */
-function drawLetterLines(ck: CanvasKit, canvas: Canvas, run: PlacedRun, colour: string) {
+function drawLetterLines(ck: CanvasKit, canvas: Canvas, run: PlacedRun, paint: Paint) {
   const { style } = run
   if (!style.underline && !style.strikethrough) return
   const metrics = run.font.getMetrics()
@@ -215,10 +310,6 @@ function drawLetterLines(ck: CanvasKit, canvas: Canvas, run: PlacedRun, colour: 
     }
   }
   const path = builder.detachAndDelete()
-  const paint = new ck.Paint()
-  paint.setAntiAlias(true)
-  paint.setColor(color(ck, colour))
   canvas.drawPath(path, paint)
-  paint.delete()
   path.delete()
 }

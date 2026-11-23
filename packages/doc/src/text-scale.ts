@@ -1,7 +1,9 @@
 // A text's sizes scaled: shrink to fit draws its style at a scale, a corner drag on the stage
 // writes its sizes scaled by the box's factor, and a layer laid out to fit (commands/fit.ts) has
 // its style's sizes scaled with its box.
-import type { LetterSpacing, TextProps } from '@dazbee/schema'
+import { type LetterSpacing, type TextProps, TILE_SCALE } from '@dazbee/schema'
+
+import { round } from './geometry.ts'
 
 /** What scaling a text changes; line height is a multiple of the size, so it stays. */
 export type ScaledText = Pick<TextProps, 'style' | 'runs'> &
@@ -15,6 +17,8 @@ type Sized = {
   letterSpacing?: LetterSpacing | undefined
   outline?: Style['outline'] | undefined
 }
+/** The image a style may hold, whose tiles may have a size. */
+type Tiled = { image?: { fit?: string | undefined; tileScale?: number | undefined } | undefined }
 
 /**
  * Every size in a style scaled: its font size, letter spacing in pixels and outline width. Letter
@@ -31,13 +35,25 @@ export function scaled<T extends Sized>(style: T, scale: number, round: (n: numb
 }
 
 /**
+ * A style's image that tiles at a tile scale, its tiles scaled by `factor` to hundredths, inside
+ * `TILE_SCALE`, as a shape's tiled fill is; the same style for any other.
+ */
+export function scaledTiles<T extends Tiled>(style: T, factor: number): T {
+  const { image } = style
+  if (factor === 1 || image?.fit !== 'tile' || image.tileScale === undefined) return style
+  const tileScale = Math.min(TILE_SCALE.max, Math.max(TILE_SCALE.min, round(image.tileScale * factor)))
+  return { ...style, image: { ...image, tileScale } }
+}
+
+/**
  * A text's sizes scaled by `factor`, as a corner drag scales them: the style's and each run's,
- * paragraph spacing and shrink to fit's smallest and largest sizes, each to the nearest 0.1.
+ * paragraph spacing and shrink to fit's smallest and largest sizes, each to the nearest 0.1, and
+ * its tiled images' tiles (`scaledTiles`).
  */
 export function scaleText(props: ScaledText, factor: number): ScaledText {
   const out: ScaledText = {
-    style: scaled(props.style, factor, tenth),
-    runs: props.runs.map((run): Run => ({ ...run, style: scaled(run.style, factor, tenth) })),
+    style: scaledTiles(scaled(props.style, factor, tenth), factor),
+    runs: props.runs.map((run): Run => ({ ...run, style: scaledTiles(scaled(run.style, factor, tenth), factor) })),
   }
   if (props.paragraphSpacing !== undefined) out.paragraphSpacing = tenth(props.paragraphSpacing * factor)
   if (props.shrinkToFit)

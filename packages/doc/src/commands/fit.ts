@@ -12,17 +12,24 @@ import {
 
 import { LEFT_TOP } from '../constraints.ts'
 import { round } from '../geometry.ts'
-import { scaled } from '../text-scale.ts'
+import { scaled, scaledTiles } from '../text-scale.ts'
 
 export interface Size {
   width: number
   height: number
+}
+/** A paint, of which an image that tiles has a size. */
+interface PaintLike {
+  type: string
+  fit?: string
+  tileScale?: number
 }
 /** The sizes a text's style holds. */
 interface TextStyleLike {
   fontSize: number
   letterSpacing?: LetterSpacing
   outline?: { width: number; color: string }
+  image?: PaintLike
 }
 /** The parts of a text layer's props that hold sizes. */
 interface TextLike {
@@ -45,12 +52,6 @@ interface ShapeLike {
   drawnIn?: Size
   cornerRadius?: number
   corners?: number[]
-}
-/** A paint, of which an image that tiles has a size. */
-interface PaintLike {
-  type: string
-  fit?: string
-  tileScale?: number
 }
 interface StrokeLike {
   paint: PaintLike
@@ -229,15 +230,18 @@ function shaped(props: LookLike & Partial<Size>, s: number): Partial<LookLike> {
 }
 
 /**
- * A text's font sizes, letter spacing and outline width, in its style and each run that sets them
- * (`scaled`, as a corner drag scales them), its paragraph spacing and its shrink-to-fit bounds;
+ * A text's font sizes, letter spacing, outline width and tiled image, in its style and each run that
+ * sets them (`scaled` and `scaledTiles`, as a corner drag scales them), its paragraph spacing and its shrink-to-fit bounds;
  * nothing for other layers.
  */
 function textSizes(text: TextLike, s: number): Partial<TextLike> {
   if (!text.style) return {}
   const size = (n: number) => Math.max(MIN_FONT_SIZE, scaledBy(n, s))
   const sized = <T extends Partial<TextStyleLike>>(style: T): T => {
-    const out = scaled(style, s, (n) => round(n) + 0)
+    const out = scaledTiles(
+      scaled(style, s, (n) => round(n) + 0),
+      s,
+    )
     return out.fontSize === undefined ? out : { ...out, fontSize: Math.max(MIN_FONT_SIZE, out.fontSize) }
   }
   const out: Partial<TextLike> = { style: sized(text.style) }

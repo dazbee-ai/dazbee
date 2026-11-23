@@ -12,7 +12,7 @@ import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './vari
 
 /**
  * A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its
- * OpenType features, its gradient, its curve, its bounce, its letters' turn and their raise. Null is none.
+ * OpenType features, its gradient or image fill, its curve, its bounce, its letters' turn and their raise. Null is none.
  */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
@@ -27,6 +27,8 @@ const TextLook = z.object({
   features: textStyleFields.features.nullable().default(null),
   /** Left out of a style copied before texts had gradients, which is none. */
   gradient: textStyleFields.gradient.nullable().default(null),
+  /** Left out of a style copied before texts had image fills, which is none. */
+  image: textStyleFields.image.nullable().default(null),
   /** Left out of a style copied before texts had curves, which is none. */
   curve: TextCurve.nullable().default(null),
   /** Left out of a style copied before texts had bounces, which is none. */
@@ -68,7 +70,15 @@ type Props = Readonly<Record<string, unknown>>
 type TypedProps = Layer extends infer L ? (L extends Layer ? Pick<L, 'type' | 'props'> : never) : never
 
 /** The keys of a text's base style that its look holds as null when the text has none. */
-const NULLABLE_LOOK: ReadonlySet<string> = new Set(['lineHeight', 'outline', 'features', 'gradient', 'turn', 'raise'])
+const NULLABLE_LOOK: ReadonlySet<string> = new Set([
+  'lineHeight',
+  'outline',
+  'features',
+  'gradient',
+  'image',
+  'turn',
+  'raise',
+])
 
 /** A layer's style. */
 export function styleOf(layer: Layer): LayerStyle {
@@ -95,6 +105,7 @@ export function styleOf(layer: Layer): LayerStyle {
       outline: s.outline ?? null,
       features: s.features ?? null,
       gradient: s.gradient ?? null,
+      image: s.image ?? null,
       curve: layer.props.curve ?? null,
       bounce: layer.props.bounce ?? null,
       turn: s.turn ?? null,
@@ -124,7 +135,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, features, gradient, curve, bounce, turn, raise, ...look } =
+    const { lineHeight, paragraphSpacing, outline, features, gradient, image, curve, bounce, turn, raise, ...look } =
       style.text
     const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
@@ -134,6 +145,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
       ...(outline === null ? {} : { outline }),
       ...(features === null ? {} : { features }),
       ...(gradient === null ? {} : { gradient }),
+      ...(image === null ? {} : { image }),
       ...(turn === null ? {} : { turn }),
       ...(raise === null ? {} : { raise }),
     }

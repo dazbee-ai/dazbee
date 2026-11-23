@@ -3,8 +3,15 @@
 // over the base style.
 import { z } from 'zod'
 
-import { GradientPaint } from './paint.ts'
+import { GradientPaint, TextImagePaint } from './paint.ts'
 import { Color } from './primitives.ts'
+
+/** A style's paint: its colour, or a gradient or an image over it. */
+type Painted = {
+  color?: string | undefined
+  gradient?: GradientPaint | undefined
+  image?: TextImagePaint | undefined
+}
 
 /** An OpenType feature tag: four printable ASCII characters, such as `liga`. */
 const FEATURE_TAG = /^[\x20-\x7E]{4}$/
@@ -61,6 +68,12 @@ export const textStyleFields = {
    */
   gradient: GradientPaint,
   /**
+   * An image the characters are painted with in place of `color`, placed in the text layer's box to
+   * fill it, fit inside it or tile it, so a run's is the part of the box's image its characters
+   * cover. A style holds a gradient or an image, never both. A hidden one shows the colour.
+   */
+  image: TextImagePaint,
+  /**
    * Each letter's own turn, in degrees clockwise about the middle of its advance on its baseline,
    * which moves the text's letters one by one (ADR-0021); 0 or left out is none.
    */
@@ -83,26 +96,35 @@ export function shownGradient(style: { readonly gradient?: GradientPaint | undef
   return style.gradient && style.gradient.visible !== false ? style.gradient : null
 }
 
-/** A style painted in a colour: its gradient taken off, so the colour shows. */
-export function inColour<T extends { color?: string | undefined; gradient?: GradientPaint | undefined }>(
-  style: T,
-  color: string,
-): T {
+/** The image a style paints its characters with: its own while it shows; null without one. */
+export function shownImage(style: { readonly image?: TextImagePaint | undefined }): TextImagePaint | null {
+  return style.image && style.image.visible !== false ? style.image : null
+}
+
+/** A style painted in a colour: its gradient and image taken off, so the colour shows. */
+export function inColour<T extends Painted>(style: T, color: string): T {
   const out = { ...style, color }
   delete out.gradient
+  delete out.image
   return out
 }
 
 /**
  * A style with a run's style over it: each key the run sets replaces the style's, except its
- * features, which it sets tag by tag over the style's, and its colour and gradient, which are one
- * paint: a run that sets its colour and no gradient takes the style's gradient off, so it shows.
+ * features, which it sets tag by tag over the style's, and its colour, gradient and image, which are
+ * one paint: a run that sets one of them takes the style's others off, so it shows.
  */
-export function withRunStyle<
-  T extends { features?: Features | undefined; color?: string | undefined; gradient?: GradientPaint | undefined },
->(style: T, run: { readonly [K in keyof T]?: T[K] | undefined }): T {
+export function withRunStyle<T extends Painted & { features?: Features | undefined }>(
+  style: T,
+  run: { readonly [K in keyof T]?: T[K] | undefined },
+): T {
   const out = { ...style, ...run }
   if (style.features && run.features) out.features = { ...style.features, ...run.features }
-  if (run.color !== undefined && run.gradient === undefined) delete out.gradient
+  if (run.image !== undefined) delete out.gradient
+  else if (run.gradient !== undefined) delete out.image
+  else if (run.color !== undefined) {
+    delete out.gradient
+    delete out.image
+  }
   return out
 }

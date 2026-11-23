@@ -4,7 +4,7 @@
 // outside its outline. Any other layer, and one a layer blur moves, hides them by its pixels, as far
 // as they are opaque. Each run of hidden shadows in a row is hidden in one pass.
 import type { Canvas, CanvasKit, Path } from '@dazbee/canvaskit'
-import { shownGradient, type Stroke, type TextProps } from '@dazbee/schema'
+import { shownGradient, shownImage, type Stroke, type TextProps } from '@dazbee/schema'
 
 import type { Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
@@ -185,9 +185,13 @@ function drawHidden(
   path?.delete()
 }
 
-/** Whether a text draws only opaque colours: its colour or its gradient's, its outline's, and each run's. */
+/**
+ * Whether a text draws only opaque colours: its colour or its gradient's, its outline's, and each
+ * run's. An image may be see-through anywhere, so a text painted with one doesn't.
+ */
 function opaqueText(props: TextProps) {
   const colors = [props.style, ...props.runs.map((r) => r.style)].flatMap((style) => {
+    if (shownImage(style)) return ['#00000000']
     const gradient = shownGradient(style)
     if (gradient && (gradient.opacity ?? 1) < 1) return ['#00000000']
     return [

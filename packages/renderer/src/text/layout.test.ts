@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Paragraph } from '@dazbee/canvaskit'
 import { scaleText } from '@dazbee/doc'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { loadFontFiles } from '@dazbee/fonts/node'
@@ -206,6 +207,51 @@ describe('layoutText', () => {
           else expect(Math.abs(v - 2 * at)).toBeLessThan(near)
         })
       }
+    })
+  })
+
+  describe('image fills', () => {
+    const image = (assetId: string, visible = true) => ({ type: 'image', assetId, fit: 'fill', opacity: 1, visible })
+    /** Each glyph a paragraph draws, by its id and where it sits. */
+    const glyphsOf = (paragraph: Paragraph, dy: number) =>
+      paragraph
+        .getShapedLines()
+        .flatMap((line) =>
+          line.runs.flatMap((run) =>
+            [...run.glyphs].map((g, i) => [g, run.positions[2 * i], (run.positions[2 * i + 1] ?? 0) + dy]),
+          ),
+        )
+
+    it('names the images each paragraph’s characters show, and places its letters where the paragraph draws them, once', () => {
+      const props = textOf('Gold and wood\nplain', [
+        { start: 0, end: 4, style: { image: image('gold') } },
+        { start: 9, end: 13, style: { image: image('wood'), underline: true } },
+        { start: 5, end: 8, style: { image: image('hidden', false) } },
+      ])
+      const laid = layoutText(ck, props, shipped)
+      const [first, second] = laid.blocks
+      expect(first?.images.map((i) => i.assetId)).toEqual(['gold', 'wood'])
+      expect(second?.images).toEqual([])
+      const letters = laid.letters()
+      expect(laid.letters()).toBe(letters)
+      laid.blocks.forEach((block, i) => {
+        const placed = letters.runs
+          .filter((run) => run.block === i)
+          .flatMap((run) =>
+            [...run.glyphs].map((g, n) => [g, (run.xforms[4 * n + 2] ?? 0) - block.x, run.xforms[4 * n + 3]]),
+          )
+        expect(placed).toEqual(glyphsOf(block.paragraph, laid.dy + block.y))
+      })
+      laid.delete()
+    })
+
+    it('names no image for a text without one, and gives a placed text’s placement as its letters', () => {
+      const plain = layoutText(ck, textOf('Plain', []), shipped)
+      expect(plain.blocks[0]?.images).toEqual([])
+      plain.delete()
+      const curved = layoutText(ck, { ...textOf('Curved', []), curve: { shape: 'arcUp', amount: 40 } }, shipped)
+      expect(curved.letters()).toBe(curved.placed)
+      curved.delete()
     })
   })
 })

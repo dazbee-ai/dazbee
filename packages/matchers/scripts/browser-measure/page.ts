@@ -1,4 +1,4 @@
-// The browser measurement's page (#193; never shipped). `measure.run(options)` matches the held-out pieces of one
+// The browser measurement's page, never shipped. `measure.run(options)` matches the held-out pieces of one
 // kind one of two ways: through the editor's own match client and pool, whose workers run the editor's worker
 // module (`worker.ts`), with the pool held at a number of workers or sized to this device; or on the page thread,
 // through the editor's matcher worker module itself (`matchMessage`, which runs `matchText` or `matchShapes`),
@@ -28,8 +28,8 @@ export interface RunOptions {
   /** The results' name, `results/<name>.json`. */
   name: string
   kind: 'text' | 'shape'
-  /** For shapes, the 25 photos and cutouts in place of the 47 shape pieces. */
-  photos?: boolean
+  /** For shapes, the 47 shape pieces (`shapes`, the default), the 25 photos and cutouts, or all 72. */
+  blocks?: 'shapes' | 'photos' | 'all'
   /** In the editor's pool of workers, or on the page thread. */
   where: 'pool' | 'page'
   /** How many workers the pool is held at; this device's own pool when left out. */
@@ -88,6 +88,8 @@ const BEFORE_MS = 3_000
 const AFTER_MS = 25_000
 
 const heaps = watchHeaps()
+/** The matcher the page thread started, which a page keeps until it is loaded again. */
+let pageMatcher: RunOptions['kind'] | undefined
 const data = Promise.all([
   json<BrowserPieces>('pieces.json'),
   json<NodeAnswers>('node-answers.json').catch((): NodeAnswers => ({})),
@@ -175,47 +177,83 @@ export async function run(options: RunOptions) {
   }
 }
 
-/**
- * What a run fetched: the files under the job's start and its first ad, by kind, as stored and as sent, and each
- * ad's faces, each counted once in its ad.
- */
-function downloadsOf(byMark: Downloads) {
-  const [firstAd] = Object.keys(byMark).filter((mark) => mark.startsWith('ad:'))
-  const fetched = [...(byMark['job-start'] ?? []), ...(firstAd ? (byMark[firstAd] ?? []) : [])]
-  // A file each worker fetched counts once, as a browser keeping it would fetch it.
-  const first = [...new Map(fetched.map((file) => [file.url, file])).values()]
-  const kinds: Record<string, { files: number; bytes: number; sent: number }> = {}
-  for (const file of first) {
-    const kind = kindOfFile(file.url)
-    const sum = (kinds[kind] ??= { files: 0, bytes: 0, sent: 0 })
-    sum.files++
-    sum.bytes += file.bytes
-    sum.sent += file.sent
-  }
-  const fontsPerAd = Object.entries(byMark)
-    .filter(([mark]) => mark.startsWith('ad:') || mark === 'job-start')
-    .map(([mark, files]) => {
-      const faces = new Map(
-        files.filter((file) => kindOfFile(file.url) === 'faces').map((file) => [file.url, file.bytes]),
-      )
-      return { mark, faces: faces.size, bytes: [...faces.values()].reduce((sum, bytes) => sum + bytes, 0) }
-    })
-  return { first: kinds, fontsPerAd }
+/** A file the build wrote, or the server's catalog. */
+async function json<T>(name: string): Promise<T> {
+  const response = await fetch(`/harness/data/${name}`)
+  if (!response.ok) throw new Error(`${name}: ${response.status}`)
+  return (await response.json()) as T
 }
 
-/** The run's pieces: the text pieces, the shape pieces, or the photos and cutouts. */
-function choose(pieces: BrowserPieces, { kind, photos }: RunOptions): BrowserPiece[] {
+/** The run's pieces: the text pieces, or the shape pieces of the blocks asked for. */
+function choose(pieces: BrowserPieces, { kind, blocks = 'shapes' }: RunOptions): BrowserPiece[] {
   if (kind === 'text') return pieces.text
-  const blocks = photos ? ['photo', 'cutout'] : ['shape', 'graphic', 'background']
-  return pieces.shape.filter((piece) => blocks.includes(piece.block))
+  const photos = ['photo', 'cutout']
+  return pieces.shape.filter((piece) => blocks === 'all' || photos.includes(piece.block) === (blocks === 'photos'))
+}
+
+/** A call to the measurement's server. */
+async function call(path: string): Promise<unknown> {
+  return (await fetch(`/harness/${path}`)).json()
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * The editor's matcher worker module run on the page thread: started from the modules compiled on the page, as a
+ * worker is, then each piece matched in turn. The worker module keeps the matcher it started, so a page loaded
+ * once runs one kind there.
+ */
+async function onPage(kind: RunOptions['kind'], fonts: MatchFonts) {
+  if (pageMatcher && pageMatcher !== kind) throw new Error(`this page's thread runs the ${pageMatcher} matcher`)
+  pageMatcher = kind
+  const { matchMessage } = await import('../../../editor/src/matching/match-worker.ts')
+  const canvasKit = await compileMatcherModule('canvasKit')
+  heaps.know(canvasKit, 'canvasKit')
+  let start: MatchMessage = { kind: 'matchStart', matcher: 'shape', canvasKit }
+  if (kind === 'text') {
+    const onnxRuntime = await compileMatcherModule('onnxRuntime')
+    heaps.know(onnxRuntime, 'onnxRuntime')
+    start = { kind: 'matchStart', matcher: 'text', canvasKit, onnxRuntime }
+  }
+  const replies: MatchReply[] = []
+  await matchMessage(start, (reply) => replies.push(reply))
+  if (replies[0]?.kind !== 'matchReady') throw new Error(`the matcher didn't start: ${JSON.stringify(replies[0])}`)
+  /** The next piece's id. */
+  let next = 0
+
+  /** An ad's pieces, one after another. */
+  async function match(ofAd: readonly BrowserPiece[]): Promise<Answered[]> {
+    const answers: Answered[] = []
+    for (const piece of ofAd) {
+      const id = next++
+      let answer: MatchAnswer | undefined
+      const started = performance.now()
+      const began: Steps = {}
+      const message: MatchMessage = { kind: 'matchPiece', id, jobId: id, index: 0, job: { id, job: piece.job, fonts } }
+      await matchMessage(message, (reply) => {
+        if (reply.kind === 'matchStep') began[reply.step] = performance.now()
+        if (reply.kind === 'matchAnswer') answer = reply.answer
+        if (reply.kind === 'matchBroken') throw new Error(`${piece.id} broke the matcher: ${reply.message}`)
+      })
+      await matchMessage({ kind: 'matchForget', jobId: id }, () => undefined)
+      if (!answer) throw new Error(`${piece.id} was not answered`)
+      answers.push(answered(answer, started, began))
+    }
+    return answers
+  }
+
+  return { match, workers: (): SeenWorker[] => [], destroy: () => undefined }
 }
 
 /**
  * The editor's match client and pool, workers running the measurement's worker; held at `workers`, the pool's
  * device says one more core than that. A text pool held past what one pool's memory budget allows (4 text workers
- * at 448 MB past 1.5 GB) is that many workers in pools side by side, an ad's pieces dealt between them.
+ * past 1.5 GB) is that many workers in pools side by side, an ad's pieces dealt between them.
  */
 function inPool({ kind, workers }: RunOptions, fonts: MatchFonts) {
+  /** Every worker the pools started. */
   const seen: SeenWorker[] = []
   const real = thisBrowser()
   let perPool = workers ?? 0
@@ -238,24 +276,27 @@ function inPool({ kind, workers }: RunOptions, fonts: MatchFonts) {
         }),
     }),
   )
-  return {
-    async match(ofAd: readonly BrowserPiece[]): Promise<Answered[]> {
-      return Promise.all(
-        ofAd.map(async (piece, i) => {
-          const sent = performance.now()
-          const began: Steps = {}
-          const client = clients[i % clients.length]
-          if (!client) throw new Error('no pool')
-          const step = (_: number, told: string) => (began[told] = performance.now())
-          const [answer] = await client.match(piece.job, { fonts, step })
-          if (!answer) throw new Error(`${piece.id} was not answered`)
-          return answered(answer, sent, began)
-        }),
-      )
-    },
-    workers: () => seen,
-    destroy: () => clients.forEach((client) => client.destroy()),
+  /** An ad's pieces, all at once, dealt between the pools. */
+  function match(ofAd: readonly BrowserPiece[]): Promise<Answered[]> {
+    return Promise.all(
+      ofAd.map(async (piece, i) => {
+        const sent = performance.now()
+        const began: Steps = {}
+        const client = clients[i % clients.length]
+        if (!client) throw new Error('no pool')
+        const step = (_: number, told: string) => (began[told] = performance.now())
+        const [answer] = await client.match(piece.job, { fonts, step })
+        if (!answer) throw new Error(`${piece.id} was not answered`)
+        return answered(answer, sent, began)
+      }),
+    )
   }
+
+  function destroy() {
+    for (const client of clients) client.destroy()
+  }
+
+  return { match, workers: () => seen, destroy }
 }
 
 /** A worker of the measurement, watched: when it started, was ready and ended, its pieces, what it held and its heaps. */
@@ -276,51 +317,6 @@ function startWorker(seen: SeenWorker[]): MatchWorker {
     terminate()
   }
   return worker as unknown as MatchWorker
-}
-
-/**
- * The editor's matcher worker module run on the page thread: started from the modules compiled on the page, as a
- * worker is, then each piece matched in turn.
- */
-async function onPage(kind: RunOptions['kind'], fonts: MatchFonts) {
-  const { matchMessage } = await import('../../../editor/src/matching/match-worker.ts')
-  const canvasKit = await compileMatcherModule('canvasKit')
-  heaps.know(canvasKit, 'canvasKit')
-  let start: MatchMessage = { kind: 'matchStart', matcher: 'shape', canvasKit }
-  if (kind === 'text') {
-    const onnxRuntime = await compileMatcherModule('onnxRuntime')
-    heaps.know(onnxRuntime, 'onnxRuntime')
-    start = { kind: 'matchStart', matcher: 'text', canvasKit, onnxRuntime }
-  }
-  const replies: MatchReply[] = []
-  await matchMessage(start, (reply) => replies.push(reply))
-  if (replies[0]?.kind !== 'matchReady') throw new Error(`the matcher didn't start: ${JSON.stringify(replies[0])}`)
-  let next = 0
-  return {
-    async match(ofAd: readonly BrowserPiece[]): Promise<Answered[]> {
-      const answers: Answered[] = []
-      for (const piece of ofAd) {
-        const id = next++
-        let answer: MatchAnswer | undefined
-        const started = performance.now()
-        const began: Steps = {}
-        await matchMessage(
-          { kind: 'matchPiece', id, jobId: id, index: 0, job: { id, job: piece.job, fonts } },
-          (reply) => {
-            if (reply.kind === 'matchStep') began[reply.step] = performance.now()
-            if (reply.kind === 'matchAnswer') answer = reply.answer
-            if (reply.kind === 'matchBroken') throw new Error(`${piece.id} broke the matcher: ${reply.message}`)
-          },
-        )
-        await matchMessage({ kind: 'matchForget', jobId: id }, () => undefined)
-        if (!answer) throw new Error(`${piece.id} was not answered`)
-        answers.push(answered(answer, started, began))
-      }
-      return answers
-    },
-    workers: (): SeenWorker[] => [],
-    destroy: () => undefined,
-  }
 }
 
 /** A piece's answer, timed from its first step (from `sent` when it told none), with its steps from the first. */
@@ -351,6 +347,19 @@ function compare(a: unknown, b: unknown, at = ''): { diff: number; differs?: str
   return { diff }
 }
 
+/** The middle value, the higher of the two middle ones for an even count, as the Node measurements take it. */
+function middle(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length / 2)] ?? 0
+}
+
+/** How many decisions there are of each kind, by their first word. */
+function tally(values: readonly string[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const value of values) counts[value.split(' ')[0] ?? value] = (counts[value.split(' ')[0] ?? value] ?? 0) + 1
+  return counts
+}
+
 /** An answer's decision: text or approximate text and its face, shapes and how many, or a picture and why. */
 function decision(answer: MatchAnswer): string {
   if (answer.kind === 'picture') return `picture ${answer.why}`
@@ -362,13 +371,6 @@ function decision(answer: MatchAnswer): string {
   return `shapes ${answer.layers.length}`
 }
 
-/** How many times each value comes. */
-function tally(values: readonly string[]): Record<string, number> {
-  const counts: Record<string, number> = {}
-  for (const value of values) counts[value.split(' ')[0] ?? value] = (counts[value.split(' ')[0] ?? value] ?? 0) + 1
-  return counts
-}
-
 /** Each heap's largest value over several readings. */
 function peaks(readings: readonly Heaps[]): Heaps {
   const most: Heaps = {}
@@ -378,10 +380,41 @@ function peaks(readings: readonly Heaps[]): Heaps {
   return most
 }
 
-/** The middle value, the higher of the two middle ones for an even count, as the Node measurements take it. */
-function middle(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b)
-  return sorted[Math.floor(sorted.length / 2)] ?? 0
+/** The named fields of an object. */
+function pick<T extends object, K extends keyof T>(value: T, keys: readonly K[]): Pick<T, K> {
+  return Object.fromEntries(keys.map((key) => [key, value[key]])) as Pick<T, K>
+}
+
+/**
+ * What a run fetched: the files under the job's start and its first ad by kind, as stored and as sent, and their
+ * sum without faces (the first open); and each ad's faces, each counted once in its ad.
+ */
+function downloadsOf(byMark: Downloads) {
+  const [firstAd] = Object.keys(byMark).filter((mark) => mark.startsWith('ad:'))
+  const fetched = [...(byMark['job-start'] ?? []), ...(firstAd ? (byMark[firstAd] ?? []) : [])]
+  // A file each worker fetched counts once, as a browser keeping it would fetch it.
+  const first = [...new Map(fetched.map((file) => [file.url, file])).values()]
+  const kinds: Record<string, { files: number; bytes: number; sent: number }> = {}
+  const firstOpen = { bytes: 0, sent: 0 }
+  for (const file of first) {
+    const kind = kindOfFile(file.url)
+    const sum = (kinds[kind] ??= { files: 0, bytes: 0, sent: 0 })
+    sum.files++
+    sum.bytes += file.bytes
+    sum.sent += file.sent
+    if (kind === 'faces') continue
+    firstOpen.bytes += file.bytes
+    firstOpen.sent += file.sent
+  }
+  const fontsPerAd = Object.entries(byMark)
+    .filter(([mark]) => mark.startsWith('ad:'))
+    .map(([mark, files]) => {
+      const faces = new Map(
+        files.filter((file) => kindOfFile(file.url) === 'faces').map((file) => [file.url, file.bytes]),
+      )
+      return { mark, faces: faces.size, bytes: [...faces.values()].reduce((sum, bytes) => sum + bytes, 0) }
+    })
+  return { first: kinds, firstOpen, fontsPerAd }
 }
 
 /** What a file is, by its address: the worker's code, a WebAssembly, the text matcher's files, or faces. */
@@ -392,25 +425,4 @@ function kindOfFile(url: string): string {
   if (url.startsWith('/matchers/')) return 'matcher files'
   if (url.startsWith('/fonts/') || url.startsWith('/vendor/fonts/')) return 'faces'
   return url
-}
-
-/** The named fields of an object. */
-function pick<T extends object, K extends keyof T>(value: T, keys: readonly K[]): Pick<T, K> {
-  return Object.fromEntries(keys.map((key) => [key, value[key]])) as Pick<T, K>
-}
-
-/** A file the build wrote, or the server's catalog. */
-async function json<T>(name: string): Promise<T> {
-  const response = await fetch(`/harness/data/${name}`)
-  if (!response.ok) throw new Error(`${name}: ${response.status}`)
-  return (await response.json()) as T
-}
-
-/** A call to the measurement's server. */
-async function call(path: string): Promise<unknown> {
-  return (await fetch(`/harness/${path}`)).json()
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

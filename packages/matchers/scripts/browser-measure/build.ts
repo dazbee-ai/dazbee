@@ -1,4 +1,4 @@
-// Builds the browser measurement (#193; never shipped): bundles the page and its matcher worker, which run the
+// Builds the browser measurement, never shipped: bundles the page and its matcher worker, which run the
 // editor's own match client, pool and worker, and writes the pieces they match, the held-out test ads' text and
 // shape pieces, each a match job of its own picture as the Node measurements make them. With --node it also writes
 // Node's answers to the same jobs, for the page to compare the browser's with. Everything goes to the git-ignored
@@ -9,6 +9,7 @@ import { join } from 'node:path'
 
 import { build, type Plugin } from 'esbuild'
 
+import type { CanvasKit } from '@dazbee/canvaskit'
 import { matchCopy } from '@dazbee/fonts/match-copy'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { loadCanvasKit } from '@dazbee/renderer/node'
@@ -24,13 +25,15 @@ import { fetchFiles, FILES_DIR } from '../fetch-files.ts'
 import { googleFaceFile } from '../google-face-file.ts'
 import { adPieces } from '../text-measure-pieces.ts'
 
+/** What a piece is: text, or the kind of block a shape piece is, a shape, graphic or background, or a photo or cutout that must stay a picture. */
+export type Block = 'text' | 'shape' | 'graphic' | 'background' | 'photo' | 'cutout'
+
 /** A piece the page matches: its neutral id, its ad's, what kind of block it is, and its job. */
 export interface BrowserPiece {
   /** `adNN#i` for a text piece, as the text measurement names it; `adNN/BB` for a shape piece, as the shape one does. */
   id: string
   ad: string
-  /** `text`; or the block's kind for a shape piece: `shape`, `graphic`, `background`, `photo` or `cutout`. */
-  block: string
+  block: Block
   job: MatchJob
 }
 
@@ -46,8 +49,7 @@ export type NodeAnswers = Record<string, { answer: MatchAnswer; ms: number; step
 /** Where the build, the pieces, Node's answers and every run's results go. */
 export const OUT_DIR = join(import.meta.dirname, '..', '..', '.browser-measure')
 /** The block kinds sent as shapes: shape pieces, and photos and cutouts that must stay pictures. */
-export const SHAPE_BLOCKS = ['shape', 'graphic', 'background']
-export const PHOTO_BLOCKS = ['photo', 'cutout']
+const SHAPE_BLOCKS: readonly Block[] = ['shape', 'graphic', 'background', 'photo', 'cutout']
 
 /** Node's built-ins CanvasKit's Emscripten glue asks for only when it runs in Node. */
 const NODE_ONLY = /^(node:)?(fs|path|module|url|crypto|worker_threads|perf_hooks)$/
@@ -99,13 +101,13 @@ async function bundle() {
 }
 
 /** The held-out ads' text pieces, as the text measurement reads them, and their shape, photo and cutout pieces. */
-function heldOutPieces(ck: Awaited<ReturnType<typeof loadCanvasKit>>, dir: string): BrowserPieces {
+function heldOutPieces(ck: CanvasKit, dir: string): BrowserPieces {
   const text = adPieces(ck, dir)
     .filter((piece) => piece.heldOut)
     .map(({ id, job }) => ({
       id,
       ad: id.split('#')[0] ?? id,
-      block: 'text',
+      block: 'text' as const,
       job: { ...job, setting: 'hybrid' as const },
     }))
   const names = readdirSync(dir).sort()
@@ -113,10 +115,10 @@ function heldOutPieces(ck: Awaited<ReturnType<typeof loadCanvasKit>>, dir: strin
     if (n % 3 !== 2) return []
     const ad = `ad${String(n + 1).padStart(2, '0')}`
     const { blocks } = JSON.parse(readFileSync(join(dir, name, 'blocks.json'), 'utf8')) as {
-      blocks: { file: string; kind: string }[]
+      blocks: { file: string; kind: Block }[]
     }
     return blocks
-      .filter((block) => [...SHAPE_BLOCKS, ...PHOTO_BLOCKS].includes(block.kind))
+      .filter((block) => SHAPE_BLOCKS.includes(block.kind))
       .map((block): BrowserPiece => {
         const png = readFileSync(join(dir, name, block.file))
         const image = ck.MakeImageFromEncoded(png)
@@ -138,11 +140,7 @@ function heldOutPieces(ck: Awaited<ReturnType<typeof loadCanvasKit>>, dir: strin
  * Node's answer to every piece: text with the release's model in onnxruntime-node and faces from the checkout,
  * a match copy cut as the server cuts it; shapes with `matchShapes`. The same calls the worker makes.
  */
-async function nodeAnswers(
-  ck: Awaited<ReturnType<typeof loadCanvasKit>>,
-  pieces: BrowserPieces,
-  checkout: string,
-): Promise<NodeAnswers> {
+async function nodeAnswers(ck: CanvasKit, pieces: BrowserPieces, checkout: string): Promise<NodeAnswers> {
   await fetchFiles()
   const bytes = Object.fromEntries(
     TEXT_FILES.map((name) => [name, new Uint8Array(readFileSync(join(FILES_DIR, name)))]),

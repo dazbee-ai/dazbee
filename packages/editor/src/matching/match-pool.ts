@@ -137,16 +137,17 @@ export const WORKER_MEMORY: Record<PieceKind, { peak: number; rest: number; piec
    * The 69 held-out text pieces, sent at once, grew Chrome's renderer process by 933 MB in two text
    * workers (466 MB a worker) and by 1,227 MB in three (409 MB a worker). One worker alone grew it by
    * 610 MB, the page's own share included; the pool always runs one, so the peak decides the second
-   * and later: 2 text workers in a 1 GB budget and 3 in 1.5 GB, each within it. Three fresh workers grew it by 324 MB each, 186 MB of it their WebAssembly memories
-   * (CanvasKit's 128 MB and ONNX Runtime's 58 MB, which never grow); the rest is their JavaScript,
-   * the matcher's files and the model's bytes, and their share of the compiled code. A piece grew it
-   * by 2.7 MB, of which one worker read 1.1 MB of faces.
+   * and later: 2 text workers in a 1 GB budget and 3 in 1.5 GB, each within it. Three fresh workers
+   * grew it by 324 MB each, 186 MB of it their WebAssembly memories (CanvasKit's 128 MB and ONNX
+   * Runtime's 58 MB, which never grow); the rest is their JavaScript, the matcher's files and the
+   * model's bytes, and their share of the compiled code. A piece grew it by 2.7 MB, of which one
+   * worker read 1.1 MB of faces.
    */
   text: { peak: 466 * MB, rest: 144 * MB, piece: 2 * MB },
   /**
    * The 47 held-out shape pieces, sent at once, grew Chrome's renderer process by 382 MB in one shape
    * worker, 749 MB in two (375 MB a worker) and 1,217 MB in four (304 MB a worker); the 72 held-out
-   * pieces, photos included, by 1,407 MB in four (352 MB a worker). CanvasKit's memory stayed at
+   * pieces, photos included, by 1,281 MB in four (320 MB a worker). CanvasKit's memory stayed at
    * 128 MB in each. At this peak the pool runs 2 shape workers in a 1 GB budget and 4 in 1.5 GB,
    * each within it as measured, and a text worker fits beside 3. A worker doesn't grow from piece to
    * piece: its memory is the pictures of the piece in hand.

@@ -340,6 +340,12 @@ export const TextProps = z
      */
     curve: TextCurve.optional(),
     /**
+     * While a fixed or auto height text is curved, the size its box had before, as multiples of its
+     * font size, so it scales with the text: the box goes back to it when the curve is taken off (an
+     * auto height box takes its width, its height fitted to its words).
+     */
+    straightBox: z.object({ width: z.number().min(0), height: z.number().min(0) }).optional(),
+    /**
      * Its letters bounced. An auto width box holds the letters as they are drawn, an auto height box
      * grows in height only, and a fixed box stays as set; the box keeps its top-left.
      */

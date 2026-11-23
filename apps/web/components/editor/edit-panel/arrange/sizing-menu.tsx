@@ -2,14 +2,15 @@
 
 // The menu beside Arrange's W and H that sets how that side of the layers sizes, offering only
 // what can apply, and shown only when that is more than Fixed; where auto layout sizes the layers,
-// it also adds that side's least or most size, or takes both out.
+// it also adds that side's least or most size, or takes both out. Fill and the limits are off,
+// saying why, for curved text.
 import { type Axis, fillApplies, hugApplies, type Sizing, sizingOf } from '@dazbee/doc'
 import { type Design } from '@dazbee/schema'
 
 import { type P, set, shared, type Target } from '@/components/editor/edit-panel/target.ts'
 import { Select } from '@/components/ui/select.tsx'
 
-import { addedLimit, type LimitChoice, noLimits } from './limits.ts'
+import { addedLimit, type LimitChoice, noLimits, offForCurved } from './limits.ts'
 
 const SIZINGS: readonly Sizing[] = ['fixed', 'hug', 'fill']
 
@@ -30,8 +31,9 @@ export function sizingChoices(target: Target, design: Design, axis: Axis): Sizin
 
 /**
  * The menu beside W or H: how that side of the layers sizes, among `choices` (`sizingChoices`),
- * then the items for its limits among `limits` (`limitChoices`). Greyed while `disabled`. The
- * editor sets the sizing picked (`setSizing`); a limit is added at the size the layers are drawn.
+ * then the items for its limits among `limits` (`limitChoices`), those that don't apply to a curved
+ * text among them off with the reason (`offForCurved`). Greyed while `disabled`. The editor sets the
+ * sizing picked (`setSizing`); a limit is added at the size the layers are drawn.
  */
 export function SizingMenu({
   target,
@@ -49,6 +51,9 @@ export function SizingMenu({
   disabled: boolean
 }) {
   const value = shared(target.props.map((props, i) => sizingOf({ type: target.types[i], props })[axis]))
+  const off = offForCurved(target.props)
+  const offWhy = (choice: Sizing | LimitChoice) =>
+    off.has(choice) ? { disabled: true, hint: p.notForCurved.sizing } : {}
   return (
     <Select
       name="sizing"
@@ -62,8 +67,9 @@ export function SizingMenu({
           label: p.sizings[sizing],
           ...(sizing === 'hug' ? { short: p.sizingShort.hug } : {}),
           hint: p.sizingHints[axis][sizing],
+          ...offWhy(sizing),
         })),
-        ...limits.map((choice) => ({ value: choice, label: p.limitChoices[axis][choice] })),
+        ...limits.map((choice) => ({ value: choice, label: p.limitChoices[axis][choice], ...offWhy(choice) })),
       ]}
       onChange={(to) => {
         if (to === 'add-min' || to === 'add-max')

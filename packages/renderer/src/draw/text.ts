@@ -1,34 +1,45 @@
-import type { Canvas, CanvasKit, Paint, Paragraph } from '@dazbee/canvaskit'
-import type { GradientPaint, Rect, TextImagePaint } from '@dazbee/schema'
+import type { Canvas, CanvasKit, Paint, Paragraph, Path } from '@dazbee/canvaskit'
+import {
+  type GradientPaint,
+  type Paint as SchemaPaint,
+  type Rect,
+  shownGradient,
+  shownImage,
+  type TextImagePaint,
+  type TextProps,
+} from '@dazbee/schema'
 
 import { color } from '../color.ts'
 import { imageSizeOf, type Resources } from '../resources.ts'
 import type { SceneLayer } from '../scene.ts'
 import { laidOut } from '../text/cache.ts'
+import { EXTRUSION_SHADE, shadedColour } from '../text/extrusion.ts'
 import type { TextBlock } from '../text/layout.ts'
 import { placedBounds, placedPoint, type PlacedRun, type Placement } from '../text/placed.ts'
 import { drawsLines, gradientKey, imageKey, linesColour, passPaint, type TextPass } from '../text/text-paint.ts'
 import { flipMatrix } from './flip.ts'
-import { imagePlacement, paintFor } from './paint.ts'
+import { fillPath, imagePlacement, paintFor } from './paint.ts'
 import { EVERYWHERE } from './paths.ts'
 
 type TextLayer = Extract<SceneLayer, { type: 'text' }>
 
 /**
  * Draws a text's lines, mirrored about its box's centre as it is flipped, from its box's corner, where
- * its gradients and images are placed: outlines under the letters first, then each block's fill, the
+ * its gradients and images are placed: its 3D sides first, outlines under the letters, then each block's fill, the
  * lines its gradients fill, the characters its images paint (from its letters), its outlines over the
  * letters and its marker. A placed text draws its letters where its placement puts them, in the same
  * passes and order.
  */
 export function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resources: Resources) {
-  const { blocks, dy, placed, letters, done } = laidOut(ck, layer.props, resources)
+  const { blocks, dy, placed, letters, sides, done } = laidOut(ck, layer.props, resources)
   const { props } = layer
   const flip = flipMatrix(ck, props)
   canvas.save()
   if (flip) canvas.concat(flip)
   canvas.translate(props.x, props.y)
   const box = { x: 0, y: 0, width: props.width, height: props.height }
+  const drawnSides = sides()
+  if (drawnSides) drawSides(ck, canvas, props, drawnSides, box, resources)
   if (placed) {
     drawPlaced(ck, canvas, blocks, dy, placed, box, resources)
   } else {
@@ -44,6 +55,27 @@ export function drawText(ck: CanvasKit, canvas: Canvas, layer: TextLayer, resour
   }
   canvas.restore()
   done()
+}
+
+/**
+ * Draws a text's 3D sides once: in their chosen colour, or in a darker shade of the base style's
+ * paint, black at 35 % laid over it (`EXTRUSION_SHADE`): its colour, or its gradient across the box,
+ * with each colour shaded. Its image across the box is drawn, then the black over it.
+ */
+function drawSides(ck: CanvasKit, canvas: Canvas, props: TextProps, sides: Path, box: Rect, resources: Resources) {
+  const chosen = props.extrusion?.color
+  const { style } = props
+  const image = shownImage(style)
+  const gradient = shownGradient(style)
+  let paint: SchemaPaint
+  if (chosen) paint = { type: 'solid', color: chosen }
+  else if (image) {
+    fillPath(ck, canvas, sides, image, box, resources)
+    paint = { type: 'solid', color: EXTRUSION_SHADE }
+  } else if (gradient)
+    paint = { ...gradient, stops: gradient.stops.map((stop) => ({ ...stop, color: shadedColour(stop.color) })) }
+  else paint = { type: 'solid', color: shadedColour(style.color) }
+  fillPath(ck, canvas, sides, paint, box, resources)
 }
 
 /**

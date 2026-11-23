@@ -216,7 +216,7 @@ describe('PDF and SVG exports (#56)', () => {
     expect(svg).toContain('<image')
   })
 
-  it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise' && c.frameId !== 'image-fill'))(
+  it.each(cases.filter((c) => c.name === 'text-effects' && !['raise', 'image-fill', 'extrusion'].includes(c.frameId)))(
     '$label: draws curved and bounced letters into a PDF and an SVG as shapes, never as text',
     async ({ json, frameId, label }) => {
       const pdf = pdfs.get(label) ?? renderVector(ck, json, frameId, bytes, 'pdf', cache)

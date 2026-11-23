@@ -107,6 +107,7 @@ describe('styleOf', () => {
       image: null,
       curve: null,
       bounce: null,
+      extrusion: null,
       turn: null,
       raise: null,
     })
@@ -212,6 +213,23 @@ describe('restyle', () => {
     expect(plain).toHaveProperty('bounce', undefined)
     expect(plain?.style).not.toHaveProperty('turn')
     expect(restyle(text({ turn: -12 }, { bounce }), bounced)).toBeNull()
+  })
+
+  it('carries a text’s extrusion, its side colour included, and takes it off a text when the style has none', () => {
+    const extrusion = { depth: 20, angle: 135, color: red }
+    const extruded = styleOf(text({}, { extrusion }))
+    expect(extruded.text).toMatchObject({ extrusion })
+    expect(restyle(text(), extruded)?.patch.extrusion).toEqual(extrusion)
+    const shaded = styleOf(text({}, { extrusion: { depth: 15, angle: 45 } }))
+    expect(restyle(text({}, { extrusion }), shaded)?.patch.extrusion).toEqual({ depth: 15, angle: 45 })
+    expect(restyle(text({}, { extrusion }), styleOf(text()))?.patch).toHaveProperty('extrusion', undefined)
+    expect(restyle(text({}, { extrusion }), extruded)).toBeNull()
+  })
+
+  it('reads a style copied before texts had extrusions as one without', () => {
+    const copied = { ...styleOf(text()), text: { ...styleOf(text()).text } }
+    delete (copied.text as { extrusion?: unknown }).extrusion
+    expect(LayerStyle.parse(copied).text?.extrusion).toBeNull()
   })
 
   it('carries the base style’s raise, and takes it off a text when the style has none', () => {

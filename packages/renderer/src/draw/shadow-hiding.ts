@@ -186,8 +186,9 @@ function drawHidden(
 }
 
 /**
- * Whether a text draws only opaque colours: its colour or its gradient's, its outline's, and each
- * run's. An image may be see-through anywhere, so a text painted with one doesn't.
+ * Whether a text draws only opaque colours: its colour or its gradient's, its outline's, each run's,
+ * and its 3D sides' chosen colour (their darker shade is opaque over an opaque paint). An image may
+ * be see-through anywhere, so a text painted with one doesn't.
  */
 function opaqueText(props: TextProps) {
   const colors = [props.style, ...props.runs.map((r) => r.style)].flatMap((style) => {
@@ -199,7 +200,7 @@ function opaqueText(props: TextProps) {
       style.outline && style.outline.width > 0 ? style.outline.color : undefined,
     ]
   })
-  return colors.every((c) => c === undefined || opaqueHex(c))
+  return [...colors, props.extrusion?.color].every((c) => c === undefined || opaqueHex(c))
 }
 
 /** Draws a cover opaque: its outline where it is filled, and its visible strokes' area, as they are drawn. */

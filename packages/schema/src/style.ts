@@ -4,7 +4,7 @@
 import { z } from 'zod'
 
 import { Effect } from './effects.ts'
-import { type Layer, Radius, Stroke, TextBounce, TextCurve, TextStyle } from './layers.ts'
+import { type Layer, Radius, Stroke, TextBounce, TextCurve, TextExtrusion, TextStyle } from './layers.ts'
 import { Paint } from './paint.ts'
 import { ContainerBlendMode } from './primitives.ts'
 import { textStyleFields } from './typography.ts'
@@ -12,7 +12,8 @@ import { BINDABLE_PROPERTIES, BindableProperty, Bindings, canBind } from './vari
 
 /**
  * A text's look without its size: font, weight, colour, spacing, the outline along its glyphs, its
- * OpenType features, its gradient or image fill, its curve, its bounce, its letters' turn and their raise. Null is none.
+ * OpenType features, its gradient or image fill, its curve, its bounce, its extrusion, its letters' turn and their
+ * raise. Null is none.
  */
 const TextLook = z.object({
   fontFamily: TextStyle.shape.fontFamily,
@@ -33,6 +34,8 @@ const TextLook = z.object({
   curve: TextCurve.nullable().default(null),
   /** Left out of a style copied before texts had bounces, which is none. */
   bounce: TextBounce.nullable().default(null),
+  /** Left out of a style copied before texts had extrusions, which is none. */
+  extrusion: TextExtrusion.nullable().default(null),
   /** The base style's letter turn; left out of a style copied before letters had turns, which is none. */
   turn: textStyleFields.turn.nullable().default(null),
   /** The base style's raise; left out of a style copied before characters had raises, which is none. */
@@ -108,6 +111,7 @@ export function styleOf(layer: Layer): LayerStyle {
       image: s.image ?? null,
       curve: layer.props.curve ?? null,
       bounce: layer.props.bounce ?? null,
+      extrusion: layer.props.extrusion ?? null,
       turn: s.turn ?? null,
       raise: s.raise ?? null,
     }
@@ -135,8 +139,20 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
   if (style.strokes && 'strokes' in props) wanted.strokes = style.strokes
   if (style.corners !== undefined) Object.assign(wanted, withCorners(layer, style.corners))
   if (style.text && layer.type === 'text') {
-    const { lineHeight, paragraphSpacing, outline, features, gradient, image, curve, bounce, turn, raise, ...look } =
-      style.text
+    const {
+      lineHeight,
+      paragraphSpacing,
+      outline,
+      features,
+      gradient,
+      image,
+      curve,
+      bounce,
+      extrusion,
+      turn,
+      raise,
+      ...look
+    } = style.text
     const kept = Object.entries(layer.props.style).filter(([key]) => !NULLABLE_LOOK.has(key))
     wanted.style = {
       ...Object.fromEntries(kept),
@@ -152,6 +168,7 @@ export function restyle(layer: Layer, style: LayerStyle): Restyle | null {
     wanted.paragraphSpacing = paragraphSpacing ?? undefined
     wanted.curve = curve ?? undefined
     wanted.bounce = bounce ?? undefined
+    wanted.extrusion = extrusion ?? undefined
   }
   const patch = Object.fromEntries(Object.entries(wanted).filter(([key, value]) => !same(value, props[key])))
   const bindings: Bindings = Object.fromEntries(

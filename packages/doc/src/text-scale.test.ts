@@ -72,6 +72,13 @@ describe('scaling text', () => {
     expect(scaledText.style.fontSize).toBe(128)
   })
 
+  it('leaves an extrusion as it is: its depth is a share of the font size, so it scales with the text', () => {
+    const extrusion = { depth: 15, angle: 45 }
+    const scaledText = scaleText({ style, runs: [], extrusion } as Parameters<typeof scaleText>[0], 2)
+    expect(scaledText).not.toHaveProperty('extrusion')
+    expect(scaledText.style.fontSize).toBe(128)
+  })
+
   it("finds the smallest size the text has: its own, a run's or shrink to fit's smallest", () => {
     expect(smallestSize({ style, runs: [] })).toBe(64)
     expect(smallestSize({ style, runs: [{ start: 0, end: 2, style: { fontSize: 20 } }] })).toBe(20)

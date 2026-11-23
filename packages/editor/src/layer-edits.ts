@@ -56,6 +56,7 @@ export const SIZES_TEXT: ReadonlySet<string> = new Set([
   'wrapStyle',
   'curve',
   'bounce',
+  'extrusion',
 ])
 
 export function editorLayerEdits({

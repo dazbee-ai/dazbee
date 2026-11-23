@@ -145,17 +145,18 @@ function union(a: Rect, b: Rect): Rect {
  * its box: a fixed box overflows, an auto width box grows. Glyphs can reach past their line's
  * ascent, descent and advance (marks, swashes, wide letters), so each side gets half the largest
  * font size more, and as far again as a made-up superscript or subscript moves its glyphs. A placed
- * text's lines are its glyphs' turned boxes.
+ * text's lines are its glyphs' turned boxes. Its 3D sides reach as far again behind the lines.
  */
 function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect {
-  const { blocks, dy, scale, superSubShift, placed, done } = laidOut(ck, props, resources)
-  let box: Rect = props
+  const { blocks, dy, scale, superSubShift, placed, extrusion, done } = laidOut(ck, props, resources)
+  // Where the lines and markers sit, which the sides carry back.
+  const drawn: Rect[] = []
   const turned = placed && placedBounds(placed.runs)
-  if (turned) box = union(box, { ...turned, x: props.x + turned.x, y: props.y + turned.y })
+  if (turned) drawn.push({ ...turned, x: props.x + turned.x, y: props.y + turned.y })
   for (const b of blocks) {
     if (!placed)
       for (const line of b.paragraph.getLineMetrics()) {
-        box = union(box, {
+        drawn.push({
           x: props.x + b.x + line.left,
           y: props.y + dy + b.y + line.baseline - line.ascent,
           width: line.width,
@@ -163,7 +164,7 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
         })
       }
     if (b.marker)
-      box = union(box, {
+      drawn.push({
         x: props.x + b.markerX,
         y: props.y + dy + b.y + b.markerY,
         width: b.marker.getMaxIntrinsicWidth(),
@@ -171,6 +172,12 @@ function textBounds(ck: CanvasKit, props: TextProps, resources: Resources): Rect
       })
   }
   done()
+  let box = drawn.reduce(union, props)
+  const [first, ...rest] = drawn
+  if (first && extrusion) {
+    const lines = rest.reduce(union, first)
+    box = union(box, { ...lines, x: lines.x + extrusion.x, y: lines.y + extrusion.y })
+  }
   // Outlines over the letters reach half their width past the glyphs, those under them all of it.
   const outline =
     Math.max(...[props.style, ...props.runs.map((r) => r.style)].map((s) => outlineReach(s.outline))) * scale

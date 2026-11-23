@@ -5,9 +5,13 @@ import type { Rect } from '@dazbee/schema'
 
 import type { Placement } from './placed.ts'
 
-/** A box turned `turn` degrees clockwise about its corner (x, y); straight without one. */
+/**
+ * A box turned `turn` degrees clockwise about its corner (x, y); straight without one. With `sweep`
+ * it also covers all it passes over carried that far, as a text's 3D sides do.
+ */
 export interface TurnedRect extends Rect {
   turn?: number
+  sweep?: { x: number; y: number }
 }
 
 /** A placed glyph: its block and line, its origin and advance in the straight layout, its line's reach, and its RSXform. */
@@ -57,10 +61,31 @@ export function inFrame(p: { x: number; y: number }, x: number, y: number, turn:
   return [Math.cos(angle) * dx + Math.sin(angle) * dy, Math.cos(angle) * dy - Math.sin(angle) * dx]
 }
 
-/** Whether a point is inside a box turned about its corner, its edges included. */
+/**
+ * Whether a point is inside a box turned about its corner, its edges included, or inside what the
+ * box passes over carried by its sweep: whether, for some share of the sweep, the point moved back
+ * by it is inside the box.
+ */
 export function inTurned(p: { x: number; y: number }, box: TurnedRect): boolean {
-  const [along, down] = inFrame(p, box.x, box.y, box.turn ?? 0)
-  return along >= 0 && along <= box.width && down >= 0 && down <= box.height
+  const turn = box.turn ?? 0
+  const [along, down] = inFrame(p, box.x, box.y, turn)
+  if (!box.sweep) return along >= 0 && along <= box.width && down >= 0 && down <= box.height
+  const [byAlong, byDown] = inFrame({ x: box.x + box.sweep.x, y: box.y + box.sweep.y }, box.x, box.y, turn)
+  // The shares of the sweep, 0 to 1, for which the point moved back lies inside the box on each axis.
+  let [from, to] = [0, 1]
+  for (const [at, by, size] of [
+    [along, byAlong, box.width],
+    [down, byDown, box.height],
+  ] as const) {
+    if (by === 0) {
+      if (at < 0 || at > size) return false
+      continue
+    }
+    const [a, b] = [(at - size) / by, at / by]
+    from = Math.max(from, Math.min(a, b))
+    to = Math.min(to, Math.max(a, b))
+  }
+  return from <= to
 }
 
 /** How far a glyph is turned, in degrees clockwise. */

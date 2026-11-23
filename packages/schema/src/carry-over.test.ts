@@ -77,6 +77,26 @@ describe('carryOverLayer', () => {
       expect(carryOverLayer(odd)).toBe(odd)
   })
 
+  it('reads a text stored at version 20 unchanged, with no extrusion', () => {
+    const at15 = textAt15()
+    const image = { type: 'image', assetId: 'photo', fit: 'tile', tileScale: 0.5, opacity: 1 }
+    const style = { fontFamily: 'Noto Sans', fontWeight: 700, fontStyle: 'normal', fontSize: 40, color: '#111111FF' }
+    const stored = {
+      ...at15,
+      props: {
+        ...at15.props,
+        style: { ...style, letterSpacing: { unit: 'percent', value: 0 }, image, raise: 10 },
+        runs: [{ start: 0, end: 3, style: { color: '#FF0000FF', image: { ...image, fit: 'fill' }, turn: 5 } }],
+        bounce: { style: 'random', amount: 30, seed: 2 },
+        curve: { shape: 'wave', amount: 20 },
+      },
+    }
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: structuredClone(stored) })
+    expect(parsed.success && parsed.layer.props).not.toHaveProperty('extrusion')
+  })
+
   it('reads a text stored at version 19 unchanged, with no image fill', () => {
     const at15 = textAt15()
     const stored = {

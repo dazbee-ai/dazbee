@@ -75,7 +75,7 @@ export function moveStraightLetters(layout: TextLayout, placed: Placement, props
   const right = across ? Math.max(0, moved.x + moved.width - straight.x - straight.width) : 0
   const top = Math.max(0, straight.y - moved.y)
   const bottom = Math.max(0, moved.y + moved.height - straight.y - straight.height)
-  if (left > 0 || top > 0) shift(layout, placed, left, top)
+  if (left > 0 || top > 0) shiftPlaced(layout, placed, left, top)
   // A box that grows is whole pixels, as a curved text's is.
   if (left + right > 0) layout.width = Math.ceil(layout.width + left + right)
   if (top + bottom > 0) layout.height = Math.ceil(layout.height + top + bottom)
@@ -132,23 +132,8 @@ export function moveLetters(layout: TextLayout, placed: Placement, place: PlaceG
   }
 }
 
-/** The first 32-bit output of mulberry32 seeded with `n` (taken modulo 2³²), mapped to −1 to 1. */
-function seededUnit(n: number): number {
-  let t = ((n >>> 0) + 0x6d2b79f5) >>> 0
-  t = Math.imul(t ^ (t >>> 15), t | 1)
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-  return ((t ^ (t >>> 14)) >>> 0) / 2 ** 31 - 1
-}
-
-/** Runs with their glyphs' boxes where they sit without their raise, on their lines. */
-function unraised(runs: readonly PlacedRun[]): PlacedRun[] {
-  return runs.map((run) =>
-    run.raiseShift === 0 ? run : { ...run, boxes: run.boxes.map((v, i) => (i % 2 === 1 ? v - run.raiseShift : v)) },
-  )
-}
-
 /** Moves a placement's glyphs and the layout's list markers right and down, as a box keeping its top-left does. */
-function shift(layout: TextLayout, placed: Placement, dx: number, dy: number) {
+export function shiftPlaced(layout: TextLayout, placed: Placement, dx: number, dy: number) {
   for (const { xforms, boxes } of placed.runs) {
     for (let i = 0; i < xforms.length; i += 4) {
       xforms[i + 2] = (xforms[i + 2] ?? 0) + dx
@@ -163,6 +148,21 @@ function shift(layout: TextLayout, placed: Placement, dx: number, dy: number) {
     block.markerX += dx
     block.markerY += dy
   }
+}
+
+/** The first 32-bit output of mulberry32 seeded with `n` (taken modulo 2³²), mapped to −1 to 1. */
+function seededUnit(n: number): number {
+  let t = ((n >>> 0) + 0x6d2b79f5) >>> 0
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  return ((t ^ (t >>> 14)) >>> 0) / 2 ** 31 - 1
+}
+
+/** Runs with their glyphs' boxes where they sit without their raise, on their lines. */
+function unraised(runs: readonly PlacedRun[]): PlacedRun[] {
+  return runs.map((run) =>
+    run.raiseShift === 0 ? run : { ...run, boxes: run.boxes.map((v, i) => (i % 2 === 1 ? v - run.raiseShift : v)) },
+  )
 }
 
 /**

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { Effect } from './effects.ts'
 import { Paint } from './paint.ts'
-import { BlendMode, ContainerBlendMode, FractionalIndex, FrameId, LinkId, NodeId } from './primitives.ts'
+import { BlendMode, Color, ContainerBlendMode, FractionalIndex, FrameId, LinkId, NodeId } from './primitives.ts'
 import { NO_LETTER_SPACING, textStyleFields } from './typography.ts'
 import { Bindings } from './variables.ts'
 
@@ -300,6 +300,18 @@ export const TextBounce = z.object({
 })
 export type TextBounce = z.infer<typeof TextBounce>
 
+/**
+ * A text's 3D sides: its letters carried back `depth` percent of its base font size, along `angle`
+ * degrees clockwise from the right (45 is down and right), drawn behind them in `color`, or with it
+ * left out in a darker shade of the letters' own paint. No light, bevel or perspective.
+ */
+export const TextExtrusion = z.object({
+  depth: z.number().min(0).max(100),
+  angle: z.number().min(0).max(360),
+  color: Color.optional(),
+})
+export type TextExtrusion = z.infer<typeof TextExtrusion>
+
 export const TextProps = z
   .object({
     ...commonProps,
@@ -351,6 +363,11 @@ export const TextProps = z
      * grows in height only, and a fixed box stays as set; the box keeps its top-left.
      */
     bounce: TextBounce.optional(),
+    /**
+     * Its 3D sides. An auto width box holds them both ways, an auto height box grows in height only,
+     * and a fixed box stays as set; the box keeps its top-left.
+     */
+    extrusion: TextExtrusion.optional(),
   })
   .superRefine((t, ctx) => {
     const oneFill = (style: { gradient?: unknown; image?: unknown }, path: (string | number)[]) => {

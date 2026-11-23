@@ -289,6 +289,16 @@
       "limit": 0.614
     }
   },
+  "text-effects extrusion": {
+    "pdf": {
+      "percent": 0.506,
+      "limit": 0.683
+    },
+    "svg": {
+      "percent": 0.466,
+      "limit": 0.633
+    }
+  },
   "text-effects image-fill": {
     "pdf": {
       "percent": 0.463,

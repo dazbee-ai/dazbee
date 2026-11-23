@@ -270,6 +270,13 @@ describe('ad_rules', () => {
     expect(rules.textEffects).toMatch(/photo.*tiled.*never thin type or body copy/s)
   })
 
+  it('says when 3D suits an ad: a short, bold sale word or number, gaming and kids’ brands, small depths, never thin type or body copy', async () => {
+    const agent = await agentOf()
+    const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
+    expect(rules.textEffects).toMatch(/3D sides.*extrusion.*short, bold sale word or number.*gaming and kids’ brands/s)
+    expect(rules.textEffects).toMatch(/small depths.*read best; never on thin type or body copy/s)
+  })
+
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {
     const agent = await agentOf()
     const plain = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules

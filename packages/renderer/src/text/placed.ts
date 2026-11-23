@@ -127,7 +127,7 @@ export function placeLetters(ck: CanvasKit, layout: TextLayout, place: PlaceGlyp
           const piece = pieceAt(layout.pieces, block.start + unit)
           const line = lines[lineIndex(metrics, unit)]
           if (!piece || !line) continue
-          if (!piece.superSub && !piece.raised && !settled.has(line)) {
+          if (!piece.superSub && !piece.raiseShift && !settled.has(line)) {
             line.baseline = y
             settled.add(line)
           }

@@ -13,10 +13,11 @@ import { clamp, NumberField } from '@/components/editor/edit-panel/number-field.
 import { type P, set, shared, type Target, textStyle } from '@/components/editor/edit-panel/target.ts'
 import { useFontArrivals } from '@/components/editor/editor-hooks.ts'
 import { featureOn, shownFeatures, textWithFeature, turnedFeatures } from '@/lib/editor/font-features.ts'
+import { LIMITS } from '@/lib/editor/limits.ts'
 import { tidy } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { RAISE_MOST, sharedRaise, textWithRaise } from './raise.ts'
+import { sharedRaise, textWithRaise } from './raise.ts'
 
 /**
  * Turns a feature on or off (`turnedFeatures`): for the selected run, over each character's own,
@@ -32,7 +33,7 @@ function setFeature(target: Target, tag: string, on: boolean) {
  * character's, else each whole text's, from its base style's (`textWithRaise`).
  */
 function changeRaise(target: Target, change: (now: number) => number) {
-  const to = (now: number) => tidy(clamp(change(now), -RAISE_MOST, RAISE_MOST))
+  const to = (now: number) => tidy(clamp(change(now), -LIMITS.raise, LIMITS.raise))
   if (target.range) return target.editor.styleTextSelection({ raise: to(target.range[0]?.raise ?? 0) })
   return set(target, (now) => {
     const text = now as Pick<TextProps, 'style' | 'runs'>
@@ -69,8 +70,8 @@ export function RaiseField({ target }: { target: Target }) {
       name={p.raise}
       value={value}
       unit="%"
-      min={-RAISE_MOST}
-      max={RAISE_MOST}
+      min={-LIMITS.raise}
+      max={LIMITS.raise}
       editor={target.editor}
       onSet={(v) => changeRaise(target, () => v)}
       onEach={(change) => changeRaise(target, change)}

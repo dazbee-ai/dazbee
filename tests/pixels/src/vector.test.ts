@@ -193,13 +193,14 @@ describe('PDF and SVG exports (#56)', () => {
     )
   })
 
-  it('keeps straight raised characters in a PDF as text, and draws raised letters on a curve as shapes', async () => {
+  it('keeps straight raised characters in a PDF as text, and draws raised letters on a curve and in a bounce as shapes', async () => {
     const raise = cases.find((c) => c.name === 'text-effects' && c.frameId === 'raise')
     if (!raise) throw new Error('fixture missing')
     const pdf = pdfs.get(raise.label) ?? renderVector(ck, raise.json, raise.frameId, bytes, 'pdf', cache)
     const text = await pdfText(pdfium, pdf)
     expect(text).toContain('49')
     expect(text).not.toContain('TODAY')
+    expect(text).not.toContain('Yummy')
   })
 
   it.each(cases.filter((c) => c.name === 'text-effects' && c.frameId !== 'raise'))(

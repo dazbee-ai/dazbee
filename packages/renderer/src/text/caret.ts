@@ -199,7 +199,7 @@ export function selectionBoxes(ck: CanvasKit, laid: TextLayout, start: number, e
       })
     }
     return raisedSpans(laid, b, from, to).flatMap((span) =>
-      rectsOf(ck, b.paragraph, span.from, span.to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y + span.raised })),
+      rectsOf(ck, b.paragraph, span.from, span.to).map((r) => ({ ...r, x: r.x + b.x, y: r.y + b.y + span.shift })),
     )
   })
 }
@@ -275,11 +275,11 @@ function boxesOf(ck: CanvasKit, laid: TextLayout, block: TextBlock): GraphemeBox
   if (!boxes) {
     // getLineNumberAt answers 0 for every offset in CanvasKit 0.42, so lines come from their metrics.
     const lines = paragraph.getLineMetrics()
-    const raised = laid.pieces.some((p) => p.raised)
+    const raised = laid.pieces.some((p) => p.raiseShift)
     boxes = [...graphemeSegmenter.segment(text)].flatMap((g) => {
       const end = g.index + g.segment.length
       const line = lines.find((l) => g.index >= l.startIndex && g.index < l.endIndex)?.lineNumber ?? -1
-      const dy = raised ? (pieceAt(laid, block.start + g.index)?.raised ?? 0) : 0
+      const dy = raised ? (pieceAt(laid, block.start + g.index)?.raiseShift ?? 0) : 0
       return rectsOf(ck, paragraph, g.index, end).map((box) => ({ ...box, y: box.y + dy, start: g.index, end, line }))
     })
     graphemeBoxes.set(paragraph, boxes)
@@ -376,15 +376,15 @@ function lineAfter(
  * by change, each part with those pixels; the one range, raised by none, in a text with nothing raised.
  */
 function raisedSpans(laid: TextLayout, block: TextBlock, from: number, to: number) {
-  if (!laid.pieces.some((p) => p.raised)) return [{ from, to, raised: 0 }]
-  const spans: { from: number; to: number; raised: number }[] = []
+  if (!laid.pieces.some((p) => p.raiseShift)) return [{ from, to, shift: 0 }]
+  const spans: { from: number; to: number; shift: number }[] = []
   for (let at = from; at < to;) {
     const piece = pieceAt(laid, block.start + at)
     const end = Math.min(to, piece ? Math.max(piece.end - block.start, at + 1) : to)
-    const raised = piece?.raised ?? 0
+    const shift = piece?.raiseShift ?? 0
     const last = spans.at(-1)
-    if (last && last.raised === raised) last.to = end
-    else spans.push({ from: at, to: end, raised })
+    if (last && last.shift === shift) last.to = end
+    else spans.push({ from: at, to: end, shift })
     at = end
   }
   return spans

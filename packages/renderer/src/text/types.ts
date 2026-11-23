@@ -12,5 +12,5 @@ export interface StyledPiece {
    */
   superSub?: { fontSize: number; baselineShift: number }
   /** Set on raised or lowered characters: the pixels their raise moves their glyphs, down for a positive value. */
-  raised?: number
+  raiseShift?: number
 }

@@ -6,28 +6,23 @@ import { type Props, shared } from '@/components/editor/edit-panel/target.ts'
 
 type Text = Pick<TextProps, 'style' | 'runs'>
 
-/** The most a raise goes up or down, as a percentage of the font size. */
-export const RAISE_MOST = 100
-
 /** The raise the selected texts' characters share, 0 where none is raised, or mixed where any two differ. */
 export function sharedRaise(props: readonly Props[]): number | 'mixed' {
   return shared(props.flatMap((pr) => textRaises(pr as unknown as Text & Pick<TextProps, 'text'>)))
 }
 
 /**
- * A whole text raised by `raise`: its base style's raise set, left out at 0, and its runs' own
- * taken off, so every character has it. A run that held only a raise goes.
+ * A whole text raised by `raise`, so every character has it: its base style's raise set, left out
+ * at 0, and each run that sets its own raise set to it too. A run's style is written over what its
+ * characters have, so a run's raise is set rather than taken off.
  */
 export function textWithRaise(text: Text, raise: number): Text {
   const style = { ...text.style }
   if (raise === 0) delete style.raise
   else style.raise = raise
-  const runs = text.runs.flatMap((run) => {
-    if (run.style.raise === undefined) return [run]
-    const own = { ...run.style }
-    delete own.raise
-    return Object.keys(own).length > 0 ? [{ ...run, style: own }] : []
-  })
+  const runs = text.runs.map((run) =>
+    run.style.raise === undefined ? run : { ...run, style: { ...run.style, raise } },
+  )
   return { style, runs }
 }
 

@@ -227,7 +227,11 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   // Gradients are placed in the layer's box, which drawing puts the paragraphs in.
   const box = { x: 0, y: 0, width: props.width, height: props.height }
   /** Pushes a style onto a paragraph's builder, painted for the pass. */
-  const push = (builder: ParagraphBuilder, piece: Pick<StyledPiece, 'style' | 'superSub' | 'raised'>, pass: TextPass) =>
+  const push = (
+    builder: ParagraphBuilder,
+    piece: Pick<StyledPiece, 'style' | 'superSub' | 'raiseShift'>,
+    pass: TextPass,
+  ) =>
     pushPainted(ck, builder, textStyle(ck, piece.style, fallbacks, pass, baselineShift(piece)), piece.style, pass, box)
   /**
    * One paragraph of the text, drawn for the pass. `more` is drawn after it, as an ellipsis is.

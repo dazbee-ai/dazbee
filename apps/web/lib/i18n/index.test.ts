@@ -128,3 +128,10 @@ describe('the radius pill', () => {
     expect(format(ar.editor.radiusPill, { radius: 45.37 })).toBe('نصف القطر 45.37')
   })
 })
+
+describe('the 3D side colour', () => {
+  it('names its colour once in each language', () => {
+    expect(format(en.editor.props.colourOf, { name: en.editor.props.extrusionSides })).toBe('3D sides colour')
+    expect(format(ar.editor.props.colourOf, { name: ar.editor.props.extrusionSides })).toBe('لون جوانب ثلاثي الأبعاد')
+  })
+})

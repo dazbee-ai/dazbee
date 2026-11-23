@@ -4,8 +4,8 @@ import type { ReactNode } from 'react'
 
 import type { Effect } from '@dazbee/schema'
 
-/** The effect choices: none, an effect, or text's outline. */
-export type EffectChoice = 'none' | Effect['type'] | 'outline'
+/** The effect choices: none, an effect, or text's outline or 3D. */
+export type EffectChoice = 'none' | Effect['type'] | 'outline' | 'extrusion'
 
 const DRAWINGS: Record<EffectChoice, ReactNode> = {
   none: (
@@ -51,6 +51,12 @@ const DRAWINGS: Record<EffectChoice, ReactNode> = {
     <>
       <path d="M5.5 19.5 11 4.5h2l5.5 15h-3l-1.2-3.5H9.7l-1.2 3.5Z" />
       <path d="M10.6 13.5h2.8L12 9.3Z" />
+    </>
+  ),
+  extrusion: (
+    <>
+      <rect x="4" y="4" width="12" height="12" rx="2" />
+      <path d="M15.5 4.5l4 4V18a1.5 1.5 0 0 1-1.5 1.5H8.5l-4-4M16 16l3.5 3.5" opacity=".55" />
     </>
   ),
 }

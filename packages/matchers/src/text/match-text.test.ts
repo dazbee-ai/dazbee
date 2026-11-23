@@ -166,13 +166,6 @@ describe('matchText', () => {
     expect(Math.abs((found?.amount ?? 0) - curve.amount)).toBeLessThanOrEqual(AMOUNT_WITHIN)
   })
 
-  it.each(ROUND_TRIPS)('reads %s as straight, so no curve is tried', (id) => {
-    const piece = pieceOf(id)
-    const { whole, work } = readPiece({ pixels: piece.pixels, words: piece.words })
-    expect(whole.curve.fired).toBeNull()
-    expect(work.curve.fired).toBeNull()
-  })
-
   it('gives thin letters that read as hollow back filled when, as drawn, they look the same', async () => {
     const words = 'BOB'
     const pixels = drawText(ck, {

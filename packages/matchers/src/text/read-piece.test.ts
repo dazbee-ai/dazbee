@@ -7,7 +7,7 @@ import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
 import { type PieceReading, type ReadPiece, readPiece, WORK_LINE_HEIGHT } from './read-piece.ts'
-import { type DrawnText, drawText } from './test-text-pieces.ts'
+import { type DrawnText, drawText, lightFonts, lightPieces } from './test-text-pieces.ts'
 
 const ck = await loadCanvasKit()
 
@@ -188,7 +188,7 @@ describe('readPiece', () => {
     const words = 'Big Summer Sale'
     const pixels = drawText(ck, { ...CURVED, words, curve, background: '#FFFFFF' })
     const { work } = readTwice({ pixels, words })
-    expect(kinds).toContain(work.curve.fired)
+    expect(kinds).toContain(work.curve?.fired)
   })
 
   it.each([
@@ -197,6 +197,13 @@ describe('readPiece', () => {
     ['a short word', 'Big'],
   ])('reads straight letters of %s as straight', (_, words) => {
     const pixels = drawText(ck, { ...CURVED, words, align: 'center', background: '#FFFFFF' })
-    expect(readTwice({ pixels, words }).work.curve.fired).toBeNull()
+    expect(readTwice({ pixels, words }).work.curve?.fired).toBeNull()
   })
+
+  it.each(lightPieces(ck, lightFonts()).map((piece) => [piece.id, piece] as const))(
+    'reads the straight letters of the text matcher test piece %s as straight',
+    (_, piece) => {
+      expect(readPiece({ pixels: piece.pixels, words: piece.words }).work.curve?.fired).toBeNull()
+    },
+  )
 })

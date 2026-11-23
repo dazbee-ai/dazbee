@@ -55,8 +55,11 @@ export interface PieceReading {
   /** The colour behind the letters: the median of the picture's outermost pixels. */
   background: Rgb
   align: 'start' | 'center' | 'end'
-  /** Whether the letters run along a curve, and the blobs that tell. */
-  curve: CurveCheck
+  /**
+   * Whether the letters run along a curve, and the blobs that tell; read at the size the matcher works
+   * at, so null for a piece read whole that is worked shrunk.
+   */
+  curve: CurveCheck | null
 }
 
 /** A piece read at its own size and at the size the matcher works at, and how much smaller that is. */
@@ -97,11 +100,13 @@ export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hol
   const found = findHollow ? hollowOf(ink) : null
   // The line round hollow letters is set to the half pixel, as an outline is read.
   const hollow = found && { ...found, width: Math.max(0.5, Math.round(found.width * 2) / 2) }
-  const whole = readAt(piece, ink, background, hollow)
   // The height of the ink as it is, tilt and all, is enough to decide.
   const box = inkBox(inkOf(piece.pixels))
   const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1
-  if (!(scale < SHRINK_BELOW)) return { whole, work: whole, scale: 1 }
+  const shrinks = scale < SHRINK_BELOW
+  // The curve check is read at the size the matcher works at only.
+  const whole = readAt(piece, ink, background, hollow, !shrinks)
+  if (!shrinks) return { whole, work: whole, scale: 1 }
   const pixels = shrinkPixels(piece.pixels, scale)
   // Hollow letters keep their filled shape and line width shrunk, as the thinner line may not close them.
   const shrunk = hollow && {
@@ -109,7 +114,8 @@ export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hol
     width: hollow.width * scale,
   }
   const workBackground = borderColour(pixels)
-  return { whole, work: readAt({ ...piece, pixels }, inkOf(pixels, workBackground), workBackground, shrunk), scale }
+  const work = readAt({ ...piece, pixels }, inkOf(pixels, workBackground), workBackground, shrunk, true)
+  return { whole, work, scale }
 }
 
 /**
@@ -145,9 +151,9 @@ export function findLines(level: Ink, box: Box, count: number): Box[] {
 
 /**
  * The piece's reading at the size its pixels are, from its ink, the colour behind it and, for hollow
- * letters, their filled ink.
+ * letters, their filled ink; whether its letters run along a curve only when `checkCurve`.
  */
-function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | null): PieceReading {
+function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | null, checkCurve: boolean): PieceReading {
   const letters = hollow?.filled ?? ink
   const angle = piece.angle ?? estimateAngle(letters)
   const level = rotateInk(letters, -angle)
@@ -165,7 +171,7 @@ function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | nu
     outline,
     background,
     align: alignOf(lines),
-    curve: curveCheck(level, lines[0] ?? box, firstLineLetters(piece.words)),
+    curve: checkCurve ? curveCheck(level, lines[0] ?? box, firstLineLetters(piece.words)) : null,
   }
 }
 

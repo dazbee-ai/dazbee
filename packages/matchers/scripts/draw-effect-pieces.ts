@@ -18,7 +18,7 @@ import { parseFontKey } from '../src/text/font-key.ts'
 import { coversByIndex, readTextFiles, TEXT_FILES, type TextFileBytes } from '../src/text/text-files.ts'
 import { fetchFiles, FILES_DIR } from './fetch-files.ts'
 import { googleFaceFile } from './google-face-file.ts'
-import type { EffectTruth } from './text-measure-pieces.ts'
+import type { EffectSetTruth } from './text-measure-pieces.ts'
 
 /** The curve's shapes, a piece of each in turn. */
 const SHAPES: readonly TextCurve['shape'][] = ['arcUp', 'arcDown', 'circle', 'wave']
@@ -99,7 +99,7 @@ const amounts = SHAPES.map(() =>
   ),
 )
 mkdirSync(out, { recursive: true })
-const truths: EffectTruth[] = []
+const truths: EffectSetTruth[] = []
 for (let i = 0; i < total; i++) {
   const shapeIndex = i % SHAPES.length
   const shape = SHAPES[shapeIndex] as TextCurve['shape']
@@ -133,6 +133,27 @@ for (let i = 0; i < total; i++) {
   console.log(`${id}  ${shape} ${amount}  ${key}  ${size} px  ${JSON.stringify(words)}`)
 }
 writeFileSync(join(out, 'truth.json'), JSON.stringify(truths, null, 1))
+
+/** Numbers from 0 to 1, the same for a seed in every runtime: mulberry32. */
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32
+  }
+}
+
+/** The list in a random order drawn from `random`. */
+function shuffled<T>(list: T[], random: () => number): T[] {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[list[i], list[j]] = [list[j] as T, list[i] as T]
+  }
+  return list
+}
 
 /** A face picked at random from the catalog's faces that draw the words, and its bytes. */
 function faceFor(words: string): { key: string; bytes: Uint8Array } {
@@ -187,25 +208,4 @@ function drawn(look: TextLook, words: string, face: { family: string; bytes: Uin
   image?.delete()
   if (!png) throw new Error('CanvasKit could not encode a piece')
   return png
-}
-
-/** Numbers from 0 to 1, the same for a seed in every runtime: mulberry32. */
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32
-  }
-}
-
-/** The list in a random order drawn from `random`. */
-function shuffled<T>(list: T[], random: () => number): T[] {
-  for (let i = list.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1))
-    ;[list[i], list[j]] = [list[j] as T, list[i] as T]
-  }
-  return list
 }

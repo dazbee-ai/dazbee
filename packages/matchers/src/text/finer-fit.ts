@@ -5,6 +5,7 @@
 // It is bounded by its rounds and reads no clock, so a slow device gets a fast one's answer.
 
 import type { TextDrawer, TextLook } from './draw-text.ts'
+import { CURVE_AMOUNTS } from './effects/curve.ts'
 import { BASE_LINE_HEIGHT, type Fitted, type Nudge, placeByInk } from './light/fit.ts'
 import type { PieceReading } from './read-piece.ts'
 
@@ -80,7 +81,13 @@ function moved(look: TextLook, setting: Setting, by: number): TextLook {
         : look
     case 'amount':
       return look.curve
-        ? { ...look, curve: { ...look.curve, amount: Math.min(100, Math.max(1, look.curve.amount + by)) } }
+        ? {
+            ...look,
+            curve: {
+              ...look.curve,
+              amount: Math.min(CURVE_AMOUNTS.max, Math.max(CURVE_AMOUNTS.min, look.curve.amount + by)),
+            },
+          }
         : look
     default:
       return { ...look }

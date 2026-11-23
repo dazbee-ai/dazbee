@@ -8,9 +8,9 @@
 // draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
 // A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
 // looks the same is given, else the closer. A piece whose letters the curve check reads as running
-// along a curve is matched again straightened along it, the face found drawn curved
-// (`effects/curve.ts`), and the curved answer given when it looks the same and the others don't, or
-// is closer.
+// along a curve, and whose straight answer doesn't look the same, is matched again straightened along
+// it, the face found drawn curved (`effects/curve.ts`); the curved answer is given when it looks the
+// same, or is the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -138,17 +138,20 @@ export async function matchTextWithFace(
   const read = readPiece(textPiece)
   // No pixel of the piece holds any ink: there is nothing to read.
   if (!inkBox(read.whole.ink, 0)) return { answer: pictureAnswer('failed') }
-  // Letters along a curve are matched along it first, and straight only when that doesn't look the same.
-  const curved = read.work.curve.fired ? await matchCurved(job, words, read, piece.angle, deps, step) : 'failed'
-  const curvedSame = curved !== 'failed' && curved.matched.same && !curved.inNoto
-  const asRead = curvedSame ? 'failed' : await matchReading(job, words, read, deps, step)
+  const asRead = await matchReading(job, words, read, deps, step)
   // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
   // counter, or letters in a drawn frame, can read as hollow.
   const asDrawn =
-    !curvedSame && read.whole.fill === null
+    read.whole.fill === null
       ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
       : 'failed'
-  const best = closerMatch(closerMatch(asDrawn, asRead), curved)
+  const straight = closerMatch(asDrawn, asRead)
+  // Letters the check reads along a curve are matched along it too, unless the straight answer
+  // already looks the same, which a curve then never replaces.
+  const straightSame = straight !== 'failed' && straight.matched.same && !straight.inNoto
+  const curved =
+    read.work.curve?.fired && !straightSame ? await matchCurved(job, words, read, piece.angle, deps, step) : 'failed'
+  const best = closerMatch(straight, curved)
   if (best === 'failed') return { answer: pictureAnswer('failed') }
   const { matched, inNoto } = best
   const { look, place, scores, bindings, styleLook } = matched

@@ -32,7 +32,7 @@ export interface MeasuredPiece {
 }
 
 /** A piece of the effect set as its `truth.json` holds it. */
-export interface EffectTruth {
+export interface EffectSetTruth {
   id: string
   /** `dev`: the first half, which settings may be chosen on; `test`: the second, held out. */
   part: 'dev' | 'test'
@@ -147,8 +147,8 @@ export function setPieces(ck: CanvasKit, set: TestSet, dir: string): MeasuredPie
  * The effect set's pieces, each on its flat colour with its tilt read and no brand kit: held out when
  * of its second half.
  */
-export function effectPieces(ck: CanvasKit, dir: string): MeasuredPiece[] {
-  const truths = JSON.parse(readFileSync(join(dir, 'truth.json'), 'utf8')) as EffectTruth[]
+export function effectSetPieces(ck: CanvasKit, dir: string): MeasuredPiece[] {
+  const truths = JSON.parse(readFileSync(join(dir, 'truth.json'), 'utf8')) as EffectSetTruth[]
   return truths.map((truth) => {
     const png = new Uint8Array(readFileSync(join(dir, `${truth.id}.png`)))
     return {

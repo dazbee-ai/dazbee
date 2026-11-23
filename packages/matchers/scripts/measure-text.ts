@@ -34,7 +34,14 @@ import { openNodeModel } from '../src/text/model-runtime-node.ts'
 import { readTextFiles, TEXT_FILES, type TextFileBytes } from '../src/text/text-files.ts'
 import { fetchFiles, FILES_DIR } from './fetch-files.ts'
 import { googleFaceFile } from './google-face-file.ts'
-import { adPieces, effectPieces, type MeasuredPiece, SET_DIRS, setPieces, type TestSet } from './text-measure-pieces.ts'
+import {
+  adPieces,
+  effectSetPieces,
+  type MeasuredPiece,
+  SET_DIRS,
+  setPieces,
+  type TestSet,
+} from './text-measure-pieces.ts'
 
 /** A piece's answer as the measurement keeps it. */
 type Measured = TextMatch['answer'] & { face?: string; familyOk?: boolean; faceOk?: boolean | null; ms: number }
@@ -77,7 +84,9 @@ const model = await openNodeModel(new Uint8Array(readFileSync(join(FILES_DIR, 't
 const deps: TextMatcherDeps = { ck, files: readTextFiles(bytes), model, fonts: googleFontSource(checkout) }
 
 const [shardIndex, shardCount] = (values.shard ?? '0/1').split('/').map(Number)
-const pieces = (set === 'ads' ? adPieces(ck, dir) : set === 'effects' ? effectPieces(ck, dir) : setPieces(ck, set, dir))
+const pieces = (
+  set === 'ads' ? adPieces(ck, dir) : set === 'effects' ? effectSetPieces(ck, dir) : setPieces(ck, set, dir)
+)
   .filter((p) => !values['held-out'] || p.heldOut)
   .filter((_, i) => i % (shardCount ?? 1) === (shardIndex ?? 0))
   .map((p) => ({ ...p, job: { ...p.job, setting } }))

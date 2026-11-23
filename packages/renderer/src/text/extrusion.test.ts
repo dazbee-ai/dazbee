@@ -209,6 +209,18 @@ describe('holdSides', () => {
     })
   })
 
+  it('leaves the box of a text with no letters as it is, with no sides', () => {
+    for (const text of ['', '   ']) {
+      const laid = layoutText(ck, textOf(text, { extrusion: { depth: 100, angle: 200 } }), shipped)
+      expect({ width: laid.width, height: laid.height }).toEqual({
+        width: box(textOf(text)).width,
+        height: box(textOf(text)).height,
+      })
+      expect(laid.sidesReach).toBeNull()
+      laid.delete()
+    }
+  })
+
   it('grows an auto height box in height only, its width and wrapping kept, and leaves a fixed box as set', () => {
     const autoHeight = { boxMode: 'autoHeight', width: 300 }
     const plain = box(textOf('Big summer sale', autoHeight))

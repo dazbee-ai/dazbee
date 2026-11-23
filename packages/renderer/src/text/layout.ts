@@ -94,6 +94,8 @@ export type TextResources = Pick<Resources, 'fonts' | 'fallbackFamilies' | 'fami
 type Style = TextProps['style']
 
 const ELLIPSIS = '\u2026'
+/** A text of white space only, or of nothing, which has no letters for sides. */
+const NO_LETTERS = /^\s*$/u
 /** The pass that draws a text's characters. */
 const FILL: TextPass = { kind: 'fill' }
 
@@ -103,11 +105,11 @@ const FILL: TextPass = { kind: 'fill' }
  * laid out as one SkParagraph. A curved text is laid out straight, each paragraph on one line, then
  * placed on its curve from the box's corner, its size the curve's. A text whose letters bounce or
  * turn is placed letter by letter and its letters moved (`moveLetters`), on its curve if it has one.
- * A text with 3D sides takes a box that holds them (`holdSides`).
+ * A text with 3D sides takes a box that holds them (`holdSides`); one with no letters has none.
  */
 export function layoutText(ck: CanvasKit, props: TextProps, resources: TextResources): TextLayout {
   const laid = layoutLetters(ck, props, resources)
-  const reach = extrusionReach(props.extrusion, props.style.fontSize * laid.scale)
+  const reach = NO_LETTERS.test(props.text) ? null : extrusionReach(props.extrusion, props.style.fontSize * laid.scale)
   if (reach) {
     holdSides(laid, props, reach)
     laid.sidesReach = reach

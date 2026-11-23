@@ -8,7 +8,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { type Paint, withAlpha } from '@dazbee/schema'
+import { ImageFit, type ImagePaint, type Paint, withAlpha } from '@dazbee/schema'
 
 import { useBesidePanel } from '@/components/editor/beside-panel.ts'
 import { ColorField, OpacityField } from '@/components/editor/edit-panel/colour-field.tsx'
@@ -30,6 +30,7 @@ import { format } from '@/lib/i18n/index.ts'
 
 import { BrandColours } from './brand-colours.tsx'
 import { angleOf, type Gradient, GradientBar, linearAt, type Stop, stopsCss } from './gradient-bar.tsx'
+import { ImageAdjustments, ImageFilters } from './image-adjustments.tsx'
 import { RecentSwatches, useShownRecent } from './recent-swatches.tsx'
 import { TileScaleField } from './tile-scale-field.tsx'
 
@@ -203,7 +204,7 @@ export function PaintRow({
 
 /**
  * One paint's editor: its type, then a solid's colour, a gradient's stops and shape, or an image.
- * Without `offersImage`, as for a text, which an image can't paint, Image is not offered.
+ * `forText`, the image is a text image fill: it has no Crop, and shows its filters and adjustments.
  */
 export function PaintEditor({
   paint,
@@ -212,7 +213,7 @@ export function PaintEditor({
   editor,
   p,
   onSet,
-  offersImage = true,
+  forText = false,
   colourName,
 }: {
   paint: Paint
@@ -221,11 +222,10 @@ export function PaintEditor({
   editor: Editor
   p: P
   onSet: (to: (now: Paint) => Paint) => void
-  offersImage?: boolean
+  forText?: boolean
   /** The name of a solid's colour field; the paint's colour without it. */
   colourName?: string
 }) {
-  const types = offersImage ? PAINT_TYPES : PAINT_TYPES.filter((type) => type !== 'image')
   const [picked, setPicked] = useState(0)
   const recent = useShownRecent(workspaceId, brandId)
   const stop = isGradient(paint) ? paint.stops[Math.min(picked, paint.stops.length - 1)] : undefined
@@ -238,16 +238,18 @@ export function PaintEditor({
       ),
     }))
   const pct = (n: number) => tidy(n * 100)
+  const setLook = (change: (now: ImagePaint) => Partial<ImagePaint>) =>
+    onSet((now) => (now.type === 'image' ? { ...now, ...change(now) } : now))
   return (
     <div className="flex flex-col gap-3 p-3" data-testid="paint-editor">
       <RadioGroup
         label={p.paintType}
-        options={types}
+        options={PAINT_TYPES}
         value={paint.type}
         onPick={(type) => type !== 'image' && onSet((now) => convert(now, type))}
         className={SEGMENTS}
       >
-        {types.map((type) => {
+        {PAINT_TYPES.map((type) => {
           const on = paint.type === type
           const label = type === 'solid' ? p.solid : p.paint[type]
           if (type === 'image' && !on) {
@@ -457,7 +459,7 @@ export function PaintEditor({
             <Choice
               name={p.fit}
               value={paint.fit}
-              options={['fill', 'fit', 'crop', 'tile'] as const}
+              options={ImageFit.options.filter((fit) => !forText || fit !== 'crop')}
               labels={p.fits}
               onSet={(fit) => onSet((now) => (now.type === 'image' ? { ...now, fit } : now))}
             />
@@ -472,6 +474,17 @@ export function PaintEditor({
             )}
           </div>
         </div>
+      )}
+      {paint.type === 'image' && forText && (
+        <>
+          <ImageFilters
+            picture={assetThumbnail(workspaceId, brandId, paint.assetId)}
+            p={p}
+            paint={paint}
+            onChange={setLook}
+          />
+          <ImageAdjustments editor={editor} p={p} paint={paint} onChange={setLook} />
+        </>
       )}
     </div>
   )

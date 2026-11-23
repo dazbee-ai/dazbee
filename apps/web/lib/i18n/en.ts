@@ -1239,6 +1239,8 @@ export const en = {
       recentColours: 'Recent',
       colours: 'Colours',
       currentColour: 'Now {hex}',
+      /** The swatch that leads the kit's colours while the text shows an image fill. */
+      currentImage: 'Now an image',
       tiles: { none: 'None', shadow: 'Shadow', glow: 'Glow', outline: 'Outline', blur: 'Blur' },
       inAutoLayout: 'In the box',
       axes: { width: 'Width', height: 'Height' },

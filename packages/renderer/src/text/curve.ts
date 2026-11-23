@@ -111,7 +111,7 @@ function wordGaps(ck: CanvasKit, block: TextBlock, start: number, end: number): 
   const gaps: number[] = []
   const text = block.text
   for (let from = start; from < end; from++) {
-    if (!SPACE.test(text[from] ?? '') || from === start) continue
+    if (!SPACE.test(text[from] ?? '') || from === start || SPACE.test(text[from - 1] ?? '')) continue
     let to = from
     while (to < end && SPACE.test(text[to] ?? '')) to++
     if (to === end) break

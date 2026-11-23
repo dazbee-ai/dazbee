@@ -90,7 +90,7 @@ export interface TypingDeps {
    */
   fit?: FitText
   /** Owes a text fitted while a font it is drawn in was coming a fit once that load settles. */
-  owe?: (id: string) => void
+  owe?: (id: string, keep?: 'centre') => void
 }
 
 export interface EditorTyping {
@@ -446,7 +446,7 @@ export function editorTyping({
     let size = fit && layer ? fit(layer) : measured()
     // A font it is drawn in is coming: fitted with what is here, and again once it settles.
     if (size === 'wait') {
-      owe(id)
+      owe(id, keep)
       size = measured()
     }
     if (!size) return

@@ -161,6 +161,7 @@ describe('curveLetters', () => {
       ['عروض الصيف الكبرى', 0],
       ['خصم خاص لفترة محدودة', 60],
       ['ROUND BADGE OF TRUST', 30],
+      ['  ROUND BADGE', 0],
     ] as const) {
       const { glyphs, lines } = curved(text, { shape: 'circle', amount })
       const length = longestOf(lines)
@@ -171,7 +172,7 @@ describe('curveLetters', () => {
       const extras = ring
         .slice(1)
         .map((g, i) => (g.angle - (ring[i] as Glyph).angle) * r - (g.straightX - (ring[i] as Glyph).straightX))
-      const spaces = [...text].filter((c) => c === ' ').length
+      const spaces = [...text.trim()].filter((c) => c === ' ').length
       const extra = (circumference - length) / (spaces + 1)
       const widened = extras.filter((e) => Math.abs(e) > 0.01)
       expect(widened).toHaveLength(spaces)

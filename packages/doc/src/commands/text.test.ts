@@ -62,7 +62,7 @@ describe('text.edit', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     expect(() =>
-      tab.batch(() => {
+      tab.gesture(() => {
         tab.run('text.edit', { id: 'headline', op: { kind: 'delete', at: 0, length: 7 } })
         tab.run('text.edit', { id: 'headline', op: { kind: 'insert', at: 10, text: '!' } })
       }),
@@ -151,6 +151,22 @@ describe('text.fit', () => {
       tab.run('node.update', { ids: ['headline'], patch: { style: { ...(straight.style as object), fontSize: 168 } } })
       updateAndFit(tab, store, { curve: null })
       expect(headline(store)).toMatchObject({ width: 1018, ...(boxMode === 'fixed' ? { height: 260 } : {}) })
+    }
+  })
+
+  it('keeps a size set as the curve comes off, or after, in place of the straight box', () => {
+    for (const patches of [[{ curve: null, width: 700 }], [{ curve: null }, { width: 700 }]]) {
+      const store = openTestStore()
+      const tab = openTestSession(store)
+      tab.run('node.update', { ids: ['headline'], patch: { boxMode: 'fixed', width: 509, height: 130 } })
+      updateAndFit(tab, store, { curve: { shape: 'circle', amount: 50 } })
+      tab.gesture(() => {
+        for (const patch of patches) tab.run('node.update', { ids: ['headline'], patch })
+        const size = fittedText(readDesign(store).nodes.headline, curveMeasure)
+        if (size) tab.run('text.fit', { id: 'headline', ...size })
+      })
+      expect(headline(store)).toMatchObject({ width: 700 })
+      expect(headline(store)).not.toHaveProperty('straightBox')
     }
   })
 

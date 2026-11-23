@@ -3,9 +3,10 @@
 import { shadedColour } from '@dazbee/renderer'
 import type { TextExtrusion } from '@dazbee/schema'
 
-import { clamp } from '@/components/editor/edit-panel/number-field.tsx'
-import { type Patch, type Props, shared, type Style } from '@/components/editor/edit-panel/target.ts'
 import { tidy } from '@/lib/editor/size.ts'
+
+import { clamp } from './number-field.tsx'
+import { type Patch, type Props, shared, type Style } from './target.ts'
 
 /** How the sides are coloured: a darker shade of the letters' own paint, or a colour chosen. */
 export type SideColour = 'shade' | 'colour'
@@ -51,20 +52,21 @@ export function pickExtrusion(now: Props, on: boolean): Patch | null {
 
 /** The patch that changes a text's depth from its own, held between 0 and 100; null for a text with no extrusion. */
 export function depthPatch(now: Props, change: (depth: number) => number): Patch | null {
-  return changed(now, (was) => ({ ...was, depth: tidy(clamp(change(was.depth), 0, 100)) }))
+  return extrusionPatch(now, (was) => ({ ...was, depth: tidy(clamp(change(was.depth), 0, 100)) }))
 }
 
-/** The patch that changes a text's angle from its own, wrapping round at 360; null for a text with no extrusion. */
+/** The patch that changes a text's angle from its own, held between 0 and 360; null for a text with no extrusion. */
 export function anglePatch(now: Props, change: (angle: number) => number): Patch | null {
-  return changed(now, (was) => ({ ...was, angle: tidy(((change(was.angle) % 360) + 360) % 360) }))
+  return extrusionPatch(now, (was) => ({ ...was, angle: tidy(clamp(change(was.angle), 0, 360)) }))
 }
 
 /**
  * The patch that colours a text's sides in a shade, leaving its colour out, or in a colour, keeping
- * one it has or starting at the shade its sides show now, so the pick alone changes nothing drawn.
+ * one it has or starting at the shade of the text's colour, which its sides show now unless its
+ * letters are painted with a gradient, an image or runs of their own.
  */
 export function sidesPatch(now: Props, to: SideColour): Patch | null {
-  return changed(now, ({ color, ...was }) => {
+  return extrusionPatch(now, ({ color, ...was }) => {
     if (to === 'shade') return was
     return { ...was, color: color ?? shadedColour((now.style as Style).color) }
   })
@@ -72,7 +74,7 @@ export function sidesPatch(now: Props, to: SideColour): Patch | null {
 
 /** The patch that sets a text's side colour, built from the one it has; null for a text with no extrusion. */
 export function sideColourPatch(now: Props, to: (color: string | undefined) => string): Patch | null {
-  return changed(now, (was) => ({ ...was, color: to(was.color) }))
+  return extrusionPatch(now, (was) => ({ ...was, color: to(was.color) }))
 }
 
 function extrusionOf(props: Props): TextExtrusion | undefined {
@@ -84,7 +86,7 @@ function sidesOf(extrusion: TextExtrusion): SideColour {
 }
 
 /** The patch that gives a text's extrusion the one `to` makes of it; null where it has none or nothing changes. */
-function changed(now: Props, to: (was: TextExtrusion) => TextExtrusion): Patch | null {
+function extrusionPatch(now: Props, to: (was: TextExtrusion) => TextExtrusion): Patch | null {
   const was = extrusionOf(now)
   if (!was) return null
   const next = to(was)

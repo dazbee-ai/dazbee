@@ -1039,6 +1039,7 @@ export const ar: Messages = {
       extrusionDepth: 'العمق',
       extrusionAngle: 'الزاوية',
       extrusionSides: 'لون الجوانب',
+      extrusionSidesBy: 'طريقة تلوين الجوانب',
       extrusionSideColours: { shade: 'جوانب بدرجة أغمق', colour: 'جوانب بلون مختار' },
       image: 'الصورة',
       filter: 'المرشّح',

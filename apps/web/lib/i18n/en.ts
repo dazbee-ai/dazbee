@@ -1170,6 +1170,7 @@ export const en = {
       extrusionDepth: 'Depth',
       extrusionAngle: 'Angle',
       extrusionSides: 'Side colour',
+      extrusionSidesBy: 'How the sides are coloured',
       extrusionSideColours: { shade: 'Sides in a darker shade', colour: 'Sides in a colour' },
       image: 'Image',
       filter: 'Filter',

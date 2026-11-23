@@ -58,16 +58,15 @@ export function ExtrusionFields({
           unit="°"
           name={format(p.effectFieldName, { effect: name, n: 1, field: p.extrusionAngle })}
           value={extrusion.angle}
-          // An angle wraps round at 360, so any number typed is one.
-          min={Number.NEGATIVE_INFINITY}
-          max={Number.POSITIVE_INFINITY}
+          min={0}
+          max={360}
           editor={target.editor}
           onSet={(angle) => set(target, (now) => anglePatch(now, () => angle))}
           onEach={(change) => set(target, (now) => anglePatch(now, change))}
         />
       </div>
       <Choice
-        name={p.extrusionSides}
+        name={p.extrusionSidesBy}
         value={extrusion.sides}
         options={SIDE_COLOURS}
         labels={p.extrusionSideColours}

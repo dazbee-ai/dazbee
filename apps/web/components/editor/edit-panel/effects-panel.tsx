@@ -55,8 +55,11 @@ const TILES: Tile[] = [
   'backgroundBlur',
 ]
 
-/** The tiles that aren't an entry in the effects list: None, and text's outline and 3D. */
-const OWN_TILES = ['none', 'outline', 'extrusion'] as const satisfies readonly Tile[]
+/** The tiles offered for texts alone. */
+const TEXT_TILES = ['outline', 'extrusion'] as const satisfies readonly Tile[]
+
+/** The tiles that aren't an entry in the effects list: None, and text's own. */
+const OWN_TILES = ['none', ...TEXT_TILES] as const satisfies readonly Tile[]
 
 const OUTLINE_PLACES = ['over', 'under'] as const
 
@@ -88,7 +91,7 @@ export function EffectsPanel({ target, brandId, workspaceId }: PanelProps) {
     set(target, (now) => ({ effects: to((now.effects ?? []) as Effect[]) }))
   const kind = kindOf(target)
   const text = kind === 'text'
-  const tiles = TILES.filter((tile) => (tile !== 'outline' && tile !== 'extrusion') || text)
+  const tiles = TILES.filter((tile) => text || !(TEXT_TILES as readonly Tile[]).includes(tile))
   const extrusion = text ? sharedExtrusion(target.props) : null
   const outlined = (pr: Props) =>
     ((pr.style as Style | undefined)?.outline as { width: number } | undefined)?.width ?? 0

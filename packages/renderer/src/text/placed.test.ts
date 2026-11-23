@@ -199,6 +199,56 @@ describe('placeLetters', () => {
     expect(raised.args.map((a) => a.baseline)).toEqual(plain.args.map((a) => a.baseline))
   })
 
+  it('reads a raised glyph’s offset off its line’s baseline, which its glyphs that aren’t raised set', () => {
+    const plain = placedArgs('$99')
+    const raised = placedArgs('$99', [{ start: 0, end: 1, style: { raise: 30 } }])
+    expect(raised.args.map((a) => a.offset)).toEqual([-12, 0, 0])
+    expect(raised.args.map((a) => a.baseline)).toEqual(plain.args.map((a) => a.baseline))
+  })
+
+  it('places every line of a curved text from its line metrics’ baseline, a raised glyph off its curve along the normal', () => {
+    const xformsOf = (runs: object[]) => {
+      const props = TextProps.parse({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        boxMode: 'autoWidth',
+        text: '$99 off\nNow',
+        runs,
+        style: { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' },
+        curve: { shape: 'arcUp', amount: 60 },
+      })
+      const laid = layoutText(ck, props, resources)
+      const glyphs = (laid.placed?.runs ?? []).flatMap((r) =>
+        [...r.offsets].map((offset, i) => ({ offset, xform: [...r.xforms.slice(4 * i, 4 * i + 4)] })),
+      )
+      laid.delete()
+      return glyphs.toSorted((a, b) => a.offset - b.offset)
+    }
+    // The first glyph of each line raised, so no line's baseline is set by its first glyph; the same
+    // runs at 0 split the shaping alike.
+    const raisedBy = (raise: number) => [
+      { start: 0, end: 1, style: { raise } },
+      { start: 8, end: 9, style: { raise } },
+    ]
+    const plain = xformsOf(raisedBy(0))
+    const raised = xformsOf(raisedBy(30))
+    expect(raised.map((g) => g.offset)).toEqual(plain.map((g) => g.offset))
+    // The box's corner moves with what the raised glyphs reach: every other glyph moves by that alone.
+    const [r1, p1] = [raised[1]?.xform ?? [], plain[1]?.xform ?? []]
+    const [dx, dy] = [(r1[2] ?? 0) - (p1[2] ?? 0), (r1[3] ?? 0) - (p1[3] ?? 0)]
+    for (const [i, { offset, xform }] of plain.entries()) {
+      const [cos, sin, x, y] = xform
+      const [rcos, rsin, rx, ry] = raised[i]?.xform ?? []
+      expect(rcos).toBeCloseTo(cos ?? 0, 5)
+      expect(rsin).toBeCloseTo(sin ?? 0, 5)
+      const up = offset === 0 || offset === 8 ? 12 : 0
+      expect((rx ?? 0) - dx).toBeCloseTo((x ?? 0) + up * (sin ?? 0), 2)
+      expect((ry ?? 0) - dy).toBeCloseTo((y ?? 0) - up * (cos ?? 0), 2)
+    }
+  })
+
   it('gives the glyphs of a wrapped line their own line, its baseline a line further down', () => {
     const { args } = placedArgs('aaaa bbbb', [], 120)
     const lines = args.map((a) => a.line)

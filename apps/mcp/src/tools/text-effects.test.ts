@@ -124,3 +124,34 @@ describe('a bounce', () => {
     expect(stored()?.bounce).toEqual(bounce)
   })
 })
+
+describe('a raise', () => {
+  it('is set on a run with text.edit, and text typed after it takes the raise of the character before it', async () => {
+    server = testServer()
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.json('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    await agent.json('run_command', {
+      command: 'node.create',
+      input: { ...BADGE, layer: { ...BADGE.layer, props: { ...BADGE.layer.props, text: '$99' } } },
+    })
+    const sync = server.sync('design-launch')
+    const stored = () => (sync.state().nodes['badge-text'] as { props?: TextProps } | undefined)?.props
+    const raised = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 0, length: 1, style: { raise: 30 } } },
+    })
+    expect(raised.isError).toBeFalsy()
+    expect(stored()?.runs).toEqual([{ start: 0, end: 1, style: { raise: 30 } }])
+    const typed = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'insert', at: 1, text: '€' } },
+    })
+    expect(typed.isError).toBeFalsy()
+    expect(stored()).toMatchObject({ text: '$€99', runs: [{ start: 0, end: 2, style: { raise: 30 } }] })
+    const tooFar = await agent.call('run_command', {
+      command: 'text.edit',
+      input: { id: 'badge-text', op: { kind: 'style', at: 2, length: 2, style: { raise: 120 } } },
+    })
+    expect(tooFar.isError).toBe(true)
+  })
+})

@@ -86,6 +86,39 @@ describe('layoutText', () => {
     expect(marker(textOf('12', sups(0, 2)))).toEqual(marker(textOf('12', [])))
   })
 
+  it('raises a run’s glyphs raise / 100 × its own font size above the line’s baseline, the line’s height unchanged', () => {
+    const plain = glyphs(textOf('$99c', []))
+    const raised = glyphs(
+      textOf('$99c', [
+        { start: 0, end: 1, style: { raise: 30 } },
+        { start: 3, end: 4, style: { raise: -20, fontSize: 20 } },
+      ]),
+    )
+    const shift = (i: number) => (raised.glyphs[i]?.y ?? 0) - (plain.glyphs[i]?.y ?? 0)
+    expect(shift(0)).toBeCloseTo(-12, 3)
+    expect([shift(1), shift(2)]).toEqual([0, 0])
+    expect(shift(3)).toBeCloseTo(4, 3)
+    expect(raised.height).toBe(plain.height)
+  })
+
+  it('adds a raise to a superscript’s shift: a made-up one’s by its full size, and the font’s own glyph raised too', () => {
+    const plain = glyphs(textOf('E x2', []))
+    const madeUp = glyphs(textOf('E x2', [{ start: 2, end: 4, style: { features: { sups: true }, raise: 50 } }]))
+    for (const [i, g] of madeUp.glyphs.slice(2).entries())
+      expect(g.y - (plain.glyphs[i + 2]?.y ?? 0)).toBeCloseTo(-34, 0)
+    expect(madeUp.height).toBe(plain.height)
+    const own = glyphs(textOf('x2', sups(1, 2)))
+    const ownRaised = glyphs(textOf('x2', [{ start: 1, end: 2, style: { features: { sups: true }, raise: 50 } }]))
+    expect(ownRaised.glyphs[1]?.id).toBe(own.glyphs[1]?.id)
+    expect((ownRaised.glyphs[1]?.y ?? 0) - (own.glyphs[1]?.y ?? 0)).toBeCloseTo(-20, 3)
+  })
+
+  it('gives the largest shift of any piece, raises included, as the most its glyphs move off their line', () => {
+    const laid = layoutText(ck, textOf('$9', [{ start: 0, end: 1, style: { raise: -60 } }]), shipped)
+    expect(laid.superSubShift).toBeCloseTo(24, 6)
+    laid.delete()
+  })
+
   it('never breaks a word balancing lines whose longest word is a fraction of a pixel wide', () => {
     // At every size the longest word fits the box and sets the narrowest width, most a fraction of a pixel wide.
     const broken = []

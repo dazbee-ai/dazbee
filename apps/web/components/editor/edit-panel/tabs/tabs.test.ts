@@ -118,6 +118,7 @@ const KEY_MAP: Record<Control, string> = {
   align: 'text › paragraph',
   list: 'text › paragraph',
   case: 'text › paragraph',
+  curve: 'text › curve-bounce',
   spacing: 'text › spacing',
   features: 'text › features',
   mask: 'style › mask',
@@ -175,14 +176,6 @@ describe('ONLY_ACTS', () => {
         'unlock',
       ].sort(),
     )
-    expect(ONLY_ACTS.has('shape')).toBe(false)
-    expect(ONLY_ACTS.has('combine')).toBe(false)
-    expect(ONLY_ACTS.has('locked')).toBe(false)
-    expect(ONLY_ACTS.has('position')).toBe(false)
-    expect(ONLY_ACTS.has('fit')).toBe(false)
-    expect(ONLY_ACTS.has('edit')).toBe(false)
-    for (const control of ['font', 'size', 'text-style', 'align', 'list', 'case', 'spacing', 'features'] as const)
-      expect(ONLY_ACTS.has(control)).toBe(false)
   })
 })
 
@@ -216,12 +209,13 @@ describe('panelOf', () => {
     expect(arrangeOf(panelOf(locked({ viewOnly: true, several: true })))).toEqual(viewed)
   })
 
-  it('gives one or several texts the Text switcher tab first, with its Font, Paragraph, Spacing and Font features sections', () => {
+  it('gives one or several texts the Text switcher tab first, with its Font, Paragraph, Curve and bounce, Spacing and Font features sections', () => {
     const textTab = {
       id: 'text',
       sections: [
         { id: 'font', controls: ['font', 'size', 'text-style'] },
         { id: 'paragraph', controls: ['align', 'list', 'case'] },
+        { id: 'curve-bounce', controls: ['curve'] },
         { id: 'spacing', controls: ['spacing'] },
         { id: 'features', controls: ['features'] },
       ],

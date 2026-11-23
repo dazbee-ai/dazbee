@@ -2,11 +2,13 @@
 
 // The text's paragraph, as rows of icon choices, each named by its tooltip: how its lines line up
 // beside where they sit up and down in the box, its list beside which way it reads, its case, then
-// where its lines break.
+// where its lines break. A curved text's list, justify and wrap style are off, with a line saying
+// they don't apply.
 import { type ReactNode } from 'react'
 
 import { Segments } from '@/components/editor/edit-panel/fields.tsx'
 import { set, shared, type Target, textStyle } from '@/components/editor/edit-panel/target.ts'
+import { ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
 import {
   ListBulletsIcon,
   ListNumbersIcon,
@@ -19,6 +21,7 @@ import {
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
+import { anyCurved } from './curves.ts'
 import { TextDirectionIcon, VerticalPlaceIcon } from './paragraph-icons.tsx'
 
 /** How each case shows on its button: the same letters in every language, as a font sample is. */
@@ -61,6 +64,7 @@ export function ParagraphRows({ target }: { target: Target }) {
   const rows = bar.alignRows
   const value = <T extends string>(key: string, unset: T) => shared(target.props.map((pr) => (pr[key] ?? unset) as T))
   const { style, setStyle } = textStyle(target)
+  const curved = anyCurved(target.props)
   return (
     // On a phone every choice is a finger's height.
     <div className="flex flex-col gap-1.5 max-sm:[&_[role=radio]]:h-[44px] max-sm:[&_[role=radio]]:min-w-[44px]">
@@ -72,6 +76,7 @@ export function ParagraphRows({ target }: { target: Target }) {
           options={['start', 'center', 'end', 'justify'] as const}
           labels={p.textAligns}
           marks={ALIGN_MARKS}
+          off={curved ? ['justify'] : undefined}
           onSet={(align) => set(target, () => ({ align }))}
         />
         <Segments
@@ -85,15 +90,17 @@ export function ParagraphRows({ target }: { target: Target }) {
         />
       </Pair>
       <Pair>
-        <Segments
-          name={p.list}
-          testId="text-list"
-          value={shared(target.props.map((pr) => (pr.list ?? 'none') as 'none' | 'bullet' | 'number'))}
-          options={['none', 'bullet', 'number'] as const}
-          labels={p.lists}
-          marks={LIST_MARKS}
-          onSet={(list) => set(target, () => ({ list: list === 'none' ? undefined : list }))}
-        />
+        <ViewOnlyFieldset off={curved}>
+          <Segments
+            name={p.list}
+            testId="text-list"
+            value={shared(target.props.map((pr) => (pr.list ?? 'none') as 'none' | 'bullet' | 'number'))}
+            options={['none', 'bullet', 'number'] as const}
+            labels={p.lists}
+            marks={LIST_MARKS}
+            onSet={(list) => set(target, () => ({ list: list === 'none' ? undefined : list }))}
+          />
+        </ViewOnlyFieldset>
         <Segments
           name={rows.direction}
           testId="text-direction"
@@ -113,15 +120,18 @@ export function ParagraphRows({ target }: { target: Target }) {
         marks={CASE_MARKS}
         onSet={(v) => setStyle('textCase', v)}
       />
-      <Segments
-        name={p.wrapStyle}
-        testId="text-wrap"
-        value={value<'auto' | 'balance' | 'pretty'>('wrapStyle', 'auto')}
-        options={['auto', 'balance', 'pretty'] as const}
-        labels={p.wrapStyleTips}
-        marks={p.wrapStyles}
-        onSet={(wrapStyle) => set(target, () => ({ wrapStyle }))}
-      />
+      <ViewOnlyFieldset off={curved}>
+        <Segments
+          name={p.wrapStyle}
+          testId="text-wrap"
+          value={value<'auto' | 'balance' | 'pretty'>('wrapStyle', 'auto')}
+          options={['auto', 'balance', 'pretty'] as const}
+          labels={p.wrapStyleTips}
+          marks={p.wrapStyles}
+          onSet={(wrapStyle) => set(target, () => ({ wrapStyle }))}
+        />
+      </ViewOnlyFieldset>
+      {curved && <p className="text-caption font-medium text-muted">{p.notForCurved.paragraph}</p>}
     </div>
   )
 }

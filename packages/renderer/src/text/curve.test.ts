@@ -141,7 +141,7 @@ describe('curveLetters', () => {
   })
 
   it('sets the longest line round a circle of its length × (2 − amount / 100), centred at the top, its letters spread to close it', () => {
-    for (const amount of [30, 100]) {
+    for (const amount of [0, 30, 100]) {
       const { glyphs, lines } = curved('ROUND BADGE', { shape: 'circle', amount })
       const length = longestOf(lines)
       const r = (length * (2 - amount / 100)) / (2 * Math.PI)
@@ -239,8 +239,8 @@ describe('curveLetters', () => {
     expect(Math.hypot(raised.x - cx, raised.y - cy)).toBeCloseTo(r - shift, 1)
   })
 
-  it('places letters at amount 0 as they are laid out straight, from the box’s corner', () => {
-    for (const shape of ['arcUp', 'circle', 'wave'] as const) {
+  it('places letters of an arc or a wave at amount 0 as they are laid out straight, from the box’s corner', () => {
+    for (const shape of ['arcUp', 'arcDown', 'wave'] as const) {
       const { glyphs, width, height, boxes } = curved('FLAT\nTEXT', { shape, amount: 0 })
       const dx = (glyphs[0]?.x ?? 0) - (glyphs[0]?.straightX ?? 0)
       const dy = (glyphs[0]?.y ?? 0) - (glyphs[0]?.baseline ?? 0)

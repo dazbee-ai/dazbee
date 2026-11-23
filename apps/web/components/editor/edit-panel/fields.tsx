@@ -158,8 +158,8 @@ export function SwitchRow({
 
 /**
  * A row of choices of which one is on; `marks` shows a short mark in place of a choice's name, and
- * `icons` an icon over it, on a taller choice. It is named by `name`, or by the visible label whose
- * id is `labelledBy`.
+ * `icons` an icon over it, on a taller choice. The choices in `off` are turned off. It is named by
+ * `name`, or by the visible label whose id is `labelledBy`.
  */
 export function Segments<T extends string>({
   name,
@@ -170,6 +170,7 @@ export function Segments<T extends string>({
   labels,
   marks,
   icons,
+  off,
   onSet,
 }: {
   name?: string
@@ -181,6 +182,7 @@ export function Segments<T extends string>({
   /** What each choice shows in place of its label, which then names it to screen readers and as its tooltip. */
   marks?: Record<T, ReactNode>
   icons?: Record<T, ReactNode>
+  off?: readonly T[] | undefined
   onSet: (to: T) => void
 }) {
   const look = cn(SEGMENT, icons && 'flex h-auto flex-col items-center gap-1 py-2 max-sm:h-auto')
@@ -210,6 +212,7 @@ export function Segments<T extends string>({
           aria-label={marks ? labels[option] : undefined}
           title={marks ? labels[option] : undefined}
           data-value={option}
+          disabled={off?.includes(option)}
           className={look}
         >
           {face(option)}

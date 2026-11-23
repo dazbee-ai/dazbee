@@ -48,13 +48,16 @@ const WAVE_PRECISION = 16
 /**
  * Places a straight layout's letters on `curve`, the base font size `fontSize`, moved so the
  * placement's bounds start at the box's corner; the box is the bounds rounded up to whole pixels.
- * At amount 0 the letters sit where the straight layout puts them.
+ * At amount 0 an arc's or a wave's letters sit where the straight layout puts them, and a circle is
+ * its widest ring.
  */
 export function curveLetters(ck: CanvasKit, layout: TextLayout, curve: TextCurve, fontSize: number): CurvedText {
   const lines = curveLines(layout)
   const longest = [...lines.values()].reduce<CurveLine | null>((a, b) => (a && a.width >= b.width ? a : b), null)
-  // An amount too small for an arc's radius to be a number draws straight, as 0 does.
-  const straight = curve.amount === 0 || !Number.isFinite((longest?.width ?? 0) / curve.amount)
+  // An amount too small for an arc's radius to be a number draws straight, as 0 does; a circle's
+  // radius never divides by its amount.
+  const straight =
+    curve.shape !== 'circle' && (curve.amount === 0 || !Number.isFinite((longest?.width ?? 0) / curve.amount))
   if (straight || !longest || longest.width <= 0) return toCorner(placeLetters(ck, layout, inPlace), layout)
   const base = longest.below
   for (const line of lines.values()) line.below -= base

@@ -301,12 +301,12 @@
   },
   "text-effects raise": {
     "pdf": {
-      "percent": 0.595,
+      "percent": 0.594,
       "limit": 0.793
     },
     "svg": {
-      "percent": 0.535,
-      "limit": 0.718
+      "percent": 0.537,
+      "limit": 0.722
     }
   },
   "text-effects scripts": {

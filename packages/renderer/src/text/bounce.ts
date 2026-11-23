@@ -5,7 +5,7 @@
 import { type TextBounce, type TextProps, withRunStyle } from '@dazbee/schema'
 
 import type { TextLayout } from './layout.ts'
-import { inPlace, placedBounds, type PlacedLine, type PlaceGlyph, type Placement } from './placed.ts'
+import { inPlace, placedBounds, type PlacedLine, type PlacedRun, type PlaceGlyph, type Placement } from './placed.ts'
 
 /** How a letter moves off its place: raised along its line's normal, in pixels, and turned clockwise, in degrees. */
 export interface LetterMove {
@@ -60,12 +60,13 @@ export function bounceMove(bounce: TextBounce, index: number, fontSize: number):
 /**
  * A straight text's letters placed where its paragraphs draw them, then moved by its bounce and
  * letter turns. An auto width box grows to hold the moved letters both ways and an auto height box
- * in height only, each by how far they reach past the straight letters; a fixed box stays as set.
+ * in height only, each by how far they reach past the straight letters on their lines, unraised, so
+ * the box holds a raised or lowered letter as it is drawn; a fixed box stays as set.
  * The box keeps its top-left, so letters reaching left or up move the text inside it.
  */
 export function moveStraightLetters(layout: TextLayout, placed: Placement, props: TextProps): void {
   // Its boxes before they move, read as the moved ones are, so letters that don't move grow nothing.
-  const straight = placedBounds(placed.runs)
+  const straight = placedBounds(unraised(placed.runs))
   moveLetters(layout, placed, inPlace, props)
   const moved = placedBounds(placed.runs)
   if (!straight || !moved || props.boxMode === 'fixed') return
@@ -137,6 +138,13 @@ function seededUnit(n: number): number {
   t = Math.imul(t ^ (t >>> 15), t | 1)
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
   return ((t ^ (t >>> 14)) >>> 0) / 2 ** 31 - 1
+}
+
+/** Runs with their glyphs' boxes where they sit without their raise, on their lines. */
+function unraised(runs: readonly PlacedRun[]): PlacedRun[] {
+  return runs.map((run) =>
+    run.raiseShift === 0 ? run : { ...run, boxes: run.boxes.map((v, i) => (i % 2 === 1 ? v - run.raiseShift : v)) },
+  )
 }
 
 /** Moves a placement's glyphs and the layout's list markers right and down, as a box keeping its top-left does. */

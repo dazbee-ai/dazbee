@@ -157,6 +157,21 @@ describe('moveStraightLetters', () => {
     expect(fixed).toMatchObject({ width: 1000, height: box({}).height })
   })
 
+  it('holds a raised or lowered letter as it is drawn: a raise never shrinks the box, and one past it grows it', () => {
+    const wavy = { boxMode: 'autoHeight', width: 300, bounce: { ...bounce, amount: 30 } }
+    const plain = box(wavy)
+    // A letter of the first line raised, past the top, or of the last lowered, past the bottom.
+    const raisedBy = (raise: number) => {
+      const at = raise > 0 ? 1 : 13
+      return box({ ...wavy, runs: [{ start: at, end: at + 1, style: { raise } }] })
+    }
+    for (const raise of [-30, 30]) expect(raisedBy(raise).height).toBeGreaterThanOrEqual(plain.height)
+    for (const raise of [-100, 100]) expect(raisedBy(raise).height).toBeGreaterThan(plain.height + 10)
+    // The lowered letter reaches past the box's bottom no further than the letters reach past it unraised.
+    const below = (size: typeof plain) => (size.bounds?.y ?? 0) + (size.bounds?.height ?? 0) - size.height
+    expect(below(raisedBy(-100))).toBeLessThanOrEqual(Math.max(0, below(plain)) + 0.01)
+  })
+
   it('keeps the straight box at amount 0', () => {
     for (const boxMode of ['autoWidth', 'autoHeight']) {
       const straight = box({ boxMode, width: 300 })

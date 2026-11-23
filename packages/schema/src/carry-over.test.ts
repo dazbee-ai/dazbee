@@ -77,7 +77,7 @@ describe('carryOverLayer', () => {
       expect(carryOverLayer(odd)).toBe(odd)
   })
 
-  it('reads a text stored at version 17 unchanged, with no raise', () => {
+  it('reads a text stored at version 18 unchanged, with no raise', () => {
     const at15 = textAt15()
     const stored = {
       ...at15,

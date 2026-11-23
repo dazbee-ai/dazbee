@@ -50,6 +50,8 @@ export interface PlacedRun {
   font: Font
   /** The style of its piece, which paints it in each pass. */
   style: TextProps['style']
+  /** The pixels its piece's raise moves its glyphs off their line, down for a positive value; 0 for none. */
+  raiseShift: number
   glyphs: Uint16Array
   /** Four numbers for each glyph: its RSXform. */
   xforms: Float32Array
@@ -262,6 +264,7 @@ function placedRun(glyphs: readonly ShapedGlyph[], place: PlaceGlyph): PlacedRun
     line,
     font: first.font,
     style: first.piece.style,
+    raiseShift: first.piece.raiseShift ?? 0,
     glyphs: Uint16Array.from(glyphs, (g) => g.id),
     xforms,
     advances,

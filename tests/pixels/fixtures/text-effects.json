@@ -1195,7 +1195,7 @@
       "name": "bounced-raise",
       "props": {
         "width": 411,
-        "height": 86,
+        "height": 126,
         "boxMode": "autoWidth",
         "align": "start",
         "x": 560,
@@ -1344,7 +1344,7 @@
       "name": "arabic-bounced",
       "props": {
         "width": 320,
-        "height": 110,
+        "height": 132,
         "boxMode": "autoWidth",
         "align": "start",
         "x": 560,

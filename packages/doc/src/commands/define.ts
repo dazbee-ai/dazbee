@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { Design } from '@dazbee/schema'
 
+import { inWords } from '../in-words.ts'
 import type { StoreWrite } from '../store.ts'
 import { endingEditedBindings } from './bound-edits.ts'
 import type { StepName } from './step-names.ts'
@@ -104,7 +105,9 @@ export class CommandError extends Error {
   constructor(command: string, refusal: { kind: 'refused'; reason: string } | { kind: 'input'; issues: InputIssue[] }) {
     const reason =
       refusal.kind === 'input'
-        ? refusal.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')
+        ? refusal.issues
+            .map(({ path, message }) => (path.length > 0 ? `${path.join('.')}: ${message}` : message))
+            .join('; ')
         : refusal.reason
     super(`${command}: ${reason}`)
     this.name = 'CommandError'
@@ -157,6 +160,33 @@ export function catalogTypeOf(type: z.core.$ZodType): z.ZodType | undefined {
 }
 
 /**
+ * What is wrong with `given`, which `input` refused with `error`: each issue and where it is. When the input's own
+ * keys are wrong, one missing or one there is no field for, they are told as one sentence naming the keys it takes
+ * and those it was given, in place of an issue for each.
+ */
+export function inputIssues(input: z.ZodType, given: unknown, error: z.ZodError): InputIssue[] {
+  const issues = error.issues.map(({ path, message }) => ({
+    path: path.map((key) => (typeof key === 'number' ? key : String(key))),
+    message,
+  }))
+  const { shape } = input.def as z.ZodType['def'] & Inside
+  const keys =
+    given === undefined ? [] : typeof given === 'object' && !Array.isArray(given) ? Object.keys(given ?? {}) : undefined
+  if (!shape || !keys) return issues
+  const fields = Object.keys(shape)
+  const required = fields.filter((key) => !shape[key]?.safeParse(undefined).success)
+  const missing = required.filter((key) => !keys.includes(key))
+  if (missing.length === 0 && keys.every((key) => fields.includes(key))) return issues
+  const others = issues.filter(({ path }, i) => {
+    const code = error.issues[i]?.code
+    if (path.length === 0) return code !== 'unrecognized_keys' && code !== 'invalid_type'
+    return !(path.length === 1 && missing.includes(String(path[0])))
+  })
+  const optional = fields.filter((key) => !required.includes(key))
+  return [{ path: [], message: keysSentence(required, optional, keys) }, ...others]
+}
+
+/**
  * Calls `visit` on each type inside a type's definition, with where it sits (a field's name, `[]`
  * in a list or a tuple's rest, `{}` in a record, `|n` in a union, `[n]` in a tuple, nothing in a
  * wrapper or a pipe) and whether it is an object's field, and gives the parts of the definition
@@ -193,4 +223,12 @@ function strictly(type: z.ZodType, path: string[], loose: string[]): z.ZodType {
   const made = mapInside(type, (inside, where) => strictly(inside, where ? [...path, where] : path, loose))
   if (def.shape) made.catchall = z.never()
   return Object.keys(made).length > 0 ? type.clone({ ...def, ...made }) : type
+}
+
+/** The sentence telling the keys an input takes, `required` and `optional`, and the keys it was `given`. */
+function keysSentence(required: readonly string[], optional: readonly string[], given: readonly string[]): string {
+  const may = optional.length > 0 ? `may take ${inWords(optional)}` : ''
+  const takes =
+    required.length === 0 ? may || 'takes nothing' : `takes ${inWords(required)}${may ? ` (and ${may})` : ''}`
+  return `the input ${takes}; got ${given.length > 0 ? inWords(given) : 'nothing'}`
 }

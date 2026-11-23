@@ -3,6 +3,8 @@
 // `{ "$ref": name }`, with `field` for a part of it.
 import { CommandError, type InputIssue } from '../commands/define.ts'
 import { type CommandName, COMMANDS } from '../commands/index.ts'
+import { nearestNames } from '../commands/nearest-names.ts'
+import { inWords } from '../in-words.ts'
 import type { Session } from '../session.ts'
 
 /**
@@ -112,7 +114,11 @@ function shapeProblem(step: number, given: unknown, names: ReadonlyMap<string, n
   const taken = as === undefined ? undefined : names.get(as)
   if (taken !== undefined) return badStep(at, ['as'], `"${as as string}" is already step ${taken}'s name`)
   if (!Object.hasOwn(COMMANDS, command))
-    return badStep(at, ['command'], `no command is called "${String(given['command'])}"`)
+    return badStep(
+      at,
+      ['command'],
+      `no command is called "${String(given['command'])}" (the nearest are ${inWords(nearestNames(command, Object.keys(COMMANDS)))})`,
+    )
   return undefined
 }
 
@@ -171,6 +177,10 @@ function follow(ref: Record<string, unknown>, path: InputPath, scope: Scope): un
     throw fail(`step ${step}'s result is ${kindOf(result)}: say which part of it with \`field\``)
   }
   if (typeof field !== 'string') throw fail('`field` must be a string')
+  if (typeof result === 'string')
+    throw fail(
+      `step ${step}'s result is a string (${JSON.stringify(result)}), which has no fields: drop \`field\` and write { "$ref": ${JSON.stringify(name)} } alone`,
+    )
   const found = lookup(result, field)
   if ('missing' in found) throw fail(`step ${step}'s result has no \`${field}\`${found.missing}`)
   return found.value

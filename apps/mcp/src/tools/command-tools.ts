@@ -10,6 +10,8 @@ import {
   commandCatalog,
   CommandError,
   CommandFault,
+  inWords,
+  nearestNames,
   type Session,
   VIEW_ONLY,
 } from '@dazbee/doc'
@@ -30,6 +32,9 @@ const RESTORE = 'design.restore'
 /** A command's name, as list_commands gives it. */
 const CommandName = z.string().max(200).describe('The command’s name, as list_commands gives it, such as node.create')
 
+/** node.update's input, as the descriptions of run_command and batch show it. */
+const NODE_UPDATE_INPUT = '{ "ids": ["a1"], "patch": { "x": 40 } }'
+
 /** The most characters a note may be given with; the people in the design see at most `PRESENCE_NOTE` of them. */
 const MOST_NOTE = 200
 
@@ -44,6 +49,9 @@ export const Note = z
 
 /** The commands an agent may run, as the catalog describes them. */
 export const AGENT_CATALOG: CatalogEntry[] = commandCatalog().filter((entry) => entry.name !== RESTORE)
+
+/** The names of the commands an agent may run. */
+const AGENT_COMMANDS = AGENT_CATALOG.map(({ name }) => name)
 
 export const COMMAND_TOOLS: Tool[] = [
   defineTool({
@@ -76,15 +84,19 @@ export const COMMAND_TOOLS: Tool[] = [
     }),
     run: async ({ command }) => {
       const entry = describedCommand(command)
-      if (!entry) throw new ToolRefusal(`There is no command “${command}”; list_commands lists them`)
+      if (!entry) {
+        const nearest = inWords(nearestNames(command, AGENT_COMMANDS))
+        throw new ToolRefusal(
+          `There is no command “${command}” (the nearest are ${nearest}); list_commands lists them all`,
+        )
+      }
       return entry
     },
   }),
   defineTool({
     name: 'run_command',
     title: 'Run a command',
-    description:
-      'Runs one command on the open design as one undo step, and answers once Dazbee has stored it: its result (such as the id of what it made) and the warnings for the layers it touched. A refused command or a bad input changes nothing and answers why. describe_command gives a command’s input.',
+    description: `Runs one command on the open design as one undo step, and answers once Dazbee has stored it: its result (such as the id of what it made) and the warnings for the layers it touched. A refused command or a bad input changes nothing and answers why. describe_command gives a command’s input; node.update’s, for one, is ${NODE_UPDATE_INPUT}.`,
     readOnly: false,
     input: z.object({
       command: CommandName,
@@ -108,7 +120,7 @@ export const COMMAND_TOOLS: Tool[] = [
   defineTool({
     name: 'batch',
     title: 'Run an agent batch',
-    description: `Runs steps on the open design as one agent batch: one undo step, all or nothing, answered once Dazbee has stored it. Each step is { command, input?, as? }; a step named with \`as\` is reached from a later step’s input as { "$ref": name }, with "field" for a part of its result (a key, or a path such as "0"). Answers whether the batch was kept, each step’s outcome up to the one refused, and the warnings for the layers it touched. 1 to ${MAX_BATCH_STEPS} steps.`,
+    description: `Runs steps on the open design as one agent batch: one undo step, all or nothing, answered once Dazbee has stored it. Each step is { command, input?, as? }, such as { "command": "node.update", "input": ${NODE_UPDATE_INPUT} }. A step named with \`as\` is reached from a later step’s input as { "$ref": name }: a result that is an id (a string) is reached so, alone, and "field" only for a result that is an object or a list, naming a part of it (a key, or a path such as "0"). Answers whether the batch was kept, each step’s outcome up to the one refused, and the warnings for the layers it touched. 1 to ${MAX_BATCH_STEPS} steps.`,
     readOnly: false,
     input: z.object({
       steps: z

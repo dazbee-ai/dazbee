@@ -47,6 +47,8 @@ export {
 export { frameIdOf } from '@dazbee/schema'
 export { COMMANDS, type CommandName } from './commands/index.ts'
 export { type CatalogEntry, commandCatalog } from './commands/catalog.ts'
+export { nearestNames } from './commands/nearest-names.ts'
+export { inWords } from './in-words.ts'
 export {
   type AgentBatchResult,
   type AgentStep,

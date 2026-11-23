@@ -104,6 +104,7 @@ import {
   SelectWindow,
   Settings,
   ShareIos,
+  Shuffle,
   Sparks,
   SparksSolid,
   Square,
@@ -243,6 +244,7 @@ export const SelectionAllIcon = make(SelectWindow)
 export const SelectionIcon = make(Frame)
 export const ShapesIcon = make(Square)
 export const ShareFatIcon = make(ShareIos)
+export const ShuffleIcon = make(Shuffle)
 export const SignOutIcon = make(LogOut)
 export const SparkleIcon = make(Sparks, SparksSolid)
 export const SquareIcon = make(Square)

@@ -3,10 +3,11 @@
 // The Text switcher tab's sections. Font: the font, which opens the font chooser in the edit
 // panel's place, then the size and the four text styles; mixed layers show only the font of the
 // texts among them, with no heading as the tab's one part. Paragraph: alignment, direction,
-// vertical place, list and case. Curve and bounce: the curve's shape and amount. Spacing: the room
-// between lines, letters and paragraphs, the box, shrink to fit and the most lines. Font features:
-// the OpenType features its fonts have. While a text is being edited, the size, styles, case,
-// letter spacing and features set the selected run's, as its keys do. A locked text's controls are all turned off, saying why.
+// vertical place, list and case. Curve and bounce: the curve's shape and amount, the bounce and the
+// letter turn. Spacing: the room between lines, letters and paragraphs, the box, shrink to fit and
+// the most lines. Font features: the OpenType features its fonts have. While a text is being
+// edited, the size, styles, case, letter spacing, letter turn and features set the selected run's,
+// as its keys do. A locked text's controls are all turned off, saying why.
 import type { ReactNode } from 'react'
 
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'
@@ -20,7 +21,7 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
-import { CurveRows } from './curve-bounce.tsx'
+import { BounceRows, CurveRows, LetterTurnField } from './curve-bounce.tsx'
 import { FeatureRows } from './features.tsx'
 import { ParagraphRows } from './paragraph.tsx'
 import { SizeStepper } from './size-stepper.tsx'
@@ -94,14 +95,18 @@ export function ParagraphSection(props: SectionProps) {
   )
 }
 
-/** The Curve and bounce section: the curve's shape and amount. */
+/** The Curve and bounce section: the curve's shape and amount, the bounce, and the letter turn. */
 export function CurveBounceSection(props: SectionProps) {
   const t = useMessages()
   const why = anyLocked(props) ? t.editor.bar.lockedRow : null
   return (
     <PanelPart id="curve-bounce-section" title={t.editor.editPanel.sections.curveBounce} {...(why && { note: why })}>
       <ViewOnlyFieldset off={why !== null}>
-        <CurveRows target={props.target} />
+        <div className="flex flex-col gap-3">
+          <CurveRows target={props.target} />
+          <BounceRows target={props.target} />
+          <LetterTurnField target={props.target} />
+        </div>
       </ViewOnlyFieldset>
     </PanelPart>
   )

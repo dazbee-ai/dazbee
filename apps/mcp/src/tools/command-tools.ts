@@ -10,6 +10,9 @@ import {
   commandCatalog,
   CommandError,
   CommandFault,
+  COMMANDS,
+  inWords,
+  nearestNames,
   type Session,
   VIEW_ONLY,
 } from '@dazbee/doc'
@@ -30,6 +33,9 @@ const RESTORE = 'design.restore'
 /** A command's name, as list_commands gives it. */
 const CommandName = z.string().max(200).describe('The command’s name, as list_commands gives it, such as node.create')
 
+/** node.update's input, as the descriptions of run_command and batch show it. */
+const NODE_UPDATE_INPUT = '{ "ids": ["a1"], "patch": { "x": 40 } }'
+
 /** The most characters a note may be given with; the people in the design see at most `PRESENCE_NOTE` of them. */
 const MOST_NOTE = 200
 
@@ -44,6 +50,9 @@ export const Note = z
 
 /** The commands an agent may run, as the catalog describes them. */
 export const AGENT_CATALOG: CatalogEntry[] = commandCatalog().filter((entry) => entry.name !== RESTORE)
+
+/** The names of the commands an agent may run. */
+const AGENT_COMMANDS = AGENT_CATALOG.map(({ name }) => name)
 
 export const COMMAND_TOOLS: Tool[] = [
   defineTool({
@@ -76,15 +85,14 @@ export const COMMAND_TOOLS: Tool[] = [
     }),
     run: async ({ command }) => {
       const entry = describedCommand(command)
-      if (!entry) throw new ToolRefusal(`There is no command “${command}”; list_commands lists them`)
+      if (!entry) throw new ToolRefusal(noCommand(command))
       return entry
     },
   }),
   defineTool({
     name: 'run_command',
     title: 'Run a command',
-    description:
-      'Runs one command on the open design as one undo step, and answers once Dazbee has stored it: its result (such as the id of what it made) and the warnings for the layers it touched. A refused command or a bad input changes nothing and answers why. describe_command gives a command’s input.',
+    description: `Runs one command on the open design as one undo step, and answers once Dazbee has stored it: its result (such as the id of what it made) and the warnings for the layers it touched. A refused command or a bad input changes nothing and answers why. describe_command gives a command’s input; node.update’s, for one, is ${NODE_UPDATE_INPUT}.`,
     readOnly: false,
     input: z.object({
       command: CommandName,
@@ -108,7 +116,7 @@ export const COMMAND_TOOLS: Tool[] = [
   defineTool({
     name: 'batch',
     title: 'Run an agent batch',
-    description: `Runs steps on the open design as one agent batch: one undo step, all or nothing, answered once Dazbee has stored it. Each step is { command, input?, as? }; a step named with \`as\` is reached from a later step’s input as { "$ref": name }, with "field" for a part of its result (a key, or a path such as "0"). Answers whether the batch was kept, each step’s outcome up to the one refused, and the warnings for the layers it touched. 1 to ${MAX_BATCH_STEPS} steps.`,
+    description: `Runs steps on the open design as one agent batch: one undo step, all or nothing, answered once Dazbee has stored it. Each step is { command, input?, as? }, such as { "command": "node.update", "input": ${NODE_UPDATE_INPUT} }. A step named with \`as\` is reached from a later step’s input as { "$ref": name }: a result that is an id (a string) is reached so, alone, and "field" only for a result that is an object or a list, naming a part of it (a key, or a path such as "0"). Answers whether the batch was kept, each step’s outcome up to the one refused, and the warnings for the layers it touched. 1 to ${MAX_BATCH_STEPS} steps.`,
     readOnly: false,
     input: z.object({
       steps: z
@@ -172,7 +180,7 @@ export function describedCommand(command: string): CatalogEntry | undefined {
 
 /**
  * Runs `work` on the open design once it may be changed: refused before anything runs for a command agents can't
- * run or a tab that may only view the design, and a command's fault told as a tool error. What the agent is to be
+ * run or there is not, or a tab that may only view the design, and a command's fault told as a tool error. What the agent is to be
  * told of the design first (that it was opened again) comes after the answer, or after the refusal's sentence.
  */
 export async function writing(
@@ -184,6 +192,8 @@ export async function writing(
     throw new ToolRefusal(
       `${RESTORE} is a command agents can’t run, so nothing ran; the person can restore a version from the design’s Versions`,
     )
+  const unknown = commands.find((command) => !Object.hasOwn(COMMANDS, command))
+  if (unknown !== undefined) throw new ToolRefusal(`${noCommand(unknown)}, so nothing ran`)
   return design.use({ api, agent }, async (open) => {
     let value: unknown
     try {
@@ -251,6 +261,12 @@ export function answered(open: OpenDesign, done: Written<unknown>, value: unknow
     ...(notices.length > 0 ? [`What happened to the design since the last answer: ${JSON.stringify(notices)}`] : []),
   ]
   return notes.length > 0 ? new WithNotes(value, notes) : value
+}
+
+/** The sentence for a command there is not: the agent's commands nearest it in spelling. */
+function noCommand(command: string): string {
+  const nearest = inWords(nearestNames(command, AGENT_COMMANDS))
+  return `There is no command “${command}” (the nearest are ${nearest}); list_commands lists them all`
 }
 
 /** A command as one line: its name, what it does, and its input's fields, `?` marking those that may be left out. */

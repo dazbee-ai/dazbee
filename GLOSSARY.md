@@ -680,7 +680,7 @@ The rule fitted to the owner's blind votes on pairs of a piece and its rebuild; 
 _Avoid_: Match score, similarity, accuracy (that is how often a matcher passes)
 
 **Light**:
-The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well; else the closest, approximate.
+The text matcher's quicker setting: the brand kit's fonts and a short list of fonts by their font fingerprints, each fitted and drawn, and the closest that looks the same kept, a kit font first when it fits nearly as well; else the closest, approximate. Its letters are never spaced so tight they run into each other, unless only that looks the same, as where the picture's own letters do.
 _Avoid_: Fast mode, lite
 
 **Hybrid**:

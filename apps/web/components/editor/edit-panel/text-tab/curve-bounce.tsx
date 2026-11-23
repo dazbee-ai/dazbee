@@ -10,7 +10,7 @@ import { NumberField } from '@/components/editor/edit-panel/number-field.tsx'
 import { set, type Target } from '@/components/editor/edit-panel/target.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
-import { CURVE_CHOICES, CURVE_MOST, curveAmountPatch, type CurveChoice, pickCurve, sharedCurve } from './curves.ts'
+import { amountMost, CURVE_CHOICES, curveAmountPatch, type CurveChoice, pickCurve, sharedCurve } from './curves.ts'
 
 /** Each choice's shape, as the line its letters sit on in a 24 px box. */
 const CURVE_PATHS: Record<CurveChoice, string> = {
@@ -22,14 +22,12 @@ const CURVE_PATHS: Record<CurveChoice, string> = {
 }
 
 /**
- * The curve's shape, read as the one the texts share or mixed, and its amount from 0 to the shape's
- * most, shown while every text is curved; with mixed shapes it goes to 100 and each text stops at
- * its own shape's most.
+ * The curve's shape, read as the one the texts share or mixed, and its amount from 0 to its most
+ * (`amountMost`), shown while every text is curved; each text stops at its own most.
  */
 export function CurveRows({ target }: { target: Target }) {
   const p = useMessages().editor.props
   const { choice, amount } = sharedCurve(target.props)
-  const most = choice === 'mixed' || choice === 'none' ? 100 : CURVE_MOST[choice]
   const marks = Object.fromEntries(
     CURVE_CHOICES.map((shape) => [shape, <CurvePicture key={shape} choice={shape} />]),
   ) as Record<CurveChoice, ReactNode>
@@ -52,7 +50,7 @@ export function CurveRows({ target }: { target: Target }) {
           testId="curve-amount"
           value={amount}
           min={0}
-          max={most}
+          max={amountMost(target.props)}
           editor={target.editor}
           onSet={(v) => set(target, (now) => curveAmountPatch(now, () => v))}
           onEach={(change) => set(target, (now) => curveAmountPatch(now, change))}

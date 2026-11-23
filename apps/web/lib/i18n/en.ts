@@ -1149,7 +1149,7 @@ export const en = {
       /** The line under each setting a curved text turns off, saying why. */
       notForCurved: {
         paragraph: 'List, justify and wrap style don’t apply to curved text.',
-        box: 'A curved text’s box fits its letters.',
+        box: 'The box doesn’t apply to curved text: it fits the letters.',
         fit: 'Shrink to fit and max lines don’t apply to curved text.',
       },
       outline: 'Outline',

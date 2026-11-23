@@ -4,9 +4,9 @@
 // panel's place, then the size and the four text styles; mixed layers show only the font of the
 // texts among them, with no heading as the tab's one part. Paragraph: alignment, direction,
 // vertical place, list and case. Curve and bounce: the curve's shape and amount. Spacing: the room
-// between lines, letters and paragraphs, the box, shrink to fit and the most lines. Font features: the OpenType features its fonts have. While a
-// text is being edited, the size, styles, case, letter spacing and features set the selected run's,
-// as its keys do. A locked text's controls are all turned off, saying why.
+// between lines, letters and paragraphs, the box, shrink to fit and the most lines. Font features:
+// the OpenType features its fonts have. While a text is being edited, the size, styles, case,
+// letter spacing and features set the selected run's, as its keys do. A locked text's controls are all turned off, saying why.
 import type { ReactNode } from 'react'
 
 import { PanelPart } from '@/components/editor/edit-panel/fields.tsx'

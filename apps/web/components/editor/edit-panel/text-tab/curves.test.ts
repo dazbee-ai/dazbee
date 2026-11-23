@@ -9,7 +9,7 @@ import { frameDesign } from '@dazbee/editor/test-matrix'
 
 import { set, type Target } from '@/components/editor/edit-panel/target.ts'
 
-import { anyCurved, CURVE_MOST, CURVE_START, curveAmountPatch, pickCurve, sharedCurve } from './curves.ts'
+import { amountMost, anyCurved, CURVE_MOST, CURVE_START, curveAmountPatch, pickCurve, sharedCurve } from './curves.ts'
 
 const STYLE = { fontFamily: 'Noto Sans', fontSize: 40, color: '#000000FF' }
 /** A fixed box text that wraps, with a list, shrink to fit and most lines, and an auto width one. */
@@ -82,6 +82,12 @@ describe('sharedCurve', () => {
 })
 
 describe('pickCurve', () => {
+  let ed: TestEditor
+  beforeAll(async () => {
+    ed = await testEditor(DESIGN)
+  })
+  afterAll(() => ed.end())
+
   it('starts a straight text’s shape at CURVE_START, or at the shape’s most where that is lower', () => {
     expect(pickCurve(plain, 'circle')).toEqual({ curve: { shape: 'circle', amount: CURVE_START } })
     expect(pickCurve(plain, 'wave')).toEqual({ curve: { shape: 'wave', amount: CURVE_MOST.wave } })
@@ -99,34 +105,6 @@ describe('pickCurve', () => {
     expect(pickCurve(plain, 'none')).toBeNull()
     expect(pickCurve(ARC, 'arcUp')).toBeNull()
   })
-})
-
-describe('curveAmountPatch', () => {
-  it('changes a curved text’s amount from its own, held between 0 and its shape’s most', () => {
-    expect(curveAmountPatch(ARC, (a) => a + 5)).toEqual({ curve: { shape: 'arcUp', amount: 35 } })
-    expect(curveAmountPatch(WAVE, () => 90)).toEqual({ curve: { shape: 'wave', amount: CURVE_MOST.wave } })
-    expect(curveAmountPatch(ARC, () => -4)).toEqual({ curve: { shape: 'arcUp', amount: 0 } })
-  })
-
-  it('leaves a straight text, and an amount that doesn’t change, alone', () => {
-    expect(curveAmountPatch(plain, () => 40)).toBeNull()
-    expect(curveAmountPatch(ARC, (a) => a)).toBeNull()
-  })
-})
-
-describe('anyCurved', () => {
-  it('is true while any of the texts is curved', () => {
-    expect(anyCurved([plain, ARC])).toBe(true)
-    expect(anyCurved([plain, plain])).toBe(false)
-  })
-})
-
-describe('a pick written through the editor', () => {
-  let ed: TestEditor
-  beforeAll(async () => {
-    ed = await testEditor(DESIGN)
-  })
-  afterAll(() => ed.end())
 
   it('curves every selected text and fits its box in one undo step, and none gives back the settings it kept', () => {
     const before = { kept: ed.core.drawnPropsOf('kept'), wide: ed.core.drawnPropsOf('wide') }
@@ -149,5 +127,39 @@ describe('a pick written through the editor', () => {
     expect(off.curve).toBeUndefined()
     for (const key of ['boxMode', 'list', 'align', 'wrapStyle', 'maxLines', 'shrinkToFit'] as const)
       expect(off[key]).toEqual(before.kept[key])
+  })
+})
+
+describe('amountMost', () => {
+  it('stops the field at the highest of the texts’ shapes’ most, or an amount set past it', () => {
+    expect(amountMost([WAVE])).toBe(CURVE_MOST.wave)
+    expect(amountMost([WAVE, ARC, plain])).toBe(CURVE_MOST.arcUp)
+    expect(amountMost([{ curve: { shape: 'arcDown', amount: 90 } }])).toBe(90)
+  })
+})
+
+describe('curveAmountPatch', () => {
+  it('changes a curved text’s amount from its own, held between 0 and its shape’s most', () => {
+    expect(curveAmountPatch(ARC, (a) => a + 5)).toEqual({ curve: { shape: 'arcUp', amount: 35 } })
+    expect(curveAmountPatch(WAVE, () => 90)).toEqual({ curve: { shape: 'wave', amount: CURVE_MOST.wave } })
+    expect(curveAmountPatch(ARC, () => -4)).toEqual({ curve: { shape: 'arcUp', amount: 0 } })
+  })
+
+  it('steps an amount an agent set past its shape’s most from where it is, never higher', () => {
+    const high = { curve: { shape: 'wave', amount: 80 } }
+    expect(curveAmountPatch(high, (a) => a - 1)).toEqual({ curve: { shape: 'wave', amount: 79 } })
+    expect(curveAmountPatch(high, (a) => a + 1)).toBeNull()
+  })
+
+  it('leaves a straight text, and an amount that doesn’t change, alone', () => {
+    expect(curveAmountPatch(plain, () => 40)).toBeNull()
+    expect(curveAmountPatch(ARC, (a) => a)).toBeNull()
+  })
+})
+
+describe('anyCurved', () => {
+  it('is true while any of the texts is curved', () => {
+    expect(anyCurved([plain, ARC])).toBe(true)
+    expect(anyCurved([plain, plain])).toBe(false)
   })
 })

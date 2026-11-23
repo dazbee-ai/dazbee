@@ -76,7 +76,7 @@ export function ParagraphRows({ target }: { target: Target }) {
           options={['start', 'center', 'end', 'justify'] as const}
           labels={p.textAligns}
           marks={ALIGN_MARKS}
-          off={curved ? ['justify'] : undefined}
+          offChoices={curved ? ['justify'] : undefined}
           onSet={(align) => set(target, () => ({ align }))}
         />
         <Segments

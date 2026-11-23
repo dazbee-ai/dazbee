@@ -47,11 +47,22 @@ export function pickCurve(now: Props, to: CurveChoice): Patch | null {
   return { curve: { shape: to, amount } }
 }
 
-/** The patch that changes a curved text's amount from its own, held between 0 and its shape's most; null for a straight text. */
+/**
+ * Where the amount field stops for the texts: the highest of each curved text's own most, its
+ * shape's, or its amount where an agent set it past that, so a step from it doesn't jump down.
+ */
+export function amountMost(props: readonly Props[]): number {
+  return Math.max(0, ...props.flatMap((pr) => (pr.curve ? [mostOf(pr.curve as TextCurve)] : [])))
+}
+
+/**
+ * The patch that changes a curved text's amount from its own, held between 0 and its most (its
+ * shape's, or its own amount where that is higher); null for a straight text.
+ */
 export function curveAmountPatch(now: Props, change: (amount: number) => number): Patch | null {
   const was = curveOf(now)
   if (!was) return null
-  const amount = Math.min(CURVE_MOST[was.shape], Math.max(0, change(was.amount)))
+  const amount = Math.min(mostOf(was), Math.max(0, change(was.amount)))
   return amount === was.amount ? null : { curve: { ...was, amount } }
 }
 
@@ -63,4 +74,9 @@ export function anyCurved(props: readonly Props[]): boolean {
 /** A text's curve, if it has one. */
 function curveOf(props: Props): TextCurve | undefined {
   return props.curve as TextCurve | undefined
+}
+
+/** Where a curve's amount stops: its shape's most, or its own amount where that is higher. */
+function mostOf(curve: TextCurve): number {
+  return Math.max(CURVE_MOST[curve.shape], curve.amount)
 }

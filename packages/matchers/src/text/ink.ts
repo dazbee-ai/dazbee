@@ -1,6 +1,7 @@
 // Ink: how much of each pixel of a text piece is letter, 0 to 1, read from a cut-out's alpha or a flat
 // crop's distance from its border colour, and the steps that turn it into what the font fingerprint's
-// model reads: boxes round it, turning it level and sampling a line of it into a strip.
+// model reads: boxes round it, hollow letters found and filled in, turning it level and sampling a
+// line of it into a strip.
 
 import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
@@ -26,10 +27,24 @@ export interface Strip {
   data: Uint8Array
 }
 
+/** Hollow letters: ink drawn only as a thin line round each letter, the letters' insides left clear. */
+export interface Hollow {
+  /** The ink with the letters' insides filled, so it holds the letters' whole shapes. */
+  filled: Ink
+  /** How wide the line round the letters is, in pixels. */
+  width: number
+}
+
 /** A pixel with alpha under this is see-through, for telling a cut-out from a flat crop. */
 const OPAQUE_FROM = 250
 /** A picture is a cut-out when more than this share of its pixels is see-through. */
 const CUT_OUT_SHARE = 0.05
+/** A pixel inked more than this is a wall when the insides the ink closes are found. */
+const WALL_FROM = 0.3
+/** Letters are hollow when their insides cover at least this many times the ink's area. */
+const HOLLOW_INSIDE = 0.75
+/** Letters are hollow when at least this share of each line parts a letter's inside from what is outside it. */
+const HOLLOW_PARTING = 0.9
 
 /**
  * The ink of a picture. A cut-out is its alpha. A flat crop is how far each pixel's colour is from
@@ -152,6 +167,53 @@ export function isCutOut({ width, height, pixels }: Pixels): boolean {
   return clear > width * height * CUT_OUT_SHARE
 }
 
+/**
+ * The ink's hollow letters with their insides filled, and the width of the line drawn round them;
+ * null when the letters are filled. Each place the ink closes in is reached from outside the picture
+ * across walls of ink: a place behind an odd number of walls is a letter's inside, one behind two is
+ * a counter (the hole of a hollow o), and outside is behind none. The letters are hollow when their
+ * insides cover at least three quarters of the ink, and 90% or more of the line round the letters,
+ * and of the line round their counters, has a letter's inside on one side and what is outside it on
+ * the other, within twice the line's width: so not thin letters, whose strokes have outside on both
+ * sides, nor letters in a drawn frame, which sit inside it.
+ */
+export function hollowOf(ink: Ink): Hollow | null {
+  const { width, height, data } = ink
+  const n = width * height
+  const wall = new Uint8Array(n)
+  for (let i = 0; i < n; i++) wall[i] = (data[i] ?? 0) > WALL_FROM ? 1 : 0
+  const crossed = wallsCrossed(width, height, wall)
+  let inked = 0
+  let insides = 0
+  for (let i = 0; i < n; i++)
+    if (wall[i]) inked++
+    else if ((crossed[i] ?? 0) % 2 === 1) insides++
+  if (inked === 0 || insides < HOLLOW_INSIDE * inked) return null
+  const line = lineWidth(ink)
+  const parting = partingShares(width, height, wall, crossed, 2 * line + 1)
+  if (parting.letters < HOLLOW_PARTING || parting.counters < HOLLOW_PARTING) return null
+  const filled = new Float32Array(n)
+  for (let i = 0; i < n; i++) filled[i] = !wall[i] && (crossed[i] ?? 0) % 2 === 1 ? 1 : (data[i] ?? 0)
+  return { filled: { width, height, data: filled }, width: line }
+}
+
+/** Ink shrunk to `width` × `height`, each pixel the mean of those it covers, as a piece's pixels are shrunk. */
+export function shrinkInk(ink: Ink, width: number, height: number): Ink {
+  const sums = new Float64Array(width * height)
+  const counts = new Float64Array(width * height)
+  for (let y = 0; y < ink.height; y++) {
+    const ty = Math.min(height - 1, Math.floor((y * height) / ink.height))
+    for (let x = 0; x < ink.width; x++) {
+      const o = ty * width + Math.min(width - 1, Math.floor((x * width) / ink.width))
+      sums[o] = (sums[o] ?? 0) + (ink.data[y * ink.width + x] ?? 0)
+      counts[o] = (counts[o] ?? 0) + 1
+    }
+  }
+  const data = new Float32Array(width * height)
+  for (let o = 0; o < data.length; o++) data[o] = (sums[o] ?? 0) / Math.max(1, counts[o] ?? 0)
+  return { width, height, data }
+}
+
 /** Ink at a point between pixels, from its four nearest; 0 past the edges. */
 function bilinear(ink: Ink, fx: number, fy: number): number {
   const x0 = Math.floor(fx)
@@ -182,4 +244,113 @@ function resample(ink: Ink, box: Box, width: number, height: number, taps: numbe
       out[y * width + x] = sum / (taps * taps)
     }
   return out
+}
+
+/**
+ * How many walls of ink each pixel is behind, seen from outside the picture: stepping onto a wall from
+ * a pixel that isn't one crosses a wall, every other step crosses none. A breadth-first search a
+ * count of walls at a time, stepping to the four neighbours.
+ */
+function wallsCrossed(width: number, height: number, wall: Uint8Array): Int32Array {
+  const crossed = new Int32Array(width * height).fill(-1)
+  let current: number[] = []
+  let next: number[] = []
+  const enter = (i: number) => (wall[i] ? next : current).push(i)
+  for (let x = 0; x < width; x++) {
+    enter(x)
+    if (height > 1) enter((height - 1) * width + x)
+  }
+  for (let y = 1; y < height - 1; y++) {
+    enter(y * width)
+    if (width > 1) enter(y * width + width - 1)
+  }
+  for (let count = 0; current.length > 0 || next.length > 0; count++) {
+    for (let q = 0; q < current.length; q++) {
+      const i = current[q] ?? 0
+      if ((crossed[i] ?? 0) >= 0) continue
+      crossed[i] = count
+      const x = i % width
+      const step = (j: number) => {
+        if ((crossed[j] ?? 0) < 0) (wall[j] && !wall[i] ? next : current).push(j)
+      }
+      if (x > 0) step(i - 1)
+      if (x < width - 1) step(i + 1)
+      if (i >= width) step(i - width)
+      if (i < width * (height - 1)) step(i + width)
+    }
+    current = next
+    next = []
+  }
+  return crossed
+}
+
+/**
+ * How wide the ink's lines are: twice its area over the length of its edges, a line having an edge on
+ * each side. The edges' length is the sum of the ink's steps from pixel to pixel, which counts an
+ * edge's length alike at every slant.
+ */
+function lineWidth({ width, height, data }: Ink): number {
+  let area = 0
+  let edges = 0
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const v = data[y * width + x] ?? 0
+      area += v
+      const dx = x < width - 1 ? (data[y * width + x + 1] ?? 0) - v : 0
+      const dy = y < height - 1 ? (data[(y + 1) * width + x] ?? 0) - v : 0
+      edges += Math.sqrt(dx * dx + dy * dy)
+    }
+  return edges > 0 ? (2 * area) / edges : 0
+}
+
+/**
+ * The shares of the line round the letters (wall pixels behind one wall) and of the lines round their
+ * counters (behind two or more) with both a pixel behind an odd count of walls and one behind an even
+ * count within `reach` steps, left, right, up or down; past the picture's edge is behind none. A
+ * share of no pixels is 1.
+ */
+function partingShares(
+  width: number,
+  height: number,
+  wall: Uint8Array,
+  crossed: Int32Array,
+  reach: number,
+): { letters: number; counters: number } {
+  const odd = stepsTo(width, height, (i) => !wall[i] && (crossed[i] ?? 0) % 2 === 1, false)
+  const even = stepsTo(width, height, (i) => !wall[i] && (crossed[i] ?? 0) % 2 === 0, true)
+  const total = [0, 0]
+  const parting = [0, 0]
+  for (let i = 0; i < wall.length; i++) {
+    if (!wall[i]) continue
+    const kind = (crossed[i] ?? 0) >= 2 ? 1 : 0
+    total[kind] = (total[kind] ?? 0) + 1
+    if ((odd[i] ?? Infinity) <= reach && (even[i] ?? Infinity) <= reach) parting[kind] = (parting[kind] ?? 0) + 1
+  }
+  const share = (kind: number) => ((total[kind] ?? 0) > 0 ? (parting[kind] ?? 0) / (total[kind] ?? 1) : 1)
+  return { letters: share(0), counters: share(1) }
+}
+
+/**
+ * Each pixel's steps, left, right, up or down, to the nearest pixel that is `target`, or past the
+ * picture's edge when `edge`: a two-pass city-block distance.
+ */
+function stepsTo(width: number, height: number, target: (i: number) => boolean, edge: boolean): Float32Array {
+  const steps = new Float32Array(width * height)
+  const far = edge ? 1 : Infinity
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      if (target(i)) continue
+      const up = y > 0 ? (steps[i - width] ?? 0) : far - 1
+      const left = x > 0 ? (steps[i - 1] ?? 0) : far - 1
+      steps[i] = Math.min(up, left) + 1
+    }
+  for (let y = height - 1; y >= 0; y--)
+    for (let x = width - 1; x >= 0; x--) {
+      const i = y * width + x
+      const down = y < height - 1 ? (steps[i + width] ?? 0) : far - 1
+      const right = x < width - 1 ? (steps[i + 1] ?? 0) : far - 1
+      steps[i] = Math.min(steps[i] ?? 0, Math.min(down, right) + 1)
+    }
+  return steps
 }

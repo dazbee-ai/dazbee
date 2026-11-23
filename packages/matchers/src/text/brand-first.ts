@@ -59,15 +59,15 @@ export function pickFit(fits: readonly Fitted[]): Fitted | undefined {
 
 /**
  * The look in the piece's colours with its text colour and outline colour each taken from the kit
- * colour nearest the piece's within ΔE00 8, the text colour bound to it; undefined when neither is
- * near one.
+ * colour nearest the piece's within ΔE00 8, the text colour bound to it; hollow letters keep no fill,
+ * so only their outline takes one. Undefined when neither is near one.
  */
 export function kitColoured(
   look: TextLook,
   reading: PieceReading,
   colors: MatchKit['colors'],
 ): KitColoured | undefined {
-  const text = nearestKitColour(reading.fill, colors)
+  const text = reading.fill && nearestKitColour(reading.fill, colors)
   const outline = look.outline && reading.outline ? nearestKitColour(reading.outline.colour, colors) : undefined
   if (!text && !outline) return undefined
   return {

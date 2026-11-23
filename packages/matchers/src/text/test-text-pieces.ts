@@ -26,6 +26,8 @@ export interface DrawnText {
   /** The colour it is drawn on; null draws it as a cut-out. */
   background: `#${string}` | null
   outline?: { width: number; color: `#${string}` }
+  /** Drawn with no fill: its outline alone, hollow. */
+  hollow?: boolean
   /** Degrees clockwise. */
   rotation?: number
   align?: 'start' | 'center' | 'end'
@@ -125,7 +127,7 @@ export function drawText(
             fontWeight: text.weight,
             fontStyle: text.style ?? 'normal',
             fontSize: text.size,
-            color: `${text.colour}FF`,
+            color: `${text.colour}${text.hollow ? '00' : 'FF'}`,
             ...(text.spacing ? { letterSpacing: { unit: 'percent', value: text.spacing } } : {}),
             ...(text.outline ? { outline: { ...text.outline, color: `${text.outline.color}FF` } } : {}),
           },

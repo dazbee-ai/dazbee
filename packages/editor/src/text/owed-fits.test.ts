@@ -143,7 +143,7 @@ describe('owedFits', () => {
       owed,
       fitted,
       answer: (to: ReturnType<FitText>) => (answer = to),
-      fitText: (id: string) => fitted.push(id),
+      fitText: (id: string, keep?: 'centre') => fitted.push(keep ? `${id} ${keep}` : id),
     }
   }
 
@@ -156,6 +156,14 @@ describe('owedFits', () => {
     owed.settle(fitText)
     owed.settle(fitText)
     expect(fitted).toEqual(['words'])
+  })
+
+  it('fits a text owed a fit that keeps its centre keeping its centre', () => {
+    const { owed, fitted, answer, fitText } = owing()
+    owed.owe('words', 'centre')
+    answer({ width: 10, height: 10 })
+    owed.settle(fitText)
+    expect(fitted).toEqual(['words centre'])
   })
 
   it('owes nothing more for a text that keeps its box', () => {

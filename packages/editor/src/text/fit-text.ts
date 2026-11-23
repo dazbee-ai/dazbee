@@ -3,7 +3,7 @@
 // in (`textFontUses`: its own, its runs' and the script fonts its characters need, in each weight and
 // style it sets) is still coming; once that load settles, with files or without, it is measured with
 // what is here, the fallbacks for a font that never came, as typing would measure it then.
-import { fittedText, type FitText } from '@dazbee/doc'
+import { fitsItsWords, fittedText, type FitText } from '@dazbee/doc'
 import { type Layer, textFontUses } from '@dazbee/schema'
 
 import type { FrameScenes } from '../canvas/scenes.ts'
@@ -16,12 +16,12 @@ interface FitTextDeps {
 
 /**
  * The doc's `FitText` on the editor's measure: `'wait'` while a face a text that grows with its
- * words, or a curved text, is drawn in is loading. A straight text's fixed box, or another layer,
- * has nothing to fit and waits for nothing.
+ * words, or a curved text, is drawn in is loading. A straight text's fixed box with no straight box
+ * to take back (`fitsItsWords`), or another layer, has nothing to fit and waits for nothing.
  */
 export function editorFitText({ scenes, resources }: FitTextDeps): FitText {
   return (layer: Layer) => {
-    if (layer.type !== 'text' || (layer.props.boxMode === 'fixed' && !layer.props.curve)) return undefined
+    if (layer.type !== 'text' || !fitsItsWords(layer.props)) return undefined
     const { variables } = resources.bytes()
     const uses = textFontUses(layer, variables)
     void resources.loadUses(uses)

@@ -5,7 +5,7 @@
 import type { CanvasKit, ContourMeasureIter } from '@dazbee/canvaskit'
 import type { TextCurve } from '@dazbee/schema'
 
-import type { TextLayout } from './layout.ts'
+import type { TextBlock, TextLayout } from './layout.ts'
 import { inPlace, placedBounds, type PlacedLine, type PlaceGlyph, placeLetters, type Placement } from './placed.ts'
 
 /** A curved text's letters placed from its box's corner, and the size of the box that holds them. */
@@ -25,6 +25,8 @@ interface CurveLine {
   width: number
   /** How far its baseline is below the longest line's, by the lines' metrics. */
   below: number
+  /** The middle of each space between two of its words, across the layer's box, left to right. */
+  gaps: number[]
 }
 
 /** A point on a line's curve, and the angle of the curve's slope there in radians, clockwise from the right. */
@@ -47,6 +49,8 @@ interface CurvePath {
 const WAVE_PIECES = 16
 /** How finely the wave's lengths are measured: Skia's tolerance of half a pixel over this. */
 const WAVE_PRECISION = 16
+/** A character that spaces words apart. */
+const SPACE = /\s/u
 
 /**
  * Places a straight layout's letters on `curve`, the base font size `fontSize`, then moves them
@@ -62,7 +66,7 @@ export function curveLetters(
   fontSize: number,
   move?: MoveLetters,
 ): CurvedText {
-  const lines = curveLines(layout)
+  const lines = curveLines(ck, layout, curve.shape === 'circle')
   const longest = [...lines.values()].reduce<CurveLine | null>((a, b) => (a && a.width >= b.width ? a : b), null)
   // An amount too small for an arc's radius to be a number draws straight, as 0 does; a circle's
   // radius never divides by its amount.
@@ -84,15 +88,40 @@ export function curveLetters(
   }
 }
 
-/** Each line of the layout by its block and number, its baseline below the first block's top. */
-function curveLines(layout: TextLayout): Map<string, CurveLine> {
+/**
+ * Each line of the layout by its block and number, its baseline below the first block's top, with
+ * the spaces between its words where `withGaps` asks for them.
+ */
+function curveLines(ck: CanvasKit, layout: TextLayout, withGaps: boolean): Map<string, CurveLine> {
   const lines = new Map<string, CurveLine>()
   for (const [i, block] of layout.blocks.entries()) {
     for (const m of block.paragraph.getLineMetrics()) {
-      lines.set(`${i} ${m.lineNumber}`, { left: block.x + m.left, width: m.width, below: block.y + m.baseline })
+      const gaps = withGaps ? wordGaps(ck, block, m.startIndex, m.endIndex) : []
+      lines.set(`${i} ${m.lineNumber}`, { left: block.x + m.left, width: m.width, below: block.y + m.baseline, gaps })
     }
   }
   return lines
+}
+
+/**
+ * The middle, across the layer's box, of each run of spaces in a block's line from `start` to `end`
+ * that has a word on both sides, left to right.
+ */
+function wordGaps(ck: CanvasKit, block: TextBlock, start: number, end: number): number[] {
+  const gaps: number[] = []
+  const text = block.text
+  for (let from = start; from < end; from++) {
+    if (!SPACE.test(text[from] ?? '') || from === start || SPACE.test(text[from - 1] ?? '')) continue
+    let to = from
+    while (to < end && SPACE.test(text[to] ?? '')) to++
+    if (to === end) break
+    const rects = block.paragraph.getRectsForRange(from, to, ck.RectHeightStyle.Tight, ck.RectWidthStyle.Tight)
+    const lefts = rects.map(({ rect }) => rect[0] ?? 0)
+    const rights = rects.map(({ rect }) => rect[2] ?? 0)
+    if (rects.length > 0) gaps.push(block.x + (Math.min(...lefts) + Math.max(...rights)) / 2)
+    from = to
+  }
+  return gaps.sort((a, b) => a - b)
 }
 
 /**
@@ -195,14 +224,24 @@ function onCircle(x: number, edge: number, r: number, angle: number, up: boolean
 
 /**
  * The longest line round a whole circle of circumference `longest × (2 − amount / 100)`, centred at
- * the top and its letters spread evenly to close it; each other line at its own spacing on a circle
- * about the same centre, a line further down on a smaller one, centred at the top.
+ * the top and closed by the room left over: shared evenly between the spaces between its words and
+ * the gap where its end meets its start, so its letters keep their straight spacing and a joining
+ * script its joins; a line with no spaces has its letters spread evenly. Each other line at its own
+ * spacing on a circle about the same centre, a line further down on a smaller one, centred at the top.
  */
 function circleAlong(longest: CurveLine, amount: number): Along {
-  const radius = (longest.width * (2 - amount / 100)) / (2 * Math.PI)
+  const circumference = longest.width * (2 - amount / 100)
+  const radius = circumference / (2 * Math.PI)
   const centre = longest.left + longest.width / 2
+  const { gaps } = longest
+  const extra = (circumference - longest.width) / (gaps.length + 1)
+  // The distance round the ring from its top: past each space before `x`, the room each space takes.
+  const fromTop = (x: number) =>
+    gaps.length === 0
+      ? ((x - centre) * circumference) / longest.width
+      : x - centre + extra * (gaps.filter((gap) => gap < x).length - gaps.length / 2)
   return (line, x) => {
-    if (line === longest) return onCircle(centre, 0, radius, ((x - centre) * 2 * Math.PI) / line.width, true)
+    if (line === longest) return onCircle(centre, 0, radius, fromTop(x) / radius, true)
     const { r, edge } = lineCircle(radius, line, true)
     return onCircle(centre, edge, r, (x - line.left - line.width / 2) / r, true)
   }

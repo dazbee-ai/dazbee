@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'vitest'
 
+import { fittedText, type MeasureText } from '../fitted-text.ts'
 import { readDesign } from '../index.ts'
+import type { PlainStore } from '../plain-store.ts'
+import type { Session } from '../session.ts'
 import { openTestSession } from '../test-design.ts'
+import { testMeasure } from '../test-measure.ts'
 import { openTestStore } from '../test-store.ts'
+
+/** A curved text measured as a box that grows with its amount; a straight one with the test measure. */
+const curveMeasure: MeasureText = (props, width) =>
+  props.curve
+    ? { width: 400 + 4 * props.curve.amount, height: 150 + 3 * props.curve.amount }
+    : testMeasure(props, width)
+
+/** The headline's props as stored. */
+const headline = (store: PlainStore) => readDesign(store).nodes.headline?.props as Record<string, unknown>
+
+/** The headline changed by `patch`, then fitted as the editor fits it, keeping `keep`. */
+function updateAndFit(tab: Session, store: PlainStore, patch: Record<string, unknown>, keep?: 'centre') {
+  tab.run('node.update', { ids: ['headline'], patch })
+  const size = fittedText(readDesign(store).nodes.headline, curveMeasure)
+  if (size) tab.run('text.fit', { id: 'headline', ...size, ...(keep ? { keep } : {}) })
+}
+
+/** The middle of the headline's box. */
+function centreOf(store: PlainStore): [number, number] {
+  const { x, y, width, height } = headline(store) as Record<string, number>
+  return [(x ?? 0) + (width ?? 0) / 2, (y ?? 0) + (height ?? 0) / 2]
+}
 
 describe('text.edit', () => {
   it('inserts, deletes and styles ranges of a text layer; its linked copy keeps its own text', () => {
@@ -36,7 +62,7 @@ describe('text.edit', () => {
     const store = openTestStore()
     const tab = openTestSession(store)
     expect(() =>
-      tab.batch(() => {
+      tab.gesture(() => {
         tab.run('text.edit', { id: 'headline', op: { kind: 'delete', at: 0, length: 7 } })
         tab.run('text.edit', { id: 'headline', op: { kind: 'insert', at: 10, text: '!' } })
       }),
@@ -84,6 +110,64 @@ describe('text.fit', () => {
       /"box" is a graphic, not a text layer/,
     )
     expect(() => tab.run('text.fit', { id: 'headline', width: -1, height: 1 })).toThrow(/width/)
+  })
+
+  it('keeps the box’s centre with keep centre, as a curve changed in the edit panel does, and its top left without', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    tab.run('node.update', { ids: ['headline'], patch: { align: 'center' } })
+    const [cx, cy] = centreOf(store)
+    for (const curve of [
+      { shape: 'arcUp', amount: 30 },
+      { shape: 'arcUp', amount: 80 },
+      { shape: 'circle', amount: 80 },
+      null,
+    ]) {
+      updateAndFit(tab, store, { curve }, 'centre')
+      const [x, y] = centreOf(store)
+      expect(Math.abs(x - cx)).toBeLessThan(1)
+      expect(Math.abs(y - cy)).toBeLessThan(1)
+    }
+    const { x, y } = headline(store)
+    updateAndFit(tab, store, { curve: { shape: 'wave', amount: 20 } })
+    expect(headline(store)).toMatchObject({ x, y, width: 480, height: 210 })
+  })
+
+  it('gives a fixed or auto height box the size it had straight back when its curve is taken off, scaled with its text', () => {
+    for (const boxMode of ['fixed', 'autoHeight'] as const) {
+      const store = openTestStore()
+      const tab = openTestSession(store)
+      tab.run('node.update', { ids: ['headline'], patch: { boxMode, width: 509, height: 130 } })
+      updateAndFit(tab, store, { curve: { shape: 'circle', amount: 50 } })
+      expect(headline(store)).toMatchObject({ width: 600, height: 300 })
+      updateAndFit(tab, store, { curve: { shape: 'arcUp', amount: 20 } })
+      updateAndFit(tab, store, { curve: null })
+      const straight = headline(store)
+      expect(straight).toMatchObject({ width: 509, height: boxMode === 'fixed' ? 130 : 100.8 })
+      expect(straight).not.toHaveProperty('straightBox')
+
+      // A corner drag scales the curved text's sizes, and the straight box with them.
+      updateAndFit(tab, store, { curve: { shape: 'circle', amount: 50 } })
+      tab.run('node.update', { ids: ['headline'], patch: { style: { ...(straight.style as object), fontSize: 168 } } })
+      updateAndFit(tab, store, { curve: null })
+      expect(headline(store)).toMatchObject({ width: 1018, ...(boxMode === 'fixed' ? { height: 260 } : {}) })
+    }
+  })
+
+  it('keeps a size set as the curve comes off, or after, in place of the straight box', () => {
+    for (const patches of [[{ curve: null, width: 700 }], [{ curve: null }, { width: 700 }]]) {
+      const store = openTestStore()
+      const tab = openTestSession(store)
+      tab.run('node.update', { ids: ['headline'], patch: { boxMode: 'fixed', width: 509, height: 130 } })
+      updateAndFit(tab, store, { curve: { shape: 'circle', amount: 50 } })
+      tab.gesture(() => {
+        for (const patch of patches) tab.run('node.update', { ids: ['headline'], patch })
+        const size = fittedText(readDesign(store).nodes.headline, curveMeasure)
+        if (size) tab.run('text.fit', { id: 'headline', ...size })
+      })
+      expect(headline(store)).toMatchObject({ width: 700 })
+      expect(headline(store)).not.toHaveProperty('straightBox')
+    }
   })
 
   it('writes nothing when the box already fits', () => {

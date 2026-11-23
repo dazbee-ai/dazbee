@@ -77,6 +77,15 @@ describe('carryOverLayer', () => {
       expect(carryOverLayer(odd)).toBe(odd)
   })
 
+  it('reads a text stored at version 17 unchanged, with no straight box', () => {
+    const curve = { shape: 'circle', amount: 50 }
+    const stored = { ...textAt15(), props: { ...textAt15().props, boxMode: 'fixed', curve } }
+    expect(carryOverLayer(stored)).toBe(stored)
+    const parsed = parseLayer(stored)
+    expect(parsed).toEqual({ success: true, layer: structuredClone(stored) })
+    expect(parsed.success && parsed.layer.props).not.toHaveProperty('straightBox')
+  })
+
   it('reads a text stored at version 16 unchanged, with no bounce or letter turn', () => {
     const stored = { ...textAt15(), props: { ...textAt15().props, curve: { shape: 'wave', amount: 30 } } }
     expect(carryOverLayer(stored)).toBe(stored)

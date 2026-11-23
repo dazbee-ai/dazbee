@@ -4,7 +4,7 @@
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { type Pixels, renderPixels, type ResourceBytes, resourceCache, textMeasure } from '@dazbee/renderer'
-import { type Color, TextProps } from '@dazbee/schema'
+import { type Color, type TextCurve, TextProps } from '@dazbee/schema'
 
 /** A text's outline: its width in pixels and its colour. */
 export interface TextOutline {
@@ -26,6 +26,8 @@ export interface TextLook {
   align: 'start' | 'center' | 'end'
   color: Color
   outline?: TextOutline
+  /** Its lines bent along a curve; left out, straight. */
+  curve?: TextCurve
 }
 
 /** Where a text layer sits: its box and its rotation in degrees clockwise. */
@@ -58,6 +60,7 @@ export type TextLayerProps = Placed & {
     lineHeight?: number
     outline?: TextOutline
   }
+  curve?: TextCurve
   /** Ranges of the text, in UTF-16 units, drawn in their own colour and outline. */
   runs?: { start: number; end: number; style: { color: Color; outline: TextOutline } }[]
 }
@@ -115,6 +118,7 @@ export function textLayerProps(words: string, look: TextLook, place: Placed): Te
       ...(look.lineHeight ? { lineHeight: look.lineHeight } : {}),
       ...(look.outline && look.outline.width > 0 ? { outline: look.outline } : {}),
     },
+    ...(look.curve ? { curve: look.curve } : {}),
   }
 }
 

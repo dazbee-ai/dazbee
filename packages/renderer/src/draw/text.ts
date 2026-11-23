@@ -141,7 +141,8 @@ function drawFilledLines(
  * An opaque image paints them itself, as a colour does, in one pass over the glyphs. A see-through
  * one, under which letters that overlap would show through each other, fills them drawn opaque in an
  * offscreen layer (`fillWith`). Into a PDF the image is clipped to the letters, as a shape's image
- * fill is clipped to its path (`fillPath`).
+ * fill is clipped to its path (`fillPath`). Letters past an image fitted inside the box keep their
+ * colour (`drawPastPicture`).
  */
 function drawImageFill(
   ck: CanvasKit,
@@ -155,6 +156,7 @@ function drawImageFill(
   const painted = runs.filter((run) => drawsLines(run.style, pass))
   const bounds = placedInk(painted)
   if (!bounds) return
+  if (image.fit === 'fit') drawPastPicture(ck, canvas, image, painted, box, resources)
   if (!paintsOpaque(ck, image, resources)) {
     fillWith(ck, canvas, image, box, bounds, resources, () => drawPlacedPass(ck, canvas, painted, pass, box, resources))
     return
@@ -174,6 +176,38 @@ function drawImageFill(
     canvas.restore()
   } else draw(canvas, false)
   paint.delete()
+}
+
+/**
+ * Draws the letters an image fitted inside the box paints, and their lines, in their colour past the
+ * picture, where the image draws nothing: so the ends of a text wider than its picture still show.
+ */
+function drawPastPicture(
+  ck: CanvasKit,
+  canvas: Canvas,
+  image: TextImagePaint,
+  runs: readonly PlacedRun[],
+  box: Rect,
+  resources: Resources,
+) {
+  const drawn = resources.images.get(image.assetId)
+  if (!drawn) return
+  const at = imagePlacement(imageSizeOf(resources, image.assetId, drawn), image, box)
+  const draw = (into: Canvas, glyphEach: boolean) => {
+    for (const run of runs) {
+      const paint = new ck.Paint()
+      paint.setAntiAlias(true)
+      paint.setColor(color(ck, run.style.color))
+      drawGlyphs(ck, into, run, paint, glyphEach)
+      drawLetterLines(ck, into, run, paint)
+      paint.delete()
+    }
+  }
+  canvas.save()
+  canvas.clipRect(ck.XYWHRect(at.x, at.y, at.width, at.height), ck.ClipOp.Difference, true)
+  if (resources.vector) drawAsShapes(ck, canvas, (into) => draw(into, true))
+  else draw(canvas, false)
+  canvas.restore()
 }
 
 /** Whether an image paints every letter it fills opaque: shown whole, at full opacity, with no see-through pixel. */
@@ -216,8 +250,8 @@ function drawPlacedPass(
  * Draws what `draw` draws, opaque, in an offscreen layer of `bounds`, filled with the gradient or
  * image across the layer's box. Into a PDF an image is clipped to `bounds`, a see-through one drawn
  * whole inside a layer that holds its opacity, as a shape's image fill is (`fillPath`); and one that
- * fits inside the box is clipped to where it is drawn, as a PDF leaves the letters past it as they
- * are where the screen clears them.
+ * fits inside the box is clipped to where it is drawn, as the letters past it keep their colour
+ * (`drawPastPicture`).
  */
 function fillWith(
   ck: CanvasKit,

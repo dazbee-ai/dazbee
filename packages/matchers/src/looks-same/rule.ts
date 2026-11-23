@@ -28,6 +28,27 @@ export interface Judged {
   scores: LooksSameScores
 }
 
+/** A luminance picture, and its mean and its square's mean in the SSIM window. */
+interface Windowed {
+  luma: Float32Array
+  mean: Float32Array
+  square: Float32Array
+}
+
+/** What the rule reads from a piece alone, the same for every rebuild judged against it (`pieceSeen`). */
+interface PieceSeen {
+  /** The piece's size shrunk. */
+  width: number
+  height: number
+  /** Whether each of its shrunk pixels is ink. */
+  pieceFg: Uint8Array
+  /** The piece over each background, blurred, windowed by luminance. */
+  seenOver: (Windowed & { background: Rgb; rgb: Float32Array })[]
+  /** What it was read with: the piece's ink and the backgrounds. */
+  pieceInk: Float32Array | undefined
+  backgroundsKey: string
+}
+
 /** The rule's settings and bars. */
 export const LOOKS_SAME = {
   /** Both pictures are shrunk alike (a box filter) until neither side is over this. */
@@ -46,12 +67,20 @@ export const LOOKS_SAME = {
 
 const SSIM_C1 = (0.01 * 255) ** 2
 const SSIM_C2 = (0.03 * 255) ** 2
+/** The SSIM window: a Gaussian of σ 1.5 over 11 taps. */
+const SSIM_RADIUS = 5
+const SSIM_SIGMA = 1.5
 /** The ΔE00 memo is emptied past this many colour pairs. */
 const MEMO_LIMIT = 1_000_000
+
+/** What the rule has read from each piece alone, kept while the piece is judged again. */
+const piecesSeen = new WeakMap<Pixels, PieceSeen>()
 
 /**
  * Judges a rebuild of a piece of the given kind. Both pictures are the same size, 8-bit RGBA with
  * straight alpha. Text is judged by SSIM, ink missed and the colour guard; shapes by the far share.
+ * What is read from the piece alone is kept for the piece object and its ink, so a piece judged again
+ * must not have its pixels or ink changed in place.
  */
 export function looksSame(kind: PieceKind, piece: Pixels, rebuild: Pixels, options: JudgeOptions = {}): Judged {
   const measured = measure(piece, rebuild, options)
@@ -84,19 +113,13 @@ function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): Require
   if (piece.width !== rebuild.width || piece.height !== rebuild.height) {
     throw new Error(`the rebuild is ${rebuild.width}×${rebuild.height}, the piece ${piece.width}×${piece.height}`)
   }
-  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
-  const width = Math.max(1, Math.round(piece.width * scale))
-  const height = Math.max(1, Math.round(piece.height * scale))
+  const { width, height, pieceFg, seenOver } = pieceSeen(piece, options)
   const n = width * height
-  const a = shrink(piece, width, height)
   const b = shrink(rebuild, width, height)
-  const ink = options.pieceInk ? shrinkMask(options.pieceInk, piece.width, piece.height, width, height) : null
 
-  const pieceFg = new Uint8Array(n)
   const rebuildFg = new Uint8Array(n)
   let fgCount = 0
   for (let i = 0; i < n; i++) {
-    pieceFg[i] = (ink ? (ink[i] ?? 0) > 0.5 : (a.pixels[i * 4 + 3] ?? 0) > 127) ? 1 : 0
     rebuildFg[i] = (b.pixels[i * 4 + 3] ?? 0) > 127 ? 1 : 0
     if (pieceFg[i] || rebuildFg[i]) fgCount++
   }
@@ -104,19 +127,44 @@ function measure(piece: Pixels, rebuild: Pixels, options: JudgeOptions): Require
 
   let ssim = Infinity
   let far = -Infinity
-  const backgrounds = options.backgrounds?.length ? options.backgrounds : [LOOKS_SAME.seeThrough]
-  for (const background of backgrounds) {
-    const seenA = blurRgb(over(a, background), width, height, LOOKS_SAME.blur)
-    const seenB = blurRgb(over(b, background), width, height, LOOKS_SAME.blur)
-    ssim = Math.min(ssim, meanSsim(luma(seenA, n), luma(seenB, n), width, height))
+  for (const seenA of seenOver) {
+    const seenB = blurRgb(over(b, seenA.background), width, height, LOOKS_SAME.blur)
+    ssim = Math.min(ssim, meanSsim(seenA, luma(seenB, n), width, height))
     const memo = new Map<number, number>()
     let farCount = 0
     for (let i = 0; i < n; i++) {
-      if ((pieceFg[i] || rebuildFg[i]) && pixelDeltaE(seenA, seenB, i, memo) > LOOKS_SAME.farDeltaE) farCount++
+      if ((pieceFg[i] || rebuildFg[i]) && pixelDeltaE(seenA.rgb, seenB, i, memo) > LOOKS_SAME.farDeltaE) farCount++
     }
     far = Math.max(far, fgCount ? farCount / fgCount : 0)
   }
   return { ssim, inkMissed, far }
+}
+
+/**
+ * What the rule reads from the piece alone, read once a piece and kept while it is judged again: its
+ * size shrunk, its ink, and how it is seen over each background.
+ */
+function pieceSeen(piece: Pixels, options: JudgeOptions): PieceSeen {
+  const backgrounds = options.backgrounds?.length ? options.backgrounds : [LOOKS_SAME.seeThrough]
+  const backgroundsKey = backgrounds.map((background) => background.join(',')).join(' ')
+  const kept = piecesSeen.get(piece)
+  if (kept && kept.pieceInk === options.pieceInk && kept.backgroundsKey === backgroundsKey) return kept
+  const scale = Math.min(1, LOOKS_SAME.maxSide / Math.max(piece.width, piece.height))
+  const width = Math.max(1, Math.round(piece.width * scale))
+  const height = Math.max(1, Math.round(piece.height * scale))
+  const n = width * height
+  const a = shrink(piece, width, height)
+  const ink = options.pieceInk ? shrinkMask(options.pieceInk, piece.width, piece.height, width, height) : null
+  const pieceFg = new Uint8Array(n)
+  for (let i = 0; i < n; i++) pieceFg[i] = (ink ? (ink[i] ?? 0) > 0.5 : (a.pixels[i * 4 + 3] ?? 0) > 127) ? 1 : 0
+  const seenOver = backgrounds.map((background) => {
+    const rgb = blurRgb(over(a, background), width, height, LOOKS_SAME.blur)
+    const lumaA = luma(rgb, n)
+    return { background, rgb, ...ssimWindowed(lumaA, width, height) }
+  })
+  const seen = { width, height, pieceFg, seenOver, pieceInk: options.pieceInk, backgroundsKey }
+  piecesSeen.set(piece, seen)
+  return seen
 }
 
 /** A picture shrunk with a box filter in premultiplied colour, its alpha kept; itself at its own size. */
@@ -283,20 +331,17 @@ function luma(rgb: Float32Array, n: number): Float32Array {
   return out
 }
 
-/** The mean SSIM of two luminance pictures (Wang et al. 2004): the 11-tap window, K1 0.01, K2 0.03, range 255. */
-function meanSsim(x: Float32Array, y: Float32Array, width: number, height: number): number {
+/**
+ * The mean SSIM of the piece's luminance, windowed, and a rebuild's `y` (Wang et al. 2004): the 11-tap
+ * window, K1 0.01, K2 0.03, range 255.
+ */
+function meanSsim(x: Windowed, y: Float32Array, width: number, height: number): number {
   const n = width * height
-  const taps = normalisedGaussian(5, 1.5)
-  const meanX = ssimBlur(x, width, height, taps)
-  const meanY = ssimBlur(y, width, height, taps)
+  const { mean: meanX, square: xx } = x
+  const { mean: meanY, square: yy } = ssimWindowed(y, width, height)
   const product = new Float32Array(n)
-  const moment = (of: (i: number) => number) => {
-    for (let i = 0; i < n; i++) product[i] = of(i)
-    return ssimBlur(product, width, height, taps)
-  }
-  const xx = moment((i) => (x[i] ?? 0) * (x[i] ?? 0))
-  const yy = moment((i) => (y[i] ?? 0) * (y[i] ?? 0))
-  const xy = moment((i) => (x[i] ?? 0) * (y[i] ?? 0))
+  for (let i = 0; i < n; i++) product[i] = (x.luma[i] ?? 0) * (y[i] ?? 0)
+  const xy = ssimBlur(product, width, height, normalisedGaussian(SSIM_RADIUS, SSIM_SIGMA))
   const map = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     const mx = meanX[i] ?? 0
@@ -308,6 +353,14 @@ function meanSsim(x: Float32Array, y: Float32Array, width: number, height: numbe
   let sum = 0
   for (let i = 0; i < n; i++) sum += map[i] ?? 0
   return sum / n
+}
+
+/** A luminance picture, and its mean and its square's mean in the SSIM window. */
+function ssimWindowed(luma: Float32Array, width: number, height: number): Windowed {
+  const squared = new Float32Array(width * height)
+  for (let i = 0; i < squared.length; i++) squared[i] = (luma[i] ?? 0) * (luma[i] ?? 0)
+  const taps = normalisedGaussian(SSIM_RADIUS, SSIM_SIGMA)
+  return { luma, mean: ssimBlur(luma, width, height, taps), square: ssimBlur(squared, width, height, taps) }
 }
 
 /** One channel blurred by the SSIM window's 11 taps, its edges clamped. */

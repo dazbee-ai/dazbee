@@ -11,7 +11,8 @@ import {
   clamp,
   type Fitted,
   LINE_HEIGHT_RANGE,
-  placeByInk,
+  placeDrawn,
+  shaped,
   sizeFits,
   SPACING_RANGE,
 } from './fit.ts'
@@ -46,6 +47,7 @@ export function correct(drawer: TextDrawer, reading: PieceReading, words: string
   }
   if (!sizeFits(reading, count, size)) return fit
   const look = spacedApart(drawer, words, { ...fit.look, size, spacing, ...(lineHeight ? { lineHeight } : {}) })
-  const tried = placeByInk(drawer, reading, words, fit.face, look)
-  return tried && tried.overlap > fit.overlap ? { ...tried, lineGaps: fit.lineGaps } : fit
+  const tried = placeDrawn(drawer, reading, words, fit.face, look)
+  // Its letter shape is measured only once it is kept.
+  return tried && tried.fit.overlap > fit.overlap ? { ...shaped(reading, tried), lineGaps: fit.lineGaps } : fit
 }

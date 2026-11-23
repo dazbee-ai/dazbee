@@ -9,7 +9,14 @@ import { join } from 'node:path'
 import type { CanvasKit } from '@dazbee/canvaskit'
 import { loadFontFiles } from '@dazbee/fonts/node'
 import { type Pixels, renderPixels } from '@dazbee/renderer'
-import { type MatchAnswer, MatchJob, type MatchKit, type MatchSetting, type UnplacedLayer } from '@dazbee/schema'
+import {
+  type MatchAnswer,
+  MatchJob,
+  type MatchKit,
+  type MatchSetting,
+  type TextCurve,
+  type UnplacedLayer,
+} from '@dazbee/schema'
 
 import { decodePng } from '../shape/test-pieces.ts'
 import { fontKey, parseFontKey } from './font-key.ts'
@@ -33,6 +40,8 @@ export interface DrawnText {
   align?: 'start' | 'center' | 'end'
   /** Letter spacing in % of the size. */
   spacing?: number
+  /** Its lines bent along a curve. */
+  curve?: TextCurve
 }
 
 /** A piece of the shortlist's test: the face it is drawn in, its words and its pixels. */
@@ -131,6 +140,7 @@ export function drawText(
             ...(text.spacing ? { letterSpacing: { unit: 'percent', value: text.spacing } } : {}),
             ...(text.outline ? { outline: { ...text.outline, color: `${text.outline.color}FF` } } : {}),
           },
+          ...(text.curve ? { curve: text.curve } : {}),
         },
       },
     },

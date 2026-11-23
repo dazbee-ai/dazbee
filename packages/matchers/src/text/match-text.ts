@@ -2,13 +2,16 @@
 // the same. Light's steps: the piece is read, its font fingerprint shortlists faces, the brand kit's
 // first, each face is fitted and ranked, the best two corrected once (and the best kit font) and
 // ranked again, and two finalists verified, a kit font first when it fits nearly as well. Hybrid, the
-// default, then fits the face Light picked finer and finishes it again, and gives that answer when it
-// looks the same, else Light's when that does, else the closer of the two. A piece read shrunk is
-// matched shrunk, then each answer is scaled back and judged at full size. A piece no catalog face
-// draws, or none of those shortlisted fits, is set in the shipped Noto of its script, approximate.
-// A piece read as hollow letters is matched again read as drawn, and of the two answers the one that
-// looks the same is given, else the closer. Letters are never spaced so tight they run into each
-// other, unless only that looks the same, as where the picture's own letters do.
+// default, then fits the face Light picked finer and gives that answer when it looks the same, else
+// Light's when that does, else the closer. A piece read shrunk is matched shrunk and judged at full
+// size. A piece no catalog face draws, or none shortlisted fits, is set in its script's Noto,
+// approximate. Hollow letters are matched read as drawn too, the one that looks the same given, else
+// the closer. Letters are never spaced so tight they run into each other, unless only that looks the
+// same, as where the picture's own letters do. Letters the curve check reads along a curve are also
+// matched straightened along it (`effects/curve-frame.ts`), the face drawn curved
+// (`effects/curve.ts`): first when far off straight, else when the straight answer doesn't look the
+// same; a curve that looks the same is given unless it bends too little to replace a straight answer
+// that does, else the closer.
 
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { CatalogFace } from '@dazbee/fonts'
@@ -18,7 +21,10 @@ import { pictureAnswer } from '../shape/answer.ts'
 import { piecePixels } from '../shape/parts/piece-pixels.ts'
 import { textAnswer } from './answer.ts'
 import { pickFit } from './brand-first.ts'
+import { isStrongCurve } from './curve-check.ts'
 import { type Placed, textDrawer, type TextLook } from './draw-text.ts'
+import { curvedAnswers, type CurveFitting } from './effects/curve.ts'
+import { curveFrame } from './effects/curve-frame.ts'
 import { finerFit } from './finer-fit.ts'
 import { pieceFingerprint } from './fingerprint.ts'
 import { type FontKey } from './font-key.ts'
@@ -26,11 +32,12 @@ import { type FontSource, loadFaces } from './font-source.ts'
 import { inkBox } from './ink.ts'
 import { correct } from './light/correct.ts'
 import { fitFace, type Fitted } from './light/fit.ts'
+import { spacedAny } from './light/letters-apart.ts'
 import { rankFits } from './light/rank.ts'
 import { closeness, FINALISTS, finish, judgeText, type Verified, verify, type VerifyTarget } from './light/verify.ts'
 import type { ModelRuntime } from './model-runtime.ts'
 import { notoCandidates, plainFit } from './noto.ts'
-import { type PieceReading, type ReadPiece, readPiece } from './read-piece.ts'
+import { type PieceReading, type ReadPiece, readPiece, type TextPiece } from './read-piece.ts'
 import { type Candidate, shortlist } from './shortlist.ts'
 import type { TextFiles } from './text-files.ts'
 
@@ -74,6 +81,8 @@ interface Fitting {
   target: VerifyTarget
   fonts: FontSource
   step: (step: TextStep) => void
+  /** For a straightened piece: the curve its answers are drawn with, and what they are judged against. */
+  curve?: CurveFitting
 }
 
 /** Which faces `matchFaces` tries, what it knows of them, and whether a face no fit can size is set plainly. */
@@ -98,6 +107,12 @@ interface ReadingMatched {
 
 /** How many of the best-ranked fits are corrected. */
 const CORRECTED = 2
+/** A curve bending less than this amount is near enough straight to leave a straight answer to settle the piece. */
+const NEAR_STRAIGHT = 10
+/** A curved piece is matched with its letters no taller than this, in pixels: drawn along a curve, they fill a larger box than straight ones. */
+const CURVE_LETTER_HEIGHT = 44
+/** A curved piece is read again smaller only when that shrinks it at least this much more. */
+const SHRINK_FURTHER = 0.9
 
 /**
  * A job's text piece as one text layer in the piece's pixels, approximate when it doesn't look the
@@ -133,14 +148,34 @@ export async function matchTextWithFace(
   const read = readPiece(textPiece)
   // No pixel of the piece holds any ink: there is nothing to read.
   if (!inkBox(read.whole.ink, 0)) return { answer: pictureAnswer('failed') }
-  const asRead = await matchReading(job, words, read, deps, step)
-  // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
-  // counter, or letters in a drawn frame, can read as hollow.
-  const asDrawn =
-    read.whole.fill === null
-      ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
-      : 'failed'
-  const best = closerMatch(asDrawn, asRead)
+  const matchStraight = async () => {
+    const asRead = await matchReading(job, words, read, deps, step)
+    // Letters read as hollow are matched as drawn too, since thin letters whose every stroke edges a
+    // counter, or letters in a drawn frame, can read as hollow.
+    const asDrawn =
+      read.whole.fill === null
+        ? await matchReading(job, words, readPiece(textPiece, { hollow: false }), deps, step)
+        : 'failed'
+    return closerMatch(asDrawn, asRead)
+  }
+  const curve = read.work.curve
+  let best: ReadingMatched | 'failed'
+  if (curve !== null && isStrongCurve(curve)) {
+    // A curve that looks the same and bends at least `NEAR_STRAIGHT` settles the piece; else a straight
+    // answer that looks the same is kept.
+    const curved = await matchCurved(job, textPiece, read, deps, step)
+    const bends = curved !== 'failed' && (curved.matched.look.curve?.amount ?? 0) >= NEAR_STRAIGHT
+    if (bends && looksSame(curved)) best = curved
+    else {
+      const straight = await matchStraight()
+      best = straight !== 'failed' && looksSame(straight) ? straight : closerMatch(straight, curved)
+    }
+  } else {
+    // A curve is tried only when the straight answer doesn't look the same.
+    const straight = await matchStraight()
+    const tryCurve = curve?.fired && !(straight !== 'failed' && looksSame(straight))
+    best = closerMatch(straight, tryCurve ? await matchCurved(job, textPiece, read, deps, step) : 'failed')
+  }
   if (best === 'failed') return { answer: pictureAnswer('failed') }
   const { matched, inNoto } = best
   const { look, place, scores, bindings, styleLook } = matched
@@ -165,6 +200,7 @@ async function matchReading(
   { whole, work, scale }: ReadPiece,
   deps: TextMatcherDeps,
   step: (step: TextStep) => void,
+  curve?: CurveFitting,
 ): Promise<ReadingMatched | 'failed'> {
   const { ck, files, fonts } = deps
   step('shortlist')
@@ -180,7 +216,7 @@ async function matchReading(
   })
   const backgrounds: readonly Rgb[] = job.backgrounds ?? [whole.background]
   const target: VerifyTarget = { reading: work, words, backgrounds, kit: job.kit, scale }
-  const fitting: Fitting = { ck, setting: job.setting, words, whole, target, fonts, step }
+  const fitting: Fitting = { ck, setting: job.setting, words, whole, target, fonts, step, ...(curve ? { curve } : {}) }
   const listedMatch: FacesMatched =
     listed.candidates.length > 0 ? await matchFaces(fitting, { ...listed, plainWhenUnfitted: false }) : 'unfitted'
   const inNoto = listedMatch === 'unfitted'
@@ -195,13 +231,17 @@ async function matchReading(
   return typeof matched === 'string' ? 'failed' : { matched, inNoto }
 }
 
+/** Whether a reading's answer looks the same and isn't set in Noto. */
+function looksSame({ matched, inNoto }: ReadingMatched): boolean {
+  return matched.same && !inNoto
+}
+
 /**
  * Of two readings' answers, the one that looks the same and isn't set in Noto when only one does,
  * else the closer by the rule's SSIM less the ink missed, the first on a tie.
  */
 function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 'failed'): ReadingMatched | 'failed' {
   if (first === 'failed' || second === 'failed') return first === 'failed' ? second : first
-  const looksSame = ({ matched, inNoto }: ReadingMatched) => matched.same && !inNoto
   if (looksSame(first) !== looksSame(second)) return looksSame(first) ? first : second
   return closeness(second.matched.scores) > closeness(first.matched.scores) ? second : first
 }
@@ -209,7 +249,8 @@ function closerMatch(first: ReadingMatched | 'failed', second: ReadingMatched | 
 /**
  * The answer in one of the faces tried, its letters kept from running into each other; when that
  * doesn't look the same, the answer fitted as tight as the piece asks instead if that looks the same,
- * so a picture whose own letters run into each other keeps looking the same.
+ * so a picture whose own letters run into each other keeps looking the same. When no fit was spaced
+ * wider to keep its letters apart, fitting as tight as the piece asks would fit the same again.
  */
 async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMatched> {
   const faces = await facesOf(fitting.fonts, tried.candidates, tried.loaded, fitting.words)
@@ -217,16 +258,16 @@ async function matchFaces(fitting: Fitting, tried: FacesTried): Promise<FacesMat
   if (drawn.length === 0) return 'unloaded'
   fitting.step('fitting')
   const apart = fitFaces(fitting, tried, drawn, faces, true)
-  if (apart === 'unfitted' || apart.same) return apart
-  const touching = fitFaces(fitting, tried, drawn, faces, false)
-  return touching !== 'unfitted' && touching.same ? touching : apart
+  if (apart.answer === 'unfitted' || apart.answer.same || !apart.spacedWider) return apart.answer
+  const touching = fitFaces(fitting, tried, drawn, faces, false).answer
+  return touching !== 'unfitted' && touching.same ? touching : apart.answer
 }
 
 /**
  * The answer in one of the faces drawn, judged at full size: Light's verified pick, and in Hybrid its
  * finer fit when that looks the same, else Light's when that does, else the closer of the two by the
  * rule's SSIM less the ink missed, as Light's finalists are compared. `lettersApart` keeps every fit's
- * letters from running into each other.
+ * letters from running into each other; `spacedWider` says whether that spaced any fit wider.
  */
 function fitFaces(
   fitting: Fitting,
@@ -234,13 +275,14 @@ function fitFaces(
   drawn: readonly Candidate[],
   faces: ReadonlyMap<string, Uint8Array>,
   lettersApart: boolean,
-): Verified | 'unfitted' {
+): { answer: Verified | 'unfitted'; spacedWider: boolean } {
   const { ck, words, target } = fitting
   const { similarities } = tried
-  const { reading: work, scale } = target
+  const { reading: work } = target
   const drawer = textDrawer(ck, drawnFaces(drawn, faces), { lettersApart })
   let light: Verified | undefined
   let finer: Verified | undefined
+  let spacedWider = false
   try {
     const fits = drawn.flatMap((face) => fitFace(drawer, work, words, face) ?? [])
     const unfitted = tried.plainWhenUnfitted && fits.length === 0 && drawn[0]
@@ -252,26 +294,59 @@ function fitFaces(
     if (brandLead >= CORRECTED) fits[brandLead] = correct(drawer, work, words, fits[brandLead] as Fitted)
     rankFits(fits, similarities)
     const first = pickFit(fits)
-    if (first) {
-      const finalists = [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)]
-      light = verify(drawer, target, finalists, similarities)
-    }
-    if (light && fitting.setting === 'hybrid') {
-      fitting.step('finerFit')
+    const finalists = first ? [first, ...fits.filter((fit) => fit !== first).slice(0, FINALISTS - 1)] : []
+    if (first) light = verify(drawer, target, finalists, similarities)
+    const hybrid = fitting.setting === 'hybrid'
+    if (light && hybrid) fitting.step('finerFit')
+    const { curve } = fitting
+    if (light && curve) {
+      const finerOf = (fit: Fitted, reading: PieceReading) => finerFit(drawer, reading, words, fit)
+      // Light's pick drawn curved first, then the other finalists while none looks the same.
+      const picked = light.fit
+      const tried = [picked, ...finalists.filter((fit) => fit !== picked)]
+      const curved = curvedAnswers(drawer, curve, words, tried, hybrid ? finerOf : null)
+      light = curved?.light
+      finer = curved?.finer
+    } else if (light && hybrid) {
       const finerFitted = finerFit(drawer, work, words, light.fit)
       if (finerFitted !== light.fit) finer = finish(drawer, target, finerFitted)
     }
+    spacedWider = spacedAny(drawer)
   } finally {
     drawer.delete()
   }
-  if (!light) return 'unfitted'
+  if (!light) return { answer: 'unfitted', spacedWider }
+  // A curved answer is judged against the piece as read before it was straightened.
+  const judged = fitting.curve ?? { target, whole: fitting.whole }
   const atFullSize = (verified: Verified) =>
-    scale === 1 ? verified : atWholeSize(ck, verified, scale, faces, { ...target, reading: fitting.whole })
-  const lightAnswer = atFullSize(light)
-  const finerAnswer = finer && atFullSize(finer)
-  if (!finerAnswer) return lightAnswer
-  if (finerAnswer.same || lightAnswer.same) return finerAnswer.same ? finerAnswer : lightAnswer
-  return closeness(finerAnswer.scores) > closeness(lightAnswer.scores) ? finerAnswer : lightAnswer
+    judged.target.scale === 1
+      ? verified
+      : atWholeSize(ck, verified, judged.target.scale, faces, { ...judged.target, reading: judged.whole })
+  return { answer: hybridAnswer(atFullSize(light), finer && atFullSize(finer)), spacedWider }
+}
+
+/**
+ * The answer for a piece whose letters run along a curve: straightened along it and matched, the face
+ * found drawn curved over the piece turned upright; `failed` when the curve can't be fitted.
+ */
+async function matchCurved(
+  job: MatchJob,
+  piece: TextPiece,
+  read: ReadPiece,
+  deps: TextMatcherDeps,
+  step: (step: TextStep) => void,
+): Promise<ReadingMatched | 'failed'> {
+  const { words } = piece
+  // Letters taller than `CURVE_LETTER_HEIGHT` are matched shrunk to it, and judged at full size.
+  const tall = (read.work.curve?.letterHeight ?? 0) / read.scale
+  const scale = tall > 0 ? Math.min(read.scale, CURVE_LETTER_HEIGHT / tall) : read.scale
+  const at = scale < read.scale * SHRINK_FURTHER ? readPiece(piece, { scale }) : read
+  const frame = curveFrame(at.work, piece.angle, read.work.curve?.fired ?? null)
+  if (!frame) return 'failed'
+  const straight = readPiece({ pixels: frame.pixels, words, angle: 0 })
+  const backgrounds: readonly Rgb[] = job.backgrounds ?? [read.whole.background]
+  const target: VerifyTarget = { reading: frame.reading, words, backgrounds, kit: job.kit, scale: at.scale }
+  return matchReading(job, words, straight, deps, step, { frame, target, whole: read.whole })
 }
 
 /** The bytes of each candidate's face, those the shortlist loaded and the rest asked for at once; none for a face no font draws. */
@@ -333,6 +408,13 @@ function atWholeSize(
   } finally {
     drawer.delete()
   }
+}
+
+/** The finer fit's answer when it looks the same, else Light's when that does, else the closer by the rule's SSIM less the ink missed. */
+function hybridAnswer(light: Verified, finer: Verified | undefined): Verified {
+  if (!finer) return light
+  if (finer.same || light.same) return finer.same ? finer : light
+  return closeness(finer.scores) > closeness(light.scores) ? finer : light
 }
 
 /** A look found on the shrunk piece at the whole piece's size, its outline to the half pixel. */

@@ -7,11 +7,13 @@ import { FOCUS_RING } from '@/components/ui/looks.ts'
 import { cn } from '@/lib/cn.ts'
 
 /**
- * A swatch button of `color`, drawn `size` (a size class) off a phone, ringed while `on`. `on`
- * left out, it toggles nothing and has no pressed state; `title` defaults to `label`.
+ * A swatch button of `color`, or of the picture at `picture`, drawn `size` (a size class) off a
+ * phone, ringed while `on`. `on` left out, it toggles nothing and has no pressed state; `title`
+ * defaults to `label`.
  */
 export function Swatch({
   color,
+  picture,
   label,
   title = label,
   size,
@@ -19,6 +21,7 @@ export function Swatch({
   onPick,
 }: {
   color: string
+  picture?: string
   label: string
   title?: string
   size: string
@@ -34,7 +37,11 @@ export function Swatch({
       onClick={onPick}
       className={cn(SWATCH_TARGET, FOCUS_RING)}
     >
-      <span aria-hidden style={{ backgroundColor: color }} className={cn(SWATCH, size, on && PICKED_RING)} />
+      <span
+        aria-hidden
+        style={picture ? { background: `${color} url("${picture}") center / cover` } : { backgroundColor: color }}
+        className={cn(SWATCH, size, on && PICKED_RING)}
+      />
     </button>
   )
 }

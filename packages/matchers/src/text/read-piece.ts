@@ -1,5 +1,6 @@
 // Reading a text piece: its ink, tilt, lines, alignment, fill colour, outline and background, which
-// the text matcher starts every candidate from and the font fingerprint reads. Hollow letters, drawn
+// the text matcher starts every candidate from and the font fingerprint reads, and whether its letters
+// run along a curve (`curve-check.ts`). Hollow letters, drawn
 // only as a line round each letter, are read as the filled letters that line outlines, with no fill
 // and an outline in the line's colour and width. A piece whose lines are taller than the matcher
 // works at is read again shrunk to that height, hollow when the piece read whole is.
@@ -8,6 +9,7 @@ import type { Pixels } from '@dazbee/renderer'
 import type { Rgb } from '@dazbee/schema'
 
 import { ciede2000, srgbToLab } from '../looks-same/colour.ts'
+import { type CurveCheck, curveCheck } from './curve-check.ts'
 import {
   borderColour,
   type Box,
@@ -53,6 +55,11 @@ export interface PieceReading {
   /** The colour behind the letters: the median of the picture's outermost pixels. */
   background: Rgb
   align: 'start' | 'center' | 'end'
+  /**
+   * Whether the letters run along a curve, and the blobs that tell; read at the size the matcher works
+   * at, so null for a piece read whole that is worked shrunk.
+   */
+  curve: CurveCheck | null
 }
 
 /** A piece read at its own size and at the size the matcher works at, and how much smaller that is. */
@@ -83,19 +90,24 @@ const lineCount = (words: string) => words.split('\n').length
 
 /**
  * A text piece read at its own size and, when its lines are taller than `WORK_LINE_HEIGHT`, shrunk to
- * it; with `hollow` false its letters are read as drawn, never as hollow.
+ * it, or by `scale` when given; with `hollow` false its letters are read as drawn, never as hollow.
  */
-export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hollow?: boolean } = {}): ReadPiece {
+export function readPiece(
+  piece: TextPiece,
+  { hollow: findHollow = true, scale: given }: { hollow?: boolean; scale?: number } = {},
+): ReadPiece {
   const background = borderColour(piece.pixels)
   const ink = inkOf(piece.pixels, background)
   const found = findHollow ? hollowOf(ink) : null
   // The line round hollow letters is set to the half pixel, as an outline is read.
   const hollow = found && { ...found, width: Math.max(0.5, Math.round(found.width * 2) / 2) }
-  const whole = readAt(piece, ink, background, hollow)
   // The height of the ink as it is, tilt and all, is enough to decide.
   const box = inkBox(inkOf(piece.pixels))
-  const scale = box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1
-  if (!(scale < SHRINK_BELOW)) return { whole, work: whole, scale: 1 }
+  const scale = given ?? (box ? WORK_LINE_HEIGHT / (box.h / lineCount(piece.words)) : 1)
+  const shrinks = scale < SHRINK_BELOW
+  // The curve check is read at the size the matcher works at only.
+  const whole = readAt(piece, ink, background, hollow, !shrinks)
+  if (!shrinks) return { whole, work: whole, scale: 1 }
   const pixels = shrinkPixels(piece.pixels, scale)
   // Hollow letters keep their filled shape and line width shrunk, as the thinner line may not close them.
   const shrunk = hollow && {
@@ -103,7 +115,8 @@ export function readPiece(piece: TextPiece, { hollow: findHollow = true }: { hol
     width: hollow.width * scale,
   }
   const workBackground = borderColour(pixels)
-  return { whole, work: readAt({ ...piece, pixels }, inkOf(pixels, workBackground), workBackground, shrunk), scale }
+  const work = readAt({ ...piece, pixels }, inkOf(pixels, workBackground), workBackground, shrunk, true)
+  return { whole, work, scale }
 }
 
 /**
@@ -139,9 +152,9 @@ export function findLines(level: Ink, box: Box, count: number): Box[] {
 
 /**
  * The piece's reading at the size its pixels are, from its ink, the colour behind it and, for hollow
- * letters, their filled ink.
+ * letters, their filled ink; whether its letters run along a curve only when `checkCurve`.
  */
-function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | null): PieceReading {
+function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | null, checkCurve: boolean): PieceReading {
   const letters = hollow?.filled ?? ink
   const angle = piece.angle ?? estimateAngle(letters)
   const level = rotateInk(letters, -angle)
@@ -159,6 +172,7 @@ function readAt(piece: TextPiece, ink: Ink, background: Rgb, hollow: Hollow | nu
     outline,
     background,
     align: alignOf(lines),
+    curve: checkCurve ? curveCheck(level, lines, piece.words) : null,
   }
 }
 

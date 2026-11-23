@@ -232,6 +232,23 @@ describe('editorResizeDrag', () => {
       })
     })
 
+    it("scales the tiles of a text's tiled images from a corner, its own runs' too", () => {
+      const { drag, session, selection, frame, pressSelection } = harness()
+      const tile = (tileScale: number) =>
+        ({ type: 'image', assetId: 'dots', fit: 'tile', opacity: 1, tileScale }) as const
+      const words = session.design().nodes.words
+      const style = words?.type === 'text' ? words.props.style : {}
+      session.run('node.update', { ids: ['words'], patch: { style: { ...style, image: tile(0.5) } } })
+      session.run('text.edit', { id: 'words', op: { kind: 'style', at: 0, length: 2, style: { image: tile(0.25) } } })
+      selection.select(['words'], frame.id)
+      const resize = pressSelection({ x: 900, y: 148 })
+      drag.drag(resize, { x: 1100, y: 196 }, false, false, false)
+      expect(session.design().nodes.words?.props).toMatchObject({
+        style: { fontSize: 40, image: tile(1) },
+        runs: [{ start: 0, end: 2, style: { fontSize: 80, image: tile(0.5) } }],
+      })
+    })
+
     it('scales a curved text from a corner, then fits its box to its curve', () => {
       const { drag, session, selection, frame, log, pressSelection } = harness()
       session.run('node.update', { ids: ['words'], patch: { curve: { shape: 'circle', amount: 50 } } })

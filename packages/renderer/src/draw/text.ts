@@ -123,7 +123,7 @@ function drawImageFill(
   const painted = runs.filter((run) => drawsLines(run.style, pass))
   const bounds = placedInk(painted)
   if (!bounds) return
-  if (!opaque(ck, image, resources)) {
+  if (!paintsOpaque(ck, image, resources)) {
     fillWith(ck, canvas, image, box, bounds, resources, () => drawPlacedPass(ck, canvas, painted, pass, box, resources))
     return
   }
@@ -138,14 +138,14 @@ function drawImageFill(
   if (resources.vector) {
     canvas.save()
     canvas.clipRect(ck.XYWHRect(bounds.x, bounds.y, bounds.width, bounds.height), ck.ClipOp.Intersect, false)
-    drawAsShapes(ck, canvas, (into) => draw(into, true))
+    drawAsShapes(ck, canvas, (into) => draw(into, true), true)
     canvas.restore()
   } else draw(canvas, false)
   paint.delete()
 }
 
 /** Whether an image paints every letter it fills opaque: shown whole, at full opacity, with no see-through pixel. */
-function opaque(ck: CanvasKit, image: TextImagePaint, resources: Resources): boolean {
+function paintsOpaque(ck: CanvasKit, image: TextImagePaint, resources: Resources): boolean {
   const drawn = resources.images.get(image.assetId)
   return image.opacity === 1 && drawn?.getImageInfo().alphaType === ck.AlphaType.Opaque
 }
@@ -175,7 +175,8 @@ function drawPlacedPass(
       }
     }
   }
-  if (resources.vector) drawAsShapes(ck, canvas, (into) => draw(into, true), pass.kind === 'fill')
+  if (resources.vector)
+    drawAsShapes(ck, canvas, (into) => draw(into, true), pass.kind === 'fill' || pass.kind === 'image')
   else draw(canvas, false)
 }
 
@@ -254,7 +255,8 @@ function placedInk(runs: readonly PlacedRun[]): Rect | null {
 
 /**
  * Draws text as the glyphs' outlines, so a PDF holds the text once, as the fill pass's text; a glyph
- * with no outline (a colour emoji) is kept as text with `keepColourGlyphs`, else left out.
+ * with no outline (a colour emoji) is kept as text with `keepColourGlyphs`, else left out: kept in
+ * the passes that paint characters, the fill and an image's.
  */
 function drawAsShapes(ck: CanvasKit, canvas: Canvas, draw: (into: Canvas) => void, keepColourGlyphs = false) {
   const recorder = new ck.PictureRecorder()

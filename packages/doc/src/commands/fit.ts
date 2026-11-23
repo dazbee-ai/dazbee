@@ -7,12 +7,11 @@ import {
   type Rect,
   smallestLetters,
   type TextProps,
-  TILE_SCALE,
 } from '@dazbee/schema'
 
 import { LEFT_TOP } from '../constraints.ts'
 import { round } from '../geometry.ts'
-import { scaled, scaledTiles } from '../text-scale.ts'
+import { scaled, scaledTile, scaledTiles } from '../text-scale.ts'
 
 export interface Size {
   width: number
@@ -274,7 +273,7 @@ function look(props: LookLike, s: number): Partial<LookLike> {
   const { cornerRadius } = props
   if (cornerRadius !== undefined)
     out.cornerRadius = Array.isArray(cornerRadius) ? cornerRadius.map((n) => length(n, s)) : length(cornerRadius, s)
-  if (props.fills) out.fills = props.fills.map((paint) => tiled(paint, s))
+  if (props.fills) out.fills = props.fills.map((paint) => scaledTile(paint, s))
   if (props.strokes) out.strokes = props.strokes.map((stroke) => scaledStroke(stroke, s))
   if (props.effects) out.effects = props.effects.map((effect) => scaledEffect(effect, s))
   return out
@@ -290,15 +289,13 @@ function length(n: number, s: number) {
   return Math.max(0, scaledBy(n, s))
 }
 
-/** An image that tiles at a tile scale, its tiles scaled inside `TILE_SCALE`; any other paint as it is. */
-function tiled<T extends PaintLike>(paint: T, s: number): T {
-  if (paint.type !== 'image' || paint.fit !== 'tile' || paint.tileScale === undefined) return paint
-  return { ...paint, tileScale: Math.min(TILE_SCALE.max, Math.max(TILE_SCALE.min, scaledBy(paint.tileScale, s))) }
-}
-
 /** A stroke's width, dashes and dash offset scaled, and its paint's tiles. */
 function scaledStroke<T extends StrokeLike>(stroke: T, s: number): T {
-  const out = { ...stroke, paint: tiled(stroke.paint, s), width: Math.max(MIN_STROKE_WIDTH, scaledBy(stroke.width, s)) }
+  const out = {
+    ...stroke,
+    paint: scaledTile(stroke.paint, s),
+    width: Math.max(MIN_STROKE_WIDTH, scaledBy(stroke.width, s)),
+  }
   if (stroke.dashes) out.dashes = scaledDashes(stroke.dashes, s)
   if (stroke.dashOffset !== undefined) out.dashOffset = scaledBy(stroke.dashOffset, s)
   return out

@@ -117,10 +117,9 @@ export function hasGuides(frame: Pick<Frame, 'guides'> | undefined): boolean {
 }
 
 /**
- * Every asset an image paint of the design names, on frames and layers' fills and strokes and texts'
- * styles and runs, sorted; only those of the
- * frames named and the layers inside them, when `frameIds` is given. With the brand's variables, a
- * picture bound to the brand's logo is the kit's.
+ * Every asset an image paint of the design names, on frames, layers' fills and strokes, and texts'
+ * styles and runs, sorted; only those of the frames named and the layers inside them, when
+ * `frameIds` is given. With the brand's variables, a picture bound to the brand's logo is the kit's.
  */
 export function imageAssetIds(design: Design, frameIds?: Iterable<string>, variables?: Variables): string[] {
   const within = frameIds && new Set(frameIds)

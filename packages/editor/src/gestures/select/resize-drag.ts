@@ -294,12 +294,13 @@ function keptBy(box: Box, handle: Handle, fromCentre: boolean): Point {
   return turn({ x: box.x + kept.x * box.width, y: box.y + kept.y * box.height }, centreOf(box), box.rotation)
 }
 
-/** The sizes a run's style sets, which a corner scales: its font size, letter spacing and outline. */
+/** The sizes a run's style sets, which a corner scales: its font size, letter spacing, outline and tiled image. */
 function sizesOf(style: RunStyle): RunStyle {
   const sizes: RunStyle = {}
   if (style.fontSize !== undefined) sizes.fontSize = style.fontSize
   if (style.letterSpacing !== undefined) sizes.letterSpacing = style.letterSpacing
   if (style.outline !== undefined) sizes.outline = style.outline
+  if (style.image?.fit === 'tile' && style.image.tileScale !== undefined) sizes.image = style.image
   return sizes
 }
 

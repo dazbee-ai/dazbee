@@ -290,8 +290,10 @@ function build(ck: CanvasKit, props: TextProps, resources: TextResources, scale:
   const markers = ranges.map(({ start, end }) => {
     if (!props.list || start === end) return null
     number++
-    // A marker is never raised or lowered, whichever its paragraph's first character is.
+    // A marker is never raised or lowered, whichever its paragraph's first character is, and is
+    // drawn in its colour where that character is painted with an image, which paints only characters.
     const style = withoutSuperSubs(styleAt(start))
+    delete style.image
     const builder = ck.ParagraphBuilder.MakeFromFontCollection(paragraphStyle(style), resources.fonts)
     push(builder, { style }, FILL)
     // In right-to-left text the full stop lands on the number's left, as Arabic lists show it.

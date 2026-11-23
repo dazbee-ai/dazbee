@@ -267,7 +267,7 @@ describe('ad_rules', () => {
     const agent = await agentOf()
     const rules = (await agent.json('ad_rules', { size: '1080x1080' })) as SizeRules
     expect(rules.textEffects).toMatch(/Fill a text with an image.*one or two heavy words over a plain background/s)
-    expect(rules.textEffects).toMatch(/texture.*pattern.*never thin type or body copy/s)
+    expect(rules.textEffects).toMatch(/photo.*tiled.*never thin type or body copy/s)
   })
 
   it('advises a kind of ad, with font pairings Google Fonts has in the weights named', async () => {

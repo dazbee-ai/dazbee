@@ -17,8 +17,8 @@ type Sized = {
   letterSpacing?: LetterSpacing | undefined
   outline?: Style['outline'] | undefined
 }
-/** The image a style may hold, whose tiles may have a size. */
-type Tiled = { image?: { fit?: string | undefined; tileScale?: number | undefined } | undefined }
+/** A paint, of which an image that tiles has a size. */
+type TilePaint = { type: string; fit?: string | undefined; tileScale?: number | undefined }
 
 /**
  * Every size in a style scaled: its font size, letter spacing in pixels and outline width. Letter
@@ -35,14 +35,19 @@ export function scaled<T extends Sized>(style: T, scale: number, round: (n: numb
 }
 
 /**
- * A style's image that tiles at a tile scale, its tiles scaled by `factor` to hundredths, inside
- * `TILE_SCALE`, as a shape's tiled fill is; the same style for any other.
+ * A paint's tiles scaled by `factor` to hundredths, inside `TILE_SCALE`, where it is an image that
+ * tiles at a tile scale; any other paint as it is.
  */
-export function scaledTiles<T extends Tiled>(style: T, factor: number): T {
-  const { image } = style
-  if (factor === 1 || image?.fit !== 'tile' || image.tileScale === undefined) return style
-  const tileScale = Math.min(TILE_SCALE.max, Math.max(TILE_SCALE.min, round(image.tileScale * factor)))
-  return { ...style, image: { ...image, tileScale } }
+export function scaledTile<T extends TilePaint>(paint: T, factor: number): T {
+  if (paint.type !== 'image' || paint.fit !== 'tile' || paint.tileScale === undefined) return paint
+  return { ...paint, tileScale: Math.min(TILE_SCALE.max, Math.max(TILE_SCALE.min, round(paint.tileScale * factor))) }
+}
+
+/** A style whose image tiles at a tile scale, its tiles scaled by `factor` (`scaledTile`); the same style for any other. */
+export function scaledTiles<T extends { image?: TilePaint | undefined }>(style: T, factor: number): T {
+  if (factor === 1 || !style.image) return style
+  const image = scaledTile(style.image, factor)
+  return image === style.image ? style : { ...style, image }
 }
 
 /**

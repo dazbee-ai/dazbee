@@ -89,7 +89,7 @@ export function linesColour(style: Style, pass: TextPass): string {
  */
 export function passPaint(ck: CanvasKit, style: Style, pass: TextPass, box: Rect): CkPaint | null {
   if (pass.kind === 'lines') return null
-  if (pass.kind === 'image') return paintsWith(style, pass) ? opaque(ck) : null
+  if (pass.kind === 'image') return paintsWith(style, pass) ? opaqueLetters(ck) : null
   if (pass.kind === 'fill' && shownImage(style)) return null
   if (pass.kind === 'outline') {
     const { outline } = style
@@ -136,7 +136,7 @@ function paintsWith(style: Style, pass: Extract<TextPass, { kind: 'image' }>): b
 }
 
 /** Characters an image pass draws: opaque, for the image to fill. */
-function opaque(ck: CanvasKit): CkPaint {
+function opaqueLetters(ck: CanvasKit): CkPaint {
   const paint = new ck.Paint()
   paint.setAntiAlias(true)
   paint.setColor(ck.BLACK)

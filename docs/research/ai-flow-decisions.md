@@ -72,6 +72,32 @@ The measurements behind these choices are in [ai-flow-image-models.md](ai-flow-i
 - **Checked against real bills while building.** A small number of real paid calls on our own workspaces are compared with each seller's billing page before taking money. Up to US$1–2 in all may be spent on these checks without asking first; the spend is reported after each round, and going past US$2 needs the owner's OK.
 - **Prompts still to write:** a resize prompt, written and tested before resizing is built; prompts for other kinds when each kind is added.
 
+### AI calls and metering (25 Nov 2026)
+
+Settled in the grilling for the first spec, AI calls and metering.
+
+- **Jobs run in their own container,** `apps/worker`, with a 256 MB cap (ADR-0022). The API only checks a job, sets its hold aside and saves it.
+- **The layer split lives in `python/layering/`** as a Modal app, deployed by CI. While the first spec is built it is deployed only for each check and deleted after. It stays deployed once the AI flow screen goes live.
+- **Seller order to start,** which an admin can change:
+
+  | Model           | First      | Then, in order          |
+  | --------------- | ---------- | ----------------------- |
+  | GPT Image 2.5   | OpenAI     | ZenMux                  |
+  | GPT text models | OpenAI     | OpenRouter, then ZenMux |
+  | Muse Image      | Meta       | OpenRouter, then ZenMux |
+  | Seedream 5.5    | OpenRouter | ZenMux, then Pixazo     |
+
+- **The allowance is counted in rupees** (ADR-0023). The price list holds each seller's price in the currency it bills in, with any GST or fee it adds, and an admin-set rate per currency that includes the bank's forex fee.
+- **Each grant keeps the usage rate of the day it was given,** so a new rate reaches a workspace with its next grant.
+- **Holds:** an AI job holds its expected cost. It is refused when its hold is more than what is left. Each AI call that delivers is charged its real cost, a failed call is never charged, and the rest of the hold is given back. A job that costs more than its hold is still charged in full, so a grant can end a little below zero.
+- **Grants in the first spec are gifts** an admin gives from the admin page. Trials, plans and packs come with plans and payments, on the same grants.
+- **A workspace's Owner, Admins and Editors use AI;** Reviewers don't.
+- **The call log keeps no prompt and no picture.**
+- **No AI screen for people in the first spec.** It adds the admin page's AI section and a script that runs each AI step once for the bill checks.
+- **A daily check that differs by more than 2% shows in red on the admin page.** It is emailed once Dazbee sends email of its own.
+- **When a seller fails,** the call is tried once more there, then on the next seller. A call that times out counts as failed. A seller that made and billed it anyway shows up in the daily check.
+- **Meta and Pixazo have no cost report to fetch.** Production uses its own keys for them. An unknown call is asked about again the next day where the seller allows it (Pixazo), and is otherwise counted as a cost to us (Meta). An admin uploads each seller's usage file from its dashboard, and the admin page compares it with the call log.
+
 ### Plans (25 Nov 2026)
 
 - **Three paid plans: Solo, Team and Agency**, each for one kind of customer: one marketer, a company's team, an agency with clients. Each step up adds what the next customer needs (more people and brands, roles, approval, agents, client access, longer version history), not only more of the same.
@@ -90,4 +116,4 @@ The measurements behind these choices are in [ai-flow-image-models.md](ai-flow-i
 ## Not decided
 
 - **Starting numbers:** each plan's price, AI allowance and limits, the trial's AI allowance, top-up pack prices, and any yearly discount. A first guess is under discussion.
-- **Which seller is first for each model**, and whether Seedream on OpenRouter adds a watermark.
+- **Whether Seedream on OpenRouter adds a watermark.**

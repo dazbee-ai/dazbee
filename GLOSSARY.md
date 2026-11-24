@@ -5,7 +5,7 @@ The design editor and AI ad flow for solo marketers, companies and agencies. Thi
 ## Workspace
 
 **Workspace**:
-Whoever signs up and pays: its seats, brands, AI credits and billing. A person can belong to several. See ADR-0011.
+Whoever signs up and pays: its seats, brands, AI allowance and billing. A person can belong to several. See ADR-0011.
 _Avoid_: Org, account, team, tenant
 
 **Member**:
@@ -668,8 +668,76 @@ One flat AI-generated ad in a round. Starred, used, or refined into draft versio
 _Avoid_: Generation, option, candidate
 
 **Layering**:
-The job that turns a chosen draft into real layers: plan, separate, read, live text (the text matcher), vectorise (the shape matcher), backdrop, place.
+The AI job that turns a chosen draft into real layers: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place.
 _Avoid_: Decompose, editable-ize, convert
+
+**Mode**:
+The name a person picks a kind of draft by, **Fast** or **Precise**, never a model's name. An admin sets which model each mode runs, so changing the model doesn't change the screen.
+_Avoid_: Model, quality, engine
+
+**AI step**:
+One kind of AI call the flow makes, named by what it does for the person: the round plan, a Fast or Precise draft, a refine, a resize, the layer plan, the layer split and reading the layers. Every AI call is one AI step, tracked as that step even where two steps call the same model. An admin sets which model each step runs.
+_Avoid_: Step (that is a tab's undo step), feature, endpoint, action
+
+**Layer split**:
+The AI step of layering that splits a draft into picture layers, on our own GPU. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
+_Avoid_: Decompose, segmentation
+
+**AI job**:
+What a person asks the AI flow for in one go, such as a round, made of the AI calls it needs and run on the server, so leaving the page or closing it stops nothing. It holds its expected cost from the allowance when it is asked for, and gives back what it didn't use when it ends, fails or is cancelled.
+_Avoid_: Task, request, run
+
+**AI call**:
+One call to a model for one AI step of an AI job, made through a seller, with what the seller said it used and what that really cost us. A call that fails is never charged to the workspace.
+_Avoid_: Request, generation, inference
+
+**Unknown call**:
+An AI call that got no clear answer, such as one that timed out, so we can't tell whether the seller made and billed it. It is charged to no workspace; it is settled from the seller's own records where they can be asked, and otherwise counted as a cost to us.
+_Avoid_: Lost call, orphan
+
+**Seller**:
+A company we buy a model's calls from: OpenAI, Meta, OpenRouter, ZenMux, Pixazo, or Modal for our own GPU. A model can be bought from several sellers, tried in the order an admin sets, the next one standing in when one fails.
+_Avoid_: Provider (too broad), vendor, supplier
+
+**Price list**:
+What each seller charges for each model, in the currency it bills in, with any GST or fee it adds and the rate that turns its currency into rupees with the bank's forex fee. It gives an AI call's real cost.
+_Avoid_: Rate card, pricing
+
+**Call log**:
+Every AI call made, one row each: its AI job, workspace and person, its AI step, model and seller, what it used and its real cost. It keeps no prompt and no picture.
+_Avoid_: Usage log, audit log
+
+**Allowance**:
+A workspace's AI use, counted in what it really costs us in rupees and shown to its people only as a usage bar, never as credits or a price per step. It belongs to the whole workspace and is the sum of its grants that haven't run out or expired.
+_Avoid_: Credits, balance, quota, budget
+
+**Grant**:
+An amount of allowance with an expiry, given to one workspace by a gift, a trial, a plan or a top-up pack. AI use draws from the grant that expires first. A grant keeps the usage rate of the day it was given.
+_Avoid_: Credit pack, top-up (that is what is bought), wallet
+
+**Usage rate**:
+How much of the allowance each rupee of real cost takes, set by an admin for every workspace at once. A grant keeps the rate of the day it was given, so a new rate reaches a workspace with its next grant and never changes one already given.
+_Avoid_: Markup, multiplier, price
+
+**Usage bar**:
+How much of its allowance a workspace has used, as people see it: a share of its live grants, with no amounts in rupees.
+_Avoid_: Credit counter, meter
+
+**Hold**:
+The expected cost of an AI job, set aside from the allowance when the job is asked for, so two jobs can't spend the same amount. Each AI call's charge is taken from it, and what is left is given back when the job ends. A job whose hold is more than the allowance left is refused.
+_Avoid_: Reservation, authorization, pre-charge
+
+**Allowance ledger**:
+Every change to every grant's allowance, as rows that are only ever added: a hold, a charge and a give-back.
+_Avoid_: Wallet, credit history, transactions
+
+**Daily check**:
+Each day's comparison of the call log's cost with each seller's own record of what it billed, marked when they differ by more than 2%. Sellers we can't ask each day are checked from the file an admin uploads from the seller's dashboard.
+_Avoid_: Reconciliation, audit
+
+**Spending stop**:
+The most Dazbee may spend on AI calls in one day, across every workspace, set by an admin. Once a day's spend reaches it, new AI jobs are refused until the next day.
+_Avoid_: Kill switch, circuit breaker, budget
 
 **Piece**:
 One part of a picture that a matcher rebuilds as layers: its pixels, its place on the picture, whether it is text or shapes, and for text the words it says. A whole picture can be one piece.

@@ -7,7 +7,7 @@ import type { CallInput } from '@dazbee/schema'
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { aspectOf, openrouterSeller, resolutionOf } from './openrouter.ts'
-import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
+import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
 import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
@@ -71,6 +71,31 @@ describe('openrouterSeller', () => {
     )
     expect(JSON.parse(String(marked.sent[0]?.body)).input_references).toHaveLength(2)
     expect(edited.usage).toEqual({ picture: 1, 'reference-picture': 2 })
+  })
+
+  it('reads a text answer cut off at its output limit as cut off with its usage', async () => {
+    const cut = JSON.stringify({
+      id: 'gen-cut',
+      object: 'response',
+      status: 'incomplete',
+      incomplete_details: { reason: 'max_output_tokens' },
+      output: [],
+      usage: { input_tokens: 50, input_tokens_details: { cached_tokens: 0 }, output_tokens: 900, cost: 0.001 },
+    })
+    const { fetch, sent } = fakeFetch([['/responses', { body: cut }]])
+    const text: CallInput = {
+      kind: 'text',
+      instructions: 'List.',
+      prompt: 'An ad.',
+      pictures: [],
+      maxOutputTokens: 900,
+    }
+    const error = await openrouterSeller('test-key', { fetch })
+      .call({ ...requestOf(text), model: 'openai/gpt-6-luna' })
+      .catch((e: unknown) => e)
+    expect(JSON.parse(String(sent[0]?.body)).max_output_tokens).toBe(900)
+    expect(error).toBeInstanceOf(SellerCutOff)
+    expect((error as SellerCutOff).usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 900 })
   })
 
   it('reads its recorded out-of-credit answer as a seller out of money', async () => {

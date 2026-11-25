@@ -1600,6 +1600,11 @@ export const ar: Messages = {
       wrongKindDefault:
         'يجب أن يكون النموذج الافتراضي لنوع {kind} {wants}، أما {model} فهو {is}، ومسعّر بوحدات: {units}.',
       source: 'يشغّل',
+      sizes: 'الأحجام، بالرموز',
+      sizesSet: 'المضبوط: {input} دخل، {output} خرج، السقف {ceiling}',
+      sizesMeasured:
+        'المقيس: {input} دخل (95%: {inputP95})، {output} خرج (95%: {outputP95})، على {calls} استدعاء، قُطع منها {cutOff}',
+      tooFewCalls: 'المقيس: استدعاءات قليلة جدًا ({calls} من {needed})',
       fromKind: 'افتراضي النوع',
       override: 'نموذج خاص',
       useDefault: 'استخدم افتراضي النوع',

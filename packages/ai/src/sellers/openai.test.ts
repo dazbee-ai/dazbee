@@ -9,7 +9,7 @@ import type { CallInput } from '@dazbee/schema'
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { openaiSeller } from './openai.ts'
-import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
+import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
 import { referencesOf } from './test-fetch.ts'
 
 /** A request a fake fetch saw: its URL and body. */
@@ -83,6 +83,36 @@ describe('openaiSeller', () => {
       sellerCost: 61n,
       realCost: 6_978n,
     })
+  })
+
+  it('sends the call’s output limit, and reads an answer cut off at it, with or without a schema, as cut off with its usage', async () => {
+    const recorded = JSON.parse(fixture('openai-responses-text.json')) as Record<string, unknown>
+    // The same answer, stopped at its output limit partway through its JSON.
+    const cut = JSON.stringify({
+      ...recorded,
+      status: 'incomplete',
+      incomplete_details: { reason: 'max_output_tokens' },
+      output: [
+        {
+          id: 'msg_cut',
+          type: 'message',
+          role: 'assistant',
+          status: 'incomplete',
+          content: [{ type: 'output_text', text: '{"ideas":["Bo', annotations: [] }],
+        },
+      ],
+    })
+    for (const input of [
+      { ...TEXT, maxOutputTokens: 900 },
+      { ...TEXT, schema: undefined, maxOutputTokens: 900 },
+    ]) {
+      const { seller, seen } = answering(200, cut)
+      const error = await seller.call(requestOf(input as CallInput)).catch((e: unknown) => e)
+      expect(JSON.parse(String(seen[0]?.body)).max_output_tokens).toBe(900)
+      expect(error).toBeInstanceOf(SellerCutOff)
+      expect((error as SellerCutOff).usage).toEqual({ 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 })
+      expect(sellerFailure(error)).toBe('fail')
+    }
   })
 
   it('reads a picture answer: its picture at its own size, and its text and picture tokens, at its real cost', async () => {

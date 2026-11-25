@@ -15,6 +15,8 @@ const RESIZE: AiStepModelView = {
   options: {},
   source: 'override',
   updatedAt: '2026-11-25T10:00:00.000Z',
+  sizes: null,
+  measured: null,
 }
 
 describe('stepRowKey', () => {

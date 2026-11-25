@@ -86,6 +86,30 @@ const PAGE: AiPage = {
       options: {},
       source: 'override',
       updatedAt: AT,
+      sizes: null,
+      measured: null,
+    },
+    {
+      step: 'flow.round-plan',
+      kind: 'text',
+      model: 'gpt-6-luna',
+      models: ['gpt-6-luna'],
+      options: {},
+      source: 'kind',
+      updatedAt: null,
+      sizes: { input: 6000, output: 3000, ceiling: 12000 },
+      measured: { calls: 25, cutOff: 1, input: { average: 5800, p95: 7100 }, output: { average: 2900, p95: 4200 } },
+    },
+    {
+      step: 'flow.read',
+      kind: 'text',
+      model: 'gpt-6-luna',
+      models: ['gpt-6-luna'],
+      options: {},
+      source: 'kind',
+      updatedAt: null,
+      sizes: { input: 8000, output: 2000, ceiling: 8000 },
+      measured: { calls: 3, cutOff: 0, input: { average: 7000, p95: 7500 }, output: { average: 1800, p95: 1900 } },
     },
     {
       step: 'flow.draft-fast',
@@ -95,6 +119,8 @@ const PAGE: AiPage = {
       options: {},
       source: 'kind',
       updatedAt: null,
+      sizes: null,
+      measured: null,
     },
   ],
   costs: [
@@ -211,6 +237,11 @@ describe('PilotAiPage', () => {
     // Only the step with its own model can go back to its kind's default.
     expect(page.match(/Use the kind default/g)).toHaveLength(1)
     expect(page).toContain('data-feature="flow"')
+    // A text step's sizes as set, and as measured once it has 20 calls.
+    expect(page).toContain('Set: 6,000 in, 3,000 out, ceiling 12,000')
+    expect(page).toContain('Measured: 5,800 in (95%: 7,100), 2,900 out (95%: 4,200), over 25 calls, 1 cut off')
+    expect(page).toContain('Measured: too few calls (3 of 20)')
+    expect(page).not.toContain('data-sizes="flow.refine"')
     expect(page).toContain('data-model="seedream-5.5"')
     expect(findAiWorkspaces).not.toHaveBeenCalled()
     expect(findAllowance).not.toHaveBeenCalled()

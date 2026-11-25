@@ -6,7 +6,7 @@ import type { CallInput } from '@dazbee/schema'
 
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
-import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
+import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
 import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 import { nearestAspect, zenmuxSeller } from './zenmux.ts'
 
@@ -84,6 +84,21 @@ describe('zenmuxSeller', () => {
       usage: { 'input-token': 100, 'cached-input-token': 20, 'output-token': 40 },
       requestId: 'zm-text',
     })
+  })
+
+  it('sends the call’s output limit, and reads an answer that stopped at it as cut off with its usage', async () => {
+    const cut = JSON.stringify({
+      id: 'chatcmpl-cut',
+      choices: [{ index: 0, message: { role: 'assistant', content: '{"ideas":["Bo' }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 120, completion_tokens: 40, prompt_tokens_details: { cached_tokens: 20 } },
+    })
+    const { fetch, sent } = fakeFetch([['/chat/completions', { body: cut }]])
+    const error = await zenmuxSeller('test-key', { fetch })
+      .call(requestOf({ ...TEXT, maxOutputTokens: 900 } as CallInput, 'openai/gpt-6-luna'))
+      .catch((e: unknown) => e)
+    expect(JSON.parse(String(sent[0]?.body)).max_completion_tokens).toBe(900)
+    expect(error).toBeInstanceOf(SellerCutOff)
+    expect((error as SellerCutOff).usage).toEqual({ 'input-token': 100, 'cached-input-token': 20, 'output-token': 40 })
   })
 
   it('makes Muse pictures through its OpenAI Images API, priced per picture', async () => {

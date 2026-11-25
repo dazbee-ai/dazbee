@@ -27,7 +27,8 @@ const port = Number(process.env.WORKER_PORT ?? 8790)
 const callLimit = Number(process.env.WORKER_AI_CALLS ?? 8)
 if (!Number.isInteger(callLimit) || callLimit < 1) throw new Error('WORKER_AI_CALLS is a whole number from 1')
 
-// Each seller whose key is set: OPENAI_API_KEY, MUSE_API_KEY, OPENROUTER_API_KEY, ZENMUX_API_KEY, PIXAZO_API_KEY.
+// Each seller whose keys are set: OPENAI_API_KEY, MUSE_API_KEY, OPENROUTER_API_KEY, ZENMUX_API_KEY,
+// PIXAZO_API_KEY, and MODAL_TOKEN_ID with MODAL_TOKEN_SECRET.
 const sellers = useSellersOf()
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(storageSettings())

@@ -8,7 +8,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "python-models": "node scripts/python-models.ts",
+    "python-models:check": "node scripts/python-models.ts --check"
   },
   "dependencies": {
     "@dazbee/fonts": "workspace:*",

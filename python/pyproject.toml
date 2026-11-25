@@ -1,0 +1,19 @@
+# The Python workspace (uv): model-adjacent apps that run outside the Node apps. Each app is a member.
+[tool.uv.workspace]
+members = ["layering"]
+
+[dependency-groups]
+dev = ["datamodel-code-generator==0.102.0", "ruff==0.17.6"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# Generated from packages/schema by packages/schema/scripts/python-models.ts.
+extend-exclude = ["layering/contract.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.isort]
+# The layer split app's own modules, which Modal loads beside it.
+known-first-party = ["app", "contract", "weights", "workflow"]

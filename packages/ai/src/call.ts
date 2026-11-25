@@ -9,7 +9,7 @@ import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbe
 import { charge } from './ledger.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
-import { type SellerAnswer, sellerFailure, type SellerOutput } from './sellers/seller.ts'
+import { type SellerAnswer, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
 import { routeStep, stepDef, type StepSeller } from './steps.ts'
 
@@ -255,7 +255,8 @@ async function tryOnce(
     }
     const message = messageOf(error)
     const next = sellerFailure(error)
-    await endTry(db, row, 'failed', next === 'next-seller' ? `out of money: ${message}` : message)
+    const state = error instanceof SellerTimedOut ? 'unknown' : 'failed'
+    await endTry(db, row, state, next === 'next-seller' ? `out of money: ${message}` : message)
     return { ok: false, error: message, next }
   }
 }

@@ -7,8 +7,6 @@ import { headers } from 'next/headers'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
-import { UtcDay } from '@dazbee/schema'
-
 import { AiCosts, AiRange } from '@/components/pilot/ai-costs.tsx'
 import { AiDailyCheck } from '@/components/pilot/ai-daily-check.tsx'
 import { AiGrants } from '@/components/pilot/ai-grants.tsx'
@@ -17,6 +15,7 @@ import { AiSellerOrder } from '@/components/pilot/ai-seller-order.tsx'
 import { AiSettings } from '@/components/pilot/ai-settings.tsx'
 import { AiStepModels } from '@/components/pilot/ai-step-models.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
+import { daysOf, one, pick } from '@/lib/admin-days.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { isPilotHost } from '@/lib/pilot-host.ts'
 import { findAiPage, findAiWorkspaces, findAllowance } from '@/lib/server/admin-ai.ts'
@@ -28,12 +27,6 @@ export const dynamic = 'force-dynamic'
 type Query = Promise<Record<'from' | 'to' | 'q' | 'workspace', string | string[] | undefined>>
 
 const PANEL = 'flex flex-col gap-6 rounded-[20px] border border-line bg-surface p-5 shadow-panel md:p-7'
-
-/** The days shown when the address names none: the last 14 UTC days, today's included. */
-const DEFAULT_DAYS = 14
-
-/** The most days apart the API takes. */
-const MOST_DAYS = 92
 
 /** The page's title, only where the page is found: elsewhere the title is the not-found page's. */
 export async function generateMetadata({ searchParams }: { searchParams: Query }) {
@@ -102,37 +95,4 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
       </div>
     </main>
   )
-}
-
-/**
- * The UTC days the address names, `from` not after `to` and at most `MOST_DAYS` apart; otherwise the last
- * `DEFAULT_DAYS`, `refused` when the address named days.
- */
-function daysOf(query: { from: string | undefined; to: string | undefined }): {
-  from: string
-  to: string
-  refused: boolean
-} {
-  const from = UtcDay.safeParse(query.from)
-  const to = UtcDay.safeParse(query.to)
-  if (from.success && to.success) {
-    const apart = (Date.parse(to.data) - Date.parse(from.data)) / 86_400_000
-    if (apart >= 0 && apart <= MOST_DAYS) return { from: from.data, to: to.data, refused: false }
-  }
-  const today = Date.now()
-  return {
-    from: new Date(today - (DEFAULT_DAYS - 1) * 86_400_000).toISOString().slice(0, 10),
-    to: new Date(today).toISOString().slice(0, 10),
-    refused: Boolean(query.from || query.to),
-  }
-}
-
-/** The first of a setting the address gives more than once. */
-function one(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value
-}
-
-/** The address's settings that are set. */
-function pick(settings: Record<string, string | undefined>): Record<string, string> {
-  return Object.fromEntries(Object.entries(settings).filter((entry): entry is [string, string] => Boolean(entry[1])))
 }

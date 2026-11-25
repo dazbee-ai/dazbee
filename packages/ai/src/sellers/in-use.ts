@@ -34,7 +34,7 @@ export function useSellersOf(env: NodeJS.ProcessEnv = process.env): string[] {
 /**
  * The cost report of each seller whose report keys `env` sets: OPENAI_ADMIN_API_KEY (with OPENAI_PROJECT_ID to
  * read one project), OPENROUTER_MANAGEMENT_API_KEY (with OPENROUTER_KEY_HASH for one API key),
- * ZENMUX_MANAGEMENT_API_KEY (with ZENMUX_KEY_ID for one API key), and Modal's token.
+ * ZENMUX_PLATFORM_API_KEY (with ZENMUX_KEY_ID for one API key), and Modal's token.
  */
 export function reportsOf(env: NodeJS.ProcessEnv = process.env): Map<string, CostReport> {
   const reports = new Map<string, CostReport>()
@@ -45,8 +45,8 @@ export function reportsOf(env: NodeJS.ProcessEnv = process.env): Map<string, Cos
     const keyHash = env.OPENROUTER_KEY_HASH
     reports.set('openrouter', openrouterCostReport({ managementKey: env.OPENROUTER_MANAGEMENT_API_KEY, keyHash }))
   }
-  if (env.ZENMUX_MANAGEMENT_API_KEY) {
-    reports.set('zenmux', zenmuxCostReport({ managementKey: env.ZENMUX_MANAGEMENT_API_KEY, keyId: env.ZENMUX_KEY_ID }))
+  if (env.ZENMUX_PLATFORM_API_KEY) {
+    reports.set('zenmux', zenmuxCostReport({ managementKey: env.ZENMUX_PLATFORM_API_KEY, keyId: env.ZENMUX_KEY_ID }))
   }
   if (env.MODAL_TOKEN_ID && env.MODAL_TOKEN_SECRET) {
     reports.set('modal', modalCostReport(env.MODAL_TOKEN_ID, env.MODAL_TOKEN_SECRET))

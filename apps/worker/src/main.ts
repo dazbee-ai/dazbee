@@ -51,7 +51,7 @@ await boss.schedule(SETTLE_QUEUE, '30 5 * * *')
 await boss.work(SETTLE_QUEUE, async () => {
   console.log(JSON.stringify({ msg: 'unknown calls settled', ...(await settleUnknownCalls(db)) }))
 })
-// Each seller whose report keys are set: OPENAI_ADMIN_API_KEY, OPENROUTER_MANAGEMENT_API_KEY, ZENMUX_MANAGEMENT_API_KEY and Modal's token.
+// Each seller whose report keys are set: OPENAI_ADMIN_API_KEY, OPENROUTER_MANAGEMENT_API_KEY, ZENMUX_PLATFORM_API_KEY and Modal's token.
 const reports = reportsOf()
 if (!(await boss.getQueue(CHECK_QUEUE))) await boss.createQueue(CHECK_QUEUE)
 await boss.schedule(CHECK_QUEUE, '0 6 * * *')

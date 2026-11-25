@@ -115,12 +115,15 @@ export function ChangeShown({ note }: { note: ChangeNote | null }) {
   return note && <Note text={note.text} refused={note.refused} />
 }
 
-/** What the last change of a table's row came to, in a row of its own under it, `span` columns wide. */
+/**
+ * What the last change of a table's row came to, in a row of its own under it, `span` columns wide, at its
+ * end, under the row's buttons.
+ */
 export function NoteRow({ note, span }: { note: ChangeNote | null; span: number }) {
   return (
     note && (
       <tr data-note>
-        <td colSpan={span} className="px-2 pb-2">
+        <td colSpan={span} className="px-2 pb-2 [&>p]:justify-end">
           <ChangeShown note={note} />
         </td>
       </tr>

@@ -42,6 +42,16 @@ function optionsOf(text: string): Record<string, string | number | boolean> | nu
   }
 }
 
+/**
+ * The models a step's picker offers, its own model first when it is no longer of the step's kind, and the
+ * one it shows: the one picked, or the step's own once the picked one is no longer offered, as after a save
+ * refused because the picked model stopped being of the step's kind.
+ */
+export function modelChoices(step: AiStepModelView, picked: string): { choices: string[]; shown: string } {
+  const choices = step.models.includes(step.model) ? step.models : [step.model, ...step.models]
+  return { choices, shown: choices.includes(picked) ? picked : step.model }
+}
+
 export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
   const w = useMessages().pilotAi.stepModels
   const { run, busy, noteAt, show } = useChange()
@@ -95,11 +105,11 @@ function StepRow({
   const [model, setModel] = useState(step.model)
   const [options, setOptions] = useState(JSON.stringify(step.options))
   const what = { step: names.step(step.step) }
-  const choices = step.models.includes(step.model) ? step.models : [step.model, ...step.models]
+  const { choices, shown } = modelChoices(step, model)
   function save() {
     const read = optionsOf(options)
     if (!read) return onBadOptions()
-    run(step.step, () => saveStepModel(step.step, { model, options: read, since: step.updatedAt }))
+    run(step.step, () => saveStepModel(step.step, { model: shown, options: read, since: step.updatedAt }))
   }
   return (
     <>
@@ -109,7 +119,7 @@ function StepRow({
           <Select
             name={`model-${step.step}`}
             label={format(w.modelFor, what)}
-            value={model}
+            value={shown}
             options={choices.map((m) => ({ value: m, label: m }))}
             onChange={setModel}
             className="h-8 px-2 font-mono text-caption"

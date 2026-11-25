@@ -8,6 +8,11 @@ const DEFAULT_DAYS = 14
 /** The most days apart the API takes. */
 const MOST_DAYS = 92
 
+/** Today's UTC day, as YYYY-MM-DD. */
+export function utcToday(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 /**
  * The UTC days the address names, `from` not after `to` and at most `MOST_DAYS` apart; otherwise the last
  * `DEFAULT_DAYS`, `refused` when the address named days.

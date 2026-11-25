@@ -47,7 +47,7 @@ export function AiSettings({ settings }: { settings: AiSettingsView }) {
         {format(w.spent, { spent: amount(settings.spentToday), stop: amount(settings.spendingStop) })}
         {settings.stopped && <span className="block">{w.stopped}</span>}
       </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {FIELDS.map((field) => (
           <label key={field} className="flex flex-col gap-1 text-caption text-muted">
             {w[field]}

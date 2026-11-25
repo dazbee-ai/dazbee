@@ -1,9 +1,11 @@
 'use client'
 
 // The AI section's days and costs. The days: the UTC days the costs, the daily check and the unknown calls
-// cover, picked by a form that reloads the page with them. The costs: every try of every AI call over those
+// cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call over those
 // days, added up by AI step, model and seller, then the same by day, with the real cost and what workspaces
 // were charged; and the layer split's real GPU cost beside the fixed amounts it took, day by day.
+import Link from 'next/link'
+
 import type { AiCostRow } from '@dazbee/schema'
 
 import {
@@ -17,8 +19,10 @@ import {
   useAmount,
 } from '@/components/pilot/ai-form.tsx'
 import { Note } from '@/components/settings/note.tsx'
+import { SEGMENT, SEGMENTS } from '@/components/ui/looks.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
+import { format } from '@/lib/i18n/index.ts'
 
 /** Costs added up over a group of rows. */
 interface Sum {
@@ -26,6 +30,14 @@ interface Sum {
   done: number
   realCost: number
   charged: number
+}
+
+/** The presets of the days shown: the last so many UTC days, today's included. */
+const PRESETS = [7, 14, 30, 90]
+
+/** The UTC day `days` days before `day`. */
+function daysBefore(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10)
 }
 
 /** `rows` added up by `keyOf`, in the order each key first comes. */
@@ -51,21 +63,39 @@ function sumBy<K extends string>(rows: AiCostRow[], keyOf: (row: AiCostRow) => K
 export function AiRange({
   from,
   to,
+  today,
   keep,
   refused = false,
 }: {
   from: string
   to: string
+  /** Today's UTC day, which each preset ends on. */
+  today: string
   keep: Record<string, string>
   /** Whether the address named days that can't be shown, so these are the last 14 in their place. */
   refused?: boolean
 }) {
   const w = useMessages().pilotAi.range
   return (
-    <form method="get" data-testid="ai-range" className="flex flex-wrap items-end gap-3">
+    <form method="get" data-testid="ai-range" className="flex flex-wrap items-end gap-x-4 gap-y-3">
       {Object.entries(keep).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
+      <div role="group" aria-label={w.presets} className={cn(SEGMENTS, 'self-end')}>
+        {PRESETS.map((days) => {
+          const start = daysBefore(today, days - 1)
+          return (
+            <Link
+              key={days}
+              href={`?${new URLSearchParams({ ...keep, from: start, to: today })}`}
+              aria-current={from === start && to === today ? 'true' : undefined}
+              className={cn(SEGMENT, 'flex items-center aria-[current=true]:bg-chip aria-[current=true]:text-text')}
+            >
+              {format(w.last, { days })}
+            </Link>
+          )
+        })}
+      </div>
       <label className="flex flex-col gap-1 text-caption text-muted">
         {w.from}
         <input name="from" type="date" required defaultValue={from} className={cn(FIELD, 'text-text')} />
@@ -77,7 +107,7 @@ export function AiRange({
       <button type="submit" className={SAVE_BUTTON}>
         {w.show}
       </button>
-      <p className="basis-full text-caption text-muted">{w.hint}</p>
+      <p className="self-center text-caption text-muted">{w.hint}</p>
       {refused && (
         <div className="basis-full">
           <Note refused text={w.refused} />

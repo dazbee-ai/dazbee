@@ -34,7 +34,7 @@ export function PilotInviteForm() {
       data-testid="pilot-invite-form"
       className="flex flex-col gap-2"
     >
-      <h2 id="pilot-invite-title" className="text-label font-medium">
+      <h2 id="pilot-invite-title" className="text-body font-semibold">
         {w.title}
       </h2>
       <div className="flex flex-wrap items-center gap-3">

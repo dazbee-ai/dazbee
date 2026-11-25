@@ -1647,9 +1647,6 @@ export const en = {
   pilotAi: {
     title: 'AI',
     lead: 'What AI costs, what it runs on and who may use it. Amounts are in rupees unless a row names another currency.',
-    /** The admin page's link to this section, and this section's link back. */
-    open: 'AI settings and costs',
-    back: 'Early access',
     save: 'Save',
     saving: 'Saving…',
     saved: 'Saved.',
@@ -1695,6 +1692,8 @@ export const en = {
       from: 'From',
       to: 'To',
       show: 'Show',
+      last: '{days} days',
+      presets: 'Days shown',
       hint: 'UTC days, at most 92 apart.',
       /** Days in the address that can't be shown: From after To, or too far apart. */
       refused:
@@ -1853,6 +1852,62 @@ export const en = {
       calls: 'Calls',
       noUnknown: 'No unknown calls on these days.',
     },
+  },
+  /**
+   * The admin pages' frame and their overview: the pages it moves between, today's AI figures, the charts of
+   * the days picked, and early access's counts. Amounts are in rupees unless a chart names another currency.
+   */
+  pilotAdmin: {
+    name: 'Admin',
+    nav: 'Admin pages',
+    pages: { overview: 'Overview', access: 'Early access', ai: 'AI' },
+    tiles: {
+      spent: 'Real AI cost today',
+      spentOf: 'Of the ₹{stop} spending stop, IST day',
+      stopped: 'The spending stop is in force until midnight IST',
+      calls: 'AI calls today',
+      done: '{done} done, UTC day',
+      unknown: 'Unknown calls',
+      unknownNone: 'None on these days',
+      unknownSome: 'On these days; the seller may have billed them',
+      red: 'Red days',
+      redOf: 'Of {checked} seller days checked',
+      outOfMoney: 'Sellers out of money',
+      outOfMoneyNone: 'None in the last day',
+      waiting: 'Waiting list',
+      pending: 'Pending invites',
+      joined: 'Joined',
+    },
+    costs: {
+      title: 'Real cost per day, ₹',
+      split: 'Split by',
+      bySeller: 'Seller',
+      byStep: 'AI step',
+      other: 'Other',
+      none: 'No AI calls on these days.',
+    },
+    checks: {
+      title: 'Daily check',
+      panel: '{seller}, {currency}',
+      ours: 'Call log',
+      theirs: 'Seller’s figure',
+      red: 'Red day',
+      none: 'No days checked on these days.',
+    },
+    split: {
+      title: 'Layer split, ₹',
+      gpu: 'GPU’s real cost',
+      fixed: 'Fixed amount charged',
+      none: 'No layer splits on these days.',
+    },
+    day: 'Day',
+    /** An amount in rupees. */
+    money: '₹{amount}',
+  },
+  /** What every chart says: its numbers as a table, and a stacked chart's total. */
+  charts: {
+    table: 'Show the numbers',
+    total: 'Total',
   },
   /**
    * The Connect an agent page, where a member gives an agent access: who is asking and where it sends them back,

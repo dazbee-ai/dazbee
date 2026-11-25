@@ -19,7 +19,7 @@ export function WaitingList({ requests }: { requests: AccessRequest[] }) {
   const [refusal, setRefusal] = useState<string | null>(null)
   return (
     <div data-testid="waiting-list">
-      <h2 id="waiting-title" className="text-label font-medium">
+      <h2 id="waiting-title" className="text-body font-semibold">
         {t.waiting.title}
       </h2>
       {refusal && <Note refused text={refusal} />}

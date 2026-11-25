@@ -66,6 +66,7 @@ import {
   FrameTool,
   FrameToolSolid,
   Globe,
+  Group,
   Home,
   InfoCircle,
   InfoCircleSolid,
@@ -267,5 +268,6 @@ export const TrashIcon = make(Trash, TrashSolid)
 export const UniteIcon = make(Union)
 export const UniteSquareIcon = make(Union)
 export const UploadSimpleIcon = make(Upload)
+export const UsersIcon = make(Group)
 export const WarningCircleIcon = make(WarningCircle, WarningCircleSolid)
 export const XIcon = make(Xmark)

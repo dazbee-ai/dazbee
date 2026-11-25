@@ -17,8 +17,8 @@ export interface ChangeNote {
 }
 
 /** A table's header cell and body cell. */
-export const HEAD = 'px-2 py-1.5 text-start align-bottom text-caption font-medium whitespace-nowrap text-muted'
-export const CELL = 'px-2 py-1 text-start align-middle whitespace-nowrap'
+export const HEAD = 'px-2 py-2 text-start align-bottom text-caption font-medium whitespace-nowrap text-muted'
+export const CELL = 'px-2 py-1.5 text-start align-middle whitespace-nowrap'
 
 /** A text or number field in a table or a small form. */
 export const FIELD = `h-8 ${TOUCH_FIELD} min-w-0 rounded-row border border-line bg-bg px-2 text-small outline-none hover:border-line-strong focus:border-accent`
@@ -80,8 +80,8 @@ export function useChange() {
 /** A section's heading, with a line under it saying what it shows. */
 export function AiHeading({ id, title, hint }: { id: string; title: string; hint?: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <h2 id={id} className="text-label font-semibold">
+    <div className="flex flex-col gap-0.5">
+      <h2 id={id} className="text-body font-semibold">
         {title}
       </h2>
       {hint && <p className="text-caption text-muted">{hint}</p>}
@@ -89,11 +89,14 @@ export function AiHeading({ id, title, hint }: { id: string; title: string; hint
   )
 }
 
-/** A dense table that scrolls sideways when it is wider than the panel. */
+/** A dense table, a hairline under each row, that scrolls sideways when it is wider than its card. */
 export function AiTable({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="-mx-2 overflow-x-auto">
-      <table aria-label={label} className="w-full border-collapse text-small tabular-nums">
+      <table
+        aria-label={label}
+        className="w-full border-collapse text-small tabular-nums [&_tbody_tr]:border-b [&_tbody_tr]:border-line [&_tbody_tr:last-child]:border-b-0 [&_thead_tr]:border-b [&_thead_tr]:border-line-strong"
+      >
         {children}
       </table>
     </div>

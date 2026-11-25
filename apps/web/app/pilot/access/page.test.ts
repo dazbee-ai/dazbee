@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findAdminPage } from '@/lib/server/admin.ts'
 import { findMe } from '@/lib/server/api.ts'
 
-import PilotPage from './page.tsx'
+import PilotAccessPage from './page.tsx'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ headers: vi.fn(), cookies: vi.fn(async () => ({ get: () => undefined })) }))
@@ -63,30 +63,31 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-describe('PilotPage', () => {
+describe('PilotAccessPage', () => {
   it('shows an admin the invite form and the waiting list on the pilot host', async () => {
-    const page = renderToStaticMarkup(await PilotPage())
+    const page = renderToStaticMarkup(await PilotAccessPage())
     expect(page).toContain('data-testid="pilot-invite-form"')
     expect(page).toContain('data-request="bo@example.com"')
+    expect(page).toContain('data-page="access" aria-current="page"')
   })
 
   it('is not found on any other host, before asking the API anything', async () => {
     host = 'app.example.com'
-    await expect(PilotPage()).rejects.toThrow('not found')
+    await expect(PilotAccessPage()).rejects.toThrow('not found')
     vi.unstubAllEnvs()
     host = 'pilot.example.com'
-    await expect(PilotPage()).rejects.toThrow('not found')
+    await expect(PilotAccessPage()).rejects.toThrow('not found')
     expect(findAdminPage).not.toHaveBeenCalled()
   })
 
   it('sends a person who is not signed in to sign in', async () => {
     vi.mocked(findMe).mockResolvedValue(null)
-    await expect(PilotPage()).rejects.toThrow('redirect /login')
+    await expect(PilotAccessPage()).rejects.toThrow('redirect /login')
     expect(redirect).toHaveBeenCalledWith('/login')
   })
 
   it('is not found for a person the API does not take for an admin', async () => {
     vi.mocked(findAdminPage).mockResolvedValue(null)
-    await expect(PilotPage()).rejects.toThrow('not found')
+    await expect(PilotAccessPage()).rejects.toThrow('not found')
   })
 })

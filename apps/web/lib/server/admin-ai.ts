@@ -1,5 +1,5 @@
-// The API's calls for the admin page's AI section, from the web app's server only. The API answers each one
-// 404 for anyone but an admin, as if there were no such page.
+// The API's calls for the admin page's AI section and the AI part of the admin pages' overview, from the web
+// app's server only. The API answers each one 404 for anyone but an admin, as if there were no such page.
 import 'server-only'
 
 import { cache } from 'react'
@@ -45,6 +45,16 @@ export interface AiPage {
   lastChecked: LastChecked[]
 }
 
+/** What the overview shows of AI: the settings with today's spend, the days' costs, today's, the daily check and the unknown calls. */
+export interface AiOverviewData {
+  settings: AiSettingsView
+  costs: AiCostRow[]
+  today: AiCostRow[]
+  checks: DailyCheck[]
+  unknownCalls: UnknownCalls[]
+  outOfMoney: OutOfMoney[]
+}
+
 /**
  * The AI section's data for the UTC days `from` to `to`, or null when the person is not an admin. Asked once
  * per request, by the page and its title.
@@ -66,6 +76,28 @@ export const findAiPage = cache(async (from: string, to: string): Promise<AiPage
         call(LastChecked.array(), '/admin/ai/last-checked'),
       ])
     return { settings, rates, prices, modelSellers, stepModels, costs, checks, unknownCalls, outOfMoney, lastChecked }
+  } catch (e) {
+    if (e instanceof ApiFailure && e.status === 404) return null
+    throw e
+  }
+})
+
+/**
+ * The overview's AI data for the UTC days `from` to `to`, with the costs of the UTC day `today`, or null when
+ * the person is not an admin. Asked once per request, by the page and its title.
+ */
+export const findAiOverview = cache(async (from: string, to: string, today: string): Promise<AiOverviewData | null> => {
+  const days = new URLSearchParams({ from, to })
+  try {
+    const [settings, costs, todays, checks, unknownCalls, outOfMoney] = await Promise.all([
+      call(AiSettingsView, '/admin/ai/settings'),
+      call(AiCostRow.array(), `/admin/ai/costs?${days}`),
+      call(AiCostRow.array(), `/admin/ai/costs?${new URLSearchParams({ from: today, to: today })}`),
+      call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
+      call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
+      call(OutOfMoney.array(), '/admin/ai/out-of-money'),
+    ])
+    return { settings, costs, today: todays, checks, unknownCalls, outOfMoney }
   } catch (e) {
     if (e instanceof ApiFailure && e.status === 404) return null
     throw e

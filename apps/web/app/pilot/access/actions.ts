@@ -10,7 +10,7 @@ import { CreateDazbeeInvite } from '@dazbee/schema'
 
 import { format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
-import { PILOT_PATH } from '@/lib/pilot-host.ts'
+import { PILOT_ACCESS_PATH } from '@/lib/pilot-host.ts'
 import {
   cancelDazbeeInvite,
   dismissRequest,
@@ -72,7 +72,7 @@ async function act(change: Change, run: () => Promise<unknown>, email = ''): Pro
 
 /** The admin page draws again with the invites and the waiting list as they now are. */
 function changed() {
-  revalidatePath(PILOT_PATH)
+  revalidatePath(PILOT_ACCESS_PATH)
 }
 
 /**

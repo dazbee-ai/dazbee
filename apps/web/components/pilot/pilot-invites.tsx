@@ -23,7 +23,7 @@ export function PendingDazbeeInvites({ invites }: { invites: DazbeeInvite[] }) {
   if (invites.length === 0 && !refusal) return null
   return (
     <div data-testid="pilot-pending">
-      <h2 id="pilot-pending-title" className="text-label font-medium">
+      <h2 id="pilot-pending-title" className="text-body font-semibold">
         {t.pending.title}
       </h2>
       {refusal && <Note refused text={refusal} />}
@@ -49,7 +49,7 @@ export function JoinedPeople({ people }: { people: InvitedPerson[] }) {
   const [refusal, setRefusal] = useState<string | null>(null)
   return (
     <div data-testid="pilot-joined">
-      <h2 id="pilot-joined-title" className="text-label font-medium">
+      <h2 id="pilot-joined-title" className="text-body font-semibold">
         {t.joined.title}
       </h2>
       {refusal && <Note refused text={refusal} />}

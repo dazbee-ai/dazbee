@@ -36,9 +36,9 @@ describe('settleUnknownCalls', () => {
       state: 'done',
       input: {
         calls: [
-          { step: 'refine', input: edit },
-          { step: 'refine', input: edit },
-          { step: 'draft-fast', input: edit },
+          { step: 'flow.refine', input: edit },
+          { step: 'flow.refine', input: edit },
+          { step: 'flow.draft-fast', input: edit },
         ],
       },
     })
@@ -49,7 +49,7 @@ describe('settleUnknownCalls', () => {
       callIndex,
       try: 1,
       attempt: 1,
-      step: 'refine',
+      step: 'flow.refine',
       model,
       seller,
       state: 'unknown' as const,

@@ -1,7 +1,7 @@
 // The AI overview's figures and charts, shaped from what the API gives: every UTC day of the days picked,
 // the real cost of each day split by seller or by AI step, the daily check of each seller day by day with
 // its red days, the layer split's GPU cost against the fixed amount it took, and the headline figures.
-import { AI_STEPS, type AiCostRow, type DailyCheck, SELLERS, type UnknownCalls } from '@dazbee/schema'
+import { AI_STEPS, type AiCostRow, type DailyCheck, LAYER_SPLIT_STEP, SELLERS, type UnknownCalls } from '@dazbee/schema'
 
 /** What the cost chart splits each day's real cost by. */
 export type CostSplit = 'seller' | 'step'
@@ -100,7 +100,7 @@ export function checkPanels(checks: DailyCheck[], days: string[]): CheckPanel[] 
 /** The layer split's real GPU cost and the fixed amount it charged, each day, in rupees; null with no layer split. */
 export function layerSplitByDay(costs: AiCostRow[], days: string[]): { real: number[]; charged: number[] } | null {
   const index = dayIndex(days)
-  const rows = costs.filter((row) => row.step === 'layer-split' && index.has(row.day))
+  const rows = costs.filter((row) => row.step === LAYER_SPLIT_STEP && index.has(row.day))
   if (rows.length === 0) return null
   const real = days.map(() => 0)
   const charged = days.map(() => 0)

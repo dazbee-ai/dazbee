@@ -38,6 +38,7 @@ export function useAiNames() {
     seller: (seller: string) => named(t.sellers, seller) ?? seller,
     unit: (unit: string) => named(t.units, unit) ?? unit,
     step: (step: string) => named(t.steps, step) ?? step,
+    feature: (feature: string) => named(t.features, feature) ?? feature,
   }
 }
 

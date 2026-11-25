@@ -1,10 +1,11 @@
 // The step list: each AI step's kind of call and the usage it is expected to report, which its hold is
-// priced from. Adding an AI step is its name in `AI_STEPS` (packages/schema), its entry here and its model
-// row in `ai_step_models`. Also which model an AI step runs and the sellers that can take its call, in order,
-// and which models a step may run: a model's kind is read from the units its price rows count usage in.
+// priced from. Adding an AI step is its name in `AI_STEPS` (packages/schema) and its entry here; it runs its
+// kind's default model (`ai_kind_models`), and gets a row in `ai_step_models` only for a model of its own. Also
+// which model an AI step runs and the sellers that can take its call, in order, and which kinds of call a
+// model can take: a model's kind is read from the units its price rows count usage in.
 import { asc, eq } from 'drizzle-orm'
 
-import { aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
+import { aiKindModels, aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
 import { type AiStep, type CallInput, type CallKind, referenceCount, type Usage, type UsageUnit } from '@dazbee/schema'
 
 import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.ts'
@@ -55,14 +56,14 @@ const pictureTokens = (input: CallInput) =>
 
 /** Every AI step, each in `AI_STEPS`; a test adds steps of its own. */
 export const STEPS: Record<string, StepDef> = {
-  'round-plan': { kind: 'text', expected: () => ({ 'input-token': 6000, 'output-token': 3000 }) },
-  read: { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 2000 }) },
-  'layer-plan': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 4000 }) },
-  'draft-fast': { kind: 'picture', expected: (input) => pictureUsage(input) },
-  'draft-precise': { kind: 'picture', expected: (input) => pictureUsage(input) },
-  refine: { kind: 'picture', expected: (input) => pictureUsage(input) },
-  resize: { kind: 'picture', expected: (input) => pictureUsage(input) },
-  'layer-split': {
+  'flow.round-plan': { kind: 'text', expected: () => ({ 'input-token': 6000, 'output-token': 3000 }) },
+  'flow.read': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 2000 }) },
+  'flow.layer-plan': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 4000 }) },
+  'flow.draft-fast': { kind: 'picture', expected: (input) => pictureUsage(input) },
+  'flow.draft-precise': { kind: 'picture', expected: (input) => pictureUsage(input) },
+  'flow.refine': { kind: 'picture', expected: (input) => pictureUsage(input) },
+  'flow.resize': { kind: 'picture', expected: (input) => pictureUsage(input) },
+  'flow.layer-split': {
     kind: 'layer-split',
     expected: () => ({ 'gpu-second': 20 }),
     fixedCost: (settings, input) =>
@@ -88,11 +89,6 @@ export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
   if (priced.has('gpu-second')) return ['layer-split']
   if (priced.size > 0 && [...priced].every((unit) => TEXT_UNITS.includes(unit))) return ['text']
   return []
-}
-
-/** Whether `step` may run a model priced in `units`: the model takes the step's kind of call. */
-export function stepTakes(step: string, units: Iterable<UsageUnit>): boolean {
-  return modelKinds(units).includes(stepDef(step).kind)
 }
 
 /**
@@ -166,10 +162,12 @@ function pictureUsage(input: CallInput): Usage {
   }
 }
 
-/** The model `step` runs, with its options, and its sellers in order: `only`, when given. */
+/**
+ * The model `step` runs, with its options: its own when an admin set one, otherwise its kind's default; and the
+ * model's sellers in order: `only`, when given.
+ */
 async function modelOf(db: Db | Tx, step: string, only?: string[]) {
-  const [choice] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
-  if (!choice) throw new Error(`no model is set for the AI step ${step}`)
+  const choice = await stepModel(db, step)
   const sellers = await db
     .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
     .from(modelSellers)
@@ -180,4 +178,14 @@ async function modelOf(db: Db | Tx, step: string, only?: string[]) {
     ? only.map((seller) => ({ seller, sellerModel: sellers.find((s) => s.seller === seller)?.sellerModel ?? null }))
     : sellers
   return { choice, order }
+}
+
+/** The model `step` runs and its options: its own, or its kind's default. */
+async function stepModel(db: Db | Tx, step: string): Promise<{ model: string; options: Record<string, unknown> }> {
+  const [own] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
+  if (own) return own
+  const kind = stepDef(step).kind
+  const [byKind] = await db.select().from(aiKindModels).where(eq(aiKindModels.kind, kind))
+  if (!byKind) throw new Error(`no default model is set for ${kind} calls`)
+  return byKind
 }

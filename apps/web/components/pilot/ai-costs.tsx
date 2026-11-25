@@ -2,11 +2,12 @@
 
 // The AI section's days and costs. The days: the UTC days the costs, the daily check and the unknown calls
 // cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call over those
-// days, added up by AI step, model and seller, then the same by day, with the real cost and what workspaces
+// days, added up by feature, then AI step, model and seller, then the same by day, with the real cost and what workspaces
 // were charged; and the layer split's real GPU cost beside the fixed amounts it took, day by day.
 import Link from 'next/link'
+import { Fragment } from 'react'
 
-import type { AiCostRow } from '@dazbee/schema'
+import { type AiCostRow, featureOf, LAYER_SPLIT_STEP } from '@dazbee/schema'
 
 import {
   AiHeading,
@@ -121,9 +122,11 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
   const w = useMessages().pilotAi.costs
   const names = useAiNames()
   const amount = useAmount()
-  const totals = sumBy(costs, (row) => `${row.step}/${row.model}/${row.seller}`)
+  // By feature, then AI step, then model: each feature's rows follow its own total.
+  const byStep = sumBy(costs, (row) => `${row.step}/${row.model}/${row.seller}`).sort(([a], [b]) => a.localeCompare(b))
+  const features = sumBy(costs, (row) => featureOf(row.step))
   const splits = sumBy(
-    costs.filter((row) => row.step === 'layer-split'),
+    costs.filter((row) => row.step === LAYER_SPLIT_STEP),
     (row) => row.day,
   )
   const all = sumBy(costs, () => 'all')[0]?.[2]
@@ -162,11 +165,28 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
               <tr>{head}</tr>
             </thead>
             <tbody>
-              {totals.map(([key, row, sum]) => (
-                <tr key={key} data-cost={key}>
-                  {cells(row, sum)}
-                </tr>
-              ))}
+              {features
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([feature, , total]) => (
+                  <Fragment key={feature}>
+                    <tr data-feature={feature} className="border-t border-line font-semibold">
+                      <td className={CELL} colSpan={3}>
+                        {names.feature(feature)}
+                      </td>
+                      <td className={cn(CELL, 'text-end')}>{total.calls}</td>
+                      <td className={cn(CELL, 'text-end')}>{total.done}</td>
+                      <td className={cn(CELL, 'text-end')}>{amount(total.realCost, 4)}</td>
+                      <td className={cn(CELL, 'text-end')}>{amount(total.charged, 4)}</td>
+                    </tr>
+                    {byStep
+                      .filter(([, row]) => featureOf(row.step) === feature)
+                      .map(([key, row, sum]) => (
+                        <tr key={key} data-cost={key}>
+                          {cells(row, sum)}
+                        </tr>
+                      ))}
+                  </Fragment>
+                ))}
               {all && (
                 <tr className="border-t border-line font-semibold">
                   <td className={CELL} colSpan={3}>

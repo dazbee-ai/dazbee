@@ -1,34 +1,20 @@
 // The admin page's AI routes, under /admin/ai, for admins only, as if they didn't exist for anyone else: the
-// AI settings with today's spend, the currency rates, the price list, each model's seller order and each AI
-// step's model, which must be a priced model of the step's kind; finding a workspace, giving it a gift and reading its grants and ledger; AI's costs by day, AI
+// AI settings with today's spend, the currency rates, the price list, each model's seller order, the models of
+// each kind and AI step (ai-model-routes.ts); finding a workspace, giving it a gift and reading its grants and ledger; AI's costs by day, AI
 // step, model and seller; the daily check over a range of days, a seller's uploaded usage file, unknown calls
 // by seller and day, the sellers that said they are out of money in the last day, and when the sellers
 // checked from uploads were last checked. Money comes and goes as decimals of rupees or of the seller's
 // currency.
-import { and, asc, count, desc, eq, gte, like, lte, max, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, like, lte, max, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
+import { aiSettingsOf, lastChecked, SellerFileRefused, spentToday, uploadSellerFile } from '@dazbee/ai'
+import { aiCalls, aiDailyChecks, aiSettings, type Db } from '@dazbee/db'
 import {
-  aiSettingsOf,
-  lastChecked,
-  modelKinds,
-  SellerFileRefused,
-  spentToday,
-  stepDef,
-  STEPS,
-  stepTakes,
-  uploadSellerFile,
-} from '@dazbee/ai'
-import { aiCalls, aiDailyChecks, aiSettings, aiStepModels, type Db } from '@dazbee/db'
-import {
-  AI_STEPS,
   type AiCostRow,
   AiPriceInput,
   AiSettingsInput,
   type AiSettingsView,
-  AiStepModelInput,
-  type AiStepModelView,
-  type CallKind,
   CurrencyCode,
   CurrencyRateInput,
   type DailyCheck,
@@ -44,7 +30,6 @@ import {
   type UnknownCalls,
   UsageUnit,
   UtcDay,
-  type WrongKind,
 } from '@dazbee/schema'
 
 import { body, type Env, error } from '../http.ts'
@@ -52,11 +37,11 @@ import type { SessionOf } from '../sign-in/session.ts'
 import { type Admins, requireAdmin } from './admins.ts'
 import { allowanceOf, findWorkspaces, GiftRefused, giveGift } from './ai-allowance.ts'
 import { ChangedMeanwhile, checkSince } from './ai-changed-meanwhile.ts'
+import { aiModelRoutes } from './ai-model-routes.ts'
 import {
   listCurrencyRates,
   listModelSellers,
   listPrices,
-  pricedUnits,
   PriceListRefused,
   removePrice,
   setCurrencyRate,
@@ -64,23 +49,8 @@ import {
   setPrice,
 } from './ai-price-list.ts'
 
-/** An AI step with no model row to change. */
-class NoSuchStep extends Error {
-  constructor() {
-    super('No such AI step')
-    this.name = 'NoSuchStep'
-  }
-}
-
 /** How many days a range may span at most. */
 const MAX_DAYS = 92
-
-/** A kind of model as a refusal names it, by the kind of call it takes. */
-const KIND_WORDS: Record<CallKind, string> = {
-  text: 'a text model',
-  picture: 'a picture model',
-  'layer-split': 'a GPU model',
-}
 
 export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: SessionOf; admins: Admins }): Hono<Env> {
   const app = new Hono<Env>()
@@ -88,6 +58,7 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     c.json(error(`Give from and to as YYYY-MM-DD, at most ${MAX_DAYS} days apart`), 400)
 
   app.use('/admin/ai/*', requireAdmin(db, sessionOf, admins))
+  app.route('/', aiModelRoutes(db))
 
   app.get('/admin/ai/settings', async (c) => c.json(await settingsView(db)))
 
@@ -152,61 +123,6 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     const input = await body(c.req.raw, ModelSellersInput)
     if (input instanceof Response) return input
     return refusedOr(c, () => setModelSellers(db, model.data, input))
-  })
-
-  app.get('/admin/ai/step-models', async (c) => {
-    const order = (step: string) => (AI_STEPS as readonly string[]).indexOf(step)
-    const [rows, units] = await Promise.all([
-      db.select().from(aiStepModels).orderBy(asc(aiStepModels.step)),
-      pricedUnits(db),
-    ])
-    return c.json(
-      rows
-        .filter((row) => order(row.step) >= 0)
-        .sort((a, b) => order(a.step) - order(b.step))
-        .map((row) => ({
-          step: row.step,
-          kind: stepDef(row.step).kind,
-          model: row.model,
-          models: [...units].flatMap(([model, priced]) => (stepTakes(row.step, priced) ? [model] : [])),
-          options: row.options,
-          updatedAt: row.updatedAt.toISOString(),
-        })) satisfies AiStepModelView[],
-    )
-  })
-
-  app.put('/admin/ai/step-models/:step', async (c) => {
-    const step = c.req.param('step')
-    if (!Object.hasOwn(STEPS, step)) return c.json(error('No such AI step'), 404)
-    const input = await body(c.req.raw, AiStepModelInput)
-    if (input instanceof Response) return input
-    const units = (await pricedUnits(db)).get(input.model)
-    if (!units) return c.json(error(`No seller of ${input.model} has a price for it`), 400)
-    if (!stepTakes(step, units)) {
-      const wrongKind = {
-        step,
-        model: input.model,
-        units,
-        wants: stepDef(step).kind,
-        is: modelKinds(units)[0] ?? null,
-      } satisfies WrongKind
-      return c.json({ ...error(kindRefusal(wrongKind)), wrongKind }, 400)
-    }
-    return refusedOr(c, () =>
-      db.transaction(async (tx) => {
-        const [stored] = await tx
-          .select({ updatedAt: aiStepModels.updatedAt })
-          .from(aiStepModels)
-          .where(eq(aiStepModels.step, step))
-          .for('update')
-        if (!stored) throw new NoSuchStep()
-        checkSince(stored.updatedAt, input.since)
-        await tx
-          .update(aiStepModels)
-          .set({ model: input.model, options: input.options, updatedAt: new Date() })
-          .where(eq(aiStepModels.step, step))
-      }),
-    )
   })
 
   app.get('/admin/ai/workspaces', async (c) => {
@@ -347,7 +263,7 @@ async function settingsView(db: Db): Promise<AiSettingsView> {
 }
 
 /**
- * Runs a change: 204; 400 saying why the price list refused it; 404 for an AI step with no model row; or 409
+ * Runs a change: 204; 400 saying why the price list refused it; or 409
  * when what it changes was changed since its page read it.
  */
 async function refusedOr(c: Context<Env>, change: () => Promise<void>): Promise<Response> {
@@ -357,15 +273,8 @@ async function refusedOr(c: Context<Env>, change: () => Promise<void>): Promise<
   } catch (refused) {
     if (refused instanceof PriceListRefused) return c.json(error(refused.message), 400)
     if (refused instanceof ChangedMeanwhile) return c.json(error(refused.message), 409)
-    if (refused instanceof NoSuchStep) return c.json(error(refused.message), 404)
     throw refused
   }
-}
-
-/** Why an AI step can't run a model of another kind, in the API's own names. */
-function kindRefusal({ step, model, units, wants, is }: WrongKind): string {
-  const kind = is ? `is ${KIND_WORDS[is]}` : 'is no kind of model an AI step runs'
-  return `${step} runs ${KIND_WORDS[wants]}, and ${model} ${kind}, priced in ${units.join(', ')}`
 }
 
 /** AI calls started on the range's UTC days. */

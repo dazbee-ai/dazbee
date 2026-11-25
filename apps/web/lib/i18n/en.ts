@@ -1657,16 +1657,20 @@ export const en = {
     gone: 'This was changed or removed meanwhile. Reload the page.',
     /** A save from a page that read an older copy than the one kept now, as a second tab's. */
     stale: 'This changed since you opened it; reload to see the newest.',
+    /** Each feature that runs AI steps, named as the cost table groups them. */
+    features: {
+      flow: 'AI flow',
+    },
     /** Each AI step by what it does; the draft steps are the modes. */
     steps: {
-      'round-plan': 'Round plan',
-      read: 'Read',
-      'layer-plan': 'Layer plan',
-      'draft-fast': 'Draft, Fast',
-      'draft-precise': 'Draft, Precise',
-      refine: 'Refine',
-      resize: 'Resize',
-      'layer-split': 'Layer split',
+      'flow.round-plan': 'Round plan',
+      'flow.read': 'Read',
+      'flow.layer-plan': 'Layer plan',
+      'flow.draft-fast': 'Draft, Fast',
+      'flow.draft-precise': 'Draft, Precise',
+      'flow.refine': 'Refine',
+      'flow.resize': 'Resize',
+      'flow.layer-split': 'Layer split',
     },
     units: {
       'input-token': 'Input tokens',
@@ -1768,6 +1772,29 @@ export const en = {
       badOptions: 'Options are a JSON object, such as {"quality":"medium"}.',
       /** Why an AI step can't run a model of another kind. */
       wrongKind: '{step} runs {wants}, and {model} is {is}, priced in {units}.',
+      /** Why a kind's default can't be a model of another kind. */
+      wrongKindDefault: 'The {kind} default must be {wants}, and {model} is {is}, priced in {units}.',
+      source: 'Runs',
+      fromKind: 'Kind default',
+      override: 'Own model',
+      useDefault: 'Use the kind default',
+      useDefaultFor: 'Make {step} run its kind default',
+      defaultUsed: 'Now runs the kind default.',
+      kindsTitle: 'Kind defaults',
+      kindsHint: 'Each kind of AI call’s model. Every AI step of the kind runs it, unless the step has its own model.',
+      kind: 'Kind',
+      followers: 'Followed by',
+      none: 'No step',
+      kindModelFor: 'The default model of {kind} calls',
+      kindOptionsFor: 'The options of the {kind} default, as JSON',
+      saveKindFor: 'Save the {kind} default',
+      /** Before a kind's default changes: the steps that follow it were sized for the old model. */
+      switchWarning: 'This also switches {steps}, whose sizes and ceilings were set for {model}. Save again to switch.',
+      kindNames: {
+        text: 'text',
+        picture: 'picture',
+        'layer-split': 'layer split',
+      },
       kinds: {
         text: 'a text model',
         picture: 'a picture model',

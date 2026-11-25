@@ -2,20 +2,26 @@
 // the units the price list counts usage in, and what each kind of call takes and gives back.
 import { z } from 'zod'
 
-/** Every AI step the AI flow runs, each priced and logged on its own. */
+/**
+ * Every AI step, each priced and logged on its own, named `<feature>.<name>` by the feature that calls it:
+ * `flow` is the AI flow.
+ */
 export const AI_STEPS = [
-  'round-plan',
-  'read',
-  'draft-fast',
-  'draft-precise',
-  'refine',
-  'resize',
-  'layer-plan',
-  'layer-split',
+  'flow.round-plan',
+  'flow.read',
+  'flow.draft-fast',
+  'flow.draft-precise',
+  'flow.refine',
+  'flow.resize',
+  'flow.layer-plan',
+  'flow.layer-split',
 ] as const
 
 export const AiStep = z.enum(AI_STEPS)
 export type AiStep = z.infer<typeof AiStep>
+
+/** The AI step of layering that splits a draft into picture layers, at a fixed amount. */
+export const LAYER_SPLIT_STEP = 'flow.layer-split' satisfies AiStep
 
 /** The draft's two modes, each the model of one draft AI step. */
 export const AI_MODES = ['fast', 'precise'] as const
@@ -206,7 +212,7 @@ export type AiJobMessage = z.infer<typeof AiJobMessage>
 
 /** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
 export const AiStepsCall = z.object({
-  step: z.string().min(1).max(100),
+  step: z.preprocess(stepNamed, z.string().min(1).max(100)),
   input: z.preprocess(carriedOver, CallInput),
   sellers: z.array(z.string().min(1).max(100)).min(1).max(10).optional(),
 })
@@ -305,6 +311,12 @@ export const LastChecked = z.object({
 })
 export type LastChecked = z.infer<typeof LastChecked>
 
+/** The feature an AI step belongs to: the part of its name before the first dot, or all of it with none. */
+export function featureOf(step: string): string {
+  const dot = step.indexOf('.')
+  return dot < 0 ? step : step.slice(0, dot)
+}
+
 /** How many reference pictures a picture call sends: its pictures, and the marked copy when it has marks. */
 export function referenceCount(call: { pictures: string[]; marks?: string | undefined }): number {
   return call.pictures.length + (call.marks ? 1 : 0)
@@ -315,4 +327,11 @@ function carriedOver(input: unknown): unknown {
   return input && typeof input === 'object' && 'kind' in input && input.kind === 'picture-edit'
     ? { ...input, kind: 'picture' }
     : input
+}
+
+/** An AI step's name as saved before steps were named by feature: `refine` is `flow.refine`. */
+function stepNamed(step: unknown): unknown {
+  return typeof step === 'string' && !step.includes('.') && AI_STEPS.includes(`flow.${step}` as AiStep)
+    ? `flow.${step}`
+    : step
 }

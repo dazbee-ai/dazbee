@@ -1,7 +1,7 @@
 'use server'
 
 // What the admin page's AI section changes: the AI settings, a currency's rate, a price, a model's seller
-// order and an AI step's model; a gift to a workspace; and a seller's usage file. The API answers anyone but
+// order, a kind's default model and an AI step's own model; a gift to a workspace; and a seller's usage file. The API answers anyone but
 // an admin as if none of it existed, so each is an admin's only. Each gives why it was refused, in the
 // person's language where the page knows the reason, and the section draws again with what changed.
 import { revalidatePath } from 'next/cache'
@@ -11,6 +11,7 @@ import {
   AiPriceInput,
   AiSettingsInput,
   AiStepModelInput,
+  CallKind,
   CurrencyCode,
   CurrencyRateInput,
   GiftInput,
@@ -29,9 +30,11 @@ import { PILOT_AI_PATH } from '@/lib/pilot-host.ts'
 import {
   giveAiGift,
   removeAiPrice,
+  removeStepModel,
   setAiPrice,
   setAiSettings,
   setCurrencyRate,
+  setKindModel,
   setModelSellers,
   setStepModel,
   uploadAiSellerFile,
@@ -72,6 +75,25 @@ export async function saveStepModel(step: string, choice: AiStepModelInput): Pro
     z.object({ step: z.string().min(1).max(100), choice: AiStepModelInput }),
     { step, choice },
     (valid) => setStepModel(valid.step, valid.choice),
+    wrongKindWords,
+  )
+}
+
+/** Removes an AI step's own model, read when it was last changed at `since`, so the step runs its kind's default. */
+export async function removeStepOverride(step: string, since: string | null): Promise<string | null> {
+  return change(
+    z.object({ step: z.string().min(1).max(100), since: z.iso.datetime().nullable() }),
+    { step, since },
+    (valid) => removeStepModel(valid.step, { since: valid.since }),
+  )
+}
+
+/** Saves a kind's default model; a model of another kind is refused in the page's own words for it. */
+export async function saveKindModel(kind: CallKind, choice: AiStepModelInput): Promise<string | null> {
+  return change(
+    z.object({ kind: CallKind, choice: AiStepModelInput }),
+    { kind, choice },
+    (valid) => setKindModel(valid.kind, valid.choice),
     wrongKindWords,
   )
 }
@@ -121,13 +143,18 @@ async function change<T extends z.ZodType>(
   return explain?.(refusal, t) ?? refusal.message
 }
 
-/** Why an AI step can't run a model of another kind, with the step's, the kinds' and the units' names as the page shows them. */
+/**
+ * Why an AI step, or a kind's default, can't be a model of another kind, with the step's, the kinds' and the
+ * units' names as the page shows them.
+ */
 function wrongKindWords(refusal: Refusal, t: Messages['pilotAi']): string | null {
   const body = z.object({ wrongKind: WrongKind }).safeParse(refusal.body)
   if (!body.success) return null
   const { step, model, units, wants, is } = body.data.wrongKind
-  return format(t.stepModels.wrongKind, {
-    step: Object.hasOwn(t.steps, step) ? t.steps[step as keyof typeof t.steps] : step,
+  const named = step && Object.hasOwn(t.steps, step) ? t.steps[step as keyof typeof t.steps] : step
+  return format(step === undefined ? t.stepModels.wrongKindDefault : t.stepModels.wrongKind, {
+    step: named ?? '',
+    kind: t.stepModels.kindNames[wants],
     wants: t.stepModels.kinds[wants],
     model,
     is: is ? t.stepModels.kinds[is] : t.stepModels.kinds.none,

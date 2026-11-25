@@ -20,6 +20,7 @@ import {
 import {
   AI_JOB_KINDS,
   AI_JOB_STATES,
+  CALL_KINDS,
   CALL_STATES,
   type CallOutput,
   DAILY_CHECK_SOURCES,
@@ -92,7 +93,15 @@ export const modelSellers = pgTable(
   (t) => [primaryKey({ columns: [t.model, t.seller] }), uniqueIndex('model_sellers_position').on(t.model, t.position)],
 )
 
-/** The model each AI step runs, with the options the call passes it (such as a picture's quality). */
+/** The default model of each kind of AI call, with the options the call passes it; every AI step of the kind runs it unless the step has its own. */
+export const aiKindModels = pgTable('ai_kind_models', {
+  kind: text({ enum: CALL_KINDS }).primaryKey(),
+  model: text().notNull(),
+  options: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: updatedAt(),
+})
+
+/** An AI step's own model, in place of its kind's default, with the options the call passes it (such as a picture's quality). */
 export const aiStepModels = pgTable('ai_step_models', {
   step: text().primaryKey(),
   model: text().notNull(),

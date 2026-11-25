@@ -676,8 +676,16 @@ The name a person picks a kind of draft by, **Fast** or **Precise**, never a mod
 _Avoid_: Model, quality, engine
 
 **AI step**:
-One kind of AI call the flow makes, named by what it does for the person: the round plan, a Fast or Precise draft, a refine, a resize, the layer plan, the layer split and reading the layers. Every AI call is one AI step, tracked as that step even where two steps call the same model. An admin sets which model each step runs.
-_Avoid_: Step (that is a tab's undo step), feature, endpoint, action
+One named AI call of a feature, written `<feature>.<name>`: the AI flow's are the round plan, a Fast or Precise draft, a refine, a resize, the layer plan, the layer split and reading the layers (`flow.refine`). Every AI call is one AI step, tracked as that step even where two steps call the same model. A step runs its kind's default model unless an admin gives it a step override.
+_Avoid_: Step (that is a tab's undo step), use, block, endpoint, action
+
+**Kind (of AI call)**:
+The shape of an AI call: text, picture (from 0 to 16 reference pictures) or layer split. Each kind has a default model, set by an admin, which every AI step of the kind runs unless it has a step override.
+_Avoid_: Block, type, modality
+
+**Step override**:
+A model an admin sets for one AI step in place of its kind's default, such as Seedream for the refine while pictures default to Muse Image. Removing it makes the step follow its kind again.
+_Avoid_: Custom model, pin
 
 **Reference picture**:
 A picture a person attaches to a picture call for the model to work from, such as a product, a logo or a style ad: up to 16 a call. With none, the model makes a new picture; with some, it edits or builds from them.

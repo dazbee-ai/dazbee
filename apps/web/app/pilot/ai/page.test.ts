@@ -67,20 +67,40 @@ const PAGE: AiPage = {
       ],
     },
   ],
+  kindModels: [
+    {
+      kind: 'picture',
+      model: 'muse-image-1.0',
+      models: ['muse-image-1.0', 'seedream-5.5'],
+      options: {},
+      steps: ['flow.draft-fast'],
+      updatedAt: AT,
+    },
+  ],
   stepModels: [
     {
-      step: 'refine',
+      step: 'flow.refine',
       kind: 'picture',
       model: 'seedream-5.5',
       models: ['seedream-5.5', 'gpt-image-2.5-sunburst'],
       options: {},
+      source: 'override',
       updatedAt: AT,
+    },
+    {
+      step: 'flow.draft-fast',
+      kind: 'picture',
+      model: 'muse-image-1.0',
+      models: ['muse-image-1.0', 'seedream-5.5'],
+      options: {},
+      source: 'kind',
+      updatedAt: null,
     },
   ],
   costs: [
     {
       day: '2026-11-20',
-      step: 'layer-split',
+      step: 'flow.layer-split',
       model: 'ming-image-0.1-design-layer',
       seller: 'modal',
       calls: 2,
@@ -173,6 +193,7 @@ describe('PilotAiPage', () => {
       'ai-daily-check',
       'ai-upload',
       'ai-grants',
+      'ai-kind-models',
       'ai-step-models',
       'ai-price-list',
       'ai-seller-order',
@@ -184,7 +205,12 @@ describe('PilotAiPage', () => {
     expect(page).toContain('data-testid="ai-out-of-money"')
     expect(page).toContain('data-split-day="2026-11-20"')
     expect(page).toContain('data-price="openai-gpt-6-luna-input-token"')
-    expect(page).toContain('data-step="refine"')
+    expect(page).toContain('data-step="flow.refine"')
+    expect(page).toContain('data-kind="picture"')
+    expect(page).toContain('Draft, Fast')
+    // Only the step with its own model can go back to its kind's default.
+    expect(page.match(/Use the kind default/g)).toHaveLength(1)
+    expect(page).toContain('data-feature="flow"')
     expect(page).toContain('data-model="seedream-5.5"')
     expect(findAiWorkspaces).not.toHaveBeenCalled()
     expect(findAllowance).not.toHaveBeenCalled()

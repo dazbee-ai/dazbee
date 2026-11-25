@@ -13,6 +13,7 @@ import {
   AiAllowanceView,
   AiCostRow,
   AiGrantView,
+  AiKindModelView,
   AiPriceView,
   AiSettingsInput,
   AiSettingsView,
@@ -70,7 +71,7 @@ async function addCall(
     callIndex: 0,
     try: 1,
     attempt: 1,
-    step: 'refine',
+    step: 'flow.refine',
     model: 'seedream-5.5',
     seller,
     state,
@@ -96,7 +97,10 @@ describe('/admin/ai', () => {
       ['GET', '/admin/ai/model-sellers'],
       ['PUT', '/admin/ai/model-sellers/seedream-5.5'],
       ['GET', '/admin/ai/step-models'],
-      ['PUT', '/admin/ai/step-models/refine'],
+      ['PUT', '/admin/ai/step-models/flow.refine'],
+      ['DELETE', '/admin/ai/step-models/flow.refine'],
+      ['GET', '/admin/ai/kind-models'],
+      ['PUT', '/admin/ai/kind-models/picture'],
       ['GET', `/admin/ai/workspaces?q=${workspace.name}`],
       ['GET', `/admin/ai/workspaces/${workspace.id}/allowance`],
       ['POST', `/admin/ai/workspaces/${workspace.id}/gifts`],
@@ -289,13 +293,15 @@ describe('/admin/ai', () => {
     expect(kept?.model).toBe(model)
     expect((await ask(admin.token, 'PUT', `/admin/ai/step-models/no-step-${run}`, { model })).status).toBe(404)
     const steps = AiStepModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/step-models')).json)
-    expect(steps.map((s) => s.step)).toEqual(expect.arrayContaining(['round-plan', 'draft-fast', 'layer-split']))
+    expect(steps.map((s) => s.step)).toEqual(
+      expect.arrayContaining(['flow.round-plan', 'flow.draft-fast', 'flow.layer-split']),
+    )
     expect(steps.map((s) => s.step)).not.toContain(step)
-    const resize = steps.find((s) => s.step === 'resize')
-    const read = steps.find((s) => s.step === 'read')
+    const resize = steps.find((s) => s.step === 'flow.resize')
+    const read = steps.find((s) => s.step === 'flow.read')
     expect(resize).toMatchObject({ kind: 'picture', models: expect.arrayContaining([model]) })
     expect(resize?.models).not.toContain(textModel)
-    expect(steps.find((s) => s.step === 'refine')).toMatchObject({
+    expect(steps.find((s) => s.step === 'flow.refine')).toMatchObject({
       kind: 'picture',
       models: expect.arrayContaining([model]),
     })
@@ -365,6 +371,50 @@ describe('/admin/ai', () => {
     expect(await ask(admin.token, 'PUT', stepAt, { model, options: { quality: 'high' }, since })).toMatchObject(stale)
     const [after] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, staleStep))
     expect(after).toMatchObject({ model, options: {} })
+  })
+
+  it('sets and removes an AI step’s override, and sets a kind’s default, refusing a model of another kind', async () => {
+    const own = `${step}-own`
+    STEPS[own] = { kind: 'picture', expected: () => ({ picture: 1 }) }
+    const at = `/admin/ai/step-models/${own}`
+    try {
+      expect((await ask(admin.token, 'PUT', at, { model: 'seedream-5.5', since: null })).status).toBe(204)
+      const [row] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, own))
+      expect(row?.model).toBe('seedream-5.5')
+      expect(await ask(admin.token, 'PUT', at, { model: 'seedream-5.5', since: null })).toMatchObject({ status: 409 })
+      expect(await ask(admin.token, 'DELETE', at, { since: null })).toMatchObject({ status: 409 })
+      expect((await ask(admin.token, 'DELETE', at, { since: row?.updatedAt.toISOString() })).status).toBe(204)
+      expect(await db.select().from(aiStepModels).where(eq(aiStepModels.step, own))).toEqual([])
+      // An override of the kind's own default is kept as set.
+      expect((await ask(admin.token, 'PUT', at, { model: 'muse-image-1.0', since: null })).status).toBe(204)
+      const [same] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, own))
+      expect(same?.model).toBe('muse-image-1.0')
+    } finally {
+      Reflect.deleteProperty(STEPS, own)
+      await db.delete(aiStepModels).where(eq(aiStepModels.step, own))
+    }
+
+    const kinds = AiKindModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/kind-models')).json)
+    const picture = kinds.find((k) => k.kind === 'picture')
+    expect(picture).toMatchObject({ model: 'muse-image-1.0', steps: expect.arrayContaining(['flow.draft-fast']) })
+    expect(picture?.steps).not.toContain('flow.refine')
+    const kindAt = '/admin/ai/kind-models/picture'
+    const same = { model: 'muse-image-1.0', since: picture?.updatedAt }
+    expect((await ask(admin.token, 'PUT', kindAt, same)).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', kindAt, same)).toMatchObject({ status: 409 })
+    expect(await ask(admin.token, 'PUT', kindAt, { model: 'gpt-6-luna' })).toMatchObject({
+      status: 400,
+      json: {
+        error: expect.stringMatching(
+          /^The default for picture calls runs a picture model, and gpt-6-luna is a text model/,
+        ),
+        wrongKind: { model: 'gpt-6-luna', wants: 'picture', is: 'text' },
+      },
+    })
+    expect((await ask(admin.token, 'PUT', '/admin/ai/kind-models/video', { model: 'x' })).status).toBe(404)
+    const steps = AiStepModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/step-models')).json)
+    expect(steps.find((s) => s.step === 'flow.draft-fast')).toMatchObject({ source: 'kind', updatedAt: null })
+    expect(steps.find((s) => s.step === 'flow.refine')).toMatchObject({ source: 'override', model: 'seedream-5.5' })
   })
 
   it('finds a workspace by its name or a member’s email', async () => {
@@ -443,7 +493,7 @@ describe('/admin/ai', () => {
     ).toEqual([
       {
         day: '2001-05-05',
-        step: 'refine',
+        step: 'flow.refine',
         model: 'seedream-5.5',
         seller,
         calls: 1,
@@ -453,7 +503,7 @@ describe('/admin/ai', () => {
       },
       {
         day: '2001-05-04',
-        step: 'refine',
+        step: 'flow.refine',
         model: 'seedream-5.5',
         seller,
         calls: 3,

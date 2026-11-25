@@ -44,7 +44,7 @@ const AI: AiOverviewData = {
   costs: [
     {
       day: '2026-11-20',
-      step: 'refine',
+      step: 'flow.refine',
       model: 'seedream-5.5',
       seller: 'pixazo',
       calls: 3,
@@ -54,7 +54,7 @@ const AI: AiOverviewData = {
     },
     {
       day: '2026-11-19',
-      step: 'read',
+      step: 'flow.read',
       model: 'gpt-6-luna',
       seller: 'openai',
       calls: 1,
@@ -64,7 +64,7 @@ const AI: AiOverviewData = {
     },
     {
       day: '2026-11-20',
-      step: 'layer-split',
+      step: 'flow.layer-split',
       model: 'ming-image-0.1-design-layer',
       seller: 'modal',
       calls: 2,
@@ -76,7 +76,7 @@ const AI: AiOverviewData = {
   today: [
     {
       day: '2026-11-21',
-      step: 'refine',
+      step: 'flow.refine',
       model: 'seedream-5.5',
       seller: 'pixazo',
       calls: 5,
@@ -86,7 +86,7 @@ const AI: AiOverviewData = {
     },
     {
       day: '2026-11-21',
-      step: 'read',
+      step: 'flow.read',
       model: 'gpt-6-luna',
       seller: 'openai',
       calls: 2,

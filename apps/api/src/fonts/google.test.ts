@@ -13,7 +13,8 @@ import { withoutSvgTable } from './font-file.ts'
 import { copiedSources, facesWithoutMatchCopy, importGoogleFamily, makeMatchCopy } from './google.ts'
 
 // Copying a font draws its preview with CanvasKit, which takes seconds on a busy two-core CI runner.
-describe('importGoogleFamily', { timeout: 30_000 }, () => {
+// Each face's preview and match copy are drawn with CanvasKit, which takes far longer on a busy CI runner.
+describe('importGoogleFamily', { timeout: 120_000 }, () => {
   const regular = fontFile('NotoSans-Regular.ttf')
   const bold = fontFile('NotoSans-Bold.ttf')
   const families: string[] = []

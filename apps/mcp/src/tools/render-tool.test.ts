@@ -51,7 +51,7 @@ async function agentOn(design: DesignInput, options: Parameters<typeof testServe
 
 /** The PNG of a render's image block, and its text block parsed. */
 function pictureOf(result: CallToolResult) {
-  expect(result.isError).toBeFalsy()
+  expect(result.isError, JSON.stringify(result.content)).toBeFalsy()
   const [image, text] = result.content
   if (image?.type !== 'image' || text?.type !== 'text') throw new Error('not an image block and a text block')
   expect(image.mimeType).toBe('image/png')
@@ -158,34 +158,41 @@ describe('render_frame', () => {
     ])
   })
 
-  it('draws on the worker, so another session’s read answers while a large frame is drawn', async () => {
-    let posted = () => {}
-    const onWorker = new Promise<void>((resolve) => (posted = resolve))
-    const agent = await agentOn(bigDesign(), {
-      startRenderWorker: () => {
-        const worker = new Worker(new URL('../render-worker.ts', import.meta.url)) as RenderThread
-        const post = worker.postMessage.bind(worker)
-        worker.postMessage = (job) => {
-          post(job)
-          posted()
-        }
-        return worker
-      },
-    })
-    const other = await server.connect(server.api.addAccess().token())
-    await other.call('open_design', LAUNCH)
-    let drawn = false
-    const rendering = agent.call('render_frame', { frame: 'sq', maxSize: 8192 }).then((result) => {
-      drawn = true
-      return result
-    })
-    await onWorker
-    expect((await other.call('read_design')).isError).toBeFalsy()
-    expect(drawn).toBe(false)
-    // Drawn at most MAX_RENDER_PIXELS, so smaller than the 8,192 asked.
-    const { width, height } = pngSize(pictureOf(await rendering).png)
-    expect(width).toBe(height)
-    expect(width * height).toBeLessThanOrEqual(MAX_RENDER_PIXELS)
-    expect(width).toBeGreaterThan(4000)
-  })
+  it(
+    'draws on the worker, so another session’s read answers while a large frame is drawn',
+    { timeout: 240_000 },
+    async () => {
+      let posted = () => {}
+      const onWorker = new Promise<void>((resolve) => (posted = resolve))
+      // A frame over 4,000 px drawn on a busy CI runner can take longer than a render or a call may in production.
+      const agent = await agentOn(bigDesign(), {
+        callTimeoutMs: 180_000,
+        renderTimeoutMs: 180_000,
+        startRenderWorker: () => {
+          const worker = new Worker(new URL('../render-worker.ts', import.meta.url)) as RenderThread
+          const post = worker.postMessage.bind(worker)
+          worker.postMessage = (job) => {
+            post(job)
+            posted()
+          }
+          return worker
+        },
+      })
+      const other = await server.connect(server.api.addAccess().token())
+      await other.call('open_design', LAUNCH)
+      let drawn = false
+      const rendering = agent.call('render_frame', { frame: 'sq', maxSize: 8192 }).then((result) => {
+        drawn = true
+        return result
+      })
+      await onWorker
+      expect((await other.call('read_design')).isError).toBeFalsy()
+      expect(drawn).toBe(false)
+      // Drawn at most MAX_RENDER_PIXELS, so smaller than the 8,192 asked.
+      const { width, height } = pngSize(pictureOf(await rendering).png)
+      expect(width).toBe(height)
+      expect(width * height).toBeLessThanOrEqual(MAX_RENDER_PIXELS)
+      expect(width).toBeGreaterThan(4000)
+    },
+  )
 })

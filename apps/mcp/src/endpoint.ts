@@ -71,6 +71,8 @@ export interface EndpointSettings {
   limits?: LimitSettings
   /** Starts the render worker; a worker thread on `render-worker.ts` unless a test gives another. */
   startRenderWorker?: () => RenderThread
+  /** How long one render may take; `RENDER_TIMEOUT_MS` unless a test gives another. */
+  renderTimeoutMs?: number
   /** What waits for the sync server to store a step: the real clock's timers unless a test gives another. */
   after?: StoreWait['after']
   /** Where the log's lines go, each a JSON line (`mcp-log.ts`): stdout unless a test gives another. */
@@ -152,6 +154,7 @@ export function mcpEndpoint(settings: EndpointSettings): Endpoint {
   const renders = renderQueue({
     waiting: limits.rendersWaiting,
     ...(settings.startRenderWorker ? { start: settings.startRenderWorker } : {}),
+    ...(settings.renderTimeoutMs === undefined ? {} : { timeoutMs: settings.renderTimeoutMs }),
   })
   // The open sessions, by session id, in the order they started.
   const sessions = new Map<string, McpSession>()

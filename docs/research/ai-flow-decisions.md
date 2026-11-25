@@ -21,7 +21,7 @@ These replace the screen decided on 25 Nov: the flow runs on a design's canvas, 
 - **Other sizes use the editor's Add size card** in the edit panel. On a picture, the AI redraws it in each size picked, as pictures in a section beside it. On an editable frame, Add size makes a new frame from its layers, with Redraw with AI as the other choice. Make all editable turns a set of sizes into layers from one layer plan.
 - **Failures and limits.** A draft that didn't come out says so, with Try again, and isn't charged. When the month's AI is used up, the message sits where the brief box is.
 - **Leaving stops nothing.** Drafts keep arriving with the tab closed; Designs shows that a design is working, and a note names the design when it's done.
-- **Who and where.** Reviewers see no brief box and no actions. On a phone, last: drafts, Refine with AI and download; layers stay on a computer.
+- **Who and where.** Reviewers see no brief box and no actions. Phones are left out of this work: the phone screen is to be redesigned from scratch later, and the AI flow's phone use is decided then.
 - **Words.** Plain words only, never internal ones such as "linked"; no pop-up questions; options open in the panels the editor has.
 
 ### Canvas tools (26 Nov 2026)

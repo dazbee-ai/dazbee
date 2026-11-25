@@ -89,10 +89,13 @@ export function AiHeading({ id, title, hint }: { id: string; title: string; hint
   )
 }
 
-/** A dense table, a hairline under each row, that scrolls sideways when it is wider than its card. */
+/**
+ * A dense table, a hairline under each row, that scrolls inside its card when it is wider than the card or
+ * taller than about 20 rows, its header kept in sight.
+ */
 export function AiTable({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="-mx-2 overflow-x-auto">
+    <div className="-mx-2 max-h-[34rem] overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-[1] [&_thead]:bg-surface">
       <table
         aria-label={label}
         className="w-full border-collapse text-small tabular-nums [&_tbody_tr]:border-b [&_tbody_tr]:border-line [&_tbody_tr:last-child]:border-b-0 [&_thead_tr]:border-b [&_thead_tr]:border-line-strong"

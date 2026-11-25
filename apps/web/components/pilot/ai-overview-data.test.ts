@@ -38,9 +38,10 @@ describe('costsByDay', () => {
     cost('2026-11-19', 'refine', 'openai', 1.25),
     cost('2026-11-20', 'test-step', 'test-seller', 4),
     cost('2026-10-01', 'read', 'meta', 9),
+    cost('2026-11-21', 'resize', 'zenmux', 0, { done: 0 }),
   ]
 
-  it('adds up each day’s real cost by seller, in the sellers’ fixed order, with those not in it as Other', () => {
+  it('adds up each day’s real cost by seller, in the sellers’ fixed order, with those not in it as Other and none that cost nothing', () => {
     expect(costsByDay(costs, DAYS, 'seller')).toEqual([
       { key: 'openai', slot: 0, values: [1.75, 0, 0] },
       { key: 'pixazo', slot: 4, values: [0, 0, 2] },

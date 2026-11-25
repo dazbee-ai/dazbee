@@ -50,8 +50,8 @@ export function daysFrom(from: string, to: string): string[] {
 }
 
 /**
- * Each day's real cost split by seller or by AI step: a series for each one that has calls on the days, in
- * the fixed order of sellers or AI steps, and one for those not in it last.
+ * Each day's real cost split by seller or by AI step: a series for each one that cost anything on the days,
+ * in the fixed order of sellers or AI steps, and one for those not in it last.
  */
 export function costsByDay(costs: AiCostRow[], days: string[], split: CostSplit): CostSeries[] {
   const list: readonly string[] = split === 'seller' ? SELLERS : AI_STEPS
@@ -66,7 +66,9 @@ export function costsByDay(costs: AiCostRow[], days: string[], split: CostSplit)
     each.values[day] = (each.values[day] ?? 0) + row.realCost
     series.set(key, each)
   }
-  return [...series.values()].sort((a, b) => (a.slot < 0 ? list.length : a.slot) - (b.slot < 0 ? list.length : b.slot))
+  return [...series.values()]
+    .filter((each) => each.values.some((value) => value > 0))
+    .sort((a, b) => (a.slot < 0 ? list.length : a.slot) - (b.slot < 0 ? list.length : b.slot))
 }
 
 /** Each checked seller's daily check, day by day, sellers in their fixed order; a day not checked has no figures. */

@@ -190,7 +190,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
 function GiftForm({ workspaceId }: { workspaceId: string }) {
   const w = useMessages().pilotAi.grants
   const amount = useAmount()
-  const { run, busy, note } = useChange()
+  const { run, busy, noteAt } = useChange()
   const [given, setGiven] = useState('')
   const [lastDay, setLastDay] = useState(() => dayIn(GIFT_DAYS))
   const [text, setText] = useState('')
@@ -203,6 +203,7 @@ function GiftForm({ workspaceId }: { workspaceId: string }) {
         event.preventDefault()
         const gift = { amount: Number(given), expiresOn: lastDay, note: text }
         run(
+          'gift',
           () => giveGift(workspaceId, gift),
           format(w.given, { amount: amount(gift.amount, 4) }),
           () => {
@@ -253,7 +254,7 @@ function GiftForm({ workspaceId }: { workspaceId: string }) {
           {busy ? w.giving : w.give}
         </button>
       </div>
-      <ChangeShown note={note} />
+      <ChangeShown note={noteAt('gift')} />
     </form>
   )
 }

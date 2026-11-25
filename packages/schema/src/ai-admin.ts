@@ -9,6 +9,12 @@ import { CallKind, GrantSource, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay }
 /** An amount of money on the admin page: rupees, or a seller's currency, as a decimal; kept as whole millionths. */
 const Money = z.number().nonnegative().max(1_000_000_000)
 
+/**
+ * When what a save changes was last changed, as the page that sends it read it, or null when there was none
+ * yet: a save from a page that read anything else is refused, so a second tab never overwrites a newer save.
+ */
+const Since = z.iso.datetime().nullable().optional()
+
 /** The AI settings an admin sets: the usage rate (1 is a rupee of allowance per rupee of real cost), amounts in rupees. */
 export const AiSettingsInput = z.object({
   usageRate: z.number().positive().max(1000),
@@ -16,11 +22,12 @@ export const AiSettingsInput = z.object({
   jobLimit: z.number().int().min(1).max(100),
   layerSplit512: Money,
   layerSplit1024: Money,
+  since: Since,
 })
 export type AiSettingsInput = z.infer<typeof AiSettingsInput>
 
 /** The AI settings as an admin reads them, with today's real cost of AI calls (IST) and whether the spending stop is in force. */
-export const AiSettingsView = AiSettingsInput.extend({
+export const AiSettingsView = AiSettingsInput.omit({ since: true }).extend({
   spentToday: z.number(),
   stopped: z.boolean(),
   updatedAt: z.iso.datetime(),
@@ -31,11 +38,14 @@ export type AiSettingsView = z.infer<typeof AiSettingsView>
 export const CurrencyCode = z.string().regex(/^[A-Z]{3}$/)
 
 /** What one unit of a currency costs in rupees, the bank's forex fee included. */
-export const CurrencyRateInput = z.object({ rate: z.number().positive().max(1_000_000) })
+export const CurrencyRateInput = z.object({ rate: z.number().positive().max(1_000_000), since: Since })
 export type CurrencyRateInput = z.infer<typeof CurrencyRateInput>
 
 /** A currency's rate as an admin reads it. */
-export const CurrencyRateView = CurrencyRateInput.extend({ currency: z.string(), updatedAt: z.iso.datetime() })
+export const CurrencyRateView = CurrencyRateInput.omit({ since: true }).extend({
+  currency: z.string(),
+  updatedAt: z.iso.datetime(),
+})
 export type CurrencyRateView = z.infer<typeof CurrencyRateView>
 
 /** A model's name as the price list and the seller order keep it, such as seedream-5.5. */
@@ -55,11 +65,16 @@ export const AiPriceInput = z.object({
   currency: CurrencyCode,
   pricePerMillion: Money,
   fee: z.number().min(0).max(1),
+  since: Since,
 })
 export type AiPriceInput = z.infer<typeof AiPriceInput>
 
 /** A price-list row as an admin reads it. */
-export const AiPriceView = AiPriceInput.extend({ seller: z.string(), model: z.string(), updatedAt: z.iso.datetime() })
+export const AiPriceView = AiPriceInput.omit({ since: true }).extend({
+  seller: z.string(),
+  model: z.string(),
+  updatedAt: z.iso.datetime(),
+})
 export type AiPriceView = z.infer<typeof AiPriceView>
 
 /** A seller of a model, with its own name for the model when it differs. */
@@ -69,13 +84,17 @@ const ModelSeller = z.object({ seller: z.string(), sellerModel: z.string().nulla
 export const ModelSellersView = z.object({ model: z.string(), sellers: z.array(ModelSeller) })
 export type ModelSellersView = z.infer<typeof ModelSellersView>
 
-/** A model's sellers in the order an admin sets, each at most once. */
+/**
+ * A model's sellers in the order an admin sets, each at most once, with the order the page read (none for a
+ * model not sold yet): a save from a page that read another order is refused.
+ */
 export const ModelSellersInput = z.object({
   sellers: z
     .array(z.object({ seller: Seller, sellerModel: z.string().trim().min(1).max(200).nullable() }))
     .min(1)
     .max(SELLERS.length)
     .refine((sellers) => new Set(sellers.map((s) => s.seller)).size === sellers.length, 'Name each seller once'),
+  was: z.array(ModelSeller).max(SELLERS.length).optional(),
 })
 export type ModelSellersInput = z.infer<typeof ModelSellersInput>
 
@@ -83,6 +102,7 @@ export type ModelSellersInput = z.infer<typeof ModelSellersInput>
 export const AiStepModelInput = z.object({
   model: ModelName,
   options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+  since: Since,
 })
 export type AiStepModelInput = z.infer<typeof AiStepModelInput>
 
@@ -99,6 +119,19 @@ export const AiStepModelView = z.object({
   updatedAt: z.iso.datetime(),
 })
 export type AiStepModelView = z.infer<typeof AiStepModelView>
+
+/**
+ * Why an AI step can't run a model of another kind: the step, the model, the units the model is priced in,
+ * the kind of call the step makes and the one the model takes, null when it takes none.
+ */
+export const WrongKind = z.object({
+  step: z.string(),
+  model: z.string(),
+  units: z.array(UsageUnit),
+  wants: CallKind,
+  is: CallKind.nullable(),
+})
+export type WrongKind = z.infer<typeof WrongKind>
 
 /** A workspace an admin found by its name or a member's email, with its members' emails. */
 export const AiWorkspace = z.object({ id: z.string(), name: z.string(), emails: z.array(z.string()) })

@@ -59,22 +59,26 @@ export function useWhen() {
 }
 
 /**
- * Runs a change that gives why it was refused, or null, while `busy`; `note` then says it was done (with
- * `done`, or Saved) or why it was refused, until the next change starts. `onDone` runs once it is done.
+ * Runs a change that gives why it was refused, or null, while `busy`, from the row or form `at` names; that
+ * row's `noteAt` then says it was done (with `done`, or Saved) or why it was refused, until the next change
+ * starts, so the note shows beside the button that ran it. `onDone` runs once it is done; `show` puts a note
+ * of the page's own at a row.
  */
 export function useChange() {
   const saved = useMessages().pilotAi.saved
   const [busy, startTransition] = useTransition()
-  const [note, setNote] = useState<ChangeNote | null>(null)
-  function run(change: () => Promise<string | null>, done = saved, onDone?: () => void) {
+  const [note, setNote] = useState<{ at: string; note: ChangeNote } | null>(null)
+  function run(at: string, change: () => Promise<string | null>, done = saved, onDone?: () => void) {
     setNote(null)
     startTransition(async () => {
       const refusal = await change()
-      setNote(refusal ? { text: refusal, refused: true } : { text: done, refused: false })
+      setNote({ at, note: refusal ? { text: refusal, refused: true } : { text: done, refused: false } })
       if (!refusal) onDone?.()
     })
   }
-  return { run, busy, note, setNote }
+  const noteAt = (at: string) => (note?.at === at ? note.note : null)
+  const show = (at: string, shown: ChangeNote) => setNote({ at, note: shown })
+  return { run, busy, noteAt, show }
 }
 
 /** A section's heading, with a line under it saying what it shows. */
@@ -109,4 +113,17 @@ export function AiTable({ label, children }: { label: string; children: ReactNod
 /** What the last change came to, when there was one. */
 export function ChangeShown({ note }: { note: ChangeNote | null }) {
   return note && <Note text={note.text} refused={note.refused} />
+}
+
+/** What the last change of a table's row came to, in a row of its own under it, `span` columns wide. */
+export function NoteRow({ note, span }: { note: ChangeNote | null; span: number }) {
+  return (
+    note && (
+      <tr data-note>
+        <td colSpan={span} className="px-2 pb-2">
+          <ChangeShown note={note} />
+        </td>
+      </tr>
+    )
+  )
 }

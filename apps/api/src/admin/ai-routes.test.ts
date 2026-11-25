@@ -35,6 +35,8 @@ let admin: Awaited<ReturnType<typeof addAdmin>>
 /** The test's own picture model, text model and AI step, and a currency no seller bills in. */
 const model = `test-model-${run}`
 const textModel = `test-model-${run}-text`
+const orderModel = `test-model-${run}-order`
+const staleStep = `test-step-${run}-stale`
 const step = `test-step-${run}`
 const XTS = 'XTS'
 
@@ -44,8 +46,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   Reflect.deleteProperty(STEPS, step)
-  await db.delete(aiStepModels).where(eq(aiStepModels.step, step))
-  await db.delete(modelSellers).where(inArray(modelSellers.model, [model, textModel]))
+  Reflect.deleteProperty(STEPS, staleStep)
+  await db.delete(aiStepModels).where(inArray(aiStepModels.step, [step, staleStep]))
+  await db.delete(modelSellers).where(inArray(modelSellers.model, [model, textModel, orderModel]))
   await db.delete(aiPrices).where(inArray(aiPrices.model, [model, textModel]))
   await db.delete(currencyRates).where(eq(currencyRates.currency, XTS))
 })
@@ -273,6 +276,13 @@ describe('/admin/ai', () => {
       status: 400,
       json: {
         error: `${step} runs a picture model, and ${textModel} is a text model, priced in input-token, output-token`,
+        wrongKind: {
+          step,
+          model: textModel,
+          units: ['input-token', 'output-token'],
+          wants: 'picture-edit',
+          is: 'text',
+        },
       },
     })
     const [kept] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
@@ -287,6 +297,70 @@ describe('/admin/ai', () => {
     expect(resize?.models).not.toContain(textModel)
     expect(read).toMatchObject({ kind: 'text', models: expect.arrayContaining([textModel]) })
     expect(read?.models).not.toContain(model)
+  })
+
+  it('refuses a save made from an older copy, as a second tab’s, and keeps the first', async () => {
+    const stale = { status: 409, json: { error: 'This changed since you opened it; reload to see the newest.' } }
+    const before = AiSettingsView.parse((await ask(admin.token, 'GET', '/admin/ai/settings')).json)
+    const settings = AiSettingsInput.parse(before)
+    try {
+      const first = { ...settings, layerSplit512: settings.layerSplit512 + 0.5, since: before.updatedAt }
+      expect((await ask(admin.token, 'PUT', '/admin/ai/settings', first)).status).toBe(204)
+      const second = { ...settings, jobLimit: settings.jobLimit === 1 ? 2 : 1, since: before.updatedAt }
+      expect(await ask(admin.token, 'PUT', '/admin/ai/settings', second)).toMatchObject(stale)
+      expect(AiSettingsView.parse((await ask(admin.token, 'GET', '/admin/ai/settings')).json)).toMatchObject({
+        layerSplit512: first.layerSplit512,
+        jobLimit: settings.jobLimit,
+      })
+    } finally {
+      await ask(admin.token, 'PUT', '/admin/ai/settings', settings)
+    }
+
+    await ask(admin.token, 'PUT', `/admin/ai/currency-rates/${XTS}`, { rate: 2.5 })
+    const rateOf = async () =>
+      CurrencyRateView.array()
+        .parse((await ask(admin.token, 'GET', '/admin/ai/currency-rates')).json)
+        .find((r) => r.currency === XTS)
+    const rate = await rateOf()
+    const rateAt = `/admin/ai/currency-rates/${XTS}`
+    expect((await ask(admin.token, 'PUT', rateAt, { rate: 3, since: rate?.updatedAt })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', rateAt, { rate: 4, since: rate?.updatedAt })).toMatchObject(stale)
+    expect(await ask(admin.token, 'PUT', rateAt, { rate: 5, since: null })).toMatchObject(stale)
+    expect((await rateOf())?.rate).toBe(3)
+
+    const price = { seller: 'openai', model, unit: 'reference-picture', currency: XTS, fee: 0 }
+    const pricesAt = '/admin/ai/prices'
+    expect((await ask(admin.token, 'PUT', pricesAt, { ...price, pricePerMillion: 1, since: null })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', pricesAt, { ...price, pricePerMillion: 2, since: null })).toMatchObject(stale)
+    const priceOf = async () =>
+      AiPriceView.array()
+        .parse((await ask(admin.token, 'GET', pricesAt)).json)
+        .find((p) => p.model === model && p.unit === 'reference-picture')
+    const again = { ...price, since: (await priceOf())?.updatedAt }
+    expect((await ask(admin.token, 'PUT', pricesAt, { ...again, pricePerMillion: 3 })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', pricesAt, { ...again, pricePerMillion: 4 })).toMatchObject(stale)
+    expect((await priceOf())?.pricePerMillion).toBe(3)
+
+    const orderAt = `/admin/ai/model-sellers/${orderModel}`
+    const openai = { seller: 'openai', sellerModel: null }
+    const pixazo = { seller: 'pixazo', sellerModel: null }
+    expect((await ask(admin.token, 'PUT', orderAt, { sellers: [openai], was: [] })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', orderAt, { sellers: [pixazo], was: [] })).toMatchObject(stale)
+    expect((await ask(admin.token, 'PUT', orderAt, { sellers: [openai, pixazo], was: [openai] })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', orderAt, { sellers: [pixazo], was: [openai] })).toMatchObject(stale)
+    const orders = ModelSellersView.array().parse((await ask(admin.token, 'GET', '/admin/ai/model-sellers')).json)
+    expect(orders.find((m) => m.model === orderModel)?.sellers).toEqual([openai, pixazo])
+
+    STEPS[staleStep] = { kind: 'picture-edit', expected: () => ({ picture: 1 }) }
+    await ask(admin.token, 'PUT', pricesAt, { ...price, unit: 'picture', pricePerMillion: 1 })
+    await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, { sellers: [openai] })
+    const [row] = await db.insert(aiStepModels).values({ step: staleStep, model: 'seedream-5.5' }).returning()
+    const since = row?.updatedAt.toISOString()
+    const stepAt = `/admin/ai/step-models/${staleStep}`
+    expect((await ask(admin.token, 'PUT', stepAt, { model, since })).status).toBe(204)
+    expect(await ask(admin.token, 'PUT', stepAt, { model, options: { quality: 'high' }, since })).toMatchObject(stale)
+    const [after] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, staleStep))
+    expect(after).toMatchObject({ model, options: {} })
   })
 
   it('finds a workspace by its name or a member’s email', async () => {

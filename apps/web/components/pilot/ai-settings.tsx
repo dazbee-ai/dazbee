@@ -19,14 +19,14 @@ export function AiSettings({ settings }: { settings: AiSettingsView }) {
   const t = useMessages().pilotAi
   const w = t.settings
   const amount = useAmount()
-  const { run, busy, note } = useChange()
+  const { run, busy, noteAt } = useChange()
   const [values, setValues] = useState(() => Object.fromEntries(FIELDS.map((f) => [f, String(settings[f])])))
   function save() {
     const numbers = Object.fromEntries(FIELDS.map((f) => [f, Number(values[f])])) as Record<
       (typeof FIELDS)[number],
       number
     >
-    run(() => saveAiSettings(numbers))
+    run('settings', () => saveAiSettings({ ...numbers, since: settings.updatedAt }))
   }
   return (
     <form
@@ -70,7 +70,7 @@ export function AiSettings({ settings }: { settings: AiSettingsView }) {
         <button type="submit" disabled={busy} className={MAIN_BUTTON}>
           {busy ? t.saving : t.save}
         </button>
-        <ChangeShown note={note} />
+        <ChangeShown note={noteAt('settings')} />
       </div>
     </form>
   )

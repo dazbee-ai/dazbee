@@ -44,12 +44,14 @@ import {
   type UnknownCalls,
   UsageUnit,
   UtcDay,
+  type WrongKind,
 } from '@dazbee/schema'
 
 import { body, type Env, error } from '../http.ts'
 import type { SessionOf } from '../sign-in/session.ts'
 import { type Admins, requireAdmin } from './admins.ts'
 import { allowanceOf, findWorkspaces, GiftRefused, giveGift } from './ai-allowance.ts'
+import { ChangedMeanwhile, checkSince } from './ai-changed-meanwhile.ts'
 import {
   listCurrencyRates,
   listModelSellers,
@@ -61,6 +63,14 @@ import {
   setModelSellers,
   setPrice,
 } from './ai-price-list.ts'
+
+/** An AI step with no model row to change. */
+class NoSuchStep extends Error {
+  constructor() {
+    super('No such AI step')
+    this.name = 'NoSuchStep'
+  }
+}
 
 /** How many days a range may span at most. */
 const MAX_DAYS = 92
@@ -85,18 +95,27 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
   app.put('/admin/ai/settings', async (c) => {
     const input = await body(c.req.raw, AiSettingsInput)
     if (input instanceof Response) return input
-    await db
-      .update(aiSettings)
-      .set({
-        usageRate: toMillionths(input.usageRate),
-        spendingStop: toMillionths(input.spendingStop),
-        jobLimit: input.jobLimit,
-        layerSplit512: toMillionths(input.layerSplit512),
-        layerSplit1024: toMillionths(input.layerSplit1024),
-        updatedAt: new Date(),
-      })
-      .where(eq(aiSettings.id, 1))
-    return c.body(null, 204)
+    return refusedOr(c, () =>
+      db.transaction(async (tx) => {
+        const [stored] = await tx
+          .select({ updatedAt: aiSettings.updatedAt })
+          .from(aiSettings)
+          .where(eq(aiSettings.id, 1))
+          .for('update')
+        checkSince(stored?.updatedAt, input.since)
+        await tx
+          .update(aiSettings)
+          .set({
+            usageRate: toMillionths(input.usageRate),
+            spendingStop: toMillionths(input.spendingStop),
+            jobLimit: input.jobLimit,
+            layerSplit512: toMillionths(input.layerSplit512),
+            layerSplit1024: toMillionths(input.layerSplit1024),
+            updatedAt: new Date(),
+          })
+          .where(eq(aiSettings.id, 1))
+      }),
+    )
   })
 
   app.get('/admin/ai/currency-rates', async (c) => c.json(await listCurrencyRates(db)))
@@ -106,7 +125,7 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     if (!currency.success) return c.json(error('Name a currency by its three-letter code, such as USD'), 400)
     const input = await body(c.req.raw, CurrencyRateInput)
     if (input instanceof Response) return input
-    return refusedOr(c, () => setCurrencyRate(db, currency.data, input.rate))
+    return refusedOr(c, () => setCurrencyRate(db, currency.data, input.rate, input.since))
   })
 
   app.get('/admin/ai/prices', async (c) => c.json(await listPrices(db)))
@@ -133,8 +152,7 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     if (!model.success) return c.json(error('Name the model in lower case, such as seedream-5.5'), 400)
     const input = await body(c.req.raw, ModelSellersInput)
     if (input instanceof Response) return input
-    await setModelSellers(db, model.data, input)
-    return c.body(null, 204)
+    return refusedOr(c, () => setModelSellers(db, model.data, input))
   })
 
   app.get('/admin/ai/step-models', async (c) => {
@@ -165,13 +183,31 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     if (input instanceof Response) return input
     const units = (await pricedUnits(db)).get(input.model)
     if (!units) return c.json(error(`No seller of ${input.model} has a price for it`), 400)
-    if (!stepTakes(step, units)) return c.json(error(kindRefusal(step, input.model, units)), 400)
-    const changed = await db
-      .update(aiStepModels)
-      .set({ model: input.model, options: input.options, updatedAt: new Date() })
-      .where(eq(aiStepModels.step, step))
-      .returning({ step: aiStepModels.step })
-    return changed.length > 0 ? c.body(null, 204) : c.json(error('No such AI step'), 404)
+    if (!stepTakes(step, units)) {
+      const wrongKind = {
+        step,
+        model: input.model,
+        units,
+        wants: stepDef(step).kind,
+        is: modelKinds(units)[0] ?? null,
+      } satisfies WrongKind
+      return c.json({ ...error(kindRefusal(wrongKind)), wrongKind }, 400)
+    }
+    return refusedOr(c, () =>
+      db.transaction(async (tx) => {
+        const [stored] = await tx
+          .select({ updatedAt: aiStepModels.updatedAt })
+          .from(aiStepModels)
+          .where(eq(aiStepModels.step, step))
+          .for('update')
+        if (!stored) throw new NoSuchStep()
+        checkSince(stored.updatedAt, input.since)
+        await tx
+          .update(aiStepModels)
+          .set({ model: input.model, options: input.options, updatedAt: new Date() })
+          .where(eq(aiStepModels.step, step))
+      }),
+    )
   })
 
   app.get('/admin/ai/workspaces', async (c) => {
@@ -311,22 +347,26 @@ async function settingsView(db: Db): Promise<AiSettingsView> {
   }
 }
 
-/** Runs a change to the price list: 204, or 400 saying why it was refused. */
+/**
+ * Runs a change: 204; 400 saying why the price list refused it; 404 for an AI step with no model row; or 409
+ * when what it changes was changed since its page read it.
+ */
 async function refusedOr(c: Context<Env>, change: () => Promise<void>): Promise<Response> {
   try {
     await change()
     return c.body(null, 204)
   } catch (refused) {
     if (refused instanceof PriceListRefused) return c.json(error(refused.message), 400)
+    if (refused instanceof ChangedMeanwhile) return c.json(error(refused.message), 409)
+    if (refused instanceof NoSuchStep) return c.json(error(refused.message), 404)
     throw refused
   }
 }
 
-/** Why `step` can't run `model`, priced in `units`: the kind of model the step runs, and what `model` is. */
-function kindRefusal(step: string, model: string, units: UsageUnit[]): string {
-  const [kind] = modelKinds(units)
-  const is = kind ? `is ${KIND_WORDS[kind]}` : 'is no kind of model an AI step runs'
-  return `${step} runs ${KIND_WORDS[stepDef(step).kind]}, and ${model} ${is}, priced in ${units.join(', ')}`
+/** Why an AI step can't run a model of another kind, in the API's own names. */
+function kindRefusal({ step, model, units, wants, is }: WrongKind): string {
+  const kind = is ? `is ${KIND_WORDS[is]}` : 'is no kind of model an AI step runs'
+  return `${step} runs ${KIND_WORDS[wants]}, and ${model} ${kind}, priced in ${units.join(', ')}`
 }
 
 /** AI calls started on the range's UTC days. */

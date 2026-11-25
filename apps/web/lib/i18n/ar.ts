@@ -1486,6 +1486,7 @@ export const ar: Messages = {
     remove: 'أزِل',
     invalid: 'هناك ما هو ناقص أو خارج الحدود. راجع كل حقل.',
     gone: 'تغيّر هذا أو أُزيل في الأثناء. أعد تحميل الصفحة.',
+    stale: 'تغيّر هذا منذ أن فتحته؛ أعد التحميل لترى الأحدث.',
     steps: {
       'round-plan': 'خطة الجولة',
       read: 'القراءة',
@@ -1592,6 +1593,14 @@ export const ar: Messages = {
       optionsFor: 'خيارات {step}، بصيغة JSON',
       saveFor: 'احفظ نموذج {step}',
       badOptions: 'الخيارات كائن JSON، مثل {"quality":"medium"}.',
+      wrongKind: '{step} يشغّل {wants}، أما {model} فهو {is}، ومسعّر بوحدات: {units}.',
+      kinds: {
+        text: 'نموذج نصوص',
+        picture: 'نموذج صور',
+        'picture-edit': 'نموذج صور',
+        'layer-split': 'نموذج GPU',
+        none: 'ليس من أي نوع تشغّله خطوة ذكاء اصطناعي',
+      },
     },
     costs: {
       title: 'التكاليف',

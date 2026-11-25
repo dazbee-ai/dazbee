@@ -1,7 +1,8 @@
 // The price list as an admin reads and sets it: the currency rates, each seller's prices for each model and
 // the order a model's sellers are tried in, and the units each model is priced in, which say what kind of
 // model it is. Amounts come and go as decimals and are kept as whole millionths.
-// A call keeps the cost it was priced at, so a change here reaches only calls made after it.
+// A call keeps the cost it was priced at, so a change here reaches only calls made after it. A save from a page
+// that read an older rate, price or seller order is refused.
 import { and, asc, eq, ne } from 'drizzle-orm'
 
 import { aiPrices, currencyRates, type Db, modelSellers } from '@dazbee/db'
@@ -15,6 +16,8 @@ import {
   toMillionths,
   type UsageUnit,
 } from '@dazbee/schema'
+
+import { ChangedMeanwhile, checkSince } from './ai-changed-meanwhile.ts'
 
 /** Why a change to the price list was refused. */
 export class PriceListRefused extends Error {
@@ -34,16 +37,27 @@ export async function listCurrencyRates(db: Db): Promise<CurrencyRateView[]> {
   }))
 }
 
-/** Sets `currency`'s rate in rupees, adding the currency when it has none; a rupee is always worth 1. */
-export async function setCurrencyRate(db: Db, currency: string, rate: number): Promise<void> {
+/**
+ * Sets `currency`'s rate in rupees, adding the currency when it has none; a rupee is always worth 1. Refused
+ * when the rate changed after `since`.
+ */
+export async function setCurrencyRate(db: Db, currency: string, rate: number, since?: string | null): Promise<void> {
   const millionths = toMillionths(rate)
   if (currency === 'INR' && millionths !== 1_000_000n) throw new PriceListRefused('A rupee is always worth 1')
   if (millionths <= 0n) throw new PriceListRefused('A rate is more than 0')
   const row = { currency, rate: millionths, updatedAt: new Date() }
-  await db
-    .insert(currencyRates)
-    .values(row)
-    .onConflictDoUpdate({ target: currencyRates.currency, set: { rate: row.rate, updatedAt: row.updatedAt } })
+  await db.transaction(async (tx) => {
+    const [stored] = await tx
+      .select({ updatedAt: currencyRates.updatedAt })
+      .from(currencyRates)
+      .where(eq(currencyRates.currency, currency))
+      .for('update')
+    checkSince(stored?.updatedAt, since)
+    await tx
+      .insert(currencyRates)
+      .values(row)
+      .onConflictDoUpdate({ target: currencyRates.currency, set: { rate: row.rate, updatedAt: row.updatedAt } })
+  })
 }
 
 /** The whole price list, by seller, model and unit. */
@@ -62,7 +76,8 @@ export async function listPrices(db: Db): Promise<AiPriceView[]> {
 
 /**
  * Sets one price, adding the row when the seller has no price for the model in that unit yet. Refuses a
- * currency with no rate, and one other than the seller's other prices for the model are in.
+ * currency with no rate, one other than the seller's other prices for the model are in, and a price that
+ * changed after `since`.
  */
 export async function setPrice(db: Db, price: AiPriceInput): Promise<void> {
   const [rate] = await db.select().from(currencyRates).where(eq(currencyRates.currency, price.currency))
@@ -91,18 +106,26 @@ export async function setPrice(db: Db, price: AiPriceInput): Promise<void> {
     fee: Math.round(price.fee * 1e6),
     updatedAt: new Date(),
   }
-  await db
-    .insert(aiPrices)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [aiPrices.seller, aiPrices.model, aiPrices.unit],
-      set: {
-        currency: values.currency,
-        pricePerMillion: values.pricePerMillion,
-        fee: values.fee,
-        updatedAt: values.updatedAt,
-      },
-    })
+  await db.transaction(async (tx) => {
+    const [stored] = await tx
+      .select({ updatedAt: aiPrices.updatedAt })
+      .from(aiPrices)
+      .where(and(eq(aiPrices.seller, price.seller), eq(aiPrices.model, price.model), eq(aiPrices.unit, price.unit)))
+      .for('update')
+    checkSince(stored?.updatedAt, price.since)
+    await tx
+      .insert(aiPrices)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [aiPrices.seller, aiPrices.model, aiPrices.unit],
+        set: {
+          currency: values.currency,
+          pricePerMillion: values.pricePerMillion,
+          fee: values.fee,
+          updatedAt: values.updatedAt,
+        },
+      })
+  })
 }
 
 /** Takes one price off the list; whether there was one. */
@@ -129,9 +152,24 @@ export async function listModelSellers(db: Db): Promise<ModelSellersView[]> {
   return [...byModel.values()]
 }
 
-/** Sets the sellers of `model` and their order, in place of the ones before; a model not sold yet is added. */
-export async function setModelSellers(db: Db, model: string, { sellers }: ModelSellersInput): Promise<void> {
+/**
+ * Sets the sellers of `model` and their order, in place of the ones before; a model not sold yet is added.
+ * Refused when the page read another order than the one kept now (`was`, none for a model not sold yet).
+ */
+export async function setModelSellers(db: Db, model: string, { sellers, was }: ModelSellersInput): Promise<void> {
   await db.transaction(async (tx) => {
+    const stored = await tx
+      .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
+      .from(modelSellers)
+      .where(eq(modelSellers.model, model))
+      .orderBy(asc(modelSellers.position))
+      .for('update')
+    if (
+      was &&
+      JSON.stringify(stored) !== JSON.stringify(was.map((s) => ({ seller: s.seller, sellerModel: s.sellerModel })))
+    ) {
+      throw new ChangedMeanwhile()
+    }
     await tx.delete(modelSellers).where(eq(modelSellers.model, model))
     await tx
       .insert(modelSellers)

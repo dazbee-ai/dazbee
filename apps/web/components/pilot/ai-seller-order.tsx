@@ -10,6 +10,7 @@ import { type ModelSellersView, type Seller, SELLERS } from '@dazbee/schema'
 import { saveSellerOrder } from '@/app/pilot/ai/actions.ts'
 import {
   AiHeading,
+  type ChangeNote,
   ChangeShown,
   FIELD,
   ROW_BUTTON,
@@ -22,31 +23,44 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
-/** A change a model's row runs, through the list's `useChange`. */
-type Run = (change: () => Promise<string | null>) => void
+/** A change a model's row runs from where `at` names, through the list's `useChange`. */
+type Run = (at: string, change: () => Promise<string | null>) => void
+
+/** Where the row that adds a model shows what its save came to. */
+const NEW_MODEL = 'new-model'
 
 /** A Select in a row. */
 const ROW_SELECT = 'h-8 px-2 text-small'
 
 export function AiSellerOrder({ models }: { models: ModelSellersView[] }) {
   const t = useMessages().pilotAi
-  const { run, busy, note } = useChange()
+  const { run, busy, noteAt } = useChange()
   return (
     <div data-testid="ai-seller-order" className="flex flex-col gap-3">
       <AiHeading id="ai-order-title" title={t.order.title} hint={t.order.hint} />
-      <ChangeShown note={note} />
       <ul aria-labelledby="ai-order-title" className="flex flex-col gap-4">
         {models.map((model) => (
-          <ModelOrder key={JSON.stringify(model)} model={model} run={run} busy={busy} />
+          <ModelOrder key={JSON.stringify(model)} model={model} run={run} busy={busy} note={noteAt(model.model)} />
         ))}
       </ul>
-      <NewModel key={models.length} run={run} busy={busy} />
+      <NewModel key={models.length} run={run} busy={busy} note={noteAt(NEW_MODEL)} />
     </div>
   )
 }
 
 /** One model's sellers in order, each moved, renamed or removed, and saved together. */
-function ModelOrder({ model, run, busy }: { model: ModelSellersView; run: Run; busy: boolean }) {
+function ModelOrder({
+  model,
+  run,
+  busy,
+  note,
+}: {
+  model: ModelSellersView
+  run: Run
+  busy: boolean
+  /** What this model's last save came to. */
+  note: ChangeNote | null
+}) {
   const t = useMessages().pilotAi
   const w = t.order
   const names = useAiNames()
@@ -59,12 +73,13 @@ function ModelOrder({ model, run, busy }: { model: ModelSellersView; run: Run; b
     setSellers(next)
   }
   const save = () =>
-    run(() =>
+    run(model.model, () =>
       saveSellerOrder(model.model, {
         sellers: sellers.map((s) => ({
           seller: s.seller as Seller,
           sellerModel: s.sellerModel.trim() || null,
         })),
+        was: model.sellers,
       }),
     )
   return (
@@ -140,42 +155,50 @@ function ModelOrder({ model, run, busy }: { model: ModelSellersView; run: Run; b
           {t.save}
         </button>
       </div>
+      <div className="ps-7">
+        <ChangeShown note={note} />
+      </div>
     </li>
   )
 }
 
 /** A row that adds a model, with its first seller. */
-function NewModel({ run, busy }: { run: Run; busy: boolean }) {
+function NewModel({ run, busy, note }: { run: Run; busy: boolean; note: ChangeNote | null }) {
   const w = useMessages().pilotAi.order
   const names = useAiNames()
   const [model, setModel] = useState('')
   const [seller, setSeller] = useState<Seller>('openai')
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <input
-        name="new-model"
-        value={model}
-        onChange={(e) => setModel(e.target.value.toLowerCase())}
-        aria-label={w.newModel}
-        placeholder={w.newModel}
-        className={cn(FIELD, 'w-64 font-mono text-caption')}
-      />
-      <Select
-        name="new-model-seller"
-        label={w.addSeller}
-        value={seller}
-        options={SELLERS.map((s) => ({ value: s, label: names.seller(s) }))}
-        onChange={(value) => setSeller(value as Seller)}
-        className={ROW_SELECT}
-      />
-      <button
-        type="button"
-        disabled={busy || model.trim() === ''}
-        onClick={() => run(() => saveSellerOrder(model.trim(), { sellers: [{ seller, sellerModel: null }] }))}
-        className={SAVE_BUTTON}
-      >
-        {w.addModel}
-      </button>
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <input
+          name="new-model"
+          value={model}
+          onChange={(e) => setModel(e.target.value.toLowerCase())}
+          aria-label={w.newModel}
+          placeholder={w.newModel}
+          className={cn(FIELD, 'w-64 font-mono text-caption')}
+        />
+        <Select
+          name="new-model-seller"
+          label={w.addSeller}
+          value={seller}
+          options={SELLERS.map((s) => ({ value: s, label: names.seller(s) }))}
+          onChange={(value) => setSeller(value as Seller)}
+          className={ROW_SELECT}
+        />
+        <button
+          type="button"
+          disabled={busy || model.trim() === ''}
+          onClick={() =>
+            run(NEW_MODEL, () => saveSellerOrder(model.trim(), { sellers: [{ seller, sellerModel: null }], was: [] }))
+          }
+          className={SAVE_BUTTON}
+        >
+          {w.addModel}
+        </button>
+      </div>
+      <ChangeShown note={note} />
     </div>
   )
 }

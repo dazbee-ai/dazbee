@@ -1655,6 +1655,8 @@ export const en = {
     invalid: 'Something is missing or out of range. Check each field.',
     /** A change to something that was changed or removed meanwhile. */
     gone: 'This was changed or removed meanwhile. Reload the page.',
+    /** A save from a page that read an older copy than the one kept now, as a second tab's. */
+    stale: 'This changed since you opened it; reload to see the newest.',
     /** Each AI step by what it does; the draft steps are the modes. */
     steps: {
       'round-plan': 'Round plan',
@@ -1764,6 +1766,15 @@ export const en = {
       optionsFor: 'The options of {step}, as JSON',
       saveFor: 'Save the model of {step}',
       badOptions: 'Options are a JSON object, such as {"quality":"medium"}.',
+      /** Why an AI step can't run a model of another kind. */
+      wrongKind: '{step} runs {wants}, and {model} is {is}, priced in {units}.',
+      kinds: {
+        text: 'a text model',
+        picture: 'a picture model',
+        'picture-edit': 'a picture model',
+        'layer-split': 'a GPU model',
+        none: 'no kind of model an AI step runs',
+      },
     },
     costs: {
       title: 'Costs',

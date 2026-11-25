@@ -18,9 +18,10 @@ import {
   AiHeading,
   AiTable,
   CELL,
-  ChangeShown,
+  type ChangeNote,
   FIELD,
   HEAD,
+  NoteRow,
   ROW_BUTTON,
   SAVE_BUTTON,
   useAiNames,
@@ -32,11 +33,20 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
-/** A change a row runs, through its table's `useChange`. */
-type Run = (change: () => Promise<string | null>) => void
+/** A change a row runs from where `at` names, through its table's `useChange`. */
+type Run = (at: string, change: () => Promise<string | null>) => void
+
+/** Where the rows that add a currency and a price show what their saves came to. */
+const NEW_RATE = 'new-rate'
+const NEW_PRICE = 'new-price'
 
 /** A Select in a table row. */
 const ROW_SELECT = 'h-8 px-2 text-small'
+
+/** A price's row, by its seller, model and unit. */
+function priceKey(price: { seller: string; model: string; unit: string }): string {
+  return `${price.seller}-${price.model}-${price.unit}`
+}
 
 export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; prices: AiPriceView[] }) {
   const t = useMessages().pilotAi
@@ -47,7 +57,6 @@ export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; pric
     <div data-testid="ai-price-list" className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
         <AiHeading id="ai-rates-title" title={t.rates.title} hint={t.rates.hint} />
-        <ChangeShown note={rateChange.note} />
         <AiTable label={t.rates.title}>
           <thead>
             <tr>
@@ -63,15 +72,20 @@ export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; pric
                 rate={rate}
                 run={rateChange.run}
                 busy={rateChange.busy}
+                note={rateChange.noteAt(rate.currency)}
               />
             ))}
-            <NewRate key={rates.length} run={rateChange.run} busy={rateChange.busy} />
+            <NewRate
+              key={rates.length}
+              run={rateChange.run}
+              busy={rateChange.busy}
+              note={rateChange.noteAt(NEW_RATE)}
+            />
           </tbody>
         </AiTable>
       </div>
       <div className="flex flex-col gap-3">
         <AiHeading id="ai-prices-title" title={w.title} hint={w.hint} />
-        <ChangeShown note={priceChange.note} />
         <AiTable label={w.title}>
           <thead>
             <tr>
@@ -99,6 +113,7 @@ export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; pric
                 price={price}
                 run={priceChange.run}
                 busy={priceChange.busy}
+                note={priceChange.noteAt(priceKey(price))}
               />
             ))}
             <NewPrice
@@ -107,6 +122,7 @@ export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; pric
               models={[...new Set(prices.map((p) => p.model))]}
               run={priceChange.run}
               busy={priceChange.busy}
+              note={priceChange.noteAt(NEW_PRICE)}
             />
           </tbody>
         </AiTable>
@@ -116,94 +132,122 @@ export function AiPriceList({ rates, prices }: { rates: CurrencyRateView[]; pric
 }
 
 /** A currency's rate, which a rupee's row only shows, since a rupee is always worth 1. */
-function RateRow({ rate, run, busy }: { rate: CurrencyRateView; run: Run; busy: boolean }) {
+function RateRow({
+  rate,
+  run,
+  busy,
+  note,
+}: {
+  rate: CurrencyRateView
+  run: Run
+  busy: boolean
+  /** What this row's last save came to. */
+  note: ChangeNote | null
+}) {
   const t = useMessages().pilotAi
   const w = t.rates
   const [value, setValue] = useState(String(rate.rate))
   const rupee = rate.currency === 'INR'
   return (
-    <tr data-currency={rate.currency}>
-      <td className={cn(CELL, 'font-semibold')}>{rate.currency}</td>
-      <td className={CELL}>
-        {rupee ? (
-          rate.rate
-        ) : (
-          <input
-            name={`rate-${rate.currency}`}
-            type="number"
-            min={0.000001}
-            step="any"
-            required
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            aria-label={format(w.rateFor, { currency: rate.currency })}
-            className={cn(FIELD, 'w-32')}
-          />
-        )}
-      </td>
-      <td className={CELL}>
-        {!rupee && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => run(() => saveCurrencyRate(rate.currency, Number(value)))}
-            aria-label={format(w.saveFor, { currency: rate.currency })}
-            className={SAVE_BUTTON}
-          >
-            {t.save}
-          </button>
-        )}
-      </td>
-    </tr>
+    <>
+      <tr data-currency={rate.currency}>
+        <td className={cn(CELL, 'font-semibold')}>{rate.currency}</td>
+        <td className={CELL}>
+          {rupee ? (
+            rate.rate
+          ) : (
+            <input
+              name={`rate-${rate.currency}`}
+              type="number"
+              min={0.000001}
+              step="any"
+              required
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              aria-label={format(w.rateFor, { currency: rate.currency })}
+              className={cn(FIELD, 'w-32')}
+            />
+          )}
+        </td>
+        <td className={CELL}>
+          {!rupee && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(rate.currency, () => saveCurrencyRate(rate.currency, Number(value), rate.updatedAt))}
+              aria-label={format(w.saveFor, { currency: rate.currency })}
+              className={SAVE_BUTTON}
+            >
+              {t.save}
+            </button>
+          )}
+        </td>
+      </tr>
+      <NoteRow note={note} span={3} />
+    </>
   )
 }
 
 /** A row that adds a currency with its rate. */
-function NewRate({ run, busy }: { run: Run; busy: boolean }) {
+function NewRate({ run, busy, note }: { run: Run; busy: boolean; note: ChangeNote | null }) {
   const w = useMessages().pilotAi.rates
   const [currency, setCurrency] = useState('')
   const [rate, setRate] = useState('')
   return (
-    <tr>
-      <td className={CELL}>
-        <input
-          name="new-currency"
-          value={currency}
-          maxLength={3}
-          onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-          aria-label={w.newCurrency}
-          placeholder={w.newCurrency}
-          className={cn(FIELD, 'w-40')}
-        />
-      </td>
-      <td className={CELL}>
-        <input
-          name="new-currency-rate"
-          type="number"
-          min={0.000001}
-          step="any"
-          value={rate}
-          onChange={(e) => setRate(e.target.value)}
-          aria-label={w.rate}
-          className={cn(FIELD, 'w-32')}
-        />
-      </td>
-      <td className={CELL}>
-        <button
-          type="button"
-          disabled={busy || currency.length !== 3 || rate === ''}
-          onClick={() => run(() => saveCurrencyRate(currency, Number(rate)))}
-          className={SAVE_BUTTON}
-        >
-          {w.add}
-        </button>
-      </td>
-    </tr>
+    <>
+      <tr>
+        <td className={CELL}>
+          <input
+            name="new-currency"
+            value={currency}
+            maxLength={3}
+            onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+            aria-label={w.newCurrency}
+            placeholder={w.newCurrency}
+            className={cn(FIELD, 'w-40')}
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name="new-currency-rate"
+            type="number"
+            min={0.000001}
+            step="any"
+            value={rate}
+            onChange={(e) => setRate(e.target.value)}
+            aria-label={w.rate}
+            className={cn(FIELD, 'w-32')}
+          />
+        </td>
+        <td className={CELL}>
+          <button
+            type="button"
+            disabled={busy || currency.length !== 3 || rate === ''}
+            onClick={() => run(NEW_RATE, () => saveCurrencyRate(currency, Number(rate), null))}
+            className={SAVE_BUTTON}
+          >
+            {w.add}
+          </button>
+        </td>
+      </tr>
+      <NoteRow note={note} span={3} />
+    </>
   )
 }
 
 /** One price, its price and GST or fee changed and saved on their own, or removed. */
-function PriceRow({ price, run, busy }: { price: AiPriceView; run: Run; busy: boolean }) {
+function PriceRow({
+  price,
+  run,
+  busy,
+  note,
+}: {
+  price: AiPriceView
+  run: Run
+  busy: boolean
+  /** What this row's last save or removal came to. */
+  note: ChangeNote | null
+}) {
   const t = useMessages().pilotAi
   const w = t.prices
   const names = useAiNames()
@@ -211,73 +255,77 @@ function PriceRow({ price, run, busy }: { price: AiPriceView; run: Run; busy: bo
   const [perMillion, setPerMillion] = useState(String(price.pricePerMillion))
   const [fee, setFee] = useState(String(Math.round(price.fee * 1e6) / 1e4))
   const what = { seller: names.seller(price.seller), model: price.model, unit: names.unit(price.unit) }
-  const key = `${price.seller}-${price.model}-${price.unit}`
+  const key = priceKey(price)
   return (
-    <tr data-price={key}>
-      <td className={cn(CELL, 'font-mono text-caption')}>{price.model}</td>
-      <td className={CELL}>{what.seller}</td>
-      <td className={CELL}>{what.unit}</td>
-      <td className={CELL}>{price.currency}</td>
-      <td className={CELL}>
-        <input
-          name={`price-${key}`}
-          type="number"
-          min={0}
-          step="any"
-          required
-          value={perMillion}
-          onChange={(e) => setPerMillion(e.target.value)}
-          aria-label={format(w.priceFor, what)}
-          className={cn(FIELD, 'w-32')}
-        />
-      </td>
-      <td className={CELL}>
-        <input
-          name={`fee-${key}`}
-          type="number"
-          min={0}
-          max={100}
-          step="any"
-          required
-          value={fee}
-          onChange={(e) => setFee(e.target.value)}
-          aria-label={format(w.feeFor, what)}
-          className={cn(FIELD, 'w-20')}
-        />
-      </td>
-      <td className={cn(CELL, 'text-caption text-muted')}>{amount(Number(perMillion) / 1e6, 8)}</td>
-      <td className={cn(CELL, 'flex gap-0.5')}>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() =>
-            run(() =>
-              saveAiPrice({
-                seller: price.seller as Seller,
-                model: price.model,
-                unit: price.unit,
-                currency: price.currency,
-                pricePerMillion: Number(perMillion),
-                fee: Number(fee) / 100,
-              }),
-            )
-          }
-          aria-label={format(w.saveFor, what)}
-          className={SAVE_BUTTON}
-        >
-          {t.save}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => run(() => removePrice(price.seller, price.model, price.unit))}
-          aria-label={format(w.removeFor, what)}
-          className={cn(ROW_BUTTON, 'text-danger hover:text-danger')}
-        >
-          {t.remove}
-        </button>
-      </td>
-    </tr>
+    <>
+      <tr data-price={key}>
+        <td className={cn(CELL, 'font-mono text-caption')}>{price.model}</td>
+        <td className={CELL}>{what.seller}</td>
+        <td className={CELL}>{what.unit}</td>
+        <td className={CELL}>{price.currency}</td>
+        <td className={CELL}>
+          <input
+            name={`price-${key}`}
+            type="number"
+            min={0}
+            step="any"
+            required
+            value={perMillion}
+            onChange={(e) => setPerMillion(e.target.value)}
+            aria-label={format(w.priceFor, what)}
+            className={cn(FIELD, 'w-32')}
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name={`fee-${key}`}
+            type="number"
+            min={0}
+            max={100}
+            step="any"
+            required
+            value={fee}
+            onChange={(e) => setFee(e.target.value)}
+            aria-label={format(w.feeFor, what)}
+            className={cn(FIELD, 'w-20')}
+          />
+        </td>
+        <td className={cn(CELL, 'text-caption text-muted')}>{amount(Number(perMillion) / 1e6, 8)}</td>
+        <td className={cn(CELL, 'flex gap-0.5')}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              run(key, () =>
+                saveAiPrice({
+                  seller: price.seller as Seller,
+                  model: price.model,
+                  unit: price.unit,
+                  currency: price.currency,
+                  pricePerMillion: Number(perMillion),
+                  fee: Number(fee) / 100,
+                  since: price.updatedAt,
+                }),
+              )
+            }
+            aria-label={format(w.saveFor, what)}
+            className={SAVE_BUTTON}
+          >
+            {t.save}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(key, () => removePrice(price.seller, price.model, price.unit))}
+            aria-label={format(w.removeFor, what)}
+            className={cn(ROW_BUTTON, 'text-danger hover:text-danger')}
+          >
+            {t.remove}
+          </button>
+        </td>
+      </tr>
+      <NoteRow note={note} span={8} />
+    </>
   )
 }
 
@@ -287,11 +335,13 @@ function NewPrice({
   models,
   run,
   busy,
+  note,
 }: {
   currencies: string[]
   models: string[]
   run: Run
   busy: boolean
+  note: ChangeNote | null
 }) {
   const w = useMessages().pilotAi.prices
   const names = useAiNames()
@@ -303,100 +353,104 @@ function NewPrice({
   const [fee, setFee] = useState('0')
   const ready = model.trim() !== '' && perMillion !== '' && fee !== ''
   return (
-    <tr data-testid="ai-new-price">
-      <td className={CELL}>
-        <input
-          name="new-price-model"
-          list="ai-price-models"
-          value={model}
-          onChange={(e) => setModel(e.target.value.toLowerCase())}
-          aria-label={w.model}
-          placeholder={w.model}
-          className={cn(FIELD, 'w-44 font-mono text-caption')}
-        />
-        <datalist id="ai-price-models">
-          {models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
-      </td>
-      <td className={CELL}>
-        <Select
-          name="new-price-seller"
-          label={w.seller}
-          value={seller}
-          options={SELLERS.map((s) => ({ value: s, label: names.seller(s) }))}
-          onChange={(value) => setSeller(value as Seller)}
-          className={ROW_SELECT}
-        />
-      </td>
-      <td className={CELL}>
-        <Select
-          name="new-price-unit"
-          label={w.unit}
-          value={unit}
-          options={USAGE_UNITS.map((u) => ({ value: u, label: names.unit(u) }))}
-          onChange={(value) => setUnit(value as UsageUnit)}
-          className={ROW_SELECT}
-        />
-      </td>
-      <td className={CELL}>
-        <Select
-          name="new-price-currency"
-          label={w.currency}
-          value={currency}
-          options={currencies.map((c) => ({ value: c, label: c }))}
-          onChange={setCurrency}
-          className={ROW_SELECT}
-        />
-      </td>
-      <td className={CELL}>
-        <input
-          name="new-price"
-          type="number"
-          min={0}
-          step="any"
-          value={perMillion}
-          onChange={(e) => setPerMillion(e.target.value)}
-          aria-label={w.price}
-          className={cn(FIELD, 'w-32')}
-        />
-      </td>
-      <td className={CELL}>
-        <input
-          name="new-price-fee"
-          type="number"
-          min={0}
-          max={100}
-          step="any"
-          value={fee}
-          onChange={(e) => setFee(e.target.value)}
-          aria-label={w.fee}
-          className={cn(FIELD, 'w-20')}
-        />
-      </td>
-      <td className={CELL} />
-      <td className={CELL}>
-        <button
-          type="button"
-          disabled={busy || !ready}
-          onClick={() =>
-            run(() =>
-              saveAiPrice({
-                seller,
-                model: model.trim(),
-                unit,
-                currency,
-                pricePerMillion: Number(perMillion),
-                fee: Number(fee) / 100,
-              }),
-            )
-          }
-          className={SAVE_BUTTON}
-        >
-          {w.add}
-        </button>
-      </td>
-    </tr>
+    <>
+      <tr data-testid="ai-new-price">
+        <td className={CELL}>
+          <input
+            name="new-price-model"
+            list="ai-price-models"
+            value={model}
+            onChange={(e) => setModel(e.target.value.toLowerCase())}
+            aria-label={w.model}
+            placeholder={w.model}
+            className={cn(FIELD, 'w-44 font-mono text-caption')}
+          />
+          <datalist id="ai-price-models">
+            {models.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </td>
+        <td className={CELL}>
+          <Select
+            name="new-price-seller"
+            label={w.seller}
+            value={seller}
+            options={SELLERS.map((s) => ({ value: s, label: names.seller(s) }))}
+            onChange={(value) => setSeller(value as Seller)}
+            className={ROW_SELECT}
+          />
+        </td>
+        <td className={CELL}>
+          <Select
+            name="new-price-unit"
+            label={w.unit}
+            value={unit}
+            options={USAGE_UNITS.map((u) => ({ value: u, label: names.unit(u) }))}
+            onChange={(value) => setUnit(value as UsageUnit)}
+            className={ROW_SELECT}
+          />
+        </td>
+        <td className={CELL}>
+          <Select
+            name="new-price-currency"
+            label={w.currency}
+            value={currency}
+            options={currencies.map((c) => ({ value: c, label: c }))}
+            onChange={setCurrency}
+            className={ROW_SELECT}
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name="new-price"
+            type="number"
+            min={0}
+            step="any"
+            value={perMillion}
+            onChange={(e) => setPerMillion(e.target.value)}
+            aria-label={w.price}
+            className={cn(FIELD, 'w-32')}
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name="new-price-fee"
+            type="number"
+            min={0}
+            max={100}
+            step="any"
+            value={fee}
+            onChange={(e) => setFee(e.target.value)}
+            aria-label={w.fee}
+            className={cn(FIELD, 'w-20')}
+          />
+        </td>
+        <td className={CELL} />
+        <td className={CELL}>
+          <button
+            type="button"
+            disabled={busy || !ready}
+            onClick={() =>
+              run(NEW_PRICE, () =>
+                saveAiPrice({
+                  seller,
+                  model: model.trim(),
+                  unit,
+                  currency,
+                  pricePerMillion: Number(perMillion),
+                  fee: Number(fee) / 100,
+                  since: null,
+                }),
+              )
+            }
+            className={SAVE_BUTTON}
+          >
+            {w.add}
+          </button>
+        </td>
+      </tr>
+      <NoteRow note={note} span={8} />
+    </>
   )
 }

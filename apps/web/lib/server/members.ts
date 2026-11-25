@@ -12,6 +12,8 @@ import { ApiFailure, call, workspaceRoot } from './api.ts'
 export interface Refusal {
   status: number
   message: string
+  /** The answer's body, for refusals that say more than their message. */
+  body?: unknown
 }
 
 /**
@@ -72,7 +74,7 @@ export async function refusalOf(change: () => Promise<unknown>): Promise<Refusal
     await change()
     return null
   } catch (e) {
-    if (e instanceof ApiFailure && REFUSALS.has(e.status)) return { status: e.status, message: e.message }
+    if (e instanceof ApiFailure && REFUSALS.has(e.status)) return { status: e.status, message: e.message, body: e.body }
     throw e
   }
 }

@@ -12,9 +12,10 @@ import {
   AiHeading,
   AiTable,
   CELL,
-  ChangeShown,
+  type ChangeNote,
   FIELD,
   HEAD,
+  NoteRow,
   SAVE_BUTTON,
   useAiNames,
   useChange,
@@ -24,8 +25,8 @@ import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
-/** A change a row runs, through the table's `useChange`. */
-type Run = (change: () => Promise<string | null>) => void
+/** A change a row runs from where `at` names, through the table's `useChange`. */
+type Run = (at: string, change: () => Promise<string | null>) => void
 
 /** Options read from `text`, a JSON object of strings, numbers and true or false; null otherwise. */
 function optionsOf(text: string): Record<string, string | number | boolean> | null {
@@ -43,11 +44,10 @@ function optionsOf(text: string): Record<string, string | number | boolean> | nu
 
 export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
   const w = useMessages().pilotAi.stepModels
-  const { run, busy, note, setNote } = useChange()
+  const { run, busy, noteAt, show } = useChange()
   return (
     <div data-testid="ai-step-models" className="flex flex-col gap-3">
       <AiHeading id="ai-steps-title" title={w.title} hint={w.hint} />
-      <ChangeShown note={note} />
       <AiTable label={w.title}>
         <thead>
           <tr>
@@ -64,7 +64,8 @@ export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
               step={step}
               run={run}
               busy={busy}
-              onBadOptions={() => setNote({ text: w.badOptions, refused: true })}
+              note={noteAt(step.step)}
+              onBadOptions={() => show(step.step, { text: w.badOptions, refused: true })}
             />
           ))}
         </tbody>
@@ -78,11 +79,14 @@ function StepRow({
   step,
   run,
   busy,
+  note,
   onBadOptions,
 }: {
   step: AiStepModelView
   run: Run
   busy: boolean
+  /** What this row's last change came to. */
+  note: ChangeNote | null
   onBadOptions: () => void
 }) {
   const t = useMessages().pilotAi
@@ -95,41 +99,44 @@ function StepRow({
   function save() {
     const read = optionsOf(options)
     if (!read) return onBadOptions()
-    run(() => saveStepModel(step.step, { model, options: read }))
+    run(step.step, () => saveStepModel(step.step, { model, options: read, since: step.updatedAt }))
   }
   return (
-    <tr data-step={step.step}>
-      <td className={cn(CELL, 'font-semibold')}>{what.step}</td>
-      <td className={CELL}>
-        <Select
-          name={`model-${step.step}`}
-          label={format(w.modelFor, what)}
-          value={model}
-          options={choices.map((m) => ({ value: m, label: m }))}
-          onChange={setModel}
-          className="h-8 px-2 font-mono text-caption"
-        />
-      </td>
-      <td className={CELL}>
-        <input
-          name={`options-${step.step}`}
-          value={options}
-          onChange={(e) => setOptions(e.target.value)}
-          aria-label={format(w.optionsFor, what)}
-          className={cn(FIELD, 'w-56 font-mono text-caption')}
-        />
-      </td>
-      <td className={CELL}>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={save}
-          aria-label={format(w.saveFor, what)}
-          className={SAVE_BUTTON}
-        >
-          {t.save}
-        </button>
-      </td>
-    </tr>
+    <>
+      <tr data-step={step.step}>
+        <td className={cn(CELL, 'font-semibold')}>{what.step}</td>
+        <td className={CELL}>
+          <Select
+            name={`model-${step.step}`}
+            label={format(w.modelFor, what)}
+            value={model}
+            options={choices.map((m) => ({ value: m, label: m }))}
+            onChange={setModel}
+            className="h-8 px-2 font-mono text-caption"
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name={`options-${step.step}`}
+            value={options}
+            onChange={(e) => setOptions(e.target.value)}
+            aria-label={format(w.optionsFor, what)}
+            className={cn(FIELD, 'w-56 font-mono text-caption')}
+          />
+        </td>
+        <td className={CELL}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={save}
+            aria-label={format(w.saveFor, what)}
+            className={SAVE_BUTTON}
+          >
+            {t.save}
+          </button>
+        </td>
+      </tr>
+      <NoteRow note={note} span={4} />
+    </>
   )
 }

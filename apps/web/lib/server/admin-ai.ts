@@ -16,6 +16,7 @@ import {
   type AiStepModelInput,
   AiStepModelView,
   AiWorkspace,
+  type CurrencyRateInput,
   CurrencyRateView,
   DailyCheck,
   type GiftInput,
@@ -121,8 +122,8 @@ export async function findAllowance(workspaceId: string): Promise<AiAllowanceVie
 export const setAiSettings = (settings: AiSettingsInput) =>
   call(z.null(), '/admin/ai/settings', { method: 'PUT', body: settings })
 
-export const setCurrencyRate = (currency: string, rate: number) =>
-  call(z.null(), `/admin/ai/currency-rates/${encodeURIComponent(currency)}`, { method: 'PUT', body: { rate } })
+export const setCurrencyRate = (currency: string, rate: CurrencyRateInput) =>
+  call(z.null(), `/admin/ai/currency-rates/${encodeURIComponent(currency)}`, { method: 'PUT', body: rate })
 
 export const setAiPrice = (price: AiPriceInput) => call(z.null(), '/admin/ai/prices', { method: 'PUT', body: price })
 

@@ -163,7 +163,9 @@ describe('startStepsWorker', () => {
     const input = await stepsOf([seller])
     const crashing = await crashingWorker(queue, input.calls[0]?.step ?? '', seller.seller, 20_000)
     const job = await save(who, queue, input)
-    await waitForJob(job, 'running')
+    await vi.waitFor(async () => expect((await callsOf(job)).map((c) => c.state)).toEqual(['running']), {
+      timeout: 15_000,
+    })
     await crashing.kill()
     await vi.waitFor(async () => expect(await sweepJobs(db, boss, queue)).toBe(1), { timeout: 40_000, interval: 1_000 })
     const failed = await waitForJob(job, 'failed')

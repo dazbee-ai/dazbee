@@ -6,8 +6,8 @@
 #   1. backup.sh dumps the database while rows are written into it; the bucket holds the dump and its
 #      .counts, and restore.sh restores the backup into a scratch database with those counts;
 #   2. restore.sh refuses a database that exists, and the live database without --live;
-#   3. with --live, it refuses while anything is connected to the live database; with the API and
-#      the sync server stopped, it replaces the live database with the restore and keeps the old one.
+#   3. with --live, it refuses while anything is connected to the live database; with the API, the
+#      sync server and the worker stopped, it replaces the live database with the restore and keeps the old one.
 #
 #   tests/deploy/backup-check.sh <stack>
 set -euo pipefail
@@ -83,7 +83,7 @@ start holder 'SELECT pg_sleep(600)'
 until [ "$(sql postgres <<< "SELECT count(*) FROM pg_stat_activity WHERE application_name = 'holder'")" != 0 ]; do sleep 0.2; done
 if restore --live "$name" dazbee; then fail 'restore.sh replaced the live database while something was connected'; fi
 stop holder
-compose stop api-blue api-green sync
+compose stop api-blue api-green sync worker
 restore --live "$name" dazbee
 [ "$(sql dazbee <<< 'SELECT count(*) FROM backup_check')" = "$counted" ] || fail 'the live database is not the restore'
 kept=$(sql postgres <<< "SELECT datname FROM pg_database WHERE datname LIKE 'dazbee\_before\_%'")

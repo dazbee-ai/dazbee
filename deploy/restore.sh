@@ -17,11 +17,11 @@
 #   deploy/restore.sh newest dazbee_check
 #   docker compose -f deploy/compose.yml --project-directory . --env-file .env run --rm --no-deps -T backup-db dropdb dazbee_check
 #
-# With --live, the API and the sync server must be stopped first, since nothing may be connected to
+# With --live, the API, the sync server and the worker must be stopped first, since nothing may be connected to
 # dazbee: restore.sh refuses while anything is, and no deploy runs meanwhile. It restores into
 # dazbee_restore_<time>, and only once the counts match does it rename dazbee to dazbee_before_<time>
 # and the restore to dazbee, in one transaction; the previous database stays until it is dropped by
-# hand. Then start the API's live colour and the sync server again.
+# hand. Then start the API's live colour, the sync server and the worker again.
 set -euo pipefail
 shopt -s inherit_errexit
 
@@ -115,7 +115,7 @@ target=$database
 if $live; then
   target=${LIVE_DATABASE}_restore_$stamp
   connected=$(sql <<< "SELECT count(*) FROM pg_stat_activity WHERE datname = '$LIVE_DATABASE' AND backend_type = 'client backend'")
-  [ "$connected" = 0 ] || fail "$connected connections to $LIVE_DATABASE: stop the API and the sync server first"
+  [ "$connected" = 0 ] || fail "$connected connections to $LIVE_DATABASE: stop the API, the sync server and the worker first"
 fi
 ! exists "$target" || fail "$target already exists: drop it, or restore into another database"
 

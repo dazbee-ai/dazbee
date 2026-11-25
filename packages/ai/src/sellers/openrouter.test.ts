@@ -8,7 +8,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { aspectOf, openrouterSeller, resolutionOf } from './openrouter.ts'
 import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
+import { expectDeclared, fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
   kind: 'picture',
@@ -71,6 +71,7 @@ describe('openrouterSeller', () => {
     )
     expect(JSON.parse(String(marked.sent[0]?.body)).input_references).toHaveLength(2)
     expect(edited.usage).toEqual({ picture: 1, 'reference-picture': 2 })
+    expectDeclared('openrouter', 'picture', 'bytedance-seed/seedream-5-5', edited.usage)
   })
 
   it('reads a text answer cut off at its output limit as cut off with its usage', async () => {
@@ -97,6 +98,7 @@ describe('openrouterSeller', () => {
       expect(JSON.parse(String(sent[0]?.body)).max_output_tokens).toBe(900)
       expect(error).toBeInstanceOf(SellerCutOff)
       expect((error as SellerCutOff).usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 900 })
+      expectDeclared('openrouter', 'text', 'openai/gpt-6-luna', (error as SellerCutOff).usage)
       expect((error as SellerCutOff).reportedCost).toBe(0.001)
     }
   })

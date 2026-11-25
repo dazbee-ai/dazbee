@@ -9,7 +9,7 @@ import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, STEPS } from './steps.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './steps.ts'
 import {
   addJob,
   addPrices,
@@ -168,7 +168,7 @@ describe('routeStep', () => {
 })
 
 describe('holdFor', () => {
-  it('holds a quarter more than the expected cost at the first seller', async () => {
+  it('holds a quarter more than the expected cost at the dearest seller', async () => {
     const first = testSeller(newSeller('a'))
     const second = testSeller(newSeller('b'))
     const { step } = await addStep([first, { seller: second.seller, adapter: second, prices: EVERY_PRICE }])
@@ -201,6 +201,58 @@ describe('holdFor', () => {
     // Within a millionth of a rupee: each hold is rounded once.
     expect(Number((await hold([inTokens], four)) - referenced - tokens)).toBeLessThanOrEqual(1)
     expect(Number((await hold([inTokens], four)) - referenced - tokens)).toBeGreaterThanOrEqual(-1)
+  })
+
+  it('holds a picture call at the dearest seller in its model’s order, each counting the units it reports', async () => {
+    const input: CallInput = {
+      kind: 'picture',
+      prompt: 'Put the logo on the cup.',
+      pictures: ['a', 'b', 'c', 'd'],
+      width: 1024,
+      height: 1024,
+    }
+    const at = (sellers?: string[]) => holdFor(db, [{ step: 'flow.refine', input, ...(sellers ? { sellers } : {}) }])
+    // Seedream with 4 references: ZenMux bills the picture alone, OpenRouter each reference too, with its fee.
+    const [all, zenmux, openrouter, pixazo] = await Promise.all([
+      at(),
+      at(['zenmux']),
+      at(['openrouter']),
+      at(['pixazo']),
+    ])
+    // US$0.02 at ₹96.31, times 1.25.
+    expect(zenmux).toBe((20_000n * DOLLAR * 5n) / 4n / 1_000_000n)
+    expect(openrouter).toBeGreaterThan(pixazo)
+    expect(pixazo).toBeGreaterThan(zenmux)
+    expect(all).toBe(openrouter)
+  })
+
+  it('counts a text call’s input from its own words and pictures', async () => {
+    const read = (prompt: string, pictures: string[] = []) =>
+      holdFor(db, [{ step: 'flow.read', input: { kind: 'text', instructions: 'Read.', prompt, pictures } }])
+    const short = await read('An ad.')
+    const long = await read('An ad. '.repeat(4000))
+    const withPictures = await read('An ad.', ['a', 'b'])
+    expect(long).toBeGreaterThan(short)
+    expect(withPictures).toBeGreaterThan(short)
+  })
+
+  it('leaves out a seller with no price for a unit it reports, and fails when no seller is left', async () => {
+    const priced = testSeller(newSeller('priced'))
+    const unpriced = { seller: 'pixazo', prices: [{ unit: 'picture' as const, pricePerMillion: 1_000_000n }] }
+    const both = await addStep([unpriced, { seller: priced.seller, adapter: priced, prices: EVERY_PRICE }], {
+      kind: 'picture',
+    })
+    const input: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
+    // The hold is the priced seller's alone: pixazo, priced in part, is left out.
+    expect(await holdFor(db, [{ step: both.step, input }])).toBe(
+      await holdFor(db, [{ step: both.step, input, sellers: [priced.seller] }]),
+    )
+    expect(await sellerPricing(db, both.model, 'picture')).toEqual({
+      priced: 1,
+      unpriced: [{ seller: 'pixazo', units: ['reference-picture'] }],
+    })
+    const alone = await addStep([unpriced], { kind: 'picture' })
+    await expect(holdFor(db, [{ step: alone.step, input }])).rejects.toThrow('no seller is priced')
   })
 
   it('holds the layer split’s fixed amount for its size', async () => {

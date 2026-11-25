@@ -10,7 +10,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { metaSeller } from './meta.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { referencesOf } from './test-fetch.ts'
+import { expectDeclared, referencesOf } from './test-fetch.ts'
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
 
@@ -58,6 +58,7 @@ describe('metaSeller', () => {
     expect(JSON.parse(String(seen[0]?.body))).toMatchObject({ model: 'muse-image-1.0', response_format: 'b64_json' })
     expect(answer.output).toMatchObject({ kind: 'pictures', pictures: [{ width: 16, height: 16 }] })
     expect(answer.usage).toEqual({ picture: 1 })
+    expectDeclared('meta', 'picture', 'muse-image-1.0', answer.usage)
     expect(answer.requestId).toBe('meta-test')
     // ₹0.93 a picture, as Meta bills this account, with 18% GST.
     expect(await priceUsage(db, 'meta', 'muse-image-1.0', answer.usage)).toEqual({

@@ -330,6 +330,21 @@ describe('callAi', () => {
     expect(await chargesOf(rows[0]?.id ?? '')).toEqual([])
   })
 
+  it('skips a seller with no price for a unit it reports before sending it anything', async () => {
+    const unpriced = testSeller('pixazo')
+    const priced = testSeller(newSeller('b'))
+    const { step } = await addStep(
+      [{ seller: 'pixazo', adapter: unpriced, prices: [{ unit: 'picture', pricePerMillion: 1_000_000n }] }, priced],
+      { kind: 'picture' },
+    )
+    const input: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
+    const job = await heldJob()
+    await callAi(db, callOf(job, step, { input, files: memoryFiles() }))
+    expect(unpriced.requests).toHaveLength(0)
+    expect(priced.requests).toHaveLength(1)
+    expect((await callRows(job.id)).map((r) => r.seller)).toEqual([priced.seller])
+  })
+
   it('gives a done call’s output again without calling the seller', async () => {
     const seller = testSeller(newSeller('a'))
     const { step } = await addStep([seller])

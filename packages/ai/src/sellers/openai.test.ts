@@ -10,7 +10,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { openaiSeller } from './openai.ts'
 import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { referencesOf } from './test-fetch.ts'
+import { expectDeclared, referencesOf } from './test-fetch.ts'
 
 /** A request a fake fetch saw: its URL and body. */
 interface Seen {
@@ -76,6 +76,7 @@ describe('openaiSeller', () => {
     expect(sent.input[0].content[1].image_url).toMatch(/^data:image\/png;base64,/)
     expect(answer.output).toMatchObject({ kind: 'text', json: { ideas: expect.any(Array) } })
     expect(answer.usage).toEqual({ 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 })
+    expectDeclared('openai', 'text', 'gpt-6-luna', answer.usage)
     expect(answer.requestId).toBe('req_test')
     // 69 tokens at US$0.10 and 109 at US$0.50 a million, with 18% GST at ₹96.31.
     expect(await priceUsage(db, 'openai', 'gpt-6-luna', answer.usage)).toEqual({
@@ -126,6 +127,7 @@ describe('openaiSeller', () => {
     })
     expect(answer.output).toMatchObject({ kind: 'pictures', pictures: [{ type: 'image/png', width: 16, height: 16 }] })
     expect(answer.usage).toEqual({ 'input-token': 34, 'image-input-token': 0, 'image-output-token': 439 })
+    expectDeclared('openai', 'picture', 'gpt-image-2.5-sunburst', answer.usage)
     // 34 text tokens at US$5 and 439 picture tokens at US$30 a million: US$0.01334, as the bill check's call log shows.
     expect(await priceUsage(db, 'openai', 'gpt-image-2.5-sunburst', answer.usage)).toMatchObject({
       sellerCost: 13_340n,

@@ -89,7 +89,7 @@ export function pictureType(bytes: Uint8Array): string {
 }
 
 /** A picture as a data URL, as sellers take pictures inline. */
-export function bytesUrl(bytes: Uint8Array): string {
+export function pictureDataUrl(bytes: Uint8Array): string {
   return `data:${pictureType(bytes)};base64,${Buffer.from(bytes).toString('base64')}`
 }
 
@@ -163,7 +163,7 @@ export async function responsesText(
 
 /** A stored picture as a data URL, as sellers take pictures inline. */
 export async function dataUrl(request: SellerRequest, key: string): Promise<string> {
-  return bytesUrl(await request.readPicture(key))
+  return pictureDataUrl(await request.readPicture(key))
 }
 
 /** A GPT Image answer's usage: text and picture tokens in, and every token out, which is the picture's. */
@@ -174,6 +174,19 @@ export function gptImageUsage(data: PictureAnswer): Usage {
     'image-input-token': details?.image_tokens ?? 0,
     'image-output-token': data.usage?.output_tokens ?? 0,
   }
+}
+
+/**
+ * A picture call through an OpenAI-compatible Images API: a new picture when the call has no reference
+ * pictures, and an edit of all of them when it has some.
+ */
+export async function makeOrEdit(client: OpenAI, request: SellerRequest, params: PictureParams) {
+  const references = await request.references()
+  return references.length === 0
+    ? client.images.generate(params, { signal: request.signal }).withResponse()
+    : client.images
+        .edit({ ...params, image: await pictureFiles(references) }, { signal: request.signal })
+        .withResponse()
 }
 
 async function callOpenai(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
@@ -190,19 +203,6 @@ async function callOpenai(client: OpenAI, request: SellerRequest): Promise<Selle
   }
   const { data, response } = await makeOrEdit(client, request, common)
   return pictureAnswer(data, response.headers.get('x-request-id'), gptImageUsage(data))
-}
-
-/**
- * A picture call through an OpenAI-compatible Images API: a new picture when the call has no reference
- * pictures, and an edit of all of them when it has some.
- */
-export async function makeOrEdit(client: OpenAI, request: SellerRequest, params: PictureParams) {
-  const references = await request.references()
-  return references.length === 0
-    ? client.images.generate(params, { signal: request.signal }).withResponse()
-    : client.images
-        .edit({ ...params, image: await pictureFiles(references) }, { signal: request.signal })
-        .withResponse()
 }
 
 function roundTo16(value: number): number {

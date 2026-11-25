@@ -78,11 +78,11 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   if (def.kind !== call.input.kind) throw new Error(`the AI step ${call.step} makes ${def.kind} calls`)
   const done = await doneOutput(db, call)
   if (done) return done
+  // Read, and marked, once before any seller is asked, so a storage failure is no seller's and spends no try.
+  const references = await referencePictures(call)
+  const referencesOf = () => Promise.resolve(references)
   const route = await routeStep(db, call.step, call.sellers)
   const resume = await resumable(db, call, route.sellers)
-  // Read, and marked, once for every try of the call.
-  let references: Promise<Uint8Array[]> | undefined
-  const referencesOf = () => (references ??= referencePictures(call))
   // A seller still making an earlier attempt's request is asked about it first, then the sellers in their order.
   const order = [
     ...(resume ? [{ seller: resume.seller, askOnly: true }] : []),

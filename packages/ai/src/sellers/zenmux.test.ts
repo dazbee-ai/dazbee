@@ -7,7 +7,7 @@ import type { CallInput } from '@dazbee/schema'
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, referencesOf,testPicture } from './test-fetch.ts'
+import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 import { nearestAspect, zenmuxSeller } from './zenmux.ts'
 
 const EDIT: CallInput = {
@@ -62,6 +62,14 @@ describe('zenmuxSeller', () => {
     const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(picture, 'bytedance/doubao-seedream-5.5'))
     expect(JSON.parse(String(sent[0]?.body)).instances[0].referenceImages).toBeUndefined()
     expect(answer.usage).toEqual({ picture: 1, 'reference-picture': 0 })
+  })
+
+  it('sends a marked copy to Seedream as one more reference, billed as one', async () => {
+    const { fetch, sent } = fakeFetch([[':predict', { body: fixture('zenmux-seedream.json') }]])
+    const marked = { ...EDIT, marks: 'workspaces/w/originals/marks' } as CallInput
+    const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(marked, 'bytedance/doubao-seedream-5.5'))
+    expect(JSON.parse(String(sent[0]?.body)).instances[0].referenceImages).toHaveLength(2)
+    expect(answer.usage).toEqual({ picture: 1, 'reference-picture': 2 })
   })
 
   it('answers text through chat completions, with cached tokens apart', async () => {

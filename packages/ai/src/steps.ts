@@ -33,6 +33,13 @@ export interface StepRoute {
   sellers: StepSeller[]
 }
 
+/**
+ * The image input tokens one picture a model reads is taken to cost. OpenAI's images-vision guide (read 25 Nov
+ * 2026) says GPT Image reads every input at high fidelity, at 65 + 129 per 512 px tile + 4,160 for a square
+ * picture: 4,354 for 1024 px. An estimate, which the hold's margin covers.
+ */
+export const PICTURE_INPUT_TOKENS = 4354
+
 /** The units that mark a model priced in them as one that makes pictures. */
 const PICTURE_UNITS: readonly UsageUnit[] = ['picture', 'image-output-token']
 
@@ -41,13 +48,6 @@ const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', '
 
 /** How much more than its expected cost a call holds. */
 const HOLD_MARGIN = { times: 5n, per: 4n }
-
-/**
- * The image input tokens one picture a model reads is taken to cost. OpenAI's images-vision guide (read 25 Nov
- * 2026) says GPT Image reads every input at high fidelity, at 65 + 129 per 512 px tile + 4,160 for a square
- * picture: 4,354 for 1024 px. An estimate, which the hold's margin covers.
- */
-export const PICTURE_INPUT_TOKENS = 4354
 
 /** About 1,056 output tokens for a medium-quality square picture of 1024 px, scaled by area. */
 const pictureTokens = (input: CallInput) =>

@@ -295,6 +295,10 @@ describe('/admin/ai', () => {
     const read = steps.find((s) => s.step === 'read')
     expect(resize).toMatchObject({ kind: 'picture', models: expect.arrayContaining([model]) })
     expect(resize?.models).not.toContain(textModel)
+    expect(steps.find((s) => s.step === 'refine')).toMatchObject({
+      kind: 'picture',
+      models: expect.arrayContaining([model]),
+    })
     expect(read).toMatchObject({ kind: 'text', models: expect.arrayContaining([textModel]) })
     expect(read?.models).not.toContain(model)
   })

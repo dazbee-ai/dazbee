@@ -9,8 +9,8 @@ import type { Usage } from '@dazbee/schema'
 import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
-  bytesUrl,
   pictureAnswer,
+  pictureDataUrl,
   responsesText,
   sellerClient,
   type SellerClientOptions,
@@ -78,7 +78,10 @@ async function callOpenrouter(client: OpenAI, request: SellerRequest): Promise<S
         response_format: 'b64_json',
         ...(references.length > 0
           ? {
-              input_references: references.map((bytes) => ({ type: 'image_url', image_url: { url: bytesUrl(bytes) } })),
+              input_references: references.map((bytes) => ({
+                type: 'image_url',
+                image_url: { url: pictureDataUrl(bytes) },
+              })),
             }
           : {}),
       },

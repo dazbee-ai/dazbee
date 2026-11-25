@@ -8,7 +8,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { pixazoSeller } from './pixazo.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, referencesOf,testPicture } from './test-fetch.ts'
+import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
   kind: 'picture',

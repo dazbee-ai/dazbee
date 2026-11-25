@@ -7,7 +7,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 
 import { type CallInput, readImageHeader, referenceCount, type Usage } from '@dazbee/schema'
 
-import { bytesUrl } from './openai.ts'
+import { pictureDataUrl } from './openai.ts'
 import { type RequestStatus, type SellerAdapter, type SellerAnswer, SellerError, type SellerRequest } from './seller.ts'
 
 /** What Pixazo's status call answers. */
@@ -79,7 +79,7 @@ async function callPixazo(
           size: pixels >= FEWEST_PIXELS ? `${input.width}x${input.height}` : '1K',
           output_format: 'png',
           watermark: false,
-          ...(references.length > 0 ? { image: references.map(bytesUrl) } : {}),
+          ...(references.length > 0 ? { image: references.map(pictureDataUrl) } : {}),
         }),
         signal: request.signal,
       }),

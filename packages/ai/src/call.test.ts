@@ -251,7 +251,7 @@ describe('callAi', () => {
     expect(seller.requests).toHaveLength(1)
   })
 
-  it('gives a picture adapter its references, with the first one’s marked copy last, read once for every try', async () => {
+  it('gives a picture adapter its references, with the first one’s marked copy last, read once before any try', async () => {
     const seller = testSeller(newSeller('a'), [{ fail: 503 }])
     const { step } = await addStep([seller], { kind: 'picture' })
     const files = memoryFiles()
@@ -275,6 +275,18 @@ describe('callAi', () => {
     expect(first?.[2]).not.toEqual(files.saved.get('test/product'))
     expect(second).toBe(first)
     expect(read).toHaveBeenCalledTimes(3)
+  })
+
+  it('fails a call whose reference pictures can’t be read before any seller is tried', async () => {
+    const seller = testSeller(newSeller('a'))
+    const { step } = await addStep([seller], { kind: 'picture' })
+    const files = memoryFiles()
+    files.read = () => Promise.reject(new Error('storage is down'))
+    const input: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: ['test/x'], width: 1024, height: 1024 }
+    const job = await heldJob()
+    await expect(callAi(db, callOf(job, step, { input, files }))).rejects.toThrow('storage is down')
+    expect(seller.requests).toHaveLength(0)
+    expect(await callRows(job.id)).toEqual([])
   })
 
   it('gives a done call’s output again without calling the seller', async () => {

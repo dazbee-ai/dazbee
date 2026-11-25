@@ -120,11 +120,6 @@ export const PictureCall = z
   })
 export type PictureCall = z.infer<typeof PictureCall>
 
-/** How many reference pictures a picture call sends: its pictures, and the marked copy when it has marks. */
-export function referenceCount(call: { pictures: string[]; marks?: string | undefined }): number {
-  return call.pictures.length + (call.marks ? 1 : 0)
-}
-
 /** The layer split's two sizes: 512 px for people not paying, 1024 px for those paying. */
 export const LayerSplitSize = z.union([z.literal(512), z.literal(1024)])
 export type LayerSplitSize = z.infer<typeof LayerSplitSize>
@@ -212,7 +207,7 @@ export type AiJobMessage = z.infer<typeof AiJobMessage>
 /** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
 export const AiStepsCall = z.object({
   step: z.string().min(1).max(100),
-  input: CallInput,
+  input: z.preprocess(carriedOver, CallInput),
   sellers: z.array(z.string().min(1).max(100)).min(1).max(10).optional(),
 })
 export type AiStepsCall = z.infer<typeof AiStepsCall>
@@ -309,3 +304,15 @@ export const LastChecked = z.object({
   uploadedAt: z.iso.datetime().nullable(),
 })
 export type LastChecked = z.infer<typeof LastChecked>
+
+/** How many reference pictures a picture call sends: its pictures, and the marked copy when it has marks. */
+export function referenceCount(call: { pictures: string[]; marks?: string | undefined }): number {
+  return call.pictures.length + (call.marks ? 1 : 0)
+}
+
+/** A call input as saved before picture edits were picture calls: a `picture-edit` becomes a `picture`. */
+function carriedOver(input: unknown): unknown {
+  return input && typeof input === 'object' && 'kind' in input && input.kind === 'picture-edit'
+    ? { ...input, kind: 'picture' }
+    : input
+}

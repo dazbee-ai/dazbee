@@ -3,11 +3,13 @@
 # web app, the MCP server, and last the worker. Run it from anywhere on the server; it works in the folder that
 # holds deploy/, the .env, live/ and certs/.
 #
-#   deploy/deploy.sh [--dir <folder>] [--from <folder>] [--local] <commit>
+#   deploy/deploy.sh [--dir <folder>] [--from <folder>] [--env <file>] [--local] <commit>
 #
 #   --dir <folder>   the folder compose runs in; /opt/dazbee unless given
 #   --from <folder>  a new copy of deploy/, put in place file by file once no other deploy runs
 #                    (Caddy and the router mount deploy/ as a folder, so it stays)
+#   --env <file>     a new .env (deploy/env-file.sh writes it), moved over the .env once no other deploy
+#                    runs; the .env it replaces is kept as .env.previous
 #   --local          uses the commit's images already on this machine instead of pulling them
 #
 # The web app and API swap blue-green: the colour that isn't live starts on the commit's image; once
@@ -48,11 +50,12 @@ readonly KEEP_IMAGES=3
 
 dir=/opt/dazbee
 from=
+env_file=
 pull=true
 commit=
 
 usage() {
-  echo 'usage: deploy.sh [--dir <folder>] [--from <folder>] [--local] <commit>' >&2
+  echo 'usage: deploy.sh [--dir <folder>] [--from <folder>] [--env <file>] [--local] <commit>' >&2
   exit 2
 }
 
@@ -272,6 +275,11 @@ while [ $# -gt 0 ]; do
       from=$(cd "$2" && pwd)
       shift 2
       ;;
+    --env)
+      [ $# -ge 2 ] && [ -f "$2" ] || usage
+      env_file=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
+      shift 2
+      ;;
     --local)
       pull=false
       shift
@@ -297,6 +305,12 @@ flock -w 900 9 || {
 if [ -n "$from" ]; then
   mkdir -p deploy
   cp -R "$from/." deploy/
+fi
+if [ -n "$env_file" ]; then
+  [ ! -f .env ] || (umask 077 && cp .env .env.previous)
+  chmod 600 "$env_file"
+  mv -f "$env_file" .env
+  log 'the .env is the one given; the one before is .env.previous'
 fi
 
 for app in "${APPS[@]}"; do

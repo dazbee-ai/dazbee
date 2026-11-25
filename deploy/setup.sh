@@ -21,7 +21,8 @@
 #     on a new server run it again after the first deploy.
 #
 # Then, by hand, once per server:
-#   - /opt/dazbee/.env from deploy/env.example, owned root:deploy, mode 640;
+#   - each setting deploy/env.example lists in the GitHub environment `production`, which
+#     each deploy writes to /opt/dazbee/.env (owned by deploy, mode 600);
 #   - in /opt/dazbee/certs, a private key (origin.key, mode 600) and a CSR for dazbee.com and
 #     *.dazbee.com made here, and Cloudflare's origin certificate for that CSR as origin.pem
 #     (Cloudflare: SSL/TLS > Origin Server > Create Certificate > Use my private key and CSR);

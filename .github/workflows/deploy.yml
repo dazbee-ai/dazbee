@@ -10,9 +10,17 @@ name: Deploy
 # DEPLOY_HOST (the server's address), DEPLOY_SSH_KEY (the deploy user's private key) and
 # DEPLOY_KNOWN_HOSTS (`ssh-keyscan` of the server). deploy/setup.sh says how the server is set up.
 #
+# The server's .env comes from the same environment: each setting deploy/env.example lists is one of its
+# secrets, by the same name, or one of its variables when the value is neither secret nor personal (a client
+# id, a bucket's name), since GitHub hides a secret's value wherever it appears in a log. Each deploy writes
+# the .env from them with deploy/env-file.sh, which refuses when a setting compose.yml requires is not set,
+# and deploy.sh puts it in place. To change a setting, change it there and run this workflow by hand with
+# the commit that is live.
+#
 # The job `layering` deploys the layer split app (python/layering) to Modal with `modal deploy`, when a
 # commit changes python/layering, or by hand, while the repo variable MODAL_DEPLOY is `on`. Its token is
-# the `production` environment's secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET.
+# the `production` environment's secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET, and it deploys to the Modal
+# environment the variable MODAL_ENVIRONMENT names, `prod` unless set, as the worker calls it.
 on:
   workflow_run:
     workflows: [CI]
@@ -101,18 +109,34 @@ jobs:
         run: |
           tar -C deploy -cf - . |
             ssh server 'rm -rf /opt/dazbee/deploy.next && mkdir /opt/dazbee/deploy.next && tar -xf - -C /opt/dazbee/deploy.next'
+      # The .env from the environment's variables and secrets, which deploy.sh puts in place once no other deploy runs. A
+      # commit from before deploy/env-file.sh keeps the server's .env as it is.
+      - if: steps.commit.outputs.skip != 'true'
+        name: Copy the .env
+        id: env
+        env:
+          VARS: ${{ toJSON(vars) }}
+          SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          [ -f deploy/env-file.sh ] || exit 0
+          { printenv VARS && printenv SECRETS; } | deploy/env-file.sh > "$RUNNER_TEMP/env"
+          ssh server 'umask 077 && cat > /opt/dazbee/env.next' < "$RUNNER_TEMP/env"
+          rm "$RUNNER_TEMP/env"
+          echo 'option=--env env.next' >> "$GITHUB_OUTPUT"
       # deploy.sh runs on the server apart from this connection, so a cancelled job or a dropped
       # connection never stops it halfway. It logs to a file of this run's own in live/deploys/, the
       # last 20 kept; this step follows it until deploy.sh exits, then ends with its status.
       - if: steps.commit.outputs.skip != 'true'
         name: Deploy
+        env:
+          ENV_OPTION: ${{ steps.env.outputs.option }}
         run: |
           run="live/deploys/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           # The commit, checked above, the run's files and the process id are meant to expand here, on the runner.
           # shellcheck disable=SC2029
           pid=$(ssh server "cd /opt/dazbee && mkdir -p live/deploys && : > $run.log &&
             { ls -t live/deploys/* | tail -n +41 | xargs -r rm --;
-              setsid bash -c 'bash deploy.next/deploy.sh --from deploy.next $COMMIT > $run.log 2>&1; echo \$? > $run.status' > /dev/null 2>&1 < /dev/null & echo \$!; }")
+              setsid bash -c 'bash deploy.next/deploy.sh --from deploy.next $ENV_OPTION $COMMIT > $run.log 2>&1; echo \$? > $run.status' > /dev/null 2>&1 < /dev/null & echo \$!; }")
           [[ $pid =~ ^[0-9]+$ ]]
           # shellcheck disable=SC2029
           ssh server "tail -n +1 -f --pid=$pid /opt/dazbee/$run.log"
@@ -160,4 +184,5 @@ jobs:
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          MODAL_ENVIRONMENT: ${{ vars.MODAL_ENVIRONMENT || 'prod' }}
         run: uv run --frozen modal deploy app.py

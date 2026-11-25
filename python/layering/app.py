@@ -10,7 +10,8 @@ a cold container starts from the snapshot instead of loading the weights. At mos
 stops after 60 s with no call, and none is kept warm.
 
     modal deploy app.py                 (from python/layering; development, the default environment)
-    modal deploy --env prod app.py      (production, which the worker's MODAL_ENVIRONMENT names)
+    modal deploy --env prod app.py      (production, which the worker's MODAL_ENVIRONMENT names; the
+                                         Deploy workflow's job `layering` runs this)
 """
 
 import base64

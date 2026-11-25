@@ -1789,8 +1789,7 @@ export const en = {
       kindOptionsFor: 'The options of the {kind} default, as JSON',
       saveKindFor: 'Save the {kind} default',
       /** Before a kind's default changes: the steps that follow it were sized for the old model. */
-      switchWarning:
-        'This changes the model of {steps}. Their expected sizes and ceilings were set for {model}. Save again to switch.',
+      switchWarning: 'This also switches {steps}, whose sizes and ceilings were set for {model}. Save again to switch.',
       kindNames: {
         text: 'text',
         picture: 'picture',

@@ -14,6 +14,7 @@ import {
   AiTable,
   CELL,
   type ChangeNote,
+  ChangeShown,
   FIELD,
   HEAD,
   NoteRow,
@@ -41,9 +42,11 @@ export function warnsBeforeSwitch(kind: AiKindModelView, picked: string, warned:
 export function AiKindModels({ kinds }: { kinds: AiKindModelView[] }) {
   const w = useMessages().pilotAi.stepModels
   const { run, busy, noteAt, show } = useChange()
+  const [warning, setWarning] = useState<string | null>(null)
   return (
     <div data-testid="ai-kind-models" className="flex flex-col gap-3">
       <AiHeading id="ai-kinds-title" title={w.kindsTitle} hint={w.kindsHint} />
+      {warning && <ChangeShown note={{ text: warning, refused: true }} />}
       <AiTable label={w.kindsTitle}>
         <thead>
           <tr>
@@ -63,6 +66,7 @@ export function AiKindModels({ kinds }: { kinds: AiKindModelView[] }) {
               busy={busy}
               note={noteAt(kind.kind)}
               show={(note) => show(kind.kind, note)}
+              warn={setWarning}
             />
           ))}
         </tbody>
@@ -78,6 +82,7 @@ function KindRow({
   busy,
   note,
   show,
+  warn,
 }: {
   kind: AiKindModelView
   run: Run
@@ -85,6 +90,8 @@ function KindRow({
   /** What this row's last change came to. */
   note: ChangeNote | null
   show: (note: ChangeNote) => void
+  /** Shows a warning above the table, or clears it with null. */
+  warn: (warning: string | null) => void
 }) {
   const t = useMessages().pilotAi
   const w = t.stepModels
@@ -101,8 +108,9 @@ function KindRow({
     if (warnsBeforeSwitch(kind, shown, warned)) {
       setWarned(shown)
       const steps = kind.steps.map((step) => names.step(step)).join(', ')
-      return show({ text: format(w.switchWarning, { steps, model: kind.model }), refused: true })
+      return warn(format(w.switchWarning, { steps, model: kind.model }))
     }
+    warn(null)
     run(kind.kind, () => saveKindModel(kind.kind, { model: shown, options: read, since: kind.updatedAt }))
   }
   return (

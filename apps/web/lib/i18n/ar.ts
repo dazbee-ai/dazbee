@@ -1613,7 +1613,7 @@ export const ar: Messages = {
       kindModelFor: 'النموذج الافتراضي لاستدعاءات {kind}',
       kindOptionsFor: 'خيارات افتراضي {kind} بصيغة JSON',
       saveKindFor: 'احفظ افتراضي {kind}',
-      switchWarning: 'هذا يغيّر نموذج {steps}. أحجامها المتوقعة وسقوفها ضُبطت لـ {model}. احفظ مرة أخرى للتبديل.',
+      switchWarning: 'هذا يبدّل أيضًا {steps}، وقد ضُبطت أحجامها وسقوفها لـ {model}. احفظ مرة أخرى للتبديل.',
       kindNames: {
         text: 'النصوص',
         picture: 'الصور',

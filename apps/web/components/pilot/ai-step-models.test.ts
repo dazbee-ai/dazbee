@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { AiStepModelView } from '@dazbee/schema'
 
-import { modelChoices } from './ai-step-models.tsx'
+import { modelChoices, stepRowKey } from './ai-step-models.tsx'
 
 vi.mock('@/app/pilot/ai/actions.ts', () => ({}))
 
@@ -16,6 +16,13 @@ const RESIZE: AiStepModelView = {
   source: 'override',
   updatedAt: '2026-11-25T10:00:00.000Z',
 }
+
+describe('stepRowKey', () => {
+  it('changes when a step following its kind gets a new default, so its row shows the new model', () => {
+    const following: AiStepModelView = { ...RESIZE, source: 'kind', updatedAt: null }
+    expect(stepRowKey({ ...following, model: 'gpt-image-2.5-sunburst' })).not.toBe(stepRowKey(following))
+  })
+})
 
 describe('modelChoices', () => {
   it('offers the step’s models and shows the one picked', () => {

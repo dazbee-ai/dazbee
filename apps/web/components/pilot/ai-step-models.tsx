@@ -56,6 +56,14 @@ export function modelChoices(
   return { choices, shown: choices.includes(picked) ? picked : step.model }
 }
 
+/**
+ * The key a step's row is drawn under: it changes whenever the step's model or where it comes from changes,
+ * so the row's picker starts again from what the page read, as after its kind's default changes.
+ */
+export function stepRowKey(step: AiStepModelView): string {
+  return `${step.step}/${step.source}/${step.model}/${step.updatedAt}`
+}
+
 export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
   const w = useMessages().pilotAi.stepModels
   const { run, busy, noteAt, show } = useChange()
@@ -75,7 +83,7 @@ export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
         <tbody>
           {steps.map((step) => (
             <StepRow
-              key={`${step.step}/${step.source}/${step.updatedAt}`}
+              key={stepRowKey(step)}
               step={step}
               run={run}
               busy={busy}

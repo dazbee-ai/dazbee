@@ -174,16 +174,19 @@ export interface ModalBilling {
     tagNames: string[]
     environmentIds: string[]
     appIds: string[]
-  }): AsyncIterable<{ description: string; cost: string }>
+  }): AsyncIterable<{ description: string; environmentName: string; cost: string }>
 }
 
-/** Modal's cost for a UTC day from its billing report: what the layer split app cost that day, in dollars. */
-export function modalCostReport(tokenId: string, tokenSecret: string): CostReport {
-  return modalCostReportOn(new ModalClient({ tokenId, tokenSecret }).cpClient as unknown as ModalBilling)
+/**
+ * Modal's cost for a UTC day from its billing report: what the layer split app cost that day, in dollars, in
+ * `environment` alone when one is given (the worker's MODAL_ENVIRONMENT, which its calls run in too).
+ */
+export function modalCostReport(tokenId: string, tokenSecret: string, environment?: string): CostReport {
+  return modalCostReportOn(new ModalClient({ tokenId, tokenSecret }).cpClient as unknown as ModalBilling, environment)
 }
 
-/** Modal's cost report on `billing`; tests give a stand-in. */
-export function modalCostReportOn(billing: ModalBilling): CostReport {
+/** Modal's cost report on `billing`, of `environment` alone when one is given; tests give a stand-in. */
+export function modalCostReportOn(billing: ModalBilling, environment?: string): CostReport {
   return async (day) => {
     const start = new Date(`${day}T00:00:00Z`)
     let cost = 0
@@ -195,7 +198,11 @@ export function modalCostReportOn(billing: ModalBilling): CostReport {
       environmentIds: [],
       appIds: [],
     })
-    for await (const item of items) if (item.description === LAYERING.app) cost += Number(item.cost)
+    for await (const item of items) {
+      if (item.description !== LAYERING.app) continue
+      if (environment && item.environmentName !== environment) continue
+      cost += Number(item.cost)
+    }
     return { currency: 'USD', cost }
   }
 }

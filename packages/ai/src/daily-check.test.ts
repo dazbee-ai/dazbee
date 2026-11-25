@@ -146,12 +146,15 @@ describe('the sellers’ cost reports', () => {
       ['/management/cost', { body: JSON.stringify({ data: { summary: { totalCost: null } } }) }],
     ])
     expect(await zenmuxCostReport({ managementKey: 'k', fetch: waiting.fetch })('2026-11-24')).toBeNull()
-    const modal = modalCostReportOn({
+    const billing = {
       async *workspaceBillingReport() {
-        yield { description: 'dazbee-layering', cost: '0.3725' }
-        yield { description: 'another-app', cost: '9' }
+        yield { description: 'dazbee-layering', environmentName: 'prod', cost: '0.3725' }
+        yield { description: 'dazbee-layering', environmentName: 'main', cost: '0.5' }
+        yield { description: 'another-app', environmentName: 'prod', cost: '9' }
       },
-    })
-    expect(await modal('2026-11-24')).toEqual({ currency: 'USD', cost: 0.3725 })
+    }
+    expect(await modalCostReportOn(billing)('2026-11-24')).toEqual({ currency: 'USD', cost: 0.8725 })
+    // With an environment, only that environment's layer split counts: production's, not development's.
+    expect(await modalCostReportOn(billing, 'prod')('2026-11-24')).toEqual({ currency: 'USD', cost: 0.3725 })
   })
 })

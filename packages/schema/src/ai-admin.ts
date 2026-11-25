@@ -115,10 +115,30 @@ export const STEP_MODEL_SOURCES = ['kind', 'override'] as const
 export const StepModelSource = z.enum(STEP_MODEL_SOURCES)
 export type StepModelSource = z.infer<typeof StepModelSource>
 
+/** A text step's sizes as set in the step list: input and output tokens a call normally uses, and its ceiling. */
+export const StepSizesView = z.object({ input: z.number(), output: z.number(), ceiling: z.number() })
+export type StepSizesView = z.infer<typeof StepSizesView>
+
+/** An average and the 95th percentile of a size over calls. */
+const SizeSpread = z.object({ average: z.number(), p95: z.number() })
+
+/**
+ * What a text step's calls on its model really used over the last 30 days, done or cut off at the ceiling:
+ * how many calls, how many were cut off, and the input (cached included) and output tokens of each.
+ */
+export const MeasuredSizes = z.object({
+  calls: z.number().int(),
+  cutOff: z.number().int(),
+  input: SizeSpread,
+  output: SizeSpread,
+})
+export type MeasuredSizes = z.infer<typeof MeasuredSizes>
+
 /**
  * An AI step's model as an admin reads it, with the step's kind of call and the priced models of that kind,
- * the only ones it may run; where its model comes from; and when its override was last changed, null when
- * it follows its kind.
+ * the only ones it may run; where its model comes from; when its override was last changed, null when it
+ * follows its kind; and a text step's sizes as set beside those its calls on the model measured, null for
+ * another step or one with no calls.
  */
 export const AiStepModelView = z.object({
   step: z.string(),
@@ -128,6 +148,8 @@ export const AiStepModelView = z.object({
   options: z.record(z.string(), z.unknown()),
   source: StepModelSource,
   updatedAt: z.iso.datetime().nullable(),
+  sizes: StepSizesView.nullable(),
+  measured: MeasuredSizes.nullable(),
 })
 export type AiStepModelView = z.infer<typeof AiStepModelView>
 

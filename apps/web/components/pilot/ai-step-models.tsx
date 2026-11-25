@@ -2,8 +2,9 @@
 
 // The AI section's AI steps: the model each AI step runs, its kind's default or its own, picked from the priced
 // models of the step's kind, with the options its call passes the model as JSON, each step saved on its own;
-// saving gives the step its own model, and a step with one can go back to its kind's default. The two draft
-// steps are the modes.
+// saving gives the step its own model, and a step with one can go back to its kind's default. A text step
+// shows its sizes as set in the step list beside those its calls on its model measured. The two draft steps
+// are the modes.
 import { useState } from 'react'
 
 import type { AiStepModelView } from '@dazbee/schema'
@@ -19,12 +20,16 @@ import {
   NoteRow,
   SAVE_BUTTON,
   useAiNames,
+  useAmount,
   useChange,
 } from '@/components/pilot/ai-form.tsx'
 import { Select } from '@/components/ui/select.tsx'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
+
+/** How many measured calls a step needs before its measured sizes are shown. */
+export const MEASURED_MIN_CALLS = 20
 
 /** A change a row runs from where `at` names, through the table's `useChange`. */
 type Run = (at: string, change: () => Promise<string | null>, done?: string) => void
@@ -77,6 +82,7 @@ export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
             <th className={HEAD}>{w.source}</th>
             <th className={HEAD}>{w.model}</th>
             <th className={HEAD}>{w.options}</th>
+            <th className={HEAD}>{w.sizes}</th>
             <th className={HEAD} />
           </tr>
         </thead>
@@ -151,6 +157,9 @@ function StepRow({
             className={cn(FIELD, 'w-56 font-mono text-caption')}
           />
         </td>
+        <td className={cn(CELL, 'text-caption')}>
+          <StepSizes step={step} />
+        </td>
         <td className={CELL}>
           <button
             type="button"
@@ -174,7 +183,38 @@ function StepRow({
           )}
         </td>
       </tr>
-      <NoteRow note={note} span={5} />
+      <NoteRow note={note} span={6} />
     </>
+  )
+}
+
+/** A text step's sizes as set, and as measured once it has enough calls; nothing for another step. */
+function StepSizes({ step }: { step: AiStepModelView }) {
+  const w = useMessages().pilotAi.stepModels
+  const amount = useAmount()
+  if (!step.sizes) return null
+  const calls = step.measured?.calls ?? 0
+  return (
+    <div data-sizes={step.step} className="flex min-w-48 max-w-72 flex-col gap-0.5 whitespace-normal">
+      <span>
+        {format(w.sizesSet, {
+          input: amount(step.sizes.input, 0),
+          output: amount(step.sizes.output, 0),
+          ceiling: amount(step.sizes.ceiling, 0),
+        })}
+      </span>
+      <span className="text-muted">
+        {step.measured && calls >= MEASURED_MIN_CALLS
+          ? format(w.sizesMeasured, {
+              input: amount(step.measured.input.average, 0),
+              inputP95: amount(step.measured.input.p95, 0),
+              output: amount(step.measured.output.average, 0),
+              outputP95: amount(step.measured.output.p95, 0),
+              calls: amount(calls, 0),
+              cutOff: amount(step.measured.cutOff, 0),
+            })
+          : format(w.tooFewCalls, { calls: amount(calls, 0), needed: MEASURED_MIN_CALLS })}
+      </span>
+    </div>
   )
 }

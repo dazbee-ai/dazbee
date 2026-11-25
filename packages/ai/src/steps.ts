@@ -12,10 +12,24 @@ import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.t
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
 import { type AiSettings, aiSettingsOf } from './settings.ts'
 
-/** One AI step: its kind of call, the usage a call is expected to report, and its fixed amount, if it has one. */
+/**
+ * A text step's sizes, set by a person from the measured sizes the admin page shows beside them: the input
+ * and output tokens one call normally uses, and its ceiling, the most output tokens one call may write.
+ */
+export interface StepSizes {
+  input: number
+  output: number
+  ceiling: number
+}
+
+/**
+ * One AI step: its kind of call, the usage a call is expected to report, a text step's sizes, and its fixed
+ * amount, if it has one.
+ */
 export interface StepDef {
   kind: CallKind
   expected(input: CallInput): Usage
+  sizes?: StepSizes
   /** The real cost the workspace is charged in place of the priced usage. */
   fixedCost?(settings: AiSettings, input: CallInput): bigint
 }
@@ -50,15 +64,23 @@ const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', '
 /** How much more than its expected cost a call holds. */
 const HOLD_MARGIN = { times: 5n, per: 4n }
 
+/** A text step of `sizes`, expected to use its expected input and output tokens. */
+const textStep = (sizes: StepSizes): StepDef => ({
+  kind: 'text',
+  sizes,
+  expected: () => ({ 'input-token': sizes.input, 'output-token': sizes.output }),
+})
+
 /** About 1,056 output tokens for a medium-quality square picture of 1024 px, scaled by area. */
 const pictureTokens = (input: CallInput) =>
   'width' in input ? Math.ceil((input.width * input.height * 1056) / (1024 * 1024)) : 1056
 
 /** Every AI step, each in `AI_STEPS`; a test adds steps of its own. */
 export const STEPS: Record<string, StepDef> = {
-  'flow.round-plan': { kind: 'text', expected: () => ({ 'input-token': 6000, 'output-token': 3000 }) },
-  'flow.read': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 2000 }) },
-  'flow.layer-plan': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 4000 }) },
+  // Ceilings start at 4 times the expected output, to be set from the measured sizes once calls are made.
+  'flow.round-plan': textStep({ input: 6000, output: 3000, ceiling: 12_000 }),
+  'flow.read': textStep({ input: 8000, output: 2000, ceiling: 8000 }),
+  'flow.layer-plan': textStep({ input: 8000, output: 4000, ceiling: 16_000 }),
   'flow.draft-fast': { kind: 'picture', expected: (input) => pictureUsage(input) },
   'flow.draft-precise': { kind: 'picture', expected: (input) => pictureUsage(input) },
   'flow.refine': { kind: 'picture', expected: (input) => pictureUsage(input) },

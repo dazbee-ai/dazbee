@@ -2,7 +2,7 @@
 // own figure, both in the seller's currency before GST or fee. A seller-day that differs by more than 2% and
 // more than ₹1 is red. Modal's figure also covers GPU time outside our calls (cold starts, idle containers),
 // which is kept apart and never red. A seller with no figure for a day yet is waiting.
-import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, lt, or, sql } from 'drizzle-orm'
 
 import { aiCalls, aiDailyChecks, type Db } from '@dazbee/db'
 import type { DailyCheckSource, DailyCheckState } from '@dazbee/schema'
@@ -99,7 +99,7 @@ export async function checkDay(
 }
 
 /**
- * Our cost for `seller` on UTC `day`: every call the seller made, done or settled, in millionths of its
+ * Our cost for `seller` on UTC `day`: every call the seller made, done, settled or cut off, in millionths of its
  * currency before GST or fee, and that currency.
  */
 export async function ourCost(db: Db, seller: string, day: string): Promise<{ cost: bigint; currency: string | null }> {
@@ -113,7 +113,8 @@ export async function ourCost(db: Db, seller: string, day: string): Promise<{ co
     .where(
       and(
         eq(aiCalls.seller, seller),
-        inArray(aiCalls.state, ['done']),
+        // A done call, or one cut off at its ceiling, which the seller billed too.
+        or(eq(aiCalls.state, 'done'), and(eq(aiCalls.state, 'failed'), isNotNull(aiCalls.sellerCost))),
         gte(aiCalls.startedAt, start),
         lt(aiCalls.startedAt, new Date(start.getTime() + 86_400_000)),
       ),

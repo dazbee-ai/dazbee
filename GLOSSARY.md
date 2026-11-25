@@ -687,6 +687,10 @@ _Avoid_: Block, type, modality
 A model an admin sets for one AI step in place of its kind's default, such as Seedream for the refine while pictures default to Muse Image. Removing it makes the step follow its kind again.
 _Avoid_: Custom model, pin
 
+**Ceiling**:
+The most output one call of a text AI step may write, set per step and sent to the seller as a hard limit. An answer that reaches it is cut off: we pay the seller for it, the workspace is charged nothing, and the call fails without trying again. The admin page shows each step's ceiling and expected size beside what its calls measured.
+_Avoid_: Max tokens, cap, limit
+
 **Reference picture**:
 A picture a person attaches to a picture call for the model to work from, such as a product, a logo or a style ad: up to 16 a call. With none, the model makes a new picture; with some, it edits or builds from them.
 _Avoid_: Input image, source image, attachment

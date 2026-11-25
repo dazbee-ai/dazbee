@@ -289,6 +289,47 @@ describe('callAi', () => {
     expect(await callRows(job.id)).toEqual([])
   })
 
+  it('sends a text call with its step’s ceiling as its output limit, or its own limit when smaller', async () => {
+    const seller = testSeller(newSeller('a'))
+    const { step } = await addStep([seller])
+    const def = STEPS[step]
+    if (def) def.sizes = { input: 1000, output: 500, ceiling: 2000 }
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    await callAi(db, callOf(job, step, { callIndex: 1, input: { ...TEXT, maxOutputTokens: 900 } }))
+    await callAi(db, callOf(job, step, { callIndex: 2, input: { ...TEXT, maxOutputTokens: 9000 } }))
+    expect(seller.requests.map((r) => (r.input.kind === 'text' ? r.input.maxOutputTokens : null))).toEqual([
+      2000, 900, 2000,
+    ])
+  })
+
+  it('logs an answer cut off at its ceiling as our cost, charges nothing and tries no other seller', async () => {
+    const first = testSeller(newSeller('a'), [{ cutOff: { 'input-token': 1000, 'output-token': 500 } }])
+    const second = testSeller(newSeller('b'))
+    const { step } = await addStep([first, second])
+    const job = await heldJob()
+    const failed = await callAi(db, callOf(job, step)).catch((e: unknown) => e)
+    expect(failed).toBeInstanceOf(CallFailed)
+    expect((failed as CallFailed).reason).toBe('cut-off')
+    expect(first.requests).toHaveLength(1)
+    expect(second.requests).toHaveLength(0)
+    const rows = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job.id))
+    // US$0.002 at ₹96.31, as a done call of the same usage costs.
+    expect(rows).toMatchObject([
+      {
+        seller: first.seller,
+        state: 'failed',
+        error: 'cut off at its ceiling',
+        usage: { 'input-token': 1000, 'output-token': 500 },
+        sellerCost: 2_000n,
+        realCost: 192_620n,
+        chargeCost: null,
+        chargedAt: null,
+      },
+    ])
+    expect(await chargesOf(rows[0]?.id ?? '')).toEqual([])
+  })
+
   it('gives a done call’s output again without calling the seller', async () => {
     const seller = testSeller(newSeller('a'))
     const { step } = await addStep([seller])

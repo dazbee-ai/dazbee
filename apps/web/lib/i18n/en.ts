@@ -1775,6 +1775,13 @@ export const en = {
       /** Why a kind's default can't be a model of another kind. */
       wrongKindDefault: 'The {kind} default must be {wants}, and {model} is {is}, priced in {units}.',
       source: 'Runs',
+      sizes: 'Sizes, in tokens',
+      /** A text step's sizes as the step list sets them. */
+      sizesSet: 'Set: {input} in, {output} out, ceiling {ceiling}',
+      /** What its calls on its model used over the last 30 days. */
+      sizesMeasured:
+        'Measured: {input} in (95%: {inputP95}), {output} out (95%: {outputP95}), over {calls} calls, {cutOff} cut off',
+      tooFewCalls: 'Measured: too few calls ({calls} of {needed})',
       fromKind: 'Kind default',
       override: 'Own model',
       useDefault: 'Use the kind default',

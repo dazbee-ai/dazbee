@@ -1,16 +1,24 @@
 // Test sellers: adapters scripted, try by try, to answer (at once or after a wait), fail with a status, time
-// out or report a given usage. Imported by tests only.
+// out, be cut off at the ceiling or report a given usage. Imported by tests only.
 import { setTimeout as sleep } from 'node:timers/promises'
 
 import { CALL_KINDS, type Usage } from '@dazbee/schema'
 
-import { type SellerAdapter, type SellerAnswer, SellerError, type SellerOutput, type SellerRequest } from './seller.ts'
+import {
+  type SellerAdapter,
+  type SellerAnswer,
+  SellerCutOff,
+  SellerError,
+  type SellerOutput,
+  type SellerRequest,
+} from './seller.ts'
 
 /** What a test seller does on one try. */
 export type TestTry =
   | { answer?: SellerOutput; usage?: Usage; requestId?: string; reportedCost?: number; afterMs?: number }
   | { fail: number; code?: string }
   | { timeOut: true; requestId?: string }
+  | { cutOff: Usage }
 
 /** A test seller and what it was asked. */
 export interface TestSeller extends SellerAdapter {
@@ -49,6 +57,7 @@ export function testSeller(
       requests.push(request)
       if ('fail' in script)
         throw new SellerError(`test failure ${script.fail}`, { status: script.fail, code: script.code })
+      if ('cutOff' in script) throw new SellerCutOff(script.cutOff, `${seller}-${requests.length}`)
       if ('timeOut' in script) {
         if (script.requestId) await request.keepRequestId(script.requestId)
         return new Promise<never>(() => undefined)

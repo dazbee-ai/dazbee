@@ -1,11 +1,12 @@
 // The admin page's routes for which model each AI call runs, under /admin/ai, behind the AI routes' admin check:
 // each kind of call's default model, and each AI step's model, which is its kind's default unless an admin
-// overrides it. A kind's default, and an override, must be a priced model of that kind.
-import { eq, sql } from 'drizzle-orm'
+// overrides it, with a text step's sizes as set beside those its calls measured. A kind's default, and an
+// override, must be a priced model of that kind.
+import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
-import { modelKinds, stepDef, STEPS } from '@dazbee/ai'
-import { aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
+import { CUT_OFF, modelKinds, stepDef, STEPS } from '@dazbee/ai'
+import { aiCalls, aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
   type AiKindModelView,
@@ -14,6 +15,7 @@ import {
   AiStepOverrideRemoval,
   CALL_KINDS,
   type CallKind,
+  type MeasuredSizes,
   type UsageUnit,
   type WrongKind,
 } from '@dazbee/schema'
@@ -28,6 +30,9 @@ const KIND_WORDS: Record<CallKind, string> = {
   picture: 'a picture model',
   'layer-split': 'a GPU model',
 }
+
+/** How far back the measured sizes look. */
+const MEASURED_DAYS = 30
 
 export function aiModelRoutes(db: Db): Hono<Env> {
   const app = new Hono<Env>()
@@ -83,10 +88,11 @@ export function aiModelRoutes(db: Db): Hono<Env> {
   })
 
   app.get('/admin/ai/step-models', async (c) => {
-    const [kinds, overrides, units] = await Promise.all([
+    const [kinds, overrides, units, measured] = await Promise.all([
       db.select().from(aiKindModels),
       db.select().from(aiStepModels),
       pricedUnits(db),
+      measuredSizes(db),
     ])
     return c.json(
       AI_STEPS.flatMap((step) => {
@@ -103,6 +109,8 @@ export function aiModelRoutes(db: Db): Hono<Env> {
             options: chosen.options,
             source: own ? ('override' as const) : ('kind' as const),
             updatedAt: own ? own.updatedAt.toISOString() : null,
+            sizes: stepDef(step).sizes ?? null,
+            measured: measured.get(`${step}/${chosen.model}`) ?? null,
           },
         ]
       }) satisfies AiStepModelView[],
@@ -154,6 +162,48 @@ export function aiModelRoutes(db: Db): Hono<Env> {
   })
 
   return app
+}
+
+/**
+ * What each text step's calls on each model used over the last `MEASURED_DAYS` days, done or cut off at the
+ * ceiling, by `<step>/<model>`.
+ */
+export async function measuredSizes(db: Db): Promise<Map<string, MeasuredSizes>> {
+  const input = sql`coalesce((${aiCalls.usage}->>'input-token')::numeric, 0) + coalesce((${aiCalls.usage}->>'cached-input-token')::numeric, 0)`
+  const output = sql`coalesce((${aiCalls.usage}->>'output-token')::numeric, 0)`
+  const rows = await db
+    .select({
+      step: aiCalls.step,
+      model: aiCalls.model,
+      calls: sql<number>`count(*)::int`,
+      cutOff: sql<number>`(count(*) filter (where ${aiCalls.state} = 'failed'))::int`,
+      inputAverage: sql<number>`avg(${input})::float8`,
+      inputP95: sql<number>`percentile_cont(0.95) within group (order by ${input})`,
+      outputAverage: sql<number>`avg(${output})::float8`,
+      outputP95: sql<number>`percentile_cont(0.95) within group (order by ${output})`,
+    })
+    .from(aiCalls)
+    .where(
+      and(
+        gte(aiCalls.startedAt, sql`now() - make_interval(days => ${MEASURED_DAYS})`),
+        isNotNull(aiCalls.usage),
+        or(eq(aiCalls.state, 'done'), and(eq(aiCalls.state, 'failed'), eq(aiCalls.error, CUT_OFF))),
+      ),
+    )
+    .groupBy(aiCalls.step, aiCalls.model)
+  return new Map(
+    rows
+      .filter((row) => stepOf(row.step) && stepDef(row.step).kind === 'text')
+      .map((row) => [
+        `${row.step}/${row.model}`,
+        {
+          calls: row.calls,
+          cutOff: row.cutOff,
+          input: { average: Math.round(row.inputAverage), p95: Math.round(row.inputP95) },
+          output: { average: Math.round(row.outputAverage), p95: Math.round(row.outputP95) },
+        },
+      ]),
+  )
 }
 
 /** The priced models that take `kind` calls. */

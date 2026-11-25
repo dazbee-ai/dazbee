@@ -3,16 +3,17 @@
 // delivered and charges it to its AI job's hold, once.
 import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 
-import { aiCalls, aiJobs, type Db, newId, type Tx } from '@dazbee/db'
-import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbee/schema'
+import { aiCalls, aiJobs, type Db, type Tx } from '@dazbee/db'
+import type { CallInput, CallKind, CallOutput, MadePicture } from '@dazbee/schema'
 
+import { endCutOff, endTry, keepRequestId, requestOf, resumeTry, startTry } from './call-log.ts'
 import { charge } from './ledger.ts'
 import { drawMarks } from './marks.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
-import { type SellerAnswer, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
+import { type SellerAnswer, SellerCutOff, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
-import { routeStep, stepDef, type StepSeller } from './steps.ts'
+import { routeStep, stepDef, type StepRoute, type StepSeller } from './steps.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
 export interface PictureFiles {
@@ -38,10 +39,10 @@ export interface AiCall {
 }
 
 /**
- * Why a call failed for good: a seller refused it, no seller was left to try, or a seller made it but we
- * couldn't store or price what it made.
+ * Why a call failed for good: a seller refused it, no seller was left to try, a seller made it but we
+ * couldn't store or price what it made, or its answer was cut off at its ceiling.
  */
-export type CallFailure = 'refused' | 'no-seller' | 'lost'
+export type CallFailure = 'refused' | 'no-seller' | 'lost' | 'cut-off'
 
 /** A call that failed for good: its job fails, with no try left. */
 export class CallFailed extends Error {
@@ -56,7 +57,7 @@ export class CallFailed extends Error {
 
 /** What one try came to: an answer, or the error and what follows it. */
 type TryResult =
-  { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' }
+  { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' | 'cut-off' }
 
 /** How long a call of each kind may take before it counts as failed (and as an unknown call). */
 export const TIMEOUTS: Record<CallKind, number> = {
@@ -96,12 +97,13 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
       if (askOnly && !pending) break
       const row = await startTry(db, call, route.model, seller.seller)
       const resumeId = pending ? await resumeTry(db, pending, row) : undefined
-      const result = await tryOnce(db, call, route.options, seller, row, referencesOf, resumeId)
+      const result = await tryOnce(db, call, route, seller, row, referencesOf, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
       // A request the seller refuses to answer about is sent again as a new one, not failed for good.
       const next = resumeId && result.next === 'fail' ? 'retry' : result.next
       pending = seller.adapter.resumable && result.next === 'retry' ? await requestOf(db, row) : null
+      if (next === 'cut-off') throw new CallFailed('cut-off', `${seller.seller} cut ${call.step} off at its ceiling`)
       if (next === 'fail') throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
       if (next === 'next-seller') break
     }
@@ -173,55 +175,11 @@ async function resumable(db: Db, call: AiCall, sellers: StepSeller[]) {
   return earlier?.requestId && seller ? { row: earlier.id, requestId: earlier.requestId, seller } : null
 }
 
-/**
- * Takes the earlier try's request over for the new try `row`: the new row keeps its request id, and the earlier
- * row is marked failed, so the one request is logged once. Gives the request id to resume.
- */
-async function resumeTry(db: Db, resume: { row: string; requestId: string }, row: string): Promise<string> {
-  await db.transaction(async (tx) => {
-    await tx.update(aiCalls).set({ sellerRequestId: resume.requestId }).where(eq(aiCalls.id, row))
-    await tx
-      .update(aiCalls)
-      .set({ state: 'failed', error: 'resumed by a later try', endedAt: new Date() })
-      .where(eq(aiCalls.id, resume.row))
-  })
-  return resume.requestId
-}
-
-/** Writes the call-log row of a new try, as running; its id. */
-async function startTry(db: Db, call: AiCall, model: string, seller: string): Promise<string> {
-  const id = newId()
-  for (let clash = 0; ; clash++) {
-    try {
-      await db.insert(aiCalls).values({
-        id,
-        jobId: call.job.id,
-        workspaceId: call.job.workspaceId,
-        callIndex: call.callIndex,
-        try: sql`(select coalesce(max(${aiCalls.try}), 0) + 1 from ${aiCalls} where ${aiCalls.jobId} = ${call.job.id} and ${aiCalls.callIndex} = ${call.callIndex})`,
-        attempt: call.attempt,
-        step: call.step,
-        model,
-        seller,
-      })
-      return id
-    } catch (error) {
-      // Another run of the job took the same try number at the same moment.
-      if (clash >= 2 || !isUniqueViolation(error)) throw error
-    }
-  }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const cause = error instanceof Error && 'cause' in error ? error.cause : error
-  return typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === '23505'
-}
-
 /** Makes one try at `seller` under its pacing and timeout, and logs one that failed. */
 async function tryOnce(
   db: Db,
   call: AiCall,
-  options: Record<string, unknown>,
+  route: StepRoute,
   seller: StepSeller,
   row: string,
   references: () => Promise<Uint8Array[]>,
@@ -238,8 +196,8 @@ async function tryOnce(
     const answer = await untilAborted(
       seller.adapter.call({
         model: seller.sellerModel,
-        input: call.input,
-        options,
+        input: withCeiling(call),
+        options: route.options,
         signal,
         readPicture: (key) => files(call).read(key),
         references,
@@ -259,6 +217,10 @@ async function tryOnce(
       await endTry(db, row, 'unknown', 'timed out')
       return { ok: false, error: 'timed out', next: 'retry' }
     }
+    if (error instanceof SellerCutOff) {
+      await endCutOff(db, row, seller.seller, route.model, error)
+      return { ok: false, error: error.message, next: 'cut-off' }
+    }
     const message = messageOf(error)
     const next = sellerFailure(error)
     const state = error instanceof SellerTimedOut ? 'unknown' : 'failed'
@@ -277,13 +239,16 @@ async function referencePictures(call: AiCall): Promise<Uint8Array[]> {
   return [...pictures, await drawMarks(first, await files(call).read(input.marks))]
 }
 
+/** The call's input, a text call's output limit held to its step's ceiling. */
+function withCeiling(call: AiCall): CallInput {
+  const ceiling = stepDef(call.step).sizes?.ceiling
+  if (call.input.kind !== 'text' || ceiling === undefined) return call.input
+  return { ...call.input, maxOutputTokens: Math.min(call.input.maxOutputTokens ?? ceiling, ceiling) }
+}
+
 function files(call: AiCall): PictureFiles {
   if (!call.files) throw new Error(`the AI step ${call.step} needs its pictures' storage`)
   return call.files
-}
-
-async function keepRequestId(db: Db, row: string, id: string): Promise<void> {
-  await db.update(aiCalls).set({ sellerRequestId: id }).where(eq(aiCalls.id, row))
 }
 
 /** `promise`, or a rejection once `signal` aborts, for an adapter that doesn't stop when asked. */
@@ -294,20 +259,6 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
     signal.addEventListener('abort', abort, { once: true })
     promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
   })
-}
-
-/** Marks a try's row failed or unknown, with why, and the usage the seller reported, if it answered. */
-async function endTry(
-  db: Db,
-  row: string,
-  state: 'failed' | 'unknown',
-  error: string,
-  usage: Usage | null = null,
-): Promise<void> {
-  await db
-    .update(aiCalls)
-    .set({ state, error: error.slice(0, 1000), endedAt: new Date(), ...(usage ? { usage } : {}) })
-    .where(and(eq(aiCalls.id, row), eq(aiCalls.state, 'running')))
 }
 
 function messageOf(error: unknown): string {
@@ -377,10 +328,4 @@ async function storeOutput(call: AiCall, output: SellerOutput): Promise<CallOutp
   if (output.kind === 'pictures') return { kind: 'pictures', pictures: await store(output) }
   const layers = await store({ kind: 'pictures', pictures: output.layers })
   return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
-}
-
-/** Try `row`'s request id, when the seller gave one, as a request to ask about again. */
-async function requestOf(db: Db, row: string): Promise<{ row: string; requestId: string } | null> {
-  const [found] = await db.select({ requestId: aiCalls.sellerRequestId }).from(aiCalls).where(eq(aiCalls.id, row))
-  return found?.requestId ? { row, requestId: found.requestId } : null
 }

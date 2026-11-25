@@ -96,6 +96,26 @@ export class SellerTimedOut extends SellerError {
   }
 }
 
+/**
+ * A seller's answer cut off at the call's output limit, its ceiling: made and billed, with the usage the seller
+ * reported, so its try is logged with its cost as ours, and the call fails, as the same ceiling would cut it
+ * again at any seller.
+ */
+export class SellerCutOff extends SellerError {
+  readonly usage: Usage
+  readonly requestId: string | undefined
+  /** The seller's own cost for the call, in its currency, where it gives one. */
+  readonly reportedCost: number | undefined
+
+  constructor(usage: Usage, requestId?: string | null, reportedCost?: number) {
+    super('the answer was cut off at its ceiling')
+    this.name = 'SellerCutOff'
+    this.usage = usage
+    this.requestId = requestId ?? undefined
+    this.reportedCost = reportedCost
+  }
+}
+
 /** The adapters in use, by seller. */
 const adapters = new Map<string, SellerAdapter>()
 
@@ -111,11 +131,11 @@ export function sellerAdapter(seller: string): SellerAdapter | undefined {
 
 /**
  * What `error` from an adapter means: a seller out of money goes to the next seller; a rate limit, a
- * server error or a lost connection is tried again; a call the seller timed out, or any other refusal,
- * fails the call.
+ * server error or a lost connection is tried again; a call the seller timed out or cut off, or any other
+ * refusal, fails the call.
  */
 export function sellerFailure(error: unknown): SellerFailure {
-  if (error instanceof SellerTimedOut) return 'fail'
+  if (error instanceof SellerTimedOut || error instanceof SellerCutOff) return 'fail'
   if (error instanceof SellerError) {
     if (error.status === 402 || error.code === 'insufficient_quota') return 'next-seller'
     if (error.status === undefined || error.status === 429 || error.status >= 500) return 'retry'

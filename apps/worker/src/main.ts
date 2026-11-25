@@ -6,7 +6,7 @@ import { createServer } from 'node:http'
 
 import { PgBoss } from 'pg-boss'
 
-import { sweepJobs, useSellersOf } from '@dazbee/ai'
+import { settleUnknownCalls, sweepJobs, useSellersOf } from '@dazbee/ai'
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
@@ -16,6 +16,8 @@ import { startStepsWorker } from './steps-job.ts'
 const STEPS_QUEUE = 'ai-steps'
 /** The queue the sweep's schedule sends to. */
 const SWEEP_QUEUE = 'ai-sweep'
+/** The queue the daily settling of unknown calls is sent to, at 05:30 UTC. */
+const SETTLE_QUEUE = 'ai-unknown-calls'
 /** How long a graceful stop waits for running jobs: compose gives the worker 120 s. */
 const STOP_WAIT_MS = 110_000
 
@@ -25,7 +27,7 @@ const port = Number(process.env.WORKER_PORT ?? 8790)
 const callLimit = Number(process.env.WORKER_AI_CALLS ?? 8)
 if (!Number.isInteger(callLimit) || callLimit < 1) throw new Error('WORKER_AI_CALLS is a whole number from 1')
 
-// Each seller whose key is set: OPENAI_API_KEY, MUSE_API_KEY.
+// Each seller whose key is set: OPENAI_API_KEY, MUSE_API_KEY, OPENROUTER_API_KEY, ZENMUX_API_KEY, PIXAZO_API_KEY.
 const sellers = useSellersOf()
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(storageSettings())
@@ -39,6 +41,11 @@ await boss.schedule(SWEEP_QUEUE, '*/5 * * * *')
 await boss.work(SWEEP_QUEUE, async () => {
   const ended = await sweepJobs(db, boss, STEPS_QUEUE)
   if (ended > 0) console.warn(JSON.stringify({ msg: 'AI jobs swept', ended }))
+})
+if (!(await boss.getQueue(SETTLE_QUEUE))) await boss.createQueue(SETTLE_QUEUE)
+await boss.schedule(SETTLE_QUEUE, '30 5 * * *')
+await boss.work(SETTLE_QUEUE, async () => {
+  console.log(JSON.stringify({ msg: 'unknown calls settled', ...(await settleUnknownCalls(db)) }))
 })
 
 // The image sets BUILD_ID to the commit it was built from; a worker run from a checkout is `dev`.

@@ -97,38 +97,23 @@ export function pictureAnswer(data: PictureAnswer, requestId: string | null, usa
   return answer
 }
 
-async function callOpenai(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
-  const { input } = request
-  if (input.kind === 'text') return text(client, request, input)
-  if (input.kind === 'layer-split') throw new SellerError('OpenAI makes no layer split', { status: 400 })
-  const common = {
-    model: request.model,
-    prompt: input.prompt,
-    size: pictureSize(input),
-    quality: String(request.options.quality ?? QUALITY) as 'medium',
-    output_format: 'png' as const,
-    n: 1,
-  }
-  const { data, response } =
-    input.kind === 'picture'
-      ? await client.images.generate(common, { signal: request.signal }).withResponse()
-      : await client.images
-          .edit({ ...common, image: await pictureFiles(request, input.pictures) }, { signal: request.signal })
-          .withResponse()
-  return pictureAnswer(data, response.headers.get('x-request-id'), tokenUsage(data))
-}
-
-async function text(client: OpenAI, request: SellerRequest, input: TextCall): Promise<SellerAnswer> {
+/**
+ * A text call through the Responses API, with a JSON schema when the call gives one: its text (and JSON), its
+ * usage by kind of token, the request id from `requestIdHeader`, and the seller's own cost where its usage
+ * holds one (OpenRouter's `usage.cost`).
+ */
+export async function responsesText(
+  client: OpenAI,
+  request: SellerRequest,
+  input: TextCall,
+  requestIdHeader = 'x-request-id',
+): Promise<SellerAnswer> {
   const pictures = await Promise.all(
-    input.pictures.map(async (key) => {
-      const bytes = await request.readPicture(key)
-      const type = readImageHeader(bytes)?.contentType ?? 'image/png'
-      return {
-        type: 'input_image' as const,
-        detail: 'auto' as const,
-        image_url: `data:${type};base64,${Buffer.from(bytes).toString('base64')}`,
-      }
-    }),
+    input.pictures.map(async (key) => ({
+      type: 'input_image' as const,
+      detail: 'auto' as const,
+      image_url: await dataUrl(request, key),
+    })),
   )
   const { data, response } = await client.responses
     .create(
@@ -155,19 +140,49 @@ async function text(client: OpenAI, request: SellerRequest, input: TextCall): Pr
       'output-token': data.usage?.output_tokens ?? 0,
     },
   }
-  const requestId = response.headers.get('x-request-id')
+  const reported = (data.usage as { cost?: unknown } | undefined)?.cost
+  if (typeof reported === 'number') answer.reportedCost = reported
+  const requestId = response.headers.get(requestIdHeader) ?? data.id
   if (requestId) answer.requestId = requestId
   return answer
 }
 
+/** A stored picture as a data URL, as sellers take pictures inline. */
+export async function dataUrl(request: SellerRequest, key: string): Promise<string> {
+  const bytes = await request.readPicture(key)
+  const type = readImageHeader(bytes)?.contentType ?? 'image/png'
+  return `data:${type};base64,${Buffer.from(bytes).toString('base64')}`
+}
+
 /** A GPT Image answer's usage: text and picture tokens in, and every token out, which is the picture's. */
-function tokenUsage(data: PictureAnswer): Usage {
+export function gptImageUsage(data: PictureAnswer): Usage {
   const details = data.usage?.input_tokens_details
   return {
     'input-token': details?.text_tokens ?? 0,
     'image-input-token': details?.image_tokens ?? 0,
     'image-output-token': data.usage?.output_tokens ?? 0,
   }
+}
+
+async function callOpenai(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
+  const { input } = request
+  if (input.kind === 'text') return responsesText(client, request, input)
+  if (input.kind === 'layer-split') throw new SellerError('OpenAI makes no layer split', { status: 400 })
+  const common = {
+    model: request.model,
+    prompt: input.prompt,
+    size: pictureSize(input),
+    quality: String(request.options.quality ?? QUALITY) as 'medium',
+    output_format: 'png' as const,
+    n: 1,
+  }
+  const { data, response } =
+    input.kind === 'picture'
+      ? await client.images.generate(common, { signal: request.signal }).withResponse()
+      : await client.images
+          .edit({ ...common, image: await pictureFiles(request, input.pictures) }, { signal: request.signal })
+          .withResponse()
+  return pictureAnswer(data, response.headers.get('x-request-id'), gptImageUsage(data))
 }
 
 function roundTo16(value: number): number {

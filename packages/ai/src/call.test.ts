@@ -1,6 +1,6 @@
 // The call function against Postgres from Docker Compose and test sellers: each case on a job and model of its own.
 import { and, asc, eq } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { aiCalls, aiLedger } from '@dazbee/db'
 import type { CallInput } from '@dazbee/schema'
@@ -256,6 +256,81 @@ describe('callAi', () => {
     const charged = await db.select({ id: aiLedger.callId }).from(aiLedger).where(eq(aiLedger.jobId, job.id))
     expect(charged.map((r) => r.id).filter((id) => id === late.id)).toEqual([])
     await expect(db.update(aiCalls).set({ chargedAt: new Date() }).where(eq(aiCalls.id, late.id))).rejects.toThrow()
+  })
+
+  it('asks a resumable seller about an earlier attempt’s call by its request id instead of calling again', async () => {
+    const seller = testSeller(newSeller('a'), [], { resumable: true })
+    const { step, model } = await addStep([seller])
+    const job = await heldJob()
+    await setJob(job.id, { attempt: 2 })
+    const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
+    await db.insert(aiCalls).values({
+      ...earlier,
+      attempt: 1,
+      step,
+      model,
+      seller: seller.seller,
+      state: 'unknown',
+      sellerRequestId: 'req-x',
+    })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-x'])
+    const rows = await db
+      .select({ state: aiCalls.state, error: aiCalls.error })
+      .from(aiCalls)
+      .where(eq(aiCalls.jobId, job.id))
+      .orderBy(asc(aiCalls.try))
+    expect(rows).toEqual([
+      { state: 'failed', error: 'resumed by a later try' },
+      { state: 'done', error: null },
+    ])
+  })
+
+  it('asks a resumable seller about a timed-out try’s request on the next try, instead of sending it again', async () => {
+    const seller = testSeller(newSeller('a'), [{ timeOut: true, requestId: 'req-slow' }], { resumable: true })
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual([undefined, 'req-slow'])
+    expect((await callRows(job.id)).map((r) => [r.state, r.error])).toEqual([
+      ['failed', 'resumed by a later try'],
+      ['done', null],
+    ])
+  })
+
+  it('logs one request once when a later attempt takes it over while the earlier one still waits on it', async () => {
+    const seller = testSeller(newSeller('a'), [{ afterMs: 400 }, { afterMs: 0 }], { resumable: true, timeoutMs: 5_000 })
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    const earlier = callAi(db, callOf(job, step))
+    await vi.waitFor(async () => expect(await callRows(job.id)).toHaveLength(1))
+    await db.update(aiCalls).set({ sellerRequestId: 'req-shared' }).where(eq(aiCalls.jobId, job.id))
+    await setJob(job.id, { attempt: 2 })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    await earlier
+    expect((await callRows(job.id)).map((r) => [r.state, r.error])).toEqual([
+      ['failed', 'resumed by a later try'],
+      ['done', null],
+    ])
+  })
+
+  it('sends a request again when the seller refuses to answer about an earlier attempt’s', async () => {
+    const seller = testSeller(newSeller('a'), [{ fail: 404 }], { resumable: true })
+    const { step, model } = await addStep([seller])
+    const job = await heldJob()
+    await setJob(job.id, { attempt: 2 })
+    const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
+    await db.insert(aiCalls).values({
+      ...earlier,
+      attempt: 1,
+      step,
+      model,
+      seller: seller.seller,
+      state: 'unknown',
+      sellerRequestId: 'req-gone',
+    })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-gone', undefined])
   })
 
   it('charges a call an earlier run made but could not charge, once, on the run that reuses it', async () => {

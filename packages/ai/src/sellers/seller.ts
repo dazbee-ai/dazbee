@@ -30,6 +30,8 @@ export interface SellerRequest {
   readPicture(key: string): Promise<Uint8Array>
   /** Keeps the seller's request id on the call-log row, for a seller that answers later. */
   keepRequestId(id: string): Promise<void>
+  /** The request id of a call an earlier attempt started, to ask the seller about instead of calling again. */
+  resumeId?: string
 }
 
 /** What a call gave back: its output, the usage the seller reported, its request id and its own cost, if it gives one. */
@@ -41,12 +43,22 @@ export interface SellerAnswer {
   reportedCost?: number
 }
 
+/**
+ * What a seller says of a request asked about later: made (and charged), with the usage it was charged for,
+ * ended without a result, or still going.
+ */
+export type RequestStatus = { state: 'done'; usage: Usage } | { state: 'failed' } | { state: 'pending' }
+
 /** One seller's adapter. */
 export interface SellerAdapter {
   seller: string
   call(request: SellerRequest): Promise<SellerAnswer>
   /** The most calls a minute we may make of each kind, from the seller's docs at our tier. */
   perMinute?: Partial<Record<CallKind, number>>
+  /** Whether the seller answers a call later by its request id, so an attempt can pick up an earlier one's call. */
+  resumable?: boolean
+  /** Asks the seller about a request for `input` by its id, for a seller that answers that. */
+  status?(requestId: string, input: CallInput): Promise<RequestStatus>
   /** How long a call of each kind may take here, when not the call function's usual time. */
   timeouts?: Partial<Record<CallKind, number>>
 }

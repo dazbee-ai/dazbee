@@ -85,6 +85,13 @@
       "when": 1795580620540,
       "tag": "0011_ai-prices-openai-meta",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795582200853,
+      "tag": "0012_ai-prices-openrouter-zenmux-pixazo",
+      "breakpoints": true
     }
   ]
 }

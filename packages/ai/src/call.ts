@@ -1,7 +1,7 @@
 // The one function every AI call goes through: it picks the AI step's model and that model's sellers,
 // tries each under its pacing and the retry rules, writes a call-log row per try, prices what a call
 // delivered and charges it to its AI job's hold, once.
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 
 import { aiCalls, aiJobs, type Db, newId, type Tx } from '@dazbee/db'
 import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbee/schema'
@@ -79,16 +79,28 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   const done = await doneOutput(db, call)
   if (done) return done
   const route = await routeStep(db, call.step, call.sellers)
+  const resume = await resumable(db, call, route.sellers)
+  // A seller still making an earlier attempt's request is asked about it first, then the sellers in their order.
+  const order = [
+    ...(resume ? [{ seller: resume.seller, askOnly: true }] : []),
+    ...route.sellers.map((seller) => ({ seller, askOnly: false })),
+  ]
   let lastError = 'no seller can take it'
-  for (const seller of route.sellers) {
+  for (const { seller, askOnly } of order) {
+    // A request the seller may still be making, which the next try at it asks about instead of sending again.
+    let pending: { row: string; requestId: string } | null = askOnly ? resume : null
     for (let tried = 0; tried < TRIES_PER_SELLER; tried++) {
+      if (askOnly && !pending) break
       const row = await startTry(db, call, route.model, seller.seller)
-      const result = await tryOnce(db, call, route.options, seller, row)
+      const resumeId = pending ? await resumeTry(db, pending, row) : undefined
+      const result = await tryOnce(db, call, route.options, seller, row, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
-      if (result.next === 'fail')
-        throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
-      if (result.next === 'next-seller') break
+      // A request the seller refuses to answer about is sent again as a new one, not failed for good.
+      const next = resumeId && result.next === 'fail' ? 'retry' : result.next
+      pending = seller.adapter.resumable && result.next === 'retry' ? await requestOf(db, row) : null
+      if (next === 'fail') throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
+      if (next === 'next-seller') break
     }
   }
   throw new CallFailed('no-seller', `no seller made ${call.step}: ${lastError}`)
@@ -135,6 +147,44 @@ async function chargeIfRunning(tx: Tx, call: AiCall, row: string, cost: bigint):
   await charge(tx, { workspace: job.workspaceId, job: call.job.id, call: row, cost })
 }
 
+/**
+ * An earlier attempt's try of the call that a seller may still be making, for a seller that answers later
+ * by its request id: its row, its request id and the seller to ask again.
+ */
+async function resumable(db: Db, call: AiCall, sellers: StepSeller[]) {
+  const [earlier] = await db
+    .select({ id: aiCalls.id, seller: aiCalls.seller, requestId: aiCalls.sellerRequestId })
+    .from(aiCalls)
+    .where(
+      and(
+        eq(aiCalls.jobId, call.job.id),
+        eq(aiCalls.callIndex, call.callIndex),
+        inArray(aiCalls.state, ['running', 'unknown']),
+        isNotNull(aiCalls.sellerRequestId),
+        lt(aiCalls.attempt, call.attempt),
+      ),
+    )
+    .orderBy(desc(aiCalls.try))
+    .limit(1)
+  const seller = sellers.find((s) => s.seller === earlier?.seller && s.adapter.resumable)
+  return earlier?.requestId && seller ? { row: earlier.id, requestId: earlier.requestId, seller } : null
+}
+
+/**
+ * Takes the earlier try's request over for the new try `row`: the new row keeps its request id, and the earlier
+ * row is marked failed, so the one request is logged once. Gives the request id to resume.
+ */
+async function resumeTry(db: Db, resume: { row: string; requestId: string }, row: string): Promise<string> {
+  await db.transaction(async (tx) => {
+    await tx.update(aiCalls).set({ sellerRequestId: resume.requestId }).where(eq(aiCalls.id, row))
+    await tx
+      .update(aiCalls)
+      .set({ state: 'failed', error: 'resumed by a later try', endedAt: new Date() })
+      .where(eq(aiCalls.id, resume.row))
+  })
+  return resume.requestId
+}
+
 /** Writes the call-log row of a new try, as running; its id. */
 async function startTry(db: Db, call: AiCall, model: string, seller: string): Promise<string> {
   const id = newId()
@@ -171,6 +221,7 @@ async function tryOnce(
   options: Record<string, unknown>,
   seller: StepSeller,
   row: string,
+  resumeId?: string,
 ): Promise<TryResult> {
   const kind = call.input.kind
   // The time a call may take starts once its turn under the seller's pacing comes.
@@ -187,6 +238,7 @@ async function tryOnce(
         signal,
         readPicture: (key) => files(call).read(key),
         keepRequestId: (id) => keepRequestId(db, row, id),
+        ...(resumeId ? { resumeId } : {}),
       }),
       signal,
     )
@@ -238,7 +290,7 @@ async function endTry(
   await db
     .update(aiCalls)
     .set({ state, error: error.slice(0, 1000), endedAt: new Date(), ...(usage ? { usage } : {}) })
-    .where(eq(aiCalls.id, row))
+    .where(and(eq(aiCalls.id, row), eq(aiCalls.state, 'running')))
 }
 
 function messageOf(error: unknown): string {
@@ -264,7 +316,7 @@ async function finish(
     await db.transaction(async (tx) => {
       // The job row first, as every transaction that locks both takes them, so two never wait on each other.
       await tx.select({ id: aiJobs.id }).from(aiJobs).where(eq(aiJobs.id, call.job.id)).for('update')
-      await tx
+      const [mine] = await tx
         .update(aiCalls)
         .set({
           state: 'done',
@@ -277,7 +329,10 @@ async function finish(
           chargeCost,
           endedAt: new Date(),
         })
-        .where(eq(aiCalls.id, made.row))
+        // A row a later try took the request over from is left as it is: that try logs the request.
+        .where(and(eq(aiCalls.id, made.row), inArray(aiCalls.state, ['running', 'unknown'])))
+        .returning({ id: aiCalls.id })
+      if (!mine) return
       await tx
         .update(aiJobs)
         .set({ callOutputs: sql`${aiJobs.callOutputs} || ${JSON.stringify({ [call.callIndex]: output })}::jsonb` })
@@ -305,4 +360,10 @@ async function storeOutput(call: AiCall, output: SellerOutput): Promise<CallOutp
   if (output.kind === 'pictures') return { kind: 'pictures', pictures: await store(output) }
   const layers = await store({ kind: 'pictures', pictures: output.layers })
   return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
+}
+
+/** Try `row`'s request id, when the seller gave one, as a request to ask about again. */
+async function requestOf(db: Db, row: string): Promise<{ row: string; requestId: string } | null> {
+  const [found] = await db.select({ requestId: aiCalls.sellerRequestId }).from(aiCalls).where(eq(aiCalls.id, row))
+  return found?.requestId ? { row, requestId: found.requestId } : null
 }

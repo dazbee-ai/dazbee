@@ -1,7 +1,9 @@
 // The step list: every AI step runs through a test seller and holds more than nothing, and a step added
 // to the list runs with no other change.
+import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
+import { modelSellers } from '@dazbee/db'
 import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
@@ -98,6 +100,8 @@ describe('routeStep', () => {
     expect(route.model).toBe(model)
     expect(route.sellers.map((s) => s.seller)).toEqual([first.seller, second.seller])
     expect((await routeStep(db, step, [second.seller])).sellers.map((s) => s.seller)).toEqual([second.seller])
+    await db.update(modelSellers).set({ sellerModel: 'its-own-name' }).where(eq(modelSellers.seller, second.seller))
+    expect((await routeStep(db, step, [second.seller])).sellers[0]?.sellerModel).toBe('its-own-name')
   })
 })
 

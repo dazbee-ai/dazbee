@@ -67,7 +67,16 @@ const PAGE: AiPage = {
       ],
     },
   ],
-  stepModels: [{ step: 'refine', model: 'seedream-5.5', options: {}, updatedAt: AT }],
+  stepModels: [
+    {
+      step: 'refine',
+      kind: 'picture-edit',
+      model: 'seedream-5.5',
+      models: ['seedream-5.5', 'gpt-image-2.5-sunburst'],
+      options: {},
+      updatedAt: AT,
+    },
+  ],
   costs: [
     {
       day: '2026-11-20',

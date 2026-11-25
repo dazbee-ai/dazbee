@@ -1,5 +1,6 @@
 // The price list as an admin reads and sets it: the currency rates, each seller's prices for each model and
-// the order a model's sellers are tried in. Amounts come and go as decimals and are kept as whole millionths.
+// the order a model's sellers are tried in, and the units each model is priced in, which say what kind of
+// model it is. Amounts come and go as decimals and are kept as whole millionths.
 // A call keeps the cost it was priced at, so a change here reaches only calls made after it.
 import { and, asc, eq, ne } from 'drizzle-orm'
 
@@ -136,4 +137,23 @@ export async function setModelSellers(db: Db, model: string, { sellers }: ModelS
       .insert(modelSellers)
       .values(sellers.map((s, i) => ({ model, seller: s.seller, position: i + 1, sellerModel: s.sellerModel })))
   })
+}
+
+/**
+ * The units each model is priced in by the sellers in its seller order, by model. A model none of its sellers
+ * has a price for is left out, as no AI step can run it.
+ */
+export async function pricedUnits(db: Db): Promise<Map<string, UsageUnit[]>> {
+  const rows = await db
+    .select({ model: aiPrices.model, unit: aiPrices.unit })
+    .from(aiPrices)
+    .innerJoin(modelSellers, and(eq(modelSellers.model, aiPrices.model), eq(modelSellers.seller, aiPrices.seller)))
+    .orderBy(asc(aiPrices.model), asc(aiPrices.unit))
+  const units = new Map<string, UsageUnit[]>()
+  for (const { model, unit } of rows) {
+    const each = units.get(model) ?? []
+    if (!each.includes(unit)) each.push(unit)
+    units.set(model, each)
+  }
+  return units
 }

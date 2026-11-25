@@ -4,7 +4,7 @@
 // seller's currency; the tables keep whole millionths.
 import { z } from 'zod'
 
-import { GrantSource, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
+import { CallKind, GrantSource, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
 
 /** An amount of money on the admin page: rupees, or a seller's currency, as a decimal; kept as whole millionths. */
 const Money = z.number().nonnegative().max(1_000_000_000)
@@ -86,10 +86,15 @@ export const AiStepModelInput = z.object({
 })
 export type AiStepModelInput = z.infer<typeof AiStepModelInput>
 
-/** An AI step's model as an admin reads it. */
+/**
+ * An AI step's model as an admin reads it, with the step's kind of call and the priced models of that kind,
+ * the only ones it may run.
+ */
 export const AiStepModelView = z.object({
   step: z.string(),
+  kind: CallKind,
   model: z.string(),
+  models: z.array(z.string()),
   options: z.record(z.string(), z.unknown()),
   updatedAt: z.iso.datetime(),
 })

@@ -7,7 +7,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { hold } from '@dazbee/ai'
+import { hold, STEPS } from '@dazbee/ai'
 import { aiCalls, aiDailyChecks, aiPrices, aiStepModels, currencyRates, modelSellers, newId } from '@dazbee/db'
 import {
   AiAllowanceView,
@@ -32,8 +32,9 @@ import { addAdmin, ask, tokenOf } from './test-early-access.ts'
 
 let admin: Awaited<ReturnType<typeof addAdmin>>
 
-/** The test's own model and AI step, and a currency no seller bills in. */
+/** The test's own picture model, text model and AI step, and a currency no seller bills in. */
 const model = `test-model-${run}`
+const textModel = `test-model-${run}-text`
 const step = `test-step-${run}`
 const XTS = 'XTS'
 
@@ -42,9 +43,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  Reflect.deleteProperty(STEPS, step)
   await db.delete(aiStepModels).where(eq(aiStepModels.step, step))
-  await db.delete(modelSellers).where(eq(modelSellers.model, model))
-  await db.delete(aiPrices).where(eq(aiPrices.model, model))
+  await db.delete(modelSellers).where(inArray(modelSellers.model, [model, textModel]))
+  await db.delete(aiPrices).where(inArray(aiPrices.model, [model, textModel]))
   await db.delete(currencyRates).where(eq(currencyRates.currency, XTS))
 })
 
@@ -236,19 +238,26 @@ describe('/admin/ai', () => {
     expect((await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, twice)).status).toBe(400)
   })
 
-  it('sets an AI step’s model, only to a model a seller has a price for', async () => {
+  it('sets an AI step’s model, only to a model of its kind that a seller has a price for', async () => {
+    STEPS[step] = { kind: 'picture-edit', expected: () => ({ picture: 1 }) }
     await ask(admin.token, 'PUT', `/admin/ai/currency-rates/${XTS}`, { rate: 2.5 })
-    await ask(admin.token, 'PUT', '/admin/ai/prices', {
-      seller: 'openai',
-      model,
-      unit: 'picture',
-      currency: XTS,
-      pricePerMillion: 1,
-      fee: 0,
-    })
-    await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, {
-      sellers: [{ seller: 'openai', sellerModel: null }],
-    })
+    for (const [priced, unit] of [
+      [model, 'picture'],
+      [textModel, 'input-token'],
+      [textModel, 'output-token'],
+    ] as const) {
+      await ask(admin.token, 'PUT', '/admin/ai/prices', {
+        seller: 'openai',
+        model: priced,
+        unit,
+        currency: XTS,
+        pricePerMillion: 1,
+        fee: 0,
+      })
+      await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${priced}`, {
+        sellers: [{ seller: 'openai', sellerModel: null }],
+      })
+    }
     await db.insert(aiStepModels).values({ step, model: 'seedream-5.5' })
     const changed = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, {
       model,
@@ -259,10 +268,25 @@ describe('/admin/ai', () => {
     expect(row).toMatchObject({ model, options: { quality: 'low' } })
     const unsold = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model: 'no-such-model' })
     expect(unsold).toMatchObject({ status: 400, json: { error: expect.stringMatching(/no-such-model/) } })
+    const text = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model: textModel })
+    expect(text).toMatchObject({
+      status: 400,
+      json: {
+        error: `${step} runs a picture model, and ${textModel} is a text model, priced in input-token, output-token`,
+      },
+    })
+    const [kept] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
+    expect(kept?.model).toBe(model)
     expect((await ask(admin.token, 'PUT', `/admin/ai/step-models/no-step-${run}`, { model })).status).toBe(404)
     const steps = AiStepModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/step-models')).json)
     expect(steps.map((s) => s.step)).toEqual(expect.arrayContaining(['round-plan', 'draft-fast', 'layer-split']))
     expect(steps.map((s) => s.step)).not.toContain(step)
+    const resize = steps.find((s) => s.step === 'resize')
+    const read = steps.find((s) => s.step === 'read')
+    expect(resize).toMatchObject({ kind: 'picture-edit', models: expect.arrayContaining([model]) })
+    expect(resize?.models).not.toContain(textModel)
+    expect(read).toMatchObject({ kind: 'text', models: expect.arrayContaining([textModel]) })
+    expect(read?.models).not.toContain(model)
   })
 
   it('finds a workspace by its name or a member’s email', async () => {

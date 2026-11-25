@@ -61,7 +61,6 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
     query.workspace ? findAllowance(query.workspace) : null,
   ])
   const days = { from, to }
-  const models = [...new Set(page.modelSellers.map((m) => m.model))]
   return (
     <main className="min-h-dvh bg-bg px-4 py-8 text-text md:px-8 md:py-12">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -92,7 +91,7 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
           <AiGrants query={search} found={found} allowance={allowance} keep={days} />
         </section>
         <section className={PANEL}>
-          <AiStepModels steps={page.stepModels} models={models} />
+          <AiStepModels steps={page.stepModels} />
         </section>
         <section className={PANEL}>
           <AiPriceList rates={page.rates} prices={page.prices} />

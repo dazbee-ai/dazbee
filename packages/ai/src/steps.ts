@@ -1,10 +1,11 @@
 // The step list: each AI step's kind of call and the usage it is expected to report, which its hold is
 // priced from. Adding an AI step is its name in `AI_STEPS` (packages/schema), its entry here and its model
-// row in `ai_step_models`. Also which model an AI step runs and the sellers that can take its call, in order.
+// row in `ai_step_models`. Also which model an AI step runs and the sellers that can take its call, in order,
+// and which models a step may run: a model's kind is read from the units its price rows count usage in.
 import { asc, eq } from 'drizzle-orm'
 
 import { aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
-import type { AiStep, CallInput, CallKind, Usage } from '@dazbee/schema'
+import type { AiStep, CallInput, CallKind, Usage, UsageUnit } from '@dazbee/schema'
 
 import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
@@ -31,6 +32,12 @@ export interface StepRoute {
   options: Record<string, unknown>
   sellers: StepSeller[]
 }
+
+/** The units that mark a model priced in them as one that makes pictures. */
+const PICTURE_UNITS: readonly UsageUnit[] = ['picture', 'image-output-token']
+
+/** The units a text model is priced in; a model priced only in these is a text model. */
+const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', 'output-token', 'image-input-token']
 
 /** How much more than its expected cost a call holds. */
 const HOLD_MARGIN = { times: 5n, per: 4n }
@@ -61,6 +68,24 @@ export function stepDef(step: string): StepDef {
   const def = STEPS[step]
   if (!def) throw new Error(`no AI step ${step}`)
   return def
+}
+
+/**
+ * The kinds of call a model priced in `units` can take: one priced in pictures or image output tokens makes
+ * pictures and edits them; one priced in GPU seconds is the layer split; one priced only in text tokens is
+ * text. A model priced in none of those, or in no unit, takes none.
+ */
+export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
+  const priced = new Set(units)
+  if (PICTURE_UNITS.some((unit) => priced.has(unit))) return ['picture', 'picture-edit']
+  if (priced.has('gpu-second')) return ['layer-split']
+  if (priced.size > 0 && [...priced].every((unit) => TEXT_UNITS.includes(unit))) return ['text']
+  return []
+}
+
+/** Whether `step` may run a model priced in `units`: the model takes the step's kind of call. */
+export function stepTakes(step: string, units: Iterable<UsageUnit>): boolean {
+  return modelKinds(units).includes(stepDef(step).kind)
 }
 
 /**

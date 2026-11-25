@@ -1,7 +1,8 @@
 'use client'
 
-// The AI section's AI steps: the model each AI step runs, picked from the models that have sellers, with the
-// options its call passes the model as JSON, each step saved on its own. The two draft steps are the modes.
+// The AI section's AI steps: the model each AI step runs, picked from the priced models of the step's kind,
+// with the options its call passes the model as JSON, each step saved on its own. The two draft steps are
+// the modes.
 import { useState } from 'react'
 
 import type { AiStepModelView } from '@dazbee/schema'
@@ -40,7 +41,7 @@ function optionsOf(text: string): Record<string, string | number | boolean> | nu
   }
 }
 
-export function AiStepModels({ steps, models }: { steps: AiStepModelView[]; models: string[] }) {
+export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
   const w = useMessages().pilotAi.stepModels
   const { run, busy, note, setNote } = useChange()
   return (
@@ -61,7 +62,6 @@ export function AiStepModels({ steps, models }: { steps: AiStepModelView[]; mode
             <StepRow
               key={`${step.step}/${step.updatedAt}`}
               step={step}
-              models={models}
               run={run}
               busy={busy}
               onBadOptions={() => setNote({ text: w.badOptions, refused: true })}
@@ -76,13 +76,11 @@ export function AiStepModels({ steps, models }: { steps: AiStepModelView[]; mode
 /** One AI step, its model and options saved together. */
 function StepRow({
   step,
-  models,
   run,
   busy,
   onBadOptions,
 }: {
   step: AiStepModelView
-  models: string[]
   run: Run
   busy: boolean
   onBadOptions: () => void
@@ -93,7 +91,7 @@ function StepRow({
   const [model, setModel] = useState(step.model)
   const [options, setOptions] = useState(JSON.stringify(step.options))
   const what = { step: names.step(step.step) }
-  const choices = models.includes(step.model) ? models : [step.model, ...models]
+  const choices = step.models.includes(step.model) ? step.models : [step.model, ...step.models]
   function save() {
     const read = optionsOf(options)
     if (!read) return onBadOptions()

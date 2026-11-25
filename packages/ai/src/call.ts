@@ -10,9 +10,9 @@ import { charge } from './ledger.ts'
 import { drawMarks } from './marks.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
-import { type SellerAnswer, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
+import { type SellerAnswer, SellerCutOff, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
-import { routeStep, stepDef, type StepSeller } from './steps.ts'
+import { routeStep, stepDef, type StepRoute, type StepSeller } from './steps.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
 export interface PictureFiles {
@@ -38,10 +38,10 @@ export interface AiCall {
 }
 
 /**
- * Why a call failed for good: a seller refused it, no seller was left to try, or a seller made it but we
- * couldn't store or price what it made.
+ * Why a call failed for good: a seller refused it, no seller was left to try, a seller made it but we
+ * couldn't store or price what it made, or its answer was cut off at its ceiling.
  */
-export type CallFailure = 'refused' | 'no-seller' | 'lost'
+export type CallFailure = 'refused' | 'no-seller' | 'lost' | 'cut-off'
 
 /** A call that failed for good: its job fails, with no try left. */
 export class CallFailed extends Error {
@@ -56,7 +56,8 @@ export class CallFailed extends Error {
 
 /** What one try came to: an answer, or the error and what follows it. */
 type TryResult =
-  { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' }
+  | { ok: true; answer: SellerAnswer }
+  | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' | 'cut-off' }
 
 /** How long a call of each kind may take before it counts as failed (and as an unknown call). */
 export const TIMEOUTS: Record<CallKind, number> = {
@@ -64,6 +65,9 @@ export const TIMEOUTS: Record<CallKind, number> = {
   picture: 150_000,
   'layer-split': 600_000,
 }
+
+/** The error a try cut off at its ceiling is logged with, which the admin page counts. */
+export const CUT_OFF = 'cut off at its ceiling'
 
 /** How many times a call is tried on one seller before the next. */
 const TRIES_PER_SELLER = 2
@@ -96,12 +100,13 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
       if (askOnly && !pending) break
       const row = await startTry(db, call, route.model, seller.seller)
       const resumeId = pending ? await resumeTry(db, pending, row) : undefined
-      const result = await tryOnce(db, call, route.options, seller, row, referencesOf, resumeId)
+      const result = await tryOnce(db, call, route, seller, row, referencesOf, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
       // A request the seller refuses to answer about is sent again as a new one, not failed for good.
       const next = resumeId && result.next === 'fail' ? 'retry' : result.next
       pending = seller.adapter.resumable && result.next === 'retry' ? await requestOf(db, row) : null
+      if (next === 'cut-off') throw new CallFailed('cut-off', `${seller.seller} cut ${call.step} off at its ceiling`)
       if (next === 'fail') throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
       if (next === 'next-seller') break
     }
@@ -221,7 +226,7 @@ function isUniqueViolation(error: unknown): boolean {
 async function tryOnce(
   db: Db,
   call: AiCall,
-  options: Record<string, unknown>,
+  route: StepRoute,
   seller: StepSeller,
   row: string,
   references: () => Promise<Uint8Array[]>,
@@ -238,8 +243,8 @@ async function tryOnce(
     const answer = await untilAborted(
       seller.adapter.call({
         model: seller.sellerModel,
-        input: call.input,
-        options,
+        input: withCeiling(call),
+        options: route.options,
         signal,
         readPicture: (key) => files(call).read(key),
         references,
@@ -259,6 +264,10 @@ async function tryOnce(
       await endTry(db, row, 'unknown', 'timed out')
       return { ok: false, error: 'timed out', next: 'retry' }
     }
+    if (error instanceof SellerCutOff) {
+      await endCutOff(db, row, seller.seller, route.model, error)
+      return { ok: false, error: error.message, next: 'cut-off' }
+    }
     const message = messageOf(error)
     const next = sellerFailure(error)
     const state = error instanceof SellerTimedOut ? 'unknown' : 'failed'
@@ -275,6 +284,32 @@ async function referencePictures(call: AiCall): Promise<Uint8Array[]> {
   const [first] = pictures
   if (!input.marks || !first) return pictures
   return [...pictures, await drawMarks(first, await files(call).read(input.marks))]
+}
+
+/** The call's input, a text call's output limit held to its step's ceiling. */
+function withCeiling(call: AiCall): CallInput {
+  const ceiling = stepDef(call.step).sizes?.ceiling
+  if (call.input.kind !== 'text' || ceiling === undefined) return call.input
+  return { ...call.input, maxOutputTokens: Math.min(call.input.maxOutputTokens ?? ceiling, ceiling) }
+}
+
+/**
+ * Logs a try cut off at its ceiling as failed, with the usage the seller billed and its cost, which is ours:
+ * no workspace is charged, and the daily check counts it. A usage that can't be priced is logged unpriced.
+ */
+async function endCutOff(db: Db, row: string, seller: string, model: string, cutOff: SellerCutOff): Promise<void> {
+  const priced = await priceUsage(db, seller, model, cutOff.usage).catch(() => null)
+  await db
+    .update(aiCalls)
+    .set({
+      state: 'failed',
+      error: CUT_OFF,
+      endedAt: new Date(),
+      usage: cutOff.usage,
+      sellerRequestId: cutOff.requestId ?? sql`${aiCalls.sellerRequestId}`,
+      ...(priced ? { currency: priced.currency, sellerCost: priced.sellerCost, realCost: priced.realCost } : {}),
+    })
+    .where(and(eq(aiCalls.id, row), eq(aiCalls.state, 'running')))
 }
 
 function files(call: AiCall): PictureFiles {

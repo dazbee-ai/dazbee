@@ -7,7 +7,7 @@ import OpenAI, { APIError, toFile } from 'openai'
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 
 import type { CostReport } from '../daily-check.ts'
-import { type SellerAdapter, type SellerAnswer, SellerError, type SellerRequest } from './seller.ts'
+import { type SellerAdapter, type SellerAnswer, SellerCutOff, SellerError, type SellerRequest } from './seller.ts'
 
 /** What an OpenAI-compatible picture answer holds, as both OpenAI and Meta give it. */
 export interface PictureAnswer {
@@ -145,18 +145,22 @@ export async function responsesText(
     )
     .withResponse()
   const cached = data.usage?.input_tokens_details.cached_tokens ?? 0
+  // Reasoning tokens are billed as output tokens, and are counted in them.
+  const usage: Usage = {
+    'input-token': (data.usage?.input_tokens ?? 0) - cached,
+    'cached-input-token': cached,
+    'output-token': data.usage?.output_tokens ?? 0,
+  }
+  const requestId = response.headers.get(requestIdHeader) ?? data.id
+  if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
+    throw new SellerCutOff(usage, requestId)
+  }
   const answer: SellerAnswer = {
     output: { kind: 'text', text: data.output_text, ...(input.schema ? { json: JSON.parse(data.output_text) } : {}) },
-    // Reasoning tokens are billed as output tokens, and are counted in them.
-    usage: {
-      'input-token': (data.usage?.input_tokens ?? 0) - cached,
-      'cached-input-token': cached,
-      'output-token': data.usage?.output_tokens ?? 0,
-    },
+    usage,
   }
   const reported = (data.usage as { cost?: unknown } | undefined)?.cost
   if (typeof reported === 'number') answer.reportedCost = reported
-  const requestId = response.headers.get(requestIdHeader) ?? data.id
   if (requestId) answer.requestId = requestId
   return answer
 }

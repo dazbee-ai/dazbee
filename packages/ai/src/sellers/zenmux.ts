@@ -17,7 +17,7 @@ import {
   sellerClient,
   type SellerClientOptions,
 } from './openai.ts'
-import { type SellerAdapter, type SellerAnswer, SellerError, type SellerRequest } from './seller.ts'
+import { type SellerAdapter, type SellerAnswer, SellerCutOff, SellerError, type SellerRequest } from './seller.ts'
 
 /** ZenMux's OpenAI protocol. */
 const OPENAI_URL = 'https://zenmux.ai/api/v1'
@@ -112,15 +112,17 @@ async function chatText(client: OpenAI, request: SellerRequest, input: TextCall)
     .withResponse()
   const text = data.choices[0]?.message.content ?? ''
   const cached = data.usage?.prompt_tokens_details?.cached_tokens ?? 0
-  const answer: SellerAnswer = {
-    output: { kind: 'text', text, ...(input.schema ? { json: JSON.parse(text) } : {}) },
-    usage: {
-      'input-token': (data.usage?.prompt_tokens ?? 0) - cached,
-      'cached-input-token': cached,
-      'output-token': data.usage?.completion_tokens ?? 0,
-    },
+  const usage: Usage = {
+    'input-token': (data.usage?.prompt_tokens ?? 0) - cached,
+    'cached-input-token': cached,
+    'output-token': data.usage?.completion_tokens ?? 0,
   }
   const requestId = response.headers.get(REQUEST_ID) ?? data.id
+  if (data.choices[0]?.finish_reason === 'length') throw new SellerCutOff(usage, requestId)
+  const answer: SellerAnswer = {
+    output: { kind: 'text', text, ...(input.schema ? { json: JSON.parse(text) } : {}) },
+    usage,
+  }
   if (requestId) answer.requestId = requestId
   return answer
 }

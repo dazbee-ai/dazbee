@@ -16,8 +16,8 @@ import { db, newSeller } from './test-ai.ts'
 /** The day the cases' calls were made. */
 const DAY = '2001-03-04'
 
-/** Writes done calls of `seller` on `day` costing `costs` dollars each. */
-async function calls(seller: string, costs: number[], day = DAY) {
+/** Writes calls of `seller` on `day` costing `costs` dollars each, done unless `state` says otherwise. */
+async function calls(seller: string, costs: number[], day = DAY, state: 'done' | 'failed' = 'done') {
   const job = newId()
   await db.insert(aiCalls).values(
     costs.map((cost, i) => ({
@@ -30,7 +30,7 @@ async function calls(seller: string, costs: number[], day = DAY) {
       step: 'flow.read',
       model: 'm',
       seller,
-      state: 'done' as const,
+      state,
       currency: 'USD',
       sellerCost: BigInt(Math.round(cost * 1e6)),
       startedAt: new Date(`${day}T10:00:00Z`),
@@ -45,6 +45,29 @@ async function rowOf(seller: string, day = DAY) {
     .where(and(eq(aiDailyChecks.seller, seller), eq(aiDailyChecks.day, day)))
   return row
 }
+
+describe('ourCost', () => {
+  it('counts a call cut off at its ceiling, which the seller billed, and no other failed call', async () => {
+    const seller = newSeller('cut-off')
+    await calls(seller, [0.5])
+    await calls(seller, [0.25], DAY, 'failed')
+    // A failed call the seller never billed has no seller cost.
+    await db.insert(aiCalls).values({
+      id: newId(),
+      jobId: newId(),
+      workspaceId: 'ws',
+      callIndex: 0,
+      try: 1,
+      attempt: 1,
+      step: 'flow.read',
+      model: 'm',
+      seller,
+      state: 'failed',
+      startedAt: new Date(`${DAY}T10:00:00Z`),
+    })
+    expect(await ourCost(db, seller, DAY)).toEqual({ cost: 750_000n, currency: 'USD' })
+  })
+})
 
 describe('runDailyCheck', () => {
   it('checks each seller for each of the three days before, leaving a seller not reporting yet waiting', async () => {

@@ -37,7 +37,7 @@ export const TOKEN_PRICES: TestPrice[] = [
 export const RUPEE = 1_000_000n
 
 /** The dollar's starting rate, in millionths of a rupee. */
-export const DOLLAR = 96_172_200n
+export const DOLLAR = 96_310_000n
 
 export const { db, close } = openDatabase(DATABASE_URL)
 

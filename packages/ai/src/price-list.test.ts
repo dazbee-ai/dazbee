@@ -11,11 +11,11 @@ describe('priceUsage', () => {
       { unit: 'input-token', pricePerMillion: 1_000_000n, fee: 180_000 },
       { unit: 'output-token', pricePerMillion: 2_000_000n, fee: 180_000 },
     ])
-    // 1,000 tokens at US$1 a million and 500 at US$2 is US$0.002; with 18% GST at ₹96.1722 it is ₹0.226966392.
+    // 1,000 tokens at US$1 a million and 500 at US$2 is US$0.002; with 18% GST at ₹96.31 it is ₹0.2272916.
     expect(await priceUsage(db, seller, 'gpt', { 'input-token': 1000, 'output-token': 500 })).toEqual({
       currency: 'USD',
       sellerCost: 2_000n,
-      realCost: 226_966n,
+      realCost: 227_292n,
     })
   })
 
@@ -66,12 +66,12 @@ describe('priceRows', () => {
       { unit: 'memory-gib-second' as const, currency: 'USD', pricePerMillion: 2_220_000n, fee: 0 },
     ]
     // 17.5 s of an H100 at US$0.001097, 35 core-seconds at US$0.0000131 and 280 GiB-seconds at US$0.00000222
-    // is US$0.0202776, which is ₹1.95014073 at ₹96.1722.
+    // is US$0.0202776, which is ₹1.952935656 at ₹96.31.
     const usage = { 'gpu-second': 17.5, 'cpu-core-second': 35, 'memory-gib-second': 280 }
     expect(priceRows(rows, DOLLAR, usage, 'ming')).toEqual({
       currency: 'USD',
       sellerCost: 20_278n,
-      realCost: 1_950_141n,
+      realCost: 1_952_936n,
     })
   })
 

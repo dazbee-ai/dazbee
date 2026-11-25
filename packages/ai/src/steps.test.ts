@@ -110,13 +110,13 @@ describe('holdFor', () => {
     const first = testSeller(newSeller('a'))
     const second = testSeller(newSeller('b'))
     const { step } = await addStep([first, { seller: second.seller, adapter: second, prices: EVERY_PRICE }])
-    // 1,000 input tokens and 500 output tokens at US$1 and US$2 a million, at ₹96.1722: ₹0.192344, times 1.25.
-    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_430n)
+    // 1,000 input tokens and 500 output tokens at US$1 and US$2 a million, at ₹96.31: ₹0.19262, times 1.25.
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
   })
 
   it('prices a hold from the price list alone, with no seller’s adapter in use', async () => {
     const { step } = await addStep([{ seller: newSeller('keyless'), prices: EVERY_PRICE }])
-    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_430n)
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
   })
 
   it('holds the layer split’s fixed amount for its size', async () => {

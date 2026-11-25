@@ -72,11 +72,11 @@ describe('openaiSeller', () => {
     expect(answer.output).toMatchObject({ kind: 'text', json: { ideas: expect.any(Array) } })
     expect(answer.usage).toEqual({ 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 })
     expect(answer.requestId).toBe('req_test')
-    // 69 tokens at US$0.10 and 109 at US$0.50 a million, with 18% GST at ₹96.1722.
+    // 69 tokens at US$0.10 and 109 at US$0.50 a million, with 18% GST at ₹96.31.
     expect(await priceUsage(db, 'openai', 'gpt-6-luna', answer.usage)).toEqual({
       currency: 'USD',
       sellerCost: 61n,
-      realCost: 6_968n,
+      realCost: 6_978n,
     })
   })
 

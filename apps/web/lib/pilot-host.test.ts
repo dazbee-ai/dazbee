@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isPilotHost, PILOT_PATH, pilotPath } from './pilot-host.ts'
+import { isPilotHost, PILOT_ACCESS_PATH, PILOT_AI_PATH, PILOT_PATH, pilotPath } from './pilot-host.ts'
 
 describe('isPilotHost', () => {
   it('knows the host PILOT_HOST names, in any case, with its port', () => {
@@ -19,10 +19,24 @@ describe('isPilotHost', () => {
 })
 
 describe('pilotPath', () => {
-  it("serves the pilot host's / from the admin page, and every other path as it is", () => {
+  it("serves the pilot host's / from the overview, and every other path as it is", () => {
     expect(pilotPath('/', 'pilot.example.com', 'pilot.example.com')).toBe(PILOT_PATH)
     expect(pilotPath('/login', 'pilot.example.com', 'pilot.example.com')).toBe('/login')
     expect(pilotPath('/', 'app.example.com', 'pilot.example.com')).toBe('/')
     expect(pilotPath('/pilot', 'app.example.com', 'pilot.example.com')).toBe('/pilot')
+  })
+
+  it("serves the pilot host's /ai from the AI section, and /ai anywhere else as it is", () => {
+    expect(pilotPath('/ai', 'pilot.example.com', 'pilot.example.com')).toBe(PILOT_AI_PATH)
+    expect(pilotPath('/ai', 'app.example.com', 'pilot.example.com')).toBe('/ai')
+    expect(pilotPath('/ai', 'pilot.example.com', undefined)).toBe('/ai')
+    expect(pilotPath('/ai/', 'pilot.example.com', 'pilot.example.com')).toBe('/ai/')
+    expect(pilotPath('/ai/x', 'pilot.example.com', 'pilot.example.com')).toBe('/ai/x')
+  })
+
+  it("serves the pilot host's /access from early access, and /access anywhere else as it is", () => {
+    expect(pilotPath('/access', 'pilot.example.com', 'pilot.example.com')).toBe(PILOT_ACCESS_PATH)
+    expect(pilotPath('/access', 'app.example.com', 'pilot.example.com')).toBe('/access')
+    expect(pilotPath('/access/x', 'pilot.example.com', 'pilot.example.com')).toBe('/access/x')
   })
 })

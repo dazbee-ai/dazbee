@@ -1,0 +1,152 @@
+'use client'
+
+// The AI section's AI steps: the model each AI step runs, picked from the priced models of the step's kind,
+// with the options its call passes the model as JSON, each step saved on its own. The two draft steps are
+// the modes.
+import { useState } from 'react'
+
+import type { AiStepModelView } from '@dazbee/schema'
+
+import { saveStepModel } from '@/app/pilot/ai/actions.ts'
+import {
+  AiHeading,
+  AiTable,
+  CELL,
+  type ChangeNote,
+  FIELD,
+  HEAD,
+  NoteRow,
+  SAVE_BUTTON,
+  useAiNames,
+  useChange,
+} from '@/components/pilot/ai-form.tsx'
+import { Select } from '@/components/ui/select.tsx'
+import { cn } from '@/lib/cn.ts'
+import { useMessages } from '@/lib/i18n/client.tsx'
+import { format } from '@/lib/i18n/index.ts'
+
+/** A change a row runs from where `at` names, through the table's `useChange`. */
+type Run = (at: string, change: () => Promise<string | null>) => void
+
+/** Options read from `text`, a JSON object of strings, numbers and true or false; null otherwise. */
+function optionsOf(text: string): Record<string, string | number | boolean> | null {
+  try {
+    const value: unknown = JSON.parse(text.trim() || '{}')
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+    const entries = Object.entries(value)
+    return entries.every(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
+      ? (Object.fromEntries(entries) as Record<string, string | number | boolean>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The models a step's picker offers, its own model first when it is no longer of the step's kind, and the
+ * one it shows: the one picked, or the step's own once the picked one is no longer offered, as after a save
+ * refused because the picked model stopped being of the step's kind.
+ */
+export function modelChoices(step: AiStepModelView, picked: string): { choices: string[]; shown: string } {
+  const choices = step.models.includes(step.model) ? step.models : [step.model, ...step.models]
+  return { choices, shown: choices.includes(picked) ? picked : step.model }
+}
+
+export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
+  const w = useMessages().pilotAi.stepModels
+  const { run, busy, noteAt, show } = useChange()
+  return (
+    <div data-testid="ai-step-models" className="flex flex-col gap-3">
+      <AiHeading id="ai-steps-title" title={w.title} hint={w.hint} />
+      <AiTable label={w.title}>
+        <thead>
+          <tr>
+            <th className={HEAD}>{w.step}</th>
+            <th className={HEAD}>{w.model}</th>
+            <th className={HEAD}>{w.options}</th>
+            <th className={HEAD} />
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step) => (
+            <StepRow
+              key={`${step.step}/${step.updatedAt}`}
+              step={step}
+              run={run}
+              busy={busy}
+              note={noteAt(step.step)}
+              onBadOptions={() => show(step.step, { text: w.badOptions, refused: true })}
+            />
+          ))}
+        </tbody>
+      </AiTable>
+    </div>
+  )
+}
+
+/** One AI step, its model and options saved together. */
+function StepRow({
+  step,
+  run,
+  busy,
+  note,
+  onBadOptions,
+}: {
+  step: AiStepModelView
+  run: Run
+  busy: boolean
+  /** What this row's last change came to. */
+  note: ChangeNote | null
+  onBadOptions: () => void
+}) {
+  const t = useMessages().pilotAi
+  const w = t.stepModels
+  const names = useAiNames()
+  const [model, setModel] = useState(step.model)
+  const [options, setOptions] = useState(JSON.stringify(step.options))
+  const what = { step: names.step(step.step) }
+  const { choices, shown } = modelChoices(step, model)
+  function save() {
+    const read = optionsOf(options)
+    if (!read) return onBadOptions()
+    run(step.step, () => saveStepModel(step.step, { model: shown, options: read, since: step.updatedAt }))
+  }
+  return (
+    <>
+      <tr data-step={step.step}>
+        <td className={cn(CELL, 'font-semibold')}>{what.step}</td>
+        <td className={CELL}>
+          <Select
+            name={`model-${step.step}`}
+            label={format(w.modelFor, what)}
+            value={shown}
+            options={choices.map((m) => ({ value: m, label: m }))}
+            onChange={setModel}
+            className="h-8 px-2 font-mono text-caption"
+          />
+        </td>
+        <td className={CELL}>
+          <input
+            name={`options-${step.step}`}
+            value={options}
+            onChange={(e) => setOptions(e.target.value)}
+            aria-label={format(w.optionsFor, what)}
+            className={cn(FIELD, 'w-56 font-mono text-caption')}
+          />
+        </td>
+        <td className={CELL}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={save}
+            aria-label={format(w.saveFor, what)}
+            className={SAVE_BUTTON}
+          >
+            {t.save}
+          </button>
+        </td>
+      </tr>
+      <NoteRow note={note} span={4} />
+    </>
+  )
+}

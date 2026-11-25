@@ -9,7 +9,7 @@ import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, routeStep, stepDef } from './steps.ts'
+import { holdFor, modelKinds, routeStep, stepDef, stepTakes } from './steps.ts'
 import { addJob, addPrices, addStep, db, memoryFiles, newSeller, newWorkspace, type TestPrice } from './test-ai.ts'
 
 /** A call of each kind. */
@@ -88,6 +88,29 @@ describe('stepDef', () => {
   it('gives a step’s entry, and fails for a step not in the list', () => {
     expect(stepDef('read').kind).toBe('text')
     expect(() => stepDef('no-such-step')).toThrow('no AI step no-such-step')
+  })
+})
+
+describe('modelKinds', () => {
+  it('reads a model’s kind from the units it is priced in', () => {
+    expect(modelKinds(['picture'])).toEqual(['picture', 'picture-edit'])
+    expect(modelKinds(['input-token', 'image-input-token', 'image-output-token'])).toEqual(['picture', 'picture-edit'])
+    expect(modelKinds(['gpu-second', 'cpu-core-second', 'memory-gib-second'])).toEqual(['layer-split'])
+    expect(modelKinds(['input-token', 'cached-input-token', 'output-token'])).toEqual(['text'])
+    expect(modelKinds(['reference-picture'])).toEqual([])
+    expect(modelKinds([])).toEqual([])
+  })
+})
+
+describe('stepTakes', () => {
+  it('lets each step run only a model of its own kind', () => {
+    expect(stepTakes('resize', ['picture', 'reference-picture'])).toBe(true)
+    expect(stepTakes('draft-fast', ['input-token', 'image-output-token'])).toBe(true)
+    expect(stepTakes('resize', ['input-token', 'output-token'])).toBe(false)
+    expect(stepTakes('read', ['input-token', 'output-token'])).toBe(true)
+    expect(stepTakes('read', ['picture'])).toBe(false)
+    expect(stepTakes('layer-split', ['gpu-second'])).toBe(true)
+    expect(stepTakes('layer-split', ['picture'])).toBe(false)
   })
 })
 

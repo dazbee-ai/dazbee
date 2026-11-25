@@ -29,7 +29,7 @@ export {
   startAttempt,
   sweepJobs,
 } from './jobs.ts'
-export { currencyRate, type Priced, priceUsage } from './price-list.ts'
+export { currencyRate, type Priced, pricesOf, priceUsage } from './price-list.ts'
 export {
   type PictureBytes,
   type SellerAdapter,
@@ -59,5 +59,5 @@ export { metaSeller } from './sellers/meta.ts'
 export { LAYERING, modalSeller, modalSellerOn, type ModalSdk } from './sellers/modal.ts'
 export { openaiSeller } from './sellers/openai.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
-export { holdFor, routeStep, type StepDef, STEPS } from './steps.ts'
+export { holdFor, modelKinds, routeStep, type StepDef, stepDef, STEPS, stepTakes } from './steps.ts'
 export { settleUnknownCalls, type Settled } from './unknown-calls.ts'

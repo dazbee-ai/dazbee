@@ -85,6 +85,21 @@
   /* What a glass dialog lays over the page behind it. */
   --glass-backdrop: rgb(0 0 0 / 0.4);
   --ai-3: #ffd23f;
+  /* Charts: eight series colours in a fixed order, each kept by the thing it stands for, checked as a set
+     for colour-blind readers against the surface; a grey for what falls outside them; hairline gridlines
+     and the baseline; and the red that marks a day as wrong, always beside its icon and word. */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #0ca30c;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --chart-other: #8a8094;
+  --chart-grid: #2c2534;
+  --chart-axis: #4e4359;
+  --chart-critical: #e5484d;
 }
 
 [data-theme='light'] {
@@ -156,6 +171,18 @@
      as a menu does. */
   --glass-backdrop: rgb(26 20 32 / 0.1);
   --ai-3: #ffc21a;
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #6250d6;
+  --chart-8: #e34948;
+  --chart-other: #9a90a3;
+  --chart-grid: #efe9ee;
+  --chart-axis: #cfc4cf;
+  --chart-critical: #d03b3b;
 }
 
 /* The AI gradient, pink → cobalt → yellow; it never touches the canvas. */

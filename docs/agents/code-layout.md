@@ -33,7 +33,7 @@ The PR body says which commits are moves.
 
 **Shared code moves down.** A helper or type that more than one workspace uses lives in the lowest package all its users depend on: usually `@dazbee/schema` for contract types and helpers over contract values, or `@dazbee/doc` for the layer tree and commands. It exists there once, and its users import it. Which package sits below which: [Between workspaces](#between-workspaces).
 
-**Feature folders.** Name a folder for the feature it holds (`gestures/`, `edit-panel/`, `fonts/`), never for a kind of code (`routes/`, `services/`, `utils/`, `helpers/`, `constants/`). One folder holds shared pieces rather than one feature: `apps/web/components/ui/` holds shared controls. The files directly in `apps/web/components/editor/` hold what the editor's feature folders share, such as `box-layouts.ts`, each box layout's icon and word, which the layout section, Arrange and the layers panel read. A folder stays flat until it has about 15 files; past 20, group the files that change together into a subfolder.
+**Feature folders.** Name a folder for the feature it holds (`gestures/`, `edit-panel/`, `fonts/`), never for a kind of code (`routes/`, `services/`, `utils/`, `helpers/`, `constants/`). Two folders hold shared pieces rather than one feature: `apps/web/components/ui/` holds shared controls, and `apps/web/components/charts/` the charts and stat tiles, drawn in SVG from the chart colours in `app/styles/tokens.css`. The files directly in `apps/web/components/editor/` hold what the editor's feature folders share, such as `box-layouts.ts`, each box layout's icon and word, which the layout section, Arrange and the layers panel read. A folder stays flat until it has about 15 files; past 20, group the files that change together into a subfolder.
 
 **Names.**
 
@@ -146,20 +146,21 @@ Import another workspace by its package name (`@dazbee/doc`), declared in the im
 
 Each folder may import only what this table lists, plus npm packages and `@dazbee/*`. `no-restricted-imports` checks it.
 
-| Folder                                                           | May import                                                                                                                       |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `components/ui/`                                                 | `lib/` root files, `lib/i18n/`                                                                                                   |
-| `components/library/`, `components/brands/`, `components/brief/` | `components/ui/`, `components/brand-kit/`, each other, `lib/` root files, `lib/i18n/`, `lib/server/`                             |
-| `components/brand-kit/`                                          | `components/ui/`, `lib/` root files, `lib/i18n/`                                                                                 |
-| `components/editor/`                                             | `components/ui/`, `components/brand-kit/` (the Brand flyout shows the kit editor), `lib/` root files, `lib/i18n/`, `lib/editor/` |
-| `components/settings/`                                           | `components/ui/`, `components/library/`, `lib/` root files, `lib/i18n/`, `lib/server/`                                           |
-| `components/pilot/`                                              | `components/ui/`, `components/settings/` (the invite rows and confirm menu), `lib/` root files, `lib/i18n/`, `lib/server/`       |
-| `lib/` root files                                                | other `lib/` root files, `lib/i18n/`                                                                                             |
-| `lib/editor/`                                                    | `lib/` root files, `lib/i18n/`                                                                                                   |
-| `lib/server/`                                                    | `lib/` root files, `lib/i18n/`                                                                                                   |
-| `lib/i18n/`                                                      | nothing else in the app                                                                                                          |
-| `scripts/` (with its tests)                                      | nothing else in the app                                                                                                          |
-| `app/`                                                           | everything                                                                                                                       |
+| Folder                                                           | May import                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `components/ui/`                                                 | `lib/` root files, `lib/i18n/`                                                                                                                   |
+| `components/library/`, `components/brands/`, `components/brief/` | `components/ui/`, `components/brand-kit/`, each other, `lib/` root files, `lib/i18n/`, `lib/server/`                                             |
+| `components/brand-kit/`                                          | `components/ui/`, `lib/` root files, `lib/i18n/`                                                                                                 |
+| `components/editor/`                                             | `components/ui/`, `components/brand-kit/` (the Brand flyout shows the kit editor), `lib/` root files, `lib/i18n/`, `lib/editor/`                 |
+| `components/settings/`                                           | `components/ui/`, `components/library/`, `lib/` root files, `lib/i18n/`, `lib/server/`                                                           |
+| `components/charts/`                                             | `components/ui/`, `lib/` root files, `lib/i18n/`                                                                                                 |
+| `components/pilot/`                                              | `components/ui/`, `components/charts/`, `components/settings/` (the invite rows and confirm menu), `lib/` root files, `lib/i18n/`, `lib/server/` |
+| `lib/` root files                                                | other `lib/` root files, `lib/i18n/`                                                                                                             |
+| `lib/editor/`                                                    | `lib/` root files, `lib/i18n/`                                                                                                                   |
+| `lib/server/`                                                    | `lib/` root files, `lib/i18n/`                                                                                                                   |
+| `lib/i18n/`                                                      | nothing else in the app                                                                                                                          |
+| `scripts/` (with its tests)                                      | nothing else in the app                                                                                                                          |
+| `app/`                                                           | everything                                                                                                                                       |
 
 - Every `components/` folder may also import the server actions in `app/**/actions.ts`, because a component that submits a form calls them (`library-shell.tsx` calls `addBrand`).
 - Lint can't tell client files from server files. `import 'server-only'` at the top of every `lib/server/*` file and of `lib/i18n/server.ts` makes `next build` fail when a client module reaches them. A file added to `lib/server/` opens with it too.

@@ -2,7 +2,7 @@
 
 // The AI section's days and costs. The days: the UTC days the costs, the daily check and the unknown calls
 // cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call over those
-// days, added up by AI step, model and seller, then the same by day, with the real cost and what workspaces
+// days, added up by feature, then AI step, model and seller, then the same by day, with the real cost and what workspaces
 // were charged; and the layer split's real GPU cost beside the fixed amounts it took, day by day.
 import Link from 'next/link'
 import { Fragment } from 'react'

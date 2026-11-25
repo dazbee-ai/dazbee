@@ -1,8 +1,8 @@
 // The step list: each AI step's kind of call and the usage it is expected to report, which its hold is
 // priced from. Adding an AI step is its name in `AI_STEPS` (packages/schema) and its entry here; it runs its
 // kind's default model (`ai_kind_models`), and gets a row in `ai_step_models` only for a model of its own. Also
-// which model an AI step runs and the sellers that can take its call, in order, and which models a step may
-// run: a model's kind is read from the units its price rows count usage in.
+// which model an AI step runs and the sellers that can take its call, in order, and which kinds of call a
+// model can take: a model's kind is read from the units its price rows count usage in.
 import { asc, eq } from 'drizzle-orm'
 
 import { aiKindModels, aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
@@ -89,11 +89,6 @@ export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
   if (priced.has('gpu-second')) return ['layer-split']
   if (priced.size > 0 && [...priced].every((unit) => TEXT_UNITS.includes(unit))) return ['text']
   return []
-}
-
-/** Whether `step` may run a model priced in `units`: the model takes the step's kind of call. */
-export function stepTakes(step: string, units: Iterable<UsageUnit>): boolean {
-  return modelKinds(units).includes(stepDef(step).kind)
 }
 
 /**

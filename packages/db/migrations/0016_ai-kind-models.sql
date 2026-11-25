@@ -24,4 +24,6 @@ JOIN (VALUES
 ) AS k("step", "kind") ON k."step" = s."step"
 JOIN "ai_kind_models" d ON d."kind" = k."kind"
 WHERE s."model" <> d."model" OR s."options" <> d."options"
-ON CONFLICT ("step") DO NOTHING;
+ON CONFLICT ("step") DO NOTHING;--> statement-breakpoint
+UPDATE "ai_calls" SET "step" = 'flow.' || "step"
+WHERE "step" IN ('round-plan', 'read', 'layer-plan', 'draft-fast', 'draft-precise', 'refine', 'resize', 'layer-split');

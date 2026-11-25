@@ -9,7 +9,7 @@ import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, STEPS, stepTakes } from './steps.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, STEPS } from './steps.ts'
 import {
   addJob,
   addPrices,
@@ -118,13 +118,15 @@ describe('routeStep', () => {
       // Changed in a transaction that is rolled back, as other tests read the same defaults.
       const changed = await db
         .transaction(async (tx) => {
-          await tx.update(aiKindModels).set({ model: 'seedream-5.5' }).where(eq(aiKindModels.kind, 'picture'))
+          await tx.update(aiKindModels).set({ model: 'test-picture-model' }).where(eq(aiKindModels.kind, 'picture'))
           throw new Rollback(await models(tx))
         })
         .catch((e: unknown) => (e instanceof Rollback ? e.models : Promise.reject(e)))
       expect(changed).toMatchObject({
-        'flow.draft-fast': 'seedream-5.5',
+        'flow.draft-fast': 'test-picture-model',
         'flow.draft-precise': 'gpt-image-2.5-sunburst',
+        'flow.refine': 'seedream-5.5',
+        'flow.resize': 'seedream-5.5',
         'flow.read': 'gpt-6-luna',
       })
     } finally {
@@ -148,18 +150,6 @@ describe('modelKinds', () => {
     expect(modelKinds(['input-token', 'cached-input-token', 'output-token'])).toEqual(['text'])
     expect(modelKinds(['reference-picture'])).toEqual([])
     expect(modelKinds([])).toEqual([])
-  })
-})
-
-describe('stepTakes', () => {
-  it('lets each step run only a model of its own kind', () => {
-    expect(stepTakes('flow.resize', ['picture', 'reference-picture'])).toBe(true)
-    expect(stepTakes('flow.draft-fast', ['input-token', 'image-output-token'])).toBe(true)
-    expect(stepTakes('flow.resize', ['input-token', 'output-token'])).toBe(false)
-    expect(stepTakes('flow.read', ['input-token', 'output-token'])).toBe(true)
-    expect(stepTakes('flow.read', ['picture'])).toBe(false)
-    expect(stepTakes('flow.layer-split', ['gpu-second'])).toBe(true)
-    expect(stepTakes('flow.layer-split', ['picture'])).toBe(false)
   })
 })
 

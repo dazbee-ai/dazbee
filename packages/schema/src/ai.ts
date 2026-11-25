@@ -212,7 +212,7 @@ export type AiJobMessage = z.infer<typeof AiJobMessage>
 
 /** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
 export const AiStepsCall = z.object({
-  step: z.string().min(1).max(100),
+  step: z.preprocess(stepNamed, z.string().min(1).max(100)),
   input: z.preprocess(carriedOver, CallInput),
   sellers: z.array(z.string().min(1).max(100)).min(1).max(10).optional(),
 })
@@ -327,4 +327,11 @@ function carriedOver(input: unknown): unknown {
   return input && typeof input === 'object' && 'kind' in input && input.kind === 'picture-edit'
     ? { ...input, kind: 'picture' }
     : input
+}
+
+/** An AI step's name as saved before steps were named by feature: `refine` is `flow.refine`. */
+function stepNamed(step: unknown): unknown {
+  return typeof step === 'string' && !step.includes('.') && AI_STEPS.includes(`flow.${step}` as AiStep)
+    ? `flow.${step}`
+    : step
 }

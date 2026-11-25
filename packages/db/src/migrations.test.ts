@@ -220,9 +220,10 @@ describe('the migrations', () => {
     const url = await freshDatabase()
     await applyMigrations(url, await firstMigrations(at))
     // An admin moved the round plan to Sol before the change.
-    await withClient(url, (client) =>
-      client.query(`update ai_step_models set model = 'gpt-6.2-sol' where step = 'round-plan'`),
-    )
+    const before = await withClient(url, async (client) => {
+      await client.query(`update ai_step_models set model = 'gpt-6.2-sol' where step = 'round-plan'`)
+      return (await client.query('select step, model, options from ai_step_models order by step')).rows
+    })
     await applyMigrations(url, MIGRATIONS)
     const read = await withClient(url, async (client) => ({
       kinds: (await client.query('select kind, model from ai_kind_models order by kind')).rows,
@@ -242,7 +243,7 @@ describe('the migrations', () => {
       { step: 'flow.round-plan', model: 'gpt-6.2-sol', options: {} },
     ])
     // The rows the previous commit's worker reads stay as they were.
-    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toHaveLength(8)
+    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toEqual(before)
   }, 60_000)
 
   // From the second migration on: each runs over rows written under the ones before it.

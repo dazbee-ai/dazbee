@@ -1,11 +1,11 @@
 // The admin page's routes for which model each AI call runs, under /admin/ai, behind the AI routes' admin check:
 // each kind of call's default model, and each AI step's model, which is its kind's default unless an admin
 // overrides it. A kind's default, and an override, must be a priced model of that kind.
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
 import { modelKinds, stepDef, STEPS } from '@dazbee/ai'
-import { aiKindModels, aiStepModels, type Db } from '@dazbee/db'
+import { aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
   type AiKindModelView,
@@ -66,6 +66,7 @@ export function aiModelRoutes(db: Db): Hono<Env> {
     if (refused) return refused
     return changedOr(c, () =>
       db.transaction(async (tx) => {
+        await lockRow(tx, `ai-kind-models:${kind}`)
         const [stored] = await tx
           .select({ updatedAt: aiKindModels.updatedAt })
           .from(aiKindModels)
@@ -117,6 +118,7 @@ export function aiModelRoutes(db: Db): Hono<Env> {
     if (refused) return refused
     return changedOr(c, () =>
       db.transaction(async (tx) => {
+        await lockRow(tx, `ai-step-models:${step}`)
         const [stored] = await tx
           .select({ updatedAt: aiStepModels.updatedAt })
           .from(aiStepModels)
@@ -139,6 +141,7 @@ export function aiModelRoutes(db: Db): Hono<Env> {
     if (input instanceof Response) return input
     return changedOr(c, () =>
       db.transaction(async (tx) => {
+        await lockRow(tx, `ai-step-models:${step}`)
         const [stored] = await tx
           .select({ updatedAt: aiStepModels.updatedAt })
           .from(aiStepModels)
@@ -151,11 +154,6 @@ export function aiModelRoutes(db: Db): Hono<Env> {
   })
 
   return app
-}
-
-/** `name` when the step list has an AI step of that name. */
-function stepOf(name: string): string | undefined {
-  return Object.hasOwn(STEPS, name) ? name : undefined
 }
 
 /** The priced models that take `kind` calls. */
@@ -187,6 +185,21 @@ async function refusedModel(
   return c.json({ ...error(kindRefusal(wrongKind)), wrongKind }, 400)
 }
 
+/** Why an AI step, or a kind's default, can't be a model of another kind, in the API's own names. */
+function kindRefusal({ step, model, units, wants, is }: WrongKind): string {
+  const kind = is ? `is ${KIND_WORDS[is]}` : 'is no kind of model an AI step runs'
+  const what = step ?? `The default for ${wants} calls`
+  return `${what} runs ${KIND_WORDS[wants]}, and ${model} ${kind}, priced in ${units.join(', ')}`
+}
+
+/**
+ * Takes a lock on `key` until the transaction ends, so two saves of the same row, even one not made yet,
+ * run one after the other and the second sees the first.
+ */
+async function lockRow(tx: Tx, key: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`)
+}
+
 /** Runs a change: 204, or 409 when what it changes was changed since its page read it. */
 async function changedOr(c: Context<Env>, change: () => Promise<void>): Promise<Response> {
   try {
@@ -198,9 +211,7 @@ async function changedOr(c: Context<Env>, change: () => Promise<void>): Promise<
   }
 }
 
-/** Why an AI step, or a kind's default, can't be a model of another kind, in the API's own names. */
-function kindRefusal({ step, model, units, wants, is }: WrongKind): string {
-  const kind = is ? `is ${KIND_WORDS[is]}` : 'is no kind of model an AI step runs'
-  const what = step ?? `The default for ${wants} calls`
-  return `${what} runs ${KIND_WORDS[wants]}, and ${model} ${kind}, priced in ${units.join(', ')}`
+/** `name` when the step list has an AI step of that name. */
+function stepOf(name: string): string | undefined {
+  return Object.hasOwn(STEPS, name) ? name : undefined
 }

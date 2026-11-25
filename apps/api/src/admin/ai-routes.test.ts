@@ -385,6 +385,10 @@ describe('/admin/ai', () => {
       expect(await ask(admin.token, 'DELETE', at, { since: null })).toMatchObject({ status: 409 })
       expect((await ask(admin.token, 'DELETE', at, { since: row?.updatedAt.toISOString() })).status).toBe(204)
       expect(await db.select().from(aiStepModels).where(eq(aiStepModels.step, own))).toEqual([])
+      // An override of the kind's own default is kept as set.
+      expect((await ask(admin.token, 'PUT', at, { model: 'muse-image-1.0', since: null })).status).toBe(204)
+      const [same] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, own))
+      expect(same?.model).toBe('muse-image-1.0')
     } finally {
       Reflect.deleteProperty(STEPS, own)
       await db.delete(aiStepModels).where(eq(aiStepModels.step, own))

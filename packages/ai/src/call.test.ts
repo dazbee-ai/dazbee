@@ -25,7 +25,7 @@ function callOf(job: { id: string; workspaceId: string }, step: string, more: Pa
   return { job, attempt: 1, callIndex: 0, step, input: TEXT, signal: new AbortController().signal, ...more }
 }
 
-/** The job's call-log rows, oldest try first, as seller, state and error. */
+/** The job's call-log rows, by call index, then oldest try first, as seller, state and error. */
 async function callRows(job: string) {
   return db
     .select({
@@ -37,7 +37,7 @@ async function callRows(job: string) {
     })
     .from(aiCalls)
     .where(eq(aiCalls.jobId, job))
-    .orderBy(asc(aiCalls.try))
+    .orderBy(asc(aiCalls.callIndex), asc(aiCalls.try))
 }
 
 /** The charge rows of call-log row `call`. */

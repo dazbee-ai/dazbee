@@ -7,8 +7,8 @@
 #   1. <commit> twice: the web app and API swap green to blue, then back, and the tab stays open;
 #   2. an API image whose health check fails: deploy.sh fails and stops it, and the live API runs on;
 #   3. a sync image whose health check fails: deploy.sh fails, and the previous sync image runs again;
-#   4. a new commit whose sync and MCP images differ only in the commit they name: the web app and
-#      API swap, the sync server's and MCP server's containers keep running on their image, and only
+#   4. a new commit whose sync, MCP and worker images differ only in the commit they name: the web app
+#      and API swap, the sync server's, MCP server's and worker's containers keep running on their image, and only
 #      the images of the commits deployed and those a container uses are kept;
 #   5. a new commit whose MCP image changed: the MCP server restarts on it, its OAuth metadata
 #      answers through Caddy, and the sync server's container keeps running.
@@ -77,7 +77,7 @@ rebuild() {
 # A deploy removes the images of commits not deployed, so each step makes its own just before.
 images_of() {
   local as=$1 broken=${2:-} app
-  for app in web api sync mcp; do docker tag "$REGISTRY/dazbee-$app:$commit" "$REGISTRY/dazbee-$app:$as"; done
+  for app in web api sync mcp worker; do docker tag "$REGISTRY/dazbee-$app:$commit" "$REGISTRY/dazbee-$app:$as"; done
   [ -n "$broken" ] || return 0
   rebuild "$broken" "$as" 'HEALTHCHECK --interval=1s --timeout=1s --start-period=0s --retries=1 CMD ["false"]'
 }
@@ -127,7 +127,7 @@ expect_state api-blue "running $commit"
 expect_state web-green "exited $commit"
 expect_state api-green "exited $commit"
 expect_state mcp "running $commit"
-for app in api sync web mcp; do expect_deployed "$app" "$commit"; done
+for app in api sync web mcp worker; do expect_deployed "$app" "$commit"; done
 
 step "1. $commit again, blue to green"
 deploy "$commit"
@@ -160,11 +160,12 @@ expect_deployed sync "$commit"
 [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q sync)")" = healthy ] || fail 'sync is not healthy'
 expect_live web green
 
-step "4. A new commit whose sync and MCP images differ only in the commit they name, as CI builds them"
+step "4. A new commit whose sync, MCP and worker images differ only in the commit they name, as CI builds them"
 images_of "$NEXT"
-for app in sync mcp; do rebuild "$app" "$NEXT" "ENV BUILD_ID=$NEXT"; done
+for app in sync mcp worker; do rebuild "$app" "$NEXT" "ENV BUILD_ID=$NEXT"; done
 sync_container=$(container_of sync)
 mcp_container=$(container_of mcp)
+worker_container=$(container_of worker)
 deploy "$NEXT"
 expect_live api green
 expect_live web blue
@@ -174,10 +175,11 @@ expect_state sync "running $commit"
 expect_state mcp "running $commit"
 expect_kept sync "$sync_container"
 expect_kept mcp "$mcp_container"
-echo 'the sync server and the MCP server kept running'
-for app in api sync web mcp; do expect_deployed "$app" "$NEXT"; done
+expect_kept worker "$worker_container"
+echo 'the sync server, the MCP server and the worker kept running'
+for app in api sync web mcp worker; do expect_deployed "$app" "$NEXT"; done
 # The images of the commits deployed stay, and so does one a stopped container was made from.
-for app in api sync web mcp; do
+for app in api sync web mcp worker; do
   expect_image "$app" "$commit"
   expect_image "$app" "$NEXT"
 done

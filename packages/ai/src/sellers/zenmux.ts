@@ -6,6 +6,7 @@ import type OpenAI from 'openai'
 
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 
+import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
   gptImageUsage,
@@ -175,4 +176,35 @@ async function vertexPicture(fetchOf: typeof fetch, apiKey: string, request: Sel
     picture: pictures.length,
     'reference-picture': keys.length,
   })
+}
+
+/**
+ * ZenMux's cost for a UTC day from its management cost API (a personal management key), for one API key when
+ * `keyId` is given: its pay-as-you-go total in dollars; null while ZenMux has no figure for the day.
+ */
+export function zenmuxCostReport({
+  managementKey,
+  keyId,
+  fetch: fetchOf = globalThis.fetch,
+}: {
+  managementKey: string
+  keyId?: string | undefined
+  fetch?: typeof fetch
+}): CostReport {
+  return async (day) => {
+    const query = new URLSearchParams({
+      type: 'cost',
+      query_dimension: 'BIZ_DT',
+      query_time: day.replaceAll('-', ''),
+      bill_types: 'metered',
+      ...(keyId ? { api_key_ids: keyId } : {}),
+    })
+    const response = await fetchOf(`${OPENAI_URL}/management/cost?${query}`, {
+      headers: { authorization: `Bearer ${managementKey}` },
+    })
+    if (!response.ok) throw new Error(`ZenMux's cost API answered ${response.status}`)
+    const body = (await response.json()) as { data?: { summary?: { totalCost?: string | null } } }
+    const total = body.data?.summary?.totalCost
+    return total === null || total === undefined ? null : { currency: 'USD', cost: Number(total) }
+  }
 }

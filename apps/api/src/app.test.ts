@@ -86,6 +86,8 @@ const OWNER_REFUSAL = 'Only the Owner can hand over Owner'
 const MIDDLEWARE_PATHS = [
   '/*',
   '/admin/*',
+  // The AI section's routes check for an admin themselves.
+  '/admin/ai/*',
   '/fonts/google/*',
   '/matchers/*',
   '/me',

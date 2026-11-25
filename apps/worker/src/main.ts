@@ -1,12 +1,13 @@
 // The worker (ADR-0022): runs AI jobs from pg-boss in our Postgres, sweeps every 5 minutes the jobs whose
-// pg-boss job ended without them, and answers a health check. The API migrates the database, so the worker
+// pg-boss job ended without them, settles unknown calls and checks the call log against the sellers' own
+// figures each day, and answers a health check. The API migrates the database, so the worker
 // starts after it. On SIGTERM it stops taking jobs and waits up to 110 s for those running. Settings come
 // from the environment only, each seller's key among them.
 import { createServer } from 'node:http'
 
 import { PgBoss } from 'pg-boss'
 
-import { settleUnknownCalls, sweepJobs, useSellersOf } from '@dazbee/ai'
+import { reportsOf, runDailyCheck, settleUnknownCalls, sweepJobs, useSellersOf } from '@dazbee/ai'
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
@@ -18,6 +19,8 @@ const STEPS_QUEUE = 'ai-steps'
 const SWEEP_QUEUE = 'ai-sweep'
 /** The queue the daily settling of unknown calls is sent to, at 05:30 UTC. */
 const SETTLE_QUEUE = 'ai-unknown-calls'
+/** The queue the daily check is sent to, at 06:00 UTC. */
+const CHECK_QUEUE = 'ai-daily-check'
 /** How long a graceful stop waits for running jobs: compose gives the worker 120 s. */
 const STOP_WAIT_MS = 110_000
 
@@ -47,6 +50,15 @@ if (!(await boss.getQueue(SETTLE_QUEUE))) await boss.createQueue(SETTLE_QUEUE)
 await boss.schedule(SETTLE_QUEUE, '30 5 * * *')
 await boss.work(SETTLE_QUEUE, async () => {
   console.log(JSON.stringify({ msg: 'unknown calls settled', ...(await settleUnknownCalls(db)) }))
+})
+// Each seller whose report keys are set: OPENAI_ADMIN_API_KEY, OPENROUTER_MANAGEMENT_API_KEY, ZENMUX_PLATFORM_API_KEY and Modal's token.
+const reports = reportsOf()
+if (!(await boss.getQueue(CHECK_QUEUE))) await boss.createQueue(CHECK_QUEUE)
+await boss.schedule(CHECK_QUEUE, '0 6 * * *')
+await boss.work(CHECK_QUEUE, async () => {
+  const checked = await runDailyCheck(db, reports)
+  const red = checked.filter((day) => day.state === 'red')
+  console.log(JSON.stringify({ msg: 'daily check', checked: checked.length, red }))
 })
 
 // The image sets BUILD_ID to the commit it was built from; a worker run from a checkout is `dev`.

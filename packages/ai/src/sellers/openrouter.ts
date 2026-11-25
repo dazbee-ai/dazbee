@@ -6,6 +6,7 @@ import type OpenAI from 'openai'
 
 import type { Usage } from '@dazbee/schema'
 
+import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
   dataUrl,
@@ -91,4 +92,30 @@ async function callOpenrouter(client: OpenAI, request: SellerRequest): Promise<S
   const answer = pictureAnswer({ data: data.data ?? [] }, data.id ?? response.headers.get('x-request-id'), usage)
   if (typeof data.usage?.cost === 'number') answer.reportedCost = data.usage.cost
   return answer
+}
+
+/**
+ * OpenRouter's cost for a UTC day from its activity API (a management key), for one API key when `keyHash` is
+ * given: the sum of the day's usage, in dollars. OpenRouter keeps the last 30 completed days; a day it doesn't
+ * have yet is null.
+ */
+export function openrouterCostReport({
+  managementKey,
+  keyHash,
+  fetch: fetchOf = globalThis.fetch,
+}: {
+  managementKey: string
+  keyHash?: string | undefined
+  fetch?: typeof fetch
+}): CostReport {
+  return async (day) => {
+    const query = new URLSearchParams({ date: day, ...(keyHash ? { api_key_hash: keyHash } : {}) })
+    const response = await fetchOf(`${BASE_URL}/activity?${query}`, {
+      headers: { authorization: `Bearer ${managementKey}` },
+    })
+    if (response.status === 400) return null
+    if (!response.ok) throw new Error(`OpenRouter's activity API answered ${response.status}`)
+    const body = (await response.json()) as { data?: { usage?: number }[] }
+    return { currency: 'USD', cost: (body.data ?? []).reduce((sum, row) => sum + (row.usage ?? 0), 0) }
+  }
 }

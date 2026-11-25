@@ -41,7 +41,17 @@ export {
   SellerTimedOut,
   useSeller,
 } from './sellers/seller.ts'
-export { useSellersOf } from './sellers/in-use.ts'
+export {
+  type CheckedDay,
+  checkDay,
+  type CostReport,
+  DAYS_CHECKED,
+  daysBefore,
+  runDailyCheck,
+  type SellerDay,
+} from './daily-check.ts'
+export { lastChecked, readSellerFile, SellerFileRefused, uploadSellerFile } from './seller-files.ts'
+export { reportsOf, useSellersOf } from './sellers/in-use.ts'
 export { openrouterSeller } from './sellers/openrouter.ts'
 export { pixazoSeller } from './sellers/pixazo.ts'
 export { zenmuxSeller } from './sellers/zenmux.ts'

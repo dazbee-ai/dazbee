@@ -103,6 +103,15 @@ jobs:
           provenance: false
           cache-from: type=gha,scope=mcp
           cache-to: type=gha,scope=mcp,mode=max
+      - uses: docker/build-push-action@v7
+        with:
+          file: apps/worker/Dockerfile
+          build-args: BUILD_ID=${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/dazbee-worker:${{ github.sha }}
+          load: true
+          provenance: false
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max
       # The folder compose runs in, laid out as /opt/dazbee is on the server.
       - name: Start the stack
         run: |
@@ -120,7 +129,7 @@ jobs:
             echo "STORAGE_BUCKET=dazbee"
             echo "STORAGE_ACCESS_KEY_ID=test"
             echo "STORAGE_SECRET_ACCESS_KEY=test"
-            for name in WEB_BLUE_TAG WEB_GREEN_TAG API_BLUE_TAG API_GREEN_TAG SYNC_TAG MCP_TAG; do echo "$name=$GITHUB_SHA"; done
+            for name in WEB_BLUE_TAG WEB_GREEN_TAG API_BLUE_TAG API_GREEN_TAG SYNC_TAG MCP_TAG WORKER_TAG; do echo "$name=$GITHUB_SHA"; done
           } > "$stack/.env"
           cd "$stack"
           # Both colours at once: the migration lock keeps their APIs from migrating the new database together.
@@ -130,7 +139,7 @@ jobs:
         run: |
           compose() { docker compose -f deploy/compose.yml --project-directory . --profile blue --profile green "$@"; }
           https() { curl -sS --resolve app.dazbee.com:443:127.0.0.1 --resolve sync.dazbee.com:443:127.0.0.1 --cacert certs/origin.pem "$@"; }
-          for service in web-blue web-green api-blue api-green sync mcp postgres; do
+          for service in web-blue web-green api-blue api-green sync mcp worker postgres; do
             read -r health ports < <(docker inspect -f '{{.State.Health.Status}} {{len .HostConfig.PortBindings}}' "$(compose ps -q "$service")")
             echo "$service: $health, $ports published ports"
             [ "$health" = healthy ]
@@ -169,6 +178,9 @@ jobs:
           echo "a GET of /matchers/* reaches the API through Caddy, and an unlisted file is kept nowhere"
           https -fsD - -o /dev/null https://app.dazbee.com/vendor/fonts/NotoSans-Regular.ttf | grep -qi '^cache-control: public, max-age=31536000, immutable'
           echo "the vendored files are kept for good"
+          health=$(compose exec -T worker node -e "fetch('http://localhost:8790/health').then(r => r.text()).then(console.log)")
+          grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
+          echo "worker/health names build $GITHUB_SHA"
           health=$(compose exec -T caddy wget -qO- http://mcp:3100/health)
           grep -q "\"build\":\"$GITHUB_SHA\"" <<< "$health"
           echo "mcp/health names build $GITHUB_SHA"
@@ -208,7 +220,7 @@ jobs:
       - if: env.PUSH == 'true'
         name: Push the images
         run: |
-          for app in web api sync mcp; do
+          for app in web api sync mcp worker; do
             docker tag "$REGISTRY/dazbee-$app:$GITHUB_SHA" "$REGISTRY/dazbee-$app:latest"
             docker push "$REGISTRY/dazbee-$app:$GITHUB_SHA"
             docker push "$REGISTRY/dazbee-$app:latest"

@@ -1,5 +1,6 @@
-// The usage files an admin uploads for the sellers with no cost report to fetch (Meta and Pixazo): a CSV
-// export with a day column and a cost column, read by their headers, added up by UTC day and checked
+// The usage files an admin uploads for the sellers with no cost report to fetch (Meta and Pixazo): Meta's
+// usage export (a row per day, metric and series), or a CSV with a day column and a cost column read by their
+// headers, added up by UTC day and checked
 // against the call log as the daily check checks a report.
 import { desc, eq } from 'drizzle-orm'
 
@@ -59,32 +60,25 @@ export async function uploadSellerFile(
 
 /** Reads `text`, a seller's CSV export, into its cost by UTC day. */
 export function readSellerFile(seller: UploadedSeller, text: string): SellerFileDays {
-  const rows = parseCsv(text).filter((row) => row.some((cell) => cell.trim() !== ''))
+  const rows = parseCsv(text.replace(/^\uFEFF/, '')).filter((row) => row.some((cell) => cell.trim() !== ''))
   const [header, ...body] = rows
   if (!header) throw new SellerFileRefused('The file is empty')
   const names = header.map((name) => name.trim().toLowerCase())
+  const at = (name: string) => names.indexOf(name)
+  // Meta's export is long: a row per day, metric and series, whose spend is `spend` / `total` in `unit`.
+  if (at('metric') >= 0 && at('value') >= 0 && at('date') >= 0) {
+    const spend = body.filter(
+      (row) => row[at('metric')]?.trim() === 'spend' && (row[at('series')] ?? 'total').trim() === 'total',
+    )
+    return addUp(seller, spend, { dayAt: at('date'), costAt: at('value'), currencyAt: at('unit'), named: null })
+  }
   const dayAt = names.findIndex((name) => DAY_WORDS.some((word) => name.includes(word)))
   const costAt = names.findIndex((name) => COST_WORDS.some((word) => name.includes(word)))
   if (dayAt < 0 || costAt < 0) {
     throw new SellerFileRefused(`The file needs a day column and a cost column; its columns are ${header.join(', ')}`)
   }
-  const currencyAt = names.findIndex((name) => name === 'currency')
-  const named = /\(([a-z]{3})\)/i.exec(header[costAt] ?? '')?.[1]?.toUpperCase()
-  let currency = named ?? null
-  const days = new Map<string, number>()
-  for (const row of body) {
-    const day = utcDay(row[dayAt] ?? '')
-    const raw = (row[costAt] ?? '').trim()
-    if (!day || raw === '') throw new SellerFileRefused(`A row has no day or no cost: ${row.join(', ')}`)
-    const symbol = Object.keys(SYMBOLS).find((s) => raw.includes(s))
-    currency ??=
-      (currencyAt >= 0 ? row[currencyAt]?.trim().toUpperCase() : undefined) || (symbol && SYMBOLS[symbol]) || null
-    const cost = Number(raw.replace(/[^0-9.-]/g, ''))
-    if (!Number.isFinite(cost)) throw new SellerFileRefused(`A cost is not a number: ${raw}`)
-    days.set(day, Math.round(((days.get(day) ?? 0) + cost) * 1e6) / 1e6)
-  }
-  if (days.size === 0) throw new SellerFileRefused('The file has no rows')
-  return { currency: currency ?? BILLED_IN[seller], days }
+  const named = /\(([a-z]{3})\)/i.exec(header[costAt] ?? '')?.[1]?.toUpperCase() ?? null
+  return addUp(seller, body, { dayAt, costAt, currencyAt: at('currency'), named })
 }
 
 /** When each uploaded seller was last checked: the newest day its newest file covered, and when it came. */
@@ -104,6 +98,29 @@ export async function lastChecked(
       return { seller, day, uploadedAt: file?.uploadedAt ?? null }
     }),
   )
+}
+
+/** Adds `rows` up by UTC day from the columns given, in the currency the file or its seller names. */
+function addUp(
+  seller: UploadedSeller,
+  rows: string[][],
+  { dayAt, costAt, currencyAt, named }: { dayAt: number; costAt: number; currencyAt: number; named: string | null },
+): SellerFileDays {
+  let currency = named
+  const days = new Map<string, number>()
+  for (const row of rows) {
+    const day = utcDay(row[dayAt] ?? '')
+    const raw = (row[costAt] ?? '').trim()
+    if (!day || raw === '') throw new SellerFileRefused(`A row has no day or no cost: ${row.join(', ')}`)
+    const symbol = Object.keys(SYMBOLS).find((s) => raw.includes(s))
+    currency ??=
+      (currencyAt >= 0 ? row[currencyAt]?.trim().toUpperCase() : undefined) || (symbol && SYMBOLS[symbol]) || null
+    const cost = Number(raw.replace(/[^0-9.-]/g, ''))
+    if (!Number.isFinite(cost)) throw new SellerFileRefused(`A cost is not a number: ${raw}`)
+    days.set(day, Math.round(((days.get(day) ?? 0) + cost) * 1e6) / 1e6)
+  }
+  if (days.size === 0) throw new SellerFileRefused('The file has no rows')
+  return { currency: currency ?? BILLED_IN[seller], days }
 }
 
 /** The UTC day a cell names, as YYYY-MM-DD, or null. */

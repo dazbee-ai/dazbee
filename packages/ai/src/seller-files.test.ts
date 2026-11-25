@@ -1,5 +1,7 @@
 // The usage files an admin uploads for Meta and Pixazo, against Postgres from Docker Compose. The files are
 // shaped as each seller's usage page shows its figures (a day and its spend); the days are long past.
+import { readFileSync } from 'node:fs'
+
 import { and, eq, inArray } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
@@ -8,7 +10,10 @@ import { aiDailyChecks } from '@dazbee/db'
 import { readSellerFile, SellerFileRefused, uploadSellerFile } from './seller-files.ts'
 import { db } from './test-ai.ts'
 
-/** Meta's usage export: its spend by day, in rupees. */
+/** Meta's usage export for 19–25 Nov 2026, as its usage page exports it. */
+const META_EXPORT = readFileSync(new URL('./fixtures/meta-usage.csv', import.meta.url), 'utf8')
+
+/** A usage file with a day and a spend column, in rupees. */
 const META = [
   'Date,Model,Requests,Spend (INR)',
   '2001-04-01,muse-image-1.0,2,1.86',
@@ -23,7 +28,15 @@ const PIXAZO = [
 ].join('\r\n')
 
 describe('readSellerFile', () => {
-  it('adds a Meta export up by day, in rupees', () => {
+  it('reads Meta’s export: its total spend each day, in rupees', () => {
+    const read = readSellerFile('meta', META_EXPORT)
+    expect(read.currency).toBe('INR')
+    expect(read.days.get('2026-11-25')).toBe(1.86)
+    expect(read.days.get('2026-11-24')).toBe(0)
+    expect(read.days.size).toBe(7)
+  })
+
+  it('adds a file with a day and a spend column up by day', () => {
     const read = readSellerFile('meta', META)
     expect(read.currency).toBe('INR')
     expect(Object.fromEntries(read.days)).toEqual({ '2001-04-01': 1.86, '2001-04-02': 0.93 })

@@ -8,8 +8,9 @@ import { asc, eq } from 'drizzle-orm'
 import { aiKindModels, aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
 import { type AiStep, type CallInput, type CallKind, referenceCount, type Usage, type UsageUnit } from '@dazbee/schema'
 
-import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.ts'
+import { currencyRate, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
+import { declaredUnits } from './sellers/units.ts'
 import { type AiSettings, aiSettingsOf } from './settings.ts'
 
 /**
@@ -115,14 +116,17 @@ export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
 
 /**
  * The model `step` runs and the sellers that can take its call, in order: `only`, when given, in its
- * order. A seller with no adapter in use or no price for the model is skipped, and logged.
+ * order. A seller with no adapter in use, or not priced for the model (a unit it reports has no price), is
+ * skipped, and logged, so no call is sent that would fail once the seller has billed it.
  */
 export async function routeStep(db: Db | Tx, step: string, only?: string[]): Promise<StepRoute> {
   const { choice, order } = await modelOf(db, step, only)
+  const kind = stepDef(step).kind
   const sellers: StepSeller[] = []
   for (const { seller, sellerModel } of order) {
     const adapter = sellerAdapter(seller)
-    const why = !adapter ? 'no adapter' : (await pricesOf(db, seller, choice.model)).length === 0 ? 'no price' : null
+    const check = adapter ? await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, kind) : null
+    const why = !adapter ? 'no adapter' : check && !check.priced ? unpricedReason(check.missing) : null
     if (why || !adapter) {
       console.warn(JSON.stringify({ msg: 'AI seller skipped', step, model: choice.model, seller, why }))
       continue
@@ -134,9 +138,10 @@ export async function routeStep(db: Db | Tx, step: string, only?: string[]): Pro
 
 /**
  * What `calls` should hold, in millionths of a rupee of real cost: each call's expected usage priced at the
- * first of its model's sellers with prices for it (units that seller doesn't price are left out), or its
- * fixed amount, times 1.25. A call's own `sellers`, or else `only`, stands in for the model's sellers. It
- * reads only the price list, so a server that saves jobs needs no seller's key.
+ * dearest of its model's sellers that are priced for it (each counting the units it reports), or its fixed
+ * amount, times 1.25. A text call's input is counted from the call itself. A call's own `sellers`, or else
+ * `only`, stands in for the model's sellers. It reads only the price list and the declared units, so a server
+ * that saves jobs needs no seller's key. Fails for a call no seller is priced for.
  */
 export async function holdFor(
   db: Db | Tx,
@@ -152,20 +157,75 @@ export async function holdFor(
       continue
     }
     const { choice, order } = await modelOf(db, step, sellers ?? only)
-    let priced: { seller: string; rows: PriceRow[] } | null = null
-    for (const { seller } of order) {
-      const rows = await pricesOf(db, seller, choice.model)
-      if (rows.length === 0) continue
-      priced = { seller, rows }
-      break
+    const expected = expectedUsage(def, input)
+    let dearest: bigint | null = null
+    for (const { seller, sellerModel } of order) {
+      const check = await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, def.kind)
+      if (!check.priced) continue
+      const usage = Object.fromEntries(Object.entries(expected).filter(([unit]) => check.units.has(unit as UsageUnit)))
+      const rate = await currencyRate(db, check.rows[0]?.currency ?? '')
+      const cost = priceRows(check.rows, rate, usage, `${choice.model} at ${seller}`).realCost
+      if (dearest === null || cost > dearest) dearest = cost
     }
-    if (!priced) throw new Error(`no seller has a price for the AI step ${step}`)
-    const units = new Set(priced.rows.map((row) => row.unit))
-    const usage = Object.fromEntries(Object.entries(def.expected(input)).filter(([unit]) => units.has(unit as never)))
-    const rate = await currencyRate(db, priced.rows[0]?.currency ?? '')
-    total += priceRows(priced.rows, rate, usage, `${choice.model} at ${priced.seller}`).realCost
+    if (dearest === null) throw new Error(`no seller is priced for the AI step ${step}`)
+    total += dearest
   }
   return (total * HOLD_MARGIN.times + HOLD_MARGIN.per - 1n) / HOLD_MARGIN.per
+}
+
+/**
+ * The sellers of `model` that are not priced for `kind` calls, each with the units it reports that have no
+ * price: none when every seller in the model's order is priced.
+ */
+export async function unpricedSellers(
+  db: Db | Tx,
+  model: string,
+  kind: CallKind,
+): Promise<{ seller: string; units: UsageUnit[] }[]> {
+  const order = await db
+    .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
+    .from(modelSellers)
+    .where(eq(modelSellers.model, model))
+    .orderBy(asc(modelSellers.position))
+  const unpriced: { seller: string; units: UsageUnit[] }[] = []
+  for (const { seller, sellerModel } of order) {
+    const check = await priceCheck(db, seller, model, sellerModel ?? model, kind)
+    if (!check.priced) unpriced.push({ seller, units: check.missing })
+  }
+  return unpriced
+}
+
+/**
+ * Whether `seller` is priced for `kind` calls of `model`: it has a price for every unit it reports for them
+ * (a seller with no declared units, only tests', for any unit at all); its price rows, the units a call is
+ * priced in there, and those with no price.
+ */
+async function priceCheck(db: Db | Tx, seller: string, model: string, sellerModel: string, kind: CallKind) {
+  const rows = await pricesOf(db, seller, model)
+  const has = new Set(rows.map((row) => row.unit))
+  const declared = declaredUnits(seller, kind, sellerModel)
+  const units = new Set(declared ?? has)
+  const missing = declared ? declared.filter((unit) => !has.has(unit)) : []
+  return { rows, units, missing, priced: rows.length > 0 && units.size > 0 && missing.length === 0 }
+}
+
+/** Why a seller is not priced, as the route logs it. */
+function unpricedReason(missing: UsageUnit[]): string {
+  return missing.length > 0 ? `no price for ${missing.join(', ')}` : 'no price'
+}
+
+/**
+ * What a call of `def` is expected to use: a text step's input counted from the call's instructions and
+ * prompt (a token for every 4 characters) and `PICTURE_INPUT_TOKENS` for each picture it reads, with its
+ * expected output; any other call as its step expects.
+ */
+function expectedUsage(def: StepDef, input: CallInput): Usage {
+  if (!def.sizes || input.kind !== 'text') return def.expected(input)
+  const characters = input.instructions.length + input.prompt.length
+  return {
+    'input-token': Math.ceil(characters / 4) + input.pictures.length * PICTURE_INPUT_TOKENS,
+    'output-token': def.sizes.output,
+  }
 }
 
 /**

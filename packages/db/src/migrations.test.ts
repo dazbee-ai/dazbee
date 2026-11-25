@@ -214,7 +214,7 @@ describe('the migrations', () => {
     expect(kits).toEqual([{ colors, fonts, voice: 'Warm', text_styles: [] }])
   }, 60_000)
 
-  it('give each kind of AI call a default model, and keep as a flow override each step model that differs from it', async () => {
+  it('give each kind of AI call a default model, keep as a flow override each step model that differs from it, and drop the old step rows', async () => {
     const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-kind-models'))
     expect(at).toBeGreaterThan(0)
     const url = await freshDatabase()
@@ -242,8 +242,9 @@ describe('the migrations', () => {
       { step: 'flow.resize', model: 'seedream-5.5', options: {} },
       { step: 'flow.round-plan', model: 'gpt-6.2-sol', options: {} },
     ])
-    // The rows the previous commit's worker reads stay as they were.
-    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toEqual(before)
+    // The rows the previous commit's worker read are gone once no merged code reads them.
+    expect(before).toHaveLength(8)
+    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toEqual([])
   }, 60_000)
 
   // From the second migration on: each runs over rows written under the ones before it.

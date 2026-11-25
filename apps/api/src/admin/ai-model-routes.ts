@@ -1,11 +1,11 @@
 // The admin page's routes for which model each AI call runs, under /admin/ai, behind the AI routes' admin check:
 // each kind of call's default model, and each AI step's model, which is its kind's default unless an admin
 // overrides it, with a text step's sizes as set beside those its calls measured. A kind's default, and an
-// override, must be a priced model of that kind.
+// override, must be a model of that kind that every seller in its order is priced for.
 import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
-import { CUT_OFF, modelKinds, stepDef, STEPS } from '@dazbee/ai'
+import { CUT_OFF, modelKinds, stepDef, STEPS, unpricedSellers } from '@dazbee/ai'
 import { aiCalls, aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
@@ -212,8 +212,9 @@ function modelsOf(units: Map<string, UsageUnit[]>, kind: CallKind): string[] {
 }
 
 /**
- * A 400 when `model` can't take `kind` calls: no seller has a price for it, or it is priced as another kind;
- * null when it can. `step` names the AI step it is for, if any.
+ * A 400 when `model` can't take `kind` calls: no seller has a price for it, it is priced as another kind, or
+ * a seller in its order lacks a price for a unit it reports; null when it can. `step` names the AI step it
+ * is for, if any.
  */
 async function refusedModel(
   c: Context<Env>,
@@ -224,7 +225,12 @@ async function refusedModel(
 ): Promise<Response | null> {
   const units = (await pricedUnits(db)).get(model)
   if (!units) return c.json(error(`No seller of ${model} has a price for it`), 400)
-  if (modelKinds(units).includes(kind)) return null
+  if (modelKinds(units).includes(kind)) {
+    const unpriced = await unpricedSellers(db, model, kind)
+    if (unpriced.length === 0) return null
+    const named = unpriced.map((u) => `${u.seller} has no price for ${u.units.join(', ') || 'its calls'}`).join('; ')
+    return c.json({ ...error(`${model} can't be chosen yet: ${named}`), unpriced }, 400)
+  }
   const wrongKind = {
     ...(step ? { step } : {}),
     model,

@@ -49,11 +49,11 @@ describe('openrouterSeller', () => {
       requestId: 'gen-test',
       reportedCost: 0.028,
     })
-    // US$0.02 a picture and US$0.008 a reference, with OpenRouter's 5.5% fee on credit, at ₹96.1722.
+    // US$0.02 a picture and US$0.008 a reference, with OpenRouter's fee and GST on credit (24.49%), at ₹96.1722.
     expect(await priceUsage(db, 'openrouter', 'seedream-5.5', answer.usage)).toEqual({
       currency: 'USD',
       sellerCost: 28_000n,
-      realCost: 2_840_927n,
+      realCost: 3_352_294n,
     })
   })
 

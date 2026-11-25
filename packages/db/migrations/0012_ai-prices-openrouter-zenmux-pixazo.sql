@@ -1,16 +1,16 @@
 -- OpenRouter's, ZenMux's and Pixazo's published prices (read 25 Nov 2026), per million units in millionths of a
--- US dollar. OpenRouter adds 5.5% when credit is bought. Seedream 5.5 is a price per picture made up to 2.6 MP
--- and per reference picture (ZenMux lists one but charges none, as its logs show); Muse Image a price per picture
--- made. OpenRouter lists no seller of Muse Image yet.
+-- US dollar. Buying OpenRouter credit adds a 5.5% fee (at least US$0.80) and 18% GST on both: 24.49% in all.
+-- Seedream 5.5 is a price per picture made up to 2.6 MP and per reference picture (ZenMux lists one but charges
+-- none, as its logs show); Muse Image a price per picture made. OpenRouter lists no seller of Muse Image yet.
 INSERT INTO "ai_prices" ("seller", "model", "unit", "currency", "price_per_million", "fee") VALUES
-	('openrouter', 'gpt-6-luna', 'input-token', 'USD', 100000, 55000),
-	('openrouter', 'gpt-6-luna', 'cached-input-token', 'USD', 10000, 55000),
-	('openrouter', 'gpt-6-luna', 'output-token', 'USD', 500000, 55000),
-	('openrouter', 'gpt-6.2-sol', 'input-token', 'USD', 2000000, 55000),
-	('openrouter', 'gpt-6.2-sol', 'cached-input-token', 'USD', 100000, 55000),
-	('openrouter', 'gpt-6.2-sol', 'output-token', 'USD', 10000000, 55000),
-	('openrouter', 'seedream-5.5', 'picture', 'USD', 20000000000, 55000),
-	('openrouter', 'seedream-5.5', 'reference-picture', 'USD', 8000000000, 55000),
+	('openrouter', 'gpt-6-luna', 'input-token', 'USD', 100000, 244900),
+	('openrouter', 'gpt-6-luna', 'cached-input-token', 'USD', 10000, 244900),
+	('openrouter', 'gpt-6-luna', 'output-token', 'USD', 500000, 244900),
+	('openrouter', 'gpt-6.2-sol', 'input-token', 'USD', 2000000, 244900),
+	('openrouter', 'gpt-6.2-sol', 'cached-input-token', 'USD', 100000, 244900),
+	('openrouter', 'gpt-6.2-sol', 'output-token', 'USD', 10000000, 244900),
+	('openrouter', 'seedream-5.5', 'picture', 'USD', 20000000000, 244900),
+	('openrouter', 'seedream-5.5', 'reference-picture', 'USD', 8000000000, 244900),
 	('zenmux', 'gpt-6-luna', 'input-token', 'USD', 100000, 0),
 	('zenmux', 'gpt-6-luna', 'cached-input-token', 'USD', 10000, 0),
 	('zenmux', 'gpt-6-luna', 'output-token', 'USD', 500000, 0),

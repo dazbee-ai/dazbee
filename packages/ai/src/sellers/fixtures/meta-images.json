@@ -1,0 +1,16 @@
+{
+  "created": 1795580899,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGPQWDCNJMQwqmFUw/DVAACkaV4Q2+JCdgAAAABJRU5ErkJggg=="
+    }
+  ],
+  "output_format": "png",
+  "background": "opaque",
+  "usage": {
+    "input_tokens": 10246,
+    "output_tokens": 1115,
+    "total_tokens": 11361
+  },
+  "size": "1600x1600"
+}

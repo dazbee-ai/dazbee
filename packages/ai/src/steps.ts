@@ -6,7 +6,7 @@ import { asc, eq } from 'drizzle-orm'
 import { aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
 import type { AiStep, CallInput, CallKind, Usage } from '@dazbee/schema'
 
-import { currencyRate, priceRows, pricesOf } from './price-list.ts'
+import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
 import { type AiSettings, aiSettingsOf } from './settings.ts'
 
@@ -68,15 +68,7 @@ export function stepDef(step: string): StepDef {
  * order. A seller with no adapter in use or no price for the model is skipped, and logged.
  */
 export async function routeStep(db: Db | Tx, step: string, only?: string[]): Promise<StepRoute> {
-  const [choice] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
-  if (!choice) throw new Error(`no model is set for the AI step ${step}`)
-  const order = only
-    ? only.map((seller) => ({ seller, sellerModel: null }))
-    : await db
-        .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
-        .from(modelSellers)
-        .where(eq(modelSellers.model, choice.model))
-        .orderBy(asc(modelSellers.position))
+  const { choice, order } = await modelOf(db, step, only)
   const sellers: StepSeller[] = []
   for (const { seller, sellerModel } of order) {
     const adapter = sellerAdapter(seller)
@@ -91,9 +83,10 @@ export async function routeStep(db: Db | Tx, step: string, only?: string[]): Pro
 }
 
 /**
- * What `calls` should hold, in millionths of a rupee of real cost: each call's expected usage priced at its
- * model's first seller (units that seller doesn't price are left out), or its fixed amount, times 1.25. A
- * call's own `sellers`, or else `only`, stands in for the model's sellers.
+ * What `calls` should hold, in millionths of a rupee of real cost: each call's expected usage priced at the
+ * first of its model's sellers with prices for it (units that seller doesn't price are left out), or its
+ * fixed amount, times 1.25. A call's own `sellers`, or else `only`, stands in for the model's sellers. It
+ * reads only the price list, so a server that saves jobs needs no seller's key.
  */
 export async function holdFor(
   db: Db | Tx,
@@ -108,14 +101,19 @@ export async function holdFor(
       total += def.fixedCost(settings, input)
       continue
     }
-    const route = await routeStep(db, step, sellers ?? only)
-    const first = route.sellers[0]
-    if (!first) throw new Error(`no seller can take the AI step ${step}`)
-    const rows = await pricesOf(db, first.seller, route.model)
-    const priced = new Set(rows.map((row) => row.unit))
-    const usage = Object.fromEntries(Object.entries(def.expected(input)).filter(([unit]) => priced.has(unit as never)))
-    const rate = await currencyRate(db, rows[0]?.currency ?? '')
-    total += priceRows(rows, rate, usage, `${route.model} at ${first.seller}`).realCost
+    const { choice, order } = await modelOf(db, step, sellers ?? only)
+    let priced: { seller: string; rows: PriceRow[] } | null = null
+    for (const { seller } of order) {
+      const rows = await pricesOf(db, seller, choice.model)
+      if (rows.length === 0) continue
+      priced = { seller, rows }
+      break
+    }
+    if (!priced) throw new Error(`no seller has a price for the AI step ${step}`)
+    const units = new Set(priced.rows.map((row) => row.unit))
+    const usage = Object.fromEntries(Object.entries(def.expected(input)).filter(([unit]) => units.has(unit as never)))
+    const rate = await currencyRate(db, priced.rows[0]?.currency ?? '')
+    total += priceRows(priced.rows, rate, usage, `${choice.model} at ${priced.seller}`).realCost
   }
   return (total * HOLD_MARGIN.times + HOLD_MARGIN.per - 1n) / HOLD_MARGIN.per
 }
@@ -128,4 +126,18 @@ function pictureUsage(input: CallInput): Usage {
     'image-output-token': pictureTokens(input),
     ...(input.kind === 'picture-edit' ? { 'reference-picture': input.pictures.length } : {}),
   }
+}
+
+/** The model `step` runs, with its options, and its sellers in order: `only`, when given. */
+async function modelOf(db: Db | Tx, step: string, only?: string[]) {
+  const [choice] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
+  if (!choice) throw new Error(`no model is set for the AI step ${step}`)
+  const order = only
+    ? only.map((seller) => ({ seller, sellerModel: null }))
+    : await db
+        .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
+        .from(modelSellers)
+        .where(eq(modelSellers.model, choice.model))
+        .orderBy(asc(modelSellers.position))
+  return { choice, order }
 }

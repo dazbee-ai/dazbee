@@ -110,6 +110,11 @@ describe('holdFor', () => {
     expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_430n)
   })
 
+  it('prices a hold from the price list alone, with no seller’s adapter in use', async () => {
+    const { step } = await addStep([{ seller: newSeller('keyless'), prices: EVERY_PRICE }])
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_430n)
+  })
+
   it('holds the layer split’s fixed amount for its size', async () => {
     const [split1024, split512] = await Promise.all([
       holdFor(db, [{ step: 'layer-split', input: INPUTS['layer-split'] }]),

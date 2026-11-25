@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.ts",
+    "check-bills": "node src/scripts/check-bills.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

@@ -15,6 +15,7 @@
     "@dazbee/db": "workspace:*",
     "@dazbee/schema": "workspace:*",
     "drizzle-orm": "^0.45.4",
+    "openai": "7.63.0",
     "pg-boss": "12.39.0"
   },
   "devDependencies": {

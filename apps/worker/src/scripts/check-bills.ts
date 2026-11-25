@@ -126,6 +126,7 @@ console.table(
     model: row.model,
     seller: row.seller,
     state: row.state,
+    seconds: row.endedAt ? ((row.endedAt.getTime() - row.startedAt.getTime()) / 1000).toFixed(1) : '',
     usage: JSON.stringify(row.usage),
     sellerCost: money(row.sellerCost),
     currency: row.currency,

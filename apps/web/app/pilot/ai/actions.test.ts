@@ -40,7 +40,7 @@ describe('saveStepModel', () => {
       step: 'resize',
       model: 'gpt-6-luna',
       units: ['cached-input-token', 'input-token', 'output-token'],
-      wants: 'picture-edit',
+      wants: 'picture',
       is: 'text',
     }
     vi.mocked(setStepModel).mockRejectedValue(

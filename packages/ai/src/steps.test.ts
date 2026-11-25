@@ -9,20 +9,23 @@ import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, routeStep, stepDef, stepTakes } from './steps.ts'
-import { addJob, addPrices, addStep, db, memoryFiles, newSeller, newWorkspace, type TestPrice } from './test-ai.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, stepTakes } from './steps.ts'
+import {
+  addJob,
+  addPrices,
+  addStep,
+  db,
+  DOLLAR,
+  memoryFiles,
+  newSeller,
+  newWorkspace,
+  type TestPrice,
+} from './test-ai.ts'
 
 /** A call of each kind. */
 const INPUTS: Record<CallKind, CallInput> = {
   text: { kind: 'text', instructions: 'Read the ad.', prompt: 'A coffee ad.', pictures: [] },
-  picture: { kind: 'picture', prompt: 'A cup of coffee on a table.', width: 1024, height: 1024 },
-  'picture-edit': {
-    kind: 'picture-edit',
-    prompt: 'Make it square.',
-    pictures: ['test/draft'],
-    width: 1080,
-    height: 1080,
-  },
+  picture: { kind: 'picture', prompt: 'A cup of coffee on a table.', pictures: [], width: 1024, height: 1024 },
   'layer-split': { kind: 'layer-split', picture: 'test/draft', size: 1024 },
 }
 
@@ -93,8 +96,8 @@ describe('stepDef', () => {
 
 describe('modelKinds', () => {
   it('reads a model’s kind from the units it is priced in', () => {
-    expect(modelKinds(['picture'])).toEqual(['picture', 'picture-edit'])
-    expect(modelKinds(['input-token', 'image-input-token', 'image-output-token'])).toEqual(['picture', 'picture-edit'])
+    expect(modelKinds(['picture'])).toEqual(['picture'])
+    expect(modelKinds(['input-token', 'image-input-token', 'image-output-token'])).toEqual(['picture'])
     expect(modelKinds(['gpu-second', 'cpu-core-second', 'memory-gib-second'])).toEqual(['layer-split'])
     expect(modelKinds(['input-token', 'cached-input-token', 'output-token'])).toEqual(['text'])
     expect(modelKinds(['reference-picture'])).toEqual([])
@@ -140,6 +143,28 @@ describe('holdFor', () => {
   it('prices a hold from the price list alone, with no seller’s adapter in use', async () => {
     const { step } = await addStep([{ seller: newSeller('keyless'), prices: EVERY_PRICE }])
     expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
+  })
+
+  it('counts reference pictures in a picture hold, as each seller bills them', async () => {
+    const perPicture = newSeller('per-picture')
+    const inTokens = newSeller('in-tokens')
+    await addPrices(perPicture, 'seedream-5.5', EVERY_PRICE)
+    await addPrices(inTokens, 'seedream-5.5', [
+      ...EVERY_PRICE,
+      { unit: 'image-input-token', pricePerMillion: 8_000_000n },
+    ])
+    const draft: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
+    const four: CallInput = { ...draft, pictures: ['a', 'b', 'c'], marks: 'm' }
+    const hold = (sellers: string[], input: CallInput) => holdFor(db, [{ step: 'refine', input, sellers }])
+    const plain = await hold([perPicture], draft)
+    const referenced = await hold([perPicture], four)
+    // Four references (three pictures and the marked copy) at US$0.01 each, at ₹96.31, times 1.25.
+    expect(referenced - plain).toBe((4n * DOLLAR * 5n) / 4n / 100n)
+    // GPT Image's way: PICTURE_INPUT_TOKENS image input tokens a reference, at US$8 a million.
+    const tokens = (4n * BigInt(PICTURE_INPUT_TOKENS) * 8n * DOLLAR * 5n) / 4n / 1_000_000n
+    // Within a millionth of a rupee: each hold is rounded once.
+    expect(Number((await hold([inTokens], four)) - referenced - tokens)).toBeLessThanOrEqual(1)
+    expect(Number((await hold([inTokens], four)) - referenced - tokens)).toBeGreaterThanOrEqual(-1)
   })
 
   it('holds the layer split’s fixed amount for its size', async () => {

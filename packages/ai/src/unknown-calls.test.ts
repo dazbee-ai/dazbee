@@ -27,7 +27,7 @@ describe('settleUnknownCalls', () => {
     useSeller(pixazoSeller('test-key', { fetch }))
     const workspace = newWorkspace()
     const job = newId()
-    const edit = { kind: 'picture-edit', prompt: 'Make it square.', pictures: ['k'], width: 1024, height: 1024 }
+    const edit = { kind: 'picture', prompt: 'Make it square.', pictures: ['k'], width: 1024, height: 1024 }
     await db.insert(aiJobs).values({
       id: job,
       workspaceId: workspace,

@@ -3,6 +3,8 @@
 // tests only.
 import { readFileSync } from 'node:fs'
 
+import { type CallInput, referenceCount } from '@dazbee/schema'
+
 /** One answer: a status and a body, and the headers it adds. */
 export interface FakeAnswer {
   status?: number
@@ -46,4 +48,10 @@ export function fakeFetch(routes: [pattern: string, ...answers: FakeAnswer[]][])
     })
   }) as typeof globalThis.fetch
   return { fetch, sent }
+}
+
+/** A request's references for `input`: `bytes` once for each reference a picture call sends, its marked copy counted. */
+export function referencesOf(input: CallInput, bytes: () => Uint8Array | Promise<Uint8Array>) {
+  return async () =>
+    input.kind === 'picture' ? Promise.all(Array.from({ length: referenceCount(input) }, () => bytes())) : []
 }

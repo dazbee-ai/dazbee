@@ -65,6 +65,22 @@ describe('saveJob', () => {
     expect(await save(await memberOf('admin', 0n))).toEqual({ ok: false, refusal: 'used-up' })
   })
 
+  it('throws on a picture call the schema refuses, before anything is held', async () => {
+    const who = await memberOf('editor')
+    const picture = { kind: 'picture', prompt: 'A cup.', width: 1024, height: 1024 } as const
+    const bad = [
+      { ...picture, pictures: [], marks: 'test/marks' },
+      { ...picture, pictures: Array.from({ length: 16 }, (_, i) => `test/${i}`), marks: 'test/marks' },
+    ]
+    for (const call of bad) {
+      const saving = db.transaction((tx) =>
+        saveJob(tx, boss, { ...who, kind: 'ai-steps', input: { calls: [{ step: 'refine', input: call }] }, queue }),
+      )
+      await expect(saving).rejects.toThrow()
+    }
+    expect(await left(db, who.workspace)).toBe(10n * RUPEE)
+  })
+
   it('refuses every job once the day’s real cost reaches the spending stop', async () => {
     const who = await memberOf('editor')
     const refused = await db

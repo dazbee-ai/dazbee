@@ -2,13 +2,14 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
 
-import { aiCalls, aiLedger } from '@dazbee/db'
+import { aiCalls, aiLedger, aiStepModels } from '@dazbee/db'
 import type { CallInput } from '@dazbee/schema'
 
 import { type AiCall, callAi, CallFailed } from './call.ts'
 import { endHold, hold, left } from './ledger.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { addGrant, addJob, addStep, db, newSeller, newWorkspace, RUPEE, setJob } from './test-ai.ts'
+import { STEPS } from './steps.ts'
+import { addGrant, addJob, addStep, db, memoryFiles, newSeller, newWorkspace, pngOf, RUPEE, setJob } from './test-ai.ts'
 
 const TEXT: CallInput = { kind: 'text', instructions: 'Plan the round.', prompt: 'A coffee ad.', pictures: [] }
 
@@ -230,6 +231,62 @@ describe('callAi', () => {
       ['done', null],
       ['failed', 'aborted before it was sent'],
     ])
+  })
+
+  it('counts every step of one model at one seller under one pacing limit', async () => {
+    const seller = testSeller(newSeller('a'))
+    seller.perMinute = { text: 1 }
+    const { step, model } = await addStep([seller])
+    // A second step running the same model.
+    const other = `${step}-other`
+    STEPS[other] = { kind: 'text', expected: () => ({ 'input-token': 1000, 'output-token': 500 }) }
+    await db.insert(aiStepModels).values({ step: other, model })
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(new Error('cancelled')), 50)
+    await expect(callAi(db, callOf(job, other, { callIndex: 1, signal: controller.signal }))).rejects.toThrow(
+      'cancelled',
+    )
+    expect(seller.requests).toHaveLength(1)
+  })
+
+  it('gives a picture adapter its references, with the first one’s marked copy last, read once before any try', async () => {
+    const seller = testSeller(newSeller('a'), [{ fail: 503 }])
+    const { step } = await addStep([seller], { kind: 'picture' })
+    const files = memoryFiles()
+    files.saved.set('test/product', await pngOf(16, 16, [255, 0, 0, 255]))
+    files.saved.set('test/logo', await pngOf(8, 8, [0, 255, 0, 255]))
+    files.saved.set('test/marks', await pngOf(16, 16, [0, 0, 255, 255], { quarter: true }))
+    const read = vi.spyOn(files, 'read')
+    const input: CallInput = {
+      kind: 'picture',
+      prompt: 'Put the logo on the cup.',
+      pictures: ['test/product', 'test/logo'],
+      marks: 'test/marks',
+      width: 1024,
+      height: 1024,
+    }
+    await callAi(db, callOf(await heldJob(), step, { input, files }))
+    expect(seller.requests).toHaveLength(2)
+    const [first, second] = await Promise.all(seller.requests.map((request) => request.references()))
+    expect(first).toHaveLength(3)
+    expect(first?.slice(0, 2)).toEqual([files.saved.get('test/product'), files.saved.get('test/logo')])
+    expect(first?.[2]).not.toEqual(files.saved.get('test/product'))
+    expect(second).toBe(first)
+    expect(read).toHaveBeenCalledTimes(3)
+  })
+
+  it('fails a call whose reference pictures can’t be read before any seller is tried', async () => {
+    const seller = testSeller(newSeller('a'))
+    const { step } = await addStep([seller], { kind: 'picture' })
+    const files = memoryFiles()
+    files.read = () => Promise.reject(new Error('storage is down'))
+    const input: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: ['test/x'], width: 1024, height: 1024 }
+    const job = await heldJob()
+    await expect(callAi(db, callOf(job, step, { input, files }))).rejects.toThrow('storage is down')
+    expect(seller.requests).toHaveLength(0)
+    expect(await callRows(job.id)).toEqual([])
   })
 
   it('gives a done call’s output again without calling the seller', async () => {

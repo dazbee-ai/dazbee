@@ -532,6 +532,9 @@ importers:
       '@dazbee/db':
         specifier: workspace:*
         version: link:../db
+      '@dazbee/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@dazbee/schema':
         specifier: workspace:*
         version: link:../schema

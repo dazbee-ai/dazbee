@@ -1771,7 +1771,6 @@ export const en = {
       kinds: {
         text: 'a text model',
         picture: 'a picture model',
-        'picture-edit': 'a picture model',
         'layer-split': 'a GPU model',
         none: 'no kind of model an AI step runs',
       },

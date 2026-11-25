@@ -7,11 +7,11 @@ import type { CallInput } from '@dazbee/schema'
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, testPicture } from './test-fetch.ts'
+import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 import { nearestAspect, zenmuxSeller } from './zenmux.ts'
 
 const EDIT: CallInput = {
-  kind: 'picture-edit',
+  kind: 'picture',
   prompt: 'Make it square.',
   pictures: ['workspaces/w/originals/a'],
   width: 1080,
@@ -33,6 +33,7 @@ function requestOf(input: CallInput, model: string): SellerRequest {
     options: {},
     signal: new AbortController().signal,
     readPicture: async () => testPicture(),
+    references: referencesOf(input, () => testPicture()),
     keepRequestId: async () => undefined,
   }
 }
@@ -55,6 +56,22 @@ describe('zenmuxSeller', () => {
     expect(await priceUsage(db, 'zenmux', 'seedream-5.5', answer.usage)).toMatchObject({ sellerCost: 20_000n })
   })
 
+  it('makes a new Seedream picture with no references through the Vertex protocol', async () => {
+    const { fetch, sent } = fakeFetch([[':predict', { body: fixture('zenmux-seedream.json') }]])
+    const picture: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
+    const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(picture, 'bytedance/doubao-seedream-5.5'))
+    expect(JSON.parse(String(sent[0]?.body)).instances[0].referenceImages).toBeUndefined()
+    expect(answer.usage).toEqual({ picture: 1, 'reference-picture': 0 })
+  })
+
+  it('sends a marked copy to Seedream as one more reference, billed as one', async () => {
+    const { fetch, sent } = fakeFetch([[':predict', { body: fixture('zenmux-seedream.json') }]])
+    const marked = { ...EDIT, marks: 'workspaces/w/originals/marks' } as CallInput
+    const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(marked, 'bytedance/doubao-seedream-5.5'))
+    expect(JSON.parse(String(sent[0]?.body)).instances[0].referenceImages).toHaveLength(2)
+    expect(answer.usage).toEqual({ picture: 1, 'reference-picture': 2 })
+  })
+
   it('answers text through chat completions, with cached tokens apart', async () => {
     const { fetch, sent } = fakeFetch([
       ['/chat/completions', { body: CHAT, headers: { 'X-ZenMux-RequestId': 'zm-text' } }],
@@ -71,9 +88,16 @@ describe('zenmuxSeller', () => {
 
   it('makes Muse pictures through its OpenAI Images API, priced per picture', async () => {
     const { fetch, sent } = fakeFetch([['/images/generations', { body: fixture('meta-images.json') }]])
-    const picture: CallInput = { kind: 'picture', prompt: 'A cup.', width: 1024, height: 1024 }
+    const picture: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
     const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(picture, 'meta/muse-image-1.0'))
     expect(sent[0]?.url).toBe('https://zenmux.ai/api/v1/images/generations')
+    expect(answer.usage).toEqual({ picture: 1 })
+  })
+
+  it('edits with Muse through its OpenAI Images API when the call has references', async () => {
+    const { fetch, sent } = fakeFetch([['/images/edits', { body: fixture('meta-images.json') }]])
+    const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(EDIT, 'meta/muse-image-1.0'))
+    expect(sent[0]?.url).toBe('https://zenmux.ai/api/v1/images/edits')
     expect(answer.usage).toEqual({ picture: 1 })
   })
 

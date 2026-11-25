@@ -5,8 +5,8 @@ import type OpenAI from 'openai'
 
 import {
   answerOrSellerError,
+  makeOrEdit,
   pictureAnswer,
-  pictureFiles,
   pictureSize,
   sellerClient,
   type SellerClientOptions,
@@ -24,16 +24,14 @@ export function metaSeller(apiKey: string, options: SellerClientOptions = {}): S
   const client = sellerClient(apiKey, { baseURL: BASE_URL, ...options })
   return {
     seller: 'meta',
-    perMinute: { picture: REQUESTS_PER_MINUTE, 'picture-edit': REQUESTS_PER_MINUTE },
+    perMinute: { picture: REQUESTS_PER_MINUTE },
     call: (request) => answerOrSellerError(() => callMeta(client, request)),
   }
 }
 
 async function callMeta(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
   const { input } = request
-  if (input.kind !== 'picture' && input.kind !== 'picture-edit') {
-    throw new SellerError(`Meta makes no ${input.kind} call`, { status: 400 })
-  }
+  if (input.kind !== 'picture') throw new SellerError(`Meta makes no ${input.kind} call`, { status: 400 })
   const common = {
     model: request.model,
     prompt: input.prompt,
@@ -42,12 +40,7 @@ async function callMeta(client: OpenAI, request: SellerRequest): Promise<SellerA
     output_format: 'png' as const,
     n: 1,
   }
-  const { data, response } =
-    input.kind === 'picture'
-      ? await client.images.generate(common, { signal: request.signal }).withResponse()
-      : await client.images
-          .edit({ ...common, image: await pictureFiles(request, input.pictures) }, { signal: request.signal })
-          .withResponse()
+  const { data, response } = await makeOrEdit(client, request, common)
   // Meta bills each picture made; the tokens it reports are not priced.
   return pictureAnswer(data, response.headers.get('x-request-id'), { picture: data.data?.length ?? 0 })
 }

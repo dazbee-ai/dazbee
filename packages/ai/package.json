@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@dazbee/db": "workspace:*",
+    "@dazbee/renderer": "workspace:*",
     "@dazbee/schema": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "modal": "0.11.2",

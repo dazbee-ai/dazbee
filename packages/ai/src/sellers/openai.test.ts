@@ -10,6 +10,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { openaiSeller } from './openai.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
+import { referencesOf } from './test-fetch.ts'
 
 /** A request a fake fetch saw: its URL and body. */
 interface Seen {
@@ -26,9 +27,9 @@ const TEXT: CallInput = {
   pictures: ['workspaces/w/originals/a'],
   schema: { type: 'object', properties: { ideas: { type: 'array', items: { type: 'string' } } } },
 }
-const PICTURE: CallInput = { kind: 'picture', prompt: 'A coffee cup.', width: 1024, height: 1024 }
+const PICTURE: CallInput = { kind: 'picture', prompt: 'A coffee cup.', pictures: [], width: 1024, height: 1024 }
 const EDIT: CallInput = {
-  kind: 'picture-edit',
+  kind: 'picture',
   prompt: 'Make it square.',
   pictures: ['workspaces/w/originals/a'],
   width: 1080,
@@ -54,6 +55,10 @@ function requestOf(input: CallInput, options: Record<string, unknown> = {}): Sel
     signal: new AbortController().signal,
     readPicture: async () =>
       new Uint8Array(Buffer.from(JSON.parse(fixture('openai-images.json')).data[0].b64_json, 'base64')),
+    references: referencesOf(
+      input,
+      () => new Uint8Array(Buffer.from(JSON.parse(fixture('openai-images.json')).data[0].b64_json, 'base64')),
+    ),
     keepRequestId: async () => undefined,
   }
 }

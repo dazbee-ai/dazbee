@@ -7,6 +7,7 @@ import { aiCalls, aiJobs, type Db, newId, type Tx } from '@dazbee/db'
 import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbee/schema'
 
 import { charge } from './ledger.ts'
+import { drawMarks } from './marks.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
 import { type SellerAnswer, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
@@ -61,7 +62,6 @@ type TryResult =
 export const TIMEOUTS: Record<CallKind, number> = {
   text: 60_000,
   picture: 150_000,
-  'picture-edit': 150_000,
   'layer-split': 600_000,
 }
 
@@ -78,6 +78,9 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   if (def.kind !== call.input.kind) throw new Error(`the AI step ${call.step} makes ${def.kind} calls`)
   const done = await doneOutput(db, call)
   if (done) return done
+  // Read, and marked, once before any seller is asked, so a storage failure is no seller's and spends no try.
+  const references = await referencePictures(call)
+  const referencesOf = () => Promise.resolve(references)
   const route = await routeStep(db, call.step, call.sellers)
   const resume = await resumable(db, call, route.sellers)
   // A seller still making an earlier attempt's request is asked about it first, then the sellers in their order.
@@ -93,7 +96,7 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
       if (askOnly && !pending) break
       const row = await startTry(db, call, route.model, seller.seller)
       const resumeId = pending ? await resumeTry(db, pending, row) : undefined
-      const result = await tryOnce(db, call, route.options, seller, row, resumeId)
+      const result = await tryOnce(db, call, route.options, seller, row, referencesOf, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
       // A request the seller refuses to answer about is sent again as a new one, not failed for good.
@@ -221,13 +224,15 @@ async function tryOnce(
   options: Record<string, unknown>,
   seller: StepSeller,
   row: string,
+  references: () => Promise<Uint8Array[]>,
   resumeId?: string,
 ): Promise<TryResult> {
   const kind = call.input.kind
   // The time a call may take starts once its turn under the seller's pacing comes.
   let timeout: AbortSignal | undefined
   try {
-    await pace(`${seller.seller}:${kind}`, seller.adapter.perMinute?.[kind], call.signal)
+    // A seller's limit covers a model as a whole, whatever the step or kind of call.
+    await pace(`${seller.seller}:${seller.sellerModel}`, seller.adapter.perMinute?.[kind], call.signal)
     timeout = AbortSignal.timeout(seller.adapter.timeouts?.[kind] ?? TIMEOUTS[kind])
     const signal = AbortSignal.any([call.signal, timeout])
     const answer = await untilAborted(
@@ -237,6 +242,7 @@ async function tryOnce(
         options,
         signal,
         readPicture: (key) => files(call).read(key),
+        references,
         keepRequestId: (id) => keepRequestId(db, row, id),
         ...(resumeId ? { resumeId } : {}),
       }),
@@ -259,6 +265,16 @@ async function tryOnce(
     await endTry(db, row, state, next === 'next-seller' ? `out of money: ${message}` : message)
     return { ok: false, error: message, next }
   }
+}
+
+/** A picture call's reference pictures, with the first one's marked copy last when it has marks. */
+async function referencePictures(call: AiCall): Promise<Uint8Array[]> {
+  const { input } = call
+  if (input.kind !== 'picture') return []
+  const pictures = await Promise.all(input.pictures.map((key) => files(call).read(key)))
+  const [first] = pictures
+  if (!input.marks || !first) return pictures
+  return [...pictures, await drawMarks(first, await files(call).read(input.marks))]
 }
 
 function files(call: AiCall): PictureFiles {

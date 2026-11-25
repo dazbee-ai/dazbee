@@ -1696,6 +1696,9 @@ export const en = {
       to: 'To',
       show: 'Show',
       hint: 'UTC days, at most 92 apart.',
+      /** Days in the address that can't be shown: From after To, or too far apart. */
+      refused:
+        'Those days can’t be shown: From must not be after To, and they can be at most 92 days apart. Showing the last 14 days.',
     },
     settings: {
       title: 'Settings',
@@ -1805,7 +1808,7 @@ export const en = {
       givenAmount: 'Given, ₹',
       rate: 'Usage rate',
       leftColumn: 'Left, ₹',
-      expires: 'Expires',
+      expires: 'Last day (IST)',
       givenBy: 'Given by',
       expired: 'Expired',
       ledger: 'Ledger, newest first',
@@ -1833,6 +1836,7 @@ export const en = {
       sending: 'Uploading…',
       sent: 'Checked {days}.',
       noFile: 'Pick a CSV file first.',
+      empty: 'This file is empty.',
       tooBig: 'This file is too big. Upload a month or less.',
       day: 'Day',
       currency: 'Currency',

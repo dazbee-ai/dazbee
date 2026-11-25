@@ -124,6 +124,9 @@ const ALLOWANCE: AiAllowanceView = {
 /** The Host header the page is asked with. */
 let host: string
 
+/** The rendered input named `name` in `page`. */
+const inputNamed = (page: string, name: string) => new RegExp(`<input[^>]*name="${name}"[^>]*>`).exec(page)?.[0]
+
 /** The page as the address `query` asks for it. */
 const pageAt = (query: Record<string, string> = {}) => PilotAiPage({ searchParams: Promise.resolve(query) })
 
@@ -186,6 +189,15 @@ describe('PilotAiPage', () => {
     expect(page).toContain('data-allowance="ws-1"')
     expect(page).toContain('data-grant="grant-1"')
     expect(page).toContain('data-testid="ai-gift"')
+    // The gift ends at midnight IST after its last day, which the table shows.
+    expect(page).toMatch(/<time dateTime="2026-12-31T18:30:00.000Z">Dec 31, 2026<\/time>/)
+  })
+
+  it('asks for more than nothing in the fields the API refuses at zero', async () => {
+    const page = renderToStaticMarkup(await pageAt())
+    expect(inputNamed(page, 'usageRate')).toContain('min="0.000001"')
+    expect(inputNamed(page, 'rate-USD')).toContain('min="0.000001"')
+    expect(inputNamed(page, 'new-currency-rate')).toContain('min="0.000001"')
   })
 
   it('asks for the days the address names, and the last 14 days when they can’t be read', async () => {
@@ -197,9 +209,11 @@ describe('PilotAiPage', () => {
       { from: 'yesterday' },
       { from: '2026-01-01', to: '2026-11-07' },
     ]) {
-      await pageAt(days)
+      const page = renderToStaticMarkup(await pageAt(days))
       expect(findAiPage).toHaveBeenLastCalledWith('2026-11-12', '2026-11-25')
+      expect(page).toContain('Those days can’t be shown')
     }
+    expect(renderToStaticMarkup(await pageAt())).not.toContain('Those days can’t be shown')
   })
 
   it('is not found on any other host, before asking the API anything', async () => {

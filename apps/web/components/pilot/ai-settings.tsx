@@ -55,7 +55,7 @@ export function AiSettings({ settings }: { settings: AiSettingsView }) {
               name={field}
               type="number"
               required
-              min={field === 'jobLimit' ? 1 : 0}
+              min={field === 'jobLimit' ? 1 : field === 'usageRate' ? 0.000001 : 0}
               max={field === 'jobLimit' ? 100 : undefined}
               step={field === 'jobLimit' ? 1 : 'any'}
               value={values[field]}

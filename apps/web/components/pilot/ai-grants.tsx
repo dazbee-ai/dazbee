@@ -30,6 +30,9 @@ import { format } from '@/lib/i18n/index.ts'
 /** How many days a gift lasts unless the admin picks another last day. */
 const GIFT_DAYS = 30
 
+/** The last moment before `expiresAt`, so a grant that ends at midnight IST shows the day it last counts on. */
+const lastDayOf = (expiresAt: string) => new Date(Date.parse(expiresAt) - 1).toISOString()
+
 /** The UTC day `days` from now, as YYYY-MM-DD. */
 const dayIn = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
 
@@ -138,7 +141,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
               <td className={cn(CELL, 'text-end')}>{amount(grant.usageRate, 6)}</td>
               <td className={cn(CELL, 'text-end')}>{amount(grant.left, 4)}</td>
               <td className={CELL}>
-                <time dateTime={grant.expiresAt}>{when(grant.expiresAt)}</time>
+                <time dateTime={grant.expiresAt}>{when(lastDayOf(grant.expiresAt), { day: true })}</time>
                 {!grant.live && <span className="ms-1.5 text-caption font-semibold">{w.expired}</span>}
               </td>
               <td className={CELL}>{grant.givenBy}</td>

@@ -78,6 +78,9 @@ export async function giveGift(workspaceId: string, gift: GiftInput): Promise<st
 
 /** Uploads a seller's usage file, which checks each day it covers. */
 export async function uploadSellerFile(upload: SellerFileUpload): Promise<UploadAnswer> {
+  if (typeof upload.text === 'string' && upload.text.trim() === '') {
+    return { error: (await getMessages()).pilotAi.checks.empty }
+  }
   const valid = SellerFileUpload.safeParse(upload)
   if (!valid.success) return { error: (await getMessages()).pilotAi.invalid }
   let days: string[] = []

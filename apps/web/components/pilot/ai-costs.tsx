@@ -16,6 +16,7 @@ import {
   useAiNames,
   useAmount,
 } from '@/components/pilot/ai-form.tsx'
+import { Note } from '@/components/settings/note.tsx'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 
@@ -47,7 +48,18 @@ function sumBy<K extends string>(rows: AiCostRow[], keyOf: (row: AiCostRow) => K
   return [...sums.values()]
 }
 
-export function AiRange({ from, to, keep }: { from: string; to: string; keep: Record<string, string> }) {
+export function AiRange({
+  from,
+  to,
+  keep,
+  refused = false,
+}: {
+  from: string
+  to: string
+  keep: Record<string, string>
+  /** Whether the address named days that can't be shown, so these are the last 14 in their place. */
+  refused?: boolean
+}) {
   const w = useMessages().pilotAi.range
   return (
     <form method="get" data-testid="ai-range" className="flex flex-wrap items-end gap-3">
@@ -66,6 +78,11 @@ export function AiRange({ from, to, keep }: { from: string; to: string; keep: Re
         {w.show}
       </button>
       <p className="basis-full text-caption text-muted">{w.hint}</p>
+      {refused && (
+        <div className="basis-full">
+          <Note refused text={w.refused} />
+        </div>
+      )}
     </form>
   )
 }

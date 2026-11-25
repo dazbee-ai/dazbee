@@ -131,7 +131,7 @@ function RateRow({ rate, run, busy }: { rate: CurrencyRateView; run: Run; busy: 
           <input
             name={`rate-${rate.currency}`}
             type="number"
-            min={0}
+            min={0.000001}
             step="any"
             required
             value={value}
@@ -180,7 +180,7 @@ function NewRate({ run, busy }: { run: Run; busy: boolean }) {
         <input
           name="new-currency-rate"
           type="number"
-          min={0}
+          min={0.000001}
           step="any"
           value={rate}
           onChange={(e) => setRate(e.target.value)}

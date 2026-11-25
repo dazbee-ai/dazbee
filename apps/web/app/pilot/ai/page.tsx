@@ -52,7 +52,7 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
     'from' | 'to' | 'q' | 'workspace',
     string | undefined
   >
-  const { from, to } = daysOf(query)
+  const { from, to, refused } = daysOf(query)
   const [t, page] = await Promise.all([getMessages(), findAiPage(from, to)])
   if (!page) notFound()
   const search = (query.q ?? '').trim()
@@ -77,7 +77,7 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
           <AiSettings settings={page.settings} />
         </section>
         <section className={PANEL}>
-          <AiRange from={from} to={to} keep={pick({ q: query.q, workspace: query.workspace })} />
+          <AiRange from={from} to={to} refused={refused} keep={pick({ q: query.q, workspace: query.workspace })} />
           <AiCosts costs={page.costs} />
         </section>
         <section className={PANEL}>
@@ -107,19 +107,24 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
 
 /**
  * The UTC days the address names, `from` not after `to` and at most `MOST_DAYS` apart; otherwise the last
- * `DEFAULT_DAYS`.
+ * `DEFAULT_DAYS`, `refused` when the address named days.
  */
-function daysOf(query: { from: string | undefined; to: string | undefined }): { from: string; to: string } {
+function daysOf(query: { from: string | undefined; to: string | undefined }): {
+  from: string
+  to: string
+  refused: boolean
+} {
   const from = UtcDay.safeParse(query.from)
   const to = UtcDay.safeParse(query.to)
   if (from.success && to.success) {
     const apart = (Date.parse(to.data) - Date.parse(from.data)) / 86_400_000
-    if (apart >= 0 && apart <= MOST_DAYS) return { from: from.data, to: to.data }
+    if (apart >= 0 && apart <= MOST_DAYS) return { from: from.data, to: to.data, refused: false }
   }
   const today = Date.now()
   return {
     from: new Date(today - (DEFAULT_DAYS - 1) * 86_400_000).toISOString().slice(0, 10),
     to: new Date(today).toISOString().slice(0, 10),
+    refused: Boolean(query.from || query.to),
   }
 }
 

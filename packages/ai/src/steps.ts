@@ -1,16 +1,14 @@
 // The step list: each AI step's kind of call and the usage it is expected to report, which its hold is
-// priced from. Adding an AI step is one entry here. Also which model an AI step runs and the sellers that
-// can take its call, in order.
+// priced from. Adding an AI step is its name in `AI_STEPS` (packages/schema), its entry here and its model
+// row in `ai_step_models`. Also which model an AI step runs and the sellers that can take its call, in order.
 import { asc, eq } from 'drizzle-orm'
 
-import { aiSettings, aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
-import type { CallInput, CallKind, Usage } from '@dazbee/schema'
+import { aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
+import type { AiStep, CallInput, CallKind, Usage } from '@dazbee/schema'
 
 import { currencyRate, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
-
-/** The AI settings a step's fixed amount is read from. */
-export type AiSettings = typeof aiSettings.$inferSelect
+import { type AiSettings, aiSettingsOf } from './settings.ts'
 
 /** One AI step: its kind of call, the usage a call is expected to report, and its fixed amount, if it has one. */
 export interface StepDef {
@@ -41,7 +39,7 @@ const HOLD_MARGIN = { times: 5n, per: 4n }
 const pictureTokens = (input: CallInput) =>
   'width' in input ? Math.ceil((input.width * input.height * 1056) / (1024 * 1024)) : 1056
 
-/** Every AI step. */
+/** Every AI step, each in `AI_STEPS`; a test adds steps of its own. */
 export const STEPS: Record<string, StepDef> = {
   'round-plan': { kind: 'text', expected: () => ({ 'input-token': 6000, 'output-token': 3000 }) },
   read: { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 2000 }) },
@@ -56,7 +54,7 @@ export const STEPS: Record<string, StepDef> = {
     fixedCost: (settings, input) =>
       input.kind === 'layer-split' && input.size === 512 ? settings.layerSplit512 : settings.layerSplit1024,
   },
-}
+} satisfies Record<AiStep, StepDef>
 
 /** The step's entry in the step list; fails for a step not in it. */
 export function stepDef(step: string): StepDef {
@@ -101,8 +99,7 @@ export async function holdFor(
   calls: { step: string; input: CallInput }[],
   { sellers: only }: { sellers?: string[] } = {},
 ): Promise<bigint> {
-  const [settings] = await db.select().from(aiSettings)
-  if (!settings) throw new Error('the AI settings row is missing')
+  const settings = await aiSettingsOf(db)
   let total = 0n
   for (const { step, input } of calls) {
     const def = stepDef(step)

@@ -205,6 +205,33 @@ describe('callAi', () => {
     expect(await left(db, job.workspaceId)).toBe(100n * RUPEE)
   })
 
+  it('marks a call it can’t price unknown, keeping the usage, and fails it for good', async () => {
+    const seller = testSeller(newSeller('a'), [{ usage: { 'cached-input-token': 100 } }])
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    await expect(callAi(db, callOf(job, step))).rejects.toMatchObject({ reason: 'lost' })
+    const [row] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job.id))
+    expect(row).toMatchObject({ state: 'unknown', usage: { 'cached-input-token': 100 } })
+    expect(row?.error).toMatch(/^not kept: .*cached-input-token/)
+  })
+
+  it('logs a call aborted while it waits its turn as failed, since it was never sent', async () => {
+    const seller = testSeller(newSeller('a'))
+    seller.perMinute = { text: 1 }
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(new Error('cancelled')), 50)
+    await expect(callAi(db, callOf(job, step, { callIndex: 1, signal: controller.signal }))).rejects.toThrow(
+      'cancelled',
+    )
+    expect((await callRows(job.id)).map((r) => [r.state, r.error])).toEqual([
+      ['done', null],
+      ['failed', 'aborted before it was sent'],
+    ])
+  })
+
   it('gives a done call’s output again without calling the seller', async () => {
     const seller = testSeller(newSeller('a'))
     const { step } = await addStep([seller])
@@ -214,6 +241,21 @@ describe('callAi', () => {
     expect(seller.requests).toHaveLength(1)
     const [row] = await callRows(job.id)
     expect(await chargesOf(row?.id ?? '')).toHaveLength(1)
+  })
+
+  it('never charges a second try of one AI call, even one done later by an earlier run', async () => {
+    const seller = testSeller(newSeller('a'))
+    const { step, model } = await addStep([seller])
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    // An earlier run's try of the same call, done after the charged one.
+    const late = { id: `${job.id}-late`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 9, attempt: 0 }
+    await db.insert(aiCalls).values({ ...late, step, model, seller: seller.seller, state: 'done', chargeCost: 5n })
+    await setJob(job.id, { attempt: 2 })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    const charged = await db.select({ id: aiLedger.callId }).from(aiLedger).where(eq(aiLedger.jobId, job.id))
+    expect(charged.map((r) => r.id).filter((id) => id === late.id)).toEqual([])
+    await expect(db.update(aiCalls).set({ chargedAt: new Date() }).where(eq(aiCalls.id, late.id))).rejects.toThrow()
   })
 
   it('charges a call an earlier run made but could not charge, once, on the run that reuses it', async () => {

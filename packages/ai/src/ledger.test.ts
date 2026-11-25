@@ -163,6 +163,15 @@ describe('charge', () => {
     expect(await left(db, ws)).toBe(0n)
   })
 
+  it('lets two charges at once each see what the other took', async () => {
+    const ws = workspace()
+    const a = await addGrant(ws, rupees(10), { days: 10 })
+    const b = await addGrant(ws, rupees(100), { days: 20 })
+    const job = await addJob(ws)
+    await Promise.all([chargeOn(ws, job, `${job}-1`, rupees(8)), chargeOn(ws, job, `${job}-2`, rupees(8))])
+    expect(await leftOn(ws)).toEqual({ [a]: 0n, [b]: rupees(94) })
+  })
+
   it('charges a call only once', async () => {
     const ws = workspace()
     const grant = await addGrant(ws, rupees(100))
@@ -194,6 +203,30 @@ describe('endHold', () => {
     await endOn(ws, job)
     await endOn(ws, job)
     expect(await left(db, ws)).toBe(rupees(20))
+  })
+})
+
+describe('grantsOf', () => {
+  it('gives every grant, the one that expires first first, live or not, with what is left on it', async () => {
+    const ws = workspace()
+    const later = await addGrant(ws, rupees(20), { days: 20 })
+    const expired = await addGrant(ws, rupees(5), { days: -1 })
+    const job = await addJob(ws)
+    await holdOn(ws, job, rupees(4))
+    expect((await grantsOf(db, ws)).map((g) => [g.id, g.live, g.left])).toEqual([
+      [expired, false, rupees(5)],
+      [later, true, rupees(16)],
+    ])
+  })
+})
+
+describe('left', () => {
+  it('adds up what is left on the live grants, never below zero', async () => {
+    const ws = workspace()
+    expect(await left(db, ws)).toBe(0n)
+    await addGrant(ws, rupees(3), { days: 10 })
+    await addGrant(ws, rupees(4), { days: 20 })
+    expect(await left(db, ws)).toBe(rupees(7))
   })
 })
 

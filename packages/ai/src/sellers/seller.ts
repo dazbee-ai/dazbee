@@ -52,7 +52,7 @@ export interface SellerAdapter {
 }
 
 /** What a seller's error means for the call: try again, go to the next seller, or fail the call. */
-export type SellerFailure = 'retry' | 'out-of-money' | 'refused'
+export type SellerFailure = 'retry' | 'next-seller' | 'fail'
 
 /** An error answer from a seller: its HTTP status and its error code, where it gives them. */
 export class SellerError extends Error {
@@ -86,10 +86,10 @@ export function sellerAdapter(seller: string): SellerAdapter | undefined {
  */
 export function sellerFailure(error: unknown): SellerFailure {
   if (error instanceof SellerError) {
-    if (error.status === 402 || error.code === 'insufficient_quota') return 'out-of-money'
+    if (error.status === 402 || error.code === 'insufficient_quota') return 'next-seller'
     if (error.status === undefined || error.status === 429 || error.status >= 500) return 'retry'
-    return 'refused'
+    return 'fail'
   }
   // fetch rejects with a TypeError when the connection fails.
-  return error instanceof TypeError ? 'retry' : 'refused'
+  return error instanceof TypeError ? 'retry' : 'fail'
 }

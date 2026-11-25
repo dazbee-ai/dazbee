@@ -3,8 +3,10 @@
 // allowance, the cost times the grant's own usage rate. What is left on a grant is its amount plus its rows.
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
-import { aiGrants, aiLedger, aiSettings, type Db, newId, type Tx } from '@dazbee/db'
+import { aiGrants, aiLedger, type Db, newId, type Tx } from '@dazbee/db'
 import type { GrantSource } from '@dazbee/schema'
+
+import { aiSettingsOf } from './settings.ts'
 
 /** A grant to give: how much allowance, until when, from whom and why. */
 export interface NewGrant {
@@ -29,13 +31,9 @@ export interface GrantLeft {
 /** A rate of 1, as usage rates are kept (millionths). */
 const RATE_ONE = 1_000_000n
 
-/** The sum of a grant's ledger rows, in a select from `ai_grants`. */
-const ROWS_SUM = sql<string>`coalesce((select sum(l.amount) from ai_ledger l where l.grant_id = "ai_grants"."id"), 0)`
-
 /** Gives a workspace a grant at the usage rate of the day; its id. */
 export async function giveGrant(db: Db | Tx, grant: NewGrant): Promise<string> {
-  const [settings] = await db.select({ usageRate: aiSettings.usageRate }).from(aiSettings)
-  if (!settings) throw new Error('the AI settings row is missing')
+  const settings = await aiSettingsOf(db)
   const id = newId()
   await db.insert(aiGrants).values({
     id,
@@ -115,7 +113,7 @@ export async function charge(
     rest = taken.rest
   }
   if (rest > 0n) {
-    const last = held.at(-1)?.grant ?? grants.findLast((g) => charges.has(g.id)) ?? newestGrant(grants)
+    const last = held.at(-1)?.grant ?? grants.findLast((g) => charges.has(g.id)) ?? lastToExpire(grants)
     if (!last) return false
     add(charges, last.id, allowanceOf(rest, last.usageRate))
   }
@@ -174,6 +172,11 @@ function lockGrants(tx: Tx, workspace: string): Promise<GrantLeft[]> {
   return readGrants(tx, workspace, true)
 }
 
+/**
+ * The workspace's grants in order, with what is left on each. When locking, the grants are locked by one
+ * statement and their rows summed by the next, so the sums include every row committed before the lock
+ * was given.
+ */
 async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promise<GrantLeft[]> {
   const query = db
     .select({
@@ -182,13 +185,24 @@ async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promis
       usageRate: aiGrants.usageRate,
       expiresAt: aiGrants.expiresAt,
       live: sql<boolean>`${aiGrants.expiresAt} > now()`,
-      rows: ROWS_SUM,
     })
     .from(aiGrants)
     .where(eq(aiGrants.workspaceId, workspace))
     .orderBy(asc(aiGrants.expiresAt), asc(aiGrants.createdAt), asc(aiGrants.id))
-  const rows = lock ? await query.for('update') : await query
-  return rows.map(({ rows: sum, ...grant }) => ({ ...grant, left: grant.amount + BigInt(sum) }))
+  const grants = lock ? await query.for('update') : await query
+  if (grants.length === 0) return []
+  const sums = await db
+    .select({ grant: aiLedger.grantId, sum: sql<string>`sum(${aiLedger.amount})` })
+    .from(aiLedger)
+    .where(
+      inArray(
+        aiLedger.grantId,
+        grants.map((g) => g.id),
+      ),
+    )
+    .groupBy(aiLedger.grantId)
+  const byGrant = new Map(sums.map((s) => [s.grant, BigInt(s.sum)]))
+  return grants.map((grant) => ({ ...grant, left: grant.amount + (byGrant.get(grant.id) ?? 0n) }))
 }
 
 /** Each grant `job` holds on, in the grants' order, with the allowance it still holds there. */
@@ -218,6 +232,6 @@ function allowanceOf(cost: bigint, rate: bigint): bigint {
 }
 
 /** The grant that expires last, for a charge on a job that held nothing. */
-function newestGrant(grants: GrantLeft[]): GrantLeft | undefined {
+function lastToExpire(grants: GrantLeft[]): GrantLeft | undefined {
   return grants.at(-1)
 }

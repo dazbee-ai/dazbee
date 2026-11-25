@@ -1,7 +1,7 @@
 // Pricing usage from the price list, to the millionth.
 import { describe, expect, it } from 'vitest'
 
-import { priceRows, priceUsage } from './price-list.ts'
+import { currencyRate, priceRows, pricesOf, priceUsage } from './price-list.ts'
 import { addPrices, db, DOLLAR, newSeller, RUPEE } from './test-ai.ts'
 
 describe('priceUsage', () => {
@@ -24,6 +24,24 @@ describe('priceUsage', () => {
     await addPrices(seller, 'gpt', [{ unit: 'input-token', pricePerMillion: 1_000_000n }])
     await expect(priceUsage(db, seller, 'gpt', { 'output-token': 1 })).rejects.toThrow('no price for output-token')
     await expect(priceUsage(db, seller, 'other', { 'input-token': 1 })).rejects.toThrow('no price')
+  })
+})
+
+describe('currencyRate', () => {
+  it('gives a currency’s rate in millionths of a rupee, and fails for one with none', async () => {
+    expect(await currencyRate(db, 'INR')).toBe(RUPEE)
+    await expect(currencyRate(db, 'XXX')).rejects.toThrow('no rate for XXX')
+  })
+})
+
+describe('pricesOf', () => {
+  it('gives a model’s price rows at a seller, and none for a model it doesn’t sell', async () => {
+    const seller = newSeller('zenmux')
+    await addPrices(seller, 'gpt', [{ unit: 'input-token', pricePerMillion: 5n, fee: 10 }])
+    expect(await pricesOf(db, seller, 'gpt')).toEqual([
+      { unit: 'input-token', currency: 'USD', pricePerMillion: 5n, fee: 10 },
+    ])
+    expect(await pricesOf(db, seller, 'other')).toEqual([])
   })
 })
 

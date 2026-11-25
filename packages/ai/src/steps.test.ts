@@ -82,6 +82,25 @@ describe('STEPS', () => {
   })
 })
 
+describe('stepDef', () => {
+  it('gives a step’s entry, and fails for a step not in the list', () => {
+    expect(stepDef('read').kind).toBe('text')
+    expect(() => stepDef('no-such-step')).toThrow('no AI step no-such-step')
+  })
+})
+
+describe('routeStep', () => {
+  it('gives the step’s model and the sellers that can take it, in order, skipping one with no adapter or price', async () => {
+    const first = testSeller(newSeller('a'))
+    const second = testSeller(newSeller('b'))
+    const { step, model } = await addStep([first, { seller: newSeller('gone') }, second])
+    const route = await routeStep(db, step)
+    expect(route.model).toBe(model)
+    expect(route.sellers.map((s) => s.seller)).toEqual([first.seller, second.seller])
+    expect((await routeStep(db, step, [second.seller])).sellers.map((s) => s.seller)).toEqual([second.seller])
+  })
+})
+
 describe('holdFor', () => {
   it('holds a quarter more than the expected cost at the first seller', async () => {
     const first = testSeller(newSeller('a'))

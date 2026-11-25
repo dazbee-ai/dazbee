@@ -17,6 +17,7 @@ CREATE TABLE "ai_calls" (
 	"real_cost" bigint,
 	"charge_cost" bigint,
 	"error" text,
+	"charged_at" timestamp with time zone,
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ended_at" timestamp with time zone
 );
@@ -105,6 +106,7 @@ CREATE TABLE "model_sellers" (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "ai_calls_try" ON "ai_calls" USING btree ("job_id","call_index","try");--> statement-breakpoint
+CREATE UNIQUE INDEX "ai_calls_one_charge" ON "ai_calls" USING btree ("job_id","call_index") WHERE "ai_calls"."charged_at" is not null;--> statement-breakpoint
 CREATE INDEX "ai_calls_started" ON "ai_calls" USING btree ("started_at");--> statement-breakpoint
 CREATE INDEX "ai_calls_seller" ON "ai_calls" USING btree ("seller","started_at");--> statement-breakpoint
 CREATE INDEX "ai_grants_workspace" ON "ai_grants" USING btree ("workspace_id","expires_at");--> statement-breakpoint
@@ -112,7 +114,8 @@ CREATE INDEX "ai_jobs_workspace" ON "ai_jobs" USING btree ("workspace_id","state
 CREATE INDEX "ai_ledger_grant" ON "ai_ledger" USING btree ("grant_id");--> statement-breakpoint
 CREATE INDEX "ai_ledger_job" ON "ai_ledger" USING btree ("job_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "ai_ledger_one_charge" ON "ai_ledger" USING btree ("call_id","grant_id") WHERE "ai_ledger"."kind" = 'charge';--> statement-breakpoint
-CREATE UNIQUE INDEX "model_sellers_position" ON "model_sellers" USING btree ("model","position");--> statement-breakpoint
+CREATE UNIQUE INDEX "model_sellers_position" ON "model_sellers" USING btree ("model","position");
+--> statement-breakpoint
 CREATE FUNCTION "ai_ledger_add_only"() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
 	RAISE EXCEPTION 'ai_ledger rows are only ever added';

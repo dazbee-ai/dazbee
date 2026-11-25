@@ -123,7 +123,7 @@ export const aiGrants = pgTable(
 
 /**
  * The allowance ledger: rows are only ever added (a trigger refuses any change). A hold and a charge are
- * minus, a give-back plus. A call is charged once on each grant it is charged to.
+ * minus, a give-back plus. A charged try of an AI call has one charge row on each grant it is charged to.
  */
 export const aiLedger = pgTable(
   'ai_ledger',
@@ -194,11 +194,16 @@ export const aiCalls = pgTable(
     realCost: millionths('real_cost'),
     chargeCost: millionths('charge_cost'),
     error: text(),
+    /** When this try was charged to its job's hold; one try of an AI call at most is ever charged. */
+    chargedAt: timestamp('charged_at', { withTimezone: true }),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
   },
   (t) => [
     uniqueIndex('ai_calls_try').on(t.jobId, t.callIndex, t.try),
+    uniqueIndex('ai_calls_one_charge')
+      .on(t.jobId, t.callIndex)
+      .where(sql`${t.chargedAt} is not null`),
     index('ai_calls_started').on(t.startedAt),
     index('ai_calls_seller').on(t.seller, t.startedAt),
   ],

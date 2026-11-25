@@ -1,5 +1,5 @@
 // AI calls and metering (ADR-0022, ADR-0023), shared by the API and the worker.
-export { type AiCall, callAi, CallFailed, type PictureFiles, TIMEOUTS } from './call.ts'
+export { type AiCall, callAi, CallFailed, type CallFailure, type PictureFiles, TIMEOUTS } from './call.ts'
 export {
   charge,
   endHold,
@@ -22,4 +22,5 @@ export {
   type SellerRequest,
   useSeller,
 } from './sellers/seller.ts'
-export { type AiSettings, holdFor, routeStep, type StepDef, STEPS } from './steps.ts'
+export { type AiSettings, aiSettingsOf } from './settings.ts'
+export { holdFor, routeStep, type StepDef, STEPS } from './steps.ts'

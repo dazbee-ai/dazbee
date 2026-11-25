@@ -1,15 +1,16 @@
 // The one function every AI call goes through: it picks the AI step's model and that model's sellers,
 // tries each under its pacing and the retry rules, writes a call-log row per try, prices what a call
 // delivered and charges it to its AI job's hold, once.
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 
-import { aiCalls, aiJobs, aiSettings, type Db, newId, type Tx } from '@dazbee/db'
-import type { CallInput, CallKind, CallOutput, MadePicture } from '@dazbee/schema'
+import { aiCalls, aiJobs, type Db, newId, type Tx } from '@dazbee/db'
+import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbee/schema'
 
 import { charge } from './ledger.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
 import { type SellerAnswer, sellerFailure, type SellerOutput } from './sellers/seller.ts'
+import { aiSettingsOf } from './settings.ts'
 import { routeStep, stepDef, type StepSeller } from './steps.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
@@ -35,16 +36,26 @@ export interface AiCall {
   files?: PictureFiles
 }
 
-/** Why a call failed for good: a seller refused it, or no seller was left to try. */
-export class CallFailed extends Error {
-  readonly reason: 'refused' | 'no-seller'
+/**
+ * Why a call failed for good: a seller refused it, no seller was left to try, or a seller made it but we
+ * couldn't store or price what it made.
+ */
+export type CallFailure = 'refused' | 'no-seller' | 'lost'
 
-  constructor(reason: 'refused' | 'no-seller', message: string) {
+/** A call that failed for good: its job fails, with no try left. */
+export class CallFailed extends Error {
+  readonly reason: CallFailure
+
+  constructor(reason: CallFailure, message: string) {
     super(message)
     this.name = 'CallFailed'
     this.reason = reason
   }
 }
+
+/** What one try came to: an answer, or the error and what follows it. */
+type TryResult =
+  { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' }
 
 /** How long a call of each kind may take before it counts as failed (and as an unknown call). */
 export const TIMEOUTS: Record<CallKind, number> = {
@@ -73,7 +84,7 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
     for (let tried = 0; tried < TRIES_PER_SELLER; tried++) {
       const row = await startTry(db, call, route.model, seller.seller)
       const result = await tryOnce(db, call, route.options, seller, row)
-      if (result.ok) return finish(db, call, route.model, seller.seller, row, result.answer)
+      if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
       if (result.next === 'fail')
         throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
@@ -82,10 +93,6 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   }
   throw new CallFailed('no-seller', `no seller made ${call.step}: ${lastError}`)
 }
-
-/** What one try came to: an answer, or the error and what follows it. */
-type TryResult =
-  { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' }
 
 /**
  * The output of the call when an earlier try of it is done; the call is charged now if the run that made
@@ -106,10 +113,32 @@ async function doneOutput(db: Db, call: AiCall): Promise<CallOutput | null> {
   return output
 }
 
+/**
+ * Charges try `row` `cost` when its job is still running on this run and no try of the same AI call was
+ * charged before; otherwise the call stays our cost. Locks the job row first, so two runs of the job never
+ * charge at once, and the one-charge index on the call log refuses a second charged try whatever happens.
+ */
+async function chargeIfRunning(tx: Tx, call: AiCall, row: string, cost: bigint): Promise<void> {
+  const [job] = await tx
+    .select({ state: aiJobs.state, attempt: aiJobs.attempt, workspaceId: aiJobs.workspaceId })
+    .from(aiJobs)
+    .where(eq(aiJobs.id, call.job.id))
+    .for('update')
+  if (!job || job.state !== 'running' || job.attempt !== call.attempt) return
+  const [charged] = await tx
+    .select({ id: aiCalls.id })
+    .from(aiCalls)
+    .where(and(eq(aiCalls.jobId, call.job.id), eq(aiCalls.callIndex, call.callIndex), isNotNull(aiCalls.chargedAt)))
+    .limit(1)
+  if (charged) return
+  await tx.update(aiCalls).set({ chargedAt: new Date() }).where(eq(aiCalls.id, row))
+  await charge(tx, { workspace: job.workspaceId, job: call.job.id, call: row, cost })
+}
+
 /** Writes the call-log row of a new try, as running; its id. */
 async function startTry(db: Db, call: AiCall, model: string, seller: string): Promise<string> {
   const id = newId()
-  for (let attempt = 0; ; attempt++) {
+  for (let clash = 0; ; clash++) {
     try {
       await db.insert(aiCalls).values({
         id,
@@ -125,9 +154,14 @@ async function startTry(db: Db, call: AiCall, model: string, seller: string): Pr
       return id
     } catch (error) {
       // Another run of the job took the same try number at the same moment.
-      if (attempt >= 2 || !isUniqueViolation(error)) throw error
+      if (clash >= 2 || !isUniqueViolation(error)) throw error
     }
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const cause = error instanceof Error && 'cause' in error ? error.cause : error
+  return typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === '23505'
 }
 
 /** Makes one try at `seller` under its pacing and timeout, and logs one that failed. */
@@ -159,85 +193,100 @@ async function tryOnce(
     return { ok: true, answer }
   } catch (error) {
     if (call.signal.aborted) {
-      await endTry(db, row, 'unknown', 'aborted')
+      // A call aborted while it waited its turn never reached the seller.
+      await endTry(db, row, timeout ? 'unknown' : 'failed', timeout ? 'aborted' : 'aborted before it was sent')
       throw call.signal.reason
     }
     if (timeout?.aborted) {
       await endTry(db, row, 'unknown', 'timed out')
       return { ok: false, error: 'timed out', next: 'retry' }
     }
-    const message = error instanceof Error ? error.message : String(error)
-    const failure = sellerFailure(error)
-    await endTry(db, row, 'failed', failure === 'out-of-money' ? `out of money: ${message}` : message)
-    return {
-      ok: false,
-      error: message,
-      next: failure === 'retry' ? 'retry' : failure === 'out-of-money' ? 'next-seller' : 'fail',
-    }
+    const message = messageOf(error)
+    const next = sellerFailure(error)
+    await endTry(db, row, 'failed', next === 'next-seller' ? `out of money: ${message}` : message)
+    return { ok: false, error: message, next }
   }
+}
+
+function files(call: AiCall): PictureFiles {
+  if (!call.files) throw new Error(`the AI step ${call.step} needs its pictures' storage`)
+  return call.files
+}
+
+async function keepRequestId(db: Db, row: string, id: string): Promise<void> {
+  await db.update(aiCalls).set({ sellerRequestId: id }).where(eq(aiCalls.id, row))
+}
+
+/** `promise`, or a rejection once `signal` aborts, for an adapter that doesn't stop when asked. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason)
+    if (signal.aborted) abort()
+    signal.addEventListener('abort', abort, { once: true })
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
+  })
+}
+
+/** Marks a try's row failed or unknown, with why, and the usage the seller reported, if it answered. */
+async function endTry(
+  db: Db,
+  row: string,
+  state: 'failed' | 'unknown',
+  error: string,
+  usage: Usage | null = null,
+): Promise<void> {
+  await db
+    .update(aiCalls)
+    .set({ state, error: error.slice(0, 1000), endedAt: new Date(), ...(usage ? { usage } : {}) })
+    .where(eq(aiCalls.id, row))
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /**
  * Stores what the call made, prices it, and in one transaction marks its row done, keeps its output on the
- * job and charges it; its output.
+ * job and charges it; its output. A seller made and billed a call whose output can't be stored or priced,
+ * so its row becomes unknown, keeping the usage, and the call fails for good.
  */
 async function finish(
   db: Db,
   call: AiCall,
-  model: string,
-  seller: string,
-  row: string,
+  made: { model: string; seller: string; row: string },
   answer: SellerAnswer,
 ): Promise<CallOutput> {
-  let output: CallOutput
   try {
-    output = await storeOutput(call, answer.output)
+    const output = await storeOutput(call, answer.output)
+    const priced = await priceUsage(db, made.seller, made.model, answer.usage)
+    const def = stepDef(call.step)
+    const chargeCost = def.fixedCost ? def.fixedCost(await aiSettingsOf(db), call.input) : priced.realCost
+    await db.transaction(async (tx) => {
+      await tx
+        .update(aiCalls)
+        .set({
+          state: 'done',
+          sellerRequestId: answer.requestId ?? sql`${aiCalls.sellerRequestId}`,
+          usage: answer.usage,
+          currency: priced.currency,
+          sellerCost: priced.sellerCost,
+          reportedCost: answer.reportedCost === undefined ? null : BigInt(Math.round(answer.reportedCost * 1e6)),
+          realCost: priced.realCost,
+          chargeCost,
+          endedAt: new Date(),
+        })
+        .where(eq(aiCalls.id, made.row))
+      await tx
+        .update(aiJobs)
+        .set({ callOutputs: sql`${aiJobs.callOutputs} || ${JSON.stringify({ [call.callIndex]: output })}::jsonb` })
+        .where(eq(aiJobs.id, call.job.id))
+      await chargeIfRunning(tx, call, made.row, chargeCost)
+    })
+    return output
   } catch (error) {
-    // The seller made and billed it, but we lost what it made.
-    await endTry(db, row, 'unknown', `not stored: ${error instanceof Error ? error.message : String(error)}`)
-    throw error
+    await endTry(db, made.row, 'unknown', `not kept: ${messageOf(error)}`, answer.usage)
+    throw new CallFailed('lost', `${made.seller} made ${call.step}, but it was not kept: ${messageOf(error)}`)
   }
-  const priced = await priceUsage(db, seller, model, answer.usage)
-  const def = stepDef(call.step)
-  const [settings] = await db.select().from(aiSettings)
-  if (!settings) throw new Error('the AI settings row is missing')
-  const chargeCost = def.fixedCost ? def.fixedCost(settings, call.input) : priced.realCost
-  await db.transaction(async (tx) => {
-    await tx
-      .update(aiCalls)
-      .set({
-        state: 'done',
-        sellerRequestId: answer.requestId ?? sql`${aiCalls.sellerRequestId}`,
-        usage: answer.usage,
-        currency: priced.currency,
-        sellerCost: priced.sellerCost,
-        reportedCost: answer.reportedCost === undefined ? null : BigInt(Math.round(answer.reportedCost * 1e6)),
-        realCost: priced.realCost,
-        chargeCost,
-        endedAt: new Date(),
-      })
-      .where(eq(aiCalls.id, row))
-    await tx
-      .update(aiJobs)
-      .set({ callOutputs: sql`${aiJobs.callOutputs} || ${JSON.stringify({ [call.callIndex]: output })}::jsonb` })
-      .where(eq(aiJobs.id, call.job.id))
-    await chargeIfRunning(tx, call, row, chargeCost)
-  })
-  return output
-}
-
-/**
- * Charges call-log row `row` `cost` when its job is still running on this run; otherwise the call stays our
- * cost. Locks the job row first, so two runs of the job never charge at once.
- */
-async function chargeIfRunning(tx: Tx, call: AiCall, row: string, cost: bigint): Promise<void> {
-  const [job] = await tx
-    .select({ state: aiJobs.state, attempt: aiJobs.attempt, workspaceId: aiJobs.workspaceId })
-    .from(aiJobs)
-    .where(eq(aiJobs.id, call.job.id))
-    .for('update')
-  if (!job || job.state !== 'running' || job.attempt !== call.attempt) return
-  await charge(tx, { workspace: job.workspaceId, job: call.job.id, call: row, cost })
 }
 
 /** Stores the pictures in `output` as the workspace's originals. */
@@ -254,36 +303,4 @@ async function storeOutput(call: AiCall, output: SellerOutput): Promise<CallOutp
   if (output.kind === 'pictures') return { kind: 'pictures', pictures: await store(output) }
   const layers = await store({ kind: 'pictures', pictures: output.layers })
   return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
-}
-
-function files(call: AiCall): PictureFiles {
-  if (!call.files) throw new Error(`the AI step ${call.step} needs its pictures' storage`)
-  return call.files
-}
-
-async function keepRequestId(db: Db, row: string, id: string): Promise<void> {
-  await db.update(aiCalls).set({ sellerRequestId: id }).where(eq(aiCalls.id, row))
-}
-
-/** Marks a try's row failed or unknown, with why. */
-async function endTry(db: Db, row: string, state: 'failed' | 'unknown', error: string): Promise<void> {
-  await db
-    .update(aiCalls)
-    .set({ state, error: error.slice(0, 1000), endedAt: new Date() })
-    .where(eq(aiCalls.id, row))
-}
-
-/** `promise`, or a rejection once `signal` aborts, for an adapter that doesn't stop when asked. */
-function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const abort = () => reject(signal.reason)
-    if (signal.aborted) abort()
-    signal.addEventListener('abort', abort, { once: true })
-    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
-  })
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const cause = error instanceof Error && 'cause' in error ? error.cause : error
-  return typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === '23505'
 }

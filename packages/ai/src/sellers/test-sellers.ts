@@ -1,6 +1,6 @@
 // Test sellers: adapters scripted, try by try, to answer, fail with a status, time out or report a given
 // usage. Imported by tests only.
-import type { CallKind, Usage } from '@dazbee/schema'
+import { CALL_KINDS, type Usage } from '@dazbee/schema'
 
 import { type SellerAdapter, type SellerAnswer, SellerError, type SellerOutput, type SellerRequest } from './seller.ts'
 
@@ -22,8 +22,6 @@ export const TEST_TIMEOUT_MS = 200
 /** The usage a test seller reports when its try names none. */
 const USAGE: Usage = { 'input-token': 1000, 'output-token': 500 }
 
-const KINDS: CallKind[] = ['text', 'picture', 'picture-edit', 'layer-split']
-
 /**
  * A seller named `seller` that plays `tries` in order, then answers every try after them. An answer with
  * no output gives text, or one 8 × 8 picture for a picture call.
@@ -33,7 +31,7 @@ export function testSeller(seller: string, tries: TestTry[] = []): TestSeller {
   return {
     seller,
     requests,
-    timeouts: Object.fromEntries(KINDS.map((kind) => [kind, TEST_TIMEOUT_MS])),
+    timeouts: Object.fromEntries(CALL_KINDS.map((kind) => [kind, TEST_TIMEOUT_MS])),
     async call(request) {
       const script = tries[requests.length] ?? {}
       requests.push(request)

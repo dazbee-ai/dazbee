@@ -19,8 +19,8 @@ import {
   ModelSellersInput,
   Seller,
   SellerFileUpload,
-  UsageUnit,
   UnpricedModel,
+  UsageUnit,
   WrongKind,
 } from '@dazbee/schema'
 

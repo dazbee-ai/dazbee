@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   accessRequests,
+  aiCalls,
+  aiGrants,
+  aiJobs,
+  aiLedger,
   assets,
   brands,
   dazbeeInvites,
@@ -324,6 +328,50 @@ describe('DELETE /me', () => {
     expect(await storage.list(`workspaces/${own.id}/`)).toEqual([])
     expect(workos.made.deletedOrganizations).toContain(organizationOf(own.id))
     expect(workos.made.deletedUsers).toContain(person.workosUserId)
+  })
+
+  it('keeps the call log, the allowance ledger, the grants and the AI jobs of the workspace it deletes', async () => {
+    const { own, person } = await soloAccount()
+    const ai = { grant: `grant-${person.id}`, job: `job-${person.id}`, call: `call-${person.id}` }
+    await db.insert(aiGrants).values({
+      id: ai.grant,
+      workspaceId: own.id,
+      source: 'gift',
+      amount: 10_000_000n,
+      usageRate: 1_000_000n,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      givenBy: person.id,
+    })
+    await db
+      .insert(aiJobs)
+      .values({ id: ai.job, workspaceId: own.id, memberId: person.id, kind: 'ai-steps', state: 'done', input: {} })
+    await db.insert(aiCalls).values({
+      id: ai.call,
+      jobId: ai.job,
+      workspaceId: own.id,
+      callIndex: 0,
+      try: 1,
+      attempt: 1,
+      step: 'read',
+      model: 'gpt-6-luna',
+      seller: 'openai',
+      state: 'done',
+    })
+    await db.insert(aiLedger).values({ grantId: ai.grant, jobId: ai.job, callId: ai.call, kind: 'charge', amount: -1n })
+    expect((await deleteAs(person.as, person.email, [own.id])).status).toBe(204)
+    await finished([`workspaces/${own.id}/`, organizationOf(own.id), person.workosUserId])
+    expect(await db.select({ id: aiGrants.id }).from(aiGrants).where(eq(aiGrants.workspaceId, own.id))).toEqual([
+      { id: ai.grant },
+    ])
+    expect(await db.select({ id: aiJobs.id }).from(aiJobs).where(eq(aiJobs.workspaceId, own.id))).toEqual([
+      { id: ai.job },
+    ])
+    expect(await db.select({ id: aiCalls.id }).from(aiCalls).where(eq(aiCalls.workspaceId, own.id))).toEqual([
+      { id: ai.call },
+    ])
+    expect(await db.select({ call: aiLedger.callId }).from(aiLedger).where(eq(aiLedger.jobId, ai.job))).toEqual([
+      { call: ai.call },
+    ])
   })
 
   it('lets the person sign up again with the same email into a new, empty workspace', async () => {

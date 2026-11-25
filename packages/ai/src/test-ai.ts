@@ -1,0 +1,145 @@
+// Fixtures for the AI tests, against Postgres from Docker Compose (`docker compose up -d --wait postgres`):
+// workspaces, jobs and grants of their own, and models with test sellers and prices under names no other
+// test uses, so test files running side by side never meet. Imported by tests only.
+import { eq } from 'drizzle-orm'
+import { afterAll } from 'vitest'
+
+import { aiGrants, aiJobs, aiLedger, aiPrices, aiStepModels, modelSellers, newId, openDatabase } from '@dazbee/db'
+import type { AiJobState, CallKind, UsageUnit } from '@dazbee/schema'
+
+import type { PictureFiles } from './call.ts'
+import { type SellerAdapter, useSeller } from './sellers/seller.ts'
+import { STEPS } from './steps.ts'
+import { DATABASE_URL } from './test-database.ts'
+
+/** A price row for a test model, per million units in millionths of the currency. */
+export interface TestPrice {
+  unit: UsageUnit
+  pricePerMillion: bigint
+  fee?: number
+  currency?: string
+}
+
+/** A seller of a test model: its adapter, if one is in use, and its prices (token prices for an adapter by default). */
+export interface TestModelSeller {
+  seller: string
+  adapter?: SellerAdapter
+  prices?: TestPrice[]
+}
+
+/** US$1 for a million input tokens and US$2 for a million output tokens, with no fee. */
+export const TOKEN_PRICES: TestPrice[] = [
+  { unit: 'input-token', pricePerMillion: 1_000_000n },
+  { unit: 'output-token', pricePerMillion: 2_000_000n },
+]
+
+/** One rupee, in millionths. */
+export const RUPEE = 1_000_000n
+
+/** The dollar's starting rate, in millionths of a rupee. */
+export const DOLLAR = 96_172_200n
+
+export const { db, close } = openDatabase(DATABASE_URL)
+
+afterAll(close)
+
+/** A workspace id no other test uses. */
+export const newWorkspace = () => `ws-${newId()}`
+
+/** A seller name no other test uses. */
+export const newSeller = (name: string) => `test-${name}-${newId()}`
+
+/** Saves an AI job of `workspace`, running on its first attempt unless told otherwise; its id. */
+export async function addJob(
+  workspace: string,
+  { state = 'running', attempt = 1 }: { state?: AiJobState; attempt?: number } = {},
+): Promise<string> {
+  const id = newId()
+  await db
+    .insert(aiJobs)
+    .values({ id, workspaceId: workspace, memberId: 'member', kind: 'test', state, attempt, input: {} })
+  return id
+}
+
+/** Changes a job's state or attempt, as a run of the worker would. */
+export async function setJob(job: string, change: { state?: AiJobState; attempt?: number }): Promise<void> {
+  await db.update(aiJobs).set(change).where(eq(aiJobs.id, job))
+}
+
+/** Gives `workspace` a grant of `amount` at `rate` (millionths) that expires in `days`; its id. */
+export async function addGrant(
+  workspace: string,
+  amount: bigint,
+  { rate = RUPEE, days = 30 }: { rate?: bigint; days?: number } = {},
+): Promise<string> {
+  const id = newId()
+  await db.insert(aiGrants).values({
+    id,
+    workspaceId: workspace,
+    source: 'gift',
+    amount,
+    usageRate: rate,
+    expiresAt: new Date(Date.now() + days * 86_400_000),
+  })
+  return id
+}
+
+/** A job's ledger rows, oldest first, as grant, kind and amount. */
+export async function ledgerOf(job: string) {
+  return db
+    .select({ grant: aiLedger.grantId, kind: aiLedger.kind, amount: aiLedger.amount, call: aiLedger.callId })
+    .from(aiLedger)
+    .where(eq(aiLedger.jobId, job))
+    .orderBy(aiLedger.id)
+}
+
+/**
+ * A test-only AI step of `kind` running a new model sold by `sellers` in order; the step's name and the
+ * model's. The sellers' adapters are put in use.
+ */
+export async function addStep(
+  sellers: (SellerAdapter | TestModelSeller)[],
+  { kind = 'text' }: { kind?: CallKind } = {},
+): Promise<{ step: string; model: string }> {
+  const id = newId()
+  const step = `test-step-${id}`
+  const model = `test-model-${id}`
+  STEPS[step] = { kind, expected: () => ({ 'input-token': 1000, 'output-token': 500 }) }
+  await db.insert(aiStepModels).values({ step, model })
+  for (const [position, given] of sellers.entries()) {
+    const entry: TestModelSeller = 'call' in given ? { seller: given.seller, adapter: given } : given
+    if (entry.adapter) useSeller(entry.adapter)
+    await db.insert(modelSellers).values({ model, seller: entry.seller, position })
+    await addPrices(entry.seller, model, entry.prices ?? (entry.adapter ? TOKEN_PRICES : []))
+  }
+  return { step, model }
+}
+
+/** Writes price rows for `model` at `seller`. */
+export async function addPrices(seller: string, model: string, prices: TestPrice[]): Promise<void> {
+  if (prices.length === 0) return
+  await db.insert(aiPrices).values(
+    prices.map((p) => ({
+      seller,
+      model,
+      unit: p.unit,
+      currency: p.currency ?? 'USD',
+      pricePerMillion: p.pricePerMillion,
+      fee: p.fee ?? 0,
+    })),
+  )
+}
+
+/** Picture storage in memory. */
+export function memoryFiles(): PictureFiles & { saved: Map<string, Uint8Array> } {
+  const saved = new Map<string, Uint8Array>()
+  return {
+    saved,
+    read: async (key) => saved.get(key) ?? new Uint8Array(),
+    save: async (bytes) => {
+      const key = `test/${newId()}`
+      saved.set(key, bytes)
+      return key
+    },
+  }
+}

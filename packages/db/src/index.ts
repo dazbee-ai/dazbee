@@ -5,14 +5,19 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import pg from 'pg'
 
+import * as aiTables from './ai-tables.ts'
 import * as tables from './tables.ts'
 
+export * from './ai-tables.ts'
 export * from './ids.ts'
 export * from './journal.ts'
 export * from './tables.ts'
 export * from './versions.ts'
 
-export type Db = NodePgDatabase<typeof tables> & { $client: pg.Pool }
+/** Every table, as the query builder knows them. */
+const schema = { ...tables, ...aiTables }
+
+export type Db = NodePgDatabase<typeof schema> & { $client: pg.Pool }
 
 export interface Database {
   db: Db
@@ -27,7 +32,7 @@ const MIGRATION_LOCK = 4_120_917_351
 
 export function openDatabase(url: string, { max = 4 } = {}): Database {
   const pool = new pg.Pool({ connectionString: url, max })
-  return { db: drizzle(pool, { schema: tables }), close: () => pool.end() }
+  return { db: drizzle(pool, { schema }), close: () => pool.end() }
 }
 
 /**

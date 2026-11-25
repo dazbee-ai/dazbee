@@ -17,13 +17,13 @@ import {
   UpdateAsset,
   UPLOAD_LINK_PATH,
 } from '@dazbee/schema'
-import type { Storage } from '@dazbee/storage'
+import { originalKey, type Storage } from '@dazbee/storage'
 
 import type { Admins } from '../admin/admins.ts'
 import { requestLimit } from '../admin/waiting-list.ts'
 import type { SafeFetchSettings } from '../fetch/safe-fetch.ts'
 import { body, type Env, error, requireWriter } from '../http.ts'
-import { originalKey, signedLink } from '../storage-keys.ts'
+import { signedLink } from '../storage-keys.ts'
 import {
   deleteAsset,
   ensureThumbnail,

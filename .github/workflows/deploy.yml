@@ -109,17 +109,68 @@ jobs:
         run: |
           tar -C deploy -cf - . |
             ssh server 'rm -rf /opt/dazbee/deploy.next && mkdir /opt/dazbee/deploy.next && tar -xf - -C /opt/dazbee/deploy.next'
-      # The .env from the environment's variables and secrets, which deploy.sh puts in place once no other deploy runs. A
+      # The .env from the environment's variables and secrets, each named here (tests/deploy/check.sh checks
+      # this list against deploy/env.example), which deploy.sh puts in place once no other deploy runs. A
       # commit from before deploy/env-file.sh keeps the server's .env as it is.
       - if: steps.commit.outputs.skip != 'true'
         name: Copy the .env
         id: env
         env:
-          VARS: ${{ toJSON(vars) }}
-          SECRETS: ${{ toJSON(secrets) }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || vars.POSTGRES_PASSWORD }}
+          SYNC_TOKEN_SECRET: ${{ secrets.SYNC_TOKEN_SECRET || vars.SYNC_TOKEN_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET || vars.SESSION_SECRET }}
+          WORKOS_API_KEY: ${{ secrets.WORKOS_API_KEY || vars.WORKOS_API_KEY }}
+          WORKOS_CLIENT_ID: ${{ secrets.WORKOS_CLIENT_ID || vars.WORKOS_CLIENT_ID }}
+          WORKOS_REDIRECT_URI: ${{ secrets.WORKOS_REDIRECT_URI || vars.WORKOS_REDIRECT_URI }}
+          STORAGE_ENDPOINT: ${{ secrets.STORAGE_ENDPOINT || vars.STORAGE_ENDPOINT }}
+          STORAGE_BUCKET: ${{ secrets.STORAGE_BUCKET || vars.STORAGE_BUCKET }}
+          STORAGE_ACCESS_KEY_ID: ${{ secrets.STORAGE_ACCESS_KEY_ID || vars.STORAGE_ACCESS_KEY_ID }}
+          STORAGE_SECRET_ACCESS_KEY: ${{ secrets.STORAGE_SECRET_ACCESS_KEY || vars.STORAGE_SECRET_ACCESS_KEY }}
+          R2_BACKUP_ENDPOINT: ${{ secrets.R2_BACKUP_ENDPOINT || vars.R2_BACKUP_ENDPOINT }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET || vars.R2_BACKUP_BUCKET }}
+          R2_BACKUP_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID || vars.R2_BACKUP_ACCESS_KEY_ID }}
+          R2_BACKUP_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY || vars.R2_BACKUP_SECRET_ACCESS_KEY }}
+          ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS || vars.ALLOWED_EMAILS }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS || vars.ADMIN_EMAILS }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY || vars.TURNSTILE_SECRET_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY || vars.PIXABAY_API_KEY }}
+          SUPPORT_EMAIL: ${{ secrets.SUPPORT_EMAIL || vars.SUPPORT_EMAIL }}
+          PILOT_HOST: ${{ secrets.PILOT_HOST || vars.PILOT_HOST }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY || vars.TURNSTILE_SITE_KEY }}
+          MCP_AGENT_TABS: ${{ secrets.MCP_AGENT_TABS || vars.MCP_AGENT_TABS }}
+          MCP_AGENT_TABS_PER_ACCESS: ${{ secrets.MCP_AGENT_TABS_PER_ACCESS || vars.MCP_AGENT_TABS_PER_ACCESS }}
+          MCP_SESSIONS: ${{ secrets.MCP_SESSIONS || vars.MCP_SESSIONS }}
+          MCP_SESSIONS_PER_ACCESS: ${{ secrets.MCP_SESSIONS_PER_ACCESS || vars.MCP_SESSIONS_PER_ACCESS }}
+          MCP_SESSION_IDLE_MINUTES: ${{ secrets.MCP_SESSION_IDLE_MINUTES || vars.MCP_SESSION_IDLE_MINUTES }}
+          MCP_CALLS_BURST: ${{ secrets.MCP_CALLS_BURST || vars.MCP_CALLS_BURST }}
+          MCP_CALLS_PER_SECOND: ${{ secrets.MCP_CALLS_PER_SECOND || vars.MCP_CALLS_PER_SECOND }}
+          MCP_RENDERS_BURST: ${{ secrets.MCP_RENDERS_BURST || vars.MCP_RENDERS_BURST }}
+          MCP_RENDER_EVERY_SECONDS: ${{ secrets.MCP_RENDER_EVERY_SECONDS || vars.MCP_RENDER_EVERY_SECONDS }}
+          MCP_RENDERS_WAITING: ${{ secrets.MCP_RENDERS_WAITING || vars.MCP_RENDERS_WAITING }}
+          MCP_DESIGNS_PER_HOUR: ${{ secrets.MCP_DESIGNS_PER_HOUR || vars.MCP_DESIGNS_PER_HOUR }}
+          SYNC_LOADED_MB: ${{ secrets.SYNC_LOADED_MB || vars.SYNC_LOADED_MB }}
+          SYNC_IDLE_DESIGNS: ${{ secrets.SYNC_IDLE_DESIGNS || vars.SYNC_IDLE_DESIGNS }}
+          SYNC_IDLE_SECONDS: ${{ secrets.SYNC_IDLE_SECONDS || vars.SYNC_IDLE_SECONDS }}
+          AGENT_SIGN_INS_PER_HOUR: ${{ secrets.AGENT_SIGN_INS_PER_HOUR || vars.AGENT_SIGN_INS_PER_HOUR }}
+          AGENT_REGISTRATIONS_PER_HOUR: ${{ secrets.AGENT_REGISTRATIONS_PER_HOUR || vars.AGENT_REGISTRATIONS_PER_HOUR }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || vars.OPENAI_API_KEY }}
+          MUSE_API_KEY: ${{ secrets.MUSE_API_KEY || vars.MUSE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || vars.OPENROUTER_API_KEY }}
+          ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY || vars.ZENMUX_API_KEY }}
+          PIXAZO_API_KEY: ${{ secrets.PIXAZO_API_KEY || vars.PIXAZO_API_KEY }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID || vars.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET || vars.MODAL_TOKEN_SECRET }}
+          MODAL_ENVIRONMENT: ${{ secrets.MODAL_ENVIRONMENT || vars.MODAL_ENVIRONMENT }}
+          OPENAI_ADMIN_API_KEY: ${{ secrets.OPENAI_ADMIN_API_KEY || vars.OPENAI_ADMIN_API_KEY }}
+          OPENAI_PROJECT_ID: ${{ secrets.OPENAI_PROJECT_ID || vars.OPENAI_PROJECT_ID }}
+          OPENROUTER_MANAGEMENT_API_KEY: ${{ secrets.OPENROUTER_MANAGEMENT_API_KEY || vars.OPENROUTER_MANAGEMENT_API_KEY }}
+          OPENROUTER_KEY_HASH: ${{ secrets.OPENROUTER_KEY_HASH || vars.OPENROUTER_KEY_HASH }}
+          ZENMUX_PLATFORM_API_KEY: ${{ secrets.ZENMUX_PLATFORM_API_KEY || vars.ZENMUX_PLATFORM_API_KEY }}
+          ZENMUX_KEY_ID: ${{ secrets.ZENMUX_KEY_ID || vars.ZENMUX_KEY_ID }}
+          WORKER_AI_CALLS: ${{ secrets.WORKER_AI_CALLS || vars.WORKER_AI_CALLS }}
         run: |
           [ -f deploy/env-file.sh ] || exit 0
-          { printenv VARS && printenv SECRETS; } | deploy/env-file.sh > "$RUNNER_TEMP/env"
+          deploy/env-file.sh > "$RUNNER_TEMP/env"
           ssh server 'umask 077 && cat > /opt/dazbee/env.next' < "$RUNNER_TEMP/env"
           rm "$RUNNER_TEMP/env"
           echo 'option=--env env.next' >> "$GITHUB_OUTPUT"

@@ -88,17 +88,21 @@ compose stop web-green api-green
 # Caddy reloads when the Caddyfile changed since the last deploy, and a reload drops the TLS handshakes
 # in flight, so the first deploy, which loads it, runs before the probe.
 step "0. $commit, the first deploy, which puts this checkout's deploy/ and a .env made from settings in place as the workflow does"
-# The stack's settings as the workflow reads them, one JSON object of variables, then one of secrets.
-settings=$(grep -v '_TAG=' .env | jq -R 'split("=") | {(.[0]): (.[1:] | join("="))}' | jq -s add)
-if jq 'del(.POSTGRES_PASSWORD)' <<< "$settings" | "$repo/deploy/env-file.sh" > /dev/null 2>&1; then
-  fail 'env-file.sh passed with no POSTGRES_PASSWORD'
-fi
-if jq '.SESSION_SECRET = "a b"' <<< "$settings" | "$repo/deploy/env-file.sh" > /dev/null 2>&1; then
+# The Deploy workflow names each setting deploy/env.example lists, so env-file.sh sees all of them.
+for name in $(sed -n 's/^\([A-Z0-9_]*\)=.*/\1/p' "$repo/deploy/env.example"); do
+  grep -qF "$name: \${{ secrets.$name || vars.$name }}" "$repo/.github/workflows/deploy.yml" ||
+    fail "the Deploy workflow does not pass $name to env-file.sh"
+done
+# The stack's settings as the workflow sets them, in env-file.sh's own environment and nothing else.
+env_file() { env -i PATH="$PATH" "$@" "$repo/deploy/env-file.sh"; }
+mapfile -t settings < <(grep -v '_TAG=' .env)
+mapfile -t no_password < <(grep -v -e '_TAG=' -e '^POSTGRES_PASSWORD=' .env)
+if env_file "${no_password[@]}" > /dev/null 2>&1; then fail 'env-file.sh passed with no POSTGRES_PASSWORD'; fi
+if env_file "${settings[@]}" 'SESSION_SECRET=a b' > /dev/null 2>&1; then
   fail 'env-file.sh passed with a space in a value'
 fi
-{ echo '{"MODAL_ENVIRONMENT":"check"}' && jq '.DEPLOY_SSH_KEY = "not-a-setting"' <<< "$settings"; } |
-  "$repo/deploy/env-file.sh" > env.next
-! grep -q '^DEPLOY_SSH_KEY=' env.next || fail 'env-file.sh wrote a secret env.example does not list'
+env_file "${settings[@]}" MODAL_ENVIRONMENT=check DEPLOY_SSH_KEY=not-a-setting > env.next
+! grep -q '^DEPLOY_SSH_KEY=' env.next || fail 'env-file.sh wrote a setting env.example does not list'
 # The image tags the stack's .env holds beyond the example.
 grep '_TAG=' .env >> env.next
 cp .env env.before

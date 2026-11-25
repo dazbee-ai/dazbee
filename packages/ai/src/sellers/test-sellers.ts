@@ -27,18 +27,23 @@ const USAGE: Usage = { 'input-token': 1000, 'output-token': 500 }
 /**
  * A seller named `seller` that plays `tries` in order, then answers every try after them, each after `afterMs`
  * when given. An answer with no output gives text, or one 8 × 8 picture for a picture call. A call times
- * out after `timeoutMs`.
+ * out after `timeoutMs`. A `resumable` seller says it answers later by request id.
  */
 export function testSeller(
   seller: string,
   tries: TestTry[] = [],
-  { afterMs = 0, timeoutMs = TEST_TIMEOUT_MS }: { afterMs?: number; timeoutMs?: number } = {},
+  {
+    afterMs = 0,
+    timeoutMs = TEST_TIMEOUT_MS,
+    resumable = false,
+  }: { afterMs?: number; timeoutMs?: number; resumable?: boolean } = {},
 ): TestSeller {
   const requests: SellerRequest[] = []
   return {
     seller,
     requests,
     timeouts: Object.fromEntries(CALL_KINDS.map((kind) => [kind, timeoutMs])),
+    resumable,
     async call(request) {
       const script = tries[requests.length] ?? {}
       requests.push(request)

@@ -258,6 +258,36 @@ describe('callAi', () => {
     await expect(db.update(aiCalls).set({ chargedAt: new Date() }).where(eq(aiCalls.id, late.id))).rejects.toThrow()
   })
 
+  it('asks a resumable seller about an earlier attempt’s call by its request id instead of calling again', async () => {
+    const seller = testSeller(newSeller('a'), [], { resumable: true })
+    const { step, model } = await addStep([seller])
+    const job = await heldJob()
+    await setJob(job.id, { attempt: 2 })
+    const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
+    await db
+      .insert(aiCalls)
+      .values({
+        ...earlier,
+        attempt: 1,
+        step,
+        model,
+        seller: seller.seller,
+        state: 'unknown',
+        sellerRequestId: 'req-x',
+      })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-x'])
+    const rows = await db
+      .select({ state: aiCalls.state, error: aiCalls.error })
+      .from(aiCalls)
+      .where(eq(aiCalls.jobId, job.id))
+      .orderBy(asc(aiCalls.try))
+    expect(rows).toEqual([
+      { state: 'failed', error: 'resumed by a later try' },
+      { state: 'done', error: null },
+    ])
+  })
+
   it('charges a call an earlier run made but could not charge, once, on the run that reuses it', async () => {
     const seller = testSeller(newSeller('a'))
     const { step } = await addStep([seller])

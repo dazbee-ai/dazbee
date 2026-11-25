@@ -1,7 +1,7 @@
 // The one function every AI call goes through: it picks the AI step's model and that model's sellers,
 // tries each under its pacing and the retry rules, writes a call-log row per try, prices what a call
 // delivered and charges it to its AI job's hold, once.
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 
 import { aiCalls, aiJobs, type Db, newId, type Tx } from '@dazbee/db'
 import type { CallInput, CallKind, CallOutput, MadePicture, Usage } from '@dazbee/schema'
@@ -79,11 +79,14 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   const done = await doneOutput(db, call)
   if (done) return done
   const route = await routeStep(db, call.step, call.sellers)
+  const resume = await resumable(db, call, route.sellers)
+  const sellers = resume ? [resume.seller, ...route.sellers.filter((s) => s !== resume.seller)] : route.sellers
   let lastError = 'no seller can take it'
-  for (const seller of route.sellers) {
+  for (const seller of sellers) {
     for (let tried = 0; tried < TRIES_PER_SELLER; tried++) {
       const row = await startTry(db, call, route.model, seller.seller)
-      const result = await tryOnce(db, call, route.options, seller, row)
+      const resumeId = tried === 0 && seller === resume?.seller ? await resumeTry(db, resume, row) : undefined
+      const result = await tryOnce(db, call, route.options, seller, row, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
       if (result.next === 'fail')
@@ -92,6 +95,42 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
     }
   }
   throw new CallFailed('no-seller', `no seller made ${call.step}: ${lastError}`)
+}
+
+/**
+ * An earlier attempt's try of the call that a seller may still be making, for a seller that answers later
+ * by its request id: its row, its request id and the seller to ask again.
+ */
+async function resumable(db: Db, call: AiCall, sellers: StepSeller[]) {
+  const [earlier] = await db
+    .select({ id: aiCalls.id, seller: aiCalls.seller, requestId: aiCalls.sellerRequestId })
+    .from(aiCalls)
+    .where(
+      and(
+        eq(aiCalls.jobId, call.job.id),
+        eq(aiCalls.callIndex, call.callIndex),
+        inArray(aiCalls.state, ['running', 'unknown']),
+        isNotNull(aiCalls.sellerRequestId),
+        lt(aiCalls.attempt, call.attempt),
+      ),
+    )
+    .orderBy(desc(aiCalls.try))
+    .limit(1)
+  const seller = sellers.find((s) => s.seller === earlier?.seller && s.adapter.resumable)
+  return earlier?.requestId && seller ? { row: earlier.id, requestId: earlier.requestId, seller } : null
+}
+
+/**
+ * Takes the earlier try's request over for the new try `row`: the new row keeps its request id, and the earlier
+ * row is marked failed, so the one request is logged once. Gives the request id to resume.
+ */
+async function resumeTry(db: Db, resume: { row: string; requestId: string }, row: string): Promise<string> {
+  await db.update(aiCalls).set({ sellerRequestId: resume.requestId }).where(eq(aiCalls.id, row))
+  await db
+    .update(aiCalls)
+    .set({ state: 'failed', error: 'resumed by a later try', endedAt: new Date() })
+    .where(eq(aiCalls.id, resume.row))
+  return resume.requestId
 }
 
 /**
@@ -171,6 +210,7 @@ async function tryOnce(
   options: Record<string, unknown>,
   seller: StepSeller,
   row: string,
+  resumeId?: string,
 ): Promise<TryResult> {
   const kind = call.input.kind
   // The time a call may take starts once its turn under the seller's pacing comes.
@@ -187,6 +227,7 @@ async function tryOnce(
         signal,
         readPicture: (key) => files(call).read(key),
         keepRequestId: (id) => keepRequestId(db, row, id),
+        ...(resumeId ? { resumeId } : {}),
       }),
       signal,
     )

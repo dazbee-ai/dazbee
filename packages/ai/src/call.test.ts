@@ -320,17 +320,15 @@ describe('callAi', () => {
     const job = await heldJob()
     await setJob(job.id, { attempt: 2 })
     const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
-    await db
-      .insert(aiCalls)
-      .values({
-        ...earlier,
-        attempt: 1,
-        step,
-        model,
-        seller: seller.seller,
-        state: 'unknown',
-        sellerRequestId: 'req-gone',
-      })
+    await db.insert(aiCalls).values({
+      ...earlier,
+      attempt: 1,
+      step,
+      model,
+      seller: seller.seller,
+      state: 'unknown',
+      sellerRequestId: 'req-gone',
+    })
     await callAi(db, callOf(job, step, { attempt: 2 }))
     expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-gone', undefined])
   })

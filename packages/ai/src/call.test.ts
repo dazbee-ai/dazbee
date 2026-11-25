@@ -58,7 +58,7 @@ describe('callAi', () => {
     const output = await callAi(db, callOf(job, step))
     expect(output).toEqual({ kind: 'text', text: 'test answer' })
     const rows = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job.id))
-    // US$0.002 at ₹96.1722 with no fee.
+    // US$0.002 at ₹96.31 with no fee.
     expect(rows).toMatchObject([
       {
         step,
@@ -69,11 +69,11 @@ describe('callAi', () => {
         usage: { 'input-token': 1000, 'output-token': 500 },
         currency: 'USD',
         sellerCost: 2_000n,
-        realCost: 192_344n,
-        chargeCost: 192_344n,
+        realCost: 192_620n,
+        chargeCost: 192_620n,
       },
     ])
-    expect(await chargesOf(rows[0]?.id ?? '')).toEqual([{ amount: -192_344n }])
+    expect(await chargesOf(rows[0]?.id ?? '')).toEqual([{ amount: -192_620n }])
   })
 
   it('tries a seller that fails with a 5xx once more, then the next seller, and charges only the call made', async () => {

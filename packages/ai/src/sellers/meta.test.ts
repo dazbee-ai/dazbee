@@ -54,11 +54,11 @@ describe('metaSeller', () => {
     expect(answer.output).toMatchObject({ kind: 'pictures', pictures: [{ width: 16, height: 16 }] })
     expect(answer.usage).toEqual({ picture: 1 })
     expect(answer.requestId).toBe('meta-test')
-    // ₹0.93 a picture, as Meta bills this account, with no fee.
+    // ₹0.93 a picture, as Meta bills this account, with 18% GST.
     expect(await priceUsage(db, 'meta', 'muse-image-1.0', answer.usage)).toEqual({
       currency: 'INR',
       sellerCost: 930_000n,
-      realCost: 930_000n,
+      realCost: 1_097_400n,
     })
   })
 

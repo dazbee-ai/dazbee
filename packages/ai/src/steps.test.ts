@@ -9,7 +9,7 @@ import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, STEPS, unpricedSellers } from './steps.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './steps.ts'
 import {
   addJob,
   addPrices,
@@ -243,10 +243,14 @@ describe('holdFor', () => {
       kind: 'picture',
     })
     const input: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
-    expect(await holdFor(db, [{ step: both.step, input }])).toBeGreaterThan(0n)
-    expect(await unpricedSellers(db, both.model, 'picture')).toEqual([
-      { seller: 'pixazo', units: ['reference-picture'] },
-    ])
+    // The hold is the priced seller's alone: pixazo, priced in part, is left out.
+    expect(await holdFor(db, [{ step: both.step, input }])).toBe(
+      await holdFor(db, [{ step: both.step, input, sellers: [priced.seller] }]),
+    )
+    expect(await sellerPricing(db, both.model, 'picture')).toEqual({
+      priced: 1,
+      unpriced: [{ seller: 'pixazo', units: ['reference-picture'] }],
+    })
     const alone = await addStep([unpriced], { kind: 'picture' })
     await expect(holdFor(db, [{ step: alone.step, input }])).rejects.toThrow('no seller is priced')
   })

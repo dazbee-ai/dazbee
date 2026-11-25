@@ -125,6 +125,14 @@ describe('zenmuxSeller', () => {
     expect(answer.usage).toEqual({ picture: 1 })
   })
 
+  it('edits with GPT Image through its OpenAI Images API, reporting its tokens', async () => {
+    const { fetch, sent } = fakeFetch([['/images/edits', { body: fixture('openai-images.json') }]])
+    const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(EDIT, 'openai/gpt-image-2.5-sunburst'))
+    expect(sent[0]?.url).toBe('https://zenmux.ai/api/v1/images/edits')
+    expect(answer.usage).toEqual({ 'input-token': 34, 'image-input-token': 0, 'image-output-token': 439 })
+    expectDeclared('zenmux', 'picture', 'openai/gpt-image-2.5-sunburst', answer.usage)
+  })
+
   it('reads a Vertex error answer as the retry rules say', async () => {
     const failures = []
     for (const status of [429, 503, 402, 400]) {

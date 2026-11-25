@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { CUT_OFF, STEPS } from '@dazbee/ai'
-import { aiCalls, aiStepModels, newId } from '@dazbee/db'
+import { aiCalls, aiPrices, aiStepModels, modelSellers, newId } from '@dazbee/db'
 import { AiKindModelView, AiStepModelView } from '@dazbee/schema'
 
 import { db, run } from '../test-api.ts'
@@ -105,5 +105,35 @@ describe('the model routes', () => {
     const steps = AiStepModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/step-models')).json)
     expect(steps.find((s) => s.step === 'flow.draft-fast')).toMatchObject({ source: 'kind', updatedAt: null })
     expect(steps.find((s) => s.step === 'flow.refine')).toMatchObject({ source: 'override', model: 'seedream-5.5' })
+  })
+
+  it('refuses a kind default whose sellers are priced only in part, or that no seller in its order sells', async () => {
+    const partly = `test-model-${run}-partly`
+    await db.insert(modelSellers).values({ model: partly, seller: 'pixazo', position: 1 })
+    await db.insert(aiPrices).values({
+      seller: 'pixazo',
+      model: partly,
+      unit: 'picture',
+      currency: 'USD',
+      pricePerMillion: 1_000_000n,
+    })
+    try {
+      expect(await ask(admin.token, 'PUT', '/admin/ai/kind-models/picture', { model: partly })).toMatchObject({
+        status: 400,
+        json: {
+          error: `${partly} can't be chosen yet: pixazo has no price for reference-picture`,
+          unpriced: { model: partly, priced: 0, sellers: [{ seller: 'pixazo', units: ['reference-picture'] }] },
+        },
+      })
+      // Its only seller is taken out of its order: no seller is left to take its calls.
+      await db.delete(modelSellers).where(eq(modelSellers.model, partly))
+      expect(await ask(admin.token, 'PUT', '/admin/ai/kind-models/picture', { model: partly })).toMatchObject({
+        status: 400,
+        json: { error: `No seller of ${partly} has a price for it` },
+      })
+    } finally {
+      await db.delete(modelSellers).where(eq(modelSellers.model, partly))
+      await db.delete(aiPrices).where(eq(aiPrices.model, partly))
+    }
   })
 })

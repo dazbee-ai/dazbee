@@ -1772,6 +1772,10 @@ export const en = {
       badOptions: 'Options are a JSON object, such as {"quality":"medium"}.',
       /** Why an AI step can't run a model of another kind. */
       wrongKind: '{step} runs {wants}, and {model} is {is}, priced in {units}.',
+      /** Why a model can't be chosen while a seller in its order lacks a price for a unit it reports. */
+      unpriced: '{model} can’t be chosen yet: {missing}. Add the prices in the price list first.',
+      unpricedSeller: '{seller} has no price for {units}',
+      noPricedSeller: '{model} can’t be chosen yet: no seller in its order has a price for every unit it reports.',
       /** Why a kind's default can't be a model of another kind. */
       wrongKindDefault: 'The {kind} default must be {wants}, and {model} is {is}, priced in {units}.',
       source: 'Runs',

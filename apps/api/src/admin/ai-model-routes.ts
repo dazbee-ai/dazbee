@@ -5,7 +5,7 @@
 import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
-import { CUT_OFF, modelKinds, stepDef, STEPS, unpricedSellers } from '@dazbee/ai'
+import { CUT_OFF, modelKinds, sellerPricing, stepDef, STEPS } from '@dazbee/ai'
 import { aiCalls, aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
@@ -16,6 +16,7 @@ import {
   CALL_KINDS,
   type CallKind,
   type MeasuredSizes,
+  type UnpricedModel,
   type UsageUnit,
   type WrongKind,
 } from '@dazbee/schema'
@@ -226,10 +227,12 @@ async function refusedModel(
   const units = (await pricedUnits(db)).get(model)
   if (!units) return c.json(error(`No seller of ${model} has a price for it`), 400)
   if (modelKinds(units).includes(kind)) {
-    const unpriced = await unpricedSellers(db, model, kind)
-    if (unpriced.length === 0) return null
-    const named = unpriced.map((u) => `${u.seller} has no price for ${u.units.join(', ') || 'its calls'}`).join('; ')
-    return c.json({ ...error(`${model} can't be chosen yet: ${named}`), unpriced }, 400)
+    const { priced, unpriced } = await sellerPricing(db, model, kind)
+    if (priced > 0 && unpriced.length === 0) return null
+    const named = unpriced.map((u) => `${u.seller} has no price for ${u.units.join(', ')}`)
+    const why = named.length > 0 ? named.join('; ') : 'no seller in its order has a price for every unit it reports'
+    const unpricedModel = { model, priced, sellers: unpriced } satisfies UnpricedModel
+    return c.json({ ...error(`${model} can't be chosen yet: ${why}`), unpriced: unpricedModel }, 400)
   }
   const wrongKind = {
     ...(step ? { step } : {}),

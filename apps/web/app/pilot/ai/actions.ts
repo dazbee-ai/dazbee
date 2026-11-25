@@ -20,6 +20,7 @@ import {
   Seller,
   SellerFileUpload,
   UsageUnit,
+  UnpricedModel,
   WrongKind,
 } from '@dazbee/schema'
 
@@ -148,6 +149,8 @@ async function change<T extends z.ZodType>(
  * units' names as the page shows them.
  */
 function wrongKindWords(refusal: Refusal, t: Messages['pilotAi']): string | null {
+  const unpriced = z.object({ unpriced: UnpricedModel }).safeParse(refusal.body)
+  if (unpriced.success) return unpricedWords(unpriced.data.unpriced, t)
   const body = z.object({ wrongKind: WrongKind }).safeParse(refusal.body)
   if (!body.success) return null
   const { step, model, units, wants, is } = body.data.wrongKind
@@ -160,4 +163,19 @@ function wrongKindWords(refusal: Refusal, t: Messages['pilotAi']): string | null
     is: is ? t.stepModels.kinds[is] : t.stepModels.kinds.none,
     units: units.map((unit) => t.units[unit]).join(', '),
   })
+}
+
+/** Why a model can't be chosen yet, with the sellers' and units' names as the page shows them. */
+function unpricedWords({ model, sellers }: UnpricedModel, t: Messages['pilotAi']): string {
+  if (sellers.length === 0) return format(t.stepModels.noPricedSeller, { model })
+  const named = (words: Record<string, string>, name: string) => (Object.hasOwn(words, name) ? words[name] : name)
+  const missing = sellers
+    .map(({ seller, units }) =>
+      format(t.stepModels.unpricedSeller, {
+        seller: named(t.sellers, seller) ?? seller,
+        units: units.map((unit) => t.units[unit]).join(', '),
+      }),
+    )
+    .join('; ')
+  return format(t.stepModels.unpriced, { model, missing })
 }

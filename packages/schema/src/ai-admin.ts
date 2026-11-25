@@ -185,6 +185,17 @@ export const WrongKind = z.object({
 })
 export type WrongKind = z.infer<typeof WrongKind>
 
+/**
+ * Why a model can't be a kind's default or a step's own model yet: how many sellers in its order are priced
+ * for it, and those priced only in part, each with the units it reports that have no price.
+ */
+export const UnpricedModel = z.object({
+  model: z.string(),
+  priced: z.number().int(),
+  sellers: z.array(z.object({ seller: z.string(), units: z.array(UsageUnit) })),
+})
+export type UnpricedModel = z.infer<typeof UnpricedModel>
+
 /** A workspace an admin found by its name or a member's email, with its members' emails. */
 export const AiWorkspace = z.object({ id: z.string(), name: z.string(), emails: z.array(z.string()) })
 export type AiWorkspace = z.infer<typeof AiWorkspace>

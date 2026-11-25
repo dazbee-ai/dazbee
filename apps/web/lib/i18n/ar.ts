@@ -1597,6 +1597,9 @@ export const ar: Messages = {
       saveFor: 'احفظ نموذج {step}',
       badOptions: 'الخيارات كائن JSON، مثل {"quality":"medium"}.',
       wrongKind: '{step} يشغّل {wants}، أما {model} فهو {is}، ومسعّر بوحدات: {units}.',
+      unpriced: 'لا يمكن اختيار {model} بعد: {missing}. أضف الأسعار في قائمة الأسعار أولًا.',
+      unpricedSeller: 'ليس لدى {seller} سعر لـ {units}',
+      noPricedSeller: 'لا يمكن اختيار {model} بعد: لا بائع في ترتيبه له سعر لكل وحدة يبلّغ عنها.',
       wrongKindDefault:
         'يجب أن يكون النموذج الافتراضي لنوع {kind} {wants}، أما {model} فهو {is}، ومسعّر بوحدات: {units}.',
       source: 'يشغّل',

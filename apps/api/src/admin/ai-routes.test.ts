@@ -266,7 +266,11 @@ describe('/admin/ai', () => {
       status: 400,
       json: {
         error: `${model} can't be chosen yet: openai has no price for input-token, image-input-token, image-output-token`,
-        unpriced: [{ seller: 'openai', units: ['input-token', 'image-input-token', 'image-output-token'] }],
+        unpriced: {
+          model,
+          priced: 0,
+          sellers: [{ seller: 'openai', units: ['input-token', 'image-input-token', 'image-output-token'] }],
+        },
       },
     })
     for (const [priced, unit] of [

@@ -51,6 +51,16 @@ describe('saveStepModel', () => {
     )
   })
 
+  it('names the sellers and units a model has no price for, as the page shows them', async () => {
+    const unpriced = { model: 'seedream-5.5', priced: 1, sellers: [{ seller: 'pixazo', units: ['reference-picture'] }] }
+    vi.mocked(setStepModel).mockRejectedValue(
+      new ApiFailure(400, 'seedream-5.5 can’t be chosen yet', { error: '', unpriced }),
+    )
+    expect(await saveStepModel('flow.resize', { model: 'seedream-5.5', options: {} })).toBe(
+      'seedream-5.5 can’t be chosen yet: Pixazo has no price for Reference pictures. Add the prices in the price list first.',
+    )
+  })
+
   it('keeps the API’s words for any other refusal', async () => {
     vi.mocked(setStepModel).mockRejectedValue(new ApiFailure(400, 'No seller of x has a price for it'))
     expect(await saveStepModel('flow.resize', { model: 'x', options: {} })).toBe('No seller of x has a price for it')

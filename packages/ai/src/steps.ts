@@ -174,59 +174,28 @@ export async function holdFor(
 }
 
 /**
- * The sellers of `model` that price it in some units but not in every unit they report for `kind` calls, each
- * with the units missing: none when every seller in the model's order that sells it is priced. A seller with
- * no price for the model at all doesn't sell it here, and no call goes to it.
+ * How `model`'s sellers are priced for `kind` calls: how many are, and those that price it in some units but
+ * not in every unit they report, each with the units missing. A seller with no price for the model at all
+ * doesn't sell it here, and no call goes to it.
  */
-export async function unpricedSellers(
+export async function sellerPricing(
   db: Db | Tx,
   model: string,
   kind: CallKind,
-): Promise<{ seller: string; units: UsageUnit[] }[]> {
+): Promise<{ priced: number; unpriced: { seller: string; units: UsageUnit[] }[] }> {
   const order = await db
     .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
     .from(modelSellers)
     .where(eq(modelSellers.model, model))
     .orderBy(asc(modelSellers.position))
+  let priced = 0
   const unpriced: { seller: string; units: UsageUnit[] }[] = []
   for (const { seller, sellerModel } of order) {
     const check = await priceCheck(db, seller, model, sellerModel ?? model, kind)
-    if (check.rows.length > 0 && !check.priced) unpriced.push({ seller, units: check.missing })
+    if (check.priced) priced++
+    else if (check.rows.length > 0) unpriced.push({ seller, units: check.missing })
   }
-  return unpriced
-}
-
-/**
- * Whether `seller` is priced for `kind` calls of `model`: it has a price for every unit it reports for them
- * (a seller with no declared units, only tests', for any unit at all); its price rows, the units a call is
- * priced in there, and those with no price.
- */
-async function priceCheck(db: Db | Tx, seller: string, model: string, sellerModel: string, kind: CallKind) {
-  const rows = await pricesOf(db, seller, model)
-  const has = new Set(rows.map((row) => row.unit))
-  const declared = declaredUnits(seller, kind, sellerModel)
-  const units = new Set(declared ?? has)
-  const missing = declared ? declared.filter((unit) => !has.has(unit)) : []
-  return { rows, units, missing, priced: rows.length > 0 && units.size > 0 && missing.length === 0 }
-}
-
-/** Why a seller is not priced, as the route logs it. */
-function unpricedReason(missing: UsageUnit[]): string {
-  return missing.length > 0 ? `no price for ${missing.join(', ')}` : 'no price'
-}
-
-/**
- * What a call of `def` is expected to use: a text step's input counted from the call's instructions and
- * prompt (a token for every 4 characters) and `PICTURE_INPUT_TOKENS` for each picture it reads, with its
- * expected output; any other call as its step expects.
- */
-function expectedUsage(def: StepDef, input: CallInput): Usage {
-  if (!def.sizes || input.kind !== 'text') return def.expected(input)
-  const characters = input.instructions.length + input.prompt.length
-  return {
-    'input-token': Math.ceil(characters / 4) + input.pictures.length * PICTURE_INPUT_TOKENS,
-    'output-token': def.sizes.output,
-  }
+  return { priced, unpriced }
 }
 
 /**
@@ -261,6 +230,39 @@ async function modelOf(db: Db | Tx, step: string, only?: string[]) {
     ? only.map((seller) => ({ seller, sellerModel: sellers.find((s) => s.seller === seller)?.sellerModel ?? null }))
     : sellers
   return { choice, order }
+}
+
+/**
+ * Whether `seller` is priced for `kind` calls of `model`: it has a price for every unit it reports for them
+ * (a seller with no declared units, only tests', for any unit at all); its price rows, the units a call is
+ * priced in there, and those with no price.
+ */
+async function priceCheck(db: Db | Tx, seller: string, model: string, sellerModel: string, kind: CallKind) {
+  const rows = await pricesOf(db, seller, model)
+  const has = new Set(rows.map((row) => row.unit))
+  const declared = declaredUnits(seller, kind, sellerModel)
+  const units = new Set(declared ?? has)
+  const missing = declared ? declared.filter((unit) => !has.has(unit)) : []
+  return { rows, units, missing, priced: rows.length > 0 && units.size > 0 && missing.length === 0 }
+}
+
+/** Why a seller is not priced, as the route logs it. */
+function unpricedReason(missing: UsageUnit[]): string {
+  return missing.length > 0 ? `no price for ${missing.join(', ')}` : 'no price'
+}
+
+/**
+ * What a call of `def` is expected to use: a text step's input counted from the call's instructions and
+ * prompt (a token for every 4 characters) and `PICTURE_INPUT_TOKENS` for each picture it reads, with its
+ * expected output; any other call as its step expects.
+ */
+function expectedUsage(def: StepDef, input: CallInput): Usage {
+  if (!def.sizes || input.kind !== 'text') return def.expected(input)
+  const characters = input.instructions.length + input.prompt.length
+  return {
+    'input-token': Math.ceil(characters / 4) + input.pictures.length * PICTURE_INPUT_TOKENS,
+    'output-token': def.sizes.output,
+  }
 }
 
 /** The model `step` runs and its options: its own, or its kind's default. */

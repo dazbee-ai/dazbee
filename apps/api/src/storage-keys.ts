@@ -6,7 +6,6 @@ import { MATCH_COPY_VERSION } from '@dazbee/fonts'
 import type { DesignSummary, SignedLink } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
-export const originalKey = (workspaceId: string, sha256: string) => `workspaces/${workspaceId}/originals/${sha256}`
 /** The asset library's small copy of an original, made once and shared like the original (#52). */
 export const assetThumbnailKey = (workspaceId: string, sha256: string) =>
   `workspaces/${workspaceId}/thumbnails/${sha256}`

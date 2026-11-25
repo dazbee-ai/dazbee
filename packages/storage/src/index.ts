@@ -3,6 +3,8 @@
 // straight to storage through short-lived signed URLs, and reads come back through the API.
 import { AwsClient } from 'aws4fetch'
 
+export * from './keys.ts'
+
 export interface StorageSettings {
   /** The S3 endpoint, such as http://127.0.0.1:59000 or https://<account>.r2.cloudflarestorage.com. */
   endpoint: string

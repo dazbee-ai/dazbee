@@ -57,7 +57,7 @@ export async function addJob(
   const id = newId()
   await db
     .insert(aiJobs)
-    .values({ id, workspaceId: workspace, memberId: 'member', kind: 'test', state, attempt, input: {} })
+    .values({ id, workspaceId: workspace, memberId: 'member', kind: 'ai-steps', state, attempt, input: {} })
   return id
 }
 

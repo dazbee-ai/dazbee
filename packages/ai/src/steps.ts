@@ -92,22 +92,23 @@ export async function routeStep(db: Db | Tx, step: string, only?: string[]): Pro
 
 /**
  * What `calls` should hold, in millionths of a rupee of real cost: each call's expected usage priced at its
- * model's first seller (units that seller doesn't price are left out), or its fixed amount, times 1.25.
+ * model's first seller (units that seller doesn't price are left out), or its fixed amount, times 1.25. A
+ * call's own `sellers`, or else `only`, stands in for the model's sellers.
  */
 export async function holdFor(
   db: Db | Tx,
-  calls: { step: string; input: CallInput }[],
+  calls: { step: string; input: CallInput; sellers?: string[] | undefined }[],
   { sellers: only }: { sellers?: string[] } = {},
 ): Promise<bigint> {
   const settings = await aiSettingsOf(db)
   let total = 0n
-  for (const { step, input } of calls) {
+  for (const { step, input, sellers } of calls) {
     const def = stepDef(step)
     if (def.fixedCost) {
       total += def.fixedCost(settings, input)
       continue
     }
-    const route = await routeStep(db, step, only)
+    const route = await routeStep(db, step, sellers ?? only)
     const first = route.sellers[0]
     if (!first) throw new Error(`no seller can take the AI step ${step}`)
     const rows = await pricesOf(db, first.seller, route.model)

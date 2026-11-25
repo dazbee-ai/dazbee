@@ -146,3 +146,47 @@ export const CallOutput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('layers'), layers: z.array(MadePicture), gpuSeconds: z.number().nonnegative() }),
 ])
 export type CallOutput = z.infer<typeof CallOutput>
+
+/** The kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved. */
+export const AI_JOB_KINDS = ['ai-steps'] as const
+
+export const AiJobKind = z.enum(AI_JOB_KINDS)
+export type AiJobKind = z.infer<typeof AiJobKind>
+
+/** What an AI job's pg-boss job carries: the AI job's id. */
+export const AiJobMessage = z.object({ job: z.string().min(1) })
+export type AiJobMessage = z.infer<typeof AiJobMessage>
+
+/** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
+export const AiStepsCall = z.object({
+  step: z.string().min(1).max(100),
+  input: CallInput,
+  sellers: z.array(z.string().min(1).max(100)).min(1).max(10).optional(),
+})
+export type AiStepsCall = z.infer<typeof AiStepsCall>
+
+/** What an `ai-steps` job runs: its calls, by call index. */
+export const AiStepsInput = z.object({ calls: z.array(AiStepsCall).min(1).max(50) })
+export type AiStepsInput = z.infer<typeof AiStepsInput>
+
+/** What a done `ai-steps` job gave back: each call's output, by call index. */
+export const AiStepsOutput = z.object({ outputs: z.array(CallOutput) })
+export type AiStepsOutput = z.infer<typeof AiStepsOutput>
+
+/** Why saving an AI job was refused: the member may not use AI, the allowance is used up, or the day's spending stop is in force. */
+export const AI_JOB_REFUSALS = ['not-allowed', 'used-up', 'stopped'] as const
+
+export const AiJobRefusal = z.enum(AI_JOB_REFUSALS)
+export type AiJobRefusal = z.infer<typeof AiJobRefusal>
+
+/** An AI job as its workspace reads it: its state, and its output once done or why it failed. */
+export const AiJobView = z.object({
+  id: z.string(),
+  kind: AiJobKind,
+  state: AiJobState,
+  output: AiStepsOutput.nullable(),
+  error: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  endedAt: z.iso.datetime().nullable(),
+})
+export type AiJobView = z.infer<typeof AiJobView>

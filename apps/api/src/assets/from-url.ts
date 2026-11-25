@@ -13,11 +13,10 @@ import {
   MAX_UPLOAD_BYTES,
   readImageHeader,
 } from '@dazbee/schema'
-import type { Storage } from '@dazbee/storage'
+import { originalKey, type Storage } from '@dazbee/storage'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
 import { type FetchedFile, safeFetch, type SafeFetchSettings } from '../fetch/safe-fetch.ts'
-import { originalKey } from '../storage-keys.ts'
 import { InvalidUpload, recordAsset, withTags } from './assets.ts'
 
 /** Another picture is being added from a link; this one is refused until it ends. */

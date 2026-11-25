@@ -1,6 +1,7 @@
-# Local and CI services: Postgres, S3-compatible storage (#35), the API (#33) and the sync server (#8).
+# Local and CI services: Postgres, S3-compatible storage (#35), the API (#33), the sync server (#8) and the
+# worker, which runs AI jobs (ADR-0022).
 # Start with `docker compose up -d --wait`; the servers run from this checkout's installed packages.
-# The API runs the migrations on start, so the sync server waits for it.
+# The API runs the migrations on start, so the sync server and the worker wait for it.
 # Health checks run every second while a service starts, then every 30 s, so that once up they
 # stop starting a node process every 2 s beside the app in use (#36).
 name: dazbee
@@ -116,6 +117,42 @@ services:
           'node',
           '-e',
           "fetch('http://localhost:1234').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 30s
+      start_period: 60s
+      start_interval: 1s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    image: node:26.13.0-slim
+    working_dir: /repo
+    command: ['node', 'apps/worker/src/main.ts']
+    environment:
+      DATABASE_URL: postgres://dazbee:dazbee-local@postgres:5432/dazbee
+      WORKER_PORT: '8790'
+      WORKER_AI_CALLS: '8'
+      STORAGE_ENDPOINT: http://storage:9000
+      STORAGE_BUCKET: dazbee
+      STORAGE_ACCESS_KEY_ID: dazbee
+      STORAGE_SECRET_ACCESS_KEY: dazbee-local-secret
+      STORAGE_REGION: us-east-1
+    volumes:
+      - ./:/repo:ro
+    ports:
+      - '127.0.0.1:8790:8790'
+    depends_on:
+      api:
+        condition: service_healthy
+    # The worker waits up to 110 s for running AI jobs when it stops.
+    stop_grace_period: 120s
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8790/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
         ]
       interval: 30s
       start_period: 60s

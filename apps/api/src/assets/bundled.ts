@@ -4,10 +4,10 @@
 // the header, the decode, and for an SVG file the SVG reader's thread and limits).
 import type { Db } from '@dazbee/db'
 import { type AddBundledAsset, type AssetSummary, readImageHeader } from '@dazbee/schema'
-import type { Storage } from '@dazbee/storage'
+import { originalKey, type Storage } from '@dazbee/storage'
 import { SVG_TYPE, svgMarkup } from '@dazbee/svg'
 
-import { BUNDLED, bundledKey, originalKey } from '../storage-keys.ts'
+import { BUNDLED, bundledKey } from '../storage-keys.ts'
 import { findAsset, recordAsset, withTags } from './assets.ts'
 
 /** A bundled file as its manifest lists it: at least its SHA-256. */

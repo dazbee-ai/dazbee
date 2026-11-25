@@ -1,7 +1,9 @@
 // Bundled files, against Postgres and storage from Docker Compose (`docker compose up -d --wait`).
 import { describe, expect, it } from 'vitest'
 
-import { bundledKey, originalKey } from '../storage-keys.ts'
+import { originalKey } from '@dazbee/storage'
+
+import { bundledKey } from '../storage-keys.ts'
 import { brand, db, run, sibling, storage, workspace } from '../test-api.ts'
 import { png, sha256 } from '../test-files.ts'
 import { findAsset, InvalidUpload } from './assets.ts'

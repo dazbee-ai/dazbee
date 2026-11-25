@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test-sellers": "./src/sellers/test-sellers.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -13,7 +14,8 @@
   "dependencies": {
     "@dazbee/db": "workspace:*",
     "@dazbee/schema": "workspace:*",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "pg-boss": "12.39.0"
   },
   "devDependencies": {
     "@dazbee/config": "workspace:*",

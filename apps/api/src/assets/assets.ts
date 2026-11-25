@@ -16,10 +16,10 @@ import {
   type UpdateAsset,
   type UploadTicket,
 } from '@dazbee/schema'
-import type { Storage } from '@dazbee/storage'
+import { originalKey, type Storage } from '@dazbee/storage'
 
 import { logError } from '../log.ts'
-import { assetThumbnailKey, checkUpload, originalKey, signedUpload } from '../storage-keys.ts'
+import { assetThumbnailKey, checkUpload, signedUpload } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
 import { readSvgAsset, SvgBusy, SvgRefused } from './svg-assets.ts'
 import { makeThumbnail, type Thumbnail, THUMBNAIL_SIZE } from './thumbnails.ts'

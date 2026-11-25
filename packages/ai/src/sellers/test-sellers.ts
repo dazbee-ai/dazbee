@@ -1,12 +1,14 @@
-// Test sellers: adapters scripted, try by try, to answer, fail with a status, time out or report a given
-// usage. Imported by tests only.
+// Test sellers: adapters scripted, try by try, to answer (at once or after a wait), fail with a status, time
+// out or report a given usage. Imported by tests only.
+import { setTimeout as sleep } from 'node:timers/promises'
+
 import { CALL_KINDS, type Usage } from '@dazbee/schema'
 
 import { type SellerAdapter, type SellerAnswer, SellerError, type SellerOutput, type SellerRequest } from './seller.ts'
 
 /** What a test seller does on one try. */
 export type TestTry =
-  | { answer?: SellerOutput; usage?: Usage; requestId?: string; reportedCost?: number }
+  | { answer?: SellerOutput; usage?: Usage; requestId?: string; reportedCost?: number; afterMs?: number }
   | { fail: number; code?: string }
   | { timeOut: true }
 
@@ -23,21 +25,28 @@ export const TEST_TIMEOUT_MS = 200
 const USAGE: Usage = { 'input-token': 1000, 'output-token': 500 }
 
 /**
- * A seller named `seller` that plays `tries` in order, then answers every try after them. An answer with
- * no output gives text, or one 8 × 8 picture for a picture call.
+ * A seller named `seller` that plays `tries` in order, then answers every try after them, each after `afterMs`
+ * when given. An answer with no output gives text, or one 8 × 8 picture for a picture call. A call times
+ * out after `timeoutMs`.
  */
-export function testSeller(seller: string, tries: TestTry[] = []): TestSeller {
+export function testSeller(
+  seller: string,
+  tries: TestTry[] = [],
+  { afterMs = 0, timeoutMs = TEST_TIMEOUT_MS }: { afterMs?: number; timeoutMs?: number } = {},
+): TestSeller {
   const requests: SellerRequest[] = []
   return {
     seller,
     requests,
-    timeouts: Object.fromEntries(CALL_KINDS.map((kind) => [kind, TEST_TIMEOUT_MS])),
+    timeouts: Object.fromEntries(CALL_KINDS.map((kind) => [kind, timeoutMs])),
     async call(request) {
       const script = tries[requests.length] ?? {}
       requests.push(request)
       if ('fail' in script)
         throw new SellerError(`test failure ${script.fail}`, { status: script.fail, code: script.code })
       if ('timeOut' in script) return new Promise<never>(() => undefined)
+      const wait = script.afterMs ?? afterMs
+      if (wait > 0) await sleep(wait, undefined, { signal: request.signal })
       const answer: SellerAnswer = {
         output: script.answer ?? defaultOutput(request),
         usage: script.usage ?? USAGE,

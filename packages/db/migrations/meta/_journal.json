@@ -71,6 +71,13 @@
       "when": 1795577093040,
       "tag": "0009_ai-metering",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795578261734,
+      "tag": "0010_ai-job-queue",
+      "breakpoints": true
     }
   ]
 }

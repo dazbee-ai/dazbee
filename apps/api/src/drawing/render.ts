@@ -8,12 +8,11 @@ import { loadFontFiles } from '@dazbee/fonts/node'
 import { renderDesign, type Rendered, type ResourceBytes } from '@dazbee/renderer'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import { brandVariables, coverFrame, type Design, fontUses, imageAssetIds } from '@dazbee/schema'
-import type { Storage } from '@dazbee/storage'
+import { originalKey, type Storage } from '@dazbee/storage'
 
 import { findAsset } from '../assets/assets.ts'
 import { getBrandKit } from '../brand-kits/brand-kits.ts'
 import { fontFiles } from '../fonts/fonts.ts'
-import { originalKey } from '../storage-keys.ts'
 import { inDrawingTurn } from './drawing-turn.ts'
 
 /**

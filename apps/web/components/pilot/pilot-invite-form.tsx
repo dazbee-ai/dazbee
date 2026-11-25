@@ -4,7 +4,7 @@
 // under the form: to whom the invite was sent, or why it wasn't.
 import { startTransition, useActionState, useState } from 'react'
 
-import { invite, type PilotInviteAnswer } from '@/app/pilot/actions.ts'
+import { invite, type PilotInviteAnswer } from '@/app/pilot/access/actions.ts'
 import { Note } from '@/components/settings/note.tsx'
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { cn } from '@/lib/cn.ts'

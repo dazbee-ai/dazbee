@@ -7,7 +7,7 @@ import { useState, useTransition } from 'react'
 
 import type { AccessRequest } from '@dazbee/schema'
 
-import { dismiss, inviteFromList } from '@/app/pilot/actions.ts'
+import { dismiss, inviteFromList } from '@/app/pilot/access/actions.ts'
 import { Note } from '@/components/settings/note.tsx'
 import { buttonStyles } from '@/components/ui/button.tsx'
 import { cn } from '@/lib/cn.ts'

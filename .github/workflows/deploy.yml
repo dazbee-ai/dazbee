@@ -152,7 +152,7 @@ jobs:
             echo "::notice::python/layering did not change in $COMMIT, so the layer split app is not deployed."
           fi
       - if: steps.changed.outputs.deploy == 'true'
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.4.0
       # The image is built on Modal; a change to it, such as ComfyUI's version or the weights, builds it again.
       - if: steps.changed.outputs.deploy == 'true'
         name: Deploy to Modal

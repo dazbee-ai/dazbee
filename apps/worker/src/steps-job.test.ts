@@ -165,8 +165,11 @@ describe('startStepsWorker', () => {
     const failed = await waitForJob(job, 'failed')
     expect(failed.error).toMatch(/refused/)
     expect(failed.attempt).toBe(1)
-    const [queued] = await one.boss.findJobs(queue, { id: failed.queueJobId ?? '' })
-    expect(queued?.state).toBe('completed')
+    // pg-boss completes its job once the handler returns, just after the AI job ends.
+    await vi.waitFor(async () => {
+      const [queued] = await one.boss.findJobs(queue, { id: failed.queueJobId ?? '' })
+      expect(queued?.state).toBe('completed')
+    })
     await expectSettled(job, who.workspace)
     await stopAll(one)
   })

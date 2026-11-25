@@ -1,16 +1,17 @@
-# Production: Caddy in front of the web app, the API, the sync server, the MCP server and Postgres 16, on one
-# server.
+# Production: Caddy in front of the web app, the API, the sync server, the MCP server and Postgres 16, with the
+# worker that runs AI jobs, on one server.
 # Run it from the folder that holds this deploy/ folder, the .env, live/ and certs/ (/opt/dazbee on
 # the server), with the image tags deploy/deploy.sh keeps in live/images.env read after the .env:
 #
 #   docker compose -f deploy/compose.yml --project-directory . --env-file .env --env-file live/images.env up -d
 #
-# A plain `up` starts Caddy, the router, Postgres, the sync server and the MCP server. The web app's
+# A plain `up` starts Caddy, the router, Postgres, the sync server, the MCP server and the worker. The web app's
 # and API's colours are under the `blue` and `green` profiles, and only deploy/deploy.sh starts and
 # stops them. The router needs live/upstreams.caddy, which deploy.sh writes; on a new server, start
 # everything with deploy.sh, or copy deploy/upstreams.caddy into live/ first.
 # Each colour's image tag comes from WEB_BLUE_TAG, WEB_GREEN_TAG, API_BLUE_TAG and API_GREEN_TAG, and
-# the sync server's from SYNC_TAG and the MCP server's from MCP_TAG, each `latest` when unset.
+# the sync server's from SYNC_TAG, the MCP server's from MCP_TAG and the worker's from WORKER_TAG, each
+# `latest` when unset.
 # backup-db and backup-store, under the `backup` profile, are run only by deploy/backup.sh and
 # deploy/restore.sh. Settings come from the .env, whose names deploy/env.example lists; each service
 # gets only the ones it reads.
@@ -21,9 +22,9 @@
 #
 # Memory caps sit above what each container used idle and with a design open; the MCP server's is
 # about 140 MB plus up to 29 MB for each of its 30 agent tabs. They are ceilings, not use. With one
-# colour of the web app and API, they add up to 3520 MB: Caddy 128 MB, the router 64 MB, web 384 MB, API 512 MB, sync 1024 MB, MCP 1024 MB and
-# Postgres 384 MB. Only while both colours run, as during a swap, do they pass the server's 3915 MB, at
-# 4416 MB, with 2 GB of swap behind them. The backup's two containers, 128 MB each, run one at a time
+# colour of the web app and API, they add up to 3776 MB: Caddy 128 MB, the router 64 MB, web 384 MB, API 512 MB, sync 1024 MB, MCP 1024 MB,
+# the worker 256 MB and Postgres 384 MB. Only while both colours run, as during a swap, do they pass the server's 3915 MB, at
+# 4672 MB, with 2 GB of swap behind them. The backup's two containers, 128 MB each, run one at a time
 # and only for a backup or a restore. Move to a bigger server when available memory stays under 1 GB.
 # On the one CPU, the MCP server gets a quarter of the others' weight (cpu_shares), so people's editing
 # goes first when it is busy.
@@ -149,6 +150,44 @@ services:
       SYNC_LOADED_MB: ${SYNC_LOADED_MB:-200}
       SYNC_IDLE_DESIGNS: ${SYNC_IDLE_DESIGNS:-50}
       SYNC_IDLE_SECONDS: ${SYNC_IDLE_SECONDS:-60}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # The worker (ADR-0022): runs AI jobs from pg-boss in Postgres, settles unknown calls and runs the daily check.
+  # It starts after the API, whose migrations it needs.
+  worker:
+    image: ghcr.io/dazbee-ai/dazbee-worker:${WORKER_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m
+    # A stop waits up to 110 s for running AI jobs, then sends the rest again for the next worker.
+    stop_grace_period: 120s
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://dazbee:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/dazbee
+      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:?set STORAGE_ENDPOINT in .env}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:?set STORAGE_BUCKET in .env}
+      STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:?set STORAGE_ACCESS_KEY_ID in .env}
+      STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:?set STORAGE_SECRET_ACCESS_KEY in .env}
+      STORAGE_REGION: auto
+      # The AI calls running at once across every job.
+      WORKER_AI_CALLS: ${WORKER_AI_CALLS:-8}
+      # Each seller's key; a seller with none is skipped.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MUSE_API_KEY: ${MUSE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ZENMUX_API_KEY: ${ZENMUX_API_KEY:-}
+      PIXAZO_API_KEY: ${PIXAZO_API_KEY:-}
+      MODAL_TOKEN_ID: ${MODAL_TOKEN_ID:-}
+      MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET:-}
+      # The keys the daily check reads each seller's own cost report with; a seller with none is left out.
+      OPENAI_ADMIN_API_KEY: ${OPENAI_ADMIN_API_KEY:-}
+      OPENAI_PROJECT_ID: ${OPENAI_PROJECT_ID:-}
+      OPENROUTER_MANAGEMENT_API_KEY: ${OPENROUTER_MANAGEMENT_API_KEY:-}
+      OPENROUTER_KEY_HASH: ${OPENROUTER_KEY_HASH:-}
+      ZENMUX_MANAGEMENT_API_KEY: ${ZENMUX_MANAGEMENT_API_KEY:-}
+      ZENMUX_KEY_ID: ${ZENMUX_KEY_ID:-}
     depends_on:
       postgres:
         condition: service_healthy

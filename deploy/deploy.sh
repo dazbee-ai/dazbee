@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Puts one commit live: the API first (its migrations run when it starts), then the sync server, the
-# web app, and last the MCP server. Run it from anywhere on the server; it works in the folder that
+# web app, the MCP server, and last the worker. Run it from anywhere on the server; it works in the folder that
 # holds deploy/, the .env, live/ and certs/.
 #
 #   deploy/deploy.sh [--dir <folder>] [--from <folder>] [--local] <commit>
@@ -15,7 +15,8 @@
 # so every new request goes to it; the requests the old colour holds end, and the old colour stops.
 # The sync server is stopped with SIGTERM, which folds every open design and closes each tab to
 # reconnect, then the new one starts; if it isn't healthy in time, the previous image starts again.
-# The MCP server restarts the same way: its agents' sessions end, and their clients start new ones.
+# The MCP server restarts the same way: its agents' sessions end, and their clients start new ones. So
+# does the worker: it stops taking AI jobs, waits for those running, and sends the rest again.
 # Each of the two restarts only when the commit's image differs from the one its container runs in
 # its layers or its settings, the commit it names (BUILD_ID) aside, or when its container isn't
 # healthy; otherwise its container keeps running on the image it has, unless compose.yml or the .env
@@ -38,7 +39,7 @@ set -euo pipefail
 shopt -s inherit_errexit
 
 readonly REGISTRY=ghcr.io/dazbee-ai
-readonly APPS=(api sync web mcp)
+readonly APPS=(api sync web mcp worker)
 # How long a new container has to pass its health check.
 readonly HEALTH_SECONDS=60
 # How long the old colour runs once the router sends to the new one, for the requests it holds to end.
@@ -113,7 +114,7 @@ keep_tag() {
 start_images_env() {
   [ -f live/images.env ] && return 0
   local service
-  for service in web-blue web-green api-blue api-green sync mcp; do
+  for service in web-blue web-green api-blue api-green sync mcp worker; do
     echo "$(tag_setting "$service")=$(running_tag "$service")"
   done | sort | write_file live/images.env
 }
@@ -325,6 +326,7 @@ swap api
 restart sync 'open designs reconnect'
 swap web
 restart mcp 'agents start new sessions'
+restart worker 'running AI jobs are sent again'
 record_history
 prune
 log "deployed $commit"

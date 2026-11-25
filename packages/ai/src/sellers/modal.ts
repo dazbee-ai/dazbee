@@ -8,6 +8,7 @@ import { FunctionTimeoutError, InternalFailure, ModalClient, NotFoundError, Remo
 
 import { type LayerSplitRequest, LayerSplitResult, type Usage } from '@dazbee/schema'
 
+import type { CostReport } from '../daily-check.ts'
 import {
   type PictureBytes,
   type SellerAdapter,
@@ -162,4 +163,39 @@ function isGrpcError(error: unknown): error is Error & { code: number } {
   return (
     error instanceof Error && error.name === 'ClientError' && typeof (error as { code?: unknown }).code === 'number'
   )
+}
+
+/** The part of Modal's SDK the cost report uses: its billing report, one item per object and interval. */
+export interface ModalBilling {
+  workspaceBillingReport(request: {
+    startTimestamp: Date
+    endTimestamp: Date
+    resolution: string
+    tagNames: string[]
+    environmentIds: string[]
+    appIds: string[]
+  }): AsyncIterable<{ description: string; cost: string }>
+}
+
+/** Modal's cost for a UTC day from its billing report: what the layer split app cost that day, in dollars. */
+export function modalCostReport(tokenId: string, tokenSecret: string): CostReport {
+  return modalCostReportOn(new ModalClient({ tokenId, tokenSecret }).cpClient as unknown as ModalBilling)
+}
+
+/** Modal's cost report on `billing`; tests give a stand-in. */
+export function modalCostReportOn(billing: ModalBilling): CostReport {
+  return async (day) => {
+    const start = new Date(`${day}T00:00:00Z`)
+    let cost = 0
+    const items = billing.workspaceBillingReport({
+      startTimestamp: start,
+      endTimestamp: new Date(start.getTime() + 86_400_000),
+      resolution: 'd',
+      tagNames: [],
+      environmentIds: [],
+      appIds: [],
+    })
+    for await (const item of items) if (item.description === LAYERING.app) cost += Number(item.cost)
+    return { currency: 'USD', cost }
+  }
 }

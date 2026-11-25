@@ -181,6 +181,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@dazbee/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@dazbee/db':
         specifier: workspace:*
         version: link:../../packages/db

@@ -19,11 +19,14 @@ import {
 
 import {
   AI_JOB_KINDS,
+  DAILY_CHECK_SOURCES,
+  DAILY_CHECK_STATES,
   AI_JOB_STATES,
   CALL_STATES,
   type CallOutput,
   GRANT_SOURCES,
   LEDGER_KINDS,
+  UPLOADED_SELLERS,
   type Usage,
   USAGE_UNITS,
 } from '@dazbee/schema'
@@ -211,4 +214,40 @@ export const aiCalls = pgTable(
     index('ai_calls_started').on(t.startedAt),
     index('ai_calls_seller').on(t.seller, t.startedAt),
   ],
+)
+
+/**
+ * The daily check: for each seller and UTC day, our call log's cost and the seller's own figure, both in
+ * millionths of the seller's currency before GST or fee, and for Modal the cost outside our calls.
+ */
+export const aiDailyChecks = pgTable(
+  'ai_daily_checks',
+  {
+    seller: text().notNull(),
+    day: text().notNull(),
+    currency: text().notNull(),
+    ourCost: millionths('our_cost').notNull(),
+    sellerCost: millionths('seller_cost'),
+    outsideCalls: millionths('outside_calls'),
+    state: text({ enum: DAILY_CHECK_STATES }).notNull(),
+    source: text({ enum: DAILY_CHECK_SOURCES }),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.seller, t.day] })],
+)
+
+/** A seller's usage file an admin uploaded, with the days it covered and each day's cost it gave. */
+export const aiSellerFiles = pgTable(
+  'ai_seller_files',
+  {
+    id: text().primaryKey(),
+    seller: text({ enum: UPLOADED_SELLERS }).notNull(),
+    name: text().notNull(),
+    uploadedBy: text('uploaded_by').notNull(),
+    currency: text().notNull(),
+    /** Each day's cost, by UTC day, in millionths of the currency. */
+    days: jsonb().$type<Record<string, string>>().notNull(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('ai_seller_files_seller').on(t.seller, t.uploadedAt)],
 )

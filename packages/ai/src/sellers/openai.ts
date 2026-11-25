@@ -6,6 +6,7 @@ import OpenAI, { APIError, toFile } from 'openai'
 
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 
+import type { CostReport } from '../daily-check.ts'
 import { type SellerAdapter, type SellerAnswer, SellerError, type SellerRequest } from './seller.ts'
 
 /** What an OpenAI-compatible picture answer holds, as both OpenAI and Meta give it. */
@@ -187,4 +188,40 @@ async function callOpenai(client: OpenAI, request: SellerRequest): Promise<Selle
 
 function roundTo16(value: number): number {
   return Math.max(16, Math.round(value / 16) * 16)
+}
+
+/**
+ * OpenAI's cost for a UTC day from its Costs API (an admin key), for one project when `projectId` is given:
+ * the sum of the day's bucket, in dollars before tax; null when OpenAI gives no bucket for the day yet.
+ */
+export function openaiCostReport({
+  adminKey,
+  projectId,
+  fetch: fetchOf = globalThis.fetch,
+}: {
+  adminKey: string
+  projectId?: string | undefined
+  fetch?: typeof fetch
+}): CostReport {
+  return async (day) => {
+    const start = Date.parse(`${day}T00:00:00Z`) / 1000
+    const query = new URLSearchParams({
+      start_time: String(start),
+      end_time: String(start + 86_400),
+      bucket_width: '1d',
+      limit: '1',
+      ...(projectId ? { project_ids: projectId } : {}),
+    })
+    const response = await fetchOf(`https://api.openai.com/v1/organization/costs?${query}`, {
+      headers: { authorization: `Bearer ${adminKey}` },
+    })
+    if (!response.ok) throw new Error(`OpenAI's Costs API answered ${response.status}`)
+    const body = (await response.json()) as {
+      data?: { start_time?: number; results?: { amount?: { value?: number } }[] }[]
+    }
+    const bucket = body.data?.find((b) => b.start_time === start)
+    if (!bucket) return null
+    const cost = (bucket.results ?? []).reduce((sum, r) => sum + (r.amount?.value ?? 0), 0)
+    return { currency: 'USD', cost }
+  }
 }

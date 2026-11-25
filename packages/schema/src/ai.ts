@@ -231,3 +231,70 @@ export const AiJobView = z.object({
   endedAt: z.iso.datetime().nullable(),
 })
 export type AiJobView = z.infer<typeof AiJobView>
+
+/** How a seller-day's check came out: within 2% (or ₹1), past it, or still waiting on the seller's figure. */
+export const DAILY_CHECK_STATES = ['ok', 'red', 'waiting'] as const
+
+export const DailyCheckState = z.enum(DAILY_CHECK_STATES)
+export type DailyCheckState = z.infer<typeof DailyCheckState>
+
+/** Where a seller's own figure for a day came from: its cost report, or a file an admin uploaded. */
+export const DAILY_CHECK_SOURCES = ['report', 'upload'] as const
+
+export const DailyCheckSource = z.enum(DAILY_CHECK_SOURCES)
+export type DailyCheckSource = z.infer<typeof DailyCheckSource>
+
+/** A UTC day, as YYYY-MM-DD. */
+export const UtcDay = z.iso.date()
+export type UtcDay = z.infer<typeof UtcDay>
+
+/**
+ * One seller-day of the daily check, in the seller's currency before GST or fee: our call log's cost, the
+ * seller's own figure, and for Modal the GPU time outside our calls, which is never red.
+ */
+export const DailyCheck = z.object({
+  seller: z.string(),
+  day: UtcDay,
+  currency: z.string(),
+  ourCost: z.number(),
+  sellerCost: z.number().nullable(),
+  outsideCalls: z.number().nullable(),
+  state: DailyCheckState,
+  source: DailyCheckSource.nullable(),
+  checkedAt: z.iso.datetime(),
+})
+export type DailyCheck = z.infer<typeof DailyCheck>
+
+/** The sellers whose usage file an admin uploads, having no cost report to fetch. */
+export const UPLOADED_SELLERS = ['meta', 'pixazo'] as const
+
+export const UploadedSeller = z.enum(UPLOADED_SELLERS)
+export type UploadedSeller = z.infer<typeof UploadedSeller>
+
+/** A seller's usage file, as an admin uploads it: the CSV's text and its file name. */
+export const SellerFileUpload = z.object({
+  seller: UploadedSeller,
+  name: z.string().trim().min(1).max(200),
+  text: z.string().min(1).max(2_000_000),
+})
+export type SellerFileUpload = z.infer<typeof SellerFileUpload>
+
+/** What an uploaded file covered: the days it gave a figure for. */
+export const SellerFileResult = z.object({ days: z.array(UtcDay) })
+export type SellerFileResult = z.infer<typeof SellerFileResult>
+
+/** The unknown calls of one seller on one UTC day: how many, and their cost where it is known. */
+export const UnknownCalls = z.object({ seller: z.string(), day: UtcDay, calls: z.number().int() })
+export type UnknownCalls = z.infer<typeof UnknownCalls>
+
+/** A seller that said it is out of money, and when it last said so. */
+export const OutOfMoney = z.object({ seller: z.string(), at: z.iso.datetime() })
+export type OutOfMoney = z.infer<typeof OutOfMoney>
+
+/** When each seller checked from uploads was last checked: the last day an uploaded file covered. */
+export const LastChecked = z.object({
+  seller: UploadedSeller,
+  day: UtcDay.nullable(),
+  uploadedAt: z.iso.datetime().nullable(),
+})
+export type LastChecked = z.infer<typeof LastChecked>

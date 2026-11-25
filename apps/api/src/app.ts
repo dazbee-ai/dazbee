@@ -19,6 +19,7 @@ import { readSessionToken } from '@dazbee/session-token'
 import type { Storage } from '@dazbee/storage'
 
 import type { Admins } from './admin/admins.ts'
+import { aiAdminRoutes } from './admin/ai-routes.ts'
 import { accessRequestRoutes, adminRoutes } from './admin/routes.ts'
 import type { TurnstileCheck } from './admin/turnstile.ts'
 import { type RequestLimit, requestLimit } from './admin/waiting-list.ts'
@@ -111,6 +112,7 @@ export function createApp({
   // The stand-in accepts Dazbee invites only when it sends them, which it does without WorkOS.
   app.route('/', devInviteRoutes({ db, dev: invites.dev && { ...invites.dev, dazbee: !invites.workos } }))
   app.route('/', adminRoutes({ db, sessionOf, admins, invites: providers }))
+  app.route('/', aiAdminRoutes({ db, sessionOf, admins }))
   app.route('/', accessRequestRoutes({ db, limit: requests, turnstile }))
   app.route('/', uploadRoutes({ db, storage, admins }))
   app.route('/', googleFontRoutes({ db, storage }))

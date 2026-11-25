@@ -83,12 +83,15 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
   const sellers = resume ? [resume.seller, ...route.sellers.filter((s) => s !== resume.seller)] : route.sellers
   let lastError = 'no seller can take it'
   for (const seller of sellers) {
+    // A request the seller may still be making, which the next try at it asks about instead of sending again.
+    let pending: { row: string; requestId: string } | null = seller === resume?.seller ? resume : null
     for (let tried = 0; tried < TRIES_PER_SELLER; tried++) {
       const row = await startTry(db, call, route.model, seller.seller)
-      const resumeId = tried === 0 && seller === resume?.seller ? await resumeTry(db, resume, row) : undefined
+      const resumeId = pending ? await resumeTry(db, pending, row) : undefined
       const result = await tryOnce(db, call, route.options, seller, row, resumeId)
       if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
       lastError = result.error
+      pending = seller.adapter.resumable && result.error === 'timed out' ? await requestOf(db, row) : null
       if (result.next === 'fail')
         throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
       if (result.next === 'next-seller') break
@@ -131,6 +134,12 @@ async function resumeTry(db: Db, resume: { row: string; requestId: string }, row
     .set({ state: 'failed', error: 'resumed by a later try', endedAt: new Date() })
     .where(eq(aiCalls.id, resume.row))
   return resume.requestId
+}
+
+/** Try `row`'s request id, when the seller gave one, as a request to ask about again. */
+async function requestOf(db: Db, row: string): Promise<{ row: string; requestId: string } | null> {
+  const [found] = await db.select({ requestId: aiCalls.sellerRequestId }).from(aiCalls).where(eq(aiCalls.id, row))
+  return found?.requestId ? { row, requestId: found.requestId } : null
 }
 
 /**

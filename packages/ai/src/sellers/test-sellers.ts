@@ -10,7 +10,7 @@ import { type SellerAdapter, type SellerAnswer, SellerError, type SellerOutput, 
 export type TestTry =
   | { answer?: SellerOutput; usage?: Usage; requestId?: string; reportedCost?: number; afterMs?: number }
   | { fail: number; code?: string }
-  | { timeOut: true }
+  | { timeOut: true; requestId?: string }
 
 /** A test seller and what it was asked. */
 export interface TestSeller extends SellerAdapter {
@@ -49,7 +49,10 @@ export function testSeller(
       requests.push(request)
       if ('fail' in script)
         throw new SellerError(`test failure ${script.fail}`, { status: script.fail, code: script.code })
-      if ('timeOut' in script) return new Promise<never>(() => undefined)
+      if ('timeOut' in script) {
+        if (script.requestId) await request.keepRequestId(script.requestId)
+        return new Promise<never>(() => undefined)
+      }
       const wait = script.afterMs ?? afterMs
       if (wait > 0) await sleep(wait, undefined, { signal: request.signal })
       const answer: SellerAnswer = {

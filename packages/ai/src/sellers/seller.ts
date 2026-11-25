@@ -43,6 +43,12 @@ export interface SellerAnswer {
   reportedCost?: number
 }
 
+/**
+ * What a seller says of a request asked about later: made (and charged), with the usage it was charged for,
+ * ended without a result, or still going.
+ */
+export type RequestStatus = { state: 'done'; usage: Usage } | { state: 'failed' } | { state: 'pending' }
+
 /** One seller's adapter. */
 export interface SellerAdapter {
   seller: string
@@ -51,6 +57,8 @@ export interface SellerAdapter {
   perMinute?: Partial<Record<CallKind, number>>
   /** Whether the seller answers a call later by its request id, so an attempt can pick up an earlier one's call. */
   resumable?: boolean
+  /** Asks the seller about a request for `input` by its id, for a seller that answers that. */
+  status?(requestId: string, input: CallInput): Promise<RequestStatus>
   /** How long a call of each kind may take here, when not the call function's usual time. */
   timeouts?: Partial<Record<CallKind, number>>
 }

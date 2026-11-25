@@ -82,6 +82,23 @@ describe('startStepsWorker', () => {
     await stopAll(one)
   })
 
+  it('finishes a job on its backup seller when the first is out of money', async () => {
+    const queue = newQueue()
+    const who = await memberOf()
+    const down = testSeller(newSeller('a'), [{ fail: 402 }])
+    const backup = testSeller(newSeller('b'))
+    const input = await stepsOf([down, backup])
+    const one = await worker(queue)
+    const job = await save(who, queue, input)
+    await waitForJob(job, 'done')
+    expect((await callsOf(job)).map((c) => [c.seller, c.state])).toEqual([
+      [down.seller, 'failed'],
+      [backup.seller, 'done'],
+    ])
+    await expectSettled(job, who.workspace)
+    await stopAll(one)
+  })
+
   it('stops a cancelled job’s calls, keeps what finished charged and gives back the rest', async () => {
     const queue = newQueue()
     const who = await memberOf()

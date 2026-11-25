@@ -41,7 +41,11 @@ export {
   useSeller,
 } from './sellers/seller.ts'
 export { useSellersOf } from './sellers/in-use.ts'
+export { openrouterSeller } from './sellers/openrouter.ts'
+export { pixazoSeller } from './sellers/pixazo.ts'
+export { zenmuxSeller } from './sellers/zenmux.ts'
 export { metaSeller } from './sellers/meta.ts'
 export { openaiSeller } from './sellers/openai.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
 export { holdFor, routeStep, type StepDef, STEPS } from './steps.ts'
+export { settleUnknownCalls, type Settled } from './unknown-calls.ts'

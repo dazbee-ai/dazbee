@@ -132,12 +132,14 @@ function pictureUsage(input: CallInput): Usage {
 async function modelOf(db: Db | Tx, step: string, only?: string[]) {
   const [choice] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
   if (!choice) throw new Error(`no model is set for the AI step ${step}`)
+  const sellers = await db
+    .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
+    .from(modelSellers)
+    .where(eq(modelSellers.model, choice.model))
+    .orderBy(asc(modelSellers.position))
+  // Sellers named in `only` keep their own names for the model, where the model's sellers give one.
   const order = only
-    ? only.map((seller) => ({ seller, sellerModel: null }))
-    : await db
-        .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
-        .from(modelSellers)
-        .where(eq(modelSellers.model, choice.model))
-        .orderBy(asc(modelSellers.position))
+    ? only.map((seller) => ({ seller, sellerModel: sellers.find((s) => s.seller === seller)?.sellerModel ?? null }))
+    : sellers
   return { choice, order }
 }

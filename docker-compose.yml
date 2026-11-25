@@ -135,6 +135,9 @@ services:
       # The sellers' keys, from the git-ignored .env next to this file; a seller with no key is skipped.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       MUSE_API_KEY: ${MUSE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ZENMUX_API_KEY: ${ZENMUX_API_KEY:-}
+      PIXAZO_API_KEY: ${PIXAZO_API_KEY:-}
       STORAGE_ENDPOINT: http://storage:9000
       STORAGE_BUCKET: dazbee
       STORAGE_ACCESS_KEY_ID: dazbee

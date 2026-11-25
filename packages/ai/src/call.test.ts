@@ -264,17 +264,15 @@ describe('callAi', () => {
     const job = await heldJob()
     await setJob(job.id, { attempt: 2 })
     const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
-    await db
-      .insert(aiCalls)
-      .values({
-        ...earlier,
-        attempt: 1,
-        step,
-        model,
-        seller: seller.seller,
-        state: 'unknown',
-        sellerRequestId: 'req-x',
-      })
+    await db.insert(aiCalls).values({
+      ...earlier,
+      attempt: 1,
+      step,
+      model,
+      seller: seller.seller,
+      state: 'unknown',
+      sellerRequestId: 'req-x',
+    })
     await callAi(db, callOf(job, step, { attempt: 2 }))
     expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-x'])
     const rows = await db
@@ -285,6 +283,18 @@ describe('callAi', () => {
     expect(rows).toEqual([
       { state: 'failed', error: 'resumed by a later try' },
       { state: 'done', error: null },
+    ])
+  })
+
+  it('asks a resumable seller about a timed-out try’s request on the next try, instead of sending it again', async () => {
+    const seller = testSeller(newSeller('a'), [{ timeOut: true, requestId: 'req-slow' }], { resumable: true })
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual([undefined, 'req-slow'])
+    expect((await callRows(job.id)).map((r) => [r.state, r.error])).toEqual([
+      ['failed', 'resumed by a later try'],
+      ['done', null],
     ])
   })
 

@@ -1,5 +1,6 @@
 // Before routing: `/` on the pilot host (PILOT_HOST, pilot.dazbee.com in production) shows early access's
-// admin page, app/pilot/, with the address left as it is. The page itself is not found on any other host.
+// admin page, app/pilot/, and `/ai` its AI section, app/pilot/ai/, with the address left as it is. The pages
+// themselves are not found on any other host.
 import { type NextRequest, NextResponse } from 'next/server'
 
 import { pilotPath } from '@/lib/pilot-host.ts'
@@ -12,4 +13,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.rewrite(url)
 }
 
-export const config = { matcher: '/' }
+export const config = { matcher: ['/', '/ai'] }

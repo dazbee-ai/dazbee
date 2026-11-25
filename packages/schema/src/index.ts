@@ -1,6 +1,7 @@
 export * from './admin.ts'
 export * from './agent-oauth.ts'
 export * from './ai.ts'
+export * from './ai-admin.ts'
 export * from './api.ts'
 export * from './brand-roles.ts'
 export * from './brand-text-styles.ts'

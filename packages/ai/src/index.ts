@@ -29,7 +29,7 @@ export {
   startAttempt,
   sweepJobs,
 } from './jobs.ts'
-export { currencyRate, type Priced, priceUsage } from './price-list.ts'
+export { currencyRate, type Priced, pricesOf, priceUsage } from './price-list.ts'
 export {
   type PictureBytes,
   type SellerAdapter,

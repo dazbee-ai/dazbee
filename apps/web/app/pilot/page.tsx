@@ -1,7 +1,9 @@
 // Early access's admin page, served at the pilot host's `/` (pilot.dazbee.com, or PILOT_HOST for a local
 // run) and not found on any other host. It needs Dazbee's own sign-in, and is not found for anyone the API
-// doesn't take for an admin. It holds Invite, the Waiting list, the Pending invites and the people who Joined.
+// doesn't take for an admin. It holds Invite, the Waiting list, the Pending invites and the people who Joined,
+// and links to its AI section at `/ai`.
 import { headers } from 'next/headers'
+import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 import { PilotInviteForm } from '@/components/pilot/pilot-invite-form.tsx'
@@ -35,6 +37,13 @@ export default async function PilotPage() {
           <DazbeeMark size={36} />
           <h1 className="font-display text-title font-bold tracking-tight md:leading-tight">{t.pilot.title}</h1>
           <p className="text-label text-muted">{t.pilot.lead}</p>
+          <Link
+            href="/ai"
+            data-testid="pilot-ai-link"
+            className="self-start text-label font-semibold text-accent-text hover:underline"
+          >
+            {t.pilotAi.open}
+          </Link>
         </header>
         <section className={PANEL}>
           <PilotInviteForm />

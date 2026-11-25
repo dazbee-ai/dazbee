@@ -87,8 +87,27 @@ compose stop web-green api-green
 
 # Caddy reloads when the Caddyfile changed since the last deploy, and a reload drops the TLS handshakes
 # in flight, so the first deploy, which loads it, runs before the probe.
-step "0. $commit, the first deploy, which puts this checkout's deploy/ in place as the workflow does"
-"$repo/deploy/deploy.sh" --dir "$stack" --from "$repo/deploy" --local "$commit"
+step "0. $commit, the first deploy, which puts this checkout's deploy/ and a .env made from settings in place as the workflow does"
+# The stack's settings as the workflow reads them, one JSON object of variables, then one of secrets.
+settings=$(grep -v '_TAG=' .env | jq -R 'split("=") | {(.[0]): (.[1:] | join("="))}' | jq -s add)
+if jq 'del(.POSTGRES_PASSWORD)' <<< "$settings" | "$repo/deploy/env-file.sh" > /dev/null 2>&1; then
+  fail 'env-file.sh passed with no POSTGRES_PASSWORD'
+fi
+if jq '.SESSION_SECRET = "a b"' <<< "$settings" | "$repo/deploy/env-file.sh" > /dev/null 2>&1; then
+  fail 'env-file.sh passed with a space in a value'
+fi
+{ echo '{"MODAL_ENVIRONMENT":"check"}' && jq '.DEPLOY_SSH_KEY = "not-a-setting"' <<< "$settings"; } |
+  "$repo/deploy/env-file.sh" > env.next
+! grep -q '^DEPLOY_SSH_KEY=' env.next || fail 'env-file.sh wrote a secret env.example does not list'
+# The image tags the stack's .env holds beyond the example.
+grep '_TAG=' .env >> env.next
+cp .env env.before
+"$repo/deploy/deploy.sh" --dir "$stack" --from "$repo/deploy" --env env.next --local "$commit"
+[ ! -e env.next ] || fail 'the .env given was not moved into place'
+cmp env.before .env.previous || fail '.env.previous is not the .env it replaced'
+rm env.before
+docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(container_of worker)" | grep -qx MODAL_ENVIRONMENT=check ||
+  fail 'the worker does not run with the .env given'
 cmp "$repo/deploy/deploy.sh" deploy/deploy.sh || fail 'deploy/ was not put in place'
 cmp deploy/Caddyfile live/Caddyfile || fail 'live/Caddyfile is not the Caddyfile Caddy loaded'
 expect_live web green

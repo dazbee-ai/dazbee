@@ -181,6 +181,8 @@ services:
       PIXAZO_API_KEY: ${PIXAZO_API_KEY:-}
       MODAL_TOKEN_ID: ${MODAL_TOKEN_ID:-}
       MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET:-}
+      # The Modal environment the layer split app is deployed in, whose cost alone the daily check counts.
+      MODAL_ENVIRONMENT: ${MODAL_ENVIRONMENT:-prod}
       # The keys the daily check reads each seller's own cost report with; a seller with none is left out.
       OPENAI_ADMIN_API_KEY: ${OPENAI_ADMIN_API_KEY:-}
       OPENAI_PROJECT_ID: ${OPENAI_PROJECT_ID:-}

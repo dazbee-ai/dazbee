@@ -53,6 +53,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Dazbee isn't made for phones yet: on a screen a phone's size, upright (Tailwind's max-sm) or on
+ * its side (a touch screen less than 32 rem tall), the body shows only the coming-soon notice the
+ * root layout puts first in it, and nothing else.
+ */
+.phone-soon {
+  display: none;
+}
+
+@media (width < 40rem), (pointer: coarse) and (height < 32rem) {
+  body > :not(.phone-soon) {
+    display: none !important;
+  }
+
+  .phone-soon {
+    display: flex;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

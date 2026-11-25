@@ -167,6 +167,11 @@ export const en = {
       line: 'Try again. If it keeps happening, reload the page.',
       action: 'Try again',
     },
+    /** What a phone shows in place of the app until Dazbee is made for small screens. */
+    phoneSoon: {
+      title: 'Dazbee on phones is coming soon',
+      line: 'We’re making Dazbee for small screens. For now, open it on a computer or a tablet.',
+    },
     /** The third-party notices: the icon, sticker, illustration and artwork sets Dazbee bundles, each with its licence in full. */
     notices: {
       title: 'Third-party notices',

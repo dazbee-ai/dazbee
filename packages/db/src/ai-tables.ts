@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 import {
+  AI_JOB_KINDS,
   AI_JOB_STATES,
   CALL_STATES,
   type CallOutput,
@@ -152,12 +153,15 @@ export const aiJobs = pgTable(
     id: text().primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     memberId: text('member_id').notNull(),
-    kind: text().notNull(),
+    kind: text({ enum: AI_JOB_KINDS }).notNull(),
     state: text({ enum: AI_JOB_STATES }).notNull().default('waiting'),
     /** The run on now: each run of the job takes the next one. */
     attempt: integer().notNull().default(0),
     input: jsonb().notNull(),
     output: jsonb(),
+    /** The pg-boss queue it runs from, and the pg-boss job that runs it now; a job sent again to start later gets a new one. */
+    queue: text(),
+    queueJobId: text('queue_job_id'),
     /** Each done call's output by its call index, so a job run again reuses it. */
     callOutputs: jsonb('call_outputs').$type<Record<string, CallOutput>>().notNull().default({}),
     error: text(),

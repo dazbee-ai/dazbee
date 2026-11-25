@@ -11,6 +11,23 @@ export {
   type NewGrant,
   usageShare,
 } from './ledger.ts'
+export {
+  cancelJob,
+  endJob,
+  ensureQueue,
+  isCancelled,
+  type JobEnd,
+  LIMIT_WAIT_SECONDS,
+  type NewJob,
+  QUEUE_OPTIONS,
+  readJob,
+  type RunStart,
+  type SavedJob,
+  saveJob,
+  spentToday,
+  startRun,
+  sweepJobs,
+} from './jobs.ts'
 export { currencyRate, type Priced, priceUsage } from './price-list.ts'
 export {
   type PictureBytes,

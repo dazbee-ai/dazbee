@@ -32,7 +32,7 @@ jobs:
       # drizzle-kit would ask about (a rename); drizzle-kit itself is stopped after 60 s.
       - run: pnpm --filter @dazbee/db migration:check
         timeout-minutes: 2
-      # Postgres, the API and the sync server, from this checkout: the API's seam tests (#33) and the
+      # Postgres, the API, the sync server and the worker, from this checkout: the API's seam tests (#33) and the
       # sync server's run against them, and the API runs the migrations on start.
       - run: docker compose up -d --wait
       # The matchers' files from their release, checked by SHA-256, kept between runs until release.json changes.

@@ -42,6 +42,7 @@ apps/web/             Next.js app: sign-in, brands, designs, brand kit, asset li
 apps/api/             Hono API: workspace records, uploads, sign-in, sync tokens and server renders; runs the migrations (ADR-0009, ADR-0012)
 apps/mcp/             the MCP server agents connect to: OAuth sign-in, agent tabs and their tools (ADR-0019)
 apps/sync/            the sync server: holds each open design, orders its changes and stores its saves and journal (ADR-0015)
+apps/worker/          the worker: runs AI jobs from pg-boss in our Postgres, sweeps those whose run was lost, and answers a health check (ADR-0022)
 apps/landing/         the marketing site at dazbee.com, with its privacy and terms pages: a static Vite page, uploaded to Cloudflare Pages by hand
 packages/schema/      the zod contract for the design document and the API (ADR-0002)
 packages/doc/         the design's store, the commands that change it and the sync core (ADR-0004, ADR-0015)

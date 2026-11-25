@@ -49,6 +49,8 @@ export interface TestServerOptions {
   designs?: Record<string, DesignInput>
   /** Starts the render worker; a worker thread unless given. */
   startRenderWorker?: EndpointSettings['startRenderWorker']
+  /** How long one render may take, `RENDER_TIMEOUT_MS` unless given. */
+  renderTimeoutMs?: number
   /** The capacity limits, their defaults unless given. */
   limits?: Partial<LimitSettings>
 }
@@ -60,6 +62,7 @@ export function testServer({
   callTimeoutMs,
   designs = {},
   startRenderWorker,
+  renderTimeoutMs,
   limits = {},
 }: TestServerOptions = {}): TestServer {
   let time = Date.UTC(2026, 10, 21)
@@ -87,6 +90,7 @@ export function testServer({
     log: (line) => logged.push(JSON.parse(line)),
     ...(callTimeoutMs === undefined ? {} : { callTimeoutMs }),
     ...(startRenderWorker ? { startRenderWorker } : {}),
+    ...(renderTimeoutMs === undefined ? {} : { renderTimeoutMs }),
   })
   const fetch = async (request: Request) => endpoint.app.fetch(request)
 

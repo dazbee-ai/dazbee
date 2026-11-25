@@ -6,17 +6,34 @@ The measurements behind these choices are in [ai-flow-image-models.md](ai-flow-i
 
 ## Decided
 
-### The screen (25 Nov 2026)
+### The canvas (26 Nov 2026)
 
-- **Start from the brief box that already exists** on the brand home ([`brief-form.tsx`](../../apps/web/components/brief/brief-form.tsx)): words, pictures, a reference design, brand kit picks. There is no separate AI start page.
-- **One size to start.** The AI brief takes a single size; other sizes come later from the chosen draft.
-- **Enter makes a round of 4 drafts**, shown below the brief box. The 4 are made at the same time, and each appears as soon as it is ready.
-- **The brief box scrolls up**, gets smaller and stays at the top, so the brief can still be changed.
-- **More like this** on a draft adds a row of 4 drafts under it. Rounds form a tree.
-- **Picking any draft**, in any row, makes the row below show that draft's children.
-- **The reference ad is kept** as an input to the brief.
-- **Edit opens its own screen**, with a way back to the tree. There a person refines one draft by marking it with pins, a brush or boxes, plus words.
-- **Leaving doesn't stop anything.** Jobs run on the server. A refresh, a page change or a closed tab loses nothing, and the person comes back to the same tree.
+These replace the screen decided on 25 Nov: the flow runs on a design's canvas, not on a screen of its own.
+
+- **A brief starts a design.** On the brand home a person writes a few words and adds pictures (their product, their logo, an ad whose style they want) at one size. Enter opens a new design named from the brief. Inside a design, a brief box floats just above the tool dock and starts another brief on the same page. One design holds one campaign.
+- **Each brief is a section**, titled with the brief and its pictures. Its four drafts are frames placed at once, empty, each filling in as its picture arrives. A section's title offers Edit brief, which runs the changed brief as a new section.
+- **Where new work goes.** More like this and Other sizes make a new section in the column to the right of the section the draft is in, at the first free spot going down, with a connector from the draft. A new brief goes below everything on the page. The AI never adds frames to a section that exists and never moves anything: it fills or changes frames that exist, or makes a new section.
+- **Actions show on the selected draft only**, in a small bar above it: More like this, Other sizes, Change with AI, Star and Make editable. Hovering an AI action shows its share of the workspace's AI and about how long it takes.
+- **The star decides what goes out.** Export and Share send starred frames and say what they leave out, with a switch to include the rest. Making a frame editable says nothing about sharing.
+- **Frame states.** A draft shows nothing. A starred frame shows a small star by its name; an editable frame a small layers icon; a frame can be both. A selected frame shows by its name turning blue, with no outline.
+- **Change with AI happens on the canvas**: a small box under the frame, the latest exchange above it and earlier ones folded, and the versions as small pictures beside the frame. Marks are drawn with a box or a brush, in Dazbee's blue; there are no pins. The new version replaces the picture in its frame. On an editable frame it changes only its image layers. The conversation and the versions are kept outside the design.
+- **Making a draft editable is optional, and happens in place.** The picture in the frame turns into layers in the same frame; the picture is kept, hidden, and Back to picture brings it back. The server part runs with no tab open; the matching finishes when a tab next opens the design, so the screen says "almost done: open to finish", never "ready" too early.
+- **Other sizes use the editor's Add size card** in the edit panel. On a picture, the AI redraws it in each size picked, as pictures in a section beside it. On an editable frame, Add size makes a new frame from its layers, with Redraw with AI as the other choice. Make all editable turns a set of sizes into layers from one layer plan.
+- **Failures and limits.** A draft that didn't come out says so, with Try again, and isn't charged. When the month's AI is used up, the message sits where the brief box is.
+- **Leaving stops nothing.** Drafts keep arriving with the tab closed; Designs shows that a design is working, and a note names the design when it's done.
+- **Who and where.** Reviewers see no brief box and no actions. On a phone, last: drafts, Change with AI and download; layers stay on a computer.
+- **Words.** Plain words only, never internal ones such as "linked"; no pop-up questions; options open in the panels the editor has.
+
+### Canvas tools (26 Nov 2026)
+
+Built first, as their own spec, because the AI flow stands on them.
+
+- **Sections** group frames on a page under a title. A section has no fill and a soft grey outline that fits around its frames. Frames move freely inside it, out of it onto the canvas and into another section; a section left empty goes. A selected section offers Rename, Ungroup, Delete section (its frames stay) and Delete section and frames.
+- **Connectors** join two things on a page (frames or sections) and follow them when they move. Drawn with the Arrow shape on the page outside any frame; a small dot marks where one starts, so it doesn't look like an arrow inside a frame. A connector whose end is gone is hidden.
+- **Neither is exported.**
+- **The tool dock**: Frame ▾ gains Section, Shapes ▾ makes a connector when an arrow is drawn on the page, and Hand moves into Select ▾. The Pages capsule lists a page's sections, each with zoom to.
+- **The star** on frames (see above).
+- **Notes, free text on the canvas and freehand drawing come later**, decided together with comments.
 
 ### Sizes and layers (25 Nov 2026)
 
@@ -30,15 +47,16 @@ The measurements behind these choices are in [ai-flow-image-models.md](ai-flow-i
 | Job                   | Model                                                                  |
 | --------------------- | ---------------------------------------------------------------------- |
 | Drafts                | **Muse Image** or **GPT Image 2.5 Sunburst** at medium quality         |
-| High-quality final    | **None.** The picked draft goes straight to layering                   |
+| High-quality final    | **None.** A draft is used as it is, or made editable when asked        |
 | Edits and inpainting  | **Seedream 5.5**                                                       |
 | Outpainting           | **Self-hosted**, not a hosted API                                      |
-| Round plan, reading   | **`gpt-6-luna`**                                                       |
+| Round plan, reading   | **`gpt-6-luna`** (light); a full planner for Precise, its own AI step  |
 | Layer plan            | **`gpt-6.2-sol`**                                                      |
 | Splitting into layers | **Ming-Image-0.1-Design-Layer**, self-hosted on ComfyUI, fp8, 12 steps |
 
 - Layering runs **without guidance by default**; the API takes an optional guidance value.
-- Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people.
+- Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people. Until payments exist, workspaces given AI as a gift get **1024 px** too, set on the grant, not in code (26 Nov 2026).
+- **Fast** runs the light round planner and Muse Image; **Precise** runs the full planner and GPT Image 2.5 (26 Nov 2026).
 
 ### Prompts (25 Nov 2026)
 
@@ -69,7 +87,7 @@ The measurements behind these choices are in [ai-flow-image-models.md](ai-flow-i
 - **Job queue: pg-boss**, in the Postgres we already run ([ai-flow-job-queue.md](ai-flow-job-queue.md)).
 - **Sellers:** GPT from OpenAI. Muse from Meta's own API. ZenMux, OpenRouter and Pixazo are also connected, and each model can be bought from any of them that sells it, so one can stand in when another fails.
 - **Daily cost check:** every day the call log is compared with each seller's own cost report, with an alert when they differ by more than 2%.
-- **Checked against real bills while building.** A small number of real paid calls on our own workspaces are compared with each seller's billing page before taking money. Up to US$1–2 in all may be spent on these checks without asking first; the spend is reported after each round, and going past US$2 needs the owner's OK.
+- **Checked against real bills while building.** A small number of real paid calls on our own workspaces are compared with each seller's billing page before taking money. Up to US$1–2 in all may be spent on these checks without asking first; the spend is reported after each round, and going past US$2 needs the owner's OK. For the AI flow on the canvas, up to US$8 in all, reported after each ticket (26 Nov 2026).
 - **Prompts still to write:** a resize prompt, written and tested before resizing is built; prompts for other kinds when each kind is added.
 
 ### AI calls and metering (25 Nov 2026)

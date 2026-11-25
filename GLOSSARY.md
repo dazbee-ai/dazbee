@@ -630,6 +630,18 @@ Where a scene is drawn: the WebGL surface for the editor screen, or the CPU surf
 The editor's infinite view of one page: its frames, where they were placed. The Pages card switches the page it shows.
 _Avoid_: Board, workspace
 
+**Section**:
+A titled part of a page that groups frames. Its outline fits around its frames; frames move in and out of it, and an empty section goes. Never exported.
+_Avoid_: Group (that is a layer group), board, folder, island
+
+**Connector**:
+A line with an arrowhead on a page, outside any frame, joining two things (frames or sections) and following them as they move. It is drawn with the Arrow shape on the page; an arrow inside a frame is a layer. Never exported.
+_Avoid_: Arrow (inside a frame, that is a shape layer), link (that is a link id)
+
+**Star**:
+A person's mark on a frame that it goes out: Export and Share send starred frames, and leave the rest out unless asked.
+_Avoid_: Favourite, approved (that is approval), chosen, final
+
 **Composition**:
 What an input method is putting together at the caret before it is typed: pinyin on its way to Chinese characters, kana before conversion, a Korean syllable, an accent waiting for its letter, a phone keyboard's word. It is drawn in the text where it will land, underlined, in place of the selected range it replaces, and typed in as one edit when the input method commits it. It is never stored, sent to other tabs or undone; when the input method cancels it, the text is as it was.
 _Avoid_: Preedit, marked text, IME text
@@ -655,20 +667,20 @@ CPU renders of the same design in the browser and in Node being pixel-identical 
 ## AI flow
 
 **Brief**:
-What starts a tree: a few words, up to four pictures and the sizes to make.
+What starts a round: a few words, the pictures to work from (a product, a logo, an ad whose style is wanted) and one size. On the brand home it opens a new design; inside a design it adds a section to the page.
 
 **Tree**:
-Everything grown from one brief: its rounds and their drafts.
+Everything grown from one brief: its round, the sections made from its drafts with More like this and Other sizes, and the connectors between them.
 
 **Round**:
-One planning call and the four drafts it produced.
+One planning call and the four drafts it produced, placed as a section.
 
 **Draft**:
-One flat AI-generated ad in a round. Starred, used, or refined into draft versions.
+A frame holding one AI-made picture. It stays with the team until it is starred.
 _Avoid_: Generation, option, candidate
 
 **Layering**:
-The AI job that turns a chosen draft into real layers: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place.
+The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
 _Avoid_: Decompose, editable-ize, convert
 
 **Mode**:
@@ -696,7 +708,7 @@ A picture a person attaches to a picture call for the model to work from, such a
 _Avoid_: Input image, source image, attachment
 
 **Marks**:
-What a person draws on a picture to show where to change it (pins, brush strokes, boxes). They reach the model drawn onto a copy of the picture, sent as one more reference picture.
+What a person draws on a picture to show where to change it (brush strokes, boxes). They reach the model drawn onto a copy of the picture, sent as one more reference picture.
 _Avoid_: Mask, annotations, scribbles
 
 **Layer split**:

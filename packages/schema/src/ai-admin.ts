@@ -98,7 +98,10 @@ export const ModelSellersInput = z.object({
 })
 export type ModelSellersInput = z.infer<typeof ModelSellersInput>
 
-/** The model an AI step runs, with the options its call passes the model, such as a picture's quality. */
+/**
+ * The model an AI step or a kind of call runs, with the options its call passes the model, such as a picture's
+ * quality.
+ */
 export const AiStepModelInput = z.object({
   model: ModelName,
   options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
@@ -106,9 +109,16 @@ export const AiStepModelInput = z.object({
 })
 export type AiStepModelInput = z.infer<typeof AiStepModelInput>
 
+/** Where an AI step's model comes from: its kind's default, or an override an admin set for the step. */
+export const STEP_MODEL_SOURCES = ['kind', 'override'] as const
+
+export const StepModelSource = z.enum(STEP_MODEL_SOURCES)
+export type StepModelSource = z.infer<typeof StepModelSource>
+
 /**
  * An AI step's model as an admin reads it, with the step's kind of call and the priced models of that kind,
- * the only ones it may run.
+ * the only ones it may run; where its model comes from; and when its override was last changed, null when
+ * it follows its kind.
  */
 export const AiStepModelView = z.object({
   step: z.string(),
@@ -116,16 +126,36 @@ export const AiStepModelView = z.object({
   model: z.string(),
   models: z.array(z.string()),
   options: z.record(z.string(), z.unknown()),
-  updatedAt: z.iso.datetime(),
+  source: StepModelSource,
+  updatedAt: z.iso.datetime().nullable(),
 })
 export type AiStepModelView = z.infer<typeof AiStepModelView>
 
 /**
- * Why an AI step can't run a model of another kind: the step, the model, the units the model is priced in,
- * the kind of call the step makes and the one the model takes, null when it takes none.
+ * A kind of call's default model as an admin reads it, with the priced models of that kind, the only ones
+ * it may be, and the AI steps that follow it.
+ */
+export const AiKindModelView = z.object({
+  kind: CallKind,
+  model: z.string(),
+  models: z.array(z.string()),
+  options: z.record(z.string(), z.unknown()),
+  steps: z.array(z.string()),
+  updatedAt: z.iso.datetime(),
+})
+export type AiKindModelView = z.infer<typeof AiKindModelView>
+
+/** Removing an AI step's override, as its page read it, so the step follows its kind again. */
+export const AiStepOverrideRemoval = z.object({ since: Since })
+export type AiStepOverrideRemoval = z.infer<typeof AiStepOverrideRemoval>
+
+/**
+ * Why an AI step, or a kind's default, can't be a model of another kind: the step (none for a kind's
+ * default), the model, the units the model is priced in, the kind of call wanted and the one the model
+ * takes, null when it takes none.
  */
 export const WrongKind = z.object({
-  step: z.string(),
+  step: z.string().optional(),
   model: z.string(),
   units: z.array(UsageUnit),
   wants: CallKind,

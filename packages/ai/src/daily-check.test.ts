@@ -27,7 +27,7 @@ async function calls(seller: string, costs: number[], day = DAY) {
       callIndex: i,
       try: 1,
       attempt: 1,
-      step: 'read',
+      step: 'flow.read',
       model: 'm',
       seller,
       state: 'done' as const,

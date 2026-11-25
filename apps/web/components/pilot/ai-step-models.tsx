@@ -1,13 +1,14 @@
 'use client'
 
-// The AI section's AI steps: the model each AI step runs, picked from the priced models of the step's kind,
-// with the options its call passes the model as JSON, each step saved on its own. The two draft steps are
-// the modes.
+// The AI section's AI steps: the model each AI step runs, its kind's default or its own, picked from the priced
+// models of the step's kind, with the options its call passes the model as JSON, each step saved on its own;
+// saving gives the step its own model, and a step with one can go back to its kind's default. The two draft
+// steps are the modes.
 import { useState } from 'react'
 
 import type { AiStepModelView } from '@dazbee/schema'
 
-import { saveStepModel } from '@/app/pilot/ai/actions.ts'
+import { removeStepOverride, saveStepModel } from '@/app/pilot/ai/actions.ts'
 import {
   AiHeading,
   AiTable,
@@ -26,10 +27,10 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 /** A change a row runs from where `at` names, through the table's `useChange`. */
-type Run = (at: string, change: () => Promise<string | null>) => void
+type Run = (at: string, change: () => Promise<string | null>, done?: string) => void
 
 /** Options read from `text`, a JSON object of strings, numbers and true or false; null otherwise. */
-function optionsOf(text: string): Record<string, string | number | boolean> | null {
+export function optionsOf(text: string): Record<string, string | number | boolean> | null {
   try {
     const value: unknown = JSON.parse(text.trim() || '{}')
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null
@@ -43,11 +44,14 @@ function optionsOf(text: string): Record<string, string | number | boolean> | nu
 }
 
 /**
- * The models a step's picker offers, its own model first when it is no longer of the step's kind, and the
- * one it shows: the one picked, or the step's own once the picked one is no longer offered, as after a save
- * refused because the picked model stopped being of the step's kind.
+ * The models a step's or a kind's picker offers, its own model first when it is no longer of its kind, and the
+ * one it shows: the one picked, or its own once the picked one is no longer offered, as after a save refused
+ * because the picked model stopped being of its kind.
  */
-export function modelChoices(step: AiStepModelView, picked: string): { choices: string[]; shown: string } {
+export function modelChoices(
+  step: { model: string; models: string[] },
+  picked: string,
+): { choices: string[]; shown: string } {
   const choices = step.models.includes(step.model) ? step.models : [step.model, ...step.models]
   return { choices, shown: choices.includes(picked) ? picked : step.model }
 }
@@ -62,6 +66,7 @@ export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
         <thead>
           <tr>
             <th className={HEAD}>{w.step}</th>
+            <th className={HEAD}>{w.source}</th>
             <th className={HEAD}>{w.model}</th>
             <th className={HEAD}>{w.options}</th>
             <th className={HEAD} />
@@ -70,7 +75,7 @@ export function AiStepModels({ steps }: { steps: AiStepModelView[] }) {
         <tbody>
           {steps.map((step) => (
             <StepRow
-              key={`${step.step}/${step.updatedAt}`}
+              key={`${step.step}/${step.source}/${step.updatedAt}`}
               step={step}
               run={run}
               busy={busy}
@@ -111,10 +116,14 @@ function StepRow({
     if (!read) return onBadOptions()
     run(step.step, () => saveStepModel(step.step, { model: shown, options: read, since: step.updatedAt }))
   }
+  function followKind() {
+    run(step.step, () => removeStepOverride(step.step, step.updatedAt), w.defaultUsed)
+  }
   return (
     <>
       <tr data-step={step.step}>
         <td className={cn(CELL, 'font-semibold')}>{what.step}</td>
+        <td className={cn(CELL, 'text-caption text-muted')}>{step.source === 'kind' ? w.fromKind : w.override}</td>
         <td className={CELL}>
           <Select
             name={`model-${step.step}`}
@@ -144,9 +153,20 @@ function StepRow({
           >
             {t.save}
           </button>
+          {step.source === 'override' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={followKind}
+              aria-label={format(w.useDefaultFor, what)}
+              className={cn(SAVE_BUTTON, 'ms-2')}
+            >
+              {w.useDefault}
+            </button>
+          )}
         </td>
       </tr>
-      <NoteRow note={note} span={4} />
+      <NoteRow note={note} span={5} />
     </>
   )
 }

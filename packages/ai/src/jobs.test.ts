@@ -74,7 +74,12 @@ describe('saveJob', () => {
     ]
     for (const call of bad) {
       const saving = db.transaction((tx) =>
-        saveJob(tx, boss, { ...who, kind: 'ai-steps', input: { calls: [{ step: 'refine', input: call }] }, queue }),
+        saveJob(tx, boss, {
+          ...who,
+          kind: 'ai-steps',
+          input: { calls: [{ step: 'flow.refine', input: call }] },
+          queue,
+        }),
       )
       await expect(saving).rejects.toThrow()
     }
@@ -94,7 +99,7 @@ describe('saveJob', () => {
           callIndex: 0,
           try: 1,
           attempt: 1,
-          step: 'read',
+          step: 'flow.read',
           model: 'test',
           seller: 'test',
           state: 'done',

@@ -8,11 +8,12 @@ vi.mock('@/app/pilot/ai/actions.ts', () => ({}))
 
 /** Resize, running seedream-5.5, with the picture models it may run. */
 const RESIZE: AiStepModelView = {
-  step: 'resize',
+  step: 'flow.resize',
   kind: 'picture',
   model: 'seedream-5.5',
   models: ['gpt-image-2.5-sunburst', 'seedream-5.5'],
   options: {},
+  source: 'override',
   updatedAt: '2026-11-25T10:00:00.000Z',
 }
 

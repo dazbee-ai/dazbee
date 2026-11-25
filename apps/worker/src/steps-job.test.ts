@@ -238,7 +238,7 @@ describe('startStepsWorker', () => {
         const spent = { id: newId(), jobId: 'spent', workspaceId: 'spent', callIndex: 0, try: 1, attempt: 1 }
         await tx.insert(aiCalls).values({
           ...spent,
-          step: 'read',
+          step: 'flow.read',
           model: 'test',
           seller: 'test',
           state: 'done',

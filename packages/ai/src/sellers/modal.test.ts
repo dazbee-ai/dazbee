@@ -104,7 +104,7 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'layer-split',
+      step: 'flow.layer-split',
       input,
       signal: new AbortController().signal,
       files,
@@ -129,13 +129,21 @@ describe('modalSellerOn', () => {
     useSeller(modalSellerOn(sdk, { pollMs: 1 }))
     const { job, files, input } = await splitJob()
     const stop = new AbortController()
-    const first = callAi(db, { job, attempt: 1, callIndex: 0, step: 'layer-split', input, signal: stop.signal, files })
+    const first = callAi(db, {
+      job,
+      attempt: 1,
+      callIndex: 0,
+      step: 'flow.layer-split',
+      input,
+      signal: stop.signal,
+      files,
+    })
     while (seen.asks < 2) await new Promise((resolve) => setTimeout(resolve, 5))
     stop.abort('taken-back')
     await expect(first).rejects.toBe('taken-back')
     await setJob(job.id, { attempt: 2 })
     const signal = new AbortController().signal
-    const output = await callAi(db, { job, attempt: 2, callIndex: 0, step: 'layer-split', input, signal, files })
+    const output = await callAi(db, { job, attempt: 2, callIndex: 0, step: 'flow.layer-split', input, signal, files })
     expect(output.kind).toBe('layers')
     expect(seen.spawned).toHaveLength(1)
     expect(seen.fromId).toEqual(['fc-1'])
@@ -155,7 +163,7 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'layer-split',
+      step: 'flow.layer-split',
       input,
       signal: new AbortController().signal,
       files,
@@ -175,7 +183,7 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'layer-split',
+      step: 'flow.layer-split',
       input,
       signal: new AbortController().signal,
       files,

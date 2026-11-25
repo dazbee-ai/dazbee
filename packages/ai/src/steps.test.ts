@@ -3,13 +3,13 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
-import { modelSellers } from '@dazbee/db'
+import { aiKindModels, type Db, modelSellers, newId, type Tx } from '@dazbee/db'
 import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, stepTakes } from './steps.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, stepDef, STEPS, stepTakes } from './steps.ts'
 import {
   addJob,
   addPrices,
@@ -21,6 +21,16 @@ import {
   newWorkspace,
   type TestPrice,
 } from './test-ai.ts'
+
+/** Ends a test's transaction, carrying what it read out of it. */
+class Rollback extends Error {
+  readonly models: Record<string, string>
+
+  constructor(models: Record<string, string>) {
+    super('rolled back')
+    this.models = models
+  }
+}
 
 /** A call of each kind. */
 const INPUTS: Record<CallKind, CallInput> = {
@@ -87,9 +97,45 @@ describe('STEPS', () => {
   })
 })
 
+describe('routeStep', () => {
+  it('runs each step’s own model, or else its kind’s default, which a change of the default reaches', async () => {
+    const models = async (tx: Db | Tx) =>
+      Object.fromEntries(await Promise.all(AI_STEPS.map(async (step) => [step, (await routeStep(tx, step, [])).model])))
+    expect(await models(db)).toEqual({
+      'flow.round-plan': 'gpt-6-luna',
+      'flow.read': 'gpt-6-luna',
+      'flow.draft-fast': 'muse-image-1.0',
+      'flow.draft-precise': 'gpt-image-2.5-sunburst',
+      'flow.refine': 'seedream-5.5',
+      'flow.resize': 'seedream-5.5',
+      'flow.layer-plan': 'gpt-6.2-sol',
+      'flow.layer-split': 'ming-image-0.1-design-layer',
+    })
+    const added = `flow.test-${newId()}`
+    STEPS[added] = { kind: 'picture', expected: () => ({ picture: 1 }) }
+    try {
+      expect((await routeStep(db, added, [])).model).toBe('muse-image-1.0')
+      // Changed in a transaction that is rolled back, as other tests read the same defaults.
+      const changed = await db
+        .transaction(async (tx) => {
+          await tx.update(aiKindModels).set({ model: 'seedream-5.5' }).where(eq(aiKindModels.kind, 'picture'))
+          throw new Rollback(await models(tx))
+        })
+        .catch((e: unknown) => (e instanceof Rollback ? e.models : Promise.reject(e)))
+      expect(changed).toMatchObject({
+        'flow.draft-fast': 'seedream-5.5',
+        'flow.draft-precise': 'gpt-image-2.5-sunburst',
+        'flow.read': 'gpt-6-luna',
+      })
+    } finally {
+      Reflect.deleteProperty(STEPS, added)
+    }
+  })
+})
+
 describe('stepDef', () => {
   it('gives a step’s entry, and fails for a step not in the list', () => {
-    expect(stepDef('read').kind).toBe('text')
+    expect(stepDef('flow.read').kind).toBe('text')
     expect(() => stepDef('no-such-step')).toThrow('no AI step no-such-step')
   })
 })
@@ -107,13 +153,13 @@ describe('modelKinds', () => {
 
 describe('stepTakes', () => {
   it('lets each step run only a model of its own kind', () => {
-    expect(stepTakes('resize', ['picture', 'reference-picture'])).toBe(true)
-    expect(stepTakes('draft-fast', ['input-token', 'image-output-token'])).toBe(true)
-    expect(stepTakes('resize', ['input-token', 'output-token'])).toBe(false)
-    expect(stepTakes('read', ['input-token', 'output-token'])).toBe(true)
-    expect(stepTakes('read', ['picture'])).toBe(false)
-    expect(stepTakes('layer-split', ['gpu-second'])).toBe(true)
-    expect(stepTakes('layer-split', ['picture'])).toBe(false)
+    expect(stepTakes('flow.resize', ['picture', 'reference-picture'])).toBe(true)
+    expect(stepTakes('flow.draft-fast', ['input-token', 'image-output-token'])).toBe(true)
+    expect(stepTakes('flow.resize', ['input-token', 'output-token'])).toBe(false)
+    expect(stepTakes('flow.read', ['input-token', 'output-token'])).toBe(true)
+    expect(stepTakes('flow.read', ['picture'])).toBe(false)
+    expect(stepTakes('flow.layer-split', ['gpu-second'])).toBe(true)
+    expect(stepTakes('flow.layer-split', ['picture'])).toBe(false)
   })
 })
 
@@ -155,7 +201,7 @@ describe('holdFor', () => {
     ])
     const draft: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
     const four: CallInput = { ...draft, pictures: ['a', 'b', 'c'], marks: 'm' }
-    const hold = (sellers: string[], input: CallInput) => holdFor(db, [{ step: 'refine', input, sellers }])
+    const hold = (sellers: string[], input: CallInput) => holdFor(db, [{ step: 'flow.refine', input, sellers }])
     const plain = await hold([perPicture], draft)
     const referenced = await hold([perPicture], four)
     // Four references (three pictures and the marked copy) at US$0.01 each, at ₹96.31, times 1.25.
@@ -169,8 +215,8 @@ describe('holdFor', () => {
 
   it('holds the layer split’s fixed amount for its size', async () => {
     const [split1024, split512] = await Promise.all([
-      holdFor(db, [{ step: 'layer-split', input: INPUTS['layer-split'] }]),
-      holdFor(db, [{ step: 'layer-split', input: { kind: 'layer-split', picture: 'test/draft', size: 512 } }]),
+      holdFor(db, [{ step: 'flow.layer-split', input: INPUTS['layer-split'] }]),
+      holdFor(db, [{ step: 'flow.layer-split', input: { kind: 'layer-split', picture: 'test/draft', size: 512 } }]),
     ])
     expect(split1024).toBeGreaterThan(0n)
     expect(split512).toBeGreaterThan(0n)

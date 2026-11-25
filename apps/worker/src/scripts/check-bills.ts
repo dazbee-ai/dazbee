@@ -4,7 +4,7 @@
 // compare with each seller's own usage figures. Its prompts are short fixed test prompts, and its pictures are
 // drawn here, never a person's: a plain coloured square, and for the layer split a test ad of shapes and
 // block-letter text, split by a fixed layer plan at --size (1024 unless given), with --guidance when given.
-//   node apps/worker/src/scripts/check-bills.ts --steps round-plan,read,draft-fast [--seller openai]
+//   node apps/worker/src/scripts/check-bills.ts --steps flow.round-plan,flow.read,flow.draft-fast [--seller openai]
 //     [--size 512] [--guidance 3] [--workspace dev-workspace] [--member dev-user] [--gift 200]
 import { setTimeout as sleep } from 'node:timers/promises'
 import { parseArgs } from 'node:util'
@@ -75,7 +75,7 @@ const { values } = parseArgs({
     guidance: { type: 'string' },
   },
 })
-if (!values.steps) throw new Error('name the AI steps to run: --steps round-plan,read,draft-fast')
+if (!values.steps) throw new Error('name the AI steps to run: --steps flow.round-plan,flow.read,flow.draft-fast')
 const databaseUrl = process.env.DATABASE_URL ?? 'postgres://dazbee:dazbee-local@127.0.0.1:55432/dazbee'
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(
@@ -180,19 +180,19 @@ function inputOf(step: string, picture: string, ad: string): CallInput {
     height: 1024,
   }
   switch (step) {
-    case 'round-plan':
+    case 'flow.round-plan':
       return text('List three short layout ideas for the ad.', AD)
-    case 'read':
+    case 'flow.read':
       return text('List the colours you see in the picture.', 'What colours are in this picture?', [picture])
-    case 'layer-plan':
+    case 'flow.layer-plan':
       return text('List the layers a designer would make for the ad.', AD)
-    case 'draft-fast':
-    case 'draft-precise':
+    case 'flow.draft-fast':
+    case 'flow.draft-precise':
       return draft
-    case 'refine':
-    case 'resize':
+    case 'flow.refine':
+    case 'flow.resize':
       return edit
-    case 'layer-split':
+    case 'flow.layer-split':
       return {
         kind: 'layer-split',
         picture: ad,

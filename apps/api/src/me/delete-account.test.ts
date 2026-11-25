@@ -352,7 +352,7 @@ describe('DELETE /me', () => {
       callIndex: 0,
       try: 1,
       attempt: 1,
-      step: 'read',
+      step: 'flow.read',
       model: 'gpt-6-luna',
       seller: 'openai',
       state: 'done',

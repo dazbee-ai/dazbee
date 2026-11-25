@@ -37,7 +37,7 @@ describe('saveSellerOrder', () => {
 describe('saveStepModel', () => {
   it('names the step, the kinds and the units of a model of another kind as the page shows them', async () => {
     const wrongKind = {
-      step: 'resize',
+      step: 'flow.resize',
       model: 'gpt-6-luna',
       units: ['cached-input-token', 'input-token', 'output-token'],
       wants: 'picture',
@@ -46,14 +46,14 @@ describe('saveStepModel', () => {
     vi.mocked(setStepModel).mockRejectedValue(
       new ApiFailure(400, 'resize runs a picture model, and gpt-6-luna is a text model', { error: '', wrongKind }),
     )
-    expect(await saveStepModel('resize', { model: 'gpt-6-luna', options: {}, since: null })).toBe(
+    expect(await saveStepModel('flow.resize', { model: 'gpt-6-luna', options: {}, since: null })).toBe(
       'Resize runs a picture model, and gpt-6-luna is a text model, priced in Cached input tokens, Input tokens, Output tokens.',
     )
   })
 
   it('keeps the API’s words for any other refusal', async () => {
     vi.mocked(setStepModel).mockRejectedValue(new ApiFailure(400, 'No seller of x has a price for it'))
-    expect(await saveStepModel('resize', { model: 'x', options: {} })).toBe('No seller of x has a price for it')
+    expect(await saveStepModel('flow.resize', { model: 'x', options: {} })).toBe('No seller of x has a price for it')
   })
 })
 

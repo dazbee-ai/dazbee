@@ -7,7 +7,7 @@ describe('AiStepsInput', () => {
     const saved = {
       calls: [
         {
-          step: 'refine',
+          step: 'flow.refine',
           input: { kind: 'picture-edit', prompt: 'Make it square.', pictures: ['k'], width: 1024, height: 1024 },
         },
       ],
@@ -23,7 +23,7 @@ describe('AiStepsInput', () => {
 
   it('refuses marks with no picture, and more than 16 references counting the marked copy', () => {
     const picture = { kind: 'picture', prompt: 'A cup.', width: 1024, height: 1024 }
-    const parse = (input: object) => AiStepsInput.safeParse({ calls: [{ step: 'refine', input }] }).success
+    const parse = (input: object) => AiStepsInput.safeParse({ calls: [{ step: 'flow.refine', input }] }).success
     expect(parse({ ...picture, pictures: [], marks: 'm' })).toBe(false)
     expect(parse({ ...picture, pictures: Array.from({ length: 16 }, (_, i) => `k${i}`), marks: 'm' })).toBe(false)
     expect(parse({ ...picture, pictures: Array.from({ length: 15 }, (_, i) => `k${i}`), marks: 'm' })).toBe(true)

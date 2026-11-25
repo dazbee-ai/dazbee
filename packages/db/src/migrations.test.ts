@@ -214,6 +214,37 @@ describe('the migrations', () => {
     expect(kits).toEqual([{ colors, fonts, voice: 'Warm', text_styles: [] }])
   }, 60_000)
 
+  it('give each kind of AI call a default model, and keep as a flow override each step model that differs from it', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-kind-models'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    // An admin moved the round plan to Sol before the change.
+    await withClient(url, (client) =>
+      client.query(`update ai_step_models set model = 'gpt-6.2-sol' where step = 'round-plan'`),
+    )
+    await applyMigrations(url, MIGRATIONS)
+    const read = await withClient(url, async (client) => ({
+      kinds: (await client.query('select kind, model from ai_kind_models order by kind')).rows,
+      steps: (await client.query('select step, model, options from ai_step_models order by step')).rows,
+    }))
+    expect(read.kinds).toEqual([
+      { kind: 'layer-split', model: 'ming-image-0.1-design-layer' },
+      { kind: 'picture', model: 'muse-image-1.0' },
+      { kind: 'text', model: 'gpt-6-luna' },
+    ])
+    const flow = read.steps.filter((row: { step: string }) => row.step.startsWith('flow.'))
+    expect(flow).toEqual([
+      { step: 'flow.draft-precise', model: 'gpt-image-2.5-sunburst', options: { quality: 'medium' } },
+      { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: {} },
+      { step: 'flow.refine', model: 'seedream-5.5', options: {} },
+      { step: 'flow.resize', model: 'seedream-5.5', options: {} },
+      { step: 'flow.round-plan', model: 'gpt-6.2-sol', options: {} },
+    ])
+    // The rows the previous commit's worker reads stay as they were.
+    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toHaveLength(8)
+  }, 60_000)
+
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {
     if (index === 0) continue

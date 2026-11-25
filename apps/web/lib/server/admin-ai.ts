@@ -9,13 +9,16 @@ import {
   AiAllowanceView,
   AiCostRow,
   AiGrantView,
+  AiKindModelView,
   type AiPriceInput,
   AiPriceView,
   type AiSettingsInput,
   AiSettingsView,
   type AiStepModelInput,
   AiStepModelView,
+  type AiStepOverrideRemoval,
   AiWorkspace,
+  type CallKind,
   type CurrencyRateInput,
   CurrencyRateView,
   DailyCheck,
@@ -38,6 +41,7 @@ export interface AiPage {
   rates: CurrencyRateView[]
   prices: AiPriceView[]
   modelSellers: ModelSellersView[]
+  kindModels: AiKindModelView[]
   stepModels: AiStepModelView[]
   costs: AiCostRow[]
   checks: DailyCheck[]
@@ -63,20 +67,44 @@ export interface AiOverviewData {
 export const findAiPage = cache(async (from: string, to: string): Promise<AiPage | null> => {
   const days = new URLSearchParams({ from, to })
   try {
-    const [settings, rates, prices, modelSellers, stepModels, costs, checks, unknownCalls, outOfMoney, lastChecked] =
-      await Promise.all([
-        call(AiSettingsView, '/admin/ai/settings'),
-        call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
-        call(AiPriceView.array(), '/admin/ai/prices'),
-        call(ModelSellersView.array(), '/admin/ai/model-sellers'),
-        call(AiStepModelView.array(), '/admin/ai/step-models'),
-        call(AiCostRow.array(), `/admin/ai/costs?${days}`),
-        call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
-        call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
-        call(OutOfMoney.array(), '/admin/ai/out-of-money'),
-        call(LastChecked.array(), '/admin/ai/last-checked'),
-      ])
-    return { settings, rates, prices, modelSellers, stepModels, costs, checks, unknownCalls, outOfMoney, lastChecked }
+    const [
+      settings,
+      rates,
+      prices,
+      modelSellers,
+      kindModels,
+      stepModels,
+      costs,
+      checks,
+      unknownCalls,
+      outOfMoney,
+      lastChecked,
+    ] = await Promise.all([
+      call(AiSettingsView, '/admin/ai/settings'),
+      call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
+      call(AiPriceView.array(), '/admin/ai/prices'),
+      call(ModelSellersView.array(), '/admin/ai/model-sellers'),
+      call(AiKindModelView.array(), '/admin/ai/kind-models'),
+      call(AiStepModelView.array(), '/admin/ai/step-models'),
+      call(AiCostRow.array(), `/admin/ai/costs?${days}`),
+      call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
+      call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
+      call(OutOfMoney.array(), '/admin/ai/out-of-money'),
+      call(LastChecked.array(), '/admin/ai/last-checked'),
+    ])
+    return {
+      settings,
+      rates,
+      prices,
+      modelSellers,
+      kindModels,
+      stepModels,
+      costs,
+      checks,
+      unknownCalls,
+      outOfMoney,
+      lastChecked,
+    }
   } catch (e) {
     if (e instanceof ApiFailure && e.status === 404) return null
     throw e
@@ -135,6 +163,12 @@ export const setModelSellers = (model: string, sellers: ModelSellersInput) =>
 
 export const setStepModel = (step: string, choice: AiStepModelInput) =>
   call(z.null(), `/admin/ai/step-models/${encodeURIComponent(step)}`, { method: 'PUT', body: choice })
+
+export const removeStepModel = (step: string, removal: AiStepOverrideRemoval) =>
+  call(z.null(), `/admin/ai/step-models/${encodeURIComponent(step)}`, { method: 'DELETE', body: removal })
+
+export const setKindModel = (kind: CallKind, choice: AiStepModelInput) =>
+  call(z.null(), `/admin/ai/kind-models/${kind}`, { method: 'PUT', body: choice })
 
 export const giveAiGift = (workspaceId: string, gift: GiftInput) =>
   call(AiGrantView, `${workspacePath(workspaceId)}/gifts`, { method: 'POST', body: gift })

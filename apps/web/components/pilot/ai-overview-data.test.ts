@@ -33,12 +33,12 @@ describe('daysFrom', () => {
 
 describe('costsByDay', () => {
   const costs = [
-    cost('2026-11-21', 'refine', 'pixazo', 2),
-    cost('2026-11-19', 'read', 'openai', 0.5),
-    cost('2026-11-19', 'refine', 'openai', 1.25),
+    cost('2026-11-21', 'flow.refine', 'pixazo', 2),
+    cost('2026-11-19', 'flow.read', 'openai', 0.5),
+    cost('2026-11-19', 'flow.refine', 'openai', 1.25),
     cost('2026-11-20', 'test-step', 'test-seller', 4),
-    cost('2026-10-01', 'read', 'meta', 9),
-    cost('2026-11-21', 'resize', 'zenmux', 0, { done: 0 }),
+    cost('2026-10-01', 'flow.read', 'meta', 9),
+    cost('2026-11-21', 'flow.resize', 'zenmux', 0, { done: 0 }),
   ]
 
   it('adds up each day’s real cost by seller, in the sellers’ fixed order, with those not in it as Other and none that cost nothing', () => {
@@ -51,8 +51,8 @@ describe('costsByDay', () => {
 
   it('adds up each day’s real cost by AI step, keeping each step’s place whatever else is shown', () => {
     expect(costsByDay(costs, DAYS, 'step')).toEqual([
-      { key: 'read', slot: 1, values: [0.5, 0, 0] },
-      { key: 'refine', slot: 4, values: [1.25, 0, 2] },
+      { key: 'flow.read', slot: 1, values: [0.5, 0, 0] },
+      { key: 'flow.refine', slot: 4, values: [1.25, 0, 2] },
       { key: OTHER, slot: -1, values: [0, 4, 0] },
     ])
   })
@@ -80,9 +80,9 @@ describe('layerSplitByDay', () => {
   it('gives the GPU’s real cost against the fixed amount charged each day', () => {
     const split = layerSplitByDay(
       [
-        cost('2026-11-20', 'layer-split', 'modal', 1.2, { charged: 1.83 }),
-        cost('2026-11-20', 'layer-split', 'modal', 0.4, { charged: 1.83 }),
-        cost('2026-11-21', 'refine', 'pixazo', 2),
+        cost('2026-11-20', 'flow.layer-split', 'modal', 1.2, { charged: 1.83 }),
+        cost('2026-11-20', 'flow.layer-split', 'modal', 0.4, { charged: 1.83 }),
+        cost('2026-11-21', 'flow.refine', 'pixazo', 2),
       ],
       DAYS,
     )
@@ -91,7 +91,7 @@ describe('layerSplitByDay', () => {
   })
 
   it('gives nothing when the layer split made no call on the days', () => {
-    expect(layerSplitByDay([cost('2026-11-21', 'refine', 'pixazo', 2)], DAYS)).toBeNull()
+    expect(layerSplitByDay([cost('2026-11-21', 'flow.refine', 'pixazo', 2)], DAYS)).toBeNull()
   })
 })
 
@@ -100,8 +100,8 @@ describe('overviewFigures', () => {
     expect(
       overviewFigures({
         today: [
-          cost('2026-11-21', 'refine', 'pixazo', 2, { calls: 3, done: 2 }),
-          cost('2026-11-21', 'read', 'openai', 1),
+          cost('2026-11-21', 'flow.refine', 'pixazo', 2, { calls: 3, done: 2 }),
+          cost('2026-11-21', 'flow.read', 'openai', 1),
         ],
         checks: [check('meta', '2026-11-20', 'red', 0.93, 5), check('openai', '2026-11-20', 'ok', 2, 2)],
         unknownCalls: [

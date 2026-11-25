@@ -1,4 +1,4 @@
-// Whether `tables.ts` and a migrations folder agree: `drizzle-kit generate`, run on a copy of the
+// Whether the `*tables.ts` files and a migrations folder agree: `drizzle-kit generate`, run on a copy of the
 // folder, finds nothing to write and asks nothing. CI runs it on `packages/db/migrations`.
 import { spawn } from 'node:child_process'
 import { cp, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
@@ -19,7 +19,7 @@ const PACKAGE = fileURLToPath(new URL('..', import.meta.url))
 
 const DRIZZLE_KIT = join(PACKAGE, 'node_modules', 'drizzle-kit', 'bin.cjs')
 
-/** What drizzle-kit prints when `tables.ts` holds nothing the migrations don't. */
+/** What drizzle-kit prints when the tables hold nothing the migrations don't. */
 const NOTHING_TO_WRITE = 'No schema changes, nothing to migrate'
 
 /** The config keys the check passes to drizzle-kit as flags; any other would make it generate unlike the migration script. */
@@ -27,7 +27,7 @@ const PASSED_KEYS = ['dialect', 'schema', 'out']
 
 /**
  * Checks that the folder's journal, SQL files and snapshots list the same migrations, then runs
- * `drizzle-kit generate` against `tables.ts` on a copy of `migrations`, stopped after `timeoutMs`.
+ * `drizzle-kit generate` against the tables on a copy of `migrations`, stopped after `timeoutMs`.
  * They agree only when it ends by itself, prints that it has nothing to write, and leaves the copy
  * as it was.
  */

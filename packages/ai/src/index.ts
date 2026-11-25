@@ -40,5 +40,8 @@ export {
   type SellerRequest,
   useSeller,
 } from './sellers/seller.ts'
+export { useSellersOf } from './sellers/in-use.ts'
+export { metaSeller } from './sellers/meta.ts'
+export { openaiSeller } from './sellers/openai.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
 export { holdFor, routeStep, type StepDef, STEPS } from './steps.ts'

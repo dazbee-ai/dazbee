@@ -1,12 +1,12 @@
 // The worker (ADR-0022): runs AI jobs from pg-boss in our Postgres, sweeps every 5 minutes the jobs whose
 // pg-boss job ended without them, and answers a health check. The API migrates the database, so the worker
 // starts after it. On SIGTERM it stops taking jobs and waits up to 110 s for those running. Settings come
-// from the environment only.
+// from the environment only, each seller's key among them.
 import { createServer } from 'node:http'
 
 import { PgBoss } from 'pg-boss'
 
-import { sweepJobs } from '@dazbee/ai'
+import { sweepJobs, useSellersOf } from '@dazbee/ai'
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
@@ -25,6 +25,8 @@ const port = Number(process.env.WORKER_PORT ?? 8790)
 const callLimit = Number(process.env.WORKER_AI_CALLS ?? 8)
 if (!Number.isInteger(callLimit) || callLimit < 1) throw new Error('WORKER_AI_CALLS is a whole number from 1')
 
+// Each seller whose key is set: OPENAI_API_KEY, MUSE_API_KEY.
+const sellers = useSellersOf()
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(storageSettings())
 const boss = new PgBoss({ connectionString: databaseUrl, max: 4 })
@@ -48,7 +50,7 @@ const health = createServer((request, response) => {
   response.end(JSON.stringify({ ok, build }))
 })
 health.listen(port)
-console.log(JSON.stringify({ msg: 'worker started', port, callLimit, build }))
+console.log(JSON.stringify({ msg: 'worker started', port, callLimit, sellers, build }))
 
 process.once('SIGTERM', () => void shutDown())
 process.once('SIGINT', () => void shutDown())

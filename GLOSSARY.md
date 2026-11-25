@@ -631,15 +631,15 @@ The editor's infinite view of one page: its frames, where they were placed. The 
 _Avoid_: Board, workspace
 
 **Section**:
-A titled part of a page that groups frames. Its outline fits around its frames; frames move in and out of it, and an empty section goes. Never exported.
+A titled part of a page that groups frames. Its outline fits around its frames; frames move in and out of it, and an empty section goes. A frame is in at most one section, a section is on one page, and sections never hold sections. Never exported.
 _Avoid_: Group (that is a layer group), board, folder, island
 
 **Connector**:
-A line with an arrowhead on a page, outside any frame, joining two things (frames or sections) and following them as they move. It is drawn with the Arrow shape on the page; an arrow inside a frame is a layer. Never exported.
+A line with an arrowhead on a page, outside any frame, joining two different things (frames or sections) and following them as they move; it goes when either of them goes. It is drawn with the Arrow shape from one thing's edge to another; an arrow inside a frame is a layer. Never exported.
 _Avoid_: Arrow (inside a frame, that is a shape layer), link (that is a link id)
 
 **Star**:
-A person's mark on a frame that it goes out: Export and Share send starred frames, and leave the rest out unless asked.
+A person's mark on a frame that it goes out: Export starts with the page's starred frames ticked, or with every frame when none is starred.
 _Avoid_: Favourite, approved (that is approval), chosen, final
 
 **Composition**:

@@ -3,7 +3,11 @@
 // tests only.
 import { readFileSync } from 'node:fs'
 
-import { type CallInput, referenceCount } from '@dazbee/schema'
+import { expect } from 'vitest'
+
+import { type CallInput, type CallKind, referenceCount, type Usage } from '@dazbee/schema'
+
+import { declaredUnits } from './units.ts'
 
 /** One answer: a status and a body, and the headers it adds. */
 export interface FakeAnswer {
@@ -54,4 +58,10 @@ export function fakeFetch(routes: [pattern: string, ...answers: FakeAnswer[]][])
 export function referencesOf(input: CallInput, bytes: () => Uint8Array | Promise<Uint8Array>) {
   return async () =>
     input.kind === 'picture' ? Promise.all(Array.from({ length: referenceCount(input) }, () => bytes())) : []
+}
+
+/** Checks that `usage` names only the units `seller` declares for `kind` calls of `sellerModel`. */
+export function expectDeclared(seller: string, kind: CallKind, sellerModel: string, usage: Usage): void {
+  const declared = declaredUnits(seller, kind, sellerModel) ?? []
+  expect(Object.keys(usage).filter((unit) => !declared.includes(unit as never))).toEqual([])
 }

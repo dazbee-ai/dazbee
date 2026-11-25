@@ -7,7 +7,7 @@ import type { CallInput } from '@dazbee/schema'
 import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
+import { expectDeclared, fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 import { nearestAspect, zenmuxSeller } from './zenmux.ts'
 
 const EDIT: CallInput = {
@@ -70,6 +70,7 @@ describe('zenmuxSeller', () => {
     const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(marked, 'bytedance/doubao-seedream-5.5'))
     expect(JSON.parse(String(sent[0]?.body)).instances[0].referenceImages).toHaveLength(2)
     expect(answer.usage).toEqual({ picture: 1, 'reference-picture': 2 })
+    expectDeclared('zenmux', 'picture', 'bytedance/doubao-seedream-5.5', answer.usage)
   })
 
   it('answers text through chat completions, with cached tokens apart', async () => {
@@ -84,6 +85,7 @@ describe('zenmuxSeller', () => {
       usage: { 'input-token': 100, 'cached-input-token': 20, 'output-token': 40 },
       requestId: 'zm-text',
     })
+    expectDeclared('zenmux', 'text', 'openai/gpt-6-luna', answer.usage)
   })
 
   it('sends the call’s output limit, and reads an answer that stopped at it as cut off with its usage', async () => {
@@ -113,6 +115,7 @@ describe('zenmuxSeller', () => {
     const answer = await zenmuxSeller('test-key', { fetch }).call(requestOf(picture, 'meta/muse-image-1.0'))
     expect(sent[0]?.url).toBe('https://zenmux.ai/api/v1/images/generations')
     expect(answer.usage).toEqual({ picture: 1 })
+    expectDeclared('zenmux', 'picture', 'meta/muse-image-1.0', answer.usage)
   })
 
   it('edits with Muse through its OpenAI Images API when the call has references', async () => {

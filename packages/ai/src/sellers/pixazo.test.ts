@@ -8,7 +8,7 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { pixazoSeller } from './pixazo.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
+import { expectDeclared, fakeFetch, fixture, referencesOf, testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
   kind: 'picture',
@@ -66,6 +66,7 @@ describe('pixazoSeller', () => {
     })
     // US$0.02 a picture and US$0.008 a reference: the bill check's US$0.028.
     expect(await priceUsage(db, 'pixazo', 'seedream-5.5', answer.usage)).toMatchObject({ sellerCost: 28_000n })
+    expectDeclared('pixazo', 'picture', 'seedream-5-5', answer.usage)
   })
 
   it('submits a new picture with no references to text-to-image, and counts a marked copy as a reference', async () => {

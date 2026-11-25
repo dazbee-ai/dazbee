@@ -15,6 +15,7 @@ import { aiSettingsOf } from '../settings.ts'
 import { addGrant, addJob, db, memoryFiles, newWorkspace, RUPEE, setJob } from '../test-ai.ts'
 import { LAYERING, type ModalFunctionCall, type ModalSdk, modalSellerOn } from './modal.ts'
 import { useSeller } from './seller.ts'
+import { expectDeclared } from './test-fetch.ts'
 
 /** A 1 × 1 PNG, as a layer the app gives back. */
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -198,6 +199,7 @@ describe('modalSellerOn', () => {
       sellerCost: 21_358n,
       chargeCost: settings.layerSplit1024,
     })
+    expectDeclared('modal', 'layer-split', 'ming-image-0.1-design-layer', row?.usage ?? {})
     const priced = await priceUsage(db, 'modal', 'ming-image-0.1-design-layer', row?.usage ?? {})
     expect(row?.realCost).toBe(priced.realCost)
   })

@@ -245,12 +245,37 @@ describe('/admin/ai', () => {
     expect((await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, twice)).status).toBe(400)
   })
 
-  it('sets an AI step’s model, only to a model of its kind that a seller has a price for', async () => {
+  it('sets an AI step’s model, only to a model of its kind that its sellers have a full price for', async () => {
     STEPS[step] = { kind: 'picture', expected: () => ({ picture: 1 }) }
     await ask(admin.token, 'PUT', `/admin/ai/currency-rates/${XTS}`, { rate: 2.5 })
+    const priceAtOpenai = (priced: string, unit: string) =>
+      ask(admin.token, 'PUT', '/admin/ai/prices', {
+        seller: 'openai',
+        model: priced,
+        unit,
+        currency: XTS,
+        pricePerMillion: 1,
+        fee: 0,
+      })
+    // OpenAI reports GPT Image tokens for a picture call, so a price per picture alone is not enough.
+    await priceAtOpenai(model, 'picture')
+    await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, {
+      sellers: [{ seller: 'openai', sellerModel: null }],
+    })
+    await db.insert(aiStepModels).values({ step, model: 'seedream-5.5' })
+    expect(await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model })).toMatchObject({
+      status: 400,
+      json: {
+        error: `${model} can't be chosen yet: openai has no price for input-token, image-input-token, image-output-token`,
+        unpriced: [{ seller: 'openai', units: ['input-token', 'image-input-token', 'image-output-token'] }],
+      },
+    })
     for (const [priced, unit] of [
-      [model, 'picture'],
+      [model, 'input-token'],
+      [model, 'image-input-token'],
+      [model, 'image-output-token'],
       [textModel, 'input-token'],
+      [textModel, 'cached-input-token'],
       [textModel, 'output-token'],
     ] as const) {
       await ask(admin.token, 'PUT', '/admin/ai/prices', {
@@ -265,7 +290,6 @@ describe('/admin/ai', () => {
         sellers: [{ seller: 'openai', sellerModel: null }],
       })
     }
-    await db.insert(aiStepModels).values({ step, model: 'seedream-5.5' })
     const changed = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, {
       model,
       options: { quality: 'low' },
@@ -279,11 +303,11 @@ describe('/admin/ai', () => {
     expect(text).toMatchObject({
       status: 400,
       json: {
-        error: `${step} runs a picture model, and ${textModel} is a text model, priced in input-token, output-token`,
+        error: `${step} runs a picture model, and ${textModel} is a text model, priced in cached-input-token, input-token, output-token`,
         wrongKind: {
           step,
           model: textModel,
-          units: ['input-token', 'output-token'],
+          units: ['cached-input-token', 'input-token', 'output-token'],
           wants: 'picture',
           is: 'text',
         },
@@ -362,7 +386,9 @@ describe('/admin/ai', () => {
     expect(orders.find((m) => m.model === orderModel)?.sellers).toEqual([openai, pixazo])
 
     STEPS[staleStep] = { kind: 'picture', expected: () => ({ picture: 1 }) }
-    await ask(admin.token, 'PUT', pricesAt, { ...price, unit: 'picture', pricePerMillion: 1 })
+    for (const unit of ['picture', 'input-token', 'image-input-token', 'image-output-token']) {
+      await ask(admin.token, 'PUT', pricesAt, { ...price, unit, pricePerMillion: 1 })
+    }
     await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, { sellers: [openai] })
     const [row] = await db.insert(aiStepModels).values({ step: staleStep, model: 'seedream-5.5' }).returning()
     const since = row?.updatedAt.toISOString()

@@ -174,8 +174,9 @@ export async function holdFor(
 }
 
 /**
- * The sellers of `model` that are not priced for `kind` calls, each with the units it reports that have no
- * price: none when every seller in the model's order is priced.
+ * The sellers of `model` that price it in some units but not in every unit they report for `kind` calls, each
+ * with the units missing: none when every seller in the model's order that sells it is priced. A seller with
+ * no price for the model at all doesn't sell it here, and no call goes to it.
  */
 export async function unpricedSellers(
   db: Db | Tx,
@@ -190,7 +191,7 @@ export async function unpricedSellers(
   const unpriced: { seller: string; units: UsageUnit[] }[] = []
   for (const { seller, sellerModel } of order) {
     const check = await priceCheck(db, seller, model, sellerModel ?? model, kind)
-    if (!check.priced) unpriced.push({ seller, units: check.missing })
+    if (check.rows.length > 0 && !check.priced) unpriced.push({ seller, units: check.missing })
   }
   return unpriced
 }

@@ -242,7 +242,7 @@ describe('/admin/ai', () => {
   })
 
   it('sets an AI step’s model, only to a model of its kind that a seller has a price for', async () => {
-    STEPS[step] = { kind: 'picture-edit', expected: () => ({ picture: 1 }) }
+    STEPS[step] = { kind: 'picture', expected: () => ({ picture: 1 }) }
     await ask(admin.token, 'PUT', `/admin/ai/currency-rates/${XTS}`, { rate: 2.5 })
     for (const [priced, unit] of [
       [model, 'picture'],
@@ -280,7 +280,7 @@ describe('/admin/ai', () => {
           step,
           model: textModel,
           units: ['input-token', 'output-token'],
-          wants: 'picture-edit',
+          wants: 'picture',
           is: 'text',
         },
       },
@@ -293,7 +293,7 @@ describe('/admin/ai', () => {
     expect(steps.map((s) => s.step)).not.toContain(step)
     const resize = steps.find((s) => s.step === 'resize')
     const read = steps.find((s) => s.step === 'read')
-    expect(resize).toMatchObject({ kind: 'picture-edit', models: expect.arrayContaining([model]) })
+    expect(resize).toMatchObject({ kind: 'picture', models: expect.arrayContaining([model]) })
     expect(resize?.models).not.toContain(textModel)
     expect(read).toMatchObject({ kind: 'text', models: expect.arrayContaining([textModel]) })
     expect(read?.models).not.toContain(model)
@@ -351,7 +351,7 @@ describe('/admin/ai', () => {
     const orders = ModelSellersView.array().parse((await ask(admin.token, 'GET', '/admin/ai/model-sellers')).json)
     expect(orders.find((m) => m.model === orderModel)?.sellers).toEqual([openai, pixazo])
 
-    STEPS[staleStep] = { kind: 'picture-edit', expected: () => ({ picture: 1 }) }
+    STEPS[staleStep] = { kind: 'picture', expected: () => ({ picture: 1 }) }
     await ask(admin.token, 'PUT', pricesAt, { ...price, unit: 'picture', pricePerMillion: 1 })
     await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, { sellers: [openai] })
     const [row] = await db.insert(aiStepModels).values({ step: staleStep, model: 'seedream-5.5' }).returning()

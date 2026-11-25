@@ -5,7 +5,7 @@
 import { asc, eq } from 'drizzle-orm'
 
 import { aiStepModels, type Db, modelSellers, type Tx } from '@dazbee/db'
-import type { AiStep, CallInput, CallKind, Usage, UsageUnit } from '@dazbee/schema'
+import { type AiStep, type CallInput, type CallKind, referenceCount, type Usage, type UsageUnit } from '@dazbee/schema'
 
 import { currencyRate, type PriceRow, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
@@ -42,6 +42,13 @@ const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', '
 /** How much more than its expected cost a call holds. */
 const HOLD_MARGIN = { times: 5n, per: 4n }
 
+/**
+ * The image input tokens one picture a model reads is taken to cost. OpenAI's images-vision guide (read 25 Nov
+ * 2026) says GPT Image reads every input at high fidelity, at 65 + 129 per 512 px tile + 4,160 for a square
+ * picture: 4,354 for 1024 px. An estimate, which the hold's margin covers.
+ */
+export const PICTURE_INPUT_TOKENS = 4354
+
 /** About 1,056 output tokens for a medium-quality square picture of 1024 px, scaled by area. */
 const pictureTokens = (input: CallInput) =>
   'width' in input ? Math.ceil((input.width * input.height * 1056) / (1024 * 1024)) : 1056
@@ -53,8 +60,8 @@ export const STEPS: Record<string, StepDef> = {
   'layer-plan': { kind: 'text', expected: () => ({ 'input-token': 8000, 'output-token': 4000 }) },
   'draft-fast': { kind: 'picture', expected: (input) => pictureUsage(input) },
   'draft-precise': { kind: 'picture', expected: (input) => pictureUsage(input) },
-  refine: { kind: 'picture-edit', expected: (input) => pictureUsage(input) },
-  resize: { kind: 'picture-edit', expected: (input) => pictureUsage(input) },
+  refine: { kind: 'picture', expected: (input) => pictureUsage(input) },
+  resize: { kind: 'picture', expected: (input) => pictureUsage(input) },
   'layer-split': {
     kind: 'layer-split',
     expected: () => ({ 'gpu-second': 20 }),
@@ -72,12 +79,12 @@ export function stepDef(step: string): StepDef {
 
 /**
  * The kinds of call a model priced in `units` can take: one priced in pictures or image output tokens makes
- * pictures and edits them; one priced in GPU seconds is the layer split; one priced only in text tokens is
+ * pictures, from reference pictures or none; one priced in GPU seconds is the layer split; one priced only in text tokens is
  * text. A model priced in none of those, or in no unit, takes none.
  */
 export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
   const priced = new Set(units)
-  if (PICTURE_UNITS.some((unit) => priced.has(unit))) return ['picture', 'picture-edit']
+  if (PICTURE_UNITS.some((unit) => priced.has(unit))) return ['picture']
   if (priced.has('gpu-second')) return ['layer-split']
   if (priced.size > 0 && [...priced].every((unit) => TEXT_UNITS.includes(unit))) return ['text']
   return []
@@ -143,13 +150,19 @@ export async function holdFor(
   return (total * HOLD_MARGIN.times + HOLD_MARGIN.per - 1n) / HOLD_MARGIN.per
 }
 
-/** A picture call's expected usage: one picture, its tokens for a seller that counts them, and its reference pictures. */
+/**
+ * A picture call's expected usage: one picture, its tokens for a seller that counts them, and its reference
+ * pictures, counted as each seller bills them: per picture, or as image input tokens.
+ */
 function pictureUsage(input: CallInput): Usage {
+  const references = input.kind === 'picture' ? referenceCount(input) : 0
   return {
     picture: 1,
     'input-token': 1000,
     'image-output-token': pictureTokens(input),
-    ...(input.kind === 'picture-edit' ? { 'reference-picture': input.pictures.length } : {}),
+    ...(references > 0
+      ? { 'reference-picture': references, 'image-input-token': references * PICTURE_INPUT_TOKENS }
+      : {}),
   }
 }
 

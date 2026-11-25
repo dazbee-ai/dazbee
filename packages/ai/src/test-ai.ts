@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { afterAll } from 'vitest'
 
 import { aiGrants, aiJobs, aiLedger, aiPrices, aiStepModels, modelSellers, newId, openDatabase } from '@dazbee/db'
+import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { AiJobState, CallKind, UsageUnit } from '@dazbee/schema'
 
 import type { PictureFiles } from './call.ts'
@@ -142,4 +143,31 @@ export function memoryFiles(): PictureFiles & { saved: Map<string, Uint8Array> }
       return key
     },
   }
+}
+
+/**
+ * A PNG of `width` × `height` filled with `color` (RGBA, 0 to 255), or transparent with a `color` square over its
+ * top-left quarter when `quarter` is set.
+ */
+export async function pngOf(
+  width: number,
+  height: number,
+  color: [number, number, number, number],
+  { quarter = false }: { quarter?: boolean } = {},
+): Promise<Uint8Array> {
+  const ck = await loadCanvasKit()
+  const surface = ck.MakeSurface(width, height)
+  if (!surface) throw new Error('no surface')
+  const paint = new ck.Paint()
+  paint.setColor(ck.Color(color[0], color[1], color[2], color[3] / 255))
+  const canvas = surface.getCanvas()
+  canvas.clear(ck.TRANSPARENT)
+  canvas.drawRect(ck.XYWHRect(0, 0, quarter ? width / 2 : width, quarter ? height / 2 : height), paint)
+  const snapshot = surface.makeImageSnapshot()
+  const png = snapshot.encodeToBytes()
+  snapshot.delete()
+  paint.delete()
+  surface.delete()
+  if (!png) throw new Error('no PNG')
+  return png
 }

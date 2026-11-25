@@ -5,9 +5,9 @@
 // never charged, and a FAILED request charged by mistake is refunded.
 import { setTimeout as sleep } from 'node:timers/promises'
 
-import { type CallInput, readImageHeader, type Usage } from '@dazbee/schema'
+import { type CallInput, readImageHeader, referenceCount, type Usage } from '@dazbee/schema'
 
-import { dataUrl } from './openai.ts'
+import { bytesUrl } from './openai.ts'
 import { type RequestStatus, type SellerAdapter, type SellerAnswer, SellerError, type SellerRequest } from './seller.ts'
 
 /** What Pixazo's status call answers. */
@@ -48,7 +48,7 @@ export function pixazoSeller(
     seller: 'pixazo',
     resumable: true,
     // Seedream on Pixazo can take over two minutes for an edit, past the usual 150 s.
-    timeouts: { picture: PIXAZO_TIMEOUT_MS, 'picture-edit': PIXAZO_TIMEOUT_MS },
+    timeouts: { picture: PIXAZO_TIMEOUT_MS },
     call: (request) => callPixazo(fetchOf, headers, ask, pollMs, request),
     status: async (requestId, input) => {
       const state = stateOf(await ask(requestId))
@@ -65,12 +65,10 @@ async function callPixazo(
   request: SellerRequest,
 ): Promise<SellerAnswer> {
   const { input } = request
-  if (input.kind !== 'picture' && input.kind !== 'picture-edit') {
-    throw new SellerError(`Pixazo makes no ${input.kind} call`, { status: 400 })
-  }
-  const references = input.kind === 'picture-edit' ? input.pictures : []
+  if (input.kind !== 'picture') throw new SellerError(`Pixazo makes no ${input.kind} call`, { status: 400 })
   let requestId = request.resumeId
   if (!requestId) {
+    const references = await request.references()
     const pixels = input.width * input.height
     const submitted = answerOf<{ request_id?: string }>(
       await fetchOf(`${GATEWAY}/${request.model}/v1/${references.length > 0 ? 'edit-image' : 'text-to-image'}`, {
@@ -81,9 +79,7 @@ async function callPixazo(
           size: pixels >= FEWEST_PIXELS ? `${input.width}x${input.height}` : '1K',
           output_format: 'png',
           watermark: false,
-          ...(references.length > 0
-            ? { image: await Promise.all(references.map((key) => dataUrl(request, key))) }
-            : {}),
+          ...(references.length > 0 ? { image: references.map(bytesUrl) } : {}),
         }),
         signal: request.signal,
       }),
@@ -128,7 +124,7 @@ function stateOf(status: Status): RequestStatus['state'] {
 
 /** What Seedream on Pixazo charges a call for: the picture made and each reference picture. */
 function usageOf(input: CallInput): Usage {
-  return { picture: 1, 'reference-picture': input.kind === 'picture-edit' ? input.pictures.length : 0 }
+  return { picture: 1, 'reference-picture': input.kind === 'picture' ? referenceCount(input) : 0 }
 }
 
 /** The JSON of an answer, or a `SellerError` with its status for an error answer. */

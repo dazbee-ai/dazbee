@@ -62,7 +62,7 @@ const ENDED: AiJobState[] = ['done', 'failed', 'cancelled']
 const QUEUE_ENDED = ['completed', 'cancelled', 'failed']
 
 /**
- * Saves an AI job in `tx`: refuses a member who may not use AI, a day past the spending stop, and a hold
+ * Saves an AI job in `tx`: throws on an input its schema refuses; refuses a member who may not use AI, a day past the spending stop, and a hold
  * bigger than what is left; then holds its expected cost, writes the job and sends its pg-boss job, all in
  * the one transaction, so a failed send keeps nothing.
  */
@@ -71,11 +71,13 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
     .select({ role: memberships.role })
     .from(memberships)
     .where(and(eq(memberships.workspaceId, job.workspace), eq(memberships.userId, job.member)))
+  // A bad input throws before anything is held or written.
+  const input = AiStepsInput.parse(job.input)
   if (!member || !AI_ROLES.includes(member.role)) return { ok: false, refusal: 'not-allowed' }
   const settings = await aiSettingsOf(tx)
   if ((await spentToday(tx)) >= settings.spendingStop) return { ok: false, refusal: 'stopped' }
   const id = newId()
-  const cost = await holdFor(tx, job.input.calls)
+  const cost = await holdFor(tx, input.calls)
   if (!(await hold(tx, { workspace: job.workspace, job: id, cost }))) return { ok: false, refusal: 'used-up' }
   const queue = job.queue ?? job.kind
   const queueJobId = randomUUID()
@@ -84,7 +86,7 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
     workspaceId: job.workspace,
     memberId: job.member,
     kind: job.kind,
-    input: job.input,
+    input,
     queue,
     queueJobId,
   })

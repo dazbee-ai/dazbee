@@ -679,6 +679,14 @@ _Avoid_: Model, quality, engine
 One kind of AI call the flow makes, named by what it does for the person: the round plan, a Fast or Precise draft, a refine, a resize, the layer plan, the layer split and reading the layers. Every AI call is one AI step, tracked as that step even where two steps call the same model. An admin sets which model each step runs.
 _Avoid_: Step (that is a tab's undo step), feature, endpoint, action
 
+**Reference picture**:
+A picture a person attaches to a picture call for the model to work from, such as a product, a logo or a style ad: up to 16 a call. With none, the model makes a new picture; with some, it edits or builds from them.
+_Avoid_: Input image, source image, attachment
+
+**Marks**:
+What a person draws on a picture to show where to change it (pins, brush strokes, boxes). They reach the model drawn onto a copy of the picture, sent as one more reference picture.
+_Avoid_: Mask, annotations, scribbles
+
 **Layer split**:
 The AI step of layering that splits a draft into picture layers, on our own GPU. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
 _Avoid_: Decompose, segmentation

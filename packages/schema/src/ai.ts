@@ -30,7 +30,7 @@ export const Seller = z.enum(SELLERS)
 export type Seller = z.infer<typeof Seller>
 
 /** The kinds of AI call a seller's adapter makes. */
-export const CALL_KINDS = ['text', 'picture', 'picture-edit', 'layer-split'] as const
+export const CALL_KINDS = ['text', 'picture', 'layer-split'] as const
 
 export const CallKind = z.enum(CALL_KINDS)
 export type CallKind = z.infer<typeof CallKind>
@@ -80,6 +80,9 @@ export const LEDGER_KINDS = ['hold', 'charge', 'give-back'] as const
 export const LedgerKind = z.enum(LEDGER_KINDS)
 export type LedgerKind = z.infer<typeof LedgerKind>
 
+/** The most reference pictures a picture call sends, its marked copy counted. */
+export const MAX_REFERENCES = 16
+
 /** A stored picture: the storage key of a workspace original. */
 const PictureKey = z.string().min(1).max(500)
 
@@ -94,25 +97,33 @@ export const TextCall = z.object({
 })
 export type TextCall = z.infer<typeof TextCall>
 
-/** A picture call: one picture from a prompt, at a size. */
-export const PictureCall = z.object({
-  kind: z.literal('picture'),
-  prompt: z.string().max(100_000),
-  width: z.number().int().positive().max(8192),
-  height: z.number().int().positive().max(8192),
-})
+/**
+ * A picture call: one picture from a prompt, at a size, with up to 16 reference pictures (a product, a logo, a
+ * style) and an optional picture of marks, drawn over a copy of the first reference to show where to change it.
+ */
+export const PictureCall = z
+  .object({
+    kind: z.literal('picture'),
+    prompt: z.string().max(100_000),
+    pictures: z.array(PictureKey).max(MAX_REFERENCES).default([]),
+    marks: PictureKey.optional(),
+    width: z.number().int().positive().max(8192),
+    height: z.number().int().positive().max(8192),
+  })
+  .refine((call) => !call.marks || call.pictures.length > 0, {
+    message: 'marks need a picture to be drawn on',
+    path: ['marks'],
+  })
+  .refine((call) => referenceCount(call) <= MAX_REFERENCES, {
+    message: `a picture call sends at most ${MAX_REFERENCES} reference pictures, the marked copy counted`,
+    path: ['pictures'],
+  })
 export type PictureCall = z.infer<typeof PictureCall>
 
-/** A picture edit: a prompt over reference pictures, with an optional picture of marks showing where to change it. */
-export const PictureEditCall = z.object({
-  kind: z.literal('picture-edit'),
-  prompt: z.string().max(100_000),
-  pictures: z.array(PictureKey).min(1).max(16),
-  marks: PictureKey.optional(),
-  width: z.number().int().positive().max(8192),
-  height: z.number().int().positive().max(8192),
-})
-export type PictureEditCall = z.infer<typeof PictureEditCall>
+/** How many reference pictures a picture call sends: its pictures, and the marked copy when it has marks. */
+export function referenceCount(call: { pictures: string[]; marks?: string | undefined }): number {
+  return call.pictures.length + (call.marks ? 1 : 0)
+}
 
 /** The layer split's two sizes: 512 px for people not paying, 1024 px for those paying. */
 export const LayerSplitSize = z.union([z.literal(512), z.literal(1024)])
@@ -169,7 +180,7 @@ export const LayerSplitResult = z.object({
 export type LayerSplitResult = z.infer<typeof LayerSplitResult>
 
 /** What an AI call is asked to do. */
-export const CallInput = z.discriminatedUnion('kind', [TextCall, PictureCall, PictureEditCall, LayerSplitCall])
+export const CallInput = z.discriminatedUnion('kind', [TextCall, PictureCall, LayerSplitCall])
 export type CallInput = z.infer<typeof CallInput>
 
 /** A stored picture an AI call made, with its size. */

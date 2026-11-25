@@ -8,10 +8,10 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { pixazoSeller } from './pixazo.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, testPicture } from './test-fetch.ts'
+import { fakeFetch, fixture, referencesOf,testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
-  kind: 'picture-edit',
+  kind: 'picture',
   prompt: 'Make it square.',
   pictures: ['workspaces/w/originals/a'],
   width: 1024,
@@ -21,6 +21,7 @@ const EDIT: CallInput = {
 /** Pixazo answering a submit, then a status still queued, then completed, then the picture. */
 const PIXAZO: Parameters<typeof fakeFetch>[0] = [
   ['/v1/edit-image', { status: 202, body: fixture('pixazo-submit.json') }],
+  ['/v1/text-to-image', { status: 202, body: fixture('pixazo-submit.json') }],
   [
     '/v2/requests/status/',
     { body: fixture('pixazo-status-queued.json') },
@@ -36,6 +37,7 @@ function requestOf(input: CallInput, kept: string[], resumeId?: string): SellerR
     options: {},
     signal: new AbortController().signal,
     readPicture: async () => testPicture(),
+    references: referencesOf(input, () => testPicture()),
     keepRequestId: async (id) => void kept.push(id),
     ...(resumeId ? { resumeId } : {}),
   }
@@ -64,6 +66,25 @@ describe('pixazoSeller', () => {
     })
     // US$0.02 a picture and US$0.008 a reference: the bill check's US$0.028.
     expect(await priceUsage(db, 'pixazo', 'seedream-5.5', answer.usage)).toMatchObject({ sellerCost: 28_000n })
+  })
+
+  it('submits a new picture with no references to text-to-image, and counts a marked copy as a reference', async () => {
+    const plain = fakeFetch(PIXAZO)
+    const picture: CallInput = { kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }
+    const made = await pixazoSeller('test-key', { fetch: plain.fetch, pollMs: 1 }).call(requestOf(picture, []))
+    expect(plain.sent[0]?.url).toBe('https://gateway.pixazo.ai/seedream-5-5/v1/text-to-image')
+    expect(JSON.parse(String(plain.sent[0]?.body)).image).toBeUndefined()
+    expect(made.usage).toEqual({ picture: 1, 'reference-picture': 0 })
+    const marked: CallInput = { ...EDIT, marks: 'workspaces/w/originals/marks' } as CallInput
+    const withMarks = fakeFetch(PIXAZO)
+    const edited = await pixazoSeller('test-key', { fetch: withMarks.fetch, pollMs: 1 }).call(requestOf(marked, []))
+    expect(JSON.parse(String(withMarks.sent[0]?.body)).image).toHaveLength(2)
+    expect(edited.usage).toEqual({ picture: 1, 'reference-picture': 2 })
+    const done = fakeFetch([['/v2/requests/status/', { body: fixture('pixazo-status-completed.json') }]])
+    expect(await pixazoSeller('k', { fetch: done.fetch }).status?.('id', marked)).toEqual({
+      state: 'done',
+      usage: { picture: 1, 'reference-picture': 2 },
+    })
   })
 
   it('picks a call cut mid-poll up by its request id, without submitting again', async () => {

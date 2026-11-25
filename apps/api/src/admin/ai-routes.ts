@@ -79,7 +79,6 @@ const MAX_DAYS = 92
 const KIND_WORDS: Record<CallKind, string> = {
   text: 'a text model',
   picture: 'a picture model',
-  'picture-edit': 'a picture model',
   'layer-split': 'a GPU model',
 }
 

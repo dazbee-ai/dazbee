@@ -10,12 +10,13 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { metaSeller } from './meta.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
+import { referencesOf } from './test-fetch.ts'
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
 
-const PICTURE: CallInput = { kind: 'picture', prompt: 'A coffee cup.', width: 1024, height: 1024 }
+const PICTURE: CallInput = { kind: 'picture', prompt: 'A coffee cup.', pictures: [], width: 1024, height: 1024 }
 const EDIT: CallInput = {
-  kind: 'picture-edit',
+  kind: 'picture',
   prompt: 'Make it square.',
   pictures: ['workspaces/w/originals/a'],
   width: 1024,
@@ -41,6 +42,10 @@ function requestOf(input: CallInput): SellerRequest {
     signal: new AbortController().signal,
     readPicture: async () =>
       new Uint8Array(Buffer.from(JSON.parse(fixture('meta-images.json')).data[0].b64_json, 'base64')),
+    references: referencesOf(
+      input,
+      () => new Uint8Array(Buffer.from(JSON.parse(fixture('meta-images.json')).data[0].b64_json, 'base64')),
+    ),
     keepRequestId: async () => undefined,
   }
 }

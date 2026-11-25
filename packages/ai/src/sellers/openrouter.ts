@@ -9,7 +9,7 @@ import type { Usage } from '@dazbee/schema'
 import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
-  dataUrl,
+  bytesUrl,
   pictureAnswer,
   responsesText,
   sellerClient,
@@ -66,7 +66,7 @@ async function callOpenrouter(client: OpenAI, request: SellerRequest): Promise<S
   const { input } = request
   if (input.kind === 'text') return responsesText(client, request, input)
   if (input.kind === 'layer-split') throw new SellerError('OpenRouter makes no layer split', { status: 400 })
-  const references = input.kind === 'picture-edit' ? input.pictures : []
+  const references = await request.references()
   const { data, response } = await client
     .post<ImagesAnswer>('/images', {
       body: {
@@ -78,9 +78,7 @@ async function callOpenrouter(client: OpenAI, request: SellerRequest): Promise<S
         response_format: 'b64_json',
         ...(references.length > 0
           ? {
-              input_references: await Promise.all(
-                references.map(async (key) => ({ type: 'image_url', image_url: { url: await dataUrl(request, key) } })),
-              ),
+              input_references: references.map((bytes) => ({ type: 'image_url', image_url: { url: bytesUrl(bytes) } })),
             }
           : {}),
       },

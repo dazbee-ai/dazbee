@@ -165,9 +165,15 @@ function inputOf(step: string, picture: string, ad: string): CallInput {
     schema: IDEAS,
     maxOutputTokens: 2000,
   })
-  const draft: CallInput = { kind: 'picture', prompt: `A flat illustration ad. ${AD}`, width: 1024, height: 1024 }
+  const draft: CallInput = {
+    kind: 'picture',
+    prompt: `A flat illustration ad. ${AD}`,
+    pictures: [],
+    width: 1024,
+    height: 1024,
+  }
   const edit: CallInput = {
-    kind: 'picture-edit',
+    kind: 'picture',
     prompt: `Make it a ${AD}`,
     pictures: [picture],
     width: 1024,

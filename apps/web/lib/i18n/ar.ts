@@ -1597,7 +1597,6 @@ export const ar: Messages = {
       kinds: {
         text: 'نموذج نصوص',
         picture: 'نموذج صور',
-        'picture-edit': 'نموذج صور',
         'layer-split': 'نموذج GPU',
         none: 'ليس من أي نوع تشغّله خطوة ذكاء اصطناعي',
       },

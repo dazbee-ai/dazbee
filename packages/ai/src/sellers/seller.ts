@@ -28,6 +28,11 @@ export interface SellerRequest {
   signal: AbortSignal
   /** Reads a stored picture the input names. */
   readPicture(key: string): Promise<Uint8Array>
+  /**
+   * A picture call's reference pictures as bytes, in order, with the first one's marked copy last when the call
+   * has marks; none for any other call. An adapter makes a new picture with none and an edit with some.
+   */
+  references(): Promise<Uint8Array[]>
   /** Keeps the seller's request id on the call-log row, for a seller that answers later. */
   keepRequestId(id: string): Promise<void>
   /** The request id of a call an earlier attempt started, to ask the seller about instead of calling again. */

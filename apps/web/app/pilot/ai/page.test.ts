@@ -70,7 +70,7 @@ const PAGE: AiPage = {
   stepModels: [
     {
       step: 'refine',
-      kind: 'picture-edit',
+      kind: 'picture',
       model: 'seedream-5.5',
       models: ['seedream-5.5', 'gpt-image-2.5-sunburst'],
       options: {},

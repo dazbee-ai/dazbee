@@ -8,10 +8,10 @@ import { priceUsage } from '../price-list.ts'
 import { db } from '../test-ai.ts'
 import { aspectOf, openrouterSeller, resolutionOf } from './openrouter.ts'
 import { SellerError, sellerFailure, type SellerRequest } from './seller.ts'
-import { fakeFetch, fixture, testPicture } from './test-fetch.ts'
+import { fakeFetch, fixture, referencesOf,testPicture } from './test-fetch.ts'
 
 const EDIT: CallInput = {
-  kind: 'picture-edit',
+  kind: 'picture',
   prompt: 'Make it square.',
   pictures: ['workspaces/w/originals/a'],
   width: 1080,
@@ -32,6 +32,7 @@ function requestOf(input: CallInput): SellerRequest {
     options: {},
     signal: new AbortController().signal,
     readPicture: async () => testPicture(),
+    references: referencesOf(input, () => testPicture()),
     keepRequestId: async () => undefined,
   }
 }
@@ -55,6 +56,21 @@ describe('openrouterSeller', () => {
       sellerCost: 28_000n,
       realCost: 3_357_097n,
     })
+  })
+
+  it('makes a new picture with no references, and sends marks as one more reference', async () => {
+    const plain = fakeFetch([['/images', { body: IMAGES }]])
+    const made = await openrouterSeller('test-key', { fetch: plain.fetch }).call(
+      requestOf({ kind: 'picture', prompt: 'A cup.', pictures: [], width: 1024, height: 1024 }),
+    )
+    expect(JSON.parse(String(plain.sent[0]?.body)).input_references).toBeUndefined()
+    expect(made.usage).toEqual({ picture: 1, 'reference-picture': 0 })
+    const marked = fakeFetch([['/images', { body: IMAGES }]])
+    const edited = await openrouterSeller('test-key', { fetch: marked.fetch }).call(
+      requestOf({ ...EDIT, marks: 'workspaces/w/originals/marks' } as CallInput),
+    )
+    expect(JSON.parse(String(marked.sent[0]?.body)).input_references).toHaveLength(2)
+    expect(edited.usage).toEqual({ picture: 1, 'reference-picture': 2 })
   })
 
   it('reads its recorded out-of-credit answer as a seller out of money', async () => {

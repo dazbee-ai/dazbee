@@ -10,9 +10,10 @@ import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
   gptImageUsage,
+  makeOrEdit,
   pictureAnswer,
-  pictureFiles,
   pictureSize,
+  pictureType,
   sellerClient,
   type SellerClientOptions,
 } from './openai.ts'
@@ -71,12 +72,7 @@ async function callOpenaiProtocol(client: OpenAI, request: SellerRequest): Promi
       ? { quality: String(request.options.quality ?? 'medium') as 'medium' }
       : {}),
   }
-  const { data, response } =
-    input.kind === 'picture'
-      ? await client.images.generate(common, { signal: request.signal }).withResponse()
-      : await client.images
-          .edit({ ...common, image: await pictureFiles(request, input.pictures) }, { signal: request.signal })
-          .withResponse()
+  const { data, response } = await makeOrEdit(client, request, common)
   // Muse is billed per picture made; GPT Image by its tokens.
   const usage: Usage = request.model.startsWith('meta/') ? { picture: data.data?.length ?? 0 } : gptImageUsage(data)
   return pictureAnswer(data, response.headers.get(REQUEST_ID), usage)
@@ -132,23 +128,15 @@ async function chatText(client: OpenAI, request: SellerRequest, input: TextCall)
 /** A Seedream picture or edit through the Vertex protocol's predict call, billed per picture made and per reference. */
 async function vertexPicture(fetchOf: typeof fetch, apiKey: string, request: SellerRequest): Promise<SellerAnswer> {
   const { input } = request
-  if (input.kind !== 'picture' && input.kind !== 'picture-edit') {
+  if (input.kind !== 'picture') {
     throw new SellerError(`ZenMux's Vertex protocol makes no ${input.kind} call`, { status: 400 })
   }
-  const keys = input.kind === 'picture-edit' ? input.pictures : []
-  const referenceImages = await Promise.all(
-    keys.map(async (key, i) => {
-      const bytes = await request.readPicture(key)
-      return {
-        referenceType: 'REFERENCE_TYPE_RAW',
-        referenceId: i + 1,
-        referenceImage: {
-          bytesBase64Encoded: Buffer.from(bytes).toString('base64'),
-          mimeType: readImageHeader(bytes)?.contentType ?? 'image/png',
-        },
-      }
-    }),
-  )
+  const references = await request.references()
+  const referenceImages = references.map((bytes, i) => ({
+    referenceType: 'REFERENCE_TYPE_RAW',
+    referenceId: i + 1,
+    referenceImage: { bytesBase64Encoded: Buffer.from(bytes).toString('base64'), mimeType: pictureType(bytes) },
+  }))
   const [publisher, model] = request.model.split('/')
   const response = await fetchOf(`${VERTEX_URL}/publishers/${publisher}/models/${model}:predict`, {
     method: 'POST',
@@ -174,7 +162,7 @@ async function vertexPicture(fetchOf: typeof fetch, apiKey: string, request: Sel
   const pictures = (body.predictions ?? []).map((p) => ({ b64_json: p.bytesBase64Encoded ?? null }))
   return pictureAnswer({ data: pictures }, response.headers.get(REQUEST_ID), {
     picture: pictures.length,
-    'reference-picture': keys.length,
+    'reference-picture': references.length,
   })
 }
 

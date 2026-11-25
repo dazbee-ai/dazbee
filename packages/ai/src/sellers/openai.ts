@@ -19,6 +19,10 @@ export interface PictureAnswer {
   } | null
 }
 
+/** What a picture call asks an OpenAI-compatible Images API for, whether it makes a picture or edits some. */
+export type PictureParams = OpenAI.Images.ImageGenerateParamsNonStreaming &
+  Omit<OpenAI.Images.ImageEditParamsNonStreaming, 'image'>
+
 /** How an adapter reaches its seller: tests give a `fetch` that answers from recorded answers. */
 export interface SellerClientOptions {
   fetch?: typeof fetch
@@ -36,7 +40,7 @@ export function openaiSeller(apiKey: string, options: SellerClientOptions = {}):
   const client = sellerClient(apiKey, options)
   return {
     seller: 'openai',
-    perMinute: { picture: PICTURES_PER_MINUTE, 'picture-edit': PICTURES_PER_MINUTE },
+    perMinute: { picture: PICTURES_PER_MINUTE },
     call: (request) => answerOrSellerError(() => callOpenai(client, request)),
   }
 }
@@ -70,14 +74,23 @@ export function pictureSize(input: { width: number; height: number }): `${number
 }
 
 /** The reference pictures of an edit, as files to upload. */
-export async function pictureFiles(request: SellerRequest, keys: string[]) {
+export async function pictureFiles(pictures: Uint8Array[]) {
   return Promise.all(
-    keys.map(async (key, i) => {
-      const bytes = await request.readPicture(key)
-      const type = readImageHeader(bytes)?.contentType ?? 'image/png'
+    pictures.map((bytes, i) => {
+      const type = pictureType(bytes)
       return toFile(bytes, `picture-${i}.${type.split('/')[1]}`, { type })
     }),
   )
+}
+
+/** A picture's MIME type, read from its header; PNG when the header is not one we read. */
+export function pictureType(bytes: Uint8Array): string {
+  return readImageHeader(bytes)?.contentType ?? 'image/png'
+}
+
+/** A picture as a data URL, as sellers take pictures inline. */
+export function bytesUrl(bytes: Uint8Array): string {
+  return `data:${pictureType(bytes)};base64,${Buffer.from(bytes).toString('base64')}`
 }
 
 /** A picture answer: its one picture, sized from its own header, with the request id and `usage`. */
@@ -150,9 +163,7 @@ export async function responsesText(
 
 /** A stored picture as a data URL, as sellers take pictures inline. */
 export async function dataUrl(request: SellerRequest, key: string): Promise<string> {
-  const bytes = await request.readPicture(key)
-  const type = readImageHeader(bytes)?.contentType ?? 'image/png'
-  return `data:${type};base64,${Buffer.from(bytes).toString('base64')}`
+  return bytesUrl(await request.readPicture(key))
 }
 
 /** A GPT Image answer's usage: text and picture tokens in, and every token out, which is the picture's. */
@@ -177,13 +188,21 @@ async function callOpenai(client: OpenAI, request: SellerRequest): Promise<Selle
     output_format: 'png' as const,
     n: 1,
   }
-  const { data, response } =
-    input.kind === 'picture'
-      ? await client.images.generate(common, { signal: request.signal }).withResponse()
-      : await client.images
-          .edit({ ...common, image: await pictureFiles(request, input.pictures) }, { signal: request.signal })
-          .withResponse()
+  const { data, response } = await makeOrEdit(client, request, common)
   return pictureAnswer(data, response.headers.get('x-request-id'), gptImageUsage(data))
+}
+
+/**
+ * A picture call through an OpenAI-compatible Images API: a new picture when the call has no reference
+ * pictures, and an edit of all of them when it has some.
+ */
+export async function makeOrEdit(client: OpenAI, request: SellerRequest, params: PictureParams) {
+  const references = await request.references()
+  return references.length === 0
+    ? client.images.generate(params, { signal: request.signal }).withResponse()
+    : client.images
+        .edit({ ...params, image: await pictureFiles(references) }, { signal: request.signal })
+        .withResponse()
 }
 
 function roundTo16(value: number): number {

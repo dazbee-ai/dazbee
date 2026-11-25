@@ -12,6 +12,7 @@ export {
   usageShare,
 } from './ledger.ts'
 export {
+  type AttemptStart,
   cancelJob,
   endJob,
   ensureQueue,
@@ -21,11 +22,11 @@ export {
   type NewJob,
   QUEUE_OPTIONS,
   readJob,
-  type RunStart,
   type SavedJob,
   saveJob,
+  sendAgain,
   spentToday,
-  startRun,
+  startAttempt,
   sweepJobs,
 } from './jobs.ts'
 export { currencyRate, type Priced, priceUsage } from './price-list.ts'

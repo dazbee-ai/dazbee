@@ -1,11 +1,14 @@
 // Fixtures for the worker's tests, against Postgres and storage from Docker Compose: workspaces with a
 // member and a grant, test-only AI steps run by test sellers, pg-boss instances that notice a lost job fast,
 // and the checks that a job's ledger settled. Imported by tests only.
+import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
 import { afterAll, expect, vi } from 'vitest'
 
-import { giveGrant, left, type SellerAdapter, STEPS, useSeller } from '@dazbee/ai'
+import { giveGrant, left, QUEUE_OPTIONS, type SellerAdapter, STEPS, useSeller } from '@dazbee/ai'
 import {
   aiCalls,
   aiJobs,
@@ -45,9 +48,15 @@ afterAll(close)
 /** A queue no other test uses. */
 export const newQueue = () => `ai-steps-${newId()}`
 
-/** A started pg-boss that checks for lost jobs every second. */
+/** A started pg-boss that checks for lost jobs every second (its supervise and monitor passes). */
 export async function newBoss(): Promise<PgBoss> {
-  const boss = new PgBoss({ connectionString: DATABASE_URL, max: 4, monitorIntervalSeconds: 1, schedule: false })
+  const boss = new PgBoss({
+    connectionString: DATABASE_URL,
+    max: 4,
+    monitorIntervalSeconds: 1,
+    superviseIntervalSeconds: 1,
+    schedule: false,
+  })
   boss.on('error', () => undefined)
   await boss.start()
   return boss
@@ -133,4 +142,43 @@ export async function callsOf(job: string) {
     .from(aiCalls)
     .where(eq(aiCalls.jobId, job))
     .orderBy(aiCalls.callIndex, aiCalls.try)
+}
+
+/**
+ * Makes `queue` with a 10 s heartbeat, the shortest pg-boss allows, so a crashed worker's job is noticed
+ * fast, and `retryLimit` tries after the first.
+ */
+export async function crashQueue(boss: PgBoss, queue: string, retryLimit: number = QUEUE_OPTIONS.retryLimit) {
+  await boss.createQueue(queue, { ...QUEUE_OPTIONS, heartbeatSeconds: 10, retryDelay: 0, retryLimit })
+}
+
+/**
+ * Starts a worker in a process of its own on `queue`, whose seller `seller` answers the step `step` after
+ * `afterMs`; resolves once it takes jobs, with a function that kills it at once, as a crash would.
+ */
+export async function crashingWorker(queue: string, step: string, seller: string, afterMs: number) {
+  const child = spawn(process.execPath, [fileURLToPath(new URL('./test-crash-worker.ts', import.meta.url))], {
+    env: {
+      ...process.env,
+      CRASH_QUEUE: queue,
+      CRASH_STEP: step,
+      CRASH_SELLER: seller,
+      CRASH_AFTER_MS: String(afterMs),
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  })
+  await new Promise<void>((resolve, reject) => {
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (chunk.toString().includes('ready')) resolve()
+    })
+    child.once('exit', (code) => reject(new Error(`the crashing worker exited with ${code}`)))
+  })
+  return {
+    kill: () =>
+      new Promise<void>((resolve) => {
+        child.removeAllListeners('exit')
+        child.once('exit', () => resolve())
+        child.kill('SIGKILL')
+      }),
+  }
 }

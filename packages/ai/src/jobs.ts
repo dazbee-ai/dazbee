@@ -1,18 +1,19 @@
-// AI jobs (ADR-0022): saving one with its hold in one transaction, starting a run under the workspace's job
+// AI jobs (ADR-0022): saving one with its hold in one transaction, starting an attempt under the workspace's job
 // limit, ending it with the rest of its hold given back, cancelling it, and the sweep of jobs whose pg-boss
 // job ended without them. The worker runs them; this module is shared with the API.
 import { randomUUID } from 'node:crypto'
 
-import { and, eq, gte, inArray, isNull, lt, ne, sql } from 'drizzle-orm'
+import { and, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { fromDrizzle, type PgBoss, type QueueOptions } from 'pg-boss'
 
 import { aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
 import {
   type AiJobKind,
+  AiJobMessage,
   type AiJobRefusal,
   type AiJobState,
   type AiJobView,
-  type AiStepsInput,
+  AiStepsInput,
   AiStepsOutput,
 } from '@dazbee/schema'
 
@@ -33,14 +34,14 @@ export interface NewJob {
 /** A saved job's id, or why it was refused. */
 export type SavedJob = { ok: true; job: string } | { ok: false; refusal: AiJobRefusal }
 
-/** What starting a run found: run it on this attempt, it waits for a place, or it has already ended. */
-export type RunStart = { run: true; attempt: number; input: AiStepsInput; workspace: string } | { run: false }
+/** What starting an attempt found: make it, with its number, or not (the job waits for a place, or has ended). */
+export type AttemptStart = { make: true; attempt: number; input: AiStepsInput; workspace: string } | { make: false }
 
-/** How a job's run ended. */
+/** How a job's attempt ended. */
 export type JobEnd =
   { state: 'done'; output: AiStepsOutput } | { state: 'failed'; error: string } | { state: 'cancelled' }
 
-/** The pg-boss settings of every AI job queue: 2 retries of a crash or an expiry, 30 minutes a run, a heartbeat. */
+/** The pg-boss settings of every AI job queue: 2 retries of a crash or an expiry, 30 minutes an attempt, a heartbeat. */
 export const QUEUE_OPTIONS = {
   retryLimit: 2,
   retryDelay: 5,
@@ -59,11 +60,6 @@ const ENDED: AiJobState[] = ['done', 'failed', 'cancelled']
 
 /** The pg-boss states after which a job is never run again. */
 const QUEUE_ENDED = ['completed', 'cancelled', 'failed']
-
-/** Makes `queue` with the AI job settings when it doesn't exist yet. */
-export async function ensureQueue(boss: PgBoss, queue: string): Promise<void> {
-  if (!(await boss.getQueue(queue))) await boss.createQueue(queue, QUEUE_OPTIONS)
-}
 
 /**
  * Saves an AI job in `tx`: refuses a member who may not use AI, a day past the spending stop, and a hold
@@ -92,8 +88,14 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
     queue,
     queueJobId,
   })
-  await boss.send(queue, { job: id }, { id: queueJobId, db: fromDrizzle(tx, sql) })
+  const message: AiJobMessage = { job: id }
+  await boss.send(queue, message, { id: queueJobId, db: fromDrizzle(tx, sql) })
   return { ok: true, job: id }
+}
+
+/** Makes `queue` with the AI job settings when it doesn't exist yet. */
+export async function ensureQueue(boss: PgBoss, queue: string): Promise<void> {
+  if (!(await boss.getQueue(queue))) await boss.createQueue(queue, QUEUE_OPTIONS)
 }
 
 /** The real cost of every AI call started today, midnight to midnight IST, in millionths of a rupee. */
@@ -108,38 +110,49 @@ export async function spentToday(db: Db | Tx): Promise<bigint> {
 }
 
 /**
- * Starts a run of `job` for pg-boss job `queueJobId` of `queue`: under a lock on the workspace's AI jobs, a
+ * Starts an attempt of `job` for pg-boss job `queueJobId` of `queue`: under a lock on the workspace's AI jobs, a
  * job that would pass the job limit is sent again to start later (a new pg-boss job, so no try is spent);
  * otherwise the job takes its next attempt and the earlier attempts' running calls become unknown. A
  * cancelled job that never ran is ended here.
  */
-export async function startRun(
+export async function startAttempt(
   db: Db,
   boss: PgBoss,
   { job, queue, queueJobId }: { job: string; queue: string; queueJobId: string },
-): Promise<RunStart> {
+): Promise<AttemptStart> {
   return db.transaction(async (tx) => {
     const [found] = await tx.select({ workspace: aiJobs.workspaceId }).from(aiJobs).where(eq(aiJobs.id, job))
-    if (!found) return { run: false }
+    if (!found) return { make: false }
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-jobs:${found.workspace}`}))`)
     const [row] = await tx.select().from(aiJobs).where(eq(aiJobs.id, job)).for('update')
-    if (!row || row.queueJobId !== queueJobId) return { run: false }
+    if (!row || row.queueJobId !== queueJobId) return { make: false }
     if (row.state === 'cancelled') {
       if (!row.endedAt) await endWith(tx, row.id, row.workspaceId, {})
-      return { run: false }
+      return { make: false }
     }
-    if (ENDED.includes(row.state)) return { run: false }
+    if (ENDED.includes(row.state)) return { make: false }
     if (row.state === 'waiting') {
       const settings = await aiSettingsOf(tx)
       const [running] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(aiJobs)
-        .where(and(eq(aiJobs.workspaceId, row.workspaceId), eq(aiJobs.state, 'running'), ne(aiJobs.id, job)))
+        .where(
+          and(
+            eq(aiJobs.workspaceId, row.workspaceId),
+            ne(aiJobs.id, job),
+            // A cancelled job whose calls are still stopping keeps its place until it ends.
+            or(
+              eq(aiJobs.state, 'running'),
+              and(eq(aiJobs.state, 'cancelled'), isNull(aiJobs.endedAt), gt(aiJobs.attempt, 0)),
+            ),
+          ),
+        )
       if ((running?.count ?? 0) >= settings.jobLimit) {
         const later = randomUUID()
         await tx.update(aiJobs).set({ queueJobId: later }).where(eq(aiJobs.id, job))
-        await boss.send(queue, { job }, { id: later, startAfter: LIMIT_WAIT_SECONDS, db: fromDrizzle(tx, sql) })
-        return { run: false }
+        const message: AiJobMessage = { job }
+        await boss.send(queue, message, { id: later, startAfter: LIMIT_WAIT_SECONDS, db: fromDrizzle(tx, sql) })
+        return { make: false }
       }
     }
     const attempt = row.attempt + 1
@@ -149,22 +162,49 @@ export async function startRun(
       .where(eq(aiJobs.id, job))
     await tx
       .update(aiCalls)
-      .set({ state: 'unknown', error: 'its run ended', endedAt: new Date() })
+      .set({ state: 'unknown', error: 'its attempt ended', endedAt: new Date() })
       .where(and(eq(aiCalls.jobId, job), eq(aiCalls.state, 'running'), lt(aiCalls.attempt, attempt)))
-    return { run: true, attempt, input: row.input as AiStepsInput, workspace: row.workspaceId }
+    return { make: true, attempt, input: AiStepsInput.parse(row.input), workspace: row.workspaceId }
   })
 }
 
 /**
- * Ends `job`'s run on `attempt` as `end` says, giving back the rest of its hold, when that run still owns
- * the job; a cancelled job ends as cancelled whatever its run found. Gives whether it ended the job.
+ * Sends `job` again as a new pg-boss job to start at once, for a worker that stops before the attempt is done,
+ * so the stop spends none of the job's tries; the next attempt reuses the calls already done. A job cancelled
+ * meanwhile ends here instead. Gives whether the attempt still owned the job.
+ */
+export async function sendAgain(
+  db: Db,
+  boss: PgBoss,
+  { job, attempt, queue }: { job: string; attempt: number; queue: string },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(aiJobs).where(eq(aiJobs.id, job)).for('update')
+    if (!row || row.attempt !== attempt || row.endedAt) return false
+    if (row.state === 'cancelled') {
+      await endWith(tx, job, row.workspaceId, {})
+      return true
+    }
+    if (row.state !== 'running') return false
+    const again = randomUUID()
+    await tx.update(aiJobs).set({ queueJobId: again }).where(eq(aiJobs.id, job))
+    const message: AiJobMessage = { job }
+    await boss.send(queue, message, { id: again, db: fromDrizzle(tx, sql) })
+    return true
+  })
+}
+
+/**
+ * Ends `job`'s attempt `attempt` as `end` says, giving back the rest of its hold, when that attempt still owns
+ * the job; a cancelled job ends as cancelled whatever its attempt found. Gives whether it ended the job.
  */
 export async function endJob(db: Db, job: string, attempt: number, end: JobEnd): Promise<boolean> {
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(aiJobs).where(eq(aiJobs.id, job)).for('update')
     if (!row || row.attempt !== attempt || row.endedAt) return false
     if (row.state === 'cancelled') {
-      await endWith(tx, job, row.workspaceId, {})
+      // A cancel that came once every call had finished keeps what they made.
+      await endWith(tx, job, row.workspaceId, end.state === 'done' ? { output: end.output } : {})
       return true
     }
     if (row.state !== 'running' || end.state === 'cancelled') return false
@@ -241,13 +281,13 @@ export async function sweepJobs(db: Db, boss: PgBoss, queue: string): Promise<nu
       if (!row || row.endedAt || row.queueJobId !== job.queueJobId) return false
       await tx
         .update(aiCalls)
-        .set({ state: 'unknown', error: 'its run was lost', endedAt: new Date() })
+        .set({ state: 'unknown', error: 'its worker was lost', endedAt: new Date() })
         .where(and(eq(aiCalls.jobId, job.id), eq(aiCalls.state, 'running')))
       await endWith(
         tx,
         job.id,
         row.workspaceId,
-        row.state === 'cancelled' ? {} : { state: 'failed', error: 'its run was lost' },
+        row.state === 'cancelled' ? {} : { state: 'failed', error: 'its worker was lost' },
       )
       return true
     })

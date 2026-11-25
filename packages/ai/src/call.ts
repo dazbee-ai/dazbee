@@ -262,6 +262,8 @@ async function finish(
     const def = stepDef(call.step)
     const chargeCost = def.fixedCost ? def.fixedCost(await aiSettingsOf(db), call.input) : priced.realCost
     await db.transaction(async (tx) => {
+      // The job row first, as every transaction that locks both takes them, so two never wait on each other.
+      await tx.select({ id: aiJobs.id }).from(aiJobs).where(eq(aiJobs.id, call.job.id)).for('update')
       await tx
         .update(aiCalls)
         .set({

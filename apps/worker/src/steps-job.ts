@@ -1,10 +1,10 @@
-// Runs `ai-steps` jobs (ADR-0022): each run starts under the workspace's job limit, makes the job's AI calls
-// through `callAi` (up to 4 at once per job, and at most the worker-wide limit across jobs), and ends the job
-// with its output and the rest of its hold given back. A cancel aborts the run's calls; a stop or an expiry
-// leaves the job to its next run.
+// Runs `ai-steps` jobs (ADR-0022): each attempt starts under the workspace's job limit, makes the job's AI
+// calls through `callAi` (up to 4 at once per job, and at most the worker-wide limit across jobs), and ends
+// the job with its output and the rest of its hold given back. A cancel aborts the attempt's calls; a stop
+// sends the job again before pg-boss would fail it, and an expiry or a crash leaves it to pg-boss's retry.
 import { createHash } from 'node:crypto'
 
-import type { Job, PgBoss } from 'pg-boss'
+import type { JobWithMetadata, PgBoss } from 'pg-boss'
 
 import {
   callAi,
@@ -13,11 +13,11 @@ import {
   ensureQueue,
   isCancelled,
   type PictureFiles,
-  QUEUE_OPTIONS,
-  startRun,
+  sendAgain,
+  startAttempt,
 } from '@dazbee/ai'
 import type { Db } from '@dazbee/db'
-import type { AiStepsInput, CallOutput } from '@dazbee/schema'
+import { AiJobMessage, type AiStepsInput, type CallOutput } from '@dazbee/schema'
 import { originalKey, type Storage } from '@dazbee/storage'
 
 /** What a steps worker runs on. */
@@ -29,8 +29,8 @@ export interface StepsWorkerDeps {
   queue: string
   /** The most AI calls running at once across every job. */
   callLimit: number
-  /** The most jobs running at once. */
-  jobLimit?: number
+  /** The most jobs this worker holds at once; half the call limit unless given. */
+  jobsAtOnce?: number
   /** How often a running job's state is read for a cancel. */
   cancelCheckMs?: number
 }
@@ -38,19 +38,10 @@ export interface StepsWorkerDeps {
 /** A running steps worker. */
 export interface StepsWorker {
   /**
-   * Stops taking jobs. Gracefully, it waits up to `timeoutMs` for the running ones, and pg-boss gives back
-   * those still running to be retried; hard, it drops them at once, as a crashed worker would.
+   * Stops taking jobs. Gracefully, it waits up to `timeoutMs` for the running ones and sends those still
+   * running again, so the stop spends none of their tries; hard, it drops them at once, as a crash would.
    */
   stop(how: 'graceful' | 'hard', timeoutMs?: number): Promise<void>
-}
-
-/** One run of a job, as `runAttempt` makes it. */
-export interface Attempt {
-  job: string
-  workspace: string
-  attempt: number
-  input: AiStepsInput
-  signal: AbortSignal
 }
 
 /** Runs at most `size` tasks at once; the rest wait their turn. */
@@ -58,123 +49,175 @@ export interface Limiter {
   run<T>(task: () => Promise<T>): Promise<T>
 }
 
-/** Why a run's calls were aborted. */
-type AbortWhy = 'cancelled' | 'stopped'
+/** One attempt of a job, as `runAttempt` makes it. */
+export interface Attempt {
+  job: string
+  workspace: string
+  attempt: number
+  input: AiStepsInput
+  /** Aborted when the job is cancelled or the worker stops. */
+  signal: AbortSignal
+  /** Reads the job's state between calls, aborting `signal` on a cancel. */
+  checkCancel?: () => Promise<void>
+}
+
+/** Why an attempt's calls were aborted: a cancel, the worker sending the job again, or pg-boss taking it back. */
+type AbortWhy = 'cancelled' | 'sending-again' | 'taken-back'
 
 /** The most calls of one job running at once. */
 const CALLS_PER_JOB = 4
 
-/** The most jobs one worker runs at once unless told otherwise; their calls share the worker-wide limit. */
-const JOBS_AT_ONCE = 16
+/** How long before a graceful stop's end the worker sends its running jobs again. */
+const SEND_AGAIN_BEFORE_MS = 5_000
 
 /** Starts running the queue's `ai-steps` jobs. */
 export async function startStepsWorker(deps: StepsWorkerDeps): Promise<StepsWorker> {
+  const { db, boss, queue } = deps
+  // The worker-wide limit on calls at once.
   const calls = limiter(deps.callLimit)
-  // Every run in hand, by pg-boss job id, so a hard stop can drop them.
+  // Every attempt in hand, by pg-boss job id, so a stop can abort them.
   const running = new Map<string, AbortController>()
-  // Set once the worker is dropped: its runs write nothing more, as a crashed worker's wouldn't.
+  // Set once the worker is dropped: its attempts write nothing more, as a crashed worker's wouldn't.
   let dead = false
-  await ensureQueue(deps.boss, deps.queue)
-  await deps.boss.work<{ job: string }>(
-    deps.queue,
-    { localConcurrency: deps.jobLimit ?? JOBS_AT_ONCE, batchSize: 1, pollingIntervalSeconds: 0.5 },
-    async ([job]) => {
-      if (job) await handle(job)
-    },
-  )
 
-  async function handle(job: Job<{ job: string }>): Promise<void> {
+  async function handle(job: JobWithMetadata<unknown>): Promise<void> {
     if (dead) throw new Error('the worker stopped')
-    const start = await startRun(deps.db, deps.boss, { job: job.data.job, queue: deps.queue, queueJobId: job.id })
-    if (!start.run) return
+    const { job: id } = AiJobMessage.parse(job.data)
     const controller = new AbortController()
+    const takenBack = () => controller.abort('taken-back' satisfies AbortWhy)
+    job.signal.addEventListener('abort', takenBack, { once: true })
     running.set(job.id, controller)
-    const stopped = () => controller.abort('stopped' satisfies AbortWhy)
-    job.signal.addEventListener('abort', stopped, { once: true })
-    const watch = setInterval(() => void watchCancel(), deps.cancelCheckMs ?? 5_000)
-    async function watchCancel() {
-      if (await isCancelled(deps.db, job.data.job).catch(() => false)) controller.abort('cancelled' satisfies AbortWhy)
+    const checkCancel = async () => {
+      if (await isCancelled(db, id).catch(() => false)) controller.abort('cancelled' satisfies AbortWhy)
     }
-    const attempt = { job: job.data.job, workspace: start.workspace, attempt: start.attempt, input: start.input }
+    const watch = setInterval(() => void checkCancel(), deps.cancelCheckMs ?? 5_000)
     try {
-      const outputs = await runAttempt(deps, calls, { ...attempt, signal: controller.signal })
-      if (!dead) await endJob(deps.db, attempt.job, attempt.attempt, { state: 'done', output: { outputs } })
+      if (job.signal.aborted) throw new Error('pg-boss took the job back')
+      const start = await startAttempt(db, boss, { job: id, queue, queueJobId: job.id })
+      if (!start.make) return
+      const made = { job: id, workspace: start.workspace, attempt: start.attempt, input: start.input }
+      await attempt(job, made, controller, checkCancel)
+    } finally {
+      clearInterval(watch)
+      job.signal.removeEventListener('abort', takenBack)
+      running.delete(job.id)
+    }
+  }
+
+  async function attempt(
+    job: JobWithMetadata<unknown>,
+    made: Omit<Attempt, 'signal' | 'checkCancel'>,
+    controller: AbortController,
+    checkCancel: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      const outputs = await runAttempt(deps, calls, { ...made, signal: controller.signal, checkCancel })
+      if (!dead) await endJob(db, made.job, made.attempt, { state: 'done', output: { outputs } })
     } catch (error) {
       if (dead) throw error
-      if (controller.signal.reason === 'cancelled') {
-        await endJob(deps.db, attempt.job, attempt.attempt, { state: 'cancelled' })
+      const why = controller.signal.reason as AbortWhy | undefined
+      if (why === 'cancelled') {
+        await endJob(db, made.job, made.attempt, { state: 'cancelled' })
+        return
+      }
+      if (why === 'sending-again') {
+        await sendAgain(db, boss, { job: made.job, attempt: made.attempt, queue })
         return
       }
       if (error instanceof CallFailed) {
-        await endJob(deps.db, attempt.job, attempt.attempt, { state: 'failed', error: error.message })
+        await endJob(db, made.job, made.attempt, { state: 'failed', error: error.message })
         return
       }
-      // A stop, an expiry or a crash goes back to pg-boss to be run again; on the last try the job ends here.
-      if (!controller.signal.aborted && job.retryCount >= QUEUE_OPTIONS.retryLimit) {
-        await endJob(deps.db, attempt.job, attempt.attempt, { state: 'failed', error: messageOf(error) })
+      // An expiry or a crash goes back to pg-boss to be tried again; on the last try the job ends here.
+      if (why !== 'taken-back' && job.retryCount >= job.retryLimit) {
+        await endJob(db, made.job, made.attempt, { state: 'failed', error: messageOf(error) })
       }
       throw error
-    } finally {
-      clearInterval(watch)
-      job.signal.removeEventListener('abort', stopped)
-      running.delete(job.id)
     }
   }
 
   async function stop(how: 'graceful' | 'hard', timeoutMs = 110_000): Promise<void> {
     if (how === 'hard') {
       dead = true
-      for (const controller of running.values()) controller.abort('stopped' satisfies AbortWhy)
-      await deps.boss.stop({ graceful: false, close: true })
+      for (const controller of running.values()) controller.abort('taken-back' satisfies AbortWhy)
+      await boss.stop({ graceful: false, close: true })
       return
     }
-    await deps.boss.stop({ graceful: true, timeout: timeoutMs, close: true })
+    const sendingAgain = setTimeout(
+      () => {
+        for (const controller of running.values()) controller.abort('sending-again' satisfies AbortWhy)
+      },
+      Math.max(0, timeoutMs - SEND_AGAIN_BEFORE_MS),
+    )
+    try {
+      await boss.stop({ graceful: true, timeout: timeoutMs, close: true })
+    } finally {
+      clearTimeout(sendingAgain)
+    }
   }
+
+  await ensureQueue(boss, queue)
+  await boss.work(
+    queue,
+    {
+      localConcurrency: deps.jobsAtOnce ?? Math.max(1, Math.ceil(deps.callLimit / 2)),
+      batchSize: 1,
+      pollingIntervalSeconds: 0.5,
+      includeMetadata: true,
+    },
+    async ([job]) => {
+      if (job) await handle(job)
+    },
+  )
 
   return { stop }
 }
 
 /**
- * Makes one run's AI calls, up to 4 at once, each under the worker-wide limit; their outputs, by call index.
- * A call that fails for good stops new calls, waits for those running, then fails the run.
+ * Makes one attempt's AI calls, up to 4 at once, each under the worker-wide limit; their outputs, by call
+ * index. The job's state is read before each call. A call that fails for good stops new calls, waits for
+ * those running, then fails the attempt.
  */
 export async function runAttempt(
   deps: Pick<StepsWorkerDeps, 'db' | 'storage'>,
   calls: Limiter,
-  run: Attempt,
+  made: Attempt,
 ): Promise<CallOutput[]> {
-  const files = workspaceFiles(deps.storage, run.workspace)
+  const files = workspaceFiles(deps.storage, made.workspace)
   const outputs: CallOutput[] = []
   let next = 0
   let failure: unknown = null
   async function lane(): Promise<void> {
-    while (failure === null && next < run.input.calls.length) {
-      run.signal.throwIfAborted()
+    while (failure === null && next < made.input.calls.length) {
       const callIndex = next++
-      const call = run.input.calls[callIndex]
+      const call = made.input.calls[callIndex]
       if (!call) return
       try {
-        outputs[callIndex] = await calls.run(() =>
-          callAi(deps.db, {
-            job: { id: run.job, workspaceId: run.workspace },
-            attempt: run.attempt,
+        await made.checkCancel?.()
+        made.signal.throwIfAborted()
+        outputs[callIndex] = await calls.run(() => {
+          // A call that waited for its place starts only if the attempt still goes on.
+          made.signal.throwIfAborted()
+          return callAi(deps.db, {
+            job: { id: made.job, workspaceId: made.workspace },
+            attempt: made.attempt,
             callIndex,
             step: call.step,
             input: call.input,
-            signal: run.signal,
+            signal: made.signal,
             files,
             ...(call.sellers ? { sellers: call.sellers } : {}),
-          }),
-        )
+          })
+        })
       } catch (error) {
         failure ??= error
       }
     }
   }
-  const lanes = Math.min(CALLS_PER_JOB, run.input.calls.length)
+  const lanes = Math.min(CALLS_PER_JOB, made.input.calls.length)
   await Promise.all(Array.from({ length: lanes }, lane))
   if (failure !== null) throw failure
-  run.signal.throwIfAborted()
+  made.signal.throwIfAborted()
   return outputs
 }
 
@@ -204,7 +247,7 @@ export function workspaceFiles(storage: Storage, workspace: string): PictureFile
   const own = `workspaces/${workspace}/`
   return {
     async read(key) {
-      if (!key.startsWith(own)) throw new Error(`the picture ${key} is not the workspace's`)
+      if (!key.startsWith(own)) throw new Error(`the picture ${key} is not the workspace’s`)
       const bytes = await storage.get(key)
       if (!bytes) throw new Error(`the picture ${key} is gone`)
       return bytes

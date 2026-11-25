@@ -153,6 +153,10 @@ export const AI_JOB_KINDS = ['ai-steps'] as const
 export const AiJobKind = z.enum(AI_JOB_KINDS)
 export type AiJobKind = z.infer<typeof AiJobKind>
 
+/** What an AI job's pg-boss job carries: the AI job's id. */
+export const AiJobMessage = z.object({ job: z.string().min(1) })
+export type AiJobMessage = z.infer<typeof AiJobMessage>
+
 /** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
 export const AiStepsCall = z.object({
   step: z.string().min(1).max(100),

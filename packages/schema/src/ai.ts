@@ -118,14 +118,55 @@ export type PictureEditCall = z.infer<typeof PictureEditCall>
 export const LayerSplitSize = z.union([z.literal(512), z.literal(1024)])
 export type LayerSplitSize = z.infer<typeof LayerSplitSize>
 
+/** The most guidance a layer split takes; with none, it runs unguided. */
+const LayerSplitGuidance = z.number().positive().max(20)
+
+/**
+ * The layer plan a layer split follows: "Decompose this image into N layers with the following
+ * specifications:", then a line for each layer, top first. With none, the picture is split into 5 layers.
+ */
+const LayerPlan = z.string().min(1).max(10_000)
+
 /** A layer split: a draft picture split into layers at a size, with no guidance unless one is given. */
 export const LayerSplitCall = z.object({
   kind: z.literal('layer-split'),
   picture: PictureKey,
   size: LayerSplitSize,
-  guidance: z.number().positive().max(20).optional(),
+  guidance: LayerSplitGuidance.optional(),
+  plan: LayerPlan.optional(),
 })
 export type LayerSplitCall = z.infer<typeof LayerSplitCall>
+
+/**
+ * What the layer split app (python/layering) is sent, the job contract its Python model is generated from
+ * (ADR-0002): the picture's bytes, base64, and the call's size, guidance and plan.
+ */
+export const LayerSplitRequest = z.object({
+  picture: z.base64().max(40_000_000),
+  size: LayerSplitSize,
+  guidance: LayerSplitGuidance.optional(),
+  plan: LayerPlan.optional(),
+})
+export type LayerSplitRequest = z.infer<typeof LayerSplitRequest>
+
+/** One layer the layer split app made: a PNG with transparency, base64, at the size it was split at. */
+const SplitLayer = z.object({
+  png: z.base64(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+})
+
+/**
+ * What the layer split app gives back: the layers, top first, and the seconds its container worked on the
+ * call, timed inside the function, with the CPU cores and memory the function declares for those seconds.
+ */
+export const LayerSplitResult = z.object({
+  layers: z.array(SplitLayer).min(1).max(20),
+  seconds: z.number().nonnegative(),
+  cpuCores: z.number().positive(),
+  memoryGib: z.number().positive(),
+})
+export type LayerSplitResult = z.infer<typeof LayerSplitResult>
 
 /** What an AI call is asked to do. */
 export const CallInput = z.discriminatedUnion('kind', [TextCall, PictureCall, PictureEditCall, LayerSplitCall])

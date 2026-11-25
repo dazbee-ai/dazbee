@@ -1,0 +1,9 @@
+# The layer split app: Ming-Image-0.1-Design-Layer on ComfyUI, deployed to Modal (ADR-0022).
+[project]
+name = "layering"
+version = "0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["modal==1.6.4", "pydantic==2.14.4"]
+
+[tool.uv]
+package = false

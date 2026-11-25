@@ -25,3 +25,8 @@ packages/matchers/.files/
 
 # The browser measurement's build, pieces, Node's answers and results (packages/matchers/scripts/browser-measure).
 packages/matchers/.browser-measure/
+
+# The Python workspace's environment and caches (uv sync).
+python/.venv/
+__pycache__/
+.ruff_cache/

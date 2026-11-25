@@ -79,6 +79,18 @@ export class SellerError extends Error {
   }
 }
 
+/**
+ * A seller's word that a call ran out of time on its side, as a function that outlasts its own timeout:
+ * it may have been made and billed, so its try is logged unknown, and the call fails, as trying again
+ * would likely run out of time again.
+ */
+export class SellerTimedOut extends SellerError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SellerTimedOut'
+  }
+}
+
 /** The adapters in use, by seller. */
 const adapters = new Map<string, SellerAdapter>()
 
@@ -94,9 +106,11 @@ export function sellerAdapter(seller: string): SellerAdapter | undefined {
 
 /**
  * What `error` from an adapter means: a seller out of money goes to the next seller; a rate limit, a
- * server error or a lost connection is tried again; any other refusal fails the call.
+ * server error or a lost connection is tried again; a call the seller timed out, or any other refusal,
+ * fails the call.
  */
 export function sellerFailure(error: unknown): SellerFailure {
+  if (error instanceof SellerTimedOut) return 'fail'
   if (error instanceof SellerError) {
     if (error.status === 402 || error.code === 'insufficient_quota') return 'next-seller'
     if (error.status === undefined || error.status === 429 || error.status >= 500) return 'retry'

@@ -214,10 +214,32 @@ jobs:
             docker push "$REGISTRY/dazbee-$app:latest"
           done
 
-  # The one check a pull request needs: the tests and the images both passed.
+  # The Python workspace (python/): ruff, the layer split app's module imported with no GPU, and the app's
+  # contract written again from packages/schema, which fails when python/layering/contract.py is stale (ADR-0002).
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @dazbee/schema...
+      - run: uv sync --directory python --frozen --all-packages
+      - run: uv run --directory python --frozen ruff check .
+      - run: uv run --directory python --frozen ruff format --check .
+      - run: uv run --directory python/layering --frozen python -c 'import app'
+      - run: pnpm --filter @dazbee/schema python-models:check
+
+  # The one check a pull request needs: the tests, the images and the Python checks all passed.
   check:
-    needs: [tests, images]
+    needs: [tests, images, python]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - run: '[ "${{ needs.tests.result }}" = success ] && [ "${{ needs.images.result }}" = success ]'
+      - run: >-
+          [ "${{ needs.tests.result }}" = success ] && [ "${{ needs.images.result }}" = success ] &&
+          [ "${{ needs.python.result }}" = success ]

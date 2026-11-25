@@ -92,6 +92,13 @@
       "when": 1795582200853,
       "tag": "0012_ai-prices-openrouter-zenmux-pixazo",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795584033831,
+      "tag": "0013_ai-prices-modal",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,10 @@ name: Deploy
 # tags pick Selected branches and tags and add the branch `main`; then add the environment secrets
 # DEPLOY_HOST (the server's address), DEPLOY_SSH_KEY (the deploy user's private key) and
 # DEPLOY_KNOWN_HOSTS (`ssh-keyscan` of the server). deploy/setup.sh says how the server is set up.
+#
+# The job `layering` deploys the layer split app (python/layering) to Modal with `modal deploy`, when a
+# commit changes python/layering, or by hand, while the repo variable MODAL_DEPLOY is `on`. Its token is
+# the `production` environment's secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET.
 on:
   workflow_run:
     workflows: [CI]
@@ -114,3 +118,46 @@ jobs:
           ssh server "tail -n +1 -f --pid=$pid /opt/dazbee/$run.log"
           # shellcheck disable=SC2029
           exit "$(ssh server "cat /opt/dazbee/$run.status")"
+
+  layering:
+    if: >-
+      vars.MODAL_DEPLOY == 'on' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 90
+    concurrency:
+      group: deploy-layering
+      cancel-in-progress: false
+    env:
+      COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.workflow_run.head_sha }}
+    steps:
+      - name: Check the commit
+        run: |
+          [[ $COMMIT =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'The commit must be a full commit id: 40 lowercase hex digits.' >&2
+            exit 1
+          }
+      # The commit and the one before it on main, to tell whether the app changed.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
+          fetch-depth: 2
+      - name: Check for a change to the app
+        id: changed
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || ! git diff --quiet HEAD^1 HEAD -- python/layering; then
+            echo deploy=true >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::python/layering did not change in $COMMIT, so the layer split app is not deployed."
+          fi
+      - if: steps.changed.outputs.deploy == 'true'
+        uses: astral-sh/setup-uv@v10.4.0
+      # The image is built on Modal; a change to it, such as ComfyUI's version or the weights, builds it again.
+      - if: steps.changed.outputs.deploy == 'true'
+        name: Deploy to Modal
+        working-directory: python/layering
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: uv run --frozen modal deploy app.py

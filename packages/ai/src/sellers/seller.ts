@@ -104,12 +104,15 @@ export class SellerTimedOut extends SellerError {
 export class SellerCutOff extends SellerError {
   readonly usage: Usage
   readonly requestId: string | undefined
+  /** The seller's own cost for the call, in its currency, where it gives one. */
+  readonly reportedCost: number | undefined
 
-  constructor(usage: Usage, requestId?: string | null) {
+  constructor(usage: Usage, requestId?: string | null, reportedCost?: number) {
     super('the answer was cut off at its ceiling')
     this.name = 'SellerCutOff'
     this.usage = usage
     this.requestId = requestId ?? undefined
+    this.reportedCost = reportedCost
   }
 }
 

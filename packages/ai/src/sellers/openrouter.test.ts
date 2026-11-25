@@ -82,7 +82,6 @@ describe('openrouterSeller', () => {
       output: [],
       usage: { input_tokens: 50, input_tokens_details: { cached_tokens: 0 }, output_tokens: 900, cost: 0.001 },
     })
-    const { fetch, sent } = fakeFetch([['/responses', { body: cut }]])
     const text: CallInput = {
       kind: 'text',
       instructions: 'List.',
@@ -90,12 +89,16 @@ describe('openrouterSeller', () => {
       pictures: [],
       maxOutputTokens: 900,
     }
-    const error = await openrouterSeller('test-key', { fetch })
-      .call({ ...requestOf(text), model: 'openai/gpt-6-luna' })
-      .catch((e: unknown) => e)
-    expect(JSON.parse(String(sent[0]?.body)).max_output_tokens).toBe(900)
-    expect(error).toBeInstanceOf(SellerCutOff)
-    expect((error as SellerCutOff).usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 900 })
+    for (const input of [text, { ...text, schema: { type: 'object' } }]) {
+      const { fetch, sent } = fakeFetch([['/responses', { body: cut }]])
+      const error = await openrouterSeller('test-key', { fetch })
+        .call({ ...requestOf(input), model: 'openai/gpt-6-luna' })
+        .catch((e: unknown) => e)
+      expect(JSON.parse(String(sent[0]?.body)).max_output_tokens).toBe(900)
+      expect(error).toBeInstanceOf(SellerCutOff)
+      expect((error as SellerCutOff).usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 900 })
+      expect((error as SellerCutOff).reportedCost).toBe(0.001)
+    }
   })
 
   it('reads its recorded out-of-credit answer as a seller out of money', async () => {

@@ -51,11 +51,6 @@ export async function startTry(db: Db, call: AiCall, model: string, seller: stri
   }
 }
 
-export function isUniqueViolation(error: unknown): boolean {
-  const cause = error instanceof Error && 'cause' in error ? error.cause : error
-  return typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === '23505'
-}
-
 export async function keepRequestId(db: Db, row: string, id: string): Promise<void> {
   await db.update(aiCalls).set({ sellerRequestId: id }).where(eq(aiCalls.id, row))
 }
@@ -94,6 +89,7 @@ export async function endCutOff(
       endedAt: new Date(),
       usage: cutOff.usage,
       sellerRequestId: cutOff.requestId ?? sql`${aiCalls.sellerRequestId}`,
+      ...(cutOff.reportedCost === undefined ? {} : { reportedCost: BigInt(Math.round(cutOff.reportedCost * 1e6)) }),
       ...(priced ? { currency: priced.currency, sellerCost: priced.sellerCost, realCost: priced.realCost } : {}),
     })
     .where(and(eq(aiCalls.id, row), eq(aiCalls.state, 'running')))
@@ -103,4 +99,9 @@ export async function endCutOff(
 export async function requestOf(db: Db, row: string): Promise<{ row: string; requestId: string } | null> {
   const [found] = await db.select({ requestId: aiCalls.sellerRequestId }).from(aiCalls).where(eq(aiCalls.id, row))
   return found?.requestId ? { row, requestId: found.requestId } : null
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const cause = error instanceof Error && 'cause' in error ? error.cause : error
+  return typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === '23505'
 }

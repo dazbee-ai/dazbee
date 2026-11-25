@@ -92,13 +92,19 @@ describe('zenmuxSeller', () => {
       choices: [{ index: 0, message: { role: 'assistant', content: '{"ideas":["Bo' }, finish_reason: 'length' }],
       usage: { prompt_tokens: 120, completion_tokens: 40, prompt_tokens_details: { cached_tokens: 20 } },
     })
-    const { fetch, sent } = fakeFetch([['/chat/completions', { body: cut }]])
-    const error = await zenmuxSeller('test-key', { fetch })
-      .call(requestOf({ ...TEXT, maxOutputTokens: 900 } as CallInput, 'openai/gpt-6-luna'))
-      .catch((e: unknown) => e)
-    expect(JSON.parse(String(sent[0]?.body)).max_completion_tokens).toBe(900)
-    expect(error).toBeInstanceOf(SellerCutOff)
-    expect((error as SellerCutOff).usage).toEqual({ 'input-token': 100, 'cached-input-token': 20, 'output-token': 40 })
+    for (const input of [TEXT, { ...TEXT, schema: undefined }]) {
+      const { fetch, sent } = fakeFetch([['/chat/completions', { body: cut }]])
+      const error = await zenmuxSeller('test-key', { fetch })
+        .call(requestOf({ ...input, maxOutputTokens: 900 } as CallInput, 'openai/gpt-6-luna'))
+        .catch((e: unknown) => e)
+      expect(JSON.parse(String(sent[0]?.body)).max_completion_tokens).toBe(900)
+      expect(error).toBeInstanceOf(SellerCutOff)
+      expect((error as SellerCutOff).usage).toEqual({
+        'input-token': 100,
+        'cached-input-token': 20,
+        'output-token': 40,
+      })
+    }
   })
 
   it('makes Muse pictures through its OpenAI Images API, priced per picture', async () => {

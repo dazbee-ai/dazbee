@@ -195,7 +195,7 @@ function StepSizes({ step }: { step: AiStepModelView }) {
   if (!step.sizes) return null
   const calls = step.measured?.calls ?? 0
   return (
-    <div data-sizes={step.step} className="flex flex-col gap-0.5 whitespace-nowrap">
+    <div data-sizes={step.step} className="flex min-w-48 max-w-72 flex-col gap-0.5">
       <span>
         {format(w.sizesSet, {
           input: amount(step.sizes.input, 0),

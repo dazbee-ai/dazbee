@@ -152,14 +152,14 @@ export async function responsesText(
     'output-token': data.usage?.output_tokens ?? 0,
   }
   const requestId = response.headers.get(requestIdHeader) ?? data.id
+  const reported = (data.usage as { cost?: unknown } | undefined)?.cost
   if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
-    throw new SellerCutOff(usage, requestId)
+    throw new SellerCutOff(usage, requestId, typeof reported === 'number' ? reported : undefined)
   }
   const answer: SellerAnswer = {
     output: { kind: 'text', text: data.output_text, ...(input.schema ? { json: JSON.parse(data.output_text) } : {}) },
     usage,
   }
-  const reported = (data.usage as { cost?: unknown } | undefined)?.cost
   if (typeof reported === 'number') answer.reportedCost = reported
   if (requestId) answer.requestId = requestId
   return answer

@@ -13,7 +13,6 @@ import {
   AiAllowanceView,
   AiCostRow,
   AiGrantView,
-  AiKindModelView,
   AiPriceView,
   AiSettingsInput,
   AiSettingsView,

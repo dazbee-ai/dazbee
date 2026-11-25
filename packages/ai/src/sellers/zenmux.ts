@@ -60,7 +60,16 @@ async function callOpenaiProtocol(client: OpenAI, request: SellerRequest): Promi
   const { input } = request
   if (input.kind === 'text') return chatText(client, request, input)
   if (input.kind === 'layer-split') throw new SellerError('ZenMux makes no layer split', { status: 400 })
-  const common = { model: request.model, prompt: input.prompt, size: pictureSize(input), n: 1 }
+  const common = {
+    model: request.model,
+    prompt: input.prompt,
+    size: pictureSize(input),
+    n: 1,
+    // GPT Image takes the AI step's quality; Muse takes none.
+    ...(request.model.startsWith('openai/')
+      ? { quality: String(request.options.quality ?? 'medium') as 'medium' }
+      : {}),
+  }
   const { data, response } =
     input.kind === 'picture'
       ? await client.images.generate(common, { signal: request.signal }).withResponse()

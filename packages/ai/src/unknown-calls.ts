@@ -1,6 +1,7 @@
-// Settles unknown calls: each day, every unknown call of a seller that answers about a request by its id is
-// asked about, and marked done at the cost the seller charged (our cost: no workspace is charged) or failed.
-// A seller with no such answer (Meta) keeps its unknown calls, which count as our cost.
+// Settles unknown calls: each day, every unknown call of the week before of a seller that answers about a
+// request by its id is asked about, and marked done at the cost the seller charged (our cost: no workspace is
+// charged) or failed; one still going, or one the seller can't answer about now, is asked about again the next
+// day. A seller with no such answer (Meta) keeps its unknown calls, which count as our cost.
 import { and, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
 
 import { aiCalls, aiJobs, type Db } from '@dazbee/db'
@@ -16,10 +17,10 @@ export interface Settled {
   waiting: number
 }
 
-/** A day, in milliseconds. */
-const DAY_MS = 86_400_000
+/** How far back unknown calls are asked about. */
+const WEEK_MS = 7 * 86_400_000
 
-/** Settles the unknown calls started on the day before `before` (by default today, 00:00 UTC). */
+/** Settles the unknown calls started in the week before `before` (by default today, 00:00 UTC). */
 export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay()): Promise<Settled> {
   const rows = await db
     .select({
@@ -35,7 +36,7 @@ export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay())
       and(
         eq(aiCalls.state, 'unknown'),
         isNotNull(aiCalls.sellerRequestId),
-        gte(aiCalls.startedAt, new Date(before.getTime() - DAY_MS)),
+        gte(aiCalls.startedAt, new Date(before.getTime() - WEEK_MS)),
         lt(aiCalls.startedAt, before),
       ),
     )
@@ -45,7 +46,7 @@ export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay())
     const adapter = sellerAdapter(row.seller)
     const input = inputs.get(row.jobId)?.calls[row.callIndex]?.input
     if (!adapter?.status || !row.requestId || !input) continue
-    const status = await adapter.status(row.requestId, input)
+    const status = await adapter.status(row.requestId, input).catch(() => ({ state: 'pending' as const }))
     if (status.state === 'pending') {
       settled.waiting++
       continue
@@ -54,7 +55,7 @@ export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay())
       await db
         .update(aiCalls)
         .set({ state: 'failed', error: 'settled: the seller made nothing' })
-        .where(eq(aiCalls.id, row.id))
+        .where(and(eq(aiCalls.id, row.id), eq(aiCalls.state, 'unknown')))
       settled.failed++
       continue
     }
@@ -69,7 +70,7 @@ export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay())
         realCost: priced.realCost,
         error: 'settled: made after it was given up, our cost',
       })
-      .where(eq(aiCalls.id, row.id))
+      .where(and(eq(aiCalls.id, row.id), eq(aiCalls.state, 'unknown')))
     settled.done++
   }
   return settled

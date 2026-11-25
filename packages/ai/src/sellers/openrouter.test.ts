@@ -74,7 +74,7 @@ describe('resolutionOf', () => {
 })
 
 describe('aspectOf', () => {
-  it('gives a size’s aspect ratio in its smallest whole numbers', () => {
-    expect([aspectOf(1080, 1350), aspectOf(1920, 1080)]).toEqual(['4:5', '16:9'])
+  it('gives the aspect ratio OpenRouter takes closest to a size', () => {
+    expect([aspectOf(1080, 1350), aspectOf(1920, 1080), aspectOf(1200, 628)]).toEqual(['4:5', '16:9', '16:9'])
   })
 })

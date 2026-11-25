@@ -1,8 +1,8 @@
 // Pixazo's adapter for Seedream 5.5: submit, keep the request id on the call-log row, then poll until the
 // picture is made, and download it. A later attempt polls the same request instead of submitting again, and
 // the daily settling of unknown calls asks about a request by its id. Written from Pixazo's Seedream page
-// (pixazo.ai/models/seedream) as read on 25 Nov 2026: COMPLETED, FAILED and ERROR end a request, and ERROR
-// is never charged.
+// (pixazo.ai/models/seedream) as read on 25 Nov 2026: COMPLETED, FAILED and ERROR end a request; ERROR is
+// never charged, and a FAILED request charged by mistake is refunded.
 import { setTimeout as sleep } from 'node:timers/promises'
 
 import { type CallInput, readImageHeader, type Usage } from '@dazbee/schema'
@@ -47,7 +47,7 @@ export function pixazoSeller(
   return {
     seller: 'pixazo',
     resumable: true,
-    // Seedream on Pixazo took up to 165 s for an edit in the bill check.
+    // Seedream on Pixazo can take over two minutes for an edit, past the usual 150 s.
     timeouts: { picture: PIXAZO_TIMEOUT_MS, 'picture-edit': PIXAZO_TIMEOUT_MS },
     call: (request) => callPixazo(fetchOf, headers, ask, pollMs, request),
     status: async (requestId, input) => {
@@ -103,7 +103,7 @@ async function callPixazo(
       if (!picture.ok) throw new SellerError(`Pixazo's picture answered ${picture.status}`, { status: 502 })
       const bytes = new Uint8Array(await picture.arrayBuffer())
       const header = readImageHeader(bytes)
-      if (!header) throw new Error('Pixazo’s picture is not a picture')
+      if (!header) throw new SellerError('Pixazo’s picture is not a picture', { status: 502 })
       return {
         output: {
           kind: 'pictures',

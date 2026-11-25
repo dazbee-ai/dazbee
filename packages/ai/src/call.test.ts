@@ -1,6 +1,6 @@
 // The call function against Postgres from Docker Compose and test sellers: each case on a job and model of its own.
 import { and, asc, eq } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { aiCalls, aiLedger } from '@dazbee/db'
 import type { CallInput } from '@dazbee/schema'
@@ -296,6 +296,43 @@ describe('callAi', () => {
       ['failed', 'resumed by a later try'],
       ['done', null],
     ])
+  })
+
+  it('logs one request once when a later attempt takes it over while the earlier one still waits on it', async () => {
+    const seller = testSeller(newSeller('a'), [{ afterMs: 400 }, { afterMs: 0 }], { resumable: true, timeoutMs: 5_000 })
+    const { step } = await addStep([seller])
+    const job = await heldJob()
+    const earlier = callAi(db, callOf(job, step))
+    await vi.waitFor(async () => expect(await callRows(job.id)).toHaveLength(1))
+    await db.update(aiCalls).set({ sellerRequestId: 'req-shared' }).where(eq(aiCalls.jobId, job.id))
+    await setJob(job.id, { attempt: 2 })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    await earlier
+    expect((await callRows(job.id)).map((r) => [r.state, r.error])).toEqual([
+      ['failed', 'resumed by a later try'],
+      ['done', null],
+    ])
+  })
+
+  it('sends a request again when the seller refuses to answer about an earlier attempt’s', async () => {
+    const seller = testSeller(newSeller('a'), [{ fail: 404 }], { resumable: true })
+    const { step, model } = await addStep([seller])
+    const job = await heldJob()
+    await setJob(job.id, { attempt: 2 })
+    const earlier = { id: `${job.id}-earlier`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 1 }
+    await db
+      .insert(aiCalls)
+      .values({
+        ...earlier,
+        attempt: 1,
+        step,
+        model,
+        seller: seller.seller,
+        state: 'unknown',
+        sellerRequestId: 'req-gone',
+      })
+    await callAi(db, callOf(job, step, { attempt: 2 }))
+    expect(seller.requests.map((r) => r.resumeId)).toEqual(['req-gone', undefined])
   })
 
   it('charges a call an earlier run made but could not charge, once, on the run that reuses it', async () => {

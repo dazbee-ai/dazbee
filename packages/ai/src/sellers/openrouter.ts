@@ -26,6 +26,20 @@ interface ImagesAnswer {
 /** OpenRouter's API. */
 const BASE_URL = 'https://openrouter.ai/api/v1'
 
+/** The aspect ratios OpenRouter's Images API takes, as width ÷ height. */
+const ASPECTS: [string, number][] = [
+  ['1:1', 1],
+  ['2:3', 2 / 3],
+  ['3:2', 3 / 2],
+  ['3:4', 3 / 4],
+  ['4:3', 4 / 3],
+  ['4:5', 4 / 5],
+  ['5:4', 5 / 4],
+  ['9:16', 9 / 16],
+  ['16:9', 16 / 9],
+  ['21:9', 21 / 9],
+]
+
 /** OpenRouter's adapter on `apiKey`. */
 export function openrouterSeller(apiKey: string, options: SellerClientOptions = {}): SellerAdapter {
   const client = sellerClient(apiKey, { baseURL: BASE_URL, ...options })
@@ -41,11 +55,10 @@ export function resolutionOf(width: number, height: number): '1K' | '1.5K' | '2K
   return pixels <= 1024 * 1024 ? '1K' : pixels <= 1536 * 1536 ? '1.5K' : '2K'
 }
 
-/** The aspect ratio of `width` × `height` in its smallest whole numbers, such as 4:5. */
+/** The aspect ratio OpenRouter takes closest to `width` × `height`. */
 export function aspectOf(width: number, height: number): string {
-  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
-  const d = gcd(width, height)
-  return `${width / d}:${height / d}`
+  const ratio = width / height
+  return ASPECTS.reduce((best, next) => (Math.abs(next[1] - ratio) < Math.abs(best[1] - ratio) ? next : best))[0]
 }
 
 async function callOpenrouter(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {

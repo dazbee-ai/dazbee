@@ -6,7 +6,7 @@ import { ConnectorId, type Design, Id, inOrder, PageId, sectionOf, sectionsOf } 
 
 import { connectorProblem, idProblem, pageProblem } from './checks.ts'
 import { defineCommand } from './define.ts'
-import { pageRecords, sweepPage } from './tidy-page.ts'
+import { joins, pageRecords, sweepPage } from './tidy-page.ts'
 import { writeOrder } from './tree.ts'
 
 /** Joins two frames or sections of a page, after the page's connectors. Returns the connector's id. */
@@ -32,9 +32,7 @@ export const connectorAdd = defineCommand({
     if (from === to) return 'a connector joins two different frames or sections'
     if (sectionOf(design, from) === to || sectionOf(design, to) === from)
       return 'a connector does not join a frame to its own section'
-    const joined = Object.values(design.connectors).some(
-      (c) => c.pageId === pageId && ((c.from === from && c.to === to) || (c.from === to && c.to === from)),
-    )
+    const joined = Object.values(design.connectors).some((c) => c.pageId === pageId && joins(c, from, to))
     return joined ? `"${from}" and "${to}" are already joined` : undefined
   },
   apply: ({ w, design, newId }, { pageId, from, to, id = newId() }) => {

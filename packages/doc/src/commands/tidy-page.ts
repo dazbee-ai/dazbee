@@ -27,6 +27,16 @@ export function pageRecords(design: Design, pageId: string): PageRecords {
   return { pageId, frames, sections, connectors }
 }
 
+/** The records of the page frame `frameId` is on. */
+export function recordsOfFrame(design: Design, frameId: string): PageRecords {
+  return pageRecords(design, design.frames[frameId]?.pageId ?? '')
+}
+
+/** Whether a connector joins `a` and `b`, either way. */
+export function joins({ from, to }: { from: string; to: string }, a: string, b: string): boolean {
+  return (from === a && to === b) || (from === b && to === a)
+}
+
 /** Puts a frame of the page in section `sectionId`, or in none with undefined. */
 export function setFrameSection(w: StoreWrite, records: PageRecords, frameId: string, sectionId: string | undefined) {
   if (records.frames.get(frameId) === sectionId) return
@@ -36,21 +46,20 @@ export function setFrameSection(w: StoreWrite, records: PageRecords, frameId: st
 }
 
 /** Deletes a connector of the page. */
-export function removeConnector(w: StoreWrite, records: PageRecords, connectorId: string) {
+function removeConnector(w: StoreWrite, records: PageRecords, connectorId: string) {
   records.connectors.delete(connectorId)
   w.remove('connector', connectorId)
 }
 
 /** Deletes every connector of the page with an end at `id`, a frame's or a section's. */
-export function removeConnectorsAt(w: StoreWrite, records: PageRecords, id: string) {
+function removeConnectorsAt(w: StoreWrite, records: PageRecords, id: string) {
   for (const [connectorId, { from, to }] of records.connectors)
     if (from === id || to === id) removeConnector(w, records, connectorId)
 }
 
 /** Deletes every connector of the page between `a` and `b`, either way. */
 export function removeConnectorsBetween(w: StoreWrite, records: PageRecords, a: string, b: string) {
-  for (const [connectorId, { from, to }] of records.connectors)
-    if ((from === a && to === b) || (from === b && to === a)) removeConnector(w, records, connectorId)
+  for (const [connectorId, ends] of records.connectors) if (joins(ends, a, b)) removeConnector(w, records, connectorId)
 }
 
 /** Deletes a section of the page and its connectors; frames naming it stay as they are. */

@@ -23,6 +23,7 @@ import {
   forgetFrame,
   type PageRecords,
   pageRecords,
+  recordsOfFrame,
   removeConnectorsBetween,
   removeSection,
   setFrameSection,
@@ -196,7 +197,7 @@ export const frameSetSection = defineCommand({
     return sectionId === null ? undefined : sectionOnPageProblem(design, pageId, sectionId)
   },
   apply: ({ w, design }, { frameIds, sectionId }) => {
-    const records = pageRecords(design, design.frames[frameIds[0] ?? '']?.pageId ?? '')
+    const records = recordsOfFrame(design, frameIds[0] ?? '')
     for (const frameId of new Set(frameIds)) {
       setFrameSection(w, records, frameId, sectionId ?? undefined)
       if (sectionId !== null) removeConnectorsBetween(w, records, frameId, sectionId)
@@ -204,18 +205,6 @@ export const frameSetSection = defineCommand({
     sweepPage(w, records)
   },
 })
-
-/** Each frame of a section with the place a move by `dx`, `dy` gives it, in whole pixels. */
-function movedFrames(design: Design, { sectionId, dx, dy }: { sectionId: string; dx: number; dy: number }) {
-  return framesInSection(design, sectionId).map(
-    ([frameId, frame]) => [frameId, Math.round(frame.x + dx) + 0, Math.round(frame.y + dy) + 0] as const,
-  )
-}
-
-/** The records of the page section `sectionId` is on. */
-function recordsOfSection(design: Design, sectionId: string): PageRecords {
-  return pageRecords(design, design.sections[sectionId]?.pageId ?? '')
-}
 
 /** A page's sections as slots, in order, those no frame names among them. */
 function sectionSlots(design: Design, pageId: string): [string, string][] {
@@ -228,4 +217,16 @@ function sectionSlots(design: Design, pageId: string): [string, string][] {
 function freeTitle(design: Design, records: PageRecords, kept: ReadonlySet<string | undefined>): string {
   const taken = new Set([...records.sections].filter((id) => kept.has(id)).map((id) => design.sections[id]?.title))
   for (let n = 1; ; n++) if (!taken.has(`Section ${n}`)) return `Section ${n}`
+}
+
+/** The records of the page section `sectionId` is on. */
+function recordsOfSection(design: Design, sectionId: string): PageRecords {
+  return pageRecords(design, design.sections[sectionId]?.pageId ?? '')
+}
+
+/** Each frame of a section with the place a move by `dx`, `dy` gives it, in whole pixels. */
+function movedFrames(design: Design, { sectionId, dx, dy }: { sectionId: string; dx: number; dy: number }) {
+  return framesInSection(design, sectionId).map(
+    ([frameId, frame]) => [frameId, Math.round(frame.x + dx) + 0, Math.round(frame.y + dy) + 0] as const,
+  )
 }

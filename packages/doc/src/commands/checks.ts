@@ -8,8 +8,8 @@ import type { CommandContext } from './define.ts'
 const RESIZE_PATHS = new Set(['width', 'height', 'rotation', 'flipX', 'flipY', 'lockRatio'])
 
 /**
- * Why a new id a caller gives is not free, if it is not: a page, a frame, a layer, a section or a connector holds it now,
- * whatever its read makes of it (C27).
+ * Why a new id a caller gives is not free, if it is not: a page, a frame, a layer, a section or a
+ * connector holds it now, whatever its read makes of it (C27).
  */
 export const idProblem = ({ w }: CommandContext, id: string | undefined) =>
   id && w.isLive(id) ? `id "${id}" is taken` : undefined

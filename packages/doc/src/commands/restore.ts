@@ -1,5 +1,6 @@
 // Restoring a version: the working design's pages, frames, layers, sections and connectors become a
-// version's, its meta kept, as one step marked with the version it restores (the tab sends the mark with its change set).
+// version's, its meta kept, as one step marked with the version it restores (the tab sends the mark
+// with its change set).
 import { z } from 'zod'
 
 import { type BindableProperty, Design, RestoreMark, type Target, type VariableRef } from '@dazbee/schema'
@@ -21,7 +22,7 @@ const RECORDS = {
   connector: 'connectors',
 } as const
 /** The parts a restore writes. */
-const PARTS = ['page', 'frame', 'layer', 'section', 'connector'] as const
+const PARTS = Object.keys(RECORDS) as (keyof typeof RECORDS)[]
 
 /**
  * Makes every page, frame, layer, section and connector of the design equal the input design's: what the input lacks

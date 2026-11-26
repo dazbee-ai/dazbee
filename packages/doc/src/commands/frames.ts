@@ -31,7 +31,7 @@ import { frameProblem, idProblem, pageProblem, sectionOnPageProblem } from './ch
 import { type CommandContext, defineCommand, strict } from './define.ts'
 import { readableBox, readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
 import { keepDrawnIn } from './paths.ts'
-import { forgetFrame, pageRecords, sweepPage } from './tidy-page.ts'
+import { forgetFrame, recordsOfFrame, sweepPage } from './tidy-page.ts'
 import { copyFrameLayers, type Slot, writeOrder } from './tree.ts'
 
 /** Where a frame's copy goes: its place on the page, its order among the page's frames, and its section, if any. */
@@ -49,11 +49,11 @@ interface ResizePlan {
   guides?: Guide[]
 }
 
-/** The keys of frame.update's input that a star alone gives, which name its step for the star. */
-const STAR_KEYS = new Set(['frameId', 'starred'])
-
 /** A frame's name as a command takes it. */
 export const FrameName = z.string().trim().min(1).max(120)
+
+/** The keys of frame.update's input that a star alone gives, which name its step for the star. */
+const STAR_KEYS = new Set(['frameId', 'starred'])
 
 /**
  * Adds an empty white frame to a page, after its last frame: at `x`, `y` when given, else where
@@ -221,13 +221,14 @@ function writeBoxes(w: StoreWrite, design: Design, boxes: ReadonlyMap<string, Re
 }
 
 /**
- * Copies a frame onto its page where the frame rule puts it, after the page's last frame, with its
- * name, size and fills, holding a linked copy of every layer at the same index. Returns its id.
+ * Copies a frame onto its page, after the page's last frame, with its name, size and fills, holding
+ * a linked copy of every layer at the same index: where the frame rule puts it, or, for a frame in a
+ * section, in that section right of its frames (`copyFrame`). The copy is never starred. Returns its id.
  */
 export const frameDuplicate = defineCommand({
   name: 'frame.duplicate',
   description:
-    'Copies a frame after the last frame of its page, with its name, size and fills and a linked copy of every layer, and returns the copy’s id. It refuses a missing frame and an id already in use.',
+    'Copies a frame after the last frame of its page, with its name, size and fills and a linked copy of every layer, and returns the copy’s id. A copy of a frame in a section goes in that section, right of its frames below any frame in the way; the copy is never starred and no connector is copied. It refuses a missing frame and an id already in use.',
   step: 'duplicate',
   input: z.strictObject({
     frameId: FrameId.describe('The frame to copy.'),
@@ -245,7 +246,7 @@ export const frameDuplicate = defineCommand({
 export const frameAddSize = defineCommand({
   name: 'frame.addSize',
   description:
-    'Copies a frame at another size, after the last frame of its page, named by the size (such as 1200×628), and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. A text that scale would set under the readable size for the new frame (the size check_frame warns under) is set at that size instead, its sizes kept in proportion and its box grown to hold it; one whose lines can’t then break where they did inside the frame grows with its words (auto height). The frame and its layers are not changed. It refuses a missing frame, an id already in use and a size the editor does not take.',
+    'Copies a frame at another size, after the last frame of its page, named by the size (such as 1200×628), and returns the new frame’s id. Every layer is a linked copy scaled by the smaller of the two ratios, then placed by its constraints to the new size; a layer with none gets them guessed from where it sits, and its copy keeps the guess. A text that scale would set under the readable size for the new frame (the size check_frame warns under) is set at that size instead, its sizes kept in proportion and its box grown to hold it; one whose lines can’t then break where they did inside the frame grows with its words (auto height). The frame and its layers are not changed. A new size of a frame in a section goes in that section, right of its frames below any frame in the way; it is never starred and no connector is copied. It refuses a missing frame, an id already in use and a size the editor does not take.',
   step: 'addSize',
   input: z.strictObject({
     frameId: FrameId.describe('The frame to copy.'),
@@ -271,7 +272,7 @@ export const frameDelete = defineCommand({
   input: z.strictObject({ frameId: FrameId.describe('The frame to delete.') }),
   check: ({ design }, { frameId }) => frameProblem(design, frameId),
   apply: ({ w, design }, { frameId }) => {
-    const records = pageRecords(design, design.frames[frameId]?.pageId ?? '')
+    const records = recordsOfFrame(design, frameId)
     forgetFrame(w, records, frameId)
     deleteFrame(w, design, frameId)
     sweepPage(w, records)
@@ -283,31 +284,6 @@ export function deleteFrame(w: StoreWrite, design: Design, frameId: string) {
   // Its layers are deleted as node.delete deletes them, so undo and other tabs' edits behave alike.
   for (const node of descendants(design, frameId)) w.remove('layer', node)
   w.remove('frame', frameId)
-}
-
-/** Where the frame rule puts the new frame `id` on a page, and its order after the page's last frame. */
-function nextOnPage(w: StoreWrite, design: Design, pageId: string, id: string) {
-  const siblings = framesOf(design, pageId)
-  const slots = siblings.map(([sibling, frame]): Slot => [sibling, frame.order])
-  const orderOf = writeOrder(w, 'frame', [...slots, [id, null]], new Set([id]))
-  return { ...newFramePosition(siblings.map(([, frame]) => frame)), order: orderOf(id) }
-}
-
-/**
- * A copy of a frame with a copy of every layer keeping its link id, sized to a new size when it has
- * one (`sizedLayers`). Outside a section it goes where the frame rule puts it; in one, it stays in
- * that section, at the free spot right of the section's rightmost frame, at the original's top
- * (`freeSpot`). A copy at a new size is named by it, such as "1200×628", and has no guides: they
- * belong to the frame's own size.
- */
-function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: Size) {
-  const { w, design } = ctx
-  const frame = design.frames[frameId] as Frame
-  const next = nextOnPage(w, design, frame.pageId, newId)
-  const sectionId = sectionOf(design, frameId)
-  if (sectionId === undefined) return copyFrameTo(ctx, frameId, newId, next, size)
-  const at = freeSpot(design, frame.pageId, size ?? frame, { ...rightmostIn(design, sectionId), y: frame.y })
-  return copyFrameTo(ctx, frameId, newId, { ...at, order: next.order, sectionId }, size)
 }
 
 /**
@@ -344,16 +320,35 @@ export function unmarked(frame: Frame): Frame {
   return copy
 }
 
-/** The box of the frame of a section whose right edge is furthest right, the first of those that tie. */
+/** Where the frame rule puts the new frame `id` on a page, and its order after the page's last frame. */
+function nextOnPage(w: StoreWrite, design: Design, pageId: string, id: string) {
+  const siblings = framesOf(design, pageId)
+  const slots = siblings.map(([sibling, frame]): Slot => [sibling, frame.order])
+  const orderOf = writeOrder(w, 'frame', [...slots, [id, null]], new Set([id]))
+  return { ...newFramePosition(siblings.map(([, frame]) => frame)), order: orderOf(id) }
+}
+
+/**
+ * A copy of a frame with a copy of every layer keeping its link id, sized to a new size when it has
+ * one (`sizedLayers`). Outside a section it goes where the frame rule puts it; in one, it stays in
+ * that section, at the free spot right of the section's rightmost frame, at the original's top
+ * (`freeSpot`). A copy at a new size is named by it, such as "1200×628", and has no guides: they
+ * belong to the frame's own size.
+ */
+function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: Size) {
+  const { w, design } = ctx
+  const frame = design.frames[frameId] as Frame
+  const next = nextOnPage(w, design, frame.pageId, newId)
+  const sectionId = sectionOf(design, frameId)
+  if (sectionId === undefined) return copyFrameTo(ctx, frameId, newId, next, size)
+  const at = freeSpot(design, frame.pageId, size ?? frame, { ...rightmostIn(design, sectionId), y: frame.y })
+  return copyFrameTo(ctx, frameId, newId, { ...at, order: next.order, sectionId }, size)
+}
+
+/** The frame of a section, which holds one, whose right edge is furthest right: the first of those that tie. */
 function rightmostIn(design: Design, sectionId: string): Rect {
-  let rightmost: Rect = { x: 0, y: 0, width: 0, height: 0 }
-  let right = -Infinity
-  for (const [, frame] of framesInSection(design, sectionId)) {
-    if (frame.x + frame.width <= right) continue
-    right = frame.x + frame.width
-    rightmost = frame
-  }
-  return rightmost
+  const frames = framesInSection(design, sectionId).map(([, frame]) => frame)
+  return frames.reduce((most, frame) => (frame.x + frame.width > most.x + most.width ? frame : most))
 }
 
 /**

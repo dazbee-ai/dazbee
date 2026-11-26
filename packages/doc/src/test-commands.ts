@@ -542,6 +542,7 @@ function wrongTargets({ design, deleted }: World, id: string): [string, string][
     ["a page's id", kind === 'page' ? undefined : page(design)],
     ["a layer's id", kind === 'layer' ? undefined : Object.keys(design.nodes)[0]],
     ["a section's id", kind === 'section' ? undefined : Object.keys(design.sections)[0]],
+    ["a connector's id", kind === 'connector' ? undefined : Object.keys(design.connectors)[0]],
     ['a layer of another page', elsewhere],
   ]
   return targets.filter((target): target is [string, string] => target[1] !== undefined)

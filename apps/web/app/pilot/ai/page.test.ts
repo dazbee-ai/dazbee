@@ -67,66 +67,11 @@ const PAGE: AiPage = {
       ],
     },
   ],
-  kindModels: [
-    {
-      kind: 'picture',
-      model: 'muse-image-1.0',
-      models: ['muse-image-1.0', 'seedream-5.5'],
-      options: {},
-      steps: ['flow.draft-fast'],
-      updatedAt: AT,
-    },
-  ],
-  stepModels: [
-    {
-      step: 'flow.refine',
-      kind: 'picture',
-      model: 'seedream-5.5',
-      models: ['seedream-5.5', 'gpt-image-2.5-sunburst'],
-      options: {},
-      source: 'override',
-      updatedAt: AT,
-      sizes: null,
-      measured: null,
-    },
-    {
-      step: 'flow.round-plan',
-      kind: 'text',
-      model: 'gpt-6-luna',
-      models: ['gpt-6-luna'],
-      options: {},
-      source: 'kind',
-      updatedAt: null,
-      sizes: { input: 6000, output: 3000, ceiling: 12000 },
-      measured: { calls: 25, cutOff: 1, input: { average: 5800, p95: 7100 }, output: { average: 2900, p95: 4200 } },
-    },
-    {
-      step: 'flow.read',
-      kind: 'text',
-      model: 'gpt-6-luna',
-      models: ['gpt-6-luna'],
-      options: {},
-      source: 'kind',
-      updatedAt: null,
-      sizes: { input: 8000, output: 2000, ceiling: 8000 },
-      measured: { calls: 3, cutOff: 0, input: { average: 7000, p95: 7500 }, output: { average: 1800, p95: 1900 } },
-    },
-    {
-      step: 'flow.draft-fast',
-      kind: 'picture',
-      model: 'muse-image-1.0',
-      models: ['muse-image-1.0', 'seedream-5.5'],
-      options: {},
-      source: 'kind',
-      updatedAt: null,
-      sizes: null,
-      measured: null,
-    },
-  ],
   costs: [
     {
       day: '2026-11-20',
-      step: 'flow.layer-split',
+      feature: 'layering',
+      function: 'layer-split',
       model: 'ming-image-0.1-design-layer',
       seller: 'modal',
       calls: 2,
@@ -220,8 +165,6 @@ describe('PilotAiPage', () => {
       'ai-daily-check',
       'ai-upload',
       'ai-grants',
-      'ai-kind-models',
-      'ai-step-models',
       'ai-price-list',
       'ai-seller-order',
     ]) {
@@ -232,17 +175,9 @@ describe('PilotAiPage', () => {
     expect(page).toContain('data-testid="ai-out-of-money"')
     expect(page).toContain('data-split-day="2026-11-20"')
     expect(page).toContain('data-price="openai-gpt-6-luna-input-token"')
-    expect(page).toContain('data-step="flow.refine"')
-    expect(page).toContain('data-kind="picture"')
-    expect(page).toContain('Draft, Fast')
-    // Only the step with its own model can go back to its kind's default.
-    expect(page.match(/Use the kind default/g)).toHaveLength(1)
-    expect(page).toContain('data-feature="flow"')
-    // A text step's sizes as set, and as measured once it has 20 calls.
-    expect(page).toContain('Set: 6,000 in, 3,000 out, ceiling 12,000')
-    expect(page).toContain('Measured: 5,800 in (95%: 7,100), 2,900 out (95%: 4,200), over 25 calls, 1 cut off')
-    expect(page).toContain('Measured: too few calls (3 of 20)')
-    expect(page).not.toContain('data-sizes="flow.refine"')
+    expect(page).toContain('data-feature="layering"')
+    expect(page).toContain('Make editable')
+    expect(page).toContain('Layer split')
     expect(page).toContain('data-model="seedream-5.5"')
     expect(findAiWorkspaces).not.toHaveBeenCalled()
     expect(findAllowance).not.toHaveBeenCalled()

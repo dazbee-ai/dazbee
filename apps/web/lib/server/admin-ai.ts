@@ -60,27 +60,18 @@ export interface AiOverviewData {
 export const findAiPage = cache(async (from: string, to: string): Promise<AiPage | null> => {
   const days = new URLSearchParams({ from, to })
   try {
-    const [
-      settings,
-      rates,
-      prices,
-      modelSellers,
-      costs,
-      checks,
-      unknownCalls,
-      outOfMoney,
-      lastChecked,
-    ] = await Promise.all([
-      call(AiSettingsView, '/admin/ai/settings'),
-      call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
-      call(AiPriceView.array(), '/admin/ai/prices'),
-      call(ModelSellersView.array(), '/admin/ai/model-sellers'),
-      call(AiCostRow.array(), `/admin/ai/costs?${days}`),
-      call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
-      call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
-      call(OutOfMoney.array(), '/admin/ai/out-of-money'),
-      call(LastChecked.array(), '/admin/ai/last-checked'),
-    ])
+    const [settings, rates, prices, modelSellers, costs, checks, unknownCalls, outOfMoney, lastChecked] =
+      await Promise.all([
+        call(AiSettingsView, '/admin/ai/settings'),
+        call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
+        call(AiPriceView.array(), '/admin/ai/prices'),
+        call(ModelSellersView.array(), '/admin/ai/model-sellers'),
+        call(AiCostRow.array(), `/admin/ai/costs?${days}`),
+        call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
+        call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
+        call(OutOfMoney.array(), '/admin/ai/out-of-money'),
+        call(LastChecked.array(), '/admin/ai/last-checked'),
+      ])
     return {
       settings,
       rates,

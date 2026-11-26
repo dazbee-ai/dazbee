@@ -1,19 +1,17 @@
-// The AI section's server actions, with the API stubbed: a save the API refuses as made from an older copy,
-// an AI step's model of another kind, named as the page names things, and what an upload of a seller's usage
-// file says before and after the API reads it.
+// The AI section's server actions, with the API stubbed: a save the API refuses as made from an older copy, and
+// what an upload of a seller's usage file says before and after the API reads it.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { setModelSellers, setStepModel, uploadAiSellerFile } from '@/lib/server/admin-ai.ts'
+import { setModelSellers, uploadAiSellerFile } from '@/lib/server/admin-ai.ts'
 import { ApiFailure } from '@/lib/server/api.ts'
 
-import { saveSellerOrder, saveStepModel, uploadSellerFile } from './actions.ts'
+import { saveSellerOrder, uploadSellerFile } from './actions.ts'
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ headers: vi.fn(), cookies: vi.fn(async () => ({ get: () => undefined })) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/server/admin-ai.ts', () => ({
   setModelSellers: vi.fn(),
-  setStepModel: vi.fn(),
   uploadAiSellerFile: vi.fn(),
 }))
 
@@ -31,39 +29,6 @@ describe('saveSellerOrder', () => {
       'This changed since you opened it; reload to see the newest.',
     )
     expect(setModelSellers).toHaveBeenCalledWith('seedream-5.5', order)
-  })
-})
-
-describe('saveStepModel', () => {
-  it('names the step, the kinds and the units of a model of another kind as the page shows them', async () => {
-    const wrongKind = {
-      step: 'flow.resize',
-      model: 'gpt-6-luna',
-      units: ['cached-input-token', 'input-token', 'output-token'],
-      wants: 'picture',
-      is: 'text',
-    }
-    vi.mocked(setStepModel).mockRejectedValue(
-      new ApiFailure(400, 'resize runs a picture model, and gpt-6-luna is a text model', { error: '', wrongKind }),
-    )
-    expect(await saveStepModel('flow.resize', { model: 'gpt-6-luna', options: {}, since: null })).toBe(
-      'Resize runs a picture model, and gpt-6-luna is a text model, priced in Cached input tokens, Input tokens, Output tokens.',
-    )
-  })
-
-  it('names the sellers and units a model has no price for, as the page shows them', async () => {
-    const unpriced = { model: 'seedream-5.5', priced: 1, sellers: [{ seller: 'pixazo', units: ['reference-picture'] }] }
-    vi.mocked(setStepModel).mockRejectedValue(
-      new ApiFailure(400, 'seedream-5.5 can’t be chosen yet', { error: '', unpriced }),
-    )
-    expect(await saveStepModel('flow.resize', { model: 'seedream-5.5', options: {} })).toBe(
-      'seedream-5.5 can’t be chosen yet: Pixazo has no price for Reference pictures. Add the prices in the price list first.',
-    )
-  })
-
-  it('keeps the API’s words for any other refusal', async () => {
-    vi.mocked(setStepModel).mockRejectedValue(new ApiFailure(400, 'No seller of x has a price for it'))
-    expect(await saveStepModel('flow.resize', { model: 'x', options: {} })).toBe('No seller of x has a price for it')
   })
 })
 

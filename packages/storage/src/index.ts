@@ -73,8 +73,14 @@ export function openStorage(settings: StorageSettings) {
     await send(url, { method: 'PUT' })
   }
 
+  /** Stores the object; throws when the bucket is missing, so a write is never taken as stored when it wasn't. */
   async function put(key: string, bytes: Uint8Array, contentType: string) {
-    await send(objectUrl(key), { method: 'PUT', body: bytes, headers: { 'content-type': contentType } })
+    const response = await send(objectUrl(key), {
+      method: 'PUT',
+      body: bytes,
+      headers: { 'content-type': contentType },
+    })
+    if (response.status === 404) throw new StorageError(404, `storage has no bucket ${settings.bucket}`)
   }
 
   /** The object's bytes, or null when there is none. */

@@ -19,12 +19,15 @@ export type SellerOutput =
 
 /** One call as an adapter is asked to make it. */
 export interface SellerRequest {
-  /** The AI call this is: its job, its AI step and its place in the job, which a recording keeps and replays by. */
-  call: { job: string; step: string; index: number }
+  /**
+   * The AI call this is: its job, its AI function and preset, and its place in the job, which a recording keeps and
+   * replays by.
+   */
+  call: { job: string; function: string; preset: string; index: number }
   /** The seller's own name for the model. */
   model: string
   input: CallInput
-  /** The options the AI step's model passes, such as a picture's quality. */
+  /** The settings the preset passes, such as a picture's quality. */
   options: Record<string, unknown>
   /** Aborted when the call times out or its job is cancelled. */
   signal: AbortSignal

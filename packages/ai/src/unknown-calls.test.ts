@@ -32,13 +32,13 @@ describe('settleUnknownCalls', () => {
       id: job,
       workspaceId: workspace,
       memberId: 'member',
-      kind: 'ai-steps',
+      kind: 'calls',
       state: 'done',
       input: {
         calls: [
-          { step: 'flow.refine', input: edit },
-          { step: 'flow.refine', input: edit },
-          { step: 'flow.draft-fast', input: edit },
+          { function: 'refine-edit', preset: 'seedream', input: edit },
+          { function: 'refine-edit', preset: 'seedream', input: edit },
+          { function: 'draft', preset: 'gpt-image-medium', input: edit },
         ],
       },
     })
@@ -49,7 +49,8 @@ describe('settleUnknownCalls', () => {
       callIndex,
       try: 1,
       attempt: 1,
-      step: 'flow.refine',
+      function: 'refine-edit',
+      preset: 'seedream',
       model,
       seller,
       state: 'unknown' as const,

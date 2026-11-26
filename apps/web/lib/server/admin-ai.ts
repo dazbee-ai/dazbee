@@ -9,16 +9,11 @@ import {
   AiAllowanceView,
   AiCostRow,
   AiGrantView,
-  AiKindModelView,
   type AiPriceInput,
   AiPriceView,
   type AiSettingsInput,
   AiSettingsView,
-  type AiStepModelInput,
-  AiStepModelView,
-  type AiStepOverrideRemoval,
   AiWorkspace,
-  type CallKind,
   type CurrencyRateInput,
   CurrencyRateView,
   DailyCheck,
@@ -41,8 +36,6 @@ export interface AiPage {
   rates: CurrencyRateView[]
   prices: AiPriceView[]
   modelSellers: ModelSellersView[]
-  kindModels: AiKindModelView[]
-  stepModels: AiStepModelView[]
   costs: AiCostRow[]
   checks: DailyCheck[]
   unknownCalls: UnknownCalls[]
@@ -72,8 +65,6 @@ export const findAiPage = cache(async (from: string, to: string): Promise<AiPage
       rates,
       prices,
       modelSellers,
-      kindModels,
-      stepModels,
       costs,
       checks,
       unknownCalls,
@@ -84,8 +75,6 @@ export const findAiPage = cache(async (from: string, to: string): Promise<AiPage
       call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
       call(AiPriceView.array(), '/admin/ai/prices'),
       call(ModelSellersView.array(), '/admin/ai/model-sellers'),
-      call(AiKindModelView.array(), '/admin/ai/kind-models'),
-      call(AiStepModelView.array(), '/admin/ai/step-models'),
       call(AiCostRow.array(), `/admin/ai/costs?${days}`),
       call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
       call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
@@ -97,8 +86,6 @@ export const findAiPage = cache(async (from: string, to: string): Promise<AiPage
       rates,
       prices,
       modelSellers,
-      kindModels,
-      stepModels,
       costs,
       checks,
       unknownCalls,
@@ -160,15 +147,6 @@ export const removeAiPrice = (price: { seller: string; model: string; unit: Usag
 
 export const setModelSellers = (model: string, sellers: ModelSellersInput) =>
   call(z.null(), `/admin/ai/model-sellers/${encodeURIComponent(model)}`, { method: 'PUT', body: sellers })
-
-export const setStepModel = (step: string, choice: AiStepModelInput) =>
-  call(z.null(), `/admin/ai/step-models/${encodeURIComponent(step)}`, { method: 'PUT', body: choice })
-
-export const removeStepModel = (step: string, removal: AiStepOverrideRemoval) =>
-  call(z.null(), `/admin/ai/step-models/${encodeURIComponent(step)}`, { method: 'DELETE', body: removal })
-
-export const setKindModel = (kind: CallKind, choice: AiStepModelInput) =>
-  call(z.null(), `/admin/ai/kind-models/${kind}`, { method: 'PUT', body: choice })
 
 export const giveAiGift = (workspaceId: string, gift: GiftInput) =>
   call(AiGrantView, `${workspacePath(workspaceId)}/gifts`, { method: 'POST', body: gift })

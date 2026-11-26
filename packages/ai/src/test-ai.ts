@@ -4,13 +4,14 @@
 import { eq } from 'drizzle-orm'
 import { afterAll } from 'vitest'
 
-import { aiGrants, aiJobs, aiLedger, aiPrices, aiStepModels, modelSellers, newId, openDatabase } from '@dazbee/db'
+import { aiGrants, aiJobs, aiLedger, aiPrices, modelSellers, newId, openDatabase } from '@dazbee/db'
 import { loadCanvasKit } from '@dazbee/renderer/node'
 import type { AiJobState, CallKind, UsageUnit } from '@dazbee/schema'
 
 import type { PictureFiles } from './call.ts'
+import { AI_FUNCTION_DEFS } from './functions/ai-function.ts'
+import type { AiFunctionDef, Preset } from './functions/types.ts'
 import { type SellerAdapter, useSeller } from './sellers/seller.ts'
-import { STEPS } from './seller-route.ts'
 import { DATABASE_URL } from './test-database.ts'
 
 /** A price row for a test model, per million units in millionths of the currency. */
@@ -70,7 +71,7 @@ export async function addJob(
   const id = newId()
   await db
     .insert(aiJobs)
-    .values({ id, workspaceId: workspace, memberId: 'member', kind: 'ai-steps', state, attempt, input: {} })
+    .values({ id, workspaceId: workspace, memberId: 'member', kind: 'calls', state, attempt, input: {} })
   return id
 }
 
@@ -106,26 +107,53 @@ export async function ledgerOf(job: string) {
     .orderBy(aiLedger.id)
 }
 
+/** The name of the one preset a test's AI function has. */
+export const TEST_PRESET = 'test'
+
 /**
- * A test-only AI step of `kind` running a new model sold by `sellers` in order; the step's name and the
- * model's. The sellers' adapters are put in use.
+ * A test-only AI function of `kind` whose one preset, `TEST_PRESET`, runs a new model sold by `sellers` in order,
+ * or `model`, one sold already, with `settings`, a ceiling, a first guess and a fixed charge when given; the
+ * function's name and the model's. The sellers' adapters are put in use.
  */
-export async function addStep(
+export async function addFunction(
   sellers: (SellerAdapter | TestModelSeller)[],
-  { kind = 'text' }: { kind?: CallKind } = {},
-): Promise<{ step: string; model: string }> {
-  const id = newId()
-  const step = `test-step-${id}`
-  const model = `test-model-${id}`
-  STEPS[step] = { kind, expected: () => ({ 'input-token': 1000, 'output-token': 500 }) }
-  await db.insert(aiStepModels).values({ step, model })
+  {
+    kind = 'text',
+    settings = {},
+    ceiling,
+    guess = { cost: 100_000n, seconds: 5 },
+    model = `test-model-${newId()}`,
+    fixedCharge,
+  }: {
+    kind?: CallKind
+    settings?: Record<string, unknown>
+    ceiling?: number
+    guess?: Preset['guess']
+    model?: string
+    fixedCharge?: AiFunctionDef['fixedCharge']
+  } = {},
+): Promise<{ fn: string; model: string }> {
+  const fn = `test-function-${newId()}`
+  AI_FUNCTION_DEFS[fn] = {
+    kind,
+    ...(ceiling === undefined ? {} : { ceiling }),
+    ...(fixedCharge ? { fixedCharge } : {}),
+    presets: { [TEST_PRESET]: { model, settings, guess } },
+  }
   for (const [position, given] of sellers.entries()) {
     const entry: TestModelSeller = 'call' in given ? { seller: given.seller, adapter: given } : given
     if (entry.adapter) useSeller(entry.adapter)
     await db.insert(modelSellers).values({ model, seller: entry.seller, position })
     await addPrices(entry.seller, model, entry.prices ?? (entry.adapter ? TOKEN_PRICES : []))
   }
-  return { step, model }
+  return { fn, model }
+}
+
+/** Gives a test's AI function's preset other `settings`, as a new preset of another function would have. */
+export function setSettings(fn: string, settings: Record<string, unknown>): void {
+  const preset = AI_FUNCTION_DEFS[fn]?.presets[TEST_PRESET]
+  if (!preset) throw new Error(`no test AI function ${fn}`)
+  preset.settings = settings
 }
 
 /** Writes price rows for `model` at `seller`. */

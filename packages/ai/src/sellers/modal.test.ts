@@ -1,18 +1,19 @@
 // Modal's adapter with Modal's SDK faked: the layer split spawned, asked about and read, picked up again by its
 // call id after a restart, a split Modal timed out, and what a split is charged and logged at, through the call
-// function on the `layer-split` step, its model and the migration's prices. No call leaves the machine.
+// function on the layer split AI function, its preset's model and the migration's prices. No call leaves the machine.
 import { asc, eq } from 'drizzle-orm'
 import { FunctionTimeoutError, TimeoutError } from 'modal'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { aiCalls } from '@dazbee/db'
 import type { CallInput, LayerSplitRequest, LayerSplitResult } from '@dazbee/schema'
 
 import { callAi, CallFailed } from '../call.ts'
+import { aiFunctionDef } from '../functions/ai-function.ts'
 import { hold } from '../ledger.ts'
 import { priceUsage } from '../price-list.ts'
 import { aiSettingsOf } from '../settings.ts'
-import { addGrant, addJob, db, memoryFiles, newWorkspace, RUPEE, setJob } from '../test-ai.ts'
+import { addFunction, addGrant, addJob, db, memoryFiles, newWorkspace, RUPEE, setJob, TEST_PRESET } from '../test-ai.ts'
 import { LAYERING, type ModalFunctionCall, type ModalSdk, modalSellerOn } from './modal.ts'
 import { useSeller } from './seller.ts'
 import { expectDeclared } from './test-fetch.ts'
@@ -81,6 +82,21 @@ function fakeModal(asks: Ask[]) {
 }
 
 /** A running `layer-split` job of a workspace of its own with ₹100, holding ₹10, and its picture. */
+/** The model the layer split runs. */
+const LAYER_SPLIT_MODEL = 'ming-image-0.1-design-layer'
+
+/** A layer split function of this file's own, on the layer split's model and with its fixed charge. */
+let split: string
+
+beforeAll(async () => {
+  const made = await addFunction([], {
+    kind: 'layer-split',
+    model: LAYER_SPLIT_MODEL,
+    fixedCharge: aiFunctionDef('layer-split').fixedCharge,
+  })
+  split = made.fn
+})
+
 async function splitJob(attempt = 1) {
   const workspace = newWorkspace()
   await addGrant(workspace, 100n * RUPEE)
@@ -105,7 +121,9 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'flow.layer-split',
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
       input,
       signal: new AbortController().signal,
       files,
@@ -134,7 +152,9 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'flow.layer-split',
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
       input,
       signal: stop.signal,
       files,
@@ -144,7 +164,17 @@ describe('modalSellerOn', () => {
     await expect(first).rejects.toBe('taken-back')
     await setJob(job.id, { attempt: 2 })
     const signal = new AbortController().signal
-    const output = await callAi(db, { job, attempt: 2, callIndex: 0, step: 'flow.layer-split', input, signal, files })
+    const output = await callAi(db, {
+      job,
+      attempt: 2,
+      callIndex: 0,
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
+      input,
+      signal,
+      files,
+    })
     expect(output.kind).toBe('layers')
     expect(seen.spawned).toHaveLength(1)
     expect(seen.fromId).toEqual(['fc-1'])
@@ -164,7 +194,9 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'flow.layer-split',
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
       input,
       signal: new AbortController().signal,
       files,
@@ -184,7 +216,9 @@ describe('modalSellerOn', () => {
       job,
       attempt: 1,
       callIndex: 0,
-      step: 'flow.layer-split',
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
       input,
       signal: new AbortController().signal,
       files,

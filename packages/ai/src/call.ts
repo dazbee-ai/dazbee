@@ -1,4 +1,4 @@
-// The one function every AI call goes through: it picks the AI step's model and that model's sellers,
+// The one function every AI call goes through: it takes the AI function's preset and its model's sellers,
 // tries each under its pacing and the retry rules, writes a call-log row per try, prices what a call
 // delivered and charges it to its AI job's hold, once.
 import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
@@ -15,13 +15,15 @@ import {
 } from '@dazbee/schema'
 
 import { endCutOff, endTry, keepRequestId, requestOf, resumeTry, startTry } from './call-log.ts'
+import { aiFunctionDef, ceilingOf, presetOf } from './functions/ai-function.ts'
+import type { AiFunctionDef, Preset } from './functions/types.ts'
 import { charge } from './ledger.ts'
 import { drawMarks } from './marks.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
+import { routeModel, type RouteSeller, type SellerRoute } from './seller-route.ts'
 import { type SellerAnswer, SellerCutOff, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
-import { routeStep, stepDef, type StepRoute, type StepSeller } from './seller-route.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
 export interface PictureFiles {
@@ -43,7 +45,11 @@ export interface AiCall {
   attempt: number
   /** The call's place in its job, the same on every run. */
   callIndex: number
-  step: string
+  /** The AI feature of the call's job, as the call log keeps it. */
+  feature: string
+  /** The AI function the call is of, and the name of the preset it runs with. */
+  function: string
+  preset: string
   input: CallInput
   /** Aborted when the job is cancelled or its worker stops. */
   signal: AbortSignal
@@ -71,6 +77,12 @@ export class CallFailed extends Error {
   }
 }
 
+/** What a call runs with: its AI function's declaration and its preset. */
+export interface Run {
+  def: AiFunctionDef
+  preset: Preset
+}
+
 /** What one try came to: an answer, or the error and what follows it. */
 type TryResult =
   { ok: true; answer: SellerAnswer } | { ok: false; error: string; next: 'retry' | 'next-seller' | 'fail' | 'cut-off' }
@@ -91,14 +103,17 @@ const TRIES_PER_SELLER = 2
  * when it is aborted; an aborted call is logged as unknown and charged to no workspace.
  */
 export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
-  const def = stepDef(call.step)
-  if (def.kind !== call.input.kind) throw new Error(`the AI step ${call.step} makes ${def.kind} calls`)
+  const def = aiFunctionDef(call.function)
+  if (def.kind !== call.input.kind) throw new Error(`the AI function ${call.function} makes ${def.kind} calls`)
+  const preset = presetOf(call.function, call.preset)
+  if (!preset) throw new CallFailed('refused', `the AI function ${call.function} has no preset ${call.preset}`)
+  const run: Run = { def, preset }
   const done = await doneOutput(db, call)
   if (done) return done
   // Read, and marked, once before any seller is asked, so a storage failure is no seller's and spends no try.
   const references = await referencePictures(call)
   const referencesOf = () => Promise.resolve(references)
-  const route = await routeStep(db, call.step, call.sellers)
+  const route = await routeModel(db, { model: preset.model, kind: def.kind, settings: preset.settings }, call.sellers)
   const resume = await resumable(db, call, route.sellers)
   // A seller still making an earlier attempt's request is asked about it first, then the sellers in their order.
   const order = [
@@ -111,20 +126,23 @@ export async function callAi(db: Db, call: AiCall): Promise<CallOutput> {
     let pending: { row: string; requestId: string } | null = askOnly ? resume : null
     for (let tried = 0; tried < TRIES_PER_SELLER; tried++) {
       if (askOnly && !pending) break
-      const row = await startTry(db, call, route.model, seller.seller)
+      const row = await startTry(db, call, run, seller.seller)
       const resumeId = pending ? await resumeTry(db, pending, row) : undefined
-      const result = await tryOnce(db, call, route, seller, row, referencesOf, resumeId)
-      if (result.ok) return finish(db, call, { model: route.model, seller: seller.seller, row }, result.answer)
+      const result = await tryOnce(db, call, run, route, seller, row, referencesOf, resumeId)
+      if (result.ok) {
+        return finish(db, call, def, { model: route.model, seller: seller.seller, row }, result.answer)
+      }
       lastError = result.error
       // A request the seller refuses to answer about is sent again as a new one, not failed for good.
       const next = resumeId && result.next === 'fail' ? 'retry' : result.next
       pending = seller.adapter.resumable && result.next === 'retry' ? await requestOf(db, row) : null
-      if (next === 'cut-off') throw new CallFailed('cut-off', `${seller.seller} cut ${call.step} off at its ceiling`)
-      if (next === 'fail') throw new CallFailed('refused', `${seller.seller} refused ${call.step}: ${result.error}`)
+      if (next === 'cut-off')
+        throw new CallFailed('cut-off', `${seller.seller} cut ${call.function} off at its ceiling`)
+      if (next === 'fail') throw new CallFailed('refused', `${seller.seller} refused ${call.function}: ${result.error}`)
       if (next === 'next-seller') break
     }
   }
-  throw new CallFailed('no-seller', `no seller made ${call.step}: ${lastError}`)
+  throw new CallFailed('no-seller', `no seller made ${call.function}: ${lastError}`)
 }
 
 /**
@@ -172,7 +190,7 @@ async function chargeIfRunning(tx: Tx, call: AiCall, row: string, cost: bigint):
  * An earlier attempt's try of the call that a seller may still be making, for a seller that answers later
  * by its request id: its row, its request id and the seller to ask again.
  */
-async function resumable(db: Db, call: AiCall, sellers: StepSeller[]) {
+async function resumable(db: Db, call: AiCall, sellers: RouteSeller[]) {
   const [earlier] = await db
     .select({ id: aiCalls.id, seller: aiCalls.seller, requestId: aiCalls.sellerRequestId })
     .from(aiCalls)
@@ -195,8 +213,9 @@ async function resumable(db: Db, call: AiCall, sellers: StepSeller[]) {
 async function tryOnce(
   db: Db,
   call: AiCall,
-  route: StepRoute,
-  seller: StepSeller,
+  run: Run,
+  route: SellerRoute,
+  seller: RouteSeller,
   row: string,
   references: () => Promise<Uint8Array[]>,
   resumeId?: string,
@@ -205,16 +224,16 @@ async function tryOnce(
   // The time a call may take starts once its turn under the seller's pacing comes.
   let timeout: AbortSignal | undefined
   try {
-    // A seller's limit covers a model as a whole, whatever the step or kind of call.
+    // A seller's limit covers a model as a whole, whatever the AI function or kind of call.
     await pace(`${seller.seller}:${seller.sellerModel}`, seller.adapter.perMinute?.[kind], call.signal)
-    timeout = AbortSignal.timeout(stepDef(call.step).timeoutMs ?? seller.adapter.timeouts?.[kind] ?? TIMEOUTS[kind])
+    timeout = AbortSignal.timeout(run.def.timeoutMs ?? seller.adapter.timeouts?.[kind] ?? TIMEOUTS[kind])
     const signal = AbortSignal.any([call.signal, timeout])
     const answer = await untilAborted(
       seller.adapter.call({
-        call: { job: call.job.id, step: call.step, index: call.callIndex },
+        call: { job: call.job.id, function: call.function, preset: call.preset, index: call.callIndex },
         model: seller.sellerModel,
-        input: withCeiling(call),
-        options: route.options,
+        input: withCeiling(call, run.preset),
+        options: route.settings,
         signal,
         readPicture: (key) => files(call).read(key),
         references,
@@ -256,15 +275,15 @@ async function referencePictures(call: AiCall): Promise<Uint8Array[]> {
   return [...pictures, await drawMarks(first, await files(call).read(input.marks))]
 }
 
-/** The call's input, a text call's output limit held to its step's ceiling. */
-function withCeiling(call: AiCall): CallInput {
-  const ceiling = stepDef(call.step).sizes?.ceiling
+/** The call's input, a text call's output limit held to its preset's ceiling. */
+function withCeiling(call: AiCall, preset: Preset): CallInput {
+  const ceiling = ceilingOf(call.function, preset)
   if (call.input.kind !== 'text' || ceiling === undefined) return call.input
   return { ...call.input, maxOutputTokens: Math.min(call.input.maxOutputTokens ?? ceiling, ceiling) }
 }
 
 function files(call: AiCall): PictureFiles {
-  if (!call.files) throw new Error(`the AI step ${call.step} needs its pictures' storage`)
+  if (!call.files) throw new Error(`the AI function ${call.function} needs its pictures' storage`)
   return call.files
 }
 
@@ -290,6 +309,7 @@ function messageOf(error: unknown): string {
 async function finish(
   db: Db,
   call: AiCall,
+  def: AiFunctionDef,
   made: { model: string; seller: string; row: string },
   answer: SellerAnswer,
 ): Promise<CallOutput> {
@@ -298,11 +318,10 @@ async function finish(
     let output = stored.output
     // A replayed answer was made by no seller, so it costs nothing and charges nothing.
     const priced = answer.replayed ? null : await priceUsage(db, made.seller, made.model, answer.usage)
-    const def = stepDef(call.step)
     const chargeCost = !priced
       ? 0n
-      : def.fixedCost
-        ? def.fixedCost(await aiSettingsOf(db), call.input)
+      : def.fixedCharge
+        ? def.fixedCharge(await aiSettingsOf(db), call.input)
         : priced.realCost
     await db.transaction(async (tx) => {
       // The job row first, as every transaction that locks both takes them, so two never wait on each other.
@@ -334,7 +353,7 @@ async function finish(
     return output
   } catch (error) {
     await endTry(db, made.row, 'unknown', `not kept: ${messageOf(error)}`, answer.usage)
-    throw new CallFailed('lost', `${made.seller} made ${call.step}, but it was not kept: ${messageOf(error)}`)
+    throw new CallFailed('lost', `${made.seller} made ${call.function}, but it was not kept: ${messageOf(error)}`)
   }
 }
 

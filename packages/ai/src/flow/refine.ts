@@ -1,14 +1,11 @@
-// Refine with AI: the refine editor reads the ad, its marked copy and the person's message and writes one
-// instruction (the refine plan), then the picture model edits the clean ad with that instruction alone. The marks
-// are drawn over the ad here, for the refine plan only.
-import type { Db, Tx } from '@dazbee/db'
+// Refine with AI: the refine plan reads the ad, its marked copy and the person's message and writes one
+// instruction, then the refine edit edits the clean ad with that instruction alone. The marks are drawn over the ad
+// here, for the refine plan only.
 import { answerSchema, type CallInput, type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
 
 import { callSize, pictureLimits } from '../call-size.ts'
 import type { JobEnd } from '../jobs.ts'
 import { drawMarks } from '../marks.ts'
-import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
-import { stepModel } from '../seller-route.ts'
 import { pictureName } from './assets.ts'
 import type { DeclaredCall } from './holds.ts'
 import type { FlowRun } from './run.ts'
@@ -25,28 +22,31 @@ export async function runRefine(run: FlowRun, input: RefineInput): Promise<JobEn
         'image/png',
       )
     : undefined
-  const answer = await run.call(REFINE_CALL.plan, 'flow.refine-plan', planCall(input, marked), name)
+  const answer = await run.call(
+    REFINE_CALL.plan,
+    'refine-plan',
+    planCall(input, marked, run.prompt('refine-plan')),
+    name,
+  )
   const plan = answer?.kind === 'text' ? RefinePlanAnswer.safeParse(answer.json) : null
   if (!answer) return run.failed()
   if (!plan?.success) return run.failed('the refine plan could not be read')
-  await run.call(REFINE_CALL.edit, 'flow.refine', await editCall(run.db, input, plan.data.instruction), name)
+  const edit = editCall(input, plan.data.instruction, run.preset('refine-edit').model)
+  await run.call(REFINE_CALL.edit, 'refine-edit', edit, name)
   return null
 }
 
-/** The calls a refine declares: its plan, reading the ad and its marked copy, and the edit. */
-export async function refineCalls(db: Db | Tx, input: RefineInput): Promise<DeclaredCall[]> {
-  return [
-    { step: 'flow.refine-plan', input: planCall(input, input.marksKey) },
-    { step: 'flow.refine', input: await editCall(db, input, '') },
-  ]
+/** The calls a refine declares: its plan and its edit. */
+export function refineCalls(): DeclaredCall[] {
+  return [{ fn: 'refine-plan' }, { fn: 'refine-edit' }]
 }
 
-/** The refine plan's call: the refine editor, the person's message, the ad and its marked copy when it has one. */
-function planCall(input: RefineInput, marked: string | undefined): CallInput {
+/** The refine plan's call: its prompt, the person's message, the ad and its marked copy when it has one. */
+function planCall(input: RefineInput, marked: string | undefined, editor: string): CallInput {
   const marks = marked ? "\n\nThe second attached picture is the ad with the advertiser's numbered marks." : ''
   return {
     kind: 'text',
-    instructions: REFINE_EDITOR,
+    instructions: editor,
     prompt: `The advertiser's message:\n${input.message}${marks}`,
     pictures: [input.pictureKey, ...(marked ? [marked] : [])],
     schema: answerSchema(RefinePlanAnswer),
@@ -54,8 +54,7 @@ function planCall(input: RefineInput, marked: string | undefined): CallInput {
 }
 
 /** The edit's call: the clean ad and the instruction, at the edit model's call size. */
-async function editCall(db: Db | Tx, input: RefineInput, instruction: string): Promise<CallInput> {
-  const { model } = await stepModel(db, 'flow.refine')
+function editCall(input: RefineInput, instruction: string, model: string): CallInput {
   return {
     kind: 'picture',
     prompt: instruction,

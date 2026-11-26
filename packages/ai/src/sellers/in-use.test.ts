@@ -28,7 +28,7 @@ describe('useSellersOf', () => {
     expect([...read].filter((key) => !key.startsWith('AI_') && key !== 'NODE_ENV')).toEqual([])
 
     const call = sellerAdapter('openai')?.call({
-      call: { job: 'job', step: 'flow.read', index: 0 },
+      call: { job: 'job', function: 'reading', preset: 'luna', index: 0 },
       model: 'gpt-6-luna',
       input: { kind: 'text', instructions: 'Read.', prompt: 'The ad.', pictures: [] },
       options: {},

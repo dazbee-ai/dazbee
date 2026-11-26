@@ -1,4 +1,4 @@
-// The worker (ADR-0022): runs AI jobs from pg-boss in our Postgres, the `ai-steps` queue and the flow's `ai-flow`
+// The worker (ADR-0022): runs AI jobs from pg-boss in our Postgres, the `ai-calls` queue and the flow's `ai-flow`
 // queue under one limit of calls at once, sweeps every 5 minutes the jobs whose
 // pg-boss job ended without them, settles unknown calls and checks the call log against the sellers' own
 // figures each day, and answers a health check. The API migrates the database, so the worker
@@ -12,11 +12,11 @@ import { PgBoss } from 'pg-boss'
 
 import {
   aiRecordingOf,
+  CALLS_QUEUE,
   FLOW_QUEUE,
   reportsOf,
   runDailyCheck,
   settleUnknownCalls,
-  STEPS_QUEUE,
   sweepJobs,
   useSellersOf,
 } from '@dazbee/ai'
@@ -25,7 +25,7 @@ import { openStorage, storageSettings } from '@dazbee/storage'
 
 import { startFlowWorker } from './flow-job.ts'
 import { limiter } from './job-worker.ts'
-import { startStepsWorker } from './calls-job.ts'
+import { startCallsWorker } from './calls-job.ts'
 
 /** The queue the sweep's schedule sends to. */
 const SWEEP_QUEUE = 'ai-sweep'
@@ -63,12 +63,12 @@ await boss.start()
 
 // One limit of calls at once across both queues.
 const calls = limiter(callLimit)
-const steps = await startStepsWorker({ db, boss, storage, queue: STEPS_QUEUE, callLimit, calls })
+const steps = await startCallsWorker({ db, boss, storage, queue: CALLS_QUEUE, callLimit, calls })
 const flow = await startFlowWorker({ db, boss, storage, queue: FLOW_QUEUE, callLimit, calls })
 if (!(await boss.getQueue(SWEEP_QUEUE))) await boss.createQueue(SWEEP_QUEUE)
 await boss.schedule(SWEEP_QUEUE, '*/5 * * * *')
 await boss.work(SWEEP_QUEUE, async () => {
-  const ended = (await sweepJobs(db, boss, STEPS_QUEUE)) + (await sweepJobs(db, boss, FLOW_QUEUE))
+  const ended = (await sweepJobs(db, boss, CALLS_QUEUE)) + (await sweepJobs(db, boss, FLOW_QUEUE))
   if (ended > 0) console.warn(JSON.stringify({ msg: 'AI jobs swept', ended }))
 })
 if (!(await boss.getQueue(SETTLE_QUEUE))) await boss.createQueue(SETTLE_QUEUE)

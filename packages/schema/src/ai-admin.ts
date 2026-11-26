@@ -98,104 +98,6 @@ export const ModelSellersInput = z.object({
 })
 export type ModelSellersInput = z.infer<typeof ModelSellersInput>
 
-/**
- * The model an AI step or a kind of call runs, with the options its call passes the model, such as a picture's
- * quality.
- */
-export const AiStepModelInput = z.object({
-  model: ModelName,
-  options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
-  since: Since,
-})
-export type AiStepModelInput = z.infer<typeof AiStepModelInput>
-
-/** Where an AI step's model comes from: its kind's default, or an override an admin set for the step. */
-export const STEP_MODEL_SOURCES = ['kind', 'override'] as const
-
-export const StepModelSource = z.enum(STEP_MODEL_SOURCES)
-export type StepModelSource = z.infer<typeof StepModelSource>
-
-/** A text step's sizes as set in the step list: input and output tokens a call normally uses, and its ceiling. */
-export const StepSizesView = z.object({ input: z.number(), output: z.number(), ceiling: z.number() })
-export type StepSizesView = z.infer<typeof StepSizesView>
-
-/** An average and the 95th percentile of a size over calls. */
-const SizeSpread = z.object({ average: z.number(), p95: z.number() })
-
-/**
- * What a text step's calls on its model really used over the last 30 days, done or cut off at the ceiling:
- * how many calls, how many were cut off, and the input (cached included) and output tokens of each.
- */
-export const MeasuredSizes = z.object({
-  calls: z.number().int(),
-  cutOff: z.number().int(),
-  input: SizeSpread,
-  output: SizeSpread,
-})
-export type MeasuredSizes = z.infer<typeof MeasuredSizes>
-
-/**
- * An AI step's model as an admin reads it, with the step's kind of call and the priced models of that kind,
- * the only ones it may run; where its model comes from; when its override was last changed, null when it
- * follows its kind; and a text step's sizes as set beside those its calls on the model measured, null for
- * another step or one with no calls.
- */
-export const AiStepModelView = z.object({
-  step: z.string(),
-  kind: CallKind,
-  model: z.string(),
-  models: z.array(z.string()),
-  options: z.record(z.string(), z.unknown()),
-  source: StepModelSource,
-  updatedAt: z.iso.datetime().nullable(),
-  sizes: StepSizesView.nullable(),
-  measured: MeasuredSizes.nullable(),
-})
-export type AiStepModelView = z.infer<typeof AiStepModelView>
-
-/**
- * A kind of call's default model as an admin reads it, with the priced models of that kind, the only ones
- * it may be, and the AI steps that follow it.
- */
-export const AiKindModelView = z.object({
-  kind: CallKind,
-  model: z.string(),
-  models: z.array(z.string()),
-  options: z.record(z.string(), z.unknown()),
-  steps: z.array(z.string()),
-  updatedAt: z.iso.datetime(),
-})
-export type AiKindModelView = z.infer<typeof AiKindModelView>
-
-/** Removing an AI step's override, as its page read it, so the step follows its kind again. */
-export const AiStepOverrideRemoval = z.object({ since: Since })
-export type AiStepOverrideRemoval = z.infer<typeof AiStepOverrideRemoval>
-
-/**
- * Why an AI step, or a kind's default, can't be a model of another kind: the step (none for a kind's
- * default), the model, the units the model is priced in, the kind of call wanted and the one the model
- * takes, null when it takes none.
- */
-export const WrongKind = z.object({
-  step: z.string().optional(),
-  model: z.string(),
-  units: z.array(UsageUnit),
-  wants: CallKind,
-  is: CallKind.nullable(),
-})
-export type WrongKind = z.infer<typeof WrongKind>
-
-/**
- * Why a model can't be a kind's default or a step's own model yet: how many sellers in its order are priced
- * for it, and those priced only in part, each with the units it reports that have no price.
- */
-export const UnpricedModel = z.object({
-  model: z.string(),
-  priced: z.number().int(),
-  sellers: z.array(z.object({ seller: z.string(), units: z.array(UsageUnit) })),
-})
-export type UnpricedModel = z.infer<typeof UnpricedModel>
-
 /** A workspace an admin found by its name or a member's email, with its members' emails. */
 export const AiWorkspace = z.object({ id: z.string(), name: z.string(), emails: z.array(z.string()) })
 export type AiWorkspace = z.infer<typeof AiWorkspace>
@@ -251,13 +153,14 @@ export const AiAllowanceView = z.object({
 export type AiAllowanceView = z.infer<typeof AiAllowanceView>
 
 /**
- * What AI cost on one UTC day for one AI step, model and seller: how many tries, how many delivered, their
+ * What AI cost on one UTC day for one AI feature, AI function, model and seller: how many tries, how many delivered, their
  * real cost in rupees, and what workspaces were charged for them in rupees of real cost (for the layer split,
  * its fixed amount).
  */
 export const AiCostRow = z.object({
   day: UtcDay,
-  step: z.string(),
+  feature: z.string(),
+  function: z.string(),
   model: z.string(),
   seller: z.string(),
   calls: z.number().int(),

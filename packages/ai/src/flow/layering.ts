@@ -11,8 +11,6 @@ import {
 } from '@dazbee/schema'
 
 import type { JobEnd } from '../jobs.ts'
-import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
-import { READING_PROMPT } from '../prompts/ads/reading.ts'
 import { pictureName } from './assets.ts'
 import type { DeclaredCall } from './holds.ts'
 import type { FlowRun } from './run.ts'
@@ -23,29 +21,31 @@ export const LAYERING_CALL = { plan: 0, split: (n: number) => 1 + 2 * n, read: (
 /** Runs a layering job: the plan, then each frame's split and reading; a failed plan fails the job. */
 export async function runLayering(run: FlowRun, input: LayeringInput): Promise<JobEnd | null> {
   const name = await pictureName(run.db, run.workspace, input.briefId, '')
-  const answer = await run.call(LAYERING_CALL.plan, 'flow.layer-plan', planCall(planPicture(input)), name)
+  const planner = planCall(planPicture(input), run.prompt('layer-plan'))
+  const answer = await run.call(LAYERING_CALL.plan, 'layer-plan', planner, name)
   const plan = answer?.kind === 'text' ? LayerPlanAnswer.safeParse(answer.json) : null
   if (!answer) return run.failed()
   if (!plan?.success) return run.failed('the layer plan could not be read')
   const texts = plan.data.elements.filter((element) => element.kind === 'text')
+  const reader = run.prompt('reading')
   await run.all(
     input.frames.flatMap((frame, n) => [
-      run.call(LAYERING_CALL.split(n), 'flow.layer-split', splitCall(frame.pictureKey, input.size, plan.data), name),
+      run.call(LAYERING_CALL.split(n), 'layer-split', splitCall(frame.pictureKey, input.size, plan.data), name),
       ...(texts.length > 0
-        ? [run.call(LAYERING_CALL.read(n), 'flow.read', readCall(frame.pictureKey, texts), name)]
+        ? [run.call(LAYERING_CALL.read(n), 'reading', readCall(frame.pictureKey, texts, reader), name)]
         : []),
     ]),
   )
   return null
 }
 
-/** The calls a layering job declares: its plan, and each frame's split and reading. */
+/** The calls a layering job declares: its plan, and each frame's split, at its size, and reading. */
 export function layeringCalls(input: LayeringInput): DeclaredCall[] {
   return [
-    { step: 'flow.layer-plan', input: planCall(planPicture(input)) },
+    { fn: 'layer-plan' },
     ...input.frames.flatMap((frame): DeclaredCall[] => [
-      { step: 'flow.layer-split', input: splitCall(frame.pictureKey, input.size, null) },
-      { step: 'flow.read', input: readCall(frame.pictureKey, []) },
+      { fn: 'layer-split', input: splitCall(frame.pictureKey, input.size, null) },
+      { fn: 'reading' },
     ]),
   ]
 }
@@ -55,11 +55,11 @@ function planPicture(input: LayeringInput): string {
   return input.planKey ?? input.frames[0]?.pictureKey ?? ''
 }
 
-/** The layer planner's call on the plan's picture. */
-function planCall(picture: string): CallInput {
+/** The layer plan's call on the plan's picture. */
+function planCall(picture: string, planner: string): CallInput {
   return {
     kind: 'text',
-    instructions: PLANNER_PROMPT,
+    instructions: planner,
     prompt: 'The attached picture is the ad.',
     pictures: [picture],
     schema: answerSchema(LayerPlanAnswer),
@@ -76,14 +76,14 @@ function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer 
  * The reading of `picture`'s text blocks: the whole ad, with each block's id, its place on the planner's 0 to 999
  * grid and the text the plan found for it, as the first reading.
  */
-function readCall(picture: string, texts: LayerPlanAnswer['elements']): CallInput {
+function readCall(picture: string, texts: LayerPlanAnswer['elements'], reader: string): CallInput {
   const blocks = texts.map(
     ({ id, box, text_lines: lines, content }) =>
       `${id} (x ${box.x_min}–${box.x_max}, y ${box.y_min}–${box.y_max} of 999): ${JSON.stringify(lines.length > 0 ? lines.join('\n') : content)}`,
   )
   return {
     kind: 'text',
-    instructions: READING_PROMPT,
+    instructions: reader,
     prompt: `The attached picture is the whole ad. Its text blocks, by id, with where each lies and its first reading:\n${blocks.join('\n')}`,
     pictures: [picture],
     schema: answerSchema(ReadingAnswer),

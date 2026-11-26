@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { aiCalls, newId } from '@dazbee/db'
-import type { AiFunction, CallState } from '@dazbee/schema'
+import type { CallState } from '@dazbee/schema'
 
 import type { Preset } from './functions/types.ts'
 import { presetNumbers } from './measured.ts'
@@ -11,8 +11,8 @@ import { addJob, db, newWorkspace } from './test-ai.ts'
 /** A preset guessed at ₹5 and 50 s. */
 const PRESET: Preset = { model: 'test-model', settings: {}, guess: { cost: 5_000_000n, seconds: 50 } }
 
-/** A function name no other test uses, read as an AI function. */
-const newFunction = () => `test-function-${newId()}` as AiFunction
+/** A function name no other test uses. */
+const newFunction = () => `test-function-${newId()}`
 
 /** Three days, in milliseconds. */
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000
@@ -22,9 +22,10 @@ const THREE_DAYS = 3 * 24 * 60 * 60 * 1000
  * start three days ago, so they never count towards today's spending stop, which every test's jobs share.
  */
 async function logCalls(
-  fn: AiFunction,
+  fn: string,
   name: string,
   calls: { cost: bigint; seconds: number; state?: CallState; requestId?: string }[],
+  seller = 'openai',
 ): Promise<void> {
   const workspace = newWorkspace()
   const job = await addJob(workspace)
@@ -43,7 +44,7 @@ async function logCalls(
         function: fn,
         preset: name,
         model: PRESET.model,
-        seller: 'test-seller',
+        seller,
         state,
         sellerRequestId: requestId ?? null,
         realCost: cost,
@@ -92,13 +93,16 @@ describe('presetNumbers', () => {
     expect(await presetNumbers(db, old, 'many', PRESET)).toEqual({ cost: 1_000_000n, seconds: 1, calls: 200 })
   })
 
-  it('leaves out calls that failed, were cut off or unknown, and calls replayed from an AI recording', async () => {
+  it('leaves out calls that failed, were cut off or unknown, replayed calls, and calls no seller of ours made', async () => {
     const fn = newFunction()
     await logCalls(fn, 'mixed', [
       { cost: 8_000_000n, seconds: 80, state: 'failed' },
       { cost: 8_000_000n, seconds: 80, state: 'unknown' },
       { cost: 0n, seconds: 1, requestId: 'replayed:round-plan/call-0' },
     ])
+    expect(await presetNumbers(db, fn, 'mixed', PRESET)).toEqual({ cost: 5_000_000n, seconds: 50, calls: 0 })
+    // A seller that is none of ours, as a test's own.
+    await logCalls(fn, 'mixed', [{ cost: 7_000_000n, seconds: 70 }], 'test-seller')
     expect(await presetNumbers(db, fn, 'mixed', PRESET)).toEqual({ cost: 5_000_000n, seconds: 50, calls: 0 })
     await logCalls(fn, 'mixed', [{ cost: 2_000_000n, seconds: 20, requestId: 'resp_123' }])
     expect(await presetNumbers(db, fn, 'mixed', PRESET)).toEqual({ cost: 2_000_000n, seconds: 20, calls: 1 })

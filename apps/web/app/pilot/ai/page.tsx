@@ -10,11 +10,9 @@ import { AdminShell, CARD } from '@/components/pilot/admin-shell.tsx'
 import { AiCosts, AiRange } from '@/components/pilot/ai-costs.tsx'
 import { AiDailyCheck } from '@/components/pilot/ai-daily-check.tsx'
 import { AiGrants } from '@/components/pilot/ai-grants.tsx'
-import { AiKindModels } from '@/components/pilot/ai-kind-models.tsx'
 import { AiPriceList } from '@/components/pilot/ai-price-list.tsx'
 import { AiSellerOrder } from '@/components/pilot/ai-seller-order.tsx'
 import { AiSettings } from '@/components/pilot/ai-settings.tsx'
-import { AiStepModels } from '@/components/pilot/ai-step-models.tsx'
 import { daysOf, one, pick, utcToday } from '@/lib/admin-days.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { isPilotHost } from '@/lib/pilot-host.ts'
@@ -84,12 +82,6 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
       </section>
       <section className={CARD}>
         <AiGrants query={search} found={found} allowance={allowance} keep={days} />
-      </section>
-      <section className={CARD}>
-        <div className="flex flex-col gap-8">
-          <AiKindModels kinds={page.kindModels} />
-          <AiStepModels steps={page.stepModels} />
-        </div>
       </section>
       <section className={CARD}>
         <AiPriceList rates={page.rates} prices={page.prices} />

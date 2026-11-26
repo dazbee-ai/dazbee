@@ -7,7 +7,6 @@ import { aiBriefs, type Db, type Tx } from '@dazbee/db'
 import {
   type AiMode,
   type AiSize,
-  type AiStep,
   answerSchema,
   type BrandFacts,
   briefTitle,
@@ -24,10 +23,8 @@ import {
 import { callSize, pictureLimits, shapeOf } from '../call-size.ts'
 import type { JobEnd } from '../jobs.ts'
 import { DRAFT_PROMPT, PICTURES_SENTENCE } from '../prompts/ads/draft.ts'
-import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_KIND_UNKNOWN, REFERENCE_READER } from '../prompts/ads/reference.ts'
-import { LIKED_DRAFT, ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
-import { ROUND_DIRECTOR_LIGHT } from '../prompts/ads/round-director-light.ts'
-import { stepModel } from '../seller-route.ts'
+import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_KIND_UNKNOWN } from '../prompts/ads/reference.ts'
+import { LIKED_DRAFT } from '../prompts/ads/round-director.ts'
 import type { DeclaredCall } from './holds.ts'
 import type { FlowRun } from './run.ts'
 
@@ -46,12 +43,6 @@ type Lead = { kind: 'reference'; key: string; adKind: string | null } | { kind: 
 /** Each call's index in a round or more like this; a try-again's one draft is call 0. */
 export const ROUND_CALL = { plan: 0, draft: (n: number) => 1 + n, referenceRead: 5 } as const
 
-/** Each mode's round plan step, draft step and round director. */
-export const MODE_STEPS: Record<AiMode, { plan: AiStep; draft: AiStep; director: string }> = {
-  fast: { plan: 'flow.round-plan', draft: 'flow.draft-fast', director: ROUND_DIRECTOR_LIGHT },
-  precise: { plan: 'flow.round-plan-full', draft: 'flow.draft-precise', director: ROUND_DIRECTOR },
-}
-
 /** How many drafts a round makes. */
 const DRAFTS = 4
 
@@ -61,8 +52,8 @@ export async function runRound(run: FlowRun, input: RoundInput): Promise<JobEnd 
   if (input.referenceKey) {
     const read = await run.call(
       ROUND_CALL.referenceRead,
-      'flow.reference-read',
-      referenceReadCall(input.referenceKey),
+      'reference-read',
+      referenceReadCall(input.referenceKey, run.prompt('reference-read')),
       briefTitle(input.words),
     )
     lead = { kind: 'reference', key: input.referenceKey, adKind: readKind(read) }
@@ -79,29 +70,18 @@ export async function runMoreLikeThis(run: FlowRun, input: MoreLikeThisInput): P
 export async function runTryAgain(run: FlowRun, input: TryAgainInput): Promise<JobEnd | null> {
   const brief = await storedBrief(run.db, run.workspace, input.briefId)
   if (!brief) return { state: 'failed', error: 'the brief is gone' }
-  const call = await draftCall(run.db, brief, brief.plan, input.draft)
-  await run.call(0, MODE_STEPS[brief.mode].draft, call, briefTitle(brief.words))
+  const call = draftCall(brief, brief.plan, input.draft, run.preset('draft').model)
+  await run.call(0, 'draft', call, briefTitle(brief.words))
   return null
 }
 
-/** The calls a round or more like this declares: its reference read, its plan and four drafts. */
-export async function roundCalls(db: Db | Tx, input: RoundInput | MoreLikeThisInput): Promise<DeclaredCall[]> {
-  const liked = 'likedKey' in input ? input.likedKey : undefined
-  const lead: Lead | null = liked
-    ? { kind: 'liked', key: liked }
-    : input.referenceKey
-      ? { kind: 'reference', key: input.referenceKey, adKind: null }
-      : null
-  const steps = MODE_STEPS[input.mode]
-  // One at a time, as `db` may be a transaction, whose queries run one after another.
-  const drafts: CallInput[] = []
-  for (let n = 0; n < DRAFTS; n++) drafts.push(await draftCall(db, input, null, n))
+/** The calls a round or more like this declares: its reference read when it has a reference ad, its plan and four drafts. */
+export function roundCalls(input: RoundInput | MoreLikeThisInput): DeclaredCall[] {
+  const reference = !('likedKey' in input) && Boolean(input.referenceKey)
   return [
-    ...(lead?.kind === 'reference'
-      ? [{ step: 'flow.reference-read' as const, input: referenceReadCall(lead.key) }]
-      : []),
-    { step: steps.plan, input: planCall(input, lead) },
-    ...drafts.map((call) => ({ step: steps.draft, input: call })),
+    ...(reference ? [{ fn: 'reference-read' as const }] : []),
+    { fn: 'round-plan' },
+    ...Array.from({ length: DRAFTS }, () => ({ fn: 'draft' as const })),
   ]
 }
 
@@ -109,14 +89,13 @@ export async function roundCalls(db: Db | Tx, input: RoundInput | MoreLikeThisIn
 export async function tryAgainCalls(db: Db | Tx, workspace: string, input: TryAgainInput): Promise<DeclaredCall[]> {
   const brief = await storedBrief(db, workspace, input.briefId)
   if (!brief) throw new Error(`no brief ${input.briefId}`)
-  return [{ step: MODE_STEPS[brief.mode].draft, input: await draftCall(db, brief, brief.plan, input.draft) }]
+  return [{ fn: 'draft' }]
 }
 
 /** The plan, kept on the brief, then four drafts from it; a failed plan fails the job. */
 async function planAndDraw(run: FlowRun, input: RoundInput, lead: Lead | null): Promise<JobEnd | null> {
   const name = briefTitle(input.words)
-  const steps = MODE_STEPS[input.mode]
-  const answer = await run.call(ROUND_CALL.plan, steps.plan, planCall(input, lead), name)
+  const answer = await run.call(ROUND_CALL.plan, 'round-plan', planCall(input, lead, run.prompt('round-plan')), name)
   if (!answer) return run.failed()
   const plan = answer.kind === 'text' ? RoundPlanAnswer.safeParse(answer.json) : null
   const kept = plan?.success ? plan.data : null
@@ -124,19 +103,20 @@ async function planAndDraw(run: FlowRun, input: RoundInput, lead: Lead | null): 
     .update(aiBriefs)
     .set({ plan: kept })
     .where(and(eq(aiBriefs.id, input.briefId), eq(aiBriefs.workspaceId, run.workspace)))
+  const model = run.preset('draft').model
   await run.all(
-    Array.from({ length: DRAFTS }, async (_, n) =>
-      run.call(ROUND_CALL.draft(n), steps.draft, await draftCall(run.db, input, kept, n), name),
+    Array.from({ length: DRAFTS }, (_, n) =>
+      run.call(ROUND_CALL.draft(n), 'draft', draftCall(input, kept, n, model), name),
     ),
   )
   return null
 }
 
-/** The reference reader's call on the reference picture. */
-function referenceReadCall(key: string): CallInput {
+/** The reference read's call on the reference picture. */
+function referenceReadCall(key: string, reader: string): CallInput {
   return {
     kind: 'text',
-    instructions: REFERENCE_READER,
+    instructions: reader,
     prompt: 'The attached picture is the reference.',
     pictures: [key],
     schema: answerSchema(ReferenceReadAnswer),
@@ -150,11 +130,11 @@ function readKind(read: CallOutput | null): string | null {
 }
 
 /**
- * The round plan's call: the mode's director as instructions, and a message with the brief's words, the canvas,
+ * The round plan's call: its preset's director as instructions, and a message with the brief's words, the canvas,
  * the brand's facts and what each attached picture is, then the reference or liked-draft words. The lead picture
  * comes first, then the brief's pictures and the kit logo.
  */
-function planCall(input: RoundInput, lead: Lead | null): CallInput {
+function planCall(input: RoundInput, lead: Lead | null, director: string): CallInput {
   const own = briefPictures(input)
   const pictures = [...(lead ? [lead.key] : []), ...own].slice(0, MAX_REFERENCES)
   const parts = [
@@ -166,7 +146,7 @@ function planCall(input: RoundInput, lead: Lead | null): CallInput {
   ]
   return {
     kind: 'text',
-    instructions: MODE_STEPS[input.mode].director,
+    instructions: director,
     prompt: parts.filter(Boolean).join('\n\n'),
     pictures,
     schema: answerSchema(RoundPlanAnswer),
@@ -210,9 +190,9 @@ function briefPictures(brief: DraftBrief): string[] {
 
 /**
  * Draft `n`'s picture call: the plan's prompt for it with the pictures sentence when the brief has pictures, or the
- * plain draft prompt when the plan gave none; with the brief's pictures, at the mode's model's call size.
+ * plain draft prompt when the plan gave none; with the brief's pictures, at the draft model's call size.
  */
-async function draftCall(db: Db | Tx, brief: DraftBrief, plan: RoundPlanAnswer | null, n: number): Promise<CallInput> {
+function draftCall(brief: DraftBrief, plan: RoundPlanAnswer | null, n: number, model: string): CallInput {
   const pictures = briefPictures(brief)
   const planned = plan?.ads[n]?.prompt.trim()
   const prompt = planned
@@ -220,7 +200,6 @@ async function draftCall(db: Db | Tx, brief: DraftBrief, plan: RoundPlanAnswer |
     : DRAFT_PROMPT.replace('{shape}', () => shapeOf(brief.size))
         .replace('{brief}', () => brief.words)
         .replace('{pictures}', () => (pictures.length > 0 ? `- ${PICTURES_SENTENCE}\n` : ''))
-  const { model } = await stepModel(db, MODE_STEPS[brief.mode].draft)
   return { kind: 'picture', prompt, pictures, ...callSize(brief.size, pictureLimits(model)) }
 }
 

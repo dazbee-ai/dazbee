@@ -2,7 +2,8 @@
 // and replay sellers answer calls from that folder in place of every seller, after about the time the recorded
 // call took, at no cost. `useSellersOf` turns them on from AI_RECORD_DIR or AI_REPLAY_DIR, never in production.
 //
-// A recording holds a folder per AI step, and in it a folder per call: `call.json` and the call's pictures.
+// A recording holds a folder per AI function, in it a folder per preset, and in that a folder per call: `call.json`
+// and the call's pictures.
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -34,14 +35,15 @@ export type RecordedOutput =
 
 /** One recorded call, as its `call.json` holds it. */
 export interface RecordedCall {
-  step: string
+  function: string
+  preset: string
   /** The call's place in its job. */
   callIndex: number
   job: string
   seller: string
   /** The seller's own name for the model. */
   model: string
-  /** What the call was asked: its input, a text call's instructions as their length, and the step's options. */
+  /** What the call was asked: its input, a text call's instructions as their length, and the preset's settings. */
   request: { input: unknown; options: Record<string, unknown> }
   /** How long the seller took to answer, in milliseconds. */
   ms: number
@@ -83,7 +85,8 @@ export function recordingSeller(seller: SellerAdapter, dir: string): SellerAdapt
       try {
         await writeCall(dir, seller.seller, request, answer, ms)
       } catch (error) {
-        console.error(JSON.stringify({ msg: 'AI call not recorded', step: request.call.step, error: String(error) }))
+        const { function: fn, preset } = request.call
+        console.error(JSON.stringify({ msg: 'AI call not recorded', function: fn, preset, error: String(error) }))
       }
       return answer
     },
@@ -93,11 +96,12 @@ export function recordingSeller(seller: SellerAdapter, dir: string): SellerAdapt
 /**
  * A replay seller for each of `sellers`, answering every call from the recording in `dir` and calling no seller.
  * Each replayed job takes its answers from one recorded job, picked at its first call from the jobs that recorded
- * that call's AI step, each in turn, so a plan and the calls made from it stay together. A call is answered by that
- * job's recording at its place in the job, else that job's recordings of its step, else any job's recording of its
- * step at its place, else any recording of its step, each list taken in turn; after the time the recorded call took,
- * divided by `speed`. Its answer is marked replayed, so it costs nothing, and its request id names the recording. A
- * step with no recording fails the call.
+ * that call's AI function with its preset, each in turn, so a plan and the calls made from it stay together. A call
+ * is answered by that job's recording at its place in the job, else that job's recordings of its function and preset,
+ * else any job's recording of them at its place, else any recording of them, each list taken in turn; after the time
+ * the recorded call took, divided by `speed`. Its answer is marked replayed, so it costs nothing, and its request id
+ * names the recording. A function and preset with no recording fail the call, so a call never takes another
+ * preset's answer.
  */
 export function replaySellers(sellers: string[], dir: string, speed: number): SellerAdapter[] {
   // The recorded job each replayed job takes its answers from.
@@ -111,10 +115,11 @@ export function replaySellers(sellers: string[], dir: string, speed: number): Se
     return item
   }
   const call = async (request: SellerRequest): Promise<SellerAnswer> => {
-    const { job, step, index } = request.call
-    const recorded = await recordingsOf(dir, step)
+    const { job, index } = request.call
+    const under = recordedUnder(request)
+    const recorded = await recordingsOf(dir, under)
     if (!pins.has(job)) {
-      const pin = take([...new Set(recorded.map((r) => r.call.job))], `jobs of ${step}`)
+      const pin = take([...new Set(recorded.map((r) => r.call.job))], `jobs of ${under}`)
       if (pin !== undefined) pins.set(job, pin)
     }
     const pin = pins.get(job)
@@ -122,15 +127,15 @@ export function replaySellers(sellers: string[], dir: string, speed: number): Se
     const atIndex = (list: Recorded[]) => list.filter((r) => r.call.callIndex === index)
     const picked =
       atIndex(ofJob)[0] ??
-      take(ofJob, `${pin} ${step}`) ??
-      take(atIndex(recorded), `${step}#${index}`) ??
-      take(recorded, step)
-    if (!picked) throw new SellerError(`no recording of ${step} in ${dir}`, { status: 404, code: 'not_recorded' })
+      take(ofJob, `${pin} ${under}`) ??
+      take(atIndex(recorded), `${under}#${index}`) ??
+      take(recorded, under)
+    if (!picked) throw new SellerError(`no recording of ${under} in ${dir}`, { status: 404, code: 'not_recorded' })
     await sleep(picked.call.ms / speed, undefined, { signal: request.signal })
     return {
       output: await outputOf(picked),
       usage: picked.call.usage,
-      requestId: `replayed:${step}/${picked.name}`,
+      requestId: `replayed:${under}/${picked.name}`,
       replayed: true,
     }
   }
@@ -146,12 +151,13 @@ async function writeCall(
   answer: SellerAnswer,
   ms: number,
 ): Promise<void> {
-  const { job, step, index } = request.call
+  const { job, index } = request.call
   const recordedAt = new Date().toISOString()
-  const folder = join(dir, step, `${recordedAt.replace(/[:.]/g, '-')}-${job}-${index}`)
+  const folder = join(dir, recordedUnder(request), `${recordedAt.replace(/[:.]/g, '-')}-${job}-${index}`)
   await mkdir(folder, { recursive: true })
   const call: RecordedCall = {
-    step,
+    function: request.call.function,
+    preset: request.call.preset,
     callIndex: index,
     job,
     seller,
@@ -165,6 +171,11 @@ async function writeCall(
     recordedAt,
   }
   await writeFile(join(folder, CALL_FILE), `${JSON.stringify(call, null, 2)}\n`)
+}
+
+/** The folder a call's recordings sit in, under the recording's: its AI function's, then its preset's. */
+function recordedUnder(request: SellerRequest): string {
+  return `${request.call.function}/${request.call.preset}`
 }
 
 /** The facts of a call's input worth keeping: a text call's long instructions are kept as their length. */
@@ -188,17 +199,17 @@ async function writeOutput(folder: string, output: SellerOutput): Promise<Record
   return { kind: 'layers', layers: await write(output.layers, 'layer'), gpuSeconds: output.gpuSeconds }
 }
 
-/** The recorded calls of `step` in `dir`, oldest first; none when the step has no folder. */
-async function recordingsOf(dir: string, step: string): Promise<Recorded[]> {
-  const stepDir = join(dir, step)
-  const folders = await readdir(stepDir, { withFileTypes: true }).catch(() => [])
+/** The recorded calls kept under `under` in `dir`, oldest first; none when it has no folder. */
+async function recordingsOf(dir: string, under: string): Promise<Recorded[]> {
+  const underDir = join(dir, under)
+  const folders = await readdir(underDir, { withFileTypes: true }).catch(() => [])
   const recorded: Recorded[] = []
   for (const name of folders
     .filter((f) => f.isDirectory())
     .map((f) => f.name)
     .sort()) {
     // A folder whose `call.json` is not written yet, or is broken, is passed over.
-    const path = join(stepDir, name)
+    const path = join(underDir, name)
     const text = await readFile(join(path, CALL_FILE), 'utf8').catch(() => null)
     if (text === null) continue
     try {

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { fromDrizzle, type PgBoss, type QueueOptions } from 'pg-boss'
 
-import { aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
+import { aiBriefs, aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
 import {
   type AiCallView,
   type AiJobKind,
@@ -14,40 +14,45 @@ import {
   type AiJobRefusal,
   type AiJobState,
   type AiJobView,
-  AiStepsInput,
-  AiStepsOutput,
+  type AiMode,
   type CallOutput,
+  CallsInput,
+  CallsOutput,
   type CallState,
   type FlowJobInput,
   parseFlowJob,
 } from '@dazbee/schema'
 
 import { CUT_OFF } from './call-log.ts'
-import { flowHold } from './flow/holds.ts'
+import { flowHold, holdOf } from './flow/holds.ts'
 import { endHold, hold } from './ledger.ts'
+import { presetsFor } from './picks.ts'
 import { aiSettingsOf } from './settings.ts'
-import { holdFor } from './seller-route.ts'
 
-/** A job's kind with what it runs: an `ai-steps` job's list of calls, or a flow job's input. */
-export type JobInput = { kind: 'ai-steps'; input: AiStepsInput } | FlowJobInput
+/** A job's kind with what it runs: a `calls` job's list of calls, or a flow job's input. */
+export type JobInput = { kind: 'calls'; input: CallsInput } | FlowJobInput
 
 /** A job to save: in which workspace, by which member, of which job kind, and what it runs. */
 export type NewJob = JobInput & {
   workspace: string
   member: string
-  /** The pg-boss queue it goes to: `ai-steps` for an `ai-steps` job and `ai-flow` for a flow job, unless given. */
+  /** The pg-boss queue it goes to: `ai-calls` for a `calls` job and `ai-flow` for a flow job, unless given. */
   queue?: string
 }
 
 /** A saved job's id, or why it was refused. */
 export type SavedJob = { ok: true; job: string } | { ok: false; refusal: AiJobRefusal }
 
-/** What starting an attempt found: make it, with its number, or not (the job waits for a place, or has ended). */
-export type AttemptStart = { make: true; attempt: number; job: JobInput; workspace: string } | { make: false }
+/**
+ * What starting an attempt found: make it, with its number and the preset each AI function of a flow job runs with
+ * (none for a `calls` job, whose calls name theirs), or not (the job waits for a place, or has ended).
+ */
+export type AttemptStart =
+  { make: true; attempt: number; job: JobInput; workspace: string; presets: Record<string, string> } | { make: false }
 
 /** How a job's attempt ended. */
 export type JobEnd =
-  { state: 'done'; output: AiStepsOutput | null } | { state: 'failed'; error: string } | { state: 'cancelled' }
+  { state: 'done'; output: CallsOutput | null } | { state: 'failed'; error: string } | { state: 'cancelled' }
 
 /** The pg-boss settings of every AI job queue: 2 retries of a crash or an expiry, 30 minutes an attempt, a heartbeat. */
 export const QUEUE_OPTIONS = {
@@ -57,8 +62,8 @@ export const QUEUE_OPTIONS = {
   heartbeatSeconds: 30,
 } satisfies QueueOptions
 
-/** The queue of the `ai-steps` jobs. */
-export const STEPS_QUEUE = 'ai-steps'
+/** The queue of the `calls` jobs. */
+export const CALLS_QUEUE = 'ai-calls'
 
 /** The one queue of the flow's jobs, whose worker switches on the job kind. */
 export const FLOW_QUEUE = 'ai-flow'
@@ -78,8 +83,9 @@ const QUEUE_ENDED = ['completed', 'cancelled', 'failed']
 /**
  * Saves an AI job in `tx`: throws on an input its job kind's schema refuses, and on a try-again of a brief the
  * workspace hasn't; refuses a member who may not use AI, a day past the spending stop, and a hold
- * bigger than what is left; then holds its expected cost, writes the job and sends its pg-boss job, all in
- * the one transaction, so a failed send keeps nothing.
+ * bigger than what is left; then holds what its calls cost, writes the job with its mode and the preset each AI
+ * function runs with in that mode, and sends its pg-boss job, all in the one transaction, so a failed send keeps
+ * nothing. A pick made later never changes a saved job.
  */
 export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJob> {
   const [member] = await tx
@@ -92,10 +98,17 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
   const settings = await aiSettingsOf(tx)
   if ((await spentToday(tx)) >= settings.spendingStop) return { ok: false, refusal: 'stopped' }
   const id = newId()
+  const mode = parsed.kind === 'calls' ? null : await modeOf(tx, job.workspace, parsed)
+  const presets = parsed.kind === 'calls' ? null : await presetsFor(tx, mode)
   const cost =
-    parsed.kind === 'ai-steps' ? await holdFor(tx, parsed.input.calls) : await flowHold(tx, job.workspace, parsed)
+    parsed.kind === 'calls'
+      ? await holdOf(
+          tx,
+          parsed.input.calls.map((call) => ({ fn: call.function, preset: call.preset, input: call.input })),
+        )
+      : await flowHold(tx, job.workspace, parsed, presets ?? {})
   if (!(await hold(tx, { workspace: job.workspace, job: id, cost }))) return { ok: false, refusal: 'used-up' }
-  const queue = job.queue ?? (parsed.kind === 'ai-steps' ? STEPS_QUEUE : FLOW_QUEUE)
+  const queue = job.queue ?? (parsed.kind === 'calls' ? CALLS_QUEUE : FLOW_QUEUE)
   const queueJobId = randomUUID()
   await tx.insert(aiJobs).values({
     id,
@@ -103,6 +116,8 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
     memberId: job.member,
     kind: parsed.kind,
     input: parsed.input,
+    mode,
+    presets,
     queue,
     queueJobId,
   })
@@ -174,15 +189,20 @@ export async function startAttempt(
       }
     }
     const attempt = row.attempt + 1
+    const input = parseJob(row.kind, row.input)
+    // A flow job saved with no presets takes the ones in use now, and keeps them for its later attempts.
+    const presets =
+      row.presets ??
+      (input.kind === 'calls' ? {} : await presetsFor(tx, row.mode ?? (await modeOf(tx, row.workspaceId, input))))
     await tx
       .update(aiJobs)
-      .set({ state: 'running', attempt, startedAt: row.startedAt ?? new Date() })
+      .set({ state: 'running', attempt, startedAt: row.startedAt ?? new Date(), presets })
       .where(eq(aiJobs.id, job))
     await tx
       .update(aiCalls)
       .set({ state: 'unknown', error: 'its attempt ended', endedAt: new Date() })
       .where(and(eq(aiCalls.jobId, job), eq(aiCalls.state, 'running'), lt(aiCalls.attempt, attempt)))
-    return { make: true, attempt, job: parseJob(row.kind, row.input), workspace: row.workspaceId }
+    return { make: true, attempt, job: input, workspace: row.workspaceId, presets }
   })
 }
 
@@ -249,7 +269,7 @@ export async function readJobs(db: Db | Tx, workspace: string, jobs: string[]): 
     .select({
       jobId: aiCalls.jobId,
       callIndex: aiCalls.callIndex,
-      step: aiCalls.step,
+      function: aiCalls.function,
       state: aiCalls.state,
       error: aiCalls.error,
     })
@@ -264,7 +284,7 @@ export async function readJobs(db: Db | Tx, workspace: string, jobs: string[]): 
     id: row.id,
     kind: row.kind,
     state: row.state,
-    output: row.kind === 'ai-steps' && row.output ? AiStepsOutput.parse(row.output) : null,
+    output: row.kind === 'calls' && row.output ? CallsOutput.parse(row.output) : null,
     calls: callViews(
       tries.filter((t) => t.jobId === row.id),
       row.callOutputs,
@@ -338,7 +358,21 @@ export async function sweepJobs(db: Db, boss: PgBoss, queue: string): Promise<nu
 
 /** A job of `kind` with `input` as its job kind's schema reads it; throws on an input it refuses. */
 function parseJob(kind: AiJobKind, input: unknown): JobInput {
-  return kind === 'ai-steps' ? { kind, input: AiStepsInput.parse(input) } : parseFlowJob(kind, input)
+  return kind === 'calls' ? { kind, input: CallsInput.parse(input) } : parseFlowJob(kind, input)
+}
+
+/**
+ * The mode a flow job is asked for in: its input's for a round or more like this, its brief's for a try-again, and
+ * none for a job a mode doesn't change.
+ */
+async function modeOf(db: Db | Tx, workspace: string, job: FlowJobInput): Promise<AiMode | null> {
+  if (job.kind === 'round' || job.kind === 'more-like-this') return job.input.mode
+  if (job.kind !== 'try-again') return null
+  const [brief] = await db
+    .select({ mode: aiBriefs.mode })
+    .from(aiBriefs)
+    .where(and(eq(aiBriefs.id, job.input.briefId), eq(aiBriefs.workspaceId, workspace)))
+  return brief?.mode ?? null
 }
 
 /** Marks the job ended with `change` and gives back what it still holds. */
@@ -346,7 +380,7 @@ async function endWith(
   tx: Tx,
   job: string,
   workspace: string,
-  change: { state?: AiJobState; output?: AiStepsOutput | null; error?: string | null },
+  change: { state?: AiJobState; output?: CallsOutput | null; error?: string | null },
 ): Promise<void> {
   await tx
     .update(aiJobs)
@@ -361,15 +395,17 @@ async function endWith(
  * and otherwise failed, with why.
  */
 function callViews(
-  tries: { callIndex: number; step: string; state: CallState; error: string | null }[],
+  tries: { callIndex: number; function: string | null; state: CallState; error: string | null }[],
   outputs: Record<string, CallOutput>,
 ): AiCallView[] {
   const latest = new Map(tries.map((t) => [t.callIndex, t]))
-  return [...latest.values()].map(({ callIndex: index, step, state, error }): AiCallView => {
+  return [...latest.values()].map(({ callIndex: index, function: fn, state, error }): AiCallView => {
+    // The AI function's name is given as `step` too, for a tab built when a call named its AI step.
+    const place = { index, function: fn ?? '', step: fn ?? '' }
     const output = outputs[String(index)]
-    if (output) return { index, step, state: 'done', output }
-    if (state === 'running' || state === 'done') return { index, step, state: 'running' }
+    if (output) return { ...place, state: 'done', output }
+    if (state === 'running' || state === 'done') return { ...place, state: 'running' }
     const failure = state === 'unknown' ? 'unknown' : error === CUT_OFF ? 'cut-off' : 'not-made'
-    return { index, step, state: 'failed', failure }
+    return { ...place, state: 'failed', failure }
   })
 }

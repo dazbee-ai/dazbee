@@ -30,7 +30,7 @@ import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 /** What the cost chart may split by, in the order its choice shows them. */
-const SPLITS: CostSplit[] = ['seller', 'step']
+const SPLITS: CostSplit[] = ['seller', 'function']
 
 /** Names each UTC day short under an axis and in full in a tooltip and table, in the person's locale. */
 function usePoints(days: string[]): ChartPoint[] {
@@ -142,7 +142,7 @@ function CostCard({ costs, days, points }: { costs: AiCostRow[]; days: string[];
   const [split, setSplit] = useState<CostSplit>('seller')
   const series = costsByDay(costs, days, split).map((each) => ({
     key: each.key,
-    label: each.key === OTHER ? w.costs.other : split === 'seller' ? names.seller(each.key) : names.step(each.key),
+    label: each.key === OTHER ? w.costs.other : split === 'seller' ? names.seller(each.key) : names.fn(each.key),
     colour: seriesColour(each.slot),
     values: each.values,
   }))
@@ -164,7 +164,7 @@ function CostCard({ costs, days, points }: { costs: AiCostRow[]; days: string[];
               onClick={() => setSplit(each)}
               className={SEGMENT}
             >
-              {each === 'seller' ? w.costs.bySeller : w.costs.byStep}
+              {each === 'seller' ? w.costs.bySeller : w.costs.byFunction}
             </button>
           ))}
         </div>

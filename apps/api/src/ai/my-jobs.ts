@@ -22,14 +22,14 @@ export async function myAiJobs(db: Db, userId: string): Promise<MyAiJob[]> {
     .where(
       and(
         eq(aiJobs.memberId, userId),
-        ne(aiJobs.kind, 'ai-steps'),
+        ne(aiJobs.kind, 'calls'),
         or(isNull(aiJobs.endedAt), gt(aiJobs.endedAt, new Date(Date.now() - JUST_ENDED_MS))),
       ),
     )
     .orderBy(desc(aiJobs.createdAt))
     .limit(MOST)
   const placed = rows.flatMap((row) => {
-    if (row.kind === 'ai-steps') return []
+    if (row.kind === 'calls') return []
     const input = FLOW_JOB_INPUTS[row.kind as FlowJobKind].safeParse(row.input)
     return input.success ? [{ row, brandId: input.data.brandId, designId: input.data.designId }] : []
   })

@@ -28,7 +28,7 @@ const CHAT = JSON.stringify({
 
 function requestOf(input: CallInput, model: string): SellerRequest {
   return {
-    call: { job: 'job', step: 'flow.read', index: 0 },
+    call: { job: 'job', function: 'reading', preset: 'luna', index: 0 },
     model,
     input,
     options: {},

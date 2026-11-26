@@ -2,11 +2,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { newId } from '@dazbee/db'
-import type { CallInput, RefineInput } from '@dazbee/schema'
+import type { RefineInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
 import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
-import { holdFor } from '../seller-route.ts'
 import { db, memoryFiles, newSeller, pngOf } from '../test-ai.ts'
 import {
   assetRow,
@@ -65,11 +64,8 @@ describe('a refine', () => {
       width: 1024,
       height: 1024,
     })
-    const made = [
-      { step: 'flow.refine-plan', input: plan?.input as CallInput },
-      { step: 'flow.refine', input: edit?.input as CallInput },
-    ]
-    expect((await ledgerOf(job))[0]?.amount).toBe(-(await holdFor(db, made)))
+    // The refine plan and the refine edit at their presets' first guesses, times 1.25.
+    expect((await ledgerOf(job))[0]?.amount).toBe(-3_687_500n)
     expect(await chargedCalls(job)).toEqual([0, 1])
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     const version =

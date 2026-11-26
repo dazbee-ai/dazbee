@@ -1,10 +1,11 @@
 // Rounds, more like this and try again with the flow seller, against Postgres from Docker Compose.
 import { createHash } from 'node:crypto'
 
+import { asc, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
-import { newId } from '@dazbee/db'
-import { type AiStep, type CallInput, type MadePicture, readImageHeader } from '@dazbee/schema'
+import { aiCalls, aiJobs, newId } from '@dazbee/db'
+import { type MadePicture, readImageHeader } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
 import { DRAFT_PROMPT, PICTURES_SENTENCE } from '../prompts/ads/draft.ts'
@@ -12,7 +13,6 @@ import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_READER } from '../prompts/ads/r
 import { LIKED_DRAFT, ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
 import { ROUND_DIRECTOR_LIGHT } from '../prompts/ads/round-director-light.ts'
 import type { SellerRequest } from '../sellers/seller.ts'
-import { holdFor } from '../seller-route.ts'
 import { db, memoryFiles, newSeller } from '../test-ai.ts'
 import {
   assetRow,
@@ -57,17 +57,19 @@ describe('a round', () => {
     for (const draft of drafts) {
       expect(draft.input).toMatchObject({ kind: 'picture', pictures: round.pictures, width: 1024, height: 1024 })
     }
-    // The hold is the sum of the calls made, each priced as `holdFor` prices it.
-    const steps: AiStep[] = [
-      'flow.round-plan',
-      'flow.draft-fast',
-      'flow.draft-fast',
-      'flow.draft-fast',
-      'flow.draft-fast',
-    ]
-    const made = seller.requests.map((r, i) => ({ step: steps[i] ?? 'flow.draft-fast', input: r.input as CallInput }))
+    // The hold is the round plan's light preset and four drafts at their presets' first guesses, times 1.25:
+    // no seller of ours has made a call of them here.
     const ledger = await ledgerOf(job)
-    expect(ledger[0]).toEqual({ kind: 'hold', amount: -(await holdFor(db, made)), call: null })
+    expect(ledger[0]).toEqual({ kind: 'hold', amount: -6_950_000n, call: null })
+    const calls = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.callIndex))
+    expect(calls.map((call) => [call.feature, call.function, call.preset])).toEqual([
+      ['round', 'round-plan', 'light-luna'],
+      ...Array(4).fill(['round', 'draft', 'gpt-image-medium']),
+    ])
+    expect((await db.select().from(aiJobs).where(eq(aiJobs.id, job)))[0]).toMatchObject({
+      mode: 'fast',
+      presets: { 'round-plan': 'light-luna', draft: 'gpt-image-medium' },
+    })
     expect(await chargedCalls(job)).toEqual([0, 1, 2, 3, 4])
     expect(await planOf(round.briefId)).toEqual(PLAN)
   })
@@ -113,7 +115,7 @@ describe('a round', () => {
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     expect(calls.filter((call) => call.state === 'done')).toHaveLength(4)
     expect(calls.filter((call) => call.state === 'failed')).toEqual([
-      { index: 3, step: 'flow.draft-fast', state: 'failed', failure: 'not-made' },
+      { index: 3, function: 'draft', step: 'draft', state: 'failed', failure: 'not-made' },
     ])
     expect(await chargedCalls(job)).toEqual([0, 1, 2, 4])
     const ledger = await ledgerOf(job)
@@ -135,15 +137,19 @@ describe('a round', () => {
     expect(await planOf(round.briefId)).toBeNull()
   })
 
-  it('runs the full planner and the Precise draft step in Precise', async () => {
+  it('runs the round plan’s full preset in Precise', async () => {
     const who = await flowWorkspace()
     const seller = await flowSeller(newSeller('precise'))
     const job = await saveFlow(who, { kind: 'round', input: await roundOf(who, { mode: 'precise' }) })
     await runFlow(job, flowDeps(seller))
 
     expect(seller.requests[0]?.input).toMatchObject({ instructions: ROUND_DIRECTOR })
-    const steps = (await readJob(db, who.workspace, job))?.calls.map((call) => call.step)
-    expect(steps).toEqual(['flow.round-plan-full', ...Array(4).fill('flow.draft-precise')])
+    const made = (await readJob(db, who.workspace, job))?.calls.map((call) => call.function)
+    expect(made).toEqual(['round-plan', ...Array(4).fill('draft')])
+    const [plan] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.callIndex))
+    expect(plan).toMatchObject({ preset: 'full-terra', model: 'gpt-6.1-terra', settings: { effort: 'low' } })
+    // The round plan's full preset and four drafts at their first guesses, times 1.25.
+    expect((await ledgerOf(job))[0]?.amount).toBe(-12_325_000n)
   })
 
   it('reads a reference first and gives it to the planner alone, with its kind', async () => {

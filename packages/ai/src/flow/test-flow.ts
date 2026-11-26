@@ -20,7 +20,7 @@ import {
   workspaces,
 } from '@dazbee/db'
 import {
-  AI_STEPS,
+  AI_FUNCTIONS,
   type CallInput,
   type FlowJobInput,
   type LayerPlanAnswer,
@@ -30,6 +30,7 @@ import {
   type UsageUnit,
 } from '@dazbee/schema'
 
+import { aiFunctionDef } from '../functions/ai-function.ts'
 import { endJob, ensureQueue, saveJob, startAttempt } from '../jobs.ts'
 import { giveGrant } from '../ledger.ts'
 import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
@@ -37,7 +38,6 @@ import { READING_PROMPT } from '../prompts/ads/reading.ts'
 import { REFERENCE_READER } from '../prompts/ads/reference.ts'
 import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
 import { type SellerAdapter, SellerError, type SellerOutput, type SellerRequest, useSeller } from '../sellers/seller.ts'
-import { stepModel } from '../seller-route.ts'
 import { addPrices, db, memoryFiles, pngOf, RUPEE } from '../test-ai.ts'
 import { DATABASE_URL } from '../test-database.ts'
 import { type FlowDeps, runFlowJob } from './run.ts'
@@ -201,7 +201,10 @@ export async function flowSeller(
     },
   }
   useSeller(adapter)
-  const models = new Set(await Promise.all(AI_STEPS.map(async (step) => (await stepModel(db, step)).model)))
+  // Every model a preset of an AI function runs.
+  const models = new Set(
+    AI_FUNCTIONS.flatMap((fn) => Object.values(aiFunctionDef(fn).presets).map((preset) => preset.model)),
+  )
   for (const model of models) await addPrices(seller, model, PRICES)
   return adapter
 }
@@ -227,8 +230,15 @@ export async function saveFlow(who: FlowWorkspace, flow: FlowJobInput): Promise<
 export async function runFlow(job: string, deps: FlowDeps, signal = new AbortController().signal) {
   const [row] = await db.select().from(aiJobs).where(eq(aiJobs.id, job))
   const start = await startAttempt(db, boss, { job, queue: QUEUE, queueJobId: row?.queueJobId ?? '' })
-  if (!start.make || start.job.kind === 'ai-steps') throw new Error('the job did not start')
-  const attempt = { job, workspace: start.workspace, attempt: start.attempt, flow: start.job, signal }
+  if (!start.make || start.job.kind === 'calls') throw new Error('the job did not start')
+  const attempt = {
+    job,
+    workspace: start.workspace,
+    attempt: start.attempt,
+    flow: start.job,
+    presets: start.presets,
+    signal,
+  }
   const end = await runFlowJob(deps, attempt)
   await endJob(db, job, start.attempt, end)
   const [ended] = await db.select().from(aiJobs).where(eq(aiJobs.id, job))

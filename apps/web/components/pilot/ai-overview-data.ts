@@ -1,14 +1,14 @@
 // The AI overview's figures and charts, shaped from what the API gives: every UTC day of the days picked,
-// the real cost of each day split by seller or by AI step, the daily check of each seller day by day with
+// the real cost of each day split by seller or by AI function, the daily check of each seller day by day with
 // its red days, the layer split's GPU cost against the fixed amount it took, and the headline figures.
-import { AI_STEPS, type AiCostRow, type DailyCheck, LAYER_SPLIT_STEP, SELLERS, type UnknownCalls } from '@dazbee/schema'
+import { AI_FUNCTIONS, type AiCostRow, type DailyCheck, LAYER_SPLIT, SELLERS, type UnknownCalls } from '@dazbee/schema'
 
 /** What the cost chart splits each day's real cost by. */
-export type CostSplit = 'seller' | 'step'
+export type CostSplit = 'seller' | 'function'
 
 /**
- * A series of the cost chart: the seller or AI step it stands for, or `OTHER`; its place in the fixed list of
- * sellers or AI steps, which picks its colour, -1 for Other; and its real cost on each day, in rupees.
+ * A series of the cost chart: the seller or AI function it stands for, or `OTHER`; its place in the fixed list of
+ * sellers or AI functions, which picks its colour, -1 for Other; and its real cost on each day, in rupees.
  */
 export interface CostSeries {
   key: string
@@ -50,11 +50,11 @@ export function daysFrom(from: string, to: string): string[] {
 }
 
 /**
- * Each day's real cost split by seller or by AI step: a series for each one that cost anything on the days,
- * in the fixed order of sellers or AI steps, and one for those not in it last.
+ * Each day's real cost split by seller or by AI function: a series for each one that cost anything on the days,
+ * in the fixed order of sellers or AI functions, and one for those not in it last.
  */
 export function costsByDay(costs: AiCostRow[], days: string[], split: CostSplit): CostSeries[] {
-  const list: readonly string[] = split === 'seller' ? SELLERS : AI_STEPS
+  const list: readonly string[] = split === 'seller' ? SELLERS : AI_FUNCTIONS
   const index = dayIndex(days)
   const series = new Map<string, CostSeries>()
   for (const row of costs) {
@@ -100,7 +100,7 @@ export function checkPanels(checks: DailyCheck[], days: string[]): CheckPanel[] 
 /** The layer split's real GPU cost and the fixed amount it charged, each day, in rupees; null with no layer split. */
 export function layerSplitByDay(costs: AiCostRow[], days: string[]): { real: number[]; charged: number[] } | null {
   const index = dayIndex(days)
-  const rows = costs.filter((row) => row.step === LAYER_SPLIT_STEP && index.has(row.day))
+  const rows = costs.filter((row) => row.function === LAYER_SPLIT && index.has(row.day))
   if (rows.length === 0) return null
   const real = days.map(() => 0)
   const charged = days.map(() => 0)

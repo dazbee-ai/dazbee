@@ -49,7 +49,7 @@ function answering(status: number, body: string) {
 
 function requestOf(input: CallInput, options: Record<string, unknown> = {}): SellerRequest {
   return {
-    call: { job: 'job', step: 'flow.read', index: 0 },
+    call: { job: 'job', function: 'reading', preset: 'luna', index: 0 },
     model: input.kind === 'text' ? 'gpt-6-luna' : 'gpt-image-2.5-sunburst',
     input,
     options,

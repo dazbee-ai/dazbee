@@ -1,7 +1,7 @@
 'use server'
 
 // What the admin page's AI section changes: the AI settings, a currency's rate, a price, a model's seller
-// order, a kind's default model and an AI step's own model; a gift to a workspace; and a seller's usage file. The API answers anyone but
+// order; a gift to a workspace; and a seller's usage file. The API answers anyone but
 // an admin as if none of it existed, so each is an admin's only. Each gives why it was refused, in the
 // person's language where the page knows the reason, and the section draws again with what changed.
 import { revalidatePath } from 'next/cache'
@@ -10,8 +10,6 @@ import { z } from 'zod'
 import {
   AiPriceInput,
   AiSettingsInput,
-  AiStepModelInput,
-  CallKind,
   CurrencyCode,
   CurrencyRateInput,
   GiftInput,
@@ -19,25 +17,19 @@ import {
   ModelSellersInput,
   Seller,
   SellerFileUpload,
-  UnpricedModel,
   UsageUnit,
-  WrongKind,
 } from '@dazbee/schema'
 
 import type { Messages } from '@/lib/i18n/en.ts'
-import { format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { PILOT_AI_PATH } from '@/lib/pilot-host.ts'
 import {
   giveAiGift,
   removeAiPrice,
-  removeStepModel,
   setAiPrice,
   setAiSettings,
   setCurrencyRate,
-  setKindModel,
   setModelSellers,
-  setStepModel,
   uploadAiSellerFile,
 } from '@/lib/server/admin-ai.ts'
 import { type Refusal, refusalOf } from '@/lib/server/members.ts'
@@ -67,35 +59,6 @@ export async function removePrice(seller: string, model: string, unit: string): 
 export async function saveSellerOrder(model: string, order: ModelSellersInput): Promise<string | null> {
   return change(z.object({ model: ModelName, order: ModelSellersInput }), { model, order }, (valid) =>
     setModelSellers(valid.model, valid.order),
-  )
-}
-
-/** Saves an AI step's model; a model of another kind is refused in the page's own words for it. */
-export async function saveStepModel(step: string, choice: AiStepModelInput): Promise<string | null> {
-  return change(
-    z.object({ step: z.string().min(1).max(100), choice: AiStepModelInput }),
-    { step, choice },
-    (valid) => setStepModel(valid.step, valid.choice),
-    wrongKindWords,
-  )
-}
-
-/** Removes an AI step's own model, read when it was last changed at `since`, so the step runs its kind's default. */
-export async function removeStepOverride(step: string, since: string | null): Promise<string | null> {
-  return change(
-    z.object({ step: z.string().min(1).max(100), since: z.iso.datetime().nullable() }),
-    { step, since },
-    (valid) => removeStepModel(valid.step, { since: valid.since }),
-  )
-}
-
-/** Saves a kind's default model; a model of another kind is refused in the page's own words for it. */
-export async function saveKindModel(kind: CallKind, choice: AiStepModelInput): Promise<string | null> {
-  return change(
-    z.object({ kind: CallKind, choice: AiStepModelInput }),
-    { kind, choice },
-    (valid) => setKindModel(valid.kind, valid.choice),
-    wrongKindWords,
   )
 }
 
@@ -142,40 +105,4 @@ async function change<T extends z.ZodType>(
   if (refusal.status === 404) return t.gone
   if (refusal.status === 409) return t.stale
   return explain?.(refusal, t) ?? refusal.message
-}
-
-/**
- * Why an AI step, or a kind's default, can't be a model of another kind, with the step's, the kinds' and the
- * units' names as the page shows them.
- */
-function wrongKindWords(refusal: Refusal, t: Messages['pilotAi']): string | null {
-  const unpriced = z.object({ unpriced: UnpricedModel }).safeParse(refusal.body)
-  if (unpriced.success) return unpricedWords(unpriced.data.unpriced, t)
-  const body = z.object({ wrongKind: WrongKind }).safeParse(refusal.body)
-  if (!body.success) return null
-  const { step, model, units, wants, is } = body.data.wrongKind
-  const named = step && Object.hasOwn(t.steps, step) ? t.steps[step as keyof typeof t.steps] : step
-  return format(step === undefined ? t.stepModels.wrongKindDefault : t.stepModels.wrongKind, {
-    step: named ?? '',
-    kind: t.stepModels.kindNames[wants],
-    wants: t.stepModels.kinds[wants],
-    model,
-    is: is ? t.stepModels.kinds[is] : t.stepModels.kinds.none,
-    units: units.map((unit) => t.units[unit]).join(', '),
-  })
-}
-
-/** Why a model can't be chosen yet, with the sellers' and units' names as the page shows them. */
-function unpricedWords({ model, sellers }: UnpricedModel, t: Messages['pilotAi']): string {
-  if (sellers.length === 0) return format(t.stepModels.noPricedSeller, { model })
-  const named = (words: Record<string, string>, name: string) => (Object.hasOwn(words, name) ? words[name] : name)
-  const missing = sellers
-    .map(({ seller, units }) =>
-      format(t.stepModels.unpricedSeller, {
-        seller: named(t.sellers, seller) ?? seller,
-        units: units.map((unit) => t.units[unit]).join(', '),
-      }),
-    )
-    .join('; ')
-  return format(t.stepModels.unpriced, { model, missing })
 }

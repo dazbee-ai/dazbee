@@ -7,12 +7,14 @@ import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { aiCalls } from '@dazbee/db'
-import type { CallInput } from '@dazbee/schema'
+import { aiCalls, newId } from '@dazbee/db'
+import type { CallInput, LayeringInput } from '@dazbee/schema'
 
 import {
+  chargedCalls,
   flowDeps,
   flowSeller,
+  type FlowWorkspace,
   flowWorkspace,
   ledgerOf,
   PLAN,
@@ -27,6 +29,23 @@ import { type SellerAdapter, SellerError, type SellerRequest, useSeller } from '
 import { testSeller } from './test-sellers.ts'
 
 const READ: CallInput = { kind: 'text', instructions: 'Read the ad.', prompt: 'The ad.', pictures: [] }
+
+/** A layering job of two sizes of `who`'s, planned from the draft they came from, at 1024 px. */
+async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {
+  const round = await roundOf(who)
+  const key = (name: string) => `workspaces/${who.workspace}/originals/${name}`
+  return {
+    brandId: who.brand,
+    designId: round.designId,
+    briefId: round.briefId,
+    frames: [
+      { frameId: newId(), pictureKey: key('square') },
+      { frameId: newId(), pictureKey: key('story') },
+    ],
+    planKey: key('draft'),
+    size: 1024,
+  }
+}
 
 /** A new empty folder for a recording. */
 const newRecording = () => mkdtemp(join(tmpdir(), 'dazbee-recording-'))
@@ -75,6 +94,10 @@ describe('recordingSeller', () => {
     const who = await flowWorkspace()
     const recorded = await saveFlow(who, { kind: 'round', input: await roundOf(who) })
     expect(await runFlow(recorded, flowDeps(seller))).toMatchObject({ state: 'done' })
+    // A recorded call is a real one, charged at its real cost.
+    expect(await chargedCalls(recorded)).toEqual([0, 1, 2, 3, 4])
+    const real = await db.select().from(aiCalls).where(eq(aiCalls.jobId, recorded))
+    for (const row of real) expect(row.chargeCost).toBeGreaterThan(0n)
 
     const [plan, ...more] = await recordedIn(dir, 'flow.round-plan')
     expect(more).toEqual([])
@@ -131,6 +154,33 @@ describe('recordingSeller', () => {
     expect((await ledgerOf(job)).filter((entry) => entry.kind === 'charge')).toEqual([])
   })
 
+  it('writes a layering job’s layers, and a replayed layering charges nothing for its fixed-cost split', async () => {
+    const dir = await newRecording()
+    const seller = await flowSeller(newSeller('layers'))
+    useSeller(recordingSeller(seller, dir))
+    const who = await flowWorkspace()
+    const recorded = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
+    expect(await runFlow(recorded, flowDeps(seller))).toMatchObject({ state: 'done' })
+    const splits = await recordedIn(dir, 'flow.layer-split')
+    expect(splits).toHaveLength(2)
+    for (const split of splits) {
+      expect(split.files).toEqual(['call.json', 'layer-0.png', 'layer-1.png'])
+      expect(split.call.output).toMatchObject({ kind: 'layers', gpuSeconds: 17.5 })
+    }
+
+    const [replay] = replaySellers([seller.seller], dir, 1000)
+    if (!replay) throw new Error('no replay seller')
+    useSeller(replay)
+    const other = await flowWorkspace()
+    const job = await saveFlow(other, { kind: 'layering', input: await layeringOf(other) })
+    expect(await runFlow(job, flowDeps(seller))).toMatchObject({ state: 'done', error: null })
+    expect(seller.requests).toHaveLength(5)
+    const rows = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job))
+    expect(rows.filter((row) => row.step === 'flow.layer-split')).toHaveLength(2)
+    for (const row of rows) expect(row).toMatchObject({ state: 'done', realCost: 0n, chargeCost: 0n })
+    expect((await ledgerOf(job)).filter((entry) => entry.kind === 'charge')).toEqual([])
+  })
+
   it('gives the answer of a call it could not write down', async () => {
     const recorder = recordingSeller(testSeller('recorder'), '\0 not a folder')
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -166,6 +216,32 @@ describe('replaySellers', () => {
     await expect(missing).rejects.toMatchObject({ status: 404, message: expect.stringContaining('no recording') })
   })
 
+  it('answers each replayed job from one recorded job, each in turn', async () => {
+    const dir = await newRecording()
+    const answers = ['plan A', 'read A', 'plan B', 'read B'].map((text) => ({
+      answer: { kind: 'text' as const, text },
+    }))
+    const recorder = recordingSeller(testSeller('recorder', answers), dir)
+    await recorder.call(requestOf('flow.layer-plan', 0, 'job-a'))
+    await recorder.call(requestOf('flow.read', 1, 'job-a'))
+    await recorder.call(requestOf('flow.layer-plan', 0, 'job-b'))
+    await recorder.call(requestOf('flow.read', 1, 'job-b'))
+    const [replay] = replaySellers(['replay'], dir, 1000)
+    if (!replay) throw new Error('no replay seller')
+
+    const replayed = async (job: string) => [
+      await textOf(replay, requestOf('flow.layer-plan', 0, job)),
+      await textOf(replay, requestOf('flow.read', 1, job)),
+      await textOf(replay, requestOf('flow.read', 2, job)),
+    ]
+    // Recordings sort by when they were made, so job A's come first.
+    const sorted = (await recordedIn(dir, 'flow.read')).map((r) => r.call.job)
+    const [first, second] = sorted[0] === 'job-a' ? ['A', 'B'] : ['B', 'A']
+    expect(await replayed('x')).toEqual([`plan ${first}`, `read ${first}`, `read ${first}`])
+    expect(await replayed('y')).toEqual([`plan ${second}`, `read ${second}`, `read ${second}`])
+    expect(await replayed('z')).toEqual([`plan ${first}`, `read ${first}`, `read ${first}`])
+  })
+
   it('waits the recorded time divided by the speed, and stops when the call is aborted', async () => {
     const dir = await newRecording()
     await recordingSeller(testSeller('recorder', [], { afterMs: 200 }), dir).call(requestOf('flow.read', 0))
@@ -177,8 +253,10 @@ describe('replaySellers', () => {
     expect(performance.now() - started).toBeGreaterThanOrEqual(90)
 
     const abort = new AbortController()
+    const aborted = performance.now()
     const call = replay.call(requestOf('flow.read', 0, 'job-1', abort.signal))
-    abort.abort(new Error('cancelled'))
-    await expect(call).rejects.toThrow()
+    setTimeout(() => abort.abort(new Error('cancelled')), 10)
+    await expect(call).rejects.toMatchObject({ name: 'AbortError' })
+    expect(performance.now() - aborted).toBeLessThan(80)
   })
 })

@@ -7,7 +7,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-import type { CallInput, Usage } from '@dazbee/schema'
+import { CALL_KINDS, type CallInput, type Usage } from '@dazbee/schema'
 
 import {
   type PictureBytes,
@@ -63,6 +63,9 @@ interface Recorded {
 /** The file each recorded call is kept in, inside its folder. */
 const CALL_FILE = 'call.json'
 
+/** How long a replayed call may take: longer than any seller's call may, so one replayed at speed 1 or more never times out. */
+const REPLAY_TIMEOUT_MS = 600_000
+
 /** The file extension of each picture type a seller gives back. */
 const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
 
@@ -89,22 +92,40 @@ export function recordingSeller(seller: SellerAdapter, dir: string): SellerAdapt
 
 /**
  * A replay seller for each of `sellers`, answering every call from the recording in `dir` and calling no seller.
- * A call is answered by a recording of its AI step at its place in the job, else by any recording of its step,
- * each list taken in turn; after the time the recorded call took, divided by `speed`. Its answer is marked replayed,
- * so it costs nothing, and its request id names the recording. A step with no recording fails the call.
+ * Each replayed job takes its answers from one recorded job, picked at its first call from the jobs that recorded
+ * that call's AI step, each in turn, so a plan and the calls made from it stay together. A call is answered by that
+ * job's recording at its place in the job, else that job's recordings of its step, else any job's recording of its
+ * step at its place, else any recording of its step, each list taken in turn; after the time the recorded call took,
+ * divided by `speed`. Its answer is marked replayed, so it costs nothing, and its request id names the recording. A
+ * step with no recording fails the call.
  */
 export function replaySellers(sellers: string[], dir: string, speed: number): SellerAdapter[] {
-  // How many calls each list of recordings has answered, by step and place, or by step alone.
+  // The recorded job each replayed job takes its answers from.
+  const pins = new Map<string, string>()
+  // How many times each list of recordings has been taken from, by the list's key.
   const turns = new Map<string, number>()
-  const call = async (request: SellerRequest): Promise<SellerAnswer> => {
-    const { step, index } = request.call
-    const recorded = await recordingsOf(dir, step)
-    const atIndex = recorded.filter((r) => r.call.callIndex === index)
-    const [list, key] = atIndex.length > 0 ? [atIndex, `${step}#${index}`] : [recorded, step]
+  const take = <T>(list: T[], key: string): T | undefined => {
     const turn = turns.get(key) ?? 0
-    const picked = list[turn % list.length]
+    const item = list[turn % list.length]
+    if (item !== undefined) turns.set(key, turn + 1)
+    return item
+  }
+  const call = async (request: SellerRequest): Promise<SellerAnswer> => {
+    const { job, step, index } = request.call
+    const recorded = await recordingsOf(dir, step)
+    if (!pins.has(job)) {
+      const pin = take([...new Set(recorded.map((r) => r.call.job))], `jobs of ${step}`)
+      if (pin !== undefined) pins.set(job, pin)
+    }
+    const pin = pins.get(job)
+    const ofJob = recorded.filter((r) => r.call.job === pin)
+    const atIndex = (list: Recorded[]) => list.filter((r) => r.call.callIndex === index)
+    const picked =
+      atIndex(ofJob)[0] ??
+      take(ofJob, `${pin} ${step}`) ??
+      take(atIndex(recorded), `${step}#${index}`) ??
+      take(recorded, step)
     if (!picked) throw new SellerError(`no recording of ${step} in ${dir}`, { status: 404, code: 'not_recorded' })
-    turns.set(key, turn + 1)
     await sleep(picked.call.ms / speed, undefined, { signal: request.signal })
     return {
       output: await outputOf(picked),
@@ -113,7 +134,8 @@ export function replaySellers(sellers: string[], dir: string, speed: number): Se
       replayed: true,
     }
   }
-  return sellers.map((seller) => ({ seller, call }))
+  const timeouts = Object.fromEntries(CALL_KINDS.map((kind) => [kind, REPLAY_TIMEOUT_MS]))
+  return sellers.map((seller) => ({ seller, call, timeouts }))
 }
 
 /** Writes one call's answer to the recording in `dir`: its pictures, then `call.json`. */

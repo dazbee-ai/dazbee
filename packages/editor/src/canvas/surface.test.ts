@@ -40,6 +40,10 @@ function fakeCanvasKit(log: string[]) {
       this.d.push(`C ${points.join(' ')}`)
       return this
     }
+    addCircle(x: number, y: number, r: number) {
+      this.d.push(`O ${x} ${y} ${r}`)
+      return this
+    }
     detachAndDelete() {
       return { d: this.d.join(' '), delete: () => {} }
     }
@@ -275,19 +279,20 @@ describe('editorSurface', () => {
           },
         ],
       )
-      expect(log.slice(3, 13)).toEqual([
+      expect(log.slice(3, 12)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
+        // The grey ones together: their curves, their arrowheads, and their start dots filled, then ringed.
         'path M 10 50 C 60 50 60 90 110 90 in #574c61 1.5 wide',
         'path M 110 90 L 101 95 L 101 86 in #574c61',
-        'circle 10 50 round 3.5 in #100d14',
-        'circle 10 50 round 3.5 in #574c61 1.5 wide',
+        'path O 10 50 3.5 in #100d14',
+        'path O 10 50 3.5 in #574c61 1.5 wide',
+        // Then the picked one, in the accent, with a dot at both ends.
         'path M 10 150 C 60 50 60 90 110 150 in #2f5be0 2 wide',
         expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
-        'circle 10 150 round 5 in #100d14',
-        'circle 10 150 round 5 in #2f5be0 2 wide',
-        'circle 110 150 round 5 in #100d14',
+        'path O 10 150 5 O 110 150 5 in #100d14',
+        'path O 10 150 5 O 110 150 5 in #2f5be0 2 wide',
       ])
-      expect(log[14]).toBe('rect 0 1 540 540')
+      expect(log[12]).toBe('rect 0 1 540 540')
     })
   })
 

@@ -197,50 +197,58 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     return true
   }
   /**
-   * Draws each connector, in stage pixels: its curve, the dot it starts from and its arrowhead, or
-   * picked, its curve and arrowhead in the accent with a dot at both ends. One wholly off the stage
-   * is left out.
+   * Draws the connectors, in stage pixels: their curves, the dots they start from and their
+   * arrowheads, or a picked one's curve and arrowhead in the accent with a dot at both ends. Those
+   * of one look go on together, one path each for the curves, the arrowheads and the dots, and one
+   * wholly off the stage is left out.
    */
   function paintConnectors(c: Canvas, connectors: readonly DrawnConnector[]) {
     const shown = connectors.filter(({ curve }) => curveShown(curve))
     if (shown.length === 0) return
     const ground = ck.parseColorString(cssColour(CANVAS, CANVAS_FALLBACK))
-    const accent = shown.some((d) => d.picked) ? ck.parseColorString(accentColour()) : null
-    for (const { curve, picked } of shown) {
-      const colour = picked && accent ? accent : connectorGrey
-      const { from, c1, c2, to } = curve
-      const path = new ck.PathBuilder()
-        .moveTo(from.x, from.y)
-        .cubicTo(c1.x, c1.y, c2.x, c2.y, to.x, to.y)
-        .detachAndDelete()
-      curveLine.setColor(colour)
-      curveLine.setStrokeWidth(picked ? PICKED_CONNECTOR_WIDTH : CONNECTOR_WIDTH)
-      c.drawPath(path, curveLine)
-      path.delete()
-      paintArrowhead(c, curve, colour)
-      for (const at of picked ? [from, to] : [from]) {
-        const radius = picked ? PICKED_DOT : START_DOT
-        filled.setColor(ground)
-        c.drawCircle(at.x, at.y, radius, filled)
-        c.drawCircle(at.x, at.y, radius, curveLine)
-      }
+    const curves = (picked: boolean) => shown.filter((d) => d.picked === picked).map((d) => d.curve)
+    paintCurves(c, curves(false), { colour: connectorGrey, width: CONNECTOR_WIDTH, dot: START_DOT, ground })
+    const picked = curves(true)
+    if (picked.length > 0) {
+      const colour = ck.parseColorString(accentColour())
+      paintCurves(c, picked, { colour, width: PICKED_CONNECTOR_WIDTH, dot: PICKED_DOT, ground, bothEnds: true })
     }
   }
-  /** Draws a curve's arrowhead, its point at the curve's end, along the angle it reaches it at. */
-  function paintArrowhead(c: Canvas, curve: ConnectorCurve, colour: Color) {
-    const angle = arrowAngle(curve)
-    const [ax, ay] = [Math.cos(angle), Math.sin(angle)]
-    const { to } = curve
-    const back = { x: to.x - ax * ARROW_LENGTH, y: to.y - ay * ARROW_LENGTH }
-    // A filled path closes itself.
-    const head = new ck.PathBuilder()
-      .moveTo(to.x, to.y)
-      .lineTo(back.x - ay * ARROW_HALF_WIDTH, back.y + ax * ARROW_HALF_WIDTH)
-      .lineTo(back.x + ay * ARROW_HALF_WIDTH, back.y - ax * ARROW_HALF_WIDTH)
-      .detachAndDelete()
-    filled.setColor(colour)
-    c.drawPath(head, filled)
-    head.delete()
+  /**
+   * Draws curves of one look: their lines `width` wide in `colour`, their arrowheads filled, and a
+   * dot `dot` round at their start, or at both ends, filled with `ground` and ringed in `colour`.
+   */
+  function paintCurves(
+    c: Canvas,
+    curves: readonly ConnectorCurve[],
+    look: { colour: Color; width: number; dot: number; ground: Color; bothEnds?: boolean },
+  ) {
+    if (curves.length === 0) return
+    const [lines, heads, dots] = [new ck.PathBuilder(), new ck.PathBuilder(), new ck.PathBuilder()]
+    for (const curve of curves) {
+      const { from, c1, c2, to } = curve
+      lines.moveTo(from.x, from.y).cubicTo(c1.x, c1.y, c2.x, c2.y, to.x, to.y)
+      // Each arrowhead is a contour of its own, which filling closes.
+      const angle = arrowAngle(curve)
+      const [ax, ay] = [Math.cos(angle), Math.sin(angle)]
+      const back = { x: to.x - ax * ARROW_LENGTH, y: to.y - ay * ARROW_LENGTH }
+      heads
+        .moveTo(to.x, to.y)
+        .lineTo(back.x - ay * ARROW_HALF_WIDTH, back.y + ax * ARROW_HALF_WIDTH)
+        .lineTo(back.x + ay * ARROW_HALF_WIDTH, back.y - ax * ARROW_HALF_WIDTH)
+      dots.addCircle(from.x, from.y, look.dot)
+      if (look.bothEnds) dots.addCircle(to.x, to.y, look.dot)
+    }
+    const [linePath, headPath, dotPath] = [lines.detachAndDelete(), heads.detachAndDelete(), dots.detachAndDelete()]
+    curveLine.setColor(look.colour)
+    curveLine.setStrokeWidth(look.width)
+    c.drawPath(linePath, curveLine)
+    filled.setColor(look.colour)
+    c.drawPath(headPath, filled)
+    filled.setColor(look.ground)
+    c.drawPath(dotPath, filled)
+    c.drawPath(dotPath, curveLine)
+    for (const path of [linePath, headPath, dotPath]) path.delete()
   }
   /** Whether some of the box round a curve's points is on the stage. */
   function curveShown({ from, c1, c2, to }: ConnectorCurve) {

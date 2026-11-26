@@ -148,6 +148,13 @@
       "when": 1795713291510,
       "tag": "0020_ai-fast-tier-and-terra-prices",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795715085784,
+      "tag": "0021_ai-functions-and-presets",
+      "breakpoints": true
     }
   ]
 }

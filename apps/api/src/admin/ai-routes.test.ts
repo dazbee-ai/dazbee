@@ -1,6 +1,7 @@
 // The admin page's AI routes, against Postgres from Docker Compose: /admin/ai answers anyone but an admin 404;
 // for an admin it reads and changes the AI settings, the currency rates, the price list and the seller order,
-// finds a workspace, gives it a gift and reads its grants and ledger, sums AI's costs,
+// finds a workspace, gives it a gift and reads its grants and ledger, sums AI's costs by AI feature, AI function
+// and preset,
 // gives the daily check, takes a seller's usage file, and lists unknown calls, sellers out of money and when
 // each uploaded seller was last checked. Models and sellers are the test's own, and the days used are
 // long past, so no other test meets them; the one settings row is put back as it was.
@@ -47,13 +48,14 @@ afterAll(async () => {
   await db.delete(currencyRates).where(eq(currencyRates.currency, XTS))
 })
 
-/** A call of `seller` started at `at`, in `state`, with `error`. */
+/** A call of `seller` started at `at`, in `state`, with `error`, of the refine edit's `preset`. */
 async function addCall(
   seller: string,
   at: Date,
   state: 'unknown' | 'failed' | 'done',
   error: string | null = null,
   costs: { realCost: bigint; chargeCost: bigint; chargedAt: Date | null } | null = null,
+  preset = 'seedream',
 ) {
   const job = newId()
   await db.insert(aiCalls).values({
@@ -66,7 +68,7 @@ async function addCall(
     attempt: 1,
     feature: 'refine',
     function: 'refine-edit',
-    preset: 'seedream',
+    preset,
     kind: 'picture',
     model: 'seedream-5.5',
     seller,
@@ -92,6 +94,9 @@ describe('/admin/ai', () => {
       ['DELETE', '/admin/ai/prices?seller=openai&model=x&unit=picture'],
       ['GET', '/admin/ai/model-sellers'],
       ['PUT', '/admin/ai/model-sellers/seedream-5.5'],
+      ['GET', '/admin/ai/functions'],
+      ['POST', '/admin/ai/picks'],
+      ['GET', '/admin/ai/functions/round-plan/picks'],
       ['GET', `/admin/ai/workspaces?q=${workspace.name}`],
       ['GET', `/admin/ai/workspaces/${workspace.id}/allowance`],
       ['POST', `/admin/ai/workspaces/${workspace.id}/gifts`],
@@ -360,12 +365,14 @@ describe('/admin/ai', () => {
     expect(await layerSize(db, team.id)).toBe(512)
   })
 
-  it('sums the real cost and the charges of AI calls by day, AI feature, AI function, model and seller', async () => {
+  it('sums the real cost and the charges of AI calls by day, AI feature, AI function, preset, model and seller', async () => {
     const seller = `test-costs-${newId()}`
     const charged = (realCost: bigint, chargeCost: bigint) => ({ realCost, chargeCost, chargedAt: new Date() })
     await addCall(seller, new Date('2001-05-04T08:00:00Z'), 'done', null, charged(1_500_000n, 4_000_000n))
     await addCall(seller, new Date('2001-05-04T09:00:00Z'), 'done', null, charged(2_000_000n, 4_000_000n))
     await addCall(seller, new Date('2001-05-04T10:00:00Z'), 'unknown')
+    // The same day, AI function, model and seller under another preset is a row of its own.
+    await addCall(seller, new Date('2001-05-04T11:00:00Z'), 'done', null, charged(700_000n, 1_000_000n), 'seedream-b')
     await addCall(seller, new Date('2001-05-05T10:00:00Z'), 'done', null, {
       realCost: 250_000n,
       chargeCost: 250_000n,
@@ -381,6 +388,7 @@ describe('/admin/ai', () => {
         day: '2001-05-05',
         feature: 'refine',
         function: 'refine-edit',
+        preset: 'seedream',
         model: 'seedream-5.5',
         seller,
         calls: 1,
@@ -392,12 +400,25 @@ describe('/admin/ai', () => {
         day: '2001-05-04',
         feature: 'refine',
         function: 'refine-edit',
+        preset: 'seedream',
         model: 'seedream-5.5',
         seller,
         calls: 3,
         done: 2,
         realCost: 3.5,
         charged: 8,
+      },
+      {
+        day: '2001-05-04',
+        feature: 'refine',
+        function: 'refine-edit',
+        preset: 'seedream-b',
+        model: 'seedream-5.5',
+        seller,
+        calls: 1,
+        done: 1,
+        realCost: 0.7,
+        charged: 1,
       },
     ])
     expect((await ask(admin.token, 'GET', '/admin/ai/costs?from=2001-01-01&to=2001-12-31')).status).toBe(400)

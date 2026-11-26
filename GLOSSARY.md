@@ -710,7 +710,7 @@ A model, its settings and the prompt tested with it, under one name, for one AI 
 _Avoid_: Version, variant, profile, config (a text style's or a template's saved look is not a preset)
 
 **Pick**:
-An admin's choice of which preset a mode uses for an AI function, from the presets the code has. Picks are only ever added, and the newest is the one in use, so going back is one more pick.
+An admin's choice of which preset a mode uses for an AI function, from the presets the code has; an AI function no mode changes is picked for under no mode. The admin page's AI functions section makes one with a click on Use beside a preset, live for the next AI job asked for, while a job already asked for keeps its presets. Picks are only ever added, and the newest is the one in use, so going back is one more pick; the section lists each AI function's picks with who made each and when. A newest pick whose preset the running code doesn't have is not used: the code's own choice runs, and the section says so beside the AI function.
 _Avoid_: Override, switch, pin
 
 **Ceiling**:

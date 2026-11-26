@@ -1,14 +1,15 @@
 // The admin pages' AI section, served at the pilot host's `/ai` and not found on any other host. It needs
 // Dazbee's own sign-in, and is not found for anyone the API doesn't take for an admin. It holds the settings
-// and today's spend, the costs, the daily check, gifts and grants, the price list and
-// the seller order. The days the costs and the daily check cover, the workspace search and the open workspace
-// are in the address.
+// and today's spend, the costs, the daily check, gifts and grants, the AI functions with the preset each mode
+// uses, the price list and the seller order. The days the costs and the daily check cover, the workspace search and
+// the open workspace are in the address.
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
 import { AdminShell, CARD } from '@/components/pilot/admin-shell.tsx'
 import { AiCosts, AiRange } from '@/components/pilot/ai-costs.tsx'
 import { AiDailyCheck } from '@/components/pilot/ai-daily-check.tsx'
+import { AiFunctions } from '@/components/pilot/ai-functions.tsx'
 import { AiGrants } from '@/components/pilot/ai-grants.tsx'
 import { AiPriceList } from '@/components/pilot/ai-price-list.tsx'
 import { AiSellerOrder } from '@/components/pilot/ai-seller-order.tsx'
@@ -82,6 +83,9 @@ export default async function PilotAiPage({ searchParams }: { searchParams: Quer
       </section>
       <section className={CARD}>
         <AiGrants query={search} found={found} allowance={allowance} keep={days} />
+      </section>
+      <section className={CARD}>
+        <AiFunctions functions={page.functions} picks={page.picks} />
       </section>
       <section className={CARD}>
         <AiPriceList rates={page.rates} prices={page.prices} />

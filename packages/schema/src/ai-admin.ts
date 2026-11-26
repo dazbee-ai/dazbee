@@ -1,10 +1,22 @@
 // The admin page's AI section: the AI settings, the currency rates, the price list and the seller order as an
-// admin reads and sets them, finding a workspace, a gift, a workspace's grants and ledger, and AI's costs by
-// day, AI feature, AI function, model and seller. Money is a decimal number of rupees or of the
-// seller's currency; the tables keep whole millionths.
+// admin reads and sets them, finding a workspace, a gift, a workspace's grants and ledger, the AI functions with
+// their presets, what each preset measured and the preset each mode uses, a pick and an AI function's picks, and
+// AI's costs by day, AI feature, AI function, preset, model and seller. Money is a decimal number of rupees or of
+// the seller's currency; the tables keep whole millionths.
 import { z } from 'zod'
 
-import { GrantSource, LayerSplitSize, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
+import {
+  AiFunction,
+  CallKind,
+  GrantSource,
+  LayerSplitSize,
+  LedgerKind,
+  PickMode,
+  Seller,
+  SELLERS,
+  UsageUnit,
+  UtcDay,
+} from './ai.ts'
 
 /** An amount of money on the admin page: rupees, or a seller's currency, as a decimal; kept as whole millionths. */
 const Money = z.number().nonnegative().max(1_000_000_000)
@@ -153,14 +165,88 @@ export const AiAllowanceView = z.object({
 export type AiAllowanceView = z.infer<typeof AiAllowanceView>
 
 /**
- * What AI cost on one UTC day for one AI feature, AI function, model and seller: how many tries, how many delivered, their
- * real cost in rupees, and what workspaces were charged for them in rupees of real cost (for the layer split,
- * its fixed amount).
+ * What a preset's own calls measured: how many were done, the real cost in rupees and the seconds one call is
+ * taken to need, which its hold and its wait are worked out from, how many of its tries were cut off at their
+ * ceiling, and how many failed any other way. While it has no done call, the cost and seconds are its first guess.
+ */
+export const AiPresetMeasured = z.object({
+  done: z.number().int(),
+  cost: z.number(),
+  seconds: z.number(),
+  cutOffs: z.number().int(),
+  failures: z.number().int(),
+  firstGuess: z.boolean(),
+})
+export type AiPresetMeasured = z.infer<typeof AiPresetMeasured>
+
+/**
+ * A preset as an admin reads it: its name, its model, the settings it passes the seller, whether it has a prompt
+ * of its own in place of its AI function's, and what its calls measured.
+ */
+export const AiPresetView = z.object({
+  name: z.string(),
+  model: z.string(),
+  settings: z.record(z.string(), z.unknown()),
+  ownPrompt: z.boolean(),
+  measured: AiPresetMeasured,
+})
+export type AiPresetView = z.infer<typeof AiPresetView>
+
+/**
+ * The preset a mode uses for an AI function: whether a pick or the code chose it, the newest pick's preset when
+ * the running code has none by that name (the code's own choice then runs), and when the newest pick was made,
+ * null with none, which the next pick names as its `since`.
+ */
+export const AiModePreset = z.object({
+  mode: PickMode,
+  preset: z.string(),
+  source: z.enum(['pick', 'code']),
+  lacking: z.string().nullable(),
+  pickedAt: z.iso.datetime().nullable(),
+})
+export type AiModePreset = z.infer<typeof AiModePreset>
+
+/**
+ * An AI function as an admin reads it: its name and kind of call, its presets, the first its default, and the
+ * preset each mode uses, or the one it uses under no mode when no mode changes it.
+ */
+export const AiFunctionView = z.object({
+  function: z.string(),
+  kind: CallKind,
+  presets: z.array(AiPresetView),
+  modes: z.array(AiModePreset),
+})
+export type AiFunctionView = z.infer<typeof AiFunctionView>
+
+/** A pick to add: the preset `mode` uses for `function` from the next job on. */
+export const AiPickInput = z.object({
+  function: AiFunction,
+  mode: PickMode,
+  preset: z.string().min(1).max(100),
+  since: Since,
+})
+export type AiPickInput = z.infer<typeof AiPickInput>
+
+/** A pick in an AI function's history: its mode and preset, the email of the admin who made it, and when. */
+export const AiPickView = z.object({
+  id: z.number().int(),
+  mode: z.string(),
+  preset: z.string(),
+  setBy: z.string().nullable(),
+  setAt: z.iso.datetime(),
+})
+export type AiPickView = z.infer<typeof AiPickView>
+
+/**
+ * What AI cost on one UTC day for one AI feature, AI function, preset, model and seller: how many tries, how many
+ * delivered, their real cost in rupees, and what workspaces were charged for them in rupees of real cost (for the
+ * layer split, its fixed amount).
  */
 export const AiCostRow = z.object({
   day: UtcDay,
   feature: z.string(),
   function: z.string(),
+  preset: z.string(),
   model: z.string(),
   seller: z.string(),
   calls: z.number().int(),

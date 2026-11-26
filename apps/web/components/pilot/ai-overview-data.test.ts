@@ -10,6 +10,7 @@ const cost = (day: string, fn: string, seller: string, realCost: number, more: P
     day,
     feature: 'refine',
     function: fn,
+    preset: 'p',
     model: 'm',
     seller,
     calls: 1,

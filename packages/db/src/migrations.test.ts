@@ -317,7 +317,8 @@ describe('the migrations', () => {
         `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-kept', 'workspace-kept', 'user-kept', 'layering', '{}')`,
       )
     })
-    await applyMigrations(url, MIGRATIONS)
+    // Up to the finish lease alone: a later migration empties the jobs.
+    await applyMigrations(url, await firstMigrations(at + 1))
     const jobs = await withClient(
       url,
       async (client) => (await client.query('select id, finish_holder, finish_until from ai_jobs')).rows,

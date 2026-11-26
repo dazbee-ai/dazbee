@@ -1,4 +1,4 @@
-// What a right-click on the stage opens the stage menu for, and what it picks: a layer or a frame.
+// What a right-click on the stage opens the stage menu for, and what it picks: a section, a layer or a frame.
 import type { Editor, LayerAt, Point } from '@dazbee/editor'
 
 /**
@@ -7,16 +7,20 @@ import type { Editor, LayerAt, Point } from '@dazbee/editor'
  */
 export interface StageMenuOpen {
   at: Point
-  /** A layer, whose actions it shows; a frame, by its empty area or its label; or the canvas outside every frame. */
-  on: 'layer' | 'frame' | 'canvas'
+  /** A layer, whose actions it shows; a frame, by its empty area or its label; a section, by its title or outline line; or the canvas outside every frame. */
+  on: 'layer' | 'frame' | 'section' | 'canvas'
   frameId: string | null
+  /** The section whose actions it shows, on a section. */
+  sectionId?: string
   layers: LayerAt[]
   /** Whether it offers Show hidden layers, ticked while they show: the design has some hidden, or they show. */
   hidden: boolean
 }
 
 /**
- * Picks what a right-click at a client point acts on, and gives the stage menu it opens: on a layer,
+ * Picks what a right-click at a client point acts on, and gives the stage menu it opens: on a
+ * section's title (`titled`, the section whose title is there) or outline line, the section's
+ * actions, the section picked; on a layer,
  * the layer's actions, the layer selected; on a frame's empty area or on the name or size of its
  * label (`labelFrameId`, the frame whose label is there), the frame's actions, the frame picked;
  * outside every frame, Show hidden layers alone. Each offers Show hidden layers while the design has
@@ -26,9 +30,14 @@ export interface StageMenuOpen {
 export function rightClickAt(
   editor: Editor,
   client: Point,
-  { labelFrameId }: { labelFrameId: string | undefined },
+  { labelFrameId, titled }: { labelFrameId: string | undefined; titled?: string | undefined },
 ): StageMenuOpen | null {
   const hidden = editor.actionReady('toggleHiddenShown')
+  const sectionId = labelFrameId === undefined ? (titled ?? editor.sectionAt(client)) : null
+  if (sectionId) {
+    editor.pickSection(sectionId)
+    return { at: client, on: 'section', frameId: null, sectionId, layers: [], hidden }
+  }
   const ids = labelFrameId === undefined ? editor.selectAt(client) : []
   if (ids.length > 0) return { at: client, on: 'layer', frameId: null, layers: editor.layersAt(client), hidden }
   const frameId = labelFrameId ?? editor.spotAt(client)?.frameId ?? null

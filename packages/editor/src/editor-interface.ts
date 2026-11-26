@@ -59,6 +59,8 @@ export interface Editor extends EditorBase {
    * lists. None off every frame.
    */
   layersAt(client: Point): LayerAt[]
+  /** The section whose outline line is at `client` (client coordinates), the newer where two are: what a right-click there acts on; null for none. */
+  sectionAt(client: Point): string | null
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a point in client coordinates, or else in the middle of the frame in the middle of
@@ -166,6 +168,7 @@ export type Viewer = EditorBase &
     Editor,
     | 'selectAt'
     | 'layersAt'
+    | 'sectionAt'
     | 'spotAt'
     | 'copyLayers'
     | 'copyPng'

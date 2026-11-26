@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { Editor } from '@dazbee/editor'
 import { type TestEditor, testEditor } from '@dazbee/editor/test-editor'
 import { frameDesign, type Seeded } from '@dazbee/editor/test-matrix'
+import { labelPoint, linePoint, SECTIONS } from '@dazbee/editor/test-sections'
 import type { DesignInput } from '@dazbee/schema'
 
 import { rightClickAt } from './stage-menu-at.ts'
@@ -54,6 +55,30 @@ afterEach(() => {
 })
 
 describe('rightClickAt', () => {
+  it('picks the section whose title or outline line is right-clicked and opens its actions', async () => {
+    const { t, editor } = await open(SECTIONS)
+    t.core.select(['dot'])
+    const title = labelPoint(t.core, 'f1')
+    expect(rightClickAt(editor, title, { labelFrameId: undefined, titled: 'sale' })).toMatchObject({
+      on: 'section',
+      sectionId: 'sale',
+      frameId: null,
+    })
+    expect([t.core.pickedSection(), t.core.selection()]).toEqual(['sale', []])
+    const line = linePoint(t.core, 'solo')
+    expect(rightClickAt(editor, line, NO_LABEL)).toMatchObject({ on: 'section', sectionId: 'solo' })
+    expect(t.core.pickedSection()).toBe('solo')
+  })
+
+  it("leaves a frame's label to the frame, though a section's title is under it", async () => {
+    const { t, editor } = await open(SECTIONS)
+    const at = labelPoint(t.core, 'f1')
+    expect(rightClickAt(editor, at, { labelFrameId: 'f1', titled: 'sale' })).toMatchObject({
+      on: 'frame',
+      frameId: 'f1',
+    })
+  })
+
   it('picks the frame whose empty area is right-clicked and opens its actions, with Show hidden layers while the design has some', async () => {
     const { t, editor } = await open()
     const at = t.core.stagePoint(800, 800, 'sq')

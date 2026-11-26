@@ -564,8 +564,6 @@ export interface EditorBase {
   onSectionRename(listener: (sectionId: string) => void): () => boolean
   /** Where a drawn section's title is on the stage, in pixels from its top start corner; null for one not drawn. */
   titleRect(sectionId: string): Rect | null
-  /** The section whose outline line is at a stage point, the newer where two are, or null. */
-  sectionAt(stage: Point): string | null
   /**
    * Lights a frame of the shown page from outside the stage, outlined as a layer under the pointer
    * is and its label lit, as a list's row does while it is hovered or focused; null lets it go.
@@ -849,6 +847,8 @@ export interface EditorCore extends EditorBase {
    * every frame.
    */
   layersAt(stage: Point): LayerAt[]
+  /** The section whose outline line is at a stage point, the newer where two are: what a right-click there acts on; null for none. */
+  sectionAt(stage: Point): string | null
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a stage point, or else in the middle of the frame in the middle of the view. The

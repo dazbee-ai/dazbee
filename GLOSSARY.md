@@ -201,8 +201,10 @@ _Avoid_: Sync, propagate, apply to all
 How much a layer shows through (its opacity) and how it blends with what is under it, set in the edit panel's Style tab.
 _Avoid_: See-through
 
-**Picked frame**:
-A frame chosen as a whole, by clicking its name or its empty area: outlined, its label in the accent colour, and no layer selected meanwhile. To a tab that may edit it shows a layer's handles, which resize it on the stage with its layers following their constraints, or, with Ctrl (⌘ on a Mac) held, staying where they are on the page. Its edit panel holds Background and Arrange, which resizes it from its top left with its layers following their constraints and moves it with its layers, and the panel header's ⋯ holds the frame's actions: duplicate, add size, rename, export, copy as PNG, remove guides while it has guides, and delete. A right-click on the frame's empty area or its name picks it and opens the same actions at the pointer, with Show hidden layers after them (see Hidden layers shown). Esc, a layer selected, or a click on empty canvas lets it go.
+**Picked page item**:
+A frame, a section or a connector chosen as a whole, one at a time, with no layer selected meanwhile; picking one lets the others go. Esc, a layer selected, or a click on empty canvas lets it go, and F2 renames a picked frame or section in place.
+A picked frame is chosen by clicking its name or its empty area: outlined, its label in the accent colour. To a tab that may edit it shows a layer's handles, which resize it on the stage with its layers following their constraints, or, with Ctrl (⌘ on a Mac) held, staying where they are on the page. Its edit panel holds Background and Arrange, which resizes it from its top left with its layers following their constraints and moves it with its layers, and the panel header's ⋯ holds the frame's actions: duplicate, add size, rename, export, copy as PNG, remove guides while it has guides, and delete. A right-click on the frame's empty area or its name picks it and opens the same actions at the pointer, with Show hidden layers after them (see Hidden layers shown).
+A picked section is chosen by clicking its title or its outline line: its outline turns blue. A drag of its title moves its frames, and the arrows nudge it. Its edit panel and its right-click menu hold Rename, Ungroup, Duplicate and Delete section and frames; Delete ungroups it, keeping its frames, and Ctrl+D copies it beside itself.
 _Avoid_: selected frame, frame selection (no layer is selected)
 
 **Box**:
@@ -633,6 +635,10 @@ _Avoid_: Board, workspace
 **Section**:
 A titled part of a page that groups frames. Its outline fits around its frames; frames move in and out of it, and an empty section goes. A frame is in at most one section, a section is on one page, and sections never hold sections. Never exported.
 _Avoid_: Group (that is a layer group), board, folder, island
+
+**Section tool**:
+The tool, in the Frame button's menu or on Shift+S, that makes a section: a box dragged around frames groups those whose middle it holds, titled "Section 1" and the next free number, picked with its title ready to type. A box around no frame makes nothing.
+_Avoid_: Group tool, lasso
 
 **Connector**:
 A line with an arrowhead on a page, outside any frame, joining two different things (frames or sections) and following them as they move; it goes when either of them goes. It is drawn with the Arrow shape from one thing's edge to another; an arrow inside a frame is a layer. Never exported.

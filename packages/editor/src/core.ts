@@ -887,7 +887,6 @@ export function buildCore({
     renameSection: (sectionId: string) => pickSection(sectionId, true),
     onSectionRename: sectionRenames.on,
     titleRect,
-    sectionAt,
     lightFrame,
     lightLayer,
     showConstraints,
@@ -967,6 +966,7 @@ export function buildCore({
     ...viewOnly.guardAll({
       selectAt: pointer.selectAt,
       layersAt: pointer.layersAt,
+      sectionAt,
       placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
         place.placeImage(asset, where, options),
       readSvg: (text: string, name: string, where?: Point | Spot) => placeSvg.readSvg(text, name, where),

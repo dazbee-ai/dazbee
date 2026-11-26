@@ -3,7 +3,7 @@
 import { Fragment, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
 import { type Editor, SHAPE_MENU_TOOLS, type ShapeMenuTool, startEditor, TabStopped, type Tool } from '@dazbee/editor'
-import { labelTextAt } from '@dazbee/editor/dom-input'
+import { labelTextAt, sectionTitleAt } from '@dazbee/editor/dom-input'
 import { isVectorAsset, type Member } from '@dazbee/schema'
 
 import { ASSET_DRAG_TYPE, draggedAsset, VECTOR_DRAG_TYPE } from '@/components/editor/asset-drag.ts'
@@ -20,6 +20,7 @@ import { KitVariables } from '@/components/editor/flyouts/kit-variables.tsx'
 import { LayersPanel } from '@/components/editor/flyouts/layers-panel.tsx'
 import { FrameRename } from '@/components/editor/frame-rename.tsx'
 import { HiddenShownPill } from '@/components/editor/hidden-shown-pill.tsx'
+import type { FrameTool } from '@/components/editor/menus/frame-menu.tsx'
 import { HistoryButtons } from '@/components/editor/menus/history-buttons.tsx'
 import { ShareMenu } from '@/components/editor/menus/share-menu.tsx'
 import { SmallMenu } from '@/components/editor/menus/small-menu.tsx'
@@ -29,6 +30,7 @@ import { ZoomControl } from '@/components/editor/menus/zoom-control.tsx'
 import { noticePose, noticeWords } from '@/components/editor/notice-words.ts'
 import { OpenFailureState, OpeningBee } from '@/components/editor/opening-bee.tsx'
 import { PagesButton, PagesPanel } from '@/components/editor/pages-panel.tsx'
+import { SectionRename } from '@/components/editor/section-rename.tsx'
 import { EditorShell } from '@/components/editor/shell.tsx'
 import type { ChromeInsets } from '@/components/editor/stage-insets.ts'
 import { NoticeToast, UndoToast } from '@/components/editor/toasts.tsx'
@@ -188,11 +190,13 @@ export function EditorStage({
   // The dock follows the editor's tool: a key picks one, and drawing a shape goes back to select.
   const [tool, setEditorTool] = useState<Tool>('select')
   const [shape, setShape] = useState<ShapeMenuTool>('rect')
+  const [frameTool, setFrameTool] = useState<FrameTool>('frame')
   useEffect(() => {
     if (!editor) return
     const stop = editor.onTool((next) => {
       setEditorTool(next)
       if (isShapeMenuTool(next)) setShape(next)
+      if (next === 'frame' || next === 'section') setFrameTool(next)
     })
     return () => {
       stop()
@@ -357,6 +361,7 @@ export function EditorStage({
         history={editor && !viewOnly && !viewingVersion ? <HistoryButtons editor={editor} /> : undefined}
         tool={dockTool}
         shape={shape}
+        frameTool={frameTool}
         onToolChange={(tool, picked) => {
           setShape(picked)
           editor?.setTool(tool === 'shape' ? picked : tool)
@@ -469,7 +474,8 @@ export function EditorStage({
                 // layers or they show; otherwise neither it nor the browser's menu opens.
                 const client = { x: e.clientX, y: e.clientY }
                 const labelFrameId = overlay.current ? labelTextAt(overlay.current, client) : undefined
-                const menu = editor ? rightClickAt(editor, client, { labelFrameId }) : null
+                const titled = overlay.current ? sectionTitleAt(overlay.current, client) : undefined
+                const menu = editor ? rightClickAt(editor, client, { labelFrameId, titled }) : null
                 if (!menu) e.preventDefault()
                 setMenuAt(menu)
               }}
@@ -481,6 +487,7 @@ export function EditorStage({
             aria-hidden
           />
           {editor && <FrameRename editor={editor} />}
+          {editor && <SectionRename editor={editor} />}
         </div>
         {/* A design that can't be opened, or that the sync server stopped, says why over the stage, with its way on. */}
         <OpenFailureState status={status} workspaceId={workspaceId} brandId={brandId} />

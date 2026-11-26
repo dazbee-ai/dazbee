@@ -150,6 +150,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     ...shared,
     selectAt: (client: Point) => core.selectAt(surface.onStage(client)),
     layersAt: (client: Point) => core.layersAt(surface.onStage(client)),
+    sectionAt: (client: Point) => core.sectionAt(surface.onStage(client)),
     spotAt: (client: Point) => core.spotAt(surface.onStage(client)),
     copyLayers: clipboardEvents.copyLayers,
     copyPng: clipboardEvents.copyPng,

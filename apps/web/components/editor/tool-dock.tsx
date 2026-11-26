@@ -1,7 +1,7 @@
 'use client'
 
-// The tool dock: one button for each tool, the shape tool with its menu of shapes, the tool in use
-// lit, and on a tablet or desktop after a divider the flyouts' buttons. On a phone it is the tool
+// The tool dock: one button for each tool, the Frame tool with its menu of Frame and Section, the
+// shape tool with its menu of shapes, the tool in use lit, and on a tablet or desktop after a divider the flyouts' buttons. On a phone it is the tool
 // tray: the tab bar's tool button, showing the tool in use, opens it above the bar, and picking a
 // tool closes it.
 import { type ReactNode, useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { type ShapeMenuTool, type ShortcutAction, VIEW_TOOLS } from '@dazbee/editor'
 import { stageHasKeys } from '@dazbee/editor/dom-input'
 
+import { type FrameTool, frameToolIcon, FrameTools } from '@/components/editor/menus/frame-menu.tsx'
 import { shapeIcon, ShapeTools } from '@/components/editor/menus/shape-menu.tsx'
 import {
   CaretUpIcon,
@@ -29,7 +30,7 @@ import { format, type Messages } from '@/lib/i18n/index.ts'
 
 import { BAR_DIVIDER, dockTool, TAB_BAR_CHIP } from './styles.ts'
 
-export type Tool = 'select' | 'frame' | 'shape' | 'text' | 'pen' | 'hand'
+export type Tool = 'select' | 'frame' | 'section' | 'shape' | 'text' | 'pen' | 'hand'
 
 /** The tool tray's state, from `useToolTray`. */
 export type ToolTray = ReturnType<typeof useToolTray>
@@ -46,6 +47,7 @@ const TOOLS: { id: Tool; icon: Icon }[] = [
 const TOOL_ACTIONS = {
   select: 'toolSelect',
   frame: 'toolFrame',
+  section: 'toolSection',
   text: 'toolText',
   pen: 'toolPen',
   hand: 'toolHand',
@@ -90,6 +92,7 @@ export function ToolDock({
   tray,
   tool,
   shape,
+  frameTool = 'frame',
   sheet,
   viewOnly = false,
   flyoutButtons,
@@ -98,6 +101,8 @@ export function ToolDock({
   tray: ToolTray
   tool: Tool
   shape: ShapeMenuTool
+  /** The tool the Frame button picks: the last of Frame and Section picked. */
+  frameTool?: FrameTool
   sheet: boolean
   /** The tab may only view: the dock holds Select and Hand alone. */
   viewOnly?: boolean
@@ -131,6 +136,16 @@ export function ToolDock({
       )}
     >
       {viewTools(viewOnly).map(({ id, icon: ToolIcon }) => {
+        if (id === 'frame') {
+          return (
+            <FrameTools
+              key={id}
+              active={tool === 'frame' || tool === 'section'}
+              tool={frameTool}
+              onPick={(picked) => pick(picked, shape)}
+            />
+          )
+        }
         if (id === 'shape') {
           return (
             <ShapeTools
@@ -152,8 +167,6 @@ export function ToolDock({
               aria-label={label}
               aria-pressed={on}
               data-tool={id}
-              // The Frame tool opens Add a frame, which gives the focus back here as it closes.
-              data-opens={id === 'frame' ? 'addFrame' : undefined}
               onClick={() => {
                 pick(id, shape)
               }}
@@ -177,7 +190,12 @@ export function ToolDock({
 /** The phone's tool button in the tab bar: the icon of the tool in use and a caret, opening the tool tray. */
 export function ToolButton({ tray, tool, shape }: { tray: ToolTray; tool: Tool; shape: ShapeMenuTool }) {
   const t = useMessages()
-  const ToolIcon = tool === 'shape' ? shapeIcon(shape) : (TOOLS.find((one) => one.id === tool)?.icon ?? CursorIcon)
+  const ToolIcon =
+    tool === 'shape'
+      ? shapeIcon(shape)
+      : tool === 'section'
+        ? frameToolIcon('section')
+        : (TOOLS.find((one) => one.id === tool)?.icon ?? CursorIcon)
   return (
     <button
       ref={tray.button}

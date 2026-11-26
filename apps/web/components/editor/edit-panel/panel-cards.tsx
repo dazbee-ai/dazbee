@@ -1,7 +1,7 @@
 'use client'
 
-// Which card the edit panel shows, and the cards for the selection: the picked frame's, the selected
-// layers', and the font chooser in the panel's place.
+// Which card the edit panel shows, and the cards for the selection: the picked frame's, the picked
+// section's (`section/section-panel.tsx`), the selected layers', and the font chooser in the panel's place.
 import type { ReactNode } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -14,6 +14,7 @@ import { FrameMore } from '@/components/editor/edit-panel/frame/frame-more.tsx'
 import { FramePositionSection } from '@/components/editor/edit-panel/frame/position.tsx'
 import type { FrameSectionProps } from '@/components/editor/edit-panel/frame/types.ts'
 import { EditSection, FitSection, PhotoSection } from '@/components/editor/edit-panel/image-tab/image-tab.tsx'
+import { SectionPanel } from '@/components/editor/edit-panel/section/section-panel.tsx'
 import { PanelHeader } from '@/components/editor/edit-panel/tabs/panel-header.tsx'
 import { STYLE_SECTION_PARTS } from '@/components/editor/edit-panel/tabs/style-sections.tsx'
 import {
@@ -32,7 +33,7 @@ import {
   useEditState,
   useSelectionFollower,
 } from '@/components/editor/edit-store.ts'
-import { usePickedFrame, useSelection } from '@/components/editor/editor-hooks.ts'
+import { usePickedFrame, usePickedSection, useSelection } from '@/components/editor/editor-hooks.ts'
 import { FontChooser } from '@/components/editor/fonts/font-chooser.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly, ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
@@ -81,13 +82,15 @@ export function EditPanel({ editor, workspaceId, brandId }: { editor: Editor; wo
   const viewOnly = useViewOnly()
   const ids = useSelection(editor)
   const picked = usePickedFrame(editor)
-  useSelectionFollower(ids, picked)
+  const section = usePickedSection(editor)
+  useSelectionFollower(ids, picked ?? (section === null ? null : `section ${section}`))
   usePressWatch()
   useSheetClear(editor, ids, useEditSheet())
   const selected = useTarget(editor, ids)
   const shows = panelFor(selected !== null, picked)
   if (shows === 'frame' && picked)
     return <FramePanel editor={editor} frameId={picked} workspaceId={workspaceId} brandId={brandId} />
+  if (!selected && section) return <SectionPanel editor={editor} sectionId={section} />
   if (!selected) return null
   const { target, design } = selected
   if (open === FONT_CHOOSER)

@@ -3,6 +3,7 @@
 // The right-click menu on the stage: the layer actions for the layer the right-click picked, under
 // Select layer ▸, the list of the layers under the pointer when two or more lie there; the frame's
 // actions for the frame it picked by its empty area or its label, the rows of the picked frame's ⋯;
+// the section's actions for the section it picked by its title or outline line (`section-actions.tsx`);
 // or, outside every frame, Show hidden layers alone. Each ends with Show hidden layers after a line
 // while the design has hidden layers or they show, ticked while they show: it turns the view on
 // or off, never the layers. It opens at the right-click, or on a phone as the sheet at the bottom
@@ -17,6 +18,7 @@ import {
   useEditorDesign,
   useHiddenShown,
   usePickedFrame,
+  usePickedSection,
   useSelection,
   useShownPage,
 } from '@/components/editor/editor-hooks.ts'
@@ -32,6 +34,7 @@ import { dirOf } from '@/lib/i18n/index.ts'
 
 import { FrameActions } from './frame-actions.tsx'
 import { LayerActions } from './layer-actions.tsx'
+import { SectionActions } from './section-actions.tsx'
 import type { StageMenuOpen } from './stage-menu-at.ts'
 
 /** The most layers Select layer lists, front-most first. */
@@ -40,7 +43,12 @@ export const LISTED_LAYERS = 40
 const INDENT = 12
 const DEEPEST = 8
 /** How wide each kind of menu is. */
-const MENU_WIDTH: Record<StageMenuOpen['on'], string> = { frame: 'min-w-56', canvas: 'min-w-52', layer: 'w-80' }
+const MENU_WIDTH: Record<StageMenuOpen['on'], string> = {
+  frame: 'min-w-56',
+  section: 'min-w-56',
+  canvas: 'min-w-52',
+  layer: 'w-80',
+}
 
 /**
  * How far from the window's start edge the menu keeps: past the open flyout when the room past
@@ -132,7 +140,9 @@ export function StageMenu({
       onOpenChange={(to) => {
         if (!to) onClose()
       }}
-      label={{ frame: t.frames.more, canvas: t.bar.canvasMenu, layer: t.bar.actions }[kind]}
+      label={
+        { frame: t.frames.more, section: t.sections.actions, canvas: t.bar.canvasMenu, layer: t.bar.actions }[kind]
+      }
       testId="stage-menu"
       sheet
       // Kept between the top islands and the bottom controls, scrolling inside when it has less room, and
@@ -155,9 +165,11 @@ export function StageMenu({
 
 /** The rows of the stage's open right-click menu, closing it once the selection or the picked frame changes. */
 function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageMenuOpen; onClose: () => void }) {
-  const { on, frameId, hidden, layers } = menu
+  const { on, frameId, sectionId, hidden, layers } = menu
   const ids = useSelection(editor)
-  const picked = usePickedFrame(editor)
+  const pickedFrame = usePickedFrame(editor)
+  const pickedSection = usePickedSection(editor)
+  const picked = pickedFrame ?? pickedSection
   const [openedFor] = useState(ids)
   const [pickedFor] = useState(picked)
   useEffect(() => {
@@ -169,6 +181,7 @@ function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageM
     return () => setRightClick(false)
   }, [])
   if (on === 'canvas') return <ShowHidden editor={editor} onClose={onClose} />
+  if (on === 'section' && sectionId) return <SectionActions editor={editor} sectionId={sectionId} />
   return (
     <>
       {on === 'frame' && frameId ? (

@@ -745,6 +745,10 @@ _Avoid_: Rate card, pricing
 Every AI call made, one row each: its AI job, workspace and person, its AI step, model and seller, what it used and its real cost. It keeps no prompt and no picture.
 _Avoid_: Usage log, audit log
 
+**AI recording**:
+A folder of seller answers a worker in development wrote down while making real AI calls, which a worker in development can then replay: answer each AI call from it in place of any seller, at no cost, with the call log saying so. Never used in production.
+_Avoid_: Mock, fixture, cassette
+
 **Allowance**:
 A workspace's AI use, counted in what it really costs us in rupees and shown to its people only as a usage bar, never as credits or a price per step. It belongs to the whole workspace and is the sum of its grants that haven't run out or expired.
 _Avoid_: Credits, balance, quota, budget

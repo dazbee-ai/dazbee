@@ -1,7 +1,9 @@
 // ZenMux's adapter: each model on the protocol ZenMux's docs give it. GPT text through the OpenAI protocol's
-// chat completions, GPT Image and Muse through its OpenAI Images API, and Seedream through the Vertex AI
-// protocol's predict call. Keeps `X-ZenMux-RequestId`. Written from ZenMux's docs and model list as read on
-// 25 Nov 2026: Seedream takes a resolution tier and an aspect ratio, not pixel sizes.
+// chat completions, with the reasoning effort the AI step's options ask for and never a speed tier, which ZenMux
+// takes none of, GPT Image and Muse through its OpenAI Images API, and Seedream through the Vertex AI protocol's
+// predict call. Keeps `X-ZenMux-RequestId`. Written from ZenMux's docs and model list as read on 25 Nov 2026:
+// Seedream takes a resolution tier and an aspect ratio, not pixel sizes; and its chat completion reference as
+// read on 26 Nov 2026, which takes the effort as `reasoning_effort`.
 import type OpenAI from 'openai'
 
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
@@ -9,6 +11,7 @@ import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 import type { CostReport } from '../daily-check.ts'
 import {
   answerOrSellerError,
+  effortOf,
   gptImageUsage,
   makeOrEdit,
   pictureAnswer,
@@ -79,6 +82,7 @@ async function callOpenaiProtocol(client: OpenAI, request: SellerRequest): Promi
 }
 
 async function chatText(client: OpenAI, request: SellerRequest, input: TextCall): Promise<SellerAnswer> {
+  const effort = effortOf(request.options)
   const pictures = await Promise.all(
     input.pictures.map(async (key) => {
       const bytes = await request.readPicture(key)
@@ -106,6 +110,7 @@ async function chatText(client: OpenAI, request: SellerRequest, input: TextCall)
             }
           : {}),
         ...(input.maxOutputTokens ? { max_completion_tokens: input.maxOutputTokens } : {}),
+        ...(effort ? { reasoning_effort: effort } : {}),
       },
       { signal: request.signal },
     )

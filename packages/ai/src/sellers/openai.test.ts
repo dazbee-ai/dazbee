@@ -117,6 +117,45 @@ describe('openaiSeller', () => {
     }
   })
 
+  it('sends the step’s reasoning effort and speed tier, and counts an answer at the tier it says it ran on', async () => {
+    const recorded = JSON.parse(fixture('openai-responses-text.json')) as Record<string, unknown>
+    const ranOn = (tier?: string) => answering(200, JSON.stringify({ ...recorded, service_tier: tier }))
+    const standard = { 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 }
+    const fast = { 'fast-input-token': 69, 'fast-cached-input-token': 0, 'fast-output-token': 109 }
+
+    const onFast = ranOn('fast')
+    const answer = await onFast.seller.call(requestOf(TEXT, { effort: 'low', tier: 'fast' }))
+    expect(JSON.parse(String(onFast.seen[0]?.body))).toMatchObject({
+      reasoning: { effort: 'low' },
+      service_tier: 'fast',
+    })
+    expect(answer.usage).toEqual(fast)
+    expectDeclared('openai', 'text', 'gpt-6-luna', answer.usage, 'fast')
+    // Twice the standard rates: 69 tokens at US$0.20 and 109 at US$1 a million, with 18% GST at ₹96.31.
+    expect(await priceUsage(db, 'openai', 'gpt-6-luna', answer.usage)).toEqual({
+      currency: 'USD',
+      sellerCost: 123n,
+      realCost: 13_956n,
+    })
+
+    // A fast call moved to standard speed says so, and is counted, and priced, at the standard tier.
+    const moved = await ranOn('default').seller.call(requestOf(TEXT, { effort: 'low', tier: 'fast' }))
+    expect(moved.usage).toEqual(standard)
+    expect(await priceUsage(db, 'openai', 'gpt-6-luna', moved.usage)).toMatchObject({ realCost: 6_978n })
+    // Fast's former name counts as fast, and an answer that names no tier as the tier asked for.
+    expect((await ranOn('priority').seller.call(requestOf(TEXT, { tier: 'fast' }))).usage).toEqual(fast)
+    expect((await ranOn(undefined).seller.call(requestOf(TEXT, { tier: 'fast' }))).usage).toEqual(fast)
+
+    // A step that asks for no tier asks for the standard one, which a project set to Fast would not use unasked.
+    const plain = ranOn('default')
+    expect((await plain.seller.call(requestOf(TEXT, { effort: 'none' }))).usage).toEqual(standard)
+    const sent = JSON.parse(String(plain.seen[0]?.body))
+    expect(sent).toMatchObject({ reasoning: { effort: 'none' }, service_tier: 'default' })
+    const bare = ranOn('default')
+    await bare.seller.call(requestOf(TEXT))
+    expect(JSON.parse(String(bare.seen[0]?.body)).reasoning).toBeUndefined()
+  })
+
   it('reads a picture answer: its picture at its own size, and its text and picture tokens, at its real cost', async () => {
     const { seller, seen } = answering(200, fixture('openai-images.json'))
     const answer = await seller.call(requestOf(PICTURE))

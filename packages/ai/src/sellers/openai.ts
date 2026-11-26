@@ -1,13 +1,16 @@
-// OpenAI's adapter: text through the Responses API, with a JSON schema when the call gives one, and pictures
-// through the Images API (generate and edit) as base64 PNG, with the usage OpenAI reports by kind of token
-// and its request id. Written from OpenAI's API reference and price list as read on 25 Nov 2026. Also the
-// pieces Meta's adapter shares, since Meta's API is OpenAI-compatible.
+// OpenAI's adapter: text through the Responses API, with a JSON schema when the call gives one and the reasoning
+// effort and speed tier its AI step's options ask for, and pictures through the Images API (generate and edit)
+// as base64 PNG, with the usage OpenAI reports by kind of token, at the tier the call ran on, and its request id.
+// Written from OpenAI's API reference and price list as read on 25 Nov 2026, and its reasoning and Fast mode
+// guides as read on 26 Nov 2026. Also the pieces Meta's and OpenRouter's adapters share, since their APIs are
+// OpenAI-compatible.
 import OpenAI, { APIError, toFile } from 'openai'
 
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 
 import type { CostReport } from '../daily-check.ts'
 import { type SellerAdapter, type SellerAnswer, SellerCutOff, SellerError, type SellerRequest } from './seller.ts'
+import { atTier, type Tier, tierOf } from './tiers.ts'
 
 /** What an OpenAI-compatible picture answer holds, as both OpenAI and Meta give it. */
 export interface PictureAnswer {
@@ -34,6 +37,12 @@ const PICTURES_PER_MINUTE = 20
 
 /** The quality a picture call asks for unless its AI step's options say otherwise. */
 const QUALITY = 'medium'
+
+/** The `service_tier` OpenAI takes for each tier: `default` is standard, which a project set to Fast would not use unasked. */
+const SERVICE_TIERS = { standard: 'default', fast: 'fast' } as const satisfies Record<Tier, string>
+
+/** The `service_tier` values an answer that ran on the fast tier gives: `priority` is its former name. */
+const FAST_ANSWERS = new Set(['fast', 'priority'])
 
 /** OpenAI's adapter on `apiKey`. */
 export function openaiSeller(apiKey: string, options: SellerClientOptions = {}): SellerAdapter {
@@ -111,17 +120,25 @@ export function pictureAnswer(data: PictureAnswer, requestId: string | null, usa
   return answer
 }
 
+/** The reasoning effort an AI step's options ask for, sent as the seller takes it; none when they set none. */
+export function effortOf(options: Record<string, unknown>): OpenAI.ReasoningEffort | undefined {
+  return typeof options.effort === 'string' ? (options.effort as OpenAI.ReasoningEffort) : undefined
+}
+
 /**
- * A text call through the Responses API, with a JSON schema when the call gives one: its text (and JSON), its
- * usage by kind of token, the request id from `requestIdHeader`, and the seller's own cost where its usage
- * holds one (OpenRouter's `usage.cost`).
+ * A text call through the Responses API, with a JSON schema when the call gives one and the reasoning effort its
+ * AI step's options ask for, and, with `tiers`, the speed tier they ask for: its text (and JSON), its usage by
+ * kind of token at the tier the answer says it ran on, the request id from `requestIdHeader`, and the seller's
+ * own cost where its usage holds one (OpenRouter's `usage.cost`).
  */
 export async function responsesText(
   client: OpenAI,
   request: SellerRequest,
   input: TextCall,
-  requestIdHeader = 'x-request-id',
+  { requestIdHeader = 'x-request-id', tiers = false }: { requestIdHeader?: string; tiers?: boolean } = {},
 ): Promise<SellerAnswer> {
+  const effort = effortOf(request.options)
+  const asked = tierOf(request.options)
   const pictures = await Promise.all(
     input.pictures.map(async (key) => ({
       type: 'input_image' as const,
@@ -139,6 +156,8 @@ export async function responsesText(
           ? { text: { format: { type: 'json_schema', name: 'answer', schema: input.schema, strict: true } } }
           : {}),
         ...(input.maxOutputTokens ? { max_output_tokens: input.maxOutputTokens } : {}),
+        ...(effort ? { reasoning: { effort } } : {}),
+        ...(tiers ? { service_tier: SERVICE_TIERS[asked] } : {}),
         store: false,
       },
       { signal: request.signal },
@@ -146,11 +165,12 @@ export async function responsesText(
     .withResponse()
   const cached = data.usage?.input_tokens_details.cached_tokens ?? 0
   // Reasoning tokens are billed as output tokens, and are counted in them.
-  const usage: Usage = {
+  const counted: Usage = {
     'input-token': (data.usage?.input_tokens ?? 0) - cached,
     'cached-input-token': cached,
     'output-token': data.usage?.output_tokens ?? 0,
   }
+  const usage = tiers ? atTier(counted, ranOn(data.service_tier, asked)) : counted
   const requestId = response.headers.get(requestIdHeader) ?? data.id
   const reported = (data.usage as { cost?: unknown } | undefined)?.cost
   if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
@@ -195,7 +215,7 @@ export async function makeOrEdit(client: OpenAI, request: SellerRequest, params:
 
 async function callOpenai(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
   const { input } = request
-  if (input.kind === 'text') return responsesText(client, request, input)
+  if (input.kind === 'text') return responsesText(client, request, input, { tiers: true })
   if (input.kind === 'layer-split') throw new SellerError('OpenAI makes no layer split', { status: 400 })
   const common = {
     model: request.model,
@@ -211,6 +231,16 @@ async function callOpenai(client: OpenAI, request: SellerRequest): Promise<Selle
 
 function roundTo16(value: number): number {
   return Math.max(16, Math.round(value / 16) * 16)
+}
+
+/**
+ * The tier an answer ran on, from its `service_tier`: fast when it says fast (or priority), the standard tier when
+ * it names any other, as a fast call moved to standard speed says `default` and is billed at standard rates; the
+ * tier asked for when it names none.
+ */
+function ranOn(serviceTier: string | null | undefined, asked: Tier): Tier {
+  if (!serviceTier) return asked
+  return FAST_ANSWERS.has(serviceTier) ? 'fast' : 'standard'
 }
 
 /**

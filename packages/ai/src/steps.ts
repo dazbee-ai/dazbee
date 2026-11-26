@@ -10,6 +10,7 @@ import { type AiStep, type CallInput, type CallKind, referenceCount, type Usage,
 
 import { currencyRate, priceRows, pricesOf } from './price-list.ts'
 import { type SellerAdapter, sellerAdapter } from './sellers/seller.ts'
+import { atTier, FAST_UNITS, type Tier, tierOf } from './sellers/tiers.ts'
 import { declaredUnits } from './sellers/units.ts'
 import { type AiSettings, aiSettingsOf } from './settings.ts'
 
@@ -62,7 +63,13 @@ export const PICTURE_INPUT_TOKENS = 4354
 const PICTURE_UNITS: readonly UsageUnit[] = ['picture', 'image-output-token']
 
 /** The units a text model is priced in; a model priced only in these is a text model. */
-const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', 'output-token', 'image-input-token']
+const TEXT_UNITS: readonly UsageUnit[] = [
+  'input-token',
+  'cached-input-token',
+  'output-token',
+  ...Object.values(FAST_UNITS),
+  'image-input-token',
+]
 
 /** How long a round plan's try may take: the planners reason before they write four long prompts, past 60 s. */
 const PLAN_TIMEOUT_MS = 240_000
@@ -166,10 +173,11 @@ export function modelKinds(units: Iterable<UsageUnit>): CallKind[] {
 export async function routeStep(db: Db | Tx, step: string, only?: string[]): Promise<StepRoute> {
   const { choice, order } = await modelOf(db, step, only)
   const kind = stepDef(step).kind
+  const tier = tierOf(choice.options)
   const sellers: StepSeller[] = []
   for (const { seller, sellerModel } of order) {
     const adapter = sellerAdapter(seller)
-    const check = adapter ? await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, kind) : null
+    const check = adapter ? await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, kind, tier) : null
     const why = !adapter ? 'no adapter' : check && !check.priced ? unpricedReason(check.missing) : null
     if (why || !adapter) {
       console.warn(JSON.stringify({ msg: 'AI seller skipped', step, model: choice.model, seller, why }))
@@ -182,8 +190,9 @@ export async function routeStep(db: Db | Tx, step: string, only?: string[]): Pro
 
 /**
  * What `calls` should hold, in millionths of a rupee of real cost: each call's expected usage priced at the
- * dearest of its model's sellers that are priced for it (each counting the units it reports), or its fixed
- * amount, times 1.25. A text call's input is counted from the call itself. A call's own `sellers`, or else
+ * dearest of its model's sellers that are priced for it (each counting the units it reports), at the dearer of
+ * the standard and the fast tier where its step asks for the fast tier and the seller bills it apart, or its
+ * fixed amount, times 1.25. A text call's input is counted from the call itself. A call's own `sellers`, or else
  * `only`, stands in for the model's sellers. It reads only the price list and the declared units, so a server
  * that saves jobs needs no seller's key. Fails for a call no seller is priced for.
  */
@@ -202,14 +211,22 @@ export async function holdFor(
     }
     const { choice, order } = await modelOf(db, step, sellers ?? only)
     const expected = expectedUsage(def, input)
+    const tier = tierOf(choice.options)
     let dearest: bigint | null = null
     for (const { seller, sellerModel } of order) {
-      const check = await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, def.kind)
+      const check = await priceCheck(db, seller, choice.model, sellerModel ?? choice.model, def.kind, tier)
       if (!check.priced) continue
-      const usage = Object.fromEntries(Object.entries(expected).filter(([unit]) => check.units.has(unit as UsageUnit)))
       const rate = await currencyRate(db, check.rows[0]?.currency ?? '')
-      const cost = priceRows(check.rows, rate, usage, `${choice.model} at ${seller}`).realCost
-      if (dearest === null || cost > dearest) dearest = cost
+      // A fast call may run on either tier, so it is priced at both where the seller bills the fast one apart.
+      const tiers: Tier[] =
+        tier === 'fast' && check.units.has(FAST_UNITS['input-token']) ? ['standard', 'fast'] : ['standard']
+      for (const at of tiers) {
+        const usage = Object.fromEntries(
+          Object.entries(atTier(expected, at)).filter(([unit]) => check.units.has(unit as UsageUnit)),
+        )
+        const cost = priceRows(check.rows, rate, usage, `${choice.model} at ${seller}`).realCost
+        if (dearest === null || cost > dearest) dearest = cost
+      }
     }
     if (dearest === null) throw new Error(`no seller is priced for the AI step ${step}`)
     total += dearest
@@ -218,14 +235,15 @@ export async function holdFor(
 }
 
 /**
- * How `model`'s sellers are priced for `kind` calls: how many are, and those that price it in some units but
- * not in every unit they report, each with the units missing. A seller with no price for the model at all
- * doesn't sell it here, and no call goes to it.
+ * How `model`'s sellers are priced for `kind` calls that ask for `tier`: how many are, and those that price it in
+ * some units but not in every unit they report, each with the units missing. A seller with no price for the
+ * model at all doesn't sell it here, and no call goes to it.
  */
 export async function sellerPricing(
   db: Db | Tx,
   model: string,
   kind: CallKind,
+  tier: Tier = 'standard',
 ): Promise<{ priced: number; unpriced: { seller: string; units: UsageUnit[] }[] }> {
   const order = await db
     .select({ seller: modelSellers.seller, sellerModel: modelSellers.sellerModel })
@@ -235,7 +253,7 @@ export async function sellerPricing(
   let priced = 0
   const unpriced: { seller: string; units: UsageUnit[] }[] = []
   for (const { seller, sellerModel } of order) {
-    const check = await priceCheck(db, seller, model, sellerModel ?? model, kind)
+    const check = await priceCheck(db, seller, model, sellerModel ?? model, kind, tier)
     if (check.priced) priced++
     else if (check.rows.length > 0) unpriced.push({ seller, units: check.missing })
   }
@@ -290,14 +308,14 @@ async function modelOf(db: Db | Tx, step: string, only?: string[]) {
 }
 
 /**
- * Whether `seller` is priced for `kind` calls of `model`: it has a price for every unit it reports for them
- * (a seller with no declared units, only tests', for any unit at all); its price rows, the units a call is
- * priced in there, and those with no price.
+ * Whether `seller` is priced for `kind` calls of `model` that ask for `tier`: it has a price for every unit it
+ * reports for them (a seller with no declared units, only tests', for any unit at all); its price rows, the
+ * units a call is priced in there, and those with no price.
  */
-async function priceCheck(db: Db | Tx, seller: string, model: string, sellerModel: string, kind: CallKind) {
+async function priceCheck(db: Db | Tx, seller: string, model: string, sellerModel: string, kind: CallKind, tier: Tier) {
   const rows = await pricesOf(db, seller, model)
   const has = new Set(rows.map((row) => row.unit))
-  const declared = declaredUnits(seller, kind, sellerModel)
+  const declared = declaredUnits(seller, kind, sellerModel, tier)
   const units = new Set(declared ?? has)
   const missing = declared ? declared.filter((unit) => !has.has(unit)) : []
   return { rows, units, missing, priced: rows.length > 0 && units.size > 0 && missing.length === 0 }

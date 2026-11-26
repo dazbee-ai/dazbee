@@ -60,6 +60,23 @@ describe('measuredSizes', () => {
       output: { average: 120, p95: 192 },
     })
   })
+
+  it('counts a call that ran on the fast tier by its fast-tier tokens', async () => {
+    const fastModel = `${model}-fast`
+    STEPS[step] = { kind: 'text', expected: () => ({}), sizes: { input: 100, output: 50, ceiling: 200 } }
+    await db.insert(aiCalls).values([
+      {
+        ...callOf({ 'fast-input-token': 80, 'fast-cached-input-token': 20, 'fast-output-token': 40 }),
+        model: fastModel,
+      },
+      { ...callOf({ 'input-token': 100, 'cached-input-token': 0, 'output-token': 60 }), model: fastModel },
+    ])
+    expect((await measuredSizes(db)).get(`${step}/${fastModel}`)).toMatchObject({
+      calls: 2,
+      input: { average: 100 },
+      output: { average: 50 },
+    })
+  })
 })
 
 describe('the model routes', () => {

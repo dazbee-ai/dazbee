@@ -7,6 +7,7 @@ import { expect } from 'vitest'
 
 import { type CallInput, type CallKind, referenceCount, type Usage } from '@dazbee/schema'
 
+import type { Tier } from './tiers.ts'
 import { declaredUnits } from './units.ts'
 
 /** One answer: a status and a body, and the headers it adds. */
@@ -60,8 +61,14 @@ export function referencesOf(input: CallInput, bytes: () => Uint8Array | Promise
     input.kind === 'picture' ? Promise.all(Array.from({ length: referenceCount(input) }, () => bytes())) : []
 }
 
-/** Checks that `usage` names only the units `seller` declares for `kind` calls of `sellerModel`. */
-export function expectDeclared(seller: string, kind: CallKind, sellerModel: string, usage: Usage): void {
-  const declared = declaredUnits(seller, kind, sellerModel) ?? []
+/** Checks that `usage` names only the units `seller` declares for `kind` calls of `sellerModel` that ask for `tier`. */
+export function expectDeclared(
+  seller: string,
+  kind: CallKind,
+  sellerModel: string,
+  usage: Usage,
+  tier: Tier = 'standard',
+): void {
+  const declared = declaredUnits(seller, kind, sellerModel, tier) ?? []
   expect(Object.keys(usage).filter((unit) => !declared.includes(unit as never))).toEqual([])
 }

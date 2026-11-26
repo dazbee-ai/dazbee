@@ -5,7 +5,7 @@
 import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
-import { CUT_OFF, modelKinds, sellerPricing, stepDef, STEPS } from '@dazbee/ai'
+import { CUT_OFF, FAST_UNITS, modelKinds, sellerPricing, stepDef, STEPS, tierOf } from '@dazbee/ai'
 import { aiCalls, aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
@@ -68,7 +68,7 @@ export function aiModelRoutes(db: Db): Hono<Env> {
     if (!kind) return c.json(error('No such kind of AI call'), 404)
     const input = await body(c.req.raw, AiStepModelInput)
     if (input instanceof Response) return input
-    const refused = await refusedModel(c, db, input.model, kind)
+    const refused = await refusedModel(c, db, input, kind)
     if (refused) return refused
     return changedOr(c, () =>
       db.transaction(async (tx) => {
@@ -123,7 +123,7 @@ export function aiModelRoutes(db: Db): Hono<Env> {
     if (!step) return c.json(error('No such AI step'), 404)
     const input = await body(c.req.raw, AiStepModelInput)
     if (input instanceof Response) return input
-    const refused = await refusedModel(c, db, input.model, stepDef(step).kind, step)
+    const refused = await refusedModel(c, db, input, stepDef(step).kind, step)
     if (refused) return refused
     return changedOr(c, () =>
       db.transaction(async (tx) => {
@@ -170,8 +170,11 @@ export function aiModelRoutes(db: Db): Hono<Env> {
  * ceiling, by `<step>/<model>`.
  */
 export async function measuredSizes(db: Db): Promise<Map<string, MeasuredSizes>> {
-  const input = sql`coalesce((${aiCalls.usage}->>'input-token')::numeric, 0) + coalesce((${aiCalls.usage}->>'cached-input-token')::numeric, 0)`
-  const output = sql`coalesce((${aiCalls.usage}->>'output-token')::numeric, 0)`
+  // A call is counted in the standard or the fast token units, by the tier it ran on.
+  const tokens = (unit: keyof typeof FAST_UNITS) =>
+    sql`coalesce((${aiCalls.usage}->>${sql.raw(`'${unit}'`)})::numeric, 0) + coalesce((${aiCalls.usage}->>${sql.raw(`'${FAST_UNITS[unit]}'`)})::numeric, 0)`
+  const input = sql`${tokens('input-token')} + ${tokens('cached-input-token')}`
+  const output = tokens('output-token')
   const rows = await db
     .select({
       step: aiCalls.step,
@@ -213,21 +216,21 @@ function modelsOf(units: Map<string, UsageUnit[]>, kind: CallKind): string[] {
 }
 
 /**
- * A 400 when `model` can't take `kind` calls: no seller has a price for it, it is priced as another kind, or
- * a seller in its order lacks a price for a unit it reports; null when it can. `step` names the AI step it
- * is for, if any.
+ * A 400 when `model` can't take `kind` calls with `options`: no seller has a price for it, it is priced as
+ * another kind, or a seller in its order lacks a price for a unit it reports at the speed tier the options ask
+ * for; null when it can. `step` names the AI step it is for, if any.
  */
 async function refusedModel(
   c: Context<Env>,
   db: Db,
-  model: string,
+  { model, options }: { model: string; options: Record<string, unknown> },
   kind: CallKind,
   step?: string,
 ): Promise<Response | null> {
   const units = (await pricedUnits(db)).get(model)
   if (!units) return c.json(error(`No seller of ${model} has a price for it`), 400)
   if (modelKinds(units).includes(kind)) {
-    const { priced, unpriced } = await sellerPricing(db, model, kind)
+    const { priced, unpriced } = await sellerPricing(db, model, kind, tierOf(options))
     if (priced > 0 && unpriced.length === 0) return null
     const named = unpriced.map((u) => `${u.seller} has no price for ${u.units.join(', ')}`)
     const why = named.length > 0 ? named.join('; ') : 'no seller in its order has a price for every unit it reports'

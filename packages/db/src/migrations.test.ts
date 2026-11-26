@@ -91,6 +91,13 @@ async function firstMigrations(count: number): Promise<string> {
   return folder
 }
 
+/** A copy of the migrations folder whose journal lists the migrations before the one tagged `…tag`. */
+async function migrationsBefore(tag: string): Promise<string> {
+  const at = journal.entries.findIndex((e) => e.tag.endsWith(tag))
+  if (at < 0) throw new Error(`no migration ${tag}`)
+  return firstMigrations(at)
+}
+
 /** Applies the migrations `folder`'s journal lists that `url`'s database hasn't run; how many it has run in all. */
 async function applyMigrations(url: string, folder: string): Promise<number> {
   const { db, close } = openDatabase(url, { max: 1 })
@@ -224,7 +231,7 @@ describe('the migrations', () => {
       await client.query(`update ai_step_models set model = 'gpt-6.2-sol' where step = 'round-plan'`)
       return (await client.query('select step, model, options from ai_step_models order by step')).rows
     })
-    await applyMigrations(url, MIGRATIONS)
+    await applyMigrations(url, await migrationsBefore('ai-text-step-options'))
     const read = await withClient(url, async (client) => ({
       kinds: (await client.query('select kind, model from ai_kind_models order by kind')).rows,
       steps: (await client.query('select step, model, options from ai_step_models order by step')).rows,
@@ -259,7 +266,7 @@ describe('the migrations', () => {
         `insert into ai_grants (id, workspace_id, source, amount, usage_rate, expires_at) values ('grant-kept', 'workspace-kept', 'gift', 1000000, 1000000, now() + interval '30 days')`,
       )
     })
-    await applyMigrations(url, MIGRATIONS)
+    await applyMigrations(url, await migrationsBefore('ai-text-step-options'))
     const read = await withClient(url, async (client) => {
       const grants = (await client.query('select id, amount, layer_size from ai_grants')).rows
       const model = (await client.query(`select model from ai_step_models where step = 'flow.round-plan-full'`)).rows
@@ -324,6 +331,80 @@ describe('the migrations', () => {
     )
     expect(jobs).toEqual([{ id: 'job-kept', finish_holder: null, finish_until: null }])
   }, 60_000)
+
+  it('set the text steps’ models, efforts and tiers where they are still as seeded, keeping what an admin changed', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-text-step-options'))
+    expect(at).toBeGreaterThan(0)
+    const steps = (client: pg.Client) =>
+      client.query('select step, model, options from ai_step_models where step like $1 order by step', ['flow.%'])
+    const seeded = await freshDatabase()
+    await applyMigrations(seeded, await firstMigrations(at))
+    await applyMigrations(seeded, MIGRATIONS)
+    const changed = await freshDatabase()
+    await applyMigrations(changed, await firstMigrations(at))
+    // An admin gave the layer plan options, the refine plan a model of its own and the read an override of Luna.
+    await withClient(changed, async (client) => {
+      await client.query(`update ai_step_models set options = '{"effort":"high"}' where step = 'flow.layer-plan'`)
+      await client.query(`insert into ai_step_models (step, model) values ('flow.refine-plan', 'gpt-6.2-sol')`)
+      await client.query(`insert into ai_step_models (step, model) values ('flow.read', 'gpt-6-luna')`)
+    })
+    await applyMigrations(changed, MIGRATIONS)
+    const unchanged = await freshDatabase()
+    await applyMigrations(unchanged, await firstMigrations(at))
+    // An admin moved every text step off the seeded default before the change.
+    await withClient(unchanged, (client) =>
+      client.query(`update ai_kind_models set model = 'gpt-6.2-sol' where kind = 'text'`),
+    )
+    await applyMigrations(unchanged, MIGRATIONS)
+
+    const fast = { effort: 'low', tier: 'fast' }
+    const read = await withClient(seeded, async (client) => ({
+      steps: (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),
+      prices: (
+        await client.query(
+          `select seller, unit, price_per_million from ai_prices where model = 'gpt-6.1-terra' or unit like 'fast-%' order by seller, model, unit`,
+        )
+      ).rows.length,
+      sellers: (
+        await client.query(
+          `select seller, position, seller_model from model_sellers where model = 'gpt-6.1-terra' order by position`,
+        )
+      ).rows,
+    }))
+    expect(read.steps).toEqual([
+      { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: { effort: 'medium', tier: 'standard' } },
+      { step: 'flow.read', model: 'gpt-6-luna', options: { effort: 'none', tier: 'standard' } },
+      { step: 'flow.reference-read', model: 'gpt-6-luna', options: fast },
+      { step: 'flow.refine-plan', model: 'gpt-6-luna', options: fast },
+      { step: 'flow.round-plan', model: 'gpt-6-luna', options: fast },
+      { step: 'flow.round-plan-full', model: 'gpt-6.1-terra', options: { effort: 'low', tier: 'standard' } },
+    ])
+    // Terra at three sellers, and the fast tier of Luna, Sol and Terra at OpenAI: three units each.
+    expect(read.prices).toBe(18)
+    expect(read.sellers).toEqual([
+      { seller: 'openai', position: 1, seller_model: null },
+      { seller: 'zenmux', position: 2, seller_model: 'openai/gpt-6.1-terra' },
+      { seller: 'openrouter', position: 3, seller_model: 'openai/gpt-6.1-terra' },
+    ])
+    const kept = await withClient(changed, async (client) =>
+      (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),
+    )
+    expect(kept).toEqual([
+      { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: { effort: 'high' } },
+      { step: 'flow.read', model: 'gpt-6-luna', options: { effort: 'none', tier: 'standard' } },
+      { step: 'flow.reference-read', model: 'gpt-6-luna', options: fast },
+      { step: 'flow.refine-plan', model: 'gpt-6.2-sol', options: {} },
+      { step: 'flow.round-plan', model: 'gpt-6-luna', options: fast },
+      { step: 'flow.round-plan-full', model: 'gpt-6.1-terra', options: { effort: 'low', tier: 'standard' } },
+    ])
+    const following = await withClient(unchanged, async (client) =>
+      (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),
+    )
+    expect(following).toEqual([
+      { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: { effort: 'medium', tier: 'standard' } },
+      { step: 'flow.round-plan-full', model: 'gpt-6.1-terra', options: { effort: 'low', tier: 'standard' } },
+    ])
+  }, 120_000)
 
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {

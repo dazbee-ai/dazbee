@@ -58,6 +58,16 @@ Built first, as their own spec, because the AI flow stands on them.
 - Layering runs **without guidance by default**; the API takes an optional guidance value.
 - Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people. Until payments exist, workspaces given AI as a gift get **1024 px** too, set on the grant, not in code (26 Nov 2026).
 - **Fast** runs the light round planner and Muse Image; **Precise** runs the full planner and GPT Image 2.5 (26 Nov 2026).
+- **The text steps' models, reasoning effort and speed tier** (27 Nov 2026), set in each step's options:
+
+  | Step                       | Model           | Effort | Tier     |
+  | -------------------------- | --------------- | ------ | -------- |
+  | Round plan, light (Fast)   | `gpt-6-luna`    | low    | fast     |
+  | Round plan, full (Precise) | `gpt-6.1-terra` | low    | standard |
+  | Refine plan                | `gpt-6-luna`    | low    | fast     |
+  | Reading an ad's text       | `gpt-6-luna`    | none   | standard |
+  | Reading a reference ad     | `gpt-6-luna`    | low    | fast     |
+  | Layer plan                 | `gpt-6.2-sol`   | medium | standard |
 
 ### Prompts (25 Nov 2026)
 

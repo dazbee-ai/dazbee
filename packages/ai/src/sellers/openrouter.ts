@@ -1,7 +1,9 @@
-// OpenRouter's adapter: text through its Responses API, and pictures (with reference pictures for an edit)
-// through its Images API, keeping OpenRouter's own `usage.cost` beside our pricing and its generation id as
-// the request id. Written from OpenRouter's docs as read on 25 Nov 2026: pictures come back as base64,
-// Seedream 5.5 is priced per picture made and per reference picture, and its resolution is a tier.
+// OpenRouter's adapter: text through its Responses API, with the reasoning effort the AI step's options ask for
+// and never a speed tier, and pictures (with reference pictures for an edit) through its Images API, keeping
+// OpenRouter's own `usage.cost` beside our pricing and its generation id as the request id. Written from
+// OpenRouter's docs as read on 25 Nov 2026: pictures come back as base64, Seedream 5.5 is priced per picture
+// made and per reference picture, and its resolution is a tier; its reasoning guide, read on 26 Nov 2026, takes
+// `reasoning.effort` on the Responses API as OpenAI does.
 import type OpenAI from 'openai'
 
 import type { Usage } from '@dazbee/schema'

@@ -413,6 +413,28 @@ describe('the migrations', () => {
     ])
   }, 120_000)
 
+  it('draws Fast drafts with GPT Image at medium while the picture default is still Muse as seeded', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-text-step-options'))
+    const draftFast = (url: string) =>
+      withClient(
+        url,
+        async (client) =>
+          (await client.query(`select model, options from ai_step_models where step = 'flow.draft-fast'`)).rows,
+      )
+    const seeded = await freshDatabase()
+    await applyMigrations(seeded, await firstMigrations(at))
+    await applyMigrations(seeded, MIGRATIONS)
+    expect(await draftFast(seeded)).toEqual([{ model: 'gpt-image-2.5-sunburst', options: { quality: 'medium' } }])
+    const changed = await freshDatabase()
+    await applyMigrations(changed, await firstMigrations(at))
+    // An admin moved the picture default off Muse before the change.
+    await withClient(changed, (client) =>
+      client.query(`update ai_kind_models set model = 'seedream-5.5' where kind = 'picture'`),
+    )
+    await applyMigrations(changed, MIGRATIONS)
+    expect(await draftFast(changed)).toEqual([])
+  }, 120_000)
+
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {
     if (index === 0) continue

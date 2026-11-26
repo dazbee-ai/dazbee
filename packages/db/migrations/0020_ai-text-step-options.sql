@@ -53,4 +53,8 @@ FROM (VALUES
 	('flow.read', '{"effort":"none","tier":"standard"}')
 ) AS s("step", "options")
 WHERE EXISTS (SELECT 1 FROM "ai_kind_models" WHERE "kind" = 'text' AND "model" = 'gpt-6-luna' AND "options" = '{}')
+ON CONFLICT ("step") DO NOTHING;--> statement-breakpoint
+INSERT INTO "ai_step_models" ("step", "model", "options")
+SELECT 'flow.draft-fast', 'gpt-image-2.5-sunburst', '{"quality":"medium"}'::jsonb
+WHERE EXISTS (SELECT 1 FROM "ai_kind_models" WHERE "kind" = 'picture' AND "model" = 'muse-image-1.0' AND "options" = '{}')
 ON CONFLICT ("step") DO NOTHING;

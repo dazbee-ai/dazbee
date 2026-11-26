@@ -47,7 +47,7 @@ Built first, as their own spec, because the AI flow stands on them.
 
 | Job                   | Model                                                                  |
 | --------------------- | ---------------------------------------------------------------------- |
-| Drafts                | **Muse Image** or **GPT Image 2.5 Sunburst** at medium quality         |
+| Drafts                | **GPT Image 2.5 Sunburst** at medium quality, in Fast and Precise      |
 | High-quality final    | **None.** A draft is used as it is, or made editable when asked        |
 | Edits and inpainting  | **Seedream 5.5**                                                       |
 | Outpainting           | **Self-hosted**, not a hosted API                                      |
@@ -57,7 +57,7 @@ Built first, as their own spec, because the AI flow stands on them.
 
 - Layering runs **without guidance by default**; the API takes an optional guidance value.
 - Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people. Until payments exist, workspaces given AI as a gift get **1024 px** too, set on the grant, not in code (26 Nov 2026).
-- **Fast** runs the light round planner and Muse Image; **Precise** runs the full planner and GPT Image 2.5 (26 Nov 2026).
+- **Fast** runs the light round planner and **Precise** the full planner; both draw with GPT Image 2.5 Sunburst at medium (decided 26 Nov 2026, after the same plans were drawn by Muse and by GPT Image side by side: GPT kept the product and the layout more faithfully and its drafts came back in a steady 14–27 s, where Muse took up to 44–62 s).
 - **The text steps' models, reasoning effort and speed tier** (27 Nov 2026), set in each step's options:
 
   | Step                       | Model           | Effort | Tier     |
@@ -87,7 +87,7 @@ Built first, as their own spec, because the AI flow stands on them.
 - **Each model is charged at its real cost.** There is no price per model; a dearer call takes more of the bar.
 - **Layering is charged at a fixed cost per ad**, kept as admin data and changed over time. The call log still records the real GPU cost, and the daily check shows the difference.
 - **Model names are never shown.** People pick a mode with a name of our own, and an admin maps each mode to a model, so changing the model doesn't change the screen.
-- **The two draft modes are Fast and Precise.** Fast runs Muse Image and is the default; Precise runs GPT Image 2.5 Sunburst at medium.
+- **The two draft modes are Fast and Precise.** Fast is the default. Both draw with GPT Image 2.5 Sunburst at medium; they differ in their round planner.
 - **Build the metering now, set prices later.** Every price and amount is admin data (see [Plans](#plans-25-nov-2026)).
 
 ### Building and running (25 Nov 2026)

@@ -134,8 +134,8 @@ export const STEP_SECONDS = {
   'flow.read': 14,
   // gpt-6.2-sol, 4,000 tokens out.
   'flow.layer-plan': 82,
-  // Muse Image: 17–26 s.
-  'flow.draft-fast': 26,
+  // GPT Image 2.5 Sunburst at medium, one round at a time: 14–27 s a draft.
+  'flow.draft-fast': 28,
   // GPT Image 2.5 Sunburst: 18–45 s.
   'flow.draft-precise': 45,
   // Seedream 5.5 edits: 22–117 s.

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import {
+  connectorsOf,
   type Design,
   Frame,
   FrameId,
@@ -10,13 +11,15 @@ import {
   Page,
   PageId,
   Paint,
+  sectionOf,
+  sectionsOf,
   sizeProblem,
 } from '@dazbee/schema'
 
 import type { StoreWrite } from '../store.ts'
 import { idProblem, pageProblem } from './checks.ts'
 import { defineCommand, strict } from './define.ts'
-import { deleteFrame, FrameName } from './frames.ts'
+import { deleteFrame, FrameName, unmarked } from './frames.ts'
 import { copyFrameLayers, orderIndexes, type Slot, writeOrder } from './tree.ts'
 
 /**
@@ -138,14 +141,15 @@ export const pageUpdate = defineCommand({
 
 /**
  * Copies a page right after itself, with each of its frames (new ids, the same name, size, place,
- * fills and order) and every layer in them with a fresh id. The copies get one new link id per
- * old one, so the copied frames stay linked to each other and to nothing on the page they came
- * from. Returns the new page's id.
+ * fills and order, never starred) and every layer in them with a fresh id, and its sections and
+ * connectors with new ids, the copied frames in the copied sections and the connectors joining the
+ * copies. The copies get one new link id per old one, so the copied frames stay linked to each
+ * other and to nothing on the page they came from. Returns the new page's id.
  */
 export const pageDuplicate = defineCommand({
   name: 'page.duplicate',
   description:
-    'Copies a page right after itself, with its frames and every layer in them, the copied frames linked to each other and not to the page they came from, and returns the new page’s id. It refuses a missing page and an id already in use.',
+    'Copies a page right after itself, with its frames and every layer in them, the copied frames linked to each other and not to the page they came from, and its sections and connectors, and returns the new page’s id. The copied frames are not starred. It refuses a missing page and an id already in use.',
   step: 'duplicatePage',
   input: z.strictObject({
     id: PageId.describe('The page to copy.'),
@@ -165,13 +169,36 @@ export const pageDuplicate = defineCommand({
     w.create('page', newId, copied)
     const links = new Map<string, string>()
     const frames = framesOf(design, id)
-    // Frames with one order are drawn in id order, and a copy has another id: each copy gets an order of its own.
+    const sections = sectionsOf(design, id)
+    const copies = new Map([...frames, ...sections].map(([old]) => [old, ctx.newId()]))
+    // Records with one order are drawn in id order, and a copy has another id: each copy gets an order of its own.
+    const sectionOrders = orderIndexes(sections.map(([sectionId, section]) => [sectionId, section.order]))
+    for (const [sectionId, section] of sections) {
+      const order = sectionOrders.get(sectionId) ?? section.order
+      w.create('section', copies.get(sectionId) as string, { ...section, pageId: newId, order })
+    }
     const orders = orderIndexes(frames.map(([frameId, frame]) => [frameId, frame.order]))
     for (const [frameId, frame] of frames) {
-      const copy = ctx.newId()
-      const frameCopy: Frame = { ...frame, pageId: newId, order: orders.get(frameId) ?? frame.order }
+      const copy = copies.get(frameId) as string
+      const sectionId = copies.get(sectionOf(design, frameId) ?? '')
+      const frameCopy: Frame = {
+        ...unmarked(frame),
+        pageId: newId,
+        order: orders.get(frameId) ?? frame.order,
+        ...(sectionId !== undefined && { sectionId }),
+      }
       w.create('frame', copy, frameCopy)
       copyFrameLayers(ctx, frameId, copy, { links })
+    }
+    const connectors = connectorsOf(design, id)
+    const connectorOrders = orderIndexes(connectors.map(([connectorId, connector]) => [connectorId, connector.order]))
+    for (const [connectorId, connector] of connectors) {
+      w.create('connector', ctx.newId(), {
+        pageId: newId,
+        from: copies.get(connector.from) as string,
+        to: copies.get(connector.to) as string,
+        order: connectorOrders.get(connectorId) ?? connector.order,
+      })
     }
     return newId
   },
@@ -201,10 +228,14 @@ export const pageMove = defineCommand({
   },
 })
 
-/** Deletes a page, its frames and their layers; undo brings them back. A design keeps at least one page. */
+/**
+ * Deletes a page, its frames and their layers, and its sections and connectors; undo brings them
+ * back. A design keeps at least one page.
+ */
 export const pageDelete = defineCommand({
   name: 'page.delete',
-  description: 'Deletes a page, its frames and their layers. It refuses a missing page and the only page of a design.',
+  description:
+    'Deletes a page, its frames and their layers, and its sections and connectors. It refuses a missing page and the only page of a design.',
   step: 'deletePage',
   input: z.strictObject({ id: PageId.describe('The page to delete.') }),
   check: ({ design }, { id }) => {
@@ -214,6 +245,10 @@ export const pageDelete = defineCommand({
     return undefined
   },
   apply: ({ w, design }, { id }) => {
+    for (const [connectorId, connector] of Object.entries(design.connectors))
+      if (connector.pageId === id) w.remove('connector', connectorId)
+    for (const [sectionId, section] of Object.entries(design.sections))
+      if (section.pageId === id) w.remove('section', sectionId)
     for (const [frameId] of framesOf(design, id)) deleteFrame(w, design, frameId)
     w.remove('page', id)
   },

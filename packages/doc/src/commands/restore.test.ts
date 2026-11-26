@@ -5,7 +5,7 @@ import { type Design, type DesignInput, parseDesign, type RestoreMark } from '@d
 
 import { CommandFault } from '../session.ts'
 import { readDesign } from '../store.ts'
-import { shapesDesign, testDesign } from '../test-design.ts'
+import { linkedDesign, sectionedDesign, shapesDesign, testDesign } from '../test-design.ts'
 import { twoTabs } from '../test-store.ts'
 import { defineCommand } from './define.ts'
 import { COMMANDS } from './index.ts'
@@ -96,6 +96,24 @@ describe('design.restore', () => {
     expect(readDesign(a)).toEqual(after)
     expect(readDesign(b)).toEqual(after)
     expect(tabB.canUndo()).toBe(false)
+  })
+
+  it('brings back sections and connectors as the version has them, and takes away those it lacks', () => {
+    const { a, b, tabA } = twoTabs(sectionedDesign())
+    const before = readDesign(a)
+    tabA.run('section.delete', { sectionId: 'ads' })
+    tabA.run('section.update', { sectionId: 'banners', title: 'Renamed' })
+    tabA.run('section.add', { pageId: 'p1', id: 'added', frameIds: ['tall'] })
+    tabA.run('connector.add', { pageId: 'p1', from: 'other', to: 'added' })
+
+    tabA.run('design.restore', { design: before, mark: MARK })
+    expect(readDesign(a)).toEqual(before)
+    expect(readDesign(b)).toEqual(before)
+
+    tabA.run('design.restore', { design: parsed(linkedDesign()), mark: MARK })
+    expect(readDesign(a)).toEqual(parsed(linkedDesign()))
+    tabA.undo()
+    expect(readDesign(a)).toEqual(before)
   })
 
   it('carries its mark to the other tabs, who hear who restored which version; its undo and redo carry none', () => {

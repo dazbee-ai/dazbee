@@ -2,7 +2,7 @@ import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/cl
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { compactTree } from '@dazbee/doc'
-import { testDesign } from '@dazbee/doc/test-design'
+import { sectionedDesign, testDesign } from '@dazbee/doc/test-design'
 import { openAgentTab } from '@dazbee/editor/agent-tab'
 import { frameWarnings } from '@dazbee/export'
 import { FALLBACK_FAMILIES } from '@dazbee/fonts'
@@ -59,7 +59,7 @@ describe('open_design', () => {
     expect(await agent.json('open_design', LAUNCH)).toEqual({
       name: 'Launch',
       mayEdit: true,
-      pages: [{ id: 'p1', name: 'Page 1', frames: FRAMES }],
+      pages: [{ id: 'p1', name: 'Page 1', frames: FRAMES, sections: [], connectors: [] }],
       tokens: [
         { token: 'brand:primary', name: 'Primary', value: '#FF5A36FF' },
         { token: 'brand:heading', name: 'Heading', value: 'Brand Serif' },
@@ -327,6 +327,83 @@ describe('read_design', () => {
     } finally {
       await other.close()
     }
+  })
+})
+
+describe('read_design on a design with sections, connectors and stars', () => {
+  it('lists each page’s drawn sections by place and its drawn connectors, and each frame’s section and star', async () => {
+    const design = sectionedDesign()
+    const tall = design.frames.tall as DesignInput['frames'][string]
+    const agent = await agentOf(undefined, {
+      'design-launch': {
+        ...design,
+        frames: { ...design.frames, tall: { ...tall, sectionId: 'gone' } },
+        sections: { ...design.sections, empty: { pageId: 'p1', title: 'Empty', order: 'a2' } },
+        connectors: { ...design.connectors, loose: { pageId: 'p1', from: 'gone', to: 'sq', order: 'a2' } },
+      },
+    })
+    await agent.json('open_design', LAUNCH)
+    const frame = (id: string, name: string, width: number, height: number, x: number) => ({
+      id,
+      name,
+      width,
+      height,
+      x,
+      y: 0,
+    })
+    expect((await agent.json('read_design')) as { pages: unknown }).toMatchObject({
+      pages: [
+        {
+          id: 'p1',
+          frames: [
+            { ...frame('sq', 'Square', 1080, 1080, 0), sectionId: 'ads' },
+            { ...frame('story', 'Story', 1080, 1920, 1280), sectionId: 'ads', starred: true },
+            { ...frame('wide', 'Wide', 1200, 628, 2560), sectionId: 'banners' },
+            frame('tall', 'Tall', 300, 600, 3960),
+            frame('other', 'Other', 500, 500, 4460),
+          ],
+          sections: [
+            { id: 'ads', title: 'Ads', frameIds: ['sq', 'story'] },
+            { id: 'banners', title: 'Banners', frameIds: ['wide'] },
+          ],
+          connectors: [
+            { id: 'sq-story', from: 'sq', to: 'story' },
+            { id: 'ads-wide', from: 'ads', to: 'wide' },
+          ],
+        },
+        {
+          id: 'p2',
+          frames: [{ ...frame('far', 'Far', 1080, 1080, 0), sectionId: 'far-section' }],
+          sections: [{ id: 'far-section', title: 'Far', frameIds: ['far'] }],
+          connectors: [],
+        },
+      ],
+    })
+    const [{ frames: read = [] } = {}] = ((await agent.json('read_design')) as { pages: { frames: object[] }[] }).pages
+    expect(read[3]).not.toHaveProperty('sectionId')
+    expect(read[3]).not.toHaveProperty('starred')
+  })
+
+  it('runs the section and connector commands an agent sends', async () => {
+    const agent = await agentOf(undefined, { 'design-launch': sectionedDesign() })
+    await agent.json('open_design', LAUNCH)
+    await agent.json('run_command', {
+      command: 'section.add',
+      input: { pageId: 'p1', id: 'more', title: 'More', frameIds: ['tall', 'other'] },
+    })
+    await agent.json('run_command', {
+      command: 'connector.add',
+      input: { pageId: 'p1', from: 'banners', to: 'more', id: 'to-more' },
+    })
+    await agent.json('run_command', { command: 'frame.update', input: { frameId: 'tall', starred: true } })
+    expect(storedDesign('design-launch').sections.more).toEqual({ pageId: 'p1', title: 'More', order: 'a2' })
+    expect(storedDesign('design-launch').connectors['to-more']).toEqual({
+      pageId: 'p1',
+      from: 'banners',
+      to: 'more',
+      order: 'a2',
+    })
+    expect(storedDesign('design-launch').frames.tall).toMatchObject({ sectionId: 'more', starred: true })
   })
 })
 

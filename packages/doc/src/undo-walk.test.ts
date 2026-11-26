@@ -6,7 +6,7 @@ import type { Design, DesignInput } from '@dazbee/schema'
 
 import { readDesign } from './store.ts'
 import { registerBuggyCommands } from './test-commands.ts'
-import { kindsDesign, linkedDesign, testDesign } from './test-design.ts'
+import { kindsDesign, linkedDesign, sectionedDesign, testDesign } from './test-design.ts'
 import { expectFullRead } from './test-invariants.ts'
 import {
   differenceOf,
@@ -33,7 +33,7 @@ interface OneTab extends Tab {
 }
 
 /** The designs a walk starts from, by its seed. */
-const DESIGNS: readonly (() => DesignInput)[] = [kindsDesign, linkedDesign, testDesign]
+const DESIGNS: readonly (() => DesignInput)[] = [kindsDesign, linkedDesign, testDesign, sectionedDesign]
 /** A walk takes hundreds of commands and full reads; a cold CI runner needs more than vitest's 5 s. */
 const WALK_TIMEOUT = 60_000
 /** Throws `what`, with the difference, when two designs differ. */

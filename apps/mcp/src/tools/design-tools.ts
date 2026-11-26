@@ -6,7 +6,19 @@ import { z } from 'zod'
 import { childrenOf, compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS } from '@dazbee/doc'
 import { frameWarnings } from '@dazbee/export'
 import { loadCanvasKit } from '@dazbee/renderer/node'
-import { brandRef, brandTextStyleLook, type Design, framesOf, Id, inOrder, RecordId } from '@dazbee/schema'
+import {
+  brandRef,
+  brandTextStyleLook,
+  connectorsOf,
+  type Design,
+  framesInSection,
+  framesOf,
+  Id,
+  inOrder,
+  RecordId,
+  sectionOf,
+  sectionsByPlace,
+} from '@dazbee/schema'
 
 import { inMiB, MAX_TREE_BYTES, MIN_TREE_BYTES } from '../limits.ts'
 import type { OpenDesign } from '../open-design.ts'
@@ -43,7 +55,7 @@ export const DESIGN_TOOLS: Tool[] = [
     name: 'read_design',
     title: 'Read the open design',
     description:
-      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, and x and y on the page, in design pixels), the brand kit’s tokens (brand:<token>) with their values (a text style’s value is its look, which node.bind binds a text’s textStyle to), `waiting`: how many of this agent’s steps Dazbee hasn’t stored yet, and what happened to the design since the last answer, such as a change the server refused.',
+      'Gives the open design: its name, whether this agent may change it, its pages in order, each with its frames (id, name, width, height, x and y on the page in design pixels, and the section it is in and whether it is starred, when it is), its sections from top to bottom (id, title and frame ids) and its connectors (id, and the frame or section each starts from and points to), the brand kit’s tokens (brand:<token>) with their values (a text style’s value is its look, which node.bind binds a text’s textStyle to), `waiting`: how many of this agent’s steps Dazbee hasn’t stored yet, and what happened to the design since the last answer, such as a change the server refused.',
     readOnly: true,
     input: z.object({}),
     run: (_input, context) => onDesign(context, designAnswer),
@@ -144,8 +156,9 @@ export function frameOf(design: Design, frameId: string) {
 }
 
 /**
- * What read_design answers: the design's name, whether the tab may edit, its pages and frames, the kit's tokens, how
- * many of the tab's steps the server hasn't stored yet, and the tab's notices.
+ * What read_design answers: the design's name, whether the tab may edit, its pages with their frames, sections and
+ * connectors (those drawn), the kit's tokens, how many of the tab's steps the server hasn't stored yet, and the tab's
+ * notices.
  */
 export function designAnswer({ tab, name, kit }: OpenDesign) {
   const design = tab.design()
@@ -155,14 +168,25 @@ export function designAnswer({ tab, name, kit }: OpenDesign) {
     pages: inOrder(design.pages).map(([id, page]) => ({
       id,
       name: page.name,
-      frames: framesOf(design, id).map(([frameId, frame]) => ({
-        id: frameId,
-        name: frame.name,
-        width: frame.width,
-        height: frame.height,
-        x: frame.x,
-        y: frame.y,
+      frames: framesOf(design, id).map(([frameId, frame]) => {
+        const sectionId = sectionOf(design, frameId)
+        return {
+          id: frameId,
+          name: frame.name,
+          width: frame.width,
+          height: frame.height,
+          x: frame.x,
+          y: frame.y,
+          ...(sectionId !== undefined && { sectionId }),
+          ...(frame.starred && { starred: true }),
+        }
+      }),
+      sections: sectionsByPlace(design, id).map(([sectionId, section]) => ({
+        id: sectionId,
+        title: section.title,
+        frameIds: framesInSection(design, sectionId).map(([frameId]) => frameId),
       })),
+      connectors: connectorsOf(design, id).map(([connectorId, { from, to }]) => ({ id: connectorId, from, to })),
     })),
     tokens: [
       ...kit.colors.map((color) => ({ token: brandRef(color.token), name: color.name, value: color.value })),

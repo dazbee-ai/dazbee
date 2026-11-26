@@ -53,24 +53,30 @@ export function newFramePosition(frames: readonly { x: number; y: number; width:
 
 /**
  * Where a box of `size` goes beside `from` (a frame or a section's box) without covering a frame of
- * page `pageId`: FRAME_GAP right of `from`, at its top, then moved down below each frame it
- * overlaps, plus FRAME_GAP, until it overlaps none. A frame only touching its edge is not in the way.
+ * page `pageId`, or the box of one of its drawn sections other than `joins`, the section the box goes
+ * in: FRAME_GAP right of `from`, at its top, then moved down below each it overlaps, plus FRAME_GAP,
+ * until it overlaps none. One only touching its edge is not in the way.
  */
 export function freeSpot(
   design: {
-    readonly frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>
+    readonly frames: Readonly<
+      Record<string, Readonly<PageBox> & { readonly pageId: string; readonly sectionId?: string | undefined }>
+    >
+    readonly sections?: Readonly<Record<string, { readonly pageId: string }>>
   },
   pageId: string,
   size: { width: number; height: number },
   from: PageBox,
+  joins?: string,
 ): { x: number; y: number } {
   const frames = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
+  const boxes: PageBox[] = [...frames, ...sectionBoxes(frames, design.sections ?? {}, pageId, joins)]
   const x = from.x + from.width + FRAME_GAP
   let y = from.y
   for (;;) {
     const right = x + size.width
     const bottom = y + size.height
-    const below = frames
+    const below = boxes
       .filter((f) => f.x < right && f.x + f.width > x && f.y < bottom && f.y + f.height > y)
       .reduce((most, f) => Math.max(most, f.y + f.height), -Infinity)
     if (below === -Infinity) return { x, y }
@@ -113,4 +119,34 @@ export function blankDesign(
     return [`f${i + 1}`, { pageId: 'p1', name, width, height, ...at, fills: NEW_FRAME_FILLS, order: `a${i}` }] as const
   })
   return { meta, pages: { p1: { name: 'Page 1', order: 'a0' } }, frames: Object.fromEntries(entries), nodes: {} }
+}
+
+/**
+ * The boxes of page `pageId`'s drawn sections but `joins`, each the union of its frames: one pass over
+ * the page's `frames`, grouped by the section each names.
+ */
+function sectionBoxes(
+  frames: readonly (Readonly<PageBox> & { readonly sectionId?: string | undefined })[],
+  sections: Readonly<Record<string, { readonly pageId: string }>>,
+  pageId: string,
+  joins: string | undefined,
+): PageBox[] {
+  const edges = new Map<string, { left: number; top: number; right: number; bottom: number }>()
+  for (const { sectionId: id, x, y, width, height } of frames) {
+    if (id === undefined || id === joins || !Object.hasOwn(sections, id) || sections[id]?.pageId !== pageId) continue
+    const box = edges.get(id)
+    if (!box) edges.set(id, { left: x, top: y, right: x + width, bottom: y + height })
+    else {
+      box.left = Math.min(box.left, x)
+      box.top = Math.min(box.top, y)
+      box.right = Math.max(box.right, x + width)
+      box.bottom = Math.max(box.bottom, y + height)
+    }
+  }
+  return [...edges.values()].map(({ left, top, right, bottom }) => ({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  }))
 }

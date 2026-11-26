@@ -54,6 +54,11 @@ export function RenameField({
   return (
     <input
       name={inputName}
+      // A name is the design's, never one the browser remembers from other fields: it suggests and fills nothing.
+      autoComplete="off"
+      // Nor does a password manager offer to fill it.
+      data-1p-ignore
+      data-lpignore="true"
       // Focused as it opens: the person asked to rename this.
       autoFocus
       aria-label={label}

@@ -16,6 +16,7 @@ import type { Editor, ShapeMenuTool } from '@dazbee/editor'
 import { useCopyPngKey } from '@/components/editor/menus/copy-png-key.ts'
 import type { FrameTool } from '@/components/editor/menus/frame-menu.tsx'
 import { QuickActions } from '@/components/editor/menus/quick-actions.tsx'
+import type { SelectTool } from '@/components/editor/menus/select-menu.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { XIcon } from '@/components/ui/icons.tsx'
@@ -76,6 +77,7 @@ export function EditorShell({
   tool: shownTool,
   shape = 'rect',
   frameTool = 'frame',
+  selectTool = 'select',
   onToolChange,
   corner,
   onInsets,
@@ -103,6 +105,8 @@ export function EditorShell({
   shape?: ShapeMenuTool
   /** The tool the dock's Frame button picks: the last of Frame and Section picked. */
   frameTool?: FrameTool
+  /** The tool the dock's Select button picks: the last of Select and Hand picked. */
+  selectTool?: SelectTool
   onToolChange?: (tool: Tool, shape: ShapeMenuTool) => void
   /** Pages and the zoom: at the stage's bottom corner, or on a phone in the tab bar after the tool button (`inBar`). */
   corner?: (inBar: boolean) => ReactNode
@@ -386,6 +390,7 @@ export function EditorShell({
               tool={tool}
               shape={shape}
               frameTool={frameTool}
+              selectTool={selectTool}
               sheet={sheet}
               viewOnly={viewOnly}
               flyoutButtons={!phone && flyoutButtons}

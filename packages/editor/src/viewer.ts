@@ -72,7 +72,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
   const { view, selection, boxes, scenes, typing, pen, cropping, drawing } = modules
   const { transformDrag, frameResize, frameMove, autoLayoutDrag, place, pointer, colourPick, guideDrag, presence } =
     modules
-  const { redrawing } = modules
+  const { redrawing, selectPress } = modules
   // What only a browser can run, as the editor builds it. A browser with no WebGL has no stage.
   let surface: EditorSurface
   try {
@@ -98,6 +98,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     place,
     frameMove,
     pointer,
+    selectPress,
     colourPick,
     guideDrag,
     presence,

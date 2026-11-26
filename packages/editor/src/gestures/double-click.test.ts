@@ -14,6 +14,13 @@ describe('editorDoubleClick', () => {
       expect(panning.log).toEqual([])
     })
 
+    it("does nothing on the star by a frame's name, whose presses star the frame", () => {
+      const { selection, send, log } = harness('select', sceneLayer('words', 'text'))
+      send('dblclick', event(10, 10, { star: 'one-sq' }))
+      expect(selection.current()).toBeNull()
+      expect(log).toEqual([])
+    })
+
     it('starts typing into the text under the pointer, selecting it', () => {
       const { selection, send, log } = harness('select', sceneLayer('words', 'text'))
       send('dblclick', event(10, 10))

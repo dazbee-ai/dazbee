@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Design } from '@dazbee/schema'
 
-import { type Frame, frameAt, frameIn, labelBox, pageFrames } from './frames.ts'
+import { type Frame, frameAt, frameIn, labelAt, labelBox, pageFrames } from './frames.ts'
 import { design } from './test-design.ts'
 
 /** The test design with page `two`'s frames gone. */
@@ -22,6 +22,18 @@ describe('frameIn', () => {
       width: 300,
       height: 250,
     })
+  })
+
+  it('reads a starred frame as starred', () => {
+    const starred: Design = {
+      ...design,
+      frames: {
+        ...design.frames,
+        'two-mpu': { ...(design.frames['two-mpu'] as Design['frames'][string]), starred: true },
+      },
+    }
+    expect(frameIn(starred, 'two-mpu')?.starred).toBe(true)
+    expect(frameIn(design, 'two-mpu')).not.toHaveProperty('starred')
   })
 
   it('finds no frame for an id the design lacks', () => {
@@ -92,5 +104,40 @@ describe('labelBox', () => {
 
   it('is null for a frame off the stage at its start', () => {
     expect(labelBox(frame, { x: -500, y: 0, zoom: 1 })).toBeNull()
+  })
+})
+
+describe('labelAt', () => {
+  const frame = (id: string, x: number, y: number): Frame => ({
+    id,
+    pageId: 'p',
+    name: id,
+    x,
+    y,
+    width: 400,
+    height: 300,
+  })
+  const camera = { x: 0, y: 0, zoom: 1 }
+
+  it("finds the frame whose label's row holds a stage point, along the whole row", () => {
+    const frames = [frame('a', 0, 100), frame('b', 600, 100)]
+    expect(labelAt(frames, camera, { x: 10, y: 80 })?.id).toBe('a')
+    expect(labelAt(frames, camera, { x: 390, y: 90 })?.id).toBe('a')
+    expect(labelAt(frames, camera, { x: 700, y: 77 })?.id).toBe('b')
+  })
+
+  it("finds none in the gap between a label and its frame, on the frame, or past the row's ends", () => {
+    const frames = [frame('a', 0, 100)]
+    for (const p of [
+      { x: 10, y: 98 },
+      { x: 10, y: 150 },
+      { x: 450, y: 85 },
+      { x: 10, y: 70 },
+    ])
+      expect(labelAt(frames, camera, p)).toBeUndefined()
+  })
+
+  it('finds the last of two frames whose labels lie over each other', () => {
+    expect(labelAt([frame('a', 0, 100), frame('b', 100, 100)], camera, { x: 200, y: 85 })?.id).toBe('b')
   })
 })

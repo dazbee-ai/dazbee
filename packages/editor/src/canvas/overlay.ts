@@ -1,4 +1,4 @@
-// The overlay over the stage: the sections' titles, the frame labels, the safe zones, the picked frame with its handles,
+// The overlay over the stage: the sections' titles, the frame labels with their stars, the safe zones, the picked frame's handles,
 // the frame lit from outside the stage, the guides, the dashed outlines of the hidden layers while
 // they are shown, the outlines of the group gone into, the hovered layer and the drop target, the
 // other people's selections, the dashed outlines of the selected layers' linked copies, what Alt
@@ -28,6 +28,7 @@ import { dragParts } from '../gestures/select/drag-parts.ts'
 import type { EditorFrameMove } from '../gestures/select/frame-move.ts'
 import type { EditorFrameResize } from '../gestures/select/frame-resize.ts'
 import { radiusDotParts, type RadiusPillParts, radiusPillParts } from '../gestures/select/radius-drag-parts.ts'
+import type { EditorSelectPress } from '../gestures/select/select-press.ts'
 import type { EditorTransformDrag } from '../gestures/select/transform-drag.ts'
 import type { EditorBoxes } from '../layers/boxes.ts'
 import { boundsOf, type Box, type Handle, handleAt, HANDLES, round } from '../layers/transform.ts'
@@ -87,6 +88,8 @@ export interface OverlayDeps {
   /** The sections as the stage shows them, whose titles it draws. */
   frameMove: Pick<EditorFrameMove, 'shownSections'>
   pointer: Pick<EditorPointer, 'gesture' | 'measured' | 'pointerAt'>
+  /** The frame whose label offers its star. */
+  selectPress: Pick<EditorSelectPress, 'starOffered'>
   colourPick: Pick<EditorColourPick, 'shown'>
   guideDrag: Pick<EditorGuideDrag, 'shown' | 'rulerFrame'>
   presence: Pick<EditorPresence, 'shown'>
@@ -134,6 +137,7 @@ export function editorOverlay({
   place,
   frameMove,
   pointer,
+  selectPress,
   colourPick,
   guideDrag,
   presence,
@@ -456,7 +460,12 @@ export function editorOverlay({
       stage: view.viewport(),
     })
     for (const frame of view.inView()) {
-      const label = frameLabel(frame, { selection, typing, camera: view.camera() })
+      const label = frameLabel(frame, {
+        selection,
+        typing,
+        camera: view.camera(),
+        starOffered: selectPress.starOffered(),
+      })
       if (label) parts.push(label)
     }
     const safeZones = view.safeZones()

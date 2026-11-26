@@ -4,6 +4,7 @@ import { idsOf, pairsIn } from '../../selection.ts'
 import { testEditor } from '../../test-editor.ts'
 import { pointerInput } from '../test-inputs.ts'
 import {
+  DESIGN,
   FLOWS,
   harness,
   LINKED,
@@ -227,6 +228,87 @@ describe('editorSelectPress', () => {
       expect(select.pressLabel(pointerInput(), { x: 40, y: -10 }, 'gone')).toBeNull()
       expect(idsOf(selection.current())).toEqual(['box'])
       expect(log).toEqual([])
+    })
+
+    it('stars the frame from a press on its star, as one undo step, picking nothing and starting no drag; a second press unstars it', () => {
+      const { select, selection, session, log } = harness()
+      selection.select(['box'], SQUARE.id)
+      const onStar = pointerInput({ star: 'sq' })
+      expect(select.pressLabel(onStar, { x: 60, y: -10 }, 'sq')).toBe(true)
+      expect(session.design().frames.sq?.starred).toBe(true)
+      expect(session.undoName()).toBe('star')
+      expect(idsOf(selection.current())).toEqual(['box'])
+      expect(selection.pickedFrame()).toBeNull()
+      expect(log).toEqual(['stop typing'])
+      expect(select.pressLabel(onStar, { x: 60, y: -10 }, 'sq')).toBe(true)
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+      expect(session.undoName()).toBe('unstar')
+      session.undo()
+      expect(session.design().frames.sq?.starred).toBe(true)
+      session.undo()
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+    })
+
+    it('picks the frame from a press on its star in a tab that may only view, as a press on its name does, and stars nothing', () => {
+      const { select, selection, session } = harness(null, DESIGN, true)
+      expect(select.pressLabel(pointerInput({ star: 'sq' }), { x: 60, y: -10 }, 'sq')).toMatchObject({
+        kind: 'frameMove',
+      })
+      expect(selection.pickedFrame()).toBe('sq')
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+    })
+
+    it('stars the frame once on a double click on its star, the second press doing nothing', () => {
+      const { select, session } = harness()
+      select.pressLabel(pointerInput({ star: 'sq', detail: 1 }), { x: 60, y: -10 }, 'sq')
+      expect(select.pressLabel(pointerInput({ star: 'sq', detail: 2 }), { x: 60, y: -10 }, 'sq')).toBe(true)
+      expect(session.design().frames.sq?.starred).toBe(true)
+    })
+
+    it("picks the frame from a finger's press on its star, as a press on its name does, and stars nothing", () => {
+      const { select, selection, session } = harness()
+      const tap = pointerInput({ star: 'sq', pointerType: 'touch' })
+      expect(select.pressLabel(tap, { x: 60, y: -10 }, 'sq')).toMatchObject({ kind: 'frameMove' })
+      expect(selection.pickedFrame()).toBe('sq')
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+    })
+
+    it("picks the frame from a press on its label while another frame's star is under the pointer", () => {
+      const { select, selection, session } = harness()
+      expect(select.pressLabel(pointerInput({ star: 'tall' }), { x: 40, y: -10 }, 'sq')).toMatchObject({
+        kind: 'frameMove',
+      })
+      expect(selection.pickedFrame()).toBe('sq')
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+    })
+  })
+
+  describe('hoverStar', () => {
+    const at = (x: number, y: number, pointerType = 'mouse') => pointerInput({ at: { x, y }, pointerType })
+
+    it('has the label whose row a mouse or a pen hovers offer its star, saying when that changes, and none off the row', () => {
+      const { select } = harness()
+      expect(select.starOffered()).toBeNull()
+      expect(select.hoverStar(at(500, -10))).toBe(true)
+      expect(select.starOffered()).toBe('sq')
+      expect(select.hoverStar(at(600, -20, 'pen'))).toBe(false)
+      expect(select.hoverStar(at(500, 50))).toBe(true)
+      expect(select.starOffered()).toBeNull()
+      select.hoverStar(at(500, -10))
+      expect(select.hoverStar(null)).toBe(true)
+      expect(select.starOffered()).toBeNull()
+    })
+
+    it('offers no star to a finger, which has no hover', () => {
+      const { select } = harness()
+      expect(select.hoverStar(at(500, -10, 'touch'))).toBe(false)
+      expect(select.starOffered()).toBeNull()
+    })
+
+    it('offers no star in a tab that may only view', () => {
+      const { select } = harness(null, DESIGN, true)
+      expect(select.hoverStar(at(500, -10))).toBe(false)
+      expect(select.starOffered()).toBeNull()
     })
   })
 

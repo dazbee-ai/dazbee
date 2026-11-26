@@ -1,10 +1,10 @@
 // The bill check, run on a developer's machine against the local database and storage while a local worker
-// runs with the sellers' keys: gives a workspace of our own a gift, saves one `ai-steps` job of the AI steps
-// asked for, waits for the worker to end it, and prints the call log's rows and their totals by seller, to
+// runs with the sellers' keys: gives a workspace of our own a gift, saves one `calls` job of the AI functions
+// asked for, each with its default preset or the one named after a colon, waits for the worker to end it, and prints the call log's rows and their totals by seller, to
 // compare with each seller's own usage figures. Its prompts are short fixed test prompts, and its pictures are
 // drawn here, never a person's: a plain coloured square, and for the layer split a test ad of shapes and
 // block-letter text, split by a fixed layer plan at --size (1024 unless given), with --guidance when given.
-//   node apps/worker/src/scripts/check-bills.ts --steps flow.round-plan,flow.read,flow.draft-fast [--seller openai]
+//   node apps/worker/src/scripts/check-bills.ts --calls round-plan:full-terra,reading,draft [--seller openai]
 //     [--size 512] [--guidance 3] [--workspace dev-workspace] [--member dev-user] [--gift 200]
 import { setTimeout as sleep } from 'node:timers/promises'
 import { parseArgs } from 'node:util'
@@ -13,17 +13,17 @@ import { crc32, deflateSync } from 'node:zlib'
 import { asc, eq } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
 
-import { giveGrant, saveJob } from '@dazbee/ai'
+import { defaultPreset, giveGrant, saveJob } from '@dazbee/ai'
 import { aiCalls, aiJobs, openDatabase } from '@dazbee/db'
-import { type AiStepsCall, type CallInput, LayerSplitSize } from '@dazbee/schema'
+import { type CallInput, type JobCall, LayerSplitSize } from '@dazbee/schema'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
-import { workspaceFiles } from '../steps-job.ts'
+import { workspaceFiles } from '../calls-job.ts'
 
 /** How long the script waits for the worker to end the job. */
 const WAIT_MS = 15 * 60_000
 
-/** A JSON schema for the text steps' answers. */
+/** A JSON schema for the text calls' answers. */
 const IDEAS = {
   type: 'object',
   properties: { ideas: { type: 'array', items: { type: 'string' } } },
@@ -66,7 +66,7 @@ const GLYPHS: Record<string, string[]> = {
 
 const { values } = parseArgs({
   options: {
-    steps: { type: 'string' },
+    calls: { type: 'string' },
     seller: { type: 'string' },
     workspace: { type: 'string', default: 'dev-workspace' },
     member: { type: 'string', default: 'dev-user' },
@@ -75,7 +75,7 @@ const { values } = parseArgs({
     guidance: { type: 'string' },
   },
 })
-if (!values.steps) throw new Error('name the AI steps to run: --steps flow.round-plan,flow.read,flow.draft-fast')
+if (!values.calls) throw new Error('name the AI functions to run: --calls round-plan:full-terra,reading,draft')
 const databaseUrl = process.env.DATABASE_URL ?? 'postgres://dazbee:dazbee-local@127.0.0.1:55432/dazbee'
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(
@@ -96,11 +96,15 @@ await storage.ensureBucket()
 const files = workspaceFiles(storage, values.workspace)
 const picture = await files.save(plainSquare(256), 'image/png')
 const ad = await files.save(testAd(768), 'image/png')
-const calls: AiStepsCall[] = values.steps.split(',').map((step) => ({
-  step,
-  input: inputOf(step.trim(), picture, ad),
-  ...(values.seller ? { sellers: [values.seller] } : {}),
-}))
+const calls: JobCall[] = values.calls.split(',').map((named) => {
+  const [fn = '', preset] = named.trim().split(':')
+  return {
+    function: fn,
+    preset: preset ?? defaultPreset(fn),
+    input: inputOf(fn, picture, ad),
+    ...(values.seller ? { sellers: [values.seller] } : {}),
+  }
+})
 await giveGrant(db, {
   workspace: values.workspace,
   amount: BigInt(Math.round(Number(values.gift) * 1e6)),
@@ -108,7 +112,7 @@ await giveGrant(db, {
   note: 'bill check',
 })
 const saved = await db.transaction((tx) =>
-  saveJob(tx, boss, { workspace: values.workspace, member: values.member, kind: 'ai-steps', input: { calls } }),
+  saveJob(tx, boss, { workspace: values.workspace, member: values.member, kind: 'calls', input: { calls } }),
 )
 if (!saved.ok) throw new Error(`the job was refused: ${saved.refusal}`)
 console.log(`job ${saved.job} saved with ${calls.length} calls; waiting for the worker`)
@@ -122,7 +126,8 @@ const rows = await db
 console.table(
   rows.map((row) => ({
     call: row.callIndex,
-    step: row.step,
+    function: row.function,
+    preset: row.preset,
     model: row.model,
     seller: row.seller,
     state: row.state,
@@ -156,7 +161,7 @@ console.log(`job ${saved.job} ended ${ended.state}${ended.error ? `: ${ended.err
 await boss.stop({ graceful: false })
 await close()
 
-function inputOf(step: string, picture: string, ad: string): CallInput {
+function inputOf(fn: string, picture: string, ad: string): CallInput {
   const text = (instructions: string, prompt: string, pictures: string[] = []): CallInput => ({
     kind: 'text',
     instructions,
@@ -179,20 +184,21 @@ function inputOf(step: string, picture: string, ad: string): CallInput {
     width: 1024,
     height: 1024,
   }
-  switch (step) {
-    case 'flow.round-plan':
+  switch (fn) {
+    case 'round-plan':
+    case 'refine-plan':
       return text('List three short layout ideas for the ad.', AD)
-    case 'flow.read':
+    case 'reading':
+    case 'reference-read':
       return text('List the colours you see in the picture.', 'What colours are in this picture?', [picture])
-    case 'flow.layer-plan':
+    case 'layer-plan':
       return text('List the layers a designer would make for the ad.', AD)
-    case 'flow.draft-fast':
-    case 'flow.draft-precise':
+    case 'draft':
       return draft
-    case 'flow.refine':
-    case 'flow.resize':
+    case 'refine-edit':
+    case 'resize':
       return edit
-    case 'flow.layer-split':
+    case 'layer-split':
       return {
         kind: 'layer-split',
         picture: ad,
@@ -201,7 +207,7 @@ function inputOf(step: string, picture: string, ad: string): CallInput {
         ...(values.guidance ? { guidance: Number(values.guidance) } : {}),
       }
     default:
-      throw new Error(`the bill check has no input for ${step}`)
+      throw new Error(`the bill check has no input for ${fn}`)
   }
 }
 

@@ -36,7 +36,7 @@ function answering(status: number, body: string) {
 
 function requestOf(input: CallInput): SellerRequest {
   return {
-    call: { job: 'job', step: 'flow.read', index: 0 },
+    call: { job: 'job', function: 'reading', preset: 'luna', index: 0 },
     model: 'muse-image-1.0',
     input,
     options: {},

@@ -1,14 +1,14 @@
 // The admin page's AI routes, against Postgres from Docker Compose: /admin/ai answers anyone but an admin 404;
-// for an admin it reads and changes the AI settings, the currency rates, the price list, the seller order and
-// each AI step's model, finds a workspace, gives it a gift and reads its grants and ledger, sums AI's costs,
+// for an admin it reads and changes the AI settings, the currency rates, the price list and the seller order,
+// finds a workspace, gives it a gift and reads its grants and ledger, sums AI's costs,
 // gives the daily check, takes a seller's usage file, and lists unknown calls, sellers out of money and when
-// each uploaded seller was last checked. Models, steps and sellers are the test's own, and the days used are
+// each uploaded seller was last checked. Models and sellers are the test's own, and the days used are
 // long past, so no other test meets them; the one settings row is put back as it was.
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { hold, layerSize, STEPS } from '@dazbee/ai'
-import { aiCalls, aiDailyChecks, aiPrices, aiStepModels, currencyRates, modelSellers, newId } from '@dazbee/db'
+import { hold, layerSize } from '@dazbee/ai'
+import { aiCalls, aiDailyChecks, aiPrices, currencyRates, modelSellers, newId } from '@dazbee/db'
 import {
   AiAllowanceView,
   AiCostRow,
@@ -16,7 +16,6 @@ import {
   AiPriceView,
   AiSettingsInput,
   AiSettingsView,
-  AiStepModelView,
   AiWorkspace,
   CurrencyRateView,
   DailyCheck,
@@ -32,12 +31,10 @@ import { addAdmin, ask, tokenOf } from './test-early-access.ts'
 
 let admin: Awaited<ReturnType<typeof addAdmin>>
 
-/** The test's own picture model, text model and AI step, and a currency no seller bills in. */
+/** The test's own picture model and text model, and a currency no seller bills in. */
 const model = `test-model-${run}`
 const textModel = `test-model-${run}-text`
 const orderModel = `test-model-${run}-order`
-const staleStep = `test-step-${run}-stale`
-const step = `test-step-${run}`
 const XTS = 'XTS'
 
 beforeAll(async () => {
@@ -45,9 +42,6 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  Reflect.deleteProperty(STEPS, step)
-  Reflect.deleteProperty(STEPS, staleStep)
-  await db.delete(aiStepModels).where(inArray(aiStepModels.step, [step, staleStep]))
   await db.delete(modelSellers).where(inArray(modelSellers.model, [model, textModel, orderModel]))
   await db.delete(aiPrices).where(inArray(aiPrices.model, [model, textModel]))
   await db.delete(currencyRates).where(eq(currencyRates.currency, XTS))
@@ -70,7 +64,9 @@ async function addCall(
     callIndex: 0,
     try: 1,
     attempt: 1,
-    step: 'flow.refine',
+    feature: 'refine',
+    function: 'refine-edit',
+    preset: 'seedream',
     model: 'seedream-5.5',
     seller,
     state,
@@ -95,11 +91,6 @@ describe('/admin/ai', () => {
       ['DELETE', '/admin/ai/prices?seller=openai&model=x&unit=picture'],
       ['GET', '/admin/ai/model-sellers'],
       ['PUT', '/admin/ai/model-sellers/seedream-5.5'],
-      ['GET', '/admin/ai/step-models'],
-      ['PUT', '/admin/ai/step-models/flow.refine'],
-      ['DELETE', '/admin/ai/step-models/flow.refine'],
-      ['GET', '/admin/ai/kind-models'],
-      ['PUT', '/admin/ai/kind-models/picture'],
       ['GET', `/admin/ai/workspaces?q=${workspace.name}`],
       ['GET', `/admin/ai/workspaces/${workspace.id}/allowance`],
       ['POST', `/admin/ai/workspaces/${workspace.id}/gifts`],
@@ -244,98 +235,6 @@ describe('/admin/ai', () => {
     expect((await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, twice)).status).toBe(400)
   })
 
-  it('sets an AI step’s model, only to a model of its kind that its sellers have a full price for', async () => {
-    STEPS[step] = { kind: 'picture', expected: () => ({ picture: 1 }) }
-    await ask(admin.token, 'PUT', `/admin/ai/currency-rates/${XTS}`, { rate: 2.5 })
-    const priceAtOpenai = (priced: string, unit: string) =>
-      ask(admin.token, 'PUT', '/admin/ai/prices', {
-        seller: 'openai',
-        model: priced,
-        unit,
-        currency: XTS,
-        pricePerMillion: 1,
-        fee: 0,
-      })
-    // OpenAI reports GPT Image tokens for a picture call, so a price per picture alone is not enough.
-    await priceAtOpenai(model, 'picture')
-    await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, {
-      sellers: [{ seller: 'openai', sellerModel: null }],
-    })
-    await db.insert(aiStepModels).values({ step, model: 'seedream-5.5' })
-    expect(await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model })).toMatchObject({
-      status: 400,
-      json: {
-        error: `${model} can't be chosen yet: openai has no price for input-token, image-input-token, image-output-token`,
-        unpriced: {
-          model,
-          priced: 0,
-          sellers: [{ seller: 'openai', units: ['input-token', 'image-input-token', 'image-output-token'] }],
-        },
-      },
-    })
-    for (const [priced, unit] of [
-      [model, 'input-token'],
-      [model, 'image-input-token'],
-      [model, 'image-output-token'],
-      [textModel, 'input-token'],
-      [textModel, 'cached-input-token'],
-      [textModel, 'output-token'],
-    ] as const) {
-      await ask(admin.token, 'PUT', '/admin/ai/prices', {
-        seller: 'openai',
-        model: priced,
-        unit,
-        currency: XTS,
-        pricePerMillion: 1,
-        fee: 0,
-      })
-      await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${priced}`, {
-        sellers: [{ seller: 'openai', sellerModel: null }],
-      })
-    }
-    const changed = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, {
-      model,
-      options: { quality: 'low' },
-    })
-    expect(changed.status).toBe(204)
-    const [row] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
-    expect(row).toMatchObject({ model, options: { quality: 'low' } })
-    const unsold = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model: 'no-such-model' })
-    expect(unsold).toMatchObject({ status: 400, json: { error: expect.stringMatching(/no-such-model/) } })
-    const text = await ask(admin.token, 'PUT', `/admin/ai/step-models/${step}`, { model: textModel })
-    expect(text).toMatchObject({
-      status: 400,
-      json: {
-        error: `${step} runs a picture model, and ${textModel} is a text model, priced in cached-input-token, input-token, output-token`,
-        wrongKind: {
-          step,
-          model: textModel,
-          units: ['cached-input-token', 'input-token', 'output-token'],
-          wants: 'picture',
-          is: 'text',
-        },
-      },
-    })
-    const [kept] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
-    expect(kept?.model).toBe(model)
-    expect((await ask(admin.token, 'PUT', `/admin/ai/step-models/no-step-${run}`, { model })).status).toBe(404)
-    const steps = AiStepModelView.array().parse((await ask(admin.token, 'GET', '/admin/ai/step-models')).json)
-    expect(steps.map((s) => s.step)).toEqual(
-      expect.arrayContaining(['flow.round-plan', 'flow.draft-fast', 'flow.layer-split']),
-    )
-    expect(steps.map((s) => s.step)).not.toContain(step)
-    const resize = steps.find((s) => s.step === 'flow.resize')
-    const read = steps.find((s) => s.step === 'flow.read')
-    expect(resize).toMatchObject({ kind: 'picture', models: expect.arrayContaining([model]) })
-    expect(resize?.models).not.toContain(textModel)
-    expect(steps.find((s) => s.step === 'flow.refine')).toMatchObject({
-      kind: 'picture',
-      models: expect.arrayContaining([model]),
-    })
-    expect(read).toMatchObject({ kind: 'text', models: expect.arrayContaining([textModel]) })
-    expect(read?.models).not.toContain(model)
-  })
-
   it('refuses a save made from an older copy, as a second tab’s, and keeps the first', async () => {
     const stale = { status: 409, json: { error: 'This changed since you opened it; reload to see the newest.' } }
     const before = AiSettingsView.parse((await ask(admin.token, 'GET', '/admin/ai/settings')).json)
@@ -387,19 +286,6 @@ describe('/admin/ai', () => {
     expect(await ask(admin.token, 'PUT', orderAt, { sellers: [pixazo], was: [openai] })).toMatchObject(stale)
     const orders = ModelSellersView.array().parse((await ask(admin.token, 'GET', '/admin/ai/model-sellers')).json)
     expect(orders.find((m) => m.model === orderModel)?.sellers).toEqual([openai, pixazo])
-
-    STEPS[staleStep] = { kind: 'picture', expected: () => ({ picture: 1 }) }
-    for (const unit of ['picture', 'input-token', 'image-input-token', 'image-output-token']) {
-      await ask(admin.token, 'PUT', pricesAt, { ...price, unit, pricePerMillion: 1 })
-    }
-    await ask(admin.token, 'PUT', `/admin/ai/model-sellers/${model}`, { sellers: [openai] })
-    const [row] = await db.insert(aiStepModels).values({ step: staleStep, model: 'seedream-5.5' }).returning()
-    const since = row?.updatedAt.toISOString()
-    const stepAt = `/admin/ai/step-models/${staleStep}`
-    expect((await ask(admin.token, 'PUT', stepAt, { model, since })).status).toBe(204)
-    expect(await ask(admin.token, 'PUT', stepAt, { model, options: { quality: 'high' }, since })).toMatchObject(stale)
-    const [after] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, staleStep))
-    expect(after).toMatchObject({ model, options: {} })
   })
 
   it('finds a workspace by its name or a member’s email', async () => {
@@ -473,7 +359,7 @@ describe('/admin/ai', () => {
     expect(await layerSize(db, team.id)).toBe(512)
   })
 
-  it('sums the real cost and the charges of AI calls by day, AI step, model and seller', async () => {
+  it('sums the real cost and the charges of AI calls by day, AI feature, AI function, model and seller', async () => {
     const seller = `test-costs-${newId()}`
     const charged = (realCost: bigint, chargeCost: bigint) => ({ realCost, chargeCost, chargedAt: new Date() })
     await addCall(seller, new Date('2001-05-04T08:00:00Z'), 'done', null, charged(1_500_000n, 4_000_000n))
@@ -492,7 +378,8 @@ describe('/admin/ai', () => {
     ).toEqual([
       {
         day: '2001-05-05',
-        step: 'flow.refine',
+        feature: 'refine',
+        function: 'refine-edit',
         model: 'seedream-5.5',
         seller,
         calls: 1,
@@ -502,7 +389,8 @@ describe('/admin/ai', () => {
       },
       {
         day: '2001-05-04',
-        step: 'flow.refine',
+        feature: 'refine',
+        function: 'refine-edit',
         model: 'seedream-5.5',
         seller,
         calls: 3,

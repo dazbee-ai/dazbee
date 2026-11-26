@@ -1,9 +1,9 @@
-// Runs `ai-steps` jobs (ADR-0022): each attempt makes the job's AI calls through `callAi`, up to 4 at once per
+// Runs `calls` jobs (ADR-0022): each attempt makes the job's AI calls through `callAi`, up to 4 at once per
 // job and at most the worker-wide limit across jobs.
 import { createHash } from 'node:crypto'
 
 import { callAi, type JobEnd, type PictureFiles } from '@dazbee/ai'
-import type { AiStepsInput, CallOutput } from '@dazbee/schema'
+import type { CallOutput, CallsInput } from '@dazbee/schema'
 import { originalKey, type Storage } from '@dazbee/storage'
 
 import { type JobAttempt, type JobWorker, type JobWorkerDeps, type Limiter, startJobWorker } from './job-worker.ts'
@@ -13,7 +13,7 @@ export interface Attempt {
   job: string
   workspace: string
   attempt: number
-  input: AiStepsInput
+  input: CallsInput
   /** Aborted when the job is cancelled or the worker stops. */
   signal: AbortSignal
   /** Reads the job's state between calls, aborting `signal` on a cancel. */
@@ -23,9 +23,9 @@ export interface Attempt {
 /** The most calls of one job running at once. */
 export const CALLS_PER_JOB = 4
 
-/** Starts running the queue's `ai-steps` jobs. */
-export async function startStepsWorker(deps: JobWorkerDeps): Promise<JobWorker> {
-  return startJobWorker(deps, (attempt, calls) => runSteps(deps, attempt, calls))
+/** Starts running the queue's `calls` jobs. */
+export async function startCallsWorker(deps: JobWorkerDeps): Promise<JobWorker> {
+  return startJobWorker(deps, (attempt, calls) => runCalls(deps, attempt, calls))
 }
 
 /**
@@ -57,7 +57,9 @@ export async function runAttempt(
             job: { id: made.job, workspaceId: made.workspace },
             attempt: made.attempt,
             callIndex,
-            step: call.step,
+            feature: 'calls',
+            function: call.function,
+            preset: call.preset,
             input: call.input,
             signal: made.signal,
             files,
@@ -97,9 +99,9 @@ export function workspaceFiles(storage: Storage, workspace: string): PictureFile
   }
 }
 
-/** Runs an `ai-steps` job's attempt: done with each call's output, by call index. */
-async function runSteps(deps: JobWorkerDeps, attempt: JobAttempt, calls: Limiter): Promise<JobEnd> {
+/** Runs a `calls` job's attempt: done with each call's output, by call index. */
+async function runCalls(deps: JobWorkerDeps, attempt: JobAttempt, calls: Limiter): Promise<JobEnd> {
   const { input } = attempt
-  if (input.kind !== 'ai-steps') throw new Error(`the ai-steps queue can’t run a ${input.kind} job`)
+  if (input.kind !== 'calls') throw new Error(`the ai-calls queue can’t run a ${input.kind} job`)
   return { state: 'done', output: { outputs: await runAttempt(deps, calls, { ...attempt, input: input.input }) } }
 }

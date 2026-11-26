@@ -12,12 +12,26 @@ export { CUT_OFF } from './call-log.ts'
 export { CALL_PIXELS, callSize, type PictureLimits, pictureLimits, shapeOf } from './call-size.ts'
 export { pictureAssets } from './flow/assets.ts'
 export { actionHold, estimateAction } from './flow/estimate.ts'
-export { declaredCalls, type DeclaredCall, flowHold } from './flow/holds.ts'
+export { declaredCalls, type DeclaredCall, flowHold, type HeldCall, holdOf } from './flow/holds.ts'
 export { LAYERING_CALL } from './flow/layering.ts'
 export { REFINE_CALL } from './flow/refine.ts'
-export { RESIZE_STAND_IN } from './flow/resize.ts'
 export { ROUND_CALL } from './flow/round.ts'
 export { FLOW_CALLS_AT_ONCE, type FlowAttempt, type FlowDeps, runFlowJob } from './flow/run.ts'
+export {
+  AI_FUNCTION_DEFS,
+  aiFunctionDef,
+  ceilingOf,
+  defaultPreset,
+  isAiFunction,
+  presetOf,
+  promptHash,
+  promptOf,
+} from './functions/ai-function.ts'
+export { RESIZE_PROMPT } from './functions/resize.ts'
+export type { AiFunctionDef, Preset } from './functions/types.ts'
+export { type PresetNumbers, presetNumbers } from './measured.ts'
+export { MODE_PRESETS, modeChanges } from './modes.ts'
+export { NO_MODE, presetsFor } from './picks.ts'
 export {
   allowanceOf,
   charge,
@@ -37,6 +51,7 @@ export {
   cancelJob,
   endJob,
   ensureQueue,
+  CALLS_QUEUE,
   FLOW_QUEUE,
   isCancelled,
   type JobEnd,
@@ -51,7 +66,6 @@ export {
   sendAgain,
   spentToday,
   startAttempt,
-  STEPS_QUEUE,
   sweepJobs,
 } from './jobs.ts'
 export { currencyRate, type Priced, pricesOf, priceUsage } from './price-list.ts'
@@ -85,15 +99,5 @@ export { LAYERING, modalSeller, modalSellerOn, type ModalSdk } from './sellers/m
 export { openaiSeller } from './sellers/openai.ts'
 export { FAST_UNITS, type Tier, TIERS, tierOf } from './sellers/tiers.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
-export {
-  holdFor,
-  modelKinds,
-  routeStep,
-  type StepDef,
-  stepDef,
-  stepModel,
-  STEP_SECONDS,
-  STEPS,
-  sellerPricing,
-} from './steps.ts'
+export { modelKinds, routeModel, type RouteSeller, type SellerRoute, sellerPricing } from './seller-route.ts'
 export { settleUnknownCalls, type Settled } from './unknown-calls.ts'

@@ -3,26 +3,34 @@ import { eq, sql } from 'drizzle-orm'
 import { fromDrizzle, PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { aiCalls, aiJobs, aiLedger, brands, memberships, newId, users, workspaces } from '@dazbee/db'
-import type { AiStepsInput, CallInput, MemberRole } from '@dazbee/schema'
+import { aiCalls, aiJobs, aiLedger, aiPicks, brands, memberships, newId, users, workspaces } from '@dazbee/db'
+import type { CallInput, CallsInput, MemberRole, RoundInput } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
 import { cancelJob, ensureQueue, FLOW_QUEUE, readJob, saveJob } from './jobs.ts'
 import { giveGrant, left } from './ledger.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { aiSettingsOf } from './settings.ts'
-import { addJob, addStep, db, newSeller, newWorkspace, RUPEE } from './test-ai.ts'
+import { addFunction, addJob, db, newSeller, newWorkspace, RUPEE, TEST_PRESET } from './test-ai.ts'
 import { DATABASE_URL } from './test-database.ts'
 
 const boss = new PgBoss({ connectionString: DATABASE_URL, max: 2, supervise: false, schedule: false })
-const queue = `ai-steps-${newId()}`
-let input: AiStepsInput
+const queue = `ai-calls-${newId()}`
+let input: CallsInput
 
 beforeAll(async () => {
   await boss.start()
   await ensureQueue(boss, queue)
-  const { step } = await addStep([testSeller(newSeller('a'))])
-  input = { calls: [{ step, input: { kind: 'text', instructions: 'Read.', prompt: 'An ad.', pictures: [] } }] }
+  const { fn } = await addFunction([testSeller(newSeller('a'))])
+  input = {
+    calls: [
+      {
+        function: fn,
+        preset: TEST_PRESET,
+        input: { kind: 'text', instructions: 'Read.', prompt: 'An ad.', pictures: [] },
+      },
+    ],
+  }
 })
 
 afterAll(() => boss.stop({ graceful: false }))
@@ -41,7 +49,7 @@ async function memberOf(role: MemberRole, allowance = 10n * RUPEE) {
 }
 
 const save = (who: { workspace: string; member: string }, to = queue) =>
-  db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'ai-steps', input, queue: to }))
+  db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'calls', input, queue: to }))
 
 describe('saveJob', () => {
   it('saves the job, its hold and its pg-boss job together', async () => {
@@ -49,9 +57,11 @@ describe('saveJob', () => {
     const saved = await save(who)
     if (!saved.ok) throw new Error(saved.refusal)
     const [job] = await db.select().from(aiJobs).where(eq(aiJobs.id, saved.job))
-    expect(job).toMatchObject({ state: 'waiting', attempt: 0, workspaceId: who.workspace })
+    // A calls job names each call's preset itself, so it saves no mode and no presets.
+    expect(job).toMatchObject({ state: 'waiting', attempt: 0, workspaceId: who.workspace, mode: null, presets: null })
     expect(await boss.findJobs(queue, { id: job?.queueJobId ?? '' })).toHaveLength(1)
-    expect(await left(db, who.workspace)).toBeLessThan(10n * RUPEE)
+    // Its one call's first guess, ₹0.10, times 1.25.
+    expect(await left(db, who.workspace)).toBe(10n * RUPEE - 125_000n)
   })
 
   it('keeps nothing when the pg-boss job can’t be sent', async () => {
@@ -77,8 +87,8 @@ describe('saveJob', () => {
       const saving = db.transaction((tx) =>
         saveJob(tx, boss, {
           ...who,
-          kind: 'ai-steps',
-          input: { calls: [{ step: 'flow.refine', input: call }] },
+          kind: 'calls',
+          input: { calls: [{ function: 'refine-edit', preset: 'seedream', input: call }] },
           queue,
         }),
       )
@@ -112,12 +122,59 @@ describe('saveJob', () => {
     if (!saved.ok) throw new Error(saved.refusal)
     expect(taken).toBe(1)
     const [job] = await db.select().from(aiJobs).where(eq(aiJobs.id, saved.job))
-    expect(job).toMatchObject({ kind: 'resize', queue: FLOW_QUEUE, input })
+    // No mode changes a resize, and it saves the preset of the one AI function it calls.
+    expect(job).toMatchObject({ kind: 'resize', queue: FLOW_QUEUE, input, mode: null })
+    expect(job?.presets).toEqual({ resize: 'seedream' })
     expect(await readJob(db, who.workspace, saved.job)).toMatchObject({ kind: 'resize', output: null, calls: [] })
     const wrong = { ...input, frame: target }
     await expect(
       db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'try-again', input: wrong as never })),
     ).rejects.toThrow()
+  })
+
+  it('keeps a job’s presets and its hold when a pick is made after it is saved, and gives the next job the pick', async () => {
+    const who = await memberOf('editor', 100n * RUPEE)
+    const target = () => ({ frameId: newId(), pictureLayerId: newId() })
+    const round = (): RoundInput => ({
+      brandId: `brand-${newId()}`,
+      designId: newId(),
+      briefId: newId(),
+      sectionId: newId(),
+      frames: [target(), target(), target(), target()],
+      words: 'Harbour Coffee, fresh every morning',
+      pictures: [],
+      size: { width: 1080, height: 1080 },
+      mode: 'precise',
+      brand: { name: '', colors: [], fonts: [], voice: '' },
+    })
+    // In a transaction that is rolled back, so no other test's Precise round ever reads the pick.
+    const read = await db
+      .transaction(async (tx) => {
+        const saveRound = async () => {
+          const saved = await saveJob(tx, boss, { ...who, kind: 'round', input: round(), queue })
+          if (!saved.ok) throw new Error(saved.refusal)
+          return saved.job
+        }
+        const held = async (job: string) =>
+          (await tx.select().from(aiLedger).where(eq(aiLedger.jobId, job))).map((row) => row.amount)
+        const presets = async (job: string) => (await tx.select().from(aiJobs).where(eq(aiJobs.id, job)))[0]?.presets
+        const before = await saveRound()
+        await tx
+          .insert(aiPicks)
+          .values({ function: 'round-plan', mode: 'precise', preset: 'light-luna', setBy: 'admin' })
+        const after = await saveRound()
+        const result = {
+          before: { presets: await presets(before), held: await held(before) },
+          after: { presets: await presets(after), held: await held(after) },
+        }
+        throw Object.assign(new Error('roll back'), { result })
+      })
+      .catch((error: { result?: unknown }) => error.result)
+    expect(read).toEqual({
+      // The full plan and four drafts at their first guesses, times 1.25; only the AI functions a round calls.
+      before: { presets: { 'round-plan': 'full-terra', draft: 'gpt-image-medium' }, held: [-12_325_000n] },
+      after: { presets: { 'round-plan': 'light-luna', draft: 'gpt-image-medium' }, held: [-6_950_000n] },
+    })
   })
 
   it('refuses every job once the day’s real cost reaches the spending stop', async () => {
@@ -133,13 +190,14 @@ describe('saveJob', () => {
           callIndex: 0,
           try: 1,
           attempt: 1,
-          step: 'flow.read',
+          function: 'reading',
+          preset: 'luna',
           model: 'test',
           seller: 'test',
           state: 'done',
           realCost: spendingStop,
         })
-        const result = await saveJob(tx, boss, { ...who, kind: 'ai-steps', input, queue })
+        const result = await saveJob(tx, boss, { ...who, kind: 'calls', input, queue })
         throw Object.assign(new Error('roll back'), { result })
       })
       .catch((error: { result?: unknown }) => error.result)
@@ -159,21 +217,31 @@ describe('readJob', () => {
   it('gives each started call: one made with its output, one that failed for good, one still being made', async () => {
     const workspace = newWorkspace()
     const job = await addJob(workspace)
-    const made = await addStep([testSeller(newSeller('made'))])
-    const refused = await addStep([testSeller(newSeller('refused'), [{ fail: 400 }])])
-    const slow = await addStep([testSeller(newSeller('slow'), [], { afterMs: 5000, timeoutMs: 10_000 })])
+    const made = await addFunction([testSeller(newSeller('made'))])
+    const refused = await addFunction([testSeller(newSeller('refused'), [{ fail: 400 }])])
+    const slow = await addFunction([testSeller(newSeller('slow'), [], { afterMs: 5000, timeoutMs: 10_000 })])
     const text: CallInput = { kind: 'text', instructions: 'Read.', prompt: 'An ad.', pictures: [] }
-    const call = (callIndex: number, step: string, signal = new AbortController().signal) =>
-      callAi(db, { job: { id: job, workspaceId: workspace }, attempt: 1, callIndex, step, input: text, signal })
-    await call(0, made.step)
-    await expect(call(1, refused.step)).rejects.toThrow()
+    const call = (callIndex: number, fn: string, signal = new AbortController().signal) =>
+      callAi(db, {
+        job: { id: job, workspaceId: workspace },
+        attempt: 1,
+        callIndex,
+        feature: 'calls',
+        function: fn,
+        preset: TEST_PRESET,
+        input: text,
+        signal,
+      })
+    await call(0, made.fn)
+    await expect(call(1, refused.fn)).rejects.toThrow()
     const stop = new AbortController()
-    const making = call(2, slow.step, stop.signal).catch(() => null)
+    const making = call(2, slow.fn, stop.signal).catch(() => null)
     await vi.waitFor(async () => expect((await readJob(db, workspace, job))?.calls).toHaveLength(3))
     expect((await readJob(db, workspace, job))?.calls).toEqual([
-      { index: 0, step: made.step, state: 'done', output: { kind: 'text', text: 'test answer' } },
-      { index: 1, step: refused.step, state: 'failed', failure: 'not-made' },
-      { index: 2, step: slow.step, state: 'running' },
+      // Each call names its AI function, and as `step` too, for a tab built when a call named its AI step.
+      { index: 0, function: made.fn, step: made.fn, state: 'done', output: { kind: 'text', text: 'test answer' } },
+      { index: 1, function: refused.fn, step: refused.fn, state: 'failed', failure: 'not-made' },
+      { index: 2, function: slow.fn, step: slow.fn, state: 'running' },
     ])
     stop.abort()
     await making

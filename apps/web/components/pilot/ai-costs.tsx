@@ -2,12 +2,12 @@
 
 // The AI section's days and costs. The days: the UTC days the costs, the daily check and the unknown calls
 // cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call over those
-// days, added up by feature, then AI step, model and seller, then the same by day, with the real cost and what workspaces
+// days, added up by AI feature, then AI function, model and seller, then the same by day, with the real cost and what workspaces
 // were charged; and the layer split's real GPU cost beside the fixed amounts it took, day by day.
 import Link from 'next/link'
 import { Fragment } from 'react'
 
-import { type AiCostRow, featureOf, LAYER_SPLIT_STEP } from '@dazbee/schema'
+import { type AiCostRow, LAYER_SPLIT } from '@dazbee/schema'
 
 import {
   AiHeading,
@@ -122,17 +122,19 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
   const w = useMessages().pilotAi.costs
   const names = useAiNames()
   const amount = useAmount()
-  // By feature, then AI step, then model: each feature's rows follow its own total.
-  const byStep = sumBy(costs, (row) => `${row.step}/${row.model}/${row.seller}`).sort(([a], [b]) => a.localeCompare(b))
-  const features = sumBy(costs, (row) => featureOf(row.step))
+  // By AI feature, then AI function, then model: each feature's rows follow its own total.
+  const byFunction = sumBy(costs, (row) => `${row.feature}/${row.function}/${row.model}/${row.seller}`).sort(
+    ([a], [b]) => a.localeCompare(b),
+  )
+  const features = sumBy(costs, (row) => row.feature)
   const splits = sumBy(
-    costs.filter((row) => row.step === LAYER_SPLIT_STEP),
+    costs.filter((row) => row.function === LAYER_SPLIT),
     (row) => row.day,
   )
   const all = sumBy(costs, () => 'all')[0]?.[2]
   const head = (
     <>
-      <th className={HEAD}>{w.step}</th>
+      <th className={HEAD}>{w.function}</th>
       <th className={HEAD}>{w.model}</th>
       <th className={HEAD}>{w.seller}</th>
       <th className={cn(HEAD, 'text-end')}>{w.calls}</th>
@@ -143,7 +145,7 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
   )
   const cells = (row: AiCostRow, sum: Sum) => (
     <>
-      <td className={CELL}>{names.step(row.step)}</td>
+      <td className={CELL}>{names.fn(row.function)}</td>
       <td className={cn(CELL, 'font-mono text-caption')}>{row.model}</td>
       <td className={CELL}>{names.seller(row.seller)}</td>
       <td className={cn(CELL, 'text-end')}>{sum.calls}</td>
@@ -178,8 +180,8 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
                       <td className={cn(CELL, 'text-end')}>{amount(total.realCost, 4)}</td>
                       <td className={cn(CELL, 'text-end')}>{amount(total.charged, 4)}</td>
                     </tr>
-                    {byStep
-                      .filter(([, row]) => featureOf(row.step) === feature)
+                    {byFunction
+                      .filter(([, row]) => row.feature === feature)
                       .map(([key, row, sum]) => (
                         <tr key={key} data-cost={key}>
                           {cells(row, sum)}
@@ -238,7 +240,7 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
             </thead>
             <tbody>
               {costs.map((row) => (
-                <tr key={`${row.day}/${row.step}/${row.model}/${row.seller}`}>
+                <tr key={`${row.day}/${row.feature}/${row.function}/${row.model}/${row.seller}`}>
                   <td className={CELL}>{row.day}</td>
                   {cells(row, row)}
                 </tr>

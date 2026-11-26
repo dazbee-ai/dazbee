@@ -22,7 +22,7 @@ describe('estimateAction', () => {
   it('gives a Fast round on a fresh gift its hold over the grant, as a whole percent', async () => {
     const hold = await actionHold(db, await workspaceWith(null), fastRound)
     const workspace = await workspaceWith(hold * 25n)
-    expect(await estimateAction(db, workspace, fastRound)).toEqual({ share: 4, seconds: 69 + 26 })
+    expect(await estimateAction(db, workspace, fastRound)).toEqual({ share: 4, seconds: 10 + 28 })
   })
 
   it('says under 1% for a hold below a hundredth of the allowance, and gives no share with none', async () => {
@@ -35,8 +35,8 @@ describe('estimateAction', () => {
     const workspace = await workspaceWith(null)
     const seconds = async (query: unknown) =>
       (await estimateAction(db, workspace, AiEstimateQuery.parse(query))).seconds
-    expect(await seconds({ action: 'round', mode: 'precise' })).toBe(49 + 45)
-    expect(await seconds({ action: 'try-again', mode: 'fast' })).toBe(26)
+    expect(await seconds({ action: 'round', mode: 'precise' })).toBe(33 + 28)
+    expect(await seconds({ action: 'try-again', mode: 'fast' })).toBe(28)
     expect(await seconds({ action: 'refine' })).toBe(7 + 117)
     expect(
       await seconds({
@@ -53,7 +53,7 @@ describe('estimateAction', () => {
     expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(82 + 2 * 18)
   })
 
-  it('holds more for more sizes, and for a brief with pictures', async () => {
+  it('holds more for more sizes, and for a Precise round', async () => {
     const workspace = await workspaceWith(null)
     const hold = (query: unknown) => actionHold(db, workspace, AiEstimateQuery.parse(query))
     const one = await hold({ action: 'resize', sizes: [{ width: 1080, height: 1920 }] })
@@ -65,6 +65,7 @@ describe('estimateAction', () => {
       ],
     })
     expect(two).toBeGreaterThan(one)
-    expect(await hold({ action: 'round', pictures: 2 })).toBeGreaterThan(await hold({ action: 'round' }))
+    // A Precise round's plan runs a dearer preset than a Fast round's.
+    expect(await hold({ action: 'round', mode: 'precise' })).toBeGreaterThan(await hold({ action: 'round' }))
   })
 })

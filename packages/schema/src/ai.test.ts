@@ -1,42 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import { AiStepsCall, AiStepsInput, referenceCount } from './ai.ts'
+import { CallsInput, referenceCount } from './ai.ts'
 
-describe('AiStepsInput', () => {
-  it('reads a call saved as a picture edit as a picture call with its references', () => {
-    const saved = {
-      calls: [
-        {
-          step: 'flow.refine',
-          input: { kind: 'picture-edit', prompt: 'Make it square.', pictures: ['k'], width: 1024, height: 1024 },
-        },
-      ],
-    }
-    expect(AiStepsInput.parse(saved).calls[0]?.input).toEqual({
-      kind: 'picture',
-      prompt: 'Make it square.',
-      pictures: ['k'],
-      width: 1024,
-      height: 1024,
-    })
-  })
-
+describe('CallsInput', () => {
   it('refuses marks with no picture, and more than 16 references counting the marked copy', () => {
     const picture = { kind: 'picture', prompt: 'A cup.', width: 1024, height: 1024 }
-    const parse = (input: object) => AiStepsInput.safeParse({ calls: [{ step: 'flow.refine', input }] }).success
+    const parse = (input: object) =>
+      CallsInput.safeParse({ calls: [{ function: 'refine-edit', preset: 'seedream', input }] }).success
     expect(parse({ ...picture, pictures: [], marks: 'm' })).toBe(false)
     expect(parse({ ...picture, pictures: Array.from({ length: 16 }, (_, i) => `k${i}`), marks: 'm' })).toBe(false)
     expect(parse({ ...picture, pictures: Array.from({ length: 15 }, (_, i) => `k${i}`), marks: 'm' })).toBe(true)
     expect(parse(picture)).toBe(true)
   })
-})
 
-describe('AiStepsCall', () => {
-  it('reads a step saved before steps were named by feature by its flow name, and keeps any other', () => {
+  it('refuses a call that names no AI function or no preset', () => {
     const input = { kind: 'text', instructions: 'Read.', prompt: 'An ad.' }
-    expect(AiStepsCall.parse({ step: 'round-plan', input }).step).toBe('flow.round-plan')
-    expect(AiStepsCall.parse({ step: 'flow.read', input }).step).toBe('flow.read')
-    expect(AiStepsCall.parse({ step: 'test-step-1', input }).step).toBe('test-step-1')
+    expect(CallsInput.safeParse({ calls: [{ function: 'reading', preset: 'luna', input }] }).success).toBe(true)
+    expect(CallsInput.safeParse({ calls: [{ function: 'reading', input }] }).success).toBe(false)
+    expect(CallsInput.safeParse({ calls: [{ preset: 'luna', input }] }).success).toBe(false)
   })
 })
 

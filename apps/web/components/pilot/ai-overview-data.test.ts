@@ -4,9 +4,20 @@ import type { AiCostRow, DailyCheck } from '@dazbee/schema'
 
 import { checkPanels, costsByDay, daysFrom, layerSplitByDay, OTHER, overviewFigures } from './ai-overview-data.ts'
 
-/** A cost row of `seller` and `step` on `day`. */
-const cost = (day: string, step: string, seller: string, realCost: number, more: Partial<AiCostRow> = {}) =>
-  ({ day, step, model: 'm', seller, calls: 1, done: 1, realCost, charged: 0, ...more }) satisfies AiCostRow
+/** A cost row of `seller` and the AI function `fn` on `day`. */
+const cost = (day: string, fn: string, seller: string, realCost: number, more: Partial<AiCostRow> = {}) =>
+  ({
+    day,
+    feature: 'refine',
+    function: fn,
+    model: 'm',
+    seller,
+    calls: 1,
+    done: 1,
+    realCost,
+    charged: 0,
+    ...more,
+  }) satisfies AiCostRow
 
 /** A daily check of `seller` on `day`. */
 const check = (seller: string, day: string, state: DailyCheck['state'], ourCost: number, sellerCost: number | null) =>
@@ -33,12 +44,12 @@ describe('daysFrom', () => {
 
 describe('costsByDay', () => {
   const costs = [
-    cost('2026-11-21', 'flow.refine', 'pixazo', 2),
-    cost('2026-11-19', 'flow.read', 'openai', 0.5),
-    cost('2026-11-19', 'flow.refine', 'openai', 1.25),
-    cost('2026-11-20', 'test-step', 'test-seller', 4),
-    cost('2026-10-01', 'flow.read', 'meta', 9),
-    cost('2026-11-21', 'flow.resize', 'zenmux', 0, { done: 0 }),
+    cost('2026-11-21', 'refine-edit', 'pixazo', 2),
+    cost('2026-11-19', 'reading', 'openai', 0.5),
+    cost('2026-11-19', 'refine-edit', 'openai', 1.25),
+    cost('2026-11-20', 'test-function', 'test-seller', 4),
+    cost('2026-10-01', 'reading', 'meta', 9),
+    cost('2026-11-21', 'resize', 'zenmux', 0, { done: 0 }),
   ]
 
   it('adds up each day’s real cost by seller, in the sellers’ fixed order, with those not in it as Other and none that cost nothing', () => {
@@ -49,10 +60,10 @@ describe('costsByDay', () => {
     ])
   })
 
-  it('adds up each day’s real cost by AI step, keeping each step’s place whatever else is shown', () => {
-    expect(costsByDay(costs, DAYS, 'step')).toEqual([
-      { key: 'flow.read', slot: 1, values: [0.5, 0, 0] },
-      { key: 'flow.refine', slot: 4, values: [1.25, 0, 2] },
+  it('adds up each day’s real cost by AI function, keeping each one’s place whatever else is shown', () => {
+    expect(costsByDay(costs, DAYS, 'function')).toEqual([
+      { key: 'refine-edit', slot: 4, values: [1.25, 0, 2] },
+      { key: 'reading', slot: 8, values: [0.5, 0, 0] },
       { key: OTHER, slot: -1, values: [0, 4, 0] },
     ])
   })
@@ -80,9 +91,9 @@ describe('layerSplitByDay', () => {
   it('gives the GPU’s real cost against the fixed amount charged each day', () => {
     const split = layerSplitByDay(
       [
-        cost('2026-11-20', 'flow.layer-split', 'modal', 1.2, { charged: 1.83 }),
-        cost('2026-11-20', 'flow.layer-split', 'modal', 0.4, { charged: 1.83 }),
-        cost('2026-11-21', 'flow.refine', 'pixazo', 2),
+        cost('2026-11-20', 'layer-split', 'modal', 1.2, { charged: 1.83 }),
+        cost('2026-11-20', 'layer-split', 'modal', 0.4, { charged: 1.83 }),
+        cost('2026-11-21', 'refine-edit', 'pixazo', 2),
       ],
       DAYS,
     )
@@ -91,7 +102,7 @@ describe('layerSplitByDay', () => {
   })
 
   it('gives nothing when the layer split made no call on the days', () => {
-    expect(layerSplitByDay([cost('2026-11-21', 'flow.refine', 'pixazo', 2)], DAYS)).toBeNull()
+    expect(layerSplitByDay([cost('2026-11-21', 'refine-edit', 'pixazo', 2)], DAYS)).toBeNull()
   })
 })
 
@@ -100,8 +111,8 @@ describe('overviewFigures', () => {
     expect(
       overviewFigures({
         today: [
-          cost('2026-11-21', 'flow.refine', 'pixazo', 2, { calls: 3, done: 2 }),
-          cost('2026-11-21', 'flow.read', 'openai', 1),
+          cost('2026-11-21', 'refine-edit', 'pixazo', 2, { calls: 3, done: 2 }),
+          cost('2026-11-21', 'reading', 'openai', 1),
         ],
         checks: [check('meta', '2026-11-20', 'red', 0.93, 5), check('openai', '2026-11-20', 'ok', 2, 2)],
         unknownCalls: [

@@ -5,7 +5,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import { aiCalls, type Db, newId } from '@dazbee/db'
 import type { Usage } from '@dazbee/schema'
 
-import type { AiCall } from './call.ts'
+import type { AiCall, Run } from './call.ts'
+import { promptHash } from './functions/ai-function.ts'
 import { priceUsage } from './price-list.ts'
 import type { SellerCutOff } from './sellers/seller.ts'
 
@@ -27,8 +28,11 @@ export async function resumeTry(db: Db, resume: { row: string; requestId: string
   return resume.requestId
 }
 
-/** Writes the call-log row of a new try, as running; its id. */
-export async function startTry(db: Db, call: AiCall, model: string, seller: string): Promise<string> {
+/**
+ * Writes the call-log row of a new try, as running, with what it runs with: its feature, AI function and preset, its
+ * kind, the preset's model and settings, and the hash of its prompt; its id.
+ */
+export async function startTry(db: Db, call: AiCall, run: Run, seller: string): Promise<string> {
   const id = newId()
   for (let clash = 0; ; clash++) {
     try {
@@ -39,8 +43,13 @@ export async function startTry(db: Db, call: AiCall, model: string, seller: stri
         callIndex: call.callIndex,
         try: sql`(select coalesce(max(${aiCalls.try}), 0) + 1 from ${aiCalls} where ${aiCalls.jobId} = ${call.job.id} and ${aiCalls.callIndex} = ${call.callIndex})`,
         attempt: call.attempt,
-        step: call.step,
-        model,
+        feature: call.feature,
+        function: call.function,
+        preset: call.preset,
+        kind: run.def.kind,
+        settings: run.preset.settings,
+        promptHash: promptHash(call.function, run.preset),
+        model: run.preset.model,
         seller,
       })
       return id

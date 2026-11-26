@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
 import { left } from '@dazbee/ai'
-import { aiBriefs, aiRefines, assets, brandKits, brands, newId } from '@dazbee/db'
+import { aiBriefs, aiJobs, aiRefines, assets, brandKits, brands, newId } from '@dazbee/db'
 import {
   AiEstimate,
   type AiFrameView,
@@ -171,7 +171,7 @@ describe('GET /brands/:b/designs/:d/ai', () => {
     const team = await addTeam()
     const request = roundRequest(team)
     const job = await start(team, request)
-    await makeCall(job, 0, { step: 'flow.round-plan', output: { kind: 'text', text: '{}', json: PLAN } })
+    await makeCall(job, 0, { fn: 'round-plan', output: { kind: 'text', text: '{}', json: PLAN } })
     const picture = await addPicture(team)
     await makeCall(job, 1, { output: madePicture(team, picture) })
     await makeCall(job, 2, { output: 'failed' })
@@ -243,7 +243,7 @@ describe('try again', () => {
     const team = await addTeam()
     const request = roundRequest(team)
     const job = await start(team, request)
-    await makeCall(job, 0, { step: 'flow.round-plan', output: 'failed' })
+    await makeCall(job, 0, { fn: 'round-plan', output: 'failed' })
     await endJob(job, 'failed')
     const frame = request.frames[1]?.frameId ?? ''
     const again = await ask(team, team.editor, 'POST', '/ai/jobs', {
@@ -294,10 +294,10 @@ describe('refine, resize and layering', () => {
 
     const version = await addPicture(team)
     await makeCall(job, 0, {
-      step: 'flow.refine-plan',
+      fn: 'refine-plan',
       output: { kind: 'text', text: '', json: { instruction: 'x', summary: 'Bigger price', pinned_only: false } },
     })
-    await makeCall(job, 1, { step: 'flow.refine', output: madePicture(team, version) })
+    await makeCall(job, 1, { fn: 'refine-edit', output: madePicture(team, version) })
     const written = await ask(team, team.editor, 'POST', `/designs/${team.design}/ai/frames/${frame.frameId}/written`, {
       jobId: job,
       callIndex: 1,
@@ -350,9 +350,38 @@ describe('GET /brands/:b/ai/estimate', () => {
     const team = await addTeam()
     const read = await ask(team, team.editor, 'GET', '/ai/estimate?action=round&mode=fast&sizes=1080x1080')
     expect(read.status).toBe(200)
-    expect(AiEstimate.parse(read.json).seconds).toBe(69 + 26)
+    expect(AiEstimate.parse(read.json).seconds).toBe(10 + 28)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=dance')).status).toBe(400)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=resize&sizes=wide')).status).toBe(400)
+  })
+})
+
+describe('what a workspace reads of its AI', () => {
+  it('names no model, seller or preset, whatever a job failed with', async () => {
+    const team = await addTeam()
+    const job = await start(team, roundRequest(team))
+    await makeCall(job, 0, { fn: 'round-plan', output: 'failed' })
+    await endJob(job, 'failed')
+    // Why a job failed, as its row keeps it for an admin.
+    await db
+      .update(aiJobs)
+      .set({
+        error:
+          'openai refused round-plan: gpt-6-luna is overloaded; the AI function round-plan has no preset light-luna',
+      })
+      .where(eq(aiJobs.id, job))
+    const estimate = '/ai/estimate?action=round&mode=precise&sizes=1080x1080'
+    const read = [
+      await ask(team, team.editor, 'GET', `/designs/${team.design}/ai`),
+      await ask(team, team.editor, 'GET', estimate),
+      await requestOf(aiApp, team.editor, 'GET', '/me/ai/jobs'),
+    ]
+    for (const answer of read) {
+      expect(answer.status).toBe(200)
+      expect(JSON.stringify(answer.json)).not.toMatch(/openai|zenmux|openrouter|gpt-|seedream|terra|luna|light-|full-/i)
+    }
+    const { jobs } = DesignAi.parse(read[0]?.json)
+    expect(jobs.find((each) => each.id === job)).toMatchObject({ state: 'failed', error: 'failed' })
   })
 })
 

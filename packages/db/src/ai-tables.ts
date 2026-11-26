@@ -1,5 +1,5 @@
-// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, which model each AI step runs, the picks
-// of presets, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
+// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, the picks of presets, two tables of
+// models, by kind and by step, read by no code, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
 // flow's briefs, AI frames and refines. Amounts are whole millionths: of a rupee for allowance and real cost,
 // of the seller's currency for its prices and costs. Workspace and person ids carry no foreign key, so
 // deleting an account keeps the metering rows for good; the flow's rows go with their design.
@@ -105,7 +105,7 @@ export const modelSellers = pgTable(
   (t) => [primaryKey({ columns: [t.model, t.seller] }), uniqueIndex('model_sellers_position').on(t.model, t.position)],
 )
 
-/** The default model of each kind of AI call, with the options the call passes it; every AI step of the kind runs it unless the step has its own. */
+/** A model for each kind of AI call. Nothing reads it: a preset names each AI function's model. */
 export const aiKindModels = pgTable('ai_kind_models', {
   kind: text({ enum: CALL_KINDS }).primaryKey(),
   model: text().notNull(),
@@ -113,7 +113,7 @@ export const aiKindModels = pgTable('ai_kind_models', {
   updatedAt: updatedAt(),
 })
 
-/** An AI step's own model, in place of its kind's default, with the options the call passes it (such as a picture's quality). */
+/** A model for one named call. Nothing reads it: a preset names each AI function's model. */
 export const aiStepModels = pgTable('ai_step_models', {
   step: text().primaryKey(),
   model: text().notNull(),
@@ -240,7 +240,8 @@ export const aiCalls = pgTable(
     callIndex: integer('call_index').notNull(),
     try: integer().notNull(),
     attempt: integer().notNull(),
-    step: text().notNull(),
+    /** Not written: a call is logged under its AI function and preset. */
+    step: text(),
     /** The AI feature of the call's job, its AI function and preset, and its kind of call. */
     feature: text(),
     function: text(),

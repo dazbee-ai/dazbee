@@ -1,7 +1,7 @@
 // The admin page's AI routes, under /admin/ai, for admins only, as if they didn't exist for anyone else: the
-// AI settings with today's spend, the currency rates, the price list, each model's seller order, the models of
-// each kind and AI step (ai-model-routes.ts); finding a workspace, giving it a gift and reading its grants and ledger; AI's costs by day, AI
-// step, model and seller; the daily check over a range of days, a seller's uploaded usage file, unknown calls
+// AI settings with today's spend, the currency rates, the price list, each model's seller order; finding a
+// workspace, giving it a gift and reading its grants and ledger; AI's costs by day, AI feature, AI function, model
+// and seller; the daily check over a range of days, a seller's uploaded usage file, unknown calls
 // by seller and day, the sellers that said they are out of money in the last day, and when the sellers
 // checked from uploads were last checked. Money comes and goes as decimals of rupees or of the seller's
 // currency.
@@ -37,7 +37,6 @@ import type { SessionOf } from '../sign-in/session.ts'
 import { type Admins, requireAdmin } from './admins.ts'
 import { allowanceOf, findWorkspaces, GiftRefused, giveGift } from './ai-allowance.ts'
 import { ChangedMeanwhile, checkSince } from './ai-changed-meanwhile.ts'
-import { aiModelRoutes } from './ai-model-routes.ts'
 import {
   listCurrencyRates,
   listModelSellers,
@@ -58,7 +57,6 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     c.json(error(`Give from and to as YYYY-MM-DD, at most ${MAX_DAYS} days apart`), 400)
 
   app.use('/admin/ai/*', requireAdmin(db, sessionOf, admins))
-  app.route('/', aiModelRoutes(db))
 
   app.get('/admin/ai/settings', async (c) => c.json(await settingsView(db)))
 
@@ -155,7 +153,8 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     const rows = await db
       .select({
         day,
-        step: aiCalls.step,
+        feature: sql<string>`coalesce(${aiCalls.feature}, '')`,
+        function: sql<string>`coalesce(${aiCalls.function}, '')`,
         model: aiCalls.model,
         seller: aiCalls.seller,
         calls: count(),
@@ -165,8 +164,8 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
       })
       .from(aiCalls)
       .where(inRange(range))
-      .groupBy(day, aiCalls.step, aiCalls.model, aiCalls.seller)
-      .orderBy(desc(day), aiCalls.step, aiCalls.model, aiCalls.seller)
+      .groupBy(day, aiCalls.feature, aiCalls.function, aiCalls.model, aiCalls.seller)
+      .orderBy(desc(day), aiCalls.feature, aiCalls.function, aiCalls.model, aiCalls.seller)
     return c.json(
       rows.map((row) => ({
         ...row,

@@ -5,7 +5,7 @@
 import { and, eq, gte, inArray, isNotNull, lt } from 'drizzle-orm'
 
 import { aiCalls, aiJobs, type Db } from '@dazbee/db'
-import { AiStepsInput } from '@dazbee/schema'
+import { CallsInput } from '@dazbee/schema'
 
 import { priceUsage } from './price-list.ts'
 import { sellerAdapter } from './sellers/seller.ts'
@@ -77,12 +77,12 @@ export async function settleUnknownCalls(db: Db, before: Date = startOfUtcDay())
 }
 
 /** The inputs of `jobs`, by job id. */
-async function jobInputs(db: Db, jobs: string[]): Promise<Map<string, AiStepsInput>> {
+async function jobInputs(db: Db, jobs: string[]): Promise<Map<string, CallsInput>> {
   if (jobs.length === 0) return new Map()
   const rows = await db.select({ id: aiJobs.id, input: aiJobs.input }).from(aiJobs).where(inArray(aiJobs.id, jobs))
   return new Map(
     rows.flatMap((row) => {
-      const parsed = AiStepsInput.safeParse(row.input)
+      const parsed = CallsInput.safeParse(row.input)
       return parsed.success ? [[row.id, parsed.data] as const] : []
     }),
   )

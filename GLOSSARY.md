@@ -690,27 +690,23 @@ The AI job that turns a draft's picture into real layers in the same frame: the 
 _Avoid_: Decompose, editable-ize, convert
 
 **Mode**:
-The name a person picks a kind of draft by, **Fast** or **Precise**, never a model's name. An admin sets which model each mode runs, so changing the model doesn't change the screen.
+The name a person picks a round by, **Fast** or **Precise**, never a model's name. A mode is a list that says which preset each AI function uses, so changing a model doesn't change the screen.
 _Avoid_: Model, quality, engine
 
-**AI step**:
-One named AI call of a feature, written `<feature>.<name>`: the AI flow's are the round plan (light for Fast, full for Precise), reading a reference ad, a Fast or Precise draft, the refine plan, a refine, a resize, the layer plan, the layer split and reading the layers (`flow.refine`). Every AI call is one AI step, tracked as that step even where two steps call the same model. A step runs its kind's default model unless an admin gives it a step override.
-_Avoid_: Step (that is a tab's undo step), use, block, endpoint, action
-
 **Kind (of AI call)**:
-The shape of an AI call: text, picture (from 0 to 16 reference pictures) or layer split. Each kind has a default model, set by an admin, which every AI step of the kind runs unless it has a step override.
-_Avoid_: Block, type, modality
+The shape of an AI call: text, picture (from 0 to 16 reference pictures) or layer split. Every AI function is of one kind, and a seller's adapter makes the calls of a kind.
+_Avoid_: Block (that is the renderer's laid-out paragraph), type, modality
 
-**Step override**:
-A model an admin sets for one AI step in place of its kind's default, such as Seedream for the refine while pictures default to Muse Image. Removing it makes the step follow its kind again.
-_Avoid_: Custom model, pin
+**AI feature**:
+What a person asks the AI for in one go: a round, more like this, try again, a refine, other sizes or make editable. Each is a short list of AI functions run in stages, and an AI job is one run of one.
+_Avoid_: Job kind, action, feature alone (that is what a plan unlocks)
 
 **AI function**:
 One thing the AI is asked to do: a kind of AI call with the words it is given and the shape of its answer. The round plan, the reference read, the draft, the refine plan, the refine edit, the resize, the layer plan, the layer split and the reading are the AI functions.
 _Avoid_: Task, skill, endpoint, action
 
 **Preset**:
-A model, its settings and the prompt tested with it, under one name, for one AI function, such as the round plan's `light-luna`. It lives in the code and is never edited once merged: new words, another model or another setting is a new preset. It starts with a first guess of what a call costs and how long it takes, replaced by what its own calls measure from its first one.
+A model, its settings and the prompt tested with it, under one name, for one AI function, such as the round plan's `light-luna`. It lives in the code and is never edited once merged: new words, another model or another setting is a new preset. It starts with a first guess of what a call costs and how long it takes, replaced by what its own calls measure from its first one: the highest seen while it has fewer than 20 done calls, then what 19 of 20 of its latest 200 stayed under.
 _Avoid_: Version, variant, profile, config (a text style's or a template's saved look is not a preset)
 
 **Pick**:
@@ -718,15 +714,15 @@ An admin's choice of which preset a mode uses for an AI function, from the prese
 _Avoid_: Override, switch, pin
 
 **Ceiling**:
-The most output one call of a text AI step may write, set per step and sent to the seller as a hard limit. An answer that reaches it is cut off: we pay the seller for it, the workspace is charged nothing, and the call fails without trying again. The admin page shows each step's ceiling and expected size beside what its calls measured.
+The most output one call of a text AI function may write, set on the AI function or on one of its presets and sent to the seller as a hard limit. An answer that reaches it is cut off: we pay the seller for it, the workspace is charged nothing, and the call fails without trying again.
 _Avoid_: Max tokens, cap, limit
 
 **Reasoning effort**:
-How much a text model reasons before it answers, set for an AI step in its options as `effort`, from `none` to `max` as the seller names them: less effort answers sooner and writes fewer output tokens. Every seller that takes it is sent it.
+How much a text model reasons before it answers, set in a preset's settings as `effort`, from `none` to `max` as the seller names them: less effort answers sooner and writes fewer output tokens. Every seller that takes it is sent it.
 _Avoid_: Thinking level, reasoning mode
 
 **Fast tier**:
-OpenAI's speed tier, which answers sooner at twice its standard price, asked for by an AI step's options as `tier: fast` (`standard` otherwise). OpenAI may run such a call at standard speed and bill it at the standard price, so a call is charged at the tier it ran on, while its hold is priced at the fast tier. A fallback seller runs every call at its own normal speed. Not the Fast mode.
+OpenAI's speed tier, which answers sooner at twice its standard price, asked for in a preset's settings as `tier: fast` (`standard` otherwise). OpenAI may run such a call at standard speed and bill it at the standard price, so a call is charged at the tier it ran on. A fallback seller runs every call at its own normal speed. Not the Fast mode.
 _Avoid_: Priority, fast mode
 
 **Reference picture**:
@@ -738,15 +734,15 @@ What a person draws on a picture to show where to change it (brush strokes, boxe
 _Avoid_: Mask, annotations, scribbles
 
 **Layer split**:
-The AI step of layering that splits a draft into picture layers, on our own GPU. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
+The AI function of layering that splits a draft into picture layers, on our own GPU. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
 _Avoid_: Decompose, segmentation
 
 **AI job**:
-What a person asks the AI flow for in one go, such as a round, made of the AI calls it needs and run on the server, so leaving the page or closing it stops nothing. It holds its expected cost from the allowance when it is asked for, and gives back what it didn't use when it ends, fails or is cancelled.
+One run of an AI feature: what a person asks the AI for in one go, such as a round, made of the AI calls it needs and run on the server, so leaving the page or closing it stops nothing. It keeps the preset each AI function runs with from when it was asked for, so a pick made later never changes it. It holds what its calls cost from the allowance when it is asked for, and gives back what it didn't use when it ends, fails or is cancelled.
 _Avoid_: Task, request, run
 
 **AI call**:
-One call to a model for one AI step of an AI job, made through a seller, with what the seller said it used and what that really cost us. A call that fails is never charged to the workspace.
+One call to a model for one AI function of an AI job, with one preset, made through a seller, with what the seller said it used and what that really cost us. A call that fails is never charged to the workspace.
 _Avoid_: Request, generation, inference
 
 **Unknown call**:
@@ -762,7 +758,7 @@ What each seller charges for each model, in the currency it bills in, with any G
 _Avoid_: Rate card, pricing
 
 **Call log**:
-Every AI call made, one row each: its AI job, workspace and person, its AI step, model and seller, what it used and its real cost. It keeps no prompt and no picture.
+Every AI call made, one row each: its AI job, workspace and person, its AI feature, AI function and preset, its model, settings and seller, what it used and its real cost. It keeps the hash of the prompt it ran with, and no prompt and no picture.
 _Avoid_: Usage log, audit log
 
 **AI recording**:
@@ -786,7 +782,7 @@ How much of its allowance a workspace has used, as people see it: a share of its
 _Avoid_: Credit counter, meter
 
 **Hold**:
-The expected cost of an AI job, set aside from the allowance when the job is asked for, so two jobs can't spend the same amount. Each AI call's charge is taken from it, and what is left is given back when the job ends. A job whose hold is more than the allowance left is refused.
+What an AI job's calls are taken to cost, set aside from the allowance when the job is asked for, so two jobs can't spend the same amount. Each call counts at what its preset's calls have cost lately. Each AI call's charge is taken from it, and what is left is given back when the job ends. A job whose hold is more than the allowance left is refused.
 _Avoid_: Reservation, authorization, pre-charge
 
 **Allowance ledger**:

@@ -50,10 +50,11 @@ async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {
 /** A new empty folder for a recording. */
 const newRecording = () => mkdtemp(join(tmpdir(), 'dazbee-recording-'))
 
-/** A request for call `index` of job `job`, an AI step `step` call. */
-function requestOf(step: string, index: number, job = 'job-1', signal = new AbortController().signal): SellerRequest {
+/** A request for call `index` of job `job`, a call of the AI function and preset named `under`, as `function/preset`. */
+function requestOf(under: string, index: number, job = 'job-1', signal = new AbortController().signal): SellerRequest {
+  const [fn = '', preset = ''] = under.split('/')
   return {
-    call: { job, step, index },
+    call: { job, function: fn, preset, index },
     model: 'gpt-6-luna',
     input: READ,
     options: {},
@@ -70,7 +71,7 @@ async function textOf(seller: SellerAdapter, request: SellerRequest): Promise<st
   return output.kind === 'text' ? output.text : output.kind
 }
 
-/** The recorded calls of `step` in `dir`, oldest first, as their `call.json`. */
+/** The recorded calls kept under `under` (`function/preset`) in `dir`, oldest first, as their `call.json`. */
 async function recordedIn(dir: string, step: string) {
   const folders = (await readdir(join(dir, step))).sort()
   return Promise.all(
@@ -99,11 +100,12 @@ describe('recordingSeller', () => {
     const real = await db.select().from(aiCalls).where(eq(aiCalls.jobId, recorded))
     for (const row of real) expect(row.chargeCost).toBeGreaterThan(0n)
 
-    const [plan, ...more] = await recordedIn(dir, 'flow.round-plan')
+    const [plan, ...more] = await recordedIn(dir, 'round-plan/light-luna')
     expect(more).toEqual([])
     expect(plan?.files).toEqual(['call.json'])
     expect(plan?.call).toMatchObject({
-      step: 'flow.round-plan',
+      function: 'round-plan',
+      preset: 'light-luna',
       callIndex: 0,
       job: recorded,
       seller: seller.seller,
@@ -112,7 +114,7 @@ describe('recordingSeller', () => {
       output: { kind: 'text', json: PLAN },
     })
     expect(plan?.call.request.input.instructions).toMatch(/^\d+ characters$/)
-    const drafts = await recordedIn(dir, 'flow.draft-fast')
+    const drafts = await recordedIn(dir, 'draft/gpt-image-medium')
     expect(drafts.map((d) => d.call.callIndex).sort()).toEqual([1, 2, 3, 4])
     for (const draft of drafts) {
       expect(draft.files).toEqual(['call.json', 'picture-0.png'])
@@ -137,7 +139,7 @@ describe('recordingSeller', () => {
     expect(fetch).not.toHaveBeenCalled()
     expect(seller.requests).toHaveLength(5)
     expect(await planOf(round.briefId)).toEqual(PLAN)
-    const picture = await readFile(join(dir, 'flow.draft-fast', drafts[0]?.folder ?? '', 'picture-0.png'))
+    const picture = await readFile(join(dir, 'draft/gpt-image-medium', drafts[0]?.folder ?? '', 'picture-0.png'))
     expect([...files.saved.values()].map((bytes) => Buffer.from(bytes).equals(picture))).toEqual([
       true,
       true,
@@ -148,7 +150,7 @@ describe('recordingSeller', () => {
     expect(rows).toHaveLength(5)
     for (const row of rows) {
       expect(row).toMatchObject({ state: 'done', sellerCost: 0n, realCost: 0n, chargeCost: 0n, currency: null })
-      expect(row.sellerRequestId).toMatch(new RegExp(`^replayed:${row.step}/`))
+      expect(row.sellerRequestId).toMatch(new RegExp(`^replayed:${row.function}/${row.preset}/`))
     }
     expect(rows[0]?.usage).toEqual({ 'input-token': 1000, 'output-token': 500 })
     expect((await ledgerOf(job)).filter((entry) => entry.kind === 'charge')).toEqual([])
@@ -161,7 +163,7 @@ describe('recordingSeller', () => {
     const who = await flowWorkspace()
     const recorded = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
     expect(await runFlow(recorded, flowDeps(seller))).toMatchObject({ state: 'done' })
-    const splits = await recordedIn(dir, 'flow.layer-split')
+    const splits = await recordedIn(dir, 'layer-split/ming')
     expect(splits).toHaveLength(2)
     for (const split of splits) {
       expect(split.files).toEqual(['call.json', 'layer-0.png', 'layer-1.png'])
@@ -176,7 +178,7 @@ describe('recordingSeller', () => {
     expect(await runFlow(job, flowDeps(seller))).toMatchObject({ state: 'done', error: null })
     expect(seller.requests).toHaveLength(5)
     const rows = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job))
-    expect(rows.filter((row) => row.step === 'flow.layer-split')).toHaveLength(2)
+    expect(rows.filter((row) => row.function === 'layer-split')).toHaveLength(2)
     for (const row of rows) expect(row).toMatchObject({ state: 'done', realCost: 0n, chargeCost: 0n })
     expect((await ledgerOf(job)).filter((entry) => entry.kind === 'charge')).toEqual([])
   })
@@ -184,34 +186,36 @@ describe('recordingSeller', () => {
   it('gives the answer of a call it could not write down', async () => {
     const recorder = recordingSeller(testSeller('recorder'), '\0 not a folder')
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    expect(await textOf(recorder, requestOf('flow.read', 0))).toBe('test answer')
+    expect(await textOf(recorder, requestOf('reading/luna', 0))).toBe('test answer')
     expect(error).toHaveBeenCalledWith(expect.stringContaining('AI call not recorded'))
     error.mockRestore()
   })
 })
 
 describe('replaySellers', () => {
-  it('answers a call by its step and place, else by its step’s recordings in turn, and fails a step not recorded', async () => {
+  it('answers a call by its AI function, preset and place, else by their recordings in turn, and fails one not recorded', async () => {
     const dir = await newRecording()
     const recorder = recordingSeller(
       testSeller('recorder', [{ answer: { kind: 'text', text: 'one' } }, { answer: { kind: 'text', text: 'two' } }]),
       dir,
     )
-    await recorder.call(requestOf('flow.read', 1))
-    await recorder.call(requestOf('flow.read', 2))
+    await recorder.call(requestOf('reading/luna', 1))
+    await recorder.call(requestOf('reading/luna', 2))
     const [replay] = replaySellers(['replay'], dir, 1000)
     if (!replay) throw new Error('no replay seller')
 
-    expect(await textOf(replay, requestOf('flow.read', 2, 'other-job'))).toBe('two')
-    expect(await textOf(replay, requestOf('flow.read', 2, 'third-job'))).toBe('two')
+    expect(await textOf(replay, requestOf('reading/luna', 2, 'other-job'))).toBe('two')
+    expect(await textOf(replay, requestOf('reading/luna', 2, 'third-job'))).toBe('two')
     const elsewhere = []
-    for (let i = 0; i < 3; i++) elsewhere.push(await textOf(replay, requestOf('flow.read', 7)))
+    for (let i = 0; i < 3; i++) elsewhere.push(await textOf(replay, requestOf('reading/luna', 7)))
     expect(elsewhere).toEqual(['one', 'two', 'one'])
-    const answer = await replay.call(requestOf('flow.read', 1))
+    const answer = await replay.call(requestOf('reading/luna', 1))
     expect(answer).toMatchObject({ usage: { 'input-token': 1000, 'output-token': 500 }, replayed: true })
-    expect(answer.requestId).toMatch(/^replayed:flow\.read\//)
+    expect(answer.requestId).toMatch(/^replayed:reading\/luna\//)
 
-    const missing = replay.call(requestOf('flow.refine-plan', 0))
+    // Another preset of the same AI function has no recording of its own, and never takes this one's.
+    await expect(replay.call(requestOf('reading/other', 1))).rejects.toMatchObject({ status: 404 })
+    const missing = replay.call(requestOf('refine-plan/luna', 0))
     await expect(missing).rejects.toBeInstanceOf(SellerError)
     await expect(missing).rejects.toMatchObject({ status: 404, message: expect.stringContaining('no recording') })
   })
@@ -222,20 +226,20 @@ describe('replaySellers', () => {
       answer: { kind: 'text' as const, text },
     }))
     const recorder = recordingSeller(testSeller('recorder', answers), dir)
-    await recorder.call(requestOf('flow.layer-plan', 0, 'job-a'))
-    await recorder.call(requestOf('flow.read', 1, 'job-a'))
-    await recorder.call(requestOf('flow.layer-plan', 0, 'job-b'))
-    await recorder.call(requestOf('flow.read', 1, 'job-b'))
+    await recorder.call(requestOf('layer-plan/sol', 0, 'job-a'))
+    await recorder.call(requestOf('reading/luna', 1, 'job-a'))
+    await recorder.call(requestOf('layer-plan/sol', 0, 'job-b'))
+    await recorder.call(requestOf('reading/luna', 1, 'job-b'))
     const [replay] = replaySellers(['replay'], dir, 1000)
     if (!replay) throw new Error('no replay seller')
 
     const replayed = async (job: string) => [
-      await textOf(replay, requestOf('flow.layer-plan', 0, job)),
-      await textOf(replay, requestOf('flow.read', 1, job)),
-      await textOf(replay, requestOf('flow.read', 2, job)),
+      await textOf(replay, requestOf('layer-plan/sol', 0, job)),
+      await textOf(replay, requestOf('reading/luna', 1, job)),
+      await textOf(replay, requestOf('reading/luna', 2, job)),
     ]
     // Recordings sort by when they were made, so job A's come first.
-    const sorted = (await recordedIn(dir, 'flow.read')).map((r) => r.call.job)
+    const sorted = (await recordedIn(dir, 'reading/luna')).map((r) => r.call.job)
     const [first, second] = sorted[0] === 'job-a' ? ['A', 'B'] : ['B', 'A']
     expect(await replayed('x')).toEqual([`plan ${first}`, `read ${first}`, `read ${first}`])
     expect(await replayed('y')).toEqual([`plan ${second}`, `read ${second}`, `read ${second}`])
@@ -244,17 +248,17 @@ describe('replaySellers', () => {
 
   it('waits the recorded time divided by the speed, and stops when the call is aborted', async () => {
     const dir = await newRecording()
-    await recordingSeller(testSeller('recorder', [], { afterMs: 200 }), dir).call(requestOf('flow.read', 0))
+    await recordingSeller(testSeller('recorder', [], { afterMs: 200 }), dir).call(requestOf('reading/luna', 0))
     const [replay] = replaySellers(['replay'], dir, 2)
     if (!replay) throw new Error('no replay seller')
 
     const started = performance.now()
-    await replay.call(requestOf('flow.read', 0))
+    await replay.call(requestOf('reading/luna', 0))
     expect(performance.now() - started).toBeGreaterThanOrEqual(90)
 
     const abort = new AbortController()
     const aborted = performance.now()
-    const call = replay.call(requestOf('flow.read', 0, 'job-1', abort.signal))
+    const call = replay.call(requestOf('reading/luna', 0, 'job-1', abort.signal))
     setTimeout(() => abort.abort(new Error('cancelled')), 10)
     await expect(call).rejects.toMatchObject({ name: 'AbortError' })
     expect(performance.now() - aborted).toBeLessThan(80)

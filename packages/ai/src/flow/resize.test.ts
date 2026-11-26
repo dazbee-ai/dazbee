@@ -5,7 +5,6 @@ import { newId } from '@dazbee/db'
 import type { CallInput, ResizeInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
-import { holdFor } from '../steps.ts'
 import { db, newSeller } from '../test-ai.ts'
 import {
   assetRow,
@@ -45,8 +44,8 @@ describe('a resize', () => {
       'The same ad, re-laid out as a square image.',
     ])
     for (const call of made) expect(call).toMatchObject({ pictures: [input.pictureKey] })
-    const steps = made.map((call) => ({ step: 'flow.resize', input: call }))
-    expect((await ledgerOf(job))[0]?.amount).toBe(-(await holdFor(db, steps)))
+    // Two resizes at their preset's first guess, times 1.25.
+    expect((await ledgerOf(job))[0]?.amount).toBe(-6_500_000n)
     expect(await chargedCalls(job)).toEqual([0, 1])
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     for (const call of calls) {

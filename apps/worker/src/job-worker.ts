@@ -55,6 +55,8 @@ export interface JobAttempt {
   workspace: string
   attempt: number
   input: JobInput
+  /** The name of the preset each AI function of a flow job runs with; none for a `calls` job. */
+  presets: Record<string, string>
   /** Aborted when the job is cancelled or the worker stops. */
   signal: AbortSignal
   /** Reads the job's state, aborting `signal` on a cancel. */
@@ -98,7 +100,13 @@ export async function startJobWorker(deps: JobWorkerDeps, run: RunJob): Promise<
       if (job.signal.aborted) throw new Error('pg-boss took the job back')
       const start = await startAttempt(db, boss, { job: id, queue, queueJobId: job.id })
       if (!start.make) return
-      const made = { job: id, workspace: start.workspace, attempt: start.attempt, input: start.job }
+      const made = {
+        job: id,
+        workspace: start.workspace,
+        attempt: start.attempt,
+        input: start.job,
+        presets: start.presets,
+      }
       await attempt(job, made, controller, checkCancel)
     } finally {
       clearInterval(watch)

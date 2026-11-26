@@ -1,29 +1,8 @@
-// AI calls and metering (ADR-0022, ADR-0023): the AI steps, the modes, the sellers, the kinds of AI call,
+// AI calls and metering (ADR-0022, ADR-0023): the AI functions, the modes, the sellers, the kinds of AI call,
 // the units the price list counts usage in, and what each kind of call takes and gives back.
 import { z } from 'zod'
 
 import { AssetId } from './primitives.ts'
-
-/**
- * Every AI step, each priced and logged on its own, named `<feature>.<name>` by the feature that calls it:
- * `flow` is the AI flow.
- */
-export const AI_STEPS = [
-  'flow.round-plan',
-  'flow.read',
-  'flow.draft-fast',
-  'flow.draft-precise',
-  'flow.refine',
-  'flow.resize',
-  'flow.layer-plan',
-  'flow.layer-split',
-  'flow.round-plan-full',
-  'flow.reference-read',
-  'flow.refine-plan',
-] as const
-
-export const AiStep = z.enum(AI_STEPS)
-export type AiStep = z.infer<typeof AiStep>
 
 /**
  * Every AI function: one thing the AI is asked to do, a kind of call with the words it is given and the shape of
@@ -44,10 +23,10 @@ export const AI_FUNCTIONS = [
 export const AiFunction = z.enum(AI_FUNCTIONS)
 export type AiFunction = z.infer<typeof AiFunction>
 
-/** The AI step of layering that splits a draft into picture layers, at a fixed amount. */
-export const LAYER_SPLIT_STEP = 'flow.layer-split' satisfies AiStep
+/** The AI function of layering that splits a draft into picture layers, at a fixed amount. */
+export const LAYER_SPLIT = 'layer-split' satisfies AiFunction
 
-/** The draft's two modes, each the model of one draft AI step. */
+/** The modes a person picks a round by, each a list of the presets its AI functions run. */
 export const AI_MODES = ['fast', 'precise'] as const
 
 export const AiMode = z.enum(AI_MODES)
@@ -237,8 +216,8 @@ export const FLOW_JOB_KINDS = ['round', 'more-like-this', 'try-again', 'refine',
 export const FlowJobKind = z.enum(FLOW_JOB_KINDS)
 export type FlowJobKind = z.infer<typeof FlowJobKind>
 
-/** The job kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved; the rest are the flow's. */
-export const AI_JOB_KINDS = ['ai-steps', ...FLOW_JOB_KINDS] as const
+/** The job kinds of AI job. `calls` runs a list of AI calls given when it is saved; the rest are the flow's. */
+export const AI_JOB_KINDS = ['calls', ...FLOW_JOB_KINDS] as const
 
 export const AiJobKind = z.enum(AI_JOB_KINDS)
 export type AiJobKind = z.infer<typeof AiJobKind>
@@ -247,21 +226,25 @@ export type AiJobKind = z.infer<typeof AiJobKind>
 export const AiJobMessage = z.object({ job: z.string().min(1) })
 export type AiJobMessage = z.infer<typeof AiJobMessage>
 
-/** One call of an `ai-steps` job: its AI step and input, and the only sellers to try, in order, when given. */
-export const AiStepsCall = z.object({
-  step: z.preprocess(stepNamed, z.string().min(1).max(100)),
-  input: z.preprocess(carriedOver, CallInput),
+/**
+ * One call of a `calls` job: its AI function, the name of the preset it runs with, its input, and the only sellers
+ * to try, in order, when given.
+ */
+export const JobCall = z.object({
+  function: z.string().min(1).max(100),
+  preset: z.string().min(1).max(100),
+  input: CallInput,
   sellers: z.array(z.string().min(1).max(100)).min(1).max(10).optional(),
 })
-export type AiStepsCall = z.infer<typeof AiStepsCall>
+export type JobCall = z.infer<typeof JobCall>
 
-/** What an `ai-steps` job runs: its calls, by call index. */
-export const AiStepsInput = z.object({ calls: z.array(AiStepsCall).min(1).max(50) })
-export type AiStepsInput = z.infer<typeof AiStepsInput>
+/** What a `calls` job runs: its calls, by call index. */
+export const CallsInput = z.object({ calls: z.array(JobCall).min(1).max(50) })
+export type CallsInput = z.infer<typeof CallsInput>
 
-/** What a done `ai-steps` job gave back: each call's output, by call index. */
-export const AiStepsOutput = z.object({ outputs: z.array(CallOutput) })
-export type AiStepsOutput = z.infer<typeof AiStepsOutput>
+/** What a done `calls` job gave back: each call's output, by call index. */
+export const CallsOutput = z.object({ outputs: z.array(CallOutput) })
+export type CallsOutput = z.infer<typeof CallsOutput>
 
 /** Why saving an AI job was refused: the member may not use AI, the allowance is used up, or the day's spending stop is in force. */
 export const AI_JOB_REFUSALS = ['not-allowed', 'used-up', 'stopped'] as const
@@ -278,8 +261,12 @@ export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'unknown'] as const
 export const AiCallFailure = z.enum(AI_CALL_FAILURES)
 export type AiCallFailure = z.infer<typeof AiCallFailure>
 
-/** Where one call of a job sits: its place in the job and its AI step. */
-const CallPlace = z.object({ index: z.number().int().nonnegative(), step: z.string() })
+/** Where one call of a job sits: its place in the job and its AI function, whose name `step` repeats. */
+const CallPlace = z.object({
+  index: z.number().int().nonnegative(),
+  function: z.string(),
+  step: z.string().optional(),
+})
 
 /** One call of an AI job as its workspace reads it: being made, made with its output, or failed with why. */
 export const AiCallView = z.discriminatedUnion('state', [
@@ -297,7 +284,7 @@ export const AiJobView = z.object({
   id: z.string(),
   kind: AiJobKind,
   state: AiJobState,
-  output: AiStepsOutput.nullable(),
+  output: CallsOutput.nullable(),
   calls: z.array(AiCallView),
   error: z.string().nullable(),
   createdAt: z.iso.datetime(),
@@ -372,27 +359,7 @@ export const LastChecked = z.object({
 })
 export type LastChecked = z.infer<typeof LastChecked>
 
-/** The feature an AI step belongs to: the part of its name before the first dot, or all of it with none. */
-export function featureOf(step: string): string {
-  const dot = step.indexOf('.')
-  return dot < 0 ? step : step.slice(0, dot)
-}
-
 /** How many reference pictures a picture call sends: its pictures, and the marked copy when it has marks. */
 export function referenceCount(call: { pictures: string[]; marks?: string | undefined }): number {
   return call.pictures.length + (call.marks ? 1 : 0)
-}
-
-/** A call input as saved before picture edits were picture calls: a `picture-edit` becomes a `picture`. */
-function carriedOver(input: unknown): unknown {
-  return input && typeof input === 'object' && 'kind' in input && input.kind === 'picture-edit'
-    ? { ...input, kind: 'picture' }
-    : input
-}
-
-/** An AI step's name as saved before steps were named by feature: `refine` is `flow.refine`. */
-function stepNamed(step: unknown): unknown {
-  return typeof step === 'string' && !step.includes('.') && AI_STEPS.includes(`flow.${step}` as AiStep)
-    ? `flow.${step}`
-    : step
 }

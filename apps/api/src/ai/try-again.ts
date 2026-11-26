@@ -37,7 +37,7 @@ export async function tryAgain(
     .select({ kind: aiJobs.kind, input: aiJobs.input, state: aiJobs.state })
     .from(aiJobs)
     .where(and(eq(aiJobs.id, frame.jobId), eq(aiJobs.workspaceId, workspace)))
-  if (!row || row.kind === 'ai-steps') throw new StartRefused(NOT_TRIED_AGAIN, 409)
+  if (!row || row.kind === 'calls') throw new StartRefused(NOT_TRIED_AGAIN, 409)
   const failed = parseFlowJob(row.kind, row.input)
   const save = (plan: Plan, frames: FrameCall[]) =>
     saveFlow({ db, boss, queue, starter }, design, plan, async (tx: Tx) => {

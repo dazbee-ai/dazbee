@@ -1,4 +1,4 @@
-// The worker running saved `ai-steps` jobs on a real pg-boss in the test database, with test sellers: each
+// The worker running saved `calls` jobs on a real pg-boss in the test database, with test sellers: each
 // case on its own queue and workspace. A crash is a worker in a process of its own, killed.
 import { eq } from 'drizzle-orm'
 import { describe, expect, it, vi } from 'vitest'
@@ -6,11 +6,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { cancelJob, endJob, saveJob, startAttempt, sweepJobs } from '@dazbee/ai'
 import { testSeller } from '@dazbee/ai/test-sellers'
 import { aiCalls, aiSettings, newId } from '@dazbee/db'
-import type { AiStepsInput } from '@dazbee/schema'
+import type { CallsInput } from '@dazbee/schema'
 
+import { runAttempt, startCallsWorker, workspaceFiles } from './calls-job.ts'
 import { type JobWorker, limiter } from './job-worker.ts'
-import { runAttempt, startStepsWorker, workspaceFiles } from './steps-job.ts'
 import {
+  callsInputOf,
   callsOf,
   crashingWorker,
   crashQueue,
@@ -21,7 +22,6 @@ import {
   newBoss,
   newQueue,
   newSeller,
-  stepsOf,
   storage,
   waitForJob,
 } from './test-worker.ts'
@@ -29,15 +29,15 @@ import {
 /** A worker on `queue` with its own pg-boss, as a worker process would have. */
 async function worker(queue: string, options: { jobsAtOnce?: number } = {}) {
   const boss = await newBoss()
-  const steps = await startStepsWorker({ db, boss, storage, queue, callLimit: 8, cancelCheckMs: 200, ...options })
+  const steps = await startCallsWorker({ db, boss, storage, queue, callLimit: 8, cancelCheckMs: 200, ...options })
   return { boss, steps }
 }
 
 /** Saves a job of `input` for `who` on `queue`; its id. */
-async function save(who: { workspace: string; member: string }, queue: string, input: AiStepsInput) {
+async function save(who: { workspace: string; member: string }, queue: string, input: CallsInput) {
   const boss = await newBoss()
   try {
-    const saved = await db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'ai-steps', input, queue }))
+    const saved = await db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'calls', input, queue }))
     if (!saved.ok) throw new Error(`refused: ${saved.refusal}`)
     return saved.job
   } finally {
@@ -50,11 +50,11 @@ const stopAll = (...workers: { steps: JobWorker }[]) => Promise.all(workers.map(
 const someDone = (job: string) =>
   vi.waitFor(async () => expect((await callsOf(job)).some((c) => c.state === 'done')).toBe(true), { timeout: 15_000 })
 
-describe('startStepsWorker', () => {
+describe('startCallsWorker', () => {
   it('runs a job to its end: output stored, each call charged once, the rest of the hold given back', async () => {
     const queue = newQueue()
     const who = await memberOf()
-    const input = await stepsOf([testSeller(newSeller('a'))], 3)
+    const input = await callsInputOf([testSeller(newSeller('a'))], 3)
     const one = await worker(queue)
     const job = await save(who, queue, input)
     const done = await waitForJob(job, 'done')
@@ -69,7 +69,7 @@ describe('startStepsWorker', () => {
     const who = await memberOf()
     const failing = testSeller(newSeller('a'), [{ fail: 503 }, { fail: 503 }])
     const next = testSeller(newSeller('b'))
-    const input = await stepsOf([failing, next])
+    const input = await callsInputOf([failing, next])
     const one = await worker(queue)
     const job = await save(who, queue, input)
     await waitForJob(job, 'done')
@@ -87,7 +87,7 @@ describe('startStepsWorker', () => {
     const who = await memberOf()
     const down = testSeller(newSeller('a'), [{ fail: 402 }])
     const backup = testSeller(newSeller('b'))
-    const input = await stepsOf([down, backup])
+    const input = await callsInputOf([down, backup])
     const one = await worker(queue)
     const job = await save(who, queue, input)
     await waitForJob(job, 'done')
@@ -103,7 +103,7 @@ describe('startStepsWorker', () => {
     const queue = newQueue()
     const who = await memberOf()
     const seller = testSeller(newSeller('a'), [{ afterMs: 0 }], { afterMs: 5_000, timeoutMs: 20_000 })
-    const input = await stepsOf([seller], 6)
+    const input = await callsInputOf([seller], 6)
     const one = await worker(queue)
     const job = await save(who, queue, input)
     await someDone(job)
@@ -121,7 +121,7 @@ describe('startStepsWorker', () => {
     const queue = newQueue()
     const who = await memberOf()
     const seller = testSeller(newSeller('a'), [{ afterMs: 0 }], { afterMs: 3_000, timeoutMs: 20_000 })
-    const input = await stepsOf([seller], 4)
+    const input = await callsInputOf([seller], 4)
     const first = await worker(queue)
     const job = await save(who, queue, input)
     await someDone(job)
@@ -143,8 +143,8 @@ describe('startStepsWorker', () => {
     const boss = await newBoss()
     await crashQueue(boss, queue)
     const seller = testSeller(newSeller('a'), [], { afterMs: 1_500, timeoutMs: 20_000 })
-    const input = await stepsOf([seller], 6)
-    const crashing = await crashingWorker(queue, input.calls[0]?.step ?? '', seller.seller, 1_500)
+    const input = await callsInputOf([seller], 6)
+    const crashing = await crashingWorker(queue, input.calls[0]?.function ?? '', seller.seller, 1_500)
     const job = await save(who, queue, input)
     await someDone(job)
     await crashing.kill()
@@ -159,7 +159,7 @@ describe('startStepsWorker', () => {
   it('fails a job whose call fails for good, with no pg-boss retry', async () => {
     const queue = newQueue()
     const who = await memberOf()
-    const input = await stepsOf([testSeller(newSeller('a'), [{ fail: 400 }])])
+    const input = await callsInputOf([testSeller(newSeller('a'), [{ fail: 400 }])])
     const one = await worker(queue)
     const job = await save(who, queue, input)
     const failed = await waitForJob(job, 'failed')
@@ -180,8 +180,8 @@ describe('startStepsWorker', () => {
     const boss = await newBoss()
     await crashQueue(boss, queue, 0)
     const seller = testSeller(newSeller('a'), [], { afterMs: 20_000, timeoutMs: 60_000 })
-    const input = await stepsOf([seller])
-    const crashing = await crashingWorker(queue, input.calls[0]?.step ?? '', seller.seller, 20_000)
+    const input = await callsInputOf([seller])
+    const crashing = await crashingWorker(queue, input.calls[0]?.function ?? '', seller.seller, 20_000)
     const job = await save(who, queue, input)
     await vi.waitFor(async () => expect((await callsOf(job)).map((c) => c.state)).toEqual(['running']), {
       timeout: 15_000,
@@ -198,7 +198,7 @@ describe('startStepsWorker', () => {
   it('holds a workspace’s fourth job back, and starts it once the job limit is raised, without a restart', async () => {
     const queue = newQueue()
     const who = await memberOf()
-    const input = await stepsOf([testSeller(newSeller('a'), [], { afterMs: 20_000, timeoutMs: 60_000 })])
+    const input = await callsInputOf([testSeller(newSeller('a'), [], { afterMs: 20_000, timeoutMs: 60_000 })])
     const one = await worker(queue, { jobsAtOnce: 8 })
     const jobs = [
       await save(who, queue, input),
@@ -227,8 +227,8 @@ describe('startStepsWorker', () => {
   it('takes no job from a Reviewer, nor once the day’s spending stop is reached', async () => {
     const boss = await newBoss()
     const reviewer = await memberOf('reviewer')
-    const input = await stepsOf([testSeller(newSeller('a'))])
-    const refusedReviewer = await db.transaction((tx) => saveJob(tx, boss, { ...reviewer, kind: 'ai-steps', input }))
+    const input = await callsInputOf([testSeller(newSeller('a'))])
+    const refusedReviewer = await db.transaction((tx) => saveJob(tx, boss, { ...reviewer, kind: 'calls', input }))
     expect(refusedReviewer).toEqual({ ok: false, refusal: 'not-allowed' })
     const who = await memberOf()
     const refused = await db
@@ -238,13 +238,14 @@ describe('startStepsWorker', () => {
         const spent = { id: newId(), jobId: 'spent', workspaceId: 'spent', callIndex: 0, try: 1, attempt: 1 }
         await tx.insert(aiCalls).values({
           ...spent,
-          step: 'flow.read',
+          function: 'reading',
+          preset: 'luna',
           model: 'test',
           seller: 'test',
           state: 'done',
           realCost: settings?.spendingStop ?? 0n,
         })
-        const result = await saveJob(tx, boss, { ...who, kind: 'ai-steps', input })
+        const result = await saveJob(tx, boss, { ...who, kind: 'calls', input })
         throw Object.assign(new Error('roll back'), { result })
       })
       .catch((error: { result?: unknown }) => error.result)
@@ -258,7 +259,7 @@ describe('runAttempt', () => {
   it('charges each call once when two attempts of one job overlap', async () => {
     const queue = newQueue()
     const who = await memberOf()
-    const input = await stepsOf([testSeller(newSeller('a'), [], { afterMs: 1_000, timeoutMs: 20_000 })], 4)
+    const input = await callsInputOf([testSeller(newSeller('a'), [], { afterMs: 1_000, timeoutMs: 20_000 })], 4)
     const first = await worker(queue)
     const job = await save(who, queue, input)
     await waitForJob(job, 'running')

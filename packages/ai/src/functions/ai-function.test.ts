@@ -5,19 +5,10 @@ import { AI_FUNCTIONS, type AiFunction } from '@dazbee/schema'
 
 import { REFERENCE_READER } from '../prompts/ads/reference.ts'
 import { ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
+import { sellerPricing } from '../seller-route.ts'
 import { tierOf } from '../sellers/tiers.ts'
-import { sellerPricing } from '../steps.ts'
 import { db } from '../test-ai.ts'
-import {
-  AI_FUNCTION_DEFS,
-  aiFunctionDef,
-  ceilingOf,
-  defaultPreset,
-  isAiFunction,
-  presetOf,
-  promptHash,
-  promptOf,
-} from './ai-function.ts'
+import { aiFunctionDef, ceilingOf, defaultPreset, isAiFunction, presetOf, promptHash, promptOf } from './ai-function.ts'
 
 /**
  * Each preset's model, settings, ceiling and the SHA-256 of the prompt it runs with, as merged. A preset is never
@@ -81,7 +72,7 @@ const PRESETS: Record<
 
 /** Every preset of every AI function, by `function/preset`. */
 const declared = AI_FUNCTIONS.flatMap((fn) =>
-  Object.entries(AI_FUNCTION_DEFS[fn].presets).map(([name, preset]) => ({ fn, name, preset })),
+  Object.entries(aiFunctionDef(fn).presets).map(([name, preset]) => ({ fn, name, preset })),
 )
 
 describe('AI_FUNCTION_DEFS', () => {
@@ -107,7 +98,7 @@ describe('AI_FUNCTION_DEFS', () => {
 
   it('gives every preset a model sold and priced for its function’s kind at the tier it asks for', async () => {
     for (const { fn, name, preset } of declared) {
-      const pricing = await sellerPricing(db, preset.model, AI_FUNCTION_DEFS[fn].kind, tierOf(preset.settings))
+      const pricing = await sellerPricing(db, preset.model, aiFunctionDef(fn).kind, tierOf(preset.settings))
       expect(pricing.priced, `${fn}/${name}`).toBeGreaterThan(0)
     }
   })
@@ -146,6 +137,7 @@ describe('presetOf', () => {
     expect(presetOf('round-plan', 'full-terra')?.model).toBe('gpt-6.1-terra')
     expect(presetOf('round-plan', 'full-sol')).toBeNull()
     expect(presetOf('round-plan', 'toString')).toBeNull()
+    expect(presetOf('no-such-function', 'luna')).toBeNull()
   })
 })
 

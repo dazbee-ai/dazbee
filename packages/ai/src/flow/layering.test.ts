@@ -3,12 +3,12 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
 import { assets, newId } from '@dazbee/db'
-import type { CallInput, LayeringInput } from '@dazbee/schema'
+import type { LayeringInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
 import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
 import { READING_PROMPT } from '../prompts/ads/reading.ts'
-import { holdFor } from '../steps.ts'
+import { aiSettingsOf } from '../settings.ts'
 import { db, newSeller, pngOf } from '../test-ai.ts'
 import {
   assetRow,
@@ -61,12 +61,12 @@ describe('a layering job', () => {
       expect(read.kind === 'text' && read.prompt).toContain('t1 (x 100–900, y 80–200 of 999): "Fresh coffee"')
     }
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
-    expect(calls.map((call) => [call.index, call.step])).toEqual([
-      [0, 'flow.layer-plan'],
-      [1, 'flow.layer-split'],
-      [2, 'flow.read'],
-      [3, 'flow.layer-split'],
-      [4, 'flow.read'],
+    expect(calls.map((call) => [call.index, call.function])).toEqual([
+      [0, 'layer-plan'],
+      [1, 'layer-split'],
+      [2, 'reading'],
+      [3, 'layer-split'],
+      [4, 'reading'],
     ])
     expect(await chargedCalls(job)).toEqual([0, 1, 2, 3, 4])
     const layers = calls.flatMap((call) =>
@@ -76,21 +76,17 @@ describe('a layering job', () => {
     for (const layer of layers) expect((await assetRow(layer.assetId ?? '')).tags).toEqual(['ai-part'])
   })
 
-  it('holds its calls, the readings with no blocks yet, and covers what it charges', async () => {
+  it('holds its plan, and each frame’s split at its fixed amount and its reading', async () => {
     const who = await flowWorkspace()
     const seller = await flowSeller(newSeller('layering-hold'))
     const job = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
     await runFlow(job, flowDeps(seller))
 
-    const steps = { text: 'flow.read', 'layer-split': 'flow.layer-split', picture: '' } as const
-    const made = seller.requests.map((r, i) => ({
-      step: i === 0 ? 'flow.layer-plan' : steps[r.input.kind],
-      input: r.input as CallInput,
-    }))
     const held = -((await ledgerOf(job))[0]?.amount ?? 0n)
-    // The readings' blocks come from the plan, so each reading holds its prompt without them: under 1% less.
-    expect(Number(held)).toBeGreaterThan(Number(await holdFor(db, made)) * 0.99)
-    expect(Number(held)).toBeLessThanOrEqual(Number(await holdFor(db, made)))
+    // The layer plan and two readings at their presets' first guesses, and two splits at the fixed amount for
+    // the job's size, times 1.25.
+    const { layerSplit1024 } = await aiSettingsOf(db)
+    expect(held).toBe(((6_370_000n + 2n * 210_000n + 2n * layerSplit1024) * 5n + 3n) / 4n)
   })
 
   it('splits without readings when the plan has no text', async () => {

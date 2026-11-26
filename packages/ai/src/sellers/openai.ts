@@ -1,5 +1,5 @@
 // OpenAI's adapter: text through the Responses API, with a JSON schema when the call gives one and the reasoning
-// effort and speed tier its AI step's options ask for, and pictures through the Images API (generate and edit)
+// effort and speed tier its preset's settings ask for, and pictures through the Images API (generate and edit)
 // as base64 PNG, with the usage OpenAI reports by kind of token, at the tier the call ran on, and its request id.
 // Written from OpenAI's API reference and price list as read on 25 Nov 2026, and its reasoning and Fast mode
 // guides as read on 26 Nov 2026. Also the pieces Meta's and OpenRouter's adapters share, since their APIs are
@@ -35,7 +35,7 @@ export interface SellerClientOptions {
 /** The most picture calls a minute we make of OpenAI: below the lowest images-per-minute limit of its paid tiers. */
 const PICTURES_PER_MINUTE = 20
 
-/** The quality a picture call asks for unless its AI step's options say otherwise. */
+/** The quality a picture call asks for unless its preset's settings say otherwise. */
 const QUALITY = 'medium'
 
 /**
@@ -123,14 +123,14 @@ export function pictureAnswer(data: PictureAnswer, requestId: string | null, usa
   return answer
 }
 
-/** The reasoning effort an AI step's options ask for, sent as the seller takes it; none when they set none. */
+/** The reasoning effort a preset's settings ask for, sent as the seller takes it; none when they set none. */
 export function effortOf(options: Record<string, unknown>): OpenAI.ReasoningEffort | undefined {
   return typeof options.effort === 'string' ? (options.effort as OpenAI.ReasoningEffort) : undefined
 }
 
 /**
  * A text call through the Responses API, with a JSON schema when the call gives one and the reasoning effort its
- * AI step's options ask for, and, with `tiers`, the speed tier they ask for: its text (and JSON), its usage by
+ * preset's settings ask for, and, with `tiers`, the speed tier they ask for: its text (and JSON), its usage by
  * kind of token at the tier the answer says it ran on, the request id from `requestIdHeader`, and the seller's
  * own cost where its usage holds one (OpenRouter's `usage.cost`).
  */

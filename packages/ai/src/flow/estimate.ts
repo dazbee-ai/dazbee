@@ -1,11 +1,12 @@
 // What an AI action would take before it is asked for: the hold its job would set aside, as a share of the
-// workspace's live allowance as the usage bar counts it, and about how long it takes, each AI step's time
-// (`STEP_SECONDS`) summed along its job kind's longest path. Calls made side by side take as long as the slowest,
-// `FLOW_CALLS_AT_ONCE` at a time.
+// workspace's live allowance as the usage bar counts it, and about how long it takes, each preset's seconds summed
+// along its job kind's longest path. Calls made side by side take as long as the slowest, `FLOW_CALLS_AT_ONCE` at a
+// time.
 import type { Db, Tx } from '@dazbee/db'
 import type {
   AiEstimate,
   AiEstimateQuery,
+  AiFunction,
   FlowJobInput,
   LayeringInput,
   RefineInput,
@@ -13,10 +14,11 @@ import type {
   RoundInput,
 } from '@dazbee/schema'
 
+import { presetOf } from '../functions/ai-function.ts'
 import { allowanceOf, drawsFirst, grantsOf, layerSize } from '../ledger.ts'
-import { holdFor, STEP_SECONDS } from '../steps.ts'
-import { declaredCalls } from './holds.ts'
-import { MODE_STEPS, roundCalls } from './round.ts'
+import { presetNumbers } from '../measured.ts'
+import { presetsFor } from '../picks.ts'
+import { flowHold, holdOf } from './holds.ts'
 import { FLOW_CALLS_AT_ONCE } from './run.ts'
 
 /** The placeholder every estimate's job names for what a real job would name: never read. */
@@ -24,55 +26,61 @@ const PLACEHOLDER = 'estimate'
 
 /** The action's share of the workspace's live allowance and its seconds. */
 export async function estimateAction(db: Db | Tx, workspace: string, query: AiEstimateQuery): Promise<AiEstimate> {
-  const hold = await actionHold(db, workspace, query)
+  const presets = await presetsFor(db, query.mode)
+  const hold = await actionHold(db, workspace, query, presets)
   const live = (await grantsOf(db, workspace)).filter((g) => g.live)
   const given = live.reduce((sum, g) => sum + g.amount, 0n)
   // The hold is counted at the usage rate of the grant it draws from first.
   const rate = (drawsFirst(live) ?? live[0])?.usageRate
-  const seconds = actionSeconds(query)
+  const seconds = await actionSeconds(db, query, presets)
   if (given <= 0n || rate === undefined) return { share: null, seconds }
   const hundredths = Number((allowanceOf(hold, rate) * 10_000n) / given)
   return { share: hundredths < 100 ? 'under-1' : Math.round(hundredths / 100), seconds }
 }
 
 /**
- * The hold, in millionths of a rupee of real cost, of the job the action would start: its calls with the query's
- * sizes, mode and number of brief pictures, and for layering the workspace's layer size.
+ * The hold, in millionths of a rupee of real cost, of the job the action would start with `presets`: its calls
+ * with the query's sizes and mode, and for layering the workspace's layer size. The query's mode's presets when
+ * none are given.
  */
-export async function actionHold(db: Db | Tx, workspace: string, query: AiEstimateQuery): Promise<bigint> {
-  const flow = await sampleJob(db, workspace, query)
-  if (flow.kind === 'try-again') {
-    // One draft of a round like it: the stored plan's prompt is not known before the job.
-    const draft = (await roundCalls(db, sampleRound(query))).at(-1)
-    return holdFor(db, draft ? [draft] : [])
-  }
-  return holdFor(db, await declaredCalls(db, workspace, flow))
+export async function actionHold(
+  db: Db | Tx,
+  workspace: string,
+  query: AiEstimateQuery,
+  presets?: Record<string, string>,
+): Promise<bigint> {
+  const chosen = presets ?? (await presetsFor(db, query.mode))
+  // One draft: the brief a real try-again names is not known before the job.
+  if (query.action === 'try-again') return holdOf(db, [{ fn: 'draft', preset: chosen.draft ?? '' }])
+  return flowHold(db, workspace, await sampleJob(db, workspace, query), chosen)
 }
 
 /**
- * About how long the action takes: its job kind's steps one after another, where the calls of a step made side by
- * side go `FLOW_CALLS_AT_ONCE` at a time, each turn as long as its slowest call.
+ * About how long the action takes with `presets`: its job kind's calls one after another, where the calls made side
+ * by side go `FLOW_CALLS_AT_ONCE` at a time, each turn as long as its slowest call.
  */
-function actionSeconds(query: AiEstimateQuery): number {
+async function actionSeconds(db: Db | Tx, query: AiEstimateQuery, presets: Record<string, string>): Promise<number> {
   const turns = (calls: number) => Math.ceil(calls / FLOW_CALLS_AT_ONCE)
-  const { plan, draft } = MODE_STEPS[query.mode]
+  const of = async (fn: AiFunction) => {
+    const name = presets[fn] ?? ''
+    const preset = presetOf(fn, name)
+    if (!preset) throw new Error(`the AI function ${fn} has no preset ${name}`)
+    return (await presetNumbers(db, fn, name, preset)).seconds
+  }
   const sizes = query.sizes.length
   switch (query.action) {
     case 'round':
     case 'more-like-this':
-      return STEP_SECONDS[plan] + turns(4) * STEP_SECONDS[draft]
+      return (await of('round-plan')) + turns(4) * (await of('draft'))
     case 'try-again':
-      return STEP_SECONDS[draft]
+      return of('draft')
     case 'refine':
-      return STEP_SECONDS['flow.refine-plan'] + STEP_SECONDS['flow.refine']
+      return (await of('refine-plan')) + (await of('refine-edit'))
     case 'resize':
-      return turns(sizes) * STEP_SECONDS['flow.resize']
+      return turns(sizes) * (await of('resize'))
     case 'layering':
       // Each size's split and reading go side by side.
-      return (
-        STEP_SECONDS['flow.layer-plan'] +
-        turns(2 * sizes) * Math.max(STEP_SECONDS['flow.layer-split'], STEP_SECONDS['flow.read'])
-      )
+      return (await of('layer-plan')) + turns(2 * sizes) * Math.max(await of('layer-split'), await of('reading'))
   }
 }
 

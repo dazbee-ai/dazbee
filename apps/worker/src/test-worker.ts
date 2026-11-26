@@ -1,5 +1,5 @@
 // Fixtures for the worker's tests, against Postgres and storage from Docker Compose: workspaces with a
-// member and a grant, test-only AI steps run by test sellers, pg-boss instances that notice a lost job fast,
+// member and a grant, test-only AI functions run by test sellers, pg-boss instances that notice a lost job fast,
 // and the checks that a job's ledger settled. Imported by tests only.
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -8,13 +8,12 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, expect, vi } from 'vitest'
 
-import { giveGrant, left, QUEUE_OPTIONS, type SellerAdapter, STEPS, useSeller } from '@dazbee/ai'
+import { giveGrant, left, QUEUE_OPTIONS, type SellerAdapter, useSeller } from '@dazbee/ai'
 import {
   aiCalls,
   aiJobs,
   aiLedger,
   aiPrices,
-  aiStepModels,
   memberships,
   modelSellers,
   newId,
@@ -22,10 +21,11 @@ import {
   users,
   workspaces,
 } from '@dazbee/db'
-import type { AiJobState, AiStepsInput, MemberRole } from '@dazbee/schema'
+import type { AiJobState, CallsInput, MemberRole } from '@dazbee/schema'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
 import { DATABASE_URL } from './test-database.ts'
+import { declareTestFunction, TEST_PRESET, testModelOf } from './test-function.ts'
 
 /** The allowance each test workspace is given: ₹100. */
 export const ALLOWANCE = 100_000_000n
@@ -49,7 +49,7 @@ beforeAll(() => storage.ensureBucket())
 afterAll(close)
 
 /** A queue no other test uses. */
-export const newQueue = () => `ai-steps-${newId()}`
+export const newQueue = () => `ai-calls-${newId()}`
 
 /** A started pg-boss that checks for lost jobs every second (its supervise and monitor passes). */
 export async function newBoss(): Promise<PgBoss> {
@@ -76,13 +76,14 @@ export async function memberOf(role: MemberRole = 'editor') {
   return { workspace, member }
 }
 
-/** A test-only text step whose model `sellers` sell in order at US$1 and US$2 a million tokens; an input of `count` calls of it. */
-export async function stepsOf(sellers: SellerAdapter[], count = 1): Promise<AiStepsInput> {
-  const id = newId()
-  const step = `test-step-${id}`
-  const model = `test-model-${id}`
-  STEPS[step] = { kind: 'text', expected: () => ({ 'input-token': 1000, 'output-token': 500 }) }
-  await db.insert(aiStepModels).values({ step, model })
+/**
+ * A test-only text function whose model `sellers` sell in order at US$1 and US$2 a million tokens; an input of
+ * `count` calls of it.
+ */
+export async function callsInputOf(sellers: SellerAdapter[], count = 1): Promise<CallsInput> {
+  const fn = `test-function-${newId()}`
+  const model = testModelOf(fn)
+  declareTestFunction(fn)
   for (const [position, seller] of sellers.entries()) {
     useSeller(seller)
     await db.insert(modelSellers).values({ model, seller: seller.seller, position })
@@ -92,7 +93,7 @@ export async function stepsOf(sellers: SellerAdapter[], count = 1): Promise<AiSt
     ])
   }
   const input = { kind: 'text' as const, instructions: 'Read the ad.', prompt: 'A coffee ad.', pictures: [] }
-  return { calls: Array.from({ length: count }, () => ({ step, input })) }
+  return { calls: Array.from({ length: count }, () => ({ function: fn, preset: TEST_PRESET, input })) }
 }
 
 /** A seller name no other test uses. */
@@ -156,15 +157,15 @@ export async function crashQueue(boss: PgBoss, queue: string, retryLimit: number
 }
 
 /**
- * Starts a worker in a process of its own on `queue`, whose seller `seller` answers the step `step` after
+ * Starts a worker in a process of its own on `queue`, whose seller `seller` answers the AI function `fn` after
  * `afterMs`; resolves once it takes jobs, with a function that kills it at once, as a crash would.
  */
-export async function crashingWorker(queue: string, step: string, seller: string, afterMs: number) {
+export async function crashingWorker(queue: string, fn: string, seller: string, afterMs: number) {
   const child = spawn(process.execPath, [fileURLToPath(new URL('./test-crash-worker.ts', import.meta.url))], {
     env: {
       ...process.env,
       CRASH_QUEUE: queue,
-      CRASH_STEP: step,
+      CRASH_FUNCTION: fn,
       CRASH_SELLER: seller,
       CRASH_AFTER_MS: String(afterMs),
     },

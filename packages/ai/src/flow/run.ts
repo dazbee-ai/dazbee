@@ -1,10 +1,13 @@
-// Runs one attempt of a flow job: its job kind's script makes its calls through `callAi`, each picture recorded
-// as an asset of the job's brand. A call that fails for good is never charged and doesn't stop the others. The
-// job is done once every call has ended, and failed when none delivered or when the plan the rest stand on failed.
+// Runs one attempt of a flow job: its job kind's script makes its calls through `callAi`, each with the preset the
+// job saved for its AI function, each picture recorded as an asset of the job's brand. A call that fails for good
+// is never charged and doesn't stop the others. The job is done once every call has ended, and failed when none
+// delivered or when the plan the rest stand on failed.
 import type { Db } from '@dazbee/db'
-import type { AiStep, CallInput, CallOutput, FlowJobInput } from '@dazbee/schema'
+import type { AiFunction, CallInput, CallOutput, FlowJobInput } from '@dazbee/schema'
 
 import { callAi, CallFailed, type PictureFiles } from '../call.ts'
+import { presetOf, promptOf } from '../functions/ai-function.ts'
+import type { Preset } from '../functions/types.ts'
 import type { JobEnd } from '../jobs.ts'
 import { pictureAssets } from './assets.ts'
 import { runLayering } from './layering.ts'
@@ -32,6 +35,8 @@ export interface FlowAttempt {
   workspace: string
   attempt: number
   flow: FlowJobInput
+  /** The name of the preset each AI function runs with, as the job saved them. */
+  presets: Record<string, string>
   /** Aborted when the worker stops or pg-boss takes the job back. */
   signal: AbortSignal
 }
@@ -41,11 +46,15 @@ export interface FlowRun {
   db: Db
   files: PictureFiles
   workspace: string
+  /** The preset the job runs `fn` with. */
+  preset(fn: AiFunction): Preset
+  /** The prompt that preset runs with: its own, or else its AI function's; empty for a function with no words. */
+  prompt(fn: AiFunction): string
   /**
-   * Makes call `index` of the job, its pictures named `name`; its output, or null when it failed for good. Throws
-   * when the attempt is aborted, and on any other error, which sends the job to be tried again.
+   * Makes call `index` of the job, of `fn`, its pictures named `name`; its output, or null when it failed for good.
+   * Throws when the attempt is aborted, and on any other error, which sends the job to be tried again.
    */
-  call(index: number, step: AiStep, input: CallInput, name: string): Promise<CallOutput | null>
+  call(index: number, fn: AiFunction, input: CallInput, name: string): Promise<CallOutput | null>
   /** Runs every task to its end, then throws the first error any of them threw; their results. */
   all<T>(tasks: Promise<T>[]): Promise<T[]>
   /** The job's end when the call the rest stand on failed, or delivered nothing they can use: failed, for `why`. */
@@ -68,18 +77,34 @@ const SCRIPTS: { [K in FlowJobInput['kind']]: Script<K> } = {
   layering: runLayering,
 }
 
-/** Runs the attempt's script to its end; how the job ends. Throws the signal's reason once it is aborted. */
+/**
+ * Runs the attempt's script to its end; how the job ends. A job that saved an AI function or a preset the code
+ * doesn't have fails before any call is made. Throws the signal's reason once it is aborted.
+ */
 export async function runFlowJob(deps: FlowDeps, attempt: FlowAttempt): Promise<JobEnd> {
   const { db, files, sellers } = deps
   const { signal, flow } = attempt
+  const gone = Object.entries(attempt.presets).find(([fn, name]) => !presetOf(fn, name))
+  if (gone) return { state: 'failed', error: `the AI function ${gone[0]} has no preset ${gone[1]}` }
   const limit = deps.limit ?? ((task) => task())
   let delivered = 0
   let failure: string | null = null
+  const presetName = (fn: AiFunction) => {
+    const name = attempt.presets[fn]
+    if (name === undefined) throw new Error(`the job saved no preset for the AI function ${fn}`)
+    return name
+  }
   const run: FlowRun = {
     db,
     files,
     workspace: attempt.workspace,
-    async call(index, step, input, name) {
+    preset(fn) {
+      const preset = presetOf(fn, presetName(fn))
+      if (!preset) throw new Error(`the AI function ${fn} has no preset ${presetName(fn)}`)
+      return preset
+    },
+    prompt: (fn) => promptOf(fn, run.preset(fn)) ?? '',
+    async call(index, fn, input, name) {
       const assets = pictureAssets({ workspace: attempt.workspace, brand: flow.input.brandId, name })
       try {
         const output = await limit(() => {
@@ -89,7 +114,9 @@ export async function runFlowJob(deps: FlowDeps, attempt: FlowAttempt): Promise<
             job: { id: attempt.job, workspaceId: attempt.workspace },
             attempt: attempt.attempt,
             callIndex: index,
-            step,
+            feature: flow.kind,
+            function: fn,
+            preset: presetName(fn),
             input,
             signal,
             files,

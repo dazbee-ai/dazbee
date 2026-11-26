@@ -317,7 +317,8 @@ describe('the migrations', () => {
         `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-kept', 'workspace-kept', 'user-kept', 'layering', '{}')`,
       )
     })
-    await applyMigrations(url, MIGRATIONS)
+    // Up to the finish lease alone: a later migration empties the jobs.
+    await applyMigrations(url, await firstMigrations(at + 1))
     const jobs = await withClient(
       url,
       async (client) => (await client.query('select id, finish_holder, finish_until from ai_jobs')).rows,
@@ -384,6 +385,89 @@ describe('the migrations', () => {
     expect(kept.fastInput).toEqual({ seller: 'openai', unit: 'fast-input-token', price: 2_469_134 })
     expect(kept.input).toEqual({ seller: 'openai', unit: 'input-token', price: 1_234_567 })
     expect(kept.sellers).toEqual([{ seller: 'openrouter', position: 1 }])
+  }, 60_000)
+
+  it('empty the AI run history, leaving the price list, seller order, settings, grants and designs as they were', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-run-history-wiped'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    const WIPED = [
+      'ai_jobs',
+      'ai_calls',
+      'ai_ledger',
+      'ai_briefs',
+      'ai_frames',
+      'ai_refines',
+      'ai_daily_checks',
+      'ai_seller_files',
+    ]
+    const count = async (client: pg.Client, table: string) =>
+      Number((await client.query<{ count: string }>(`select count(*) from "${table}"`)).rows[0]?.count)
+    const kept = async (client: pg.Client) => ({
+      prices: (await client.query('select * from ai_prices order by seller, model, unit')).rows,
+      sellers: (await client.query('select * from model_sellers order by model, position')).rows,
+      rates: (await client.query('select currency, rate from currency_rates order by currency')).rows,
+      settings: (await client.query('select usage_rate, spending_stop, job_limit from ai_settings')).rows,
+      grants: (await client.query('select id, amount, usage_rate, layer_size from ai_grants')).rows,
+    })
+    const before = await withClient(url, async (client) => {
+      await writeRows(client)
+      await client.query(
+        `insert into ai_grants (id, workspace_id, source, amount, usage_rate, expires_at) values ('grant-kept', 'workspace-kept', 'gift', 1000000, 1000000, now() + interval '30 days')`,
+      )
+      await client.query(
+        `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-wiped', 'workspace-kept', 'user-kept', 'round', '{}')`,
+      )
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, step, model, seller) values ('call-wiped', 'job-wiped', 'workspace-kept', 0, 1, 1, 'flow.round-plan', 'gpt-6-luna', 'openai')`,
+      )
+      await client.query(
+        `insert into ai_ledger (grant_id, job_id, kind, amount) values ('grant-kept', 'job-wiped', 'hold', -400000)`,
+      )
+      await client.query(
+        `insert into ai_briefs (id, workspace_id, brand_id, design_id, section_id, words, width, height, mode, created_by) values ('brief-wiped', 'workspace-kept', 'brand-kept', 'design-kept', 'section', 'Fresh every morning', 1080, 1080, 'fast', 'user-kept')`,
+      )
+      await client.query(
+        `insert into ai_frames (design_id, frame_id, brief_id, job_id, call_index, kind) values ('design-kept', 'frame', 'brief-wiped', 'job-wiped', 1, 'draft')`,
+      )
+      await client.query(
+        `insert into ai_refines (id, design_id, frame_id, message, job_id) values ('refine-wiped', 'design-kept', 'frame', 'Bigger price', 'job-wiped')`,
+      )
+      await client.query(
+        `insert into ai_daily_checks (seller, day, currency, our_cost, state) values ('openai', '2026-11-25', 'USD', 1200, 'ok')`,
+      )
+      await client.query(
+        `insert into ai_seller_files (id, seller, name, uploaded_by, currency, days) values ('file-wiped', 'meta', 'usage.csv', 'user-kept', 'INR', '{}')`,
+      )
+      for (const table of WIPED) expect(await count(client, table), table).toBe(1)
+      return kept(client)
+    })
+    await applyMigrations(url, MIGRATIONS)
+    await withClient(url, async (client) => {
+      for (const table of WIPED) expect(await count(client, table), table).toBe(0)
+      expect(await kept(client)).toEqual(before)
+      expect(await readRows(client)).toEqual(expectedRows())
+      // With the ledger empty, what is left on the grant is its whole amount.
+      const left = await client.query<{ left: string }>(
+        `select (g.amount + coalesce((select sum(amount) from ai_ledger l where l.grant_id = g.id), 0))::text as left from ai_grants g where g.id = 'grant-kept'`,
+      )
+      expect(left.rows[0]?.left).toBe('1000000')
+      // The last build's worker still logs a call under its step, and its API still saves a job with no presets.
+      await client.query(
+        `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-old', 'workspace-kept', 'user-kept', 'round', '{}')`,
+      )
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, step, model, seller) values ('call-old', 'job-old', 'workspace-kept', 0, 1, 1, 'flow.round-plan', 'gpt-6-luna', 'openai')`,
+      )
+      expect(await count(client, 'ai_kind_models')).toBeGreaterThan(0)
+      expect(await count(client, 'ai_step_models')).toBeGreaterThan(0)
+      // A call is logged with no step.
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, function, preset, model, seller) values ('call-new', 'job-new', 'workspace-kept', 0, 1, 1, 'round-plan', 'light-luna', 'gpt-6-luna', 'openai')`,
+      )
+      expect(await count(client, 'ai_calls')).toBe(2)
+    })
   }, 60_000)
 
   // From the second migration on: each runs over rows written under the ones before it.

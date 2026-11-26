@@ -1,5 +1,5 @@
 // ZenMux's adapter: each model on the protocol ZenMux's docs give it. GPT text through the OpenAI protocol's
-// chat completions, with the reasoning effort the AI step's options ask for and never a speed tier, which ZenMux
+// chat completions, with the reasoning effort the preset's settings ask for and never a speed tier, which ZenMux
 // takes none of, GPT Image and Muse through its OpenAI Images API, and Seedream through the Vertex AI protocol's
 // predict call. Keeps `X-ZenMux-RequestId`. Written from ZenMux's docs and model list as read on 25 Nov 2026:
 // Seedream takes a resolution tier and an aspect ratio, not pixel sizes; and its chat completion reference as
@@ -70,7 +70,7 @@ async function callOpenaiProtocol(client: OpenAI, request: SellerRequest): Promi
     prompt: input.prompt,
     size: pictureSize(input),
     n: 1,
-    // GPT Image takes the AI step's quality; Muse takes none.
+    // GPT Image takes the preset's quality; Muse takes none.
     ...(request.model.startsWith('openai/')
       ? { quality: String(request.options.quality ?? 'medium') as 'medium' }
       : {}),

@@ -25,9 +25,9 @@ import {
   pageRecords,
   recordsOfFrame,
   removeConnectorsBetween,
+  removeEmptied,
   removeSection,
   setFrameSection,
-  sweepPage,
 } from './tidy-page.ts'
 import { writeOrder } from './tree.ts'
 
@@ -61,7 +61,7 @@ export const sectionAdd = defineCommand({
     w.create('section', id, { pageId, title: title ?? freeTitle(design, records, kept), order: orderOf(id) })
     records.sections.add(id)
     for (const frameId of moving) setFrameSection(w, records, frameId, id)
-    sweepPage(w, records)
+    removeEmptied(w, records)
     return id
   },
 })
@@ -202,7 +202,7 @@ export const frameSetSection = defineCommand({
       setFrameSection(w, records, frameId, sectionId ?? undefined)
       if (sectionId !== null) removeConnectorsBetween(w, records, frameId, sectionId)
     }
-    sweepPage(w, records)
+    removeEmptied(w, records)
   },
 })
 

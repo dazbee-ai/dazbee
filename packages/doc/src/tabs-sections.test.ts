@@ -43,7 +43,7 @@ describe('crossings of section and connector commands', () => {
     },
   )
 
-  it('A deletes a frame while B draws a connector to it: both are accepted, it is not drawn, and the next sweep deletes it', async () => {
+  it('A deletes a frame while B draws a connector to it: both are accepted, it stays hidden, and A’s undo draws it again', async () => {
     const { world, a, b, deliver } = await twoTabs(sectionedDesign())
     a.run('frame.delete', { frameId: 'tall' })
     b.run('connector.add', { pageId: 'p1', from: 'other', to: 'tall', id: 'other-tall' })
@@ -51,10 +51,16 @@ describe('crossings of section and connector commands', () => {
     expect(world.sim.counts.rejected).toBe(0)
     expect(a.design().connectors['other-tall']).toBeDefined()
     expect(connectorsOf(a.design(), 'p1').map(([id]) => id)).toEqual(['sq-story', 'ads-wide'])
+    // Another command on the page leaves it as it is.
     a.run('frame.setSection', { frameIds: ['other'], sectionId: 'banners' })
     await deliver()
-    for (const tab of [a, b]) expect(tab.design().connectors['other-tall']).toBeUndefined()
+    for (const tab of [a, b]) expect(tab.design().connectors['other-tall']).toBeDefined()
+    a.undo()
+    a.undo()
+    await deliver()
+    for (const tab of [a, b]) expect(connectorsOf(tab.design(), 'p1').map(([id]) => id)).toContain('other-tall')
     expect(world.sim.counts.rejected).toBe(0)
+    expect(await endChecks(world)).toEqual(CLEAN)
   })
 
   /**
@@ -93,5 +99,56 @@ describe('crossings of section and connector commands', () => {
     })
     expect(section.edit).toEqual(frame.edit)
     expect(section.checks).toEqual(CLEAN)
+  })
+})
+
+describe('an undo of what another tab has since connected to', () => {
+  /** The connector B drew to section "mine" is drawn on both tabs, which agree. */
+  function expectDrawn(a: SimTab['session'], b: SimTab['session']) {
+    for (const tab of [a, b]) {
+      expect(tab.design().sections.mine).toBeDefined()
+      expect(connectorsOf(tab.design(), 'p1').map(([id]) => id)).toContain('to-mine')
+    }
+    expect(b.design()).toEqual(a.design())
+  }
+
+  it('A undoes making a section B connected to, B runs another command on the page, A redoes: the connector is back', async () => {
+    const { world, a, b, deliver } = await twoTabs(sectionedDesign())
+    a.run('section.add', { pageId: 'p1', id: 'mine', frameIds: ['tall'] })
+    await deliver()
+    b.run('connector.add', { pageId: 'p1', from: 'other', to: 'mine', id: 'to-mine' })
+    await deliver()
+    a.undo()
+    await deliver()
+    b.run('frame.setSection', { frameIds: ['other'], sectionId: 'banners' })
+    await deliver()
+    a.redo()
+    await deliver()
+    expect(sectionOf(a.design(), 'tall')).toBe('mine')
+    expectDrawn(a, b)
+    expect(world.sim.counts.rejected).toBe(0)
+    expect(await endChecks(world)).toEqual(CLEAN)
+  })
+
+  it('A undoes making a frame and a section of it that B connected to, B runs another command, A redoes both: the connector is back', async () => {
+    const { world, a, b, deliver } = await twoTabs(sectionedDesign())
+    a.run('frame.add', { id: 'nf', pageId: 'p1', name: 'New', width: 300, height: 250 })
+    a.run('section.add', { pageId: 'p1', id: 'mine', frameIds: ['nf'] })
+    await deliver()
+    b.run('connector.add', { pageId: 'p1', from: 'other', to: 'mine', id: 'to-mine' })
+    await deliver()
+    a.undo()
+    a.undo()
+    await deliver()
+    expect(a.design().frames.nf).toBeUndefined()
+    b.run('frame.setSection', { frameIds: ['other'], sectionId: 'banners' })
+    await deliver()
+    a.redo()
+    a.redo()
+    await deliver()
+    expect(sectionOf(a.design(), 'nf')).toBe('mine')
+    expectDrawn(a, b)
+    expect(world.sim.counts.rejected).toBe(0)
+    expect(await endChecks(world)).toEqual(CLEAN)
   })
 })

@@ -1,7 +1,7 @@
 // What a command leaves of a page's sections and connectors (ADR-0024): the section each frame of
 // the page names, its sections and its connectors, each change written as the command makes it,
-// and the sweep that deletes, on the page, any section no frame names and any connector with an
-// end that is gone, which races and undo can leave behind.
+// and the delete of each section the command empties. Records races or undo left loose stay as they
+// are, hidden, until their ends come back.
 import type { Design } from '@dazbee/schema'
 
 import type { StoreWrite } from '../store.ts'
@@ -14,6 +14,8 @@ export interface PageRecords {
   readonly sections: Set<string>
   /** Each connector of the page with its two ends. */
   readonly connectors: Map<string, { from: string; to: string }>
+  /** The sections some frame of the page named before the command. */
+  readonly named: ReadonlySet<string>
 }
 
 /** Page `pageId`'s records as the design holds them. */
@@ -24,7 +26,8 @@ export function pageRecords(design: Design, pageId: string): PageRecords {
   const connectors = new Map<string, { from: string; to: string }>()
   for (const [id, { pageId: on, from, to }] of Object.entries(design.connectors))
     if (on === pageId) connectors.set(id, { from, to })
-  return { pageId, frames, sections, connectors }
+  const named = new Set([...frames.values()].filter((id): id is string => id !== undefined))
+  return { pageId, frames, sections, connectors, named }
 }
 
 /** The records of the page frame `frameId` is on. */
@@ -75,14 +78,9 @@ export function forgetFrame(w: StoreWrite, records: PageRecords, frameId: string
   removeConnectorsAt(w, records, frameId)
 }
 
-/**
- * Deletes, on the page, every section no frame names, with its connectors, and every connector
- * with an end that is neither a frame nor a section of the page.
- */
-export function sweepPage(w: StoreWrite, records: PageRecords) {
+/** Deletes, with its connectors, each section of the page some frame named before the command and none names now. */
+export function removeEmptied(w: StoreWrite, records: PageRecords) {
   const named = new Set(records.frames.values())
-  for (const sectionId of records.sections) if (!named.has(sectionId)) removeSection(w, records, sectionId)
-  const isEnd = (id: string) => records.frames.has(id) || records.sections.has(id)
-  for (const [connectorId, { from, to }] of records.connectors)
-    if (!isEnd(from) || !isEnd(to)) removeConnector(w, records, connectorId)
+  for (const sectionId of records.sections)
+    if (records.named.has(sectionId) && !named.has(sectionId)) removeSection(w, records, sectionId)
 }

@@ -58,13 +58,13 @@ describe('connector.add', () => {
     expect(() => tab.run('connector.add', { ...add, to: 'empty' })).toThrow(/section "empty" has no frames/)
   })
 
-  it('deletes, on its page, a connector with a missing end that a race left', () => {
+  it('leaves a connector with a missing end that a race left as it is, hidden', () => {
     const design = sectionedDesign()
     const loose = { pageId: 'p1', from: 'gone', to: 'sq', order: 'a5' }
     const store = openTestStore({ ...design, connectors: { ...design.connectors, loose } })
     const tab = openTestSession(store)
     tab.run('connector.add', { pageId: 'p1', from: 'tall', to: 'other' })
-    expect(readDesign(store).connectors.loose).toBeUndefined()
+    expect(readDesign(store).connectors.loose).toEqual(loose)
   })
 })
 

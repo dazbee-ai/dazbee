@@ -55,7 +55,7 @@ describe('frame.delete', () => {
     expect(readDesign(store)).toEqual(before)
   })
 
-  it('deletes, on its page, a section no frame names and a connector with a missing end', () => {
+  it('leaves a section no frame names and a connector with a missing end, which races left, as they are', () => {
     const design = sectionedDesign()
     const store = openTestStore({
       ...design,
@@ -65,8 +65,8 @@ describe('frame.delete', () => {
     const tab = openTestSession(store)
     tab.run('frame.delete', { frameId: 'other' })
     const after = readDesign(store)
-    expect(after.sections.empty).toBeUndefined()
-    expect(after.connectors.loose).toBeUndefined()
+    expect(after.sections.empty).toEqual({ pageId: 'p1', title: 'Empty', order: 'a5' })
+    expect(after.connectors.loose).toEqual({ pageId: 'p1', from: 'gone', to: 'sq', order: 'a5' })
     expect(after.sections['far-section']).toBeDefined()
   })
 })

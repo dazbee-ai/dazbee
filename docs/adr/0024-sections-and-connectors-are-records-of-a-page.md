@@ -17,5 +17,5 @@ Every new key is optional, and a stored design without sections or connectors re
 ## Consequences
 
 - The sync core, the server's checks, the size limits, the undo history and the design's repair learn two new parts. A design holds at most 1,000 sections and 5,000 connectors, and the tab warns at 80%, as for layers.
-- A loose reference can stay in a stored design: a frame naming a deleted section, or a hidden connector. Readers treat these as absent. A command that touches such a frame or connector may clear it.
+- A loose reference can stay in a stored design: a frame naming a deleted section, a section no frame names, or a connector with an end that is gone. Readers treat these as absent. No command sweeps them: a loose record stays hidden until its ends come back, as another tab's undo may bring them. A command deletes only what it empties or deletes itself, in the same step. Hidden records count toward the limits.
 - An agent reads sections and connectors through `read_design`, and makes and changes them with the same commands people use.

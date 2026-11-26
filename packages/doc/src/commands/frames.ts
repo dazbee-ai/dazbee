@@ -31,7 +31,7 @@ import { frameProblem, idProblem, pageProblem, sectionOnPageProblem } from './ch
 import { type CommandContext, defineCommand, strict } from './define.ts'
 import { readableBox, readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
 import { keepDrawnIn } from './paths.ts'
-import { forgetFrame, recordsOfFrame, sweepPage } from './tidy-page.ts'
+import { forgetFrame, recordsOfFrame, removeEmptied } from './tidy-page.ts'
 import { copyFrameLayers, type Slot, writeOrder } from './tree.ts'
 
 /** Where a frame's copy goes: its place on the page, its order among the page's frames, and its section, if any. */
@@ -262,7 +262,7 @@ export const frameAddSize = defineCommand({
 /**
  * Deletes a frame, its layers and its connectors, and a section it empties with that section's
  * connectors; their linked copies in other frames stay, and undo brings all back. A page may be left
- * with no frame. On the page, it also deletes what races left (`sweepPage`).
+ * with no frame.
  */
 export const frameDelete = defineCommand({
   name: 'frame.delete',
@@ -275,7 +275,7 @@ export const frameDelete = defineCommand({
     const records = recordsOfFrame(design, frameId)
     forgetFrame(w, records, frameId)
     deleteFrame(w, design, frameId)
-    sweepPage(w, records)
+    removeEmptied(w, records)
   },
 })
 

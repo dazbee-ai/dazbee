@@ -6,7 +6,7 @@ import { ConnectorId, type Design, Id, inOrder, PageId, sectionOf, sectionsOf } 
 
 import { connectorProblem, idProblem, pageProblem } from './checks.ts'
 import { defineCommand } from './define.ts'
-import { joins, pageRecords, sweepPage } from './tidy-page.ts'
+import { joins } from './tidy-page.ts'
 import { writeOrder } from './tree.ts'
 
 /** Joins two frames or sections of a page, after the page's connectors. Returns the connector's id. */
@@ -41,9 +41,6 @@ export const connectorAdd = defineCommand({
       .map(([other, connector]): [string, string | null] => [other, connector.order])
     const orderOf = writeOrder(w, 'connector', [...slots, [id, null]], new Set([id]))
     w.create('connector', id, { pageId, from, to, order: orderOf(id) })
-    const records = pageRecords(design, pageId)
-    records.connectors.set(id, { from, to })
-    sweepPage(w, records)
     return id
   },
 })

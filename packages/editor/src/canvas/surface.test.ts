@@ -37,7 +37,9 @@ function fakeCanvasKit(log: string[]) {
       setStyle() {}
       setStrokeWidth() {}
       setAlphaf() {}
-      setImageFilter() {}
+      setImageFilter() {
+        log.push('image filter')
+      }
       delete() {
         log.push('delete paint')
       }
@@ -46,7 +48,8 @@ function fakeCanvasKit(log: string[]) {
     TRANSPARENT: 'clear',
     PaintStyle: { Stroke: 'stroke' },
     ClipOp: { Difference: 'out of' },
-    ImageFilter: { MakeBlur: () => ({ delete: () => log.push('delete blur') }) },
+    ImageFilter: { MakeBlur: () => log.push('blur') },
+    MaskFilter: { MakeBlur: () => log.push('blur') },
     TileMode: { Decal: 'decal' },
     ColorSpace: { SRGB: 'srgb' },
     Color: () => 'edge',
@@ -155,7 +158,7 @@ describe('editorSurface', () => {
       expect(surface.paint([], null, [])).toBe(false)
     })
 
-    it('draws the pictures it is handed at the camera, each on its page over white on a soft shadow, and shows them', () => {
+    it('draws the pictures it is handed at the camera, each on its page over white, and shows them', () => {
       const { view, surface, log } = harness()
       surface.resize()
       view.setCamera({ x: 0, y: 0, zoom: 0.5 })
@@ -173,9 +176,6 @@ describe('editorSurface', () => {
         'clear',
         'save',
         'scale 2 2',
-        // The shadows, on the stage at 540 across: one 1 down, one 6 in from each side and 6 down.
-        'rect 0 1 540 540',
-        'rect 6 12 528 528',
         'translate 0 0',
         'scale 0.5 0.5',
         'rect 0 0 1080 1080',
@@ -214,30 +214,42 @@ describe('editorSurface', () => {
         'scale 2 2',
         'outline -24 -84 588 648 round 22 in #c4b9cd',
         'outline 600 -84 100 100 round 22 in #2f5be0',
-        'rect 0 1 540 540',
+        'translate 0 0',
       ])
     })
   })
 
-  describe("the frames' shadow", () => {
-    it('is as far down and as soft on the stage at any zoom, wherever the camera is', () => {
-      const shadowsAt = (camera: { x: number; y: number; zoom: number }) => {
+  describe('the frames on the stage', () => {
+    it('are white boxes with no shadow or blur under them, at any zoom, wherever the camera is', () => {
+      const drawnAt = (camera: { x: number; y: number; zoom: number }) => {
         const { view, surface, log } = harness()
         surface.resize()
         view.setCamera(camera)
+        const frames = view.findInView()
+        const made = [...log]
         log.length = 0
         surface.paint(
-          view
-            .findInView()
-            .slice(0, 1)
-            .map((frame) => ({ frame, picture: picture(frame.id) })),
+          frames.map((frame) => ({ frame, picture: picture(frame.id) })),
           null,
           [],
         )
-        return log.slice(3, 5)
+        return { frames, made, log }
       }
-      expect(shadowsAt({ x: 0, y: 0, zoom: 0.15 })).toEqual(['rect 0 1 162 162', 'rect 6 12 150 150'])
-      expect(shadowsAt({ x: 40, y: 30, zoom: 2 })).toEqual(['rect 40 31 2160 2160', 'rect 46 42 2148 2148'])
+      for (const camera of [
+        { x: 0, y: 0, zoom: 0.15 },
+        { x: 40, y: 30, zoom: 2 },
+      ]) {
+        const { frames, made, log } = drawnAt(camera)
+        expect(frames.length).toBeGreaterThan(0)
+        // One rect for each frame, its white box, and nothing blurred made or drawn.
+        expect(log.filter((line) => line.startsWith('rect '))).toEqual(
+          frames.map((frame) => `rect ${frame.x} ${frame.y} ${frame.width} ${frame.height}`),
+        )
+        for (const line of ['blur', 'image filter']) {
+          expect(made).not.toContain(line)
+          expect(log).not.toContain(line)
+        }
+      }
     })
   })
 
@@ -306,10 +318,6 @@ describe('editorSurface', () => {
         'delete surface',
         'delete paint',
         'delete paint',
-        'delete paint',
-        'delete blur',
-        'delete paint',
-        'delete blur',
         'delete paint',
         'delete gl',
       ])

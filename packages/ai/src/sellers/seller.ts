@@ -19,6 +19,8 @@ export type SellerOutput =
 
 /** One call as an adapter is asked to make it. */
 export interface SellerRequest {
+  /** The AI call this is: its job, its AI step and its place in the job, which a recording keeps and replays by. */
+  call: { job: string; step: string; index: number }
   /** The seller's own name for the model. */
   model: string
   input: CallInput
@@ -46,6 +48,8 @@ export interface SellerAnswer {
   requestId?: string
   /** The seller's own cost for the call, in its currency, where it gives one. */
   reportedCost?: number
+  /** Set on an answer read back from a recording in development: no seller made it, so it costs nothing. */
+  replayed?: true
 }
 
 /**

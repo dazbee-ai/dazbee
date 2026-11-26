@@ -53,4 +53,23 @@ describe('storedDesign', () => {
     expect(storedDesign(loaded)).toMatchObject({ syncId: 's0', entry: 0, seq: 0 })
     expect(storedDesign(loaded).design.nodes.badge?.name).toBe(linkedDesign().nodes.badge?.name)
   })
+
+  it('opens a design stored before sections and connectors with none, and stores it back with its frames as they were', () => {
+    const loaded = rowsWithDeadTail()
+    loaded.journal = loaded.journal.slice(0, 3)
+    loaded.lastEntry = 3
+    const stored = structuredClone(loaded.saved.state)
+    expect(stored).not.toHaveProperty('sections')
+    expect(Object.values(stored.frames as Record<string, object>).some((f) => 'sectionId' in f || 'starred' in f)).toBe(
+      false,
+    )
+    const read = storedDesign(loaded)
+    expect([read.design.sections, read.design.connectors]).toEqual([{}, {}])
+    expect(read.leftOut).toEqual([])
+    // The server folds it back with its frames, pages and meta as stored, and no sections or connectors.
+    const saved = openServer(structuredClone(loaded), { hashSecret: (s) => s }).save().state
+    expect(Object.keys(saved)).toEqual(['meta', 'pages', 'frames', 'nodes'])
+    expect(saved.frames).toEqual(stored.frames)
+    expect(read.records.frames).toEqual(stored.frames)
+  })
 })

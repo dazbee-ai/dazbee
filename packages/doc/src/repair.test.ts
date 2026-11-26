@@ -169,6 +169,57 @@ describe('repair', () => {
     ])
   })
 
+  it('reads a snapshot without sections or connectors as a design with none', () => {
+    const out = repaired(snap({}))
+    expect([out.design.sections, out.design.connectors]).toEqual([{}, {}])
+  })
+
+  it("keeps a page's sections and connectors, loose ends included", () => {
+    const s = {
+      ...snap({}),
+      sections: { s1: { pageId: 'p1', title: 'Ads', order: 'a0' } },
+      connectors: { c1: { pageId: 'p1', from: 'p1-sq', to: 'gone', order: 'a0' } },
+    }
+    s.frames['p1-sq'] = { ...frame('p1', 0, 'a0'), sectionId: 'missing', starred: true }
+    const out = repaired(s)
+    expect(out.design.sections).toEqual(s.sections)
+    expect(out.design.connectors).toEqual(s.connectors)
+    expect(out.design.frames['p1-sq']).toMatchObject({ sectionId: 'missing', starred: true })
+    expect([out.repairs, out.leftOut]).toEqual([[], []])
+  })
+
+  it('leaves out a section or connector the schema does not take, and drops one whose page is gone', () => {
+    const s = {
+      ...snap({}),
+      sections: {
+        ok: { pageId: 'p1', title: 'Ads', order: 'a0' },
+        untitled: { pageId: 'p1', title: ' ', order: 'a1' },
+        lost: { pageId: 'p9', title: 'Lost', order: 'a2' },
+        'held-out': { pageId: 'p2', title: 'Held', order: 'a0' },
+        'p1-sq': { pageId: 'p1', title: 'Clash', order: 'a3' },
+      },
+      connectors: {
+        joined: { pageId: 'p1', from: 'p1-sq', to: 'ok', order: 'a0' },
+        endless: { pageId: 'p1', from: 'p1-sq', order: 'a1' },
+        astray: { pageId: 'p9', from: 'a', to: 'b', order: 'a2' },
+      },
+    }
+    s.pages.p2 = { name: 'Page 2', order: 5 }
+    const out = repaired(s)
+    expect(Object.keys(out.design.sections)).toEqual(['ok'])
+    expect(Object.keys(out.design.connectors)).toEqual(['joined'])
+    expect(out.repairs).toEqual([
+      'dropped section "lost", whose page "p9" is gone',
+      'dropped connector "astray", whose page "p9" is gone',
+    ])
+    expect(out.leftOut.filter(({ part }) => part === 'section' || part === 'connector')).toEqual([
+      { part: 'section', id: 'untitled', issue: 'title: a section title has no space at either end' },
+      { part: 'section', id: 'held-out', issue: '"p2", which holds it, was left out' },
+      { part: 'section', id: 'p1-sq', issue: '"p1-sq" is a section and another record' },
+      { part: 'connector', id: 'endless', issue: 'to: Invalid input: expected string, received undefined' },
+    ])
+  })
+
   it('gives a meta field the schema does not take its default, and reports it', () => {
     const s = snap({ a: layer('graphic', 'p1-sq', 'a') })
     const out = repaired({ ...s, meta: { designId: '', name: 7 } as unknown as typeof s.meta })

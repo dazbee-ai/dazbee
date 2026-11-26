@@ -280,7 +280,7 @@ describe('openClient', () => {
       a.receive({ type: 'left', tabId: b.tabId() })
       a.receive({ type: 'access', access: 'view' })
       a.receive({ type: 'token' })
-      const size = { layers: 1, frames: 2, pages: 3, bytes: 4 }
+      const size = { layers: 1, frames: 2, pages: 3, sections: 4, connectors: 5, bytes: 6 }
       a.receive({ type: 'notice', kind: 'nearLimit', size })
       expect([a.tabs().size, a.access(), asked, a.takeNotices()]).toEqual([0, 'view', 1, [{ kind: 'nearLimit', size }]])
       // Its listeners hear the access change; a tab that comes back as an editor again hears that too.

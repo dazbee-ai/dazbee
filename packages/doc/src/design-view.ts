@@ -12,7 +12,7 @@ export interface Unread {
   repairs: readonly string[]
 }
 
-type Head = Pick<Design, 'meta' | 'pages' | 'frames'>
+type Head = Omit<Design, 'nodes'>
 
 /** What a read that left nothing out and repaired nothing reports: one object, so two such reads report the same one. */
 const NOTHING_UNREAD: Unread = Object.freeze({ leftOut: Object.freeze([]), repairs: Object.freeze([]) })
@@ -20,8 +20,8 @@ const NOTHING_UNREAD: Unread = Object.freeze({ leftOut: Object.freeze([]), repai
 /**
  * A tab's validated design, kept up to date as the document changes (#23, #29). An edit that
  * changes layers' properties, which is nearly every edit, re-reads and validates only what it
- * touched: nothing it does grows with the number of layers. An edit that changes the meta, pages
- * or frames reads and repairs the whole design, as `repair` does with the store's snapshot, and so
+ * touched: nothing it does grows with the number of layers. An edit that changes the meta, pages,
+ * frames, sections or connectors reads and repairs the whole design, as `repair` does with the store's snapshot, and so
  * does one that adds, removes, re-parents or re-links a layer in a way only repair can settle, or
  * leaves a layer the schema does not take. Either way the design equals what `repair` makes of the
  * snapshot.
@@ -41,7 +41,7 @@ export function designView(store: DesignStore) {
   const frameOfLayer = new Map<string, string>()
   /** The layer holding each link id, by frame. */
   const linkHolder = new Map<string, Map<string, string>>()
-  /** The validated meta, pages and frames; null until the first whole read. */
+  /** The validated meta, pages, frames, sections and connectors; null until the first whole read. */
   let head: Head | null = null
   /** What the last whole read left out and repaired. */
   let unreadNow = NOTHING_UNREAD
@@ -62,8 +62,8 @@ export function designView(store: DesignStore) {
   /** How many changes the store has told since the view opened, counted as each ends. */
   let changes = 0
   /**
-   * How many reads gave a design that differs from the one the view held: a meta, page, frame or
-   * layer value not equal to what it replaced, or one that came or went.
+   * How many reads gave a design that differs from the one the view held: a meta, page, frame,
+   * section, connector or layer value not equal to what it replaced, or one that came or went.
    */
   let revisions = 0
 
@@ -80,6 +80,12 @@ export function designView(store: DesignStore) {
     },
     get frames() {
       return current().frames
+    },
+    get sections() {
+      return current().sections
+    },
+    get connectors() {
+      return current().connectors
     },
     nodes,
   }) as unknown as Design
@@ -142,6 +148,8 @@ export function designView(store: DesignStore) {
       meta: kept(head?.meta, d.meta),
       pages: keptEach(head?.pages, d.pages),
       frames: keptEach(head?.frames, d.frames),
+      sections: keptEach(head?.sections, d.sections),
+      connectors: keptEach(head?.connectors, d.connectors),
     }
     if (head && !sameDesign(head, next, layers, d.nodes)) revisions++
     head = next
@@ -396,11 +404,12 @@ function keptEach<T>(held: Readonly<Record<string, T>> | undefined, read: Record
 }
 
 /**
- * Whether a whole read gave the design the view holds: the same meta, pages and frames, each kept
- * as the one held, and the same layers, each the one held or one of equal value.
+ * Whether a whole read gave the design the view holds: the same meta, pages, frames, sections and
+ * connectors, each kept as the one held, and the same layers, each the one held or one of equal value.
  */
 function sameDesign(head: Head, next: Head, layers: ReadonlyMap<string, Layer>, read: Design['nodes']): boolean {
   if (head.meta !== next.meta || head.pages !== next.pages || head.frames !== next.frames) return false
+  if (head.sections !== next.sections || head.connectors !== next.connectors) return false
   const ids = Object.keys(read)
   if (ids.length !== layers.size) return false
   return ids.every((id) => {

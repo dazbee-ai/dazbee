@@ -9,6 +9,7 @@ import { appendRows, designs, loadDesignRows } from '@dazbee/db'
 import {
   ApiError,
   BrandSummary,
+  designRecords,
   DesignSummary,
   OpenedDesign,
   parseDesign,
@@ -433,6 +434,33 @@ describe('renaming, copying and deleting designs (#159)', () => {
     expect(await savedState(db, design.id)).toBeNull()
   })
 
+  it('copies sections, connectors and stars with the design, and stores none for a design without them', async () => {
+    const content = {
+      meta: { designId: 'any', name: 'Grouped' },
+      pages: { p1: { name: 'Page 1', order: 'a0' } },
+      frames: {
+        sq: { pageId: 'p1', name: 'Square', width: 100, height: 100, x: 0, y: 0, order: 'a0', sectionId: 's1' },
+        wide: { pageId: 'p1', name: 'Wide', width: 200, height: 100, x: 300, y: 0, order: 'a1', starred: true },
+      },
+      nodes: {},
+      sections: { s1: { pageId: 'p1', title: 'Ads', order: 'a0' } },
+      connectors: { c1: { pageId: 'p1', from: 's1', to: 'wide', order: 'a0' } },
+    }
+    const design = DesignSummary.parse(
+      (await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Grouped', content })).json,
+    )
+    const copied = DesignSummary.parse(
+      (await call('a', 'POST', `/brands/${brand.id}/designs/${design.id}/duplicate`, {})).json,
+    )
+    const copy = await storedDesign(db, copied.id)
+    expect(copy?.sections).toEqual(content.sections)
+    expect(copy?.connectors).toEqual(content.connectors)
+    expect(copy?.frames.sq?.sectionId).toBe('s1')
+    expect(copy?.frames.wide?.starred).toBe(true)
+    const plain = DesignSummary.parse((await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Plain' })).json)
+    expect(Object.keys((await savedState(db, plain.id)) ?? {})).toEqual(['meta', 'pages', 'frames', 'nodes'])
+  })
+
   it('copies the original as stored, with the change sets its journal holds since the last fold, up to one that no longer applies', async () => {
     const design = DesignSummary.parse(
       (await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Launch' })).json,
@@ -486,7 +514,7 @@ describe('renaming, copying and deleting designs (#159)', () => {
     expect(original.nodes.sun?.name).toBe('Sun')
     // The copy is folded: its state holds what the original's journal did.
     expect(await savedState(db, copy.id)).toEqual({
-      ...original,
+      ...designRecords(original),
       meta: { ...original.meta, designId: copy.id, name: 'Launch copy' },
     })
   })

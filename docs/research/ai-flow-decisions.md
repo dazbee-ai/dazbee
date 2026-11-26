@@ -28,7 +28,7 @@ These replace the screen decided on 25 Nov: the flow runs on a design's canvas, 
 
 Built first, as their own spec, because the AI flow stands on them.
 
-- **Sections** group frames on a page under a title. A section has no fill and a soft grey outline that fits around its frames. Frames move freely inside it, out of it onto the canvas and into another section; a section left empty goes. A selected section offers Rename, Ungroup, Delete section (its frames stay) and Delete section and frames.
+- **Sections** group frames on a page under a title. A section has no fill and a soft grey outline that fits around its frames. Frames move freely inside it, out of it onto the canvas and into another section; a section left empty goes. A selected section offers Rename, Ungroup, Duplicate and Delete section and frames. Ungroup is how a section goes with its frames kept, so there is no separate Delete section (spec check, 26 Nov).
 - **Making and using sections (26 Nov).** The Section tool draws a box, and the frames whose middle is inside join. Where a dragged frame is let go decides its section. Delete on a section keeps its frames, and Duplicate copies a section to the right. A frame is in one section at most, a section is on one page, and sections never nest. Export lists frames under their sections.
 - **Connectors** join two things on a page (frames or sections) and follow them when they move. Drawn with the Arrow shape from a dot at one thing's edge to another thing; a small dot marks where one starts, so it doesn't look like an arrow inside a frame. A soft grey curve with no labels or styles. Deleting a frame or section deletes its connectors in the same step (26 Nov).
 - **Neither is exported.**

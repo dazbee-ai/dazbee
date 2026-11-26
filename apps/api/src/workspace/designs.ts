@@ -8,6 +8,7 @@ import {
   blankDesign,
   type Design,
   type DesignInput,
+  designRecords,
   type DesignSummary,
   parseDesign,
   SCHEMA_VERSION,
@@ -83,8 +84,9 @@ export async function deleteDesign(db: Db, workspaceId: string, brandId: string,
 
 /**
  * Creates a design and its first stored state together (D8), so the sync server never opens a design
- * with nothing in it. `content` is checked like any design; its id and name become the new design's.
- * The design's record is at the schema version of now, and its state under a sync id of its own.
+ * with nothing in it. `content` is checked like any design; its id and name become the new design's,
+ * and everything else it holds is stored, its sections and connectors too (`designRecords`). The
+ * design's record is at the schema version of now, and its state under a sync id of its own.
  */
 export async function createDesign(
   db: Db,
@@ -97,8 +99,7 @@ export async function createDesign(
   const input = withMeta(content ?? startingDesign(id, name), id, name)
   const parsed = parseDesign(input)
   if (!parsed.success) throw new InvalidContent(parsed.errors.slice(0, 5).join('; '))
-  const { meta, pages, frames, nodes } = parsed.design
-  const saved = firstSaved({ meta, pages, frames, nodes }, newId())
+  const saved = firstSaved(designRecords(parsed.design), newId())
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(designs)

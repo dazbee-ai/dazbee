@@ -56,6 +56,9 @@ export const SYNC_LIMITS = {
   designLayers: 15_000,
   designFrames: 5_000,
   designPages: 1_000,
+  /** A design's sections and connectors (ADR-0024). */
+  designSections: 1_000,
+  designConnectors: 5_000,
   designBytes: 8 * 1024 * 1024,
   /** The changes one change set holds. */
   changeSetChanges: 60_000,
@@ -113,12 +116,12 @@ export const PEOPLE_COLOURS = [
   '#665CE0',
 ] as const
 
-/** The parts of a design a change names: its meta, a page, a frame or a layer. */
-export const Part = z.enum(['meta', 'page', 'frame', 'layer'])
+/** The parts of a design a change names: its meta, a page, a frame, a layer, a section or a connector. */
+export const Part = z.enum(['meta', 'page', 'frame', 'layer', 'section', 'connector'])
 export type Part = z.infer<typeof Part>
 
 /** The parts a change creates and deletes: a design always has its one meta. */
-export const HeldPart = z.enum(['page', 'frame', 'layer'])
+export const HeldPart = z.enum(['page', 'frame', 'layer', 'section', 'connector'])
 export type HeldPart = z.infer<typeof HeldPart>
 
 /** A record's id on the wire: the meta's is `meta`; ids hold no `/`. */
@@ -157,12 +160,18 @@ export const Change = z.discriminatedUnion('op', [
 ])
 export type Change = z.infer<typeof Change>
 
-/** A design's records as plain JSON, before they are read: any of them possibly not what the schema takes. */
+/**
+ * A design's records as plain JSON, before they are read: any of them possibly not what the schema
+ * takes. Its sections and connectors are left out while it holds none, as a design stored before
+ * them is, and read as none when absent.
+ */
 export const DesignRecords = z.strictObject({
   meta: z.record(z.string(), z.unknown()),
   pages: z.record(z.string(), z.unknown()),
   frames: z.record(z.string(), z.unknown()),
   nodes: z.record(z.string(), z.unknown()),
+  sections: z.record(z.string(), z.unknown()).optional(),
+  connectors: z.record(z.string(), z.unknown()).optional(),
 })
 export type DesignRecords = z.infer<typeof DesignRecords>
 
@@ -303,6 +312,8 @@ export interface DesignSize {
   layers: number
   frames: number
   pages: number
+  sections: number
+  connectors: number
   bytes: number
 }
 
@@ -444,4 +455,27 @@ export function cleanNote(text: string): string {
 /** Whether two members are the same user in the same workspace. */
 export function sameMember(a: Member, b: Member): boolean {
   return a.userId === b.userId && a.workspaceId === b.workspaceId
+}
+
+/**
+ * A design's records as the sync core stores them: its sections and connectors only while it holds
+ * some, so a design without them is stored as one from before them.
+ */
+export function designRecords(design: {
+  meta: object
+  pages: object
+  frames: object
+  nodes: object
+  sections?: object | undefined
+  connectors?: object | undefined
+}): DesignRecords {
+  const { meta, pages, frames, nodes, sections, connectors } = design as DesignRecords
+  return {
+    meta,
+    pages,
+    frames,
+    nodes,
+    ...(sections && Object.keys(sections).length > 0 ? { sections } : {}),
+    ...(connectors && Object.keys(connectors).length > 0 ? { connectors } : {}),
+  }
 }

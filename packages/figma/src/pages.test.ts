@@ -110,6 +110,8 @@ describe('importPages', () => {
         layers: 1,
         frames: 3,
         pages: 2,
+        sections: 0,
+        connectors: 0,
         bytes: new TextEncoder().encode(JSON.stringify(converted)).length,
       })
     })

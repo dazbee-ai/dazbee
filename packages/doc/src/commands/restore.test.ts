@@ -44,6 +44,7 @@ function olderTest(): Design {
   const box = nodes.box
   if (headline?.type !== 'text' || box?.type !== 'graphic') throw new Error('the test design changed')
   return {
+    ...design,
     meta: { designId: 'elsewhere', name: 'Another name' },
     pages: { ...design.pages, p1: { name: 'First', order: 'a0' }, p2: { name: 'Second', order: 'a1' } },
     frames: {

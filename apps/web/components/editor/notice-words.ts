@@ -70,10 +70,18 @@ export function noticeWords(locale: Locale, editor: Messages['editor'], ...[n, d
       return detail.name.trim()
         ? format(notices.editingElsewhere, { name: detail.name.trim() })
         : notices.editingElsewhereUnnamed
-    case 'nearLimit':
-      return format(notices.nearLimit, {
+    // The share of the limit nearest, in words naming the sections or connectors when it is theirs.
+    case 'nearLimit': {
+      const words =
+        detail.parts === 'sections'
+          ? notices.nearLimitSections
+          : detail.parts === 'connectors'
+            ? notices.nearLimitConnectors
+            : notices.nearLimit
+      return format(words, {
         percent: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(detail.share),
       })
+    }
     default:
       return notices[n]
   }

@@ -169,10 +169,10 @@ export function editorPlaceFigma({
 function countedWith(figma: FigmaImport, before: DesignSize): DesignSize {
   const frames = figma.pages.flatMap((page) => page.frames)
   return {
+    ...before,
     layers: before.layers + frames.reduce((sum, f) => sum + Object.keys(f.layers?.nodes ?? {}).length, 0),
     frames: before.frames + frames.length,
     pages: before.pages + (figma.target === 'pages' ? figma.pages.length : 0),
-    bytes: before.bytes,
   }
 }
 

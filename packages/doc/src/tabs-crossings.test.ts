@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { DesignInput } from '@dazbee/schema'
 
-import { badge, kindsDesign, linkedDesign, testDesign } from './test-design.ts'
+import { badge, kindsDesign, linkedDesign, sectionedDesign, testDesign } from './test-design.ts'
 import {
   closeTabs,
   endChecks,
@@ -422,6 +422,43 @@ describe('a frame resize crossing the other tab’s edit of a layer it moves (G9
     const { world, a, b } = await resizeCrossing('A', (tab) => tab.run('node.delete', { ids: ['c'] }))
     expect(world.sim.counts.rejected).toBe(1)
     for (const tab of [a, b]) expect(held(tab)).toEqual({ frame: [1000, 1000], badge: undefined })
+    expect(await endChecks(world)).toEqual(CLEAN)
+  })
+})
+
+describe('sections, connectors and stars written through the store', () => {
+  it('reach the other tab: a section, a connector, and a frame joining a section and starred', async () => {
+    const world = await openTwo(sectionedDesign())
+    const [a, b] = world.tabs as [SimTab, SimTab]
+    a.store.transact(() => {
+      a.store.create('section', 'more', { pageId: 'p1', title: 'More', order: 'a2' })
+      a.store.create('connector', 'tall-more', { pageId: 'p1', from: 'tall', to: 'more', order: 'a2' })
+      a.store.set('frame', 'tall', 'sectionId', 'more')
+      a.store.set('frame', 'tall', 'starred', true)
+      a.store.unset('frame', 'story', 'starred')
+    })
+    await quiesce(world)
+    const design = b.session.design()
+    expect(design.sections.more).toEqual({ pageId: 'p1', title: 'More', order: 'a2' })
+    expect(design.connectors['tall-more']).toEqual({ pageId: 'p1', from: 'tall', to: 'more', order: 'a2' })
+    expect(design.frames.tall).toMatchObject({ sectionId: 'more', starred: true })
+    expect(design.frames.story).not.toHaveProperty('starred')
+    expect(b.session.design()).toEqual(a.session.design())
+  })
+
+  it("go with their page when a tab deletes it, and come back with the page's undo", async () => {
+    const design = sectionedDesign()
+    const far = { pageId: 'p2', from: 'far', to: 'far-section', order: 'a0' }
+    const { world, a, b, deliver } = await twoTabs({ ...design, connectors: { ...design.connectors, 'far-link': far } })
+    b.run('page.delete', { id: 'p2' })
+    await deliver()
+    expect(Object.keys(a.design().sections)).toEqual(['ads', 'banners'])
+    expect(Object.keys(a.design().connectors)).toEqual(['sq-story', 'ads-wide'])
+    b.undo()
+    await deliver()
+    expect(a.design().sections['far-section']).toEqual({ pageId: 'p2', title: 'Far', order: 'a0' })
+    expect(a.design().connectors['far-link']).toEqual(far)
+    expect(a.design().frames.far?.sectionId).toBe('far-section')
     expect(await endChecks(world)).toEqual(CLEAN)
   })
 })

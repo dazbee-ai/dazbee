@@ -1,6 +1,9 @@
+import type { z } from 'zod'
+
 import {
   byCodeUnits,
   canHold,
+  Connector,
   type Design,
   DesignMeta,
   type DesignRecords,
@@ -11,6 +14,7 @@ import {
   LinkId,
   Page,
   parseLayer,
+  Section,
 } from '@dazbee/schema'
 
 /** A design as its document holds it, before it is read: the schema's `DesignRecords`. */
@@ -22,7 +26,7 @@ export type Snapshot = DesignRecords
  * which took its default.
  */
 export interface LeftOut {
-  part: 'meta' | 'page' | 'frame' | 'layer'
+  part: 'meta' | 'page' | 'frame' | 'layer' | 'section' | 'connector'
   /** The part's id, or the meta field's name. */
   id: string
   /** The schema's issue with the part, or the part holding it that was left out. */
@@ -57,8 +61,8 @@ const validIds = new Set<string>()
  * the snapshot and never writes: the next edit carries on from the design it gives.
  *
  * A part whose value the schema does not take is left out and reported, since only a bug writes
- * one: a meta field takes its default, a page goes with its frames, a frame with its layers, and
- * a layer with what it holds.
+ * one: a meta field takes its default, a page goes with its frames, sections and connectors, a
+ * frame with its layers, and a layer with what it holds.
  *
  * Concurrent edits can merge into a state no single command allows: two tabs each deleting one
  * of the last two pages, a frame added to a page another tab deleted, a layer added to a frame or
@@ -75,8 +79,8 @@ export function repair(snapshot: Snapshot): Repaired {
   const leftOut: LeftOut[] = []
   /** The pages, frames and layers left out, by id: what they hold is left out with them. */
   const unread = { page: new Set<string>(), frame: new Set<string>(), layer: new Set<string>() }
-  const leaveOut = (part: 'page' | 'frame' | 'layer', id: string, issue: string) => {
-    unread[part].add(id)
+  const leaveOut = (part: LeftOut['part'], id: string, issue: string) => {
+    if (part === 'page' || part === 'frame' || part === 'layer') unread[part].add(id)
     leftOut.push({ part, id, issue })
   }
 
@@ -117,6 +121,30 @@ export function repair(snapshot: Snapshot): Repaired {
     else repairs.push(`dropped frame "${id}", whose page "${parsed.data.pageId}" is gone`)
   }
   const isFrame = (id: string) => frames.has(id)
+
+  // 1b. A section or connector whose page is gone goes, as a frame does. Its other references are
+  // loose: a frame naming a missing section is in none, and a connector with a missing end is not
+  // drawn (ADR-0024).
+  /** Whether a page, a frame, a layer, or both a section and a connector are stored under `id`. */
+  const idTaken = (id: string) =>
+    [snapshot.pages, snapshot.frames, snapshot.nodes].some((held) => Object.hasOwn(held, id)) ||
+    (Object.hasOwn(snapshot.sections ?? {}, id) && Object.hasOwn(snapshot.connectors ?? {}, id))
+  const readHeldByPage = <T extends { pageId: string }>(part: 'section' | 'connector', schema: z.ZodType<T>) => {
+    const kept = new Map<string, T>()
+    const held = part === 'section' ? snapshot.sections : snapshot.connectors
+    for (const [id, value] of Object.entries(held ?? {})) {
+      const parsed = schema.safeParse(value)
+      const taken = idTaken(id) ? `"${id}" is a ${part} and another record` : undefined
+      const issue = idIssue(id) ?? taken ?? (parsed.success ? undefined : issueOf(parsed.error.issues))
+      if (issue !== undefined || !parsed.success) leaveOut(part, id, issue as string)
+      else if (pages.has(parsed.data.pageId)) kept.set(id, parsed.data)
+      else if (unread.page.has(parsed.data.pageId)) leaveOut(part, id, heldBy(parsed.data.pageId))
+      else repairs.push(`dropped ${part} "${id}", whose page "${parsed.data.pageId}" is gone`)
+    }
+    return kept
+  }
+  const sections = readHeldByPage('section', Section)
+  const connectors = readHeldByPage('connector', Connector)
 
   // 2. A layer that lost its index goes to the back. Then the layers the schema does not take
   // go, before anyone looks for parents among them.
@@ -266,6 +294,8 @@ export function repair(snapshot: Snapshot): Repaired {
     pages: Object.fromEntries(pages),
     frames: Object.fromEntries(frames),
     nodes: Object.fromEntries(layers),
+    sections: Object.fromEntries(sections),
+    connectors: Object.fromEntries(connectors),
   }
   return { design, repairs, leftOut }
 }

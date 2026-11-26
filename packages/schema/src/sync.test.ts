@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { cleanNote, readTabVersion, SYNC_CLOSE, TabMessage } from './sync.ts'
+import { cleanNote, designRecords, readTabVersion, SYNC_CLOSE, TabMessage } from './sync.ts'
 
 describe('SYNC_CLOSE', () => {
   it('gives each reason its own code, in the range a WebSocket leaves to applications', () => {
@@ -38,5 +38,20 @@ describe('cleanNote', () => {
     expect(cleanNote('  Writing\tthe\nheadline \u0007 ')).toBe('Writing the headline')
     expect(cleanNote('‮enilwen‬ ⁧كتابة⁩')).toBe('enilwen كتابة')
     expect(cleanNote('👨‍👩‍👧 family')).toBe('👨‍👩‍👧 family')
+  })
+})
+
+describe('designRecords', () => {
+  const design = { meta: { designId: 'd', name: 'D' }, pages: { p1: {} }, frames: {}, nodes: {} }
+
+  it('stores a design without sections or connectors as before them', () => {
+    expect(designRecords({ ...design, sections: {}, connectors: {} })).toEqual(design)
+    expect(Object.keys(designRecords(design))).toEqual(['meta', 'pages', 'frames', 'nodes'])
+  })
+
+  it('keeps the sections and connectors a design holds', () => {
+    const sections = { s1: { pageId: 'p1', title: 'S', order: 'a0' } }
+    const connectors = { c1: { pageId: 'p1', from: 'a', to: 'b', order: 'a0' } }
+    expect(designRecords({ ...design, sections, connectors })).toEqual({ ...design, sections, connectors })
   })
 })

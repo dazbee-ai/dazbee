@@ -6,8 +6,10 @@ import {
   carryOverLayer,
   type Change,
   checkFrame,
+  checkHeldByPage,
   checkLayer,
   checkPages,
+  Connector,
   DesignMeta,
   type DesignRecords,
   type DesignSize,
@@ -15,11 +17,12 @@ import {
   Frame,
   type FrameEnd,
   frameOfLayer,
-  type HeldPart,
+  HeldPart,
   Layer,
   Page,
   type Part,
   type RejectReason,
+  Section,
   type StructureLookup,
   SYNC_LIMITS,
 } from '@dazbee/schema'
@@ -39,10 +42,19 @@ export const CHANGE_SET_CAPS: Readonly<Record<HeldPart, number>> = {
   page: SYNC_LIMITS.designPages,
   frame: SYNC_LIMITS.designFrames,
   layer: SYNC_LIMITS.designLayers,
+  section: SYNC_LIMITS.designSections,
+  connector: SYNC_LIMITS.designConnectors,
 }
 
-const PARSERS = { meta: DesignMeta, page: Page, frame: Frame, layer: Layer } as const
-const HELD_PARTS: readonly HeldPart[] = ['page', 'frame', 'layer']
+const PARSERS = {
+  meta: DesignMeta,
+  page: Page,
+  frame: Frame,
+  layer: Layer,
+  section: Section,
+  connector: Connector,
+} as const
+const HELD_PARTS: readonly HeldPart[] = HeldPart.options
 /** What a record adds to its JSON in a design's JSON: its id's quotes, the colon and a comma. */
 const RECORD_OVERHEAD = 4
 
@@ -59,7 +71,7 @@ export function capIssue(changes: readonly Change[]): Issue | undefined {
   if (changes.length > SYNC_LIMITS.changeSetChanges) {
     return { reason: 'tooManyChanges', words: `${changes.length} changes, past ${SYNC_LIMITS.changeSetChanges}` }
   }
-  const named: Record<HeldPart, Set<string>> = { page: new Set(), frame: new Set(), layer: new Set() }
+  const named = Object.fromEntries(HELD_PARTS.map((part) => [part, new Set<string>()])) as Record<HeldPart, Set<string>>
   for (const change of changes) {
     const { part, id } = change.op === 'set' ? change.value : change
     if (part !== 'meta') named[part].add(id)
@@ -76,8 +88,8 @@ export function capIssue(changes: readonly Change[]): Issue | undefined {
  * Why the change set that turned `before` into `after` breaks a rule, if it does. It looks only at
  * the records the change set wrote (`written`) and what the structure rules reach from them:
  * - each record written is what the schema's parser takes, with a valid id and no key it has no place for;
- * - the design keeps a page, a frame's page exists, and each layer moved, with every layer it
- *   holds, passes `checkLayer`.
+ * - the design keeps a page, a frame's, section's and connector's page exists, and each layer
+ *   moved, with every layer it holds, passes `checkLayer`.
  *
  * A layer counts as moved when it is new or its type, parent or link changed (a change set may
  * delete a layer and make it again as another type). A layer whose type, parent and link are as
@@ -110,6 +122,7 @@ export function changeSetIssue(
   for (const { part, id, record } of live) {
     if (found !== undefined) break
     if (part === 'frame') checkFrame(lookup, id, fail)
+    if (part === 'section' || part === 'connector') checkHeldByPage(lookup, part, id, fail)
     if (part !== 'layer' || checked.has(id)) continue
     const old = before.get('layer', id)
     if (old && old.type === record.type && old.parentId === record.parentId && old.link === record.link) continue
@@ -130,13 +143,20 @@ export function designBytes(state: DesignState): number {
   return bytes
 }
 
-/** A design's size as the sync server counts it, of its records: its layers, frames and pages, and its JSON's size in UTF-8 bytes. */
+/**
+ * A design's size as the sync server counts it, of its records: its layers, frames, pages, sections
+ * and connectors, and its JSON's size in UTF-8 bytes.
+ */
 export function designSizeOf(records: DesignRecords): DesignSize {
   let bytes = sizeOf('meta', records.meta)
+  const sections = records.sections ?? {}
+  const connectors = records.connectors ?? {}
   const held = [
     ['page', records.pages],
     ['frame', records.frames],
     ['layer', records.nodes],
+    ['section', sections],
+    ['connector', connectors],
   ] as const
   // A held record is always an object: the state keeps only what a change set or a design's records made one.
   for (const [part, byId] of held)
@@ -145,6 +165,8 @@ export function designSizeOf(records: DesignRecords): DesignSize {
     layers: Object.keys(records.nodes).length,
     frames: Object.keys(records.frames).length,
     pages: Object.keys(records.pages).length,
+    sections: Object.keys(sections).length,
+    connectors: Object.keys(connectors).length,
     bytes,
   }
 }
@@ -209,6 +231,8 @@ export function stateLookup(state: ReadState): StructureLookup {
     pageCount: () => state.count('page'),
     hasPage: (id) => state.get('page', id) !== undefined,
     frame: (id) => state.get('frame', id) as Frame | undefined,
+    section: (id) => state.get('section', id) as Section | undefined,
+    connector: (id) => state.get('connector', id) as Connector | undefined,
     layer: (id) => state.get('layer', id) as Layer | undefined,
     linkTakenBy: (frameId, link, id) =>
       holdersIn(link)

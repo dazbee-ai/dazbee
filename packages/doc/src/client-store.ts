@@ -5,6 +5,7 @@
 import {
   type BindableProperty,
   type Change,
+  HeldPart,
   isRecord,
   type Part as SyncPart,
   type RestoreMark,
@@ -81,7 +82,7 @@ class TextPlace {
 }
 
 /** The parts whose ids a new record may not take while one holds it (C27). */
-const PARTS = ['page', 'frame', 'layer'] as const
+const PARTS = HeldPart.options
 
 /** Notices a scratch store throws for. */
 const NOT_TAKEN: ReadonlySet<Notice['kind']> = new Set(['rejected', 'tooBig'])
@@ -146,8 +147,8 @@ export function clientStore(
   }
 
   function head() {
-    const { meta, pages, frames } = working().toRecords()
-    return { meta, pages, frames }
+    const { meta, pages, frames, sections, connectors } = working().toRecords()
+    return { meta, pages, frames, ...(sections && { sections }), ...(connectors && { connectors }) }
   }
 
   /** A layer's props as the working design holds them. */

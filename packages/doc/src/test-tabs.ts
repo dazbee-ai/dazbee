@@ -75,7 +75,7 @@ export interface EndChecks {
   leftOut: string[]
   /** (b) What the read repairs. */
   repaired: string[]
-  /** (c) The pages, frames and layers from before the walk that the design no longer has. */
+  /** (c) The pages, frames, layers, sections and connectors from before the walk that the design no longer has. */
   missing: string[]
 }
 
@@ -282,8 +282,8 @@ export async function redoEverything(world: Tabs) {
 }
 
 /**
- * What the read of the tabs' design leaves out (a) and repairs (b), and the parts the tabs started
- * with that it no longer has (c), everything delivered.
+ * What the read of the tabs' design leaves out (a) and repairs (b), and the pages, frames, layers,
+ * sections and connectors the tabs started with that it no longer has (c), everything delivered.
  */
 export async function readChecks(world: Tabs): Promise<EndChecks> {
   await quiesce(world)
@@ -292,7 +292,7 @@ export async function readChecks(world: Tabs): Promise<EndChecks> {
     unread.repaired.push(...repairs)
     unread.leftOut.push(...leftOut.map(({ part, id, issue }) => `${part} "${id}": ${issue}`))
   })
-  for (const part of ['pages', 'frames', 'nodes'] as const)
+  for (const part of ['pages', 'frames', 'nodes', 'sections', 'connectors'] as const)
     for (const id of Object.keys(world.start[part]))
       if (!Object.hasOwn(design[part], id) && !world.gone.mayStayGone(world.start, id)) unread.missing.push(id)
   return unread
@@ -355,7 +355,9 @@ function keepingDerived(
     untracked: (steps) =>
       session.untracked(() => {
         const design = session.design()
-        const before = (['pages', 'frames', 'nodes'] as const).flatMap((part) => Object.keys(design[part]))
+        const before = (['pages', 'frames', 'nodes', 'sections', 'connectors'] as const).flatMap((part) =>
+          Object.keys(design[part]),
+        )
         try {
           return steps()
         } finally {

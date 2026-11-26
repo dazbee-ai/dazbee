@@ -5,9 +5,10 @@
 import {
   type Change,
   type DesignRecords,
-  type HeldPart,
+  designRecords,
+  HeldPart,
   isRecord,
-  type Part,
+  Part,
   type Placed,
   type RejectReason,
   type Target,
@@ -53,8 +54,8 @@ export class ChangeRejected extends Error {
   }
 }
 
-const PARTS = ['meta', 'page', 'frame', 'layer'] as const
-const HELD_PARTS = ['page', 'frame', 'layer'] as const
+const PARTS = Part.options
+const HELD_PARTS = HeldPart.options
 /** The keys the indexes follow: what holds a record, and a layer's link. */
 const INDEXED = new Set(['pageId', 'parentId', 'link'])
 const NONE: ReadonlySet<string> = new Set()
@@ -109,7 +110,7 @@ export class DesignState implements ReadState {
   readonly #base: DesignState | undefined
   /** Records by part and id; null marks one this overlay deleted. */
   readonly #records: Record<Part, Map<string, Rec | null>>
-  /** What each holder holds: frames by page id, layers by frame or parent layer id. */
+  /** What each holder holds: frames, sections and connectors by page id, layers by frame or parent layer id. */
   readonly #children: Index
   /** The layers holding each link id. */
   readonly #links: Index
@@ -127,22 +128,29 @@ export class DesignState implements ReadState {
   private constructor(base?: DesignState, owning = false) {
     this.#base = base
     this.#owned = owning ? new Set() : undefined
-    this.#records = { meta: new Map(), page: new Map(), frame: new Map(), layer: new Map() }
+    this.#records = {
+      meta: new Map(),
+      page: new Map(),
+      frame: new Map(),
+      layer: new Map(),
+      section: new Map(),
+      connector: new Map(),
+    }
     this.#children = new Index(base && base.#children)
     this.#links = new Index(base && base.#links)
-    this.#counts = base ? { ...base.#counts } : { page: 0, frame: 0, layer: 0 }
+    this.#counts = base ? { ...base.#counts } : { page: 0, frame: 0, layer: 0, section: 0, connector: 0 }
     this.#placed = base ? undefined : new Map()
   }
 
   /**
    * A state holding the records of `records`, as they are (the server checks what it loads), with
-   * the placements saved with them.
+   * the placements saved with them. Records without sections or connectors hold none.
    */
   static fromRecords(records: DesignRecords, placed: Readonly<Record<string, Placed>> = {}): DesignState {
     const state = new DesignState()
     state.#records.meta.set(META_ID, records.meta)
     for (const part of HELD_PARTS) {
-      for (const [id, record] of Object.entries(records[RECORDS_OF[part]]))
+      for (const [id, record] of Object.entries(records[RECORDS_OF[part]] ?? {}))
         state.#put(part, id, record as Rec, undefined)
     }
     for (const [id, at] of Object.entries(placed)) state.#placed?.set(id, at)
@@ -206,14 +214,16 @@ export class DesignState implements ReadState {
     return this.get(key.slice(0, at) as Part, key.slice(at + 1))
   }
 
-  /** The part holding a live record with this id, if any: ids are unique across pages, frames and layers. */
+  /** The part holding a live record with this id, if any: ids are unique across every held part. */
   partOf(id: string): HeldPart | undefined {
     if (this.get('layer', id)) return 'layer'
     if (this.get('frame', id)) return 'frame'
+    if (this.get('section', id)) return 'section'
+    if (this.get('connector', id)) return 'connector'
     return this.get('page', id) ? 'page' : undefined
   }
 
-  /** The ids of the records whose holder is `holder`: a page's frames, or a frame's or layer's layers. */
+  /** The ids of the records whose holder is `holder`: a page's frames, sections and connectors, or a frame's or layer's layers. */
   childrenOf(holder: string): ReadonlySet<string> {
     return this.#children.get(holder)
   }
@@ -269,10 +279,17 @@ export class DesignState implements ReadState {
     return written
   }
 
-  /** The records as plain JSON, as a design's document holds them. */
+  /** The records as plain JSON, as a design's document holds them (`designRecords`: sections and connectors only while it holds some). */
   toRecords(): DesignRecords {
     const held = (part: HeldPart) => Object.fromEntries(this.ids(part).map((id) => [id, this.get(part, id)]))
-    return { meta: this.get('meta', META_ID) ?? {}, pages: held('page'), frames: held('frame'), nodes: held('layer') }
+    return designRecords({
+      meta: this.get('meta', META_ID) ?? {},
+      pages: held('page'),
+      frames: held('frame'),
+      nodes: held('layer'),
+      sections: held('section'),
+      connectors: held('connector'),
+    })
   }
 
   /** Notes in `placed` the records this overlay created or moved to another holder, as placed `by`, and drops the deleted. */

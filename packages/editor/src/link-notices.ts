@@ -5,7 +5,7 @@
 import type { StepName } from '@dazbee/doc'
 import { type DesignSize, SYNC_LIMITS } from '@dazbee/schema'
 
-import type { LinkNotice, LinkNotices, NoticeDetail } from './core-interface.ts'
+import type { LinkNotice, LinkNotices, NoticeDetail, NoticeDetails } from './core-interface.ts'
 
 interface LinkNoticesDeps {
   link: LinkNotices
@@ -14,14 +14,21 @@ interface LinkNoticesDeps {
   signal: AbortSignal
 }
 
-/** The largest share of a design limit `size` holds. */
-export function shareOf(size: DesignSize): number {
-  return Math.max(
+/**
+ * The largest share of a design limit `size` holds, and `parts` when that is its sections' or
+ * connectors' limit. A size that leaves out their counts holds none of them.
+ */
+export function shareOf(size: DesignSize): NoticeDetails['nearLimit'] {
+  const design = Math.max(
     size.layers / SYNC_LIMITS.designLayers,
     size.frames / SYNC_LIMITS.designFrames,
     size.pages / SYNC_LIMITS.designPages,
     size.bytes / SYNC_LIMITS.designBytes,
   )
+  const sections = (size.sections || 0) / SYNC_LIMITS.designSections
+  const connectors = (size.connectors || 0) / SYNC_LIMITS.designConnectors
+  if (design >= sections && design >= connectors) return { share: design }
+  return sections >= connectors ? { share: sections, parts: 'sections' } : { share: connectors, parts: 'connectors' }
 }
 
 /**
@@ -43,11 +50,11 @@ export function editorLinkNotices({ link, notify: tellPage, signal }: LinkNotice
 
   function sized(size: DesignSize | undefined) {
     if (!size) return
-    const share = shareOf(size)
-    if (share < SYNC_LIMITS.warnAt) near = false
+    const nearest = shareOf(size)
+    if (nearest.share < SYNC_LIMITS.warnAt) near = false
     else if (!near) {
       near = true
-      notify('nearLimit', { share })
+      notify('nearLimit', nearest)
     }
   }
 

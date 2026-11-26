@@ -37,7 +37,7 @@ function testLink(first?: DesignSize) {
 }
 
 /** A design size holding `layers` layers and little else. */
-const layers = (n: number): DesignSize => ({ layers: n, frames: 1, pages: 1, bytes: 1000 })
+const layers = (n: number): DesignSize => ({ layers: n, frames: 1, pages: 1, sections: 0, connectors: 0, bytes: 1000 })
 
 let editor: TestEditor | undefined
 afterEach(() => editor?.end())
@@ -86,9 +86,25 @@ describe('editorLinkNotices', () => {
       ['nearLimit', { share: 0.9 }],
     ])
     editor.end()
-    const opened = testLink({ layers: 1, frames: 1, pages: 1, bytes: SYNC_LIMITS.designBytes * 0.85 })
+    const opened = testLink({ ...layers(1), bytes: SYNC_LIMITS.designBytes * 0.85 })
     editor = await testEditor(DESIGN, { linkNotices: opened.link })
     expect(editor.told).toEqual([['nearLimit', { share: 0.85 }]])
+  })
+
+  it('names the sections or the connectors when they are what is nearest its limit', async () => {
+    const { link, resize } = testLink(layers(1))
+    editor = await testEditor(DESIGN, { linkNotices: link })
+    resize({ ...layers(1), sections: 800 })
+    resize(layers(1))
+    resize({ ...layers(1), connectors: 4500 })
+    resize(layers(1))
+    // The layers are nearer theirs than the connectors: the design as a whole is near its limit.
+    resize({ ...layers(SYNC_LIMITS.designLayers * 0.95), connectors: 4500 })
+    expect(editor.told).toEqual([
+      ['nearLimit', { share: 0.8, parts: 'sections' }],
+      ['nearLimit', { share: 0.9, parts: 'connectors' }],
+      ['nearLimit', { share: 0.95 }],
+    ])
   })
 
   it('keeps a warning that comes before the page listens, such as at the first welcome, until it does', () => {

@@ -182,6 +182,36 @@ export const linkedDesign = (): DesignInput => {
 }
 
 /**
+ * The linked design with sections, connectors and a star: the square and the story in section
+ * "ads", the wide frame in section "banners", a connector from the square to the story and one
+ * from the "ads" section to the wide frame; the story is starred. The second page holds a section
+ * of its own frame.
+ */
+export const sectionedDesign = (): DesignInput => {
+  const design = linkedDesign()
+  const frames = design.frames as Record<string, Record<string, unknown>>
+  return {
+    ...design,
+    frames: {
+      ...design.frames,
+      sq: { ...frames.sq, sectionId: 'ads' },
+      story: { ...frames.story, sectionId: 'ads', starred: true },
+      wide: { ...frames.wide, sectionId: 'banners' },
+      far: { ...frames.far, sectionId: 'far-section' },
+    } as unknown as DesignInput['frames'],
+    sections: {
+      ads: { pageId: 'p1', title: 'Ads', order: 'a0' },
+      banners: { pageId: 'p1', title: 'Banners', order: 'a1' },
+      'far-section': { pageId: 'p2', title: 'Far', order: 'a0' },
+    },
+    connectors: {
+      'sq-story': { pageId: 'p1', from: 'sq', to: 'story', order: 'a0' },
+      'ads-wide': { pageId: 'p1', from: 'ads', to: 'wide', order: 'a1' },
+    },
+  }
+}
+
+/**
  * One frame holding each layer type and state: a locked background, a turned and a hidden shape, a
  * path, a turned group of a text and a shape, a row box of two shapes with a third out of its flow,
  * a Free box of one shape, a group whose first layer masks the next, a boolean of two shapes, and a

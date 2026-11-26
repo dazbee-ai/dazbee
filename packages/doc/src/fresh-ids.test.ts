@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { parseDesign } from '@dazbee/schema'
 
 import { withFreshIds } from './fresh-ids.ts'
-import { testDesign } from './test-design.ts'
+import { sectionedDesign, testDesign } from './test-design.ts'
 
 describe('withFreshIds (#54)', () => {
   it('gives every page, frame and layer a new id and keeps everything that names them', () => {
@@ -36,5 +36,34 @@ describe('withFreshIds (#54)', () => {
     expect(linkOf('Box', 'Square')).not.toBe(linkOf('Headline', 'Square'))
     const oldLinks = new Set(Object.values(before.nodes).map((n) => n.link))
     expect(Object.values(after.nodes).filter((n) => oldLinks.has(n.link))).toEqual([])
+  })
+
+  it('gives sections and connectors new ids, still joining the same frames and sections, and keeps stars', () => {
+    const parsed = parseDesign(sectionedDesign())
+    if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+    const before = parsed.design
+    const after = withFreshIds(before)
+    const again = parseDesign(after)
+    if (!again.success) throw new Error(again.errors.join('\n'))
+    const old = new Set([
+      ...Object.keys(before.sections),
+      ...Object.keys(before.connectors),
+      ...Object.keys(before.frames),
+    ])
+    expect([...Object.keys(after.sections), ...Object.keys(after.connectors)].filter((id) => old.has(id))).toEqual([])
+    const frameNamed = (name: string) => Object.keys(after.frames).find((id) => after.frames[id]?.name === name) ?? ''
+    const sectionTitled = (title: string) =>
+      Object.keys(after.sections).find((id) => after.sections[id]?.title === title) ?? ''
+    const pageNamed = (name: string) => Object.keys(after.pages).find((id) => after.pages[id]?.name === name)
+    expect(after.frames[frameNamed('Square')]?.sectionId).toBe(sectionTitled('Ads'))
+    expect(after.frames[frameNamed('Story')]).toMatchObject({ sectionId: sectionTitled('Ads'), starred: true })
+    expect(after.frames[frameNamed('Wide')]?.sectionId).toBe(sectionTitled('Banners'))
+    expect(after.frames[frameNamed('Tall')]).not.toHaveProperty('sectionId')
+    expect(after.sections[sectionTitled('Far')]?.pageId).toBe(pageNamed('Page 2'))
+    const joined = Object.values(after.connectors).map(({ pageId, from, to }) => [pageId, from, to])
+    expect(joined).toEqual([
+      [pageNamed('Page 1'), frameNamed('Square'), frameNamed('Story')],
+      [pageNamed('Page 1'), sectionTitled('Ads'), frameNamed('Wide')],
+    ])
   })
 })

@@ -122,6 +122,19 @@ export const LayeringInput = FlowJob.extend({
 })
 export type LayeringInput = z.infer<typeof LayeringInput>
 
+/** The ratios an AI image is made at. */
+export const IMAGE_RATIOS = ['square', 'wide', 'tall'] as const
+
+export const ImageRatio = z.enum(IMAGE_RATIOS)
+export type ImageRatio = z.infer<typeof ImageRatio>
+
+/** What a person writes to have an image made: 1 to 2,000 characters. */
+export const ImageWords = z.string().trim().min(1).max(2000)
+
+/** Make an image: one picture for the brand from the person's words, at a ratio, on no design. */
+export const ImageInput = z.object({ brandId: Id, words: ImageWords, ratio: ImageRatio })
+export type ImageInput = z.infer<typeof ImageInput>
+
 /** Each AI feature's input contract. */
 export const AI_FEATURE_INPUTS = {
   round: RoundInput,
@@ -130,6 +143,7 @@ export const AI_FEATURE_INPUTS = {
   refine: RefineInput,
   resize: ResizeInput,
   layering: LayeringInput,
+  image: ImageInput,
 } satisfies Record<AiFeature, z.ZodType>
 
 /** A job of each AI feature with its input. */

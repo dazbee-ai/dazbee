@@ -68,6 +68,7 @@ const PRESETS: Record<
     ceiling: 8000,
     prompt: '1b160606f459f65cd7fb27d45b5d21e7aa31dd6137d0681fa190cf63755ac504',
   },
+  'image/muse': { model: 'muse-image-1.0', settings: {}, ceiling: null, prompt: null },
 }
 
 /** Every preset of every AI function, by `function/preset`. */

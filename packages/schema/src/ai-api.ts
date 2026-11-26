@@ -5,7 +5,7 @@
 import { z } from 'zod'
 
 import { AiFeature, AiJobKind, AiJobRefusal, AiJobState, AiJobView, AiMode, MadePicture, MAX_REFERENCES } from './ai.ts'
-import { AiFrameKind, AiFrameState, AiFrameTarget, AiSize, AiSizeTarget } from './ai-flow.ts'
+import { AiFrameKind, AiFrameState, AiFrameTarget, AiSize, AiSizeTarget, ImageRatio, ImageWords } from './ai-flow.ts'
 import { ApiError } from './api.ts'
 import { AssetId, Id } from './primitives.ts'
 
@@ -85,7 +85,11 @@ export const StartLayering = OnDesign.extend({
 })
 export type StartLayering = z.infer<typeof StartLayering>
 
-/** A job a tab starts, of any flow job kind. */
+/** Makes an image for the brand from the person's words, at a ratio; it is on no design. */
+export const StartImage = z.object({ kind: z.literal('image'), words: ImageWords, ratio: ImageRatio })
+export type StartImage = z.infer<typeof StartImage>
+
+/** A job a tab starts, of any AI feature. */
 export const StartAiJob = z.discriminatedUnion('kind', [
   StartRound,
   StartMoreLikeThis,
@@ -93,6 +97,7 @@ export const StartAiJob = z.discriminatedUnion('kind', [
   StartRefine,
   StartResize,
   StartLayering,
+  StartImage,
 ])
 export type StartAiJob = z.infer<typeof StartAiJob>
 
@@ -194,15 +199,19 @@ export const AiEstimate = z.object({
 })
 export type AiEstimate = z.infer<typeof AiEstimate>
 
-/** One of the person's flow jobs, running or just ended, with the design it fills and how many calls made or failed. */
+/**
+ * One of the person's AI feature jobs, running or just ended, with how many calls made or failed: the design it
+ * fills, or for a job on no design nulls; and for an image job its words, its ratio and, once made, its image.
+ */
 export const MyAiJob = z.object({
   id: Id,
   kind: AiJobKind,
   state: AiJobState,
   workspaceId: Id,
   brandId: Id,
-  designId: Id,
-  designName: z.string(),
+  designId: Id.nullable(),
+  designName: z.string().nullable(),
+  image: z.object({ words: ImageWords, ratio: ImageRatio, assetId: AssetId.nullable() }).nullable(),
   made: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
   createdAt: z.iso.datetime(),

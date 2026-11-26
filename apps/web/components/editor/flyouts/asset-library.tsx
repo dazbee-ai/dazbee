@@ -1,12 +1,13 @@
 'use client'
 
 // The brand's asset library, in the Assets flyout: upload several images at once and watch each
-// one's progress, name and tag them, find them by either, place one on the design, and delete one
-// nothing uses. An image dragged onto a frame goes there. One clicked with a mouse or a pen is armed
-// and shows picked: the next click on a frame places it, a drag there draws it, and Escape, another
-// tool, a press off every frame, clicking it again or closing Assets disarms it. A key, a tap and an
-// SVG file place at once, as the editor places with no point. Thumbnails are small copies the API
-// made and stored; the design itself draws the original, decoded by CanvasKit.
+// one's progress, have an image made from a few words, name and tag them, find them by either, place
+// one on the design, and delete one nothing uses. An image dragged onto a frame goes there. One
+// clicked with a mouse or a pen is armed and shows picked: the next click on a frame places it, a
+// drag there draws it, and Escape, another tool, a press off every frame, clicking it again or
+// closing Assets disarms it. A key, a tap and an SVG file place at once, as the editor places with
+// no point. Thumbnails are small copies the API made and stored; the design itself draws the
+// original, decoded by CanvasKit.
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -29,6 +30,7 @@ import { format } from '@/lib/i18n/index.ts'
 import { ASSET_ACCEPT as ACCEPT, sendAsset as send } from '@/lib/upload-asset.ts'
 
 import { AssetDetails } from './asset-details.tsx'
+import { MakeImage } from './make-image.tsx'
 
 interface Upload {
   key: string
@@ -184,6 +186,8 @@ export function AssetLibrary({
         {!viewOnly && !noImages && (
           <UploadButton className={DASHED_BUTTON} label={dropping ? t.dropHere : t.upload} onFiles={upload} />
         )}
+        {/* A tab that may only view, as a Reviewer's, has nothing made. */}
+        {!viewOnly && <MakeImage workspaceId={workspaceId} brandId={brandId} onMade={refresh} />}
         {uploads.length > 0 && (
           <ul aria-label={t.upload} className="flex flex-col gap-1.5" data-testid="asset-uploads">
             {uploads.map((u) => (

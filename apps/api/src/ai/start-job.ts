@@ -1,6 +1,7 @@
 // Saving a flow job a tab starts: the job, its hold and its pg-boss job, then the brief, AI frame and refine rows it
 // fills, in one transaction that holds the design's lock, so two jobs started at once on one design never both act
-// on one frame, and a refused job writes nothing. Also the checks a job's frames pass in that transaction.
+// on one frame, and a refused job writes nothing. A job on a brand and no design is saved with its hold alone. Also
+// the checks a job's frames pass in that transaction.
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { PgBoss } from 'pg-boss'
 
@@ -83,6 +84,20 @@ export async function saveFlow(
     if (refused instanceof SaveRefused) return { ok: false, refusal: refused.refusal }
     throw refused
   }
+}
+
+/**
+ * Saves `flow`, a job on the starter's brand and no design, with its hold and its pg-boss job on `queue`, in one
+ * transaction. It takes no design's lock and writes no AI frame. A refused save writes nothing.
+ */
+export async function saveOnBrand(
+  { db, boss, queue, starter }: { db: Db; boss: PgBoss; queue: string; starter: Starter },
+  flow: AiFeatureInput,
+): Promise<Started> {
+  const saved = await db.transaction((tx) =>
+    saveJob(tx, boss, { workspace: starter.workspace, member: starter.member, queue, ...flow }),
+  )
+  return saved.ok ? { ok: true, job: saved.job, briefId: null } : { ok: false, refusal: saved.refusal }
 }
 
 /** The plan of a save of `flow` and `rows`. */

@@ -9,6 +9,10 @@ Tests prove the code through its interfaces; nobody has used the screen yet. A *
 
 Each ticket gets a copy of the app of its own (worktree, database, storage bucket and ports), so try-its for different tickets run at the same time. Tickets 100 apart share ports, and `app.sh` refuses the second while the first runs.
 
+## The AI flow in a copy
+
+The copy runs no worker, so its AI jobs wait. For screen work on the AI flow, run the worker from the ticket's checkout (`node apps/worker/src/main.ts`) with the API's settings from `app.sh` and `AI_REPLAY_DIR=<folder>`: it calls no seller and reads no key, and answers each AI call from that AI recording at no cost, 10 times faster than recorded (`AI_REPLAY_SPEED`). Each replayed job follows one recorded job, the recorded jobs taken in turn, and a call takes that job's recording of its AI step at its place in the job, else another recording of the step, so another brief or size still gets answers; a step never recorded fails its call. The recording is made once, since it costs money, and only with the owner's OK: the same worker with the sellers' keys from the main checkout's `.env` and `AI_RECORD_DIR=<folder>` works as usual and writes each seller answer there. Both are refused with `NODE_ENV=production`.
+
 ## Steps
 
 1. **Start the copy.** Commit the ticket's work, since the copy runs a commit. From the ticket's checkout run `bash .claude/skills/try-it/app.sh start <ticket number>`. It runs that commit from a worktree beside the main checkout, with a fresh database, bucket and ports of the ticket's own, and leaves the app the owner runs alone. It starts with the development workspace and its two brands only. When the ticket needs Google fonts, run `app.sh fonts <ticket number> <family>...` for them. Done when it prints the copy's address and the screenshot folder. When it stops on an error, read the log it names: fix a cause in the ticket's code, and bring any other cause to the owner.

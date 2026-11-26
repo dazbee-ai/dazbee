@@ -209,6 +209,8 @@ export function harness(
       drag: (_g, world) => log.push(`move section to ${world.x} ${world.y}`),
       release: () => log.push('release section move'),
     },
+    // No section or frame shows connector dots here.
+    connecting: { hover: () => false, press: () => null, drag: () => {}, release: () => {} },
     // No rulers: no press is a guide's.
     guideDrag: { press: () => null, drag: () => {}, release: () => {}, hover: () => false, cursorAt: () => '' },
     selectPress: {
@@ -236,6 +238,9 @@ export function harness(
       release: (marquee, clicked) =>
         log.push(`release press${marquee ? ' marquee' : ''}${clicked ? '' : ' after a drag'}`),
       cancel: () => log.push('cancel press'),
+      // No label offers its star: the select press's own tests follow the hover.
+      hoverStar: () => false,
+      starOffered: () => null,
       // As the press: off a handle and within the first 500 pixels across, a press moves the selection.
       dragAt: (screen, grabbed) => (selection.current() && !grabbed && screen.x <= 500 ? 'move' : null),
     },

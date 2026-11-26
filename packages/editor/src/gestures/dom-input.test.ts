@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { inField, isControl, labelTextAt, onMac, stageHasKeys } from './dom-input.ts'
+import { inField, isControl, labelTextAt, onMac, stageHasKeys, starAt } from './dom-input.ts'
 import { BODY, Element, harness, keyEvent, mouseEvent, Part, part, pointerEvent } from './test-dom-input.ts'
 
 afterEach(() => {
@@ -62,6 +62,27 @@ describe('editorDomInput', () => {
       expect(pointers.map((e) => e.label)).toEqual(['sq', 'sq', undefined, undefined, undefined])
       send('pointerdown', pointerEvent(log, { clientX: 120, clientY: 86 }))
       expect(pointers.at(-1)).not.toHaveProperty('label')
+    })
+
+    it("carries the frame whose label's star is under a press and a double click, and under no other event", () => {
+      const { log, pointers, send } = harness()
+      const onStar = { clientX: 50, clientY: 86 }
+      for (const type of ['pointerdown', 'dblclick', 'pointermove', 'pointerup', 'click'])
+        send(type, pointerEvent(log, onStar))
+      expect(pointers.map((e) => e.star)).toEqual(['sq', 'sq', undefined, undefined, undefined])
+      send('pointerdown', pointerEvent(log, { clientX: 20, clientY: 86 }))
+      expect(pointers.at(-1)).not.toHaveProperty('star')
+    })
+
+    it('carries a label on a press on its star, and none on a double click there, which renames nothing', () => {
+      const { log, pointers, send } = harness()
+      const onStar = { clientX: 50, clientY: 86 }
+      send('pointerdown', pointerEvent(log, onStar))
+      send('dblclick', mouseEvent(log, onStar))
+      expect(pointers.map((e) => [e.label, e.title])).toEqual([
+        ['sq', undefined],
+        [undefined, undefined],
+      ])
     })
 
     it('carries how far a wheel turned in each of its modes, and no turn on any other event', () => {
@@ -390,5 +411,27 @@ describe('labelTextAt', () => {
     expect(labelTextAt(overlay(a, b), { x: 450, y: 86 })).toBeUndefined()
     expect(labelTextAt(overlay(a, b), { x: 20, y: 100 })).toBeUndefined()
     expect(labelTextAt(overlay(), { x: 20, y: 86 })).toBeUndefined()
+  })
+})
+
+describe('starAt', () => {
+  /** A star as the overlay draws one, after its frame's name: 12 px square at `left`, 80 down. */
+  const star = (frame: string, left: number) => ({
+    getAttribute: (name: string) => (name === 'data-frame' ? frame : null),
+    getBoundingClientRect: () => ({ left, top: 80, right: left + 12, bottom: 92, width: 12, height: 12 }),
+  })
+  /** An overlay holding stars, in the order it drew them. */
+  const overlay = (...stars: ReturnType<typeof star>[]) => ({ querySelectorAll: () => stars }) as unknown as ParentNode
+
+  it('finds the frame whose star is under a client point, the last drawn where stars overlap', () => {
+    expect(starAt(overlay(star('a', 40), star('b', 200)), { x: 45, y: 86 })).toBe('a')
+    expect(starAt(overlay(star('a', 40), star('b', 200)), { x: 212, y: 92 })).toBe('b')
+    expect(starAt(overlay(star('a', 40), star('b', 46)), { x: 50, y: 86 })).toBe('b')
+  })
+
+  it('finds none beside a star, or with none drawn', () => {
+    expect(starAt(overlay(star('a', 40)), { x: 30, y: 86 })).toBeUndefined()
+    expect(starAt(overlay(star('a', 40)), { x: 45, y: 95 })).toBeUndefined()
+    expect(starAt(overlay(), { x: 45, y: 86 })).toBeUndefined()
   })
 })

@@ -1,5 +1,5 @@
 // A double click on the stage: on a frame's label it asks to rename the frame, and on a section's
-// title the section; in the text being
+// title the section; on the star by a frame's name nothing, as its presses star the frame; in the text being
 // typed in it selects the word there; on a layer it goes into its group, box or boolean, or starts
 // cropping its image fill, editing a path's points or typing in a text.
 import type { Session } from '@dazbee/doc'
@@ -66,7 +66,7 @@ export function editorDoubleClick({
   const { target, lockedAt } = boxes
 
   function doubleClick(e: PointerInput) {
-    if (panning()) return
+    if (panning() || e.star !== undefined) return
     const label = labelUnder(e)
     if (label && tools.tool() === 'select') {
       renameFrame(label)

@@ -8,9 +8,9 @@ type CoreOwn = Exclude<keyof EditorCore, keyof EditorBase>
 type EditorOwn = Exclude<keyof Editor, keyof EditorBase>
 
 describe('Editor', () => {
-  it('declares beside the base its fourteen of the page and the seven members that take or give a client point, the only ones the core declares too, beside its own five', () => {
+  it('declares beside the base its fourteen of the page and the eight members that take or give a client point, the only ones the core declares too, beside its own five', () => {
     expectTypeOf<Extract<EditorOwn, CoreOwn>>().toEqualTypeOf<
-      'selectAt' | 'layersAt' | 'sectionAt' | 'placeImage' | 'readSvg' | 'spotAt' | 'imageTarget'
+      'selectAt' | 'layersAt' | 'sectionAt' | 'connectorAt' | 'placeImage' | 'readSvg' | 'spotAt' | 'imageTarget'
     >()
     expectTypeOf<Exclude<EditorOwn, CoreOwn>>().toEqualTypeOf<
       | 'copyLayers'
@@ -79,6 +79,7 @@ describe('Editor', () => {
       | 'selectAt'
       | 'layersAt'
       | 'sectionAt'
+      | 'connectorAt'
       | 'pickLayer'
       | 'busy'
       | 'textSelection'
@@ -95,6 +96,9 @@ describe('Editor', () => {
       | 'pickedSection'
       | 'pickSection'
       | 'onSectionPick'
+      | 'pickedConnector'
+      | 'pickConnector'
+      | 'onConnectorPick'
       | 'renameSection'
       | 'onSectionRename'
       | 'titleRect'

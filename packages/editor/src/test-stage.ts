@@ -3,6 +3,7 @@ import type { NoticeDetail } from './core-interface.ts'
 import { watchFaults } from './faults.ts'
 import { editorFrameActions } from './frame-actions.ts'
 import { editorDragStart } from './gestures/drag-start.ts'
+import { editorConnecting } from './gestures/drawing/connecting.ts'
 import { editorDrawing } from './gestures/drawing/drawing.ts'
 import { editorHold } from './gestures/hold.ts'
 import type { PointerInput } from './gestures/inputs.ts'
@@ -137,6 +138,16 @@ export function stage(first: Tool = 'select') {
     autoLayoutDrag,
     frameResize,
     sectionMove,
+    connecting: editorConnecting({
+      hold: hold.hold,
+      session,
+      view: { ...view, page: () => 'p1' },
+      tools,
+      selection,
+      typing,
+      frameMove,
+      shownChanged: () => {},
+    }),
     // No rulers: no press is a guide's.
     guideDrag: { press: () => null, drag: () => {}, release: () => {}, hover: () => false, cursorAt: () => '' },
     selectPress,

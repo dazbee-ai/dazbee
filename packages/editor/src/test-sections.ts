@@ -1,11 +1,14 @@
-// The sections' test fixtures: one page of five frames in a row, two of them in section "Sale", one
-// alone in section "Solo", and where to press on the stage for a frame's label, a section's title,
-// its outline line or the bare space inside it.
+// The sections' and connectors' test fixtures: one page of five frames in a row, two of them in
+// section "Sale", one alone in section "Solo", the same with a connector from the third frame to the
+// fifth, and where to press on the stage for a frame's label, a section's title, its outline line,
+// the bare space inside it, a connector's dot or a connector's curve.
 import type { DesignInput, Point } from '@dazbee/schema'
 
+import { connectorsShown, frameEndBox } from './canvas/connectors.ts'
 import { labelBox } from './canvas/frames.ts'
 import { outlinesOf, sectionsOn, titleBox } from './canvas/sections.ts'
 import type { EditorCore } from './core-interface.ts'
+import { dotsOf } from './gestures/drawing/connecting.ts'
 
 /** A white 400 × 400 frame of page p1 at x, in a section or none. */
 const frame = (name: string, x: number, order: string, sectionId?: string) => ({
@@ -49,6 +52,12 @@ export const SECTIONS: DesignInput = {
   },
 }
 
+/** The sections' design with connector "link" from f3 to f5, which runs under f4. */
+export const CONNECTED: DesignInput = {
+  ...SECTIONS,
+  connectors: { link: { pageId: 'p1', from: 'f3', to: 'f5', order: 'a0' } },
+}
+
 /** The outline of a section as the stage draws it now; throws for one it draws none of. */
 export function outlineOf(core: EditorCore, sectionId: string) {
   const outline = outlinesOf(sectionsOn(core.design(), core.frames()), core.camera()).find((o) => o.id === sectionId)
@@ -86,4 +95,24 @@ export function labelPoint(core: EditorCore, frameId: string): Point {
 export function placeOf(core: EditorCore, frameId: string) {
   const frame = core.design().frames[frameId]
   return frame && { x: frame.x, y: frame.y, sectionId: frame.sectionId }
+}
+
+/** The stage point of a frame's or a section's dot a connector starts from: its top, right, bottom or left. */
+export function dotPoint(core: EditorCore, endId: string, side: 'top' | 'right' | 'bottom' | 'left'): Point {
+  const frame = core.frames().find((f) => f.id === endId)
+  const box = frame ? frameEndBox(frame, core.camera()) : outlineOf(core, endId)
+  const dot = dotsOf(box)[['top', 'right', 'bottom', 'left'].indexOf(side)]
+  if (!dot) throw new Error(`no ${side} dot`)
+  return dot
+}
+
+/** A stage point on a connector's curve as the stage draws it now, `t` of the way along; throws for one it draws none of. */
+export function curvePoint(core: EditorCore, connectorId: string, t = 0.5): Point {
+  const outlines = outlinesOf(sectionsOn(core.design(), core.frames()), core.camera())
+  const shown = connectorsShown(core.design(), core.frames(), outlines, core.camera()).find((c) => c.id === connectorId)
+  if (!shown) throw new Error(`connector ${connectorId} is not drawn`)
+  const { from, c1, c2, to } = shown.curve
+  const u = 1 - t
+  const [a, b, c, d] = [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t]
+  return { x: a * from.x + b * c1.x + c * c2.x + d * to.x, y: a * from.y + b * c1.y + c * c2.y + d * to.y }
 }

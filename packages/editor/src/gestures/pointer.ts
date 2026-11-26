@@ -6,7 +6,9 @@
 // asking to rename the frame whose label it is on, `double-click.ts`'s. A press on a frame label's
 // text grabs the frame, after the selection's handles, and one on a section's title or outline line
 // grabs the section, after a frame's label. A press on a ruler or a guide is the guide
-// drag's (`guides/guide-drag.ts`), after the selection's handles. While a colour is picked,
+// drag's (`guides/guide-drag.ts`), after the selection's handles. A hover with the select tool asks
+// the select press which label's star to offer. The dots a connector starts from with the Arrow
+// shape, and its drag, are `drawing/connecting.ts`'s. While a colour is picked,
 // `colour-pick.ts` takes the inputs, but a pan's and the wheel.
 import type { Session } from '@dazbee/doc'
 import type { Point } from '@dazbee/schema'
@@ -25,6 +27,7 @@ import type { EditorColourPick } from './colour-pick.ts'
 import type { CropDrag, EditorCropping } from './crop/cropping.ts'
 import { editorDoubleClick } from './double-click.ts'
 import type { EditorDragStart } from './drag-start.ts'
+import type { ConnectDrag, EditorConnecting } from './drawing/connecting.ts'
 import {
   type EditorDrawing,
   type FrameDrag,
@@ -64,6 +67,7 @@ export type Gesture =
   | ShapeDrag
   | FrameDrag
   | SectionDrag
+  | ConnectDrag
   | FrameGesture
   | SectionMoveDrag
   | PathDrag
@@ -118,6 +122,8 @@ export interface PointerDeps {
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'drag' | 'setAlt' | 'cancel' | 'release'>
   frameResize: Pick<EditorFrameResize, 'drag' | 'release' | 'handleUnder'>
   sectionMove: Pick<EditorSectionMove, 'drag' | 'release'>
+  /** Connectors drawn with the Arrow shape: the dots the pointer is near, a press on one, its drag and release. */
+  connecting: Pick<EditorConnecting, 'hover' | 'press' | 'drag' | 'release'>
   /** Guides: a press on a ruler or a guide, its drag and release, the guide under the pointer and its cursor. */
   guideDrag: Pick<EditorGuideDrag, 'press' | 'drag' | 'release' | 'hover' | 'cursorAt'>
   /** What the select tool's press picks, and what it selects once it ends as a click. */
@@ -210,6 +216,7 @@ export function editorPointer({
   autoLayoutDrag,
   frameResize,
   sectionMove,
+  connecting,
   guideDrag,
   selectPress,
   colourPick,
@@ -327,7 +334,9 @@ export function editorPointer({
     // The radius dot under the pointer, which the deep key passes over, is drawn big.
     const dot = transformDrag.hoverDot(pointer && !gesture && !panning() && !held.deep() ? pointer.at : null)
     const guide = guideDrag.hover(pointer && !gesture && !panning() ? pointer.at : null)
-    return selection.hover(next) || dot || guide
+    const star = selectPress.hoverStar(!gesture && !panning() && tools.tool() === 'select' ? pointer : null)
+    const dots = connecting.hover(pointer && !gesture && !panning() ? pointer.at : null)
+    return selection.hover(next) || dot || guide || star || dots
   }
   /** Once a drag has ended: the cursor, the hover outline and the radius dot under the pointer follow where it is, and what is shown is told. */
   function dragEnded() {
@@ -349,8 +358,9 @@ export function editorPointer({
       dragEnded()
       return
     }
-    if (gesture?.kind === 'textSelect' || gesture?.kind === 'guide') {
+    if (gesture?.kind === 'textSelect' || gesture?.kind === 'guide' || gesture?.kind === 'connect') {
       if (gesture.kind === 'guide') guideDrag.release(gesture)
+      else if (gesture.kind === 'connect') connecting.release(gesture)
       gesture = null
       dragEnded()
       return
@@ -392,6 +402,7 @@ export function editorPointer({
     if (gesture?.kind === 'reorder') autoLayoutDrag.cancel(gesture)
     if (gesture?.kind === 'move') Object.assign(gesture, { drop: null, target: null })
     if (gesture?.kind === 'guide') Object.assign(gesture, { to: null, onRuler: false })
+    if (gesture?.kind === 'connect') gesture.target = null
     selectPress.cancel()
     endDrag()
   }
@@ -429,7 +440,7 @@ export function editorPointer({
     const screen = screenOf(e)
     dragStart.press(screen, e.pointerType)
     const at = pointIn(e)
-    const pressed = toolPress(e, screen, at, { view, tools, drawing, pen })
+    const pressed = toolPress(e, screen, at, { view, tools, drawing, pen, connecting })
     if (pressed) {
       if (pressed.drag) gesture = pressed.drag
       return
@@ -505,6 +516,8 @@ export function editorPointer({
       return
     }
     if (held.followPointer(e)) showCursor()
+    // A connector drawn with no button held lost its release: it ends as a drag taken away does.
+    if (gesture.kind === 'connect' && e.buttons === 0) return cancelDrag()
     // Asked on each move of a press, so a marquee and a text selection, which start at once, end as a click or a drag.
     const dragged = dragStart.moved(screen)
     const world = toWorld(view.camera(), screen)
@@ -525,24 +538,14 @@ export function editorPointer({
     const snap = tools.snapping() && !deepKeyHeld(e, onMac())
     if (gesture.kind === 'guide') return guideDrag.drag(gesture, screen, snap)
     if (gesture.kind === 'sectionMove') return sectionMove.drag(gesture, world, e.shiftKey)
-    if (gesture.kind === 'frameDraw' || gesture.kind === 'sectionDraw') {
-      drawing.drag(gesture, world, e.shiftKey, e.altKey)
-      return
-    }
+    if (gesture.kind === 'connect') return connecting.drag(gesture, world)
+    if (gesture.kind === 'frameDraw' || gesture.kind === 'sectionDraw')
+      return drawing.drag(gesture, world, e.shiftKey, e.altKey)
     if (isFrameGesture(gesture)) return frameResize.drag(gesture, world, e)
     const p = localIn(gesture, world)
-    if (isDrawing(gesture)) {
-      drawing.drag(gesture, p, e.shiftKey, e.altKey)
-      return
-    }
-    if (gesture.kind === 'path') {
-      pen.dragPoints(gesture, p, e.shiftKey, e.altKey)
-      return
-    }
-    if (gesture.kind === 'crop') {
-      cropping.drag(gesture, p)
-      return
-    }
+    if (isDrawing(gesture)) return drawing.drag(gesture, p, e.shiftKey, e.altKey)
+    if (gesture.kind === 'path') return pen.dragPoints(gesture, p, e.shiftKey, e.altKey)
+    if (gesture.kind === 'crop') return cropping.drag(gesture, p)
     if (gesture.kind === 'reorder') {
       autoLayoutDrag.drag(gesture, p, e.altKey)
       shownChanged()

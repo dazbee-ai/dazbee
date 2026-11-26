@@ -753,6 +753,7 @@ export const ar: Messages = {
         font: 'الخط',
       },
     },
+    selectTools: { menu: 'التحديد واليد', more: 'أدوات تحديد أخرى' },
     shapes: {
       menu: 'الأشكال',
       more: 'أشكال أخرى',
@@ -1346,6 +1347,8 @@ export const ar: Messages = {
         other: 'تصدير {n} ملف',
       },
       tickOne: 'حدّد إطارًا للتصدير',
+      section: 'كل إطارات {name}',
+      starred: 'مميّز بنجمة',
       making: 'جارٍ إنشاء {done} من {total}',
       failed: 'تعذّر التصدير: {reason}',
       check: {
@@ -1433,6 +1436,8 @@ export const ar: Messages = {
       addSize: 'إضافة مقاس',
       rename: 'إعادة تسمية',
       export: 'تصدير',
+      star: 'تمييز بنجمة',
+      unstar: 'إزالة النجمة',
       removeGuides: 'إزالة الخطوط الإرشادية',
       nameOf: 'اسم {name}',
       fill: 'لون خلفية',
@@ -1461,6 +1466,12 @@ export const ar: Messages = {
         many: '{n} إطارًا',
         other: '{n} إطار',
       },
+    },
+    connectors: {
+      connector: 'موصِّل',
+      actions: 'إجراءات الموصِّل',
+      joins: '{from} ← {to}',
+      delete: 'حذف',
     },
     statusText: {
       Starting: 'جارٍ البدء',

@@ -27,6 +27,7 @@ const IMAGES = JSON.stringify({
 
 function requestOf(input: CallInput): SellerRequest {
   return {
+    call: { job: 'job', step: 'flow.read', index: 0 },
     model: 'bytedance-seed/seedream-5-5',
     input,
     options: {},

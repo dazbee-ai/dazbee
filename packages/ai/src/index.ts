@@ -76,7 +76,7 @@ export {
   type SellerDay,
 } from './daily-check.ts'
 export { lastChecked, readSellerFile, SellerFileRefused, uploadSellerFile } from './seller-files.ts'
-export { reportsOf, useSellersOf } from './sellers/in-use.ts'
+export { type AiRecording, aiRecordingOf, reportsOf, useSellersOf } from './sellers/in-use.ts'
 export { openrouterSeller } from './sellers/openrouter.ts'
 export { pixazoSeller } from './sellers/pixazo.ts'
 export { zenmuxSeller } from './sellers/zenmux.ts'

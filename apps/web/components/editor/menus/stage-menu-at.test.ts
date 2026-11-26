@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { Editor } from '@dazbee/editor'
 import { type TestEditor, testEditor } from '@dazbee/editor/test-editor'
 import { frameDesign, type Seeded } from '@dazbee/editor/test-matrix'
-import { labelPoint, linePoint, SECTIONS } from '@dazbee/editor/test-sections'
+import { CONNECTED, curvePoint, labelPoint, linePoint, SECTIONS } from '@dazbee/editor/test-sections'
 import type { DesignInput } from '@dazbee/schema'
 
 import { rightClickAt } from './stage-menu-at.ts'
@@ -76,6 +76,25 @@ describe('rightClickAt', () => {
     const line = linePoint(t.core, 'solo')
     expect(rightClickAt(editor, line, NO_LABEL)).toBeNull()
     expect(t.core.pickedSection()).toBe('solo')
+  })
+
+  it('picks the connector whose curve is right-clicked off every frame and offers its Delete', async () => {
+    const { t, editor } = await open(CONNECTED)
+    const at = curvePoint(t.core, 'link', 0.05)
+    expect(rightClickAt(editor, at, NO_LABEL)).toMatchObject({ on: 'connector', connectorId: 'link', frameId: null })
+    expect(t.core.pickedConnector()).toBe('link')
+    // Where a frame is drawn over the curve, the frame is what is right-clicked.
+    expect(rightClickAt(editor, curvePoint(t.core, 'link', 0.5), NO_LABEL)).toMatchObject({
+      on: 'frame',
+      frameId: 'f4',
+    })
+  })
+
+  it('picks no connector for a tab that may only view', async () => {
+    const access = { readOnly: () => true, onChange: () => () => {} }
+    const { t, editor } = await open(CONNECTED, { access })
+    rightClickAt(editor, curvePoint(t.core, 'link', 0.05), NO_LABEL)
+    expect(t.core.pickedConnector()).toBeNull()
   })
 
   it("leaves a frame's label to the frame, though a section's title is under it", async () => {

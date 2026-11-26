@@ -83,6 +83,7 @@ function harness({
       keep: () => log.push('keep'),
       tellListeners: () => log.push('tell listeners'),
       pickedSection: () => null,
+      pickedConnector: () => null,
     },
     typing: { stopWhenGone: () => log.push('stop when gone') },
     pointer: {

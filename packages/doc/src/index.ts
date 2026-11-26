@@ -60,6 +60,7 @@ export { compactTree, DEFAULT_TREE_BYTES, TREE_FIELDS, type TreeLayer, type Tree
 export { STEP_NAMES, type StepName } from './commands/step-names.ts'
 export { type BoxLayout, changesLayout } from './commands/auto-layout.ts'
 export { wrapRefusal } from './commands/groups.ts'
+export { connectorRefusal } from './commands/connectors.ts'
 export { type PlacedTree, placedRoots } from './commands/arrange.ts'
 export { designSizeOf } from './sync/checks.ts'
 export { type FlipAxis } from './commands/flip.ts'

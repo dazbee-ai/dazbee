@@ -1,9 +1,10 @@
-// The overlay over the stage: the sections' titles, the frame labels, the safe zones, the picked frame with its handles,
+// The overlay over the stage: the sections' titles, the frame labels with their stars, the safe zones, the picked frame's handles,
 // the frame lit from outside the stage, the guides, the dashed outlines of the hidden layers while
 // they are shown, the outlines of the group gone into, the hovered layer and the drop target, the
 // other people's selections, the dashed outlines of the selected layers' linked copies, what Alt
 // measures, the selection with its handles and size, the selected layers' constraint lines while
-// the page asks for them, what each gesture shows, the rulers, the caret, the other people's
+// the page asks for them, what each gesture shows, the dots a connector starts from with the Arrow
+// shape and the connector being drawn, the rulers, the caret, the other people's
 // cursors and the loupe picking a colour shows, drawn in that order. A selected or hovered layer
 // is outlined along its real shape, from the outline path data the scenes keep.
 import { constraintsApply, constraintsOf, copiesOf, frameIdOf, scaleText } from '@dazbee/doc'
@@ -14,6 +15,7 @@ import type { EditorColourPick } from '../gestures/colour-pick.ts'
 import { loupeParts } from '../gestures/colour-pick-parts.ts'
 import type { EditorCropping } from '../gestures/crop/cropping.ts'
 import { cropParts } from '../gestures/crop/cropping-parts.ts'
+import type { EditorConnecting } from '../gestures/drawing/connecting.ts'
 import { type EditorDrawing, isDrawing } from '../gestures/drawing/drawing.ts'
 import { drawingParts } from '../gestures/drawing/drawing-parts.ts'
 import type { EditorGuideDrag } from '../gestures/guides/guide-drag.ts'
@@ -28,6 +30,7 @@ import { dragParts } from '../gestures/select/drag-parts.ts'
 import type { EditorFrameMove } from '../gestures/select/frame-move.ts'
 import type { EditorFrameResize } from '../gestures/select/frame-resize.ts'
 import { radiusDotParts, type RadiusPillParts, radiusPillParts } from '../gestures/select/radius-drag-parts.ts'
+import type { EditorSelectPress } from '../gestures/select/select-press.ts'
 import type { EditorTransformDrag } from '../gestures/select/transform-drag.ts'
 import type { EditorBoxes } from '../layers/boxes.ts'
 import { boundsOf, type Box, type Handle, handleAt, HANDLES, round } from '../layers/transform.ts'
@@ -37,6 +40,7 @@ import { type EditorSelection, firstFrameOf, idsOf } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
 import { textParts } from '../text/typing-parts.ts'
 import { toScreen } from './camera.ts'
+import { connectorParts } from './connector-parts.ts'
 import { type Constrained, constraintParts } from './constraint-parts.ts'
 import { frameLabel } from './frame-labels.ts'
 import { type Frame, labelBox } from './frames.ts'
@@ -79,6 +83,8 @@ export interface OverlayDeps {
   pen: Pick<EditorPen, 'shown'>
   cropping: Pick<EditorCropping, 'shown'>
   drawing: Pick<EditorDrawing, 'shown'>
+  /** The dots a connector starts from, and the connector being drawn. */
+  connecting: Pick<EditorConnecting, 'shown'>
   transformDrag: Pick<EditorTransformDrag, 'shown' | 'shownDots'>
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'shown' | 'shownDrop'>
   /** The frame that shows handles: the picked frame, when a press on them would resize it. */
@@ -87,6 +93,8 @@ export interface OverlayDeps {
   /** The sections as the stage shows them, whose titles it draws. */
   frameMove: Pick<EditorFrameMove, 'shownSections'>
   pointer: Pick<EditorPointer, 'gesture' | 'measured' | 'pointerAt'>
+  /** The frame whose label offers its star. */
+  selectPress: Pick<EditorSelectPress, 'starOffered'>
   colourPick: Pick<EditorColourPick, 'shown'>
   guideDrag: Pick<EditorGuideDrag, 'shown' | 'rulerFrame'>
   presence: Pick<EditorPresence, 'shown'>
@@ -128,12 +136,14 @@ export function editorOverlay({
   pen,
   cropping,
   drawing,
+  connecting,
   transformDrag,
   autoLayoutDrag,
   frameResize,
   place,
   frameMove,
   pointer,
+  selectPress,
   colourPick,
   guideDrag,
   presence,
@@ -456,7 +466,12 @@ export function editorOverlay({
       stage: view.viewport(),
     })
     for (const frame of view.inView()) {
-      const label = frameLabel(frame, { selection, typing, camera: view.camera() })
+      const label = frameLabel(frame, {
+        selection,
+        typing,
+        camera: view.camera(),
+        starOffered: selectPress.starOffered(),
+      })
       if (label) parts.push(label)
     }
     const safeZones = view.safeZones()
@@ -535,6 +550,7 @@ export function editorOverlay({
     if (isDrawing(gesture)) parts.push(...drawingParts(drawing.shown(gesture), view.camera(), placeBox))
     parts.push(
       ...dragParts(gesture?.kind === 'marquee' ? gesture : null, transformDrag.shown(), view.camera(), outline),
+      ...connectorParts(connecting.shown(gesture)),
     )
     if (view.rulers()) {
       const origin = guideDrag.rulerFrame(guideGesture)

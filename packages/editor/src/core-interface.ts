@@ -554,6 +554,15 @@ export interface EditorBase {
   /** Calls back with the picked section, or null, whenever it changes. */
   onSectionPick(listener: (sectionId: string | null) => void): () => boolean
   /**
+   * The connector picked as a whole, by a click on its curve, or null; no layer is selected and no
+   * frame or section picked while one is. Esc, a layer selected or a click on empty canvas lets it go.
+   */
+  pickedConnector: () => string | null
+  /** Picks a connector the shown page draws, letting the selection and the picked frame or section go; null lets it go. */
+  pickConnector: (connectorId: string | null) => void
+  /** Calls back with the picked connector, or null, whenever it changes. */
+  onConnectorPick(listener: (connectorId: string | null) => void): () => boolean
+  /**
    * Picks a section of the shown page and asks the page to rename it in place, as a double click on
    * its title does; the page renames it with the `section.update` command and calls `renamed` once
    * its field closes, the title left out until then. A tab that may only view picks it and renames
@@ -849,6 +858,8 @@ export interface EditorCore extends EditorBase {
   layersAt(stage: Point): LayerAt[]
   /** The section whose outline line is at a stage point, the newer where two are: what a right-click there acts on; null for none. */
   sectionAt(stage: Point): string | null
+  /** The connector drawn at a stage point off every frame, the last by order where several are: what a right-click there acts on; null for none. */
+  connectorAt(stage: Point): string | null
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a stage point, or else in the middle of the frame in the middle of the view. The

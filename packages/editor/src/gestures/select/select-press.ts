@@ -1,6 +1,8 @@
 // The select tool's press on the stage: what it picks, with Shift adding a layer or taking it out and
 // the deep key (⌘ on a Mac, Ctrl elsewhere) selecting the deepest layer under it at once, inside the
-// group gone into or on a locked layer, or the frame whose label it is on; the drag it
+// group gone into or on a locked layer, the frame whose label it is on, or the star by that
+// frame's name, which stars it, and which label offers that star as the pointer hovers its row, or
+// off every frame the connector under it, which a tab that may only view never picks; the drag it
 // starts (a handle, a marquee, a move, an auto layout reorder, the picked frame's resize from one of
 // its handles, from a label, a frame's move, or from a section's title or outline line, the
 // section's move); and
@@ -12,10 +14,12 @@ import type { Point } from '@dazbee/schema'
 
 import { toggled } from '../../across-frames.ts'
 import { toWorld } from '../../canvas/camera.ts'
-import { type Frame, frameAt } from '../../canvas/frames.ts'
+import { connectorAt, connectorsShown } from '../../canvas/connectors.ts'
+import { type Frame, frameAt, labelAt } from '../../canvas/frames.ts'
 import { sectionAt } from '../../canvas/sections.ts'
 import type { EditorView } from '../../canvas/view.ts'
 import { type EditorBoxes, lockedInPlace } from '../../layers/boxes.ts'
+import { runQuietly } from '../../run-quietly.ts'
 import { type EditorSelection, firstFrameOf, type Picked, samePick, selectInto } from '../../selection.ts'
 import { deepKeyHeld } from '../../shortcuts.ts'
 import type { EditorTyping } from '../../text/typing.ts'
@@ -34,11 +38,19 @@ export type SelectDrag = MoveDrag | HandleDrag | MarqueeDrag | ReorderDrag | Fra
 export interface SelectPressDeps {
   /** Asks for the pointer to be held from the press being handled. */
   hold: () => void
-  session: Pick<Session, 'readOnly'>
+  session: Pick<Session, 'readOnly' | 'run'>
   view: Pick<EditorView, 'camera' | 'design' | 'frames' | 'frameOf' | 'pointOn'>
   selection: Pick<
     EditorSelection,
-    'current' | 'entered' | 'enter' | 'select' | 'selectAcross' | 'selectKeepingModes' | 'pickFrame' | 'pickSection'
+    | 'current'
+    | 'entered'
+    | 'enter'
+    | 'select'
+    | 'selectAcross'
+    | 'selectKeepingModes'
+    | 'pickFrame'
+    | 'pickSection'
+    | 'pickConnector'
   >
   boxes: Pick<
     EditorBoxes,
@@ -68,7 +80,8 @@ export interface EditorSelectPress {
    * there, over the label of the frame `label`, if any: it selects what it picks and returns the
    * drag it starts, or null when it starts none. A press without the deep key grabs a radius dot the
    * selection shows; with it, the press passes over the dots, which stay drawn. A press on a handle
-   * of the picked frame resizes the frame, and a click there keeps it picked.
+   * of the picked frame resizes the frame, and a click there keeps it picked. Off every frame, a
+   * press on a connector picks it and starts no drag.
    */
   press(
     e: PointerInput,
@@ -81,11 +94,15 @@ export interface EditorSelectPress {
    * A press on a frame's label: it picks the frame, letting the selection and the group gone into
    * go, and returns the drag that moves the frame; null for a frame the shown page lacks. Inside
    * the reach of a handle of the picked frame, the handle wins, and the press resizes that frame.
+   * A press of a mouse or a pen on the star by the frame's name, in a tab that may edit, stars the
+   * frame or takes its star off as one undo step, picking nothing and starting no drag (true); a
+   * double click's second press does nothing, so the double click toggles it once. A finger's press
+   * there is a press on the name, as a finger is never offered the star.
    */
-  pressLabel(e: PointerInput, screen: Point, frameId: string): FrameMoveDrag | FrameResizeDrag | null
+  pressLabel(e: PointerInput, screen: Point, frameId: string): FrameMoveDrag | FrameResizeDrag | true | null
   /**
    * A press on the title of section `title`, or off every frame (`at` null) on a section's outline
-   * line, the newer where two are: it picks the section, letting the selection go, and returns the
+   * line where no connector drawn over it is, the newer where two are: it picks the section, letting the selection go, and returns the
    * drag that moves it, or true for a tab that may only view, which moves none; null for a press on
    * neither.
    */
@@ -103,6 +120,14 @@ export interface EditorSelectPress {
   release(gesture: MarqueeDrag | null, clicked: boolean): void
   /** Forgets what a press would select as a click, for a press the browser took away or Escape cancelled. */
   cancel(): void
+  /**
+   * Follows a hover of the select tool, `e` being where the pointer is, or null with none or while a
+   * drag runs: a mouse or a pen over a frame label's row, in a tab that may edit, has that label
+   * offer its star (`starOffered`). Returns whether the label offering it changed.
+   */
+  hoverStar(e: PointerInput | null): boolean
+  /** The frame whose label offers its star, hollow while the frame isn't starred; null with none. */
+  starOffered(): string | null
   /**
    * The drag of the selection a press at a stage point would start, `handle` being what it grabs
    * there (`handleUnder`): a reorder along the one flow that places it, a move of the layers no
@@ -155,6 +180,8 @@ export function editorSelectPress({
   /** The text selected alone when the last press went down, and when the last run of clicks began. */
   let pressedText: Picked | null = null
   let runText: Picked | null = null
+  /** The frame whose label offers its star, as the last hover found it. */
+  let starOffered: string | null = null
 
   function press(
     e: PointerInput,
@@ -188,6 +215,12 @@ export function editorSelectPress({
       }
       clickedWithShift = e.shiftKey
       return transformDrag.pressHandle(e, screen, grabbed, handled)
+    }
+    // Off every frame, a connector under the press is picked; frames are drawn over connectors.
+    const connector = at ? undefined : connectorUnder(screen)
+    if (connector !== undefined) {
+      selection.pickConnector(connector)
+      return null
     }
     // With the deep key, the layer the hover with it outlines is selected at once, and a drag moves it.
     const reached = at && clickedDeep ? boxes.deepAt(at.frame, at.p) : null
@@ -303,9 +336,13 @@ export function editorSelectPress({
     return parts.some((part) => freeOf(view.design(), part.ids).length > 0) ? 'move' : null
   }
   function pressLabel(e: PointerInput, screen: Point, frameId: string) {
-    pressedText = textSelected()
     const resize = frameResize.press(e, screen)
-    if (resize) return resize
+    if (resize) {
+      pressedText = textSelected()
+      return resize
+    }
+    if (e.star === frameId && e.pointerType !== 'touch' && !session.readOnly()) return pressStar(frameId, e.detail)
+    pressedText = textSelected()
     const frame = frameOf(frameId)
     if (!frame) return null
     typing.stop()
@@ -315,9 +352,17 @@ export function editorSelectPress({
     hold()
     return frameMove.start(frame, toWorld(view.camera(), screen))
   }
+  function pressStar(frameId: string, clicks: number): true {
+    typing.stop()
+    clickedAlone = null
+    if (clicks >= 2) return true
+    const starred = view.design().frames[frameId]?.starred === true
+    runQuietly(() => session.run('frame.update', { frameId, starred: !starred }))
+    return true
+  }
   function pressSection(e: PointerInput, screen: Point, at: { frame: Frame; p: Point } | null, title?: string) {
     const outlines = frameMove.shownSections(null).outlines
-    const sectionId = title ?? (at ? undefined : sectionAt(outlines, screen, ['line'])?.id)
+    const sectionId = title ?? (at || connectorUnder(screen) ? undefined : sectionAt(outlines, screen, ['line'])?.id)
     if (sectionId === undefined) return null
     pressedText = textSelected()
     typing.stop()
@@ -327,6 +372,12 @@ export function editorSelectPress({
     if (session.readOnly()) return true
     hold()
     return sectionMove.start(sectionId, toWorld(view.camera(), screen))
+  }
+  /** The connector drawn at a stage point, the last by order where several are; none for a tab that may only view. */
+  function connectorUnder(screen: Point) {
+    if (session.readOnly()) return undefined
+    const outlines = frameMove.shownSections(null).outlines
+    return connectorAt(connectorsShown(view.design(), view.frames(), outlines, view.camera()), screen)?.id
   }
   function release(gesture: MarqueeDrag | null, clicked: boolean) {
     // A press that became a drag selects nothing as a click.
@@ -360,6 +411,16 @@ export function editorSelectPress({
     clickedAlone = null
     clickedLabel = null
     pressedFrame = null
+  }
+  function hoverStar(e: PointerInput | null) {
+    const offers = e !== null && e.pointerType !== 'touch' && !session.readOnly()
+    const next = offers ? (labelAt(view.frames(), view.camera(), e.at)?.id ?? null) : null
+    const moved = next !== starOffered
+    starOffered = next
+    return moved
+  }
+  function offeredStar() {
+    return starOffered
   }
   function cancel() {
     lockedClick = null
@@ -400,6 +461,8 @@ export function editorSelectPress({
     pressSection,
     release,
     cancel,
+    hoverStar,
+    starOffered: offeredStar,
     dragAt,
     clicked,
     textBeforeClicks,

@@ -1,6 +1,6 @@
 // Saving an AI job with its hold, against Postgres from Docker Compose and a real pg-boss.
-import { eq } from 'drizzle-orm'
-import { PgBoss } from 'pg-boss'
+import { eq, sql } from 'drizzle-orm'
+import { fromDrizzle, PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { aiCalls, aiJobs, aiLedger, brands, memberships, newId, users, workspaces } from '@dazbee/db'
@@ -101,12 +101,18 @@ describe('saveJob', () => {
       sizes: [size],
     }
     await ensureQueue(boss, FLOW_QUEUE)
-    const saved = await db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'resize', input }))
+    // Taken off the shared queue in the transaction that sends it, so no worker running on this database sees it.
+    const { saved, taken } = await db.transaction(async (tx) => {
+      const saved = await saveJob(tx, boss, { ...who, kind: 'resize', input })
+      if (!saved.ok) return { saved, taken: 0 }
+      const [row] = await tx.select({ queueJobId: aiJobs.queueJobId }).from(aiJobs).where(eq(aiJobs.id, saved.job))
+      const deleted = await boss.deleteJob(FLOW_QUEUE, row?.queueJobId ?? '', { db: fromDrizzle(tx, sql) })
+      return { saved, taken: deleted.affected }
+    })
     if (!saved.ok) throw new Error(saved.refusal)
+    expect(taken).toBe(1)
     const [job] = await db.select().from(aiJobs).where(eq(aiJobs.id, saved.job))
     expect(job).toMatchObject({ kind: 'resize', queue: FLOW_QUEUE, input })
-    // Taken off the shared queue, so no worker running on this database picks it up.
-    await boss.deleteJob(FLOW_QUEUE, job?.queueJobId ?? '')
     expect(await readJob(db, who.workspace, saved.job)).toMatchObject({ kind: 'resize', output: null, calls: [] })
     const wrong = { ...input, frame: target }
     await expect(

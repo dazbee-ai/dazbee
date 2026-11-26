@@ -237,8 +237,10 @@ const looks = testLooks()
  * with the frame at the canvas's corner, so screen points are design pixels. Logs what it asks of
  * the drags and typing, and when it holds the pointer.
  */
-export function harness(handle: ResizeDrag['handle'] | Grab | null = null, design = DESIGN) {
-  const session = sessionOf(design)
+export function harness(handle: ResizeDrag['handle'] | Grab | null = null, design = DESIGN, viewOnly = false) {
+  const opened = sessionOf(design)
+  // A tab that may only view: the session refuses every write.
+  const session = viewOnly ? { ...opened, readOnly: () => true } : opened
   const frames = design === DESIGN ? [SQUARE] : [SQUARE, TALL]
   const log: string[] = []
   const selection = editorSelection({ drawn: () => session.design(), frames: () => frames, changed: () => {} })
@@ -302,5 +304,5 @@ export function harness(handle: ResizeDrag['handle'] | Grab | null = null, desig
   }
   /** A press off every frame, on empty canvas. */
   const pressOff = (p: Point, shiftKey = false) => select.press(pointerInput({ shiftKey }), p, null, null)
-  return { select, selection, press, pressIn, pressOff, log }
+  return { select, selection, session, press, pressIn, pressOff, log }
 }

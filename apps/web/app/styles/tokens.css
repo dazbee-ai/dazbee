@@ -52,6 +52,8 @@
   --stage-accent-solid: #3563f0;
   --on-stage-accent: #ffffff;
   --stage-accent-soft: rgb(91 140 255 / 0.16);
+  /* A connector at rest on the canvas, and the ring of the Arrow tool's dots: a quiet grey that still reads on the canvas. */
+  --stage-connector: #6a5e78;
   --guide: #d63a17;
   --danger: #ff5a5f;
   /* The solid red of a button that confirms a delete, under white words. */
@@ -138,6 +140,7 @@
   --stage-accent-solid: #2f5be0;
   --on-stage-accent: #ffffff;
   --stage-accent-soft: rgb(47 91 224 / 0.1);
+  --stage-connector: #b8aec2;
   --guide: #d63a17;
   --danger: #c42020;
   /* The solid red of a button that confirms a delete, under white words. */
@@ -208,6 +211,8 @@
   --enter: 220ms;
   /* The final mock's pop: a slight overshoot as a menu or a toast lands. */
   --ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
+  /* A starred frame's star, by its name on the stage and on its row in Export, in either theme. */
+  --star: #e0a400;
 }
 
 @theme inline {
@@ -236,6 +241,7 @@
   --color-text-selected-strong: var(--text-selected-strong);
   --color-text-selected: var(--text-selected);
   --color-accent-2: var(--accent-2);
+  --color-star: var(--star);
   --color-danger: var(--danger);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);

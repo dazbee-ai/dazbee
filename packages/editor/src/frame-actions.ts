@@ -1,6 +1,7 @@
 // What the keys, menus and fields do to a frame or a section: the picked frame's and the picked
-// section's keys (Esc, Delete, Duplicate, F2 and the arrows), adding a frame of a size or a size of a
-// frame, resizing a frame by its typed size, and showing a frame just added.
+// section's keys (Esc, Delete, Duplicate, F2 and the arrows) and the picked connector's (Esc and
+// Delete), adding a frame of a size or a size of a frame, resizing a frame by its typed size, and
+// showing a frame just added.
 import { descendants, round, type Session, smallerRatio } from '@dazbee/doc'
 import { type Design, FRAME_GAP, freeSpot, sectionBox, sectionOf, sizeIssue } from '@dazbee/schema'
 
@@ -21,7 +22,7 @@ export interface FrameActionsDeps {
   tools: Pick<EditorTools, 'setTool'>
   /** The name a frame added from a size takes, in the app's words. */
   frameName: (width: number, height: number) => string
-  selection: Pick<EditorSelection, 'pickFrame' | 'pickedFrame' | 'pickSection'>
+  selection: Pick<EditorSelection, 'pickFrame' | 'pickedFrame' | 'pickSection' | 'pickConnector'>
   typing: Pick<EditorTyping, 'fitText'>
   /** Asks the page to rename a picked frame or section in place. */
   rename: (item: PickedItem) => void
@@ -36,7 +37,7 @@ export interface Size {
 }
 
 export interface EditorFrameActions {
-  /** What a key does to the picked page item, a frame or a section; false for a key that does nothing to it. */
+  /** What a key does to the picked page item, a frame, a section or a connector; false for a key that does nothing to it. */
   itemAction(action: ShortcutAction, item: PickedItem): boolean
   /**
    * Adds an empty white frame of a size to the shown page, under the name given (a size tile's) or
@@ -84,7 +85,8 @@ export function editorFrameActions({
   const frameDeletes = listenerSet<[name: string]>()
 
   function itemAction(action: ShortcutAction, item: PickedItem): boolean {
-    if (!actsOnItem(action) || item.kind === 'connector') return false
+    if (item.kind === 'connector') return connectorAction(action, item.id)
+    if (!actsOnItem(action)) return false
     if (action === 'rename') rename(item)
     else if (item.kind === 'section') sectionAction(action, item.id)
     else return frameAction(action, item.id)
@@ -140,6 +142,19 @@ export function editorFrameActions({
       if (box) showWhole(box)
     }
     shownChanged()
+  }
+
+  /**
+   * What a key does to the picked connector: Esc lets it go, and Delete deletes it, one undo step;
+   * its other keys do nothing to it.
+   */
+  function connectorAction(action: ShortcutAction, connectorId: string) {
+    if (!actsOnConnector(action)) return false
+    if (action === 'deselect') selection.pickConnector(null)
+    // A connector whose delete is refused, as a tab that may only view refuses it, stays picked.
+    else if (runQuietly(() => session.run('connector.delete', { connectorId }))) selection.pickConnector(null)
+    shownChanged()
+    return true
   }
 
   function addFrame({ width, height }: Size, name = frameName(width, height)) {
@@ -243,6 +258,11 @@ export function actsOnItem(action: ShortcutAction) {
     action === 'rename' ||
     NUDGES[action] !== undefined
   )
+}
+
+/** Whether a key acts on the picked connector while no layer is selected: Esc and Delete. */
+export function actsOnConnector(action: ShortcutAction) {
+  return action === 'deselect' || action === 'delete'
 }
 
 /**

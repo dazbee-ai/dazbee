@@ -245,6 +245,7 @@ export function harness(
       shown: () => ({ frame: SQUARE, id: 'photo', window: BOX, whole: BOX, box: BOX, rect: BOX, ghost: 'faint.png' }),
     },
     drawing: { shown: () => ({ kind: 'textBox', frame: SQUARE, rect: BOX }) },
+    connecting: { shown: () => ({ dots: [], hot: null, preview: null, lit: null }) },
     transformDrag: {
       shown: () => ({
         frame: SQUARE,
@@ -276,6 +277,7 @@ export function harness(
       measured: () => state.measured ?? null,
       pointerAt: () => state.pointerAt ?? null,
     },
+    selectPress: { starOffered: () => null },
     colourPick: { shown: () => state.picking ?? null },
     // The rulers hidden: no guide shows.
     guideDrag: { shown: () => [], rulerFrame: () => undefined },

@@ -6,6 +6,25 @@ import { editorSurface } from './surface.ts'
 import { design } from './test-design.ts'
 import { editorView } from './view.ts'
 
+/** One entry for each set of triangles the surface made. */
+const verticesMade: string[] = []
+
+/** A colour as CanvasKit gives it, its red, green, blue and opacity, that reads as the hex it was made from. */
+function colourOf(hex: string) {
+  const channel = (at: number) => Number.parseInt(hex.slice(at, at + 2), 16) / 255
+  const parts = hex.startsWith('#') && hex.length === 7 ? [channel(1), channel(3), channel(5), 1] : [0, 0, 0, 1]
+  return Object.assign(parts, { toString: () => hex })
+}
+/** A colour's red, green and blue as hex. */
+const hexOf = (rgb: ArrayLike<number>) =>
+  `#${[0, 1, 2]
+    .map((i) =>
+      Math.round((rgb[i] ?? 0) * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+
 /** A CanvasKit that logs what the surface makes, draws and frees, with a canvas that logs its calls. */
 function fakeCanvasKit(log: string[]) {
   const drawn = {
@@ -20,6 +39,10 @@ function fakeCanvasKit(log: string[]) {
     drawPicture: (picture: { name: string }) => log.push(`picture ${picture.name}`),
     clipRect: (rect: number[], op: string) => log.push(`clip ${op} ${rect.join(' ')}`),
     saveLayer: () => log.push('save layer'),
+    drawVertices: (vertices: { corners: number; colours: Float32Array }) =>
+      log.push(`triangles with ${vertices.corners} corners in ${hexOf(vertices.colours)}`),
+    drawCircle: (x: number, y: number, r: number, paint: { colour: string; width: number }) =>
+      log.push(`circle ${x} ${y} round ${r} in ${paint.colour}${paint.width ? ` ${paint.width} wide` : ''}`),
   }
   const ck = {
     GetWebGLContext: () => 1,
@@ -28,16 +51,27 @@ function fakeCanvasKit(log: string[]) {
       log.push(`surface ${width}×${height}`)
       return { getCanvas: () => drawn, flush: () => log.push('flush'), delete: () => log.push('delete surface') }
     },
+    MakeVertices: (_mode: string, positions: number[], _texture: null, colours: Float32Array) => {
+      verticesMade.push('made')
+      return { corners: positions.length / 2, colours, delete: () => log.push('delete triangles') }
+    },
+    VertexMode: { Triangles: 'triangles' },
+    BlendMode: { Dst: 'dst' },
     Paint: class {
       colour = ''
+      width = 0
       setColor(colour: string) {
         this.colour = colour
       }
       setAntiAlias() {}
       setStyle() {}
-      setStrokeWidth() {}
+      setStrokeWidth(width: number) {
+        this.width = width
+      }
       setAlphaf() {}
-      setImageFilter() {}
+      setImageFilter() {
+        log.push('image filter')
+      }
       delete() {
         log.push('delete paint')
       }
@@ -46,13 +80,14 @@ function fakeCanvasKit(log: string[]) {
     TRANSPARENT: 'clear',
     PaintStyle: { Stroke: 'stroke' },
     ClipOp: { Difference: 'out of' },
-    ImageFilter: { MakeBlur: () => ({ delete: () => log.push('delete blur') }) },
+    ImageFilter: { MakeBlur: () => log.push('blur') },
+    MaskFilter: { MakeBlur: () => log.push('blur') },
     TileMode: { Decal: 'decal' },
     ColorSpace: { SRGB: 'srgb' },
     Color: () => 'edge',
     XYWHRect: (x: number, y: number, w: number, h: number) => [x, y, w, h],
     RRectXY: (rect: number[], radius: number) => ({ rect, radius }),
-    parseColorString: (colour: string) => colour,
+    parseColorString: colourOf,
   }
   return ck as unknown as CanvasKit
 }
@@ -152,10 +187,10 @@ describe('editorSurface', () => {
   describe('paint', () => {
     it('draws nothing before the stage has a surface', () => {
       const { surface } = harness()
-      expect(surface.paint([], null, [])).toBe(false)
+      expect(surface.paint([], null, [], [])).toBe(false)
     })
 
-    it('draws the pictures it is handed at the camera, each on its page over white on a soft shadow, and shows them', () => {
+    it('draws the pictures it is handed at the camera, each on its page over white, and shows them', () => {
       const { view, surface, log } = harness()
       surface.resize()
       view.setCamera({ x: 0, y: 0, zoom: 0.5 })
@@ -167,15 +202,13 @@ describe('editorSurface', () => {
           .map((frame) => ({ frame, picture: picture(frame.id) })),
         null,
         [],
+        [],
       )
       expect(painted).toBe(true)
       expect(log).toEqual([
         'clear',
         'save',
         'scale 2 2',
-        // The shadows, on the stage at 540 across: one 1 down, one 6 in from each side and 6 down.
-        'rect 0 1 540 540',
-        'rect 6 12 528 528',
         'translate 0 0',
         'scale 0.5 0.5',
         'rect 0 0 1080 1080',
@@ -207,6 +240,7 @@ describe('editorSurface', () => {
           { box: { x: -24, y: -84, width: 588, height: 648 }, lit: false },
           { box: { x: 600, y: -84, width: 100, height: 100 }, lit: true },
         ],
+        [],
       )
       expect(log.slice(0, 6)).toEqual([
         'clear',
@@ -214,30 +248,175 @@ describe('editorSurface', () => {
         'scale 2 2',
         'outline -24 -84 588 648 round 22 in #c4b9cd',
         'outline 600 -84 100 100 round 22 in #2f5be0',
-        'rect 0 1 540 540',
+        'translate 0 0',
       ])
     })
   })
 
-  describe("the frames' shadow", () => {
-    it('is as far down and as soft on the stage at any zoom, wherever the camera is', () => {
-      const shadowsAt = (camera: { x: number; y: number; zoom: number }) => {
+  describe('paint with connectors', () => {
+    it('draws them after the outlines and before the frames, as triangles from the camera’s corner: at rest in the soft grey with no dot, picked in the accent with a filled dot at its start', () => {
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => (name === '--canvas' ? '#100d14' : ''),
+      }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      log.length = 0
+      const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+      surface.paint(
+        view
+          .findInView()
+          .slice(0, 1)
+          .map((frame) => ({ frame, picture: picture(frame.id) })),
+        null,
+        [{ box: { x: -24, y: -84, width: 588, height: 648 }, lit: false }],
+        [
+          { curve, picked: false },
+          { curve: { ...curve, from: { x: 10, y: 150 }, to: { x: 110, y: 150 } }, picked: true },
+        ],
+      )
+      expect(log.slice(3, 9)).toEqual([
+        'outline -24 -84 588 648 round 22 in #c4b9cd',
+        'save',
+        'translate 0 0',
+        expect.stringMatching(/^triangles with \d+ corners in #b8aec2$/),
+        expect.stringMatching(/^triangles with \d+ corners in #2f5be0$/),
+        'circle 10 150 round 5 in #2f5be0',
+      ])
+      expect(log.slice(9, 11)).toEqual(['restore', 'translate 0 0'])
+    })
+
+    it('leaves out a connector far off the stage, but builds those just past it, ready for a pan', () => {
+      vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      const line = (x: number) => ({
+        from: { x, y: 50 },
+        c1: { x: x + 40, y: 50 },
+        c2: { x: x + 60, y: 50 },
+        to: { x: x + 100, y: 50 },
+      })
+      const corners = (connectors: { x: number }[]) => {
+        log.length = 0
+        surface.paint(
+          [],
+          null,
+          [],
+          connectors.map(({ x }) => ({ curve: line(x), picked: false })),
+        )
+        return Number(/with (\d+) corners/.exec(log.find((l) => l.startsWith('triangles')) ?? '')?.[1] ?? 0)
+      }
+      const one = corners([{ x: 10 }])
+      // Just past the stage's right edge (1000 wide), and four stages away.
+      expect(corners([{ x: 10 }, { x: 1200 }])).toBe(one * 2)
+      expect(corners([{ x: 10 }, { x: 4000 }])).toBe(one)
+    })
+  })
+
+  describe('the connectors’ triangles and colours', () => {
+    const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+    const at = (dx: number) => ({
+      from: { x: curve.from.x + dx, y: 50 },
+      c1: { x: curve.c1.x + dx, y: 50 },
+      c2: { x: curve.c2.x + dx, y: 90 },
+      to: { x: curve.to.x + dx, y: 90 },
+    })
+
+    it('are built once and moved while the camera pans, and built again once the zoom or the pick changes', () => {
+      vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      const built = () => verticesMade.length
+      verticesMade.length = 0
+      surface.paint([], null, [], [{ curve, picked: false }])
+      const first = built()
+      // Panned 40 to the right: the curve is drawn 40 further on, from the same triangles.
+      view.setCamera({ x: 40, y: 0, zoom: 0.5 })
+      log.length = 0
+      surface.paint([], null, [], [{ curve: at(40), picked: false }])
+      expect(built()).toBe(first)
+      expect(log).toContain('translate 40 0')
+      surface.paint([], null, [], [{ curve: at(40), picked: true }])
+      expect(built()).toBeGreaterThan(first)
+      expect(log).toContain('delete triangles')
+      const picked = built()
+      view.setCamera({ x: 40, y: 0, zoom: 1 })
+      surface.paint([], null, [], [{ curve: at(40), picked: true }])
+      expect(built()).toBeGreaterThan(picked)
+    })
+
+    it('read the theme’s colours from the page’s CSS once per theme, not on every paint', () => {
+      const read: string[] = []
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => {
+          read.push(name)
+          return name === '--stage-connector' ? '#b8aec2' : ''
+        },
+      }))
+      const root = { dataset: { theme: 'light' } }
+      const { view, surface, canvas } = harness()
+      Object.assign(canvas, { ownerDocument: { documentElement: root } })
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      surface.paint([], null, [], [{ curve, picked: false }])
+      surface.paint([], null, [], [{ curve: at(5), picked: false }])
+      expect(read.filter((name) => name === '--stage-connector')).toEqual(['--stage-connector'])
+      root.dataset.theme = 'dark'
+      surface.paint([], null, [], [{ curve, picked: false }])
+      expect(read.filter((name) => name === '--stage-connector')).toHaveLength(2)
+    })
+  })
+
+  describe('a resting connector’s colour', () => {
+    it('is the theme’s, as the page’s CSS names it', () => {
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => (name === '--stage-connector' ? '#6a5e78' : ''),
+      }))
+      const { surface, log } = harness()
+      surface.resize()
+      log.length = 0
+      const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+      surface.paint([], null, [], [{ curve, picked: false }])
+      expect(log.filter((line) => line.startsWith('triangles'))).toEqual([
+        expect.stringMatching(/^triangles with \d+ corners in #6a5e78$/),
+      ])
+    })
+  })
+
+  describe('the frames on the stage', () => {
+    it('are white boxes with no shadow or blur under them, at any zoom, wherever the camera is', () => {
+      const drawnAt = (camera: { x: number; y: number; zoom: number }) => {
         const { view, surface, log } = harness()
         surface.resize()
         view.setCamera(camera)
+        const frames = view.findInView()
+        const made = [...log]
         log.length = 0
         surface.paint(
-          view
-            .findInView()
-            .slice(0, 1)
-            .map((frame) => ({ frame, picture: picture(frame.id) })),
+          frames.map((frame) => ({ frame, picture: picture(frame.id) })),
           null,
           [],
+          [],
         )
-        return log.slice(3, 5)
+        return { frames, made, log }
       }
-      expect(shadowsAt({ x: 0, y: 0, zoom: 0.15 })).toEqual(['rect 0 1 162 162', 'rect 6 12 150 150'])
-      expect(shadowsAt({ x: 40, y: 30, zoom: 2 })).toEqual(['rect 40 31 2160 2160', 'rect 46 42 2148 2148'])
+      for (const camera of [
+        { x: 0, y: 0, zoom: 0.15 },
+        { x: 40, y: 30, zoom: 2 },
+      ]) {
+        const { frames, made, log } = drawnAt(camera)
+        expect(frames.length).toBeGreaterThan(0)
+        // One rect for each frame, its white box, and nothing blurred made or drawn.
+        expect(log.filter((line) => line.startsWith('rect '))).toEqual(
+          frames.map((frame) => `rect ${frame.x} ${frame.y} ${frame.width} ${frame.height}`),
+        )
+        for (const line of ['blur', 'image filter']) {
+          expect(made).not.toContain(line)
+          expect(log).not.toContain(line)
+        }
+      }
     })
   })
 
@@ -251,6 +430,7 @@ describe('editorSurface', () => {
       surface.paint(
         view.findInView().map((frame) => ({ frame, picture: picture(frame.id) })),
         story ? { frame: story, picture: picture('ghost') } : null,
+        [],
         [],
       )
       expect(log.slice(-9)).toEqual([
@@ -307,9 +487,7 @@ describe('editorSurface', () => {
         'delete paint',
         'delete paint',
         'delete paint',
-        'delete blur',
         'delete paint',
-        'delete blur',
         'delete paint',
         'delete gl',
       ])

@@ -2,11 +2,12 @@
 
 // The brand's asset library, in the Assets flyout: upload several images at once and watch each
 // one's progress, have an image made from a few words, name and tag them, find them by either, place
-// one on the design, and delete one nothing uses. An image dragged onto a frame goes there. One clicked with a mouse or a pen is armed
-// and shows picked: the next click on a frame places it, a drag there draws it, and Escape, another
-// tool, a press off every frame, clicking it again or closing Assets disarms it. A key, a tap and an
-// SVG file place at once, as the editor places with no point. Thumbnails are small copies the API
-// made and stored; the design itself draws the original, decoded by CanvasKit.
+// one on the design, and delete one nothing uses. An image dragged onto a frame goes there. One
+// clicked with a mouse or a pen is armed and shows picked: the next click on a frame places it, a
+// drag there draws it, and Escape, another tool, a press off every frame, clicking it again or
+// closing Assets disarms it. A key, a tap and an SVG file place at once, as the editor places with
+// no point. Thumbnails are small copies the API made and stored; the design itself draws the
+// original, decoded by CanvasKit.
 import { type DragEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'

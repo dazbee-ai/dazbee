@@ -68,6 +68,15 @@ describe('the Section tool', () => {
     expect(core.tool()).toBe('section')
     expect(core.canUndo()).toBe(false)
   })
+
+  it('makes nothing and says nothing for a click, keeping the tool', async () => {
+    const editor = await open(LOOSE)
+    const { core } = editor
+    editor.press('toolSection')
+    const at = toScreen(core.camera(), { x: 200, y: 200 })
+    editor.mouse.click(at.x, at.y)
+    expect([core.design().sections, editor.told, core.tool()]).toEqual([{}, [], 'section'])
+  })
 })
 
 describe('a frame drawn with the Frame tool', () => {
@@ -113,6 +122,8 @@ describe('fitSection', () => {
     core.fitSection('solo')
     const box = outlineOf(core, 'solo')
     expect(box.x).toBeGreaterThanOrEqual(0)
+    // Its title is in view too, above the frames.
+    expect(box.y).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(core.viewport().width)
     // One 400 px frame fills far more of the stage than the five did.
     expect(box.width).toBeGreaterThan(core.viewport().width / 3)

@@ -126,9 +126,9 @@ export function editorFrameActions({
     // Another tab may have changed the section a moment ago; a refused key then does nothing.
     if (step) runQuietly(() => session.run('section.move', { sectionId, dx: step[0], dy: step[1] }))
     else if (action === 'deselect') selection.pickSection(null)
+    // A section whose ungroup is refused stays picked.
     else if (action === 'delete') {
-      runQuietly(() => session.run('section.ungroup', { sectionId }))
-      selection.pickSection(null)
+      if (runQuietly(() => session.run('section.ungroup', { sectionId }))) selection.pickSection(null)
     } else {
       let copy = ''
       if (runQuietly(() => (copy = session.run('section.duplicate', { sectionId })))) selection.pickSection(copy)

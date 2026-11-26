@@ -149,7 +149,7 @@ export interface EditorDrawing {
    * its middle, and picked and shown; a click adds none and keeps the Frame tool. A section's box
    * makes a section of the shown page's frames whose middle it holds, one undo step, picked with its
    * title in rename and the select tool back; round no frame it makes none, says so and keeps the
-   * Section tool.
+   * Section tool, and a click makes none and keeps it too.
    */
   release(g: DrawingDrag): void
 }
@@ -262,6 +262,10 @@ export function editorDrawing({
     const from = wholeOnPage(world, [])
     return { kind, from, to: from }
   }
+  /** A press with the Section tool: a drag of the box round the frames to group, from the press on whole world units. */
+  function startSection(e: PointerInput, world: Point): SectionDrag {
+    return startFrame(e, world, 'sectionDraw')
+  }
   /**
    * Follows the pointer, on whole pixels where the drag's place is upright on the page: a shape
    * grows to it, Shift and Alt as `draggedRect` takes them; a box's corner goes to it, Shift keeping
@@ -295,7 +299,7 @@ export function editorDrawing({
     if (g.kind === 'draw') finishDrawing(g, click)
     else if (g.kind === 'textBox') finishTextBox(g, click)
     else if (g.kind === 'imageBox') finishImageBox(g, click)
-    else if (g.kind === 'sectionDraw') finishSection(g)
+    else if (g.kind === 'sectionDraw') finishSection(g, click)
     else finishFrame(g, click)
   }
   /**
@@ -404,9 +408,11 @@ export function editorDrawing({
   }
   /**
    * Makes a section of the shown page's frames whose middle the box holds, one undo step, picked
-   * with its title in rename and the select tool back; round no frame, says so and keeps the tool.
+   * with its title in rename and the select tool back; round no frame, says so and keeps the tool,
+   * and a click makes none and keeps the tool too.
    */
-  function finishSection(g: SectionDrag) {
+  function finishSection(g: SectionDrag, clicked: boolean) {
+    if (clicked) return
     const box = boxBetween(g.from, g.to)
     const inside = frames().filter((f) => {
       const [mx, my] = [f.x + f.width / 2, f.y + f.height / 2]
@@ -426,7 +432,7 @@ export function editorDrawing({
     pressText: startTextBox,
     pressImage: startImageBox,
     pressFrame: startFrame,
-    pressSection: (e: PointerInput, world: Point) => startFrame(e, world, 'sectionDraw'),
+    pressSection: startSection,
     drag,
     release,
   }

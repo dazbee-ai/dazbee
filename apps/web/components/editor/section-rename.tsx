@@ -27,7 +27,7 @@ const sameRect = (a: Rect | null, b: Rect | null) =>
  * Titles a section what was typed in its rename field, as one undo step: trimmed, and only when it
  * is not empty, differs from the title, and the section is still there. Escape passes null.
  */
-export function renameSection(editor: Editor, sectionId: string, typed: string | null) {
+export function saveSectionTitle(editor: Editor, sectionId: string, typed: string | null) {
   const title = typed?.trim().slice(0, MAX_SECTION_TITLE).trim()
   const section = editor.design().sections[sectionId]
   if (title && section && title !== section.title) editor.session.run('section.update', { sectionId, title })
@@ -72,7 +72,7 @@ export function SectionRename({ editor }: { editor: Editor }) {
   const done = (title: string | null, byKey: boolean) => {
     setRenaming(null)
     editor.renamed()
-    renameSection(editor, renaming.sectionId, title)
+    saveSectionTitle(editor, renaming.sectionId, title)
     if (byKey) renaming.opener?.focus()
   }
   return (

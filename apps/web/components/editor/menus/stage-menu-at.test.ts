@@ -70,6 +70,14 @@ describe('rightClickAt', () => {
     expect(t.core.pickedSection()).toBe('solo')
   })
 
+  it('picks the section for a tab that may only view, and offers no section actions', async () => {
+    const access = { readOnly: () => true, onChange: () => () => {} }
+    const { t, editor } = await open(SECTIONS, { access })
+    const line = linePoint(t.core, 'solo')
+    expect(rightClickAt(editor, line, NO_LABEL)).toBeNull()
+    expect(t.core.pickedSection()).toBe('solo')
+  })
+
   it("leaves a frame's label to the frame, though a section's title is under it", async () => {
     const { t, editor } = await open(SECTIONS)
     const at = labelPoint(t.core, 'f1')

@@ -181,10 +181,11 @@ function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageM
     return () => setRightClick(false)
   }, [])
   if (on === 'canvas') return <ShowHidden editor={editor} onClose={onClose} />
-  if (on === 'section' && sectionId) return <SectionActions editor={editor} sectionId={sectionId} />
   return (
     <>
-      {on === 'frame' && frameId ? (
+      {on === 'section' && sectionId ? (
+        <SectionActions editor={editor} sectionId={sectionId} />
+      ) : on === 'frame' && frameId ? (
         <FrameRows editor={editor} frameId={frameId} />
       ) : (
         <>

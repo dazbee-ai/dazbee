@@ -74,7 +74,7 @@ const layersName = (target: Target, p: Messages['editor']['props']) =>
   target.ids.length > 1 ? format(p.layers, { n: target.ids.length }) : target.names[0] || p.layer
 
 /**
- * The edit panel, following the selection: open while layers are selected or a frame is picked,
+ * The edit panel, following the selection: open while layers are selected or a frame or section is picked,
  * unless the font chooser or a design card takes its place, which a change of selection closes.
  */
 export function EditPanel({ editor, workspaceId, brandId }: { editor: Editor; workspaceId: string; brandId: string }) {

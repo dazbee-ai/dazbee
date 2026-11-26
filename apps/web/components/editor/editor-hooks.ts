@@ -55,7 +55,6 @@ export function useSelection(editor: Editor) {
   return ids
 }
 
-/** The frame picked as a whole, or null, kept current. */
 /** The section picked on the stage, or null, following it as it changes. */
 export function usePickedSection(editor: Editor) {
   const [picked, setPicked] = useState(() => editor.pickedSection())
@@ -69,6 +68,7 @@ export function usePickedSection(editor: Editor) {
   return picked
 }
 
+/** The frame picked as a whole, or null, kept current. */
 export function usePickedFrame(editor: Editor) {
   const [picked, setPicked] = useState(() => editor.pickedFrame())
   useEffect(() => {

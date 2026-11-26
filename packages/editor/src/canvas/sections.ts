@@ -32,7 +32,7 @@ export const TITLE_ROW = 36
 /** The outline's corner radius, in screen pixels. */
 export const OUTLINE_RADIUS = 22
 /** How far either side of the outline's line a press still takes it, in screen pixels. */
-export const LINE_REACH = 6
+export const OUTLINE_REACH = 6
 
 /** Where the title sits inside the outline's top left, and its height, in screen pixels. */
 const TITLE_INSET = 20
@@ -91,12 +91,12 @@ export function titleBox(outline: Rect): Rect {
 }
 
 /**
- * What a stage point is on of an outline: its line, rounded at the corners, within LINE_REACH
+ * What a stage point is on of an outline: its line, rounded at the corners, within OUTLINE_REACH
  * either side; inside it, past the line; or null outside it.
  */
 export function sectionHit(outline: Rect, p: Point): SectionPart | null {
   const away = roundedDistance(outline, p)
-  if (Math.abs(away) <= LINE_REACH) return 'line'
+  if (Math.abs(away) <= OUTLINE_REACH) return 'line'
   return away < 0 ? 'inside' : null
 }
 

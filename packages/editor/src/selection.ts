@@ -204,8 +204,9 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   let renaming: PickedItem | null = null
   /** The guide picked by a click on it; a layer selected or a frame picked lets it go. */
   let guide: PlacedGuide | null = null
-  /** The picked frame the frame listeners last heard of, and the picked section the section listeners did. */
+  /** The picked frame the frame listeners last heard of. */
   let lastPicked: string | null = null
+  /** The picked section the section listeners last heard of. */
   let lastSection: string | null = null
   /** Whether the picked frame was picked again since the frame listeners last heard. */
   let pickedAgain = false
@@ -244,6 +245,21 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   }
   function lastFrameOn(pageId: string) {
     return lastFrames.get(pageId) ?? null
+  }
+  function pickedItem() {
+    return picked
+  }
+  function pickedFrame() {
+    return pickedOf('frame')
+  }
+  function pickedSection() {
+    return pickedOf('section')
+  }
+  function renamingFrame() {
+    return renamingOf('frame')
+  }
+  function renamingSection() {
+    return renamingOf('section')
   }
   /** The picked page item's id while it is of `kind`, else null. */
   function pickedOf(kind: PickedItem['kind']) {
@@ -475,11 +491,11 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     current,
     entered: enteredGroup,
     lastFrameOn,
-    pickedItem: () => picked,
-    pickedFrame: () => pickedOf('frame'),
-    pickedSection: () => pickedOf('section'),
-    renamingFrame: () => renamingOf('frame'),
-    renamingSection: () => renamingOf('section'),
+    pickedItem,
+    pickedFrame,
+    pickedSection,
+    renamingFrame,
+    renamingSection,
     guide: () => guide,
     cropping: croppingLayer,
     pathEditing: editingPath,

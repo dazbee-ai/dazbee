@@ -20,7 +20,7 @@ export interface StageMenuOpen {
 /**
  * Picks what a right-click at a client point acts on, and gives the stage menu it opens: on a
  * section's title (`titled`, the section whose title is there) or outline line, the section's
- * actions, the section picked; on a layer,
+ * actions, the section picked, but to a tab that may only view Show hidden layers alone; on a layer,
  * the layer's actions, the layer selected; on a frame's empty area or on the name or size of its
  * label (`labelFrameId`, the frame whose label is there), the frame's actions, the frame picked;
  * outside every frame, Show hidden layers alone. Each offers Show hidden layers while the design has
@@ -36,6 +36,8 @@ export function rightClickAt(
   const sectionId = labelFrameId === undefined ? (titled ?? editor.sectionAt(client)) : null
   if (sectionId) {
     editor.pickSection(sectionId)
+    // A tab that may only view has no section actions: Show hidden layers alone, while offered.
+    if (editor.readOnly()) return hidden ? { at: client, on: 'canvas', frameId: null, layers: [], hidden } : null
     return { at: client, on: 'section', frameId: null, sectionId, layers: [], hidden }
   }
   const ids = labelFrameId === undefined ? editor.selectAt(client) : []

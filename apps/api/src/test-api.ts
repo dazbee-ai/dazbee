@@ -1,7 +1,7 @@
 // The API as its seam tests call it: the test database and storage, the WorkOS stand-in for sign-in and
 // invites, two workspaces with a WorkOS organization, a brand and an Owner each, an Admin, an Editor and a
 // Reviewer in the first, an Editor of both, `call` to ask the app as one of them in a workspace, `request` to
-// ask it at any path, `addWorkspace` and `addPerson` to make a team a test changes alone, and the upload
+// ask it at any path (or `requestOf` an app made with more of `appSettings`), `addWorkspace` and `addPerson` to make a team a test changes alone, and the upload
 // flow. A test file that imports it adds the workspaces before its tests and closes the database after them.
 import { randomUUID } from 'node:crypto'
 
@@ -89,7 +89,8 @@ export const storage = openStorage(
 )
 /** WorkOS for every test: a test file adds the people its codes sign in. */
 export const workos = fakeWorkos()
-export const app = createApp({
+/** The settings the tests' app is made with, for a test that makes one with more. */
+export const appSettings = {
   db,
   storage,
   sessionOf: tokenSession(sessionSecret),
@@ -97,7 +98,8 @@ export const app = createApp({
   build: 'test-build',
   signIn: { provider: workos.provider, secret: sessionSecret },
   invites: { workos: workos.invites, dev: null },
-})
+} satisfies Parameters<typeof createApp>[0]
+export const app = createApp(appSettings)
 
 /** How many people and workspaces `addPerson` and `addWorkspace` have made, which numbers the next. */
 let made = 0
@@ -155,9 +157,20 @@ export async function addPerson(roles: [workspaceId: string, role: MemberRole, b
 
 /** Asks the app as `as` (null for no session) at `path`. */
 export async function request(as: string | null, method: string, path: string, body?: unknown) {
+  return requestOf(app, as, method, path, body)
+}
+
+/** Asks `to`, an app made with `appSettings`, as `as` (null for no session) at `path`. */
+export async function requestOf(
+  to: ReturnType<typeof createApp>,
+  as: string | null,
+  method: string,
+  path: string,
+  body?: unknown,
+) {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (as) Object.assign(headers, authorization(as))
-  const response = await app.request(path, {
+  const response = await to.request(path, {
     method,
     headers,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),

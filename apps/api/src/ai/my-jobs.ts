@@ -1,0 +1,80 @@
+// The person's own flow jobs, for the note that names a design once its job ends: those running and those ended in
+// the last few minutes, with the design each fills, in workspaces and brands the person may still see.
+import { and, desc, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm'
+
+import { readJobs } from '@dazbee/ai'
+import { aiJobs, type Db, designs } from '@dazbee/db'
+import { FLOW_JOB_INPUTS, type FlowJobKind, type MyAiJob } from '@dazbee/schema'
+
+import { findAccess } from '../workspace/workspace.ts'
+
+/** How long an ended job stays among the person's jobs: 10 minutes. */
+const JUST_ENDED_MS = 10 * 60_000
+
+/** The most jobs given. */
+const MOST = 50
+
+/** The person's running and just-ended flow jobs, newest first, each with its design's name. */
+export async function myAiJobs(db: Db, userId: string): Promise<MyAiJob[]> {
+  const rows = await db
+    .select()
+    .from(aiJobs)
+    .where(
+      and(
+        eq(aiJobs.memberId, userId),
+        ne(aiJobs.kind, 'ai-steps'),
+        or(isNull(aiJobs.endedAt), gt(aiJobs.endedAt, new Date(Date.now() - JUST_ENDED_MS))),
+      ),
+    )
+    .orderBy(desc(aiJobs.createdAt))
+    .limit(MOST)
+  const placed = rows.flatMap((row) => {
+    if (row.kind === 'ai-steps') return []
+    const input = FLOW_JOB_INPUTS[row.kind as FlowJobKind].safeParse(row.input)
+    return input.success ? [{ row, brandId: input.data.brandId, designId: input.data.designId }] : []
+  })
+  const seen = new Map<string, string[] | null | false>()
+  for (const workspace of new Set(placed.map((p) => p.row.workspaceId))) {
+    const access = await findAccess(db, workspace, userId)
+    seen.set(workspace, access ? access.brandIds : false)
+  }
+  const visible = placed.filter(({ row, brandId }) => {
+    const brands = seen.get(row.workspaceId)
+    return brands === null || (Array.isArray(brands) && brands.includes(brandId))
+  })
+  if (visible.length === 0) return []
+  const named = await db
+    .select({ id: designs.id, workspaceId: designs.workspaceId, name: designs.name })
+    .from(designs)
+    .where(
+      inArray(
+        designs.id,
+        visible.map((v) => v.designId),
+      ),
+    )
+  const views = new Map<string, Awaited<ReturnType<typeof readJobs>>[number]>()
+  for (const workspace of new Set(visible.map((v) => v.row.workspaceId))) {
+    const ids = visible.filter((v) => v.row.workspaceId === workspace).map((v) => v.row.id)
+    for (const view of await readJobs(db, workspace, ids)) views.set(view.id, view)
+  }
+  return visible.flatMap(({ row, brandId, designId }): MyAiJob[] => {
+    const design = named.find((d) => d.id === designId && d.workspaceId === row.workspaceId)
+    const calls = views.get(row.id)?.calls ?? []
+    if (!design) return []
+    return [
+      {
+        id: row.id,
+        kind: row.kind,
+        state: row.state,
+        workspaceId: row.workspaceId,
+        brandId,
+        designId,
+        designName: design.name,
+        made: calls.filter((c) => c.state === 'done').length,
+        failed: calls.filter((c) => c.state === 'failed').length,
+        createdAt: row.createdAt.toISOString(),
+        endedAt: row.endedAt?.toISOString() ?? null,
+      },
+    ]
+  })
+}

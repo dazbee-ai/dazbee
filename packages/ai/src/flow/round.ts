@@ -93,7 +93,9 @@ export async function roundCalls(db: Db | Tx, input: RoundInput | MoreLikeThisIn
       ? { kind: 'reference', key: input.referenceKey, adKind: null }
       : null
   const steps = MODE_STEPS[input.mode]
-  const drafts = await Promise.all(Array.from({ length: DRAFTS }, (_, n) => draftCall(db, input, null, n)))
+  // One at a time, as `db` may be a transaction, whose queries run one after another.
+  const drafts: CallInput[] = []
+  for (let n = 0; n < DRAFTS; n++) drafts.push(await draftCall(db, input, null, n))
   return [
     ...(lead?.kind === 'reference'
       ? [{ step: 'flow.reference-read' as const, input: referenceReadCall(lead.key) }]

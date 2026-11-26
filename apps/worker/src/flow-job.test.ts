@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto'
 
 import { eq } from 'drizzle-orm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ensureQueue, readJob, saveJob, sweepJobs, useSeller } from '@dazbee/ai'
 import { testSeller } from '@dazbee/ai/test-sellers'
@@ -12,7 +12,18 @@ import type { RoundInput, RoundPlanAnswer } from '@dazbee/schema'
 import { originalKey } from '@dazbee/storage'
 
 import { startFlowWorker } from './flow-job.ts'
-import { db, expectSettled, memberOf, newBoss, newQueue, newSeller, storage, waitForJob } from './test-worker.ts'
+import {
+  callsOf,
+  db,
+  expectSettled,
+  jobRow,
+  memberOf,
+  newBoss,
+  newQueue,
+  newSeller,
+  storage,
+  waitForJob,
+} from './test-worker.ts'
 
 /** A plan of four ads. */
 const PLAN: RoundPlanAnswer = {
@@ -103,9 +114,20 @@ describe('startFlowWorker', () => {
     const boss = await newBoss()
     const flow = await startFlowWorker({ db, boss, storage, queue, callLimit: 8, sellers: [seller.seller] })
     const job = await save(who, queue, roundOf(who))
-    const done = await waitForJob(job, 'done')
+    const done = await vi.waitFor(
+      async () => {
+        const row = await jobRow(job)
+        if (!row.endedAt) throw new Error(`job ${job} is ${row.state}: ${JSON.stringify(await callsOf(job))}`)
+        return row
+      },
+      { timeout: 20_000, interval: 100 },
+    )
 
-    expect(done.output).toBeNull()
+    expect({ state: done.state, error: done.error, output: done.output }).toEqual({
+      state: 'done',
+      error: null,
+      output: null,
+    })
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     const pictures = calls.flatMap((c) => (c.state === 'done' && c.output.kind === 'pictures' ? c.output.pictures : []))
     expect(pictures).toHaveLength(4)

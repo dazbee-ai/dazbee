@@ -5,11 +5,13 @@ import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { asc, eq, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import pg from 'pg'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { MIGRATIONS, openDatabase } from './index.ts'
+import { callLogBefore } from './test-call-log-before.ts'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dazbee:dazbee-local@127.0.0.1:55432/dazbee'
 
@@ -407,7 +409,7 @@ describe('the migrations', () => {
       for (const table of WIPED) expect(await count(client, table), table).toBe(1)
       return kept(client)
     })
-    // Up to the wipe alone: a later migration drops the step and the two tables of models.
+    // Up to the wipe alone: a later migration requires each call's AI function and drops the two tables of models.
     await applyMigrations(url, await firstMigrations(at + 1))
     await withClient(url, async (client) => {
       for (const table of WIPED) expect(await count(client, table), table).toBe(0)
@@ -433,12 +435,12 @@ describe('the migrations', () => {
     })
   }, 60_000)
 
-  it('drop the call log’s step and the two tables of models, delete a call logged with no AI function or without its feature, keep the rest, and take the calls the build before logs', async () => {
-    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-model-tables-and-step-dropped'))
+  it('drop the two tables of models, delete a call logged with no AI function or without its feature, keep the rest, and take the insert and the whole-row read the build before sends, which name the call log’s step', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-model-tables-dropped'))
     expect(at).toBeGreaterThan(0)
     const url = await freshDatabase()
     await applyMigrations(url, await firstMigrations(at))
-    /** Logs a call as the build before does: under its AI feature, AI function, preset and kind, with no step. */
+    /** Writes a call-log row under its AI feature, AI function, preset and kind. */
     const log = (client: pg.Client, id: string, callIndex: number) =>
       client.query(
         `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, feature, function, preset, kind, settings, prompt_hash, model, seller)
@@ -481,31 +483,13 @@ describe('the migrations', () => {
       const columns = await client.query(
         `select column_name, is_nullable from information_schema.columns where table_name = 'ai_calls' and column_name in ('step', 'feature', 'function', 'preset', 'kind') order by column_name`,
       )
+      // The step stays, allowed to be empty, for the build before, which names it.
       expect(columns.rows).toEqual([
         { column_name: 'feature', is_nullable: 'NO' },
         { column_name: 'function', is_nullable: 'NO' },
         { column_name: 'kind', is_nullable: 'NO' },
         { column_name: 'preset', is_nullable: 'NO' },
-      ])
-      // The build before keeps running on it: its worker logs a call and ends it, its API reads a job's calls by
-      // AI function and the costs by AI feature and AI function, and its jobs read their picks.
-      await log(client, 'call-after', 2)
-      await client.query(
-        `update ai_calls set state = 'done', real_cost = 540000, charge_cost = 540000, ended_at = now() where id = 'call-after'`,
-      )
-      const read = await client.query(
-        `select call_index, function, state, error from ai_calls where job_id = 'job-kept' order by call_index, try`,
-      )
-      expect(read.rows).toEqual([
-        { call_index: 0, function: 'round-plan', state: 'running', error: null },
-        { call_index: 1, function: 'round-plan', state: 'running', error: null },
-        { call_index: 2, function: 'round-plan', state: 'done', error: null },
-      ])
-      const costs = await client.query(
-        `select coalesce(feature, '') as feature, coalesce(function, '') as function, model, seller, count(*)::int as calls from ai_calls group by feature, function, model, seller`,
-      )
-      expect(costs.rows).toEqual([
-        { feature: 'round', function: 'round-plan', model: 'gpt-6-luna', seller: 'openai', calls: 3 },
+        { column_name: 'step', is_nullable: 'YES' },
       ])
       const picks = await client.query(
         'select distinct on (function, mode) function, mode, preset from ai_picks order by function, mode, id desc',
@@ -513,6 +497,48 @@ describe('the migrations', () => {
       expect(picks.rows).toEqual([{ function: 'round-plan', mode: 'precise', preset: 'light-luna' }])
       expect(await readRows(client)).toEqual(expectedRows())
     })
+    // The build before keeps running on it. Its worker logs a try as it sends it, through its own declaration of
+    // the call log: the insert names every column it declares, `step` among them with `default`. It ends the try,
+    // and a whole-row read, which names `step` too, gives every call of the job.
+    const { db, close } = openDatabase(url, { max: 1 })
+    try {
+      const logged = db.insert(callLogBefore).values({
+        id: 'call-after',
+        jobId: 'job-kept',
+        workspaceId: 'workspace-kept',
+        callIndex: 2,
+        try: sql`(select coalesce(max(${callLogBefore.try}), 0) + 1 from ${callLogBefore} where ${callLogBefore.jobId} = ${'job-kept'} and ${callLogBefore.callIndex} = ${2})`,
+        attempt: 1,
+        feature: 'round',
+        function: 'round-plan',
+        preset: 'light-luna',
+        kind: 'text',
+        settings: { effort: 'low' },
+        promptHash: 'hash',
+        model: 'gpt-6-luna',
+        seller: 'openai',
+      })
+      expect(logged.toSQL().sql).toMatch(/"attempt", "step", "feature".* values \(.*, default, /)
+      await logged
+      await db
+        .update(callLogBefore)
+        .set({ state: 'done', realCost: 540_000n, chargeCost: 540_000n, endedAt: new Date() })
+        .where(eq(callLogBefore.id, 'call-after'))
+      const whole = db
+        .select()
+        .from(callLogBefore)
+        .where(eq(callLogBefore.jobId, 'job-kept'))
+        .orderBy(asc(callLogBefore.callIndex))
+      expect(whole.toSQL().sql).toContain('"step"')
+      const kept = { step: null, feature: 'round', function: 'round-plan', kind: 'text', try: 1 }
+      expect(await whole).toMatchObject([
+        { ...kept, id: 'call-kept-1', state: 'running' },
+        { ...kept, id: 'call-kept-2', state: 'running' },
+        { ...kept, id: 'call-after', state: 'done', realCost: 540_000n, settings: { effort: 'low' } },
+      ])
+    } finally {
+      await close()
+    }
   }, 60_000)
 
   // From the second migration on: each runs over rows written under the ones before it.

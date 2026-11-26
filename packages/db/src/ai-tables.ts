@@ -213,7 +213,8 @@ export const aiJobs = pgTable(
 /**
  * The call log: one row per try of an AI call, with what it cost the seller in millionths of its currency
  * (and the cost the seller reported, where it gives one), its real cost in millionths of a rupee, and the
- * real cost the workspace is charged (a fixed amount for the layer split). No prompt and no picture.
+ * real cost the workspace is charged (a fixed amount for the layer split). No prompt and no picture. The table
+ * has one more column, `step`, allowed to be empty, which nothing here names.
  */
 export const aiCalls = pgTable(
   'ai_calls',

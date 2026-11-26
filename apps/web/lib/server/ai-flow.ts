@@ -1,15 +1,18 @@
-// The API's calls for the AI flow in a design, from the web app's server only: starting a job, reading the design's
-// AI frames, and marking a call written into the design. The API refuses each to a Reviewer.
+// The API's calls for the AI flow, from the web app's server only: starting a job, reading a design's AI frames,
+// marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs. The
+// API refuses each but the last to a Reviewer.
 import 'server-only'
 
 import { z } from 'zod'
 
 import {
+  AiEstimate,
   type AiFrameWritten,
   type AiJobRefusal,
   AiJobRefused,
   AiJobStarted,
   DesignAi,
+  MyAiJob,
   type StartAiJob,
 } from '@dazbee/schema'
 
@@ -20,7 +23,7 @@ export type JobStart =
   { ok: true; started: AiJobStarted } | { ok: false; status: number; error: string; refusal: AiJobRefusal | null }
 
 /**
- * Starts a flow job on a design of the brand. A refusal comes back as it is: to save it (403, 409, 503 with why),
+ * Starts a flow job on the brand: on a design of it, or, for an image, on none. A refusal comes back as it is: to save it (403, 409, 503 with why),
  * or of what it names (400, 404, 409).
  */
 export async function startAiJob(workspaceId: string, brandId: string, job: StartAiJob): Promise<JobStart> {
@@ -53,6 +56,16 @@ export const markAiWritten = (
     method: 'POST',
     body: written,
   })
+
+/**
+ * How much of the workspace's AI an action takes and about how long, for the estimate's `query` as the API reads
+ * it: the action, with its mode, sizes and reference where it has them.
+ */
+export const aiEstimate = (workspaceId: string, brandId: string, query: URLSearchParams) =>
+  call(AiEstimate, `${brandRoot(workspaceId, brandId)}/ai/estimate?${query.toString()}`)
+
+/** The person's own running and just-ended AI jobs, in every workspace they are in. */
+export const myAiJobs = () => call(MyAiJob.array(), '/me/ai/jobs')
 
 /** The API's path of a design's AI frames. */
 function designAiPath(workspaceId: string, brandId: string, designId: string) {

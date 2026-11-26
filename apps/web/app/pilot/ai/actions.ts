@@ -74,7 +74,9 @@ export async function pickPreset(pick: {
   preset: string
   since: string | null
 }): Promise<string | null> {
-  return change(AiPickInput, pick, addAiPick)
+  return change(AiPickInput, pick, addAiPick, (refusal, t) =>
+    refusal.status === 409 ? t.aiFunctions.pickedMeanwhile : null,
+  )
 }
 
 export async function giveGift(workspaceId: string, gift: GiftInput): Promise<string | null> {
@@ -117,7 +119,9 @@ async function change<T extends z.ZodType>(
   revalidatePath(PILOT_AI_PATH)
   if (!refusal) return null
   const t = (await getMessages()).pilotAi
+  const explained = explain?.(refusal, t)
+  if (explained) return explained
   if (refusal.status === 404) return t.gone
   if (refusal.status === 409) return t.stale
-  return explain?.(refusal, t) ?? refusal.message
+  return refusal.message
 }

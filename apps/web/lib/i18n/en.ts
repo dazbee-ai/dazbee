@@ -366,6 +366,27 @@ export const en = {
       nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',
       close: 'Close brief',
     },
+    /** Make an image, in Assets: a few words and a ratio become an AI image among the brand's images. */
+    makeImage: {
+      label: 'Make an image',
+      placeholder: 'A background or a picture, in a few words',
+      ratios: 'Ratio',
+      square: 'Square',
+      wide: 'Wide',
+      tall: 'Tall',
+      make: 'Make an image',
+      starting: 'Starting…',
+      /** The button's tooltip: the image's share of the workspace's AI, and about how long it takes. */
+      estimate: 'About {percent}% of this month’s AI, about {seconds} s',
+      estimateUnder: 'Under 1% of this month’s AI, about {seconds} s',
+      estimateTime: 'About {seconds} s',
+      /** A tile of an image being made, and of one that didn't come out: what happened first, then its words. */
+      working: 'Making “{words}”',
+      failed: 'Didn’t come out, and you weren’t charged: “{words}”',
+      tryAgain: 'Try again',
+      notStarted: 'This image didn’t start. Try again.',
+      unknown: 'We couldn’t tell whether this image started. Look for it here in a minute before trying again.',
+    },
     /** A search that finds nothing: images, fonts, actions, or text on the page. */
     noMatch: { title: 'Nothing matches “{query}”', line: 'Try a shorter word.' },
     brandEmpty: 'This brand’s colours, fonts and logos will show here.',
@@ -1753,6 +1774,7 @@ export const en = {
       refine: 'Refine with AI',
       resize: 'Other sizes',
       layering: 'Make editable',
+      image: 'Make an image',
       calls: 'Bill checks and trials',
     },
     /** Each AI function by what it does. */
@@ -1766,6 +1788,7 @@ export const en = {
       'layer-plan': 'Layer plan',
       'layer-split': 'Layer split',
       reading: 'Reading',
+      image: 'Image',
     },
     units: {
       'input-token': 'Input tokens',
@@ -1864,8 +1887,9 @@ export const en = {
      */
     aiFunctions: {
       title: 'AI functions',
-      hint: 'Each AI function’s presets, as the code has them, with what each preset’s own calls measured: the cost and the seconds are the ones a job’s hold and its wait are worked out from. Use points a mode at a preset from the next job on; a job already asked for keeps its own. The layer split is held at its fixed amount in Settings.',
-      kinds: { text: 'Text', picture: 'Picture', 'layer-split': 'Layer split' },
+      hint: 'Each AI function’s presets, as the code has them, with what each preset’s own calls measured; calls answered from a recording are not counted. The cost and the time of a call are the ones a job’s hold and its wait are worked out from. First guess marks the cost and the time of a preset with no done call yet: they are the guess the code gives it, not measured. Use points a mode at a preset from the next job on; a job already asked for keeps its own. The layer split is held at its fixed amount in Settings.',
+      /** The kind of model each kind of AI call runs on. */
+      kinds: { text: 'Text model', picture: 'Picture model', 'layer-split': 'GPU model' },
       /** The modes a pick is for; an AI function no mode changes is picked for every mode at once. */
       modes: { fast: 'Fast', precise: 'Precise', every: 'Every mode' },
       presetsOf: 'Presets of {function}',
@@ -1878,14 +1902,13 @@ export const en = {
       noOwnPrompt: 'No',
       done: 'Done calls',
       cost: 'Cost of a call, ₹',
-      seconds: 'Seconds a call',
+      seconds: 'Time of a call, s',
       cutOffs: 'Cut off',
       failures: 'Failed',
-      /** A preset with no done call yet. */
+      /** The cost and the time of a preset with no done call yet. */
       firstGuess: 'First guess',
-      firstGuessHint:
-        'No call of this preset is done yet, so its cost and seconds are the first guess the code gives it.',
-      usedBy: 'Used by',
+      usedBy: 'Used by:',
+      usedByNone: 'no mode',
       usesPicked: '{mode}, picked',
       usesCode: '{mode}, the code’s choice',
       use: 'Use for {mode}',
@@ -1897,6 +1920,9 @@ export const en = {
       history: 'Picks, newest first ({count})',
       picksOf: 'Picks of {function}',
       noPicks: 'No picks yet: the code’s own choice runs.',
+      /** A pick another admin's pick for the same AI function and mode came before. */
+      pickedMeanwhile:
+        'A pick was made for this mode meanwhile, so this one was not added. The page shows the newest; pick again if it is not what you want.',
       when: 'When',
       mode: 'Mode',
       by: 'Picked by',
@@ -1909,6 +1935,7 @@ export const en = {
       totals: 'These days in all',
       byDay: 'By day',
       day: 'Day',
+      feature: 'AI feature',
       function: 'AI function',
       preset: 'Preset',
       model: 'Model',

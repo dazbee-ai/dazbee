@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { aiCalls, newId } from '@dazbee/db'
 import type { CallState } from '@dazbee/schema'
 
-import { CUT_OFF } from './call-log.ts'
+import { CUT_OFF, RESUMED } from './call-log.ts'
 import type { Preset } from './functions/types.ts'
 import { presetMeasured, presetNumbers } from './measured.ts'
 import { addJob, db, newWorkspace } from './test-ai.ts'
@@ -134,6 +134,8 @@ describe('presetMeasured', () => {
       { cost: 1_000_000n, seconds: 3, state: 'failed', error: CUT_OFF },
       { cost: 0n, seconds: 1, state: 'failed', error: 'refused: 400' },
       { cost: 0n, seconds: 1, state: 'failed' },
+      // A try whose request a later try took over is no failure.
+      { cost: 0n, seconds: 1, state: 'failed', error: RESUMED },
       { cost: 0n, seconds: 1, state: 'unknown' },
       { cost: 0n, seconds: 1, state: 'running' },
     ])

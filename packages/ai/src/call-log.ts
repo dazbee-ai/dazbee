@@ -14,6 +14,12 @@ import type { SellerCutOff } from './sellers/seller.ts'
 export const CUT_OFF = 'cut off at its ceiling'
 
 /**
+ * The error an earlier try is logged with once a later try takes its request over: the request goes on under the
+ * later try, so the admin page counts it as no failure.
+ */
+export const RESUMED = 'resumed by a later try'
+
+/**
  * Takes the earlier try's request over for the new try `row`: the new row keeps its request id, and the earlier
  * row is marked failed, so the one request is logged once. Gives the request id to resume.
  */
@@ -22,7 +28,7 @@ export async function resumeTry(db: Db, resume: { row: string; requestId: string
     await tx.update(aiCalls).set({ sellerRequestId: resume.requestId }).where(eq(aiCalls.id, row))
     await tx
       .update(aiCalls)
-      .set({ state: 'failed', error: 'resumed by a later try', endedAt: new Date() })
+      .set({ state: 'failed', error: RESUMED, endedAt: new Date() })
       .where(eq(aiCalls.id, resume.row))
   })
   return resume.requestId

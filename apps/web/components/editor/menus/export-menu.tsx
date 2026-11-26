@@ -1,10 +1,10 @@
 'use client'
 
-// Export: the frames of one page, each with a tick, all ticked at first, as PNG, JPG, WebP, PDF or
-// SVG, the first three at 1x, 2x or 3x; the editor's export worker draws them while the stage stays
-// responsive. Each frame is listed by its own name, then, muted, the number its file takes where
-// frames share a name; a row under the pointer or with the keyboard focus lights its frame on the
-// canvas. One file downloads as itself, more as one zip.
+// Export: the frames of one page, each with a tick, the page's starred frames ticked at first, or
+// every frame when none is starred, as PNG, JPG, WebP, PDF or SVG, the first three at 1x, 2x or 3x;
+// the editor's export worker draws them while the stage stays responsive. The frames are listed
+// under their sections' titles (`export-frame-list.tsx`), and the ticked ones export in that order.
+// One file downloads as itself, more as one zip.
 import { useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -16,7 +16,6 @@ import {
   type ExportScale,
   ExportType,
   type Frame,
-  framesOf,
   inOrder,
   isRasterExport,
   numberedFrameNames,
@@ -25,7 +24,8 @@ import {
 import { NumberField } from '@/components/editor/edit-panel/number-field.tsx'
 import { useShownPage } from '@/components/editor/editor-hooks.ts'
 import { ExportCheck } from '@/components/editor/menus/export-check.tsx'
-import { ExportFrameList, type Ticked } from '@/components/editor/menus/export-frame-list.tsx'
+import { ExportFrameList } from '@/components/editor/menus/export-frame-list.tsx'
+import { exportGroups, firstTicks, shownOrder, type Ticked } from '@/components/editor/menus/export-ticks.ts'
 import { FIELD, FIELD_LABEL } from '@/components/editor/styles.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { SEGMENT, SEGMENTS, TOUCH_FIELD } from '@/components/ui/looks.ts'
@@ -59,8 +59,9 @@ function download(name: string, type: string, bytes: Uint8Array<ArrayBuffer>) {
 }
 
 /**
- * The export form, opened from the Share menu with every frame of the shown page ticked, or from a
- * picked frame's ⋯ with `asked`, its frame, ticked alone.
+ * The export form, opened from the Share menu with the shown page's first ticks (`firstTicks`), or
+ * from a picked frame's ⋯ with `asked`, its frame, ticked alone. Another page, picked here or shown
+ * on the canvas, starts with its own first ticks.
  */
 export function ExportForm({
   id,
@@ -80,7 +81,11 @@ export function ExportForm({
   const shown = useShownPage(editor)
   const [chosen, setChosen] = useState<string | null>(() => (asked?.[0] && design.frames[asked[0]]?.pageId) || null)
   const thisPage = chosen && Object.hasOwn(design.pages, chosen) ? chosen : shown
-  const [ticked, setTicked] = useState<Ticked>(() => (asked ? new Set(asked) : 'all'))
+  const [ticks, setTicks] = useState<{ pageId: string; ticked: Ticked }>(() => ({
+    pageId: thisPage,
+    ticked: asked ? new Set(asked) : firstTicks(design, thisPage),
+  }))
+  const ticked = ticks.pageId === thisPage ? ticks.ticked : firstTicks(design, thisPage)
   const [name, setName] = useState(DEFAULT_EXPORT_NAME)
   const [type, setType] = useState<ExportType>('png')
   const [quality, setQuality] = useState(90)
@@ -88,13 +93,12 @@ export function ExportForm({
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // The page's frames in its order, each by its numbered name; the ticked ones are exported, in that order.
-  const frames = framesOf(design, thisPage)
+  // The page's frames as the list shows them, each by its numbered name; the ticked ones are exported, in that order.
+  const groups = exportGroups(design, thisPage)
   const names = numberedFrameNames(design, thisPage)
   const isTicked = (frameId: string) => ticked === 'all' || ticked.has(frameId)
-  const frameIds = frames.filter(([frameId]) => isTicked(frameId)).map(([frameId]) => frameId)
+  const frameIds = shownOrder(groups).filter(isTicked)
   const count = frameIds.length
-  const allTicked = count === frames.length ? true : count === 0 ? false : 'mixed'
   const raster = isRasterExport(type)
   // Ticked frames too big to draw as an image at this scale: Export waits until they fit. Those too
   // big at 1x too are named alone, as only a PDF or an SVG takes them.
@@ -118,13 +122,15 @@ export function ExportForm({
 
   const choosePage = (pageId: string) => {
     setChosen(pageId)
-    setTicked('all')
+    setTicks({ pageId, ticked: firstTicks(design, pageId) })
   }
-  const tick = (frameId: string, on: boolean) => {
+  const tick = (ids: readonly string[], on: boolean) => {
     const next = new Set(frameIds)
-    if (on) next.add(frameId)
-    else next.delete(frameId)
-    setTicked(next)
+    for (const frameId of ids) {
+      if (on) next.add(frameId)
+      else next.delete(frameId)
+    }
+    setTicks({ pageId: thisPage, ticked: next })
   }
 
   const run = async () => {
@@ -176,12 +182,11 @@ export function ExportForm({
         </span>
         <ExportFrameList
           editor={editor}
-          frames={frames}
+          groups={groups}
           names={names}
           isTicked={isTicked}
-          allTicked={allTicked}
-          setTicked={setTicked}
-          tick={tick}
+          onTickAll={(on) => setTicks({ pageId: thisPage, ticked: on ? 'all' : new Set() })}
+          onTick={tick}
         />
       </div>
 

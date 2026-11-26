@@ -2,9 +2,9 @@
 
 // A frame's actions, one list for the picked frame's ⋯ in the edit panel's header and the right-click
 // menu on the frame: Duplicate, Add size ▸, which opens the Add size card in the panel's place,
-// Rename, Export, which opens the Share menu's Export with this frame ticked alone, Copy as PNG,
-// Remove guides while the frame has guides, and Delete, the last after a line and in the danger
-// colour. A tab that may only view keeps Export and Copy as PNG alone (C35).
+// Rename, Star or Unstar, Export, which opens the Share menu's Export with this frame ticked alone,
+// Copy as PNG, Remove guides while the frame has guides, and Delete, the last after a line and in
+// the danger colour. A tab that may only view keeps Export and Copy as PNG alone (C35).
 import type { RefObject } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -35,6 +35,7 @@ export function FrameActions({
   const f = t.editor.frames
   const viewOnly = useViewOnly()
   const from = () => opener?.current ?? null
+  const starred = design.frames[frameId]?.starred === true
   return (
     <>
       {!viewOnly && (
@@ -54,6 +55,13 @@ export function FrameActions({
             setRenameOpener(from())
             editor.renameFrame(frameId)
           }}
+        />
+      )}
+      {!viewOnly && (
+        <MenuItem
+          action="star"
+          label={starred ? f.unstar : f.star}
+          onSelect={() => editor.session.run('frame.update', { frameId, starred: !starred })}
         />
       )}
       <MenuItem action="export" label={f.export} onSelect={() => askExport([frameId], from())} />

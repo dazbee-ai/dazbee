@@ -208,6 +208,8 @@
   --enter: 220ms;
   /* The final mock's pop: a slight overshoot as a menu or a toast lands. */
   --ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
+  /* A starred frame's star, by its name on the stage and on its row in Export, in either theme. */
+  --star: #e0a400;
 }
 
 @theme inline {
@@ -236,6 +238,7 @@
   --color-text-selected-strong: var(--text-selected-strong);
   --color-text-selected: var(--text-selected);
   --color-accent-2: var(--accent-2);
+  --color-star: var(--star);
   --color-danger: var(--danger);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);

@@ -22,6 +22,7 @@ import { FrameRename } from '@/components/editor/frame-rename.tsx'
 import { HiddenShownPill } from '@/components/editor/hidden-shown-pill.tsx'
 import type { FrameTool } from '@/components/editor/menus/frame-menu.tsx'
 import { HistoryButtons } from '@/components/editor/menus/history-buttons.tsx'
+import type { SelectTool } from '@/components/editor/menus/select-menu.tsx'
 import { ShareMenu } from '@/components/editor/menus/share-menu.tsx'
 import { SmallMenu } from '@/components/editor/menus/small-menu.tsx'
 import { StageMenu } from '@/components/editor/menus/stage-menu.tsx'
@@ -191,12 +192,14 @@ export function EditorStage({
   const [tool, setEditorTool] = useState<Tool>('select')
   const [shape, setShape] = useState<ShapeMenuTool>('rect')
   const [frameTool, setFrameTool] = useState<FrameTool>('frame')
+  const [selectTool, setSelectTool] = useState<SelectTool>('select')
   useEffect(() => {
     if (!editor) return
     const stop = editor.onTool((next) => {
       setEditorTool(next)
       if (isShapeMenuTool(next)) setShape(next)
       if (next === 'frame' || next === 'section') setFrameTool(next)
+      if (next === 'select' || next === 'hand') setSelectTool(next)
     })
     return () => {
       stop()
@@ -362,6 +365,7 @@ export function EditorStage({
         tool={dockTool}
         shape={shape}
         frameTool={frameTool}
+        selectTool={selectTool}
         onToolChange={(tool, picked) => {
           setShape(picked)
           editor?.setTool(tool === 'shape' ? picked : tool)

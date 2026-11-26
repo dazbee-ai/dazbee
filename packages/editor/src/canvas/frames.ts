@@ -15,6 +15,8 @@ export interface Frame {
   y: number
   width: number
   height: number
+  /** Starred as ready to go out; left out while it is not. */
+  starred?: true | undefined
 }
 /** A frame with a picture drawn in its design pixels: its own, or the picture of what a drag carries in it. */
 export interface FramePicture {
@@ -78,7 +80,15 @@ export function labelBox(frame: Frame, camera: Camera): Rect | null {
   return { x, y: at.y - LABEL_GAP - LABEL_HEIGHT, width, height: LABEL_HEIGHT }
 }
 
+/** The frame whose label's row holds a stage point: the last of those there; none off every label. */
+export function labelAt(frames: readonly Frame[], camera: Camera, p: Point): Frame | undefined {
+  return frames.findLast((frame) => {
+    const box = labelBox(frame, camera)
+    return box !== null && p.x >= box.x && p.x <= box.x + box.width && p.y >= box.y && p.y <= box.y + box.height
+  })
+}
+
 function canvasFrame(id: string, stored: Design['frames'][string]): Frame {
-  const { pageId, name, x, y, width, height } = stored
-  return { id, pageId, name, x, y, width, height }
+  const { pageId, name, x, y, width, height, starred } = stored
+  return { id, pageId, name, x, y, width, height, ...(starred && { starred }) }
 }

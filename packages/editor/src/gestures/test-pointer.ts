@@ -236,6 +236,9 @@ export function harness(
       release: (marquee, clicked) =>
         log.push(`release press${marquee ? ' marquee' : ''}${clicked ? '' : ' after a drag'}`),
       cancel: () => log.push('cancel press'),
+      // No label offers its star: the select press's own tests follow the hover.
+      hoverStar: () => false,
+      starOffered: () => null,
       // As the press: off a handle and within the first 500 pixels across, a press moves the selection.
       dragAt: (screen, grabbed) => (selection.current() && !grabbed && screen.x <= 500 ? 'move' : null),
     },

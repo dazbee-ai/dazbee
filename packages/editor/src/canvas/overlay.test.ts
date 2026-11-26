@@ -74,12 +74,12 @@ describe('editorOverlay', () => {
       expect(part('presence-frame')?.style).toMatchObject({ color: '#9747FF', width: '1080px' })
     })
 
-    it('outlines the picked frame after the labels, its own label lit', () => {
+    it("draws the picked frame's part after the labels, its own label lit and marked picked", () => {
       const { overlay, drawn, part } = harness({ selected: false, picked: true })
       overlay.draw()
       expect(drawn().slice(0, 3)).toEqual(['frame-label', 'frame-picked', 'hover'])
       expect(part('frame-picked')?.dataset).toEqual({ frame: 'one-sq' })
-      expect(part('frame-label')?.dataset).toEqual({ frame: 'one-sq', active: '' })
+      expect(part('frame-label')?.dataset).toEqual({ frame: 'one-sq', active: '', picked: '' })
     })
 
     it('outlines the frame lit from outside the stage round the whole of it, after the labels, its own label lit', () => {
@@ -149,7 +149,7 @@ describe('editorOverlay', () => {
       expect(label?.dataset).toEqual({ frame: 'one-sq', active: '' })
       expect(label?.style).toEqual({ left: '8px', top: '76px', width: '1072px' })
       expect(label?.children.map((c) => `${c.className} ${c.textContent}`)).toEqual([
-        'frame-name Sale',
+        'frame-title ',
         'frame-size 1080 × 1080',
       ])
     })
@@ -158,7 +158,7 @@ describe('editorOverlay', () => {
       for (const zoom of [0.1, 0.02]) {
         const { overlay, part } = harness({ zoom })
         overlay.draw()
-        expect(part('frame-label')?.children.map((c) => `${c.className} ${c.textContent}`)).toEqual(['frame-name Sale'])
+        expect(part('frame-label')?.children.map((c) => c.className)).toEqual(['frame-title'])
       }
     })
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { DesignInput } from '@dazbee/schema'
 
-import type { Frame } from '../../canvas/frames.ts'
+import { type Frame, pageFrames } from '../../canvas/frames.ts'
 import { sessionOf } from '../../layers/test-boxes.ts'
 import { editorFrameMove } from './frame-move.ts'
 
@@ -30,7 +30,12 @@ const SQUARE: Frame = { id: 'sq', pageId: 'p1', name: 'Square', x: 0, y: 0, widt
 /** The frame moves on a real session, with where a frame is now. */
 function harness() {
   const session = sessionOf(DESIGN)
-  const { start, drag, release } = editorFrameMove({ session })
+  const view = {
+    camera: () => ({ x: 0, y: 0, zoom: 1 }),
+    design: () => session.design(),
+    frames: () => pageFrames(session.design(), 'p1').frames,
+  }
+  const { start, drag, release } = editorFrameMove({ session, view })
   const where = (id: string) => {
     const frame = session.design().frames[id]
     return frame && { x: frame.x, y: frame.y }
@@ -47,6 +52,9 @@ describe('editorFrameMove', () => {
         frame: SQUARE,
         from: { x: 40, y: 40 },
         step: null,
+        own: null,
+        stays: false,
+        target: null,
       })
       expect(session.canUndo()).toBe(false)
     })

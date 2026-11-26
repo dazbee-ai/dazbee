@@ -160,6 +160,7 @@ function live(
   const {
     transformDrag,
     frameResize,
+    frameMove,
     autoLayoutDrag,
     place,
     pngCopy,
@@ -195,6 +196,7 @@ function live(
     autoLayoutDrag,
     frameResize,
     place,
+    frameMove,
     pointer,
     colourPick,
     guideDrag,

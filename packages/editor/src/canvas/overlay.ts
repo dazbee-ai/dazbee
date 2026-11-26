@@ -1,4 +1,4 @@
-// The overlay over the stage: the frame labels, the safe zones, the picked frame with its handles,
+// The overlay over the stage: the sections' titles, the frame labels, the safe zones, the picked frame with its handles,
 // the frame lit from outside the stage, the guides, the dashed outlines of the hidden layers while
 // they are shown, the outlines of the group gone into, the hovered layer and the drop target, the
 // other people's selections, the dashed outlines of the selected layers' linked copies, what Alt
@@ -25,6 +25,7 @@ import type { EditorPointer } from '../gestures/pointer.ts'
 import type { EditorAutoLayoutDrag } from '../gestures/select/auto-layout-drag.ts'
 import { flowParts } from '../gestures/select/auto-layout-drag-parts.ts'
 import { dragParts } from '../gestures/select/drag-parts.ts'
+import type { EditorFrameMove } from '../gestures/select/frame-move.ts'
 import type { EditorFrameResize } from '../gestures/select/frame-resize.ts'
 import { radiusDotParts, type RadiusPillParts, radiusPillParts } from '../gestures/select/radius-drag-parts.ts'
 import type { EditorTransformDrag } from '../gestures/select/transform-drag.ts'
@@ -44,6 +45,7 @@ import { presenceParts } from './presence-parts.ts'
 import { px, rulerParts } from './rulers.ts'
 import { safeZoneParts } from './safe-zone-parts.ts'
 import { type FrameScenes, hiddenLayersIn } from './scenes.ts'
+import { sectionTitleParts } from './section-parts.ts'
 import type { EditorView } from './view.ts'
 
 export interface OverlayDeps {
@@ -62,6 +64,8 @@ export interface OverlayDeps {
     | 'litFrame'
     | 'litLayer'
     | 'renamingFrame'
+    | 'pickedSection'
+    | 'renamingSection'
     | 'cropping'
     | 'pathEditing'
     | 'constraintsShown'
@@ -80,6 +84,8 @@ export interface OverlayDeps {
   /** The frame that shows handles: the picked frame, when a press on them would resize it. */
   frameResize: Pick<EditorFrameResize, 'handled'>
   place: Pick<EditorPlace, 'dropTarget'>
+  /** The sections as the stage shows them, whose titles it draws. */
+  frameMove: Pick<EditorFrameMove, 'shownSections'>
   pointer: Pick<EditorPointer, 'gesture' | 'measured' | 'pointerAt'>
   colourPick: Pick<EditorColourPick, 'shown'>
   guideDrag: Pick<EditorGuideDrag, 'shown' | 'rulerFrame'>
@@ -126,6 +132,7 @@ export function editorOverlay({
   autoLayoutDrag,
   frameResize,
   place,
+  frameMove,
   pointer,
   colourPick,
   guideDrag,
@@ -443,7 +450,11 @@ export function editorOverlay({
 
   function drawOverlay() {
     const gesture = pointer.gesture()
-    const parts: Element[] = []
+    const parts: Element[] = sectionTitleParts(frameMove.shownSections(gesture), {
+      picked: selection.pickedSection(),
+      renaming: selection.renamingSection(),
+      stage: view.viewport(),
+    })
     for (const frame of view.inView()) {
       const label = frameLabel(frame, { selection, typing, camera: view.camera() })
       if (label) parts.push(label)

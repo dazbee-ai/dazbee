@@ -375,6 +375,7 @@ export function harness(penDrawing = false, design = DESIGN) {
     frameName: (width, height) => `Size ${width}×${height}`,
     selection,
     typing: { fitText: () => {} },
+    rename: (item) => log.push(`rename ${item.kind} ${item.id}`),
     shownChanged: () => log.push('overlay'),
   })
   const deps: ActionsDeps = {

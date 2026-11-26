@@ -3,7 +3,15 @@
 // tool becomes, built in the code layout's order on what it is handed, with no browser. The page's
 // side, `editor.ts`, builds the shell on its modules; a test opens it in Node.
 import { derivedValues, frameIdOf, openSession, type Session } from '@dazbee/doc'
-import type { Design, Point, SafeZoneChoice, ValueKind, VariableRef, Variables } from '@dazbee/schema'
+import {
+  type Design,
+  type Point,
+  type SafeZoneChoice,
+  sectionBox,
+  type ValueKind,
+  type VariableRef,
+  type Variables,
+} from '@dazbee/schema'
 
 import { toggled } from './across-frames.ts'
 import { editorActionReady } from './action-ready.ts'
@@ -12,6 +20,7 @@ import { editorBrandKit } from './brand-kit.ts'
 import { frameIn } from './canvas/frames.ts'
 import { editorRedraw } from './canvas/redraw.ts'
 import { frameScenes } from './canvas/scenes.ts'
+import { sectionAt as lineAt, titleBox } from './canvas/sections.ts'
 import { thumbnailCache } from './canvas/thumbnails.ts'
 import { editorView, hiddenToggles, type Spot } from './canvas/view.ts'
 import type { CoreStart, DrawInfo, EditorBase, EditorCore, NoticeDetail, TabAccess } from './core-interface.ts'
@@ -32,6 +41,7 @@ import { editorPointer } from './gestures/pointer.ts'
 import { editorAutoLayoutDrag } from './gestures/select/auto-layout-drag.ts'
 import { editorFrameMove } from './gestures/select/frame-move.ts'
 import { editorFrameResize } from './gestures/select/frame-resize.ts'
+import { editorSectionMove } from './gestures/select/section-move.ts'
 import { editorSelectPress } from './gestures/select/select-press.ts'
 import { editorTransformDrag } from './gestures/select/transform-drag.ts'
 import { editorKeys } from './keys.ts'
@@ -53,7 +63,7 @@ import { editorPresence } from './presence.ts'
 import { editorReach } from './reach.ts'
 import { editorResources } from './resources.ts'
 import { editorRestore } from './restore.ts'
-import { editorSelection, firstFrameOf, idsOf, type Picked, selectInto } from './selection.ts'
+import { editorSelection, firstFrameOf, idsOf, type Picked, type PickedItem, selectInto } from './selection.ts'
 import { type StageAction, stepOf } from './shortcuts.ts'
 import { editorFindReplace } from './text/find-replace.ts'
 import { editorFitText } from './text/fit-text.ts'
@@ -115,6 +125,8 @@ export function buildCore({
   const draws = listenerSet<[design: Design, at: number, info: DrawInfo]>()
   /** Told of a frame to rename in place: its label was double-clicked, or the page asked. */
   const frameRenames = listenerSet<[frameId: string]>()
+  /** Told of a section to rename in place: its title was double-clicked, made with the Section tool, or the page asked. */
+  const sectionRenames = listenerSet<[sectionId: string]>()
 
   // Layer 2: the state owners.
   const session: Session = openSession(store, { readOnly: access.readOnly })
@@ -235,8 +247,11 @@ export function buildCore({
     frameName: options.frameName,
     selection,
     typing,
+    rename: renameItem,
     shownChanged,
   })
+  const frameMove = editorFrameMove({ session, view })
+  const sectionMove = editorSectionMove({ session })
   const drawing = editorDrawing({
     hold: hold.hold,
     session,
@@ -245,9 +260,14 @@ export function buildCore({
     typing,
     boxes,
     page: view.page,
+    frames,
+    camera,
+    frameMove,
     frameName: options.frameName,
     frameActions,
     hug,
+    notify: notices.emit,
+    renameSection: (sectionId: string) => pickSection(sectionId, true),
     shownChanged,
   })
   const autoLayoutDrag = editorAutoLayoutDrag({
@@ -278,7 +298,6 @@ export function buildCore({
     radiusLabel: options.radiusLabel,
     shownChanged,
   })
-  const frameMove = editorFrameMove({ session })
   const frameResize = editorFrameResize({
     hold: hold.hold,
     session,
@@ -292,6 +311,7 @@ export function buildCore({
   })
   const selectPress = editorSelectPress({
     hold: hold.hold,
+    session,
     view,
     selection,
     boxes,
@@ -299,6 +319,7 @@ export function buildCore({
     transformDrag,
     autoLayoutDrag,
     frameMove,
+    sectionMove,
     frameResize,
     onMac,
   })
@@ -478,10 +499,12 @@ export function buildCore({
     transformDrag,
     autoLayoutDrag,
     frameResize,
+    sectionMove,
     guideDrag,
     selectPress,
     colourPick,
     renameFrame: (frameId: string) => pickFrame(frameId, true),
+    renameSection: (sectionId: string) => pickSection(sectionId, true),
     onMac,
     shownChanged,
   })
@@ -493,6 +516,7 @@ export function buildCore({
     selection,
     typing,
     pointer,
+    sections: () => frameMove.shownSections(pointer.gesture()),
     leftOut,
     report: draws.emit,
   })
@@ -660,6 +684,42 @@ export function buildCore({
     selection.renameFrame(shown.id)
     frameRenames.emit(shown.id)
   }
+  /**
+   * Picks a section of the shown page, ending typing, and with `rename` asks the page to rename it
+   * in place of its title, which the overlay leaves out meanwhile. A tab that may only view picks it
+   * and renames nothing.
+   */
+  function pickSection(sectionId: string | null, rename = false) {
+    if (sectionId !== null) typing.stop()
+    if (sectionId === null || !rename || access.readOnly()) return selection.pickSection(sectionId)
+    selection.renameSection(sectionId)
+    sectionRenames.emit(sectionId)
+  }
+  /** Asks the page to rename a picked page item in place, as F2 does. */
+  function renameItem(item: PickedItem) {
+    if (item.kind === 'frame') renameFrame(item.id)
+    else if (item.kind === 'section') pickSection(item.id, true)
+  }
+  /** The drawn sections' outlines on the stage now. */
+  function outlines() {
+    return frameMove.shownSections(null).outlines
+  }
+  function titleRect(sectionId: string) {
+    const outline = outlines().find((o) => o.id === sectionId)
+    return outline ? titleBox(outline.box) : null
+  }
+  function sectionAt(stage: Point) {
+    return lineAt(outlines(), stage, ['line'])?.id ?? null
+  }
+  /** Fits a drawn section's frames in view, showing its page first when another is shown. */
+  function fitSection(sectionId: string) {
+    const now = session.design()
+    const box = sectionBox(now, sectionId)
+    const pageId = Object.hasOwn(now.sections, sectionId) ? now.sections[sectionId]?.pageId : undefined
+    if (!box || pageId === undefined) return
+    if (pageId !== view.page()) showPage(pageId)
+    view.fitArea(box)
+  }
   /** Lights a frame from outside the stage, or none, and shows it. */
   function lightFrame(frameId: string | null) {
     if (selection.lightFrame(frameId)) shownChanged()
@@ -821,6 +881,13 @@ export function buildCore({
     pickedFrame: () => selection.pickedFrame(),
     pickFrame: (frameId: string | null) => pickFrame(frameId),
     onFramePick: (listener: (frameId: string | null) => void) => selection.onFramePick(listener),
+    pickedSection: () => selection.pickedSection(),
+    pickSection: (sectionId: string | null) => pickSection(sectionId),
+    onSectionPick: (listener: (sectionId: string | null) => void) => selection.onSectionPick(listener),
+    renameSection: (sectionId: string) => pickSection(sectionId, true),
+    onSectionRename: sectionRenames.on,
+    titleRect,
+    sectionAt,
     lightFrame,
     lightLayer,
     showConstraints,
@@ -856,6 +923,7 @@ export function buildCore({
     fitAll: view.fitAll,
     fitSelection: actions.fitSelection,
     fitFrame,
+    fitSection,
     setTool: (next: Tool) => tools.setTool(next),
     tool: () => tools.tool(),
     armImage: (asset: PlacedAsset | null) => {
@@ -965,6 +1033,7 @@ export function buildCore({
       autoLayoutDrag,
       transformDrag,
       frameResize,
+      frameMove,
       cropping,
       place,
       pngCopy,

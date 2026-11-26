@@ -1,6 +1,6 @@
-// A press on the stage with a drawing tool: the Frame tool, a shape, the image armed from Assets, the
-// pen and the text tool each start what they draw; the Select and Hand tools leave the press to the
-// pointer.
+// A press on the stage with a drawing tool: the Frame and Section tools, a shape, the image armed
+// from Assets, the pen and the text tool each start what they draw; the Select and Hand tools leave
+// the press to the pointer.
 import type { Point } from '@dazbee/schema'
 
 import { toWorld } from '../../canvas/camera.ts'
@@ -16,7 +16,7 @@ import type { DrawingDrag, EditorDrawing } from './drawing.ts'
 export interface ToolPressDeps {
   view: Pick<EditorView, 'camera'>
   tools: Pick<EditorTools, 'tool' | 'setTool' | 'imageToPlace'>
-  drawing: Pick<EditorDrawing, 'pressShape' | 'pressImage' | 'pressText' | 'pressFrame'>
+  drawing: Pick<EditorDrawing, 'pressShape' | 'pressImage' | 'pressText' | 'pressFrame' | 'pressSection'>
   pen: Pick<EditorPen, 'down'>
 }
 
@@ -31,10 +31,11 @@ export function toolPress(
   { view, tools, drawing, pen }: ToolPressDeps,
 ): { drag: DrawingDrag | null } | null {
   const tool = tools.tool()
-  // The Frame tool draws a frame anywhere on the stage, not only on a frame.
+  // The Frame tool draws a frame anywhere on the stage, not only on a frame, and so does the Section tool its box.
   if (tool === 'frame') {
     return { drag: drawing.pressFrame(e, toWorld(view.camera(), screen)) }
   }
+  if (tool === 'section') return { drag: drawing.pressSection(e, toWorld(view.camera(), screen)) }
   if (isDrawTool(tool)) {
     const drag = at && drawing.pressShape(e, tool, at)
     return { drag }

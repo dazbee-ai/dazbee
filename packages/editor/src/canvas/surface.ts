@@ -6,6 +6,8 @@ import type { Point, Rect } from '@dazbee/schema'
 
 import { toScreen } from './camera.ts'
 import type { FramePicture } from './frames.ts'
+import type { DrawnOutline } from './redraw.ts'
+import { OUTLINE_RADIUS } from './sections.ts'
 import type { EditorView } from './view.ts'
 
 export interface SurfaceDeps {
@@ -24,11 +26,12 @@ export interface EditorSurface {
   /** Whether a redraw is waiting for the next animation frame. */
   scheduled(): boolean
   /**
-   * Draws the pictures of the frames in view at the camera, each over white on a soft shadow, and
-   * shows them; then `ghost`, a picture of what a drag carries in its frame, faintly where it is
+   * Draws the sections' outlines, soft grey or in the accent while lit, then the pictures of the
+   * frames in view at the camera, each over white on a soft shadow, so no outline covers a frame,
+   * and shows them; then `ghost`, a picture of what a drag carries in its frame, faintly where it is
    * past the frame's edge. False, drawing nothing, before the stage has a surface.
    */
-  paint(pictures: readonly FramePicture[], ghost: FramePicture | null): boolean
+  paint(pictures: readonly FramePicture[], ghost: FramePicture | null, outlines: readonly DrawnOutline[]): boolean
   /**
    * As the view's `showArea`, with `panel` floating over the stage at its place on the page: only a
    * part that lies under the panel pans, to show clear of it too.
@@ -50,6 +53,12 @@ const FRAME_SHADOWS = [
 ] as const
 /** How strongly the part of a dragged layer past its frame's edge shows. */
 const GHOST_OPACITY = 0.35
+/** A section's outline: a 1.5 px line in a soft grey, in stage pixels. */
+const OUTLINE_WIDTH = 1.5
+const OUTLINE_COLOUR = '#c4b9cd'
+/** The stage's accent, which a lit outline is drawn in, as CSS names it, and the colour while CSS gives none. */
+const ACCENT = '--stage-accent'
+const ACCENT_FALLBACK = '#2f5be0'
 
 export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSurface {
   const maybeGl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))
@@ -73,6 +82,12 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   })
   const faint = new ck.Paint()
   faint.setAlphaf(GHOST_OPACITY)
+  /** The outline's line, grey, and lit in the accent. */
+  const outline = new ck.Paint()
+  outline.setStyle(ck.PaintStyle.Stroke)
+  outline.setStrokeWidth(OUTLINE_WIDTH)
+  outline.setAntiAlias(true)
+  const grey = ck.parseColorString(OUTLINE_COLOUR)
   const resized = new ResizeObserver(() => resize())
   resized.observe(canvas)
 
@@ -89,13 +104,19 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   function scheduled() {
     return pending !== 0
   }
-  function paint(pictures: readonly FramePicture[], carried: FramePicture | null) {
+  function paint(pictures: readonly FramePicture[], carried: FramePicture | null, outlines: readonly DrawnOutline[]) {
     if (!surface) return false
     const camera = view.camera()
     const c = surface.getCanvas()
     c.clear(ck.TRANSPARENT)
     c.save()
     c.scale(view.dpr(), view.dpr())
+    // The outlines go on first, in stage pixels, so every frame drawn after covers them.
+    const lit = outlines.some((o) => o.lit) ? ck.parseColorString(accentColour()) : null
+    for (const { box, lit: on } of outlines) {
+      outline.setColor(on && lit ? lit : grey)
+      c.drawRRect(ck.RRectXY(ck.XYWHRect(box.x, box.y, box.width, box.height), OUTLINE_RADIUS, OUTLINE_RADIUS), outline)
+    }
     // The shadows go on first, in stage pixels, so none falls over a neighbouring frame.
     for (const { frame } of pictures) {
       const { x, y } = toScreen(camera, frame)
@@ -134,6 +155,10 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     surface.flush()
     return true
   }
+  /** The stage's accent as the page's CSS gives it now, which follows the theme. */
+  function accentColour() {
+    return getComputedStyle(canvas).getPropertyValue(ACCENT).trim() || ACCENT_FALLBACK
+  }
   function showArea(area: Rect, panel?: Rect) {
     view.showArea(area, panel && { panel, stage: canvas.getBoundingClientRect() })
   }
@@ -167,6 +192,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     cancelAnimationFrame(pending)
     surface?.delete()
     resized.disconnect()
+    outline.delete()
     faint.delete()
     for (const { paint, blur } of shadows) {
       paint.delete()

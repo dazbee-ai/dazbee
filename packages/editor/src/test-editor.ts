@@ -11,6 +11,7 @@ import { type DesignInput, fontUses, imageAssetIds, parseDesign, type Point } fr
 
 import type { Insets, Viewport } from './canvas/camera.ts'
 import { labelBox } from './canvas/frames.ts'
+import { titleBox } from './canvas/sections.ts'
 import { buildCore } from './core.ts'
 import type { CoreOptions, LinkNotices, NoticeDetail, TabAccess } from './core-interface.ts'
 import { openedFonts } from './font-loads.ts'
@@ -195,9 +196,18 @@ export async function testEditor(
       return row && at.x >= row.x && at.x <= row.x + row.width && at.y >= row.y && at.y <= row.y + row.height
     })?.id
   }
+  /** The section whose title's box holds a stage point, the last drawn of those there, as a press and a double click carry it. */
+  function titleUnder(at: Point) {
+    return modules.frameMove.shownSections(modules.pointer.gesture()).outlines.findLast((outline) => {
+      const row = titleBox(outline.box)
+      return at.x >= row.x && at.x <= row.x + row.width && at.y >= row.y && at.y <= row.y + row.height
+    })?.id
+  }
   /** Sends one pointer input at the pointer's place with the modifier keys held, and runs a redraw pass after it unless told not to. */
   function send(type: PointerInput['type'], detail: number, extra: Held = {}, redraws = true) {
-    const label = type === 'pointerdown' || type === 'dblclick' ? labelUnder(pointer) : undefined
+    const pressed = type === 'pointerdown' || type === 'dblclick'
+    const label = pressed ? labelUnder(pointer) : undefined
+    const title = pressed && label === undefined ? titleUnder(pointer) : undefined
     const answer = core.input.pointer({
       type,
       at: pointer,
@@ -209,6 +219,7 @@ export async function testEditor(
       metaKey: extra.meta ?? held.has('Meta'),
       pointerType: 'mouse',
       ...(label === undefined ? {} : { label }),
+      ...(title === undefined ? {} : { title }),
     })
     if (answer.hold) captured = true
     if (redraws) core.redraw()

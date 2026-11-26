@@ -196,8 +196,8 @@ export interface CoreStart {
  * draw. Then what the connection tells: a change set the server rejected (C36), a step too big to send put back (C39),
  * change sets lost to a server that no longer knew the tab (C43), the device copy stopped or not
  * kept (D9), a design near its limits (D11), that the tab may only view the design (C35), that it
- * came to only view it while a drag held changes not yet saved, which were put back, and that another
- * tab restored a version.
+ * came to only view it while a drag held changes not yet saved, which were put back, that another
+ * tab restored a version, and that the Section tool's box held no frame to make a section of.
  */
 export type Notice =
   | 'placedByLayout'
@@ -225,6 +225,7 @@ export type Notice =
   | 'pickFailed'
   | 'pickTooBig'
   | 'restored'
+  | 'drawAroundFrames'
 
 /**
  * Why a key did nothing to the selection, by the reason the menus grey its item with: Group and
@@ -543,6 +544,29 @@ export interface EditorBase {
    */
   onFramePick(listener: (frameId: string | null) => void): () => boolean
   /**
+   * The section picked as a whole, by a click on its title or its outline line, or null; no layer
+   * is selected and no frame picked while one is. Esc, a layer selected or a click on empty canvas
+   * lets it go.
+   */
+  pickedSection: () => string | null
+  /** Picks a section of the shown page, letting the selection and the picked frame go; null lets it go. */
+  pickSection: (sectionId: string | null) => void
+  /** Calls back with the picked section, or null, whenever it changes. */
+  onSectionPick(listener: (sectionId: string | null) => void): () => boolean
+  /**
+   * Picks a section of the shown page and asks the page to rename it in place, as a double click on
+   * its title does; the page renames it with the `section.update` command and calls `renamed` once
+   * its field closes, the title left out until then. A tab that may only view picks it and renames
+   * nothing.
+   */
+  renameSection(sectionId: string): void
+  /** Calls back with the section to rename in place: its title was double-clicked, or `renameSection` asked. */
+  onSectionRename(listener: (sectionId: string) => void): () => boolean
+  /** Where a drawn section's title is on the stage, in pixels from its top start corner; null for one not drawn. */
+  titleRect(sectionId: string): Rect | null
+  /** The section whose outline line is at a stage point, the newer where two are, or null. */
+  sectionAt(stage: Point): string | null
+  /**
    * Lights a frame of the shown page from outside the stage, outlined as a layer under the pointer
    * is and its label lit, as a list's row does while it is hovered or focused; null lets it go.
    */
@@ -568,7 +592,7 @@ export interface EditorBase {
   renameFrame(frameId: string): void
   /** Calls back with the frame to rename in place: its label was double-clicked, or `renameFrame` asked. */
   onFrameRename(listener: (frameId: string) => void): () => boolean
-  /** The page's rename field has closed: the frame's label shows again. */
+  /** The page's rename field has closed: the frame's label, or the section's title, shows again. */
   renamed(): void
   /** Calls back with a frame's name once Delete, by its key or `perform('delete')`, deleted it as the picked frame. */
   onFrameDelete(listener: (name: string) => void): () => boolean
@@ -663,6 +687,8 @@ export interface EditorBase {
   fitSelection: () => void
   /** Fits a frame in view, showing its page first when another is shown. Throws for a frame the design lacks. */
   fitFrame(frameId: string): void
+  /** Fits a drawn section's frames in view, showing its page first when another is shown; nothing for one not drawn. */
+  fitSection(sectionId: string): void
   setTool: (next: Tool) => void
   tool: () => Tool
   /**

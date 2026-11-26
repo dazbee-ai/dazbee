@@ -15,7 +15,7 @@ import { cropItemOf, type EditorActions, TOOL_ACTIONS } from './actions.ts'
 import type { EditorView } from './canvas/view.ts'
 import { type Remembered, styleKept } from './clipboard.ts'
 import type { EditorPngCopy } from './export/png-copy.ts'
-import { actsOnFrame } from './frame-actions.ts'
+import { actsOnItem } from './frame-actions.ts'
 import type { EditorPen } from './gestures/pen/pen.ts'
 import { lineUpOf, SPREAD_MIN } from './layers/arrange.ts'
 import { layoutChangeOf, whyNotLaidOut } from './layers/box-layout.ts'
@@ -41,7 +41,7 @@ export interface ActionReadyDeps {
   remembered: Remembered
   view: Pick<EditorView, 'frameOf' | 'frames'>
   tools: Pick<EditorTools, 'tool'>
-  selection: Pick<EditorSelection, 'current' | 'pickedFrame' | 'cropping' | 'pathEditing'>
+  selection: Pick<EditorSelection, 'current' | 'pickedFrame' | 'pickedItem' | 'cropping' | 'pathEditing'>
   boxes: Pick<EditorBoxes, 'roots' | 'rootsByFrame' | 'cropTarget'>
   pen: Pick<EditorPen, 'drawing'>
   typing: Pick<EditorTyping, 'editing' | 'selectedText'>
@@ -200,8 +200,8 @@ export function editorActionReady({
     const tool = TOOL_ACTIONS[action]
     if (tool) return tools.tool() !== tool
     const current = selection.current()
-    const picked = selection.pickedFrame()
-    if (picked !== null && !current) return actsOnFrame(action)
+    const picked = selection.pickedItem()
+    if (picked !== null && !current) return picked.kind !== 'connector' && actsOnItem(action)
     const frame = current && frameOf(current[0]?.frameId)
     if (!current || !frame) return false
     return selectedReady(action, current, session.design())

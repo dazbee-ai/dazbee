@@ -1,9 +1,13 @@
 // Drawing with a tool: a shape or box dragged out, a text box and an image box, a frame dragged
-// out with the Frame tool, and the box being dragged, which the overlay shows.
+// out with the Frame tool, a section's box with the Section tool, and the box being dragged, which
+// the overlay shows.
 import { childrenOf, type GestureStep, type Session } from '@dazbee/doc'
 import { canHold, type Point, type Rect, SIZE_LIMITS } from '@dazbee/schema'
 
+import { type Camera, toScreen } from '../../canvas/camera.ts'
 import type { Frame } from '../../canvas/frames.ts'
+import { sectionAt } from '../../canvas/sections.ts'
+import type { NoticeDetail } from '../../core-interface.ts'
 import type { EditorFrameActions } from '../../frame-actions.ts'
 import { laidOut } from '../../layers/auto-layout.ts'
 import type { EditorBoxes } from '../../layers/boxes.ts'
@@ -13,6 +17,7 @@ import type { EditorSelection } from '../../selection.ts'
 import type { EditorTyping } from '../../text/typing.ts'
 import type { EditorTools, PlacedAsset } from '../../tools.ts'
 import type { PointerInput } from '../inputs.ts'
+import type { EditorFrameMove } from '../select/frame-move.ts'
 import {
   clickedRect,
   draggedRect,
@@ -65,15 +70,21 @@ export interface FrameDrag {
   from: Point
   to: Point
 }
+/** The box round frames the Section tool is dragging out on the shown page, in world units, from the press until it ends. */
+export interface SectionDrag {
+  kind: 'sectionDraw'
+  from: Point
+  to: Point
+}
 
-/** A drag that draws a new layer or frame. */
-export type DrawingDrag = ShapeDrag | TextBoxDrag | ImageBoxDrag | FrameDrag
+/** A drag that draws a new layer, frame or section. */
+export type DrawingDrag = ShapeDrag | TextBoxDrag | ImageBoxDrag | FrameDrag | SectionDrag
 /**
- * The box a text, image box or frame drag is drawing, by the drag's kind: in its frame's design
- * pixels, or for a frame, which is in none, in world units.
+ * The box a text, image box, frame or section drag is drawing, by the drag's kind: in its frame's
+ * design pixels, or for a frame or a section, which is in none, in world units.
  */
 export interface ShownDrawing {
-  kind: 'textBox' | 'imageBox' | 'frameDraw'
+  kind: 'textBox' | 'imageBox' | 'frameDraw' | 'sectionDraw'
   frame: Frame | null
   rect: Rect
 }
@@ -86,14 +97,22 @@ export interface DrawingDeps {
   tools: Pick<EditorTools, 'setTool'>
   typing: Pick<EditorTyping, 'stop' | 'start'>
   boxes: Pick<EditorBoxes, 'boxIn' | 'containersOf' | 'parentFor' | 'storedBoxes' | 'storedNewBox'>
-  /** The page the canvas shows, which a frame drawn with the Frame tool goes on. */
+  /** The page the canvas shows, which a frame drawn with the Frame tool goes on, and its frames. */
   page: () => string
+  frames: () => readonly Frame[]
+  camera: () => Camera
+  /** The sections as the stage shows them, whose outline a frame drawn may be in. */
+  frameMove: Pick<EditorFrameMove, 'shownSections'>
   /** The name a frame drawn with the Frame tool takes, from its size. */
   frameName: (width: number, height: number) => string
   /** Picks and shows a frame drawn with the Frame tool, as a frame added from a size is. */
   frameActions: Pick<EditorFrameActions, 'showAdded'>
   /** Groups fit what they hold again after a change inside them, in the same undo step. */
   hug: (ids: string[]) => void
+  /** Tells the page that the Section tool's box held no frame. */
+  notify: (...told: NoticeDetail<'drawAroundFrames'>) => void
+  /** Picks a section made with the Section tool and asks the page to rename it in place. */
+  renameSection: (sectionId: string) => void
   /** Tells that what is shown changed. */
   shownChanged: () => void
 }
@@ -112,6 +131,8 @@ export interface EditorDrawing {
   pressImage(e: PointerInput, at: { frame: Frame; p: Point }, asset: PlacedAsset): ImageBoxDrag
   /** A press with the Frame tool, anywhere on the stage, at a world point: a drag of the frame it adds to the shown page. */
   pressFrame(e: PointerInput, world: Point): FrameDrag
+  /** A press with the Section tool, anywhere on the stage, at a world point: a drag of the box round the frames to group. */
+  pressSection(e: PointerInput, world: Point): SectionDrag
   /**
    * Follows the pointer, once the press is a drag: a shape grows to it; a box's corner goes to it,
    * Shift keeping an image's shape. A frame's point is in world units, the others' in their frame's
@@ -124,15 +145,22 @@ export interface EditorDrawing {
    * its tool when the box drawn has no size, its width and height both rounding to 0 design pixels,
    * as a press that never went past the slop leaves it. A shape's undo step closes; a text box's
    * layer is made and typed into, one undo step until typing stops; an image box's layer is made,
-   * one undo step. A frame dragged out is added, one undo step, and picked and shown; a click adds
-   * none and keeps the Frame tool.
+   * one undo step. A frame dragged out is added, one undo step, in the section whose outline holds
+   * its middle, and picked and shown; a click adds none and keeps the Frame tool. A section's box
+   * makes a section of the shown page's frames whose middle it holds, one undo step, picked with its
+   * title in rename and the select tool back; round no frame it makes none, says so and keeps the
+   * Section tool.
    */
   release(g: DrawingDrag): void
 }
 
-/** Whether a gesture is one that draws a new layer or frame. */
+/** Whether a gesture is one that draws a new layer, frame or section. */
 export const isDrawing = (g: { kind: string } | null): g is DrawingDrag =>
-  g?.kind === 'draw' || g?.kind === 'textBox' || g?.kind === 'imageBox' || g?.kind === 'frameDraw'
+  g?.kind === 'draw' ||
+  g?.kind === 'textBox' ||
+  g?.kind === 'imageBox' ||
+  g?.kind === 'frameDraw' ||
+  g?.kind === 'sectionDraw'
 
 export function editorDrawing({
   hold,
@@ -142,9 +170,14 @@ export function editorDrawing({
   typing,
   boxes: { boxIn, containersOf, parentFor, storedBoxes, storedNewBox },
   page,
+  frames,
+  camera,
+  frameMove,
   frameName,
   frameActions,
   hug,
+  notify,
+  renameSection,
   shownChanged,
 }: DrawingDeps): EditorDrawing {
   /**
@@ -163,7 +196,7 @@ export function editorDrawing({
   function shown(gesture: DrawingDrag): ShownDrawing | null {
     if (gesture.kind === 'draw') return null
     const rect = boxBetween(gesture.from, gesture.to)
-    return { kind: gesture.kind, frame: gesture.kind === 'frameDraw' ? null : gesture.frame, rect }
+    return { kind: gesture.kind, frame: 'frame' in gesture ? gesture.frame : null, rect }
   }
 
   /**
@@ -219,11 +252,15 @@ export function editorDrawing({
     return { kind: 'imageBox', ...boxStart(at, 'graphic'), asset }
   }
   /** A press with the Frame tool: a drag of the frame it adds, from the press on whole world units, as a frame has nothing around it. */
-  function startFrame(e: PointerInput, world: Point): FrameDrag {
+  function startFrame<K extends 'frameDraw' | 'sectionDraw' = 'frameDraw'>(
+    e: PointerInput,
+    world: Point,
+    kind: K = 'frameDraw' as K,
+  ): { kind: K; from: Point; to: Point } {
     typing.stop()
     hold()
     const from = wholeOnPage(world, [])
-    return { kind: 'frameDraw', from, to: from }
+    return { kind, from, to: from }
   }
   /**
    * Follows the pointer, on whole pixels where the drag's place is upright on the page: a shape
@@ -235,7 +272,7 @@ export function editorDrawing({
       drawTo(g, drawnPoint(g.tool, p, g.around), shift, alt)
       return
     }
-    const to = wholeOnPage(p, g.kind === 'frameDraw' ? [] : g.around)
+    const to = wholeOnPage(p, 'around' in g ? g.around : [])
     g.to = g.kind === 'imageBox' && shift ? keepRatio(g.from, to, g.asset) : to
     shownChanged()
   }
@@ -258,6 +295,7 @@ export function editorDrawing({
     if (g.kind === 'draw') finishDrawing(g, click)
     else if (g.kind === 'textBox') finishTextBox(g, click)
     else if (g.kind === 'imageBox') finishImageBox(g, click)
+    else if (g.kind === 'sectionDraw') finishSection(g)
     else finishFrame(g, click)
   }
   /**
@@ -354,11 +392,32 @@ export function editorDrawing({
     if (clicked) return
     const { x, y, width, height } = boxBetween(g.from, g.to)
     const size = withinSizeLimits(width, height)
+    // A frame drawn with its middle in a section's outline joins that section.
+    const middle = toScreen(camera(), { x: x + size.width / 2, y: y + size.height / 2 })
+    const sectionId = sectionAt(frameMove.shownSections(null).outlines, middle)?.id
+    const name = frameName(size.width, size.height)
     let id = ''
     const add = () =>
-      (id = session.run('frame.add', { pageId: page(), name: frameName(size.width, size.height), x, y, ...size }))
+      (id = session.run('frame.add', { pageId: page(), name, x, y, ...size, ...(sectionId ? { sectionId } : {}) }))
     if (runQuietly(add)) frameActions.showAdded(id)
     else tools.setTool('select')
+  }
+  /**
+   * Makes a section of the shown page's frames whose middle the box holds, one undo step, picked
+   * with its title in rename and the select tool back; round no frame, says so and keeps the tool.
+   */
+  function finishSection(g: SectionDrag) {
+    const box = boxBetween(g.from, g.to)
+    const inside = frames().filter((f) => {
+      const [mx, my] = [f.x + f.width / 2, f.y + f.height / 2]
+      return mx >= box.x && mx <= box.x + box.width && my >= box.y && my <= box.y + box.height
+    })
+    if (inside.length === 0) return notify('drawAroundFrames')
+    let id = ''
+    const add = () => (id = session.run('section.add', { pageId: page(), frameIds: inside.map((f) => f.id) }))
+    if (!runQuietly(add)) return
+    tools.setTool('select')
+    renameSection(id)
   }
 
   return {
@@ -367,6 +426,7 @@ export function editorDrawing({
     pressText: startTextBox,
     pressImage: startImageBox,
     pressFrame: startFrame,
+    pressSection: (e: PointerInput, world: Point) => startFrame(e, world, 'sectionDraw'),
     drag,
     release,
   }

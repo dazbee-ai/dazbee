@@ -63,13 +63,15 @@ describe('buildCore, opened in Node with nothing stubbed', () => {
     // style was copied, the linked copies there are alike, no layer there shares a fill or a
     // font with another (actions-across-frames.test.ts selects them), and none is hidden, so the
     // hidden layers have none to show (the hiddenShown tests below show some). Copy as PNG writes only the
-    // system clipboard, which the page's side writes (clipboard-events.test.ts).
+    // system clipboard, which the page's side writes (clipboard-events.test.ts). No frame or section is
+    // picked there to rename (section-move.test.ts renames them).
     expect(SHORTCUTS.map((s) => s.action).filter((action) => !acted.has(action))).toEqual([
       'copyPng',
       'selectSameFill',
       'selectSameFont',
       'findReplace',
       'selectLayer',
+      'rename',
       'editPoints',
       'pasteStyle',
       'saveVersion',

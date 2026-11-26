@@ -162,6 +162,10 @@ export function harness(
         log.push(`frame from ${world.x} ${world.y}`)
         return { kind: 'frameDraw', from: world, to: world }
       },
+      pressSection: (_e, world) => {
+        log.push(`section from ${world.x} ${world.y}`)
+        return { kind: 'sectionDraw', from: world, to: world }
+      },
       drag: (g, p) => log.push(`${g.kind === 'frameDraw' ? 'frame' : g.kind} to ${p.x} ${p.y}`),
       release: (g) => log.push(g.kind === 'frameDraw' ? 'frame drawn' : `release ${g.kind}`),
     },
@@ -201,6 +205,10 @@ export function harness(
       release: () => log.push('release frame move'),
       handleUnder: () => null,
     },
+    sectionMove: {
+      drag: (_g, world) => log.push(`move section to ${world.x} ${world.y}`),
+      release: () => log.push('release section move'),
+    },
     // No rulers: no press is a guide's.
     guideDrag: { press: () => null, drag: () => {}, release: () => {}, hover: () => false, cursorAt: () => '' },
     selectPress: {
@@ -215,7 +223,13 @@ export function harness(
       },
       pressLabel: (_e, screen, frameId) => {
         log.push(`press label of ${frameId} at ${screen.x} ${screen.y}`)
-        return { kind: 'frameMove', frame: SQUARE, from: screen, step: null }
+        return { kind: 'frameMove', frame: SQUARE, from: screen, step: null, own: null, stays: false, target: null }
+      },
+      // No section is drawn: a press on its title is the only one that grabs it.
+      pressSection: (_e, screen, _at, title) => {
+        if (title === undefined) return null
+        log.push(`press title of ${title} at ${screen.x} ${screen.y}`)
+        return { kind: 'sectionMove', sectionId: title, from: screen, moved: { x: 0, y: 0 }, step: null }
       },
       clicked: () => {},
       textBeforeClicks: () => undefined,
@@ -228,6 +242,7 @@ export function harness(
     // Never picking a colour: every input is the pointer's.
     colourPick: { route: () => false, stop: () => false, picking: () => false },
     renameFrame: (frameId) => log.push(`rename ${frameId}`),
+    renameSection: (sectionId) => log.push(`rename section ${sectionId}`),
     onMac,
     shownChanged: () => log.push('shown changed'),
   }

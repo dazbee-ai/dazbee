@@ -25,6 +25,8 @@ export interface FramePicture {
 /** A frame label's height on screen, and the room between it and its frame's top. */
 const LABEL_HEIGHT = 20
 const LABEL_GAP = 4
+/** The screen pixels a frame's label takes over its frame's top, with the room between them. */
+export const LABEL_ROOM = LABEL_HEIGHT + LABEL_GAP
 /** How far a label stays from the stage's start edge when its frame runs past it. */
 const LABEL_INSET = 8
 

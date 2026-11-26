@@ -12,12 +12,13 @@ export const graphic = (kind: string, parentId?: string) => ({
 })
 /**
  * Two pages; a rect, a path, and a group holding a rect, in the first page's first frame, and an
- * ellipse in its second.
+ * ellipse in its second, which is in section `s1`.
  */
 export const fakeDesign = () =>
   ({
     pages: { p1: { name: 'One' }, p2: { name: 'Two' } },
-    frames: { 'p1-f1': { pageId: 'p1' }, 'p1-f2': { pageId: 'p1' }, 'p2-f1': { pageId: 'p2' } },
+    frames: { 'p1-f1': { pageId: 'p1' }, 'p1-f2': { pageId: 'p1', sectionId: 's1' }, 'p2-f1': { pageId: 'p2' } },
+    sections: { s1: { pageId: 'p1', title: 'Sale', order: 'a0' } },
     nodes: {
       rect: graphic('rect', 'p1-f1'),
       path: graphic('path', 'p1-f1'),
@@ -41,6 +42,7 @@ export function harness() {
   })
   selection.onSelection((ids) => log.push(`selection ${ids.join(',')}`))
   selection.onFramePick((frameId) => log.push(`frame ${frameId}`))
+  selection.onSectionPick((sectionId) => log.push(`section ${sectionId}`))
   /** Takes layers out of the design. */
   const remove = (...ids: string[]) => {
     const nodes = Object.fromEntries(Object.entries(world.design.nodes).filter(([id]) => !ids.includes(id)))

@@ -6,7 +6,7 @@ import { type Camera, reveal, revealWhole } from './canvas/camera.ts'
 import { type Frame, pageFrames } from './canvas/frames.ts'
 import { testMotion } from './canvas/test-motion.ts'
 import { editorView } from './canvas/view.ts'
-import { actsOnFrame, type EditorFrameActions, editorFrameActions } from './frame-actions.ts'
+import { actsOnItem, type EditorFrameActions, editorFrameActions } from './frame-actions.ts'
 import { sessionOf } from './layers/test-boxes.ts'
 import { editorSelection } from './selection.ts'
 
@@ -79,6 +79,7 @@ function harness(design: DesignInput = DESIGN) {
         session.run('text.fit', { id, width, height: 50 })
       },
     },
+    rename: (item) => log.push(`rename ${item.kind} ${item.id}`),
     shownChanged: () => log.push('overlay'),
   })
   /** The layers whose parent is a frame. */
@@ -389,7 +390,7 @@ describe('editorFrameActions', () => {
       'Add a frame': (frameActions: EditorFrameActions) => frameActions.addFrame({ width: 300, height: 250 }) ?? '',
       'Add size': (frameActions: EditorFrameActions) => frameActions.addSize('sq', { width: 300, height: 250 }) ?? '',
       Duplicate: (frameActions: EditorFrameActions, selection: { pickedFrame(): string | null }) => {
-        frameActions.frameAction('duplicate', 'wide')
+        frameActions.itemAction('duplicate', { kind: 'frame', id: 'wide' })
         return selection.pickedFrame() ?? ''
       },
     }
@@ -439,22 +440,22 @@ describe('editorFrameActions', () => {
   })
 })
 
-describe('frameAction', () => {
+describe('itemAction', () => {
   it('does nothing for an arrow on a picked frame another tab deleted, nor tells that what is shown changed', () => {
     const { frameActions, session, log } = harness()
     session.run('frame.delete', { frameId: 'wide' })
-    expect(frameActions.frameAction('nudgeLeft', 'wide')).toBe(false)
-    expect(frameActions.frameAction('nudgeDownFar', 'wide')).toBe(false)
+    expect(frameActions.itemAction('nudgeLeft', { kind: 'frame', id: 'wide' })).toBe(false)
+    expect(frameActions.itemAction('nudgeDownFar', { kind: 'frame', id: 'wide' })).toBe(false)
     expect(Object.keys(session.design().frames)).toEqual(['sq'])
     expect(log).toEqual([])
   })
 })
 
-describe('actsOnFrame', () => {
-  it('takes Esc, Delete, Duplicate and the arrows for the picked frame, and no other key', () => {
-    for (const action of ['deselect', 'delete', 'duplicate', 'nudgeLeft', 'nudgeDownFar'] as const)
-      expect(actsOnFrame(action), action).toBe(true)
+describe('actsOnItem', () => {
+  it('takes Esc, Delete, Duplicate, F2 and the arrows for the picked frame or section, and no other key', () => {
+    for (const action of ['deselect', 'delete', 'duplicate', 'rename', 'nudgeLeft', 'nudgeDownFar'] as const)
+      expect(actsOnItem(action), action).toBe(true)
     for (const action of ['group', 'selectAll', 'goIn', 'alignLeft', 'copy'] as const)
-      expect(actsOnFrame(action), action).toBe(false)
+      expect(actsOnItem(action), action).toBe(false)
   })
 })

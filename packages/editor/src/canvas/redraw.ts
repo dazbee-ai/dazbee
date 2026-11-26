@@ -1,10 +1,11 @@
 // The redraw pass: all a redraw does but put the pictures on the screen and build the overlay's
 // elements. It brings the design as last drawn up to date, lets the selection and typing go of what
-// is gone, records the pictures of the frames in view and of what a drag carries, checks the hover,
+// is gone, records the pictures of the frames in view and of what a drag carries, measures the
+// sections' outlines, lit where picked or a drop's target, checks the hover,
 // tells that what is shown changed, reports what it did and has the page told of layers left out.
 // In a browser the stage's surface runs it on an animation frame, with the paint that shows the
 // pictures; with no paint it runs to its end.
-import type { Design } from '@dazbee/schema'
+import type { Design, Rect } from '@dazbee/schema'
 
 import type { DrawInfo } from '../core-interface.ts'
 import { imageUses } from '../display-copies.ts'
@@ -16,21 +17,34 @@ import type { EditorSelection } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
 import type { FramePicture } from './frames.ts'
 import type { FrameScenes } from './scenes.ts'
+import type { ShownSections } from './sections.ts'
 import type { EditorView } from './view.ts'
 
+/** A section's outline as the stage draws it, in screen pixels: lit while the section is picked or a drop's target. */
+export interface DrawnOutline {
+  box: Rect
+  lit: boolean
+}
 /**
- * Puts the pictures of the frames in view on the screen, then `ghost`, what a drag carries, faintly
- * where it is past its frame's edge. False, having drawn nothing, when there is nothing to draw on.
+ * Puts the sections' outlines on the screen, then the pictures of the frames in view over them, then
+ * `ghost`, what a drag carries, faintly where it is past its frame's edge. False, having drawn
+ * nothing, when there is nothing to draw on.
  */
-export type Paint = (pictures: readonly FramePicture[], ghost: FramePicture | null) => boolean
+export type Paint = (
+  pictures: readonly FramePicture[],
+  ghost: FramePicture | null,
+  outlines: readonly DrawnOutline[],
+) => boolean
 
 export interface RedrawDeps {
   view: Pick<EditorView, 'update' | 'design' | 'previewed' | 'frames' | 'findInView' | 'inView' | 'camera' | 'dpr'>
   resources: Pick<EditorResources, 'screen' | 'show'>
   scenes: Pick<FrameScenes, 'shownScene' | 'pictures' | 'ghost' | 'outlinePaths'>
-  selection: Pick<EditorSelection, 'keep' | 'tellListeners'>
+  selection: Pick<EditorSelection, 'keep' | 'tellListeners' | 'pickedSection'>
   typing: Pick<EditorTyping, 'stopWhenGone'>
   pointer: Pick<EditorPointer, 'gesture' | 'rehover'>
+  /** The sections as the stage shows them now. */
+  sections: () => ShownSections
   /** Tells the page, once, how many layers the open design leaves out. */
   leftOut: { tell(): void }
   /** Tells the draw listeners of a redraw: the design it drew, when, and what it did. */
@@ -60,6 +74,7 @@ export function editorRedraw({
   selection,
   typing,
   pointer,
+  sections,
   leftOut,
   report,
 }: RedrawDeps): EditorRedraw {
@@ -86,7 +101,7 @@ export function editorRedraw({
     const drag = carried(pointer.gesture())
     const ghost = drag && { frame: drag.frame, picture: scenes.ghost(drag.frame, drag.roots, screen) }
     const made = scenes.pictures(view.frames(), inView, screen)
-    if (paint && !paint(made.pictures, ghost)) return null
+    if (paint && !paint(made.pictures, ghost, outlinesNow())) return null
     pointer.rehover()
     const outlinedBefore = scenes.outlinePaths()
     shownChanged()
@@ -100,6 +115,12 @@ export function editorRedraw({
     report(design, performance.timeOrigin + performance.now(), info)
     leftOut.tell()
     return info
+  }
+  /** The sections' outlines as the stage draws them, lit where picked or a drop's target. */
+  function outlinesNow(): DrawnOutline[] {
+    const { outlines, lit } = sections()
+    const picked = selection.pickedSection()
+    return outlines.map(({ id, box }) => ({ box, lit: id === picked || id === lit }))
   }
   function shownChanged() {
     shown.emit()

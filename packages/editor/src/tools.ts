@@ -3,10 +3,10 @@ import type { ShapeMenuTool } from './gestures/drawing/draw-tools.ts'
 
 /**
  * What a drag on the stage does: select and move, pan with the hand, draw a shape (#44), a path
- * (#45), a text box (#47), a box or a frame, or place the image armed from Assets (`image`), which
- * no button picks.
+ * (#45), a text box (#47), a box, a frame or a section round frames, or place the image armed from
+ * Assets (`image`), which no button picks.
  */
-export type Tool = 'select' | 'hand' | 'pen' | 'text' | 'frame' | 'image' | ShapeMenuTool
+export type Tool = 'select' | 'hand' | 'pen' | 'text' | 'frame' | 'section' | 'image' | ShapeMenuTool
 /** An image asset as the editor places it. */
 export interface PlacedAsset {
   id: string

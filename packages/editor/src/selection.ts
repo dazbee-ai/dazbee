@@ -1,4 +1,4 @@
-// What is selected, the group gone into, the picked frame, the picked guide, a crop or path edit,
+// What is selected, the group gone into, the picked page item (a frame, a section or a connector), the picked guide, a crop or path edit,
 // the layer under the pointer, the frame lit from outside the stage and whether the constraint lines
 // are asked for, with the rules that keep them
 // in step and the listeners that follow them; and the layers in, around and beside a selection, which
@@ -22,11 +22,16 @@ export interface Picked {
  * click added. The first one's frame is the one the selection's box and handles go in.
  */
 export type Selection = readonly Picked[]
-/** The selection, the group gone into and the picked frame at one moment, which `restore` puts back. */
+/** A page item chosen as a whole, one at a time: a frame, a section or a connector, by its id. */
+export interface PickedItem {
+  kind: 'frame' | 'section' | 'connector'
+  id: string
+}
+/** The selection, the group gone into and the picked page item at one moment, which `restore` puts back. */
 export interface HeldSelection {
   picks: Selection | null
   entered: string | null
-  frame: string | null
+  item: PickedItem | null
 }
 /** The path layer whose points are being edited (#45), and which of its anchors are selected. */
 export interface PathEditing extends Picked {
@@ -52,12 +57,19 @@ export interface EditorSelection {
   /** The frame layers were last selected in on a page, kept after the selection is let go; null with none. */
   lastFrameOn(pageId: string): string | null
   /**
-   * The frame chosen as a whole, by a click on its label or its empty area: outlined, its label lit.
-   * No layer is selected meanwhile; the frame's own keys act on it.
+   * The page item chosen as a whole: a frame, by a click on its label or its empty area, a section,
+   * by a click on its title or outline, or a connector. No layer is selected meanwhile; the item's
+   * own keys act on it.
    */
+  pickedItem(): PickedItem | null
+  /** The picked page item while it is a frame: outlined, its label lit; null otherwise. */
   pickedFrame(): string | null
+  /** The picked page item while it is a section: its outline blue; null otherwise. */
+  pickedSection(): string | null
   /** The picked frame the page renames in place of its label, which the overlay then leaves out; null with none. */
   renamingFrame(): string | null
+  /** The picked section the page renames in place of its title, which the overlay then leaves out; null with none. */
+  renamingSection(): string | null
   /**
    * The guide picked by a click on it, as it was then; null with none. No layer is selected and no
    * frame picked meanwhile; Delete and the arrows act on it.
@@ -95,7 +107,7 @@ export interface EditorSelection {
   /**
    * Drops selected layers that are gone, and the selection once none are left or its frame is not
    * on the shown page; with nothing selected, a crop or path edit ends. The picked frame goes once
-   * it is not shown.
+   * it is not shown, and the picked section once no frame shown is in it.
    */
   keep(): void
   /**
@@ -104,15 +116,19 @@ export interface EditorSelection {
    */
   dropOffPage(): void
   /**
-   * Picks a frame, or none with null, letting the selection go, and shows it. The frame already
-   * picked is picked again: nothing changes, but the frame listeners hear of it.
+   * Picks a frame, or with null no page item, letting the selection go, and shows it. The frame
+   * already picked is picked again: nothing changes, but the frame listeners hear of it.
    */
   pickFrame(frameId: string | null): void
+  /** Picks a section, or with null no page item, as `pickFrame` picks a frame. */
+  pickSection(sectionId: string | null): void
   /**
    * Picks a frame for the page to rename in place of its label, and shows it; null once the rename
    * ends. It ends too once the frame is let go or another is picked.
    */
   renameFrame(frameId: string | null): void
+  /** As `renameFrame`, for a section and its title. */
+  renameSection(sectionId: string | null): void
   /**
    * Picks a guide, or none with null, letting the selection, the picked frame and the group gone
    * into go, and shows it. Selecting a layer or picking a frame lets the guide go.
@@ -144,6 +160,8 @@ export interface EditorSelection {
   onSelection(listener: (ids: string[]) => void): () => boolean
   /** Told when the picked frame changes, with null once it goes, and when it is picked again. */
   onFramePick(listener: (frameId: string | null) => void): () => boolean
+  /** Told when the picked section changes, with null once it goes. */
+  onSectionPick(listener: (sectionId: string | null) => void): () => boolean
   destroy(): void
 }
 
@@ -180,14 +198,15 @@ export const isPath = (from: Design, id: string) => {
 export function editorSelection({ drawn, frames, changed }: SelectionDeps): EditorSelection {
   /** The selected layers, or null. */
   let selection: Selection | null = null
-  /** The frame picked as a whole; a layer selected, Esc, or a click on empty canvas lets it go. */
-  let pickedFrame: string | null = null
-  /** The frame the page renames in place of its label, while it stays picked. */
-  let renaming: string | null = null
+  /** The page item picked as a whole; a layer selected, Esc, or a click on empty canvas lets it go. */
+  let picked: PickedItem | null = null
+  /** The page item the page renames in place of its label or title, while it stays picked. */
+  let renaming: PickedItem | null = null
   /** The guide picked by a click on it; a layer selected or a frame picked lets it go. */
   let guide: PlacedGuide | null = null
-  /** The picked frame the frame listeners last heard of. */
+  /** The picked frame the frame listeners last heard of, and the picked section the section listeners did. */
   let lastPicked: string | null = null
+  let lastSection: string | null = null
   /** Whether the picked frame was picked again since the frame listeners last heard. */
   let pickedAgain = false
   /** The group or box double-clicked into. */
@@ -212,6 +231,8 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   const selectionListeners = new Set<(ids: string[]) => void>()
   /** Told when the picked frame changes. */
   const frameListeners = new Set<(frameId: string | null) => void>()
+  /** Told when the picked section changes. */
+  const sectionListeners = new Set<(sectionId: string | null) => void>()
 
   const frameOf = (id: string | undefined) => frames().find((f) => f.id === id)
 
@@ -224,11 +245,13 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   function lastFrameOn(pageId: string) {
     return lastFrames.get(pageId) ?? null
   }
-  function picked() {
-    return pickedFrame
+  /** The picked page item's id while it is of `kind`, else null. */
+  function pickedOf(kind: PickedItem['kind']) {
+    return picked?.kind === kind ? picked.id : null
   }
-  function renamingFrame() {
-    return renaming !== null && renaming === pickedFrame ? renaming : null
+  /** The page item renamed while it is of `kind` and still picked, else null. */
+  function renamingOf(kind: PickedItem['kind']) {
+    return renaming?.kind === kind && renaming.id === pickedOf(kind) ? renaming.id : null
   }
   function croppingLayer() {
     return cropping
@@ -248,7 +271,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     const kept = layers.filter((layer) => drawn().frames[layer.frameId]?.pageId === pageId)
     selection = kept.length > 0 ? kept : null
     if (selection) {
-      pickedFrame = null
+      picked = null
       guide = null
     }
     rememberFrame()
@@ -271,17 +294,17 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     pathEditing = null
   }
   function held(): HeldSelection {
-    return { picks: selection, entered, frame: pickedFrame }
+    return { picks: selection, entered, item: picked }
   }
-  function restore({ picks, entered: into, frame }: HeldSelection) {
+  function restore({ picks, entered: into, item }: HeldSelection) {
     selectAcross(picks ?? [])
-    pickFrame(frame)
+    pickItem(item)
     entered = into
   }
   function selectKeepingModes(next: Selection | null) {
     selection = next
     if (selection) {
-      pickedFrame = null
+      picked = null
       guide = null
     }
     rememberFrame()
@@ -293,7 +316,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     if (frame) lastFrames.set(frame.pageId, frame.id)
   }
   function keep() {
-    if (pickedFrame !== null && !frameOf(pickedFrame)) pickedFrame = null
+    if (picked && !shown(picked)) picked = null
     if (guide && !frameOf(guide.frameId)) guide = null
     if (!selection) return endModesWhenNone()
     const design = drawn()
@@ -319,23 +342,36 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   function dropOffPage() {
     const kept = selection?.filter((layer) => frameOf(layer.frameId)) ?? []
     selection = kept.length > 0 ? kept : null
-    if (pickedFrame !== null && !frameOf(pickedFrame)) pickedFrame = null
+    if (picked && !shown(picked)) picked = null
     if (guide && !frameOf(guide.frameId)) guide = null
     if (entered && !frameOf(frameIdOf(drawn(), entered))) entered = null
     endModesWhenNone()
   }
+  /** Whether a picked page item is still shown: a frame of the shown page, or a section a frame shown is in. */
+  function shown(item: PickedItem) {
+    if (item.kind === 'frame') return frameOf(item.id) !== undefined
+    const design = drawn()
+    const section = Object.hasOwn(design.sections, item.id) ? design.sections[item.id] : undefined
+    return frames().some((f) => f.pageId === section?.pageId && design.frames[f.id]?.sectionId === item.id)
+  }
   function pickFrame(frameId: string | null) {
-    if (frameId === pickedFrame) {
-      if (frameId === null) return
+    pickItem(frameId === null ? null : { kind: 'frame', id: frameId })
+  }
+  function pickSection(sectionId: string | null) {
+    pickItem(sectionId === null ? null : { kind: 'section', id: sectionId })
+  }
+  function pickItem(item: PickedItem | null) {
+    if (item?.kind === picked?.kind && item?.id === picked?.id) {
+      if (item === null) return
       pickedAgain = true
       changed()
       return
     }
-    pickedFrame = frameId
+    picked = item
     renaming = null
-    if (frameId !== null) guide = null
-    // Picking a frame lets the selection go, with a crop or path edit on it and any group gone into.
-    if (frameId !== null && selection) {
+    if (item !== null) guide = null
+    // Picking an item lets the selection go, with a crop or path edit on it and any group gone into.
+    if (item !== null && selection) {
       entered = null
       selectAcross([])
       return
@@ -343,17 +379,23 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     changed()
   }
   function renameFrame(frameId: string | null) {
-    const was = pickedFrame
-    if (frameId !== null) pickFrame(frameId)
-    renaming = frameId
-    // Picking another frame showed it already.
-    if (pickedFrame === was) changed()
+    renameItem(frameId === null ? null : { kind: 'frame', id: frameId })
+  }
+  function renameSection(sectionId: string | null) {
+    renameItem(sectionId === null ? null : { kind: 'section', id: sectionId })
+  }
+  function renameItem(item: PickedItem | null) {
+    const was = picked
+    if (item !== null) pickItem(item)
+    renaming = item
+    // Picking another item showed it already.
+    if (picked === was) changed()
   }
   function selectGuide(next: PlacedGuide | null) {
     guide = next
     if (!next) return changed()
     entered = null
-    pickedFrame = null
+    picked = null
     renaming = null
     selectAcross([])
   }
@@ -398,10 +440,16 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
       lastSelection = now
       for (const listener of selectionListeners) listener(idsOf(selection))
     }
-    if (pickedFrame !== lastPicked || pickedAgain) {
-      lastPicked = pickedFrame
-      pickedAgain = false
-      for (const listener of frameListeners) listener(pickedFrame)
+    const frame = pickedOf('frame')
+    if (frame !== lastPicked || (pickedAgain && frame !== null)) {
+      lastPicked = frame
+      for (const listener of frameListeners) listener(frame)
+    }
+    pickedAgain = false
+    const section = pickedOf('section')
+    if (section !== lastSection) {
+      lastSection = section
+      for (const listener of sectionListeners) listener(section)
     }
   }
   function onSelection(listener: (ids: string[]) => void) {
@@ -412,8 +460,13 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     frameListeners.add(listener)
     return () => frameListeners.delete(listener)
   }
+  function onSectionPick(listener: (sectionId: string | null) => void) {
+    sectionListeners.add(listener)
+    return () => sectionListeners.delete(listener)
+  }
 
   function destroy() {
+    sectionListeners.clear()
     frameListeners.clear()
     selectionListeners.clear()
   }
@@ -422,8 +475,11 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     current,
     entered: enteredGroup,
     lastFrameOn,
-    pickedFrame: picked,
-    renamingFrame,
+    pickedItem: () => picked,
+    pickedFrame: () => pickedOf('frame'),
+    pickedSection: () => pickedOf('section'),
+    renamingFrame: () => renamingOf('frame'),
+    renamingSection: () => renamingOf('section'),
     guide: () => guide,
     cropping: croppingLayer,
     pathEditing: editingPath,
@@ -439,7 +495,9 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     keep,
     dropOffPage,
     pickFrame,
+    pickSection,
     renameFrame,
+    renameSection,
     selectGuide,
     enter,
     crop,
@@ -452,6 +510,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     tellListeners,
     onSelection,
     onFramePick,
+    onSectionPick,
     destroy,
   }
 }

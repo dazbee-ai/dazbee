@@ -1,4 +1,5 @@
-// A double click on the stage: on a frame's label it asks to rename the frame; in the text being
+// A double click on the stage: on a frame's label it asks to rename the frame, and on a section's
+// title the section; in the text being
 // typed in it selects the word there; on a layer it goes into its group, box or boolean, or starts
 // cropping its image fill, editing a path's points or typing in a text.
 import type { Session } from '@dazbee/doc'
@@ -26,8 +27,9 @@ export interface DoubleClickDeps {
   typing: Pick<EditorTyping, 'editing' | 'caretFromPoint' | 'caretTo' | 'selectText' | 'start' | 'stop'>
   cropping: Pick<EditorCropping, 'start'>
   selectPress: Pick<EditorSelectPress, 'textBeforeClicks'>
-  /** Asks the page to rename a frame in place. */
+  /** Asks the page to rename a frame in place, and a section. */
   renameFrame: (frameId: string) => void
+  renameSection: (sectionId: string) => void
   /** Tells that what is shown changed. */
   shownChanged: () => void
   panning: EditorPan['ready']
@@ -54,6 +56,7 @@ export function editorDoubleClick({
   cropping,
   selectPress,
   renameFrame,
+  renameSection,
   shownChanged,
   panning,
   labelUnder,
@@ -67,6 +70,10 @@ export function editorDoubleClick({
     const label = labelUnder(e)
     if (label && tools.tool() === 'select') {
       renameFrame(label)
+      return
+    }
+    if (e.title !== undefined && tools.tool() === 'select') {
+      renameSection(e.title)
       return
     }
     const at = pointIn(e)

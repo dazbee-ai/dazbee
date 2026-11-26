@@ -81,6 +81,7 @@ function harness({
     selection: {
       keep: () => log.push('keep'),
       tellListeners: () => log.push('tell listeners'),
+      pickedSection: () => null,
     },
     typing: { stopWhenGone: () => log.push('stop when gone') },
     pointer: {
@@ -90,6 +91,7 @@ function harness({
         return false
       },
     },
+    sections: () => ({ outlines: [], lit: null }),
     leftOut: editorLeftOut({
       session: { leftOut: () => Array.from({ length: leftOut }, () => ({ part: 'layer' })) } as unknown as Session,
       listening: () => true,

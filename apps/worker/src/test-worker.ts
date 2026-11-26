@@ -1,5 +1,5 @@
 // Fixtures for the worker's tests, against Postgres and storage from Docker Compose: workspaces with a
-// member and a grant, test-only AI steps run by test sellers, pg-boss instances that notice a lost job fast,
+// member and a grant, test-only AI functions run by test sellers, pg-boss instances that notice a lost job fast,
 // and the checks that a job's ledger settled. Imported by tests only.
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'

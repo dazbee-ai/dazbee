@@ -179,7 +179,7 @@ export async function setModelSellers(db: Db, model: string, { sellers, was }: M
 
 /**
  * The units each model is priced in by the sellers in its seller order, by model. A model none of its sellers
- * has a price for is left out, as no AI step can run it.
+ * has a price for is left out, as no preset can run it.
  */
 export async function pricedUnits(db: Db): Promise<Map<string, UsageUnit[]>> {
   const rows = await db

@@ -2,7 +2,7 @@
 
 // The AI overview: today's real AI cost against the spending stop, today's AI calls, and the days picked's
 // unknown calls, red days and sellers out of money as stat tiles; then the real cost of each day stacked by
-// seller or by AI step, the layer split's GPU cost against the fixed amount it took, and each seller's daily
+// seller or by AI function, the layer split's GPU cost against the fixed amount it took, and each seller's daily
 // check, ours against the seller's figure with its red days marked. Each chart's numbers fold out as a table.
 import { type ReactNode, useState } from 'react'
 
@@ -134,7 +134,7 @@ export function AiOverview({
   )
 }
 
-/** The real cost of each day, stacked by seller or by AI step as the person picks. */
+/** The real cost of each day, stacked by seller or by AI function as the person picks. */
 function CostCard({ costs, days, points }: { costs: AiCostRow[]; days: string[]; points: ChartPoint[] }) {
   const w = useMessages().pilotAdmin
   const names = useAiNames()

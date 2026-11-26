@@ -57,7 +57,7 @@ packages/graphics/    the icon sets agents place (Tabler and Phosphor) with thei
 packages/patterns/    the patterns agents build ads from (apply_pattern): each a pure function of the pattern, its style, the brand kit, the content and a size, giving a frame's layers
 packages/fonts/       the font files we ship, the Google font catalog list and their Node loader
 packages/db/          Drizzle tables and migrations (ADR-0009)
-packages/ai/          AI calls and metering (ADR-0022, ADR-0023): the one call function, the step list, the price list, the allowance ledger and the sellers' adapters
+packages/ai/          AI calls and metering (ADR-0022, ADR-0023): the one call function, the AI functions with their presets, the price list, the allowance ledger and the sellers' adapters
 packages/storage/     object storage over the S3 API (ADR-0010)
 packages/sync-token/  tokens the API signs for the sync server
 packages/session-token/ the session tokens the API signs at sign-in, which the web app keeps in a cookie

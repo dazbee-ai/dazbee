@@ -34,7 +34,7 @@ export interface OverviewFigures {
   checkedDays: number
 }
 
-/** The key of the series that holds sellers or AI steps not in their fixed list. */
+/** The key of the series that holds sellers or AI functions not in their fixed list. */
 export const OTHER = 'other'
 
 /** A day in milliseconds. */

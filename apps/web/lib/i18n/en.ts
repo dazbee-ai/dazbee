@@ -1728,7 +1728,7 @@ export const en = {
     },
   },
   /**
-   * The admin page's AI section, for admins only: what AI costs, what each AI step runs, the price list, gifts
+   * The admin page's AI section, for admins only: what AI costs, the price list, gifts
    * and the daily check. Amounts are in rupees unless a row names a seller's currency; model names are shown
    * here only.
    */

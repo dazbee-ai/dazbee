@@ -1,4 +1,4 @@
-// OpenRouter's adapter: text through its Responses API, with the reasoning effort the AI step's options ask for
+// OpenRouter's adapter: text through its Responses API, with the reasoning effort the preset's settings ask for
 // and never a speed tier, and pictures (with reference pictures for an edit) through its Images API, keeping
 // OpenRouter's own `usage.cost` beside our pricing and its generation id as the request id. Written from
 // OpenRouter's docs as read on 25 Nov 2026: pictures come back as base64, Seedream 5.5 is priced per picture

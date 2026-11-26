@@ -30,7 +30,7 @@ export const SAVE_BUTTON = cn(buttonStyles({ variant: 'secondary', size: 'md' })
 /** A section's main button. */
 export const MAIN_BUTTON = cn(buttonStyles({ variant: 'primary', size: 'md' }), `h-9 ${TOUCH_FIELD} px-4 font-semibold`)
 
-/** The words for sellers, units and AI steps, each by its name; a name the catalog lacks is shown as it is. */
+/** The words for sellers, units, AI features and AI functions, each by its name; a name the catalog lacks is shown as it is. */
 export function useAiNames() {
   const t = useMessages().pilotAi
   const named = (words: Record<string, string>, name: string) => (Object.hasOwn(words, name) ? words[name] : name)

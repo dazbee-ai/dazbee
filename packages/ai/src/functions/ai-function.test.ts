@@ -8,15 +8,7 @@ import { ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
 import { sellerPricing } from '../seller-route.ts'
 import { tierOf } from '../sellers/tiers.ts'
 import { db } from '../test-ai.ts'
-import {
-  aiFunctionDef,
-  ceilingOf,
-  defaultPreset,
-  isAiFunction,
-  presetOf,
-  promptHash,
-  promptOf,
-} from './ai-function.ts'
+import { aiFunctionDef, ceilingOf, defaultPreset, isAiFunction, presetOf, promptHash, promptOf } from './ai-function.ts'
 
 /**
  * Each preset's model, settings, ceiling and the SHA-256 of the prompt it runs with, as merged. A preset is never

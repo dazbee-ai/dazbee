@@ -1,6 +1,6 @@
 // The admin pages' AI section, served at the pilot host's `/ai` and not found on any other host. It needs
 // Dazbee's own sign-in, and is not found for anyone the API doesn't take for an admin. It holds the settings
-// and today's spend, the costs, the daily check, gifts and grants, each AI step's model, the price list and
+// and today's spend, the costs, the daily check, gifts and grants, the price list and
 // the seller order. The days the costs and the daily check cover, the workspace search and the open workspace
 // are in the address.
 import { headers } from 'next/headers'

@@ -47,17 +47,17 @@ Built first, as their own spec, because the AI flow stands on them.
 
 | Job                   | Model                                                                  |
 | --------------------- | ---------------------------------------------------------------------- |
-| Drafts                | **Muse Image** or **GPT Image 2.5 Sunburst** at medium quality         |
+| Drafts                | **GPT Image 2.5 Sunburst** at medium quality, in both modes            |
 | High-quality final    | **None.** A draft is used as it is, or made editable when asked        |
 | Edits and inpainting  | **Seedream 5.5**                                                       |
 | Outpainting           | **Self-hosted**, not a hosted API                                      |
-| Round plan, reading   | **`gpt-6-luna`** (light); a full planner for Precise, its own AI step  |
+| Round plan, reading   | **`gpt-6-luna`**; **`gpt-6.1-terra`** for the Precise round plan       |
 | Layer plan            | **`gpt-6.2-sol`**                                                      |
 | Splitting into layers | **Ming-Image-0.1-Design-Layer**, self-hosted on ComfyUI, fp8, 12 steps |
 
 - Layering runs **without guidance by default**; the API takes an optional guidance value.
 - Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people. Until payments exist, workspaces given AI as a gift get **1024 px** too, set on the grant, not in code (26 Nov 2026).
-- **Fast** runs the light round planner and Muse Image; **Precise** runs the full planner and GPT Image 2.5 (26 Nov 2026).
+- **Fast** runs the light round planner on `gpt-6-luna`; **Precise** runs the full planner on `gpt-6.1-terra`. Both draw with GPT Image 2.5 (26 Nov 2026).
 
 ### Prompts (25 Nov 2026)
 
@@ -66,9 +66,9 @@ Built first, as their own spec, because the AI flow stands on them.
 
 ### Tracking and charging (24–25 Nov 2026)
 
-- **Every AI call is tracked by its step** (round plan, draft, layer plan, layering, edit…), not by endpoint. Two steps calling the same endpoint are logged as two different steps.
-- **One shared function makes every AI call.** It holds the expected cost, makes the call, reads the usage the reply reports, prices it, writes the call log row and charges the real cost. A new step adds only its name and expected cost to the step list. A new seller adds one adapter and its prices.
-- **Call log:** one row per AI call, with step, model, seller, usage and real cost.
+- **Every AI call is tracked by its AI function** (round plan, draft, layer plan, layer split, refine edit…) and its preset, not by endpoint. Two AI functions calling the same endpoint are logged apart (26 Nov 2026, ADR-0025).
+- **One shared function makes every AI call.** It makes the call with its AI function's preset, reads the usage the reply reports, prices it, writes the call log row and charges the real cost. A new AI function adds its file with its presets; a new AI feature adds a line to the features list. A new seller adds one adapter and its prices.
+- **Call log:** one row per AI call, with its AI feature, AI function, preset, model, seller, usage and real cost.
 - **Allowance ledger:** rows are only added, never changed: hold, charge, give back.
 - **No credits per feature.** The allowance is counted in our real cost and shown to people only as a usage bar. There are no 5-hour or weekly windows.
 - **The allowance belongs to the whole workspace.**
@@ -77,7 +77,7 @@ Built first, as their own spec, because the AI flow stands on them.
 - **Each model is charged at its real cost.** There is no price per model; a dearer call takes more of the bar.
 - **Layering is charged at a fixed cost per ad**, kept as admin data and changed over time. The call log still records the real GPU cost, and the daily check shows the difference.
 - **Model names are never shown.** People pick a mode with a name of our own, and an admin maps each mode to a model, so changing the model doesn't change the screen.
-- **The two draft modes are Fast and Precise.** Fast runs Muse Image and is the default; Precise runs GPT Image 2.5 Sunburst at medium.
+- **The two modes are Fast and Precise.** Each is a list of presets in the code, and Fast is the default.
 - **Build the metering now, set prices later.** Every price and amount is admin data (see [Plans](#plans-25-nov-2026)).
 
 ### Building and running (25 Nov 2026)
@@ -112,7 +112,7 @@ Settled in the grilling for the first spec, AI calls and metering.
 - **Grants in the first spec are gifts** an admin gives from the admin page. Trials, plans and packs come with plans and payments, on the same grants.
 - **A workspace's Owner, Admins and Editors use AI;** Reviewers don't.
 - **The call log keeps no prompt and no picture.**
-- **No AI screen for people in the first spec.** It adds the admin page's AI section and a script that runs each AI step once for the bill checks.
+- **No AI screen for people in the first spec.** It adds the admin page's AI section and a script that runs each AI function once for the bill checks.
 - **A daily check that differs by more than 2% shows in red on the admin page.** It is emailed once Dazbee sends email of its own.
 - **When a seller fails,** the call is tried once more there, then on the next seller. A call that times out counts as failed. A seller that made and billed it anyway shows up in the daily check.
 - **Meta and Pixazo have no cost report to fetch.** Production uses its own keys for them. An unknown call is asked about again the next day where the seller allows it (Pixazo), and is otherwise counted as a cost to us (Meta). An admin uploads each seller's usage file from its dashboard, and the admin page compares it with the call log.

@@ -105,7 +105,7 @@ export const modelSellers = pgTable(
   (t) => [primaryKey({ columns: [t.model, t.seller] }), uniqueIndex('model_sellers_position').on(t.model, t.position)],
 )
 
-/** The default model of each kind of AI call, with the options the call passes it; every AI step of the kind runs it unless the step has its own. */
+/** A model for each kind of AI call. Nothing reads it: a preset names each AI function's model. */
 export const aiKindModels = pgTable('ai_kind_models', {
   kind: text({ enum: CALL_KINDS }).primaryKey(),
   model: text().notNull(),
@@ -113,7 +113,7 @@ export const aiKindModels = pgTable('ai_kind_models', {
   updatedAt: updatedAt(),
 })
 
-/** An AI step's own model, in place of its kind's default, with the options the call passes it (such as a picture's quality). */
+/** A model for one named call. Nothing reads it: a preset names each AI function's model. */
 export const aiStepModels = pgTable('ai_step_models', {
   step: text().primaryKey(),
   model: text().notNull(),
@@ -240,7 +240,7 @@ export const aiCalls = pgTable(
     callIndex: integer('call_index').notNull(),
     try: integer().notNull(),
     attempt: integer().notNull(),
-    /** The AI step a call was logged under before AI functions; nothing writes it now. */
+    /** Not written: a call is logged under its AI function and preset. */
     step: text(),
     /** The AI feature of the call's job, its AI function and preset, and its kind of call. */
     feature: text(),

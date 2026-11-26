@@ -57,8 +57,8 @@ export function fakeAi(): FakeAi {
       state: 'running',
       output: null,
       calls: [
-        { index: 0, step: 'flow.round-plan', state: 'done', output: { kind: 'text', text: '{}' } },
-        ...job.frames.map((_, n) => ({ index: draftCall(n), step: 'flow.draft-fast', state: 'running' as const })),
+        { index: 0, function: 'round-plan', state: 'done', output: { kind: 'text', text: '{}' } },
+        ...job.frames.map((_, n) => ({ index: draftCall(n), function: 'draft', state: 'running' as const })),
       ],
       error: null,
       createdAt: AT,
@@ -85,7 +85,7 @@ export function fakeAi(): FakeAi {
     if (!job || at < 0) throw new Error(`no call ${index} of ${jobId}`)
     job.calls[at] = {
       index,
-      step: 'flow.draft-fast',
+      function: 'draft',
       state: 'done',
       output: { kind: 'pictures', pictures: [{ key: `originals/${assetId}`, width: 1080, height: 1080, assetId }] },
     }
@@ -100,7 +100,7 @@ export function fakeAi(): FakeAi {
       kind: 'try-again',
       state: 'running',
       output: null,
-      calls: [{ index: 0, step: 'flow.draft-fast', state: 'running' }],
+      calls: [{ index: 0, function: 'draft', state: 'running' }],
       error: null,
       createdAt: AT,
       endedAt: null,

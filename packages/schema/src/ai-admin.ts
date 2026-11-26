@@ -1,10 +1,10 @@
-// The admin page's AI section: the AI settings, the currency rates, the price list, the seller order and each
-// AI step's model as an admin reads and sets them, finding a workspace, a gift, a workspace's grants and
-// ledger, and AI's costs by day, AI step, model and seller. Money is a decimal number of rupees or of the
+// The admin page's AI section: the AI settings, the currency rates, the price list and the seller order as an
+// admin reads and sets them, finding a workspace, a gift, a workspace's grants and ledger, and AI's costs by
+// day, AI feature, AI function, model and seller. Money is a decimal number of rupees or of the
 // seller's currency; the tables keep whole millionths.
 import { z } from 'zod'
 
-import { CallKind, GrantSource, LayerSplitSize, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
+import { GrantSource, LayerSplitSize, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
 
 /** An amount of money on the admin page: rupees, or a seller's currency, as a decimal; kept as whole millionths. */
 const Money = z.number().nonnegative().max(1_000_000_000)

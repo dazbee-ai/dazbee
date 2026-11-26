@@ -430,17 +430,15 @@ describe('callAi', () => {
     await callAi(db, callOf(job, fn))
     // An earlier run's try of the same call, done after the charged one.
     const late = { id: `${job.id}-late`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 9, attempt: 0 }
-    await db
-      .insert(aiCalls)
-      .values({
-        ...late,
-        function: fn,
-        preset: TEST_PRESET,
-        model,
-        seller: seller.seller,
-        state: 'done',
-        chargeCost: 5n,
-      })
+    await db.insert(aiCalls).values({
+      ...late,
+      function: fn,
+      preset: TEST_PRESET,
+      model,
+      seller: seller.seller,
+      state: 'done',
+      chargeCost: 5n,
+    })
     await setJob(job.id, { attempt: 2 })
     await callAi(db, callOf(job, fn, { attempt: 2 }))
     const charged = await db.select({ id: aiLedger.callId }).from(aiLedger).where(eq(aiLedger.jobId, job.id))

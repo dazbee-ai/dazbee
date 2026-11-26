@@ -1,6 +1,6 @@
 // Picks: an admin's choice of which preset a mode uses for an AI function, as rows only ever added, and the
 // presets a mode uses once picks are counted in.
-import { desc } from 'drizzle-orm'
+import { asc, desc } from 'drizzle-orm'
 
 import { aiPicks, type Db, type Tx } from '@dazbee/db'
 import { AI_FUNCTIONS, type AiFunction, type AiMode } from '@dazbee/schema'
@@ -17,10 +17,15 @@ export const NO_MODE = ''
  * no mode; with no mode given, a function a mode changes uses its default.
  */
 export async function presetsFor(db: Db | Tx, mode: AiMode | null): Promise<Record<AiFunction, string>> {
+  // The newest pick of each function and mode, read through the index on them.
   const picks = await db
-    .select({ fn: aiPicks.function, mode: aiPicks.mode, preset: aiPicks.preset })
+    .selectDistinctOn([aiPicks.function, aiPicks.mode], {
+      fn: aiPicks.function,
+      mode: aiPicks.mode,
+      preset: aiPicks.preset,
+    })
     .from(aiPicks)
-    .orderBy(desc(aiPicks.id))
+    .orderBy(asc(aiPicks.function), asc(aiPicks.mode), desc(aiPicks.id))
   const presets = {} as Record<AiFunction, string>
   for (const fn of AI_FUNCTIONS) {
     const under = modeChanges(fn) ? mode : NO_MODE

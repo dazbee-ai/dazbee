@@ -38,7 +38,10 @@ export function aiFunctionDef(name: string): AiFunctionDef {
   return AI_FUNCTION_DEFS[name]
 }
 
-/** The AI function's default preset: the first it declares. */
+/**
+ * The AI function's default preset: the first it declares. A preset's name starts with a letter, so the order
+ * its function declares its presets in is the order they are listed in.
+ */
 export function defaultPreset(fn: AiFunction): string {
   const [first] = Object.keys(AI_FUNCTION_DEFS[fn].presets)
   if (!first) throw new Error(`the AI function ${fn} has no preset`)
@@ -56,10 +59,10 @@ export function promptOf(fn: AiFunction, preset: Preset): string | undefined {
   return preset.prompt ?? AI_FUNCTION_DEFS[fn].prompt
 }
 
-/** The SHA-256 of the prompt a preset runs with, as hex; empty for a function that has no words. */
-export function promptHash(fn: AiFunction, preset: Preset): string {
+/** The SHA-256 of the prompt a preset runs with, as hex; null for a function that has no words. */
+export function promptHash(fn: AiFunction, preset: Preset): string | null {
   const prompt = promptOf(fn, preset)
-  return prompt === undefined ? '' : createHash('sha256').update(prompt).digest('hex')
+  return prompt === undefined ? null : createHash('sha256').update(prompt).digest('hex')
 }
 
 /** The ceiling a preset's call is held to: its own, or else its AI function's; none for a call that isn't text. */

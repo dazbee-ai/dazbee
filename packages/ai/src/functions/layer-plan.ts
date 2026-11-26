@@ -14,7 +14,7 @@ export const layerPlan: AiFunctionDef = {
     sol: {
       model: 'gpt-6.2-sol',
       settings: { effort: 'medium', tier: 'standard' },
-      guess: { cost: 6_360_000n, seconds: 82 },
+      guess: { cost: 6_370_000n, seconds: 82 },
     },
   },
 }

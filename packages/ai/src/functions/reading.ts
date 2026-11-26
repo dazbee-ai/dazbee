@@ -14,7 +14,7 @@ export const reading: AiFunctionDef = {
     luna: {
       model: 'gpt-6-luna',
       settings: { effort: 'none', tier: 'standard' },
-      guess: { cost: 200_000n, seconds: 14 },
+      guess: { cost: 210_000n, seconds: 14 },
     },
   },
 }

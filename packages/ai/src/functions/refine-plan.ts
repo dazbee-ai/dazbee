@@ -14,7 +14,7 @@ export const refinePlan: AiFunctionDef = {
     luna: {
       model: 'gpt-6-luna',
       settings: { effort: 'low', tier: 'fast' },
-      guess: { cost: 340_000n, seconds: 7 },
+      guess: { cost: 350_000n, seconds: 7 },
     },
   },
 }

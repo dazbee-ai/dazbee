@@ -26,7 +26,9 @@ const REPLAYED = 'replayed:'
 /**
  * The cost and seconds of one call of `preset`: its first guess while it has no done call; the highest of its
  * done calls while it has fewer than 20; from then on the 95th percentile of its latest 200. Calls that failed
- * or were cut off are not done, and a replayed call is left out.
+ * or were cut off are not done, and a replayed call is left out. The cost is what the calls really cost us: a
+ * function with a fixed charge is held at that charge, not at this cost. One number stands for every call of the
+ * preset, since a picture call asks for about a megapixel whatever its frame's size.
  */
 export async function presetNumbers(db: Db | Tx, fn: AiFunction, name: string, preset: Preset): Promise<PresetNumbers> {
   const rows = await db

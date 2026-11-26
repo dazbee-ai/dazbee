@@ -7,6 +7,7 @@ import {
   ARROW_LENGTH,
   arrowheadOf,
   connectorAt,
+  type ConnectorCurve,
   connectorCurve,
   connectorsShown,
   END_GAP,
@@ -15,6 +16,14 @@ import {
   nearCurve,
 } from './connectors.ts'
 import { LABEL_ROOM } from './frames.ts'
+import { outlineAround } from './sections.ts'
+
+/** The point `t` of the way along a curve. */
+function pointAlong({ from, c1, c2, to }: ConnectorCurve, t: number) {
+  const u = 1 - t
+  const [a, b, c, d] = [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t]
+  return { x: a * from.x + b * c1.x + c * c2.x + d * to.x, y: a * from.y + b * c1.y + c * c2.y + d * to.y }
+}
 
 /** Two 100 square frames side by side on page p1, a third on page p2, and connectors between them. */
 const FRAMES = [
@@ -133,9 +142,12 @@ describe('connectorCurve', () => {
       c2: { x: 703, y: 687.5 },
       to: { x: 623, y: 687.5 },
     })
-    // Stacked just below and far to the side: the same, down.
-    const below = connectorCurve({ x: 0, y: 0, width: 100, height: 100 }, { x: 60, y: 130, width: 300, height: 100 })
-    expect([below.c1.y - below.from.y, below.to.y - below.c2.y]).toEqual([80, 80])
+    // Stacked, and far to the side: the same, down.
+    const below = connectorCurve({ x: 0, y: 0, width: 100, height: 100 }, { x: 400, y: 140, width: 100, height: 100 })
+    expect([below.from, below.to]).toEqual([
+      { x: 106, y: 50 },
+      { x: 394, y: 190 },
+    ])
   })
 
   it('leaves and reaches the facing sides square when the boxes overlap', () => {
@@ -160,9 +172,36 @@ describe('connectorCurve', () => {
     })
   })
 
-  it('still bends between ends close together', () => {
+  it('keeps a curve between ends close together, where a wider bend would cut into them', () => {
+    // 10 apart: a bend of MIN_BEND would reach into both.
     const curve = connectorCurve(box(0, 0), box(110, 0))
-    expect(curve.c1.x - curve.from.x).toBe(24)
+    expect(curve).toEqual({
+      from: { x: 106, y: 50 },
+      c1: { x: 107, y: 50 },
+      c2: { x: 103, y: 50 },
+      to: { x: 104, y: 50 },
+    })
+  })
+
+  it('never cuts through a frame or the section it joins, at any zoom', () => {
+    // A frame just right of the section's bottom-right corner, at its height; the outline's padding
+    // and the frame's label row are screen pixels, so how the two boxes meet changes with the zoom.
+    const inside = { pageId: 'p', name: 'In', x: 0, y: 0, width: 1080, height: 1080 }
+    const beside = { pageId: 'p', name: 'Beside', x: 1200, y: 1000, width: 1080, height: 1080 }
+    for (const zoom of [0.13, 0.15, 0.24, 0.27, 0.43, 1, 2.61]) {
+      const camera = { x: 0, y: 0, zoom }
+      const section = outlineAround([{ ...inside, id: 'in' }], camera)
+      if (!section) throw new Error('no outline')
+      const frame = frameEndBox({ ...beside, id: 'beside' }, camera)
+      for (const curve of [connectorCurve(frame, section), connectorCurve(section, frame)]) {
+        for (let i = 0; i <= 200; i++) {
+          const p = pointAlong(curve, i / 200)
+          const within = (b: typeof frame) =>
+            p.x > b.x + 0.5 && p.x < b.x + b.width - 0.5 && p.y > b.y + 0.5 && p.y < b.y + b.height - 0.5
+          expect([zoom, within(frame), within(section)]).toEqual([zoom, false, false])
+        }
+      }
+    }
   })
 })
 

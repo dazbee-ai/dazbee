@@ -32,7 +32,7 @@ export interface EditorSurface {
   scheduled(): boolean
   /**
    * Draws the sections' outlines, soft grey or in the accent while lit, then the connectors' curves
-   * on the stage, each with its start dot and arrowhead, grey or in the accent while picked, then
+   * on the stage with their arrowheads, quiet grey, or picked in the accent with a filled dot at its start, then
    * the pictures of the frames in view at the camera, each over white on a soft shadow, so no outline
    * or connector covers a frame, and shows them; then `ghost`, a picture of what a drag carries in
    * its frame, faintly where it is past the frame's edge. False, drawing nothing, before the stage
@@ -91,16 +91,13 @@ const ACCENT_FALLBACK = '#2f5be0'
 /**
  * A connector at rest: a quiet 1.25 px line in the theme's soft grey, as CSS names it (the colour
  * while CSS gives none), and its arrowhead, with no dot. Picked: a 2 px line in the accent with a
- * dot 5 px round at its start. In stage pixels.
+ * filled dot 5 px round at its start. In stage pixels.
  */
 const CONNECTOR = '--stage-connector'
 const CONNECTOR_FALLBACK = '#b8aec2'
 const CONNECTOR_WIDTH = 1.25
 const PICKED_CONNECTOR_WIDTH = 2
 const PICKED_DOT = 5
-/** The canvas's colour, which a connector's dots are filled with, as CSS names it, and the colour while CSS gives none. */
-const CANVAS = '--canvas'
-const CANVAS_FALLBACK = '#f1ece5'
 
 export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSurface {
   const maybeGl = ck.MakeWebGLContext(ck.GetWebGLContext(canvas))
@@ -130,11 +127,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   outline.setStrokeWidth(OUTLINE_WIDTH)
   outline.setAntiAlias(true)
   const grey = ck.parseColorString(OUTLINE_COLOUR)
-  /** A connector's curve and the ring of its dots, and what is filled: its arrowhead and its dots. */
-  const curveLine = new ck.Paint()
-  curveLine.setStyle(ck.PaintStyle.Stroke)
-  curveLine.setStrokeWidth(PICKED_CONNECTOR_WIDTH)
-  curveLine.setAntiAlias(true)
+  /** A picked connector's start dot, filled. */
   const filled = new ck.Paint()
   filled.setAntiAlias(true)
   /** The connectors' triangles take their colours from their corners alone. */
@@ -220,7 +213,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   }
   /**
    * Draws the connectors, in stage pixels: their quiet curves and arrowheads, then a picked one's
-   * curve and arrowhead in the accent with a dot at its start, its end left to the arrowhead. They
+   * curve and arrowhead in the accent with a filled dot at its start, its end left to the arrowhead. They
    * are drawn as triangles, all of one look in one call (`connector-mesh.ts`), built from the camera's
    * corner for the part of the page round the stage and kept, so a pan only moves them. They are
    * built again once the zoom, a curve, the pick or the theme changes, or the stage leaves that part.
@@ -234,12 +227,8 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     for (const vertices of [...drawn.resting, ...drawn.picked])
       c.drawVertices(vertices, ck.BlendMode.Dst, cornerColours)
     if (drawn.dots.length > 0) {
-      filled.setColor(themeColour(CANVAS, CANVAS_FALLBACK))
-      curveLine.setColor(themeColour(ACCENT, ACCENT_FALLBACK))
-      for (const dot of drawn.dots) {
-        c.drawCircle(dot.x, dot.y, PICKED_DOT, filled)
-        c.drawCircle(dot.x, dot.y, PICKED_DOT, curveLine)
-      }
+      filled.setColor(themeColour(ACCENT, ACCENT_FALLBACK))
+      for (const dot of drawn.dots) c.drawCircle(dot.x, dot.y, PICKED_DOT, filled)
     }
     c.restore()
   }
@@ -356,7 +345,6 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     resized.disconnect()
     cornerColours.delete()
     filled.delete()
-    curveLine.delete()
     outline.delete()
     faint.delete()
     for (const { paint, blur } of shadows) {

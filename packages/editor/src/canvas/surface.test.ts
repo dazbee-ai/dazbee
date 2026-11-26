@@ -254,7 +254,7 @@ describe('editorSurface', () => {
   })
 
   describe('paint with connectors', () => {
-    it('draws them after the outlines and before the frames, as triangles from the camera’s corner: at rest in the soft grey with no dot, picked in the accent with a dot at its start', () => {
+    it('draws them after the outlines and before the frames, as triangles from the camera’s corner: at rest in the soft grey with no dot, picked in the accent with a filled dot at its start', () => {
       vi.stubGlobal('getComputedStyle', () => ({
         getPropertyValue: (name: string) => (name === '--canvas' ? '#100d14' : ''),
       }))
@@ -275,16 +275,15 @@ describe('editorSurface', () => {
           { curve: { ...curve, from: { x: 10, y: 150 }, to: { x: 110, y: 150 } }, picked: true },
         ],
       )
-      expect(log.slice(3, 10)).toEqual([
+      expect(log.slice(3, 9)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
         'save',
         'translate 0 0',
         expect.stringMatching(/^triangles with \d+ corners in #b8aec2$/),
         expect.stringMatching(/^triangles with \d+ corners in #2f5be0$/),
-        'circle 10 150 round 5 in #100d14',
-        'circle 10 150 round 5 in #2f5be0 2 wide',
+        'circle 10 150 round 5 in #2f5be0',
       ])
-      expect(log.slice(10, 12)).toEqual(['restore', 'rect 0 1 540 540'])
+      expect(log.slice(9, 11)).toEqual(['restore', 'rect 0 1 540 540'])
     })
 
     it('leaves out a connector far off the stage, but builds those just past it, ready for a pan', () => {
@@ -473,7 +472,6 @@ describe('editorSurface', () => {
       expect(log).toEqual([
         'surface 2000×1600',
         'delete surface',
-        'delete paint',
         'delete paint',
         'delete paint',
         'delete paint',

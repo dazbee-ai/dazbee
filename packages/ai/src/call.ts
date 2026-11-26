@@ -211,6 +211,7 @@ async function tryOnce(
     const signal = AbortSignal.any([call.signal, timeout])
     const answer = await untilAborted(
       seller.adapter.call({
+        call: { job: call.job.id, step: call.step, index: call.callIndex },
         model: seller.sellerModel,
         input: withCeiling(call),
         options: route.options,
@@ -295,9 +296,14 @@ async function finish(
   try {
     const stored = await storeOutput(call, answer.output)
     let output = stored.output
-    const priced = await priceUsage(db, made.seller, made.model, answer.usage)
+    // A replayed answer was made by no seller, so it costs nothing and charges nothing.
+    const priced = answer.replayed ? null : await priceUsage(db, made.seller, made.model, answer.usage)
     const def = stepDef(call.step)
-    const chargeCost = def.fixedCost ? def.fixedCost(await aiSettingsOf(db), call.input) : priced.realCost
+    const chargeCost = !priced
+      ? 0n
+      : def.fixedCost
+        ? def.fixedCost(await aiSettingsOf(db), call.input)
+        : priced.realCost
     await db.transaction(async (tx) => {
       // The job row first, as every transaction that locks both takes them, so two never wait on each other.
       await tx.select({ id: aiJobs.id }).from(aiJobs).where(eq(aiJobs.id, call.job.id)).for('update')
@@ -307,10 +313,10 @@ async function finish(
           state: 'done',
           sellerRequestId: answer.requestId ?? sql`${aiCalls.sellerRequestId}`,
           usage: answer.usage,
-          currency: priced.currency,
-          sellerCost: priced.sellerCost,
+          currency: priced?.currency ?? null,
+          sellerCost: priced?.sellerCost ?? 0n,
           reportedCost: answer.reportedCost === undefined ? null : BigInt(Math.round(answer.reportedCost * 1e6)),
-          realCost: priced.realCost,
+          realCost: priced?.realCost ?? 0n,
           chargeCost,
           endedAt: new Date(),
         })

@@ -6,8 +6,9 @@
 // asking to rename the frame whose label it is on, `double-click.ts`'s. A press on a frame label's
 // text grabs the frame, after the selection's handles, and one on a section's title or outline line
 // grabs the section, after a frame's label. A press on a ruler or a guide is the guide
-// drag's (`guides/guide-drag.ts`), after the selection's handles. The dots a connector starts from
-// with the Arrow shape, and its drag, are `drawing/connecting.ts`'s. While a colour is picked,
+// drag's (`guides/guide-drag.ts`), after the selection's handles. A hover with the select tool asks
+// the select press which label's star to offer. The dots a connector starts from with the Arrow
+// shape, and its drag, are `drawing/connecting.ts`'s. While a colour is picked,
 // `colour-pick.ts` takes the inputs, but a pan's and the wheel.
 import type { Session } from '@dazbee/doc'
 import type { Point } from '@dazbee/schema'
@@ -333,8 +334,9 @@ export function editorPointer({
     // The radius dot under the pointer, which the deep key passes over, is drawn big.
     const dot = transformDrag.hoverDot(pointer && !gesture && !panning() && !held.deep() ? pointer.at : null)
     const guide = guideDrag.hover(pointer && !gesture && !panning() ? pointer.at : null)
+    const star = selectPress.hoverStar(!gesture && !panning() && tools.tool() === 'select' ? pointer : null)
     const dots = connecting.hover(pointer && !gesture && !panning() ? pointer.at : null)
-    return selection.hover(next) || dot || guide || dots
+    return selection.hover(next) || dot || guide || star || dots
   }
   /** Once a drag has ended: the cursor, the hover outline and the radius dot under the pointer follow where it is, and what is shown is told. */
   function dragEnded() {

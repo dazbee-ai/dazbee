@@ -32,6 +32,7 @@ const PIXAZO: Parameters<typeof fakeFetch>[0] = [
 
 function requestOf(input: CallInput, kept: string[], resumeId?: string): SellerRequest {
   return {
+    call: { job: 'job', step: 'flow.read', index: 0 },
     model: 'seedream-5-5',
     input,
     options: {},

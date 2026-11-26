@@ -3,12 +3,15 @@
 // pg-boss job ended without them, settles unknown calls and checks the call log against the sellers' own
 // figures each day, and answers a health check. The API migrates the database, so the worker
 // starts after it. On SIGTERM it stops taking jobs and waits up to 110 s for those running. Settings come
-// from the environment only, each seller's key among them.
+// from the environment only, each seller's key among them. In development, AI_RECORD_DIR=<folder> also writes
+// every seller's answer to that folder, and AI_REPLAY_DIR=<folder> answers every AI call from it in place of the
+// sellers, at no cost and AI_REPLAY_SPEED (10 by default) times faster than recorded.
 import { createServer } from 'node:http'
 
 import { PgBoss } from 'pg-boss'
 
 import {
+  aiRecordingOf,
   FLOW_QUEUE,
   reportsOf,
   runDailyCheck,
@@ -42,6 +45,16 @@ if (!Number.isInteger(callLimit) || callLimit < 1) throw new Error('WORKER_AI_CA
 // Each seller whose keys are set: OPENAI_API_KEY, MUSE_API_KEY, OPENROUTER_API_KEY, ZENMUX_API_KEY,
 // PIXAZO_API_KEY, and MODAL_TOKEN_ID with MODAL_TOKEN_SECRET.
 const sellers = useSellersOf()
+const recording = aiRecordingOf()
+if (recording?.mode === 'record') {
+  console.warn(
+    JSON.stringify({ msg: 'AI recording on: every seller answer is also written to the folder', ...recording }),
+  )
+}
+if (recording?.mode === 'replay') {
+  const msg = 'AI replay on: no seller is called; every AI call is answered from the folder at no cost'
+  console.warn(JSON.stringify({ msg, ...recording }))
+}
 const { db, close } = openDatabase(databaseUrl)
 const storage = openStorage(storageSettings())
 const boss = new PgBoss({ connectionString: databaseUrl, max: 4 })

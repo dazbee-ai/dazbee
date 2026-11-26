@@ -4,7 +4,7 @@
 import type { Canvas, CanvasKit, Color, GrDirectContext, Surface, Vertices } from '@dazbee/canvaskit'
 import type { Point, Rect } from '@dazbee/schema'
 
-import { type Camera, toScreen } from './camera.ts'
+import type { Camera } from './camera.ts'
 import { type ConnectorMesh, connectorMeshes } from './connector-mesh.ts'
 import type { ConnectorCurve } from './connectors.ts'
 import type { FramePicture } from './frames.ts'
@@ -32,11 +32,11 @@ export interface EditorSurface {
   scheduled(): boolean
   /**
    * Draws the sections' outlines, soft grey or in the accent while lit, then the connectors' curves
-   * on the stage with their arrowheads, quiet grey, or picked in the accent with a filled dot at its start, then
-   * the pictures of the frames in view at the camera, each over white on a soft shadow, so no outline
-   * or connector covers a frame, and shows them; then `ghost`, a picture of what a drag carries in
-   * its frame, faintly where it is past the frame's edge. False, drawing nothing, before the stage
-   * has a surface.
+   * on the stage with their arrowheads, quiet grey, or picked in the accent with a filled dot at its
+   * start, then the pictures of the frames in view at the camera, each over white, so no outline or
+   * connector covers a frame, and shows them; then `ghost`, a picture of what a drag carries in its
+   * frame, faintly where it is past the frame's edge. False, drawing nothing, before the stage has a
+   * surface.
    */
   paint(
     pictures: readonly FramePicture[],
@@ -70,16 +70,6 @@ interface BuiltConnectors {
   colours: string
   key: number
 }
-
-/**
- * The soft lift under each frame, in stage pixels, so it looks the same at any zoom: a tight shadow
- * 1 down and blurred over 2, and a softer one from a box 6 in from each side, 6 down and blurred
- * over 18, in a near-black at 8% and 16%.
- */
-const FRAME_SHADOWS = [
-  { y: 1, blur: 2, inset: 0, alpha: 0.08 },
-  { y: 6, blur: 18, inset: 6, alpha: 0.16 },
-] as const
 /** How strongly the part of a dragged layer past its frame's edge shows. */
 const GHOST_OPACITY = 0.35
 /** A section's outline: a 1.5 px line in a soft grey, in stage pixels. */
@@ -111,14 +101,6 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
 
   const backing = new ck.Paint()
   backing.setColor(ck.WHITE)
-  /** Each of FRAME_SHADOWS with its paint, blurred by half its blur each way, as CSS blurs. */
-  const shadows = FRAME_SHADOWS.map((look) => {
-    const blur = ck.ImageFilter.MakeBlur(look.blur / 2, look.blur / 2, ck.TileMode.Decal, null)
-    const paint = new ck.Paint()
-    paint.setColor(ck.Color(20, 12, 24, look.alpha))
-    paint.setImageFilter(blur)
-    return { look, blur, paint }
-  })
   const faint = new ck.Paint()
   faint.setAlphaf(GHOST_OPACITY)
   /** The outline's line, grey, and lit in the accent. */
@@ -171,22 +153,8 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
       outline.setColor(on && lit ? lit : grey)
       c.drawRRect(ck.RRectXY(ck.XYWHRect(box.x, box.y, box.width, box.height), OUTLINE_RADIUS, OUTLINE_RADIUS), outline)
     }
-    // The connectors go on next, so the frames drawn after cover them too.
+    // The connectors go on next, so the frames drawn after cover them.
     paintConnectors(c, connectors)
-    // The shadows go on first, in stage pixels, so none falls over a neighbouring frame.
-    for (const { frame } of pictures) {
-      const { x, y } = toScreen(camera, frame)
-      const [width, height] = [frame.width * camera.zoom, frame.height * camera.zoom]
-      for (const { look, paint } of shadows) {
-        const box = ck.XYWHRect(
-          x + look.inset,
-          y + look.inset + look.y,
-          Math.max(width - 2 * look.inset, 0),
-          Math.max(height - 2 * look.inset, 0),
-        )
-        c.drawRect(box, paint)
-      }
-    }
     c.translate(camera.x, camera.y)
     c.scale(camera.zoom, camera.zoom)
     for (const { frame, picture } of pictures) {
@@ -347,10 +315,6 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     filled.delete()
     outline.delete()
     faint.delete()
-    for (const { paint, blur } of shadows) {
-      paint.delete()
-      blur.delete()
-    }
     backing.delete()
     gl.delete()
   }

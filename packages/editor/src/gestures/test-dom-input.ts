@@ -59,11 +59,17 @@ export const box = (left: number, top: number, width: number, height = 20) => ({
   width,
   height,
 })
-/** The label of the frame `sq` as the overlay draws it: its row at 76 down, its name at 0–40 across. */
+/** The label of the frame `sq` as the overlay draws it: its row at 76 down, its name and its star (STAR) at 0–56 across. */
 export const LABEL = {
   dataset: { frame: 'sq' },
   getBoundingClientRect: () => box(0, 76, 300),
-  children: [{ getBoundingClientRect: () => box(0, 76, 40) }],
+  children: [{ getBoundingClientRect: () => box(0, 76, 56) }],
+}
+
+/** The star after the name in LABEL, as the overlay draws it: 12 px square, at 44 across and 80 down. */
+export const STAR = {
+  getAttribute: (name: string) => (name === 'data-frame' ? 'sq' : null),
+  getBoundingClientRect: () => box(44, 80, 12, 12),
 }
 
 /** A mouse event of the browser at a client point, a double click's or a wheel's, which logs what is asked of it. */
@@ -152,7 +158,9 @@ export function harness(
   vi.stubGlobal('document', { addEventListener: () => {} })
   const deps: DomInputDeps = {
     canvas: canvas as unknown as HTMLCanvasElement,
-    overlay: { querySelectorAll: () => [LABEL] } as unknown as ParentNode,
+    overlay: {
+      querySelectorAll: (selector: string) => (selector === '.frame-star' ? [STAR] : [LABEL]),
+    } as unknown as ParentNode,
     surface: { onStage: (client) => ({ x: client.x - 10, y: client.y - 20 }) },
     input: {
       pointer: (e) => {

@@ -1077,6 +1077,7 @@ export function buildCore({
       brandKit,
       colourPick,
       guideDrag,
+      selectPress,
       pointer,
       redrawing,
       presence,

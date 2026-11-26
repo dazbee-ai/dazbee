@@ -55,11 +55,11 @@ class SaveRefused extends Error {
 }
 
 /**
- * Saves the job `plan` gives on `design`, with its hold and its pg-boss job, then its rows, in one transaction that
- * first takes the design's lock and runs `check` again. A refused save writes nothing.
+ * Saves the job `plan` gives on `design`, with its hold and its pg-boss job on `queue`, then its rows, in one
+ * transaction that first takes the design's lock and runs `check` again. A refused save writes nothing.
  */
 export async function saveFlow(
-  { db, boss, starter }: { db: Db; boss: PgBoss; starter: Starter },
+  { db, boss, queue, starter }: { db: Db; boss: PgBoss; queue: string; starter: Starter },
   design: string,
   plan: Plan,
   check: (tx: Tx) => Promise<unknown> = async () => {},
@@ -69,7 +69,12 @@ export async function saveFlow(
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-frames:${design}`}))`)
       await check(tx)
       const planned = await plan(tx)
-      const saved = await saveJob(tx, boss, { workspace: starter.workspace, member: starter.member, ...planned.flow })
+      const saved = await saveJob(tx, boss, {
+        workspace: starter.workspace,
+        member: starter.member,
+        queue,
+        ...planned.flow,
+      })
       if (!saved.ok) throw new SaveRefused(saved.refusal)
       await planned.rows(saved.job)
       return { ok: true, job: saved.job, briefId: null }

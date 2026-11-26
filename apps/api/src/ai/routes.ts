@@ -53,7 +53,18 @@ const WRITTEN_REFUSED: Record<Exclude<Written, 'written'>, [string, 404 | 409]> 
   'not-its-call': ['That call doesn’t fill this frame', 409],
 }
 
-export function aiRoutes({ db, storage, boss }: { db: Db; storage: Storage; boss: PgBoss | null }): Hono<Env> {
+export function aiRoutes({
+  db,
+  storage,
+  boss,
+  queue,
+}: {
+  db: Db
+  storage: Storage
+  boss: PgBoss | null
+  /** The pg-boss queue flow jobs are sent to. */
+  queue: string
+}): Hono<Env> {
   const app = new Hono<Env>()
 
   /** The route's design, in the membership's workspace and the route's brand; null for none. */
@@ -73,7 +84,7 @@ export function aiRoutes({ db, storage, boss }: { db: Db; storage: Storage; boss
     if (input instanceof Response) return input
     const starter = { workspace: c.var.membership.workspaceId, brand: c.var.brand, member: c.var.session.userId }
     try {
-      const started = await startFlowJob({ db, storage, boss }, starter, input)
+      const started = await startFlowJob({ db, storage, boss, queue }, starter, input)
       if (started.ok) return c.json({ job: started.job, briefId: started.briefId } satisfies AiJobStarted, 201)
       const [message, status] = SAVE_REFUSED[started.refusal]
       return c.json({ ...error(message), refusal: started.refusal } satisfies AiJobRefused, status)

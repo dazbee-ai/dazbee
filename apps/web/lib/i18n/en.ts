@@ -832,6 +832,8 @@ export const en = {
         font: 'Font',
       },
     },
+    /** The Select button's menu in the tool dock: Select and Hand, by `actions.toolSelect` and `actions.toolHand`. */
+    selectTools: { menu: 'Select and hand', more: 'More select tools' },
     shapes: {
       menu: 'Shapes',
       more: 'More shapes',
@@ -1477,6 +1479,10 @@ export const en = {
       tooBigForImage: 'Too big for an image: {frames}. Export as PDF or SVG.',
       run: { one: 'Export 1 file', other: 'Export {n} files' } as Counted,
       tickOne: 'Tick a frame to export',
+      /** A section's title in the frames list, whose tick ticks its frames: its tooltip. */
+      section: 'Every frame in {name}',
+      /** A starred frame's star in the frames list, for a screen reader. */
+      starred: 'Starred',
       making: 'Making {done} of {total}',
       failed: 'Export failed: {reason}',
       /** What the texts of the ticked frames won't draw as designed: fonts the catalog lacks, characters no font has. */
@@ -1573,6 +1579,9 @@ export const en = {
       addSize: 'Add size',
       rename: 'Rename',
       export: 'Export',
+      /** Marks the frame as ready to go out, which Export starts with ticked, and takes the mark off. */
+      star: 'Star',
+      unstar: 'Unstar',
       /** Removes every guide of the picked frame. */
       removeGuides: 'Remove guides',
       nameOf: 'Name of {name}',

@@ -95,32 +95,3 @@ describe('crossings of section and connector commands', () => {
     expect(section.checks).toEqual(CLEAN)
   })
 })
-
-describe('an undo of what another tab has since connected to', () => {
-  it('keeps the connector: the undo waits while it touches the section, a sweep has nothing to take, and the redo has nothing to redo', async () => {
-    const { world, a, b, deliver } = await twoTabs(sectionedDesign())
-    a.run('section.add', { pageId: 'p1', id: 'mine', frameIds: ['tall'] })
-    await deliver()
-    b.run('connector.add', { pageId: 'p1', from: 'other', to: 'mine', id: 'to-mine' })
-    await deliver()
-    a.undo()
-    await deliver()
-    b.run('frame.setSection', { frameIds: ['other'], sectionId: 'banners' })
-    await deliver()
-    a.redo()
-    await deliver()
-    for (const tab of [a, b]) {
-      expect(sectionOf(tab.design(), 'tall')).toBe('mine')
-      expect(tab.design().connectors['to-mine']).toEqual({ pageId: 'p1', from: 'other', to: 'mine', order: 'a2' })
-    }
-    expect(b.design()).toEqual(a.design())
-    // Once B takes its connector back, A's undo goes through.
-    b.undo()
-    b.undo()
-    await deliver()
-    a.undo()
-    await deliver()
-    expect(a.design().sections.mine).toBeUndefined()
-    expect(await endChecks(world)).toEqual(CLEAN)
-  })
-})

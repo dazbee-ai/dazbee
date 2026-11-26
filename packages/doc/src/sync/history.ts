@@ -329,23 +329,17 @@ export class Step {
    * would hold a record it brings back may be gone, and come back later.
    */
   waits(side: Side, onto: DesignState): boolean {
-    const { todo, gone, held } = this.#plan(side, onto)
-    return held || todo.length > 0 || [...gone].some((id) => onto.partOf(id) !== undefined)
+    const { todo, gone } = this.#plan(side, onto)
+    return todo.length > 0 || [...gone].some((id) => onto.partOf(id) !== undefined)
   }
 
   /**
    * What `toward` takes to `side` on `onto`: the records to bring back, holders first, and the
    * values to write back, as changes; and the ids of the records of the other side to delete. A
    * layer coming back takes a link of its own where its frame holds its link (`placed`): judged on
-   * `onto` with the values written back (`written`), or as `onto` is (`now`). `held`, with nothing
-   * to do, while a frame or section it would delete has a connector it doesn't take back (C46): a
-   * connector is placed in its ends, and a section left with no frames would be swept with it.
+   * `onto` with the values written back (`written`), or as `onto` is (`now`).
    */
-  #plan(
-    side: Side,
-    onto: DesignState,
-    judged: 'written' | 'now' = 'now',
-  ): { todo: Change[]; gone: Set<string>; held: boolean } {
+  #plan(side: Side, onto: DesignState, judged: 'written' | 'now' = 'now'): { todo: Change[]; gone: Set<string> } {
     const other = side === BACK ? FWD : BACK
     const back = new Map<string, Whole>()
     for (const [key, whole] of this.#records) {
@@ -357,9 +351,6 @@ export class Step {
       const exists = whole.sides[other] !== undefined && whole.sides[side] === undefined
       if (exists && !this.#takenRecords.has(key)) gone.add(whole.id)
     }
-    const ends = [...gone].filter((id) => onto.get('frame', id) ?? onto.get('section', id))
-    if (ends.some((id) => [...onto.connectorsAt(id)].some((connector) => !gone.has(connector))))
-      return { todo: [], gone: new Set(), held: true }
     const sets: Change[] = []
     for (const [key, { target, sides }] of this.#writes) {
       if (this.#taken.has(key) || this.#movedAway(target)) continue
@@ -383,7 +374,7 @@ export class Step {
         id: whole.id,
         record: placed(whole, side, back, gone, onto, written),
       }))
-    return { todo: [...todo, ...sets], gone, held: false }
+    return { todo: [...todo, ...sets], gone }
   }
 
   /** Leave the values `touches` writes (but those in `except`) alone from now on. */

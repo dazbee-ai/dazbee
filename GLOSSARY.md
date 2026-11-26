@@ -705,9 +705,29 @@ _Avoid_: Block, type, modality
 A model an admin sets for one AI step in place of its kind's default, such as Seedream for the refine while pictures default to Muse Image. Removing it makes the step follow its kind again.
 _Avoid_: Custom model, pin
 
+**AI function**:
+One thing the AI is asked to do: a kind of AI call with the words it is given and the shape of its answer. The round plan, the reference read, the draft, the refine plan, the refine edit, the resize, the layer plan, the layer split and the reading are the AI functions.
+_Avoid_: Task, skill, endpoint, action
+
+**Preset**:
+A model, its settings and the prompt tested with it, under one name, for one AI function, such as the round plan's `light-luna`. It lives in the code and is never edited once merged: new words, another model or another setting is a new preset. It starts with a first guess of what a call costs and how long it takes, replaced by what its own calls measure from its first one.
+_Avoid_: Version, variant, profile, config (a text style's or a template's saved look is not a preset)
+
+**Pick**:
+An admin's choice of which preset a mode uses for an AI function, from the presets the code has. Picks are only ever added, and the newest is the one in use, so going back is one more pick.
+_Avoid_: Override, switch, pin
+
 **Ceiling**:
 The most output one call of a text AI step may write, set per step and sent to the seller as a hard limit. An answer that reaches it is cut off: we pay the seller for it, the workspace is charged nothing, and the call fails without trying again. The admin page shows each step's ceiling and expected size beside what its calls measured.
 _Avoid_: Max tokens, cap, limit
+
+**Reasoning effort**:
+How much a text model reasons before it answers, set for an AI step in its options as `effort`, from `none` to `max` as the seller names them: less effort answers sooner and writes fewer output tokens. Every seller that takes it is sent it.
+_Avoid_: Thinking level, reasoning mode
+
+**Fast tier**:
+OpenAI's speed tier, which answers sooner at twice its standard price, asked for by an AI step's options as `tier: fast` (`standard` otherwise). OpenAI may run such a call at standard speed and bill it at the standard price, so a call is charged at the tier it ran on, while its hold is priced at the fast tier. A fallback seller runs every call at its own normal speed. Not the Fast mode.
+_Avoid_: Priority, fast mode
 
 **Reference picture**:
 A picture a person attaches to a picture call for the model to work from, such as a product, a logo or a style ad: up to 16 a call. With none, the model makes a new picture; with some, it edits or builds from them.

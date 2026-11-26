@@ -7,9 +7,23 @@ import type { CallInput } from '@dazbee/schema'
 
 import { type AiCall, callAi, CallFailed } from './call.ts'
 import { endHold, hold, left } from './ledger.ts'
+import { openaiSeller } from './sellers/openai.ts'
+import { fakeFetch, fixture } from './sellers/test-fetch.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { STEPS } from './steps.ts'
-import { addGrant, addJob, addStep, db, memoryFiles, newSeller, newWorkspace, pngOf, RUPEE, setJob } from './test-ai.ts'
+import {
+  addGrant,
+  addJob,
+  addStep,
+  db,
+  memoryFiles,
+  newSeller,
+  newWorkspace,
+  pngOf,
+  RUPEE,
+  setJob,
+  TIERED_PRICES,
+} from './test-ai.ts'
 
 const TEXT: CallInput = { kind: 'text', instructions: 'Plan the round.', prompt: 'A coffee ad.', pictures: [] }
 
@@ -75,6 +89,34 @@ describe('callAi', () => {
       },
     ])
     expect(await chargesOf(rows[0]?.id ?? '')).toEqual([{ amount: -192_620n }])
+  })
+
+  it('charges a fast call at the tier OpenAI says it ran on: at standard rates when it was moved to standard speed', async () => {
+    const charged = []
+    for (const ranOn of ['default', 'fast']) {
+      const answer = { ...JSON.parse(fixture('openai-responses-text.json')), service_tier: ranOn }
+      const { fetch, sent } = fakeFetch([['/responses', { body: JSON.stringify(answer) }]])
+      const adapter = openaiSeller('test-key', { fetch })
+      const { step } = await addStep([{ seller: 'openai', adapter, prices: TIERED_PRICES }])
+      await db
+        .update(aiStepModels)
+        .set({ options: { effort: 'low', tier: 'fast' } })
+        .where(eq(aiStepModels.step, step))
+      const job = await heldJob()
+      await callAi(db, callOf(job, step))
+      expect(JSON.parse(String(sent[0]?.body))).toMatchObject({ reasoning: { effort: 'low' }, service_tier: 'fast' })
+      const [row] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job.id))
+      charged.push({ usage: row?.usage, charge: (await chargesOf(row?.id ?? '')).map((c) => c.amount) })
+    }
+    // 69 input and 109 output tokens at US$1 and US$2 a million at the standard tier, twice that at the fast
+    // one, at ₹96.31 with no fee.
+    expect(charged).toEqual([
+      { usage: { 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 }, charge: [-27_641n] },
+      {
+        usage: { 'fast-input-token': 69, 'fast-cached-input-token': 0, 'fast-output-token': 109 },
+        charge: [-55_282n],
+      },
+    ])
   })
 
   it('tries a seller that fails with a 5xx once more, then the next seller, and charges only the call made', async () => {

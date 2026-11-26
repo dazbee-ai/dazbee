@@ -25,6 +25,25 @@ export const AI_STEPS = [
 export const AiStep = z.enum(AI_STEPS)
 export type AiStep = z.infer<typeof AiStep>
 
+/**
+ * Every AI function: one thing the AI is asked to do, a kind of call with the words it is given and the shape of
+ * its answer.
+ */
+export const AI_FUNCTIONS = [
+  'reference-read',
+  'round-plan',
+  'draft',
+  'refine-plan',
+  'refine-edit',
+  'resize',
+  'layer-plan',
+  'layer-split',
+  'reading',
+] as const
+
+export const AiFunction = z.enum(AI_FUNCTIONS)
+export type AiFunction = z.infer<typeof AiFunction>
+
 /** The AI step of layering that splits a draft into picture layers, at a fixed amount. */
 export const LAYER_SPLIT_STEP = 'flow.layer-split' satisfies AiStep
 
@@ -46,11 +65,17 @@ export const CALL_KINDS = ['text', 'picture', 'layer-split'] as const
 export const CallKind = z.enum(CALL_KINDS)
 export type CallKind = z.infer<typeof CallKind>
 
-/** The units usage is counted and priced in. */
+/**
+ * The units usage is counted and priced in. A seller that bills its fast tier at a price of its own reports a
+ * call that ran on that tier in the fast token units.
+ */
 export const USAGE_UNITS = [
   'input-token',
   'cached-input-token',
   'output-token',
+  'fast-input-token',
+  'fast-cached-input-token',
+  'fast-output-token',
   'image-input-token',
   'image-output-token',
   'picture',

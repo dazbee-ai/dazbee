@@ -385,13 +385,12 @@ async function endWith(
  * and otherwise failed, with why.
  */
 function callViews(
-  tries: { callIndex: number; function: string | null; state: CallState; error: string | null }[],
+  tries: { callIndex: number; function: string; state: CallState; error: string | null }[],
   outputs: Record<string, CallOutput>,
 ): AiCallView[] {
   const latest = new Map(tries.map((t) => [t.callIndex, t]))
   return [...latest.values()].map(({ callIndex: index, function: fn, state, error }): AiCallView => {
-    // `step` repeats the AI function's name.
-    const place = { index, function: fn ?? '', step: fn ?? '' }
+    const place = { index, function: fn }
     const output = outputs[String(index)]
     if (output) return { ...place, state: 'done', output }
     if (state === 'running' || state === 'done') return { ...place, state: 'running' }

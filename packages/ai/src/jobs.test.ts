@@ -3,12 +3,13 @@ import { eq, sql } from 'drizzle-orm'
 import { fromDrizzle, PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { aiCalls, aiJobs, aiLedger, aiPicks, brands, memberships, newId, users, workspaces } from '@dazbee/db'
+import { aiCalls, aiJobs, aiLedger, brands, memberships, newId, users, workspaces } from '@dazbee/db'
 import type { CallInput, CallsInput, MemberRole, RoundInput } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
 import { cancelJob, ensureQueue, FLOW_QUEUE, readJob, saveJob } from './jobs.ts'
 import { giveGrant, left } from './ledger.ts'
+import { addPick } from './picks.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { aiSettingsOf } from './settings.ts'
 import { addFunction, addJob, db, newSeller, newWorkspace, RUPEE, TEST_PRESET } from './test-ai.ts'
@@ -159,9 +160,7 @@ describe('saveJob', () => {
           (await tx.select().from(aiLedger).where(eq(aiLedger.jobId, job))).map((row) => row.amount)
         const presets = async (job: string) => (await tx.select().from(aiJobs).where(eq(aiJobs.id, job)))[0]?.presets
         const before = await saveRound()
-        await tx
-          .insert(aiPicks)
-          .values({ function: 'round-plan', mode: 'precise', preset: 'light-luna', setBy: 'admin' })
+        await addPick(tx, { function: 'round-plan', mode: 'precise', preset: 'light-luna', by: 'admin' })
         const after = await saveRound()
         const result = {
           before: { presets: await presets(before), held: await held(before) },
@@ -190,8 +189,10 @@ describe('saveJob', () => {
           callIndex: 0,
           try: 1,
           attempt: 1,
+          feature: 'calls',
           function: 'reading',
           preset: 'luna',
+          kind: 'text',
           model: 'test',
           seller: 'test',
           state: 'done',
@@ -238,10 +239,10 @@ describe('readJob', () => {
     const making = call(2, slow.fn, stop.signal).catch(() => null)
     await vi.waitFor(async () => expect((await readJob(db, workspace, job))?.calls).toHaveLength(3))
     expect((await readJob(db, workspace, job))?.calls).toEqual([
-      // Each call names its AI function, and as `step` too, for a tab built when a call named its AI step.
-      { index: 0, function: made.fn, step: made.fn, state: 'done', output: { kind: 'text', text: 'test answer' } },
-      { index: 1, function: refused.fn, step: refused.fn, state: 'failed', failure: 'not-made' },
-      { index: 2, function: slow.fn, step: slow.fn, state: 'running' },
+      // Each call names its AI function.
+      { index: 0, function: made.fn, state: 'done', output: { kind: 'text', text: 'test answer' } },
+      { index: 1, function: refused.fn, state: 'failed', failure: 'not-made' },
+      { index: 2, function: slow.fn, state: 'running' },
     ])
     stop.abort()
     await making

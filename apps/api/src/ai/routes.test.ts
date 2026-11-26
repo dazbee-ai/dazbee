@@ -376,12 +376,19 @@ describe('what a workspace reads of its AI', () => {
       await ask(team, team.editor, 'GET', estimate),
       await requestOf(aiApp, team.editor, 'GET', '/me/ai/jobs'),
     ]
-    for (const answer of read) {
-      expect(answer.status).toBe(200)
+    for (const answer of read) expect(answer.status).toBe(200)
+    // What starting a job answers, too.
+    const started = await ask(team, team.editor, 'POST', '/ai/jobs', roundRequest(team, { mode: 'precise' }))
+    expect(started.status).toBe(201)
+    for (const answer of [...read, started]) {
       expect(JSON.stringify(answer.json)).not.toMatch(/openai|zenmux|openrouter|gpt-|seedream|terra|luna|light-|full-/i)
     }
     const { jobs } = DesignAi.parse(read[0]?.json)
     expect(jobs.find((each) => each.id === job)).toMatchObject({ state: 'failed', error: 'failed' })
+    // A job view's call says its place, its AI function and how it ended, and nothing else.
+    expect(
+      (read[0]?.json as { jobs: { id: string; calls: unknown[] }[] }).jobs.find((each) => each.id === job)?.calls,
+    ).toEqual([{ index: 0, function: 'round-plan', state: 'failed', failure: 'not-made' }])
   })
 })
 

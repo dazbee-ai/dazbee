@@ -94,7 +94,6 @@ describe('callAi', () => {
         kind: 'text',
         settings: {},
         promptHash: null,
-        step: null,
         model,
         seller: seller.seller,
         state: 'done',
@@ -432,8 +431,10 @@ describe('callAi', () => {
     const late = { id: `${job.id}-late`, jobId: job.id, workspaceId: job.workspaceId, callIndex: 0, try: 9, attempt: 0 }
     await db.insert(aiCalls).values({
       ...late,
+      feature: 'calls',
       function: fn,
       preset: TEST_PRESET,
+      kind: 'text',
       model,
       seller: seller.seller,
       state: 'done',
@@ -455,8 +456,10 @@ describe('callAi', () => {
     await db.insert(aiCalls).values({
       ...earlier,
       attempt: 1,
+      feature: 'calls',
       function: fn,
       preset: TEST_PRESET,
+      kind: 'text',
       model,
       seller: seller.seller,
       state: 'unknown',
@@ -512,8 +515,10 @@ describe('callAi', () => {
     await db.insert(aiCalls).values({
       ...earlier,
       attempt: 1,
+      feature: 'calls',
       function: fn,
       preset: TEST_PRESET,
+      kind: 'text',
       model,
       seller: seller.seller,
       state: 'unknown',

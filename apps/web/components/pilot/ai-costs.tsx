@@ -1,9 +1,10 @@
 'use client'
 
 // The AI section's days and costs. The days: the UTC days the costs, the daily check and the unknown calls
-// cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call over those
-// days, added up by AI feature, then AI function, model and seller, then the same by day, with the real cost and what workspaces
-// were charged; and the layer split's real GPU cost beside the fixed amounts it took, day by day.
+// cover, picked from presets or by a form that reloads the page with them. The costs: every try of every AI call
+// over those days, added up by AI feature, then AI function, its preset, model and seller, then the same by day,
+// with the real cost and what workspaces were charged; and the layer split's real GPU cost beside the fixed amounts
+// it took, day by day. The AI feature has a column of its own: a feature's total names it there, above its rows.
 import Link from 'next/link'
 import { Fragment } from 'react'
 
@@ -122,10 +123,11 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
   const w = useMessages().pilotAi.costs
   const names = useAiNames()
   const amount = useAmount()
-  // By AI feature, then AI function, then model: each feature's rows follow its own total.
-  const byFunction = sumBy(costs, (row) => `${row.feature}/${row.function}/${row.model}/${row.seller}`).sort(
-    ([a], [b]) => a.localeCompare(b),
-  )
+  // By AI feature, then AI function, preset and model: each feature's rows follow its own total.
+  const byFunction = sumBy(
+    costs,
+    (row) => `${row.feature}/${row.function}/${row.preset}/${row.model}/${row.seller}`,
+  ).sort(([a], [b]) => a.localeCompare(b))
   const features = sumBy(costs, (row) => row.feature)
   const splits = sumBy(
     costs.filter((row) => row.function === LAYER_SPLIT),
@@ -134,7 +136,9 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
   const all = sumBy(costs, () => 'all')[0]?.[2]
   const head = (
     <>
+      <th className={HEAD}>{w.feature}</th>
       <th className={HEAD}>{w.function}</th>
+      <th className={HEAD}>{w.preset}</th>
       <th className={HEAD}>{w.model}</th>
       <th className={HEAD}>{w.seller}</th>
       <th className={cn(HEAD, 'text-end')}>{w.calls}</th>
@@ -143,9 +147,12 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
       <th className={cn(HEAD, 'text-end')}>{w.charged}</th>
     </>
   )
-  const cells = (row: AiCostRow, sum: Sum) => (
+  // A row's cells; `feature` is left empty for a row under its feature's total.
+  const cells = (row: AiCostRow, sum: Sum, feature: string) => (
     <>
+      <td className={CELL}>{feature}</td>
       <td className={CELL}>{names.fn(row.function)}</td>
+      <td className={cn(CELL, 'font-mono text-caption')}>{row.preset}</td>
       <td className={cn(CELL, 'font-mono text-caption')}>{row.model}</td>
       <td className={CELL}>{names.seller(row.seller)}</td>
       <td className={cn(CELL, 'text-end')}>{sum.calls}</td>
@@ -172,9 +179,8 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
                 .map(([feature, , total]) => (
                   <Fragment key={feature}>
                     <tr data-feature={feature} className="border-t border-line font-semibold">
-                      <td className={CELL} colSpan={3}>
-                        {names.feature(feature)}
-                      </td>
+                      <td className={CELL}>{names.feature(feature)}</td>
+                      <td className={CELL} colSpan={4} />
                       <td className={cn(CELL, 'text-end')}>{total.calls}</td>
                       <td className={cn(CELL, 'text-end')}>{total.done}</td>
                       <td className={cn(CELL, 'text-end')}>{amount(total.realCost, 4)}</td>
@@ -184,14 +190,14 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
                       .filter(([, row]) => row.feature === feature)
                       .map(([key, row, sum]) => (
                         <tr key={key} data-cost={key}>
-                          {cells(row, sum)}
+                          {cells(row, sum, '')}
                         </tr>
                       ))}
                   </Fragment>
                 ))}
               {all && (
                 <tr className="border-t border-line font-semibold">
-                  <td className={CELL} colSpan={3}>
+                  <td className={CELL} colSpan={5}>
                     {w.all}
                   </td>
                   <td className={cn(CELL, 'text-end')}>{all.calls}</td>
@@ -240,9 +246,12 @@ export function AiCosts({ costs }: { costs: AiCostRow[] }) {
             </thead>
             <tbody>
               {costs.map((row) => (
-                <tr key={`${row.day}/${row.feature}/${row.function}/${row.model}/${row.seller}`}>
+                <tr
+                  key={`${row.day}/${row.feature}/${row.function}/${row.preset}/${row.model}/${row.seller}`}
+                  data-day-cost={`${row.day}/${row.feature}/${row.function}/${row.preset}`}
+                >
                   <td className={CELL}>{row.day}</td>
-                  {cells(row, row)}
+                  {cells(row, row, names.feature(row.feature))}
                 </tr>
               ))}
             </tbody>

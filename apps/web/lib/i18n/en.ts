@@ -1881,13 +1881,63 @@ export const en = {
       newModel: 'New model, such as seedream-5.5',
       addModel: 'Add the model',
     },
+    /**
+     * The AI functions: each one's presets as the code has them, what each preset's own calls measured, the
+     * preset each mode uses, and its picks.
+     */
+    aiFunctions: {
+      title: 'AI functions',
+      hint: 'Each AI function’s presets, as the code has them, with what each preset’s own calls measured; calls answered from a recording are not counted. The cost and the time of a call are the ones a job’s hold and its wait are worked out from. First guess marks the cost and the time of a preset with no done call yet: they are the guess the code gives it, not measured. Use points a mode at a preset from the next job on; a job already asked for keeps its own. The layer split is held at its fixed amount in Settings.',
+      /** The kind of model each kind of AI call runs on. */
+      kinds: { text: 'Text model', picture: 'Picture model', 'layer-split': 'GPU model' },
+      /** The modes a pick is for; an AI function no mode changes is picked for every mode at once. */
+      modes: { fast: 'Fast', precise: 'Precise', every: 'Every mode' },
+      presetsOf: 'Presets of {function}',
+      preset: 'Preset',
+      model: 'Model',
+      settings: 'Settings',
+      /** Whether a preset has a prompt of its own, in place of its AI function's. */
+      prompt: 'Own prompt',
+      ownPrompt: 'Yes',
+      noOwnPrompt: 'No',
+      done: 'Done calls',
+      cost: 'Cost of a call, ₹',
+      seconds: 'Time of a call, s',
+      cutOffs: 'Cut off',
+      failures: 'Failed',
+      /** The cost and the time of a preset with no done call yet. */
+      firstGuess: 'First guess',
+      usedBy: 'Used by:',
+      usedByNone: 'no mode',
+      usesPicked: '{mode}, picked',
+      usesCode: '{mode}, the code’s choice',
+      use: 'Use for {mode}',
+      useFor: 'Use {preset} for {function}, {mode}',
+      picked: '{mode} uses {preset} from the next job on.',
+      /** A newest pick whose preset the running code doesn't have. */
+      lacking:
+        '{mode}: the newest pick names {preset}, which the running code doesn’t have, so the code’s own choice, {inUse}, runs.',
+      history: 'Picks, newest first ({count})',
+      picksOf: 'Picks of {function}',
+      noPicks: 'No picks yet: the code’s own choice runs.',
+      /** A pick another admin's pick for the same AI function and mode came before. */
+      pickedMeanwhile:
+        'A pick was made for this mode meanwhile, so this one was not added. The page shows the newest; pick again if it is not what you want.',
+      when: 'When',
+      mode: 'Mode',
+      by: 'Picked by',
+      /** A pick whose admin's account is gone. */
+      byNoOne: 'An account since deleted',
+    },
     costs: {
       title: 'Costs',
       hint: 'Every try of every AI call, by UTC day. Real cost is what it cost us; charged is what workspaces were charged for it, before the usage rate.',
       totals: 'These days in all',
       byDay: 'By day',
       day: 'Day',
+      feature: 'AI feature',
       function: 'AI function',
+      preset: 'Preset',
       model: 'Model',
       seller: 'Seller',
       calls: 'Tries',

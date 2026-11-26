@@ -30,9 +30,20 @@ export {
 } from './functions/ai-function.ts'
 export { RESIZE_PROMPT } from './functions/resize.ts'
 export type { AiFunctionDef, Preset } from './functions/types.ts'
-export { type PresetNumbers, presetNumbers } from './measured.ts'
+export { type PresetMeasured, presetMeasured, type PresetNumbers, presetNumbers } from './measured.ts'
 export { MODE_PRESETS, modeChanges } from './modes.ts'
-export { NO_MODE, presetsFor } from './picks.ts'
+export {
+  addPick,
+  type KeptPick,
+  type NewPick,
+  NO_MODE,
+  pickModes,
+  PickRefused,
+  picksOf,
+  type PresetInUse,
+  presetsFor,
+  presetsInUse,
+} from './picks.ts'
 export {
   allowanceOf,
   charge,

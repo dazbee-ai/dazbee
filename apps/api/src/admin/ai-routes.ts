@@ -1,10 +1,10 @@
 // The admin page's AI routes, under /admin/ai, for admins only, as if they didn't exist for anyone else: the
-// AI settings with today's spend, the currency rates, the price list, each model's seller order; finding a
-// workspace, giving it a gift and reading its grants and ledger; AI's costs by day, AI feature, AI function, model
-// and seller; the daily check over a range of days, a seller's uploaded usage file, unknown calls
-// by seller and day, the sellers that said they are out of money in the last day, and when the sellers
-// checked from uploads were last checked. Money comes and goes as decimals of rupees or of the seller's
-// currency.
+// AI settings with today's spend, the currency rates, the price list, each model's seller order; the AI functions
+// with their presets and picks (`ai-function-routes.ts`); finding a workspace, giving it a gift and reading its
+// grants and ledger; AI's costs by day, AI feature, AI function, preset, model and seller; the daily check over a
+// range of days, a seller's uploaded usage file, unknown calls by seller and day, the sellers that said they are
+// out of money in the last day, and when the sellers checked from uploads were last checked. Money comes and goes
+// as decimals of rupees or of the seller's currency.
 import { and, count, desc, eq, gte, like, lte, max, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
@@ -37,6 +37,7 @@ import type { SessionOf } from '../sign-in/session.ts'
 import { type Admins, requireAdmin } from './admins.ts'
 import { allowanceOf, findWorkspaces, GiftRefused, giveGift } from './ai-allowance.ts'
 import { ChangedMeanwhile, checkSince } from './ai-changed-meanwhile.ts'
+import { aiFunctionRoutes } from './ai-function-routes.ts'
 import {
   listCurrencyRates,
   listModelSellers,
@@ -57,6 +58,7 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     c.json(error(`Give from and to as YYYY-MM-DD, at most ${MAX_DAYS} days apart`), 400)
 
   app.use('/admin/ai/*', requireAdmin(db, sessionOf, admins))
+  app.route('/', aiFunctionRoutes(db))
 
   app.get('/admin/ai/settings', async (c) => c.json(await settingsView(db)))
 
@@ -153,8 +155,9 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
     const rows = await db
       .select({
         day,
-        feature: sql<string>`coalesce(${aiCalls.feature}, '')`,
-        function: sql<string>`coalesce(${aiCalls.function}, '')`,
+        feature: aiCalls.feature,
+        function: aiCalls.function,
+        preset: aiCalls.preset,
         model: aiCalls.model,
         seller: aiCalls.seller,
         calls: count(),
@@ -164,8 +167,8 @@ export function aiAdminRoutes({ db, sessionOf, admins }: { db: Db; sessionOf: Se
       })
       .from(aiCalls)
       .where(inRange(range))
-      .groupBy(day, aiCalls.feature, aiCalls.function, aiCalls.model, aiCalls.seller)
-      .orderBy(desc(day), aiCalls.feature, aiCalls.function, aiCalls.model, aiCalls.seller)
+      .groupBy(day, aiCalls.feature, aiCalls.function, aiCalls.preset, aiCalls.model, aiCalls.seller)
+      .orderBy(desc(day), aiCalls.feature, aiCalls.function, aiCalls.preset, aiCalls.model, aiCalls.seller)
     return c.json(
       rows.map((row) => ({
         ...row,

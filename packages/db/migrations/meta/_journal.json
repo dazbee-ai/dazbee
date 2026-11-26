@@ -162,6 +162,13 @@
       "when": 1795716448718,
       "tag": "0022_ai-run-history-wiped",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795724207269,
+      "tag": "0023_ai-model-tables-dropped",
+      "breakpoints": true
     }
   ]
 }

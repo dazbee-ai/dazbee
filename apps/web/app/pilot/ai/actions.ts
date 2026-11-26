@@ -1,13 +1,14 @@
 'use server'
 
 // What the admin page's AI section changes: the AI settings, a currency's rate, a price, a model's seller
-// order; a gift to a workspace; and a seller's usage file. The API answers anyone but
+// order; the preset a mode uses, by a pick; a gift to a workspace; and a seller's usage file. The API answers anyone but
 // an admin as if none of it existed, so each is an admin's only. Each gives why it was refused, in the
 // person's language where the page knows the reason, and the section draws again with what changed.
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import {
+  AiPickInput,
   AiPriceInput,
   AiSettingsInput,
   CurrencyCode,
@@ -24,6 +25,7 @@ import type { Messages } from '@/lib/i18n/en.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
 import { PILOT_AI_PATH } from '@/lib/pilot-host.ts'
 import {
+  addAiPick,
   giveAiGift,
   removeAiPrice,
   setAiPrice,
@@ -59,6 +61,21 @@ export async function removePrice(seller: string, model: string, unit: string): 
 export async function saveSellerOrder(model: string, order: ModelSellersInput): Promise<string | null> {
   return change(z.object({ model: ModelName, order: ModelSellersInput }), { model, order }, (valid) =>
     setModelSellers(valid.model, valid.order),
+  )
+}
+
+/**
+ * Adds a pick: the preset `mode` uses for the AI function from the next job on, from a page that read the newest
+ * pick for them as made at `since`, or null with none.
+ */
+export async function pickPreset(pick: {
+  function: string
+  mode: string
+  preset: string
+  since: string | null
+}): Promise<string | null> {
+  return change(AiPickInput, pick, addAiPick, (refusal, t) =>
+    refusal.status === 409 ? t.aiFunctions.pickedMeanwhile : null,
   )
 }
 
@@ -102,7 +119,9 @@ async function change<T extends z.ZodType>(
   revalidatePath(PILOT_AI_PATH)
   if (!refusal) return null
   const t = (await getMessages()).pilotAi
+  const explained = explain?.(refusal, t)
+  if (explained) return explained
   if (refusal.status === 404) return t.gone
   if (refusal.status === 409) return t.stale
-  return explain?.(refusal, t) ?? refusal.message
+  return refusal.message
 }

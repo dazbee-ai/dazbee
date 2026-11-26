@@ -31,7 +31,10 @@ const { headers } = await import('next/headers')
 
 const AT = '2026-11-20T10:00:00.000Z'
 
-/** The AI section as the API gives it: a spending stop in force, a red day, an unknown call and a seller out of money. */
+/**
+ * The AI section as the API gives it: a spending stop in force, a red day, an unknown call, a seller out of money,
+ * and the round plan with Precise picked over to its light preset.
+ */
 const PAGE: AiPage = {
   settings: {
     usageRate: 1,
@@ -67,11 +70,39 @@ const PAGE: AiPage = {
       ],
     },
   ],
+  functions: [
+    {
+      function: 'round-plan',
+      kind: 'text',
+      presets: [
+        {
+          name: 'light-luna',
+          model: 'gpt-6-luna',
+          settings: { effort: 'low', tier: 'fast' },
+          ownPrompt: true,
+          measured: { done: 0, cost: 0.54, seconds: 10, cutOffs: 0, failures: 0, firstGuess: true },
+        },
+        {
+          name: 'full-terra',
+          model: 'gpt-6.1-terra',
+          settings: { effort: 'low', tier: 'standard' },
+          ownPrompt: true,
+          measured: { done: 12, cost: 1.9, seconds: 31, cutOffs: 1, failures: 2, firstGuess: false },
+        },
+      ],
+      modes: [
+        { mode: 'fast', preset: 'light-luna', source: 'code', lacking: null, pickedAt: null },
+        { mode: 'precise', preset: 'light-luna', source: 'pick', lacking: null, pickedAt: AT },
+      ],
+    },
+  ],
+  picks: { 'round-plan': [{ id: 1, mode: 'precise', preset: 'light-luna', setBy: 'ada@example.com', setAt: AT }] },
   costs: [
     {
       day: '2026-11-20',
       feature: 'layering',
       function: 'layer-split',
+      preset: 'ming',
       model: 'ming-image-0.1-design-layer',
       seller: 'modal',
       calls: 2,
@@ -165,6 +196,7 @@ describe('PilotAiPage', () => {
       'ai-daily-check',
       'ai-upload',
       'ai-grants',
+      'ai-functions',
       'ai-price-list',
       'ai-seller-order',
     ]) {
@@ -179,6 +211,19 @@ describe('PilotAiPage', () => {
     expect(page).toContain('Make editable')
     expect(page).toContain('Layer split')
     expect(page).toContain('data-model="seedream-5.5"')
+    // The costs name each row's preset, and the AI feature in a column of its own: on the feature's total, and on
+    // each row of the days.
+    expect(page).toMatch(/<tr data-cost="layering\/layer-split\/ming\/[^"]*">.*?<td[^>]*>ming<\/td>/s)
+    expect(page.match(/<th[^>]*>AI feature<\/th><th[^>]*>AI function<\/th>/g)).toHaveLength(2)
+    expect(page).toMatch(/<tr data-feature="layering"[^>]*><td[^>]*>Make editable<\/td><td[^>]*colSpan="4"/)
+    expect(page).toMatch(
+      /<tr data-day-cost="2026-11-20\/layering\/layer-split\/ming"><td[^>]*>2026-11-20<\/td><td[^>]*>Make editable<\/td><td[^>]*>Layer split<\/td>/,
+    )
+    // The round plan's presets, the mode a pick moved, the button that moves it back, and the pick.
+    expect(page).toContain('data-function="round-plan"')
+    expect(page).toContain('data-uses="precise" data-source="pick"')
+    expect(page).toContain('aria-label="Use full-terra for Round plan, Precise"')
+    expect(page).toContain('data-pick="1"')
     expect(findAiWorkspaces).not.toHaveBeenCalled()
     expect(findAllowance).not.toHaveBeenCalled()
   })

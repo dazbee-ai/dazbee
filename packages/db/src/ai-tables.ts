@@ -1,8 +1,8 @@
-// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, the picks of presets, two tables of
-// models, by kind and by step, read by no code, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
-// flow's briefs, AI frames and refines. Amounts are whole millionths: of a rupee for allowance and real cost,
-// of the seller's currency for its prices and costs. Workspace and person ids carry no foreign key, so
-// deleting an account keeps the metering rows for good; the flow's rows go with their design.
+// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, the sellers of each model, the picks of
+// presets, the grants and the allowance ledger, the AI jobs and the call log, and the AI flow's briefs, AI frames
+// and refines. Amounts are whole millionths: of a rupee for allowance and real cost, of the seller's currency for
+// its prices and costs. Workspace and person ids carry no foreign key, so deleting an account keeps the metering
+// rows for good; the flow's rows go with their design.
 import { sql } from 'drizzle-orm'
 import {
   bigint,
@@ -104,22 +104,6 @@ export const modelSellers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.model, t.seller] }), uniqueIndex('model_sellers_position').on(t.model, t.position)],
 )
-
-/** A model for each kind of AI call. Nothing reads it: a preset names each AI function's model. */
-export const aiKindModels = pgTable('ai_kind_models', {
-  kind: text({ enum: CALL_KINDS }).primaryKey(),
-  model: text().notNull(),
-  options: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-  updatedAt: updatedAt(),
-})
-
-/** A model for one named call. Nothing reads it: a preset names each AI function's model. */
-export const aiStepModels = pgTable('ai_step_models', {
-  step: text().primaryKey(),
-  model: text().notNull(),
-  options: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-  updatedAt: updatedAt(),
-})
 
 /**
  * Picks: an admin's choice of the preset a mode uses for an AI function, kept under no mode (an empty one) for a
@@ -229,7 +213,8 @@ export const aiJobs = pgTable(
 /**
  * The call log: one row per try of an AI call, with what it cost the seller in millionths of its currency
  * (and the cost the seller reported, where it gives one), its real cost in millionths of a rupee, and the
- * real cost the workspace is charged (a fixed amount for the layer split). No prompt and no picture.
+ * real cost the workspace is charged (a fixed amount for the layer split). No prompt and no picture. The table
+ * has one more column, `step`, allowed to be empty, which nothing here names.
  */
 export const aiCalls = pgTable(
   'ai_calls',
@@ -240,13 +225,11 @@ export const aiCalls = pgTable(
     callIndex: integer('call_index').notNull(),
     try: integer().notNull(),
     attempt: integer().notNull(),
-    /** Not written: a call is logged under its AI function and preset. */
-    step: text(),
     /** The AI feature of the call's job, its AI function and preset, and its kind of call. */
-    feature: text(),
-    function: text(),
-    preset: text(),
-    kind: text({ enum: CALL_KINDS }),
+    feature: text().notNull(),
+    function: text().notNull(),
+    preset: text().notNull(),
+    kind: text({ enum: CALL_KINDS }).notNull(),
     /** The settings the preset passed the seller, and the SHA-256 of the prompt it ran with. */
     settings: jsonb().$type<Record<string, unknown>>(),
     promptHash: text('prompt_hash'),

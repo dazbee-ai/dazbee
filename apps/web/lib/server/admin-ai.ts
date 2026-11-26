@@ -8,7 +8,10 @@ import { z } from 'zod'
 import {
   AiAllowanceView,
   AiCostRow,
+  AiFunctionView,
   AiGrantView,
+  type AiPickInput,
+  AiPickView,
   type AiPriceInput,
   AiPriceView,
   type AiSettingsInput,
@@ -30,12 +33,17 @@ import {
 
 import { ApiFailure, call } from './api.ts'
 
-/** Everything the AI section shows, with the costs, the daily check and the unknown calls of the days from `from` to `to`. */
+/**
+ * Everything the AI section shows, with the costs, the daily check and the unknown calls of the days from `from` to
+ * `to`, and each AI function's picks by its name, newest first.
+ */
 export interface AiPage {
   settings: AiSettingsView
   rates: CurrencyRateView[]
   prices: AiPriceView[]
   modelSellers: ModelSellersView[]
+  functions: AiFunctionView[]
+  picks: Record<string, AiPickView[]>
   costs: AiCostRow[]
   checks: DailyCheck[]
   unknownCalls: UnknownCalls[]
@@ -60,23 +68,29 @@ export interface AiOverviewData {
 export const findAiPage = cache(async (from: string, to: string): Promise<AiPage | null> => {
   const days = new URLSearchParams({ from, to })
   try {
-    const [settings, rates, prices, modelSellers, costs, checks, unknownCalls, outOfMoney, lastChecked] =
+    const [settings, rates, prices, modelSellers, functions, costs, checks, unknownCalls, outOfMoney, lastChecked] =
       await Promise.all([
         call(AiSettingsView, '/admin/ai/settings'),
         call(CurrencyRateView.array(), '/admin/ai/currency-rates'),
         call(AiPriceView.array(), '/admin/ai/prices'),
         call(ModelSellersView.array(), '/admin/ai/model-sellers'),
+        call(AiFunctionView.array(), '/admin/ai/functions'),
         call(AiCostRow.array(), `/admin/ai/costs?${days}`),
         call(DailyCheck.array(), `/admin/ai/daily-checks?${days}`),
         call(UnknownCalls.array(), `/admin/ai/unknown-calls?${days}`),
         call(OutOfMoney.array(), '/admin/ai/out-of-money'),
         call(LastChecked.array(), '/admin/ai/last-checked'),
       ])
+    const picks = await Promise.all(
+      functions.map(async (each) => [each.function, await findPicks(each.function)] as const),
+    )
     return {
       settings,
       rates,
       prices,
       modelSellers,
+      functions,
+      picks: Object.fromEntries(picks),
       costs,
       checks,
       unknownCalls,
@@ -139,11 +153,18 @@ export const removeAiPrice = (price: { seller: string; model: string; unit: Usag
 export const setModelSellers = (model: string, sellers: ModelSellersInput) =>
   call(z.null(), `/admin/ai/model-sellers/${encodeURIComponent(model)}`, { method: 'PUT', body: sellers })
 
+export const addAiPick = (pick: AiPickInput) => call(z.null(), '/admin/ai/picks', { method: 'POST', body: pick })
+
 export const giveAiGift = (workspaceId: string, gift: GiftInput) =>
   call(AiGrantView, `${workspacePath(workspaceId)}/gifts`, { method: 'POST', body: gift })
 
 export const uploadAiSellerFile = (upload: SellerFileUpload) =>
   call(SellerFileResult, '/admin/ai/seller-files', { method: 'POST', body: upload })
+
+/** The picks made for the AI function, newest first. */
+function findPicks(fn: string) {
+  return call(AiPickView.array(), `/admin/ai/functions/${encodeURIComponent(fn)}/picks`)
+}
 
 function workspacePath(workspaceId: string) {
   return `/admin/ai/workspaces/${encodeURIComponent(workspaceId)}`

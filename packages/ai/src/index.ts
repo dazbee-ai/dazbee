@@ -1,6 +1,7 @@
 // AI calls and metering (ADR-0022, ADR-0023), shared by the API and the worker.
 export { type AiCall, callAi, CallFailed, type CallFailure, type PictureFiles, TIMEOUTS } from './call.ts'
 export { CUT_OFF } from './call-log.ts'
+export { CALL_PIXELS, callSize, type PictureLimits, pictureLimits } from './call-size.ts'
 export {
   charge,
   endHold,

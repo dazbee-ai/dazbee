@@ -1675,6 +1675,9 @@ export const en = {
     /** Each AI step by what it does; the draft steps are the modes. */
     steps: {
       'flow.round-plan': 'Round plan',
+      'flow.round-plan-full': 'Round plan, full',
+      'flow.reference-read': 'Reference read',
+      'flow.refine-plan': 'Refine plan',
       'flow.read': 'Read',
       'flow.layer-plan': 'Layer plan',
       'flow.draft-fast': 'Draft, Fast',

@@ -103,6 +103,9 @@ describe('routeStep', () => {
       Object.fromEntries(await Promise.all(AI_STEPS.map(async (step) => [step, (await routeStep(tx, step, [])).model])))
     expect(await models(db)).toEqual({
       'flow.round-plan': 'gpt-6-luna',
+      'flow.round-plan-full': 'gpt-6.2-sol',
+      'flow.reference-read': 'gpt-6-luna',
+      'flow.refine-plan': 'gpt-6-luna',
       'flow.read': 'gpt-6-luna',
       'flow.draft-fast': 'muse-image-1.0',
       'flow.draft-precise': 'gpt-image-2.5-sunburst',

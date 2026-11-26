@@ -1,7 +1,8 @@
 // The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, which model each AI step runs and
-// the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log. Amounts are
-// whole millionths: of a rupee for allowance and real cost, of the seller's currency for its prices and
-// costs. Workspace and person ids carry no foreign key, so deleting an account keeps these rows for good.
+// the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
+// flow's briefs, AI frames and refines. Amounts are whole millionths: of a rupee for allowance and real cost,
+// of the seller's currency for its prices and costs. Workspace and person ids carry no foreign key, so
+// deleting an account keeps the metering rows for good; the flow's rows go with their design.
 import { sql } from 'drizzle-orm'
 import {
   bigint,
@@ -18,8 +19,11 @@ import {
 } from 'drizzle-orm/pg-core'
 
 import {
+  AI_FRAME_KINDS,
+  AI_FRAME_STATES,
   AI_JOB_KINDS,
   AI_JOB_STATES,
+  AI_MODES,
   CALL_KINDS,
   CALL_STATES,
   type CallOutput,
@@ -27,10 +31,13 @@ import {
   DAILY_CHECK_STATES,
   GRANT_SOURCES,
   LEDGER_KINDS,
+  type RoundPlanAnswer,
   UPLOADED_SELLERS,
   type Usage,
   USAGE_UNITS,
 } from '@dazbee/schema'
+
+import { assets, designs } from './tables.ts'
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
@@ -125,12 +132,15 @@ export const aiGrants = pgTable(
     /** The admin who gave it. */
     givenBy: text('given_by'),
     note: text().notNull().default(''),
+    /** The size in px a layering job splits at when its hold draws from this grant first: 512 or 1024. */
+    layerSize: integer('layer_size').notNull().default(512),
     createdAt: createdAt(),
   },
   (t) => [
     index('ai_grants_workspace').on(t.workspaceId, t.expiresAt),
     check('ai_grants_amount', sql`${t.amount} >= 0`),
     check('ai_grants_usage_rate', sql`${t.usageRate} > 0`),
+    check('ai_grants_layer_size', sql`${t.layerSize} in (512, 1024)`),
   ],
 )
 
@@ -259,4 +269,78 @@ export const aiSellerFiles = pgTable(
     uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('ai_seller_files_seller').on(t.seller, t.uploadedAt)],
+)
+
+/** A design's id, the flow's rows going with the design. */
+const designId = () =>
+  text('design_id')
+    .notNull()
+    .references(() => designs.id, { onDelete: 'cascade' })
+
+/**
+ * A brief of the AI flow: its words, pictures, reference ad, size and mode, the section it made, the liked
+ * draft's picture for more like this, and once planned the round plan's answer, which Try again draws from.
+ */
+export const aiBriefs = pgTable(
+  'ai_briefs',
+  {
+    id: text().primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    brandId: text('brand_id').notNull(),
+    designId: designId(),
+    sectionId: text('section_id').notNull(),
+    words: text().notNull(),
+    /** The storage keys of the brief's pictures. */
+    pictureKeys: text('picture_keys')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    referenceKey: text('reference_key'),
+    likedKey: text('liked_key'),
+    width: integer().notNull(),
+    height: integer().notNull(),
+    mode: text({ enum: AI_MODES }).notNull(),
+    plan: jsonb().$type<RoundPlanAnswer>(),
+    /** The person who wrote it. */
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('ai_briefs_design').on(t.designId)],
+)
+
+/**
+ * An AI frame: a frame of a design the AI flow fills, with its brief, the job and call that fill it now, what
+ * it holds, its state, and its current picture's asset.
+ */
+export const aiFrames = pgTable(
+  'ai_frames',
+  {
+    designId: designId(),
+    frameId: text('frame_id').notNull(),
+    briefId: text('brief_id').references(() => aiBriefs.id, { onDelete: 'set null' }),
+    jobId: text('job_id').notNull(),
+    callIndex: integer('call_index').notNull(),
+    kind: text({ enum: AI_FRAME_KINDS }).notNull(),
+    state: text({ enum: AI_FRAME_STATES }).notNull().default('waiting'),
+    assetId: text('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.designId, t.frameId] }), index('ai_frames_job').on(t.jobId)],
+)
+
+/** One refine of an AI frame: the person's message, their marks, the summary of the change, and the version it made. */
+export const aiRefines = pgTable(
+  'ai_refines',
+  {
+    id: text().primaryKey(),
+    designId: designId(),
+    frameId: text('frame_id').notNull(),
+    message: text().notNull(),
+    marksKey: text('marks_key'),
+    summary: text(),
+    resultAssetId: text('result_asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    jobId: text('job_id').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('ai_refines_frame').on(t.designId, t.frameId, t.createdAt)],
 )

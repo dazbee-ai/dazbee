@@ -8,9 +8,12 @@ import { z } from 'zod'
  */
 export const AI_STEPS = [
   'flow.round-plan',
+  'flow.round-plan-full',
+  'flow.reference-read',
   'flow.read',
   'flow.draft-fast',
   'flow.draft-precise',
+  'flow.refine-plan',
   'flow.refine',
   'flow.resize',
   'flow.layer-plan',
@@ -184,11 +187,12 @@ export type LayerSplitResult = z.infer<typeof LayerSplitResult>
 export const CallInput = z.discriminatedUnion('kind', [TextCall, PictureCall, LayerSplitCall])
 export type CallInput = z.infer<typeof CallInput>
 
-/** A stored picture an AI call made, with its size. */
+/** A stored picture an AI call made, with its size, and the brand asset recorded on its key when there is one. */
 export const MadePicture = z.object({
   key: PictureKey,
   width: z.number().int().positive(),
   height: z.number().int().positive(),
+  assetId: z.string().min(1).optional(),
 })
 export type MadePicture = z.infer<typeof MadePicture>
 
@@ -200,8 +204,14 @@ export const CallOutput = z.discriminatedUnion('kind', [
 ])
 export type CallOutput = z.infer<typeof CallOutput>
 
-/** The kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved. */
-export const AI_JOB_KINDS = ['ai-steps'] as const
+/** The job kinds of the AI flow, one for each action a person asks for (input contracts in `ai-flow.ts`). */
+export const FLOW_JOB_KINDS = ['round', 'more-like-this', 'try-again', 'refine', 'resize', 'layering'] as const
+
+export const FlowJobKind = z.enum(FLOW_JOB_KINDS)
+export type FlowJobKind = z.infer<typeof FlowJobKind>
+
+/** The job kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved; the rest are the flow's. */
+export const AI_JOB_KINDS = ['ai-steps', ...FLOW_JOB_KINDS] as const
 
 export const AiJobKind = z.enum(AI_JOB_KINDS)
 export type AiJobKind = z.infer<typeof AiJobKind>
@@ -232,12 +242,41 @@ export const AI_JOB_REFUSALS = ['not-allowed', 'used-up', 'stopped'] as const
 export const AiJobRefusal = z.enum(AI_JOB_REFUSALS)
 export type AiJobRefusal = z.infer<typeof AiJobRefusal>
 
-/** An AI job as its workspace reads it: its state, and its output once done or why it failed. */
+/** The states of one AI call as its workspace reads it: being made, made, or ended without a result. */
+export const AI_CALL_VIEW_STATES = ['running', 'done', 'failed'] as const
+
+export const AiCallViewState = z.enum(AI_CALL_VIEW_STATES)
+export type AiCallViewState = z.infer<typeof AiCallViewState>
+
+/**
+ * Why a call ended without a result, as its workspace reads it: no seller made it, its answer was cut off at its
+ * ceiling, or its seller may have made it but no result was kept.
+ */
+export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'lost'] as const
+
+export const AiCallFailure = z.enum(AI_CALL_FAILURES)
+export type AiCallFailure = z.infer<typeof AiCallFailure>
+
+/** One call of an AI job as its workspace reads it: its place in the job, its AI step, its state, and its output or why it failed. */
+export const AiCallView = z.object({
+  index: z.number().int().nonnegative(),
+  step: z.string(),
+  state: AiCallViewState,
+  output: CallOutput.optional(),
+  failure: AiCallFailure.optional(),
+})
+export type AiCallView = z.infer<typeof AiCallView>
+
+/**
+ * An AI job as its workspace reads it: its state, its output once done or why it failed, and each call it has
+ * started, by call index, so a tab can show each picture as soon as it is made.
+ */
 export const AiJobView = z.object({
   id: z.string(),
   kind: AiJobKind,
   state: AiJobState,
   output: AiStepsOutput.nullable(),
+  calls: z.array(AiCallView),
   error: z.string().nullable(),
   createdAt: z.iso.datetime(),
   endedAt: z.iso.datetime().nullable(),

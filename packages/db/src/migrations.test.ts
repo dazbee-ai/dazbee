@@ -241,10 +241,69 @@ describe('the migrations', () => {
       { step: 'flow.refine', model: 'seedream-5.5', options: {} },
       { step: 'flow.resize', model: 'seedream-5.5', options: {} },
       { step: 'flow.round-plan', model: 'gpt-6.2-sol', options: {} },
+      { step: 'flow.round-plan-full', model: 'gpt-6.2-sol', options: {} },
     ])
     // The rows the previous commit's worker read are gone once no merged code reads them.
     expect(before).toHaveLength(8)
     expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toEqual([])
+  }, 60_000)
+
+  it('give a grant given before layering sizes 512 px, run the full round plan on Sol, and keep a design’s brief, AI frames and refines until the design goes', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-flow-briefs-frames'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    await withClient(url, async (client) => {
+      await writeRows(client)
+      await client.query(
+        `insert into ai_grants (id, workspace_id, source, amount, usage_rate, expires_at) values ('grant-kept', 'workspace-kept', 'gift', 1000000, 1000000, now() + interval '30 days')`,
+      )
+    })
+    await applyMigrations(url, MIGRATIONS)
+    const read = await withClient(url, async (client) => {
+      const grants = (await client.query('select id, amount, layer_size from ai_grants')).rows
+      const model = (await client.query(`select model from ai_step_models where step = 'flow.round-plan-full'`)).rows
+      const plan = { brand: 'Warm. Facts: "Harbour Coffee"', ads: [] }
+      await client.query(
+        `insert into ai_briefs (id, workspace_id, brand_id, design_id, section_id, words, picture_keys, width, height, mode, plan, created_by)
+         values ('brief-kept', 'workspace-kept', 'brand-kept', 'design-kept', 'section-kept', 'Spring sale', '{k1,k2}', 1080, 1080, 'fast', $1, 'user-kept')`,
+        [JSON.stringify(plan)],
+      )
+      await client.query(
+        `insert into ai_frames (design_id, frame_id, brief_id, job_id, call_index, kind) values ('design-kept', 'frame-kept', 'brief-kept', 'job-kept', 1, 'draft')`,
+      )
+      await client.query(
+        `insert into ai_refines (id, design_id, frame_id, message, job_id) values ('refine-kept', 'design-kept', 'frame-kept', 'Bigger price', 'job-refine')`,
+      )
+      const kept = {
+        briefs: (await client.query('select words, picture_keys, plan from ai_briefs')).rows,
+        frames: (await client.query('select frame_id, state from ai_frames')).rows,
+        refines: (await client.query('select message from ai_refines')).rows,
+      }
+      const refused = await client
+        .query(`update ai_grants set layer_size = 768 where id = 'grant-kept'`)
+        .then(() => false)
+        .catch(() => true)
+      await client.query(`delete from design_saves where design_id = 'design-kept'`)
+      await client.query(`delete from designs where id = 'design-kept'`)
+      const left = (
+        await client.query(
+          'select (select count(*) from ai_briefs) + (select count(*) from ai_frames) + (select count(*) from ai_refines) as n',
+        )
+      ).rows
+      return { grants, model, kept, refused, left }
+    })
+    expect(read.grants).toEqual([{ id: 'grant-kept', amount: '1000000', layer_size: 512 }])
+    expect(read.model).toEqual([{ model: 'gpt-6.2-sol' }])
+    expect(read.kept).toEqual({
+      briefs: [
+        { words: 'Spring sale', picture_keys: ['k1', 'k2'], plan: { brand: 'Warm. Facts: "Harbour Coffee"', ads: [] } },
+      ],
+      frames: [{ frame_id: 'frame-kept', state: 'waiting' }],
+      refines: [{ message: 'Bigger price' }],
+    })
+    expect(read.refused).toBe(true)
+    expect(read.left).toEqual([{ n: '0' }])
   }, 60_000)
 
   // From the second migration on: each runs over rows written under the ones before it.

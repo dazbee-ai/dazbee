@@ -194,11 +194,27 @@ Seven real jobs through a local API and worker on our own workspace: a Fast roun
 | Layer split    | ming             | Modal  | 1     | ₹3.04            | 98.3 s      | 25.8 GPU seconds at 1024 px, from a cold start |
 | Reading        | luna             | OpenAI | 1     | ₹0.05            | 4.2 s       | 2,134 in, 531 out                              |
 
-- **A brief's picture more than doubles a draft.** The picture is 1,508 image tokens in, about as much again as the 439 tokens of the square that comes out: ₹3.04 against the ₹1.27 measured with no picture.
+- **A brief's picture nearly doubles a draft.** The picture, sent as uploaded at 2400 × 1343, is 1,508 image tokens in at US$8 a million, ₹1.37, beside the 439 tokens of the square that comes out, ₹1.50, and the prompt's words, ₹0.17: ₹3.04 a draft. The ₹1.27 measured on 24 Nov had no picture, no GST and an older rate; counted the same way a draft with no picture is about ₹1.67.
 - **Whole jobs:** the Fast round ₹12.75 in 43 s, the Precise round ₹13.60 in 52 s, more like this ₹12.47 in 40 s, try again ₹3.04 in 24 s, the refine ₹1.98 in 64 s, two sizes ₹3.85 in 86 s, make editable ₹7.07 in 137 s.
 - **Modal billed US$0.19 for the one split,** six times the 25.8 GPU seconds the call is priced at: the rest is the container starting from its snapshot and waiting 60 s after the call.
 - **The recording** of these 24 calls replays a Fast and a Precise round with no seller called.
 - **Make an image, the same day:** six images through the app on Muse Image, bought from Meta, two at each ratio. Each cost ₹0.93, ₹1.10 with GST, and took 7.1–23.6 s. Asked for 1024 × 1024, 1536 × 1024 and 1024 × 1536, Muse gave back 1600 × 1600, 1920 × 1280 and 1280 × 1920: the ratio asked for, at its own size.
+
+## What a reference picture costs GPT Image, 26 Nov 2026
+
+GPT Image 2.5 takes no setting for how closely it reads a reference: `input_fidelity` is refused with "does not support the 'input_fidelity' parameter", and `quality` sets the picture that comes out only. What a reference costs follows its size. The same brief was drawn with the same valley photo at five sizes, each a square draft at medium:
+
+| Picture sent | Image tokens in | Cost of the picture in a draft |
+| ------------ | --------------- | ------------------------------ |
+| 2400 × 1343  | 1,508           | ₹1.37                          |
+| 1536 × 860   | 1,296           | ₹1.18                          |
+| 1024 × 573   | 576             | ₹0.52                          |
+| 768 × 430    | 576             | ₹0.52                          |
+| 512 × 287    | 576             | ₹0.52                          |
+
+- **The count is patches of 32 px a side,** never fewer than 576 and never more than 1,536: 1536 × 860 is 48 × 27, 1024 × 573 is 32 × 18, and the 1024 × 1024 of the edit test was 32 × 32. A bigger picture is brought down to 1,536 patches by OpenAI; a smaller one is counted as 576.
+- **So a reference is sent within 576 patches,** the fewest it can cost: a 16:9 picture at 1024 × 573, a square at 768 × 768. That is the grid of a medium-quality square, 24 × 24. A draft with one brief picture goes from ₹3.04 to about ₹2.19, a round from ₹12.7 to about ₹9.3.
+- **The drafts looked the same.** The draft from the 1024 × 573 picture kept the valley, its hills and its light as the one from 1536 × 860 did. A product photo with small print on it has not been compared.
 
 ## The layer split on Modal, measured 26 Nov 2026
 

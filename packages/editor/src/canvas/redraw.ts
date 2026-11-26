@@ -149,7 +149,8 @@ export function editorRedraw({
   }
   /** What the surface draws besides the frames that a pick changes, as one string: the outlines and the picked connector. */
   function drawnKey(outlines: readonly DrawnOutline[]) {
-    return `${outlineKey(outlines)}|${selection.pickedConnector() ?? ''}`
+    const picked = selection.pickedConnector()
+    return picked === null ? outlineKey(outlines) : `${outlineKey(outlines)}|${picked}`
   }
   function shownChanged() {
     if (drawnKey(outlinesNow()) !== drawnOutlines) view.redraw()

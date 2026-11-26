@@ -156,6 +156,62 @@ describe('a drag from a dot', () => {
   })
 })
 
+describe('a drag from a dot that does not end', () => {
+  /** Presses on f3's right dot and drags over f5, which lights. */
+  function dragOverFive(editor: TestEditor) {
+    const from = dotPoint(editor.core, 'f3', 'right')
+    editor.mouse.move(from.x, from.y)
+    editor.mouse.down()
+    const to = middleOf(editor, 'f5')
+    editor.mouse.move(to.x, to.y, { steps: 4 })
+    expect(shown(editor).lit).not.toBeNull()
+    return to
+  }
+
+  it('makes nothing when Esc drops it', async () => {
+    const editor = await open()
+    dragOverFive(editor)
+    editor.press('deselect')
+    editor.mouse.up()
+    expect([editor.core.design().connectors, editor.core.tool()]).toEqual([{}, 'arrow'])
+  })
+
+  it('makes nothing when the browser takes the pointer away', async () => {
+    const editor = await open()
+    const at = dragOverFive(editor)
+    editor.core.input.pointer({
+      type: 'pointercancel',
+      at,
+      button: 0,
+      detail: 0,
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      pointerType: 'mouse',
+    })
+    expect([editor.core.design().connectors, editor.core.tool()]).toEqual([{}, 'arrow'])
+  })
+})
+
+describe('the dots of frames close together', () => {
+  it('stay on the frame first hovered while the pointer goes to its dot, though another frame is nearer there', async () => {
+    const editor = await open()
+    const { core, mouse } = editor
+    // Zoomed out until the 200 px between frames is 20 px on screen: f3's left dot is nearer f2.
+    core.zoomTo(0.1)
+    const at = middleOf(editor, 'f3')
+    mouse.move(at.x, at.y)
+    const left = dotPoint(core, 'f3', 'left')
+    mouse.move(left.x, left.y)
+    const frame = core.frames().find((f) => f.id === 'f3')
+    if (!frame) throw new Error('no f3')
+    expect(shown(editor).dots).toEqual(dotsOf(frameEndBox(frame, core.camera())))
+    editor.mouse.drag(left, middleOf(editor, 'f5'))
+    expect(Object.values(core.design().connectors)).toMatchObject([{ from: 'f3', to: 'f5' }])
+  })
+})
+
 describe('a press with the Arrow shape away from the dots', () => {
   it('inside a frame still draws an arrow layer', async () => {
     const editor = await open()

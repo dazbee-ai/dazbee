@@ -400,6 +400,7 @@ export function editorPointer({
     if (gesture?.kind === 'reorder') autoLayoutDrag.cancel(gesture)
     if (gesture?.kind === 'move') Object.assign(gesture, { drop: null, target: null })
     if (gesture?.kind === 'guide') Object.assign(gesture, { to: null, onRuler: false })
+    if (gesture?.kind === 'connect') gesture.target = null
     selectPress.cancel()
     endDrag()
   }

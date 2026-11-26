@@ -55,6 +55,16 @@ describe('a click on a connector', () => {
   })
 })
 
+describe('picking a connector', () => {
+  it('asks the stage to draw again, since the surface draws it blue', async () => {
+    const editor = await open()
+    let asked = 0
+    editor.modules.view.onRedraw(() => (asked += 1))
+    editor.core.pickConnector('link')
+    expect(asked).toBeGreaterThan(0)
+  })
+})
+
 describe('the picked connector’s keys', () => {
   it('Delete removes it as one undo step, which brings it back', async () => {
     const editor = await open()

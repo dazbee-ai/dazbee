@@ -120,6 +120,9 @@ export function editorConnecting({
     if (!end || !dotsOf(end.box).some((dot) => Math.hypot(dot.x - stage.x, dot.y - stage.y) <= DOT_REACH)) return null
     typing.stop()
     hold()
+    // The dots go while the connector is drawn.
+    hovered = null
+    shownChanged()
     return { kind: 'connect', from: end.id, to: stage, target: null }
   }
   function drag(g: ConnectDrag, world: Point) {
@@ -151,12 +154,16 @@ export function editorConnecting({
     return frameMove.shownSections(null).outlines
   }
   /**
-   * The frame or section a stage point is near: the frame on top that holds it, else the nearest
-   * frame within HOVER_REACH, else the same of the sections, the newer on top.
+   * The frame or section a stage point is near: the frame on top that holds it; else the one whose
+   * dots show, while the point is within HOVER_REACH of it, so its dots can be reached past ends close
+   * by; else the nearest frame within HOVER_REACH, else the same of the sections, the newer on top.
    */
   function endNear(p: Point): End | null {
     const ends = endsNow()
     const frames = ends.filter((e) => !e.section)
+    const holding = frames.findLast((e) => distanceTo(e.box, p) === 0)
+    const kept = ends.find((e) => e.id === hovered && distanceTo(e.box, p) <= HOVER_REACH)
+    if (kept && (!holding || holding === kept)) return kept
     return (
       nearestTo(frames, p) ??
       nearestTo(

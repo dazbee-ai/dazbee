@@ -296,21 +296,23 @@ function shownAt<T>({ tab }: OpenDesign, step: () => T, note?: string | null): (
 }
 
 /**
- * `session`, its `run` refusing a command that leaves the design holding more layers, frames or pages than a design
- * may: the sync server would refuse the step, and a batch growing the design step after step would hold it all in
- * memory first.
+ * `session`, its `run` refusing a command that leaves the design holding more layers, frames, pages, sections or
+ * connectors than a design may: the sync server would refuse the step, and a batch growing the design step after step
+ * would hold it all in memory first.
  */
 function withinDesignLimits(session: Session): Session {
   return {
     ...session,
     run(name, input) {
       const result = session.run(name, input)
-      const { nodes, frames, pages } = session.design()
+      const { nodes, frames, pages, sections, connectors } = session.design()
       const over = (
         [
           [nodes, SYNC_LIMITS.designLayers, 'layers'],
           [frames, SYNC_LIMITS.designFrames, 'frames'],
           [pages, SYNC_LIMITS.designPages, 'pages'],
+          [sections, SYNC_LIMITS.designSections, 'sections'],
+          [connectors, SYNC_LIMITS.designConnectors, 'connectors'],
         ] as const
       ).find(([records, most]) => Object.keys(records).length > most)
       if (over)

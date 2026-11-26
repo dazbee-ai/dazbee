@@ -130,6 +130,7 @@ describe('list_commands', () => {
 
   it('narrows the list to the commands whose name or description holds the filter, whatever its case', async () => {
     const agent = await connect()
+    // The last three say "on another page." in their descriptions.
     expect(await listed(agent, 'PAGE.')).toEqual([
       'page.add',
       'page.addMany',
@@ -137,6 +138,9 @@ describe('list_commands', () => {
       'page.duplicate',
       'page.move',
       'page.delete',
+      'frame.add',
+      'section.add',
+      'frame.setSection',
     ])
     const brand = commandCatalog()
       .filter(({ name, description }) => `${name} ${description}`.toLowerCase().includes('brand'))

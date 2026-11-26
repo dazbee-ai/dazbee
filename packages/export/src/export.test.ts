@@ -201,6 +201,32 @@ describe('exportDesign', () => {
     expect(exportDesign(ck, design, request, bytes).bytes).toEqual(exportDesign(ck, design, request, bytes).bytes)
   })
 
+  it('draws no section, connector or star: every format gives the same bytes as the design without them', () => {
+    const sectioned = {
+      ...design,
+      frames: {
+        ...design.frames,
+        'p1-sq': { ...design.frames['p1-sq'], sectionId: 'hero' },
+        'p1-story': { ...design.frames['p1-story'], sectionId: 'hero', starred: true },
+        'p2-sq': { ...design.frames['p2-sq'], sectionId: 'second' },
+      },
+      sections: {
+        hero: { pageId: 'p1', title: 'Hero ads', order: 'a0' },
+        second: { pageId: 'p2', title: 'Second', order: 'a0' },
+      },
+      connectors: {
+        one: { pageId: 'p1', from: 'p1-sq', to: 'p1-story', order: 'a0' },
+        two: { pageId: 'p2', from: 'second', to: 'p2-story', order: 'a0' },
+        three: { pageId: 'p2', from: 'p2-story', to: 'p2-sq', order: 'a1' },
+      },
+    }
+    const frameIds = Object.keys(design.frames)
+    for (const type of ['png', 'jpg', 'pdf', 'svg'] as const) {
+      const request = { frameIds, type }
+      expect(exportDesign(ck, sectioned, request, bytes)).toEqual(exportDesign(ck, design, request, bytes))
+    }
+  })
+
   it('refuses a frame the design does not have, no frames, or a bad quality', () => {
     for (const id of ['nope', 'p1', 'box'])
       expect(() => exportDesign(ck, design, { frameIds: ['p1-sq', id], type: 'png' }, bytes)).toThrow(

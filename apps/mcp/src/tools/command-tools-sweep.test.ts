@@ -31,9 +31,10 @@ function ranOn(session: Session, command: string, input: unknown, before: Readon
   }
 }
 
-/** The ids of a design's pages, frames and layers. */
-function idsOf(design: Pick<DesignRecords, 'pages' | 'frames' | 'nodes'>): Set<string> {
-  return new Set([...Object.keys(design.pages), ...Object.keys(design.frames), ...Object.keys(design.nodes)])
+/** The ids of a design's pages, frames, layers, sections and connectors. */
+function idsOf(design: Pick<DesignRecords, 'pages' | 'frames' | 'nodes' | 'sections' | 'connectors'>): Set<string> {
+  const { pages, frames, nodes, sections = {}, connectors = {} } = design
+  return new Set([pages, frames, nodes, sections, connectors].flatMap((records) => Object.keys(records)))
 }
 
 /**

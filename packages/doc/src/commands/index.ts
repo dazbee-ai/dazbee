@@ -1,6 +1,7 @@
 // Every command, by the name a session runs it with.
 import { designPlace, nodeDuplicate, nodeMove, nodeReorder } from './arrange.ts'
 import { nodeAutoLayout } from './auto-layout.ts'
+import { connectorAdd, connectorDelete } from './connectors.ts'
 import { nodeCopyToFrames } from './copy-to-frames.ts'
 import { nodeFlip } from './flip.ts'
 import { frameAdd, frameAddSize, frameDelete, frameDuplicate, frameResize, frameUpdate } from './frames.ts'
@@ -10,6 +11,15 @@ import { nodeBind, nodeCreate, nodeDelete, nodeLock, nodeMask, nodeRename, nodeU
 import { pageAdd, pageAddMany, pageDelete, pageDuplicate, pageMove, pageUpdate } from './pages.ts'
 import { nodeReshape } from './paths.ts'
 import { designRestore } from './restore.ts'
+import {
+  frameSetSection,
+  sectionAdd,
+  sectionDelete,
+  sectionDuplicate,
+  sectionMove,
+  sectionUngroup,
+  sectionUpdate,
+} from './sections.ts'
 import { nodeStyle } from './style.ts'
 import { textEdit, textFit, textReplace } from './text.ts'
 
@@ -56,5 +66,14 @@ export const COMMANDS = {
   'guide.remove': guideRemove,
   'guide.clear': guideClear,
   'design.restore': designRestore,
+  'section.add': sectionAdd,
+  'section.update': sectionUpdate,
+  'section.ungroup': sectionUngroup,
+  'section.delete': sectionDelete,
+  'section.move': sectionMove,
+  'section.duplicate': sectionDuplicate,
+  'frame.setSection': frameSetSection,
+  'connector.add': connectorAdd,
+  'connector.delete': connectorDelete,
 } as const
 export type CommandName = keyof typeof COMMANDS

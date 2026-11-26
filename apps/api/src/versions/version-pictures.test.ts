@@ -86,6 +86,28 @@ describe('version pictures', { timeout: 30_000 }, () => {
     expect(draws.count - before).toBe(1)
   })
 
+  it('draws no section, connector or star: the same picture as the version without them', async () => {
+    const frames = story.frames as Record<string, Record<string, unknown>>
+    const square = { ...frames.st, name: 'Square', width: 1080, height: 1080, x: 1280, order: 'a1' }
+    const plain = { ...story, frames: { st: frames.st, sq: square } }
+    const sectioned = {
+      ...plain,
+      frames: { st: { ...frames.st, sectionId: 'ads', starred: true }, sq: { ...square, sectionId: 'ads' } },
+      sections: { ads: { pageId: 'p1', title: 'Ads', order: 'a0' } },
+      connectors: {
+        one: { pageId: 'p1', from: 'st', to: 'sq', order: 'a0' },
+        two: { pageId: 'p1', from: 'ads', to: 'st', order: 'a1' },
+      },
+    }
+    const pictureOf = async (input: unknown) => {
+      const parsed = parseDesign(input)
+      if (!parsed.success) throw new Error(parsed.errors.join('\n'))
+      const { designId, versionId } = await withVersion(parsed.design)
+      return (await picture('a', designId, versionId)).bytes
+    }
+    expect(await pictureOf(sectioned)).toEqual(await pictureOf(plain))
+  })
+
   it('answers a request through another design with no picture, even while the version’s is drawn', async () => {
     const parsed = parseDesign(story)
     if (!parsed.success) throw new Error(parsed.errors.join('\n'))

@@ -5,6 +5,7 @@ import { and, desc, eq, isNull, type SQL, sql } from 'drizzle-orm'
 
 import { assets, brandKits, type Db, designJournal, designs, designSaves, newId, templates } from '@dazbee/db'
 import {
+  AI_PART_TAG,
   type AssetSummary,
   type AssetUse,
   imageAssetIds,
@@ -50,8 +51,8 @@ const literal = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`)
 const recording = new Map<string, Promise<AssetSummary>>()
 
 /**
- * The brand's assets, newest first. With a query, only those that match every word of it, by name
- * or tag (#52).
+ * The brand's assets, newest first, but for the AI flow's parts (tagged `ai-part`), which no person picks. With a
+ * query, only those that match every word of it, by name or tag (#52).
  */
 export async function listAssets(db: Db, workspaceId: string, brandId: string, query = ''): Promise<AssetSummary[]> {
   const words = query.trim().split(/\s+/).filter(Boolean)
@@ -63,6 +64,7 @@ export async function listAssets(db: Db, workspaceId: string, brandId: string, q
         eq(assets.workspaceId, workspaceId),
         eq(assets.brandId, brandId),
         isNull(assets.deletedAt),
+        sql`not (${AI_PART_TAG} = any(${assets.tags}))`,
         ...words.map(matches),
       ),
     )

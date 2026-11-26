@@ -9,6 +9,18 @@ import { Id } from './primitives.ts'
 /** The most one side of a size may be to the other for the AI to be offered it: 3:1 and 1:3. */
 export const AI_RATIO_LIMIT = 3
 
+/** The tag of a picture the AI flow made, which the brand's images show under their own filter. */
+export const AI_TAG = 'ai'
+
+/** The tag of a picture the AI flow uses on the way, such as a layer piece or marks, which the images never show. */
+export const AI_PART_TAG = 'ai-part'
+
+/** The tags of the pictures the AI flow makes. */
+export type AiAssetTag = typeof AI_TAG | typeof AI_PART_TAG
+
+/** The most characters of a brief's title. */
+export const BRIEF_TITLE_LENGTH = 120
+
 /** A frame's size in design pixels. */
 const FrameSize = z.object({
   width: z.number().int().positive().max(8192),
@@ -114,6 +126,11 @@ export const FLOW_JOB_INPUTS = {
   layering: LayeringInput,
 } satisfies Record<FlowJobKind, z.ZodType>
 
+/** A flow job of each job kind with its input. */
+export type FlowJobInput = {
+  [K in FlowJobKind]: { kind: K; input: z.infer<(typeof FLOW_JOB_INPUTS)[K]> }
+}[FlowJobKind]
+
 /** What an AI frame holds: a draft of a round, a size redrawn from a draft, or a refined version. */
 export const AI_FRAME_KINDS = ['draft', 'size', 'refine'] as const
 
@@ -217,6 +234,17 @@ export const FLOW_ANSWERS = {
 export function isAiSize(size: { width: number; height: number }): boolean {
   const ratio = size.width / size.height
   return ratio <= AI_RATIO_LIMIT && ratio >= 1 / AI_RATIO_LIMIT
+}
+
+/** A flow job of `kind` with `input` as its contract reads it; throws on an input it refuses. */
+export function parseFlowJob(kind: FlowJobKind, input: unknown): FlowJobInput {
+  return { kind, input: FLOW_JOB_INPUTS[kind].parse(input) } as FlowJobInput
+}
+
+/** A brief's title: its first line, trimmed, cut to `BRIEF_TITLE_LENGTH` characters with "…". */
+export function briefTitle(words: string): string {
+  const line = words.trim().split('\n')[0]?.trim() ?? ''
+  return line.length > BRIEF_TITLE_LENGTH ? `${line.slice(0, BRIEF_TITLE_LENGTH - 1).trimEnd()}…` : line
 }
 
 /** An answer as the JSON schema a text call sends as its strict response format. */

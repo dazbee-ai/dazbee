@@ -30,6 +30,9 @@ const ANY_MODEL: PictureLimits = {
   maxSide: Math.min(...Object.values(MODEL_LIMITS).map((limits) => limits.maxSide)),
 }
 
+/** The largest term of a ratio a shape names as it is, such as 16:9. */
+const SMALL_RATIO = 32
+
 /** How far from the nearest sides the size is looked for, in steps of 16 px, before giving up. */
 const MOST_STEPS = 16
 
@@ -56,6 +59,22 @@ export function callSize(
   throw new Error(`no picture size fits ${frame.width} × ${frame.height} within the model's limits`)
 }
 
+/**
+ * A frame's shape in words, as a prompt names it: "square", or its side and ratio, such as "portrait 4:5" or
+ * "landscape 1.91:1".
+ */
+export function shapeOf({ width, height }: { width: number; height: number }): string {
+  const long = Math.max(width, height)
+  const short = Math.min(width, height)
+  if (long / short < 1.02) return 'square'
+  const side = width > height ? 'landscape' : 'portrait'
+  const common = gcd(width, height)
+  const [a, b] = [width / common, height / common]
+  if (a <= SMALL_RATIO && b <= SMALL_RATIO) return `${side} ${a}:${b}`
+  const ratio = `${Number((long / short).toFixed(2))}:1`
+  return width > height ? `${side} ${ratio}` : `${side} 1:${ratio.slice(0, -2)}`
+}
+
 /** The limits of picture model `model`; for a model not listed, what every listed model takes. */
 export function pictureLimits(model: string): PictureLimits {
   return MODEL_LIMITS[model] ?? ANY_MODEL
@@ -75,4 +94,9 @@ function fitsLimits(size: { width: number; height: number }, limits: PictureLimi
 /** How far `size` is from `ratio`, then (far less) from `pixels`, as one number to sort by. */
 function offBy(size: { width: number; height: number }, ratio: number, pixels: number): number {
   return Math.abs(size.width / size.height / ratio - 1) + Math.abs(size.width * size.height - pixels) / pixels / 1000
+}
+
+/** The greatest common divisor of two whole numbers. */
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b)
 }

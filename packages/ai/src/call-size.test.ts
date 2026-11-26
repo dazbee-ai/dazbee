@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { callSize, pictureLimits } from './call-size.ts'
+import { callSize, pictureLimits, shapeOf } from './call-size.ts'
 
 describe('callSize', () => {
   it('makes a square frame a 1024 px square', () => {
@@ -50,5 +50,15 @@ describe('pictureLimits', () => {
       expect(unknown.minPixels).toBeGreaterThanOrEqual(pictureLimits(model).minPixels)
       expect(unknown.maxPixels).toBeLessThanOrEqual(pictureLimits(model).maxPixels)
     }
+  })
+})
+
+describe('shapeOf', () => {
+  it('names a frame’s shape: square, or its side and its ratio', () => {
+    expect(shapeOf({ width: 1080, height: 1080 })).toBe('square')
+    expect(shapeOf({ width: 1080, height: 1350 })).toBe('portrait 4:5')
+    expect(shapeOf({ width: 1920, height: 1080 })).toBe('landscape 16:9')
+    expect(shapeOf({ width: 1200, height: 628 })).toBe('landscape 1.91:1')
+    expect(shapeOf({ width: 628, height: 1200 })).toBe('portrait 1:1.91')
   })
 })

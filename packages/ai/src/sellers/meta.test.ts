@@ -74,6 +74,14 @@ describe('metaSeller', () => {
     expect(seen[0]?.url).toBe('https://api.meta.ai/v1/images/edits')
   })
 
+  it('names each reference picture of an edit image[N], numbered from 0, as Meta asks', async () => {
+    const { seller, seen } = answering(200, fixture('meta-images.json'))
+    await seller.call(requestOf({ ...EDIT, pictures: ['workspaces/w/originals/a', 'workspaces/w/originals/b'] }))
+    const form = seen[0]?.body
+    if (!(form instanceof FormData)) throw new Error('the edit was not sent as a form')
+    expect([...form.keys()].filter((key) => key.startsWith('image'))).toEqual(['image[0]', 'image[1]'])
+  })
+
   it('reads error answers as the retry rules say', async () => {
     const failures = []
     for (const status of [429, 500, 402, 400]) {

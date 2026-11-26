@@ -306,6 +306,25 @@ describe('the migrations', () => {
     expect(read.left).toEqual([{ n: '0' }])
   }, 60_000)
 
+  it('give a job saved before the finish lease no holder', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-finish-lease'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    await withClient(url, async (client) => {
+      await writeRows(client)
+      await client.query(
+        `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-kept', 'workspace-kept', 'user-kept', 'layering', '{}')`,
+      )
+    })
+    await applyMigrations(url, MIGRATIONS)
+    const jobs = await withClient(
+      url,
+      async (client) => (await client.query('select id, finish_holder, finish_until from ai_jobs')).rows,
+    )
+    expect(jobs).toEqual([{ id: 'job-kept', finish_holder: null, finish_until: null }])
+  }, 60_000)
+
   // From the second migration on: each runs over rows written under the ones before it.
   for (const [index, { tag }] of journal.entries.entries()) {
     if (index === 0) continue

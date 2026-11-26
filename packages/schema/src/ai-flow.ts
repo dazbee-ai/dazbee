@@ -35,6 +35,12 @@ export type AiSize = z.infer<typeof AiSize>
 export const AiFrameTarget = z.object({ frameId: Id, pictureLayerId: Id })
 export type AiFrameTarget = z.infer<typeof AiFrameTarget>
 
+/** A frame a resize fills, with the size it is redrawn at, from 1:3 to 3:1. */
+export const AiSizeTarget = AiFrameTarget.extend(FrameSize.shape).refine(isAiSize, {
+  message: 'the AI is offered sizes from 1:3 to 3:1',
+})
+export type AiSizeTarget = z.infer<typeof AiSizeTarget>
+
 /** The brand kit's picks, told to the round planner as the brand's facts. */
 export const BrandFacts = z.object({
   name: z.string().max(200),
@@ -97,7 +103,7 @@ export const ResizeInput = FlowJob.extend({
   briefId: Id.optional(),
   sectionId: Id,
   pictureKey: PictureKey,
-  sizes: z.array(AiFrameTarget.extend(FrameSize.shape).refine(isAiSize)).min(1).max(20),
+  sizes: z.array(AiSizeTarget).min(1).max(20),
 })
 export type ResizeInput = z.infer<typeof ResizeInput>
 

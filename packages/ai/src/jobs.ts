@@ -6,31 +6,30 @@ import { randomUUID } from 'node:crypto'
 import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { fromDrizzle, type PgBoss, type QueueOptions } from 'pg-boss'
 
-import { aiBriefs, aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
+import { aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
 import {
   type AiCallView,
+  type AiFeatureInput,
   type AiJobKind,
   AiJobMessage,
   type AiJobRefusal,
   type AiJobState,
   type AiJobView,
-  type AiMode,
   type CallOutput,
   CallsInput,
   CallsOutput,
   type CallState,
-  type FlowJobInput,
-  parseFlowJob,
+  parseFeatureJob,
 } from '@dazbee/schema'
 
 import { CUT_OFF } from './call-log.ts'
-import { flowCalls, type HeldCall, holdOf } from './features/holds.ts'
+import { flowCalls, flowMode, type HeldCall, holdOf } from './features/holds.ts'
 import { endHold, hold } from './ledger.ts'
 import { presetsFor } from './picks.ts'
 import { aiSettingsOf } from './settings.ts'
 
 /** A job's kind with what it runs: a `calls` job's list of calls, or a flow job's input. */
-export type JobInput = { kind: 'calls'; input: CallsInput } | FlowJobInput
+export type JobInput = { kind: 'calls'; input: CallsInput } | AiFeatureInput
 
 /** A job to save: in which workspace, by which member, of which job kind, and what it runs. */
 export type NewJob = JobInput & {
@@ -104,7 +103,7 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
   const settings = await aiSettingsOf(tx)
   if ((await spentToday(tx)) >= settings.spendingStop) return { ok: false, refusal: 'stopped' }
   const id = newId()
-  const mode = parsed.kind === 'calls' ? null : await modeOf(tx, job.workspace, parsed)
+  const mode = parsed.kind === 'calls' ? null : await flowMode(tx, job.workspace, parsed)
   const calls: HeldCall[] =
     parsed.kind === 'calls'
       ? parsed.input.calls.map((call) => ({ fn: call.function, preset: call.preset, input: call.input }))
@@ -198,7 +197,7 @@ export async function startAttempt(
     // A flow job saved with no presets takes the ones in use now, and keeps them for its later attempts.
     const presets =
       row.presets ??
-      (input.kind === 'calls' ? {} : await presetsFor(tx, row.mode ?? (await modeOf(tx, row.workspaceId, input))))
+      (input.kind === 'calls' ? {} : await presetsFor(tx, row.mode ?? (await flowMode(tx, row.workspaceId, input))))
     await tx
       .update(aiJobs)
       .set({ state: 'running', attempt, startedAt: row.startedAt ?? new Date(), presets })
@@ -363,21 +362,7 @@ export async function sweepJobs(db: Db, boss: PgBoss, queue: string): Promise<nu
 
 /** A job of `kind` with `input` as its job kind's schema reads it; throws on an input it refuses. */
 function parseJob(kind: AiJobKind, input: unknown): JobInput {
-  return kind === 'calls' ? { kind, input: CallsInput.parse(input) } : parseFlowJob(kind, input)
-}
-
-/**
- * The mode a flow job is asked for in: its input's for a round or more like this, its brief's for a try-again, and
- * none for a job a mode doesn't change.
- */
-async function modeOf(db: Db | Tx, workspace: string, job: FlowJobInput): Promise<AiMode | null> {
-  if (job.kind === 'round' || job.kind === 'more-like-this') return job.input.mode
-  if (job.kind !== 'try-again') return null
-  const [brief] = await db
-    .select({ mode: aiBriefs.mode })
-    .from(aiBriefs)
-    .where(and(eq(aiBriefs.id, job.input.briefId), eq(aiBriefs.workspaceId, workspace)))
-  return brief?.mode ?? null
+  return kind === 'calls' ? { kind, input: CallsInput.parse(input) } : parseFeatureJob(kind, input)
 }
 
 /** Marks the job ended with `change` and gives back what it still holds. */

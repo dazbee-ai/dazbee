@@ -3,24 +3,21 @@
 import type { ResizeInput } from '@dazbee/schema'
 
 import { redrawCall } from '../functions/resize.ts'
-import type { JobEnd } from '../jobs.ts'
 import { pictureName } from './assets.ts'
-import type { DeclaredCall } from './holds.ts'
-import type { FlowRun } from './runner.ts'
+import type { AiFeatureDef, FeatureCall } from './types.ts'
 
-/** Runs a resize: one redraw per size, size `n` being call `n`. */
-export async function runResize(run: FlowRun, input: ResizeInput): Promise<JobEnd | null> {
-  const name = await pictureName(run.db, run.workspace, input.briefId, '')
-  const prompt = run.prompt('resize')
-  const model = run.preset('resize').model
-  await run.all(
-    input.sizes.map((size, n) => run.call(n, 'resize', redrawCall(input.pictureKey, size, prompt, model), name)),
-  )
-  return null
+/** A resize: one redraw per size, size `n` being call `n`, all side by side. */
+export const resize: AiFeatureDef<ResizeInput> = {
+  shape: (input) => ({ count: input.sizes.length, reference: false }),
+  stages: (shape) => [
+    Array.from({ length: shape.count }, (_, n): FeatureCall<ResizeInput, undefined> => ({
+      index: n,
+      fn: 'resize',
+      build({ input, prompt, model }) {
+        const size = input.sizes[n]
+        return size ? redrawCall(input.pictureKey, size, prompt, model) : null
+      },
+    })),
+  ],
+  name: (on, input) => pictureName(on.db, on.workspace, input.briefId, ''),
 }
-
-/** The calls a resize declares: one redraw per size. */
-export function resizeCalls(input: ResizeInput): DeclaredCall[] {
-  return input.sizes.map(() => ({ fn: 'resize' }))
-}
-

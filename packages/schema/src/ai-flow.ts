@@ -3,7 +3,7 @@
 // included, since the model reads them there (packages/ai/src/prompts/ads).
 import { z } from 'zod'
 
-import { AiMode, type FlowJobKind, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
+import { type AiFeature, AiMode, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
 import { Id } from './primitives.ts'
 
 /** The most one side of a size may be to the other for the AI to be offered it: 3:1 and 1:3. */
@@ -123,19 +123,19 @@ export const LayeringInput = FlowJob.extend({
 export type LayeringInput = z.infer<typeof LayeringInput>
 
 /** Each flow job kind's input contract. */
-export const FLOW_JOB_INPUTS = {
+export const AI_FEATURE_INPUTS = {
   round: RoundInput,
   'more-like-this': MoreLikeThisInput,
   'try-again': TryAgainInput,
   refine: RefineInput,
   resize: ResizeInput,
   layering: LayeringInput,
-} satisfies Record<FlowJobKind, z.ZodType>
+} satisfies Record<AiFeature, z.ZodType>
 
 /** A flow job of each job kind with its input. */
-export type FlowJobInput = {
-  [K in FlowJobKind]: { kind: K; input: z.infer<(typeof FLOW_JOB_INPUTS)[K]> }
-}[FlowJobKind]
+export type AiFeatureInput = {
+  [K in AiFeature]: { kind: K; input: z.infer<(typeof AI_FEATURE_INPUTS)[K]> }
+}[AiFeature]
 
 /** What an AI frame holds: a draft of a round, a size redrawn from a draft, or a refined version. */
 export const AI_FRAME_KINDS = ['draft', 'size', 'refine'] as const
@@ -243,8 +243,8 @@ export function isAiSize(size: { width: number; height: number }): boolean {
 }
 
 /** A flow job of `kind` with `input` as its contract reads it; throws on an input it refuses. */
-export function parseFlowJob(kind: FlowJobKind, input: unknown): FlowJobInput {
-  return { kind, input: FLOW_JOB_INPUTS[kind].parse(input) } as FlowJobInput
+export function parseFeatureJob(kind: AiFeature, input: unknown): AiFeatureInput {
+  return { kind, input: AI_FEATURE_INPUTS[kind].parse(input) } as AiFeatureInput
 }
 
 /** A brief's title: its first line, trimmed, cut to `BRIEF_TITLE_LENGTH` characters with "…". */

@@ -5,40 +5,45 @@ import { type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
 
 import { editCall } from '../functions/refine-edit.ts'
 import { planCall } from '../functions/refine-plan.ts'
-import type { JobEnd } from '../jobs.ts'
 import { drawMarks } from '../marks.ts'
 import { pictureName } from './assets.ts'
-import type { DeclaredCall } from './holds.ts'
-import type { FlowRun } from './runner.ts'
+import type { AiFeatureDef } from './types.ts'
 
 /** Each call's index in a refine. */
 export const REFINE_CALL = { plan: 0, edit: 1 } as const
 
-/** Runs a refine: the refine plan, then the edit; a failed plan fails the job. */
-export async function runRefine(run: FlowRun, input: RefineInput): Promise<JobEnd | null> {
-  const name = await pictureName(run.db, run.workspace, input.briefId, input.message)
-  const marked = input.marksKey
-    ? await run.files.save(
-        await drawMarks(await run.files.read(input.pictureKey), await run.files.read(input.marksKey)),
-        'image/png',
-      )
-    : undefined
-  const answer = await run.call(
-    REFINE_CALL.plan,
-    'refine-plan',
-    planCall(input, marked, run.prompt('refine-plan')),
-    name,
-  )
-  const plan = answer?.kind === 'text' ? RefinePlanAnswer.safeParse(answer.json) : null
-  if (!answer) return run.failed()
-  if (!plan?.success) return run.failed('the refine plan could not be read')
-  const edit = editCall(input, plan.data.instruction, run.preset('refine-edit').model)
-  await run.call(REFINE_CALL.edit, 'refine-edit', edit, name)
-  return null
+/** A refine: the refine plan, which the job stands on, then the edit. */
+export const refine: AiFeatureDef<RefineInput, { marked: string | undefined }> = {
+  shape: () => ({ count: 1, reference: false }),
+  stages: () => [
+    [
+      {
+        index: REFINE_CALL.plan,
+        fn: 'refine-plan',
+        standsOn: true,
+        unusable: (output) =>
+          output.kind === 'text' && RefinePlanAnswer.safeParse(output.json).success
+            ? null
+            : 'the refine plan could not be read',
+        build: ({ input, loaded, prompt }) => planCall(input, loaded.marked, prompt),
+      },
+    ],
+    [
+      {
+        index: REFINE_CALL.edit,
+        fn: 'refine-edit',
+        build({ input, answers, model }) {
+          const plan = answers.get(REFINE_CALL.plan)
+          const read = plan?.kind === 'text' ? RefinePlanAnswer.safeParse(plan.json) : null
+          return read?.success ? editCall(input, read.data.instruction, model) : null
+        },
+      },
+    ],
+  ],
+  async load(on, input) {
+    if (!input.marksKey) return { loaded: { marked: undefined } }
+    const marked = await drawMarks(await on.files.read(input.pictureKey), await on.files.read(input.marksKey))
+    return { loaded: { marked: await on.files.save(marked, 'image/png') } }
+  },
+  name: (on, input) => pictureName(on.db, on.workspace, input.briefId, input.message),
 }
-
-/** The calls a refine declares: its plan and its edit. */
-export function refineCalls(): DeclaredCall[] {
-  return [{ fn: 'refine-plan' }, { fn: 'refine-edit' }]
-}
-

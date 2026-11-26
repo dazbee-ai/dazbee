@@ -6,7 +6,7 @@ import type { PgBoss } from 'pg-boss'
 
 import { ROUND_CALL } from '@dazbee/ai'
 import { aiBriefs, aiJobs, type Db, type Tx } from '@dazbee/db'
-import { parseFlowJob, type StartTryAgain } from '@dazbee/schema'
+import { parseFeatureJob, type StartTryAgain } from '@dazbee/schema'
 
 import {
   aiFrame,
@@ -38,7 +38,7 @@ export async function tryAgain(
     .from(aiJobs)
     .where(and(eq(aiJobs.id, frame.jobId), eq(aiJobs.workspaceId, workspace)))
   if (!row || row.kind === 'calls') throw new StartRefused(NOT_TRIED_AGAIN, 409)
-  const failed = parseFlowJob(row.kind, row.input)
+  const failed = parseFeatureJob(row.kind, row.input)
   const save = (plan: Plan, frames: FrameCall[]) =>
     saveFlow({ db, boss, queue, starter }, design, plan, async (tx: Tx) => {
       for (const { frameId } of frames) {

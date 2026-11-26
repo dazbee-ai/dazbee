@@ -21,8 +21,8 @@ import {
 } from '@dazbee/db'
 import {
   AI_FUNCTIONS,
+  type AiFeatureInput,
   type CallInput,
-  type FlowJobInput,
   type LayerPlanAnswer,
   type RoundInput,
   type RoundPlanAnswer,
@@ -215,7 +215,7 @@ export function flowDeps(seller: FlowSeller, files = memoryFiles()): FlowDeps & 
 }
 
 /** Saves `flow` for `who` with its hold, as the API will; its id. */
-export async function saveFlow(who: FlowWorkspace, flow: FlowJobInput): Promise<string> {
+export async function saveFlow(who: FlowWorkspace, flow: AiFeatureInput): Promise<string> {
   const saved = await db.transaction((tx) =>
     saveJob(tx, boss, { workspace: who.workspace, member: who.member, ...flow, queue: QUEUE }),
   )

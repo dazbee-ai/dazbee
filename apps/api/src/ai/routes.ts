@@ -103,6 +103,7 @@ export function aiRoutes({
       mode: c.req.query('mode'),
       sizes: read,
       pictures: c.req.query('pictures'),
+      reference: c.req.query('reference'),
     })
     if (!query.success) return c.json(error(issuesOf(query.error, 'query')), 400)
     return c.json(await estimateAction(db, c.var.membership.workspaceId, query.data))

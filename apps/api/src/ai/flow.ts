@@ -11,10 +11,10 @@ import { LAYERING_CALL, layerSize, pictureAssets, ROUND_CALL } from '@dazbee/ai'
 import { aiBriefs, aiFrames, aiRefines, assets, type Db, newId } from '@dazbee/db'
 import {
   AI_PART_TAG,
+  type AiFeatureInput,
   type BrandFacts,
   type BrandSummary,
   type BriefReference,
-  type FlowJobInput,
   type RoundInput,
   type StartAiJob,
   type StartMoreLikeThis,
@@ -73,7 +73,7 @@ export async function startFlowJob(
     case 'more-like-this': {
       const { input, drawn } = await roundInput({ db, storage }, starter, request)
       const liked = request.kind === 'more-like-this' ? (await keys([request.likedAssetId]))[0] : undefined
-      const flow: FlowJobInput = liked
+      const flow: AiFeatureInput = liked
         ? { kind: 'more-like-this', input: { ...input, likedKey: liked } }
         : { kind: 'round', input }
       const frames = request.frames.map((f) => f.frameId)

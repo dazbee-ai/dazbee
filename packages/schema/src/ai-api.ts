@@ -4,16 +4,7 @@
 // API turns them into the storage keys the jobs read.
 import { z } from 'zod'
 
-import {
-  AiJobKind,
-  AiJobRefusal,
-  AiJobState,
-  AiJobView,
-  AiMode,
-  FlowJobKind,
-  MadePicture,
-  MAX_REFERENCES,
-} from './ai.ts'
+import { AiFeature, AiJobKind, AiJobRefusal, AiJobState, AiJobView, AiMode, MadePicture, MAX_REFERENCES } from './ai.ts'
 import { AiFrameKind, AiFrameState, AiFrameTarget, AiSize, AiSizeTarget } from './ai-flow.ts'
 import { ApiError } from './api.ts'
 import { AssetId, Id } from './primitives.ts'
@@ -176,9 +167,12 @@ export type AiFinishHolder = z.infer<typeof AiFinishHolder>
 export const AiFinishLease = AiFinishHolder.extend({ until: z.iso.datetime() })
 export type AiFinishLease = z.infer<typeof AiFinishLease>
 
-/** What the estimate is asked about: the action, its mode, the sizes it makes or reads, and the brief's pictures. */
+/**
+ * What the estimate is asked about: the action, its mode, the sizes it makes or reads, and whether the brief has a
+ * reference ad. `pictures` is taken and not read.
+ */
 export const AiEstimateQuery = z.object({
-  action: FlowJobKind,
+  action: AiFeature,
   mode: AiMode.default('fast'),
   sizes: z
     .array(AiSize)
@@ -186,6 +180,7 @@ export const AiEstimateQuery = z.object({
     .max(20)
     .default([{ width: 1080, height: 1080 }]),
   pictures: z.coerce.number().int().min(0).max(MAX_REFERENCES).default(0),
+  reference: z.union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')]).default(false),
 })
 export type AiEstimateQuery = z.infer<typeof AiEstimateQuery>
 

@@ -156,7 +156,7 @@ function live(
     sampler: { sample: exporter.sample, cancel: exporter.cancelSample },
   })
   tab.bind(sync, signal)
-  const { view, resources, selection, boxes, scenes, typing, pen, cropping, drawing } = modules
+  const { view, resources, selection, boxes, scenes, typing, pen, cropping, drawing, connecting } = modules
   const {
     transformDrag,
     frameResize,
@@ -192,6 +192,7 @@ function live(
     pen,
     cropping,
     drawing,
+    connecting,
     transformDrag,
     autoLayoutDrag,
     frameResize,
@@ -290,6 +291,7 @@ function live(
     selectAt: (client: Point) => core.selectAt(surface.onStage(client)),
     layersAt: (client: Point) => core.layersAt(surface.onStage(client)),
     sectionAt: (client: Point) => core.sectionAt(surface.onStage(client)),
+    connectorAt: (client: Point) => core.connectorAt(surface.onStage(client)),
     placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
       core.placeImage(asset, placeOnStage(where), options),
     readSvg: (text: string, name: string, where?: Point | Spot) => core.readSvg(text, name, placeOnStage(where)),

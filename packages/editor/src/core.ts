@@ -17,6 +17,7 @@ import { toggled } from './across-frames.ts'
 import { editorActionReady } from './action-ready.ts'
 import { editorActions } from './actions.ts'
 import { editorBrandKit } from './brand-kit.ts'
+import { connectorAt as connectorUnder, connectorsShown } from './canvas/connectors.ts'
 import { frameIn, LABEL_ROOM } from './canvas/frames.ts'
 import { editorRedraw } from './canvas/redraw.ts'
 import { frameScenes } from './canvas/scenes.ts'
@@ -32,6 +33,7 @@ import { editorFrameActions } from './frame-actions.ts'
 import { editorColourPick, type FrameSampler } from './gestures/colour-pick.ts'
 import { editorCropping } from './gestures/crop/cropping.ts'
 import { editorDragStart } from './gestures/drag-start.ts'
+import { editorConnecting } from './gestures/drawing/connecting.ts'
 import { editorDrawing } from './gestures/drawing/drawing.ts'
 import { editorGuideDrag } from './gestures/guides/guide-drag.ts'
 import { editorHold } from './gestures/hold.ts'
@@ -252,6 +254,16 @@ export function buildCore({
   })
   const frameMove = editorFrameMove({ session, view })
   const sectionMove = editorSectionMove({ session })
+  const connecting = editorConnecting({
+    hold: hold.hold,
+    session,
+    view,
+    tools,
+    selection,
+    typing,
+    frameMove,
+    shownChanged,
+  })
   const drawing = editorDrawing({
     hold: hold.hold,
     session,
@@ -500,6 +512,7 @@ export function buildCore({
     autoLayoutDrag,
     frameResize,
     sectionMove,
+    connecting,
     guideDrag,
     selectPress,
     colourPick,
@@ -714,6 +727,16 @@ export function buildCore({
   function sectionAt(stage: Point) {
     return lineAt(outlines(), stage, ['line'])?.id ?? null
   }
+  /** Picks a connector the shown page draws, ending typing, or with null lets the picked page item go. */
+  function pickConnector(connectorId: string | null) {
+    if (connectorId !== null) typing.stop()
+    selection.pickConnector(connectorId)
+  }
+  function connectorAt(stage: Point) {
+    if (view.pointOn(stage)) return null
+    const shown = connectorsShown(view.design(), view.frames(), outlines(), view.camera())
+    return connectorUnder(shown, stage)?.id ?? null
+  }
   /** Fits a drawn section's frames in view, showing its page first when another is shown. */
   function fitSection(sectionId: string) {
     const now = session.design()
@@ -891,6 +914,9 @@ export function buildCore({
     pickedSection: () => selection.pickedSection(),
     pickSection: (sectionId: string | null) => pickSection(sectionId),
     onSectionPick: (listener: (sectionId: string | null) => void) => selection.onSectionPick(listener),
+    pickedConnector: () => selection.pickedConnector(),
+    pickConnector: (connectorId: string | null) => pickConnector(connectorId),
+    onConnectorPick: (listener: (connectorId: string | null) => void) => selection.onConnectorPick(listener),
     renameSection: (sectionId: string) => pickSection(sectionId, true),
     onSectionRename: sectionRenames.on,
     titleRect,
@@ -974,6 +1000,7 @@ export function buildCore({
       selectAt: pointer.selectAt,
       layersAt: pointer.layersAt,
       sectionAt,
+      connectorAt,
       placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
         place.placeImage(asset, where, options),
       readSvg: (text: string, name: string, where?: Point | Spot) => placeSvg.readSvg(text, name, where),
@@ -1037,6 +1064,7 @@ export function buildCore({
       typing,
       pen,
       drawing,
+      connecting,
       autoLayoutDrag,
       transformDrag,
       frameResize,

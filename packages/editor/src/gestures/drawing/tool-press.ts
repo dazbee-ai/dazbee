@@ -1,6 +1,6 @@
 // A press on the stage with a drawing tool: the Frame and Section tools, a shape, the image armed
-// from Assets, the pen and the text tool each start what they draw; the Select and Hand tools leave
-// the press to the pointer.
+// from Assets, the pen and the text tool each start what they draw, and the Arrow shape a connector
+// from a dot at a frame's or a section's edge; the Select and Hand tools leave the press to the pointer.
 import type { Point } from '@dazbee/schema'
 
 import { toWorld } from '../../canvas/camera.ts'
@@ -9,7 +9,8 @@ import type { EditorView } from '../../canvas/view.ts'
 import type { EditorTools } from '../../tools.ts'
 import type { PointerInput } from '../inputs.ts'
 import type { EditorPen } from '../pen/pen.ts'
-import { isDrawTool } from './draw-tools.ts'
+import type { ConnectDrag, EditorConnecting } from './connecting.ts'
+import { drawsConnectors, isDrawTool } from './draw-tools.ts'
 import type { DrawingDrag, EditorDrawing } from './drawing.ts'
 
 /** What a drawing tool's press reads and starts. */
@@ -18,6 +19,7 @@ export interface ToolPressDeps {
   tools: Pick<EditorTools, 'tool' | 'setTool' | 'imageToPlace'>
   drawing: Pick<EditorDrawing, 'pressShape' | 'pressImage' | 'pressText' | 'pressFrame' | 'pressSection'>
   pen: Pick<EditorPen, 'down'>
+  connecting: Pick<EditorConnecting, 'press'>
 }
 
 /**
@@ -28,8 +30,8 @@ export function toolPress(
   e: PointerInput,
   screen: Point,
   at: { frame: Frame; p: Point } | null,
-  { view, tools, drawing, pen }: ToolPressDeps,
-): { drag: DrawingDrag | null } | null {
+  { view, tools, drawing, pen, connecting }: ToolPressDeps,
+): { drag: DrawingDrag | ConnectDrag | null } | null {
   const tool = tools.tool()
   // The Frame tool draws a frame anywhere on the stage, not only on a frame, and so does the Section tool its box.
   if (tool === 'frame') {
@@ -37,8 +39,9 @@ export function toolPress(
   }
   if (tool === 'section') return { drag: drawing.pressSection(e, toWorld(view.camera(), screen)) }
   if (isDrawTool(tool)) {
-    const drag = at && drawing.pressShape(e, tool, at)
-    return { drag }
+    // A press on a dot starts a connector; anywhere else on a frame, the shape.
+    const connector = drawsConnectors(tool) ? connecting.press(e, screen) : null
+    return { drag: connector ?? (at && drawing.pressShape(e, tool, at)) }
   }
   // An image armed from Assets goes where a press on a frame lands; a press off every frame places
   // nothing and puts the select tool back.

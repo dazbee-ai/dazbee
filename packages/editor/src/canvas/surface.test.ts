@@ -20,6 +20,29 @@ function fakeCanvasKit(log: string[]) {
     drawPicture: (picture: { name: string }) => log.push(`picture ${picture.name}`),
     clipRect: (rect: number[], op: string) => log.push(`clip ${op} ${rect.join(' ')}`),
     saveLayer: () => log.push('save layer'),
+    drawPath: (path: { d: string }, paint: { colour: string; width: number }) =>
+      log.push(`path ${path.d} in ${paint.colour}${paint.width ? ` ${paint.width} wide` : ''}`),
+    drawCircle: (x: number, y: number, r: number, paint: { colour: string; width: number }) =>
+      log.push(`circle ${x} ${y} round ${r} in ${paint.colour}${paint.width ? ` ${paint.width} wide` : ''}`),
+  }
+  /** Builds a path as words: each step's letter and points. */
+  class PathBuilder {
+    d: string[] = []
+    moveTo(x: number, y: number) {
+      this.d.push(`M ${x} ${y}`)
+      return this
+    }
+    lineTo(x: number, y: number) {
+      this.d.push(`L ${Math.round(x)} ${Math.round(y)}`)
+      return this
+    }
+    cubicTo(...points: number[]) {
+      this.d.push(`C ${points.join(' ')}`)
+      return this
+    }
+    detachAndDelete() {
+      return { d: this.d.join(' '), delete: () => {} }
+    }
   }
   const ck = {
     GetWebGLContext: () => 1,
@@ -28,14 +51,18 @@ function fakeCanvasKit(log: string[]) {
       log.push(`surface ${width}×${height}`)
       return { getCanvas: () => drawn, flush: () => log.push('flush'), delete: () => log.push('delete surface') }
     },
+    PathBuilder,
     Paint: class {
       colour = ''
+      width = 0
       setColor(colour: string) {
         this.colour = colour
       }
       setAntiAlias() {}
       setStyle() {}
-      setStrokeWidth() {}
+      setStrokeWidth(width: number) {
+        this.width = width
+      }
       setAlphaf() {}
       setImageFilter() {}
       delete() {
@@ -152,7 +179,7 @@ describe('editorSurface', () => {
   describe('paint', () => {
     it('draws nothing before the stage has a surface', () => {
       const { surface } = harness()
-      expect(surface.paint([], null, [])).toBe(false)
+      expect(surface.paint([], null, [], [])).toBe(false)
     })
 
     it('draws the pictures it is handed at the camera, each on its page over white on a soft shadow, and shows them', () => {
@@ -166,6 +193,7 @@ describe('editorSurface', () => {
           .slice(0, 1)
           .map((frame) => ({ frame, picture: picture(frame.id) })),
         null,
+        [],
         [],
       )
       expect(painted).toBe(true)
@@ -207,6 +235,7 @@ describe('editorSurface', () => {
           { box: { x: -24, y: -84, width: 588, height: 648 }, lit: false },
           { box: { x: 600, y: -84, width: 100, height: 100 }, lit: true },
         ],
+        [],
       )
       expect(log.slice(0, 6)).toEqual([
         'clear',
@@ -216,6 +245,49 @@ describe('editorSurface', () => {
         'outline 600 -84 100 100 round 22 in #2f5be0',
         'rect 0 1 540 540',
       ])
+    })
+  })
+
+  describe('paint with connectors', () => {
+    it('draws each connector after the outlines and before the frames: a grey curve, its arrowhead and its start dot in the canvas colour, or picked, in the accent with a dot at both ends', () => {
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => (name === '--canvas' ? '#100d14' : ''),
+      }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      log.length = 0
+      const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+      surface.paint(
+        view
+          .findInView()
+          .slice(0, 1)
+          .map((frame) => ({ frame, picture: picture(frame.id) })),
+        null,
+        [{ box: { x: -24, y: -84, width: 588, height: 648 }, lit: false }],
+        [
+          { curve, picked: false },
+          { curve: { ...curve, from: { x: 10, y: 150 }, to: { x: 110, y: 150 } }, picked: true },
+          // Wholly off the stage: left out.
+          {
+            curve: { from: { x: -500, y: 0 }, c1: { x: -400, y: 0 }, c2: { x: -300, y: 0 }, to: { x: -200, y: 0 } },
+            picked: false,
+          },
+        ],
+      )
+      expect(log.slice(3, 13)).toEqual([
+        'outline -24 -84 588 648 round 22 in #c4b9cd',
+        'path M 10 50 C 60 50 60 90 110 90 in #574c61 1.5 wide',
+        'path M 110 90 L 101 95 L 101 86 in #574c61',
+        'circle 10 50 round 3.5 in #100d14',
+        'circle 10 50 round 3.5 in #574c61 1.5 wide',
+        'path M 10 150 C 60 50 60 90 110 150 in #2f5be0 2 wide',
+        expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
+        'circle 10 150 round 5 in #100d14',
+        'circle 10 150 round 5 in #2f5be0 2 wide',
+        'circle 110 150 round 5 in #100d14',
+      ])
+      expect(log[14]).toBe('rect 0 1 540 540')
     })
   })
 
@@ -232,6 +304,7 @@ describe('editorSurface', () => {
             .slice(0, 1)
             .map((frame) => ({ frame, picture: picture(frame.id) })),
           null,
+          [],
           [],
         )
         return log.slice(3, 5)
@@ -251,6 +324,7 @@ describe('editorSurface', () => {
       surface.paint(
         view.findInView().map((frame) => ({ frame, picture: picture(frame.id) })),
         story ? { frame: story, picture: picture('ghost') } : null,
+        [],
         [],
       )
       expect(log.slice(-9)).toEqual([
@@ -304,6 +378,8 @@ describe('editorSurface', () => {
       expect(log).toEqual([
         'surface 2000×1600',
         'delete surface',
+        'delete paint',
+        'delete paint',
         'delete paint',
         'delete paint',
         'delete paint',

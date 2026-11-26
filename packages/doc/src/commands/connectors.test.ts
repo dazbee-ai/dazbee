@@ -5,6 +5,7 @@ import { connectorsOf } from '@dazbee/schema'
 import { readDesign } from '../store.ts'
 import { openTestSession, sectionedDesign } from '../test-design.ts'
 import { openTestStore } from '../test-store.ts'
+import { connectorRefusal } from './connectors.ts'
 
 /** A tab on the sectioned design: "ads" holds the square and the story, "banners" the wide frame. */
 function sectioned() {
@@ -78,5 +79,17 @@ describe('connector.delete', () => {
     expect(readDesign(store)).toEqual(before)
     expect(() => tab.run('connector.delete', { connectorId: 'nope' })).toThrow(/no connector "nope"/)
     expect(() => tab.run('connector.delete', { connectorId: 'sq' })).toThrow(/no connector "sq"/)
+  })
+})
+
+describe('connectorRefusal', () => {
+  it('gives what connector.add refuses, without running it, and nothing for a pair it takes', () => {
+    const { store } = sectioned()
+    const design = readDesign(store)
+    expect(connectorRefusal(design, 'p1', 'tall', 'tall')).toMatch(/two different/)
+    expect(connectorRefusal(design, 'p1', 'sq', 'ads')).toMatch(/its own section/)
+    expect(connectorRefusal(design, 'p1', 'story', 'sq')).toMatch(/already joined/)
+    expect(connectorRefusal(design, 'p1', 'gone', 'sq')).toMatch(/no frame or section/)
+    expect(connectorRefusal(design, 'p1', 'wide', 'tall')).toBeUndefined()
   })
 })

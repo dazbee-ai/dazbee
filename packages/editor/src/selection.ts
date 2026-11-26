@@ -4,7 +4,7 @@
 // in step and the listeners that follow them; and the layers in, around and beside a selection, which
 // the keys that walk the layer tree select.
 import { childrenOf, rowsOf } from '@dazbee/doc'
-import { type Design, frameIdOf } from '@dazbee/schema'
+import { connectorsOf, type Design, frameIdOf } from '@dazbee/schema'
 
 import type { Frame } from './canvas/frames.ts'
 import type { PlacedGuide } from './canvas/guides.ts'
@@ -66,6 +66,8 @@ export interface EditorSelection {
   pickedFrame(): string | null
   /** The picked page item while it is a section: its outline blue; null otherwise. */
   pickedSection(): string | null
+  /** The picked page item while it is a connector: drawn blue; null otherwise. */
+  pickedConnector(): string | null
   /** The picked frame the page renames in place of its label, which the overlay then leaves out; null with none. */
   renamingFrame(): string | null
   /** The picked section the page renames in place of its title, which the overlay then leaves out; null with none. */
@@ -107,7 +109,8 @@ export interface EditorSelection {
   /**
    * Drops selected layers that are gone, and the selection once none are left or its frame is not
    * on the shown page; with nothing selected, a crop or path edit ends. The picked frame goes once
-   * it is not shown, and the picked section once no frame shown is in it.
+   * it is not shown, the picked section once no frame shown is in it, and the picked connector once
+   * the shown page doesn't draw it.
    */
   keep(): void
   /**
@@ -122,6 +125,8 @@ export interface EditorSelection {
   pickFrame(frameId: string | null): void
   /** Picks a section, or with null no page item, as `pickFrame` picks a frame. */
   pickSection(sectionId: string | null): void
+  /** Picks a connector, or with null no page item, as `pickFrame` picks a frame. */
+  pickConnector(connectorId: string | null): void
   /**
    * Picks a frame for the page to rename in place of its label, and shows it; null once the rename
    * ends. It ends too once the frame is let go or another is picked.
@@ -162,6 +167,8 @@ export interface EditorSelection {
   onFramePick(listener: (frameId: string | null) => void): () => boolean
   /** Told when the picked section changes, with null once it goes. */
   onSectionPick(listener: (sectionId: string | null) => void): () => boolean
+  /** Told when the picked connector changes, with null once it goes. */
+  onConnectorPick(listener: (connectorId: string | null) => void): () => boolean
   destroy(): void
 }
 
@@ -208,6 +215,8 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   let lastPicked: string | null = null
   /** The picked section the section listeners last heard of. */
   let lastSection: string | null = null
+  /** The picked connector the connector listeners last heard of. */
+  let lastConnector: string | null = null
   /** Whether the picked frame was picked again since the frame listeners last heard. */
   let pickedAgain = false
   /** The group or box double-clicked into. */
@@ -234,6 +243,8 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   const frameListeners = new Set<(frameId: string | null) => void>()
   /** Told when the picked section changes. */
   const sectionListeners = new Set<(sectionId: string | null) => void>()
+  /** Told when the picked connector changes. */
+  const connectorListeners = new Set<(connectorId: string | null) => void>()
 
   const frameOf = (id: string | undefined) => frames().find((f) => f.id === id)
 
@@ -254,6 +265,9 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   }
   function pickedSection() {
     return pickedOf('section')
+  }
+  function pickedConnector() {
+    return pickedOf('connector')
   }
   function renamingFrame() {
     return renamingOf('frame')
@@ -363,10 +377,17 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     if (entered && !frameOf(frameIdOf(drawn(), entered))) entered = null
     endModesWhenNone()
   }
-  /** Whether a picked page item is still shown: a frame of the shown page, or a section a frame shown is in. */
+  /**
+   * Whether a picked page item is still shown: a frame of the shown page, a section a frame shown is
+   * in, or a connector the shown page draws.
+   */
   function shown(item: PickedItem) {
     if (item.kind === 'frame') return frameOf(item.id) !== undefined
     const design = drawn()
+    if (item.kind === 'connector') {
+      const pageId = frames()[0]?.pageId
+      return pageId !== undefined && connectorsOf(design, pageId).some(([id]) => id === item.id)
+    }
     const section = Object.hasOwn(design.sections, item.id) ? design.sections[item.id] : undefined
     return frames().some((f) => f.pageId === section?.pageId && design.frames[f.id]?.sectionId === item.id)
   }
@@ -375,6 +396,9 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
   }
   function pickSection(sectionId: string | null) {
     pickItem(sectionId === null ? null : { kind: 'section', id: sectionId })
+  }
+  function pickConnector(connectorId: string | null) {
+    pickItem(connectorId === null ? null : { kind: 'connector', id: connectorId })
   }
   function pickItem(item: PickedItem | null) {
     if (item?.kind === picked?.kind && item?.id === picked?.id) {
@@ -467,6 +491,11 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
       lastSection = section
       for (const listener of sectionListeners) listener(section)
     }
+    const connector = pickedOf('connector')
+    if (connector !== lastConnector) {
+      lastConnector = connector
+      for (const listener of connectorListeners) listener(connector)
+    }
   }
   function onSelection(listener: (ids: string[]) => void) {
     selectionListeners.add(listener)
@@ -480,8 +509,13 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     sectionListeners.add(listener)
     return () => sectionListeners.delete(listener)
   }
+  function onConnectorPick(listener: (connectorId: string | null) => void) {
+    connectorListeners.add(listener)
+    return () => connectorListeners.delete(listener)
+  }
 
   function destroy() {
+    connectorListeners.clear()
     sectionListeners.clear()
     frameListeners.clear()
     selectionListeners.clear()
@@ -494,6 +528,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     pickedItem,
     pickedFrame,
     pickedSection,
+    pickedConnector,
     renamingFrame,
     renamingSection,
     guide: () => guide,
@@ -512,6 +547,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     dropOffPage,
     pickFrame,
     pickSection,
+    pickConnector,
     renameFrame,
     renameSection,
     selectGuide,
@@ -527,6 +563,7 @@ export function editorSelection({ drawn, frames, changed }: SelectionDeps): Edit
     onSelection,
     onFramePick,
     onSectionPick,
+    onConnectorPick,
     destroy,
   }
 }

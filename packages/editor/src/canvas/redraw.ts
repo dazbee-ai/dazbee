@@ -1,7 +1,8 @@
 // The redraw pass: all a redraw does but put the pictures on the screen and build the overlay's
 // elements. It brings the design as last drawn up to date, lets the selection and typing go of what
 // is gone, records the pictures of the frames in view and of what a drag carries, measures the
-// sections' outlines, lit where picked or a drop's target, checks the hover,
+// sections' outlines, lit where picked or a drop's target, and the connectors' curves, blue where
+// picked, checks the hover,
 // tells that what is shown changed, reports what it did and has the page told of layers left out.
 // In a browser the stage's surface runs it on an animation frame, with the paint that shows the
 // pictures; with no paint it runs to its end.
@@ -15,6 +16,7 @@ import { listenerSet } from '../listener-set.ts'
 import type { EditorResources } from '../resources.ts'
 import type { EditorSelection } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
+import { type ConnectorCurve, connectorsShown } from './connectors.ts'
 import type { FramePicture } from './frames.ts'
 import type { FrameScenes } from './scenes.ts'
 import type { ShownSections } from './sections.ts'
@@ -25,15 +27,21 @@ export interface DrawnOutline {
   box: Rect
   lit: boolean
 }
+/** A connector's curve as the stage draws it, in screen pixels: blue while it is picked. */
+export interface DrawnConnector {
+  curve: ConnectorCurve
+  picked: boolean
+}
 /**
- * Puts the sections' outlines on the screen, then the pictures of the frames in view over them, then
- * `ghost`, what a drag carries, faintly where it is past its frame's edge. False, having drawn
- * nothing, when there is nothing to draw on.
+ * Puts the sections' outlines on the screen, then the connectors' curves, then the pictures of the
+ * frames in view over them, then `ghost`, what a drag carries, faintly where it is past its frame's
+ * edge. False, having drawn nothing, when there is nothing to draw on.
  */
 export type Paint = (
   pictures: readonly FramePicture[],
   ghost: FramePicture | null,
   outlines: readonly DrawnOutline[],
+  connectors: readonly DrawnConnector[],
 ) => boolean
 
 export interface RedrawDeps {
@@ -43,7 +51,7 @@ export interface RedrawDeps {
   >
   resources: Pick<EditorResources, 'screen' | 'show'>
   scenes: Pick<FrameScenes, 'shownScene' | 'pictures' | 'ghost' | 'outlinePaths'>
-  selection: Pick<EditorSelection, 'keep' | 'tellListeners' | 'pickedSection'>
+  selection: Pick<EditorSelection, 'keep' | 'tellListeners' | 'pickedSection' | 'pickedConnector'>
   typing: Pick<EditorTyping, 'stopWhenGone'>
   pointer: Pick<EditorPointer, 'gesture' | 'rehover'>
   /** The sections as the stage shows them now. */
@@ -63,8 +71,9 @@ export interface EditorRedraw {
   /**
    * Tells that what is shown changed: the `onShown` listeners first, which build what they show,
    * then the selection's listeners. A redraw calls it, and so does every module that changes what
-   * is shown outside one; when the sections' outlines differ from those last drawn, as after a
-   * section is picked or a frame's drop, it asks for a redraw, since the surface draws them.
+   * is shown outside one; when the sections' outlines or the picked connector differ from those
+   * last drawn, as after a section or a connector is picked or a frame's drop, it asks for a redraw,
+   * since the surface draws them.
    */
   shownChanged(): void
   /** Calls back whenever what is shown changed, before the selection's listeners are told. */
@@ -84,7 +93,7 @@ export function editorRedraw({
 }: RedrawDeps): EditorRedraw {
   /** Told when what is shown changed. */
   const shown = listenerSet<[]>()
-  /** The sections' outlines the last redraw drew, as `outlineKey` gives them. */
+  /** The sections' outlines and the picked connector the last redraw drew, as `drawnKey` gives them. */
   let drawnOutlines = ''
 
   function redraw(paint?: Paint): DrawInfo | null {
@@ -108,8 +117,8 @@ export function editorRedraw({
     const ghost = drag && { frame: drag.frame, picture: scenes.ghost(drag.frame, drag.roots, screen) }
     const made = scenes.pictures(view.frames(), inView, screen)
     const outlines = outlinesNow()
-    if (paint && !paint(made.pictures, ghost, outlines)) return null
-    drawnOutlines = outlineKey(outlines)
+    if (paint && !paint(made.pictures, ghost, outlines, connectorsNow(design))) return null
+    drawnOutlines = drawnKey(outlines)
     pointer.rehover()
     const outlinedBefore = scenes.outlinePaths()
     shownChanged()
@@ -130,8 +139,20 @@ export function editorRedraw({
     const picked = selection.pickedSection()
     return outlines.map(({ id, box }) => ({ box, lit: id === picked || id === lit }))
   }
+  /** The connectors' curves between where their ends are drawn now, blue where picked. */
+  function connectorsNow(design: Design): DrawnConnector[] {
+    const picked = selection.pickedConnector()
+    return connectorsShown(design, view.frames(), sections().outlines, view.camera()).map(({ id, curve }) => ({
+      curve,
+      picked: id === picked,
+    }))
+  }
+  /** What the surface draws besides the frames that a pick changes, as one string: the outlines and the picked connector. */
+  function drawnKey(outlines: readonly DrawnOutline[]) {
+    return `${outlineKey(outlines)}|${selection.pickedConnector() ?? ''}`
+  }
   function shownChanged() {
-    if (outlineKey(outlinesNow()) !== drawnOutlines) view.redraw()
+    if (drawnKey(outlinesNow()) !== drawnOutlines) view.redraw()
     shown.emit()
     selection.tellListeners()
   }

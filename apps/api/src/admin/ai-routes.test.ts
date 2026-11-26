@@ -7,7 +7,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { hold, STEPS } from '@dazbee/ai'
+import { hold, layerSize, STEPS } from '@dazbee/ai'
 import { aiCalls, aiDailyChecks, aiPrices, aiStepModels, currencyRates, modelSellers, newId } from '@dazbee/db'
 import {
   AiAllowanceView,
@@ -457,6 +457,20 @@ describe('/admin/ai', () => {
     const none = `/admin/ai/workspaces/no-such-${run}`
     expect((await ask(admin.token, 'POST', `${none}/gifts`, { amount: 5, expiresOn: '2099-01-01' })).status).toBe(404)
     expect((await ask(admin.token, 'GET', `${none}/allowance`)).status).toBe(404)
+  })
+
+  it('gives a gift its layering size, 512 px unless set, and refuses any other size', async () => {
+    const team = await addWorkspace(`Layered ${run}`)
+    const give = (layerSize?: number) =>
+      ask(admin.token, 'POST', `/admin/ai/workspaces/${team.id}/gifts`, {
+        amount: 5,
+        expiresOn: '2099-12-31',
+        ...(layerSize ? { layerSize } : {}),
+      })
+    expect(AiGrantView.parse((await give()).json).layerSize).toBe(512)
+    expect(AiGrantView.parse((await give(1024)).json).layerSize).toBe(1024)
+    expect((await give(768)).status).toBe(400)
+    expect(await layerSize(db, team.id)).toBe(512)
   })
 
   it('sums the real cost and the charges of AI calls by day, AI step, model and seller', async () => {

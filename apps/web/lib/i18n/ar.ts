@@ -1675,6 +1675,8 @@ export const ar: Messages = {
       amount: 'المبلغ، بالروبية من الرصيد',
       expiresOn: 'آخر يوم (بتوقيت الهند)',
       note: 'ملاحظة',
+      layerSize: 'تُصنع الطبقات بمقاس',
+      layerSizes: { 512: '512 بكسل', 1024: '1024 بكسل' },
       give: 'امنح',
       giving: 'جارٍ المنح…',
       given: 'مُنح رصيد قدره {amount} روبية.',

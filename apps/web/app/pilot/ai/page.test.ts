@@ -169,6 +169,7 @@ const ALLOWANCE: AiAllowanceView = {
       expiresAt: '2026-12-31T18:30:00.000Z',
       live: true,
       note: 'Early tester',
+      layerSize: 1024,
       givenBy: 'ada@example.com',
       createdAt: AT,
     },
@@ -255,6 +256,9 @@ describe('PilotAiPage', () => {
     expect(page).toContain('data-allowance="ws-1"')
     expect(page).toContain('data-grant="grant-1"')
     expect(page).toContain('data-testid="ai-gift"')
+    // The grant's layering size shows, and a new gift's starts at 512 px.
+    expect(page).toMatch(/data-grant="grant-1"[^]*?>1024 px<\/td>/)
+    expect(page).toMatch(/<option value="512" selected="">512 px<\/option>/)
     // The gift ends at midnight IST after its last day, which the table shows.
     expect(page).toMatch(/<time dateTime="2026-12-31T18:30:00.000Z">Dec 31, 2026<\/time>/)
   })

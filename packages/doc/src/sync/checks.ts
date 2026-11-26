@@ -17,7 +17,7 @@ import {
   Frame,
   type FrameEnd,
   frameOfLayer,
-  type HeldPart,
+  HeldPart,
   Layer,
   Page,
   type Part,
@@ -54,7 +54,7 @@ const PARSERS = {
   section: Section,
   connector: Connector,
 } as const
-const HELD_PARTS: readonly HeldPart[] = ['page', 'frame', 'layer', 'section', 'connector']
+const HELD_PARTS: readonly HeldPart[] = HeldPart.options
 /** What a record adds to its JSON in a design's JSON: its id's quotes, the colon and a comma. */
 const RECORD_OVERHEAD = 4
 

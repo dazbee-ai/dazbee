@@ -5,6 +5,7 @@
 import {
   type BindableProperty,
   type Change,
+  HeldPart,
   isRecord,
   type Part as SyncPart,
   type RestoreMark,
@@ -81,7 +82,7 @@ class TextPlace {
 }
 
 /** The parts whose ids a new record may not take while one holds it (C27). */
-const PARTS = ['page', 'frame', 'layer', 'section', 'connector'] as const
+const PARTS = HeldPart.options
 
 /** Notices a scratch store throws for. */
 const NOT_TAKEN: ReadonlySet<Notice['kind']> = new Set(['rejected', 'tooBig'])

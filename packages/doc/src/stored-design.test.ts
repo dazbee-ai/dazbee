@@ -53,10 +53,8 @@ describe('storedDesign', () => {
     expect(storedDesign(loaded)).toMatchObject({ syncId: 's0', entry: 0, seq: 0 })
     expect(storedDesign(loaded).design.nodes.badge?.name).toBe(linkedDesign().nodes.badge?.name)
   })
-})
 
-describe('a design stored before sections and connectors', () => {
-  it('opens with none, and is stored back with its frames as they were', () => {
+  it('opens a design stored before sections and connectors with none, and stores it back with its frames as they were', () => {
     const loaded = rowsWithDeadTail()
     loaded.journal = loaded.journal.slice(0, 3)
     loaded.lastEntry = 3

@@ -129,7 +129,7 @@ export function repair(snapshot: Snapshot): Repaired {
   const idTaken = (id: string) =>
     [snapshot.pages, snapshot.frames, snapshot.nodes].some((held) => Object.hasOwn(held, id)) ||
     (Object.hasOwn(snapshot.sections ?? {}, id) && Object.hasOwn(snapshot.connectors ?? {}, id))
-  const onPages = <T extends { pageId: string }>(part: 'section' | 'connector', schema: z.ZodType<T>) => {
+  const readHeldByPage = <T extends { pageId: string }>(part: 'section' | 'connector', schema: z.ZodType<T>) => {
     const kept = new Map<string, T>()
     const held = part === 'section' ? snapshot.sections : snapshot.connectors
     for (const [id, value] of Object.entries(held ?? {})) {
@@ -143,8 +143,8 @@ export function repair(snapshot: Snapshot): Repaired {
     }
     return kept
   }
-  const sections = onPages('section', Section)
-  const connectors = onPages('connector', Connector)
+  const sections = readHeldByPage('section', Section)
+  const connectors = readHeldByPage('connector', Connector)
 
   // 2. A layer that lost its index goes to the back. Then the layers the schema does not take
   // go, before anyone looks for parents among them.

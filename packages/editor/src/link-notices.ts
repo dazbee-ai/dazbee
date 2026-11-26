@@ -16,7 +16,7 @@ interface LinkNoticesDeps {
 
 /**
  * The largest share of a design limit `size` holds, and `parts` when that is its sections' or
- * connectors' limit. A size from a server before them counts none.
+ * connectors' limit. A size that leaves out their counts holds none of them.
  */
 export function shareOf(size: DesignSize): NoticeDetails['nearLimit'] {
   const design = Math.max(

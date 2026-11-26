@@ -6,9 +6,9 @@ import {
   type Change,
   type DesignRecords,
   designRecords,
-  type HeldPart,
+  HeldPart,
   isRecord,
-  type Part,
+  Part,
   type Placed,
   type RejectReason,
   type Target,
@@ -54,8 +54,8 @@ export class ChangeRejected extends Error {
   }
 }
 
-const PARTS = ['meta', 'page', 'frame', 'layer', 'section', 'connector'] as const
-const HELD_PARTS = ['page', 'frame', 'layer', 'section', 'connector'] as const
+const PARTS = Part.options
+const HELD_PARTS = HeldPart.options
 /** The keys the indexes follow: what holds a record, and a layer's link. */
 const INDEXED = new Set(['pageId', 'parentId', 'link'])
 const NONE: ReadonlySet<string> = new Set()

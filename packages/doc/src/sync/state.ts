@@ -57,7 +57,7 @@ export class ChangeRejected extends Error {
 const PARTS = Part.options
 const HELD_PARTS = HeldPart.options
 /** The keys the indexes follow: what holds a record, and a layer's link. */
-const INDEXED = new Set(['pageId', 'parentId', 'link'])
+const INDEXED = new Set(['pageId', 'parentId', 'link', 'from', 'to'])
 const NONE: ReadonlySet<string> = new Set()
 
 /** Sets by key, copied on write over a base index: what holders hold, or which layers share a link. */
@@ -114,6 +114,8 @@ export class DesignState implements ReadState {
   readonly #children: Index
   /** The layers holding each link id. */
   readonly #links: Index
+  /** The connectors with an end at each frame or section id. */
+  readonly #ends: Index
   #counts: Record<HeldPart, number>
   /** In the state no overlay is over (the server's), each record's placement by id (C46). */
   readonly #placed: Map<string, Placed> | undefined
@@ -138,6 +140,7 @@ export class DesignState implements ReadState {
     }
     this.#children = new Index(base && base.#children)
     this.#links = new Index(base && base.#links)
+    this.#ends = new Index(base && base.#ends)
     this.#counts = base ? { ...base.#counts } : { page: 0, frame: 0, layer: 0, section: 0, connector: 0 }
     this.#placed = base ? undefined : new Map()
   }
@@ -186,6 +189,7 @@ export class DesignState implements ReadState {
     }
     this.#children.commit()
     this.#links.commit()
+    this.#ends.commit()
     base.#counts = { ...this.#counts }
     this.#created.clear()
     // Its copies are the base's now: a later write copies them again.
@@ -231,6 +235,11 @@ export class DesignState implements ReadState {
   /** The layers holding link id `link`. */
   linkHolders(link: string): ReadonlySet<string> {
     return this.#links.get(link)
+  }
+
+  /** The connectors with an end at `id`, a frame's or a section's. */
+  connectorsAt(id: string): ReadonlySet<string> {
+    return this.#ends.get(id)
   }
 
   /** The ids of every record of a part. */
@@ -328,7 +337,7 @@ export class DesignState implements ReadState {
         const inPlace = owned.has(record)
         const before =
           inPlace && INDEXED.has(t.key)
-            ? { pageId: record.pageId, parentId: record.parentId, link: record.link }
+            ? { pageId: record.pageId, parentId: record.parentId, link: record.link, from: record.from, to: record.to }
             : record
         const next = withValue(record, t, change.to, owned)
         owned.add(next)
@@ -373,6 +382,14 @@ export class DesignState implements ReadState {
       if (old !== link || !next) {
         if (typeof old === 'string') this.#links.remove(old, id)
         if (typeof link === 'string') this.#links.add(link, id)
+      }
+    }
+    if (part === 'connector') {
+      for (const end of ['from', 'to'] as const) {
+        const [old, now] = [prev?.[end], next?.[end]]
+        if (old === now && next) continue
+        if (typeof old === 'string') this.#ends.remove(old, id)
+        if (typeof now === 'string') this.#ends.add(now, id)
       }
     }
     this.#counts[part] += (next ? 1 : 0) - (prev ? 1 : 0)

@@ -414,19 +414,29 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
 
   /**
    * Why an undo or a redo can't delete what it would (C46), if it can't: a record it deletes, by name
-   * or with what holds it, was created or moved there by another tab after the change set's base.
+   * or with what holds it, or a connector it leaves with an end gone, was created or moved there by
+   * another tab after the change set's base. A connector counts as placed in its ends, though its
+   * page holds it.
    */
   function placedSinceIssue(
     applied: Applied,
     message: Extract<TabMessage, { type: 'changes' }>,
     author: number,
   ): Issue | undefined {
+    const placedSince = (id: string) => {
+      const at = state.placedAt(id)
+      if (!at || at.seq <= message.base || at.author === author) return undefined
+      return reject('placedSince', `"${id}" was placed by tab ${at.author} at ${at.seq}, after base ${message.base}`)
+    }
     for (const key of applied.written) {
       const { part, id } = recordOf(key)
       if (applied.after.get(part, id) || !state.get(part, id)) continue
-      const at = state.placedAt(id)
-      if (at && at.seq > message.base && at.author !== author) {
-        return reject('placedSince', `"${id}" was placed by tab ${at.author} at ${at.seq}, after base ${message.base}`)
+      const issue = placedSince(id)
+      if (issue) return issue
+      if (part !== 'frame' && part !== 'section') continue
+      for (const connector of state.connectorsAt(id)) {
+        const touching = applied.after.get('connector', connector) ? placedSince(connector) : undefined
+        if (touching) return touching
       }
     }
     return undefined

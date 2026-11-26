@@ -24,7 +24,6 @@ import type { EditorColourPick } from './colour-pick.ts'
 import type { CropDrag, EditorCropping } from './crop/cropping.ts'
 import { editorDoubleClick } from './double-click.ts'
 import type { EditorDragStart } from './drag-start.ts'
-import { isDrawTool } from './drawing/draw-tools.ts'
 import {
   type EditorDrawing,
   type FrameDrag,
@@ -33,6 +32,7 @@ import {
   type ShapeDrag,
   type TextBoxDrag,
 } from './drawing/drawing.ts'
+import { toolPress } from './drawing/tool-press.ts'
 import type { EditorGuideDrag, GuideDrag } from './guides/guide-drag.ts'
 import { type EditorHeldKeys, editorHeldKeys } from './held-keys.ts'
 import type { Grab } from './hit-zones.ts'
@@ -415,31 +415,9 @@ export function editorPointer({
     const screen = screenOf(e)
     dragStart.press(screen, e.pointerType)
     const at = pointIn(e)
-    const tool = tools.tool()
-    // The Frame tool draws a frame anywhere on the stage, not only on a frame.
-    if (tool === 'frame') {
-      gesture = drawing.pressFrame(e, toWorld(view.camera(), screen))
-      return
-    }
-    if (isDrawTool(tool)) {
-      const drag = at && drawing.pressShape(e, tool, at)
-      if (drag) gesture = drag
-      return
-    }
-    // An image armed from Assets goes where a press on a frame lands; a press off every frame places
-    // nothing and puts the select tool back.
-    if (tool === 'image') {
-      const imageToPlace = tools.imageToPlace()
-      if (at && imageToPlace) gesture = drawing.pressImage(e, at, imageToPlace)
-      else tools.setTool('select')
-      return
-    }
-    if (tool === 'pen') {
-      if (at) pen.down(e, at)
-      return
-    }
-    if (tool === 'text') {
-      if (at) gesture = drawing.pressText(e, at)
+    const pressed = toolPress(e, screen, at, { view, tools, drawing, pen })
+    if (pressed) {
+      if (pressed.drag) gesture = pressed.drag
       return
     }
     if (selection.pathEditing()) {

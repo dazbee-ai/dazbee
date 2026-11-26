@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { Design } from '@dazbee/schema'
 
 import {
-  arrowAngle,
+  ARROW_LENGTH,
+  arrowheadOf,
   connectorAt,
   connectorCurve,
   connectorsShown,
@@ -120,18 +121,68 @@ describe('connectorCurve', () => {
     ])
   })
 
+  it('turns square over a visible stretch when the ends are far apart across but close along', () => {
+    // A frame just right of a section and well above it: the curve leaves the frame's left side and
+    // reaches the section's right side, both square, in a smooth S.
+    const frame = { x: 650, y: 210, width: 337, height: 364 }
+    const section = { x: 345, y: 545, width: 272, height: 285 }
+    expect(connectorCurve(frame, section)).toEqual({
+      from: { x: 644, y: 392 },
+      c1: { x: 564, y: 392 },
+      c2: { x: 703, y: 687.5 },
+      to: { x: 623, y: 687.5 },
+    })
+    // Stacked just below and far to the side: the same, down.
+    const below = connectorCurve({ x: 0, y: 0, width: 100, height: 100 }, { x: 60, y: 130, width: 300, height: 100 })
+    expect([below.c1.y - below.from.y, below.to.y - below.c2.y]).toEqual([80, 80])
+  })
+
+  it('leaves and reaches the facing sides square when the boxes overlap', () => {
+    const curve = connectorCurve(box(0, 0), box(50, 50))
+    expect(curve.from).toEqual({ x: 106, y: 50 })
+    expect(curve.to).toEqual({ x: 44, y: 100 })
+    expect([curve.c1.y, curve.c2.y]).toEqual([50, 100])
+    expect(curve.c1.x).toBeGreaterThan(curve.from.x)
+    expect(curve.c2.x).toBeLessThan(curve.to.x)
+  })
+
   it('still bends between ends close together', () => {
     const curve = connectorCurve(box(0, 0), box(110, 0))
     expect(curve.c1.x - curve.from.x).toBe(24)
   })
 })
 
-describe('arrowAngle', () => {
-  it('points along the curve where it reaches its end', () => {
-    const right = connectorCurve({ x: 0, y: 0, width: 10, height: 10 }, { x: 100, y: 50, width: 10, height: 10 })
-    expect(arrowAngle(right)).toBe(0)
-    const down = connectorCurve({ x: 0, y: 0, width: 10, height: 10 }, { x: 0, y: 100, width: 10, height: 10 })
-    expect(arrowAngle(down)).toBeCloseTo(Math.PI / 2)
+describe('arrowheadOf', () => {
+  const frame = { x: 650, y: 210, width: 337, height: 364 }
+  const section = { x: 345, y: 545, width: 272, height: 285 }
+
+  it('points along the curve’s last stretch, its base on the curve ARROW_LENGTH back from the end', () => {
+    for (const curve of [
+      connectorCurve(frame, section),
+      connectorCurve({ x: 0, y: 0, width: 100, height: 100 }, { x: 300, y: 40, width: 100, height: 100 }),
+      connectorCurve({ x: 0, y: 0, width: 100, height: 100 }, { x: 30, y: 400, width: 100, height: 100 }),
+    ]) {
+      const { head } = arrowheadOf(curve)
+      const base = { x: (head.left.x + head.right.x) / 2, y: (head.left.y + head.right.y) / 2 }
+      expect(head.tip).toEqual(curve.to)
+      expect(Math.hypot(head.tip.x - base.x, head.tip.y - base.y)).toBeCloseTo(ARROW_LENGTH, 5)
+      expect(nearCurve(curve, base, 0.5)).toBe(true)
+      expect(Math.hypot(head.left.x - head.right.x, head.left.y - head.right.y)).toBeCloseTo(8, 5)
+    }
+  })
+
+  it('gives the line up to the head’s base, so it never shows through the head', () => {
+    const curve = connectorCurve(frame, section)
+    const { head, line } = arrowheadOf(curve)
+    const base = { x: (head.left.x + head.right.x) / 2, y: (head.left.y + head.right.y) / 2 }
+    expect(line.from).toEqual(curve.from)
+    expect(line.to.x).toBeCloseTo(base.x, 3)
+    expect(line.to.y).toBeCloseTo(base.y, 3)
+  })
+
+  it('takes the whole of a curve shorter than the head', () => {
+    const curve = { from: { x: 0, y: 0 }, c1: { x: 1, y: 0 }, c2: { x: 2, y: 0 }, to: { x: 3, y: 0 } }
+    expect(arrowheadOf(curve).line.to).toEqual(curve.from)
   })
 })
 

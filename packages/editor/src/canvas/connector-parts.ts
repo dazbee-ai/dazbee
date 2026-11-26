@@ -3,13 +3,10 @@
 // would join, lit, and the curve it would draw. They are short-lived, so the overlay draws them,
 // though the connectors themselves are drawn under the frames by the stage's surface.
 import type { ShownConnecting } from '../gestures/drawing/connecting.ts'
-import { arrowAngle, type ConnectorCurve } from './connectors.ts'
+import { arrowheadOf, type ConnectorCurve } from './connectors.ts'
 import { px } from './rulers.ts'
 import { OUTLINE_RADIUS } from './sections.ts'
 
-/** The arrowhead of the curve a drag draws: its length along the curve and its half-width across it, in screen pixels. */
-const ARROW_LENGTH = 9
-const ARROW_HALF_WIDTH = 4.5
 const SVG = 'http://www.w3.org/2000/svg'
 
 /** The dots, the lit frame or section and the curve a drag draws, as overlay elements; none while nothing shows. */
@@ -42,20 +39,17 @@ export function connectorParts({ dots, preview, lit }: ShownConnecting): Element
 
 /** The curve a drag draws, with its arrowhead, as an SVG over the stage. */
 function previewCurve(curve: ConnectorCurve) {
-  const { from, c1, c2, to } = curve
+  // The line stops at its arrowhead's base, so it never shows through the head.
+  const { head, line } = arrowheadOf(curve)
   const svg = document.createElementNS(SVG, 'svg')
   svg.setAttribute('class', 'connector-preview')
-  const line = document.createElementNS(SVG, 'path')
-  line.setAttribute('d', `M ${from.x} ${from.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`)
-  const angle = arrowAngle(curve)
-  const [ax, ay] = [Math.cos(angle), Math.sin(angle)]
-  const back = { x: to.x - ax * ARROW_LENGTH, y: to.y - ay * ARROW_LENGTH }
-  const head = document.createElementNS(SVG, 'path')
-  head.setAttribute(
-    'd',
-    `M ${to.x} ${to.y} L ${back.x - ay * ARROW_HALF_WIDTH} ${back.y + ax * ARROW_HALF_WIDTH} L ${back.x + ay * ARROW_HALF_WIDTH} ${back.y - ax * ARROW_HALF_WIDTH} Z`,
-  )
-  head.dataset.head = ''
-  svg.append(line, head)
+  const path = document.createElementNS(SVG, 'path')
+  const { from, c1, c2, to } = line
+  path.setAttribute('d', `M ${from.x} ${from.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`)
+  const { tip, left, right } = head
+  const arrow = document.createElementNS(SVG, 'path')
+  arrow.setAttribute('d', `M ${tip.x} ${tip.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`)
+  arrow.dataset.head = ''
+  svg.append(path, arrow)
   return svg
 }

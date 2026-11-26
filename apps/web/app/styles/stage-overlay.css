@@ -85,6 +85,7 @@
   fill: none;
   stroke: var(--accent);
   stroke-width: 1.5px;
+  stroke-linecap: round;
 }
 .stage-overlay .connector-preview path[data-head] {
   fill: var(--accent);

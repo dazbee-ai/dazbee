@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { connectorParts } from './connector-parts.ts'
+import { arrowheadOf } from './connectors.ts'
 import { type Fake, fake } from './test-overlay.ts'
 
 beforeEach(() => {
@@ -45,7 +46,12 @@ describe('connectorParts', () => {
     ])
     expect(preview?.attributes.class).toBe('connector-preview')
     const [line, head] = (preview?.children ?? []) as Fake[]
-    expect(line?.attributes.d).toBe('M 0 0 C 50 0 50 40 100 40')
-    expect(head?.attributes.d).toMatch(/^M 100 40 L 91 44.5 L 91 35.5 Z$/)
+    // The line stops at the head's base, which points along the curve's last stretch.
+    const cut = arrowheadOf(curve)
+    const { c1, c2, to } = cut.line
+    expect(line?.attributes.d).toBe(`M 0 0 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`)
+    expect(to.x).toBeLessThan(93)
+    const { left, right } = cut.head
+    expect(head?.attributes.d).toBe(`M 100 40 L ${left.x} ${left.y} L ${right.x} ${right.y} Z`)
   })
 })

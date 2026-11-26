@@ -5,7 +5,7 @@ import type { Canvas, CanvasKit, Color, GrDirectContext, Surface } from '@dazbee
 import type { Point, Rect } from '@dazbee/schema'
 
 import { toScreen } from './camera.ts'
-import { arrowAngle, type ConnectorCurve } from './connectors.ts'
+import { arrowheadOf, type ConnectorCurve } from './connectors.ts'
 import type { FramePicture } from './frames.ts'
 import type { DrawnConnector, DrawnOutline } from './redraw.ts'
 import { OUTLINE_RADIUS } from './sections.ts'
@@ -80,9 +80,6 @@ const CONNECTOR_WIDTH = 1.5
 const PICKED_CONNECTOR_WIDTH = 2
 const START_DOT = 3.5
 const PICKED_DOT = 5
-/** The arrowhead's length along the curve and its half-width across it, in stage pixels. */
-const ARROW_LENGTH = 9
-const ARROW_HALF_WIDTH = 4.5
 /** The canvas's colour, which a connector's dots are filled with, as CSS names it, and the colour while CSS gives none. */
 const CANVAS = '--canvas'
 const CANVAS_FALLBACK = '#f1ece5'
@@ -118,6 +115,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   /** A connector's curve and the ring of its dots, and what is filled: its arrowhead and its dots. */
   const curveLine = new ck.Paint()
   curveLine.setStyle(ck.PaintStyle.Stroke)
+  curveLine.setStrokeCap(ck.StrokeCap.Round)
   curveLine.setAntiAlias(true)
   const filled = new ck.Paint()
   filled.setAntiAlias(true)
@@ -226,18 +224,13 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     if (curves.length === 0) return
     const [lines, heads, dots] = [new ck.PathBuilder(), new ck.PathBuilder(), new ck.PathBuilder()]
     for (const curve of curves) {
-      const { from, c1, c2, to } = curve
-      lines.moveTo(from.x, from.y).cubicTo(c1.x, c1.y, c2.x, c2.y, to.x, to.y)
+      // The line stops at its arrowhead's base, so it never shows through the head.
+      const { head, line } = arrowheadOf(curve)
+      lines.moveTo(line.from.x, line.from.y).cubicTo(line.c1.x, line.c1.y, line.c2.x, line.c2.y, line.to.x, line.to.y)
       // Each arrowhead is a contour of its own, which filling closes.
-      const angle = arrowAngle(curve)
-      const [ax, ay] = [Math.cos(angle), Math.sin(angle)]
-      const back = { x: to.x - ax * ARROW_LENGTH, y: to.y - ay * ARROW_LENGTH }
-      heads
-        .moveTo(to.x, to.y)
-        .lineTo(back.x - ay * ARROW_HALF_WIDTH, back.y + ax * ARROW_HALF_WIDTH)
-        .lineTo(back.x + ay * ARROW_HALF_WIDTH, back.y - ax * ARROW_HALF_WIDTH)
-      dots.addCircle(from.x, from.y, look.dot)
-      if (look.bothEnds) dots.addCircle(to.x, to.y, look.dot)
+      heads.moveTo(head.tip.x, head.tip.y).lineTo(head.left.x, head.left.y).lineTo(head.right.x, head.right.y)
+      dots.addCircle(curve.from.x, curve.from.y, look.dot)
+      if (look.bothEnds) dots.addCircle(curve.to.x, curve.to.y, look.dot)
     }
     const [linePath, headPath, dotPath] = [lines.detachAndDelete(), heads.detachAndDelete(), dots.detachAndDelete()]
     curveLine.setColor(look.colour)

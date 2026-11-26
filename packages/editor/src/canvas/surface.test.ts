@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CanvasKit, SkPicture } from '@dazbee/canvaskit'
 
+import { arrowheadOf } from './connectors.ts'
 import { editorSurface } from './surface.ts'
 import { design } from './test-design.ts'
 import { editorView } from './view.ts'
+
+/** The stroke caps the surface's paints were given. */
+const strokeCaps: string[] = []
 
 /** A CanvasKit that logs what the surface makes, draws and frees, with a canvas that logs its calls. */
 function fakeCanvasKit(log: string[]) {
@@ -64,6 +68,9 @@ function fakeCanvasKit(log: string[]) {
       }
       setAntiAlias() {}
       setStyle() {}
+      setStrokeCap(cap: string) {
+        strokeCaps.push(cap)
+      }
       setStrokeWidth(width: number) {
         this.width = width
       }
@@ -76,6 +83,7 @@ function fakeCanvasKit(log: string[]) {
     WHITE: 'white',
     TRANSPARENT: 'clear',
     PaintStyle: { Stroke: 'stroke' },
+    StrokeCap: { Round: 'round' },
     ClipOp: { Difference: 'out of' },
     ImageFilter: { MakeBlur: () => ({ delete: () => log.push('delete blur') }) },
     TileMode: { Decal: 'decal' },
@@ -279,20 +287,31 @@ describe('editorSurface', () => {
           },
         ],
       )
+      // Each line stops at its arrowhead's base.
+      const { line, head } = arrowheadOf(curve)
+      const { c1, c2, to } = line
       expect(log.slice(3, 12)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
         // The grey ones together: their curves, their arrowheads, and their start dots filled, then ringed.
-        'path M 10 50 C 60 50 60 90 110 90 in #574c61 1.5 wide',
-        'path M 110 90 L 101 95 L 101 86 in #574c61',
+        `path M 10 50 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y} in #574c61 1.5 wide`,
+        `path M 110 90 L ${Math.round(head.left.x)} ${Math.round(head.left.y)} L ${Math.round(head.right.x)} ${Math.round(head.right.y)} in #574c61`,
         'path O 10 50 3.5 in #100d14',
         'path O 10 50 3.5 in #574c61 1.5 wide',
         // Then the picked one, in the accent, with a dot at both ends.
-        'path M 10 150 C 60 50 60 90 110 150 in #2f5be0 2 wide',
+        expect.stringMatching(/^path M 10 150 C .* in #2f5be0 2 wide$/),
         expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
         'path O 10 150 5 O 110 150 5 in #100d14',
         'path O 10 150 5 O 110 150 5 in #2f5be0 2 wide',
       ])
       expect(log[12]).toBe('rect 0 1 540 540')
+    })
+  })
+
+  describe('the connectors’ line', () => {
+    it('has round ends', () => {
+      strokeCaps.length = 0
+      harness()
+      expect(strokeCaps).toEqual(['round'])
     })
   })
 

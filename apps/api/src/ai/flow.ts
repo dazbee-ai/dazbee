@@ -32,6 +32,7 @@ import {
   pointFrames,
   refuseTaken,
   saveFlow,
+  saveOnBrand,
   type Started,
   type Starter,
   StartRefused,
@@ -63,11 +64,15 @@ export async function startFlowJob(
   request: StartAiJob,
 ): Promise<Started> {
   const { workspace, brand } = starter
+  const deps = { db, boss, queue, starter }
+  if (request.kind === 'image') {
+    const input = { brandId: brand.id, words: request.words, ratio: request.ratio }
+    return saveOnBrand(deps, { kind: 'image', input })
+  }
   const design = request.designId
   if (!(await findDesign(db, workspace, brand.id, design))) throw new StartRefused('No such design', 404)
   const on = { brandId: brand.id, designId: design }
   const keys = (ids: string[]) => pictureKeys(db, workspace, brand.id, ids)
-  const deps = { db, boss, queue, starter }
   switch (request.kind) {
     case 'round':
     case 'more-like-this': {

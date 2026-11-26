@@ -685,6 +685,10 @@ One planning call and the four drafts it produced, placed as a section.
 A frame holding one AI-made picture. It stays with the team until it is starred.
 _Avoid_: Generation, option, candidate
 
+**AI image**:
+A picture made from a person's own words and one of three ratios (square, wide or tall) with Make an image, in Assets. It is an image of the brand's asset library, placed as a layer or a fill like any other; it is on no design and is no draft.
+_Avoid_: Generated image, AI asset, background (that is one use of it)
+
 **Layering**:
 The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
 _Avoid_: Decompose, editable-ize, convert
@@ -698,7 +702,7 @@ The shape of an AI call: text, picture (from 0 to 16 reference pictures) or laye
 _Avoid_: Block (that is the renderer's laid-out paragraph), type, modality
 
 **AI feature**:
-What a person asks the AI for in one go: a round, more like this, try again, a refine, other sizes or make editable. Each is a short list of AI functions run in stages, and an AI job is one run of one.
+What a person asks the AI for in one go: a round, more like this, try again, a refine, other sizes, make editable or Make an image. Each is a short list of AI functions run in stages, and an AI job is one run of one.
 _Avoid_: Job kind, action, feature alone (that is what a plan unlocks)
 
 **AI function**:

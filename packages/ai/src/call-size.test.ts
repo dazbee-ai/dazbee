@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { callSize, pictureLimits, shapeOf } from './call-size.ts'
+import { callSize, IMAGE_SIZES, pictureLimits, shapeOf } from './call-size.ts'
 
 describe('callSize', () => {
   it('makes a square frame a 1024 px square', () => {
@@ -60,5 +60,12 @@ describe('shapeOf', () => {
     expect(shapeOf({ width: 1920, height: 1080 })).toBe('landscape 16:9')
     expect(shapeOf({ width: 1200, height: 628 })).toBe('landscape 1.91:1')
     expect(shapeOf({ width: 628, height: 1200 })).toBe('portrait 1:1.91')
+  })
+})
+
+describe('IMAGE_SIZES', () => {
+  it('asks for a square at 1:1, a wide image at 3:2 and a tall one at 2:3', () => {
+    const ratio = ({ width, height }: { width: number; height: number }) => width / height
+    expect([IMAGE_SIZES.square, IMAGE_SIZES.wide, IMAGE_SIZES.tall].map(ratio)).toEqual([1, 3 / 2, 2 / 3])
   })
 })

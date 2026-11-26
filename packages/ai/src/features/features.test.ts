@@ -113,6 +113,9 @@ const SAMPLES: Record<AiFeature, (who: FlowWorkspace) => Promise<Sample>> = {
       },
     }
   },
+  image: async (who) => ({
+    flow: { kind: 'image', input: { brandId: who.brand, words: 'A soft sunrise sky over hills', ratio: 'wide' } },
+  }),
 }
 
 describe('FEATURES', () => {
@@ -170,6 +173,19 @@ describe('FEATURES', () => {
       expect((await estimateAction(db, who.workspace, query)).seconds).toBe(
         await featureSeconds(db, feature, shape, presets),
       )
+    })
+  }
+
+  for (const feature of AI_FEATURES) {
+    it(`ends ${feature} failed with nothing charged and its whole hold given back when every call fails`, async () => {
+      const who = await flowWorkspace()
+      const seller = await flowSeller(newSeller(`${feature}-fails`), () => 'fail')
+      const { flow, files } = await SAMPLES[feature](who)
+      const job = await saveFlow(who, flow)
+
+      expect((await runFlow(job, flowDeps(seller, files))).state).toBe('failed')
+      expect(await chargedCalls(job)).toEqual([])
+      expect((await ledgerOf(job)).reduce((sum, row) => sum + row.amount, 0n)).toBe(0n)
     })
   }
 

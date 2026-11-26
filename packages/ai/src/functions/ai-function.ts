@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { AI_FUNCTIONS, type AiFunction } from '@dazbee/schema'
 
 import { draft } from './draft.ts'
+import { image } from './image.ts'
 import { layerPlan } from './layer-plan.ts'
 import { layerSplit } from './layer-split.ts'
 import { reading } from './reading.ts'
@@ -25,6 +26,7 @@ export const AI_FUNCTION_DEFS: Record<string, AiFunctionDef> = {
   'layer-plan': layerPlan,
   'layer-split': layerSplit,
   reading,
+  image,
 } satisfies Record<AiFunction, AiFunctionDef>
 
 /** Whether `name` is one of the AI functions, not a test's own. */

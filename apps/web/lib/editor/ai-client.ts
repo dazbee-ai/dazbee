@@ -1,28 +1,60 @@
-// The AI flow's routes as the editor calls them from the browser: the design's AI frames, starting a job, and
-// marking a call written into the design. A job the API refuses comes back as its answer, never thrown.
+// The AI flow's routes as the editor calls them from the browser: the design's AI frames, starting a job, marking
+// a call written into the design, the estimate an AI action shows on hover, and the person's own jobs on the brand.
+// A job the API refuses comes back as its answer, never thrown.
 import type { AiStart, EditorAi } from '@dazbee/editor'
-import { type AiFrameWritten, AiJobRefused, AiJobStarted, DesignAi, type StartAiJob } from '@dazbee/schema'
+import {
+  AiEstimate,
+  type AiEstimateQuery,
+  type AiFrameWritten,
+  AiJobRefused,
+  AiJobStarted,
+  DesignAi,
+  MyAiJob,
+  type StartAiJob,
+} from '@dazbee/schema'
 
 import { brandPath, readJson } from '@/lib/brand-routes.ts'
 
 /** The editor's AI flow on design `designId` of a brand, through the app's routes. */
 export function editorAi(workspaceId: string, brandId: string, designId: string): EditorAi {
   const design = brandPath(workspaceId, brandId, 'designs', designId, 'ai')
-  const post = (body: unknown): RequestInit => ({
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
   return {
     read: async () => DesignAi.parse(await readJson(await fetch(design, { cache: 'no-store' }))),
-    start: async (job: StartAiJob) => {
-      const response = await fetch(brandPath(workspaceId, brandId, 'ai', 'jobs'), post(job))
-      return startAnswer(response.status, await response.json().catch(() => null))
-    },
+    start: (job: StartAiJob) => startAiJob(workspaceId, brandId, job),
     written: async (frameId: string, written: AiFrameWritten) => {
       await readJson(await fetch(`${design}/frames/${encodeURIComponent(frameId)}/written`, post(written)))
     },
   }
+}
+
+/** Starts `job` on the brand; how it came out, a refusal as the answer. */
+export async function startAiJob(workspaceId: string, brandId: string, job: StartAiJob): Promise<AiStart> {
+  const response = await fetch(brandPath(workspaceId, brandId, 'ai', 'jobs'), post(job))
+  return startAnswer(response.status, await response.json().catch(() => null))
+}
+
+/** How much of the workspace's AI the action `query` names takes, and about how long. */
+export async function aiEstimate(
+  workspaceId: string,
+  brandId: string,
+  query: Pick<AiEstimateQuery, 'action'> & Partial<Pick<AiEstimateQuery, 'mode' | 'reference'>>,
+): Promise<AiEstimate> {
+  const asked = new URLSearchParams(Object.entries(query).map(([name, value]) => [name, String(value)]))
+  const response = await fetch(`${brandPath(workspaceId, brandId, 'ai', 'estimate')}?${asked.toString()}`, {
+    cache: 'no-store',
+  })
+  return AiEstimate.parse(await readJson(response))
+}
+
+/** The person's own AI jobs on the brand, running or just ended, newest first. */
+export async function myAiJobs(workspaceId: string, brandId: string): Promise<MyAiJob[]> {
+  const response = await fetch(brandPath(workspaceId, brandId, 'ai', 'my-jobs'), { cache: 'no-store' })
+  return MyAiJob.array().parse(await readJson(response))
+}
+
+/** A POST of `body` as JSON. */
+function post(body: unknown): RequestInit {
+  return { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
 }
 
 /**

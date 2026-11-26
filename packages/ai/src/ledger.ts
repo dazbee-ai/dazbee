@@ -4,7 +4,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
 import { aiGrants, aiLedger, type Db, newId, type Tx } from '@dazbee/db'
-import type { GrantSource } from '@dazbee/schema'
+import type { GrantSource, LayerSplitSize } from '@dazbee/schema'
 
 import { aiSettingsOf } from './settings.ts'
 
@@ -16,6 +16,8 @@ export interface NewGrant {
   source?: GrantSource
   givenBy?: string | null
   note?: string
+  /** The size a layering job splits at when its hold draws from this grant first; 512 px unless given. */
+  layerSize?: LayerSplitSize
 }
 
 /** A grant with what is left on it. */
@@ -26,6 +28,7 @@ export interface GrantLeft {
   expiresAt: Date
   live: boolean
   left: bigint
+  layerSize: number
 }
 
 /** A rate of 1, as usage rates are kept (millionths). */
@@ -44,6 +47,7 @@ export async function giveGrant(db: Db | Tx, grant: NewGrant): Promise<string> {
     expiresAt: grant.expiresAt,
     givenBy: grant.givenBy ?? null,
     note: grant.note ?? '',
+    layerSize: grant.layerSize ?? 512,
   })
   return id
 }
@@ -157,6 +161,15 @@ export async function left(db: Db | Tx, workspace: string): Promise<bigint> {
   return total > 0n ? total : 0n
 }
 
+/**
+ * The size a layering job of the workspace splits at: the layer size of the first live grant with allowance left,
+ * the one its hold draws from first, or 512 px with none.
+ */
+export async function layerSize(db: Db | Tx, workspace: string): Promise<LayerSplitSize> {
+  const first = (await grantsOf(db, workspace)).find((g) => g.live && g.left > 0n)
+  return first?.layerSize === 1024 ? 1024 : 512
+}
+
 /** The share of the live grants' allowance used, from 0 to 1, for the usage bar; 1 with no live grant. */
 export async function usageShare(db: Db | Tx, workspace: string): Promise<number> {
   const live = (await grantsOf(db, workspace)).filter((g) => g.live)
@@ -184,6 +197,7 @@ async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promis
       amount: aiGrants.amount,
       usageRate: aiGrants.usageRate,
       expiresAt: aiGrants.expiresAt,
+      layerSize: aiGrants.layerSize,
       live: sql<boolean>`${aiGrants.expiresAt} > now()`,
     })
     .from(aiGrants)

@@ -107,6 +107,37 @@ export const STEPS: Record<string, StepDef> = {
   },
 } satisfies Record<AiStep, StepDef>
 
+/**
+ * About how long one call of each AI step takes, in seconds: the slowest time measured for the model it runs, so
+ * the wait shown is seldom passed. Pictures from `docs/research/ai-flow-image-models.md`; the round plans from the
+ * paid run of the flow's job scripts (#326). The steps not measured yet take their expected output at the speed
+ * measured for their model there: gpt-6-luna wrote 9,810 tokens in 69.1 s (142 a second), gpt-6.2-sol 2,402 in
+ * 48.8 s (49 a second).
+ */
+export const STEP_SECONDS = {
+  // gpt-6-luna: 46–69 s.
+  'flow.round-plan': 69,
+  // gpt-6.2-sol: 48.8 s.
+  'flow.round-plan-full': 49,
+  // gpt-6-luna, 500 tokens out.
+  'flow.reference-read': 4,
+  // gpt-6-luna, 1,000 tokens out.
+  'flow.refine-plan': 7,
+  // gpt-6-luna, 2,000 tokens out.
+  'flow.read': 14,
+  // gpt-6.2-sol, 4,000 tokens out.
+  'flow.layer-plan': 82,
+  // Muse Image: 17–26 s.
+  'flow.draft-fast': 26,
+  // GPT Image 2.5 Sunburst: 18–45 s.
+  'flow.draft-precise': 45,
+  // Seedream 5.5 edits: 22–117 s.
+  'flow.refine': 117,
+  'flow.resize': 117,
+  // Ming on a warm Modal H100: 17.5 s; a cold start takes 50–55 s.
+  'flow.layer-split': 18,
+} satisfies Record<AiStep, number>
+
 /** The step's entry in the step list; fails for a step not in it. */
 export function stepDef(step: string): StepDef {
   const def = STEPS[step]

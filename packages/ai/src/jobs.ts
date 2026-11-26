@@ -237,28 +237,42 @@ export async function endJob(db: Db, job: string, attempt: number, end: JobEnd):
 
 /** The job's state as its workspace reads it, or null when the workspace has no such job. */
 export async function readJob(db: Db | Tx, workspace: string, job: string): Promise<AiJobView | null> {
-  // The call log before the job: a try read as done had its output kept in the same transaction, so the job
+  return (await readJobs(db, workspace, [job]))[0] ?? null
+}
+
+/** The workspace's jobs among `jobs` as it reads them, in no set order; a job of another workspace is left out. */
+export async function readJobs(db: Db | Tx, workspace: string, jobs: string[]): Promise<AiJobView[]> {
+  if (jobs.length === 0) return []
+  // The call log before the jobs: a try read as done had its output kept in the same transaction, so the job
   // read after it holds that output.
   const tries = await db
-    .select({ callIndex: aiCalls.callIndex, step: aiCalls.step, state: aiCalls.state, error: aiCalls.error })
+    .select({
+      jobId: aiCalls.jobId,
+      callIndex: aiCalls.callIndex,
+      step: aiCalls.step,
+      state: aiCalls.state,
+      error: aiCalls.error,
+    })
     .from(aiCalls)
-    .where(and(eq(aiCalls.jobId, job), eq(aiCalls.workspaceId, workspace)))
+    .where(and(inArray(aiCalls.jobId, jobs), eq(aiCalls.workspaceId, workspace)))
     .orderBy(asc(aiCalls.callIndex), asc(aiCalls.try))
-  const [row] = await db
+  const rows = await db
     .select()
     .from(aiJobs)
-    .where(and(eq(aiJobs.id, job), eq(aiJobs.workspaceId, workspace)))
-  if (!row) return null
-  return {
+    .where(and(inArray(aiJobs.id, jobs), eq(aiJobs.workspaceId, workspace)))
+  return rows.map((row) => ({
     id: row.id,
     kind: row.kind,
     state: row.state,
     output: row.kind === 'ai-steps' && row.output ? AiStepsOutput.parse(row.output) : null,
-    calls: callViews(tries, row.callOutputs),
+    calls: callViews(
+      tries.filter((t) => t.jobId === row.id),
+      row.callOutputs,
+    ),
     error: row.error,
     createdAt: row.createdAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
-  }
+  }))
 }
 
 /**

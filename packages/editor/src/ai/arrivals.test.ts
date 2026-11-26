@@ -118,7 +118,6 @@ async function pollAll(...tabs: Tab[]) {
 const fillsOf = (design: Design, frameId: string) =>
   (design.nodes[pictureLayerOf(frameId)]?.props as { fills?: unknown[] } | undefined)?.fills
 
-
 const pictureOf = (assetId: string) => [{ type: 'image', assetId, fit: 'fill', opacity: 1 }]
 
 describe('editorArrivals', () => {

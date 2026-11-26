@@ -222,7 +222,8 @@ export function editorArrivals({ session, ai, designId, newId, after, shown, sig
           )
     const done = arrived
       .then(async (outcome) => {
-        if (outcome === 'saved' && !signal.aborted) await ai.written(frame.frameId, written)
+        if (outcome !== 'saved' || signal.aborted) return
+        await ai.written(frame.frameId, written)
         if (read) read = { ...read, frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived' } : f)) }
         // With no frame left waiting, the next read waits the longer time.
         if (next && waiting().length === 0) {

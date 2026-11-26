@@ -7,7 +7,7 @@ import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
-import { type EditorArrivals,editorArrivals } from './ai/arrivals.ts'
+import { type EditorArrivals, editorArrivals } from './ai/arrivals.ts'
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
 import type { Motion, Spot } from './canvas/view.ts'

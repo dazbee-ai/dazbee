@@ -7,7 +7,9 @@ JavaScript SDK and asks for its result by the call's id (packages/ai/src/sellers
 
 ComfyUI runs as a server inside the container, and a GPU memory snapshot holds it with the model loaded, so
 a cold container starts from the snapshot instead of loading the weights. At most 2 containers run, each
-stops after 60 s with no call, and none is kept warm.
+stops after 5 s with no call, and none is kept warm. A container is billed from its start to its stop, so
+each call says what of that falls to it: the first call a container serves, how long the start took since
+it was asked for and the wait before the stop; each later call, how long the container waited for it.
 
     modal deploy app.py                 (from python/layering; development, the default environment)
     modal deploy --env prod app.py      (production, which the worker's MODAL_ENVIRONMENT names; the
@@ -39,6 +41,10 @@ COMFYUI_URL = "http://127.0.0.1:8188"
 CPU_CORES = 4.0
 MEMORY_MIB = 32 * 1024
 
+# How long a container waits for another call before it stops, in seconds: billed, so kept short. The
+# splits of one job are asked for together and find the container still working.
+WAIT_S = 5
+
 # How long ComfyUI may take to start, and to load the model and split once, before the snapshot.
 START_TIMEOUT_S = 15 * 60
 # How long one split may run; the worker stops waiting at 10 minutes.
@@ -67,7 +73,7 @@ app = modal.App(APP_NAME)
     experimental_options={"enable_gpu_snapshot": True},
     max_containers=2,
     min_containers=0,
-    scaledown_window=60,
+    scaledown_window=WAIT_S,
     timeout=SPLIT_TIMEOUT_S,
     startup_timeout=START_TIMEOUT_S,
 )
@@ -95,12 +101,17 @@ class Layering:
         wait_until_up(self.server)
         warm = save_input(test_picture(), "warm-up")
         run_graph(layer_split_graph(warm, 512, 512, "Decompose this image into 1 layers.", None, steps=1))
+        # When the container's last call ended, on its own clock; none until it has served one.
+        self.last_done: float | None = None
 
     @modal.method()
     def split(self, request: dict) -> dict:
         """Splits the request's picture into layers; see the module's docstring."""
         started = time.monotonic()
         call = LayerSplitRequest.model_validate(request)
+        first = self.last_done is None
+        idle = None if self.last_done is None else round(started - self.last_done, 3)
+        waited = None if call.askedAt is None else round(max(0.0, time.time() - call.askedAt / 1000), 3)
         from PIL import Image
 
         picture = Image.open(io.BytesIO(base64.b64decode(call.picture))).convert("RGB")
@@ -111,11 +122,15 @@ class Layering:
             layers = [read_layer(file) for file in files]
         finally:
             (COMFYUI / "input" / name).unlink(missing_ok=True)
+            self.last_done = time.monotonic()
         return LayerSplitResult(
             layers=layers,
-            seconds=round(time.monotonic() - started, 3),
+            seconds=round(self.last_done - started, 3),
             cpuCores=CPU_CORES,
             memoryGib=MEMORY_MIB / 1024,
+            startSeconds=waited if first else None,
+            idleSeconds=idle,
+            waitSeconds=WAIT_S,
         ).model_dump(mode="json")
 
     @modal.exit()

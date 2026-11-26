@@ -1,8 +1,9 @@
 // Modal's adapter for the layer split: spawns the deployed layer split app's function (python/layering) through
 // Modal's JavaScript SDK, keeps the call's id on the call-log row, and asks for its result 20 s at a time, so
 // a worker that restarts picks the same call up again by its id. pg-boss's worker keeps the job's heartbeat
-// while it waits. The usage is the seconds the function timed itself, as GPU seconds, with the CPU cores and
-// memory it declares for the same seconds. Written from Modal's docs (deployed apps, GPU memory snapshots,
+// while it waits. The usage is every second the container is billed for the call, as GPU seconds, with the CPU
+// cores and memory it declares for the same seconds: the seconds the function timed itself, and with them the
+// container's start and its wait before it stops, for the first call it serves, or the wait since its last call. Written from Modal's docs (deployed apps, GPU memory snapshots,
 // autoscaling, the JavaScript SDK) and the `modal` package's types as read on 25 Nov 2026.
 import { FunctionTimeoutError, InternalFailure, ModalClient, NotFoundError, RemoteError, TimeoutError } from 'modal'
 
@@ -80,6 +81,7 @@ async function split(sdk: ModalSdk, request: SellerRequest, pollMs: number): Pro
       size: input.size,
       ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
       ...(input.plan === undefined ? {} : { plan: input.plan }),
+      askedAt: Date.now(),
     }
     const layering = await (await sdk.cls.fromName(LAYERING.app, LAYERING.cls)).instance()
     call = await layering.method(LAYERING.method).spawn([body])
@@ -131,14 +133,26 @@ function isTimeout(reason: unknown): boolean {
   return reason instanceof DOMException && reason.name === 'TimeoutError'
 }
 
-/** The GPU seconds the function timed, and its declared CPU cores and memory for as long. */
+/** The GPU seconds the container is billed for the call, and its declared CPU cores and memory for as long. */
 function usageOf(result: LayerSplitResult): Usage {
   const exact = (value: number) => Math.round(value * 1e6) / 1e6
+  const seconds = billedSeconds(result)
   return {
-    'gpu-second': exact(result.seconds),
-    'cpu-core-second': exact(result.seconds * result.cpuCores),
-    'memory-gib-second': exact(result.seconds * result.memoryGib),
+    'gpu-second': exact(seconds),
+    'cpu-core-second': exact(seconds * result.cpuCores),
+    'memory-gib-second': exact(seconds * result.memoryGib),
   }
+}
+
+/**
+ * The seconds of its container a call is billed for, so a container's calls add up to the time it ran: the seconds
+ * the function worked, with the wait since the container's last call, or, for the first call it serves, its start
+ * and the wait before it stops. An app that reports neither is counted for the seconds it worked.
+ */
+export function billedSeconds(result: LayerSplitResult): number {
+  const { seconds, startSeconds, idleSeconds, waitSeconds } = result
+  if (idleSeconds !== null && idleSeconds !== undefined) return seconds + idleSeconds
+  return seconds + (startSeconds ?? 0) + (waitSeconds ?? 0)
 }
 
 /**

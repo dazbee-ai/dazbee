@@ -164,13 +164,15 @@ export type LayerSplitCall = z.infer<typeof LayerSplitCall>
 
 /**
  * What the layer split app (python/layering) is sent, the job contract its Python model is generated from
- * (ADR-0002): the picture's bytes, base64, and the call's size, guidance and plan.
+ * (ADR-0002): the picture's bytes, base64, the call's size, guidance and plan, and when it was asked for, in
+ * milliseconds since 1970, from which a container that starts for the call tells how long its start took.
  */
 export const LayerSplitRequest = z.object({
   picture: z.base64().max(40_000_000),
   size: LayerSplitSize,
   guidance: LayerSplitGuidance.optional(),
   plan: LayerPlan.optional(),
+  askedAt: z.number().int().positive().optional(),
 })
 export type LayerSplitRequest = z.infer<typeof LayerSplitRequest>
 
@@ -183,13 +185,19 @@ const SplitLayer = z.object({
 
 /**
  * What the layer split app gives back: the layers, top first, and the seconds its container worked on the
- * call, timed inside the function, with the CPU cores and memory the function declares for those seconds.
+ * call, timed inside the function, with the CPU cores and memory the function declares. The rest of the time the
+ * container is billed for falls to its calls: the first call a container serves carries `startSeconds`, from when
+ * it was asked for to when the container began it, and `waitSeconds`, how long a container waits for another call
+ * before it stops; each later call carries `idleSeconds`, how long the container had waited for it.
  */
 export const LayerSplitResult = z.object({
   layers: z.array(SplitLayer).min(1).max(20),
   seconds: z.number().nonnegative(),
   cpuCores: z.number().positive(),
   memoryGib: z.number().positive(),
+  startSeconds: z.number().nonnegative().nullable().optional(),
+  idleSeconds: z.number().nonnegative().nullable().optional(),
+  waitSeconds: z.number().nonnegative().optional(),
 })
 export type LayerSplitResult = z.infer<typeof LayerSplitResult>
 

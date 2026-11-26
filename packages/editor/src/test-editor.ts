@@ -145,7 +145,7 @@ export async function testEditor(
   const ending = new AbortController()
   /** What the editor keeps on the device, by key. */
   const remembered = new Map<string, string>()
-  const { core, modules, sync } = buildCore({
+  const { core, modules, sync, session } = buildCore({
     ck,
     cache,
     first: {
@@ -410,6 +410,8 @@ export async function testEditor(
   return {
     core,
     modules,
+    /** The session itself, as the shell's modules take it. */
+    session,
     told,
     remembered,
     mouse,

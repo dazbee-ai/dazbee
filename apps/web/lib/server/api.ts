@@ -484,7 +484,7 @@ async function signInAgain(response: Response): Promise<string> {
 }
 
 /** The API's path of a brand of a workspace. */
-function brandRoot(workspaceId: string, brandId: string) {
+export function brandRoot(workspaceId: string, brandId: string) {
   return `${workspaceRoot(workspaceId)}/brands/${encodeURIComponent(brandId)}`
 }
 

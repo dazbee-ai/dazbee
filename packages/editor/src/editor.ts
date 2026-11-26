@@ -7,6 +7,8 @@ import { FALLBACK_FAMILIES } from '@dazbee/fonts'
 import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/renderer'
 import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
+import { type EditorArrivals, editorArrivals } from './ai/arrivals.ts'
+import { fit } from './canvas/camera.ts'
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
 import type { Motion, Spot } from './canvas/view.ts'
@@ -132,7 +134,11 @@ function live(
   signal.addEventListener('abort', () => copying.destroy())
   // The export worker draws the exports, and the frames picking a colour reads.
   const exporter = exportClient()
-  const { core, shared, nextDraw, notify, modules, sync } = buildCore({
+  const after = (ms: number, run: () => void) => {
+    const timer = setTimeout(run, ms)
+    return () => clearTimeout(timer)
+  }
+  const { core, shared, nextDraw, notify, modules, sync, session } = buildCore({
     ck,
     cache,
     first: firstBytes,
@@ -147,10 +153,7 @@ function live(
     onMac,
     signal,
     options,
-    after: (ms, run) => {
-      const timer = setTimeout(run, ms)
-      return () => clearTimeout(timer)
-    },
+    after,
     motion: SCREEN_MOTION,
     copyMaker: copying.make,
     sampler: { sample: exporter.sample, cancel: exporter.cancelSample },
@@ -224,6 +227,21 @@ function live(
     paused: () => pauses > 0,
     signal,
   })
+  const arrivals: EditorArrivals | null = options.ai
+    ? editorArrivals({
+        session,
+        ai: options.ai,
+        designId: options.designId,
+        newId: () => crypto.randomUUID(),
+        after,
+        shown: pageShown(signal),
+        connected: () => tab.link.status() === 'connected',
+        synced: tab.synced,
+        zoomFor: (area) => Math.min(view.camera().zoom, fit(area, view.viewport(), undefined, view.insets()).zoom),
+        readyPictures: resources.prepareImages,
+        signal,
+      })
+    : null
   const clipboardEvents = editorClipboardEvents({
     clipboard: core.clipboard,
     canCopyPng: () => core.actionReady('copyPng'),
@@ -311,6 +329,10 @@ function live(
     keptOnDevice: tab.flushed,
     fetchVersion: tab.fetchVersion,
     pauseInput,
+    startBrief: (request) =>
+      arrivals
+        ? arrivals.startBrief(request)
+        : Promise.resolve({ ok: false, refusal: null, message: 'AI isn’t set up for this editor' }),
     destroy() {
       listening.abort()
       exporter.destroy()
@@ -318,6 +340,17 @@ function live(
       void tab.close()
       cache.delete()
       surface.destroy()
+    },
+  }
+}
+
+/** Whether the page is shown, and when that changes, until `signal` aborts: a hidden tab reads no AI results. */
+function pageShown(signal: AbortSignal) {
+  return {
+    now: () => document.visibilityState === 'visible',
+    onChange: (listener: () => void) => {
+      document.addEventListener('visibilitychange', listener, { signal })
+      return () => document.removeEventListener('visibilitychange', listener)
     },
   }
 }

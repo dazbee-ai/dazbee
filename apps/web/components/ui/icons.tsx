@@ -60,6 +60,7 @@ import {
   EyeSolid,
   FillColor,
   FillColorSolid,
+  Flash,
   Flip,
   FlipReverse,
   Frame,
@@ -106,6 +107,7 @@ import {
   Settings,
   ShareIos,
   Shuffle,
+  Spark,
   Sparks,
   SparksSolid,
   Square,
@@ -212,6 +214,7 @@ export const EyeIcon = make(Eye, EyeSolid)
 export const EyeSlashIcon = make(EyeClosed)
 export const EyedropperIcon = make(ColorPicker)
 export const FilesIcon = make(MultiplePages)
+export const FlashIcon = make(Flash)
 export const FlipHorizontalIcon = make(FlipReverse)
 export const FlipVerticalIcon = make(Flip)
 export const FrameCornersIcon = make(FrameTool, FrameToolSolid)
@@ -247,6 +250,7 @@ export const ShapesIcon = make(Square)
 export const ShareFatIcon = make(ShareIos)
 export const ShuffleIcon = make(Shuffle)
 export const SignOutIcon = make(LogOut)
+export const SparkIcon = make(Spark)
 export const SparkleIcon = make(Sparks, SparksSolid)
 export const SquareIcon = make(Square)
 export const SquaresFourIcon = make(ViewGrid)

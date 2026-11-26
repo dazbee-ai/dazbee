@@ -8,18 +8,28 @@ import { emojiTestFont, TEST_EMOJI } from '@dazbee/fonts/test-fonts'
 import type { Design, Layer, TextProps } from '@dazbee/schema'
 
 import type { ListedFace } from '../font-loads.ts'
+import { openTab } from '../open-tab.ts'
 import { WORDS } from '../test-actions.ts'
 import { shippedOnly } from '../test-catalog.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
+import { memorySync } from '../test-link.ts'
 import { owedFits } from './owed-fits.ts'
 
 let editor: TestEditor | undefined
-afterEach(() => editor?.end())
+let closing: (() => Promise<void>) | undefined
+afterEach(async () => {
+  editor?.end()
+  await closing?.()
+  closing = undefined
+})
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-/** An editor over the words design, its words growing with them, whose font loads a test lets through, but the shipped fonts'. */
-async function slowEmoji() {
+/**
+ * An editor over the words design, its words growing with them, whose font loads a test lets through, but the
+ * shipped fonts'; on a tab of a server in memory, with the core's recompute bound to it, when `onTab`.
+ */
+async function slowEmoji(onTab = false) {
   const asked: string[][] = []
   const waiting: (() => void)[] = []
   const fontFaces = (families: string[]) => {
@@ -32,7 +42,17 @@ async function slowEmoji() {
     })
   }
   const fontFile = () => Promise.resolve(emojiTestFont())
-  editor = await testEditor(WORDS, { sources: { fontFaces, fontFile } })
+  const tab = onTab
+    ? await openTab({
+        designId: 'd',
+        member: { userId: 'ann', workspaceId: 'w1' },
+        url: 'ws://s',
+        token: () => Promise.resolve('ann'),
+        socket: memorySync(WORDS).socket,
+      })
+    : undefined
+  closing = tab && (() => tab.close())
+  editor = await testEditor(WORDS, { sources: { fontFaces, fontFile }, ...(tab ? { tab } : {}) })
   const { core, modules } = editor
   core.session.run('node.update', { ids: ['words'], patch: { boxMode: 'autoWidth' } })
   const words = () => core.design().nodes.words as Layer & { props: TextProps }
@@ -48,9 +68,8 @@ async function slowEmoji() {
 
 describe('owed fits', () => {
   it('fits a text typed with an emoji again, untracked, once the emoji font comes', async () => {
-    const { core, modules, words, fitted, bring, asked } = await slowEmoji()
+    const { core, modules, words, fitted, bring, asked } = await slowEmoji(true)
     const { typing } = modules
-    const before = words().props.width
     typing.start('words', 'sq', 11)
     typing.paste({ text: ` ${TEST_EMOJI}` })
     typing.stop()
@@ -60,12 +79,12 @@ describe('owed fits', () => {
     await bring()
     expect(words().props.width).not.toBe(inFallback)
     expect(words().props.width).toBe(fitted()?.width)
-    // Untracked: one undo takes the paste back whole, the width before it with it; redo the fitted width.
-    const refitted = words().props.width
+    // Untracked: one undo takes the paste back whole and leaves the refit, as another tab's write, and the tab's
+    // follow-up fits the words again; so does redo's.
     core.session.undo()
-    expect(words().props).toMatchObject({ text: 'Hello there', width: before })
+    expect(words().props).toMatchObject({ text: 'Hello there', width: fitted()?.width })
     core.session.redo()
-    expect(words().props).toMatchObject({ text: `Hello there ${TEST_EMOJI}`, width: refitted })
+    expect(words().props).toMatchObject({ text: `Hello there ${TEST_EMOJI}`, width: fitted()?.width })
   })
 
   it('fits a Chinese text a font was picked for again once the Chinese font comes', async () => {

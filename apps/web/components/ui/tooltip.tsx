@@ -25,6 +25,23 @@ export const TooltipProvider = ({ children }: { children: ReactNode }) => (
 )
 
 /**
+ * How long after a tooltip of a row closes the next one still opens at once: long enough for the pointer to cross a
+ * neighbouring button, either way.
+ */
+export const ROW_SKIP_MS = 700
+
+/**
+ * A row of neighbouring icon buttons whose tooltips switch at once as the pointer moves along it, either way: its
+ * tooltips hold only words, so none stays open for a pointer heading towards it, and a tooltip elsewhere on the page
+ * that does can't hold them back, as they keep their own provider.
+ */
+export const TooltipRow = ({ children }: { children: ReactNode }) => (
+  <RadixTooltip.Provider delayDuration={350} skipDelayDuration={ROW_SKIP_MS} disableHoverableContent>
+    {children}
+  </RadixTooltip.Provider>
+)
+
+/**
  * A short label beside a control; the control must carry its own accessible name too. It shows on
  * hover and on keyboard focus, not when a menu closed by the pointer hands focus back to the control.
  */
@@ -70,7 +87,8 @@ export function Tooltip({
           sideOffset={sideOffset}
           // Off the window's edges by as much as it keeps from its control.
           collisionPadding={8}
-          className={TOOLTIP}
+          // Words only: the pointer passes through it to the control under it.
+          className={plain ? `${TOOLTIP} pointer-events-none` : TOOLTIP}
         >
           {label}
         </RadixTooltip.Content>

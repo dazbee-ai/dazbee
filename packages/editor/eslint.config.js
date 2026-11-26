@@ -5,6 +5,7 @@ import preset from '@dazbee/config/eslint'
  * core's, which `tsconfig.core.json` compiles with no browser's types, or a test's.
  */
 const SHELL_FILES = [
+  'src/ai/arrivals.ts',
   'src/canvas/overlay.ts',
   'src/canvas/rulers.ts',
   'src/canvas/surface.ts',

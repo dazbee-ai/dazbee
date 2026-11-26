@@ -8,7 +8,7 @@ type CoreOwn = Exclude<keyof EditorCore, keyof EditorBase>
 type EditorOwn = Exclude<keyof Editor, keyof EditorBase>
 
 describe('Editor', () => {
-  it('declares beside the base its thirteen of the page and the eight members that take or give a client point, the only ones the core declares too, beside its own five', () => {
+  it('declares beside the base its fourteen of the page and the eight members that take or give a client point, the only ones the core declares too, beside its own five', () => {
     expectTypeOf<Extract<EditorOwn, CoreOwn>>().toEqualTypeOf<
       'selectAt' | 'layersAt' | 'sectionAt' | 'connectorAt' | 'placeImage' | 'readSvg' | 'spotAt' | 'imageTarget'
     >()
@@ -25,6 +25,7 @@ describe('Editor', () => {
       | 'keptOnDevice'
       | 'fetchVersion'
       | 'pauseInput'
+      | 'startBrief'
       | 'destroy'
     >()
     expectTypeOf<Exclude<CoreOwn, EditorOwn>>().toEqualTypeOf<
@@ -183,6 +184,7 @@ describe('Editor', () => {
       | 'keptOnDevice'
       | 'fetchVersion'
       | 'pauseInput'
+      | 'startBrief'
       | 'destroy'
     >()
   })

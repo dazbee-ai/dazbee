@@ -10,6 +10,8 @@ export {
   type ViewerOptions,
 } from './editor-interface.ts'
 export { startEditor } from './editor.ts'
+export { type AiStart, type BriefRequest, type BriefStarted, type EditorAi } from './ai/arrivals.ts'
+export { briefPassesWarning, DRAFTS } from './ai/place-brief.ts'
 export { type FontSources } from './font-loads.ts'
 export { startViewer } from './viewer.ts'
 export { VersionUnanswered } from './sync-link.ts'

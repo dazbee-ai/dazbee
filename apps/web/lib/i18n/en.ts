@@ -339,6 +339,33 @@ export const en = {
     layersEmpty: 'Layers of this page will show here.',
     assetsEmpty: 'Uploaded images will show here.',
     aiEmpty: { title: 'Still building this', line: 'Drafts, rewrites and new sizes are on the way.' },
+    /** The brief box above the dock: a few words, pictures, one size and a mode become four drafts on the page. */
+    brief: {
+      label: 'Brief',
+      placeholder: 'What’s the ad for? Who should it speak to?',
+      addPictures: 'Add pictures',
+      removePicture: 'Remove {name}',
+      uploading: 'Uploading {name}',
+      notUploaded: '{name} didn’t upload',
+      sizes: 'Sizes',
+      /** The size button's tooltip: the size picked, its name and pixels. */
+      size: 'Size: {name}, {size}',
+      /** The speed toggle's tooltip, naming the speed it is on and what the drafts are then. */
+      fast: 'Fast: quicker drafts',
+      precise: 'Precise: slower drafts, each planned with more care',
+      make: 'Make drafts',
+      making: 'Starting…',
+      /** The name of each draft's frame, by its place: 1 to 4. */
+      draftName: 'Draft {n}',
+      usedUp: 'This month’s AI is used up.',
+      paused: 'AI is paused for today. Try again tomorrow.',
+      notAllowed: 'Only an Owner, Admin or Editor can use AI.',
+      notStarted: 'This brief didn’t start. Try again.',
+      unknown: 'We couldn’t tell whether this brief started. Look for its drafts in a minute before trying again.',
+      notPlaced: 'The drafts are being made, but this design couldn’t take them. They’ll be in the brand’s images.',
+      nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',
+      close: 'Close brief',
+    },
     /** A search that finds nothing: images, fonts, actions, or text on the page. */
     noMatch: { title: 'Nothing matches “{query}”', line: 'Try a shorter word.' },
     brandEmpty: 'This brand’s colours, fonts and logos will show here.',

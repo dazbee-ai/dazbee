@@ -179,6 +179,37 @@ describe('editorResources', () => {
     done.abort()
   })
 
+  it('gets an image ready to draw only once the image worker has made its copy, so nothing draws it clear', async () => {
+    const jobs: (() => void)[] = []
+    const maker: CopyMaker = (bytes, side) =>
+      new Promise((resolve) => jobs.push(() => resolve(madeCopy(ck, bytes, side))))
+    const { resources, done } = opened({}, maker, { photo: halfPng(2400, 1600) })
+    let ready = false
+    const preparing = resources.prepareImages(['photo']).then(() => {
+      ready = true
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect([ready, jobs.length]).toEqual([false, 1])
+    jobs[0]?.()
+    await preparing
+    expect(
+      resources
+        .screen(designOf(['photo']))
+        .images.get('photo')
+        ?.width(),
+    ).toBe(1024)
+    resources.destroy()
+    done.abort()
+  })
+
+  it('settles getting an image ready once the editor ends, whatever became of its bytes', async () => {
+    const { resources, done } = opened({}, undefined, {})
+    const preparing = resources.prepareImages(['gone'])
+    done.abort()
+    await expect(preparing).resolves.toBeUndefined()
+    resources.destroy()
+  })
+
   it('draws an image clear while the image worker copies it, without fetching it again, and tells when it comes', async () => {
     const jobs: (() => void)[] = []
     const maker: CopyMaker = (bytes, side) =>

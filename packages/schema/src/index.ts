@@ -35,6 +35,7 @@ export {
   type StructureLookup,
 } from './design.ts'
 export {
+  belowAll,
   blankDesign,
   coverFrame,
   FRAME_GAP,

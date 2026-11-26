@@ -211,8 +211,8 @@ export function useVersionViewer(
 
 /**
  * The viewer as the page's canvas-facing parts take an editor: its own members, and none of what
- * places, uploads or exports, which a viewed version never does; the tab's save state and connection
- * stay the live editor's.
+ * places, uploads, exports or starts a brief, which a viewed version never does; the tab's save state
+ * and connection stay the live editor's.
  */
 export function viewedEditor(viewer: Viewer, live: Editor): Editor {
   return {
@@ -227,5 +227,6 @@ export function viewedEditor(viewer: Viewer, live: Editor): Editor {
     keptOnDevice: live.keptOnDevice,
     fetchVersion: live.fetchVersion,
     pauseInput: () => () => {},
+    startBrief: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no brief' }),
   }
 }

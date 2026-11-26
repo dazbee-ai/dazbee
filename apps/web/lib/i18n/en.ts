@@ -1609,6 +1609,14 @@ export const en = {
       show: 'Zoom to {name}',
       frameCount: { one: '1 frame', other: '{n} frames' } as Counted,
     },
+    connectors: {
+      /** A picked connector's card in the edit panel, named for what it is, and its actions there and in the right-click menu. */
+      connector: 'Connector',
+      actions: 'Connector actions',
+      /** What a connector joins: the frame or section it starts from, then the one it points to. */
+      joins: '{from} → {to}',
+      delete: 'Delete',
+    },
     statusText: {
       Starting: 'Starting',
       'Loading renderer': 'Loading renderer',

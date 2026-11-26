@@ -218,6 +218,8 @@ export function viewedEditor(viewer: Viewer, live: Editor): Editor {
   return {
     ...viewer,
     placeImage: () => null,
+    // A viewed version is never changed, so no connector on it is picked to delete.
+    connectorAt: () => null,
     readSvg: () => Promise.resolve(null),
     imageTarget: () => null,
     exportFiles: live.exportFiles,

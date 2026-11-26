@@ -113,6 +113,7 @@ export function editorDomInput({
       ...(label === undefined ? {} : { label }),
       ...(title === undefined ? {} : { title }),
       ...(star === undefined ? {} : { star }),
+      ...(type === 'pointermove' ? { buttons: e.buttons } : {}),
       ...('deltaMode' in e
         ? { deltaX: (e as WheelEvent).deltaX, deltaY: (e as WheelEvent).deltaY, deltaMode: (e as WheelEvent).deltaMode }
         : {}),

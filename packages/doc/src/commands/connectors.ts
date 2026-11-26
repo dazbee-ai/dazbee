@@ -23,17 +23,7 @@ export const connectorAdd = defineCommand({
   }),
   check: (ctx, { pageId, from, to, id }) => {
     const { design } = ctx
-    const problem =
-      pageProblem(design, pageId) ??
-      idProblem(ctx, id) ??
-      endProblem(design, pageId, from) ??
-      endProblem(design, pageId, to)
-    if (problem) return problem
-    if (from === to) return 'a connector joins two different frames or sections'
-    if (sectionOf(design, from) === to || sectionOf(design, to) === from)
-      return 'a connector does not join a frame to its own section'
-    const joined = Object.values(design.connectors).some((c) => c.pageId === pageId && joins(c, from, to))
-    return joined ? `"${from}" and "${to}" are already joined` : undefined
+    return pageProblem(design, pageId) ?? idProblem(ctx, id) ?? connectorRefusal(design, pageId, from, to)
   },
   apply: ({ w, design, newId }, { pageId, from, to, id = newId() }) => {
     const slots = inOrder(design.connectors)
@@ -54,6 +44,21 @@ export const connectorDelete = defineCommand({
   check: ({ design }, { connectorId }) => connectorProblem(design, connectorId),
   apply: ({ w }, { connectorId }) => w.remove('connector', connectorId),
 })
+
+/**
+ * Why `connector.add` refuses to join `from` to `to` on page `pageId`, if it does: an end missing,
+ * on another page or a section with no frames, the same end twice, a frame and its own section, or
+ * two ends already joined either way. The editor asks it before lighting what a drag would join.
+ */
+export function connectorRefusal(design: Design, pageId: string, from: string, to: string): string | undefined {
+  const problem = endProblem(design, pageId, from) ?? endProblem(design, pageId, to)
+  if (problem) return problem
+  if (from === to) return 'a connector joins two different frames or sections'
+  if (sectionOf(design, from) === to || sectionOf(design, to) === from)
+    return 'a connector does not join a frame to its own section'
+  const joined = Object.values(design.connectors).some((c) => c.pageId === pageId && joins(c, from, to))
+  return joined ? `"${from}" and "${to}" are already joined` : undefined
+}
 
 /** Why `id` can't be a connector's end on page `pageId`, if it can't: a frame or a drawn section of that page. */
 function endProblem(design: Design, pageId: string, id: string): string | undefined {

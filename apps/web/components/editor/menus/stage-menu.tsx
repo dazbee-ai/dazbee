@@ -4,6 +4,7 @@
 // Select layer ▸, the list of the layers under the pointer when two or more lie there; the frame's
 // actions for the frame it picked by its empty area or its label, the rows of the picked frame's ⋯;
 // the section's actions for the section it picked by its title or outline line (`section-actions.tsx`);
+// Delete for the connector it picked by its curve;
 // or, outside every frame, Show hidden layers alone. Each ends with Show hidden layers after a line
 // while the design has hidden layers or they show, ticked while they show: it turns the view on
 // or off, never the layers. It opens at the right-click, or on a phone as the sheet at the bottom
@@ -17,6 +18,7 @@ import { setRightClick, useEditState } from '@/components/editor/edit-store.ts'
 import {
   useEditorDesign,
   useHiddenShown,
+  usePickedConnector,
   usePickedFrame,
   usePickedSection,
   useSelection,
@@ -29,6 +31,7 @@ import { isLocked } from '@/components/editor/layer-looks.ts'
 import { CheckIcon, LockSimpleIcon } from '@/components/ui/icons.tsx'
 import { MENU_EDGE, MenuDivider, MenuItem, MenuSub, RightClickMenu } from '@/components/ui/menu.tsx'
 import { cn } from '@/lib/cn.ts'
+import { keyOf } from '@/lib/editor/shortcut-keys.ts'
 import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
 import { dirOf } from '@/lib/i18n/index.ts'
 
@@ -46,6 +49,7 @@ const DEEPEST = 8
 const MENU_WIDTH: Record<StageMenuOpen['on'], string> = {
   frame: 'min-w-56',
   section: 'min-w-56',
+  connector: 'min-w-52',
   canvas: 'min-w-52',
   layer: 'w-80',
 }
@@ -141,7 +145,13 @@ export function StageMenu({
         if (!to) onClose()
       }}
       label={
-        { frame: t.frames.more, section: t.sections.actions, canvas: t.bar.canvasMenu, layer: t.bar.actions }[kind]
+        {
+          frame: t.frames.more,
+          section: t.sections.actions,
+          connector: t.connectors.actions,
+          canvas: t.bar.canvasMenu,
+          layer: t.bar.actions,
+        }[kind]
       }
       testId="stage-menu"
       sheet
@@ -165,11 +175,12 @@ export function StageMenu({
 
 /** The rows of the stage's open right-click menu, closing it once the selection or the picked frame changes. */
 function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageMenuOpen; onClose: () => void }) {
-  const { on, frameId, sectionId, hidden, layers } = menu
+  const { on, frameId, sectionId, connectorId, hidden, layers } = menu
   const ids = useSelection(editor)
   const pickedFrame = usePickedFrame(editor)
   const pickedSection = usePickedSection(editor)
-  const picked = pickedFrame ?? pickedSection
+  const pickedConnector = usePickedConnector(editor)
+  const picked = pickedFrame ?? pickedSection ?? pickedConnector
   const [openedFor] = useState(ids)
   const [pickedFor] = useState(picked)
   useEffect(() => {
@@ -183,7 +194,9 @@ function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageM
   if (on === 'canvas') return <ShowHidden editor={editor} onClose={onClose} />
   return (
     <>
-      {on === 'section' && sectionId ? (
+      {on === 'connector' && connectorId ? (
+        <ConnectorDelete editor={editor} connectorId={connectorId} />
+      ) : on === 'section' && sectionId ? (
         <SectionActions editor={editor} sectionId={sectionId} />
       ) : on === 'frame' && frameId ? (
         <FrameRows editor={editor} frameId={frameId} />
@@ -205,6 +218,20 @@ function StageMenuRows({ editor, menu, onClose }: { editor: Editor; menu: StageM
         </>
       )}
     </>
+  )
+}
+
+/** A picked connector's one action, Delete, as its key runs it: one undo step, with no dialog. */
+function ConnectorDelete({ editor, connectorId }: { editor: Editor; connectorId: string }) {
+  const c = useMessages().editor.connectors
+  return (
+    <MenuItem
+      action="delete"
+      label={c.delete}
+      keys={keyOf('delete')}
+      danger
+      onSelect={() => editor.session.run('connector.delete', { connectorId })}
+    />
   )
 }
 

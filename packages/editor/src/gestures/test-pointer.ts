@@ -209,6 +209,8 @@ export function harness(
       drag: (_g, world) => log.push(`move section to ${world.x} ${world.y}`),
       release: () => log.push('release section move'),
     },
+    // No section or frame shows connector dots here.
+    connecting: { hover: () => false, press: () => null, drag: () => {}, release: () => {} },
     // No rulers: no press is a guide's.
     guideDrag: { press: () => null, drag: () => {}, release: () => {}, hover: () => false, cursorAt: () => '' },
     selectPress: {

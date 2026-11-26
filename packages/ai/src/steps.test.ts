@@ -7,6 +7,7 @@ import { aiKindModels, aiStepModels, type Db, modelSellers, newId, type Tx } fro
 import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
+import { openaiSeller } from './sellers/openai.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './steps.ts'
@@ -138,6 +139,20 @@ describe('routeStep', () => {
       Reflect.deleteProperty(STEPS, added)
     }
   })
+
+  it('skips a seller with no price for the fast tier on a step that asks for it', async () => {
+    useSeller(openaiSeller('test-key'))
+    const { step } = await addStep([
+      { seller: 'openai', prices: [...TOKEN_PRICES, { unit: 'cached-input-token', pricePerMillion: 100_000n }] },
+    ])
+    const sellers = async () => (await routeStep(db, step)).sellers.map((s) => s.seller)
+    expect(await sellers()).toEqual(['openai'])
+    await db
+      .update(aiStepModels)
+      .set({ options: { tier: 'fast' } })
+      .where(eq(aiStepModels.step, step))
+    expect(await sellers()).toEqual([])
+  })
 })
 
 describe('stepDef', () => {
@@ -153,6 +168,7 @@ describe('modelKinds', () => {
     expect(modelKinds(['input-token', 'image-input-token', 'image-output-token'])).toEqual(['picture'])
     expect(modelKinds(['gpu-second', 'cpu-core-second', 'memory-gib-second'])).toEqual(['layer-split'])
     expect(modelKinds(['input-token', 'cached-input-token', 'output-token'])).toEqual(['text'])
+    expect(modelKinds(['input-token', 'output-token', 'fast-input-token', 'fast-output-token'])).toEqual(['text'])
     expect(modelKinds(['reference-picture'])).toEqual([])
     expect(modelKinds([])).toEqual([])
   })

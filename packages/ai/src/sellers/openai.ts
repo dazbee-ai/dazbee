@@ -38,11 +38,14 @@ const PICTURES_PER_MINUTE = 20
 /** The quality a picture call asks for unless its AI step's options say otherwise. */
 const QUALITY = 'medium'
 
-/** The `service_tier` OpenAI takes for each tier: `default` is standard, which a project set to Fast would not use unasked. */
+/**
+ * The `service_tier` OpenAI takes for each tier: `default` is standard, which a project set to Fast would not use
+ * unasked.
+ */
 const SERVICE_TIERS = { standard: 'default', fast: 'fast' } as const satisfies Record<Tier, string>
 
-/** The `service_tier` values an answer that ran on the fast tier gives: `priority` is its former name. */
-const FAST_ANSWERS = new Set(['fast', 'priority'])
+/** The tier each `service_tier` an answer gives ran on: `priority` is the fast tier's former name. */
+const ANSWERED_TIERS: Record<string, Tier> = { default: 'standard', flex: 'standard', fast: 'fast', priority: 'fast' }
 
 /** OpenAI's adapter on `apiKey`. */
 export function openaiSeller(apiKey: string, options: SellerClientOptions = {}): SellerAdapter {
@@ -234,13 +237,15 @@ function roundTo16(value: number): number {
 }
 
 /**
- * The tier an answer ran on, from its `service_tier`: fast when it says fast (or priority), the standard tier when
- * it names any other, as a fast call moved to standard speed says `default` and is billed at standard rates; the
- * tier asked for when it names none.
+ * The tier an answer ran on, from its `service_tier`: standard when it says `default`, as a fast call moved to
+ * standard speed does and is billed at standard rates, fast when it says fast; the tier asked for when it names
+ * none, or one we never ask for, which is logged.
  */
 function ranOn(serviceTier: string | null | undefined, asked: Tier): Tier {
   if (!serviceTier) return asked
-  return FAST_ANSWERS.has(serviceTier) ? 'fast' : 'standard'
+  const tier = ANSWERED_TIERS[serviceTier]
+  if (!tier) console.warn(JSON.stringify({ msg: 'OpenAI answered on a tier we never ask for', serviceTier, asked }))
+  return tier ?? asked
 }
 
 /**

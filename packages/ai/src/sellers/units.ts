@@ -1,6 +1,7 @@
 // The units each seller's adapter reports, by kind of call, by the seller's model where the adapter branches
-// on it, and by the speed tier a call asks for where the seller bills its fast tier apart. Read with no seller's key, so the API checks prices against them without putting sellers
-// in use; each adapter's test checks that what it reports is in this list.
+// on it, and by the speed tier a call asks for where the seller bills its fast tier apart. Read with no seller's
+// key, so the API checks prices against them without putting sellers in use; each adapter's test checks that what
+// it reports is in this list.
 import type { CallKind, UsageUnit } from '@dazbee/schema'
 
 import { FAST_UNITS, type Tier } from './tiers.ts'

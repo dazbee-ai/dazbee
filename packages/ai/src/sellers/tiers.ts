@@ -5,6 +5,9 @@ import type { Usage, UsageUnit } from '@dazbee/schema'
 /** A speed tier: the seller's standard one, or its fast one, which answers sooner at a higher price. */
 export type Tier = 'standard' | 'fast'
 
+/** The speed tiers an AI step's options may ask for. */
+export const TIERS: readonly Tier[] = ['standard', 'fast']
+
 /** Each token unit's fast-tier unit. */
 export const FAST_UNITS = {
   'input-token': 'fast-input-token',

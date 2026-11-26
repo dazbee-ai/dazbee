@@ -142,9 +142,10 @@ describe('openaiSeller', () => {
     const moved = await ranOn('default').seller.call(requestOf(TEXT, { effort: 'low', tier: 'fast' }))
     expect(moved.usage).toEqual(standard)
     expect(await priceUsage(db, 'openai', 'gpt-6-luna', moved.usage)).toMatchObject({ realCost: 6_978n })
-    // Fast's former name counts as fast, and an answer that names no tier as the tier asked for.
+    // Fast's former name counts as fast, and an answer that names no tier, or one never asked for, as the tier asked for.
     expect((await ranOn('priority').seller.call(requestOf(TEXT, { tier: 'fast' }))).usage).toEqual(fast)
     expect((await ranOn(undefined).seller.call(requestOf(TEXT, { tier: 'fast' }))).usage).toEqual(fast)
+    expect((await ranOn('ultrafast').seller.call(requestOf(TEXT, { tier: 'fast' }))).usage).toEqual(fast)
 
     // A step that asks for no tier asks for the standard one, which a project set to Fast would not use unasked.
     const plain = ranOn('default')

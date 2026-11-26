@@ -124,6 +124,51 @@ describe('the model routes', () => {
     expect(steps.find((s) => s.step === 'flow.refine')).toMatchObject({ source: 'override', model: 'seedream-5.5' })
   })
 
+  it('refuses a step’s options that ask for an unknown effort or tier, or a tier its seller has no price for', async () => {
+    const own = `${step}-options`
+    const standardOnly = `test-model-${run}-standard`
+    STEPS[own] = { kind: 'text', expected: () => ({ 'input-token': 1, 'output-token': 1 }) }
+    const at = `/admin/ai/step-models/${own}`
+    await db.insert(modelSellers).values({ model: standardOnly, seller: 'openai', position: 1 })
+    await db.insert(aiPrices).values(
+      (['input-token', 'cached-input-token', 'output-token'] as const).map((unit) => ({
+        seller: 'openai',
+        model: standardOnly,
+        unit,
+        currency: 'USD',
+        pricePerMillion: 1_000_000n,
+      })),
+    )
+    try {
+      const save = (options: Record<string, string>) =>
+        ask(admin.token, 'PUT', at, { model: standardOnly, options, since: null })
+      expect(await save({ effort: 'hgh' })).toMatchObject({
+        status: 400,
+        json: { error: 'The reasoning effort must be one of none, minimal, low, medium, high, xhigh, max' },
+      })
+      expect(await save({ tier: 'Fast' })).toMatchObject({
+        status: 400,
+        json: { error: 'The tier must be standard or fast' },
+      })
+      expect(await save({ effort: 'low', tier: 'fast' })).toMatchObject({
+        status: 400,
+        json: {
+          unpriced: {
+            sellers: [
+              { seller: 'openai', units: ['fast-input-token', 'fast-cached-input-token', 'fast-output-token'] },
+            ],
+          },
+        },
+      })
+      expect((await save({ effort: 'low', tier: 'standard' })).status).toBe(204)
+    } finally {
+      Reflect.deleteProperty(STEPS, own)
+      await db.delete(aiStepModels).where(eq(aiStepModels.step, own))
+      await db.delete(modelSellers).where(eq(modelSellers.model, standardOnly))
+      await db.delete(aiPrices).where(eq(aiPrices.model, standardOnly))
+    }
+  })
+
   it('refuses a kind default whose sellers are priced only in part, or that no seller in its order sells', async () => {
     const partly = `test-model-${run}-partly`
     await db.insert(modelSellers).values({ model: partly, seller: 'pixazo', position: 1 })

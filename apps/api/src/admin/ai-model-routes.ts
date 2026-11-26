@@ -5,7 +5,7 @@
 import { and, eq, gte, isNotNull, or, sql } from 'drizzle-orm'
 import { type Context, Hono } from 'hono'
 
-import { CUT_OFF, FAST_UNITS, modelKinds, sellerPricing, stepDef, STEPS, tierOf } from '@dazbee/ai'
+import { CUT_OFF, FAST_UNITS, modelKinds, sellerPricing, stepDef, STEPS, tierOf, TIERS } from '@dazbee/ai'
 import { aiCalls, aiKindModels, aiStepModels, type Db, type Tx } from '@dazbee/db'
 import {
   AI_STEPS,
@@ -34,6 +34,9 @@ const KIND_WORDS: Record<CallKind, string> = {
 
 /** How far back the measured sizes look. */
 const MEASURED_DAYS = 30
+
+/** The reasoning efforts a text step's options may ask for, as the sellers name them; each model takes some. */
+const EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
 export function aiModelRoutes(db: Db): Hono<Env> {
   const app = new Hono<Env>()
@@ -216,9 +219,10 @@ function modelsOf(units: Map<string, UsageUnit[]>, kind: CallKind): string[] {
 }
 
 /**
- * A 400 when `model` can't take `kind` calls with `options`: no seller has a price for it, it is priced as
- * another kind, or a seller in its order lacks a price for a unit it reports at the speed tier the options ask
- * for; null when it can. `step` names the AI step it is for, if any.
+ * A 400 when `model` can't take `kind` calls with `options`: the options ask for a reasoning effort or a speed
+ * tier no seller takes, no seller has a price for it, it is priced as another kind, or a seller in its order lacks
+ * a price for a unit it reports at the speed tier the options ask for; null when it can. `step` names the AI step
+ * it is for, if any.
  */
 async function refusedModel(
   c: Context<Env>,
@@ -227,6 +231,8 @@ async function refusedModel(
   kind: CallKind,
   step?: string,
 ): Promise<Response | null> {
+  const unknown = unknownOption(options)
+  if (unknown) return c.json(error(unknown), 400)
   const units = (await pricedUnits(db)).get(model)
   if (!units) return c.json(error(`No seller of ${model} has a price for it`), 400)
   if (modelKinds(units).includes(kind)) {
@@ -245,6 +251,15 @@ async function refusedModel(
     is: modelKinds(units)[0] ?? null,
   } satisfies WrongKind
   return c.json({ ...error(kindRefusal(wrongKind)), wrongKind }, 400)
+}
+
+/** Why `options` can't be sent: an effort or a tier no seller takes; null when they can. */
+function unknownOption(options: Record<string, unknown>): string | null {
+  if ('effort' in options && !EFFORTS.includes(String(options.effort))) {
+    return `The reasoning effort must be one of ${EFFORTS.join(', ')}`
+  }
+  if ('tier' in options && !TIERS.includes(options.tier as never)) return `The tier must be ${TIERS.join(' or ')}`
+  return null
 }
 
 /** Why an AI step, or a kind's default, can't be a model of another kind, in the API's own names. */

@@ -342,9 +342,14 @@ describe('the migrations', () => {
     await applyMigrations(seeded, MIGRATIONS)
     const changed = await freshDatabase()
     await applyMigrations(changed, await firstMigrations(at))
-    // An admin gave the layer plan options, the refine plan a model of its own and the read an override of Luna.
+    // An admin gave the layer plan options, the full round plan another model, the refine plan a model of its own
+    // and the read an override of Luna, and sold Terra through OpenRouter alone.
     await withClient(changed, async (client) => {
       await client.query(`update ai_step_models set options = '{"effort":"high"}' where step = 'flow.layer-plan'`)
+      await client.query(`update ai_step_models set model = 'gpt-6-luna' where step = 'flow.round-plan-full'`)
+      await client.query(
+        `insert into model_sellers (model, seller, position, seller_model) values ('gpt-6.1-terra', 'openrouter', 1, 'openai/gpt-6.1-terra')`,
+      )
       await client.query(`insert into ai_step_models (step, model) values ('flow.refine-plan', 'gpt-6.2-sol')`)
       await client.query(`insert into ai_step_models (step, model) values ('flow.read', 'gpt-6-luna')`)
     })
@@ -386,16 +391,18 @@ describe('the migrations', () => {
       { seller: 'zenmux', position: 2, seller_model: 'openai/gpt-6.1-terra' },
       { seller: 'openrouter', position: 3, seller_model: 'openai/gpt-6.1-terra' },
     ])
-    const kept = await withClient(changed, async (client) =>
-      (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),
-    )
-    expect(kept).toEqual([
+    const kept = await withClient(changed, async (client) => ({
+      steps: (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),
+      sellers: (await client.query(`select seller from model_sellers where model = 'gpt-6.1-terra'`)).rows,
+    }))
+    expect(kept.sellers).toEqual([{ seller: 'openrouter' }])
+    expect(kept.steps).toEqual([
       { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: { effort: 'high' } },
       { step: 'flow.read', model: 'gpt-6-luna', options: { effort: 'none', tier: 'standard' } },
       { step: 'flow.reference-read', model: 'gpt-6-luna', options: fast },
       { step: 'flow.refine-plan', model: 'gpt-6.2-sol', options: {} },
       { step: 'flow.round-plan', model: 'gpt-6-luna', options: fast },
-      { step: 'flow.round-plan-full', model: 'gpt-6.1-terra', options: { effort: 'low', tier: 'standard' } },
+      { step: 'flow.round-plan-full', model: 'gpt-6-luna', options: {} },
     ])
     const following = await withClient(unchanged, async (client) =>
       (await steps(client)).rows.filter((row: { model: string }) => row.model.startsWith('gpt-6')),

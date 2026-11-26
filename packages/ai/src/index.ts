@@ -83,7 +83,7 @@ export { zenmuxSeller } from './sellers/zenmux.ts'
 export { metaSeller } from './sellers/meta.ts'
 export { LAYERING, modalSeller, modalSellerOn, type ModalSdk } from './sellers/modal.ts'
 export { openaiSeller } from './sellers/openai.ts'
-export { FAST_UNITS, type Tier, tierOf } from './sellers/tiers.ts'
+export { FAST_UNITS, type Tier, TIERS, tierOf } from './sellers/tiers.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
 export {
   holdFor,

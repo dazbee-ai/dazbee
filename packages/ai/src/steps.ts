@@ -122,9 +122,9 @@ export const STEPS: Record<string, StepDef> = {
  * 48.8 s (49 a second).
  */
 export const STEP_SECONDS = {
-  // gpt-6-luna: 46–69 s.
+  // gpt-6-luna: 46–69 s, measured at medium effort on the standard tier; it now runs at low effort on the fast one.
   'flow.round-plan': 69,
-  // gpt-6.2-sol: 48.8 s.
+  // gpt-6.2-sol measured 48.8 s; gpt-6.1-terra at low effort, which it runs now, is not measured yet.
   'flow.round-plan-full': 49,
   // gpt-6-luna, 500 tokens out.
   'flow.reference-read': 4,

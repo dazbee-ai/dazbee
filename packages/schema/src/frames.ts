@@ -3,7 +3,7 @@
 import type { DesignInput, DesignMeta } from './design.ts'
 import type { Paint } from './paint.ts'
 import { inOrder } from './primitives.ts'
-import type { PageBox } from './sections.ts'
+import { type PageBox, sectionBox, sectionsOf } from './sections.ts'
 
 /** The gap the frame rule leaves between a page's rightmost frame and a new one. */
 export const FRAME_GAP = 200
@@ -53,24 +53,34 @@ export function newFramePosition(frames: readonly { x: number; y: number; width:
 
 /**
  * Where a box of `size` goes beside `from` (a frame or a section's box) without covering a frame of
- * page `pageId`: FRAME_GAP right of `from`, at its top, then moved down below each frame it
- * overlaps, plus FRAME_GAP, until it overlaps none. A frame only touching its edge is not in the way.
+ * page `pageId`, or the box of one of its drawn sections other than `joins`, the section the box goes
+ * in: FRAME_GAP right of `from`, at its top, then moved down below each it overlaps, plus FRAME_GAP,
+ * until it overlaps none. One only touching its edge is not in the way.
  */
 export function freeSpot(
   design: {
-    readonly frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>
+    readonly frames: Readonly<
+      Record<
+        string,
+        Readonly<PageBox> & { readonly pageId: string; readonly order: string; readonly sectionId?: string | undefined }
+      >
+    >
+    readonly sections?: Readonly<Record<string, { readonly pageId: string; readonly order: string }>>
   },
   pageId: string,
   size: { width: number; height: number },
   from: PageBox,
+  joins?: string,
 ): { x: number; y: number } {
-  const frames = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
+  const page = { frames: design.frames, sections: design.sections ?? {} }
+  const boxes: PageBox[] = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
+  for (const [id] of sectionsOf(page, pageId)) if (id !== joins) boxes.push(sectionBox(page, id) as PageBox)
   const x = from.x + from.width + FRAME_GAP
   let y = from.y
   for (;;) {
     const right = x + size.width
     const bottom = y + size.height
-    const below = frames
+    const below = boxes
       .filter((f) => f.x < right && f.x + f.width > x && f.y < bottom && f.y + f.height > y)
       .reduce((most, f) => Math.max(most, f.y + f.height), -Infinity)
     if (below === -Infinity) return { x, y }

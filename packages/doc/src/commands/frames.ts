@@ -341,7 +341,7 @@ function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: S
   const next = nextOnPage(w, design, frame.pageId, newId)
   const sectionId = sectionOf(design, frameId)
   if (sectionId === undefined) return copyFrameTo(ctx, frameId, newId, next, size)
-  const at = freeSpot(design, frame.pageId, size ?? frame, { ...rightmostIn(design, sectionId), y: frame.y })
+  const at = freeSpot(design, frame.pageId, size ?? frame, { ...rightmostIn(design, sectionId), y: frame.y }, sectionId)
   return copyFrameTo(ctx, frameId, newId, { ...at, order: next.order, sectionId }, size)
 }
 

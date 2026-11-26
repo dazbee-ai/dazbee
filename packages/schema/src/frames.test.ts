@@ -108,6 +108,20 @@ describe('freeSpot', () => {
     expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, from)).toEqual({ x: 300, y: 400 + FRAME_GAP })
   })
 
+  it('steps around the boxes of the page’s drawn sections, all but the one the copy joins', () => {
+    const from = { x: 0, y: 0, width: 100, height: 100 }
+    // Section "row" spans 300…400 × 0…600, empty between its two frames; "empty" draws nothing.
+    const frames = {
+      src: at('p1', 0, 0, 100, 100),
+      top: { ...at('p1', 300, 0, 100, 100), sectionId: 'row' },
+      bottom: { ...at('p1', 300, 500, 100, 100), sectionId: 'row' },
+    }
+    const sections = { row: { pageId: 'p1', order: 'a0' }, empty: { pageId: 'p1', order: 'a1' } }
+    const size = { width: 100, height: 100 }
+    expect(freeSpot({ frames, sections }, 'p1', size, from)).toEqual({ x: 300, y: 600 + FRAME_GAP })
+    expect(freeSpot({ frames, sections }, 'p1', size, from, 'row')).toEqual({ x: 300, y: 100 + FRAME_GAP })
+  })
+
   it('takes a frame touching its edge as out of the way', () => {
     const frames = { below: at('p1', 300, 100, 100, 100) }
     expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, { x: 0, y: 0, width: 100, height: 100 })).toEqual({

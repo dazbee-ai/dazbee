@@ -1,7 +1,7 @@
 // The frame commands around sections, connectors and the star (ADR-0024).
 import { describe, expect, it } from 'vitest'
 
-import { framesInSection } from '@dazbee/schema'
+import { type DesignInput, framesInSection } from '@dazbee/schema'
 
 import { readDesign } from '../store.ts'
 import { openTestSession, sectionedDesign } from '../test-design.ts'
@@ -93,6 +93,26 @@ describe('frame.duplicate', () => {
       starred: undefined,
       order: 'a5',
     })
+  })
+})
+
+describe('frame.duplicate beside another section', () => {
+  it('steps below the other section’s box, not into the empty space between its frames', () => {
+    const design = sectionedDesign()
+    const frame = (id: string) => design.frames[id] as DesignInput['frames'][string]
+    const store = openTestStore({
+      ...design,
+      frames: {
+        ...design.frames,
+        tall: { ...frame('tall'), sectionId: 'gap' },
+        other: { ...frame('other'), y: 1500, sectionId: 'gap' },
+      },
+      sections: { ...design.sections, gap: { pageId: 'p1', title: 'Gap', order: 'a2' } },
+    })
+    const tab = openTestSession(store)
+    const copy = tab.run('frame.duplicate', { frameId: 'wide' })
+    // Right of the wide frame (to 3760) is "gap", 3960…4960 × 0…2000, empty from 600 to 1500.
+    expect(readDesign(store).frames[copy]).toMatchObject({ sectionId: 'banners', x: 3960, y: 2200 })
   })
 })
 

@@ -347,12 +347,12 @@ export const en = {
       removePicture: 'Remove {name}',
       uploading: 'Uploading {name}',
       notUploaded: '{name} didn’t upload',
-      size: 'Size',
-      mode: 'Mode',
-      fast: 'Fast',
-      fastLine: 'Four quick ideas to pick from',
-      precise: 'Precise',
-      preciseLine: 'Takes longer, plans each draft more carefully',
+      sizes: 'Sizes',
+      /** The size button's tooltip: the size picked, its name and pixels. */
+      size: 'Size: {name}, {size}',
+      /** The speed toggle's tooltip, naming the speed it is on and what the drafts are then. */
+      fast: 'Fast: quicker drafts',
+      precise: 'Precise: slower drafts, each planned with more care',
       make: 'Make drafts',
       making: 'Starting…',
       /** The name of each draft's frame, by its place: 1 to 4. */

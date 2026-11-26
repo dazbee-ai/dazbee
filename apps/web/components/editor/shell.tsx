@@ -289,7 +289,7 @@ export function EditorShell({
                 onToolChange?.(id, picked)
               }}
             />
-            {briefing && (
+            {briefing && editor && (
               <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
             )}
             <ToastSlot editor={editor}>{toast}</ToastSlot>

@@ -20,6 +20,8 @@ export interface FakeAi extends EditorAi {
   makeCall(job: string, index: number, assetId: string): void
   /** The frame waits again, for the one call of a new job, as a try-again's; gives the job's id. */
   again(frameId: string): string
+  /** The next mark of a call written fails, as with the network down, and marks nothing. */
+  failNextMark(): void
   /** The read of the design's AI frames gives what the API holds now. */
   design(): DesignAi
 }
@@ -36,6 +38,7 @@ export function fakeAi(): FakeAi {
   const jobs: AiJobView[] = []
   let reads = 0
   let refusal: AiJobRefusal | null = null
+  let markFails = false
 
   const design = (): DesignAi => structuredClone({ frames, jobs, briefs: [] })
 
@@ -107,6 +110,10 @@ export function fakeAi(): FakeAi {
   }
 
   function written(frameId: string, mark: AiFrameWritten): Promise<void> {
+    if (markFails) {
+      markFails = false
+      return Promise.reject(new Error('the network is down'))
+    }
     const frame = frames.find((f) => f.frameId === frameId)
     const call = jobs.find((j) => j.id === mark.jobId)?.calls.find((c) => c.index === mark.callIndex)
     if (!frame || frame.jobId !== mark.jobId || frame.callIndex !== mark.callIndex || call?.state !== 'done')
@@ -125,6 +132,9 @@ export function fakeAi(): FakeAi {
     reads: () => reads,
     refuseNext: (why) => {
       refusal = why
+    },
+    failNextMark: () => {
+      markFails = true
     },
     make: (job, n, assetId) => makeCall(job, draftCall(n), assetId),
     makeCall,

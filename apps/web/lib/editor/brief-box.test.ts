@@ -18,11 +18,15 @@ describe('AI_SIZE_PRESETS', () => {
 
 describe('briefSaid', () => {
   it('names each refusal’s words, and a refusal with none as not started', () => {
-    expect(['used-up', 'stopped', 'not-allowed', null].map((r) => briefSaid(r as never))).toEqual([
+    expect(['used-up', 'stopped', 'not-allowed', null].map((r) => briefSaid({ refusal: r as never }))).toEqual([
       'usedUp',
       'paused',
       'notAllowed',
       'notStarted',
     ])
+  })
+
+  it('says a job saved whose drafts the design didn’t take is not placed', () => {
+    expect(briefSaid({ refusal: null, notPlaced: true })).toBe('notPlaced')
   })
 })

@@ -1,7 +1,7 @@
 // A brief's section and drafts as the tab places them: the ids it makes for the section, the four frames and
 // their picture layers (ADR-0015), which the round is started with; the commands that place them below
 // everything on a page, each frame holding one picture layer that waits in a plain colour until its picture
-// arrives; and whether one more brief would take the design past its size warning.
+// arrives, and what it holds; and whether one more brief would take the design past its size warning.
 import type { Session } from '@dazbee/doc'
 import {
   type AiFrameTarget,
@@ -9,6 +9,8 @@ import {
   briefTitle,
   type DesignSize,
   FRAME_GAP,
+  type Layer,
+  type Paint,
   type Point,
   type SolidPaint,
   SYNC_LIMITS,
@@ -96,6 +98,17 @@ export function placeBrief(session: Pick<Session, 'run'>, placing: BriefPlacing,
     title: briefTitle(placing.words),
     frameIds: plan.frames.map((f) => f.frameId),
   })
+}
+
+/**
+ * What a frame's picture layer holds against picture `assetId`: the picture (`shows`), the plain fill it waits in
+ * (`waits`), or anything else a person put there (`other`).
+ */
+export function pictureState(layer: Pick<Layer, 'props'>, assetId: string): 'shows' | 'waits' | 'other' {
+  const fills = ('fills' in layer.props ? layer.props.fills : []) as Paint[]
+  if (fills.some((fill) => fill.type === 'image' && fill.assetId === assetId)) return 'shows'
+  const [only] = fills
+  return fills.length === 1 && only?.type === 'solid' && only.color === WAITING_FILL.color ? 'waits' : 'other'
 }
 
 /** Whether one more brief would take a design of `size` to its size warning (SYNC_LIMITS.warnAt) or past it. */

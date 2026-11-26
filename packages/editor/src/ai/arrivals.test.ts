@@ -181,15 +181,33 @@ describe('editorArrivals', () => {
       expect(a.editor.session.design()).toEqual(before)
     })
 
+    it('says a saved job whose section the design didn’t take is not placed, and places nothing', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      const before = a.editor.session.design()
+
+      await expect(a.arrivals.startBrief({ ...BRIEF, pageId: 'gone' })).resolves.toMatchObject({
+        ok: false,
+        refusal: null,
+        notPlaced: true,
+      })
+      await settle(a.arrivals)
+      expect(ai.started).toHaveLength(1)
+      expect(a.editor.session.design()).toEqual(before)
+    })
+
     it('places a brief started while a drag is open once the drag ends, outside its undo step', async () => {
       mem = memorySync(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       const drag = a.editor.session.beginGesture()
       a.editor.session.run('node.update', { ids: ['a'], patch: { x: 140 } })
-      await a.arrivals.startBrief(BRIEF)
+      const started = a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
       expect(a.editor.session.design().frames['ann-1']).toBeUndefined()
       drag.end()
+      await expect(started).resolves.toMatchObject({ ok: true })
       await settle(a.arrivals)
       expect(a.editor.session.design().frames['ann-1']).toBeDefined()
       a.editor.core.perform('undo')
@@ -297,6 +315,40 @@ describe('editorArrivals', () => {
       b.timer()?.run()
       await settle(b.arrivals)
       expect(fillsOf(b.editor.session.design(), 'ann-2')).toEqual(pictureOf('pic2'))
+    })
+
+    it('marks a stored picture whose mark failed on the next read, without writing it over a version put back', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      const kept = JSON.parse(JSON.stringify(a.editor.session.design())) as Design
+      ai.make('job1', 0, 'pic1')
+      ai.failNextMark()
+      await pollAll(a)
+      expect(ai.marks).toEqual([])
+      await a.editor.core.restoreVersion(kept, MARK)
+      await settle(a.arrivals)
+
+      await pollAll(a)
+
+      expect(ai.marks).toEqual([{ frameId: 'ann-1', jobId: 'job1', callIndex: 1 }])
+      expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
+    })
+
+    it('waits on no frame whose picture layer is deleted, and leaves the frame as it is', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      a.editor.session.run('node.delete', { ids: [pictureLayerOf('ann-1')] })
+      ai.make('job1', 0, 'pic1')
+      await pollAll(a)
+      expect(a.arrivals.waiting()).toEqual(['ann-2', 'ann-3', 'ann-4'])
+      expect(a.editor.session.design().nodes[pictureLayerOf('ann-1')]).toBeUndefined()
+      expect(ai.marks).toEqual([])
     })
 
     it('keeps a picture the person put in the waiting layer, and marks the call written', async () => {

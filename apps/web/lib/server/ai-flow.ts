@@ -13,7 +13,7 @@ import {
   type StartAiJob,
 } from '@dazbee/schema'
 
-import { ApiFailure, call, workspaceRoot } from './api.ts'
+import { ApiFailure, brandRoot, call } from './api.ts'
 
 /** A job started; or refused, with the API's status, its words and, when saving it was refused, why. */
 export type JobStart =
@@ -53,11 +53,6 @@ export const markAiWritten = (
     method: 'POST',
     body: written,
   })
-
-/** The API's path of a brand of a workspace. */
-function brandRoot(workspaceId: string, brandId: string) {
-  return `${workspaceRoot(workspaceId)}/brands/${encodeURIComponent(brandId)}`
-}
 
 /** The API's path of a design's AI frames. */
 function designAiPath(workspaceId: string, brandId: string, designId: string) {

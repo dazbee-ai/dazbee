@@ -17,7 +17,7 @@ import {
   type StartAiJob,
 } from '@dazbee/schema'
 
-import { type BriefPlan, pictureLayerOf, placeBrief, planBrief, WAITING_FILL } from './place-brief.ts'
+import { type BriefPlan, pictureLayerOf, pictureState, placeBrief, planBrief } from './place-brief.ts'
 
 /** How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused. */
 export type AiStart = { ok: true; job: string } | { ok: false; refusal: AiJobRefusal | null; message: string }
@@ -43,8 +43,12 @@ export interface BriefRequest {
   draftName: (n: number) => string
 }
 
-/** A brief started: its job and its section, placed below everything on its page; or why it was refused. */
-export type BriefStarted = { ok: true; job: string; sectionId: string } | Extract<AiStart, { ok: false }>
+/**
+ * A brief started: its job and its section, placed below everything on its page; or why it was refused; or, with
+ * `notPlaced`, a job saved whose section and frames the design didn't take, its drafts kept as the brand's images.
+ */
+export type BriefStarted =
+  { ok: true; job: string; sectionId: string } | (Extract<AiStart, { ok: false }> & { notPlaced?: true })
 
 export interface ArrivalsDeps {
   session: Session
@@ -63,12 +67,13 @@ export interface ArrivalsDeps {
 export interface EditorArrivals {
   /**
    * Starts a round from a brief: makes its ids, starts the job with them, and only once it is saved places the
-   * section and its frames below everything on the page, as one arrival. A refused job places nothing.
+   * section and its frames below everything on the page, as one arrival; settles once the server has stored it.
+   * A refused job places nothing.
    */
   startBrief(request: BriefRequest): Promise<BriefStarted>
   /** Reads the design's AI frames now and writes the pictures that arrived; the next read is 3 s or 10 s after. */
   poll(): Promise<void>
-  /** The AI frames of the design that wait for their picture, as last read, among the frames the design has. */
+  /** The AI frames of the design that wait for their picture, as last read, among those the design has with their picture layer. */
   waiting(): string[]
   /** Settles once every arrival of a picture started so far is stored and marked written, or given up. */
   settled(): Promise<void>
@@ -79,6 +84,165 @@ export const POLL_MS = 10_000
 /** How long it waits while a frame of the design waits for its picture. */
 export const POLL_WAITING_MS = 3_000
 
+export function editorArrivals({ session, ai, designId, newId, after, shown, signal }: ArrivalsDeps): EditorArrivals {
+  /** The design's AI frames, jobs and briefs as last read; null before the first read. */
+  let read: DesignAi | null = null
+  /** The read on its way, while one is. */
+  let reading: Promise<void> | null = null
+  /** Cancels the next read, while one waits. */
+  let next: (() => void) | null = null
+  /** The arrivals of pictures on their way, by `callKey`: none of them starts again meanwhile. */
+  const writing = new Map<string, Promise<void>>()
+  /** The calls whose arrival is stored but not yet marked written: they are marked again, never written again. */
+  const stored = new Set<string>()
+  /** The calls whose arrival the server refused: this tab writes them no more. */
+  const refused = new Set<string>()
+
+  function waiting(): string[] {
+    const { nodes } = session.design()
+    return (read?.frames ?? [])
+      .filter((f) => f.state === 'waiting' && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId)
+      .map((f) => f.frameId)
+  }
+
+  async function settled() {
+    while (writing.size > 0) await Promise.all(writing.values())
+  }
+
+  async function startBrief(request: BriefRequest): Promise<BriefStarted> {
+    const plan = planBrief(newId)
+    const started = await ai.start({
+      kind: 'round',
+      designId,
+      sectionId: plan.sectionId,
+      frames: plan.frames,
+      words: request.words,
+      pictures: request.pictures,
+      size: request.size,
+      mode: request.mode,
+    })
+    if (!started.ok) return started
+    const placed = await place(plan, request)
+    void poll()
+    if (!placed) return { ok: false, refusal: null, message: 'the design did not take the drafts', notPlaced: true }
+    return { ok: true, job: started.job, sectionId: plan.sectionId }
+  }
+
+  /**
+   * Places a started brief below everything on its page as one arrival; resolves whether the server stored it.
+   * Not placed, as on a page deleted meanwhile or a design at its limits, its drafts stay in the brand's images.
+   */
+  async function place(plan: BriefPlan, request: BriefRequest): Promise<boolean> {
+    const placing = { plan, pageId: request.pageId, words: request.words, size: request.size }
+    try {
+      const outcome = await arrive(session, signal, () => {
+        const at = belowAll(session.design().frames, request.pageId)
+        placeBrief(session, { ...placing, draftName: request.draftName }, at)
+      })
+      return outcome === 'saved'
+    } catch {
+      return false
+    }
+  }
+
+  function poll(): Promise<void> {
+    if (reading) return reading
+    next?.()
+    next = null
+    reading = (async () => {
+      try {
+        // A Reviewer's tab writes nothing, and the API answers it nothing.
+        if (signal.aborted || session.readOnly()) return
+        const now = await ai.read()
+        if (signal.aborted) return
+        read = now
+        for (const frame of now.frames) writePicture(now, frame)
+      } catch {
+        // Offline, or the API is away: the next read tries again.
+      } finally {
+        reading = null
+        schedule()
+      }
+    })()
+    return reading
+  }
+
+  /** Waits for the next read: 3 s while a frame waits, else 10 s; none while the tab is hidden. */
+  function schedule() {
+    if (signal.aborted || !shown.now() || reading || next) return
+    next = after(waiting().length > 0 ? POLL_WAITING_MS : POLL_MS, () => {
+      next = null
+      void poll()
+    })
+  }
+
+  /**
+   * Writes the picture of a waiting frame's call into its picture layer, once the call has made it and while the
+   * layer still waits, then marks the call written. A layer that shows the picture already, or whose arrival this
+   * tab stored before, is only marked; one the person filled meanwhile is marked and keeps what they put there. A
+   * frame or layer the design hasn't, such as one deleted, is left for an undo that brings it back.
+   */
+  function writePicture(now: DesignAi, frame: AiFrameView) {
+    if (frame.state !== 'waiting') return
+    const key = callKey(frame)
+    const asset = madePicture(now, frame)
+    if (!asset || writing.has(key) || refused.has(key)) return
+    const layerId = pictureLayerOf(frame.frameId)
+    const layer = session.design().nodes[layerId]
+    if (layer?.parentId !== frame.frameId) return
+    const writes = !stored.has(key) && pictureState(layer, asset) === 'waits'
+    const arrived = writes
+      ? arrive(session, signal, () =>
+          session.run('node.update', {
+            ids: [layerId],
+            patch: { fills: [{ type: 'image', assetId: asset, fit: 'fill' }] },
+          }),
+        )
+      : Promise.resolve('saved' as const)
+    const done = arrived
+      .then(async (outcome) => {
+        if (outcome !== 'saved' || signal.aborted) return
+        stored.add(key)
+        await ai.written(frame.frameId, { jobId: frame.jobId, callIndex: frame.callIndex })
+        stored.delete(key)
+        if (read) read = { ...read, frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived' } : f)) }
+        // With no frame left waiting, the next read waits the longer time.
+        if (next && waiting().length === 0) {
+          next()
+          next = null
+          schedule()
+        }
+      })
+      .catch((error: unknown) => {
+        // Refused by the server, it isn't written again here; lost with the connection, or not marked, the next read tries again.
+        if (error instanceof NotSaved && (error.why === 'rejected' || error.why === 'tooBig')) refused.add(key)
+      })
+      .finally(() => writing.delete(key))
+    writing.set(key, done)
+  }
+
+  const offShown = shown.onChange(() => {
+    if (shown.now()) void poll()
+    else {
+      next?.()
+      next = null
+    }
+  })
+  signal.addEventListener('abort', () => {
+    offShown()
+    next?.()
+    next = null
+  })
+  void poll()
+
+  return {
+    startBrief,
+    poll,
+    waiting,
+    settled,
+  }
+}
+
 /**
  * Runs `steps` as one arrival: their commands as one gesture, untracked, so no undo of any tab takes them back.
  * After a gesture of the tab's own still open, it runs once that ends, as `untracked` does. Resolves 'saved' once
@@ -86,7 +250,7 @@ export const POLL_WAITING_MS = 3_000
  * only view the design, or once `signal` aborts first. Fails with what `steps` threw, its commands' writes put
  * back, and with `NotSaved` when the server didn't store it.
  */
-export function arrive(session: Session, signal: AbortSignal, steps: () => void): Promise<'saved' | 'none'> {
+function arrive(session: Session, signal: AbortSignal, steps: () => void): Promise<'saved' | 'none'> {
   return new Promise((resolve, reject) => {
     if (signal.aborted || session.readOnly()) return resolve('none')
     const ended = () => resolve('none')
@@ -114,156 +278,9 @@ export function arrive(session: Session, signal: AbortSignal, steps: () => void)
   })
 }
 
-export function editorArrivals({ session, ai, designId, newId, after, shown, signal }: ArrivalsDeps): EditorArrivals {
-  /** The design's AI frames, jobs and briefs as last read; null before the first read. */
-  let read: DesignAi | null = null
-  /** The read on its way, while one is. */
-  let reading: Promise<void> | null = null
-  /** Cancels the next read, while one waits. */
-  let next: (() => void) | null = null
-  /** The arrivals of pictures on their way, by frame, job and call: none of them starts again meanwhile. */
-  const writing = new Map<string, Promise<void>>()
-  /** The calls whose arrival the server refused: this tab writes them no more. */
-  const refused = new Set<string>()
-
-  /** The AI frames of the design that wait for their picture, as last read, among the frames the design has. */
-  function waiting(): string[] {
-    const { frames } = session.design()
-    return (read?.frames ?? []).filter((f) => f.state === 'waiting' && frames[f.frameId]).map((f) => f.frameId)
-  }
-
-  async function startBrief(request: BriefRequest): Promise<BriefStarted> {
-    const plan = planBrief(newId)
-    const started = await ai.start({
-      kind: 'round',
-      designId,
-      sectionId: plan.sectionId,
-      frames: plan.frames,
-      words: request.words,
-      pictures: request.pictures,
-      size: request.size,
-      mode: request.mode,
-    })
-    if (!started.ok || signal.aborted) return started.ok ? { ...started, sectionId: plan.sectionId } : started
-    place(plan, request)
-    void poll()
-    return { ok: true, job: started.job, sectionId: plan.sectionId }
-  }
-
-  /** Places a started brief below everything on its page as one arrival; refused, its frames' pictures stay in the brand's images. */
-  function place(plan: BriefPlan, request: BriefRequest) {
-    const placing = { plan, pageId: request.pageId, words: request.words, size: request.size }
-    arrive(session, signal, () => {
-      const at = belowAll(session.design().frames, request.pageId)
-      placeBrief(session, { ...placing, draftName: request.draftName }, at)
-    }).catch(() => {
-      // A page deleted meanwhile, or a design at its limits: the drafts are made and kept as the brand's images.
-    })
-  }
-
-  function poll(): Promise<void> {
-    if (reading) return reading
-    next?.()
-    next = null
-    reading = (async () => {
-      try {
-        // A Reviewer's tab writes nothing, and the API answers it nothing.
-        if (signal.aborted || session.readOnly()) return
-        const now = await ai.read()
-        if (signal.aborted) return
-        read = now
-        for (const frame of now.frames) fill(now, frame)
-      } catch {
-        // Offline, or the API is away: the next read tries again.
-      } finally {
-        reading = null
-        schedule()
-      }
-    })()
-    return reading
-  }
-
-  /** Waits for the next read: 3 s while a frame waits, else 10 s; none while the tab is hidden. */
-  function schedule() {
-    if (signal.aborted || !shown.now() || reading || next) return
-    next = after(waiting().length > 0 ? POLL_WAITING_MS : POLL_MS, () => {
-      next = null
-      void poll()
-    })
-  }
-
-  /**
-   * Writes the picture of a waiting frame's call into its picture layer, once the call has made it and while the
-   * layer still waits, then marks the call written. A layer that shows the picture already is only marked; one
-   * the person filled meanwhile is marked and keeps what they put there. A frame or layer the design hasn't, such
-   * as one deleted, is left for an undo that brings it back.
-   */
-  function fill(now: DesignAi, frame: AiFrameView) {
-    if (frame.state !== 'waiting') return
-    const key = `${frame.frameId}/${frame.jobId}/${frame.callIndex}`
-    const asset = madePicture(now, frame)
-    if (!asset || writing.has(key) || refused.has(key)) return
-    const design = session.design()
-    const layerId = pictureLayerOf(frame.frameId)
-    const layer = design.nodes[layerId]
-    if (!design.frames[frame.frameId] || layer?.parentId !== frame.frameId || !('fills' in layer.props)) return
-    const fills = layer.props.fills as { type: string; assetId?: string; color?: string }[]
-    const shows = fills.some((f) => f.type === 'image' && f.assetId === asset)
-    const waits = fills.length === 1 && fills[0]?.type === 'solid' && fills[0].color === WAITING_FILL.color
-    const written = { jobId: frame.jobId, callIndex: frame.callIndex }
-    const arrived =
-      shows || !waits
-        ? Promise.resolve('saved' as const)
-        : arrive(session, signal, () =>
-            session.run('node.update', {
-              ids: [layerId],
-              patch: { fills: [{ type: 'image', assetId: asset, fit: 'fill' }] },
-            }),
-          )
-    const done = arrived
-      .then(async (outcome) => {
-        if (outcome !== 'saved' || signal.aborted) return
-        await ai.written(frame.frameId, written)
-        if (read) read = { ...read, frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived' } : f)) }
-        // With no frame left waiting, the next read waits the longer time.
-        if (next && waiting().length === 0) {
-          next()
-          next = null
-          schedule()
-        }
-      })
-      .catch((error: unknown) => {
-        // Refused by the server, it isn't written again here; lost with the connection, or not marked, the next read tries again.
-        if (error instanceof NotSaved && (error.why === 'rejected' || error.why === 'tooBig')) refused.add(key)
-      })
-      .finally(() => writing.delete(key))
-    writing.set(key, done)
-  }
-
-  async function settled() {
-    while (writing.size > 0) await Promise.all(writing.values())
-  }
-
-  const offShown = shown.onChange(() => {
-    if (shown.now()) void poll()
-    else {
-      next?.()
-      next = null
-    }
-  })
-  signal.addEventListener('abort', () => {
-    offShown()
-    next?.()
-    next = null
-  })
-  void poll()
-
-  return {
-    startBrief,
-    poll,
-    waiting,
-    settled,
-  }
+/** A frame's call, by which the arrivals on their way and those stored are kept: its frame, job and call. */
+function callKey({ frameId, jobId, callIndex }: AiFrameView): string {
+  return `${frameId}/${jobId}/${callIndex}`
 }
 
 /** The asset of the picture the frame's call made, once it is made; null before. */

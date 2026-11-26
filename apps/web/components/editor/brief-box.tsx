@@ -83,7 +83,7 @@ export function BriefBox({
         draftName: (n) => format(b.draftName, { n: n + 1 }),
       })
       if (!started.ok) {
-        setSaid(briefSaid(started.refusal))
+        setSaid(briefSaid(started))
         return
       }
       editor.fitSection(started.sectionId)

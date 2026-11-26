@@ -12,6 +12,7 @@ import {
   DuplicateDesign,
   type OpenedDesign,
   Rename,
+  SCHEMA_VERSION,
   type SyncToken,
   SyncTokenRequest,
   UpdateWorkspace,
@@ -168,8 +169,10 @@ export function brandRoutes({ db, storage, syncSecret }: { db: Db; storage: Stor
     if (input instanceof Response) return input
     if (!agent && input.agent !== undefined) return c.json(error('Only an agent’s token names an agent'), 400)
     const designId = c.req.param('designId')
-    const schemaVersion = await designSchemaVersion(db, workspaceId, c.var.brand.id, designId)
-    if (schemaVersion === null) return c.json(error('No such design'), 404)
+    const stored = await designSchemaVersion(db, workspaceId, c.var.brand.id, designId)
+    if (stored === null) return c.json(error('No such design'), 404)
+    // The API's own version too, so a tab built before it is refused on every design, not only on new ones.
+    const schemaVersion = Math.max(stored, SCHEMA_VERSION)
     const name = await userName(db, userId)
     const agentName = agent ? { agent: input.agent?.replace(/[\p{Cc}\p{Cf}]/gu, '').trim() || 'AI agent' } : {}
     const payload = { designId, workspaceId, userId, role, schemaVersion, name, ...agentName }

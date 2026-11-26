@@ -523,7 +523,7 @@ _Avoid_: History, palette, swatches (those are the brand kit's and the design's)
 ## Syncing
 
 **Holder**:
-What a record sits in: a frame's page, or a layer's parent (a frame or a layer).
+What a record sits in: a frame's, a section's or a connector's page, or a layer's parent (a frame or a layer). Deleting a record deletes what it holds.
 
 **Change**:
 One write to a design as the sync server takes it: create a record, set or unset one value, or delete a record with everything it holds.

@@ -274,7 +274,7 @@ export const HISTORY_LIMIT = 1000
 /** How long a follow-up waits on the recompute (a font that never loads) before it is dropped (D6, 6). */
 export const FOLLOW_UP_WAIT_MS = 30_000
 
-const NO_SIZE: DesignSize = { layers: 0, frames: 0, pages: 0, bytes: 0 }
+const NO_SIZE: DesignSize = { layers: 0, frames: 0, pages: 0, sections: 0, connectors: 0, bytes: 0 }
 
 /** The connection can't go on: a message the client can't place. The transport reconnects. */
 export class SyncBroken extends Error {}

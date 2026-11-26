@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseDesign } from './design.ts'
-import { blankDesign, coverFrame, FRAME_GAP, frameIdOf, framesOf, NEW_FRAME_FILLS, newFramePosition } from './frames.ts'
+import {
+  blankDesign,
+  coverFrame,
+  FRAME_GAP,
+  frameIdOf,
+  framesOf,
+  freeSpot,
+  NEW_FRAME_FILLS,
+  newFramePosition,
+} from './frames.ts'
 
 const frame = (pageId: string, order: string) => ({
   pageId,
@@ -65,6 +74,46 @@ describe('newFramePosition', () => {
       { x: 400, y: 20, width: 100 },
     ]
     expect(newFramePosition(frames)).toEqual({ x: 700, y: 10 })
+  })
+})
+
+describe('freeSpot', () => {
+  const at = (pageId: string, x: number, y: number, width: number, height: number) => ({
+    ...frame(pageId, 'a0'),
+    x,
+    y,
+    width,
+    height,
+  })
+
+  it('is FRAME_GAP right of the source, at its top, where nothing is in the way', () => {
+    const frames = { src: at('p1', 0, 50, 100, 100) }
+    expect(freeSpot({ frames }, 'p1', { width: 80, height: 80 }, { x: 0, y: 50, width: 100, height: 100 })).toEqual({
+      x: 100 + FRAME_GAP,
+      y: 50,
+    })
+  })
+
+  it('moves down below each frame of the page it would overlap, plus FRAME_GAP, until it overlaps none', () => {
+    const from = { x: 0, y: 0, width: 100, height: 100 }
+    const frames = {
+      src: at('p1', 0, 0, 100, 100),
+      // In the way at the first try, then the next one is, below it.
+      first: at('p1', 350, 50, 100, 100),
+      second: at('p1', 250, 300, 100, 100),
+      // Clear of the box: right of it, and on another page.
+      right: at('p1', 400, 360, 100, 100),
+      other: at('p2', 300, 550, 100, 100),
+    }
+    expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, from)).toEqual({ x: 300, y: 400 + FRAME_GAP })
+  })
+
+  it('takes a frame touching its edge as out of the way', () => {
+    const frames = { below: at('p1', 300, 100, 100, 100) }
+    expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, { x: 0, y: 0, width: 100, height: 100 })).toEqual({
+      x: 300,
+      y: 0,
+    })
   })
 })
 

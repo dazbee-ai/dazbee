@@ -4,6 +4,7 @@
 import {
   BindableProperty,
   type Change,
+  Connector,
   DesignMeta,
   type DesignRecords,
   Frame,
@@ -13,6 +14,7 @@ import {
   LAYER_PROPS,
   Page,
   type Part,
+  Section,
   type Target,
 } from '@dazbee/schema'
 
@@ -36,6 +38,8 @@ export const RECORDS_OF: Readonly<Record<HeldPart, Exclude<keyof DesignRecords, 
   page: 'pages',
   frame: 'frames',
   layer: 'nodes',
+  section: 'sections',
+  connector: 'connectors',
 }
 
 /** The keys each part's record may hold, from the schema. */
@@ -44,6 +48,8 @@ export const RECORD_KEYS: Readonly<Record<Part, ReadonlySet<string>>> = {
   page: new Set(Object.keys(Page.shape)),
   frame: new Set(Object.keys(Frame.shape)),
   layer: new Set(Object.keys(Layer.options[0].shape)),
+  section: new Set(Object.keys(Section.shape)),
+  connector: new Set(Object.keys(Connector.shape)),
 }
 
 /** The keys each layer type's props may hold, from the schema. */
@@ -65,12 +71,29 @@ export const ORDER_KEY: Readonly<Record<HeldPart, 'order' | 'index'>> = {
   page: 'order',
   frame: 'order',
   layer: 'index',
+  section: 'order',
+  connector: 'order',
 }
 
-/** The key of a record that names what holds it: a frame's page, a layer's parent. */
-const HOLDER_KEY: Partial<Record<Part, string>> = { frame: 'pageId', layer: 'parentId' }
+/**
+ * The key of a record that names what holds it: a frame's, a section's and a connector's page, a
+ * layer's parent. A page's delete takes what it holds.
+ */
+const HOLDER_KEY: Partial<Record<Part, string>> = {
+  frame: 'pageId',
+  layer: 'parentId',
+  section: 'pageId',
+  connector: 'pageId',
+}
 
-const NAMES: Record<Part, string> = { meta: 'the design', page: 'page', frame: 'frame', layer: 'layer' }
+const NAMES: Record<Part, string> = {
+  meta: 'the design',
+  page: 'page',
+  frame: 'frame',
+  layer: 'layer',
+  section: 'section',
+  connector: 'connector',
+}
 
 /** Nothing is owned: every write copies. */
 const NONE_OWNED: ReadonlySet<Rec> = new Set()
@@ -90,7 +113,7 @@ export function targetKey(t: Target): string {
   return t.prop === undefined ? `${t.part}/${t.id}/${t.key}` : `${t.part}/${t.id}/${t.key}/${t.prop}`
 }
 
-/** What holds a record: a frame's page id or a layer's parent id (undefined for a page or the meta). */
+/** What holds a record: a frame's, section's or connector's page id, or a layer's parent id (undefined for a page or the meta). */
 export function holderOf(part: Part, record: Rec): string | undefined {
   const key = HOLDER_KEY[part]
   const holder = key === undefined ? undefined : own(record, key)

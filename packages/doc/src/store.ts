@@ -3,12 +3,14 @@
 // told to the view as the records it touched. client-store.ts keeps them on a sync client.
 import type {
   BindableProperty,
+  Connector,
   Design,
   Frame,
   Layer,
   Page,
   RejectReason,
   RestoreMark,
+  Section,
   VariableRef,
 } from '@dazbee/schema'
 
@@ -32,9 +34,15 @@ export interface EndedStep {
 export type NotSavedWhy = 'rejected' | 'tooBig' | 'lost' | 'ended'
 
 /** The records a design keeps by id. */
-export type Part = 'page' | 'frame' | 'layer'
+export type Part = 'page' | 'frame' | 'layer' | 'section' | 'connector'
 /** The record each part keeps, as the design holds it. */
-export type RecordOf<P extends Part> = { page: Page; frame: Frame; layer: Layer }[P]
+export type RecordOf<P extends Part> = {
+  page: Page
+  frame: Frame
+  layer: Layer
+  section: Section
+  connector: Connector
+}[P]
 
 /**
  * What commands read and write. A read sees what the open transaction has written so far. A record
@@ -51,11 +59,11 @@ export interface StoreWrite {
   /** A held layer's binding of `property`, as written so far; undefined where it has none. */
   binding(id: string, property: BindableProperty): VariableRef | undefined
   /**
-   * Whether a page, a frame or a layer holds `id` now. A new record may not take an id while it is
+   * Whether a page, a frame, a layer, a section or a connector holds `id` now. A new record may not take an id while it is
    * live; one deleted is free again, and undoing the delete makes it under the same id (C27).
    */
   isLive(id: string): boolean
-  /** Holds a new record under `id`: a page, a frame, or a whole layer, a text layer's text and runs included. */
+  /** Holds a new record under `id`: a page, a frame, a section, a connector, or a whole layer, a text layer's text and runs included. */
   create<P extends Part>(part: P, id: string, record: RecordOf<P>): void
   /** Sets a top-level key of a record. */
   set(part: Part, id: string, key: string, value: unknown): void
@@ -70,7 +78,7 @@ export interface StoreWrite {
   /** Takes a layer's binding of `property` out: the layer's bindings go with its last. */
   unsetBinding(id: string, property: BindableProperty): void
   /**
-   * Removes a page or a frame. A layer is deleted and stays held, so that undo brings it back with
+   * Removes a page, a frame, a section or a connector. A layer is deleted and stays held, so that undo brings it back with
    * what other tabs wrote to it meanwhile.
    */
   remove(part: Part, id: string): void
@@ -87,7 +95,7 @@ export interface StoreWrite {
 
 /** What one change to the store touched. */
 export interface StoreChange {
-  /** Whether the meta, a page or a frame changed. */
+  /** Whether the meta, a page, a frame, a section or a connector changed. */
   head: boolean
   /** The layers whose records changed, by id. */
   layers: ReadonlySet<string>
@@ -129,8 +137,8 @@ export interface DesignStore extends StoreWrite {
    * `first` hears before every listener added without it, so a view it keeps is current for them.
    */
   onChange(listener: (change: StoreChange) => void, first?: boolean): () => void
-  /** The meta, pages and frames as stored, before they are read. */
-  head(): Pick<Snapshot, 'meta' | 'pages' | 'frames'>
+  /** The meta, pages, frames, sections and connectors as stored, before they are read: the last two absent while there are none. */
+  head(): Omit<Snapshot, 'nodes'>
   /** A layer as stored, before it is read; undefined for one deleted or never held. */
   layer(id: string): unknown
   /** The whole design as stored, before it is read: its deleted layers left out. */

@@ -56,6 +56,33 @@ describe('parseDesign', () => {
     expect(result.design.frames.sq?.fills).toEqual([])
   })
 
+  it('reads a design stored without sections or connectors as having none', () => {
+    const result = parseDesign(minimal())
+    if (!result.success) throw new Error(result.errors.join('\n'))
+    expect(result.design.sections).toEqual({})
+    expect(result.design.connectors).toEqual({})
+    expect(result.design.frames.sq).not.toHaveProperty('sectionId')
+    expect(result.design.frames.sq).not.toHaveProperty('starred')
+  })
+
+  it("keeps a page's sections and connectors, and a frame's section and star", () => {
+    const d = {
+      ...minimal(),
+      sections: { s1: { pageId: 'p1', title: 'Feed', order: 'a0' } },
+      connectors: { c1: { pageId: 'p1', from: 'sq', to: 's1', order: 'a0' } },
+    }
+    Object.assign(d.frames.sq, { sectionId: 's1', starred: true })
+    const result = parseDesign(d)
+    if (!result.success) throw new Error(result.errors.join('\n'))
+    expect(result.design.sections).toEqual(d.sections)
+    expect(result.design.connectors).toEqual(d.connectors)
+    expect(result.design.frames.sq).toMatchObject({ sectionId: 's1', starred: true })
+  })
+
+  it('takes a star only as true', () => {
+    expect(errorsFor((d) => Object.assign(d.frames.sq, { starred: false }))).toHaveLength(1)
+  })
+
   it('rejects a frame whose size is not whole pixels', () => {
     expect(
       errorsFor((d) => {
@@ -351,6 +378,43 @@ describe('checkStructure', () => {
         Object.assign(d.frames, { banner: { ...banner, pageId: 'ghost' } })
       }),
     ).toEqual(['frames.banner.pageId: no page "ghost"'])
+  })
+
+  it('rejects a section or a connector whose page is missing, but not loose ends inside a page', () => {
+    expect(
+      errorsFor((d) => {
+        Object.assign(d, {
+          sections: {
+            s1: { pageId: 'ghost', title: 'Lost', order: 'a0' },
+            s2: { pageId: 'p1', title: 'Kept', order: 'a1' },
+          },
+          connectors: {
+            c1: { pageId: 'ghost', from: 'sq', to: 's1', order: 'a0' },
+            // Ends that are gone, and a frame naming a missing section, are only not drawn.
+            c2: { pageId: 'p1', from: 'gone', to: 'also-gone', order: 'a1' },
+          },
+        })
+        Object.assign(d.frames.sq, { sectionId: 'missing' })
+      }),
+    ).toEqual(['sections.s1.pageId: no page "ghost"', 'connectors.c1.pageId: no page "ghost"'])
+  })
+
+  it('rejects a section or connector id that another record has', () => {
+    expect(
+      errorsFor((d) => {
+        Object.assign(d, {
+          sections: {
+            sq: { pageId: 'p1', title: 'Clash', order: 'a0' },
+            s1: { pageId: 'p1', title: 'S', order: 'a1' },
+          },
+          connectors: { s1: { pageId: 'p1', from: 'sq', to: 'r1', order: 'a0' } },
+        })
+      }),
+    ).toEqual([
+      'sections.sq: "sq" is a section and another record',
+      'sections.s1: "s1" is a section and another record',
+      'connectors.s1: "s1" is a connector and another record',
+    ])
   })
 
   it('rejects a layer id that is also a frame id', () => {

@@ -150,6 +150,34 @@ describe('templates (#54)', { timeout: 60_000 }, () => {
     expect(Buffer.from(b.pixels).equals(Buffer.from(a.pixels))).toBe(true)
   })
 
+  it('keeps sections, connectors and stars in a design started from a template, under fresh ids that join the same things', async () => {
+    const photo = (await uploadImage('a', brand.id, png(8, 8, `${run}-sections`))).asset
+    const plain = content(photo.id)
+    const grouped = {
+      ...plain,
+      frames: { sq: { ...plain.frames.sq, sectionId: 's1', starred: true }, wide: plain.frames.wide },
+      sections: { s1: { pageId: 'p1', title: 'Ads', order: 'a0' } },
+      connectors: { c1: { pageId: 'p1', from: 's1', to: 'wide', order: 'a0' } },
+    }
+    const saved = await call('a', 'POST', `/brands/${brand.id}/templates`, {
+      name: 'Grouped',
+      scope: 'brand',
+      content: grouped,
+    })
+    const template = TemplateSummary.parse(saved.json)
+    const started = await call('a', 'POST', `/brands/${brand.id}/templates/${template.id}/designs`, {})
+    const copy = await designOf(DesignSummary.parse(started.json).id)
+    const [sectionId] = Object.keys(copy.sections)
+    const square = Object.values(copy.frames).find((frame) => frame.name === 'Square')
+    const wideId = Object.keys(copy.frames).find((id) => copy.frames[id]?.name === 'Wide')
+    expect(sectionId).not.toBe('s1')
+    expect(copy.sections[sectionId ?? '']).toMatchObject({ title: 'Ads', pageId: square?.pageId })
+    expect(square).toMatchObject({ sectionId, starred: true })
+    expect(Object.entries(copy.connectors)).toEqual([
+      [expect.not.stringMatching(/^c1$/), { pageId: square?.pageId, from: sectionId, to: wideId, order: 'a0' }],
+    ])
+  })
+
   it("draws a template's thumbnail from its cover frame and takes its size: the first frame of the first page that has one", async () => {
     // An empty page first; then two pages at the same order, the one listed first not the one first by id.
     const square = (pageId: string, side: number, color: string) => ({

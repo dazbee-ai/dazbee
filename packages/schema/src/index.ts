@@ -10,6 +10,7 @@ export { carryOverLayer, carryOverLayers, carryOverTextStyle } from './carry-ove
 export * from './clipboard.ts'
 export {
   checkFrame,
+  checkHeldByPage,
   checkLayer,
   checkPages,
   checkStructure,
@@ -28,9 +29,19 @@ export {
   parseDesign,
   type ParseResult,
   SCHEMA_VERSION,
+  type StructureInput,
   type StructureLookup,
 } from './design.ts'
-export { blankDesign, coverFrame, FRAME_GAP, frameIdOf, framesOf, NEW_FRAME_FILLS, newFramePosition } from './frames.ts'
+export {
+  blankDesign,
+  coverFrame,
+  FRAME_GAP,
+  frameIdOf,
+  framesOf,
+  freeSpot,
+  NEW_FRAME_FILLS,
+  newFramePosition,
+} from './frames.ts'
 export * from './effects.ts'
 export * from './export.ts'
 export * from './figma-import.ts'
@@ -45,6 +56,7 @@ export * from './parse-incremental.ts'
 export * from './primitives.ts'
 export * from './readable-text.ts'
 export * from './safe-zones.ts'
+export * from './sections.ts'
 export * from './server-settings.ts'
 export * from './sizes.ts'
 export * from './stock.ts'

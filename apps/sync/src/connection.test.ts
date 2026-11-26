@@ -190,6 +190,15 @@ describe('versions', () => {
     expect(await tab.whenClosed()).toBe(SYNC_CLOSE.tabTooOld)
   })
 
+  it('closes a tab built at the version before, on a design whose record and token say that version', async () => {
+    const { url } = await started()
+    const design = await storeSaved()
+    const tab = await openTab(url, design, { version: SCHEMA_VERSION - 1 })
+    tab.hello(tokenFor(design, { schemaVersion: SCHEMA_VERSION - 1 }))
+    expect(await tab.whenClosed()).toBe(SYNC_CLOSE.tabTooOld)
+    expect(tab.heard).toEqual([])
+  })
+
   it("closes a tab older than its token's design, at hello and at renewal", async () => {
     const { url } = await started()
     const design = await storeSaved()

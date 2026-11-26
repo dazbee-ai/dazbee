@@ -5,6 +5,7 @@ import { isRecord } from './json.ts'
 import { canHold, Layer } from './layers.ts'
 import { Paint } from './paint.ts'
 import { FractionalIndex, FrameId, NodeId, PageId } from './primitives.ts'
+import { Connector, ConnectorId, Section, SectionId } from './sections.ts'
 import { bindProps, type Variables } from './variables.ts'
 
 export const Page = z.object({
@@ -42,14 +43,20 @@ export const Frame = z.object({
   order: FractionalIndex,
   /** Its guides, in the order they were added; left out while it has none. */
   guides: Guide.array().max(MAX_GUIDES).optional(),
+  /** The section it is in, if any: one that is missing or on another page counts as none (ADR-0024). */
+  sectionId: SectionId.optional(),
+  /** Starred as ready to go out; left out while it is not. Export starts with the starred frames ticked. */
+  starred: z.literal(true).optional(),
 })
 export type Frame = z.infer<typeof Frame>
 
 /**
  * The version of this schema, which the API writes into a design's record when it creates one. A
- * sync token carries the design's, and the sync server refuses a tab built with an older version.
+ * sync token carries the larger of the design's and the API's, and the sync server refuses a tab
+ * built with an older version. 22 adds a page's sections and connectors, and a frame's
+ * `sectionId` and `starred` (ADR-0024).
  */
-export const SCHEMA_VERSION = 21
+export const SCHEMA_VERSION = 22
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),
@@ -62,6 +69,9 @@ export const DesignHead = z.object({
   meta: DesignMeta,
   pages: z.record(PageId, Page),
   frames: z.record(FrameId, Frame),
+  /** A design stored before sections and connectors holds none. */
+  sections: z.record(SectionId, Section).default({}),
+  connectors: z.record(ConnectorId, Connector).default({}),
 })
 export type DesignHead = z.infer<typeof DesignHead>
 
@@ -76,6 +86,10 @@ export const Design = DesignShape.superRefine((d, ctx) =>
 )
 export type Design = z.infer<typeof Design>
 export type DesignInput = z.input<typeof Design>
+
+/** What the structure rules read of a whole design: its sections and connectors, when it has them. */
+export type StructureInput = Pick<DesignShape, 'pages' | 'frames' | 'nodes'> &
+  Partial<Pick<DesignShape, 'sections' | 'connectors'>>
 
 export type ParseResult = { success: true; design: Design } | { success: false; errors: string[] }
 
@@ -92,6 +106,8 @@ export interface StructureLookup {
   pageCount(): number
   hasPage(id: string): boolean
   frame(id: string): Pick<Frame, 'pageId'> | undefined
+  section(id: string): Pick<Section, 'pageId'> | undefined
+  connector(id: string): Pick<Connector, 'pageId'> | undefined
   layer(id: string): Pick<Layer, 'type' | 'parentId' | 'link'> | undefined
   /**
    * The layer whose hold on `link` in frame `frameId` comes before layer `id`'s, if one does:
@@ -168,16 +184,19 @@ function frameFinder(design: Design): (id: string) => string | undefined {
 }
 
 /**
- * The rules about the design's shape: it has a page; every frame's page exists; every layer's
- * chain of parents ends at a frame, through layers that can hold what they hold; and no frame
- * holds two layers with one link id. Each rule is written once (`checkPages`, `checkFrame`,
- * `checkLayer`) over a lookup: this runs them all over a whole design, and the sync server runs
- * them over the records a change set wrote.
+ * The rules about the design's shape: it has a page; every frame's, section's and connector's page
+ * exists; every layer's chain of parents ends at a frame, through layers that can hold what they
+ * hold; and no frame holds two layers with one link id. A frame's section and a connector's ends
+ * are loose references, which no rule checks (ADR-0024). Each rule is written once (`checkPages`,
+ * `checkFrame`, `checkHeldByPage`, `checkLayer`) over a lookup: this runs them all over a whole
+ * design, and the sync server runs them over the records a change set wrote.
  */
-export function checkStructure(d: Pick<DesignShape, 'pages' | 'frames' | 'nodes'>, fail: Fail) {
+export function checkStructure(d: StructureInput, fail: Fail) {
   const lookup = designLookup(d)
   checkPages(lookup, fail)
   for (const id of Object.keys(d.frames)) checkFrame(lookup, id, fail)
+  for (const id of Object.keys(d.sections ?? {})) checkHeldByPage(lookup, 'section', id, fail)
+  for (const id of Object.keys(d.connectors ?? {})) checkHeldByPage(lookup, 'connector', id, fail)
   for (const id of Object.keys(d.nodes)) checkLayer(lookup, id, fail)
 }
 
@@ -190,6 +209,16 @@ export function checkPages(lookup: StructureLookup, fail: Fail) {
 export function checkFrame(lookup: StructureLookup, id: string, fail: Fail) {
   const frame = lookup.frame(id)
   if (frame && !lookup.hasPage(frame.pageId)) fail(['frames', id, 'pageId'], `no page "${frame.pageId}"`)
+}
+
+/** Section or connector `id`'s page exists, and no other record of the design has its id. */
+export function checkHeldByPage(lookup: StructureLookup, part: 'section' | 'connector', id: string, fail: Fail) {
+  const record = lookup[part](id)
+  if (!record) return
+  const other = part === 'section' ? lookup.connector(id) : lookup.section(id)
+  if (lookup.hasPage(id) || lookup.frame(id) || lookup.layer(id) || other)
+    fail([`${part}s`, id], `"${id}" is a ${part} and another record`)
+  if (!lookup.hasPage(record.pageId)) fail([`${part}s`, id, 'pageId'], `no page "${record.pageId}"`)
 }
 
 /**
@@ -257,7 +286,7 @@ export function frameOfLayer(lookup: StructureLookup, id: string): FrameEnd {
 }
 
 /** A lookup over a whole design: a link is held first by the first of its layers in the design's order. */
-function designLookup(d: Pick<DesignShape, 'pages' | 'frames' | 'nodes'>): StructureLookup {
+function designLookup(d: StructureInput): StructureLookup {
   const own = <T>(records: Record<string, T>, id: string) => (Object.hasOwn(records, id) ? records[id] : undefined)
   /** The first holder of each link id, by frame. */
   const firsts = new Map<string, Map<string, string>>()
@@ -266,6 +295,8 @@ function designLookup(d: Pick<DesignShape, 'pages' | 'frames' | 'nodes'>): Struc
     pageCount: () => Object.keys(d.pages).length,
     hasPage: (id) => Object.hasOwn(d.pages, id),
     frame: (id) => own(d.frames, id),
+    section: (id) => own(d.sections ?? {}, id),
+    connector: (id) => own(d.connectors ?? {}, id),
     layer: (id) => own(d.nodes, id),
     linkTakenBy: (frameId, link, id) => {
       const first = firsts.get(frameId)?.get(link)

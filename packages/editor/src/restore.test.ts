@@ -75,6 +75,7 @@ function version(pages: 'both' | 'third' = 'both'): Design {
       ? design.frames
       : Object.fromEntries(Object.entries(design.frames).map(([id, frame]) => [id, { ...frame, pageId: second }]))
   return {
+    ...design,
     meta: { designId: 'elsewhere', name: 'Another name' },
     pages: { ...first, [second]: { name: 'Second', order: 'a1' } },
     frames: {

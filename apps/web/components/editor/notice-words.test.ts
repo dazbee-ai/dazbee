@@ -48,6 +48,17 @@ describe('noticeWords', () => {
     )
   })
 
+  it('names the sections or the connectors when they are what is near its limit, in both languages', () => {
+    expect(noticeWords('en', en.editor, 'nearLimit', { share: 0.8, parts: 'sections' })).toBe(
+      'This design holds 80% of the sections it can. Ungroup some sections before it fills up.',
+    )
+    expect(noticeWords('en', en.editor, 'nearLimit', { share: 0.9, parts: 'connectors' })).toBe(
+      'This design holds 90% of the connectors it can. Delete some connectors before it fills up.',
+    )
+    expect(noticeWords('ar', ar.editor, 'nearLimit', { share: 0.8, parts: 'sections' })).toContain('الأقسام')
+    expect(noticeWords('ar', ar.editor, 'nearLimit', { share: 0.8, parts: 'connectors' })).toContain('الموصلات')
+  })
+
   it('gives the notices with nothing besides them their words as they are', () => {
     for (const n of ['deviceFull', 'deviceCopyFailed', 'noDeviceCopy', 'viewOnly', 'pickFailed', 'pickTooBig'] as const)
       expect(noticeWords('en', en.editor, n)).toBe(en.editor.notices[n])

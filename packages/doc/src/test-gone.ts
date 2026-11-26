@@ -31,14 +31,17 @@ export class Gone {
 
   /** Notes what an untracked step deleted: the parts of `before` (ids) that `after` no longer has. */
   untracked(before: readonly string[], after: Design) {
-    for (const id of before) if (!after.pages[id] && !after.frames[id] && !after.nodes[id]) this.#untracked.add(id)
+    const parts = [after.pages, after.frames, after.nodes, after.sections, after.connectors]
+    for (const id of before) if (!parts.some((part) => Object.hasOwn(part, id))) this.#untracked.add(id)
   }
 
-  /** Notes, as each change of the tab's design comes, what held each frame and layer that went. */
+  /** Notes, as each change of the tab's design comes, what held each frame, section, connector and layer that went. */
   watchTab(session: Session, store: ClientStore) {
     const holders = (design: Design) =>
       new Map([
-        ...Object.entries(design.frames).map(([id, frame]) => [id, frame.pageId] as const),
+        ...[design.frames, design.sections, design.connectors].flatMap((part) =>
+          Object.entries(part).map(([id, held]) => [id, held.pageId] as const),
+        ),
         ...Object.entries(design.nodes).map(([id, layer]) => [id, layer.parentId] as const),
       ])
     let held = holders(session.design())
@@ -77,7 +80,11 @@ export class Gone {
     const holders = (up: string) => {
       const went = this.#heldWhenGone.get(up)
       if (went) return [...went]
-      const first = start.nodes[up]?.parentId ?? start.frames[up]?.pageId
+      const first =
+        start.nodes[up]?.parentId ??
+        start.frames[up]?.pageId ??
+        start.sections[up]?.pageId ??
+        start.connectors[up]?.pageId
       return first === undefined ? [] : [first]
     }
     const chain = new Set<string>()
@@ -117,14 +124,17 @@ function unheardDeletes(client: Client, { processed }: Extract<ServerMessage, { 
   const accepted = client.save().queue.filter((q) => q.id <= processed.lastChangeSet && !rejected.has(q.id))
   const roots = new Set(accepted.flatMap((q) => q.changes.flatMap((c) => (c.op === 'delete' ? [c.id] : []))))
   const state = client.confirmed()
-  const known = new Set((['page', 'frame', 'layer'] as const).flatMap((part) => state.ids(part)))
+  const known = new Set(
+    (['page', 'frame', 'layer', 'section', 'connector'] as const).flatMap((part) => state.ids(part)),
+  )
   return { roots, known }
 }
 
-/** What holds each frame and layer of a design state. */
+/** What holds each frame, section, connector and layer of a design state. */
 function holdersOn(state: ReadState): Map<string, string> {
   const held = new Map<string, string>()
-  for (const id of state.ids('frame')) held.set(id, state.get('frame', id)?.pageId as string)
+  for (const part of ['frame', 'section', 'connector'] as const)
+    for (const id of state.ids(part)) held.set(id, state.get(part, id)?.pageId as string)
   for (const id of state.ids('layer')) held.set(id, state.get('layer', id)?.parentId as string)
   return held
 }

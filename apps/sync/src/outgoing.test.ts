@@ -24,7 +24,7 @@ function welcome(seq: number, records: DesignRecords, tabId = 1, syncId = 's1'):
     seq,
     secret: `secret${tabId}`,
     access: 'edit',
-    size: { layers: 0, frames: 0, pages: 1, bytes: 10 },
+    size: { layers: 0, frames: 0, pages: 1, sections: 0, connectors: 0, bytes: 10 },
     tabs: {},
     processed: { lastChangeSet: 0, rejected: [] },
     catchUp: { design: records },

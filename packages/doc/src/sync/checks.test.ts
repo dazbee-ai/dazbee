@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { type Change, type DesignRecords, parseDesign, SYNC_LIMITS, type Target } from '@dazbee/schema'
 
-import { kindsDesign, linkedDesign, testDesign } from '../test-design.ts'
+import { kindsDesign, linkedDesign, sectionedDesign, testDesign } from '../test-design.ts'
 import { seeded } from '../test-walk.ts'
 import type { Rec } from './changes.ts'
 import { bytesWritten, capIssue, changeSetIssue, designBytes, designSizeOf, sizeOf, utf8Length } from './checks.ts'
@@ -44,6 +44,15 @@ describe('capIssue', () => {
       id: `p${i}`,
     }))
     expect(capIssue(pages)?.words).toBe('1001 pages, past 1000')
+  })
+
+  it('rejects more sections or connectors than a design may hold', () => {
+    const deletes = (part: 'section' | 'connector', n: number): Change[] =>
+      Array.from({ length: n }, (_, i) => ({ op: 'delete', part, id: `${part}${i}` }))
+    expect(capIssue(deletes('section', SYNC_LIMITS.designSections))).toBeUndefined()
+    expect(capIssue(deletes('section', SYNC_LIMITS.designSections + 1))?.words).toBe('1001 sections, past 1000')
+    expect(capIssue(deletes('connector', SYNC_LIMITS.designConnectors))).toBeUndefined()
+    expect(capIssue(deletes('connector', SYNC_LIMITS.designConnectors + 1))?.words).toBe('5001 connectors, past 5000')
   })
 
   it('rejects more changes than a change set may hold', () => {
@@ -154,6 +163,32 @@ describe('changeSetIssue', () => {
     )
   })
 
+  it('rejects a section or a connector whose page is gone or that the schema does not take, but not a loose end', () => {
+    const sectioned = (...changes: Change[]) => {
+      const { before, after, written } = applied(records(sectionedDesign()), changes)
+      return changeSetIssue(after, before, written)
+    }
+    const section = { pageId: 'p1', title: 'New', order: 'a5' }
+    expect(sectioned({ op: 'create', part: 'section', id: 'new', record: section })).toBeUndefined()
+    expect(sectioned({ op: 'create', part: 'section', id: 'new', record: { ...section, pageId: 'p9' } })?.words).toBe(
+      'sections.new.pageId: no page "p9"',
+    )
+    expect(sectioned({ op: 'create', part: 'section', id: 'new', record: { ...section, title: '' } })).toMatchObject({
+      reason: 'invalidRecord',
+    })
+    expect(sectioned({ op: 'set', value: { part: 'connector', id: 'sq-story', key: 'pageId' }, to: 'p9' })?.words).toBe(
+      'connectors.sq-story.pageId: no page "p9"',
+    )
+    // Loose references are for races: a connector to nothing, a frame in a section that is gone.
+    expect(
+      sectioned({ op: 'set', value: { part: 'connector', id: 'sq-story', key: 'to' }, to: 'gone' }),
+    ).toBeUndefined()
+    expect(sectioned({ op: 'delete', part: 'section', id: 'ads' })).toBeUndefined()
+    expect(sectioned({ op: 'set', value: { part: 'frame', id: 'tall', key: 'starred' }, to: false })).toMatchObject({
+      reason: 'invalidRecord',
+    })
+  })
+
   it('rejects a layer deleted and made again as another type that cannot hold what it holds, or be where it is', () => {
     const graphic = (parentId: string, link: string) => ({
       type: 'graphic',
@@ -258,15 +293,22 @@ describe('designBytes', () => {
 })
 
 describe('designSizeOf', () => {
-  it('counts the layers, frames and pages of a design’s records, and their bytes as designBytes counts them', () => {
-    const design = records(linkedDesign())
+  it('counts the layers, frames, pages, sections and connectors of a design’s records, and their bytes as designBytes counts them', () => {
+    const design = records(sectionedDesign())
     const state = DesignState.fromRecords(design)
     expect(designSizeOf(state.toRecords())).toEqual({
       layers: Object.keys(design.nodes).length,
       frames: Object.keys(design.frames).length,
       pages: Object.keys(design.pages).length,
+      sections: 3,
+      connectors: 2,
       bytes: designBytes(state),
     })
+    expect(designBytes(state)).toBeGreaterThan(designBytes(DesignState.fromRecords(records(linkedDesign()))))
+  })
+
+  it('counts no sections or connectors for records without them', () => {
+    expect(designSizeOf(records(linkedDesign()))).toMatchObject({ sections: 0, connectors: 0 })
   })
 })
 

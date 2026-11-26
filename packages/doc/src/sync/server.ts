@@ -144,7 +144,7 @@ interface Connected {
   presence?: Presence
 }
 
-const SIZE_KEYS: readonly (keyof DesignSize)[] = ['layers', 'frames', 'pages', 'bytes']
+const SIZE_KEYS: readonly (keyof DesignSize)[] = ['layers', 'frames', 'pages', 'sections', 'connectors', 'bytes']
 
 /**
  * The server for the design `loaded` holds: the folded state with the journal replayed through
@@ -391,12 +391,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
     }
     const before = size()
     const grown = bytes + bytesWritten(applied.after, state, applied.written)
-    const after: DesignSize = {
-      layers: applied.after.count('layer'),
-      frames: applied.after.count('frame'),
-      pages: applied.after.count('page'),
-      bytes: grown,
-    }
+    const after: DesignSize = { ...countsOf(applied.after), bytes: grown }
     const tooBig = grownPast(before, after)
     if (tooBig) return reject('designTooBig', tooBig)
     // The design as it was is kept before an agent's first edit since a person's, whether changed or
@@ -456,7 +451,7 @@ export function openServer(loaded: Loaded, options: ServerOptions): Server {
   }
 
   function size(): DesignSize {
-    return { layers: state.count('layer'), frames: state.count('frame'), pages: state.count('page'), bytes }
+    return { ...countsOf(state), bytes }
   }
 
   /** Keeps an accepted change set in the catch-up log, dropping the oldest past its limits. */
@@ -561,7 +556,20 @@ function sizeCaps(limits: ServerLimits): DesignSize {
     layers: limits.designLayers,
     frames: limits.designFrames,
     pages: limits.designPages,
+    sections: limits.designSections,
+    connectors: limits.designConnectors,
     bytes: limits.designBytes,
+  }
+}
+
+/** How many records of each part a state holds, by the part of a design's size each counts as. */
+function countsOf(state: ReadState): Omit<DesignSize, 'bytes'> {
+  return {
+    layers: state.count('layer'),
+    frames: state.count('frame'),
+    pages: state.count('page'),
+    sections: state.count('section'),
+    connectors: state.count('connector'),
   }
 }
 

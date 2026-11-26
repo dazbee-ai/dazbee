@@ -7,6 +7,7 @@ import {
   type RestoreMark,
   type ServerMessage,
   SYNC_CLOSE,
+  SYNC_LIMITS,
 } from '@dazbee/schema'
 
 import { linkedDesign } from '../test-design.ts'
@@ -201,6 +202,37 @@ describe('openServer', () => {
       const out = send(server, a.tabId, 1, [group('n1')])
       expect(out.map((m) => m.type)).toEqual(['accepted', 'notice'])
       expect(send(server, a.tabId, 2, [group('n2')]).map((m) => m.type)).toEqual(['accepted'])
+    })
+  })
+
+  describe('the limits of sections and connectors', () => {
+    const made = (part: 'section' | 'connector', from: number, count: number): Change[] =>
+      Array.from({ length: count }, (_, i) => ({
+        op: 'create',
+        part,
+        id: `${part}-${from + i}`,
+        record:
+          part === 'section'
+            ? { pageId: 'p1', title: 'S', order: 'a0' }
+            : { pageId: 'p1', from: 'sq', to: 'story', order: 'a0' },
+      }))
+
+    it.each([
+      ['section', SYNC_LIMITS.designSections, 'sections'],
+      ['connector', SYNC_LIMITS.designConnectors, 'connectors'],
+    ] as const)('warns at 80%% of the %s limit, and refuses the one past it', (part, limit, key) => {
+      const server = openServer(fresh(), testOptions())
+      const a = joined(server)
+      const warnAt = limit * SYNC_LIMITS.warnAt
+      expect(send(server, a.tabId, 1, made(part, 0, warnAt - 1)).map((m) => m.type)).toEqual(['accepted'])
+      const warned = send(server, a.tabId, 2, made(part, warnAt - 1, 1))
+      expect(warned.map((m) => m.type)).toEqual(['accepted', 'notice'])
+      expect(warned[1]).toMatchObject({ type: 'notice', kind: 'nearLimit', size: { [key]: warnAt } })
+      expect(send(server, a.tabId, 3, made(part, warnAt, limit - warnAt)).map((m) => m.type)).toEqual(['accepted'])
+      expect(server.size()[key]).toBe(limit)
+      expect(send(server, a.tabId, 4, made(part, limit, 1))).toEqual([
+        { type: 'reject', changeSetId: 4, reason: 'designTooBig' },
+      ])
     })
   })
 

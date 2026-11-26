@@ -375,6 +375,8 @@ function commandFrom({ session, name, focus }: Tab, random: () => number, refuse
       pages: shuffled(design.pages),
       frames: shuffled(design.frames),
       nodes: shuffled(design.nodes, focus?.()),
+      sections: shuffled(design.sections),
+      connectors: shuffled(design.connectors),
     },
     // No id the design held before is given as a new one: ids are random, and one taken again would
     // hold back the undo of the tab that deleted it (C27). The sweep, on one tab, gives one.

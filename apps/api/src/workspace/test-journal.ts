@@ -2,7 +2,7 @@
 // sets appended to its journal as the sync server appends them, unfolded.
 import { appendRows, createDesignSave, type Db, loadDesignRows } from '@dazbee/db'
 import { firstSaved } from '@dazbee/doc/sync'
-import type { Change, Design, DesignRecords, Entry } from '@dazbee/schema'
+import { type Change, type Design, type DesignRecords, designRecords, type Entry } from '@dazbee/schema'
 
 /** The member a test's change sets are written by. */
 const WRITER = { userId: 'test-writer', workspaceId: 'test-workspace' }
@@ -14,8 +14,7 @@ export async function savedState(db: Db, designId: string): Promise<DesignRecord
 
 /** Stores `design` as the design's first state, as the API's create does. */
 export function storeDesign(db: Db, designId: string, design: Design): Promise<void> {
-  const { meta, pages, frames, nodes } = design
-  return createDesignSave(db, designId, firstSaved({ meta, pages, frames, nodes }, `sync-${designId}`))
+  return createDesignSave(db, designId, firstSaved(designRecords(design), `sync-${designId}`))
 }
 
 /** Appends a journal entry after the design's last, as the sync server does. */

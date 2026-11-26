@@ -585,6 +585,12 @@ export const en = {
       noDeviceCopy: 'Stay online while you edit: this browser can’t keep changes here.',
       /** A design past 80% of one of its limits. */
       nearLimit: 'This design is {percent} full. Move some frames to another design before it fills up.',
+      /** A design past 80% of the sections it may hold. */
+      nearLimitSections:
+        'This design holds {percent} of the sections it can. Ungroup some sections before it fills up.',
+      /** A design past 80% of the connectors it may hold. */
+      nearLimitConnectors:
+        'This design holds {percent} of the connectors it can. Delete some connectors before it fills up.',
       viewOnly: 'You can view this design, not edit it.',
       /** Another tab's person is typing in the text this tab starts editing: the version finished last is kept. */
       editingElsewhere: '{name} is editing this text: the version finished last is kept.',

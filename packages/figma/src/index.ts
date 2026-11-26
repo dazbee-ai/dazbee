@@ -56,6 +56,8 @@ export function figmaToImport(
       layers: frames.reduce((sum, f) => sum + Object.keys(f.layers?.nodes ?? {}).length, 0),
       frames: frames.length,
       pages: converted.pages.length,
+      sections: 0,
+      connectors: 0,
       bytes: new TextEncoder().encode(JSON.stringify(converted)).length,
     },
   }

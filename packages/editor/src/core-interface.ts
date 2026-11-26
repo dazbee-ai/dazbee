@@ -258,8 +258,11 @@ export interface NoticeDetails {
   putBack: { step: StepName | null }
   /** Who restored, by their member's name, and which version. */
   restored: { by: string; mark: RestoreMark }
-  /** The largest share of a design limit the design holds, from 0.8 up. */
-  nearLimit: { share: number }
+  /**
+   * The largest share of a design limit the design holds, from 0.8 up, and `parts` when that limit
+   * is its sections' or connectors': left out for its layers, frames, pages or size.
+   */
+  nearLimit: { share: number; parts?: 'sections' | 'connectors' }
   /** The name of another tab's person typing in the text this tab starts editing (C47). */
   editingElsewhere: { name: string }
 }

@@ -85,7 +85,7 @@ describe('POST /brands/:b/ai/jobs/:id/claim', () => {
 describe('POST /brands/:b/ai/jobs/:id/finished', () => {
   it('makes the job’s frames editable and lets the lease go, refused while another tab holds it', async () => {
     const { team, job, frame } = await layering()
-    await makeCall(job, 1, { step: 'flow.layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
+    await makeCall(job, 1, { fn: 'layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
     await endJob(job, 'done')
     await claim(team, job, FIRST)
     expect((await finished(team, job, SECOND)).status).toBe(409)
@@ -119,8 +119,8 @@ describe('a finish where one split failed', () => {
         { frameId: second, pictureAssetId: pictures[1] },
       ],
     })
-    await makeCall(job, 1, { step: 'flow.layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
-    await makeCall(job, 3, { step: 'flow.layer-split', output: 'failed' })
+    await makeCall(job, 1, { fn: 'layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
+    await makeCall(job, 3, { fn: 'layer-split', output: 'failed' })
     await endJob(job, 'done')
     const states = async () =>
       DesignAi.parse((await ask(team, team.editor, 'GET', `/designs/${team.design}/ai`)).json).frames
@@ -140,7 +140,7 @@ describe('GET /brands/:b/ai/jobs/:id/files/:index', () => {
     const keys = await Promise.all(layers.map((bytes) => storeOriginal(team, bytes)))
     const file = (index: number) => ask(team, team.editor, 'GET', `/ai/jobs/${job}/files/${index}`)
     await makeCall(job, 1, {
-      step: 'flow.layer-split',
+      fn: 'layer-split',
       output: {
         kind: 'layers',
         layers: keys.map((key) => ({ key, width: 512, height: 512 })),

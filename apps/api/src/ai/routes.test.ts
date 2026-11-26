@@ -171,7 +171,7 @@ describe('GET /brands/:b/designs/:d/ai', () => {
     const team = await addTeam()
     const request = roundRequest(team)
     const job = await start(team, request)
-    await makeCall(job, 0, { step: 'flow.round-plan', output: { kind: 'text', text: '{}', json: PLAN } })
+    await makeCall(job, 0, { fn: 'round-plan', output: { kind: 'text', text: '{}', json: PLAN } })
     const picture = await addPicture(team)
     await makeCall(job, 1, { output: madePicture(team, picture) })
     await makeCall(job, 2, { output: 'failed' })
@@ -243,7 +243,7 @@ describe('try again', () => {
     const team = await addTeam()
     const request = roundRequest(team)
     const job = await start(team, request)
-    await makeCall(job, 0, { step: 'flow.round-plan', output: 'failed' })
+    await makeCall(job, 0, { fn: 'round-plan', output: 'failed' })
     await endJob(job, 'failed')
     const frame = request.frames[1]?.frameId ?? ''
     const again = await ask(team, team.editor, 'POST', '/ai/jobs', {
@@ -294,10 +294,10 @@ describe('refine, resize and layering', () => {
 
     const version = await addPicture(team)
     await makeCall(job, 0, {
-      step: 'flow.refine-plan',
+      fn: 'refine-plan',
       output: { kind: 'text', text: '', json: { instruction: 'x', summary: 'Bigger price', pinned_only: false } },
     })
-    await makeCall(job, 1, { step: 'flow.refine', output: madePicture(team, version) })
+    await makeCall(job, 1, { fn: 'refine-edit', output: madePicture(team, version) })
     const written = await ask(team, team.editor, 'POST', `/designs/${team.design}/ai/frames/${frame.frameId}/written`, {
       jobId: job,
       callIndex: 1,
@@ -350,7 +350,7 @@ describe('GET /brands/:b/ai/estimate', () => {
     const team = await addTeam()
     const read = await ask(team, team.editor, 'GET', '/ai/estimate?action=round&mode=fast&sizes=1080x1080')
     expect(read.status).toBe(200)
-    expect(AiEstimate.parse(read.json).seconds).toBe(69 + 26)
+    expect(AiEstimate.parse(read.json).seconds).toBe(10 + 28)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=dance')).status).toBe(400)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=resize&sizes=wide')).status).toBe(400)
   })

@@ -344,7 +344,7 @@ describe('DELETE /me', () => {
     })
     await db
       .insert(aiJobs)
-      .values({ id: ai.job, workspaceId: own.id, memberId: person.id, kind: 'ai-steps', state: 'done', input: {} })
+      .values({ id: ai.job, workspaceId: own.id, memberId: person.id, kind: 'calls', state: 'done', input: {} })
     await db.insert(aiCalls).values({
       id: ai.call,
       jobId: ai.job,
@@ -352,7 +352,8 @@ describe('DELETE /me', () => {
       callIndex: 0,
       try: 1,
       attempt: 1,
-      step: 'flow.read',
+      function: 'test-function',
+      preset: 'test',
       model: 'gpt-6-luna',
       seller: 'openai',
       state: 'done',

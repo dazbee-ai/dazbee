@@ -128,7 +128,7 @@ export async function jobRow(job: string) {
 export async function makeCall(
   job: string,
   index: number,
-  { step = 'flow.draft-fast', output }: { step?: string; output: CallOutput | 'failed' | 'running' },
+  { fn = 'draft', output }: { fn?: string; output: CallOutput | 'failed' | 'running' },
 ): Promise<void> {
   const row = await jobRow(job)
   const state = output === 'failed' ? 'failed' : output === 'running' ? 'running' : 'done'
@@ -139,7 +139,8 @@ export async function makeCall(
     callIndex: index,
     try: 1,
     attempt: 1,
-    step,
+    function: fn,
+    preset: 'test',
     model: 'test-model',
     seller: 'test-seller',
     state,

@@ -8,7 +8,7 @@ import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { type MemorySync, memorySync } from '../test-link.ts'
 import { type BriefRequest, type EditorArrivals, editorArrivals, POLL_MS, POLL_WAITING_MS } from './arrivals.ts'
-import { pictureLayerOf, WAITING_FILL } from './place-brief.ts'
+import { BRIEF_SCREEN_ROOM, pictureLayerOf, WAITING_FILL } from './place-brief.ts'
 import { type FakeAi, fakeAi } from './test-ai.ts'
 
 const ANN: Member = { userId: 'ann', workspaceId: 'w1' }
@@ -47,12 +47,20 @@ afterEach(async () => {
   for (const end of ending.splice(0).reverse()) await end()
 })
 
-/** A tab on the server in memory, as `token`'s member, with its arrivals on `ai`. */
+/**
+ * A tab on the server in memory, as `token`'s member, with its arrivals on `ai`; seen at 100 % and fetching
+ * pictures through its editor unless `link` says otherwise.
+ */
 async function tabOn(
   ai: FakeAi,
   token = 'ann',
   member = ANN,
-  link: { connected?: () => boolean; synced?: () => boolean } = {},
+  link: {
+    connected?: () => boolean
+    synced?: () => boolean
+    zoom?: number
+    fetchPictures?: (ids: readonly string[]) => Promise<void>
+  } = {},
 ): Promise<Tab> {
   const opened = await openTab({
     designId: 'd',
@@ -90,6 +98,8 @@ async function tabOn(
     },
     connected: link.connected ?? (() => opened.link.status() === 'connected'),
     synced: link.synced ?? opened.synced,
+    zoomFor: () => link.zoom ?? 1,
+    fetchPictures: link.fetchPictures ?? editor.modules.resources.fetchImages,
     signal: stop.signal,
   })
   ending.push(() => stop.abort())
@@ -150,7 +160,7 @@ describe('editorArrivals', () => {
         [0, 1, 2, 3].map((n) => ({
           name: `Draft ${n + 1}`,
           x: n * (1080 + FRAME_GAP),
-          y: 1080 + FRAME_GAP,
+          y: 1080 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM),
           width: 1080,
           height: 1080,
           sectionId: 'ann-5',
@@ -170,6 +180,16 @@ describe('editorArrivals', () => {
       expect(a.editor.session.design().nodes.a?.name).not.toBe('Mine')
       expect(Object.keys(a.editor.session.design().frames)).toHaveLength(6)
       expect(a.editor.core.canUndo()).toBe(false)
+    })
+
+    it('places a brief far enough below for its outline and title at the zoom the page is seen at', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai, 'ann', ANN, { zoom: 0.1 })
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      // At 10 %, the outlines' and labels' screen room takes ten times as many design pixels.
+      expect(a.editor.session.design().frames['ann-1']?.y).toBe(1080 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM / 0.1))
     })
 
     it('places nothing when the job is refused, and says why', async () => {
@@ -342,6 +362,30 @@ describe('editorArrivals', () => {
 
       expect(ai.marks).toEqual([{ frameId: 'ann-1', jobId: 'job1', callIndex: 1 }])
       expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
+    })
+
+    it('keeps the waiting fill until the picture’s bytes are here, then writes the picture', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      let bring = () => {}
+      const fetched: string[][] = []
+      const fetchPictures = (ids: readonly string[]) => {
+        fetched.push([...ids])
+        return new Promise<void>((resolve) => {
+          bring = resolve
+        })
+      }
+      const a = await tabOn(ai, 'ann', ANN, { fetchPictures })
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      ai.make('job1', 0, 'pic1')
+      await a.arrivals.poll()
+      await mem.settle()
+      expect(fetched).toEqual([['pic1']])
+      expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
+      bring()
+      await settle(a.arrivals)
+      expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual(pictureOf('pic1'))
     })
 
     it('writes no picture while the tab is offline, so none waits in its queue to land later', async () => {

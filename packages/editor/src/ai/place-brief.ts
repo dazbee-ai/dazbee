@@ -6,16 +6,20 @@ import type { Session } from '@dazbee/doc'
 import {
   type AiFrameTarget,
   type AiSize,
+  belowAll,
   briefTitle,
   type DesignSize,
   FRAME_GAP,
   type Layer,
+  type PageBox,
   type Paint,
   type Point,
   type SolidPaint,
   SYNC_LIMITS,
 } from '@dazbee/schema'
 
+import { LABEL_ROOM } from '../canvas/frames.ts'
+import { OUTLINE_PAD, TITLE_ROW } from '../canvas/sections.ts'
 import { shareOf } from '../link-notices.ts'
 
 /** A brief's section and frames as the tab made their ids, before they are placed. */
@@ -45,6 +49,12 @@ export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
 /** The name of a draft's picture layer. */
 export const PICTURE_NAME = 'Picture'
 
+/**
+ * The screen pixels between a brief's frames and the frames above them that the outlines and labels take, the same
+ * at any zoom: the outline's pad below the frames above, the new outline's pad and title row, and its frames' labels.
+ */
+export const BRIEF_SCREEN_ROOM = OUTLINE_PAD + OUTLINE_PAD + TITLE_ROW + LABEL_ROOM
+
 /** More than the bytes a brief's section, four frames and four picture layers take in the design. */
 const BRIEF_BYTES = 4096
 
@@ -63,6 +73,35 @@ export function planBrief(newId: () => string): BriefPlan {
  */
 export function pictureLayerOf(frameId: string): string {
   return `${frameId}-picture`
+}
+
+/**
+ * Where a brief of `size` goes on page `pageId`: below the page's lowest frame, at the left of its frames, far
+ * enough below that its outline and title clear what is above at the zoom it is seen at, which `zoomFor` gives for
+ * the area of the page with the brief in it (the lower of the zoom now and the zoom that area fits at).
+ */
+export function briefSpot(
+  frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>,
+  pageId: string,
+  size: AiSize,
+  zoomFor: (area: PageBox) => number,
+): Point {
+  const row = { width: DRAFTS * size.width + (DRAFTS - 1) * FRAME_GAP, height: size.height }
+  const page = Object.values(frames).filter((frame) => frame.pageId === pageId)
+  let gap = FRAME_GAP
+  // The gap moves the row down, which can lower the zoom the page fits at: worked out twice.
+  for (let pass = 0; pass < 2; pass++) {
+    const at = belowAll(frames, pageId, gap)
+    const boxes = [...page, { ...at, ...row }]
+    const left = Math.min(...boxes.map((b) => b.x))
+    const top = Math.min(...boxes.map((b) => b.y))
+    const right = Math.max(...boxes.map((b) => b.x + b.width))
+    const bottom = Math.max(...boxes.map((b) => b.y + b.height))
+    gap = Math.ceil(
+      FRAME_GAP + BRIEF_SCREEN_ROOM / zoomFor({ x: left, y: top, width: right - left, height: bottom - top }),
+    )
+  }
+  return belowAll(frames, pageId, gap)
 }
 
 /**

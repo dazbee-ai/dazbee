@@ -55,6 +55,8 @@ export interface EditorResources {
    * none: what an export or the font check needs; `loaded` settles when they are here.
    */
   load(current: Design, frameIds: readonly string[]): void
+  /** Asks for the bytes of these images not here yet; settles once they are here or failed to come. */
+  fetchImages(ids: readonly string[]): Promise<void>
   /**
    * Says where the shown page draws its images and how many device pixels a design pixel takes
    * (zoom × device pixel ratio), which size their display copies by; a redraw says it first.
@@ -215,10 +217,14 @@ export function editorResources({
     fonts.ask(fontUses(current, resourceBytes.variables))
     fetchImages(imageAssetIds(current, frameIds, resourceBytes.variables))
   }
-  /** Fetches the bytes of these images not here and not on their way; `imagesLoading` settles when they are here. */
-  function fetchImages(ids: readonly string[]) {
+  /**
+   * Fetches the bytes of these images not here and not on their way; `imagesLoading` settles when they are here, and
+   * so does what it gives, once these are here or failed to come.
+   */
+  function fetchImages(ids: readonly string[]): Promise<void> {
     const fresh = ids.filter((id) => !loading.has(id) && !resourceBytes.images[id])
-    if (fresh.length === 0 || !sources.assetBytes) return
+    if (fresh.length === 0 || !sources.assetBytes)
+      return ids.some((id) => loading.has(id)) ? imagesLoading : Promise.resolve()
     for (const id of fresh) loading.add(id)
     const arriving = loadImages(fresh, sources)
       .then(
@@ -239,6 +245,7 @@ export function editorResources({
         for (const id of fresh) loading.delete(id)
       })
     imagesLoading = Promise.all([imagesLoading, arriving]).then(() => undefined)
+    return arriving
   }
   function show(uses: ReadonlyMap<string, readonly ImageUse[]>, pixelsPerUnit: number) {
     copies.show(uses, pixelsPerUnit)
@@ -318,6 +325,7 @@ export function editorResources({
     resources: decoded,
     screen,
     load,
+    fetchImages,
     show,
     loadFamilies: fonts.loadFamilies,
     askAgain: fonts.askAgain,

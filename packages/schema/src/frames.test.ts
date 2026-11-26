@@ -90,6 +90,10 @@ describe('belowAll', () => {
     expect(belowAll(frames, 'p1')).toEqual({ x: -50, y: 600 + FRAME_GAP })
   })
 
+  it('keeps the gap given below the lowest frame', () => {
+    expect(belowAll({ low: at('p1', 0, 100, 50) }, 'p1', 900)).toEqual({ x: 0, y: 150 + 900 })
+  })
+
   it('is 0, 0 on a page with no frame', () => {
     expect(belowAll({ other: at('p2', 40, 40, 100) }, 'p1')).toEqual({ x: 0, y: 0 })
   })

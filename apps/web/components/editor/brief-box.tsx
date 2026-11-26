@@ -34,7 +34,10 @@ import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 import { IMAGE_ACCEPT, sendAsset } from '@/lib/upload-asset.ts'
 
-/** The keyboard's focus ring on the box's controls, in Dazbee's blue; the pointer shows none. */
+/**
+ * The keyboard's focus ring on the box's controls, in Dazbee's blue; the pointer shows none. Each control carries
+ * `data-own-focus`, so the app's own ring (globals.css) leaves it to this, and the words field shows none.
+ */
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--stage-accent)'
 /** A quiet round icon button of the row. */
 const ICON_BUTTON = cn(
@@ -135,8 +138,9 @@ export function BriefBox({
       data-testid="brief-box"
       className="absolute start-1/2 bottom-(--above-dock) z-20 flex w-[min(40rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-3 rounded-[24px] surface-frost px-4 pt-4 pb-2.5 font-sans max-sm:bottom-(--above-tab-bar) rtl:translate-x-1/2"
     >
-      <Tooltip label={b.close}>
+      <Tooltip plain label={b.close}>
         <button
+          data-own-focus
           type="button"
           aria-label={b.close}
           onClick={onClose}
@@ -158,6 +162,7 @@ export function BriefBox({
         </ul>
       )}
       <textarea
+        data-own-focus
         // The box opens for the words.
         autoFocus
         name="brief"
@@ -199,8 +204,9 @@ export function BriefBox({
             event.target.value = ''
           }}
         />
-        <Tooltip label={b.addPictures}>
+        <Tooltip plain label={b.addPictures}>
           <button
+            data-own-focus
             type="button"
             aria-label={b.addPictures}
             disabled={pictures.length >= MAX_REFERENCES}
@@ -211,8 +217,9 @@ export function BriefBox({
           </button>
         </Tooltip>
         {size && <SizePicker size={size} onPick={(picked) => setSizeId(picked.id)} />}
-        <Tooltip label={b[mode]}>
+        <Tooltip plain label={b[mode]}>
           <button
+            data-own-focus
             type="button"
             aria-label={b[mode]}
             data-testid="brief-speed"
@@ -223,8 +230,9 @@ export function BriefBox({
             {mode === 'fast' ? <FlashIcon size={18} aria-hidden /> : <SparkIcon size={18} aria-hidden />}
           </button>
         </Tooltip>
-        <Tooltip label={b.make}>
+        <Tooltip plain label={b.make}>
           <button
+            data-own-focus
             type="button"
             aria-label={busy ? b.making : b.make}
             disabled={!ready}
@@ -270,8 +278,9 @@ function Thumbnail({
           <CircleNotchIcon size={18} aria-label={label} className="animate-spin" />
         )}
       </span>
-      <Tooltip label={format(b.removePicture, { name: picture.name })}>
+      <Tooltip plain label={format(b.removePicture, { name: picture.name })}>
         <button
+          data-own-focus
           type="button"
           aria-label={format(b.removePicture, { name: picture.name })}
           onClick={onRemove}
@@ -295,9 +304,9 @@ function SizePicker({ size, onPick }: { size: SizePreset; onPick: (size: SizePre
   const label = format(b.size, { name: t.editor.sizes.preset[size.id], size: sizeOf(size) })
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Tooltip label={label}>
+      <Tooltip plain label={label}>
         <Popover.Trigger asChild>
-          <button type="button" aria-label={label} data-testid="brief-size" className={ICON_BUTTON}>
+          <button type="button" data-own-focus aria-label={label} data-testid="brief-size" className={ICON_BUTTON}>
             <Shape size={size} box={16} />
           </button>
         </Popover.Trigger>
@@ -313,6 +322,7 @@ function SizePicker({ size, onPick }: { size: SizePreset; onPick: (size: SizePre
         >
           {AI_SIZE_PRESETS.map((preset) => (
             <button
+              data-own-focus
               key={preset.id}
               type="button"
               data-preset={preset.id}

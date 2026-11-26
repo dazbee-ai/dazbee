@@ -8,6 +8,7 @@ import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/r
 import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
 import { type EditorArrivals, editorArrivals } from './ai/arrivals.ts'
+import { fit } from './canvas/camera.ts'
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
 import type { Motion, Spot } from './canvas/view.ts'
@@ -233,6 +234,8 @@ function live(
         shown: pageShown(signal),
         connected: () => tab.link.status() === 'connected',
         synced: tab.synced,
+        zoomFor: (area) => Math.min(view.camera().zoom, fit(area, view.viewport(), undefined, view.insets()).zoom),
+        fetchPictures: resources.fetchImages,
         signal,
       })
     : null

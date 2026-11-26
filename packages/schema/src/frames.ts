@@ -86,12 +86,14 @@ export function freeSpot(
 }
 
 /**
- * Where something placed below everything on page `pageId` goes, such as a new brief's section: FRAME_GAP
- * below the bottom of the page's lowest frame, at the left of its leftmost frame; at 0, 0 on a page with none.
+ * Where something placed below everything on page `pageId` goes, such as a new brief's section: `gap` (FRAME_GAP
+ * unless given) below the bottom of the page's lowest frame, at the left of its leftmost frame; at 0, 0 on a page
+ * with none.
  */
 export function belowAll(
   frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>,
   pageId: string,
+  gap = FRAME_GAP,
 ): { x: number; y: number } {
   let [left, bottom] = [Infinity, -Infinity]
   for (const frame of Object.values(frames)) {
@@ -99,7 +101,7 @@ export function belowAll(
     left = Math.min(left, frame.x)
     bottom = Math.max(bottom, frame.y + frame.height)
   }
-  return bottom === -Infinity ? { x: 0, y: 0 } : { x: left, y: bottom + FRAME_GAP }
+  return bottom === -Infinity ? { x: 0, y: 0 } : { x: left, y: bottom + gap }
 }
 
 /**

@@ -12,12 +12,12 @@ import {
   type AiJobRefusal,
   type AiMode,
   type AiSize,
-  belowAll,
   type DesignAi,
+  type PageBox,
   type StartAiJob,
 } from '@dazbee/schema'
 
-import { type BriefPlan, pictureLayerOf, pictureState, placeBrief, planBrief } from './place-brief.ts'
+import { type BriefPlan, briefSpot, pictureLayerOf, pictureState, placeBrief, planBrief } from './place-brief.ts'
 
 /**
  * How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused; or,
@@ -69,6 +69,13 @@ export interface ArrivalsDeps {
    * the tab's queue, to land later over what a person chose meanwhile.
    */
   connected: () => boolean
+  /** The zoom an area of the page is seen at: the lower of the zoom now and the zoom it fits at. */
+  zoomFor: (area: PageBox) => number
+  /**
+   * Fetches pictures' bytes into the editor; settles once they are here or failed to come. A picture is written once
+   * its bytes are here, so its layer keeps its waiting fill until the picture can be drawn.
+   */
+  fetchPictures: (assetIds: readonly string[]) => Promise<void>
   /**
    * Whether everything of the tab's is stored on the sync server: a picture the tab's design shows is marked
    * written only then, so a call is never marked for a picture still in the tab's queue.
@@ -107,6 +114,8 @@ export function editorArrivals({
   shown,
   connected,
   synced,
+  zoomFor,
+  fetchPictures,
   signal,
 }: ArrivalsDeps): EditorArrivals {
   /** The design's AI frames, jobs and briefs as last read; null before the first read. */
@@ -131,6 +140,12 @@ export function editorArrivals({
 
   async function settled() {
     while (writing.size > 0) await Promise.all(writing.values())
+  }
+
+  /** The picture layer `layerId` of frame `frameId` in the design now; undefined when the design hasn't it there. */
+  function layerIn(layerId: string, frameId: string) {
+    const layer = session.design().nodes[layerId]
+    return layer?.parentId === frameId ? layer : undefined
   }
 
   async function startBrief(request: BriefRequest): Promise<BriefStarted> {
@@ -160,7 +175,7 @@ export function editorArrivals({
     const placing = { plan, pageId: request.pageId, words: request.words, size: request.size }
     try {
       const outcome = await arrive(session, signal, () => {
-        const at = belowAll(session.design().frames, request.pageId)
+        const at = briefSpot(session.design().frames, request.pageId, request.size, zoomFor)
         placeBrief(session, { ...placing, draftName: request.draftName }, at)
       })
       return outcome === 'saved'
@@ -213,21 +228,24 @@ export function editorArrivals({
     const asset = madePicture(now, frame)
     if (!asset || writing.has(key) || refused.has(key)) return
     const layerId = pictureLayerOf(frame.frameId)
-    const layer = session.design().nodes[layerId]
-    if (layer?.parentId !== frame.frameId) return
-    const holds = pictureState(layer, asset)
-    const writes = !stored.has(key) && holds === 'waits'
-    // Offline, the picture waits for the next read; one the design shows waits until the tab's queue is stored.
-    if (writes ? !connected() : holds === 'shows' && !synced()) return
-    const arrived = writes
-      ? arrive(session, signal, () =>
+    if (!layerIn(layerId, frame.frameId)) return
+    const done = fetchPictures([asset])
+      .then(() => {
+        // Read again once the bytes are here: the layer may have changed meanwhile.
+        const layer = layerIn(layerId, frame.frameId)
+        if (!layer || signal.aborted) return 'none' as const
+        const holds = pictureState(layer, asset)
+        const writes = !stored.has(key) && holds === 'waits'
+        // Offline, the picture waits for the next read; one the design shows waits until the tab's queue is stored.
+        if (writes ? !connected() : holds === 'shows' && !synced()) return 'none' as const
+        if (!writes) return 'saved' as const
+        return arrive(session, signal, () =>
           session.run('node.update', {
             ids: [layerId],
             patch: { fills: [{ type: 'image', assetId: asset, fit: 'fill' }] },
           }),
         )
-      : Promise.resolve('saved' as const)
-    const done = arrived
+      })
       .then(async (outcome) => {
         if (outcome !== 'saved' || signal.aborted) return
         stored.add(key)

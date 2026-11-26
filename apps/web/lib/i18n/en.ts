@@ -1899,7 +1899,7 @@ export const en = {
       noPicks: 'No picks yet: the code’s own choice runs.',
       /** A pick another admin's pick for the same AI function and mode came before. */
       pickedMeanwhile:
-        'Another admin picked for this mode meanwhile, so this pick was not added. The page shows the newest; pick again if you still want it.',
+        'A pick was made for this mode meanwhile, so this one was not added. The page shows the newest; pick again if it is not what you want.',
       when: 'When',
       mode: 'Mode',
       by: 'Picked by',

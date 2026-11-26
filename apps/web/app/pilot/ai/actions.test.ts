@@ -52,7 +52,7 @@ describe('pickPreset', () => {
     vi.mocked(addAiPick).mockRejectedValue(new ApiFailure(409, 'Changed meanwhile'))
     const meanwhile = await pickPreset(pick)
     expect(meanwhile).toBe(
-      'Another admin picked for this mode meanwhile, so this pick was not added. The page shows the newest; pick again if you still want it.',
+      'A pick was made for this mode meanwhile, so this one was not added. The page shows the newest; pick again if it is not what you want.',
     )
     // The section is drawn again with the newest, so the words ask for no reload.
     expect(revalidatePath).toHaveBeenCalled()

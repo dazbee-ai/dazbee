@@ -70,8 +70,9 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     hiddenShowable: false,
   })
   const { view, selection, boxes, scenes, typing, pen, cropping, drawing } = modules
-  const { transformDrag, frameResize, autoLayoutDrag, place, pointer, colourPick, guideDrag, presence, redrawing } =
+  const { transformDrag, frameResize, frameMove, autoLayoutDrag, place, pointer, colourPick, guideDrag, presence } =
     modules
+  const { redrawing } = modules
   // What only a browser can run, as the editor builds it. A browser with no WebGL has no stage.
   let surface: EditorSurface
   try {
@@ -95,6 +96,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     autoLayoutDrag,
     frameResize,
     place,
+    frameMove,
     pointer,
     colourPick,
     guideDrag,
@@ -148,6 +150,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     ...shared,
     selectAt: (client: Point) => core.selectAt(surface.onStage(client)),
     layersAt: (client: Point) => core.layersAt(surface.onStage(client)),
+    sectionAt: (client: Point) => core.sectionAt(surface.onStage(client)),
     spotAt: (client: Point) => core.spotAt(surface.onStage(client)),
     copyLayers: clipboardEvents.copyLayers,
     copyPng: clipboardEvents.copyPng,

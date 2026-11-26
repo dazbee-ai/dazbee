@@ -431,7 +431,7 @@ describe('editorSelection', () => {
   describe('held and restore', () => {
     it('put back the selection, the group gone into and the picked frame as held', () => {
       const { selection } = harness()
-      const state = () => [idsOf(selection.current()), selection.entered(), selection.pickedFrame()]
+      const state = () => [idsOf(selection.current()), selection.entered(), selection.pickedItem()]
       selection.select(['rect'], 'p1-f1')
       selection.enter('group')
       const held = selection.held()
@@ -440,7 +440,7 @@ describe('editorSelection', () => {
       selection.restore(held)
       expect(state()).toEqual([['rect'], 'group', null])
       selection.restore(picked)
-      expect(state()).toEqual([[], null, 'p1-f2'])
+      expect(state()).toEqual([[], null, { kind: 'frame', id: 'p1-f2' }])
     })
   })
 

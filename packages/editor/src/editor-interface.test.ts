@@ -8,9 +8,9 @@ type CoreOwn = Exclude<keyof EditorCore, keyof EditorBase>
 type EditorOwn = Exclude<keyof Editor, keyof EditorBase>
 
 describe('Editor', () => {
-  it('declares beside the base its thirteen of the page and the six members that take or give a client point, the only ones the core declares too, beside its own five', () => {
+  it('declares beside the base its thirteen of the page and the seven members that take or give a client point, the only ones the core declares too, beside its own five', () => {
     expectTypeOf<Extract<EditorOwn, CoreOwn>>().toEqualTypeOf<
-      'selectAt' | 'layersAt' | 'placeImage' | 'readSvg' | 'spotAt' | 'imageTarget'
+      'selectAt' | 'layersAt' | 'sectionAt' | 'placeImage' | 'readSvg' | 'spotAt' | 'imageTarget'
     >()
     expectTypeOf<Exclude<EditorOwn, CoreOwn>>().toEqualTypeOf<
       | 'copyLayers'
@@ -77,6 +77,7 @@ describe('Editor', () => {
       | 'selectionRect'
       | 'selectAt'
       | 'layersAt'
+      | 'sectionAt'
       | 'pickLayer'
       | 'busy'
       | 'textSelection'
@@ -90,6 +91,12 @@ describe('Editor', () => {
       | 'pickedFrame'
       | 'pickFrame'
       | 'onFramePick'
+      | 'pickedSection'
+      | 'pickSection'
+      | 'onSectionPick'
+      | 'renameSection'
+      | 'onSectionRename'
+      | 'titleRect'
       | 'lightFrame'
       | 'lightLayer'
       | 'showConstraints'
@@ -125,6 +132,7 @@ describe('Editor', () => {
       | 'fitAll'
       | 'fitSelection'
       | 'fitFrame'
+      | 'fitSection'
       | 'showFrame'
       | 'showOnStage'
       | 'setTool'
@@ -181,6 +189,7 @@ describe('Viewer', () => {
     expectTypeOf<Exclude<keyof Viewer, keyof EditorBase>>().toEqualTypeOf<
       | 'selectAt'
       | 'layersAt'
+      | 'sectionAt'
       | 'spotAt'
       | 'copyLayers'
       | 'copyPng'

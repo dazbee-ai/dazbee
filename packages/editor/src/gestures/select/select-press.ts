@@ -2,15 +2,18 @@
 // the deep key (⌘ on a Mac, Ctrl elsewhere) selecting the deepest layer under it at once, inside the
 // group gone into or on a locked layer, or the frame whose label it is on; the drag it
 // starts (a handle, a marquee, a move, an auto layout reorder, the picked frame's resize from one of
-// its handles or, from a label, a frame's move); and
+// its handles, from a label, a frame's move, or from a section's title or outline line, the
+// section's move); and
 // what a press that never became a drag selects once it ends, such as the frame whose empty area a
 // click was on; and the text selected before a run of clicks, which its double click types into.
+import type { Session } from '@dazbee/doc'
 import type { SceneLayer } from '@dazbee/renderer'
 import type { Point } from '@dazbee/schema'
 
 import { toggled } from '../../across-frames.ts'
 import { toWorld } from '../../canvas/camera.ts'
 import { type Frame, frameAt } from '../../canvas/frames.ts'
+import { sectionAt } from '../../canvas/sections.ts'
 import type { EditorView } from '../../canvas/view.ts'
 import { type EditorBoxes, lockedInPlace } from '../../layers/boxes.ts'
 import { type EditorSelection, firstFrameOf, type Picked, samePick, selectInto } from '../../selection.ts'
@@ -22,6 +25,7 @@ import type { EditorAutoLayoutDrag, ReorderDrag } from './auto-layout-drag.ts'
 import type { EditorFrameMove, FrameMoveDrag } from './frame-move.ts'
 import type { EditorFrameResize, FrameResizeDrag } from './frame-resize.ts'
 import { freeOf, type MoveDrag } from './move-drag.ts'
+import type { EditorSectionMove, SectionMoveDrag } from './section-move.ts'
 import type { EditorTransformDrag, HandleDrag, MarqueeDrag } from './transform-drag.ts'
 
 /** A drag the select tool's press starts. */
@@ -30,10 +34,11 @@ export type SelectDrag = MoveDrag | HandleDrag | MarqueeDrag | ReorderDrag | Fra
 export interface SelectPressDeps {
   /** Asks for the pointer to be held from the press being handled. */
   hold: () => void
+  session: Pick<Session, 'readOnly'>
   view: Pick<EditorView, 'camera' | 'design' | 'frames' | 'frameOf' | 'pointOn'>
   selection: Pick<
     EditorSelection,
-    'current' | 'entered' | 'enter' | 'select' | 'selectAcross' | 'selectKeepingModes' | 'pickFrame'
+    'current' | 'entered' | 'enter' | 'select' | 'selectAcross' | 'selectKeepingModes' | 'pickFrame' | 'pickSection'
   >
   boxes: Pick<
     EditorBoxes,
@@ -49,7 +54,8 @@ export interface SelectPressDeps {
   typing: Pick<EditorTyping, 'stop'>
   transformDrag: Pick<EditorTransformDrag, 'handleUnder' | 'pressHandle' | 'pressMove'>
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'press' | 'reorders'>
-  frameMove: Pick<EditorFrameMove, 'start'>
+  frameMove: Pick<EditorFrameMove, 'start' | 'shownSections'>
+  sectionMove: Pick<EditorSectionMove, 'start'>
   /** The picked frame's handles, which a press takes before what is under them. */
   frameResize: Pick<EditorFrameResize, 'press'>
   /** Whether this computer is Apple's, whose deep key is ⌘ and where Ctrl with a click is the right-click. */
@@ -78,6 +84,18 @@ export interface EditorSelectPress {
    */
   pressLabel(e: PointerInput, screen: Point, frameId: string): FrameMoveDrag | FrameResizeDrag | null
   /**
+   * A press on the title of section `title`, or off every frame (`at` null) on a section's outline
+   * line, the newer where two are: it picks the section, letting the selection go, and returns the
+   * drag that moves it, or true for a tab that may only view, which moves none; null for a press on
+   * neither.
+   */
+  pressSection(
+    e: PointerInput,
+    screen: Point,
+    at: { frame: Frame; p: Point } | null,
+    title: string | undefined,
+  ): SectionMoveDrag | true | null
+  /**
    * Ends the press, `clicked` when it never went past the slop: such a press selects what it
    * clicked; a marquee lets the picked frame go, or picks the frame it was clicked on with Shift
    * and nothing selected.
@@ -103,6 +121,7 @@ export interface EditorSelectPress {
 
 export function editorSelectPress({
   hold,
+  session,
   view,
   selection,
   boxes,
@@ -110,6 +129,7 @@ export function editorSelectPress({
   transformDrag,
   autoLayoutDrag,
   frameMove,
+  sectionMove,
   frameResize,
   onMac,
 }: SelectPressDeps): EditorSelectPress {
@@ -295,6 +315,19 @@ export function editorSelectPress({
     hold()
     return frameMove.start(frame, toWorld(view.camera(), screen))
   }
+  function pressSection(e: PointerInput, screen: Point, at: { frame: Frame; p: Point } | null, title?: string) {
+    const outlines = frameMove.shownSections(null).outlines
+    const sectionId = title ?? (at ? undefined : sectionAt(outlines, screen, ['line'])?.id)
+    if (sectionId === undefined) return null
+    pressedText = textSelected()
+    typing.stop()
+    clickedAlone = null
+    selection.enter(null)
+    selection.pickSection(sectionId)
+    if (session.readOnly()) return true
+    hold()
+    return sectionMove.start(sectionId, toWorld(view.camera(), screen))
+  }
   function release(gesture: MarqueeDrag | null, clicked: boolean) {
     // A press that became a drag selects nothing as a click.
     if (!clicked) clickedAlone = null
@@ -364,6 +397,7 @@ export function editorSelectPress({
   return {
     press,
     pressLabel,
+    pressSection,
     release,
     cancel,
     dragAt,

@@ -112,6 +112,7 @@ function reset(ed: TestEditor, opened: { design: string; camera: string; rulers:
   core.select([])
   modules.selection.enter(null)
   core.pickFrame(null)
+  core.renamed()
   core.setTool('select')
   if (core.shownPage() !== opened.page) core.showPage(opened.page)
   if (core.rulers() !== opened.rulers) core.perform('toggleRulers')
@@ -121,14 +122,15 @@ function reset(ed: TestEditor, opened: { design: string; camera: string; rulers:
   core.redraw()
 }
 
-/** Everything an action may change: the design, the selection and its modes, the picked frame, the page, the camera, the tool, the rulers, the hidden layers shown, the history and the remembered values. */
+/** Everything an action may change: the design, the selection and its modes, the picked page item and its rename, the page, the camera, the tool, the rulers, the hidden layers shown, the history and the remembered values. */
 function snapshot(ed: TestEditor) {
   const { core, modules, remembered } = ed
   return JSON.stringify({
     design: core.design(),
     selection: modules.selection.current(),
     entered: modules.selection.entered(),
-    picked: core.pickedFrame(),
+    picked: modules.selection.pickedItem(),
+    renaming: [modules.selection.renamingFrame(), modules.selection.renamingSection()],
     crop: modules.selection.cropping(),
     path: modules.selection.pathEditing(),
     typing: modules.typing.editing(),

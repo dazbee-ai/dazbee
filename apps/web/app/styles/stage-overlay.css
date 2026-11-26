@@ -40,6 +40,23 @@
   margin-inline-start: auto;
   font-variant-numeric: tabular-nums;
 }
+/* A section's title, inside the top left of its outline, which the stage's surface draws under the
+   frames: 13 px semibold, cut short with an ellipsis, in the accent while the section is picked or a
+   drop's target. */
+.stage-overlay .section-title {
+  position: absolute;
+  height: 18px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+}
+.stage-overlay .section-title[data-active] {
+  color: var(--accent-text);
+}
 /* Selection: the box with its handles, each selected layer's outline, hover and marquee. A layer
    whose outline is other than its box (data-shape) is outlined by the SVG path inside it: a hovered
    or selected member layer by the path alone, one selected layer by the path and the 1px box that

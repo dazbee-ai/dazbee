@@ -15,6 +15,8 @@ function fakeCanvasKit(log: string[]) {
     scale: (x: number, y: number) => log.push(`scale ${x} ${y}`),
     translate: (x: number, y: number) => log.push(`translate ${x} ${y}`),
     drawRect: (rect: number[]) => log.push(`rect ${rect.join(' ')}`),
+    drawRRect: (rrect: { rect: number[]; radius: number }, paint: { colour: string }) =>
+      log.push(`outline ${rrect.rect.join(' ')} round ${rrect.radius} in ${paint.colour}`),
     drawPicture: (picture: { name: string }) => log.push(`picture ${picture.name}`),
     clipRect: (rect: number[], op: string) => log.push(`clip ${op} ${rect.join(' ')}`),
     saveLayer: () => log.push('save layer'),
@@ -27,7 +29,11 @@ function fakeCanvasKit(log: string[]) {
       return { getCanvas: () => drawn, flush: () => log.push('flush'), delete: () => log.push('delete surface') }
     },
     Paint: class {
-      setColor() {}
+      colour = ''
+      setColor(colour: string) {
+        this.colour = colour
+      }
+      setAntiAlias() {}
       setStyle() {}
       setStrokeWidth() {}
       setAlphaf() {}
@@ -45,6 +51,8 @@ function fakeCanvasKit(log: string[]) {
     ColorSpace: { SRGB: 'srgb' },
     Color: () => 'edge',
     XYWHRect: (x: number, y: number, w: number, h: number) => [x, y, w, h],
+    RRectXY: (rect: number[], radius: number) => ({ rect, radius }),
+    parseColorString: (colour: string) => colour,
   }
   return ck as unknown as CanvasKit
 }
@@ -144,7 +152,7 @@ describe('editorSurface', () => {
   describe('paint', () => {
     it('draws nothing before the stage has a surface', () => {
       const { surface } = harness()
-      expect(surface.paint([], null)).toBe(false)
+      expect(surface.paint([], null, [])).toBe(false)
     })
 
     it('draws the pictures it is handed at the camera, each on its page over white on a soft shadow, and shows them', () => {
@@ -158,6 +166,7 @@ describe('editorSurface', () => {
           .slice(0, 1)
           .map((frame) => ({ frame, picture: picture(frame.id) })),
         null,
+        [],
       )
       expect(painted).toBe(true)
       expect(log).toEqual([
@@ -180,6 +189,36 @@ describe('editorSurface', () => {
     })
   })
 
+  describe('paint with outlines', () => {
+    it("draws the sections' outlines first, round, in soft grey or the stage's accent while lit, so every frame covers them", () => {
+      // The page's CSS names no accent here: the outline takes the accent's own colour.
+      vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      log.length = 0
+      surface.paint(
+        view
+          .findInView()
+          .slice(0, 1)
+          .map((frame) => ({ frame, picture: picture(frame.id) })),
+        null,
+        [
+          { box: { x: -24, y: -84, width: 588, height: 648 }, lit: false },
+          { box: { x: 600, y: -84, width: 100, height: 100 }, lit: true },
+        ],
+      )
+      expect(log.slice(0, 6)).toEqual([
+        'clear',
+        'save',
+        'scale 2 2',
+        'outline -24 -84 588 648 round 22 in #c4b9cd',
+        'outline 600 -84 100 100 round 22 in #2f5be0',
+        'rect 0 1 540 540',
+      ])
+    })
+  })
+
   describe("the frames' shadow", () => {
     it('is as far down and as soft on the stage at any zoom, wherever the camera is', () => {
       const shadowsAt = (camera: { x: number; y: number; zoom: number }) => {
@@ -193,6 +232,7 @@ describe('editorSurface', () => {
             .slice(0, 1)
             .map((frame) => ({ frame, picture: picture(frame.id) })),
           null,
+          [],
         )
         return log.slice(3, 5)
       }
@@ -211,6 +251,7 @@ describe('editorSurface', () => {
       surface.paint(
         view.findInView().map((frame) => ({ frame, picture: picture(frame.id) })),
         story ? { frame: story, picture: picture('ghost') } : null,
+        [],
       )
       expect(log.slice(-9)).toEqual([
         'save',
@@ -263,6 +304,7 @@ describe('editorSurface', () => {
       expect(log).toEqual([
         'surface 2000×1600',
         'delete surface',
+        'delete paint',
         'delete paint',
         'delete paint',
         'delete blur',

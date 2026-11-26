@@ -15,6 +15,7 @@ import { pointerInput } from '../test-inputs.ts'
 import { editorFrameMove } from './frame-move.ts'
 import type { MoveDrag } from './move-drag.ts'
 import type { ResizeDrag } from './resize-drag.ts'
+import { editorSectionMove } from './section-move.ts'
 import { editorSelectPress, type SelectPressDeps } from './select-press.ts'
 
 const rect = (parentId: string, index: string, box: { x: number; y: number; width: number; height: number }) => ({
@@ -242,8 +243,14 @@ export function harness(handle: ResizeDrag['handle'] | Grab | null = null, desig
   const log: string[] = []
   const selection = editorSelection({ drawn: () => session.design(), frames: () => frames, changed: () => {} })
   const boxes = testBoxes(session, selection, frames)
+  const view = {
+    camera: () => ({ x: 0, y: 0, zoom: 1 }),
+    design: () => session.design(),
+    frames: () => frames,
+  }
   const deps: SelectPressDeps = {
     hold: () => log.push('hold'),
+    session,
     view: {
       camera: () => ({ x: 0, y: 0, zoom: 1 }),
       design: () => session.design(),
@@ -271,7 +278,8 @@ export function harness(handle: ResizeDrag['handle'] | Grab | null = null, desig
     },
     // The dot alone is taken as a layer a flow places, for the drag a press on it would start.
     autoLayoutDrag: { press: () => null, reorders: (ids) => ids.length === 1 && ids[0] === 'dot' },
-    frameMove: editorFrameMove({ session }),
+    frameMove: editorFrameMove({ session, view }),
+    sectionMove: editorSectionMove({ session }),
     // No frame is picked with handles: no press resizes one.
     frameResize: { press: () => null },
     onMac,

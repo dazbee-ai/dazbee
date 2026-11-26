@@ -174,6 +174,18 @@ describe('section.duplicate', () => {
     expect(readDesign(store)).toEqual(before)
   })
 
+  it('keeps the gap given from the section, and from what is in the way below it', () => {
+    const { store, tab } = sectioned()
+    const id = tab.run('section.duplicate', { sectionId: 'ads', gap: 600 })
+    const copies = framesInSection(readDesign(store), id)
+    // The section's box ends at 2360: the block starts 600 right of it, below the wide frame (to 628) plus 600.
+    expect(copies.map(([, f]) => [f.x, f.y])).toEqual([
+      [2960, 1228],
+      [4240, 1228],
+    ])
+    expect(() => tab.run('section.duplicate', { sectionId: 'ads', gap: -1 })).toThrow()
+  })
+
   it('cuts the copy’s title to 120 characters, with no space left at its end', () => {
     const { store, tab } = sectioned()
     tab.run('section.update', { sectionId: 'ads', title: 'x'.repeat(119) })

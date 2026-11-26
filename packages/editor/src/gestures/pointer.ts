@@ -4,7 +4,8 @@
 // `held-keys.ts`'s, followed from each pointer input and told to a move as Alt changes, what Alt
 // measures `measuring.ts`'s, the cursor `stage-cursor.ts`'s, and what a double click does, such as
 // asking to rename the frame whose label it is on, `double-click.ts`'s. A press on a frame label's
-// text grabs the frame, after the selection's handles. A press on a ruler or a guide is the guide
+// text grabs the frame, after the selection's handles, and one on a section's title or outline line
+// grabs the section, after a frame's label. A press on a ruler or a guide is the guide
 // drag's (`guides/guide-drag.ts`), after the selection's handles. While a colour is picked,
 // `colour-pick.ts` takes the inputs, but a pan's and the wheel.
 import type { Session } from '@dazbee/doc'
@@ -24,15 +25,16 @@ import type { EditorColourPick } from './colour-pick.ts'
 import type { CropDrag, EditorCropping } from './crop/cropping.ts'
 import { editorDoubleClick } from './double-click.ts'
 import type { EditorDragStart } from './drag-start.ts'
-import { isDrawTool } from './drawing/draw-tools.ts'
 import {
   type EditorDrawing,
   type FrameDrag,
   type ImageBoxDrag,
   isDrawing,
+  type SectionDrag,
   type ShapeDrag,
   type TextBoxDrag,
 } from './drawing/drawing.ts'
+import { toolPress } from './drawing/tool-press.ts'
 import type { EditorGuideDrag, GuideDrag } from './guides/guide-drag.ts'
 import { type EditorHeldKeys, editorHeldKeys } from './held-keys.ts'
 import type { Grab } from './hit-zones.ts'
@@ -44,6 +46,7 @@ import type { EditorPen, PathDrag } from './pen/pen.ts'
 import type { EditorAutoLayoutDrag, ReorderDrag } from './select/auto-layout-drag.ts'
 import { type EditorFrameResize, type FrameGesture, isFrameGesture } from './select/frame-resize.ts'
 import type { MoveDrag } from './select/move-drag.ts'
+import type { EditorSectionMove, SectionMoveDrag } from './select/section-move.ts'
 import type { EditorSelectPress } from './select/select-press.ts'
 import { carried, type EditorTransformDrag, type HandleDrag, type MarqueeDrag } from './select/transform-drag.ts'
 import { editorStageCursor } from './stage-cursor.ts'
@@ -60,7 +63,9 @@ export type Gesture =
   | CropDrag
   | ShapeDrag
   | FrameDrag
+  | SectionDrag
   | FrameGesture
+  | SectionMoveDrag
   | PathDrag
   | GuideDrag
 
@@ -93,7 +98,10 @@ export interface PointerDeps {
   typing: Pick<EditorTyping, 'editing' | 'caretFromPoint' | 'caretTo' | 'selectText' | 'start' | 'stop'>
   pen: Pick<EditorPen, 'drawing' | 'down' | 'move' | 'up' | 'pressPoints' | 'pointsAt' | 'dragPoints' | 'releasePoints'>
   cropping: Pick<EditorCropping, 'start' | 'cursorAt' | 'press' | 'drag' | 'release'>
-  drawing: Pick<EditorDrawing, 'pressShape' | 'pressImage' | 'pressText' | 'pressFrame' | 'drag' | 'release'>
+  drawing: Pick<
+    EditorDrawing,
+    'pressShape' | 'pressImage' | 'pressText' | 'pressFrame' | 'pressSection' | 'drag' | 'release'
+  >
   transformDrag: Pick<
     EditorTransformDrag,
     | 'handleUnder'
@@ -109,14 +117,16 @@ export interface PointerDeps {
   >
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'drag' | 'setAlt' | 'cancel' | 'release'>
   frameResize: Pick<EditorFrameResize, 'drag' | 'release' | 'handleUnder'>
+  sectionMove: Pick<EditorSectionMove, 'drag' | 'release'>
   /** Guides: a press on a ruler or a guide, its drag and release, the guide under the pointer and its cursor. */
   guideDrag: Pick<EditorGuideDrag, 'press' | 'drag' | 'release' | 'hover' | 'cursorAt'>
   /** What the select tool's press picks, and what it selects once it ends as a click. */
   selectPress: EditorSelectPress
   /** Picking a colour, which takes the pointer's inputs while it is on, but a pan's and the wheel. */
   colourPick: Pick<EditorColourPick, 'route' | 'stop' | 'picking'>
-  /** Asks the page to rename a frame in place, after a double click on its label. */
+  /** Asks the page to rename a frame in place, after a double click on its label, and a section, after one on its title. */
   renameFrame: (frameId: string) => void
+  renameSection: (sectionId: string) => void
   /** Whether this computer is Apple's, whose deep key is ⌘ and where Ctrl with a click is the right-click. */
   onMac: () => boolean
   /** Tells that what is shown changed. */
@@ -199,10 +209,12 @@ export function editorPointer({
   transformDrag,
   autoLayoutDrag,
   frameResize,
+  sectionMove,
   guideDrag,
   selectPress,
   colourPick,
   renameFrame,
+  renameSection,
   onMac,
   shownChanged,
 }: PointerDeps): EditorPointer {
@@ -287,6 +299,7 @@ export function editorPointer({
     cropping,
     selectPress,
     renameFrame,
+    renameSection,
     shownChanged,
     panning,
     labelUnder,
@@ -344,6 +357,7 @@ export function editorPointer({
     }
     if (gesture?.kind === 'reorder') autoLayoutDrag.release(gesture)
     else if (isFrameGesture(gesture)) frameResize.release(gesture)
+    else if (gesture?.kind === 'sectionMove') sectionMove.release(gesture)
     else if (gesture?.kind === 'path') pen.releasePoints(gesture)
     else if (gesture?.kind === 'crop') cropping.release(gesture)
     else if (gesture && gesture.kind !== 'marquee') transformDrag.release(gesture)
@@ -415,31 +429,9 @@ export function editorPointer({
     const screen = screenOf(e)
     dragStart.press(screen, e.pointerType)
     const at = pointIn(e)
-    const tool = tools.tool()
-    // The Frame tool draws a frame anywhere on the stage, not only on a frame.
-    if (tool === 'frame') {
-      gesture = drawing.pressFrame(e, toWorld(view.camera(), screen))
-      return
-    }
-    if (isDrawTool(tool)) {
-      const drag = at && drawing.pressShape(e, tool, at)
-      if (drag) gesture = drag
-      return
-    }
-    // An image armed from Assets goes where a press on a frame lands; a press off every frame places
-    // nothing and puts the select tool back.
-    if (tool === 'image') {
-      const imageToPlace = tools.imageToPlace()
-      if (at && imageToPlace) gesture = drawing.pressImage(e, at, imageToPlace)
-      else tools.setTool('select')
-      return
-    }
-    if (tool === 'pen') {
-      if (at) pen.down(e, at)
-      return
-    }
-    if (tool === 'text') {
-      if (at) gesture = drawing.pressText(e, at)
+    const pressed = toolPress(e, screen, at, { view, tools, drawing, pen })
+    if (pressed) {
+      if (pressed.drag) gesture = pressed.drag
       return
     }
     if (selection.pathEditing()) {
@@ -462,9 +454,12 @@ export function editorPointer({
     // click in a zone over it picks its frame.
     const label = labelUnder(e)
     const zone = selection.current() && transformDrag.handleUnder(screen, e.pointerType === 'touch')
-    const grabbed = guideDrag.press(e) || (label && !zone && selectPress.pressLabel(e, screen, label))
+    const grabbed =
+      guideDrag.press(e) ||
+      (label && !zone && selectPress.pressLabel(e, screen, label)) ||
+      (!zone && selectPress.pressSection(e, screen, at, e.title))
     if (grabbed) {
-      gesture = grabbed
+      if (grabbed !== true) gesture = grabbed
       shownChanged()
       return
     }
@@ -529,7 +524,8 @@ export function editorPointer({
     // Holding the deep key turns snapping off for as long as it is held.
     const snap = tools.snapping() && !deepKeyHeld(e, onMac())
     if (gesture.kind === 'guide') return guideDrag.drag(gesture, screen, snap)
-    if (gesture.kind === 'frameDraw') {
+    if (gesture.kind === 'sectionMove') return sectionMove.drag(gesture, world, e.shiftKey)
+    if (gesture.kind === 'frameDraw' || gesture.kind === 'sectionDraw') {
       drawing.drag(gesture, world, e.shiftKey, e.altKey)
       return
     }

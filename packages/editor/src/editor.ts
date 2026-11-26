@@ -160,6 +160,7 @@ function live(
   const {
     transformDrag,
     frameResize,
+    frameMove,
     autoLayoutDrag,
     place,
     pngCopy,
@@ -195,6 +196,7 @@ function live(
     autoLayoutDrag,
     frameResize,
     place,
+    frameMove,
     pointer,
     colourPick,
     guideDrag,
@@ -287,6 +289,7 @@ function live(
     ...shared,
     selectAt: (client: Point) => core.selectAt(surface.onStage(client)),
     layersAt: (client: Point) => core.layersAt(surface.onStage(client)),
+    sectionAt: (client: Point) => core.sectionAt(surface.onStage(client)),
     placeImage: (asset: PlacedAsset, where?: Point | Spot, options?: PlaceImageOptions) =>
       core.placeImage(asset, placeOnStage(where), options),
     readSvg: (text: string, name: string, where?: Point | Spot) => core.readSvg(text, name, placeOnStage(where)),

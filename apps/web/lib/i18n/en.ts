@@ -365,6 +365,7 @@ export const en = {
       selectLayer: 'Select layer',
       delete: 'Delete',
       duplicate: 'Duplicate',
+      rename: 'Rename',
       editPoints: 'Edit points or crop',
       copyStyle: 'Copy style',
       pasteStyle: 'Paste style',
@@ -376,6 +377,7 @@ export const en = {
       toolSelect: 'Select',
       toolHand: 'Hand',
       toolFrame: 'Frame',
+      toolSection: 'Section',
       toolRect: 'Rectangle',
       toolEllipse: 'Ellipse',
       toolBox: 'Box',
@@ -610,6 +612,8 @@ export const en = {
       pickFailed: 'Couldn’t read the colours here.',
       /** Picking a colour on a frame past the export's limits, which is never drawn to read. */
       pickTooBig: 'This frame is too big to pick from.',
+      /** The Section tool's box held no frame, so no section was made. */
+      drawAroundFrames: 'Draw around frames',
       /** Another tab restored a named version: who, and the version's name. */
       restored: '{name} restored ‘{version}’',
       /** Another tab restored an automatic version: who, and when it was taken. */
@@ -1576,6 +1580,25 @@ export const en = {
       fillName: 'Colour {n}',
       addFill: 'Add a colour',
       removed: '{name} deleted',
+    },
+    /** The Frame button's menu, a picked section's panel and right-click menu, its title's rename field, and the Pages card's list. */
+    sections: {
+      /** The Frame button's menu: Frame and Section. */
+      menu: 'Frame and section',
+      more: 'More frame tools',
+      frame: 'Frame',
+      section: 'Section',
+      /** A picked section's actions, in the edit panel and the right-click menu. */
+      actions: 'Section actions',
+      rename: 'Rename',
+      ungroup: 'Ungroup',
+      duplicate: 'Duplicate',
+      deleteWithFrames: 'Delete section and frames',
+      nameOf: 'Name of {name}',
+      /** The Pages card's list of the shown page's sections, and each row's name for a screen reader. */
+      list: 'Sections',
+      show: 'Zoom to {name}',
+      frameCount: { one: '1 frame', other: '{n} frames' } as Counted,
     },
     statusText: {
       Starting: 'Starting',

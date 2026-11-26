@@ -54,8 +54,8 @@ export function newFramePosition(frames: readonly { x: number; y: number; width:
 /**
  * Where a box of `size` goes beside `from` (a frame or a section's box) without covering a frame of
  * page `pageId`, or the box of one of its drawn sections other than `joins`, the section the box goes
- * in: FRAME_GAP right of `from`, at its top, then moved down below each it overlaps, plus FRAME_GAP,
- * until it overlaps none. One only touching its edge is not in the way.
+ * in: `gap` (FRAME_GAP unless given) right of `from`, at its top, then moved down below each it
+ * overlaps, plus `gap`, until it overlaps none. One only touching its edge is not in the way.
  */
 export function freeSpot(
   design: {
@@ -68,10 +68,11 @@ export function freeSpot(
   size: { width: number; height: number },
   from: PageBox,
   joins?: string,
+  gap = FRAME_GAP,
 ): { x: number; y: number } {
   const frames = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
   const boxes: PageBox[] = [...frames, ...sectionBoxes(frames, design.sections ?? {}, pageId, joins)]
-  const x = from.x + from.width + FRAME_GAP
+  const x = from.x + from.width + gap
   let y = from.y
   for (;;) {
     const right = x + size.width
@@ -80,7 +81,7 @@ export function freeSpot(
       .filter((f) => f.x < right && f.x + f.width > x && f.y < bottom && f.y + f.height > y)
       .reduce((most, f) => Math.max(most, f.y + f.height), -Infinity)
     if (below === -Infinity) return { x, y }
-    y = below + FRAME_GAP
+    y = below + gap
   }
 }
 

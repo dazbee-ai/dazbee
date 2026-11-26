@@ -9,6 +9,7 @@ import type { PointerInput } from './gestures/inputs.ts'
 import { editorPointer } from './gestures/pointer.ts'
 import { editorFrameMove } from './gestures/select/frame-move.ts'
 import { editorFrameResize } from './gestures/select/frame-resize.ts'
+import { editorSectionMove } from './gestures/select/section-move.ts'
 import { editorSelectPress } from './gestures/select/select-press.ts'
 import { harness } from './test-actions.ts'
 import type { PlacedAsset, Tool } from './tools.ts'
@@ -56,6 +57,8 @@ export function stage(first: Tool = 'select') {
     stop: () => {},
   }
   const frameName = (width: number, height: number) => `${width} by ${height}`
+  const frameMove = editorFrameMove({ session, view })
+  const sectionMove = editorSectionMove({ session })
   const drawing = editorDrawing({
     hold: hold.hold,
     session,
@@ -64,20 +67,25 @@ export function stage(first: Tool = 'select') {
     typing,
     boxes,
     page: () => 'p1',
+    frames: () => [frame],
+    camera,
+    frameMove,
     frameName,
     frameActions: editorFrameActions({
       session,
-      view: { page: () => 'p1', showWhole: () => {} },
+      view: { page: () => 'p1', showWhole: () => {}, camera },
       tools,
       frameName,
       selection,
       typing: { fitText: () => {} },
+      rename: () => {},
       shownChanged: () => {},
     }),
     hug: () => {},
+    notify: () => {},
+    renameSection: () => {},
     shownChanged: () => {},
   })
-  const frameMove = editorFrameMove({ session })
   const frameResize = editorFrameResize({
     hold: hold.hold,
     session,
@@ -91,6 +99,7 @@ export function stage(first: Tool = 'select') {
   })
   const selectPress = editorSelectPress({
     hold: hold.hold,
+    session,
     view,
     selection,
     boxes,
@@ -98,6 +107,7 @@ export function stage(first: Tool = 'select') {
     transformDrag,
     autoLayoutDrag,
     frameMove,
+    sectionMove,
     frameResize,
     onMac: () => false,
   })
@@ -126,12 +136,14 @@ export function stage(first: Tool = 'select') {
     transformDrag,
     autoLayoutDrag,
     frameResize,
+    sectionMove,
     // No rulers: no press is a guide's.
     guideDrag: { press: () => null, drag: () => {}, release: () => {}, hover: () => false, cursorAt: () => '' },
     selectPress,
     // Never picking a colour: every input is the pointer's.
     colourPick: { route: () => false, stop: () => false, picking: () => false },
     renameFrame: () => {},
+    renameSection: () => {},
     onMac: () => false,
     shownChanged: () => {},
   })

@@ -4,12 +4,12 @@
 // canvas shows and how many there are ("Pages 2/3", "2/3" in the tab bar) and opens the Pages panel:
 // each page's picture, name and number of frames, shown with a click and reordered by dragging; ⋯
 // renames, duplicates, moves and deletes one, and Add page adds one holding a frame the size of the
-// frame you are on.
+// frame you are on. Under the shown page come its sections, top to bottom, each zooming to fit it.
 // Every change is a command, so it is one undo step and reaches the other tabs.
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type CSSProperties, Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
-import { type Design, framesOf, inOrder } from '@dazbee/schema'
+import { type Design, framesInSection, framesOf, inOrder, sectionsByPlace } from '@dazbee/schema'
 
 import { PanelFrame } from '@/components/editor/edit-panel/edit-panel.tsx'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
@@ -19,8 +19,8 @@ import { RenameField, useFocusBack } from '@/components/ui/rename-field.tsx'
 import { cn } from '@/lib/cn.ts'
 import { sizeYouAreOn } from '@/lib/editor/size.ts'
 import { frameName } from '@/lib/frame-name.ts'
-import { useMessages } from '@/lib/i18n/client.tsx'
-import { format, type Messages } from '@/lib/i18n/index.ts'
+import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
+import { counted, format, type Messages } from '@/lib/i18n/index.ts'
 
 import { afterDraws, sameUrls } from './after-draws.ts'
 import { CARD_ROW, CardMenu } from './card.tsx'
@@ -222,128 +222,130 @@ function PageList({ editor, onRemoved }: { editor: Editor; onRemoved: (message: 
           const fill = first?.fills[0]
           const picture = pictures[id]
           return (
-            <li
-              key={id}
-              data-page={id}
-              aria-current={current === id ? 'page' : undefined}
-              data-dragging={dragging === id ? '' : undefined}
-              draggable={!viewOnly && editing !== id}
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = 'move'
-                e.dataTransfer.setData('application/x-dazbee-page', id)
-                setDragging(id)
-              }}
-              onDragOver={(e) => {
-                if (!dragging) return
-                e.preventDefault()
-                const box = e.currentTarget.getBoundingClientRect()
-                const before = e.clientY < box.top + box.height / 2 ? id : (pages[i + 1]?.[0] ?? null)
-                if (landing?.before !== before) setLanding({ before })
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                if (!viewOnly) drop()
-              }}
-              onDragEnd={() => {
-                setDragging(null)
-                setLanding(null)
-              }}
-              className={cn(
-                CARD_ROW,
-                // Lit by the tints laid over its fill under the pointer and while pressed.
-                !viewOnly && 'cursor-grab active:cursor-grabbing',
-                'relative hover:tint-hover hover:lit active:tint-pressed active:lit aria-[current]:border-accent aria-[current]:bg-accent-soft aria-[current]:lit data-[dragging]:opacity-40',
-              )}
-            >
-              {moves && landing?.before === id && <span aria-hidden className={cn(DROP_LINE, '-top-[4px]')} />}
-              {moves && landing?.before === null && i === pages.length - 1 && (
-                <span aria-hidden className={cn(DROP_LINE, '-bottom-[4px]')} />
-              )}
-              <span aria-hidden className="relative grid size-[34px] shrink-0 place-items-center">
-                {/* The first frame's picture on white, as the canvas draws it, under the frame's colour while
+            <Fragment key={id}>
+              <li
+                data-page={id}
+                aria-current={current === id ? 'page' : undefined}
+                data-dragging={dragging === id ? '' : undefined}
+                draggable={!viewOnly && editing !== id}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('application/x-dazbee-page', id)
+                  setDragging(id)
+                }}
+                onDragOver={(e) => {
+                  if (!dragging) return
+                  e.preventDefault()
+                  const box = e.currentTarget.getBoundingClientRect()
+                  const before = e.clientY < box.top + box.height / 2 ? id : (pages[i + 1]?.[0] ?? null)
+                  if (landing?.before !== before) setLanding({ before })
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (!viewOnly) drop()
+                }}
+                onDragEnd={() => {
+                  setDragging(null)
+                  setLanding(null)
+                }}
+                className={cn(
+                  CARD_ROW,
+                  // Lit by the tints laid over its fill under the pointer and while pressed.
+                  !viewOnly && 'cursor-grab active:cursor-grabbing',
+                  'relative hover:tint-hover hover:lit active:tint-pressed active:lit aria-[current]:border-accent aria-[current]:bg-accent-soft aria-[current]:lit data-[dragging]:opacity-40',
+                )}
+              >
+                {moves && landing?.before === id && <span aria-hidden className={cn(DROP_LINE, '-top-[4px]')} />}
+                {moves && landing?.before === null && i === pages.length - 1 && (
+                  <span aria-hidden className={cn(DROP_LINE, '-bottom-[4px]')} />
+                )}
+                <span aria-hidden className="relative grid size-[34px] shrink-0 place-items-center">
+                  {/* The first frame's picture on white, as the canvas draws it, under the frame's colour while
                     the picture is drawn; a page with no frames shows an empty well. */}
-                <span
-                  data-testid="page-thumbnail"
-                  className={cn(
-                    'relative grid place-items-center overflow-hidden rounded-[3px] border border-line-strong',
-                    first ? 'bg-white' : 'bg-well',
-                  )}
-                  style={{ ...tile, backgroundColor: fill?.type === 'solid' ? fill.color : undefined }}
-                >
-                  {picture && <img src={picture} alt="" draggable={false} className="absolute inset-0 size-full" />}
-                </span>
-                {/* The page's number on a dark chip, readable over any picture or page colour and whole over a
+                  <span
+                    data-testid="page-thumbnail"
+                    className={cn(
+                      'relative grid place-items-center overflow-hidden rounded-[3px] border border-line-strong',
+                      first ? 'bg-white' : 'bg-well',
+                    )}
+                    style={{ ...tile, backgroundColor: fill?.type === 'solid' ? fill.color : undefined }}
+                  >
+                    {picture && <img src={picture} alt="" draggable={false} className="absolute inset-0 size-full" />}
+                  </span>
+                  {/* The page's number on a dark chip, readable over any picture or page colour and whole over a
                     thin tile. */}
-                <span
-                  data-testid="page-number"
-                  className="absolute inset-0 m-auto size-fit rounded-[4px] bg-black/60 px-1 font-mono text-micro leading-[14px] font-semibold text-white tabular-nums"
-                >
-                  {i + 1}
+                  <span
+                    data-testid="page-number"
+                    className="absolute inset-0 m-auto size-fit rounded-[4px] bg-black/60 px-1 font-mono text-micro leading-[14px] font-semibold text-white tabular-nums"
+                  >
+                    {i + 1}
+                  </span>
                 </span>
-              </span>
-              {editing === id ? (
-                <RenameField
-                  name={page.name}
-                  label={g.rename}
-                  inputName="page-name"
-                  className={RENAME_IN_ROW}
-                  onDone={(name, byKey) => rename(id, name, byKey)}
-                />
-              ) : (
-                <button
-                  ref={focusBack.ref(id)}
-                  type="button"
-                  onClick={() => show(id)}
-                  onDoubleClick={() => !viewOnly && setRenaming(id)}
-                  onKeyDown={(e) => !viewOnly && e.key === 'F2' && setRenaming(id)}
-                  aria-label={format(g.show, { name: page.name })}
-                  className={cn(
-                    'flex min-w-0 flex-1 cursor-pointer flex-col items-start rounded-[6px] text-start',
-                    FOCUS_RING,
-                  )}
-                >
-                  <span className="w-full truncate text-small font-semibold text-text">
-                    {format(g.numbered, { n: i + 1, name: page.name })}
-                  </span>
-                  <span className="w-full truncate text-caption text-subtle">
-                    {format(frames.length === 0 ? g.framesNone : frames.length === 1 ? g.framesOne : g.framesMany, {
-                      n: frames.length,
-                    })}
-                  </span>
-                </button>
-              )}
-              {!viewOnly && (
-                <CardMenu
-                  label={format(g.more, { name: page.name })}
-                  items={[
-                    { label: g.rename, run: () => setRenaming(id) },
-                    {
-                      label: g.duplicate,
-                      run: () => show(run('page.duplicate', { id, name: format(g.copyName, { name: page.name }) })),
-                    },
-                    {
-                      label: g.moveUp,
-                      why: i === 0 ? g.firstAlready : null,
-                      run: () => run('page.move', { id, before: pages[i - 1]?.[0] ?? null }),
-                    },
-                    {
-                      label: g.moveDown,
-                      why: i === pages.length - 1 ? g.lastAlready : null,
-                      run: () => run('page.move', { id, before: pages[i + 2]?.[0] ?? null }),
-                    },
-                    {
-                      label: g.remove,
-                      why: pages.length === 1 ? g.onlyPage : null,
-                      danger: true,
-                      run: () => {
-                        run('page.delete', { id })
-                        onRemoved(format(g.removed, { name: page.name }))
+                {editing === id ? (
+                  <RenameField
+                    name={page.name}
+                    label={g.rename}
+                    inputName="page-name"
+                    className={RENAME_IN_ROW}
+                    onDone={(name, byKey) => rename(id, name, byKey)}
+                  />
+                ) : (
+                  <button
+                    ref={focusBack.ref(id)}
+                    type="button"
+                    onClick={() => show(id)}
+                    onDoubleClick={() => !viewOnly && setRenaming(id)}
+                    onKeyDown={(e) => !viewOnly && e.key === 'F2' && setRenaming(id)}
+                    aria-label={format(g.show, { name: page.name })}
+                    className={cn(
+                      'flex min-w-0 flex-1 cursor-pointer flex-col items-start rounded-[6px] text-start',
+                      FOCUS_RING,
+                    )}
+                  >
+                    <span className="w-full truncate text-small font-semibold text-text">
+                      {format(g.numbered, { n: i + 1, name: page.name })}
+                    </span>
+                    <span className="w-full truncate text-caption text-subtle">
+                      {format(frames.length === 0 ? g.framesNone : frames.length === 1 ? g.framesOne : g.framesMany, {
+                        n: frames.length,
+                      })}
+                    </span>
+                  </button>
+                )}
+                {!viewOnly && (
+                  <CardMenu
+                    label={format(g.more, { name: page.name })}
+                    items={[
+                      { label: g.rename, run: () => setRenaming(id) },
+                      {
+                        label: g.duplicate,
+                        run: () => show(run('page.duplicate', { id, name: format(g.copyName, { name: page.name }) })),
                       },
-                    },
-                  ]}
-                />
-              )}
-            </li>
+                      {
+                        label: g.moveUp,
+                        why: i === 0 ? g.firstAlready : null,
+                        run: () => run('page.move', { id, before: pages[i - 1]?.[0] ?? null }),
+                      },
+                      {
+                        label: g.moveDown,
+                        why: i === pages.length - 1 ? g.lastAlready : null,
+                        run: () => run('page.move', { id, before: pages[i + 2]?.[0] ?? null }),
+                      },
+                      {
+                        label: g.remove,
+                        why: pages.length === 1 ? g.onlyPage : null,
+                        danger: true,
+                        run: () => {
+                          run('page.delete', { id })
+                          onRemoved(format(g.removed, { name: page.name }))
+                        },
+                      },
+                    ]}
+                  />
+                )}
+              </li>
+              {current === id && <SectionList editor={editor} design={design} pageId={id} />}
+            </Fragment>
           )
         })}
       </ol>
@@ -354,5 +356,40 @@ function PageList({ editor, onRemoved }: { editor: Editor; onRemoved: (message: 
         </button>
       )}
     </>
+  )
+}
+
+/**
+ * The shown page's sections, top to bottom (`sectionsByPlace`), each with its title and number of
+ * frames; a click zooms to fit it. None while the page has none.
+ */
+function SectionList({ editor, design, pageId }: { editor: Editor; design: Design; pageId: string }) {
+  const s = useMessages().editor.sections
+  const locale = useLocale()
+  const sections = sectionsByPlace(design, pageId)
+  if (sections.length === 0) return null
+  return (
+    <li data-testid="page-sections" className="ps-6">
+      <ul aria-label={s.list} className="flex flex-col gap-0.5">
+        {sections.map(([id, section]) => (
+          <li key={id} data-section={id}>
+            <button
+              type="button"
+              onClick={() => editor.fitSection(id)}
+              aria-label={format(s.show, { name: section.title })}
+              className={cn(
+                'flex w-full min-w-0 cursor-pointer items-baseline gap-2 rounded-[6px] px-2 py-1 text-start hover:bg-hover active:bg-pressed',
+                FOCUS_RING,
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate text-small text-text">{section.title}</span>
+              <span className="shrink-0 text-caption text-subtle">
+                {counted(locale, s.frameCount, framesInSection(design, id).length)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </li>
   )
 }

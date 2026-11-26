@@ -193,6 +193,8 @@ export function harness(
       pickedFrame: () => (state.picked ? 'one-sq' : null),
       litFrame: () => (state.lit ? 'one-sq' : null),
       renamingFrame: () => (state.renaming ? 'one-sq' : null),
+      pickedSection: () => null,
+      renamingSection: () => null,
       cropping: () => null,
       pathEditing: () => null,
       constraintsShown: () => false,
@@ -268,6 +270,7 @@ export function harness(
     },
     frameResize: { handled: () => (state.frameHandles ? SQUARE : null) },
     place: { dropTarget: () => ({ id: 't', frameId: 'one-sq' }) },
+    frameMove: { shownSections: () => ({ outlines: [], lit: null }) },
     pointer: {
       gesture: () => state.gesture ?? null,
       measured: () => state.measured ?? null,

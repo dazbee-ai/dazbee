@@ -89,10 +89,15 @@ export function editorDomInput({
   let pickPress = false
   const on = { signal }
 
-  /** A pointer event of the canvas as a pointer input: where it is on the stage, and on a press and a double click the label under it. */
+  /**
+   * A pointer event of the canvas as a pointer input: where it is on the stage, and on a press and a
+   * double click the label or the section's title under it.
+   */
   function pointerInput(type: PointerInput['type'], e: MouseEvent): PointerInput {
     const client = { x: e.clientX, y: e.clientY }
-    const label = type === 'pointerdown' || type === 'dblclick' ? labelTextAt(overlay, client) : undefined
+    const pressed = type === 'pointerdown' || type === 'dblclick'
+    const label = pressed ? labelTextAt(overlay, client) : undefined
+    const title = pressed && label === undefined ? sectionTitleAt(overlay, client) : undefined
     return {
       type,
       at: surface.onStage(client),
@@ -104,6 +109,7 @@ export function editorDomInput({
       metaKey: e.metaKey,
       pointerType: 'pointerType' in e ? (e as PointerEvent).pointerType : 'mouse',
       ...(label === undefined ? {} : { label }),
+      ...(title === undefined ? {} : { title }),
       ...('deltaMode' in e
         ? { deltaX: (e as WheelEvent).deltaX, deltaY: (e as WheelEvent).deltaY, deltaMode: (e as WheelEvent).deltaMode }
         : {}),
@@ -279,6 +285,17 @@ export function labelTextAt(overlay: ParentNode, client: Point): string | undefi
       // A size with no room beside the name wraps onto the label's hidden second line.
       if (box.top < row.bottom && client.x >= box.left && client.x <= box.right) found = label.dataset.frame
     }
+  }
+  return found
+}
+
+/** The section whose title is under a client point, as the overlay last drew the titles: the last drawn of those there. */
+export function sectionTitleAt(overlay: ParentNode, client: Point): string | undefined {
+  let found: string | undefined
+  for (const title of overlay.querySelectorAll<HTMLElement>('.section-title')) {
+    const box = title.getBoundingClientRect()
+    if (client.x >= box.left && client.x <= box.right && client.y >= box.top && client.y <= box.bottom)
+      found = title.dataset.section
   }
   return found
 }

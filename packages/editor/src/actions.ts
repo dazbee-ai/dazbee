@@ -55,6 +55,7 @@ export interface ActionsDeps {
     | 'entered'
     | 'lastFrameOn'
     | 'pickedFrame'
+    | 'pickedItem'
     | 'cropping'
     | 'pathEditing'
     | 'select'
@@ -84,7 +85,7 @@ export interface ActionsDeps {
   transformDrag: Pick<EditorTransformDrag, 'writeBoxes'>
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'nudge'>
   boxLayout: Pick<EditorBoxLayout, 'setLayout' | 'layOutInPlace' | 'wrapInLayout' | 'box'>
-  frameActions: Pick<EditorFrameActions, 'frameAction'>
+  frameActions: Pick<EditorFrameActions, 'itemAction'>
   reach: Pick<EditorReach, 'goIn' | 'goOut' | 'step'>
   duplicate: Pick<EditorDuplicate, 'duplicate'>
   /**
@@ -103,6 +104,7 @@ export const TOOL_ACTIONS: Readonly<Partial<Record<StageAction, Tool>>> = {
   toolSelect: 'select',
   toolHand: 'hand',
   toolFrame: 'frame',
+  toolSection: 'section',
   toolRect: 'rect',
   toolEllipse: 'ellipse',
   toolBox: 'box',
@@ -400,8 +402,8 @@ export function editorActions({
       tools.setTool(tool)
       return true
     }
-    const picked = selection.pickedFrame()
-    if (picked !== null && !selection.current()) return frameActions.frameAction(action, picked)
+    const picked = selection.pickedItem()
+    if (picked !== null && !selection.current()) return frameActions.itemAction(action, picked)
     const current = selection.current()
     const frame = current && frameOf(current[0]?.frameId)
     if (!current || !frame) return false

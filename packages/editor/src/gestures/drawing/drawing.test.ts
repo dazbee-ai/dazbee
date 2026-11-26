@@ -62,11 +62,13 @@ function harness(design: DesignInput = DESIGN) {
     view: {
       page: () => 'p1',
       showWhole: (area) => log.push(`showWhole ${JSON.stringify(area)}`),
+      camera: () => ({ x: 0, y: 0, zoom: 1 }),
     },
     tools: { setTool: (tool) => log.push(`tool ${tool}`) },
     frameName,
     selection,
     typing: { fitText: () => {} },
+    rename: () => {},
     shownChanged: () => log.push('draw'),
   })
   const deps: DrawingDeps = {
@@ -83,12 +85,17 @@ function harness(design: DesignInput = DESIGN) {
     },
     boxes,
     page: () => 'p1',
+    frames: () => frames,
+    camera: () => ({ x: 0, y: 0, zoom: 1 }),
+    frameMove: { shownSections: () => ({ outlines: [], lit: null }) },
     frameName,
     frameActions,
     hug: (ids) => {
       log.push(`hug ${ids.join(',')}`)
       hug(session, ids)
     },
+    notify: (notice) => log.push(`notice ${notice}`),
+    renameSection: (id) => log.push(`rename section ${id}`),
     shownChanged: () => log.push('draw'),
   }
   const drawing = editorDrawing(deps)

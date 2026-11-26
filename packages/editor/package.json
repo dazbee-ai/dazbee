@@ -20,6 +20,7 @@
     "./placed-asset": "./src/placed-asset.ts",
     "./test-editor": "./src/test-editor.ts",
     "./test-link": "./src/test-link.ts",
+    "./test-sections": "./src/test-sections.ts",
     "./test-matrix": "./src/test-matrix/index.ts"
   },
   "scripts": {

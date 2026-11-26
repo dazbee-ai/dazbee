@@ -28,6 +28,7 @@ class LayerSplitRequest(BaseModel):
     size: Size
     guidance: Annotated[float | None, Field(gt=0.0, le=20.0)] = None
     plan: Annotated[str | None, Field(max_length=10000, min_length=1)] = None
+    askedAt: Annotated[int | None, Field(gt=0, le=9007199254740991)] = None
 
 
 class Layer(BaseModel):
@@ -45,6 +46,14 @@ class Layer(BaseModel):
     height: Annotated[int, Field(gt=0, le=9007199254740991)]
 
 
+class StartSeconds(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0)]
+
+
+class IdleSeconds(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0)]
+
+
 class LayerSplitResult(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -53,6 +62,9 @@ class LayerSplitResult(BaseModel):
     seconds: Annotated[float, Field(ge=0.0)]
     cpuCores: Annotated[float, Field(gt=0.0)]
     memoryGib: Annotated[float, Field(gt=0.0)]
+    startSeconds: StartSeconds | None = None
+    idleSeconds: IdleSeconds | None = None
+    waitSeconds: Annotated[float | None, Field(ge=0.0)] = None
 
 
 class LayerSplitMessage(RootModel[LayerSplitRequest | LayerSplitResult]):

@@ -14,7 +14,7 @@ import { hold } from '../ledger.ts'
 import { priceUsage } from '../price-list.ts'
 import { aiSettingsOf } from '../settings.ts'
 import { addFunction, addGrant, addJob, db, memoryFiles, newWorkspace, RUPEE, setJob, TEST_PRESET } from '../test-ai.ts'
-import { LAYERING, type ModalFunctionCall, type ModalSdk, modalSellerOn } from './modal.ts'
+import { billedSeconds, LAYERING, type ModalFunctionCall, type ModalSdk, modalSellerOn } from './modal.ts'
 import { useSeller } from './seller.ts'
 import { expectDeclared } from './test-fetch.ts'
 
@@ -112,6 +112,30 @@ async function callRows(job: string) {
   return db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.try))
 }
 
+describe('billedSeconds', () => {
+  it('gives the first call a container serves its start and the wait before it stops', () => {
+    expect(billedSeconds({ ...RESULT, startSeconds: 40, idleSeconds: null, waitSeconds: 5 })).toBe(62.5)
+  })
+
+  it('gives a later call the wait since the container’s last call, and no start or last wait again', () => {
+    expect(billedSeconds({ ...RESULT, startSeconds: null, idleSeconds: 2, waitSeconds: 5 })).toBe(19.5)
+    expect(billedSeconds({ ...RESULT, startSeconds: null, idleSeconds: 0, waitSeconds: 5 })).toBe(17.5)
+  })
+
+  it('adds a container’s calls up to the time it ran: its start, its work, its waits and its last wait', () => {
+    const calls: LayerSplitResult[] = [
+      { ...RESULT, seconds: 20, startSeconds: 35, idleSeconds: null, waitSeconds: 5 },
+      { ...RESULT, seconds: 10, startSeconds: null, idleSeconds: 0.5, waitSeconds: 5 },
+      { ...RESULT, seconds: 18, startSeconds: null, idleSeconds: 3, waitSeconds: 5 },
+    ]
+    expect(calls.reduce((sum, call) => sum + billedSeconds(call), 0)).toBe(35 + 20 + 0.5 + 10 + 3 + 18 + 5)
+  })
+
+  it('counts the seconds the function worked for an app that reports no start or wait', () => {
+    expect(billedSeconds(RESULT)).toBe(17.5)
+  })
+})
+
 describe('modalSellerOn', () => {
   it('spawns the split, keeps its call id, asks until its result comes and reads the layers', async () => {
     const { sdk, seen } = fakeModal(['wait', 'wait', { result: RESULT }])
@@ -128,8 +152,11 @@ describe('modalSellerOn', () => {
       signal: new AbortController().signal,
       files,
     })
-    const sent: LayerSplitRequest = { picture: 'AQID', size: 1024 }
+    // The request says when it was asked for, for a container that starts for it.
+    const sent: LayerSplitRequest = { picture: 'AQID', size: 1024, askedAt: expect.any(Number) as number }
     expect(seen.spawned).toEqual([[sent]])
+    const [[{ askedAt }]] = seen.spawned as [[LayerSplitRequest]]
+    expect(Math.abs(Date.now() - (askedAt ?? 0))).toBeLessThan(60_000)
     expect(seen.asks).toBe(3)
     expect(output).toMatchObject({
       kind: 'layers',
@@ -206,6 +233,29 @@ describe('modalSellerOn', () => {
     const rows = await callRows(job.id)
     expect(rows).toMatchObject([{ state: 'unknown', sellerRequestId: 'fc-1', chargedAt: null }])
     expect(rows[0]?.error).toContain('Modal timed the layer split out')
+  })
+
+  it('logs the start and the last wait of a cold call as usage too', async () => {
+    const cold = { ...RESULT, startSeconds: 40, idleSeconds: null, waitSeconds: 5 }
+    const { sdk } = fakeModal([{ result: cold }])
+    useSeller(modalSellerOn(sdk, { pollMs: 1 }))
+    const { job, files, input } = await splitJob()
+    const output = await callAi(db, {
+      job,
+      attempt: 1,
+      callIndex: 0,
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
+      input,
+      signal: new AbortController().signal,
+      files,
+    })
+    // The output keeps the seconds the split itself took.
+    expect(output).toMatchObject({ kind: 'layers', gpuSeconds: 17.5 })
+    const [row] = await callRows(job.id)
+    expect(row?.usage).toEqual({ 'gpu-second': 62.5, 'cpu-core-second': 250, 'memory-gib-second': 2000 })
+    expect(row?.chargeCost).toBe((await aiSettingsOf(db)).layerSplit1024)
   })
 
   it('charges the fixed amount for the size and logs the GPU, CPU and memory cost', async () => {

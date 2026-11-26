@@ -216,6 +216,25 @@ GPT Image 2.5 takes no setting for how closely it reads a reference: `input_fide
 - **So a reference is sent within 576 patches,** the fewest it can cost: a 16:9 picture at 1024 × 573, a square at 768 × 768. That is the grid of a medium-quality square, 24 × 24. A draft with one brief picture goes from ₹3.04 to about ₹2.19, a round from ₹12.7 to about ₹9.3.
 - **The drafts looked the same.** The draft from the 1024 × 573 picture kept the valley, its hills and its light as the one from 1536 × 860 did. A product photo with small print on it has not been compared.
 
+## The layer split on Modal, measured 26 Nov 2026
+
+Modal bills a container from its start to its stop: the start, each split, and the wait for another call before it stops. Eleven splits of one test ad were run through a local worker on an H100, at both sizes, first with the 60 s wait the app had and then with a 5 s wait. A second of the container costs ₹0.1175 (the H100, 4 cores and 32 GiB at ₹96.31 a dollar).
+
+| Size    | Case                                 | Start   | Split | To its result | Billed, 60 s wait | Cost, 60 s wait | Billed, 5 s wait | Cost, 5 s wait |
+| ------- | ------------------------------------ | ------- | ----- | ------------- | ----------------- | --------------- | ---------------- | -------------- |
+| 1024 px | First call after a deploy            | 57–60 s | 20 s  | 83 s          | 138 s             | ₹16.20          | 84 s             | ₹9.91          |
+| 1024 px | Lone call, container from a snapshot | 14–22 s | 19 s  | 37–45 s       | about 98 s        | about ₹11.5     | 38–46 s          | ₹4.49–5.44     |
+| 1024 px | Call that finds a container waiting  | none    | 22 s  | 27 s          | 28 s              | ₹3.34           | 22–27 s          | ₹2.6–3.2       |
+| 512 px  | Lone call, container started in full | 52 s    | 4.8 s | 72 s          | 117 s             | ₹13.79          | about 62 s       | about ₹7.3     |
+| 512 px  | Lone call, container from a snapshot | 17–18 s | 4.7 s | 26–27 s       | 82 s              | ₹9.70           | 27 s             | ₹3.21–3.22     |
+| 512 px  | Call that finds a container waiting  | none    | 4.7 s | 11 s          | 23 s              | ₹2.68           | 5–10 s           | ₹0.6–1.2       |
+
+- **The rows marked "about", and the waiting rows at 5 s, are worked out** from the measured start and split with the other wait; every other cell is one or two measured calls. One 512 px call from a snapshot took 44 s to start and cost ₹6.26.
+- **The wait is the cost of a lone call.** With 60 s, a lone 512 px split is billed 82 s for 4.5 s of work. With 5 s the same call is billed 27 s. The splits of one job are asked for together and find the container still working, so the short wait costs them nothing; a second lone call a few seconds later pays a start again.
+- **A snapshot takes two or three starts to be there** after each deploy of the app, and one start from a snapshot timed out inside the app before it was made to wait for ComfyUI to answer; none failed after.
+- **A call's real cost is now the time its container was billed for it:** the first call a container serves carries its start and its last wait, each later call the wait before it. Over the hour Modal billed 937 H100-seconds, US$1.14 in all; the eleven calls account for 666 of them, the one failed call's container for about 130, and about 140 are around snapshots and stops that no call sees.
+- **The fixed charge is set to cover a lone call from a snapshot** with that unseen part: ₹6.00 at 1024 px and ₹3.50 at 512 px, where it was ₹2.50 and ₹0.60.
+
 ## Not yet known
 
 - **Low-quality previews:** whether GPT Image 2.5 at low quality is good enough to choose from. No picture was made at low.

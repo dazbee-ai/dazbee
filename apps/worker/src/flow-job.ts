@@ -1,5 +1,5 @@
-// Runs the flow's jobs from the one `ai-flow` queue (ADR-0022): each attempt runs its job kind's script over
-// `callAi` with the presets the job saved, up to 4 calls at once per job and at most the worker-wide limit across jobs, the pictures it makes
+// Runs the AI features' jobs from the one `ai-flow` queue (ADR-0022): each attempt runs its AI feature from the
+// features list over `callAi` with the presets the job saved, up to 4 calls at once per job and at most the worker-wide limit across jobs, the pictures it makes
 // stored as the workspace's originals and recorded as assets of the job's brand.
 import { FLOW_CALLS_AT_ONCE, runFlowJob } from '@dazbee/ai'
 
@@ -19,12 +19,12 @@ export interface FlowWorkerDeps extends JobWorkerDeps {
   sellers?: string[]
 }
 
-/** Starts running the queue's flow jobs, switching on each job's kind. */
+/** Starts running the queue's jobs, each as its AI feature declares it. */
 export async function startFlowWorker(deps: FlowWorkerDeps): Promise<JobWorker> {
   return startJobWorker(deps, (attempt, calls) => runFlow(deps, attempt, calls))
 }
 
-/** Runs a flow job's attempt with its job kind's script. */
+/** Runs one attempt of an AI feature's job. */
 async function runFlow(deps: FlowWorkerDeps, attempt: JobAttempt, calls: Limiter) {
   const { input: flow } = attempt
   if (flow.kind === 'calls') throw new Error('the ai-flow queue can’t run a calls job')

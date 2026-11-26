@@ -172,8 +172,8 @@ describe('saveJob', () => {
       .catch((error: { result?: unknown }) => error.result)
     expect(read).toEqual({
       // The full plan and four drafts at their first guesses, times 1.25; only the AI functions a round calls.
-      before: { presets: { 'round-plan': 'full-terra', draft: 'gpt-image-medium' }, held: [-12_325_000n] },
-      after: { presets: { 'round-plan': 'light-luna', draft: 'gpt-image-medium' }, held: [-6_950_000n] },
+      before: { presets: { 'round-plan': 'full-terra', draft: 'gpt-image-medium' }, held: [-17_175_000n] },
+      after: { presets: { 'round-plan': 'light-luna', draft: 'gpt-image-medium' }, held: [-15_925_000n] },
     })
   })
 

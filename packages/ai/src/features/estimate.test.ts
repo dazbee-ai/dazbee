@@ -37,7 +37,7 @@ describe('estimateAction', () => {
       (await estimateAction(db, workspace, AiEstimateQuery.parse(query))).seconds
     expect(await seconds({ action: 'round', mode: 'precise' })).toBe(33 + 28)
     expect(await seconds({ action: 'try-again', mode: 'fast' })).toBe(28)
-    expect(await seconds({ action: 'refine' })).toBe(7 + 117)
+    expect(await seconds({ action: 'refine' })).toBe(2 + 117)
     expect(
       await seconds({
         action: 'resize',
@@ -49,8 +49,8 @@ describe('estimateAction', () => {
     ).toBe(117)
     const story = { width: 1080, height: 1920 }
     expect(await seconds({ action: 'resize', sizes: [story, story, story, story, story] })).toBe(2 * 117)
-    expect(await seconds({ action: 'layering' })).toBe(82 + 18)
-    expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(82 + 2 * 18)
+    expect(await seconds({ action: 'layering' })).toBe(38 + 99)
+    expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(38 + 2 * 99)
   })
 
   it('holds more for more sizes, and for a Precise round', async () => {
@@ -67,5 +67,13 @@ describe('estimateAction', () => {
     expect(two).toBeGreaterThan(one)
     // A Precise round's plan runs a dearer preset than a Fast round's.
     expect(await hold({ action: 'round', mode: 'precise' })).toBeGreaterThan(await hold({ action: 'round' }))
+  })
+
+  it('adds the reference read to a round with a reference ad: its cost to the hold, its seconds to the wait', async () => {
+    const workspace = await workspaceWith(null)
+    const withOne = AiEstimateQuery.parse({ action: 'round', reference: 'true' })
+    // The reference read's first guess, with the hold's margin.
+    expect((await actionHold(db, workspace, withOne)) - (await actionHold(db, workspace, fastRound))).toBe(87_500n)
+    expect((await estimateAction(db, workspace, withOne)).seconds).toBe(6 + 10 + 28)
   })
 })

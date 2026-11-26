@@ -6,7 +6,7 @@ import type { PgBoss } from 'pg-boss'
 
 import { saveJob } from '@dazbee/ai'
 import { aiFrames, type Db, type Tx } from '@dazbee/db'
-import type { AiFrameState, AiFrameView, AiJobRefusal, BrandSummary, FlowJobInput } from '@dazbee/schema'
+import type { AiFeatureInput, AiFrameState, AiFrameView, AiJobRefusal, BrandSummary } from '@dazbee/schema'
 
 import { frameBusy, framesOf } from './ai-frames.ts'
 
@@ -24,7 +24,7 @@ export type Started = { ok: true; job: string; briefId: string | null } | { ok: 
 export type Rows = (tx: Tx, job: string) => Promise<void>
 
 /** A job to save, worked out in its transaction, and the rows it saves beside itself once it is held. */
-export type Plan = (tx: Tx) => Promise<{ flow: FlowJobInput; rows: (job: string) => Promise<void> }>
+export type Plan = (tx: Tx) => Promise<{ flow: AiFeatureInput; rows: (job: string) => Promise<void> }>
 
 /** A frame a job fills: which call of the job fills it, and the state it starts in. */
 export interface FrameCall {
@@ -86,7 +86,7 @@ export async function saveFlow(
 }
 
 /** The plan of a save of `flow` and `rows`. */
-export function withRows(flow: FlowJobInput, rows: Rows): Plan {
+export function withRows(flow: AiFeatureInput, rows: Rows): Plan {
   return async (tx) => ({ flow, rows: (job) => rows(tx, job) })
 }
 

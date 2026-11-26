@@ -210,14 +210,14 @@ export const CallOutput = z.discriminatedUnion('kind', [
 ])
 export type CallOutput = z.infer<typeof CallOutput>
 
-/** The job kinds of the AI flow, one for each action a person asks for (input contracts in `ai-flow.ts`). */
-export const FLOW_JOB_KINDS = ['round', 'more-like-this', 'try-again', 'refine', 'resize', 'layering'] as const
+/** The AI features, each what a person asks the AI for in one go (input contracts in `ai-flow.ts`). */
+export const AI_FEATURES = ['round', 'more-like-this', 'try-again', 'refine', 'resize', 'layering'] as const
 
-export const FlowJobKind = z.enum(FLOW_JOB_KINDS)
-export type FlowJobKind = z.infer<typeof FlowJobKind>
+export const AiFeature = z.enum(AI_FEATURES)
+export type AiFeature = z.infer<typeof AiFeature>
 
 /** The job kinds of AI job. `calls` runs a list of AI calls given when it is saved; the rest are the flow's. */
-export const AI_JOB_KINDS = ['calls', ...FLOW_JOB_KINDS] as const
+export const AI_JOB_KINDS = ['calls', ...AI_FEATURES] as const
 
 export const AiJobKind = z.enum(AI_JOB_KINDS)
 export type AiJobKind = z.infer<typeof AiJobKind>

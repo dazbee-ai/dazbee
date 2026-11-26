@@ -2,7 +2,7 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
-import { assets, newId } from '@dazbee/db'
+import { aiCalls, assets, newId } from '@dazbee/db'
 import type { LayeringInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
@@ -22,7 +22,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from './test-flow.ts'
+} from './test-features.ts'
 
 /** A layering job of two sizes of `who`'s, planned from the draft they came from, at 1024 px. */
 async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {
@@ -39,6 +39,18 @@ async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {
     planKey: key('draft'),
     size: 1024,
   }
+}
+
+/** What the job held, in millionths of a rupee. */
+const heldBy = async (job: string) => -((await ledgerOf(job))[0]?.amount ?? 0n)
+
+/**
+ * The hold of a job of two frames at 1024 px: the layer plan and two readings at their presets' first guesses, and
+ * two splits at the fixed amount for the size, times 1.25.
+ */
+async function twoFramesHold(): Promise<bigint> {
+  const { layerSplit1024 } = await aiSettingsOf(db)
+  return ((3_980_000n + 2n * 60_000n + 2n * layerSplit1024) * 5n + 3n) / 4n
 }
 
 describe('a layering job', () => {
@@ -82,11 +94,7 @@ describe('a layering job', () => {
     const job = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
     await runFlow(job, flowDeps(seller))
 
-    const held = -((await ledgerOf(job))[0]?.amount ?? 0n)
-    // The layer plan and two readings at their presets' first guesses, and two splits at the fixed amount for
-    // the job's size, times 1.25.
-    const { layerSplit1024 } = await aiSettingsOf(db)
-    expect(held).toBe(((6_370_000n + 2n * 210_000n + 2n * layerSplit1024) * 5n + 3n) / 4n)
+    expect(await heldBy(job)).toBe(await twoFramesHold())
   })
 
   it('splits without readings when the plan has no text', async () => {
@@ -100,6 +108,10 @@ describe('a layering job', () => {
     const job = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
     expect((await runFlow(job, flowDeps(seller))).state).toBe('done')
     expect(await chargedCalls(job)).toEqual([0, 1, 3])
+    // No reading was made, and the hold still covered both.
+    const made = await db.select({ index: aiCalls.callIndex }).from(aiCalls).where(eq(aiCalls.jobId, job))
+    expect(made.map((call) => call.index).sort()).toEqual([0, 1, 3])
+    expect(await heldBy(job)).toBe(await twoFramesHold())
   })
 
   it('keeps no asset of a split whose layers can’t all be recorded, and charges nothing for it', async () => {

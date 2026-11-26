@@ -4,7 +4,7 @@ import { and, desc, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm'
 
 import { readJobs } from '@dazbee/ai'
 import { aiJobs, type Db, designs } from '@dazbee/db'
-import { type AiJobView, FLOW_JOB_INPUTS, type FlowJobKind, type MyAiJob } from '@dazbee/schema'
+import { AI_FEATURE_INPUTS, type AiFeature, type AiJobView, type MyAiJob } from '@dazbee/schema'
 
 import { findAccess, type MemberAccess } from '../workspace/workspace.ts'
 
@@ -30,7 +30,7 @@ export async function myAiJobs(db: Db, userId: string): Promise<MyAiJob[]> {
     .limit(MOST)
   const placed = rows.flatMap((row) => {
     if (row.kind === 'calls') return []
-    const input = FLOW_JOB_INPUTS[row.kind as FlowJobKind].safeParse(row.input)
+    const input = AI_FEATURE_INPUTS[row.kind as AiFeature].safeParse(row.input)
     return input.success ? [{ row, brandId: input.data.brandId, designId: input.data.designId }] : []
   })
   // The person's access in each workspace, null once they left it.

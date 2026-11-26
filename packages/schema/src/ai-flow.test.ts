@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  AI_FEATURE_INPUTS,
   answerSchema,
   briefTitle,
   FLOW_ANSWERS,
-  FLOW_JOB_INPUTS,
   isAiSize,
   LayeringInput,
   LayerPlanAnswer,
-  parseFlowJob,
+  parseFeatureJob,
   ProductLayerPlanAnswer,
   ReadingAnswer,
   ReferenceReadAnswer,
@@ -122,11 +122,11 @@ describe('LayeringInput', () => {
   })
 })
 
-describe('FLOW_JOB_INPUTS', () => {
+describe('AI_FEATURE_INPUTS', () => {
   it('holds an input contract for each flow job kind, more like this naming the liked draft', () => {
-    expect(FLOW_JOB_INPUTS['more-like-this'].safeParse(round).success).toBe(false)
+    expect(AI_FEATURE_INPUTS['more-like-this'].safeParse(round).success).toBe(false)
     expect(
-      FLOW_JOB_INPUTS['more-like-this'].parse({ ...round, likedKey: 'workspaces/w/originals/liked' }).likedKey,
+      AI_FEATURE_INPUTS['more-like-this'].parse({ ...round, likedKey: 'workspaces/w/originals/liked' }).likedKey,
     ).toBe('workspaces/w/originals/liked')
   })
 })
@@ -221,10 +221,10 @@ describe('isAiSize', () => {
   })
 })
 
-describe('parseFlowJob', () => {
+describe('parseFeatureJob', () => {
   it('reads a flow job by its job kind’s contract, and throws on an input of another job kind', () => {
-    expect(parseFlowJob('round', round)).toEqual({ kind: 'round', input: RoundInput.parse(round) })
-    expect(() => parseFlowJob('try-again', round)).toThrow()
+    expect(parseFeatureJob('round', round)).toEqual({ kind: 'round', input: RoundInput.parse(round) })
+    expect(() => parseFeatureJob('try-again', round)).toThrow()
   })
 })
 

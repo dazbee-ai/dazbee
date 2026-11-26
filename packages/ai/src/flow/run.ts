@@ -78,8 +78,8 @@ const SCRIPTS: { [K in FlowJobInput['kind']]: Script<K> } = {
 }
 
 /**
- * Runs the attempt's script to its end; how the job ends. A job that saved a preset the code no longer has fails
- * before any call is made. Throws the signal's reason once it is aborted.
+ * Runs the attempt's script to its end; how the job ends. A job that saved an AI function or a preset the code
+ * doesn't have fails before any call is made. Throws the signal's reason once it is aborted.
  */
 export async function runFlowJob(deps: FlowDeps, attempt: FlowAttempt): Promise<JobEnd> {
   const { db, files, sellers } = deps

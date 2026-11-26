@@ -49,10 +49,10 @@ export function defaultPreset(fn: string): string {
   return first
 }
 
-/** The AI function's preset `name`, or null when the code has none by that name. */
+/** The AI function's preset `name`, or null when the code has no such function or no preset by that name. */
 export function presetOf(fn: string, name: string): Preset | null {
-  const presets = aiFunctionDef(fn).presets
-  return Object.hasOwn(presets, name) ? (presets[name] ?? null) : null
+  const presets = Object.hasOwn(AI_FUNCTION_DEFS, fn) ? AI_FUNCTION_DEFS[fn]?.presets : undefined
+  return presets && Object.hasOwn(presets, name) ? (presets[name] ?? null) : null
 }
 
 /** The prompt a preset runs with: its own, or else its AI function's; none for a function that has no words. */

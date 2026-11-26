@@ -261,10 +261,7 @@ export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'unknown'] as const
 export const AiCallFailure = z.enum(AI_CALL_FAILURES)
 export type AiCallFailure = z.infer<typeof AiCallFailure>
 
-/**
- * Where one call of a job sits: its place in the job and its AI function. `step` holds the function's name too,
- * for a tab built when a call named its AI step.
- */
+/** Where one call of a job sits: its place in the job and its AI function, whose name `step` repeats. */
 const CallPlace = z.object({
   index: z.number().int().nonnegative(),
   function: z.string(),

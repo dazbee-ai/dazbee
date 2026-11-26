@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ensureQueue, readJob, saveJob, sweepJobs, useSeller } from '@dazbee/ai'
 import { testSeller } from '@dazbee/ai/test-sellers'
-import { aiPrices, assets, brands, newId } from '@dazbee/db'
+import { aiJobs, aiPrices, assets, brands, newId } from '@dazbee/db'
 import type { RoundInput, RoundPlanAnswer } from '@dazbee/schema'
 import { originalKey } from '@dazbee/storage'
 
@@ -140,6 +140,28 @@ describe('startFlowWorker', () => {
     const recorded = await db.select().from(assets).where(eq(assets.brandId, who.brand))
     expect(recorded.map((asset) => [asset.id, asset.tags])).toEqual([[pictures[0]?.assetId, ['ai']]])
     await expectSettled(job, who.workspace)
+    await flow.stop('graceful', 1000)
+  })
+
+  it('ends a pg-boss job whose AI job is gone without an error, and never tries it again', async () => {
+    const queue = newQueue()
+    const who = await brandOf()
+    const boss = await newBoss()
+    await ensureQueue(boss, queue)
+    const job = await save(who, queue, roundOf(who))
+    const { queueJobId } = await jobRow(job)
+    // As the migration that empties the run history leaves a job that was waiting.
+    await db.delete(aiJobs).where(eq(aiJobs.id, job))
+    const flow = await startFlowWorker({ db, boss, storage, queue, callLimit: 8 })
+    const queued = await vi.waitFor(
+      async () => {
+        const [found] = await boss.findJobs(queue, { id: queueJobId ?? '' })
+        if (found?.state !== 'completed') throw new Error(`the pg-boss job is ${found?.state}`)
+        return found
+      },
+      { timeout: 20_000, interval: 100 },
+    )
+    expect(queued.retryCount).toBe(0)
     await flow.stop('graceful', 1000)
   })
 

@@ -453,11 +453,20 @@ describe('the migrations', () => {
         `select (g.amount + coalesce((select sum(amount) from ai_ledger l where l.grant_id = g.id), 0))::text as left from ai_grants g where g.id = 'grant-kept'`,
       )
       expect(left.rows[0]?.left).toBe('1000000')
+      // The last build's worker still logs a call under its step, and its API still saves a job with no presets.
+      await client.query(
+        `insert into ai_jobs (id, workspace_id, member_id, kind, input) values ('job-old', 'workspace-kept', 'user-kept', 'round', '{}')`,
+      )
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, step, model, seller) values ('call-old', 'job-old', 'workspace-kept', 0, 1, 1, 'flow.round-plan', 'gpt-6-luna', 'openai')`,
+      )
+      expect(await count(client, 'ai_kind_models')).toBeGreaterThan(0)
+      expect(await count(client, 'ai_step_models')).toBeGreaterThan(0)
       // A call is logged with no step.
       await client.query(
         `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, function, preset, model, seller) values ('call-new', 'job-new', 'workspace-kept', 0, 1, 1, 'round-plan', 'light-luna', 'gpt-6-luna', 'openai')`,
       )
-      expect(await count(client, 'ai_calls')).toBe(1)
+      expect(await count(client, 'ai_calls')).toBe(2)
     })
   }, 60_000)
 

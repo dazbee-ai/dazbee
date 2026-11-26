@@ -3,8 +3,8 @@ import { eq, sql } from 'drizzle-orm'
 import { fromDrizzle, PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { aiCalls, aiJobs, aiLedger, brands, memberships, newId, users, workspaces } from '@dazbee/db'
-import type { CallInput, CallsInput, MemberRole } from '@dazbee/schema'
+import { aiCalls, aiJobs, aiLedger, aiPicks, brands, memberships, newId, users, workspaces } from '@dazbee/db'
+import type { CallInput, CallsInput, MemberRole, RoundInput } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
 import { cancelJob, ensureQueue, FLOW_QUEUE, readJob, saveJob } from './jobs.ts'
@@ -122,14 +122,59 @@ describe('saveJob', () => {
     if (!saved.ok) throw new Error(saved.refusal)
     expect(taken).toBe(1)
     const [job] = await db.select().from(aiJobs).where(eq(aiJobs.id, saved.job))
-    // No mode changes a resize, and it saves the preset every AI function runs with now.
+    // No mode changes a resize, and it saves the preset of the one AI function it calls.
     expect(job).toMatchObject({ kind: 'resize', queue: FLOW_QUEUE, input, mode: null })
-    expect(job?.presets).toMatchObject({ resize: 'seedream', 'round-plan': 'light-luna', draft: 'gpt-image-medium' })
+    expect(job?.presets).toEqual({ resize: 'seedream' })
     expect(await readJob(db, who.workspace, saved.job)).toMatchObject({ kind: 'resize', output: null, calls: [] })
     const wrong = { ...input, frame: target }
     await expect(
       db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'try-again', input: wrong as never })),
     ).rejects.toThrow()
+  })
+
+  it('keeps a job’s presets and its hold when a pick is made after it is saved, and gives the next job the pick', async () => {
+    const who = await memberOf('editor', 100n * RUPEE)
+    const target = () => ({ frameId: newId(), pictureLayerId: newId() })
+    const round = (): RoundInput => ({
+      brandId: `brand-${newId()}`,
+      designId: newId(),
+      briefId: newId(),
+      sectionId: newId(),
+      frames: [target(), target(), target(), target()],
+      words: 'Harbour Coffee, fresh every morning',
+      pictures: [],
+      size: { width: 1080, height: 1080 },
+      mode: 'precise',
+      brand: { name: '', colors: [], fonts: [], voice: '' },
+    })
+    // In a transaction that is rolled back, so no other test's Precise round ever reads the pick.
+    const read = await db
+      .transaction(async (tx) => {
+        const saveRound = async () => {
+          const saved = await saveJob(tx, boss, { ...who, kind: 'round', input: round(), queue })
+          if (!saved.ok) throw new Error(saved.refusal)
+          return saved.job
+        }
+        const held = async (job: string) =>
+          (await tx.select().from(aiLedger).where(eq(aiLedger.jobId, job))).map((row) => row.amount)
+        const presets = async (job: string) => (await tx.select().from(aiJobs).where(eq(aiJobs.id, job)))[0]?.presets
+        const before = await saveRound()
+        await tx
+          .insert(aiPicks)
+          .values({ function: 'round-plan', mode: 'precise', preset: 'light-luna', setBy: 'admin' })
+        const after = await saveRound()
+        const result = {
+          before: { presets: await presets(before), held: await held(before) },
+          after: { presets: await presets(after), held: await held(after) },
+        }
+        throw Object.assign(new Error('roll back'), { result })
+      })
+      .catch((error: { result?: unknown }) => error.result)
+    expect(read).toEqual({
+      // The full plan and four drafts at their first guesses, times 1.25; only the AI functions a round calls.
+      before: { presets: { 'round-plan': 'full-terra', draft: 'gpt-image-medium' }, held: [-12_325_000n] },
+      after: { presets: { 'round-plan': 'light-luna', draft: 'gpt-image-medium' }, held: [-6_950_000n] },
+    })
   })
 
   it('refuses every job once the day’s real cost reaches the spending stop', async () => {

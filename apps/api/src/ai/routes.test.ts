@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
 import { left } from '@dazbee/ai'
-import { aiBriefs, aiRefines, assets, brandKits, brands, newId } from '@dazbee/db'
+import { aiBriefs, aiJobs, aiRefines, assets, brandKits, brands, newId } from '@dazbee/db'
 import {
   AiEstimate,
   type AiFrameView,
@@ -353,6 +353,35 @@ describe('GET /brands/:b/ai/estimate', () => {
     expect(AiEstimate.parse(read.json).seconds).toBe(10 + 28)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=dance')).status).toBe(400)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=resize&sizes=wide')).status).toBe(400)
+  })
+})
+
+describe('what a workspace reads of its AI', () => {
+  it('names no model, seller or preset, whatever a job failed with', async () => {
+    const team = await addTeam()
+    const job = await start(team, roundRequest(team))
+    await makeCall(job, 0, { fn: 'round-plan', output: 'failed' })
+    await endJob(job, 'failed')
+    // Why a job failed, as its row keeps it for an admin.
+    await db
+      .update(aiJobs)
+      .set({
+        error:
+          'openai refused round-plan: gpt-6-luna is overloaded; the AI function round-plan has no preset light-luna',
+      })
+      .where(eq(aiJobs.id, job))
+    const estimate = '/ai/estimate?action=round&mode=precise&sizes=1080x1080'
+    const read = [
+      await ask(team, team.editor, 'GET', `/designs/${team.design}/ai`),
+      await ask(team, team.editor, 'GET', estimate),
+      await requestOf(aiApp, team.editor, 'GET', '/me/ai/jobs'),
+    ]
+    for (const answer of read) {
+      expect(answer.status).toBe(200)
+      expect(JSON.stringify(answer.json)).not.toMatch(/openai|zenmux|openrouter|gpt-|seedream|terra|luna|light-|full-/i)
+    }
+    const { jobs } = DesignAi.parse(read[0]?.json)
+    expect(jobs.find((each) => each.id === job)).toMatchObject({ state: 'failed', error: 'failed' })
   })
 })
 

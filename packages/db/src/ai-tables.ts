@@ -1,5 +1,5 @@
-// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, the picks of presets, the two tables of
-// models by kind and by step that nothing reads any more, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
+// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, the picks of presets, two tables of
+// models, by kind and by step, read by no code, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
 // flow's briefs, AI frames and refines. Amounts are whole millionths: of a rupee for allowance and real cost,
 // of the seller's currency for its prices and costs. Workspace and person ids carry no foreign key, so
 // deleting an account keeps the metering rows for good; the flow's rows go with their design.

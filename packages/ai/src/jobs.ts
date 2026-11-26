@@ -24,7 +24,7 @@ import {
 } from '@dazbee/schema'
 
 import { CUT_OFF } from './call-log.ts'
-import { flowHold, holdOf } from './flow/holds.ts'
+import { flowCalls, type HeldCall, holdOf } from './flow/holds.ts'
 import { endHold, hold } from './ledger.ts'
 import { presetsFor } from './picks.ts'
 import { aiSettingsOf } from './settings.ts'
@@ -71,6 +71,12 @@ export const FLOW_QUEUE = 'ai-flow'
 /** How long a job over its workspace's job limit waits before it is tried again. */
 export const LIMIT_WAIT_SECONDS = 10
 
+/**
+ * What a workspace reads as a failed job's error. The job's row keeps why it failed, which can name a seller, a
+ * model or a preset, and those a workspace never reads.
+ */
+export const JOB_FAILED = 'failed'
+
 /** The roles that may use AI. */
 const AI_ROLES = ['owner', 'admin', 'editor']
 
@@ -84,7 +90,7 @@ const QUEUE_ENDED = ['completed', 'cancelled', 'failed']
  * Saves an AI job in `tx`: throws on an input its job kind's schema refuses, and on a try-again of a brief the
  * workspace hasn't; refuses a member who may not use AI, a day past the spending stop, and a hold
  * bigger than what is left; then holds what its calls cost, writes the job with its mode and the preset each AI
- * function runs with in that mode, and sends its pg-boss job, all in the one transaction, so a failed send keeps
+ * function of its calls runs with in that mode, and sends its pg-boss job, all in the one transaction, so a failed send keeps
  * nothing. A pick made later never changes a saved job.
  */
 export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJob> {
@@ -99,14 +105,13 @@ export async function saveJob(tx: Tx, boss: PgBoss, job: NewJob): Promise<SavedJ
   if ((await spentToday(tx)) >= settings.spendingStop) return { ok: false, refusal: 'stopped' }
   const id = newId()
   const mode = parsed.kind === 'calls' ? null : await modeOf(tx, job.workspace, parsed)
-  const presets = parsed.kind === 'calls' ? null : await presetsFor(tx, mode)
-  const cost =
+  const calls: HeldCall[] =
     parsed.kind === 'calls'
-      ? await holdOf(
-          tx,
-          parsed.input.calls.map((call) => ({ fn: call.function, preset: call.preset, input: call.input })),
-        )
-      : await flowHold(tx, job.workspace, parsed, presets ?? {})
+      ? parsed.input.calls.map((call) => ({ fn: call.function, preset: call.preset, input: call.input }))
+      : await flowCalls(tx, job.workspace, parsed, await presetsFor(tx, mode))
+  // A flow job keeps the preset of each AI function its calls use; a `calls` job's calls name theirs.
+  const presets = parsed.kind === 'calls' ? null : Object.fromEntries(calls.map((call) => [call.fn, call.preset]))
+  const cost = await holdOf(tx, calls)
   if (!(await hold(tx, { workspace: job.workspace, job: id, cost }))) return { ok: false, refusal: 'used-up' }
   const queue = job.queue ?? (parsed.kind === 'calls' ? CALLS_QUEUE : FLOW_QUEUE)
   const queueJobId = randomUUID()
@@ -289,7 +294,7 @@ export async function readJobs(db: Db | Tx, workspace: string, jobs: string[]): 
       tries.filter((t) => t.jobId === row.id),
       row.callOutputs,
     ),
-    error: row.error,
+    error: row.error === null ? null : JOB_FAILED,
     createdAt: row.createdAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
   }))
@@ -400,7 +405,7 @@ function callViews(
 ): AiCallView[] {
   const latest = new Map(tries.map((t) => [t.callIndex, t]))
   return [...latest.values()].map(({ callIndex: index, function: fn, state, error }): AiCallView => {
-    // The AI function's name is given as `step` too, for a tab built when a call named its AI step.
+    // `step` repeats the AI function's name.
     const place = { index, function: fn ?? '', step: fn ?? '' }
     const output = outputs[String(index)]
     if (output) return { ...place, state: 'done', output }

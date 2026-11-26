@@ -22,7 +22,7 @@ import {
 
 import { callSize, pictureLimits, shapeOf } from '../call-size.ts'
 import type { JobEnd } from '../jobs.ts'
-import { DRAFT_PROMPT, PICTURES_SENTENCE } from '../prompts/ads/draft.ts'
+import { PICTURES_SENTENCE } from '../prompts/ads/draft.ts'
 import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_KIND_UNKNOWN } from '../prompts/ads/reference.ts'
 import { LIKED_DRAFT } from '../prompts/ads/round-director.ts'
 import type { DeclaredCall } from './holds.ts'
@@ -70,7 +70,7 @@ export async function runMoreLikeThis(run: FlowRun, input: MoreLikeThisInput): P
 export async function runTryAgain(run: FlowRun, input: TryAgainInput): Promise<JobEnd | null> {
   const brief = await storedBrief(run.db, run.workspace, input.briefId)
   if (!brief) return { state: 'failed', error: 'the brief is gone' }
-  const call = draftCall(brief, brief.plan, input.draft, run.preset('draft').model)
+  const call = draftCall(brief, brief.plan, input.draft, run.preset('draft').model, run.prompt('draft'))
   await run.call(0, 'draft', call, briefTitle(brief.words))
   return null
 }
@@ -104,9 +104,10 @@ async function planAndDraw(run: FlowRun, input: RoundInput, lead: Lead | null): 
     .set({ plan: kept })
     .where(and(eq(aiBriefs.id, input.briefId), eq(aiBriefs.workspaceId, run.workspace)))
   const model = run.preset('draft').model
+  const plain = run.prompt('draft')
   await run.all(
     Array.from({ length: DRAFTS }, (_, n) =>
-      run.call(ROUND_CALL.draft(n), 'draft', draftCall(input, kept, n, model), name),
+      run.call(ROUND_CALL.draft(n), 'draft', draftCall(input, kept, n, model, plain), name),
     ),
   )
   return null
@@ -189,15 +190,23 @@ function briefPictures(brief: DraftBrief): string[] {
 }
 
 /**
- * Draft `n`'s picture call: the plan's prompt for it with the pictures sentence when the brief has pictures, or the
- * plain draft prompt when the plan gave none; with the brief's pictures, at the draft model's call size.
+ * Draft `n`'s picture call: the plan's prompt for it with the pictures sentence when the brief has pictures, or
+ * `plain`, the draft preset's own prompt, filled in when the plan gave none; with the brief's pictures, at the draft
+ * model's call size.
  */
-function draftCall(brief: DraftBrief, plan: RoundPlanAnswer | null, n: number, model: string): CallInput {
+function draftCall(
+  brief: DraftBrief,
+  plan: RoundPlanAnswer | null,
+  n: number,
+  model: string,
+  plain: string,
+): CallInput {
   const pictures = briefPictures(brief)
   const planned = plan?.ads[n]?.prompt.trim()
   const prompt = planned
     ? [planned, ...(pictures.length > 0 ? [PICTURES_SENTENCE] : [])].join('\n\n')
-    : DRAFT_PROMPT.replace('{shape}', () => shapeOf(brief.size))
+    : plain
+        .replace('{shape}', () => shapeOf(brief.size))
         .replace('{brief}', () => brief.words)
         .replace('{pictures}', () => (pictures.length > 0 ? `- ${PICTURES_SENTENCE}\n` : ''))
   return { kind: 'picture', prompt, pictures, ...callSize(brief.size, pictureLimits(model)) }

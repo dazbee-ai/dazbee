@@ -137,6 +137,7 @@ describe('presetOf', () => {
     expect(presetOf('round-plan', 'full-terra')?.model).toBe('gpt-6.1-terra')
     expect(presetOf('round-plan', 'full-sol')).toBeNull()
     expect(presetOf('round-plan', 'toString')).toBeNull()
+    expect(presetOf('no-such-function', 'luna')).toBeNull()
   })
 })
 

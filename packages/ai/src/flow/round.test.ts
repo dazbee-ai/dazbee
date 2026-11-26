@@ -147,9 +147,47 @@ describe('a round', () => {
     const made = (await readJob(db, who.workspace, job))?.calls.map((call) => call.function)
     expect(made).toEqual(['round-plan', ...Array(4).fill('draft')])
     const [plan] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.callIndex))
-    expect(plan).toMatchObject({ preset: 'full-terra', model: 'gpt-6.1-terra', settings: { effort: 'low' } })
+    expect(plan).toMatchObject({
+      preset: 'full-terra',
+      model: 'gpt-6.1-terra',
+      kind: 'text',
+      settings: { effort: 'low', tier: 'standard' },
+      // The SHA-256 of the full round director.
+      promptHash: 'b30db0c9d8e5c26a5791918d9f6fe2e8c15f3e72215880213bb42697c245b61f',
+    })
     // The round plan's full preset and four drafts at their first guesses, times 1.25.
     expect((await ledgerOf(job))[0]?.amount).toBe(-12_325_000n)
+  })
+
+  it('runs a job saved with no presets on the presets in use when it starts, and keeps them', async () => {
+    const who = await flowWorkspace()
+    const seller = await flowSeller(newSeller('no-presets'))
+    const job = await saveFlow(who, { kind: 'round', input: await roundOf(who, { mode: 'precise' }) })
+    // As the last build's API saved it during a deploy.
+    await db.update(aiJobs).set({ mode: null, presets: null }).where(eq(aiJobs.id, job))
+    expect((await runFlow(job, flowDeps(seller))).state).toBe('done')
+
+    const [row] = await db.select().from(aiJobs).where(eq(aiJobs.id, job))
+    expect(row?.presets).toMatchObject({ 'round-plan': 'full-terra', draft: 'gpt-image-medium' })
+    const [plan] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.callIndex))
+    expect(plan?.preset).toBe('full-terra')
+  })
+
+  it('fails a job whose saved preset the code doesn’t have before any call, with its whole hold given back', async () => {
+    const who = await flowWorkspace()
+    const seller = await flowSeller(newSeller('gone-preset'))
+    const job = await saveFlow(who, { kind: 'round', input: await roundOf(who) })
+    await db
+      .update(aiJobs)
+      .set({ presets: { 'round-plan': 'gone-preset', draft: 'gpt-image-medium' } })
+      .where(eq(aiJobs.id, job))
+    const ended = await runFlow(job, flowDeps(seller))
+
+    expect(ended).toMatchObject({ state: 'failed', error: 'the AI function round-plan has no preset gone-preset' })
+    expect(seller.requests).toEqual([])
+    const ledger = await ledgerOf(job)
+    expect(ledger.map((row) => row.kind)).toEqual(['hold', 'give-back'])
+    expect(ledger.reduce((sum, row) => sum + row.amount, 0n)).toBe(0n)
   })
 
   it('reads a reference first and gives it to the planner alone, with its kind', async () => {

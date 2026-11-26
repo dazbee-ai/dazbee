@@ -212,6 +212,24 @@ describe('the migrations', () => {
     expect(jobs).toEqual([{ id: 'job-kept', finish_holder: null, finish_until: null }])
   }, 60_000)
 
+  it('raise the layer split’s fixed charges, and leave one an admin set as it is', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('layer-split-charges'))
+    expect(at).toBeGreaterThan(0)
+    const charges = (client: pg.Client) =>
+      client.query(`select layer_split_512::int as small, layer_split_1024::int as big from ai_settings`)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    expect((await withClient(url, charges)).rows).toEqual([{ small: 600_000, big: 2_500_000 }])
+    await applyMigrations(url, await firstMigrations(at + 1))
+    expect((await withClient(url, charges)).rows).toEqual([{ small: 3_500_000, big: 6_000_000 }])
+    // An admin set the 1024 px charge to another amount before the migration.
+    const changed = await freshDatabase()
+    await applyMigrations(changed, await firstMigrations(at))
+    await withClient(changed, (client) => client.query(`update ai_settings set layer_split_1024 = 4000000`))
+    await applyMigrations(changed, await firstMigrations(at + 1))
+    expect((await withClient(changed, charges)).rows).toEqual([{ small: 3_500_000, big: 4_000_000 }])
+  }, 60_000)
+
   it('add the fast tier’s and Terra’s prices and Terra’s sellers, keeping a price and a seller order an admin set', async () => {
     const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-fast-tier-and-terra-prices'))
     expect(at).toBeGreaterThan(0)

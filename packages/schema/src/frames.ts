@@ -1,5 +1,5 @@
 // Where a design's frames are: a page's frames in order, the cover frame, where the frame rule puts
-// a new one, and the frame a layer is in; and what a new frame and a blank design start as.
+// a new one, where something goes below everything on a page, and the frame a layer is in; and what a new frame and a blank design start as.
 import type { DesignInput, DesignMeta } from './design.ts'
 import type { Paint } from './paint.ts'
 import { inOrder } from './primitives.ts'
@@ -83,6 +83,23 @@ export function freeSpot(
     if (below === -Infinity) return { x, y }
     y = below + gap
   }
+}
+
+/**
+ * Where something placed below everything on page `pageId` goes, such as a new brief's section: FRAME_GAP
+ * below the bottom of the page's lowest frame, at the left of its leftmost frame; at 0, 0 on a page with none.
+ */
+export function belowAll(
+  frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>,
+  pageId: string,
+): { x: number; y: number } {
+  let [left, bottom] = [Infinity, -Infinity]
+  for (const frame of Object.values(frames)) {
+    if (frame.pageId !== pageId) continue
+    left = Math.min(left, frame.x)
+    bottom = Math.max(bottom, frame.y + frame.height)
+  }
+  return bottom === -Infinity ? { x: 0, y: 0 } : { x: left, y: bottom + FRAME_GAP }
 }
 
 /**

@@ -25,7 +25,7 @@ const NOT_TRIED_AGAIN = 'This frame can’t be tried again'
 
 /** Tries the failed frame `request.frameId` again. */
 export async function tryAgain(
-  { db, boss }: { db: Db; boss: PgBoss },
+  { db, boss, queue }: { db: Db; boss: PgBoss; queue: string },
   starter: Starter,
   request: StartTryAgain,
 ): Promise<Started> {
@@ -40,7 +40,7 @@ export async function tryAgain(
   if (!row || row.kind === 'ai-steps') throw new StartRefused(NOT_TRIED_AGAIN, 409)
   const failed = parseFlowJob(row.kind, row.input)
   const save = (plan: Plan, frames: FrameCall[]) =>
-    saveFlow({ db, boss, starter }, design, plan, async (tx: Tx) => {
+    saveFlow({ db, boss, queue, starter }, design, plan, async (tx: Tx) => {
       for (const { frameId } of frames) {
         const now = await aiFrame(tx, workspace, design, frameId)
         if (now.state !== 'failed' || now.jobId !== frame.jobId) throw new StartRefused('That frame is working', 409)

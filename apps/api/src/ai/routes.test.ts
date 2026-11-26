@@ -29,6 +29,7 @@ import {
   keyOf,
   madePicture,
   makeCall,
+  QUEUE,
   roundRequest,
   start,
   type Team,
@@ -87,8 +88,13 @@ describe('POST /brands/:b/ai/jobs', () => {
         planned: false,
       }),
     ])
-    const input = (await jobRow(job)).input as RoundInput
-    expect(input).toMatchObject({ brandId: team.brand, briefId, pictures: [await keyOf(team, team.picture)] })
+    const row = await jobRow(job)
+    expect(row.queue).toBe(QUEUE)
+    expect(row.input as RoundInput).toMatchObject({
+      brandId: team.brand,
+      briefId,
+      pictures: [await keyOf(team, team.picture)],
+    })
   })
 
   it('refuses a used-up workspace with used-up, writing nothing', async () => {

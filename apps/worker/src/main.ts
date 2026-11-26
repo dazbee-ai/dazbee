@@ -11,7 +11,7 @@ import { reportsOf, runDailyCheck, settleUnknownCalls, sweepJobs, useSellersOf }
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
-import { startStepsWorker } from './steps-job.ts'
+import { startStepsWorker } from './job-worker.ts'
 
 /** The queue of `ai-steps` jobs, named after their kind. */
 const STEPS_QUEUE = 'ai-steps'

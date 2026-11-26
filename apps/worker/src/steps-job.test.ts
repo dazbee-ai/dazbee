@@ -8,7 +8,8 @@ import { testSeller } from '@dazbee/ai/test-sellers'
 import { aiCalls, aiSettings, newId } from '@dazbee/db'
 import type { AiStepsInput } from '@dazbee/schema'
 
-import { limiter, runAttempt, startStepsWorker, type StepsWorker, workspaceFiles } from './steps-job.ts'
+import { limiter, startStepsWorker, type StepsWorker } from './job-worker.ts'
+import { runAttempt, workspaceFiles } from './steps-job.ts'
 import {
   callsOf,
   crashingWorker,

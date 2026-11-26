@@ -8,7 +8,7 @@ import { testSeller } from '@dazbee/ai/test-sellers'
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
-import { startStepsWorker } from './steps-job.ts'
+import { startStepsWorker } from './job-worker.ts'
 import { DATABASE_URL } from './test-database.ts'
 
 const read = (name: string) => {

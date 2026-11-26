@@ -23,9 +23,9 @@ import {
 import { openDatabase } from '@dazbee/db'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
+import { startCallsWorker } from './calls-job.ts'
 import { startFlowWorker } from './flow-job.ts'
 import { limiter } from './job-worker.ts'
-import { startCallsWorker } from './calls-job.ts'
 
 /** The queue the sweep's schedule sends to. */
 const SWEEP_QUEUE = 'ai-sweep'

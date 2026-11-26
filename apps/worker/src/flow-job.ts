@@ -3,6 +3,7 @@
 // stored as the workspace's originals and recorded as assets of the job's brand.
 import { FLOW_CALLS_AT_ONCE, runFlowJob } from '@dazbee/ai'
 
+import { workspaceFiles } from './calls-job.ts'
 import {
   type JobAttempt,
   type JobWorker,
@@ -11,7 +12,6 @@ import {
   limiter,
   startJobWorker,
 } from './job-worker.ts'
-import { workspaceFiles } from './calls-job.ts'
 
 /** What a flow worker runs on. */
 export interface FlowWorkerDeps extends JobWorkerDeps {

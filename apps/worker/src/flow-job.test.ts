@@ -79,7 +79,7 @@ async function roundSeller() {
   const plan = { answer: { kind: 'text' as const, text: JSON.stringify(PLAN), json: PLAN } }
   const draft = { answer: { kind: 'pictures' as const, pictures: [picture] } }
   const adapter = testSeller(seller, [plan, draft, draft, draft, draft])
-  for (const model of ['gpt-6-luna', 'muse-image-1.0']) {
+  for (const model of ['gpt-6-luna', 'gpt-image-2.5-sunburst']) {
     await db.insert(aiPrices).values(
       (['input-token', 'output-token'] as const).map((unit) => ({
         seller,

@@ -9,7 +9,7 @@ import { aiCalls, aiSettings, newId } from '@dazbee/db'
 import type { AiStepsInput } from '@dazbee/schema'
 
 import { type JobWorker, limiter } from './job-worker.ts'
-import { runAttempt, startStepsWorker, workspaceFiles } from './steps-job.ts'
+import { runAttempt, startStepsWorker, workspaceFiles } from './calls-job.ts'
 import {
   callsOf,
   crashingWorker,

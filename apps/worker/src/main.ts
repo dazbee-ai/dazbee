@@ -25,7 +25,7 @@ import { openStorage, storageSettings } from '@dazbee/storage'
 
 import { startFlowWorker } from './flow-job.ts'
 import { limiter } from './job-worker.ts'
-import { startStepsWorker } from './steps-job.ts'
+import { startStepsWorker } from './calls-job.ts'
 
 /** The queue the sweep's schedule sends to. */
 const SWEEP_QUEUE = 'ai-sweep'

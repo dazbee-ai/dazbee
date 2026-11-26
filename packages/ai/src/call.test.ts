@@ -10,7 +10,7 @@ import { endHold, hold, left } from './ledger.ts'
 import { openaiSeller } from './sellers/openai.ts'
 import { fakeFetch, fixture } from './sellers/test-fetch.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { STEPS } from './steps.ts'
+import { STEPS } from './seller-route.ts'
 import {
   addGrant,
   addJob,

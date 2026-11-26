@@ -8,7 +8,7 @@ import type { CallInput, LayeringInput } from '@dazbee/schema'
 import { readJob } from '../jobs.ts'
 import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
 import { READING_PROMPT } from '../prompts/ads/reading.ts'
-import { holdFor } from '../steps.ts'
+import { holdFor } from '../seller-route.ts'
 import { db, newSeller, pngOf } from '../test-ai.ts'
 import {
   assetRow,

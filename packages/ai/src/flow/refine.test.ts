@@ -6,7 +6,7 @@ import type { CallInput, RefineInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
 import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
-import { holdFor } from '../steps.ts'
+import { holdFor } from '../seller-route.ts'
 import { db, memoryFiles, newSeller, pngOf } from '../test-ai.ts'
 import {
   assetRow,

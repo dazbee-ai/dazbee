@@ -18,7 +18,7 @@ import { aiCalls, aiJobs, openDatabase } from '@dazbee/db'
 import { type AiStepsCall, type CallInput, LayerSplitSize } from '@dazbee/schema'
 import { openStorage, storageSettings } from '@dazbee/storage'
 
-import { workspaceFiles } from '../steps-job.ts'
+import { workspaceFiles } from '../calls-job.ts'
 
 /** How long the script waits for the worker to end the job. */
 const WAIT_MS = 15 * 60_000

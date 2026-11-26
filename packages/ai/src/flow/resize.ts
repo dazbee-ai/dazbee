@@ -5,7 +5,7 @@ import type { CallInput, ResizeInput } from '@dazbee/schema'
 
 import { callSize, pictureLimits, shapeOf } from '../call-size.ts'
 import type { JobEnd } from '../jobs.ts'
-import { stepModel } from '../steps.ts'
+import { stepModel } from '../seller-route.ts'
 import { pictureName } from './assets.ts'
 import type { DeclaredCall } from './holds.ts'
 import type { FlowRun } from './run.ts'

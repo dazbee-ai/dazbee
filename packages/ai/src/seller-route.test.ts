@@ -10,7 +10,7 @@ import { callAi } from './call.ts'
 import { openaiSeller } from './sellers/openai.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
-import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './steps.ts'
+import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './seller-route.ts'
 import {
   addJob,
   addPrices,

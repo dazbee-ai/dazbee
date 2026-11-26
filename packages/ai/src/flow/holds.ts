@@ -3,7 +3,7 @@
 import type { Db, Tx } from '@dazbee/db'
 import type { AiStep, CallInput, FlowJobInput } from '@dazbee/schema'
 
-import { holdFor } from '../steps.ts'
+import { holdFor } from '../seller-route.ts'
 import { layeringCalls } from './layering.ts'
 import { refineCalls } from './refine.ts'
 import { resizeCalls } from './resize.ts'

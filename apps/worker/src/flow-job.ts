@@ -11,7 +11,7 @@ import {
   limiter,
   startJobWorker,
 } from './job-worker.ts'
-import { workspaceFiles } from './steps-job.ts'
+import { workspaceFiles } from './calls-job.ts'
 
 /** What a flow worker runs on. */
 export interface FlowWorkerDeps extends JobWorkerDeps {

@@ -26,7 +26,7 @@ import { CUT_OFF } from './call-log.ts'
 import { flowHold } from './flow/holds.ts'
 import { endHold, hold } from './ledger.ts'
 import { aiSettingsOf } from './settings.ts'
-import { holdFor } from './steps.ts'
+import { holdFor } from './seller-route.ts'
 
 /** A job's kind with what it runs: an `ai-steps` job's list of calls, or a flow job's input. */
 export type JobInput = { kind: 'ai-steps'; input: AiStepsInput } | FlowJobInput

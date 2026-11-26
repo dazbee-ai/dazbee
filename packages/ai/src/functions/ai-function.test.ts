@@ -6,7 +6,7 @@ import { AI_FUNCTIONS, type AiFunction } from '@dazbee/schema'
 import { REFERENCE_READER } from '../prompts/ads/reference.ts'
 import { ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
 import { tierOf } from '../sellers/tiers.ts'
-import { sellerPricing } from '../steps.ts'
+import { sellerPricing } from '../seller-route.ts'
 import { db } from '../test-ai.ts'
 import {
   AI_FUNCTION_DEFS,

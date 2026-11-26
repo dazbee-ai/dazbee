@@ -10,7 +10,7 @@ import type { AiJobState, CallKind, UsageUnit } from '@dazbee/schema'
 
 import type { PictureFiles } from './call.ts'
 import { type SellerAdapter, useSeller } from './sellers/seller.ts'
-import { STEPS } from './steps.ts'
+import { STEPS } from './seller-route.ts'
 import { DATABASE_URL } from './test-database.ts'
 
 /** A price row for a test model, per million units in millionths of the currency. */

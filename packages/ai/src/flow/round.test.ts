@@ -12,7 +12,7 @@ import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_READER } from '../prompts/ads/r
 import { LIKED_DRAFT, ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
 import { ROUND_DIRECTOR_LIGHT } from '../prompts/ads/round-director-light.ts'
 import type { SellerRequest } from '../sellers/seller.ts'
-import { holdFor } from '../steps.ts'
+import { holdFor } from '../seller-route.ts'
 import { db, memoryFiles, newSeller } from '../test-ai.ts'
 import {
   assetRow,

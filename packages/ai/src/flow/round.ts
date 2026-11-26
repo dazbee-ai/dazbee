@@ -27,7 +27,7 @@ import { DRAFT_PROMPT, PICTURES_SENTENCE } from '../prompts/ads/draft.ts'
 import { REFERENCE_AD, REFERENCE_KIND, REFERENCE_KIND_UNKNOWN, REFERENCE_READER } from '../prompts/ads/reference.ts'
 import { LIKED_DRAFT, ROUND_DIRECTOR } from '../prompts/ads/round-director.ts'
 import { ROUND_DIRECTOR_LIGHT } from '../prompts/ads/round-director-light.ts'
-import { stepModel } from '../steps.ts'
+import { stepModel } from '../seller-route.ts'
 import type { DeclaredCall } from './holds.ts'
 import type { FlowRun } from './run.ts'
 

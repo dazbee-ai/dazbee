@@ -14,7 +14,7 @@ import type {
 } from '@dazbee/schema'
 
 import { allowanceOf, drawsFirst, grantsOf, layerSize } from '../ledger.ts'
-import { holdFor, STEP_SECONDS } from '../steps.ts'
+import { holdFor, STEP_SECONDS } from '../seller-route.ts'
 import { declaredCalls } from './holds.ts'
 import { MODE_STEPS, roundCalls } from './round.ts'
 import { FLOW_CALLS_AT_ONCE } from './run.ts'

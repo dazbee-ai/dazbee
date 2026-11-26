@@ -21,7 +21,7 @@ import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
 import { type SellerAnswer, SellerCutOff, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
-import { routeStep, stepDef, type StepRoute, type StepSeller } from './steps.ts'
+import { routeStep, stepDef, type StepRoute, type StepSeller } from './seller-route.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
 export interface PictureFiles {

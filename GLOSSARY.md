@@ -709,6 +709,14 @@ _Avoid_: Custom model, pin
 The most output one call of a text AI step may write, set per step and sent to the seller as a hard limit. An answer that reaches it is cut off: we pay the seller for it, the workspace is charged nothing, and the call fails without trying again. The admin page shows each step's ceiling and expected size beside what its calls measured.
 _Avoid_: Max tokens, cap, limit
 
+**Reasoning effort**:
+How much a text model reasons before it answers, set for an AI step in its options as `effort`, from `none` to `max` as the seller names them: less effort answers sooner and writes fewer output tokens. Every seller that takes it is sent it.
+_Avoid_: Thinking level, reasoning mode
+
+**Fast tier**:
+OpenAI's speed tier, which answers sooner at twice its standard price, asked for by an AI step's options as `tier: fast` (`standard` otherwise). OpenAI may run such a call at standard speed and bill it at the standard price, so a call is charged at the tier it ran on, while its hold is priced at the fast tier. A fallback seller runs every call at its own normal speed. Not the Fast mode.
+_Avoid_: Priority, fast mode
+
 **Reference picture**:
 A picture a person attaches to a picture call for the model to work from, such as a product, a logo or a style ad: up to 16 a call. With none, the model makes a new picture; with some, it edits or builds from them.
 _Avoid_: Input image, source image, attachment

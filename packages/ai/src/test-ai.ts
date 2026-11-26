@@ -34,6 +34,18 @@ export const TOKEN_PRICES: TestPrice[] = [
   { unit: 'output-token', pricePerMillion: 2_000_000n },
 ]
 
+/**
+ * A text model's prices at a seller that bills its fast tier apart: US$1 a million input tokens and US$2 output at
+ * the standard tier, twice that at the fast tier, cached input at a tenth, with no fee.
+ */
+export const TIERED_PRICES: TestPrice[] = [
+  ...TOKEN_PRICES,
+  { unit: 'cached-input-token', pricePerMillion: 100_000n },
+  { unit: 'fast-input-token', pricePerMillion: 2_000_000n },
+  { unit: 'fast-cached-input-token', pricePerMillion: 200_000n },
+  { unit: 'fast-output-token', pricePerMillion: 4_000_000n },
+]
+
 /** One rupee, in millionths. */
 export const RUPEE = 1_000_000n
 

@@ -89,6 +89,20 @@ describe('zenmuxSeller', () => {
     expectDeclared('zenmux', 'text', 'openai/gpt-6-luna', answer.usage)
   })
 
+  it('sends a text call’s reasoning effort as ZenMux takes it, and never a speed tier', async () => {
+    const { fetch, sent } = fakeFetch([['/chat/completions', { body: CHAT }]])
+    await zenmuxSeller('test-key', { fetch }).call({
+      ...requestOf(TEXT, 'openai/gpt-6-luna'),
+      options: { effort: 'none', tier: 'fast' },
+    })
+    const body = JSON.parse(String(sent[0]?.body))
+    expect(body.reasoning_effort).toBe('none')
+    expect(body.service_tier).toBeUndefined()
+    const plain = fakeFetch([['/chat/completions', { body: CHAT }]])
+    await zenmuxSeller('test-key', { fetch: plain.fetch }).call(requestOf(TEXT, 'openai/gpt-6-luna'))
+    expect(JSON.parse(String(plain.sent[0]?.body)).reasoning_effort).toBeUndefined()
+  })
+
   it('sends the call’s output limit, and reads an answer that stopped at it as cut off with its usage', async () => {
     const cut = JSON.stringify({
       id: 'chatcmpl-cut',

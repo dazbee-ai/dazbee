@@ -104,6 +104,28 @@ describe('openrouterSeller', () => {
     }
   })
 
+  it('sends a text call’s reasoning effort but never a speed tier, and counts it at the standard tier', async () => {
+    const done = JSON.stringify({
+      id: 'gen-text',
+      object: 'response',
+      status: 'completed',
+      service_tier: 'priority',
+      output: [{ id: 'msg', type: 'message', role: 'assistant', status: 'completed', content: [] }],
+      usage: { input_tokens: 50, input_tokens_details: { cached_tokens: 0 }, output_tokens: 90 },
+    })
+    const { fetch, sent } = fakeFetch([['/responses', { body: done }]])
+    const text: CallInput = { kind: 'text', instructions: 'List.', prompt: 'An ad.', pictures: [] }
+    const answer = await openrouterSeller('test-key', { fetch }).call({
+      ...requestOf(text),
+      model: 'openai/gpt-6-luna',
+      options: { effort: 'low', tier: 'fast' },
+    })
+    const body = JSON.parse(String(sent[0]?.body))
+    expect(body.reasoning).toEqual({ effort: 'low' })
+    expect(body.service_tier).toBeUndefined()
+    expect(answer.usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 90 })
+  })
+
   it('reads its recorded out-of-credit answer as a seller out of money', async () => {
     const { fetch } = fakeFetch([['/images', { status: 402, body: fixture('openrouter-402.json') }]])
     const error = await openrouterSeller('test-key', { fetch })

@@ -380,9 +380,9 @@ export const en = {
       estimate: 'About {percent}% of this month’s AI, about {seconds} s',
       estimateUnder: 'Under 1% of this month’s AI, about {seconds} s',
       estimateTime: 'About {seconds} s',
-      /** A tile of an image being made, and of one that didn't come out. */
+      /** A tile of an image being made, and of one that didn't come out: what happened first, then its words. */
       working: 'Making “{words}”',
-      failed: '“{words}” didn’t come out. You weren’t charged.',
+      failed: 'Didn’t come out, and you weren’t charged: “{words}”',
       tryAgain: 'Try again',
       notStarted: 'This image didn’t start. Try again.',
       unknown: 'We couldn’t tell whether this image started. Look for it here in a minute before trying again.',

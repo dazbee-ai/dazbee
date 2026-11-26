@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { MyAiJob } from '@dazbee/schema'
 
+import { ar } from '@/lib/i18n/ar.ts'
 import { en } from '@/lib/i18n/en.ts'
 
-import { estimateWords, imageTiles, madeImages } from './make-image.ts'
+import { estimateWords, imageTiles, madeImages, tileWords } from './make-image.ts'
 
 /** One of the person's image jobs in `state`, asked for with `words` at the wide ratio. */
 function job(
@@ -52,6 +53,19 @@ describe('imageTiles', () => {
   it('leaves out a cancelled job and a job that makes no image', () => {
     const round = job('r', 'running', '', { kind: 'round', designId: 'd1', designName: 'Coffee', image: null })
     expect(imageTiles([job('x', 'cancelled'), round])).toEqual([])
+  })
+})
+
+describe('tileWords', () => {
+  it('says what happened before the image’s words, in both languages', () => {
+    const words = 'A calm sea at sunrise with one small red boat, soft pink sky'
+    const tile = { job: 'j', words, ratio: 'wide' as const, state: 'failed' as const }
+    expect(tileWords(tile, en.editor.makeImage)).toBe(`Didn’t come out, and you weren’t charged: “${words}”`)
+    expect(tileWords({ ...tile, state: 'working' }, en.editor.makeImage)).toBe(`Making “${words}”`)
+    for (const t of [en.editor.makeImage, ar.editor.makeImage]) {
+      for (const state of ['working', 'failed'] as const)
+        expect(tileWords({ ...tile, state }, t).endsWith(`${words}${t[state].slice(-1)}`)).toBe(true)
+    }
   })
 })
 

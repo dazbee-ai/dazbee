@@ -39,6 +39,14 @@ export function imageTiles(jobs: MyAiJob[]): ImageTile[] {
   return tiles
 }
 
+/**
+ * What a tile says: that the image is being made, or that it didn't come out and wasn't charged, before the
+ * image's words, so a tile that cuts long words short still says what happened.
+ */
+export function tileWords(tile: ImageTile, t: Messages['editor']['makeImage']): string {
+  return format(t[tile.state], { words: tile.words })
+}
+
 /** The images the person's image jobs made, by asset id. */
 export function madeImages(jobs: MyAiJob[]): string[] {
   return jobs.flatMap((job) => (job.state === 'done' && job.image?.assetId ? [job.image.assetId] : []))

@@ -15,9 +15,8 @@ import { Tooltip } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiEstimate, myAiJobs, startAiJob } from '@/lib/editor/ai-client.ts'
 import { briefKey, type BriefSaid, briefSaid } from '@/lib/editor/brief-box.ts'
-import { estimateWords, imageTiles, madeImages, RATIO_SHAPES } from '@/lib/editor/make-image.ts'
+import { estimateWords, imageTiles, madeImages, RATIO_SHAPES, tileWords } from '@/lib/editor/make-image.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
-import { format } from '@/lib/i18n/index.ts'
 
 /** How often the box reads the person's jobs while an image is being made. */
 const POLL_MS = 3000
@@ -185,9 +184,9 @@ export function MakeImage({
               <span
                 role={tile.state === 'failed' ? 'alert' : 'status'}
                 className="min-w-0 flex-1 text-muted"
-                title={tile.words}
+                title={tileWords(tile, t)}
               >
-                <span className="line-clamp-2">{format(t[tile.state], { words: tile.words })}</span>
+                <span className="line-clamp-2">{tileWords(tile, t)}</span>
               </span>
               {tile.state === 'failed' && (
                 <button

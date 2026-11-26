@@ -85,6 +85,8 @@ export function ExportForm({
     pageId: thisPage,
     ticked: asked ? new Set(asked) : firstTicks(design, thisPage),
   }))
+  // Another page, picked here or shown on the canvas, starts again from its own first ticks.
+  if (ticks.pageId !== thisPage) setTicks({ pageId: thisPage, ticked: firstTicks(design, thisPage) })
   const ticked = ticks.pageId === thisPage ? ticks.ticked : firstTicks(design, thisPage)
   const [name, setName] = useState(DEFAULT_EXPORT_NAME)
   const [type, setType] = useState<ExportType>('png')
@@ -120,10 +122,7 @@ export function ExportForm({
       : format(words.tooBig, { frames: listed(tooBig), scale: isolated(format(words.scaleValue, { scale })) })
   const waitsFor = count === 0 ? words.tickOne : tooBig.length > 0 ? tooBigWords() : null
 
-  const choosePage = (pageId: string) => {
-    setChosen(pageId)
-    setTicks({ pageId, ticked: firstTicks(design, pageId) })
-  }
+  const choosePage = (pageId: string) => setChosen(pageId)
   const tick = (ids: readonly string[], on: boolean) => {
     const next = new Set(frameIds)
     for (const frameId of ids) {

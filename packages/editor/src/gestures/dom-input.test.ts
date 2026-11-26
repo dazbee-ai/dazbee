@@ -64,12 +64,12 @@ describe('editorDomInput', () => {
       expect(pointers.at(-1)).not.toHaveProperty('label')
     })
 
-    it("carries the frame whose label's star is under a press, and under no other event", () => {
+    it("carries the frame whose label's star is under a press and a double click, and under no other event", () => {
       const { log, pointers, send } = harness()
       const onStar = { clientX: 50, clientY: 86 }
       for (const type of ['pointerdown', 'dblclick', 'pointermove', 'pointerup', 'click'])
         send(type, pointerEvent(log, onStar))
-      expect(pointers.map((e) => e.star)).toEqual(['sq', undefined, undefined, undefined, undefined])
+      expect(pointers.map((e) => e.star)).toEqual(['sq', 'sq', undefined, undefined, undefined])
       send('pointerdown', pointerEvent(log, { clientX: 20, clientY: 86 }))
       expect(pointers.at(-1)).not.toHaveProperty('star')
     })

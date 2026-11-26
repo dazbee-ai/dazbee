@@ -258,6 +258,21 @@ describe('editorSelectPress', () => {
       expect(session.design().frames.sq).not.toHaveProperty('starred')
     })
 
+    it('stars the frame once on a double click on its star, the second press doing nothing', () => {
+      const { select, session } = harness()
+      select.pressLabel(pointerInput({ star: 'sq', detail: 1 }), { x: 60, y: -10 }, 'sq')
+      expect(select.pressLabel(pointerInput({ star: 'sq', detail: 2 }), { x: 60, y: -10 }, 'sq')).toBe(true)
+      expect(session.design().frames.sq?.starred).toBe(true)
+    })
+
+    it("picks the frame from a finger's press on its star, as a press on its name does, and stars nothing", () => {
+      const { select, selection, session } = harness()
+      const tap = pointerInput({ star: 'sq', pointerType: 'touch' })
+      expect(select.pressLabel(tap, { x: 60, y: -10 }, 'sq')).toMatchObject({ kind: 'frameMove' })
+      expect(selection.pickedFrame()).toBe('sq')
+      expect(session.design().frames.sq).not.toHaveProperty('starred')
+    })
+
     it("picks the frame from a press on its label while another frame's star is under the pointer", () => {
       const { select, selection, session } = harness()
       expect(select.pressLabel(pointerInput({ star: 'tall' }), { x: 40, y: -10 }, 'sq')).toMatchObject({

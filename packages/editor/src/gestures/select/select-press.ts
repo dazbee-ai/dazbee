@@ -83,8 +83,10 @@ export interface EditorSelectPress {
    * A press on a frame's label: it picks the frame, letting the selection and the group gone into
    * go, and returns the drag that moves the frame; null for a frame the shown page lacks. Inside
    * the reach of a handle of the picked frame, the handle wins, and the press resizes that frame.
-   * A press on the star by the frame's name, in a tab that may edit, stars the frame or takes its
-   * star off as one undo step, picking nothing and starting no drag (true).
+   * A press of a mouse or a pen on the star by the frame's name, in a tab that may edit, stars the
+   * frame or takes its star off as one undo step, picking nothing and starting no drag (true); a
+   * double click's second press does nothing, so the double click toggles it once. A finger's press
+   * there is a press on the name, as a finger is never offered the star.
    */
   pressLabel(e: PointerInput, screen: Point, frameId: string): FrameMoveDrag | FrameResizeDrag | true | null
   /**
@@ -317,10 +319,13 @@ export function editorSelectPress({
     return parts.some((part) => freeOf(view.design(), part.ids).length > 0) ? 'move' : null
   }
   function pressLabel(e: PointerInput, screen: Point, frameId: string) {
-    if (e.star === frameId && !session.readOnly()) return pressStar(frameId)
-    pressedText = textSelected()
     const resize = frameResize.press(e, screen)
-    if (resize) return resize
+    if (resize) {
+      pressedText = textSelected()
+      return resize
+    }
+    if (e.star === frameId && e.pointerType !== 'touch' && !session.readOnly()) return pressStar(frameId, e.detail)
+    pressedText = textSelected()
     const frame = frameOf(frameId)
     if (!frame) return null
     typing.stop()
@@ -330,9 +335,10 @@ export function editorSelectPress({
     hold()
     return frameMove.start(frame, toWorld(view.camera(), screen))
   }
-  function pressStar(frameId: string): true {
+  function pressStar(frameId: string, clicks: number): true {
     typing.stop()
     clickedAlone = null
+    if (clicks >= 2) return true
     const starred = view.design().frames[frameId]?.starred === true
     runQuietly(() => session.run('frame.update', { frameId, starred: !starred }))
     return true
@@ -390,6 +396,9 @@ export function editorSelectPress({
     starOffered = next
     return moved
   }
+  function offeredStar() {
+    return starOffered
+  }
   function cancel() {
     lockedClick = null
     clickedAlone = null
@@ -430,7 +439,7 @@ export function editorSelectPress({
     release,
     cancel,
     hoverStar,
-    starOffered: () => starOffered,
+    starOffered: offeredStar,
     dragAt,
     clicked,
     textBeforeClicks,

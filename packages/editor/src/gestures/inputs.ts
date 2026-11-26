@@ -29,7 +29,7 @@ export interface PointerInput {
   label?: string
   /** The section whose title is under the pointer, if any, on a press and a double click. */
   title?: string
-  /** The frame whose label's star is under the pointer, if any, on a press. */
+  /** The frame whose label's star is under the pointer, if any, on a press and a double click. */
   star?: string
   /** How far a wheel turned, and in which unit: pixels (0), lines (1) or pages (2). */
   deltaX?: number

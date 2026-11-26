@@ -90,9 +90,9 @@ export function editorDomInput({
   const on = { signal }
 
   /**
-   * A pointer event of the canvas as a pointer input: where it is on the stage, on a press and a
-   * double click the label or the section's title under it, and on a press the label's star under
-   * it. A double click on a star is on no label, so it renames nothing.
+   * A pointer event of the canvas as a pointer input: where it is on the stage, and on a press and a
+   * double click the label's star, the label or the section's title under it. A double click on a
+   * star is on no label, so it renames nothing.
    */
   function pointerInput(type: PointerInput['type'], e: MouseEvent): PointerInput {
     const client = { x: e.clientX, y: e.clientY }
@@ -112,7 +112,7 @@ export function editorDomInput({
       pointerType: 'pointerType' in e ? (e as PointerEvent).pointerType : 'mouse',
       ...(label === undefined ? {} : { label }),
       ...(title === undefined ? {} : { title }),
-      ...(star === undefined || type !== 'pointerdown' ? {} : { star }),
+      ...(star === undefined ? {} : { star }),
       ...('deltaMode' in e
         ? { deltaX: (e as WheelEvent).deltaX, deltaY: (e as WheelEvent).deltaY, deltaMode: (e as WheelEvent).deltaMode }
         : {}),

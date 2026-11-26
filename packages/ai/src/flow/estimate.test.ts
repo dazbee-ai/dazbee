@@ -22,7 +22,7 @@ describe('estimateAction', () => {
   it('gives a Fast round on a fresh gift its hold over the grant, as a whole percent', async () => {
     const hold = await actionHold(db, await workspaceWith(null), fastRound)
     const workspace = await workspaceWith(hold * 25n)
-    expect(await estimateAction(db, workspace, fastRound)).toEqual({ share: 4, seconds: 69 + 26 })
+    expect(await estimateAction(db, workspace, fastRound)).toEqual({ share: 4, seconds: 10 + 26 })
   })
 
   it('says under 1% for a hold below a hundredth of the allowance, and gives no share with none', async () => {
@@ -35,7 +35,7 @@ describe('estimateAction', () => {
     const workspace = await workspaceWith(null)
     const seconds = async (query: unknown) =>
       (await estimateAction(db, workspace, AiEstimateQuery.parse(query))).seconds
-    expect(await seconds({ action: 'round', mode: 'precise' })).toBe(49 + 45)
+    expect(await seconds({ action: 'round', mode: 'precise' })).toBe(33 + 45)
     expect(await seconds({ action: 'try-again', mode: 'fast' })).toBe(26)
     expect(await seconds({ action: 'refine' })).toBe(7 + 117)
     expect(

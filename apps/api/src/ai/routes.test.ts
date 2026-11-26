@@ -350,7 +350,7 @@ describe('GET /brands/:b/ai/estimate', () => {
     const team = await addTeam()
     const read = await ask(team, team.editor, 'GET', '/ai/estimate?action=round&mode=fast&sizes=1080x1080')
     expect(read.status).toBe(200)
-    expect(AiEstimate.parse(read.json).seconds).toBe(69 + 26)
+    expect(AiEstimate.parse(read.json).seconds).toBe(10 + 26)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=dance')).status).toBe(400)
     expect((await ask(team, team.editor, 'GET', '/ai/estimate?action=resize&sizes=wide')).status).toBe(400)
   })

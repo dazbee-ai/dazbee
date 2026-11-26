@@ -49,6 +49,8 @@ WAIT_S = 5
 START_TIMEOUT_S = 15 * 60
 # How long one split may run; the worker stops waiting at 10 minutes.
 SPLIT_TIMEOUT_S = 8 * 60
+# How long ComfyUI may take to accept a graph: the first one after a restore waits for the model's memory.
+QUEUE_TIMEOUT_S = 2 * 60
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -103,6 +105,11 @@ class Layering:
         run_graph(layer_split_graph(warm, 512, 512, "Decompose this image into 1 layers.", None, steps=1))
         # When the container's last call ended, on its own clock; none until it has served one.
         self.last_done: float | None = None
+
+    @modal.enter(snap=False)
+    def ready(self) -> None:
+        """Waits for ComfyUI to answer again in a container restored from the snapshot, before any call."""
+        wait_until_up(self.server)
 
     @modal.method()
     def split(self, request: dict) -> dict:
@@ -175,7 +182,7 @@ def run_graph(graph: dict) -> list[dict]:
     body = json.dumps({"prompt": graph, "client_id": APP_NAME}).encode()
     queued = urllib.request.Request(f"{COMFYUI_URL}/prompt", data=body, headers={"content-type": "application/json"})
     try:
-        with urllib.request.urlopen(queued, timeout=30) as answer:
+        with urllib.request.urlopen(queued, timeout=QUEUE_TIMEOUT_S) as answer:
             prompt_id = json.load(answer)["prompt_id"]
     except urllib.error.HTTPError as error:
         raise RuntimeError(f"ComfyUI refused the graph: {error.read().decode()[:2000]}") from error

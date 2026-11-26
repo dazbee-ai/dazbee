@@ -8,8 +8,8 @@ import { testSeller } from '@dazbee/ai/test-sellers'
 import { aiCalls, aiSettings, newId } from '@dazbee/db'
 import type { AiStepsInput } from '@dazbee/schema'
 
-import { limiter, startStepsWorker, type StepsWorker } from './job-worker.ts'
-import { runAttempt, workspaceFiles } from './steps-job.ts'
+import { type JobWorker, limiter } from './job-worker.ts'
+import { runAttempt, startStepsWorker, workspaceFiles } from './steps-job.ts'
 import {
   callsOf,
   crashingWorker,
@@ -45,8 +45,7 @@ async function save(who: { workspace: string; member: string }, queue: string, i
   }
 }
 
-const stopAll = (...workers: { steps: StepsWorker }[]) =>
-  Promise.all(workers.map((w) => w.steps.stop('graceful', 1000)))
+const stopAll = (...workers: { steps: JobWorker }[]) => Promise.all(workers.map((w) => w.steps.stop('graceful', 1000)))
 
 const someDone = (job: string) =>
   vi.waitFor(async () => expect((await callsOf(job)).some((c) => c.state === 'done')).toBe(true), { timeout: 15_000 })

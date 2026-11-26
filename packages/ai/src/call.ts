@@ -4,7 +4,15 @@
 import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 
 import { aiCalls, aiJobs, type Db, type Tx } from '@dazbee/db'
-import type { CallInput, CallKind, CallOutput, MadePicture } from '@dazbee/schema'
+import {
+  AI_PART_TAG,
+  AI_TAG,
+  type AiAssetTag,
+  type CallInput,
+  type CallKind,
+  type CallOutput,
+  type MadePicture,
+} from '@dazbee/schema'
 
 import { endCutOff, endTry, keepRequestId, requestOf, resumeTry, startTry } from './call-log.ts'
 import { charge } from './ledger.ts'
@@ -22,6 +30,12 @@ export interface PictureFiles {
   save(bytes: Uint8Array, type: string): Promise<string>
 }
 
+/** Records the pictures a call made as assets of the brand its job is for. */
+export interface PictureAssets {
+  /** Records, in `tx`, the picture stored under `key` as an asset tagged `tag`; its id. */
+  record(tx: Tx, picture: { key: string; bytes: Uint8Array }, tag: AiAssetTag): Promise<string>
+}
+
 /** One AI call of a job's run. */
 export interface AiCall {
   job: { id: string; workspaceId: string }
@@ -36,6 +50,8 @@ export interface AiCall {
   /** The sellers to try, in order, in place of the model's own; only the bill-check script passes it. */
   sellers?: string[]
   files?: PictureFiles
+  /** Records each picture the call makes as an asset once the call is kept: a picture tagged `ai`, a layer `ai-part`. */
+  assets?: PictureAssets
 }
 
 /**
@@ -191,7 +207,7 @@ async function tryOnce(
   try {
     // A seller's limit covers a model as a whole, whatever the step or kind of call.
     await pace(`${seller.seller}:${seller.sellerModel}`, seller.adapter.perMinute?.[kind], call.signal)
-    timeout = AbortSignal.timeout(seller.adapter.timeouts?.[kind] ?? TIMEOUTS[kind])
+    timeout = AbortSignal.timeout(stepDef(call.step).timeoutMs ?? seller.adapter.timeouts?.[kind] ?? TIMEOUTS[kind])
     const signal = AbortSignal.any([call.signal, timeout])
     const answer = await untilAborted(
       seller.adapter.call({
@@ -277,7 +293,8 @@ async function finish(
   answer: SellerAnswer,
 ): Promise<CallOutput> {
   try {
-    const output = await storeOutput(call, answer.output)
+    const stored = await storeOutput(call, answer.output)
+    let output = stored.output
     const priced = await priceUsage(db, made.seller, made.model, answer.usage)
     const def = stepDef(call.step)
     const chargeCost = def.fixedCost ? def.fixedCost(await aiSettingsOf(db), call.input) : priced.realCost
@@ -301,6 +318,7 @@ async function finish(
         .where(and(eq(aiCalls.id, made.row), inArray(aiCalls.state, ['running', 'unknown'])))
         .returning({ id: aiCalls.id })
       if (!mine) return
+      output = await withAssets(tx, call, stored)
       await tx
         .update(aiJobs)
         .set({ callOutputs: sql`${aiJobs.callOutputs} || ${JSON.stringify({ [call.callIndex]: output })}::jsonb` })
@@ -314,18 +332,43 @@ async function finish(
   }
 }
 
+/** What a call made, its pictures stored: its output, and each picture's bytes, in order. */
+interface Stored {
+  output: CallOutput
+  bytes: Uint8Array[]
+}
+
 /** Stores the pictures in `output` as the workspace's originals. */
-async function storeOutput(call: AiCall, output: SellerOutput): Promise<CallOutput> {
-  if (output.kind === 'text') return output
-  const store = async (pictures: SellerOutput & { kind: 'pictures' }) =>
-    Promise.all(
-      pictures.pictures.map(async (p): Promise<MadePicture> => ({
-        key: await files(call).save(p.bytes, p.type),
-        width: p.width,
-        height: p.height,
-      })),
-    )
-  if (output.kind === 'pictures') return { kind: 'pictures', pictures: await store(output) }
-  const layers = await store({ kind: 'pictures', pictures: output.layers })
-  return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
+async function storeOutput(call: AiCall, output: SellerOutput): Promise<Stored> {
+  if (output.kind === 'text') return { output, bytes: [] }
+  const pictures = output.kind === 'pictures' ? output.pictures : output.layers
+  const made = await Promise.all(
+    pictures.map(async (p): Promise<MadePicture> => {
+      const key = await files(call).save(p.bytes, p.type)
+      return { key, width: p.width, height: p.height }
+    }),
+  )
+  const bytes = pictures.map((p) => p.bytes)
+  if (output.kind === 'pictures') return { output: { kind: 'pictures', pictures: made }, bytes }
+  return { output: { kind: 'layers', layers: made, gpuSeconds: output.gpuSeconds }, bytes }
+}
+
+/**
+ * The stored output with each picture recorded in `tx` as an asset, when the call records them: a picture tagged
+ * `ai`, a layer `ai-part`.
+ */
+async function withAssets(tx: Tx, call: AiCall, { output, bytes }: Stored): Promise<CallOutput> {
+  const { assets } = call
+  if (!assets || output.kind === 'text') return output
+  // One at a time, as a transaction's queries run one after another.
+  const record = async (pictures: MadePicture[], tag: AiAssetTag) => {
+    const recorded: MadePicture[] = []
+    for (const [i, p] of pictures.entries()) {
+      const assetId = await assets.record(tx, { key: p.key, bytes: bytes[i] ?? new Uint8Array() }, tag)
+      recorded.push({ ...p, assetId })
+    }
+    return recorded
+  }
+  if (output.kind === 'pictures') return { ...output, pictures: await record(output.pictures, AI_TAG) }
+  return { ...output, layers: await record(output.layers, AI_PART_TAG) }
 }

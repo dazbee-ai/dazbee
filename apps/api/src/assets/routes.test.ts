@@ -197,6 +197,13 @@ describe('image uploads', { timeout: 30_000 }, () => {
     expect(await search(`winter hero ${run}`)).toEqual([plain.id])
   })
 
+  it('leaves the AI flow’s parts, such as layer pieces, out of the brand’s images', async () => {
+    const { asset } = await uploadImage('a', brand.id, png(9, 3, `${run}-part`), `Part ${run}.png`)
+    await call('a', 'PATCH', `/brands/${brand.id}/assets/${asset.id}`, { tags: ['ai-part'] })
+    const listed = AssetSummary.array().parse((await call('a', 'GET', `/brands/${brand.id}/assets`)).json)
+    expect(listed.map((a) => a.id)).not.toContain(asset.id)
+  })
+
   it('keeps names, tags and search to the brand', async () => {
     const { asset } = await uploadImage('a', brand.id, png(8, 3, `${run}-walled`), `Walled ${run}`)
     await call('a', 'PATCH', `/brands/${brand.id}/assets/${asset.id}`, { tags: [`walled-${run}`] })

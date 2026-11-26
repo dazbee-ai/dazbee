@@ -135,6 +135,16 @@ describe('callAi', () => {
     ])
   })
 
+  it('gives a step that writes a long answer its own longer time before a try times out', async () => {
+    const seller = testSeller(newSeller('a'), [{ afterMs: 400 }], { timeoutMs: 200 })
+    const { step } = await addStep([seller])
+    const def = STEPS[step]
+    if (def) def.timeoutMs = 2_000
+    const job = await heldJob()
+    await callAi(db, callOf(job, step))
+    expect((await callRows(job.id)).map((r) => r.state)).toEqual(['done'])
+  })
+
   it('skips a seller with no price for the model, or no adapter', async () => {
     const unpriced = testSeller(newSeller('a'))
     const priced = testSeller(newSeller('b'))

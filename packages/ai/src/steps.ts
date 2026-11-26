@@ -33,6 +33,8 @@ export interface StepDef {
   sizes?: StepSizes
   /** The real cost the workspace is charged in place of the priced usage. */
   fixedCost?(settings: AiSettings, input: CallInput): bigint
+  /** How long one try may take, in place of the seller's or the kind's time, for a step that writes a long answer. */
+  timeoutMs?: number
 }
 
 /** A seller that can take a step's call: its adapter and its own name for the model. */
@@ -62,6 +64,9 @@ const PICTURE_UNITS: readonly UsageUnit[] = ['picture', 'image-output-token']
 /** The units a text model is priced in; a model priced only in these is a text model. */
 const TEXT_UNITS: readonly UsageUnit[] = ['input-token', 'cached-input-token', 'output-token', 'image-input-token']
 
+/** How long a round plan's try may take: the planners reason before they write four long prompts, past 60 s. */
+const PLAN_TIMEOUT_MS = 240_000
+
 /** How much more than its expected cost a call holds. */
 const HOLD_MARGIN = { times: 5n, per: 4n }
 
@@ -79,10 +84,10 @@ const pictureTokens = (input: CallInput) =>
 /** Every AI step, each in `AI_STEPS`; a test adds steps of its own. */
 export const STEPS: Record<string, StepDef> = {
   // Ceilings start at 4 times the expected output, to be set from the measured sizes once calls are made.
-  'flow.round-plan': textStep({ input: 6000, output: 3000, ceiling: 12_000 }),
+  'flow.round-plan': { ...textStep({ input: 6000, output: 3000, ceiling: 12_000 }), timeoutMs: PLAN_TIMEOUT_MS },
   // The full round director (about 3,200 tokens), the brief and two pictures in; four ads of up to 1,300
   // characters each, with their ideas and arrangements, and the planner's reasoning out.
-  'flow.round-plan-full': textStep({ input: 12_000, output: 6000, ceiling: 24_000 }),
+  'flow.round-plan-full': { ...textStep({ input: 12_000, output: 6000, ceiling: 24_000 }), timeoutMs: PLAN_TIMEOUT_MS },
   // The reference reader (about 700 tokens) and one picture in; one sentence, a yes or no and a kind out.
   'flow.reference-read': textStep({ input: 5500, output: 500, ceiling: 2000 }),
   // The refine editor (about 500 tokens), the message, the ad and its marked copy in; one paragraph, a few words
@@ -206,6 +211,19 @@ export async function sellerPricing(
   return { priced, unpriced }
 }
 
+/** The model `step` runs and its options: its own, or its kind's default. */
+export async function stepModel(
+  db: Db | Tx,
+  step: string,
+): Promise<{ model: string; options: Record<string, unknown> }> {
+  const [own] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
+  if (own) return own
+  const kind = stepDef(step).kind
+  const [byKind] = await db.select().from(aiKindModels).where(eq(aiKindModels.kind, kind))
+  if (!byKind) throw new Error(`no default model is set for ${kind} calls`)
+  return byKind
+}
+
 /**
  * A picture call's expected usage: one picture, its tokens for a seller that counts them, and its reference
  * pictures, counted as each seller bills them: per picture, or as image input tokens.
@@ -271,14 +289,4 @@ function expectedUsage(def: StepDef, input: CallInput): Usage {
     'input-token': Math.ceil(characters / 4) + input.pictures.length * PICTURE_INPUT_TOKENS,
     'output-token': def.sizes.output,
   }
-}
-
-/** The model `step` runs and its options: its own, or its kind's default. */
-async function stepModel(db: Db | Tx, step: string): Promise<{ model: string; options: Record<string, unknown> }> {
-  const [own] = await db.select().from(aiStepModels).where(eq(aiStepModels.step, step))
-  if (own) return own
-  const kind = stepDef(step).kind
-  const [byKind] = await db.select().from(aiKindModels).where(eq(aiKindModels.kind, kind))
-  if (!byKind) throw new Error(`no default model is set for ${kind} calls`)
-  return byKind
 }

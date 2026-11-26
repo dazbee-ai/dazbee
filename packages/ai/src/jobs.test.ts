@@ -3,11 +3,11 @@ import { eq } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { aiCalls, aiJobs, aiLedger, memberships, newId, users, workspaces } from '@dazbee/db'
+import { aiCalls, aiJobs, aiLedger, brands, memberships, newId, users, workspaces } from '@dazbee/db'
 import type { AiStepsInput, CallInput, MemberRole } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
-import { cancelJob, ensureQueue, readJob, saveJob } from './jobs.ts'
+import { cancelJob, ensureQueue, FLOW_QUEUE, readJob, saveJob } from './jobs.ts'
 import { giveGrant, left } from './ledger.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { aiSettingsOf } from './settings.ts'
@@ -85,6 +85,33 @@ describe('saveJob', () => {
       await expect(saving).rejects.toThrow()
     }
     expect(await left(db, who.workspace)).toBe(10n * RUPEE)
+  })
+
+  it('sends a flow job to the ai-flow queue, held by its job kind, and throws on an input of another job kind', async () => {
+    const who = await memberOf('editor')
+    const brandId = `brand-${newId()}`
+    await db.insert(brands).values({ id: brandId, workspaceId: who.workspace, name: 'Harbour' })
+    const target = { frameId: newId(), pictureLayerId: newId() }
+    const size = { frameId: newId(), pictureLayerId: newId(), width: 1080, height: 1080 }
+    const input = {
+      brandId,
+      designId: newId(),
+      sectionId: newId(),
+      pictureKey: 'workspaces/w/originals/a',
+      sizes: [size],
+    }
+    await ensureQueue(boss, FLOW_QUEUE)
+    const saved = await db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'resize', input }))
+    if (!saved.ok) throw new Error(saved.refusal)
+    const [job] = await db.select().from(aiJobs).where(eq(aiJobs.id, saved.job))
+    expect(job).toMatchObject({ kind: 'resize', queue: FLOW_QUEUE, input })
+    // Taken off the shared queue, so no worker running on this database picks it up.
+    await boss.deleteJob(FLOW_QUEUE, job?.queueJobId ?? '')
+    expect(await readJob(db, who.workspace, saved.job)).toMatchObject({ kind: 'resize', output: null, calls: [] })
+    const wrong = { ...input, frame: target }
+    await expect(
+      db.transaction((tx) => saveJob(tx, boss, { ...who, kind: 'try-again', input: wrong as never })),
+    ).rejects.toThrow()
   })
 
   it('refuses every job once the day’s real cost reaches the spending stop', async () => {

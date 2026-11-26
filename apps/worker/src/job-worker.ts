@@ -1,33 +1,47 @@
-// Runs `ai-steps` jobs (ADR-0022): each attempt starts under the workspace's job limit, makes the job's AI
-// calls through `callAi` (up to 4 at once per job, and at most the worker-wide limit across jobs), and ends
-// the job with its output and the rest of its hold given back. A cancel aborts the attempt's calls; a stop
+// The AI jobs' worker (ADR-0022): runs one queue's jobs, each attempt started under the workspace's job limit,
+// handed to the queue's runner, which makes the job's AI calls through `callAi` (at most the worker-wide limit
+// across jobs and queues), and ends the job as the runner says, with the rest of its hold given back. A cancel aborts the attempt's calls; a stop
 // sends the job again before pg-boss would fail it, and an expiry or a crash leaves it to pg-boss's retry.
 import type { JobWithMetadata, PgBoss } from 'pg-boss'
 
-import { CallFailed, endJob, ensureQueue, isCancelled, sendAgain, startAttempt } from '@dazbee/ai'
+import {
+  CallFailed,
+  endJob,
+  ensureQueue,
+  isCancelled,
+  type JobEnd,
+  type JobInput,
+  sendAgain,
+  startAttempt,
+} from '@dazbee/ai'
 import type { Db } from '@dazbee/db'
 import { AiJobMessage } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
-import { type Attempt, runAttempt } from './steps-job.ts'
+/** Runs at most `size` tasks at once; the rest wait their turn. */
+export interface Limiter {
+  run<T>(task: () => Promise<T>): Promise<T>
+}
 
-/** What a steps worker runs on. */
-export interface StepsWorkerDeps {
+/** What a job worker runs on. */
+export interface JobWorkerDeps {
   db: Db
   boss: PgBoss
   storage: Storage
-  /** The pg-boss queue of `ai-steps` jobs. */
+  /** The pg-boss queue it runs. */
   queue: string
   /** The most AI calls running at once across every job. */
   callLimit: number
+  /** The limit of `callLimit` calls at once, when another queue's worker shares it; one of its own unless given. */
+  calls?: Limiter
   /** The most jobs this worker holds at once; half the call limit unless given. */
   jobsAtOnce?: number
   /** How often a running job's state is read for a cancel. */
   cancelCheckMs?: number
 }
 
-/** A running steps worker. */
-export interface StepsWorker {
+/** A running job worker. */
+export interface JobWorker {
   /**
    * Stops taking jobs. Gracefully, it waits up to `timeoutMs` for the running ones and sends those still
    * running again, so the stop spends none of their tries; hard, it drops them at once, as a crash would.
@@ -35,10 +49,23 @@ export interface StepsWorker {
   stop(how: 'graceful' | 'hard', timeoutMs?: number): Promise<void>
 }
 
-/** Runs at most `size` tasks at once; the rest wait their turn. */
-export interface Limiter {
-  run<T>(task: () => Promise<T>): Promise<T>
+/** One attempt of a job, as the worker hands it to its queue's runner. */
+export interface JobAttempt {
+  job: string
+  workspace: string
+  attempt: number
+  input: JobInput
+  /** Aborted when the job is cancelled or the worker stops. */
+  signal: AbortSignal
+  /** Reads the job's state, aborting `signal` on a cancel. */
+  checkCancel: () => Promise<void>
 }
+
+/**
+ * Runs one attempt of a job to its end under the worker-wide limit `calls`; how the job ends. A call that fails for
+ * good, thrown, fails the job; any other error sends it back to pg-boss to be tried again.
+ */
+export type RunJob = (attempt: JobAttempt, calls: Limiter) => Promise<JobEnd>
 
 /** Why an attempt's calls were aborted: a cancel, the worker sending the job again, or pg-boss taking it back. */
 type AbortWhy = 'cancelled' | 'sending-again' | 'taken-back'
@@ -46,11 +73,11 @@ type AbortWhy = 'cancelled' | 'sending-again' | 'taken-back'
 /** How long before a graceful stop's end the worker sends its running jobs again. */
 const SEND_AGAIN_BEFORE_MS = 5_000
 
-/** Starts running the queue's `ai-steps` jobs. */
-export async function startStepsWorker(deps: StepsWorkerDeps): Promise<StepsWorker> {
+/** Starts running the queue's jobs with `run`. */
+export async function startJobWorker(deps: JobWorkerDeps, run: RunJob): Promise<JobWorker> {
   const { db, boss, queue } = deps
   // The worker-wide limit on calls at once.
-  const calls = limiter(deps.callLimit)
+  const calls = deps.calls ?? limiter(deps.callLimit)
   // Every attempt in hand, by pg-boss job id, so a stop can abort them.
   const running = new Map<string, AbortController>()
   // Set once the worker is dropped: its attempts write nothing more, as a crashed worker's wouldn't.
@@ -71,7 +98,7 @@ export async function startStepsWorker(deps: StepsWorkerDeps): Promise<StepsWork
       if (job.signal.aborted) throw new Error('pg-boss took the job back')
       const start = await startAttempt(db, boss, { job: id, queue, queueJobId: job.id })
       if (!start.make) return
-      const made = { job: id, workspace: start.workspace, attempt: start.attempt, input: start.input }
+      const made = { job: id, workspace: start.workspace, attempt: start.attempt, input: start.job }
       await attempt(job, made, controller, checkCancel)
     } finally {
       clearInterval(watch)
@@ -82,13 +109,13 @@ export async function startStepsWorker(deps: StepsWorkerDeps): Promise<StepsWork
 
   async function attempt(
     job: JobWithMetadata<unknown>,
-    made: Omit<Attempt, 'signal' | 'checkCancel'>,
+    made: Omit<JobAttempt, 'signal' | 'checkCancel'>,
     controller: AbortController,
     checkCancel: () => Promise<void>,
   ): Promise<void> {
     try {
-      const outputs = await runAttempt(deps, calls, { ...made, signal: controller.signal, checkCancel })
-      if (!dead) await endJob(db, made.job, made.attempt, { state: 'done', output: { outputs } })
+      const end = await run({ ...made, signal: controller.signal, checkCancel }, calls)
+      if (!dead) await endJob(db, made.job, made.attempt, end)
     } catch (error) {
       if (dead) throw error
       const why = controller.signal.reason as AbortWhy | undefined

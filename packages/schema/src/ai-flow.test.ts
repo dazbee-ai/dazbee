@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   answerSchema,
+  briefTitle,
   FLOW_ANSWERS,
   FLOW_JOB_INPUTS,
   isAiSize,
   LayeringInput,
   LayerPlanAnswer,
+  parseFlowJob,
   ProductLayerPlanAnswer,
   ReadingAnswer,
   ReferenceReadAnswer,
@@ -216,6 +218,22 @@ describe('isAiSize', () => {
     expect(isAiSize({ width: 1500, height: 500 })).toBe(true)
     expect(isAiSize({ width: 728, height: 90 })).toBe(false)
     expect(isAiSize({ width: 160, height: 600 })).toBe(false)
+  })
+})
+
+describe('parseFlowJob', () => {
+  it('reads a flow job by its job kind’s contract, and throws on an input of another job kind', () => {
+    expect(parseFlowJob('round', round)).toEqual({ kind: 'round', input: RoundInput.parse(round) })
+    expect(() => parseFlowJob('try-again', round)).toThrow()
+  })
+})
+
+describe('briefTitle', () => {
+  it('takes the first line, trimmed, and cuts a long one to 120 characters with an ellipsis', () => {
+    expect(briefTitle('  Diwali serum sale  \n20% off, this week only')).toBe('Diwali serum sale')
+    const long = briefTitle('word '.repeat(40))
+    expect(long).toHaveLength(120)
+    expect(long.endsWith('word…')).toBe(true)
   })
 })
 

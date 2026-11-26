@@ -25,14 +25,19 @@ export function editorAi(workspaceId: string, brandId: string, designId: string)
   }
 }
 
-/** How a job came out from the route's answer: its status and body read as JSON (null when it isn't). */
+/**
+ * How a job came out from the route's answer: its status and body read as JSON (null when it isn't). A server's
+ * failure with no refusal may have come after the job was saved, so its outcome is unknown.
+ */
 export function startAnswer(status: number, body: unknown): AiStart {
   const started = AiJobStarted.safeParse(body)
   if (status === 201 && started.success) return { ok: true, job: started.data.job }
   const refused = AiJobRefused.partial({ refusal: true }).safeParse(body)
+  const refusal = refused.data?.refusal ?? null
   return {
     ok: false,
-    refusal: refused.data?.refusal ?? null,
+    refusal,
     message: refused.data?.error ?? String(status),
+    ...(refusal === null && status >= 500 ? { unknown: true as const } : {}),
   }
 }

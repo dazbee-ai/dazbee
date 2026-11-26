@@ -19,8 +19,12 @@ import {
 
 import { type BriefPlan, pictureLayerOf, pictureState, placeBrief, planBrief } from './place-brief.ts'
 
-/** How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused. */
-export type AiStart = { ok: true; job: string } | { ok: false; refusal: AiJobRefusal | null; message: string }
+/**
+ * How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused; or,
+ * with `unknown`, an answer lost on its way, so the job may have been saved.
+ */
+export type AiStart =
+  { ok: true; job: string } | { ok: false; refusal: AiJobRefusal | null; message: string; unknown?: true }
 
 /** What the editor asks of the API for the AI flow, through the app's routes. */
 export interface EditorAi {
@@ -60,6 +64,16 @@ export interface ArrivalsDeps {
   after: (ms: number, run: () => void) => () => void
   /** Whether the tab is shown now, and when that changes. */
   shown: { now(): boolean; onChange(listener: () => void): () => void }
+  /**
+   * Whether the tab is connected to the sync server now: a picture is written only then, so no arrival waits in
+   * the tab's queue, to land later over what a person chose meanwhile.
+   */
+  connected: () => boolean
+  /**
+   * Whether everything of the tab's is stored on the sync server: a picture the tab's design shows is marked
+   * written only then, so a call is never marked for a picture still in the tab's queue.
+   */
+  synced: () => boolean
   /** Aborted when the editor ends: no read, write or mark starts after it. */
   signal: AbortSignal
 }
@@ -84,7 +98,17 @@ export const POLL_MS = 10_000
 /** How long it waits while a frame of the design waits for its picture. */
 export const POLL_WAITING_MS = 3_000
 
-export function editorArrivals({ session, ai, designId, newId, after, shown, signal }: ArrivalsDeps): EditorArrivals {
+export function editorArrivals({
+  session,
+  ai,
+  designId,
+  newId,
+  after,
+  shown,
+  connected,
+  synced,
+  signal,
+}: ArrivalsDeps): EditorArrivals {
   /** The design's AI frames, jobs and briefs as last read; null before the first read. */
   let read: DesignAi | null = null
   /** The read on its way, while one is. */
@@ -178,9 +202,10 @@ export function editorArrivals({ session, ai, designId, newId, after, shown, sig
 
   /**
    * Writes the picture of a waiting frame's call into its picture layer, once the call has made it and while the
-   * layer still waits, then marks the call written. A layer that shows the picture already, or whose arrival this
-   * tab stored before, is only marked; one the person filled meanwhile is marked and keeps what they put there. A
-   * frame or layer the design hasn't, such as one deleted, is left for an undo that brings it back.
+   * layer still waits and the tab is connected, then marks the call written. A layer that shows the picture
+   * already, once the tab's queue is stored, or whose arrival this tab stored before, is only marked; one the person
+   * filled meanwhile is marked and keeps what they put there. A frame or layer the design hasn't, such as one
+   * deleted, is left for an undo that brings it back.
    */
   function writePicture(now: DesignAi, frame: AiFrameView) {
     if (frame.state !== 'waiting') return
@@ -190,7 +215,10 @@ export function editorArrivals({ session, ai, designId, newId, after, shown, sig
     const layerId = pictureLayerOf(frame.frameId)
     const layer = session.design().nodes[layerId]
     if (layer?.parentId !== frame.frameId) return
-    const writes = !stored.has(key) && pictureState(layer, asset) === 'waits'
+    const holds = pictureState(layer, asset)
+    const writes = !stored.has(key) && holds === 'waits'
+    // Offline, the picture waits for the next read; one the design shows waits until the tab's queue is stored.
+    if (writes ? !connected() : holds === 'shows' && !synced()) return
     const arrived = writes
       ? arrive(session, signal, () =>
           session.run('node.update', {

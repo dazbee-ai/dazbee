@@ -48,7 +48,12 @@ afterEach(async () => {
 })
 
 /** A tab on the server in memory, as `token`'s member, with its arrivals on `ai`. */
-async function tabOn(ai: FakeAi, token = 'ann', member = ANN): Promise<Tab> {
+async function tabOn(
+  ai: FakeAi,
+  token = 'ann',
+  member = ANN,
+  link: { connected?: () => boolean; synced?: () => boolean } = {},
+): Promise<Tab> {
   const opened = await openTab({
     designId: 'd',
     member,
@@ -83,6 +88,8 @@ async function tabOn(ai: FakeAi, token = 'ann', member = ANN): Promise<Tab> {
         return () => listeners.delete(listener)
       },
     },
+    connected: link.connected ?? (() => opened.link.status() === 'connected'),
+    synced: link.synced ?? opened.synced,
     signal: stop.signal,
   })
   ending.push(() => stop.abort())
@@ -335,6 +342,42 @@ describe('editorArrivals', () => {
 
       expect(ai.marks).toEqual([{ frameId: 'ann-1', jobId: 'job1', callIndex: 1 }])
       expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
+    })
+
+    it('writes no picture while the tab is offline, so none waits in its queue to land later', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      let online = false
+      const a = await tabOn(ai, 'ann', ANN, { connected: () => online })
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      ai.make('job1', 0, 'pic1')
+      await pollAll(a)
+      expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
+      expect(ai.marks).toEqual([])
+      online = true
+      await pollAll(a)
+      expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual(pictureOf('pic1'))
+      expect(ai.marks).toHaveLength(1)
+    })
+
+    it('marks a picture its design shows only once its queue is stored', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      ai.make('job1', 0, 'pic1')
+      ai.failNextMark()
+      await pollAll(a)
+      a.end()
+      let stored = false
+      const b = await tabOn(ai, 'bob', BOB, { synced: () => stored })
+      await pollAll(b)
+      expect(ai.marks).toEqual([])
+      stored = true
+      await pollAll(b)
+      expect(ai.marks).toEqual([{ frameId: 'ann-1', jobId: 'job1', callIndex: 1 }])
     })
 
     it('waits on no frame whose picture layer is deleted, and leaves the frame as it is', async () => {

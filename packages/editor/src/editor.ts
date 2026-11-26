@@ -231,6 +231,8 @@ function live(
         newId: () => crypto.randomUUID(),
         after,
         shown: pageShown(signal),
+        connected: () => tab.link.status() === 'connected',
+        synced: tab.synced,
         signal,
       })
     : null

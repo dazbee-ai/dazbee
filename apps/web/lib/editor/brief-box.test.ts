@@ -28,5 +28,6 @@ describe('briefSaid', () => {
 
   it('says a job saved whose drafts the design didn’t take is not placed', () => {
     expect(briefSaid({ refusal: null, notPlaced: true })).toBe('notPlaced')
+    expect(briefSaid({ refusal: null, unknown: true })).toBe('unknown')
   })
 })

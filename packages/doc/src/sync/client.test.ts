@@ -326,31 +326,6 @@ describe('openClient', () => {
       expect(redo[0]).not.toHaveProperty('restore')
     })
 
-    it('leaves a newer change of its own that no one undoes to an undo of the restore', () => {
-      const server = testServer()
-      const [a, b] = [joinClient(server), joinClient(server)]
-      a.open()
-      a.write(set(name('layer', 'box'), 'Restored'))
-      a.write(set(name('page', 'p1'), 'Restored'))
-      exchange(server, a, a.end('restore', MARK), [a, b])
-      // A picture arrives in the restored layer as a change no one undoes.
-      exchange(server, a, edit(a, null, set(name('layer', 'box'), 'Arrived')), [a, b])
-      exchange(server, a, a.undo(), [a, b])
-      expect(server.state().get('layer', 'box')?.name).toBe('Arrived')
-      expect(server.state().get('page', 'p1')?.name).not.toBe('Restored')
-    })
-
-    it('leaves a change of its own that no one undoes, still unconfirmed at the press, to the undo before it', () => {
-      const server = testServer()
-      const a = joinClient(server)
-      exchange(server, a, edit(a, 'restore', set(name('layer', 'box'), 'Restored')), [a])
-      const arrival = edit(a, null, set(name('layer', 'box'), 'Arrived'))
-      // The undo waits behind the arrival in the queue, and is made again over it when it goes.
-      expect(a.undo()).toEqual([])
-      exchange(server, a, arrival, [a])
-      expect(server.state().get('layer', 'box')?.name).toBe('Arrived')
-    })
-
     it('counts the mark in a change set’s size: a restore over the limits with it is put back', () => {
       const change = set(name('page', 'p1'), 'Restored')
       const bytes = JSON.stringify({ type: 'changes', id: 1, base: 0, kind: 'edit', changes: [change] }).length

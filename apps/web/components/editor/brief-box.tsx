@@ -84,6 +84,8 @@ export function BriefBox({
       })
       if (!started.ok) {
         setSaid(briefSaid(started))
+        // The job may be saved: the words go, so Enter doesn't start the same brief again.
+        if (started.notPlaced || started.unknown) setWords('')
         return
       }
       editor.fitSection(started.sectionId)
@@ -91,7 +93,9 @@ export function BriefBox({
       setPictures([])
       onClose()
     } catch {
-      setSaid('notStarted')
+      // The answer was lost on its way: the job may be saved.
+      setSaid('unknown')
+      setWords('')
     } finally {
       setBusy(false)
     }

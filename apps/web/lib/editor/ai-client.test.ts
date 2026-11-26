@@ -15,12 +15,16 @@ describe('startAnswer', () => {
     })
   })
 
-  it('gives no refusal for a request refused for what it names, nor for an answer that isn’t JSON', () => {
+  it('gives no refusal for a request refused for what it names', () => {
     expect(startAnswer(404, { error: 'No such design' })).toEqual({
       ok: false,
       refusal: null,
       message: 'No such design',
     })
-    expect(startAnswer(502, null)).toEqual({ ok: false, refusal: null, message: '502' })
+  })
+
+  it('gives a server’s failure with no refusal as unknown, since the job may have been saved', () => {
+    expect(startAnswer(502, null)).toEqual({ ok: false, refusal: null, message: '502', unknown: true })
+    expect(startAnswer(503, { error: 'AI is paused', refusal: 'stopped' })).not.toHaveProperty('unknown')
   })
 })

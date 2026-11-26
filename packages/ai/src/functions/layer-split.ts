@@ -6,9 +6,9 @@ import type { AiFunctionDef } from './types.ts'
 export const layerSplit: AiFunctionDef = {
   kind: 'layer-split',
   presets: {
-    // One paid split at 1024 px from a cold start, as most are with no container kept warm: 98.3 s, 25.8 of
-    // them on the GPU; 17.5 s warm (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
-    ming: { model: 'ming-image-0.1-design-layer', settings: {}, guess: { cost: 3_040_000n, seconds: 99 } },
+    // A lone split at 1024 px on a container started from its snapshot, as most are with none kept warm: 45 s to
+    // its result and 46 s of the container billed (`docs/research/ai-flow-image-models.md`, the layer split on Modal).
+    ming: { model: 'ming-image-0.1-design-layer', settings: {}, guess: { cost: 5_450_000n, seconds: 46 } },
   },
   fixedCharge: (settings, input) =>
     input.kind === 'layer-split' && input.size === 512 ? settings.layerSplit512 : settings.layerSplit1024,

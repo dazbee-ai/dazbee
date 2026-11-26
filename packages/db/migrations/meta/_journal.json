@@ -169,6 +169,13 @@
       "when": 1795724207269,
       "tag": "0023_ai-model-tables-and-step-dropped",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795733525310,
+      "tag": "0024_layer-split-charges",
+      "breakpoints": true
     }
   ]
 }

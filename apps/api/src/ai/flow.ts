@@ -53,11 +53,12 @@ const REFERENCE_SIZE = 1024
 const READABLE = ['image/png', 'image/jpeg', 'image/webp']
 
 /**
- * Starts `request` for `starter`. Throws `StartRefused` for a design, frame or picture the brand hasn't, a frame
- * that is already an AI frame or is working, and a try-again of a frame that didn't fail.
+ * Starts `request` for `starter`, its pg-boss job sent to `queue`. Throws `StartRefused` for a design, frame or
+ * picture the brand hasn't, a frame that is already an AI frame or is working, and a try-again of a frame that
+ * didn't fail.
  */
 export async function startFlowJob(
-  { db, storage, boss }: { db: Db; storage: Storage; boss: PgBoss },
+  { db, storage, boss, queue }: { db: Db; storage: Storage; boss: PgBoss; queue: string },
   starter: Starter,
   request: StartAiJob,
 ): Promise<Started> {
@@ -66,7 +67,7 @@ export async function startFlowJob(
   if (!(await findDesign(db, workspace, brand.id, design))) throw new StartRefused('No such design', 404)
   const on = { brandId: brand.id, designId: design }
   const keys = (ids: string[]) => pictureKeys(db, workspace, brand.id, ids)
-  const deps = { db, boss, starter }
+  const deps = { db, boss, queue, starter }
   switch (request.kind) {
     case 'round':
     case 'more-like-this': {
@@ -116,7 +117,7 @@ export async function startFlowJob(
       return started.ok ? { ...started, briefId: input.briefId } : started
     }
     case 'try-again':
-      return tryAgain({ db, boss }, starter, request)
+      return tryAgain({ db, boss, queue }, starter, request)
     case 'refine': {
       const [frame] = await idleFrames(db, workspace, design, [request.frameId])
       const [pictureKey, marksKey] = await keys([

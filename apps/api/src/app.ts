@@ -15,6 +15,7 @@
 import { Hono } from 'hono'
 import type { PgBoss } from 'pg-boss'
 
+import { FLOW_QUEUE } from '@dazbee/ai'
 import type { Db } from '@dazbee/db'
 import { readSessionToken } from '@dazbee/session-token'
 import type { Storage } from '@dazbee/storage'
@@ -78,6 +79,7 @@ export function createApp({
   stock = null,
   websitesPerHour = WEBSITES_PER_HOUR,
   boss = null,
+  flowQueue = FLOW_QUEUE,
 }: {
   db: Db
   storage: Storage
@@ -106,6 +108,8 @@ export function createApp({
   websitesPerHour?: number
   /** The pg-boss AI jobs are sent to (ADR-0022); none answers starting one 503. */
   boss?: PgBoss | null
+  /** The pg-boss queue flow jobs are sent to, `FLOW_QUEUE` unless given. */
+  flowQueue?: string
 }) {
   const app = new Hono<Env>()
 
@@ -132,7 +136,7 @@ export function createApp({
     .route('/', brandKitRoutes({ db, storage, outsideFetch, websitesPerHour }))
     .route('/', fontRoutes({ db, storage }))
     .route('/', stockRoutes({ db, storage, outsideFetch, stock, perHour: fromUrlPerHour }))
-    .route('/', aiRoutes({ db, storage, boss }))
+    .route('/', aiRoutes({ db, storage, boss, queue: flowQueue }))
 
   app.use('/me', signedIn)
   app.use('/me/*', signedIn)

@@ -1,14 +1,14 @@
 // Fixtures for the AI flow's route tests, against Postgres and storage from Docker Compose: the API made with a real
-// pg-boss, a team of its own (a workspace with a brand, an Editor, a Reviewer, a design, pictures and a grant), and
-// the worker's part played by hand: a call's try written to the call log, its output kept, and a job ended.
-// Imported by tests only.
+// pg-boss that sends flow jobs to a queue of their own, a team of its own (a workspace with a brand, an Editor, a
+// Reviewer, a design, pictures and a grant), and the worker's part played by hand: a call's try written to the call
+// log, its output kept, and a job ended. Imported by tests only.
 import { createHash } from 'node:crypto'
 
 import { and, eq } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
 import { afterAll } from 'vitest'
 
-import { ensureQueue, FLOW_QUEUE, giveGrant } from '@dazbee/ai'
+import { ensureQueue, giveGrant } from '@dazbee/ai'
 import { aiCalls, aiJobs, assets, brands, newId } from '@dazbee/db'
 import type { CallOutput, LayerSplitSize } from '@dazbee/schema'
 import { originalKey } from '@dazbee/storage'
@@ -31,13 +31,19 @@ export interface Team {
 /** ₹100 of allowance, in millionths. */
 export const ALLOWANCE = 100_000_000n
 
+/**
+ * The queue the tests' flow jobs are sent to: not `ai-flow`, which a worker running on this database (Docker Compose
+ * starts one) takes jobs from and sweeps.
+ */
+export const QUEUE = `ai-flow-${newId()}`
+
 const boss = new PgBoss({ connectionString: DATABASE_URL, max: 2, supervise: false, schedule: false })
 await boss.start()
-await ensureQueue(boss, FLOW_QUEUE)
+await ensureQueue(boss, QUEUE)
 afterAll(() => boss.stop({ graceful: false }))
 
-/** The API, able to start AI jobs. */
-export const aiApp = createApp({ ...appSettings, boss })
+/** The API, able to start AI jobs, which it sends to `QUEUE`. */
+export const aiApp = createApp({ ...appSettings, boss, flowQueue: QUEUE })
 
 /** Asks the AI app as `as` at `path` under the team's brand. */
 export const ask = (team: Team, as: string, method: string, path: string, body?: unknown) =>

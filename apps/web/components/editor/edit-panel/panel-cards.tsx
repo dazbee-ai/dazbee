@@ -1,7 +1,8 @@
 'use client'
 
 // Which card the edit panel shows, and the cards for the selection: the picked frame's, the picked
-// section's (`section/section-panel.tsx`), the selected layers', and the font chooser in the panel's place.
+// section's (`section/section-panel.tsx`), the picked connector's (`section/connector-panel.tsx`), the
+// selected layers', and the font chooser in the panel's place.
 import type { ReactNode } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -14,6 +15,7 @@ import { FrameMore } from '@/components/editor/edit-panel/frame/frame-more.tsx'
 import { FramePositionSection } from '@/components/editor/edit-panel/frame/position.tsx'
 import type { FrameSectionProps } from '@/components/editor/edit-panel/frame/types.ts'
 import { EditSection, FitSection, PhotoSection } from '@/components/editor/edit-panel/image-tab/image-tab.tsx'
+import { ConnectorPanel } from '@/components/editor/edit-panel/section/connector-panel.tsx'
 import { SectionPanel } from '@/components/editor/edit-panel/section/section-panel.tsx'
 import { PanelHeader } from '@/components/editor/edit-panel/tabs/panel-header.tsx'
 import { STYLE_SECTION_PARTS } from '@/components/editor/edit-panel/tabs/style-sections.tsx'
@@ -33,7 +35,7 @@ import {
   useEditState,
   useSelectionFollower,
 } from '@/components/editor/edit-store.ts'
-import { usePickedFrame, usePickedSection, useSelection } from '@/components/editor/editor-hooks.ts'
+import { usePickedConnector, usePickedFrame, usePickedSection, useSelection } from '@/components/editor/editor-hooks.ts'
 import { FontChooser } from '@/components/editor/fonts/font-chooser.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly, ViewOnlyFieldset } from '@/components/editor/view-only.tsx'
@@ -69,12 +71,16 @@ const FRAME_SECTIONS: Record<FrameSectionId, (props: FrameSectionProps) => React
   'frame-position': FramePositionSection,
 }
 
+/** The picked section or connector as the edit panel's pop-ups follow it, told apart from a frame; null with neither. */
+const pickedItemKey = (section: string | null, connector: string | null) =>
+  section !== null ? `section ${section}` : connector !== null ? `connector ${connector}` : null
+
 /** What the selected layers are called: the layer's name, or how many layers. */
 const layersName = (target: Target, p: Messages['editor']['props']) =>
   target.ids.length > 1 ? format(p.layers, { n: target.ids.length }) : target.names[0] || p.layer
 
 /**
- * The edit panel, following the selection: open while layers are selected or a frame or section is picked,
+ * The edit panel, following the selection: open while layers are selected or a frame, section or connector is picked,
  * unless the font chooser or a design card takes its place, which a change of selection closes.
  */
 export function EditPanel({ editor, workspaceId, brandId }: { editor: Editor; workspaceId: string; brandId: string }) {
@@ -83,7 +89,8 @@ export function EditPanel({ editor, workspaceId, brandId }: { editor: Editor; wo
   const ids = useSelection(editor)
   const picked = usePickedFrame(editor)
   const section = usePickedSection(editor)
-  useSelectionFollower(ids, picked ?? (section === null ? null : `section ${section}`))
+  const connector = usePickedConnector(editor)
+  useSelectionFollower(ids, picked ?? pickedItemKey(section, connector))
   usePressWatch()
   useSheetClear(editor, ids, useEditSheet())
   const selected = useTarget(editor, ids)
@@ -91,6 +98,7 @@ export function EditPanel({ editor, workspaceId, brandId }: { editor: Editor; wo
   if (shows === 'frame' && picked)
     return <FramePanel editor={editor} frameId={picked} workspaceId={workspaceId} brandId={brandId} />
   if (!selected && section) return <SectionPanel editor={editor} sectionId={section} />
+  if (!selected && connector) return <ConnectorPanel editor={editor} connectorId={connector} />
   if (!selected) return null
   const { target, design } = selected
   if (open === FONT_CHOOSER)

@@ -1439,6 +1439,12 @@ export const ar: Messages = {
         other: '{n} إطار',
       },
     },
+    connectors: {
+      connector: 'موصِّل',
+      actions: 'إجراءات الموصِّل',
+      joins: '{from} ← {to}',
+      delete: 'حذف',
+    },
     statusText: {
       Starting: 'جارٍ البدء',
       'Loading renderer': 'تحميل المُصيِّر',

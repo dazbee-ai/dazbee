@@ -3,7 +3,7 @@
 import type { DesignInput, DesignMeta } from './design.ts'
 import type { Paint } from './paint.ts'
 import { inOrder } from './primitives.ts'
-import { type PageBox, sectionBox, sectionsOf } from './sections.ts'
+import type { PageBox } from './sections.ts'
 
 /** The gap the frame rule leaves between a page's rightmost frame and a new one. */
 export const FRAME_GAP = 200
@@ -60,21 +60,17 @@ export function newFramePosition(frames: readonly { x: number; y: number; width:
 export function freeSpot(
   design: {
     readonly frames: Readonly<
-      Record<
-        string,
-        Readonly<PageBox> & { readonly pageId: string; readonly order: string; readonly sectionId?: string | undefined }
-      >
+      Record<string, Readonly<PageBox> & { readonly pageId: string; readonly sectionId?: string | undefined }>
     >
-    readonly sections?: Readonly<Record<string, { readonly pageId: string; readonly order: string }>>
+    readonly sections?: Readonly<Record<string, { readonly pageId: string }>>
   },
   pageId: string,
   size: { width: number; height: number },
   from: PageBox,
   joins?: string,
 ): { x: number; y: number } {
-  const page = { frames: design.frames, sections: design.sections ?? {} }
-  const boxes: PageBox[] = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
-  for (const [id] of sectionsOf(page, pageId)) if (id !== joins) boxes.push(sectionBox(page, id) as PageBox)
+  const frames = Object.values(design.frames).filter((frame) => frame.pageId === pageId)
+  const boxes: PageBox[] = [...frames, ...sectionBoxes(frames, design.sections ?? {}, pageId, joins)]
   const x = from.x + from.width + FRAME_GAP
   let y = from.y
   for (;;) {
@@ -123,4 +119,34 @@ export function blankDesign(
     return [`f${i + 1}`, { pageId: 'p1', name, width, height, ...at, fills: NEW_FRAME_FILLS, order: `a${i}` }] as const
   })
   return { meta, pages: { p1: { name: 'Page 1', order: 'a0' } }, frames: Object.fromEntries(entries), nodes: {} }
+}
+
+/**
+ * The boxes of page `pageId`'s drawn sections but `joins`, each the union of its frames: one pass over
+ * the page's `frames`, grouped by the section each names.
+ */
+function sectionBoxes(
+  frames: readonly (Readonly<PageBox> & { readonly sectionId?: string | undefined })[],
+  sections: Readonly<Record<string, { readonly pageId: string }>>,
+  pageId: string,
+  joins: string | undefined,
+): PageBox[] {
+  const edges = new Map<string, { left: number; top: number; right: number; bottom: number }>()
+  for (const { sectionId: id, x, y, width, height } of frames) {
+    if (id === undefined || id === joins || !Object.hasOwn(sections, id) || sections[id]?.pageId !== pageId) continue
+    const box = edges.get(id)
+    if (!box) edges.set(id, { left: x, top: y, right: x + width, bottom: y + height })
+    else {
+      box.left = Math.min(box.left, x)
+      box.top = Math.min(box.top, y)
+      box.right = Math.max(box.right, x + width)
+      box.bottom = Math.max(box.bottom, y + height)
+    }
+  }
+  return [...edges.values()].map(({ left, top, right, bottom }) => ({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  }))
 }

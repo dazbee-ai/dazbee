@@ -1,7 +1,7 @@
 // The size a picture call of the AI flow asks for: a frame's ratio scaled to about a megapixel within the
 // picture model's limits (sides multiples of 16, its pixel range, its longest side, ratio 1:3 to 3:1). The
 // picture is then placed in its frame with fit "fill".
-import { AI_RATIO_LIMIT, isAiSize } from '@dazbee/schema'
+import { AI_RATIO_LIMIT, type ImageRatio, isAiSize } from '@dazbee/schema'
 
 /** What sizes a picture model makes: its fewest and most pixels, and its longest side. */
 export interface PictureLimits {
@@ -21,6 +21,16 @@ const MODEL_LIMITS: Record<string, PictureLimits> = {
   'gpt-image-2.5-sunburst': { minPixels: 655_360, maxPixels: 8_294_400, maxSide: 3840 },
   'muse-image-1.0': { minPixels: 655_360, maxPixels: 8_294_400, maxSide: 3840 },
   'seedream-5.5': { minPixels: 921_600, maxPixels: 4_624_220, maxSide: 3840 },
+}
+
+/**
+ * The size an AI image's call asks for at each ratio: 1:1, 3:2 and 2:3, the sizes Meta's docs show for Muse Image
+ * (dev.meta.ai, the Images API's `size`, as read on 26 Nov 2026). Muse Image takes the size for its ratio only.
+ */
+export const IMAGE_SIZES: Record<ImageRatio, { width: number; height: number }> = {
+  square: { width: 1024, height: 1024 },
+  wide: { width: 1536, height: 1024 },
+  tall: { width: 1024, height: 1536 },
 }
 
 /** What every listed model takes, for a model not listed. */

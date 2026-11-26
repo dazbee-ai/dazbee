@@ -366,6 +366,28 @@ export const en = {
       nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',
       close: 'Close brief',
     },
+    /** Make an image, in Assets: a few words and a ratio become an AI image among the brand's images. */
+    makeImage: {
+      label: 'Make an image',
+      placeholder: 'A background or a picture, in a few words',
+      ratios: 'Ratio',
+      square: 'Square',
+      wide: 'Wide',
+      tall: 'Tall',
+      make: 'Make an image',
+      starting: 'Starting…',
+      /** The button's tooltip: the image's share of the workspace's AI, and about how long it takes. */
+      estimate: 'About {share} of this month’s AI, about {seconds} s',
+      estimateTime: 'About {seconds} s',
+      share: '{percent}%',
+      shareUnder: 'under 1%',
+      /** A tile of an image being made, and of one that didn't come out. */
+      working: 'Making “{words}”',
+      failed: '“{words}” didn’t come out. You weren’t charged.',
+      tryAgain: 'Try again',
+      notStarted: 'This image didn’t start. Try again.',
+      unknown: 'We couldn’t tell whether this image started. Look for it here in a minute before trying again.',
+    },
     /** A search that finds nothing: images, fonts, actions, or text on the page. */
     noMatch: { title: 'Nothing matches “{query}”', line: 'Try a shorter word.' },
     brandEmpty: 'This brand’s colours, fonts and logos will show here.',
@@ -1753,6 +1775,7 @@ export const en = {
       refine: 'Refine with AI',
       resize: 'Other sizes',
       layering: 'Make editable',
+      image: 'Make an image',
       calls: 'Bill checks and trials',
     },
     /** Each AI function by what it does. */
@@ -1766,6 +1789,7 @@ export const en = {
       'layer-plan': 'Layer plan',
       'layer-split': 'Layer split',
       reading: 'Reading',
+      image: 'Image',
     },
     units: {
       'input-token': 'Input tokens',

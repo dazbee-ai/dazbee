@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import type { CallInput } from '@dazbee/schema'
+import { type CallInput, readImageHeader } from '@dazbee/schema'
 
 import { priceUsage } from '../price-list.ts'
-import { db } from '../test-ai.ts'
+import { db, pngOf } from '../test-ai.ts'
 import { openaiSeller } from './openai.ts'
 import { SellerCutOff, SellerError, sellerFailure, type SellerRequest } from './seller.ts'
 import { expectDeclared, referencesOf } from './test-fetch.ts'
@@ -186,6 +186,26 @@ describe('openaiSeller', () => {
     expect(form.get('quality')).toBe('low')
     expect(form.get('size')).toBe('1088x1088')
     expect(form.getAll('image[]').length + form.getAll('image').length).toBe(1)
+  })
+
+  it('sends a reference bigger than 576 patches as a smaller copy, and a small one as it is', async () => {
+    const big = await pngOf(2400, 1344, [200, 120, 40, 255])
+    const small = await pngOf(640, 360, [200, 120, 40, 255])
+    const sizes: (number | undefined)[][] = []
+    for (const picture of [big, small]) {
+      const { seller, seen } = answering(200, fixture('openai-images.json'))
+      await seller.call({ ...requestOf(EDIT), references: async () => [picture] })
+      const form = seen[0]?.body
+      if (!(form instanceof FormData)) throw new Error('the edit was not sent as a form')
+      const [file] = [...form.getAll('image[]'), ...form.getAll('image')]
+      if (!(file instanceof Blob)) throw new Error('the reference was not sent as a file')
+      const header = readImageHeader(new Uint8Array(await file.arrayBuffer()))
+      sizes.push([header?.width, header?.height])
+    }
+    expect(sizes).toEqual([
+      [1024, 573],
+      [640, 360],
+    ])
   })
 
   it('reads error answers as the retry rules say', async () => {

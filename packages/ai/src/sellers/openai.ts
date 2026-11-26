@@ -9,6 +9,7 @@ import OpenAI, { APIError, toFile } from 'openai'
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
 
 import type { CostReport } from '../daily-check.ts'
+import { sizedReference } from './reference-size.ts'
 import { type SellerAdapter, type SellerAnswer, SellerCutOff, SellerError, type SellerRequest } from './seller.ts'
 import { atTier, type Tier, tierOf } from './tiers.ts'
 
@@ -228,7 +229,13 @@ async function callOpenai(client: OpenAI, request: SellerRequest): Promise<Selle
     output_format: 'png' as const,
     n: 1,
   }
-  const { data, response } = await makeOrEdit(client, request, common)
+  // Each reference is sent no bigger than GPT Image bills the fewest image tokens for, one at a time.
+  const references = async () => {
+    const sized: Uint8Array[] = []
+    for (const picture of await request.references()) sized.push(await sizedReference(picture))
+    return sized
+  }
+  const { data, response } = await makeOrEdit(client, { ...request, references }, common)
   return pictureAnswer(data, response.headers.get('x-request-id'), gptImageUsage(data))
 }
 

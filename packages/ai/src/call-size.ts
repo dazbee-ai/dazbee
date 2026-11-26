@@ -1,7 +1,7 @@
 // The size a picture call of the AI flow asks for: a frame's ratio scaled to about a megapixel within the
 // picture model's limits (sides multiples of 16, its pixel range, its longest side, ratio 1:3 to 3:1). The
 // picture is then placed in its frame with fit "fill".
-import { AI_RATIO_LIMIT } from '@dazbee/schema'
+import { AI_RATIO_LIMIT, isAiSize } from '@dazbee/schema'
 
 /** What sizes a picture model makes: its fewest and most pixels, and its longest side. */
 export interface PictureLimits {
@@ -64,13 +64,11 @@ export function pictureLimits(model: string): PictureLimits {
 /** Whether `size` is within `limits` and the AI's ratios. */
 function fitsLimits(size: { width: number; height: number }, limits: PictureLimits): boolean {
   const area = size.width * size.height
-  const ratio = size.width / size.height
   return (
     area >= limits.minPixels &&
     area <= limits.maxPixels &&
     Math.max(size.width, size.height) <= limits.maxSide &&
-    ratio <= AI_RATIO_LIMIT &&
-    ratio >= 1 / AI_RATIO_LIMIT
+    isAiSize(size)
   )
 }
 

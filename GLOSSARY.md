@@ -688,7 +688,7 @@ The name a person picks a kind of draft by, **Fast** or **Precise**, never a mod
 _Avoid_: Model, quality, engine
 
 **AI step**:
-One named AI call of a feature, written `<feature>.<name>`: the AI flow's are the round plan, a Fast or Precise draft, a refine, a resize, the layer plan, the layer split and reading the layers (`flow.refine`). Every AI call is one AI step, tracked as that step even where two steps call the same model. A step runs its kind's default model unless an admin gives it a step override.
+One named AI call of a feature, written `<feature>.<name>`: the AI flow's are the round plan (light for Fast, full for Precise), reading a reference ad, a Fast or Precise draft, the refine plan, a refine, a resize, the layer plan, the layer split and reading the layers (`flow.refine`). Every AI call is one AI step, tracked as that step even where two steps call the same model. A step runs its kind's default model unless an admin gives it a step override.
 _Avoid_: Step (that is a tab's undo step), use, block, endpoint, action
 
 **Kind (of AI call)**:

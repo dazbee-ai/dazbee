@@ -53,6 +53,82 @@ function objectsOf(schema: unknown): Record<string, unknown>[] {
   return [...own, ...Object.values(schema).flatMap(objectsOf)]
 }
 
+describe('RoundInput', () => {
+  it('takes a brief with its brand and kit logo, the tab-made ids of four frames and their picture layers, a size and a mode', () => {
+    expect(RoundInput.parse(round).frames).toHaveLength(4)
+    expect(RoundInput.parse({ ...round, logoKey: 'workspaces/w/originals/logo' }).logoKey).toBe(
+      'workspaces/w/originals/logo',
+    )
+    expect(RoundInput.safeParse({ ...round, brandId: undefined }).success).toBe(false)
+    expect(RoundInput.safeParse({ ...round, frames: round.frames.slice(0, 3) }).success).toBe(false)
+    expect(RoundInput.safeParse({ ...round, mode: 'slow' }).success).toBe(false)
+  })
+
+  it('refuses a size the AI isn’t offered', () => {
+    expect(RoundInput.safeParse({ ...round, size: { width: 1600, height: 400 } }).success).toBe(false)
+  })
+})
+
+describe('TryAgainInput', () => {
+  it('takes a brief and one of its four drafts', () => {
+    const input = { brandId: 'brand-1', designId: 'design-1', briefId: 'brief-1', draft: 3, frame: frame(4) }
+    expect(TryAgainInput.parse(input).draft).toBe(3)
+    expect(TryAgainInput.safeParse({ ...input, draft: 4 }).success).toBe(false)
+  })
+})
+
+describe('RefineInput', () => {
+  it('takes the picture, the message and an optional marks layer', () => {
+    const input = {
+      brandId: 'brand-1',
+      designId: 'design-1',
+      frame: frame(1),
+      pictureKey: 'workspaces/w/originals/draft',
+      message: 'Bigger price',
+      size: { width: 1080, height: 1350 },
+    }
+    expect(RefineInput.parse(input).marksKey).toBeUndefined()
+    expect(RefineInput.parse({ ...input, marksKey: 'workspaces/w/originals/marks' }).marksKey).toBeDefined()
+    expect(RefineInput.safeParse({ ...input, message: '' }).success).toBe(false)
+  })
+})
+
+describe('ResizeInput', () => {
+  it('takes the picture and at least one size, each a new frame', () => {
+    const input = {
+      brandId: 'brand-1',
+      designId: 'design-1',
+      sectionId: 'section-2',
+      pictureKey: 'workspaces/w/originals/draft',
+      sizes: [{ ...frame(5), width: 1080, height: 1920 }],
+    }
+    expect(ResizeInput.parse(input).sizes).toHaveLength(1)
+    expect(ResizeInput.safeParse({ ...input, sizes: [] }).success).toBe(false)
+  })
+})
+
+describe('LayeringInput', () => {
+  it('takes one picture per size and the split’s size, 512 or 1024', () => {
+    const input = {
+      brandId: 'brand-1',
+      designId: 'design-1',
+      frames: [{ frameId: 'frame-1', pictureKey: 'workspaces/w/originals/draft' }],
+      size: 1024,
+    }
+    expect(LayeringInput.parse(input).size).toBe(1024)
+    expect(LayeringInput.safeParse({ ...input, size: 768 }).success).toBe(false)
+  })
+})
+
+describe('FLOW_JOB_INPUTS', () => {
+  it('holds an input contract for each flow job kind, more like this naming the liked draft', () => {
+    expect(FLOW_JOB_INPUTS['more-like-this'].safeParse(round).success).toBe(false)
+    expect(
+      FLOW_JOB_INPUTS['more-like-this'].parse({ ...round, likedKey: 'workspaces/w/originals/liked' }).likedKey,
+    ).toBe('workspaces/w/originals/liked')
+  })
+})
+
 describe('RoundPlanAnswer', () => {
   it('reads the brand field and four ads, each with its kind and prompt, and refuses three', () => {
     expect(RoundPlanAnswer.parse(plan).ads.map((a) => a.kind)).toEqual([
@@ -132,6 +208,17 @@ describe('ReadingAnswer', () => {
   })
 })
 
+describe('isAiSize', () => {
+  it('offers sizes from 1:3 to 3:1', () => {
+    expect(isAiSize({ width: 1080, height: 1080 })).toBe(true)
+    expect(isAiSize({ width: 1080, height: 1920 })).toBe(true)
+    expect(isAiSize({ width: 300, height: 900 })).toBe(true)
+    expect(isAiSize({ width: 1500, height: 500 })).toBe(true)
+    expect(isAiSize({ width: 728, height: 90 })).toBe(false)
+    expect(isAiSize({ width: 160, height: 600 })).toBe(false)
+  })
+})
+
 describe('answerSchema', () => {
   it('gives each answer as a JSON schema a strict response format takes: every property required, no others', () => {
     for (const answer of Object.values(FLOW_ANSWERS)) {
@@ -144,89 +231,5 @@ describe('answerSchema', () => {
         expect(object.required).toEqual(Object.keys(object.properties as object))
       }
     }
-  })
-})
-
-describe('RoundInput', () => {
-  it('takes a brief with its brand, the tab-made ids of four frames and their picture layers, a size and a mode', () => {
-    expect(RoundInput.parse(round).frames).toHaveLength(4)
-    expect(RoundInput.safeParse({ ...round, brandId: undefined }).success).toBe(false)
-    expect(RoundInput.safeParse({ ...round, frames: round.frames.slice(0, 3) }).success).toBe(false)
-    expect(RoundInput.safeParse({ ...round, mode: 'slow' }).success).toBe(false)
-  })
-
-  it('refuses a size the AI isn’t offered', () => {
-    expect(RoundInput.safeParse({ ...round, size: { width: 1600, height: 400 } }).success).toBe(false)
-  })
-})
-
-describe('FLOW_JOB_INPUTS', () => {
-  it('holds an input contract for each flow job kind, more like this naming the liked draft', () => {
-    expect(FLOW_JOB_INPUTS['more-like-this'].safeParse(round).success).toBe(false)
-    expect(
-      FLOW_JOB_INPUTS['more-like-this'].parse({ ...round, likedKey: 'workspaces/w/originals/liked' }).likedKey,
-    ).toBe('workspaces/w/originals/liked')
-  })
-})
-
-describe('TryAgainInput', () => {
-  it('takes a brief and one of its four drafts', () => {
-    const input = { brandId: 'brand-1', designId: 'design-1', briefId: 'brief-1', draft: 3, frame: frame(4) }
-    expect(TryAgainInput.parse(input).draft).toBe(3)
-    expect(TryAgainInput.safeParse({ ...input, draft: 4 }).success).toBe(false)
-  })
-})
-
-describe('RefineInput', () => {
-  it('takes the picture, the message and an optional marks layer', () => {
-    const input = {
-      brandId: 'brand-1',
-      designId: 'design-1',
-      frame: frame(1),
-      pictureKey: 'workspaces/w/originals/draft',
-      message: 'Bigger price',
-      size: { width: 1080, height: 1350 },
-    }
-    expect(RefineInput.parse(input).marksKey).toBeUndefined()
-    expect(RefineInput.parse({ ...input, marksKey: 'workspaces/w/originals/marks' }).marksKey).toBeDefined()
-    expect(RefineInput.safeParse({ ...input, message: '' }).success).toBe(false)
-  })
-})
-
-describe('ResizeInput', () => {
-  it('takes the picture and at least one size, each a new frame', () => {
-    const input = {
-      brandId: 'brand-1',
-      designId: 'design-1',
-      sectionId: 'section-2',
-      pictureKey: 'workspaces/w/originals/draft',
-      sizes: [{ ...frame(5), width: 1080, height: 1920 }],
-    }
-    expect(ResizeInput.parse(input).sizes).toHaveLength(1)
-    expect(ResizeInput.safeParse({ ...input, sizes: [] }).success).toBe(false)
-  })
-})
-
-describe('LayeringInput', () => {
-  it('takes one picture per size and the split’s size, 512 or 1024', () => {
-    const input = {
-      brandId: 'brand-1',
-      designId: 'design-1',
-      frames: [{ frameId: 'frame-1', pictureKey: 'workspaces/w/originals/draft' }],
-      size: 1024,
-    }
-    expect(LayeringInput.parse(input).size).toBe(1024)
-    expect(LayeringInput.safeParse({ ...input, size: 768 }).success).toBe(false)
-  })
-})
-
-describe('isAiSize', () => {
-  it('offers sizes from 1:3 to 3:1', () => {
-    expect(isAiSize({ width: 1080, height: 1080 })).toBe(true)
-    expect(isAiSize({ width: 1080, height: 1920 })).toBe(true)
-    expect(isAiSize({ width: 300, height: 900 })).toBe(true)
-    expect(isAiSize({ width: 1500, height: 500 })).toBe(true)
-    expect(isAiSize({ width: 728, height: 90 })).toBe(false)
-    expect(isAiSize({ width: 160, height: 600 })).toBe(false)
   })
 })

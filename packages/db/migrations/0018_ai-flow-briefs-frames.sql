@@ -7,6 +7,7 @@ CREATE TABLE "ai_briefs" (
 	"words" text NOT NULL,
 	"picture_keys" text[] DEFAULT '{}'::text[] NOT NULL,
 	"reference_key" text,
+	"logo_key" text,
 	"liked_key" text,
 	"width" integer NOT NULL,
 	"height" integer NOT NULL,

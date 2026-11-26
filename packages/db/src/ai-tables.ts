@@ -43,6 +43,11 @@ const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull(
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 /** Whole millionths of a rupee, or of the currency the row names. */
 const millionths = (name: string) => bigint(name, { mode: 'bigint' })
+/** A design's id, the flow's rows going with the design. */
+const designId = () =>
+  text('design_id')
+    .notNull()
+    .references(() => designs.id, { onDelete: 'cascade' })
 
 /**
  * The one row of AI settings: the usage rate new grants keep (millionths: 1,000,000 is a rate of 1), the
@@ -271,14 +276,8 @@ export const aiSellerFiles = pgTable(
   (t) => [index('ai_seller_files_seller').on(t.seller, t.uploadedAt)],
 )
 
-/** A design's id, the flow's rows going with the design. */
-const designId = () =>
-  text('design_id')
-    .notNull()
-    .references(() => designs.id, { onDelete: 'cascade' })
-
 /**
- * A brief of the AI flow: its words, pictures, reference ad, size and mode, the section it made, the liked
+ * A brief of the AI flow: its words, pictures, reference ad, kit logo, size and mode, the section it made, the liked
  * draft's picture for more like this, and once planned the round plan's answer, which Try again draws from.
  */
 export const aiBriefs = pgTable(
@@ -296,6 +295,7 @@ export const aiBriefs = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     referenceKey: text('reference_key'),
+    logoKey: text('logo_key'),
     likedKey: text('liked_key'),
     width: integer().notNull(),
     height: integer().notNull(),

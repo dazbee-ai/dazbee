@@ -2,22 +2,24 @@
 // the units the price list counts usage in, and what each kind of call takes and gives back.
 import { z } from 'zod'
 
+import { AssetId } from './primitives.ts'
+
 /**
  * Every AI step, each priced and logged on its own, named `<feature>.<name>` by the feature that calls it:
  * `flow` is the AI flow.
  */
 export const AI_STEPS = [
   'flow.round-plan',
-  'flow.round-plan-full',
-  'flow.reference-read',
   'flow.read',
   'flow.draft-fast',
   'flow.draft-precise',
-  'flow.refine-plan',
   'flow.refine',
   'flow.resize',
   'flow.layer-plan',
   'flow.layer-split',
+  'flow.round-plan-full',
+  'flow.reference-read',
+  'flow.refine-plan',
 ] as const
 
 export const AiStep = z.enum(AI_STEPS)
@@ -93,7 +95,7 @@ export type LedgerKind = z.infer<typeof LedgerKind>
 export const MAX_REFERENCES = 16
 
 /** A stored picture: the storage key of a workspace original. */
-const PictureKey = z.string().min(1).max(500)
+export const PictureKey = z.string().min(1).max(500)
 
 /** A text call: instructions and a prompt, with optional pictures to read, and an optional JSON schema for the answer. */
 export const TextCall = z.object({
@@ -192,7 +194,7 @@ export const MadePicture = z.object({
   key: PictureKey,
   width: z.number().int().positive(),
   height: z.number().int().positive(),
-  assetId: z.string().min(1).optional(),
+  assetId: AssetId.optional(),
 })
 export type MadePicture = z.infer<typeof MadePicture>
 
@@ -242,29 +244,24 @@ export const AI_JOB_REFUSALS = ['not-allowed', 'used-up', 'stopped'] as const
 export const AiJobRefusal = z.enum(AI_JOB_REFUSALS)
 export type AiJobRefusal = z.infer<typeof AiJobRefusal>
 
-/** The states of one AI call as its workspace reads it: being made, made, or ended without a result. */
-export const AI_CALL_VIEW_STATES = ['running', 'done', 'failed'] as const
-
-export const AiCallViewState = z.enum(AI_CALL_VIEW_STATES)
-export type AiCallViewState = z.infer<typeof AiCallViewState>
-
 /**
  * Why a call ended without a result, as its workspace reads it: no seller made it, its answer was cut off at its
- * ceiling, or its seller may have made it but no result was kept.
+ * ceiling, or it is an unknown call, which its seller may have made but whose result wasn't kept.
  */
-export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'lost'] as const
+export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'unknown'] as const
 
 export const AiCallFailure = z.enum(AI_CALL_FAILURES)
 export type AiCallFailure = z.infer<typeof AiCallFailure>
 
-/** One call of an AI job as its workspace reads it: its place in the job, its AI step, its state, and its output or why it failed. */
-export const AiCallView = z.object({
-  index: z.number().int().nonnegative(),
-  step: z.string(),
-  state: AiCallViewState,
-  output: CallOutput.optional(),
-  failure: AiCallFailure.optional(),
-})
+/** Where one call of a job sits: its place in the job and its AI step. */
+const CallPlace = z.object({ index: z.number().int().nonnegative(), step: z.string() })
+
+/** One call of an AI job as its workspace reads it: being made, made with its output, or failed with why. */
+export const AiCallView = z.discriminatedUnion('state', [
+  CallPlace.extend({ state: z.literal('running') }),
+  CallPlace.extend({ state: z.literal('done'), output: CallOutput }),
+  CallPlace.extend({ state: z.literal('failed'), failure: AiCallFailure }),
+])
 export type AiCallView = z.infer<typeof AiCallView>
 
 /**

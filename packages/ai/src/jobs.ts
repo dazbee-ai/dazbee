@@ -225,16 +225,18 @@ export async function endJob(db: Db, job: string, attempt: number, end: JobEnd):
 
 /** The job's state as its workspace reads it, or null when the workspace has no such job. */
 export async function readJob(db: Db | Tx, workspace: string, job: string): Promise<AiJobView | null> {
+  // The call log before the job: a try read as done had its output kept in the same transaction, so the job
+  // read after it holds that output.
+  const tries = await db
+    .select({ callIndex: aiCalls.callIndex, step: aiCalls.step, state: aiCalls.state, error: aiCalls.error })
+    .from(aiCalls)
+    .where(and(eq(aiCalls.jobId, job), eq(aiCalls.workspaceId, workspace)))
+    .orderBy(asc(aiCalls.callIndex), asc(aiCalls.try))
   const [row] = await db
     .select()
     .from(aiJobs)
     .where(and(eq(aiJobs.id, job), eq(aiJobs.workspaceId, workspace)))
   if (!row) return null
-  const tries = await db
-    .select({ callIndex: aiCalls.callIndex, step: aiCalls.step, state: aiCalls.state, error: aiCalls.error })
-    .from(aiCalls)
-    .where(eq(aiCalls.jobId, job))
-    .orderBy(asc(aiCalls.callIndex), asc(aiCalls.try))
   return {
     id: row.id,
     kind: row.kind,
@@ -324,7 +326,8 @@ async function endWith(
 
 /**
  * Each started call of a job, by call index, from its tries in the call log (oldest first) and the outputs kept:
- * made when its output is kept, being made while its latest try runs, and otherwise failed, with why.
+ * made when its output is kept, being made while its latest try runs or is done with its output not yet read,
+ * and otherwise failed, with why.
  */
 function callViews(
   tries: { callIndex: number; step: string; state: CallState; error: string | null }[],
@@ -334,8 +337,8 @@ function callViews(
   return [...latest.values()].map(({ callIndex: index, step, state, error }): AiCallView => {
     const output = outputs[String(index)]
     if (output) return { index, step, state: 'done', output }
-    if (state === 'running') return { index, step, state: 'running' }
-    const failure = state === 'unknown' ? 'lost' : error === CUT_OFF ? 'cut-off' : 'not-made'
+    if (state === 'running' || state === 'done') return { index, step, state: 'running' }
+    const failure = state === 'unknown' ? 'unknown' : error === CUT_OFF ? 'cut-off' : 'not-made'
     return { index, step, state: 'failed', failure }
   })
 }

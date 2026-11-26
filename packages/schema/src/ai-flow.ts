@@ -3,14 +3,11 @@
 // included, since the model reads them there (packages/ai/src/prompts/ads).
 import { z } from 'zod'
 
-import { AiMode, type FlowJobKind, LayerSplitSize, MAX_REFERENCES } from './ai.ts'
+import { AiMode, type FlowJobKind, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
 import { Id } from './primitives.ts'
 
 /** The most one side of a size may be to the other for the AI to be offered it: 3:1 and 1:3. */
 export const AI_RATIO_LIMIT = 3
-
-/** A stored picture: the storage key of a workspace original. */
-const PictureKey = z.string().min(1).max(500)
 
 /** A frame's size in design pixels. */
 const FrameSize = z.object({
@@ -40,8 +37,8 @@ const FlowJob = z.object({ brandId: Id, designId: Id })
 
 /**
  * A round: the brief (its words, its pictures, an optional reference ad, one size and a mode), the brand's
- * facts, and the ids of its section and of the four frames it fills, one per draft, in the order of the plan's
- * ads.
+ * facts and kit logo, and the ids of its section and of the four frames it fills, one per draft, in the order
+ * of the plan's ads.
  */
 export const RoundInput = FlowJob.extend({
   briefId: Id,
@@ -53,6 +50,7 @@ export const RoundInput = FlowJob.extend({
   size: AiSize,
   mode: AiMode,
   brand: BrandFacts,
+  logoKey: PictureKey.optional(),
 })
 export type RoundInput = z.infer<typeof RoundInput>
 

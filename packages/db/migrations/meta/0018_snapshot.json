@@ -1,5 +1,5 @@
 {
-  "id": "2e83b22d-c351-41b3-a13b-b99353e9938e",
+  "id": "f957a8a3-4255-4e83-b19f-01995173bd81",
   "prevId": "e52662ba-49bb-4b3b-91f3-12e5c858081a",
   "version": "7",
   "dialect": "postgresql",
@@ -53,6 +53,12 @@
         },
         "reference_key": {
           "name": "reference_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_key": {
+          "name": "logo_key",
           "type": "text",
           "primaryKey": false,
           "notNull": false

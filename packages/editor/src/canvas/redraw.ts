@@ -37,7 +37,10 @@ export type Paint = (
 ) => boolean
 
 export interface RedrawDeps {
-  view: Pick<EditorView, 'update' | 'design' | 'previewed' | 'frames' | 'findInView' | 'inView' | 'camera' | 'dpr'>
+  view: Pick<
+    EditorView,
+    'update' | 'design' | 'previewed' | 'frames' | 'findInView' | 'inView' | 'camera' | 'dpr' | 'redraw'
+  >
   resources: Pick<EditorResources, 'screen' | 'show'>
   scenes: Pick<FrameScenes, 'shownScene' | 'pictures' | 'ghost' | 'outlinePaths'>
   selection: Pick<EditorSelection, 'keep' | 'tellListeners' | 'pickedSection'>
@@ -60,7 +63,8 @@ export interface EditorRedraw {
   /**
    * Tells that what is shown changed: the `onShown` listeners first, which build what they show,
    * then the selection's listeners. A redraw calls it, and so does every module that changes what
-   * is shown outside one.
+   * is shown outside one; when the sections' outlines differ from those last drawn, as after a
+   * section is picked or a frame's drop, it asks for a redraw, since the surface draws them.
    */
   shownChanged(): void
   /** Calls back whenever what is shown changed, before the selection's listeners are told. */
@@ -80,6 +84,8 @@ export function editorRedraw({
 }: RedrawDeps): EditorRedraw {
   /** Told when what is shown changed. */
   const shown = listenerSet<[]>()
+  /** The sections' outlines the last redraw drew, as `outlineKey` gives them. */
+  let drawnOutlines = ''
 
   function redraw(paint?: Paint): DrawInfo | null {
     const started = performance.now()
@@ -101,7 +107,9 @@ export function editorRedraw({
     const drag = carried(pointer.gesture())
     const ghost = drag && { frame: drag.frame, picture: scenes.ghost(drag.frame, drag.roots, screen) }
     const made = scenes.pictures(view.frames(), inView, screen)
-    if (paint && !paint(made.pictures, ghost, outlinesNow())) return null
+    const outlines = outlinesNow()
+    if (paint && !paint(made.pictures, ghost, outlines)) return null
+    drawnOutlines = outlineKey(outlines)
     pointer.rehover()
     const outlinedBefore = scenes.outlinePaths()
     shownChanged()
@@ -123,9 +131,15 @@ export function editorRedraw({
     return outlines.map(({ id, box }) => ({ box, lit: id === picked || id === lit }))
   }
   function shownChanged() {
+    if (outlineKey(outlinesNow()) !== drawnOutlines) view.redraw()
     shown.emit()
     selection.tellListeners()
   }
 
   return { redraw, shownChanged, onShown: shown.on }
+}
+
+/** The outlines as one string, where each box and whether it is lit. */
+function outlineKey(outlines: readonly DrawnOutline[]) {
+  return outlines.map(({ box, lit }) => `${box.x} ${box.y} ${box.width} ${box.height}${lit ? ' lit' : ''}`).join(',')
 }

@@ -77,6 +77,7 @@ function harness({
         return [SQUARE]
       },
       inView: () => [SQUARE],
+      redraw: () => log.push('redraw asked'),
     },
     selection: {
       keep: () => log.push('keep'),

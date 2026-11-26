@@ -151,17 +151,25 @@ export const sectionDuplicate = defineCommand({
   input: z.strictObject({
     sectionId: SectionId.describe('The section to copy.'),
     newId: SectionId.optional().describe('The new section’s id; a fresh one is made when left out.'),
+    gap: z
+      .number()
+      .positive()
+      .finite()
+      .optional()
+      .describe(
+        'How far the copy keeps from the section and from what is in the way, in design pixels; 200 when left out.',
+      ),
   }),
   check: (ctx, { sectionId, newId }) => {
     const problem = sectionProblem(ctx.design, sectionId) ?? idProblem(ctx, newId)
     if (problem) return problem
     return framesInSection(ctx.design, sectionId).length === 0 ? `section "${sectionId}" has no frames` : undefined
   },
-  apply: (ctx, { sectionId, newId = ctx.newId() }) => {
+  apply: (ctx, { sectionId, newId = ctx.newId(), gap }) => {
     const { w, design } = ctx
     const { pageId, title } = design.sections[sectionId] as Design['sections'][string]
     const box = sectionBox(design, sectionId) as NonNullable<ReturnType<typeof sectionBox>>
-    const spot = freeSpot(design, pageId, box, box)
+    const spot = freeSpot(design, pageId, box, box, undefined, gap)
     const sectionOrder = writeOrder(w, 'section', [...sectionSlots(design, pageId), [newId, null]], new Set([newId]))
     const copyTitle = `${title} copy`.slice(0, MAX_SECTION_TITLE).trimEnd()
     w.create('section', newId, { pageId, title: copyTitle, order: sectionOrder(newId) })

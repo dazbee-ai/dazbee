@@ -122,6 +122,12 @@ describe('freeSpot', () => {
     expect(freeSpot({ frames, sections }, 'p1', size, from, 'row')).toEqual({ x: 300, y: 100 + FRAME_GAP })
   })
 
+  it('keeps the gap given in place of FRAME_GAP, beside the source and below what is in the way', () => {
+    const from = { x: 0, y: 0, width: 100, height: 100 }
+    const frames = { src: at('p1', 0, 0, 100, 100), first: at('p1', 600, 50, 100, 100) }
+    expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, from, undefined, 500)).toEqual({ x: 600, y: 650 })
+  })
+
   it('takes a frame touching its edge as out of the way', () => {
     const frames = { below: at('p1', 300, 100, 100, 100) }
     expect(freeSpot({ frames }, 'p1', { width: 100, height: 100 }, { x: 0, y: 0, width: 100, height: 100 })).toEqual({

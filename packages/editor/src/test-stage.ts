@@ -73,7 +73,7 @@ export function stage(first: Tool = 'select') {
     frameName,
     frameActions: editorFrameActions({
       session,
-      view: { page: () => 'p1', showWhole: () => {} },
+      view: { page: () => 'p1', showWhole: () => {}, camera },
       tools,
       frameName,
       selection,

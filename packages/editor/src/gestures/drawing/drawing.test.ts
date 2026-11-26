@@ -62,6 +62,7 @@ function harness(design: DesignInput = DESIGN) {
     view: {
       page: () => 'p1',
       showWhole: (area) => log.push(`showWhole ${JSON.stringify(area)}`),
+      camera: () => ({ x: 0, y: 0, zoom: 1 }),
     },
     tools: { setTool: (tool) => log.push(`tool ${tool}`) },
     frameName,

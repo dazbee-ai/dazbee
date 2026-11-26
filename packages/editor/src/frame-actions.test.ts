@@ -64,6 +64,7 @@ function harness(design: DesignInput = DESIGN) {
     session,
     view: {
       page: () => 'p1',
+      camera: () => view.camera(),
       showWhole: (area) => {
         log.push(`showWhole ${JSON.stringify(area)}`)
         view.showWhole(area)

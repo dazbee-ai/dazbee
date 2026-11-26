@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { type TestEditor, testEditor, type TestEditorOptions } from '../../test-editor.ts'
-import { insidePoint, linePoint, placeOf, SECTIONS, titlePoint } from '../../test-sections.ts'
+import { insidePoint, linePoint, outlineOf, placeOf, SECTIONS, titlePoint } from '../../test-sections.ts'
 
 let opened: TestEditor | null = null
 afterEach(() => {
@@ -101,6 +101,8 @@ describe('the keys on a picked section', () => {
     core.pickSection('sale')
     editor.press('delete')
     expect(core.design().sections.sale).toBeUndefined()
+    // The undo and redo say what the key did to the section.
+    expect(core.undoName()).toBe('ungroupSection')
     expect(saleAt(editor)).toEqual([
       { x: 0, y: 0, sectionId: undefined },
       { x: 600, y: 0, sectionId: undefined },
@@ -113,14 +115,21 @@ describe('the keys on a picked section', () => {
   it('copy it to its right with Ctrl+D and pick the copy', async () => {
     const editor = await open()
     const { core } = editor
+    // Zoomed out, where FRAME_GAP alone is less than the outlines' padding on screen.
+    core.zoomTo(0.15)
     core.pickSection('solo')
     editor.press('duplicate')
     const copy = core.pickedSection()
+    expect(core.undoName()).toBe('duplicateSection')
     expect(copy).not.toBeNull()
     expect(copy).not.toBe('solo')
     expect(core.design().sections[copy ?? '']?.title).toBe('Solo copy')
     const [copied] = Object.entries(core.design().frames).filter(([, f]) => f.sectionId === copy)
     expect(copied?.[1].x).toBeGreaterThan(1800 + 400)
+    // The copy's outline sits clear of the original's at the zoom it was made at, the title row included.
+    core.redraw()
+    const [solo, made] = [outlineOf(core, 'solo'), outlineOf(core, copy ?? '')]
+    expect(made.x).toBeGreaterThan(solo.x + solo.width)
     editor.press('undo')
     expect(core.design().sections[copy ?? '']).toBeUndefined()
   })

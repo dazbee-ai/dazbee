@@ -591,10 +591,13 @@ export function buildCore({
   /**
    * Does what a shortcut names, as the actions, the linked-copy actions, the text styles, Select
    * all with same and the hidden layers shown do, as one undo step with the name the shortcut table
-   * gives it; undo and redo first end what is open on the stage: the pen's path, a drag and typing.
+   * gives it, but Delete and Duplicate on a picked section, named by their command's step (ungroup,
+   * duplicate section); undo and redo first end what is open on the stage: the pen's path, a drag
+   * and typing.
    */
   function perform(action: StageAction) {
-    const step = stepOf(action)
+    const sectionStep = selection.pickedSection() !== null && !selection.current()
+    const step = sectionStep && (action === 'delete' || action === 'duplicate') ? null : stepOf(action)
     return step ? session.gesture(step, () => performAction(action)) : performAction(action)
   }
   function performAction(action: StageAction) {

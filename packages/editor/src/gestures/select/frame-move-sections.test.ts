@@ -114,3 +114,29 @@ describe('a frame dragged by its name', () => {
     expect(modules.frameMove.shownSections(modules.pointer.gesture()).lit).toBeNull()
   })
 })
+
+describe('the outlines on the stage', () => {
+  it('are drawn again when a section is picked or let go, and when a drop keeps a frame in its section', async () => {
+    const editor = await open()
+    const { core, modules } = editor
+    let asked = 0
+    modules.view.onRedraw(() => (asked += 1))
+    core.pickSection('sale')
+    expect(asked).toBeGreaterThan(0)
+    // The redraw asked for, as the next animation frame runs it.
+    core.redraw()
+    asked = 0
+    editor.press('deselect')
+    expect(asked).toBeGreaterThan(0)
+    // A nudge inside its own section: the last move drew the outline lit and as the drag began.
+    const from = labelPoint(core, 'f2')
+    const zoom = core.camera().zoom
+    editor.mouse.move(from.x, from.y)
+    editor.mouse.down()
+    editor.mouse.move(from.x + 20 * zoom, from.y, { steps: 3 })
+    asked = 0
+    editor.mouse.up()
+    expect(placeOf(core, 'f2')).toEqual({ x: 620, y: 0, sectionId: 'sale' })
+    expect(asked).toBeGreaterThan(0)
+  })
+})

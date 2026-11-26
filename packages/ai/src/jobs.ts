@@ -64,7 +64,7 @@ export const QUEUE_OPTIONS = {
 /** The queue of the `calls` jobs. */
 export const CALLS_QUEUE = 'ai-calls'
 
-/** The one queue of the flow's jobs, whose worker switches on the job kind. */
+/** The one queue of the AI features' jobs. */
 export const FLOW_QUEUE = 'ai-flow'
 
 /** How long a job over its workspace's job limit waits before it is tried again. */

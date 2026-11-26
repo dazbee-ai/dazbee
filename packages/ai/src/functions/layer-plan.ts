@@ -10,11 +10,12 @@ export const layerPlan: AiFunctionDef = {
   answer: LayerPlanAnswer,
   ceiling: 16_000,
   presets: {
-    // Worked out, not measured: 8,000 tokens in and 4,000 out at OpenAI's prices, at 49 tokens a second.
+    // One paid plan of a square draft: 3,854 tokens in and 2,729 out, in 37.3 s
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     sol: {
       model: 'gpt-6.2-sol',
       settings: { effort: 'medium', tier: 'standard' },
-      guess: { cost: 6_370_000n, seconds: 82 },
+      guess: { cost: 3_980_000n, seconds: 38 },
     },
   },
 }

@@ -21,21 +21,23 @@ export const roundPlan: AiFunctionDef = {
   // The planners reason before they write four long prompts, past the 60 s a text call usually gets.
   timeoutMs: 240_000,
   presets: {
-    // 7.5–10.0 s over four rounds of real briefs; 6,000 tokens in and 3,000 out at OpenAI's fast-tier prices.
+    // 7.5–10.0 s over six rounds of real briefs; the dearer of two paid rounds, a brief with one picture
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     'light-luna': {
       model: 'gpt-6-luna',
       settings: { effort: 'low', tier: 'fast' },
       prompt: ROUND_DIRECTOR_LIGHT,
       ceiling: 12_000,
-      guess: { cost: 480_000n, seconds: 10 },
+      guess: { cost: 540_000n, seconds: 10 },
     },
-    // 28.4–32.9 s over four rounds of real briefs; 12,000 tokens in and 6,000 out at OpenAI's prices.
+    // 22.6–32.9 s over five rounds of real briefs; one paid round, a brief with one picture: 6,934 tokens in and
+    // 1,321 out (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     'full-terra': {
       model: 'gpt-6.1-terra',
       settings: { effort: 'low', tier: 'standard' },
       prompt: ROUND_DIRECTOR,
       ceiling: 24_000,
-      guess: { cost: 4_780_000n, seconds: 33 },
+      guess: { cost: 1_540_000n, seconds: 33 },
     },
   },
 }

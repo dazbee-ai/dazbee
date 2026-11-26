@@ -197,5 +197,9 @@ describe('FEATURES', () => {
     expect(withOne.hold).toBeGreaterThan(without.hold)
     expect([without.estimate, withOne.estimate]).toEqual([without.hold, withOne.hold])
     expect(withOne.seconds).toBeGreaterThan(without.seconds)
+    // More like this reads no reference, whatever the brief has.
+    const liked = (reference: boolean) =>
+      actionHold(db, who.workspace, AiEstimateQuery.parse({ action: 'more-like-this', reference }))
+    expect(await liked(true)).toBe(await liked(false))
   })
 })

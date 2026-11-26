@@ -10,11 +10,12 @@ export const draft: AiFunctionDef = {
   // The prompt of a draft whose plan gave none; a planned draft is drawn from the plan's own prompt.
   prompt: DRAFT_PROMPT,
   presets: {
-    // 14–27 s a draft, one round at a time; ₹1.27 for a square at medium (`docs/research/ai-flow-image-models.md`).
+    // 14–28 s a draft; the dearest of 13 paid square drafts at medium, each with one brief picture
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     'gpt-image-medium': {
       model: 'gpt-image-2.5-sunburst',
       settings: { quality: 'medium' },
-      guess: { cost: 1_270_000n, seconds: 28 },
+      guess: { cost: 3_050_000n, seconds: 28 },
     },
   },
 }

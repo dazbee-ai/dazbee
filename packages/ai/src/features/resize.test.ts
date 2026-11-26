@@ -45,7 +45,7 @@ describe('a resize', () => {
     ])
     for (const call of made) expect(call).toMatchObject({ pictures: [input.pictureKey] })
     // Two resizes at their preset's first guess, times 1.25.
-    expect((await ledgerOf(job))[0]?.amount).toBe(-6_500_000n)
+    expect((await ledgerOf(job))[0]?.amount).toBe(-4_825_000n)
     expect(await chargedCalls(job)).toEqual([0, 1])
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     for (const call of calls) {

@@ -10,11 +10,12 @@ export const referenceRead: AiFunctionDef = {
   answer: ReferenceReadAnswer,
   ceiling: 2000,
   presets: {
-    // Worked out, not measured: 5,500 tokens in and 500 out at OpenAI's fast-tier prices, at 142 tokens a second.
+    // One paid read of a reference ad: 1,626 tokens in and 203 out, in 5.3 s
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     luna: {
       model: 'gpt-6-luna',
       settings: { effort: 'low', tier: 'fast' },
-      guess: { cost: 190_000n, seconds: 4 },
+      guess: { cost: 70_000n, seconds: 6 },
     },
   },
 }

@@ -65,7 +65,7 @@ describe('a refine', () => {
       height: 1024,
     })
     // The refine plan and the refine edit at their presets' first guesses, times 1.25.
-    expect((await ledgerOf(job))[0]?.amount).toBe(-3_687_500n)
+    expect((await ledgerOf(job))[0]?.amount).toBe(-2_487_500n)
     expect(await chargedCalls(job)).toEqual([0, 1])
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     const version =

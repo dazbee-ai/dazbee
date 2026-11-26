@@ -43,12 +43,11 @@ const PLAN: FeatureCall<RoundInput | MoreLikeThisInput, undefined> = {
 }
 
 /**
- * A round, and more like this: a reference read when the brief has a reference ad, the plan, which the job stands
- * on and which is kept on the brief, then four drafts. More like this gives the planner the liked draft first, in
- * place of any reference.
+ * A round: a reference read when the brief has a reference ad, the plan, which the job stands on and which is kept
+ * on the brief, then four drafts.
  */
 export const round: AiFeatureDef<RoundInput | MoreLikeThisInput> = {
-  shape: (input) => ({ count: DRAFTS, reference: !('likedKey' in input) && Boolean(input.referenceKey) }),
+  shape: (input) => ({ count: DRAFTS, reference: Boolean(input.referenceKey) }),
   stages: (shape) => [
     shape.reference ? [REFERENCE_READ] : [],
     [PLAN],
@@ -67,6 +66,15 @@ export const round: AiFeatureDef<RoundInput | MoreLikeThisInput> = {
       .set({ plan: planIn(output) })
       .where(and(eq(aiBriefs.id, input.briefId), eq(aiBriefs.workspaceId, on.workspace)))
   },
+}
+
+/**
+ * More like this: a round whose planner sees the liked draft first, in place of any reference ad, so no reference
+ * read is held, waited for or made.
+ */
+export const moreLikeThis: AiFeatureDef<MoreLikeThisInput> = {
+  ...round,
+  stages: (shape) => round.stages({ ...shape, reference: false }),
 }
 
 /** Try again: draft `draft` of the brief again from its stored plan, or the plain prompt when it has none. */

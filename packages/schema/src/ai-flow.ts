@@ -122,7 +122,7 @@ export const LayeringInput = FlowJob.extend({
 })
 export type LayeringInput = z.infer<typeof LayeringInput>
 
-/** Each flow job kind's input contract. */
+/** Each AI feature's input contract. */
 export const AI_FEATURE_INPUTS = {
   round: RoundInput,
   'more-like-this': MoreLikeThisInput,
@@ -132,7 +132,7 @@ export const AI_FEATURE_INPUTS = {
   layering: LayeringInput,
 } satisfies Record<AiFeature, z.ZodType>
 
-/** A flow job of each job kind with its input. */
+/** A job of each AI feature with its input. */
 export type AiFeatureInput = {
   [K in AiFeature]: { kind: K; input: z.infer<(typeof AI_FEATURE_INPUTS)[K]> }
 }[AiFeature]
@@ -242,7 +242,7 @@ export function isAiSize(size: { width: number; height: number }): boolean {
   return ratio <= AI_RATIO_LIMIT && ratio >= 1 / AI_RATIO_LIMIT
 }
 
-/** A flow job of `kind` with `input` as its contract reads it; throws on an input it refuses. */
+/** A job of the AI feature `kind` with `input` as its contract reads it; throws on an input it refuses. */
 export function parseFeatureJob(kind: AiFeature, input: unknown): AiFeatureInput {
   return { kind, input: AI_FEATURE_INPUTS[kind].parse(input) } as AiFeatureInput
 }

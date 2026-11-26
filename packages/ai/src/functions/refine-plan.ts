@@ -10,11 +10,12 @@ export const refinePlan: AiFunctionDef = {
   answer: RefinePlanAnswer,
   ceiling: 4000,
   presets: {
-    // Worked out, not measured: 10,000 tokens in and 1,000 out at OpenAI's fast-tier prices, at 142 tokens a second.
+    // One paid plan of an ad with no marks: 1,745 tokens in and 131 out, in 2.0 s
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     luna: {
       model: 'gpt-6-luna',
       settings: { effort: 'low', tier: 'fast' },
-      guess: { cost: 350_000n, seconds: 7 },
+      guess: { cost: 60_000n, seconds: 2 },
     },
   },
 }

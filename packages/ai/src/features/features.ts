@@ -6,7 +6,7 @@ import type { AiFeature } from '@dazbee/schema'
 import { layering } from './layering.ts'
 import { refine } from './refine.ts'
 import { resize } from './resize.ts'
-import { round, tryAgain } from './round.ts'
+import { moreLikeThis, round, tryAgain } from './round.ts'
 import type { AiFeatureDef } from './types.ts'
 
 /** A feature's declaration, whatever its input and what it loads. */
@@ -16,7 +16,7 @@ export type AnyFeature = AiFeatureDef<any, any>
 /** Every AI feature's declaration. */
 export const FEATURES: Record<AiFeature, AnyFeature> = {
   round,
-  'more-like-this': round,
+  'more-like-this': moreLikeThis,
   'try-again': tryAgain,
   refine,
   resize,

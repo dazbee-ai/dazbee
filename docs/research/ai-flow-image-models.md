@@ -177,6 +177,28 @@ ZenMux's logs show the exact charge for every call.
 - it reserves the maximum charge on submit;
 - Seedream layer split needs a public `image_url`.
 
+## Every AI feature run once, 26 Nov 2026
+
+Seven real jobs through a local API and worker on our own workspace: a Fast round with a reference ad, a Precise round, more like this, try again, a refine with no marks, other sizes at two sizes and make editable on one frame. The brief had one picture (2400 × 1343) and asked for square ads. Costs are real cost as the call log keeps it, in rupees: the seller's dollars at the day's rate, OpenAI's with GST. Each preset's first guess is the dearest call here, rounded up to a paisa, and its longest time.
+
+| AI function    | Preset           | Seller | Calls | Real cost a call | Time        | What it used                                   |
+| -------------- | ---------------- | ------ | ----- | ---------------- | ----------- | ---------------------------------------------- |
+| Reference read | luna             | OpenAI | 1     | ₹0.06            | 5.3 s       | 1,626 tokens in, 203 out, fast tier            |
+| Round plan     | light-luna       | OpenAI | 2     | ₹0.33–0.54       | 8.4–9.7 s   | 10,720 in and 2,573 out at the most, fast tier |
+| Round plan     | full-terra       | OpenAI | 1     | ₹1.54            | 22.6 s      | 6,934 in, 1,321 out                            |
+| Draft          | gpt-image-medium | OpenAI | 13    | ₹3.01–3.04       | 20.9–27.9 s | 439 image tokens out, 1,508 in for the picture |
+| Refine plan    | luna             | OpenAI | 1     | ₹0.05            | 2.0 s       | 1,745 in, 131 out, fast tier                   |
+| Refine edit    | seedream         | ZenMux | 1     | ₹1.93            | 58.7 s      | US$0.02 flat, the input picture free           |
+| Resize         | seedream         | ZenMux | 2     | ₹1.93            | 65.3–85.2 s | US$0.02 flat, the input picture free           |
+| Layer plan     | sol              | OpenAI | 1     | ₹3.98            | 37.3 s      | 3,854 in, 2,729 out                            |
+| Layer split    | ming             | Modal  | 1     | ₹3.04            | 98.3 s      | 25.8 GPU seconds at 1024 px, from a cold start |
+| Reading        | luna             | OpenAI | 1     | ₹0.05            | 4.2 s       | 2,134 in, 531 out                              |
+
+- **A brief's picture more than doubles a draft.** The picture is 1,508 image tokens in, about as much again as the 439 tokens of the square that comes out: ₹3.04 against the ₹1.27 measured with no picture.
+- **Whole jobs:** the Fast round ₹12.75 in 43 s, the Precise round ₹13.60 in 52 s, more like this ₹12.47 in 40 s, try again ₹3.04 in 24 s, the refine ₹1.98 in 64 s, two sizes ₹3.85 in 86 s, make editable ₹7.07 in 137 s.
+- **Modal billed US$0.19 for the one split,** six times the 25.8 GPU seconds the call is priced at: the rest is the container starting from its snapshot and waiting 60 s after the call.
+- **The recording** of these 24 calls replays a Fast and a Precise round with no seller called.
+
 ## Not yet known
 
 - **Low-quality previews:** whether GPT Image 2.5 at low quality is good enough to choose from. No picture was made at low.

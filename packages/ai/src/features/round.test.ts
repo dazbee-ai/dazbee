@@ -60,7 +60,7 @@ describe('a round', () => {
     // The hold is the round plan's light preset and four drafts at their presets' first guesses, times 1.25:
     // no seller of ours has made a call of them here.
     const ledger = await ledgerOf(job)
-    expect(ledger[0]).toEqual({ kind: 'hold', amount: -6_950_000n, call: null })
+    expect(ledger[0]).toEqual({ kind: 'hold', amount: -15_925_000n, call: null })
     const calls = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job)).orderBy(asc(aiCalls.callIndex))
     expect(calls.map((call) => [call.feature, call.function, call.preset])).toEqual([
       ['round', 'round-plan', 'light-luna'],
@@ -156,7 +156,7 @@ describe('a round', () => {
       promptHash: 'b30db0c9d8e5c26a5791918d9f6fe2e8c15f3e72215880213bb42697c245b61f',
     })
     // The round plan's full preset and four drafts at their first guesses, times 1.25.
-    expect((await ledgerOf(job))[0]?.amount).toBe(-12_325_000n)
+    expect((await ledgerOf(job))[0]?.amount).toBe(-17_175_000n)
   })
 
   it('runs a job saved with no presets on the presets in use when it starts, and keeps them', async () => {

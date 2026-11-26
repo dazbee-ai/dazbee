@@ -10,11 +10,12 @@ export const reading: AiFunctionDef = {
   answer: ReadingAnswer,
   ceiling: 8000,
   presets: {
-    // Worked out, not measured: 8,000 tokens in and 2,000 out at OpenAI's prices, at 142 tokens a second.
+    // One paid reading of a square draft's text: 2,134 tokens in and 531 out, in 4.2 s
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
     luna: {
       model: 'gpt-6-luna',
       settings: { effort: 'none', tier: 'standard' },
-      guess: { cost: 210_000n, seconds: 14 },
+      guess: { cost: 60_000n, seconds: 5 },
     },
   },
 }

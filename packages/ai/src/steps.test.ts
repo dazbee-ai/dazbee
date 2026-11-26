@@ -3,10 +3,11 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
-import { aiKindModels, type Db, modelSellers, newId, type Tx } from '@dazbee/db'
+import { aiKindModels, aiStepModels, type Db, modelSellers, newId, type Tx } from '@dazbee/db'
 import { AI_STEPS, type CallInput, type CallKind } from '@dazbee/schema'
 
 import { callAi } from './call.ts'
+import { openaiSeller } from './sellers/openai.ts'
 import { useSeller } from './sellers/seller.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { holdFor, modelKinds, PICTURE_INPUT_TOKENS, routeStep, sellerPricing, stepDef, STEPS } from './steps.ts'
@@ -20,6 +21,8 @@ import {
   newSeller,
   newWorkspace,
   type TestPrice,
+  TIERED_PRICES,
+  TOKEN_PRICES,
 } from './test-ai.ts'
 
 /** Ends a test's transaction, carrying what it read out of it. */
@@ -136,6 +139,20 @@ describe('routeStep', () => {
       Reflect.deleteProperty(STEPS, added)
     }
   })
+
+  it('skips a seller with no price for the fast tier on a step that asks for it', async () => {
+    useSeller(openaiSeller('test-key'))
+    const { step } = await addStep([
+      { seller: 'openai', prices: [...TOKEN_PRICES, { unit: 'cached-input-token', pricePerMillion: 100_000n }] },
+    ])
+    const sellers = async () => (await routeStep(db, step)).sellers.map((s) => s.seller)
+    expect(await sellers()).toEqual(['openai'])
+    await db
+      .update(aiStepModels)
+      .set({ options: { tier: 'fast' } })
+      .where(eq(aiStepModels.step, step))
+    expect(await sellers()).toEqual([])
+  })
 })
 
 describe('stepDef', () => {
@@ -151,6 +168,7 @@ describe('modelKinds', () => {
     expect(modelKinds(['input-token', 'image-input-token', 'image-output-token'])).toEqual(['picture'])
     expect(modelKinds(['gpu-second', 'cpu-core-second', 'memory-gib-second'])).toEqual(['layer-split'])
     expect(modelKinds(['input-token', 'cached-input-token', 'output-token'])).toEqual(['text'])
+    expect(modelKinds(['input-token', 'output-token', 'fast-input-token', 'fast-output-token'])).toEqual(['text'])
     expect(modelKinds(['reference-picture'])).toEqual([])
     expect(modelKinds([])).toEqual([])
   })
@@ -177,6 +195,28 @@ describe('holdFor', () => {
     const { step } = await addStep([first, { seller: second.seller, adapter: second, prices: EVERY_PRICE }])
     // 1,000 input tokens and 500 output tokens at US$1 and US$2 a million, at ₹96.31: ₹0.19262, times 1.25.
     expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
+  })
+
+  it('holds a step that asks for the fast tier at that tier’s price where the seller bills it apart', async () => {
+    const { step } = await addStep([{ seller: 'openai', prices: TIERED_PRICES }])
+    const asking = (options: Record<string, unknown>) =>
+      db.update(aiStepModels).set({ options }).where(eq(aiStepModels.step, step))
+    // 1,000 input tokens and 500 output tokens at US$1 and US$2 a million, at ₹96.31, times 1.25.
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
+    await asking({ tier: 'standard' })
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(240_775n)
+    // Twice that at the fast tier, the dearer one a fast call may run on.
+    await asking({ effort: 'low', tier: 'fast' })
+    expect(await holdFor(db, [{ step, input: INPUTS.text }])).toBe(481_550n)
+    // A seller with no fast-tier price can take no fast call, so it holds nothing.
+    const { step: unpriced } = await addStep([
+      { seller: 'openai', prices: [...TOKEN_PRICES, { unit: 'cached-input-token', pricePerMillion: 100_000n }] },
+    ])
+    await db
+      .update(aiStepModels)
+      .set({ options: { tier: 'fast' } })
+      .where(eq(aiStepModels.step, unpriced))
+    await expect(holdFor(db, [{ step: unpriced, input: INPUTS.text }])).rejects.toThrow('no seller is priced')
   })
 
   it('prices a hold from the price list alone, with no seller’s adapter in use', async () => {

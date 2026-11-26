@@ -46,11 +46,17 @@ export const CALL_KINDS = ['text', 'picture', 'layer-split'] as const
 export const CallKind = z.enum(CALL_KINDS)
 export type CallKind = z.infer<typeof CallKind>
 
-/** The units usage is counted and priced in. */
+/**
+ * The units usage is counted and priced in. A seller that bills its fast tier at a price of its own reports a
+ * call that ran on that tier in the fast token units.
+ */
 export const USAGE_UNITS = [
   'input-token',
   'cached-input-token',
   'output-token',
+  'fast-input-token',
+  'fast-cached-input-token',
+  'fast-output-token',
   'image-input-token',
   'image-output-token',
   'picture',

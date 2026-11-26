@@ -211,8 +211,14 @@ describe('PilotAiPage', () => {
     expect(page).toContain('Make editable')
     expect(page).toContain('Layer split')
     expect(page).toContain('data-model="seedream-5.5"')
-    // The costs name each row's preset.
+    // The costs name each row's preset, and the AI feature in a column of its own: on the feature's total, and on
+    // each row of the days.
     expect(page).toMatch(/<tr data-cost="layering\/layer-split\/ming\/[^"]*">.*?<td[^>]*>ming<\/td>/s)
+    expect(page.match(/<th[^>]*>AI feature<\/th><th[^>]*>AI function<\/th>/g)).toHaveLength(2)
+    expect(page).toMatch(/<tr data-feature="layering"[^>]*><td[^>]*>Make editable<\/td><td[^>]*colSpan="4"/)
+    expect(page).toMatch(
+      /<tr data-day-cost="2026-11-20\/layering\/layer-split\/ming"><td[^>]*>2026-11-20<\/td><td[^>]*>Make editable<\/td><td[^>]*>Layer split<\/td>/,
+    )
     // The round plan's presets, the mode a pick moved, the button that moves it back, and the pick.
     expect(page).toContain('data-function="round-plan"')
     expect(page).toContain('data-uses="precise" data-source="pick"')

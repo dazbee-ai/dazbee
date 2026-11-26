@@ -1,6 +1,7 @@
 // The AI section's server actions, with the API stubbed: a save the API refuses as made from an older copy, a
 // pick sent, refused and never sent, and what an upload of a seller's usage file says before and after the API
 // reads it.
+import { revalidatePath } from 'next/cache'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { addAiPick, setModelSellers, uploadAiSellerFile } from '@/lib/server/admin-ai.ts'
@@ -47,9 +48,15 @@ describe('pickPreset', () => {
     expect(addAiPick).toHaveBeenLastCalledWith(first)
   })
 
-  it('says another admin’s pick changed it meanwhile, in the page’s words, and gives the API’s reason for any other refusal', async () => {
+  it('says another admin picked meanwhile and the page shows the newest, in words of its own, and gives the API’s reason for any other refusal', async () => {
     vi.mocked(addAiPick).mockRejectedValue(new ApiFailure(409, 'Changed meanwhile'))
-    expect(await pickPreset(pick)).toBe('This changed since you opened it; reload to see the newest.')
+    const meanwhile = await pickPreset(pick)
+    expect(meanwhile).toBe(
+      'Another admin picked for this mode meanwhile, so this pick was not added. The page shows the newest; pick again if you still want it.',
+    )
+    // The section is drawn again with the newest, so the words ask for no reload.
+    expect(revalidatePath).toHaveBeenCalled()
+    expect(meanwhile).not.toMatch(/reload/i)
     vi.mocked(addAiPick).mockRejectedValue(new ApiFailure(400, 'round-plan has no preset light-luna'))
     expect(await pickPreset(pick)).toBe('round-plan has no preset light-luna')
   })

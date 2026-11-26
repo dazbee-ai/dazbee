@@ -124,7 +124,7 @@ describe('openStorage', () => {
     await expect(storage.deleteFolder(folder)).rejects.toThrow('not a folder')
   })
 
-  it('refuses to list a bucket that is not there, so a folder is never taken as deleted', async () => {
+  it('refuses to list or write to a bucket that is not there, so a folder is never taken as deleted nor an object as stored', async () => {
     const missing = openStorage(
       storageSettings({
         STORAGE_ENDPOINT: 'http://127.0.0.1:59000',
@@ -136,5 +136,8 @@ describe('openStorage', () => {
       }),
     )
     await expect(missing.deleteFolder('test/')).rejects.toThrow('storage has no bucket')
+    await expect(missing.put('test/lost.txt', new TextEncoder().encode('lost'), 'text/plain')).rejects.toThrow(
+      'storage has no bucket',
+    )
   })
 })

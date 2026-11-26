@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
-import { afterAll, expect, vi } from 'vitest'
+import { afterAll, beforeAll, expect, vi } from 'vitest'
 
 import { giveGrant, left, QUEUE_OPTIONS, type SellerAdapter, STEPS, useSeller } from '@dazbee/ai'
 import {
@@ -42,6 +42,9 @@ export const storage = openStorage(
     ...process.env,
   }),
 )
+
+// CI's storage starts empty, and the worker's tests may run before any other makes the bucket.
+beforeAll(() => storage.ensureBucket())
 
 afterAll(close)
 

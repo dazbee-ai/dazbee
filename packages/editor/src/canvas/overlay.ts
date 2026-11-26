@@ -37,6 +37,7 @@ import type { EditorTyping } from '../text/typing.ts'
 import { textParts } from '../text/typing-parts.ts'
 import { toScreen } from './camera.ts'
 import { type Constrained, constraintParts } from './constraint-parts.ts'
+import { frameLabel } from './frame-labels.ts'
 import { type Frame, labelBox } from './frames.ts'
 import { measureParts } from './measure-parts.ts'
 import { presenceParts } from './presence-parts.ts'
@@ -101,8 +102,6 @@ export interface EditorOverlay {
 /** Where something spans across the stage, in pixels from its left. */
 type Span = { left: number; right: number }
 
-/** Screen pixels a frame's label needs to show the frame's size beside its name. */
-const SIZE_LABEL_WIDTH = 120
 /** Room the tool dock takes along the bottom of the stage, which the size label stays out of. */
 const SIZE_CLEARANCE = 72
 /** The room the selection's size label takes, in screen pixels. */
@@ -176,38 +175,6 @@ export function editorOverlay({
   function labelRect(frameId: string) {
     const frame = frameOf(frameId)
     return frame ? labelBox(frame, view.camera()) : null
-  }
-
-  function frameLabel(frame: Frame) {
-    // The page's rename field stands in the label's place.
-    if (selection.renamingFrame() === frame.id) return null
-    const label = document.createElement('div')
-    label.className = 'frame-label'
-    label.dataset.frame = frame.id
-    if (
-      selection.current()?.some((layer) => layer.frameId === frame.id) ||
-      typing.editing()?.frameId === frame.id ||
-      selection.pickedFrame() === frame.id
-    )
-      label.dataset.active = ''
-    else if (selection.litFrame() === frame.id) label.dataset.lit = ''
-    // A frame running off the stage's start keeps its label in view, along the part still showing;
-    // a narrow frame keeps its name, cut short, and drops its size; only a frame off the stage has none.
-    const box = labelBox(frame, view.camera())
-    if (!box) return null
-    const { width } = box
-    Object.assign(label.style, { left: px(box.x), top: px(box.y), width: px(width) })
-    const name = document.createElement('span')
-    name.className = 'frame-name'
-    name.textContent = frame.name
-    label.append(name)
-    if (width >= SIZE_LABEL_WIDTH) {
-      const size = document.createElement('span')
-      size.className = 'frame-size'
-      size.textContent = `${frame.width} × ${frame.height}`
-      label.append(size)
-    }
-    return label
   }
 
   /**
@@ -478,7 +445,7 @@ export function editorOverlay({
     const gesture = pointer.gesture()
     const parts: Element[] = []
     for (const frame of view.inView()) {
-      const label = frameLabel(frame)
+      const label = frameLabel(frame, { selection, typing, camera: view.camera() })
       if (label) parts.push(label)
     }
     const safeZones = view.safeZones()

@@ -213,7 +213,7 @@ describe('repair', () => {
       'dropped connector "astray", whose page "p9" is gone',
     ])
     expect(out.leftOut.filter(({ part }) => part === 'section' || part === 'connector')).toEqual([
-      { part: 'section', id: 'untitled', issue: 'title: Too small: expected string to have >=1 characters' },
+      { part: 'section', id: 'untitled', issue: 'title: a section title has no space at either end' },
       { part: 'section', id: 'held-out', issue: '"p2", which holds it, was left out' },
       { part: 'section', id: 'p1-sq', issue: '"p1-sq" is a section and another record' },
       { part: 'connector', id: 'endless', issue: 'to: Invalid input: expected string, received undefined' },

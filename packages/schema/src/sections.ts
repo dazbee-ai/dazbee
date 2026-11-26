@@ -16,7 +16,12 @@ export const MAX_SECTION_TITLE = 120
 /** A titled group of a page's frames: each frame in it names it (`sectionId`). Its outline fits around them. */
 export const Section = z.object({
   pageId: PageId,
-  title: z.string().trim().min(1).max(MAX_SECTION_TITLE),
+  /** Stored as written, so it is checked, not trimmed: commands trim what they take. */
+  title: z
+    .string()
+    .min(1)
+    .max(MAX_SECTION_TITLE)
+    .refine((title) => title === title.trim(), 'a section title has no space at either end'),
   /** Orders the page's sections: a later one is drawn on top. */
   order: FractionalIndex,
 })

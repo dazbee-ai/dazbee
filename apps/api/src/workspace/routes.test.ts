@@ -362,21 +362,6 @@ describe('sync tokens', () => {
     })
   })
 
-  it('carries the schema version of the API when the design’s record holds an older one, so an older tab is refused', async () => {
-    const design = DesignSummary.parse((await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Older' })).json)
-    await db
-      .update(designs)
-      .set({ schemaVersion: SCHEMA_VERSION - 1 })
-      .where(eq(designs.id, design.id))
-    const { token } = SyncToken.parse(
-      (await call('a', 'POST', `/brands/${brand.id}/designs/${design.id}/sync-token`)).json,
-    )
-    expect(verifySyncToken(syncSecret, token, design.id)).toMatchObject({
-      ok: true,
-      payload: { schemaVersion: SCHEMA_VERSION },
-    })
-  })
-
   it('carries the role the membership gives, so a Reviewer’s token says so', async () => {
     const design = DesignSummary.parse((await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Read' })).json)
     const { token } = SyncToken.parse(

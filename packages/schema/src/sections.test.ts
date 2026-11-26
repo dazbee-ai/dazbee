@@ -57,8 +57,9 @@ const design = () => ({
 })
 
 describe('Section', () => {
-  it('takes a title of 1 to 120 characters, trimmed', () => {
-    expect(Section.parse({ pageId: 'p1', title: '  Feed ads ', order: 'a0' }).title).toBe('Feed ads')
+  it('takes a title of 1 to 120 characters as stored, refusing one with space at its ends', () => {
+    expect(Section.parse({ pageId: 'p1', title: 'Feed ads', order: 'a0' }).title).toBe('Feed ads')
+    expect(Section.safeParse({ pageId: 'p1', title: '  Feed ads ', order: 'a0' }).success).toBe(false)
     expect(Section.safeParse({ pageId: 'p1', title: '   ', order: 'a0' }).success).toBe(false)
     expect(Section.safeParse({ pageId: 'p1', title: 'x'.repeat(MAX_SECTION_TITLE), order: 'a0' }).success).toBe(true)
     expect(Section.safeParse({ pageId: 'p1', title: 'x'.repeat(MAX_SECTION_TITLE + 1), order: 'a0' }).success).toBe(

@@ -235,7 +235,7 @@ function live(
         connected: () => tab.link.status() === 'connected',
         synced: tab.synced,
         zoomFor: (area) => Math.min(view.camera().zoom, fit(area, view.viewport(), undefined, view.insets()).zoom),
-        fetchPictures: resources.fetchImages,
+        readyPictures: resources.prepareImages,
         signal,
       })
     : null

@@ -11,6 +11,9 @@ import { type AlphaMap, alphaMap } from './canvas/alpha-map.ts'
 import { type CopyMaker, displayCopies, type ImageUse } from './display-copies.ts'
 import { editorFontLoads, type FontFace, type FontSources, type OpenedFonts, SHIPPED_FAMILIES } from './font-loads.ts'
 
+/** How long `prepareImages` waits for an image's display copy before it settles anyway: one that never comes holds nothing back. */
+export const PREPARE_MS = 5000
+
 /**
  * Where fonts and images come from, beside the fonts we ship: the catalog's faces of the families
  * the design uses, which Bold picks weights from, and the files of those its texts are drawn in.
@@ -57,6 +60,12 @@ export interface EditorResources {
   load(current: Design, frameIds: readonly string[]): void
   /** Asks for the bytes of these images not here yet; settles once they are here or failed to come. */
   fetchImages(ids: readonly string[]): Promise<void>
+  /**
+   * Gets these images ready to draw: their bytes fetched and their display copies made, so a layer whose fill turns
+   * to one draws it at once, not clear until its copy comes. Settles once each is ready, or its bytes failed to
+   * come, or after PREPARE_MS, whatever became of its copy.
+   */
+  prepareImages(ids: readonly string[]): Promise<void>
   /**
    * Says where the shown page draws its images and how many device pixels a design pixel takes
    * (zoom × device pixel ratio), which size their display copies by; a redraw says it first.
@@ -247,6 +256,35 @@ export function editorResources({
     imagesLoading = Promise.all([imagesLoading, arriving]).then(() => undefined)
     return arriving
   }
+  /** See `EditorResources.prepareImages`. */
+  function prepareImages(ids: readonly string[]): Promise<void> {
+    // Ready once drawn from a copy; an image whose bytes didn't come is not waited for.
+    const ready = () => ids.every((id) => copies.images().has(id) || !resourceBytes.images[id])
+    return new Promise<void>((resolve) => {
+      let cancel = () => {}
+      let settled = false
+      function done() {
+        if (settled) return
+        settled = true
+        arriveListeners.delete(check)
+        signal.removeEventListener('abort', done)
+        cancel()
+        resolve()
+      }
+      function check() {
+        if (ready()) done()
+      }
+      if (signal.aborted) return done()
+      signal.addEventListener('abort', done)
+      void fetchImages(ids).then(() => {
+        if (settled) return
+        copies.make(ids)
+        if (ready()) return done()
+        arriveListeners.add(check)
+        cancel = after?.(PREPARE_MS, done) ?? cancel
+      })
+    })
+  }
   function show(uses: ReadonlyMap<string, readonly ImageUse[]>, pixelsPerUnit: number) {
     copies.show(uses, pixelsPerUnit)
     const shown = decoded()
@@ -326,6 +364,7 @@ export function editorResources({
     screen,
     load,
     fetchImages,
+    prepareImages,
     show,
     loadFamilies: fonts.loadFamilies,
     askAgain: fonts.askAgain,

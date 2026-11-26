@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { Editor } from '@dazbee/editor'
 
-import { TooltipProvider } from '@/components/ui/tooltip.tsx'
 import { BRIEF_DRAFTS } from '@/lib/editor/brief-draft.ts'
 import { I18nProvider } from '@/lib/i18n/client.tsx'
 import { en } from '@/lib/i18n/en.ts'
@@ -20,20 +19,21 @@ const editor = () =>
     designSize: () => ({ layers: 10, frames: 2, pages: 1, sections: 0, connectors: 0, bytes: 2000 }),
   }) as unknown as Editor
 
-/** The box's markup in English for `on`. */
+/** The box's markup in English for `on`, with no tooltip provider of the page's around it. */
 const boxHtml = (on: Editor) =>
   renderToStaticMarkup(
     createElement(I18nProvider, {
       locale: 'en',
-      children: createElement(
-        TooltipProvider,
-        null,
-        createElement(BriefBox, { workspaceId: 'w1', brandId: 'b1', editor: on, onClose: () => {} }),
-      ),
+      children: createElement(BriefBox, { workspaceId: 'w1', brandId: 'b1', editor: on, onClose: () => {} }),
     }),
   )
 
 describe('BriefBox', () => {
+  it('keeps its tooltips in a row of their own, which the page’s other tooltips can’t hold back', () => {
+    // Its own provider: it renders with none of the page's around it.
+    expect(boxHtml(editor())).toContain('data-testid="brief-box"')
+  })
+
   it('gives its words field and every button a focus of their own, which the app’s ring leaves alone', () => {
     const html = boxHtml(editor())
     const controls = html.match(/<(?:button|textarea)\b[^>]*>/g) ?? []

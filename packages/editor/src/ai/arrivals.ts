@@ -72,10 +72,10 @@ export interface ArrivalsDeps {
   /** The zoom an area of the page is seen at: the lower of the zoom now and the zoom it fits at. */
   zoomFor: (area: PageBox) => number
   /**
-   * Fetches pictures' bytes into the editor; settles once they are here or failed to come. A picture is written once
-   * its bytes are here, so its layer keeps its waiting fill until the picture can be drawn.
+   * Gets pictures ready to draw in the editor, their bytes here and decoded; settles once they are, or can't be. A
+   * picture is written once it is ready, so its layer keeps its waiting fill until the picture can be drawn.
    */
-  fetchPictures: (assetIds: readonly string[]) => Promise<void>
+  readyPictures: (assetIds: readonly string[]) => Promise<void>
   /**
    * Whether everything of the tab's is stored on the sync server: a picture the tab's design shows is marked
    * written only then, so a call is never marked for a picture still in the tab's queue.
@@ -115,7 +115,7 @@ export function editorArrivals({
   connected,
   synced,
   zoomFor,
-  fetchPictures,
+  readyPictures,
   signal,
 }: ArrivalsDeps): EditorArrivals {
   /** The design's AI frames, jobs and briefs as last read; null before the first read. */
@@ -229,9 +229,9 @@ export function editorArrivals({
     if (!asset || writing.has(key) || refused.has(key)) return
     const layerId = pictureLayerOf(frame.frameId)
     if (!layerIn(layerId, frame.frameId)) return
-    const done = fetchPictures([asset])
+    const done = readyPictures([asset])
       .then(() => {
-        // Read again once the bytes are here: the layer may have changed meanwhile.
+        // Read again once the picture is ready: the layer may have changed meanwhile.
         const layer = layerIn(layerId, frame.frameId)
         if (!layer || signal.aborted) return 'none' as const
         const holds = pictureState(layer, asset)

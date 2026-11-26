@@ -48,8 +48,8 @@ afterEach(async () => {
 })
 
 /**
- * A tab on the server in memory, as `token`'s member, with its arrivals on `ai`; seen at 100 % and fetching
- * pictures through its editor unless `link` says otherwise.
+ * A tab on the server in memory, as `token`'s member, with its arrivals on `ai`; seen at 100 % and getting
+ * pictures ready through its editor unless `link` says otherwise.
  */
 async function tabOn(
   ai: FakeAi,
@@ -59,7 +59,7 @@ async function tabOn(
     connected?: () => boolean
     synced?: () => boolean
     zoom?: number
-    fetchPictures?: (ids: readonly string[]) => Promise<void>
+    readyPictures?: (ids: readonly string[]) => Promise<void>
   } = {},
 ): Promise<Tab> {
   const opened = await openTab({
@@ -99,7 +99,7 @@ async function tabOn(
     connected: link.connected ?? (() => opened.link.status() === 'connected'),
     synced: link.synced ?? opened.synced,
     zoomFor: () => link.zoom ?? 1,
-    fetchPictures: link.fetchPictures ?? editor.modules.resources.fetchImages,
+    readyPictures: link.readyPictures ?? editor.modules.resources.prepareImages,
     signal: stop.signal,
   })
   ending.push(() => stop.abort())
@@ -364,18 +364,18 @@ describe('editorArrivals', () => {
       expect(fillsOf(a.editor.session.design(), 'ann-1')).toEqual([WAITING_FILL])
     })
 
-    it('keeps the waiting fill until the picture’s bytes are here, then writes the picture', async () => {
+    it('keeps the waiting fill until the picture is ready to draw, then writes the picture', async () => {
       mem = memorySync(WORDS)
       const ai = fakeAi()
       let bring = () => {}
       const fetched: string[][] = []
-      const fetchPictures = (ids: readonly string[]) => {
+      const readyPictures = (ids: readonly string[]) => {
         fetched.push([...ids])
         return new Promise<void>((resolve) => {
           bring = resolve
         })
       }
-      const a = await tabOn(ai, 'ann', ANN, { fetchPictures })
+      const a = await tabOn(ai, 'ann', ANN, { readyPictures })
       await a.arrivals.startBrief(BRIEF)
       await settle(a.arrivals)
       ai.make('job1', 0, 'pic1')

@@ -24,7 +24,7 @@ import {
   WarningCircleIcon,
   XIcon,
 } from '@/components/ui/icons.tsx'
-import { Tooltip } from '@/components/ui/tooltip.tsx'
+import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import { AI_SIZE_PRESETS, briefKey, type BriefSaid, briefSaid, otherMode, shapeIn } from '@/lib/editor/brief-box.ts'
@@ -133,124 +133,126 @@ export function BriefBox({
   }
 
   return (
-    <section
-      aria-label={b.label}
-      data-testid="brief-box"
-      className="absolute start-1/2 bottom-(--above-dock) z-20 flex w-[min(40rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-3 rounded-[24px] surface-frost px-4 pt-4 pb-2.5 font-sans max-sm:bottom-(--above-tab-bar) rtl:translate-x-1/2"
-    >
-      <Tooltip plain label={b.close}>
-        <button
-          data-own-focus
-          type="button"
-          aria-label={b.close}
-          onClick={onClose}
-          className={cn(ICON_BUTTON, 'absolute end-2 top-2 size-7 text-subtle')}
-        >
-          <XIcon size={14} aria-hidden />
-        </button>
-      </Tooltip>
-      {pictures.length > 0 && (
-        <ul aria-label={b.addPictures} className="flex flex-wrap gap-2 pe-8">
-          {pictures.map((picture) => (
-            <Thumbnail
-              key={picture.key}
-              picture={picture}
-              src={picture.asset && brandPath(workspaceId, brandId, 'assets', picture.asset.id, 'thumbnail')}
-              onRemove={() => setPictures((all) => all.filter((p) => p.key !== picture.key))}
-            />
-          ))}
-        </ul>
-      )}
-      <textarea
-        data-own-focus
-        // The box opens for the words.
-        autoFocus
-        name="brief"
-        rows={2}
-        value={words}
-        onChange={(event) => {
-          setWords(event.target.value)
-          setSaid(null)
-        }}
-        onKeyDown={onKey}
+    <TooltipRow>
+      <section
         aria-label={b.label}
-        placeholder={b.placeholder}
-        maxLength={4000}
-        // It sits in the glass with no edge of its own, even while typed in.
-        className="w-full resize-none border-0 bg-transparent pe-8 text-[17px] leading-[1.45] text-text outline-none placeholder:text-subtle focus-visible:outline-none"
-      />
-      {note && (
-        <p role="status" data-testid="brief-said" className="flex items-center gap-1.5 text-small text-muted">
-          {said ? (
-            <WarningCircleIcon size={14} aria-hidden className="shrink-0" />
-          ) : (
-            <InfoIcon size={14} aria-hidden className="shrink-0" />
-          )}
-          {note}
-        </p>
-      )}
-      <div className="-ms-2 flex items-center gap-1">
-        <input
-          ref={files}
-          type="file"
-          name="brief-pictures"
-          multiple
-          accept={IMAGE_ACCEPT}
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden
+        data-testid="brief-box"
+        className="absolute start-1/2 bottom-(--above-dock) z-20 flex w-[min(40rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-3 rounded-[24px] surface-frost px-4 pt-4 pb-2.5 font-sans max-sm:bottom-(--above-tab-bar) rtl:translate-x-1/2"
+      >
+        <Tooltip plain label={b.close}>
+          <button
+            data-own-focus
+            type="button"
+            aria-label={b.close}
+            onClick={onClose}
+            className={cn(ICON_BUTTON, 'absolute end-2 top-2 size-7 text-subtle')}
+          >
+            <XIcon size={14} aria-hidden />
+          </button>
+        </Tooltip>
+        {pictures.length > 0 && (
+          <ul aria-label={b.addPictures} className="flex flex-wrap gap-2 pe-8">
+            {pictures.map((picture) => (
+              <Thumbnail
+                key={picture.key}
+                picture={picture}
+                src={picture.asset && brandPath(workspaceId, brandId, 'assets', picture.asset.id, 'thumbnail')}
+                onRemove={() => setPictures((all) => all.filter((p) => p.key !== picture.key))}
+              />
+            ))}
+          </ul>
+        )}
+        <textarea
+          data-own-focus
+          // The box opens for the words.
+          autoFocus
+          name="brief"
+          rows={2}
+          value={words}
           onChange={(event) => {
-            upload([...(event.target.files ?? [])])
-            event.target.value = ''
+            setWords(event.target.value)
+            setSaid(null)
           }}
+          onKeyDown={onKey}
+          aria-label={b.label}
+          placeholder={b.placeholder}
+          maxLength={4000}
+          // It sits in the glass with no edge of its own, even while typed in.
+          className="w-full resize-none border-0 bg-transparent pe-8 text-[17px] leading-[1.45] text-text outline-none placeholder:text-subtle focus-visible:outline-none"
         />
-        <Tooltip plain label={b.addPictures}>
-          <button
-            data-own-focus
-            type="button"
-            aria-label={b.addPictures}
-            disabled={pictures.length >= MAX_REFERENCES}
-            onClick={() => files.current?.click()}
-            className={ICON_BUTTON}
-          >
-            <PlusIcon size={18} aria-hidden />
-          </button>
-        </Tooltip>
-        {size && <SizePicker size={size} onPick={(picked) => setSizeId(picked.id)} />}
-        <Tooltip plain label={b[mode]}>
-          <button
-            data-own-focus
-            type="button"
-            aria-label={b[mode]}
-            data-testid="brief-speed"
-            data-mode={mode}
-            onClick={() => setMode(otherMode)}
-            className={ICON_BUTTON}
-          >
-            {mode === 'fast' ? <FlashIcon size={18} aria-hidden /> : <SparkIcon size={18} aria-hidden />}
-          </button>
-        </Tooltip>
-        <Tooltip plain label={b.make}>
-          <button
-            data-own-focus
-            type="button"
-            aria-label={busy ? b.making : b.make}
-            disabled={!ready}
-            onClick={() => void make()}
-            className={cn(
-              'ms-auto grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-accent-solid text-on-accent transition-colors duration-[var(--chrome-fast)] hover:bg-accent-solid-hover disabled:cursor-not-allowed disabled:opacity-45',
-              FOCUS,
-            )}
-          >
-            {busy ? (
-              <CircleNotchIcon size={18} aria-hidden className="animate-spin" />
+        {note && (
+          <p role="status" data-testid="brief-said" className="flex items-center gap-1.5 text-small text-muted">
+            {said ? (
+              <WarningCircleIcon size={14} aria-hidden className="shrink-0" />
             ) : (
-              <ArrowUpIcon size={18} weight="bold" aria-hidden />
+              <InfoIcon size={14} aria-hidden className="shrink-0" />
             )}
-          </button>
-        </Tooltip>
-      </div>
-    </section>
+            {note}
+          </p>
+        )}
+        <div className="-ms-2 flex items-center gap-1">
+          <input
+            ref={files}
+            type="file"
+            name="brief-pictures"
+            multiple
+            accept={IMAGE_ACCEPT}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(event) => {
+              upload([...(event.target.files ?? [])])
+              event.target.value = ''
+            }}
+          />
+          <Tooltip plain label={b.addPictures}>
+            <button
+              data-own-focus
+              type="button"
+              aria-label={b.addPictures}
+              disabled={pictures.length >= MAX_REFERENCES}
+              onClick={() => files.current?.click()}
+              className={ICON_BUTTON}
+            >
+              <PlusIcon size={18} aria-hidden />
+            </button>
+          </Tooltip>
+          {size && <SizePicker size={size} onPick={(picked) => setSizeId(picked.id)} />}
+          <Tooltip plain label={b[mode]}>
+            <button
+              data-own-focus
+              type="button"
+              aria-label={b[mode]}
+              data-testid="brief-speed"
+              data-mode={mode}
+              onClick={() => setMode(otherMode)}
+              className={ICON_BUTTON}
+            >
+              {mode === 'fast' ? <FlashIcon size={18} aria-hidden /> : <SparkIcon size={18} aria-hidden />}
+            </button>
+          </Tooltip>
+          <Tooltip plain label={b.make}>
+            <button
+              data-own-focus
+              type="button"
+              aria-label={busy ? b.making : b.make}
+              disabled={!ready}
+              onClick={() => void make()}
+              className={cn(
+                'ms-auto grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-accent-solid text-on-accent transition-colors duration-[var(--chrome-fast)] hover:bg-accent-solid-hover disabled:cursor-not-allowed disabled:opacity-45',
+                FOCUS,
+              )}
+            >
+              {busy ? (
+                <CircleNotchIcon size={18} aria-hidden className="animate-spin" />
+              ) : (
+                <ArrowUpIcon size={18} weight="bold" aria-hidden />
+              )}
+            </button>
+          </Tooltip>
+        </div>
+      </section>
+    </TooltipRow>
   )
 }
 

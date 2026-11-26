@@ -214,41 +214,7 @@ describe('the migrations', () => {
     expect(kits).toEqual([{ colors, fonts, voice: 'Warm', text_styles: [] }])
   }, 60_000)
 
-  it('give each kind of AI call a default model, keep as a flow override each step model that differs from it, and drop the old step rows', async () => {
-    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-kind-models'))
-    expect(at).toBeGreaterThan(0)
-    const url = await freshDatabase()
-    await applyMigrations(url, await firstMigrations(at))
-    // An admin moved the round plan to Sol before the change.
-    const before = await withClient(url, async (client) => {
-      await client.query(`update ai_step_models set model = 'gpt-6.2-sol' where step = 'round-plan'`)
-      return (await client.query('select step, model, options from ai_step_models order by step')).rows
-    })
-    await applyMigrations(url, MIGRATIONS)
-    const read = await withClient(url, async (client) => ({
-      kinds: (await client.query('select kind, model from ai_kind_models order by kind')).rows,
-      steps: (await client.query('select step, model, options from ai_step_models order by step')).rows,
-    }))
-    expect(read.kinds).toEqual([
-      { kind: 'layer-split', model: 'ming-image-0.1-design-layer' },
-      { kind: 'picture', model: 'muse-image-1.0' },
-      { kind: 'text', model: 'gpt-6-luna' },
-    ])
-    const flow = read.steps.filter((row: { step: string }) => row.step.startsWith('flow.'))
-    expect(flow).toEqual([
-      { step: 'flow.draft-precise', model: 'gpt-image-2.5-sunburst', options: { quality: 'medium' } },
-      { step: 'flow.layer-plan', model: 'gpt-6.2-sol', options: {} },
-      { step: 'flow.refine', model: 'seedream-5.5', options: {} },
-      { step: 'flow.resize', model: 'seedream-5.5', options: {} },
-      { step: 'flow.round-plan', model: 'gpt-6.2-sol', options: {} },
-      { step: 'flow.round-plan-full', model: 'gpt-6.2-sol', options: {} },
-    ])
-    // The rows the previous commit's worker read are gone once no merged code reads them.
-    expect(before).toHaveLength(8)
-    expect(read.steps.filter((row: { step: string }) => !row.step.startsWith('flow.'))).toEqual([])
-  }, 60_000)
-
-  it('give a grant given before layering sizes 512 px, run the full round plan on Sol, and keep a design’s brief, AI frames and refines until the design goes', async () => {
+  it('give a grant given before layering sizes 512 px, and keep a design’s brief, AI frames and refines until the design goes', async () => {
     const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-flow-briefs-frames'))
     expect(at).toBeGreaterThan(0)
     const url = await freshDatabase()
@@ -262,7 +228,6 @@ describe('the migrations', () => {
     await applyMigrations(url, MIGRATIONS)
     const read = await withClient(url, async (client) => {
       const grants = (await client.query('select id, amount, layer_size from ai_grants')).rows
-      const model = (await client.query(`select model from ai_step_models where step = 'flow.round-plan-full'`)).rows
       const plan = { brand: 'Warm. Facts: "Harbour Coffee"', ads: [] }
       await client.query(
         `insert into ai_briefs (id, workspace_id, brand_id, design_id, section_id, words, picture_keys, width, height, mode, plan, created_by)
@@ -291,10 +256,9 @@ describe('the migrations', () => {
           'select (select count(*) from ai_briefs) + (select count(*) from ai_frames) + (select count(*) from ai_refines) as n',
         )
       ).rows
-      return { grants, model, kept, refused, left }
+      return { grants, kept, refused, left }
     })
     expect(read.grants).toEqual([{ id: 'grant-kept', amount: '1000000', layer_size: 512 }])
-    expect(read.model).toEqual([{ model: 'gpt-6.2-sol' }])
     expect(read.kept).toEqual({
       briefs: [
         { words: 'Spring sale', picture_keys: ['k1', 'k2'], plan: { brand: 'Warm. Facts: "Harbour Coffee"', ads: [] } },
@@ -443,7 +407,8 @@ describe('the migrations', () => {
       for (const table of WIPED) expect(await count(client, table), table).toBe(1)
       return kept(client)
     })
-    await applyMigrations(url, MIGRATIONS)
+    // Up to the wipe alone: a later migration drops the step and the two tables of models.
+    await applyMigrations(url, await firstMigrations(at + 1))
     await withClient(url, async (client) => {
       for (const table of WIPED) expect(await count(client, table), table).toBe(0)
       expect(await kept(client)).toEqual(before)
@@ -460,13 +425,93 @@ describe('the migrations', () => {
       await client.query(
         `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, step, model, seller) values ('call-old', 'job-old', 'workspace-kept', 0, 1, 1, 'flow.round-plan', 'gpt-6-luna', 'openai')`,
       )
-      expect(await count(client, 'ai_kind_models')).toBeGreaterThan(0)
-      expect(await count(client, 'ai_step_models')).toBeGreaterThan(0)
       // A call is logged with no step.
       await client.query(
         `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, function, preset, model, seller) values ('call-new', 'job-new', 'workspace-kept', 0, 1, 1, 'round-plan', 'light-luna', 'gpt-6-luna', 'openai')`,
       )
       expect(await count(client, 'ai_calls')).toBe(2)
+    })
+  }, 60_000)
+
+  it('drop the call log’s step and the two tables of models, delete a call logged with no AI function or without its feature, keep the rest, and take the calls the build before logs', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-model-tables-and-step-dropped'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    /** Logs a call as the build before does: under its AI feature, AI function, preset and kind, with no step. */
+    const log = (client: pg.Client, id: string, callIndex: number) =>
+      client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, feature, function, preset, kind, settings, prompt_hash, model, seller)
+         values ($1, 'job-kept', 'workspace-kept', $2, 1, 1, 'round', 'round-plan', 'light-luna', 'text', '{"effort":"low"}', 'hash', 'gpt-6-luna', 'openai')`,
+        [id, callIndex],
+      )
+    const calls = async (client: pg.Client) =>
+      (
+        await client.query<{ id: string }>(
+          'select id, call_index, feature, function, preset, kind, settings, prompt_hash, model, seller, state from ai_calls order by id',
+        )
+      ).rows
+    const before = await withClient(url, async (client) => {
+      await writeRows(client)
+      await log(client, 'call-kept-1', 0)
+      await log(client, 'call-kept-2', 1)
+      // Logged under a step alone, with no AI function.
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, step, model, seller) values ('call-no-function', 'job-old', 'workspace-kept', 0, 1, 1, 'flow.round-plan', 'gpt-6-luna', 'openai')`,
+      )
+      // With an AI function and a preset but no AI feature and no kind, as no build's worker logs a call.
+      await client.query(
+        `insert into ai_calls (id, job_id, workspace_id, call_index, try, attempt, function, preset, model, seller) values ('call-no-feature', 'job-old', 'workspace-kept', 1, 1, 1, 'round-plan', 'light-luna', 'gpt-6-luna', 'openai')`,
+      )
+      await client.query(
+        `insert into ai_picks (function, mode, preset, set_by) values ('round-plan', 'precise', 'light-luna', 'user-kept')`,
+      )
+      const rows = await calls(client)
+      expect(rows.map((row) => row.id)).toEqual(['call-kept-1', 'call-kept-2', 'call-no-feature', 'call-no-function'])
+      return rows.filter((row) => row.id.startsWith('call-kept-'))
+    })
+    expect(await applyMigrations(url, await firstMigrations(at + 1))).toBe(at + 1)
+    await withClient(url, async (client) => {
+      expect(before).toHaveLength(2)
+      expect(await calls(client)).toEqual(before)
+      const tables = await client.query(
+        `select to_regclass('ai_kind_models')::text as kinds, to_regclass('ai_step_models')::text as steps`,
+      )
+      expect(tables.rows).toEqual([{ kinds: null, steps: null }])
+      const columns = await client.query(
+        `select column_name, is_nullable from information_schema.columns where table_name = 'ai_calls' and column_name in ('step', 'feature', 'function', 'preset', 'kind') order by column_name`,
+      )
+      expect(columns.rows).toEqual([
+        { column_name: 'feature', is_nullable: 'NO' },
+        { column_name: 'function', is_nullable: 'NO' },
+        { column_name: 'kind', is_nullable: 'NO' },
+        { column_name: 'preset', is_nullable: 'NO' },
+      ])
+      // The build before keeps running on it: its worker logs a call and ends it, its API reads a job's calls by
+      // AI function and the costs by AI feature and AI function, and its jobs read their picks.
+      await log(client, 'call-after', 2)
+      await client.query(
+        `update ai_calls set state = 'done', real_cost = 540000, charge_cost = 540000, ended_at = now() where id = 'call-after'`,
+      )
+      const read = await client.query(
+        `select call_index, function, state, error from ai_calls where job_id = 'job-kept' order by call_index, try`,
+      )
+      expect(read.rows).toEqual([
+        { call_index: 0, function: 'round-plan', state: 'running', error: null },
+        { call_index: 1, function: 'round-plan', state: 'running', error: null },
+        { call_index: 2, function: 'round-plan', state: 'done', error: null },
+      ])
+      const costs = await client.query(
+        `select coalesce(feature, '') as feature, coalesce(function, '') as function, model, seller, count(*)::int as calls from ai_calls group by feature, function, model, seller`,
+      )
+      expect(costs.rows).toEqual([
+        { feature: 'round', function: 'round-plan', model: 'gpt-6-luna', seller: 'openai', calls: 3 },
+      ])
+      const picks = await client.query(
+        'select distinct on (function, mode) function, mode, preset from ai_picks order by function, mode, id desc',
+      )
+      expect(picks.rows).toEqual([{ function: 'round-plan', mode: 'precise', preset: 'light-luna' }])
+      expect(await readRows(client)).toEqual(expectedRows())
     })
   }, 60_000)
 

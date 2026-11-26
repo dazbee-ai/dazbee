@@ -32,6 +32,10 @@ export const AI_MODES = ['fast', 'precise'] as const
 export const AiMode = z.enum(AI_MODES)
 export type AiMode = z.infer<typeof AiMode>
 
+/** The mode a pick is for: a mode, or none (empty) for an AI function no mode changes. */
+export const PickMode = z.union([AiMode, z.literal('')])
+export type PickMode = z.infer<typeof PickMode>
+
 /** The sellers an AI call can go to. */
 export const SELLERS = ['openai', 'meta', 'openrouter', 'zenmux', 'pixazo', 'modal'] as const
 
@@ -261,11 +265,10 @@ export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'unknown'] as const
 export const AiCallFailure = z.enum(AI_CALL_FAILURES)
 export type AiCallFailure = z.infer<typeof AiCallFailure>
 
-/** Where one call of a job sits: its place in the job and its AI function, whose name `step` repeats. */
+/** Where one call of a job sits: its place in the job and its AI function. */
 const CallPlace = z.object({
   index: z.number().int().nonnegative(),
   function: z.string(),
-  step: z.string().optional(),
 })
 
 /** One call of an AI job as its workspace reads it: being made, made with its output, or failed with why. */

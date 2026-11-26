@@ -115,7 +115,7 @@ describe('a round', () => {
     const calls = (await readJob(db, who.workspace, job))?.calls ?? []
     expect(calls.filter((call) => call.state === 'done')).toHaveLength(4)
     expect(calls.filter((call) => call.state === 'failed')).toEqual([
-      { index: 3, function: 'draft', step: 'draft', state: 'failed', failure: 'not-made' },
+      { index: 3, function: 'draft', state: 'failed', failure: 'not-made' },
     ])
     expect(await chargedCalls(job)).toEqual([0, 1, 2, 4])
     const ledger = await ledgerOf(job)

@@ -67,6 +67,7 @@ async function addCall(
     feature: 'refine',
     function: 'refine-edit',
     preset: 'seedream',
+    kind: 'picture',
     model: 'seedream-5.5',
     seller,
     state,

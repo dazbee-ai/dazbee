@@ -238,8 +238,10 @@ describe('startCallsWorker', () => {
         const spent = { id: newId(), jobId: 'spent', workspaceId: 'spent', callIndex: 0, try: 1, attempt: 1 }
         await tx.insert(aiCalls).values({
           ...spent,
+          feature: 'calls',
           function: 'reading',
           preset: 'luna',
+          kind: 'text',
           model: 'test',
           seller: 'test',
           state: 'done',

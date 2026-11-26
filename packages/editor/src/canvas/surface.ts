@@ -1,11 +1,12 @@
 // The stage's surface: the WebGL surface a redraw's pictures are put on, kept the size of the canvas
 // on screen at the screen's pixels, the animation-frame schedule that redraws it, and where the
 // canvas is on the page, so the points between the page and the stage.
-import type { Canvas, CanvasKit, Color, GrDirectContext, Path, Surface } from '@dazbee/canvaskit'
+import type { Canvas, CanvasKit, Color, GrDirectContext, Surface, Vertices } from '@dazbee/canvaskit'
 import type { Point, Rect } from '@dazbee/schema'
 
-import { toScreen } from './camera.ts'
-import { arrowheadOf, type ConnectorCurve } from './connectors.ts'
+import { type Camera, toScreen } from './camera.ts'
+import { type ConnectorMesh, connectorMeshes } from './connector-mesh.ts'
+import type { ConnectorCurve } from './connectors.ts'
 import type { FramePicture } from './frames.ts'
 import type { DrawnConnector, DrawnOutline } from './redraw.ts'
 import { OUTLINE_RADIUS } from './sections.ts'
@@ -53,12 +54,21 @@ export interface EditorSurface {
   destroy(): void
 }
 
-/** The paths of the connectors of one look, from the camera's corner: picked or not. */
-interface BuiltLook {
-  picked: boolean
-  lines: Path
-  heads: Path
-  dots: Path | null
+/**
+ * The connectors as last built for drawing, from the camera's corner, and what they were built from:
+ * their triangles at rest and picked, the picked ones' start dots, the part of the page (from the
+ * camera's corner) whose connectors they hold, the zoom, the screen's pixels, the colours, and a
+ * number standing for every curve and pick.
+ */
+interface BuiltConnectors {
+  resting: Vertices[]
+  picked: Vertices[]
+  dots: Point[]
+  region: Rect
+  zoom: number
+  dpr: number
+  colours: string
+  key: number
 }
 
 /**
@@ -123,18 +133,17 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   /** A connector's curve and the ring of its dots, and what is filled: its arrowhead and its dots. */
   const curveLine = new ck.Paint()
   curveLine.setStyle(ck.PaintStyle.Stroke)
-  curveLine.setStrokeCap(ck.StrokeCap.Round)
+  curveLine.setStrokeWidth(PICKED_CONNECTOR_WIDTH)
   curveLine.setAntiAlias(true)
   const filled = new ck.Paint()
   filled.setAntiAlias(true)
+  /** The connectors' triangles take their colours from their corners alone. */
+  const cornerColours = new ck.Paint()
   /** The theme's colours read from the page's CSS, by name, and the theme they were read in: read again once it changes. */
   const colours = new Map<string, Color>()
   let coloursTheme: string | undefined
-  /**
-   * The connectors' paths as last built, placed from the camera's corner so a pan moves them without
-   * building them again, and what they were built from: the zoom, and each curve and its pick.
-   */
-  let built: { key: string; looks: BuiltLook[] } | null = null
+  /** The connectors as last built, kept while the camera only pans over the part of the page they hold. */
+  let built: BuiltConnectors | null = null
   const resized = new ResizeObserver(() => resize())
   resized.observe(canvas)
 
@@ -211,86 +220,85 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   }
   /**
    * Draws the connectors, in stage pixels: their quiet curves and arrowheads, then a picked one's
-   * curve and arrowhead in the accent with a dot at its start, its end left to the arrowhead. Those
-   * of one look go on together, one path each for the curves, the arrowheads and the dots, and one
-   * wholly off the stage is left out. The paths are built from the camera's corner and kept, so a
-   * pan only moves them; they are built again once the zoom, a curve, the pick or which are on the
-   * stage changes.
+   * curve and arrowhead in the accent with a dot at its start, its end left to the arrowhead. They
+   * are drawn as triangles, all of one look in one call (`connector-mesh.ts`), built from the camera's
+   * corner for the part of the page round the stage and kept, so a pan only moves them. They are
+   * built again once the zoom, a curve, the pick or the theme changes, or the stage leaves that part.
    */
   function paintConnectors(c: Canvas, connectors: readonly DrawnConnector[]) {
-    const shown = connectors.filter(({ curve }) => curveShown(curve))
-    if (shown.length === 0) return
+    if (connectors.length === 0) return
     const camera = view.camera()
-    const looks = connectorPaths(shown, camera)
+    const drawn = connectorsBuilt(connectors, camera)
     c.save()
     c.translate(camera.x, camera.y)
-    for (const { picked, lines, heads, dots } of looks) {
-      const colour = picked ? themeColour(ACCENT, ACCENT_FALLBACK) : themeColour(CONNECTOR, CONNECTOR_FALLBACK)
-      curveLine.setColor(colour)
-      curveLine.setStrokeWidth(picked ? PICKED_CONNECTOR_WIDTH : CONNECTOR_WIDTH)
-      c.drawPath(lines, curveLine)
-      filled.setColor(colour)
-      c.drawPath(heads, filled)
-      if (dots) {
-        filled.setColor(themeColour(CANVAS, CANVAS_FALLBACK))
-        c.drawPath(dots, filled)
-        c.drawPath(dots, curveLine)
+    for (const vertices of [...drawn.resting, ...drawn.picked])
+      c.drawVertices(vertices, ck.BlendMode.Dst, cornerColours)
+    if (drawn.dots.length > 0) {
+      filled.setColor(themeColour(CANVAS, CANVAS_FALLBACK))
+      curveLine.setColor(themeColour(ACCENT, ACCENT_FALLBACK))
+      for (const dot of drawn.dots) {
+        c.drawCircle(dot.x, dot.y, PICKED_DOT, filled)
+        c.drawCircle(dot.x, dot.y, PICKED_DOT, curveLine)
       }
     }
     c.restore()
   }
-  /** The connectors' paths from the camera's corner: those last built while nothing they show changed, else built again. */
-  function connectorPaths(connectors: readonly DrawnConnector[], camera: { x: number; y: number; zoom: number }) {
-    const near = (n: number) => Math.round(n * 100) / 100
-    const key = connectors
-      .map(({ curve, picked }) => {
-        const points = [curve.from, curve.c1, curve.c2, curve.to]
-        return `${picked ? '*' : ''}${points.map((p) => `${near(p.x - camera.x)} ${near(p.y - camera.y)}`).join(' ')}`
-      })
-      .join(',')
-    const full = `${camera.zoom} ${key}`
-    if (built?.key === full) return built.looks
-    freeBuilt()
-    const placed = (picked: boolean) =>
-      connectors
-        .filter((d) => d.picked === picked)
-        .map(({ curve }) => {
-          const move = (p: Point) => ({ x: p.x - camera.x, y: p.y - camera.y })
-          return { from: move(curve.from), c1: move(curve.c1), c2: move(curve.c2), to: move(curve.to) }
-        })
-    const looks = [buildLook(placed(false), false), buildLook(placed(true), true)].flatMap((look) => look ?? [])
-    built = { key: full, looks }
-    return looks
-  }
-  /**
-   * The paths of curves of one look: their lines, each stopping at its arrowhead's base, their
-   * arrowheads, and when picked, a dot PICKED_DOT round at their start; null for no curves.
-   */
-  function buildLook(curves: readonly ConnectorCurve[], picked: boolean): BuiltLook | null {
-    if (curves.length === 0) return null
-    const [lines, heads, dots] = [new ck.PathBuilder(), new ck.PathBuilder(), new ck.PathBuilder()]
-    for (const curve of curves) {
-      const { head, line } = arrowheadOf(curve)
-      lines.moveTo(line.from.x, line.from.y).cubicTo(line.c1.x, line.c1.y, line.c2.x, line.c2.y, line.to.x, line.to.y)
-      // Each arrowhead is a contour of its own, which filling closes.
-      heads.moveTo(head.tip.x, head.tip.y).lineTo(head.left.x, head.left.y).lineTo(head.right.x, head.right.y)
-      if (picked) dots.addCircle(curve.from.x, curve.from.y, PICKED_DOT)
-    }
-    const dotPath = dots.detachAndDelete()
-    if (!picked) dotPath.delete()
-    return { picked, lines: lines.detachAndDelete(), heads: heads.detachAndDelete(), dots: picked ? dotPath : null }
-  }
-  /** Whether some of the box round a curve's points is on the stage. */
-  function curveShown({ from, c1, c2, to }: ConnectorCurve) {
+  /** The connectors built for drawing: those last built while nothing they show changed and the stage is in their part of the page, else built again. */
+  function connectorsBuilt(connectors: readonly DrawnConnector[], camera: Camera): BuiltConnectors {
     const { width, height } = view.viewport()
-    const reach = PICKED_DOT + PICKED_CONNECTOR_WIDTH
-    const [left, right] = [Math.min(from.x, c1.x, c2.x, to.x), Math.max(from.x, c1.x, c2.x, to.x)]
-    const [top, bottom] = [Math.min(from.y, c1.y, c2.y, to.y), Math.max(from.y, c1.y, c2.y, to.y)]
-    return right >= -reach && left <= width + reach && bottom >= -reach && top <= height + reach
+    const stage = { x: -camera.x, y: -camera.y, width, height }
+    const colours = `${themeColour(CONNECTOR, CONNECTOR_FALLBACK).join()} ${themeColour(ACCENT, ACCENT_FALLBACK).join()}`
+    const key = keyOf(connectors, camera)
+    const keep =
+      built &&
+      built.key === key &&
+      built.zoom === camera.zoom &&
+      built.dpr === view.dpr() &&
+      built.colours === colours &&
+      inside(stage, built.region)
+    if (keep && built) return built
+    freeBuilt()
+    // The stage and as much again on every side, so a pan rarely leaves it.
+    const region = { x: stage.x - width, y: stage.y - height, width: width * 3, height: height * 3 }
+    const placed = (picked: boolean) =>
+      connectors.flatMap((d) => {
+        const curve = moved(d.curve, camera)
+        return d.picked === picked && (picked || meets(curve, region)) ? [curve] : []
+      })
+    const fringe = 1 / view.dpr()
+    const restingCurves = placed(false)
+    const pickedCurves = placed(true)
+    built = {
+      resting: verticesOf(
+        connectorMeshes(restingCurves, CONNECTOR_WIDTH, fringe),
+        themeColour(CONNECTOR, CONNECTOR_FALLBACK),
+      ),
+      picked: verticesOf(
+        connectorMeshes(pickedCurves, PICKED_CONNECTOR_WIDTH, fringe),
+        themeColour(ACCENT, ACCENT_FALLBACK),
+      ),
+      dots: pickedCurves.map((curve) => curve.from),
+      region,
+      zoom: camera.zoom,
+      dpr: view.dpr(),
+      colours,
+      key,
+    }
+    return built
   }
-  /** Frees the connectors' paths last built. */
+  /** Triangles as CanvasKit draws them, each corner in `colour` at its opacity. */
+  function verticesOf(meshes: readonly ConnectorMesh[], colour: Color): Vertices[] {
+    return meshes.map(({ positions, alphas, indices }) => {
+      const colours = new Float32Array(alphas.length * 4)
+      alphas.forEach((alpha, i) =>
+        colours.set([colour[0] ?? 0, colour[1] ?? 0, colour[2] ?? 0, (colour[3] ?? 1) * alpha], i * 4),
+      )
+      return ck.MakeVertices(ck.VertexMode.Triangles, positions, null, colours, indices, false)
+    })
+  }
+  /** Frees the connectors last built. */
   function freeBuilt() {
-    for (const { lines, heads, dots } of built?.looks ?? []) for (const path of [lines, heads, dots]) path?.delete()
+    for (const vertices of [...(built?.resting ?? []), ...(built?.picked ?? [])]) vertices.delete()
     built = null
   }
   /**
@@ -346,6 +354,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     cancelAnimationFrame(pending)
     surface?.delete()
     resized.disconnect()
+    cornerColours.delete()
     filled.delete()
     curveLine.delete()
     outline.delete()
@@ -367,4 +376,46 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     resize,
     destroy,
   }
+}
+
+/** A curve placed from the camera's corner: where it is on the stage, less where the camera is. */
+function moved({ from, c1, c2, to }: ConnectorCurve, camera: Camera): ConnectorCurve {
+  const move = (p: Point) => ({ x: p.x - camera.x, y: p.y - camera.y })
+  return { from: move(from), c1: move(c1), c2: move(c2), to: move(to) }
+}
+
+/**
+ * A number standing for the connectors drawn: each one's pick and its curve from the camera's corner,
+ * to a hundredth of a pixel, so it stays the same while the camera only pans.
+ */
+function keyOf(connectors: readonly DrawnConnector[], camera: Camera) {
+  let key = connectors.length
+  const mix = (n: number) => {
+    key = Math.imul(key ^ Math.round(n * 100), 16_777_619) >>> 0
+  }
+  for (const { curve, picked } of connectors) {
+    mix(picked ? 1 : 0)
+    for (const p of [curve.from, curve.c1, curve.c2, curve.to]) {
+      mix(p.x - camera.x)
+      mix(p.y - camera.y)
+    }
+  }
+  return key
+}
+
+/** Whether box `inner` lies wholly in box `outer`. */
+function inside(inner: Rect, outer: Rect) {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  )
+}
+
+/** Whether some of the box round a curve's points lies in a box. */
+function meets({ from, c1, c2, to }: ConnectorCurve, box: Rect) {
+  const [left, right] = [Math.min(from.x, c1.x, c2.x, to.x), Math.max(from.x, c1.x, c2.x, to.x)]
+  const [top, bottom] = [Math.min(from.y, c1.y, c2.y, to.y), Math.max(from.y, c1.y, c2.y, to.y)]
+  return right >= box.x && left <= box.x + box.width && bottom >= box.y && top <= box.y + box.height
 }

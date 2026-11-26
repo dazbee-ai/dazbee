@@ -2,15 +2,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CanvasKit, SkPicture } from '@dazbee/canvaskit'
 
-import { arrowheadOf } from './connectors.ts'
 import { editorSurface } from './surface.ts'
 import { design } from './test-design.ts'
 import { editorView } from './view.ts'
 
-/** The stroke caps the surface's paints were given. */
-const strokeCaps: string[] = []
-/** One entry for each path the surface began building. */
-const pathsBuilt: string[] = []
+/** One entry for each set of triangles the surface made. */
+const verticesMade: string[] = []
+
+/** A colour as CanvasKit gives it, its red, green, blue and opacity, that reads as the hex it was made from. */
+function colourOf(hex: string) {
+  const channel = (at: number) => Number.parseInt(hex.slice(at, at + 2), 16) / 255
+  const parts = hex.startsWith('#') && hex.length === 7 ? [channel(1), channel(3), channel(5), 1] : [0, 0, 0, 1]
+  return Object.assign(parts, { toString: () => hex })
+}
+/** A colour's red, green and blue as hex. */
+const hexOf = (rgb: ArrayLike<number>) =>
+  `#${[0, 1, 2]
+    .map((i) =>
+      Math.round((rgb[i] ?? 0) * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
 
 /** A CanvasKit that logs what the surface makes, draws and frees, with a canvas that logs its calls. */
 function fakeCanvasKit(log: string[]) {
@@ -26,36 +39,10 @@ function fakeCanvasKit(log: string[]) {
     drawPicture: (picture: { name: string }) => log.push(`picture ${picture.name}`),
     clipRect: (rect: number[], op: string) => log.push(`clip ${op} ${rect.join(' ')}`),
     saveLayer: () => log.push('save layer'),
-    drawPath: (path: { d: string }, paint: { colour: string; width: number }) =>
-      log.push(`path ${path.d} in ${paint.colour}${paint.width ? ` ${paint.width} wide` : ''}`),
+    drawVertices: (vertices: { corners: number; colours: Float32Array }) =>
+      log.push(`triangles with ${vertices.corners} corners in ${hexOf(vertices.colours)}`),
     drawCircle: (x: number, y: number, r: number, paint: { colour: string; width: number }) =>
       log.push(`circle ${x} ${y} round ${r} in ${paint.colour}${paint.width ? ` ${paint.width} wide` : ''}`),
-  }
-  /** Builds a path as words: each step's letter and points. */
-  class PathBuilder {
-    d: string[] = []
-    constructor() {
-      pathsBuilt.push('built')
-    }
-    moveTo(x: number, y: number) {
-      this.d.push(`M ${x} ${y}`)
-      return this
-    }
-    lineTo(x: number, y: number) {
-      this.d.push(`L ${Math.round(x)} ${Math.round(y)}`)
-      return this
-    }
-    cubicTo(...points: number[]) {
-      this.d.push(`C ${points.join(' ')}`)
-      return this
-    }
-    addCircle(x: number, y: number, r: number) {
-      this.d.push(`O ${x} ${y} ${r}`)
-      return this
-    }
-    detachAndDelete() {
-      return { d: this.d.join(' '), delete: () => {} }
-    }
   }
   const ck = {
     GetWebGLContext: () => 1,
@@ -64,7 +51,12 @@ function fakeCanvasKit(log: string[]) {
       log.push(`surface ${width}×${height}`)
       return { getCanvas: () => drawn, flush: () => log.push('flush'), delete: () => log.push('delete surface') }
     },
-    PathBuilder,
+    MakeVertices: (_mode: string, positions: number[], _texture: null, colours: Float32Array) => {
+      verticesMade.push('made')
+      return { corners: positions.length / 2, colours, delete: () => log.push('delete triangles') }
+    },
+    VertexMode: { Triangles: 'triangles' },
+    BlendMode: { Dst: 'dst' },
     Paint: class {
       colour = ''
       width = 0
@@ -73,9 +65,6 @@ function fakeCanvasKit(log: string[]) {
       }
       setAntiAlias() {}
       setStyle() {}
-      setStrokeCap(cap: string) {
-        strokeCaps.push(cap)
-      }
       setStrokeWidth(width: number) {
         this.width = width
       }
@@ -88,7 +77,6 @@ function fakeCanvasKit(log: string[]) {
     WHITE: 'white',
     TRANSPARENT: 'clear',
     PaintStyle: { Stroke: 'stroke' },
-    StrokeCap: { Round: 'round' },
     ClipOp: { Difference: 'out of' },
     ImageFilter: { MakeBlur: () => ({ delete: () => log.push('delete blur') }) },
     TileMode: { Decal: 'decal' },
@@ -96,7 +84,7 @@ function fakeCanvasKit(log: string[]) {
     Color: () => 'edge',
     XYWHRect: (x: number, y: number, w: number, h: number) => [x, y, w, h],
     RRectXY: (rect: number[], radius: number) => ({ rect, radius }),
-    parseColorString: (colour: string) => colour,
+    parseColorString: colourOf,
   }
   return ck as unknown as CanvasKit
 }
@@ -266,7 +254,7 @@ describe('editorSurface', () => {
   })
 
   describe('paint with connectors', () => {
-    it('draws each connector after the outlines and before the frames: at rest a quiet soft grey curve and arrowhead with no dot, or picked, in the accent with a dot at its start', () => {
+    it('draws them after the outlines and before the frames, as triangles from the camera’s corner: at rest in the soft grey with no dot, picked in the accent with a dot at its start', () => {
       vi.stubGlobal('getComputedStyle', () => ({
         getPropertyValue: (name: string) => (name === '--canvas' ? '#100d14' : ''),
       }))
@@ -285,36 +273,49 @@ describe('editorSurface', () => {
         [
           { curve, picked: false },
           { curve: { ...curve, from: { x: 10, y: 150 }, to: { x: 110, y: 150 } }, picked: true },
-          // Wholly off the stage: left out.
-          {
-            curve: { from: { x: -500, y: 0 }, c1: { x: -400, y: 0 }, c2: { x: -300, y: 0 }, to: { x: -200, y: 0 } },
-            picked: false,
-          },
         ],
       )
-      // Each line stops at its arrowhead's base.
-      const { line, head } = arrowheadOf(curve)
-      const { c1, c2, to } = line
-      expect(log.slice(3, 13)).toEqual([
+      expect(log.slice(3, 10)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
-        // Drawn from the camera's corner, so a pan only moves them.
         'save',
         'translate 0 0',
-        // The resting ones together, quiet: their curves and their arrowheads in the soft grey, no dot.
-        `path M 10 50 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y} in #b8aec2 1.25 wide`,
-        `path M 110 90 L ${Math.round(head.left.x)} ${Math.round(head.left.y)} L ${Math.round(head.right.x)} ${Math.round(head.right.y)} in #b8aec2`,
-        // Then the picked one, in the accent, with a dot at its start only, clear of its arrowhead.
-        expect.stringMatching(/^path M 10 150 C .* in #2f5be0 2 wide$/),
-        expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
-        'path O 10 150 5 in #100d14',
-        'path O 10 150 5 in #2f5be0 2 wide',
-        'restore',
+        expect.stringMatching(/^triangles with \d+ corners in #b8aec2$/),
+        expect.stringMatching(/^triangles with \d+ corners in #2f5be0$/),
+        'circle 10 150 round 5 in #100d14',
+        'circle 10 150 round 5 in #2f5be0 2 wide',
       ])
-      expect(log[13]).toBe('rect 0 1 540 540')
+      expect(log.slice(10, 12)).toEqual(['restore', 'rect 0 1 540 540'])
+    })
+
+    it('leaves out a connector far off the stage, but builds those just past it, ready for a pan', () => {
+      vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      const line = (x: number) => ({
+        from: { x, y: 50 },
+        c1: { x: x + 40, y: 50 },
+        c2: { x: x + 60, y: 50 },
+        to: { x: x + 100, y: 50 },
+      })
+      const corners = (connectors: { x: number }[]) => {
+        log.length = 0
+        surface.paint(
+          [],
+          null,
+          [],
+          connectors.map(({ x }) => ({ curve: line(x), picked: false })),
+        )
+        return Number(/with (\d+) corners/.exec(log.find((l) => l.startsWith('triangles')) ?? '')?.[1] ?? 0)
+      }
+      const one = corners([{ x: 10 }])
+      // Just past the stage's right edge (1000 wide), and four stages away.
+      expect(corners([{ x: 10 }, { x: 1200 }])).toBe(one * 2)
+      expect(corners([{ x: 10 }, { x: 4000 }])).toBe(one)
     })
   })
 
-  describe('the connectors’ paths and colours', () => {
+  describe('the connectors’ triangles and colours', () => {
     const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
     const at = (dx: number) => ({
       from: { x: curve.from.x + dx, y: 50 },
@@ -328,11 +329,11 @@ describe('editorSurface', () => {
       const { view, surface, log } = harness()
       surface.resize()
       view.setCamera({ x: 0, y: 0, zoom: 0.5 })
-      const built = () => pathsBuilt.length
-      pathsBuilt.length = 0
+      const built = () => verticesMade.length
+      verticesMade.length = 0
       surface.paint([], null, [], [{ curve, picked: false }])
       const first = built()
-      // Panned 40 to the right: the curve is drawn 40 further on, from the same paths.
+      // Panned 40 to the right: the curve is drawn 40 further on, from the same triangles.
       view.setCamera({ x: 40, y: 0, zoom: 0.5 })
       log.length = 0
       surface.paint([], null, [], [{ curve: at(40), picked: false }])
@@ -340,6 +341,7 @@ describe('editorSurface', () => {
       expect(log).toContain('translate 40 0')
       surface.paint([], null, [], [{ curve: at(40), picked: true }])
       expect(built()).toBeGreaterThan(first)
+      expect(log).toContain('delete triangles')
       const picked = built()
       view.setCamera({ x: 40, y: 0, zoom: 1 })
       surface.paint([], null, [], [{ curve: at(40), picked: true }])
@@ -378,18 +380,9 @@ describe('editorSurface', () => {
       log.length = 0
       const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
       surface.paint([], null, [], [{ curve, picked: false }])
-      expect(log.filter((line) => line.startsWith('path'))).toEqual([
-        expect.stringMatching(/^path M 10 50 C .* in #6a5e78 1.25 wide$/),
-        expect.stringMatching(/^path M 110 90 L .* in #6a5e78$/),
+      expect(log.filter((line) => line.startsWith('triangles'))).toEqual([
+        expect.stringMatching(/^triangles with \d+ corners in #6a5e78$/),
       ])
-    })
-  })
-
-  describe('the connectors’ line', () => {
-    it('has round ends', () => {
-      strokeCaps.length = 0
-      harness()
-      expect(strokeCaps).toEqual(['round'])
     })
   })
 
@@ -480,6 +473,7 @@ describe('editorSurface', () => {
       expect(log).toEqual([
         'surface 2000×1600',
         'delete surface',
+        'delete paint',
         'delete paint',
         'delete paint',
         'delete paint',

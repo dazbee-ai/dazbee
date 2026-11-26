@@ -116,8 +116,10 @@ export function editorRedraw({
     const drag = carried(pointer.gesture())
     const ghost = drag && { frame: drag.frame, picture: scenes.ghost(drag.frame, drag.roots, screen) }
     const made = scenes.pictures(view.frames(), inView, screen)
-    const outlines = outlinesNow()
-    if (paint && !paint(made.pictures, ghost, outlines, connectorsNow(design))) return null
+    // The sections are measured once for the outlines and the connectors' ends.
+    const shownSections = sections()
+    const outlines = outlinesNow(shownSections)
+    if (paint && !paint(made.pictures, ghost, outlines, connectorsNow(design, shownSections))) return null
     drawnOutlines = drawnKey(outlines)
     pointer.rehover()
     const outlinedBefore = scenes.outlinePaths()
@@ -134,15 +136,14 @@ export function editorRedraw({
     return info
   }
   /** The sections' outlines as the stage draws them, lit where picked or a drop's target. */
-  function outlinesNow(): DrawnOutline[] {
-    const { outlines, lit } = sections()
+  function outlinesNow({ outlines, lit }: ShownSections = sections()): DrawnOutline[] {
     const picked = selection.pickedSection()
     return outlines.map(({ id, box }) => ({ box, lit: id === picked || id === lit }))
   }
   /** The connectors' curves between where their ends are drawn now, blue where picked. */
-  function connectorsNow(design: Design): DrawnConnector[] {
+  function connectorsNow(design: Design, { outlines }: ShownSections): DrawnConnector[] {
     const picked = selection.pickedConnector()
-    return connectorsShown(design, view.frames(), sections().outlines, view.camera()).map(({ id, curve }) => ({
+    return connectorsShown(design, view.frames(), outlines, view.camera()).map(({ id, curve }) => ({
       curve,
       picked: id === picked,
     }))

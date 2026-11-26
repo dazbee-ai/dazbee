@@ -68,6 +68,19 @@ export function usePickedSection(editor: Editor) {
   return picked
 }
 
+/** The connector picked on the stage, or null, following it as it changes. */
+export function usePickedConnector(editor: Editor) {
+  const [picked, setPicked] = useState(() => editor.pickedConnector())
+  useEffect(() => {
+    setPicked(editor.pickedConnector())
+    const stop = editor.onConnectorPick(setPicked)
+    return () => {
+      stop()
+    }
+  }, [editor])
+  return picked
+}
+
 /** The frame picked as a whole, or null, kept current. */
 export function usePickedFrame(editor: Editor) {
   const [picked, setPicked] = useState(() => editor.pickedFrame())

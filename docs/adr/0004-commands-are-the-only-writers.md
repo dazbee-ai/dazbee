@@ -2,7 +2,7 @@
 
 Overrides were taken out on 2026-11-04 (ADR-0014). Undo, gestures and faults were changed on 2026-11-14, when designs moved off Yjs (ADR-0015), and the writes only the Yjs store made (an undo putting back what Yjs left unset, and compaction) went with it; the rest stands.
 
-Nothing writes to a design except a command in `packages/doc`, through the store (whole records, one value of a record, text edits). The one exception is the follow-up, below. A command is a zod input plus a function, and it runs as one step. The step ends as one change set that the sync server accepts or rejects whole, and as one undo step. The UI, shortcuts, the assistant, importers and AI jobs all call the same commands. AI jobs save their result, and the editor applies it as one `design.place` command. A write made on the server would be no tab's step, so no one could undo it in one step.
+Nothing writes to a design except a command in `packages/doc`, through the store (whole records, one value of a record, text edits). The one exception is the follow-up, below. A command is a zod input plus a function, and it runs as one step. The step ends as one change set that the sync server accepts or rejects whole, and as one undo step. The UI, shortcuts, the assistant, importers and AI jobs all call the same commands. AI jobs save their result, and a tab with the design open writes it in as an **arrival**: commands run untracked (`session.untracked`), as one change set that no undo or redo of any tab takes back, the tab's own included. A result costs money, so Ctrl+Z must never remove it. The server never writes it itself (ADR-0015): a write made there would be no tab's change set, checked and ordered as every other is.
 
 ## Gestures
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parseDesign } from './design.ts'
 import {
+  belowAll,
   blankDesign,
   coverFrame,
   FRAME_GAP,
@@ -74,6 +75,27 @@ describe('newFramePosition', () => {
       { x: 400, y: 20, width: 100 },
     ]
     expect(newFramePosition(frames)).toEqual({ x: 700, y: 10 })
+  })
+})
+
+describe('belowAll', () => {
+  const at = (pageId: string, x: number, y: number, height: number) => ({ pageId, x, y, width: 100, height })
+
+  it('is FRAME_GAP below the page’s lowest frame, at the left of its leftmost one, whatever other pages hold', () => {
+    const frames = {
+      wide: at('p1', -50, 0, 100),
+      low: at('p1', 300, 200, 400),
+      lowerElsewhere: at('p2', -900, 5000, 100),
+    }
+    expect(belowAll(frames, 'p1')).toEqual({ x: -50, y: 600 + FRAME_GAP })
+  })
+
+  it('keeps the gap given below the lowest frame', () => {
+    expect(belowAll({ low: at('p1', 0, 100, 50) }, 'p1', 900)).toEqual({ x: 0, y: 150 + 900 })
+  })
+
+  it('is 0, 0 on a page with no frame', () => {
+    expect(belowAll({ other: at('p2', 40, 40, 100) }, 'p1')).toEqual({ x: 0, y: 0 })
   })
 })
 

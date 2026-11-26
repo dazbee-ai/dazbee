@@ -15,7 +15,7 @@ import { cropItemOf, type EditorActions, TOOL_ACTIONS } from './actions.ts'
 import type { EditorView } from './canvas/view.ts'
 import { type Remembered, styleKept } from './clipboard.ts'
 import type { EditorPngCopy } from './export/png-copy.ts'
-import { actsOnItem } from './frame-actions.ts'
+import { actsOnConnector, actsOnItem } from './frame-actions.ts'
 import type { EditorPen } from './gestures/pen/pen.ts'
 import { lineUpOf, SPREAD_MIN } from './layers/arrange.ts'
 import { layoutChangeOf, whyNotLaidOut } from './layers/box-layout.ts'
@@ -201,7 +201,7 @@ export function editorActionReady({
     if (tool) return tools.tool() !== tool
     const current = selection.current()
     const picked = selection.pickedItem()
-    if (picked !== null && !current) return picked.kind !== 'connector' && actsOnItem(action)
+    if (picked !== null && !current) return picked.kind === 'connector' ? actsOnConnector(action) : actsOnItem(action)
     const frame = current && frameOf(current[0]?.frameId)
     if (!current || !frame) return false
     return selectedReady(action, current, session.design())

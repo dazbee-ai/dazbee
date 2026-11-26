@@ -47,6 +47,9 @@ const newBox = (): NewLayer => ({
 /** Whether a tool draws a layer with a drag: a tool of the shape menu. */
 export const isDrawTool = (tool: string): tool is DrawTool => isShapeMenuTool(tool)
 
+/** Whether a tool also draws connectors, from a dot at a frame's or a section's edge: the Arrow shape. */
+export const drawsConnectors = (tool: string) => tool === 'arrow'
+
 /** Whether a drawing tool draws a box: the shape menu's Box. */
 export const drawsBox = (tool: DrawTool): tool is 'box' => tool === 'box'
 

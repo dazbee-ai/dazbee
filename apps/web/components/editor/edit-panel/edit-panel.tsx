@@ -356,8 +356,9 @@ export function SelectionPanel<Id extends string>({
 }: {
   editor: Editor
   layout: PanelLayout<Id>
-  /** What the panel shows, named on it: the selected layers, the picked frame or the picked section. */
-  named: { 'data-selection': string } | { 'data-frame': string } | { 'data-section': string }
+  /** What the panel shows, named on it: the selected layers, or the picked frame, section or connector. */
+  named:
+    { 'data-selection': string } | { 'data-frame': string } | { 'data-section': string } | { 'data-connector': string }
   header: ReactNode
   /** Draws one section of the shown switcher tab, keyed, with whether it shows its heading. */
   section: (section: Section<Id>, headed: boolean) => ReactNode

@@ -84,6 +84,45 @@
 .stage-overlay .section-title[data-active] {
   color: var(--accent-text);
 }
+/* With the Arrow shape: the four quiet dots outside the sides of the frame or section the pointer is
+   near, which a connector starts from; while one is dragged from, the frame or section it would join,
+   lit, and the curve it would draw. */
+.stage-overlay .connector-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--stage-connector);
+  border-radius: 50%;
+  background: var(--surface);
+  transform: translate(-50%, -50%);
+}
+/* The dot under the pointer, which a press starts the connector from. */
+.stage-overlay .connector-dot[data-hot] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.stage-overlay .connector-target {
+  position: absolute;
+  outline: 2px solid var(--accent);
+}
+.stage-overlay .connector-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.stage-overlay .connector-preview path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+}
+.stage-overlay .connector-preview path[data-head] {
+  fill: var(--accent);
+  stroke: none;
+}
 /* Selection: the box with its handles, each selected layer's outline, hover and marquee. A layer
    whose outline is other than its box (data-shape) is outlined by the SVG path inside it: a hovered
    or selected member layer by the path alone, one selected layer by the path and the 1px box that

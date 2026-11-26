@@ -1,4 +1,4 @@
-// What a right-click on the stage opens the stage menu for, and what it picks: a section, a layer or a frame.
+// What a right-click on the stage opens the stage menu for, and what it picks: a section, a connector, a layer or a frame.
 import type { Editor, LayerAt, Point } from '@dazbee/editor'
 
 /**
@@ -7,11 +7,13 @@ import type { Editor, LayerAt, Point } from '@dazbee/editor'
  */
 export interface StageMenuOpen {
   at: Point
-  /** A layer, whose actions it shows; a frame, by its empty area or its label; a section, by its title or outline line; or the canvas outside every frame. */
-  on: 'layer' | 'frame' | 'section' | 'canvas'
+  /** A layer, whose actions it shows; a frame, by its empty area or its label; a section, by its title or outline line; a connector, by its curve; or the canvas outside every frame. */
+  on: 'layer' | 'frame' | 'section' | 'connector' | 'canvas'
   frameId: string | null
   /** The section whose actions it shows, on a section. */
   sectionId?: string
+  /** The connector whose Delete it shows, on a connector. */
+  connectorId?: string
   layers: LayerAt[]
   /** Whether it offers Show hidden layers, ticked while they show: the design has some hidden, or they show. */
   hidden: boolean
@@ -20,7 +22,9 @@ export interface StageMenuOpen {
 /**
  * Picks what a right-click at a client point acts on, and gives the stage menu it opens: on a
  * section's title (`titled`, the section whose title is there) or outline line, the section's
- * actions, the section picked, but to a tab that may only view Show hidden layers alone; on a layer,
+ * actions, the section picked, but to a tab that may only view Show hidden layers alone; off every
+ * frame on a connector's curve, drawn over the outline lines, its Delete, the connector picked, but
+ * for a tab that may only view, which picks none and is offered what lies under it; on a layer,
  * the layer's actions, the layer selected; on a frame's empty area or on the name or size of its
  * label (`labelFrameId`, the frame whose label is there), the frame's actions, the frame picked;
  * outside every frame, Show hidden layers alone. Each offers Show hidden layers while the design has
@@ -33,6 +37,11 @@ export function rightClickAt(
   { labelFrameId, titled }: { labelFrameId: string | undefined; titled?: string | undefined },
 ): StageMenuOpen | null {
   const hidden = editor.actionReady('toggleHiddenShown')
+  const connectorId = labelFrameId === undefined && !titled && !editor.readOnly() ? editor.connectorAt(client) : null
+  if (connectorId) {
+    editor.pickConnector(connectorId)
+    return { at: client, on: 'connector', frameId: null, connectorId, layers: [], hidden }
+  }
   const sectionId = labelFrameId === undefined ? (titled ?? editor.sectionAt(client)) : null
   if (sectionId) {
     editor.pickSection(sectionId)

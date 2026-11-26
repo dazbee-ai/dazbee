@@ -909,6 +909,12 @@ export function openClient(start: ServerMessage | SavedClient, options: ClientOp
         rebaseFrom(0)
         tellPreviews(previewsOf.accepted(acc.author, acc.changeSetId))
       }
+      // The tab's own change set that no one undoes is written over its steps as another tab's is:
+      // their undo and redo leave what it wrote.
+      if (mine?.kind === 'edit' && !mine.step) {
+        const touches = Touches.of(acc.changes)
+        for (const step of liveSteps()) step.othersWrote(touches)
+      }
       // So do the rests of steps taken in part, for what this tab's other steps write after them (D5, 7).
       const own = mine?.kind === 'followUp' ? undefined : mine?.step
       if (own) {

@@ -2,14 +2,15 @@
 
 // The editor's chrome: two islands floating at the top; a bottom tool dock whose end holds the
 // buttons that open the flyouts (Layers, Assets, AI, Brand) on the stage's start side, Pages and
-// the zoom, and a slot for the mini bar above the selection. On a phone a tab bar at the bottom holds
+// the zoom, and a slot for the mini bar above the selection. The AI button opens the brief box just
+// above the dock, in a tab that may change the design. On a phone a tab bar at the bottom holds
 // the flyouts' buttons, then the tool button, which opens the dock above it as a tray, then Pages and
 // the zoom. The canvas
 // runs edge to edge under all of it; the stage is the editor itself, told which edges the chrome
 // covers so it fits the ads between.
-import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/react'
+import { MotionConfig, useReducedMotion } from 'motion/react'
 import Link from 'next/link'
-import { createContext, type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Editor, ShapeMenuTool } from '@dazbee/editor'
 
@@ -18,8 +19,6 @@ import type { FrameTool } from '@/components/editor/menus/frame-menu.tsx'
 import { QuickActions } from '@/components/editor/menus/quick-actions.tsx'
 import type { SelectTool } from '@/components/editor/menus/select-menu.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
-import { EmptyState } from '@/components/ui/empty-state.tsx'
-import { XIcon } from '@/components/ui/icons.tsx'
 import { brandPath, workspacePath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import type { ValueStore } from '@/lib/editor/value-store.ts'
@@ -28,43 +27,19 @@ import { dirOf } from '@/lib/i18n/index.ts'
 import { usePhone } from '@/lib/phone.ts'
 
 import { useAssetsKey } from './assets-key.ts'
+import { BriefBox } from './brief-box.tsx'
 import { DesignName } from './design-name.tsx'
-import {
-  type Flyout,
-  isMenuSheet,
-  isPanel,
-  isSheet,
-  setFlyout,
-  setFlyoutEnd,
-  setIslandsBottom,
-  useEditState,
-} from './edit-store.ts'
+import { type Flyout, isMenuSheet, isPanel, isSheet, setFlyout, setIslandsBottom, useEditState } from './edit-store.ts'
 import { FlyoutButtons } from './flyout-buttons.tsx'
+import { FlyoutCard } from './flyout-card.tsx'
 import { SaveStatus } from './save-status.tsx'
 import { type ChromeInsets, measureInsets } from './stage-insets.ts'
-import { BAR_DIVIDER, UNDER_TOOL_TRAY } from './styles.ts'
+import { BAR_DIVIDER } from './styles.ts'
 import { ToastSlot } from './toasts.tsx'
 import { type Tool, ToolButton, ToolDock, useToolTray } from './tool-dock.tsx'
 import { useViewOnly } from './view-only.tsx'
 
-type Note = { owner: object; text: string } | null
-
 const CHROME = { duration: 0.18, ease: [0.2, 0.8, 0.2, 1] as const }
-/** Lets the open flyout's content set the small grey note in its title row, as Layers does with its page and frame. */
-const FlyoutNote = createContext<(change: (now: Note) => Note) => void>(() => undefined)
-
-/**
- * Shows a note at the end of the open flyout's title row while the caller is mounted. A flyout
- * fading out clears only its own note, never the next one's.
- */
-export function useFlyoutNote(text: string | null) {
-  const setNote = useContext(FlyoutNote)
-  const [owner] = useState(() => ({}))
-  useEffect(() => {
-    setNote(() => (text ? { owner, text } : null))
-    return () => setNote((now) => (now?.owner === owner ? null : now))
-  }, [setNote, owner, text])
-}
 
 export function EditorShell({
   workspaceId,
@@ -132,18 +107,11 @@ export function EditorShell({
   const reduced = useReducedMotion()
   const chrome = reduced ? { duration: 0 } : CHROME
   const phone = usePhone()
-  const [flyoutNote, setNote] = useState<Note>(null)
-  const note = flyoutNote?.text ?? null
   const [ownTool, setTool] = useState<Tool>('select')
   const tool = shownTool ?? ownTool
   const viewOnly = useViewOnly()
   useCopyPngKey(editor)
   const flyoutTitle = (id: Flyout) => t.editor[id]
-  const flyoutEmpty = {
-    layers: t.editor.layersEmpty,
-    assets: t.editor.assetsEmpty,
-    brand: t.editor.brandEmpty,
-  }
   // What the editor has open: on a phone an edit panel, the full menu or the right-click menu is a
   // sheet, which hides the tab bar, and a sheet closes a flyout and the tool tray, as they close
   // it; so does the selection's edit panel at its full height, but not low, when the tab bar shows
@@ -167,31 +135,6 @@ export function EditorShell({
   useEffect(() => () => setFlyout(null), [])
   useAssetsKey(phone)
   const stage = useRef<HTMLElement>(null)
-  const flyoutEl = useRef<HTMLElement>(null)
-  useLayoutEffect(() => {
-    const el = flyoutEl.current
-    if (!flyout || phone || !el || !stage.current) {
-      setFlyoutEnd(null)
-      return
-    }
-    // Where the flyout rests, from its layout box, which its slide in doesn't move.
-    const measure = () => {
-      const area = stage.current
-      if (!area) return
-      setFlyoutEnd(
-        Math.round(
-          rtl ? area.offsetLeft + area.offsetWidth - el.offsetLeft : el.offsetLeft + el.offsetWidth - area.offsetLeft,
-        ),
-      )
-    }
-    measure()
-    const watch = new ResizeObserver(measure)
-    watch.observe(el)
-    return () => {
-      watch.disconnect()
-      setFlyoutEnd(null)
-    }
-  }, [flyout, phone, rtl])
 
   const startIsland = useRef<HTMLDivElement>(null)
   const endIsland = useRef<HTMLDivElement>(null)
@@ -241,70 +184,11 @@ export function EditorShell({
     return () => watch.disconnect()
   }, [phone, dock, rtl])
 
+  // The AI button opens the brief box above the dock in place of its flyout, once the editor runs and in a tab
+  // that may change the design.
+  const briefing = flyout === 'ai' && editor !== null && !viewOnly
+  const cardFlyout = briefing ? null : flyout
   const flyoutButtons = <FlyoutButtons flyout={flyout} title={flyoutTitle} phone={phone} rtl={rtl} reduced={reduced} />
-  // The open flyout, after the dock it opens from, so Tab reaches it from its button; on a phone,
-  // after the tab bar.
-  const flyoutCard = (
-    <AnimatePresence>
-      {flyout && (
-        <motion.section
-          ref={flyoutEl}
-          key={flyout}
-          id="editor-flyout"
-          aria-label={flyoutTitle(flyout)}
-          initial={{ opacity: 0, x: rtl ? 12 : -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: rtl ? 12 : -12 }}
-          transition={chrome}
-          data-testid="flyout"
-          // At the start island's inset from the stage's edge, under the islands, ending clear of
-          // the dock, and on a tablet of the zoom pill and Pages above it. On a phone, a sheet
-          // above the tab bar and under the header's islands, which end 5.5rem down.
-          className={cn(
-            'absolute start-6 top-20 z-10 flex max-h-[calc(100%-5rem-var(--above-dock))] w-[21.5rem] sm:max-lg:max-h-[calc(100%-5rem-var(--above-corner))] flex-col sm:rtl:start-4 overflow-hidden rounded-[16px] surface-frost max-sm:inset-x-3 max-sm:start-3 max-sm:top-auto max-sm:bottom-(--above-tab-bar) max-sm:max-h-[calc(100%-var(--above-tab-bar)-5.5rem)] max-sm:w-auto',
-            UNDER_TOOL_TRAY,
-          )}
-        >
-          {/* The title at the start and, as in the mock, a small grey note at the end: the brand, or the page and frame. */}
-          <div className="flex h-14 shrink-0 items-center gap-2 ps-[18px] pe-2">
-            <h2
-              className={cn(
-                'min-w-0 flex-1 truncate font-display text-lead font-bold tracking-tight',
-                flyout === 'ai' && 'text-accent-text',
-              )}
-            >
-              {flyoutTitle(flyout)}
-            </h2>
-            {(note ?? (flyout === 'assets' || flyout === 'brand' ? brandName : null)) && (
-              <span
-                data-testid="flyout-note"
-                className="min-w-0 max-w-[60%] truncate text-caption font-medium text-muted"
-              >
-                {note ?? brandName}
-              </span>
-            )}
-            <button
-              type="button"
-              aria-label={t.editor.closePanel}
-              onClick={() => setFlyout(null)}
-              // A finger's target on a phone or a touch screen.
-              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-subtle hover:bg-hover hover:text-text active:bg-pressed max-sm:size-[44px] [@media(hover:none)]:size-[44px]"
-            >
-              <XIcon size={14} aria-hidden />
-            </button>
-          </div>
-          <FlyoutNote.Provider value={setNote}>
-            {flyouts?.[flyout] ??
-              (flyout === 'ai' ? (
-                <EmptyState pose="build" tight {...t.editor.aiEmpty} />
-              ) : (
-                <p className="px-[18px] pb-4 text-small text-muted">{flyoutEmpty[flyout]}</p>
-              ))}
-          </FlyoutNote.Provider>
-        </motion.section>
-      )}
-    </AnimatePresence>
-  )
 
   return (
     <MotionConfig reducedMotion="user">
@@ -380,7 +264,18 @@ export function EditorShell({
             </nav>
           )}
 
-          {phone && flyoutCard}
+          {phone && (
+            <FlyoutCard
+              flyout={cardFlyout}
+              title={flyoutTitle}
+              brandName={brandName}
+              flyouts={flyouts}
+              chrome={chrome}
+              phone={phone}
+              rtl={rtl}
+              stage={stage}
+            />
+          )}
 
           <main ref={stage} className="group/stage canvas-dots relative min-w-0 flex-1 overflow-clip">
             {children}
@@ -399,10 +294,24 @@ export function EditorShell({
                 onToolChange?.(id, picked)
               }}
             />
+            {briefing && editor && (
+              <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
+            )}
             <ToastSlot editor={editor}>{toast}</ToastSlot>
             <QuickActions editor={editor} tray={tray} />
           </main>
-          {!phone && flyoutCard}
+          {!phone && (
+            <FlyoutCard
+              flyout={cardFlyout}
+              title={flyoutTitle}
+              brandName={brandName}
+              flyouts={flyouts}
+              chrome={chrome}
+              phone={phone}
+              rtl={rtl}
+              stage={stage}
+            />
+          )}
         </div>
       </div>
     </MotionConfig>

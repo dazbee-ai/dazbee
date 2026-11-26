@@ -3,7 +3,8 @@
 // they are shown, the outlines of the group gone into, the hovered layer and the drop target, the
 // other people's selections, the dashed outlines of the selected layers' linked copies, what Alt
 // measures, the selection with its handles and size, the selected layers' constraint lines while
-// the page asks for them, what each gesture shows, the rulers, the caret, the other people's
+// the page asks for them, what each gesture shows, the dots a connector starts from with the Arrow
+// shape and the connector being drawn, the rulers, the caret, the other people's
 // cursors and the loupe picking a colour shows, drawn in that order. A selected or hovered layer
 // is outlined along its real shape, from the outline path data the scenes keep.
 import { constraintsApply, constraintsOf, copiesOf, frameIdOf, scaleText } from '@dazbee/doc'
@@ -14,6 +15,7 @@ import type { EditorColourPick } from '../gestures/colour-pick.ts'
 import { loupeParts } from '../gestures/colour-pick-parts.ts'
 import type { EditorCropping } from '../gestures/crop/cropping.ts'
 import { cropParts } from '../gestures/crop/cropping-parts.ts'
+import type { EditorConnecting } from '../gestures/drawing/connecting.ts'
 import { type EditorDrawing, isDrawing } from '../gestures/drawing/drawing.ts'
 import { drawingParts } from '../gestures/drawing/drawing-parts.ts'
 import type { EditorGuideDrag } from '../gestures/guides/guide-drag.ts'
@@ -38,6 +40,7 @@ import { type EditorSelection, firstFrameOf, idsOf } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
 import { textParts } from '../text/typing-parts.ts'
 import { toScreen } from './camera.ts'
+import { connectorParts } from './connector-parts.ts'
 import { type Constrained, constraintParts } from './constraint-parts.ts'
 import { frameLabel } from './frame-labels.ts'
 import { type Frame, labelBox } from './frames.ts'
@@ -80,6 +83,8 @@ export interface OverlayDeps {
   pen: Pick<EditorPen, 'shown'>
   cropping: Pick<EditorCropping, 'shown'>
   drawing: Pick<EditorDrawing, 'shown'>
+  /** The dots a connector starts from, and the connector being drawn. */
+  connecting: Pick<EditorConnecting, 'shown'>
   transformDrag: Pick<EditorTransformDrag, 'shown' | 'shownDots'>
   autoLayoutDrag: Pick<EditorAutoLayoutDrag, 'shown' | 'shownDrop'>
   /** The frame that shows handles: the picked frame, when a press on them would resize it. */
@@ -131,6 +136,7 @@ export function editorOverlay({
   pen,
   cropping,
   drawing,
+  connecting,
   transformDrag,
   autoLayoutDrag,
   frameResize,
@@ -544,6 +550,7 @@ export function editorOverlay({
     if (isDrawing(gesture)) parts.push(...drawingParts(drawing.shown(gesture), view.camera(), placeBox))
     parts.push(
       ...dragParts(gesture?.kind === 'marquee' ? gesture : null, transformDrag.shown(), view.camera(), outline),
+      ...connectorParts(connecting.shown(gesture)),
     )
     if (view.rulers()) {
       const origin = guideDrag.rulerFrame(guideGesture)

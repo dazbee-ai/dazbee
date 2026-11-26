@@ -4,6 +4,7 @@ import type { ReadVersion } from '@dazbee/doc'
 import type { ExportedFile } from '@dazbee/export'
 import type { Design, ExportRequestInput, Member, Point, Rect, SyncToken, Variables } from '@dazbee/schema'
 
+import type { BriefRequest, BriefStarted, EditorAi } from './ai/arrivals.ts'
 import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -39,6 +40,8 @@ export interface EditorOptions extends CoreOptions {
   variables?: Variables
   /** Aborting it while the editor is still connecting stops it, freeing what it made. */
   signal?: AbortSignal
+  /** The AI flow's routes: without them, no brief starts and no AI result arrives. */
+  ai?: EditorAi
 }
 
 /**
@@ -61,6 +64,8 @@ export interface Editor extends EditorBase {
   layersAt(client: Point): LayerAt[]
   /** The section whose outline line is at `client` (client coordinates), the newer where two are: what a right-click there acts on; null for none. */
   sectionAt(client: Point): string | null
+  /** The connector drawn at `client` (client coordinates) off every frame, the last by order where several are: what a right-click there acts on; null for none. */
+  connectorAt(client: Point): string | null
   /**
    * Places an image asset as a graphic filled with it (#52), in one undo step: centred on `where`,
    * a spot or a point in client coordinates, or else in the middle of the frame in the middle of
@@ -140,6 +145,13 @@ export interface Editor extends EditorBase {
    * pause is resumed.
    */
   pauseInput(): () => void
+  /**
+   * Starts a round from a brief on a page: the job first, with the ids the editor made, then, once it is saved, the
+   * brief's section and four waiting frames below everything on the page, as an arrival no undo takes back; the
+   * drafts' pictures arrive as they are made. A refused job places nothing and gives why; so does an editor
+   * given no AI routes.
+   */
+  startBrief(request: BriefRequest): Promise<BriefStarted>
   destroy(): void
 }
 

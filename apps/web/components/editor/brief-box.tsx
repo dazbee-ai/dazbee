@@ -108,7 +108,7 @@ export function BriefBox({
     <section
       aria-label={b.label}
       data-testid="brief-box"
-      className="absolute start-1/2 bottom-(--above-dock) z-20 flex w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-2 rounded-[20px] surface-frost p-3 rtl:translate-x-1/2"
+      className="absolute start-1/2 bottom-(--above-dock) max-sm:bottom-(--above-tab-bar) z-20 flex w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-2 rounded-[20px] surface-frost p-3 rtl:translate-x-1/2"
     >
       {pictures.length > 0 && (
         <ul aria-label={b.addPictures} className="flex flex-wrap gap-1.5">

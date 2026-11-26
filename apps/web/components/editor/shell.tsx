@@ -2,7 +2,8 @@
 
 // The editor's chrome: two islands floating at the top; a bottom tool dock whose end holds the
 // buttons that open the flyouts (Layers, Assets, AI, Brand) on the stage's start side, Pages and
-// the zoom, and a slot for the mini bar above the selection. On a phone a tab bar at the bottom holds
+// the zoom, and a slot for the mini bar above the selection. The AI button opens the brief box just
+// above the dock, in a tab that may change the design. On a phone a tab bar at the bottom holds
 // the flyouts' buttons, then the tool button, which opens the dock above it as a tray, then Pages and
 // the zoom. The canvas
 // runs edge to edge under all of it; the stage is the editor itself, told which edges the chrome
@@ -25,6 +26,7 @@ import { dirOf } from '@/lib/i18n/index.ts'
 import { usePhone } from '@/lib/phone.ts'
 
 import { useAssetsKey } from './assets-key.ts'
+import { BriefBox } from './brief-box.tsx'
 import { DesignName } from './design-name.tsx'
 import { type Flyout, isMenuSheet, isPanel, isSheet, setFlyout, setIslandsBottom, useEditState } from './edit-store.ts'
 import { FlyoutButtons } from './flyout-buttons.tsx'
@@ -178,6 +180,10 @@ export function EditorShell({
     return () => watch.disconnect()
   }, [phone, dock, rtl])
 
+  // The AI button opens the brief box above the dock in place of its flyout, once the editor runs and in a tab
+  // that may change the design.
+  const briefing = flyout === 'ai' && editor !== null && !viewOnly
+  const cardFlyout = briefing ? null : flyout
   const flyoutButtons = <FlyoutButtons flyout={flyout} title={flyoutTitle} phone={phone} rtl={rtl} reduced={reduced} />
 
   return (
@@ -256,7 +262,7 @@ export function EditorShell({
 
           {phone && (
             <FlyoutCard
-              flyout={flyout}
+              flyout={cardFlyout}
               title={flyoutTitle}
               brandName={brandName}
               flyouts={flyouts}
@@ -283,12 +289,15 @@ export function EditorShell({
                 onToolChange?.(id, picked)
               }}
             />
+            {briefing && (
+              <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
+            )}
             <ToastSlot editor={editor}>{toast}</ToastSlot>
             <QuickActions editor={editor} tray={tray} />
           </main>
           {!phone && (
             <FlyoutCard
-              flyout={flyout}
+              flyout={cardFlyout}
               title={flyoutTitle}
               brandName={brandName}
               flyouts={flyouts}

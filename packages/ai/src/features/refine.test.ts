@@ -18,7 +18,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from './test-flow.ts'
+} from './test-features.ts'
 
 /** A refine of a 64 px picture of `who`'s, with a marks layer when `marked`, and its pictures in memory. */
 async function refineOf(who: FlowWorkspace, { marked = true }: { marked?: boolean } = {}) {

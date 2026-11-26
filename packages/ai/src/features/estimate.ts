@@ -19,7 +19,7 @@ import { allowanceOf, drawsFirst, grantsOf, layerSize } from '../ledger.ts'
 import { presetNumbers } from '../measured.ts'
 import { presetsFor } from '../picks.ts'
 import { flowHold, holdOf } from './holds.ts'
-import { FLOW_CALLS_AT_ONCE } from './run.ts'
+import { FLOW_CALLS_AT_ONCE } from './runner.ts'
 
 /** The placeholder every estimate's job names for what a real job would name: never read. */
 const PLACEHOLDER = 'estimate'

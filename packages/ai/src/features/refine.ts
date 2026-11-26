@@ -1,14 +1,15 @@
 // Refine with AI: the refine plan reads the ad, its marked copy and the person's message and writes one
 // instruction, then the refine edit edits the clean ad with that instruction alone. The marks are drawn over the ad
 // here, for the refine plan only.
-import { answerSchema, type CallInput, type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
+import { type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
 
-import { callSize, pictureLimits } from '../call-size.ts'
+import { editCall } from '../functions/refine-edit.ts'
+import { planCall } from '../functions/refine-plan.ts'
 import type { JobEnd } from '../jobs.ts'
 import { drawMarks } from '../marks.ts'
 import { pictureName } from './assets.ts'
 import type { DeclaredCall } from './holds.ts'
-import type { FlowRun } from './run.ts'
+import type { FlowRun } from './runner.ts'
 
 /** Each call's index in a refine. */
 export const REFINE_CALL = { plan: 0, edit: 1 } as const
@@ -41,24 +42,3 @@ export function refineCalls(): DeclaredCall[] {
   return [{ fn: 'refine-plan' }, { fn: 'refine-edit' }]
 }
 
-/** The refine plan's call: its prompt, the person's message, the ad and its marked copy when it has one. */
-function planCall(input: RefineInput, marked: string | undefined, editor: string): CallInput {
-  const marks = marked ? "\n\nThe second attached picture is the ad with the advertiser's numbered marks." : ''
-  return {
-    kind: 'text',
-    instructions: editor,
-    prompt: `The advertiser's message:\n${input.message}${marks}`,
-    pictures: [input.pictureKey, ...(marked ? [marked] : [])],
-    schema: answerSchema(RefinePlanAnswer),
-  }
-}
-
-/** The edit's call: the clean ad and the instruction, at the edit model's call size. */
-function editCall(input: RefineInput, instruction: string, model: string): CallInput {
-  return {
-    kind: 'picture',
-    prompt: instruction,
-    pictures: [input.pictureKey],
-    ...callSize(input.size, pictureLimits(model)),
-  }
-}

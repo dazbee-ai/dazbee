@@ -22,7 +22,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from './test-flow.ts'
+} from './test-features.ts'
 
 /** A layering job of two sizes of `who`'s, planned from the draft they came from, at 1024 px. */
 async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {

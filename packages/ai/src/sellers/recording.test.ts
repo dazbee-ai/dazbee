@@ -22,7 +22,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from '../flow/test-flow.ts'
+} from '../features/test-features.ts'
 import { db, memoryFiles, newSeller } from '../test-ai.ts'
 import { recordingSeller, replaySellers } from './recording.ts'
 import { type SellerAdapter, SellerError, type SellerRequest, useSeller } from './seller.ts'

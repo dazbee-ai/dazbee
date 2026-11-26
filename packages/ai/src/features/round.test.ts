@@ -26,7 +26,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from './test-flow.ts'
+} from './test-features.ts'
 
 /** Whether `request` is a picture call. */
 const isPicture = (request: SellerRequest) => request.input.kind === 'picture'

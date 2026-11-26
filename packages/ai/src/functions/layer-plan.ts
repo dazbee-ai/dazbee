@@ -1,5 +1,5 @@
 // The layer plan: the layers a draft is split into, made once for every size of it.
-import { LayerPlanAnswer } from '@dazbee/schema'
+import { answerSchema, type CallInput, LayerPlanAnswer } from '@dazbee/schema'
 
 import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
 import type { AiFunctionDef } from './types.ts'
@@ -17,4 +17,15 @@ export const layerPlan: AiFunctionDef = {
       guess: { cost: 6_370_000n, seconds: 82 },
     },
   },
+}
+
+/** The layer plan's call on the plan's picture. */
+export function planCall(picture: string, planner: string): CallInput {
+  return {
+    kind: 'text',
+    instructions: planner,
+    prompt: 'The attached picture is the ad.',
+    pictures: [picture],
+    schema: answerSchema(LayerPlanAnswer),
+  }
 }

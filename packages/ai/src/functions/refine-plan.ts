@@ -1,5 +1,5 @@
 // The refine plan: one instruction written from a person's message, the ad and its marked copy.
-import { RefinePlanAnswer } from '@dazbee/schema'
+import { answerSchema, type CallInput, type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
 
 import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
 import type { AiFunctionDef } from './types.ts'
@@ -17,4 +17,16 @@ export const refinePlan: AiFunctionDef = {
       guess: { cost: 350_000n, seconds: 7 },
     },
   },
+}
+
+/** The refine plan's call: its prompt, the person's message, the ad and its marked copy when it has one. */
+export function planCall(input: RefineInput, marked: string | undefined, editor: string): CallInput {
+  const marks = marked ? "\n\nThe second attached picture is the ad with the advertiser's numbered marks." : ''
+  return {
+    kind: 'text',
+    instructions: editor,
+    prompt: `The advertiser's message:\n${input.message}${marks}`,
+    pictures: [input.pictureKey, ...(marked ? [marked] : [])],
+    schema: answerSchema(RefinePlanAnswer),
+  }
 }

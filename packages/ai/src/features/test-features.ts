@@ -40,7 +40,7 @@ import { REFINE_EDITOR } from '../prompts/ads/refine-editor.ts'
 import { type SellerAdapter, SellerError, type SellerOutput, type SellerRequest, useSeller } from '../sellers/seller.ts'
 import { addPrices, db, memoryFiles, pngOf, RUPEE } from '../test-ai.ts'
 import { DATABASE_URL } from '../test-database.ts'
-import { type FlowDeps, runFlowJob } from './run.ts'
+import { type FlowDeps, runFlowJob } from './runner.ts'
 
 /** A test workspace: its id, its brand and the member who starts its jobs. */
 export interface FlowWorkspace {

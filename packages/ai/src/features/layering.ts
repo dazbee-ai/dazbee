@@ -1,19 +1,15 @@
 // Layering: one layer plan, made from the draft the sizes came from, then for each frame's picture the layer split
 // at the job's size with the plan's prompt, and the reading of its text blocks. The layers are stored as parts,
 // which the tab that finishes Make editable crops and places.
-import {
-  answerSchema,
-  type CallInput,
-  type LayeringInput,
-  LayerPlanAnswer,
-  type LayerSplitSize,
-  ReadingAnswer,
-} from '@dazbee/schema'
+import { type LayeringInput, LayerPlanAnswer } from '@dazbee/schema'
 
+import { planCall } from '../functions/layer-plan.ts'
+import { splitCall } from '../functions/layer-split.ts'
+import { readCall } from '../functions/reading.ts'
 import type { JobEnd } from '../jobs.ts'
 import { pictureName } from './assets.ts'
 import type { DeclaredCall } from './holds.ts'
-import type { FlowRun } from './run.ts'
+import type { FlowRun } from './runner.ts'
 
 /** Each call's index in a layering job: the plan, then frame `n`'s split and reading. */
 export const LAYERING_CALL = { plan: 0, split: (n: number) => 1 + 2 * n, read: (n: number) => 2 + 2 * n } as const
@@ -55,37 +51,3 @@ function planPicture(input: LayeringInput): string {
   return input.planKey ?? input.frames[0]?.pictureKey ?? ''
 }
 
-/** The layer plan's call on the plan's picture. */
-function planCall(picture: string, planner: string): CallInput {
-  return {
-    kind: 'text',
-    instructions: planner,
-    prompt: 'The attached picture is the ad.',
-    pictures: [picture],
-    schema: answerSchema(LayerPlanAnswer),
-  }
-}
-
-/** The layer split of `picture` at `size`, following the plan's prompt when it gave one. */
-function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer | null): CallInput {
-  const prompt = plan?.prompt.trim().slice(0, 10_000)
-  return { kind: 'layer-split', picture, size, ...(prompt ? { plan: prompt } : {}) }
-}
-
-/**
- * The reading of `picture`'s text blocks: the whole ad, with each block's id, its place on the planner's 0 to 999
- * grid and the text the plan found for it, as the first reading.
- */
-function readCall(picture: string, texts: LayerPlanAnswer['elements'], reader: string): CallInput {
-  const blocks = texts.map(
-    ({ id, box, text_lines: lines, content }) =>
-      `${id} (x ${box.x_min}–${box.x_max}, y ${box.y_min}–${box.y_max} of 999): ${JSON.stringify(lines.length > 0 ? lines.join('\n') : content)}`,
-  )
-  return {
-    kind: 'text',
-    instructions: reader,
-    prompt: `The attached picture is the whole ad. Its text blocks, by id, with where each lies and its first reading:\n${blocks.join('\n')}`,
-    pictures: [picture],
-    schema: answerSchema(ReadingAnswer),
-  }
-}

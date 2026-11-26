@@ -16,7 +16,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
-} from './test-flow.ts'
+} from './test-features.ts'
 
 /** The prompt of a picture request. */
 const promptOf = (input: CallInput) => (input.kind === 'picture' ? input.prompt : '')

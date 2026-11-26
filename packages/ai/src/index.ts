@@ -11,19 +11,23 @@ export {
 export { CUT_OFF } from './call-log.ts'
 export { CALL_PIXELS, callSize, type PictureLimits, pictureLimits, shapeOf } from './call-size.ts'
 export { pictureAssets } from './flow/assets.ts'
+export { actionHold, estimateAction } from './flow/estimate.ts'
 export { declaredCalls, type DeclaredCall, flowHold } from './flow/holds.ts'
 export { LAYERING_CALL } from './flow/layering.ts'
 export { REFINE_CALL } from './flow/refine.ts'
 export { RESIZE_STAND_IN } from './flow/resize.ts'
 export { ROUND_CALL } from './flow/round.ts'
-export { type FlowAttempt, type FlowDeps, runFlowJob } from './flow/run.ts'
+export { FLOW_CALLS_AT_ONCE, type FlowAttempt, type FlowDeps, runFlowJob } from './flow/run.ts'
 export {
+  allowanceOf,
   charge,
   endHold,
   giveGrant,
+  drawsFirst,
   type GrantLeft,
   grantsOf,
   hold,
+  layerSize,
   left,
   type NewGrant,
   usageShare,
@@ -41,6 +45,7 @@ export {
   type NewJob,
   QUEUE_OPTIONS,
   readJob,
+  readJobs,
   type SavedJob,
   saveJob,
   sendAgain,
@@ -79,5 +84,15 @@ export { metaSeller } from './sellers/meta.ts'
 export { LAYERING, modalSeller, modalSellerOn, type ModalSdk } from './sellers/modal.ts'
 export { openaiSeller } from './sellers/openai.ts'
 export { type AiSettings, aiSettingsOf } from './settings.ts'
-export { holdFor, modelKinds, routeStep, type StepDef, stepDef, stepModel, STEPS, sellerPricing } from './steps.ts'
+export {
+  holdFor,
+  modelKinds,
+  routeStep,
+  type StepDef,
+  stepDef,
+  stepModel,
+  STEP_SECONDS,
+  STEPS,
+  sellerPricing,
+} from './steps.ts'
 export { settleUnknownCalls, type Settled } from './unknown-calls.ts'

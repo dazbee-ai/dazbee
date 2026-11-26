@@ -65,6 +65,7 @@ const OUTSIDE_A_WORKSPACE = [
   '/me',
   '/me/*',
   '/me/deletion',
+  '/me/ai/jobs',
   '/access-requests',
   '/uploads/:token',
   '/fonts/google/faces/:name',

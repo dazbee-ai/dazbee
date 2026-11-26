@@ -1,12 +1,12 @@
 'use client'
 
 // The AI section's gifts and grants: find a workspace by its name or a member's email, open it, give it a gift
-// of allowance with its last day and a note, and read its grants, what is left on each, and its ledger,
+// of allowance with its last day, the size its layers are made at and a note, and read its grants, what is left on each, and its ledger,
 // newest first. The search and the open workspace live in the page's address, so a reload keeps them.
 import Link from 'next/link'
 import { useState } from 'react'
 
-import type { AiAllowanceView, AiWorkspace } from '@dazbee/schema'
+import type { AiAllowanceView, AiWorkspace, LayerSplitSize } from '@dazbee/schema'
 
 import { giveGift } from '@/app/pilot/ai/actions.ts'
 import {
@@ -26,6 +26,9 @@ import {
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
+
+/** The sizes a gift's layers can be made at. */
+const LAYER_SIZES: readonly LayerSplitSize[] = [512, 1024]
 
 /** How many days a gift lasts unless the admin picks another last day. */
 const GIFT_DAYS = 30
@@ -122,6 +125,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
             <th className={cn(HEAD, 'text-end')}>{w.rate}</th>
             <th className={cn(HEAD, 'text-end')}>{w.leftColumn}</th>
             <th className={HEAD}>{w.expires}</th>
+            <th className={HEAD}>{w.layerSize}</th>
             <th className={HEAD}>{w.givenBy}</th>
             <th className={HEAD}>{w.note}</th>
           </tr>
@@ -129,7 +133,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
         <tbody>
           {allowance.grants.length === 0 && (
             <tr>
-              <td colSpan={7} className={cn(CELL, 'text-muted')}>
+              <td colSpan={8} className={cn(CELL, 'text-muted')}>
                 {w.noGrants}
               </td>
             </tr>
@@ -144,6 +148,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
                 <time dateTime={grant.expiresAt}>{when(lastDayOf(grant.expiresAt), { day: true })}</time>
                 {!grant.live && <span className="ms-1.5 text-caption font-semibold">{w.expired}</span>}
               </td>
+              <td className={CELL}>{w.layerSizes[grant.layerSize]}</td>
               <td className={CELL}>{grant.givenBy}</td>
               <td className={cn(CELL, 'whitespace-normal [overflow-wrap:anywhere]')}>{grant.note}</td>
             </tr>
@@ -186,7 +191,7 @@ function Allowance({ allowance }: { allowance: AiAllowanceView }) {
   )
 }
 
-/** A gift to the workspace: an amount of allowance in rupees, its last day in IST, and a note. */
+/** A gift to the workspace: an amount of allowance in rupees, its last day in IST, the size layers are made at, and a note. */
 function GiftForm({ workspaceId }: { workspaceId: string }) {
   const w = useMessages().pilotAi.grants
   const amount = useAmount()
@@ -194,6 +199,7 @@ function GiftForm({ workspaceId }: { workspaceId: string }) {
   const [given, setGiven] = useState('')
   const [lastDay, setLastDay] = useState(() => dayIn(GIFT_DAYS))
   const [text, setText] = useState('')
+  const [layerSize, setLayerSize] = useState<LayerSplitSize>(512)
   return (
     <form
       aria-label={w.gift}
@@ -201,7 +207,7 @@ function GiftForm({ workspaceId }: { workspaceId: string }) {
       className="flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault()
-        const gift = { amount: Number(given), expiresOn: lastDay, note: text }
+        const gift = { amount: Number(given), expiresOn: lastDay, note: text, layerSize }
         run(
           'gift',
           () => giveGift(workspaceId, gift),
@@ -239,6 +245,21 @@ function GiftForm({ workspaceId }: { workspaceId: string }) {
             onChange={(e) => setLastDay(e.target.value)}
             className={cn(FIELD, 'text-text')}
           />
+        </label>
+        <label className="flex flex-col gap-1 text-caption text-muted">
+          {w.layerSize}
+          <select
+            name="gift-layer-size"
+            value={layerSize}
+            onChange={(e) => setLayerSize(e.target.value === '1024' ? 1024 : 512)}
+            className={cn(FIELD, 'text-text')}
+          >
+            {LAYER_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {w.layerSizes[size]}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-1 basis-48 flex-col gap-1 text-caption text-muted">
           {w.note}

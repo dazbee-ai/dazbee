@@ -46,8 +46,8 @@ type Lead = { kind: 'reference'; key: string; adKind: string | null } | { kind: 
 /** Each call's index in a round or more like this; a try-again's one draft is call 0. */
 export const ROUND_CALL = { plan: 0, draft: (n: number) => 1 + n, referenceRead: 5 } as const
 
-/** Each mode's round plan step and draft step. */
-const MODE_STEPS: Record<AiMode, { plan: AiStep; draft: AiStep; director: string }> = {
+/** Each mode's round plan step, draft step and round director. */
+export const MODE_STEPS: Record<AiMode, { plan: AiStep; draft: AiStep; director: string }> = {
   fast: { plan: 'flow.round-plan', draft: 'flow.draft-fast', director: ROUND_DIRECTOR_LIGHT },
   precise: { plan: 'flow.round-plan-full', draft: 'flow.draft-precise', director: ROUND_DIRECTOR },
 }

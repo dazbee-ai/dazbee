@@ -4,7 +4,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 
 import { aiGrants, aiLedger, type Db, newId, type Tx } from '@dazbee/db'
-import type { GrantSource } from '@dazbee/schema'
+import type { GrantSource, LayerSplitSize } from '@dazbee/schema'
 
 import { aiSettingsOf } from './settings.ts'
 
@@ -16,6 +16,8 @@ export interface NewGrant {
   source?: GrantSource
   givenBy?: string | null
   note?: string
+  /** The size a layering job splits at when its hold draws from this grant first; 512 px unless given. */
+  layerSize?: LayerSplitSize
 }
 
 /** A grant with what is left on it. */
@@ -26,6 +28,7 @@ export interface GrantLeft {
   expiresAt: Date
   live: boolean
   left: bigint
+  layerSize: LayerSplitSize
 }
 
 /** A rate of 1, as usage rates are kept (millionths). */
@@ -44,6 +47,7 @@ export async function giveGrant(db: Db | Tx, grant: NewGrant): Promise<string> {
     expiresAt: grant.expiresAt,
     givenBy: grant.givenBy ?? null,
     note: grant.note ?? '',
+    layerSize: grant.layerSize ?? 512,
   })
   return id
 }
@@ -157,6 +161,24 @@ export async function left(db: Db | Tx, workspace: string): Promise<bigint> {
   return total > 0n ? total : 0n
 }
 
+/**
+ * The size a layering job of the workspace splits at: the layer size of the first live grant with allowance left,
+ * the one its hold draws from first, or 512 px with none.
+ */
+export async function layerSize(db: Db | Tx, workspace: string): Promise<LayerSplitSize> {
+  return drawsFirst(await grantsOf(db, workspace))?.layerSize ?? 512
+}
+
+/** The grant among `grants`, in their order, that a hold draws from first: the first live one with allowance left. */
+export function drawsFirst(grants: GrantLeft[]): GrantLeft | undefined {
+  return grants.find((g) => g.live && g.left > 0n)
+}
+
+/** Real cost `cost` in allowance at `rate`, rounded up. */
+export function allowanceOf(cost: bigint, rate: bigint): bigint {
+  return (cost * rate + RATE_ONE - 1n) / RATE_ONE
+}
+
 /** The share of the live grants' allowance used, from 0 to 1, for the usage bar; 1 with no live grant. */
 export async function usageShare(db: Db | Tx, workspace: string): Promise<number> {
   const live = (await grantsOf(db, workspace)).filter((g) => g.live)
@@ -184,6 +206,7 @@ async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promis
       amount: aiGrants.amount,
       usageRate: aiGrants.usageRate,
       expiresAt: aiGrants.expiresAt,
+      layerSize: aiGrants.layerSize,
       live: sql<boolean>`${aiGrants.expiresAt} > now()`,
     })
     .from(aiGrants)
@@ -202,7 +225,11 @@ async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promis
     )
     .groupBy(aiLedger.grantId)
   const byGrant = new Map(sums.map((s) => [s.grant, BigInt(s.sum)]))
-  return grants.map((grant) => ({ ...grant, left: grant.amount + (byGrant.get(grant.id) ?? 0n) }))
+  return grants.map((grant) => ({
+    ...grant,
+    layerSize: grant.layerSize === 1024 ? 1024 : 512,
+    left: grant.amount + (byGrant.get(grant.id) ?? 0n),
+  }))
 }
 
 /** Each grant `job` holds on, in the grants' order, with the allowance it still holds there. */
@@ -224,11 +251,6 @@ function take(rest: bigint, rate: bigint, available: bigint): { amount: bigint; 
   const needed = allowanceOf(rest, rate)
   if (needed <= available) return { amount: needed, rest: 0n }
   return { amount: available, rest: rest - (available * RATE_ONE) / rate }
-}
-
-/** Real cost `cost` in allowance at `rate`, rounded up. */
-function allowanceOf(cost: bigint, rate: bigint): bigint {
-  return (cost * rate + RATE_ONE - 1n) / RATE_ONE
 }
 
 /** The grant that expires last, for a charge on a job that held nothing. */

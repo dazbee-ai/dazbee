@@ -173,7 +173,10 @@ export const aiLedger = pgTable(
   ],
 )
 
-/** An AI job: who started it in which workspace, what it runs, how far it got, and each call's output. */
+/**
+ * An AI job: who started it in which workspace, what it runs, how far it got, each call's output, and for a
+ * layering job, the lease of the tab finishing it.
+ */
 export const aiJobs = pgTable(
   'ai_jobs',
   {
@@ -191,12 +194,15 @@ export const aiJobs = pgTable(
     queueJobId: text('queue_job_id'),
     /** Each done call's output by its call index, so a job run again reuses it. */
     callOutputs: jsonb('call_outputs').$type<Record<string, CallOutput>>().notNull().default({}),
+    /** The tab that holds a layering job's finish, and until when unless it renews it. */
+    finishHolder: text('finish_holder'),
+    finishUntil: timestamp('finish_until', { withTimezone: true }),
     error: text(),
     createdAt: createdAt(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     endedAt: timestamp('ended_at', { withTimezone: true }),
   },
-  (t) => [index('ai_jobs_workspace').on(t.workspaceId, t.state)],
+  (t) => [index('ai_jobs_workspace').on(t.workspaceId, t.state), index('ai_jobs_member').on(t.memberId, t.createdAt)],
 )
 
 /**

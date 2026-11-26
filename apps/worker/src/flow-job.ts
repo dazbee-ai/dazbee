@@ -1,7 +1,7 @@
 // Runs the flow's jobs from the one `ai-flow` queue (ADR-0022): each attempt runs its job kind's script over
 // `callAi`, up to 4 calls at once per job and at most the worker-wide limit across jobs, the pictures it makes
 // stored as the workspace's originals and recorded as assets of the job's brand.
-import { runFlowJob } from '@dazbee/ai'
+import { FLOW_CALLS_AT_ONCE, runFlowJob } from '@dazbee/ai'
 
 import {
   type JobAttempt,
@@ -11,7 +11,7 @@ import {
   limiter,
   startJobWorker,
 } from './job-worker.ts'
-import { CALLS_PER_JOB, workspaceFiles } from './steps-job.ts'
+import { workspaceFiles } from './steps-job.ts'
 
 /** What a flow worker runs on. */
 export interface FlowWorkerDeps extends JobWorkerDeps {
@@ -29,7 +29,7 @@ async function runFlow(deps: FlowWorkerDeps, attempt: JobAttempt, calls: Limiter
   const { input: flow } = attempt
   if (flow.kind === 'ai-steps') throw new Error('the ai-flow queue can’t run an ai-steps job')
   // The job's own limit is taken first, so a job waiting for the worker's holds no more than its share.
-  const own = limiter(CALLS_PER_JOB)
+  const own = limiter(FLOW_CALLS_AT_ONCE)
   return runFlowJob(
     {
       db: deps.db,

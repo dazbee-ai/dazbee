@@ -13,6 +13,7 @@
 // `MemberRefusal` its own status, whichever route throws it. An agent's token (ADR-0019) reaches only
 // /agent/me and the agents' routes of its access's workspace, and every other route answers it 403.
 import { Hono } from 'hono'
+import type { PgBoss } from 'pg-boss'
 
 import type { Db } from '@dazbee/db'
 import { readSessionToken } from '@dazbee/session-token'
@@ -27,6 +28,7 @@ import { agentGate, agentRoutes } from './agents/agent-routes.ts'
 import { agentConsentRoutes } from './agents/consent-routes.ts'
 import { agentOAuthRoutes, type OAuthLimitSettings, oauthLimitSettings } from './agents/oauth-routes.ts'
 import { agentAccessRoutes } from './agents/routes.ts'
+import { aiRoutes, myAiJobRoutes } from './ai/routes.ts'
 import { InvalidUpload } from './assets/assets.ts'
 import { AddingFromUrlBusy, FROM_URL_PER_HOUR } from './assets/from-url.ts'
 import { assetRoutes, uploadRoutes } from './assets/routes.ts'
@@ -75,6 +77,7 @@ export function createApp({
   fromUrlPerHour = FROM_URL_PER_HOUR,
   stock = null,
   websitesPerHour = WEBSITES_PER_HOUR,
+  boss = null,
 }: {
   db: Db
   storage: Storage
@@ -101,6 +104,8 @@ export function createApp({
   stock?: StockLibrary | null
   /** The websites a member may read into kits in an hour, `WEBSITES_PER_HOUR` unless given. */
   websitesPerHour?: number
+  /** The pg-boss AI jobs are sent to (ADR-0022); none answers starting one 503. */
+  boss?: PgBoss | null
 }) {
   const app = new Hono<Env>()
 
@@ -127,11 +132,13 @@ export function createApp({
     .route('/', brandKitRoutes({ db, storage, outsideFetch, websitesPerHour }))
     .route('/', fontRoutes({ db, storage }))
     .route('/', stockRoutes({ db, storage, outsideFetch, stock, perHour: fromUrlPerHour }))
+    .route('/', aiRoutes({ db, storage, boss }))
 
   app.use('/me', signedIn)
   app.use('/me/*', signedIn)
   const deleters = { storage, signIn: signIn?.provider ?? null, invites: invites.workos }
   app.route('/', meRoutes({ db, deleters, endWorkosSession: (request) => endWorkosSession(signIn, request) }))
+  app.route('/', myAiJobRoutes({ db }))
 
   // Agents' sign-in answers the client without a session; the person's consent below needs theirs.
   app.route('/', agentOAuthRoutes({ db, limits: agentLimits }))

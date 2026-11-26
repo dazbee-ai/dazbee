@@ -12,6 +12,9 @@ import { runRefine } from './refine.ts'
 import { runResize } from './resize.ts'
 import { runMoreLikeThis, runRound, runTryAgain } from './round.ts'
 
+/** How many calls of one flow job the worker makes at once. */
+export const FLOW_CALLS_AT_ONCE = 4
+
 /** What a flow job runs on. */
 export interface FlowDeps {
   db: Db

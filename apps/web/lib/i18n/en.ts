@@ -1869,6 +1869,8 @@ export const en = {
       amount: 'Amount, ₹ of allowance',
       expiresOn: 'Last day (IST)',
       note: 'Note',
+      layerSize: 'Layers made at',
+      layerSizes: { 512: '512 px', 1024: '1024 px' },
       give: 'Give',
       giving: 'Giving…',
       given: 'Gave ₹{amount} of allowance.',

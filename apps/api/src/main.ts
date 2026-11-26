@@ -1,7 +1,9 @@
 // The API server: migrates the database, then serves. Settings come from the environment only, and a limit set out
 // of its range stops it from starting (`oauthLimitSettings`).
 import { serve } from '@hono/node-server'
+import { PgBoss } from 'pg-boss'
 
+import { ensureQueue, FLOW_QUEUE } from '@dazbee/ai'
 import { migrateDatabase, openDatabase } from '@dazbee/db'
 import { sessionSecret } from '@dazbee/session-token'
 import { openStorage, storageSettings } from '@dazbee/storage'
@@ -41,6 +43,11 @@ const signIn = workos ? { provider: workosProvider(workos), secret: sessionSecre
 const { db, close } = openDatabase(databaseUrl)
 await migrateDatabase(db)
 if (dev) await seedDevelopment(db)
+// The API only sends AI jobs (ADR-0022): the worker runs them and keeps pg-boss's own upkeep.
+const boss = new PgBoss({ connectionString: databaseUrl, max: 2, supervise: false, schedule: false })
+boss.on('error', (e) => console.error(JSON.stringify({ msg: 'pg-boss error', error: String(e) })))
+await boss.start()
+await ensureQueue(boss, FLOW_QUEUE)
 
 // The development session reads session tokens too when it has a secret, so a check in the browser can sign in as a Reviewer.
 const tokenSecret = signIn?.secret ?? (dev && process.env.SESSION_SECRET ? sessionSecret() : null)
@@ -73,6 +80,7 @@ const app = createApp({
   turnstile,
   agentLimits,
   stock,
+  boss,
 })
 // What deleted accounts left outside the database and couldn't delete then is tried again, beside serving.
 finishSoon(db, { storage, signIn: signIn?.provider ?? null, invites: invites.workos })
@@ -88,5 +96,5 @@ const server = serve({ fetch: app.fetch, port }, () => console.log(`api on http:
 void startSvgThread()
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => server.close(() => void close()))
+  process.on(signal, () => server.close(() => void boss.stop({ graceful: false }).finally(close)))
 }

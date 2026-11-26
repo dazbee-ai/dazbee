@@ -4,7 +4,7 @@
 // seller's currency; the tables keep whole millionths.
 import { z } from 'zod'
 
-import { CallKind, GrantSource, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
+import { CallKind, GrantSource, LayerSplitSize, LedgerKind, Seller, SELLERS, UsageUnit, UtcDay } from './ai.ts'
 
 /** An amount of money on the admin page: rupees, or a seller's currency, as a decimal; kept as whole millionths. */
 const Money = z.number().nonnegative().max(1_000_000_000)
@@ -200,15 +200,20 @@ export type UnpricedModel = z.infer<typeof UnpricedModel>
 export const AiWorkspace = z.object({ id: z.string(), name: z.string(), emails: z.array(z.string()) })
 export type AiWorkspace = z.infer<typeof AiWorkspace>
 
-/** A gift of allowance, in rupees, to a workspace: it expires when the IST day `expiresOn` ends. */
+/**
+ * A gift of allowance, in rupees, to a workspace: it expires when the IST day `expiresOn` ends, and its layers are
+ * made at `layerSize`.
+ */
 export const GiftInput = z.object({
   amount: Money.positive(),
   expiresOn: UtcDay,
   note: z.string().trim().max(500).default(''),
+  /** The size in px a layering job splits at when its hold draws from this grant first. */
+  layerSize: LayerSplitSize.default(512),
 })
 export type GiftInput = z.infer<typeof GiftInput>
 
-/** A grant as an admin reads it: amounts in rupees of allowance, the usage rate it keeps, and what is left. */
+/** A grant as an admin reads it: amounts in rupees of allowance, the usage rate it keeps, what is left, and its layering size. */
 export const AiGrantView = z.object({
   id: z.string(),
   source: GrantSource,
@@ -218,6 +223,7 @@ export const AiGrantView = z.object({
   expiresAt: z.iso.datetime(),
   live: z.boolean(),
   note: z.string(),
+  layerSize: LayerSplitSize,
   givenBy: z.string().nullable(),
   createdAt: z.iso.datetime(),
 })

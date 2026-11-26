@@ -66,6 +66,7 @@ export async function giveGift(db: Db, workspace: string, gift: GiftInput, admin
     expiresAt,
     givenBy: admin,
     note: gift.note,
+    layerSize: gift.layerSize,
   })
   const grant = (await grantViews(db, workspace)).find((g) => g.id === id)
   if (!grant) throw new Error(`the grant ${id} just given is missing`)
@@ -150,6 +151,7 @@ async function grantViews(db: Db, workspace: string): Promise<AiGrantView[]> {
     expiresAt: grant.expiresAt.toISOString(),
     live: leftOn.get(grant.id)?.live ?? false,
     note: grant.note,
+    layerSize: leftOn.get(grant.id)?.layerSize ?? 512,
     givenBy,
     createdAt: grant.createdAt.toISOString(),
   }))

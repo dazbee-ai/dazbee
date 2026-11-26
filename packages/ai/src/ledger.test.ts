@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { aiGrants, aiLedger, aiSettings } from '@dazbee/db'
 
-import { charge, endHold, giveGrant, grantsOf, hold, left, usageShare } from './ledger.ts'
+import { charge, endHold, giveGrant, grantsOf, hold, layerSize, left, usageShare } from './ledger.ts'
 import { addGrant, addJob, db, ledgerOf, newWorkspace, RUPEE } from './test-ai.ts'
 
 /** The workspaces the case touched, checked after it. */
@@ -227,6 +227,23 @@ describe('left', () => {
     await addGrant(ws, rupees(3), { days: 10 })
     await addGrant(ws, rupees(4), { days: 20 })
     expect(await left(db, ws)).toBe(rupees(7))
+  })
+})
+
+describe('layerSize', () => {
+  it('gives the layer size of the first live grant with allowance left, 512 px with none', async () => {
+    const ws = workspace()
+    expect(await layerSize(db, ws)).toBe(512)
+    const soon = new Date(Date.now() + 10 * 86_400_000)
+    const later = new Date(Date.now() + 20 * 86_400_000)
+    await giveGrant(db, { workspace: ws, amount: rupees(5), expiresAt: new Date(Date.now() - 1000), layerSize: 1024 })
+    const spent = await giveGrant(db, { workspace: ws, amount: rupees(5), expiresAt: soon, layerSize: 512 })
+    await giveGrant(db, { workspace: ws, amount: rupees(5), expiresAt: later, layerSize: 1024 })
+    expect(await layerSize(db, ws)).toBe(512)
+    const job = await addJob(ws)
+    await holdOn(ws, job, rupees(5))
+    expect((await grantsOf(db, ws)).find((g) => g.id === spent)?.left).toBe(0n)
+    expect(await layerSize(db, ws)).toBe(1024)
   })
 })
 

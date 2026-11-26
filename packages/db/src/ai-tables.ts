@@ -1,5 +1,5 @@
-// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, which model each AI step runs and
-// the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
+// The AI tables (ADR-0022, ADR-0023): the AI settings, the price list, which model each AI step runs, the picks
+// of presets, the sellers of each model, the grants and the allowance ledger, the AI jobs and the call log, and the AI
 // flow's briefs, AI frames and refines. Amounts are whole millionths: of a rupee for allowance and real cost,
 // of the seller's currency for its prices and costs. Workspace and person ids carry no foreign key, so
 // deleting an account keeps the metering rows for good; the flow's rows go with their design.
@@ -122,6 +122,24 @@ export const aiStepModels = pgTable('ai_step_models', {
 })
 
 /**
+ * Picks: an admin's choice of the preset a mode uses for an AI function, kept under no mode (an empty one) for a
+ * function no mode changes. Rows are only ever added; the newest for a function and mode is the one in use.
+ */
+export const aiPicks = pgTable(
+  'ai_picks',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    function: text().notNull(),
+    mode: text().notNull().default(''),
+    preset: text().notNull(),
+    /** The admin who made it. */
+    setBy: text('set_by').notNull(),
+    setAt: timestamp('set_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('ai_picks_function').on(t.function, t.mode, t.id)],
+)
+
+/**
  * Allowance given to a workspace: an amount in millionths of a rupee of allowance, the usage rate of the
  * day it was given, and when it expires. What is left on it is its amount plus its ledger rows.
  */
@@ -194,6 +212,9 @@ export const aiJobs = pgTable(
     queueJobId: text('queue_job_id'),
     /** Each done call's output by its call index, so a job run again reuses it. */
     callOutputs: jsonb('call_outputs').$type<Record<string, CallOutput>>().notNull().default({}),
+    /** The mode it was asked for in, and the preset of each AI function it runs, saved when it was asked for. */
+    mode: text({ enum: AI_MODES }),
+    presets: jsonb().$type<Record<string, string>>(),
     /** The tab that holds a layering job's finish, and until when unless it renews it. */
     finishHolder: text('finish_holder'),
     finishUntil: timestamp('finish_until', { withTimezone: true }),
@@ -220,6 +241,14 @@ export const aiCalls = pgTable(
     try: integer().notNull(),
     attempt: integer().notNull(),
     step: text().notNull(),
+    /** The AI feature of the call's job, its AI function and preset, and its kind of call. */
+    feature: text(),
+    function: text(),
+    preset: text(),
+    kind: text({ enum: CALL_KINDS }),
+    /** The settings the preset passed the seller, and the SHA-256 of the prompt it ran with. */
+    settings: jsonb().$type<Record<string, unknown>>(),
+    promptHash: text('prompt_hash'),
     model: text().notNull(),
     seller: text().notNull(),
     state: text({ enum: CALL_STATES }).notNull().default('running'),
@@ -243,6 +272,7 @@ export const aiCalls = pgTable(
       .where(sql`${t.chargedAt} is not null`),
     index('ai_calls_started').on(t.startedAt),
     index('ai_calls_seller').on(t.seller, t.startedAt),
+    index('ai_calls_preset').on(t.function, t.preset, t.endedAt),
   ],
 )
 

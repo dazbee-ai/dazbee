@@ -25,6 +25,25 @@ export const AI_STEPS = [
 export const AiStep = z.enum(AI_STEPS)
 export type AiStep = z.infer<typeof AiStep>
 
+/**
+ * Every AI function: one thing the AI is asked to do, a kind of call with the words it is given and the shape of
+ * its answer.
+ */
+export const AI_FUNCTIONS = [
+  'reference-read',
+  'round-plan',
+  'draft',
+  'refine-plan',
+  'refine-edit',
+  'resize',
+  'layer-plan',
+  'layer-split',
+  'reading',
+] as const
+
+export const AiFunction = z.enum(AI_FUNCTIONS)
+export type AiFunction = z.infer<typeof AiFunction>
+
 /** The AI step of layering that splits a draft into picture layers, at a fixed amount. */
 export const LAYER_SPLIT_STEP = 'flow.layer-split' satisfies AiStep
 

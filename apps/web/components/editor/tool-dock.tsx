@@ -1,21 +1,22 @@
 'use client'
 
-// The tool dock: one button for each tool, the Frame tool with its menu of Frame and Section, the
-// shape tool with its menu of shapes, the tool in use lit, and on a tablet or desktop after a divider the flyouts' buttons. On a phone it is the tool
-// tray: the tab bar's tool button, showing the tool in use, opens it above the bar, and picking a
-// tool closes it.
+// The tool dock: one button for each tool, the Select tool with its menu of Select and Hand, the
+// Frame tool with its menu of Frame and Section, the shape tool with its menu of shapes, the tool in
+// use lit, and on a tablet or desktop after a divider the flyouts' buttons. On a phone it is the
+// tool tray: the tab bar's tool button, showing the tool in use, opens it above the bar, and picking
+// a tool closes it.
 import { type ReactNode, useEffect, useState } from 'react'
 
 import { type ShapeMenuTool, type ShortcutAction, VIEW_TOOLS } from '@dazbee/editor'
 import { stageHasKeys } from '@dazbee/editor/dom-input'
 
 import { type FrameTool, frameToolIcon, FrameTools } from '@/components/editor/menus/frame-menu.tsx'
+import { type SelectTool, selectToolIcon, SelectTools } from '@/components/editor/menus/select-menu.tsx'
 import { shapeIcon, ShapeTools } from '@/components/editor/menus/shape-menu.tsx'
 import {
   CaretUpIcon,
   CursorIcon,
   FrameCornersIcon,
-  HandIcon,
   type Icon,
   PenNibIcon,
   ShapesIcon,
@@ -41,7 +42,6 @@ const TOOLS: { id: Tool; icon: Icon }[] = [
   { id: 'shape', icon: ShapesIcon },
   { id: 'text', icon: TextTIcon },
   { id: 'pen', icon: PenNibIcon },
-  { id: 'hand', icon: HandIcon },
 ]
 /** The action that picks each tool, its name and its key; the shape tool's shape picks its own. */
 const TOOL_ACTIONS = {
@@ -58,7 +58,7 @@ const DOCK_ID = 'editor-tools'
 /** A tool's name; the shape tool's is the name of the shape it draws. */
 const toolName = (t: Messages, tool: Tool, shape: ShapeMenuTool) =>
   tool === 'shape' ? t.editor.shapes[shape] : t.editor.actions[TOOL_ACTIONS[tool]]
-/** The tools a tab that may only view keeps (C35): Select and Hand, the editor's `VIEW_TOOLS`. */
+/** The tools a tab that may only view keeps (C35): Select's button, with Hand in its menu, the editor's `VIEW_TOOLS`. */
 const viewTools = (viewOnly: boolean) =>
   viewOnly ? TOOLS.filter(({ id }) => (VIEW_TOOLS as ReadonlySet<string>).has(id)) : TOOLS
 
@@ -93,6 +93,7 @@ export function ToolDock({
   tool,
   shape,
   frameTool = 'frame',
+  selectTool = 'select',
   sheet,
   viewOnly = false,
   flyoutButtons,
@@ -103,6 +104,8 @@ export function ToolDock({
   shape: ShapeMenuTool
   /** The tool the Frame button picks: the last of Frame and Section picked. */
   frameTool?: FrameTool
+  /** The tool the Select button picks: the last of Select and Hand picked. */
+  selectTool?: SelectTool
   sheet: boolean
   /** The tab may only view: the dock holds Select and Hand alone. */
   viewOnly?: boolean
@@ -136,6 +139,16 @@ export function ToolDock({
       )}
     >
       {viewTools(viewOnly).map(({ id, icon: ToolIcon }) => {
+        if (id === 'select') {
+          return (
+            <SelectTools
+              key={id}
+              active={tool === 'select' || tool === 'hand'}
+              tool={selectTool}
+              onPick={(picked) => pick(picked, shape)}
+            />
+          )
+        }
         if (id === 'frame') {
           return (
             <FrameTools
@@ -195,7 +208,9 @@ export function ToolButton({ tray, tool, shape }: { tray: ToolTray; tool: Tool; 
       ? shapeIcon(shape)
       : tool === 'section'
         ? frameToolIcon('section')
-        : (TOOLS.find((one) => one.id === tool)?.icon ?? CursorIcon)
+        : tool === 'hand'
+          ? selectToolIcon('hand')
+          : (TOOLS.find((one) => one.id === tool)?.icon ?? CursorIcon)
   return (
     <button
       ref={tray.button}

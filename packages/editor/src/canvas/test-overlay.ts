@@ -276,6 +276,7 @@ export function harness(
       measured: () => state.measured ?? null,
       pointerAt: () => state.pointerAt ?? null,
     },
+    selectPress: { starOffered: () => null },
     colourPick: { shown: () => state.picking ?? null },
     // The rulers hidden: no guide shows.
     guideDrag: { shown: () => [], rulerFrame: () => undefined },

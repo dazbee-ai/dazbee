@@ -13,7 +13,7 @@ import type { KeyInput, PointerInput } from './inputs.ts'
 
 export interface DomInputDeps {
   canvas: HTMLCanvasElement
-  /** The overlay over the stage, whose frame labels a press may be on. */
+  /** The overlay over the stage, whose frame labels, their stars and the sections' titles a press may be on. */
   overlay: ParentNode
   /** Where the canvas is on the page: the stage point of a pointer event. */
   surface: Pick<EditorSurface, 'onStage'>
@@ -91,13 +91,15 @@ export function editorDomInput({
 
   /**
    * A pointer event of the canvas as a pointer input: where it is on the stage, and on a press and a
-   * double click the label or the section's title under it.
+   * double click the label's star, the label or the section's title under it. A double click on a
+   * star is on no label, so it renames nothing.
    */
   function pointerInput(type: PointerInput['type'], e: MouseEvent): PointerInput {
     const client = { x: e.clientX, y: e.clientY }
     const pressed = type === 'pointerdown' || type === 'dblclick'
-    const label = pressed ? labelTextAt(overlay, client) : undefined
-    const title = pressed && label === undefined ? sectionTitleAt(overlay, client) : undefined
+    const star = pressed ? starAt(overlay, client) : undefined
+    const label = pressed && !(type === 'dblclick' && star) ? labelTextAt(overlay, client) : undefined
+    const title = pressed && label === undefined && star === undefined ? sectionTitleAt(overlay, client) : undefined
     return {
       type,
       at: surface.onStage(client),
@@ -110,6 +112,7 @@ export function editorDomInput({
       pointerType: 'pointerType' in e ? (e as PointerEvent).pointerType : 'mouse',
       ...(label === undefined ? {} : { label }),
       ...(title === undefined ? {} : { title }),
+      ...(star === undefined ? {} : { star }),
       ...('deltaMode' in e
         ? { deltaX: (e as WheelEvent).deltaX, deltaY: (e as WheelEvent).deltaY, deltaMode: (e as WheelEvent).deltaMode }
         : {}),
@@ -285,6 +288,17 @@ export function labelTextAt(overlay: ParentNode, client: Point): string | undefi
       // A size with no room beside the name wraps onto the label's hidden second line.
       if (box.top < row.bottom && client.x >= box.left && client.x <= box.right) found = label.dataset.frame
     }
+  }
+  return found
+}
+
+/** The frame whose label's star is under a client point, as the overlay last drew the stars: the last drawn of those there. */
+export function starAt(overlay: ParentNode, client: Point): string | undefined {
+  let found: string | undefined
+  for (const star of overlay.querySelectorAll('.frame-star')) {
+    const box = star.getBoundingClientRect()
+    if (client.x >= box.left && client.x <= box.right && client.y >= box.top && client.y <= box.bottom)
+      found = star.getAttribute('data-frame') ?? undefined
   }
   return found
 }

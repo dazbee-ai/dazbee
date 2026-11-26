@@ -39,6 +39,7 @@ import { VersionStage } from '@/components/editor/versions/version-bar.tsx'
 import { VersionsPanel } from '@/components/editor/versions/versions-panel.tsx'
 import { ViewOnlyProvider } from '@/components/editor/view-only.tsx'
 import type { MascotPose } from '@/components/ui/mascot.tsx'
+import { editorAi } from '@/lib/editor/ai-client.ts'
 import { carriesFiles, dragFills, dropAt, isAssetFile, placeDroppedFiles } from '@/lib/editor/drop-files.ts'
 import { placeAsset } from '@/lib/editor/place-asset.ts'
 import { type Uploading, uploadNotice } from '@/lib/editor/upload-notice.ts'
@@ -310,6 +311,7 @@ export function EditorStage({
         assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
         ...fontLoader(workspaceId, brandId),
         uploadImage: imageUploader(workspaceId, brandId),
+        ai: editorAi(workspaceId, brandId, designId),
         ...(variables ? { variables } : {}),
         onStatus: status.set,
         onZoom: zoom.set,

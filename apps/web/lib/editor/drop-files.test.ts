@@ -97,6 +97,7 @@ function asEditor({ core }: TestEditor): Editor {
     keptOnDevice: () => Promise.resolve(),
     fetchVersion: () => Promise.resolve(null),
     pauseInput: () => () => {},
+    startBrief: unused,
     destroy: unused,
   }
 }

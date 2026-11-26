@@ -15,7 +15,7 @@ import type { Editor } from '@dazbee/editor'
 import { canHold, frameIdOf, framesOf } from '@dazbee/schema'
 
 import { usePickedFrame, useSelection, useShownPage } from '@/components/editor/editor-hooks.ts'
-import { useFlyoutNote } from '@/components/editor/shell.tsx'
+import { useFlyoutNote } from '@/components/editor/flyout-card.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'

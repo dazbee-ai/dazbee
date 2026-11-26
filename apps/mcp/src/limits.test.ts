@@ -234,6 +234,37 @@ describe('MAX_BATCH_STEPS', () => {
   })
 })
 
+describe('the design limits of an agent’s step', () => {
+  it('count connectors: the step that makes the 5,001st is refused, keeping nothing of the batch', async () => {
+    // The test design with as many connectors from the square to the banner as leave room for one.
+    const design = testDesign() as DesignInput & { connectors: Record<string, unknown> }
+    const digits = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    const digit = (n: number) => digits[n % 62] as string
+    design.connectors = {}
+    for (let i = 0; i < SYNC_LIMITS.designConnectors - 1; i++) {
+      const order = `c${digit(Math.floor(i / 3844))}${digit(Math.floor(i / 62))}${digit(i)}`
+      design.connectors[`more-${i}`] = { pageId: 'p1', from: 'sq', to: 'banner', order }
+    }
+    server = testServer({ designs: { 'design-launch': design } })
+    const agent = await server.connect(server.api.addAccess().token())
+    await agent.call('open_design', { brand: 'brand-summer', design: 'design-launch' })
+    const steps = [
+      { command: 'frame.add', input: { id: 'added', pageId: 'p1', name: 'Added', width: 300, height: 250 } },
+      { command: 'connector.add', input: { pageId: 'p1', from: 'sq', to: 'added' } },
+      { command: 'connector.add', input: { pageId: 'p1', from: 'banner', to: 'added' } },
+    ]
+    const answer = (await agent.json('batch', { steps })) as { kept: boolean; steps: { ok: boolean }[] }
+    expect(answer.kept).toBe(false)
+    expect(answer.steps.at(-1)).toEqual(
+      expect.objectContaining({ ok: false, reason: 'the design would hold more than its 5000 connectors' }),
+    )
+    await server.sync('design-launch').settle()
+    expect(Object.keys(server.sync('design-launch').state().connectors ?? {})).toHaveLength(
+      SYNC_LIMITS.designConnectors - 1,
+    )
+  })
+})
+
 describe('limitSettings', () => {
   it('takes each limit’s default when unset or empty', () => {
     expect(limitSettings({})).toEqual({

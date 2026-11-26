@@ -1,5 +1,5 @@
-// Restoring a version: the working design's pages, frames and layers become a version's, its meta
-// kept, as one step marked with the version it restores (the tab sends the mark with its change set).
+// Restoring a version: the working design's pages, frames, layers, sections and connectors become a
+// version's, its meta kept, as one step marked with the version it restores (the tab sends the mark with its change set).
 import { z } from 'zod'
 
 import { type BindableProperty, Design, RestoreMark, type Target, type VariableRef } from '@dazbee/schema'
@@ -13,17 +13,25 @@ import { type CommandContext, defineCommand, strict } from './define.ts'
 type Fields = Readonly<Record<string, unknown>>
 
 /** Each part's records in a design, by the part. */
-const RECORDS = { page: 'pages', frame: 'frames', layer: 'nodes' } as const
+const RECORDS = {
+  page: 'pages',
+  frame: 'frames',
+  layer: 'nodes',
+  section: 'sections',
+  connector: 'connectors',
+} as const
+/** The parts a restore writes. */
+const PARTS = ['page', 'frame', 'layer', 'section', 'connector'] as const
 
 /**
- * Makes every page, frame and layer of the design equal the input design's: what the input lacks
+ * Makes every page, frame, layer, section and connector of the design equal the input design's: what the input lacks
  * is removed, what it adds is created under its own id, and each value that differs is set. The
  * design's meta (its id and name) is never written. The step is marked with `mark`.
  */
 export const designRestore = defineCommand({
   name: 'design.restore',
   description:
-    'Replaces every page, frame and layer of the design with a version’s, keeping the design’s id and name, as one step that carries the version’s mark to the other tabs. It refuses a version that gives an id the design holds as another part, or a layer of another type.',
+    'Replaces every page, frame, layer, section and connector of the design with a version’s, keeping the design’s id and name, as one step that carries the version’s mark to the other tabs. It refuses a version that gives an id the design holds as another part, or a layer of another type.',
   step: 'restore',
   setsBindings: true,
   input: z.strictObject({
@@ -36,7 +44,13 @@ export const designRestore = defineCommand({
     for (const [id, page] of Object.entries(version.pages)) writeRecord(w, 'page', id, now.pages[id], page)
     for (const [id, frame] of Object.entries(version.frames)) writeRecord(w, 'frame', id, now.frames[id], frame)
     for (const id of holdersFirst(version)) writeRecord(w, 'layer', id, now.nodes[id], version.nodes[id] as Fields)
+    for (const [id, section] of Object.entries(version.sections))
+      writeRecord(w, 'section', id, now.sections[id], section)
+    for (const [id, connector] of Object.entries(version.connectors))
+      writeRecord(w, 'connector', id, now.connectors[id], connector)
     // Removed once everything the version keeps sits where the version has it, so nothing kept goes with them.
+    for (const id of Object.keys(now.connectors)) if (!Object.hasOwn(version.connectors, id)) w.remove('connector', id)
+    for (const id of Object.keys(now.sections)) if (!Object.hasOwn(version.sections, id)) w.remove('section', id)
     for (const id of Object.keys(now.nodes)) if (!Object.hasOwn(version.nodes, id)) w.remove('layer', id)
     for (const id of Object.keys(now.frames)) if (!Object.hasOwn(version.frames, id)) w.remove('frame', id)
     for (const id of Object.keys(now.pages)) if (!Object.hasOwn(version.pages, id)) w.remove('page', id)
@@ -48,8 +62,8 @@ export const designRestore = defineCommand({
  * as another part (C27), or a layer of another type than the design's under its id (set once, C28).
  */
 function idsProblem({ w, design }: CommandContext, version: Design): string | undefined {
-  for (const part of ['page', 'frame', 'layer'] as const) {
-    const others = (['page', 'frame', 'layer'] as const).filter((other) => other !== part)
+  for (const part of PARTS) {
+    const others = PARTS.filter((other) => other !== part)
     for (const id of Object.keys(version[RECORDS[part]])) {
       const held = others.find((other) => w.has(other, id))
       if (held) return `the version's ${part} "${id}" is a ${held} of the design`

@@ -10,7 +10,7 @@ import type { Design, DesignInput } from '@dazbee/schema'
 import { openSession, type Session } from '../session.ts'
 import { type DesignStore, readDesign } from '../store.ts'
 import { type Case, casesOf, COMMAND_INPUTS, sweepWorld, type World } from '../test-commands.ts'
-import { kindsDesign, linkedDesign, testDesign } from '../test-design.ts'
+import { kindsDesign, linkedDesign, sectionedDesign, testDesign } from '../test-design.ts'
 import { brokenDocument, brokenInvariants, tiedIndexes } from '../test-invariants.ts'
 import { forkTestStore, openTestStore } from '../test-store.ts'
 import { seeded } from '../test-walk.ts'
@@ -28,6 +28,7 @@ const DESIGNS: Record<string, () => DesignInput> = {
   'one frame of every layer type and state': kindsDesign,
   'linked frames': testDesign,
   'two pages': linkedDesign,
+  'sections and connectors': sectionedDesign,
 }
 
 /** The most problems one command's test lists; the rest are counted. */

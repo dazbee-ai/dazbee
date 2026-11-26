@@ -6,7 +6,9 @@ import {
   type Design,
   Frame,
   FrameId,
+  framesInSection,
   framesOf,
+  freeSpot,
   Guide,
   type Layer,
   MAX_GUIDES,
@@ -16,6 +18,8 @@ import {
   Paint,
   readableTextSize,
   type Rect,
+  SectionId,
+  sectionOf,
   sizeProblem,
 } from '@dazbee/schema'
 
@@ -23,11 +27,20 @@ import { descendants } from '../children.ts'
 import { followingBoxes, guessesUnder, stayedBoxes, stayedGuides } from '../constraints.ts'
 import { round } from '../geometry.ts'
 import type { StoreWrite } from '../store.ts'
-import { frameProblem, idProblem, pageProblem } from './checks.ts'
+import { frameProblem, idProblem, pageProblem, sectionOnPageProblem } from './checks.ts'
 import { type CommandContext, defineCommand, strict } from './define.ts'
 import { readableBox, readableScale, scaledSizes, type Size, smallerRatio } from './fit.ts'
 import { keepDrawnIn } from './paths.ts'
+import { forgetFrame, pageRecords, sweepPage } from './tidy-page.ts'
 import { copyFrameLayers, type Slot, writeOrder } from './tree.ts'
+
+/** Where a frame's copy goes: its place on the page, its order among the page's frames, and its section, if any. */
+export interface CopyPlace {
+  x: number
+  y: number
+  order: string
+  sectionId?: string
+}
 
 /** What frame.resize writes: the frame's new box, its layers' new stored boxes, and its guides when they move. */
 interface ResizePlan {
@@ -35,6 +48,9 @@ interface ResizePlan {
   boxes: Map<string, Rect>
   guides?: Guide[]
 }
+
+/** The keys of frame.update's input that a star alone gives, which name its step for the star. */
+const STAR_KEYS = new Set(['frameId', 'starred'])
 
 /** A frame's name as a command takes it. */
 export const FrameName = z.string().trim().min(1).max(120)
@@ -46,7 +62,7 @@ export const FrameName = z.string().trim().min(1).max(120)
 export const frameAdd = defineCommand({
   name: 'frame.add',
   description:
-    'Adds an empty white frame to a page, after its last frame, and returns its id. It refuses a missing page, an id already in use and a size the editor does not take.',
+    'Adds an empty white frame to a page, after its last frame, in the section given if any, and returns its id. It refuses a missing page, an id already in use, a size the editor does not take, and a section that is missing or on another page.',
   step: 'addFrame',
   input: z.strictObject({
     id: FrameId.optional().describe('The new frame’s id; a fresh one is made when left out.'),
@@ -56,23 +72,40 @@ export const frameAdd = defineCommand({
     height: Frame.shape.height.describe('Its height, in pixels.'),
     x: Frame.shape.x.optional().describe('Where its left edge goes on the page; beside the last frame when left out.'),
     y: Frame.shape.y.optional().describe('Where its top edge goes on the page; beside the last frame when left out.'),
+    sectionId: SectionId.optional().describe('The section of the page it goes in; none when left out.'),
   }),
-  check: (ctx, { id, pageId, width, height }) =>
-    pageProblem(ctx.design, pageId) ?? idProblem(ctx, id) ?? sizeProblem(width, height),
-  apply: ({ w, design, newId }, { id = newId(), pageId, x, y, ...frame }) => {
+  check: (ctx, { id, pageId, width, height, sectionId }) =>
+    pageProblem(ctx.design, pageId) ??
+    idProblem(ctx, id) ??
+    sizeProblem(width, height) ??
+    (sectionId === undefined ? undefined : sectionOnPageProblem(ctx.design, pageId, sectionId)),
+  apply: ({ w, design, newId }, { id = newId(), pageId, x, y, sectionId, ...frame }) => {
     const next = nextOnPage(w, design, pageId, id)
-    const added: Frame = { ...frame, ...next, pageId, x: x ?? next.x, y: y ?? next.y, fills: NEW_FRAME_FILLS }
+    const added: Frame = {
+      ...frame,
+      ...next,
+      pageId,
+      x: x ?? next.x,
+      y: y ?? next.y,
+      fills: NEW_FRAME_FILLS,
+      ...(sectionId !== undefined && { sectionId }),
+    }
     w.create('frame', id, added)
     return id
   },
 })
 
-/** Renames, resizes, moves or refills a frame, or sets its guides; its layers stay as they are. */
+/** Renames, resizes, moves, refills or stars a frame, or sets its guides; its layers stay as they are. */
 export const frameUpdate = defineCommand({
   name: 'frame.update',
   description:
-    'Renames, resizes, moves or refills a frame, or sets its guides, leaving its layers as they are; frame.resize resizes it with its layers following. It refuses a missing frame and a size the editor does not take.',
+    'Renames, resizes, moves, refills or stars a frame, or sets its guides, leaving its layers as they are; frame.resize resizes it with its layers following. It refuses a missing frame and a size the editor does not take.',
   step: 'editFrame',
+  stepOf: (input) => {
+    const others = Object.entries(input).filter(([key, value]) => !STAR_KEYS.has(key) && value !== undefined)
+    if (input.starred === undefined || others.length > 0) return 'editFrame'
+    return input.starred ? 'star' : 'unstar'
+  },
   batchable: true,
   input: z.strictObject({
     frameId: FrameId.describe('The frame to change.'),
@@ -91,6 +124,7 @@ export const frameUpdate = defineCommand({
       .max(MAX_GUIDES)
       .optional()
       .describe('All its guides, in the order they were added.'),
+    starred: z.boolean().optional().describe('true stars it as ready to go out; false takes its star off.'),
   }),
   check: ({ design }, { frameId, width, height }) => {
     const problem = frameProblem(design, frameId)
@@ -99,8 +133,10 @@ export const frameUpdate = defineCommand({
     if (width === undefined && height === undefined) return undefined
     return sizeProblem(width ?? frame.width, height ?? frame.height)
   },
-  apply: ({ w }, { frameId, ...change }) => {
+  apply: ({ w }, { frameId, starred, ...change }) => {
     for (const [key, value] of Object.entries(change)) if (value !== undefined) w.set('frame', frameId, key, value)
+    if (starred === true) w.set('frame', frameId, 'starred', true)
+    else if (starred === false) w.unset('frame', frameId, 'starred')
   },
 })
 
@@ -223,20 +259,26 @@ export const frameAddSize = defineCommand({
 })
 
 /**
- * Deletes a frame and its layers; their linked copies in other frames stay, and undo brings the
- * frame and its layers back. A page may be left with no frame.
+ * Deletes a frame, its layers and its connectors, and a section it empties with that section's
+ * connectors; their linked copies in other frames stay, and undo brings all back. A page may be left
+ * with no frame. On the page, it also deletes what races left (`sweepPage`).
  */
 export const frameDelete = defineCommand({
   name: 'frame.delete',
   description:
-    'Deletes a frame and its layers; their linked copies in other frames stay, and a page may be left with no frame. It refuses a missing frame.',
+    'Deletes a frame, its layers and its connectors, and a section it leaves with no frame with that section’s connectors; their linked copies in other frames stay, and a page may be left with no frame. It refuses a missing frame.',
   step: 'delete',
   input: z.strictObject({ frameId: FrameId.describe('The frame to delete.') }),
   check: ({ design }, { frameId }) => frameProblem(design, frameId),
-  apply: ({ w, design }, { frameId }) => deleteFrame(w, design, frameId),
+  apply: ({ w, design }, { frameId }) => {
+    const records = pageRecords(design, design.frames[frameId]?.pageId ?? '')
+    forgetFrame(w, records, frameId)
+    deleteFrame(w, design, frameId)
+    sweepPage(w, records)
+  },
 })
 
-/** Deletes a frame's layers and removes the frame, for frame.delete and page.delete. */
+/** Deletes a frame's layers and removes the frame, for frame.delete, section.delete and page.delete. */
 export function deleteFrame(w: StoreWrite, design: Design, frameId: string) {
   // Its layers are deleted as node.delete deletes them, so undo and other tabs' edits behave alike.
   for (const node of descendants(design, frameId)) w.remove('layer', node)
@@ -252,26 +294,66 @@ function nextOnPage(w: StoreWrite, design: Design, pageId: string, id: string) {
 }
 
 /**
- * A copy of a frame placed by the frame rule, with a copy of every layer keeping its link id, sized
- * to a new size when it has one (`sizedLayers`). A copy at a new size is named by it, such as
- * "1200×628", and has no guides: they belong to the frame's own size.
+ * A copy of a frame with a copy of every layer keeping its link id, sized to a new size when it has
+ * one (`sizedLayers`). Outside a section it goes where the frame rule puts it; in one, it stays in
+ * that section, at the free spot right of the section's rightmost frame, at the original's top
+ * (`freeSpot`). A copy at a new size is named by it, such as "1200×628", and has no guides: they
+ * belong to the frame's own size.
  */
 function copyFrame(ctx: CommandContext, frameId: string, newId: string, size?: Size) {
   const { w, design } = ctx
-  const { guides, ...frame } = design.frames[frameId] as Frame
+  const frame = design.frames[frameId] as Frame
+  const next = nextOnPage(w, design, frame.pageId, newId)
+  const sectionId = sectionOf(design, frameId)
+  if (sectionId === undefined) return copyFrameTo(ctx, frameId, newId, next, size)
+  const at = freeSpot(design, frame.pageId, size ?? frame, { ...rightmostIn(design, sectionId), y: frame.y })
+  return copyFrameTo(ctx, frameId, newId, { ...at, order: next.order, sectionId }, size)
+}
+
+/**
+ * Copies a frame to `place`, with a copy of every layer keeping its link id, sized to `size` when
+ * given (named by it, with no guides). The copy is never starred, and is in the section `place`
+ * names, if any. Returns its id.
+ */
+export function copyFrameTo(ctx: CommandContext, frameId: string, newId: string, place: CopyPlace, size?: Size) {
+  const { w, design } = ctx
+  const { guides, ...frame } = unmarked(design.frames[frameId] as Frame)
   const to = size ?? frame
   const copy: Frame = {
     ...frame,
     ...(!size && guides && { guides }),
-    ...nextOnPage(w, design, frame.pageId, newId),
     ...(size && { name: `${size.width}×${size.height}` }),
     width: to.width,
     height: to.height,
+    x: place.x,
+    y: place.y,
+    order: place.order,
+    ...(place.sectionId !== undefined && { sectionId: place.sectionId }),
   }
   w.create('frame', newId, copy)
   copyFrameLayers(ctx, frameId, newId, { links: 'keep', ...(size && { props: sizedLayers(design, frameId, size) }) })
 
   return newId
+}
+
+/** A frame's record with no star and in no section: what a copy made in the design starts from. */
+export function unmarked(frame: Frame): Frame {
+  const copy = { ...frame }
+  delete copy.starred
+  delete copy.sectionId
+  return copy
+}
+
+/** The box of the frame of a section whose right edge is furthest right, the first of those that tie. */
+function rightmostIn(design: Design, sectionId: string): Rect {
+  let rightmost: Rect = { x: 0, y: 0, width: 0, height: 0 }
+  let right = -Infinity
+  for (const [, frame] of framesInSection(design, sectionId)) {
+    if (frame.x + frame.width <= right) continue
+    right = frame.x + frame.width
+    rightmost = frame
+  }
+  return rightmost
 }
 
 /**

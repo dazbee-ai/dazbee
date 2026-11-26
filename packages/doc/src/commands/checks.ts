@@ -1,5 +1,5 @@
-// The checks commands share: a free id, a parent that can hold a layer, a page or frame that exists,
-// locks, and layers that exist.
+// The checks commands share: a free id, a parent that can hold a layer, a page, frame, section or
+// connector that exists, frames on one page, locks, and layers that exist.
 import { canHold, type Design, type Layer as LayerT, LayerLock } from '@dazbee/schema'
 
 import type { CommandContext } from './define.ts'
@@ -8,7 +8,7 @@ import type { CommandContext } from './define.ts'
 const RESIZE_PATHS = new Set(['width', 'height', 'rotation', 'flipX', 'flipY', 'lockRatio'])
 
 /**
- * Why a new id a caller gives is not free, if it is not: a page, a frame or a layer holds it now,
+ * Why a new id a caller gives is not free, if it is not: a page, a frame, a layer, a section or a connector holds it now,
  * whatever its read makes of it (C27).
  */
 export const idProblem = ({ w }: CommandContext, id: string | undefined) =>
@@ -30,6 +30,29 @@ export const pageProblem = (design: Design, pageId: string) =>
 
 export const frameProblem = (design: Design, frameId: string) =>
   Object.hasOwn(design.frames, frameId) ? undefined : `no frame "${frameId}"`
+
+export const sectionProblem = (design: Design, sectionId: string) =>
+  Object.hasOwn(design.sections, sectionId) ? undefined : `no section "${sectionId}"`
+
+export const connectorProblem = (design: Design, connectorId: string) =>
+  Object.hasOwn(design.connectors, connectorId) ? undefined : `no connector "${connectorId}"`
+
+/** Why frames can't be used together on page `pageId`, if they can't: one is missing or on another page. */
+export function framesOnPageProblem(design: Design, pageId: string, frameIds: readonly string[]) {
+  for (const frameId of frameIds) {
+    const problem = frameProblem(design, frameId)
+    if (problem) return problem
+    if (design.frames[frameId]?.pageId !== pageId) return `frame "${frameId}" is on another page`
+  }
+  return undefined
+}
+
+/** Why a section can't hold frames of page `pageId`, if it can't: it is missing or on another page. */
+export function sectionOnPageProblem(design: Design, pageId: string, sectionId: string) {
+  const problem = sectionProblem(design, sectionId)
+  if (problem) return problem
+  return design.sections[sectionId]?.pageId === pageId ? undefined : `section "${sectionId}" is on another page`
+}
 
 /**
  * The lock flag a change to a property needs clear: position and constraints, size, rotation, flip

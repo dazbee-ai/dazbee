@@ -147,6 +147,24 @@ describe('liveDesignStore', () => {
     expect([during, after]).toEqual([0, 1])
   })
 
+  it('tells a held follower at once of a section or connector change in a gesture', () => {
+    const held = follow(e, 'held places')
+    e.core.session.run('section.add', { pageId: 'p1', id: 'group', frameIds: ['sq'] })
+    e.core.redraw()
+    const before = held.told()
+    const end = e.core.beginGesture()
+    e.core.setProps(['n1'], () => ({ x: 200 }))
+    e.core.redraw()
+    e.core.session.run('section.update', { sectionId: 'group', title: 'Renamed' })
+    e.core.redraw()
+    const during = held.told() - before
+    end()
+    e.press('undo')
+    e.press('undo')
+    held.stop()
+    expect(during).toBe(1)
+  })
+
   it('tells each follower of new brand kit values, which change what layers bound to them show, and not of a redraw alone', async () => {
     const every = follow(e, 'every change')
     const held = follow(e, 'held places')

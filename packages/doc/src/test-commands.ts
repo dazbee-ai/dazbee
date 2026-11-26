@@ -11,6 +11,7 @@ import { defineCommand } from './commands/define.ts'
 import { COMMANDS } from './commands/index.ts'
 import type { Session } from './session.ts'
 import { badge, HEADLINE_LOOK } from './test-design.ts'
+import { section, SECTION_INPUTS } from './test-section-inputs.ts'
 
 /**
  * A design the sweep runs commands on, with the id of a layer deleted from it, and the id an input
@@ -372,6 +373,13 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'frame.add': ({ design, made }) => [
     { pageId: page(design), name: 'Added', width: 300, height: 250 },
     { id: made('new-frame'), pageId: page(design), name: 'Added', width: 300, height: 250, x: 40, y: 50 },
+    {
+      pageId: design.sections[section(design)]?.pageId ?? page(design),
+      name: 'Added',
+      width: 300,
+      height: 250,
+      sectionId: section(design),
+    },
   ],
   'frame.update': ({ design }) => [
     {
@@ -383,6 +391,8 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
       y: 20,
       fills: [{ type: 'solid', color: '#112233FF' }],
     },
+    { frameId: frame(design), starred: true },
+    { frameId: frame(design), starred: false },
   ],
   'frame.duplicate': ({ design, made }) => [
     { frameId: frame(design) },
@@ -400,6 +410,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'guide.remove': ({ design }) => [{ frameId: frame(design), index: 1 }],
   'guide.clear': ({ design }) => [{ frameId: frame(design) }],
   'design.restore': ({ design }) => [{ design: version(design), mark: RESTORE_MARK }],
+  ...SECTION_INPUTS,
   'frame.resize': ({ design }) => [
     { frameId: frame(design), width: 600, height: 500 },
     { frameId: frame(design), width: 400, height: 300, x: -20.5, y: 30, layers: 'follow' },
@@ -504,14 +515,18 @@ function liveIds(design: Design): [string, string][] {
     ["a live page's id", first(design.pages)],
     ["a live frame's id", first(design.frames)],
     ["a live layer's id", first(design.nodes)],
+    ["a live section's id", first(design.sections)],
+    ["a live connector's id", first(design.connectors)],
   ]
   return ids.filter((entry): entry is [string, string] => entry[1] !== undefined)
 }
 
 /** What an id names in the design, if anything. */
-function kindOf(design: Design, id: string): 'layer' | 'frame' | 'page' | undefined {
+function kindOf(design: Design, id: string): 'layer' | 'frame' | 'page' | 'section' | 'connector' | undefined {
   if (Object.hasOwn(design.nodes, id)) return 'layer'
   if (Object.hasOwn(design.frames, id)) return 'frame'
+  if (Object.hasOwn(design.sections, id)) return 'section'
+  if (Object.hasOwn(design.connectors, id)) return 'connector'
   return Object.hasOwn(design.pages, id) ? 'page' : undefined
 }
 
@@ -526,6 +541,7 @@ function wrongTargets({ design, deleted }: World, id: string): [string, string][
     ["a frame's id", kind === 'frame' ? undefined : frame(design)],
     ["a page's id", kind === 'page' ? undefined : page(design)],
     ["a layer's id", kind === 'layer' ? undefined : Object.keys(design.nodes)[0]],
+    ["a section's id", kind === 'section' ? undefined : Object.keys(design.sections)[0]],
     ['a layer of another page', elsewhere],
   ]
   return targets.filter((target): target is [string, string] => target[1] !== undefined)

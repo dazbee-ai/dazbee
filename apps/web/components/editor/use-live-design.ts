@@ -25,6 +25,8 @@ interface Parts {
   meta: Design['meta']
   pages: Design['pages']
   frames: Design['frames']
+  sections: Design['sections']
+  connectors: Design['connectors']
   nodes: Map<string, Design['nodes'][string]>
 }
 
@@ -131,15 +133,17 @@ function sharedStore(editor: Editor, follows: Follows) {
 }
 
 function partsOf(design: Design): Parts {
-  return { meta: design.meta, pages: design.pages, frames: design.frames, nodes: new Map(Object.entries(design.nodes)) }
+  const { meta, pages, frames, sections, connectors } = design
+  return { meta, pages, frames, sections, connectors, nodes: new Map(Object.entries(design.nodes)) }
 }
 
 /**
  * Whether the design differs from `was` only in layers' x, y, width or height. A change to the meta,
- * a page or a frame makes the design read whole again, with new objects throughout, so it never is.
+ * a page, a frame, a section or a connector gives the part it changed a new object, so it never is.
  */
 function onlyPlaces(was: Parts, now: Design) {
-  if (was.meta !== now.meta || was.pages !== now.pages || was.frames !== now.frames) return false
+  const head = ['meta', 'pages', 'frames', 'sections', 'connectors'] as const
+  if (head.some((part) => was[part] !== now[part])) return false
   const ids = Object.keys(now.nodes)
   if (ids.length !== was.nodes.size) return false
   return ids.every((id) => {

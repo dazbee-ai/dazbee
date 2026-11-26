@@ -52,11 +52,13 @@ export type Frame = z.infer<typeof Frame>
 
 /**
  * The version of this schema, which the API writes into a design's record when it creates one. A
- * sync token carries the larger of the design's and the API's, and the sync server refuses a tab
- * built with an older version. 22 adds a page's sections and connectors, and a frame's
- * `sectionId` and `starred` (ADR-0024).
+ * sync token carries the design's, and the sync server refuses a tab built with an older version
+ * than the token's or its own. 22 adds a page's sections and connectors, and a frame's `sectionId`
+ * and `starred` (ADR-0024). 23 adds their commands: a copy of a frame or a page made in the design
+ * is never starred and takes its section as the commands place it, where a tab built at 22 copies
+ * both keys as they are.
  */
-export const SCHEMA_VERSION = 22
+export const SCHEMA_VERSION = 23
 
 export const DesignMeta = z.object({
   designId: z.string().min(1),

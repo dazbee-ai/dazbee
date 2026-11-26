@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { framesOf, inOrder } from '@dazbee/schema'
+import { connectorsOf, framesInSection, framesOf, inOrder, sectionsOf } from '@dazbee/schema'
 
 import { childrenOf, readDesign } from '../index.ts'
-import { badge, openTestSession } from '../test-design.ts'
+import { badge, openTestSession, sectionedDesign } from '../test-design.ts'
 import { openTestStore } from '../test-store.ts'
 
 const story = { id: 'p2-story', name: 'Story and Reel', width: 1080, height: 1920 }
@@ -215,6 +215,46 @@ describe('page.delete', () => {
     expect(Object.values(after.frames).every((f) => f.pageId === copy)).toBe(true)
     expect(Object.keys(after.nodes)).toHaveLength(4)
 
+    tab.undo()
+    expect(readDesign(store)).toEqual(before)
+  })
+})
+
+describe('page commands on a page with sections and connectors', () => {
+  it('page.duplicate copies them with new ids, its frames in the copied sections joined by the copied connectors, none starred', () => {
+    const store = openTestStore(sectionedDesign())
+    const tab = openTestSession(store)
+    const copy = tab.run('page.duplicate', { id: 'p1' })
+    const design = readDesign(store)
+    const sections = sectionsOf(design, copy)
+    expect(sections.map(([, s]) => s)).toEqual([
+      { pageId: copy, title: 'Ads', order: 'a0' },
+      { pageId: copy, title: 'Banners', order: 'a1' },
+    ])
+    const [[ads = ''] = [], [banners = ''] = []] = sections
+    expect(['ads', 'banners']).not.toContain(ads)
+    const named = (sectionId: string) => framesInSection(design, sectionId).map(([, f]) => f.name)
+    expect(named(ads)).toEqual(['Square', 'Story'])
+    expect(named(banners)).toEqual(['Wide'])
+    const idOf = (name: string) => framesOf(design, copy).find(([, f]) => f.name === name)?.[0]
+    expect(connectorsOf(design, copy).map(([, c]) => [c.from, c.to, c.order])).toEqual([
+      [idOf('Square'), idOf('Story'), 'a0'],
+      [ads, idOf('Wide'), 'a1'],
+    ])
+    expect(framesOf(design, copy).some(([, f]) => f.starred)).toBe(false)
+    expect(design.frames.story?.starred).toBe(true)
+    tab.undo()
+    expect(readDesign(store)).toEqual(readDesign(openTestStore(sectionedDesign())))
+  })
+
+  it('page.delete deletes them itself, and its undo brings them back', () => {
+    const store = openTestStore(sectionedDesign())
+    const tab = openTestSession(store)
+    const before = readDesign(store)
+    tab.run('page.delete', { id: 'p1' })
+    const after = readDesign(store)
+    expect(Object.keys(after.sections)).toEqual(['far-section'])
+    expect(after.connectors).toEqual({})
     tab.undo()
     expect(readDesign(store)).toEqual(before)
   })

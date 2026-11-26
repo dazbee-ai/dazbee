@@ -79,6 +79,31 @@ describe('design thumbnails', { timeout: 30_000 }, () => {
     expect(keyOf(changed.url)).not.toBe(keyOf(first.url))
   })
 
+  it('draws no section, connector or star: the same picture as the design without them', async () => {
+    const plain = story('#22AA66FF')
+    const sectioned = {
+      ...plain,
+      frames: {
+        sq: { ...plain.frames.sq, sectionId: 'ads' },
+        st: { ...plain.frames.st, sectionId: 'ads', starred: true },
+      },
+      sections: { ads: { pageId: 'p2', title: 'Ads', order: 'a0' } },
+      connectors: {
+        one: { pageId: 'p2', from: 'st', to: 'sq', order: 'a0' },
+        two: { pageId: 'p2', from: 'ads', to: 'sq', order: 'a1' },
+      },
+    }
+    const pictureOf = async (content: unknown) => {
+      const { json } = await call('a', 'POST', `/brands/${brand.id}/designs`, { name: 'Story', content })
+      const { id } = DesignSummary.parse(json)
+      const { url } = DesignThumbnail.parse(
+        (await call('a', 'GET', `/brands/${brand.id}/designs/${id}/thumbnail`)).json,
+      )
+      return new Uint8Array(await (await fetch(url)).arrayBuffer())
+    }
+    expect(await pictureOf(sectioned)).toEqual(await pictureOf(plain))
+  })
+
   it('moves the font bytes to the drawing thread instead of copying them', async () => {
     const parsed = parseDesign(story('#FF48B0FF'))
     if (!parsed.success) throw new Error('the story fixture is a design')

@@ -1,16 +1,17 @@
 // Saving an AI job with its hold, against Postgres from Docker Compose and a real pg-boss.
 import { eq } from 'drizzle-orm'
 import { PgBoss } from 'pg-boss'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { aiCalls, aiJobs, aiLedger, memberships, newId, users, workspaces } from '@dazbee/db'
-import type { AiStepsInput, MemberRole } from '@dazbee/schema'
+import type { AiStepsInput, CallInput, MemberRole } from '@dazbee/schema'
 
+import { callAi } from './call.ts'
 import { cancelJob, ensureQueue, readJob, saveJob } from './jobs.ts'
 import { giveGrant, left } from './ledger.ts'
 import { testSeller } from './sellers/test-sellers.ts'
 import { aiSettingsOf } from './settings.ts'
-import { addStep, db, newSeller, RUPEE } from './test-ai.ts'
+import { addJob, addStep, db, newSeller, newWorkspace, RUPEE } from './test-ai.ts'
 import { DATABASE_URL } from './test-database.ts'
 
 const boss = new PgBoss({ connectionString: DATABASE_URL, max: 2, supervise: false, schedule: false })
@@ -120,6 +121,29 @@ describe('readJob', () => {
     if (!saved.ok) throw new Error(saved.refusal)
     expect(await readJob(db, who.workspace, saved.job)).toMatchObject({ id: saved.job, state: 'waiting', output: null })
     expect(await readJob(db, 'another', saved.job)).toBeNull()
+  })
+
+  it('gives each started call: one made with its output, one that failed for good, one still being made', async () => {
+    const workspace = newWorkspace()
+    const job = await addJob(workspace)
+    const made = await addStep([testSeller(newSeller('made'))])
+    const refused = await addStep([testSeller(newSeller('refused'), [{ fail: 400 }])])
+    const slow = await addStep([testSeller(newSeller('slow'), [], { afterMs: 5000, timeoutMs: 10_000 })])
+    const text: CallInput = { kind: 'text', instructions: 'Read.', prompt: 'An ad.', pictures: [] }
+    const call = (callIndex: number, step: string, signal = new AbortController().signal) =>
+      callAi(db, { job: { id: job, workspaceId: workspace }, attempt: 1, callIndex, step, input: text, signal })
+    await call(0, made.step)
+    await expect(call(1, refused.step)).rejects.toThrow()
+    const stop = new AbortController()
+    const making = call(2, slow.step, stop.signal).catch(() => null)
+    await vi.waitFor(async () => expect((await readJob(db, workspace, job))?.calls).toHaveLength(3))
+    expect((await readJob(db, workspace, job))?.calls).toEqual([
+      { index: 0, step: made.step, state: 'done', output: { kind: 'text', text: 'test answer' } },
+      { index: 1, step: refused.step, state: 'failed', failure: 'not-made' },
+      { index: 2, step: slow.step, state: 'running' },
+    ])
+    stop.abort()
+    await making
   })
 })
 

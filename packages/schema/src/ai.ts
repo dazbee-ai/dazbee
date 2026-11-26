@@ -2,6 +2,8 @@
 // the units the price list counts usage in, and what each kind of call takes and gives back.
 import { z } from 'zod'
 
+import { AssetId } from './primitives.ts'
+
 /**
  * Every AI step, each priced and logged on its own, named `<feature>.<name>` by the feature that calls it:
  * `flow` is the AI flow.
@@ -15,6 +17,9 @@ export const AI_STEPS = [
   'flow.resize',
   'flow.layer-plan',
   'flow.layer-split',
+  'flow.round-plan-full',
+  'flow.reference-read',
+  'flow.refine-plan',
 ] as const
 
 export const AiStep = z.enum(AI_STEPS)
@@ -90,7 +95,7 @@ export type LedgerKind = z.infer<typeof LedgerKind>
 export const MAX_REFERENCES = 16
 
 /** A stored picture: the storage key of a workspace original. */
-const PictureKey = z.string().min(1).max(500)
+export const PictureKey = z.string().min(1).max(500)
 
 /** A text call: instructions and a prompt, with optional pictures to read, and an optional JSON schema for the answer. */
 export const TextCall = z.object({
@@ -184,11 +189,12 @@ export type LayerSplitResult = z.infer<typeof LayerSplitResult>
 export const CallInput = z.discriminatedUnion('kind', [TextCall, PictureCall, LayerSplitCall])
 export type CallInput = z.infer<typeof CallInput>
 
-/** A stored picture an AI call made, with its size. */
+/** A stored picture an AI call made, with its size, and the brand asset recorded on its key when there is one. */
 export const MadePicture = z.object({
   key: PictureKey,
   width: z.number().int().positive(),
   height: z.number().int().positive(),
+  assetId: AssetId.optional(),
 })
 export type MadePicture = z.infer<typeof MadePicture>
 
@@ -200,8 +206,14 @@ export const CallOutput = z.discriminatedUnion('kind', [
 ])
 export type CallOutput = z.infer<typeof CallOutput>
 
-/** The kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved. */
-export const AI_JOB_KINDS = ['ai-steps'] as const
+/** The job kinds of the AI flow, one for each action a person asks for (input contracts in `ai-flow.ts`). */
+export const FLOW_JOB_KINDS = ['round', 'more-like-this', 'try-again', 'refine', 'resize', 'layering'] as const
+
+export const FlowJobKind = z.enum(FLOW_JOB_KINDS)
+export type FlowJobKind = z.infer<typeof FlowJobKind>
+
+/** The job kinds of AI job. `ai-steps` runs a list of AI calls given when it is saved; the rest are the flow's. */
+export const AI_JOB_KINDS = ['ai-steps', ...FLOW_JOB_KINDS] as const
 
 export const AiJobKind = z.enum(AI_JOB_KINDS)
 export type AiJobKind = z.infer<typeof AiJobKind>
@@ -232,12 +244,36 @@ export const AI_JOB_REFUSALS = ['not-allowed', 'used-up', 'stopped'] as const
 export const AiJobRefusal = z.enum(AI_JOB_REFUSALS)
 export type AiJobRefusal = z.infer<typeof AiJobRefusal>
 
-/** An AI job as its workspace reads it: its state, and its output once done or why it failed. */
+/**
+ * Why a call ended without a result, as its workspace reads it: no seller made it, its answer was cut off at its
+ * ceiling, or it is an unknown call, which its seller may have made but whose result wasn't kept.
+ */
+export const AI_CALL_FAILURES = ['not-made', 'cut-off', 'unknown'] as const
+
+export const AiCallFailure = z.enum(AI_CALL_FAILURES)
+export type AiCallFailure = z.infer<typeof AiCallFailure>
+
+/** Where one call of a job sits: its place in the job and its AI step. */
+const CallPlace = z.object({ index: z.number().int().nonnegative(), step: z.string() })
+
+/** One call of an AI job as its workspace reads it: being made, made with its output, or failed with why. */
+export const AiCallView = z.discriminatedUnion('state', [
+  CallPlace.extend({ state: z.literal('running') }),
+  CallPlace.extend({ state: z.literal('done'), output: CallOutput }),
+  CallPlace.extend({ state: z.literal('failed'), failure: AiCallFailure }),
+])
+export type AiCallView = z.infer<typeof AiCallView>
+
+/**
+ * An AI job as its workspace reads it: its state, its output once done or why it failed, and each call it has
+ * started, by call index, so a tab can show each picture as soon as it is made.
+ */
 export const AiJobView = z.object({
   id: z.string(),
   kind: AiJobKind,
   state: AiJobState,
   output: AiStepsOutput.nullable(),
+  calls: z.array(AiCallView),
   error: z.string().nullable(),
   createdAt: z.iso.datetime(),
   endedAt: z.iso.datetime().nullable(),

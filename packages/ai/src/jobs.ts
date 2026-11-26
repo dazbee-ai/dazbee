@@ -3,11 +3,12 @@
 // job ended without them. The worker runs them; this module is shared with the API.
 import { randomUUID } from 'node:crypto'
 
-import { and, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { fromDrizzle, type PgBoss, type QueueOptions } from 'pg-boss'
 
 import { aiCalls, aiJobs, type Db, memberships, newId, type Tx } from '@dazbee/db'
 import {
+  type AiCallView,
   type AiJobKind,
   AiJobMessage,
   type AiJobRefusal,
@@ -15,8 +16,11 @@ import {
   type AiJobView,
   AiStepsInput,
   AiStepsOutput,
+  type CallOutput,
+  type CallState,
 } from '@dazbee/schema'
 
+import { CUT_OFF } from './call-log.ts'
 import { endHold, hold } from './ledger.ts'
 import { aiSettingsOf } from './settings.ts'
 import { holdFor } from './steps.ts'
@@ -221,6 +225,13 @@ export async function endJob(db: Db, job: string, attempt: number, end: JobEnd):
 
 /** The job's state as its workspace reads it, or null when the workspace has no such job. */
 export async function readJob(db: Db | Tx, workspace: string, job: string): Promise<AiJobView | null> {
+  // The call log before the job: a try read as done had its output kept in the same transaction, so the job
+  // read after it holds that output.
+  const tries = await db
+    .select({ callIndex: aiCalls.callIndex, step: aiCalls.step, state: aiCalls.state, error: aiCalls.error })
+    .from(aiCalls)
+    .where(and(eq(aiCalls.jobId, job), eq(aiCalls.workspaceId, workspace)))
+    .orderBy(asc(aiCalls.callIndex), asc(aiCalls.try))
   const [row] = await db
     .select()
     .from(aiJobs)
@@ -231,6 +242,7 @@ export async function readJob(db: Db | Tx, workspace: string, job: string): Prom
     kind: row.kind,
     state: row.state,
     output: row.output ? AiStepsOutput.parse(row.output) : null,
+    calls: callViews(tries, row.callOutputs),
     error: row.error,
     createdAt: row.createdAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
@@ -310,4 +322,23 @@ async function endWith(
     .set({ ...change, endedAt: new Date() })
     .where(eq(aiJobs.id, job))
   await endHold(tx, { workspace, job })
+}
+
+/**
+ * Each started call of a job, by call index, from its tries in the call log (oldest first) and the outputs kept:
+ * made when its output is kept, being made while its latest try runs or is done with its output not yet read,
+ * and otherwise failed, with why.
+ */
+function callViews(
+  tries: { callIndex: number; step: string; state: CallState; error: string | null }[],
+  outputs: Record<string, CallOutput>,
+): AiCallView[] {
+  const latest = new Map(tries.map((t) => [t.callIndex, t]))
+  return [...latest.values()].map(({ callIndex: index, step, state, error }): AiCallView => {
+    const output = outputs[String(index)]
+    if (output) return { index, step, state: 'done', output }
+    if (state === 'running' || state === 'done') return { index, step, state: 'running' }
+    const failure = state === 'unknown' ? 'unknown' : error === CUT_OFF ? 'cut-off' : 'not-made'
+    return { index, step, state: 'failed', failure }
+  })
 }

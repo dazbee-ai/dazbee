@@ -80,6 +80,14 @@ const pictureTokens = (input: CallInput) =>
 export const STEPS: Record<string, StepDef> = {
   // Ceilings start at 4 times the expected output, to be set from the measured sizes once calls are made.
   'flow.round-plan': textStep({ input: 6000, output: 3000, ceiling: 12_000 }),
+  // The full round director (about 3,200 tokens), the brief and two pictures in; four ads of up to 1,300
+  // characters each, with their ideas and arrangements, and the planner's reasoning out.
+  'flow.round-plan-full': textStep({ input: 12_000, output: 6000, ceiling: 24_000 }),
+  // The reference reader (about 700 tokens) and one picture in; one sentence, a yes or no and a kind out.
+  'flow.reference-read': textStep({ input: 5500, output: 500, ceiling: 2000 }),
+  // The refine editor (about 500 tokens), the message, the ad and its marked copy in; one paragraph, a few words
+  // and a yes or no out.
+  'flow.refine-plan': textStep({ input: 10_000, output: 1000, ceiling: 4000 }),
   'flow.read': textStep({ input: 8000, output: 2000, ceiling: 8000 }),
   'flow.layer-plan': textStep({ input: 8000, output: 4000, ceiling: 16_000 }),
   'flow.draft-fast': { kind: 'picture', expected: (input) => pictureUsage(input) },

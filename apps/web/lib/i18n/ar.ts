@@ -1498,6 +1498,9 @@ export const ar: Messages = {
     },
     steps: {
       'flow.round-plan': 'خطة الجولة',
+      'flow.round-plan-full': 'خطة الجولة، كاملة',
+      'flow.reference-read': 'قراءة المرجع',
+      'flow.refine-plan': 'خطة التحسين',
       'flow.read': 'القراءة',
       'flow.layer-plan': 'خطة الطبقات',
       'flow.draft-fast': 'مسودة، سريع',

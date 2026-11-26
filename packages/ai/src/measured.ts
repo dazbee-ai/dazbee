@@ -5,7 +5,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, not, or, sql } from 'drizzle
 import { aiCalls, type Db, type Tx } from '@dazbee/db'
 import { SELLERS } from '@dazbee/schema'
 
-import { CUT_OFF } from './call-log.ts'
+import { CUT_OFF, RESUMED } from './call-log.ts'
 import type { Preset } from './functions/types.ts'
 
 /** A preset's cost in millionths of a rupee of real cost, its seconds, and how many done calls they come from. */
@@ -22,7 +22,7 @@ export interface PresetMeasured extends PresetNumbers {
   done: number
   /** Its tries cut off at their ceiling. */
   cutOffs: number
-  /** Its tries that failed any other way. */
+  /** Its tries that failed any other way, a try whose request a later try took over left out. */
   failures: number
 }
 
@@ -65,16 +65,18 @@ export async function presetNumbers(db: Db | Tx, fn: string, name: string, prese
 /**
  * What `preset`'s calls measured, for the admin page: the cost and seconds `presetNumbers` gives its hold and its
  * wait, with how many of its calls were done, how many of its tries were cut off at their ceiling, and how many
- * failed any other way. The same calls count as there: those our sellers made, with no replayed call.
+ * failed any other way. A try whose request a later try took over is no failure: its one request went on under
+ * the later try. The same calls count as there: those our sellers made, with no replayed call.
  */
 export async function presetMeasured(db: Db | Tx, fn: string, name: string, preset: Preset): Promise<PresetMeasured> {
   const numbers = await presetNumbers(db, fn, name, preset)
   const failed = sql`${aiCalls.state} = 'failed'`
+  const otherwise = sql`${aiCalls.error} is null or ${aiCalls.error} not in (${CUT_OFF}, ${RESUMED})`
   const [counts] = await db
     .select({
       done: sql<number>`(count(*) filter (where ${DONE}))::int`,
       cutOffs: sql<number>`(count(*) filter (where ${failed} and ${aiCalls.error} = ${CUT_OFF}))::int`,
-      failures: sql<number>`(count(*) filter (where ${failed} and ${aiCalls.error} is distinct from ${CUT_OFF}))::int`,
+      failures: sql<number>`(count(*) filter (where ${failed} and (${otherwise})))::int`,
     })
     .from(aiCalls)
     .where(madeByOurs(fn, name))

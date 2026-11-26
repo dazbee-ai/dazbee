@@ -238,14 +238,16 @@ function roundTo16(value: number): number {
 
 /**
  * The tier an answer ran on, from its `service_tier`: standard when it says `default`, as a fast call moved to
- * standard speed does and is billed at standard rates, fast when it says fast; the tier asked for when it names
- * none, or one we never ask for, which is logged.
+ * standard speed does and is billed at standard rates, fast when a fast call says fast; the tier asked for when it
+ * names none, one we never ask for, or fast for a call that asked for standard, which is logged. A standard call is
+ * so never counted in the fast units, which its model may have no price for.
  */
 function ranOn(serviceTier: string | null | undefined, asked: Tier): Tier {
   if (!serviceTier) return asked
   const tier = ANSWERED_TIERS[serviceTier]
-  if (!tier) console.warn(JSON.stringify({ msg: 'OpenAI answered on a tier we never ask for', serviceTier, asked }))
-  return tier ?? asked
+  if (tier && !(tier === 'fast' && asked === 'standard')) return tier
+  console.warn(JSON.stringify({ msg: 'OpenAI answered on a tier we never ask for', serviceTier, asked }))
+  return asked
 }
 
 /**

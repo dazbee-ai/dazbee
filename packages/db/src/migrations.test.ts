@@ -377,8 +377,11 @@ describe('the migrations', () => {
     await applyMigrations(changed, MIGRATIONS)
     const kept = await withClient(changed, async (client) => ({
       input: (await terra(client)).rows.find((row) => row.unit === 'input-token'),
+      fastInput: (await terra(client)).rows.find((row) => row.unit === 'fast-input-token'),
       sellers: (await sellers(client)).rows,
     }))
+    // The fast price follows the admin's own standard price.
+    expect(kept.fastInput).toEqual({ seller: 'openai', unit: 'fast-input-token', price: 2_469_134 })
     expect(kept.input).toEqual({ seller: 'openai', unit: 'input-token', price: 1_234_567 })
     expect(kept.sellers).toEqual([{ seller: 'openrouter', position: 1 }])
   }, 60_000)

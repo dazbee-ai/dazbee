@@ -152,6 +152,8 @@ describe('openaiSeller', () => {
     expect((await plain.seller.call(requestOf(TEXT, { effort: 'none' }))).usage).toEqual(standard)
     const sent = JSON.parse(String(plain.seen[0]?.body))
     expect(sent).toMatchObject({ reasoning: { effort: 'none' }, service_tier: 'default' })
+    // An answer that says fast to a call that asked for standard is counted at standard, the tier asked for.
+    expect((await ranOn('fast').seller.call(requestOf(TEXT))).usage).toEqual(standard)
     const bare = ranOn('default')
     await bare.seller.call(requestOf(TEXT))
     expect(JSON.parse(String(bare.seen[0]?.body)).reasoning).toBeUndefined()

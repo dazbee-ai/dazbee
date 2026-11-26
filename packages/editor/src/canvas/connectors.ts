@@ -43,6 +43,13 @@ export const ARROW_HALF_WIDTH = 3.5
 const MIN_BEND = 24
 /** The most the ends' distance across the way the curve leaves adds to its bend, in screen pixels. */
 const MAX_CROSS_BEND = 80
+/** The sides of a box, each by the way it faces, in the order a tie between them is settled. */
+const SIDES = [
+  { out: { x: 1, y: 0 } },
+  { out: { x: -1, y: 0 } },
+  { out: { x: 0, y: 1 } },
+  { out: { x: 0, y: -1 } },
+] as const
 /** The straight pieces a curve is cut into to measure how far a point is from it. */
 const PIECES = 24
 
@@ -93,10 +100,16 @@ export function frameEndBox(frame: Frame, camera: Camera): Rect {
  * side by side and vertically when they are stacked. It stands off each side by half the distance
  * between the sides, and by half the ends' distance across (up to MAX_CROSS_BEND) when that is more,
  * so ends far apart across but close along still meet in a smooth S that turns over a visible stretch.
+ * Boxes that overlap both ways have no facing sides clear of each other: the curve then leaves and
+ * reaches the same side of both (`sameSideCurve`), round the outside of them.
  */
 export function connectorCurve(a: Rect, b: Rect): ConnectorCurve {
   const across = Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width))
   const down = Math.max(b.y - (a.y + a.height), a.y - (b.y + b.height))
+  if (across < 0 && down < 0) {
+    const round = sameSideCurve(a, b)
+    if (round) return round
+  }
   if (across >= down) {
     const right = b.x + b.width / 2 >= a.x + a.width / 2 ? 1 : -1
     const from = { x: right > 0 ? a.x + a.width + END_GAP : a.x - END_GAP, y: a.y + a.height / 2 }
@@ -152,6 +165,46 @@ export function nearCurve(curve: ConnectorCurve, p: Point, reach = CONNECTOR_REA
 /** The connector on top at a stage point: the last by order whose curve is within CONNECTOR_REACH of it. */
 export function connectorAt(shown: readonly ShownConnector[], p: Point): ShownConnector | undefined {
   return shown.findLast(({ curve }) => nearCurve(curve, p))
+}
+
+/**
+ * The curve from the middle of one side of box `a` to the middle of the same side of box `b`, round
+ * the outside of both: the side whose two ends lie clear of the other box, of those, the one where
+ * the two sides are nearest in line (right, left, bottom, top on a tie). Both control points stand
+ * past the outer of the two sides, so the curve leaves and reaches them square. Null when no side
+ * has both ends clear, as for a box inside the other.
+ */
+function sameSideCurve(a: Rect, b: Rect): ConnectorCurve | null {
+  let best: { curve: ConnectorCurve; apart: number } | null = null
+  for (const side of SIDES) {
+    const [from, to] = [sidePoint(a, side), sidePoint(b, side)]
+    if (holds(b, from) || holds(a, to)) continue
+    const out = side.out
+    // How far out each end is along the way the side faces, and the distance across between them.
+    const reach = (p: Point) => p.x * out.x + p.y * out.y
+    const apart = Math.abs(reach(from) - reach(to))
+    if (best && apart >= best.apart) continue
+    const across = Math.abs(out.x === 0 ? to.x - from.x : to.y - from.y)
+    const stand = Math.max(Math.min(across / 2, MAX_CROSS_BEND), MIN_BEND)
+    const beyond = (p: Point) => Math.max(reach(from), reach(to)) - reach(p) + stand
+    const control = (p: Point) => ({ x: p.x + out.x * beyond(p), y: p.y + out.y * beyond(p) })
+    best = { curve: { from, c1: control(from), c2: control(to), to }, apart }
+  }
+  return best?.curve ?? null
+}
+
+/** The middle of a box's side, END_GAP outside it, the side by the way it faces. */
+function sidePoint(box: Rect, { out }: (typeof SIDES)[number]): Point {
+  const [midX, midY] = [box.x + box.width / 2, box.y + box.height / 2]
+  return {
+    x: out.x === 0 ? midX : midX + out.x * (box.width / 2 + END_GAP),
+    y: out.y === 0 ? midY : midY + out.y * (box.height / 2 + END_GAP),
+  }
+}
+
+/** Whether a point lies inside a box, its edges included. */
+function holds(box: Rect, p: Point) {
+  return p.x >= box.x && p.x <= box.x + box.width && p.y >= box.y && p.y <= box.y + box.height
 }
 
 /** How far a curve's control points stand off its ends: `along` and `across` are the ends' distances the way it leaves and across it. */

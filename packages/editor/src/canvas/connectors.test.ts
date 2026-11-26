@@ -147,6 +147,19 @@ describe('connectorCurve', () => {
     expect(curve.c2.x).toBeLessThan(curve.to.x)
   })
 
+  it('goes round the outside, from and to the same side of both, when the ends overlap both ways', () => {
+    // A frame beside a section, at its height, a little inside its outline: facing sides would send the
+    // curve back through both.
+    const frame = { x: 480, y: 100, width: 320, height: 200 }
+    const section = { x: 0, y: 0, width: 500, height: 400 }
+    expect(connectorCurve(frame, section)).toEqual({
+      from: { x: 640, y: 306 },
+      c1: { x: 640, y: 486 },
+      c2: { x: 250, y: 486 },
+      to: { x: 250, y: 406 },
+    })
+  })
+
   it('still bends between ends close together', () => {
     const curve = connectorCurve(box(0, 0), box(110, 0))
     expect(curve.c1.x - curve.from.x).toBe(24)

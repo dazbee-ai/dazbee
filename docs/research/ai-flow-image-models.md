@@ -198,6 +198,7 @@ Seven real jobs through a local API and worker on our own workspace: a Fast roun
 - **Whole jobs:** the Fast round ₹12.75 in 43 s, the Precise round ₹13.60 in 52 s, more like this ₹12.47 in 40 s, try again ₹3.04 in 24 s, the refine ₹1.98 in 64 s, two sizes ₹3.85 in 86 s, make editable ₹7.07 in 137 s.
 - **Modal billed US$0.19 for the one split,** six times the 25.8 GPU seconds the call is priced at: the rest is the container starting from its snapshot and waiting 60 s after the call.
 - **The recording** of these 24 calls replays a Fast and a Precise round with no seller called.
+- **Make an image, the same day:** six images through the app on Muse Image, bought from Meta, two at each ratio. Each cost ₹0.93, ₹1.10 with GST, and took 7.1–23.6 s. Asked for 1024 × 1024, 1536 × 1024 and 1024 × 1536, Muse gave back 1600 × 1600, 1920 × 1280 and 1280 × 1920: the ratio asked for, at its own size.
 
 ## Not yet known
 

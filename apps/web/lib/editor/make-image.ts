@@ -52,8 +52,5 @@ export function estimateWords(estimate: AiEstimate | null, t: Messages['editor']
   if (!estimate) return t.make
   const { share, seconds } = estimate
   if (share === null) return format(t.estimateTime, { seconds })
-  return format(t.estimate, {
-    share: share === 'under-1' ? t.shareUnder : format(t.share, { percent: share }),
-    seconds,
-  })
+  return share === 'under-1' ? format(t.estimateUnder, { seconds }) : format(t.estimate, { percent: share, seconds })
 }

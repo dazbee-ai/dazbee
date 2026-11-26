@@ -377,10 +377,9 @@ export const en = {
       make: 'Make an image',
       starting: 'Starting…',
       /** The button's tooltip: the image's share of the workspace's AI, and about how long it takes. */
-      estimate: 'About {share} of this month’s AI, about {seconds} s',
+      estimate: 'About {percent}% of this month’s AI, about {seconds} s',
+      estimateUnder: 'Under 1% of this month’s AI, about {seconds} s',
       estimateTime: 'About {seconds} s',
-      share: '{percent}%',
-      shareUnder: 'under 1%',
       /** A tile of an image being made, and of one that didn't come out. */
       working: 'Making “{words}”',
       failed: '“{words}” didn’t come out. You weren’t charged.',

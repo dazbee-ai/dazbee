@@ -25,7 +25,8 @@ const MODEL_LIMITS: Record<string, PictureLimits> = {
 
 /**
  * The size an AI image's call asks for at each ratio: 1:1, 3:2 and 2:3, the sizes Meta's docs show for Muse Image
- * (dev.meta.ai, the Images API's `size`, as read on 26 Nov 2026). Muse Image takes the size for its ratio only.
+ * (dev.meta.ai, the Images API's `size`, as read on 26 Nov 2026). Muse Image takes the size for its ratio only: it
+ * gave back 1600 × 1600, 1920 × 1280 and 1280 × 1920.
  */
 export const IMAGE_SIZES: Record<ImageRatio, { width: number; height: number }> = {
   square: { width: 1024, height: 1024 },

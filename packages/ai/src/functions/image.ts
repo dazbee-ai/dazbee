@@ -7,8 +7,9 @@ import type { AiFunctionDef } from './types.ts'
 export const image: AiFunctionDef = {
   kind: 'picture',
   presets: {
-    // 17–26 s a picture at a flat price (`docs/research/ai-flow-image-models.md`).
-    muse: { model: 'muse-image-1.0', settings: {}, guess: { cost: 930_000n, seconds: 26 } },
+    // 7–26 s a picture at a flat price, in six paid images at the three ratios
+    // (`docs/research/ai-flow-image-models.md`, the runs of 26 Nov 2026).
+    muse: { model: 'muse-image-1.0', settings: {}, guess: { cost: 1_100_000n, seconds: 26 } },
   },
 }
 

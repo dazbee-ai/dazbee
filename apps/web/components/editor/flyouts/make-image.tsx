@@ -3,7 +3,7 @@
 // Make an image, in the Assets flyout: a few words and one of three ratios become an AI image among the brand's
 // images. The button's tooltip says the image's share of the workspace's AI and about how long it takes. An image
 // being made shows as a tile here, read from the person's own jobs, so closing the panel or the tab stops nothing
-// and a reopened panel shows it still; once it is made the library lists it. One that didn't come out says so, with
+// and a reopened panel shows it still, as does a tab the person comes back to; once it is made the library lists it. One that didn't come out says so, with
 // Try again, which asks again with its own words and ratio. A job that isn't started says why above the button.
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -57,6 +57,19 @@ export function MakeImage({
       .catch(() => undefined)
   }, [read, workspaceId, brandId])
 
+  // A tab the person comes back to reads again: an image asked for in another tab shows here too.
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === 'visible') void read()
+    }
+    document.addEventListener('visibilitychange', back)
+    window.addEventListener('focus', back)
+    return () => {
+      document.removeEventListener('visibilitychange', back)
+      window.removeEventListener('focus', back)
+    }
+  }, [read])
+
   const tiles = imageTiles(jobs ?? [])
   const working = tiles.some((tile) => tile.state === 'working')
   useEffect(() => {
@@ -81,13 +94,15 @@ export function MakeImage({
     const started = await startAiJob(workspaceId, brandId, { kind: 'image', ...asked }).catch(
       () => ({ ok: false, refusal: null, unknown: true }) as const,
     )
-    setStarting(false)
     if (!started.ok) {
+      setStarting(false)
       setSaid(briefSaid(started))
       return
     }
-    setWords((now) => (now.trim() === asked.words ? '' : now))
+    // The words clear once the job's tile is read, so the box never shows neither.
     await read()
+    setWords((now) => (now.trim() === asked.words ? '' : now))
+    setStarting(false)
   }
   const typed = { words: words.trim(), ratio }
   // Used up, paused and not allowed are said in the brief box's words; the rest name the image.
@@ -137,7 +152,7 @@ export function MakeImage({
             ))}
           </div>
           <span className="flex-1" />
-          <Tooltip plain label={estimateWords(estimate, t)}>
+          <Tooltip plain side="bottom" label={estimateWords(estimate, t)}>
             <button
               type="submit"
               disabled={!typed.words || starting}

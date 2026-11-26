@@ -66,7 +66,7 @@ describe('estimateWords', () => {
 
   it('says the share of the workspace’s AI and the time', () => {
     expect(estimateWords({ share: 2, seconds: 26 }, t)).toBe('About 2% of this month’s AI, about 26 s')
-    expect(estimateWords({ share: 'under-1', seconds: 26 }, t)).toBe('About under 1% of this month’s AI, about 26 s')
+    expect(estimateWords({ share: 'under-1', seconds: 26 }, t)).toBe('Under 1% of this month’s AI, about 26 s')
   })
 
   it('says the time alone with no allowance, and the button’s name before it is read', () => {

@@ -110,7 +110,7 @@ export const STEPS: Record<string, StepDef> = {
 /**
  * About how long one call of each AI step takes, in seconds: the slowest time measured for the model it runs, so
  * the wait shown is seldom passed. Pictures from `docs/research/ai-flow-image-models.md`; the round plans from the
- * paid run of the flow's job scripts (#326). The steps not measured yet take their expected output at the speed
+ * paid run of the flow's job scripts. The steps not measured yet take their expected output at the speed
  * measured for their model there: gpt-6-luna wrote 9,810 tokens in 69.1 s (142 a second), gpt-6.2-sol 2,402 in
  * 48.8 s (49 a second).
  */

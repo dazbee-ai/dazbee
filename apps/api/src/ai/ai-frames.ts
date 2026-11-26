@@ -1,7 +1,8 @@
 // A design's AI frames as its tabs read them: each frame with the job and call that fill it, the jobs with each
 // call, and the briefs; a frame's refines; and a call marked written once a tab's arrival of it is confirmed, so it
 // is written into the design once. A frame's stored state is read with its job: a waiting frame whose call failed,
-// or whose job ended without its picture, is failed, and a frame whose layering job failed holds its picture again.
+// or whose job ended without its picture, is failed, and a frame whose layering job ended without its layers holds
+// its picture again.
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 
 import { readJobs } from '@dazbee/ai'
@@ -216,13 +217,13 @@ function frameView(row: typeof aiFrames.$inferSelect, job: AiJobView | undefined
 
 /**
  * A frame's state read with its job: waiting turns failed once its call failed or its job ended without the
- * picture; layering turns back to arrived once the layering job ended without its layers.
+ * picture; layering turns back to arrived once the layering job ended without the frame's layers.
  */
 function frameState(stored: AiFrameState, callIndex: number, job: AiJobView | undefined): AiFrameState {
   const call = job?.calls.find((c) => c.index === callIndex)
   const ended = !job || job.endedAt !== null
   if (stored === 'waiting' && (call?.state === 'failed' || (ended && call?.state !== 'done'))) return 'failed'
-  if (stored === 'layering' && ended && job?.state !== 'done') return 'arrived'
+  if (stored === 'layering' && ended && call?.state !== 'done') return 'arrived'
   return stored
 }
 

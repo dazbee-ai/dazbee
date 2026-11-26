@@ -17,11 +17,13 @@ export { LAYERING_CALL } from './flow/layering.ts'
 export { REFINE_CALL } from './flow/refine.ts'
 export { RESIZE_STAND_IN } from './flow/resize.ts'
 export { ROUND_CALL } from './flow/round.ts'
-export { type FlowAttempt, type FlowDeps, runFlowJob } from './flow/run.ts'
+export { FLOW_CALLS_AT_ONCE, type FlowAttempt, type FlowDeps, runFlowJob } from './flow/run.ts'
 export {
+  allowanceOf,
   charge,
   endHold,
   giveGrant,
+  drawsFirst,
   type GrantLeft,
   grantsOf,
   hold,

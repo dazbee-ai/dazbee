@@ -41,8 +41,9 @@ export async function claimFinish(db: Db, scope: Scope, holder: string): Promise
 }
 
 /**
- * Ends the finish of the brand's layering job: its frames still being made editable become editable and the lease
- * is let go. Ending it again changes nothing. Refused while another holder holds the lease.
+ * Ends the finish of the brand's layering job: its frames still being made editable become editable, but a frame
+ * whose split failed holds its picture again; and the lease is let go. Ending it again changes nothing. Refused
+ * while another holder holds the lease.
  */
 export async function endFinish(db: Db, scope: Scope, holder: string): Promise<'ended' | FinishRefusal> {
   const found = await layeringJob(db, scope)
@@ -54,10 +55,18 @@ export async function endFinish(db: Db, scope: Scope, holder: string): Promise<'
       .where(and(eq(aiJobs.id, scope.job), free(holder)))
       .returning({ id: aiJobs.id })
     if (!ended) return 'held'
-    await tx
-      .update(aiFrames)
-      .set({ state: 'editable', updatedAt: new Date() })
+    const job = await readJob(tx, scope.workspace, scope.job)
+    const frames = await tx
+      .select({ designId: aiFrames.designId, frameId: aiFrames.frameId, callIndex: aiFrames.callIndex })
+      .from(aiFrames)
       .where(and(eq(aiFrames.jobId, scope.job), eq(aiFrames.state, 'layering')))
+    for (const frame of frames) {
+      const split = job?.calls.find((c) => c.index === frame.callIndex)
+      await tx
+        .update(aiFrames)
+        .set({ state: split?.state === 'done' ? 'editable' : 'arrived', updatedAt: new Date() })
+        .where(and(eq(aiFrames.designId, frame.designId), eq(aiFrames.frameId, frame.frameId)))
+    }
     return 'ended'
   })
 }

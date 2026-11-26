@@ -85,6 +85,7 @@ describe('POST /brands/:b/ai/jobs/:id/claim', () => {
 describe('POST /brands/:b/ai/jobs/:id/finished', () => {
   it('makes the job’s frames editable and lets the lease go, refused while another tab holds it', async () => {
     const { team, job, frame } = await layering()
+    await makeCall(job, 1, { step: 'flow.layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
     await endJob(job, 'done')
     await claim(team, job, FIRST)
     expect((await finished(team, job, SECOND)).status).toBe(409)
@@ -93,6 +94,42 @@ describe('POST /brands/:b/ai/jobs/:id/finished', () => {
     const read = DesignAi.parse((await ask(team, team.editor, 'GET', `/designs/${team.design}/ai`)).json)
     expect(read.frames.find((f) => f.frameId === frame)?.state).toBe('editable')
     expect((await claim(team, job, SECOND)).status).toBe(409)
+  })
+})
+
+describe('a finish where one split failed', () => {
+  it('makes editable only the frames whose split was made, the other holding its picture again', async () => {
+    const team = await addTeam()
+    const request = roundRequest(team)
+    const round = await start(team, request)
+    const [first, second] = request.frames.map((f) => f.frameId)
+    const pictures = [await addPicture(team), await addPicture(team)]
+    for (const [n, frame] of [first, second].entries()) {
+      await makeCall(round, n + 1, { output: madePicture(team, pictures[n] ?? '') })
+      await ask(team, team.editor, 'POST', `/designs/${team.design}/ai/frames/${frame}/written`, {
+        jobId: round,
+        callIndex: n + 1,
+      })
+    }
+    const job = await start(team, {
+      kind: 'layering',
+      designId: team.design,
+      frames: [
+        { frameId: first, pictureAssetId: pictures[0] },
+        { frameId: second, pictureAssetId: pictures[1] },
+      ],
+    })
+    await makeCall(job, 1, { step: 'flow.layer-split', output: { kind: 'layers', layers: [], gpuSeconds: 17.5 } })
+    await makeCall(job, 3, { step: 'flow.layer-split', output: 'failed' })
+    await endJob(job, 'done')
+    const states = async () =>
+      DesignAi.parse((await ask(team, team.editor, 'GET', `/designs/${team.design}/ai`)).json).frames
+    expect((await states()).find((f) => f.frameId === second)?.state).toBe('arrived')
+    await claim(team, job, FIRST)
+    expect((await finished(team, job, FIRST)).status).toBe(204)
+    const after = await states()
+    expect(after.find((f) => f.frameId === first)?.state).toBe('editable')
+    expect(after.find((f) => f.frameId === second)?.state).toBe('arrived')
   })
 })
 

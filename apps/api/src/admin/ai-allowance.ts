@@ -151,7 +151,7 @@ async function grantViews(db: Db, workspace: string): Promise<AiGrantView[]> {
     expiresAt: grant.expiresAt.toISOString(),
     live: leftOn.get(grant.id)?.live ?? false,
     note: grant.note,
-    layerSize: grant.layerSize === 1024 ? 1024 : 512,
+    layerSize: leftOn.get(grant.id)?.layerSize ?? 512,
     givenBy,
     createdAt: grant.createdAt.toISOString(),
   }))

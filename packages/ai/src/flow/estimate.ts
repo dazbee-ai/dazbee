@@ -1,37 +1,23 @@
 // What an AI action would take before it is asked for: the hold its job would set aside, as a share of the
 // workspace's live allowance as the usage bar counts it, and about how long it takes, each AI step's time
-// (`STEP_SECONDS`) summed along its job kind's longest path. Calls made side by side count once.
+// (`STEP_SECONDS`) summed along its job kind's longest path. Calls made side by side take as long as the slowest,
+// `FLOW_CALLS_AT_ONCE` at a time.
 import type { Db, Tx } from '@dazbee/db'
 import type {
   AiEstimate,
   AiEstimateQuery,
-  AiMode,
-  AiStep,
   FlowJobInput,
-  FlowJobKind,
   LayeringInput,
   RefineInput,
   ResizeInput,
   RoundInput,
 } from '@dazbee/schema'
 
-import { grantsOf, layerSize } from '../ledger.ts'
+import { allowanceOf, drawsFirst, grantsOf, layerSize } from '../ledger.ts'
 import { holdFor, STEP_SECONDS } from '../steps.ts'
 import { declaredCalls } from './holds.ts'
 import { MODE_STEPS, roundCalls } from './round.ts'
-
-/** A rate of 1, as usage rates are kept (millionths). */
-const RATE_ONE = 1_000_000n
-
-/** Each job kind's longest path through its steps, one after another. */
-const LONGEST_PATH: Record<FlowJobKind, (mode: AiMode) => AiStep[]> = {
-  round: (mode) => [MODE_STEPS[mode].plan, MODE_STEPS[mode].draft],
-  'more-like-this': (mode) => [MODE_STEPS[mode].plan, MODE_STEPS[mode].draft],
-  'try-again': (mode) => [MODE_STEPS[mode].draft],
-  refine: () => ['flow.refine-plan', 'flow.refine'],
-  resize: () => ['flow.resize'],
-  layering: () => ['flow.layer-plan', 'flow.layer-split', 'flow.read'],
-}
+import { FLOW_CALLS_AT_ONCE } from './run.ts'
 
 /** The placeholder every estimate's job names for what a real job would name: never read. */
 const PLACEHOLDER = 'estimate'
@@ -41,11 +27,11 @@ export async function estimateAction(db: Db | Tx, workspace: string, query: AiEs
   const hold = await actionHold(db, workspace, query)
   const live = (await grantsOf(db, workspace)).filter((g) => g.live)
   const given = live.reduce((sum, g) => sum + g.amount, 0n)
-  // The hold draws first from the first live grant with allowance left, at that grant's usage rate.
-  const rate = (live.find((g) => g.left > 0n) ?? live[0])?.usageRate
-  const seconds = LONGEST_PATH[query.action](query.mode).reduce((sum, step) => sum + STEP_SECONDS[step], 0)
+  // The hold is counted at the usage rate of the grant it draws from first.
+  const rate = (drawsFirst(live) ?? live[0])?.usageRate
+  const seconds = actionSeconds(query)
   if (given <= 0n || rate === undefined) return { share: null, seconds }
-  const hundredths = Number((hold * rate * 10_000n) / (RATE_ONE * given))
+  const hundredths = Number((allowanceOf(hold, rate) * 10_000n) / given)
   return { share: hundredths < 100 ? 'under-1' : Math.round(hundredths / 100), seconds }
 }
 
@@ -61,6 +47,33 @@ export async function actionHold(db: Db | Tx, workspace: string, query: AiEstima
     return holdFor(db, draft ? [draft] : [])
   }
   return holdFor(db, await declaredCalls(db, workspace, flow))
+}
+
+/**
+ * About how long the action takes: its job kind's steps one after another, where the calls of a step made side by
+ * side go `FLOW_CALLS_AT_ONCE` at a time, each turn as long as its slowest call.
+ */
+function actionSeconds(query: AiEstimateQuery): number {
+  const turns = (calls: number) => Math.ceil(calls / FLOW_CALLS_AT_ONCE)
+  const { plan, draft } = MODE_STEPS[query.mode]
+  const sizes = query.sizes.length
+  switch (query.action) {
+    case 'round':
+    case 'more-like-this':
+      return STEP_SECONDS[plan] + turns(4) * STEP_SECONDS[draft]
+    case 'try-again':
+      return STEP_SECONDS[draft]
+    case 'refine':
+      return STEP_SECONDS['flow.refine-plan'] + STEP_SECONDS['flow.refine']
+    case 'resize':
+      return turns(sizes) * STEP_SECONDS['flow.resize']
+    case 'layering':
+      // Each size's split and reading go side by side.
+      return (
+        STEP_SECONDS['flow.layer-plan'] +
+        turns(2 * sizes) * Math.max(STEP_SECONDS['flow.layer-split'], STEP_SECONDS['flow.read'])
+      )
+  }
 }
 
 /** A job of the query's action, shaped like one a tab would start. */

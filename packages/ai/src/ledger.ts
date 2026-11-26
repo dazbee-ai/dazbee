@@ -28,7 +28,7 @@ export interface GrantLeft {
   expiresAt: Date
   live: boolean
   left: bigint
-  layerSize: number
+  layerSize: LayerSplitSize
 }
 
 /** A rate of 1, as usage rates are kept (millionths). */
@@ -166,8 +166,17 @@ export async function left(db: Db | Tx, workspace: string): Promise<bigint> {
  * the one its hold draws from first, or 512 px with none.
  */
 export async function layerSize(db: Db | Tx, workspace: string): Promise<LayerSplitSize> {
-  const first = (await grantsOf(db, workspace)).find((g) => g.live && g.left > 0n)
-  return first?.layerSize === 1024 ? 1024 : 512
+  return drawsFirst(await grantsOf(db, workspace))?.layerSize ?? 512
+}
+
+/** The grant among `grants`, in their order, that a hold draws from first: the first live one with allowance left. */
+export function drawsFirst(grants: GrantLeft[]): GrantLeft | undefined {
+  return grants.find((g) => g.live && g.left > 0n)
+}
+
+/** Real cost `cost` in allowance at `rate`, rounded up. */
+export function allowanceOf(cost: bigint, rate: bigint): bigint {
+  return (cost * rate + RATE_ONE - 1n) / RATE_ONE
 }
 
 /** The share of the live grants' allowance used, from 0 to 1, for the usage bar; 1 with no live grant. */
@@ -216,7 +225,11 @@ async function readGrants(db: Db | Tx, workspace: string, lock: boolean): Promis
     )
     .groupBy(aiLedger.grantId)
   const byGrant = new Map(sums.map((s) => [s.grant, BigInt(s.sum)]))
-  return grants.map((grant) => ({ ...grant, left: grant.amount + (byGrant.get(grant.id) ?? 0n) }))
+  return grants.map((grant) => ({
+    ...grant,
+    layerSize: grant.layerSize === 1024 ? 1024 : 512,
+    left: grant.amount + (byGrant.get(grant.id) ?? 0n),
+  }))
 }
 
 /** Each grant `job` holds on, in the grants' order, with the allowance it still holds there. */
@@ -238,11 +251,6 @@ function take(rest: bigint, rate: bigint, available: bigint): { amount: bigint; 
   const needed = allowanceOf(rest, rate)
   if (needed <= available) return { amount: needed, rest: 0n }
   return { amount: available, rest: rest - (available * RATE_ONE) / rate }
-}
-
-/** Real cost `cost` in allowance at `rate`, rounded up. */
-function allowanceOf(cost: bigint, rate: bigint): bigint {
-  return (cost * rate + RATE_ONE - 1n) / RATE_ONE
 }
 
 /** The grant that expires last, for a charge on a job that held nothing. */

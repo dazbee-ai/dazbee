@@ -31,7 +31,7 @@ describe('estimateAction', () => {
     expect((await estimateAction(db, await workspaceWith(null), fastRound)).share).toBeNull()
   })
 
-  it('sums each job kind’s longest path: a Precise round, a refine, a resize and a layering job', async () => {
+  it('sums each job kind’s longest path, the calls side by side 4 at a time', async () => {
     const workspace = await workspaceWith(null)
     const seconds = async (query: unknown) =>
       (await estimateAction(db, workspace, AiEstimateQuery.parse(query))).seconds
@@ -47,7 +47,10 @@ describe('estimateAction', () => {
         ],
       }),
     ).toBe(117)
-    expect(await seconds({ action: 'layering' })).toBe(82 + 18 + 14)
+    const story = { width: 1080, height: 1920 }
+    expect(await seconds({ action: 'resize', sizes: [story, story, story, story, story] })).toBe(2 * 117)
+    expect(await seconds({ action: 'layering' })).toBe(82 + 18)
+    expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(82 + 2 * 18)
   })
 
   it('holds more for more sizes, and for a brief with pictures', async () => {

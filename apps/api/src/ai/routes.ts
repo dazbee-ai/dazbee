@@ -11,6 +11,7 @@ import {
   AiEstimateQuery,
   AiFinishHolder,
   AiFrameWritten,
+  type AiJobRefusal,
   type AiJobRefused,
   type AiJobStarted,
   readSizes,
@@ -20,10 +21,11 @@ import type { Storage } from '@dazbee/storage'
 
 import { body, type Env, error, issuesOf, requireWriter } from '../http.ts'
 import { findDesign } from '../workspace/designs.ts'
-import { designAi, frameRefines, markWritten } from './ai-frames.ts'
+import { designAi, frameRefines, markWritten, type Written } from './ai-frames.ts'
 import { claimFinish, endFinish, type FinishRefusal, layeringFile } from './finish-lease.ts'
-import { startFlowJob, StartRefused } from './flow.ts'
+import { startFlowJob } from './flow.ts'
 import { myAiJobs } from './my-jobs.ts'
+import { StartRefused } from './start-job.ts'
 
 const BRAND = '/brands/:brandId'
 const DESIGN = `${BRAND}/designs/:designId/ai`
@@ -38,11 +40,18 @@ const FINISH_REFUSED: Record<FinishRefusal, [string, 404 | 409]> = {
 }
 
 /** What each refusal to save a job answers. */
-const SAVE_REFUSED = {
+const SAVE_REFUSED: Record<AiJobRefusal, [string, 403 | 409 | 503]> = {
   'not-allowed': ['Only an Owner, Admin or Editor can use AI', 403],
   'used-up': ['This month’s AI is used up', 409],
   stopped: ['AI is paused for today. Try again tomorrow', 503],
-} as const
+}
+
+/** What each refusal to mark a call written answers. */
+const WRITTEN_REFUSED: Record<Exclude<Written, 'written'>, [string, 404 | 409]> = {
+  'no-frame': ['That frame isn’t an AI frame of this design', 404],
+  'not-made': ['That picture isn’t made yet', 409],
+  'not-its-call': ['That call doesn’t fill this frame', 409],
+}
 
 export function aiRoutes({ db, storage, boss }: { db: Db; storage: Storage; boss: PgBoss | null }): Hono<Env> {
   const app = new Hono<Env>()
@@ -57,7 +66,7 @@ export function aiRoutes({ db, storage, boss }: { db: Db; storage: Storage; boss
     job: c.req.param('jobId') ?? '',
   })
 
-  // 201 with the job; 409 or 503 with why saving it was refused, nothing written.
+  // 201 with the job; 403, 409 or 503 with why saving it was refused, nothing written.
   app.post(`${BRAND}/ai/jobs`, requireWriter, async (c) => {
     if (!boss) return c.json(error('AI jobs can’t be started here'), 503)
     const input = await body(c.req.raw, StartAiJob)
@@ -136,9 +145,8 @@ export function aiRoutes({ db, storage, boss }: { db: Db; storage: Storage; boss
     if (input instanceof Response) return input
     const written = await markWritten(db, c.var.membership.workspaceId, design.id, c.req.param('frameId'), input)
     if (written === 'written') return c.body(null, 204)
-    if (written === 'no-frame') return c.json(error('That frame isn’t an AI frame of this design'), 404)
-    if (written === 'not-made') return c.json(error('That picture isn’t made yet'), 409)
-    return c.json(error('That call doesn’t fill this frame'), 409)
+    const [message, status] = WRITTEN_REFUSED[written]
+    return c.json(error(message), status)
   })
 
   return app

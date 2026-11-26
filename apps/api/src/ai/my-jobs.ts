@@ -4,9 +4,9 @@ import { and, desc, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm'
 
 import { readJobs } from '@dazbee/ai'
 import { aiJobs, type Db, designs } from '@dazbee/db'
-import { FLOW_JOB_INPUTS, type FlowJobKind, type MyAiJob } from '@dazbee/schema'
+import { type AiJobView, FLOW_JOB_INPUTS, type FlowJobKind, type MyAiJob } from '@dazbee/schema'
 
-import { findAccess } from '../workspace/workspace.ts'
+import { findAccess, type MemberAccess } from '../workspace/workspace.ts'
 
 /** How long an ended job stays among the person's jobs: 10 minutes. */
 const JUST_ENDED_MS = 10 * 60_000
@@ -33,14 +33,14 @@ export async function myAiJobs(db: Db, userId: string): Promise<MyAiJob[]> {
     const input = FLOW_JOB_INPUTS[row.kind as FlowJobKind].safeParse(row.input)
     return input.success ? [{ row, brandId: input.data.brandId, designId: input.data.designId }] : []
   })
-  const seen = new Map<string, string[] | null | false>()
+  // The person's access in each workspace, null once they left it.
+  const accessIn = new Map<string, MemberAccess | null>()
   for (const workspace of new Set(placed.map((p) => p.row.workspaceId))) {
-    const access = await findAccess(db, workspace, userId)
-    seen.set(workspace, access ? access.brandIds : false)
+    accessIn.set(workspace, await findAccess(db, workspace, userId))
   }
   const visible = placed.filter(({ row, brandId }) => {
-    const brands = seen.get(row.workspaceId)
-    return brands === null || (Array.isArray(brands) && brands.includes(brandId))
+    const access = accessIn.get(row.workspaceId)
+    return access && (access.brandIds === null || access.brandIds.includes(brandId))
   })
   if (visible.length === 0) return []
   const named = await db
@@ -52,7 +52,7 @@ export async function myAiJobs(db: Db, userId: string): Promise<MyAiJob[]> {
         visible.map((v) => v.designId),
       ),
     )
-  const views = new Map<string, Awaited<ReturnType<typeof readJobs>>[number]>()
+  const views = new Map<string, AiJobView>()
   for (const workspace of new Set(visible.map((v) => v.row.workspaceId))) {
     const ids = visible.filter((v) => v.row.workspaceId === workspace).map((v) => v.row.id)
     for (const view of await readJobs(db, workspace, ids)) views.set(view.id, view)

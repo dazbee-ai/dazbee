@@ -609,8 +609,10 @@ export function buildCore({
    * and typing.
    */
   function perform(action: StageAction) {
-    const sectionStep = selection.pickedSection() !== null && !selection.current()
-    const step = sectionStep && (action === 'delete' || action === 'duplicate') ? null : stepOf(action)
+    // A picked section's or connector's keys run commands that name their own steps.
+    const itemStep =
+      (selection.pickedSection() !== null || selection.pickedConnector() !== null) && !selection.current()
+    const step = itemStep && (action === 'delete' || action === 'duplicate') ? null : stepOf(action)
     return step ? session.gesture(step, () => performAction(action)) : performAction(action)
   }
   function performAction(action: StageAction) {

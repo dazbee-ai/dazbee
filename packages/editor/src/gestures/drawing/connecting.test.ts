@@ -76,6 +76,18 @@ describe('the dots', () => {
     expect(shown(editor).hot).toBe(2)
   })
 
+  it('tell of a change only when the end or the dot under the pointer changes, so the overlay is not built again on every move', async () => {
+    const editor = await open()
+    const { connecting } = editor.modules
+    const at = middleOf(editor, 'f3')
+    connecting.hover(null)
+    expect(connecting.hover(at)).toBe(true)
+    expect(connecting.hover({ x: at.x + 10, y: at.y + 10 })).toBe(false)
+    const right = dotPoint(editor.core, 'f3', 'right')
+    expect(connecting.hover(right)).toBe(true)
+    expect(connecting.hover({ x: right.x + 1, y: right.y })).toBe(false)
+  })
+
   it('show only with the Arrow shape', async () => {
     const editor = await open()
     editor.core.setTool('line')
@@ -200,6 +212,35 @@ describe('a drag from a dot that does not end', () => {
       metaKey: false,
       pointerType: 'mouse',
     })
+    expect([editor.core.design().connectors, editor.core.tool()]).toEqual([{}, 'arrow'])
+  })
+})
+
+describe('a drag from a dot whose release never came', () => {
+  it('ends at the next move with no button held, making nothing, with no preview and no dots left', async () => {
+    const editor = await open()
+    const at = (() => {
+      const from = dotPoint(editor.core, 'f3', 'right')
+      editor.mouse.move(from.x, from.y)
+      editor.mouse.down()
+      const to = middleOf(editor, 'f5')
+      editor.mouse.move(to.x, to.y, { steps: 4 })
+      return to
+    })()
+    editor.core.input.pointer({
+      type: 'pointermove',
+      at: { x: at.x + 5, y: at.y },
+      button: 0,
+      buttons: 0,
+      detail: 0,
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      pointerType: 'mouse',
+    })
+    expect(editor.modules.pointer.gesture()).toBeNull()
+    expect([shown(editor).preview, shown(editor).lit]).toEqual([null, null])
     expect([editor.core.design().connectors, editor.core.tool()]).toEqual([{}, 'arrow'])
   })
 })

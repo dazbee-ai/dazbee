@@ -514,6 +514,8 @@ export function editorPointer({
       return
     }
     if (held.followPointer(e)) showCursor()
+    // A connector drawn with no button held lost its release: it ends as a drag taken away does.
+    if (gesture.kind === 'connect' && e.buttons === 0) return cancelDrag()
     // Asked on each move of a press, so a marquee and a text selection, which start at once, end as a click or a drag.
     const dragged = dragStart.moved(screen)
     const world = toWorld(view.camera(), screen)

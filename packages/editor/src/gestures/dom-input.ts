@@ -110,6 +110,7 @@ export function editorDomInput({
       pointerType: 'pointerType' in e ? (e as PointerEvent).pointerType : 'mouse',
       ...(label === undefined ? {} : { label }),
       ...(title === undefined ? {} : { title }),
+      ...(type === 'pointermove' ? { buttons: e.buttons } : {}),
       ...('deltaMode' in e
         ? { deltaX: (e as WheelEvent).deltaX, deltaY: (e as WheelEvent).deltaY, deltaMode: (e as WheelEvent).deltaMode }
         : {}),

@@ -1,7 +1,7 @@
 // The stage's surface: the WebGL surface a redraw's pictures are put on, kept the size of the canvas
 // on screen at the screen's pixels, the animation-frame schedule that redraws it, and where the
 // canvas is on the page, so the points between the page and the stage.
-import type { Canvas, CanvasKit, Color, GrDirectContext, Surface } from '@dazbee/canvaskit'
+import type { Canvas, CanvasKit, Color, GrDirectContext, Path, Surface } from '@dazbee/canvaskit'
 import type { Point, Rect } from '@dazbee/schema'
 
 import { toScreen } from './camera.ts'
@@ -51,6 +51,14 @@ export interface EditorSurface {
   /** Fits the canvas's backing store to the stage's size on screen, at the screen's pixels. */
   resize(): void
   destroy(): void
+}
+
+/** The paths of the connectors of one look, from the camera's corner: picked or not. */
+interface BuiltLook {
+  picked: boolean
+  lines: Path
+  heads: Path
+  dots: Path | null
 }
 
 /**
@@ -119,6 +127,14 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   curveLine.setAntiAlias(true)
   const filled = new ck.Paint()
   filled.setAntiAlias(true)
+  /** The theme's colours read from the page's CSS, by name, and the theme they were read in: read again once it changes. */
+  const colours = new Map<string, Color>()
+  let coloursTheme: string | undefined
+  /**
+   * The connectors' paths as last built, placed from the camera's corner so a pan moves them without
+   * building them again, and what they were built from: the zoom, and each curve and its pick.
+   */
+  let built: { key: string; looks: BuiltLook[] } | null = null
   const resized = new ResizeObserver(() => resize())
   resized.observe(canvas)
 
@@ -148,7 +164,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     c.save()
     c.scale(view.dpr(), view.dpr())
     // The outlines go on first, in stage pixels, so every frame drawn after covers them.
-    const lit = outlines.some((o) => o.lit) ? ck.parseColorString(accentColour()) : null
+    const lit = outlines.some((o) => o.lit) ? themeColour(ACCENT, ACCENT_FALLBACK) : null
     for (const { box, lit: on } of outlines) {
       outline.setColor(on && lit ? lit : grey)
       c.drawRRect(ck.RRectXY(ck.XYWHRect(box.x, box.y, box.width, box.height), OUTLINE_RADIUS, OUTLINE_RADIUS), outline)
@@ -197,73 +213,104 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
    * Draws the connectors, in stage pixels: their quiet curves and arrowheads, then a picked one's
    * curve and arrowhead in the accent with a dot at its start, its end left to the arrowhead. Those
    * of one look go on together, one path each for the curves, the arrowheads and the dots, and one
-   * wholly off the stage is left out.
+   * wholly off the stage is left out. The paths are built from the camera's corner and kept, so a
+   * pan only moves them; they are built again once the zoom, a curve, the pick or which are on the
+   * stage changes.
    */
   function paintConnectors(c: Canvas, connectors: readonly DrawnConnector[]) {
     const shown = connectors.filter(({ curve }) => curveShown(curve))
     if (shown.length === 0) return
-    const curves = (picked: boolean) => shown.filter((d) => d.picked === picked).map((d) => d.curve)
-    const resting = ck.parseColorString(cssColour(CONNECTOR, CONNECTOR_FALLBACK))
-    paintCurves(c, curves(false), { colour: resting, width: CONNECTOR_WIDTH, dot: null })
-    const picked = curves(true)
-    if (picked.length > 0) {
-      const colour = ck.parseColorString(accentColour())
-      const ground = ck.parseColorString(cssColour(CANVAS, CANVAS_FALLBACK))
-      paintCurves(c, picked, { colour, width: PICKED_CONNECTOR_WIDTH, dot: { radius: PICKED_DOT, ground } })
+    const camera = view.camera()
+    const looks = connectorPaths(shown, camera)
+    c.save()
+    c.translate(camera.x, camera.y)
+    for (const { picked, lines, heads, dots } of looks) {
+      const colour = picked ? themeColour(ACCENT, ACCENT_FALLBACK) : themeColour(CONNECTOR, CONNECTOR_FALLBACK)
+      curveLine.setColor(colour)
+      curveLine.setStrokeWidth(picked ? PICKED_CONNECTOR_WIDTH : CONNECTOR_WIDTH)
+      c.drawPath(lines, curveLine)
+      filled.setColor(colour)
+      c.drawPath(heads, filled)
+      if (dots) {
+        filled.setColor(themeColour(CANVAS, CANVAS_FALLBACK))
+        c.drawPath(dots, filled)
+        c.drawPath(dots, curveLine)
+      }
     }
+    c.restore()
+  }
+  /** The connectors' paths from the camera's corner: those last built while nothing they show changed, else built again. */
+  function connectorPaths(connectors: readonly DrawnConnector[], camera: { x: number; y: number; zoom: number }) {
+    const near = (n: number) => Math.round(n * 100) / 100
+    const key = connectors
+      .map(({ curve, picked }) => {
+        const points = [curve.from, curve.c1, curve.c2, curve.to]
+        return `${picked ? '*' : ''}${points.map((p) => `${near(p.x - camera.x)} ${near(p.y - camera.y)}`).join(' ')}`
+      })
+      .join(',')
+    const full = `${camera.zoom} ${key}`
+    if (built?.key === full) return built.looks
+    freeBuilt()
+    const placed = (picked: boolean) =>
+      connectors
+        .filter((d) => d.picked === picked)
+        .map(({ curve }) => {
+          const move = (p: Point) => ({ x: p.x - camera.x, y: p.y - camera.y })
+          return { from: move(curve.from), c1: move(curve.c1), c2: move(curve.c2), to: move(curve.to) }
+        })
+    const looks = [buildLook(placed(false), false), buildLook(placed(true), true)].flatMap((look) => look ?? [])
+    built = { key: full, looks }
+    return looks
   }
   /**
-   * Draws curves of one look: their lines `width` wide in `colour` and their arrowheads filled, and
-   * with `dot`, a dot that round at their start, filled with its `ground` and ringed in `colour`.
+   * The paths of curves of one look: their lines, each stopping at its arrowhead's base, their
+   * arrowheads, and when picked, a dot PICKED_DOT round at their start; null for no curves.
    */
-  function paintCurves(
-    c: Canvas,
-    curves: readonly ConnectorCurve[],
-    look: { colour: Color; width: number; dot: { radius: number; ground: Color } | null },
-  ) {
-    if (curves.length === 0) return
+  function buildLook(curves: readonly ConnectorCurve[], picked: boolean): BuiltLook | null {
+    if (curves.length === 0) return null
     const [lines, heads, dots] = [new ck.PathBuilder(), new ck.PathBuilder(), new ck.PathBuilder()]
     for (const curve of curves) {
-      // The line stops at its arrowhead's base, so it never shows through the head.
       const { head, line } = arrowheadOf(curve)
       lines.moveTo(line.from.x, line.from.y).cubicTo(line.c1.x, line.c1.y, line.c2.x, line.c2.y, line.to.x, line.to.y)
       // Each arrowhead is a contour of its own, which filling closes.
       heads.moveTo(head.tip.x, head.tip.y).lineTo(head.left.x, head.left.y).lineTo(head.right.x, head.right.y)
-      if (look.dot) dots.addCircle(curve.from.x, curve.from.y, look.dot.radius)
+      if (picked) dots.addCircle(curve.from.x, curve.from.y, PICKED_DOT)
     }
-    const [linePath, headPath, dotPath] = [lines.detachAndDelete(), heads.detachAndDelete(), dots.detachAndDelete()]
-    curveLine.setColor(look.colour)
-    curveLine.setStrokeWidth(look.width)
-    c.drawPath(linePath, curveLine)
-    filled.setColor(look.colour)
-    c.drawPath(headPath, filled)
-    if (look.dot) {
-      filled.setColor(look.dot.ground)
-      c.drawPath(dotPath, filled)
-      c.drawPath(dotPath, curveLine)
-    }
-    for (const path of [linePath, headPath, dotPath]) path.delete()
+    const dotPath = dots.detachAndDelete()
+    if (!picked) dotPath.delete()
+    return { picked, lines: lines.detachAndDelete(), heads: heads.detachAndDelete(), dots: picked ? dotPath : null }
   }
   /** Whether some of the box round a curve's points is on the stage. */
   function curveShown({ from, c1, c2, to }: ConnectorCurve) {
     const { width, height } = view.viewport()
-    const xs = [from.x, c1.x, c2.x, to.x]
-    const ys = [from.y, c1.y, c2.y, to.y]
     const reach = PICKED_DOT + PICKED_CONNECTOR_WIDTH
-    return (
-      Math.max(...xs) >= -reach &&
-      Math.min(...xs) <= width + reach &&
-      Math.max(...ys) >= -reach &&
-      Math.min(...ys) <= height + reach
-    )
+    const [left, right] = [Math.min(from.x, c1.x, c2.x, to.x), Math.max(from.x, c1.x, c2.x, to.x)]
+    const [top, bottom] = [Math.min(from.y, c1.y, c2.y, to.y), Math.max(from.y, c1.y, c2.y, to.y)]
+    return right >= -reach && left <= width + reach && bottom >= -reach && top <= height + reach
   }
-  /** The stage's accent as the page's CSS gives it now, which follows the theme. */
-  function accentColour() {
-    return cssColour(ACCENT, ACCENT_FALLBACK)
+  /** Frees the connectors' paths last built. */
+  function freeBuilt() {
+    for (const { lines, heads, dots } of built?.looks ?? []) for (const path of [lines, heads, dots]) path?.delete()
+    built = null
   }
-  /** A colour the page's CSS names on the canvas now, which follows the theme, else `fallback`. */
-  function cssColour(name: string, fallback: string) {
-    return getComputedStyle(canvas).getPropertyValue(name).trim() || fallback
+  /**
+   * A colour the page's CSS names on the canvas, which follows the theme, else `fallback`. It is read
+   * once per theme (`data-theme` on the page's root), not on every paint, which would make the browser
+   * work out the page's styles again on every frame.
+   */
+  function themeColour(name: string, fallback: string): Color {
+    const theme = canvas.ownerDocument?.documentElement.dataset.theme ?? ''
+    if (theme !== coloursTheme) {
+      colours.clear()
+      coloursTheme = theme
+    }
+    const kept = colours.get(name)
+    if (kept) return kept
+    const css = getComputedStyle(canvas).getPropertyValue(name).trim()
+    const colour = ck.parseColorString(css || fallback)
+    // A name the CSS doesn't give yet, as before the styles load, is asked again next time.
+    if (css) colours.set(name, colour)
+    return colour
   }
   function showArea(area: Rect, panel?: Rect) {
     view.showArea(area, panel && { panel, stage: canvas.getBoundingClientRect() })
@@ -294,6 +341,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   const stopRedraws = view.onRedraw(schedule)
 
   function destroy() {
+    freeBuilt()
     stopRedraws()
     cancelAnimationFrame(pending)
     surface?.delete()

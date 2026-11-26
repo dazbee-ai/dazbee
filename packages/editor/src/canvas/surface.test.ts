@@ -9,6 +9,8 @@ import { editorView } from './view.ts'
 
 /** The stroke caps the surface's paints were given. */
 const strokeCaps: string[] = []
+/** One entry for each path the surface began building. */
+const pathsBuilt: string[] = []
 
 /** A CanvasKit that logs what the surface makes, draws and frees, with a canvas that logs its calls. */
 function fakeCanvasKit(log: string[]) {
@@ -32,6 +34,9 @@ function fakeCanvasKit(log: string[]) {
   /** Builds a path as words: each step's letter and points. */
   class PathBuilder {
     d: string[] = []
+    constructor() {
+      pathsBuilt.push('built')
+    }
     moveTo(x: number, y: number) {
       this.d.push(`M ${x} ${y}`)
       return this
@@ -290,8 +295,11 @@ describe('editorSurface', () => {
       // Each line stops at its arrowhead's base.
       const { line, head } = arrowheadOf(curve)
       const { c1, c2, to } = line
-      expect(log.slice(3, 10)).toEqual([
+      expect(log.slice(3, 13)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
+        // Drawn from the camera's corner, so a pan only moves them.
+        'save',
+        'translate 0 0',
         // The resting ones together, quiet: their curves and their arrowheads in the soft grey, no dot.
         `path M 10 50 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y} in #b8aec2 1.25 wide`,
         `path M 110 90 L ${Math.round(head.left.x)} ${Math.round(head.left.y)} L ${Math.round(head.right.x)} ${Math.round(head.right.y)} in #b8aec2`,
@@ -300,8 +308,63 @@ describe('editorSurface', () => {
         expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
         'path O 10 150 5 in #100d14',
         'path O 10 150 5 in #2f5be0 2 wide',
+        'restore',
       ])
-      expect(log[10]).toBe('rect 0 1 540 540')
+      expect(log[13]).toBe('rect 0 1 540 540')
+    })
+  })
+
+  describe('the connectors’ paths and colours', () => {
+    const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+    const at = (dx: number) => ({
+      from: { x: curve.from.x + dx, y: 50 },
+      c1: { x: curve.c1.x + dx, y: 50 },
+      c2: { x: curve.c2.x + dx, y: 90 },
+      to: { x: curve.to.x + dx, y: 90 },
+    })
+
+    it('are built once and moved while the camera pans, and built again once the zoom or the pick changes', () => {
+      vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+      const { view, surface, log } = harness()
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      const built = () => pathsBuilt.length
+      pathsBuilt.length = 0
+      surface.paint([], null, [], [{ curve, picked: false }])
+      const first = built()
+      // Panned 40 to the right: the curve is drawn 40 further on, from the same paths.
+      view.setCamera({ x: 40, y: 0, zoom: 0.5 })
+      log.length = 0
+      surface.paint([], null, [], [{ curve: at(40), picked: false }])
+      expect(built()).toBe(first)
+      expect(log).toContain('translate 40 0')
+      surface.paint([], null, [], [{ curve: at(40), picked: true }])
+      expect(built()).toBeGreaterThan(first)
+      const picked = built()
+      view.setCamera({ x: 40, y: 0, zoom: 1 })
+      surface.paint([], null, [], [{ curve: at(40), picked: true }])
+      expect(built()).toBeGreaterThan(picked)
+    })
+
+    it('read the theme’s colours from the page’s CSS once per theme, not on every paint', () => {
+      const read: string[] = []
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => {
+          read.push(name)
+          return name === '--stage-connector' ? '#b8aec2' : ''
+        },
+      }))
+      const root = { dataset: { theme: 'light' } }
+      const { view, surface, canvas } = harness()
+      Object.assign(canvas, { ownerDocument: { documentElement: root } })
+      surface.resize()
+      view.setCamera({ x: 0, y: 0, zoom: 0.5 })
+      surface.paint([], null, [], [{ curve, picked: false }])
+      surface.paint([], null, [], [{ curve: at(5), picked: false }])
+      expect(read.filter((name) => name === '--stage-connector')).toEqual(['--stage-connector'])
+      root.dataset.theme = 'dark'
+      surface.paint([], null, [], [{ curve, picked: false }])
+      expect(read.filter((name) => name === '--stage-connector')).toHaveLength(2)
     })
   })
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { DrawnConnector } from '../../canvas/redraw.ts'
 import { type TestEditor, testEditor, type TestEditorOptions } from '../../test-editor.ts'
-import { CONNECTED, curvePoint } from '../../test-sections.ts'
+import { CONNECTED, curvePoint, outlineOf } from '../../test-sections.ts'
 
 let opened: TestEditor | null = null
 afterEach(() => {
@@ -23,6 +23,15 @@ function drawn(editor: TestEditor): DrawnConnector[] {
     return true
   })
   return [...connectors]
+}
+/** The point on link's curve where it crosses a stage x, found along the curve. */
+function curveAtX(editor: TestEditor, x: number) {
+  let best = curvePoint(editor.core, 'link', 0)
+  for (let i = 1; i <= 400; i++) {
+    const p = curvePoint(editor.core, 'link', i / 400)
+    if (Math.abs(p.x - x) < Math.abs(best.x - x)) best = p
+  }
+  return best
 }
 /** A point on link's curve in the gap between f3 and the outline round f4, off every frame. */
 const offFrames = (editor: TestEditor) => curvePoint(editor.core, 'link', 0.05)
@@ -73,9 +82,22 @@ describe('the picked connector’s keys', () => {
     expect(core.actionReady('delete')).toBe(true)
     editor.press('delete')
     expect([core.design().connectors, core.pickedConnector()]).toEqual([{}, null])
-    expect(core.undoName()).toBe('delete')
+    // The undo says what the key did to the connector, as the card's and the menu's Delete do.
+    expect(core.undoName()).toBe('deleteConnector')
     editor.press('undo')
     expect(Object.keys(core.design().connectors)).toEqual(['link'])
+  })
+
+  it('Delete removes the connector picked where it crosses a section’s outline line, never the section', async () => {
+    const editor = await open()
+    const { core } = editor
+    // On Solo's outline line, where a press with no connector there would pick the section.
+    const outline = outlineOf(core, 'solo')
+    const onLine = curveAtX(editor, outline.x)
+    editor.mouse.click(onLine.x, onLine.y)
+    expect([core.pickedConnector(), core.pickedSection()]).toEqual(['link', null])
+    editor.press('delete')
+    expect([Object.keys(core.design().connectors), core.design().sections.solo?.title]).toEqual([[], 'Solo'])
   })
 
   it('Esc lets it go, and Duplicate does nothing to it', async () => {

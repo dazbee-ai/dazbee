@@ -36,8 +36,8 @@ export const CONNECTOR_REACH = 6
 export const END_GAP = 6
 
 /** An arrowhead's length along the curve and its half-width across it, in screen pixels. */
-export const ARROW_LENGTH = 8
-export const ARROW_HALF_WIDTH = 4
+export const ARROW_LENGTH = 7
+export const ARROW_HALF_WIDTH = 3.5
 
 /** How far a control point stands off its end at least, in screen pixels, so close ends still curve. */
 const MIN_BEND = 24

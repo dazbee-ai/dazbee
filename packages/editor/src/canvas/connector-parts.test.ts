@@ -13,21 +13,22 @@ afterEach(() => {
 
 describe('connectorParts', () => {
   it('draws nothing while nothing shows', () => {
-    expect(connectorParts({ dots: [], preview: null, lit: null })).toEqual([])
+    expect(connectorParts({ dots: [], hot: null, preview: null, lit: null })).toEqual([])
   })
 
-  it('draws each dot centred where it is, by its side', () => {
+  it('draws each dot centred where it is, by its side, marking the one the pointer is on', () => {
     const parts = connectorParts({
       dots: [
         { x: 50, y: -12 },
         { x: 112, y: 50 },
       ],
+      hot: 1,
       preview: null,
       lit: null,
     }) as unknown as Fake[]
-    expect(parts.map((p) => [p.className, p.dataset.side, p.style.left, p.style.top])).toEqual([
-      ['connector-dot', '0', '50px', '-12px'],
-      ['connector-dot', '1', '112px', '50px'],
+    expect(parts.map((p) => [p.className, p.dataset.side, p.dataset.hot, p.style.left, p.style.top])).toEqual([
+      ['connector-dot', '0', undefined, '50px', '-12px'],
+      ['connector-dot', '1', '', '112px', '50px'],
     ])
   })
 
@@ -35,6 +36,7 @@ describe('connectorParts', () => {
     const curve = { from: { x: 0, y: 0 }, c1: { x: 50, y: 0 }, c2: { x: 50, y: 40 }, to: { x: 100, y: 40 } }
     const [lit, preview] = connectorParts({
       dots: [],
+      hot: null,
       preview: curve,
       lit: { box: { x: 100, y: 10, width: 200, height: 60 }, section: true },
     }) as unknown as Fake[]
@@ -50,7 +52,7 @@ describe('connectorParts', () => {
     const cut = arrowheadOf(curve)
     const { c1, c2, to } = cut.line
     expect(line?.attributes.d).toBe(`M 0 0 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`)
-    expect(to.x).toBeLessThan(93)
+    expect(to.x).toBeLessThan(94)
     const { left, right } = cut.head
     expect(head?.attributes.d).toBe(`M 100 40 L ${left.x} ${left.y} L ${right.x} ${right.y} Z`)
   })

@@ -52,6 +52,8 @@
   --stage-accent-solid: #3563f0;
   --on-stage-accent: #ffffff;
   --stage-accent-soft: rgb(91 140 255 / 0.16);
+  /* A connector at rest on the canvas, and the ring of the Arrow tool's dots: a quiet grey that still reads on the canvas. */
+  --stage-connector: #6a5e78;
   --guide: #d63a17;
   --danger: #ff5a5f;
   /* The solid red of a button that confirms a delete, under white words. */
@@ -138,6 +140,7 @@
   --stage-accent-solid: #2f5be0;
   --on-stage-accent: #ffffff;
   --stage-accent-soft: rgb(47 91 224 / 0.1);
+  --stage-connector: #b8aec2;
   --guide: #d63a17;
   --danger: #c42020;
   /* The solid red of a button that confirms a delete, under white words. */

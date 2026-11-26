@@ -245,7 +245,7 @@ export function harness(
       shown: () => ({ frame: SQUARE, id: 'photo', window: BOX, whole: BOX, box: BOX, rect: BOX, ghost: 'faint.png' }),
     },
     drawing: { shown: () => ({ kind: 'textBox', frame: SQUARE, rect: BOX }) },
-    connecting: { shown: () => ({ dots: [], preview: null, lit: null }) },
+    connecting: { shown: () => ({ dots: [], hot: null, preview: null, lit: null }) },
     transformDrag: {
       shown: () => ({
         frame: SQUARE,

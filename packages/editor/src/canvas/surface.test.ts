@@ -261,7 +261,7 @@ describe('editorSurface', () => {
   })
 
   describe('paint with connectors', () => {
-    it('draws each connector after the outlines and before the frames: a grey curve, its arrowhead and its start dot in the canvas colour, or picked, in the accent with a dot at both ends', () => {
+    it('draws each connector after the outlines and before the frames: at rest a quiet soft grey curve and arrowhead with no dot, or picked, in the accent with a dot at its start', () => {
       vi.stubGlobal('getComputedStyle', () => ({
         getPropertyValue: (name: string) => (name === '--canvas' ? '#100d14' : ''),
       }))
@@ -290,20 +290,35 @@ describe('editorSurface', () => {
       // Each line stops at its arrowhead's base.
       const { line, head } = arrowheadOf(curve)
       const { c1, c2, to } = line
-      expect(log.slice(3, 12)).toEqual([
+      expect(log.slice(3, 10)).toEqual([
         'outline -24 -84 588 648 round 22 in #c4b9cd',
-        // The grey ones together: their curves, their arrowheads, and their start dots filled, then ringed.
-        `path M 10 50 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y} in #574c61 1.5 wide`,
-        `path M 110 90 L ${Math.round(head.left.x)} ${Math.round(head.left.y)} L ${Math.round(head.right.x)} ${Math.round(head.right.y)} in #574c61`,
-        'path O 10 50 3.5 in #100d14',
-        'path O 10 50 3.5 in #574c61 1.5 wide',
-        // Then the picked one, in the accent, with a dot at both ends.
+        // The resting ones together, quiet: their curves and their arrowheads in the soft grey, no dot.
+        `path M 10 50 C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y} in #b8aec2 1.25 wide`,
+        `path M 110 90 L ${Math.round(head.left.x)} ${Math.round(head.left.y)} L ${Math.round(head.right.x)} ${Math.round(head.right.y)} in #b8aec2`,
+        // Then the picked one, in the accent, with a dot at its start only, clear of its arrowhead.
         expect.stringMatching(/^path M 10 150 C .* in #2f5be0 2 wide$/),
         expect.stringMatching(/^path M 110 150 L .* in #2f5be0$/),
-        'path O 10 150 5 O 110 150 5 in #100d14',
-        'path O 10 150 5 O 110 150 5 in #2f5be0 2 wide',
+        'path O 10 150 5 in #100d14',
+        'path O 10 150 5 in #2f5be0 2 wide',
       ])
-      expect(log[12]).toBe('rect 0 1 540 540')
+      expect(log[10]).toBe('rect 0 1 540 540')
+    })
+  })
+
+  describe('a resting connector’s colour', () => {
+    it('is the theme’s, as the page’s CSS names it', () => {
+      vi.stubGlobal('getComputedStyle', () => ({
+        getPropertyValue: (name: string) => (name === '--stage-connector' ? '#6a5e78' : ''),
+      }))
+      const { surface, log } = harness()
+      surface.resize()
+      log.length = 0
+      const curve = { from: { x: 10, y: 50 }, c1: { x: 60, y: 50 }, c2: { x: 60, y: 90 }, to: { x: 110, y: 90 } }
+      surface.paint([], null, [], [{ curve, picked: false }])
+      expect(log.filter((line) => line.startsWith('path'))).toEqual([
+        expect.stringMatching(/^path M 10 50 C .* in #6a5e78 1.25 wide$/),
+        expect.stringMatching(/^path M 110 90 L .* in #6a5e78$/),
+      ])
     })
   })
 

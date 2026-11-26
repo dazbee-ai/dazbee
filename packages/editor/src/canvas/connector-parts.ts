@@ -10,11 +10,12 @@ import { OUTLINE_RADIUS } from './sections.ts'
 const SVG = 'http://www.w3.org/2000/svg'
 
 /** The dots, the lit frame or section and the curve a drag draws, as overlay elements; none while nothing shows. */
-export function connectorParts({ dots, preview, lit }: ShownConnecting): Element[] {
+export function connectorParts({ dots, hot, preview, lit }: ShownConnecting): Element[] {
   const parts: Element[] = dots.map((at, side) => {
     const dot = document.createElement('div')
     dot.className = 'connector-dot'
     dot.dataset.side = String(side)
+    if (side === hot) dot.dataset.hot = ''
     Object.assign(dot.style, { left: px(at.x), top: px(at.y) })
     return dot
   })

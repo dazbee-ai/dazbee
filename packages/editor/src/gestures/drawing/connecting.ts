@@ -32,6 +32,8 @@ export interface ConnectDrag {
 export interface ShownConnecting {
   /** The dots of the frame or section the pointer is near, which a press starts a connector from; none while dragging. */
   dots: Point[]
+  /** Which of `dots` the pointer is on, by its place among them, which a press there would start from; null for none. */
+  hot: number | null
   /** The curve the drag draws, to the lit frame or section, else to the pointer; null while not dragging. */
   preview: ConnectorCurve | null
   /** The frame or section the drag would join, lit: its box, and whether it is a section's outline. */
@@ -95,6 +97,8 @@ export function editorConnecting({
 }: ConnectingDeps): EditorConnecting {
   /** The frame or section the pointer is near, by its id; null for none. */
   let hovered: string | null = null
+  /** Which of its dots the pointer is on, by its place among them; null for none. */
+  let hot: number | null = null
 
   function shown(gesture: { kind: string } | null): ShownConnecting {
     if (gesture?.kind === 'connect') {
@@ -103,25 +107,28 @@ export function editorConnecting({
       const from = ends.find((end) => end.id === g.from)
       const lit = ends.find((end) => end.id === g.target)
       const preview = from ? connectorCurve(from.box, lit?.box ?? { ...g.to, width: 0, height: 0 }) : null
-      return { dots: [], preview, lit: lit ? { box: lit.box, section: lit.section } : null }
+      return { dots: [], hot: null, preview, lit: lit ? { box: lit.box, section: lit.section } : null }
     }
     const end = offered() && hovered !== null ? endsNow().find((e) => e.id === hovered) : undefined
-    return { dots: end ? dotsOf(end.box) : [], preview: null, lit: null }
+    return { dots: end ? dotsOf(end.box) : [], hot: end ? hot : null, preview: null, lit: null }
   }
   function hover(stage: Point | null) {
-    const near = stage && offered() ? (endNear(stage)?.id ?? null) : null
-    const changed = near !== hovered
-    hovered = near
+    const near = stage && offered() ? endNear(stage) : null
+    const on = near && stage ? dotsOf(near.box).findIndex((dot) => onDot(dot, stage)) : -1
+    const changed = (near?.id ?? null) !== hovered || (on < 0 ? null : on) !== hot
+    hovered = near?.id ?? null
+    hot = on < 0 ? null : on
     return changed
   }
   function press(e: PointerInput, stage: Point): ConnectDrag | null {
     if (!offered()) return null
     const end = endNear(stage)
-    if (!end || !dotsOf(end.box).some((dot) => Math.hypot(dot.x - stage.x, dot.y - stage.y) <= DOT_REACH)) return null
+    if (!end || !dotsOf(end.box).some((dot) => onDot(dot, stage))) return null
     typing.stop()
     hold()
     // The dots go while the connector is drawn.
     hovered = null
+    hot = null
     shownChanged()
     return { kind: 'connect', from: end.id, to: stage, target: null }
   }
@@ -199,6 +206,11 @@ export function dotsOf(box: Rect): Point[] {
     { x: midX, y: box.y + box.height + DOT_OFFSET },
     { x: box.x - DOT_OFFSET, y: midY },
   ]
+}
+
+/** Whether a stage point is on a dot: within DOT_REACH of its middle. */
+function onDot(dot: Point, p: Point) {
+  return Math.hypot(dot.x - p.x, dot.y - p.y) <= DOT_REACH
 }
 
 /** Of `ends`, the one on top that holds a point, else the nearest within HOVER_REACH; null for none. */

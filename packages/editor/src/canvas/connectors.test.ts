@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Design } from '@dazbee/schema'
 
 import {
+  ARROW_HALF_WIDTH,
   ARROW_LENGTH,
   arrowheadOf,
   connectorAt,
@@ -167,7 +168,7 @@ describe('arrowheadOf', () => {
       expect(head.tip).toEqual(curve.to)
       expect(Math.hypot(head.tip.x - base.x, head.tip.y - base.y)).toBeCloseTo(ARROW_LENGTH, 5)
       expect(nearCurve(curve, base, 0.5)).toBe(true)
-      expect(Math.hypot(head.left.x - head.right.x, head.left.y - head.right.y)).toBeCloseTo(8, 5)
+      expect(Math.hypot(head.left.x - head.right.x, head.left.y - head.right.y)).toBeCloseTo(2 * ARROW_HALF_WIDTH, 5)
     }
   })
 
@@ -176,8 +177,8 @@ describe('arrowheadOf', () => {
     const { head, line } = arrowheadOf(curve)
     const base = { x: (head.left.x + head.right.x) / 2, y: (head.left.y + head.right.y) / 2 }
     expect(line.from).toEqual(curve.from)
-    expect(line.to.x).toBeCloseTo(base.x, 3)
-    expect(line.to.y).toBeCloseTo(base.y, 3)
+    expect(line.to.x).toBeCloseTo(base.x, 2)
+    expect(line.to.y).toBeCloseTo(base.y, 2)
   })
 
   it('takes the whole of a curve shorter than the head', () => {

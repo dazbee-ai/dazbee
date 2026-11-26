@@ -66,6 +66,16 @@ describe('the dots', () => {
     expect(shown(editor).dots).toEqual(dotsOf(sale))
   })
 
+  it('mark the one the pointer is on, which a press would start from', async () => {
+    const editor = await open()
+    const at = middleOf(editor, 'f3')
+    editor.mouse.move(at.x, at.y)
+    expect(shown(editor).hot).toBeNull()
+    const bottom = dotPoint(editor.core, 'f3', 'bottom')
+    editor.mouse.move(bottom.x, bottom.y + 2)
+    expect(shown(editor).hot).toBe(2)
+  })
+
   it('show only with the Arrow shape', async () => {
     const editor = await open()
     editor.core.setTool('line')

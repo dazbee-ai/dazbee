@@ -71,14 +71,14 @@ const OUTLINE_COLOUR = '#c4b9cd'
 const ACCENT = '--stage-accent'
 const ACCENT_FALLBACK = '#2f5be0'
 /**
- * A connector: a 1.5 px line in a soft dark grey with a start dot 3.5 px round filled with the
- * canvas's colour, and an arrowhead; picked, a 2 px line in the accent with dots 5 px round at both
- * ends. In stage pixels.
+ * A connector at rest: a quiet 1.25 px line in the theme's soft grey, as CSS names it (the colour
+ * while CSS gives none), and its arrowhead, with no dot. Picked: a 2 px line in the accent with a
+ * dot 5 px round at its start. In stage pixels.
  */
-const CONNECTOR_COLOUR = '#574c61'
-const CONNECTOR_WIDTH = 1.5
+const CONNECTOR = '--stage-connector'
+const CONNECTOR_FALLBACK = '#b8aec2'
+const CONNECTOR_WIDTH = 1.25
 const PICKED_CONNECTOR_WIDTH = 2
-const START_DOT = 3.5
 const PICKED_DOT = 5
 /** The canvas's colour, which a connector's dots are filled with, as CSS names it, and the colour while CSS gives none. */
 const CANVAS = '--canvas'
@@ -119,7 +119,6 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
   curveLine.setAntiAlias(true)
   const filled = new ck.Paint()
   filled.setAntiAlias(true)
-  const connectorGrey = ck.parseColorString(CONNECTOR_COLOUR)
   const resized = new ResizeObserver(() => resize())
   resized.observe(canvas)
 
@@ -195,31 +194,32 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     return true
   }
   /**
-   * Draws the connectors, in stage pixels: their curves, the dots they start from and their
-   * arrowheads, or a picked one's curve and arrowhead in the accent with a dot at both ends. Those
+   * Draws the connectors, in stage pixels: their quiet curves and arrowheads, then a picked one's
+   * curve and arrowhead in the accent with a dot at its start, its end left to the arrowhead. Those
    * of one look go on together, one path each for the curves, the arrowheads and the dots, and one
    * wholly off the stage is left out.
    */
   function paintConnectors(c: Canvas, connectors: readonly DrawnConnector[]) {
     const shown = connectors.filter(({ curve }) => curveShown(curve))
     if (shown.length === 0) return
-    const ground = ck.parseColorString(cssColour(CANVAS, CANVAS_FALLBACK))
     const curves = (picked: boolean) => shown.filter((d) => d.picked === picked).map((d) => d.curve)
-    paintCurves(c, curves(false), { colour: connectorGrey, width: CONNECTOR_WIDTH, dot: START_DOT, ground })
+    const resting = ck.parseColorString(cssColour(CONNECTOR, CONNECTOR_FALLBACK))
+    paintCurves(c, curves(false), { colour: resting, width: CONNECTOR_WIDTH, dot: null })
     const picked = curves(true)
     if (picked.length > 0) {
       const colour = ck.parseColorString(accentColour())
-      paintCurves(c, picked, { colour, width: PICKED_CONNECTOR_WIDTH, dot: PICKED_DOT, ground, bothEnds: true })
+      const ground = ck.parseColorString(cssColour(CANVAS, CANVAS_FALLBACK))
+      paintCurves(c, picked, { colour, width: PICKED_CONNECTOR_WIDTH, dot: { radius: PICKED_DOT, ground } })
     }
   }
   /**
-   * Draws curves of one look: their lines `width` wide in `colour`, their arrowheads filled, and a
-   * dot `dot` round at their start, or at both ends, filled with `ground` and ringed in `colour`.
+   * Draws curves of one look: their lines `width` wide in `colour` and their arrowheads filled, and
+   * with `dot`, a dot that round at their start, filled with its `ground` and ringed in `colour`.
    */
   function paintCurves(
     c: Canvas,
     curves: readonly ConnectorCurve[],
-    look: { colour: Color; width: number; dot: number; ground: Color; bothEnds?: boolean },
+    look: { colour: Color; width: number; dot: { radius: number; ground: Color } | null },
   ) {
     if (curves.length === 0) return
     const [lines, heads, dots] = [new ck.PathBuilder(), new ck.PathBuilder(), new ck.PathBuilder()]
@@ -229,8 +229,7 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
       lines.moveTo(line.from.x, line.from.y).cubicTo(line.c1.x, line.c1.y, line.c2.x, line.c2.y, line.to.x, line.to.y)
       // Each arrowhead is a contour of its own, which filling closes.
       heads.moveTo(head.tip.x, head.tip.y).lineTo(head.left.x, head.left.y).lineTo(head.right.x, head.right.y)
-      dots.addCircle(curve.from.x, curve.from.y, look.dot)
-      if (look.bothEnds) dots.addCircle(curve.to.x, curve.to.y, look.dot)
+      if (look.dot) dots.addCircle(curve.from.x, curve.from.y, look.dot.radius)
     }
     const [linePath, headPath, dotPath] = [lines.detachAndDelete(), heads.detachAndDelete(), dots.detachAndDelete()]
     curveLine.setColor(look.colour)
@@ -238,9 +237,11 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     c.drawPath(linePath, curveLine)
     filled.setColor(look.colour)
     c.drawPath(headPath, filled)
-    filled.setColor(look.ground)
-    c.drawPath(dotPath, filled)
-    c.drawPath(dotPath, curveLine)
+    if (look.dot) {
+      filled.setColor(look.dot.ground)
+      c.drawPath(dotPath, filled)
+      c.drawPath(dotPath, curveLine)
+    }
     for (const path of [linePath, headPath, dotPath]) path.delete()
   }
   /** Whether some of the box round a curve's points is on the stage. */

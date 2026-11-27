@@ -706,7 +706,7 @@ One picture an AI frame's picture layer has shown: the picture its call made, th
 _Avoid_: Version (that is a saved design), revision, take
 
 **Make all editable**:
-Make editable on a section of AI sizes at once: one layer plan from the draft the sizes came from, a split per size, and the layers of the same split layer linked across the sizes.
+Make editable on a section of AI sizes at once: a layer plan and a split per size, each from the size's own picture, and the layers of the same planned part linked across the sizes.
 _Avoid_: Batch layering, editable all
 
 **Make editable**:

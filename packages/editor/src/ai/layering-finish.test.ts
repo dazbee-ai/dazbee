@@ -5,8 +5,8 @@ import { loadCanvasKit } from '@dazbee/renderer/node'
 import { pictureLayerOf } from '@dazbee/schema'
 
 import { WORDS } from '../test-actions.ts'
-import { type EditorLayeringFinish,editorLayeringFinish } from './layering-finish.ts'
-import { type FakeAi,fakeAi } from './test-ai.ts'
+import { type EditorLayeringFinish, editorLayeringFinish } from './layering-finish.ts'
+import { type FakeAi, fakeAi } from './test-ai.ts'
 import { BRIEF, endTabs, pollAll, serve, settle, type Tab, tabOn } from './test-arrivals.ts'
 
 afterEach(endTabs)

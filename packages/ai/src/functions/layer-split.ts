@@ -15,13 +15,15 @@ export const layerSplit: AiFunctionDef = {
 }
 
 /**
- * The layer split of `picture` at `size`, following its plan's prompt when the plan gave one, and cut into split
- * pieces by the plan's parts when the split takes them.
+ * The layer split of `picture` at `size`, following its plan's prompt when the plan gave one, and then cut into
+ * split pieces by the plan's parts when the split takes them. A plan with no prompt sends no parts: the split then
+ * draws layers of its own choosing, which the plan's parts were not planned in.
  */
 export function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer): CallInput {
   const prompt = plan.prompt.trim().slice(0, 10_000)
+  if (!prompt) return { kind: 'layer-split', picture, size }
   const parts = partsOf(plan)
-  return { kind: 'layer-split', picture, size, ...(prompt ? { plan: prompt } : {}), ...(parts ? { parts } : {}) }
+  return { kind: 'layer-split', picture, size, plan: prompt, ...(parts ? { parts } : {}) }
 }
 
 /**

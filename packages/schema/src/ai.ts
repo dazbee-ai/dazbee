@@ -225,8 +225,8 @@ const SplitLayer = z.object({
 })
 
 /** The kinds of split piece: a planned part's kind, or `other` for loose bits of a split layer that are no part's. */
-export const PieceKind = z.enum([...PART_KINDS, 'other'])
-export type PieceKind = z.infer<typeof PieceKind>
+export const SplitPieceKind = z.enum([...PART_KINDS, 'other'])
+export type SplitPieceKind = z.infer<typeof SplitPieceKind>
 
 /**
  * A split piece's box turned to the angle the piece is drawn at, in the picture's own pixels: its centre, its size
@@ -243,13 +243,6 @@ export const PieceTurned = z.object({
 export type PieceTurned = z.infer<typeof PieceTurned>
 
 /**
- * How close the split pieces, drawn over each other, are to the picture they were cut from: the mean difference
- * of 255, and the percent of pixels off by more than 8 of 255.
- */
-export const PieceCloseness = z.object({ mean: z.number().nonnegative(), off: z.number().min(0).max(100) })
-export type PieceCloseness = z.infer<typeof PieceCloseness>
-
-/**
  * What every split piece says of itself: its top-left corner in the picture's own pixels, the planned part it
  * is (null for loose bits of no part), its kind, the split layer it was cut from (1 is the top one), and its
  * turned box (null for the backdrop, and for a piece too small to measure).
@@ -258,7 +251,7 @@ export const pieceFacts = {
   x: z.number().int().nonnegative(),
   y: z.number().int().nonnegative(),
   part: z.string().nullable(),
-  kind: PieceKind,
+  kind: SplitPieceKind,
   layer: z.number().int().min(1),
   turned: PieceTurned.nullable(),
 }
@@ -273,6 +266,13 @@ const SplitPiece = z.object({
   height: z.number().int().positive(),
   ...pieceFacts,
 })
+
+/**
+ * How close the split pieces, drawn over each other, are to the picture they were cut from: the mean difference
+ * of 255, and the percent of pixels off by more than 8 of 255.
+ */
+export const PieceCloseness = z.object({ mean: z.number().nonnegative(), off: z.number().min(0).max(100) })
+export type PieceCloseness = z.infer<typeof PieceCloseness>
 
 /**
  * The split pieces of a layer split that was given planned parts: the picture's own size, which every place is

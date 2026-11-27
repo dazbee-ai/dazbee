@@ -314,7 +314,7 @@ export function EditorStage({
         assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
         ...fontLoader(workspaceId, brandId),
         uploadImage: imageUploader(workspaceId, brandId),
-        ai: editorAi(workspaceId, brandId, designId),
+        ai: editorAi(workspaceId, brandId, designId, t.editor.glass.layerWord),
         ...(variables ? { variables } : {}),
         onStatus: status.set,
         onZoom: zoom.set,

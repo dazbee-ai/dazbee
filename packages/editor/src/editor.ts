@@ -8,6 +8,7 @@ import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/r
 import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
 import { type EditorArrivals, editorArrivals } from './ai/arrivals.ts'
+import { editorLayeringFinish } from './ai/layering-finish.ts'
 import { fit } from './canvas/camera.ts'
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
@@ -226,6 +227,7 @@ function live(
     guideDrag,
     presence,
     aiWaiting: () => arrivals?.waiting() ?? [],
+    aiEditable: () => arrivals?.editable() ?? new Set(),
   })
   // A read of the design's AI frames can start or end a frame's wait: the overlay draws its sheen again.
   arrivals?.onRead(overlay.draw)
@@ -248,6 +250,21 @@ function live(
     paused: () => pauses > 0,
     signal,
   })
+  // Make editable's finish runs in a tab with the AI routes.
+  if (arrivals && options.ai)
+    editorLayeringFinish({
+      session,
+      ai: options.ai,
+      ck,
+      holder: crypto.randomUUID(),
+      read: arrivals.read,
+      onRead: arrivals.onRead,
+      after,
+      readyPictures: resources.prepareImages,
+      arrive: arrivals.land,
+      poll: arrivals.poll,
+      signal,
+    })
   const clipboardEvents = editorClipboardEvents({
     clipboard: core.clipboard,
     canCopyPng: () => core.actionReady('copyPng'),
@@ -338,6 +355,7 @@ function live(
     startBrief: (request) => (arrivals ? arrivals.startBrief(request) : Promise.resolve(NO_AI)),
     moreLikeThis: (request) => (arrivals ? arrivals.moreLikeThis(request) : Promise.resolve(NO_AI)),
     refine: (request) => (arrivals ? arrivals.refine(request) : Promise.resolve(NO_AI)),
+    makeEditable: (frameId) => (arrivals ? arrivals.makeEditable(frameId) : Promise.resolve(NO_AI)),
     tryAgain: (frameId) => (arrivals ? arrivals.tryAgain(frameId) : Promise.resolve(NO_AI)),
     designAi: () => arrivals?.read() ?? null,
     onDesignAi: (listener) => arrivals?.onRead(listener) ?? (() => {}),

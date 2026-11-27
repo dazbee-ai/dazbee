@@ -4,7 +4,7 @@ import type { AiEstimate, AiFrameView, DesignAi } from '@dazbee/schema'
 
 import { en } from '@/lib/i18n/en.ts'
 
-import { estimates, estimateWords, glassFrame, glassPlace } from './glass-bar.ts'
+import { editableAction, estimates, estimateWords, glassFrame, glassPlace, warmingUp } from './glass-bar.ts'
 
 const AT = '2026-11-27T10:00:00.000Z'
 
@@ -127,5 +127,62 @@ describe('estimates', () => {
     await kept.get(editor, 'more-like-this', 'precise', ask)
     await kept.get({}, 'more-like-this', 'fast', ask)
     expect(asked).toBe(4)
+  })
+})
+
+describe('editableAction', () => {
+  const nodes = (visible: boolean) => ({
+    'f1-picture': { parentId: 'f1', props: { visible } },
+    'j2-f1-0': { parentId: 'f1', props: {} },
+    mine: { parentId: 'f1', props: {} },
+  })
+  const frame = { frameId: 'f1', jobId: 'j2' }
+
+  it('offers Make editable on a picture, Back to picture over its layers, and the layers again over the picture', () => {
+    expect(editableAction({ ...frame, state: 'arrived' }, { nodes: nodes(true) })).toEqual({ kind: 'make' })
+    expect(editableAction({ ...frame, state: 'editable' }, { nodes: nodes(false) })).toEqual({
+      kind: 'back',
+      layerIds: ['j2-f1-0'],
+    })
+    expect(editableAction({ ...frame, state: 'editable' }, { nodes: nodes(true) })).toEqual({
+      kind: 'again',
+      layerIds: ['j2-f1-0'],
+    })
+  })
+
+  it('offers it again on an editable frame whose layers are gone, and nothing while it works or has no picture', () => {
+    expect(
+      editableAction({ ...frame, state: 'editable' }, { nodes: { 'f1-picture': { parentId: 'f1', props: {} } } }),
+    ).toEqual({
+      kind: 'make',
+    })
+    expect(editableAction({ ...frame, state: 'layering' }, { nodes: nodes(true) })).toBeNull()
+    expect(editableAction({ ...frame, state: 'arrived' }, { nodes: {} })).toBeNull()
+  })
+})
+
+describe('warmingUp', () => {
+  const job = (state: 'running' | 'done', split: 'running' | 'done') => ({
+    state,
+    createdAt: AT,
+    calls:
+      split === 'done'
+        ? [
+            {
+              index: 1,
+              function: 'layer-split',
+              state: 'done' as const,
+              output: { kind: 'layers' as const, layers: [], gpuSeconds: 1 },
+            },
+          ]
+        : [{ index: 1, function: 'layer-split', state: 'running' as const }],
+  })
+  const at = Date.parse(AT)
+
+  it('is true once the split has run 25 s with no layers made', () => {
+    expect(warmingUp(job('running', 'running'), at + 24_000)).toBe(false)
+    expect(warmingUp(job('running', 'running'), at + 25_000)).toBe(true)
+    expect(warmingUp(job('running', 'done'), at + 60_000)).toBe(false)
+    expect(warmingUp(job('done', 'running'), at + 60_000)).toBe(false)
   })
 })

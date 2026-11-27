@@ -37,12 +37,22 @@ export type AiStart =
 
 /** What the editor asks of the API for the AI flow, through the app's routes. */
 export interface EditorAi {
+  /** What Make editable names a layer the layer plan names nothing in, before its number, in the page's words. */
+  layerWord: string
   /** The design's AI frames, with their jobs and briefs. */
   read(): Promise<DesignAi>
   /** Starts a job on the design; a refusal comes back as the answer, never thrown. */
   start(job: StartAiJob): Promise<AiStart>
   /** Marks a call written into the design's frame `frameId`. */
   written(frameId: string, written: AiFrameWritten): Promise<void>
+  /** Claims, or renews, layering job `jobId`'s finish for `holder`; whether `holder` holds it now. */
+  claim(jobId: string, holder: string): Promise<boolean>
+  /** Ends layering job `jobId`'s finish held by `holder`: its frames become editable. */
+  finished(jobId: string, holder: string): Promise<void>
+  /** Split layer `index` of layering job `jobId`, as PNG bytes. */
+  file(jobId: string, index: number): Promise<Uint8Array>
+  /** Uploads a PNG as a hidden part of the brand, as a piece of a layered picture; its asset's id. */
+  part(png: Uint8Array): Promise<string>
 }
 
 /** A brief the tab starts on a page: its words, the brand's pictures it names, one size and a mode. */
@@ -129,6 +139,11 @@ export interface EditorArrivals {
    * starts nothing.
    */
   refine(request: RefineRequest): Promise<AiStart>
+  /**
+   * Makes an AI frame editable: starts a layering job for the picture its picture layer shows; its layers arrive once
+   * a tab finishes it. Then reads the design's AI frames. A frame showing no picture starts nothing.
+   */
+  makeEditable(frameId: string): Promise<AiStart>
   /** Tries a failed AI frame again, its picture made again into the same frame; settles once the design's AI frames are read again. */
   tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read, with the frames marked written since; null before the first read. */
@@ -139,8 +154,15 @@ export interface EditorArrivals {
   poll(): Promise<void>
   /** The AI frames of the design that wait for their picture, as last read, among those the design has with their picture layer. */
   waiting(): string[]
+  /** The AI frames made editable, as last read, whose picture layer the design has hidden. */
+  editable(): Set<string>
   /** Settles once every arrival of a picture started so far is stored and marked written, or given up. */
   settled(): Promise<void>
+  /**
+   * Runs `steps` as one arrival, no undo of any tab taking it back; resolves whether the server stored it ('saved'),
+   * or that nothing ran ('none').
+   */
+  land(steps: () => void): Promise<'saved' | 'none'>
 }
 
 /** How long a shown tab waits between reads of the design's AI frames. */
@@ -177,18 +199,28 @@ export function editorArrivals({
   const readers = new Set<() => void>()
 
   /**
-   * The AI frames the design has that wait for a picture, as last read: a draft's, with its picture layer, or a
-   * refine's new version, with the layer it changes.
+   * The AI frames the design has that wait for a picture, as last read: a draft's, or its layers while it is made
+   * editable, with its picture layer; or a refine's new version, with the layer it changes.
    */
   function waiting(): string[] {
     const { nodes } = session.design()
     const drafts = (read?.frames ?? []).filter(
-      (f) => f.state === 'waiting' && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId,
+      (f) =>
+        (f.state === 'waiting' || f.state === 'layering') && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId,
     )
     const refines = (read?.refines ?? []).filter(
       (r) => r.resultAssetId === null && jobRunning(jobOf(r.jobId)) && nodes[r.pictureLayerId]?.parentId === r.frameId,
     )
     return [...new Set([...drafts, ...refines].map((f) => f.frameId))]
+  }
+
+  function editable(): Set<string> {
+    const { nodes } = session.design()
+    return new Set(
+      (read?.frames ?? [])
+        .filter((f) => f.state === 'editable' && nodes[pictureLayerOf(f.frameId)]?.props.visible === false)
+        .map((f) => f.frameId),
+    )
   }
 
   /** Job `id` as last read. */
@@ -272,6 +304,15 @@ export function editorArrivals({
       ...(request.marksAssetId ? { marksAssetId: request.marksAssetId } : {}),
       size: refineSize(frame, layer, request.pictureLayerId === pictureLayerOf(request.frameId)),
     })
+    if (started.ok) await poll()
+    return started
+  }
+
+  async function makeEditable(frameId: string): Promise<AiStart> {
+    const layer = layerIn(pictureLayerOf(frameId), frameId)
+    const picture = layer && shownPicture(layer)
+    if (!picture) return { ok: false, refusal: null, message: 'that frame shows no picture' }
+    const started = await ai.start({ kind: 'layering', designId, frames: [{ frameId, pictureAssetId: picture }] })
     if (started.ok) await poll()
     return started
   }
@@ -468,12 +509,15 @@ export function editorArrivals({
     startBrief,
     moreLikeThis,
     refine,
+    makeEditable,
     tryAgain,
     read: () => read,
     onRead,
     poll,
     waiting,
+    editable,
     settled,
+    land: (steps) => arrive(session, signal, steps),
   }
 }
 

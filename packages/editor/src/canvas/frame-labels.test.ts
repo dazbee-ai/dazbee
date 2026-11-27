@@ -10,6 +10,7 @@ const deps = (more: Partial<FrameLabelDeps> = {}): FrameLabelDeps => ({
   typing: { editing: () => null },
   camera: { x: 0, y: 100, zoom: 1 },
   starOffered: null,
+  editable: new Set(),
   ...more,
 })
 const STARRED: Frame = { ...SQUARE, starred: true }
@@ -66,5 +67,11 @@ describe('frameLabel', () => {
       deps({ selection: { ...deps().selection, current: () => [{ id: 'a', frameId: 'one-sq' }] } }),
     )
     expect(holding?.dataset).toEqual({ frame: 'one-sq', active: '' })
+  })
+
+  it('shows the layers icon before an editable AI frame’s name', () => {
+    const label = frameLabel(SQUARE, deps({ editable: new Set([SQUARE.id]) }))
+    expect(titleOf(label)?.map((part) => part.attributes.class ?? part.name)).toEqual(['frame-layers', 'frame-name'])
+    expect(titleOf(frameLabel(SQUARE, deps()))?.map((part) => part.name)).toEqual(['frame-name'])
   })
 })

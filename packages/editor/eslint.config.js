@@ -6,6 +6,7 @@ import preset from '@dazbee/config/eslint'
  */
 const SHELL_FILES = [
   'src/ai/arrivals.ts',
+  'src/ai/layering-finish.ts',
   'src/canvas/overlay.ts',
   'src/canvas/rulers.ts',
   'src/canvas/surface.ts',

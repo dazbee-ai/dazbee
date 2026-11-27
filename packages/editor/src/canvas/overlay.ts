@@ -102,6 +102,8 @@ export interface OverlayDeps {
   presence: Pick<EditorPresence, 'shown'>
   /** The AI frames that wait for their picture now, which show a sheen; none in a tab with no AI routes. */
   aiWaiting: () => readonly string[]
+  /** The AI frames made editable whose picture is hidden, whose labels show the layers icon. */
+  aiEditable: () => ReadonlySet<string>
 }
 
 export interface EditorOverlay {
@@ -152,6 +154,7 @@ export function editorOverlay({
   guideDrag,
   presence,
   aiWaiting,
+  aiEditable,
 }: OverlayDeps): EditorOverlay {
   const { frameOf } = view
 
@@ -476,6 +479,7 @@ export function editorOverlay({
         typing,
         camera: view.camera(),
         starOffered: selectPress.starOffered(),
+        editable: aiEditable(),
       })
       if (label) parts.push(label)
     }

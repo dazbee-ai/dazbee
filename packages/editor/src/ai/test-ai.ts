@@ -1,5 +1,6 @@
 // A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds, more
-// like this, refines and try again it starts or refuses, with their briefs and refines; the pictures their drafts make and the drafts that
+// like this, refines, layering and try again it starts or refuses, with their briefs and refines; a layering job's
+// split layers and its finish's lease; the pictures their drafts make and the drafts that
 // fail; the frames' states as the API reads them; and the calls marked written, as `markWritten` marks them.
 import {
   AI_CALL_FAILURES,
@@ -10,6 +11,7 @@ import {
   type AiJobView,
   type AiRefineLink,
   type DesignAi,
+  LAYERING_CALL,
   REFINE_CALL,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -37,6 +39,15 @@ export interface FakeAi extends EditorAi {
   failNextMark(): void
   /** The read of the design's AI frames gives what the API holds now. */
   design(): DesignAi
+  /** Layering job `job` ends with its plan and frame `n`'s split layers made: each split file's PNG bytes. */
+  split(job: string, n: number, files: readonly Uint8Array[], plan?: unknown): void
+  /** The finish's lease lapses, as when the tab holding it closes. */
+  lapse(): void
+  /** The holders whose claims were granted, in order, and the finishes ended. */
+  readonly claims: string[]
+  readonly finishes: string[]
+  /** The parts uploaded, in order. */
+  readonly parts: Uint8Array[]
 }
 
 /** The call of a round that makes draft `n`: the plan is call 0. */
@@ -54,6 +65,11 @@ export function fakeAi(): FakeAi {
   const jobs: AiJobView[] = []
   const briefs: AiBriefView[] = []
   const refines: AiRefineLink[] = []
+  const files = new Map<string, Uint8Array[]>()
+  const claims: string[] = []
+  const finishes: string[] = []
+  const parts: Uint8Array[] = []
+  let lease: string | null = null
   let reads = 0
   let refusal: AiJobRefusal | null = null
   let markFails = false
@@ -69,6 +85,7 @@ export function fakeAi(): FakeAi {
     started.push(job)
     if (job.kind === 'try-again') return Promise.resolve({ ok: true, job: again(job.frameId) })
     if (job.kind === 'refine') return Promise.resolve({ ok: true, job: refineJob(job) })
+    if (job.kind === 'layering') return Promise.resolve({ ok: true, job: layeringJob(job) })
     if (job.kind !== 'round' && job.kind !== 'more-like-this')
       throw new Error(`the fake starts rounds and more like this only, not ${job.kind}`)
     const id = `job${started.length}`
@@ -143,6 +160,48 @@ export function fakeAi(): FakeAi {
     return id
   }
 
+  /** A layering job, each call running, its frames being made editable; gives the job's id. */
+  function layeringJob(job: Extract<StartAiJob, { kind: 'layering' }>): string {
+    const id = `job${started.length}`
+    jobs.push({
+      id,
+      kind: 'layering',
+      state: 'running',
+      output: null,
+      calls: [
+        { index: LAYERING_CALL.plan, function: 'layer-plan', state: 'running' },
+        ...job.frames.map((_, n) => ({
+          index: LAYERING_CALL.split(n),
+          function: 'layer-split',
+          state: 'running' as const,
+        })),
+      ],
+      error: null,
+      createdAt: AT,
+      endedAt: null,
+    })
+    job.frames.forEach(({ frameId }, n) => {
+      const frame = frames.find((f) => f.frameId === frameId)
+      if (frame) Object.assign(frame, { jobId: id, callIndex: LAYERING_CALL.split(n), state: 'layering' })
+    })
+    return id
+  }
+
+  function split(jobId: string, n: number, made: readonly Uint8Array[], plan: unknown = null) {
+    const job = jobs.find((j) => j.id === jobId)
+    if (!job) throw new Error(`no job ${jobId}`)
+    files.set(jobId, [...made])
+    job.state = 'done'
+    job.endedAt = AT
+    job.calls = job.calls.map((call) => {
+      if (call.index === LAYERING_CALL.plan)
+        return { ...call, state: 'done', output: { kind: 'text', text: '', json: plan } }
+      if (call.index !== LAYERING_CALL.split(n)) return call
+      const layers = made.map((_, i) => ({ key: `originals/${jobId}-${i}`, width: 512, height: 512 }))
+      return { ...call, state: 'done', output: { kind: 'layers', layers, gpuSeconds: 1 } }
+    })
+  }
+
   /** A refine's job, its plan done and its edit running, and its refine; gives the job's id. */
   function refineJob(job: Extract<StartAiJob, { kind: 'refine' }>): string {
     const id = `job${started.length}`
@@ -196,8 +255,37 @@ export function fakeAi(): FakeAi {
   }
 
   return {
+    layerWord: 'Layer',
     started,
     marks,
+    claims,
+    finishes,
+    parts,
+    split,
+    lapse: () => {
+      lease = null
+    },
+    claim: (_jobId, holder) => {
+      if (lease !== null && lease !== holder) return Promise.resolve(false)
+      lease = holder
+      claims.push(holder)
+      return Promise.resolve(true)
+    },
+    finished: (jobId, holder) => {
+      if (lease !== holder) return Promise.reject(new Error('another tab holds the finish'))
+      lease = null
+      finishes.push(jobId)
+      for (const frame of frames) if (frame.jobId === jobId && frame.state === 'layering') frame.state = 'editable'
+      return Promise.resolve()
+    },
+    file: (jobId, index) => {
+      const bytes = files.get(jobId)?.[index]
+      return bytes ? Promise.resolve(bytes) : Promise.reject(new Error(`no file ${index} of ${jobId}`))
+    },
+    part: (png) => {
+      parts.push(png)
+      return Promise.resolve(`part${parts.length}`)
+    },
     reads: () => reads,
     refuseNext: (why) => {
       refusal = why

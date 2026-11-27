@@ -49,6 +49,16 @@
 .stage-overlay .frame-label[data-lit] .frame-name {
   color: inherit;
 }
+/* The layers icon before an editable AI frame's name, in the label's own colour. */
+.stage-overlay .frame-layers {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
 /* The star after a frame's name: hollow while it is offered to an unstarred frame, filled once starred. */
 .stage-overlay .frame-star {
   flex: none;

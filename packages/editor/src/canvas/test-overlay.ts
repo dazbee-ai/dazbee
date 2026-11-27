@@ -283,6 +283,7 @@ export function harness(
     guideDrag: { shown: () => [], rulerFrame: () => undefined },
     presence: { shown: () => state.people ?? [] },
     aiWaiting: () => [],
+    aiEditable: () => new Set(),
   }
   const overlay = editorOverlay(changed(deps))
   /** The part drawn with a class. */

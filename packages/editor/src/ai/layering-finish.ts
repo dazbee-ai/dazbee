@@ -6,9 +6,9 @@
 // rebuilds becomes its graphics, and every other piece a picture layer, where the picture's own fill draws the
 // piece (`piece-rebuild.ts`, which also tells the frame's pieces as lifting while the matchers work). For any other
 // frame it downloads each split layer, crops it to what it shows, scaled to the frame, and uploads the crops as
-// hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame as one
-// arrival no undo takes back: the picture layer hidden at the bottom, then the layers, bottom first, in the split's
-// order reversed. Layer ids come from the job, so a second finish places nothing new. A frame whose picture changed
+// hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame
+// (`place-layers.ts`) as one arrival no undo takes back: the picture layer hidden at the bottom, then the layers,
+// bottom first, in the split's order reversed. Layer ids come from the job, so a second finish places nothing new. A frame whose picture changed
 // or went meanwhile gets no layers, and offers Make editable again; so does a frame whose picture layer no longer
 // fills it as drawn, and a split that shows nothing. Another tab holding the lease is waited for; a lease that
 // lapses, as when a tab closes mid-way, is claimed by the next tab, and a tab that lost its lease places nothing. A

@@ -1,18 +1,26 @@
 /* eslint-disable max-lines -- one deep module: one form whose state is one FormData contract */
 'use client'
 
-// The brief's form (#136), as in the final mock: a few words, then a chat-style toolbar. + adds a
+// The brief's form, as in the final mock: a few words, then a chat-style toolbar. + adds a
 // reference ad (one of the brand's designs) or uploads images into the brand's assets, each shown
-// as a thumbnail above the brief; the Sizes dropdown picks the sizes to make; the Brand kit
-// button opens the whole kit to pick from, and the brand's Brand kit page to set it up or change it
-// (#200). Every choice is a form field, so Make drafts sends it
-// with the brief. The size checkboxes are in the page from the start, so the form works before
+// as a thumbnail above the brief; the Size dropdown picks the one size the drafts are made at; Fast or
+// Precise picks the speed, its plain line under the toolbar; the Brand kit button opens the whole kit
+// to pick from, and the brand's Brand kit page to set it up or change it. Every choice is a form
+// field, so Make drafts sends it with the brief; a brief that didn't start says why under the toolbar
+// and keeps every field. The size radios are in the page from the start, so the form works before
 // any script loads.
 import * as Popover from '@radix-ui/react-popover'
 import { useRouter } from 'next/navigation'
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useActionState, useRef, useState } from 'react'
 
-import { type AssetSummary, EMPTY_BRAND_KIT, inBrandRoleOrder, SIZE_PRESETS, type StoredBrandKit } from '@dazbee/schema'
+import {
+  type AiMode,
+  type AssetSummary,
+  EMPTY_BRAND_KIT,
+  inBrandRoleOrder,
+  SIZE_PRESETS,
+  type StoredBrandKit,
+} from '@dazbee/schema'
 
 import { kitEntryName } from '@/components/brand-kit/kit-names.ts'
 import { useBrandKit } from '@/components/brand-kit/use-brand-kit.ts'
@@ -32,7 +40,7 @@ import { overlayScroll } from '@/components/ui/overlay-scroll.ts'
 import { Tick } from '@/components/ui/tick.tsx'
 import { Tooltip } from '@/components/ui/tooltip.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
-import { BRIEF_SIZES, type BriefSize } from '@/lib/brief.ts'
+import { BRIEF_SIZES, type BriefSize, refusedWords } from '@/lib/brief.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
@@ -86,7 +94,8 @@ export function BriefForm({
   /** The brand's kit as the page came with it, null when it couldn't be read; a change in the Brand kit page shows here at once. */
   kit: StoredBrandKit | null
   references: BriefReference[]
-  action: (form: FormData) => Promise<void>
+  /** Makes the drafts; gives why when the brief didn't start, as `refusedWords` reads it. */
+  action: (form: FormData) => Promise<string | undefined>
 }) {
   const t = useMessages()
   const h = t.home
@@ -94,7 +103,18 @@ export function BriefForm({
   const kit = useBrandKit(workspaceId, brandId, first) ?? first ?? EMPTY_BRAND_KIT
   const [open, setOpen] = useState<Popup | null>(null)
   const [adding, setAdding] = useState<'menu' | 'reference'>('menu')
-  const [sizes, setSizes] = useState<BriefSize[]>([BRIEF_SIZES[0]])
+  const [words, setWords] = useState('')
+  // Each answer is a new object, so the same refusal twice shows again after a change cleared the first.
+  const [answer, send] = useActionState(
+    async (_was: { refused: string | undefined } | null, form: FormData) => ({ refused: await action(form) }),
+    null,
+  )
+  const [cleared, setCleared] = useState<typeof answer>(null)
+  const refused = answer === cleared ? undefined : answer?.refused
+  /** A change to the brief or its speed clears what the last answer said. */
+  const changed = () => setCleared(answer)
+  const [size, setSize] = useState<BriefSize>(BRIEF_SIZES[0])
+  const [mode, setMode] = useState<AiMode>('fast')
   const [reference, setReference] = useState<BriefReference | null>(null)
   const [uploads, setUploads] = useState<Upload[]>([])
   const [useKit, setUseKit] = useState(true)
@@ -124,13 +144,6 @@ export function BriefForm({
     return next
   }
 
-  const pickSize = (id: BriefSize, on: boolean) =>
-    setSizes((now) => {
-      // The last picked size stays: a brief makes at least one.
-      if (!on && now.length === 1) return now
-      return on ? BRIEF_SIZES.filter((s) => s === id || now.includes(s)) : now.filter((s) => s !== id)
-    })
-
   const upload = (picked: File[]) => {
     for (const file of picked) {
       const key = crypto.randomUUID()
@@ -146,38 +159,27 @@ export function BriefForm({
   const sizeFields = (
     <fieldset>
       <legend className="sr-only">{h.sizes}</legend>
-      {BRIEF_SIZES.map((id) => {
-        const on = sizes.includes(id)
-        const last = on && sizes.length === 1
-        return (
-          <label
-            key={id}
-            className={cn(ROW, 'has-[:focus-visible]:bg-hover has-[:focus-visible]:lit')}
-            title={last ? h.lastSize : undefined}
-          >
-            <input
-              type="checkbox"
-              name="size"
-              value={id}
-              checked={on}
-              onChange={(e) => pickSize(id, e.target.checked)}
-              aria-describedby={last ? 'brief-last-size' : undefined}
-              className="sr-only"
-              data-testid={`brief-size-${id}`}
-            />
-            <Tick on={on} />
-            <span className="grid w-5 shrink-0 place-items-center text-muted">
-              <Shape id={id} size={16} />
-            </span>
-            <span className="flex-1">{t.editor.sizes.preset[id]}</span>
-          </label>
-        )
-      })}
-      {sizes.length === 1 && (
-        <p id="brief-last-size" className="px-2.5 pt-1 pb-1.5 text-caption text-subtle">
-          {h.lastSize}
-        </p>
-      )}
+      {BRIEF_SIZES.map((id) => (
+        <label key={id} className={cn(ROW, 'has-[:focus-visible]:bg-hover has-[:focus-visible]:lit')}>
+          <input
+            type="radio"
+            name="size"
+            value={id}
+            checked={size === id}
+            onChange={() => {
+              setSize(id)
+              setOpen(null)
+            }}
+            className="sr-only"
+            data-testid={`brief-size-${id}`}
+          />
+          <Tick on={size === id} />
+          <span className="grid w-5 shrink-0 place-items-center text-muted">
+            <Shape id={id} size={16} />
+          </span>
+          <span className="flex-1">{t.editor.sizes.preset[id]}</span>
+        </label>
+      ))}
     </fieldset>
   )
 
@@ -192,7 +194,7 @@ export function BriefForm({
   const hasAttachments = reference !== null || uploads.length > 0
 
   return (
-    <form action={action} className="rounded-[20.5px] bg-surface p-3 md:px-5 md:py-4">
+    <form action={send} className="rounded-[20.5px] bg-surface p-3 md:px-5 md:py-4">
       {hasAttachments && (
         <ul aria-label={h.attachments} className="mb-2 flex flex-wrap gap-2 px-1 pt-1" data-testid="brief-attachments">
           {reference && (
@@ -255,6 +257,12 @@ export function BriefForm({
       <textarea
         id="brief"
         name="brief"
+        required
+        value={words}
+        onChange={(e) => {
+          setWords(e.target.value)
+          changed()
+        }}
         rows={1}
         maxLength={2000}
         placeholder={h.briefPlaceholder}
@@ -375,16 +383,12 @@ export function BriefForm({
           }}
         />
 
-        {/* Sizes: the four everyday ones, at least one picked. */}
+        {/* The size: one of the four everyday ones. */}
         <Popover.Root open={open === 'sizes'} onOpenChange={toggle('sizes')}>
           <Popover.Trigger asChild>
             <button type="button" className={TOOL} data-testid="brief-sizes">
-              <span aria-hidden className="flex items-center gap-0.5">
-                {sizes.slice(0, 3).map((id) => (
-                  <Shape key={id} id={id} size={13} />
-                ))}
-              </span>
-              {sizes.length === 1 ? h.sizesOne : format(h.sizesMany, { n: sizes.length })}
+              <Shape id={size} size={13} />
+              {t.editor.sizes.preset[size]}
               <CaretDownIcon size={12} weight="bold" aria-hidden />
             </button>
           </Popover.Trigger>
@@ -615,6 +619,30 @@ export function BriefForm({
           </Popover.Content>
         </Popover.Root>
 
+        {/* The speed: Fast or Precise, each with its plain line. */}
+        <fieldset className="flex items-center rounded-full border-[1.5px] border-line p-0.5">
+          <legend className="sr-only">{h.speed}</legend>
+          {(['fast', 'precise'] as const).map((m) => (
+            <Tooltip key={m} label={t.editor.brief[m]}>
+              <label className="inline-flex h-7 cursor-pointer items-center rounded-full px-3 text-small font-semibold text-muted select-none has-[:checked]:bg-hover has-[:checked]:text-text has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
+                <input
+                  type="radio"
+                  name="mode"
+                  value={m}
+                  checked={mode === m}
+                  onChange={() => {
+                    setMode(m)
+                    changed()
+                  }}
+                  className="sr-only"
+                  data-testid={`brief-mode-${m}`}
+                />
+                {h[m]}
+              </label>
+            </Tooltip>
+          ))}
+        </fieldset>
+
         <button
           type="submit"
           title={h.makeHint}
@@ -625,6 +653,9 @@ export function BriefForm({
           {h.make}
         </button>
       </div>
+      <p role="status" data-testid="brief-line" className="mt-2 px-1 text-tiny text-muted">
+        {refusedWords(refused, t) ?? t.editor.brief[mode]}
+      </p>
     </form>
   )
 }

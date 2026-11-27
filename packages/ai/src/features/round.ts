@@ -8,6 +8,7 @@ import {
   briefTitle,
   type CallOutput,
   type MoreLikeThisInput,
+  ROUND_DRAFTS,
   type RoundInput,
   RoundPlanAnswer,
   type TryAgainInput,
@@ -23,9 +24,6 @@ type StoredBrief = DraftBrief & { plan: RoundPlanAnswer | null }
 
 /** Each call's index in a round or more like this; a try-again's one draft is call 0. */
 export const ROUND_CALL = { plan: 0, draft: (n: number) => 1 + n, referenceRead: 5 } as const
-
-/** How many drafts a round makes. */
-const DRAFTS = 4
 
 /** The reference read on the brief's reference ad. */
 const REFERENCE_READ: FeatureCall<RoundInput | MoreLikeThisInput, undefined> = {
@@ -47,11 +45,11 @@ const PLAN: FeatureCall<RoundInput | MoreLikeThisInput, undefined> = {
  * on the brief, then four drafts.
  */
 export const round: AiFeatureDef<RoundInput | MoreLikeThisInput> = {
-  shape: (input) => ({ count: DRAFTS, reference: Boolean(input.referenceKey) }),
+  shape: (input) => ({ count: ROUND_DRAFTS, reference: Boolean(input.referenceKey) }),
   stages: (shape) => [
     shape.reference ? [REFERENCE_READ] : [],
     [PLAN],
-    Array.from({ length: DRAFTS }, (_, n): FeatureCall<RoundInput | MoreLikeThisInput, undefined> => ({
+    Array.from({ length: ROUND_DRAFTS }, (_, n): FeatureCall<RoundInput | MoreLikeThisInput, undefined> => ({
       index: ROUND_CALL.draft(n),
       fn: 'draft',
       build: ({ input, answers, model, prompt }) => draftCall(input, planOf(answers), n, model, prompt),

@@ -1,146 +1,35 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { type Design, FRAME_GAP, type Member, type RestoreMark, sectionsOf } from '@dazbee/schema'
+import { type Design, FRAME_GAP, pictureLayerOf, sectionsOf, WAITING_FILL } from '@dazbee/schema'
 
-import { HALF } from '../canvas/test-images.ts'
-import { openTab } from '../open-tab.ts'
 import { WORDS } from '../test-actions.ts'
-import { type TestEditor, testEditor } from '../test-editor.ts'
-import { type MemorySync, memorySync } from '../test-link.ts'
-import { type BriefRequest, type EditorArrivals, editorArrivals, POLL_MS, POLL_WAITING_MS } from './arrivals.ts'
-import { BRIEF_SCREEN_ROOM, pictureLayerOf, WAITING_FILL } from './place-brief.ts'
-import { type FakeAi, fakeAi } from './test-ai.ts'
-
-const ANN: Member = { userId: 'ann', workspaceId: 'w1' }
-const BOB: Member = { userId: 'bob', workspaceId: 'w1' }
-const VIC: Member = { userId: 'vic', workspaceId: 'w1' }
-const MARK: RestoreMark = { versionId: 'v1', kind: 'named', name: 'Kept', takenAt: '2026-11-27T09:00:00.000Z' }
-
-const BRIEF: BriefRequest = {
-  pageId: 'p1',
-  words: '  Diwali serum sale\nwarm lights, gold tones',
-  pictures: [],
-  size: { width: 1080, height: 1080 },
-  mode: 'fast',
-  draftName: (n) => `Draft ${n + 1}`,
-}
-
-/** A tab of a test: its editor, its arrivals, and its clock and visibility, which the test moves. */
-interface Tab {
-  editor: TestEditor
-  arrivals: EditorArrivals
-  /** The read waiting to run, and after how long; null when none waits. */
-  timer(): { ms: number; run: () => void } | null
-  /** Shows or hides the tab. */
-  show(shown: boolean): void
-  /** Ends the tab's arrivals, as the editor's end does. */
-  end(): void
-}
-
-/** The bytes of every picture the tabs load. */
-const PICTURE = HALF.encodeToBytes() ?? new Uint8Array()
+import type { MemorySync } from '../test-link.ts'
+import { POLL_MS, POLL_WAITING_MS } from './arrivals.ts'
+import { BRIEF_SCREEN_ROOM } from './place-brief.ts'
+import { fakeAi } from './test-ai.ts'
+import {
+  ANN,
+  BOB,
+  BRIEF,
+  endTabs,
+  fillsOf,
+  MARK,
+  pictureOf,
+  pollAll,
+  serve,
+  settle,
+  tabOn,
+  VIC,
+} from './test-arrivals.ts'
 
 let mem: MemorySync
-const ending: (() => Promise<void> | void)[] = []
 
-afterEach(async () => {
-  for (const end of ending.splice(0).reverse()) await end()
-})
-
-/**
- * A tab on the server in memory, as `token`'s member, with its arrivals on `ai`; seen at 100 % and getting
- * pictures ready through its editor unless `link` says otherwise.
- */
-async function tabOn(
-  ai: FakeAi,
-  token = 'ann',
-  member = ANN,
-  link: {
-    connected?: () => boolean
-    synced?: () => boolean
-    zoom?: number
-    readyPictures?: (ids: readonly string[]) => Promise<void>
-  } = {},
-): Promise<Tab> {
-  const opened = await openTab({
-    designId: 'd',
-    member,
-    url: 'ws://s',
-    token: () => Promise.resolve(token),
-    socket: mem.socket,
-  })
-  ending.push(() => opened.close())
-  const editor = await testEditor(WORDS, { tab: opened, sources: { assetBytes: () => Promise.resolve(PICTURE) } })
-  ending.push(() => editor.end())
-  let timer: { ms: number; run: () => void } | null = null
-  let shown = true
-  const listeners = new Set<() => void>()
-  const stop = new AbortController()
-  let made = 0
-  const arrivals = editorArrivals({
-    session: editor.session,
-    ai,
-    designId: 'd',
-    newId: () => `${token}-${++made}`,
-    after: (ms, run) => {
-      const waiting = { ms, run }
-      timer = waiting
-      return () => {
-        if (timer === waiting) timer = null
-      }
-    },
-    shown: {
-      now: () => shown,
-      onChange: (listener) => {
-        listeners.add(listener)
-        return () => listeners.delete(listener)
-      },
-    },
-    connected: link.connected ?? (() => opened.link.status() === 'connected'),
-    synced: link.synced ?? opened.synced,
-    zoomFor: () => link.zoom ?? 1,
-    readyPictures: link.readyPictures ?? editor.modules.resources.prepareImages,
-    signal: stop.signal,
-  })
-  ending.push(() => stop.abort())
-  await settle(arrivals)
-  return {
-    editor,
-    arrivals,
-    timer: () => timer,
-    show: (next) => {
-      shown = next
-      for (const listener of [...listeners]) listener()
-    },
-    end: () => stop.abort(),
-  }
-}
-
-/** Lets every message on its way land, what it set going run, and the tab's arrivals be stored and marked. */
-async function settle(...arrivals: EditorArrivals[]) {
-  for (let n = 0; n < 5; n++) {
-    await mem.settle()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await Promise.all(arrivals.map((a) => a.settled()))
-  }
-}
-
-/** Reads the design's AI frames now, on each tab, and lets what it writes land. */
-async function pollAll(...tabs: Tab[]) {
-  for (const tab of tabs) await tab.arrivals.poll()
-  await settle(...tabs.map((t) => t.arrivals))
-}
-
-/** The fills of a frame's picture layer. */
-const fillsOf = (design: Design, frameId: string) =>
-  (design.nodes[pictureLayerOf(frameId)]?.props as { fills?: unknown[] } | undefined)?.fills
-
-const pictureOf = (assetId: string) => [{ type: 'image', assetId, fit: 'fill', opacity: 1 }]
+afterEach(endTabs)
 
 describe('editorArrivals', () => {
   describe('startBrief', () => {
     it('starts the round with ids it made, then places its section and four waiting frames below everything, as no undo step', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       // A person's step before the brief.
@@ -183,7 +72,7 @@ describe('editorArrivals', () => {
     })
 
     it('places a brief far enough below for its outline and title at the zoom the page is seen at', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai, 'ann', ANN, { zoom: 0.1 })
       await a.arrivals.startBrief(BRIEF)
@@ -193,7 +82,7 @@ describe('editorArrivals', () => {
     })
 
     it('places nothing when the job is refused, and says why', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       const before = a.editor.session.design()
@@ -209,7 +98,7 @@ describe('editorArrivals', () => {
     })
 
     it('says a saved job whose section the design didn’t take is not placed, and places nothing', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       const before = a.editor.session.design()
@@ -225,7 +114,7 @@ describe('editorArrivals', () => {
     })
 
     it('places a brief started while a drag is open once the drag ends, outside its undo step', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       const drag = a.editor.session.beginGesture()
@@ -246,7 +135,7 @@ describe('editorArrivals', () => {
 
   describe('moreLikeThis', () => {
     it('starts more like a draft with its brief and the picture it shows, then places four frames right of its section, joined to it, as no undo step', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief({ ...BRIEF, pictures: ['bike'], mode: 'precise' })
@@ -275,7 +164,7 @@ describe('editorArrivals', () => {
 
   describe('poll', () => {
     it('writes each picture made into its frame once, marks it written, and leaves it to no undo', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -299,7 +188,7 @@ describe('editorArrivals', () => {
     })
 
     it('fills a frame from two tabs as one picture, with no refusal told', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const [a, b] = [await tabOn(ai), await tabOn(ai, 'bob', BOB)]
       await a.arrivals.startBrief(BRIEF)
@@ -318,7 +207,7 @@ describe('editorArrivals', () => {
     })
 
     it('leaves a frame deleted before its picture arrives deleted, and waits on it no more', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -343,7 +232,7 @@ describe('editorArrivals', () => {
     })
 
     it('fills the frames of a round from the API in a tab opened after the tab that started it closed', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -359,7 +248,7 @@ describe('editorArrivals', () => {
     })
 
     it('fills a brief a colleague started in a tab that was open before it', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const [a, b] = [await tabOn(ai), await tabOn(ai, 'bob', BOB)]
       await a.arrivals.startBrief(BRIEF)
@@ -374,7 +263,7 @@ describe('editorArrivals', () => {
     })
 
     it('marks a stored picture whose mark failed on the next read, without writing it over a version put back', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -394,7 +283,7 @@ describe('editorArrivals', () => {
     })
 
     it('keeps the waiting fill until the picture is ready to draw, then writes the picture', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       let bring = () => {}
       const fetched: string[][] = []
@@ -418,7 +307,7 @@ describe('editorArrivals', () => {
     })
 
     it('writes no picture while the tab is offline, so none waits in its queue to land later', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       let online = false
       const a = await tabOn(ai, 'ann', ANN, { connected: () => online })
@@ -435,7 +324,7 @@ describe('editorArrivals', () => {
     })
 
     it('marks a picture its design shows only once its queue is stored', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -454,7 +343,7 @@ describe('editorArrivals', () => {
     })
 
     it('waits on no frame whose picture layer is deleted, and leaves the frame as it is', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -468,7 +357,7 @@ describe('editorArrivals', () => {
     })
 
     it('keeps a picture the person put in the waiting layer, and marks the call written', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -484,7 +373,7 @@ describe('editorArrivals', () => {
     })
 
     it('keeps a picture that arrived after a version was put back when the put-back is undone', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -511,7 +400,7 @@ describe('editorArrivals', () => {
     })
 
     it('leaves a version put back over a picture as it is when the design is opened again', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
@@ -531,7 +420,7 @@ describe('editorArrivals', () => {
     })
 
     it('reads every 3 s while a frame waits, every 10 s once none does, and not while the tab is hidden', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       expect(a.timer()?.ms).toBe(POLL_MS)
@@ -554,7 +443,7 @@ describe('editorArrivals', () => {
     })
 
     it('neither reads nor writes in a tab that may only view the design', async () => {
-      mem = memorySync(WORDS)
+      mem = serve(WORDS)
       const ai = fakeAi()
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)

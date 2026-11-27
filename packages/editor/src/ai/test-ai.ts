@@ -1,14 +1,15 @@
-// A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds and more
-// like this it starts or refuses, with their briefs, the pictures their drafts make, the frames' states as the API reads them, and the calls
-// marked written, as `markWritten` marks them.
-import type {
-  AiBriefView,
-  AiFrameView,
-  AiFrameWritten,
-  AiJobRefusal,
-  AiJobView,
-  DesignAi,
-  StartAiJob,
+// A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds, more
+// like this and try again it starts or refuses, with their briefs; the pictures their drafts make and the drafts that
+// fail; the frames' states as the API reads them; and the calls marked written, as `markWritten` marks them.
+import {
+  AI_CALL_FAILURES,
+  type AiBriefView,
+  type AiFrameView,
+  type AiFrameWritten,
+  type AiJobRefusal,
+  type AiJobView,
+  type DesignAi,
+  type StartAiJob,
 } from '@dazbee/schema'
 
 import type { AiStart, EditorAi } from './arrivals.ts'
@@ -22,6 +23,8 @@ export interface FakeAi extends EditorAi {
   reads(): number
   /** Refuses the next job started, with why. */
   refuseNext(refusal: AiJobRefusal): void
+  /** Draft `n` of job `job` fails. */
+  fail(job: string, n: number): void
   /** Draft `n` of job `job` makes its picture, asset `assetId`. */
   make(job: string, n: number, assetId: string): void
   /** Call `index` of job `job` makes its picture, asset `assetId`. */
@@ -38,6 +41,9 @@ export interface FakeAi extends EditorAi {
 export const draftCall = (n: number) => n + 1
 
 const AT = '2026-11-27T10:00:00.000Z'
+
+/** Why a failed draft of the fake failed. */
+const FAILURE = AI_CALL_FAILURES[0]
 
 export function fakeAi(): FakeAi {
   const started: StartAiJob[] = []
@@ -58,6 +64,7 @@ export function fakeAi(): FakeAi {
       return Promise.resolve({ ok: false, refusal: refused, message: `refused: ${refused}` })
     }
     started.push(job)
+    if (job.kind === 'try-again') return Promise.resolve({ ok: true, job: again(job.frameId) })
     if (job.kind !== 'round' && job.kind !== 'more-like-this')
       throw new Error(`the fake starts rounds and more like this only, not ${job.kind}`)
     const id = `job${started.length}`
@@ -160,6 +167,15 @@ export function fakeAi(): FakeAi {
       markFails = true
     },
     make: (job, n, assetId) => makeCall(job, draftCall(n), assetId),
+    fail: (jobId, n) => {
+      const job = jobs.find((j) => j.id === jobId)
+      const at = job?.calls.findIndex((c) => c.index === draftCall(n)) ?? -1
+      const call = job?.calls[at]
+      const frame = frames.find((f) => f.jobId === jobId && f.callIndex === draftCall(n))
+      if (!job || !call || !frame) throw new Error(`no draft ${n} of ${jobId}`)
+      job.calls[at] = { index: call.index, function: call.function, state: 'failed', failure: FAILURE }
+      frame.state = 'failed'
+    },
     makeCall,
     again,
     design,

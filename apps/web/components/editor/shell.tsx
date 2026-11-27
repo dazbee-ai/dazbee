@@ -3,7 +3,8 @@
 // The editor's chrome: two islands floating at the top; a bottom tool dock whose end holds the
 // buttons that open the flyouts (Layers, Assets, AI, Brand) on the stage's start side, Pages and
 // the zoom, and a slot for the mini bar above the selection. The AI button opens the brief box just
-// above the dock, in a tab that may change the design, and a picked AI frame shows the glass bar above it. On a phone a tab bar at the bottom holds
+// above the dock, in a tab that may change the design, and a picked AI frame shows the glass bar above it; a failed AI
+// frame shows its note, and a brief's section its pictures. On a phone a tab bar at the bottom holds
 // the flyouts' buttons, then the tool button, which opens the dock above it as a tray, then Pages and
 // the zoom. The canvas
 // runs edge to edge under all of it; the stage is the editor itself, told which edges the chrome
@@ -26,6 +27,7 @@ import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
 import { dirOf } from '@/lib/i18n/index.ts'
 import { usePhone } from '@/lib/phone.ts'
 
+import { AiFrameNotes } from './ai-frame-notes.tsx'
 import { useAssetsKey } from './assets-key.ts'
 import { BriefBox } from './brief-box.tsx'
 import { DesignName } from './design-name.tsx'
@@ -298,6 +300,7 @@ export function EditorShell({
             {briefing && editor && (
               <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
             )}
+            {editor && <AiFrameNotes workspaceId={workspaceId} brandId={brandId} editor={editor} />}
             {editor && <GlassBar workspaceId={workspaceId} brandId={brandId} editor={editor} />}
             <ToastSlot editor={editor}>{toast}</ToastSlot>
             <QuickActions editor={editor} tray={tray} />

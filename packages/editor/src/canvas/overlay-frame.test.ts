@@ -24,6 +24,16 @@ describe('editorOverlay', () => {
       ])
     })
 
+    it('draws a sheen over each frame in view that waits for its AI picture, and none once it waits no more', () => {
+      let waiting = ['one-sq']
+      const { overlay, part } = harness({ selected: false }, (deps) => ({ ...deps, aiWaiting: () => waiting }))
+      overlay.draw()
+      expect(part('ai-waiting')?.dataset).toEqual({ frame: 'one-sq' })
+      waiting = []
+      overlay.draw()
+      expect(part('ai-waiting')).toBeUndefined()
+    })
+
     it('draws no handles on a picked frame that shows none', () => {
       const { overlay, part } = harness({ selected: false, picked: true })
       overlay.draw()

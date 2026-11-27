@@ -1,5 +1,7 @@
-// A brand's home (#84): "What are we making today?" as a brief, followed by sizes to start blank
-// in or a template. The brand's designs, templates and kit are pages of their own, from the
+// A brand's home: "What are we making today?" as a brief, followed by sizes to start blank in or a
+// template. Make drafts creates a design holding only the brief's section and four waiting drafts,
+// starts the round, and opens the design; a round that doesn't start deletes the design, and the
+// brief says why and keeps its fields. The brand's designs, templates and kit are pages of their own, from the
 // capsule. Right after the brand is made, Daz says it is ready above the brief, once. A Reviewer,
 // who makes nothing, gets Daz and a way to the brand's designs instead.
 import Link from 'next/link'
@@ -13,12 +15,15 @@ import { buttonStyles } from '@/components/ui/button.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { justMade } from '@/lib/brand-start.ts'
-import { briefDesign, type BriefSize } from '@/lib/brief.ts'
+import { briefDesign, briefFromForm, type BriefSize, designName } from '@/lib/brief.ts'
+import { briefSaid } from '@/lib/editor/brief-box.ts'
 import { brandPage, showsBrandList } from '@/lib/home.ts'
 import { brandWords, format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
+import { startAiJob } from '@/lib/server/ai-flow.ts'
 import {
   createDesign,
+  deleteDesign,
   designCover,
   getBrandKit,
   getRole,
@@ -26,6 +31,7 @@ import {
   listBrands,
   listDesigns,
 } from '@/lib/server/api.ts'
+import { startBriefDesign } from '@/lib/server/brief-start.ts'
 import { canChange } from '@/lib/settings-rights.ts'
 
 export const dynamic = 'force-dynamic'
@@ -94,19 +100,28 @@ export default async function BrandPage({
   const untitled = t.library.untitled
   const presetName = t.editor.sizes.preset
 
-  async function make(form: FormData) {
+  const draftName = t.editor.brief.draftName
+
+  /** Makes the drafts and opens their design; gives why when the brief didn't start. */
+  async function make(form: FormData): Promise<string | undefined> {
     'use server'
-    const brief = String(form.get('brief') ?? '').trim()
-    const firstLine = brief.split('\n')[0]?.trim() ?? ''
-    const name = (firstLine.length > 60 ? `${firstLine.slice(0, 59).trimEnd()}…` : firstLine) || untitled
-    const sizes = form.getAll('size').map(String)
-    const design = await createDesign(
-      workspaceId,
-      brandId,
-      name,
-      briefDesign(name, sizes, (id) => presetName[id]),
+    const brief = briefFromForm(form)
+    if (brief.words === '') return 'noWords'
+    const started = await startBriefDesign(
+      {
+        createDesign: (name, content) => createDesign(workspaceId, brandId, name, content),
+        startRound: (round) => startAiJob(workspaceId, brandId, round),
+        deleteDesign: (designId) => deleteDesign(workspaceId, brandId, designId),
+      },
+      {
+        brief,
+        name: designName(brief.words) || untitled,
+        draftName: (n) => format(draftName, { n: n + 1 }),
+        newId: () => crypto.randomUUID(),
+      },
     )
-    redirect(brandPath(workspaceId, brandId, 'designs', design.id))
+    if ('refused' in started) return briefSaid({ refusal: started.refused })
+    redirect(brandPath(workspaceId, brandId, 'designs', started.designId))
   }
 
   /** A design of one empty frame in one size, named Untitled design. */

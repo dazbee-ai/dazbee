@@ -188,8 +188,8 @@ export function BriefBox({
           aria-label={b.label}
           placeholder={b.placeholder}
           maxLength={4000}
-          // It sits in the glass with no edge of its own, even while typed in.
-          className="w-full resize-none border-0 bg-transparent pe-8 text-[17px] leading-[1.45] text-text outline-none placeholder:text-subtle focus-visible:outline-none"
+          // It sits in the glass with no edge of its own, even while typed in, and its scrollbar clear of the close button.
+          className="w-[calc(100%-2rem)] resize-none border-0 bg-transparent text-[17px] leading-[1.45] text-text outline-none placeholder:text-subtle focus-visible:outline-none"
         />
         {note && (
           <p role="status" data-testid="brief-said" className="flex items-center gap-1.5 text-small text-muted">

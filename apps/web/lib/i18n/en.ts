@@ -112,10 +112,10 @@ export const en = {
     remove: 'Remove {name}',
     uploading: 'Uploading {name}',
     uploadFailed: '{name} did not upload: {reason}',
-    /** The Sizes dropdown's button: how many sizes the brief makes. */
-    sizesOne: '1 size',
-    sizesMany: '{n} sizes',
-    lastSize: 'At least one size stays picked.',
+    /** The speed's two choices, each with its plain line as a tooltip. */
+    speed: 'Speed',
+    fast: 'Fast',
+    precise: 'Precise',
     /** The Brand kit button and its popover: the whole kit, each part picked or not. */
     kit: {
       on: 'Brand kit on',
@@ -133,7 +133,7 @@ export const en = {
       panelLead: 'Colours, fonts, logo and voice for {brand}. Changes save as you make them.',
     },
     make: 'Make drafts',
-    makeHint: 'Until AI drafts arrive, this opens a blank design in the sizes you picked.',
+    makeHint: 'Makes four drafts in a new design.',
     pickSize: 'Pick at least one size.',
     recent: 'Recent',
     noDesigns: 'Nothing made yet. Write a brief above to start.',
@@ -361,12 +361,24 @@ export const en = {
       paused: 'AI is paused for today. Try again tomorrow.',
       notAllowed: 'Only an Owner, Admin or Editor can use AI.',
       notStarted: 'This brief didn’t start. Try again.',
+      noWords: 'Write a few words for the brief first.',
       unknown: 'We couldn’t tell whether this brief started. Look for its drafts in a minute before trying again.',
       notPlaced: 'The drafts are being made, but this design couldn’t take them. They’ll be in the brand’s images.',
       nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',
       close: 'Close brief',
       /** A picture of a brief Edit brief filled the box with, by its place: 1 to 4. */
       pictureName: 'Picture {n}',
+    },
+    /** On an AI frame whose picture didn't come out: what happened, Try again, and what wasn't charged. */
+    aiFrames: {
+      didntComeOut: 'Didn’t come out',
+      tryAgain: 'Try again',
+      notCharged: {
+        draft: 'This draft wasn’t charged',
+        size: 'This size wasn’t charged',
+        nothing: 'Nothing was charged',
+      },
+      notTried: 'It didn’t start. Try again in a moment.',
     },
     /** The glass bar above a picked AI frame: its AI actions with what each takes, and the star. */
     glass: {
@@ -1475,6 +1487,9 @@ export const en = {
       untitledDesign: 'Untitled design',
       search: 'Search by name or tag',
       images: 'Images',
+      /** The filter of the pictures the AI made, beside Images. */
+      madeWithAi: 'Made with AI',
+      filter: 'Show',
       untitled: 'Untitled image',
       upload: 'Upload images',
       dropHere: 'Drop images to upload them',

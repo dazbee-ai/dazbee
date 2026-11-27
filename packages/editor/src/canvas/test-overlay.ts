@@ -282,6 +282,7 @@ export function harness(
     // The rulers hidden: no guide shows.
     guideDrag: { shown: () => [], rulerFrame: () => undefined },
     presence: { shown: () => state.people ?? [] },
+    aiWaiting: () => [],
   }
   const overlay = editorOverlay(changed(deps))
   /** The part drawn with a class. */

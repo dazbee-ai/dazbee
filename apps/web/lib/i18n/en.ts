@@ -113,9 +113,10 @@ export const en = {
     uploading: 'Uploading {name}',
     uploadFailed: '{name} did not upload: {reason}',
     /** The Sizes dropdown's button: how many sizes the brief makes. */
-    sizesOne: '1 size',
-    sizesMany: '{n} sizes',
-    lastSize: 'At least one size stays picked.',
+    /** The speed's two choices, each with its plain line as a tooltip. */
+    speed: 'Speed',
+    fast: 'Fast',
+    precise: 'Precise',
     /** The Brand kit button and its popover: the whole kit, each part picked or not. */
     kit: {
       on: 'Brand kit on',
@@ -133,7 +134,7 @@ export const en = {
       panelLead: 'Colours, fonts, logo and voice for {brand}. Changes save as you make them.',
     },
     make: 'Make drafts',
-    makeHint: 'Until AI drafts arrive, this opens a blank design in the sizes you picked.',
+    makeHint: 'Makes four drafts in a new design.',
     pickSize: 'Pick at least one size.',
     recent: 'Recent',
     noDesigns: 'Nothing made yet. Write a brief above to start.',

@@ -685,6 +685,26 @@ One planning call and the four drafts it produced, placed as a section.
 A frame holding one AI-made picture. It stays with the team until it is starred.
 _Avoid_: Generation, option, candidate
 
+**AI frame**:
+A frame the AI flow made or fills, known to the API by its design and frame id: a draft, a size redrawn with AI, or a frame being refined or made editable. A copy of one (Duplicate, Add size, a duplicated design) is a plain frame.
+_Avoid_: AI draft frame, smart frame
+
+**Picture layer**:
+The one layer of an AI frame that takes its picture: a rectangle filling the frame, named Picture, in a plain warm grey until the picture arrives, then filled with it.
+_Avoid_: Image layer, placeholder
+
+**Arrival**:
+An AI result a tab writes into a design: a brief's section and frames placed, or a picture filled into its picture layer. It runs through commands but outside undo, so Ctrl+Z never takes away paid work, and each picture is written once, by whichever tab writes it first.
+_Avoid_: Insert, AI edit, generation result
+
+**Glass bar**:
+The small frosted bar above a picked AI frame that holds its AI actions (More like this, Other sizes, Refine with AI, Make editable or Back to picture) and the star. A Reviewer gets none.
+_Avoid_: AI toolbar, mini bar (that is the small menu by the selection)
+
+**Make editable**:
+The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back.
+_Avoid_: Layerize, convert, decompose
+
 **AI image**:
 A picture made from a person's own words and one of three ratios (square, wide or tall) with Make an image, in Assets. It is an image of the brand's asset library, placed as a layer or a fill like any other; it is on no design and is no draft.
 _Avoid_: Generated image, AI asset, background (that is one use of it)

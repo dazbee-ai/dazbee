@@ -1,6 +1,6 @@
 // The brand home's brief (#84), as in the final mock: one line asking what we are making today, the
 // last word in the AI colours, and a composer with a gradient edge around the brief's form
-// (#136). Until AI drafts arrive (phase 2), Make drafts opens a blank design in the sizes picked.
+// (#136). Make drafts opens a new design where the brief's four drafts arrive.
 import type { StoredBrandKit } from '@dazbee/schema'
 
 import type { Messages } from '@/lib/i18n/index.ts'

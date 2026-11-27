@@ -524,14 +524,14 @@
 }
 /* A frame waiting for its AI picture: a soft band of light sweeps across its plain colour, slowly; still where
    motion is reduced. */
-.stage-overlay .ai-sheen {
+.stage-overlay .ai-waiting {
   position: absolute;
   overflow: hidden;
   background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, white 55%, transparent) 50%, transparent 70%);
   background-size: 250% 100%;
-  animation: ai-sheen 1.8s ease-in-out infinite;
+  animation: ai-waiting 1.8s ease-in-out infinite;
 }
-@keyframes ai-sheen {
+@keyframes ai-waiting {
   from {
     background-position: 100% 0;
   }
@@ -540,7 +540,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage-overlay .ai-sheen {
+  .stage-overlay .ai-waiting {
     animation: none;
     background: color-mix(in srgb, white 25%, transparent);
   }

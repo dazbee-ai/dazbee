@@ -1,9 +1,13 @@
 // A brand's home (#84): "What are we making today?" as a brief, followed by sizes to start blank
-// in or a template. The brand's designs, templates and kit are pages of their own, from the
+// in or a template. Make drafts creates a design holding only the brief's section and four waiting
+// drafts, starts the round, and opens the design; a round that doesn't start deletes the design and the
+// brand home says why above the brief. The brand's designs, templates and kit are pages of their own, from the
 // capsule. Right after the brand is made, Daz says it is ready above the brief, once. A Reviewer,
 // who makes nothing, gets Daz and a way to the brand's designs instead.
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+
+import { briefDesignOf } from '@dazbee/schema'
 
 import { BrandMade } from '@/components/brands/brand-made.tsx'
 import { BriefComposer } from '@/components/brief/brief-composer.tsx'
@@ -13,12 +17,15 @@ import { buttonStyles } from '@/components/ui/button.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { justMade } from '@/lib/brand-start.ts'
-import { briefDesign, type BriefSize } from '@/lib/brief.ts'
+import { briefDesign, briefFromForm, type BriefSize, designName, planRound, refusedWords } from '@/lib/brief.ts'
+import { briefSaid } from '@/lib/editor/brief-box.ts'
 import { brandPage, showsBrandList } from '@/lib/home.ts'
 import { brandWords, format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
+import { startAiJob } from '@/lib/server/ai-flow.ts'
 import {
   createDesign,
+  deleteDesign,
   designCover,
   getBrandKit,
   getRole,
@@ -38,9 +45,9 @@ export default async function BrandPage({
   searchParams,
 }: {
   params: Promise<{ workspaceId: string; brandId: string }>
-  searchParams: Promise<{ show?: string; made?: string }>
+  searchParams: Promise<{ show?: string; made?: string; refused?: string }>
 }) {
-  const [{ workspaceId, brandId }, { show, made }] = await Promise.all([params, searchParams])
+  const [{ workspaceId, brandId }, { show, made, refused }] = await Promise.all([params, searchParams])
   // The panels these pages replaced were linked as ?show=recent, ?show=templates and ?show=kit.
   const moved = brandPage(show)
   if (moved) redirect(brandPath(workspaceId, brandId, moved))
@@ -94,18 +101,28 @@ export default async function BrandPage({
   const untitled = t.library.untitled
   const presetName = t.editor.sizes.preset
 
+  const draftName = t.editor.brief.draftName
+
   async function make(form: FormData) {
     'use server'
-    const brief = String(form.get('brief') ?? '').trim()
-    const firstLine = brief.split('\n')[0]?.trim() ?? ''
-    const name = (firstLine.length > 60 ? `${firstLine.slice(0, 59).trimEnd()}…` : firstLine) || untitled
-    const sizes = form.getAll('size').map(String)
+    const brief = briefFromForm(form)
+    const name = designName(brief.words) || untitled
+    const plan = planRound(() => crypto.randomUUID())
     const design = await createDesign(
       workspaceId,
       brandId,
       name,
-      briefDesign(name, sizes, (id) => presetName[id]),
+      briefDesignOf(
+        { designId: 'replaced-by-the-api', name },
+        { ...plan, words: brief.words, size: brief.size, draftName: (n) => format(draftName, { n: n + 1 }) },
+      ),
     )
+    const started = await startAiJob(workspaceId, brandId, { kind: 'round', designId: design.id, ...plan, ...brief })
+    if (!started.ok) {
+      // A round that didn't start leaves no design of waiting drafts behind.
+      await deleteDesign(workspaceId, brandId, design.id).catch(() => {})
+      redirect(`${brandPath(workspaceId, brandId)}?refused=${briefSaid({ refusal: started.refusal })}`)
+    }
     redirect(brandPath(workspaceId, brandId, 'designs', design.id))
   }
 
@@ -125,6 +142,15 @@ export default async function BrandPage({
     <LibraryShell {...shell}>
       <div className="pt-[8vh] md:pt-[14vh]">
         {justMade(made) && <BrandMade brandName={brand.name} />}
+        {refusedWords(refused, t) && (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl text-center text-small text-muted"
+            data-testid="brief-refused"
+          >
+            {refusedWords(refused, t)}
+          </p>
+        )}
         <BriefComposer
           t={t}
           workspaceId={workspaceId}

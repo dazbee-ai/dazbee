@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   AI_FEATURE_INPUTS,
   answerSchema,
+  briefDesignOf,
   briefTitle,
   FLOW_ANSWERS,
   isAiSize,
   LayeringInput,
   LayerPlanAnswer,
   parseFeatureJob,
+  PICTURE_NAME,
+  pictureLayerOf,
   ProductLayerPlanAnswer,
   ReadingAnswer,
   ReferenceReadAnswer,
@@ -18,7 +21,10 @@ import {
   RoundInput,
   RoundPlanAnswer,
   TryAgainInput,
+  WAITING_FILL,
 } from './ai-flow.ts'
+import { Design } from './design.ts'
+import { FRAME_GAP } from './frames.ts'
 
 const ad = (kind: string) => ({
   kind,
@@ -249,5 +255,35 @@ describe('answerSchema', () => {
         expect(object.required).toEqual(Object.keys(object.properties as object))
       }
     }
+  })
+})
+
+describe('briefDesignOf', () => {
+  it('makes a design of the brief’s section around four waiting drafts in a row, which reads as a stored design', () => {
+    const frames = ['f1', 'f2', 'f3', 'f4'].map((frameId) => ({ frameId, pictureLayerId: pictureLayerOf(frameId) }))
+    const input = briefDesignOf(
+      { designId: 'd1', name: 'Sale' },
+      {
+        sectionId: 's1',
+        frames,
+        words: 'Diwali sale\nwarm',
+        size: { width: 1080, height: 1350 },
+        draftName: (n) => `Draft ${n + 1}`,
+      },
+    )
+    const design = Design.parse(input)
+    expect(design.sections.s1).toMatchObject({ pageId: 'p1', title: 'Diwali sale' })
+    expect(design.frames.f2).toMatchObject({
+      name: 'Draft 2',
+      x: 1080 + FRAME_GAP,
+      y: 0,
+      height: 1350,
+      sectionId: 's1',
+    })
+    expect(design.nodes[pictureLayerOf('f3')]).toMatchObject({
+      parentId: 'f3',
+      name: PICTURE_NAME,
+      props: { width: 1080, height: 1350, fills: [WAITING_FILL] },
+    })
   })
 })

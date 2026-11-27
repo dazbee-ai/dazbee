@@ -4,6 +4,8 @@
 import { z } from 'zod'
 
 import { type AiFeature, AiMode, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
+import type { DesignInput, DesignMeta } from './design.ts'
+import { FRAME_GAP, NEW_FRAME_FILLS } from './frames.ts'
 import type { SolidPaint } from './paint.ts'
 import { Id } from './primitives.ts'
 
@@ -21,6 +23,15 @@ export type AiAssetTag = typeof AI_TAG | typeof AI_PART_TAG
 
 /** The most characters of a brief's title. */
 export const BRIEF_TITLE_LENGTH = 120
+
+/** How many drafts a round makes. */
+export const ROUND_DRAFTS = 4
+
+/** The fill a picture layer waits in until its picture arrives: a plain warm grey, as a waiting frame exports. */
+export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
+
+/** The name of a draft's picture layer. */
+export const PICTURE_NAME = 'Picture'
 
 /** A frame's size in design pixels. */
 const FrameSize = z.object({
@@ -275,16 +286,62 @@ export function answerSchema(answer: z.ZodType): Record<string, unknown> {
   return schema
 }
 
-/** The fill a picture layer waits in until its picture arrives: a plain warm grey, as a waiting frame exports. */
-export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
-
-/** The name of a draft's picture layer. */
-export const PICTURE_NAME = 'Picture'
-
 /**
  * The id of the picture layer of the AI frame `frameId`: any tab finds it from the frame's id alone, since the API
  * keeps the frame's id and not the layer's.
  */
 export function pictureLayerOf(frameId: string): string {
   return `${frameId}-picture`
+}
+
+/**
+ * A new design holding one brief and nothing else, as the brand home makes it: its section, titled with the brief's
+ * first line, around its frames in a row FRAME_GAP apart from the page's top left, each named by `draftName` and
+ * holding one picture layer that fills it in WAITING_FILL until its picture arrives. The frames and layers are the
+ * ids the round is started with.
+ */
+export function briefDesignOf(
+  meta: DesignMeta,
+  brief: {
+    sectionId: string
+    frames: readonly AiFrameTarget[]
+    words: string
+    size: { width: number; height: number }
+    /** Each draft's name, by its place from 0. */
+    draftName: (n: number) => string
+  },
+): DesignInput {
+  const { width, height } = brief.size
+  const frames = brief.frames.map(({ frameId }, n) => [
+    frameId,
+    {
+      pageId: 'p1',
+      name: brief.draftName(n),
+      width,
+      height,
+      x: n * (width + FRAME_GAP),
+      y: 0,
+      fills: NEW_FRAME_FILLS,
+      order: `a${n}`,
+      sectionId: brief.sectionId,
+    },
+  ])
+  const nodes = brief.frames.map(({ frameId, pictureLayerId }) => [
+    pictureLayerId,
+    {
+      type: 'graphic',
+      parentId: frameId,
+      link: pictureLayerId,
+      index: 'a0',
+      name: PICTURE_NAME,
+      props: { x: 0, y: 0, width, height, shape: { kind: 'rect' }, fills: [WAITING_FILL] },
+    },
+  ])
+  return {
+    meta,
+    pages: { p1: { name: 'Page 1', order: 'a0' } },
+    frames: Object.fromEntries(frames),
+    nodes: Object.fromEntries(nodes),
+    sections: { [brief.sectionId]: { pageId: 'p1', title: briefTitle(brief.words), order: 'a0' } },
+  }
 }

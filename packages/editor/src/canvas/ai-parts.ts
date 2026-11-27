@@ -13,7 +13,7 @@ export function sheenParts(
   return frames.flatMap((frame) => {
     if (!waiting.has(frame.id)) return []
     const el = document.createElement('div')
-    el.className = 'ai-sheen'
+    el.className = 'ai-waiting'
     el.dataset.frame = frame.id
     placeBox(el, frame, { x: 0, y: 0, width: frame.width, height: frame.height })
     return [el]

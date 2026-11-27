@@ -28,10 +28,10 @@ describe('editorOverlay', () => {
       let waiting = ['one-sq']
       const { overlay, part } = harness({ selected: false }, (deps) => ({ ...deps, aiWaiting: () => waiting }))
       overlay.draw()
-      expect(part('ai-sheen')?.dataset).toEqual({ frame: 'one-sq' })
+      expect(part('ai-waiting')?.dataset).toEqual({ frame: 'one-sq' })
       waiting = []
       overlay.draw()
-      expect(part('ai-sheen')).toBeUndefined()
+      expect(part('ai-waiting')).toBeUndefined()
     })
 
     it('draws no handles on a picked frame that shows none', () => {

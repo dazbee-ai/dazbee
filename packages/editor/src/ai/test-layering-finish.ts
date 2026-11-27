@@ -11,6 +11,14 @@ import { type EditorLayeringFinish, editorLayeringFinish } from './layering-fini
 import type { FakeAi } from './test-ai.ts'
 import { BRIEF, pollAll, settle, type Tab, tabOn } from './test-arrivals.ts'
 
+/** A split layer's file that is no picture: a finish that reads it fails. */
+export const NO_PICTURE = new Uint8Array([1, 2, 3])
+
+const SIZES = [
+  { width: 1080, height: 1920, name: 'Story' },
+  { width: 1200, height: 628, name: 'Link image' },
+]
+
 const ck = await loadCanvasKit()
 
 /** A 512 px split layer, clear but for an opaque box at `x`, `y`, `width` × `height`, as PNG bytes. */
@@ -82,14 +90,6 @@ export const cutOf = (width: number, height: number, ...items: MadePiece[]): Mad
   closeness: { mean: 1, off: 2 },
   seconds: 3,
 })
-
-/** A split layer's file that is no picture: a finish that reads it fails. */
-export const NO_PICTURE = new Uint8Array([1, 2, 3])
-
-const SIZES = [
-  { width: 1080, height: 1920, name: 'Story' },
-  { width: 1200, height: 628, name: 'Link image' },
-]
 
 /**
  * A tab of `token`'s with its finish, the timers it waits on, what its arrivals give back as stored, and the AI its

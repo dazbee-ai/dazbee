@@ -59,9 +59,26 @@ describe('editorLayeringFinish', () => {
       { name: 'Layer 2', link: undefined, box: { x: 10, y: 949, width: 43, height: 43 } },
       { name: 'Headline', link: undefined, box: { x: 105, y: 52, width: 212, height: 107 } },
     ])
+    // The fill is cut to the part of the piece its whole-pixel box shows, so the piece is drawn at the picture's scale.
+    const k = 1080 / 1024
     expect(design.nodes['job2-ann-1-0']).toMatchObject({
       type: 'graphic',
-      props: { shape: { kind: 'rect' }, fills: [{ type: 'image', assetId: 'cut-e1', fit: 'fill' }] },
+      props: {
+        shape: { kind: 'rect' },
+        fills: [
+          {
+            type: 'image',
+            assetId: 'cut-e1',
+            fit: 'crop',
+            crop: {
+              x: expect.closeTo(105 / k - 100, 6),
+              y: expect.closeTo(52 / k - 50, 6),
+              width: expect.closeTo(212 / k, 6),
+              height: expect.closeTo(107 / k, 6),
+            },
+          },
+        ],
+      },
     })
     expect(design.nodes['job2-ann-1-0']?.props.rotation ?? 0).toBe(0)
     expect(design.nodes['job2-ann-1-2']?.props).toMatchObject({ fills: [{ type: 'image', assetId: 'cut-e2' }] })
@@ -82,6 +99,29 @@ describe('editorLayeringFinish', () => {
     // A 768 × 1360 picture covers a 1080 × 1920 frame 1084.2 px wide, and a 1424 × 800 one a 1200 × 628 frame 674.2 px tall.
     expect(placed(a.tab, 'ann-6').map((layer) => layer.box)).toEqual([{ x: -3, y: 0, width: 1086, height: 1920 }])
     expect(placed(a.tab, 'ann-7').map((layer) => layer.box)).toEqual([{ x: 0, y: -24, width: 1200, height: 676 }])
+  })
+
+  it('places nothing in a frame that holds a layer of the job already, as when an earlier finish placed its split layers', async () => {
+    serve(WORDS)
+    const ai = fakeAi()
+    const a = await finishing(ai)
+    await madeEditable(ai, a)
+    a.tab.editor.session.run('node.create', {
+      id: 'job2-ann-1-0',
+      parentId: 'ann-1',
+      layer: {
+        type: 'graphic',
+        name: 'Placed before',
+        props: { x: 0, y: 0, width: 10, height: 10, shape: { kind: 'rect' } },
+      },
+    })
+    const pieces = cutOf(1024, 1024, cut('e1', 'text', 100, 50, 200, 100), cut('e2', 'background', 0, 0, 1024, 1024))
+    ai.split('job2', 0, [NO_PICTURE, NO_PICTURE], PLAN, { pieces })
+    await finished(a)
+
+    const design = a.tab.editor.session.design()
+    expect(childrenOf(design, 'ann-1').map(([id]) => id)).toEqual([pictureLayerOf('ann-1'), 'job2-ann-1-0'])
+    expect(design.nodes[pictureLayerOf('ann-1')]?.props.visible).not.toBe(false)
   })
 
   it('places nothing new on a second finish of the same job', async () => {

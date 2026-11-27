@@ -10,6 +10,7 @@ import {
   layerPlanOf,
   onePlan,
   pieceBox,
+  pieceCrop,
   pieceId,
   pieceLink,
   pieceName,
@@ -130,6 +131,10 @@ describe('layerPlanOf', () => {
     expect(layerPlanOf(OWN_PLANS, frame(1))?.elements[0]?.id).toBe('b1')
     expect(layerPlanOf(OWN_PLANS, frame(2))?.elements[0]?.id).toBe('c1')
     expect(layerPlanOf(JOB, frame(1))?.elements[0]?.id).toBe('e1')
+  })
+
+  it('reads no plan for a frame with no plan call of its own, in a job that plans each frame', () => {
+    expect(layerPlanOf(OWN_PLANS, frame(5))).toBeNull()
   })
 
   it('reads no plan for a frame whose own plan failed', () => {
@@ -267,6 +272,51 @@ describe('scaleBox', () => {
       width: 423,
       height: 212,
     })
+  })
+})
+
+describe('pieceCrop', () => {
+  it('draws a piece at the picture’s scale, in its place, however thin it is and whatever the frame’s size', () => {
+    const cases = [
+      {
+        piece: piece('headline', 100, 50, 600, 20),
+        picture: { width: 1024, height: 1024 },
+        frame: { width: 1080, height: 1080 },
+      },
+      {
+        piece: piece('headline', 50, 25, 300, 12),
+        picture: { width: 512, height: 512 },
+        frame: { width: 1080, height: 1080 },
+      },
+      {
+        piece: piece('bar', 33, 100, 8, 300),
+        picture: { width: 1024, height: 1024 },
+        frame: { width: 1080, height: 1080 },
+      },
+      {
+        piece: piece('headline', 100, 51, 500, 24),
+        picture: { width: 768, height: 1360 },
+        frame: { width: 1080, height: 1920 },
+      },
+      {
+        piece: piece('bg', 0, 0, 768, 1360),
+        picture: { width: 768, height: 1360 },
+        frame: { width: 1080, height: 1920 },
+      },
+    ]
+    for (const { piece: cut, picture, frame: size } of cases) {
+      const box = pieceBox(cut, picture, size)
+      const crop = pieceCrop(cut, picture, size)
+      // Where the renderer draws the piece's own picture in its box, cut to the crop.
+      const drawn = imagePlacement(cut.picture, { fit: 'crop', crop }, box)
+      // Where the picture's fill draws that part of the picture in a layer filling the frame.
+      const whole = imagePlacement(picture, { fit: 'fill' }, { x: 0, y: 0, ...size })
+      const k = whole.width / picture.width
+      expect(drawn.x).toBeCloseTo(whole.x + cut.x * k, 6)
+      expect(drawn.y).toBeCloseTo(whole.y + cut.y * k, 6)
+      expect(drawn.width).toBeCloseTo(cut.picture.width * k, 6)
+      expect(drawn.height).toBeCloseTo(cut.picture.height * k, 6)
+    }
   })
 })
 

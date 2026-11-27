@@ -45,6 +45,11 @@ describe('CallOutput', () => {
     expect(output.kind === 'layers' && output.pieces).toBeUndefined()
   })
 
+  it('reads a split’s stored layers whose split pieces are null, as the layer split answers with none', () => {
+    const output = CallOutput.parse({ ...layers, pieces: null })
+    expect(output.kind === 'layers' && output.pieces).toBeNull()
+  })
+
   it('reads a split’s stored layers with its split pieces, each a stored picture and its facts', () => {
     const output = CallOutput.parse({ ...layers, pieces })
     expect(output.kind === 'layers' && output.pieces).toEqual(pieces)

@@ -13,7 +13,16 @@
 // tries.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Session } from '@dazbee/doc'
-import { type AiFrameView, type AiJobView, type DesignAi, frameIdOf, type Layer, pictureLayerOf } from '@dazbee/schema'
+import {
+  type AiFrameView,
+  type AiJobView,
+  type DesignAi,
+  frameIdOf,
+  type ImageCrop,
+  type Layer,
+  MAX_SPLIT_PIECES,
+  pictureLayerOf,
+} from '@dazbee/schema'
 
 import type { EditorAi } from './arrivals.ts'
 import {
@@ -24,6 +33,7 @@ import {
   onePlan,
   type PieceBox,
   pieceBox,
+  pieceCrop,
   pieceId,
   pieceLink,
   pieceName,
@@ -69,6 +79,8 @@ interface PlacedLayer {
   name: string
   assetId: string
   box: PieceBox
+  /** The part of its picture the box shows, for a split piece; a split layer's cropped picture fills its box. */
+  crop?: ImageCrop
 }
 
 /** What a job's frames link their layers by. */
@@ -244,6 +256,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
         name: pieceName(plan, piece, n, ai.layerWord),
         assetId,
         box: pieceBox(piece, cut, own),
+        crop: pieceCrop(piece, cut, own),
       })
     }
     return layers
@@ -313,14 +326,15 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   }
 
   /**
-   * Hides the frame's picture layer and places the layers over it, bottom first, any already placed left as they
-   * are, each with its link id when it has one and the frame doesn't hold it already.
+   * Hides the frame's picture layer and places the layers over it, bottom first, each with its link id when it has
+   * one and the frame doesn't hold it already. A frame that holds a layer of this job already gets nothing: an
+   * earlier finish placed them, whether from split pieces or from split layers, whose layers share their ids.
    */
   function place(frame: AiFrameView, layers: readonly PlacedLayer[]): void {
+    if (placedBefore(frame)) return
     const pictureId = pictureLayerOf(frame.frameId)
     session.run('node.update', { ids: [pictureId], patch: { visible: false } })
     for (const layer of [...layers].reverse()) {
-      if (session.design().nodes[layer.id]) continue
       session.run('node.create', {
         id: layer.id,
         parentId: frame.frameId,
@@ -331,11 +345,22 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
           props: {
             ...layer.box,
             shape: { kind: 'rect' },
-            fills: [{ type: 'image', assetId: layer.assetId, fit: 'fill' }],
+            fills: [
+              layer.crop
+                ? { type: 'image', assetId: layer.assetId, fit: 'crop', crop: layer.crop }
+                : { type: 'image', assetId: layer.assetId, fit: 'fill' },
+            ],
           },
         },
       })
     }
+  }
+
+  /** Whether the design holds a layer the finish of frame `frame`'s job placed in it. */
+  function placedBefore(frame: AiFrameView): boolean {
+    const { nodes } = session.design()
+    for (let n = 0; n < MAX_SPLIT_PIECES; n++) if (nodes[pieceId(frame.jobId, frame.frameId, n)]) return true
+    return false
   }
 
   /** Whether frame `frameId` holds a layer of link id `link` already, as a pasted copy can. */

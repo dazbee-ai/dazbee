@@ -1,6 +1,6 @@
 // The draft's prompts: the plain prompt a draft falls back on when the plan gave it none, and the sentence about the
 // advertiser's pictures the picture model is told whenever the brief has pictures.
-// The words come from the reference flow's ad prompts, and only the words were taken, with their version names.
+// The words come from the reference flow's ad prompts, and only the words were taken.
 
 /** The version of the plain draft prompt. */
 export const DRAFT_PROMPT_VERSION = 'v1'

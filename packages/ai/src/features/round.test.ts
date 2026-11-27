@@ -152,8 +152,7 @@ describe('a round', () => {
       model: 'gpt-6.1-terra',
       kind: 'text',
       settings: { effort: 'low', tier: 'standard' },
-      // The SHA-256 of the full round director.
-      promptHash: 'b30db0c9d8e5c26a5791918d9f6fe2e8c15f3e72215880213bb42697c245b61f',
+      promptHash: createHash('sha256').update(ROUND_DIRECTOR).digest('hex'),
     })
     // The round plan's full preset and four drafts at their first guesses, times 1.25.
     expect((await ledgerOf(job))[0]?.amount).toBe(-17_175_000n)

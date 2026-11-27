@@ -63,6 +63,7 @@ Built first, as their own spec, because the AI flow stands on them.
 
 - **Each kind of thing has its own prompt set.** Dazbee makes ads, social posts, slides and more, and one prompt won't fit them all. Each AI request names its kind, and the prompts are picked by kind.
 - **Ads come first**, using the reference flow's ad prompts as they are. Other kinds are added one at a time.
+- **The ad prompts are Dazbee's own (27 Nov 2026).** They began as the reference flow's words and are now changed directly in `packages/ai/src/prompts/ads/`. Each prompt's version starts again at `v1`.
 
 ### Tracking and charging (24–25 Nov 2026)
 

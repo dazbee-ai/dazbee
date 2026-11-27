@@ -251,6 +251,26 @@ OpenAI keeps the start of a request for 30 minutes and bills it at a tenth of th
 - **Five Precise round plans in a row,** each with another brief: the first wrote the full planner's 3,392 tokens and cost ₹1.24, and the four after it read them and cost ₹0.73 to ₹0.79, where each would have cost ₹1.10 to ₹1.15 with no cache.
 - **The same holds at the fast tier:** the light planner's 5,752 tokens were written by one fast call and read by the next.
 
+## Split pieces, measured 27 Nov 2026
+
+The layer split app cuts its split layers into one split piece per planned part (`python/layering/pieces/`): cleanup, cutout, the structure check, the picture's own pixels, then the edge step. The steps were run on the recording of 27 Nov 2026: 19 ads (12 new drafts of three made-up brands, 5 recorded bike drafts and 2 sizes of one of them), each planned by GPT-6.2 Sol and by GPT-6.1 Terra at medium and split at 512 and 1024 px, which is 76 splits, and the 2 sizes split once more at each size with the plan of the draft they came from: 80 splits. The paid calls came to about US$3.6.
+
+| Median over 19 ads                                                            | 1024 px | 512 px  |
+| ----------------------------------------------------------------------------- | ------- | ------- |
+| Pixels off by more than 8 of 255, whole split layers stretched to the picture | 16.2%   | 26.9%   |
+| Cut into split pieces, before the edge step                                   | 5.0%    | 7.4%    |
+| With the edge step                                                            | 2.7%    | 3.4%    |
+| Planned parts with no piece of their own (of 648)                             | 0       | 11      |
+| Seconds for the steps in the app's container (two ads at each size)           | 3.6–4.6 | 1.8–2.2 |
+
+- **Off is `closeness.off`,** which every split with parts returns: the pieces drawn over each other at the picture's own size, against the picture.
+- **By planner, over the 76 splits with a plan of their own,** as the app's steps give it, photo and background parts not counted: Sol at 1024 px, no part without a piece and 2.74% off; Terra at 1024 px, none and 2.78%; Sol at 512 px, 9 and 3.50%; Terra at 512 px, 2 and 3.36%. That is with specks cleared from each piece; before that step the same splits gave 2.71%, 2.74%, 3.48% and 3.34%.
+- **The parts lost at 512 px were left out by the split model:** the part is in none of its layers, so no threshold of the steps brings it back.
+- **A size needs a plan of its own.** The wide and tall sizes split with their draft's plan left 18 of 44 parts without a piece; with their own plans, none at 1024 px.
+- **Clearing specks keeps a piece's box tight.** A piece is cropped to its pixels with alpha of at least 8 of 255, after groups of at most 4 joined pixels, none above alpha 64, are cleared. On a drawn test ad, the box of a disc drawn 200 × 200 went from 253 × 347 to 204 × 204.
+- **The steps run on the CPU inside the split call,** so their seconds are billed on the GPU's container: 4.6 s at 1024 px is ₹0.54 at ₹0.1175 a second. The whole calls took 25–26 s at 1024 px and 7–8 s at 512 px.
+- **The layer plan by Terra** left no part without a piece at 1024 px, as Sol's did, with boxes a little rougher (0.84 against 0.88 overlap with the pieces, 27 against 12 boxes under half), at US$0.0148 and 34.7 s a plan against US$0.0296 and 49.0 s.
+
 ## Not yet known
 
 - **Low-quality previews:** whether GPT Image 2.5 at low quality is good enough to choose from. No picture was made at low.

@@ -83,7 +83,7 @@ Built first, as their own spec, because the AI flow stands on them.
 
 ### Building and running (25 Nov 2026)
 
-- **Only the ad prompts are reused.** Everything else, code, architecture and UI, is designed and written fresh for Dazbee, following its ADRs and code layout; the reference flow is never copied.
+- **Only the ad prompts are reused.** Everything else, code, architecture and UI, is designed and written fresh for Dazbee, following its ADRs and code layout; the reference flow is never copied. The one exception, by the owner's decision of 27 Nov 2026: the four steps after the layer split (cleanup, cutout, the structure check and the picture's own pixels) are ported from the reference flow into the layer split app (`python/layering/pieces/`).
 - **Built from the latest official docs.** Every integration (Modal, OpenAI, Meta's Muse API, OpenRouter, ZenMux, Pixazo, pg-boss) is written from the provider's current documentation at build time, not from older code or memory.
 - **Layering runs on a Modal H100** with GPU memory snapshots, as a deployed app.
 - **Job queue: pg-boss**, in the Postgres we already run ([ai-flow-job-queue.md](ai-flow-job-queue.md)).

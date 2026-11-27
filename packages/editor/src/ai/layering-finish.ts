@@ -15,25 +15,9 @@
 // finish that fails is tried again after a minute, its parts uploaded once, and ended with nothing placed after three
 // tries; on the last try, matchers that fail leave their pieces pictures, and so do rebuilt layers the design refuses.
 import type { CanvasKit } from '@dazbee/canvaskit'
-import { CommandError, type Session } from '@dazbee/doc'
+import type { Session } from '@dazbee/doc'
 import type { FontUse } from '@dazbee/fonts'
-import {
-  type AiFrameView,
-  type AiJobView,
-  BINDABLE_PROPERTIES,
-  type BindableProperty,
-  type DesignAi,
-  frameIdOf,
-  type ImageCrop,
-  type Layer,
-  type MadePieces,
-  MAX_SPLIT_PIECES,
-  pictureLayerOf,
-  textFontUses,
-  type TextLook,
-  type UnplacedLayer,
-  type VariableRef,
-} from '@dazbee/schema'
+import { type AiFrameView, type AiJobView, type DesignAi, type MadePieces } from '@dazbee/schema'
 
 import type { EditorAi } from './arrivals.ts'
 import {
@@ -55,7 +39,7 @@ import {
 } from './layer-pieces.ts'
 import type { PieceMatcher } from './piece-matcher.ts'
 import { type LiftedFrame, pieceRebuild } from './piece-rebuild.ts'
-import { shownPicture } from './place-brief.ts'
+import { asPicture, fontUses, type PlacedLayer, placeLayers } from './place-layers.ts'
 
 export interface LayeringFinishDeps {
   session: Session
@@ -97,20 +81,6 @@ export interface EditorLayeringFinish {
   settled(): Promise<void>
 }
 
-/** A layer the finish places, for a split piece or a split layer: its id and name, its picture and its box in the frame. */
-interface PlacedLayer {
-  id: string
-  /** The link id it shares with the same piece or split layer of the job's other sizes; null for none. */
-  link: string | null
-  name: string
-  assetId: string
-  box: PieceBox
-  /** The part of its picture the box shows, for a split piece; a split layer's cropped picture fills its box. */
-  crop?: ImageCrop
-  /** The layers a matcher rebuilt a split piece as, bottom first, each with its id, placed in the frame; left out, its picture is placed. */
-  matched?: readonly { id: string; layer: UnplacedLayer }[] | undefined
-}
-
 type Size = Pick<PieceBox, 'width' | 'height'>
 
 /** What a job's frames link their layers by. */
@@ -139,6 +109,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   const uploaded = new Map<string, string>()
   /** The matchers' rebuild of a frame's pieces, which holds the frames lifting meanwhile. */
   const rebuild = pieceRebuild(deps)
+  const { fits, place } = placeLayers(deps)
 
   function look() {
     const now = read()
@@ -347,31 +318,6 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     })
   }
 
-  /**
-   * Whether frame `frame`'s picture layer still shows the picture made editable as the split saw it: that picture,
-   * filling the whole frame, at the frame's size when the job was asked for.
-   */
-  function fits(frame: AiFrameView): boolean {
-    const own = session.design().frames[frame.frameId]
-    const picture = pictureOf(frame.frameId)
-    if (!own || !picture || shownPicture(picture) !== frame.assetId) return false
-    const props = picture.props as {
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-      fills?: { fit?: string }[]
-    }
-    const fill = props.fills?.find((f) => 'fit' in f)
-    return (
-      props.x === 0 &&
-      props.y === 0 &&
-      props.width === own.width &&
-      props.height === own.height &&
-      (fill?.fit === undefined || fill.fit === 'fill')
-    )
-  }
-
   /** A split layer cropped to what it shows, as a PNG, and its box in the layer's pixels; null when it shows nothing. */
   function crop(bytes: Uint8Array): { png: Uint8Array; box: PieceBox } | null {
     const image = ck.MakeImageFromEncoded(bytes)
@@ -410,98 +356,6 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     }
   }
 
-  /**
-   * Hides the frame's picture layer and places the layers over it, bottom first, each with its link id when it has
-   * one and the frame doesn't hold it already. A frame that holds a layer of this job already gets nothing: an
-   * earlier finish placed them, whether from split pieces or from split layers, whose layers share their ids.
-   */
-  function place(frame: AiFrameView, layers: readonly PlacedLayer[]): void {
-    if (placedBefore(frame)) return
-    const pictureId = pictureLayerOf(frame.frameId)
-    session.run('node.update', { ids: [pictureId], patch: { visible: false } })
-    for (const layer of [...layers].reverse()) {
-      const link = layer.link !== null && !holdsLink(frame.frameId, layer.link) ? { link: layer.link } : {}
-      if (layer.matched) {
-        placeMatched(frame.frameId, layer.name, layer.matched, link)
-        continue
-      }
-      session.run('node.create', {
-        id: layer.id,
-        parentId: frame.frameId,
-        ...link,
-        layer: {
-          type: 'graphic',
-          name: layer.name,
-          props: {
-            ...layer.box,
-            shape: { kind: 'rect' },
-            fills: [
-              layer.crop
-                ? { type: 'image', assetId: layer.assetId, fit: 'crop', crop: layer.crop }
-                : { type: 'image', assetId: layer.assetId, fit: 'fill' },
-            ],
-          },
-        },
-      })
-    }
-  }
-
-  /**
-   * Places the layers `matched` a matcher rebuilt a split piece as on top of frame `frameId`, bottom first: named
-   * `name`, numbered when several, the first with the piece's link id when `link` gives one, each bound to the brand
-   * kit as the matcher bound it, and a text fitted to its words.
-   */
-  function placeMatched(
-    frameId: string,
-    name: string,
-    matched: NonNullable<PlacedLayer['matched']>,
-    link: { link?: string },
-  ) {
-    for (const [nth, { id, layer }] of matched.entries()) {
-      session.run('node.create', {
-        id,
-        parentId: frameId,
-        ...(nth === 0 ? link : {}),
-        layer: { type: layer.type, name: matched.length > 1 ? `${name} ${nth + 1}` : name, props: layer.props },
-      })
-      for (const [property, ref] of Object.entries(layer.bindings ?? {})) {
-        const value = BINDABLE_PROPERTIES[property as BindableProperty].read(layer.props)
-        if (ref && value !== undefined) bind(id, property as BindableProperty, ref, value)
-      }
-      if (layer.type === 'text') deps.fitText(id)
-    }
-  }
-
-  /** Binds `property` of layer `id` to the brand kit's `ref`, whose value now is `value`; a binding the design refuses is left out. */
-  function bind(id: string, property: BindableProperty, ref: VariableRef, value: string | TextLook) {
-    try {
-      session.run('node.bind', { ids: [id], property, ref, value })
-    } catch (e) {
-      if (!(e instanceof CommandError)) throw e
-    }
-  }
-
-  /** Whether the design holds a layer the finish of frame `frame`'s job placed in it. */
-  function placedBefore(frame: AiFrameView): boolean {
-    const { nodes } = session.design()
-    for (let n = 0; n < MAX_SPLIT_PIECES; n++) if (nodes[pieceId(frame.jobId, frame.frameId, n)]) return true
-    return false
-  }
-
-  /** Whether frame `frameId` holds a layer of link id `link` already, as a pasted copy can. */
-  function holdsLink(frameId: string, link: string): boolean {
-    const { nodes } = session.design()
-    return Object.values(nodes).some(
-      (node) => node.link === link && frameIdOf(session.design(), node.parentId) === frameId,
-    )
-  }
-
-  /** Frame `frameId`'s picture layer, when the design has it there. */
-  function pictureOf(frameId: string): Pick<Layer, 'props'> | undefined {
-    const layer = session.design().nodes[pictureLayerOf(frameId)]
-    return layer?.parentId === frameId ? layer : undefined
-  }
-
   async function settled() {
     while (running.size > 0) await Promise.all(running.values())
   }
@@ -516,14 +370,4 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     onLifting: rebuild.onLifting,
     settled,
   }
-}
-
-/** A placed layer as its split piece's picture, whatever a matcher rebuilt it as. */
-function asPicture(layer: PlacedLayer): PlacedLayer {
-  return { ...layer, matched: undefined }
-}
-
-/** The fonts a rebuilt layer is drawn in: a text's; none for a graphic. */
-function fontUses(layer: UnplacedLayer): readonly FontUse[] {
-  return layer.type === 'text' ? textFontUses(layer as Extract<Layer, { type: 'text' }>) : []
 }

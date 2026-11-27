@@ -26,8 +26,8 @@ a piece.
 2. Behind an edge that was read this way, the pieces behind take the picture's own pixels up to MARGIN pixels
    from it.
 
-Both run twice, since each reads what the other made. A pixel changes only when the pieces drawn over each other
-come closer to the picture there.
+A pixel changes only when the pieces drawn over each other come closer to the picture there, or to clear a trace.
+What is still soft after this step is left to the soft pixels step.
 """
 
 import cv2
@@ -58,8 +58,6 @@ FLAT = ("text", "shape", "graphic", "logo")
 LETTER = 0.5
 # The pixels a piece behind keeps from an edge in front before it shows the picture there.
 MARGIN = 2
-# How many times the two steps run, each reading what the other made.
-PASSES = 2
 # The share of a letter's pixels, the ones furthest along from what is behind, that its colour is taken from.
 INKIEST = 0.25
 # The fewest such pixels a letter's colour is taken from.
@@ -101,25 +99,24 @@ def read_edges(target: np.ndarray, pieces: list[dict], scale: float = 1.0) -> li
 
     count = len(drawn)
     nearest = _nearest(pieces, drawn, windows, height, width)
-    for _ in range(PASSES):
-        covers = _covers(drawn, windows, height, width)
-        read = np.zeros((height, width), bool)
-        # The pieces behind the one at hand, drawn over each other.
-        under = np.zeros((height, width, 3), np.float32)
-        for index in range(count - 1, -1, -1):
-            window, pixels = windows[index], drawn[index]
-            behind = under[window]
-            if index < count - 1 and pieces[index]["kind"] in FLAT:
-                mine = nearest[pieces[index]["layer"]][window] == index
-                for how in (LETTERS,) if pieces[index]["kind"] == "text" else (EDGE, THIN):
-                    read[window] |= _read_edge(
-                        pixels, models[index], target[window], behind, covers[index], mine, how, reach
-                    )
-            alpha = pixels[..., 3:4]
-            under[window] = pixels[..., :3] * alpha + behind * (1 - alpha)
-        covers = _covers(drawn, windows, height, width)
-        for index in range(1, count):
-            _show_picture(drawn[index], target[windows[index]], covers[index], read[windows[index]], reach)
+    covers = _covers(drawn, windows, height, width)
+    read = np.zeros((height, width), bool)
+    # The pieces behind the one at hand, drawn over each other.
+    under = np.zeros((height, width, 3), np.float32)
+    for index in range(count - 1, -1, -1):
+        window, pixels = windows[index], drawn[index]
+        behind = under[window]
+        if index < count - 1 and pieces[index]["kind"] in FLAT:
+            mine = nearest[pieces[index]["layer"]][window] == index
+            for how in (LETTERS,) if pieces[index]["kind"] == "text" else (EDGE, THIN):
+                read[window] |= _read_edge(
+                    pixels, models[index], target[window], behind, covers[index], mine, how, reach
+                )
+        alpha = pixels[..., 3:4]
+        under[window] = pixels[..., :3] * alpha + behind * (1 - alpha)
+    covers = _covers(drawn, windows, height, width)
+    for index in range(1, count):
+        _show_picture(drawn[index], target[windows[index]], covers[index], read[windows[index]], reach)
 
     edged = []
     for piece, window, pixels in zip(pieces, windows, drawn, strict=True):
@@ -146,8 +143,7 @@ def _nearest(pieces: list[dict], drawn: list[np.ndarray], windows: list[tuple], 
             if piece["layer"] == layer:
                 owner[windows[index]][drawn[index][..., 3] >= 0.5] = index
         if (owner >= 0).any():
-            _, (near_y, near_x) = ndimage.distance_transform_edt(owner < 0, return_indices=True)
-            owner = owner[near_y, near_x]
+            _, owner = _nearest_of(owner >= 0, owner)
         nearest[layer] = owner
     return nearest
 
@@ -186,8 +182,8 @@ def _read_edge(
     none = np.zeros(alpha.shape, bool)
     if solid.sum() < 20:
         return none
-    outside, (solid_y, solid_x) = ndimage.distance_transform_edt(~solid, return_indices=True)
-    inside = ndimage.distance_transform_edt(solid)
+    outside = _distance_to(solid)
+    inside = _distance_to(~solid)
     band = (((outside > 0) & (outside <= out)) | (solid & (inside <= rim))) & (cover < FREE) & mine
     if not band.any():
         return none
@@ -200,24 +196,22 @@ def _read_edge(
             disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
             thick = cv2.morphologyEx(drawn.astype(np.uint8), cv2.MORPH_OPEN, disc) > 0
             thin = drawn & ~cv2.dilate(thick.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
-            _, (drawn_y, drawn_x) = ndimage.distance_transform_edt(~drawn, return_indices=True)
-            band &= thin[drawn_y, drawn_x]
+            band &= _nearest_of(drawn, thin)[1]
             drawn = thin
         letters, count = ndimage.label(drawn)
         if count == 0 or not band.any():
             return none
         index = np.arange(1, count + 1)
         colours = np.stack([ndimage.median(model[..., channel], letters, index) for channel in range(3)], axis=1)
-        _, (letter_y, letter_x) = ndimage.distance_transform_edt(letters == 0, return_indices=True)
-        letter = letters[letter_y, letter_x]
+        _, letter = _nearest_of(letters > 0, letters)
         own = _ink_colours(colours.astype(np.float32), letter, target, behind, band)[letter - 1]
         agrees = np.ones(alpha.shape, bool)
     else:
-        own = rgb[solid_y, solid_x]
+        _, own = _nearest_of(solid, rgb)
         core = inside >= CORE
         if core.sum() >= 20:
-            to_core, (core_y, core_x) = ndimage.distance_transform_edt(~core, return_indices=True)
-            own = np.where((to_core <= outside + CORE + 2)[..., None], rgb[core_y, core_x], own)
+            to_core, core_rgb = _nearest_of(core, rgb)
+            own = np.where((to_core <= outside + CORE + 2)[..., None], core_rgb, own)
         agrees = (model[..., 3] < SOFT_MIN) | (np.abs(model[..., :3] - own).max(axis=2) <= AGREE)
 
     # The line from what is behind to the piece's own colour, and where on it the picture's pixel lies.
@@ -241,6 +235,22 @@ def _read_edge(
     pixels[..., 3] = np.where(better, new_alpha, alpha)
     pixels[..., :3] = np.where(better[..., None], new_rgb, rgb)
     return better & read
+
+
+def _distance_to(mask: np.ndarray) -> np.ndarray:
+    """The distance, in pixels, from each pixel to the nearest pixel of `mask`: 0 inside it."""
+    return cv2.distanceTransform((~mask).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+
+
+def _nearest_of(mask: np.ndarray, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """For each pixel, the distance to the nearest pixel of `mask` (to within a few percent) and the value
+    `values` has there. `mask` holds at least one pixel."""
+    distance, labels = cv2.distanceTransformWithLabels(
+        (~mask).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_5, labelType=cv2.DIST_LABEL_PIXEL
+    )
+    at = np.zeros((int(labels.max()) + 1,) + values.shape[2:], values.dtype)
+    at[labels[mask]] = values[mask]
+    return distance, at[labels]
 
 
 def _ink_colours(

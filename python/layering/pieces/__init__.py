@@ -3,14 +3,15 @@
 The split model (Ming-Image Design-Layer on ComfyUI, run unguided unless a call asks for guidance) gives a few
 layers at a working size of about 512 or 1024 px: all the text, all the shapes and logos, a cut-out or two, the
 backdrop. A person wants each headline, button, logo and product as a layer of its own, looking as it does in the
-picture. `make_pieces` gets there by the boxes Dazbee's layer plan gives its parts, in five steps, each a module
+picture. `make_pieces` gets there by the boxes Dazbee's layer plan gives its parts, in six steps, each a module
 of its own, on pictures in memory and on the CPU:
 
 1. cleanup: stray copies, copies of what is behind and wrong shadows leave the split layers;
 2. cutout: each layer is cut into one piece per planned part, each with its turned box;
 3. check: the cut-outs the split model left in the backdrop are found;
 4. ad_pixels: each piece is drawn at the picture's own size, with the picture's pixels wherever it shows the piece;
-5. edges: the edges of flat-coloured pieces are read from the picture itself.
+5. edges: the edges of flat-coloured pieces are read from the picture itself;
+6. soft: a piece's soft pixels take the alpha and the colour with which the pieces show the picture.
 """
 
 import base64
@@ -26,6 +27,7 @@ from .check import stuck_cutouts
 from .cleanup import clean_layers
 from .cutout import cut_layers
 from .edges import read_edges
+from .soft import solve_soft
 
 # Alpha of 255 from which a pixel is part of what a piece shows: a piece is cropped to these.
 SEEN = 8
@@ -63,9 +65,10 @@ def make_pieces(picture: Image.Image, parts: list[dict], layers: list[np.ndarray
     stuck = stuck_cutouts(planned, cleaned, picture.size)
     sharp = keep_ad_pixels(picture, cut, working)
     edged = read_edges(target, sharp, max(width, height) / max(working))
+    solved = solve_soft(target, edged)
 
     items, shown = [], []
-    for piece in edged:
+    for piece in solved:
         cropped = _shown(piece["place"], piece["pixels"])
         if cropped is None:
             continue

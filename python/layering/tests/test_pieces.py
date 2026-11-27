@@ -21,6 +21,7 @@ import pieces
 from contract import Layer, LayerSplitResult, Part, Pieces
 from pieces import make_pieces
 from pieces.edges import read_edges
+from pieces.soft import solve_soft
 
 SIZE = 512
 # The grid a planned part's box is given on.
@@ -167,6 +168,35 @@ def test_the_grain_behind_a_thin_line_does_not_widen_its_piece():
     edged = read_edges(target, [front, back], 2.0)[0]
     shown = np.nonzero((edged["pixels"][..., 3] >= 8).any(axis=1))[0]
     assert (edged["place"][1] + shown[0], edged["place"][1] + shown[-1] + 1) == (30, 33)
+
+
+def test_a_soft_piece_drawn_blurred_shows_the_picture_once_solved():
+    soft = draw_soft()
+    before = stacked_pieces(soft.pieces)
+    after = stacked_pieces(solve_soft(soft.target, soft.pieces))
+    assert percent_off(before, soft.target) > 10
+    assert percent_off(after, soft.target) < 0.5
+
+
+def test_a_shadow_drawn_too_strong_takes_the_strength_it_has_in_the_picture():
+    soft = draw_soft()
+    shadow = solve_soft(soft.target, soft.pieces)[1]["pixels"][20:40, 20:100, 3] / 255
+    assert soft.pieces[1]["pixels"][30, 60, 3] == 128
+    assert np.abs(shadow - 0.25).max() < 0.03
+
+
+def test_the_backdrop_next_to_a_piece_in_front_keeps_what_the_split_drew():
+    target = np.full((60, 120, 3), 0.76, np.float32)
+    target[20:40, 30:90] = 0.1
+    bar = np.zeros((20, 60, 4), np.uint8)
+    bar[...] = (26, 26, 26, 255)
+    backdrop = np.full((60, 120, 4), 255, np.uint8)
+    backdrop[..., :3] = 204
+    pieces = [{"place": [30, 20, 60, 20], "pixels": bar}, {"place": [0, 0, 120, 60], "pixels": backdrop}]
+    solved = solve_soft(target, pieces)[1]["pixels"]
+    # Beside the bar the backdrop stays as drawn, so the bar leaves no outline; far from it, it is the picture.
+    assert solved[30, 27, 0] == 204
+    assert solved[30, 5, 0] == 194
 
 
 def test_the_pieces_fit_the_contract_beside_the_layers(ad, made):
@@ -352,6 +382,38 @@ def draw_thin() -> SimpleNamespace:
     return SimpleNamespace(
         picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks, colours=colours, thin=thin
     )
+
+
+def draw_soft() -> SimpleNamespace:
+    """A picture of a grainy disc on a plain backdrop with a shadow band above it, and its pieces as the split
+    model draws them: the disc blurred, the shadow twice as strong as it is. The picture as float RGB and the
+    pieces front to back, the backdrop last."""
+    size = 160
+    grain = cv2.GaussianBlur(np.random.default_rng(5).random((size, size, 3)).astype(np.float32), (0, 0), 1)
+    disc = np.zeros((size, size), np.uint8)
+    cv2.circle(disc, (2 * 80, 2 * 100), 2 * 40, 255, -1, shift=1)
+    disc = cv2.GaussianBlur(disc.astype(np.float32) / 255, (0, 0), 0.7)
+    backdrop = np.full((size, size, 3), (0.9, 0.85, 0.6), np.float32)
+    target = backdrop.copy()
+    target[20:40, 20:100] *= 0.75
+    target = grain * disc[..., None] + target * (1 - disc[..., None])
+    drawn = blurred(np.concatenate([cv2.GaussianBlur(grain, (0, 0), 2), disc[..., None]], axis=2))
+    shadow = np.zeros((size, size, 4), np.float32)
+    shadow[20:40, 20:100, 3] = 0.5
+    full = np.concatenate([backdrop, np.ones((size, size, 1), np.float32)], axis=2)
+    pieces = [
+        {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, shadow, full)
+    ]
+    return SimpleNamespace(target=target, pieces=pieces)
+
+
+def stacked_pieces(pieces: list[dict]) -> np.ndarray:
+    """Pieces drawn over each other, back to front, as float RGB. Each covers the whole picture."""
+    stacked = np.zeros(pieces[0]["pixels"].shape[:2] + (3,), np.float32)
+    for piece in reversed(pieces):
+        rgba = piece["pixels"].astype(np.float32) / 255
+        stacked = rgba[..., :3] * rgba[..., 3:4] + stacked * (1 - rgba[..., 3:4])
+    return stacked
 
 
 def mask(draw) -> np.ndarray:

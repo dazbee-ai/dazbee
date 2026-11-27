@@ -63,6 +63,13 @@ describe('glassPlace', () => {
     expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400 })).toEqual({ left: 400, top: 352 })
   })
 
+  it('lifts the bar above the title of the frame’s section where it would cover it', () => {
+    const title = { x: 250, y: 330, width: 400, height: 30 }
+    expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400, title })).toEqual({ left: 400, top: 282 })
+    const aside = { ...title, x: 700 }
+    expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400, title: aside }).top).toBe(352)
+  })
+
   it('keeps the bar inside the stage’s sides and below the top islands', () => {
     expect(glassPlace({ ...at, frame: { left: -500, right: 100 }, label: 50 })).toEqual({ left: 8, top: 68 })
     expect(glassPlace({ ...at, frame: { left: 900, right: 1400 }, label: 400 }).left).toBe(792)

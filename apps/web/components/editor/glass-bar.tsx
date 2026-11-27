@@ -223,6 +223,7 @@ function usePlace(editor: Editor, frameId: string, bar: HTMLElement | null): Gla
       const at = glassPlace({
         frame: { left: Math.min(start.x, end.x) - origin.left, right: Math.max(start.x, end.x) - origin.left },
         label: label.y,
+        title: frame.sectionId ? editor.titleRect(frame.sectionId) : null,
         width: bar.offsetWidth,
         height: bar.offsetHeight,
         room,

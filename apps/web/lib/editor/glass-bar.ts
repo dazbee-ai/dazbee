@@ -41,11 +41,13 @@ export function glassFrame(ai: DesignAi | null, frameId: string | null): GlassFr
 
 /**
  * Where the bar of `width` × `height` goes: centred over the frame spanning `frame` across the stage, above its
- * label; kept inside the stage's sides and below the top islands, where it sits on the frame's top instead.
+ * label, and above the title of the frame's section when the bar would cover it there; kept inside the stage's sides
+ * and below the top islands.
  */
 export function glassPlace({
   frame,
   label,
+  title,
   width,
   height,
   room,
@@ -55,6 +57,8 @@ export function glassPlace({
   frame: { left: number; right: number }
   /** The top of the frame's label on the stage. */
   label: number
+  /** Where the title of the frame's section is on the stage, if it is drawn. */
+  title?: { x: number; y: number; width: number; height: number } | null
   width: number
   height: number
   /** The stage's width. */
@@ -64,7 +68,15 @@ export function glassPlace({
 }): GlassPlace {
   const centre = (frame.left + frame.right) / 2
   const left = Math.round(Math.min(Math.max(centre - width / 2, GAP), Math.max(GAP, room - width - GAP)))
-  return { left, top: Math.round(Math.max(label - height - GAP, under + GAP)) }
+  let top = label - height - GAP
+  const covers =
+    title &&
+    left < title.x + title.width &&
+    left + width > title.x &&
+    top < title.y + title.height &&
+    top + height > title.y
+  if (covers) top = title.y - height - GAP
+  return { left, top: Math.round(Math.max(top, under + GAP)) }
 }
 
 /**

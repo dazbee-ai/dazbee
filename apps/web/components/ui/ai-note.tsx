@@ -9,8 +9,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
-import { JOB_STARTED } from '@/lib/ai-jobs.ts'
-import { closeNotes, notesArrived, noteWords, onNotes, shownNotes, tabPoll } from '@/lib/ai-notes.ts'
+import { JOB_STARTED, JOBS_CHANNEL } from '@/lib/ai-jobs.ts'
+import { closeNotes, notesArrived, noteWords, onNotes, serverNotes, shownNotes, tabPoll } from '@/lib/ai-notes.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
@@ -29,7 +29,7 @@ export function AiNote({
 }) {
   const t = useMessages()
   const router = useRouter()
-  const shown = useSyncExternalStore(onNotes, shownNotes, shownNotes)
+  const shown = useSyncExternalStore(onNotes, shownNotes, serverNotes)
   const came = useSyncExternalStore(onNotes, notesArrived, notesArrived)
 
   useEffect(() => {
@@ -38,11 +38,15 @@ export function AiNote({
     const back = () => {
       if (document.visibilityState === 'visible') p.wake()
     }
+    // Another tab of the person's that starts a job wakes this one too.
+    const others = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(JOBS_CHANNEL)
     p.wake()
     window.addEventListener(JOB_STARTED, wake)
+    others?.addEventListener('message', wake)
     document.addEventListener('visibilitychange', back)
     return () => {
       window.removeEventListener(JOB_STARTED, wake)
+      others?.close()
       document.removeEventListener('visibilitychange', back)
     }
   }, [])
@@ -79,7 +83,7 @@ export function AiNote({
           data-testid="ai-note"
           className="toast-in pointer-events-auto flex min-h-10 items-center gap-2 rounded-card surface-frost py-1.5 ps-3.5 pe-1.5 text-small"
         >
-          <span className="min-w-0 flex-1">{noteWords(t, note)}</span>
+          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{noteWords(t, note)}</span>
           <Link
             href={brandPath(note.workspaceId, note.brandId, 'designs', note.designId)}
             prefetch={false}

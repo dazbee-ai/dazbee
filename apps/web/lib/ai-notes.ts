@@ -1,13 +1,34 @@
 // This tab's AI notes: the one poll of the person's jobs (ai-jobs.ts), started once and kept while the person moves
-// between pages, the notes it made that still show, and what each note says.
+// between pages, the notes it made that still show, and what each note says. The notes and the jobs that ran at
+// the last read are kept in the tab's session storage, so a reload keeps the notes until closed and still notes a
+// job that ended while the page loaded.
+import { z } from 'zod'
+
 import { MyAiJob } from '@dazbee/schema'
 
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
 import { type AiNoteView, type NoteKind, pollJobs } from './ai-jobs.ts'
 
+/** Where the tab keeps its notes, and the jobs on a design that ran at its last read. */
+const NOTES_KEY = 'dazbee.aiNotes'
+const RUNNING_KEY = 'dazbee.aiRunning'
+
+const StoredNote = z.object({
+  jobId: z.string(),
+  kind: z.enum(['ready', 'some', 'none', 'layers']),
+  feature: MyAiJob.shape.kind,
+  workspaceId: z.string(),
+  brandId: z.string(),
+  designId: z.string(),
+  designName: z.string(),
+})
+
+/** No notes, as the server draws the page and the page first hydrates. */
+const NO_NOTES: readonly AiNoteView[] = []
+
 /** The notes showing in this tab, oldest first. */
-let notes: readonly AiNoteView[] = []
+let notes: readonly AiNoteView[] = stored(NOTES_KEY, StoredNote.array()) ?? []
 /** How many times notes came in this tab. */
 let arrived = 0
 const listeners = new Set<() => void>()
@@ -25,6 +46,8 @@ export function tabPoll() {
       const timer = setTimeout(run, ms)
       return () => clearTimeout(timer)
     },
+    running: stored(RUNNING_KEY, z.string().array()) ?? [],
+    onRunning: (ids) => store(RUNNING_KEY, ids),
     onNotes: (made) => {
       arrived += 1
       setNotes([...notes.filter((n) => !made.some((m) => m.jobId === n.jobId)), ...made])
@@ -44,6 +67,11 @@ export function onNotes(listener: () => void) {
 /** The notes showing. */
 export function shownNotes() {
   return notes
+}
+
+/** The notes as the server draws them: none, since only the tab keeps them. */
+export function serverNotes() {
+  return NO_NOTES
 }
 
 /** How many times notes came, which grows by one each time some do. */
@@ -69,7 +97,27 @@ export function noteWords(t: Messages, note: Pick<AiNoteView, 'kind' | 'feature'
   return format(said[note.kind], { name: note.designName })
 }
 
+/** What the tab keeps under `key`, read as `schema`; null when there is none, or no storage. */
+function stored<T>(key: string, schema: z.ZodType<T>): T | null {
+  try {
+    const kept = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(key)
+    return kept === null ? null : schema.parse(JSON.parse(kept))
+  } catch {
+    return null
+  }
+}
+
 function setNotes(next: readonly AiNoteView[]) {
   notes = next
+  store(NOTES_KEY, next)
   for (const listener of listeners) listener()
+}
+
+/** Keeps `value` under `key` in the tab's session storage, where there is one. */
+function store(key: string, value: unknown) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // No storage, as in a private window: the tab keeps it in memory only.
+  }
 }

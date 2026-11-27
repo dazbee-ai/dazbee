@@ -25,6 +25,10 @@ export interface JobPollDeps {
   /** Runs `run` after `ms`; the answer cancels it. */
   after: (ms: number, run: () => void) => () => void
   onNotes: (notes: AiNoteView[]) => void
+  /** The jobs on a design that ran at the tab's last read, kept across a reload. */
+  running?: readonly string[]
+  /** Keeps the jobs on a design that ran at this read, for `running` after a reload. */
+  onRunning?: (ids: readonly string[]) => void
 }
 
 /** How often the person's jobs are read while one runs: 10 s. */
@@ -33,17 +37,21 @@ export const POLL_MS = 10_000
 /** The window event a tab sends when it starts a job, which wakes the poll. */
 export const JOB_STARTED = 'dazbee:ai-job-started'
 
+/** The channel on which a tab tells the person's other tabs that a job started, which wakes their polls. */
+export const JOBS_CHANNEL = 'dazbee-ai-jobs'
+
 /** How many reads in a row may fail before the poll rests until the next wake. */
 const FAILED_READS = 3
 
 /**
  * The person's jobs, read now and every `POLL_MS` while one runs on a design; once none does, the poll rests until
- * `wake`. A read that fails is tried again at the next turn, up to three in a row, so a wake that meets a moment
+ * `wake`. The jobs that ran at the last read before a reload are given back as `running`, so one that ended while
+ * the page loaded still gets its note. A read that fails is tried again at the next turn, up to three in a row, so a wake that meets a moment
  * offline still finds the job it was for. `stop` ends it.
  */
 export function pollJobs(deps: JobPollDeps) {
   /** The jobs on a design that ran at the last read. */
-  let running = new Set<string>()
+  let running = new Set<string>(deps.running ?? [])
   let reading = false
   /** Whether a wake came during a read, which may have been sent before the job it is for was saved. */
   let again = false
@@ -68,6 +76,7 @@ export function pollJobs(deps: JobPollDeps) {
       failed = 0
       const notes = notesOf(running, jobs)
       running = new Set(jobs.filter(runsOnDesign).map((job) => job.id))
+      deps.onRunning?.([...running])
       if (notes.length > 0) deps.onNotes(notes)
       next = running.size > 0
     } catch {
@@ -129,9 +138,14 @@ export function notesOf(running: ReadonlySet<string>, now: readonly MyAiJob[]): 
   })
 }
 
-/** Tells this tab's poll that a job started. */
+/** Tells this tab's poll, and the person's other tabs', that a job started. */
 export function aiJobStarted() {
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(JOB_STARTED))
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(JOB_STARTED))
+  if (typeof BroadcastChannel === 'undefined') return
+  const channel = new BroadcastChannel(JOBS_CHANNEL)
+  channel.postMessage('started')
+  channel.close()
 }
 
 /** Whether `job` is on a design and hasn't ended. */

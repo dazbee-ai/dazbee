@@ -113,6 +113,21 @@ describe('pollJobs', () => {
     expect(notes.map((note) => note.jobId)).toEqual(['j3'])
   })
 
+  it('notes a job that ended while the page loaded, from the jobs that ran before the reload', async () => {
+    const notes: AiNoteView[] = []
+    const kept: (readonly string[])[] = []
+    pollJobs({
+      read: async () => [ended('j4')],
+      after: () => () => {},
+      onNotes: (made) => notes.push(...made),
+      running: ['j4'],
+      onRunning: (ids) => kept.push(ids),
+    })
+    await settle()
+    expect(notes.map((note) => note.jobId)).toEqual(['j4'])
+    expect(kept).toEqual([[]])
+  })
+
   it('gives no note for a job on no design, nor keeps polling for one', async () => {
     const { p, notes, tick } = poll([[job('img', { kind: 'image', designId: null, designName: null })], []])
     await settle()

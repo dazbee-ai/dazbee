@@ -237,8 +237,8 @@ describe('editorSurface', () => {
           .map((frame) => ({ frame, picture: picture(frame.id) })),
         null,
         [
-          { box: { x: -24, y: -84, width: 588, height: 648 }, lit: false },
-          { box: { x: 600, y: -84, width: 100, height: 100 }, lit: true },
+          { box: { x: -24, y: -84, width: 588, height: 648 }, scale: 1, lit: false },
+          { box: { x: 600, y: -84, width: 100, height: 100 }, scale: 1, lit: true },
         ],
         [],
       )
@@ -269,7 +269,7 @@ describe('editorSurface', () => {
           .slice(0, 1)
           .map((frame) => ({ frame, picture: picture(frame.id) })),
         null,
-        [{ box: { x: -24, y: -84, width: 588, height: 648 }, lit: false }],
+        [{ box: { x: -24, y: -84, width: 588, height: 648 }, scale: 1, lit: false }],
         [
           { curve, picked: false },
           { curve: { ...curve, from: { x: 10, y: 150 }, to: { x: 110, y: 150 } }, picked: true },

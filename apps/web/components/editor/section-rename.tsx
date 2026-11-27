@@ -4,7 +4,8 @@
 // F2, Rename in its menus, or a section just made with the Section tool opens it with the title
 // selected, in the title's own place, see-through as the title is, with an accent line under it. The
 // editor leaves the title out meanwhile. Enter or leaving it keeps the new title, as one undo step;
-// Escape keeps the old one. It follows the title as the view moves, and ends once the section is gone.
+// Escape keeps the old one. It follows the title as the view moves, at a full title's height over a title drawn
+// smaller, and ends once the section is gone.
 import { useEffect, useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -14,6 +15,7 @@ import { takeRenameOpener } from '@/components/editor/edit-store.ts'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { RenameField } from '@/components/ui/rename-field.tsx'
+import { renameFieldBox } from '@/lib/editor/section-title.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
@@ -69,6 +71,7 @@ export function SectionRename({ editor }: { editor: Editor }) {
     editor.renamed()
   }, [editor, renaming, section, viewOnly])
   if (!renaming || !section || !rect) return null
+  const box = renameFieldBox(rect)
   const done = (title: string | null, byKey: boolean) => {
     setRenaming(null)
     editor.renamed()
@@ -80,7 +83,7 @@ export function SectionRename({ editor }: { editor: Editor }) {
       data-testid="section-rename"
       data-section={renaming.sectionId}
       className="absolute z-10 flex"
-      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+      style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
     >
       <RenameField
         key={renaming.sectionId}

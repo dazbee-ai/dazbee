@@ -5,8 +5,7 @@
 import { descendants, round, type Session, smallerRatio } from '@dazbee/doc'
 import { type Design, FRAME_GAP, freeSpot, sectionBox, sectionOf, sizeIssue } from '@dazbee/schema'
 
-import { LABEL_ROOM } from './canvas/frames.ts'
-import { OUTLINE_PAD, TITLE_ROW } from './canvas/sections.ts'
+import { outlineRoom } from './canvas/sections.ts'
 import type { EditorView } from './canvas/view.ts'
 import { hug } from './layers/hug.ts'
 import { listenerSet } from './listener-set.ts'
@@ -135,8 +134,8 @@ export function editorFrameActions({
       if (runQuietly(() => session.run('section.ungroup', { sectionId }))) selection.pickSection(null)
     } else {
       let copy = ''
-      // Far enough right that the copy's outline, the same size on screen at any zoom, clears the section's.
-      const gap = FRAME_GAP + (LABEL_ROOM + TITLE_ROW + 2 * OUTLINE_PAD) / camera().zoom
+      // Far enough right that the copy's outline clears the section's at this zoom and at any further out.
+      const gap = FRAME_GAP + outlineRoom(camera().zoom)
       if (runQuietly(() => (copy = session.run('section.duplicate', { sectionId, gap })))) selection.pickSection(copy)
       const box = sectionBox(session.design(), copy)
       if (box) showWhole(box)

@@ -199,7 +199,7 @@ export async function testEditor(
   /** The section whose title's box holds a stage point, the last drawn of those there, as a press and a double click carry it. */
   function titleUnder(at: Point) {
     return modules.frameMove.shownSections(modules.pointer.gesture()).outlines.findLast((outline) => {
-      const row = titleBox(outline.box)
+      const row = titleBox(outline.box, outline.scale)
       return at.x >= row.x && at.x <= row.x + row.width && at.y >= row.y && at.y <= row.y + row.height
     })?.id
   }

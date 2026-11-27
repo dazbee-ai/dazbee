@@ -51,6 +51,8 @@ WAIT_S = 5
 START_TIMEOUT_S = 15 * 60
 # How long one split may run; the worker stops waiting at 10 minutes.
 SPLIT_TIMEOUT_S = 8 * 60
+# How long ComfyUI may leave a question about a running graph unanswered before the split fails.
+QUIET_TIMEOUT_S = 3 * 60
 # How long ComfyUI may take to accept a graph: the first one after a restore waits for the model's memory.
 QUEUE_TIMEOUT_S = 2 * 60
 
@@ -199,9 +201,24 @@ def run_graph(graph: dict) -> list[dict]:
     except urllib.error.HTTPError as error:
         raise RuntimeError(f"ComfyUI refused the graph: {error.read().decode()[:2000]}") from error
     until = time.monotonic() + SPLIT_TIMEOUT_S
+    answered = time.monotonic()
     while time.monotonic() < until:
-        with urllib.request.urlopen(f"{COMFYUI_URL}/history/{prompt_id}", timeout=30) as answer:
-            entry = json.load(answer).get(prompt_id)
+        try:
+            with urllib.request.urlopen(f"{COMFYUI_URL}/history/{prompt_id}", timeout=30) as answer:
+                entry = json.load(answer).get(prompt_id)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(
+                f"ComfyUI answered {error.code} about the graph: {error.read().decode()[:2000]}"
+            ) from error
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            # ComfyUI's server can go quiet while its worker holds the model: the first large split in a container.
+            # A server that refuses the connection is gone.
+            gone = isinstance(getattr(error, "reason", error), ConnectionRefusedError)
+            if gone or time.monotonic() - answered > QUIET_TIMEOUT_S:
+                raise RuntimeError("ComfyUI stopped answering while it ran the graph") from error
+            time.sleep(0.5)
+            continue
+        answered = time.monotonic()
         if entry and entry["status"].get("completed"):
             return entry["outputs"]["saved"]["images"]
         if entry and entry["status"].get("status_str") == "error":

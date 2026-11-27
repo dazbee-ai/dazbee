@@ -78,10 +78,11 @@ def clean_layers(picture: Image.Image, parts: list[dict], layers: list[np.ndarra
     front_parts = [part for part in parts if part["kind"] not in ("photo", "background")]
     in_a_box = boxes_mask(front_parts, sx, sy, width, height, pad=0) > 0
 
+    # The layers behind the one at hand, drawn over each other as they come out of the cleaning.
+    behind = over(layers[count - 1 :])
     for number in range(count - 1, 0, -1):
         layer = layers[number - 1]
         mine = [part for part in parts if part["layer"] == number]
-        behind = over(layers[number:])
         in_front = np.zeros((height, width), np.float32)
         for other in range(number - 1):
             in_front = 1 - (1 - in_front) * (1 - layers[other][..., 3])
@@ -106,13 +107,14 @@ def clean_layers(picture: Image.Image, parts: list[dict], layers: list[np.ndarra
             outside |= (areas > 0) & ~touches[areas]
         stray = np.zeros((height, width), bool)
         areas, area_count = ndimage.label(outside, structure=np.ones((3, 3)))
-        for index in range(1, area_count + 1):
-            area = areas == index
-            seen = area & shown
-            if seen.sum() >= 0.3 * area.sum() and float(gain[seen].mean()) > KEEP_GAIN:
-                # Something the picture shows, drawn a layer early: it stays.
-                continue
-            stray |= area
+        if area_count:
+            index = np.arange(1, area_count + 1)
+            sizes = ndimage.sum(outside, areas, index=index)
+            seen = ndimage.sum(shown, areas, index=index)
+            gained = ndimage.sum(np.where(shown, gain, 0), areas, index=index) / np.maximum(seen, 1)
+            # Something the picture shows, drawn a layer early, stays.
+            stays = (seen >= 0.3 * sizes) & (gained > KEEP_GAIN)
+            stray = np.isin(areas, index[~stays])
 
         # 2. Copies of the layers behind, mostly outside the box of every part in front of the backdrop.
         difference = cv2.blur(np.abs(layer[..., :3] - behind).mean(axis=2), (COPY_WINDOW, COPY_WINDOW))
@@ -162,6 +164,7 @@ def clean_layers(picture: Image.Image, parts: list[dict], layers: list[np.ndarra
             ramp = np.clip((from_solid - EDGE_PX) / RAMP_PX, 0, 1)
             scale = 1 - ramp * (1 - np.clip(factor, 0, 1))
             layer[..., 3] = np.where(soft, layer[..., 3] * scale, layer[..., 3])
+        behind = layer[..., :3] * layer[..., 3:4] + behind * (1 - layer[..., 3:4])
 
     # Near-zero alpha far from anything a layer shows is cleared; the fading end of a shadow stays.
     for number in range(1, count):

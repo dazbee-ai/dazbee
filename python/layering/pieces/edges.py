@@ -13,16 +13,21 @@ a piece.
    - The band reaches as far as the split model can be off: REACH pixels of the working size outside the solid
      pixels, and a rim inside them. Text is read twice as far out, and as deep in as out, with a letter counted
      from half alpha, so lettering with strokes thinner than that is read whole.
-   - The piece's own colour: for text, the colour the split model drew the nearest letter in; for other pieces,
-     the colour of the nearest solid pixel a little inside the edge, and only where the split model drew the
-     pixel in about that colour too, so a rim of another colour is left alone.
+   - The piece's own colour: for text, the colour the nearest letter has in the picture, found from the colour the
+     split model drew it in (`_ink_colours`); for other pieces, the colour of the nearest solid pixel a little
+     inside the edge, and only where the split model drew the pixel in about that colour too, so a rim of another
+     colour is left alone.
    - A piece reads only the pixels nearer to it than to any other piece of its split layer.
    Only text, shape, graphic and logo pieces are read. Cut-outs, pieces of no part and the backdrop are not.
+   A shape, graphic or logo is read once more for its thin strokes: a line or small lettering the split model drew
+   no thicker than twice REACH never comes back solid, so it is read as text is.
+   A pixel read as a trace of the piece's colour, away from any stroke and looking like what is behind it, is
+   cleared: it is the grain of what is behind, and would stretch the piece's place.
 2. Behind an edge that was read this way, the pieces behind take the picture's own pixels up to MARGIN pixels
    from it.
 
-Both run twice, since each reads what the other made. A pixel changes only when the pieces drawn over each other
-come closer to the picture there.
+A pixel changes only when the pieces drawn over each other come closer to the picture there, or to clear a trace.
+What is still soft after this step is left to the soft pixels step.
 """
 
 import cv2
@@ -53,8 +58,17 @@ FLAT = ("text", "shape", "graphic", "logo")
 LETTER = 0.5
 # The pixels a piece behind keeps from an edge in front before it shows the picture there.
 MARGIN = 2
-# How many times the two steps run, each reading what the other made.
-PASSES = 2
+# The share of a letter's pixels, the ones furthest along from what is behind, that its colour is taken from.
+INKIEST = 0.25
+# The fewest such pixels a letter's colour is taken from.
+INK_PIXELS = 6
+# Alpha read from the picture below which a pixel is a trace, kept beside a pixel of at least STROKE.
+TRACE = 0.1
+STROKE = 0.3
+# How far the picture may be from what is behind for a trace to be grain (0 to 1, the largest channel).
+GRAIN = 0.05
+# The ways an edge is read: around solid pixels, around every letter, around thin strokes only.
+EDGE, LETTERS, THIN = "edge", "letters", "thin"
 
 
 def read_edges(target: np.ndarray, pieces: list[dict], scale: float = 1.0) -> list[dict]:
@@ -85,33 +99,24 @@ def read_edges(target: np.ndarray, pieces: list[dict], scale: float = 1.0) -> li
 
     count = len(drawn)
     nearest = _nearest(pieces, drawn, windows, height, width)
-    for _ in range(PASSES):
-        covers = _covers(drawn, windows, height, width)
-        read = np.zeros((height, width), bool)
-        # The pieces behind the one at hand, drawn over each other.
-        under = np.zeros((height, width, 3), np.float32)
-        for index in range(count - 1, -1, -1):
-            window, pixels = windows[index], drawn[index]
-            behind = under[window]
-            if index < count - 1 and pieces[index]["kind"] in FLAT:
-                text = pieces[index]["kind"] == "text"
-                mine = nearest[pieces[index]["layer"]][window] == index
+    covers = _covers(drawn, windows, height, width)
+    read = np.zeros((height, width), bool)
+    # The pieces behind the one at hand, drawn over each other.
+    under = np.zeros((height, width, 3), np.float32)
+    for index in range(count - 1, -1, -1):
+        window, pixels = windows[index], drawn[index]
+        behind = under[window]
+        if index < count - 1 and pieces[index]["kind"] in FLAT:
+            mine = nearest[pieces[index]["layer"]][window] == index
+            for how in (LETTERS,) if pieces[index]["kind"] == "text" else (EDGE, THIN):
                 read[window] |= _read_edge(
-                    pixels,
-                    models[index],
-                    target[window],
-                    behind,
-                    covers[index],
-                    mine,
-                    text,
-                    2 * reach if text else reach,
-                    2 * reach if text else RIM,
+                    pixels, models[index], target[window], behind, covers[index], mine, how, reach
                 )
-            alpha = pixels[..., 3:4]
-            under[window] = pixels[..., :3] * alpha + behind * (1 - alpha)
-        covers = _covers(drawn, windows, height, width)
-        for index in range(1, count):
-            _show_picture(drawn[index], target[windows[index]], covers[index], read[windows[index]], reach)
+        alpha = pixels[..., 3:4]
+        under[window] = pixels[..., :3] * alpha + behind * (1 - alpha)
+    covers = _covers(drawn, windows, height, width)
+    for index in range(1, count):
+        _show_picture(drawn[index], target[windows[index]], covers[index], read[windows[index]], reach)
 
     edged = []
     for piece, window, pixels in zip(pieces, windows, drawn, strict=True):
@@ -138,8 +143,7 @@ def _nearest(pieces: list[dict], drawn: list[np.ndarray], windows: list[tuple], 
             if piece["layer"] == layer:
                 owner[windows[index]][drawn[index][..., 3] >= 0.5] = index
         if (owner >= 0).any():
-            _, (near_y, near_x) = ndimage.distance_transform_edt(owner < 0, return_indices=True)
-            owner = owner[near_y, near_x]
+            _, owner = _nearest_of(owner >= 0, owner)
         nearest[layer] = owner
     return nearest
 
@@ -161,43 +165,53 @@ def _read_edge(
     behind: np.ndarray,
     cover: np.ndarray,
     mine: np.ndarray,
-    text: bool,
-    reach: float,
-    rim: float,
+    how: str,
+    reach: int,
 ) -> np.ndarray:
     """Reads one piece's edge from the picture, in place, and gives the pixels whose alpha the picture gave.
 
     pixels, model: the piece and the split model's own pixels of it, inside the piece's window. target, behind:
     the picture and the pieces behind drawn over each other, there. cover: how much the pieces in front hide. mine:
-    the pixels nearer to this piece than to any other of its split layer. reach, rim: how far outside and inside
-    the solid pixels the edge is read.
+    the pixels nearer to this piece than to any other of its split layer. how: EDGE, LETTERS or THIN. reach: REACH
+    in the picture's pixels.
     """
     alpha, rgb = pixels[..., 3], pixels[..., :3]
+    text = how != EDGE
     solid = alpha >= (LETTER if text else SOLID)
+    out, rim = (2 * reach, 2 * reach) if text else (reach, RIM)
     none = np.zeros(alpha.shape, bool)
     if solid.sum() < 20:
         return none
-    outside, (solid_y, solid_x) = ndimage.distance_transform_edt(~solid, return_indices=True)
-    inside = ndimage.distance_transform_edt(solid)
-    band = (((outside > 0) & (outside <= reach)) | (solid & (inside <= rim))) & (cover < FREE) & mine
+    outside = _distance_to(solid)
+    inside = _distance_to(~solid)
+    band = (((outside > 0) & (outside <= out)) | (solid & (inside <= rim))) & (cover < FREE) & mine
     if not band.any():
         return none
 
     if text:
-        letters, count = ndimage.label(model[..., 3] >= LETTER)
-        if count == 0:
+        drawn = model[..., 3] >= LETTER
+        if how == THIN:
+            # What is left of the drawing once every part thicker than twice `reach` is taken away.
+            size = 2 * reach + 1
+            disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
+            thick = cv2.morphologyEx(drawn.astype(np.uint8), cv2.MORPH_OPEN, disc) > 0
+            thin = drawn & ~cv2.dilate(thick.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+            band &= _nearest_of(drawn, thin)[1]
+            drawn = thin
+        letters, count = ndimage.label(drawn)
+        if count == 0 or not band.any():
             return none
         index = np.arange(1, count + 1)
         colours = np.stack([ndimage.median(model[..., channel], letters, index) for channel in range(3)], axis=1)
-        _, (letter_y, letter_x) = ndimage.distance_transform_edt(letters == 0, return_indices=True)
-        own = colours[letters[letter_y, letter_x] - 1].astype(np.float32)
+        _, letter = _nearest_of(letters > 0, letters)
+        own = _ink_colours(colours.astype(np.float32), letter, target, behind, band)[letter - 1]
         agrees = np.ones(alpha.shape, bool)
     else:
-        own = rgb[solid_y, solid_x]
+        _, own = _nearest_of(solid, rgb)
         core = inside >= CORE
         if core.sum() >= 20:
-            to_core, (core_y, core_x) = ndimage.distance_transform_edt(~core, return_indices=True)
-            own = np.where((to_core <= outside + CORE + 2)[..., None], rgb[core_y, core_x], own)
+            to_core, core_rgb = _nearest_of(core, rgb)
+            own = np.where((to_core <= outside + CORE + 2)[..., None], core_rgb, own)
         agrees = (model[..., 3] < SOFT_MIN) | (np.abs(model[..., :3] - own).max(axis=2) <= AGREE)
 
     # The line from what is behind to the piece's own colour, and where on it the picture's pixel lies.
@@ -207,15 +221,67 @@ def _read_edge(
     off_line = np.abs(target - (behind + mix[..., None] * line)).max(axis=2)
     read = band & agrees & (contrast > CONTRAST) & (off_line <= FIT)
 
-    new_alpha = np.where(read, mix, alpha)
+    # A trace of the piece's colour away from any stroke, where the picture is within GRAIN of what is behind, is
+    # the grain of what is behind, not the piece: the pixel is cleared, whatever the split model drew there.
+    by_stroke = cv2.dilate((mix >= STROKE).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    trace = read & (mix < TRACE) & ~by_stroke & (np.abs(target - behind).max(axis=2) <= GRAIN)
+
+    new_alpha = np.where(read, np.where(trace, 0, mix), alpha)
     new_rgb = np.where(read[..., None], own, rgb)
 
     before = np.abs(rgb * alpha[..., None] + behind * (1 - alpha[..., None]) - target).max(axis=2)
     after = np.abs(new_rgb * new_alpha[..., None] + behind * (1 - new_alpha[..., None]) - target).max(axis=2)
-    better = band & (after <= before)
+    better = band & ((after <= before) | trace)
     pixels[..., 3] = np.where(better, new_alpha, alpha)
     pixels[..., :3] = np.where(better[..., None], new_rgb, rgb)
     return better & read
+
+
+def _distance_to(mask: np.ndarray) -> np.ndarray:
+    """The distance, in pixels, from each pixel to the nearest pixel of `mask`: 0 inside it."""
+    return cv2.distanceTransform((~mask).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+
+
+def _nearest_of(mask: np.ndarray, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """For each pixel, the distance to the nearest pixel of `mask` (to within a few percent) and the value
+    `values` has there. `mask` holds at least one pixel."""
+    distance, labels = cv2.distanceTransformWithLabels(
+        (~mask).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_5, labelType=cv2.DIST_LABEL_PIXEL
+    )
+    at = np.zeros((int(labels.max()) + 1,) + values.shape[2:], values.dtype)
+    at[labels[mask]] = values[mask]
+    return distance, at[labels]
+
+
+def _ink_colours(
+    colours: np.ndarray, letter: np.ndarray, target: np.ndarray, behind: np.ndarray, band: np.ndarray
+) -> np.ndarray:
+    """The colour each letter has in the picture. The split model draws a thin stroke paler than it is, mixed with
+    what is behind it, so the picture's pixel lies further along the line from what is behind than the drawn
+    colour does. A letter's colour is the median of the picture's pixels furthest along that line; a letter with
+    too few of them keeps the colour it was drawn in.
+
+    colours: the colour the split model drew each letter in, one row a letter. letter: the number of the nearest
+    letter at each pixel, from 1. target, behind: the picture and the pieces behind drawn over each other. band:
+    the pixels the edge is read in.
+    """
+    line = colours[letter - 1] - behind
+    contrast = (line**2).sum(axis=2)
+    along = ((target - behind) * line).sum(axis=2) / np.maximum(contrast, 1e-6)
+    off_line = np.abs(target - (behind + along[..., None] * line)).max(axis=2)
+    ink = band & (contrast > CONTRAST) & (along >= LETTER) & (off_line <= FIT)
+    if not ink.any():
+        return colours
+    index = np.arange(1, len(colours) + 1)
+    top = ndimage.labeled_comprehension(
+        along, np.where(ink, letter, 0), index, lambda values: np.quantile(values, 1 - INKIEST), np.float32, np.inf
+    )
+    inkiest = np.where(ink & (along >= top[letter - 1]), letter, 0)
+    enough = ndimage.sum(inkiest > 0, inkiest, index) >= INK_PIXELS
+    seen = colours.copy()
+    for channel in range(3):
+        seen[enough, channel] = ndimage.median(target[..., channel], inkiest, index[enough])
+    return seen
 
 
 def _show_picture(pixels: np.ndarray, target: np.ndarray, cover: np.ndarray, read: np.ndarray, reach: int) -> None:

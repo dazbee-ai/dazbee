@@ -9,6 +9,8 @@ holds a stray patch that is in no part's box and not in the picture.
 
 import base64
 import io
+import json
+import urllib.error
 from types import SimpleNamespace
 
 import cv2
@@ -20,6 +22,8 @@ import app
 import pieces
 from contract import Layer, LayerSplitResult, Part, Pieces
 from pieces import make_pieces
+from pieces.edges import read_edges
+from pieces.soft import solve_soft
 
 SIZE = 512
 # The grid a planned part's box is given on.
@@ -139,6 +143,90 @@ def test_a_piece_turned_45_degrees_in_a_tall_picture_keeps_its_angle_within_the_
     Pieces.model_validate(made)
 
 
+@pytest.mark.parametrize("part", ["caption", "route"])
+def test_a_thin_stroke_the_split_drew_pale_and_soft_is_read_from_the_picture(part):
+    thin = draw_thin()
+    item = piece_of(make_pieces(thin.picture, thin.parts, thin.layers), part)
+    rgba = np.zeros(thin.masks[part].shape + (4,), np.float32)
+    rgba[item["y"] : item["y"] + item["height"], item["x"] : item["x"] + item["width"]] = pixels_of(item) / 255
+    strokes = thin.thin[part]
+    assert np.abs(rgba[..., 3] - thin.masks[part])[strokes].mean() < 0.03
+    inked = strokes & (thin.masks[part] > 0.95)
+    assert np.abs(rgba[..., :3][inked] - thin.colours[part]).max() < 0.04
+
+
+def test_the_grain_behind_a_thin_line_does_not_widen_its_piece():
+    # A dark line three pixels thick on a light backdrop that is a little darker in a patch above the line.
+    target = np.full((60, 120, 3), 0.9, np.float32)
+    target[22:27, 40:80] = 0.86
+    target[30:33, 10:110] = 0.1
+    drawn = np.zeros((60, 120, 4), np.float32)
+    drawn[30:33, 10:110] = (0.35, 0.35, 0.35, 1)
+    line = (blurred(drawn)[24:39, 4:116] * 255 + 0.5).astype(np.uint8)
+    backdrop = np.full((60, 120, 4), 255, np.uint8)
+    backdrop[..., :3] = 230
+    front = {"kind": "graphic", "layer": 1, "place": [4, 24, 112, 15], "pixels": line, "model": line}
+    back = {"kind": "background", "layer": 2, "place": [0, 0, 120, 60], "pixels": backdrop, "model": backdrop}
+    edged = read_edges(target, [front, back], 2.0)[0]
+    shown = np.nonzero((edged["pixels"][..., 3] >= 8).any(axis=1))[0]
+    assert (edged["place"][1] + shown[0], edged["place"][1] + shown[-1] + 1) == (30, 33)
+
+
+def test_a_soft_piece_drawn_blurred_shows_the_picture_once_solved():
+    soft = draw_soft()
+    before = stacked_pieces(soft.pieces)
+    after = stacked_pieces(solve_soft(soft.target, soft.pieces))
+    assert percent_off(before, soft.target) > 10
+    assert percent_off(after, soft.target) < 0.5
+
+
+def test_a_shadow_drawn_too_strong_takes_the_strength_it_has_in_the_picture():
+    soft = draw_soft()
+    shadow = solve_soft(soft.target, soft.pieces)[1]["pixels"][20:40, 20:100, 3] / 255
+    assert soft.pieces[1]["pixels"][30, 60, 3] == 128
+    assert np.abs(shadow - 0.25).max() < 0.03
+
+
+@pytest.mark.parametrize("room", [0, 30])
+def test_what_is_behind_a_piece_takes_the_colour_the_picture_shows_through_its_gaps(room):
+    grille = draw_grille(room)
+    solved = solve_soft(grille.target, grille.pieces)
+    backdrop = solved[1]["pixels"] / 255
+    bars = np.zeros_like(backdrop)
+    bars[room : 160 - room, room : 160 - room] = solved[0]["pixels"] / 255
+    # The backdrop was drawn greener behind the bars than the picture has it.
+    assert np.abs(grille.pieces[1]["pixels"][60:100, 60:100, :3] / 255 - grille.backdrop).max() > 0.2
+    assert np.abs(backdrop[60:100, 60:100, :3] - grille.backdrop).max() < 0.04
+    # A gap between two bars is clear, and so is the hole drawn nearly solid.
+    assert bars[60:100, 70:74, 3].max() < 0.1
+    assert bars[76:82, 76:82, 3].max() < 0.1
+    inside = (slice(60, 100), slice(60, 100))
+    assert percent_off(stacked_pieces(grille.pieces)[inside], grille.target[inside]) > 50
+    assert percent_off(stacked_pieces(solved)[inside], grille.target[inside]) < 2
+
+
+def test_a_backdrop_drawn_a_little_clear_keeps_its_alpha():
+    target = np.full((40, 40, 3), 0.02, np.float32)
+    backdrop = np.full((40, 40, 4), 240, np.uint8)
+    backdrop[..., :3] = 60
+    solved = solve_soft(target, [{"place": [0, 0, 40, 40], "pixels": backdrop}])[0]["pixels"]
+    assert (solved[..., 3] == 240).all()
+
+
+def test_the_backdrop_next_to_a_piece_in_front_keeps_what_the_split_drew():
+    target = np.full((60, 120, 3), 0.76, np.float32)
+    target[20:40, 30:90] = 0.1
+    bar = np.zeros((20, 60, 4), np.uint8)
+    bar[...] = (26, 26, 26, 255)
+    backdrop = np.full((60, 120, 4), 255, np.uint8)
+    backdrop[..., :3] = 204
+    pieces = [{"place": [30, 20, 60, 20], "pixels": bar}, {"place": [0, 0, 120, 60], "pixels": backdrop}]
+    solved = solve_soft(target, pieces)[1]["pixels"]
+    # Beside the bar the backdrop stays as drawn, so the bar leaves no outline; far from it, it is the picture.
+    assert solved[30, 27, 0] == 204
+    assert solved[30, 5, 0] == 194
+
+
 def test_the_pieces_fit_the_contract_beside_the_layers(ad, made):
     result = LayerSplitResult.model_validate(
         {
@@ -190,6 +278,59 @@ def test_pieces_that_do_not_fit_the_contract_leave_the_app_without_pieces(ad, ma
     monkeypatch.setattr(pieces, "make_pieces", lambda *_: misfit)
     assert app.cut_pieces(ad.picture, as_parts(ad.parts), as_contract(ad.layers)) is None
     assert "angle" in capsys.readouterr().err
+
+
+def test_a_split_waits_through_a_comfyui_that_goes_quiet_while_it_runs_the_graph(monkeypatch):
+    done = {"p1": {"status": {"completed": True}, "outputs": {"saved": {"images": [{"filename": "a.png"}]}}}}
+    answers = [{"prompt_id": "p1"}, urllib.error.URLError(TimeoutError("timed out")), TimeoutError("timed out"), done]
+
+    def urlopen(_request, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return io.BytesIO(json.dumps(answer).encode())
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
+    assert app.run_graph({}) == [{"filename": "a.png"}]
+    assert answers == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        urllib.error.HTTPError("http://x", 500, "broken", None, io.BytesIO(b"why")),
+        urllib.error.URLError(ConnectionRefusedError("refused")),
+    ],
+)
+def test_a_split_fails_at_once_when_comfyui_answers_an_error_or_is_gone(monkeypatch, failure):
+    answers = [{"prompt_id": "p1"}, failure]
+
+    def urlopen(_request, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return io.BytesIO(json.dumps(answer).encode())
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    with pytest.raises(RuntimeError, match="ComfyUI"):
+        app.run_graph({})
+    assert answers == []
+
+
+def test_a_split_fails_once_comfyui_has_been_quiet_too_long(monkeypatch):
+    clock = iter(range(0, 10_000, 100))
+
+    def urlopen(request, timeout):
+        if not isinstance(request, str):
+            return io.BytesIO(json.dumps({"prompt_id": "p1"}).encode())
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(app.time, "monotonic", lambda: next(clock))
+    with pytest.raises(RuntimeError, match="stopped answering"):
+        app.run_graph({})
 
 
 def test_a_result_with_layers_and_no_pieces_fits_the_contract(ad):
@@ -282,6 +423,112 @@ def draw_diamond() -> SimpleNamespace:
         bounds=bounds(diamond > 0.5),
         side=reach * 2**0.5,
     )
+
+
+def draw_thin() -> SimpleNamespace:
+    """A picture of small text and of a dot with a thin line from it, on a plain backdrop, split at half its
+    size: the thin strokes come back pale and soft. Its picture, parts and layers, each part's mask and colour as
+    drawn, and for each part the pixels around its thin strokes."""
+    working = SIZE // 2
+    colours = {"caption": np.array([0.05, 0.1, 0.3], np.float32), "route": np.array([0.1, 0.5, 0.2], np.float32)}
+
+    def route(big: np.ndarray) -> None:
+        cv2.circle(big, (240, 600), 70, 255, -1)
+        cv2.line(big, (240, 600), (860, 760), 255, 10)
+
+    masks = {"caption": mask(lambda big: bars(big, 120, 100, 14, 3, 14, 5)), "route": mask(route)}
+    line_only = mask(lambda big: cv2.line(big, (340, 626), (860, 760), 255, 10))
+    thin = {
+        "caption": cv2.dilate(masks["caption"], np.ones((9, 9))) > 0,
+        "route": cv2.dilate(line_only, np.ones((9, 9))) > 0,
+    }
+    backdrop = np.full((SIZE, SIZE, 3), (0.97, 0.96, 0.93), np.float32)
+    picture = backdrop.copy()
+    layers = []
+    for part in ("route", "caption"):
+        picture = colours[part] * masks[part][..., None] + picture * (1 - masks[part][..., None])
+    for part in ("caption", "route"):
+        small = cv2.resize(masks[part], (working, working), interpolation=cv2.INTER_AREA)
+        layers.append(
+            blurred(np.concatenate([np.broadcast_to(colours[part], small.shape + (3,)), small[..., None]], 2))
+        )
+        # A thin stroke is drawn mixed with what is behind it.
+        layers[-1][..., :3] += (1 - layers[-1][..., 3:4]) * (backdrop[:working, :working] - layers[-1][..., :3]) * 0.6
+    layers.append(np.concatenate([backdrop[:working, :working], np.ones((working, working, 1), np.float32)], 2))
+    parts = [
+        {"id": "caption", "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(masks["caption"])},
+        {"id": "route", "kind": "graphic", "shadow": "none", "layer": 2, "box": grid_box(masks["route"])},
+        {"id": "backdrop", "kind": "background", "shadow": "none", "layer": 3, "box": grid_box(np.ones((SIZE, SIZE)))},
+    ]
+    return SimpleNamespace(
+        picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks, colours=colours, thin=thin
+    )
+
+
+def draw_soft() -> SimpleNamespace:
+    """A picture of a grainy disc on a plain backdrop with a shadow band above it, and its pieces as the split
+    model draws them: the disc blurred, the shadow twice as strong as it is. The picture as float RGB and the
+    pieces front to back, the backdrop last."""
+    size = 160
+    grain = cv2.GaussianBlur(np.random.default_rng(5).random((size, size, 3)).astype(np.float32), (0, 0), 1)
+    disc = np.zeros((size, size), np.uint8)
+    cv2.circle(disc, (2 * 80, 2 * 100), 2 * 40, 255, -1, shift=1)
+    disc = cv2.GaussianBlur(disc.astype(np.float32) / 255, (0, 0), 0.7)
+    backdrop = np.full((size, size, 3), (0.9, 0.85, 0.6), np.float32)
+    target = backdrop.copy()
+    target[20:40, 20:100] *= 0.75
+    target = grain * disc[..., None] + target * (1 - disc[..., None])
+    drawn = blurred(np.concatenate([cv2.GaussianBlur(grain, (0, 0), 2), disc[..., None]], axis=2))
+    shadow = np.zeros((size, size, 4), np.float32)
+    shadow[20:40, 20:100, 3] = 0.5
+    full = np.concatenate([backdrop, np.ones((size, size, 1), np.float32)], axis=2)
+    pieces = [
+        {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, shadow, full)
+    ]
+    return SimpleNamespace(target=target, pieces=pieces)
+
+
+def draw_grille(room: int = 0) -> SimpleNamespace:
+    """A picture of dark upright bars on a plain backdrop, with a hole through two of them, and its two pieces as
+    the split model draws them: the bars with a haze between them and the hole filled in, and the backdrop, greener
+    behind the bars than it is. The picture as float RGB, the backdrop's true colour, and the pieces front to back;
+    the bars' piece leaves `room` pixels of the picture free on every side.
+    """
+    size = 160
+    true, greener, dark = (0.9, 0.85, 0.6), (0.65, 0.8, 0.35), (0.1, 0.1, 0.12)
+    bars = np.zeros((size, size), np.float32)
+    for left in range(40, 120, 12):
+        bars[40:120, left : left + 4] = 1
+    drawn = np.zeros((size, size, 4), np.float32)
+    drawn[..., :3] = dark
+    drawn[40:120, 40:120, 3] = 0.3
+    drawn[..., 3] = np.maximum(drawn[..., 3], bars)
+    drawn[76:82, 76:82, 3] = 0.9
+    bars[76:82, 76:82] = 0
+    target = np.asarray(dark, np.float32) * bars[..., None] + np.asarray(true, np.float32) * (1 - bars[..., None])
+    backdrop = np.ones((size, size, 4), np.float32)
+    backdrop[..., :3] = true
+    backdrop[36:124, 36:124, :3] = greener
+    pieces = [
+        {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, backdrop)
+    ]
+    inner = size - 2 * room
+    pieces[0] = {
+        "place": [room, room, inner, inner],
+        "pixels": pieces[0]["pixels"][room : size - room, room : size - room],
+    }
+    return SimpleNamespace(target=target, backdrop=np.asarray(true, np.float32), pieces=pieces)
+
+
+def stacked_pieces(pieces: list[dict]) -> np.ndarray:
+    """Pieces drawn over each other, back to front, as float RGB. The last one covers the whole picture."""
+    stacked = np.zeros(pieces[-1]["pixels"].shape[:2] + (3,), np.float32)
+    for piece in reversed(pieces):
+        x, y, width, height = piece["place"]
+        rgba = piece["pixels"].astype(np.float32) / 255
+        under = stacked[y : y + height, x : x + width]
+        stacked[y : y + height, x : x + width] = rgba[..., :3] * rgba[..., 3:4] + under * (1 - rgba[..., 3:4])
+    return stacked
 
 
 def mask(draw) -> np.ndarray:

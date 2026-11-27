@@ -9,6 +9,8 @@ holds a stray patch that is in no part's box and not in the picture.
 
 import base64
 import io
+import json
+import urllib.error
 from types import SimpleNamespace
 
 import cv2
@@ -265,6 +267,37 @@ def test_pieces_that_do_not_fit_the_contract_leave_the_app_without_pieces(ad, ma
     monkeypatch.setattr(pieces, "make_pieces", lambda *_: misfit)
     assert app.cut_pieces(ad.picture, as_parts(ad.parts), as_contract(ad.layers)) is None
     assert "angle" in capsys.readouterr().err
+
+
+def test_a_split_waits_through_a_comfyui_that_goes_quiet_while_it_runs_the_graph(monkeypatch):
+    done = {"p1": {"status": {"completed": True}, "outputs": {"saved": {"images": [{"filename": "a.png"}]}}}}
+    answers = [{"prompt_id": "p1"}, urllib.error.URLError(TimeoutError("timed out")), TimeoutError("timed out"), done]
+
+    def urlopen(_request, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return io.BytesIO(json.dumps(answer).encode())
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
+    assert app.run_graph({}) == [{"filename": "a.png"}]
+    assert answers == []
+
+
+def test_a_split_fails_once_comfyui_has_been_quiet_too_long(monkeypatch):
+    clock = iter(range(0, 10_000, 100))
+
+    def urlopen(request, timeout):
+        if not isinstance(request, str):
+            return io.BytesIO(json.dumps({"prompt_id": "p1"}).encode())
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(app.time, "monotonic", lambda: next(clock))
+    with pytest.raises(RuntimeError, match="stopped answering"):
+        app.run_graph({})
 
 
 def test_a_result_with_layers_and_no_pieces_fits_the_contract(ad):

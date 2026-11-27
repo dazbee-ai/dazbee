@@ -33,8 +33,6 @@ const DESIGN = {
     wide: { ...square, sectionId: 'sizes' },
     waiting: { ...square, sectionId: 'sizes' },
   },
-  nodes: { 'draft-picture': { parentId: 'draft', props: { fills: [{ type: 'image', assetId: 'pic' }] } } },
-  connectors: { c1: { from: 'draft', to: 'sizes' } },
 }
 
 describe('aiSizes', () => {
@@ -47,17 +45,14 @@ describe('aiSizes', () => {
 })
 
 describe('sizesToLayer', () => {
-  it('takes a section’s AI sizes that show their picture, with the picture of the draft joined to it', () => {
-    expect(sizesToLayer(AI, DESIGN, 'sizes')).toEqual({ frameIds: ['tall', 'wide'], planAssetId: 'pic' })
+  it('takes a section’s AI sizes that show their picture', () => {
+    expect(sizesToLayer(AI, DESIGN, 'sizes')).toEqual({ frameIds: ['tall', 'wide'] })
   })
 
-  it('is null for a section with no draft joined to it, or fewer than two sizes', () => {
-    expect(sizesToLayer(AI, { ...DESIGN, connectors: {} }, 'sizes')).toBeNull()
-    expect(sizesToLayer({ ...AI, frames: [frame('tall')] }, DESIGN, 'sizes')).toBeNull()
-  })
-
-  it('takes no plan picture from a frame joined to the section that isn’t an AI frame', () => {
-    const drawn = { ...AI, frames: AI.frames.filter((f) => f.frameId !== 'draft') }
-    expect(sizesToLayer(drawn, DESIGN, 'sizes')).toBeNull()
+  it('is null for a section with fewer than two sizes showing their picture, and for another section', () => {
+    expect(
+      sizesToLayer({ ...AI, frames: [frame('tall'), frame('waiting', { state: 'waiting' })] }, DESIGN, 'sizes'),
+    ).toBeNull()
+    expect(sizesToLayer(AI, DESIGN, 'drafts')).toBeNull()
   })
 })

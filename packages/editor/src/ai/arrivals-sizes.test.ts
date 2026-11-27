@@ -99,7 +99,7 @@ describe('editorArrivals', () => {
       ai.makeCall('job2', 1, 'wide')
       await pollAll(a)
 
-      expect((await a.arrivals.makeAllEditable(['ann-6', 'ann-7'], 'pic1')).ok).toBe(true)
+      expect((await a.arrivals.makeAllEditable(['ann-6', 'ann-7'])).ok).toBe(true)
       expect(ai.started[2]).toEqual({
         kind: 'layering',
         designId: 'd',
@@ -107,7 +107,6 @@ describe('editorArrivals', () => {
           { frameId: 'ann-6', pictureAssetId: 'tall' },
           { frameId: 'ann-7', pictureAssetId: 'wide' },
         ],
-        planAssetId: 'pic1',
       })
       ai.split('job3', 0, [splitLayer(), splitLayer()])
       ai.split('job3', 1, [splitLayer(), splitLayer()])
@@ -156,7 +155,7 @@ describe('editorArrivals', () => {
       ai.makeCall('job2', 0, 'tall')
       ai.makeCall('job2', 1, 'wide')
       await pollAll(a)
-      await a.arrivals.makeAllEditable(['ann-6', 'ann-7'], 'pic1')
+      await a.arrivals.makeAllEditable(['ann-6', 'ann-7'])
       // The second size's split layer won't read the first time.
       ai.split('job3', 0, [splitLayer()])
       ai.split('job3', 1, [new Uint8Array([1, 2, 3])])
@@ -204,7 +203,7 @@ describe('editorArrivals', () => {
       ai.makeCall('job2', 0, 'tall')
       ai.makeCall('job2', 1, 'wide')
       await pollAll(a)
-      await a.arrivals.makeAllEditable(['ann-6', 'ann-7'], 'pic1')
+      await a.arrivals.makeAllEditable(['ann-6', 'ann-7'])
       ai.split('job3', 0, [splitLayer()])
       ai.split('job3', 1, [new Uint8Array([1, 2, 3])])
       await pollAll(a)
@@ -225,7 +224,7 @@ describe('editorArrivals', () => {
       const a = await tabOn(ai)
       await a.arrivals.startBrief(BRIEF)
       await settle(a.arrivals)
-      expect((await a.arrivals.makeAllEditable(['ann-1', 'ann-2'], 'pic1')).ok).toBe(false)
+      expect((await a.arrivals.makeAllEditable(['ann-1', 'ann-2'])).ok).toBe(false)
       expect((await a.arrivals.otherSizes({ frameId: 'ann-1', sizes: SIZES, title: 'x' })).ok).toBe(false)
       expect(ai.started).toHaveLength(1)
     })

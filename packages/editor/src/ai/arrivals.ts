@@ -153,10 +153,10 @@ export interface EditorArrivals {
    */
   otherSizes(request: SizesRequest): Promise<BriefStarted>
   /**
-   * Makes AI frames editable together, from one layer plan made from picture `planAssetId`: their layers of the same
-   * plan element are linked. A frame showing no picture starts nothing.
+   * Makes AI frames editable together, each by a layer plan of its own picture: their layers of the same planned
+   * part are linked. A frame showing no picture starts nothing.
    */
-  makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart>
+  makeAllEditable(frameIds: readonly string[]): Promise<AiStart>
   /**
    * Makes an AI frame editable: starts a layering job for the picture its picture layer shows; its layers arrive once
    * a tab finishes it. Then reads the design's AI frames. A frame showing no picture starts nothing.
@@ -369,7 +369,7 @@ export function editorArrivals({
     })
   }
 
-  async function makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart> {
+  async function makeAllEditable(frameIds: readonly string[]): Promise<AiStart> {
     const frames = frameIds.flatMap((frameId) => {
       const layer = layerIn(pictureLayerOf(frameId), frameId)
       const picture = layer && shownPicture(layer)
@@ -377,7 +377,7 @@ export function editorArrivals({
     })
     if (frames.length !== frameIds.length || frames.length === 0)
       return { ok: false, refusal: null, message: 'a frame shows no picture' }
-    const started = await ai.start({ kind: 'layering', designId, frames, planAssetId })
+    const started = await ai.start({ kind: 'layering', designId, frames })
     if (started.ok) await poll()
     return started
   }

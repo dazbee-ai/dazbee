@@ -74,14 +74,13 @@ export const StartResize = OnDesign.extend({
 })
 export type StartResize = z.infer<typeof StartResize>
 
-/** Makes AI frames editable: each frame's picture split into layers, from one layer plan. */
+/** Makes AI frames editable: each frame's picture split into layers, by a layer plan of its own. */
 export const StartLayering = OnDesign.extend({
   kind: z.literal('layering'),
   frames: z
     .array(z.object({ frameId: Id, pictureAssetId: AssetId }))
     .min(1)
     .max(20),
-  planAssetId: AssetId.optional(),
 })
 export type StartLayering = z.infer<typeof StartLayering>
 

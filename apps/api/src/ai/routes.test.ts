@@ -360,6 +360,18 @@ describe('refine, resize and layering', () => {
     await endJob(job, 'failed')
     expect(await frameOf(team, frame.frameId)).toMatchObject({ state: 'arrived' })
   })
+
+  it('accepts a layering start that names a plan picture, and keeps none', async () => {
+    const { team, frame, picture } = await arrived()
+    const body = {
+      kind: 'layering',
+      designId: team.design,
+      frames: [{ frameId: frame.frameId, pictureAssetId: picture }],
+      planAssetId: picture,
+    }
+    const job = await start(team, body as Parameters<typeof start>[1])
+    expect((await jobRow(job)).input).not.toHaveProperty('planKey')
+  })
 })
 
 describe('GET /brands/:b/ai/designs', () => {

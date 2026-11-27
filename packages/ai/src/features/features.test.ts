@@ -107,7 +107,6 @@ const SAMPLES: Record<AiFeature, (who: FlowWorkspace) => Promise<Sample>> = {
             { frameId: newId(), pictureKey: key('square') },
             { frameId: newId(), pictureKey: key('story') },
           ],
-          planKey: key('draft'),
           size: await layerSize(db, who.workspace),
         },
       },

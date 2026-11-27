@@ -1,5 +1,5 @@
-// Layering: one layer plan, made from the draft the sizes came from, then for each frame's picture the layer split
-// at the job's size with the plan's prompt, and the reading of its text blocks. The layers are stored as parts,
+// Layering: a layer plan for each frame, made from that frame's picture, then for each frame the layer split at
+// the job's size with its plan's prompt, and the reading of its text blocks. The layers are stored as parts,
 // which the tab that finishes Make editable crops and places.
 import { type CallOutput, LAYERING_CALL, type LayeringInput, LayerPlanAnswer } from '@dazbee/schema'
 
@@ -10,28 +10,32 @@ import { pictureName } from './assets.ts'
 import type { AiFeatureDef, FeatureCall } from './types.ts'
 
 /**
- * A layering job: the layer plan, which the job stands on, then each frame's split, at the job's size, and its
- * reading, side by side. A reading is not made when the plan found no text.
+ * A layering job: each frame's layer plan, side by side, then each frame's split, at the job's size, and its
+ * reading, following that frame's own plan. A job of one frame stands on its plan. A job of several stands on
+ * none: a frame whose plan failed or can't be read gets no split and no reading, and the other frames go on. A
+ * reading is not made when the plan found no text.
  */
 export const layering: AiFeatureDef<LayeringInput> = {
   shape: (input) => ({ count: input.frames.length, reference: false, layerSize: input.size }),
   stages: (shape) => [
-    [
-      {
-        index: LAYERING_CALL.plan(0),
-        fn: 'layer-plan',
-        standsOn: true,
-        unusable: (output) => (planIn(output) ? null : 'the layer plan could not be read'),
-        build: ({ input, prompt }) => planCall(planPicture(input), prompt),
+    Array.from({ length: shape.count }, (_, n): FeatureCall<LayeringInput, undefined> => ({
+      index: LAYERING_CALL.plan(n),
+      fn: 'layer-plan',
+      standsOn: shape.count === 1,
+      unusable: (output) => (planIn(output) ? null : 'the layer plan could not be read'),
+      build({ input, prompt }) {
+        const frame = input.frames[n]
+        return frame ? planCall(frame.pictureKey, prompt) : null
       },
-    ],
+    })),
     Array.from({ length: shape.count }, (_, n): FeatureCall<LayeringInput, undefined>[] => [
       {
         index: LAYERING_CALL.split(n),
         fn: 'layer-split',
         build({ input, answers }) {
           const frame = input.frames[n]
-          return frame ? splitCall(frame.pictureKey, input.size, planOf(answers)) : null
+          const plan = planOf(answers, n)
+          return frame && plan ? splitCall(frame.pictureKey, input.size, plan) : null
         },
         held: ({ layerSize }) => ({ kind: 'layer-split', picture: 'held', size: layerSize ?? 1024 }),
       },
@@ -40,7 +44,7 @@ export const layering: AiFeatureDef<LayeringInput> = {
         fn: 'reading',
         build({ input, answers, prompt }) {
           const frame = input.frames[n]
-          const texts = planOf(answers)?.elements.filter((element) => element.kind === 'text') ?? []
+          const texts = planOf(answers, n)?.elements.filter((element) => element.kind === 'text') ?? []
           return frame && texts.length > 0 ? readCall(frame.pictureKey, texts, prompt) : null
         },
       },
@@ -49,14 +53,9 @@ export const layering: AiFeatureDef<LayeringInput> = {
   name: (on, input) => pictureName(on.db, on.workspace, input.briefId, ''),
 }
 
-/** The picture the plan is made from: the draft the sizes came from, or the first frame's. */
-function planPicture(input: LayeringInput): string {
-  return input.planKey ?? input.frames[0]?.pictureKey ?? ''
-}
-
-/** The layer plan among `answers`, or null when the plan call gave none that can be read. */
-function planOf(answers: ReadonlyMap<number, CallOutput>): LayerPlanAnswer | null {
-  const output = answers.get(LAYERING_CALL.plan(0))
+/** Frame `n`'s layer plan among `answers`, or null when its plan call gave none that can be read. */
+function planOf(answers: ReadonlyMap<number, CallOutput>, n: number): LayerPlanAnswer | null {
+  const output = answers.get(LAYERING_CALL.plan(n))
   return output ? planIn(output) : null
 }
 

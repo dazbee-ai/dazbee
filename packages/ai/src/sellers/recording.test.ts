@@ -42,7 +42,6 @@ async function layeringOf(who: FlowWorkspace): Promise<LayeringInput> {
       { frameId: newId(), pictureKey: key('square') },
       { frameId: newId(), pictureKey: key('story') },
     ],
-    planKey: key('draft'),
     size: 1024,
   }
 }
@@ -176,7 +175,7 @@ describe('recordingSeller', () => {
     const other = await flowWorkspace()
     const job = await saveFlow(other, { kind: 'layering', input: await layeringOf(other) })
     expect(await runFlow(job, flowDeps(seller))).toMatchObject({ state: 'done', error: null })
-    expect(seller.requests).toHaveLength(5)
+    expect(seller.requests).toHaveLength(6)
     const rows = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job))
     expect(rows.filter((row) => row.function === 'layer-split')).toHaveLength(2)
     for (const row of rows) expect(row).toMatchObject({ state: 'done', realCost: 0n, chargeCost: 0n })

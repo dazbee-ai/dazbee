@@ -14,8 +14,8 @@ export const layerSplit: AiFunctionDef = {
     input.kind === 'layer-split' && input.size === 512 ? settings.layerSplit512 : settings.layerSplit1024,
 }
 
-/** The layer split of `picture` at `size`, following the plan's prompt when it gave one. */
-export function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer | null): CallInput {
-  const prompt = plan?.prompt.trim().slice(0, 10_000)
+/** The layer split of `picture` at `size`, following its plan's prompt when the plan gave one. */
+export function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer): CallInput {
+  const prompt = plan.prompt.trim().slice(0, 10_000)
   return { kind: 'layer-split', picture, size, ...(prompt ? { plan: prompt } : {}) }
 }

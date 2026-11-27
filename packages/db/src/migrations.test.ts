@@ -4,6 +4,7 @@ import { asc, eq, sql } from 'drizzle-orm'
 import type pg from 'pg'
 import { describe, expect, it } from 'vitest'
 
+import { aiCalls } from './ai-tables.ts'
 import { MIGRATIONS, openDatabase } from './index.ts'
 import { callLogBefore } from './test-call-log-before.ts'
 import { applyMigrations, firstMigrations, freshDatabase, journal, withClient } from './test-migrations.ts'
@@ -210,6 +211,43 @@ describe('the migrations', () => {
       async (client) => (await client.query('select id, finish_holder, finish_until from ai_jobs')).rows,
     )
     expect(jobs).toEqual([{ id: 'job-kept', finish_holder: null, finish_until: null }])
+  }, 60_000)
+
+  it('drop the call log’s step, keep its rows, and take the calls this build’s own call log writes and reads', async () => {
+    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-call-log-step-dropped'))
+    expect(at).toBeGreaterThan(0)
+    const url = await freshDatabase()
+    await applyMigrations(url, await firstMigrations(at))
+    const call = {
+      jobId: 'job-kept',
+      workspaceId: 'workspace-kept',
+      try: 1,
+      attempt: 1,
+      feature: 'round',
+      function: 'round-plan',
+      preset: 'light-luna',
+      kind: 'text' as const,
+      model: 'gpt-6-luna',
+      seller: 'openai',
+    }
+    const { db, close } = openDatabase(url)
+    try {
+      // The build before declares no step, so its insert names none, with the column there or gone.
+      await db.insert(aiCalls).values({ ...call, id: 'call-before', callIndex: 0 })
+      expect(await applyMigrations(url, await firstMigrations(at + 1))).toBe(at + 1)
+      await db.insert(aiCalls).values({ ...call, id: 'call-after', callIndex: 1 })
+      const rows = await db.select().from(aiCalls).orderBy(asc(aiCalls.callIndex))
+      expect(rows.map((row) => [row.id, row.function, row.state])).toEqual([
+        ['call-before', 'round-plan', 'running'],
+        ['call-after', 'round-plan', 'running'],
+      ])
+    } finally {
+      await close()
+    }
+    const step = await withClient(url, (client) =>
+      client.query(`select 1 from information_schema.columns where table_name = 'ai_calls' and column_name = 'step'`),
+    )
+    expect(step.rows).toEqual([])
   }, 60_000)
 
   it('raise the layer split’s fixed charges, and leave one an admin set as it is', async () => {

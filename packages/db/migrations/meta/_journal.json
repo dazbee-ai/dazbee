@@ -176,6 +176,13 @@
       "when": 1795733525310,
       "tag": "0024_layer-split-charges",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795735665248,
+      "tag": "0025_ai-call-log-step-dropped",
+      "breakpoints": true
     }
   ]
 }

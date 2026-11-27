@@ -166,16 +166,53 @@ export const LayerSplitCall = z.object({
 })
 export type LayerSplitCall = z.infer<typeof LayerSplitCall>
 
+/** The kinds of part a layer plan lists: what a designer would move or edit as one. */
+export const PART_KINDS = ['text', 'logo', 'shape', 'graphic', 'cutout', 'photo', 'background'] as const
+
+export const PartKind = z.enum(PART_KINDS)
+export type PartKind = z.infer<typeof PartKind>
+
+/** The shadows a planned part casts: a soft one around it, one cast on what is behind, a glow, or none. */
+export const PART_SHADOWS = ['drop', 'cast', 'glow', 'none'] as const
+
+export const PartShadow = z.enum(PART_SHADOWS)
+export type PartShadow = z.infer<typeof PartShadow>
+
+/** A whole number on the layer plan's 0 to 999 grid, laid over the whole picture whatever its shape. */
+export const GridPoint = z.number().int().min(0).max(999)
+
+/** The most planned parts a layer split takes, and the deepest split layer one may be planned in. */
+export const MAX_SPLIT_PARTS = 60
+export const MAX_SPLIT_LAYERS = 20
+
+/**
+ * A planned part as the layer split reads it: its id in the plan, its kind and shadow, the split layer it is
+ * planned in (1 is the top one), and its box on the plan's grid.
+ */
+export const SplitPart = z.object({
+  id: z.string().min(1).max(100),
+  kind: PartKind,
+  shadow: PartShadow,
+  layer: z.number().int().min(1).max(MAX_SPLIT_LAYERS),
+  box: z.object({ left: GridPoint, top: GridPoint, right: GridPoint, bottom: GridPoint }),
+})
+export type SplitPart = z.infer<typeof SplitPart>
+
+/** The planned parts a layer split cuts its split layers by. */
+const SplitParts = z.array(SplitPart).min(1).max(MAX_SPLIT_PARTS)
+
 /**
  * What the layer split app (python/layering) is sent, the job contract its Python model is generated from
- * (ADR-0002): the picture's bytes, base64, the call's size, guidance and plan, and when it was asked for, in
- * milliseconds since 1970, from which a container that starts for the call tells how long its start took.
+ * (ADR-0002): the picture's bytes, base64, the call's size, guidance and plan, the planned parts to cut split
+ * pieces by, when there are any, and when it was asked for, in milliseconds since 1970, from which a container
+ * that starts for the call tells how long its start took.
  */
 export const LayerSplitRequest = z.object({
   picture: z.base64().max(40_000_000),
   size: LayerSplitSize,
   guidance: LayerSplitGuidance.optional(),
   plan: LayerPlan.optional(),
+  parts: SplitParts.optional(),
   askedAt: z.number().int().positive().optional(),
 })
 export type LayerSplitRequest = z.infer<typeof LayerSplitRequest>
@@ -187,15 +224,81 @@ const SplitLayer = z.object({
   height: z.number().int().positive(),
 })
 
+/** The kinds of split piece: a planned part's kind, or `other` for loose bits of a split layer that are no part's. */
+export const PieceKind = z.enum([...PART_KINDS, 'other'])
+export type PieceKind = z.infer<typeof PieceKind>
+
 /**
- * What the layer split app gives back: the layers, top first, and the seconds its container worked on the
+ * A split piece's box turned to the angle the piece is drawn at, in the picture's own pixels: its centre, its size
+ * along and across the piece (for text, along and across its lines), and its angle in degrees, clockwise, from
+ * -45 to 45: the turn nearest to upright, and 0 for a piece that is upright or as tight upright as turned.
+ */
+export const PieceTurned = z.object({
+  cx: z.number(),
+  cy: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  angle: z.number().min(-45).max(45),
+})
+export type PieceTurned = z.infer<typeof PieceTurned>
+
+/**
+ * How close the split pieces, drawn over each other, are to the picture they were cut from: the mean difference
+ * of 255, and the percent of pixels off by more than 8 of 255.
+ */
+export const PieceCloseness = z.object({ mean: z.number().nonnegative(), off: z.number().min(0).max(100) })
+export type PieceCloseness = z.infer<typeof PieceCloseness>
+
+/**
+ * What every split piece says of itself: its top-left corner in the picture's own pixels, the planned part it
+ * is (null for loose bits of no part), its kind, the split layer it was cut from (1 is the top one), and its
+ * turned box (null for the backdrop, and for a piece too small to measure).
+ */
+export const pieceFacts = {
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+  part: z.string().nullable(),
+  kind: PieceKind,
+  layer: z.number().int().min(1),
+  turned: PieceTurned.nullable(),
+}
+
+/** The most split pieces a layer split gives back. */
+export const MAX_SPLIT_PIECES = 80
+
+/** One split piece the layer split app made: a PNG cropped to what it shows, base64, its size and its facts. */
+const SplitPiece = z.object({
+  png: z.base64(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  ...pieceFacts,
+})
+
+/**
+ * The split pieces of a layer split that was given planned parts: the picture's own size, which every place is
+ * in; the pieces, front to back, the backdrop last; the ids of the cut-outs left in the backdrop, which show but
+ * can't be moved; how close the pieces are to the picture; and the seconds cutting them took.
+ */
+const SplitPieces = z.object({
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  items: z.array(SplitPiece).min(1).max(MAX_SPLIT_PIECES),
+  stuck: z.array(z.string()).max(MAX_SPLIT_PARTS),
+  closeness: PieceCloseness,
+  seconds: z.number().nonnegative(),
+})
+
+/**
+ * What the layer split app gives back: the layers, top first, the split pieces when the request had planned
+ * parts and they could be cut, and the seconds its container worked on the
  * call, timed inside the function, with the CPU cores and memory the function declares. The rest of the time the
  * container is billed for falls to its calls: the first call a container serves carries `startSeconds`, from when
  * it was asked for to when the container began it, and `waitSeconds`, how long a container waits for another call
  * before it stops; each later call carries `idleSeconds`, how long the container had waited for it.
  */
 export const LayerSplitResult = z.object({
-  layers: z.array(SplitLayer).min(1).max(20),
+  layers: z.array(SplitLayer).min(1).max(MAX_SPLIT_LAYERS),
+  pieces: SplitPieces.nullable().optional(),
   seconds: z.number().nonnegative(),
   cpuCores: z.number().positive(),
   memoryGib: z.number().positive(),

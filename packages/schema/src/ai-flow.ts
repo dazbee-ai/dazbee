@@ -3,7 +3,16 @@
 // included, since the model reads them there (packages/ai/src/prompts/ads).
 import { z } from 'zod'
 
-import { type AiFeature, AiMode, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
+import {
+  type AiFeature,
+  AiMode,
+  GridPoint,
+  LayerSplitSize,
+  MAX_REFERENCES,
+  PartKind,
+  PartShadow,
+  PictureKey,
+} from './ai.ts'
 import type { DesignInput, DesignMeta } from './design.ts'
 import { FRAME_GAP, NEW_FRAME_FILLS } from './frames.ts'
 import type { SolidPaint } from './paint.ts'
@@ -212,18 +221,15 @@ export type RefinePlanAnswer = z.infer<typeof RefinePlanAnswer>
 export const ReferenceReadAnswer = z.object({ why: z.string(), is_ad: z.boolean(), kind: AdKind })
 export type ReferenceReadAnswer = z.infer<typeof ReferenceReadAnswer>
 
-/** A whole number on the layer planner's 0 to 999 grid. */
-const GridPoint = z.number().int().min(0).max(999)
-
 /** One element of a layer plan, as the planner lists them, front to back. */
 const PlanElement = z.object({
   id: z.string(),
-  kind: z.enum(['text', 'logo', 'shape', 'graphic', 'cutout', 'photo', 'background']),
+  kind: PartKind,
   name: z.string(),
   content: z.string(),
   text_lines: z.array(z.string()),
   box: z.object({ x_min: GridPoint, y_min: GridPoint, x_max: GridPoint, y_max: GridPoint }),
-  shadow: z.enum(['drop', 'cast', 'glow', 'none']),
+  shadow: PartShadow,
   group: z.string().nullable(),
   ming_layer: z.number().int().min(1).max(6),
 })

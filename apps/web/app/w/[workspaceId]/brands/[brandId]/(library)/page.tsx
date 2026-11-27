@@ -106,6 +106,7 @@ export default async function BrandPage({
   async function make(form: FormData): Promise<string | undefined> {
     'use server'
     const brief = briefFromForm(form)
+    if (brief.words === '') return 'noWords'
     const started = await startBriefDesign(
       {
         createDesign: (name, content) => createDesign(workspaceId, brandId, name, content),

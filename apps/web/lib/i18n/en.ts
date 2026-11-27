@@ -361,6 +361,7 @@ export const en = {
       paused: 'AI is paused for today. Try again tomorrow.',
       notAllowed: 'Only an Owner, Admin or Editor can use AI.',
       notStarted: 'This brief didn’t start. Try again.',
+      noWords: 'Write a few words for the brief first.',
       unknown: 'We couldn’t tell whether this brief started. Look for its drafts in a minute before trying again.',
       notPlaced: 'The drafts are being made, but this design couldn’t take them. They’ll be in the brand’s images.',
       nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',

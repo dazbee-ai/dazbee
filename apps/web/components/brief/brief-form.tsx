@@ -104,7 +104,15 @@ export function BriefForm({
   const [open, setOpen] = useState<Popup | null>(null)
   const [adding, setAdding] = useState<'menu' | 'reference'>('menu')
   const [words, setWords] = useState('')
-  const [refused, send] = useActionState((_was: string | undefined, form: FormData) => action(form), undefined)
+  // Each answer is a new object, so the same refusal twice shows again after a change cleared the first.
+  const [answer, send] = useActionState(
+    async (_was: { refused: string | undefined } | null, form: FormData) => ({ refused: await action(form) }),
+    null,
+  )
+  const [cleared, setCleared] = useState<typeof answer>(null)
+  const refused = answer === cleared ? undefined : answer?.refused
+  /** A change to the brief or its speed clears what the last answer said. */
+  const changed = () => setCleared(answer)
   const [size, setSize] = useState<BriefSize>(BRIEF_SIZES[0])
   const [mode, setMode] = useState<AiMode>('fast')
   const [reference, setReference] = useState<BriefReference | null>(null)
@@ -251,7 +259,10 @@ export function BriefForm({
         name="brief"
         required
         value={words}
-        onChange={(e) => setWords(e.target.value)}
+        onChange={(e) => {
+          setWords(e.target.value)
+          changed()
+        }}
         rows={1}
         maxLength={2000}
         placeholder={h.briefPlaceholder}
@@ -619,7 +630,10 @@ export function BriefForm({
                   name="mode"
                   value={m}
                   checked={mode === m}
-                  onChange={() => setMode(m)}
+                  onChange={() => {
+                    setMode(m)
+                    changed()
+                  }}
                   className="sr-only"
                   data-testid={`brief-mode-${m}`}
                 />

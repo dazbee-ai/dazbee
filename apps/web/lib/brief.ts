@@ -58,7 +58,7 @@ export function designName(words: string): string {
 
 /** What the brand home says of a round that didn't start, by the key it was sent back with; null for none it knows. */
 export function refusedWords(key: string | undefined, t: Messages): string | null {
-  const said = ['usedUp', 'paused', 'notAllowed', 'notStarted'] as const
+  const said = ['usedUp', 'paused', 'notAllowed', 'notStarted', 'noWords'] as const
   const known = said.find((s) => s === key)
   return known ? t.editor.brief[known] : null
 }

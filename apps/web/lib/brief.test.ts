@@ -118,6 +118,7 @@ describe('designName', () => {
 describe('refusedWords', () => {
   it('says why a round didn’t start, and nothing for a key it doesn’t know', () => {
     expect(refusedWords('usedUp', en)).toBe(en.editor.brief.usedUp)
+    expect(refusedWords('noWords', en)).toBe(en.editor.brief.noWords)
     expect(refusedWords('nope', en)).toBeNull()
     expect(refusedWords(undefined, en)).toBeNull()
   })

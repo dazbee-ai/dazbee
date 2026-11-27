@@ -47,6 +47,9 @@ export const en = {
     untitled: 'Untitled design',
     noDesigns: 'No designs yet. Name one above to start.',
     edited: 'Edited {when}',
+    /** A design tile's mark while AI works on it, and once its layers wait for a tab to finish them. */
+    aiWorking: 'AI is working on it',
+    layersAlmostDone: 'Layers almost done: open to finish',
     /** The brand's own pages (Recent, Templates, Brand kit), as in the earlier mock's pages. */
     filters: 'Filters',
     filterAll: 'All {n}',
@@ -83,6 +86,20 @@ export const en = {
       noTemplates: 'Templates show here once they are saved.',
       emptyKit: 'Its colours, fonts and logo show here once they are added.',
     },
+  },
+  /** The note that names a design once a job the person started on it ends, on any page. */
+  aiNote: {
+    label: 'AI notes',
+    ready: {
+      drafts: 'Your drafts for ‘{name}’ are ready',
+      sizes: 'Your sizes for ‘{name}’ are ready',
+      change: 'Your change to ‘{name}’ is ready',
+    },
+    some: 'Some drafts for ‘{name}’ didn’t come out',
+    none: 'Nothing came out for ‘{name}’. Open it to try again.',
+    layers: 'Layers for ‘{name}’ almost done: open to finish',
+    open: 'Open',
+    close: 'Close note',
   },
   home: {
     // The brand's home (#84): a brief, the sizes it makes, and the brand's recent work as a bento.

@@ -1,5 +1,5 @@
 // The AI flow's routes under a brand, for members who may use AI (never a Reviewer): starting a job of any flow job
-// kind on a design, the design's AI frames with their jobs and briefs, a frame's refines, a call marked written
+// kind on a design, the brand's designs with AI work on them, the design's AI frames with their jobs and briefs, a frame's refines, a call marked written
 // into its frame, the layering finish's lease, its end and its split layers, and the estimate an AI action shows.
 // Outside a workspace, the person's own running and just-ended jobs.
 import { type Context, Hono } from 'hono'
@@ -21,7 +21,7 @@ import type { Storage } from '@dazbee/storage'
 
 import { body, type Env, error, issuesOf, requireWriter } from '../http.ts'
 import { findDesign } from '../workspace/designs.ts'
-import { designAi, frameRefines, markWritten, type Written } from './ai-frames.ts'
+import { designAi, designsWorking, frameRefines, markWritten, type Written } from './ai-frames.ts'
 import { claimFinish, endFinish, type FinishRefusal, layeringFile } from './finish-lease.ts'
 import { startFlowJob } from './flow.ts'
 import { myAiJobs } from './my-jobs.ts'
@@ -135,6 +135,11 @@ export function aiRoutes({
       'cache-control': 'private, max-age=31536000, immutable',
     })
   })
+
+  // The brand's designs with AI work on them, for the dots on Designs.
+  app.get(`${BRAND}/ai/designs`, requireWriter, async (c) =>
+    c.json(await designsWorking(db, c.var.membership.workspaceId, c.var.brand.id)),
+  )
 
   app.get(DESIGN, requireWriter, async (c) => {
     const design = await designOf(c)

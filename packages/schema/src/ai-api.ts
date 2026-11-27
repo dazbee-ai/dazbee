@@ -231,6 +231,13 @@ export const AiEstimate = z.object({
 export type AiEstimate = z.infer<typeof AiEstimate>
 
 /**
+ * A design of the brand with AI work on it: running (a job of it not ended), or its layers almost done (a layering
+ * job whose server part ended, waiting for a tab to finish it).
+ */
+export const DesignWorking = z.object({ designId: Id, work: z.enum(['running', 'finishing']) })
+export type DesignWorking = z.infer<typeof DesignWorking>
+
+/**
  * One of the person's AI feature jobs, running or just ended, with how many calls made or failed: the design it
  * fills, or for a job on no design nulls; and for an image job its words, its ratio and, once made, its image.
  */

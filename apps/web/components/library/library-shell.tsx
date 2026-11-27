@@ -10,6 +10,7 @@ import type { BrandSummary, WorkspaceSummary } from '@dazbee/schema'
 
 import { addBrand } from '@/app/actions.ts'
 import { NewBrandRow } from '@/components/brands/new-brand-row.tsx'
+import { AiNote } from '@/components/ui/ai-note.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
 import { CaretDownIcon, SquaresFourIcon } from '@/components/ui/icons.tsx'
 import { brandPath, workspacePath } from '@/lib/brand-routes.ts'
@@ -145,6 +146,7 @@ export function LibraryFrame({
     <div data-capsule={capsule || undefined} className="group/library relative isolate min-h-dvh overflow-x-clip bg-bg">
       {capsule && <LibraryCapsule label={t.app.name} links={links} />}
       {children}
+      <AiNote />
     </div>
   )
 }

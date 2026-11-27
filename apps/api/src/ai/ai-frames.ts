@@ -3,10 +3,10 @@
 // is written into the design once. A frame's stored state is read with its job: a waiting frame whose call failed,
 // or whose job ended without its picture, is failed, and a frame whose layering job ended without its layers holds
 // its picture again.
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 
 import { readJobs } from '@dazbee/ai'
-import { aiBriefs, aiFrames, aiJobs, aiRefines, assets, type Db, type Tx } from '@dazbee/db'
+import { aiBriefs, aiFrames, aiJobs, aiRefines, assets, type Db, designs, type Tx } from '@dazbee/db'
 import {
   type AiBriefView,
   type AiCallView,
@@ -17,6 +17,7 @@ import {
   type AiRefineView,
   briefTitle,
   type DesignAi,
+  type DesignWorking,
   REFINE_CALL,
   RefineInput,
   RefinePlanAnswer,
@@ -25,6 +26,38 @@ import { originalKey } from '@dazbee/storage'
 
 /** How marking a call written came out. */
 export type Written = 'written' | 'no-frame' | 'not-made' | 'not-its-call'
+
+/**
+ * The brand's designs with AI work on them, in one read: a design with an AI frame or refine whose job hasn't ended
+ * is running; one with a frame still being made editable whose job ended waits for a tab to finish it.
+ */
+export async function designsWorking(db: Db, workspace: string, brand: string): Promise<DesignWorking[]> {
+  const framed = await db
+    .select({ designId: aiFrames.designId, endedAt: aiJobs.endedAt })
+    .from(aiFrames)
+    .innerJoin(aiJobs, eq(aiJobs.id, aiFrames.jobId))
+    .innerJoin(designs, eq(designs.id, aiFrames.designId))
+    .where(
+      and(
+        eq(aiJobs.workspaceId, workspace),
+        eq(designs.brandId, brand),
+        or(isNull(aiJobs.endedAt), eq(aiFrames.state, 'layering')),
+      ),
+    )
+  const refined = await db
+    .select({ designId: aiRefines.designId })
+    .from(aiRefines)
+    .innerJoin(aiJobs, eq(aiJobs.id, aiRefines.jobId))
+    .innerJoin(designs, eq(designs.id, aiRefines.designId))
+    .where(and(eq(aiJobs.workspaceId, workspace), eq(designs.brandId, brand), isNull(aiJobs.endedAt)))
+  const work = new Map<string, DesignWorking['work']>()
+  for (const { designId } of refined) work.set(designId, 'running')
+  for (const { designId, endedAt } of framed) {
+    if (endedAt === null) work.set(designId, 'running')
+    else if (!work.has(designId)) work.set(designId, 'finishing')
+  }
+  return [...work].map(([designId, state]) => ({ designId, work: state }))
+}
 
 /** The design's AI frames, every job that fills or refines them with each call, and its briefs. */
 export async function designAi(db: Db, workspace: string, brand: string, design: string): Promise<DesignAi> {

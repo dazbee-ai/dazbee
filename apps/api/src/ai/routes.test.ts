@@ -10,6 +10,7 @@ import {
   type AiFrameView,
   AiRefineView,
   DesignAi,
+  DesignWorking,
   MyAiJob,
   type RoundInput,
   type RoundPlanAnswer,
@@ -358,6 +359,35 @@ describe('refine, resize and layering', () => {
     expect(await frameOf(team, frame.frameId)).toMatchObject({ jobId: job, callIndex: 1, state: 'layering' })
     await endJob(job, 'failed')
     expect(await frameOf(team, frame.frameId)).toMatchObject({ state: 'arrived' })
+  })
+})
+
+describe('GET /brands/:b/ai/designs', () => {
+  it('marks a design running while its round runs, then its layers almost done once a layering job ends, then nothing', async () => {
+    const team = await addTeam()
+    const request = roundRequest(team)
+    const round = await start(team, request)
+    const read = async () => DesignWorking.array().parse((await ask(team, team.editor, 'GET', '/ai/designs')).json)
+    expect(await read()).toEqual([{ designId: team.design, work: 'running' }])
+
+    const picture = await addPicture(team)
+    await makeCall(round, 1, { output: madePicture(team, picture) })
+    const frame = request.frames[0] ?? { frameId: '', pictureLayerId: '' }
+    await ask(team, team.editor, 'POST', `/designs/${team.design}/ai/frames/${frame.frameId}/written`, {
+      jobId: round,
+      callIndex: 1,
+    })
+    await endJob(round, 'done')
+    expect(await read()).toEqual([])
+
+    const layering = await start(team, {
+      kind: 'layering',
+      designId: team.design,
+      frames: [{ frameId: frame.frameId, pictureAssetId: picture }],
+    })
+    expect(await read()).toEqual([{ designId: team.design, work: 'running' }])
+    await endJob(layering, 'done')
+    expect(await read()).toEqual([{ designId: team.design, work: 'finishing' }])
   })
 })
 

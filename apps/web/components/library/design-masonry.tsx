@@ -1,9 +1,10 @@
 // A brand's designs as the earlier mock's masonry: columns of real pictures, each in its own shape,
 // its name under it, with the tile menu (#159) on each for a member who may change them. Each tile goes in the column that ends
-// highest so far (lib/masonry.ts), so rows fill left to right across the full width.
+// highest so far (lib/masonry.ts), so rows fill left to right across the full width. A design AI works on has a dot
+// by its name, and one whose layers wait for a tab to finish them says so under it.
 import Link from 'next/link'
 
-import type { DesignSummary } from '@dazbee/schema'
+import type { DesignSummary, DesignWorking } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
@@ -31,6 +32,7 @@ export function DesignMasonry({
   workspaceId,
   brandId,
   designs,
+  working = {},
   actions,
 }: {
   t: Messages
@@ -38,6 +40,8 @@ export function DesignMasonry({
   workspaceId: string
   brandId: string
   designs: MasonryDesign[]
+  /** The designs with AI work on them, by id: a dot while it runs, a line once their layers wait for a tab. */
+  working?: Readonly<Record<string, DesignWorking['work']>>
   /** What each tile's menu does; left out, the tiles have no menu. */
   actions?: DesignActions
 }) {
@@ -86,9 +90,27 @@ export function DesignMasonry({
                 )}
               </span>
               <span className="flex h-(--masonry-caption) min-w-0 flex-col px-1">
-                <span className={cn('truncate text-small leading-5 font-semibold text-text')}>{design.name}</span>
-                <span className="truncate text-caption leading-4 text-muted">
-                  {format(t.library.edited, { when: when.format(new Date(design.updatedAt)) })}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {working[design.id] === 'running' && (
+                    <span
+                      role="img"
+                      aria-label={t.library.aiWorking}
+                      title={t.library.aiWorking}
+                      data-testid="ai-working-dot"
+                      className="size-2 shrink-0 animate-pulse rounded-full bg-accent"
+                    />
+                  )}
+                  <span className={cn('truncate text-small leading-5 font-semibold text-text')}>{design.name}</span>
+                </span>
+                <span
+                  className={cn(
+                    'truncate text-caption leading-4',
+                    working[design.id] === 'finishing' ? 'font-semibold text-accent-text' : 'text-muted',
+                  )}
+                >
+                  {working[design.id] === 'finishing'
+                    ? t.library.layersAlmostDone
+                    : format(t.library.edited, { when: when.format(new Date(design.updatedAt)) })}
                 </span>
               </span>
             </Link>

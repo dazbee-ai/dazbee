@@ -14,6 +14,7 @@ import {
   AiJobStarted,
   AiRefineView,
   DesignAi,
+  DesignWorking,
   MyAiJob,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -84,6 +85,10 @@ export const markAiWritten = (
  */
 export const aiEstimate = (workspaceId: string, brandId: string, query: URLSearchParams) =>
   call(AiEstimate, `${brandRoot(workspaceId, brandId)}/ai/estimate?${query.toString()}`)
+
+/** The brand's designs with AI work on them: running, or their layers waiting for a tab to finish them. */
+export const designsWorking = (workspaceId: string, brandId: string) =>
+  call(DesignWorking.array(), `${brandRoot(workspaceId, brandId)}/ai/designs`)
 
 /** The person's own running and just-ended AI jobs, in every workspace they are in. */
 export const myAiJobs = () => call(MyAiJob.array(), '/me/ai/jobs')

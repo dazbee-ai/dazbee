@@ -33,7 +33,8 @@ export interface BriefPlacing {
   pageId: string
   /** The brief's words: the section is titled with their first line. */
   words: string
-  size: AiSize
+  /** Every frame's size, or each frame's, by its place from 0, as other sizes give them. */
+  size: AiSize | readonly AiSize[]
   /** Each draft's name, by its place from 0. */
   draftName: (n: number) => string
   /** The section's title, when not the brief's first line. */
@@ -81,7 +82,8 @@ export function briefSpot(
 }
 
 /**
- * Where more like this of frame `frameId` puts its four drafts of `size` on the frame's page: in the column right of
+ * Where more like this, or other sizes, of frame `frameId` puts its row of frames, four drafts of `size` or one of
+ * each size given, on the frame's page: in the column right of
  * the frame's section (of the frame itself when it is in none), at its top, moved down below each frame or section
  * in the way, far enough apart that the outlines and titles clear each other at the zoom `zoomFor` gives for the page
  * with the drafts in it, as a brief's spot is. Null for a frame the design hasn't.
@@ -89,13 +91,13 @@ export function briefSpot(
 export function moreLikeSpot(
   design: Parameters<typeof freeSpot>[0] & Parameters<typeof sectionBox>[0],
   frameId: string,
-  size: AiSize,
+  size: AiSize | readonly AiSize[],
   zoomFor: (area: PageBox) => number,
 ): Point | null {
   const frame = design.frames[frameId]
   if (!frame) return null
   const from = (frame.sectionId && sectionBox(design, frame.sectionId)) || frame
-  const row = { width: ROUND_DRAFTS * size.width + (ROUND_DRAFTS - 1) * FRAME_GAP, height: size.height }
+  const row = rowOf(size)
   const page = Object.values(design.frames).filter((f) => f.pageId === frame.pageId)
   let gap = FRAME_GAP
   // The gap moves the row, which can lower the zoom the page fits at: worked out twice.
@@ -120,17 +122,20 @@ export function moreLikeSpot(
  * gesture, as one step.
  */
 export function placeBrief(session: Pick<Session, 'run'>, placing: BriefPlacing, at: Point): void {
-  const { plan, pageId, size } = placing
+  const { plan, pageId } = placing
+  let x = at.x
   plan.frames.forEach(({ frameId, pictureLayerId }, n) => {
+    const size = sizeOf(placing.size, n)
     session.run('frame.add', {
       id: frameId,
       pageId,
       name: placing.draftName(n),
       width: size.width,
       height: size.height,
-      x: at.x + n * (size.width + FRAME_GAP),
+      x,
       y: at.y,
     })
+    x += size.width + FRAME_GAP
     session.run('node.create', {
       id: pictureLayerId,
       parentId: frameId,
@@ -182,4 +187,18 @@ export function briefPassesWarning(size: DesignSize): boolean {
 /** A layer's fills; none for a layer that has no fills. */
 function fillsOf(layer: Pick<Layer, 'props'>): Paint[] {
   return ('fills' in layer.props ? layer.props.fills : []) as Paint[]
+}
+
+/** Frame `n`'s size, of every frame's size or each frame's. */
+function sizeOf(size: AiSize | readonly AiSize[], n: number): AiSize {
+  return 'width' in size ? size : (size[n] ?? size[0] ?? { width: 1, height: 1 })
+}
+
+/** The box a row of frames takes, FRAME_GAP apart: four drafts of one size, or a frame of each size given. */
+function rowOf(size: AiSize | readonly AiSize[]): { width: number; height: number } {
+  const sizes = 'width' in size ? Array.from({ length: ROUND_DRAFTS }, () => size) : size
+  return {
+    width: sizes.reduce((sum, s) => sum + s.width, 0) + Math.max(0, sizes.length - 1) * FRAME_GAP,
+    height: Math.max(...sizes.map((s) => s.height)),
+  }
 }

@@ -2,8 +2,9 @@
 
 // The glass bar above a picked AI frame, in a tab that may change the design: a small bar of light frosted glass over
 // the frame's label, holding its AI actions as icons with labels and the star. More like this makes four new drafts
-// in a new section right of the draft's section, joined to it by a connector; Refine with AI opens the refine box
-// under the frame, and its picture versions show beside it. Hovering an AI action shows about how
+// in a new section right of the draft's section, joined to it by a connector; Other sizes opens the Add size card to
+// redraw it at the sizes picked; Refine with AI opens the refine box under the frame, and its picture versions show
+// beside it; Make editable turns it into layers, and on a section of AI sizes Make all editable turns them all. Hovering an AI action shows about how
 // much of the workspace's AI it takes and how long, asked once per action and mode while the design is open. While
 // the frame waits for its picture, is refined or is being made editable, its AI actions are off and the bar says "Working…". It
 // folds away while a gesture runs, and a copy of an AI frame, a plain frame, gets none. Why an action didn't start
@@ -13,7 +14,7 @@ import { useEffect, useState } from 'react'
 import type { BriefStarted, Editor } from '@dazbee/editor'
 import { type AiEstimate, type AiFeature, type AiMode, pictureLayerOf } from '@dazbee/schema'
 
-import { editState, useEditState } from '@/components/editor/edit-store.ts'
+import { editState, setOpen, useEditState } from '@/components/editor/edit-store.ts'
 import { useDesignAi, usePickedFrame } from '@/components/editor/editor-hooks.ts'
 import { PictureVersions } from '@/components/editor/refine/picture-versions.tsx'
 import { RefineBox } from '@/components/editor/refine/refine-box.tsx'
@@ -24,6 +25,7 @@ import {
   CircleNotchIcon,
   MagicWandIcon,
   SparkleIcon,
+  SquaresFourIcon,
   StackIcon,
   StarIcon,
   WarningCircleIcon,
@@ -31,6 +33,7 @@ import {
 import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiEstimate } from '@/lib/editor/ai-client.ts'
+import { type SizesToLayer, sizesToLayer } from '@/lib/editor/ai-sizes.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
 import {
   editableAction,
@@ -161,6 +164,21 @@ function FrameBar({
   if (!frame) return null
   const starred = frame.starred === true
   const editable = editableAction(shown.frame, design)
+  // A size of a section of AI sizes is made editable with the rest of them, from one layer plan.
+  const allSizes = frame.sectionId && shown.frame.kind === 'size' ? sizesToLayer(ai, design, frame.sectionId) : null
+
+  async function makeAllEditable(sizes: SizesToLayer) {
+    setBusy(true)
+    setSaid(null)
+    try {
+      const started = await editor.makeAllEditable(sizes.frameIds, sizes.planAssetId)
+      if (!started.ok) setSaid(started.refusal ? t.editor.brief[briefSaid(started)] : g.notStarted)
+    } catch {
+      setSaid(g.unknown)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function makeEditable() {
     setBusy(true)
@@ -276,7 +294,34 @@ function FrameBar({
                   </button>
                 </AiAction>
               )}
-              {editable?.kind === 'make' && (
+              {editable && (
+                <AiAction
+                  workspaceId={workspaceId}
+                  brandId={brandId}
+                  editor={editor}
+                  action="resize"
+                  mode={shown.mode}
+                  name={g.otherSizes}
+                >
+                  <button type="button" data-action="other-sizes" onClick={() => setOpen('addSize')} className={ACTION}>
+                    <SquaresFourIcon size={16} aria-hidden />
+                    {g.otherSizes}
+                  </button>
+                </AiAction>
+              )}
+              {allSizes && (
+                <button
+                  type="button"
+                  data-action="make-all-editable"
+                  disabled={busy}
+                  onClick={() => void makeAllEditable(allSizes)}
+                  className={cn(ACTION, 'text-muted')}
+                >
+                  <StackIcon size={16} aria-hidden />
+                  {g.makeAllEditable}
+                </button>
+              )}
+              {editable?.kind === 'make' && !allSizes && (
                 <AiAction
                   workspaceId={workspaceId}
                   brandId={brandId}

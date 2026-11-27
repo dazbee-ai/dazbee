@@ -9,9 +9,11 @@ import {
   carryOverLayer,
   fitsProperty,
   FrameId,
+  frameIdOf,
   type Layer as LayerT,
   LAYER_PROPS,
   LayerLock,
+  LinkId,
   LOCK_FLAGS,
   NodeId,
   overlappingBindings,
@@ -91,29 +93,41 @@ const LayerInput = z
     return z.NEVER
   })
 
-/** Adds a layer on top of what its frame or parent layer holds, with a link id of its own. Returns its id. */
+/**
+ * Adds a layer on top of what its frame or parent layer holds, with a link id of its own, or the one given, which
+ * links it to the layers of that id in the page's other frames. Returns its id.
+ */
 export const nodeCreate = defineCommand({
   name: 'node.create',
   description:
-    'Adds a new layer on top of what a frame or a group or box holds. It refuses an id already in use, a parent that does not exist, and a layer its parent cannot hold, such as a text inside a combined shape.',
+    'Adds a new layer on top of what a frame or a group or box holds. It refuses an id already in use, a parent that does not exist, a layer its parent cannot hold, such as a text inside a combined shape, and a link id its frame holds already.',
   step: 'add',
   input: z.strictObject({
     id: NodeId.optional().describe('The new layer’s id; a fresh one is made when left out.'),
     parentId: z.union([FrameId, NodeId]).describe('The frame, or the group or box, the layer goes into, on top.'),
+    link: LinkId.optional().describe(
+      'The link id it shares with its linked copies in the page’s other frames; a fresh one when left out.',
+    ),
     layer: catalogAs(
       LayerInput.describe('The layer: its type, its name, an optional role, and its properties.'),
       CatalogLayer,
     ),
   }),
-  check: (ctx, { id, parentId, layer }) => {
+  check: (ctx, { id, parentId, link, layer }) => {
     const { design } = ctx
     const taken = idProblem(ctx, id)
     if (taken) return taken
-    return parentProblem(design, parentId, layer.type)
+    const problem = parentProblem(design, parentId, layer.type)
+    if (problem || link === undefined) return problem
+    const frameId = frameIdOf(design, parentId)
+    const holds = Object.values(design.nodes).some(
+      (node) => node.link === link && frameIdOf(design, node.parentId) === frameId,
+    )
+    return holds ? `frame "${frameId}" holds link "${link}" already` : undefined
   },
-  apply: ({ w, design, newId }, { id = newId(), parentId, layer }) => {
+  apply: ({ w, design, newId }, { id = newId(), parentId, link = newId(), layer }) => {
     const indexOf = writeOrder(w, 'layer', [...layerSlots(design, parentId), [id, null]], new Set([id]))
-    w.create('layer', id, { ...layer, parentId, link: newId(), index: indexOf(id) })
+    w.create('layer', id, { ...layer, parentId, link, index: indexOf(id) })
     return id
   },
 })

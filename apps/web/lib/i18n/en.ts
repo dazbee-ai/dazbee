@@ -400,12 +400,22 @@ export const en = {
       first: 'First version',
       version: 'Version {n}',
     },
+    /** An AI frame's Add size card: the sizes the AI redraws it at. */
+    aiSizes: {
+      note: 'Pick sizes to redraw {name} at with AI, each as a new picture.',
+      redraw: 'Redraw {n} sizes with AI',
+      add: 'Add {n} sizes as copies',
+      title: '{name} sizes',
+      notStarted: 'It didn’t start. Try again in a moment.',
+    },
     /** The glass bar above a picked AI frame: its AI actions with what each takes, and the star. */
     glass: {
       label: 'AI actions',
       moreLikeThis: 'More like this',
       /** The title of more like this's new section, after the draft's name. */
       moreLikeTitle: 'More like {name}',
+      otherSizes: 'Other sizes',
+      makeAllEditable: 'Make all editable',
       makeEditable: 'Make editable',
       backToPicture: 'Back to picture',
       /** Said the first time a person goes back to the picture. */
@@ -1717,6 +1727,7 @@ export const en = {
       deleteWithFrames: 'Delete section and frames',
       /** A brief's section: opens the brief box filled with its brief, to run it changed as a new section. */
       editBrief: 'Edit brief',
+      makeAllEditable: 'Make all editable',
       nameOf: 'Name of {name}',
       /** The Pages card's list of the shown page's sections, and each row's name for a screen reader. */
       list: 'Sections',

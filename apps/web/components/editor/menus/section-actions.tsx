@@ -14,20 +14,32 @@ import { setFlyout, setRenameOpener } from '@/components/editor/edit-store.ts'
 import { useDesignAi } from '@/components/editor/editor-hooks.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { MenuDivider, MenuItem } from '@/components/ui/menu.tsx'
+import { sizesToLayer } from '@/lib/editor/ai-sizes.ts'
 import { BRIEF_DRAFTS, briefDraftOf, briefOfSection } from '@/lib/editor/brief-draft.ts'
 import { keyOf } from '@/lib/editor/shortcut-keys.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
 /** What each of a section's actions does, by its name. */
-export type SectionAction = 'editBrief' | 'rename' | 'ungroup' | 'duplicate' | 'deleteWithFrames'
+export type SectionAction = 'editBrief' | 'makeAllEditable' | 'rename' | 'ungroup' | 'duplicate' | 'deleteWithFrames'
 
 /** The actions in the order they are listed, the last after a line. */
 export const SECTION_ACTIONS: readonly SectionAction[] = ['rename', 'ungroup', 'duplicate', 'deleteWithFrames']
 
-/** The actions of section `sectionId` in the order listed: Edit brief first on a brief's section, as `ai` last read. */
-export function sectionActionsOf(ai: DesignAi | null, sectionId: string): readonly SectionAction[] {
-  return briefOfSection(ai, sectionId) ? ['editBrief', ...SECTION_ACTIONS] : SECTION_ACTIONS
+/**
+ * The actions of section `sectionId` of `design` in the order listed, as `ai` last read: Edit brief first on a
+ * brief's section, Make all editable on a section of AI sizes.
+ */
+export function sectionActionsOf(
+  ai: DesignAi | null,
+  sectionId: string,
+  design: Parameters<typeof sizesToLayer>[1],
+): readonly SectionAction[] {
+  const own = [
+    ...(briefOfSection(ai, sectionId) ? (['editBrief'] as const) : []),
+    ...(sizesToLayer(ai, design, sectionId) ? (['makeAllEditable'] as const) : []),
+  ]
+  return [...own, ...SECTION_ACTIONS]
 }
 
 /** Names a brief's pictures by their place from 0, in the words `named` gives: "Picture 1" on. */
@@ -51,6 +63,9 @@ export function runSectionAction(
     if (!brief) return
     BRIEF_DRAFTS.fill(editor, briefDraftOf(brief, pictureName))
     setFlyout('ai')
+  } else if (action === 'makeAllEditable') {
+    const sizes = sizesToLayer(editor.designAi(), editor.design(), sectionId)
+    if (sizes) void editor.makeAllEditable(sizes.frameIds, sizes.planAssetId)
   } else if (action === 'rename') {
     setRenameOpener(opener)
     editor.renameSection(sectionId)
@@ -81,6 +96,9 @@ export function SectionActions({
     runSectionAction(editor, sectionId, action, pictureNamer(t.editor.brief.pictureName), opener?.current ?? null)
   return (
     <>
+      {sizesToLayer(ai, editor.design(), sectionId) && (
+        <MenuItem action="makeAllEditable" label={s.makeAllEditable} onSelect={() => run('makeAllEditable')} />
+      )}
       {briefOfSection(ai, sectionId) && (
         <MenuItem action="editBrief" label={s.editBrief} onSelect={() => run('editBrief')} />
       )}

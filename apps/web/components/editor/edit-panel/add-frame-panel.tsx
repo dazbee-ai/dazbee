@@ -7,14 +7,15 @@
 // the tile (a TikTok video tile makes "TikTok video", though its size is a Story and Reel's), and
 // Add one named after its size. A picked frame's Add size opens the same card, titled for that
 // frame, where they add a frame of the size holding linked copies of its layers, under its name.
-// Either is one undo step; the new frame is picked and shown, and the card closes.
+// Either is one undo step; the new frame is picked and shown, and the card closes. An AI frame's Add size is the AI
+// sizes card, which redraws the frame at the sizes picked.
 import { type CSSProperties, useEffect, useId, useRef, useState } from 'react'
 
 import type { Editor, Tool } from '@dazbee/editor'
 import { SIZE_CHANNELS, SIZE_LIMITS, SIZE_PRESETS } from '@dazbee/schema'
 
 import { editState, setOpen, useEditState } from '@/components/editor/edit-store.ts'
-import { usePickedFrame } from '@/components/editor/editor-hooks.ts'
+import { useDesignAi, usePickedFrame } from '@/components/editor/editor-hooks.ts'
 import { NumberInput, useNumberInput } from '@/components/editor/number-input.tsx'
 import { SizeText } from '@/components/editor/size-text.tsx'
 import { PANEL_HEADING } from '@/components/editor/styles.ts'
@@ -25,6 +26,7 @@ import { type SideIssue, sizeYouAreOn, typedSize } from '@/lib/editor/size.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
+import { AiSizesCard } from './ai-sizes-card.tsx'
 import { PanelFrame } from './edit-panel.tsx'
 
 type Size = { width: number; height: number }
@@ -78,12 +80,20 @@ export function useFrameToolCard(editor: Editor | null, tool: Tool) {
 }
 
 /** The Add a frame card while the Frame tool is picked, or the Add size card for the picked frame. */
-export function AddFramePanel({ editor }: { editor: Editor }) {
+export function AddFramePanel({
+  editor,
+  workspaceId,
+  brandId,
+}: {
+  editor: Editor
+  workspaceId: string
+  brandId: string
+}) {
   const { open } = useEditState()
   const picked = usePickedFrame(editor)
   if (open === 'addFrame') return <SizesCard editor={editor} picked={null} />
   if (open !== 'addSize' || !picked) return null
-  return <AddSize key={picked} editor={editor} frameId={picked} />
+  return <AddSize key={picked} editor={editor} frameId={picked} workspaceId={workspaceId} brandId={brandId} />
 }
 
 /**
@@ -299,11 +309,36 @@ function OwnSide({
   )
 }
 
-/** The Add size card for one frame, under its name as it is now; none once the frame is gone. */
-function AddSize({ editor, frameId }: { editor: Editor; frameId: string }) {
+/**
+ * The Add size card for one frame, under its name as it is now; the AI sizes card for an AI frame that shows its
+ * picture, or is made editable; none once the frame is gone.
+ */
+function AddSize({
+  editor,
+  frameId,
+  workspaceId,
+  brandId,
+}: {
+  editor: Editor
+  frameId: string
+  workspaceId: string
+  brandId: string
+}) {
   const { design } = useLiveDesign(editor)
+  const ai = useDesignAi(editor)
   const frame = design.frames[frameId]
   if (!frame) return null
+  const state = ai?.frames.find((f) => f.frameId === frameId)?.state
+  if (state === 'arrived' || state === 'editable')
+    return (
+      <AiSizesCard
+        workspaceId={workspaceId}
+        brandId={brandId}
+        editor={editor}
+        frame={{ id: frameId, name: frame.name }}
+        editable={state === 'editable'}
+      />
+    )
   return (
     <SizesCard editor={editor} picked={{ id: frameId, name: frame.name, width: frame.width, height: frame.height }} />
   )

@@ -66,6 +66,13 @@ export interface BriefRequest {
   draftName: (n: number) => string
 }
 
+/** Other sizes a tab starts: the AI frame redrawn, each size with its frame's name, and the new section's title. */
+export interface SizesRequest {
+  frameId: string
+  sizes: readonly { width: number; height: number; name: string }[]
+  title: string
+}
+
 /** A refine a tab starts: the AI frame, the picture layer it changes, what to change and the marks, if any. */
 export interface RefineRequest {
   frameId: string
@@ -139,6 +146,17 @@ export interface EditorArrivals {
    * starts nothing.
    */
   refine(request: RefineRequest): Promise<AiStart>
+  /**
+   * Redraws an AI frame's picture at each size given: starts a resize job, then, once it is saved, places a section of
+   * waiting frames, one per size, right of the frame's section, joined to the frame by a connector, as one arrival.
+   * A frame showing no picture starts nothing.
+   */
+  otherSizes(request: SizesRequest): Promise<BriefStarted>
+  /**
+   * Makes AI frames editable together, from one layer plan made from picture `planAssetId`: their layers of the same
+   * plan element are linked. A frame showing no picture starts nothing.
+   */
+  makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart>
   /**
    * Makes an AI frame editable: starts a layering job for the picture its picture layer shows; its layers arrive once
    * a tab finishes it. Then reads the design's AI frames. A frame showing no picture starts nothing.
@@ -304,6 +322,62 @@ export function editorArrivals({
       ...(request.marksAssetId ? { marksAssetId: request.marksAssetId } : {}),
       size: refineSize(frame, layer, request.pictureLayerId === pictureLayerOf(request.frameId)),
     })
+    if (started.ok) await poll()
+    return started
+  }
+
+  async function otherSizes(request: SizesRequest): Promise<BriefStarted> {
+    const frame = session.design().frames[request.frameId]
+    const layer = layerIn(pictureLayerOf(request.frameId), request.frameId)
+    const picture = layer && shownPicture(layer)
+    if (!frame || !picture || request.sizes.length === 0)
+      return { ok: false, refusal: null, message: 'that frame shows no picture' }
+    const sizes = request.sizes.map(({ width, height }) => ({ width, height }))
+    const frames = sizes.map(() => {
+      const frameId = newId()
+      return { frameId, pictureLayerId: pictureLayerOf(frameId) }
+    })
+    const plan = { sectionId: newId(), frames }
+    const started = await ai.start({
+      kind: 'resize',
+      designId,
+      frameId: request.frameId,
+      pictureAssetId: picture,
+      sectionId: plan.sectionId,
+      sizes: frames.map((f, n) => ({ ...f, ...(sizes[n] ?? { width: 1, height: 1 }) })),
+    })
+    if (!started.ok) return started
+    return placed(started.job, plan, () => {
+      const now = session.design()
+      const at = moreLikeSpot(now, request.frameId, sizes, zoomFor)
+      const pageId = now.frames[request.frameId]?.pageId
+      // The frame deleted meanwhile: the sizes aren't placed, and stay in the brand's images.
+      if (!at || !pageId) throw new Error('the frame is gone')
+      placeBrief(
+        session,
+        {
+          plan,
+          pageId,
+          words: request.title,
+          size: sizes,
+          draftName: (n) => request.sizes[n]?.name ?? request.title,
+          title: request.title,
+          from: request.frameId,
+        },
+        at,
+      )
+    })
+  }
+
+  async function makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart> {
+    const frames = frameIds.flatMap((frameId) => {
+      const layer = layerIn(pictureLayerOf(frameId), frameId)
+      const picture = layer && shownPicture(layer)
+      return picture ? [{ frameId, pictureAssetId: picture }] : []
+    })
+    if (frames.length !== frameIds.length || frames.length === 0)
+      return { ok: false, refusal: null, message: 'a frame shows no picture' }
+    const started = await ai.start({ kind: 'layering', designId, frames, planAssetId })
     if (started.ok) await poll()
     return started
   }
@@ -509,6 +583,8 @@ export function editorArrivals({
     startBrief,
     moreLikeThis,
     refine,
+    otherSizes,
+    makeAllEditable,
     makeEditable,
     tryAgain,
     read: () => read,

@@ -240,6 +240,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   'node.create': ({ design, made }) => [
     { parentId: frame(design), layer: graphic },
     { id: made('made'), parentId: holder(design), layer: words },
+    { parentId: frame(design), link: Object.values(design.nodes)[0]?.link ?? 'free-link', layer: graphic },
   ],
   'node.update': ({ design, random }) => [
     { ids: [free(design)], patch: { x: 5, y: 6, width: 50, height: 60, rotation: 45, opacity: 0.5 } },
@@ -396,7 +397,7 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
   ],
   'frame.showPicture': ({ design }) => {
     const picture = free(design)
-    const frameId = design.nodes[picture] ? (frameIdOf(design, picture) ?? frame(design)) : frame(design)
+    const frameId = frameIdOf(design, picture) ?? frame(design)
     return [
       { frameId, pictureLayerId: picture, layerIds: beside(design, picture), show: true },
       { frameId, pictureLayerId: picture, layerIds: beside(design, picture), show: false },

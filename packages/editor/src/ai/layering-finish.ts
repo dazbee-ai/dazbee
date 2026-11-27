@@ -47,6 +47,8 @@ export interface EditorLayeringFinish {
 /** A split layer cropped and uploaded: its layer's id and name, its picture and its box in the frame. */
 interface SplitLayer {
   id: string
+  /** The link id it shares with the same split layer of the job's other sizes. */
+  link: string
   name: string
   assetId: string
   box: PieceBox
@@ -162,6 +164,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       uploaded.set(key, assetId)
       pieces.push({
         id: pieceId(job.id, frame.frameId, index),
+        link: `${job.id}-${index}`,
         name: layerName(plan, index, ai.layerWord),
         assetId,
         box: scaleBox(cropped.box, size.width, own.width),
@@ -240,11 +243,14 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   function place(frame: AiFrameView, pieces: readonly SplitLayer[]): true {
     const pictureId = pictureLayerOf(frame.frameId)
     session.run('node.update', { ids: [pictureId], patch: { visible: false } })
+    // Several sizes of one ad share their layers' link ids, by the split layer's place: one plan made them.
+    const linked = (read()?.frames ?? []).filter((f) => f.jobId === frame.jobId).length > 1
     for (const piece of [...pieces].reverse()) {
       if (session.design().nodes[piece.id]) continue
       session.run('node.create', {
         id: piece.id,
         parentId: frame.frameId,
+        ...(linked ? { link: piece.link } : {}),
         layer: {
           type: 'graphic',
           name: piece.name,

@@ -1,11 +1,12 @@
-// The blank design Make drafts opens: one page with a frame per size the brief picked, in a row.
+// The brand home's brief: the blank design a size starts, the brief its form sends, its design's name, and why a
+// round didn't start.
 import { describe, expect, it } from 'vitest'
 
-import { parseDesign, pictureLayerOf } from '@dazbee/schema'
+import { parseDesign } from '@dazbee/schema'
 
 import { en } from '@/lib/i18n/en.ts'
 
-import { briefDesign, briefFromForm, designName, planRound, refusedWords } from './brief.ts'
+import { briefDesign, briefFromForm, designName, refusedWords } from './brief.ts'
 
 const WHITE = [{ type: 'solid', color: '#FFFFFFFF' }]
 const named = (id: string) => `Name of ${id}`
@@ -104,17 +105,6 @@ describe('briefFromForm', () => {
       size: { width: 1080, height: 1080 },
       mode: 'fast',
     })
-  })
-})
-
-describe('planRound', () => {
-  it('makes a section and four frames, each with its picture layer', () => {
-    let n = 0
-    const plan = planRound(() => `id${++n}`)
-    expect(plan.sectionId).toBe('id5')
-    expect(plan.frames.map((f) => [f.frameId, f.pictureLayerId])).toEqual(
-      [1, 2, 3, 4].map((i) => [`id${i}`, pictureLayerOf(`id${i}`)]),
-    )
   })
 })
 

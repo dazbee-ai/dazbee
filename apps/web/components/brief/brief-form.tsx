@@ -1,17 +1,17 @@
 /* eslint-disable max-lines -- one deep module: one form whose state is one FormData contract */
 'use client'
 
-// The brief's form (#136), as in the final mock: a few words, then a chat-style toolbar. + adds a
+// The brief's form, as in the final mock: a few words, then a chat-style toolbar. + adds a
 // reference ad (one of the brand's designs) or uploads images into the brand's assets, each shown
 // as a thumbnail above the brief; the Size dropdown picks the one size the drafts are made at; Fast or
-// Precise picks the speed, each with one plain line; the Brand kit
-// button opens the whole kit to pick from, and the brand's Brand kit page to set it up or change it
-// (#200). Every choice is a form field, so Make drafts sends it
-// with the brief. The size checkboxes are in the page from the start, so the form works before
+// Precise picks the speed, its plain line under the toolbar; the Brand kit button opens the whole kit
+// to pick from, and the brand's Brand kit page to set it up or change it. Every choice is a form
+// field, so Make drafts sends it with the brief; a brief that didn't start says why under the toolbar
+// and keeps every field. The size radios are in the page from the start, so the form works before
 // any script loads.
 import * as Popover from '@radix-ui/react-popover'
 import { useRouter } from 'next/navigation'
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useActionState, useRef, useState } from 'react'
 
 import {
   type AiMode,
@@ -40,7 +40,7 @@ import { overlayScroll } from '@/components/ui/overlay-scroll.ts'
 import { Tick } from '@/components/ui/tick.tsx'
 import { Tooltip } from '@/components/ui/tooltip.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
-import { BRIEF_SIZES, type BriefSize } from '@/lib/brief.ts'
+import { BRIEF_SIZES, type BriefSize, refusedWords } from '@/lib/brief.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
@@ -94,7 +94,8 @@ export function BriefForm({
   /** The brand's kit as the page came with it, null when it couldn't be read; a change in the Brand kit page shows here at once. */
   kit: StoredBrandKit | null
   references: BriefReference[]
-  action: (form: FormData) => Promise<void>
+  /** Makes the drafts; gives why when the brief didn't start, as `refusedWords` reads it. */
+  action: (form: FormData) => Promise<string | undefined>
 }) {
   const t = useMessages()
   const h = t.home
@@ -102,6 +103,8 @@ export function BriefForm({
   const kit = useBrandKit(workspaceId, brandId, first) ?? first ?? EMPTY_BRAND_KIT
   const [open, setOpen] = useState<Popup | null>(null)
   const [adding, setAdding] = useState<'menu' | 'reference'>('menu')
+  const [words, setWords] = useState('')
+  const [refused, send] = useActionState((_was: string | undefined, form: FormData) => action(form), undefined)
   const [size, setSize] = useState<BriefSize>(BRIEF_SIZES[0])
   const [mode, setMode] = useState<AiMode>('fast')
   const [reference, setReference] = useState<BriefReference | null>(null)
@@ -183,7 +186,7 @@ export function BriefForm({
   const hasAttachments = reference !== null || uploads.length > 0
 
   return (
-    <form action={action} className="rounded-[20.5px] bg-surface p-3 md:px-5 md:py-4">
+    <form action={send} className="rounded-[20.5px] bg-surface p-3 md:px-5 md:py-4">
       {hasAttachments && (
         <ul aria-label={h.attachments} className="mb-2 flex flex-wrap gap-2 px-1 pt-1" data-testid="brief-attachments">
           {reference && (
@@ -247,6 +250,8 @@ export function BriefForm({
         id="brief"
         name="brief"
         required
+        value={words}
+        onChange={(e) => setWords(e.target.value)}
         rows={1}
         maxLength={2000}
         placeholder={h.briefPlaceholder}
@@ -608,11 +613,7 @@ export function BriefForm({
           <legend className="sr-only">{h.speed}</legend>
           {(['fast', 'precise'] as const).map((m) => (
             <Tooltip key={m} label={t.editor.brief[m]}>
-              <label
-                className={cn(
-                  'inline-flex h-7 cursor-pointer items-center rounded-full px-3 text-small font-semibold text-muted select-none has-[:checked]:bg-hover has-[:checked]:text-text has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring',
-                )}
-              >
+              <label className="inline-flex h-7 cursor-pointer items-center rounded-full px-3 text-small font-semibold text-muted select-none has-[:checked]:bg-hover has-[:checked]:text-text has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
                 <input
                   type="radio"
                   name="mode"
@@ -638,6 +639,9 @@ export function BriefForm({
           {h.make}
         </button>
       </div>
+      <p role="status" data-testid="brief-line" className="mt-2 px-1 text-tiny text-muted">
+        {refusedWords(refused, t) ?? t.editor.brief[mode]}
+      </p>
     </form>
   )
 }

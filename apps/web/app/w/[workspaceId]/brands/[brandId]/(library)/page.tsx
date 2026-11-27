@@ -1,13 +1,11 @@
-// A brand's home (#84): "What are we making today?" as a brief, followed by sizes to start blank
-// in or a template. Make drafts creates a design holding only the brief's section and four waiting
-// drafts, starts the round, and opens the design; a round that doesn't start deletes the design and the
-// brand home says why above the brief. The brand's designs, templates and kit are pages of their own, from the
+// A brand's home: "What are we making today?" as a brief, followed by sizes to start blank in or a
+// template. Make drafts creates a design holding only the brief's section and four waiting drafts,
+// starts the round, and opens the design; a round that doesn't start deletes the design, and the
+// brief says why and keeps its fields. The brand's designs, templates and kit are pages of their own, from the
 // capsule. Right after the brand is made, Daz says it is ready above the brief, once. A Reviewer,
 // who makes nothing, gets Daz and a way to the brand's designs instead.
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-
-import { briefDesignOf } from '@dazbee/schema'
 
 import { BrandMade } from '@/components/brands/brand-made.tsx'
 import { BriefComposer } from '@/components/brief/brief-composer.tsx'
@@ -17,7 +15,7 @@ import { buttonStyles } from '@/components/ui/button.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { justMade } from '@/lib/brand-start.ts'
-import { briefDesign, briefFromForm, type BriefSize, designName, planRound, refusedWords } from '@/lib/brief.ts'
+import { briefDesign, briefFromForm, type BriefSize, designName } from '@/lib/brief.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
 import { brandPage, showsBrandList } from '@/lib/home.ts'
 import { brandWords, format } from '@/lib/i18n/index.ts'
@@ -33,6 +31,7 @@ import {
   listBrands,
   listDesigns,
 } from '@/lib/server/api.ts'
+import { startBriefDesign } from '@/lib/server/brief-start.ts'
 import { canChange } from '@/lib/settings-rights.ts'
 
 export const dynamic = 'force-dynamic'
@@ -45,9 +44,9 @@ export default async function BrandPage({
   searchParams,
 }: {
   params: Promise<{ workspaceId: string; brandId: string }>
-  searchParams: Promise<{ show?: string; made?: string; refused?: string }>
+  searchParams: Promise<{ show?: string; made?: string }>
 }) {
-  const [{ workspaceId, brandId }, { show, made, refused }] = await Promise.all([params, searchParams])
+  const [{ workspaceId, brandId }, { show, made }] = await Promise.all([params, searchParams])
   // The panels these pages replaced were linked as ?show=recent, ?show=templates and ?show=kit.
   const moved = brandPage(show)
   if (moved) redirect(brandPath(workspaceId, brandId, moved))
@@ -103,27 +102,25 @@ export default async function BrandPage({
 
   const draftName = t.editor.brief.draftName
 
-  async function make(form: FormData) {
+  /** Makes the drafts and opens their design; gives why when the brief didn't start. */
+  async function make(form: FormData): Promise<string | undefined> {
     'use server'
     const brief = briefFromForm(form)
-    const name = designName(brief.words) || untitled
-    const plan = planRound(() => crypto.randomUUID())
-    const design = await createDesign(
-      workspaceId,
-      brandId,
-      name,
-      briefDesignOf(
-        { designId: 'replaced-by-the-api', name },
-        { ...plan, words: brief.words, size: brief.size, draftName: (n) => format(draftName, { n: n + 1 }) },
-      ),
+    const started = await startBriefDesign(
+      {
+        createDesign: (name, content) => createDesign(workspaceId, brandId, name, content),
+        startRound: (round) => startAiJob(workspaceId, brandId, round),
+        deleteDesign: (designId) => deleteDesign(workspaceId, brandId, designId),
+      },
+      {
+        brief,
+        name: designName(brief.words) || untitled,
+        draftName: (n) => format(draftName, { n: n + 1 }),
+        newId: () => crypto.randomUUID(),
+      },
     )
-    const started = await startAiJob(workspaceId, brandId, { kind: 'round', designId: design.id, ...plan, ...brief })
-    if (!started.ok) {
-      // A round that didn't start leaves no design of waiting drafts behind.
-      await deleteDesign(workspaceId, brandId, design.id).catch(() => {})
-      redirect(`${brandPath(workspaceId, brandId)}?refused=${briefSaid({ refusal: started.refusal })}`)
-    }
-    redirect(brandPath(workspaceId, brandId, 'designs', design.id))
+    if ('refused' in started) return briefSaid({ refusal: started.refused })
+    redirect(brandPath(workspaceId, brandId, 'designs', started.designId))
   }
 
   /** A design of one empty frame in one size, named Untitled design. */
@@ -142,15 +139,6 @@ export default async function BrandPage({
     <LibraryShell {...shell}>
       <div className="pt-[8vh] md:pt-[14vh]">
         {justMade(made) && <BrandMade brandName={brand.name} />}
-        {refusedWords(refused, t) && (
-          <p
-            role="status"
-            className="mx-auto mb-4 max-w-3xl text-center text-small text-muted"
-            data-testid="brief-refused"
-          >
-            {refusedWords(refused, t)}
-          </p>
-        )}
         <BriefComposer
           t={t}
           workspaceId={workspaceId}

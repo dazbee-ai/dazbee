@@ -5,7 +5,6 @@
 // it holds; and whether one more brief would take the design past its size warning.
 import type { Session } from '@dazbee/doc'
 import {
-  type AiFrameTarget,
   type AiSize,
   belowAll,
   briefTitle,
@@ -16,8 +15,9 @@ import {
   type PageBox,
   type Paint,
   PICTURE_NAME,
-  pictureLayerOf,
   type Point,
+  ROUND_DRAFTS,
+  type RoundPlan,
   sectionBox,
   SYNC_LIMITS,
   WAITING_FILL,
@@ -27,16 +27,9 @@ import { LABEL_ROOM } from '../canvas/frames.ts'
 import { OUTLINE_PAD, TITLE_ROW } from '../canvas/sections.ts'
 import { shareOf } from '../link-notices.ts'
 
-/** A brief's section and frames as the tab made their ids, before they are placed. */
-export interface BriefPlan {
-  sectionId: string
-  /** The four frames, one per draft, in the order of the round plan's ads. */
-  frames: AiFrameTarget[]
-}
-
 /** What placing a brief writes: its plan, the page, the section's title, the frames' size and names. */
 export interface BriefPlacing {
-  plan: BriefPlan
+  plan: RoundPlan
   pageId: string
   /** The brief's words: the section is titled with their first line. */
   words: string
@@ -49,9 +42,6 @@ export interface BriefPlacing {
   from?: string
 }
 
-/** How many drafts a round makes. */
-export const DRAFTS = 4
-
 /**
  * The screen pixels between a brief's frames and the frames above them that the outlines and labels take, the same
  * at any zoom: the outline's pad below the frames above, the new outline's pad and title row, and its frames' labels.
@@ -60,15 +50,6 @@ export const BRIEF_SCREEN_ROOM = OUTLINE_PAD + OUTLINE_PAD + TITLE_ROW + LABEL_R
 
 /** More than the bytes a brief's section, four frames and four picture layers take in the design. */
 const BRIEF_BYTES = 4096
-
-/** A brief's section, frame and picture layer ids, made with `newId`. */
-export function planBrief(newId: () => string): BriefPlan {
-  const frames = Array.from({ length: DRAFTS }, () => {
-    const frameId = newId()
-    return { frameId, pictureLayerId: pictureLayerOf(frameId) }
-  })
-  return { sectionId: newId(), frames }
-}
 
 /**
  * Where a brief of `size` goes on page `pageId`: below the page's lowest frame, at the left of its frames, far
@@ -81,7 +62,7 @@ export function briefSpot(
   size: AiSize,
   zoomFor: (area: PageBox) => number,
 ): Point {
-  const row = { width: DRAFTS * size.width + (DRAFTS - 1) * FRAME_GAP, height: size.height }
+  const row = { width: ROUND_DRAFTS * size.width + (ROUND_DRAFTS - 1) * FRAME_GAP, height: size.height }
   const page = Object.values(frames).filter((frame) => frame.pageId === pageId)
   let gap = FRAME_GAP
   // The gap moves the row down, which can lower the zoom the page fits at: worked out twice.
@@ -114,7 +95,7 @@ export function moreLikeSpot(
   const frame = design.frames[frameId]
   if (!frame) return null
   const from = (frame.sectionId && sectionBox(design, frame.sectionId)) || frame
-  const row = { width: DRAFTS * size.width + (DRAFTS - 1) * FRAME_GAP, height: size.height }
+  const row = { width: ROUND_DRAFTS * size.width + (ROUND_DRAFTS - 1) * FRAME_GAP, height: size.height }
   const page = Object.values(design.frames).filter((f) => f.pageId === frame.pageId)
   let gap = FRAME_GAP
   // The gap moves the row, which can lower the zoom the page fits at: worked out twice.
@@ -190,8 +171,8 @@ export function shownPicture(layer: Pick<Layer, 'props'>): string | null {
 export function briefPassesWarning(size: DesignSize): boolean {
   const after = {
     ...size,
-    layers: size.layers + DRAFTS,
-    frames: size.frames + DRAFTS,
+    layers: size.layers + ROUND_DRAFTS,
+    frames: size.frames + ROUND_DRAFTS,
     sections: (size.sections || 0) + 1,
     bytes: size.bytes + BRIEF_BYTES,
   }

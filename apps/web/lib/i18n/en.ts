@@ -112,7 +112,6 @@ export const en = {
     remove: 'Remove {name}',
     uploading: 'Uploading {name}',
     uploadFailed: '{name} did not upload: {reason}',
-    /** The Sizes dropdown's button: how many sizes the brief makes. */
     /** The speed's two choices, each with its plain line as a tooltip. */
     speed: 'Speed',
     fast: 'Fast',

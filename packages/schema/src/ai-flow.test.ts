@@ -12,6 +12,7 @@ import {
   parseFeatureJob,
   PICTURE_NAME,
   pictureLayerOf,
+  planRound,
   ProductLayerPlanAnswer,
   ReadingAnswer,
   ReferenceReadAnswer,
@@ -284,6 +285,16 @@ describe('briefDesignOf', () => {
       parentId: 'f3',
       name: PICTURE_NAME,
       props: { width: 1080, height: 1350, fills: [WAITING_FILL] },
+    })
+  })
+})
+
+describe('planRound', () => {
+  it('makes a section and four frames, each with a picture layer whose id comes from its frame’s', () => {
+    let n = 0
+    expect(planRound(() => `id${++n}`)).toEqual({
+      sectionId: 'id5',
+      frames: [1, 2, 3, 4].map((i) => ({ frameId: `id${i}`, pictureLayerId: pictureLayerOf(`id${i}`) })),
     })
   })
 })

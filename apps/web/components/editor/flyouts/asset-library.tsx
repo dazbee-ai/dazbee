@@ -58,7 +58,7 @@ export function AssetLibrary({
 }) {
   const t = useMessages().editor.assetLibrary
   const [query, setQuery] = useState('')
-  const [fetched, setAssets] = useState<AssetSummary[] | null>(null)
+  const [fetched, setFetched] = useState<AssetSummary[] | null>(null)
   const [madeWithAi, setMadeWithAi] = useState(false)
   const assets = fetched && libraryShows(fetched, madeWithAi)
   const anyAi = fetched?.some(isAiAsset) ?? false
@@ -111,7 +111,7 @@ export function AssetLibrary({
           signal: ask.signal,
         })
           .then(async (response) => {
-            if (response.ok) setAssets(AssetSummary.array().parse(await response.json()))
+            if (response.ok) setFetched(AssetSummary.array().parse(await response.json()))
           })
           // Offline, or a newer search took over: the list keeps what it had.
           .catch(() => undefined)
@@ -142,7 +142,7 @@ export function AssetLibrary({
     [workspaceId, brandId, refresh],
   )
 
-  const replace = (asset: AssetSummary) => setAssets((all) => all?.map((a) => (a.id === asset.id ? asset : a)) ?? null)
+  const replace = (asset: AssetSummary) => setFetched((all) => all?.map((a) => (a.id === asset.id ? asset : a)) ?? null)
   const edited = viewOnly ? undefined : assets?.find((a) => a.id === editing)
   const hasFiles = (e: DragEvent) => !viewOnly && e.dataTransfer.types.includes('Files')
   const searched = query.trim()
@@ -278,7 +278,7 @@ export function AssetLibrary({
           onSaved={replace}
           onDeleted={() => {
             setEditing(null)
-            setAssets((now) => now && now.filter((a) => a.id !== edited.id))
+            setFetched((now) => now && now.filter((a) => a.id !== edited.id))
           }}
           onDone={() => {
             setEditing(null)

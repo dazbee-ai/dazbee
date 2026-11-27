@@ -1,14 +1,10 @@
-// The brand home's brief (#84): the sizes it offers, the brief its form sends, the ids of the round it starts, the
-// name of the design it opens, what the brand home says of a round that didn't start, and the blank design a size
-// starts.
+// The brand home's brief: the sizes it offers, the brief its form sends, the name of the design it opens, what it
+// says of a round that didn't start, and the blank design a size starts.
 import {
-  type AiFrameTarget,
   type AiMode,
   blankDesign,
   type DesignInput,
   MAX_REFERENCES,
-  pictureLayerOf,
-  ROUND_DRAFTS,
   SIZE_PRESETS,
   type SizePreset,
   type StartRound,
@@ -20,6 +16,9 @@ import type { Messages } from '@/lib/i18n/index.ts'
 export const BRIEF_SIZES = ['feed-square', 'feed-portrait', 'story', 'link-image'] as const
 
 export type BriefSize = (typeof BRIEF_SIZES)[number]
+
+/** The longest name a brief gives its design, its first line cut short with "…". */
+const NAME_LENGTH = 60
 
 /**
  * A blank design in the sizes a brief picked: one page holding an empty, white frame per size, in
@@ -35,9 +34,6 @@ export function briefDesign(name: string, sizeIds: string[], sizeName: (id: Size
   )
 }
 
-/** The longest name a brief gives its design, its first line cut short with "…". */
-const NAME_LENGTH = 60
-
 /** The brief a brand home's form sends: its words, pictures, reference design, one size and a speed. */
 export function briefFromForm(form: FormData): Pick<StartRound, 'words' | 'pictures' | 'size' | 'mode' | 'reference'> {
   const preset =
@@ -52,15 +48,6 @@ export function briefFromForm(form: FormData): Pick<StartRound, 'words' | 'pictu
     mode,
     ...(reference ? { reference: { designId: reference } } : {}),
   }
-}
-
-/** The ids of a round the brand home starts: its section, and each draft's frame and picture layer. */
-export function planRound(newId: () => string): { sectionId: string; frames: AiFrameTarget[] } {
-  const frames = Array.from({ length: ROUND_DRAFTS }, () => {
-    const frameId = newId()
-    return { frameId, pictureLayerId: pictureLayerOf(frameId) }
-  })
-  return { sectionId: newId(), frames }
 }
 
 /** The name of a brief's design: its first line, cut to 60 characters with "…"; empty for no words. */

@@ -47,6 +47,13 @@ export type AiSize = z.infer<typeof AiSize>
 export const AiFrameTarget = z.object({ frameId: Id, pictureLayerId: Id })
 export type AiFrameTarget = z.infer<typeof AiFrameTarget>
 
+/** A round's section and frames as a tab or the brand home made their ids, before they are placed. */
+export interface RoundPlan {
+  sectionId: string
+  /** The four frames, one per draft, in the order of the round plan's ads. */
+  frames: AiFrameTarget[]
+}
+
 /** A frame a resize fills, with the size it is redrawn at, from 1:3 to 3:1. */
 export const AiSizeTarget = AiFrameTarget.extend(FrameSize.shape).refine(isAiSize, {
   message: 'the AI is offered sizes from 1:3 to 3:1',
@@ -344,4 +351,13 @@ export function briefDesignOf(
     nodes: Object.fromEntries(nodes),
     sections: { [brief.sectionId]: { pageId: 'p1', title: briefTitle(brief.words), order: 'a0' } },
   }
+}
+
+/** A round's section, frame and picture layer ids, made with `newId` (ADR-0015). */
+export function planRound(newId: () => string): RoundPlan {
+  const frames = Array.from({ length: ROUND_DRAFTS }, () => {
+    const frameId = newId()
+    return { frameId, pictureLayerId: pictureLayerOf(frameId) }
+  })
+  return { sectionId: newId(), frames }
 }

@@ -15,18 +15,12 @@ import {
   type DesignAi,
   type PageBox,
   pictureLayerOf,
+  planRound,
+  type RoundPlan,
   type StartAiJob,
 } from '@dazbee/schema'
 
-import {
-  type BriefPlan,
-  briefSpot,
-  moreLikeSpot,
-  pictureState,
-  placeBrief,
-  planBrief,
-  shownPicture,
-} from './place-brief.ts'
+import { briefSpot, moreLikeSpot, pictureState, placeBrief, shownPicture } from './place-brief.ts'
 
 /**
  * How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused; or,
@@ -115,7 +109,7 @@ export interface EditorArrivals {
    * connector, as one arrival. A frame of no brief, or showing no picture, starts nothing.
    */
   moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
-  /** Tries a failed AI frame again, its picture made again into the same frame; then reads the design's AI frames. */
+  /** Tries a failed AI frame again, its picture made again into the same frame; settles once the design's AI frames are read again. */
   tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read, with the frames marked written since; null before the first read. */
   read(): DesignAi | null
@@ -180,7 +174,7 @@ export function editorArrivals({
   }
 
   async function startBrief(request: BriefRequest): Promise<BriefStarted> {
-    const plan = planBrief(newId)
+    const plan = planRound(newId)
     const started = await ai.start({
       kind: 'round',
       designId,
@@ -206,7 +200,7 @@ export function editorArrivals({
     const layer = layerIn(pictureLayerOf(request.frameId), request.frameId)
     const liked = layer && shownPicture(layer)
     if (!frame || !brief || !liked) return { ok: false, refusal: null, message: 'that frame shows no draft of a brief' }
-    const plan = planBrief(newId)
+    const plan = planRound(newId)
     const size = { width: frame.width, height: frame.height }
     const started = await ai.start({
       kind: 'more-like-this',
@@ -232,7 +226,7 @@ export function editorArrivals({
 
   async function tryAgain(frameId: string): Promise<AiStart> {
     const started = await ai.start({ kind: 'try-again', designId, frameId })
-    if (started.ok) void poll()
+    if (started.ok) await poll()
     return started
   }
 
@@ -241,7 +235,7 @@ export function editorArrivals({
    * the start came out. Not placed, as on a page deleted meanwhile or a design at its limits, its drafts stay in the
    * brand's images.
    */
-  async function placed(job: string, plan: BriefPlan, steps: () => void): Promise<BriefStarted> {
+  async function placed(job: string, plan: RoundPlan, steps: () => void): Promise<BriefStarted> {
     let outcome: 'saved' | 'none' = 'none'
     try {
       outcome = await arrive(session, signal, steps)

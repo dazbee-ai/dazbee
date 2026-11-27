@@ -168,12 +168,12 @@ export function fakeAi(): FakeAi {
     },
     make: (job, n, assetId) => makeCall(job, draftCall(n), assetId),
     fail: (jobId, n) => {
-      const call = jobs.find((j) => j.id === jobId)?.calls.find((c) => c.index === draftCall(n))
-      const frame = frames.find((f) => f.jobId === jobId && f.callIndex === draftCall(n))
-      if (!call || !frame) throw new Error(`no draft ${n} of ${jobId}`)
-      const at = jobs.find((j) => j.id === jobId)?.calls.indexOf(call) ?? -1
       const job = jobs.find((j) => j.id === jobId)
-      if (job) job.calls[at] = { index: call.index, function: call.function, state: 'failed', failure: FAILURE }
+      const at = job?.calls.findIndex((c) => c.index === draftCall(n)) ?? -1
+      const call = job?.calls[at]
+      const frame = frames.find((f) => f.jobId === jobId && f.callIndex === draftCall(n))
+      if (!job || !call || !frame) throw new Error(`no draft ${n} of ${jobId}`)
+      job.calls[at] = { index: call.index, function: call.function, state: 'failed', failure: FAILURE }
       frame.state = 'failed'
     },
     makeCall,

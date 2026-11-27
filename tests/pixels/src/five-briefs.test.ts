@@ -1,4 +1,4 @@
-// The AI flow's opening goal (spec #317): a design of five briefs, twenty drafts in five sections, each draft's
+// The AI flow's opening goal: a design of five briefs, twenty drafts in five sections, each draft's
 // picture arrived, opens from the sync server's welcome in under 300 ms (ADR-0014).
 import { describe, expect, it } from 'vitest'
 

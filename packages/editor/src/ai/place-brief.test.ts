@@ -1,22 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { type DesignSize, FRAME_GAP, pictureLayerOf, SYNC_LIMITS } from '@dazbee/schema'
+import { type DesignSize, FRAME_GAP, ROUND_DRAFTS, SYNC_LIMITS } from '@dazbee/schema'
 
-import { BRIEF_SCREEN_ROOM, briefPassesWarning, DRAFTS, moreLikeSpot, planBrief } from './place-brief.ts'
+import { BRIEF_SCREEN_ROOM, briefPassesWarning, moreLikeSpot } from './place-brief.ts'
 
 const EMPTY: DesignSize = { layers: 0, frames: 0, pages: 1, sections: 0, connectors: 0, bytes: 1000 }
-
-describe('planBrief', () => {
-  it('makes a section and four frames, each with a picture layer whose id comes from its frame’s', () => {
-    let n = 0
-    const plan = planBrief(() => `id${++n}`)
-    expect(plan).toEqual({
-      sectionId: 'id5',
-      frames: [1, 2, 3, 4].map((i) => ({ frameId: `id${i}`, pictureLayerId: pictureLayerOf(`id${i}`) })),
-    })
-    expect(plan.frames).toHaveLength(DRAFTS)
-  })
-})
 
 describe('moreLikeSpot', () => {
   const square = { width: 100, height: 100 }
@@ -59,8 +47,8 @@ describe('briefPassesWarning', () => {
 
   it('is true when four more frames and layers would reach the warning on layers', () => {
     const at = SYNC_LIMITS.designLayers * SYNC_LIMITS.warnAt
-    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS - 1 })).toBe(false)
-    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS })).toBe(true)
+    expect(briefPassesWarning({ ...EMPTY, layers: at - ROUND_DRAFTS - 1 })).toBe(false)
+    expect(briefPassesWarning({ ...EMPTY, layers: at - ROUND_DRAFTS })).toBe(true)
   })
 
   it('is true when one more section would reach the warning on sections', () => {

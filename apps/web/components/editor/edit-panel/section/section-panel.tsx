@@ -1,7 +1,7 @@
 'use client'
 
 // The edit panel for the picked section: its title in the header, then its actions as plain buttons,
-// Rename, Ungroup, Duplicate and Delete section and frames, each one undo step with no dialog. A tab
+// Edit brief on a brief's section, Rename, Ungroup, Duplicate and Delete section and frames, each one undo step with no dialog. A tab
 // that may only view sees the title alone. None once the section is gone.
 import type { Editor } from '@dazbee/editor'
 
@@ -9,7 +9,8 @@ import { SelectionPanel } from '@/components/editor/edit-panel/edit-panel.tsx'
 import { PanelHeader } from '@/components/editor/edit-panel/tabs/panel-header.tsx'
 import type { PanelLayout } from '@/components/editor/edit-panel/tabs/tabs.ts'
 import { selectionPanelShows, useEditState } from '@/components/editor/edit-store.ts'
-import { runSectionAction, SECTION_ACTIONS } from '@/components/editor/menus/section-actions.tsx'
+import { useDesignAi } from '@/components/editor/editor-hooks.ts'
+import { runSectionAction, sectionActionsOf } from '@/components/editor/menus/section-actions.tsx'
 import { PANEL_BUTTON } from '@/components/editor/styles.ts'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
@@ -40,17 +41,19 @@ export function SectionPanel({ editor, sectionId }: { editor: Editor; sectionId:
 
 /** The section's actions, one button each, Delete section and frames last in the danger colour. */
 function SectionButtons({ editor, sectionId }: { editor: Editor; sectionId: string }) {
-  const s = useMessages().editor.sections
+  const t = useMessages()
+  const s = t.editor.sections
   const viewOnly = useViewOnly()
+  const ai = useDesignAi(editor)
   if (viewOnly) return null
   return (
     <div className="flex flex-col gap-1.5" data-testid="section-actions">
-      {SECTION_ACTIONS.map((action) => (
+      {sectionActionsOf(ai, sectionId).map((action) => (
         <button
           key={action}
           type="button"
           data-action={action}
-          onClick={(e) => runSectionAction(editor, sectionId, action, e.currentTarget)}
+          onClick={(e) => runSectionAction(editor, sectionId, action, t, e.currentTarget)}
           className={cn(PANEL_BUTTON, action === 'deleteWithFrames' && 'text-danger')}
         >
           <span>{s[action]}</span>

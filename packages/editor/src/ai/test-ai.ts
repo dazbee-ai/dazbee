@@ -1,7 +1,15 @@
-// A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds it
-// starts or refuses, the pictures their drafts make, the frames' states as the API reads them, and the calls
+// A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds and more
+// like this it starts or refuses, with their briefs, the pictures their drafts make, the frames' states as the API reads them, and the calls
 // marked written, as `markWritten` marks them.
-import type { AiFrameView, AiFrameWritten, AiJobRefusal, AiJobView, DesignAi, StartAiJob } from '@dazbee/schema'
+import type {
+  AiBriefView,
+  AiFrameView,
+  AiFrameWritten,
+  AiJobRefusal,
+  AiJobView,
+  DesignAi,
+  StartAiJob,
+} from '@dazbee/schema'
 
 import type { AiStart, EditorAi } from './arrivals.ts'
 
@@ -36,11 +44,12 @@ export function fakeAi(): FakeAi {
   const marks: (AiFrameWritten & { frameId: string })[] = []
   const frames: AiFrameView[] = []
   const jobs: AiJobView[] = []
+  const briefs: AiBriefView[] = []
   let reads = 0
   let refusal: AiJobRefusal | null = null
   let markFails = false
 
-  const design = (): DesignAi => structuredClone({ frames, jobs, briefs: [] })
+  const design = (): DesignAi => structuredClone({ frames, jobs, briefs })
 
   function start(job: StartAiJob): Promise<AiStart> {
     if (refusal) {
@@ -49,11 +58,25 @@ export function fakeAi(): FakeAi {
       return Promise.resolve({ ok: false, refusal: refused, message: `refused: ${refused}` })
     }
     started.push(job)
-    if (job.kind !== 'round') throw new Error(`the fake starts rounds only, not ${job.kind}`)
+    if (job.kind !== 'round' && job.kind !== 'more-like-this')
+      throw new Error(`the fake starts rounds and more like this only, not ${job.kind}`)
     const id = `job${started.length}`
+    const briefId = `brief${started.length}`
+    briefs.push({
+      id: briefId,
+      sectionId: job.sectionId,
+      title: job.words.trim(),
+      words: job.words,
+      pictureAssetIds: job.pictures,
+      referenceAssetId: null,
+      size: job.size,
+      mode: job.mode,
+      planned: true,
+      createdAt: AT,
+    })
     jobs.push({
       id,
-      kind: 'round',
+      kind: job.kind,
       state: 'running',
       output: null,
       calls: [
@@ -67,7 +90,7 @@ export function fakeAi(): FakeAi {
     job.frames.forEach(({ frameId }, n) =>
       frames.push({
         frameId,
-        briefId: 'brief',
+        briefId,
         jobId: id,
         callIndex: draftCall(n),
         kind: 'draft',

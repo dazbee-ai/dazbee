@@ -244,6 +244,35 @@ describe('editorArrivals', () => {
     })
   })
 
+  describe('moreLikeThis', () => {
+    it('starts more like a draft with its brief and the picture it shows, then places four frames right of its section, joined to it, as no undo step', async () => {
+      mem = memorySync(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      await a.arrivals.startBrief({ ...BRIEF, pictures: ['bike'], mode: 'precise' })
+      await settle(a.arrivals)
+      const like = { frameId: 'ann-1', title: 'More like Draft 1', draftName: (n: number) => `Like ${n + 1}` }
+      // A draft still waiting shows no picture to take after.
+      expect((await a.arrivals.moreLikeThis(like)).ok).toBe(false)
+      ai.make('job1', 0, 'pic1')
+      await pollAll(a)
+
+      const started = await a.arrivals.moreLikeThis(like)
+      await settle(a.arrivals)
+
+      expect(started).toEqual({ ok: true, job: 'job2', sectionId: 'ann-10' })
+      expect(ai.started[1]).toMatchObject({ kind: 'more-like-this', likedAssetId: 'pic1', pictures: ['bike'] })
+      expect(ai.started[1]).toMatchObject({ words: BRIEF.words, mode: 'precise', size: BRIEF.size })
+      const design = a.editor.session.design()
+      const liked = design.frames['ann-1']
+      expect(design.frames['ann-6']).toMatchObject({ name: 'Like 1', sectionId: 'ann-10', y: liked?.y })
+      expect(design.frames['ann-6']?.x).toBeGreaterThan((design.frames['ann-4']?.x ?? 0) + 1080)
+      expect(design.sections['ann-10']?.title).toBe('More like Draft 1')
+      expect(Object.values(design.connectors)).toMatchObject([{ from: 'ann-1', to: 'ann-10' }])
+      expect(a.editor.core.canUndo()).toBe(false)
+    })
+  })
+
   describe('poll', () => {
     it('writes each picture made into its frame once, marks it written, and leaves it to no undo', async () => {
       mem = memorySync(WORDS)

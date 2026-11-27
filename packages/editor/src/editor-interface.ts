@@ -2,9 +2,9 @@
 // it tells the page of; and what `startViewer` is given and resolves to: a version shown read-only.
 import type { ReadVersion } from '@dazbee/doc'
 import type { ExportedFile } from '@dazbee/export'
-import type { Design, ExportRequestInput, Member, Point, Rect, SyncToken, Variables } from '@dazbee/schema'
+import type { Design, DesignAi, ExportRequestInput, Member, Point, Rect, SyncToken, Variables } from '@dazbee/schema'
 
-import type { BriefRequest, BriefStarted, EditorAi } from './ai/arrivals.ts'
+import type { BriefRequest, BriefStarted, EditorAi, MoreLikeRequest } from './ai/arrivals.ts'
 import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -152,6 +152,16 @@ export interface Editor extends EditorBase {
    * given no AI routes.
    */
   startBrief(request: BriefRequest): Promise<BriefStarted>
+  /**
+   * Starts more like an AI frame of a brief: the job first, then, once it is saved, a section of four waiting frames
+   * right of the frame's section, joined to the frame by a connector, as an arrival no undo takes back. A frame of no
+   * brief or showing no picture, a refused job, and an editor given no AI routes start nothing and give why.
+   */
+  moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
+  /** The design's AI frames, jobs and briefs as last read from the API; null before the first read, or with no AI routes. */
+  designAi(): DesignAi | null
+  /** Calls back after each read of the design's AI frames, and as a frame's picture is marked written. */
+  onDesignAi(listener: () => void): () => void
   destroy(): void
 }
 

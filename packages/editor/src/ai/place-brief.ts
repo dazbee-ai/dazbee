@@ -1,7 +1,8 @@
 // A brief's section and drafts as the tab places them: the ids it makes for the section, the four frames and
 // their picture layers (ADR-0015), which the round is started with; the commands that place them below
-// everything on a page, each frame holding one picture layer that waits in a plain colour until its picture
-// arrives, and what it holds; and whether one more brief would take the design past its size warning.
+// everything on a page, or, for more like this, right of the liked draft's section joined to the draft by a
+// connector, each frame holding one picture layer that waits in a plain colour until its picture arrives, and what
+// it holds; and whether one more brief would take the design past its size warning.
 import type { Session } from '@dazbee/doc'
 import {
   type AiFrameTarget,
@@ -10,10 +11,12 @@ import {
   briefTitle,
   type DesignSize,
   FRAME_GAP,
+  freeSpot,
   type Layer,
   type PageBox,
   type Paint,
   type Point,
+  sectionBox,
   type SolidPaint,
   SYNC_LIMITS,
 } from '@dazbee/schema'
@@ -38,6 +41,10 @@ export interface BriefPlacing {
   size: AiSize
   /** Each draft's name, by its place from 0. */
   draftName: (n: number) => string
+  /** The section's title, when not the brief's first line. */
+  title?: string
+  /** The frame the section is joined to by a connector from it, as more like this joins it to the liked draft. */
+  from?: string
 }
 
 /** How many drafts a round makes. */
@@ -105,9 +112,41 @@ export function briefSpot(
 }
 
 /**
+ * Where more like this of frame `frameId` puts its four drafts of `size` on the frame's page: in the column right of
+ * the frame's section (of the frame itself when it is in none), at its top, moved down below each frame or section
+ * in the way, far enough apart that the outlines and titles clear each other at the zoom `zoomFor` gives for the
+ * area with the drafts in it. Null for a frame the design hasn't.
+ */
+export function moreLikeSpot(
+  design: Parameters<typeof freeSpot>[0] & Parameters<typeof sectionBox>[0],
+  frameId: string,
+  size: AiSize,
+  zoomFor: (area: PageBox) => number,
+): Point | null {
+  const frame = design.frames[frameId]
+  if (!frame) return null
+  const from = (frame.sectionId && sectionBox(design, frame.sectionId)) || frame
+  const row = { width: DRAFTS * size.width + (DRAFTS - 1) * FRAME_GAP, height: size.height }
+  let gap = FRAME_GAP
+  // The gap moves the row, which can lower the zoom the area fits at: worked out twice.
+  for (let pass = 0; pass < 2; pass++) {
+    const at = freeSpot(design, frame.pageId, row, from, undefined, gap)
+    const left = Math.min(from.x, at.x)
+    const top = Math.min(from.y, at.y)
+    const right = Math.max(from.x + from.width, at.x + row.width)
+    const bottom = Math.max(from.y + from.height, at.y + row.height)
+    gap = Math.ceil(
+      FRAME_GAP + BRIEF_SCREEN_ROOM / zoomFor({ x: left, y: top, width: right - left, height: bottom - top }),
+    )
+  }
+  return freeSpot(design, frame.pageId, row, from, undefined, gap)
+}
+
+/**
  * Runs the commands that place a brief at `at` on its page: its frames in a row, FRAME_GAP apart, each with a
- * picture layer filling it in WAITING_FILL, then its section of them, titled with the brief's first line. The
- * caller runs them in one gesture, as one step.
+ * picture layer filling it in WAITING_FILL, then its section of them, titled with the brief's first line or the
+ * title given, then the connector to it from the frame `from` names, if one does. The caller runs them in one
+ * gesture, as one step.
  */
 export function placeBrief(session: Pick<Session, 'run'>, placing: BriefPlacing, at: Point): void {
   const { plan, pageId, size } = placing
@@ -134,9 +173,10 @@ export function placeBrief(session: Pick<Session, 'run'>, placing: BriefPlacing,
   session.run('section.add', {
     pageId,
     id: plan.sectionId,
-    title: briefTitle(placing.words),
+    title: placing.title ?? briefTitle(placing.words),
     frameIds: plan.frames.map((f) => f.frameId),
   })
+  if (placing.from) session.run('connector.add', { pageId, from: placing.from, to: plan.sectionId })
 }
 
 /**

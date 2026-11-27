@@ -29,6 +29,9 @@ import { tokenSource } from './token-source.ts'
 import type { PlacedAsset, PlaceImageOptions } from './tools.ts'
 import { loadCanvasKit, shippedFonts } from './vendor.ts'
 
+/** What an editor given no AI routes answers a job it is asked to start. */
+const NO_AI = { ok: false, refusal: null, message: 'AI isn’t set up for this editor' } as const
+
 /** The screen's animation frames and the system's reduced motion, which the camera's glides step on. */
 export const SCREEN_MOTION: Motion = {
   nextFrame: (run) => {
@@ -329,10 +332,10 @@ function live(
     keptOnDevice: tab.flushed,
     fetchVersion: tab.fetchVersion,
     pauseInput,
-    startBrief: (request) =>
-      arrivals
-        ? arrivals.startBrief(request)
-        : Promise.resolve({ ok: false, refusal: null, message: 'AI isn’t set up for this editor' }),
+    startBrief: (request) => (arrivals ? arrivals.startBrief(request) : Promise.resolve(NO_AI)),
+    moreLikeThis: (request) => (arrivals ? arrivals.moreLikeThis(request) : Promise.resolve(NO_AI)),
+    designAi: () => arrivals?.read() ?? null,
+    onDesignAi: (listener) => arrivals?.onRead(listener) ?? (() => {}),
     destroy() {
       listening.abort()
       exporter.destroy()

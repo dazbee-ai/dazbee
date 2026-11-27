@@ -205,7 +205,7 @@ describe('editorLayeringFinish', () => {
     // Linked: the one text saying "Big sale" and the one backdrop. Not linked: the texts whose words differ, the
     // dot, which the tall size has two of, and the loose bits of no part.
     expect(names('ann-6')).toEqual([
-      ['Backdrop', 'job3-6ebf2f17'],
+      ['Backdrop', 'job3-4babd89d'],
       ['Layer 5', undefined],
       ['Terms', undefined],
       ['dot', undefined],
@@ -213,7 +213,7 @@ describe('editorLayeringFinish', () => {
       ['Headline', 'job3-a3e7120d'],
     ])
     expect(names('ann-7')).toEqual([
-      ['Backdrop', 'job3-6ebf2f17'],
+      ['Backdrop', 'job3-4babd89d'],
       ['Layer 4', undefined],
       ['Terms', undefined],
       ['Dot', undefined],
@@ -273,7 +273,7 @@ describe('editorLayeringFinish', () => {
 
     const names = (frameId: string) => placed(a.tab, frameId).map(({ name, link }) => [name, link])
     expect(names('ann-6')).toEqual([
-      ['Backdrop', 'job3-6ebf2f17'],
+      ['Backdrop', 'job3-4babd89d'],
       ['Headline', 'job3-a3e7120d'],
     ])
     expect(names('ann-7')).toEqual(names('ann-6'))

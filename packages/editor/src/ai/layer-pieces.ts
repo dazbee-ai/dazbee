@@ -39,6 +39,8 @@ const SEEN = 8
 const ID_LENGTH = 64
 /** The longest name a layer is given. */
 const NAME_LENGTH = 100
+/** The kinds of planned part an ad usually has one of, whatever a plan names it. */
+const ONE_OF_A_KIND: ReadonlySet<string> = new Set(['logo', 'cutout', 'photo', 'background'])
 /** How far past a whole pixel a piece's edge may be and still be on it: the arithmetic's rounding, never part of a pixel. */
 const ROUNDING = 1e-6
 
@@ -113,13 +115,14 @@ export function pieceName(
  * The link id split piece `piece` shares with the pieces of the same part in the other frames of job `jobId`: the
  * job's id, a hyphen and the hash of the kind and words of its planned part in the frame's plan `plan`. Null for a
  * piece of no part, of a part the plan doesn't have, or of a part whose kind and words another part of the plan
- * shares.
+ * shares. A logo, a cut-out, a photo or a background that is the plan's only one links by its kind alone, since
+ * two plans of one ad name the same logo differently.
  */
 export function pieceLink(jobId: string, plan: LayerPlanAnswer | null, piece: Pick<MadePiece, 'part'>): string | null {
   const part = partOf(plan, piece)
   if (!plan || !part) return null
-  const said = kindAndWords(part)
-  if (plan.elements.filter((e) => kindAndWords(e) === said).length > 1) return null
+  const said = kindAndWords(part, plan)
+  if (plan.elements.filter((e) => kindAndWords(e, plan) === said).length > 1) return null
   const tail = `-${fnv1a(said)}`
   return jobId.slice(0, ID_LENGTH - tail.length) + tail
 }
@@ -210,10 +213,12 @@ function partOf(plan: LayerPlanAnswer | null, piece: Pick<MadePiece, 'part'>): P
 }
 
 /**
- * A planned part's kind and words, the same for the same part in any letter case and spacing: a text part's words
- * are what it says, and its name when it says nothing; any other part's are its name.
+ * A planned part's kind and words in its plan, the same for the same part in any letter case and spacing: a text
+ * part's words are what it says, and its name when it says nothing; any other part's are its name. A part of a
+ * kind an ad has one of, when it is the plan's only one, has no words.
  */
-function kindAndWords(part: PlanElement): string {
+function kindAndWords(part: PlanElement, plan: LayerPlanAnswer): string {
+  if (ONE_OF_A_KIND.has(part.kind) && plan.elements.filter((e) => e.kind === part.kind).length === 1) return part.kind
   const tidy = (words: string) => words.toLowerCase().replace(/\s+/g, ' ').trim()
   const said = part.kind === 'text' ? tidy(part.content) : ''
   return `${part.kind}:${said === '' ? tidy(part.name) : said}`

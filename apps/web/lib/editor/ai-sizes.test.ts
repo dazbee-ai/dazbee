@@ -55,4 +55,9 @@ describe('sizesToLayer', () => {
     expect(sizesToLayer(AI, { ...DESIGN, connectors: {} }, 'sizes')).toBeNull()
     expect(sizesToLayer({ ...AI, frames: [frame('tall')] }, DESIGN, 'sizes')).toBeNull()
   })
+
+  it('takes no plan picture from a frame joined to the section that isn’t an AI frame', () => {
+    const drawn = { ...AI, frames: AI.frames.filter((f) => f.frameId !== 'draft') }
+    expect(sizesToLayer(drawn, DESIGN, 'sizes')).toBeNull()
+  })
 })

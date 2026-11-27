@@ -3,8 +3,8 @@
 // The Add size card of an AI frame: the sizes the AI is offered (from 1:3 to 3:1) as tiles three across, grouped by
 // channel, each picked or let go with a click, then Redraw N sizes with AI, which redraws the frame's picture at each
 // size picked as a new section right of the frame's, joined to it, its frames filling as the pictures arrive. On a
-// frame made editable, Add N sizes adds them as linked copies of its layers, as Add size does on any frame. Hovering
-// Redraw shows about how much of the workspace's AI it takes and how long.
+// frame made editable it is the other choice beside Add size as on any frame. Hovering Redraw shows about how much of
+// the workspace's AI it takes for the sizes picked, and how long.
 import { useState } from 'react'
 
 import type { Editor } from '@dazbee/editor'
@@ -20,8 +20,8 @@ import { aiEstimate } from '@/lib/editor/ai-client.ts'
 import { aiSizes } from '@/lib/editor/ai-sizes.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
 import { estimateWords } from '@/lib/editor/glass-bar.ts'
-import { useMessages } from '@/lib/i18n/client.tsx'
-import { format } from '@/lib/i18n/index.ts'
+import { useLocale, useMessages } from '@/lib/i18n/client.tsx'
+import { counted, format } from '@/lib/i18n/index.ts'
 
 import { PanelFrame } from './edit-panel.tsx'
 
@@ -35,16 +35,14 @@ export function AiSizesCard({
   brandId,
   editor,
   frame,
-  editable,
 }: {
   workspaceId: string
   brandId: string
   editor: Editor
   frame: { id: string; name: string }
-  /** Whether the frame is made editable, so its layers can also be copied to the sizes. */
-  editable: boolean
 }) {
   const t = useMessages()
+  const locale = useLocale()
   const a = t.editor.addFrame
   const s = t.editor.aiSizes
   const [picked, setPicked] = useState<readonly string[]>([])
@@ -52,7 +50,10 @@ export function AiSizesCard({
   const [said, setSaid] = useState<string | null>(null)
   const [estimate, setEstimate] = useState<AiEstimate | null>(null)
   const sizes = OFFERED.filter((preset) => picked.includes(preset.id))
-  const toggle = (id: string) => setPicked((now) => (now.includes(id) ? now.filter((p) => p !== id) : [...now, id]))
+  const toggle = (id: string) => {
+    setPicked((now) => (now.includes(id) ? now.filter((p) => p !== id) : [...now, id]))
+    setEstimate(null)
+  }
 
   async function redraw() {
     setBusy(true)
@@ -76,21 +77,16 @@ export function AiSizesCard({
     }
   }
 
-  /** Adds each picked size as linked copies of the frame's layers, as Add size does. */
-  function addCopies() {
-    for (const size of sizes) editor.addSize(frame.id, { width: size.width, height: size.height })
-    setOpen(null)
-  }
-
   const ask = () => {
     if (estimate || sizes.length === 0) return
-    aiEstimate(workspaceId, brandId, { action: 'resize' })
+    const asked = sizes.map(({ width, height }) => ({ width, height }))
+    aiEstimate(workspaceId, brandId, { action: 'resize', sizes: asked })
       .then(setEstimate)
       .catch(() => {
         // No estimate: the tooltip keeps the action's name.
       })
   }
-  const redrawLabel = format(s.redraw, { n: sizes.length })
+  const redrawLabel = counted(locale, s.redraw, sizes.length)
 
   return (
     <PanelFrame id="addSize" title={format(a.addSizeTitle, { name: frame.name })} focus>
@@ -152,17 +148,6 @@ export function AiSizesCard({
             {redrawLabel}
           </button>
         </Tooltip>
-        {editable && (
-          <button
-            type="button"
-            data-action="add-sizes"
-            disabled={sizes.length === 0}
-            onClick={addCopies}
-            className="h-[34px] cursor-pointer rounded-row border border-line px-[15px] text-label font-semibold text-text hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {format(s.add, { n: sizes.length })}
-          </button>
-        )}
       </div>
     </PanelFrame>
   )

@@ -29,7 +29,10 @@ export function sizesToLayer(ai: DesignAi | null, design: Placed, sectionId: str
   const frameIds = (ai?.frames ?? [])
     .filter((f) => f.kind === 'size' && f.state === 'arrived' && design.frames[f.frameId]?.sectionId === sectionId)
     .map((f) => f.frameId)
-  const draft = Object.values(design.connectors).find((c) => c.to === sectionId)?.from
+  // The draft the sizes came from: an AI frame joined to the section by a connector, as Other sizes joins them.
+  const draft = Object.values(design.connectors).find(
+    (c) => c.to === sectionId && ai?.frames.some((f) => f.frameId === c.from),
+  )?.from
   const planAssetId = draft === undefined ? null : shownOf(design, pictureLayerOf(draft))
   return frameIds.length >= 2 && planAssetId ? { frameIds, planAssetId } : null
 }

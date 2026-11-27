@@ -165,7 +165,10 @@ function FrameBar({
   const starred = frame.starred === true
   const editable = editableAction(shown.frame, design)
   // A size of a section of AI sizes is made editable with the rest of them, from one layer plan.
-  const allSizes = frame.sectionId && shown.frame.kind === 'size' ? sizesToLayer(ai, design, frame.sectionId) : null
+  const allSizes =
+    frame.sectionId && shown.frame.kind === 'size' && shown.frame.state === 'arrived'
+      ? sizesToLayer(ai, design, frame.sectionId)
+      : null
 
   async function makeAllEditable(sizes: SizesToLayer) {
     setBusy(true)

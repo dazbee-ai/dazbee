@@ -17,4 +17,12 @@ describe('node.create', () => {
       /frame "sq" holds link "shared" already/,
     )
   })
+
+  it('refuses a link id of another page’s layer', () => {
+    const store = openTestStore()
+    const tab = openTestSession(store)
+    tab.run('node.create', { parentId: 'sq', link: 'shared', layer: badge })
+    tab.run('page.add', { id: 'p2', name: 'Two', frame: { id: 'far', name: 'Far', width: 300, height: 300 } })
+    expect(() => tab.run('node.create', { parentId: 'far', link: 'shared', layer: badge })).toThrow(/on another page/)
+  })
 })

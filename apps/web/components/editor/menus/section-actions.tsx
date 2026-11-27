@@ -65,7 +65,8 @@ export function runSectionAction(
     setFlyout('ai')
   } else if (action === 'makeAllEditable') {
     const sizes = sizesToLayer(editor.designAi(), editor.design(), sectionId)
-    if (sizes) void editor.makeAllEditable(sizes.frameIds, sizes.planAssetId)
+    // A refusal shows on the frames' glass bar, which says why when tried from there.
+    if (sizes) editor.makeAllEditable(sizes.frameIds, sizes.planAssetId).catch(() => {})
   } else if (action === 'rename') {
     setRenameOpener(opener)
     editor.renameSection(sectionId)

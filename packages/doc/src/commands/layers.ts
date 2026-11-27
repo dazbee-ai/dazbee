@@ -100,7 +100,7 @@ const LayerInput = z
 export const nodeCreate = defineCommand({
   name: 'node.create',
   description:
-    'Adds a new layer on top of what a frame or a group or box holds. It refuses an id already in use, a parent that does not exist, a layer its parent cannot hold, such as a text inside a combined shape, and a link id its frame holds already.',
+    'Adds a new layer on top of what a frame or a group or box holds. It refuses an id already in use, a parent that does not exist, a layer its parent cannot hold, such as a text inside a combined shape, and a link id its frame holds already or another page has.',
   step: 'add',
   input: z.strictObject({
     id: NodeId.optional().describe('The new layer’s id; a fresh one is made when left out.'),
@@ -120,10 +120,15 @@ export const nodeCreate = defineCommand({
     const problem = parentProblem(design, parentId, layer.type)
     if (problem || link === undefined) return problem
     const frameId = frameIdOf(design, parentId)
-    const holds = Object.values(design.nodes).some(
-      (node) => node.link === link && frameIdOf(design, node.parentId) === frameId,
-    )
-    return holds ? `frame "${frameId}" holds link "${link}" already` : undefined
+    const pageId = frameId === undefined ? undefined : design.frames[frameId]?.pageId
+    for (const node of Object.values(design.nodes)) {
+      if (node.link !== link) continue
+      const other = frameIdOf(design, node.parentId)
+      if (other === frameId) return `frame "${frameId}" holds link "${link}" already`
+      // Link ids never cross pages (ADR-0014).
+      if (other !== undefined && design.frames[other]?.pageId !== pageId) return `link "${link}" is on another page`
+    }
+    return undefined
   },
   apply: ({ w, design, newId }, { id = newId(), parentId, link = newId(), layer }) => {
     const indexOf = writeOrder(w, 'layer', [...layerSlots(design, parentId), [id, null]], new Set([id]))

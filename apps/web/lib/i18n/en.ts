@@ -403,8 +403,8 @@ export const en = {
     /** An AI frame's Add size card: the sizes the AI redraws it at. */
     aiSizes: {
       note: 'Pick sizes to redraw {name} at with AI, each as a new picture.',
-      redraw: 'Redraw {n} sizes with AI',
-      add: 'Add {n} sizes as copies',
+      redraw: { one: 'Redraw {n} size with AI', other: 'Redraw {n} sizes with AI' } as Counted,
+      redrawWithAi: 'Redraw with AI instead',
       title: '{name} sizes',
       notStarted: 'It didn’t start. Try again in a moment.',
     },

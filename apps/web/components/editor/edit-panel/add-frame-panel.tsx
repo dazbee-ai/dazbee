@@ -8,7 +8,8 @@
 // Add one named after its size. A picked frame's Add size opens the same card, titled for that
 // frame, where they add a frame of the size holding linked copies of its layers, under its name.
 // Either is one undo step; the new frame is picked and shown, and the card closes. An AI frame's Add size is the AI
-// sizes card, which redraws the frame at the sizes picked.
+// sizes card, which redraws the frame at the sizes picked; a frame made editable keeps the card as on any frame, with
+// Redraw with AI to switch to the AI sizes card.
 import { type CSSProperties, useEffect, useId, useRef, useState } from 'react'
 
 import type { Editor, Tool } from '@dazbee/editor'
@@ -102,7 +103,16 @@ export function AddFramePanel({
  * keys still work; from the dock's Frame button or a menu, it takes the focus as every edit panel
  * does.
  */
-function SizesCard({ editor, picked }: { editor: Editor; picked: PickedFrame | null }) {
+function SizesCard({
+  editor,
+  picked,
+  onRedraw,
+}: {
+  editor: Editor
+  picked: PickedFrame | null
+  /** Switches to redrawing the frame at sizes with AI, offered on an AI frame made editable. */
+  onRedraw?: () => void
+}) {
   const t = useMessages()
   const a = t.editor.addFrame
   const [focus] = useState(() => {
@@ -129,6 +139,19 @@ function SizesCard({ editor, picked }: { editor: Editor; picked: PickedFrame | n
       <p data-testid="add-frame-note" className="px-[8px] text-label leading-[1.4] text-subtle">
         {picked ? format(a.addSizeNote, { name: picked.name }) : a.note}
       </p>
+      {onRedraw && (
+        <button
+          type="button"
+          data-action="redraw-with-ai"
+          onClick={onRedraw}
+          className={cn(
+            'mx-[8px] h-[34px] cursor-pointer rounded-row border border-line px-[15px] text-label font-semibold text-text hover:bg-hover',
+            FOCUS_RING,
+          )}
+        >
+          {t.editor.aiSizes.redrawWithAi}
+        </button>
+      )}
       {SIZE_CHANNELS.map((channel) => (
         <section key={channel} aria-label={t.editor.sizes.channel[channel]} className="flex flex-col gap-[8px]">
           <h3 className={cn(PANEL_HEADING, 'px-[8px]')}>{t.editor.sizes.channel[channel]}</h3>
@@ -326,20 +349,24 @@ function AddSize({
 }) {
   const { design } = useLiveDesign(editor)
   const ai = useDesignAi(editor)
+  const [redrawing, setRedrawing] = useState(false)
   const frame = design.frames[frameId]
   if (!frame) return null
   const state = ai?.frames.find((f) => f.frameId === frameId)?.state
-  if (state === 'arrived' || state === 'editable')
+  if (state === 'arrived' || (state === 'editable' && redrawing))
     return (
       <AiSizesCard
         workspaceId={workspaceId}
         brandId={brandId}
         editor={editor}
         frame={{ id: frameId, name: frame.name }}
-        editable={state === 'editable'}
       />
     )
   return (
-    <SizesCard editor={editor} picked={{ id: frameId, name: frame.name, width: frame.width, height: frame.height }} />
+    <SizesCard
+      editor={editor}
+      picked={{ id: frameId, name: frame.name, width: frame.width, height: frame.height }}
+      {...(state === 'editable' ? { onRedraw: () => setRedrawing(true) } : {})}
+    />
   )
 }

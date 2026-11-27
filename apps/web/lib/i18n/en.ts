@@ -95,7 +95,10 @@ export const en = {
       sizes: 'Your sizes for ‘{name}’ are ready',
       change: 'Your change to ‘{name}’ is ready',
     },
-    some: 'Some drafts for ‘{name}’ didn’t come out',
+    some: {
+      drafts: 'Some drafts for ‘{name}’ didn’t come out',
+      sizes: 'Some sizes for ‘{name}’ didn’t come out',
+    },
     none: 'Nothing came out for ‘{name}’. Open it to try again.',
     layers: 'Layers for ‘{name}’ almost done: open to finish',
     open: 'Open',

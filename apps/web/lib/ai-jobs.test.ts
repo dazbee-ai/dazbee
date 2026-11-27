@@ -83,6 +83,36 @@ describe('pollJobs', () => {
     expect(p.polling()).toBe(false)
   })
 
+  it('tries a failed read again at the next turn, so a wake that meets a moment offline still finds its job', async () => {
+    const timers: (() => void)[] = []
+    const notes: AiNoteView[] = []
+    const answers: (() => readonly MyAiJob[])[] = [
+      () => [],
+      () => {
+        throw new Error('offline')
+      },
+      () => [job('j3')],
+      () => [ended('j3')],
+    ]
+    const p = pollJobs({
+      read: async () => (answers.shift() ?? (() => []))(),
+      after: (_ms, run) => {
+        timers.push(run)
+        return () => {}
+      },
+      onNotes: (made) => notes.push(...made),
+    })
+    await settle()
+    p.wake()
+    await settle()
+    expect(timers).toHaveLength(1)
+    for (let n = 0; n < 2; n++) {
+      timers.shift()?.()
+      await settle()
+    }
+    expect(notes.map((note) => note.jobId)).toEqual(['j3'])
+  })
+
   it('gives no note for a job on no design, nor keeps polling for one', async () => {
     const { p, notes, tick } = poll([[job('img', { kind: 'image', designId: null, designName: null })], []])
     await settle()

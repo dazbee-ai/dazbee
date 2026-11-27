@@ -389,6 +389,28 @@ describe('GET /brands/:b/ai/designs', () => {
     await endJob(layering, 'done')
     expect(await read()).toEqual([{ designId: team.design, work: 'finishing' }])
   })
+
+  it('marks nothing once a layering job fails, since no tab has layers to finish', async () => {
+    const team = await addTeam()
+    const request = roundRequest(team)
+    const round = await start(team, request)
+    const picture = await addPicture(team)
+    await makeCall(round, 1, { output: madePicture(team, picture) })
+    const frame = request.frames[0] ?? { frameId: '', pictureLayerId: '' }
+    await ask(team, team.editor, 'POST', `/designs/${team.design}/ai/frames/${frame.frameId}/written`, {
+      jobId: round,
+      callIndex: 1,
+    })
+    await endJob(round, 'done')
+    const layering = await start(team, {
+      kind: 'layering',
+      designId: team.design,
+      frames: [{ frameId: frame.frameId, pictureAssetId: picture }],
+    })
+    await endJob(layering, 'failed')
+    const read = await ask(team, team.editor, 'GET', '/ai/designs')
+    expect(DesignWorking.array().parse(read.json)).toEqual([])
+  })
 })
 
 describe('GET /brands/:b/ai/estimate', () => {

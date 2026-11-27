@@ -1,6 +1,7 @@
 // The AI flow's routes under a brand, for members who may use AI (never a Reviewer): starting a job of any flow job
-// kind on a design, the brand's designs with AI work on them, the design's AI frames with their jobs and briefs, a frame's refines, a call marked written
-// into its frame, the layering finish's lease, its end and its split layers, and the estimate an AI action shows.
+// kind on a design, the brand's designs with AI work on them, the design's AI frames with their jobs and briefs, a
+// frame's refines, a call marked written into its frame, the layering finish's lease, its end and its split layers,
+// and the estimate an AI action shows.
 // Outside a workspace, the person's own running and just-ended jobs.
 import { type Context, Hono } from 'hono'
 import type { PgBoss } from 'pg-boss'

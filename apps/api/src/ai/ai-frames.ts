@@ -28,11 +28,12 @@ import { originalKey } from '@dazbee/storage'
 export type Written = 'written' | 'no-frame' | 'not-made' | 'not-its-call'
 
 /**
- * The brand's designs with AI work on them, in one read: a design with an AI frame or refine whose job hasn't ended
- * is running; one with a frame still being made editable whose job ended waits for a tab to finish it.
+ * The brand's designs with AI work on them, in one query: a design with an AI frame or refine whose job hasn't ended
+ * is running; one with a frame still being made editable whose layering job is done waits for a tab to finish it. A
+ * layering job that failed or was cancelled leaves its frames as they were, so it waits for nothing.
  */
 export async function designsWorking(db: Db, workspace: string, brand: string): Promise<DesignWorking[]> {
-  const framed = await db
+  const rows = await db
     .select({ designId: aiFrames.designId, endedAt: aiJobs.endedAt })
     .from(aiFrames)
     .innerJoin(aiJobs, eq(aiJobs.id, aiFrames.jobId))
@@ -41,18 +42,19 @@ export async function designsWorking(db: Db, workspace: string, brand: string): 
       and(
         eq(aiJobs.workspaceId, workspace),
         eq(designs.brandId, brand),
-        or(isNull(aiJobs.endedAt), eq(aiFrames.state, 'layering')),
+        or(isNull(aiJobs.endedAt), and(eq(aiFrames.state, 'layering'), eq(aiJobs.state, 'done'))),
       ),
     )
-  const refined = await db
-    .select({ designId: aiRefines.designId })
-    .from(aiRefines)
-    .innerJoin(aiJobs, eq(aiJobs.id, aiRefines.jobId))
-    .innerJoin(designs, eq(designs.id, aiRefines.designId))
-    .where(and(eq(aiJobs.workspaceId, workspace), eq(designs.brandId, brand), isNull(aiJobs.endedAt)))
+    .unionAll(
+      db
+        .select({ designId: aiRefines.designId, endedAt: aiJobs.endedAt })
+        .from(aiRefines)
+        .innerJoin(aiJobs, eq(aiJobs.id, aiRefines.jobId))
+        .innerJoin(designs, eq(designs.id, aiRefines.designId))
+        .where(and(eq(aiJobs.workspaceId, workspace), eq(designs.brandId, brand), isNull(aiJobs.endedAt))),
+    )
   const work = new Map<string, DesignWorking['work']>()
-  for (const { designId } of refined) work.set(designId, 'running')
-  for (const { designId, endedAt } of framed) {
+  for (const { designId, endedAt } of rows) {
     if (endedAt === null) work.set(designId, 'running')
     else if (!work.has(designId)) work.set(designId, 'finishing')
   }

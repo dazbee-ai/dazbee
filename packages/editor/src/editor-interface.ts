@@ -164,6 +164,12 @@ export interface Editor extends EditorBase {
    * gives why.
    */
   refine(request: RefineRequest): Promise<AiStart>
+  /**
+   * Makes an AI frame editable: starts a layering job for the picture it shows, whose layers arrive in the frame
+   * once a tab finishes it, the picture kept hidden under them. A frame showing no picture, a refusal, or an editor
+   * given no AI routes starts nothing and gives why.
+   */
+  makeEditable(frameId: string): Promise<AiStart>
   /** Tries a failed AI frame again into the same frame; a refusal, or an editor given no AI routes, gives why. */
   tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read from the API; null before the first read, or with no AI routes. */

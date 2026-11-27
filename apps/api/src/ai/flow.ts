@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { PgBoss } from 'pg-boss'
 
-import { LAYERING_CALL, layerSize, pictureAssets, ROUND_CALL } from '@dazbee/ai'
+import { layerSize, pictureAssets, ROUND_CALL } from '@dazbee/ai'
 import { aiBriefs, aiFrames, aiRefines, assets, type Db, newId } from '@dazbee/db'
 import {
   AI_PART_TAG,
@@ -15,6 +15,7 @@ import {
   type BrandFacts,
   type BrandSummary,
   type BriefReference,
+  LAYERING_CALL,
   type RoundInput,
   type StartAiJob,
   type StartMoreLikeThis,

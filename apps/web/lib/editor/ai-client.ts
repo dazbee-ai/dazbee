@@ -1,6 +1,8 @@
 // The AI flow's routes as the editor calls them from the browser: the design's AI frames, a frame's refines, starting
-// a job, marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs on the brand.
+// a job, marking a call written into the design, a layering finish's lease, end, split layers and parts, the estimate an AI action shows on hover, and the person's own jobs on the brand.
 // A job the API refuses comes back as its answer, never thrown.
+import { z } from 'zod'
+
 import type { AiStart, EditorAi } from '@dazbee/editor'
 import {
   AiEstimate,
@@ -9,6 +11,7 @@ import {
   AiJobRefused,
   AiJobStarted,
   AiRefineView,
+  AssetSummary,
   DesignAi,
   MyAiJob,
   type StartAiJob,
@@ -16,14 +19,37 @@ import {
 
 import { brandPath, readJson } from '@/lib/brand-routes.ts'
 
-/** The editor's AI flow on design `designId` of a brand, through the app's routes. */
-export function editorAi(workspaceId: string, brandId: string, designId: string): EditorAi {
+/**
+ * The editor's AI flow on design `designId` of a brand, through the app's routes; Make editable names a layer the
+ * layer plan names nothing in `layerWord` and its number.
+ */
+export function editorAi(workspaceId: string, brandId: string, designId: string, layerWord: string): EditorAi {
   const design = brandPath(workspaceId, brandId, 'designs', designId, 'ai')
+  const job = (jobId: string) => brandPath(workspaceId, brandId, 'ai', 'jobs', jobId)
   return {
+    layerWord,
     read: async () => DesignAi.parse(await readJson(await fetch(design, { cache: 'no-store' }))),
     start: (job: StartAiJob) => startAiJob(workspaceId, brandId, job),
     written: async (frameId: string, written: AiFrameWritten) => {
       await readJson(await fetch(`${design}/frames/${encodeURIComponent(frameId)}/written`, post(written)))
+    },
+    claim: async (jobId: string, holder: string) =>
+      z.object({ held: z.boolean() }).parse(await readJson(await fetch(`${job(jobId)}/claim`, post({ holder })))).held,
+    finished: async (jobId: string, holder: string) => {
+      await readJson(await fetch(`${job(jobId)}/finished`, post({ holder })))
+    },
+    file: async (jobId: string, index: number) => {
+      const response = await fetch(`${job(jobId)}/files/${index}`)
+      if (!response.ok) await readJson(response)
+      return new Uint8Array(await response.arrayBuffer())
+    },
+    part: async (png: Uint8Array) => {
+      const response = await fetch(brandPath(workspaceId, brandId, 'ai', 'parts'), {
+        method: 'POST',
+        headers: { 'content-type': 'image/png' },
+        body: png.slice(),
+      })
+      return AssetSummary.parse(await readJson(response)).id
     },
   }
 }

@@ -1,5 +1,5 @@
 // The API's calls for the AI flow, from the web app's server only: starting a job, reading a design's AI frames and
-// a frame's refines, marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs. The
+// a frame's refines, marking a call written into the design, a layering finish's lease, end and split layers, the estimate an AI action shows on hover, and the person's own jobs. The
 // API refuses each but the last to a Reviewer.
 import 'server-only'
 
@@ -7,6 +7,7 @@ import { z } from 'zod'
 
 import {
   AiEstimate,
+  AiFinishLease,
   type AiFrameWritten,
   type AiJobRefusal,
   AiJobRefused,
@@ -17,7 +18,7 @@ import {
   type StartAiJob,
 } from '@dazbee/schema'
 
-import { ApiFailure, brandRoot, call } from './api.ts'
+import { ApiFailure, brandRoot, call, callBytes } from './api.ts'
 
 /** A job started; or refused, with the API's status, its words and, when saving it was refused, why. */
 export type JobStart =
@@ -40,6 +41,18 @@ export async function startAiJob(workspaceId: string, brandId: string, job: Star
     return { ok: false, status: e.status, error: e.message, refusal }
   }
 }
+
+/** Claims, or renews, layering job `jobId`'s finish for `holder`: its lease. */
+export const claimFinish = (workspaceId: string, brandId: string, jobId: string, holder: string) =>
+  call(AiFinishLease, `${jobPath(workspaceId, brandId, jobId)}/claim`, { method: 'POST', body: { holder } })
+
+/** Ends layering job `jobId`'s finish held by `holder`. */
+export const endFinish = (workspaceId: string, brandId: string, jobId: string, holder: string) =>
+  call(z.null(), `${jobPath(workspaceId, brandId, jobId)}/finished`, { method: 'POST', body: { holder } })
+
+/** Split layer `index` of layering job `jobId`, as PNG bytes. */
+export const layeringFile = (workspaceId: string, brandId: string, jobId: string, index: number) =>
+  callBytes(`${jobPath(workspaceId, brandId, jobId)}/files/${index}`)
 
 /** The design's AI frames, with their jobs and briefs. */
 export const designAi = (workspaceId: string, brandId: string, designId: string) =>
@@ -74,6 +87,11 @@ export const aiEstimate = (workspaceId: string, brandId: string, query: URLSearc
 
 /** The person's own running and just-ended AI jobs, in every workspace they are in. */
 export const myAiJobs = () => call(MyAiJob.array(), '/me/ai/jobs')
+
+/** The API's path of a flow job of the brand. */
+function jobPath(workspaceId: string, brandId: string, jobId: string) {
+  return `${brandRoot(workspaceId, brandId)}/ai/jobs/${encodeURIComponent(jobId)}`
+}
 
 /** The API's path of a design's AI frames. */
 function designAiPath(workspaceId: string, brandId: string, designId: string) {

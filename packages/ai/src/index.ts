@@ -14,7 +14,6 @@ export { pictureAssets } from './features/assets.ts'
 export { actionHold, estimateAction, featureSeconds } from './features/estimate.ts'
 export { FEATURES } from './features/features.ts'
 export { featureCalls, flowCalls, type HeldCall, holdOf } from './features/holds.ts'
-export { LAYERING_CALL } from './features/layering.ts'
 export { ROUND_CALL } from './features/round.ts'
 export { FLOW_CALLS_AT_ONCE, type FlowAttempt, type FlowDeps, runFlowJob } from './features/runner.ts'
 export {

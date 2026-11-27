@@ -100,6 +100,7 @@ function asEditor({ core }: TestEditor): Editor {
     startBrief: unused,
     moreLikeThis: unused,
     refine: unused,
+    makeEditable: unused,
     tryAgain: unused,
     designAi: unused,
     onDesignAi: unused,

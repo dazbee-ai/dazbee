@@ -454,6 +454,20 @@ export async function call<T extends z.ZodType>(
   return schema.parse(json)
 }
 
+/** Calls the API as the signed-in person, as `call` does, for an answer of bytes, such as a picture. */
+export async function callBytes(path: string): Promise<Uint8Array> {
+  const response = await send(path)
+  if (!response.ok) {
+    const json: unknown = await response.json().catch(() => null)
+    throw new ApiFailure(
+      response.status,
+      ApiError.safeParse(json).data?.error ?? `The API answered ${response.status}`,
+      json,
+    )
+  }
+  return new Uint8Array(await response.arrayBuffer())
+}
+
 /** The API's path of a workspace. Ids are lower case, so a workspace typed in upper case is the same one. */
 export function workspaceRoot(workspaceId: string) {
   return `/workspaces/${encodeURIComponent(workspaceId.toLowerCase())}`

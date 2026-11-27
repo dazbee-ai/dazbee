@@ -394,6 +394,14 @@ export const COMMAND_INPUTS: Partial<Record<string, (world: World) => unknown[]>
     { frameId: frame(design), starred: true },
     { frameId: frame(design), starred: false },
   ],
+  'frame.showPicture': ({ design }) => {
+    const picture = free(design)
+    const frameId = design.nodes[picture] ? (frameIdOf(design, picture) ?? frame(design)) : frame(design)
+    return [
+      { frameId, pictureLayerId: picture, layerIds: beside(design, picture), show: true },
+      { frameId, pictureLayerId: picture, layerIds: beside(design, picture), show: false },
+    ]
+  },
   'frame.duplicate': ({ design, made }) => [
     { frameId: frame(design) },
     { frameId: frame(design), newId: made('new-frame') },

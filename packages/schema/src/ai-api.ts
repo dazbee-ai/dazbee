@@ -140,6 +140,9 @@ export const AiBriefView = z.object({
 })
 export type AiBriefView = z.infer<typeof AiBriefView>
 
+/** Each call's index in a layering job: the plan, then frame `n`'s split and reading. */
+export const LAYERING_CALL = { plan: 0, split: (n: number) => 1 + 2 * n, read: (n: number) => 2 + 2 * n } as const
+
 /** Each call's index in a refine: the refine plan, then the edit that makes its new version. */
 export const REFINE_CALL = { plan: 0, edit: 1 } as const
 

@@ -1,5 +1,5 @@
-// A frame's label on the stage: its name, the frame's star after it, and, where it has room, its
-// size; lit while the frame is picked, holds the selection or the text typed into, or is lit from
+// A frame's label on the stage: its name, a small layers icon before it on an AI frame made editable,
+// the frame's star after it, and, where it has room, its size; lit while the frame is picked, holds the selection or the text typed into, or is lit from
 // outside the stage. A starred frame's star always shows, filled; an unstarred one's shows hollow
 // only while the label offers it, as its row is hovered.
 import type { EditorSelection } from '../selection.ts'
@@ -15,6 +15,8 @@ export interface FrameLabelDeps {
   camera: Camera
   /** The frame whose label shows its hollow star, as the pointer hovers its row in a tab that may edit; null with none. */
   starOffered: string | null
+  /** The AI frames made editable, whose picture is hidden: their labels show the layers icon. */
+  editable: ReadonlySet<string>
 }
 
 /** Screen pixels a frame's label needs to show the frame's size beside its name. */
@@ -22,8 +24,10 @@ const SIZE_LABEL_WIDTH = 120
 const SVG = 'http://www.w3.org/2000/svg'
 /** A five-pointed star in a 12 px square, drawn filled or as its outline by the stylesheet. */
 const STAR_PATH = 'M6 1.3 7.23 4.6l3.53.16L8 6.95l.94 3.4L6 8.4l-2.94 1.95.94-3.4-2.76-2.19 3.53-.16z'
+/** Three stacked sheets in a 12 px square: the layers icon. */
+const LAYERS_PATH = 'M6 1.5 11 4 6 6.5 1 4zM1 6.3l5 2.5 5-2.5M1 8.5 6 11l5-2.5'
 
-export function frameLabel(frame: Frame, { selection, typing, camera, starOffered }: FrameLabelDeps) {
+export function frameLabel(frame: Frame, { selection, typing, camera, starOffered, editable }: FrameLabelDeps) {
   // The page's rename field stands in the label's place.
   if (selection.renamingFrame() === frame.id) return null
   const label = document.createElement('div')
@@ -51,6 +55,7 @@ export function frameLabel(frame: Frame, { selection, typing, camera, starOffere
   const name = document.createElement('span')
   name.className = 'frame-name'
   name.textContent = frame.name
+  if (editable.has(frame.id)) title.append(layersIcon())
   title.append(name)
   if (frame.starred || starOffered === frame.id) title.append(star(frame))
   label.append(title)
@@ -61,6 +66,18 @@ export function frameLabel(frame: Frame, { selection, typing, camera, starOffere
     label.append(size)
   }
   return label
+}
+
+/** The layers icon before an editable AI frame's name. */
+function layersIcon() {
+  const el = document.createElementNS(SVG, 'svg')
+  el.setAttribute('class', 'frame-layers')
+  el.setAttribute('viewBox', '0 0 12 12')
+  el.setAttribute('aria-hidden', 'true')
+  const path = document.createElementNS(SVG, 'path')
+  path.setAttribute('d', LAYERS_PATH)
+  el.append(path)
+  return el
 }
 
 /** The star after a frame's name: filled for a starred frame, hollow for one that isn't. */

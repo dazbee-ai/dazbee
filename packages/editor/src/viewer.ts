@@ -105,6 +105,7 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     presence,
     // A viewed version has no AI frames.
     aiWaiting: () => [],
+    aiEditable: () => new Set(),
   })
   const stageField = editorStageField({
     overlay: options.overlay,

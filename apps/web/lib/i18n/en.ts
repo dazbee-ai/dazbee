@@ -406,7 +406,15 @@ export const en = {
       moreLikeThis: 'More like this',
       /** The title of more like this's new section, after the draft's name. */
       moreLikeTitle: 'More like {name}',
-      /** Shown in place of the AI actions while the frame waits for its picture or is being made editable. */
+      makeEditable: 'Make editable',
+      backToPicture: 'Back to picture',
+      /** Said the first time a person goes back to the picture. */
+      backKept: 'Your layer edits are kept: Make editable brings them back.',
+      /** While the layer split's first call wakes the GPU up. */
+      warmingUp: 'Warming up, about a minute',
+      /** A layer Make editable makes that the layer plan names nothing in, before its number. */
+      layerWord: 'Layer',
+      /** Shown in place of the AI actions while the frame waits for its picture, is refined or is being made editable. */
       working: 'Working…',
       /** An AI action's tooltip: its name, its share of the workspace's AI and about how long it takes. */
       estimate: '{name}: about {percent}% of your AI · about {time}',
@@ -616,6 +624,8 @@ export const en = {
       deleteConnector: 'delete connector',
       restore: 'restore',
       importFigma: 'import from Figma',
+      backToPicture: 'back to picture',
+      makeEditable: 'make editable',
     } satisfies Record<StepName, string>,
     undoStep: 'Undo {step}',
     redoStep: 'Redo {step}',

@@ -230,6 +230,7 @@ export function viewedEditor(viewer: Viewer, live: Editor): Editor {
     startBrief: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no brief' }),
     moreLikeThis: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no brief' }),
     refine: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no AI job' }),
+    makeEditable: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no AI job' }),
     tryAgain: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no AI job' }),
     // A viewed version has no AI frames: no glass bar shows on it.
     designAi: () => null,

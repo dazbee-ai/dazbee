@@ -131,6 +131,7 @@ describe('every command', () => {
       'text.fit',
       'page.update',
       'frame.update',
+      'frame.showPicture',
       'frame.resize',
     ])
   })

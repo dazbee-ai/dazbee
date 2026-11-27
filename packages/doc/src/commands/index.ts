@@ -4,7 +4,15 @@ import { nodeAutoLayout } from './auto-layout.ts'
 import { connectorAdd, connectorDelete } from './connectors.ts'
 import { nodeCopyToFrames } from './copy-to-frames.ts'
 import { nodeFlip } from './flip.ts'
-import { frameAdd, frameAddSize, frameDelete, frameDuplicate, frameResize, frameUpdate } from './frames.ts'
+import {
+  frameAdd,
+  frameAddSize,
+  frameDelete,
+  frameDuplicate,
+  frameResize,
+  frameShowPicture,
+  frameUpdate,
+} from './frames.ts'
 import { nodeBoolean, nodeBox, nodeEnclose, nodeGroup, nodeHug, nodeUngroup } from './groups.ts'
 import { guideAdd, guideClear, guideMove, guideRemove } from './guides.ts'
 import { nodeBind, nodeCreate, nodeDelete, nodeLock, nodeMask, nodeRename, nodeUpdate } from './layers.ts'
@@ -57,6 +65,7 @@ export const COMMANDS = {
   'page.delete': pageDelete,
   'frame.add': frameAdd,
   'frame.update': frameUpdate,
+  'frame.showPicture': frameShowPicture,
   'frame.resize': frameResize,
   'frame.duplicate': frameDuplicate,
   'frame.addSize': frameAddSize,

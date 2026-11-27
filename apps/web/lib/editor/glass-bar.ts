@@ -1,7 +1,16 @@
 // What the glass bar above a picked AI frame shows: whether the frame is one, what it can do now (its brief's AI
 // actions, or "Working…" while it waits, is refined or is being made editable), where the bar sits over the stage, what a hover
 // on an AI action says it takes, and each estimate asked once per action and mode while a design is open.
-import type { AiEstimate, AiFeature, AiFrameView, AiMode, DesignAi } from '@dazbee/schema'
+import {
+  type AiEstimate,
+  type AiFeature,
+  type AiFrameView,
+  type AiJobView,
+  type AiMode,
+  type DesignAi,
+  frameIdOf,
+  pictureLayerOf,
+} from '@dazbee/schema'
 
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
@@ -31,6 +40,17 @@ export interface Estimates {
   /** The estimate of `action` in `mode` for `holder`: asked with `ask` the first time, then the same promise. */
   get(holder: object, action: AiFeature, mode: AiMode, ask: () => Promise<AiEstimate>): Promise<AiEstimate>
 }
+
+/**
+ * What Make editable offers on a frame: to start it on a picture (`make`), Back to picture on one showing its layers
+ * (`back`), or to show its layers again over a picture it was made from (`again`, with those layers); null while it
+ * works or on a frame with no picture.
+ */
+export type EditableAction =
+  { kind: 'make' } | { kind: 'back'; layerIds: string[] } | { kind: 'again'; layerIds: string[] }
+
+/** How long the layer split may take before the bar says it is warming up, in ms: its cold start is 50–55 s. */
+export const WARMING_MS = 25_000
 
 /** Pixels the bar keeps from the frame's label, and from the stage's edges and the top islands. */
 const GAP = 8
@@ -129,3 +149,42 @@ export function estimates(): Estimates {
 
 /** The app's estimates of AI actions. */
 export const ESTIMATES = estimates()
+
+/**
+ * What Make editable offers on AI frame `frame` of `design`: the layers made from its picture are the frame's layers
+ * whose ids come from its layering job; Back to picture while its picture is hidden, Make editable again over them
+ * while it shows, else Make editable on a frame that shows its picture.
+ */
+export function editableAction(
+  frame: Pick<AiFrameView, 'frameId' | 'state' | 'jobId' | 'assetId'>,
+  design: {
+    frames: Readonly<Record<string, unknown>>
+    nodes: Readonly<Record<string, { parentId: string; props: { visible?: boolean; fills?: unknown } }>>
+  },
+): EditableAction | null {
+  if (frame.state !== 'arrived' && frame.state !== 'editable') return null
+  const picture = design.nodes[pictureLayerOf(frame.frameId)]
+  if (!picture) return null
+  const layerIds =
+    frame.state === 'editable'
+      ? Object.keys(design.nodes).filter(
+          (id) => id.startsWith(`${frame.jobId}-`) && frameIdOf(design, id) === frame.frameId,
+        )
+      : []
+  if (layerIds.length === 0) return { kind: 'make' }
+  if (picture.props.visible === false) return { kind: 'back', layerIds }
+  // The layers come back only over the picture they were made from; over another, it is made editable anew.
+  const fills = (picture.props.fills ?? []) as { type: string; assetId?: string }[]
+  const shows = fills.find((fill) => fill.type === 'image')?.assetId
+  return shows === frame.assetId ? { kind: 'again', layerIds } : { kind: 'make' }
+}
+
+/** Whether a layering job's split is warming up: it has run `WARMING_MS` and made no layers yet. */
+export function warmingUp(
+  job: Pick<AiJobView, 'kind' | 'state' | 'calls' | 'createdAt'> | undefined,
+  now: number,
+): boolean {
+  if (job?.kind !== 'layering' || (job.state !== 'running' && job.state !== 'waiting')) return false
+  const split = job.calls.some((c) => c.function === 'layer-split' && c.state === 'done')
+  return !split && now - Date.parse(job.createdAt) >= WARMING_MS
+}

@@ -20,27 +20,50 @@ import { RefineBox } from '@/components/editor/refine/refine-box.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { useWheelThrough } from '@/components/editor/wheel-through.ts'
-import { CircleNotchIcon, MagicWandIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
+import {
+  CircleNotchIcon,
+  MagicWandIcon,
+  SparkleIcon,
+  StackIcon,
+  StarIcon,
+  WarningCircleIcon,
+} from '@/components/ui/icons.tsx'
 import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiEstimate } from '@/lib/editor/ai-client.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
 import {
+  editableAction,
   ESTIMATES,
   estimateWords,
   type GlassFrame,
   glassFrame,
   type GlassPlace,
   glassPlace,
+  warmingUp,
 } from '@/lib/editor/glass-bar.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
+
+/** Where the browser remembers that the person was told Back to picture keeps their layers. */
+const BACK_NOTE_KEY = 'dazbee:back-to-picture-told'
 
 /** A labelled action of the bar, its focus ring in Dazbee's blue inside it. */
 const ACTION = cn(
   'flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-small text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover active:bg-pressed disabled:cursor-not-allowed disabled:opacity-45',
   'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--stage-accent)',
 )
+
+/** Whether this is the first time on this browser for `key`, which it then remembers; true where storage is off. */
+function firstTime(key: string): boolean {
+  try {
+    if (localStorage.getItem(key)) return false
+    localStorage.setItem(key, '1')
+  } catch {
+    // Storage is off: the note shows each time.
+  }
+  return true
+}
 
 /**
  * Where the bar goes over the frame, kept current as the view moves and the frame changes; null while a gesture runs
@@ -127,6 +150,7 @@ function FrameBar({
   const t = useMessages()
   const g = t.editor.glass
   const { design } = useLiveDesign(editor)
+  const ai = useDesignAi(editor)
   const frame = design.frames[frameId]
   const [bar, setBar] = useState<HTMLDivElement | null>(null)
   const place = usePlace(editor, frameId, bar)
@@ -136,6 +160,27 @@ function FrameBar({
   const [refining, setRefining] = useState(false)
   if (!frame) return null
   const starred = frame.starred === true
+  const editable = editableAction(shown.frame, design)
+
+  async function makeEditable() {
+    setBusy(true)
+    setSaid(null)
+    try {
+      const started = await editor.makeEditable(frameId)
+      if (!started.ok) setSaid(started.refusal ? t.editor.brief[briefSaid(started)] : g.notStarted)
+    } catch {
+      setSaid(g.unknown)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Shows the picture with its layers hidden, or the layers over the hidden picture, as one undo step. */
+  function showPicture(show: boolean, layerIds: string[]) {
+    editor.session.run('frame.showPicture', { frameId, pictureLayerId: pictureLayerOf(frameId), layerIds, show })
+    // The first Back to picture says the layers are kept, once per person.
+    if (show && firstTime(BACK_NOTE_KEY)) setSaid(g.backKept)
+  }
 
   async function moreLikeThis() {
     if (!frame) return
@@ -176,7 +221,12 @@ function FrameBar({
           {shown.working ? (
             <span role="status" className="flex h-8 items-center gap-1.5 px-3 text-small text-muted">
               <CircleNotchIcon size={14} aria-hidden className="animate-spin" />
-              {g.working}
+              {warmingUp(
+                ai?.jobs.find((j) => j.id === shown.frame.jobId),
+                Date.now(),
+              )
+                ? g.warmingUp
+                : g.working}
             </span>
           ) : (
             <>
@@ -225,6 +275,38 @@ function FrameBar({
                     {t.editor.refine.action}
                   </button>
                 </AiAction>
+              )}
+              {editable?.kind === 'make' && (
+                <AiAction
+                  workspaceId={workspaceId}
+                  brandId={brandId}
+                  editor={editor}
+                  action="layering"
+                  mode={shown.mode}
+                  name={g.makeEditable}
+                >
+                  <button
+                    type="button"
+                    data-action="make-editable"
+                    disabled={busy}
+                    onClick={() => void makeEditable()}
+                    className={cn(ACTION, 'text-muted')}
+                  >
+                    <StackIcon size={16} aria-hidden />
+                    {g.makeEditable}
+                  </button>
+                </AiAction>
+              )}
+              {editable && editable.kind !== 'make' && (
+                <button
+                  type="button"
+                  data-action={editable.kind === 'back' ? 'back-to-picture' : 'make-editable-again'}
+                  onClick={() => showPicture(editable.kind === 'back', editable.layerIds)}
+                  className={cn(ACTION, 'text-muted')}
+                >
+                  <StackIcon size={16} aria-hidden />
+                  {editable.kind === 'back' ? g.backToPicture : g.makeEditable}
+                </button>
               )}
             </>
           )}

@@ -1,16 +1,13 @@
 // Layering: one layer plan, made from the draft the sizes came from, then for each frame's picture the layer split
 // at the job's size with the plan's prompt, and the reading of its text blocks. The layers are stored as parts,
 // which the tab that finishes Make editable crops and places.
-import { type CallOutput, type LayeringInput, LayerPlanAnswer } from '@dazbee/schema'
+import { type CallOutput, LAYERING_CALL, type LayeringInput, LayerPlanAnswer } from '@dazbee/schema'
 
 import { planCall } from '../functions/layer-plan.ts'
 import { splitCall } from '../functions/layer-split.ts'
 import { readCall } from '../functions/reading.ts'
 import { pictureName } from './assets.ts'
 import type { AiFeatureDef, FeatureCall } from './types.ts'
-
-/** Each call's index in a layering job: the plan, then frame `n`'s split and reading. */
-export const LAYERING_CALL = { plan: 0, split: (n: number) => 1 + 2 * n, read: (n: number) => 2 + 2 * n } as const
 
 /**
  * A layering job: the layer plan, which the job stands on, then each frame's split, at the job's size, and its

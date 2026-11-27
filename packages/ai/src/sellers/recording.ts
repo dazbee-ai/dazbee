@@ -12,6 +12,8 @@ import { CALL_KINDS, type CallInput, type Usage } from '@dazbee/schema'
 
 import {
   type PictureBytes,
+  type PieceBytes,
+  type PiecesBytes,
   type SellerAdapter,
   type SellerAnswer,
   SellerError,
@@ -27,11 +29,17 @@ export interface RecordedPicture {
   height: number
 }
 
+/** A recorded split piece: its picture's file, and its facts. */
+export type RecordedPiece = RecordedPicture & Omit<PieceBytes, keyof PictureBytes>
+
+/** A recorded split's split pieces, their pictures as files. */
+export type RecordedPieces = Omit<PiecesBytes, 'items'> & { items: RecordedPiece[] }
+
 /** What a recorded call gave back, its pictures as files. */
 export type RecordedOutput =
   | { kind: 'text'; text: string; json?: unknown }
   | { kind: 'pictures'; pictures: RecordedPicture[] }
-  | { kind: 'layers'; layers: RecordedPicture[]; gpuSeconds: number }
+  | { kind: 'layers'; layers: RecordedPicture[]; pieces?: RecordedPieces; gpuSeconds: number }
 
 /** One recorded call, as its `call.json` holds it. */
 export interface RecordedCall {
@@ -196,7 +204,21 @@ async function writeOutput(folder: string, output: SellerOutput): Promise<Record
     )
   if (output.kind === 'text') return output
   if (output.kind === 'pictures') return { kind: 'pictures', pictures: await write(output.pictures, 'picture') }
-  return { kind: 'layers', layers: await write(output.layers, 'layer'), gpuSeconds: output.gpuSeconds }
+  const layers = await write(output.layers, 'layer')
+  const { pieces } = output
+  if (!pieces) return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
+  // A piece keeps its facts, and its bytes go to a file as a layer's do.
+  const files = await write(pieces.items, 'piece')
+  const items = pieces.items.flatMap((piece, i) => {
+    const file = files[i]
+    return file ? [{ ...factsOfPiece(piece), ...file }] : []
+  })
+  return { kind: 'layers', layers, pieces: { ...pieces, items }, gpuSeconds: output.gpuSeconds }
+}
+
+/** A split piece's facts, apart from its picture. */
+function factsOfPiece({ x, y, part, kind, layer, turned }: RecordedPiece | PieceBytes) {
+  return { x, y, part, kind, layer, turned }
 }
 
 /** The recorded calls kept under `under` in `dir`, oldest first; none when it has no folder. */
@@ -233,5 +255,13 @@ async function outputOf({ path, call }: Recorded): Promise<SellerOutput> {
     )
   if (output.kind === 'text') return output
   if (output.kind === 'pictures') return { kind: 'pictures', pictures: await read(output.pictures) }
-  return { kind: 'layers', layers: await read(output.layers), gpuSeconds: output.gpuSeconds }
+  const layers = await read(output.layers)
+  const { pieces } = output
+  if (!pieces) return { kind: 'layers', layers, gpuSeconds: output.gpuSeconds }
+  const pictures = await read(pieces.items)
+  const items = pieces.items.flatMap((piece, i) => {
+    const picture = pictures[i]
+    return picture ? [{ ...factsOfPiece(piece), ...picture }] : []
+  })
+  return { kind: 'layers', layers, pieces: { ...pieces, items }, gpuSeconds: output.gpuSeconds }
 }

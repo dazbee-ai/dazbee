@@ -205,7 +205,6 @@ export async function startFlowJob(
       const frameIds = request.frames.map((f) => f.frameId)
       const briefId = (await idleFrames(db, workspace, design, frameIds)).find((f) => f.briefId)?.briefId
       const pictures = await keys(request.frames.map((f) => f.pictureAssetId))
-      const [planKey] = request.planAssetId ? await keys([request.planAssetId]) : []
       const frames = request.frames.map((f, n) => ({ frameId: f.frameId, pictureKey: pictures[n] ?? '' }))
       const layering = frameIds.map((frameId, n) => ({
         frameId,
@@ -220,7 +219,6 @@ export async function startFlowJob(
             ...on,
             ...(briefId ? { briefId } : {}),
             frames,
-            ...(planKey ? { planKey } : {}),
             size: await layerSize(tx, workspace),
           }
           return { flow: { kind: 'layering', input }, rows: (job) => pointFrames(design, layering)(tx, job) }

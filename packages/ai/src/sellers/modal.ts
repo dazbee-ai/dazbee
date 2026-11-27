@@ -12,6 +12,7 @@ import { type LayerSplitRequest, LayerSplitResult, type Usage } from '@dazbee/sc
 import type { CostReport } from '../daily-check.ts'
 import {
   type PictureBytes,
+  type PiecesBytes,
   type SellerAdapter,
   type SellerAnswer,
   SellerError,
@@ -81,6 +82,7 @@ async function split(sdk: ModalSdk, request: SellerRequest, pollMs: number): Pro
       size: input.size,
       ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
       ...(input.plan === undefined ? {} : { plan: input.plan }),
+      ...(input.parts === undefined ? {} : { parts: input.parts }),
       askedAt: Date.now(),
     }
     const layering = await (await sdk.cls.fromName(LAYERING.app, LAYERING.cls)).instance()
@@ -94,11 +96,23 @@ async function split(sdk: ModalSdk, request: SellerRequest, pollMs: number): Pro
     width: layer.width,
     height: layer.height,
   }))
+  const pieces = piecesOf(result)
   return {
-    output: { kind: 'layers', layers, gpuSeconds: result.seconds },
+    output: { kind: 'layers', layers, ...(pieces ? { pieces } : {}), gpuSeconds: result.seconds },
     usage: usageOf(result),
     requestId: call.functionCallId,
   }
+}
+
+/** The split pieces a result holds, their pictures as bytes; null for a split that cut none. */
+function piecesOf({ pieces }: LayerSplitResult): PiecesBytes | null {
+  if (!pieces) return null
+  const items = pieces.items.map(({ png, ...piece }) => ({
+    ...piece,
+    bytes: new Uint8Array(Buffer.from(png, 'base64')),
+    type: 'image/png',
+  }))
+  return { ...pieces, items }
 }
 
 /**

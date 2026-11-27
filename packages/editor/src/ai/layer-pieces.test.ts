@@ -222,6 +222,18 @@ describe('pieceLink', () => {
     expect(pieceLink('job7', plan(2), piece('c2'))).not.toBe('job7-c3eafca2')
   })
 
+  it('links a plan’s only logo by its kind, whatever each plan names it, and two logos by their names', () => {
+    const planned = (...elements: Parameters<typeof planCall>[1]) =>
+      layerPlanOf({ calls: [planCall(0, elements)] }, frame(0))
+    const one = planned(element('e1', 'logo', 'Brand logo', ''), element('e2', 'text', 'Headline', 'Big sale'))
+    const other = planned(element('x9', 'logo', 'Northline logo', ''), element('x1', 'text', 'Headline', 'Big sale'))
+    expect(pieceLink('job7', one, piece('e1'))).toBe('job7-eb02e49a')
+    expect(pieceLink('job7', other, piece('x9'))).toBe('job7-eb02e49a')
+    const two = planned(element('e1', 'logo', 'Brand logo', ''), element('e2', 'logo', 'Partner logo', ''))
+    expect(pieceLink('job7', two, piece('e1'))).not.toBe('job7-eb02e49a')
+    expect(pieceLink('job7', two, piece('e1'))).not.toBe(pieceLink('job7', two, piece('e2')))
+  })
+
   it('names a text part with no words by its name', () => {
     const named = layerPlanOf({ calls: [planCall(0, [element('e1', 'text', 'Big sale', ' ')])] }, frame(0))
     expect(pieceLink('job7', named, piece('e1'))).toBe('job7-a3e7120d')

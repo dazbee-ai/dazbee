@@ -18,7 +18,7 @@ These replace the screen decided on 25 Nov: the flow runs on a design's canvas, 
 - **Frame states.** A draft shows nothing. A starred frame shows a small star by its name; an editable frame a small layers icon; a frame can be both. A selected frame shows by its name turning blue, with no outline.
 - **Refine with AI happens on the canvas**: a small box under the frame, the latest exchange above it and earlier ones folded, and the versions as small pictures beside the frame. Marks are drawn with a box or a brush, in Dazbee's blue; there are no pins. The new version replaces the picture in its frame. On an editable frame it changes only its image layers. The conversation and the versions are kept outside the design.
 - **Making a draft editable is optional, and happens in place.** The picture in the frame turns into layers in the same frame; the picture is kept, hidden, and Back to picture brings it back. The server part runs with no tab open; the matching finishes when a tab next opens the design, so the screen says "almost done: open to finish", never "ready" too early.
-- **Other sizes use the editor's Add size card** in the edit panel. On a picture, the AI redraws it in each size picked, as pictures in a section beside it. On an editable frame, Add size makes a new frame from its layers, with Redraw with AI as the other choice. Make all editable turns a set of sizes into layers from one layer plan.
+- **Other sizes use the editor's Add size card** in the edit panel. On a picture, the AI redraws it in each size picked, as pictures in a section beside it. On an editable frame, Add size makes a new frame from its layers, with Redraw with AI as the other choice. Make all editable turns a set of sizes into layers, each size by its own layer plan.
 - **Failures and limits.** A draft that didn't come out says so, with Try again, and isn't charged. When the month's AI is used up, the message sits where the brief box is.
 - **Leaving stops nothing.** Drafts keep arriving with the tab closed; Designs shows that a design is working, and a note names the design when it's done.
 - **Who and where.** Reviewers see no brief box and no actions. Phones are left out of this work: the phone screen is to be redesigned from scratch later, and the AI flow's phone use is decided then.
@@ -40,20 +40,20 @@ Built first, as their own spec, because the AI flow stands on them.
 
 - **Other sizes are made as pictures** from the chosen draft, but only when the person asks. Each is an edit call to the image model with the new shape, which keeps the content and changes the layout. The person checks the sizes side by side.
 - **All sizes are layered in one batch**, then linked at once.
-- **One layer plan for all sizes.** The layer plan is made once, from the chosen draft, and every size is layered with it. That way the same layer in each size can be linked. A size missing a layer has none, and its other links still work.
+- **A layer plan for each size** (27 Nov 2026, in place of one plan for all sizes). Each size is planned from its own picture, because a size the AI redraws lays its parts out elsewhere: split with the plan of the draft they came from, the wide and tall test sizes left 18 of 44 parts without a piece of their own. The same part in each size is linked by its kind and its words. A job of several sizes goes on when one size's plan fails; that size goes back to its picture.
 - **No early work.** Starring a draft doesn't start a layer plan, and asking for drafts doesn't warm up the GPU.
 
 ### Models (24–25 Nov 2026)
 
-| Job                   | Model                                                                  |
-| --------------------- | ---------------------------------------------------------------------- |
-| Drafts                | **GPT Image 2.5 Sunburst** at medium quality, in both modes            |
-| High-quality final    | **None.** A draft is used as it is, or made editable when asked        |
-| Edits and inpainting  | **Seedream 5.5**                                                       |
-| Outpainting           | **Self-hosted**, not a hosted API                                      |
-| Round plan, reading   | **`gpt-6-luna`**; **`gpt-6.1-terra`** for the Precise round plan       |
-| Layer plan            | **`gpt-6.2-sol`**                                                      |
-| Splitting into layers | **Ming-Image-0.1-Design-Layer**, self-hosted on ComfyUI, fp8, 12 steps |
+| Job                   | Model                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| Drafts                | **GPT Image 2.5 Sunburst** at medium quality, in both modes                |
+| High-quality final    | **None.** A draft is used as it is, or made editable when asked            |
+| Edits and inpainting  | **Seedream 5.5**                                                           |
+| Outpainting           | **Self-hosted**, not a hosted API                                          |
+| Round plan, reading   | **`gpt-6-luna`**; **`gpt-6.1-terra`** for the Precise round plan           |
+| Layer plan            | **`gpt-6.1-terra`** at medium effort; `gpt-6.2-sol` stays a preset to pick |
+| Splitting into layers | **Ming-Image-0.1-Design-Layer**, self-hosted on ComfyUI, fp8, 12 steps     |
 
 - Layering runs **without guidance by default**; the API takes an optional guidance value.
 - Layering resolution is **512 px** for people not paying and for demos, and **1024 px** for paying people. Until payments exist, workspaces given AI as a gift get **1024 px** too, set on the grant, not in code (26 Nov 2026).

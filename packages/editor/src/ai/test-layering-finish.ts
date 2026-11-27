@@ -156,7 +156,7 @@ export async function sizesMadeEditable(ai: FakeAi, first: { tab: Tab; finish: E
   ai.makeCall('job2', 0, 'tall')
   ai.makeCall('job2', 1, 'wide')
   await pollAll(first.tab)
-  expect((await first.tab.arrivals.makeAllEditable(['ann-6', 'ann-7'], 'pic1')).ok).toBe(true)
+  expect((await first.tab.arrivals.makeAllEditable(['ann-6', 'ann-7'])).ok).toBe(true)
 }
 
 /** Reads the frames, lets the finish they start run, and reads again. */

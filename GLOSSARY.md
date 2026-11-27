@@ -706,7 +706,7 @@ One picture an AI frame's picture layer has shown: the picture its call made, th
 _Avoid_: Version (that is a saved design), revision, take
 
 **Make all editable**:
-Make editable on a section of AI sizes at once: one layer plan from the draft the sizes came from, a split per size, and the layers of the same split layer linked across the sizes.
+Make editable on a section of AI sizes at once: a layer plan and a split per size, each from the size's own picture, and the layers of the same planned part linked across the sizes.
 _Avoid_: Batch layering, editable all
 
 **Make editable**:
@@ -718,7 +718,7 @@ A picture made from a person's own words and one of three ratios (square, wide o
 _Avoid_: Generated image, AI asset, background (that is one use of it)
 
 **Layering**:
-The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
+The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split with its split pieces, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
 _Avoid_: Decompose, editable-ize, convert
 
 **Mode**:

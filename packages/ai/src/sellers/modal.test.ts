@@ -170,6 +170,83 @@ describe('modalSellerOn', () => {
     expect(row).toMatchObject({ seller: 'modal', state: 'done', sellerRequestId: 'fc-1' })
   })
 
+  it('sends the call’s planned parts, and reads the split pieces the app cut', async () => {
+    const piece = {
+      png: PNG,
+      width: 1,
+      height: 1,
+      x: 3,
+      y: 4,
+      part: 't1',
+      kind: 'text' as const,
+      layer: 1,
+      turned: { cx: 3.5, cy: 4.5, width: 1, height: 1, angle: -11 },
+    }
+    const pieces = {
+      width: 1024,
+      height: 1024,
+      items: [piece],
+      stuck: ['c1'],
+      closeness: { mean: 1, off: 2.7 },
+      seconds: 4.1,
+    }
+    const { sdk, seen } = fakeModal([{ result: { ...RESULT, pieces } }])
+    useSeller(modalSellerOn(sdk, { pollMs: 1 }))
+    const { job, files, input } = await splitJob()
+    const parts = [
+      {
+        id: 't1',
+        kind: 'text' as const,
+        shadow: 'none' as const,
+        layer: 1,
+        box: { left: 100, top: 80, right: 900, bottom: 200 },
+      },
+    ]
+    const output = await callAi(db, {
+      job,
+      attempt: 1,
+      callIndex: 0,
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
+      input: { ...input, parts },
+      signal: new AbortController().signal,
+      files,
+    })
+    expect(seen.spawned).toEqual([[{ picture: 'AQID', size: 1024, parts, askedAt: expect.any(Number) as number }]])
+    expect(output).toMatchObject({
+      kind: 'layers',
+      pieces: {
+        width: 1024,
+        height: 1024,
+        items: [
+          { picture: { width: 1, height: 1 }, x: 3, y: 4, part: 't1', kind: 'text', layer: 1, turned: piece.turned },
+        ],
+        stuck: ['c1'],
+        closeness: { mean: 1, off: 2.7 },
+        seconds: 4.1,
+      },
+    })
+  })
+
+  it('stores no pieces for a split the app answers with none', async () => {
+    const { sdk } = fakeModal([{ result: { ...RESULT, pieces: null } }])
+    useSeller(modalSellerOn(sdk, { pollMs: 1 }))
+    const { job, files, input } = await splitJob()
+    const output = await callAi(db, {
+      job,
+      attempt: 1,
+      callIndex: 0,
+      feature: 'layering',
+      function: split,
+      preset: TEST_PRESET,
+      input,
+      signal: new AbortController().signal,
+      files,
+    })
+    expect(output).not.toHaveProperty('pieces')
+  })
+
   it('picks up the split an earlier attempt spawned by its call id after a restart, and spawns none', async () => {
     const { sdk, seen } = fakeModal(['wait', 'hang', { result: RESULT }])
     useSeller(modalSellerOn(sdk, { pollMs: 1 }))

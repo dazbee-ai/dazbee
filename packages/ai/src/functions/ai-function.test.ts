@@ -55,6 +55,12 @@ const PRESETS: Record<
     ceiling: null,
     prompt: 'c1811c6c05e2aee856db5bac679a2004c0a9c153b1c5a8e001f929aec38692c4',
   },
+  'layer-plan/terra': {
+    model: 'gpt-6.1-terra',
+    settings: { effort: 'medium', tier: 'standard' },
+    ceiling: 16_000,
+    prompt: 'cc38fc937840c67fc6ed1e34495b2ac2d6431286ac8cefd04f58c4a14eec2a34',
+  },
   'layer-plan/sol': {
     model: 'gpt-6.2-sol',
     settings: { effort: 'medium', tier: 'standard' },

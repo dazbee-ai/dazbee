@@ -136,8 +136,8 @@ export const ResizeInput = FlowJob.extend({
 export type ResizeInput = z.infer<typeof ResizeInput>
 
 /**
- * Layering: the picture of each frame to make editable, one per size, split at 512 or 1024 px, and the draft
- * the sizes came from when it isn't one of them, which the one layer plan is made from.
+ * Layering: the picture of each frame to make editable, one per size, each planned from its own picture and split
+ * at 512 or 1024 px.
  */
 export const LayeringInput = FlowJob.extend({
   briefId: Id.optional(),
@@ -145,7 +145,6 @@ export const LayeringInput = FlowJob.extend({
     .array(z.object({ frameId: Id, pictureKey: PictureKey }))
     .min(1)
     .max(20),
-  planKey: PictureKey.optional(),
   size: LayerSplitSize,
 })
 export type LayeringInput = z.infer<typeof LayeringInput>

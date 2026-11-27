@@ -357,7 +357,7 @@ function live(
     refine: (request) => (arrivals ? arrivals.refine(request) : Promise.resolve(NO_AI)),
     makeEditable: (frameId) => (arrivals ? arrivals.makeEditable(frameId) : Promise.resolve(NO_AI)),
     otherSizes: (request) => (arrivals ? arrivals.otherSizes(request) : Promise.resolve(NO_AI)),
-    makeAllEditable: (frameIds, plan) => (arrivals ? arrivals.makeAllEditable(frameIds, plan) : Promise.resolve(NO_AI)),
+    makeAllEditable: (frameIds) => (arrivals ? arrivals.makeAllEditable(frameIds) : Promise.resolve(NO_AI)),
     tryAgain: (frameId) => (arrivals ? arrivals.tryAgain(frameId) : Promise.resolve(NO_AI)),
     designAi: () => arrivals?.read() ?? null,
     onDesignAi: (listener) => arrivals?.onRead(listener) ?? (() => {}),

@@ -49,8 +49,9 @@ describe('estimateAction', () => {
     ).toBe(117)
     const story = { width: 1080, height: 1920 }
     expect(await seconds({ action: 'resize', sizes: [story, story, story, story, story] })).toBe(2 * 117)
-    expect(await seconds({ action: 'layering' })).toBe(38 + 46)
-    expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(38 + 2 * 46)
+    expect(await seconds({ action: 'layering' })).toBe(48 + 46)
+    expect(await seconds({ action: 'layering', sizes: [story, story, story] })).toBe(48 + 2 * 46)
+    expect(await seconds({ action: 'layering', sizes: [story, story, story, story, story] })).toBe(2 * 48 + 3 * 46)
   })
 
   it('holds more for more sizes, and for a Precise round', async () => {

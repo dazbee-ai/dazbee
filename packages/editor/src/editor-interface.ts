@@ -177,8 +177,8 @@ export interface Editor extends EditorBase {
    * frames right of the frame's section, joined to it by a connector, as an arrival no undo takes back.
    */
   otherSizes(request: SizesRequest): Promise<BriefStarted>
-  /** Makes AI frames editable together from one layer plan made from picture `planAssetId`, their layers linked. */
-  makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart>
+  /** Makes AI frames editable together, each by a layer plan of its own picture, their layers linked. */
+  makeAllEditable(frameIds: readonly string[]): Promise<AiStart>
   /**
    * Makes an AI frame editable: starts a layering job for the picture it shows, whose layers arrive in the frame
    * once a tab finishes it, the picture kept hidden under them. A frame showing no picture, a refusal, or an editor

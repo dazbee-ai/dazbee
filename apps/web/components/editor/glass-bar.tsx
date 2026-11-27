@@ -176,7 +176,7 @@ function FrameBar({
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [refining, setRefining] = useState(false)
-  // A size of a section of AI sizes is made editable with the rest of them, from one layer plan.
+  // A size of a section of AI sizes is made editable with the rest of them, in one job.
   const allSizes =
     frame?.sectionId && shown.frame.kind === 'size' && shown.frame.state === 'arrived'
       ? sizesToLayer(ai, design, frame.sectionId)
@@ -199,7 +199,7 @@ function FrameBar({
     setBusy(true)
     setSaid(null)
     try {
-      const started = await editor.makeAllEditable(sizes.frameIds, sizes.planAssetId)
+      const started = await editor.makeAllEditable(sizes.frameIds)
       if (!started.ok) setSaid(started.refusal ? t.editor.brief[briefSaid(started)] : g.notStarted)
     } catch {
       setSaid(g.unknown)

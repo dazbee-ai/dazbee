@@ -1,7 +1,7 @@
 // What a seller's adapter does: make one AI call to the seller and report what it gave back, the usage it
 // reported and its request id. Also the error an adapter throws, how the call function reads it, and the
 // registry of the adapters in use.
-import type { CallInput, CallKind, Usage } from '@dazbee/schema'
+import type { CallInput, CallKind, MadePiece, MadePieces, Usage } from '@dazbee/schema'
 
 /** A picture a seller made, as bytes, before it is stored. */
 export interface PictureBytes {
@@ -11,11 +11,17 @@ export interface PictureBytes {
   height: number
 }
 
+/** A split piece a seller made, before it is stored: its picture as bytes, and its facts. */
+export type PieceBytes = PictureBytes & Omit<MadePiece, 'picture'>
+
+/** A layer split's split pieces, before their pictures are stored. */
+export type PiecesBytes = Omit<MadePieces, 'items'> & { items: PieceBytes[] }
+
 /** What a seller gave back, before its pictures are stored. */
 export type SellerOutput =
   | { kind: 'text'; text: string; json?: unknown }
   | { kind: 'pictures'; pictures: PictureBytes[] }
-  | { kind: 'layers'; layers: PictureBytes[]; gpuSeconds: number }
+  | { kind: 'layers'; layers: PictureBytes[]; pieces?: PiecesBytes; gpuSeconds: number }
 
 /** One call as an adapter is asked to make it. */
 export interface SellerRequest {

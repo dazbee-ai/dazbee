@@ -3,7 +3,7 @@
 // The editor's chrome: two islands floating at the top; a bottom tool dock whose end holds the
 // buttons that open the flyouts (Layers, Assets, AI, Brand) on the stage's start side, Pages and
 // the zoom, and a slot for the mini bar above the selection. The AI button opens the brief box just
-// above the dock, in a tab that may change the design. On a phone a tab bar at the bottom holds
+// above the dock, in a tab that may change the design, and a picked AI frame shows the glass bar above it. On a phone a tab bar at the bottom holds
 // the flyouts' buttons, then the tool button, which opens the dock above it as a tray, then Pages and
 // the zoom. The canvas
 // runs edge to edge under all of it; the stage is the editor itself, told which edges the chrome
@@ -32,6 +32,7 @@ import { DesignName } from './design-name.tsx'
 import { type Flyout, isMenuSheet, isPanel, isSheet, setFlyout, setIslandsBottom, useEditState } from './edit-store.ts'
 import { FlyoutButtons } from './flyout-buttons.tsx'
 import { FlyoutCard } from './flyout-card.tsx'
+import { GlassBar } from './glass-bar.tsx'
 import { SaveStatus } from './save-status.tsx'
 import { type ChromeInsets, measureInsets } from './stage-insets.ts'
 import { BAR_DIVIDER } from './styles.ts'
@@ -297,6 +298,7 @@ export function EditorShell({
             {briefing && editor && (
               <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
             )}
+            {editor && <GlassBar workspaceId={workspaceId} brandId={brandId} editor={editor} />}
             <ToastSlot editor={editor}>{toast}</ToastSlot>
             <QuickActions editor={editor} tray={tray} />
           </main>

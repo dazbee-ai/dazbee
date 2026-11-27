@@ -7,7 +7,7 @@
 // new line. Once the job is saved, the brief's section and four frames are placed below everything on the page
 // and fill as their pictures arrive, and the view fits them. A brief that doesn't start places nothing, and one
 // quiet line above the row says why. It warns the same way when four more drafts would take the design past its
-// size warning.
+// size warning. Edit brief on a brief's section fills it with that brief, shown at once in a box already open.
 import * as Popover from '@radix-ui/react-popover'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 
@@ -74,6 +74,17 @@ export function BriefBox({
   const note = said ? b[said] : nearLimit ? b.nearLimit : null
   // Kept as it changes, so the box closed and opened again shows it.
   useEffect(() => BRIEF_DRAFTS.set(editor, { words, pictures, sizeId, mode }), [editor, words, pictures, sizeId, mode])
+  useEffect(
+    () =>
+      BRIEF_DRAFTS.onFill(editor, (draft) => {
+        setWords(draft.words)
+        setPictures(draft.pictures)
+        setSizeId(draft.sizeId)
+        setMode(draft.mode)
+        setSaid(null)
+      }),
+    [editor],
+  )
 
   const upload = (picked: File[]) => {
     for (const file of picked.slice(0, MAX_REFERENCES - pictures.length)) {

@@ -26,6 +26,9 @@ describe('Editor', () => {
       | 'fetchVersion'
       | 'pauseInput'
       | 'startBrief'
+      | 'moreLikeThis'
+      | 'designAi'
+      | 'onDesignAi'
       | 'destroy'
     >()
     expectTypeOf<Exclude<CoreOwn, EditorOwn>>().toEqualTypeOf<
@@ -185,6 +188,9 @@ describe('Editor', () => {
       | 'fetchVersion'
       | 'pauseInput'
       | 'startBrief'
+      | 'moreLikeThis'
+      | 'designAi'
+      | 'onDesignAi'
       | 'destroy'
     >()
   })

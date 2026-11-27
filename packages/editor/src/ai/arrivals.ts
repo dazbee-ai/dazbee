@@ -1,5 +1,5 @@
-// AI results arriving in the design (ADR-0004): a brief the tab starts, placed once its job is saved, and each
-// picture made, written into its frame's picture layer. Each is an arrival: commands run untracked, one change set
+// AI results arriving in the design (ADR-0004): a brief, or more like a draft, the tab starts, placed once its job
+// is saved, and each picture made, written into its frame's picture layer. Each is an arrival: commands run untracked, one change set
 // that no undo of any tab takes back, so Ctrl+Z never removes paid work. Every open tab reads the design's AI
 // frames as it opens, then every 10 s while it is shown, or every 3 s while a frame of the design waits for its
 // picture, so a tab opened before a colleague's brief fills it too. Once a picture's arrival is stored, the tab
@@ -17,7 +17,16 @@ import {
   type StartAiJob,
 } from '@dazbee/schema'
 
-import { type BriefPlan, briefSpot, pictureLayerOf, pictureState, placeBrief, planBrief } from './place-brief.ts'
+import {
+  type BriefPlan,
+  briefSpot,
+  moreLikeSpot,
+  pictureLayerOf,
+  pictureState,
+  placeBrief,
+  planBrief,
+  shownPicture,
+} from './place-brief.ts'
 
 /**
  * How a job a tab starts came out: saved, or refused with why, the refusal named when saving it was refused; or,
@@ -43,6 +52,14 @@ export interface BriefRequest {
   pictures: string[]
   size: AiSize
   mode: AiMode
+  /** Each draft's name, by its place from 0. */
+  draftName: (n: number) => string
+}
+
+/** More like a draft: the AI frame liked, the new section's title and each new draft's name. */
+export interface MoreLikeRequest {
+  frameId: string
+  title: string
   /** Each draft's name, by its place from 0. */
   draftName: (n: number) => string
 }
@@ -92,6 +109,16 @@ export interface EditorArrivals {
    * A refused job places nothing.
    */
   startBrief(request: BriefRequest): Promise<BriefStarted>
+  /**
+   * Starts more like an AI frame of a brief: a round of its brief whose planner sees the picture the frame's picture
+   * layer shows, placed once it is saved in a new section right of the frame's section, joined to the frame by a
+   * connector, as one arrival. A frame of no brief, or showing no picture, starts nothing.
+   */
+  moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
+  /** The design's AI frames, jobs and briefs as last read, with the frames marked written since; null before the first read. */
+  read(): DesignAi | null
+  /** Calls back after each read, and each time a frame is marked written. */
+  onRead(listener: () => void): () => void
   /** Reads the design's AI frames now and writes the pictures that arrived; the next read is 3 s or 10 s after. */
   poll(): Promise<void>
   /** The AI frames of the design that wait for their picture, as last read, among those the design has with their picture layer. */
@@ -130,6 +157,8 @@ export function editorArrivals({
   const stored = new Set<string>()
   /** The calls whose arrival the server refused: this tab writes them no more. */
   const refused = new Set<string>()
+  /** What hears each read. */
+  const readers = new Set<() => void>()
 
   function waiting(): string[] {
     const { nodes } = session.design()
@@ -161,27 +190,60 @@ export function editorArrivals({
       mode: request.mode,
     })
     if (!started.ok) return started
-    const placed = await place(plan, request)
-    void poll()
-    if (!placed) return { ok: false, refusal: null, message: 'the design did not take the drafts', notPlaced: true }
-    return { ok: true, job: started.job, sectionId: plan.sectionId }
+    return placed(started.job, plan, () => {
+      const at = briefSpot(session.design().frames, request.pageId, request.size, zoomFor)
+      placeBrief(session, { plan, ...request }, at)
+    })
+  }
+
+  async function moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted> {
+    const design = session.design()
+    const frame = design.frames[request.frameId]
+    const aiFrame = read?.frames.find((f) => f.frameId === request.frameId)
+    const brief = read?.briefs.find((b) => b.id === aiFrame?.briefId)
+    const layer = layerIn(pictureLayerOf(request.frameId), request.frameId)
+    const liked = layer && shownPicture(layer)
+    if (!frame || !brief || !liked) return { ok: false, refusal: null, message: 'that frame shows no draft of a brief' }
+    const plan = planBrief(newId)
+    const size = { width: frame.width, height: frame.height }
+    const started = await ai.start({
+      kind: 'more-like-this',
+      designId,
+      sectionId: plan.sectionId,
+      frames: plan.frames,
+      words: brief.words,
+      pictures: brief.pictureAssetIds,
+      size,
+      mode: brief.mode,
+      likedAssetId: liked,
+    })
+    if (!started.ok) return started
+    return placed(started.job, plan, () => {
+      const now = session.design()
+      const at = moreLikeSpot(now, request.frameId, size, zoomFor)
+      const pageId = now.frames[request.frameId]?.pageId
+      // The liked draft deleted meanwhile: the drafts aren't placed, and stay in the brand's images.
+      if (!at || !pageId) throw new Error('the liked draft is gone')
+      placeBrief(session, { plan, pageId, words: brief.words, size, ...request, from: request.frameId }, at)
+    })
   }
 
   /**
-   * Places a started brief below everything on its page as one arrival; resolves whether the server stored it.
-   * Not placed, as on a page deleted meanwhile or a design at its limits, its drafts stay in the brand's images.
+   * Places a started job's section and frames with `steps`, as one arrival, then reads the design's AI frames; how
+   * the start came out. Not placed, as on a page deleted meanwhile or a design at its limits, its drafts stay in the
+   * brand's images.
    */
-  async function place(plan: BriefPlan, request: BriefRequest): Promise<boolean> {
-    const placing = { plan, pageId: request.pageId, words: request.words, size: request.size }
+  async function placed(job: string, plan: BriefPlan, steps: () => void): Promise<BriefStarted> {
+    let outcome: 'saved' | 'none' = 'none'
     try {
-      const outcome = await arrive(session, signal, () => {
-        const at = briefSpot(session.design().frames, request.pageId, request.size, zoomFor)
-        placeBrief(session, { ...placing, draftName: request.draftName }, at)
-      })
-      return outcome === 'saved'
+      outcome = await arrive(session, signal, steps)
     } catch {
-      return false
+      // Refused, or not stored: told as not placed.
     }
+    void poll()
+    if (outcome !== 'saved')
+      return { ok: false, refusal: null, message: 'the design did not take the drafts', notPlaced: true }
+    return { ok: true, job, sectionId: plan.sectionId }
   }
 
   function poll(): Promise<void> {
@@ -196,6 +258,7 @@ export function editorArrivals({
         if (signal.aborted) return
         read = now
         for (const frame of now.frames) writePicture(now, frame)
+        told()
       } catch {
         // Offline, or the API is away: the next read tries again.
       } finally {
@@ -251,7 +314,13 @@ export function editorArrivals({
         stored.add(key)
         await ai.written(frame.frameId, { jobId: frame.jobId, callIndex: frame.callIndex })
         stored.delete(key)
-        if (read) read = { ...read, frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived' } : f)) }
+        if (read) {
+          read = {
+            ...read,
+            frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived', assetId: asset } : f)),
+          }
+          told()
+        }
         // With no frame left waiting, the next read waits the longer time.
         if (next && waiting().length === 0) {
           next()
@@ -265,6 +334,15 @@ export function editorArrivals({
       })
       .finally(() => writing.delete(key))
     writing.set(key, done)
+  }
+
+  function told() {
+    for (const listener of [...readers]) listener()
+  }
+
+  function onRead(listener: () => void) {
+    readers.add(listener)
+    return () => readers.delete(listener)
   }
 
   const offShown = shown.onChange(() => {
@@ -283,6 +361,9 @@ export function editorArrivals({
 
   return {
     startBrief,
+    moreLikeThis,
+    read: () => read,
+    onRead,
     poll,
     waiting,
     settled,

@@ -1,8 +1,8 @@
 'use client'
 
 // The hooks that follow the editor: the selection, the picked frame, the design, the page the
-// canvas shows and its frames, whether the hidden layers show, the text being edited, and what one
-// of the selection's actions would do. Each re-renders its caller when what it follows changes.
+// canvas shows and its frames, whether the hidden layers show, the text being edited, what one
+// of the selection's actions would do, and the design's AI frames as last read. Each re-renders its caller when what it follows changes.
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import type { Editor, Frame } from '@dazbee/editor'
@@ -79,6 +79,13 @@ export function usePickedConnector(editor: Editor) {
     }
   }, [editor])
   return picked
+}
+
+/** The design's AI frames, jobs and briefs as the editor last read them, or null before the first read, kept current. */
+export function useDesignAi(editor: Editor) {
+  const subscribe = useMemo(() => (listener: () => void) => editor.onDesignAi(listener), [editor])
+  const read = () => editor.designAi()
+  return useSyncExternalStore(subscribe, read, read)
 }
 
 /** The frame picked as a whole, or null, kept current. */

@@ -98,6 +98,9 @@ function asEditor({ core }: TestEditor): Editor {
     fetchVersion: () => Promise.resolve(null),
     pauseInput: () => () => {},
     startBrief: unused,
+    moreLikeThis: unused,
+    designAi: unused,
+    onDesignAi: unused,
     destroy: unused,
   }
 }

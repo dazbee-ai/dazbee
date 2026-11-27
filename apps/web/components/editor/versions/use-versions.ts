@@ -211,7 +211,7 @@ export function useVersionViewer(
 
 /**
  * The viewer as the page's canvas-facing parts take an editor: its own members, and none of what
- * places, uploads, exports or starts a brief, which a viewed version never does; the tab's save state
+ * places, uploads, exports, starts a brief or reads AI frames, which a viewed version never does; the tab's save state
  * and connection stay the live editor's.
  */
 export function viewedEditor(viewer: Viewer, live: Editor): Editor {
@@ -228,5 +228,9 @@ export function viewedEditor(viewer: Viewer, live: Editor): Editor {
     fetchVersion: live.fetchVersion,
     pauseInput: () => () => {},
     startBrief: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no brief' }),
+    moreLikeThis: () => Promise.resolve({ ok: false, refusal: null, message: 'a version viewed starts no brief' }),
+    // A viewed version has no AI frames: no glass bar shows on it.
+    designAi: () => null,
+    onDesignAi: () => () => {},
   }
 }

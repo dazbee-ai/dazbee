@@ -1,0 +1,110 @@
+import { describe, expect, it } from 'vitest'
+
+import type { AiEstimate, AiFrameView, DesignAi } from '@dazbee/schema'
+
+import { en } from '@/lib/i18n/en.ts'
+
+import { estimates, estimateWords, glassFrame, glassPlace } from './glass-bar.ts'
+
+const AT = '2026-11-27T10:00:00.000Z'
+
+const frame = (frameId: string, state: AiFrameView['state'], briefId: string | null = 'b1'): AiFrameView => ({
+  frameId,
+  briefId,
+  jobId: 'j1',
+  callIndex: 1,
+  kind: 'draft',
+  state,
+  assetId: state === 'arrived' ? 'pic' : null,
+  updatedAt: AT,
+})
+
+const AI: DesignAi = {
+  frames: [frame('f1', 'arrived'), frame('f2', 'waiting'), frame('f3', 'failed'), frame('f4', 'arrived', null)],
+  jobs: [],
+  briefs: [
+    {
+      id: 'b1',
+      sectionId: 's1',
+      title: 'Sale',
+      words: 'Sale',
+      pictureAssetIds: [],
+      referenceAssetId: null,
+      size: { width: 1080, height: 1080 },
+      mode: 'precise',
+      planned: true,
+      createdAt: AT,
+    },
+  ],
+}
+
+describe('glassFrame', () => {
+  it('is null for a frame that isn’t an AI frame, as a copy isn’t, and before the first read', () => {
+    expect(glassFrame(AI, 'copy')).toBeNull()
+    expect(glassFrame(null, 'f1')).toBeNull()
+    expect(glassFrame(AI, null)).toBeNull()
+  })
+
+  it('offers More like this on a draft of a brief that arrived, in its brief’s mode', () => {
+    expect(glassFrame(AI, 'f1')).toMatchObject({ mode: 'precise', moreLike: true, working: false })
+  })
+
+  it('turns the AI actions off while the frame waits, and offers no More like this on a failed one or one of no brief', () => {
+    expect(glassFrame(AI, 'f2')).toMatchObject({ moreLike: false, working: true })
+    expect(glassFrame(AI, 'f3')).toMatchObject({ moreLike: false, working: false })
+    expect(glassFrame(AI, 'f4')).toMatchObject({ mode: 'fast', moreLike: false })
+  })
+})
+
+describe('glassPlace', () => {
+  const at = { width: 200, height: 40, room: 1000, under: 60 }
+
+  it('centres the bar over the frame, above its label', () => {
+    expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400 })).toEqual({ left: 400, top: 352 })
+  })
+
+  it('lifts the bar above the title of the frame’s section where it would cover it', () => {
+    const title = { x: 250, y: 330, width: 400, height: 30 }
+    expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400, title })).toEqual({ left: 400, top: 282 })
+    const aside = { ...title, x: 700 }
+    expect(glassPlace({ ...at, frame: { left: 300, right: 700 }, label: 400, title: aside }).top).toBe(352)
+  })
+
+  it('keeps the bar inside the stage’s sides and below the top islands', () => {
+    expect(glassPlace({ ...at, frame: { left: -500, right: 100 }, label: 50 })).toEqual({ left: 8, top: 68 })
+    expect(glassPlace({ ...at, frame: { left: 900, right: 1400 }, label: 400 }).left).toBe(792)
+  })
+})
+
+describe('estimateWords', () => {
+  const g = en.editor.glass
+
+  it('names the action until the estimate is known, then its share and time', () => {
+    expect(estimateWords(null, 'More like this', g)).toBe('More like this')
+    expect(estimateWords({ share: 2, seconds: 45 }, 'More like this', g)).toBe(
+      'More like this: about 2% of your AI · about 45 s',
+    )
+    expect(estimateWords({ share: 'under-1', seconds: 150 }, 'X', g)).toBe('X: under 1% of your AI · about 3 min')
+    expect(estimateWords({ share: null, seconds: 30 }, 'X', g)).toBe('X: about 30 s')
+  })
+})
+
+describe('estimates', () => {
+  it('asks each action and mode once per editor, and again after a failed ask', async () => {
+    const kept = estimates()
+    const editor = {}
+    let asked = 0
+    const answer: AiEstimate = { share: 1, seconds: 40 }
+    const ask = () => {
+      asked++
+      return asked === 1 ? Promise.reject(new Error('offline')) : Promise.resolve(answer)
+    }
+    await expect(kept.get(editor, 'more-like-this', 'fast', ask)).rejects.toThrow('offline')
+    expect(await kept.get(editor, 'more-like-this', 'fast', ask)).toBe(answer)
+    expect(await kept.get(editor, 'more-like-this', 'fast', ask)).toBe(answer)
+    expect(asked).toBe(2)
+    await kept.get(editor, 'more-like-this', 'precise', ask)
+    await kept.get({}, 'more-like-this', 'fast', ask)
+    expect(asked).toBe(4)
+  })
+})

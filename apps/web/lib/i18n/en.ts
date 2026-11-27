@@ -365,6 +365,25 @@ export const en = {
       notPlaced: 'The drafts are being made, but this design couldn’t take them. They’ll be in the brand’s images.',
       nearLimit: 'This design is nearly full, so four more drafts may not fit. Start this brief in a new design.',
       close: 'Close brief',
+      /** A picture of a brief Edit brief filled the box with, by its place: 1 to 4. */
+      pictureName: 'Picture {n}',
+    },
+    /** The glass bar above a picked AI frame: its AI actions with what each takes, and the star. */
+    glass: {
+      label: 'AI actions',
+      moreLikeThis: 'More like this',
+      /** The title of more like this's new section, after the draft's name. */
+      moreLikeTitle: 'More like {name}',
+      /** Shown in place of the AI actions while the frame waits for its picture or is being made editable. */
+      working: 'Working…',
+      /** An AI action's tooltip: its name, its share of the workspace's AI and about how long it takes. */
+      estimate: '{name}: about {percent}% of your AI · about {time}',
+      estimateUnder: '{name}: under 1% of your AI · about {time}',
+      estimateTime: '{name}: about {time}',
+      seconds: '{n} s',
+      minutes: '{n} min',
+      notStarted: 'More like this didn’t start. Try again.',
+      unknown: 'We couldn’t tell whether it started. Look for its drafts in a minute before trying again.',
     },
     /** Make an image, in Assets: a few words and a ratio become an AI image among the brand's images. */
     makeImage: {
@@ -1651,6 +1670,8 @@ export const en = {
       ungroup: 'Ungroup',
       duplicate: 'Duplicate',
       deleteWithFrames: 'Delete section and frames',
+      /** A brief's section: opens the brief box filled with its brief, to run it changed as a new section. */
+      editBrief: 'Edit brief',
       nameOf: 'Name of {name}',
       /** The Pages card's list of the shown page's sections, and each row's name for a screen reader. */
       list: 'Sections',

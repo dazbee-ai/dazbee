@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { JOB_STARTED, JOBS_CHANNEL } from '@/lib/ai-jobs.ts'
-import { closeNotes, notesArrived, noteWords, onNotes, serverNotes, shownNotes, tabPoll } from '@/lib/ai-notes.ts'
+import { closeNotes, jobsChanged, noteWords, onNotes, serverNotes, shownNotes, tabPoll } from '@/lib/ai-notes.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
@@ -30,7 +30,7 @@ export function AiNote({
   const t = useMessages()
   const router = useRouter()
   const shown = useSyncExternalStore(onNotes, shownNotes, serverNotes)
-  const came = useSyncExternalStore(onNotes, notesArrived, notesArrived)
+  const changed = useSyncExternalStore(onNotes, jobsChanged, jobsChanged)
 
   useEffect(() => {
     const p = tabPoll()
@@ -51,13 +51,13 @@ export function AiNote({
     }
   }, [])
 
-  // Outside the editor, notes coming in while the page shows bring its dots up to date.
-  const seen = useRef(came)
+  // Outside the editor, notes coming in or jobs starting while the page shows bring its designs and dots up to date.
+  const seen = useRef(changed)
   useEffect(() => {
-    if (came === seen.current) return
-    seen.current = came
+    if (changed === seen.current) return
+    seen.current = changed
     if (openDesignId === undefined) router.refresh()
-  }, [came, openDesignId, router])
+  }, [changed, openDesignId, router])
 
   // The open design's notes go to its toast.
   useEffect(() => {

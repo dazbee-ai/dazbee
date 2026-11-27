@@ -128,6 +128,28 @@ describe('pollJobs', () => {
     expect(kept).toEqual([[]])
   })
 
+  it('tells of the jobs a read finds started that the last read didn’t, once each', async () => {
+    const started: (readonly string[])[] = []
+    const timers: (() => void)[] = []
+    const answers: (readonly MyAiJob[])[] = [[job('j5')], [job('j5'), job('j6')], [job('j5'), job('j6')]]
+    pollJobs({
+      read: async () => answers.shift() ?? [],
+      after: (_ms, run) => {
+        timers.push(run)
+        return () => {}
+      },
+      onNotes: () => {},
+      running: ['j5'],
+      onStarted: (ids) => started.push(ids),
+    })
+    await settle()
+    for (let n = 0; n < 2; n++) {
+      timers.shift()?.()
+      await settle()
+    }
+    expect(started).toEqual([['j6']])
+  })
+
   it('gives no note for a job on no design, nor keeps polling for one', async () => {
     const { p, notes, tick } = poll([[job('img', { kind: 'image', designId: null, designName: null })], []])
     await settle()

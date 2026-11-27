@@ -8,7 +8,7 @@ import { MyAiJob } from '@dazbee/schema'
 
 import { format, type Messages } from '@/lib/i18n/index.ts'
 
-import { type AiNoteView, type NoteKind, pollJobs } from './ai-jobs.ts'
+import { type AiNoteView, JOBS_CHANNEL, type NoteKind, pollJobs } from './ai-jobs.ts'
 
 /** Where the tab keeps its notes, and the jobs on a design that ran at its last read. */
 const NOTES_KEY = 'dazbee.aiNotes'
@@ -29,8 +29,8 @@ const NO_NOTES: readonly AiNoteView[] = []
 
 /** The notes showing in this tab, oldest first. */
 let notes: readonly AiNoteView[] = stored(NOTES_KEY, StoredNote.array()) ?? []
-/** How many times notes came in this tab. */
-let arrived = 0
+/** How many times notes came, or jobs were found started, in this tab: the page's dots may have changed. */
+let changes = 0
 const listeners = new Set<() => void>()
 let poll: ReturnType<typeof pollJobs> | null = null
 
@@ -48,8 +48,14 @@ export function tabPoll() {
     },
     running: stored(RUNNING_KEY, z.string().array()) ?? [],
     onRunning: (ids) => store(RUNNING_KEY, ids),
+    // A job found started, as a round the brand's home started on the server, may be news to the person's other tabs.
+    onStarted: () => {
+      changes += 1
+      tellOtherTabs()
+      for (const listener of listeners) listener()
+    },
     onNotes: (made) => {
-      arrived += 1
+      changes += 1
       setNotes([...notes.filter((n) => !made.some((m) => m.jobId === n.jobId)), ...made])
     },
   })
@@ -74,9 +80,9 @@ export function serverNotes() {
   return NO_NOTES
 }
 
-/** How many times notes came, which grows by one each time some do. */
-export function notesArrived() {
-  return arrived
+/** How many times the jobs changed as the page shows them, growing by one each time notes come or jobs start. */
+export function jobsChanged() {
+  return changes
 }
 
 /** Closes the notes `closing` picks. */
@@ -95,6 +101,14 @@ export function noteWords(t: Messages, note: Pick<AiNoteView, 'kind' | 'feature'
     layers: w.layers,
   }
   return format(said[note.kind], { name: note.designName })
+}
+
+/** Tells the person's other tabs that a job started, which wakes their polls. */
+function tellOtherTabs() {
+  if (typeof BroadcastChannel === 'undefined') return
+  const channel = new BroadcastChannel(JOBS_CHANNEL)
+  channel.postMessage('started')
+  channel.close()
 }
 
 /** What the tab keeps under `key`, read as `schema`; null when there is none, or no storage. */

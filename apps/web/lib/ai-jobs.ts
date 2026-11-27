@@ -29,6 +29,8 @@ export interface JobPollDeps {
   running?: readonly string[]
   /** Keeps the jobs on a design that ran at this read, for `running` after a reload. */
   onRunning?: (ids: readonly string[]) => void
+  /** Called with the jobs on a design this read found running that the last didn't, such as a round started elsewhere. */
+  onStarted?: (ids: readonly string[]) => void
 }
 
 /** How often the person's jobs are read while one runs: 10 s. */
@@ -75,8 +77,11 @@ export function pollJobs(deps: JobPollDeps) {
       if (stopped) return
       failed = 0
       const notes = notesOf(running, jobs)
+      const before = running
       running = new Set(jobs.filter(runsOnDesign).map((job) => job.id))
       deps.onRunning?.([...running])
+      const started = [...running].filter((id) => !before.has(id))
+      if (started.length > 0) deps.onStarted?.(started)
       if (notes.length > 0) deps.onNotes(notes)
       next = running.size > 0
     } catch {

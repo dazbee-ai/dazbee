@@ -225,8 +225,8 @@ const SplitLayer = z.object({
 })
 
 /** The kinds of split piece: a planned part's kind, or `other` for loose bits of a split layer that are no part's. */
-export const PieceKind = z.enum([...PART_KINDS, 'other'])
-export type PieceKind = z.infer<typeof PieceKind>
+export const SplitPieceKind = z.enum([...PART_KINDS, 'other'])
+export type SplitPieceKind = z.infer<typeof SplitPieceKind>
 
 /**
  * A split piece's box turned to the angle the piece is drawn at, in the picture's own pixels: its centre, its size
@@ -258,7 +258,7 @@ export const pieceFacts = {
   x: z.number().int().nonnegative(),
   y: z.number().int().nonnegative(),
   part: z.string().nullable(),
-  kind: PieceKind,
+  kind: SplitPieceKind,
   layer: z.number().int().min(1),
   turned: PieceTurned.nullable(),
 }

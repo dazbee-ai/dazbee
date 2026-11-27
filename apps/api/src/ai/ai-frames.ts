@@ -2,7 +2,7 @@
 // call, and the briefs; a frame's refines; and a call marked written once a tab's arrival of it is confirmed, so it
 // is written into the design once. A frame's stored state is read with its job: a waiting frame whose call failed,
 // or whose job ended without its picture, is failed, and a frame whose layering job ended without its layers holds
-// its picture again.
+// its picture again. And the draft a design's picture shows in its cover frame while no tab has written it.
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 
 import { readJobs } from '@dazbee/ai'
@@ -18,6 +18,7 @@ import {
   briefTitle,
   type DesignAi,
   type DesignWorking,
+  madeCallPicture,
   REFINE_CALL,
   RefineInput,
   RefinePlanAnswer,
@@ -59,6 +60,27 @@ export async function designsWorking(db: Db, workspace: string, brand: string): 
     else if (!work.has(designId)) work.set(designId, 'finishing')
   }
   return [...work].map(([designId, state]) => ({ designId, work: state }))
+}
+
+/**
+ * The picture an AI draft has made for frame `frameId` of design `design` that no tab has written into the design
+ * yet: the frame's own draft's, or, while that one isn't made, the first made among the design's other waiting
+ * frames, by their calls' order. Null when the frame isn't an AI frame waiting for its picture, or no draft is made.
+ */
+export async function waitingDraft(db: Db, workspace: string, design: string, frameId: string): Promise<string | null> {
+  const rows = await db
+    .select({ frameId: aiFrames.frameId, jobId: aiFrames.jobId, callIndex: aiFrames.callIndex })
+    .from(aiFrames)
+    .where(and(eq(aiFrames.designId, design), eq(aiFrames.state, 'waiting')))
+  const own = rows.find((row) => row.frameId === frameId)
+  if (!own) return null
+  const jobs = await readJobs(db, workspace, [...new Set(rows.map((row) => row.jobId))])
+  const others = rows.filter((row) => row !== own).sort((a, b) => a.callIndex - b.callIndex)
+  for (const row of [own, ...others]) {
+    const picture = madeCallPicture(jobs, row.jobId, row.callIndex)
+    if (picture) return picture
+  }
+  return null
 }
 
 /** The design's AI frames, every job that fills or refines them with each call, and its briefs. */

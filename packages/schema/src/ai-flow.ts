@@ -13,8 +13,9 @@ import {
   PartShadow,
   PictureKey,
 } from './ai.ts'
-import type { DesignInput, DesignMeta } from './design.ts'
+import type { Design, DesignInput, DesignMeta } from './design.ts'
 import { FRAME_GAP, NEW_FRAME_FILLS } from './frames.ts'
+import type { Layer } from './layers.ts'
 import type { SolidPaint } from './paint.ts'
 import { Id } from './primitives.ts'
 
@@ -365,4 +366,22 @@ export function planRound(newId: () => string): RoundPlan {
     return { frameId, pictureLayerId: pictureLayerOf(frameId) }
   })
   return { sectionId: newId(), frames }
+}
+
+/**
+ * `design` with frame `frameId`'s picture layer showing picture `assetId`, as the arrival of the frame's draft
+ * writes it: an image fill that fills the layer. Null when the frame has no picture layer that still waits, in
+ * WAITING_FILL alone, as once a tab wrote a picture or a person changed the layer.
+ */
+export function withDraftShown(design: Design, frameId: string, assetId: string): Design | null {
+  const layerId = pictureLayerOf(frameId)
+  const layer = design.nodes[layerId]
+  if (layer?.type !== 'graphic' || layer.parentId !== frameId) return null
+  const [only, ...more] = layer.props.fills
+  if (more.length > 0 || only?.type !== 'solid' || only.color !== WAITING_FILL.color) return null
+  const shown: Layer = {
+    ...layer,
+    props: { ...layer.props, fills: [{ type: 'image', assetId, fit: 'fill', opacity: 1 }] },
+  }
+  return { ...design, nodes: { ...design.nodes, [layerId]: shown } }
 }

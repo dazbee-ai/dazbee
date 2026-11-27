@@ -11,6 +11,7 @@ import { KitView } from '@/components/brand-kit/kit-view.tsx'
 import { LibraryShell } from '@/components/library/library-shell.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
+import { designPictureSrc } from '@/lib/design-picture.ts'
 import { showsBrandList } from '@/lib/home.ts'
 import { brandWords, format } from '@/lib/i18n/index.ts'
 import { getMessages } from '@/lib/i18n/server.ts'
@@ -85,7 +86,7 @@ export default async function BrandKitPage({ params }: { params: Promise<{ works
                     className="lift block h-28 overflow-hidden rounded-[12px] bg-raised shadow-panel"
                   >
                     <img
-                      src={`${brandPath(workspaceId, brand.id, 'designs', design.id, 'thumbnail')}?v=${Date.parse(design.updatedAt)}`}
+                      src={designPictureSrc(workspaceId, brand.id, design, design.cover)}
                       alt={design.name}
                       width={design.cover?.width}
                       height={design.cover?.height}

@@ -16,6 +16,7 @@ import { type ReactNode, useActionState, useRef, useState } from 'react'
 import {
   type AiMode,
   type AssetSummary,
+  type DesignCover,
   EMPTY_BRAND_KIT,
   inBrandRoleOrder,
   SIZE_PRESETS,
@@ -42,6 +43,7 @@ import { Tooltip } from '@/components/ui/tooltip.tsx'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { BRIEF_SIZES, type BriefSize, refusedWords } from '@/lib/brief.ts'
 import { cn } from '@/lib/cn.ts'
+import { designPictureSrc } from '@/lib/design-picture.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 import { IMAGE_ACCEPT, sendAsset } from '@/lib/upload-asset.ts'
@@ -51,7 +53,7 @@ export type BriefReference = {
   id: string
   name: string
   updatedAt: string
-  cover: { width: number; height: number } | null
+  cover: DesignCover | null
 }
 
 type Popup = 'add' | 'sizes' | 'kit'
@@ -76,7 +78,7 @@ const ROW =
 const LABEL = 'px-1 pt-3 pb-1.5 text-micro font-bold tracking-[0.08em] text-subtle uppercase'
 
 const designThumbnail = (workspaceId: string, brandId: string, design: BriefReference) =>
-  `${brandPath(workspaceId, brandId, 'designs', design.id, 'thumbnail')}?v=${Date.parse(design.updatedAt)}`
+  designPictureSrc(workspaceId, brandId, design, design.cover)
 const assetThumbnail = (workspaceId: string, brandId: string, assetId: string) =>
   brandPath(workspaceId, brandId, 'assets', assetId, 'thumbnail')
 

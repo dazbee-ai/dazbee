@@ -10,6 +10,7 @@ import { LibraryShell } from '@/components/library/library-shell.tsx'
 import { EmptyState } from '@/components/ui/empty-state.tsx'
 import { brandPath, workspacePath } from '@/lib/brand-routes.ts'
 import { hexOf } from '@/lib/colour.ts'
+import { designPictureSrc } from '@/lib/design-picture.ts'
 import { needsWelcome, openingBrand } from '@/lib/home.ts'
 import { brandWords, designCount } from '@/lib/i18n/index.ts'
 import { getLocale, getMessages } from '@/lib/i18n/server.ts'
@@ -47,8 +48,9 @@ export default async function HomePage({ params }: { params: Promise<{ workspace
         latest:
           latest && cover
             ? {
-                src: `${brandPath(workspaceId, brand.id, 'designs', latest.id, 'thumbnail')}?v=${encodeURIComponent(latest.updatedAt)}`,
-                ...cover,
+                src: designPictureSrc(workspaceId, brand.id, latest, cover),
+                width: cover.width,
+                height: cover.height,
               }
             : null,
       }

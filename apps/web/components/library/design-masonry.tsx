@@ -4,10 +4,11 @@
 // by its name, and one whose layers wait for a tab to finish them says so under it.
 import Link from 'next/link'
 
-import type { DesignSummary, DesignWorking } from '@dazbee/schema'
+import type { DesignCover, DesignSummary, DesignWorking } from '@dazbee/schema'
 
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
+import { designPictureSrc } from '@/lib/design-picture.ts'
 import { format, type Messages } from '@/lib/i18n/index.ts'
 import { masonryPlaces } from '@/lib/masonry.ts'
 import { tileOf } from '@/lib/tile.ts'
@@ -22,8 +23,8 @@ export interface DesignActions {
 }
 
 export interface MasonryDesign extends DesignSummary {
-  /** The cover frame's size, when the design has a picture. */
-  cover: { width: number; height: number } | null
+  /** The cover frame's size, when the design has a picture, and the AI draft the picture shows in it meanwhile. */
+  cover: DesignCover | null
 }
 
 export function DesignMasonry({
@@ -70,7 +71,7 @@ export function DesignMasonry({
                 {design.cover ? (
                   // Our own PNG through our own route; next/image would only re-encode it.
                   <img
-                    src={`${brandPath(workspaceId, brandId, 'designs', design.id, 'thumbnail')}?v=${Date.parse(design.updatedAt)}`}
+                    src={designPictureSrc(workspaceId, brandId, design, design.cover)}
                     alt=""
                     width={design.cover.width}
                     height={design.cover.height}

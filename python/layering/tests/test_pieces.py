@@ -20,6 +20,7 @@ import app
 import pieces
 from contract import Layer, LayerSplitResult, Part, Pieces
 from pieces import make_pieces
+from pieces.edges import read_edges
 
 SIZE = 512
 # The grid a planned part's box is given on.
@@ -137,6 +138,35 @@ def test_a_piece_turned_45_degrees_in_a_tall_picture_keeps_its_angle_within_the_
     assert diamond["turned"]["width"] == pytest.approx(drawn.side, abs=8)
     assert diamond["turned"]["height"] == pytest.approx(drawn.side, abs=8)
     Pieces.model_validate(made)
+
+
+@pytest.mark.parametrize("part", ["caption", "route"])
+def test_a_thin_stroke_the_split_drew_pale_and_soft_is_read_from_the_picture(part):
+    thin = draw_thin()
+    item = piece_of(make_pieces(thin.picture, thin.parts, thin.layers), part)
+    rgba = np.zeros(thin.masks[part].shape + (4,), np.float32)
+    rgba[item["y"] : item["y"] + item["height"], item["x"] : item["x"] + item["width"]] = pixels_of(item) / 255
+    strokes = thin.thin[part]
+    assert np.abs(rgba[..., 3] - thin.masks[part])[strokes].mean() < 0.03
+    inked = strokes & (thin.masks[part] > 0.95)
+    assert np.abs(rgba[..., :3][inked] - thin.colours[part]).max() < 0.04
+
+
+def test_the_grain_behind_a_thin_line_does_not_widen_its_piece():
+    # A dark line three pixels thick on a light backdrop that is a little darker in a patch above the line.
+    target = np.full((60, 120, 3), 0.9, np.float32)
+    target[22:27, 40:80] = 0.86
+    target[30:33, 10:110] = 0.1
+    drawn = np.zeros((60, 120, 4), np.float32)
+    drawn[30:33, 10:110] = (0.35, 0.35, 0.35, 1)
+    line = (blurred(drawn)[24:39, 4:116] * 255 + 0.5).astype(np.uint8)
+    backdrop = np.full((60, 120, 4), 255, np.uint8)
+    backdrop[..., :3] = 230
+    front = {"kind": "graphic", "layer": 1, "place": [4, 24, 112, 15], "pixels": line, "model": line}
+    back = {"kind": "background", "layer": 2, "place": [0, 0, 120, 60], "pixels": backdrop, "model": backdrop}
+    edged = read_edges(target, [front, back], 2.0)[0]
+    shown = np.nonzero((edged["pixels"][..., 3] >= 8).any(axis=1))[0]
+    assert (edged["place"][1] + shown[0], edged["place"][1] + shown[-1] + 1) == (30, 33)
 
 
 def test_the_pieces_fit_the_contract_beside_the_layers(ad, made):
@@ -281,6 +311,46 @@ def draw_diamond() -> SimpleNamespace:
         layers=as_saved([blurred(front), back]),
         bounds=bounds(diamond > 0.5),
         side=reach * 2**0.5,
+    )
+
+
+def draw_thin() -> SimpleNamespace:
+    """A picture of small text and of a dot with a thin line from it, on a plain backdrop, split at half its
+    size: the thin strokes come back pale and soft. Its picture, parts and layers, each part's mask and colour as
+    drawn, and for each part the pixels around its thin strokes."""
+    working = SIZE // 2
+    colours = {"caption": np.array([0.05, 0.1, 0.3], np.float32), "route": np.array([0.1, 0.5, 0.2], np.float32)}
+
+    def route(big: np.ndarray) -> None:
+        cv2.circle(big, (240, 600), 70, 255, -1)
+        cv2.line(big, (240, 600), (860, 760), 255, 10)
+
+    masks = {"caption": mask(lambda big: bars(big, 120, 100, 14, 3, 14, 5)), "route": mask(route)}
+    line_only = mask(lambda big: cv2.line(big, (340, 626), (860, 760), 255, 10))
+    thin = {
+        "caption": cv2.dilate(masks["caption"], np.ones((9, 9))) > 0,
+        "route": cv2.dilate(line_only, np.ones((9, 9))) > 0,
+    }
+    backdrop = np.full((SIZE, SIZE, 3), (0.97, 0.96, 0.93), np.float32)
+    picture = backdrop.copy()
+    layers = []
+    for part in ("route", "caption"):
+        picture = colours[part] * masks[part][..., None] + picture * (1 - masks[part][..., None])
+    for part in ("caption", "route"):
+        small = cv2.resize(masks[part], (working, working), interpolation=cv2.INTER_AREA)
+        layers.append(
+            blurred(np.concatenate([np.broadcast_to(colours[part], small.shape + (3,)), small[..., None]], 2))
+        )
+        # A thin stroke is drawn mixed with what is behind it.
+        layers[-1][..., :3] += (1 - layers[-1][..., 3:4]) * (backdrop[:working, :working] - layers[-1][..., :3]) * 0.6
+    layers.append(np.concatenate([backdrop[:working, :working], np.ones((working, working, 1), np.float32)], 2))
+    parts = [
+        {"id": "caption", "kind": "text", "shadow": "none", "layer": 1, "box": grid_box(masks["caption"])},
+        {"id": "route", "kind": "graphic", "shadow": "none", "layer": 2, "box": grid_box(masks["route"])},
+        {"id": "backdrop", "kind": "background", "shadow": "none", "layer": 3, "box": grid_box(np.ones((SIZE, SIZE)))},
+    ]
+    return SimpleNamespace(
+        picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks, colours=colours, thin=thin
     )
 
 

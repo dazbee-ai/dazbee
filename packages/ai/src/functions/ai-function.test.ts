@@ -28,7 +28,7 @@ const PRESETS: Record<
     model: 'gpt-6-luna',
     settings: { effort: 'low', tier: 'fast' },
     ceiling: 12_000,
-    prompt: 'd2217e5b700f5b41e5cc64efd9e15d3ee8bf035547420c21f2e5336d29d5ae91',
+    prompt: 'fbba74e6e1ddf6e8e690360767dfa242fad1be3ba899cac06bb6a8ba3803baf5',
   },
   'round-plan/full-terra': {
     model: 'gpt-6.1-terra',

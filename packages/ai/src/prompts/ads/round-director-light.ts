@@ -30,6 +30,9 @@ two that suit it). They are the ads' palette: the backgrounds, the shapes, the p
 colours, with white, cream or a dark neutral beside them. A colour from outside the palette appears only in a
 photograph or as a small accent.
 
+Polish comes from restraint. Each ad is built from three colours, the photograph not counted: one colour of the
+palette that leads, one neutral, and one accent kept for a single thing.
+
 # Step 2. The four kinds, in this order
 
 1. photographic: one real photograph of a real setting fills the whole canvas: the subject in the place or at the
@@ -150,10 +153,17 @@ take it only when it is truly the best of the three.
 - Every ad shows the brand as its own logo, the way people know it. The prompt names it with its place, size and
   colour, as in "at the top left, the small white <brand> logo", with no typeface and no double quotes. <brand> is
   the brand's full name.
-- Besides the facts, every ad has a headline and a supporting line. You write them when the advertiser gave none: a
-  headline of at most six words and a supporting line of at most eight, each ad its own. They speak in the brand's
-  voice and can name what the product is, who it is for or the moment it belongs to, drawn from what the advertiser
-  wrote. They add no number, no offer, no promise and no claim about how well the product works.
+- Besides the facts, every ad has a headline and a supporting line. A headline or a line the advertiser set apart
+  is the headline or the line of all four ads, printed exactly as given: you write none in its place, and the four
+  differ in everything else. You write them when the advertiser gave none: a headline of at most six words and a
+  supporting line of at most eight, each ad its own. The headline is a hook: a few words that stop the reader,
+  about what this product gives, who it is for or the moment it belongs to, drawn from what the advertiser wrote. It
+  is specific to this product, so it would not fit another brand's ad unchanged, and it does not carry the
+  product's name. The supporting line takes the hook one step further and does not say it again. Both speak in the
+  brand's voice, and add no number, no offer, no promise and no claim about how well the product works.
+- An ad reads best with few texts: the logo, the headline, the supporting line, the product's name as a text of its
+  own, a price or an offer when the advertiser gave one, and the button. A price or an offer is one short text. Each
+  of the first three ads has at most six texts, the logo and the button counted, and the fourth at most twelve.
 - Where the advertiser gave features or benefits, an ad can show up to three of them as short labels with small line
   icons, and an offer or a price can sit in a badge or a sticker (in the photographic ad, straight on the photograph).
   In the first three ads a label names something the advertiser gave, and there are none when there is nothing to
@@ -166,8 +176,8 @@ take it only when it is truly the best of the three.
   not. A feature you write never holds a number, a price, an offer, a date, a guarantee, an award or a comparison,
   and never just repeats the product's name or kind.
 - None of the four is bare. Every ad ends in one call to action: a button, in the form that suits the ad.
-- Write the ad's texts in the language the advertiser wrote in. At most eight texts in an ad, and twelve in the
-  fourth. No small print, no web address and no hashtags unless the advertiser asked for them.
+- Write the ad's texts in the language the advertiser wrote in. No small print, no web address and no hashtags
+  unless the advertiser asked for them.
 - The texts people have to read sit on calm areas: a flat colour, a soft gradient, a quiet part of a photograph or a
   plain panel. None of them runs across a busy area, and nothing overlaps them. Each text's colour stands out clearly
   from what it sits on: dark lettering on a light wall, sky, water, fabric or colour, light lettering on a dark one,
@@ -204,8 +214,15 @@ designer finishes a piece:
 - The subject is shown with intent: large, well lit, with its shadow or its reflection (but not long shadows).
 - Supporting elements belong to the idea and give the eye more than one thing to find: a shape that holds the subject
   or a text, a frame, a pattern, an icon, a badge or a sticker for an offer, a second smaller picture.
-- The lettering is a system: one text clearly the largest, the others in two or three distinct sizes and weights, in
-  a typeface with character.
+- The lettering has a direction, and each ad has its own: one display face with character for the headline, named
+  by its kind and its weight (a heavy condensed sans, a high-contrast serif, a rounded geometric sans, a slab, a
+  soft italic serif); one lettering colour, with the ad's accent for one thing only (the price, the offer or the
+  button); and one edge or centre line that the texts share. You choose the direction. The sizes, the spacing and
+  the fine typography are the image model's to get right: it is a good designer, so you name each text by its
+  role and leave its measure to the model.
+- A price or an offer sits in one small plain shape of the accent colour (a pill, a chip, a circle, a badge), clear
+  of the subject, except in the photographic ad, where it is lettered straight onto the photograph. The button is
+  one plain shape with one fill.
 - Nothing is drawn on the subject or on another object: no line, stroke, stitch, icon or text across it.
 - Small decorative pieces (sparkles, icons, crumbs, pieces of the product) are few, and each stands alone, touching
   nothing.
@@ -222,15 +239,13 @@ rules are yours to keep while you design, and they stay out of the prompt: the w
 "never" and "avoid" appear in a prompt only in "no lettering anywhere in the scene". The canvas's name, its use and
 its pixels are for you alone: a prompt names the shape and nothing more.
 
-Length: 600 to 950 characters for each of the first three ads, up to 1,300 for the fourth. Prompts tend to come out
-too long, and the scene is where they grow. Keep to this budget: in every ad the scene (parts 1 and 2 below) takes
-at most 40 words in three or four sentences; the lettering (parts 3 and 4) takes at most 40 words in the first three
-ads and at most 80 in the fourth. A prompt of the first three ads is never more than 90 words, the fourth never more
-than 130. No sentence is longer than eighteen words. Give each thing one or two words of colour or material, not a
-string of them. The composite describes its photograph and its design inside the same budget, each more briefly.
-Name the light once, in the
-subject's sentence, and write no sentence about the mood or the feeling: the mood comes from what is shown and from
-the style words at the end. When a prompt runs long, cut details of the scene, never a text.
+Length: at most 140 words for each of the first three ads, and at most 200 for the fourth. Prompts tend to come out
+too long, and the scene is where they grow: the scene (parts 1 and 2 below) takes about half of a prompt, in three
+or four sentences, and the lettering (parts 3 and 4) the rest. No sentence is longer than twenty-five words. Give
+each thing one or two words of colour or material, not a string of them. The composite describes its photograph
+and its design inside the same length, each more briefly. Name the light once, in the subject's sentence, and write
+no sentence about the mood or the feeling: the mood comes from what is shown and from the words on the finish at
+the end. When a prompt runs long, cut details of the scene, never a text.
 
 In this order:
 1. One sentence that names it: "A finished, professional <shape> ad for <what is advertised>."
@@ -241,17 +256,23 @@ In this order:
    their places, in one sentence. Then, when there is a photograph, "no lettering anywhere in the scene". The scene
    names what is there, not the empty room for the texts: the calm area the texts sit on is named once, at the start
    of the lettering ("On the shaded wall, ...").
-3. The lettering: where the texts sit and what they sit on, then every text of this ad in reading order, from the
-   top, each in a short clause of its own that gives its place, its size, its colour, its typeface and its role
-   before the text in double quotes, as in: at the top, the small ivory <brand> logo; below it, the large ivory
-   serif headline "..." and the smaller ivory supporting line "...". No two texts share one clause. The button gets its shape, its fill colour, its text in
-   double quotes and the colour of its lettering. Every printed text is in the prompt in double quotes: the product's
-   name as the advertiser wrote it, each fact, the headline, the supporting line
-   and the button's text; in the fourth also the chip with its small icon when there is one, and for each feature
-   its icon named by what it shows, its title and its few words, with the colour and weight of the titles and of the
-   few words. The button comes last. The logo is the one exception: it is named as the brand's logo, with its place,
-   its size and its colour, and has no typeface and no double quotes.
-4. A few words on the style, ending with "correctly spelled text".
+3. The lettering. First one sentence that gives its direction: the calm area the texts sit on, the edge or centre
+   line they share, the lettering's colour and its accent, and the headline's display face, as in: "On the shaded
+   wall, left-aligned ivory lettering with a lime accent, the headline in a heavy condensed sans." Then every text
+   of this ad in reading order, from the top, each in a short clause of its own that names it by its role before
+   the text in double quotes, as in: the small ivory <brand> logo; the headline "..."; the supporting line "...";
+   the product name "..."; the offer "..." in a lime pill. A clause gives a text's place only where it leaves the
+   shared edge, and its colour only where it is the accent. No two texts share one clause. The button gets its
+   shape, its fill colour, its text in double quotes and the colour of its lettering. Every printed text is in the
+   prompt in double quotes: the product's name as the advertiser wrote it, each fact, the headline, the supporting
+   line and the button's text; in the fourth also the chip with its small icon when there is one, and for each
+   feature its icon named by what it shows, its title and its few words. The button comes last. The logo is the
+   one exception: it is named as the brand's logo, with its place, its size and its colour, and has no typeface
+   and no double quotes.
+4. The finish: four or five short phrases that name the quality of a finished piece of this kind, chosen for this
+   ad from: premium brand campaign, art-directed, editorial layout, refined typography, strong type hierarchy,
+   generous spacing, precise alignment, balanced composition, professional retouching, natural light, studio
+   lighting, crisp shapes, rich colour. Then "correctly spelled text".
 
 # Step 8. Check before you answer
 
@@ -261,8 +282,13 @@ In this order:
 - Each prompt is within its length and follows the order above, ending with "correctly spelled text"; it gives
   every printed text but the logo a clause of its own in double quotes, has "no lettering anywhere in the scene" when it shows a
   place or has a photograph, and has no other "no", "not", "without", "never" or "avoid".
-- Every ad is in the brand's palette; every ad shows the product large when a product is advertised; the headline
-  is by far the largest text.
+- Every ad is in the brand's palette, with one leading colour, one neutral and one accent; every ad shows the
+  product large when a product is advertised; the headline is by far the largest text.
+- Each of the first three ads has at most six texts, the logo and the button counted. Each prompt gives the
+  lettering's direction in one sentence, then names each text by its role, with one thing only in the accent
+  colour, and closes with its finish phrases and "correctly spelled text".
+- No headline carries the product's name, unless the advertiser set that headline apart.
+- A headline or a line the advertiser set apart is the headline or the line of all four ads, exactly as given.
 - Every text's colour is dark on a light surface and light on a dark one. No text but the logo is called small, tiny
   or fine.
 - In the composite, nothing of the photograph comes in front of the design; outside it, no panel, band or field

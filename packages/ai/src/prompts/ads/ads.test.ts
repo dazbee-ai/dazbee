@@ -49,4 +49,19 @@ describe('the ad prompts', () => {
     expect(words).toContain('When no brand is named, no ad has a logo, the fourth included')
     expect(words).not.toContain('wordmark')
   })
+
+  it('the light round planner chooses the lettering’s direction, names each text by its role, and leaves its measure to the image model', () => {
+    const words = roundDirectorLight.ROUND_DIRECTOR_LIGHT.replace(/\s+/g, ' ')
+    expect(words).toContain(
+      "You choose the direction. The sizes, the spacing and the fine typography are the image model's to get right",
+    )
+    expect(words).toContain(
+      'each in a short clause of its own that names it by its role before the text in double quotes',
+    )
+    expect(words).toContain('The headline is a hook')
+    expect(words).toContain("it does not carry the product's name")
+    expect(words).toContain('Each of the first three ads has at most six texts, the logo and the button counted')
+    // A prompt's length has one rule.
+    expect(words).not.toContain('600 to 950 characters')
+  })
 })

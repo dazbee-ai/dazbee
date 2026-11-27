@@ -185,6 +185,21 @@ def test_a_shadow_drawn_too_strong_takes_the_strength_it_has_in_the_picture():
     assert np.abs(shadow - 0.25).max() < 0.03
 
 
+def test_what_is_behind_a_piece_takes_the_colour_the_picture_shows_through_its_gaps():
+    grille = draw_grille()
+    solved = solve_soft(grille.target, grille.pieces)
+    bars, backdrop = (piece["pixels"] / 255 for piece in solved)
+    # The backdrop was drawn greener behind the bars than the picture has it.
+    assert np.abs(grille.pieces[1]["pixels"][60:100, 60:100, :3] / 255 - grille.backdrop).max() > 0.2
+    assert np.abs(backdrop[60:100, 60:100, :3] - grille.backdrop).max() < 0.04
+    # A gap between two bars is clear, and so is the hole drawn nearly solid.
+    assert bars[60:100, 70:74, 3].max() < 0.1
+    assert bars[76:82, 76:82, 3].max() < 0.1
+    inside = (slice(60, 100), slice(60, 100))
+    assert percent_off(stacked_pieces(grille.pieces)[inside], grille.target[inside]) > 50
+    assert percent_off(stacked_pieces(solved)[inside], grille.target[inside]) < 2
+
+
 def test_the_backdrop_next_to_a_piece_in_front_keeps_what_the_split_drew():
     target = np.full((60, 120, 3), 0.76, np.float32)
     target[20:40, 30:90] = 0.1
@@ -405,6 +420,32 @@ def draw_soft() -> SimpleNamespace:
         {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, shadow, full)
     ]
     return SimpleNamespace(target=target, pieces=pieces)
+
+
+def draw_grille() -> SimpleNamespace:
+    """A picture of dark upright bars on a plain backdrop, with a hole through two of them, and its two pieces as
+    the split model draws them: the bars with a haze between them and the hole filled in, and the backdrop, greener
+    behind the bars than it is. The picture as float RGB, the backdrop's true colour, and the pieces front to back.
+    """
+    size = 160
+    true, greener, dark = (0.9, 0.85, 0.6), (0.65, 0.8, 0.35), (0.1, 0.1, 0.12)
+    bars = np.zeros((size, size), np.float32)
+    for left in range(40, 120, 12):
+        bars[40:120, left : left + 4] = 1
+    drawn = np.zeros((size, size, 4), np.float32)
+    drawn[..., :3] = dark
+    drawn[40:120, 40:120, 3] = 0.3
+    drawn[..., 3] = np.maximum(drawn[..., 3], bars)
+    drawn[76:82, 76:82, 3] = 0.9
+    bars[76:82, 76:82] = 0
+    target = np.asarray(dark, np.float32) * bars[..., None] + np.asarray(true, np.float32) * (1 - bars[..., None])
+    backdrop = np.ones((size, size, 4), np.float32)
+    backdrop[..., :3] = true
+    backdrop[36:124, 36:124, :3] = greener
+    pieces = [
+        {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, backdrop)
+    ]
+    return SimpleNamespace(target=target, backdrop=np.asarray(true, np.float32), pieces=pieces)
 
 
 def stacked_pieces(pieces: list[dict]) -> np.ndarray:

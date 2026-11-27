@@ -149,9 +149,10 @@ export function editorSurface({ ck, canvas, view, draw }: SurfaceDeps): EditorSu
     c.scale(view.dpr(), view.dpr())
     // The outlines go on first, in stage pixels, so every frame drawn after covers them.
     const lit = outlines.some((o) => o.lit) ? themeColour(ACCENT, ACCENT_FALLBACK) : null
-    for (const { box, lit: on } of outlines) {
+    for (const { box, scale, lit: on } of outlines) {
       outline.setColor(on && lit ? lit : grey)
-      c.drawRRect(ck.RRectXY(ck.XYWHRect(box.x, box.y, box.width, box.height), OUTLINE_RADIUS, OUTLINE_RADIUS), outline)
+      const radius = OUTLINE_RADIUS * scale
+      c.drawRRect(ck.RRectXY(ck.XYWHRect(box.x, box.y, box.width, box.height), radius, radius), outline)
     }
     // The connectors go on next, so the frames drawn after cover them.
     paintConnectors(c, connectors)

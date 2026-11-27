@@ -22,9 +22,10 @@ import type { FrameScenes } from './scenes.ts'
 import type { ShownSections } from './sections.ts'
 import type { EditorView } from './view.ts'
 
-/** A section's outline as the stage draws it, in screen pixels: lit while the section is picked or a drop's target. */
+/** A section's outline as the stage draws it, in screen pixels, at `scale` of its full size: lit while the section is picked or a drop's target. */
 export interface DrawnOutline {
   box: Rect
+  scale: number
   lit: boolean
 }
 /** A connector's curve as the stage draws it, in screen pixels: blue while it is picked. */
@@ -138,7 +139,7 @@ export function editorRedraw({
   /** The sections' outlines as the stage draws them, lit where picked or a drop's target. */
   function outlinesNow({ outlines, lit }: ShownSections = sections()): DrawnOutline[] {
     const picked = selection.pickedSection()
-    return outlines.map(({ id, box }) => ({ box, lit: id === picked || id === lit }))
+    return outlines.map(({ id, box, scale }) => ({ box, scale, lit: id === picked || id === lit }))
   }
   /** The connectors' curves between where their ends are drawn now, blue where picked. */
   function connectorsNow(design: Design, { outlines }: ShownSections): DrawnConnector[] {

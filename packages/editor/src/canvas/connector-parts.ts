@@ -5,7 +5,6 @@
 import type { ShownConnecting } from '../gestures/drawing/connecting.ts'
 import { arrowheadOf, type ConnectorCurve } from './connectors.ts'
 import { px } from './rulers.ts'
-import { OUTLINE_RADIUS } from './sections.ts'
 
 const SVG = 'http://www.w3.org/2000/svg'
 
@@ -24,7 +23,7 @@ export function connectorParts({ dots, hot, preview, lit }: ShownConnecting): El
     box.className = 'connector-target'
     if (lit.section) {
       box.dataset.section = ''
-      box.style.borderRadius = px(OUTLINE_RADIUS)
+      box.style.borderRadius = px(lit.radius)
     }
     Object.assign(box.style, {
       left: px(lit.box.x),

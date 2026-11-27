@@ -57,7 +57,7 @@ describe('connectorsShown', () => {
   })
 
   it('takes a section’s end from its outline as drawn', () => {
-    const outline = { id: 's', title: 'S', box: { x: 0, y: 400, width: 100, height: 100 } }
+    const outline = { id: 's', title: 'S', box: { x: 0, y: 400, width: 100, height: 100 }, scale: 1 }
     const withSection = {
       ...design({ as: { from: 'a', to: 's' } }),
       frames: { ...design({}).frames, b: { ...FRAMES[1], order: 'a1', sectionId: 's' } },
@@ -73,7 +73,11 @@ describe('connectorsShown', () => {
 
 describe('endBoxes', () => {
   it('gives each frame’s box with its label’s row and each outline’s box, by id', () => {
-    const boxes = endBoxes(FRAMES, [{ id: 's', title: 'S', box: { x: 1, y: 2, width: 3, height: 4 } }], AT_ONE)
+    const boxes = endBoxes(
+      FRAMES,
+      [{ id: 's', title: 'S', box: { x: 1, y: 2, width: 3, height: 4 }, scale: 1 }],
+      AT_ONE,
+    )
     expect([...boxes.keys()]).toEqual(['a', 'b', 's'])
     expect(boxes.get('s')).toEqual({ x: 1, y: 2, width: 3, height: 4 })
   })

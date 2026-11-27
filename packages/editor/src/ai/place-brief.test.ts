@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { type DesignSize, FRAME_GAP, ROUND_DRAFTS, SYNC_LIMITS } from '@dazbee/schema'
 
-import { BRIEF_SCREEN_ROOM, briefPassesWarning, moreLikeSpot } from './place-brief.ts'
+import { outlineRoom } from '../canvas/sections.ts'
+import { briefPassesWarning, moreLikeSpot } from './place-brief.ts'
 
 const EMPTY: DesignSize = { layers: 0, frames: 0, pages: 1, sections: 0, connectors: 0, bytes: 1000 }
 
@@ -16,7 +17,7 @@ describe('moreLikeSpot', () => {
     ...square,
     sectionId,
   })
-  const gap = Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM)
+  const gap = Math.ceil(FRAME_GAP + outlineRoom(1))
 
   it('goes right of the liked frame’s section, at its top, below a frame in the way', () => {
     const design = {
@@ -30,7 +31,7 @@ describe('moreLikeSpot', () => {
     const design = { frames: { a: frame(0, 0), far: frame(20_000, 5000) }, sections: {} }
     // The page is seen at the zoom that fits 1000 px of it on screen.
     const zoomFor = (area: { width: number; height: number }) => 1000 / Math.max(area.width, area.height)
-    expect(moreLikeSpot(design, 'a', square, zoomFor)?.x).toBe(100 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM * 20.1))
+    expect(moreLikeSpot(design, 'a', square, zoomFor)?.x).toBe(100 + Math.ceil(FRAME_GAP + outlineRoom(1 / 20.1)))
   })
 
   it('goes right of the frame itself when it is in no section, and is null for a frame the design hasn’t', () => {

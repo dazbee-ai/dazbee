@@ -6,7 +6,7 @@ import type { DesignInput, Point } from '@dazbee/schema'
 
 import { connectorsShown, frameEndBox } from './canvas/connectors.ts'
 import { labelBox } from './canvas/frames.ts'
-import { outlinesOf, sectionsOn, titleBox } from './canvas/sections.ts'
+import { outlineScale, outlinesOf, sectionsOn, titleBox } from './canvas/sections.ts'
 import type { EditorCore } from './core-interface.ts'
 import { dotsOf } from './gestures/drawing/connecting.ts'
 
@@ -67,7 +67,7 @@ export function outlineOf(core: EditorCore, sectionId: string) {
 
 /** A stage point on a section's title. */
 export function titlePoint(core: EditorCore, sectionId: string): Point {
-  const box = titleBox(outlineOf(core, sectionId))
+  const box = titleBox(outlineOf(core, sectionId), outlineScale(core.camera().zoom))
   return { x: box.x + 6, y: box.y + box.height / 2 }
 }
 

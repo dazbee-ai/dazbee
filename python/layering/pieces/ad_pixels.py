@@ -146,18 +146,20 @@ def _restore(stretched: np.ndarray, window: tuple, target: np.ndarray, clear: np
 
 def _stretched_box(turned: dict | None, kx: float, ky: float) -> dict | None:
     """A turned box of the working size in the picture's pixels: its centre stretched, each side by how much the
-    stretch lengthens its direction, and its angle (clockwise, y down) turned as the stretch turns it."""
+    stretch lengthens its direction, and its angle (clockwise, y down) turned as the stretch turns it. The angle
+    is held within -45 to 45 degrees: the stretch can turn an angle of 45 a little past that."""
     if turned is None:
         return None
     turn = math.radians(turned["angle"])
     along = math.hypot(kx * math.cos(turn), ky * math.sin(turn))
     across = math.hypot(kx * math.sin(turn), ky * math.cos(turn))
+    angle = math.degrees(math.atan2(ky * math.sin(turn), kx * math.cos(turn)))
     return {
         "cx": round(turned["cx"] * kx, 1),
         "cy": round(turned["cy"] * ky, 1),
         "width": round(turned["width"] * along, 1),
         "height": round(turned["height"] * across, 1),
-        "angle": round(math.degrees(math.atan2(ky * math.sin(turn), kx * math.cos(turn))), 1),
+        "angle": round(max(-45.0, min(45.0, angle)), 1),
     }
 
 

@@ -18,7 +18,7 @@ from PIL import Image
 
 import app
 import pieces
-from contract import Layer, LayerSplitResult, Part
+from contract import Layer, LayerSplitResult, Part, Pieces
 from pieces import make_pieces
 
 SIZE = 512
@@ -126,6 +126,17 @@ def test_the_stray_patch_outside_every_box_is_in_no_piece(made):
     for item in made["items"]:
         if item["part"] != "backdrop":
             assert solid_pixels(item, STRAY) == 0, item["part"]
+
+
+def test_a_piece_turned_45_degrees_in_a_tall_picture_keeps_its_angle_within_the_contract():
+    drawn = draw_diamond()
+    made = make_pieces(drawn.picture, drawn.parts, drawn.layers)
+    diamond = piece_of(made, "diamond")
+    assert near(place(diamond), drawn.bounds, 6)
+    assert 44 <= abs(diamond["turned"]["angle"]) <= 45
+    assert diamond["turned"]["width"] == pytest.approx(drawn.side, abs=8)
+    assert diamond["turned"]["height"] == pytest.approx(drawn.side, abs=8)
+    Pieces.model_validate(made)
 
 
 def test_the_pieces_fit_the_contract_beside_the_layers(ad, made):
@@ -241,6 +252,36 @@ def draw_ad(disc_in_backdrop: bool = False) -> SimpleNamespace:
         {"id": "backdrop", "kind": "background", "shadow": "none", "layer": LAYERS, "box": grid_box(masks["backdrop"])}
     )
     return SimpleNamespace(picture=as_picture(picture), parts=parts, layers=as_saved(layers), masks=masks)
+
+
+def draw_diamond() -> SimpleNamespace:
+    """A tall picture of one square turned 45 degrees on a plain backdrop, with its two split layers at a working
+    size of another shape than the picture: its picture, parts and layers, the square's bounds and its side."""
+    width, height, working = 400, 712, (384, 680)
+    centre, reach = (200, 300), 90
+    corners = [(centre[0], centre[1] - reach), (centre[0] + reach, centre[1])]
+    corners += [(centre[0], centre[1] + reach), (centre[0] - reach, centre[1])]
+    drawn = np.zeros((height, width), np.uint8)
+    cv2.fillPoly(drawn, [np.array(corners, np.int32)], 255)
+    diamond = drawn.astype(np.float32) / 255
+    backdrop = np.full((height, width, 3), (0.9, 0.88, 0.8), np.float32)
+    colour = np.array([0.2, 0.5, 0.3], np.float32)
+    picture = colour * diamond[..., None] + backdrop * (1 - diamond[..., None])
+
+    small = cv2.resize(diamond, working, interpolation=cv2.INTER_AREA)
+    front = np.concatenate([np.broadcast_to(colour, small.shape + (3,)), small[..., None]], axis=2)
+    back = np.concatenate([cv2.resize(backdrop, working), np.ones(small.shape + (1,), np.float32)], axis=2)
+    parts = [
+        {"id": "diamond", "kind": "graphic", "shadow": "none", "layer": 1, "box": grid_box(diamond)},
+        {"id": "backdrop", "kind": "background", "shadow": "none", "layer": 2, "box": grid_box(np.ones_like(diamond))},
+    ]
+    return SimpleNamespace(
+        picture=as_picture(picture),
+        parts=parts,
+        layers=as_saved([blurred(front), back]),
+        bounds=bounds(diamond > 0.5),
+        side=reach * 2**0.5,
+    )
 
 
 def mask(draw) -> np.ndarray:

@@ -1,30 +1,30 @@
 'use client'
 
-// The versions of a picked AI frame's picture, beside the frame: a column of small pictures to its right, the first
-// version first, then each refine's new version, the one the frame shows now outlined. A click puts that version
-// back into the picture layer, as the person's own step, one undo step. Shown once a frame has more than one version,
-// in a tab that may change the design.
+// The picture versions of a picked AI frame's picture layer, beside the frame: a column of small pictures to its
+// right, the first picture first, then each refine's new version, the latest of those the layer shows now outlined.
+// A click puts that version back into the picture layer, as the person's own step, one undo step. Shown once the
+// layer has more than one version, in a tab that may change the design.
 import { useState } from 'react'
 
-import type { Editor } from '@dazbee/editor'
-import type { Paint } from '@dazbee/schema'
+import { type Editor, shownPicture } from '@dazbee/editor'
 
 import { useDesignAi } from '@/components/editor/editor-hooks.ts'
-import { useFrameRect } from '@/components/editor/frame-rect.ts'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useWheelThrough } from '@/components/editor/wheel-through.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
-import { frameVersions } from '@/lib/editor/refine.ts'
+import { pictureVersions } from '@/lib/editor/refine.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
+
+import { useFrameRect } from './frame-rect.ts'
 
 /** A version's picture's side, in pixels. */
 const THUMB = 52
 /** Pixels between the frame and the column. */
 const GAP = 12
 
-export function VersionStrip({
+export function PictureVersions({
   workspaceId,
   brandId,
   editor,
@@ -44,11 +44,11 @@ export function VersionStrip({
   const [strip, setStrip] = useState<HTMLElement | null>(null)
   const rect = useFrameRect(editor, frameId, strip)
   useWheelThrough(strip)
-  const versions = frameVersions(ai, frameId)
+  const versions = pictureVersions(ai, frameId, layerId)
   const layer = design.nodes[layerId]
-  const fills = layer && 'fills' in layer.props ? (layer.props.fills as Paint[]) : []
-  const shown = fills.find((fill) => fill.type === 'image')
-  const current = shown?.type === 'image' ? shown.assetId : null
+  const current = layer ? shownPicture(layer) : null
+  // The latest version showing that picture is the one outlined: a picture may come back in a later version.
+  const outlined = versions.findLastIndex((version) => version.assetId === current)
   if (versions.length < 2 || !layer) return null
   return (
     <ol
@@ -66,7 +66,7 @@ export function VersionStrip({
           <button
             type="button"
             aria-label={n === 0 ? r.first : format(r.version, { n: n + 1 })}
-            aria-current={version.assetId === current ? 'true' : undefined}
+            aria-current={n === outlined ? 'true' : undefined}
             data-asset={version.assetId}
             onClick={() =>
               version.assetId !== current &&

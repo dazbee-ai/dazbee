@@ -10,6 +10,7 @@ import {
   type AiJobView,
   type AiRefineLink,
   type DesignAi,
+  REFINE_CALL,
   type StartAiJob,
 } from '@dazbee/schema'
 
@@ -151,8 +152,8 @@ export function fakeAi(): FakeAi {
       state: 'running',
       output: null,
       calls: [
-        { index: 0, function: 'refine-plan', state: 'done', output: { kind: 'text', text: '{}' } },
-        { index: 1, function: 'refine-edit', state: 'running' },
+        { index: REFINE_CALL.plan, function: 'refine-plan', state: 'done', output: { kind: 'text', text: '{}' } },
+        { index: REFINE_CALL.edit, function: 'refine-edit', state: 'running' },
       ],
       error: null,
       createdAt: AT,
@@ -173,8 +174,10 @@ export function fakeAi(): FakeAi {
       markFails = false
       return Promise.reject(new Error('the network is down'))
     }
-    const change = refines.find((r) => r.frameId === frameId && r.jobId === mark.jobId && mark.callIndex === 1)
-    const edit = jobs.find((j) => j.id === mark.jobId)?.calls.find((c) => c.index === 1)
+    const change = refines.find(
+      (r) => r.frameId === frameId && r.jobId === mark.jobId && mark.callIndex === REFINE_CALL.edit,
+    )
+    const edit = jobs.find((j) => j.id === mark.jobId)?.calls.find((c) => c.index === REFINE_CALL.edit)
     if (change && edit?.state === 'done' && edit.output.kind === 'pictures') {
       marks.push({ frameId, ...mark })
       change.resultAssetId = edit.output.pictures[0]?.assetId ?? null

@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest'
 
 import { type AiJobView, type DesignAi, pictureLayerOf } from '@dazbee/schema'
 
-import { drawMarks, frameVersions, MARKS_BLUE, type MarksPen, marksSize, refineLayer, refining } from './refine.ts'
+import {
+  drawMarks,
+  MARKS_BLUE,
+  type MarksPen,
+  marksSize,
+  markStart,
+  pictureVersions,
+  refineBoxPlace,
+  refineDrafts,
+  refineLayer,
+  refining,
+} from './refine.ts'
 
 const AT = '2026-11-27T10:00:00.000Z'
 
@@ -57,14 +68,22 @@ describe('refining', () => {
   })
 })
 
-describe('frameVersions', () => {
+describe('pictureVersions', () => {
   it('lists the first picture, then each refine’s new version once made, made or marked', () => {
-    expect(frameVersions(AI, 'f1')).toEqual([
+    expect(pictureVersions(AI, 'f1', pictureLayerOf('f1'))).toEqual([
       { assetId: 'v0', refineId: null },
       { assetId: 'v1', refineId: 'a' },
       { assetId: 'v2', refineId: 'b' },
     ])
-    expect(frameVersions(AI, 'other')).toEqual([])
+    expect(pictureVersions(AI, 'other', pictureLayerOf('other'))).toEqual([])
+  })
+
+  it('lists only a layer’s own refines, with no first picture, for a layer of an editable frame', () => {
+    const refines = [
+      ...AI.refines,
+      { id: 'd', frameId: 'f1', pictureLayerId: 'piece', jobId: 'r2', resultAssetId: 'v9' },
+    ]
+    expect(pictureVersions({ ...AI, refines }, 'f1', 'piece')).toEqual([{ assetId: 'v9', refineId: 'd' }])
   })
 })
 
@@ -79,8 +98,42 @@ describe('refineLayer', () => {
 })
 
 describe('marksSize', () => {
-  it('keeps the frame’s proportions with its longest side 1024', () => {
-    expect(marksSize({ width: 1080, height: 1920 })).toEqual({ width: 576, height: 1024 })
+  it('is the frame’s own size, scaled down to 2048 on its longest side', () => {
+    expect(marksSize({ width: 1080, height: 1920 })).toEqual({ width: 1080, height: 1920 })
+    expect(marksSize({ width: 4096, height: 1024 })).toEqual({ width: 2048, height: 512 })
+  })
+})
+
+describe('refineBoxPlace', () => {
+  const room = { width: 1000, height: 800 }
+  const box = { width: 360, height: 200 }
+
+  it('goes under the frame, centred on it, inside the stage’s sides', () => {
+    expect(refineBoxPlace({ left: 300, top: 100, right: 700, bottom: 400 }, box, room)).toEqual({ left: 320, top: 412 })
+    expect(refineBoxPlace({ left: -400, top: 100, right: 0, bottom: 400 }, box, room).left).toBe(12)
+  })
+
+  it('goes up over the frame’s bottom when there is no room under it', () => {
+    expect(refineBoxPlace({ left: 300, top: 100, right: 700, bottom: 700 }, box, room).top).toBe(588)
+  })
+})
+
+describe('refineDrafts', () => {
+  it('keeps a box’s words and marks per editor and frame', () => {
+    const drafts = refineDrafts()
+    const editor = {}
+    const marks = [{ kind: 'box' as const, from: { x: 0, y: 0 }, to: { x: 5, y: 5 } }]
+    drafts.set(editor, 'f1', { words: 'Bigger', marks })
+    expect(drafts.get(editor, 'f1')).toEqual({ words: 'Bigger', marks })
+    expect(drafts.get(editor, 'f2')).toEqual({ words: '', marks: [] })
+    expect(drafts.get({}, 'f1')).toEqual({ words: '', marks: [] })
+  })
+})
+
+describe('markStart', () => {
+  it('is a box’s top left corner, or a stroke’s first point', () => {
+    expect(markStart({ kind: 'box', from: { x: 9, y: 2 }, to: { x: 3, y: 8 } })).toEqual({ x: 3, y: 2 })
+    expect(markStart({ kind: 'brush', points: [{ x: 4, y: 4 }] })).toEqual({ x: 4, y: 4 })
   })
 })
 

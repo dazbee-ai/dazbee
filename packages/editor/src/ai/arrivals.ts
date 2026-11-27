@@ -15,9 +15,13 @@ import {
   type AiRefineLink,
   type AiSize,
   type DesignAi,
+  jobRunning,
+  type Layer,
+  madeCallPicture,
   type PageBox,
   pictureLayerOf,
   planRound,
+  REFINE_CALL,
   type RoundPlan,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -139,9 +143,6 @@ export interface EditorArrivals {
   settled(): Promise<void>
 }
 
-/** The call of a refine job that makes its new version. */
-export const REFINE_EDIT = 1
-
 /** How long a shown tab waits between reads of the design's AI frames. */
 export const POLL_MS = 10_000
 /** How long it waits while a frame of the design waits for its picture. */
@@ -185,7 +186,7 @@ export function editorArrivals({
       (f) => f.state === 'waiting' && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId,
     )
     const refines = (read?.refines ?? []).filter(
-      (r) => r.resultAssetId === null && !jobOf(r.jobId)?.endedAt && nodes[r.pictureLayerId]?.parentId === r.frameId,
+      (r) => r.resultAssetId === null && jobRunning(jobOf(r.jobId)) && nodes[r.pictureLayerId]?.parentId === r.frameId,
     )
     return [...new Set([...drafts, ...refines].map((f) => f.frameId))]
   }
@@ -269,7 +270,7 @@ export function editorArrivals({
       pictureAssetId: picture,
       message: request.message,
       ...(request.marksAssetId ? { marksAssetId: request.marksAssetId } : {}),
-      size: { width: frame.width, height: frame.height },
+      size: refineSize(frame, layer, request.pictureLayerId === pictureLayerOf(request.frameId)),
     })
     if (started.ok) await poll()
     return started
@@ -339,7 +340,7 @@ export function editorArrivals({
    */
   function writePicture(now: DesignAi, frame: AiFrameView) {
     if (frame.state !== 'waiting') return
-    const asset = madePicture(now, frame)
+    const asset = madeCallPicture(now.jobs, frame.jobId, frame.callIndex)
     if (!asset) return
     writeCall({
       frameId: frame.frameId,
@@ -360,13 +361,12 @@ export function editorArrivals({
    */
   function writeVersion(now: DesignAi, change: AiRefineLink) {
     if (change.resultAssetId !== null) return
-    const call = now.jobs.find((j) => j.id === change.jobId)?.calls.find((c) => c.index === REFINE_EDIT)
-    const asset = call?.state === 'done' && call.output.kind === 'pictures' ? call.output.pictures[0]?.assetId : null
+    const asset = madeCallPicture(now.jobs, change.jobId, REFINE_CALL.edit)
     if (!asset) return
     writeCall({
       frameId: change.frameId,
       layerId: change.pictureLayerId,
-      call: { jobId: change.jobId, callIndex: REFINE_EDIT },
+      call: { jobId: change.jobId, callIndex: REFINE_CALL.edit },
       asset,
       replaces: (holds) => holds !== 'shows',
       marked: (was) => ({
@@ -512,9 +512,15 @@ function arrive(session: Session, signal: AbortSignal, steps: () => void): Promi
   })
 }
 
-/** The asset of the picture the frame's call made, once it is made; null before. */
-function madePicture(read: DesignAi, frame: AiFrameView): string | null {
-  const call = read.jobs.find((j) => j.id === frame.jobId)?.calls.find((c) => c.index === frame.callIndex)
-  if (call?.state !== 'done' || call.output.kind !== 'pictures') return null
-  return call.output.pictures[0]?.assetId ?? null
+/**
+ * The size a refine's picture is made at: the frame's, for its picture layer; else the layer's own, as on an editable
+ * frame, in whole pixels.
+ */
+function refineSize(
+  frame: { width: number; height: number },
+  layer: Pick<Layer, 'props'>,
+  whole: boolean,
+): { width: number; height: number } {
+  if (whole || !('width' in layer.props)) return { width: frame.width, height: frame.height }
+  return { width: Math.max(1, Math.round(layer.props.width)), height: Math.max(1, Math.round(layer.props.height)) }
 }

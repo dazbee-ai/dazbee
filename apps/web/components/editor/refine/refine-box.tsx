@@ -6,15 +6,16 @@
 // the picture in the frame as it arrives, while the frame shows its sheen. The latest exchange (the person's words and
 // the version's summary) shows above the field, earlier ones folded behind Earlier, read from the frame's refines, so
 // they survive a reload. A refine that didn't work says so, with Retry. On an editable frame it changes only the
-// picture layer selected in the frame, and asks for one when none is. The box folds away while a gesture runs;
-// Reviewers never get it.
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react'
+// picture layer selected in the frame, and asks for one when none is; marks are drawn over a frame's whole picture
+// only. The words and marks are kept while the box is closed, until they are sent or cleared. The box folds away
+// while a gesture runs; Reviewers never get it.
+import { type KeyboardEvent, useEffect, useState } from 'react'
 
-import type { Editor } from '@dazbee/editor'
-import type { AiRefineView } from '@dazbee/schema'
+import { type Editor, shownPicture } from '@dazbee/editor'
+import { type AiRefineView, jobRunning, pictureLayerOf } from '@dazbee/schema'
 
 import { useDesignAi, useSelection } from '@/components/editor/editor-hooks.ts'
-import { type FrameRect, useFrameRect } from '@/components/editor/frame-rect.ts'
+import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useWheelThrough } from '@/components/editor/wheel-through.ts'
 import {
   ArrowUpIcon,
@@ -29,13 +30,21 @@ import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiRefines } from '@/lib/editor/ai-client.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
-import { drawMarks, type Mark, type MarkPoint, MARKS_BLUE, marksSize, refineLayer } from '@/lib/editor/refine.ts'
+import {
+  drawMarks,
+  type Mark,
+  marksSize,
+  REFINE_DRAFTS,
+  refineBoxPlace,
+  refineLayer,
+  type Size,
+} from '@/lib/editor/refine.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 import { sendAsset } from '@/lib/upload-asset.ts'
 
-/** What a press over the frame draws: nothing (the canvas takes it), a box or a brush stroke. */
-type Tool = 'none' | 'box' | 'brush'
+import { useFrameRect } from './frame-rect.ts'
+import { MarksLayer,type MarkTool } from './marks-layer.tsx'
 
 /** A quiet round icon button of the box, its focus ring in Dazbee's blue. */
 const ICON = cn(
@@ -44,8 +53,6 @@ const ICON = cn(
 )
 /** The box's width in pixels. */
 const WIDTH = 360
-/** Pixels between the frame and the box. */
-const GAP = 12
 
 /**
  * The frame's refines, read when the box opens and again whenever the design's AI frames change what they say of
@@ -93,26 +100,30 @@ export function RefineBox({
   const [box, setBox] = useState<HTMLElement | null>(null)
   const rect = useFrameRect(editor, frameId, box)
   const refines = useRefines(workspaceId, brandId, editor, frameId)
-  const [words, setWords] = useState('')
-  const [marks, setMarks] = useState<Mark[]>([])
-  const [tool, setTool] = useState<Tool>('none')
+  const [kept] = useState(() => REFINE_DRAFTS.get(editor, frameId))
+  const [words, setWords] = useState(kept.words)
+  const [marks, setMarks] = useState<Mark[]>(kept.marks)
+  const [tool, setTool] = useState<MarkTool>('none')
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [earlier, setEarlier] = useState(false)
   useWheelThrough(box)
-  const design = editor.design()
+  // Kept as they change, so the box closed and opened again shows them.
+  useEffect(() => REFINE_DRAFTS.set(editor, frameId, { words, marks }), [editor, frameId, words, marks])
+  const { design } = useLiveDesign(editor)
   const frame = design.frames[frameId]
   const layer = refineLayer(
     ai,
     frameId,
     selection.map((id) => {
       const node = design.nodes[id]
-      const fills = node && 'fills' in node.props ? (node.props.fills as { type: string }[]) : []
-      return { id, parentId: node?.parentId ?? '', image: fills.some((f) => f.type === 'image') }
+      return { id, parentId: node?.parentId ?? '', image: Boolean(node && shownPicture(node)) }
     }),
   )
+  // Marks are drawn over the frame, so they mark its whole picture, not a layer of an editable frame.
+  const marking = layer === pictureLayerOf(frameId)
   const latest = refines?.at(-1)
-  const working = latest?.job.state === 'waiting' || latest?.job.state === 'running'
+  const working = jobRunning(latest?.job)
   const failed = latest?.job.state === 'failed' || latest?.job.state === 'cancelled'
   const ready = Boolean(layer && words.trim() !== '' && !busy && !working)
 
@@ -121,7 +132,7 @@ export function RefineBox({
     setBusy(true)
     setSaid(null)
     try {
-      const uploaded = marksAssetId ?? (marks.length > 0 ? await uploadMarks(marks, frame) : undefined)
+      const uploaded = marksAssetId ?? (marking && marks.length > 0 ? await uploadMarks(marks, frame) : undefined)
       const started = await editor.refine({
         frameId,
         pictureLayerId: layer,
@@ -143,7 +154,7 @@ export function RefineBox({
   }
 
   /** The marks drawn as one picture at the frame's proportions, uploaded to the brand; its asset's id. */
-  async function uploadMarks(drawn: readonly Mark[], size: { width: number; height: number }): Promise<string> {
+  async function uploadMarks(drawn: readonly Mark[], size: Size): Promise<string> {
     const picture = marksSize(size)
     const canvas = document.createElement('canvas')
     Object.assign(canvas, picture)
@@ -163,10 +174,18 @@ export function RefineBox({
     if (ready) void send(words.trim())
   }
 
-  const place = rect && box ? boxPlace(rect, box) : null
+  const stage = box?.offsetParent as HTMLElement | null | undefined
+  const place =
+    rect && box && stage
+      ? refineBoxPlace(
+          rect,
+          { width: WIDTH, height: box.offsetHeight },
+          { width: stage.clientWidth, height: stage.clientHeight },
+        )
+      : null
   return (
     <>
-      {rect && frame && (marks.length > 0 || tool !== 'none') && (
+      {rect && frame && marking && (marks.length > 0 || tool !== 'none') && (
         <MarksLayer
           rect={rect}
           frame={frame}
@@ -217,7 +236,7 @@ export function RefineBox({
             </div>
           )}
           {latest && (
-            <div className="pe-8" data-testid="refine-latest">
+            <div className="max-h-32 overflow-y-auto pe-8" data-testid="refine-latest">
               <Exchange refine={latest} />
               {failed && (
                 <p className="mt-1 flex items-center gap-1.5 text-tiny text-muted">
@@ -258,7 +277,7 @@ export function RefineBox({
             </p>
           )}
           <div className="-ms-1 flex items-center gap-0.5">
-            {(['none', 'box', 'brush'] as const).map((each) => (
+            {(marking ? (['none', 'box', 'brush'] as const) : []).map((each) => (
               <Tooltip key={each} plain label={r.tools[each]}>
                 <button
                   type="button"
@@ -312,7 +331,7 @@ export function RefineBox({
 /** One exchange: the person's words, then the version's summary, or Working… while it is made. */
 function Exchange({ refine }: { refine: AiRefineView }) {
   const r = useMessages().editor.refine
-  const working = refine.job.state === 'waiting' || refine.job.state === 'running'
+  const working = jobRunning(refine.job)
   return (
     <li className="flex list-none flex-col gap-0.5">
       <span className="text-small text-text">{refine.message}</span>
@@ -326,133 +345,4 @@ function Exchange({ refine }: { refine: AiRefineView }) {
       )}
     </li>
   )
-}
-
-/**
- * The marks over the frame, numbered in the order drawn; with a tool picked, it takes the presses over the frame and
- * draws a box or a brush stroke, kept in the frame's design pixels so they follow the view.
- */
-function MarksLayer({
-  rect,
-  frame,
-  marks,
-  tool,
-  onMark,
-}: {
-  rect: FrameRect
-  frame: { width: number; height: number }
-  marks: readonly Mark[]
-  tool: Tool
-  onMark: (mark: Mark) => void
-}) {
-  const [layer, setLayer] = useState<SVGSVGElement | null>(null)
-  const drawing = useRef<Mark | null>(null)
-  const [, redraw] = useState(0)
-  useWheelThrough(layer as unknown as HTMLElement | null)
-  const k = (rect.right - rect.left) / frame.width
-  const pointOf = (event: PointerEvent<SVGSVGElement>): MarkPoint => {
-    const box = event.currentTarget.getBoundingClientRect()
-    return {
-      x: Math.min(frame.width, Math.max(0, (event.clientX - box.left) / k)),
-      y: Math.min(frame.height, Math.max(0, (event.clientY - box.top) / k)),
-    }
-  }
-  const shown = drawing.current ? [...marks, drawing.current] : marks
-  return (
-    <svg
-      ref={setLayer}
-      data-testid="refine-marks"
-      aria-hidden
-      className={cn('absolute z-10', tool === 'none' ? 'pointer-events-none' : 'cursor-crosshair touch-none')}
-      style={{ left: rect.left, top: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top }}
-      viewBox={`0 0 ${frame.width} ${frame.height}`}
-      onPointerDown={(event) => {
-        if (tool === 'none' || event.button !== 0) return
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId)
-        } catch {
-          // A pointer the browser no longer tracks: the stroke still draws while it stays over the frame.
-        }
-        const at = pointOf(event)
-        drawing.current = tool === 'box' ? { kind: 'box', from: at, to: at } : { kind: 'brush', points: [at] }
-        redraw((n) => n + 1)
-      }}
-      onPointerMove={(event) => {
-        const now = drawing.current
-        if (!now) return
-        const at = pointOf(event)
-        drawing.current = now.kind === 'box' ? { ...now, to: at } : { ...now, points: [...now.points, at] }
-        redraw((n) => n + 1)
-      }}
-      onPointerUp={() => {
-        const done = drawing.current
-        drawing.current = null
-        if (
-          done &&
-          (done.kind === 'brush' ? done.points.length > 1 : done.from.x !== done.to.x && done.from.y !== done.to.y)
-        )
-          onMark(done)
-        redraw((n) => n + 1)
-      }}
-    >
-      {shown.map((mark, n) => {
-        const width = 3 / k
-        const at =
-          mark.kind === 'box'
-            ? { x: Math.min(mark.from.x, mark.to.x), y: Math.min(mark.from.y, mark.to.y) }
-            : mark.points[0]
-        return (
-          <g key={n}>
-            {mark.kind === 'box' ? (
-              <rect
-                x={Math.min(mark.from.x, mark.to.x)}
-                y={Math.min(mark.from.y, mark.to.y)}
-                width={Math.abs(mark.to.x - mark.from.x)}
-                height={Math.abs(mark.to.y - mark.from.y)}
-                fill="none"
-                stroke={MARKS_BLUE}
-                strokeWidth={width}
-              />
-            ) : (
-              <polyline
-                points={mark.points.map((p) => `${p.x},${p.y}`).join(' ')}
-                fill="none"
-                stroke={MARKS_BLUE}
-                strokeWidth={width * 2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-            {at && (
-              <>
-                <circle cx={at.x} cy={at.y} r={10 / k} fill={MARKS_BLUE} />
-                <text
-                  x={at.x}
-                  y={at.y}
-                  dy={4 / k}
-                  fontSize={12 / k}
-                  textAnchor="middle"
-                  fill="#FFFFFF"
-                  fontWeight={700}
-                >
-                  {n + 1}
-                </text>
-              </>
-            )}
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
-
-/** Where the box goes: under the frame, centred on it, kept inside the stage; over the frame's bottom when there is no room under it. */
-function boxPlace(rect: FrameRect, box: HTMLElement): { left: number; top: number } {
-  const stage = box.offsetParent as HTMLElement | null
-  const room = { width: stage?.clientWidth ?? 0, height: stage?.clientHeight ?? 0 }
-  const centre = (rect.left + rect.right) / 2
-  const left = Math.min(Math.max(centre - WIDTH / 2, GAP), Math.max(GAP, room.width - WIDTH - GAP))
-  const below = rect.bottom + GAP
-  const top = below + box.offsetHeight + GAP > room.height ? room.height - box.offsetHeight - GAP * 6 : below
-  return { left: Math.round(left), top: Math.round(Math.max(GAP, top)) }
 }

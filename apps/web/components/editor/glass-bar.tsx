@@ -3,9 +3,9 @@
 // The glass bar above a picked AI frame, in a tab that may change the design: a small bar of light frosted glass over
 // the frame's label, holding its AI actions as icons with labels and the star. More like this makes four new drafts
 // in a new section right of the draft's section, joined to it by a connector; Refine with AI opens the refine box
-// under the frame, and the frame's versions show beside it. Hovering an AI action shows about how
+// under the frame, and its picture versions show beside it. Hovering an AI action shows about how
 // much of the workspace's AI it takes and how long, asked once per action and mode while the design is open. While
-// the frame waits for its picture or is being made editable, its AI actions are off and the bar says "Working…". It
+// the frame waits for its picture, is refined or is being made editable, its AI actions are off and the bar says "Working…". It
 // folds away while a gesture runs, and a copy of an AI frame, a plain frame, gets none. Why an action didn't start
 // shows in one quiet line under it.
 import { useEffect, useState } from 'react'
@@ -15,9 +15,9 @@ import { type AiEstimate, type AiFeature, type AiMode, pictureLayerOf } from '@d
 
 import { editState, useEditState } from '@/components/editor/edit-store.ts'
 import { useDesignAi, usePickedFrame } from '@/components/editor/editor-hooks.ts'
-import { RefineBox } from '@/components/editor/refine-box.tsx'
+import { PictureVersions } from '@/components/editor/refine/picture-versions.tsx'
+import { RefineBox } from '@/components/editor/refine/refine-box.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
-import { VersionStrip } from '@/components/editor/version-strip.tsx'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { useWheelThrough } from '@/components/editor/wheel-through.ts'
 import { CircleNotchIcon, MagicWandIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
@@ -261,7 +261,7 @@ function FrameBar({
           onClose={() => setRefining(false)}
         />
       )}
-      <VersionStrip
+      <PictureVersions
         workspaceId={workspaceId}
         brandId={brandId}
         editor={editor}

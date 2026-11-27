@@ -16,10 +16,9 @@ export {
   type BriefStarted,
   type EditorAi,
   type MoreLikeRequest,
-  REFINE_EDIT,
   type RefineRequest,
 } from './ai/arrivals.ts'
-export { briefPassesWarning } from './ai/place-brief.ts'
+export { briefPassesWarning, shownPicture } from './ai/place-brief.ts'
 export { type FontSources } from './font-loads.ts'
 export { startViewer } from './viewer.ts'
 export { VersionUnanswered } from './sync-link.ts'

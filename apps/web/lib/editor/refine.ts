@@ -1,9 +1,8 @@
-// What Refine with AI reads of a design's AI frames: whether a frame is being refined, the versions of its picture
-// (the first one, then each refine's new version), which layer a refine changes, and the marks a person draws over
-// the frame, drawn as the marks picture the refine plan reads: numbered boxes and strokes in Dazbee's blue on
-// transparency, at the frame's proportions.
-import { REFINE_EDIT } from '@dazbee/editor'
-import { type DesignAi, pictureLayerOf } from '@dazbee/schema'
+// What Refine with AI reads of a design's AI frames: whether a frame is being refined, the picture versions of a
+// picture layer (the first picture, then each refine's new version), which layer a refine changes, where its box goes,
+// what a refine box keeps while it is closed, and the marks a person draws over the frame, drawn as the marks picture
+// the refine plan reads: numbered boxes and strokes in Dazbee's blue on transparency, at the frame's size.
+import { type DesignAi, jobRunning, madeCallPicture, pictureLayerOf, REFINE_CALL } from '@dazbee/schema'
 
 /** A point of the frame, in its design pixels. */
 export interface MarkPoint {
@@ -14,8 +13,28 @@ export interface MarkPoint {
 /** A mark over a frame, in its design pixels: a box from one corner to the other, or a brush stroke. */
 export type Mark = { kind: 'box'; from: MarkPoint; to: MarkPoint } | { kind: 'brush'; points: MarkPoint[] }
 
-/** One version of a frame's picture: its asset, and the refine that made it, null for the first. */
-export interface FrameVersion {
+/** A size in pixels. */
+export interface Size {
+  width: number
+  height: number
+}
+
+/** A box on the stage, by its edges in pixels from the stage's left and top. */
+export interface StageEdges {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** What a refine box holds while it is closed: its words and marks. */
+export interface RefineDraft {
+  words: string
+  marks: Mark[]
+}
+
+/** One picture version of a picture layer: its asset, and the refine that made it, null for the first. */
+export interface PictureVersion {
   assetId: string
   refineId: string | null
 }
@@ -39,8 +58,10 @@ export interface MarksPen {
 /** Dazbee's blue, the marks' colour, as the stage's accent. */
 export const MARKS_BLUE = '#3D6BFF'
 
-/** The longest side of the marks picture: the refine plan stretches it over the picture. */
-export const MARKS_SIDE = 1024
+/** The longest side of the marks picture, as the refine plan reads it at most. */
+const MARKS_SIDE = 2048
+/** Pixels between a frame and its refine box, and the box and the stage's edges. */
+const BOX_GAP = 12
 
 /** Each digit as strokes in a 0–1 box, from top left: what a mark's number is drawn with, needing no font. */
 const DIGITS: Record<string, [number, number][][]> = {
@@ -147,26 +168,23 @@ const DIGITS: Record<string, [number, number][][]> = {
 /** Whether AI frame `frameId` is being refined now: a refine of it whose new version hasn't been written. */
 export function refining(ai: DesignAi | null, frameId: string): boolean {
   return (ai?.refines ?? []).some(
-    (r) => r.frameId === frameId && r.resultAssetId === null && !ai?.jobs.find((j) => j.id === r.jobId)?.endedAt,
+    (r) => r.frameId === frameId && r.resultAssetId === null && jobRunning(ai?.jobs.find((j) => j.id === r.jobId)),
   )
 }
 
 /**
- * The versions of AI frame `frameId`'s picture, oldest first: the picture its call made, then each refine's new
- * version once made; none for a frame that isn't an AI frame or has no picture yet.
+ * The picture versions of picture layer `layerId` of AI frame `frameId`, oldest first: for the frame's picture layer,
+ * the picture its call made, then each refine of the layer's new version once made; none for a frame that isn't an
+ * AI frame.
  */
-export function frameVersions(ai: DesignAi | null, frameId: string): FrameVersion[] {
+export function pictureVersions(ai: DesignAi | null, frameId: string, layerId: string): PictureVersion[] {
   const frame = ai?.frames.find((f) => f.frameId === frameId)
   if (!ai || !frame) return []
-  const made = (jobId: string, index: number) => {
-    const call = ai.jobs.find((j) => j.id === jobId)?.calls.find((c) => c.index === index)
-    return call?.state === 'done' && call.output.kind === 'pictures' ? (call.output.pictures[0]?.assetId ?? null) : null
-  }
-  const first = made(frame.jobId, frame.callIndex)
-  const versions: FrameVersion[] = first ? [{ assetId: first, refineId: null }] : []
+  const first = layerId === pictureLayerOf(frameId) ? madeCallPicture(ai.jobs, frame.jobId, frame.callIndex) : null
+  const versions: PictureVersion[] = first ? [{ assetId: first, refineId: null }] : []
   for (const refine of ai.refines) {
-    if (refine.frameId !== frameId) continue
-    const assetId = refine.resultAssetId ?? made(refine.jobId, REFINE_EDIT)
+    if (refine.frameId !== frameId || refine.pictureLayerId !== layerId) continue
+    const assetId = refine.resultAssetId ?? madeCallPicture(ai.jobs, refine.jobId, REFINE_CALL.edit)
     if (assetId) versions.push({ assetId, refineId: refine.id })
   }
   return versions
@@ -191,12 +209,7 @@ export function refineLayer(
  * Draws `marks` over a frame of `size` onto `pen`, scaled to a picture of `width` × `height`: each a blue outline in
  * the order drawn, numbered from 1 in a blue disc at its start.
  */
-export function drawMarks(
-  pen: MarksPen,
-  marks: readonly Mark[],
-  size: { width: number; height: number },
-  picture: { width: number; height: number },
-): void {
+export function drawMarks(pen: MarksPen, marks: readonly Mark[], size: Size, picture: Size): void {
   const k = picture.width / size.width
   const line = Math.max(3, Math.round(picture.width / 160))
   pen.lineCap = 'round'
@@ -213,19 +226,56 @@ export function drawMarks(
       mark.points.forEach((p, i) => (i === 0 ? pen.moveTo(p.x * k, p.y * k) : pen.lineTo(p.x * k, p.y * k)))
       pen.stroke()
     }
-    const at =
-      mark.kind === 'box'
-        ? { x: Math.min(mark.from.x, mark.to.x), y: Math.min(mark.from.y, mark.to.y) }
-        : mark.points[0]
+    const at = markStart(mark)
     if (at) drawNumber(pen, n + 1, at.x * k, at.y * k, line * 5)
   })
 }
 
-/** The marks picture's size for a frame of `size`: its proportions, its longest side `MARKS_SIDE`. */
-export function marksSize(size: { width: number; height: number }): { width: number; height: number } {
-  const k = MARKS_SIDE / Math.max(size.width, size.height)
+/** Where a mark starts, where its number goes: a box's top left corner, or a stroke's first point. */
+export function markStart(mark: Mark): MarkPoint | undefined {
+  return mark.kind === 'box'
+    ? { x: Math.min(mark.from.x, mark.to.x), y: Math.min(mark.from.y, mark.to.y) }
+    : mark.points[0]
+}
+
+/** The marks picture's size for a frame of `size`: the frame's own, scaled down to `MARKS_SIDE` on its longest side. */
+export function marksSize(size: Size): Size {
+  const k = Math.min(1, MARKS_SIDE / Math.max(size.width, size.height))
   return { width: Math.max(1, Math.round(size.width * k)), height: Math.max(1, Math.round(size.height * k)) }
 }
+
+/**
+ * Where a refine box of `box` goes on a stage of `room`: under the frame at `frame`, centred on it and kept inside the
+ * stage's sides; up over the frame's bottom when there is no room under it.
+ */
+export function refineBoxPlace(frame: StageEdges, box: Size, room: Size): { left: number; top: number } {
+  const centre = (frame.left + frame.right) / 2
+  const left = Math.min(Math.max(centre - box.width / 2, BOX_GAP), Math.max(BOX_GAP, room.width - box.width - BOX_GAP))
+  const below = frame.bottom + BOX_GAP
+  const top = below + box.height + BOX_GAP > room.height ? room.height - box.height - BOX_GAP : below
+  return { left: Math.round(left), top: Math.round(Math.max(BOX_GAP, top)) }
+}
+
+/** What the refine boxes keep while closed, by editor and frame, until they are sent or the editor ends. */
+export interface RefineDrafts {
+  get(holder: object, frameId: string): RefineDraft
+  set(holder: object, frameId: string, draft: RefineDraft): void
+}
+
+export function refineDrafts(): RefineDrafts {
+  const kept = new WeakMap<object, Map<string, RefineDraft>>()
+  return {
+    get: (holder, frameId) => kept.get(holder)?.get(frameId) ?? { words: '', marks: [] },
+    set: (holder, frameId, draft) => {
+      const own = kept.get(holder) ?? new Map<string, RefineDraft>()
+      kept.set(holder, own)
+      own.set(frameId, draft)
+    },
+  }
+}
+
+/** The app's refine boxes' drafts. */
+export const REFINE_DRAFTS = refineDrafts()
 
 /** Number `n` in white strokes on a blue disc of `radius` centred at `x`, `y`. */
 function drawNumber(pen: MarksPen, n: number, x: number, y: number, radius: number) {

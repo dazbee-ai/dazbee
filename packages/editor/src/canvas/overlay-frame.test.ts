@@ -50,8 +50,10 @@ describe('editorOverlay', () => {
       expect(part('ai-lift-veil')?.dataset).toEqual({ frame: 'one-sq' })
       const lifted = parts('ai-lift')
       expect(lifted.map((el) => (el as unknown as { src: string }).src)).toEqual(['blob:low', 'blob:high'])
-      // The piece higher in the frame lifts higher.
-      expect(lifted.map((el) => el.attributes.style)).toEqual(['--lift: 1', '--lift: 2'])
+      // The piece higher in the frame lifts higher, by steps that follow the frame's size on the screen.
+      const lifts = lifted.map((el) => Number.parseFloat((el.attributes.style ?? '').replace('--lift: ', '')))
+      expect(lifts[0]).toBeGreaterThan(0)
+      expect(lifts[1]).toBe(2 * (lifts[0] ?? 0))
       // Drawn again, a piece keeps its picture's element, so its picture isn't loaded twice.
       overlay.draw()
       expect(parts('ai-lift')).toEqual(lifted)

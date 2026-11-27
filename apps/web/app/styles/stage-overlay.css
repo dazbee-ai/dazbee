@@ -556,12 +556,12 @@
   }
 }
 /* A frame whose pieces are being made into live layers: a soft veil over its picture, and each piece lifting from it
-   with a shadow under it, one after another, then settling back; a piece higher in the frame (`--lift`) lifts
-   higher. The editor sets each piece's delay, so pieces drawn again keep their pace. Where motion is reduced the
+   with a shadow under it, one after another, then settling back; the editor sets how far each lifts (`--lift`, more
+   for a piece higher in the frame) and its delay, so pieces drawn again keep their pace. Where motion is reduced the
    pieces sit a little lifted, still. */
 .stage-overlay .ai-lift-veil {
   position: absolute;
-  background: color-mix(in srgb, white 50%, transparent);
+  background: color-mix(in srgb, white 65%, transparent);
 }
 .stage-overlay .ai-lift {
   position: absolute;
@@ -575,8 +575,8 @@
   }
   40%,
   60% {
-    translate: 0 calc(var(--lift) * -3px);
-    filter: drop-shadow(0 calc(var(--lift) * 2px) calc(var(--lift) * 2px) rgb(0 0 0 / 0.28));
+    translate: 0 calc(var(--lift) * -1);
+    filter: drop-shadow(0 calc(var(--lift) * 0.6) calc(var(--lift) * 0.6) rgb(0 0 0 / 0.28));
   }
 }
 @media (prefers-reduced-motion: reduce) {

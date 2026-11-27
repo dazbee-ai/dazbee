@@ -1,8 +1,8 @@
-// What Make editable's finish reads of a done layering job, before any picture is drawn: which split call and which
-// layer plan are a frame's, where its split layers are among the job's files, and its split pieces when the split cut
-// any; each split layer's and each piece's name from the plan, where a layer's visible part is in it, where a piece
-// goes in the frame, the link id a piece shares with the same part of the job's other frames, and the ids of the
-// layers the finish places, which come from the job so a second finish writes the same ones.
+// What Make editable's finish reads of a done layering job, before any picture is drawn: which split call, which
+// layer plan and which reading are a frame's, where its split layers are among the job's files, and its split pieces
+// when the split cut any; each split layer's and each piece's name from the plan, where a layer's visible part is in
+// it, where a piece goes in the frame, the link id a piece shares with the same part of the job's other frames, and
+// the ids of the layers the finish places, which come from the job so a second finish writes the same ones.
 import { imagePlacement } from '@dazbee/renderer'
 import {
   type AiFrameView,
@@ -12,6 +12,7 @@ import {
   LayerPlanAnswer,
   type MadePiece,
   type MadePieces,
+  ReadingAnswer,
 } from '@dazbee/schema'
 
 /** A box in pixels. */
@@ -59,6 +60,17 @@ export function layerPlanOf(job: Calls, frame: FrameCall): LayerPlanAnswer | nul
 /** Whether a layering job has one layer plan for all its frames: no plan call but the first frame's. */
 export function onePlan(job: Calls): boolean {
   return !job.calls.some((c) => c.index >= LAYERING_CALL.plan(1))
+}
+
+/**
+ * The reading of AI frame `frame`'s text, the call after its split; null when none was made, as for a plan with no
+ * text, or it can't be read.
+ */
+export function readingOf(job: Calls, frame: FrameCall): ReadingAnswer | null {
+  const call = job.calls.find((c) => c.index === frame.callIndex + 1)
+  if (call?.state !== 'done' || call.output.kind !== 'text') return null
+  const reading = ReadingAnswer.safeParse(call.output.json)
+  return reading.success ? reading.data : null
 }
 
 /**
@@ -201,9 +213,12 @@ export function pieceCrop(piece: Pick<MadePiece, 'x' | 'y' | 'picture'>, picture
   }
 }
 
-/** The id of the layer the finish places for split layer or split piece `index` of frame `frameId`, from the job's id. */
-export function pieceId(jobId: string, frameId: string, index: number): string {
-  const tail = `-${index}`
+/**
+ * The id of the layer the finish places for split layer or split piece `index` of frame `frameId`, from the job's
+ * id; of layer `nth` (from 0) of those a matcher rebuilt the piece as, the first having the piece's own id.
+ */
+export function pieceId(jobId: string, frameId: string, index: number, nth = 0): string {
+  const tail = nth === 0 ? `-${index}` : `-${index}_${nth}`
   return `${jobId}-${frameId}`.slice(0, ID_LENGTH - tail.length) + tail
 }
 

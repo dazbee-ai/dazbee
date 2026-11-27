@@ -377,6 +377,7 @@ export const ar: Messages = {
       makeEditable: 'جعلها قابلة للتعديل',
       backToPicture: 'العودة إلى الصورة',
       backKept: 'تعديلاتك على الطبقات محفوظة: «جعلها قابلة للتعديل» يعيدها.',
+      textHint: 'يمكن تصحيح النص بعد «جعلها قابلة للتعديل».',
       warmingUp: 'جارٍ التجهيز، نحو دقيقة',
       layerWord: 'طبقة',
       working: 'جارٍ العمل…',

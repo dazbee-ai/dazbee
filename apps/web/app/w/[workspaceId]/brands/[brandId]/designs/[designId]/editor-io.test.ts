@@ -1,12 +1,12 @@
 // The editor's loads through the app: a Google face's file from its permanent address, kept by the browser and
-// Cloudflare, and a brand's upload through the brand's own route.
+// Cloudflare, a brand's upload through the brand's own route, and what the matchers work with.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { FontFamily } from '@dazbee/schema'
 
 import * as fontCatalog from '@/components/brand-kit/font-catalog.ts'
 
-import { fontLoader, startStageEditor } from './editor-io.ts'
+import { fontLoader, matchSources, startStageEditor } from './editor-io.ts'
 
 const CATALOG: FontFamily[] = [
   {
@@ -131,5 +131,41 @@ describe('fontLoader', () => {
     await expect(fontFaces(['Lora'])).rejects.toThrow('Failed to fetch')
     vi.spyOn(fontCatalog, 'loadedCatalog').mockReturnValue(CATALOG)
     expect((await fontFaces(['Lora', 'Gone Sans'])).map((face) => face.id)).toEqual(['lora00000400'])
+  })
+})
+
+describe('matchSources', () => {
+  const KIT = {
+    colors: [{ token: 'primary', name: 'Primary', value: '#102030FF' }],
+    fonts: [{ token: 'heading', name: 'Heading', family: 'Lora' }],
+    logoAssetId: null,
+    voice: '',
+    textStyles: [],
+  }
+
+  it('gives the brand kit by token and the brand’s catalog, with the path its uploaded faces are read at', async () => {
+    vi.stubGlobal('fetch', () => Promise.resolve(Response.json(KIT)))
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(CATALOG)
+    expect(await matchSources('w1', 'b1')).toEqual({
+      kit: { colors: { primary: '#102030FF' }, fonts: { heading: 'Lora' }, textStyles: [] },
+      fonts: { catalog: CATALOG, uploadPath: '/w/w1/brands/b1/fonts/' },
+    })
+  })
+
+  it('gives an empty kit for a brand with none', async () => {
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('No kit', { status: 404 })))
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(CATALOG)
+    expect((await matchSources('w1', 'b1')).kit).toEqual({ colors: {}, fonts: {}, textStyles: [] })
+  })
+
+  it('rejects when the kit or the catalog can’t be read, as offline or while the server is swapped', async () => {
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(CATALOG)
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('Failed to fetch')
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('Bad gateway', { status: 502 })))
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('brand kit: 502')
+    vi.stubGlobal('fetch', () => Promise.resolve(Response.json(KIT)))
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(null)
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('the font catalog did not come')
   })
 })

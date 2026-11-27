@@ -284,6 +284,7 @@ export function harness(
     presence: { shown: () => state.people ?? [] },
     aiWaiting: () => [],
     aiEditable: () => new Set(),
+    aiLifting: () => [],
   }
   const overlay = editorOverlay(changed(deps))
   /** The part drawn with a class. */

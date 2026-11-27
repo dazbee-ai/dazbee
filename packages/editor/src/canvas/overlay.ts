@@ -12,6 +12,7 @@ import { constraintsApply, constraintsOf, copiesOf, frameIdOf, scaleText } from 
 import type { Rect } from '@dazbee/schema'
 
 import { byFrame } from '../across-frames.ts'
+import type { LiftedFrame } from '../ai/piece-rebuild.ts'
 import type { EditorColourPick } from '../gestures/colour-pick.ts'
 import { loupeParts } from '../gestures/colour-pick-parts.ts'
 import type { EditorCropping } from '../gestures/crop/cropping.ts'
@@ -40,7 +41,7 @@ import type { EditorPresence } from '../presence.ts'
 import { type EditorSelection, firstFrameOf, idsOf } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
 import { textParts } from '../text/typing-parts.ts'
-import { sheenParts } from './ai-parts.ts'
+import { liftParts, sheenParts } from './ai-parts.ts'
 import { toScreen } from './camera.ts'
 import { connectorParts } from './connector-parts.ts'
 import { type Constrained, constraintParts } from './constraint-parts.ts'
@@ -104,6 +105,8 @@ export interface OverlayDeps {
   aiWaiting: () => readonly string[]
   /** The AI frames made editable whose picture is hidden, whose labels show the layers icon. */
   aiEditable: () => ReadonlySet<string>
+  /** The AI frames whose split pieces are being matched, with their pieces, which lift apart. */
+  aiLifting: () => readonly LiftedFrame[]
 }
 
 export interface EditorOverlay {
@@ -155,6 +158,7 @@ export function editorOverlay({
   presence,
   aiWaiting,
   aiEditable,
+  aiLifting,
 }: OverlayDeps): EditorOverlay {
   const { frameOf } = view
 
@@ -485,7 +489,9 @@ export function editorOverlay({
     }
     const safeZones = view.safeZones()
     if (safeZones) parts.push(...safeZoneParts(view.inView(), placeBox, safeZones))
-    parts.push(...sheenParts(view.inView(), placeBox, new Set(aiWaiting())))
+    const lifted = aiLifting()
+    parts.push(...sheenParts(view.inView(), placeBox, new Set(aiWaiting()), new Set(lifted.map((l) => l.frameId))))
+    parts.push(...liftParts(view.inView(), placeBox, lifted, performance.now()))
     const picked = view.inView().find((frame) => frame.id === selection.pickedFrame())
     if (picked) {
       const box = { x: 0, y: 0, width: picked.width, height: picked.height, rotation: 0 }

@@ -43,15 +43,15 @@ export interface FakeAi extends EditorAi {
   design(): DesignAi
   /**
    * Layering job `job` ends with its plan and frame `n`'s split layers made: each split file's PNG bytes. With
-   * `more.pieces` the split cut those split pieces too, and with `more.ownPlan` the plan is frame `n`'s own, the
-   * job having a plan per frame.
+   * `more.pieces` the split cut those split pieces too, with `more.ownPlan` the plan is frame `n`'s own, the job
+   * having a plan per frame, and with `more.reading` the frame's reading was made too.
    */
   split(
     job: string,
     n: number,
     files: readonly Uint8Array[],
     plan?: unknown,
-    more?: { pieces?: MadePieces; ownPlan?: boolean },
+    more?: { pieces?: MadePieces; ownPlan?: boolean; reading?: unknown },
   ): void
   /** The finish's lease lapses, as when the tab holding it closes. */
   lapse(): void
@@ -236,7 +236,7 @@ export function fakeAi(): FakeAi {
     n: number,
     made: readonly Uint8Array[],
     plan: unknown = null,
-    { pieces, ownPlan = false }: { pieces?: MadePieces; ownPlan?: boolean } = {},
+    { pieces, ownPlan = false, reading }: { pieces?: MadePieces; ownPlan?: boolean; reading?: unknown } = {},
   ) {
     const job = jobs.find((j) => j.id === jobId)
     if (!job) throw new Error(`no job ${jobId}`)
@@ -256,6 +256,13 @@ export function fakeAi(): FakeAi {
         output: { kind: 'layers', layers, ...(pieces ? { pieces } : {}), gpuSeconds: 1 },
       }
     })
+    if (reading !== undefined)
+      job.calls.push({
+        index: LAYERING_CALL.read(n),
+        function: 'reading',
+        state: 'done',
+        output: { kind: 'text', text: '', json: reading },
+      })
     // Done once every frame's split is.
     if (job.calls.every((call) => call.state === 'done')) {
       job.state = 'done'

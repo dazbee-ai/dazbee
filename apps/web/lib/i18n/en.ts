@@ -440,6 +440,8 @@ export const en = {
       backToPicture: 'Back to picture',
       /** Said the first time a person goes back to the picture. */
       backKept: 'Your layer edits are kept: Make editable brings them back.',
+      /** Said the first time a person makes a picture editable. */
+      textHint: 'Text can be fixed after Make editable.',
       /** While the layer split's first call wakes the GPU up. */
       warmingUp: 'Warming up, about a minute',
       /** A layer Make editable makes that the layer plan names nothing in, before its number. */

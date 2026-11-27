@@ -13,6 +13,7 @@ import type {
   RefineRequest,
   SizesRequest,
 } from './ai/arrivals.ts'
+import type { MatchSources } from './ai/piece-matcher.ts'
 import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -50,6 +51,11 @@ export interface EditorOptions extends CoreOptions {
   signal?: AbortSignal
   /** The AI flow's routes: without them, no brief starts and no AI result arrives. */
   ai?: EditorAi
+  /**
+   * What the matchers work with, the brand kit and the font catalog, asked for each time Make editable's finish has
+   * split pieces to rebuild as live text and shapes; without it, every split piece stays a picture.
+   */
+  matchers?: () => Promise<MatchSources>
 }
 
 /**

@@ -8,7 +8,8 @@ import { type ResourceBytes, type ResourceCache, resourceCache } from '@dazbee/r
 import { fontUses, framesOf, imageAssetIds, inOrder, type Point, type Rect } from '@dazbee/schema'
 
 import { type EditorArrivals, editorArrivals } from './ai/arrivals.ts'
-import { editorLayeringFinish } from './ai/layering-finish.ts'
+import { type EditorLayeringFinish, editorLayeringFinish } from './ai/layering-finish.ts'
+import { pieceMatcher } from './ai/piece-matcher.ts'
 import { fit } from './canvas/camera.ts'
 import { editorOverlay } from './canvas/overlay.ts'
 import { type EditorSurface, editorSurface } from './canvas/surface.ts'
@@ -205,6 +206,29 @@ function live(
         signal,
       })
     : null
+  // Make editable's finish runs in a tab with the AI routes. Given what the matchers work with, it has them rebuild
+  // text and shapes as live layers, in workers started with the first piece.
+  const imageBytes = (assetId: string) => resources.bytes().images[assetId]
+  const layeringFinish: EditorLayeringFinish | null =
+    arrivals && options.ai
+      ? editorLayeringFinish({
+          session,
+          ai: options.ai,
+          ck,
+          holder: crypto.randomUUID(),
+          read: arrivals.read,
+          onRead: arrivals.onRead,
+          after,
+          readyPictures: resources.prepareImages,
+          imageBytes,
+          matcher: options.matchers && pieceMatcher({ ck, imageBytes, sources: options.matchers, signal }),
+          readyFonts: resources.loadUses,
+          fitText: typing.fitText,
+          arrive: arrivals.land,
+          poll: arrivals.poll,
+          signal,
+        })
+      : null
   const overlay = editorOverlay({
     overlay: options.overlay,
     view,
@@ -228,9 +252,12 @@ function live(
     presence,
     aiWaiting: () => arrivals?.waiting() ?? [],
     aiEditable: () => arrivals?.editable() ?? new Set(),
+    aiLifting: () => layeringFinish?.lifting() ?? [],
   })
-  // A read of the design's AI frames can start or end a frame's wait: the overlay draws its sheen again.
+  // A read of the design's AI frames can start or end a frame's wait: the overlay draws its sheen again; and its
+  // pieces lifting, as the matchers start and end.
   arrivals?.onRead(overlay.draw)
+  layeringFinish?.onLifting(overlay.draw)
   const stageField = editorStageField({
     overlay: options.overlay,
     input: core.input,
@@ -250,21 +277,6 @@ function live(
     paused: () => pauses > 0,
     signal,
   })
-  // Make editable's finish runs in a tab with the AI routes.
-  if (arrivals && options.ai)
-    editorLayeringFinish({
-      session,
-      ai: options.ai,
-      ck,
-      holder: crypto.randomUUID(),
-      read: arrivals.read,
-      onRead: arrivals.onRead,
-      after,
-      readyPictures: resources.prepareImages,
-      arrive: arrivals.land,
-      poll: arrivals.poll,
-      signal,
-    })
   const clipboardEvents = editorClipboardEvents({
     clipboard: core.clipboard,
     canCopyPng: () => core.actionReady('copyPng'),

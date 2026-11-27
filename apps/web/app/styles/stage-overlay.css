@@ -555,6 +555,37 @@
     background: color-mix(in srgb, white 25%, transparent);
   }
 }
+/* A frame whose pieces are being made into live layers: a soft veil over its picture, and each piece lifting from it
+   with a shadow under it, one after another, then settling back; a piece higher in the frame (`--lift`) lifts
+   higher. The editor sets each piece's delay, so pieces drawn again keep their pace. Where motion is reduced the
+   pieces sit a little lifted, still. */
+.stage-overlay .ai-lift-veil {
+  position: absolute;
+  background: color-mix(in srgb, white 50%, transparent);
+}
+.stage-overlay .ai-lift {
+  position: absolute;
+  animation: ai-lift 2.6s ease-in-out infinite;
+}
+@keyframes ai-lift {
+  0%,
+  100% {
+    translate: 0 0;
+    filter: drop-shadow(0 0 0 rgb(0 0 0 / 0));
+  }
+  40%,
+  60% {
+    translate: 0 calc(var(--lift) * -3px);
+    filter: drop-shadow(0 calc(var(--lift) * 2px) calc(var(--lift) * 2px) rgb(0 0 0 / 0.28));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-overlay .ai-lift {
+    animation: none;
+    translate: 0 -4px;
+    filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.28));
+  }
+}
 /* Guides: a frame's lines dragged out of the rulers, 1px in the guide's blue across their frame, 2px
    while under the pointer, picked or dragged, with their place in the gap's pill. */
 .stage-overlay .guide-line {

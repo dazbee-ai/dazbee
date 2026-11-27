@@ -14,6 +14,7 @@ import {
   pieceId,
   pieceLink,
   pieceName,
+  readingOf,
   scaleBox,
   sharedLinks,
   visibleBox,
@@ -150,6 +151,41 @@ describe('onePlan', () => {
   it('says whether every frame of the job is planned by the first frame’s plan', () => {
     expect(onePlan(JOB)).toBe(true)
     expect(onePlan(OWN_PLANS)).toBe(false)
+  })
+})
+
+describe('readingOf', () => {
+  const block = {
+    id: 'e1',
+    text: 'Big sale',
+    corrections: [],
+    lettering: 'font',
+    style: 'sans-serif',
+    italic: false,
+    rounded: false,
+    mixed_styles: false,
+    mixed_note: '',
+  }
+  const read = (index: number, json: unknown) => ({
+    index,
+    function: 'reading',
+    state: 'done' as const,
+    output: { kind: 'text' as const, text: '', json },
+  })
+
+  it('reads a frame’s reading, the call after its split', () => {
+    const job = { calls: [...JOB.calls, read(LAYERING_CALL.read(1), { blocks: [block] })] }
+    expect(readingOf(job, frame(1))?.blocks).toEqual([block])
+    expect(readingOf(job, frame(0))).toBeNull()
+  })
+
+  it('reads none while it runs, when it failed or when it can’t be read', () => {
+    const at = LAYERING_CALL.read(0)
+    expect(readingOf({ calls: [{ index: at, function: 'reading', state: 'running' }] }, frame(0))).toBeNull()
+    expect(
+      readingOf({ calls: [{ index: at, function: 'reading', state: 'failed', failure: 'not-made' }] }, frame(0)),
+    ).toBeNull()
+    expect(readingOf({ calls: [read(at, { blocks: [{ id: 'e1' }] })] }, frame(0))).toBeNull()
   })
 })
 
@@ -388,5 +424,12 @@ describe('pieceId', () => {
   it('comes from the job, the frame and the layer, at most 64 characters', () => {
     expect(pieceId('job', 'frame', 2)).toBe('job-frame-2')
     expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12)).toHaveLength(64)
+  })
+
+  it('gives the first layer a matcher rebuilt a piece as the piece’s own id, and the others ids no piece has', () => {
+    expect(pieceId('job', 'frame', 2, 0)).toBe('job-frame-2')
+    expect(pieceId('job', 'frame', 2, 1)).toBe('job-frame-2_1')
+    expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3)).toHaveLength(64)
+    expect(pieceId('j'.repeat(40), 'f'.repeat(40), 12, 3).endsWith('-12_3')).toBe(true)
   })
 })

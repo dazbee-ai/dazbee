@@ -51,7 +51,7 @@ import { format } from '@/lib/i18n/index.ts'
 import { layerName } from '@/lib/layer-name.ts'
 
 import { fetchSyncToken, renameFromEditor } from './actions.ts'
-import { assetBytes, fontLoader, imageUploader, keepForOffline, startStageEditor } from './editor-io.ts'
+import { assetBytes, editorSources, fontLoader, keepForOffline, startStageEditor } from './editor-io.ts'
 
 declare global {
   interface Window {
@@ -311,9 +311,7 @@ export function EditorStage({
         syncUrl,
         member: { userId, workspaceId },
         syncToken: () => fetchSyncToken(workspaceId, brandId, designId),
-        assetBytes: (assetId) => assetBytes(workspaceId, brandId, assetId),
-        ...fontLoader(workspaceId, brandId),
-        uploadImage: imageUploader(workspaceId, brandId),
+        ...editorSources(workspaceId, brandId),
         ai: editorAi(workspaceId, brandId, designId, t.editor.glass.layerWord),
         ...(variables ? { variables } : {}),
         onStatus: status.set,

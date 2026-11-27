@@ -8,7 +8,8 @@
 // much of the workspace's AI it takes and how long, asked once per action and mode while the design is open. While
 // the frame waits for its picture, is refined or is being made editable, its AI actions are off and the bar says "Working…". It
 // folds away while a gesture runs, and a copy of an AI frame, a plain frame, gets none. Why an action didn't start
-// shows in one quiet line under it.
+// shows in one quiet line under it, and so does, the first time a person makes a picture editable, that its text can
+// be fixed after.
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import type { BriefStarted, Editor } from '@dazbee/editor'
@@ -50,6 +51,8 @@ import { format } from '@/lib/i18n/index.ts'
 
 /** Where the browser remembers that the person was told Back to picture keeps their layers. */
 const BACK_NOTE_KEY = 'dazbee:back-to-picture-told'
+/** Where the browser remembers that the person was told text can be fixed after Make editable. */
+const TEXT_HINT_KEY = 'dazbee:make-editable-told'
 
 /** A labelled action of the bar, its focus ring in Dazbee's blue inside it. */
 const ACTION = cn(
@@ -57,7 +60,6 @@ const ACTION = cn(
   'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--stage-accent)',
 )
 
-/** Whether this is the first time on this browser for `key`, which it then remembers; true where storage is off. */
 /** Make all editable asked of a frame's bar from the section's actions, run by the bar once it shows that frame. */
 let askedFrame: string | null = null
 const askedListeners = new Set<() => void>()
@@ -73,6 +75,7 @@ export function askMakeAllEditable(frameId: string) {
   for (const listener of askedListeners) listener()
 }
 
+/** Whether this is the first time on this browser for `key`, which it then remembers; true where storage is off. */
 function firstTime(key: string): boolean {
   try {
     if (localStorage.getItem(key)) return false
@@ -201,6 +204,7 @@ function FrameBar({
     try {
       const started = await editor.makeAllEditable(sizes.frameIds)
       if (!started.ok) setSaid(started.refusal ? t.editor.brief[briefSaid(started)] : g.notStarted)
+      else if (firstTime(TEXT_HINT_KEY)) setSaid(g.textHint)
     } catch {
       setSaid(g.unknown)
     } finally {
@@ -214,6 +218,7 @@ function FrameBar({
     try {
       const started = await editor.makeEditable(frameId)
       if (!started.ok) setSaid(started.refusal ? t.editor.brief[briefSaid(started)] : g.notStarted)
+      else if (firstTime(TEXT_HINT_KEY)) setSaid(g.textHint)
     } catch {
       setSaid(g.unknown)
     } finally {

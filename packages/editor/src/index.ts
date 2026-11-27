@@ -19,6 +19,7 @@ export {
   type RefineRequest,
   type SizesRequest,
 } from './ai/arrivals.ts'
+export { type MatchSources } from './ai/piece-matcher.ts'
 export { briefPassesWarning, shownPicture } from './ai/place-brief.ts'
 export { type FontSources } from './font-loads.ts'
 export { startViewer } from './viewer.ts'

@@ -64,7 +64,7 @@ export { connectorRefusal } from './commands/connectors.ts'
 export { type PlacedTree, placedRoots } from './commands/arrange.ts'
 export { designSizeOf } from './sync/checks.ts'
 export { type FlipAxis } from './commands/flip.ts'
-export { smallerRatio } from './commands/fit.ts'
+export { scaledSizes, smallerRatio } from './commands/fit.ts'
 export {
   type DesignStore,
   type EndedStep,

@@ -1,27 +1,36 @@
 // Make editable's finish, run in one tab: when the design's AI frames say a frame's layering job has made its split
 // layers, a tab claims the job's finish through the API, renews the lease every minute while it works, and lets it
-// go once done. A frame whose split cut split pieces, each recorded as an asset, gets a picture layer per piece,
-// where the picture's own fill draws the piece, named after its planned part, with nothing downloaded or uploaded.
-// For any other frame it downloads each split layer, crops it to what it shows, scaled to the frame, and uploads the
-// crops as hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame
-// as one arrival no undo takes back: the picture layer hidden at the bottom, then the layers, bottom first, in the
-// split's order reversed. Layer ids come from the job, so a second finish places nothing new. A frame whose picture
-// changed or went meanwhile gets no layers, and offers Make editable again; so does a frame whose picture layer no
-// longer fills it as drawn, and a split that shows nothing. Another tab holding the lease is waited for; a lease that
+// go once done. A frame whose split cut split pieces, each recorded as an asset, gets a layer per piece, named after
+// its planned part, with nothing downloaded or uploaded: a text piece the text matcher rebuilds becomes a live text,
+// fitted to its words and bound to the brand kit where the matcher bound it, a shape piece the shape matcher
+// rebuilds becomes its graphics, and every other piece a picture layer, where the picture's own fill draws the
+// piece. While the matchers work, the frame's pieces are told as lifting, which the overlay draws. For any other
+// frame it downloads each split layer, crops it to what it shows, scaled to the frame, and uploads the crops as
+// hidden parts of the brand, a picture layer per split layer. Either way the layers are placed in the frame as one
+// arrival no undo takes back: the picture layer hidden at the bottom, then the layers, bottom first, in the split's
+// order reversed. Layer ids come from the job, so a second finish places nothing new. A frame whose picture changed
+// or went meanwhile gets no layers, and offers Make editable again; so does a frame whose picture layer no longer
+// fills it as drawn, and a split that shows nothing. Another tab holding the lease is waited for; a lease that
 // lapses, as when a tab closes mid-way, is claimed by the next tab, and a tab that lost its lease places nothing. A
 // finish that fails is tried again after a minute, its parts uploaded once, and ended with nothing placed after three
-// tries.
+// tries; matchers that fail on the last try leave their pieces pictures.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Session } from '@dazbee/doc'
+import type { FontUse } from '@dazbee/fonts'
 import {
   type AiFrameView,
   type AiJobView,
+  BINDABLE_PROPERTIES,
+  type BindableProperty,
   type DesignAi,
   frameIdOf,
   type ImageCrop,
   type Layer,
+  type MadePieces,
   MAX_SPLIT_PIECES,
   pictureLayerOf,
+  textFontUses,
+  type UnplacedLayer,
 } from '@dazbee/schema'
 
 import type { EditorAi } from './arrivals.ts'
@@ -37,10 +46,13 @@ import {
   pieceId,
   pieceLink,
   pieceName,
+  readingOf,
   scaleBox,
   sharedLinks,
   visibleBox,
 } from './layer-pieces.ts'
+import type { PieceMatcher } from './piece-matcher.ts'
+import { rebuiltLayers } from './piece-matching.ts'
 import { shownPicture } from './place-brief.ts'
 
 export interface LayeringFinishDeps {
@@ -56,6 +68,14 @@ export interface LayeringFinishDeps {
   after: (ms: number, run: () => void) => () => void
   /** Gets pictures ready to draw; settles once they are, or can't be. */
   readyPictures: (assetIds: readonly string[]) => Promise<void>
+  /** The encoded bytes the editor holds of an image, by its asset; none for one not loaded. */
+  imageBytes: (assetId: string) => Uint8Array | undefined
+  /** The matchers' answers for a frame's split pieces; without it every piece stays a picture. */
+  matcher?: PieceMatcher | undefined
+  /** Gets the fonts of these uses ready to draw; settles once they are, or can't be. */
+  readyFonts: (uses: readonly FontUse[]) => Promise<void>
+  /** Fits a text that grows with its words to them, in the step it is written in. */
+  fitText: (id: string) => void
   /** Runs `steps` as one arrival; resolves whether the server stored it. */
   arrive: (steps: () => void) => Promise<'saved' | 'none'>
   /** Reads the design's AI frames again. */
@@ -64,9 +84,19 @@ export interface LayeringFinishDeps {
   signal: AbortSignal
 }
 
+/** A frame whose split pieces are being matched: its pieces but those filling it, bottom first, each a picture at its box. */
+export interface LiftedFrame {
+  frameId: string
+  pieces: readonly { url: string; box: PieceBox }[]
+}
+
 export interface EditorLayeringFinish {
   /** The frames this tab is finishing now. */
   finishing(): string[]
+  /** The frames whose split pieces the matchers are working on now, with their pieces lifting apart. */
+  lifting(): readonly LiftedFrame[]
+  /** Calls back when `lifting()` changes; gives what stops it. */
+  onLifting(listener: () => void): () => void
   /** Settles once every finish started so far is done or given up. */
   settled(): Promise<void>
 }
@@ -81,7 +111,11 @@ interface PlacedLayer {
   box: PieceBox
   /** The part of its picture the box shows, for a split piece; a split layer's cropped picture fills its box. */
   crop?: ImageCrop
+  /** The layers a matcher rebuilt a split piece as, bottom first, each with its id, placed in the frame; left out, its picture is placed. */
+  matched?: readonly { id: string; layer: UnplacedLayer }[]
 }
+
+type Size = Pick<PieceBox, 'width' | 'height'>
 
 /** What a job's frames link their layers by. */
 interface Links {
@@ -97,6 +131,8 @@ export const RENEW_MS = 60_000
 export const RETRY_MS = 60_000
 /** How many times a tab tries a finish before ending it with nothing placed. */
 export const TRIES = 3
+/** A split piece covering more than this share of its frame doesn't lift: it is what the others lift from. */
+const FILLS_FRAME = 0.9
 
 export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFinish {
   const { session, ai, ck, holder, read, onRead, after, signal } = deps
@@ -107,6 +143,9 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   const resting = new Set<string>()
   /** The parts uploaded, by job, frame and split layer, so a finish tried again uploads none twice. */
   const uploaded = new Map<string, string>()
+  /** The frames whose pieces are being matched, each with its pieces' pictures, and who hears when they change. */
+  const lifted = new Map<string, LiftedFrame>()
+  const liftListeners = new Set<() => void>()
 
   function look() {
     const now = read()
@@ -173,7 +212,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       for (const frame of frames) {
         let layers: PlacedLayer[] | null
         try {
-          layers = await layersOf(frame, job, links)
+          layers = await layersOf(frame, job, links, last)
         } catch (e) {
           if (!last) throw e
           failed = e
@@ -184,7 +223,11 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       }
       if (placing.length === 0 && failed !== null) throw failed
       if (placing.length > 0) {
-        await deps.readyPictures(placing.flatMap(([, layers]) => layers.map((layer) => layer.assetId)))
+        const placed = placing.flatMap(([, layers]) => layers)
+        await Promise.all([
+          deps.readyPictures(placed.flatMap((layer) => (layer.matched ? [] : [layer.assetId]))),
+          deps.readyFonts(placed.flatMap((layer) => (layer.matched ?? []).flatMap((made) => fontUses(made.layer)))),
+        ])
         if (signal.aborted || lost) return
         const outcome = await deps.arrive(() => {
           for (const [frame, layers] of placing) if (fits(frame)) place(frame, layers)
@@ -196,19 +239,27 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       await deps.poll()
     } finally {
       renewing()
+      for (const frame of frames) settle(frame.frameId)
     }
   }
 
   /**
-   * The layers to place in the frame: its split pieces', or else its split layers', cropped, scaled to the frame and
-   * uploaded; null when there is nothing to place: the frame or its picture layer is gone, the layer no longer shows
-   * the picture made editable as it was drawn, or the split shows nothing.
+   * The layers to place in the frame: its split pieces', those the matchers rebuild as their live layers, or else
+   * its split layers', cropped, scaled to the frame and uploaded; null when there is nothing to place: the frame or
+   * its picture layer is gone, the layer no longer shows the picture made editable as it was drawn, or the split
+   * shows nothing. On the `last` try, matchers that fail leave every piece a picture.
    */
-  async function layersOf(frame: AiFrameView, job: AiJobView, links: Links): Promise<PlacedLayer[] | null> {
+  async function layersOf(
+    frame: AiFrameView,
+    job: AiJobView,
+    links: Links,
+    last: boolean,
+  ): Promise<PlacedLayer[] | null> {
     const own = session.design().frames[frame.frameId]
     if (!own || !fits(frame)) return null
-    const ofPieces = pieceLayers(frame, job, own, links.shared)
-    if (ofPieces) return ofPieces
+    const cut = framePieces(job, frame)
+    const ofPieces = cut && pieceLayers(frame, job, cut, own, links.shared)
+    if (cut && ofPieces) return rebuilt(frame, job, cut, own, ofPieces, last)
     const layers = frameLayers(job, frame)
     if (!layers) return null
     const plan = layerPlanOf(job, frame)
@@ -232,18 +283,17 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   }
 
   /**
-   * A layer per split piece of the frame, of size `own`: the piece's recorded asset where the picture's fill draws
-   * the piece, named after its planned part in the frame's plan, with its link id when it is among `shared`. Null
-   * when the frame's split cut no pieces, or one of them has no recorded asset.
+   * A layer per split piece `cut` of the frame, of size `own`: the piece's recorded asset where the picture's fill
+   * draws the piece, named after its planned part in the frame's plan, with its link id when it is among `shared`.
+   * Null when one of the pieces has no recorded asset.
    */
   function pieceLayers(
     frame: AiFrameView,
     job: AiJobView,
-    own: Pick<PieceBox, 'width' | 'height'>,
+    cut: MadePieces,
+    own: Size,
     shared: ReadonlySet<string>,
   ): PlacedLayer[] | null {
-    const cut = framePieces(job, frame)
-    if (!cut) return null
     const plan = layerPlanOf(job, frame)
     const layers: PlacedLayer[] = []
     for (const [n, piece] of cut.items.entries()) {
@@ -260,6 +310,63 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       })
     }
     return layers
+  }
+
+  /**
+   * The frame's piece layers `layers`, one per split piece of `cut`, with those the matchers rebuild given their
+   * live layers, placed in the frame of size `own`. The pieces' pictures and the frame's own are loaded first, and
+   * the pieces lift while the matchers work. With no matcher, every piece stays a picture.
+   */
+  async function rebuilt(
+    frame: AiFrameView,
+    job: AiJobView,
+    cut: MadePieces,
+    own: Size,
+    layers: PlacedLayer[],
+    last: boolean,
+  ): Promise<PlacedLayer[]> {
+    const { matcher } = deps
+    if (!matcher) return layers
+    const pictures = [...layers.map((layer) => layer.assetId), ...(frame.assetId === null ? [] : [frame.assetId])]
+    await deps.readyPictures(pictures)
+    if (signal.aborted) return layers
+    lift(frame.frameId, layers, own)
+    const plan = layerPlanOf(job, frame)
+    let answers: Awaited<ReturnType<PieceMatcher>>
+    try {
+      answers = await matcher({ cut, plan, reading: readingOf(job, frame), pictureAssetId: frame.assetId })
+    } catch (e) {
+      if (!last) throw e
+      return layers
+    }
+    return layers.map((layer, n) => {
+      const piece = cut.items[n]
+      const made = piece ? rebuiltLayers(answers.get(n), piece, plan, cut, own) : null
+      if (!made) return layer
+      return { ...layer, matched: made.map((one, nth) => ({ id: pieceId(job.id, frame.frameId, n, nth), layer: one })) }
+    })
+  }
+
+  /** Shows frame `frameId`'s pieces lifting: each piece of `layers` not filling the frame, of size `own`, whose picture is here. */
+  function lift(frameId: string, layers: readonly PlacedLayer[], own: Size) {
+    settle(frameId)
+    const pieces = [...layers].reverse().flatMap((layer) => {
+      const bytes = deps.imageBytes(layer.assetId)
+      if (!bytes || layer.box.width * layer.box.height > FILLS_FRAME * own.width * own.height) return []
+      return [{ url: URL.createObjectURL(new Blob([bytes.slice()], { type: 'image/png' })), box: layer.box }]
+    })
+    if (pieces.length === 0) return
+    lifted.set(frameId, { frameId, pieces })
+    for (const listener of liftListeners) listener()
+  }
+
+  /** Ends frame `frameId`'s lifting, if it lifts. */
+  function settle(frameId: string) {
+    const was = lifted.get(frameId)
+    if (!was) return
+    lifted.delete(frameId)
+    for (const piece of was.pieces) URL.revokeObjectURL(piece.url)
+    for (const listener of liftListeners) listener()
   }
 
   /**
@@ -335,10 +442,15 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     const pictureId = pictureLayerOf(frame.frameId)
     session.run('node.update', { ids: [pictureId], patch: { visible: false } })
     for (const layer of [...layers].reverse()) {
+      const link = layer.link !== null && !holdsLink(frame.frameId, layer.link) ? { link: layer.link } : {}
+      if (layer.matched) {
+        placeMatched(frame.frameId, layer.name, layer.matched, link)
+        continue
+      }
       session.run('node.create', {
         id: layer.id,
         parentId: frame.frameId,
-        ...(layer.link !== null && !holdsLink(frame.frameId, layer.link) ? { link: layer.link } : {}),
+        ...link,
         layer: {
           type: 'graphic',
           name: layer.name,
@@ -353,6 +465,33 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
           },
         },
       })
+    }
+  }
+
+  /**
+   * Places the layers `matched` a matcher rebuilt a split piece as on top of frame `frameId`, bottom first: named
+   * `name`, numbered when several, the first with the piece's link id when `link` gives one, each bound to the brand
+   * kit as the matcher bound it, and a text fitted to its words.
+   */
+  function placeMatched(
+    frameId: string,
+    name: string,
+    matched: NonNullable<PlacedLayer['matched']>,
+    link: { link?: string },
+  ) {
+    for (const [nth, { id, layer }] of matched.entries()) {
+      session.run('node.create', {
+        id,
+        parentId: frameId,
+        ...(nth === 0 ? link : {}),
+        layer: { type: layer.type, name: matched.length > 1 ? `${name} ${nth + 1}` : name, props: layer.props },
+      })
+      for (const [property, ref] of Object.entries(layer.bindings ?? {})) {
+        const value = BINDABLE_PROPERTIES[property as BindableProperty].read(layer.props)
+        if (ref && value !== undefined)
+          session.run('node.bind', { ids: [id], property: property as BindableProperty, ref, value })
+      }
+      if (layer.type === 'text') deps.fitText(id)
     }
   }
 
@@ -381,12 +520,24 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     while (running.size > 0) await Promise.all(running.values())
   }
 
+  function onLifting(listener: () => void) {
+    liftListeners.add(listener)
+    return () => liftListeners.delete(listener)
+  }
+
   const off = onRead(look)
   signal.addEventListener('abort', off)
   look()
 
   return {
     finishing: () => (read()?.frames ?? []).filter((f) => running.has(f.jobId)).map((f) => f.frameId),
+    lifting: () => [...lifted.values()],
+    onLifting,
     settled,
   }
+}
+
+/** The fonts a rebuilt layer is drawn in: a text's; none for a graphic. */
+function fontUses(layer: UnplacedLayer): readonly FontUse[] {
+  return layer.type === 'text' ? textFontUses(layer as Extract<Layer, { type: 'text' }>) : []
 }

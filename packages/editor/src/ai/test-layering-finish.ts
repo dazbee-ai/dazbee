@@ -8,6 +8,7 @@ import { type MadePiece, type MadePieces, pictureLayerOf } from '@dazbee/schema'
 
 import type { EditorAi } from './arrivals.ts'
 import { type EditorLayeringFinish, editorLayeringFinish } from './layering-finish.ts'
+import type { PieceMatcher } from './piece-matcher.ts'
 import type { FakeAi } from './test-ai.ts'
 import { BRIEF, pollAll, settle, type Tab, tabOn } from './test-arrivals.ts'
 
@@ -92,13 +93,17 @@ export const cutOf = (width: number, height: number, ...items: MadePiece[]): Mad
 })
 
 /**
- * A tab of `token`'s with its finish, the timers it waits on, what its arrivals give back as stored, and the AI its
- * finish asks, when not the tab's.
+ * A tab of `token`'s with its finish, the timers it waits on, what its arrivals give back as stored, the AI its
+ * finish asks, when not the tab's, and the matchers it asks, when it has any.
  */
 export async function finishing(
   ai: FakeAi,
   token = 'ann',
-  { arrive, finishAi }: { arrive?: () => Promise<'saved' | 'none'>; finishAi?: EditorAi } = {},
+  {
+    arrive,
+    finishAi,
+    matcher,
+  }: { arrive?: () => Promise<'saved' | 'none'>; finishAi?: EditorAi; matcher?: PieceMatcher } = {},
 ): Promise<{ tab: Tab; finish: EditorLayeringFinish; timers: (() => void)[] }> {
   const tab = await tabOn(ai, token)
   const stop = new AbortController()
@@ -118,6 +123,10 @@ export async function finishing(
       }
     },
     readyPictures: tab.editor.modules.resources.prepareImages,
+    imageBytes: (assetId) => tab.editor.modules.resources.bytes().images[assetId],
+    matcher,
+    readyFonts: tab.editor.modules.resources.loadUses,
+    fitText: tab.editor.modules.typing.fitText,
     arrive: arrive ?? tab.arrivals.land,
     poll: tab.arrivals.poll,
     signal: stop.signal,

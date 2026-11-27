@@ -34,6 +34,33 @@ describe('editorOverlay', () => {
       expect(part('ai-waiting')).toBeUndefined()
     })
 
+    it('draws a veil and each lifting piece over a frame whose pieces are being matched, in place of its sheen', () => {
+      const pieces = [
+        { url: 'blob:low', box: { x: 0, y: 50, width: 100, height: 20 } },
+        { url: 'blob:high', box: { x: 10, y: 10, width: 30, height: 30 } },
+      ]
+      let lifting = [{ frameId: 'one-sq', pieces }]
+      const { overlay, part, parts } = harness({ selected: false }, (deps) => ({
+        ...deps,
+        aiWaiting: () => ['one-sq'],
+        aiLifting: () => lifting,
+      }))
+      overlay.draw()
+      expect(part('ai-waiting')).toBeUndefined()
+      expect(part('ai-lift-veil')?.dataset).toEqual({ frame: 'one-sq' })
+      const lifted = parts('ai-lift')
+      expect(lifted.map((el) => (el as unknown as { src: string }).src)).toEqual(['blob:low', 'blob:high'])
+      // The piece higher in the frame lifts higher.
+      expect(lifted.map((el) => el.attributes.style)).toEqual(['--lift: 1', '--lift: 2'])
+      // Drawn again, a piece keeps its picture's element, so its picture isn't loaded twice.
+      overlay.draw()
+      expect(parts('ai-lift')).toEqual(lifted)
+      lifting = []
+      overlay.draw()
+      expect(part('ai-lift-veil')).toBeUndefined()
+      expect(part('ai-waiting')?.dataset).toEqual({ frame: 'one-sq' })
+    })
+
     it('draws no handles on a picked frame that shows none', () => {
       const { overlay, part } = harness({ selected: false, picked: true })
       overlay.draw()

@@ -710,7 +710,7 @@ Make editable on a section of AI sizes at once: a layer plan and a split per siz
 _Avoid_: Batch layering, editable all
 
 **Make editable**:
-The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back.
+The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back. A text piece becomes a live text and a shape piece graphics where the matchers rebuild them; every other split piece stays a picture layer, and so does a text in custom lettering, and a text that doesn't look the same whose piece holds more than its planned part.
 _Avoid_: Layerize, convert, decompose
 
 **AI image**:

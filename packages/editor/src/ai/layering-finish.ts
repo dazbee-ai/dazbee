@@ -108,8 +108,9 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   /**
    * Claims the finish of job `job`, whose `frames` are being made editable, and, while this tab holds it, places each
    * frame's layers in one arrival and ends it. A frame with nothing to place gets nothing; places nothing and leaves
-   * the finish when the tab lost its lease or ended. Several sizes of one ad share their layers' link ids, by the
-   * split layer's place, when every size's split has as many layers.
+   * the finish when the tab lost its lease or ended. A frame whose layers won't read fails the whole finish, to be
+   * tried again, except on the last try, when the frames that did read are placed. Several sizes of one ad share
+   * their layers' link ids by the split layer's place, which is the place of its element in the one layer plan.
    */
   async function finish(frames: readonly AiFrameView[], job: AiJobView) {
     if (!(await ai.claim(job.id, holder))) return
@@ -127,17 +128,26 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       )
     }
     try {
+      const last = (failures.get(job.id) ?? 0) >= TRIES - 1
       const placing: [AiFrameView, SplitLayer[]][] = []
+      let failed: unknown = null
       for (const frame of frames) {
-        const pieces = await piecesOf(frame, job)
+        let pieces: SplitLayer[] | null
+        try {
+          pieces = await piecesOf(frame, job)
+        } catch (e) {
+          if (!last) throw e
+          failed = e
+          continue
+        }
         if (signal.aborted || lost) return
         if (pieces) placing.push([frame, pieces])
       }
+      if (placing.length === 0 && failed !== null) throw failed
       if (placing.length > 0) {
         await deps.readyPictures(placing.flatMap(([, pieces]) => pieces.map((p) => p.assetId)))
         if (signal.aborted || lost) return
-        const counts = new Set(frames.map((frame) => frameLayers(job, frame)?.layers.length))
-        const linked = frames.length > 1 && counts.size === 1
+        const linked = frames.length > 1
         const outcome = await deps.arrive(() => {
           for (const [frame, pieces] of placing) if (fits(frame)) place(frame, pieces, linked)
         })

@@ -12,6 +12,7 @@ import type { DesignAi } from '@dazbee/schema'
 
 import { setFlyout, setRenameOpener } from '@/components/editor/edit-store.ts'
 import { useDesignAi } from '@/components/editor/editor-hooks.ts'
+import { askMakeAllEditable } from '@/components/editor/glass-bar.tsx'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { MenuDivider, MenuItem } from '@/components/ui/menu.tsx'
 import { sizesToLayer } from '@/lib/editor/ai-sizes.ts'
@@ -64,9 +65,12 @@ export function runSectionAction(
     BRIEF_DRAFTS.fill(editor, briefDraftOf(brief, pictureName))
     setFlyout('ai')
   } else if (action === 'makeAllEditable') {
+    // The first size is picked and its glass bar runs it, so the bar says why when it doesn't start.
     const sizes = sizesToLayer(editor.designAi(), editor.design(), sectionId)
-    // A refusal shows on the frames' glass bar, which says why when tried from there.
-    if (sizes) editor.makeAllEditable(sizes.frameIds, sizes.planAssetId).catch(() => {})
+    const [first] = sizes?.frameIds ?? []
+    if (first === undefined) return
+    editor.pickFrame(first)
+    askMakeAllEditable(first)
   } else if (action === 'rename') {
     setRenameOpener(opener)
     editor.renameSection(sectionId)

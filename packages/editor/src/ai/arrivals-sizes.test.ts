@@ -174,6 +174,51 @@ describe('editorArrivals', () => {
       expect(childrenOf(a.editor.session.design(), 'ann-7')).toHaveLength(2)
     })
 
+    it('places the sizes that read on the last try, when one size’s layers never read', async () => {
+      serve(WORDS)
+      const ai = fakeAi()
+      const a = await tabOn(ai)
+      const timers: (() => void)[] = []
+      const finish = editorLayeringFinish({
+        session: a.editor.session,
+        ai,
+        ck,
+        holder: 'ann-holder',
+        read: a.arrivals.read,
+        onRead: a.arrivals.onRead,
+        after: (_ms, run) => {
+          timers.push(run)
+          return () => {}
+        },
+        readyPictures: a.editor.modules.resources.prepareImages,
+        arrive: a.arrivals.land,
+        poll: a.arrivals.poll,
+        signal: new AbortController().signal,
+      })
+      await a.arrivals.startBrief(BRIEF)
+      await settle(a.arrivals)
+      ai.make('job1', 0, 'pic1')
+      await pollAll(a)
+      await a.arrivals.otherSizes({ frameId: 'ann-1', sizes: SIZES, title: 'Draft 1 sizes' })
+      await settle(a.arrivals)
+      ai.makeCall('job2', 0, 'tall')
+      ai.makeCall('job2', 1, 'wide')
+      await pollAll(a)
+      await a.arrivals.makeAllEditable(['ann-6', 'ann-7'], 'pic1')
+      ai.split('job3', 0, [splitLayer()])
+      ai.split('job3', 1, [new Uint8Array([1, 2, 3])])
+      await pollAll(a)
+      await finish.settled()
+      for (let n = 0; n < 2; n++) {
+        for (const run of timers.splice(0)) run()
+        await finish.settled()
+      }
+      await pollAll(a)
+      expect(ai.finishes).toEqual(['job3'])
+      expect(childrenOf(a.editor.session.design(), 'ann-6')).toHaveLength(2)
+      expect(childrenOf(a.editor.session.design(), 'ann-7')).toHaveLength(1)
+    })
+
     it('starts nothing when a size shows no picture, and other sizes start nothing on a frame that shows none', async () => {
       serve(WORDS)
       const ai = fakeAi()

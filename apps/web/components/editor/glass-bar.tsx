@@ -9,7 +9,7 @@
 // the frame waits for its picture, is refined or is being made editable, its AI actions are off and the bar says "Working…". It
 // folds away while a gesture runs, and a copy of an AI frame, a plain frame, gets none. Why an action didn't start
 // shows in one quiet line under it.
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import type { BriefStarted, Editor } from '@dazbee/editor'
 import { type AiEstimate, type AiFeature, type AiMode, pictureLayerOf } from '@dazbee/schema'
@@ -58,6 +58,21 @@ const ACTION = cn(
 )
 
 /** Whether this is the first time on this browser for `key`, which it then remembers; true where storage is off. */
+/** Make all editable asked of a frame's bar from the section's actions, run by the bar once it shows that frame. */
+let askedFrame: string | null = null
+const askedListeners = new Set<() => void>()
+
+function onAsked(listener: () => void) {
+  askedListeners.add(listener)
+  return () => askedListeners.delete(listener)
+}
+
+/** Asks the glass bar of frame `frameId` to run Make all editable, so the bar says why when it doesn't start. */
+export function askMakeAllEditable(frameId: string) {
+  askedFrame = frameId
+  for (const listener of askedListeners) listener()
+}
+
 function firstTime(key: string): boolean {
   try {
     if (localStorage.getItem(key)) return false
@@ -161,14 +176,24 @@ function FrameBar({
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [refining, setRefining] = useState(false)
+  // A size of a section of AI sizes is made editable with the rest of them, from one layer plan.
+  const allSizes =
+    frame?.sectionId && shown.frame.kind === 'size' && shown.frame.state === 'arrived'
+      ? sizesToLayer(ai, design, frame.sectionId)
+      : null
+  const asked = useSyncExternalStore(
+    onAsked,
+    () => askedFrame,
+    () => null,
+  )
+  useEffect(() => {
+    if (asked !== frameId || !allSizes) return
+    askedFrame = null
+    void makeAllEditable(allSizes)
+  })
   if (!frame) return null
   const starred = frame.starred === true
   const editable = editableAction(shown.frame, design)
-  // A size of a section of AI sizes is made editable with the rest of them, from one layer plan.
-  const allSizes =
-    frame.sectionId && shown.frame.kind === 'size' && shown.frame.state === 'arrived'
-      ? sizesToLayer(ai, design, frame.sectionId)
-      : null
 
   async function makeAllEditable(sizes: SizesToLayer) {
     setBusy(true)

@@ -1,6 +1,6 @@
 // The arrivals' tests' tabs: members, a brief, and tabs on a sync server in memory, each with its arrivals on a fake
 // of the API's AI flow, its clock and its visibility, which the tests move; and what lets their writes land.
-import type { Design, DesignInput, Member, RestoreMark } from '@dazbee/schema'
+import { type Design, type DesignInput, type Member, pictureLayerOf, type RestoreMark } from '@dazbee/schema'
 
 import { HALF } from '../canvas/test-images.ts'
 import { openTab } from '../open-tab.ts'
@@ -8,7 +8,6 @@ import { WORDS } from '../test-actions.ts'
 import { type TestEditor, testEditor } from '../test-editor.ts'
 import { type MemorySync, memorySync } from '../test-link.ts'
 import { type BriefRequest, type EditorArrivals, editorArrivals } from './arrivals.ts'
-import { pictureLayerOf } from './place-brief.ts'
 import type { FakeAi } from './test-ai.ts'
 
 export const ANN: Member = { userId: 'ann', workspaceId: 'w1' }

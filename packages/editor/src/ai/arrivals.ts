@@ -14,6 +14,7 @@ import {
   type AiSize,
   type DesignAi,
   type PageBox,
+  pictureLayerOf,
   type StartAiJob,
 } from '@dazbee/schema'
 
@@ -21,7 +22,6 @@ import {
   type BriefPlan,
   briefSpot,
   moreLikeSpot,
-  pictureLayerOf,
   pictureState,
   placeBrief,
   planBrief,

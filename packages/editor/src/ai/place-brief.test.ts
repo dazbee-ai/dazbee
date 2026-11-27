@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { type DesignSize, FRAME_GAP, SYNC_LIMITS } from '@dazbee/schema'
+import { type DesignSize, FRAME_GAP, pictureLayerOf, SYNC_LIMITS } from '@dazbee/schema'
 
-import {
-  BRIEF_SCREEN_ROOM,
-  briefPassesWarning,
-  DRAFTS,
-  moreLikeSpot,
-  pictureLayerOf,
-  planBrief,
-} from './place-brief.ts'
+import { BRIEF_SCREEN_ROOM, briefPassesWarning, DRAFTS, moreLikeSpot, planBrief } from './place-brief.ts'
 
 const EMPTY: DesignSize = { layers: 0, frames: 0, pages: 1, sections: 0, connectors: 0, bytes: 1000 }
 

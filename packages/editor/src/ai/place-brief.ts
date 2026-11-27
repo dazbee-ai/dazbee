@@ -15,10 +15,12 @@ import {
   type Layer,
   type PageBox,
   type Paint,
+  PICTURE_NAME,
+  pictureLayerOf,
   type Point,
   sectionBox,
-  type SolidPaint,
   SYNC_LIMITS,
+  WAITING_FILL,
 } from '@dazbee/schema'
 
 import { LABEL_ROOM } from '../canvas/frames.ts'
@@ -50,12 +52,6 @@ export interface BriefPlacing {
 /** How many drafts a round makes. */
 export const DRAFTS = 4
 
-/** The fill a picture layer waits in until its picture arrives: a plain warm grey, as a waiting frame exports. */
-export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
-
-/** The name of a draft's picture layer. */
-export const PICTURE_NAME = 'Picture'
-
 /**
  * The screen pixels between a brief's frames and the frames above them that the outlines and labels take, the same
  * at any zoom: the outline's pad below the frames above, the new outline's pad and title row, and its frames' labels.
@@ -72,14 +68,6 @@ export function planBrief(newId: () => string): BriefPlan {
     return { frameId, pictureLayerId: pictureLayerOf(frameId) }
   })
   return { sectionId: newId(), frames }
-}
-
-/**
- * The id of the picture layer of the AI frame `frameId`: any tab finds it from the frame's id alone, since the API
- * keeps the frame's id and not the layer's.
- */
-export function pictureLayerOf(frameId: string): string {
-  return `${frameId}-picture`
 }
 
 /**

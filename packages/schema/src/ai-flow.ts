@@ -4,6 +4,7 @@
 import { z } from 'zod'
 
 import { type AiFeature, AiMode, LayerSplitSize, MAX_REFERENCES, PictureKey } from './ai.ts'
+import type { SolidPaint } from './paint.ts'
 import { Id } from './primitives.ts'
 
 /** The most one side of a size may be to the other for the AI to be offered it: 3:1 and 1:3. */
@@ -272,4 +273,18 @@ export function answerSchema(answer: z.ZodType): Record<string, unknown> {
   const schema: Record<string, unknown> = { ...z.toJSONSchema(answer) }
   delete schema.$schema
   return schema
+}
+
+/** The fill a picture layer waits in until its picture arrives: a plain warm grey, as a waiting frame exports. */
+export const WAITING_FILL: SolidPaint = { type: 'solid', color: '#EFE9E1FF' }
+
+/** The name of a draft's picture layer. */
+export const PICTURE_NAME = 'Picture'
+
+/**
+ * The id of the picture layer of the AI frame `frameId`: any tab finds it from the frame's id alone, since the API
+ * keeps the frame's id and not the layer's.
+ */
+export function pictureLayerOf(frameId: string): string {
+  return `${frameId}-picture`
 }

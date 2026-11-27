@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { WAITING_FILL } from '@dazbee/schema'
+
 import { WORDS } from '../test-actions.ts'
-import { WAITING_FILL } from './place-brief.ts'
 import { fakeAi } from './test-ai.ts'
 import { BRIEF, endTabs, fillsOf, pictureOf, pollAll, serve, settle, tabOn } from './test-arrivals.ts'
 

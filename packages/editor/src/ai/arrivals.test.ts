@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { type Design, FRAME_GAP, sectionsOf } from '@dazbee/schema'
+import { type Design, FRAME_GAP, pictureLayerOf, sectionsOf, WAITING_FILL } from '@dazbee/schema'
 
 import { WORDS } from '../test-actions.ts'
 import type { MemorySync } from '../test-link.ts'
 import { POLL_MS, POLL_WAITING_MS } from './arrivals.ts'
-import { BRIEF_SCREEN_ROOM, pictureLayerOf, WAITING_FILL } from './place-brief.ts'
+import { BRIEF_SCREEN_ROOM } from './place-brief.ts'
 import { fakeAi } from './test-ai.ts'
 import {
   ANN,

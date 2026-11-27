@@ -616,6 +616,8 @@ export const en = {
       deleteConnector: 'delete connector',
       restore: 'restore',
       importFigma: 'import from Figma',
+      backToPicture: 'back to picture',
+      makeEditable: 'make editable',
     } satisfies Record<StepName, string>,
     undoStep: 'Undo {step}',
     redoStep: 'Redo {step}',

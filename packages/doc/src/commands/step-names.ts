@@ -59,5 +59,7 @@ export const STEP_NAMES = [
   'deleteConnector',
   'restore',
   'importFigma',
+  'backToPicture',
+  'makeEditable',
 ] as const
 export type StepName = (typeof STEP_NAMES)[number]

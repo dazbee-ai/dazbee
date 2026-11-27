@@ -545,6 +545,8 @@ export const ar: Messages = {
       deleteConnector: 'حذف الموصل',
       restore: 'الاستعادة',
       importFigma: 'الاستيراد من Figma',
+      backToPicture: 'العودة إلى الصورة',
+      makeEditable: 'جعلها قابلة للتعديل',
     },
     undoStep: 'تراجع عن {step}',
     redoStep: 'إعادة {step}',

@@ -1,11 +1,13 @@
 // Commands on frames: add, change, resize (with their layers following), copy (with linked copies
-// of every layer, also at another size, its text kept readable) and delete.
+// of every layer, also at another size, its text kept readable), show an AI frame's picture or its
+// layers, and delete.
 import { z } from 'zod'
 
 import {
   type Design,
   Frame,
   FrameId,
+  frameIdOf,
   framesInSection,
   framesOf,
   freeSpot,
@@ -14,6 +16,7 @@ import {
   MAX_GUIDES,
   NEW_FRAME_FILLS,
   newFramePosition,
+  NodeId,
   PageId,
   Paint,
   readableTextSize,
@@ -137,6 +140,36 @@ export const frameUpdate = defineCommand({
     for (const [key, value] of Object.entries(change)) if (value !== undefined) w.set('frame', frameId, key, value)
     if (starred === true) w.set('frame', frameId, 'starred', true)
     else if (starred === false) w.unset('frame', frameId, 'starred')
+  },
+})
+
+/**
+ * Shows an AI frame's picture with the layers made from it hidden (Back to picture), or those layers
+ * with the picture hidden (Make editable again). Visibility is stored, so either survives a reload.
+ */
+export const frameShowPicture = defineCommand({
+  name: 'frame.showPicture',
+  description:
+    'Shows an AI frame’s picture layer and hides the layers made from it, or shows those layers and hides the picture. It refuses a missing frame, and a layer that is not in that frame.',
+  step: 'backToPicture',
+  stepOf: (input) => (input.show ? 'backToPicture' : 'makeEditable'),
+  batchable: true,
+  input: z.strictObject({
+    frameId: FrameId.describe('The AI frame.'),
+    pictureLayerId: NodeId.describe('Its picture layer.'),
+    layerIds: NodeId.array().max(500).describe('The layers made from the picture.'),
+    show: z.boolean().describe('true shows the picture and hides the layers; false the other way round.'),
+  }),
+  check: ({ design }, { frameId, pictureLayerId, layerIds }) => {
+    const problem = frameProblem(design, frameId)
+    if (problem) return problem
+    for (const id of [pictureLayerId, ...layerIds])
+      if (frameIdOf(design, id) !== frameId) return `layer "${id}" is not in frame "${frameId}"`
+    return undefined
+  },
+  apply: ({ w }, { pictureLayerId, layerIds, show }) => {
+    w.setProp(pictureLayerId, 'visible', show)
+    for (const id of layerIds) w.setProp(id, 'visible', !show)
   },
 })
 

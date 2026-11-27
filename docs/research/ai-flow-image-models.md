@@ -270,6 +270,7 @@ The layer split app cuts its split layers into one split piece per planned part 
 - **Clearing specks keeps a piece's box tight.** A piece is cropped to its pixels with alpha of at least 8 of 255, after groups of at most 4 joined pixels, all below alpha 64, are cleared. On a drawn test ad, the box of a disc drawn 200 × 200 went from 253 × 347 to 204 × 204.
 - **The steps run on the CPU inside the split call,** so their seconds are billed on the GPU's container: 4.6 s at 1024 px is ₹0.54 at ₹0.1175 a second. The whole calls took 25–26 s at 1024 px and 7–8 s at 512 px.
 - **The layer plan by Terra** left no part without a piece at 1024 px, as Sol's did, with boxes a little rougher (0.84 against 0.88 overlap with the pieces, 27 against 12 boxes under half), at US$0.0148 and 34.7 s a plan against US$0.0296 and 49.0 s.
+- **A layer plan's time and tokens.** Each of the 19 ads was planned once by each preset, 36 plans at once. Terra medium took 25.2 to 47.9 s, Sol medium 31.1 to 67.5 s, three of Sol's over 60 s, which is the time a text call gets. The dearest and slowest Terra plan had 1,243 tokens in, 2,501 cached and 3,965 out, in 47.9 s: ₹2.41 by the price list. Planned alone, one ad of 24 parts took 42.7 s by Terra and 67.5 s by Sol.
 
 ## Not yet known
 

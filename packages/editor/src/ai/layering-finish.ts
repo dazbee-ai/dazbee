@@ -195,8 +195,8 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   async function layersOf(frame: AiFrameView, job: AiJobView, links: Links): Promise<PlacedLayer[] | null> {
     const own = session.design().frames[frame.frameId]
     if (!own || !fits(frame)) return null
-    const cut = pieceLayers(frame, job, own, links.shared)
-    if (cut) return cut
+    const ofPieces = pieceLayers(frame, job, own, links.shared)
+    if (ofPieces) return ofPieces
     const layers = frameLayers(job, frame)
     if (!layers) return null
     const plan = layerPlanOf(job, frame)
@@ -227,7 +227,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   function pieceLayers(
     frame: AiFrameView,
     job: AiJobView,
-    own: { width: number; height: number },
+    own: Pick<PieceBox, 'width' | 'height'>,
     shared: ReadonlySet<string>,
   ): PlacedLayer[] | null {
     const cut = framePieces(job, frame)

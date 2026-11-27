@@ -181,6 +181,44 @@ describe('editorLayeringFinish', () => {
     ])
   })
 
+  it('gives a piece no link id in a frame that holds its link already', async () => {
+    serve(WORDS)
+    const ai = fakeAi()
+    const a = await finishing(ai)
+    await sizesMadeEditable(ai, a)
+    // A layer of the tall size holds the link id its headline would share with the wide size's, as a pasted copy can.
+    a.tab.editor.session.run('node.create', {
+      id: 'pasted',
+      parentId: 'ann-6',
+      link: 'job3-a3e7120d',
+      layer: {
+        type: 'graphic',
+        name: 'Pasted',
+        props: {
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          shape: { kind: 'rect' },
+          fills: [{ type: 'image', assetId: 'tall', fit: 'fill' }],
+        },
+      },
+    })
+    const plan = planOf(element('e1', 'text', 'Headline', 1, 'Big sale'))
+    const pieces = cutOf(576, 1024, cut('e1', 'text', 0, 0, 10, 10))
+    ai.split('job3', 0, [NO_PICTURE], plan, { pieces })
+    ai.split('job3', 1, [NO_PICTURE], plan, { pieces })
+    await finished(a)
+
+    expect(ai.finishes).toEqual(['job3'])
+    const names = (frameId: string) => placed(a.tab, frameId).map(({ name, link }) => [name, link])
+    expect(names('ann-6')).toEqual([
+      ['Pasted', 'job3-a3e7120d'],
+      ['Headline', undefined],
+    ])
+    expect(names('ann-7')).toEqual([['Headline', 'job3-a3e7120d']])
+  })
+
   it('names every size’s pieces from the job’s one plan, and links the pieces of the same part', async () => {
     serve(WORDS)
     const ai = fakeAi()

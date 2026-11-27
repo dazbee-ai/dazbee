@@ -46,9 +46,9 @@ const ROUNDING = 1e-6
  * a job with no plan call of the frame's own; null before, or when it can't be read.
  */
 export function layerPlanOf(job: Calls, frame: FrameCall): LayerPlanAnswer | null {
-  const own = LAYERING_CALL.plan((frame.callIndex - 1) / 2)
+  const ownPlan = LAYERING_CALL.plan((frame.callIndex - 1) / 2)
   const call =
-    job.calls.find((c) => c.index === own) ?? job.calls.find((c) => c.index === LAYERING_CALL.plan(0)) ?? null
+    job.calls.find((c) => c.index === ownPlan) ?? job.calls.find((c) => c.index === LAYERING_CALL.plan(0)) ?? null
   if (call?.state !== 'done' || call.output.kind !== 'text') return null
   const plan = LayerPlanAnswer.safeParse(call.output.json)
   return plan.success ? plan.data : null

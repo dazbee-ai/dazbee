@@ -2,39 +2,44 @@ import { describe, expect, it } from 'vitest'
 
 import { CallOutput, CallsInput, referenceCount } from './ai.ts'
 
-describe('CallOutput', () => {
-  const layers = {
-    kind: 'layers',
-    layers: [{ key: 'originals/l0', width: 1024, height: 1024, assetId: 'l0' }],
-    gpuSeconds: 21.5,
-  }
-  const piece = {
-    picture: { key: 'originals/p0', width: 300, height: 80, assetId: 'p0' },
-    x: 40,
-    y: 60,
-    part: 'e1',
-    kind: 'text',
-    layer: 1,
-    turned: { cx: 190, cy: 100, width: 300, height: 80, angle: 0 },
-  }
-  const backdrop = {
-    picture: { key: 'originals/p1', width: 1024, height: 1024 },
-    x: 0,
-    y: 0,
-    part: null,
-    kind: 'background',
-    layer: 2,
-    turned: null,
-  }
-  const pieces = {
-    width: 1024,
-    height: 1024,
-    items: [piece, backdrop],
-    stuck: ['e4'],
-    closeness: { mean: 1.2, off: 2.7 },
-    seconds: 4.6,
-  }
+/** A layer split's stored output of one split layer, with no split pieces. */
+const layers = {
+  kind: 'layers',
+  layers: [{ key: 'originals/l0', width: 1024, height: 1024, assetId: 'l0' }],
+  gpuSeconds: 21.5,
+}
 
+/** A stored split piece of a text part, and the backdrop, of no part and not yet recorded as an asset. */
+const piece = {
+  picture: { key: 'originals/p0', width: 300, height: 80, assetId: 'p0' },
+  x: 40,
+  y: 60,
+  part: 'e1',
+  kind: 'text',
+  layer: 1,
+  turned: { cx: 190, cy: 100, width: 300, height: 80, angle: 0 },
+}
+const backdrop = {
+  picture: { key: 'originals/p1', width: 1024, height: 1024 },
+  x: 0,
+  y: 0,
+  part: null,
+  kind: 'background',
+  layer: 2,
+  turned: null,
+}
+
+/** The stored split pieces of a 1024 px picture. */
+const pieces = {
+  width: 1024,
+  height: 1024,
+  items: [piece, backdrop],
+  stuck: ['e4'],
+  closeness: { mean: 1.2, off: 2.7 },
+  seconds: 4.6,
+}
+
+describe('CallOutput', () => {
   it('reads a split’s stored layers with no split pieces, as stored before there were any', () => {
     const output = CallOutput.parse(layers)
     expect(output.kind === 'layers' && output.pieces).toBeUndefined()

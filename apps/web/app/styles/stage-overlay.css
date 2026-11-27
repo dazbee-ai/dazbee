@@ -522,6 +522,29 @@
     color-mix(in srgb, var(--danger) 14%, transparent) 6px 12px
   );
 }
+/* A frame waiting for its AI picture: a soft band of light sweeps across its plain colour, slowly; still where
+   motion is reduced. */
+.stage-overlay .ai-sheen {
+  position: absolute;
+  overflow: hidden;
+  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, white 55%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: ai-sheen 1.8s ease-in-out infinite;
+}
+@keyframes ai-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-overlay .ai-sheen {
+    animation: none;
+    background: color-mix(in srgb, white 25%, transparent);
+  }
+}
 /* Guides: a frame's lines dragged out of the rulers, 1px in the guide's blue across their frame, 2px
    while under the pointer, picked or dragged, with their place in the gap's pill. */
 .stage-overlay .guide-line {

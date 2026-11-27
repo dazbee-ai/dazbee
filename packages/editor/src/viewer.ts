@@ -103,6 +103,8 @@ export async function startViewer(options: ViewerOptions): Promise<Viewer> {
     colourPick,
     guideDrag,
     presence,
+    // A viewed version has no AI frames.
+    aiWaiting: () => [],
   })
   const stageField = editorStageField({
     overlay: options.overlay,

@@ -22,7 +22,7 @@ import {
 } from '@dazbee/schema'
 
 import { NumberField } from '@/components/editor/edit-panel/number-field.tsx'
-import { useShownPage } from '@/components/editor/editor-hooks.ts'
+import { useDesignAi, useShownPage } from '@/components/editor/editor-hooks.ts'
 import { ExportCheck } from '@/components/editor/menus/export-check.tsx'
 import { ExportFrameList } from '@/components/editor/menus/export-frame-list.tsx'
 import { exportGroups, firstTicks, shownOrder, type Ticked } from '@/components/editor/menus/export-ticks.ts'
@@ -79,15 +79,17 @@ export function ExportForm({
   const pages = inOrder(design.pages)
   // The page: the one picked here, or the asked frames', while it exists; else the one the canvas shows.
   const shown = useShownPage(editor)
+  const ai = useDesignAi(editor)
+  const aiFrames = new Set(ai?.frames.map((f) => f.frameId))
   const [chosen, setChosen] = useState<string | null>(() => (asked?.[0] && design.frames[asked[0]]?.pageId) || null)
   const thisPage = chosen && Object.hasOwn(design.pages, chosen) ? chosen : shown
   const [ticks, setTicks] = useState<{ pageId: string; ticked: Ticked }>(() => ({
     pageId: thisPage,
-    ticked: asked ? new Set(asked) : firstTicks(design, thisPage),
+    ticked: asked ? new Set(asked) : firstTicks(design, thisPage, aiFrames),
   }))
   // Another page, picked here or shown on the canvas, starts again from its own first ticks.
-  if (ticks.pageId !== thisPage) setTicks({ pageId: thisPage, ticked: firstTicks(design, thisPage) })
-  const ticked = ticks.pageId === thisPage ? ticks.ticked : firstTicks(design, thisPage)
+  if (ticks.pageId !== thisPage) setTicks({ pageId: thisPage, ticked: firstTicks(design, thisPage, aiFrames) })
+  const ticked = ticks.pageId === thisPage ? ticks.ticked : firstTicks(design, thisPage, aiFrames)
   const [name, setName] = useState(DEFAULT_EXPORT_NAME)
   const [type, setType] = useState<ExportType>('png')
   const [quality, setQuality] = useState(90)

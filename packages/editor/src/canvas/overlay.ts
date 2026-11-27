@@ -1,4 +1,5 @@
-// The overlay over the stage: the sections' titles, the frame labels with their stars, the safe zones, the picked frame's handles,
+// The overlay over the stage: the sections' titles, the frame labels with their stars, the safe zones, the sheen
+// over the frames that wait for their AI picture, the picked frame's handles,
 // the frame lit from outside the stage, the guides, the dashed outlines of the hidden layers while
 // they are shown, the outlines of the group gone into, the hovered layer and the drop target, the
 // other people's selections, the dashed outlines of the selected layers' linked copies, what Alt
@@ -39,6 +40,7 @@ import type { EditorPresence } from '../presence.ts'
 import { type EditorSelection, firstFrameOf, idsOf } from '../selection.ts'
 import type { EditorTyping } from '../text/typing.ts'
 import { textParts } from '../text/typing-parts.ts'
+import { sheenParts } from './ai-parts.ts'
 import { toScreen } from './camera.ts'
 import { connectorParts } from './connector-parts.ts'
 import { type Constrained, constraintParts } from './constraint-parts.ts'
@@ -98,6 +100,8 @@ export interface OverlayDeps {
   colourPick: Pick<EditorColourPick, 'shown'>
   guideDrag: Pick<EditorGuideDrag, 'shown' | 'rulerFrame'>
   presence: Pick<EditorPresence, 'shown'>
+  /** The AI frames that wait for their picture now, which show a sheen; none in a tab with no AI routes. */
+  aiWaiting: () => readonly string[]
 }
 
 export interface EditorOverlay {
@@ -147,6 +151,7 @@ export function editorOverlay({
   colourPick,
   guideDrag,
   presence,
+  aiWaiting,
 }: OverlayDeps): EditorOverlay {
   const { frameOf } = view
 
@@ -476,6 +481,7 @@ export function editorOverlay({
     }
     const safeZones = view.safeZones()
     if (safeZones) parts.push(...safeZoneParts(view.inView(), placeBox, safeZones))
+    parts.push(...sheenParts(view.inView(), placeBox, new Set(aiWaiting())))
     const picked = view.inView().find((frame) => frame.id === selection.pickedFrame())
     if (picked) {
       const box = { x: 0, y: 0, width: picked.width, height: picked.height, rotation: 0 }

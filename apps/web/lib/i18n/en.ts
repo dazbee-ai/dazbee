@@ -368,6 +368,17 @@ export const en = {
       /** A picture of a brief Edit brief filled the box with, by its place: 1 to 4. */
       pictureName: 'Picture {n}',
     },
+    /** On an AI frame whose picture didn't come out: what happened, Try again, and what wasn't charged. */
+    aiFrames: {
+      didntComeOut: 'Didn’t come out',
+      tryAgain: 'Try again',
+      notCharged: {
+        draft: 'This draft wasn’t charged',
+        size: 'This size wasn’t charged',
+        nothing: 'Nothing was charged',
+      },
+      notTried: 'It didn’t start. Try again in a moment.',
+    },
     /** The glass bar above a picked AI frame: its AI actions with what each takes, and the star. */
     glass: {
       label: 'AI actions',
@@ -1475,6 +1486,9 @@ export const en = {
       untitledDesign: 'Untitled design',
       search: 'Search by name or tag',
       images: 'Images',
+      /** The filter of the pictures the AI made, beside Images. */
+      madeWithAi: 'Made with AI',
+      filter: 'Show',
       untitled: 'Untitled image',
       upload: 'Upload images',
       dropHere: 'Drop images to upload them',

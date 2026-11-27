@@ -115,6 +115,8 @@ export interface EditorArrivals {
    * connector, as one arrival. A frame of no brief, or showing no picture, starts nothing.
    */
   moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
+  /** Tries a failed AI frame again, its picture made again into the same frame; then reads the design's AI frames. */
+  tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read, with the frames marked written since; null before the first read. */
   read(): DesignAi | null
   /** Calls back after each read, and each time a frame is marked written. */
@@ -226,6 +228,12 @@ export function editorArrivals({
       if (!at || !pageId) throw new Error('the liked draft is gone')
       placeBrief(session, { plan, pageId, words: brief.words, size, ...request, from: request.frameId }, at)
     })
+  }
+
+  async function tryAgain(frameId: string): Promise<AiStart> {
+    const started = await ai.start({ kind: 'try-again', designId, frameId })
+    if (started.ok) void poll()
+    return started
   }
 
   /**
@@ -362,6 +370,7 @@ export function editorArrivals({
   return {
     startBrief,
     moreLikeThis,
+    tryAgain,
     read: () => read,
     onRead,
     poll,

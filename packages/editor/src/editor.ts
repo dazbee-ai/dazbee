@@ -189,6 +189,21 @@ function live(
     throw error
   }
   const exportingFiles = editorExportFiles({ session: core.session, resources, exporter, pngCopy })
+  const arrivals: EditorArrivals | null = options.ai
+    ? editorArrivals({
+        session,
+        ai: options.ai,
+        designId: options.designId,
+        newId: () => crypto.randomUUID(),
+        after,
+        shown: pageShown(signal),
+        connected: () => tab.link.status() === 'connected',
+        synced: tab.synced,
+        zoomFor: (area) => Math.min(view.camera().zoom, fit(area, view.viewport(), undefined, view.insets()).zoom),
+        readyPictures: resources.prepareImages,
+        signal,
+      })
+    : null
   const overlay = editorOverlay({
     overlay: options.overlay,
     view,
@@ -210,7 +225,10 @@ function live(
     colourPick,
     guideDrag,
     presence,
+    aiWaiting: () => arrivals?.waiting() ?? [],
   })
+  // A read of the design's AI frames can start or end a frame's wait: the overlay draws its sheen again.
+  arrivals?.onRead(overlay.draw)
   const stageField = editorStageField({
     overlay: options.overlay,
     input: core.input,
@@ -230,21 +248,6 @@ function live(
     paused: () => pauses > 0,
     signal,
   })
-  const arrivals: EditorArrivals | null = options.ai
-    ? editorArrivals({
-        session,
-        ai: options.ai,
-        designId: options.designId,
-        newId: () => crypto.randomUUID(),
-        after,
-        shown: pageShown(signal),
-        connected: () => tab.link.status() === 'connected',
-        synced: tab.synced,
-        zoomFor: (area) => Math.min(view.camera().zoom, fit(area, view.viewport(), undefined, view.insets()).zoom),
-        readyPictures: resources.prepareImages,
-        signal,
-      })
-    : null
   const clipboardEvents = editorClipboardEvents({
     clipboard: core.clipboard,
     canCopyPng: () => core.actionReady('copyPng'),
@@ -334,6 +337,7 @@ function live(
     pauseInput,
     startBrief: (request) => (arrivals ? arrivals.startBrief(request) : Promise.resolve(NO_AI)),
     moreLikeThis: (request) => (arrivals ? arrivals.moreLikeThis(request) : Promise.resolve(NO_AI)),
+    tryAgain: (frameId) => (arrivals ? arrivals.tryAgain(frameId) : Promise.resolve(NO_AI)),
     designAi: () => arrivals?.read() ?? null,
     onDesignAi: (listener) => arrivals?.onRead(listener) ?? (() => {}),
     destroy() {

@@ -59,6 +59,12 @@ describe('firstTicks', () => {
     expect(firstTicks(design(FIVE), 'p1')).toBe('all')
   })
 
+  it('leaves the AI frames unticked when none is starred, and ticks a starred one', () => {
+    const ticks = firstTicks(design(FIVE), 'p1', new Set(['a', 'c']))
+    expect(ticks === 'all' ? ticks : [...ticks].sort()).toEqual(['b', 'd', 'e'])
+    expect(firstTicks(withFrames({ a: { starred: true } }), 'p1', new Set(['a', 'c']))).toEqual(new Set(['a']))
+  })
+
   it("reads only the page's own stars: one starred on another page leaves every frame ticked", () => {
     expect(firstTicks(withFrames({ other: { starred: true } }), 'p1')).toBe('all')
   })

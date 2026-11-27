@@ -99,6 +99,7 @@ function asEditor({ core }: TestEditor): Editor {
     pauseInput: () => () => {},
     startBrief: unused,
     moreLikeThis: unused,
+    tryAgain: unused,
     designAi: unused,
     onDesignAi: unused,
     destroy: unused,

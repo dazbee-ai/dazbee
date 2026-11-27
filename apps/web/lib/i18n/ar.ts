@@ -309,6 +309,16 @@ export const ar: Messages = {
       close: 'إغلاق الموجز',
       pictureName: 'الصورة {n}',
     },
+    aiFrames: {
+      didntComeOut: 'لم تنجح',
+      tryAgain: 'إعادة المحاولة',
+      notCharged: {
+        draft: 'لم تُحتسب هذه المسودة',
+        size: 'لم يُحتسب هذا المقاس',
+        nothing: 'لم يُحتسب شيء',
+      },
+      notTried: 'لم تبدأ. حاول مرة أخرى بعد لحظة.',
+    },
     glass: {
       label: 'إجراءات الذكاء الاصطناعي',
       moreLikeThis: 'المزيد مثل هذا',
@@ -1303,6 +1313,8 @@ export const ar: Messages = {
       untitledDesign: 'تصميم بلا اسم',
       search: 'ابحث بالاسم أو الوسم',
       images: 'الصور',
+      madeWithAi: 'من صنع الذكاء الاصطناعي',
+      filter: 'عرض',
       untitled: 'صورة بلا اسم',
       upload: 'رفع صور',
       dropHere: 'أفلت الصور لرفعها',

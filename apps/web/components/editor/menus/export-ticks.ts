@@ -13,10 +13,16 @@ export interface ExportGroup {
   frames: [string, Frame][]
 }
 
-/** The ticks Export starts with on a page: the page's starred frames, or every frame when none is starred. */
-export function firstTicks(design: Design, pageId: string): Ticked {
-  const starred = framesOf(design, pageId).filter(([, frame]) => frame.starred === true)
-  return starred.length > 0 ? new Set(starred.map(([frameId]) => frameId)) : 'all'
+/**
+ * The ticks Export starts with on a page: the page's starred frames, or, when none is starred, every frame but the
+ * AI frames among `ai`, since an AI draft never starts ticked unless starred.
+ */
+export function firstTicks(design: Design, pageId: string, ai: ReadonlySet<string> = new Set()): Ticked {
+  const frames = framesOf(design, pageId)
+  const starred = frames.filter(([, frame]) => frame.starred === true)
+  if (starred.length > 0) return new Set(starred.map(([frameId]) => frameId))
+  if (!frames.some(([frameId]) => ai.has(frameId))) return 'all'
+  return new Set(frames.flatMap(([frameId]) => (ai.has(frameId) ? [] : [frameId])))
 }
 
 /**

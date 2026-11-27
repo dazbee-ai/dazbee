@@ -4,7 +4,7 @@ import type { ReadVersion } from '@dazbee/doc'
 import type { ExportedFile } from '@dazbee/export'
 import type { Design, DesignAi, ExportRequestInput, Member, Point, Rect, SyncToken, Variables } from '@dazbee/schema'
 
-import type { BriefRequest, BriefStarted, EditorAi, MoreLikeRequest } from './ai/arrivals.ts'
+import type { AiStart, BriefRequest, BriefStarted, EditorAi, MoreLikeRequest } from './ai/arrivals.ts'
 import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -158,6 +158,8 @@ export interface Editor extends EditorBase {
    * brief or showing no picture, a refused job, and an editor given no AI routes start nothing and give why.
    */
   moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
+  /** Tries a failed AI frame again into the same frame; a refusal, or an editor given no AI routes, gives why. */
+  tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read from the API; null before the first read, or with no AI routes. */
   designAi(): DesignAi | null
   /** Calls back after each read of the design's AI frames, and as a frame's picture is marked written. */

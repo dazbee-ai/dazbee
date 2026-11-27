@@ -2,7 +2,8 @@
 
 // The brand's asset library, in the Assets flyout: upload several images at once and watch each
 // one's progress, have an image made from a few words, name and tag them, find them by either, place
-// one on the design, and delete one nothing uses. An image dragged onto a frame goes there. One
+// one on the design, and delete one nothing uses. The pictures the AI made show under their own filter, Made with
+// AI, which an image just made turns on, so the main list keeps the person's own. An image dragged onto a frame goes there. One
 // clicked with a mouse or a pen is armed and shows picked: the next click on a frame places it, a
 // drag there draws it, and Escape, another tool, a press off every frame, clicking it again or
 // closing Assets disarms it. A key, a tap and an SVG file place at once, as the editor places with
@@ -24,6 +25,7 @@ import { DASHED_BUTTON } from '@/components/ui/looks.ts'
 import { overlayScroll } from '@/components/ui/overlay-scroll.ts'
 import { brandPath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
+import { isAiAsset, libraryShows } from '@/lib/editor/asset-filter.ts'
 import { armsOnClick, placeAsset } from '@/lib/editor/place-asset.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
@@ -56,7 +58,10 @@ export function AssetLibrary({
 }) {
   const t = useMessages().editor.assetLibrary
   const [query, setQuery] = useState('')
-  const [assets, setAssets] = useState<AssetSummary[] | null>(null)
+  const [fetched, setAssets] = useState<AssetSummary[] | null>(null)
+  const [madeWithAi, setMadeWithAi] = useState(false)
+  const assets = fetched && libraryShows(fetched, madeWithAi)
+  const anyAi = fetched?.some(isAiAsset) ?? false
   const [uploads, setUploads] = useState<Upload[]>([])
   const [editing, setEditing] = useState<string | null>(null)
   // Whether the details were opened by the tile's Delete, which asks at once.
@@ -187,7 +192,32 @@ export function AssetLibrary({
           <UploadButton className={DASHED_BUTTON} label={dropping ? t.dropHere : t.upload} onFiles={upload} />
         )}
         {/* A tab that may only view, as a Reviewer's, has nothing made. */}
-        {!viewOnly && <MakeImage workspaceId={workspaceId} brandId={brandId} onMade={refresh} />}
+        {!viewOnly && (
+          <MakeImage
+            workspaceId={workspaceId}
+            brandId={brandId}
+            onMade={() => {
+              setMadeWithAi(true)
+              refresh()
+            }}
+          />
+        )}
+        {(anyAi || madeWithAi) && (
+          <div role="group" aria-label={t.filter} className="flex gap-1">
+            {([false, true] as const).map((ai) => (
+              <button
+                key={String(ai)}
+                type="button"
+                aria-pressed={madeWithAi === ai}
+                data-filter={ai ? 'ai' : 'all'}
+                onClick={() => setMadeWithAi(ai)}
+                className="h-7 cursor-pointer rounded-full px-3 text-tiny text-muted hover:bg-hover hover:text-text aria-pressed:bg-hover aria-pressed:text-text"
+              >
+                {ai ? t.madeWithAi : t.images}
+              </button>
+            ))}
+          </div>
+        )}
         {uploads.length > 0 && (
           <ul aria-label={t.upload} className="flex flex-col gap-1.5" data-testid="asset-uploads">
             {uploads.map((u) => (

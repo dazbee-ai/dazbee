@@ -1,5 +1,5 @@
 // Claims, or renews, a layering job's finish for a tab, at /w/[workspace]/brands/[brand]/ai/jobs/[job]/claim: its
-// lease, or 409 while another tab holds it.
+// lease, with held true; or held false while another tab holds it, a normal answer for a tab that waits.
 import { AiFinishHolder } from '@dazbee/schema'
 
 import { claimFinish } from '@/lib/server/ai-flow.ts'
@@ -13,8 +13,9 @@ export async function POST(
   const asked = AiFinishHolder.safeParse(await request.json().catch(() => null))
   if (!asked.success) return Response.json({ error: 'Send the holder' }, { status: 400 })
   try {
-    return Response.json(await claimFinish(workspaceId, brandId, jobId, asked.data.holder))
+    return Response.json({ held: true, ...(await claimFinish(workspaceId, brandId, jobId, asked.data.holder)) })
   } catch (e) {
+    if (e instanceof ApiFailure && e.status === 409) return Response.json({ held: false })
     if (e instanceof ApiFailure && e.status >= 400 && e.status < 500)
       return Response.json({ error: e.message }, { status: e.status })
     throw e

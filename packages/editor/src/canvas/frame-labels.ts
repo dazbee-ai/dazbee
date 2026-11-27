@@ -68,6 +68,18 @@ export function frameLabel(frame: Frame, { selection, typing, camera, starOffere
   return label
 }
 
+/** The layers icon before an editable AI frame's name. */
+function layersIcon() {
+  const el = document.createElementNS(SVG, 'svg')
+  el.setAttribute('class', 'frame-layers')
+  el.setAttribute('viewBox', '0 0 12 12')
+  el.setAttribute('aria-hidden', 'true')
+  const path = document.createElementNS(SVG, 'path')
+  path.setAttribute('d', LAYERS_PATH)
+  el.append(path)
+  return el
+}
+
 /** The star after a frame's name: filled for a starred frame, hollow for one that isn't. */
 function star(frame: Frame) {
   const el = document.createElementNS(SVG, 'svg')
@@ -78,18 +90,6 @@ function star(frame: Frame) {
   if (frame.starred) el.setAttribute('data-starred', '')
   const path = document.createElementNS(SVG, 'path')
   path.setAttribute('d', STAR_PATH)
-  el.append(path)
-  return el
-}
-
-/** The layers icon before an editable AI frame's name. */
-function layersIcon() {
-  const el = document.createElementNS(SVG, 'svg')
-  el.setAttribute('class', 'frame-layers')
-  el.setAttribute('viewBox', '0 0 12 12')
-  el.setAttribute('aria-hidden', 'true')
-  const path = document.createElementNS(SVG, 'path')
-  path.setAttribute('d', LAYERS_PATH)
   el.append(path)
   return el
 }

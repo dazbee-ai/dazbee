@@ -1,6 +1,8 @@
 // The AI flow's routes as the editor calls them from the browser: the design's AI frames, a frame's refines, starting
 // a job, marking a call written into the design, a layering finish's lease, end, split layers and parts, the estimate an AI action shows on hover, and the person's own jobs on the brand.
 // A job the API refuses comes back as its answer, never thrown.
+import { z } from 'zod'
+
 import type { AiStart, EditorAi } from '@dazbee/editor'
 import {
   AiEstimate,
@@ -31,12 +33,8 @@ export function editorAi(workspaceId: string, brandId: string, designId: string,
     written: async (frameId: string, written: AiFrameWritten) => {
       await readJson(await fetch(`${design}/frames/${encodeURIComponent(frameId)}/written`, post(written)))
     },
-    claim: async (jobId: string, holder: string) => {
-      const response = await fetch(`${job(jobId)}/claim`, post({ holder }))
-      if (response.status === 409) return false
-      await readJson(response)
-      return true
-    },
+    claim: async (jobId: string, holder: string) =>
+      z.object({ held: z.boolean() }).parse(await readJson(await fetch(`${job(jobId)}/claim`, post({ holder })))).held,
     finished: async (jobId: string, holder: string) => {
       await readJson(await fetch(`${job(jobId)}/finished`, post({ holder })))
     },

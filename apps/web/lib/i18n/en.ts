@@ -406,7 +406,6 @@ export const en = {
       moreLikeThis: 'More like this',
       /** The title of more like this's new section, after the draft's name. */
       moreLikeTitle: 'More like {name}',
-      /** Shown in place of the AI actions while the frame waits for its picture or is being made editable. */
       makeEditable: 'Make editable',
       backToPicture: 'Back to picture',
       /** Said the first time a person goes back to the picture. */
@@ -415,6 +414,7 @@ export const en = {
       warmingUp: 'Warming up, about a minute',
       /** A layer Make editable makes that the layer plan names nothing in, before its number. */
       layerWord: 'Layer',
+      /** Shown in place of the AI actions while the frame waits for its picture, is refined or is being made editable. */
       working: 'Working…',
       /** An AI action's tooltip: its name, its share of the workspace's AI and about how long it takes. */
       estimate: '{name}: about {percent}% of your AI · about {time}',

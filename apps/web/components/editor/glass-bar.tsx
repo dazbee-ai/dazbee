@@ -48,6 +48,12 @@ import { format } from '@/lib/i18n/index.ts'
 /** Where the browser remembers that the person was told Back to picture keeps their layers. */
 const BACK_NOTE_KEY = 'dazbee:back-to-picture-told'
 
+/** A labelled action of the bar, its focus ring in Dazbee's blue inside it. */
+const ACTION = cn(
+  'flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-small text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover active:bg-pressed disabled:cursor-not-allowed disabled:opacity-45',
+  'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--stage-accent)',
+)
+
 /** Whether this is the first time on this browser for `key`, which it then remembers; true where storage is off. */
 function firstTime(key: string): boolean {
   try {
@@ -58,12 +64,6 @@ function firstTime(key: string): boolean {
   }
   return true
 }
-
-/** A labelled action of the bar, its focus ring in Dazbee's blue inside it. */
-const ACTION = cn(
-  'flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-small text-text transition-colors duration-[var(--chrome-fast)] hover:bg-hover active:bg-pressed disabled:cursor-not-allowed disabled:opacity-45',
-  'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--stage-accent)',
-)
 
 /**
  * Where the bar goes over the frame, kept current as the view moves and the frame changes; null while a gesture runs

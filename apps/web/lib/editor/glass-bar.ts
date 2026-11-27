@@ -8,6 +8,7 @@ import {
   type AiJobView,
   type AiMode,
   type DesignAi,
+  frameIdOf,
   pictureLayerOf,
 } from '@dazbee/schema'
 
@@ -155,25 +156,35 @@ export const ESTIMATES = estimates()
  * while it shows, else Make editable on a frame that shows its picture.
  */
 export function editableAction(
-  frame: Pick<AiFrameView, 'frameId' | 'state' | 'jobId'>,
-  design: { nodes: Readonly<Record<string, { parentId: string; props: { visible?: boolean } }>> },
+  frame: Pick<AiFrameView, 'frameId' | 'state' | 'jobId' | 'assetId'>,
+  design: {
+    frames: Readonly<Record<string, unknown>>
+    nodes: Readonly<Record<string, { parentId: string; props: { visible?: boolean; fills?: unknown } }>>
+  },
 ): EditableAction | null {
   if (frame.state !== 'arrived' && frame.state !== 'editable') return null
   const picture = design.nodes[pictureLayerOf(frame.frameId)]
   if (!picture) return null
   const layerIds =
     frame.state === 'editable'
-      ? Object.entries(design.nodes)
-          .filter(([id, node]) => node.parentId === frame.frameId && id.startsWith(`${frame.jobId}-`))
-          .map(([id]) => id)
+      ? Object.keys(design.nodes).filter(
+          (id) => id.startsWith(`${frame.jobId}-`) && frameIdOf(design, id) === frame.frameId,
+        )
       : []
   if (layerIds.length === 0) return { kind: 'make' }
-  return picture.props.visible === false ? { kind: 'back', layerIds } : { kind: 'again', layerIds }
+  if (picture.props.visible === false) return { kind: 'back', layerIds }
+  // The layers come back only over the picture they were made from; over another, it is made editable anew.
+  const fills = (picture.props.fills ?? []) as { type: string; assetId?: string }[]
+  const shows = fills.find((fill) => fill.type === 'image')?.assetId
+  return shows === frame.assetId ? { kind: 'again', layerIds } : { kind: 'make' }
 }
 
 /** Whether a layering job's split is warming up: it has run `WARMING_MS` and made no layers yet. */
-export function warmingUp(job: Pick<AiJobView, 'state' | 'calls' | 'createdAt'> | undefined, now: number): boolean {
-  if (!job || (job.state !== 'running' && job.state !== 'waiting')) return false
+export function warmingUp(
+  job: Pick<AiJobView, 'kind' | 'state' | 'calls' | 'createdAt'> | undefined,
+  now: number,
+): boolean {
+  if (job?.kind !== 'layering' || (job.state !== 'running' && job.state !== 'waiting')) return false
   const split = job.calls.some((c) => c.function === 'layer-split' && c.state === 'done')
   return !split && now - Date.parse(job.createdAt) >= WARMING_MS
 }

@@ -52,10 +52,15 @@ const PLAN = {
   design_name: 'Sale',
 }
 
-/** A tab of `token`'s with its finish. */
-async function finishing(ai: FakeAi, token = 'ann'): Promise<{ tab: Tab; finish: EditorLayeringFinish }> {
+/** A tab of `token`'s with its finish, the timers it waits on, and what its arrivals give back as stored. */
+async function finishing(
+  ai: FakeAi,
+  token = 'ann',
+  { arrive }: { arrive?: () => Promise<'saved' | 'none'> } = {},
+): Promise<{ tab: Tab; finish: EditorLayeringFinish; timers: (() => void)[] }> {
   const tab = await tabOn(ai, token)
   const stop = new AbortController()
+  const timers: (() => void)[] = []
   const finish = editorLayeringFinish({
     session: tab.editor.session,
     ai,
@@ -63,13 +68,19 @@ async function finishing(ai: FakeAi, token = 'ann'): Promise<{ tab: Tab; finish:
     holder: `${token}-holder`,
     read: tab.arrivals.read,
     onRead: tab.arrivals.onRead,
-    after: () => () => {},
+    after: (_ms, run) => {
+      timers.push(run)
+      return () => {
+        const at = timers.indexOf(run)
+        if (at >= 0) timers.splice(at, 1)
+      }
+    },
     readyPictures: tab.editor.modules.resources.prepareImages,
-    arrive: tab.arrivals.land,
+    arrive: arrive ?? tab.arrivals.land,
     poll: tab.arrivals.poll,
     signal: stop.signal,
   })
-  return { tab, finish }
+  return { tab, finish, timers }
 }
 
 /** Lets what the tabs and their finishes set going land. */
@@ -165,6 +176,50 @@ describe('editorLayeringFinish', () => {
     ai.split('job2', 0, [splitLayer(0, 0, 512, 512)], PLAN)
     await pollAll(a.tab)
     await settleAll(a)
+    expect(ai.finishes).toEqual(['job2'])
+    expect(childrenOf(a.tab.editor.session.design(), 'ann-1')).toHaveLength(1)
+  })
+
+  it('leaves the finish for a later try when the tab stored nothing, as when the editor ended', async () => {
+    serve(WORDS)
+    const ai = fakeAi()
+    const a = await finishing(ai, 'ann', { arrive: () => Promise.resolve('none') })
+    await madeEditable(ai, a)
+    ai.split('job2', 0, [splitLayer(0, 0, 512, 512)], PLAN)
+    await pollAll(a.tab)
+    await settleAll(a)
+    expect(ai.finishes).toEqual([])
+  })
+
+  it('ends a finish whose split shows nothing with no layer placed and the picture showing', async () => {
+    serve(WORDS)
+    const ai = fakeAi()
+    const a = await finishing(ai)
+    await madeEditable(ai, a)
+    ai.split('job2', 0, [splitLayer(0, 0, 0, 0)], PLAN)
+    await pollAll(a.tab)
+    await settleAll(a)
+    expect(ai.finishes).toEqual(['job2'])
+    const design = a.tab.editor.session.design()
+    expect(childrenOf(design, 'ann-1')).toHaveLength(1)
+    expect(design.nodes[pictureLayerOf('ann-1')]?.props.visible).not.toBe(false)
+  })
+
+  it('tries a failing finish again a minute later, uploading no part twice, and ends it after three tries', async () => {
+    serve(WORDS)
+    const ai = fakeAi()
+    const a = await finishing(ai)
+    await madeEditable(ai, a)
+    // The first split layer reads; the second is no picture, so every try fails after uploading the first.
+    ai.split('job2', 0, [splitLayer(0, 0, 512, 512), new Uint8Array([1, 2, 3])], PLAN)
+    for (let tries = 0; tries < 3; tries++) {
+      await pollAll(a.tab)
+      await settleAll(a)
+      // The minute's wait, then the next read.
+      for (const run of a.timers.splice(0)) run()
+      await settleAll(a)
+    }
+    expect(ai.parts).toHaveLength(1)
     expect(ai.finishes).toEqual(['job2'])
     expect(childrenOf(a.tab.editor.session.design(), 'ann-1')).toHaveLength(1)
   })

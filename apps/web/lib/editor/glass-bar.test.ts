@@ -131,38 +131,49 @@ describe('estimates', () => {
 })
 
 describe('editableAction', () => {
-  const nodes = (visible: boolean) => ({
-    'f1-picture': { parentId: 'f1', props: { visible } },
-    'j2-f1-0': { parentId: 'f1', props: {} },
+  const shows = (assetId: string) => [{ type: 'image', assetId }]
+  const nodes = (visible: boolean, assetId = 'pic') => ({
+    'f1-picture': { parentId: 'f1', props: { visible, fills: shows(assetId) } },
+    group: { parentId: 'f1', props: {} },
+    'j2-f1-0': { parentId: 'group', props: {} },
     mine: { parentId: 'f1', props: {} },
   })
-  const frame = { frameId: 'f1', jobId: 'j2' }
+  const design = (visible: boolean, assetId?: string) => ({ frames: { f1: {} }, nodes: nodes(visible, assetId) })
+  const frame = { frameId: 'f1', jobId: 'j2', assetId: 'pic' }
 
   it('offers Make editable on a picture, Back to picture over its layers, and the layers again over the picture', () => {
-    expect(editableAction({ ...frame, state: 'arrived' }, { nodes: nodes(true) })).toEqual({ kind: 'make' })
-    expect(editableAction({ ...frame, state: 'editable' }, { nodes: nodes(false) })).toEqual({
+    expect(editableAction({ ...frame, state: 'arrived' }, design(true))).toEqual({ kind: 'make' })
+    expect(editableAction({ ...frame, state: 'editable' }, design(false))).toEqual({
       kind: 'back',
       layerIds: ['j2-f1-0'],
     })
-    expect(editableAction({ ...frame, state: 'editable' }, { nodes: nodes(true) })).toEqual({
+    expect(editableAction({ ...frame, state: 'editable' }, design(true))).toEqual({
       kind: 'again',
       layerIds: ['j2-f1-0'],
     })
   })
 
+  it('makes it editable anew over a picture the layers weren’t made from', () => {
+    expect(editableAction({ ...frame, state: 'editable' }, design(true, 'other'))).toEqual({ kind: 'make' })
+  })
+
   it('offers it again on an editable frame whose layers are gone, and nothing while it works or has no picture', () => {
     expect(
-      editableAction({ ...frame, state: 'editable' }, { nodes: { 'f1-picture': { parentId: 'f1', props: {} } } }),
+      editableAction(
+        { ...frame, state: 'editable' },
+        { frames: { f1: {} }, nodes: { 'f1-picture': { parentId: 'f1', props: {} } } },
+      ),
     ).toEqual({
       kind: 'make',
     })
-    expect(editableAction({ ...frame, state: 'layering' }, { nodes: nodes(true) })).toBeNull()
-    expect(editableAction({ ...frame, state: 'arrived' }, { nodes: {} })).toBeNull()
+    expect(editableAction({ ...frame, state: 'layering' }, design(true))).toBeNull()
+    expect(editableAction({ ...frame, state: 'arrived' }, { frames: {}, nodes: {} })).toBeNull()
   })
 })
 
 describe('warmingUp', () => {
-  const job = (state: 'running' | 'done', split: 'running' | 'done') => ({
+  const job = (state: 'running' | 'done', split: 'running' | 'done', kind: 'layering' | 'round' = 'layering') => ({
+    kind,
     state,
     createdAt: AT,
     calls:
@@ -184,5 +195,6 @@ describe('warmingUp', () => {
     expect(warmingUp(job('running', 'running'), at + 25_000)).toBe(true)
     expect(warmingUp(job('running', 'done'), at + 60_000)).toBe(false)
     expect(warmingUp(job('done', 'running'), at + 60_000)).toBe(false)
+    expect(warmingUp(job('running', 'running', 'round'), at + 60_000)).toBe(false)
   })
 })

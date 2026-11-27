@@ -2,13 +2,7 @@
 // frame's, where its layers are among the job's files, each split layer's name from the layer plan, where a layer's
 // visible part is in it, and the ids of the layers the finish places, which come from the job so a second finish
 // writes the same ones.
-import {
-  type AiFrameView,
-  type AiJobView,
-  LAYERING_CALL,
-  type LayerPlanAnswer,
-  LayerPlanAnswer as PlanAnswer,
-} from '@dazbee/schema'
+import { type AiFrameView, type AiJobView, LAYERING_CALL, LayerPlanAnswer } from '@dazbee/schema'
 
 /** A box in pixels. */
 export interface PieceBox {
@@ -33,7 +27,7 @@ const ID_LENGTH = 64
 export function layerPlanOf(job: Pick<AiJobView, 'calls'>): LayerPlanAnswer | null {
   const call = job.calls.find((c) => c.index === LAYERING_CALL.plan)
   if (call?.state !== 'done' || call.output.kind !== 'text') return null
-  const plan = PlanAnswer.safeParse(call.output.json)
+  const plan = LayerPlanAnswer.safeParse(call.output.json)
   return plan.success ? plan.data : null
 }
 

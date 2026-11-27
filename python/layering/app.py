@@ -30,7 +30,7 @@ import uuid
 import modal
 
 import weights
-from contract import Layer, LayerSplitRequest, LayerSplitResult, Part
+from contract import Layer, LayerSplitRequest, LayerSplitResult, Part, Pieces
 from weights import COMFYUI
 from workflow import default_plan, layer_split_graph, working_size
 
@@ -137,7 +137,7 @@ class Layering:
         try:
             files = run_graph(layer_split_graph(name, width, height, call.plan or default_plan(), call.guidance))
             layers = [read_layer(file) for file in files]
-            pieces = cut_pieces(picture, call.parts, layers) if call.parts else None
+            pieces = cut_pieces(picture, call.parts, layers)
         finally:
             (COMFYUI / "input" / name).unlink(missing_ok=True)
             self.last_done = time.monotonic()
@@ -210,25 +210,6 @@ def run_graph(graph: dict) -> list[dict]:
     raise RuntimeError("ComfyUI did not finish the graph in time")
 
 
-def cut_pieces(picture, parts: list[Part], layers: list[Layer]) -> dict | None:
-    """The split pieces of `picture` by its planned `parts`, cut from `layers`, as the contract's `pieces` holds
-    them; None when they can't be cut, with why printed, so the call still gives its layers."""
-    import numpy as np
-    from PIL import Image
-
-    from pieces import make_pieces
-
-    try:
-        arrays = [
-            np.asarray(Image.open(io.BytesIO(base64.b64decode(layer.png))).convert("RGBA")).astype(np.float32) / 255
-            for layer in layers
-        ]
-        return make_pieces(picture, [part.model_dump(mode="json") for part in parts], arrays)
-    except Exception:
-        traceback.print_exc()
-        return None
-
-
 def read_layer(file: dict) -> Layer:
     """One layer ComfyUI saved, as the contract carries it; the file is deleted once read."""
     from PIL import Image
@@ -239,3 +220,25 @@ def read_layer(file: dict) -> Layer:
     with Image.open(io.BytesIO(data)) as png:
         width, height = png.size
     return Layer(png=base64.b64encode(data).decode(), width=width, height=height)
+
+
+def cut_pieces(picture, parts: list[Part] | None, layers: list[Layer]) -> Pieces | None:
+    """The split pieces of `picture` by its planned `parts`, cut from `layers`. None for a call with no parts, and
+    when the pieces can't be cut or don't fit the contract, with why printed, so the call still gives its layers."""
+    if not parts:
+        return None
+    try:
+        import numpy as np
+        from PIL import Image
+
+        from pieces import make_pieces
+
+        arrays = [
+            np.asarray(Image.open(io.BytesIO(base64.b64decode(layer.png))).convert("RGBA")).astype(np.float32) / 255
+            for layer in layers
+        ]
+        made = make_pieces(picture, [part.model_dump(mode="json") for part in parts], arrays)
+        return None if made is None else Pieces.model_validate(made)
+    except Exception:
+        traceback.print_exc()
+        return None

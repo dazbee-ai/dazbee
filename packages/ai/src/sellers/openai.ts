@@ -1,9 +1,9 @@
 // OpenAI's adapter: text through the Responses API, with a JSON schema when the call gives one and the reasoning
 // effort and speed tier its preset's settings ask for, and pictures through the Images API (generate and edit)
 // as base64 PNG, with the usage OpenAI reports by kind of token, at the tier the call ran on, and its request id.
-// Written from OpenAI's API reference and price list as read on 25 Nov 2026, and its reasoning and Fast mode
-// guides as read on 26 Nov 2026. Also the pieces Meta's and OpenRouter's adapters share, since their APIs are
-// OpenAI-compatible.
+// Written from OpenAI's API reference and price list as read on 25 Nov 2026, its reasoning and Fast mode guides
+// as read on 26 Nov 2026, and its prompt caching guide as read on 27 Nov 2026. Also the pieces Meta's and
+// OpenRouter's adapters share, since their APIs are OpenAI-compatible.
 import OpenAI, { APIError, toFile } from 'openai'
 
 import { readImageHeader, type TextCall, type Usage } from '@dazbee/schema'
@@ -134,12 +134,22 @@ export function effortOf(options: Record<string, unknown>): OpenAI.ReasoningEffo
  * preset's settings ask for, and, with `tiers`, the speed tier they ask for: its text (and JSON), its usage by
  * kind of token at the tier the answer says it ran on, the request id from `requestIdHeader`, and the seller's
  * own cost where its usage holds one (OpenRouter's `usage.cost`).
+ *
+ * With `cache`, the call's instructions are the one part the seller's prompt cache keeps: they go first, as a
+ * developer message that ends in the call's only cache breakpoint, so every call with the same instructions reads
+ * them from the cache, and the prompt and pictures after them, which differ from call to call, are never written
+ * to it. The tokens written are counted apart, as the seller bills them. Without `cache` the instructions go as
+ * the request's `instructions`.
  */
 export async function responsesText(
   client: OpenAI,
   request: SellerRequest,
   input: TextCall,
-  { requestIdHeader = 'x-request-id', tiers = false }: { requestIdHeader?: string; tiers?: boolean } = {},
+  {
+    requestIdHeader = 'x-request-id',
+    tiers = false,
+    cache = false,
+  }: { requestIdHeader?: string; tiers?: boolean; cache?: boolean } = {},
 ): Promise<SellerAnswer> {
   const effort = effortOf(request.options)
   const asked = tierOf(request.options)
@@ -150,12 +160,14 @@ export async function responsesText(
       image_url: await dataUrl(request, key),
     })),
   )
+  const user = { role: 'user' as const, content: [{ type: 'input_text' as const, text: input.prompt }, ...pictures] }
   const { data, response } = await client.responses
     .create(
       {
         model: request.model,
-        instructions: input.instructions,
-        input: [{ role: 'user', content: [{ type: 'input_text', text: input.prompt }, ...pictures] }],
+        ...(cache
+          ? { input: [...cachedInstructions(input.instructions), user], prompt_cache_options: { mode: 'explicit' } }
+          : { instructions: input.instructions, input: [user] }),
         ...(input.schema
           ? { text: { format: { type: 'json_schema', name: 'answer', schema: input.schema, strict: true } } }
           : {}),
@@ -168,10 +180,13 @@ export async function responsesText(
     )
     .withResponse()
   const cached = data.usage?.input_tokens_details.cached_tokens ?? 0
+  // The input tokens count those read from the cache and those written to it, each billed at a price of its own.
+  const written = cache ? (data.usage?.input_tokens_details.cache_write_tokens ?? 0) : 0
   // Reasoning tokens are billed as output tokens, and are counted in them.
   const counted: Usage = {
-    'input-token': (data.usage?.input_tokens ?? 0) - cached,
+    'input-token': (data.usage?.input_tokens ?? 0) - cached - written,
     'cached-input-token': cached,
+    ...(cache ? { 'cache-write-input-token': written } : {}),
     'output-token': data.usage?.output_tokens ?? 0,
   }
   const usage = tiers ? atTier(counted, ranOn(data.service_tier, asked)) : counted
@@ -187,6 +202,20 @@ export async function responsesText(
   if (typeof reported === 'number') answer.reportedCost = reported
   if (requestId) answer.requestId = requestId
   return answer
+}
+
+/**
+ * A call's instructions as the developer message a request starts with, ending in a cache breakpoint; nothing for
+ * a call with no instructions.
+ */
+function cachedInstructions(instructions: string) {
+  if (!instructions) return []
+  const text = {
+    type: 'input_text' as const,
+    text: instructions,
+    prompt_cache_breakpoint: { mode: 'explicit' as const },
+  }
+  return [{ role: 'developer' as const, content: [text] }]
 }
 
 /** A stored picture as a data URL, as sellers take pictures inline. */
@@ -219,7 +248,7 @@ export async function makeOrEdit(client: OpenAI, request: SellerRequest, params:
 
 async function callOpenai(client: OpenAI, request: SellerRequest): Promise<SellerAnswer> {
   const { input } = request
-  if (input.kind === 'text') return responsesText(client, request, input, { tiers: true })
+  if (input.kind === 'text') return responsesText(client, request, input, { tiers: true, cache: true })
   if (input.kind === 'layer-split') throw new SellerError('OpenAI makes no layer split', { status: 400 })
   const common = {
     model: request.model,

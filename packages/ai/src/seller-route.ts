@@ -31,6 +31,7 @@ const PICTURE_UNITS: readonly UsageUnit[] = ['picture', 'image-output-token']
 const TEXT_UNITS: readonly UsageUnit[] = [
   'input-token',
   'cached-input-token',
+  'cache-write-input-token',
   'output-token',
   ...Object.values(FAST_UNITS),
   'image-input-token',

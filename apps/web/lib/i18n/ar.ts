@@ -1605,9 +1605,11 @@ export const ar: Messages = {
     units: {
       'input-token': 'رموز الإدخال',
       'cached-input-token': 'رموز الإدخال المخزّنة',
+      'cache-write-input-token': 'رموز الإدخال المكتوبة في الذاكرة المؤقتة',
       'output-token': 'رموز الإخراج',
       'fast-input-token': 'رموز الإدخال، الفئة السريعة',
       'fast-cached-input-token': 'رموز الإدخال المخزّنة، الفئة السريعة',
+      'fast-cache-write-input-token': 'رموز الإدخال المكتوبة في الذاكرة المؤقتة، الفئة السريعة',
       'fast-output-token': 'رموز الإخراج، الفئة السريعة',
       'image-input-token': 'رموز إدخال الصور',
       'image-output-token': 'رموز إخراج الصور',

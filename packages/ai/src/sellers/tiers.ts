@@ -12,6 +12,7 @@ export const TIERS: readonly Tier[] = ['standard', 'fast']
 export const FAST_UNITS = {
   'input-token': 'fast-input-token',
   'cached-input-token': 'fast-cached-input-token',
+  'cache-write-input-token': 'fast-cache-write-input-token',
   'output-token': 'fast-output-token',
 } as const satisfies Partial<Record<UsageUnit, UsageUnit>>
 

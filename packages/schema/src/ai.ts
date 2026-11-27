@@ -51,14 +51,17 @@ export type CallKind = z.infer<typeof CallKind>
 
 /**
  * The units usage is counted and priced in. A seller that bills its fast tier at a price of its own reports a
- * call that ran on that tier in the fast token units.
+ * call that ran on that tier in the fast token units. Input tokens a call wrote to the seller's prompt cache are
+ * counted apart from the tokens it read from the cache and from its other input tokens.
  */
 export const USAGE_UNITS = [
   'input-token',
   'cached-input-token',
+  'cache-write-input-token',
   'output-token',
   'fast-input-token',
   'fast-cached-input-token',
+  'fast-cache-write-input-token',
   'fast-output-token',
   'image-input-token',
   'image-output-token',

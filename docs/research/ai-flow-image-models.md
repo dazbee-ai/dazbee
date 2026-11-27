@@ -235,6 +235,22 @@ Modal bills a container from its start to its stop: the start, each split, and t
 - **A call's real cost is now the time its container was billed for it:** the first call a container serves carries its start and its last wait, each later call the wait before it. Over the hour Modal billed 937 H100-seconds, US$1.14 in all; the eleven calls account for 666 of them, the one failed call's container for about 130, and about 140 are around snapshots and stops that no call sees.
 - **The fixed charge is set to cover a lone call from a snapshot** with that unseen part: ₹6.00 at 1024 px and ₹3.50 at 512 px, where it was ₹2.50 and ₹0.60.
 
+## OpenAI's prompt cache, measured 27 Nov 2026
+
+OpenAI keeps the start of a request for 30 minutes and bills it at a tenth of the input price when a later request starts the same way (a twentieth on GPT-6.1 Terra and GPT-6.2 Sol). Writing to the cache is billed at 1.25 times the input price ([prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching.md), read 27 Nov 2026). Each prompt was sent twice to its model, as the request's `instructions`, which is how the app sent every prompt, and as a developer message at the start of the input. The numbers are tokens of the prompt:
+
+| Model         | Prompt              | As `instructions`: written, then read | As a developer message: written, then read |
+| ------------- | ------------------- | ------------------------------------- | ------------------------------------------ |
+| gpt-6-luna    | Light round planner | 5,762, then 5,762                     | 5,766, then 5,766                          |
+| gpt-6.1-terra | Full round planner  | 3,346, then 3,346                     | 3,344, then 3,344                          |
+| gpt-6.2-sol   | Layer planner       | 0, then 0                             | 2,333, then 2,333                          |
+
+- **GPT-6.2 Sol never caches `instructions`,** as the guide says of models from GPT-6.2 on: the layer planner's prompt was billed in full on every call.
+- **Left to itself the cache writes the whole request,** the brief included. A second call with other words after the same prompt read the prompt and wrote its own 614 tokens, at the write price, for no later call to read. With the cache set to explicit and one breakpoint at the end of the prompt, the prompt was written once and nothing after it ever was.
+- **A prompt under 1,024 tokens is not cached** and its breakpoint is accepted: the refine editor's 500 tokens were billed as input both times.
+- **Five Precise round plans in a row,** each with another brief: the first wrote the full planner's 3,392 tokens and cost ₹1.24, and the four after it read them and cost ₹0.73 to ₹0.79, where each would have cost ₹1.10 to ₹1.15 with no cache.
+- **The same holds at the fast tier:** the light planner's 5,752 tokens were written by one fast call and read by the next.
+
 ## Not yet known
 
 - **Low-quality previews:** whether GPT Image 2.5 at low quality is good enough to choose from. No picture was made at low.

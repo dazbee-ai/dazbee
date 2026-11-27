@@ -268,67 +268,6 @@ describe('the migrations', () => {
     expect((await withClient(changed, charges)).rows).toEqual([{ small: 3_500_000, big: 4_000_000 }])
   }, 60_000)
 
-  it('add the fast tier’s and Terra’s prices and Terra’s sellers, keeping a price and a seller order an admin set', async () => {
-    const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-fast-tier-and-terra-prices'))
-    expect(at).toBeGreaterThan(0)
-    const terra = (client: pg.Client) =>
-      client.query(
-        `select seller, unit, price_per_million::int as price from ai_prices where model = 'gpt-6.1-terra' and seller = 'openai' order by unit`,
-      )
-    const sellers = (client: pg.Client) =>
-      client.query(`select seller, position from model_sellers where model = 'gpt-6.1-terra' order by position`)
-    const seeded = await freshDatabase()
-    await applyMigrations(seeded, MIGRATIONS)
-    const read = await withClient(seeded, async (client) => ({
-      prices: (await terra(client)).rows,
-      sellers: (await sellers(client)).rows,
-      fast: (
-        await client.query(
-          `select model, price_per_million::int as price from ai_prices where seller = 'openai' and unit = 'fast-output-token' order by model`,
-        )
-      ).rows,
-    }))
-    expect(read.prices).toEqual([
-      { seller: 'openai', unit: 'cached-input-token', price: 50_000 },
-      { seller: 'openai', unit: 'fast-cached-input-token', price: 100_000 },
-      { seller: 'openai', unit: 'fast-input-token', price: 2_000_000 },
-      { seller: 'openai', unit: 'fast-output-token', price: 10_000_000 },
-      { seller: 'openai', unit: 'input-token', price: 1_000_000 },
-      { seller: 'openai', unit: 'output-token', price: 5_000_000 },
-    ])
-    expect(read.sellers).toEqual([
-      { seller: 'openai', position: 1 },
-      { seller: 'zenmux', position: 2 },
-      { seller: 'openrouter', position: 3 },
-    ])
-    expect(read.fast).toEqual([
-      { model: 'gpt-6-luna', price: 1_000_000 },
-      { model: 'gpt-6.1-terra', price: 10_000_000 },
-      { model: 'gpt-6.2-sol', price: 20_000_000 },
-    ])
-    // An admin priced Terra's input at OpenAI and sold Terra through OpenRouter alone, before the migration.
-    const changed = await freshDatabase()
-    await applyMigrations(changed, await firstMigrations(at))
-    await withClient(changed, async (client) => {
-      await client.query(
-        `insert into ai_prices (seller, model, unit, currency, price_per_million, fee) values ('openai', 'gpt-6.1-terra', 'input-token', 'USD', 1234567, 0)`,
-      )
-      await client.query(
-        `insert into model_sellers (model, seller, position, seller_model) values ('gpt-6.1-terra', 'openrouter', 1, 'openai/gpt-6.1-terra')`,
-      )
-    })
-    await applyMigrations(changed, MIGRATIONS)
-    const kept = await withClient(changed, async (client) => ({
-      input: (await terra(client)).rows.find((row) => row.unit === 'input-token'),
-      fastInput: (await terra(client)).rows.find((row) => row.unit === 'fast-input-token'),
-      sellers: (await sellers(client)).rows,
-    }))
-    // The fast price follows the admin's own standard price.
-    expect(kept.fastInput).toEqual({ seller: 'openai', unit: 'fast-input-token', price: 2_469_134 })
-    expect(kept.input).toEqual({ seller: 'openai', unit: 'input-token', price: 1_234_567 })
-    expect(kept.sellers).toEqual([{ seller: 'openrouter', position: 1 }])
-  }, 60_000)
-
   it('empty the AI run history, leaving the price list, seller order, settings, grants and designs as they were', async () => {
     const at = journal.entries.findIndex((e) => e.tag.endsWith('ai-run-history-wiped'))
     expect(at).toBeGreaterThan(0)

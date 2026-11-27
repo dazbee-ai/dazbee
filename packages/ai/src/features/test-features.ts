@@ -267,6 +267,53 @@ export async function chargedCalls(job: string): Promise<number[]> {
     .sort((a, b) => a - b)
 }
 
+/**
+ * A layer split's answer for the fake's layer plan, with split pieces of a 16 px picture: its text part's, then the
+ * backdrop's.
+ */
+export async function splitWithPieces(): Promise<Extract<SellerOutput, { kind: 'layers' }>> {
+  const picture = (shade: number) => pngOf(16, 16, [shade, 120, 40, 255])
+  const layer = { bytes: await picture(200), type: 'image/png', width: 16, height: 16 }
+  return {
+    kind: 'layers',
+    layers: [layer, layer],
+    pieces: {
+      width: 16,
+      height: 16,
+      items: [
+        {
+          bytes: await pngOf(8, 4, [10, 20, 30, 255]),
+          type: 'image/png',
+          width: 8,
+          height: 4,
+          x: 2,
+          y: 1,
+          part: 't1',
+          kind: 'text',
+          layer: 1,
+          turned: { cx: 6, cy: 3, width: 8, height: 4, angle: 0 },
+        },
+        {
+          bytes: await picture(90),
+          type: 'image/png',
+          width: 16,
+          height: 16,
+          x: 0,
+          y: 0,
+          part: 'b1',
+          kind: 'background',
+          layer: 2,
+          turned: null,
+        },
+      ],
+      stuck: [],
+      closeness: { mean: 1.25, off: 2.5 },
+      seconds: 3.5,
+    },
+    gpuSeconds: 17.5,
+  }
+}
+
 /** The asset's row. */
 export async function assetRow(id: string) {
   const [row] = await db.select().from(assets).where(eq(assets.id, id))

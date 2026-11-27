@@ -718,7 +718,7 @@ A picture made from a person's own words and one of three ratios (square, wide o
 _Avoid_: Generated image, AI asset, background (that is one use of it)
 
 **Layering**:
-The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
+The AI job that turns a draft's picture into real layers in the same frame: the layer plan, the layer split with its split pieces, reading, live text (the text matcher), vectorise (the shape matcher), backdrop, place. The picture is kept, hidden, so Back to picture can bring it back.
 _Avoid_: Decompose, editable-ize, convert
 
 **Mode**:

@@ -22,6 +22,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
+  splitWithPieces,
 } from '../features/test-features.ts'
 import { db, memoryFiles, newSeller } from '../test-ai.ts'
 import { recordingSeller, replaySellers } from './recording.ts'
@@ -180,6 +181,32 @@ describe('recordingSeller', () => {
     expect(rows.filter((row) => row.function === 'layer-split')).toHaveLength(2)
     for (const row of rows) expect(row).toMatchObject({ state: 'done', realCost: 0n, chargeCost: 0n })
     expect((await ledgerOf(job)).filter((entry) => entry.kind === 'charge')).toEqual([])
+  })
+
+  it('writes a split’s pieces beside its layers, and replays them with their facts', async () => {
+    const dir = await newRecording()
+    const answer = await splitWithPieces()
+    const seller = await flowSeller(newSeller('pieces'), (r) => (r.input.kind === 'layer-split' ? answer : undefined))
+    useSeller(recordingSeller(seller, dir))
+    const who = await flowWorkspace()
+    const recorded = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
+    expect(await runFlow(recorded, flowDeps(seller))).toMatchObject({ state: 'done' })
+    const [split] = await recordedIn(dir, 'layer-split/ming')
+    expect(split?.files).toEqual(['call.json', 'layer-0.png', 'layer-1.png', 'piece-0.png', 'piece-1.png'])
+    expect(split?.call.output.pieces.items[0]).toMatchObject({
+      file: 'piece-0.png',
+      width: 8,
+      height: 4,
+      x: 2,
+      y: 1,
+      part: 't1',
+    })
+    expect(split?.call.output.pieces.items[0]).not.toHaveProperty('bytes')
+
+    const [replay] = replaySellers([seller.seller], dir, 1000)
+    if (!replay) throw new Error('no replay seller')
+    const replayed = await replay.call(requestOf('layer-split/ming', 1))
+    expect(replayed.output).toEqual(answer)
   })
 
   it('gives the answer of a call it could not write down', async () => {

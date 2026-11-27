@@ -22,7 +22,14 @@ import { drawMarks } from './marks.ts'
 import { pace } from './pacing.ts'
 import { priceUsage } from './price-list.ts'
 import { routeModel, type RouteSeller, type SellerRoute } from './seller-route.ts'
-import { type SellerAnswer, SellerCutOff, sellerFailure, type SellerOutput, SellerTimedOut } from './sellers/seller.ts'
+import {
+  type PictureBytes,
+  type SellerAnswer,
+  SellerCutOff,
+  sellerFailure,
+  type SellerOutput,
+  SellerTimedOut,
+} from './sellers/seller.ts'
 import { aiSettingsOf } from './settings.ts'
 
 /** Where the pictures a call reads and makes are kept: the workspace's originals. */
@@ -357,43 +364,75 @@ async function finish(
   }
 }
 
-/** What a call made, its pictures stored: its output, and each picture's bytes, in order. */
+/**
+ * What a call made, its pictures stored: its output, and each picture's bytes, in order: a split's layers, then its
+ * split pieces.
+ */
 interface Stored {
   output: CallOutput
   bytes: Uint8Array[]
 }
 
-/** Stores the pictures in `output` as the workspace's originals. */
+/** Stores the pictures in `output` as the workspace's originals: a split's layers, and its split pieces when it cut any. */
 async function storeOutput(call: AiCall, output: SellerOutput): Promise<Stored> {
   if (output.kind === 'text') return { output, bytes: [] }
-  const pictures = output.kind === 'pictures' ? output.pictures : output.layers
-  const made = await Promise.all(
-    pictures.map(async (p): Promise<MadePicture> => {
-      const key = await files(call).save(p.bytes, p.type)
-      return { key, width: p.width, height: p.height }
+  const save = (pictures: readonly PictureBytes[]) =>
+    Promise.all(
+      pictures.map(async (p): Promise<MadePicture> => {
+        const key = await files(call).save(p.bytes, p.type)
+        return { key, width: p.width, height: p.height }
+      }),
+    )
+  if (output.kind === 'pictures') {
+    const pictures = await save(output.pictures)
+    return { output: { kind: 'pictures', pictures }, bytes: output.pictures.map((p) => p.bytes) }
+  }
+  const layers = await save(output.layers)
+  const cut = output.pieces
+  const pictures = cut ? await save(cut.items) : []
+  const pieces = cut && {
+    width: cut.width,
+    height: cut.height,
+    items: cut.items.flatMap(({ x, y, part, kind, layer, turned }, i) => {
+      const picture = pictures[i]
+      return picture ? [{ picture, x, y, part, kind, layer, turned }] : []
     }),
-  )
-  const bytes = pictures.map((p) => p.bytes)
-  if (output.kind === 'pictures') return { output: { kind: 'pictures', pictures: made }, bytes }
-  return { output: { kind: 'layers', layers: made, gpuSeconds: output.gpuSeconds }, bytes }
+    stuck: cut.stuck,
+    closeness: cut.closeness,
+    seconds: cut.seconds,
+  }
+  return {
+    output: { kind: 'layers', layers, ...(pieces ? { pieces } : {}), gpuSeconds: output.gpuSeconds },
+    bytes: [...output.layers, ...(cut?.items ?? [])].map((p) => p.bytes),
+  }
 }
 
 /**
  * The stored output with each picture recorded in `tx` as an asset, when the call records them: a picture tagged
- * `ai`, a layer `ai-part`.
+ * `ai`, a layer and a split piece `ai-part`.
  */
 async function withAssets(tx: Tx, call: AiCall, { output, bytes }: Stored): Promise<CallOutput> {
   const { assets } = call
   if (!assets || output.kind === 'text') return output
   // One at a time, as a transaction's queries run one after another.
-  const record = async (pictures: MadePicture[], tag: AiAssetTag) => {
+  const record = async (pictures: MadePicture[], tag: AiAssetTag, first = 0) => {
     const recorded: MadePicture[] = []
     for (const [i, p] of pictures.entries()) {
-      const assetId = await assets.record(tx, { key: p.key, bytes: bytes[i] ?? new Uint8Array() }, tag)
+      const assetId = await assets.record(tx, { key: p.key, bytes: bytes[first + i] ?? new Uint8Array() }, tag)
       recorded.push({ ...p, assetId })
     }
     return recorded
   }
   if (output.kind === 'pictures') return { ...output, pictures: await record(output.pictures, AI_TAG) }
-  return { ...output, layers: await record(output.layers, AI_PART_TAG) }
+  const layers = await record(output.layers, AI_PART_TAG)
+  const { pieces } = output
+  if (!pieces) return { ...output, layers }
+  // The pieces' bytes follow the layers'.
+  const pictures = await record(
+    pieces.items.map((item) => item.picture),
+    AI_PART_TAG,
+    layers.length,
+  )
+  const items = pieces.items.map((item, i) => ({ ...item, picture: pictures[i] ?? item.picture }))
+  return { ...output, layers, pieces: { ...pieces, items } }
 }

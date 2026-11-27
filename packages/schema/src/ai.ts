@@ -156,16 +156,6 @@ const LayerSplitGuidance = z.number().positive().max(20)
  */
 const LayerPlan = z.string().min(1).max(10_000)
 
-/** A layer split: a draft picture split into layers at a size, with no guidance unless one is given. */
-export const LayerSplitCall = z.object({
-  kind: z.literal('layer-split'),
-  picture: PictureKey,
-  size: LayerSplitSize,
-  guidance: LayerSplitGuidance.optional(),
-  plan: LayerPlan.optional(),
-})
-export type LayerSplitCall = z.infer<typeof LayerSplitCall>
-
 /** The kinds of part a layer plan lists: what a designer would move or edit as one. */
 export const PART_KINDS = ['text', 'logo', 'shape', 'graphic', 'cutout', 'photo', 'background'] as const
 
@@ -199,7 +189,21 @@ export const SplitPart = z.object({
 export type SplitPart = z.infer<typeof SplitPart>
 
 /** The planned parts a layer split cuts its split layers by. */
-const SplitParts = z.array(SplitPart).min(1).max(MAX_SPLIT_PARTS)
+export const SplitParts = z.array(SplitPart).min(1).max(MAX_SPLIT_PARTS)
+
+/**
+ * A layer split: a draft picture split into layers at a size, with no guidance unless one is given, and cut into
+ * split pieces by its planned parts when it has any.
+ */
+export const LayerSplitCall = z.object({
+  kind: z.literal('layer-split'),
+  picture: PictureKey,
+  size: LayerSplitSize,
+  guidance: LayerSplitGuidance.optional(),
+  plan: LayerPlan.optional(),
+  parts: SplitParts.optional(),
+})
+export type LayerSplitCall = z.infer<typeof LayerSplitCall>
 
 /**
  * What the layer split app (python/layering) is sent, the job contract its Python model is generated from

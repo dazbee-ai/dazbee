@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 
 import { aiCalls, assets, newId } from '@dazbee/db'
-import type { LayeringInput } from '@dazbee/schema'
+import { CallOutput, type LayeringInput } from '@dazbee/schema'
 
 import { readJob } from '../jobs.ts'
 import { PLANNER_PROMPT } from '../prompts/ads/layer-planner.ts'
@@ -23,6 +23,7 @@ import {
   roundOf,
   runFlow,
   saveFlow,
+  splitWithPieces,
 } from './test-features.ts'
 
 /** A layering job of two sizes of `who`'s, at 1024 px. */
@@ -195,5 +196,72 @@ describe('a layering job', () => {
     const job = await saveFlow(who, { kind: 'layering', input: stored })
     expect((await runFlow(job, flowDeps(seller))).state).toBe('done')
     expect(seller.requests.filter((r) => plans(r, 'draft'))).toEqual([])
+  })
+
+  it('sends each frame’s split its own plan’s parts, and none for a plan the split would refuse', async () => {
+    const who = await flowWorkspace()
+    const twice = { ...LAYER_PLAN, elements: LAYER_PLAN.elements.map((element) => ({ ...element, id: 'same' })) }
+    const seller = await flowSeller(newSeller('parts'), (r) =>
+      plans(r, 'story') ? { kind: 'text', text: JSON.stringify(twice), json: twice } : undefined,
+    )
+    const input = await layeringOf(who)
+    const job = await saveFlow(who, { kind: 'layering', input })
+    expect((await runFlow(job, flowDeps(seller))).state).toBe('done')
+
+    const splits = seller.requests.flatMap((r) => (r.input.kind === 'layer-split' ? [r.input] : []))
+    const partsOf = (name: string) => splits.find((call) => call.picture.endsWith(name))?.parts
+    expect(partsOf('square')).toEqual([
+      { id: 't1', kind: 'text', shadow: 'none', layer: 1, box: { left: 100, top: 80, right: 900, bottom: 200 } },
+      { id: 'b1', kind: 'background', shadow: 'none', layer: 2, box: { left: 0, top: 0, right: 999, bottom: 999 } },
+    ])
+    // Two parts of the story's plan share an id, so its split is asked for layers alone.
+    expect(partsOf('story')).toBeUndefined()
+  })
+
+  it('stores a split’s pieces beside its layers, each a hidden part of the brand with its facts', async () => {
+    const who = await flowWorkspace()
+    const answer = await splitWithPieces()
+    const seller = await flowSeller(newSeller('pieces'), (r) => (r.input.kind === 'layer-split' ? answer : undefined))
+    const input = await layeringOf(who)
+    const job = await saveFlow(who, { kind: 'layering', input: { ...input, frames: input.frames.slice(0, 1) } })
+    expect((await runFlow(job, flowDeps(seller))).state).toBe('done')
+
+    const calls = (await readJob(db, who.workspace, job))?.calls ?? []
+    const split = calls.find((call) => call.function === 'layer-split')
+    const output = split?.state === 'done' ? CallOutput.parse(split.output) : null
+    if (output?.kind !== 'layers' || !output.pieces) throw new Error('the split stored no pieces')
+    expect(output.layers).toHaveLength(2)
+    expect(output.pieces).toMatchObject({
+      width: 16,
+      height: 16,
+      stuck: [],
+      closeness: { mean: 1.25, off: 2.5 },
+      seconds: 3.5,
+    })
+    expect(output.pieces.items.map(({ picture, ...facts }) => [picture.width, picture.height, facts])).toEqual([
+      [
+        8,
+        4,
+        { x: 2, y: 1, part: 't1', kind: 'text', layer: 1, turned: { cx: 6, cy: 3, width: 8, height: 4, angle: 0 } },
+      ],
+      [16, 16, { x: 0, y: 0, part: 'b1', kind: 'background', layer: 2, turned: null }],
+    ])
+    for (const { picture } of output.pieces.items) {
+      expect((await assetRow(picture.assetId ?? '')).tags).toEqual(['ai-part'])
+    }
+  })
+
+  it('keeps nothing of a split one of whose pieces can’t be recorded, and charges nothing for it', async () => {
+    const who = await flowWorkspace()
+    const answer = await splitWithPieces()
+    const [first] = answer.pieces?.items ?? []
+    if (!answer.pieces || !first) throw new Error('the fake split has no pieces')
+    const bad = { ...answer, pieces: { ...answer.pieces, items: [{ ...first, bytes: new Uint8Array(8) }] } }
+    const seller = await flowSeller(newSeller('bad-piece'), (r) => (r.input.kind === 'layer-split' ? bad : undefined))
+    const job = await saveFlow(who, { kind: 'layering', input: await layeringOf(who) })
+    await runFlow(job, flowDeps(seller))
+
+    expect(await chargedCalls(job)).toEqual([0, 2, 4, 41])
+    expect(await db.select().from(assets).where(eq(assets.brandId, who.brand))).toEqual([])
   })
 })

@@ -1,5 +1,5 @@
 // The layer split: a draft's picture split into picture layers on our own GPU, at a fixed amount.
-import type { CallInput, LayerPlanAnswer, LayerSplitSize } from '@dazbee/schema'
+import { type CallInput, type LayerPlanAnswer, type LayerSplitSize, type SplitPart, SplitParts } from '@dazbee/schema'
 
 import type { AiFunctionDef } from './types.ts'
 
@@ -14,8 +14,31 @@ export const layerSplit: AiFunctionDef = {
     input.kind === 'layer-split' && input.size === 512 ? settings.layerSplit512 : settings.layerSplit1024,
 }
 
-/** The layer split of `picture` at `size`, following its plan's prompt when the plan gave one. */
+/**
+ * The layer split of `picture` at `size`, following its plan's prompt when the plan gave one, and cut into split
+ * pieces by the plan's parts when the split takes them.
+ */
 export function splitCall(picture: string, size: LayerSplitSize, plan: LayerPlanAnswer): CallInput {
   const prompt = plan.prompt.trim().slice(0, 10_000)
-  return { kind: 'layer-split', picture, size, ...(prompt ? { plan: prompt } : {}) }
+  const parts = partsOf(plan)
+  return { kind: 'layer-split', picture, size, ...(prompt ? { plan: prompt } : {}), ...(parts ? { parts } : {}) }
+}
+
+/**
+ * The plan's parts as the layer split reads them: each one's id, kind, shadow, split layer and box. None when the
+ * split's contract would refuse them (an empty or overlong id, too many parts, a part planned too deep) or an id is
+ * there twice, so the split then gives its layers alone.
+ */
+function partsOf(plan: LayerPlanAnswer): SplitPart[] | null {
+  const parts = SplitParts.safeParse(
+    plan.elements.map(({ id, kind, shadow, ming_layer: layer, box }) => ({
+      id,
+      kind,
+      shadow,
+      layer,
+      box: { left: box.x_min, top: box.y_min, right: box.x_max, bottom: box.y_max },
+    })),
+  )
+  if (!parts.success) return null
+  return new Set(parts.data.map((part) => part.id)).size === parts.data.length ? parts.data : null
 }

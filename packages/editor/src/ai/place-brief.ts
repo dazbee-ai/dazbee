@@ -23,8 +23,7 @@ import {
   WAITING_FILL,
 } from '@dazbee/schema'
 
-import { LABEL_ROOM } from '../canvas/frames.ts'
-import { OUTLINE_PAD, TITLE_ROW } from '../canvas/sections.ts'
+import { outlineRoom } from '../canvas/sections.ts'
 import { shareOf } from '../link-notices.ts'
 
 /** What placing a brief writes: its plan, the page, the section's title, the frames' size and names. */
@@ -43,19 +42,14 @@ export interface BriefPlacing {
   from?: string
 }
 
-/**
- * The screen pixels between a brief's frames and the frames above them that the outlines and labels take, the same
- * at any zoom: the outline's pad below the frames above, the new outline's pad and title row, and its frames' labels.
- */
-export const BRIEF_SCREEN_ROOM = OUTLINE_PAD + OUTLINE_PAD + TITLE_ROW + LABEL_ROOM
-
 /** More than the bytes a brief's section, four frames and four picture layers take in the design. */
 const BRIEF_BYTES = 4096
 
 /**
  * Where a brief of `size` goes on page `pageId`: below the page's lowest frame, at the left of its frames, far
- * enough below that its outline and title clear what is above at the zoom it is seen at, which `zoomFor` gives for
- * the area of the page with the brief in it (the lower of the zoom now and the zoom that area fits at).
+ * enough below that its outline and title clear what is above (`outlineRoom`) at the zoom it is seen at, which
+ * `zoomFor` gives for the area of the page with the brief in it (the lower of the zoom now and the zoom that area
+ * fits at), and at any zoom further out.
  */
 export function briefSpot(
   frames: Readonly<Record<string, Readonly<PageBox> & { readonly pageId: string }>>,
@@ -74,9 +68,7 @@ export function briefSpot(
     const top = Math.min(...boxes.map((b) => b.y))
     const right = Math.max(...boxes.map((b) => b.x + b.width))
     const bottom = Math.max(...boxes.map((b) => b.y + b.height))
-    gap = Math.ceil(
-      FRAME_GAP + BRIEF_SCREEN_ROOM / zoomFor({ x: left, y: top, width: right - left, height: bottom - top }),
-    )
+    gap = Math.ceil(FRAME_GAP + outlineRoom(zoomFor({ x: left, y: top, width: right - left, height: bottom - top })))
   }
   return belowAll(frames, pageId, gap)
 }
@@ -108,9 +100,7 @@ export function moreLikeSpot(
     const top = Math.min(...boxes.map((b) => b.y))
     const right = Math.max(...boxes.map((b) => b.x + b.width))
     const bottom = Math.max(...boxes.map((b) => b.y + b.height))
-    gap = Math.ceil(
-      FRAME_GAP + BRIEF_SCREEN_ROOM / zoomFor({ x: left, y: top, width: right - left, height: bottom - top }),
-    )
+    gap = Math.ceil(FRAME_GAP + outlineRoom(zoomFor({ x: left, y: top, width: right - left, height: bottom - top })))
   }
   return freeSpot(design, frame.pageId, row, from, undefined, gap)
 }

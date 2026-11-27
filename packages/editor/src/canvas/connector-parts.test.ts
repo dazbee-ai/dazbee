@@ -38,12 +38,12 @@ describe('connectorParts', () => {
       dots: [],
       hot: null,
       preview: curve,
-      lit: { box: { x: 100, y: 10, width: 200, height: 60 }, section: true },
+      lit: { box: { x: 100, y: 10, width: 200, height: 60 }, section: true, radius: 11 },
     }) as unknown as Fake[]
     expect([lit?.className, lit?.dataset.section, lit?.style.borderRadius, lit?.style.width]).toEqual([
       'connector-target',
       '',
-      '22px',
+      '11px',
       '200px',
     ])
     expect(preview?.attributes.class).toBe('connector-preview')

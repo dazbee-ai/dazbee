@@ -8,7 +8,7 @@ import type { Point, Rect } from '@dazbee/schema'
 
 import { toScreen } from '../../canvas/camera.ts'
 import { type ConnectorCurve, connectorCurve, frameEndBox } from '../../canvas/connectors.ts'
-import { sectionAt } from '../../canvas/sections.ts'
+import { OUTLINE_RADIUS, outlineScale, sectionAt } from '../../canvas/sections.ts'
 import type { EditorView } from '../../canvas/view.ts'
 import { runQuietly } from '../../run-quietly.ts'
 import type { EditorSelection } from '../../selection.ts'
@@ -36,8 +36,8 @@ export interface ShownConnecting {
   hot: number | null
   /** The curve the drag draws, to the lit frame or section, else to the pointer; null while not dragging. */
   preview: ConnectorCurve | null
-  /** The frame or section the drag would join, lit: its box, and whether it is a section's outline. */
-  lit: { box: Rect; section: boolean } | null
+  /** The frame or section the drag would join, lit: its box, whether it is a section's outline, and its corners' radius on the stage. */
+  lit: { box: Rect; section: boolean; radius: number } | null
 }
 
 export interface ConnectingDeps {
@@ -107,7 +107,8 @@ export function editorConnecting({
       const from = ends.find((end) => end.id === g.from)
       const lit = ends.find((end) => end.id === g.target)
       const preview = from ? connectorCurve(from.box, lit?.box ?? { ...g.to, width: 0, height: 0 }) : null
-      return { dots: [], hot: null, preview, lit: lit ? { box: lit.box, section: lit.section } : null }
+      const radius = lit?.section ? OUTLINE_RADIUS * outlineScale(view.camera().zoom) : 0
+      return { dots: [], hot: null, preview, lit: lit ? { box: lit.box, section: lit.section, radius } : null }
     }
     const end = offered() && hovered !== null ? endsNow().find((e) => e.id === hovered) : undefined
     return { dots: end ? dotsOf(end.box) : [], hot: end ? hot : null, preview: null, lit: null }

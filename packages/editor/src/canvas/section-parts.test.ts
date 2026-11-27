@@ -14,9 +14,9 @@ afterEach(() => {
 /** Three outlines: one on the stage, one past its end, one lit as a drop's target. */
 const SHOWN: ShownSections = {
   outlines: [
-    { id: 'sale', title: 'Sale', box: { x: 10, y: 20, width: 400, height: 300 } },
-    { id: 'away', title: 'Away', box: { x: 2000, y: 20, width: 400, height: 300 } },
-    { id: 'new', title: 'New', box: { x: 500, y: 20, width: 200, height: 300 } },
+    { id: 'sale', title: 'Sale', box: { x: 10, y: 20, width: 400, height: 300 }, scale: 1 },
+    { id: 'away', title: 'Away', box: { x: 2000, y: 20, width: 400, height: 300 }, scale: 1 },
+    { id: 'new', title: 'New', box: { x: 500, y: 20, width: 200, height: 300 }, scale: 1 },
   ],
   lit: 'new',
 }
@@ -29,6 +29,21 @@ describe('sectionTitleParts', () => {
       ['section-title', { section: 'sale', active: '' }, 'Sale', { left: '30px', top: '34px', maxWidth: '360px' }],
       ['section-title', { section: 'new', active: '' }, 'New', { left: '520px', top: '34px', maxWidth: '160px' }],
     ])
+  })
+
+  it('draws a shrunken outline’s title at its full size, scaled from its top start corner', () => {
+    const shown: ShownSections = {
+      outlines: [{ id: 'sale', title: 'Sale', box: { x: 10, y: 20, width: 400, height: 300 }, scale: 0.5 }],
+      lit: null,
+    }
+    const [title] = sectionTitleParts(shown, { picked: null, renaming: null, stage: STAGE })
+    expect(title?.style).toEqual({
+      left: '20px',
+      top: '27px',
+      maxWidth: '760px',
+      transform: 'scale(0.5)',
+      transformOrigin: '0 0',
+    })
   })
 
   it('leaves out the title of the section being renamed', () => {

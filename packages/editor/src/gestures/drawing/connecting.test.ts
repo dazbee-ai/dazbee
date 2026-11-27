@@ -141,7 +141,7 @@ describe('a drag from a dot', () => {
     mouse.move(to.x, to.y, { steps: 4 })
     const frame = core.frames().find((f) => f.id === 'f5')
     if (!frame) throw new Error('no f5')
-    expect(shown(editor).lit).toEqual({ box: frameEndBox(frame, core.camera()), section: false })
+    expect(shown(editor).lit).toEqual({ box: frameEndBox(frame, core.camera()), section: false, radius: 0 })
     expect(shown(editor).preview?.to.x).toBeLessThan(frameEndBox(frame, core.camera()).x)
     expect(shown(editor).dots).toEqual([])
     mouse.up()

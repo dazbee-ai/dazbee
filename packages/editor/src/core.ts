@@ -18,10 +18,10 @@ import { editorActionReady } from './action-ready.ts'
 import { editorActions } from './actions.ts'
 import { editorBrandKit } from './brand-kit.ts'
 import { connectorAt as connectorUnder, connectorsShown } from './canvas/connectors.ts'
-import { frameIn, LABEL_ROOM } from './canvas/frames.ts'
+import { frameIn } from './canvas/frames.ts'
 import { editorRedraw } from './canvas/redraw.ts'
 import { frameScenes } from './canvas/scenes.ts'
-import { OUTLINE_PAD, sectionAt as lineAt, TITLE_ROW, titleBox } from './canvas/sections.ts'
+import { outlineAbove, sectionAt as lineAt, titleBox } from './canvas/sections.ts'
 import { thumbnailCache } from './canvas/thumbnails.ts'
 import { editorView, hiddenToggles, type Spot } from './canvas/view.ts'
 import type { CoreStart, DrawInfo, EditorBase, EditorCore, NoticeDetail, TabAccess } from './core-interface.ts'
@@ -724,7 +724,7 @@ export function buildCore({
   }
   function titleRect(sectionId: string) {
     const outline = outlines().find((o) => o.id === sectionId)
-    return outline ? titleBox(outline.box) : null
+    return outline ? titleBox(outline.box, outline.scale) : null
   }
   function sectionAt(stage: Point) {
     return lineAt(outlines(), stage, ['line'])?.id ?? null
@@ -746,10 +746,10 @@ export function buildCore({
     const pageId = Object.hasOwn(now.sections, sectionId) ? now.sections[sectionId]?.pageId : undefined
     if (!box || pageId === undefined) return
     if (pageId !== view.page()) showPage(pageId)
-    // Fitted once to learn the zoom, then again with the outline's room above the frames, which
-    // stays the same on screen at any zoom.
+    // Fitted once to learn the zoom, then again with the room the outline takes above the frames
+    // on screen at that zoom.
     view.fitArea(box)
-    const above = (LABEL_ROOM + OUTLINE_PAD + TITLE_ROW) / view.camera().zoom
+    const above = outlineAbove(view.camera().zoom) / view.camera().zoom
     view.fitArea({ ...box, y: box.y - above, height: box.height + above })
   }
   /** Lights a frame from outside the stage, or none, and shows it. */

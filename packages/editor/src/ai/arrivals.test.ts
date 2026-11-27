@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { type Design, FRAME_GAP, pictureLayerOf, sectionsOf, WAITING_FILL } from '@dazbee/schema'
 
+import { outlineRoom } from '../canvas/sections.ts'
 import { WORDS } from '../test-actions.ts'
 import type { MemorySync } from '../test-link.ts'
 import { POLL_MS, POLL_WAITING_MS } from './arrivals.ts'
-import { BRIEF_SCREEN_ROOM } from './place-brief.ts'
 import { fakeAi } from './test-ai.ts'
 import {
   ANN,
@@ -49,7 +49,7 @@ describe('editorArrivals', () => {
         [0, 1, 2, 3].map((n) => ({
           name: `Draft ${n + 1}`,
           x: n * (1080 + FRAME_GAP),
-          y: 1080 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM),
+          y: 1080 + Math.ceil(FRAME_GAP + outlineRoom(1)),
           width: 1080,
           height: 1080,
           sectionId: 'ann-5',
@@ -77,8 +77,8 @@ describe('editorArrivals', () => {
       const a = await tabOn(ai, 'ann', ANN, { zoom: 0.1 })
       await a.arrivals.startBrief(BRIEF)
       await settle(a.arrivals)
-      // At 10 %, the outlines' and labels' screen room takes ten times as many design pixels.
-      expect(a.editor.session.design().frames['ann-1']?.y).toBe(1080 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM / 0.1))
+      // At 10 %, the labels' screen room takes ten times as many design pixels, the outlines' four times, as at 25 %.
+      expect(a.editor.session.design().frames['ann-1']?.y).toBe(1080 + Math.ceil(FRAME_GAP + outlineRoom(0.1)))
     })
 
     it('places nothing when the job is refused, and says why', async () => {

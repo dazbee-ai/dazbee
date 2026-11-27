@@ -1,7 +1,8 @@
 // A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds, more
 // like this, other sizes, refines, layering and try again it starts or refuses, with their briefs and refines; a layering job's
-// split layers and its finish's lease; the pictures their drafts make and the drafts that
-// fail; the frames' states as the API reads them; and the calls marked written, as `markWritten` marks them.
+// split layers, its split pieces, its one plan or a plan per frame, and its finish's lease; the pictures their drafts
+// make and the drafts that fail; the frames' states as the API reads them; and the calls marked written, as
+// `markWritten` marks them.
 import {
   AI_CALL_FAILURES,
   type AiBriefView,
@@ -12,6 +13,7 @@ import {
   type AiRefineLink,
   type DesignAi,
   LAYERING_CALL,
+  type MadePieces,
   REFINE_CALL,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -39,8 +41,18 @@ export interface FakeAi extends EditorAi {
   failNextMark(): void
   /** The read of the design's AI frames gives what the API holds now. */
   design(): DesignAi
-  /** Layering job `job` ends with its plan and frame `n`'s split layers made: each split file's PNG bytes. */
-  split(job: string, n: number, files: readonly Uint8Array[], plan?: unknown): void
+  /**
+   * Layering job `job` ends with its plan and frame `n`'s split layers made: each split file's PNG bytes. With
+   * `more.pieces` the split cut those split pieces too, and with `more.ownPlan` the plan is frame `n`'s own, the
+   * job having a plan per frame.
+   */
+  split(
+    job: string,
+    n: number,
+    files: readonly Uint8Array[],
+    plan?: unknown,
+    more?: { pieces?: MadePieces; ownPlan?: boolean },
+  ): void
   /** The finish's lease lapses, as when the tab holding it closes. */
   lapse(): void
   /** The holders whose claims were granted, in order, and the finishes ended. */
@@ -48,6 +60,8 @@ export interface FakeAi extends EditorAi {
   readonly finishes: string[]
   /** The parts uploaded, in order. */
   readonly parts: Uint8Array[]
+  /** The split layers read, in order: each one's number among its job's files. */
+  readonly fileReads: number[]
 }
 
 /** The call of a round that makes draft `n`: the plan is call 0. */
@@ -69,6 +83,7 @@ export function fakeAi(): FakeAi {
   const claims: string[] = []
   const finishes: string[] = []
   const parts: Uint8Array[] = []
+  const fileReads: number[] = []
   let lease: string | null = null
   let reads = 0
   let refusal: AiJobRefusal | null = null
@@ -198,7 +213,7 @@ export function fakeAi(): FakeAi {
       state: 'running',
       output: null,
       calls: [
-        { index: LAYERING_CALL.plan, function: 'layer-plan', state: 'running' },
+        { index: LAYERING_CALL.plan(0), function: 'layer-plan', state: 'running' },
         ...job.frames.map((_, n) => ({
           index: LAYERING_CALL.split(n),
           function: 'layer-split',
@@ -216,18 +231,30 @@ export function fakeAi(): FakeAi {
     return id
   }
 
-  function split(jobId: string, n: number, made: readonly Uint8Array[], plan: unknown = null) {
+  function split(
+    jobId: string,
+    n: number,
+    made: readonly Uint8Array[],
+    plan: unknown = null,
+    { pieces, ownPlan = false }: { pieces?: MadePieces; ownPlan?: boolean } = {},
+  ) {
     const job = jobs.find((j) => j.id === jobId)
     if (!job) throw new Error(`no job ${jobId}`)
     const own = files.get(jobId) ?? new Map<number, Uint8Array[]>()
     files.set(jobId, own)
     own.set(n, [...made])
+    const planned = LAYERING_CALL.plan(ownPlan ? n : 0)
+    if (!job.calls.some((call) => call.index === planned))
+      job.calls.push({ index: planned, function: 'layer-plan', state: 'running' })
     job.calls = job.calls.map((call) => {
-      if (call.index === LAYERING_CALL.plan)
-        return { ...call, state: 'done', output: { kind: 'text', text: '', json: plan } }
+      if (call.index === planned) return { ...call, state: 'done', output: { kind: 'text', text: '', json: plan } }
       if (call.index !== LAYERING_CALL.split(n)) return call
       const layers = made.map((_, i) => ({ key: `originals/${jobId}-${n}-${i}`, width: 512, height: 512 }))
-      return { ...call, state: 'done', output: { kind: 'layers', layers, gpuSeconds: 1 } }
+      return {
+        ...call,
+        state: 'done',
+        output: { kind: 'layers', layers, ...(pieces ? { pieces } : {}), gpuSeconds: 1 },
+      }
     })
     // Done once every frame's split is.
     if (job.calls.every((call) => call.state === 'done')) {
@@ -295,6 +322,7 @@ export function fakeAi(): FakeAi {
     claims,
     finishes,
     parts,
+    fileReads,
     split,
     lapse: () => {
       lease = null
@@ -313,6 +341,7 @@ export function fakeAi(): FakeAi {
       return Promise.resolve()
     },
     file: (jobId, index) => {
+      fileReads.push(index)
       const own = files.get(jobId)
       const all = own ? [...own.entries()].sort(([a], [b]) => a - b).flatMap(([, made]) => made) : []
       const bytes = all[index]

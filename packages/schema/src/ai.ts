@@ -321,11 +321,38 @@ export const MadePicture = z.object({
 })
 export type MadePicture = z.infer<typeof MadePicture>
 
-/** What an AI call gave back: text (and its JSON when a schema was asked for), stored pictures, or layers. */
+/** A stored split piece: its picture, whose size is the piece's, and its facts. */
+export const MadePiece = z.object({ picture: MadePicture, ...pieceFacts })
+export type MadePiece = z.infer<typeof MadePiece>
+
+/**
+ * A layer split's stored split pieces: the picture's own size, which every place is in; the pieces, front to back,
+ * the backdrop last; the ids of the cut-outs left in the backdrop; how close the pieces are to the picture; and the
+ * seconds cutting them took.
+ */
+export const MadePieces = z.object({
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  items: z.array(MadePiece),
+  stuck: z.array(z.string()),
+  closeness: PieceCloseness,
+  seconds: z.number().nonnegative(),
+})
+export type MadePieces = z.infer<typeof MadePieces>
+
+/**
+ * What an AI call gave back: text (and its JSON when a schema was asked for), stored pictures, or a layer split's
+ * layers, with its split pieces when it cut any.
+ */
 export const CallOutput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), text: z.string(), json: z.unknown().optional() }),
   z.object({ kind: z.literal('pictures'), pictures: z.array(MadePicture) }),
-  z.object({ kind: z.literal('layers'), layers: z.array(MadePicture), gpuSeconds: z.number().nonnegative() }),
+  z.object({
+    kind: z.literal('layers'),
+    layers: z.array(MadePicture),
+    pieces: MadePieces.nullish(),
+    gpuSeconds: z.number().nonnegative(),
+  }),
 ])
 export type CallOutput = z.infer<typeof CallOutput>
 

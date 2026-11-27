@@ -28,13 +28,13 @@ const PRESETS: Record<
     model: 'gpt-6-luna',
     settings: { effort: 'low', tier: 'fast' },
     ceiling: 12_000,
-    prompt: '7b9d85c434f544665efceba141e2b622463117baaaa2530506b7d8438169c595',
+    prompt: 'd2217e5b700f5b41e5cc64efd9e15d3ee8bf035547420c21f2e5336d29d5ae91',
   },
   'round-plan/full-terra': {
     model: 'gpt-6.1-terra',
     settings: { effort: 'low', tier: 'standard' },
     ceiling: 24_000,
-    prompt: 'b30db0c9d8e5c26a5791918d9f6fe2e8c15f3e72215880213bb42697c245b61f',
+    prompt: 'edb700afca5b256a09539df305fb466be3a7aa75edf9cf43c8ea811e643542d9',
   },
   'draft/gpt-image-medium': {
     model: 'gpt-image-2.5-sunburst',

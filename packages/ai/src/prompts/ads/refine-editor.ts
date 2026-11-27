@@ -1,7 +1,7 @@
 // The refine editor's prompt: from a person's message about one ad, and the places they marked, the one
 // instruction the picture model edits the ad with, a summary of the change, and whether it lies only in the
 // marks. The one change to the words: the marks are blue, as Dazbee draws them.
-// The words come from the reference flow's ad prompts, and only the words were taken, with their version names.
+// The words come from the reference flow's ad prompts, and only the words were taken.
 
 /** The version of the refine editor. */
 export const REFINE_EDITOR_VERSION = 'v1'

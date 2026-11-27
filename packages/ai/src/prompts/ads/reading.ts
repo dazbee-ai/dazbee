@@ -1,5 +1,5 @@
 // The reading's prompt: what each text block of an ad says, its spelling slips fixed, and how it is lettered.
-// The words come from the reference flow's ad prompts, and only the words were taken, with their version names.
+// The words come from the reference flow's ad prompts, and only the words were taken.
 
 /** The version of the reading. */
 export const READING_PROMPT_VERSION = 'v1'

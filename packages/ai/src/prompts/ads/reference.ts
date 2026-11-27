@@ -1,6 +1,6 @@
 // The reference ad's prompts: reading which kind of ad a reference is, and what the round planner is told in place
 // of the four kinds when a round is to be of the reference's kind.
-// The words come from the reference flow's ad prompts, and only the words were taken, with their version names.
+// The words come from the reference flow's ad prompts, and only the words were taken.
 
 /** The version of the reference reader. */
 export const REFERENCE_READER_VERSION = 'v1'

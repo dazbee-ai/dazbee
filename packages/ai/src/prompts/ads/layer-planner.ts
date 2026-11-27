@@ -1,9 +1,9 @@
 // The layer planner's prompt: how an ad is split into elements and layers, and the layer split's prompt; and the
 // note added to it when the job names a product.
-// The words come from the reference flow's ad prompts, and only the words were taken, with their version names.
+// The words come from the reference flow's ad prompts, and only the words were taken.
 
-/** The version of the layer planner. A changed prompt gets a new version, since a stored plan is compared with it. */
-export const PLANNER_PROMPT_VERSION = 'v7'
+/** The version of the layer planner. */
+export const PLANNER_PROMPT_VERSION = 'v1'
 
 /** The layer planner: the instructions of the layer plan. */
 export const PLANNER_PROMPT = `You plan how a flat static ad is split into editable layers. You receive one ad image and return:
@@ -97,7 +97,7 @@ Name the design the way a designer names the file it is saved in: the brand, whe
 `
 
 /** The version of the product note. */
-export const PLANNER_PRODUCT_NOTE_VERSION = 'product-1'
+export const PLANNER_PRODUCT_NOTE_VERSION = 'v1'
 
 /** Added to the layer planner's instructions only for a job that names a product. */
 export const PLANNER_PRODUCT_NOTE = `

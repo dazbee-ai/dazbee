@@ -74,9 +74,14 @@ describe('openaiSeller', () => {
     expect(seen[0]?.url).toBe('https://api.openai.com/v1/responses')
     const sent = JSON.parse(String(seen[0]?.body))
     expect(sent.text.format).toMatchObject({ type: 'json_schema', name: 'answer', strict: true })
-    expect(sent.input[0].content[1].image_url).toMatch(/^data:image\/png;base64,/)
+    expect(sent.input[1].content[1].image_url).toMatch(/^data:image\/png;base64,/)
     expect(answer.output).toMatchObject({ kind: 'text', json: { ideas: expect.any(Array) } })
-    expect(answer.usage).toEqual({ 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 })
+    expect(answer.usage).toEqual({
+      'input-token': 69,
+      'cached-input-token': 0,
+      'cache-write-input-token': 0,
+      'output-token': 109,
+    })
     expectDeclared('openai', 'text', 'gpt-6-luna', answer.usage)
     expect(answer.requestId).toBe('req_test')
     // 69 tokens at US$0.10 and 109 at US$0.50 a million, with 18% GST at ₹96.31.
@@ -85,6 +90,58 @@ describe('openaiSeller', () => {
       sellerCost: 61n,
       realCost: 6_978n,
     })
+  })
+
+  it('sends the instructions first, as a developer message ending in the call’s one cache breakpoint, and counts the tokens written to the cache apart', async () => {
+    const recorded = JSON.parse(fixture('openai-responses-text.json')) as Record<string, unknown>
+    // A call that read 4,000 of its 12,000 input tokens from the cache and wrote 7,000 to it.
+    const usage = {
+      input_tokens: 12_000,
+      input_tokens_details: {
+        cached_tokens: 4000,
+        cache_write_tokens: 7000,
+        cache_write_tokens_details: { ttl_30m_tokens: 7000, ttl_12h_tokens: 0 },
+      },
+      output_tokens: 109,
+    }
+    const { seller, seen } = answering(200, JSON.stringify({ ...recorded, usage }))
+    const answer = await seller.call(requestOf(TEXT))
+    const sent = JSON.parse(String(seen[0]?.body))
+    expect(sent.instructions).toBeUndefined()
+    expect(sent.prompt_cache_options).toEqual({ mode: 'explicit' })
+    expect(sent.input[0]).toEqual({
+      role: 'developer',
+      content: [{ type: 'input_text', text: TEXT.instructions, prompt_cache_breakpoint: { mode: 'explicit' } }],
+    })
+    // What differs from call to call comes after the breakpoint, and carries none.
+    expect(sent.input[1].role).toBe('user')
+    expect(sent.input[1].content[0]).toEqual({ type: 'input_text', text: TEXT.prompt })
+    expect(JSON.stringify(sent.input[1])).not.toContain('prompt_cache_breakpoint')
+    expect(sent.input).toHaveLength(2)
+    expect(answer.usage).toEqual({
+      'input-token': 1000,
+      'cached-input-token': 4000,
+      'cache-write-input-token': 7000,
+      'output-token': 109,
+    })
+    expectDeclared('openai', 'text', 'gpt-6-luna', answer.usage)
+    // 1,000 tokens at US$0.10, 4,000 at US$0.01, 7,000 at US$0.125 and 109 at US$0.50 a million, with 18% GST at
+    // ₹96.31.
+    expect(await priceUsage(db, 'openai', 'gpt-6-luna', answer.usage)).toEqual({
+      currency: 'USD',
+      sellerCost: 1070n,
+      realCost: 121_544n,
+    })
+  })
+
+  it('sends a call with no instructions as its message alone, with nothing for the cache to keep', async () => {
+    const { seller, seen } = answering(200, fixture('openai-responses-text.json'))
+    await seller.call(requestOf({ ...TEXT, instructions: '' } as CallInput))
+    const sent = JSON.parse(String(seen[0]?.body))
+    expect(sent.input).toHaveLength(1)
+    expect(sent.input[0].role).toBe('user')
+    expect(sent.prompt_cache_options).toEqual({ mode: 'explicit' })
+    expect(JSON.stringify(sent)).not.toContain('prompt_cache_breakpoint')
   })
 
   it('sends the call’s output limit, and reads an answer cut off at it, with or without a schema, as cut off with its usage', async () => {
@@ -112,7 +169,12 @@ describe('openaiSeller', () => {
       const error = await seller.call(requestOf(input as CallInput)).catch((e: unknown) => e)
       expect(JSON.parse(String(seen[0]?.body)).max_output_tokens).toBe(900)
       expect(error).toBeInstanceOf(SellerCutOff)
-      expect((error as SellerCutOff).usage).toEqual({ 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 })
+      expect((error as SellerCutOff).usage).toEqual({
+        'input-token': 69,
+        'cached-input-token': 0,
+        'cache-write-input-token': 0,
+        'output-token': 109,
+      })
       expect(sellerFailure(error)).toBe('fail')
     }
   })
@@ -120,8 +182,13 @@ describe('openaiSeller', () => {
   it('sends the step’s reasoning effort and speed tier, and counts an answer at the tier it says it ran on', async () => {
     const recorded = JSON.parse(fixture('openai-responses-text.json')) as Record<string, unknown>
     const ranOn = (tier?: string) => answering(200, JSON.stringify({ ...recorded, service_tier: tier }))
-    const standard = { 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 }
-    const fast = { 'fast-input-token': 69, 'fast-cached-input-token': 0, 'fast-output-token': 109 }
+    const standard = { 'input-token': 69, 'cached-input-token': 0, 'cache-write-input-token': 0, 'output-token': 109 }
+    const fast = {
+      'fast-input-token': 69,
+      'fast-cached-input-token': 0,
+      'fast-cache-write-input-token': 0,
+      'fast-output-token': 109,
+    }
 
     const onFast = ranOn('fast')
     const answer = await onFast.seller.call(requestOf(TEXT, { effort: 'low', tier: 'fast' }))

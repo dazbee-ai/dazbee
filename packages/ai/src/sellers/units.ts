@@ -20,6 +20,9 @@ interface Declared {
 /** The units of a text call through the Responses API or chat completions. */
 const TEXT: UsageUnit[] = ['input-token', 'cached-input-token', 'output-token']
 
+/** The units of a text call at OpenAI, which also counts the input tokens a call wrote to the prompt cache. */
+const OPENAI_TEXT: UsageUnit[] = [...TEXT, 'cache-write-input-token']
+
 /** The units of a text call that ran on the fast tier. */
 const FAST_TEXT: UsageUnit[] = Object.values(FAST_UNITS)
 
@@ -31,7 +34,7 @@ const PER_PICTURE: UsageUnit[] = ['picture', 'reference-picture']
 
 /** Every seller's declared units, the first entry that takes a seller, kind and model winning. */
 const DECLARED: Declared[] = [
-  { seller: 'openai', kind: 'text', units: TEXT, fast: FAST_TEXT },
+  { seller: 'openai', kind: 'text', units: OPENAI_TEXT, fast: FAST_TEXT },
   { seller: 'openai', kind: 'picture', units: GPT_IMAGE },
   { seller: 'meta', kind: 'picture', units: ['picture'] },
   { seller: 'openrouter', kind: 'text', units: TEXT },

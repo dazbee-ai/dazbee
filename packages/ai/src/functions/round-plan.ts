@@ -46,19 +46,20 @@ export const roundPlan: AiFunctionDef = {
 export type Lead = { kind: 'reference'; key: string; adKind: string | null } | { kind: 'liked'; key: string }
 
 /**
- * The round plan's call: its preset's director as instructions, and a message with the brief's words, the canvas,
- * the brand's facts and what each attached picture is, then the reference or liked-draft words. The lead picture
- * comes first, then the brief's pictures and the kit logo.
+ * The round plan's call: its preset's director as instructions, which every call of the preset starts with alike,
+ * and a message with the canvas, the brand's facts and what each attached picture is, then the reference or
+ * liked-draft words, and the brief's words last. The lead picture comes first, then the brief's pictures and the kit
+ * logo.
  */
 export function planCall(input: RoundInput, lead: Lead | null, director: string): CallInput {
   const own = briefPictures(input)
   const pictures = [...(lead ? [lead.key] : []), ...own].slice(0, MAX_REFERENCES)
   const parts = [
-    `What the advertiser asks for:\n${input.words}`,
     `The canvas: ${shapeOf(input.size)}, ${input.size.width} × ${input.size.height} px.`,
     brandFacts(input.brand),
     picturesNote(lead, input.pictures.length, Boolean(input.logoKey)),
     lead ? leadWords(lead) : '',
+    `What the advertiser asks for:\n${input.words}`,
   ]
   return {
     kind: 'text',

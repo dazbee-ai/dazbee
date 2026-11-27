@@ -1793,9 +1793,11 @@ export const en = {
     units: {
       'input-token': 'Input tokens',
       'cached-input-token': 'Cached input tokens',
+      'cache-write-input-token': 'Input tokens written to the cache',
       'output-token': 'Output tokens',
       'fast-input-token': 'Input tokens, fast tier',
       'fast-cached-input-token': 'Cached input tokens, fast tier',
+      'fast-cache-write-input-token': 'Input tokens written to the cache, fast tier',
       'fast-output-token': 'Output tokens, fast tier',
       'image-input-token': 'Image input tokens',
       'image-output-token': 'Image output tokens',

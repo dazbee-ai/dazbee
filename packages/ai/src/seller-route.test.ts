@@ -49,7 +49,14 @@ describe('routeModel', () => {
   it('skips a seller with no price for the fast tier on a call whose settings ask for it', async () => {
     useSeller(openaiSeller('test-key'))
     const { model } = await addFunction([
-      { seller: 'openai', prices: [...TOKEN_PRICES, { unit: 'cached-input-token', pricePerMillion: 100_000n }] },
+      {
+        seller: 'openai',
+        prices: [
+          ...TOKEN_PRICES,
+          { unit: 'cached-input-token', pricePerMillion: 100_000n },
+          { unit: 'cache-write-input-token', pricePerMillion: 1_250_000n },
+        ],
+      },
     ])
     const sellers = async (settings: Record<string, unknown>) =>
       (await routeModel(db, { model, kind: 'text', settings })).sellers.map((s) => s.seller)

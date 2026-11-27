@@ -120,16 +120,15 @@ describe('callAi', () => {
       await callAi(db, callOf(job, fn))
       expect(JSON.parse(String(sent[0]?.body))).toMatchObject({ reasoning: { effort: 'low' }, service_tier: 'fast' })
       const [row] = await db.select().from(aiCalls).where(eq(aiCalls.jobId, job.id))
-      charged.push({ usage: row?.usage, charge: (await chargesOf(row?.id ?? '')).map((c) => c.amount) })
+      // The units the call counted anything in.
+      const usage = Object.fromEntries(Object.entries(row?.usage ?? {}).filter(([, amount]) => amount > 0))
+      charged.push({ usage, charge: (await chargesOf(row?.id ?? '')).map((c) => c.amount) })
     }
     // 69 input and 109 output tokens at US$1 and US$2 a million at the standard tier, twice that at the fast
     // one, at ₹96.31 with no fee.
     expect(charged).toEqual([
-      { usage: { 'input-token': 69, 'cached-input-token': 0, 'output-token': 109 }, charge: [-27_641n] },
-      {
-        usage: { 'fast-input-token': 69, 'fast-cached-input-token': 0, 'fast-output-token': 109 },
-        charge: [-55_282n],
-      },
+      { usage: { 'input-token': 69, 'output-token': 109 }, charge: [-27_641n] },
+      { usage: { 'fast-input-token': 69, 'fast-output-token': 109 }, charge: [-55_282n] },
     ])
   })
 

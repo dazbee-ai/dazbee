@@ -123,6 +123,10 @@ describe('openrouterSeller', () => {
     const body = JSON.parse(String(sent[0]?.body))
     expect(body.reasoning).toEqual({ effort: 'low' })
     expect(body.service_tier).toBeUndefined()
+    // The instructions go as the request's own, with no cache options, which are OpenAI's.
+    expect(body.instructions).toBe('List.')
+    expect(body.input).toHaveLength(1)
+    expect(body.prompt_cache_options).toBeUndefined()
     expect(answer.usage).toEqual({ 'input-token': 50, 'cached-input-token': 0, 'output-token': 90 })
   })
 

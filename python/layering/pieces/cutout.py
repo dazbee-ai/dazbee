@@ -1,19 +1,20 @@
 """Cutout: each cleaned split layer is cut into one split piece per planned part.
 
 The split model gives a few layers: all the text, all the shapes and logos, a cut-out or two, the backdrop. This
-step cuts them by the planned parts' boxes and the layers' alpha only, with no model. Every pixel of a layer goes
-to one piece, so the pieces drawn over each other show what the cleaned layers show.
+step cuts them by the planned parts' boxes and the layers' alpha, and finds copies by the layers' colours, with
+no model. Every pixel of a layer goes to one piece, so the pieces drawn over each other show what the cleaned
+layers show.
 
 1. The backdrop. The frontmost layer behind which every layer is nearly empty, drawn over anything behind it, is
    one piece. It is never cut.
 2. Solid areas (joined pixels of alpha above SOLID) of each layer in front are matched to parts:
-   - an area that fits the box of a part planned in another layer is that part (the split model drew it a layer
-     early or late; the piece keeps the layer it is in, so the stacked pieces don't change);
+   - an area that fits the box of a part planned in another layer, a text aside, is that part (the split model
+     drew it a layer early or late; the piece keeps the layer it is in, so the stacked pieces don't change);
    - otherwise it goes to the part of this layer whose box holds most of it, and when boxes tie, to the one that
      fits the area best, so a subline inside a headline's box stays the subline;
    - an area that reaches into other boxes is thinned until it falls apart (two texts touching, a card touching a
      person). A bit of it leaves the area's part only when it fits another part's box better (a whole card) or
-     lies outside the part's own box, so a tilted headline whose letters dip into a subline's box is never cut
+     lies outside the part's own box, so a turned headline whose letters dip into a subline's box is never cut
      through its letters. An area that never falls apart is cut only where one box alone holds a fair share.
 3. Soft pixels (shadows, glows, smoothed edges) follow the solid area they are joined to through alpha that can be
    seen; a soft area between two parts is cut where the two meet. A faint area joined to nothing goes to the part
@@ -95,8 +96,8 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
     at the working size. size: the picture's own (width, height).
 
     A piece is {"part": its part's id, None for a piece of no part, "kind": the part's kind or "other", "layer":
-    the split layer it is in, "box": [x, y, width, height] at the working size, "turned": its turned box there,
-    None for the backdrop and for a piece too small to measure, "picture": the box's pixels as RGBA bytes}.
+    the split layer it is in, "place": [x, y, width, height] at the working size, "turned": its turned box there,
+    None for the backdrop and for a piece too small to measure, "pixels": the place's pixels as RGBA bytes}.
     """
     height, width = layers[0].shape[:2]
     sx, sy = width / size[0], height / size[1]
@@ -190,7 +191,7 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
 
         The area is thinned until it falls apart (letters joined by an outline, a card touching a person). A bit
         goes to another part only when its bounds fit that part's box better than the winner's (a whole card), or
-        when it lies outside the winner's box and in the other's. So bits of a tilted headline that dip into a
+        when it lies outside the winner's box and in the other's. So bits of a turned headline that dip into a
         subline's box stay with the headline. An area that never falls apart (two shapes grown together) is cut by
         the pixels that one box alone holds, when two boxes each hold a fair share.
         """
@@ -216,7 +217,7 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
                         seeds[bit] = label_of[part["id"]]
             if len(np.unique(seeds[seeds > 0])) >= 2:
                 return watershed(np.zeros(area.shape, np.float32), seeds, mask=area)
-            # Its bits all belong to the winner.
+            # No two bits went to different parts: the area stays whole, the winner's.
             return None
         boxes = [winner] + others
         stack = np.stack([masks[part["id"]][rows, cols] for part in boxes])
@@ -449,9 +450,9 @@ def cut_layers(parts: list[dict], layers: list[np.ndarray], size: tuple[int, int
                 "part": piece["part"],
                 "kind": piece["kind"],
                 "layer": piece["layer"],
-                "box": [x0, y0, x1 - x0, y1 - y0],
+                "place": [x0, y0, x1 - x0, y1 - y0],
                 "turned": None if backdrop_kind else turned_box(piece["alpha"], piece["kind"]),
-                "picture": (np.clip(drawn(piece)[y0:y1, x0:x1], 0, 1) * 255 + 0.5).astype(np.uint8),
+                "pixels": (np.clip(drawn(piece)[y0:y1, x0:x1], 0, 1) * 255 + 0.5).astype(np.uint8),
             }
         )
     return cut

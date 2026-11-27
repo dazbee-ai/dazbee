@@ -47,22 +47,24 @@ MATCH_SCALE = 4
 MATCH_PAD = 3 * MATCH_REACHES[-1] // MATCH_SCALE
 # The pixels around a piece that its weights can depend on.
 WINDOW_PAD = COVER_PX + BLEND_PX + 2
+# The threads the pieces of one split layer are worked on at once.
 WORKERS = 8
 
 
 def keep_ad_pixels(picture: Image.Image, pieces: list[dict], working: tuple[int, int]) -> list[dict]:
     """The pieces at the picture's own size, in the same order.
 
-    picture: the picture at its own size. pieces: front to back, each with "layer", "box": [x, y, width, height]
-    at the working size, "turned": its turned box there or None, and "picture": the box's pixels as RGBA bytes.
+    picture: the picture at its own size. pieces: front to back, each with "layer", "place": [x, y, width,
+    height] at the working size, "turned": its turned box there or None, and "pixels": the place's pixels as RGBA
+    bytes.
     working: the working (width, height).
 
-    Each piece comes back with its "box" and "turned" in the picture's pixels, its "picture" there, and "model":
-    the split model's own pixels of the same box, stretched and nothing more.
+    Each piece comes back with its "place" and "turned" in the picture's pixels, its "pixels" there, and "model":
+    the split model's own pixels of the same place, stretched and nothing more.
     """
     width, height = picture.size
     target = np.asarray(picture.convert("RGB")).astype(np.float32) / 255
-    windows = [_windows(piece["box"], working, picture.size) for piece in pieces]
+    windows = [_windows(piece["place"], working, picture.size) for piece in pieces]
     with ThreadPoolExecutor(WORKERS) as pool:
         stretched = list(pool.map(_stretch, pieces, windows))
 
@@ -87,10 +89,10 @@ def keep_ad_pixels(picture: Image.Image, pieces: list[dict], working: tuple[int,
     return results
 
 
-def _windows(box: list[int], working: tuple[int, int], size: tuple[int, int]) -> tuple[tuple, tuple]:
+def _windows(place: list[int], working: tuple[int, int], size: tuple[int, int]) -> tuple[tuple, tuple]:
     """A piece's window at the working size and the same window at the picture's size, each (left, top, right,
     bottom), with room around the piece for its weights. Their sides lie where the two pixel grids meet."""
-    x, y, w, h = box
+    x, y, w, h = place
     sides = []
     for start, length, small, large in ((x, w, working[0], size[0]), (y, h, working[1], size[1])):
         # q pixels of the working size are p pixels of the picture, with nothing left over.
@@ -108,8 +110,8 @@ def _stretch(piece: dict, windows: tuple[tuple, tuple]) -> np.ndarray:
     alpha, so the colours under clear pixels don't run into its edges."""
     (x0, y0, x1, y1), (px0, py0, px1, py1) = windows
     small = np.zeros((y1 - y0, x1 - x0, 4), np.float32)
-    x, y, w, h = piece["box"]
-    small[y - y0 : y - y0 + h, x - x0 : x - x0 + w] = piece["picture"].astype(np.float32) / 255
+    x, y, w, h = piece["place"]
+    small[y - y0 : y - y0 + h, x - x0 : x - x0 + w] = piece["pixels"].astype(np.float32) / 255
     size = (px1 - px0, py1 - py0)
     alpha = cv2.resize(small[..., 3], size, interpolation=cv2.INTER_LINEAR)
     multiplied = cv2.resize(small[..., :3] * small[..., 3:4], size, interpolation=cv2.INTER_LINEAR)
@@ -118,8 +120,8 @@ def _stretch(piece: dict, windows: tuple[tuple, tuple]) -> np.ndarray:
 
 
 def _restore(stretched: np.ndarray, window: tuple, target: np.ndarray, clear: np.ndarray) -> dict:
-    """One piece at the picture's size, as its "box", "picture" and "model": the picture's pixels where the
-    picture shows the piece, the split model's, moved by the colour difference, elsewhere. The box is measured
+    """One piece at the picture's size, as its "place", "pixels" and "model": the picture's pixels where the
+    picture shows the piece, the split model's, moved by the colour difference, elsewhere. The place is measured
     again, from the stretched alpha."""
     px0, py0, px1, py1 = window
     shows = target[py0:py1, px0:px1]
@@ -134,10 +136,10 @@ def _restore(stretched: np.ndarray, window: tuple, target: np.ndarray, clear: np
 
     ys, xs = np.nonzero(alpha > 0)
     x0, y0, x1, y1 = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1) if len(xs) else (0, 0, 1, 1)
-    picture = np.concatenate([rgb, alpha[..., None]], axis=2)[y0:y1, x0:x1]
+    pixels = np.concatenate([rgb, alpha[..., None]], axis=2)[y0:y1, x0:x1]
     return {
-        "box": [px0 + x0, py0 + y0, x1 - x0, y1 - y0],
-        "picture": (np.clip(picture, 0, 1) * 255 + 0.5).astype(np.uint8),
+        "place": [px0 + x0, py0 + y0, x1 - x0, y1 - y0],
+        "pixels": (np.clip(pixels, 0, 1) * 255 + 0.5).astype(np.uint8),
         "model": (np.clip(stretched[y0:y1, x0:x1], 0, 1) * 255 + 0.5).astype(np.uint8),
     }
 
@@ -187,7 +189,7 @@ def _colour_difference(difference: np.ndarray, shown: np.ndarray) -> np.ndarray:
     )
 
 
-def _padded(picture: np.ndarray) -> np.ndarray:
-    """A picture with MATCH_PAD pixels of zeros around it."""
-    pad = ((MATCH_PAD, MATCH_PAD), (MATCH_PAD, MATCH_PAD)) + (((0, 0),) if picture.ndim == 3 else ())
-    return np.pad(picture, pad)
+def _padded(values: np.ndarray) -> np.ndarray:
+    """An array of pixels with MATCH_PAD pixels of zeros around it."""
+    pad = ((MATCH_PAD, MATCH_PAD), (MATCH_PAD, MATCH_PAD)) + (((0, 0),) if values.ndim == 3 else ())
+    return np.pad(values, pad)

@@ -53,6 +53,7 @@ FLAT = ("text", "shape", "graphic", "logo")
 LETTER = 0.5
 # The pixels a piece behind keeps from an edge in front before it shows the picture there.
 MARGIN = 2
+# How many times the two steps run, each reading what the other made.
 PASSES = 2
 
 
@@ -60,43 +61,43 @@ def read_edges(target: np.ndarray, pieces: list[dict], scale: float = 1.0) -> li
     """The pieces with their edges read from the picture, in the same order.
 
     target: the picture as float RGB (0 to 1) at its own size. pieces: front to back, the backdrop last, each with
-    "kind", "layer", "box": [x, y, width, height] in the picture's pixels, "picture": the box's pixels as RGBA
-    bytes, and "model": the split model's own pixels of the same box. scale: the pixels of the picture to one of
+    "kind", "layer", "place": [x, y, width, height] in the picture's pixels, "pixels": the place's pixels as RGBA
+    bytes, and "model": the split model's own pixels of the same place. scale: the pixels of the picture to one of
     the working size.
 
-    Each piece comes back with its new "box" and "picture", and without "model".
+    Each piece comes back with its new "place" and "pixels", and without "model".
     """
     height, width = target.shape[:2]
     reach = max(REACH, int(round(REACH * scale)))
     pad = 2 * reach + 2
-    windows, pictures, models = [], [], []
+    windows, drawn, models = [], [], []
     for piece in pieces:
-        x, y, w, h = piece["box"]
+        x, y, w, h = piece["place"]
         x0, y0, x1, y1 = max(0, x - pad), max(0, y - pad), min(width, x + w + pad), min(height, y + h + pad)
         inner = (slice(y - y0, y - y0 + h), slice(x - x0, x - x0 + w))
-        picture = np.zeros((y1 - y0, x1 - x0, 4), np.float32)
-        picture[inner] = piece["picture"].astype(np.float32) / 255
-        model = np.zeros_like(picture)
+        pixels = np.zeros((y1 - y0, x1 - x0, 4), np.float32)
+        pixels[inner] = piece["pixels"].astype(np.float32) / 255
+        model = np.zeros_like(pixels)
         model[inner] = piece["model"].astype(np.float32) / 255
         windows.append((slice(y0, y1), slice(x0, x1)))
-        pictures.append(picture)
+        drawn.append(pixels)
         models.append(model)
 
-    count = len(pictures)
-    nearest = _nearest(pieces, pictures, windows, height, width)
+    count = len(drawn)
+    nearest = _nearest(pieces, drawn, windows, height, width)
     for _ in range(PASSES):
-        covers = _covers(pictures, windows, height, width)
+        covers = _covers(drawn, windows, height, width)
         read = np.zeros((height, width), bool)
         # The pieces behind the one at hand, drawn over each other.
         under = np.zeros((height, width, 3), np.float32)
         for index in range(count - 1, -1, -1):
-            window, picture = windows[index], pictures[index]
+            window, pixels = windows[index], drawn[index]
             behind = under[window]
             if index < count - 1 and pieces[index]["kind"] in FLAT:
                 text = pieces[index]["kind"] == "text"
                 mine = nearest[pieces[index]["layer"]][window] == index
                 read[window] |= _read_edge(
-                    picture,
+                    pixels,
                     models[index],
                     target[window],
                     behind,
@@ -106,36 +107,36 @@ def read_edges(target: np.ndarray, pieces: list[dict], scale: float = 1.0) -> li
                     2 * reach if text else reach,
                     2 * reach if text else RIM,
                 )
-            alpha = picture[..., 3:4]
-            under[window] = picture[..., :3] * alpha + behind * (1 - alpha)
-        covers = _covers(pictures, windows, height, width)
+            alpha = pixels[..., 3:4]
+            under[window] = pixels[..., :3] * alpha + behind * (1 - alpha)
+        covers = _covers(drawn, windows, height, width)
         for index in range(1, count):
-            _show_picture(pictures[index], target[windows[index]], covers[index], read[windows[index]], reach)
+            _show_picture(drawn[index], target[windows[index]], covers[index], read[windows[index]], reach)
 
     edged = []
-    for piece, window, picture in zip(pieces, windows, pictures, strict=True):
-        ys, xs = np.nonzero(picture[..., 3] > 0)
+    for piece, window, pixels in zip(pieces, windows, drawn, strict=True):
+        ys, xs = np.nonzero(pixels[..., 3] > 0)
         y0, y1, x0, x1 = (
             (int(ys.min()), int(ys.max()) + 1, int(xs.min()), int(xs.max()) + 1) if len(xs) else (0, 1, 0, 1)
         )
         edged.append(
             {
                 **{key: value for key, value in piece.items() if key != "model"},
-                "box": [window[1].start + x0, window[0].start + y0, x1 - x0, y1 - y0],
-                "picture": (np.clip(picture[y0:y1, x0:x1], 0, 1) * 255 + 0.5).astype(np.uint8),
+                "place": [window[1].start + x0, window[0].start + y0, x1 - x0, y1 - y0],
+                "pixels": (np.clip(pixels[y0:y1, x0:x1], 0, 1) * 255 + 0.5).astype(np.uint8),
             }
         )
     return edged
 
 
-def _nearest(pieces: list[dict], pictures: list[np.ndarray], windows: list[tuple], height: int, width: int) -> dict:
+def _nearest(pieces: list[dict], drawn: list[np.ndarray], windows: list[tuple], height: int, width: int) -> dict:
     """For each split layer, the index of the piece of that layer nearest to each pixel of the picture."""
     nearest = {}
     for layer in {piece["layer"] for piece in pieces}:
         owner = np.full((height, width), -1, np.int32)
         for index, piece in enumerate(pieces):
             if piece["layer"] == layer:
-                owner[windows[index]][pictures[index][..., 3] >= 0.5] = index
+                owner[windows[index]][drawn[index][..., 3] >= 0.5] = index
         if (owner >= 0).any():
             _, (near_y, near_x) = ndimage.distance_transform_edt(owner < 0, return_indices=True)
             owner = owner[near_y, near_x]
@@ -143,18 +144,18 @@ def _nearest(pieces: list[dict], pictures: list[np.ndarray], windows: list[tuple
     return nearest
 
 
-def _covers(pictures: list[np.ndarray], windows: list[tuple], height: int, width: int) -> list[np.ndarray]:
+def _covers(drawn: list[np.ndarray], windows: list[tuple], height: int, width: int) -> list[np.ndarray]:
     """For each piece, how much of each of its pixels the pieces in front hide."""
     clear = np.ones((height, width), np.float32)
     covers = []
-    for window, picture in zip(windows, pictures, strict=True):
+    for window, pixels in zip(windows, drawn, strict=True):
         covers.append(1 - clear[window])
-        clear[window] *= 1 - picture[..., 3]
+        clear[window] *= 1 - pixels[..., 3]
     return covers
 
 
 def _read_edge(
-    picture: np.ndarray,
+    pixels: np.ndarray,
     model: np.ndarray,
     target: np.ndarray,
     behind: np.ndarray,
@@ -166,12 +167,12 @@ def _read_edge(
 ) -> np.ndarray:
     """Reads one piece's edge from the picture, in place, and gives the pixels whose alpha the picture gave.
 
-    picture, model: the piece and the split model's own pixels of it, inside the piece's window. target, behind:
+    pixels, model: the piece and the split model's own pixels of it, inside the piece's window. target, behind:
     the picture and the pieces behind drawn over each other, there. cover: how much the pieces in front hide. mine:
     the pixels nearer to this piece than to any other of its split layer. reach, rim: how far outside and inside
     the solid pixels the edge is read.
     """
-    alpha, rgb = picture[..., 3], picture[..., :3]
+    alpha, rgb = pixels[..., 3], pixels[..., :3]
     solid = alpha >= (LETTER if text else SOLID)
     none = np.zeros(alpha.shape, bool)
     if solid.sum() < 20:
@@ -212,20 +213,20 @@ def _read_edge(
     before = np.abs(rgb * alpha[..., None] + behind * (1 - alpha[..., None]) - target).max(axis=2)
     after = np.abs(new_rgb * new_alpha[..., None] + behind * (1 - new_alpha[..., None]) - target).max(axis=2)
     better = band & (after <= before)
-    picture[..., 3] = np.where(better, new_alpha, alpha)
-    picture[..., :3] = np.where(better[..., None], new_rgb, rgb)
+    pixels[..., 3] = np.where(better, new_alpha, alpha)
+    pixels[..., :3] = np.where(better[..., None], new_rgb, rgb)
     return better & read
 
 
-def _show_picture(picture: np.ndarray, target: np.ndarray, cover: np.ndarray, read: np.ndarray, reach: int) -> None:
+def _show_picture(pixels: np.ndarray, target: np.ndarray, cover: np.ndarray, read: np.ndarray, reach: int) -> None:
     """Gives a piece the picture's pixels, in place, where it is solid, nothing in front hides it and an edge in
     front of it was read from the picture, fading in over 2 pixels from MARGIN pixels off what is in front and from
     1 pixel inside the piece's own edge.
 
-    picture: the piece inside its window. target: the picture there. cover: how much the pieces in front hide.
+    pixels: the piece inside its window. target: the picture there. cover: how much the pieces in front hide.
     read: the pixels whose alpha the picture gave. reach: how far from those pixels the piece is changed.
     """
-    alpha = picture[..., 3]
+    alpha = pixels[..., 3]
     size = 4 * reach + 5
     near = cv2.dilate(read.astype(np.uint8), np.ones((size, size), np.uint8)) > 0
     shown = (alpha >= SOLID) & (cover <= FREE) & near
@@ -234,4 +235,4 @@ def _show_picture(picture: np.ndarray, target: np.ndarray, cover: np.ndarray, re
     from_cover = cv2.distanceTransform((cover <= FREE).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
     from_edge = cv2.distanceTransform((alpha >= SOLID).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
     weight = np.clip((from_cover - MARGIN) / 2, 0, 1) * np.clip((from_edge - 1) / 2, 0, 1) * shown
-    picture[..., :3] = weight[..., None] * target + (1 - weight[..., None]) * picture[..., :3]
+    pixels[..., :3] = weight[..., None] * target + (1 - weight[..., None]) * pixels[..., :3]

@@ -10,8 +10,8 @@ The last layer, the backdrop, is never changed. Three passes, all by the planned
    outside, however close it is. This takes a piece of the backdrop out of a cut-out's layer, and a logo drawn
    twice.
 2. Copies of what is behind. A solid area that looks the same as the layers behind it is removed when it lies
-   mostly outside every part's box. It changes nothing in the stacked layers, but would show once a piece is
-   moved.
+   mostly outside the box of every part in front of the backdrop. It changes nothing in the stacked layers, but
+   would show once a piece is moved.
 3. Soft alpha matched to the picture. Shadows, glows, fades and veils (alpha below SOFT_MAX, a few pixels away from
    the solid pixels they belong to) are made weaker, never stronger, until the layer changes what is behind it only
    as much as the picture does there, measured along the layer's own colour over a small window. A veil the
@@ -42,7 +42,7 @@ ERROR_WINDOW = 7
 KEEP_GAIN = 0.015
 # A copy of what is behind: a solid area that differs from the layers behind by less than COPY_DIFFERENCE (mean of
 # RGB, 0 to 1, averaged over a window of COPY_WINDOW pixels), covers at least COPY_MIN_SHARE of the layer, and has at
-# least COPY_OUTSIDE of itself outside every part's box.
+# least COPY_OUTSIDE of itself outside the box of every part in front of the backdrop.
 COPY_DIFFERENCE = 0.04
 COPY_WINDOW = 5
 COPY_MIN_SHARE = 0.001
@@ -114,7 +114,7 @@ def clean_layers(picture: Image.Image, parts: list[dict], layers: list[np.ndarra
                 continue
             stray |= area
 
-        # 2. Copies of the layers behind, mostly outside every part's box.
+        # 2. Copies of the layers behind, mostly outside the box of every part in front of the backdrop.
         difference = cv2.blur(np.abs(layer[..., :3] - behind).mean(axis=2), (COPY_WINDOW, COPY_WINDOW))
         same = ndimage.binary_opening(
             (alpha > 0.5) & (difference < COPY_DIFFERENCE) & ~stray, structure=np.ones((5, 5))

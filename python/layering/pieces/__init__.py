@@ -27,10 +27,10 @@ from .cleanup import clean_layers
 from .cutout import cut_layers
 from .edges import read_edges
 
-# Alpha of 255 from which a pixel is part of what a piece shows: a piece's box hugs these.
+# Alpha of 255 from which a pixel is part of what a piece shows: a piece is cropped to these.
 SEEN = 8
-# A speck: a group of at most this many joined pixels, none above this alpha of 255. It is cleared, so one faint
-# stray pixel doesn't stretch a piece's box.
+# A speck: a group of at most SPECK_PIXELS joined pixels, all below SPECK_ALPHA of 255. It is cleared, so one faint
+# stray pixel doesn't stretch a piece's place.
 SPECK_PIXELS = 4
 SPECK_ALPHA = 64
 # The difference of 255 above which a pixel of the stacked pieces is off from the picture.
@@ -40,8 +40,8 @@ GRID = 1000
 
 
 def make_pieces(picture: Image.Image, parts: list[dict], layers: list[np.ndarray]) -> dict | None:
-    """The split pieces of `picture`, as the contract's `pieces` holds them, or None when a part is planned in a
-    layer the split didn't give.
+    """The split pieces of `picture`, as the contract's `pieces` holds them. None when a part is planned in a layer
+    the split didn't give, or when no piece shows anything.
 
     picture: the picture at its own size. parts: the planned parts, each {"id", "kind", "shadow", "layer" (1 is the
     top one), "box": {"left", "top", "right", "bottom"} on the plan's grid}. layers: the split layers, top first,
@@ -64,36 +64,34 @@ def make_pieces(picture: Image.Image, parts: list[dict], layers: list[np.ndarray
     sharp = keep_ad_pixels(picture, cut, working)
     edged = read_edges(target, sharp, max(width, height) / max(working))
 
-    pieces = []
+    items, shown = [], []
     for piece in edged:
-        shown = _shown(piece["box"], piece["picture"])
-        if shown is None:
+        cropped = _shown(piece["place"], piece["pixels"])
+        if cropped is None:
             continue
-        (x, y), rgba = shown
-        pieces.append(
+        (x, y), pixels = cropped
+        shown.append(pixels)
+        items.append(
             {
-                "png": rgba,
+                "png": _png(pixels),
                 "x": x,
                 "y": y,
-                "width": rgba.shape[1],
-                "height": rgba.shape[0],
+                "width": pixels.shape[1],
+                "height": pixels.shape[0],
                 "part": piece["part"],
                 "kind": piece["kind"],
                 "layer": piece["layer"],
                 "turned": piece["turned"],
             }
         )
-    if not pieces:
+    if not items:
         return None
-    closeness = _closeness(pieces, target)
-    for piece in pieces:
-        piece["png"] = _png(piece["png"])
     return {
         "width": width,
         "height": height,
-        "items": pieces,
+        "items": items,
         "stuck": stuck,
-        "closeness": closeness,
+        "closeness": _closeness(items, shown, target),
         "seconds": round(time.monotonic() - started, 3),
     }
 
@@ -114,41 +112,48 @@ def _in_pixels(part: dict, width: int, height: int) -> dict:
     }
 
 
-def _shown(box: list[int], rgba: np.ndarray) -> tuple[tuple[int, int], np.ndarray] | None:
-    """A piece with its specks cleared, cropped to the box of the pixels it shows: its new top-left corner and its
-    picture; None when it shows nothing."""
-    seen = rgba[..., 3] >= SEEN
+def _shown(place: list[int], pixels: np.ndarray) -> tuple[tuple[int, int], np.ndarray] | None:
+    """A piece cropped to the pixels it shows, its specks cleared first: its new top-left corner and its pixels,
+    or None when it shows nothing. A piece that is nothing but specks keeps them.
+
+    place: the piece's [x, y, width, height] in the picture's pixels. pixels: the place's pixels as RGBA bytes.
+    """
+    seen = pixels[..., 3] >= SEEN
     groups, count = ndimage.label(seen, structure=np.ones((3, 3)))
     if count > 1:
         index = np.arange(1, count + 1)
         sizes = ndimage.sum(seen, groups, index)
-        strongest = ndimage.maximum(rgba[..., 3], groups, index)
+        strongest = ndimage.maximum(pixels[..., 3], groups, index)
         specks = np.isin(groups, index[(sizes <= SPECK_PIXELS) & (strongest < SPECK_ALPHA)])
         if specks.any() and not specks[seen].all():
-            rgba = rgba.copy()
-            rgba[specks, 3] = 0
+            pixels = pixels.copy()
+            pixels[specks, 3] = 0
             seen &= ~specks
     rows, cols = np.nonzero(seen.any(axis=1))[0], np.nonzero(seen.any(axis=0))[0]
     if len(rows) == 0:
         return None
-    return (box[0] + int(cols[0]), box[1] + int(rows[0])), rgba[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
+    return (place[0] + int(cols[0]), place[1] + int(rows[0])), pixels[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
 
 
-def _closeness(pieces: list[dict], target: np.ndarray) -> dict:
+def _closeness(items: list[dict], shown: list[np.ndarray], target: np.ndarray) -> dict:
     """How far the pieces, drawn over each other back to front, are from the picture: the mean difference of 255,
-    and the percent of pixels off by more than OFF."""
+    and the percent of pixels off by more than OFF.
+
+    items: the pieces as they are returned, front to back. shown: the pixels of each, as RGBA bytes. target: the
+    picture as float RGB (0 to 1).
+    """
     stacked = np.zeros_like(target)
-    for piece in reversed(pieces):
-        x, y, w, h = piece["x"], piece["y"], piece["width"], piece["height"]
-        rgba = piece["png"].astype(np.float32) / 255
+    for item, pixels in zip(reversed(items), reversed(shown), strict=True):
+        x, y, w, h = item["x"], item["y"], item["width"], item["height"]
+        rgba = pixels.astype(np.float32) / 255
         alpha = rgba[..., 3:4]
         stacked[y : y + h, x : x + w] = rgba[..., :3] * alpha + stacked[y : y + h, x : x + w] * (1 - alpha)
     off = np.abs(stacked - target).max(axis=2) * 255
     return {"mean": round(float(off.mean()), 3), "off": round(float((off > OFF).mean()) * 100, 2)}
 
 
-def _png(rgba: np.ndarray) -> str:
-    """An RGBA picture as a PNG, base64; packed lightly, as the time is billed and the bytes are stored again."""
+def _png(pixels: np.ndarray) -> str:
+    """RGBA bytes as a PNG, base64; packed lightly, as the time is billed and the bytes are stored again."""
     buffer = io.BytesIO()
-    Image.fromarray(rgba).save(buffer, format="PNG", compress_level=1)
+    Image.fromarray(pixels).save(buffer, format="PNG", compress_level=1)
     return base64.b64encode(buffer.getvalue()).decode()

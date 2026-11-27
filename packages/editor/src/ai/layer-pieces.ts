@@ -7,6 +7,7 @@ import { imagePlacement } from '@dazbee/renderer'
 import {
   type AiFrameView,
   type AiJobView,
+  type ImageCrop,
   LAYERING_CALL,
   LayerPlanAnswer,
   type MadePiece,
@@ -42,13 +43,12 @@ const NAME_LENGTH = 100
 const ROUNDING = 1e-6
 
 /**
- * The layer plan AI frame `frame` was split by, once its plan call is done: its own plan's, or the first frame's in
- * a job with no plan call of the frame's own; null before, or when it can't be read.
+ * The layer plan AI frame `frame` was split by, once its plan call is done: the first frame's in a job with one
+ * layer plan for all its frames, else the frame's own; null before, or when it can't be read.
  */
 export function layerPlanOf(job: Calls, frame: FrameCall): LayerPlanAnswer | null {
-  const ownPlan = LAYERING_CALL.plan((frame.callIndex - 1) / 2)
-  const call =
-    job.calls.find((c) => c.index === ownPlan) ?? job.calls.find((c) => c.index === LAYERING_CALL.plan(0)) ?? null
+  const index = onePlan(job) ? LAYERING_CALL.plan(0) : LAYERING_CALL.plan((frame.callIndex - 1) / 2)
+  const call = job.calls.find((c) => c.index === index) ?? null
   if (call?.state !== 'done' || call.output.kind !== 'text') return null
   const plan = LayerPlanAnswer.safeParse(call.output.json)
   return plan.success ? plan.data : null
@@ -179,6 +179,23 @@ export function pieceBox(piece: Pick<MadePiece, 'x' | 'y' | 'picture'>, picture:
     drawn.y + (piece.y + piece.picture.height) * k,
     ROUNDING,
   )
+}
+
+/**
+ * The crop of split piece `piece`'s own picture that its box in a frame of size `frame` shows: the box carried back
+ * into the piece's pixels. An image fill cut to it draws the piece at the scale the picture is drawn at, in its
+ * place, and nothing where the box, grown to whole pixels, reaches past the piece.
+ */
+export function pieceCrop(piece: Pick<MadePiece, 'x' | 'y' | 'picture'>, picture: Size, frame: Size): ImageCrop {
+  const drawn = imagePlacement(picture, { fit: 'fill' }, { x: 0, y: 0, width: frame.width, height: frame.height })
+  const k = drawn.width / picture.width
+  const box = pieceBox(piece, picture, frame)
+  return {
+    x: (box.x - drawn.x) / k - piece.x,
+    y: (box.y - drawn.y) / k - piece.y,
+    width: box.width / k,
+    height: box.height / k,
+  }
 }
 
 /** The id of the layer the finish places for split layer or split piece `index` of frame `frameId`, from the job's id. */

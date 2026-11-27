@@ -350,7 +350,7 @@ export const CallOutput = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('layers'),
     layers: z.array(MadePicture),
-    pieces: MadePieces.optional(),
+    pieces: MadePieces.nullish(),
     gpuSeconds: z.number().nonnegative(),
   }),
 ])

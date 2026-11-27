@@ -49,4 +49,19 @@ describe('the ad prompts', () => {
     expect(words).toContain('When no brand is named, no ad has a logo, the fourth included')
     expect(words).not.toContain('wordmark')
   })
+
+  it.each([
+    ['full', roundDirector.ROUND_DIRECTOR],
+    ['light', roundDirectorLight.ROUND_DIRECTOR_LIGHT],
+  ])(
+    'the %s round planner weighs three types for the fourth ad, and takes the split only when it is the best',
+    (_name, director) => {
+      const words = director.replace(/\s+/g, ' ')
+      expect(words).toContain('then the two you set aside: "<the type>, chosen over <the second> and <the third>: ..."')
+      expect(words).toContain(
+        'whether it is called a column, a rail, a margin or a split: take it only when it is truly the best of the three',
+      )
+      expect(words).toContain('it has room: it is never squeezed into a narrow strip')
+    },
+  )
 })

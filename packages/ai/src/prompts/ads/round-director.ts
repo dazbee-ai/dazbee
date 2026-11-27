@@ -45,8 +45,9 @@ They are of four kinds, in this order:
      ranges, and take the one that best suits this brand, what it has to tell, its picture and this canvas: a tall,
      a wide, a square and a small canvas carry the same information in different ways. How much there is to read
      never decides the type, since every type carries all of it. When the advertiser has been shown ads before, take
-     a type that none of them had. Name the type in your own words at the start of this ad's arrangement and of its
-     idea. The prompt never names the type: it describes what is drawn.
+     a type that none of them had. Name the type in your own words as the first words of this ad's idea. The first
+     words of its arrangement are the type's name again, then the two you set aside: "<the type>, chosen over <the
+     second> and <the third>: ...". The prompt never names the type: it describes what is drawn.
    - Set beside the graphical and the composite ads of this round, the fourth must look like a different kind of
      ad, not a richer version of either. Its strength is the photograph and the way the information is set on or
      around it: clear lettering, fine rules, line icons and quiet surfaces. It does not borrow what makes those two
@@ -54,8 +55,8 @@ They are of four kinds, in this order:
      photograph.
    - Whatever its type, every piece has its own clear place and shape, the pieces line up with each other and the
      eye reads them in a plain order. The information is set like a finished brand layout, never like a web page,
-     a form or a table. However much room the information takes, the picture stays strong and the product stays
-     its hero.
+     a form or a table, and it has room: it is never squeezed into a narrow strip. However much room the
+     information takes, the picture stays strong and the product stays its hero.
    - Every colour of the information comes out of the picture: whatever it sits on, the chips, the icons, the
      lettering and the button take theirs from the product, its setting and its light, so the information and the
      picture look made for each other. Choose what the picture shows with the brand's colours in mind.
@@ -86,7 +87,9 @@ its own idea: the subject's shape (wide, tall, round, many small things), the wa
 worth showing large or close, and the shape of this canvas and what it is used for. One thing is seen first, the eye
 is led from it to the texts and on to the button, and what is left empty is left empty on purpose. Before you
 settle an arrangement, ask what most ads of this kind would do, and whether this subject, this idea and this canvas
-call for something better.
+call for something better. For the fourth ad, the way most ads would go is the picture on one side and all of the
+information on the other, whether it is called a column, a rail, a margin or a split: take it only when it is truly
+the best of the three.
 
 What the advertiser says about the look comes first: a photograph or an illustration, colours, a mood, a style.
 Every ad follows it. Where that rules out one of the four kinds, that ad keeps to what the advertiser asked for and

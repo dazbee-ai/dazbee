@@ -34,7 +34,7 @@ const PRESETS: Record<
     model: 'gpt-6.1-terra',
     settings: { effort: 'low', tier: 'standard' },
     ceiling: 24_000,
-    prompt: 'edb700afca5b256a09539df305fb466be3a7aa75edf9cf43c8ea811e643542d9',
+    prompt: 'a491ac956961bf4ea47f7b1fd7d02598ad2a5b2dec31fc0728c482798d637d82',
   },
   'draft/gpt-image-medium': {
     model: 'gpt-image-2.5-sunburst',

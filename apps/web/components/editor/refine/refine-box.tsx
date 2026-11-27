@@ -44,7 +44,7 @@ import { format } from '@/lib/i18n/index.ts'
 import { sendAsset } from '@/lib/upload-asset.ts'
 
 import { useFrameRect } from './frame-rect.ts'
-import { MarksLayer,type MarkTool } from './marks-layer.tsx'
+import { MarksLayer, type MarkTool } from './marks-layer.tsx'
 
 /** A quiet round icon button of the box, its focus ring in Dazbee's blue. */
 const ICON = cn(

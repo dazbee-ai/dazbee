@@ -25,26 +25,6 @@ describe('planBrief', () => {
   })
 })
 
-describe('briefPassesWarning', () => {
-  it('is false for a design well within its limits', () => {
-    expect(briefPassesWarning(EMPTY)).toBe(false)
-  })
-
-  it('is true when four more frames and layers would reach the warning on layers', () => {
-    const at = SYNC_LIMITS.designLayers * SYNC_LIMITS.warnAt
-    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS - 1 })).toBe(false)
-    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS })).toBe(true)
-  })
-
-  it('is true when one more section would reach the warning on sections', () => {
-    expect(briefPassesWarning({ ...EMPTY, sections: SYNC_LIMITS.designSections * SYNC_LIMITS.warnAt - 1 })).toBe(true)
-  })
-
-  it('is true when the brief’s bytes would reach the warning on bytes', () => {
-    expect(briefPassesWarning({ ...EMPTY, bytes: SYNC_LIMITS.designBytes * SYNC_LIMITS.warnAt - 1000 })).toBe(true)
-  })
-})
-
 describe('moreLikeSpot', () => {
   const square = { width: 100, height: 100 }
   const frame = (x: number, y: number, sectionId?: string) => ({
@@ -69,5 +49,25 @@ describe('moreLikeSpot', () => {
     const design = { frames: { a: frame(0, 0) }, sections: {} }
     expect(moreLikeSpot(design, 'a', square, () => 1)).toEqual({ x: 100 + gap, y: 0 })
     expect(moreLikeSpot(design, 'gone', square, () => 1)).toBeNull()
+  })
+})
+
+describe('briefPassesWarning', () => {
+  it('is false for a design well within its limits', () => {
+    expect(briefPassesWarning(EMPTY)).toBe(false)
+  })
+
+  it('is true when four more frames and layers would reach the warning on layers', () => {
+    const at = SYNC_LIMITS.designLayers * SYNC_LIMITS.warnAt
+    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS - 1 })).toBe(false)
+    expect(briefPassesWarning({ ...EMPTY, layers: at - DRAFTS })).toBe(true)
+  })
+
+  it('is true when one more section would reach the warning on sections', () => {
+    expect(briefPassesWarning({ ...EMPTY, sections: SYNC_LIMITS.designSections * SYNC_LIMITS.warnAt - 1 })).toBe(true)
+  })
+
+  it('is true when the brief’s bytes would reach the warning on bytes', () => {
+    expect(briefPassesWarning({ ...EMPTY, bytes: SYNC_LIMITS.designBytes * SYNC_LIMITS.warnAt - 1000 })).toBe(true)
   })
 })

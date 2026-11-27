@@ -29,9 +29,6 @@ import { tokenSource } from './token-source.ts'
 import type { PlacedAsset, PlaceImageOptions } from './tools.ts'
 import { loadCanvasKit, shippedFonts } from './vendor.ts'
 
-/** What an editor given no AI routes answers a job it is asked to start. */
-const NO_AI = { ok: false, refusal: null, message: 'AI isn’t set up for this editor' } as const
-
 /** The screen's animation frames and the system's reduced motion, which the camera's glides step on. */
 export const SCREEN_MOTION: Motion = {
   nextFrame: (run) => {
@@ -46,6 +43,9 @@ export const ON_DEVICE: Remembered = {
   get: (key) => localStorage.getItem(key),
   set: (key, value) => localStorage.setItem(key, value),
 }
+
+/** What an editor given no AI routes answers a job it is asked to start. */
+const NO_AI = { ok: false, refusal: null, message: 'AI isn’t set up for this editor' } as const
 export async function startEditor(options: EditorOptions) {
   const { designId } = options
   const status = options.onStatus ?? (() => {})

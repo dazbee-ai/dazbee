@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AiBriefView, AssetSummary } from '@dazbee/schema'
 
-import { briefDraftOf, briefDrafts } from './brief-draft.ts'
+import { briefDraftOf, briefDrafts, briefOfSection } from './brief-draft.ts'
 
 describe('briefDrafts', () => {
   it('gives an editor’s box an empty draft at the size given and Fast, until one is kept', () => {
@@ -74,5 +74,26 @@ describe('briefDraftOf', () => {
 
   it('takes the first size of the AI’s list for a size the list has no more', () => {
     expect(briefDraftOf({ ...brief, size: { width: 999, height: 998 } }, String).sizeId).toBe('feed-square')
+  })
+})
+
+describe('briefOfSection', () => {
+  it('finds the brief whose section it is, and none for another section or before the first read', () => {
+    const brief = {
+      id: 'b1',
+      sectionId: 's1',
+      title: 'Sale',
+      words: 'Sale',
+      pictureAssetIds: [],
+      referenceAssetId: null,
+      size: { width: 1080, height: 1080 },
+      mode: 'fast' as const,
+      planned: true,
+      createdAt: '2026-11-27T10:00:00.000Z',
+    }
+    const ai = { frames: [], jobs: [], briefs: [brief] }
+    expect(briefOfSection(ai, 's1')).toBe(brief)
+    expect(briefOfSection(ai, 's2')).toBeUndefined()
+    expect(briefOfSection(null, 's1')).toBeUndefined()
   })
 })

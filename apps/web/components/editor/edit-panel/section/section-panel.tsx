@@ -10,7 +10,7 @@ import { PanelHeader } from '@/components/editor/edit-panel/tabs/panel-header.ts
 import type { PanelLayout } from '@/components/editor/edit-panel/tabs/tabs.ts'
 import { selectionPanelShows, useEditState } from '@/components/editor/edit-store.ts'
 import { useDesignAi } from '@/components/editor/editor-hooks.ts'
-import { runSectionAction, sectionActionsOf } from '@/components/editor/menus/section-actions.tsx'
+import { pictureNamer, runSectionAction, sectionActionsOf } from '@/components/editor/menus/section-actions.tsx'
 import { PANEL_BUTTON } from '@/components/editor/styles.ts'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
@@ -53,7 +53,9 @@ function SectionButtons({ editor, sectionId }: { editor: Editor; sectionId: stri
           key={action}
           type="button"
           data-action={action}
-          onClick={(e) => runSectionAction(editor, sectionId, action, t, e.currentTarget)}
+          onClick={(e) =>
+            runSectionAction(editor, sectionId, action, pictureNamer(t.editor.brief.pictureName), e.currentTarget)
+          }
           className={cn(PANEL_BUTTON, action === 'deleteWithFrames' && 'text-danger')}
         >
           <span>{s[action]}</span>

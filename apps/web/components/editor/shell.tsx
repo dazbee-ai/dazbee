@@ -298,7 +298,7 @@ export function EditorShell({
             {briefing && editor && (
               <BriefBox workspaceId={workspaceId} brandId={brandId} editor={editor} onClose={() => setFlyout(null)} />
             )}
-            {editor && !viewOnly && <GlassBar workspaceId={workspaceId} brandId={brandId} editor={editor} />}
+            {editor && <GlassBar workspaceId={workspaceId} brandId={brandId} editor={editor} />}
             <ToastSlot editor={editor}>{toast}</ToastSlot>
             <QuickActions editor={editor} tray={tray} />
           </main>

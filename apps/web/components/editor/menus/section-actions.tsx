@@ -8,15 +8,16 @@
 import type { RefObject } from 'react'
 
 import type { Editor } from '@dazbee/editor'
+import type { DesignAi } from '@dazbee/schema'
 
 import { setFlyout, setRenameOpener } from '@/components/editor/edit-store.ts'
 import { useDesignAi } from '@/components/editor/editor-hooks.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { MenuDivider, MenuItem } from '@/components/ui/menu.tsx'
-import { BRIEF_DRAFTS, briefDraftOf } from '@/lib/editor/brief-draft.ts'
+import { BRIEF_DRAFTS, briefDraftOf, briefOfSection } from '@/lib/editor/brief-draft.ts'
 import { keyOf } from '@/lib/editor/shortcut-keys.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
-import { format, type Messages } from '@/lib/i18n/index.ts'
+import { format } from '@/lib/i18n/index.ts'
 
 /** What each of a section's actions does, by its name. */
 export type SectionAction = 'editBrief' | 'rename' | 'ungroup' | 'duplicate' | 'deleteWithFrames'
@@ -25,8 +26,13 @@ export type SectionAction = 'editBrief' | 'rename' | 'ungroup' | 'duplicate' | '
 export const SECTION_ACTIONS: readonly SectionAction[] = ['rename', 'ungroup', 'duplicate', 'deleteWithFrames']
 
 /** The actions of section `sectionId` in the order listed: Edit brief first on a brief's section, as `ai` last read. */
-export function sectionActionsOf(ai: ReturnType<Editor['designAi']>, sectionId: string): readonly SectionAction[] {
-  return ai?.briefs.some((b) => b.sectionId === sectionId) ? ['editBrief', ...SECTION_ACTIONS] : SECTION_ACTIONS
+export function sectionActionsOf(ai: DesignAi | null, sectionId: string): readonly SectionAction[] {
+  return briefOfSection(ai, sectionId) ? ['editBrief', ...SECTION_ACTIONS] : SECTION_ACTIONS
+}
+
+/** Names a brief's pictures by their place from 0, in the words `named` gives: "Picture 1" on. */
+export function pictureNamer(named: string): (n: number) => string {
+  return (n) => format(named, { n: n + 1 })
 }
 
 /**
@@ -37,16 +43,13 @@ export function runSectionAction(
   editor: Editor,
   sectionId: string,
   action: SectionAction,
-  t: Messages,
+  pictureName: (n: number) => string,
   opener: HTMLElement | null = null,
 ) {
   if (action === 'editBrief') {
-    const brief = editor.designAi()?.briefs.find((b) => b.sectionId === sectionId)
+    const brief = briefOfSection(editor.designAi(), sectionId)
     if (!brief) return
-    BRIEF_DRAFTS.fill(
-      editor,
-      briefDraftOf(brief, (n) => format(t.editor.brief.pictureName, { n: n + 1 })),
-    )
+    BRIEF_DRAFTS.fill(editor, briefDraftOf(brief, pictureName))
     setFlyout('ai')
   } else if (action === 'rename') {
     setRenameOpener(opener)
@@ -74,10 +77,11 @@ export function SectionActions({
   const viewOnly = useViewOnly()
   const ai = useDesignAi(editor)
   if (viewOnly) return null
-  const run = (action: SectionAction) => runSectionAction(editor, sectionId, action, t, opener?.current ?? null)
+  const run = (action: SectionAction) =>
+    runSectionAction(editor, sectionId, action, pictureNamer(t.editor.brief.pictureName), opener?.current ?? null)
   return (
     <>
-      {sectionActionsOf(ai, sectionId).includes('editBrief') && (
+      {briefOfSection(ai, sectionId) && (
         <MenuItem action="editBrief" label={s.editBrief} onSelect={() => run('editBrief')} />
       )}
       <MenuItem action="rename" label={s.rename} keys={keyOf('rename')} onSelect={() => run('rename')} />

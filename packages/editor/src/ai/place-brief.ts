@@ -184,10 +184,16 @@ export function placeBrief(session: Pick<Session, 'run'>, placing: BriefPlacing,
  * (`waits`), or anything else a person put there (`other`).
  */
 export function pictureState(layer: Pick<Layer, 'props'>, assetId: string): 'shows' | 'waits' | 'other' {
-  const fills = ('fills' in layer.props ? layer.props.fills : []) as Paint[]
+  const fills = fillsOf(layer)
   if (fills.some((fill) => fill.type === 'image' && fill.assetId === assetId)) return 'shows'
   const [only] = fills
   return fills.length === 1 && only?.type === 'solid' && only.color === WAITING_FILL.color ? 'waits' : 'other'
+}
+
+/** The picture a picture layer shows: its image fill's asset; null for none. */
+export function shownPicture(layer: Pick<Layer, 'props'>): string | null {
+  const image = fillsOf(layer).find((fill) => fill.type === 'image')
+  return image?.type === 'image' ? image.assetId : null
 }
 
 /** Whether one more brief would take a design of `size` to its size warning (SYNC_LIMITS.warnAt) or past it. */
@@ -200,4 +206,9 @@ export function briefPassesWarning(size: DesignSize): boolean {
     bytes: size.bytes + BRIEF_BYTES,
   }
   return shareOf(after).share >= SYNC_LIMITS.warnAt
+}
+
+/** A layer's fills; none for a layer that has no fills. */
+function fillsOf(layer: Pick<Layer, 'props'>): Paint[] {
+  return ('fills' in layer.props ? layer.props.fills : []) as Paint[]
 }

@@ -22,7 +22,14 @@ import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiEstimate } from '@/lib/editor/ai-client.ts'
 import { briefSaid } from '@/lib/editor/brief-box.ts'
-import { ESTIMATES, estimateWords, glassFrame, type GlassPlace, glassPlace } from '@/lib/editor/glass-bar.ts'
+import {
+  ESTIMATES,
+  estimateWords,
+  type GlassFrame,
+  glassFrame,
+  type GlassPlace,
+  glassPlace,
+} from '@/lib/editor/glass-bar.ts'
 import { useMessages } from '@/lib/i18n/client.tsx'
 import { format } from '@/lib/i18n/index.ts'
 
@@ -32,6 +39,56 @@ const ACTION = cn(
   'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--stage-accent)',
 )
 
+/**
+ * Where the bar goes over the frame, kept current as the view moves and the frame changes; null while a gesture runs
+ * or the frame is off the stage, when it folds away.
+ */
+function usePlace(editor: Editor, frameId: string, bar: HTMLElement | null): GlassPlace | null {
+  const [place, setPlace] = useState<GlassPlace | null>(null)
+  const { islandsBottom } = useEditState()
+  useEffect(() => {
+    if (!bar) return
+    const stage = bar.offsetParent as HTMLElement | null
+    const update = () => {
+      const label = editor.labelRect(frameId)
+      const frame = editor.design().frames[frameId]
+      if (!stage || !label || !frame || editor.busy()) return setPlace(null)
+      const origin = stage.getBoundingClientRect()
+      const start = editor.screenPoint(0, 0, frameId)
+      const end = editor.screenPoint(frame.width, frame.height, frameId)
+      const room = stage.clientWidth
+      if (end.x - origin.left < 0 || start.x - origin.left > room || end.y - origin.top < 0) return setPlace(null)
+      const at = glassPlace({
+        frame: { left: Math.min(start.x, end.x) - origin.left, right: Math.max(start.x, end.x) - origin.left },
+        label: label.y,
+        title: frame.sectionId ? editor.titleRect(frame.sectionId) : null,
+        width: bar.offsetWidth,
+        height: bar.offsetHeight,
+        room,
+        under: editState().islandsBottom,
+      })
+      setPlace((now) => (now && now.left === at.left && now.top === at.top ? now : at))
+    }
+    let frame = 0
+    const later = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(update)
+    }
+    update()
+    const stopShown = editor.onShown(update)
+    const resize = new ResizeObserver(later)
+    resize.observe(bar)
+    window.addEventListener('pointerup', later)
+    return () => {
+      cancelAnimationFrame(frame)
+      stopShown()
+      resize.disconnect()
+      window.removeEventListener('pointerup', later)
+    }
+  }, [editor, frameId, bar, islandsBottom])
+  return place
+}
+
 export function GlassBar({ workspaceId, brandId, editor }: { workspaceId: string; brandId: string; editor: Editor }) {
   const viewOnly = useViewOnly()
   const frameId = usePickedFrame(editor)
@@ -39,11 +96,19 @@ export function GlassBar({ workspaceId, brandId, editor }: { workspaceId: string
   const shown = viewOnly ? null : glassFrame(ai, frameId)
   if (!shown || frameId === null) return null
   return (
-    <Bar key={frameId} workspaceId={workspaceId} brandId={brandId} editor={editor} frameId={frameId} shown={shown} />
+    <FrameBar
+      key={frameId}
+      workspaceId={workspaceId}
+      brandId={brandId}
+      editor={editor}
+      frameId={frameId}
+      shown={shown}
+    />
   )
 }
 
-function Bar({
+/** The bar of the picked AI frame `frameId`, as `shown` says it shows. */
+function FrameBar({
   workspaceId,
   brandId,
   editor,
@@ -54,7 +119,7 @@ function Bar({
   brandId: string
   editor: Editor
   frameId: string
-  shown: NonNullable<ReturnType<typeof glassFrame>>
+  shown: GlassFrame
 }) {
   const t = useMessages()
   const g = t.editor.glass
@@ -199,54 +264,4 @@ function AiAction({
       </Tooltip>
     </span>
   )
-}
-
-/**
- * Where the bar goes over the frame, kept current as the view moves and the frame changes; null while a gesture runs
- * or the frame is off the stage, when it folds away.
- */
-function usePlace(editor: Editor, frameId: string, bar: HTMLElement | null): GlassPlace | null {
-  const [place, setPlace] = useState<GlassPlace | null>(null)
-  const { islandsBottom } = useEditState()
-  useEffect(() => {
-    if (!bar) return
-    const stage = bar.offsetParent as HTMLElement | null
-    const update = () => {
-      const label = editor.labelRect(frameId)
-      const frame = editor.design().frames[frameId]
-      if (!stage || !label || !frame || editor.busy()) return setPlace(null)
-      const origin = stage.getBoundingClientRect()
-      const start = editor.screenPoint(0, 0, frameId)
-      const end = editor.screenPoint(frame.width, frame.height, frameId)
-      const room = stage.clientWidth
-      if (end.x - origin.left < 0 || start.x - origin.left > room || end.y - origin.top < 0) return setPlace(null)
-      const at = glassPlace({
-        frame: { left: Math.min(start.x, end.x) - origin.left, right: Math.max(start.x, end.x) - origin.left },
-        label: label.y,
-        title: frame.sectionId ? editor.titleRect(frame.sectionId) : null,
-        width: bar.offsetWidth,
-        height: bar.offsetHeight,
-        room,
-        under: editState().islandsBottom,
-      })
-      setPlace((now) => (now && now.left === at.left && now.top === at.top ? now : at))
-    }
-    let frame = 0
-    const later = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(update)
-    }
-    update()
-    const stopShown = editor.onShown(update)
-    const resize = new ResizeObserver(later)
-    resize.observe(bar)
-    window.addEventListener('pointerup', later)
-    return () => {
-      cancelAnimationFrame(frame)
-      stopShown()
-      resize.disconnect()
-      window.removeEventListener('pointerup', later)
-    }
-  }, [editor, frameId, bar, islandsBottom])
-  return place
 }

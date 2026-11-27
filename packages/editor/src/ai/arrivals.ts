@@ -13,9 +13,7 @@ import {
   type AiMode,
   type AiSize,
   type DesignAi,
-  type Layer,
   type PageBox,
-  type Paint,
   type StartAiJob,
 } from '@dazbee/schema'
 
@@ -27,6 +25,7 @@ import {
   pictureState,
   placeBrief,
   planBrief,
+  shownPicture,
 } from './place-brief.ts'
 
 /**
@@ -160,10 +159,6 @@ export function editorArrivals({
   const refused = new Set<string>()
   /** What hears each read. */
   const readers = new Set<() => void>()
-
-  function told() {
-    for (const listener of [...readers]) listener()
-  }
 
   function waiting(): string[] {
     const { nodes } = session.design()
@@ -341,6 +336,15 @@ export function editorArrivals({
     writing.set(key, done)
   }
 
+  function told() {
+    for (const listener of [...readers]) listener()
+  }
+
+  function onRead(listener: () => void) {
+    readers.add(listener)
+    return () => readers.delete(listener)
+  }
+
   const offShown = shown.onChange(() => {
     if (shown.now()) void poll()
     else {
@@ -359,10 +363,7 @@ export function editorArrivals({
     startBrief,
     moreLikeThis,
     read: () => read,
-    onRead: (listener) => {
-      readers.add(listener)
-      return () => readers.delete(listener)
-    },
+    onRead,
     poll,
     waiting,
     settled,
@@ -402,13 +403,6 @@ function arrive(session: Session, signal: AbortSignal, steps: () => void): Promi
       }
     })
   })
-}
-
-/** The picture a picture layer shows: its image fill's asset; null for none. */
-function shownPicture(layer: Pick<Layer, 'props'>): string | null {
-  const fills = ('fills' in layer.props ? layer.props.fills : []) as Paint[]
-  const image = fills.find((fill) => fill.type === 'image')
-  return image?.type === 'image' ? image.assetId : null
 }
 
 /** A frame's call, by which the arrivals on their way and those stored are kept: its frame, job and call. */

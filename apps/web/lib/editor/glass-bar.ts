@@ -22,6 +22,12 @@ export interface GlassPlace {
   top: number
 }
 
+/** The estimates asked for while a design is open, by its editor, then action and mode: each is asked once. */
+export interface Estimates {
+  /** The estimate of `action` in `mode` for `holder`: asked with `ask` the first time, then the same promise. */
+  get(holder: object, action: AiFeature, mode: AiMode, ask: () => Promise<AiEstimate>): Promise<AiEstimate>
+}
+
 /** Pixels the bar keeps from the frame's label, and from the stage's edges and the top islands. */
 const GAP = 8
 
@@ -94,12 +100,6 @@ export function estimateWords(estimate: AiEstimate | null, name: string, t: Mess
   return share === 'under-1'
     ? format(t.estimateUnder, { name, time })
     : format(t.estimate, { name, percent: share, time })
-}
-
-/** The estimates asked for while a design is open, by its editor, then action and mode: each is asked once. */
-export interface Estimates {
-  /** The estimate of `action` in `mode` for `holder`: asked with `ask` the first time, then the same promise. */
-  get(holder: object, action: AiFeature, mode: AiMode, ask: () => Promise<AiEstimate>): Promise<AiEstimate>
 }
 
 export function estimates(): Estimates {

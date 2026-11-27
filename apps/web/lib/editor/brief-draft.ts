@@ -1,7 +1,7 @@
 // What the brief box holds while it is closed: its words, pictures, size and speed, kept for each editor until they
 // are sent or the editor ends, so closing the box and opening it again shows them as they were. A design left is a
 // new editor, whose box starts empty. Edit brief fills it with a brief of the design, and a box open then shows it.
-import type { AiBriefView, AiMode, AssetSummary } from '@dazbee/schema'
+import type { AiBriefView, AiMode, AssetSummary, DesignAi } from '@dazbee/schema'
 
 import { AI_SIZE_PRESETS } from './brief-box.ts'
 
@@ -62,9 +62,6 @@ export function briefDrafts(): BriefDrafts {
   }
 }
 
-/** The app's brief drafts. */
-export const BRIEF_DRAFTS = briefDrafts()
-
 /**
  * The box's fields for brief `brief`, as Edit brief fills them: its words, its pictures named in order with `named`,
  * the size of the AI's list it was made at (the first when the list has it no more) and its speed.
@@ -79,3 +76,11 @@ export function briefDraftOf(brief: AiBriefView, named: (n: number) => string): 
     mode: brief.mode,
   }
 }
+
+/** The brief whose section is `sectionId`, as `ai` last read; undefined for a section of no brief. */
+export function briefOfSection(ai: DesignAi | null, sectionId: string): AiBriefView | undefined {
+  return ai?.briefs.find((b) => b.sectionId === sectionId)
+}
+
+/** The app's brief drafts. */
+export const BRIEF_DRAFTS = briefDrafts()

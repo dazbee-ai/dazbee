@@ -206,9 +206,15 @@ def run_graph(graph: dict) -> list[dict]:
         try:
             with urllib.request.urlopen(f"{COMFYUI_URL}/history/{prompt_id}", timeout=30) as answer:
                 entry = json.load(answer).get(prompt_id)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(
+                f"ComfyUI answered {error.code} about the graph: {error.read().decode()[:2000]}"
+            ) from error
         except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
             # ComfyUI's server can go quiet while its worker holds the model: the first large split in a container.
-            if time.monotonic() - answered > QUIET_TIMEOUT_S:
+            # A server that refuses the connection is gone.
+            gone = isinstance(getattr(error, "reason", error), ConnectionRefusedError)
+            if gone or time.monotonic() - answered > QUIET_TIMEOUT_S:
                 raise RuntimeError("ComfyUI stopped answering while it ran the graph") from error
             time.sleep(0.5)
             continue

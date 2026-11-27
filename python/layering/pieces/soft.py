@@ -23,7 +23,7 @@ it was drawn with: the holes of a brake disc.
 Pieces are worked back to front, each over the pieces behind it as they come out. Nothing changes under a piece
 in front or within COVER_PX pixels of one, where the picture's pixel may hold some of that piece: a pixel taken
 from the picture there would leave the outline of the piece in front once that piece is moved. Nor where a piece
-is clear.
+is clear. The backdrop has nothing behind it: it keeps its alpha, and only its colour is solved.
 """
 
 import cv2
@@ -85,7 +85,7 @@ def solve_soft(target: np.ndarray, pieces: list[dict]) -> list[dict]:
     top = np.full(target.shape[:2], len(drawn) - 1, np.int32)
     for index in range(len(drawn) - 1, -1, -1):
         window, pixels = windows[index], drawn[index]
-        seen = _solve(pixels, target[window], under[window], covers[index])
+        seen = _solve(pixels, target[window], under[window], covers[index], backdrop=index == len(drawn) - 1)
         if seen is not None:
             under[window] = np.clip(under[window] + seen, 0, 1)
             _carry(seen, window, top, drawn, windows)
@@ -98,12 +98,15 @@ def solve_soft(target: np.ndarray, pieces: list[dict]) -> list[dict]:
     ]
 
 
-def _solve(pixels: np.ndarray, target: np.ndarray, behind: np.ndarray, cover: np.ndarray) -> np.ndarray | None:
+def _solve(
+    pixels: np.ndarray, target: np.ndarray, behind: np.ndarray, cover: np.ndarray, backdrop: bool
+) -> np.ndarray | None:
     """Solves one piece's soft pixels, in place. Gives how far the picture, seen through the piece's gaps, is from
     what is behind it, for the pieces behind to take; None when nothing is seen through it.
 
     pixels: the piece as float RGBA. target, behind: the picture and the pieces behind drawn over each other, in
-    the piece's place. cover: how much the pieces in front hide.
+    the piece's place. cover: how much the pieces in front hide. backdrop: whether the piece is the backdrop,
+    which has nothing behind it and keeps its alpha.
     """
     alpha, rgb = pixels[..., 3], pixels[..., :3]
     shows = (cover <= FREE) & (alpha > FREE)
@@ -112,8 +115,8 @@ def _solve(pixels: np.ndarray, target: np.ndarray, behind: np.ndarray, cover: np
     open_to = cv2.distanceTransform((cover <= FREE).astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
     in_the_open = np.clip((open_to - COVER_PX) / BLEND_PX, 0, 1)
     free = in_the_open * shows
-    if not (shows & (alpha < SOLID)).any():
-        # Solid wherever it shows: only its colour is left to solve.
+    if backdrop or not (shows & (alpha < SOLID)).any():
+        # Solid wherever it shows, or the backdrop: only its colour is left to solve.
         off = target - (behind + alpha[..., None] * (rgb - behind))
         pixels[..., :3] = np.clip(rgb + (free / np.maximum(alpha, FAINT))[..., None] * off, 0, 1)
         return None

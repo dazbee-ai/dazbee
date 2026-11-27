@@ -187,10 +187,13 @@ def test_a_shadow_drawn_too_strong_takes_the_strength_it_has_in_the_picture():
     assert np.abs(shadow - 0.25).max() < 0.03
 
 
-def test_what_is_behind_a_piece_takes_the_colour_the_picture_shows_through_its_gaps():
-    grille = draw_grille()
+@pytest.mark.parametrize("room", [0, 30])
+def test_what_is_behind_a_piece_takes_the_colour_the_picture_shows_through_its_gaps(room):
+    grille = draw_grille(room)
     solved = solve_soft(grille.target, grille.pieces)
-    bars, backdrop = (piece["pixels"] / 255 for piece in solved)
+    backdrop = solved[1]["pixels"] / 255
+    bars = np.zeros_like(backdrop)
+    bars[room : 160 - room, room : 160 - room] = solved[0]["pixels"] / 255
     # The backdrop was drawn greener behind the bars than the picture has it.
     assert np.abs(grille.pieces[1]["pixels"][60:100, 60:100, :3] / 255 - grille.backdrop).max() > 0.2
     assert np.abs(backdrop[60:100, 60:100, :3] - grille.backdrop).max() < 0.04
@@ -200,6 +203,14 @@ def test_what_is_behind_a_piece_takes_the_colour_the_picture_shows_through_its_g
     inside = (slice(60, 100), slice(60, 100))
     assert percent_off(stacked_pieces(grille.pieces)[inside], grille.target[inside]) > 50
     assert percent_off(stacked_pieces(solved)[inside], grille.target[inside]) < 2
+
+
+def test_a_backdrop_drawn_a_little_clear_keeps_its_alpha():
+    target = np.full((40, 40, 3), 0.02, np.float32)
+    backdrop = np.full((40, 40, 4), 240, np.uint8)
+    backdrop[..., :3] = 60
+    solved = solve_soft(target, [{"place": [0, 0, 40, 40], "pixels": backdrop}])[0]["pixels"]
+    assert (solved[..., 3] == 240).all()
 
 
 def test_the_backdrop_next_to_a_piece_in_front_keeps_what_the_split_drew():
@@ -282,6 +293,28 @@ def test_a_split_waits_through_a_comfyui_that_goes_quiet_while_it_runs_the_graph
     monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
     monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
     assert app.run_graph({}) == [{"filename": "a.png"}]
+    assert answers == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        urllib.error.HTTPError("http://x", 500, "broken", None, io.BytesIO(b"why")),
+        urllib.error.URLError(ConnectionRefusedError("refused")),
+    ],
+)
+def test_a_split_fails_at_once_when_comfyui_answers_an_error_or_is_gone(monkeypatch, failure):
+    answers = [{"prompt_id": "p1"}, failure]
+
+    def urlopen(_request, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return io.BytesIO(json.dumps(answer).encode())
+
+    monkeypatch.setattr(app.urllib.request, "urlopen", urlopen)
+    with pytest.raises(RuntimeError, match="ComfyUI"):
+        app.run_graph({})
     assert answers == []
 
 
@@ -455,10 +488,11 @@ def draw_soft() -> SimpleNamespace:
     return SimpleNamespace(target=target, pieces=pieces)
 
 
-def draw_grille() -> SimpleNamespace:
+def draw_grille(room: int = 0) -> SimpleNamespace:
     """A picture of dark upright bars on a plain backdrop, with a hole through two of them, and its two pieces as
     the split model draws them: the bars with a haze between them and the hole filled in, and the backdrop, greener
-    behind the bars than it is. The picture as float RGB, the backdrop's true colour, and the pieces front to back.
+    behind the bars than it is. The picture as float RGB, the backdrop's true colour, and the pieces front to back;
+    the bars' piece leaves `room` pixels of the picture free on every side.
     """
     size = 160
     true, greener, dark = (0.9, 0.85, 0.6), (0.65, 0.8, 0.35), (0.1, 0.1, 0.12)
@@ -478,15 +512,22 @@ def draw_grille() -> SimpleNamespace:
     pieces = [
         {"place": [0, 0, size, size], "pixels": (layer * 255 + 0.5).astype(np.uint8)} for layer in (drawn, backdrop)
     ]
+    inner = size - 2 * room
+    pieces[0] = {
+        "place": [room, room, inner, inner],
+        "pixels": pieces[0]["pixels"][room : size - room, room : size - room],
+    }
     return SimpleNamespace(target=target, backdrop=np.asarray(true, np.float32), pieces=pieces)
 
 
 def stacked_pieces(pieces: list[dict]) -> np.ndarray:
-    """Pieces drawn over each other, back to front, as float RGB. Each covers the whole picture."""
-    stacked = np.zeros(pieces[0]["pixels"].shape[:2] + (3,), np.float32)
+    """Pieces drawn over each other, back to front, as float RGB. The last one covers the whole picture."""
+    stacked = np.zeros(pieces[-1]["pixels"].shape[:2] + (3,), np.float32)
     for piece in reversed(pieces):
+        x, y, width, height = piece["place"]
         rgba = piece["pixels"].astype(np.float32) / 255
-        stacked = rgba[..., :3] * rgba[..., 3:4] + stacked * (1 - rgba[..., 3:4])
+        under = stacked[y : y + height, x : x + width]
+        stacked[y : y + height, x : x + width] = rgba[..., :3] * rgba[..., 3:4] + under * (1 - rgba[..., 3:4])
     return stacked
 
 

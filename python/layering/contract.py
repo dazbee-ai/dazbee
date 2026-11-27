@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
@@ -11,6 +11,44 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel
 class Size(IntEnum):
     integer_512 = 512
     integer_1024 = 1024
+
+
+class Kind(StrEnum):
+    text = "text"
+    logo = "logo"
+    shape = "shape"
+    graphic = "graphic"
+    cutout = "cutout"
+    photo = "photo"
+    background = "background"
+
+
+class Shadow(StrEnum):
+    drop = "drop"
+    cast = "cast"
+    glow = "glow"
+    none = "none"
+
+
+class Box(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    left: Annotated[int, Field(ge=0, le=999)]
+    top: Annotated[int, Field(ge=0, le=999)]
+    right: Annotated[int, Field(ge=0, le=999)]
+    bottom: Annotated[int, Field(ge=0, le=999)]
+
+
+class Part(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: Annotated[str, Field(max_length=100, min_length=1)]
+    kind: Kind
+    shadow: Shadow
+    layer: Annotated[int, Field(ge=1, le=20)]
+    box: Box
 
 
 class LayerSplitRequest(BaseModel):
@@ -28,6 +66,7 @@ class LayerSplitRequest(BaseModel):
     size: Size
     guidance: Annotated[float | None, Field(gt=0.0, le=20.0)] = None
     plan: Annotated[str | None, Field(max_length=10000, min_length=1)] = None
+    parts: Annotated[list[Part] | None, Field(max_length=60, min_length=1)] = None
     askedAt: Annotated[int | None, Field(gt=0, le=9007199254740991)] = None
 
 
@@ -46,6 +85,69 @@ class Layer(BaseModel):
     height: Annotated[int, Field(gt=0, le=9007199254740991)]
 
 
+class Kind1(StrEnum):
+    text = "text"
+    logo = "logo"
+    shape = "shape"
+    graphic = "graphic"
+    cutout = "cutout"
+    photo = "photo"
+    background = "background"
+    other = "other"
+
+
+class Turned(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    cx: float
+    cy: float
+    width: Annotated[float, Field(gt=0.0)]
+    height: Annotated[float, Field(gt=0.0)]
+    angle: Annotated[float, Field(ge=-45.0, le=45.0)]
+
+
+class Item(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    png: Annotated[
+        str,
+        Field(
+            json_schema_extra={"contentEncoding": "base64"},
+            pattern="^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$",
+        ),
+    ]
+    width: Annotated[int, Field(gt=0, le=9007199254740991)]
+    height: Annotated[int, Field(gt=0, le=9007199254740991)]
+    x: Annotated[int, Field(ge=0, le=9007199254740991)]
+    y: Annotated[int, Field(ge=0, le=9007199254740991)]
+    part: str | None
+    kind: Kind1
+    layer: Annotated[int, Field(ge=1, le=9007199254740991)]
+    turned: Turned | None
+
+
+class Closeness(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    mean: Annotated[float, Field(ge=0.0)]
+    off: Annotated[float, Field(ge=0.0, le=100.0)]
+
+
+class Pieces(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    width: Annotated[int, Field(gt=0, le=9007199254740991)]
+    height: Annotated[int, Field(gt=0, le=9007199254740991)]
+    items: Annotated[list[Item], Field(max_length=80, min_length=1)]
+    stuck: Annotated[list[str], Field(max_length=60)]
+    closeness: Closeness
+    seconds: Annotated[float, Field(ge=0.0)]
+
+
 class StartSeconds(RootModel[float]):
     root: Annotated[float, Field(ge=0.0)]
 
@@ -59,6 +161,7 @@ class LayerSplitResult(BaseModel):
         extra="forbid",
     )
     layers: Annotated[list[Layer], Field(max_length=20, min_length=1)]
+    pieces: Pieces | None = None
     seconds: Annotated[float, Field(ge=0.0)]
     cpuCores: Annotated[float, Field(gt=0.0)]
     memoryGib: Annotated[float, Field(gt=0.0)]

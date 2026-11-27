@@ -3,7 +3,7 @@
 members = ["layering"]
 
 [dependency-groups]
-dev = ["datamodel-code-generator==0.102.0", "ruff==0.17.6"]
+dev = ["datamodel-code-generator==0.102.0", "pytest==9.2.0", "ruff==0.17.6"]
 
 [tool.ruff]
 line-length = 120
@@ -17,3 +17,8 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM"]
 [tool.ruff.lint.isort]
 # The layer split app's own modules, which Modal loads beside it.
 known-first-party = ["app", "contract", "pieces", "weights", "workflow"]
+
+[tool.pytest.ini_options]
+# The tests import the layer split app's modules as Modal loads them: from the app's own folder.
+pythonpath = ["layering"]
+testpaths = ["layering/tests"]

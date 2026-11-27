@@ -78,6 +78,7 @@ import {
   Lock,
   LockSlash,
   LogOut,
+  MagicWand,
   MediaImage,
   MediaImageList,
   Menu,
@@ -234,6 +235,7 @@ export const ListBulletsIcon = make(List)
 export const ListNumbersIcon = make(NumberedListLeft)
 export const LockSimpleIcon = make(Lock)
 export const LockSimpleOpenIcon = make(LockSlash)
+export const MagicWandIcon = make(MagicWand)
 export const MagnifyingGlassIcon = make(Search)
 export const MinusIcon = make(Minus)
 export const PaintBucketIcon = make(FillColor, FillColorSolid)

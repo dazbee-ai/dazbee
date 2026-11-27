@@ -102,7 +102,7 @@ describe('POST /brands/:b/ai/jobs', () => {
     const refused = await ask(team, team.editor, 'POST', '/ai/jobs', roundRequest(team))
     expect(refused).toMatchObject({ status: 409, json: { refusal: 'used-up' } })
     expect(await jobCount(team.workspace)).toBe(0)
-    expect(await designAi(team)).toEqual({ frames: [], jobs: [], briefs: [] })
+    expect(await designAi(team)).toEqual({ frames: [], jobs: [], briefs: [], refines: [] })
   })
 
   it('tells the planner the brand kit’s picks as brand facts, with the kit logo as a picture', async () => {
@@ -278,15 +278,31 @@ describe('refine, resize and layering', () => {
 
   it('refines a frame with a refine row, and refuses another while it runs', async () => {
     const { team, frame, picture } = await arrived()
+    const marks = await addPicture(team)
     const refine = {
       kind: 'refine',
       designId: team.design,
       ...frame,
       pictureAssetId: picture,
       message: 'Make the price bigger',
+      marksAssetId: marks,
       size: { width: 1080, height: 1080 },
     }
     const job = await start(team, refine)
+    // The marks are a hidden part of the refine.
+    const [marked] = await db.select({ tags: assets.tags }).from(assets).where(eq(assets.id, marks))
+    expect(marked?.tags).toEqual(['ai-part'])
+    // Every tab reads the refine with the layer it changes, to write its new version once.
+    const design = await designAi(team)
+    expect(design.refines).toEqual([
+      {
+        id: expect.any(String),
+        frameId: frame.frameId,
+        pictureLayerId: frame.pictureLayerId,
+        jobId: job,
+        resultAssetId: null,
+      },
+    ])
     expect((await ask(team, team.editor, 'POST', '/ai/jobs', refine)).status).toBe(409)
     const read = await ask(team, team.editor, 'GET', `/designs/${team.design}/ai/frames/${frame.frameId}/refines`)
     const [only] = AiRefineView.array().parse(read.json)

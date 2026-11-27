@@ -53,6 +53,7 @@ const AI: DesignAi = {
     frame('gone', 'failed'),
   ],
   jobs: [],
+  refines: [],
   briefs: [
     brief('planned', 's1', { pictureAssetIds: ['a1', 'a2'] }),
     brief('unplanned', 's2', { planned: false }),

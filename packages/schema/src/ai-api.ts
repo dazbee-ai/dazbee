@@ -140,11 +140,25 @@ export const AiBriefView = z.object({
 })
 export type AiBriefView = z.infer<typeof AiBriefView>
 
-/** A design's AI frames, the jobs that fill them or refine them, with each call, and its briefs. */
+/**
+ * A refine of one of the design's AI frames, as every tab reads it to write its new version once: the frame and the
+ * picture layer it changes, its job, and the version once a tab's arrival of it is marked; null before.
+ */
+export const AiRefineLink = z.object({
+  id: Id,
+  frameId: Id,
+  pictureLayerId: Id,
+  jobId: Id,
+  resultAssetId: AssetId.nullable(),
+})
+export type AiRefineLink = z.infer<typeof AiRefineLink>
+
+/** A design's AI frames, the jobs that fill them or refine them, with each call, its briefs and its refines. */
 export const DesignAi = z.object({
   frames: z.array(AiFrameView),
   jobs: z.array(AiJobView),
   briefs: z.array(AiBriefView),
+  refines: z.array(AiRefineLink).default([]),
 })
 export type DesignAi = z.infer<typeof DesignAi>
 

@@ -380,6 +380,26 @@ export const en = {
       },
       notTried: 'It didn’t start. Try again in a moment.',
     },
+    /** Refine with AI on a picked AI frame: its box under the frame, the marks over it and its versions beside it. */
+    refine: {
+      action: 'Refine with AI',
+      label: 'Refine with AI',
+      placeholder: 'What should change?',
+      close: 'Close',
+      /** The tools a press over the frame draws with: none, a box or a brush. */
+      tools: { none: 'Pick in the frame', box: 'Mark with a box', brush: 'Mark with a brush' },
+      clear: 'Clear {n} marks',
+      send: 'Send',
+      working: 'Working…',
+      earlier: 'Earlier ({n})',
+      failed: 'That didn’t work · Nothing was charged',
+      retry: 'Retry',
+      selectPicture: 'Select a picture in the frame',
+      notStarted: 'It didn’t start. Try again in a moment.',
+      versions: 'Versions',
+      first: 'First version',
+      version: 'Version {n}',
+    },
     /** The glass bar above a picked AI frame: its AI actions with what each takes, and the star. */
     glass: {
       label: 'AI actions',

@@ -337,6 +337,7 @@ function live(
     pauseInput,
     startBrief: (request) => (arrivals ? arrivals.startBrief(request) : Promise.resolve(NO_AI)),
     moreLikeThis: (request) => (arrivals ? arrivals.moreLikeThis(request) : Promise.resolve(NO_AI)),
+    refine: (request) => (arrivals ? arrivals.refine(request) : Promise.resolve(NO_AI)),
     tryAgain: (frameId) => (arrivals ? arrivals.tryAgain(frameId) : Promise.resolve(NO_AI)),
     designAi: () => arrivals?.read() ?? null,
     onDesignAi: (listener) => arrivals?.onRead(listener) ?? (() => {}),

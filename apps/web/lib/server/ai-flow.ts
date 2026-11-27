@@ -1,5 +1,5 @@
-// The API's calls for the AI flow, from the web app's server only: starting a job, reading a design's AI frames,
-// marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs. The
+// The API's calls for the AI flow, from the web app's server only: starting a job, reading a design's AI frames and
+// a frame's refines, marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs. The
 // API refuses each but the last to a Reviewer.
 import 'server-only'
 
@@ -11,6 +11,7 @@ import {
   type AiJobRefusal,
   AiJobRefused,
   AiJobStarted,
+  AiRefineView,
   DesignAi,
   MyAiJob,
   type StartAiJob,
@@ -43,6 +44,13 @@ export async function startAiJob(workspaceId: string, brandId: string, job: Star
 /** The design's AI frames, with their jobs and briefs. */
 export const designAi = (workspaceId: string, brandId: string, designId: string) =>
   call(DesignAi, designAiPath(workspaceId, brandId, designId))
+
+/** The refines of the design's AI frame `frameId`, oldest first. */
+export const frameRefines = (workspaceId: string, brandId: string, designId: string, frameId: string) =>
+  call(
+    AiRefineView.array(),
+    `${designAiPath(workspaceId, brandId, designId)}/frames/${encodeURIComponent(frameId)}/refines`,
+  )
 
 /** Marks call `written` written into the design's frame `frameId`. */
 export const markAiWritten = (

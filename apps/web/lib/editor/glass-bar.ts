@@ -1,9 +1,11 @@
 // What the glass bar above a picked AI frame shows: whether the frame is one, what it can do now (its brief's AI
-// actions, or "Working…" while it waits or is being made editable), where the bar sits over the stage, what a hover
+// actions, or "Working…" while it waits, is refined or is being made editable), where the bar sits over the stage, what a hover
 // on an AI action says it takes, and each estimate asked once per action and mode while a design is open.
 import type { AiEstimate, AiFeature, AiFrameView, AiMode, DesignAi } from '@dazbee/schema'
 
 import { format, type Messages } from '@/lib/i18n/index.ts'
+
+import { refining } from './refine.ts'
 
 /** A picked AI frame as the bar shows it: its frame as last read, its brief's mode, and whether it is working. */
 export interface GlassFrame {
@@ -12,7 +14,9 @@ export interface GlassFrame {
   mode: AiMode
   /** Whether More like this is offered: the frame is a draft of a brief and shows its picture. */
   moreLike: boolean
-  /** While it waits for its picture or is being made editable, its AI actions are off. */
+  /** Whether Refine with AI is offered: the frame shows its picture or is editable. */
+  refine: boolean
+  /** While it waits for its picture, is refined or is being made editable, its AI actions are off. */
   working: boolean
 }
 
@@ -36,11 +40,12 @@ export function glassFrame(ai: DesignAi | null, frameId: string | null): GlassFr
   const frame = frameId === null ? undefined : ai?.frames.find((f) => f.frameId === frameId)
   if (!ai || !frame) return null
   const brief = ai.briefs.find((b) => b.id === frame.briefId)
-  const working = frame.state === 'waiting' || frame.state === 'layering'
+  const working = frame.state === 'waiting' || frame.state === 'layering' || refining(ai, frame.frameId)
   return {
     frame,
     mode: brief?.mode ?? 'fast',
     moreLike: Boolean(brief) && !working && frame.state !== 'failed',
+    refine: !working && (frame.state === 'arrived' || frame.state === 'editable'),
     working,
   }
 }

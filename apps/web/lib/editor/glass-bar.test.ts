@@ -22,6 +22,7 @@ const frame = (frameId: string, state: AiFrameView['state'], briefId: string | n
 const AI: DesignAi = {
   frames: [frame('f1', 'arrived'), frame('f2', 'waiting'), frame('f3', 'failed'), frame('f4', 'arrived', null)],
   jobs: [],
+  refines: [],
   briefs: [
     {
       id: 'b1',
@@ -47,6 +48,26 @@ describe('glassFrame', () => {
 
   it('offers More like this on a draft of a brief that arrived, in its brief’s mode', () => {
     expect(glassFrame(AI, 'f1')).toMatchObject({ mode: 'precise', moreLike: true, working: false })
+  })
+
+  it('offers Refine with AI on a frame that shows its picture, and turns every AI action off while it is refined', () => {
+    expect(glassFrame(AI, 'f1')).toMatchObject({ refine: true })
+    const refine = { id: 'r', frameId: 'f1', pictureLayerId: 'f1-picture', jobId: 'rj', resultAssetId: null }
+    const running = {
+      id: 'rj',
+      kind: 'refine' as const,
+      state: 'running' as const,
+      output: null,
+      calls: [],
+      error: null,
+      createdAt: AT,
+      endedAt: null,
+    }
+    expect(glassFrame({ ...AI, refines: [refine], jobs: [running] }, 'f1')).toMatchObject({
+      working: true,
+      refine: false,
+      moreLike: false,
+    })
   })
 
   it('turns the AI actions off while the frame waits, and offers no More like this on a failed one or one of no brief', () => {

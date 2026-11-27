@@ -17,6 +17,7 @@ import {
   type AiRefineView,
   briefTitle,
   type DesignAi,
+  RefineInput,
   RefinePlanAnswer,
 } from '@dazbee/schema'
 import { originalKey } from '@dazbee/storage'
@@ -31,8 +32,19 @@ const REFINE_PLAN = 0
 /** The design's AI frames, every job that fills or refines them with each call, and its briefs. */
 export async function designAi(db: Db, workspace: string, brand: string, design: string): Promise<DesignAi> {
   const rows = await db.select().from(aiFrames).where(eq(aiFrames.designId, design))
-  const refineJobs = await db.select({ jobId: aiRefines.jobId }).from(aiRefines).where(eq(aiRefines.designId, design))
-  const jobs = await readJobs(db, workspace, [...new Set([...rows, ...refineJobs].map((r) => r.jobId))])
+  const refines = await db
+    .select({
+      id: aiRefines.id,
+      frameId: aiRefines.frameId,
+      jobId: aiRefines.jobId,
+      resultAssetId: aiRefines.resultAssetId,
+      input: aiJobs.input,
+    })
+    .from(aiRefines)
+    .innerJoin(aiJobs, eq(aiJobs.id, aiRefines.jobId))
+    .where(and(eq(aiRefines.designId, design), eq(aiJobs.workspaceId, workspace)))
+    .orderBy(asc(aiRefines.createdAt), asc(aiRefines.id))
+  const jobs = await readJobs(db, workspace, [...new Set([...rows, ...refines].map((r) => r.jobId))])
   const briefs = await db
     .select()
     .from(aiBriefs)
@@ -63,6 +75,10 @@ export async function designAi(db: Db, workspace: string, brand: string, design:
       mode: b.mode,
       planned: b.plan !== null,
       createdAt: b.createdAt.toISOString(),
+    })),
+    refines: refines.map(({ input, ...refine }) => ({
+      ...refine,
+      pictureLayerId: RefineInput.parse(input).frame.pictureLayerId,
     })),
   }
 }

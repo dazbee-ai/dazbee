@@ -1,5 +1,5 @@
 // A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds, more
-// like this and try again it starts or refuses, with their briefs; the pictures their drafts make and the drafts that
+// like this, refines and try again it starts or refuses, with their briefs and refines; the pictures their drafts make and the drafts that
 // fail; the frames' states as the API reads them; and the calls marked written, as `markWritten` marks them.
 import {
   AI_CALL_FAILURES,
@@ -8,6 +8,7 @@ import {
   type AiFrameWritten,
   type AiJobRefusal,
   type AiJobView,
+  type AiRefineLink,
   type DesignAi,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -51,11 +52,12 @@ export function fakeAi(): FakeAi {
   const frames: AiFrameView[] = []
   const jobs: AiJobView[] = []
   const briefs: AiBriefView[] = []
+  const refines: AiRefineLink[] = []
   let reads = 0
   let refusal: AiJobRefusal | null = null
   let markFails = false
 
-  const design = (): DesignAi => structuredClone({ frames, jobs, briefs })
+  const design = (): DesignAi => structuredClone({ frames, jobs, briefs, refines })
 
   function start(job: StartAiJob): Promise<AiStart> {
     if (refusal) {
@@ -65,6 +67,7 @@ export function fakeAi(): FakeAi {
     }
     started.push(job)
     if (job.kind === 'try-again') return Promise.resolve({ ok: true, job: again(job.frameId) })
+    if (job.kind === 'refine') return Promise.resolve({ ok: true, job: refineJob(job) })
     if (job.kind !== 'round' && job.kind !== 'more-like-this')
       throw new Error(`the fake starts rounds and more like this only, not ${job.kind}`)
     const id = `job${started.length}`
@@ -139,10 +142,43 @@ export function fakeAi(): FakeAi {
     return id
   }
 
+  /** A refine's job, its plan done and its edit running, and its refine; gives the job's id. */
+  function refineJob(job: Extract<StartAiJob, { kind: 'refine' }>): string {
+    const id = `job${started.length}`
+    jobs.push({
+      id,
+      kind: 'refine',
+      state: 'running',
+      output: null,
+      calls: [
+        { index: 0, function: 'refine-plan', state: 'done', output: { kind: 'text', text: '{}' } },
+        { index: 1, function: 'refine-edit', state: 'running' },
+      ],
+      error: null,
+      createdAt: AT,
+      endedAt: null,
+    })
+    refines.push({
+      id: `refine${refines.length + 1}`,
+      frameId: job.frameId,
+      pictureLayerId: job.pictureLayerId,
+      jobId: id,
+      resultAssetId: null,
+    })
+    return id
+  }
+
   function written(frameId: string, mark: AiFrameWritten): Promise<void> {
     if (markFails) {
       markFails = false
       return Promise.reject(new Error('the network is down'))
+    }
+    const change = refines.find((r) => r.frameId === frameId && r.jobId === mark.jobId && mark.callIndex === 1)
+    const edit = jobs.find((j) => j.id === mark.jobId)?.calls.find((c) => c.index === 1)
+    if (change && edit?.state === 'done' && edit.output.kind === 'pictures') {
+      marks.push({ frameId, ...mark })
+      change.resultAssetId = edit.output.pictures[0]?.assetId ?? null
+      return Promise.resolve()
     }
     const frame = frames.find((f) => f.frameId === frameId)
     const call = jobs.find((j) => j.id === mark.jobId)?.calls.find((c) => c.index === mark.callIndex)

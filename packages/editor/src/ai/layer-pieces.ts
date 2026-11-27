@@ -25,7 +25,7 @@ const ID_LENGTH = 64
 
 /** The layer plan of a layering job, once its plan call is done; null before, or when it can't be read. */
 export function layerPlanOf(job: Pick<AiJobView, 'calls'>): LayerPlanAnswer | null {
-  const call = job.calls.find((c) => c.index === LAYERING_CALL.plan)
+  const call = job.calls.find((c) => c.index === LAYERING_CALL.plan(0))
   if (call?.state !== 'done' || call.output.kind !== 'text') return null
   const plan = LayerPlanAnswer.safeParse(call.output.json)
   return plan.success ? plan.data : null

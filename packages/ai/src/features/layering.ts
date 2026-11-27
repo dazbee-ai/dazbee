@@ -18,7 +18,7 @@ export const layering: AiFeatureDef<LayeringInput> = {
   stages: (shape) => [
     [
       {
-        index: LAYERING_CALL.plan,
+        index: LAYERING_CALL.plan(0),
         fn: 'layer-plan',
         standsOn: true,
         unusable: (output) => (planIn(output) ? null : 'the layer plan could not be read'),
@@ -56,7 +56,7 @@ function planPicture(input: LayeringInput): string {
 
 /** The layer plan among `answers`, or null when the plan call gave none that can be read. */
 function planOf(answers: ReadonlyMap<number, CallOutput>): LayerPlanAnswer | null {
-  const output = answers.get(LAYERING_CALL.plan)
+  const output = answers.get(LAYERING_CALL.plan(0))
   return output ? planIn(output) : null
 }
 

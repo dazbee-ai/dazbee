@@ -198,7 +198,7 @@ export function fakeAi(): FakeAi {
       state: 'running',
       output: null,
       calls: [
-        { index: LAYERING_CALL.plan, function: 'layer-plan', state: 'running' },
+        { index: LAYERING_CALL.plan(0), function: 'layer-plan', state: 'running' },
         ...job.frames.map((_, n) => ({
           index: LAYERING_CALL.split(n),
           function: 'layer-split',
@@ -223,7 +223,7 @@ export function fakeAi(): FakeAi {
     files.set(jobId, own)
     own.set(n, [...made])
     job.calls = job.calls.map((call) => {
-      if (call.index === LAYERING_CALL.plan)
+      if (call.index === LAYERING_CALL.plan(0))
         return { ...call, state: 'done', output: { kind: 'text', text: '', json: plan } }
       if (call.index !== LAYERING_CALL.split(n)) return call
       const layers = made.map((_, i) => ({ key: `originals/${jobId}-${n}-${i}`, width: 512, height: 512 }))

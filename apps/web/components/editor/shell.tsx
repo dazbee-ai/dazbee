@@ -11,7 +11,8 @@
 // covers so it fits the ads between.
 import { MotionConfig, useReducedMotion } from 'motion/react'
 import Link from 'next/link'
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { Editor, ShapeMenuTool } from '@dazbee/editor'
 
@@ -19,6 +20,7 @@ import { useCopyPngKey } from '@/components/editor/menus/copy-png-key.ts'
 import type { FrameTool } from '@/components/editor/menus/frame-menu.tsx'
 import { QuickActions } from '@/components/editor/menus/quick-actions.tsx'
 import type { SelectTool } from '@/components/editor/menus/select-menu.tsx'
+import { AiNote } from '@/components/ui/ai-note.tsx'
 import { DazbeeMark } from '@/components/ui/dazbee-mark.tsx'
 import { brandPath, workspacePath } from '@/lib/brand-routes.ts'
 import { cn } from '@/lib/cn.ts'
@@ -38,7 +40,7 @@ import { GlassBar } from './glass-bar.tsx'
 import { SaveStatus } from './save-status.tsx'
 import { type ChromeInsets, measureInsets } from './stage-insets.ts'
 import { BAR_DIVIDER } from './styles.ts'
-import { ToastSlot } from './toasts.tsx'
+import { NoticeToast, ToastSlot } from './toasts.tsx'
 import { type Tool, ToolButton, ToolDock, useToolTray } from './tool-dock.tsx'
 import { useViewOnly } from './view-only.tsx'
 
@@ -105,6 +107,11 @@ export function EditorShell({
   children: ReactNode
 }) {
   const t = useMessages()
+  // The design open, from the address: its AI notes show as its toast.
+  const { designId } = useParams<{ designId: string }>()
+  const [aiToast, setAiToast] = useState<{ text: string; at: number } | null>(null)
+  const tellAi = useCallback((text: string) => setAiToast({ text, at: Date.now() }), [])
+  const endAiToast = useCallback(() => setAiToast(null), [])
   const rtl = dirOf(useLocale()) === 'rtl'
   // Motion's own reduced-motion mode still fades; chrome should simply appear.
   const reduced = useReducedMotion()
@@ -302,7 +309,10 @@ export function EditorShell({
             )}
             {editor && <AiFrameNotes workspaceId={workspaceId} brandId={brandId} editor={editor} />}
             {editor && <GlassBar workspaceId={workspaceId} brandId={brandId} editor={editor} />}
-            <ToastSlot editor={editor}>{toast}</ToastSlot>
+            <ToastSlot editor={editor}>
+              {toast ?? (aiToast && <NoticeToast key={aiToast.at} message={aiToast.text} onDone={endAiToast} />)}
+            </ToastSlot>
+            <AiNote openDesignId={designId} tell={tellAi} />
             <QuickActions editor={editor} tray={tray} />
           </main>
           {!phone && (

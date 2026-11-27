@@ -20,6 +20,7 @@ import { brandPath } from '@/lib/brand-routes.ts'
 import { showsBrandList } from '@/lib/home.ts'
 import { brandWords, designCount, format } from '@/lib/i18n/index.ts'
 import { getLocale, getMessages } from '@/lib/i18n/server.ts'
+import { designsWorking } from '@/lib/server/ai-flow.ts'
 import { designCover, getRole, getWorkspace, listBrands, listDesigns } from '@/lib/server/api.ts'
 import { canChange } from '@/lib/settings-rights.ts'
 
@@ -52,7 +53,12 @@ export default async function DesignsPage({
   ])
   const brand = brands.find((b) => b.id === brandId)
   if (!brand) notFound()
-  const summaries = await listDesigns(workspaceId, brand.id)
+  const changes = canChange(role)
+  // The brand's designs with AI work on them, in one read; a Reviewer, who can't use AI, sees none.
+  const [summaries, working] = await Promise.all([
+    listDesigns(workspaceId, brand.id),
+    changes ? designsWorking(workspaceId, brand.id).catch(() => []) : [],
+  ])
   // Only the sizes here: each picture is drawn when the browser asks for it, not before the page comes.
   const designs: MasonryDesign[] = await Promise.all(
     summaries.map(async (design) => ({
@@ -64,7 +70,6 @@ export default async function DesignsPage({
   const shown = picked ? designs.filter((d) => chipOf(d.cover) === picked) : designs
   const here = brandPath(workspaceId, brand.id, 'designs')
   const l = t.library
-  const changes = canChange(role)
 
   return (
     <LibraryShell
@@ -117,6 +122,7 @@ export default async function DesignsPage({
             workspaceId={workspaceId}
             brandId={brand.id}
             designs={shown}
+            working={Object.fromEntries(working.map((w) => [w.designId, w.work]))}
             {...(changes && {
               actions: {
                 rename: renameDesignAction.bind(null, workspaceId, brand.id),

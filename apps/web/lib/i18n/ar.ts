@@ -41,6 +41,8 @@ export const ar: Messages = {
     untitled: 'تصميم بلا عنوان',
     noDesigns: 'لا توجد تصاميم بعد. سمِّ واحدًا في الأعلى لتبدأ.',
     edited: 'عُدّل {when}',
+    aiWorking: 'الذكاء الاصطناعي يعمل عليه',
+    layersAlmostDone: 'الطبقات على وشك الانتهاء: افتحه لإكمالها',
     filters: 'التصفية',
     filterAll: 'الكل {n}',
     shapes: { square: 'مربع', portrait: 'عمودي', story: 'قصة', landscape: 'أفقي' },
@@ -73,6 +75,22 @@ export const ar: Messages = {
       noTemplates: 'تظهر القوالب هنا بعد حفظها.',
       emptyKit: 'تظهر هنا ألوانها وخطوطها وشعارها بعد إضافتها.',
     },
+  },
+  aiNote: {
+    label: 'ملاحظات الذكاء الاصطناعي',
+    ready: {
+      drafts: 'مسوداتك لـ ‘{name}’ جاهزة',
+      sizes: 'مقاساتك لـ ‘{name}’ جاهزة',
+      change: 'تعديلك على ‘{name}’ جاهز',
+    },
+    some: {
+      drafts: 'لم تخرج بعض مسودات ‘{name}’',
+      sizes: 'لم تخرج بعض مقاسات ‘{name}’',
+    },
+    none: 'لم يخرج شيء لـ ‘{name}’. افتحه لتحاول مرة أخرى.',
+    layers: 'طبقات ‘{name}’ على وشك الانتهاء: افتحه لإكمالها',
+    open: 'فتح',
+    close: 'إغلاق الملاحظة',
   },
   home: {
     prompt: 'ماذا نصنع {today}؟',

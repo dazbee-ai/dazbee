@@ -17,6 +17,7 @@ import {
   type StartAiJob,
 } from '@dazbee/schema'
 
+import { aiJobStarted } from '@/lib/ai-jobs.ts'
 import { brandPath, readJson } from '@/lib/brand-routes.ts'
 
 /**
@@ -68,6 +69,7 @@ export async function aiRefines(
 /** Starts `job` on the brand; how it came out, a refusal as the answer. */
 export async function startAiJob(workspaceId: string, brandId: string, job: StartAiJob): Promise<AiStart> {
   const response = await fetch(brandPath(workspaceId, brandId, 'ai', 'jobs'), post(job))
+  if (response.ok) aiJobStarted()
   return startAnswer(response.status, await response.json().catch(() => null))
 }
 

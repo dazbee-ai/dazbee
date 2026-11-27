@@ -388,7 +388,7 @@ export const en = {
       close: 'Close',
       /** The tools a press over the frame draws with: none, a box or a brush. */
       tools: { none: 'Pick in the frame', box: 'Mark with a box', brush: 'Mark with a brush' },
-      clear: 'Clear {n} marks',
+      clear: 'Clear marks ({n})',
       send: 'Send',
       working: 'Working…',
       earlier: 'Earlier ({n})',

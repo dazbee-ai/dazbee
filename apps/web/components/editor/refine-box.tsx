@@ -368,7 +368,11 @@ function MarksLayer({
       viewBox={`0 0 ${frame.width} ${frame.height}`}
       onPointerDown={(event) => {
         if (tool === 'none' || event.button !== 0) return
-        event.currentTarget.setPointerCapture(event.pointerId)
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId)
+        } catch {
+          // A pointer the browser no longer tracks: the stroke still draws while it stays over the frame.
+        }
         const at = pointOf(event)
         drawing.current = tool === 'box' ? { kind: 'box', from: at, to: at } : { kind: 'brush', points: [at] }
         redraw((n) => n + 1)

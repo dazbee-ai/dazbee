@@ -1,9 +1,10 @@
 """The layer split (ADR-0022): Ming-Image-0.1-Design-Layer on ComfyUI, on one H100, as a deployed Modal app.
 
 `Layering.split` takes a `contract.LayerSplitRequest` and gives back a `contract.LayerSplitResult`: the
-picture's layers as PNGs, top first, and the seconds its container worked on the call, timed inside the
-function, with the CPU cores and memory the function declares. The worker spawns it through Modal's
-JavaScript SDK and asks for its result by the call's id (packages/ai/src/sellers/modal.ts).
+picture's layers as PNGs, top first, the split pieces cut from them when the request has planned parts
+(`pieces`), and the seconds its container worked on the call, timed inside the function, with the CPU cores and
+memory the function declares. The worker spawns it through Modal's JavaScript SDK and asks for its result by the
+call's id (packages/ai/src/sellers/modal.ts).
 
 ComfyUI runs as a server inside the container, and a GPU memory snapshot holds it with the model loaded, so
 a cold container starts from the snapshot instead of loading the weights. At most 2 containers run, each
@@ -21,6 +22,7 @@ import io
 import json
 import subprocess
 import time
+import traceback
 import urllib.error
 import urllib.request
 import uuid
@@ -28,7 +30,7 @@ import uuid
 import modal
 
 import weights
-from contract import Layer, LayerSplitRequest, LayerSplitResult
+from contract import Layer, LayerSplitRequest, LayerSplitResult, Part, Pieces
 from weights import COMFYUI
 from workflow import default_plan, layer_split_graph, working_size
 
@@ -60,7 +62,15 @@ image = (
     .run_commands(f"pip install --no-cache-dir -r {COMFYUI}/requirements.txt")
     .uv_pip_install("huggingface_hub[hf_xet]==2.4.0", "pydantic==2.14.4")
     .run_function(weights.download, cpu=2.0, memory=4096, timeout=3600)
-    .add_local_python_source("contract", "weights", "workflow")
+    # What cutting split pieces needs, after the weights so a change here keeps their layer.
+    .uv_pip_install(
+        "numpy==2.5.5",
+        "opencv-python-headless==5.1.0.95",
+        "pillow==13.0.0",
+        "scikit-image==0.26.0",
+        "scipy==1.18.1",
+    )
+    .add_local_python_source("contract", "pieces", "weights", "workflow")
 )
 
 app = modal.App(APP_NAME)
@@ -127,11 +137,13 @@ class Layering:
         try:
             files = run_graph(layer_split_graph(name, width, height, call.plan or default_plan(), call.guidance))
             layers = [read_layer(file) for file in files]
+            pieces = cut_pieces(picture, call.parts, layers)
         finally:
             (COMFYUI / "input" / name).unlink(missing_ok=True)
             self.last_done = time.monotonic()
         return LayerSplitResult(
             layers=layers,
+            pieces=pieces,
             seconds=round(self.last_done - started, 3),
             cpuCores=CPU_CORES,
             memoryGib=MEMORY_MIB / 1024,
@@ -208,3 +220,25 @@ def read_layer(file: dict) -> Layer:
     with Image.open(io.BytesIO(data)) as png:
         width, height = png.size
     return Layer(png=base64.b64encode(data).decode(), width=width, height=height)
+
+
+def cut_pieces(picture, parts: list[Part] | None, layers: list[Layer]) -> Pieces | None:
+    """The split pieces of `picture` by its planned `parts`, cut from `layers`. None for a call with no parts, and
+    when the pieces can't be cut or don't fit the contract, with why printed, so the call still gives its layers."""
+    if not parts:
+        return None
+    try:
+        import numpy as np
+        from PIL import Image
+
+        from pieces import make_pieces
+
+        arrays = [
+            np.asarray(Image.open(io.BytesIO(base64.b64decode(layer.png))).convert("RGBA")).astype(np.float32) / 255
+            for layer in layers
+        ]
+        made = make_pieces(picture, [part.model_dump(mode="json") for part in parts], arrays)
+        return None if made is None else Pieces.model_validate(made)
+    except Exception:
+        traceback.print_exc()
+        return None

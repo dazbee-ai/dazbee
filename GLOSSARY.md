@@ -766,8 +766,12 @@ What a person draws on a picture to show where to change it (brush strokes, boxe
 _Avoid_: Mask, annotations, scribbles
 
 **Layer split**:
-The AI function of layering that splits a draft into picture layers, on our own GPU. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
+The AI function of layering that splits a draft into picture layers, on our own GPU. Given the layer plan's parts, it also cuts those split layers into split pieces. It takes the same fixed amount of a workspace's allowance for every ad, one amount at each size it runs at, whatever the GPU really cost.
 _Avoid_: Decompose, segmentation
+
+**Split piece**:
+One planned part of a picture as a picture of its own, cut from the split layers by the layer split: its pixels at the picture's own size, its place on the picture, its kind, the split layer it came from and its turned box. A **planned part** is one part of the layer plan: a headline, a button, a logo, a cut-out, the backdrop. The **turned box** is the piece's box turned to the angle the piece is drawn at: its centre, its size along and across the piece, and the angle in degrees clockwise, from -45 to 45, 0 for an upright piece; the backdrop has none. Loose bits of a split layer that belong to no planned part are a split piece too. A split piece is not yet a Piece: a text or shape split piece becomes a matcher's Piece later.
+_Avoid_: Block, element, segment, cut-out (a layering kind for a cut-out photo), rotated box, tilted box
 
 **AI job**:
 One run of an AI feature: what a person asks the AI for in one go, such as a round, made of the AI calls it needs and run on the server, so leaving the page or closing it stops nothing. It keeps the preset each AI function runs with from when it was asked for, so a pick made later never changes it. It holds what its calls cost from the allowance when it is asked for, and gives back what it didn't use when it ends, fails or is cancelled.

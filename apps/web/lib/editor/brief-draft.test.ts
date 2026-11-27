@@ -91,7 +91,7 @@ describe('briefOfSection', () => {
       planned: true,
       createdAt: '2026-11-27T10:00:00.000Z',
     }
-    const ai = { frames: [], jobs: [], briefs: [brief] }
+    const ai = { frames: [], jobs: [], briefs: [brief], refines: [] }
     expect(briefOfSection(ai, 's1')).toBe(brief)
     expect(briefOfSection(ai, 's2')).toBeUndefined()
     expect(briefOfSection(null, 's1')).toBeUndefined()

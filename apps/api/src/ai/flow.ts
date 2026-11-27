@@ -143,6 +143,18 @@ export async function startFlowJob(
         deps,
         design,
         withRows({ kind: 'refine', input }, async (tx, job) => {
+          // The marks are a part of the refine, which the brand's images never show.
+          if (request.marksAssetId)
+            await tx
+              .update(assets)
+              .set({ tags: [AI_PART_TAG] })
+              .where(
+                and(
+                  eq(assets.id, request.marksAssetId),
+                  eq(assets.workspaceId, workspace),
+                  eq(assets.brandId, brand.id),
+                ),
+              )
           await tx.insert(aiRefines).values({
             id: newId(),
             designId: design,

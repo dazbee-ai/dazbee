@@ -1,5 +1,6 @@
 // AI results arriving in the design (ADR-0004): a brief, or more like a draft, the tab starts, placed once its job
-// is saved, and each picture made, written into its frame's picture layer. Each is an arrival: commands run untracked, one change set
+// is saved, each picture made, written into its frame's picture layer, and each refine's new version, written into
+// the picture layer it changes. Each is an arrival: commands run untracked, one change set
 // that no undo of any tab takes back, so Ctrl+Z never removes paid work. Every open tab reads the design's AI
 // frames as it opens, then every 10 s while it is shown, or every 3 s while a frame of the design waits for its
 // picture, so a tab opened before a colleague's brief fills it too. Once a picture's arrival is stored, the tab
@@ -11,11 +12,16 @@ import {
   type AiFrameWritten,
   type AiJobRefusal,
   type AiMode,
+  type AiRefineLink,
   type AiSize,
   type DesignAi,
+  jobRunning,
+  type Layer,
+  madeCallPicture,
   type PageBox,
   pictureLayerOf,
   planRound,
+  REFINE_CALL,
   type RoundPlan,
   type StartAiJob,
 } from '@dazbee/schema'
@@ -48,6 +54,14 @@ export interface BriefRequest {
   mode: AiMode
   /** Each draft's name, by its place from 0. */
   draftName: (n: number) => string
+}
+
+/** A refine a tab starts: the AI frame, the picture layer it changes, what to change and the marks, if any. */
+export interface RefineRequest {
+  frameId: string
+  pictureLayerId: string
+  message: string
+  marksAssetId?: string
 }
 
 /** More like a draft: the AI frame liked, the new section's title and each new draft's name. */
@@ -109,6 +123,12 @@ export interface EditorArrivals {
    * connector, as one arrival. A frame of no brief, or showing no picture, starts nothing.
    */
   moreLikeThis(request: MoreLikeRequest): Promise<BriefStarted>
+  /**
+   * Refines the picture a picture layer of an AI frame shows, with the person's message and the marks picture, if
+   * any; its new version arrives in that layer. Then reads the design's AI frames. A layer that shows no picture
+   * starts nothing.
+   */
+  refine(request: RefineRequest): Promise<AiStart>
   /** Tries a failed AI frame again, its picture made again into the same frame; settles once the design's AI frames are read again. */
   tryAgain(frameId: string): Promise<AiStart>
   /** The design's AI frames, jobs and briefs as last read, with the frames marked written since; null before the first read. */
@@ -156,11 +176,24 @@ export function editorArrivals({
   /** What hears each read. */
   const readers = new Set<() => void>()
 
+  /**
+   * The AI frames the design has that wait for a picture, as last read: a draft's, with its picture layer, or a
+   * refine's new version, with the layer it changes.
+   */
   function waiting(): string[] {
     const { nodes } = session.design()
-    return (read?.frames ?? [])
-      .filter((f) => f.state === 'waiting' && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId)
-      .map((f) => f.frameId)
+    const drafts = (read?.frames ?? []).filter(
+      (f) => f.state === 'waiting' && nodes[pictureLayerOf(f.frameId)]?.parentId === f.frameId,
+    )
+    const refines = (read?.refines ?? []).filter(
+      (r) => r.resultAssetId === null && jobRunning(jobOf(r.jobId)) && nodes[r.pictureLayerId]?.parentId === r.frameId,
+    )
+    return [...new Set([...drafts, ...refines].map((f) => f.frameId))]
+  }
+
+  /** Job `id` as last read. */
+  function jobOf(id: string) {
+    return read?.jobs.find((j) => j.id === id)
   }
 
   async function settled() {
@@ -224,6 +257,25 @@ export function editorArrivals({
     })
   }
 
+  async function refine(request: RefineRequest): Promise<AiStart> {
+    const frame = session.design().frames[request.frameId]
+    const layer = layerIn(request.pictureLayerId, request.frameId)
+    const picture = layer && shownPicture(layer)
+    if (!frame || !picture) return { ok: false, refusal: null, message: 'that layer shows no picture' }
+    const started = await ai.start({
+      kind: 'refine',
+      designId,
+      frameId: request.frameId,
+      pictureLayerId: request.pictureLayerId,
+      pictureAssetId: picture,
+      message: request.message,
+      ...(request.marksAssetId ? { marksAssetId: request.marksAssetId } : {}),
+      size: refineSize(frame, layer, request.pictureLayerId === pictureLayerOf(request.frameId)),
+    })
+    if (started.ok) await poll()
+    return started
+  }
+
   async function tryAgain(frameId: string): Promise<AiStart> {
     const started = await ai.start({ kind: 'try-again', designId, frameId })
     if (started.ok) await poll()
@@ -260,6 +312,7 @@ export function editorArrivals({
         if (signal.aborted) return
         read = now
         for (const frame of now.frames) writePicture(now, frame)
+        for (const change of now.refines) writeVersion(now, change)
         told()
       } catch {
         // Offline, or the API is away: the next read tries again.
@@ -282,25 +335,78 @@ export function editorArrivals({
 
   /**
    * Writes the picture of a waiting frame's call into its picture layer, once the call has made it and while the
-   * layer still waits and the tab is connected, then marks the call written. A layer that shows the picture
-   * already, once the tab's queue is stored, or whose arrival this tab stored before, is only marked; one the person
-   * filled meanwhile is marked and keeps what they put there. A frame or layer the design hasn't, such as one
-   * deleted, is left for an undo that brings it back.
+   * layer still waits, then marks the call written. One the person filled meanwhile is marked and keeps what they
+   * put there.
    */
   function writePicture(now: DesignAi, frame: AiFrameView) {
     if (frame.state !== 'waiting') return
-    const key = callKey(frame)
-    const asset = madePicture(now, frame)
-    if (!asset || writing.has(key) || refused.has(key)) return
-    const layerId = pictureLayerOf(frame.frameId)
-    if (!layerIn(layerId, frame.frameId)) return
+    const asset = madeCallPicture(now.jobs, frame.jobId, frame.callIndex)
+    if (!asset) return
+    writeCall({
+      frameId: frame.frameId,
+      layerId: pictureLayerOf(frame.frameId),
+      call: { jobId: frame.jobId, callIndex: frame.callIndex },
+      asset,
+      replaces: (holds) => holds === 'waits',
+      marked: (was) => ({
+        ...was,
+        frames: was.frames.map((f) => (f === frame ? { ...f, state: 'arrived', assetId: asset } : f)),
+      }),
+    })
+  }
+
+  /**
+   * Writes a refine's new version into the picture layer it changes, once its edit has made it and until it is marked
+   * written, whatever the layer shows meanwhile, since the person asked for the change; then marks it written.
+   */
+  function writeVersion(now: DesignAi, change: AiRefineLink) {
+    if (change.resultAssetId !== null) return
+    const asset = madeCallPicture(now.jobs, change.jobId, REFINE_CALL.edit)
+    if (!asset) return
+    writeCall({
+      frameId: change.frameId,
+      layerId: change.pictureLayerId,
+      call: { jobId: change.jobId, callIndex: REFINE_CALL.edit },
+      asset,
+      replaces: (holds) => holds !== 'shows',
+      marked: (was) => ({
+        ...was,
+        refines: was.refines.map((r) => (r === change ? { ...r, resultAssetId: asset } : r)),
+      }),
+    })
+  }
+
+  /**
+   * Writes picture `asset` of call `call` into layer `layerId` of frame `frameId` as an arrival, once it is ready to
+   * draw, when what the layer holds is one it `replaces` and the tab is connected; then marks the call written and
+   * keeps what `marked` makes of the last read. A layer that shows the picture already, once the tab's queue is
+   * stored, or whose arrival this tab stored before, is only marked. A frame or layer the design hasn't, such as one
+   * deleted, is left for an undo that brings it back.
+   */
+  function writeCall({
+    frameId,
+    layerId,
+    call,
+    asset,
+    replaces,
+    marked,
+  }: {
+    frameId: string
+    layerId: string
+    call: AiFrameWritten
+    asset: string
+    replaces: (holds: ReturnType<typeof pictureState>) => boolean
+    marked: (was: DesignAi) => DesignAi
+  }) {
+    const key = `${frameId}/${call.jobId}/${call.callIndex}`
+    if (writing.has(key) || refused.has(key) || !layerIn(layerId, frameId)) return
     const done = readyPictures([asset])
       .then(() => {
         // Read again once the picture is ready: the layer may have changed meanwhile.
-        const layer = layerIn(layerId, frame.frameId)
+        const layer = layerIn(layerId, frameId)
         if (!layer || signal.aborted) return 'none' as const
         const holds = pictureState(layer, asset)
-        const writes = !stored.has(key) && holds === 'waits'
+        const writes = !stored.has(key) && replaces(holds)
         // Offline, the picture waits for the next read; one the design shows waits until the tab's queue is stored.
         if (writes ? !connected() : holds === 'shows' && !synced()) return 'none' as const
         if (!writes) return 'saved' as const
@@ -314,13 +420,10 @@ export function editorArrivals({
       .then(async (outcome) => {
         if (outcome !== 'saved' || signal.aborted) return
         stored.add(key)
-        await ai.written(frame.frameId, { jobId: frame.jobId, callIndex: frame.callIndex })
+        await ai.written(frameId, call)
         stored.delete(key)
         if (read) {
-          read = {
-            ...read,
-            frames: read.frames.map((f) => (f === frame ? { ...f, state: 'arrived', assetId: asset } : f)),
-          }
+          read = marked(read)
           told()
         }
         // With no frame left waiting, the next read waits the longer time.
@@ -364,6 +467,7 @@ export function editorArrivals({
   return {
     startBrief,
     moreLikeThis,
+    refine,
     tryAgain,
     read: () => read,
     onRead,
@@ -408,14 +512,15 @@ function arrive(session: Session, signal: AbortSignal, steps: () => void): Promi
   })
 }
 
-/** A frame's call, by which the arrivals on their way and those stored are kept: its frame, job and call. */
-function callKey({ frameId, jobId, callIndex }: AiFrameView): string {
-  return `${frameId}/${jobId}/${callIndex}`
-}
-
-/** The asset of the picture the frame's call made, once it is made; null before. */
-function madePicture(read: DesignAi, frame: AiFrameView): string | null {
-  const call = read.jobs.find((j) => j.id === frame.jobId)?.calls.find((c) => c.index === frame.callIndex)
-  if (call?.state !== 'done' || call.output.kind !== 'pictures') return null
-  return call.output.pictures[0]?.assetId ?? null
+/**
+ * The size a refine's picture is made at: the frame's, for its picture layer; else the layer's own, as on an editable
+ * frame, in whole pixels.
+ */
+function refineSize(
+  frame: { width: number; height: number },
+  layer: Pick<Layer, 'props'>,
+  whole: boolean,
+): { width: number; height: number } {
+  if (whole || !('width' in layer.props)) return { width: frame.width, height: frame.height }
+  return { width: Math.max(1, Math.round(layer.props.width)), height: Math.max(1, Math.round(layer.props.height)) }
 }

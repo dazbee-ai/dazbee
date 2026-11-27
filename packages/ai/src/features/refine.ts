@@ -1,16 +1,13 @@
 // Refine with AI: the refine plan reads the ad, its marked copy and the person's message and writes one
 // instruction, then the refine edit edits the clean ad with that instruction alone. The marks are drawn over the ad
 // here, for the refine plan only.
-import { type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
+import { REFINE_CALL, type RefineInput, RefinePlanAnswer } from '@dazbee/schema'
 
 import { editCall } from '../functions/refine-edit.ts'
 import { planCall } from '../functions/refine-plan.ts'
 import { drawMarks } from '../marks.ts'
 import { pictureName } from './assets.ts'
 import type { AiFeatureDef } from './types.ts'
-
-/** Each call's index in a refine. */
-export const REFINE_CALL = { plan: 0, edit: 1 } as const
 
 /** A refine: the refine plan, which the job stands on, then the edit. */
 export const refine: AiFeatureDef<RefineInput, { marked: string | undefined }> = {

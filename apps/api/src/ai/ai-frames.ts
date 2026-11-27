@@ -17,6 +17,8 @@ import {
   type AiRefineView,
   briefTitle,
   type DesignAi,
+  REFINE_CALL,
+  RefineInput,
   RefinePlanAnswer,
 } from '@dazbee/schema'
 import { originalKey } from '@dazbee/storage'
@@ -24,15 +26,22 @@ import { originalKey } from '@dazbee/storage'
 /** How marking a call written came out. */
 export type Written = 'written' | 'no-frame' | 'not-made' | 'not-its-call'
 
-/** The call of a refine job that makes the new version, and the one whose answer sums it up. */
-const REFINE_EDIT = 1
-const REFINE_PLAN = 0
-
 /** The design's AI frames, every job that fills or refines them with each call, and its briefs. */
 export async function designAi(db: Db, workspace: string, brand: string, design: string): Promise<DesignAi> {
   const rows = await db.select().from(aiFrames).where(eq(aiFrames.designId, design))
-  const refineJobs = await db.select({ jobId: aiRefines.jobId }).from(aiRefines).where(eq(aiRefines.designId, design))
-  const jobs = await readJobs(db, workspace, [...new Set([...rows, ...refineJobs].map((r) => r.jobId))])
+  const refines = await db
+    .select({
+      id: aiRefines.id,
+      frameId: aiRefines.frameId,
+      jobId: aiRefines.jobId,
+      resultAssetId: aiRefines.resultAssetId,
+      input: aiJobs.input,
+    })
+    .from(aiRefines)
+    .innerJoin(aiJobs, eq(aiJobs.id, aiRefines.jobId))
+    .where(and(eq(aiRefines.designId, design), eq(aiJobs.workspaceId, workspace)))
+    .orderBy(asc(aiRefines.createdAt), asc(aiRefines.id))
+  const jobs = await readJobs(db, workspace, [...new Set([...rows, ...refines].map((r) => r.jobId))])
   const briefs = await db
     .select()
     .from(aiBriefs)
@@ -63,6 +72,10 @@ export async function designAi(db: Db, workspace: string, brand: string, design:
       mode: b.mode,
       planned: b.plan !== null,
       createdAt: b.createdAt.toISOString(),
+    })),
+    refines: refines.map(({ input, ...refine }) => ({
+      ...refine,
+      pictureLayerId: RefineInput.parse(input).frame.pictureLayerId,
     })),
   }
 }
@@ -185,9 +198,9 @@ export async function markWritten(
       .select()
       .from(aiRefines)
       .where(and(eq(aiRefines.designId, design), eq(aiRefines.frameId, frame), eq(aiRefines.jobId, written.jobId)))
-    if (!refine || !job || written.callIndex !== REFINE_EDIT) return 'not-its-call'
+    if (!refine || !job || written.callIndex !== REFINE_CALL.edit) return 'not-its-call'
     if (refine.resultAssetId) return 'written'
-    const asset = madePicture(job.calls, REFINE_EDIT)
+    const asset = madePicture(job.calls, REFINE_CALL.edit)
     if (!asset) return 'not-made'
     await tx
       .update(aiRefines)
@@ -236,7 +249,7 @@ function madePicture(calls: AiCallView[], index: number): string | null {
 
 /** A refine's summary from its refine plan's answer, or null while it has none. */
 function refineSummary(job: AiJobView): string | null {
-  const plan = job.calls.find((c) => c.index === REFINE_PLAN)
+  const plan = job.calls.find((c) => c.index === REFINE_CALL.plan)
   if (plan?.state !== 'done' || plan.output.kind !== 'text') return null
   const answer = RefinePlanAnswer.safeParse(plan.output.json)
   return answer.success ? answer.data.summary : null

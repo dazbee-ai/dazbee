@@ -2,22 +2,25 @@
 
 // The glass bar above a picked AI frame, in a tab that may change the design: a small bar of light frosted glass over
 // the frame's label, holding its AI actions as icons with labels and the star. More like this makes four new drafts
-// in a new section right of the draft's section, joined to it by a connector. Hovering an AI action shows about how
+// in a new section right of the draft's section, joined to it by a connector; Refine with AI opens the refine box
+// under the frame, and its picture versions show beside it. Hovering an AI action shows about how
 // much of the workspace's AI it takes and how long, asked once per action and mode while the design is open. While
-// the frame waits for its picture or is being made editable, its AI actions are off and the bar says "Working…". It
+// the frame waits for its picture, is refined or is being made editable, its AI actions are off and the bar says "Working…". It
 // folds away while a gesture runs, and a copy of an AI frame, a plain frame, gets none. Why an action didn't start
 // shows in one quiet line under it.
 import { useEffect, useState } from 'react'
 
 import type { BriefStarted, Editor } from '@dazbee/editor'
-import type { AiEstimate, AiFeature, AiMode } from '@dazbee/schema'
+import { type AiEstimate, type AiFeature, type AiMode, pictureLayerOf } from '@dazbee/schema'
 
 import { editState, useEditState } from '@/components/editor/edit-store.ts'
 import { useDesignAi, usePickedFrame } from '@/components/editor/editor-hooks.ts'
+import { PictureVersions } from '@/components/editor/refine/picture-versions.tsx'
+import { RefineBox } from '@/components/editor/refine/refine-box.tsx'
 import { useLiveDesign } from '@/components/editor/use-live-design.ts'
 import { useViewOnly } from '@/components/editor/view-only.tsx'
 import { useWheelThrough } from '@/components/editor/wheel-through.ts'
-import { CircleNotchIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
+import { CircleNotchIcon, MagicWandIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/components/ui/icons.tsx'
 import { Tooltip, TooltipRow } from '@/components/ui/tooltip.tsx'
 import { cn } from '@/lib/cn.ts'
 import { aiEstimate } from '@/lib/editor/ai-client.ts'
@@ -130,6 +133,7 @@ function FrameBar({
   useWheelThrough(bar)
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
+  const [refining, setRefining] = useState(false)
   if (!frame) return null
   const starred = frame.starred === true
 
@@ -175,31 +179,54 @@ function FrameBar({
               {g.working}
             </span>
           ) : (
-            shown.moreLike && (
-              <AiAction
-                workspaceId={workspaceId}
-                brandId={brandId}
-                editor={editor}
-                action="more-like-this"
-                mode={shown.mode}
-                name={g.moreLikeThis}
-              >
-                <button
-                  type="button"
-                  data-action="more-like-this"
-                  disabled={busy}
-                  onClick={() => void moreLikeThis()}
-                  className={ACTION}
+            <>
+              {shown.moreLike && (
+                <AiAction
+                  workspaceId={workspaceId}
+                  brandId={brandId}
+                  editor={editor}
+                  action="more-like-this"
+                  mode={shown.mode}
+                  name={g.moreLikeThis}
                 >
-                  {busy ? (
-                    <CircleNotchIcon size={16} aria-hidden className="animate-spin" />
-                  ) : (
-                    <SparkleIcon size={16} aria-hidden />
-                  )}
-                  {g.moreLikeThis}
-                </button>
-              </AiAction>
-            )
+                  <button
+                    type="button"
+                    data-action="more-like-this"
+                    disabled={busy}
+                    onClick={() => void moreLikeThis()}
+                    className={ACTION}
+                  >
+                    {busy ? (
+                      <CircleNotchIcon size={16} aria-hidden className="animate-spin" />
+                    ) : (
+                      <SparkleIcon size={16} aria-hidden />
+                    )}
+                    {g.moreLikeThis}
+                  </button>
+                </AiAction>
+              )}
+              {shown.refine && (
+                <AiAction
+                  workspaceId={workspaceId}
+                  brandId={brandId}
+                  editor={editor}
+                  action="refine"
+                  mode={shown.mode}
+                  name={t.editor.refine.action}
+                >
+                  <button
+                    type="button"
+                    data-action="refine"
+                    aria-expanded={refining}
+                    onClick={() => setRefining((open) => !open)}
+                    className={ACTION}
+                  >
+                    <MagicWandIcon size={16} aria-hidden />
+                    {t.editor.refine.action}
+                  </button>
+                </AiAction>
+              )}
+            </>
           )}
           <Tooltip plain label={starred ? t.editor.frames.unstar : t.editor.frames.star}>
             <button
@@ -225,6 +252,22 @@ function FrameBar({
           </p>
         )}
       </div>
+      {refining && (
+        <RefineBox
+          workspaceId={workspaceId}
+          brandId={brandId}
+          editor={editor}
+          frameId={frameId}
+          onClose={() => setRefining(false)}
+        />
+      )}
+      <PictureVersions
+        workspaceId={workspaceId}
+        brandId={brandId}
+        editor={editor}
+        frameId={frameId}
+        layerId={pictureLayerOf(frameId)}
+      />
     </TooltipRow>
   )
 }

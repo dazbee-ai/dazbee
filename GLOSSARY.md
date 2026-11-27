@@ -701,6 +701,10 @@ _Avoid_: Insert, AI edit, generation result
 The small frosted bar above a picked AI frame that holds its AI actions (More like this, Other sizes, Refine with AI, Make editable or Back to picture) and the star. A Reviewer gets none.
 _Avoid_: AI toolbar, mini bar (that is the small menu by the selection)
 
+**Picture version**:
+One picture an AI frame's picture layer has shown: the picture its call made, then each refine's new version. They sit beside the picked frame, and a click puts one back. Not a Version of the design.
+_Avoid_: Version (that is a saved design), revision, take
+
 **Make editable**:
 The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back.
 _Avoid_: Layerize, convert, decompose

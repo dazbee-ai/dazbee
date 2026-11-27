@@ -1,5 +1,5 @@
-// The AI flow's routes as the editor calls them from the browser: the design's AI frames, starting a job, marking
-// a call written into the design, the estimate an AI action shows on hover, and the person's own jobs on the brand.
+// The AI flow's routes as the editor calls them from the browser: the design's AI frames, a frame's refines, starting
+// a job, marking a call written into the design, the estimate an AI action shows on hover, and the person's own jobs on the brand.
 // A job the API refuses comes back as its answer, never thrown.
 import type { AiStart, EditorAi } from '@dazbee/editor'
 import {
@@ -8,6 +8,7 @@ import {
   type AiFrameWritten,
   AiJobRefused,
   AiJobStarted,
+  AiRefineView,
   DesignAi,
   MyAiJob,
   type StartAiJob,
@@ -25,6 +26,17 @@ export function editorAi(workspaceId: string, brandId: string, designId: string)
       await readJson(await fetch(`${design}/frames/${encodeURIComponent(frameId)}/written`, post(written)))
     },
   }
+}
+
+/** The refines of AI frame `frameId` of design `designId`, oldest first. */
+export async function aiRefines(
+  workspaceId: string,
+  brandId: string,
+  designId: string,
+  frameId: string,
+): Promise<AiRefineView[]> {
+  const path = brandPath(workspaceId, brandId, 'designs', designId, 'ai', 'frames', frameId, 'refines')
+  return AiRefineView.array().parse(await readJson(await fetch(path, { cache: 'no-store' })))
 }
 
 /** Starts `job` on the brand; how it came out, a refusal as the answer. */

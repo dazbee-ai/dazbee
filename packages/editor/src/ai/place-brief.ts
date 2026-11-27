@@ -114,8 +114,8 @@ export function briefSpot(
 /**
  * Where more like this of frame `frameId` puts its four drafts of `size` on the frame's page: in the column right of
  * the frame's section (of the frame itself when it is in none), at its top, moved down below each frame or section
- * in the way, far enough apart that the outlines and titles clear each other at the zoom `zoomFor` gives for the
- * area with the drafts in it. Null for a frame the design hasn't.
+ * in the way, far enough apart that the outlines and titles clear each other at the zoom `zoomFor` gives for the page
+ * with the drafts in it, as a brief's spot is. Null for a frame the design hasn't.
  */
 export function moreLikeSpot(
   design: Parameters<typeof freeSpot>[0] & Parameters<typeof sectionBox>[0],
@@ -127,14 +127,16 @@ export function moreLikeSpot(
   if (!frame) return null
   const from = (frame.sectionId && sectionBox(design, frame.sectionId)) || frame
   const row = { width: DRAFTS * size.width + (DRAFTS - 1) * FRAME_GAP, height: size.height }
+  const page = Object.values(design.frames).filter((f) => f.pageId === frame.pageId)
   let gap = FRAME_GAP
-  // The gap moves the row, which can lower the zoom the area fits at: worked out twice.
+  // The gap moves the row, which can lower the zoom the page fits at: worked out twice.
   for (let pass = 0; pass < 2; pass++) {
     const at = freeSpot(design, frame.pageId, row, from, undefined, gap)
-    const left = Math.min(from.x, at.x)
-    const top = Math.min(from.y, at.y)
-    const right = Math.max(from.x + from.width, at.x + row.width)
-    const bottom = Math.max(from.y + from.height, at.y + row.height)
+    const boxes = [...page, { ...at, ...row }]
+    const left = Math.min(...boxes.map((b) => b.x))
+    const top = Math.min(...boxes.map((b) => b.y))
+    const right = Math.max(...boxes.map((b) => b.x + b.width))
+    const bottom = Math.max(...boxes.map((b) => b.y + b.height))
     gap = Math.ceil(
       FRAME_GAP + BRIEF_SCREEN_ROOM / zoomFor({ x: left, y: top, width: right - left, height: bottom - top }),
     )

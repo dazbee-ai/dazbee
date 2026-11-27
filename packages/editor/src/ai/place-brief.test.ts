@@ -45,6 +45,13 @@ describe('moreLikeSpot', () => {
     expect(moreLikeSpot(design, 'a', square, () => 1)).toEqual({ x: 400 + gap, y: 100 + gap })
   })
 
+  it('leaves room for the outlines at the zoom the whole page fits at, so sections apart stay apart zoomed out', () => {
+    const design = { frames: { a: frame(0, 0), far: frame(20_000, 5000) }, sections: {} }
+    // The page is seen at the zoom that fits 1000 px of it on screen.
+    const zoomFor = (area: { width: number; height: number }) => 1000 / Math.max(area.width, area.height)
+    expect(moreLikeSpot(design, 'a', square, zoomFor)?.x).toBe(100 + Math.ceil(FRAME_GAP + BRIEF_SCREEN_ROOM * 20.1))
+  })
+
   it('goes right of the frame itself when it is in no section, and is null for a frame the design hasn’t', () => {
     const design = { frames: { a: frame(0, 0) }, sections: {} }
     expect(moreLikeSpot(design, 'a', square, () => 1)).toEqual({ x: 100 + gap, y: 0 })

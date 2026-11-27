@@ -165,7 +165,7 @@ describe('DELETE /me', () => {
     expect(await storage.list(`workspaces/${own.id}/`)).not.toEqual([])
 
     expect(await deleteAs(person.as, ` ${person.email.toUpperCase()} `, [own.id])).toEqual({ status: 204, json: null })
-    await finished([`workspaces/${own.id}/`, organizationOf(own.id), person.workosUserId])
+    await finished([`workspaces/${own.id}/`, organizationOf(own.id), person.workosUserId, providerInvite?.id ?? ''])
 
     expect(await db.select().from(users).where(eq(users.id, person.id))).toEqual([])
     expect(await db.select().from(workspaces).where(eq(workspaces.id, own.id))).toEqual([])

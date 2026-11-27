@@ -705,6 +705,10 @@ _Avoid_: AI toolbar, mini bar (that is the small menu by the selection)
 One picture an AI frame's picture layer has shown: the picture its call made, then each refine's new version. They sit beside the picked frame, and a click puts one back. Not a Version of the design.
 _Avoid_: Version (that is a saved design), revision, take
 
+**Make all editable**:
+Make editable on a section of AI sizes at once: one layer plan from the draft the sizes came from, a split per size, and the layers of the same split layer linked across the sizes.
+_Avoid_: Batch layering, editable all
+
 **Make editable**:
 The glass bar's action that runs layering on an AI frame, turning its picture into real layers in the same frame with the picture kept hidden; Back to picture brings the picture back.
 _Avoid_: Layerize, convert, decompose

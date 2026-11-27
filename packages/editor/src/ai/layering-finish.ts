@@ -10,7 +10,7 @@
 // minute, its parts uploaded once, and ended with nothing placed after three tries.
 import type { CanvasKit } from '@dazbee/canvaskit'
 import type { Session } from '@dazbee/doc'
-import { type AiFrameView, type AiJobView, type DesignAi, type Layer, pictureLayerOf } from '@dazbee/schema'
+import { type AiFrameView, type AiJobView, type DesignAi, frameIdOf, type Layer, pictureLayerOf } from '@dazbee/schema'
 
 import type { EditorAi } from './arrivals.ts'
 import { frameLayers, layerName, layerPlanOf, type PieceBox, pieceId, scaleBox, visibleBox } from './layer-pieces.ts'
@@ -47,6 +47,8 @@ export interface EditorLayeringFinish {
 /** A split layer cropped and uploaded: its layer's id and name, its picture and its box in the frame. */
 interface SplitLayer {
   id: string
+  /** The link id it shares with the same split layer of the job's other sizes. */
+  link: string
   name: string
   assetId: string
   box: PieceBox
@@ -61,9 +63,9 @@ export const TRIES = 3
 
 export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFinish {
   const { session, ai, ck, holder, read, onRead, after, signal } = deps
-  /** The finishes on their way, by frame. */
+  /** The finishes on their way, by job: one job's frames are finished together. */
   const running = new Map<string, Promise<void>>()
-  /** How many times each frame's finish failed in this tab, and the frames waiting a minute before the next try. */
+  /** How many times each job's finish failed in this tab, and the jobs waiting a minute before the next try. */
   const failures = new Map<string, number>()
   const resting = new Set<string>()
   /** The parts uploaded, by job, frame and split layer, so a finish tried again uploads none twice. */
@@ -72,11 +74,11 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   function look() {
     const now = read()
     if (!now || signal.aborted || session.readOnly()) return
-    for (const frame of now.frames) {
-      const job = now.jobs.find((j) => j.id === frame.jobId)
-      const key = frame.frameId
-      if (frame.state !== 'layering' || job?.state !== 'done' || running.has(key) || resting.has(key)) continue
-      const done = finish(frame, job)
+    for (const job of now.jobs) {
+      const frames = now.frames.filter((f) => f.jobId === job.id && f.state === 'layering')
+      const key = job.id
+      if (frames.length === 0 || job.state !== 'done' || running.has(key) || resting.has(key)) continue
+      const done = finish(frames, job)
         .catch(() => {
           // Refused, offline or a picture that wouldn't draw: tried again after a minute, ended after three tries.
           const tries = (failures.get(key) ?? 0) + 1
@@ -93,7 +95,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
     }
   }
 
-  /** Ends a finish that kept failing, nothing placed, so its frame offers Make editable again. */
+  /** Ends a finish that kept failing, nothing placed, so its frames offer Make editable again. */
   async function giveUp(jobId: string) {
     try {
       if (await ai.claim(jobId, holder)) await ai.finished(jobId, holder)
@@ -104,10 +106,13 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   }
 
   /**
-   * Claims frame `frame`'s finish and, while this tab holds it, places its layers and ends it. Ends it with nothing
-   * placed when there is nothing to place; places nothing and leaves it when the tab lost its lease or ended.
+   * Claims the finish of job `job`, whose `frames` are being made editable, and, while this tab holds it, places each
+   * frame's layers in one arrival and ends it. A frame with nothing to place gets nothing; places nothing and leaves
+   * the finish when the tab lost its lease or ended. A frame whose layers won't read fails the whole finish, to be
+   * tried again, except on the last try, when the frames that did read are placed. Several sizes of one ad share
+   * their layers' link ids by the split layer's place, which is the place of its element in the one layer plan.
    */
-  async function finish(frame: AiFrameView, job: AiJobView) {
+  async function finish(frames: readonly AiFrameView[], job: AiJobView) {
     if (!(await ai.claim(job.id, holder))) return
     let lost = false
     let renewing = after(RENEW_MS, renew)
@@ -123,17 +128,31 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       )
     }
     try {
-      const pieces = await piecesOf(frame, job)
-      if (signal.aborted || lost) return
-      if (pieces) {
-        await deps.readyPictures(pieces.map((p) => p.assetId))
+      const last = (failures.get(job.id) ?? 0) >= TRIES - 1
+      const placing: [AiFrameView, SplitLayer[]][] = []
+      let failed: unknown = null
+      for (const frame of frames) {
+        let pieces: SplitLayer[] | null
+        try {
+          pieces = await piecesOf(frame, job)
+        } catch (e) {
+          if (!last) throw e
+          failed = e
+          continue
+        }
         if (signal.aborted || lost) return
-        let placed = true
+        if (pieces) placing.push([frame, pieces])
+      }
+      if (placing.length === 0 && failed !== null) throw failed
+      if (placing.length > 0) {
+        await deps.readyPictures(placing.flatMap(([, pieces]) => pieces.map((p) => p.assetId)))
+        if (signal.aborted || lost) return
+        const linked = frames.length > 1
         const outcome = await deps.arrive(() => {
-          placed = fits(frame) && place(frame, pieces)
+          for (const [frame, pieces] of placing) if (fits(frame)) place(frame, pieces, linked)
         })
-        // Not stored, as when the editor ended or turned view-only: the finish is left for a later try.
-        if (outcome !== 'saved' && placed) return
+        // Nothing ran, as when the editor ended or turned view-only: the finish is left for a later try.
+        if (outcome !== 'saved') return
       }
       await ai.finished(job.id, holder)
       await deps.poll()
@@ -162,6 +181,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       uploaded.set(key, assetId)
       pieces.push({
         id: pieceId(job.id, frame.frameId, index),
+        link: `${job.id}-${index}`,
         name: layerName(plan, index, ai.layerWord),
         assetId,
         box: scaleBox(cropped.box, size.width, own.width),
@@ -235,9 +255,9 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
 
   /**
    * Hides the frame's picture layer and places the pieces over it, bottom first, any already placed left as they
-   * are; true.
+   * are, each sharing its link id with the job's other sizes when `linked` and the frame doesn't hold it already.
    */
-  function place(frame: AiFrameView, pieces: readonly SplitLayer[]): true {
+  function place(frame: AiFrameView, pieces: readonly SplitLayer[], linked: boolean): void {
     const pictureId = pictureLayerOf(frame.frameId)
     session.run('node.update', { ids: [pictureId], patch: { visible: false } })
     for (const piece of [...pieces].reverse()) {
@@ -245,6 +265,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
       session.run('node.create', {
         id: piece.id,
         parentId: frame.frameId,
+        ...(linked && !holdsLink(frame.frameId, piece.link) ? { link: piece.link } : {}),
         layer: {
           type: 'graphic',
           name: piece.name,
@@ -256,7 +277,14 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
         },
       })
     }
-    return true
+  }
+
+  /** Whether frame `frameId` holds a layer of link id `link` already, as a pasted copy can. */
+  function holdsLink(frameId: string, link: string): boolean {
+    const { nodes } = session.design()
+    return Object.values(nodes).some(
+      (node) => node.link === link && frameIdOf(session.design(), node.parentId) === frameId,
+    )
   }
 
   /** Frame `frameId`'s picture layer, when the design has it there. */
@@ -274,7 +302,7 @@ export function editorLayeringFinish(deps: LayeringFinishDeps): EditorLayeringFi
   look()
 
   return {
-    finishing: () => [...running.keys()],
+    finishing: () => (read()?.frames ?? []).filter((f) => running.has(f.jobId)).map((f) => f.frameId),
     settled,
   }
 }

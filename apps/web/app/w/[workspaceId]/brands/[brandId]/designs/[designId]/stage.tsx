@@ -523,7 +523,7 @@ export function EditorStage({
           <Fragment key={shownKey}>
             <SmallMenu editor={shown} rightClick={menuAt !== null} />
             <EditPanel editor={shown} workspaceId={workspaceId} brandId={brandId} />
-            <AddFramePanel editor={shown} />
+            <AddFramePanel editor={shown} workspaceId={workspaceId} brandId={brandId} />
             <PagesPanel editor={shown} onRemoved={setRemoved} />
             <FindReplacePanel editor={shown} />
             <EmptyPageHint editor={shown} />

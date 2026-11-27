@@ -75,9 +75,16 @@ export async function startAiJob(workspaceId: string, brandId: string, job: Star
 export async function aiEstimate(
   workspaceId: string,
   brandId: string,
-  query: Pick<AiEstimateQuery, 'action'> & Partial<Pick<AiEstimateQuery, 'mode' | 'reference'>>,
+  query: Pick<AiEstimateQuery, 'action'> & Partial<Pick<AiEstimateQuery, 'mode' | 'reference' | 'sizes'>>,
 ): Promise<AiEstimate> {
-  const asked = new URLSearchParams(Object.entries(query).map(([name, value]) => [name, String(value)]))
+  const asked = new URLSearchParams(
+    Object.entries(query).map(([name, value]) => [
+      name,
+      name === 'sizes'
+        ? (value as AiEstimateQuery['sizes']).map((s) => `${s.width}x${s.height}`).join(',')
+        : String(value),
+    ]),
+  )
   const response = await fetch(`${brandPath(workspaceId, brandId, 'ai', 'estimate')}?${asked.toString()}`, {
     cache: 'no-store',
   })

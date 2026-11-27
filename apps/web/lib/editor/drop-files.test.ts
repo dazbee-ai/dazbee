@@ -101,6 +101,8 @@ function asEditor({ core }: TestEditor): Editor {
     moreLikeThis: unused,
     refine: unused,
     makeEditable: unused,
+    otherSizes: unused,
+    makeAllEditable: unused,
     tryAgain: unused,
     designAi: unused,
     onDesignAi: unused,

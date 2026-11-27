@@ -1,5 +1,5 @@
 // A fake of the API's AI flow for the arrivals' tests, shared by every tab of a test as the API is: rounds, more
-// like this, refines, layering and try again it starts or refuses, with their briefs and refines; a layering job's
+// like this, other sizes, refines, layering and try again it starts or refuses, with their briefs and refines; a layering job's
 // split layers and its finish's lease; the pictures their drafts make and the drafts that
 // fail; the frames' states as the API reads them; and the calls marked written, as `markWritten` marks them.
 import {
@@ -65,7 +65,7 @@ export function fakeAi(): FakeAi {
   const jobs: AiJobView[] = []
   const briefs: AiBriefView[] = []
   const refines: AiRefineLink[] = []
-  const files = new Map<string, Uint8Array[]>()
+  const files = new Map<string, Map<number, Uint8Array[]>>()
   const claims: string[] = []
   const finishes: string[] = []
   const parts: Uint8Array[] = []
@@ -86,6 +86,7 @@ export function fakeAi(): FakeAi {
     if (job.kind === 'try-again') return Promise.resolve({ ok: true, job: again(job.frameId) })
     if (job.kind === 'refine') return Promise.resolve({ ok: true, job: refineJob(job) })
     if (job.kind === 'layering') return Promise.resolve({ ok: true, job: layeringJob(job) })
+    if (job.kind === 'resize') return Promise.resolve({ ok: true, job: resizeJob(job) })
     if (job.kind !== 'round' && job.kind !== 'more-like-this')
       throw new Error(`the fake starts rounds and more like this only, not ${job.kind}`)
     const id = `job${started.length}`
@@ -160,6 +161,34 @@ export function fakeAi(): FakeAi {
     return id
   }
 
+  /** Other sizes' job, a call per size running, and an AI frame of the size kind waiting for each; gives its id. */
+  function resizeJob(job: Extract<StartAiJob, { kind: 'resize' }>): string {
+    const id = `job${started.length}`
+    jobs.push({
+      id,
+      kind: 'resize',
+      state: 'running',
+      output: null,
+      calls: job.sizes.map((_, n) => ({ index: n, function: 'resize', state: 'running' as const })),
+      error: null,
+      createdAt: AT,
+      endedAt: null,
+    })
+    job.sizes.forEach(({ frameId }, n) =>
+      frames.push({
+        frameId,
+        briefId: null,
+        jobId: id,
+        callIndex: n,
+        kind: 'size',
+        state: 'waiting',
+        assetId: null,
+        updatedAt: AT,
+      }),
+    )
+    return id
+  }
+
   /** A layering job, each call running, its frames being made editable; gives the job's id. */
   function layeringJob(job: Extract<StartAiJob, { kind: 'layering' }>): string {
     const id = `job${started.length}`
@@ -190,16 +219,21 @@ export function fakeAi(): FakeAi {
   function split(jobId: string, n: number, made: readonly Uint8Array[], plan: unknown = null) {
     const job = jobs.find((j) => j.id === jobId)
     if (!job) throw new Error(`no job ${jobId}`)
-    files.set(jobId, [...made])
-    job.state = 'done'
-    job.endedAt = AT
+    const own = files.get(jobId) ?? new Map<number, Uint8Array[]>()
+    files.set(jobId, own)
+    own.set(n, [...made])
     job.calls = job.calls.map((call) => {
       if (call.index === LAYERING_CALL.plan)
         return { ...call, state: 'done', output: { kind: 'text', text: '', json: plan } }
       if (call.index !== LAYERING_CALL.split(n)) return call
-      const layers = made.map((_, i) => ({ key: `originals/${jobId}-${i}`, width: 512, height: 512 }))
+      const layers = made.map((_, i) => ({ key: `originals/${jobId}-${n}-${i}`, width: 512, height: 512 }))
       return { ...call, state: 'done', output: { kind: 'layers', layers, gpuSeconds: 1 } }
     })
+    // Done once every frame's split is.
+    if (job.calls.every((call) => call.state === 'done')) {
+      job.state = 'done'
+      job.endedAt = AT
+    }
   }
 
   /** A refine's job, its plan done and its edit running, and its refine; gives the job's id. */
@@ -279,7 +313,9 @@ export function fakeAi(): FakeAi {
       return Promise.resolve()
     },
     file: (jobId, index) => {
-      const bytes = files.get(jobId)?.[index]
+      const own = files.get(jobId)
+      const all = own ? [...own.entries()].sort(([a], [b]) => a - b).flatMap(([, made]) => made) : []
+      const bytes = all[index]
       return bytes ? Promise.resolve(bytes) : Promise.reject(new Error(`no file ${index} of ${jobId}`))
     },
     part: (png) => {

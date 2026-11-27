@@ -45,10 +45,11 @@ function SectionButtons({ editor, sectionId }: { editor: Editor; sectionId: stri
   const s = t.editor.sections
   const viewOnly = useViewOnly()
   const ai = useDesignAi(editor)
+  const { design } = useLiveDesign(editor)
   if (viewOnly) return null
   return (
     <div className="flex flex-col gap-1.5" data-testid="section-actions">
-      {sectionActionsOf(ai, sectionId).map((action) => (
+      {sectionActionsOf(ai, sectionId, design).map((action) => (
         <button
           key={action}
           type="button"

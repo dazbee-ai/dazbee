@@ -4,7 +4,15 @@ import type { ReadVersion } from '@dazbee/doc'
 import type { ExportedFile } from '@dazbee/export'
 import type { Design, DesignAi, ExportRequestInput, Member, Point, Rect, SyncToken, Variables } from '@dazbee/schema'
 
-import type { AiStart, BriefRequest, BriefStarted, EditorAi, MoreLikeRequest, RefineRequest } from './ai/arrivals.ts'
+import type {
+  AiStart,
+  BriefRequest,
+  BriefStarted,
+  EditorAi,
+  MoreLikeRequest,
+  RefineRequest,
+  SizesRequest,
+} from './ai/arrivals.ts'
 import type { Spot } from './canvas/view.ts'
 import type { CoreOptions, EditorBase } from './core-interface.ts'
 import type { LayerAt } from './gestures/pointer.ts'
@@ -164,6 +172,13 @@ export interface Editor extends EditorBase {
    * gives why.
    */
   refine(request: RefineRequest): Promise<AiStart>
+  /**
+   * Redraws an AI frame's picture at each size given: the job first, then, once it is saved, a section of waiting
+   * frames right of the frame's section, joined to it by a connector, as an arrival no undo takes back.
+   */
+  otherSizes(request: SizesRequest): Promise<BriefStarted>
+  /** Makes AI frames editable together from one layer plan made from picture `planAssetId`, their layers linked. */
+  makeAllEditable(frameIds: readonly string[], planAssetId: string): Promise<AiStart>
   /**
    * Makes an AI frame editable: starts a layering job for the picture it shows, whose layers arrive in the frame
    * once a tab finishes it, the picture kept hidden under them. A frame showing no picture, a refusal, or an editor

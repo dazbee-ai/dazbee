@@ -93,8 +93,8 @@ export const cutOf = (width: number, height: number, ...items: MadePiece[]): Mad
 })
 
 /**
- * A tab of `token`'s with its finish, the timers it waits on, what its arrivals give back as stored, the AI its
- * finish asks, when not the tab's, and the matchers it asks, when it has any.
+ * A tab of `token`'s with its finish, the timers it waits on and what ends its editor; what its arrivals give back
+ * as stored, the AI its finish asks, when not the tab's, and the matchers it asks, when it has any.
  */
 export async function finishing(
   ai: FakeAi,
@@ -104,7 +104,7 @@ export async function finishing(
     finishAi,
     matcher,
   }: { arrive?: () => Promise<'saved' | 'none'>; finishAi?: EditorAi; matcher?: PieceMatcher } = {},
-): Promise<{ tab: Tab; finish: EditorLayeringFinish; timers: (() => void)[] }> {
+): Promise<{ tab: Tab; finish: EditorLayeringFinish; timers: (() => void)[]; end: () => void }> {
   const tab = await tabOn(ai, token)
   const stop = new AbortController()
   const timers: (() => void)[] = []
@@ -131,7 +131,7 @@ export async function finishing(
     poll: tab.arrivals.poll,
     signal: stop.signal,
   })
-  return { tab, finish, timers }
+  return { tab, finish, timers, end: () => stop.abort(new Error('the editor ended')) }
 }
 
 /** Lets what the tabs and their finishes set going land. */

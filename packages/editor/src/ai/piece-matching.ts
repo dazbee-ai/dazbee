@@ -14,7 +14,7 @@ import {
   MAX_MATCH_PICTURE_SIDE,
   type ReadingAnswer,
   type Rgb,
-  type UnplacedLayer,
+  UnplacedLayer,
 } from '@dazbee/schema'
 
 /** What a split piece is matched as: text saying `words`, at its tilt in degrees clockwise when known, or shapes. */
@@ -117,7 +117,7 @@ export function rebuiltLayers(
  * The layers `layers` a matcher answered split piece `piece` with, which are in the piece's own pixels, placed in a
  * frame of size `frame`: each box carried over by where the picture's own image fill draws the picture, of size
  * `picture`, in a layer filling the frame, and every size it holds scaled as much (`scaledSizes`). Null when the
- * answer holds a layer that is no text and no graphic.
+ * answer holds a layer that is no text and no graphic, or one that is no layer once placed.
  */
 export function matchedLayers(
   layers: readonly UnplacedLayer[],
@@ -128,7 +128,7 @@ export function matchedLayers(
   if (layers.some((layer) => layer.type !== 'text' && layer.type !== 'graphic')) return null
   const drawn = imagePlacement(picture, { fit: 'fill' }, { x: 0, y: 0, width: frame.width, height: frame.height })
   const k = drawn.width / picture.width
-  return layers.map((layer) => {
+  const placed = layers.map((layer) => {
     const { x, y, width, height } = layer.props
     const props = {
       ...scaledSizes(layer.props, k),
@@ -139,6 +139,7 @@ export function matchedLayers(
     }
     return { ...layer, props } as UnplacedLayer
   })
+  return placed.every((layer) => UnplacedLayer.safeParse(layer).success) ? placed : null
 }
 
 /**

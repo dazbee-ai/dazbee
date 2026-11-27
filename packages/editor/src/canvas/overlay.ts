@@ -12,7 +12,7 @@ import { constraintsApply, constraintsOf, copiesOf, frameIdOf, scaleText } from 
 import type { Rect } from '@dazbee/schema'
 
 import { byFrame } from '../across-frames.ts'
-import type { LiftedFrame } from '../ai/layering-finish.ts'
+import type { LiftedFrame } from '../ai/piece-rebuild.ts'
 import type { EditorColourPick } from '../gestures/colour-pick.ts'
 import { loupeParts } from '../gestures/colour-pick-parts.ts'
 import type { EditorCropping } from '../gestures/crop/cropping.ts'

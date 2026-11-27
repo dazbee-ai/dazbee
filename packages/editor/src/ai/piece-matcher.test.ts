@@ -89,27 +89,47 @@ const answerFor = (job: MatchJob): MatchAnswer =>
     ? { kind: 'picture', why: 'failed', scores: SCORES }
     : { kind: 'picture', why: 'photo' }
 
-/** A matcher over `images`, with what its match client and its sources were asked. */
+/**
+ * A matcher over `images`, with what its match client and its sources were asked, the signal its calls are given,
+ * the editor's end, and whether its match client was ended.
+ */
 function matcherOver(images: Record<string, Uint8Array>) {
   const jobs: MatchJob[] = []
   const options: MatchOptions[] = []
   let sourced = 0
-  const signal = new AbortController().signal
-  const matcher = pieceMatcher({
+  let destroyed = false
+  const editor = new AbortController()
+  const call = new AbortController()
+  const asked = pieceMatcher({
     ck,
     imageBytes: (assetId) => images[assetId],
     sources: () => {
       sourced++
       return Promise.resolve(SOURCES)
     },
-    match: (job, with_) => {
-      jobs.push(job)
-      options.push(with_)
-      return Promise.resolve(job.pieces.map(() => answerFor(job)))
-    },
-    signal,
+    makeClient: () => ({
+      match: (job, with_) => {
+        jobs.push(job)
+        options.push(with_)
+        return Promise.resolve(job.pieces.map(() => answerFor(job)))
+      },
+      destroy: () => {
+        destroyed = true
+      },
+    }),
+    signal: editor.signal,
   })
-  return { matcher, jobs, options, sourced: () => sourced, signal }
+  const matcher = (frame: Parameters<typeof asked>[0]) => asked(frame, call.signal)
+  return {
+    matcher,
+    jobs,
+    options,
+    sourced: () => sourced,
+    signal: call.signal,
+    call,
+    editor,
+    destroyed: () => destroyed,
+  }
 }
 
 const decoded = (base64: string) => Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
@@ -183,5 +203,16 @@ describe('pieceMatcher', () => {
     expect(kept.size).toBe(0)
     expect(pictures.sourced()).toBe(0)
     expect(pictures.jobs).toEqual([])
+  })
+
+  it('asks no matcher once its call is stopped, and ends its match client with the editor', async () => {
+    const cut = cutOf(piece('e2', 'shape', 40, 4, 16, 16))
+    const stopped = matcherOver({ pic: PICTURE, 'cut-e2': BADGE })
+    stopped.call.abort(new Error('too long'))
+    await expect(stopped.matcher({ cut, plan: PLAN, reading: null, pictureAssetId: 'pic' })).rejects.toThrow('too long')
+    expect(stopped.jobs).toEqual([])
+    expect(stopped.destroyed()).toBe(false)
+    stopped.editor.abort()
+    expect(stopped.destroyed()).toBe(true)
   })
 })

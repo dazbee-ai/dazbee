@@ -24,7 +24,6 @@ import { NO_FONTS, type OpenedFonts, openedFonts } from './font-loads.ts'
 import { editorDomInput, onMac } from './gestures/dom-input.ts'
 import { editorStageField } from './gestures/stage-field.ts'
 import { imageClient } from './image-client.ts'
-import { matchClient } from './matching/match-client.ts'
 import { type OpenTab, openTab } from './open-tab.ts'
 import { loadImages } from './resources.ts'
 import { type SaveStateWatch, watchSaveState } from './save-state.ts'
@@ -210,8 +209,6 @@ function live(
   // Make editable's finish runs in a tab with the AI routes. Given what the matchers work with, it has them rebuild
   // text and shapes as live layers, in workers started with the first piece.
   const imageBytes = (assetId: string) => resources.bytes().images[assetId]
-  const matching = options.matchers ? matchClient() : null
-  if (matching) signal.addEventListener('abort', matching.destroy)
   const layeringFinish: EditorLayeringFinish | null =
     arrivals && options.ai
       ? editorLayeringFinish({
@@ -224,10 +221,7 @@ function live(
           after,
           readyPictures: resources.prepareImages,
           imageBytes,
-          matcher:
-            matching && options.matchers
-              ? pieceMatcher({ ck, imageBytes, sources: options.matchers, match: matching.match, signal })
-              : undefined,
+          matcher: options.matchers && pieceMatcher({ ck, imageBytes, sources: options.matchers, signal }),
           readyFonts: resources.loadUses,
           fitText: typing.fitText,
           arrive: arrivals.land,

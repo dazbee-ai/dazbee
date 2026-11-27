@@ -152,13 +152,20 @@ describe('matchSources', () => {
     })
   })
 
-  it('gives an empty kit and the catalog the page read last when the brand can’t be asked, as offline', async () => {
+  it('gives an empty kit for a brand with none', async () => {
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('No kit', { status: 404 })))
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(CATALOG)
+    expect((await matchSources('w1', 'b1')).kit).toEqual({ colors: {}, fonts: {}, textStyles: [] })
+  })
+
+  it('rejects when the kit or the catalog can’t be read, as offline or while the server is swapped', async () => {
+    vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(CATALOG)
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('Failed to fetch')
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('Bad gateway', { status: 502 })))
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('brand kit: 502')
+    vi.stubGlobal('fetch', () => Promise.resolve(Response.json(KIT)))
     vi.spyOn(fontCatalog, 'sharedCatalogRead').mockResolvedValue(null)
-    vi.spyOn(fontCatalog, 'loadedCatalog').mockReturnValue(CATALOG)
-    expect(await matchSources('w1', 'b1')).toEqual({
-      kit: { colors: {}, fonts: {}, textStyles: [] },
-      fonts: { catalog: CATALOG, uploadPath: '/w/w1/brands/b1/fonts/' },
-    })
+    await expect(matchSources('w1', 'b1')).rejects.toThrow('the font catalog did not come')
   })
 })

@@ -2,7 +2,7 @@
 // the bytes the editor holds of its picture, is a match job of its own, a text's with the colour the frame's picture
 // shows behind it, and every job is handed to the match client at once. The answers come back by the piece's number
 // among the frame's pieces. A piece whose picture isn't here, or is too big for a match job, is asked of no matcher
-// and stays a picture.
+// and stays a picture. The match client is the matcher's own, ended with the editor.
 import type { CanvasKit, Image } from '@dazbee/canvaskit'
 import type { Pixels } from '@dazbee/renderer'
 import {
@@ -16,7 +16,7 @@ import {
   type Rgb,
 } from '@dazbee/schema'
 
-import type { MatchClient } from '../matching/match-client.ts'
+import { type MatchClient, matchClient } from '../matching/match-client.ts'
 import type { MatchFonts } from '../matching/match-pool.ts'
 import { type MatchedAs, matchedAs, pieceMatchJob, seenBehind } from './piece-matching.ts'
 
@@ -41,19 +41,33 @@ export interface PieceMatcherDeps {
   imageBytes: (assetId: string) => Uint8Array | undefined
   /** The brand kit and the font catalog, asked for with each frame that has pieces to match. */
   sources: () => Promise<MatchSources>
-  match: MatchClient['match']
-  /** Aborted when the editor ends: the jobs still matching are cancelled. */
+  /** Aborted when the editor ends: the match client's workers are ended. */
   signal: AbortSignal
+  /** Makes the editor's way to the matchers; a stand-in in a test. */
+  makeClient?: () => MatchClient
 }
 
-/** The matchers' answers for a frame's split pieces, by the piece's number among them; none for a piece not asked. */
-export type PieceMatcher = (frame: FramePieces) => Promise<Map<number, MatchAnswer>>
+/**
+ * The matchers' answers for a frame's split pieces, by the piece's number among them; none for a piece not asked.
+ * Aborting `signal` cancels the jobs still matching, and it rejects.
+ */
+export type PieceMatcher = (frame: FramePieces, signal: AbortSignal) => Promise<Map<number, MatchAnswer>>
 
 /** How many bytes are turned to base64 at once. */
 const CHUNK = 0x8000
 
-export function pieceMatcher({ ck, imageBytes, sources, match, signal }: PieceMatcherDeps): PieceMatcher {
-  return async ({ cut, plan, reading, pictureAssetId }) => {
+export function pieceMatcher({
+  ck,
+  imageBytes,
+  sources,
+  signal: ended,
+  makeClient = matchClient,
+}: PieceMatcherDeps): PieceMatcher {
+  /** The match client, whose workers start with the first piece. */
+  const client = makeClient()
+  ended.addEventListener('abort', client.destroy)
+
+  return async ({ cut, plan, reading, pictureAssetId }, signal) => {
     const answers = new Map<number, MatchAnswer>()
     const asked = cut.items.flatMap((piece, n) => {
       const as = matchedAs(plan, reading, piece)
@@ -62,6 +76,7 @@ export function pieceMatcher({ ck, imageBytes, sources, match, signal }: PieceMa
     })
     if (asked.length === 0) return answers
     const { kit, fonts } = await sources()
+    signal.throwIfAborted()
     const pictureBytes = pictureAssetId === null ? undefined : imageBytes(pictureAssetId)
     const picture = pictureBytes ? ck.MakeImageFromEncoded(pictureBytes) : null
     let jobs
@@ -75,7 +90,7 @@ export function pieceMatcher({ ck, imageBytes, sources, match, signal }: PieceMa
     }
     await Promise.all(
       jobs.map(async ({ n, job }) => {
-        const [answer] = await match(job, { fonts, signal })
+        const [answer] = await client.match(job, { fonts, signal })
         if (answer) answers.set(n, answer)
       }),
     )

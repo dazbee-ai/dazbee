@@ -130,27 +130,27 @@ export function editorSources(workspaceId: string, brandId: string) {
 
 /**
  * What the matchers work with as Make editable rebuilds text and shapes: the brand kit's colours, fonts and text
- * styles, which a rebuilt layer may bind to, read now, and the brand's font catalog, where a text's font is found,
- * with the path its uploaded faces are read at. Offline, the kit is empty and the catalog is the one the page read
- * last, or empty.
+ * styles, which a rebuilt layer may bind to, read now (none for a brand with no kit), and the brand's font catalog,
+ * where a text's font is found, with the path its uploaded faces are read at. It rejects when the kit or the
+ * catalog can't be read, as offline, so nothing is rebuilt without them and the editor tries again.
  */
 export async function matchSources(workspaceId: string, brandId: string): Promise<MatchSources> {
   const [kit, catalog] = await Promise.all([
-    fetch(brandPath(workspaceId, brandId, 'kit', 'data'))
-      .then(async (response) => (response.ok ? BrandKit.parse(await response.json()) : EMPTY_BRAND_KIT))
-      .catch(() => EMPTY_BRAND_KIT),
+    fetch(brandPath(workspaceId, brandId, 'kit', 'data')).then(async (response) => {
+      if (response.ok) return BrandKit.parse(await response.json())
+      if (response.status === 404) return EMPTY_BRAND_KIT
+      throw new Error(`brand kit: ${response.status}`)
+    }),
     sharedCatalogRead(workspaceId, brandId),
   ])
+  if (!catalog) throw new Error('the font catalog did not come')
   return {
     kit: {
       colors: Object.fromEntries(kit.colors.map((colour) => [colour.token, colour.value])),
       fonts: Object.fromEntries(kit.fonts.map((font) => [font.token, font.family])),
       textStyles: kit.textStyles,
     },
-    fonts: {
-      catalog: catalog ?? loadedCatalog(workspaceId, brandId) ?? [],
-      uploadPath: `${brandPath(workspaceId, brandId, 'fonts')}/`,
-    },
+    fonts: { catalog, uploadPath: `${brandPath(workspaceId, brandId, 'fonts')}/` },
   }
 }
 

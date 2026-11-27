@@ -4,7 +4,7 @@
 // export does.
 import type { Rect } from '@dazbee/schema'
 
-import type { LiftedFrame } from '../ai/layering-finish.ts'
+import type { LiftedFrame } from '../ai/piece-rebuild.ts'
 import type { Frame } from './frames.ts'
 
 /** How long a piece takes to lift and settle back, in ms; the stylesheet's `ai-lift` runs as long. */

@@ -23,6 +23,7 @@ import {
   RoundPlanAnswer,
   TryAgainInput,
   WAITING_FILL,
+  withDraftShown,
 } from './ai-flow.ts'
 import { Design } from './design.ts'
 import { FRAME_GAP } from './frames.ts'
@@ -296,5 +297,50 @@ describe('planRound', () => {
       sectionId: 'id5',
       frames: [1, 2, 3, 4].map((i) => ({ frameId: `id${i}`, pictureLayerId: pictureLayerOf(`id${i}`) })),
     })
+  })
+})
+
+describe('withDraftShown', () => {
+  const frames = ['f1', 'f2', 'f3', 'f4'].map((frameId) => ({ frameId, pictureLayerId: pictureLayerOf(frameId) }))
+  const design = Design.parse(
+    briefDesignOf(
+      { designId: 'd1', name: 'Sale' },
+      {
+        sectionId: 's1',
+        frames,
+        words: 'Diwali sale',
+        size: { width: 1080, height: 1080 },
+        draftName: (n) => `Draft ${n + 1}`,
+      },
+    ),
+  )
+
+  it('shows the picture in the frame’s waiting picture layer, as its arrival writes it, and changes nothing else', () => {
+    const shown = withDraftShown(design, 'f1', 'pic1')
+    expect(shown?.nodes[pictureLayerOf('f1')]?.props).toMatchObject({
+      fills: [{ type: 'image', assetId: 'pic1', fit: 'fill' }],
+    })
+    expect(shown?.nodes[pictureLayerOf('f2')]).toBe(design.nodes[pictureLayerOf('f2')])
+    expect(shown?.frames).toBe(design.frames)
+    expect(Design.safeParse(shown).success).toBe(true)
+    // The stored design is left as it was.
+    expect(design.nodes[pictureLayerOf('f1')]?.props).toMatchObject({ fills: [WAITING_FILL] })
+  })
+
+  it('is none for a frame with no picture layer, and for a layer that no longer waits', () => {
+    expect(withDraftShown(design, 'gone', 'pic1')).toBeNull()
+    const written = withDraftShown(design, 'f1', 'pic1')
+    expect(written && withDraftShown(written, 'f1', 'pic2')).toBeNull()
+    const layerId = pictureLayerOf('f1')
+    const layer = design.nodes[layerId]
+    if (layer?.type !== 'graphic') throw new Error('the picture layer is a graphic')
+    const recoloured = {
+      ...design,
+      nodes: {
+        ...design.nodes,
+        [layerId]: { ...layer, props: { ...layer.props, fills: [{ ...WAITING_FILL, color: '#FF0000FF' as const }] } },
+      },
+    }
+    expect(withDraftShown(recoloured, 'f1', 'pic1')).toBeNull()
   })
 })

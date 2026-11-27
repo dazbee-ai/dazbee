@@ -290,8 +290,16 @@ export type UploadLink = z.infer<typeof UploadLink>
 export const SignedLink = z.object({ url: z.url(), expiresAt: z.iso.datetime() })
 export type SignedLink = z.infer<typeof SignedLink>
 
-/** The size of a design's cover frame (see `coverFrame`), so a tile takes its shape before its picture loads. */
-export const DesignCover = z.object({ width: z.number().int().positive(), height: z.number().int().positive() })
+/**
+ * The size of a design's cover frame (see `coverFrame`), so a tile takes its shape before its picture loads; and,
+ * while the cover frame waits for an AI draft that is made but that no tab has written into the design yet, that
+ * draft's picture, which the design's picture shows in the frame meanwhile.
+ */
+export const DesignCover = z.object({
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  draftAssetId: RecordId.optional(),
+})
 export type DesignCover = z.infer<typeof DesignCover>
 
 /** A design's picture: a short-lived URL, and its cover frame's size. */

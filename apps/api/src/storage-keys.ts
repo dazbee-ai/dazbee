@@ -13,6 +13,10 @@ export const assetThumbnailKey = (workspaceId: string, sha256: string) =>
 export const designThumbnailKey = (workspaceId: string, design: DesignSummary) =>
   `workspaces/${workspaceId}/designs/${design.id}/thumbnail-${Date.parse(design.updatedAt)}.png`
 
+/** A design's picture with an AI draft no tab has written yet shown in its cover frame, by the draft's asset. */
+export const designDraftThumbnailKey = (workspaceId: string, design: DesignSummary, draftAssetId: string) =>
+  `workspaces/${workspaceId}/designs/${design.id}/thumbnail-${Date.parse(design.updatedAt)}-${draftAssetId}.png`
+
 export const templateThumbnailKey = (workspaceId: string, templateId: string) =>
   `workspaces/${workspaceId}/templates/${templateId}.png`
 

@@ -141,7 +141,7 @@ export function brandRoutes({ db, storage, syncSecret }: { db: Db; storage: Stor
   app.get('/brands/:brandId/designs/:designId/cover', async (c) => {
     const design = await findDesign(db, c.var.membership.workspaceId, c.var.brand.id, c.req.param('designId'))
     if (!design) return c.json(error('No such design'), 404)
-    const cover = await designCover(db, design)
+    const cover = await designCover(db, c.var.membership.workspaceId, design)
     return cover ? c.json(cover satisfies DesignCover) : c.json(error('This design has nothing to show yet'), 404)
   })
 

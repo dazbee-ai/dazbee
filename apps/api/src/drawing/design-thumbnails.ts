@@ -1,14 +1,16 @@
 // The picture of a design the home's bento shows (#84): its cover frame, drawn on a small CPU
 // surface like an export (ADR-0005), on a thread of its own, with the fonts and images we store. Like an asset's thumbnail (ADR-0010) it is an image we make and store, once
-// per version of the design: the key carries the design's updatedAt, so an edit makes a new one.
+// per version of the design: the key carries the design's updatedAt, so an edit makes a new one. A cover frame that
+// waits for an AI draft no tab has written yet shows the draft in the picture, which then has a key of its own.
 import { Worker } from 'node:worker_threads'
 
 import type { Db } from '@dazbee/db'
 import type { ResourceBytes } from '@dazbee/renderer'
-import { coverFrame, type Design, type DesignCover, type DesignSummary } from '@dazbee/schema'
+import { coverFrame, type Design, type DesignCover, type DesignSummary, withDraftShown } from '@dazbee/schema'
 import type { Storage } from '@dazbee/storage'
 
-import { designThumbnailKey } from '../storage-keys.ts'
+import { waitingDraft } from '../ai/ai-frames.ts'
+import { designDraftThumbnailKey, designThumbnailKey } from '../storage-keys.ts'
 import { storedDesign } from '../workspace/designs.ts'
 import type { DrawJob, DrawResult } from './draw-worker.ts'
 import { inDrawingTurn } from './drawing-turn.ts'
@@ -52,11 +54,15 @@ export function coverOf(design: Design): { frameId: string; width: number; heigh
   return { frameId, width: frame.width, height: frame.height }
 }
 
-/** The cover frame's size, read from the stored design without drawing: what a tile needs to take its shape. */
-export async function designCover(db: Db, summary: DesignSummary): Promise<DesignCover | null> {
-  const design = await storedDesign(db, summary.id)
-  const cover = design && coverOf(design)
-  return cover ? { width: cover.width, height: cover.height } : null
+/**
+ * The cover frame's size, read from the stored design without drawing: what a tile needs to take its shape; with the
+ * draft its picture shows in the frame, when it shows one (`shownDesign`).
+ */
+export async function designCover(db: Db, workspaceId: string, summary: DesignSummary): Promise<DesignCover | null> {
+  const shown = await shownDesign(db, workspaceId, summary)
+  if (!shown) return null
+  const { cover, draftAssetId } = shown
+  return { width: cover.width, height: cover.height, ...(draftAssetId === null ? {} : { draftAssetId }) }
 }
 
 /**
@@ -70,10 +76,13 @@ export async function ensureDesignThumbnail(
   workspaceId: string,
   summary: DesignSummary,
 ): Promise<ThumbnailCover | null> {
-  const design = await storedDesign(db, summary.id)
-  const cover = design && coverOf(design)
-  if (!design || !cover) return null
-  const key = designThumbnailKey(workspaceId, summary)
+  const shown = await shownDesign(db, workspaceId, summary)
+  if (!shown) return null
+  const { design, cover, draftAssetId } = shown
+  const key =
+    draftAssetId === null
+      ? designThumbnailKey(workspaceId, summary)
+      : designDraftThumbnailKey(workspaceId, summary, draftAssetId)
   const shape = { key, width: cover.width, height: cover.height }
   if (await storage.exists(key)) return shape
   let made = making.get(key)
@@ -87,6 +96,24 @@ export async function ensureDesignThumbnail(
   }
   await made
   return shape
+}
+
+/**
+ * The stored design as its picture shows it, with its cover frame: as stored, or, while the cover frame waits for an
+ * AI draft that is made but that no tab has written yet (`waitingDraft`), with that draft in the frame, as its
+ * arrival will write it, and the draft's asset. Nothing is written. Null for a design with no frame.
+ */
+async function shownDesign(
+  db: Db,
+  workspaceId: string,
+  summary: DesignSummary,
+): Promise<{ design: Design; cover: NonNullable<ReturnType<typeof coverOf>>; draftAssetId: string | null } | null> {
+  const stored = await storedDesign(db, summary.id)
+  const cover = stored && coverOf(stored)
+  if (!stored || !cover) return null
+  const draft = await waitingDraft(db, workspaceId, summary.id, cover.frameId)
+  const withDraft = draft === null ? null : withDraftShown(stored, cover.frameId, draft)
+  return withDraft ? { design: withDraft, cover, draftAssetId: draft } : { design: stored, cover, draftAssetId: null }
 }
 
 /**
